@@ -1,26 +1,29 @@
 .POSIX:
+VERSION=0.0.1
 
-PREFIX=/usr/local
-MANDIR=$(PREFIX)/share/man
-ALL_CFLAGS=$(CFLAGS) -Wall -Wextra -std=c99 -pedantic
-OBJ=\
-	main.o
+INCLUDE=-Iinclude
+CFLAGS+=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"'
+LDFLAGS+=-static
 
-.c.o:
-	$(CC) $(ALL_CFLAGS) -c -o $@ $<
+OUTDIR?=build
+.DEFAULT_GOAL=all
 
-boson: $(OBJ)
-	$(CC) $(LDFLAGS) -o $@ $(OBJ)
+OBJECTS=\
+	$(OUTDIR)/getopt_long.o \
+	$(OUTDIR)/setup.o \
+	$(OUTDIR)/command.o \
+	$(OUTDIR)/main.o
 
-$(OBJ): $(HDR)
+$(OUTDIR)/%.o: src/%.c
+	@mkdir -p $(OUTDIR)
+	$(CC) -std=c99 -pedantic -c -o $@ $(CFLAGS) $(INCLUDE) $<
 
-install: boson boson.1
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp boson $(DESTDIR)$(PREFIX)/bin/
-	mkdir -p $(DESTDIR)$(MANDIR)/man1
-	cp boson.1 $(DESTDIR)$(MANDIR)/man1/
+boson: $(OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+all: boson
 
 clean:
-	rm -f boson $(OBJ)
+	rm -f boson $(OUTDIR)
 
-.PHONY: install clean
+.PHONY: all clean
