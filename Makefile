@@ -10,7 +10,6 @@ OUTDIR?=build
 
 OBJECTS=\
 	$(OUTDIR)/getopt_long.o \
-	$(OUTDIR)/setup.o \
 	$(OUTDIR)/command.o \
 	$(OUTDIR)/main.o
 
@@ -24,6 +23,6 @@ boson: $(OBJECTS)
 all: boson
 
 clean:
-	rm -f boson $(OUTDIR)
+	rm -rf boson $(OUTDIR)
 
 .PHONY: all clean
