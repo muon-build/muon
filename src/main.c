@@ -24,14 +24,13 @@ main(int argc, char **argv) {
 	};
 
 	int opt;
-	while ((opt = getopt_long(argc, argv, "-vh", options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "-h", options, NULL)) != -1) {
 		switch (opt) {
 		case 'h':
 			return usage();
 		case '?':
 			return 1;
 		case 1:
-			printf("optarg %s\n", optarg);
 			{
 				const struct command *command = get_command(optarg);
 				if (command) {
