@@ -12,14 +12,24 @@ project(
 	],
 )
 
+#-DVERSION='"$(VERSION)"'
 add_project_arguments(
+	'-DVERSION="@0@"'.format(meson.project_version()),
 	'-Wno-unused-parameter',
 	language: 'c'
 )
 
 src = files(
-	'main.c',
+	'src/getopt_long.c',
+	'src/log.c',
+	'src/token.c',
+	'src/lexer.c',
+	'src/parse.c',
+	'src/command.c',
+	'src/main.c',
 )
+
+include_dir = include_directories('include')
 
 executable(
 	'boson',
@@ -27,4 +37,3 @@ executable(
 	include_directories: [include_dir],
 	install: true
 )
-

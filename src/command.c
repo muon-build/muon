@@ -39,8 +39,8 @@ setup(int argc, char **argv)
 		{0, 0, 0, 0},
 	};
 
-	const char *builddir = NULL;
-	const char *sourcedir = NULL;
+	const char *build_dir = NULL;
+	const char *source_dir = NULL;
 
 	optind = 1;
 	int opt;
@@ -54,12 +54,12 @@ setup(int argc, char **argv)
 			if (strcmp(optarg, "setup") == 0) {
 				break;
 			}
-			if (builddir == NULL) {
-				builddir = optarg;
+			if (build_dir == NULL) {
+				build_dir = optarg;
 				break;
 			}
-			if (sourcedir == NULL) {
-				sourcedir = optarg;
+			if (source_dir == NULL) {
+				source_dir = optarg;
 				break;
 			}
 			break;
@@ -69,22 +69,26 @@ setup(int argc, char **argv)
 		}
 	}
 
-	if (mkdir(builddir, S_IRUSR | S_IWUSR) == -1) {
+	if (mkdir(build_dir, S_IRUSR | S_IWUSR) == -1) {
 		fprintf(stderr, "Build directory already configured\n");
 		return 1;
 	}
 
-	if (sourcedir == NULL) {
-		sourcedir = ".";
+	if (source_dir == NULL) {
+		source_dir = ".";
 	}
 
-	char *abs_builddir = realpath(builddir, NULL);
-	char *abs_sourcedir = realpath(sourcedir, NULL);
+	char *abs_build_dir = realpath(build_dir, NULL);
+	char *abs_source_dir = realpath(source_dir, NULL);
 
-	int rc = parse(abs_sourcedir);
+	printf("Version: " VERSION "\n");
+	printf("Source dir: %s\n", abs_source_dir);
+	printf("Build dir: %s\n", abs_build_dir);
 
-	free(abs_builddir);
-	free(abs_sourcedir);
+	int rc = parse(abs_source_dir);
+
+	free(abs_build_dir);
+	free(abs_source_dir);
 
 	return rc;
 }
