@@ -2,9 +2,11 @@
 #include "lexer.h"
 #include "log.h"
 
+#define _POSIX_C_SOURCE 200112L
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <linux/limits.h>
+#include <limits.h>
 
 static char *
 read_file(const char *path)
