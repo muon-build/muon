@@ -2,7 +2,7 @@
 VERSION=0.0.1
 
 INCLUDE=-Iinclude
-CFLAGS+=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"'
+CFLAGS+=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common
 LDFLAGS+=-static
 
 OUTDIR?=build
