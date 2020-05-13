@@ -1,5 +1,6 @@
 #include "parse.h"
 #include "lexer.h"
+#include "token.h"
 #include "log.h"
 
 #define _POSIX_C_SOURCE 200112L
@@ -50,7 +51,15 @@ parse(const char *source_dir)
 		.line = 1,
 	};
 
-	lexer_tokenize(&lexer);
+	struct token tok = {0};
+	for (;;) {
+		tok = lexer_tokenize(&lexer);
+		info("token %s : ", token_to_string(&tok), tok.data);
+
+		if (tok.type == TOKEN_EOF) {
+			break;
+		}
+	}
 
 	free(data);
 

@@ -91,8 +91,8 @@ skip_whitespaces(struct lexer *lexer)
 	}
 }
 
-static struct token
-tokenize(struct lexer *lexer)
+struct token
+lexer_tokenize(struct lexer *lexer)
 {
 	skip_whitespaces(lexer);
 
@@ -130,16 +130,4 @@ tokenize(struct lexer *lexer)
 	}
 
 	return token_error("");
-}
-
-void
-lexer_tokenize(struct lexer *lexer)
-{
-	struct token token = {0};
-	while (token.type != TOKEN_EOF) {
-		token = tokenize(lexer);
-		printf("%s ", token_to_string(&token));
-		fwrite(token.data, sizeof(char), token.len, stdout);
-		printf("\n");
-	}
 }
