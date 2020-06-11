@@ -1,7 +1,17 @@
+#include "setup.h"
 #include "getopt_long.h"
-#include "command.h"
 
 #include <stdio.h>
+#include <string.h>
+
+struct command {
+	const char *name;
+	int (*execute)(int, char*[]);
+};
+
+static const struct command commands[] = {
+	{"setup", setup},
+};
 
 static int
 usage(void)
@@ -14,6 +24,19 @@ usage(void)
 			"  If no command is specified it defaults to setup\n"
 			"  setup\t\tConfigure the build folder\n");
 	return 0;
+}
+
+static const struct command *
+get_command(const char *name)
+{
+	const size_t len_commands = (sizeof(commands) / sizeof(commands[0]));
+	for (size_t i = 0; i < len_commands; ++i) {
+		if (strcmp(name, commands[i].name) == 0) {
+			return &commands[i];
+		}
+	}
+
+	return NULL;
 }
 
 int
