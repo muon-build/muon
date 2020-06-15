@@ -1,73 +1,32 @@
 #include "token.h"
-#include "lexer.h"
 #include "log.h"
 
-#include <stdbool.h>
-#include <string.h>
-
-struct token
-token_create(struct lexer *lexer, enum token_type type)
-{
-	return (struct token) {
-		.type = type,
-		.data = lexer->start,
-		.len = lexer->current - lexer->start,
-	};
-}
-
-static bool
-keyword_cmp(struct lexer *lexer, const char *keyword)
-{
-	return memcmp(lexer->start, keyword, strlen(keyword)) == 0;
-}
-
-
-struct token
-token_create_identifier(struct lexer *lexer)
-{
-	enum token_type type = TOKEN_ERROR;
-	switch (lexer->start[0]) {
-	case 't':
-		if (keyword_cmp(lexer, "true")) {
-			type = TOKEN_TRUE;
-		}
-		break;
-	default:
-		type = TOKEN_IDENTIFIER;
-	}
-
-	return token_create(lexer, type);
-}
-
-struct token
-token_error(const char *msg)
-{
-	return (struct token) {
-		.type = TOKEN_ERROR,
-		.data = msg,
-		.len = strlen(msg),
-	};
-}
-
-const char *token_to_string(struct token *token)
+const char *
+token_to_string(struct token *token)
 {
 #define TOKEN_TRANSLATE(e) case e: return #e;
 	switch (token->type) {
+	TOKEN_TRANSLATE(TOKEN_EOF);
 	TOKEN_TRANSLATE(TOKEN_LPAREN);
 	TOKEN_TRANSLATE(TOKEN_RPAREN);
-	TOKEN_TRANSLATE(TOKEN_LBRACKET);
-	TOKEN_TRANSLATE(TOKEN_RBRACKET);
+	TOKEN_TRANSLATE(TOKEN_LBRACK);
+	TOKEN_TRANSLATE(TOKEN_RBRACK);
 	TOKEN_TRANSLATE(TOKEN_LCURL);
 	TOKEN_TRANSLATE(TOKEN_RCURL);
 	TOKEN_TRANSLATE(TOKEN_DOT);
 	TOKEN_TRANSLATE(TOKEN_COMMA);
 	TOKEN_TRANSLATE(TOKEN_COLON);
+	TOKEN_TRANSLATE(TOKEN_ASSIGN);
 	TOKEN_TRANSLATE(TOKEN_PLUS);
 	TOKEN_TRANSLATE(TOKEN_MINUS);
 	TOKEN_TRANSLATE(TOKEN_STAR);
 	TOKEN_TRANSLATE(TOKEN_SLASH);
 	TOKEN_TRANSLATE(TOKEN_MODULO);
-	TOKEN_TRANSLATE(TOKEN_ASSIGN);
+	TOKEN_TRANSLATE(TOKEN_PLUSEQ);
+	TOKEN_TRANSLATE(TOKEN_MINUSEQ);
+	TOKEN_TRANSLATE(TOKEN_STAREQ);
+	TOKEN_TRANSLATE(TOKEN_SLASHEQ);
+	TOKEN_TRANSLATE(TOKEN_MODULOEQ);
 	TOKEN_TRANSLATE(TOKEN_EQ);
 	TOKEN_TRANSLATE(TOKEN_NEQ);
 	TOKEN_TRANSLATE(TOKEN_GT);
@@ -91,10 +50,6 @@ const char *token_to_string(struct token *token)
 	TOKEN_TRANSLATE(TOKEN_IDENTIFIER);
 	TOKEN_TRANSLATE(TOKEN_STRING);
 	TOKEN_TRANSLATE(TOKEN_NUMBER);
-	TOKEN_TRANSLATE(TOKEN_EOL);
-	TOKEN_TRANSLATE(TOKEN_IGNORE);
-	TOKEN_TRANSLATE(TOKEN_EOF);
-	TOKEN_TRANSLATE(TOKEN_ERROR);
 	default:
 		report("unknown token");
 		break;

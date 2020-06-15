@@ -4,25 +4,32 @@
 #include <stddef.h>
 
 enum token_type {
+	TOKEN_EOF,
+
 	TOKEN_LPAREN,
 	TOKEN_RPAREN,
-	TOKEN_LBRACKET,
-	TOKEN_RBRACKET,
+	TOKEN_LBRACK,
+	TOKEN_RBRACK,
 	TOKEN_LCURL,
 	TOKEN_RCURL,
 	TOKEN_DOT,
 	TOKEN_COMMA,
 	TOKEN_COLON,
 
-	// arithmetic
+	TOKEN_ASSIGN,
+
 	TOKEN_PLUS,
 	TOKEN_MINUS,
 	TOKEN_STAR,
 	TOKEN_SLASH,
 	TOKEN_MODULO,
-	TOKEN_ASSIGN,
 
-	// relational
+	TOKEN_PLUSEQ,
+	TOKEN_MINUSEQ,
+	TOKEN_STAREQ,
+	TOKEN_SLASHEQ,
+	TOKEN_MODULOEQ,
+
 	TOKEN_EQ,
 	TOKEN_NEQ,
 	TOKEN_GT,
@@ -30,7 +37,6 @@ enum token_type {
 	TOKEN_LT,
 	TOKEN_LEQ,
 
-	// keyword
 	TOKEN_TRUE,
 	TOKEN_FALSE,
 	TOKEN_IF,
@@ -46,28 +52,16 @@ enum token_type {
 	TOKEN_CONTINUE,
 	TOKEN_BREAK,
 
-	// literal
 	TOKEN_IDENTIFIER,
 	TOKEN_STRING,
 	TOKEN_NUMBER,
-
-	TOKEN_EOL,
-	TOKEN_IGNORE,
-	TOKEN_EOF,
-	TOKEN_ERROR,
 };
 
 struct token {
 	enum token_type type;
-	const char *data;
 	size_t len;
+	const char *data;
 };
-
-struct lexer;
-
-struct token token_create(struct lexer *, enum token_type);
-struct token token_create_identifier(struct lexer *);
-struct token token_error(const char *);
 
 const char *token_to_string(struct token*);
 

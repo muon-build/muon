@@ -2,132 +2,213 @@
 #include "token.h"
 #include "log.h"
 
-#include <stdbool.h>
+#include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-static bool
-at_end(struct lexer *lexer)
+static int
+next(struct lexer *lexer)
 {
-	return *lexer->current == '\0';
+	if (lexer->cur == '\n') {
+		lexer->line++;
+		lexer->col = 1;
+	} else {
+		lexer->col++;
+	}
+
+	lexer->cur = getc(lexer->file);
+	//printf("next %c\n", lexer->cur);
+	return lexer->cur;
 }
 
-static bool
-is_alpha(char c)
-{
-	return (c >= 'a' && c <= 'z')
-			|| (c >= 'A' && c <= 'Z')
-			|| (c == '_');
-}
-
-static bool
-is_digit(char c)
-{
-	return (c >= '0' && c <= '9');
-}
-
-static char
-advance(struct lexer *lexer)
-{
-	lexer->current++;
-	return lexer->current[-1];
-}
-
-static char
+static int
 peek(struct lexer *lexer)
 {
-	return *lexer->current;
+	int c = getc(lexer->file);
+	ungetc(c, lexer->file);
+	return c;
+}
+
+static void
+comment(struct lexer *lexer)
+{
+	if (lexer->cur != '#') {
+		return;
+	}
+
+	do {
+		next(lexer);
+	} while (lexer->cur != '\n');
+	next(lexer);
 }
 
 static struct token
-tokenize_identifier(struct lexer *lexer)
+identifier(struct lexer *lexer)
 {
-	while (is_alpha(peek(lexer)) || is_digit(peek(lexer))) {
-		advance(lexer);
+	struct token token = {
+		.type = TOKEN_IDENTIFIER,
+	};
+
+	size_t n = 1;
+	char *id = calloc(n, sizeof(char));
+	if (id == NULL) {
+		fatal("failed to allocate buffer for identifier");
 	}
 
-	return token_create_identifier(lexer);
+	id[n - 1] = lexer->cur;
+	while (isalnum(next(lexer)) || lexer->cur == '_') {
+		++n;
+		id = realloc(id, n);
+		id[n - 1] = lexer->cur;
+	}
+
+	token.data = id;
+	token.len = n;
+
+	return token;
 }
 
 static struct token
-tokenize_string(struct lexer *lexer)
+number(struct lexer *lexer)
 {
-	while (peek(lexer) != '\'' && !at_end(lexer)) {
-		advance(lexer);
-	}
+	fatal("todo number");
 
-	if (at_end(lexer)) {
-		return token_error("Unterminated string");
-	}
+	struct token token = {
+		.type = TOKEN_NUMBER,
+	};
 
-	// closing quote
-	advance(lexer);
-	return token_create(lexer, TOKEN_STRING);
+	/* FIXME handle octal */
+	/* FIXME handle hexadecimal */
+	/*
+	if (lexer->cur == '0') {
+		if (peek(lexer) == 'o')
+		else if (peek(lexer) == 'x')
+	}
+	*/
+
+	return token;
 }
 
-void
-skip_whitespaces(struct lexer *lexer)
+static struct token
+string(struct lexer *lexer)
 {
-	for (;;) {
-		switch(peek(lexer)) {
-		case '#':
-			while(peek(lexer) != '\n') {
-				advance(lexer);
-			}
-			lexer->line++;
-			advance(lexer);
-			break;
-		case '\n':
-			lexer->line++;
-			advance(lexer);
-			break;
-		case ' ':
-		case '\r':
-		case '\t':
-			advance(lexer);
-			break;
-		default:
-			return;
-		}
+	struct token token = {
+		.type = TOKEN_STRING,
+	};
+
+	while(lexer->cur == '\'') {
+		next(lexer);
 	}
+
+	size_t n = 1;
+	char *id = calloc(n, sizeof(char));
+	if (id == NULL) {
+		fatal("failed to allocate buffer for identifier");
+	}
+
+	id[n - 1] = lexer->cur;
+	while (next(lexer) != '\'') {
+		++n;
+		id = realloc(id, n);
+		id[n - 1] = lexer->cur;
+	}
+
+	token.data = id;
+	token.len = n;
+
+	while(lexer->cur == '\'') {
+		next(lexer);
+	}
+
+	return token;
 }
 
 struct token
 lexer_tokenize(struct lexer *lexer)
 {
-	skip_whitespaces(lexer);
-
-	lexer->start = lexer->current;
-
-	char c = advance(lexer);
-	if (at_end(lexer)) {
-		return token_create(lexer, TOKEN_EOF);
-	} else if (is_alpha(c)) {
-		return tokenize_identifier(lexer);
-	} else if (is_digit(c)) {
-		//return token_digit(lexer);
+	while (isspace(lexer->cur)) {
+		next(lexer);
 	}
 
-	switch (c) {
+	if (lexer->cur == '#') {
+		comment(lexer);
+	}
+
+	if (isalnum(lexer->cur) || lexer->cur == '_') {
+		return identifier(lexer);
+	} else if (isdigit(lexer->cur)) {
+		return number(lexer);
+	} else if (lexer->cur == '\'') {
+		return string(lexer);
+	}
+
+	struct token token = {0};
+	switch(lexer->cur) {
 		case '(':
-			return token_create(lexer, TOKEN_LPAREN);
+			token.type = TOKEN_LPAREN;
+			break;
 		case ')':
-			return token_create(lexer, TOKEN_RPAREN);
+			token.type = TOKEN_RPAREN;
+			break;
 		case '[':
-			return token_create(lexer, TOKEN_LBRACKET);
+			token.type = TOKEN_LBRACK;
+			break;
 		case ']':
-			return token_create(lexer, TOKEN_RBRACKET);
+			token.type = TOKEN_RBRACK;
+			break;
+		case '{':
+			token.type = TOKEN_LCURL;
+			break;
+		case '}':
+			token.type = TOKEN_RCURL;
+			break;
 		case '.':
-			return token_create(lexer, TOKEN_DOT);
+			token.type = TOKEN_DOT;
+			break;
 		case ',':
-			return token_create(lexer, TOKEN_COMMA);
+			token.type = TOKEN_COMMA;
+			break;
 		case ':':
-			return token_create(lexer, TOKEN_COLON);
+			token.type = TOKEN_COLON;
+			break;
 		// arithmetic
-		case '=':
-			return token_create(lexer, TOKEN_ASSIGN);
-		case '\'':
-			return tokenize_string(lexer);
+		case '+':
+			if (peek(lexer) == '=') {
+				next(lexer);
+				token.type = TOKEN_PLUS;
+			} else {
+				token.type = TOKEN_PLUS;
+			}
+			break;
+		case '-':
+			token.type = TOKEN_MINUS;
+			break;
+		case '\0':
+		default:
+			token.type = TOKEN_EOF;
+			break;
+	}
+	next(lexer);
+	return token;
+}
+
+void
+lexer_init(struct lexer *lexer, const char *path)
+{
+	lexer->file = fopen(path, "r");
+	if (lexer->file == NULL) {
+		fatal("Failed to open %s", path);
 	}
 
-	return token_error("");
+	lexer->path = path;
+	lexer->line = 1;
+	lexer->col = 1;
+
+	next(lexer);
+}
+
+void
+lexer_finish(struct lexer *lexer)
+{
+	fclose(lexer->file);
 }
