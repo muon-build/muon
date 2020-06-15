@@ -2,9 +2,11 @@
 #include "token.h"
 #include "log.h"
 
+#include <stdbool.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int
 next(struct lexer *lexer)
@@ -42,12 +44,54 @@ comment(struct lexer *lexer)
 	next(lexer);
 }
 
+static bool
+keyword(struct lexer *lexer, struct token *token)
+{
+	/* must stay in sorted order */
+	static const struct {
+		const char *name;
+		enum token_type type;
+	} keywords[] = {
+		{"and", TOKEN_AND},
+		{"break", TOKEN_BREAK},
+		{"continue", TOKEN_CONTINUE},
+		{"elif", TOKEN_ELIF},
+		{"else", TOKEN_ELSE},
+		{"endforeach", TOKEN_ENDFOREACH},
+		{"endif", TOKEN_ENDIF},
+		{"false", TOKEN_FALSE},
+		{"foreach", TOKEN_FOREACH},
+		{"if", TOKEN_IF},
+		{"in", TOKEN_IN},
+		{"not", TOKEN_NOT},
+		{"or", TOKEN_OR},
+		{"true", TOKEN_TRUE},
+	};
+
+	int low = 0, high = (sizeof(keywords) / sizeof(keywords[0])) - 1, mid, cmp;
+
+	while (low <= high) {
+		mid = (low + high) / 2;
+		cmp = strcmp(token->data, keywords[mid].name);
+		if (cmp == 0) {
+			token->type = keywords[mid].type;
+			return true;
+		}
+
+		if (cmp < 0) {
+			high = mid - 1;
+		} else {
+			low = mid + 1;
+		}
+	}
+
+	return false;
+}
+
 static struct token
 identifier(struct lexer *lexer)
 {
-	struct token token = {
-		.type = TOKEN_IDENTIFIER,
-	};
+	struct token token = {0};
 
 	size_t n = 1;
 	char *id = calloc(n, sizeof(char));
@@ -64,6 +108,10 @@ identifier(struct lexer *lexer)
 
 	token.data = id;
 	token.len = n;
+
+	if (!keyword(lexer, &token)) {
+		token.type = TOKEN_IDENTIFIER;
+	}
 
 	return token;
 }
