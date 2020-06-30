@@ -7,6 +7,7 @@ token_to_string(struct token *token)
 #define TOKEN_TRANSLATE(e) case e: return #e;
 	switch (token->type) {
 	TOKEN_TRANSLATE(TOKEN_EOF);
+	TOKEN_TRANSLATE(TOKEN_EOL);
 	TOKEN_TRANSLATE(TOKEN_LPAREN);
 	TOKEN_TRANSLATE(TOKEN_RPAREN);
 	TOKEN_TRANSLATE(TOKEN_LBRACK);

@@ -5,6 +5,7 @@
 
 enum token_type {
 	TOKEN_EOF,
+	TOKEN_EOL,
 
 	TOKEN_LPAREN,
 	TOKEN_RPAREN,
