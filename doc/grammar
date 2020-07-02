@@ -1,0 +1,75 @@
+grammar = statement* EOF;
+
+statement = ( iteration | selection | expression ) newline ;
+
+iteration	= "foreach" identifier ":" identifier_list newline
+			{ statement | jump }
+			"endforeach" ;
+
+identifier_list = IDENTIFIER { "," IDENTIFIER } ;
+
+selection	= "if" condition newline { statement }
+			[ "elif" condition newline { statements } ]
+			[ "else" newline { statements } ]
+			"endif" ;
+
+expression = assignment | condition ;
+
+assignment = IDENTIFIER assignment_operator assignment ;
+
+assignment_operator = "=" | "*=" | "/=" | "%=" | "+=" | "-=" ;
+
+condition = logical_or | ternary_operator ;
+
+ternary_operator = logical_or "?" expression : expression ;
+
+logical_or = logical_and ( "or" logical_and )* ;
+
+logical_and = equality ( "and" equality )* ;
+
+equality = comparison ( equality_operator comparison )* ;
+
+equality_operator = "==" | "!=" ;
+
+comparison = addition ( comparison_operator addition )* ;
+
+comparison_operator: ">" | "<" | ">=" | "<=" | "in" | ("not" "in")
+
+addition = multiplication ( ( "+" | "-" ) multiplication )* ;
+
+multiplication = unary ( ( "/" | "*" | "%" ) unary )* ;
+
+unary = call | ( unary_operator unary ) ;
+
+unary_operator = "!" | "-" | "not" ;
+
+call = primary_call | array_call | function_call | method_call ;
+
+primary_call = primary | ( "(" expression ")" ) ;
+
+primary = BOOLEAN | STRING | NUMBER | ARRAY | DICT | IDENTIFIER ;
+
+array_call = call "[" expression "]" ;
+
+function_call = IDENTIFIER "(" [ argument ( "," argument ) ] ")" ;
+
+argument = expression | IDENTIFIER ":" expression ;
+
+method_call = call "." function_call ;
+
+BOOLEAN = "true" | "false ;"
+
+STRING = ( "'" /.*?(?<!\\)(\\\\)*?'/ "'" ) | ("'''" /.*?(''')/ "'''") ;
+
+NUMBER	= ( "0" "b" /[01]+/ )
+		| ( "0" "o" /[0-7+/ )
+		| ( "0" "x" /[a-fA-F0-9]+/ )
+		| /[1-9][0-9]?/ ;
+
+ARRAY = "[" expression ("," expression)* ""]" ;
+
+DICT = "{" expression ":" expression ("," expression ":" expression)* }" ;
+
+IDENTIFIER = alpha { alpha | digit } ;
+
+NEWLINE = "\n" ;
