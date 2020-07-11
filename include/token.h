@@ -64,6 +64,7 @@ struct token {
 	const char *data;
 };
 
-const char *token_to_string(struct token*);
+const char *token_type_to_string(enum token_type);
+const char *token_to_string(struct token *);
 
 #endif // BOSON_TOKEN_H

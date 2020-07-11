@@ -2,10 +2,10 @@
 #include "log.h"
 
 const char *
-token_to_string(struct token *token)
+token_type_to_string(enum token_type type)
 {
 #define TOKEN_TRANSLATE(e) case e: return #e;
-	switch (token->type) {
+	switch (type) {
 	TOKEN_TRANSLATE(TOKEN_EOF);
 	TOKEN_TRANSLATE(TOKEN_EOL);
 	TOKEN_TRANSLATE(TOKEN_LPAREN);
@@ -57,4 +57,10 @@ token_to_string(struct token *token)
 	}
 #undef TOKEN_TRANSLATE
 	return "";
+}
+
+const char *
+token_to_string(struct token *token)
+{
+	return token_type_to_string(token->type);
 }
