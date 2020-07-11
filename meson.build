@@ -25,7 +25,7 @@ src = files(
 	'src/token.c',
 	'src/lexer.c',
 	'src/parse.c',
-	'src/command.c',
+	'src/setup.c',
 	'src/main.c',
 )
 
