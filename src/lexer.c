@@ -19,7 +19,6 @@ next(struct lexer *lexer)
 	}
 
 	lexer->cur = getc(lexer->file);
-	//printf("next %c\n", lexer->cur);
 	return lexer->cur;
 }
 
@@ -88,10 +87,10 @@ keyword(struct lexer *lexer, struct token *token)
 	return false;
 }
 
-static struct token
+static struct token *
 identifier(struct lexer *lexer)
 {
-	struct token token = {0};
+	struct token *token = calloc(1, sizeof(struct token));
 
 	size_t n = 1;
 	char *id = calloc(n, sizeof(char));
@@ -106,24 +105,23 @@ identifier(struct lexer *lexer)
 		id[n - 1] = lexer->cur;
 	}
 
-	token.data = id;
-	token.len = n;
+	token->data = id;
+	token->len = n;
 
-	if (!keyword(lexer, &token)) {
-		token.type = TOKEN_IDENTIFIER;
+	if (!keyword(lexer, token)) {
+		token->type = TOKEN_IDENTIFIER;
 	}
 
 	return token;
 }
 
-static struct token
+static struct token *
 number(struct lexer *lexer)
 {
 	fatal("todo number");
 
-	struct token token = {
-		.type = TOKEN_NUMBER,
-	};
+	struct token *token = calloc(1, sizeof(struct token));
+	token->type = TOKEN_NUMBER;
 
 	/* FIXME handle octal */
 	/* FIXME handle hexadecimal */
@@ -137,12 +135,11 @@ number(struct lexer *lexer)
 	return token;
 }
 
-static struct token
+static struct token *
 string(struct lexer *lexer)
 {
-	struct token token = {
-		.type = TOKEN_STRING,
-	};
+	struct token *token = calloc(1, sizeof(struct token));
+	token->type = TOKEN_STRING;
 
 	while(lexer->cur == '\'') {
 		next(lexer);
@@ -161,8 +158,8 @@ string(struct lexer *lexer)
 		id[n - 1] = lexer->cur;
 	}
 
-	token.data = id;
-	token.len = n;
+	token->data = id;
+	token->len = n;
 
 	while(lexer->cur == '\'') {
 		next(lexer);
@@ -171,10 +168,16 @@ string(struct lexer *lexer)
 	return token;
 }
 
-struct token
+struct token *
 lexer_tokenize(struct lexer *lexer)
 {
 	while (isspace(lexer->cur)) {
+		if (lexer->cur == '\n') {
+			struct token *token = calloc(1, sizeof(struct token));
+			token->type = TOKEN_EOL;
+			next(lexer);
+			return token;
+		}
 		next(lexer);
 	}
 
@@ -190,50 +193,50 @@ lexer_tokenize(struct lexer *lexer)
 		return string(lexer);
 	}
 
-	struct token token = {0};
+	struct token *token = calloc(1, sizeof(struct token));
 	switch(lexer->cur) {
 		case '(':
-			token.type = TOKEN_LPAREN;
+			token->type = TOKEN_LPAREN;
 			break;
 		case ')':
-			token.type = TOKEN_RPAREN;
+			token->type = TOKEN_RPAREN;
 			break;
 		case '[':
-			token.type = TOKEN_LBRACK;
+			token->type = TOKEN_LBRACK;
 			break;
 		case ']':
-			token.type = TOKEN_RBRACK;
+			token->type = TOKEN_RBRACK;
 			break;
 		case '{':
-			token.type = TOKEN_LCURL;
+			token->type = TOKEN_LCURL;
 			break;
 		case '}':
-			token.type = TOKEN_RCURL;
+			token->type = TOKEN_RCURL;
 			break;
 		case '.':
-			token.type = TOKEN_DOT;
+			token->type = TOKEN_DOT;
 			break;
 		case ',':
-			token.type = TOKEN_COMMA;
+			token->type = TOKEN_COMMA;
 			break;
 		case ':':
-			token.type = TOKEN_COLON;
+			token->type = TOKEN_COLON;
 			break;
 		// arithmetic
 		case '+':
 			if (peek(lexer) == '=') {
 				next(lexer);
-				token.type = TOKEN_PLUS;
+				token->type = TOKEN_PLUS;
 			} else {
-				token.type = TOKEN_PLUS;
+				token->type = TOKEN_PLUS;
 			}
 			break;
 		case '-':
-			token.type = TOKEN_MINUS;
+			token->type = TOKEN_MINUS;
 			break;
 		case '\0':
 		default:
-			token.type = TOKEN_EOF;
+			token->type = TOKEN_EOF;
 			break;
 	}
 	next(lexer);

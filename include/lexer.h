@@ -11,7 +11,7 @@ struct lexer {
 	int cur, line, col;
 };
 
-struct token lexer_tokenize(struct lexer *);
+struct token *lexer_tokenize(struct lexer *);
 
 void lexer_init(struct lexer *, const char *);
 void lexer_finish(struct lexer *);
