@@ -85,10 +85,12 @@ setup(int argc, char **argv)
 	printf("Source dir: %s\n", abs_source_dir);
 	printf("Build dir: %s\n", abs_build_dir);
 
-	int rc = parse(abs_source_dir);
+	struct node *root = parse(abs_source_dir);
 
 	free(abs_build_dir);
 	free(abs_source_dir);
 
-	return rc;
+	free(root);
+
+	return 0;
 }
