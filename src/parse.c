@@ -30,8 +30,8 @@ static void
 expect(struct parser *parser, enum token_type type)
 {
 	if (parser->cur->type != type) {
-		fatal("error: expected %s, got %s", token_to_string(type),
-				token_to_string(parser->cur->type));
+		fatal("error: expected %s, got %s", token_type_to_string(type),
+				token_to_string(parser->cur));
 	}
 }
 
@@ -112,7 +112,7 @@ parse_statement(struct parser *parser)
 		break;
 */
 	default:
-		fatal("error: unexpected token %s", token_to_string(parser->cur->type));
+		fatal("error: unexpected token %s", token_to_string(parser->cur));
 		break;
 	}
 	return node;
