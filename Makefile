@@ -11,7 +11,6 @@ OUTDIR?=build
 OBJECTS=\
 	$(OUTDIR)/getopt_long.o \
 	$(OUTDIR)/log.o \
-	$(OUTDIR)/expr.o \
 	$(OUTDIR)/token.o \
 	$(OUTDIR)/lexer.o \
 	$(OUTDIR)/parse.o \
