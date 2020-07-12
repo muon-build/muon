@@ -44,7 +44,20 @@ is_function(struct token *token)
 
 	/* Keep in order */
 	static const char *funcs[] = {
-		"project",
+		"add_global_arguments", "add_global_link_arguments",
+		"add_languages", "add_project_arguments", "add_project_link_arguments",
+		"add_test_setup", "alias_target", "assert", "benchmark",
+		"both_libraries", "build_target", "configuration_data",
+		"configure_file", "custom_target", "declare_dependency", "dependency",
+		"disabler", "environment", "error", "executable", "files",
+		"find_library", "find_program", "generator", "get_option",
+		"get_variable", "gettext", "import", "include_directories",
+		"install_data", "install_headers", "install_man", "install_subdir",
+		"is_disabler", "is_variable", "jar", "join_paths", "library",
+		"message", "option", "project", "run_command", "run_target",
+		"set_variable", "shared_library", "shared_module", "static_library",
+		"subdir", "subdir_done", "subproject", "summary", "test", "vcs_tag",
+		"warning",
 	};
 
 	int low = 0, high = (sizeof(funcs) / sizeof(funcs[0])) - 1, mid, cmp;
