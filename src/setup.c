@@ -69,11 +69,6 @@ setup(int argc, char **argv)
 		}
 	}
 
-	if (mkdir(build_dir, S_IRUSR | S_IWUSR) == -1) {
-		fprintf(stderr, "Build directory already configured\n");
-		return 1;
-	}
-
 	if (source_dir == NULL) {
 		source_dir = ".";
 	}
@@ -86,6 +81,12 @@ setup(int argc, char **argv)
 	printf("Build dir: %s\n", abs_build_dir);
 
 	struct node *root = parse(abs_source_dir);
+/*
+	if (mkdir(abs_build_dir, S_IRUSR | S_IWUSR) == -1) {
+		fprintf(stderr, "Build directory already configured\n");
+		return 1;
+	}
+*/
 
 	free(abs_build_dir);
 	free(abs_source_dir);
