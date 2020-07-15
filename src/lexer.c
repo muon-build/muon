@@ -106,7 +106,7 @@ identifier(struct lexer *lexer)
 	}
 
 	token->data = id;
-	token->len = n;
+	token->n = n;
 
 	if (!keyword(lexer, token)) {
 		token->type = TOKEN_IDENTIFIER;
@@ -159,7 +159,7 @@ string(struct lexer *lexer)
 	}
 
 	token->data = id;
-	token->len = n;
+	token->n = n;
 
 	while(lexer->cur == '\'') {
 		next(lexer);
