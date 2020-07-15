@@ -60,9 +60,11 @@ enum token_type {
 
 struct token {
 	enum token_type type;
-	size_t len;
-	const char *data;
+	size_t n;
+	char *data;
 };
+
+void token_destroy(struct token *);
 
 const char *token_type_to_string(enum token_type);
 const char *token_to_string(struct token *);

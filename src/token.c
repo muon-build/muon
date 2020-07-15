@@ -1,6 +1,22 @@
 #include "token.h"
 #include "log.h"
 
+#include <stdlib.h>
+
+void
+token_destroy(struct token *token) {
+	if (token == NULL) {
+		report("attemting to destroy null token");
+		return;
+	}
+
+	if (token->data) {
+		free(token->data);
+	}
+
+	free(token);
+}
+
 const char *
 token_type_to_string(enum token_type type)
 {
