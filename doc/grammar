@@ -1,9 +1,14 @@
-keyword_item
-	: expression ':' expression
+
+identifier_list
+	: IDENTIFIER ( ',' IDENTIFIER )
 	;
 
 expression_list
 	: ( expression ( ',' expression )*
+	;
+
+keyword_item
+	: expression ':' expression
 	;
 
 keyword_list
@@ -151,18 +156,14 @@ expression
 	: condition_expression
 	| ( or_expression assignment_operator expression )
 
-if_statement
+selection
 	: 'if' expression NEWLINE ( statement )*
 	( 'elif' expression NEWLINE ( statement )* )*
 	[ 'else' ( statement )*
 	'endif'
 	;
 
-identifier_list
-	: IDENTIFIER ( ',' IDENTIFIER )
-	;
-
-iteration_statement
+iteration
 	: 'foreach' identifier_list ':' ( IDENTIFIER | array_literal )
 	( statement | ( 'break' | 'continue' ) NEWLINE )*
 	'endforeach'
@@ -170,8 +171,8 @@ iteration_statement
 
 statement
 	: expression
-	| if_statement
-	| iteration_statement
+	| selection
+	| iteration
 	;
 
 grammar
