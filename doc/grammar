@@ -1,75 +1,180 @@
-grammar = statement* EOF;
+keyword_item
+	: expression ':' expression
+	;
 
-statement = ( iteration | selection | expression ) newline ;
+expression_list
+	: ( expression ( ',' expression )*
+	;
 
-iteration	= "foreach" identifier ":" identifier_list newline
-			{ statement | jump }
-			"endforeach" ;
+keyword_list
+	: keyword_item ( ',' keyword_item )*
+	;
 
-identifier_list = IDENTIFIER { "," IDENTIFIER } ;
+int_literal
+	: '0' 'x' [a-fA-F0-9]+
+	| '0' 'o' [0-7]+
+	| '0' 'b' [0-1]+
+	| bin_literal
+	| [1-9][0-9]*
+	;
 
-selection	= "if" condition newline { statement }
-			[ "elif" condition newline { statements } ]
-			[ "else" newline { statements } ]
-			"endif" ;
+bool_literal
+	: 'true'
+	| 'false'
+	;
 
-expression = assignment | condition ;
+array_literal
+	: '[' [ expression_list ] ']'
+	;
 
-assignment = IDENTIFIER assignment_operator assignment ;
+dict_literal
+	: '{' [ keyword_list ] '}'
+	;
 
-assignment_operator = "=" | "*=" | "/=" | "%=" | "+=" | "-=" ;
+literal
+	: int_literal
+	| bool_literal
+	| array_literal
+	| dict_literal
+	;
 
-condition = logical_or | ternary_operator ;
 
-ternary_operator = logical_or "?" expression : expression ;
+primary_expression
+	: IDENTIFIER
+	| STRING
+	| literal
+	| '(' expression ')'
+	;
 
-logical_or = logical_and ( "or" logical_and )* ;
+keyword_arguments
+	: keyword_item ( ',' keyword_item )*
+	;
 
-logical_and = equality ( "and" equality )* ;
+argument_list
+	: expression_list [ ',' keyword_arguments ]
+	| keyword_arguments
+	;
 
-equality = comparison ( equality_operator comparison )* ;
+function_expression
+	: IDENTIFIER '(' [ argument_list ] ')'
+	;
 
-equality_operator = "==" | "!=" ;
+method_expression
+	: postfix_expression '.' function_expression
+	;
 
-comparison = addition ( comparison_operator addition )* ;
+postfix_expression
+	: primary_expression
+	| postfix_expression '[' expression ']'
+	| function_expression
+	| method_expression
+	;
 
-comparison_operator: ">" | "<" | ">=" | "<=" | "in" | ("not" "in")
+unary_operator
+	: 'not'
+	| '+'
+	| '-'
+	;
 
-addition = multiplication ( ( "+" | "-" ) multiplication )* ;
+unary_expression
+	: postfix_expression
+	| ( unary operator unary_expression )
+	;
 
-multiplication = unary ( ( "/" | "*" | "%" ) unary )* ;
+multiplication_operator
+	: '*'
+	| '/'
+	| '%'
+	;
 
-unary = call | ( unary_operator unary ) ;
+multiplication_expression
+	: unary_expression
+	| ( multiplication_expression multiplication_operator multiplication_expression )
+	;
 
-unary_operator = "!" | "-" | "not" ;
+addition_operator
+	: '+'
+	| '-'
+	;
 
-call = primary_call | array_call | function_call | method_call ;
+addition_expression
+	: multiplication_expression
+	| ( addition_expression addition_operator multiplication_expression )
+	;
 
-primary_call = primary | ( "(" expression ")" ) ;
+relation_operator
+	: '>'
+	| '<'
+	| '>='
+	| '<='
+	| 'in'
+	| 'not' 'in'
+	;
 
-primary = BOOLEAN | STRING | NUMBER | ARRAY | DICT | IDENTIFIER ;
+relation_expression
+	: addition_expression
+	| ( relation_expression relation_operator addition_expression )
 
-array_call = call "[" expression "]" ;
+equaliry_operator
+	: '=='
+	| '!='
+	;
 
-function_call = IDENTIFIER "(" [ argument ( "," argument ) ] ")" ;
+equality_expression
+	: relation_expression
+	| ( equality_expression equality_operator relation_expression )
+	;
 
-argument = expression | IDENTIFIER ":" expression ;
+and_expression
+	: equality_expression
+	| ( and_expression 'and' equality_expression )
+	;
 
-method_call = call "." function_call ;
+or_expression
+	: and_expression
+	| ( or_expression 'or' and_expression )
 
-BOOLEAN = "true" | "false ;"
+condition_expression
+	: or_expression
+	| ( or_expression '?' expression ':' expression )
+	;
 
-STRING = ( "'" /.*?(?<!\\)(\\\\)*?'/ "'" ) | ("'''" /.*?(''')/ "'''") ;
+assignment_operator
+	: '='
+	| '*='
+	| '/='
+	| '%='
+	| '+='
+	| '-='
+	;
 
-NUMBER	= ( "0" "b" /[01]+/ )
-		| ( "0" "o" /[0-7+/ )
-		| ( "0" "x" /[a-fA-F0-9]+/ )
-		| /[1-9][0-9]?/ ;
+expression
+	: condition_expression
+	| ( or_expression assignment_operator expression )
 
-ARRAY = "[" expression ("," expression)* ""]" ;
+if_statement
+	: 'if' expression NEWLINE ( statement )*
+	( 'elif' expression NEWLINE ( statement )* )*
+	[ 'else' ( statement )*
+	'endif'
+	;
 
-DICT = "{" expression ":" expression ("," expression ":" expression)* }" ;
+identifier_list
+	: IDENTIFIER ( ',' IDENTIFIER )
+	;
 
-IDENTIFIER = alpha { alpha | digit } ;
+iteration_statement
+	: 'foreach' identifier_list ':' ( IDENTIFIER | array_literal )
+	( statement | ( 'break' | 'continue' ) NEWLINE )*
+	'endforeach'
+	;
 
-NEWLINE = "\n" ;
+statement
+	: expression
+	| if_statement
+	| iteration_statement
+	;
+
+grammar
+	: ( NEWLINE | statement )*
+	;
