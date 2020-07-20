@@ -106,10 +106,14 @@ identifier(struct lexer *lexer)
 	}
 
 	token->data = id;
+	token->data[n] = '\0';
 	token->n = n;
 
 	if (!keyword(lexer, token)) {
 		token->type = TOKEN_IDENTIFIER;
+	}
+	else {
+		fatal("TODO keywords");
 	}
 
 	return token;
@@ -159,6 +163,7 @@ string(struct lexer *lexer)
 	}
 
 	token->data = id;
+	token->data[n] = '\0';
 	token->n = n;
 
 	while(lexer->cur == '\'') {
