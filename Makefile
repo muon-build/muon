@@ -2,8 +2,8 @@
 VERSION=0.0.1
 
 INCLUDE=-Iinclude
-CFLAGS+=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common
-LDFLAGS+=-static
+FLAGS=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common $(CFLAGS)
+LDFLAGS=-static
 
 OUTDIR?=build
 .DEFAULT_GOAL=all
@@ -19,7 +19,7 @@ OBJECTS=\
 
 $(OUTDIR)/%.o: src/%.c
 	@mkdir -p $(OUTDIR)
-	$(CC) -std=c99 -pedantic -c -o $@ $(CFLAGS) $(INCLUDE) $<
+	$(CC) -std=c99 -pedantic -c -o $@ $(FLAGS) $(INCLUDE) $<
 
 boson: $(OBJECTS)
 	$(CC) $(LDFLAGS) -o $@ $^
