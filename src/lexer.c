@@ -100,13 +100,13 @@ identifier(struct lexer *lexer)
 
 	id[n - 1] = lexer->cur;
 	while (isalnum(next(lexer)) || lexer->cur == '_') {
-		++n;
-		id = realloc(id, n);
-		id[n - 1] = lexer->cur;
+		id = realloc(id, ++n * sizeof(char));
+		id[n - 1] = (char)lexer->cur;
 	}
+	id = realloc(id, ++n * sizeof(char));
+	id[n - 1] = '\0';
 
 	token->data = id;
-	token->data[n] = '\0';
 	token->n = n;
 
 	if (!keyword(lexer, token)) {
@@ -157,13 +157,13 @@ string(struct lexer *lexer)
 
 	id[n - 1] = lexer->cur;
 	while (next(lexer) != '\'') {
-		++n;
-		id = realloc(id, n);
-		id[n - 1] = lexer->cur;
+		id = realloc(id, ++n * sizeof(char));
+		id[n - 1] = (char)lexer->cur;
 	}
+	id = realloc(id, ++n * sizeof(char));
+	id[n - 1] = '\0';
 
 	token->data = id;
-	token->data[n] = '\0';
 	token->n = n;
 
 	while(lexer->cur == '\'') {
@@ -179,6 +179,9 @@ lexer_tokenize(struct lexer *lexer)
 	while (isspace(lexer->cur)) {
 		if (lexer->cur == '\n') {
 			struct token *token = calloc(1, sizeof(struct token));
+			if (!token) {
+				fatal("failed to allocate token");
+			}
 			token->type = TOKEN_EOL;
 			next(lexer);
 			return token;
