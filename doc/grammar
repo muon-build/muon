@@ -58,16 +58,16 @@ argument_list
 	| keyword_arguments
 	;
 
-subscript_expression
-	: postfix_expression '[' expression ']'
-	;
-
 function_expression
 	: IDENTIFIER '(' [ argument_list ] ')'
 	;
 
 method_expression
 	: postfix_expression '.' function_expression
+	;
+
+subscript_expression
+	: postfix_expression '[' expression ']'
 	;
 
 postfix_expression
@@ -161,6 +161,7 @@ assignment_expression
 
 expression
 	: condition_expression
+	| assignment_expression
 	;
 
 selection
