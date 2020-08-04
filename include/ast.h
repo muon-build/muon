@@ -66,7 +66,7 @@ struct node_function {
 };
 
 struct node_method {
-	struct node_identifier *left;
+	struct node_expression *left;
 	struct node_function *right;
 };
 

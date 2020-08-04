@@ -13,6 +13,35 @@
 
 #define PATH_MAX 4096
 
+const char *
+expression_type_to_string(enum node_expression_type type)
+{
+#define EXPR_TRANSLATE(e) case e: return #e;
+	switch (type) {
+	EXPR_TRANSLATE(EXPRESSION_NONE);
+	EXPR_TRANSLATE(EXPRESSION_ASSIGNMENT);
+	EXPR_TRANSLATE(EXPRESSION_CONDITION);
+	EXPR_TRANSLATE(EXPRESSION_OR);
+	EXPR_TRANSLATE(EXPRESSION_AND);
+	EXPR_TRANSLATE(EXPRESSION_EQUALITY);
+	EXPR_TRANSLATE(EXPRESSION_RELATION);
+	EXPR_TRANSLATE(EXPRESSION_ADDITION);
+	EXPR_TRANSLATE(EXPRESSION_MULTIPLICATION);
+	EXPR_TRANSLATE(EXPRESSION_UNARY);
+	EXPR_TRANSLATE(EXPRESSION_SUBSCRIPT);
+	EXPR_TRANSLATE(EXPRESSION_FUNCTION);
+	EXPR_TRANSLATE(EXPRESSION_METHOD);
+	EXPR_TRANSLATE(EXPRESSION_IDENTIFIER);
+	EXPR_TRANSLATE(EXPRESSION_STRING);
+	EXPR_TRANSLATE(EXPRESSION_ARRAY);
+	default:
+		report("unknown token");
+		break;
+	}
+#undef EXPR_TRANSLATE
+	return "";
+}
+
 struct parser
 {
 	struct lexer lexer;
@@ -91,13 +120,11 @@ void
 expression_list_appened(struct node_expression_list *list,
 		struct node_expression *expression)
 {
-	info("expression_list_appened");
 	if (list == NULL) {
 		fatal("cannot appened expression to empty list");
 	}
 
 	list->n = list->n + 1;
-	info("expression_list size %zu", list->n);
 
 	list->expressions = realloc(list->expressions,
 			list->n * sizeof(struct node_expression));
@@ -108,13 +135,11 @@ void
 keyword_list_appened(struct node_keyword_list *list,
 		struct node_expression *key, struct node_expression *value)
 {
-	info("keyword_list_appened");
 	if (list == NULL) {
 		fatal("cannot appened keyword to empty list");
 	}
 
 	list->n = list->n + 1;
-	info("keyword_list size %zu", list->n);
 	list->keys = realloc(list->keys,
 			list->n * sizeof(struct node_expression));
 	list->values = realloc(list->values,
@@ -126,7 +151,6 @@ keyword_list_appened(struct node_keyword_list *list,
 struct node_identifier *
 parse_identifier(struct parser *parser)
 {
-	info("parse_identifier");
 	expect(parser->cur, TOKEN_IDENTIFIER);
 
 	struct node_identifier *identifier = calloc(1,
@@ -139,14 +163,12 @@ parse_identifier(struct parser *parser)
 	strncpy(identifier->data, parser->cur->data, parser->cur->n);
 	identifier->n = parser->cur->n;
 
-	info("parse_identifier done");
 	return identifier;
 }
 
 struct node_string *
 parse_string(struct parser *parser)
 {
-	info("parse_string");
 	expect(parser->cur, TOKEN_STRING);
 
 	struct node_string *string = calloc(1, sizeof(struct node_string));
@@ -158,15 +180,12 @@ parse_string(struct parser *parser)
 	strncpy(string->data, parser->cur->data, parser->cur->n);
 	string->n = parser->cur->n;
 
-	info("parse_string done");
 	return string;
 }
 
 struct node_expression_list *
 parse_array(struct parser *parser)
 {
-	info("parse_array");
-
 	struct node_expression_list *list = calloc(1,
 			sizeof(struct node_expression_list));
 	if (!list) {
@@ -184,14 +203,12 @@ parse_array(struct parser *parser)
 		expect(parser->cur, TOKEN_COMMA);
 	}
 
-	info("parse_array done");
 	return list;
 }
 
 struct node_expression *
 parse_primary(struct parser *parser)
 {
-	info("parse_primary");
 	struct node_expression *expression = calloc(1,
 			sizeof(struct node_expression));
 	if (!expression) {
@@ -221,7 +238,6 @@ parse_primary(struct parser *parser)
 		fatal("unexpected token %s", token_to_string(parser->cur));
 	}
 
-	info("parse_primary done");
 	return expression;
 }
 
@@ -254,20 +270,22 @@ parse_arguments(struct parser *parser)
 		} while (token->type == TOKEN_EOL);
 
 		if (token->type == TOKEN_RPAREN) {
+			consume(parser);
 			break;
 		}
 
 		struct node_expression *expression = parse_expression(parser);
 		if (expression->type == EXPRESSION_IDENTIFIER) {
-			info("kwarg");
 			token = consume(parser);
 			keyword_list_appened(arguments->kwargs, expression,
 					parse_expression(parser));
-		} else if (expression->type == EXPRESSION_STRING) {
-			info("args");
-			expression_list_appened(arguments->args, expression);
 		} else {
-			fatal("unexpected argument type");
+			expression_list_appened(arguments->args, expression);
+		}
+
+		if (parser->cur->type == TOKEN_RPAREN) {
+			consume(parser);
+			break;
 		}
 
 		expect(parser->cur, TOKEN_COMMA);
@@ -277,17 +295,19 @@ parse_arguments(struct parser *parser)
 	return arguments;
 }
 
-struct node_expression *
+struct node_function *
 parse_function(struct parser *parser, struct node_expression *expression)
 {
 	info("parse_function");
 
 	if (expression->type != EXPRESSION_IDENTIFIER) {
+		info("function on %s",
+				expression_type_to_string(expression->type));
 		fatal("function must be called on an identifier");
 	}
 
-	struct node_function *function = calloc(1, sizeof(struct
-			node_function));
+	struct node_function *function = calloc(1,
+			sizeof(struct node_function));
 	if (!function) {
 		fatal("failed to allocate function node");
 	}
@@ -295,11 +315,35 @@ parse_function(struct parser *parser, struct node_expression *expression)
 	function->left = expression->data.identifier;
 	function->right = parse_arguments(parser);
 
-	expression->type = EXPRESSION_FUNCTION;
-	expression->data.function = function;
-
 	info("parse_function done");
-	return expression;
+	return function;
+}
+
+struct node_method *
+parse_method(struct parser *parser, struct node_expression *expression)
+{
+	info("parse_method");
+	if (expression->type != EXPRESSION_IDENTIFIER
+		&& expression->type != EXPRESSION_STRING) {
+		fatal("method must be called on an identifier or a string");
+	}
+
+	struct node_method *method = calloc(1, sizeof(struct node_method));
+	if (!method) {
+		fatal("failed to allocate function node");
+	}
+
+	method->left = expression;
+	consume(parser);
+	struct node_expression *right = parse_expression(parser);
+	if (right->type != EXPRESSION_FUNCTION) {
+		fatal("left part of a method must be a function");
+	}
+	method->right = right->data.function;
+	free(right);
+
+	info("parse_method done");
+	return method;
 }
 
 struct node_expression *
@@ -311,10 +355,13 @@ parse_postfix_expression(struct parser *parser)
 	struct token *token = consume(parser);
 	switch (token->type) {
 	case TOKEN_LPAREN:
-		expression = parse_function(parser, expression);
+		expression->data.function = parse_function(parser, expression);
+		expression->type = EXPRESSION_FUNCTION;
 		break;
 	case TOKEN_DOT:
-		fatal("todo method");
+		expression->data.method = parse_method(parser, expression);
+		expression->type = EXPRESSION_METHOD;
+		break;
 	default:
 		break;
 	}
