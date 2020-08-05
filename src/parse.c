@@ -215,11 +215,33 @@ parse_array(struct parser *parser)
 
 		expression_list_appened(list, parse_expression(parser));
 
+		if (accept(parser, TOKEN_RBRACK)) {
+			break;
+		}
+
 		expect(parser, TOKEN_COMMA);
 	}
 	info("parsing array done");
 
 	return list;
+}
+
+struct node_bool *
+parse_bool(struct parser *parser)
+{
+	info("parsing boolean");
+
+	struct node_bool *boolean = calloc(1, sizeof(struct node_bool));
+	assert(boolean);
+
+	if (parser->last->type == TOKEN_TRUE) {
+		boolean->value = true;
+	} else if (parser->last->type == TOKEN_FALSE) {
+		boolean->value = false;
+	}
+
+	info("parsing boolean done");
+	return boolean;
 }
 
 struct node_expression *
@@ -241,6 +263,9 @@ parse_primary(struct parser *parser)
 	} else if (accept(parser, TOKEN_LBRACK)) {
 		expression->type = EXPRESSION_ARRAY;
 		expression->data.array = parse_array(parser);
+	} else if (accept(parser, TOKEN_TRUE) || accept(parser, TOKEN_FALSE)) {
+		expression->type = EXPRESSION_BOOL;
+		expression->data.boolean = parse_bool(parser);
 	} else {
 		fatal("unexpected token %s", token_to_string(parser->cur));
 	}
@@ -373,40 +398,61 @@ is_assignment_op(struct parser *parser)
 }
 
 enum node_assignment_op
-token_to_assignment_op(struct token *token)
+parse_assignment_op(struct parser *parser)
 {
-	switch (token->type) {
-	case TOKEN_ASSIGN:
+	if (accept(parser, TOKEN_ASSIGN)) {
 		return ASSIGNMENT_ASSIGN;
-	case TOKEN_STAREQ:
+	} else if (accept(parser, TOKEN_STAREQ)) {
 		return ASSIGNMENT_STAREQ;
-	case TOKEN_SLASHEQ:
+	} else if (accept(parser, TOKEN_SLASHEQ)) {
 		return ASSIGNMENT_SLASHEQ;
-	case TOKEN_MODEQ:
+	} else if (accept(parser, TOKEN_MODEQ)) {
 		return ASSIGNMENT_MODEQ;
-	case TOKEN_PLUSEQ:
+	} else if (accept(parser, TOKEN_PLUSEQ)) {
 		return ASSIGNMENT_PLUSEQ;
-	case TOKEN_MINEQ:
+	} else if (accept(parser, TOKEN_MINEQ)) {
 		return ASSIGNMENT_MINEQ;
-	default:
+	} else {
 		fatal("%s is not an assignment operation",
-				token_to_string(token));
-		break;
+				token_to_string(parser->cur));
 	}
+
 	return -1;
+}
+
+struct node_expression *
+parse_assignment(struct parser *parser, struct node_expression *left)
+{
+	info("parse_assignment");
+	struct node_expression *expression = calloc(1,
+			sizeof(struct node_expression));
+	assert(expression);
+
+	expression->type = EXPRESSION_ASSIGNMENT;
+	expression->data.assignment = calloc(1, sizeof(struct node_assignment));
+	assert(expression->data.assignment);
+
+	expression->data.assignment->left = left;
+	expression->data.assignment->op = parse_assignment_op(parser);
+	expression->data.assignment->right = parse_expression(parser);
+
+	info("parse_assignment done");
+	return expression;
 }
 
 struct node_expression *
 parse_expression(struct parser *parser)
 {
+	info("parse_expression");
 	//struct node_expression *left = parse_or(parser);
 	struct node_expression *left = parse_postfix(parser);
 	if (is_assignment_op(parser)) {
-		fatal("todo assignment");
+		return parse_assignment(parser, left);
 	} else if (accept(parser, TOKEN_QM)) {
 		fatal("todo condition expression");
 	}
 
+	info("parse_expression done");
 	return left;
 }
 

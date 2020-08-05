@@ -3,6 +3,7 @@
 #include "setup.h"
 #include "getopt_long.h"
 #include "parse.h"
+#include "log.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -78,20 +79,19 @@ setup(int argc, char **argv)
 
 	printf("Version: " VERSION "\n");
 	printf("Source dir: %s\n", abs_source_dir);
-	printf("Build dir: %s\n", abs_build_dir);
 
-	struct node *root = parse(abs_source_dir);
+	struct node_root root = parse(abs_source_dir);
+	info("root has %zu children", root.n);
 /*
 	if (mkdir(abs_build_dir, S_IRUSR | S_IWUSR) == -1) {
 		fprintf(stderr, "Build directory already configured\n");
 		return 1;
 	}
+	printf("Build dir: %s\n", abs_build_dir);
 */
 
 	free(abs_build_dir);
 	free(abs_source_dir);
-
-	free(root);
 
 	return 0;
 }

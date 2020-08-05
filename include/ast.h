@@ -20,9 +20,14 @@ enum node_expression_type {
 	EXPRESSION_IDENTIFIER,
 	EXPRESSION_STRING,
 	EXPRESSION_ARRAY,
+	EXPRESSION_BOOL,
 };
 
 struct node_expression;
+
+struct node_bool {
+	bool value;
+};
 
 struct node_identifier {
 	char *data;
@@ -179,6 +184,7 @@ struct node_expression {
 		struct node_identifier *identifier;
 		struct node_string *string;
 		struct node_expression_list *array;
+		struct node_bool *boolean;
 	} data;
 };
 
