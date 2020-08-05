@@ -6,7 +6,7 @@
 struct node_statement;
 
 struct node_root {
-	struct node_statement *statements;
+	struct node_statement **statements;
 	size_t n;
 };
 
