@@ -6,6 +6,7 @@
 
 #define _POSIX_C_SOURCE 200112L
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -49,27 +50,29 @@ struct parser
 	struct token *last;
 };
 
-struct node_expression *parse_expression(struct parser *);
-
-static struct token *
-consume(struct parser *parser)
-{
-	parser->last = parser->cur;
-	parser->cur = lexer_tokenize(&parser->lexer);
-	info("cur %s %s", token_to_string(parser->cur), (parser->cur->data ?
-			parser->cur->data : ""));
-
-	return parser->cur;
+static bool
+accept(struct parser *parser, enum token_type type) {
+	if (parser->cur->type == type) {
+		free(parser->last);
+		parser->last = parser->cur;
+		parser->cur = lexer_tokenize(&parser->lexer);
+		info("cur %s %s", token_to_string(parser->cur),
+				(parser->cur->data ? parser->cur->data : ""));
+		return true;
+	}
+	return false;
 }
 
 static void
-expect(struct token *token, enum token_type type)
+expect(struct parser *parser, enum token_type type)
 {
-	if (token->type != type) {
+	if (!accept(parser, type)) {
 		fatal("expected %s, got %s", token_type_to_string(type),
-				token_to_string(token));
+				token_to_string(parser->cur));
 	}
 }
+
+struct node_expression *parse_expression(struct parser *);
 
 /* TODO move in ninja emitter
 static const char *
@@ -151,17 +154,19 @@ keyword_list_appened(struct node_keyword_list *list,
 struct node_identifier *
 parse_identifier(struct parser *parser)
 {
-	expect(parser->cur, TOKEN_IDENTIFIER);
-
+	info("parsing identifier");
 	struct node_identifier *identifier = calloc(1,
 			sizeof(struct node_identifier));
 	if (!identifier) {
 		fatal("failed to allocate identifier node");
 	}
 
-	identifier->data = calloc(parser->cur->n + 1, sizeof(char));
-	strncpy(identifier->data, parser->cur->data, parser->cur->n);
-	identifier->n = parser->cur->n;
+	identifier->data = calloc(parser->last->n + 1, sizeof(char));
+	strncpy(identifier->data, parser->last->data, parser->last->n);
+	identifier->n = parser->last->n;
+
+	info("identifier %s:%zu", identifier->data, identifier->n);
+	info("parsing identifier done");
 
 	return identifier;
 }
@@ -169,39 +174,50 @@ parse_identifier(struct parser *parser)
 struct node_string *
 parse_string(struct parser *parser)
 {
-	expect(parser->cur, TOKEN_STRING);
-
+	info("parsing string");
 	struct node_string *string = calloc(1, sizeof(struct node_string));
 	if (!string) {
 		fatal("failed to allocate string node");
 	}
 
-	string->data = calloc(parser->cur->n + 1, sizeof(char));
-	strncpy(string->data, parser->cur->data, parser->cur->n);
-	string->n = parser->cur->n;
+	string->data = calloc(parser->last->n + 1, sizeof(char));
+	strncpy(string->data, parser->last->data, parser->last->n);
+	string->n = parser->last->n;
+
+	info("string %s:%zu", string->data, string->n);
+	info("parsing string done");
 
 	return string;
 }
 
+/*
+ * An array is a list containing an arbitrary number of any types
+ * It is delimited by brackets, and separated by commas.
+ *
+ * arr = [1, 2, 3, 'soleil']
+ */
 struct node_expression_list *
 parse_array(struct parser *parser)
 {
+	info("parsing array");
 	struct node_expression_list *list = calloc(1,
 			sizeof(struct node_expression_list));
 	if (!list) {
 		fatal("failed to allocate array");
 	}
-	struct token *token = NULL;
+
 	for (;;) {
-		do {
-		token = consume(parser);
-		} while (token->type == TOKEN_EOL);
-		if (token->type == TOKEN_RBRACK) {
+		while (accept(parser, TOKEN_EOL));
+
+		if (accept(parser, TOKEN_RBRACK)) {
 			break;
 		}
+
 		expression_list_appened(list, parse_expression(parser));
-		expect(parser->cur, TOKEN_COMMA);
+
+		expect(parser, TOKEN_COMMA);
 	}
+	info("parsing array done");
 
 	return list;
 }
@@ -209,170 +225,134 @@ parse_array(struct parser *parser)
 struct node_expression *
 parse_primary(struct parser *parser)
 {
+	info("parsing primary");
 	struct node_expression *expression = calloc(1,
 			sizeof(struct node_expression));
 	if (!expression) {
 		fatal("failed to allocate expression node");
 	}
 
-	switch(parser->cur->type) {
-	case TOKEN_IDENTIFIER:
+	if (accept(parser, TOKEN_IDENTIFIER)) {
 		expression->type = EXPRESSION_IDENTIFIER;
 		expression->data.identifier = parse_identifier(parser);
-		break;
-	case TOKEN_STRING:
+	} else if (accept(parser, TOKEN_STRING)) {
 		expression->type = EXPRESSION_STRING;
 		expression->data.string = parse_string(parser);
-		break;
-	case TOKEN_LBRACK:
+	} else if (accept(parser, TOKEN_LBRACK)) {
 		expression->type = EXPRESSION_ARRAY;
 		expression->data.array = parse_array(parser);
-		break;
-	case TOKEN_NUMBER:
-	case TOKEN_TRUE:
-	case TOKEN_FALSE:
-	case TOKEN_LPAREN:
-		fatal("TODO primary %s", token_to_string(parser->cur));
-		break;
-	default:
+	} else {
 		fatal("unexpected token %s", token_to_string(parser->cur));
 	}
 
 	return expression;
+	info("parsing primary done");
 }
 
 struct node_arguments *
 parse_arguments(struct parser *parser)
 {
-	info("parse_arguments");
-	expect(parser->cur, TOKEN_LPAREN);
+	info("parsing arguments");
 
 	struct node_arguments *arguments = calloc(1,
 			sizeof(struct node_arguments));
-	if (!arguments) {
-		fatal("failed to allocate arguments node");
-	}
+	assert(arguments);
 
 	arguments->args = calloc(1, sizeof(struct node_expression_list));
-	if (!arguments->args) {
-		fatal("failed to allocate argument list");
-	}
-
+	assert(arguments->args);
 	arguments->kwargs = calloc(1, sizeof(struct node_keyword_list));
-	if (!arguments->kwargs) {
-		fatal("failed to allocate keyword argument list");
-	}
+	assert(arguments->kwargs);
 
-	struct token *token = NULL;
 	for (;;) {
-		do {
-			token = consume(parser);
-		} while (token->type == TOKEN_EOL);
+		while (accept(parser, TOKEN_EOL));
 
-		if (token->type == TOKEN_RPAREN) {
-			consume(parser);
+		if (accept(parser, TOKEN_RPAREN)) {
 			break;
 		}
 
 		struct node_expression *expression = parse_expression(parser);
-		if (expression->type == EXPRESSION_IDENTIFIER) {
-			token = consume(parser);
+		if (accept(parser, TOKEN_COLON)) {
 			keyword_list_appened(arguments->kwargs, expression,
 					parse_expression(parser));
 		} else {
 			expression_list_appened(arguments->args, expression);
 		}
 
-		if (parser->cur->type == TOKEN_RPAREN) {
-			consume(parser);
+		if (accept(parser, TOKEN_RPAREN)) {
 			break;
 		}
 
-		expect(parser->cur, TOKEN_COMMA);
+		expect(parser, TOKEN_COMMA);
 	}
-	info("parse_arguments done");
+	info("parsing arguments done");
 
 	return arguments;
 }
 
-struct node_function *
-parse_function(struct parser *parser, struct node_expression *expression)
+static struct node_expression *
+parse_function(struct parser *parser, struct node_expression *left)
 {
-	info("parse_function");
-
-	if (expression->type != EXPRESSION_IDENTIFIER) {
-		info("function on %s",
-				expression_type_to_string(expression->type));
+	info("parsing function");
+	if (left->type != EXPRESSION_IDENTIFIER) {
 		fatal("function must be called on an identifier");
 	}
 
-	struct node_function *function = calloc(1,
-			sizeof(struct node_function));
-	if (!function) {
-		fatal("failed to allocate function node");
-	}
+	struct node_expression *expression = calloc(1,
+			sizeof(struct node_expression));
+	assert(expression);
 
-	function->left = expression->data.identifier;
-	function->right = parse_arguments(parser);
+	expression->type = EXPRESSION_FUNCTION;
+	expression->data.function = calloc(1, sizeof(struct node_function));
+	assert(expression->data.function);
 
-	info("parse_function done");
-	return function;
-}
+	expression->data.function->left = left;
+	expression->data.function->right = parse_arguments(parser);
 
-struct node_method *
-parse_method(struct parser *parser, struct node_expression *expression)
-{
-	info("parse_method");
-	if (expression->type != EXPRESSION_IDENTIFIER
-		&& expression->type != EXPRESSION_STRING) {
-		fatal("method must be called on an identifier or a string");
-	}
-
-	struct node_method *method = calloc(1, sizeof(struct node_method));
-	if (!method) {
-		fatal("failed to allocate function node");
-	}
-
-	method->left = expression;
-	consume(parser);
-	struct node_expression *right = parse_expression(parser);
-	if (right->type != EXPRESSION_FUNCTION) {
-		fatal("left part of a method must be a function");
-	}
-	method->right = right->data.function;
-	free(right);
-
-	info("parse_method done");
-	return method;
-}
-
-struct node_expression *
-parse_postfix_expression(struct parser *parser)
-{
-	info("parse_postfix_expression");
-	struct node_expression *expression = parse_primary(parser);
-
-	struct token *token = consume(parser);
-	switch (token->type) {
-	case TOKEN_LPAREN:
-		expression->data.function = parse_function(parser, expression);
-		expression->type = EXPRESSION_FUNCTION;
-		break;
-	case TOKEN_DOT:
-		expression->data.method = parse_method(parser, expression);
-		expression->type = EXPRESSION_METHOD;
-		break;
-	default:
-		break;
-	}
-
-	info("parse_postfix_expression done");
+	info("parsing function done");
 	return expression;
 }
 
-/*
+struct node_expression *
+parse_method(struct parser *parser, struct node_expression *left)
+{
+	info("parse_method");
+	if (left->type != EXPRESSION_IDENTIFIER
+			&& left->type != EXPRESSION_STRING) {
+		fatal("method must be called on an identifier or a string");
+	}
+
+	struct node_expression *expression = calloc(1,
+			sizeof(struct node_expression));
+	assert(expression);
+
+	expression->type = EXPRESSION_METHOD;
+	expression->data.method = calloc(1, sizeof(struct node_method));
+	assert(expression->data.method);
+
+	expression->data.method->left = left;
+	expression->data.method->right = parse_expression(parser);
+	assert(expression->data.method->right->type == EXPRESSION_FUNCTION);
+
+	info("parse_method done");
+	return expression;
+}
+
+struct node_expression *
+parse_postfix(struct parser *parser)
+{
+	struct node_expression *expression = parse_primary(parser);
+
+	if (accept(parser, TOKEN_LPAREN)) {
+		return parse_function(parser, expression);
+	} else if (accept(parser, TOKEN_DOT)) {
+		return parse_method(parser, expression);
+	}
+
+	return expression;
+}
+
 bool
-is_assignment_op(struct token *token)
+is_assignment_op(struct parser *parser)
 {
 	static const enum token_type ops[] = {
 		TOKEN_ASSIGN,
@@ -384,25 +364,49 @@ is_assignment_op(struct token *token)
 	};
 
 	for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); ++i) {
-		if (token->type == ops[i]) {
+		if (parser->cur->type == ops[i]) {
 			return true;
 		}
 	}
 
 	return false;
 }
-*/
+
+enum node_assignment_op
+token_to_assignment_op(struct token *token)
+{
+	switch (token->type) {
+	case TOKEN_ASSIGN:
+		return ASSIGNMENT_ASSIGN;
+	case TOKEN_STAREQ:
+		return ASSIGNMENT_STAREQ;
+	case TOKEN_SLASHEQ:
+		return ASSIGNMENT_SLASHEQ;
+	case TOKEN_MODEQ:
+		return ASSIGNMENT_MODEQ;
+	case TOKEN_PLUSEQ:
+		return ASSIGNMENT_PLUSEQ;
+	case TOKEN_MINEQ:
+		return ASSIGNMENT_MINEQ;
+	default:
+		fatal("%s is not an assignment operation",
+				token_to_string(token));
+		break;
+	}
+	return -1;
+}
 
 struct node_expression *
 parse_expression(struct parser *parser)
 {
-	while(parser->cur->type == TOKEN_EOL) {
-		consume(parser);
+	//struct node_expression *left = parse_or(parser);
+	struct node_expression *left = parse_postfix(parser);
+	if (is_assignment_op(parser)) {
+		fatal("todo assignment");
+	} else if (accept(parser, TOKEN_QM)) {
+		fatal("todo condition expression");
 	}
-	info("parse_expression");
 
-	struct node_expression *left = parse_postfix_expression(parser);
-	info("parse_expression done");
 	return left;
 }
 
@@ -416,24 +420,22 @@ parse_statement(struct parser *parser)
 		fatal("failed to allocate statement node");
 	}
 
-	struct token *token = consume(parser);
-	switch (token->type) {
-	case TOKEN_FOREACH:
-		statement->type = STATEMENT_ITERATION;
-		fatal("TODO iteration statement");
-		break;
-	case TOKEN_IF:
-		statement->type = STATEMENT_SELECTION;
-		fatal("TODO selection statement");
-		break;
-	case TOKEN_EOF:
+	while (accept(parser, TOKEN_EOL));
+
+	if (accept(parser, TOKEN_EOF)) {
 		info("EOF");
 		free(statement);
 		return NULL;
-	default:
+	} else if (accept(parser, TOKEN_FOREACH)) {
+		statement->type = STATEMENT_ITERATION;
+		fatal("TODO iteration statement");
+	} else if (accept(parser, TOKEN_IF)) {
+		statement->type = STATEMENT_SELECTION;
+		fatal("TODO selection statement");
+	} else {
 		statement->type = STATEMENT_EXPRESSION;
 		statement->data.expression = parse_expression(parser);
-	};
+	}
 
 	return statement;
 }
@@ -447,6 +449,11 @@ parse(const char *source_dir)
 
 	struct parser parser = {0};
 	lexer_init(&parser.lexer, source_path);
+
+	parser.cur = lexer_tokenize(&parser.lexer);
+	info("cur %s %s", token_to_string(parser.cur),
+			(parser.cur->data ? parser.cur->data : ""));
+
 	struct node_root root = { 0 };
 	do {
 		// todo add statement to node_root

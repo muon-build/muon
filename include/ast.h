@@ -61,13 +61,13 @@ struct node_subscript {
 };
 
 struct node_function {
-	struct node_identifier *left;
+	struct node_expression *left;
 	struct node_arguments *right;
 };
 
 struct node_method {
 	struct node_expression *left;
-	struct node_function *right;
+	struct node_expression *right;
 };
 
 enum node_unary_op {
@@ -164,7 +164,7 @@ struct node_assignment {
 struct node_expression {
 	enum node_expression_type type;
 	union {
-		struct node_assignment *assigment;
+		struct node_assignment *assignment;
 		struct node_condition *condition;
 		struct node_or *or;
 		struct node_and *and;
