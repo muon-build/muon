@@ -56,8 +56,6 @@ accept(struct parser *parser, enum token_type type) {
 		free(parser->last);
 		parser->last = parser->cur;
 		parser->cur = lexer_tokenize(&parser->lexer);
-		info("cur %s %s", token_to_string(parser->cur),
-				(parser->cur->data ? parser->cur->data : ""));
 		return true;
 	}
 	return false;
@@ -154,7 +152,6 @@ keyword_list_appened(struct node_keyword_list *list,
 struct node_identifier *
 parse_identifier(struct parser *parser)
 {
-	info("parsing identifier");
 	struct node_identifier *identifier = calloc(1,
 			sizeof(struct node_identifier));
 	if (!identifier) {
@@ -165,16 +162,12 @@ parse_identifier(struct parser *parser)
 	strncpy(identifier->data, parser->last->data, parser->last->n);
 	identifier->n = parser->last->n;
 
-	info("identifier %s:%zu", identifier->data, identifier->n);
-	info("parsing identifier done");
-
 	return identifier;
 }
 
 struct node_string *
 parse_string(struct parser *parser)
 {
-	info("parsing string");
 	struct node_string *string = calloc(1, sizeof(struct node_string));
 	if (!string) {
 		fatal("failed to allocate string node");
@@ -183,9 +176,6 @@ parse_string(struct parser *parser)
 	string->data = calloc(parser->last->n + 1, sizeof(char));
 	strncpy(string->data, parser->last->data, parser->last->n);
 	string->n = parser->last->n;
-
-	info("string %s:%zu", string->data, string->n);
-	info("parsing string done");
 
 	return string;
 }
@@ -199,7 +189,6 @@ parse_string(struct parser *parser)
 struct node_expression_list *
 parse_array(struct parser *parser)
 {
-	info("parsing array");
 	struct node_expression_list *list = calloc(1,
 			sizeof(struct node_expression_list));
 	if (!list) {
@@ -221,7 +210,6 @@ parse_array(struct parser *parser)
 
 		expect(parser, TOKEN_COMMA);
 	}
-	info("parsing array done");
 
 	return list;
 }
@@ -229,8 +217,6 @@ parse_array(struct parser *parser)
 struct node_bool *
 parse_bool(struct parser *parser)
 {
-	info("parsing boolean");
-
 	struct node_bool *boolean = calloc(1, sizeof(struct node_bool));
 	assert(boolean);
 
@@ -240,14 +226,12 @@ parse_bool(struct parser *parser)
 		boolean->value = false;
 	}
 
-	info("parsing boolean done");
 	return boolean;
 }
 
 struct node_expression *
 parse_primary(struct parser *parser)
 {
-	info("parsing primary");
 	struct node_expression *expression = calloc(1,
 			sizeof(struct node_expression));
 	if (!expression) {
@@ -271,14 +255,11 @@ parse_primary(struct parser *parser)
 	}
 
 	return expression;
-	info("parsing primary done");
 }
 
 struct node_arguments *
 parse_arguments(struct parser *parser)
 {
-	info("parsing arguments");
-
 	struct node_arguments *arguments = calloc(1,
 			sizeof(struct node_arguments));
 	assert(arguments);
@@ -309,7 +290,6 @@ parse_arguments(struct parser *parser)
 
 		expect(parser, TOKEN_COMMA);
 	}
-	info("parsing arguments done");
 
 	return arguments;
 }
@@ -317,7 +297,6 @@ parse_arguments(struct parser *parser)
 static struct node_expression *
 parse_function(struct parser *parser, struct node_expression *left)
 {
-	info("parsing function");
 	if (left->type != EXPRESSION_IDENTIFIER) {
 		fatal("function must be called on an identifier");
 	}
@@ -333,14 +312,12 @@ parse_function(struct parser *parser, struct node_expression *left)
 	expression->data.function->left = left;
 	expression->data.function->right = parse_arguments(parser);
 
-	info("parsing function done");
 	return expression;
 }
 
 struct node_expression *
 parse_method(struct parser *parser, struct node_expression *left)
 {
-	info("parse_method");
 	if (left->type != EXPRESSION_IDENTIFIER
 			&& left->type != EXPRESSION_STRING) {
 		fatal("method must be called on an identifier or a string");
@@ -358,7 +335,6 @@ parse_method(struct parser *parser, struct node_expression *left)
 	expression->data.method->right = parse_expression(parser);
 	assert(expression->data.method->right->type == EXPRESSION_FUNCTION);
 
-	info("parse_method done");
 	return expression;
 }
 
@@ -423,7 +399,6 @@ parse_assignment_op(struct parser *parser)
 struct node_expression *
 parse_assignment(struct parser *parser, struct node_expression *left)
 {
-	info("parse_assignment");
 	struct node_expression *expression = calloc(1,
 			sizeof(struct node_expression));
 	assert(expression);
@@ -436,14 +411,12 @@ parse_assignment(struct parser *parser, struct node_expression *left)
 	expression->data.assignment->op = parse_assignment_op(parser);
 	expression->data.assignment->right = parse_expression(parser);
 
-	info("parse_assignment done");
 	return expression;
 }
 
 struct node_expression *
 parse_expression(struct parser *parser)
 {
-	info("parse_expression");
 	//struct node_expression *left = parse_or(parser);
 	struct node_expression *left = parse_postfix(parser);
 	if (is_assignment_op(parser)) {
@@ -452,14 +425,12 @@ parse_expression(struct parser *parser)
 		fatal("todo condition expression");
 	}
 
-	info("parse_expression done");
 	return left;
 }
 
 struct node_statement *
 parse_statement(struct parser *parser)
 {
-	info("parse_statement");
 	struct node_statement *statement = calloc(1,
 			sizeof(struct node_statement));
 	if (!statement) {
@@ -469,7 +440,6 @@ parse_statement(struct parser *parser)
 	while (accept(parser, TOKEN_EOL));
 
 	if (accept(parser, TOKEN_EOF)) {
-		info("EOF");
 		free(statement);
 		return NULL;
 	} else if (accept(parser, TOKEN_FOREACH)) {
@@ -489,22 +459,20 @@ parse_statement(struct parser *parser)
 struct node_root
 parse(const char *source_dir)
 {
-	info("parse");
 	char source_path[PATH_MAX] = {0};
 	sprintf(source_path, "%s/%s", source_dir, "meson.build");
 
 	struct parser parser = {0};
 	lexer_init(&parser.lexer, source_path);
-
 	parser.cur = lexer_tokenize(&parser.lexer);
-	info("cur %s %s", token_to_string(parser.cur),
-			(parser.cur->data ? parser.cur->data : ""));
 
 	struct node_root root = { 0 };
-	do {
+	while (parser.cur->type != TOKEN_EOF) {
 		// todo add statement to node_root
-		parse_statement(&parser);
-	} while (parser.cur->type != TOKEN_EOF);
+		root.statements = realloc(root.statements,
+				++root.n * sizeof(struct node_statement *));
+		root.statements[root.n - 1] = parse_statement(&parser);
+	}
 
 	lexer_finish(&parser.lexer);
 
