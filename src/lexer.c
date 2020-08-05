@@ -242,6 +242,9 @@ lexer_tokenize(struct lexer *lexer)
 		case '-':
 			token->type = TOKEN_MINUS;
 			break;
+		case '=':
+			token->type = TOKEN_ASSIGN;
+			break;
 		case '\0':
 		default:
 			token->type = TOKEN_EOF;
