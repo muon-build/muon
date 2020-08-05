@@ -16,12 +16,13 @@ project(
 add_project_arguments(
 	'-DVERSION="@0@"'.format(meson.project_version()),
 	'-Wno-unused-parameter',
-	language: 'c'
+	language: 'c',
 )
 
 src = files(
 	'src/getopt_long.c',
 	'src/log.c',
+	'src/ninja.c',
 	'src/token.c',
 	'src/lexer.c',
 	'src/parse.c',
@@ -35,5 +36,5 @@ executable(
 	'boson',
 	src,
 	include_directories: [include_dir],
-	install: true
+	install: true,
 )
