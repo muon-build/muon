@@ -112,9 +112,6 @@ identifier(struct lexer *lexer)
 	if (!keyword(lexer, token)) {
 		token->type = TOKEN_IDENTIFIER;
 	}
-	else {
-		fatal("TODO keywords");
-	}
 
 	return token;
 }
