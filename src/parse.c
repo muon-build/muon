@@ -459,6 +459,8 @@ parse_statement(struct parser *parser)
 struct node_root
 parse(const char *source_dir)
 {
+	info("Source dir: %s", source_dir);
+
 	char source_path[PATH_MAX] = {0};
 	sprintf(source_path, "%s/%s", source_dir, "meson.build");
 
