@@ -1,15 +1,16 @@
 #define _XOPEN_SOURCE 500
 
 #include "setup.h"
+#include "log.h"
 #include "getopt_long.h"
 #include "parse.h"
-#include "log.h"
+#include "ninja.h"
 
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <unistd.h>
 
 #include <errno.h>
 
@@ -74,24 +75,16 @@ setup(int argc, char **argv)
 		source_dir = ".";
 	}
 
-	char *abs_build_dir = realpath(build_dir, NULL);
-	char *abs_source_dir = realpath(source_dir, NULL);
+	char cwd[PATH_MAX] = {0};
+	getcwd(cwd, sizeof(cwd));
+
+	char abs_source_dir[PATH_MAX] = {0}, abs_build_dir[PATH_MAX] = {0};
+	realpath(source_dir, abs_source_dir);
+	sprintf(abs_build_dir, "%s/%s", cwd, build_dir);
 
 	printf("Version: " VERSION "\n");
-	printf("Source dir: %s\n", abs_source_dir);
 
 	struct node_root root = parse(abs_source_dir);
-	info("root has %zu children", root.n);
-/*
-	if (mkdir(abs_build_dir, S_IRUSR | S_IWUSR) == -1) {
-		fprintf(stderr, "Build directory already configured\n");
-		return 1;
-	}
-	printf("Build dir: %s\n", abs_build_dir);
-*/
 
-	free(abs_build_dir);
-	free(abs_source_dir);
-
-	return 0;
+	return emit_ninja(&root, abs_build_dir);
 }
