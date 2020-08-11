@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-enum node_expression_type {
+enum ast_expression_type {
 	EXPRESSION_NONE,
 	EXPRESSION_ASSIGNMENT,
 	EXPRESSION_CONDITION,
@@ -23,93 +23,93 @@ enum node_expression_type {
 	EXPRESSION_BOOL,
 };
 
-struct node_expression;
+struct ast_expression;
 
-struct node_bool {
+struct ast_bool {
 	bool value;
 };
 
-struct node_identifier {
+struct ast_identifier {
 	char *data;
 	size_t n;
 };
 
-struct node_string {
+struct ast_string {
 	char *data;
 	size_t n;
 };
 
-struct node_identifier_list {
-	struct node_identifier **identifiers;
+struct ast_identifier_list {
+	struct ast_identifier **identifiers;
 	size_t n;
 };
 
-struct node_expression_list {
-	struct node_expression **expressions;
+struct ast_expression_list {
+	struct ast_expression **expressions;
 	size_t n;
 };
 
-struct node_keyword_list {
-	struct node_expression **keys;
-	struct node_expression **values;
+struct ast_keyword_list {
+	struct ast_expression **keys;
+	struct ast_expression **values;
 	size_t n;
 };
 
-struct node_arguments {
-	struct node_expression_list *args;
-	struct node_keyword_list *kwargs;
+struct ast_arguments {
+	struct ast_expression_list *args;
+	struct ast_keyword_list *kwargs;
 };
 
-struct node_subscript {
-	struct node_expression *left;
-	struct node_expression *right;
+struct ast_subscript {
+	struct ast_expression *left;
+	struct ast_expression *right;
 };
 
-struct node_function {
-	struct node_expression *left;
-	struct node_arguments *right;
+struct ast_function {
+	struct ast_expression *left;
+	struct ast_arguments *right;
 };
 
-struct node_method {
-	struct node_expression *left;
-	struct node_expression *right;
+struct ast_method {
+	struct ast_expression *left;
+	struct ast_expression *right;
 };
 
-enum node_unary_op {
+enum ast_unary_op {
 	UNARY_NOT,
 	UNARY_PLUS,
 	UNARY_MINUS,
 };
 
-struct node_unary {
-	enum node_unary_op op;
-	struct node_expression *right;
+struct ast_unary {
+	enum ast_unary_op op;
+	struct ast_expression *right;
 };
 
-enum node_multiplication_op {
+enum ast_multiplication_op {
 	MULTIPLICATION_STAR = 1 << 0,
 	MULTIPLICATION_SLASH = 1 << 1,
 	MULTIPLICATION_MOD = 1 << 2,
 };
 
-struct node_multiplication {
-	struct node_expression *left;
-	enum node_multiplication_op op;
-	struct node_expression *right;
+struct ast_multiplication {
+	struct ast_expression *left;
+	enum ast_multiplication_op op;
+	struct ast_expression *right;
 };
 
-enum node_addition_op {
+enum ast_addition_op {
 	ADDITION_PLUS = 1 << 0,
 	ADDITION_MINUS = 1 << 1,
 };
 
-struct node_addition {
-	struct node_expression *left;
-	enum node_addition_op op;
-	struct node_expression *right;
+struct ast_addition {
+	struct ast_expression *left;
+	enum ast_addition_op op;
+	struct ast_expression *right;
 };
 
-enum node_relation_op {
+enum ast_relation_op {
 	RELATION_GT = 1 << 0,
 	RELATION_LT = 1 << 1,
 	RELATION_GEQ = 1 << 2,
@@ -118,40 +118,40 @@ enum node_relation_op {
 	RELATION_NIN = 1 << 5,
 };
 
-struct node_relation {
-	struct node_expression *left;
-	enum node_relation_op op;
-	struct node_expression *right;
+struct ast_relation {
+	struct ast_expression *left;
+	enum ast_relation_op op;
+	struct ast_expression *right;
 };
 
-enum node_equality_op {
+enum ast_equality_op {
 	EQUALITY_EQ = 1 << 0,
 	EQUALITY_NEQ = 1 << 1
 };
 
-struct node_equality {
-	struct node_expression *equality;
-	enum node_equality_op op;
-	struct node_expression *relation;
+struct ast_equality {
+	struct ast_expression *equality;
+	enum ast_equality_op op;
+	struct ast_expression *relation;
 };
 
-struct node_and {
-	struct node_expression *left;
-	struct node_expression *right;
+struct ast_and {
+	struct ast_expression *left;
+	struct ast_expression *right;
 };
 
-struct node_or {
-	struct node_expression *left;
-	struct node_expression *right;
+struct ast_or {
+	struct ast_expression *left;
+	struct ast_expression *right;
 };
 
-struct node_condition {
-	struct node_expression *cond;
-	struct node_expression *left;
-	struct node_expression *right;
+struct ast_condition {
+	struct ast_expression *cond;
+	struct ast_expression *left;
+	struct ast_expression *right;
 };
 
-enum node_assignment_op {
+enum ast_assignment_op {
 	ASSIGNMENT_ASSIGN = 1 << 0,
 	ASSIGNMENT_STAREQ = 1 << 1,
 	ASSIGNMENT_SLASHEQ = 1 << 2,
@@ -160,54 +160,54 @@ enum node_assignment_op {
 	ASSIGNMENT_MINEQ = 1 << 5,
 };
 
-struct node_assignment {
-	struct node_expression *left;
-	enum node_assignment_op op;
-	struct node_expression *right;
+struct ast_assignment {
+	struct ast_expression *left;
+	enum ast_assignment_op op;
+	struct ast_expression *right;
 };
 
-struct node_expression {
-	enum node_expression_type type;
+struct ast_expression {
+	enum ast_expression_type type;
 	union {
-		struct node_assignment *assignment;
-		struct node_condition *condition;
-		struct node_or *or;
-		struct node_and *and;
-		struct node_equality *equality;
-		struct node_relation *relation;
-		struct node_addition *addition;
-		struct node_multiplication *multiplication;
-		struct node_unary *unary;
-		struct node_subscript *subscript;
-		struct node_function *function;
-		struct node_method *method;
-		struct node_identifier *identifier;
-		struct node_string *string;
-		struct node_expression_list *array;
-		struct node_bool *boolean;
+		struct ast_assignment *assignment;
+		struct ast_condition *condition;
+		struct ast_or *or;
+		struct ast_and *and;
+		struct ast_equality *equality;
+		struct ast_relation *relation;
+		struct ast_addition *addition;
+		struct ast_multiplication *multiplication;
+		struct ast_unary *unary;
+		struct ast_subscript *subscript;
+		struct ast_function *function;
+		struct ast_method *method;
+		struct ast_identifier *identifier;
+		struct ast_string *string;
+		struct ast_expression_list *array;
+		struct ast_bool *boolean;
 	} data;
 };
 
-struct node_selection {
+struct ast_selection {
 	int dummy;
 };
 
-struct node_iteration {
+struct ast_iteration {
 	int dummy;
 };
 
-enum node_statement_type {
+enum ast_statement_type {
 	STATEMENT_EXPRESSION = 1 << 0,
 	STATEMENT_SELECTION = 1 << 1,
 	STATEMENT_ITERATION = 1 << 2,
 };
 
-struct node_statement {
-	enum node_statement_type type;
+struct ast_statement {
+	enum ast_statement_type type;
 	union {
-		struct node_expression *expression;
-		struct node_selection *selection;
-		struct node_iteration *iteration;
+		struct ast_expression *expression;
+		struct ast_selection *selection;
+		struct ast_iteration *iteration;
 	} data;
 };
 

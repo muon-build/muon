@@ -3,7 +3,8 @@
 #include "setup.h"
 #include "log.h"
 #include "getopt_long.h"
-#include "parse.h"
+#include "parser.h"
+#include "interpreter.h"
 #include "ninja.h"
 
 #include <stddef.h>
@@ -84,7 +85,9 @@ setup(int argc, char **argv)
 
 	printf("Version: " VERSION "\n");
 
-	struct node_root root = parse(abs_source_dir);
+	struct ast_root root = parse(abs_source_dir);
 
-	return emit_ninja(&root, abs_build_dir);
+	return interprete(&root);
+
+	//return emit_ninja(&root, abs_build_dir);
 }

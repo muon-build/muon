@@ -3,13 +3,13 @@
 
 #include <stddef.h>
 
-struct node_statement;
+struct ast_statement;
 
-struct node_root {
-	struct node_statement **statements;
+struct ast_root {
+	struct ast_statement **statements;
 	size_t n;
 };
 
-struct node_root parse(const char *);
+struct ast_root parse(const char *);
 
 #endif // BOSON_PARSER_H

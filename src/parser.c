@@ -41,7 +41,7 @@ expect(struct parser *parser, enum token_type type)
 	}
 }
 
-struct node_expression *parse_expression(struct parser *);
+struct ast_expression *parse_expression(struct parser *);
 
 /* TODO move in ninja emitter
 static const char *
@@ -89,8 +89,8 @@ is_function(struct token *token)
 */
 
 void
-expression_list_appened(struct node_expression_list *list,
-		struct node_expression *expression)
+expression_list_appened(struct ast_expression_list *list,
+		struct ast_expression *expression)
 {
 	if (list == NULL) {
 		fatal("cannot appened expression to empty list");
@@ -99,13 +99,13 @@ expression_list_appened(struct node_expression_list *list,
 	list->n = list->n + 1;
 
 	list->expressions = realloc(list->expressions,
-			list->n * sizeof(struct node_expression));
+			list->n * sizeof(struct ast_expression));
 	list->expressions[list->n] = expression;
 }
 
 void
-keyword_list_appened(struct node_keyword_list *list,
-		struct node_expression *key, struct node_expression *value)
+keyword_list_appened(struct ast_keyword_list *list,
+		struct ast_expression *key, struct ast_expression *value)
 {
 	if (list == NULL) {
 		fatal("cannot appened keyword to empty list");
@@ -113,18 +113,18 @@ keyword_list_appened(struct node_keyword_list *list,
 
 	list->n = list->n + 1;
 	list->keys = realloc(list->keys,
-			list->n * sizeof(struct node_expression));
+			list->n * sizeof(struct ast_expression));
 	list->values = realloc(list->values,
-			list->n * sizeof(struct node_expression));
+			list->n * sizeof(struct ast_expression));
 	list->keys[list->n] = key;
 	list->values[list->n] = value;
 }
 
-struct node_identifier *
+struct ast_identifier *
 parse_identifier(struct parser *parser)
 {
-	struct node_identifier *identifier = calloc(1,
-			sizeof(struct node_identifier));
+	struct ast_identifier *identifier = calloc(1,
+			sizeof(struct ast_identifier));
 	if (!identifier) {
 		fatal("failed to allocate identifier node");
 	}
@@ -136,10 +136,10 @@ parse_identifier(struct parser *parser)
 	return identifier;
 }
 
-struct node_string *
+struct ast_string *
 parse_string(struct parser *parser)
 {
-	struct node_string *string = calloc(1, sizeof(struct node_string));
+	struct ast_string *string = calloc(1, sizeof(struct ast_string));
 	if (!string) {
 		fatal("failed to allocate string node");
 	}
@@ -157,11 +157,11 @@ parse_string(struct parser *parser)
  *
  * arr = [1, 2, 3, 'soleil']
  */
-struct node_expression_list *
+struct ast_expression_list *
 parse_array(struct parser *parser)
 {
-	struct node_expression_list *list = calloc(1,
-			sizeof(struct node_expression_list));
+	struct ast_expression_list *list = calloc(1,
+			sizeof(struct ast_expression_list));
 	if (!list) {
 		fatal("failed to allocate array");
 	}
@@ -185,10 +185,10 @@ parse_array(struct parser *parser)
 	return list;
 }
 
-struct node_bool *
+struct ast_bool *
 parse_bool(struct parser *parser)
 {
-	struct node_bool *boolean = calloc(1, sizeof(struct node_bool));
+	struct ast_bool *boolean = calloc(1, sizeof(struct ast_bool));
 	assert(boolean);
 
 	if (parser->last->type == TOKEN_TRUE) {
@@ -200,11 +200,11 @@ parse_bool(struct parser *parser)
 	return boolean;
 }
 
-struct node_expression *
+struct ast_expression *
 parse_primary(struct parser *parser)
 {
-	struct node_expression *expression = calloc(1,
-			sizeof(struct node_expression));
+	struct ast_expression *expression = calloc(1,
+			sizeof(struct ast_expression));
 	if (!expression) {
 		fatal("failed to allocate expression node");
 	}
@@ -228,16 +228,16 @@ parse_primary(struct parser *parser)
 	return expression;
 }
 
-struct node_arguments *
+struct ast_arguments *
 parse_arguments(struct parser *parser)
 {
-	struct node_arguments *arguments = calloc(1,
-			sizeof(struct node_arguments));
+	struct ast_arguments *arguments = calloc(1,
+			sizeof(struct ast_arguments));
 	assert(arguments);
 
-	arguments->args = calloc(1, sizeof(struct node_expression_list));
+	arguments->args = calloc(1, sizeof(struct ast_expression_list));
 	assert(arguments->args);
-	arguments->kwargs = calloc(1, sizeof(struct node_keyword_list));
+	arguments->kwargs = calloc(1, sizeof(struct ast_keyword_list));
 	assert(arguments->kwargs);
 
 	for (;;) {
@@ -247,7 +247,7 @@ parse_arguments(struct parser *parser)
 			break;
 		}
 
-		struct node_expression *expression = parse_expression(parser);
+		struct ast_expression *expression = parse_expression(parser);
 		if (accept(parser, TOKEN_COLON)) {
 			keyword_list_appened(arguments->kwargs, expression,
 					parse_expression(parser));
@@ -265,19 +265,19 @@ parse_arguments(struct parser *parser)
 	return arguments;
 }
 
-static struct node_expression *
-parse_function(struct parser *parser, struct node_expression *left)
+static struct ast_expression *
+parse_function(struct parser *parser, struct ast_expression *left)
 {
 	if (left->type != EXPRESSION_IDENTIFIER) {
 		fatal("function must be called on an identifier");
 	}
 
-	struct node_expression *expression = calloc(1,
-			sizeof(struct node_expression));
+	struct ast_expression *expression = calloc(1,
+			sizeof(struct ast_expression));
 	assert(expression);
 
 	expression->type = EXPRESSION_FUNCTION;
-	expression->data.function = calloc(1, sizeof(struct node_function));
+	expression->data.function = calloc(1, sizeof(struct ast_function));
 	assert(expression->data.function);
 
 	expression->data.function->left = left;
@@ -286,20 +286,20 @@ parse_function(struct parser *parser, struct node_expression *left)
 	return expression;
 }
 
-struct node_expression *
-parse_method(struct parser *parser, struct node_expression *left)
+struct ast_expression *
+parse_method(struct parser *parser, struct ast_expression *left)
 {
 	if (left->type != EXPRESSION_IDENTIFIER
 			&& left->type != EXPRESSION_STRING) {
 		fatal("method must be called on an identifier or a string");
 	}
 
-	struct node_expression *expression = calloc(1,
-			sizeof(struct node_expression));
+	struct ast_expression *expression = calloc(1,
+			sizeof(struct ast_expression));
 	assert(expression);
 
 	expression->type = EXPRESSION_METHOD;
-	expression->data.method = calloc(1, sizeof(struct node_method));
+	expression->data.method = calloc(1, sizeof(struct ast_method));
 	assert(expression->data.method);
 
 	expression->data.method->left = left;
@@ -309,10 +309,10 @@ parse_method(struct parser *parser, struct node_expression *left)
 	return expression;
 }
 
-struct node_expression *
+struct ast_expression *
 parse_postfix(struct parser *parser)
 {
-	struct node_expression *expression = parse_primary(parser);
+	struct ast_expression *expression = parse_primary(parser);
 
 	if (accept(parser, TOKEN_LPAREN)) {
 		return parse_function(parser, expression);
@@ -344,7 +344,7 @@ is_assignment_op(struct parser *parser)
 	return false;
 }
 
-enum node_assignment_op
+enum ast_assignment_op
 parse_assignment_op(struct parser *parser)
 {
 	if (accept(parser, TOKEN_ASSIGN)) {
@@ -367,15 +367,15 @@ parse_assignment_op(struct parser *parser)
 	return -1;
 }
 
-struct node_expression *
-parse_assignment(struct parser *parser, struct node_expression *left)
+struct ast_expression *
+parse_assignment(struct parser *parser, struct ast_expression *left)
 {
-	struct node_expression *expression = calloc(1,
-			sizeof(struct node_expression));
+	struct ast_expression *expression = calloc(1,
+			sizeof(struct ast_expression));
 	assert(expression);
 
 	expression->type = EXPRESSION_ASSIGNMENT;
-	expression->data.assignment = calloc(1, sizeof(struct node_assignment));
+	expression->data.assignment = calloc(1, sizeof(struct ast_assignment));
 	assert(expression->data.assignment);
 
 	expression->data.assignment->left = left;
@@ -385,11 +385,11 @@ parse_assignment(struct parser *parser, struct node_expression *left)
 	return expression;
 }
 
-struct node_expression *
+struct ast_expression *
 parse_expression(struct parser *parser)
 {
-	//struct node_expression *left = parse_or(parser);
-	struct node_expression *left = parse_postfix(parser);
+	//struct ast_expression *left = parse_or(parser);
+	struct ast_expression *left = parse_postfix(parser);
 	if (is_assignment_op(parser)) {
 		return parse_assignment(parser, left);
 	} else if (accept(parser, TOKEN_QM)) {
@@ -399,11 +399,11 @@ parse_expression(struct parser *parser)
 	return left;
 }
 
-struct node_statement *
+struct ast_statement *
 parse_statement(struct parser *parser)
 {
-	struct node_statement *statement = calloc(1,
-			sizeof(struct node_statement));
+	struct ast_statement *statement = calloc(1,
+			sizeof(struct ast_statement));
 	if (!statement) {
 		fatal("failed to allocate statement node");
 	}
@@ -427,7 +427,7 @@ parse_statement(struct parser *parser)
 	return statement;
 }
 
-struct node_root
+struct ast_root
 parse(const char *source_dir)
 {
 	info("Source dir: %s", source_dir);
@@ -439,11 +439,11 @@ parse(const char *source_dir)
 	lexer_init(&parser.lexer, source_path);
 	parser.cur = lexer_tokenize(&parser.lexer);
 
-	struct node_root root = { 0 };
+	struct ast_root root = { 0 };
 	while (parser.cur->type != TOKEN_EOF) {
-		// todo add statement to node_root
+		// todo add statement to ast_root
 		root.statements = realloc(root.statements,
-				++root.n * sizeof(struct node_statement *));
+				++root.n * sizeof(struct ast_statement *));
 		root.statements[root.n - 1] = parse_statement(&parser);
 	}
 
