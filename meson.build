@@ -25,7 +25,7 @@ src = files(
 	'src/ninja.c',
 	'src/token.c',
 	'src/lexer.c',
-	'src/parse.c',
+	'src/parser.c',
 	'src/setup.c',
 	'src/main.c',
 )
