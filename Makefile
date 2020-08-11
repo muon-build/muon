@@ -14,7 +14,7 @@ OBJECTS=\
 	$(OUTDIR)/ninja.o \
 	$(OUTDIR)/token.o \
 	$(OUTDIR)/lexer.o \
-	$(OUTDIR)/parse.o \
+	$(OUTDIR)/parser.o \
 	$(OUTDIR)/setup.o \
 	$(OUTDIR)/main.o
 

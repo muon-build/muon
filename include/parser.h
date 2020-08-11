@@ -1,5 +1,5 @@
-#ifndef BOSON_PARSE_H
-#define BOSON_PARSE_H
+#ifndef BOSON_PARSER_H
+#define BOSON_PARSER_H
 
 #include <stddef.h>
 
@@ -12,4 +12,4 @@ struct node_root {
 
 struct node_root parse(const char *);
 
-#endif // BOSON_PARSE_H
+#endif // BOSON_PARSER_H

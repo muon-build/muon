@@ -1,5 +1,5 @@
 #include "ninja.h"
-#include "parse.h"
+#include "parser.h"
 #include "log.h"
 
 #include <string.h>
