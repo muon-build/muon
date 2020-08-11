@@ -14,7 +14,7 @@
 
 #define PATH_MAX 4096
 
-const char *
+static const char *
 expression_type_to_string(enum node_expression_type type)
 {
 #define EXPR_TRANSLATE(e) case e: return #e;
