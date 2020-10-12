@@ -96,11 +96,12 @@ expression_list_appened(struct ast_expression_list *list,
 		fatal("cannot appened expression to empty list");
 	}
 
-	list->n = list->n + 1;
+	const size_t new_size = list->n + 1;
 
 	list->expressions = realloc(list->expressions,
-			list->n * sizeof(struct ast_expression));
+			new_size * sizeof(struct ast_expression));
 	list->expressions[list->n] = expression;
+	list->n = new_size;
 }
 
 void
@@ -111,13 +112,15 @@ keyword_list_appened(struct ast_keyword_list *list,
 		fatal("cannot appened keyword to empty list");
 	}
 
-	list->n = list->n + 1;
+	const size_t new_size = list->n + 1;
+
 	list->keys = realloc(list->keys,
-			list->n * sizeof(struct ast_expression));
+			new_size * sizeof(struct ast_expression));
 	list->values = realloc(list->values,
-			list->n * sizeof(struct ast_expression));
+			new_size * sizeof(struct ast_expression));
 	list->keys[list->n] = key;
 	list->values[list->n] = value;
+	list->n = new_size;
 }
 
 struct ast_identifier *
