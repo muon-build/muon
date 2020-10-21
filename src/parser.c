@@ -14,6 +14,36 @@
 
 #define PATH_MAX 4096
 
+static const char *
+expr_to_str(enum ast_expression_type type)
+{
+#define TRANSLATE(e) case e: return #e;
+	switch (type) {
+	TRANSLATE(EXPRESSION_NONE);
+	TRANSLATE(EXPRESSION_ASSIGNMENT);
+	TRANSLATE(EXPRESSION_CONDITION);
+	TRANSLATE(EXPRESSION_OR);
+	TRANSLATE(EXPRESSION_AND);
+	TRANSLATE(EXPRESSION_EQUALITY);
+	TRANSLATE(EXPRESSION_RELATION);
+	TRANSLATE(EXPRESSION_ADDITION);
+	TRANSLATE(EXPRESSION_MULTIPLICATION);
+	TRANSLATE(EXPRESSION_UNARY);
+	TRANSLATE(EXPRESSION_SUBSCRIPT);
+	TRANSLATE(EXPRESSION_FUNCTION);
+	TRANSLATE(EXPRESSION_METHOD);
+	TRANSLATE(EXPRESSION_IDENTIFIER);
+	TRANSLATE(EXPRESSION_STRING);
+	TRANSLATE(EXPRESSION_ARRAY);
+	TRANSLATE(EXPRESSION_BOOL);
+	default:
+		report("unknown token");
+		break;
+	}
+#undef TRANSLATE
+	return "";
+}
+
 struct parser
 {
 	struct lexer lexer;
@@ -43,51 +73,6 @@ expect(struct parser *parser, enum token_type type)
 
 struct ast_expression *parse_expression(struct parser *);
 
-/* TODO move in ninja emitter
-static const char *
-is_function(struct token *token)
-{
-	if (token->type != TOKEN_IDENTIFIER) {
-		return NULL;
-	}
-
-	* Keep in order *
-	static const char *funcs[] = {
-		"add_global_arguments", "add_global_link_arguments",
-		"add_languages", "add_project_arguments", "add_project_link_arguments",
-		"add_test_setup", "alias_target", "assert", "benchmark",
-		"both_libraries", "build_target", "configuration_data",
-		"configure_file", "custom_target", "declare_dependency", "dependency",
-		"disabler", "environment", "error", "executable", "files",
-		"find_library", "find_program", "generator", "get_option",
-		"get_variable", "gettext", "import", "include_directories",
-		"install_data", "install_headers", "install_man", "install_subdir",
-		"is_disabler", "is_variable", "jar", "join_paths", "library",
-		"message", "option", "project", "run_command", "run_target",
-		"set_variable", "shared_library", "shared_module", "static_library",
-		"subdir", "subdir_done", "subproject", "summary", "test", "vcs_tag",
-		"warning",
-	};
-
-	int low = 0, high = (sizeof(funcs) / sizeof(funcs[0])) - 1, mid, cmp;
-	while (low <= high) {
-		mid = (low + high) / 2;
-		cmp = strcmp(token->data, funcs[mid]);
-		if (cmp == 0) {
-			return funcs[mid];
-		}
-		if (cmp < 0) {
-			high = mid - 1;
-		}
-		else {
-			low = mid + 1;
-		}
-	}
-
-	return NULL;
-}
-*/
-
 void
 expression_list_appened(struct ast_expression_list *list,
 		struct ast_expression *expression)
@@ -106,7 +91,7 @@ expression_list_appened(struct ast_expression_list *list,
 
 void
 keyword_list_appened(struct ast_keyword_list *list,
-		struct ast_expression *key, struct ast_expression *value)
+		struct ast_identifier *key, struct ast_expression *value)
 {
 	if (list == NULL) {
 		fatal("cannot appened keyword to empty list");
@@ -115,7 +100,7 @@ keyword_list_appened(struct ast_keyword_list *list,
 	const size_t new_size = list->n + 1;
 
 	list->keys = realloc(list->keys,
-			new_size * sizeof(struct ast_expression));
+			new_size * sizeof(struct ast_identifier));
 	list->values = realloc(list->values,
 			new_size * sizeof(struct ast_expression));
 	list->keys[list->n] = key;
@@ -252,7 +237,12 @@ parse_arguments(struct parser *parser)
 
 		struct ast_expression *expression = parse_expression(parser);
 		if (accept(parser, TOKEN_COLON)) {
-			keyword_list_appened(arguments->kwargs, expression,
+			if (expression->type != EXPRESSION_IDENTIFIER) {
+				fatal("kwarg key must be an identifier, got %s",
+						expr_to_str(expression->type));
+			}
+			keyword_list_appened(arguments->kwargs,
+					expression->data.identifier,
 					parse_expression(parser));
 		} else {
 			expression_list_appened(arguments->args, expression);
@@ -272,7 +262,7 @@ static struct ast_expression *
 parse_function(struct parser *parser, struct ast_expression *left)
 {
 	if (left->type != EXPRESSION_IDENTIFIER) {
-		fatal("function must be called on an identifier");
+		fatal("function should be an identifier");
 	}
 
 	struct ast_expression *expression = calloc(1,
@@ -283,7 +273,7 @@ parse_function(struct parser *parser, struct ast_expression *left)
 	expression->data.function = calloc(1, sizeof(struct ast_function));
 	assert(expression->data.function);
 
-	expression->data.function->left = left;
+	expression->data.function->left = left->data.identifier;
 	expression->data.function->right = parse_arguments(parser);
 
 	return expression;
@@ -444,7 +434,6 @@ parse(const char *source_dir)
 
 	struct ast_root root = { 0 };
 	while (parser.cur->type != TOKEN_EOF) {
-		// todo add statement to ast_root
 		root.statements = realloc(root.statements,
 				++root.n * sizeof(struct ast_statement *));
 		root.statements[root.n - 1] = parse_statement(&parser);
