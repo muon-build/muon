@@ -55,14 +55,16 @@ main(int argc, char **argv) {
 			return 1;
 		case 1:
 			{
-				const struct command *command = get_command(optarg);
+				const struct command *command = get_command(
+						optarg);
 				if (command) {
 					return command->execute(argc, argv);
 				}
 			}
 			break;
 		default:
-			fprintf(stderr, "%s: unrecognized option: %c\n", argv[0], opt);
+			fprintf(stderr, "%s: unrecognized option: %c\n",
+					argv[0], opt);
 			return 1;
 		}
 	}
