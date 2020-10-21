@@ -2,7 +2,7 @@
 VERSION=0.0.1
 
 INCLUDE=-Iinclude
-FLAGS=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common $(CFLAGS)
+FLAGS=-g -O0 -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common $(CFLAGS)
 LDFLAGS=-static
 
 OUTDIR?=build
@@ -10,8 +10,11 @@ OUTDIR?=build
 
 OBJECTS=\
 	$(OUTDIR)/getopt_long.o \
+	$(OUTDIR)/hash_table.o \
 	$(OUTDIR)/log.o \
 	$(OUTDIR)/ninja.o \
+	$(OUTDIR)/function.o \
+	$(OUTDIR)/eval.o \
 	$(OUTDIR)/token.o \
 	$(OUTDIR)/lexer.o \
 	$(OUTDIR)/parser.o \
@@ -20,10 +23,10 @@ OBJECTS=\
 
 $(OUTDIR)/%.o: src/%.c
 	@mkdir -p $(OUTDIR)
-	$(CC) -std=c99 -pedantic -c -o $@ $(FLAGS) $(INCLUDE) $<
+	cc -std=c11 -pedantic -c -o $@ $(FLAGS) $(INCLUDE) $<
 
 boson: $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $@ $^
+	cc $(LDFLAGS) -o $@ $^
 
 all: boson
 

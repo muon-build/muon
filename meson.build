@@ -5,7 +5,7 @@ project(
 	license: 'GPL3',
 	meson_version: '>=0.48.0',
 	default_options: [
-		'c_std=c99',
+		'c_std=c11',
 		'warning_level=3',
 		'werror=true',
 		'buildtype=debugoptimized',
@@ -21,8 +21,11 @@ add_project_arguments(
 
 src = files(
 	'src/getopt_long.c',
+	'src/hash_table.c',
 	'src/log.c',
 	'src/ninja.c',
+	'src/function.c',
+	'src/eval.c',
 	'src/token.c',
 	'src/lexer.c',
 	'src/parser.c',
