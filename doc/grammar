@@ -8,7 +8,7 @@ expression_list
 	;
 
 keyword_item
-	: expression ':' expression
+	: IDENTIFIER ':' expression
 	;
 
 keyword_list

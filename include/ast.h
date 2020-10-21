@@ -1,6 +1,7 @@
 #ifndef BOSON_AST_H
 #define BOSON_AST_H
 
+#include <stddef.h>
 #include <stdbool.h>
 
 enum ast_expression_type {
@@ -50,7 +51,7 @@ struct ast_expression_list {
 };
 
 struct ast_keyword_list {
-	struct ast_expression **keys;
+	struct ast_identifier **keys;
 	struct ast_expression **values;
 	size_t n;
 };
@@ -66,7 +67,7 @@ struct ast_subscript {
 };
 
 struct ast_function {
-	struct ast_expression *left;
+	struct ast_identifier *left;
 	struct ast_arguments *right;
 };
 
