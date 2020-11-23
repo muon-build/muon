@@ -212,4 +212,6 @@ struct ast_statement {
 	} data;
 };
 
+const char *ast_expression_to_str(struct ast_expression *);
+
 #endif // BOSON_AST_H
