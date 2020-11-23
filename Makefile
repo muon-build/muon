@@ -2,7 +2,7 @@
 VERSION=0.0.1
 
 INCLUDE=-Iinclude
-FLAGS=-g -O0 -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common $(CFLAGS)
+FLAGS=-g -Wall -Wextra -Werror -Wno-unused-parameter -DVERSION='"$(VERSION)"' -fno-common $(CFLAGS)
 LDFLAGS=-static
 
 OUTDIR?=build
@@ -13,8 +13,10 @@ OBJECTS=\
 	$(OUTDIR)/hash_table.o \
 	$(OUTDIR)/log.o \
 	$(OUTDIR)/ninja.o \
+	$(OUTDIR)/options.o \
 	$(OUTDIR)/function.o \
 	$(OUTDIR)/eval.o \
+	$(OUTDIR)/ast.o \
 	$(OUTDIR)/token.o \
 	$(OUTDIR)/lexer.o \
 	$(OUTDIR)/parser.o \
