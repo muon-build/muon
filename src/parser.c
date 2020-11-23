@@ -14,36 +14,6 @@
 
 #define PATH_MAX 4096
 
-static const char *
-expr_to_str(enum ast_expression_type type)
-{
-#define TRANSLATE(e) case e: return #e;
-	switch (type) {
-	TRANSLATE(EXPRESSION_NONE);
-	TRANSLATE(EXPRESSION_ASSIGNMENT);
-	TRANSLATE(EXPRESSION_CONDITION);
-	TRANSLATE(EXPRESSION_OR);
-	TRANSLATE(EXPRESSION_AND);
-	TRANSLATE(EXPRESSION_EQUALITY);
-	TRANSLATE(EXPRESSION_RELATION);
-	TRANSLATE(EXPRESSION_ADDITION);
-	TRANSLATE(EXPRESSION_MULTIPLICATION);
-	TRANSLATE(EXPRESSION_UNARY);
-	TRANSLATE(EXPRESSION_SUBSCRIPT);
-	TRANSLATE(EXPRESSION_FUNCTION);
-	TRANSLATE(EXPRESSION_METHOD);
-	TRANSLATE(EXPRESSION_IDENTIFIER);
-	TRANSLATE(EXPRESSION_STRING);
-	TRANSLATE(EXPRESSION_ARRAY);
-	TRANSLATE(EXPRESSION_BOOL);
-	default:
-		report("unknown token");
-		break;
-	}
-#undef TRANSLATE
-	return "";
-}
-
 struct parser
 {
 	struct lexer lexer;
@@ -238,8 +208,7 @@ parse_arguments(struct parser *parser)
 		struct ast_expression *expression = parse_expression(parser);
 		if (accept(parser, TOKEN_COLON)) {
 			if (expression->type != EXPRESSION_IDENTIFIER) {
-				fatal("kwarg key must be an identifier, got %s",
-						expr_to_str(expression->type));
+				fatal("kwarg key must be an identifier");
 			}
 			keyword_list_appened(arguments->kwargs,
 					expression->data.identifier,
