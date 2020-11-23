@@ -4,7 +4,7 @@
 struct environment;
 struct ast_arguments;
 
-typedef int (*function)(struct environment *, struct ast_arguments *);
+typedef void (*function)(struct environment *, struct ast_arguments *);
 
 function get_function(const char *);
 

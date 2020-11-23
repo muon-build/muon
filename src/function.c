@@ -1,51 +1,25 @@
 #include "function.h"
 #include "ast.h"
 #include "eval.h"
+#include "options.h"
 #include "log.h"
 
+#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 
-/*
-static const char *
-expr_to_str(enum ast_expression_type type)
-{
-#define TRANSLATE(e) case e: return #e;
-	switch (type) {
-	TRANSLATE(EXPRESSION_NONE);
-	TRANSLATE(EXPRESSION_ASSIGNMENT);
-	TRANSLATE(EXPRESSION_CONDITION);
-	TRANSLATE(EXPRESSION_OR);
-	TRANSLATE(EXPRESSION_AND);
-	TRANSLATE(EXPRESSION_EQUALITY);
-	TRANSLATE(EXPRESSION_RELATION);
-	TRANSLATE(EXPRESSION_ADDITION);
-	TRANSLATE(EXPRESSION_MULTIPLICATION);
-	TRANSLATE(EXPRESSION_UNARY);
-	TRANSLATE(EXPRESSION_SUBSCRIPT);
-	TRANSLATE(EXPRESSION_FUNCTION);
-	TRANSLATE(EXPRESSION_METHOD);
-	TRANSLATE(EXPRESSION_IDENTIFIER);
-	TRANSLATE(EXPRESSION_STRING);
-	TRANSLATE(EXPRESSION_ARRAY);
-	TRANSLATE(EXPRESSION_BOOL);
-	default:
-		report("unknown token");
-		break;
-	}
-#undef TRANSLATE
-	return "";
-}
-*/
-
-static int
+static void
 project(struct environment *env, struct ast_arguments *args)
 {
 	if (args->args->expressions[0]->type != EXPRESSION_STRING) {
 		fatal("project: first argument must be a string literal");
 	}
 
-	env->name = args->args->expressions[0]->data.string->data;
+	env->name = calloc(args->args->expressions[0]->data.string->n,
+			sizeof(char));
+	strncpy(env->name, args->args->expressions[0]->data.string->data,
+			args->args->expressions[0]->data.string->n);
 
 	if (args->args->expressions[1]->type != EXPRESSION_STRING) {
 		fatal("project: second argument must be a string literal");
@@ -56,20 +30,63 @@ project(struct environment *env, struct ast_arguments *args)
 	}
 
 	for (size_t i = 0; i < args->kwargs->n; ++i) {
+		const char *key = args->kwargs->keys[i]->data;
+		struct ast_expression *value = args->kwargs->values[i];
+		if (strcmp(key, "version") == 0) {
+			if (value->type != EXPRESSION_STRING) {
+				fatal("version must be a string");
+			}
+			env->version = calloc(value->data.string->n,
+					sizeof(char));
+			strncpy(env->version, value->data.string->data,
+					value->data.string->n);
+		} else if (strcmp(key, "license") == 0) {
+			if (value->type == EXPRESSION_ARRAY) {
+				fatal("multiple licenses not supported");
+			} else if (value->type != EXPRESSION_STRING) {
+				fatal("license must be a string");
+			}
+			env->version = calloc(value->data.string->n,
+					sizeof(char));
+			strncpy(env->version, value->data.string->data,
+					value->data.string->n);
+		} else if (strcmp(key, "default_options") == 0) {
+			if (value->type != EXPRESSION_ARRAY) {
+				fatal("default_options must be an array");
+			}
 
-		//info("kwargs %s = %s", *(args->kwargs->keys[i]->data),
-		//		*(args->kwargs->values[i])->data);
+			for(size_t j = 0; j < value->data.array->n; ++j) {
+				struct ast_expression *option =
+					value->data.array->expressions[j];
+
+				if (option->type != EXPRESSION_STRING) {
+					fatal("option must be a string");
+				}
+
+				char k[32] = {0}, v[32] = {0};
+				sscanf(option->data.string->data, "%32[^=]=%s",
+						k, v);
+				if (!options_parse(env->options, k, v)) {
+					fatal("failed to parse option '%s=%s'",
+							k, v);
+				}
+			}
+		}
 	}
-	//struct ast_keyword_list *kwargs;
-
-	return -1;
 }
 
-static int
+static void
+add_project_arguments(struct environment *env, struct ast_arguments *expr)
+{
+	for (size_t i = 0; i < expr->args->n; ++i) {
+
+	}
+}
+
+static void
 todo(struct environment *env, struct ast_arguments *args)
 {
 	fatal("FUNCTION NOT IMPLEMENTED");
-	return -1;
 }
 
 static const struct {
@@ -79,7 +96,7 @@ static const struct {
 	{"add_global_arguments", todo},
 	{"add_global_link_arguments", todo},
 	{"add_languages", todo},
-	{"add_project_arguments", todo},
+	{"add_project_arguments", add_project_arguments},
 	{"add_project_link_arguments", todo},
 	{"add_test_setup", todo},
 	{"alias_target", todo},
@@ -151,6 +168,5 @@ get_function(const char *name)
 		}
 	}
 
-	fatal("function not found");
 	return NULL;
 }
