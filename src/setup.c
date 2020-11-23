@@ -15,6 +15,10 @@
 
 #include <errno.h>
 
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
 static int
 setup_usage(void)
 {
@@ -76,14 +80,15 @@ setup(int argc, char **argv)
 		source_dir = ".";
 	}
 
-	char cwd[PATH_MAX] = {0};
-	getcwd(cwd, sizeof(cwd));
+	char *cwd = calloc(PATH_MAX, sizeof(char));
+	getcwd(cwd, PATH_MAX);
 
 	char abs_source_dir[PATH_MAX] = {0}, abs_build_dir[PATH_MAX] = {0};
 	realpath(source_dir, abs_source_dir);
-	sprintf(abs_build_dir, "%s/%s", cwd, build_dir);
+	snprintf(abs_build_dir, PATH_MAX, "%s/%s", cwd, build_dir);
+	free(cwd);
 
-	printf("Version: " VERSION "\n");
+	info("Version: " VERSION);
 
 	struct ast_root root = parse(abs_source_dir);
 
