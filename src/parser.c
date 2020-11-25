@@ -251,6 +251,7 @@ parse_function(struct parser *parser, struct ast_expression *left)
 struct ast_expression *
 parse_method(struct parser *parser, struct ast_expression *left)
 {
+	assert(left);
 	if (left->type != EXPRESSION_IDENTIFIER
 			&& left->type != EXPRESSION_STRING) {
 		fatal("method must be called on an identifier or a string");
@@ -265,8 +266,14 @@ parse_method(struct parser *parser, struct ast_expression *left)
 	assert(expression->data.method);
 
 	expression->data.method->left = left;
-	expression->data.method->right = parse_expression(parser);
-	assert(expression->data.method->right->type == EXPRESSION_FUNCTION);
+	assert(expression->data.method->left);
+
+	struct ast_expression *right = parse_expression(parser);
+	if (right->type != EXPRESSION_FUNCTION) {
+		fatal("method right side must be a function");
+	}
+
+	expression->data.method->right = right->data.function;
 
 	return expression;
 }
