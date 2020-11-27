@@ -27,7 +27,7 @@ emit_ninja(struct node_root *root, const char *build_dir)
 	info("Build dir: %s", build_dir);
 
 	char ninja_path[PATH_MAX] = {0};
-	sprintf(ninja_path, "%s/build.ninja", build_dir);
+	snprintf(ninja_path, sizeof(ninja_path), "%s/build.ninja", build_dir);
 
 	FILE *ninja = fopen(ninja_path, "w");
 	if (!ninja) {
