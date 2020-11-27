@@ -73,7 +73,7 @@ struct ast_function {
 
 struct ast_method {
 	struct ast_expression *left;
-	struct ast_expression *right;
+	struct ast_function *right;
 };
 
 enum ast_unary_op {
