@@ -15,7 +15,7 @@ OBJECTS=\
 	$(OUTDIR)/ninja.o \
 	$(OUTDIR)/options.o \
 	$(OUTDIR)/function.o \
-	$(OUTDIR)/eval.o \
+	$(OUTDIR)/interpreter.o \
 	$(OUTDIR)/ast.o \
 	$(OUTDIR)/token.o \
 	$(OUTDIR)/lexer.o \

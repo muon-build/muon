@@ -2,18 +2,13 @@
 #define BOSON_INTERPRETER_H
 
 struct ast_root;
-struct options;
 
-struct environment {
+struct rules {
 	char *name;
 	char *version;
 	char *license;
-
-	struct options *options;
 };
 
-
-
-struct environment eval(struct ast_root *);
+struct rules interprete(struct ast_root *);
 
 #endif // BOSON_INTERPRETER_H
