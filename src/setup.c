@@ -4,7 +4,7 @@
 #include "log.h"
 #include "getopt_long.h"
 #include "parser.h"
-#include "eval.h"
+#include "interpreter.h"
 #include "ninja.h"
 
 #include <stddef.h>
@@ -92,8 +92,8 @@ setup(int argc, char **argv)
 
 	struct ast_root root = parse(abs_source_dir);
 
-	struct environment env = eval(&root);
-	(void)env;
+	struct context ctx = interpret_ast(&root);
+	(void)ctx;
 
 	return 0;
 	//return emit_ninja(&root, abs_build_dir);

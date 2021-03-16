@@ -1,6 +1,5 @@
-#include "function.h"
 #include "ast.h"
-#include "eval.h"
+#include "interpreter.h"
 #include "options.h"
 #include "log.h"
 
@@ -9,21 +8,17 @@
 #include <string.h>
 #include <stdio.h>
 
-static void
-project(struct environment *env, struct ast_arguments *args)
+static struct object *
+project(struct context *ctx, struct ast_arguments *args)
 {
 	if (args->args->expressions[0]->type != EXPRESSION_STRING) {
 		fatal("project: first argument must be a string literal");
 	}
 
-	env->name = calloc(args->args->expressions[0]->data.string->n,
-			sizeof(char));
-	strncpy(env->name, args->args->expressions[0]->data.string->data,
-			args->args->expressions[0]->data.string->n);
-
 	if (args->args->expressions[1]->type != EXPRESSION_STRING) {
 		fatal("project: second argument must be a string literal");
 	}
+
 	const char *language = args->args->expressions[1]->data.string->data;
 	if (strcmp(language, "c") != 0) {
 		fatal("project: %s language not supported", language);
@@ -36,20 +31,20 @@ project(struct environment *env, struct ast_arguments *args)
 			if (value->type != EXPRESSION_STRING) {
 				fatal("version must be a string");
 			}
-			env->version = calloc(value->data.string->n,
+			if (ctx->version.data) {
+				fatal("version has already been specified");
+			}
+			ctx->version.data = calloc(value->data.string->n,
 					sizeof(char));
-			strncpy(env->version, value->data.string->data,
+			strncpy(ctx->version.data, value->data.string->data,
 					value->data.string->n);
+			ctx->version.n = value->data.string->n;
 		} else if (strcmp(key, "license") == 0) {
 			if (value->type == EXPRESSION_ARRAY) {
 				fatal("multiple licenses not supported");
 			} else if (value->type != EXPRESSION_STRING) {
 				fatal("license must be a string");
 			}
-			env->version = calloc(value->data.string->n,
-					sizeof(char));
-			strncpy(env->version, value->data.string->data,
-					value->data.string->n);
 		} else if (strcmp(key, "default_options") == 0) {
 			if (value->type != EXPRESSION_ARRAY) {
 				fatal("default_options must be an array");
@@ -66,32 +61,71 @@ project(struct environment *env, struct ast_arguments *args)
 				char k[32] = {0}, v[32] = {0};
 				sscanf(option->data.string->data, "%32[^=]=%s",
 						k, v);
-				if (!options_parse(env->options, k, v)) {
+				if (!options_parse(ctx->options, k, v)) {
 					fatal("failed to parse option '%s=%s'",
 							k, v);
 				}
 			}
 		}
 	}
+
+	return NULL;
 }
 
-static void
-add_project_arguments(struct environment *env, struct ast_arguments *expr)
+static struct object *
+add_project_arguments(struct context *ctx, struct ast_arguments *args)
 {
-	for (size_t i = 0; i < expr->args->n; ++i) {
-
+	const char *language = NULL;
+	for (size_t i = 0; i < args->kwargs->n; ++i) {
+		const char *key = args->kwargs->keys[i]->data;
+		struct ast_expression *value = args->kwargs->values[i];
+		if (strcmp(key, "language") == 0) {
+			if (value->type != EXPRESSION_STRING) {
+				fatal("language must be a string");
+			}
+			if (language) {
+				fatal("language has already been specified");
+			}
+			language = value->data.string->data;
+		} else {
+			fatal("invalid keyword argument '%s'", key);
+		}
 	}
+
+	if (!language) {
+		fatal("missing language definition in 'add_project_arguments'");
+	} else if (strcmp(language, "c") != 0) {
+		fatal("language '%s' is not supported", language);
+	}
+
+	for (size_t i = 0; i < args->args->n; ++i) {
+		struct ast_expression *expr = args->args->expressions[i];
+		struct object *obj = eval_expression(ctx, expr);
+
+		const size_t new_size = ctx->project_arguments.n + 1;
+		ctx->project_arguments.data = realloc(
+				ctx->project_arguments.data,
+				new_size * sizeof(char*));
+		ctx->project_arguments.data[ctx->project_arguments.n] =
+			object_to_str(obj);
+		ctx->project_arguments.n = new_size;
+
+		free(obj);
+	}
+
+	return NULL;
 }
 
-static void
-todo(struct environment *env, struct ast_arguments *args)
+static struct object *
+todo(struct context *ctx, struct ast_arguments *args)
 {
 	fatal("FUNCTION NOT IMPLEMENTED");
+	return NULL;
 }
 
 static const struct {
 	const char *name;
-	function impl;
+	struct object *(*impl)(struct context *ctx, struct ast_arguments *);
 } functions[] = {
 	{"add_global_arguments", todo},
 	{"add_global_link_arguments", todo},
@@ -149,16 +183,18 @@ static const struct {
 	{"warning", todo}
 };
 
-function
-get_function(const char *name)
+struct object *
+eval_function(struct context *ctx, struct ast_function *function)
 {
+	const char *name = function->left->data;
+	info("builtin function '%s'", name);
 	int low = 0, mid, cmp;
 	int high = (sizeof(functions) / sizeof(functions[0])) - 1;
 	while (low <= high) {
 		mid = (low + high) / 2;
 		cmp = strcmp(name, functions[mid].name);
 		if (cmp == 0) {
-			return functions[mid].impl;
+			return functions[mid].impl(ctx, function->right);
 		}
 		if (cmp < 0) {
 			high = mid - 1;
@@ -168,5 +204,6 @@ get_function(const char *name)
 		}
 	}
 
+	fatal("builtin function not found: %s", name);
 	return NULL;
 }

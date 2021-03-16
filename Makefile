@@ -14,7 +14,8 @@ OBJECTS=\
 	$(OUTDIR)/log.o \
 	$(OUTDIR)/ninja.o \
 	$(OUTDIR)/options.o \
-	$(OUTDIR)/function.o \
+	$(OUTDIR)/object.o \
+	$(OUTDIR)/builtin.o \
 	$(OUTDIR)/interpreter.o \
 	$(OUTDIR)/ast.o \
 	$(OUTDIR)/token.o \
