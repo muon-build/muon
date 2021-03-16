@@ -162,7 +162,7 @@ enum ast_assignment_op {
 };
 
 struct ast_assignment {
-	struct ast_expression *left;
+	struct ast_identifier *left;
 	enum ast_assignment_op op;
 	struct ast_expression *right;
 };

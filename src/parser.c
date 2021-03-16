@@ -339,6 +339,10 @@ parse_assignment_op(struct parser *parser)
 struct ast_expression *
 parse_assignment(struct parser *parser, struct ast_expression *left)
 {
+	if (left->type != EXPRESSION_IDENTIFIER) {
+		fatal("assignment target must be an identifier");
+	}
+
 	struct ast_expression *expression = calloc(1,
 			sizeof(struct ast_expression));
 	assert(expression);
@@ -347,7 +351,7 @@ parse_assignment(struct parser *parser, struct ast_expression *left)
 	expression->data.assignment = calloc(1, sizeof(struct ast_assignment));
 	assert(expression->data.assignment);
 
-	expression->data.assignment->left = left;
+	expression->data.assignment->left = left->data.identifier;
 	expression->data.assignment->op = parse_assignment_op(parser);
 	expression->data.assignment->right = parse_expression(parser);
 
