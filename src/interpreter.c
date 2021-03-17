@@ -135,6 +135,25 @@ eval_method(struct context *ctx, struct ast_method *method)
 	return obj;
 }
 
+static struct object *
+eval_assignment(struct context *ctx, struct ast_assignment *assignment)
+{
+	struct object *obj = eval_expression(ctx, assignment->right);
+	obj->id = assignment->left->data;
+
+	void **value = hash_table_put(ctx->env, obj->id);
+
+	switch (assignment->op) {
+	case ASSIGNMENT_ASSIGN:
+		*value = obj;
+		break;
+	default:
+		fatal("todo assignment");
+	}
+
+	return NULL;
+}
+
 struct object *
 eval_expression(struct context *ctx, struct ast_expression *expression)
 {
@@ -149,6 +168,9 @@ eval_expression(struct context *ctx, struct ast_expression *expression)
 		break;
 	case EXPRESSION_STRING:
 		obj = eval_string(expression->data.string);
+		break;
+	case EXPRESSION_ASSIGNMENT:
+		obj = eval_assignment(ctx, expression->data.assignment);
 		break;
 	default:
 		fatal("todo handle expression %s",
@@ -187,23 +209,22 @@ interpret_ast(struct ast_root *root)
 	struct context ctx = {0};
 
 	ctx.options = options_create();
+	ctx.env = hash_table_create(8u);
 
 	check_first(root->statements[0]);
 
 	for (size_t i = 0; i < root->n - 1; ++i) {
 		struct ast_statement *statement = root->statements[i];
 
-		struct object *obj = NULL;
 		switch(statement->type) {
 		case STATEMENT_EXPRESSION:
-			obj = eval_expression(&ctx, statement->data.expression);
+			eval_expression(&ctx, statement->data.expression);
 			break;
 		case STATEMENT_SELECTION:
 		case STATEMENT_ITERATION:
 		default:
 			fatal("unknown statement");
 		}
-		(void)obj; // TODO add ot global scope
 	}
 
 	return ctx;
