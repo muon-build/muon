@@ -26,7 +26,7 @@ get_variable_value(const char *name)
 }
 */
 
-static struct object *
+struct object *
 eval_string(struct ast_string *string)
 {
 	struct object *obj = calloc(1, sizeof(struct object));

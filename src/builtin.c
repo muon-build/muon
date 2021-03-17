@@ -7,6 +7,11 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 static struct object *
 project(struct context *ctx, struct ast_arguments *args)
@@ -117,6 +122,51 @@ add_project_arguments(struct context *ctx, struct ast_arguments *args)
 }
 
 static struct object *
+files(struct context *ctx, struct ast_arguments *args)
+{
+	if (args->kwargs->n != 0) {
+		fatal("function 'files' takes no keyword arguments");
+	}
+
+	char *cwd = calloc(PATH_MAX, sizeof(char));
+	getcwd(cwd, PATH_MAX);
+
+	struct object *files = calloc(1, sizeof(struct object));
+	if (!files) {
+		fatal("failed to allocate file array");
+	}
+
+	files->type = OBJECT_TYPE_ARRAY;
+
+	for (size_t i = 0; i < args->args->n; ++i) {
+		struct ast_expression *expr = args->args->expressions[i];
+		if (expr->type != EXPRESSION_STRING) {
+			fatal("function 'files' takes only string arguments");
+		}
+		struct object *file = eval_string(expr->data.string);
+
+		char abs_path[PATH_MAX] = {0};
+		snprintf(abs_path, PATH_MAX, "%s/%s", cwd, file->string.data);
+
+		const size_t path_size = strlen(abs_path) + 1;
+		file->string.data = realloc(file->string.data,
+				path_size * sizeof(char));
+
+		strncpy(file->string.data, abs_path, path_size);
+		file->string.n = path_size;
+
+		const size_t files_size = files->array.n + 1;
+		files->array.objects = realloc(files->array.objects,
+			files_size * sizeof(struct object));
+		files->array.objects[files->array.n] = file;
+		files->array.n = files_size;
+	}
+
+	free(cwd);
+	return files;
+}
+
+static struct object *
 todo(struct context *ctx, struct ast_arguments *args)
 {
 	fatal("FUNCTION NOT IMPLEMENTED");
@@ -147,7 +197,7 @@ static const struct {
 	{"environment", todo},
 	{"error", todo},
 	{"executable", todo},
-	{"files", todo},
+	{"files", files},
 	{"find_library", todo},
 	{"find_program", todo},
 	{"generator", todo},

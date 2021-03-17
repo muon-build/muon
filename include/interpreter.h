@@ -8,6 +8,7 @@ struct options;
 struct ast_root;
 struct ast_expression;
 struct ast_function;
+struct ast_string;
 
 enum object_type {
 	OBJECT_TYPE_STRING = 0 << 0,
@@ -28,7 +29,7 @@ struct object {
 		bool boolean;
 		struct {
 			size_t n;
-			struct objects **objects;
+			struct object **objects;
 		} array;
 	};
 };
@@ -49,6 +50,8 @@ struct context {
 		char **data;
 	} project_arguments;
 };
+
+struct object *eval_string(struct ast_string *string);
 
 struct object *eval_meson_object(struct context *, struct ast_function *);
 
