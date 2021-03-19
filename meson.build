@@ -41,6 +41,5 @@ include_dir = include_directories('include')
 executable(
 	'boson',
 	src,
-	include_directories: [include_dir],
-	install: true,
+	include_directories: include_dir,
 )
