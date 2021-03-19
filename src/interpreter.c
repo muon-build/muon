@@ -88,7 +88,6 @@ string_format(struct context *ctx, struct object *object,
 static struct object *
 eval_string_method(struct context *ctx, struct ast_method *method)
 {
-	info("string method %s", method->right->left->data);
 	struct object *obj = eval_expression(ctx, method->left);
 
 	struct ast_function *func = method->right;
@@ -105,7 +104,6 @@ static struct object *
 eval_identifier_method(struct context *ctx, struct ast_method *method)
 {
 	struct ast_identifier *id = method->left->data.identifier;
-	info("identifier method %s", id->data);
 	struct object *obj = NULL;
 	if (strcmp(id->data, "meson") == 0) {
 		obj = eval_meson_object(ctx, method->right);
@@ -154,10 +152,15 @@ eval_assignment(struct context *ctx, struct ast_assignment *assignment)
 	return NULL;
 }
 
+static struct object *
+eval_identifier(struct context *ctx, struct ast_identifier *identifier)
+{
+	return hash_table_get(ctx->env, identifier->data);
+}
+
 struct object *
 eval_expression(struct context *ctx, struct ast_expression *expression)
 {
-	info("expression %s", ast_expression_to_str(expression));
 	struct object *obj = NULL;
 	switch (expression->type) {
 	case EXPRESSION_FUNCTION:
@@ -171,6 +174,9 @@ eval_expression(struct context *ctx, struct ast_expression *expression)
 		break;
 	case EXPRESSION_ASSIGNMENT:
 		obj = eval_assignment(ctx, expression->data.assignment);
+		break;
+	case EXPRESSION_IDENTIFIER:
+		obj = eval_identifier(ctx, expression->data.identifier);
 		break;
 	default:
 		fatal("todo handle expression %s",
