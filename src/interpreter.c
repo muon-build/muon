@@ -158,6 +158,29 @@ eval_identifier(struct context *ctx, struct ast_identifier *identifier)
 	return hash_table_get(ctx->env, identifier->data);
 }
 
+static struct object *
+eval_array(struct context *ctx, struct ast_expression_list *array)
+{
+	struct object *obj = calloc(1, sizeof(struct object));
+	if (!obj) {
+		fatal("failed to allocate array");
+	}
+
+	obj->type = OBJECT_TYPE_ARRAY;
+	obj->array.n = array->n;
+	obj->array.objects = calloc(array->n, sizeof(struct object*));
+
+	for (size_t i = 0; i < array->n; ++i) {
+		struct object *item = eval_expression(ctx, array->expressions[i]);
+		if (!item) {
+			fatal("array item at %zu is empty", i);
+		}
+		obj->array.objects[i] = item;
+	}
+
+	return obj;
+}
+
 struct object *
 eval_expression(struct context *ctx, struct ast_expression *expression)
 {
@@ -177,6 +200,9 @@ eval_expression(struct context *ctx, struct ast_expression *expression)
 		break;
 	case EXPRESSION_IDENTIFIER:
 		obj = eval_identifier(ctx, expression->data.identifier);
+		break;
+	case EXPRESSION_ARRAY:
+		obj = eval_array(ctx, expression->data.array);
 		break;
 	default:
 		fatal("todo handle expression %s",
