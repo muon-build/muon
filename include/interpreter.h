@@ -11,10 +11,10 @@ struct ast_function;
 struct ast_string;
 
 enum object_type {
-	OBJECT_TYPE_STRING = 0 << 0,
-	OBJECT_TYPE_NUMBER = 0 << 1,
-	OBJECT_TYPE_BOOLEAN = 0 << 2,
-	OBJECT_TYPE_ARRAY = 0 << 3,
+	OBJECT_TYPE_STRING = 1 << 0,
+	OBJECT_TYPE_NUMBER = 1 << 1,
+	OBJECT_TYPE_BOOLEAN = 1 << 2,
+	OBJECT_TYPE_ARRAY = 1 << 3,
 };
 
 struct object {
@@ -36,6 +36,30 @@ struct object {
 
 char *object_to_str(struct object *);
 
+enum build_target_type {
+	BUILD_TARGET_EXECUTABLE = 1 << 0,
+	BUILD_TARGET_SHARED = 1 << 1,
+	BUILD_TARGET_STATIC = 1 << 2,
+};
+
+struct build_target {
+	enum build_target_type type;
+	struct {
+		size_t n;
+		char* data;
+	} name;
+
+	struct {
+		size_t n;
+		char **files;
+	} source;
+
+	struct {
+		size_t n;
+		char **paths;
+	} include;
+};
+
 struct context {
 	struct {
 		size_t n;
@@ -49,6 +73,11 @@ struct context {
 		size_t n;
 		char **data;
 	} project_arguments;
+
+	struct {
+		size_t n;
+		struct build_target **targets;
+	} build;
 };
 
 struct object *eval_string(struct ast_string *string);
