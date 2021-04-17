@@ -93,8 +93,7 @@ setup(int argc, char **argv)
 	struct ast_root root = parse(abs_source_dir);
 
 	struct context ctx = interpret_ast(&root);
-	(void)ctx;
 
-	return 0;
-	//return emit_ninja(&root, abs_build_dir);
+	// TODO free ctx
+	return emit_ninja(&ctx, abs_build_dir);
 }

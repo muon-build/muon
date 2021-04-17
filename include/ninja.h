@@ -1,8 +1,8 @@
 #ifndef BOSON_NINJA_H
 #define BOSON_NINJA_H
 
-struct node_root;
+struct context;
 
-int emit_ninja(struct node_root *root, const char *build_dir);
+int emit_ninja(struct context *, const char *);
 
 #endif // BOSON_NINJA_H
