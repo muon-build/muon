@@ -44,12 +44,24 @@ add_project_arguments(struct context *ctx, struct ast_arguments *args)
 		struct ast_expression *expr = args->args->expressions[i];
 		struct object *obj = eval_expression(ctx, expr);
 
+		if (obj->type != OBJECT_TYPE_STRING) {
+			fatal("project argument must be a string");
+		}
+
+		if (strncmp("-D", obj->string.data, 2) == 0) {
+			obj->string.n += 3;
+			char *def = calloc(obj->string.n, sizeof(char));
+			snprintf(def, obj->string.n, "'%s'", obj->string.data);
+			free(obj->string.data);
+			obj->string.data = def;
+		}
+
 		const size_t new_size = ctx->project_arguments.n + 1;
 		ctx->project_arguments.data = realloc(
 				ctx->project_arguments.data,
 				new_size * sizeof(char*));
 		ctx->project_arguments.data[ctx->project_arguments.n] =
-			object_to_str(obj);
+			obj->string.data;
 		ctx->project_arguments.n = new_size;
 
 		free(obj);
