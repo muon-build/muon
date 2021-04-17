@@ -22,7 +22,6 @@ eval_meson_object(struct context *ctx, struct ast_function *function)
 {
 	struct ast_identifier *id = function->left;
 
-	info("meson object %s", id->data);
 	struct object *obj = NULL;
 
 	if (strcmp(id->data, "project_version") == 0) {
