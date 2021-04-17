@@ -156,16 +156,6 @@ files(struct context *ctx, struct ast_arguments *args)
 		}
 		struct object *file = eval_string(expr->data.string);
 
-		char abs_path[PATH_MAX] = {0};
-		snprintf(abs_path, PATH_MAX, "%s/%s", cwd, file->string.data);
-
-		const size_t path_size = strlen(abs_path) + 1;
-		file->string.data = realloc(file->string.data,
-				path_size * sizeof(char));
-
-		strncpy(file->string.data, abs_path, path_size);
-		file->string.n = path_size;
-
 		const size_t files_size = files->array.n + 1;
 		files->array.objects = realloc(files->array.objects,
 			files_size * sizeof(struct object));
