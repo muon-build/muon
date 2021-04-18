@@ -32,19 +32,16 @@ write_compiler(FILE *file)
 		cc = "cc";
 	}
 
-	char cmd[64] = {0};
-	snprintf(cmd, sizeof(cmd), "%s --version", cc);
+	char cmd[PATH_MAX] = {0};
+	snprintf(cmd, sizeof(cmd), "%s > /dev/null 2>&1", cc);
 
-	FILE *cmd_cc = popen(cmd, "r");
-	char line[2048] = {0};
-	fgets(line, sizeof(line), cmd_cc);
-	line[strcspn(line, "\n")] = 0;
-
-	info("Compiler is '%s'", line);
+	int rc = system(cmd);
+	if (WEXITSTATUS(rc) == 127) {
+		fatal("'%s' is not a valid compiler", cc);
+	}
 
 	fprintf(file, "cc = %s\n\n", cc);
 
-	pclose(cmd_cc);
 }
 
 static void
