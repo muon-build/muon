@@ -1,0 +1,13 @@
+image: alpine/latest
+packages:
+  - samurai
+sources:
+  - https://git.sr.ht/~bl4ckb0ne/boson
+tasks:
+  - build: |
+      cd boson
+      make
+  - ninja: |
+      cd boson
+      ./boson ninjabuild
+      ninja -C ninjabuild
