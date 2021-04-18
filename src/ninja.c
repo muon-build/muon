@@ -119,8 +119,12 @@ write_targets(FILE *file, struct context *ctx)
 
 		char includes[PATH_MAX] = {0};
 		for (size_t j = 0; j < target->include.n; ++j) {
-			snprintf(includes, sizeof(includes), "%s -I%s",
-					includes, target->include.paths[j]);
+			int r = snprintf(includes + strlen(includes),
+					sizeof(includes) - strlen(includes),
+					" -I%s", target->include.paths[j]);
+			if (r < 0) {
+				fatal("failed to compose inclues");
+			}
 		}
 
 
