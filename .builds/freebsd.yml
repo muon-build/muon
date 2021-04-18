@@ -1,0 +1,14 @@
+image: freebsd/latest
+packages:
+  - gmake
+  - samurai
+sources:
+  - https://git.sr.ht/~bl4ckb0ne/boson
+tasks:
+  - build: |
+      cd boson
+      gmake
+  - ninja: |
+      cd boson
+      ./boson ninjabuild
+      samu -C ninjabuild
