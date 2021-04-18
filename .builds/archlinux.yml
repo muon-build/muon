@@ -1,0 +1,14 @@
+image: archlinux
+packages:
+  - samurai
+  - clang
+sources:
+  - https://git.sr.ht/~bl4ckb0ne/boson
+tasks:
+  - build: |
+      cd boson
+      CC=clang make
+  - ninja: |
+      cd boson
+      ./boson ninjabuild
+      samu -C ninjabuild
