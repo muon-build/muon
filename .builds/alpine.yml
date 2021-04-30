@@ -6,8 +6,11 @@ sources:
 tasks:
   - build: |
       cd boson
+      mkdir build
+      cd build
+      ../configure
       make
   - ninja: |
       cd boson
-      ./boson ninjabuild
-      ninja -C ninjabuild
+      ./build/boson bosonbuild
+      samu -C bosonbuild

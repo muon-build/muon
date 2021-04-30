@@ -4,8 +4,6 @@
 #include "token.h"
 #include "log.h"
 
-#define _POSIX_C_SOURCE 200112L
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

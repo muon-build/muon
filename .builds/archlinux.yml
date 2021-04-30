@@ -7,8 +7,11 @@ sources:
 tasks:
   - build: |
       cd boson
-      CC=clang make
+      mkdir build
+      cd build
+      CC=clang ../configure
+      make
   - ninja: |
       cd boson
-      ./boson ninjabuild
-      samu -C ninjabuild
+      ./build/boson bosonbuild
+      samu -C bosonbuild

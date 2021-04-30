@@ -4,13 +4,13 @@
 #include "interpreter.h"
 #include "options.h"
 
-#define _POSIX_C_SOURCE 200112L
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 700
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #define PATH_MAX 4096
 
