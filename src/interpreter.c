@@ -35,6 +35,9 @@ eval_string(struct ast_string *string)
 	}
 
 	obj->string.data = calloc(string->n, sizeof(char));
+	if (!obj->string.data) {
+		fatal("failed to allocate string object's data");
+	}
 	strncpy(obj->string.data, string->data, string->n);
 	obj->string.n = string->n;
 
