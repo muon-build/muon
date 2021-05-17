@@ -1,8 +1,8 @@
-#include "parser.h"
-#include "ast.h"
+#include "darr.h"
 #include "lexer.h"
-#include "token.h"
 #include "log.h"
+#include "parser.h"
+#include "token.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -12,413 +12,726 @@
 
 #define PATH_MAX 4096
 
-struct parser
-{
-	struct lexer lexer;
-	struct token *cur;
-	struct token *last;
+const uint32_t arithmetic_type_count = 5;
+
+static const char *node_name[] = {
+	[node_bool] = "bool",
+	[node_id] = "id",
+	[node_number] = "number",
+	[node_string] = "string",
+	[node_format_string] = "format_string",
+	[node_continue] = "continue",
+	[node_break] = "break",
+	[node_argument] = "argument",
+	[node_array] = "array",
+	[node_dict] = "dict",
+	[node_empty] = "empty",
+	[node_or] = "or",
+	[node_and] = "and",
+	[node_comparison] = "comparison",
+	[node_arithmetic] = "arithmetic",
+	[node_not] = "not",
+	[node_index] = "index",
+	[node_method] = "method",
+	[node_function] = "function",
+	[node_assignment] = "assignment",
+	[node_plus_assignment] = "plus_assignment",
+	[node_foreach_clause] = "foreach_clause",
+	[node_if] = "if",
+	[node_if_clause] = "if_clause",
+	[node_u_minus] = "u_minus",
+	[node_ternary] = "ternary",
 };
 
+#define NODE_MAX_CHILDREN 3
+struct parser {
+	struct lexer lexer;
+	struct token *last_last, *last;
+	struct darr *nodes;
+	uint32_t token_i;
+};
+
+static struct token *
+next_tok(struct parser *p)
+{
+	p->last_last = p->last;
+	p->last = darr_get(&p->lexer.tok, p->token_i);
+	++p->token_i;
+	if (p->token_i >= p->lexer.tok.len) {
+		p->token_i = p->lexer.tok.len - 1;
+	}
+
+	return darr_get(&p->lexer.tok, p->token_i);
+}
+
 static bool
-accept(struct parser *parser, enum token_type type) {
-	if (parser->cur->type == type) {
-		free(parser->last);
-		parser->last = parser->cur;
-		parser->cur = lexer_tokenize(&parser->lexer);
+accept(struct parser *p, enum token_type type)
+{
+	if (p->last->type == type) {
+		next_tok(p);
 		return true;
 	}
+
 	return false;
+}
+
+static bool
+expect(struct parser *p, enum token_type type)
+{
+	if (!accept(p, type)) {
+		LOG_W(log_parse, "expecting token %s, got token %s",
+			token_type_to_string(type), token_to_string(p->last));
+		return false;
+	}
+
+	return true;
+}
+
+static struct node *
+make_node(struct parser *p, uint32_t *idx, enum node_type t)
+{
+	*idx = darr_push(p->nodes, &(struct node){ .type = t });
+	return darr_get(p->nodes, *idx);
+}
+
+static struct node *
+get_node(struct darr *nodes, uint32_t idx)
+{
+	return darr_get(nodes, idx);
+}
+
+static uint32_t
+get_child(struct ast *ast, uint32_t idx, uint32_t c)
+{
+	struct node *n = get_node(&ast->nodes, idx);
+	assert(c < NODE_MAX_CHILDREN);
+	enum node_child_flag chflg = 1 << c;
+	assert(chflg & n->chflg);
+	switch (chflg) {
+	case node_child_l:
+		return n->l;
+	case node_child_r:
+		return n->r;
+	case node_child_c:
+		return n->c;
+	}
+
+	assert(false && "unreachable");
+	return 0;
 }
 
 static void
-expect(struct parser *parser, enum token_type type)
+add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_t c_id)
 {
-	if (!accept(parser, type)) {
-		fatal("expected %s, got %s", token_type_to_string(type),
-				token_to_string(parser->cur));
+	struct node *n = darr_get(p->nodes, parent);
+	assert(!(chflg & n->chflg) && "you tried to set the same child more than once");
+	n->chflg |= chflg;
+
+	switch (chflg) {
+	case node_child_l:
+		n->l = c_id;
+		break;
+	case node_child_r:
+		n->r = c_id;
+		break;
+	case node_child_c:
+		n->c = c_id;
+		break;
 	}
 }
 
-struct ast_expression *parse_expression(struct parser *);
+#define BUF_SIZE 256
+
+const char *
+node_type_to_s(enum node_type t)
+{
+	return node_name[t];
+}
+
+
+const char *
+node_to_s(struct node *n)
+{
+	static char buf[BUF_SIZE + 1];
+	uint32_t i = 0;
+
+	i += snprintf(&buf[i], BUF_SIZE - i, "%s", node_name[n->type]);
+
+	switch (n->type) {
+	case node_id:
+	case node_number:
+	case node_string:
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->tok->data);
+		break;
+	case node_argument:
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == arg_kwarg ? "kwarg" : "normal");
+		break;
+	default:
+		break;
+	}
+
+	return buf;
+}
 
 void
-expression_list_appened(struct ast_expression_list *list,
-		struct ast_expression *expression)
+print_tree(struct ast *ast, uint32_t id, uint32_t d)
 {
-	if (list == NULL) {
-		fatal("cannot appened expression to empty list");
+	struct node *n = get_node(&ast->nodes, id);
+	uint32_t i;
+
+	for (i = 0; i < d; ++i) {
+		putc(' ', stdout);
 	}
 
-	const size_t new_size = list->n + 1;
+	printf("node: %d, %s\n", id, node_to_s(n));
 
-	list->expressions = realloc(list->expressions,
-			new_size * sizeof(struct ast_expression));
-	list->expressions[list->n] = expression;
-	list->n = new_size;
+	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
+		if ((1 << i) & n->chflg) {
+			print_tree(ast, get_child(ast, id, i), d + 1);
+		}
+	}
 }
 
-void
-keyword_list_appened(struct ast_keyword_list *list,
-		struct ast_identifier *key, struct ast_expression *value)
+typedef bool (*parse_func)(struct parser *, uint32_t *);
+static bool parse_stmt(struct parser *p, uint32_t *id);
+
+static bool
+parse_args(struct parser *p, uint32_t *id)
 {
-	if (list == NULL) {
-		fatal("cannot appened keyword to empty list");
+	uint32_t s_id, c_id, v_id;
+	enum arg_type at = arg_normal;
+	struct node *n;
+
+	if (!parse_stmt(p, &s_id)) {
+		return false;
 	}
 
-	const size_t new_size = list->n + 1;
-
-	list->keys = realloc(list->keys,
-			new_size * sizeof(struct ast_identifier));
-	list->values = realloc(list->values,
-			new_size * sizeof(struct ast_expression));
-	list->keys[list->n] = key;
-	list->values[list->n] = value;
-	list->n = new_size;
-}
-
-struct ast_identifier *
-parse_identifier(struct parser *parser)
-{
-	struct ast_identifier *identifier = calloc(1,
-			sizeof(struct ast_identifier));
-	if (!identifier) {
-		fatal("failed to allocate identifier node");
+	if (get_node(p->nodes, s_id)->type == node_empty) {
+		*id = s_id;
+		return true;
 	}
 
-	identifier->data = calloc(parser->last->n + 1, sizeof(char));
-	strncpy(identifier->data, parser->last->data, parser->last->n);
-	identifier->n = parser->last->n;
+	if (accept(p, tok_colon)) {
+		at = arg_kwarg;
 
-	return identifier;
-}
-
-struct ast_string *
-parse_string(struct parser *parser)
-{
-	struct ast_string *string = calloc(1, sizeof(struct ast_string));
-	if (!string) {
-		fatal("failed to allocate string node");
-	}
-
-	string->data = calloc(parser->last->n + 1, sizeof(char));
-	strncpy(string->data, parser->last->data, parser->last->n);
-	string->n = parser->last->n;
-
-	return string;
-}
-
-/*
- * An array is a list containing an arbitrary number of any types
- * It is delimited by brackets, and separated by commas.
- *
- * arr = [1, 2, 3, 'soleil']
- */
-struct ast_expression_list *
-parse_array(struct parser *parser)
-{
-	struct ast_expression_list *list = calloc(1,
-			sizeof(struct ast_expression_list));
-	if (!list) {
-		fatal("failed to allocate array");
-	}
-
-	for (;;) {
-		while (accept(parser, TOKEN_EOL));
-
-		if (accept(parser, TOKEN_RBRACK)) {
-			break;
+		if (get_node(p->nodes, s_id)->type != node_id) {
+			LOG_W(log_parse, "Dictionary key must be a plain identifier.");
+			return false;
 		}
 
-		expression_list_appened(list, parse_expression(parser));
-
-		if (accept(parser, TOKEN_RBRACK)) {
-			break;
+		if (!parse_stmt(p, &v_id)) {
+			return false;
 		}
 
-		expect(parser, TOKEN_COMMA);
-	}
+		if (!accept(p, tok_comma)) {
+			n = make_node(p, id, node_argument);
+			n->data = at;
 
-	return list;
-}
-
-struct ast_bool *
-parse_bool(struct parser *parser)
-{
-	struct ast_bool *boolean = calloc(1, sizeof(struct ast_bool));
-	assert(boolean);
-
-	if (parser->last->type == TOKEN_TRUE) {
-		boolean->value = true;
-	} else if (parser->last->type == TOKEN_FALSE) {
-		boolean->value = false;
-	}
-
-	return boolean;
-}
-
-struct ast_expression *
-parse_primary(struct parser *parser)
-{
-	struct ast_expression *expression = calloc(1,
-			sizeof(struct ast_expression));
-	if (!expression) {
-		fatal("failed to allocate expression node");
-	}
-
-	if (accept(parser, TOKEN_IDENTIFIER)) {
-		expression->type = EXPRESSION_IDENTIFIER;
-		expression->data.identifier = parse_identifier(parser);
-	} else if (accept(parser, TOKEN_STRING)) {
-		expression->type = EXPRESSION_STRING;
-		expression->data.string = parse_string(parser);
-	} else if (accept(parser, TOKEN_LBRACK)) {
-		expression->type = EXPRESSION_ARRAY;
-		expression->data.array = parse_array(parser);
-	} else if (accept(parser, TOKEN_TRUE) || accept(parser, TOKEN_FALSE)) {
-		expression->type = EXPRESSION_BOOL;
-		expression->data.boolean = parse_bool(parser);
-	} else {
-		fatal("unexpected token %s", token_to_string(parser->cur));
-	}
-
-	return expression;
-}
-
-struct ast_arguments *
-parse_arguments(struct parser *parser)
-{
-	struct ast_arguments *arguments = calloc(1,
-			sizeof(struct ast_arguments));
-	assert(arguments);
-
-	arguments->args = calloc(1, sizeof(struct ast_expression_list));
-	assert(arguments->args);
-	arguments->kwargs = calloc(1, sizeof(struct ast_keyword_list));
-	assert(arguments->kwargs);
-
-	for (;;) {
-		while (accept(parser, TOKEN_EOL));
-
-		if (accept(parser, TOKEN_RPAREN)) {
-			break;
-		}
-
-		struct ast_expression *expression = parse_expression(parser);
-		if (accept(parser, TOKEN_COLON)) {
-			if (expression->type != EXPRESSION_IDENTIFIER) {
-				fatal("kwarg key must be an identifier");
-			}
-			keyword_list_appened(arguments->kwargs,
-					expression->data.identifier,
-					parse_expression(parser));
-		} else {
-			expression_list_appened(arguments->args, expression);
-		}
-
-		if (accept(parser, TOKEN_RPAREN)) {
-			break;
-		}
-
-		expect(parser, TOKEN_COMMA);
-	}
-
-	return arguments;
-}
-
-static struct ast_expression *
-parse_function(struct parser *parser, struct ast_expression *left)
-{
-	if (left->type != EXPRESSION_IDENTIFIER) {
-		fatal("function should be an identifier");
-	}
-
-	struct ast_expression *expression = calloc(1,
-			sizeof(struct ast_expression));
-	assert(expression);
-
-	expression->type = EXPRESSION_FUNCTION;
-	expression->data.function = calloc(1, sizeof(struct ast_function));
-	assert(expression->data.function);
-
-	expression->data.function->left = left->data.identifier;
-	expression->data.function->right = parse_arguments(parser);
-
-	return expression;
-}
-
-struct ast_expression *
-parse_method(struct parser *parser, struct ast_expression *left)
-{
-	assert(left);
-	if (left->type != EXPRESSION_IDENTIFIER
-			&& left->type != EXPRESSION_STRING) {
-		fatal("method must be called on an identifier or a string");
-	}
-
-	struct ast_expression *expression = calloc(1,
-			sizeof(struct ast_expression));
-	assert(expression);
-
-	expression->type = EXPRESSION_METHOD;
-	expression->data.method = calloc(1, sizeof(struct ast_method));
-	assert(expression->data.method);
-
-	expression->data.method->left = left;
-	assert(expression->data.method->left);
-
-	struct ast_expression *right = parse_expression(parser);
-	if (right->type != EXPRESSION_FUNCTION) {
-		fatal("method right side must be a function");
-	}
-
-	expression->data.method->right = right->data.function;
-
-	return expression;
-}
-
-struct ast_expression *
-parse_postfix(struct parser *parser)
-{
-	struct ast_expression *expression = parse_primary(parser);
-
-	if (accept(parser, TOKEN_LPAREN)) {
-		return parse_function(parser, expression);
-	} else if (accept(parser, TOKEN_DOT)) {
-		return parse_method(parser, expression);
-	}
-
-	return expression;
-}
-
-bool
-is_assignment_op(struct parser *parser)
-{
-	static const enum token_type ops[] = {
-		TOKEN_ASSIGN,
-		TOKEN_STAREQ,
-		TOKEN_SLASHEQ,
-		TOKEN_MODEQ,
-		TOKEN_PLUSEQ,
-		TOKEN_MINEQ,
-	};
-
-	for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); ++i) {
-		if (parser->cur->type == ops[i]) {
+			add_child(p, *id, node_child_l, s_id);
+			add_child(p, *id, node_child_r, v_id);
 			return true;
 		}
+	} else if (!accept(p, tok_comma)) {
+		n = make_node(p, id, node_argument);
+		n->data = at;
+
+		add_child(p, *id, node_child_l, s_id);
+		return true;
 	}
 
+	if (!parse_args(p, &c_id)) {
+		return false;
+	}
+
+	n = make_node(p, id, node_argument);
+	n->data = at;
+
+	add_child(p, *id, node_child_l, s_id);
+	if (at == arg_kwarg) {
+		add_child(p, *id, node_child_r, v_id);
+	}
+	add_child(p, *id, node_child_c, c_id);
+
+	return true;
+}
+
+static bool
+parse_key_values(struct parser *p, uint32_t *id)
+{
+	uint32_t s_id, v_id, c_id;
+	struct node *n;
+
+	if (!parse_stmt(p, &s_id)) {
+		return false;
+	}
+
+	if (get_node(p->nodes, s_id)->type == node_empty) {
+		*id = s_id;
+		return true;
+	}
+
+	if (!accept(p, tok_colon)) {
+		LOG_W(log_parse, "missing colon");
+		return false;
+	}
+
+	if (!parse_stmt(p, &v_id)) {
+		return false;
+	}
+
+	if (!accept(p, tok_comma)) {
+		n = make_node(p, id, node_argument);
+		n->data = arg_kwarg;
+
+		add_child(p, *id, node_child_l, s_id);
+		add_child(p, *id, node_child_r, v_id);
+		return true;
+	}
+
+	if (!parse_key_values(p, &c_id)) {
+		return false;
+	}
+
+	n = make_node(p, id, node_argument);
+	n->data = arg_kwarg;
+
+	add_child(p, *id, node_child_l, s_id);
+	add_child(p, *id, node_child_r, v_id);
+	add_child(p, *id, node_child_c, c_id);
+
+	return true;
+}
+
+static bool
+parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id)
+{
 	return false;
 }
 
-enum ast_assignment_op
-parse_assignment_op(struct parser *parser)
+static bool
+parse_e9(struct parser *p, uint32_t *id)
 {
-	if (accept(parser, TOKEN_ASSIGN)) {
-		return ASSIGNMENT_ASSIGN;
-	} else if (accept(parser, TOKEN_STAREQ)) {
-		return ASSIGNMENT_STAREQ;
-	} else if (accept(parser, TOKEN_SLASHEQ)) {
-		return ASSIGNMENT_SLASHEQ;
-	} else if (accept(parser, TOKEN_MODEQ)) {
-		return ASSIGNMENT_MODEQ;
-	} else if (accept(parser, TOKEN_PLUSEQ)) {
-		return ASSIGNMENT_PLUSEQ;
-	} else if (accept(parser, TOKEN_MINEQ)) {
-		return ASSIGNMENT_MINEQ;
+	struct node *n;
+
+	if (accept(p, tok_true)) {
+		n = make_node(p, id, node_bool);
+		n->data = 1;
+	} else if (accept(p, tok_false)) {
+		n = make_node(p, id, node_bool);
+		n->data = 0;
+	} else if (accept(p, tok_identifier)) {
+		n = make_node(p, id, node_id);
+		n->tok = p->last_last;
+	} else if (accept(p, tok_number)) {
+		n = make_node(p, id, node_number);
+		n->tok = p->last_last;
+	} else if (accept(p, tok_string)) {
+		n = make_node(p, id, node_string);
+		n->tok = p->last_last;
 	} else {
-		fatal("%s is not an assignment operation",
-				token_to_string(parser->cur));
+		make_node(p, id, node_empty);
 	}
 
-	return -1;
+	return true;
 }
 
-struct ast_expression *
-parse_assignment(struct parser *parser, struct ast_expression *left)
+static bool
+parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id)
 {
-	if (left->type != EXPRESSION_IDENTIFIER) {
-		fatal("assignment target must be an identifier");
+	uint32_t meth_id, args, c_id = 0;
+	bool have_c = false;
+
+	if (!parse_e9(p, &meth_id)) {
+		return false;
+	} else if (!expect(p, tok_lparen)) {
+		return false;
+	} else if (!parse_args(p, &args)) {
+		return false;
+	} else if (!expect(p, tok_rparen)) {
+		return false;
 	}
 
-	struct ast_expression *expression = calloc(1,
-			sizeof(struct ast_expression));
-	assert(expression);
+	if (accept(p, tok_dot)) {
+		have_c = true;
 
-	expression->type = EXPRESSION_ASSIGNMENT;
-	expression->data.assignment = calloc(1, sizeof(struct ast_assignment));
-	assert(expression->data.assignment);
+		if (!parse_method_call(p, &c_id, l_id)) {
+			return false;
+		}
+	}
 
-	expression->data.assignment->left = left->data.identifier;
-	expression->data.assignment->op = parse_assignment_op(parser);
-	expression->data.assignment->right = parse_expression(parser);
+	struct node *n;
+	n = make_node(p, id, node_method);
+	n->data = have_c;
 
-	return expression;
+	add_child(p, *id, node_child_l, meth_id);
+	add_child(p, *id, node_child_r, args);
+
+	if (have_c) {
+		add_child(p, *id, node_child_c, c_id);
+	}
+
+	return true;
 }
 
-struct ast_expression *
-parse_expression(struct parser *parser)
+static bool
+parse_e8(struct parser *p, uint32_t *id)
 {
-	//struct ast_expression *left = parse_or(parser);
-	struct ast_expression *left = parse_postfix(parser);
-	if (is_assignment_op(parser)) {
-		return parse_assignment(parser, left);
-	} else if (accept(parser, TOKEN_QM)) {
-		fatal("todo condition expression");
-	}
+	uint32_t v;
 
-	return left;
-}
+	if (accept(p, tok_lparen)) {
+		return parse_stmt(p, id);
+	} else if (accept(p, tok_lbrack)) {
+		if (!parse_args(p, &v)) {
+			return false;
+		}
 
-struct ast_statement *
-parse_statement(struct parser *parser)
-{
-	struct ast_statement *statement = calloc(1,
-			sizeof(struct ast_statement));
-	if (!statement) {
-		fatal("failed to allocate statement node");
-	}
+		if (!expect(p, tok_rbrack)) {
+			return false;
+		}
 
-	while (accept(parser, TOKEN_EOL));
+		make_node(p, id, node_array);
+		add_child(p, *id, node_child_l, v);
+	} else if (accept(p, tok_lcurl)) {
+		if (!parse_key_values(p, &v)) {
+			return false;
+		}
 
-	if (accept(parser, TOKEN_EOF)) {
-		free(statement);
-		return NULL;
-	} else if (accept(parser, TOKEN_FOREACH)) {
-		statement->type = STATEMENT_ITERATION;
-		fatal("TODO iteration statement");
-	} else if (accept(parser, TOKEN_IF)) {
-		statement->type = STATEMENT_SELECTION;
-		fatal("TODO selection statement");
+		if (!expect(p, tok_rcurl)) {
+			return false;
+		}
+
+		make_node(p, id, node_dict);
+		add_child(p, *id, node_child_l, v);
 	} else {
-		statement->type = STATEMENT_EXPRESSION;
-		statement->data.expression = parse_expression(parser);
+		return parse_e9(p, id);
 	}
 
-	return statement;
+	return true;
 }
 
-struct ast_root
-parse(const char *source_dir)
+static bool
+parse_e7(struct parser *p, uint32_t *id)
 {
-	info("Source dir: %s", source_dir);
-
-	char source_path[PATH_MAX] = {0};
-	snprintf(source_path, sizeof(source_path), "%s/%s", source_dir,
-			"meson.build");
-
-	struct parser parser = {0};
-	lexer_init(&parser.lexer, source_path);
-	parser.cur = lexer_tokenize(&parser.lexer);
-
-	struct ast_root root = { 0 };
-	while (parser.cur->type != TOKEN_EOF) {
-		root.statements = realloc(root.statements,
-				++root.n * sizeof(struct ast_statement *));
-		root.statements[root.n - 1] = parse_statement(&parser);
+	uint32_t p_id, l_id;
+	if (!(parse_e8(p, &l_id))) {
+		return false;
 	}
 
-	lexer_finish(&parser.lexer);
+	if (accept(p, tok_lparen)) {
+		uint32_t args;
 
-	return root;
+		if (!parse_args(p, &args)) {
+			return false;
+		} else if (!expect(p, tok_rparen)) {
+			return false;
+		}
+
+		if (get_node(p->nodes, l_id)->type != node_id) {
+			LOG_W(log_parse, "Function call must be applied to plain id");
+			return false;
+		}
+
+		make_node(p, &p_id, node_function);
+		add_child(p, p_id, node_child_l, l_id);
+		add_child(p, p_id, node_child_r, args);
+		l_id = p_id;
+	}
+
+	bool loop = true;
+	while (loop) {
+		loop = false;
+		if (accept(p, tok_dot)) {
+			loop = true;
+			if (!parse_method_call(p, &p_id, l_id)) {
+				return false;
+			}
+			l_id = p_id;
+		}
+
+		if (accept(p, tok_lbrack)) {
+			loop = true;
+			if (!parse_index_call(p, &p_id, l_id)) {
+				return false;
+			}
+			l_id = p_id;
+		}
+	}
+
+	*id = l_id;
+	return true;
+}
+
+static bool
+parse_e6(struct parser *p, uint32_t *id)
+{
+	uint32_t l_id;
+	if (!(parse_e7(p, &l_id))) {
+		return false;
+	}
+
+	if (accept(p, tok_not)) {
+		make_node(p, id, node_not);
+		add_child(p, *id, node_child_l, l_id);
+	} else if (accept(p, tok_minus)) {
+		make_node(p, id, node_u_minus);
+		add_child(p, *id, node_child_r, l_id);
+	} else {
+		*id = l_id;
+	}
+
+	return true;
+}
+
+static bool
+parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
+	uint32_t map_start, uint32_t map_end)
+{
+	static enum token_type map[] = {
+		[arith_add] = tok_plus,
+		[arith_sub] = tok_minus,
+		[arith_mod] = tok_modulo,
+		[arith_mul] = tok_star,
+		[arith_div] = tok_slash,
+	};
+	struct node *n;
+
+	uint32_t i, p_id, l_id, r_id;
+	if (!(parse_upper(p, &l_id))) {
+		return false;
+	}
+
+	while (true) {
+		for (i = map_start; i < map_end; ++i) {
+			if (accept(p, map[i])) {
+				n = make_node(p, &p_id, node_arithmetic);
+				n->data = i;
+
+				if (!(parse_upper(p, &r_id))) {
+					return false;
+				}
+
+				add_child(p, p_id, node_child_l, l_id);
+				l_id = p_id;
+			}
+		}
+
+		if (i == map_end) {
+			break;
+		}
+	}
+
+	*id = l_id;
+	return true;
+}
+
+static bool
+parse_e5muldiv(struct parser *p, uint32_t *id)
+{
+	return parse_arith(p, id, parse_e6, arith_mod, arithmetic_type_count);
+}
+
+static bool
+parse_e5addsub(struct parser *p, uint32_t *id)
+{
+	return parse_arith(p, id, parse_e5muldiv, 0, arith_mod);
+}
+
+static bool
+make_comparison_node(struct parser *p, uint32_t *id, uint32_t l_id, enum comparison_type comp)
+{
+	uint32_t r_id;
+	struct node *n = make_node(p, id, node_comparison);
+	n->data = comp;
+
+	if (!(parse_e5addsub(p, &r_id))) {
+		return false;
+	}
+
+	add_child(p, *id, node_child_l, l_id);
+	add_child(p, *id, node_child_r, r_id);
+
+	return true;
+}
+
+static bool
+parse_e4(struct parser *p, uint32_t *id)
+{
+	static enum token_type map[] = {
+		[comp_equal] = tok_eq,
+		[comp_nequal] = tok_neq,
+		[comp_lt] = tok_lt,
+		[comp_le] = tok_leq,
+		[comp_gt] = tok_gt,
+		[comp_ge] = tok_geq,
+		[comp_in] = tok_in,
+	};
+
+	uint32_t i, l_id;
+	if (!(parse_e5addsub(p, &l_id))) {
+		return false;
+	}
+
+	for (i = 0; i < comp_not_in; ++i) {
+		if (accept(p, map[i])) {
+			return make_comparison_node(p, id, l_id, i);
+		}
+	}
+
+	if (accept(p, tok_not) && accept(p, tok_in)) {
+		return make_comparison_node(p, id, l_id, comp_not_in);
+	}
+
+	*id = l_id;
+	return true;
+}
+
+static bool
+parse_e3(struct parser *p, uint32_t *id)
+{
+	uint32_t p_id, l_id, r_id;
+	if (!(parse_e4(p, &l_id))) {
+		return false;
+	}
+
+	while (accept(p, tok_or)) {
+		make_node(p, &p_id, node_and);
+		if (!parse_e4(p, &r_id)) {
+			return false;
+		}
+
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, r_id);
+
+		l_id = p_id;
+	}
+
+	*id = l_id;
+	return true;
+}
+
+static bool
+parse_e2(struct parser *p, uint32_t *id)
+{
+	uint32_t p_id, l_id, r_id;
+	if (!(parse_e3(p, &l_id))) {
+		return false;
+	}
+
+	while (accept(p, tok_or)) {
+		make_node(p, &p_id, node_or);
+		if (!parse_e3(p, &r_id)) {
+			return false;
+		}
+
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, r_id);
+
+		l_id = p_id;
+	}
+
+	*id = l_id;
+	return true;
+}
+
+static bool
+parse_stmt(struct parser *p, uint32_t *id)
+{
+	uint32_t l_id = 0; // compiler thinks this won't get initialized...
+	if (!(parse_e2(p, &l_id))) {
+		return false;
+	}
+
+	if (accept(p, tok_plus)) {
+		uint32_t v;
+
+		if (get_node(p->nodes, l_id)->type != node_id) {
+			LOG_W(log_parse, "Plusassignment target must be an id.");
+			return false;
+		} else if (!parse_stmt(p, &v)) {
+			return false;
+		}
+
+		make_node(p, id, node_plus_assignment);
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, v);
+	} else if (accept(p, tok_assign)) {
+		uint32_t v;
+
+		if (get_node(p->nodes, l_id)->type != node_id) {
+			LOG_W(log_parse, "assignment target must be an id.");
+			return false;
+		} else if (!parse_stmt(p, &v)) {
+			return false;
+		}
+
+		make_node(p, id, node_assignment);
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, v);
+	} else if (accept(p, tok_question_mark)) {
+		uint32_t a, b;
+
+		if (!(parse_stmt(p, &a))) {
+			return false;
+		} else if (!(parse_stmt(p, &b))) {
+			return false;
+		}
+
+		make_node(p, id, node_ternary);
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, a);
+		add_child(p, *id, node_child_c, b);
+	} else {
+		*id = l_id;
+	}
+
+	return true;
+}
+
+bool
+parse(struct ast *ast, const char *source_dir)
+{
+	LOG_W(log_misc, "Source dir: %s", source_dir);
+
+	char source_path[PATH_MAX] = { 0 };
+	snprintf(source_path, PATH_MAX, "%s/%s", source_dir, "meson.build");
+
+	struct parser parser = { .nodes = &ast->nodes };
+	uint32_t id;
+
+	darr_init(parser.nodes, sizeof(struct node));
+	darr_init(&ast->ast, sizeof(uint32_t));
+
+	if (!lexer_init(&parser.lexer, source_path)) {
+		return false;
+	} else if (!lexer_tokenize(&parser.lexer)) {
+		goto err;
+	}
+
+	next_tok(&parser);
+
+	bool loop = true;
+	while (loop) {
+		if (!(parse_stmt(&parser, &id))) {
+			LOG_W(log_misc, "unexpected token %s while parsing '%s'",
+				token_to_string(parser.last), source_path);
+			goto err;
+		}
+
+		if (get_node(parser.nodes, id)->type != node_empty) {
+			darr_push(&ast->ast, &id);
+		}
+
+		loop = accept(&parser, tok_eol);
+	}
+
+	if (!expect(&parser, tok_eof)) {
+		goto err;
+	}
+
+
+	/* lexer_finish(&parser.lexer); */
+	return true;
+err:
+	/* lexer_finish(&parser.lexer); */
+	return false;
 }

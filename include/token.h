@@ -2,63 +2,65 @@
 #define BOSON_TOKEN_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 enum token_type {
-	TOKEN_EOF,
-	TOKEN_EOL,
-	TOKEN_LPAREN,
-	TOKEN_RPAREN,
-	TOKEN_LBRACK,
-	TOKEN_RBRACK,
-	TOKEN_LCURL,
-	TOKEN_RCURL,
-	TOKEN_DOT,
-	TOKEN_COMMA,
-	TOKEN_COLON,
-	TOKEN_ASSIGN,
-	TOKEN_PLUS,
-	TOKEN_MINUS,
-	TOKEN_STAR,
-	TOKEN_SLASH,
-	TOKEN_MODULO,
-	TOKEN_PLUSEQ,
-	TOKEN_MINEQ,
-	TOKEN_STAREQ,
-	TOKEN_SLASHEQ,
-	TOKEN_MODEQ,
-	TOKEN_EQ,
-	TOKEN_NEQ,
-	TOKEN_GT,
-	TOKEN_GEQ,
-	TOKEN_LT,
-	TOKEN_LEQ,
-	TOKEN_TRUE,
-	TOKEN_FALSE,
-	TOKEN_IF,
-	TOKEN_ELSE,
-	TOKEN_ELIF,
-	TOKEN_ENDIF,
-	TOKEN_AND,
-	TOKEN_OR,
-	TOKEN_NOT,
-	TOKEN_QM,
-	TOKEN_FOREACH,
-	TOKEN_ENDFOREACH,
-	TOKEN_IN,
-	TOKEN_CONTINUE,
-	TOKEN_BREAK,
-	TOKEN_IDENTIFIER,
-	TOKEN_STRING,
-	TOKEN_NUMBER,
+	tok_eof,
+	tok_eol,
+	tok_lparen,
+	tok_rparen,
+	tok_lbrack,
+	tok_rbrack,
+	tok_lcurl,
+	tok_rcurl,
+	tok_dot,
+	tok_comma,
+	tok_colon,
+	tok_assign,
+	tok_plus,
+	tok_minus,
+	tok_star,
+	tok_slash,
+	tok_modulo,
+	tok_pluseq,
+	tok_mineq,
+	tok_stareq,
+	tok_slasheq,
+	tok_modeq,
+	tok_eq,
+	tok_neq,
+	tok_gt,
+	tok_geq,
+	tok_lt,
+	tok_leq,
+	tok_true,
+	tok_false,
+	tok_if,
+	tok_else,
+	tok_elif,
+	tok_endif,
+	tok_and,
+	tok_or,
+	tok_not,
+	tok_qm,
+	tok_foreach,
+	tok_endforeach,
+	tok_in,
+	tok_continue,
+	tok_break,
+	tok_identifier,
+	tok_string,
+	tok_number,
+	tok_question_mark,
 };
+
+#define TOKEN_MAX_DATA 64
 
 struct token {
+	char data[TOKEN_MAX_DATA + 1];
 	enum token_type type;
-	size_t n;
-	char *data;
+	uint32_t n, line, col;
 };
-
-void token_destroy(struct token *);
 
 const char *token_type_to_string(enum token_type);
 const char *token_to_string(struct token *);

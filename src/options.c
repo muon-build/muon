@@ -6,19 +6,19 @@
 #include <string.h>
 
 /*
-static bool
-parse_bool(const char *value)
-{
-	if (strcmp(value, "true")) {
-		return true;
-	} else if (strcmp(value, "false")) {
-		return false;
-	}
+   static bool
+   parse_bool(const char *value)
+   {
+        if (strcmp(value, "true")) {
+                return true;
+        } else if (strcmp(value, "false")) {
+                return false;
+        }
 
-	fatal("'%s' is not a boolean value", value);
-	return true;
-}
-*/
+        fatal("'%s' is not a boolean value", value);
+        return true;
+   }
+ */
 static bool
 parse_buildtype(struct options *options, const char *value)
 {
@@ -35,7 +35,7 @@ parse_buildtype(struct options *options, const char *value)
 	} else if (strcmp(value, "custom")) {
 		options->core.buildtype = BUILDTYPE_CUSTOM;
 	} else {
-		fatal("invalid build type : '%s'", value);
+		LOG_W(log_misc, "invalid build type : '%s'", value);
 		return false;
 	}
 
@@ -112,9 +112,9 @@ options_parse(struct options *options, const char *key, const char *value)
 	assert(options);
 
 	return parse_dir(options, key, value)
-		|| parse_core(options, key, value)
-		|| parse_base(options, key, value)
-		|| parse_compiler(options, key, value);
+	       || parse_core(options, key, value)
+	       || parse_base(options, key, value)
+	       || parse_compiler(options, key, value);
 }
 
 struct options *

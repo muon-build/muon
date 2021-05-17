@@ -1,7 +1,8 @@
-#include "ast.h"
+#include "builtin.h"
 #include "interpreter.h"
-#include "options.h"
 #include "log.h"
+#include "options.h"
+#include "parser.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -10,371 +11,261 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#ifndef PATH_MAX
-#define PATH_MAX 4096
-#endif
+#define ARG_TYPE_NULL 1000 // a number higher than any valid node type
 
-static struct object *
-add_project_arguments(struct context *ctx, struct ast_arguments *args)
+static bool
+next_arg(struct ast *ast, struct node **arg, const char **kw, struct node **args)
 {
-	const char *language = NULL;
-	for (size_t i = 0; i < args->kwargs->n; ++i) {
-		const char *key = args->kwargs->keys[i]->data;
-		struct ast_expression *value = args->kwargs->values[i];
-		if (strcmp(key, "language") == 0) {
-			if (value->type != EXPRESSION_STRING) {
-				fatal("language must be a string");
-			}
-			if (language) {
-				fatal("language has already been specified");
-			}
-			language = value->data.string->data;
-		} else {
-			fatal("invalid keyword argument '%s'", key);
-		}
+	if ((*args)->type == node_empty) {
+		return false;
 	}
 
-	if (!language) {
-		fatal("missing language definition in 'add_project_arguments'");
-	} else if (strcmp(language, "c") != 0) {
-		fatal("language '%s' is not supported", language);
-	}
+	assert((*args)->type == node_argument);
 
-	for (size_t i = 0; i < args->args->n; ++i) {
-		struct ast_expression *expr = args->args->expressions[i];
-		struct object *obj = eval_expression(ctx, expr);
-
-		if (obj->type != OBJECT_TYPE_STRING) {
-			fatal("project argument must be a string");
-		}
-
-		if (strncmp("-D", obj->string.data, 2) == 0) {
-			obj->string.n += 3;
-			char *def = calloc(obj->string.n, sizeof(char));
-			snprintf(def, obj->string.n, "'%s'", obj->string.data);
-			free(obj->string.data);
-			obj->string.data = def;
-		}
-
-		const size_t new_size = ctx->project_arguments.n + 1;
-		ctx->project_arguments.data = realloc(
-				ctx->project_arguments.data,
-				new_size * sizeof(char*));
-		ctx->project_arguments.data[ctx->project_arguments.n] =
-			obj->string.data;
-		ctx->project_arguments.n = new_size;
-
-		free(obj);
-	}
-
-	return NULL;
-}
-
-static struct object *
-executable(struct context *ctx, struct ast_arguments *args)
-{
-	if (args->args->n != 2) {
-		fatal("function 'executable' requires at least 2 arguments");
-	}
-
-	struct build_target *target = calloc(1, sizeof(struct build_target));
-	if (!target) {
-		fatal("failed to allocate executable target");
-	}
-	target->type = BUILD_TARGET_EXECUTABLE;
-
-	struct object *name = eval_expression(ctx, args->args->expressions[0]);
-	if (name->type != OBJECT_TYPE_STRING) {
-		fatal("executable name must be a string");
-	}
-
-	target->name.n = name->string.n;
-	target->name.data = calloc(target->name.n, sizeof(char));
-	strncpy(target->name.data, name->string.data, target->name.n);
-
-	struct object *sources = eval_expression(ctx, args->args->expressions[1]);
-	if (sources->type == OBJECT_TYPE_STRING) {
-		fatal("todo handle single source file");
-	} else if (sources->type == OBJECT_TYPE_ARRAY) {
-		target->source.n = sources->array.n;
-		target->source.files = calloc(target->source.n, sizeof(char*));
-
-		for (size_t i = 0; i < sources->array.n; ++i) {
-			struct object *file = sources->array.objects[i];
-			assert(file->type == OBJECT_TYPE_STRING);
-			target->source.files[i] = calloc(file->string.n,
-					sizeof(char));
-			strncpy(target->source.files[i], file->string.data,
-					file->string.n);
-		}
+	if ((*args)->data == arg_kwarg) {
+		*kw = get_node(ast, (*args)->l)->tok->data;
+		*arg = get_node(ast, (*args)->r);
 	} else {
-		fatal("sources must be either a string or a list of string");
+		*kw = NULL;
+		*arg = get_node(ast, (*args)->l);
 	}
 
-	for (size_t i = 0; i < args->kwargs->n; ++i) {
-		const char *key = args->kwargs->keys[i]->data;
-		struct object *value = eval_expression(ctx,
-				args->kwargs->values[i]);
-		if (strcmp(key, "include_directories") == 0) {
-			assert(value->type == OBJECT_TYPE_ARRAY);
-			target->include.n = value->array.n;
-			target->include.paths = calloc(target->include.n,
-					sizeof(char*));
+	/* L(log_interp, "got arg %s:%s", *kw, node_to_s(*arg)); */
 
-			for (size_t i = 0; i < value->array.n; ++i) {
-				struct object *path = value->array.objects[i];
-				assert(path->type == OBJECT_TYPE_STRING);
-				target->include.paths[i] = calloc(
-						path->string.n,
-						sizeof(char));
-				strncpy(target->include.paths[i],
-						path->string.data,
-						path->string.n);
-			}
-		} else {
-			fatal("executable todo handle kwarg %s", key);
-		}
+	if ((*args)->chflg & node_child_c) {
+		*args = get_node(ast, (*args)->c);
+		return true;
+	} else {
+		*args = NULL;
+		return false;
 	}
-	const size_t new_size = ctx->build.n + 1;
-	ctx->build.targets = realloc(ctx->build.targets,
-			new_size * sizeof(struct build_target*));
-	ctx->build.targets[ctx->build.n] = target;
-	ctx->build.n = new_size;
-
-	return NULL;
 }
 
-static struct object *
-files(struct context *ctx, struct ast_arguments *args)
+struct args_norm { enum node_type type; struct node *val;  };
+struct args_kw { const char *key; enum node_type type; struct node *val; };
+
+static bool
+typecheck_node(struct node *n, enum node_type type)
 {
-	if (args->kwargs->n != 0) {
-		fatal("function 'files' takes no keyword arguments");
+	if (type != node_any && n->type != type) {
+		LOG_W(log_interp, "expected type %s, got %s", node_type_to_s(type), node_to_s(n));
+		return false;
 	}
 
-	char *cwd = calloc(PATH_MAX, sizeof(char));
-	getcwd(cwd, PATH_MAX);
-
-	struct object *files = calloc(1, sizeof(struct object));
-	if (!files) {
-		fatal("failed to allocate file array");
-	}
-
-	files->type = OBJECT_TYPE_ARRAY;
-
-	for (size_t i = 0; i < args->args->n; ++i) {
-		struct ast_expression *expr = args->args->expressions[i];
-		if (expr->type != EXPRESSION_STRING) {
-			fatal("function 'files' takes only string arguments");
-		}
-		struct object *file = eval_string(expr->data.string);
-
-		const size_t files_size = files->array.n + 1;
-		files->array.objects = realloc(files->array.objects,
-			files_size * sizeof(struct object));
-		files->array.objects[files->array.n] = file;
-		files->array.n = files_size;
-	}
-
-	free(cwd);
-	return files;
+	return true;
 }
 
-static struct object *
-include_directories(struct context *ctx, struct ast_arguments *args)
+static bool
+parse_args(struct ast *ast, struct node *n, struct args_norm _an[],
+	struct args_norm ao[], struct args_kw akw[])
 {
-	if (args->kwargs->n != 0) {
-		fatal("function 'include_directories' takes no keyword arguments");
-	}
+	const char *kw;
+	struct node *arg, *args = get_node(ast, n->r);
+	uint32_t i, stage;
+	struct args_norm *an[2] = { _an, ao };
 
-	char *cwd = calloc(PATH_MAX, sizeof(char));
-	getcwd(cwd, PATH_MAX);
-
-	struct object *includes = calloc(1, sizeof(struct object));
-	if (!includes) {
-		fatal("failed to allocate include directories array");
-	}
-
-	includes->type = OBJECT_TYPE_ARRAY;
-
-	for (size_t i = 0; i < args->args->n; ++i) {
-		struct ast_expression *expr = args->args->expressions[i];
-		if (expr->type != EXPRESSION_STRING) {
-			fatal("function 'files' takes only string arguments");
+	for (stage = 0; stage < 2; ++stage) {
+		if (!an[stage]) {
+			continue;
 		}
-		struct object *path = eval_string(expr->data.string);
 
-		char abs_path[PATH_MAX] = {0};
-		snprintf(abs_path, PATH_MAX, "%s/%s", cwd, path->string.data);
-
-		const size_t path_size = strlen(abs_path) + 1;
-		path->string.data = realloc(path->string.data,
-				path_size * sizeof(char));
-
-		strncpy(path->string.data, abs_path, path_size);
-		path->string.n = path_size;
-
-		const size_t includes_size = includes->array.n + 1;
-		includes->array.objects = realloc(includes->array.objects,
-			includes_size * sizeof(struct object));
-		includes->array.objects[includes->array.n] = path;
-		includes->array.n = includes_size;
-	}
-
-	free(cwd);
-	return includes;
-}
-
-static struct object *
-project(struct context *ctx, struct ast_arguments *args)
-{
-	if (args->args->expressions[0]->type != EXPRESSION_STRING) {
-		fatal("project: first argument must be a string literal");
-	}
-
-	if (args->args->expressions[1]->type != EXPRESSION_STRING) {
-		fatal("project: second argument must be a string literal");
-	}
-
-	const char *language = args->args->expressions[1]->data.string->data;
-	if (strcmp(language, "c") != 0) {
-		fatal("project: %s language not supported", language);
-	}
-
-	for (size_t i = 0; i < args->kwargs->n; ++i) {
-		const char *key = args->kwargs->keys[i]->data;
-		struct ast_expression *value = args->kwargs->values[i];
-		if (strcmp(key, "version") == 0) {
-			if (value->type != EXPRESSION_STRING) {
-				fatal("version must be a string");
-			}
-			if (ctx->version.data) {
-				fatal("version has already been specified");
-			}
-			ctx->version.data = calloc(value->data.string->n,
-					sizeof(char));
-			strncpy(ctx->version.data, value->data.string->data,
-					value->data.string->n);
-			ctx->version.n = value->data.string->n;
-		} else if (strcmp(key, "license") == 0) {
-			if (value->type == EXPRESSION_ARRAY) {
-				fatal("multiple licenses not supported");
-			} else if (value->type != EXPRESSION_STRING) {
-				fatal("license must be a string");
-			}
-		} else if (strcmp(key, "default_options") == 0) {
-			if (value->type != EXPRESSION_ARRAY) {
-				fatal("default_options must be an array");
-			}
-
-			for(size_t j = 0; j < value->data.array->n; ++j) {
-				struct ast_expression *option =
-					value->data.array->expressions[j];
-
-				if (option->type != EXPRESSION_STRING) {
-					fatal("option must be a string");
-				}
-
-				char k[32] = {0}, v[32] = {0};
-				sscanf(option->data.string->data, "%32[^=]=%s",
-						k, v);
-				if (!options_parse(ctx->options, k, v)) {
-					fatal("failed to parse option '%s=%s'",
-							k, v);
+		for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
+			L(log_interp, "parsing stage %d, arg %d", stage, i);
+			if (!next_arg(ast, &arg, &kw, &args)) {
+				if (stage == 0) { // required
+					LOG_W(log_interp, "missing positional arguments");
+					return false;
+				} else if (stage == 1) { // optional
+					return true;
 				}
 			}
+
+			if (kw) {
+				if (stage == 0) {
+					LOG_W(log_interp, "unexpected kwarg");
+					return false;
+				}
+
+				goto kwargs;
+			}
+
+			if (!typecheck_node(arg, an[stage][i].type)) {
+				return false;
+			}
+
+			an[stage][i].val = arg;
 		}
 	}
 
-	return NULL;
+	if (akw) {
+		while (next_arg(ast, &arg, &kw, &args)) {
+			goto process_kwarg;
+kwargs:
+			if (!akw) {
+				LOG_W(log_interp, "this function does not accept kwargs");
+				return false;
+			}
+process_kwarg:
+			if (!kw) {
+				LOG_W(log_interp, "non-kwarg after kwargs");
+				return false;
+			}
+
+			for (i = 0; akw[i].key; ++i) {
+				if (strcmp(kw, akw[i].key) == 0) {
+					if (!typecheck_node(arg, akw[i].type)) {
+						return false;
+					}
+
+					akw[i].val = arg;
+					break;
+				}
+			}
+
+			if (!akw[i].key) {
+				LOG_W(log_interp, "invalid kwarg: '%s'", kw);
+				return false;
+			}
+		}
+	} else if (next_arg(ast, &arg, &kw, &args)) {
+		LOG_W(log_interp, "this function does not accept kwargs");
+		return false;
+	}
+
+	return true;
 }
 
-static struct object *
-todo(struct context *ctx, struct ast_arguments *args)
+static bool
+func_project(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	fatal("FUNCTION NOT IMPLEMENTED");
-	return NULL;
+	static struct args_norm an[] = { { node_string }, ARG_TYPE_NULL };
+	static struct args_norm ao[] = { { node_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_default_options,
+		kw_license,
+		kw_meson_version,
+		kw_subproject_dir,
+		kw_version
+	};
+	static struct args_kw akw[] = {
+		[kw_default_options] = { "default_options", node_array },
+		[kw_license] = { "license" },
+		[kw_meson_version] = { "meson_version", node_string },
+		[kw_subproject_dir] = { "subproject_dir", node_string },
+		[kw_version] = { "version", node_string },
+		0
+	};
+
+	if (!parse_args(ast, n, an, ao, akw)) {
+		return false;
+	}
+
+	if (!typecheck_node(an[0].val, node_string)) {
+		return false;
+	}
+	wk->project.name = an[0].val->tok->data;
+
+	if (ao[0].val) {
+		if (!typecheck_node(ao[0].val, node_string)) {
+			return false;
+		}
+
+		if (strcmp("c", ao[0].val->tok->data) != 0) {
+			// TODO ??
+			LOG_W(log_interp, "only C is supported");
+			return false;
+		}
+	}
+
+	wk->project.license = akw[kw_license].val->tok->data;
+	wk->project.version = akw[kw_version].val->tok->data;
+
+	return true;
+}
+
+static bool
+todo(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	LOG_W(log_misc, "function '%s' not implemented", get_node(ast, n->l)->tok->data);
+	return false;
 }
 
 static const struct {
 	const char *name;
-	struct object *(*impl)(struct context *ctx, struct ast_arguments *);
+	builtin_func func;
 } functions[] = {
-	{"add_global_arguments", todo},
-	{"add_global_link_arguments", todo},
-	{"add_languages", todo},
-	{"add_project_arguments", add_project_arguments},
-	{"add_project_link_arguments", todo},
-	{"add_test_setup", todo},
-	{"alias_target", todo},
-	{"assert", todo},
-	{"benchmark", todo},
-	{"both_libraries", todo},
-	{"build_target", todo},
-	{"configuration_data", todo},
-	{"configure_file", todo},
-	{"custom_target", todo},
-	{"declare_dependency", todo},
-	{"dependency", todo},
-	{"disabler", todo},
-	{"environment", todo},
-	{"error", todo},
-	{"executable", executable},
-	{"files", files},
-	{"find_library", todo},
-	{"find_program", todo},
-	{"generator", todo},
-	{"get_option", todo},
-	{"get_variable", todo},
-	{"gettext", todo},
-	{"import", todo},
-	{"include_directories", include_directories},
-	{"install_data", todo},
-	{"install_headers", todo},
-	{"install_man", todo},
-	{"install_subdir", todo},
-	{"is_disabler", todo},
-	{"is_variable", todo},
-	{"jar", todo},
-	{"join_paths", todo},
-	{"library", todo},
-	{"message", todo},
-	{"option", todo},
-	{"project", project},
-	{"run_command", todo},
-	{"run_target", todo},
-	{"set_variable", todo},
-	{"shared_library", todo},
-	{"shared_module", todo},
-	{"static_library", todo},
-	{"subdir", todo},
-	{"subdir_done", todo},
-	{"subproject", todo},
-	{"summary", todo},
-	{"test", todo},
-	{"vcs_tag", todo},
-	{"warning", todo}
+	{ "add_global_arguments", todo },
+	{ "add_global_link_arguments", todo },
+	{ "add_languages", todo },
+	{ "add_project_arguments", todo },
+	{ "add_project_link_arguments", todo },
+	{ "add_test_setup", todo },
+	{ "alias_target", todo },
+	{ "assert", todo },
+	{ "benchmark", todo },
+	{ "both_libraries", todo },
+	{ "build_target", todo },
+	{ "configuration_data", todo },
+	{ "configure_file", todo },
+	{ "custom_target", todo },
+	{ "declare_dependency", todo },
+	{ "dependency", todo },
+	{ "disabler", todo },
+	{ "environment", todo },
+	{ "error", todo },
+	{ "executable", todo },
+	{ "files", todo },
+	{ "find_library", todo },
+	{ "find_program", todo },
+	{ "generator", todo },
+	{ "get_option", todo },
+	{ "get_variable", todo },
+	{ "gettext", todo },
+	{ "import", todo },
+	{ "include_directories", todo },
+	{ "install_data", todo },
+	{ "install_headers", todo },
+	{ "install_man", todo },
+	{ "install_subdir", todo },
+	{ "is_disabler", todo },
+	{ "is_variable", todo },
+	{ "jar", todo },
+	{ "join_paths", todo },
+	{ "library", todo },
+	{ "message", todo },
+	{ "option", todo },
+	{ "project", func_project },
+	{ "run_command", todo },
+	{ "run_target", todo },
+	{ "set_variable", todo },
+	{ "shared_library", todo },
+	{ "shared_module", todo },
+	{ "static_library", todo },
+	{ "subdir", todo },
+	{ "subdir_done", todo },
+	{ "subproject", todo },
+	{ "summary", todo },
+	{ "test", todo },
+	{ "vcs_tag", todo },
+	{ "warning", todo },
+	{ NULL, NULL },
 };
 
-struct object *
-eval_function(struct context *ctx, struct ast_function *function)
+bool
+builtin_run(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	const char *name = function->left->data;
-	int low = 0, mid, cmp;
-	int high = (sizeof(functions) / sizeof(functions[0])) - 1;
-	while (low <= high) {
-		mid = (low + high) / 2;
-		cmp = strcmp(name, functions[mid].name);
-		if (cmp == 0) {
-			return functions[mid].impl(ctx, function->right);
-		}
-		if (cmp < 0) {
-			high = mid - 1;
-		}
-		else {
-			low = mid + 1;
+	char *name = get_node(ast, n->l)->tok->data;
+	uint32_t i;
+	for (i = 0; functions[i].name; ++i) {
+		if (strcmp(functions[i].name, name) == 0) {
+			if (!functions[i].func(ast, wk, n, obj)) {
+				LOG_W(log_interp, "error in %s(), %s", name, source_location(ast, n->l));
+				return false;
+			}
+			return true;
 		}
 	}
 
-	fatal("builtin function not found: %s", name);
-	return NULL;
+	LOG_W(log_misc, "builtin function not found: %s", name);
+	return false;
 }

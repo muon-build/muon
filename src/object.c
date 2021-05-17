@@ -1,6 +1,6 @@
 #include "interpreter.h"
-#include "ast.h"
 #include "log.h"
+#include "parser.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +27,7 @@ eval_meson_object(struct context *ctx, struct ast_function *function)
 	if (strcmp(id->data, "project_version") == 0) {
 		obj = calloc(1, sizeof(struct object));
 		if (!obj) {
-			fatal("failed to allocate string object");
+			LOG_W(log_misc, "failed to allocate string object");
 		}
 
 		obj->string.data = calloc(ctx->version.n, sizeof(char));

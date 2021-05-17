@@ -1,19 +1,25 @@
 #ifndef BOSON_LEXER_H
 #define BOSON_LEXER_H
 
-#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-struct token;
+#include "darr.h"
+#include "token.h"
 
 struct lexer {
-	FILE *file;
 	const char *path;
-	int cur, line, col;
+	char *data;
+	uint32_t i, line, line_start, data_len;
+	struct {
+		uint32_t paren, bracket, curl;
+	} enclosing;
+	struct darr tok;
 };
 
-struct token *lexer_tokenize(struct lexer *);
+bool lexer_tokenize(struct lexer *lexer);
 
-void lexer_init(struct lexer *, const char *);
+bool lexer_init(struct lexer *lexer, const char *path);
 void lexer_finish(struct lexer *);
 
 #endif // BOSON_LEXER_H

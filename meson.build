@@ -7,33 +7,50 @@ project(
 	default_options: [
 		'c_std=c11',
 		'warning_level=3',
-		'werror=true',
 		'buildtype=debugoptimized',
 	],
 )
 
-#-DVERSION='"$(VERSION)"'
-add_project_arguments(
-	'-DVERSION="@0@"'.format(meson.project_version()),
+# compiler setup
+
+cc = meson.get_compiler('c')
+add_project_arguments(cc.get_supported_arguments([
+	'-Wno-missing-braces',
+	'-Wendif-labels',
+	'-Wimplicit-fallthrough=2',
+	'-Winit-self',
+	'-Wlogical-op',
+	'-Wmissing-include-dirs',
+	'-Wno-missing-braces',
+	'-Wno-missing-field-initializers',
 	'-Wno-unused-parameter',
-	language: 'c',
-)
+	'-Wold-style-definition',
+	'-Woverflow',
+	'-Wpointer-arith',
+	'-Wstrict-aliasing=2',
+	'-Wstrict-prototypes',
+	'-Wundef',
+	'-fstrict-aliasing',
+]), language: 'c')
 
 src = files(
-	'src/getopt_long.c',
-	'src/hash_table.c',
-	'src/log.c',
-	'src/ninja.c',
-	'src/options.c',
-	'src/object.c',
+	#'src/ast.c',
 	'src/builtin.c',
+	'src/darr.c',
+	'src/hash.c',
+	'src/hdarr.c',
 	'src/interpreter.c',
-	'src/ast.c',
-	'src/token.c',
 	'src/lexer.c',
+	'src/log.c',
+	'src/log.c',
+	'src/main.c',
+	'src/mem.c',
+	#'src/ninja.c',
+	#'src/object.c',
+	'src/options.c',
 	'src/parser.c',
 	'src/setup.c',
-	'src/main.c',
+	'src/token.c',
 )
 
 include_dir = include_directories('include')
