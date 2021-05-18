@@ -698,20 +698,15 @@ parse_stmt(struct parser *p, uint32_t *id)
 }
 
 bool
-parse(struct ast *ast, const char *source_dir)
+parse(struct ast *ast, const char *path)
 {
-	LOG_W(log_misc, "Source dir: %s", source_dir);
-
-	char source_path[PATH_MAX] = { 0 };
-	snprintf(source_path, PATH_MAX, "%s/%s", source_dir, "meson.build");
-
 	struct parser parser = { .ast = ast };
 	uint32_t id;
 
 	darr_init(&parser.ast->nodes, sizeof(struct node));
 	darr_init(&ast->ast, sizeof(uint32_t));
 
-	if (!lexer_init(&parser.lexer, source_path)) {
+	if (!lexer_init(&parser.lexer, path)) {
 		return false;
 	} else if (!lexer_tokenize(&parser.lexer)) {
 		goto err;
@@ -723,7 +718,7 @@ parse(struct ast *ast, const char *source_dir)
 	while (loop) {
 		if (!(parse_stmt(&parser, &id))) {
 			LOG_W(log_misc, "unexpected token %s while parsing '%s'",
-				token_to_string(parser.last), source_path);
+				token_to_string(parser.last), path);
 			goto err;
 		}
 
@@ -738,10 +733,7 @@ parse(struct ast *ast, const char *source_dir)
 		goto err;
 	}
 
-
-	/* lexer_finish(&parser.lexer); */
 	return true;
 err:
-	/* lexer_finish(&parser.lexer); */
 	return false;
 }
