@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "builtin.h"
+#include "filesystem.h"
 #include "interpreter.h"
 #include "log.h"
 #include "object.h"
@@ -28,7 +29,7 @@ next_arg(struct ast *ast, struct node **arg, const char **kw, struct node **args
 		*arg = get_node(ast, (*args)->l);
 	}
 
-	L(log_interp, "got arg %s:%s", *kw, node_to_s(*arg));
+	/* L(log_interp, "got arg %s:%s", *kw, node_to_s(*arg)); */
 
 	if ((*args)->chflg & node_child_c) {
 		*args = get_node(ast, (*args)->c);
@@ -116,7 +117,6 @@ process_kwarg:
 
 			for (i = 0; akw[i].key; ++i) {
 				if (strcmp(kw, akw[i].key) == 0) {
-					L(log_interp, "interpreting %s", node_to_s(arg));
 					if (!interp_node(ast, wk, arg, &akw[i].val)) {
 						return false;
 					}
@@ -276,6 +276,87 @@ func_compiler_get_supported_arguments(struct ast *ast, struct workspace *wk,
 	return obj_array_foreach(wk, an[0].val, obj, func_compiler_get_supported_arguments_iter);
 }
 
+static enum iteration_result
+func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	uint32_t *arr = _ctx;
+	struct obj *val = get_obj(wk, val_id);
+
+	if (!typecheck(val, obj_string)) {
+		return ir_err;
+	} else if (!fs_file_exists(val->dat.s)) {
+		LOG_W(log_interp, "the file '%s' does not exist", val->dat.s);
+		return ir_err;
+	}
+
+	uint32_t file_id;
+	struct obj *file = make_obj(wk, &file_id, obj_file);
+	file->dat.f = get_obj(wk, val_id)->dat.s;
+
+	obj_array_push(wk, *arr, file_id);
+
+	return ir_cont;
+}
+
+static bool
+func_files(struct ast *ast, struct workspace *wk,
+	struct obj *compiler, struct node *args, uint32_t *obj)
+{
+	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+
+	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_array);
+
+	return obj_array_foreach(wk, an[0].val, obj, func_files_iter);
+}
+
+static bool
+func_include_directories(struct ast *ast, struct workspace *wk,
+	struct obj *compiler, struct node *args, uint32_t *obj)
+{
+	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+		return false;
+	}
+
+	// TODO make an "include_directories" object
+	*obj = an[0].val;
+
+	return true;
+}
+
+static bool
+func_executable(struct ast *ast, struct workspace *wk,
+	struct obj *compiler, struct node *args, uint32_t *obj)
+{
+	static struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_include_directories
+	};
+	static struct args_kw akw[] = {
+		[kw_include_directories] = { "include_directories", obj_string },
+		0
+	};
+
+	if (!interp_args(ast, wk, args, an, NULL, akw)) {
+		return false;
+	}
+
+	struct obj *tgt = make_obj(wk, obj, obj_build_target);
+
+	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.s;
+	tgt->dat.tgt.src = an[1].val;
+	tgt->dat.tgt.include_directories = an[2].val;
+
+	darr_push(&wk->tgts, obj);
+
+	return true;
+}
+
 static bool
 todo(struct ast *ast, struct workspace *wk, struct obj *rcvr, struct node *args, uint32_t *obj)
 {
@@ -313,8 +394,8 @@ static const struct {
 		{ "disabler", todo },
 		{ "environment", todo },
 		{ "error", todo },
-		{ "executable", todo },
-		{ "files", todo },
+		{ "executable", func_executable },
+		{ "files", func_files },
 		{ "find_library", todo },
 		{ "find_program", todo },
 		{ "generator", todo },
@@ -322,7 +403,7 @@ static const struct {
 		{ "get_variable", todo },
 		{ "gettext", todo },
 		{ "import", todo },
-		{ "include_directories", todo },
+		{ "include_directories", func_include_directories },
 		{ "install_data", todo },
 		{ "install_headers", todo },
 		{ "install_man", todo },

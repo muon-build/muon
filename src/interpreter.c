@@ -104,7 +104,6 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 {
 	switch (n->type) {
 	case node_function:
-		L(log_interp, "function");
 		return interp_function(ast, wk, n, obj);
 	case node_method:
 		return interp_method(ast, wk, n, obj);
@@ -153,6 +152,7 @@ bool
 interpret(struct ast *ast, struct workspace *wk)
 {
 	darr_init(&wk->objs, sizeof(struct obj));
+	darr_init(&wk->tgts, sizeof(uint32_t));
 	darr_init(&wk->strs, sizeof(char));
 	hash_init(&wk->obj_names, 2048);
 

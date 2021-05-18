@@ -17,6 +17,7 @@ enum obj_type {
 	obj_array,
 	obj_bool,
 	obj_file,
+	obj_build_target,
 	obj_type_count,
 };
 
@@ -33,6 +34,11 @@ struct obj {
 			bool have_r;
 		} arr;
 		const char *f;
+		struct {
+			const char *name;
+			uint32_t src;
+			uint32_t include_directories;
+		} tgt;
 	} dat;
 };
 

@@ -33,9 +33,10 @@ add_project_arguments(cc.get_supported_arguments([
 	'-fstrict-aliasing',
 ]), language: 'c')
 
-src = files(
+src = files([
 	'src/builtin.c',
 	'src/darr.c',
+	'src/filesystem.c',
 	'src/hash.c',
 	'src/interpreter.c',
 	'src/lexer.c',
@@ -45,7 +46,7 @@ src = files(
 	'src/object.c',
 	'src/parser.c',
 	'src/workspace.c',
-)
+])
 
 include_dir = include_directories('include')
 

@@ -20,7 +20,8 @@ obj_type_to_s(enum obj_type t)
 	case obj_array: return "array";
 	case obj_bool: return "bool";
 	case obj_file: return "file";
-	case obj_type_count: return "type_count";
+	case obj_build_target: return "build_target";
+	case obj_type_count: assert(false); return "uh oh";
 	}
 
 	assert(false && "unreachable");

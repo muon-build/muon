@@ -63,7 +63,7 @@ main(int argc, char **argv)
 	};
 
 	if (argc < 2) {
-		LOG_W(log_misc, "command unspecified");
+		LOG_W(log_misc, "missing command");
 		return 1;
 	}
 

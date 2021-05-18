@@ -16,6 +16,7 @@ struct workspace {
 	struct hash obj_names;
 	struct darr objs;
 	struct darr strs;
+	struct darr tgts;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
