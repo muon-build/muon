@@ -1,16 +1,12 @@
-#include "darr.h"
+#include "posix.h"
+
 #include "lexer.h"
 #include "log.h"
 #include "parser.h"
-#include "token.h"
-
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 
 #define PATH_MAX 4096
+#define NODE_MAX_CHILDREN 3
+#define BUF_SIZE 255
 
 const uint32_t arithmetic_type_count = 5;
 
@@ -43,13 +39,23 @@ static const char *node_name[] = {
 	[node_ternary] = "ternary",
 };
 
-#define NODE_MAX_CHILDREN 3
 struct parser {
 	struct lexer lexer;
 	struct token *last_last, *last;
-	struct darr *nodes;
+	struct ast *ast;
 	uint32_t token_i;
 };
+
+const char *
+source_location(struct ast *ast, uint32_t id)
+{
+	struct node *n = get_node(ast, id);
+	static char buf[BUF_SIZE + 1];
+
+	snprintf(buf, BUF_SIZE, "line: %d, col: %d", n->tok->line, n->tok->col);
+
+	return buf;
+}
 
 static struct token *
 next_tok(struct parser *p)
@@ -87,23 +93,23 @@ expect(struct parser *p, enum token_type type)
 	return true;
 }
 
-static struct node *
-make_node(struct parser *p, uint32_t *idx, enum node_type t)
+struct node *
+get_node(struct ast *ast, uint32_t i)
 {
-	*idx = darr_push(p->nodes, &(struct node){ .type = t });
-	return darr_get(p->nodes, *idx);
+	return darr_get(&ast->nodes, i);
 }
 
 static struct node *
-get_node(struct darr *nodes, uint32_t idx)
+make_node(struct parser *p, uint32_t *idx, enum node_type t)
 {
-	return darr_get(nodes, idx);
+	*idx = darr_push(&p->ast->nodes, &(struct node){ .type = t });
+	return darr_get(&p->ast->nodes, *idx);
 }
 
 static uint32_t
 get_child(struct ast *ast, uint32_t idx, uint32_t c)
 {
-	struct node *n = get_node(&ast->nodes, idx);
+	struct node *n = get_node(ast, idx);
 	assert(c < NODE_MAX_CHILDREN);
 	enum node_child_flag chflg = 1 << c;
 	assert(chflg & n->chflg);
@@ -114,6 +120,8 @@ get_child(struct ast *ast, uint32_t idx, uint32_t c)
 		return n->r;
 	case node_child_c:
 		return n->c;
+	case node_child_d:
+		return n->d;
 	}
 
 	assert(false && "unreachable");
@@ -123,7 +131,7 @@ get_child(struct ast *ast, uint32_t idx, uint32_t c)
 static void
 add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_t c_id)
 {
-	struct node *n = darr_get(p->nodes, parent);
+	struct node *n = darr_get(&p->ast->nodes, parent);
 	assert(!(chflg & n->chflg) && "you tried to set the same child more than once");
 	n->chflg |= chflg;
 
@@ -137,10 +145,11 @@ add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_
 	case node_child_c:
 		n->c = c_id;
 		break;
+	case node_child_d:
+		n->d = c_id;
+		break;
 	}
 }
-
-#define BUF_SIZE 256
 
 const char *
 node_type_to_s(enum node_type t)
@@ -176,7 +185,7 @@ node_to_s(struct node *n)
 void
 print_tree(struct ast *ast, uint32_t id, uint32_t d)
 {
-	struct node *n = get_node(&ast->nodes, id);
+	struct node *n = get_node(ast, id);
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
@@ -206,7 +215,7 @@ parse_args(struct parser *p, uint32_t *id)
 		return false;
 	}
 
-	if (get_node(p->nodes, s_id)->type == node_empty) {
+	if (get_node(p->ast, s_id)->type == node_empty) {
 		*id = s_id;
 		return true;
 	}
@@ -214,7 +223,7 @@ parse_args(struct parser *p, uint32_t *id)
 	if (accept(p, tok_colon)) {
 		at = arg_kwarg;
 
-		if (get_node(p->nodes, s_id)->type != node_id) {
+		if (get_node(p->ast, s_id)->type != node_id) {
 			LOG_W(log_parse, "Dictionary key must be a plain identifier.");
 			return false;
 		}
@@ -265,7 +274,7 @@ parse_key_values(struct parser *p, uint32_t *id)
 		return false;
 	}
 
-	if (get_node(p->nodes, s_id)->type == node_empty) {
+	if (get_node(p->ast, s_id)->type == node_empty) {
 		*id = s_id;
 		return true;
 	}
@@ -363,11 +372,12 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id)
 	n = make_node(p, id, node_method);
 	n->data = have_c;
 
-	add_child(p, *id, node_child_l, meth_id);
-	add_child(p, *id, node_child_r, args);
+	add_child(p, *id, node_child_l, l_id);
+	add_child(p, *id, node_child_r, meth_id);
+	add_child(p, *id, node_child_c, args);
 
 	if (have_c) {
-		add_child(p, *id, node_child_c, c_id);
+		add_child(p, *id, node_child_d, c_id);
 	}
 
 	return true;
@@ -426,7 +436,7 @@ parse_e7(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		if (get_node(p->nodes, l_id)->type != node_id) {
+		if (get_node(p->ast, l_id)->type != node_id) {
 			LOG_W(log_parse, "Function call must be applied to plain id");
 			return false;
 		}
@@ -644,7 +654,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 	if (accept(p, tok_plus)) {
 		uint32_t v;
 
-		if (get_node(p->nodes, l_id)->type != node_id) {
+		if (get_node(p->ast, l_id)->type != node_id) {
 			LOG_W(log_parse, "Plusassignment target must be an id.");
 			return false;
 		} else if (!parse_stmt(p, &v)) {
@@ -657,7 +667,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 	} else if (accept(p, tok_assign)) {
 		uint32_t v;
 
-		if (get_node(p->nodes, l_id)->type != node_id) {
+		if (get_node(p->ast, l_id)->type != node_id) {
 			LOG_W(log_parse, "assignment target must be an id.");
 			return false;
 		} else if (!parse_stmt(p, &v)) {
@@ -695,10 +705,10 @@ parse(struct ast *ast, const char *source_dir)
 	char source_path[PATH_MAX] = { 0 };
 	snprintf(source_path, PATH_MAX, "%s/%s", source_dir, "meson.build");
 
-	struct parser parser = { .nodes = &ast->nodes };
+	struct parser parser = { .ast = ast };
 	uint32_t id;
 
-	darr_init(parser.nodes, sizeof(struct node));
+	darr_init(&parser.ast->nodes, sizeof(struct node));
 	darr_init(&ast->ast, sizeof(uint32_t));
 
 	if (!lexer_init(&parser.lexer, source_path)) {
@@ -717,7 +727,7 @@ parse(struct ast *ast, const char *source_dir)
 			goto err;
 		}
 
-		if (get_node(parser.nodes, id)->type != node_empty) {
+		if (get_node(parser.ast, id)->type != node_empty) {
 			darr_push(&ast->ast, &id);
 		}
 

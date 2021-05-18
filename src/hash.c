@@ -20,12 +20,12 @@
 #define LOAD_FACTOR 0.5f
 
 static uint64_t
-fnv_1a_64(uint32_t size, const uint8_t *key)
+fnv_1a_64(const char *key)
 {
 	uint64_t h = 14695981039346656037u;
 	uint16_t i;
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < key[i]; i++) {
 		h ^= key[i];
 		h *= 1099511628211u;
 	}
@@ -63,7 +63,7 @@ prepare_table(struct hash *h)
 }
 
 void
-_hash_init(struct hash *h, size_t cap, uint64_t keysize)
+_hash_init(struct hash *h, size_t cap)
 {
 	ASSERT_VALID_CAP(cap);
 
@@ -73,7 +73,7 @@ _hash_init(struct hash *h, size_t cap, uint64_t keysize)
 	};
 	darr_init(&h->meta, sizeof(uint8_t));
 	darr_init(&h->e, sizeof(struct hash_elem));
-	darr_init(&h->keys, keysize);
+	darr_init(&h->keys, sizeof(const char *));
 
 	prepare_table(h);
 }
@@ -101,6 +101,7 @@ hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
 		case ir_cont:
 			break;
 		case ir_done:
+		case ir_err:
 			return;
 		}
 	}
@@ -119,10 +120,11 @@ hash_for_each_with_keys(struct hash *h, void *ctx, hash_with_keys_iterator_func 
 
 		he = &((struct hash_elem *)h->e.e)[i];
 
-		switch (ifnc(ctx, h->keys.e + he->keyi * h->keys.item_size, he->val)) {
+		switch (ifnc(ctx, (char *)(h->keys.e + he->keyi * h->keys.item_size), he->val)) {
 		case ir_cont:
 			break;
 		case ir_done:
+		case ir_err:
 			return;
 		}
 	}
@@ -137,13 +139,13 @@ hash_clear(struct hash *h)
 }
 
 #define match ((meta & 0x7f) == h2 \
-	       && memcmp(h->keys.e + (h->keys.item_size * he->keyi), key, h->keys.item_size) == 0)
+	       && strcmp(*(char **)(h->keys.e + (h->keys.item_size * he->keyi)), key) == 0)
 
 static void
-probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
+probe(const struct hash *h, const char *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
 {
 	struct hash_elem *he;
-	*hv = HASH_FUNC(h->keys.item_size, key);
+	*hv = HASH_FUNC(key);
 	const uint64_t h1 = *hv >> 7, h2 = *hv & 0x7f;
 	uint8_t meta;
 	uint64_t hvi = h1 & h->capm;
@@ -230,7 +232,7 @@ resize(struct hash *h, size_t newcap)
 }
 
 uint64_t *
-hash_get(const struct hash *h, const void *key)
+hash_get(const struct hash *h, const char *key)
 {
 	struct hash_elem *he;
 	uint64_t hv;
@@ -242,7 +244,7 @@ hash_get(const struct hash *h, const void *key)
 }
 
 void
-hash_unset(struct hash *h, const void *key)
+hash_unset(struct hash *h, const char *key)
 {
 	struct hash_elem *he;
 	uint64_t hv;
@@ -259,7 +261,7 @@ hash_unset(struct hash *h, const void *key)
 }
 
 void
-hash_set(struct hash *h, const void *key, uint64_t val)
+hash_set(struct hash *h, const char *key, uint64_t val)
 {
 	if (h->load > h->max_load) {
 		resize(h, h->cap << 1);
@@ -274,7 +276,7 @@ hash_set(struct hash *h, const void *key, uint64_t val)
 	if (k_full(*meta)) {
 		he->val = val;
 	} else {
-		he->keyi = darr_push(&h->keys, key);
+		he->keyi = darr_push(&h->keys, &key);
 		he->val = val;
 		*meta = hv & 0x7f;
 		++h->len;

@@ -34,23 +34,17 @@ add_project_arguments(cc.get_supported_arguments([
 ]), language: 'c')
 
 src = files(
-	#'src/ast.c',
 	'src/builtin.c',
 	'src/darr.c',
 	'src/hash.c',
-	'src/hdarr.c',
 	'src/interpreter.c',
 	'src/lexer.c',
 	'src/log.c',
-	'src/log.c',
 	'src/main.c',
 	'src/mem.c',
-	#'src/ninja.c',
-	#'src/object.c',
-	'src/options.c',
+	'src/object.c',
 	'src/parser.c',
-	'src/setup.c',
-	'src/token.c',
+	'src/workspace.c',
 )
 
 include_dir = include_directories('include')

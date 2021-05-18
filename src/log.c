@@ -1,6 +1,5 @@
 #include "posix.h"
 
-
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>

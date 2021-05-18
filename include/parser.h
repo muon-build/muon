@@ -31,7 +31,6 @@ enum arg_type {
 };
 
 enum node_type {
-	node_any, // used for argument parsing in interperter
 	node_bool,
 	node_id,
 	node_number,
@@ -64,13 +63,14 @@ enum node_child_flag {
 	node_child_l = 1 << 0,
 	node_child_r = 1 << 1,
 	node_child_c = 1 << 2,
+	node_child_d = 1 << 3,
 };
 
 struct node {
 	enum node_type type;
 	struct token *tok;
 	uint32_t data;
-	uint32_t l, r, c;
+	uint32_t l, r, c, d;
 	uint8_t chflg;
 };
 
@@ -80,8 +80,8 @@ struct ast {
 
 bool parse(struct ast *ast, const char *source_dir);
 void print_tree(struct ast *ast, uint32_t id, uint32_t d);
+struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
 const char *source_location(struct ast *ast, uint32_t id);
-
 #endif // BOSON_PARSER_H

@@ -6,18 +6,9 @@
 
 #include "lexer.h"
 #include "parser.h"
-
-struct workspace {
-	struct {
-		const char *name;
-		const char *version;
-		const char *license;
-		const char *meson_version;
-	} project;
-
-	struct hdarr *objects;
-};
+#include "workspace.h"
+#include "object.h"
 
 bool interpret(struct ast *ast, struct workspace *wk);
-struct node *get_node(struct ast *ast, uint32_t i);
+bool interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj);
 #endif

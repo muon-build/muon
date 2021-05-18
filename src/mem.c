@@ -1,7 +1,9 @@
-#include "mem.h"
+#include "posix.h"
 
 #include <stdlib.h>
 #include <assert.h>
+
+#include "mem.h"
 
 void *
 z_calloc(size_t nmemb, size_t size)

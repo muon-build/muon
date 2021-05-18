@@ -19,15 +19,13 @@ struct hash {
 #endif
 };
 
-typedef enum iteration_result ((*hash_with_keys_iterator_func)(void *ctx, void *key, uint64_t val));
+typedef enum iteration_result ((*hash_with_keys_iterator_func)(void *ctx, const char *key, uint64_t val));
 
-
-uint64_t *hash_get(const struct hash *h, const void *key);
 
 #ifndef NDEBUG
-#define hash_init(h, cap, keysize) \
+#define hash_init(h, cap) \
 	do { \
-		_hash_init(h, cap, keysize); \
+		_hash_init(h, cap); \
 		(h)->func = __func__; \
 		(h)->file = __FILE__; \
 		(h)->line = __LINE__; \
@@ -48,14 +46,15 @@ uint64_t *hash_get(const struct hash *h, const void *key);
 		(h)->keys.secondary = true; \
 	} while (0)
 #else
-#define hash_init(h, cap, keysize) _hash_init(h, cap, keysize)
+#define hash_init(h, cap) _hash_init(h, cap)
 #endif
 
-void _hash_init(struct hash *h, size_t cap, uint64_t keysize);
+void _hash_init(struct hash *h, size_t cap);
 void hash_destroy(struct hash *h);
 
-void hash_set(struct hash *h, const void *key, uint64_t val);
-void hash_unset(struct hash *h, const void *key);
+uint64_t *hash_get(const struct hash *h, const char *key);
+void hash_set(struct hash *h, const char *key, uint64_t val);
+void hash_unset(struct hash *h, const char *key);
 void hash_clear(struct hash *h);
 
 void hash_for_each(struct hash *h, void *ctx, iterator_func ifnc);
