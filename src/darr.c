@@ -9,7 +9,7 @@
 #include "log.h"
 #include "mem.h"
 
-#define DEFAULT_LEN 256
+#define DEFAULT_LEN 1024
 
 void
 _darr_init(struct darr *darr, size_t item_size)
@@ -21,7 +21,9 @@ _darr_init(struct darr *darr, size_t item_size)
 void
 darr_destroy(struct darr *da)
 {
-	z_free(da->e);
+	if (da->e) {
+		z_free(da->e);
+	}
 }
 
 void

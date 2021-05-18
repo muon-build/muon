@@ -698,7 +698,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 }
 
 bool
-parse(struct ast *ast, const char *path)
+parse_file(struct ast *ast, const char *path)
 {
 	struct parser parser = { .ast = ast };
 	uint32_t id;

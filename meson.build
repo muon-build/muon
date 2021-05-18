@@ -51,8 +51,12 @@ src = files([
 
 include_dir = include_directories('include')
 
+samu = subproject('samurai')
+libsamu = samu.get_variable('libsamu_dep')
+
 executable(
 	'boson',
 	src,
 	include_directories: include_dir,
+	dependencies: [libsamu],
 )

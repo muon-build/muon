@@ -78,7 +78,7 @@ struct ast {
 	struct darr nodes, ast;
 };
 
-bool parse(struct ast *ast, const char *source_dir);
+bool parse_file(struct ast *ast, const char *path);
 void print_tree(struct ast *ast, uint32_t id, uint32_t d);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);

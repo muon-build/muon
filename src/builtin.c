@@ -363,6 +363,19 @@ func_executable(struct ast *ast, struct workspace *wk,
 }
 
 static bool
+func_message(struct ast *ast, struct workspace *wk, struct obj *rcvr, struct node *args, uint32_t *obj)
+{
+	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_I(log_misc, "%s", get_obj(wk, an[0].val)->dat.s);
+	return true;
+}
+
+static bool
 todo(struct ast *ast, struct workspace *wk, struct obj *rcvr, struct node *args, uint32_t *obj)
 {
 	if (rcvr) {
@@ -418,7 +431,7 @@ static const struct {
 		{ "jar", todo },
 		{ "join_paths", todo },
 		{ "library", todo },
-		{ "message", todo },
+		{ "message", func_message },
 		{ "option", todo },
 		{ "project", func_project },
 		{ "run_command", todo },
@@ -433,7 +446,7 @@ static const struct {
 		{ "summary", todo },
 		{ "test", todo },
 		{ "vcs_tag", todo },
-		{ "warning", todo },
+		{ "warning", func_message },
 		{ NULL, NULL },
 	},
 	[obj_meson] = {
