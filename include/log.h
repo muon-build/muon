@@ -25,6 +25,7 @@ enum log_filter {
 	log_lex,
 	log_parse,
 	log_interp,
+	log_out,
 	log_filter_count,
 };
 
@@ -51,4 +52,5 @@ void log_print(const char *file, uint32_t line, const char *func, enum log_level
 	enum log_filter type, const char *fmt, ...) __attribute__ ((format(printf, 6, 7)));
 void log_plain(enum log_level lvl, enum log_filter type, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
 bool log_filter_name_to_bit(const char *name, uint32_t *res);
+uint32_t log_filter_to_bit(enum log_filter f);
 #endif

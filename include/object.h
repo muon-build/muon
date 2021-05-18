@@ -33,7 +33,7 @@ struct obj {
 			uint32_t len;
 			bool have_r;
 		} arr;
-		const char *f;
+		uint32_t file;
 		struct {
 			const char *name;
 			uint32_t src;

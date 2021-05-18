@@ -140,24 +140,9 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	return true;
 }
 
-void
-init_builtin_objects(struct workspace *wk)
-{
-	uint32_t id;
-	make_obj(wk, &id, obj_meson);
-	hash_set(&wk->obj_names, "meson", id);
-}
-
 bool
 interpret(struct ast *ast, struct workspace *wk)
 {
-	darr_init(&wk->objs, sizeof(struct obj));
-	darr_init(&wk->tgts, sizeof(uint32_t));
-	darr_init(&wk->strs, sizeof(char));
-	hash_init(&wk->obj_names, 2048);
-
-	init_builtin_objects(wk);
-
 	uint32_t i;
 	for (i = 0; i < ast->ast.len; ++i) {
 		uint32_t obj = UINT32_MAX;

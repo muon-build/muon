@@ -28,6 +28,7 @@ static char *log_filter_name[log_filter_count] = {
 	[log_lex]      = "lex",
 	[log_parse]    = "parse",
 	[log_interp]   = "interp",
+	[log_out]      = "output",
 };
 
 static uint32_t log_filter_bit[log_filter_count] = {
@@ -37,6 +38,7 @@ static uint32_t log_filter_bit[log_filter_count] = {
 	[log_lex]      = (1 << 3),
 	[log_parse]    = (1 << 4),
 	[log_interp]   = (1 << 5),
+	[log_out]      = (1 << 6),
 };
 
 static struct {
@@ -202,6 +204,12 @@ void
 log_set_filters(enum log_filter f)
 {
 	log_cfg.filter = f;
+}
+
+uint32_t
+log_filter_to_bit(enum log_filter f)
+{
+	return log_filter_bit[f];
 }
 
 bool

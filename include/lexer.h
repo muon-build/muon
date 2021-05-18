@@ -67,7 +67,8 @@ struct token {
 struct lexer {
 	const char *path;
 	char *data;
-	uint32_t i, line, line_start, data_len;
+	uint32_t i, line, line_start;
+	uint64_t data_len;
 	struct {
 		uint32_t paren, bracket, curl;
 	} enclosing;

@@ -194,7 +194,8 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 		return ir_err;
 	}
 
-	L(log_interp, "TODO: add argument '%s'", val->dat.s);
+	obj_array_push(wk, wk->project.args, val_id);
+
 	return ir_cont;
 }
 
@@ -291,7 +292,8 @@ func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	uint32_t file_id;
 	struct obj *file = make_obj(wk, &file_id, obj_file);
-	file->dat.f = get_obj(wk, val_id)->dat.s;
+
+	file->dat.file = wk_str_pushf(wk, "%s/%s", wk->cwd, get_obj(wk, val_id)->dat.s);
 
 	obj_array_push(wk, *arr, file_id);
 
@@ -323,8 +325,9 @@ func_include_directories(struct ast *ast, struct workspace *wk,
 		return false;
 	}
 
-	// TODO make an "include_directories" object
-	*obj = an[0].val;
+	struct obj *file = make_obj(wk, obj, obj_file);
+
+	file->dat.file = wk_str_pushf(wk, "%s/%s", wk->cwd, get_obj(wk, an[0].val)->dat.s);
 
 	return true;
 }
@@ -338,7 +341,7 @@ func_executable(struct ast *ast, struct workspace *wk,
 		kw_include_directories
 	};
 	static struct args_kw akw[] = {
-		[kw_include_directories] = { "include_directories", obj_string },
+		[kw_include_directories] = { "include_directories", obj_file },
 		0
 	};
 
@@ -350,7 +353,9 @@ func_executable(struct ast *ast, struct workspace *wk,
 
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.s;
 	tgt->dat.tgt.src = an[1].val;
-	tgt->dat.tgt.include_directories = an[2].val;
+	if (akw[kw_include_directories].set) {
+		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
+	}
 
 	darr_push(&wk->tgts, obj);
 

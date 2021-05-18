@@ -4,9 +4,12 @@
 #include <limits.h>
 #include <string.h>
 
-#include "log.h"
-#include "parser.h"
+#include "filesystem.h"
 #include "interpreter.h"
+#include "log.h"
+#include "output.h"
+#include "output.h"
+#include "parser.h"
 
 #define BUF_LEN 256
 
@@ -18,7 +21,10 @@ cmd_setup(int argc, char **argv)
 		return false;
 	}
 
-	char cwd[BUF_LEN + 1] = { 0 }, build[PATH_MAX + 1], source[PATH_MAX + 1] = { 0 };
+	char cwd[BUF_LEN + 1] = { 0 },
+	     build[PATH_MAX + 1] = { 0 },
+	     source[PATH_MAX + 1] = { 0 };
+
 	if (!getcwd(cwd, BUF_LEN)) {
 		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
 		return false;
@@ -39,10 +45,14 @@ cmd_setup(int argc, char **argv)
 	/* 	print_tree(&ast, *(uint32_t *)darr_get(&ast.ast, i), 0); */
 	/* } */
 
-	struct workspace wk = { 0 };
+	struct workspace wk = { .cwd = cwd, .build_dir = build };
+	workspace_init(&wk);
+
 	if (!interpret(&ast, &wk)) {
 		return false;
 	}
+
+	output_build(&wk, build);
 
 	return true;
 }
@@ -52,7 +62,7 @@ main(int argc, char **argv)
 {
 	log_init();
 	log_set_lvl(log_debug);
-	log_set_filters(0xffffffff);
+	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
 
 	static const struct {
 		const char *name;

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "filesystem.h"
 #include "lexer.h"
 #include "log.h"
 #include "mem.h"
@@ -383,45 +384,19 @@ lexer_tokenize(struct lexer *lexer)
 bool
 lexer_init(struct lexer *lexer, const char *path)
 {
-	FILE *file;
-
 	*lexer = (struct lexer) {
 		.path = path,
 		.line = 1,
 	};
 
-	int64_t size, read;
-
-	if (!(file = fopen(path, "r"))) {
-		LOG_W(log_lex, "Failed to open '%s': %s", path, strerror(errno));
-		return false;
-	} else if (fseek(file, 0, SEEK_END) == -1) {
-		LOG_W(log_lex, "Failed fseek '%s': %s", path, strerror(errno));
-		return false;
-	} else if ((size = ftell(file)) == -1) {
-		LOG_W(log_lex, "Failed ftell '%s': %s", path, strerror(errno));
-		return false;
-	}
-
-	rewind(file);
-	lexer->data = z_calloc(size + 1, 1);
-	lexer->data_len = size;
-
 	darr_init(&lexer->tok, sizeof(struct token));
 
-	read = fread(lexer->data, 1, size, file);
-
-	if (fclose(file) != 0) {
-		LOG_W(log_lex, "Failed fclose '%s': %s", path, strerror(errno));
-		goto free_err;
-	} else if (read != size) {
-		LOG_W(log_lex, "Failed fread '%s'", path);
-		goto free_err;
+	if (!fs_read_entire_file(path, &lexer->data, &lexer->data_len)) {
+		goto err;
 	}
 
 	return true;
-
-free_err:
+err:
 	lexer_finish(lexer);
 	return false;
 }
@@ -429,6 +404,9 @@ free_err:
 void
 lexer_finish(struct lexer *lexer)
 {
-	z_free(lexer->data);
+	if (lexer->data) {
+		z_free(lexer->data);
+	}
+
 	darr_destroy(&lexer->tok);
 }

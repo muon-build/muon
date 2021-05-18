@@ -44,6 +44,7 @@ src = files([
 	'src/main.c',
 	'src/mem.c',
 	'src/object.c',
+	'src/output.c',
 	'src/parser.c',
 	'src/workspace.c',
 ])

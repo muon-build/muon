@@ -32,6 +32,7 @@ bool
 obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
 {
 	struct obj *arr_elem = get_obj(wk, arr_id);
+	assert(arr_elem->type == obj_array);
 
 	while (true) {
 		switch (cb(wk, ctx, arr_elem->dat.arr.l)) {

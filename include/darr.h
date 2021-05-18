@@ -48,7 +48,7 @@ size_t darr_item_size(const struct darr *da);
 size_t darr_size(const struct darr *da);
 void *darr_raw_memory(const struct darr *da);
 uint8_t *darr_point_at(const struct darr *da, size_t i);
-void *darr_get_mem(struct darr *da);
+void darr_grow_by(struct darr *da, size_t size);
 void darr_grow_to(struct darr *da, size_t size);
 
 void darr_swap(struct darr *da, size_t i, size_t j);
