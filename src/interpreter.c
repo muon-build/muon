@@ -32,7 +32,7 @@ interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 static bool
 interp_id(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	return get_obj_id(wk, n->tok->data, obj, wk->cur_project);
+	return get_obj_id(wk, n->tok->dat.s, obj, wk->cur_project);
 }
 
 static bool
@@ -44,7 +44,7 @@ interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 	}
 
 	// TODO check if we are overwriting?
-	hash_set(&wk->scope, get_node(ast, n->l)->tok->data, rhs);
+	hash_set(&wk->scope, get_node(ast, n->l)->tok->dat.s, rhs);
 
 	return true;
 }
@@ -54,7 +54,7 @@ interp_string(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 {
 	struct obj *str;
 	str = make_obj(wk, obj, obj_string);
-	str->dat.str = wk_str_push(wk, n->tok->data);
+	str->dat.str = wk_str_push(wk, n->tok->dat.s);
 	return true;
 }
 

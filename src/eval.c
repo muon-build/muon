@@ -1,9 +1,11 @@
 #include "posix.h"
 
 #include "eval.h"
+#include "filesystem.h"
 #include "interpreter.h"
 #include "log.h"
-#include "parse.h"
+#include "mem.h"
+#include "parser.h"
 
 bool
 eval_entry(struct workspace *wk, const char *src, const char *cwd, const char *build_dir)
@@ -35,15 +37,42 @@ eval(struct workspace *wk, const char *src)
 }
 
 void
-print_ast(const char *src)
+error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va_list args)
 {
-	struct ast ast = { 0 };
-	if (!parse_file(&ast, src)) {
-		return;
-	}
+	fprintf(stderr, "%s:%d:%d: \033[31merror:\033[0m ", file, line, col);
+	vfprintf(stderr, fmt, args);
+	putc('\n', stderr);
 
-	uint32_t i;
-	for (i = 0; i < ast.ast.len; ++i) {
-		print_tree(&ast, *(uint32_t *)darr_get(&ast.ast, i), 0);
+	char *buf;
+	uint64_t len, i, cl = 1, sol = 0;
+	if (fs_read_entire_file(file, &buf, &len)) {
+		for (i = 0; i < len; ++i) {
+			if (buf[i] == '\n') {
+				++cl;
+				sol = i + 1;
+			}
+
+			if (cl == line) {
+				break;
+			}
+		}
+
+		++i;
+		for (; i < len; ++i) {
+			if (buf[i] == '\n') {
+				buf[i] = 0;
+				break;
+			}
+		}
+
+		fprintf(stderr, "%3d | %s\n", line, &buf[sol]);
+
+		for (i = 1; i < col + 6; ++i) {
+			putc(' ', stderr);
+		}
+		putc('^', stderr);
+		putc('\n', stderr);
+
+		z_free(buf);
 	}
 }

@@ -9,6 +9,7 @@
 #include "filesystem.h"
 #include "log.h"
 #include "output.h"
+#include "parser.h"
 
 #define BUF_LEN 256
 
@@ -41,9 +42,21 @@ cmd_setup(int argc, char **argv)
 
 	output_build(&wk, build);
 
-	/* if (samu_main(3, (char *[]){ "samu", "-C", build }) != 0) { */
-	/* 	return false; */
-	/* } */
+	return true;
+}
+
+static bool
+cmd_parse_check(int argc, char **argv)
+{
+	if (argc < 2) {
+		LOG_W(log_misc, "missing filename");
+		return false;
+	}
+
+	struct ast ast = { 0 };
+	if (!parse_file(&ast, argv[1])) {
+		return false;
+	}
 
 	return true;
 }
@@ -56,7 +69,12 @@ cmd_ast(int argc, char **argv)
 		return false;
 	}
 
-	print_ast(argv[1]);
+	struct ast ast = { 0 };
+	if (!parse_file(&ast, argv[1])) {
+		return false;
+	}
+
+	print_ast(&ast);
 
 	return true;
 }
@@ -100,6 +118,7 @@ main(int argc, char **argv)
 		{ "setup", cmd_setup },
 		{ "eval", cmd_eval },
 		{ "ast", cmd_ast },
+		{ "parse_check", cmd_parse_check },
 		{ "samu", cmd_samu },
 		{ 0 },
 	};

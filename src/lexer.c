@@ -2,72 +2,89 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "eval.h"
 #include "filesystem.h"
 #include "lexer.h"
 #include "log.h"
 #include "mem.h"
 
+enum lex_result {
+	lex_cont,
+	lex_done,
+	lex_fail,
+};
+
 const char *
 token_type_to_string(enum token_type type)
 {
-#define TOKEN_TRANSLATE(e) case e: return #e;
 	switch (type) {
-		TOKEN_TRANSLATE(tok_eof);
-		TOKEN_TRANSLATE(tok_eol);
-		TOKEN_TRANSLATE(tok_lparen);
-		TOKEN_TRANSLATE(tok_rparen);
-		TOKEN_TRANSLATE(tok_lbrack);
-		TOKEN_TRANSLATE(tok_rbrack);
-		TOKEN_TRANSLATE(tok_lcurl);
-		TOKEN_TRANSLATE(tok_rcurl);
-		TOKEN_TRANSLATE(tok_dot);
-		TOKEN_TRANSLATE(tok_comma);
-		TOKEN_TRANSLATE(tok_colon);
-		TOKEN_TRANSLATE(tok_assign);
-		TOKEN_TRANSLATE(tok_plus);
-		TOKEN_TRANSLATE(tok_minus);
-		TOKEN_TRANSLATE(tok_star);
-		TOKEN_TRANSLATE(tok_slash);
-		TOKEN_TRANSLATE(tok_modulo);
-		TOKEN_TRANSLATE(tok_pluseq);
-		TOKEN_TRANSLATE(tok_mineq);
-		TOKEN_TRANSLATE(tok_stareq);
-		TOKEN_TRANSLATE(tok_slasheq);
-		TOKEN_TRANSLATE(tok_modeq);
-		TOKEN_TRANSLATE(tok_eq);
-		TOKEN_TRANSLATE(tok_neq);
-		TOKEN_TRANSLATE(tok_gt);
-		TOKEN_TRANSLATE(tok_geq);
-		TOKEN_TRANSLATE(tok_lt);
-		TOKEN_TRANSLATE(tok_leq);
-		TOKEN_TRANSLATE(tok_true);
-		TOKEN_TRANSLATE(tok_false);
-		TOKEN_TRANSLATE(tok_if);
-		TOKEN_TRANSLATE(tok_else);
-		TOKEN_TRANSLATE(tok_elif);
-		TOKEN_TRANSLATE(tok_endif);
-		TOKEN_TRANSLATE(tok_and);
-		TOKEN_TRANSLATE(tok_or);
-		TOKEN_TRANSLATE(tok_not);
-		TOKEN_TRANSLATE(tok_qm);
-		TOKEN_TRANSLATE(tok_foreach);
-		TOKEN_TRANSLATE(tok_endforeach);
-		TOKEN_TRANSLATE(tok_in);
-		TOKEN_TRANSLATE(tok_continue);
-		TOKEN_TRANSLATE(tok_break);
-		TOKEN_TRANSLATE(tok_identifier);
-		TOKEN_TRANSLATE(tok_string);
-		TOKEN_TRANSLATE(tok_number);
-	default:
-		LOG_W(log_tok, "unknown token");
-		break;
+	case tok_eof: return "end of file";
+	case tok_eol: return "end of line";
+	case tok_lparen: return "(";
+	case tok_rparen: return ")";
+	case tok_lbrack: return "[";
+	case tok_rbrack: return "]";
+	case tok_lcurl: return "{";
+	case tok_rcurl: return "}";
+	case tok_dot: return ".";
+	case tok_comma: return ",";
+	case tok_colon: return ":";
+	case tok_assign: return "=";
+	case tok_plus: return "+";
+	case tok_minus: return "-";
+	case tok_star: return "*";
+	case tok_slash: return "/";
+	case tok_modulo: return "%";
+	case tok_pluseq: return "+=";
+	case tok_mineq: return "-=";
+	case tok_stareq: return "*=";
+	case tok_slasheq: return "/=";
+	case tok_modeq: return "%=";
+	case tok_eq: return "==";
+	case tok_neq: return "!=";
+	case tok_gt: return ">";
+	case tok_geq: return ">=";
+	case tok_lt: return "<";
+	case tok_leq: return "<=";
+	case tok_true: return "true";
+	case tok_false: return "false";
+	case tok_if: return "if";
+	case tok_else: return "else";
+	case tok_elif: return "elif";
+	case tok_endif: return "endif";
+	case tok_and: return "and";
+	case tok_or: return "or";
+	case tok_not: return "not";
+	case tok_qm: return "tok_qm"; // ??
+	case tok_foreach: return "foreach";
+	case tok_endforeach: return "endforeach";
+	case tok_in: return "in";
+	case tok_continue: return "continue";
+	case tok_break: return "break";
+	case tok_identifier: return "identifier";
+	case tok_string: return "string";
+	case tok_number: return "number";
+	case tok_question_mark: return "?";
 	}
-#undef TOKEN_TRANSLATE
+
+	assert(false && "unreachable");
 	return "";
 }
 
+__attribute__ ((format(printf, 2, 3)))
+static void
+lex_error(struct lexer *l, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	struct token *last_tok = darr_get(&l->tok, l->tok.len - 1);
+	error_message(l->path, last_tok->line, last_tok->col, fmt, args);
+	va_end(args);
+}
 
 #define BUF_LEN 256
 const char *
@@ -78,12 +95,23 @@ token_to_string(struct token *tok)
 
 	i = snprintf(buf, BUF_LEN, "%s", token_type_to_string(tok->type));
 	if (tok->n) {
-		i += snprintf(&buf[i], BUF_LEN - i, ":'%s'", tok->data);
+		i += snprintf(&buf[i], BUF_LEN - i, ":'%s'", tok->dat.s);
 	}
 
 	i += snprintf(&buf[i], BUF_LEN - i, " line %d, col: %d", tok->line, tok->col);
 
 	return buf;
+}
+
+static void
+advance(struct lexer *l)
+{
+	if (l->data[l->i] == '\n') {
+		++l->line;
+		l->line_start = l->i + 1;
+	}
+
+	++l->i;
 }
 
 static struct token *
@@ -145,7 +173,7 @@ keyword(struct lexer *lexer, struct token *token)
 
 	while (low <= high) {
 		mid = (low + high) / 2;
-		cmp = strcmp(token->data, keywords[mid].name);
+		cmp = strcmp(token->dat.s, keywords[mid].name);
 		if (cmp == 0) {
 			token->type = keywords[mid].type;
 			return true;
@@ -161,21 +189,57 @@ keyword(struct lexer *lexer, struct token *token)
 	return false;
 }
 
-static void
-number(struct lexer *lexer, struct token *token)
+static enum lex_result
+number(struct lexer *lexer, struct token *tok)
 {
-	LOG_W(log_lex, "todo number");
+	tok->type = tok_number;
 
-	token->type = tok_number;
+	uint32_t base = 10;
 
-	/* FIXME handle octal */
-	/* FIXME handle hexadecimal */
-	/*
-	   if (lexer->cur == '0') {
-	        if (peek(lexer) == 'o')
-	        else if (peek(lexer) == 'x')
-	   }
-	 */
+	if (lexer->data[lexer->i] == '0') {
+		switch (lexer->data[lexer->i + 1]) {
+		case 'x':
+			base = 16;
+			lexer->i += 2;
+			break;
+		case 'b':
+			base = 2;
+			lexer->i += 2;
+			break;
+		case '0': case '1': case '2': case '3': case '4':
+		case '5': case '6': case '7': case '8': case '9':
+			base = 8;
+			advance(lexer);
+			break;
+		default:
+			tok->dat.n = 0;
+			advance(lexer);
+			return lex_cont;
+		}
+	}
+
+	char *endptr = NULL;
+
+	errno = 0;
+	int64_t val = strtol(&lexer->data[lexer->i], &endptr, base);
+
+	assert(endptr && endptr != &lexer->data[lexer->i]);
+
+	if (errno == ERANGE) {
+		if (val == LONG_MIN) {
+			lex_error(lexer, "underflow when parsing number");
+		} else if (val == LONG_MAX) {
+			lex_error(lexer, "overflow when parsing number");
+		}
+
+		return lex_fail;
+	}
+
+	lexer->i += endptr - &lexer->data[lexer->i];
+
+	tok->dat.n = val;
+
+	return lex_cont;
 }
 
 static void
@@ -189,16 +253,16 @@ copy_into_token_data(struct lexer *lexer, struct token *tok, uint32_t start, uin
 
 	tok->n = end - start;
 
-	tok->data = &lexer->data[start];
+	tok->dat.s = &lexer->data[start];
 }
 
-static void
+static enum lex_result
 identifier(struct lexer *lexer, struct token *token)
 {
 	uint32_t start = lexer->i;
 
 	while (is_valid_inside_of_identifier(lexer->data[lexer->i])) {
-		++lexer->i;
+		advance(lexer);
 	}
 
 	copy_into_token_data(lexer, token, start, lexer->i);
@@ -206,68 +270,71 @@ identifier(struct lexer *lexer, struct token *token)
 	if (!keyword(lexer, token)) {
 		token->type = tok_identifier;
 	}
+
+	return lex_cont;
 }
 
-static void
+static enum lex_result
 string(struct lexer *lexer, struct token *token)
 {
 	token->type = tok_string;
 
-	++lexer->i;
+	advance(lexer);
 
 	uint32_t start = lexer->i;
 
-	while (lexer->data[lexer->i] != '\'') {
-		++lexer->i;
+	bool multiline = false;
+
+	while (lexer->data[lexer->i] && lexer->data[lexer->i] != '\'') {
+		if (lexer->data[lexer->i] == '\n') {
+			if (multiline) {
+			} else {
+				lex_error(lexer, "newline in string");
+				return lex_fail;
+			}
+		}
+		advance(lexer);
+	}
+
+	if (!lexer->data[lexer->i]) {
+		lex_error(lexer, "unmatched single quote (\')");
+		return lex_fail;
 	}
 
 	copy_into_token_data(lexer, token, start, lexer->i);
 
-	++lexer->i;
+	advance(lexer);
+	return lex_cont;
 }
-
-enum lex_result {
-	lex_cont,
-	lex_done,
-	lex_fail,
-};
 
 static enum lex_result
 lexer_tokenize_one(struct lexer *lexer)
 {
 	struct token *token = next_tok(lexer);
 
-	token->data = NULL;
-	token->n = 0;
-	token->line = lexer->line;
-	token->col = lexer->i - lexer->line_start + 1;
-
 	while (is_skipchar(lexer->data[lexer->i])) {
 		if (lexer->data[lexer->i] == '#') {
 			while (lexer->data[lexer->i] && lexer->data[lexer->i] != '\n') {
-				++lexer->i;
-			}
-
-			assert(lexer->data[lexer->i] == 0 || lexer->data[lexer->i] == '\n');
-			if (lexer->data[lexer->i]) {
-				++lexer->line;
-				lexer->line_start = lexer->i + 1;
+				advance(lexer);
 			}
 		}
-		++lexer->i;
+		advance(lexer);
 	}
 
+	*token = (struct token) {
+		.line = lexer->line,
+		.col = lexer->i - lexer->line_start + 1,
+	};
+
 	if (is_valid_start_of_identifier(lexer->data[lexer->i])) {
-		identifier(lexer, token);
+		return identifier(lexer, token);
 	} else if (is_digit(lexer->data[lexer->i])) {
-		number(lexer, token);
+		return number(lexer, token);
 	} else if (lexer->data[lexer->i] == '\'') {
-		string(lexer, token);
+		return string(lexer, token);
 	} else {
 		switch (lexer->data[lexer->i]) {
 		case '\n':
-			++lexer->line;
-			lexer->line_start = lexer->i + 1;
 			if (lexer->enclosing.paren || lexer->enclosing.bracket
 			    || lexer->enclosing.curl) {
 				goto skip;
@@ -326,7 +393,7 @@ lexer_tokenize_one(struct lexer *lexer)
 		// arithmetic
 		case '+':
 			if (lexer->data[lexer->i + 1] == '=') {
-				++lexer->i;
+				advance(lexer);
 				token->type = tok_pluseq;
 			} else {
 				token->type = tok_plus;
@@ -346,12 +413,14 @@ lexer_tokenize_one(struct lexer *lexer)
 			return lex_fail;
 		}
 
-		++lexer->i;
+		advance(lexer);
+		return lex_cont;
 	}
 
-	return lex_cont;
+	assert(false && "unreachable");
+	return lex_fail;
 skip:
-	++lexer->i;
+	advance(lexer);
 	--lexer->tok.len;
 	return lex_cont;
 }
@@ -381,11 +450,13 @@ done:
 		switch (tok->type) {
 		case tok_string:
 		case tok_identifier:
-			lexer->data[(tok->data - lexer->data) + tok->n] = 0;
+			lexer->data[(tok->dat.s - lexer->data) + tok->n] = 0;
 			break;
 		default:
 			break;
 		}
+
+		/* L(log_lex, "%s", token_to_string(tok)); */
 	}
 
 	return true;

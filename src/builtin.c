@@ -35,7 +35,7 @@ next_arg(struct ast *ast, struct node **arg, const char **kw, struct node **args
 	assert((*args)->type == node_argument);
 
 	if ((*args)->data == arg_kwarg) {
-		*kw = get_node(ast, (*args)->l)->tok->data;
+		*kw = get_node(ast, (*args)->l)->tok->dat.s;
 		*arg = get_node(ast, (*args)->r);
 	} else {
 		*kw = NULL;
@@ -588,11 +588,11 @@ builtin_run(struct ast *ast, struct workspace *wk, uint32_t rcvr_id, struct node
 
 	if (rcvr_id) {
 		struct obj *rcvr = get_obj(wk, rcvr_id);
-		name = get_node(ast, n->r)->tok->data;
+		name = get_node(ast, n->r)->tok->dat.s;
 		args = get_node(ast, n->c);
 		recvr_type = rcvr->type;
 	} else {
-		name = get_node(ast, n->l)->tok->data;
+		name = get_node(ast, n->l)->tok->dat.s;
 		args = get_node(ast, n->r);
 		recvr_type = obj_default;
 	}

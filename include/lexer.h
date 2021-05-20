@@ -57,7 +57,10 @@ enum token_type {
 };
 
 struct token {
-	const char *data;
+	union {
+		const char *s;
+		int64_t n;
+	} dat;
 	enum token_type type;
 	uint32_t n, line, col;
 };

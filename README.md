@@ -1,7 +1,6 @@
 # boson
 
-`boson` is an implementation of the meson language in written in C11 focusing
-on portability and simplicity.
+`boson` is an implementation of the meson language in written in C11
 
 ## Status
 

@@ -1,5 +1,8 @@
 #include "posix.h"
 
+#include <stdarg.h>
+
+#include "eval.h"
 #include "lexer.h"
 #include "log.h"
 #include "parser.h"
@@ -40,11 +43,22 @@ static const char *node_name[] = {
 };
 
 struct parser {
+	const char *src_path;
 	struct lexer lexer;
 	struct token *last_last, *last;
 	struct ast *ast;
 	uint32_t token_i;
 };
+
+__attribute__ ((format(printf, 2, 3)))
+static void
+parse_error(struct parser *p, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	error_message(p->src_path, p->last->line, p->last->col, fmt, args);
+	va_end(args);
+}
 
 const char *
 source_location(struct ast *ast, uint32_t id)
@@ -85,8 +99,7 @@ static bool
 expect(struct parser *p, enum token_type type)
 {
 	if (!accept(p, type)) {
-		LOG_W(log_parse, "expecting token %s, got token %s",
-			token_type_to_string(type), token_to_string(p->last));
+		parse_error(p, "expected '%s', got '%s'", token_type_to_string(type), token_type_to_string(p->last->type));
 		return false;
 	}
 
@@ -167,9 +180,11 @@ node_to_s(struct node *n)
 
 	switch (n->type) {
 	case node_id:
-	case node_number:
 	case node_string:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->tok->data);
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->tok->dat.s);
+		break;
+	case node_number:
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%ld", n->tok->dat.n);
 		break;
 	case node_argument:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == arg_kwarg ? "kwarg" : "normal");
@@ -179,25 +194,6 @@ node_to_s(struct node *n)
 	}
 
 	return buf;
-}
-
-void
-print_tree(struct ast *ast, uint32_t id, uint32_t d)
-{
-	struct node *n = get_node(ast, id);
-	uint32_t i;
-
-	for (i = 0; i < d; ++i) {
-		putc(' ', stdout);
-	}
-
-	printf("node: %d, %s\n", id, node_to_s(n));
-
-	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
-		if ((1 << i) & n->chflg) {
-			print_tree(ast, get_child(ast, id, i), d + 1);
-		}
-	}
 }
 
 typedef bool (*parse_func)(struct parser *, uint32_t *);
@@ -699,7 +695,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 bool
 parse_file(struct ast *ast, const char *path)
 {
-	struct parser parser = { .ast = ast };
+	struct parser parser = { .ast = ast, .src_path = path };
 	uint32_t id;
 
 	darr_init(&parser.ast->nodes, 2048, sizeof(struct node));
@@ -716,8 +712,6 @@ parse_file(struct ast *ast, const char *path)
 	bool loop = true;
 	while (loop) {
 		if (!(parse_stmt(&parser, &id))) {
-			LOG_W(log_misc, "unexpected token %s while parsing '%s'",
-				token_to_string(parser.last), path);
 			goto err;
 		}
 
@@ -735,4 +729,32 @@ parse_file(struct ast *ast, const char *path)
 	return true;
 err:
 	return false;
+}
+
+static void
+print_tree(struct ast *ast, uint32_t id, uint32_t d)
+{
+	struct node *n = get_node(ast, id);
+	uint32_t i;
+
+	for (i = 0; i < d; ++i) {
+		putc(' ', stdout);
+	}
+
+	printf("node: %d, %s\n", id, node_to_s(n));
+
+	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
+		if ((1 << i) & n->chflg) {
+			print_tree(ast, get_child(ast, id, i), d + 1);
+		}
+	}
+}
+
+void
+print_ast(struct ast *ast)
+{
+	uint32_t i;
+	for (i = 0; i < ast->ast.len; ++i) {
+		print_tree(ast, *(uint32_t *)darr_get(&ast->ast, i), 0);
+	}
 }
