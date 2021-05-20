@@ -9,32 +9,30 @@
 #include "interpreter.h"
 #include "log.h"
 #include "parser.h"
+#include "workspace.h"
 
 static bool
 interp_function(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	return builtin_run(ast, wk, NULL, n, obj);
+	return builtin_run(ast, wk, 0, n, obj);
 }
 
 static bool
 interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	struct obj *recvr;
 	uint32_t recvr_id;
 
 	if (!interp_node(ast, wk, get_node(ast, n->l), &recvr_id)) {
 		return false;
 	}
 
-	recvr = get_obj(wk, recvr_id);
-
-	return builtin_run(ast, wk, recvr, n, obj);
+	return builtin_run(ast, wk, recvr_id, n, obj);
 }
 
 static bool
 interp_id(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	return get_obj_id(wk, n->tok->data, obj);
+	return get_obj_id(wk, n->tok->data, obj, wk->cur_project);
 }
 
 static bool
@@ -46,7 +44,7 @@ interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 	}
 
 	// TODO check if we are overwriting?
-	hash_set(&wk->obj_names, get_node(ast, n->l)->tok->data, rhs);
+	hash_set(&wk->scope, get_node(ast, n->l)->tok->data, rhs);
 
 	return true;
 }
@@ -56,7 +54,7 @@ interp_string(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 {
 	struct obj *str;
 	str = make_obj(wk, obj, obj_string);
-	str->dat.s = n->tok->data;
+	str->dat.str = wk_str_push(wk, n->tok->data);
 	return true;
 }
 
@@ -102,6 +100,10 @@ interp_array(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *ob
 bool
 interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
+	*obj = 0;
+
+	L(log_interp, "%s", node_to_s(n));
+
 	switch (n->type) {
 	case node_function:
 		return interp_function(ast, wk, n, obj);
@@ -143,13 +145,13 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 bool
 interpret(struct ast *ast, struct workspace *wk)
 {
-	uint32_t i;
-	for (i = 0; i < ast->ast.len; ++i) {
-		uint32_t obj = UINT32_MAX;
+	uint32_t i, obj;
 
+	for (i = 0; i < ast->ast.len; ++i) {
 		if (!interp_node(ast, wk, get_node(ast, *(uint32_t *)darr_get(&ast->ast, i)), &obj)) {
 			return false;
 		}
+		/* L(log_misc, "got %d", obj); */
 	}
 
 	return true;

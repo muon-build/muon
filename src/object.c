@@ -12,15 +12,18 @@ const char *
 obj_type_to_s(enum obj_type t)
 {
 	switch (t) {
-	case obj_none: return "none";
 	case obj_any: return "any";
+	case obj_default: return "default";
+	case obj_null: return "null";
 	case obj_compiler: return "compiler";
+	case obj_dependency: return "dependency";
 	case obj_meson: return "meson";
 	case obj_string: return "string";
 	case obj_array: return "array";
 	case obj_bool: return "bool";
 	case obj_file: return "file";
 	case obj_build_target: return "build_target";
+	case obj_subproject: return "subproject";
 	case obj_type_count: assert(false); return "uh oh";
 	}
 
@@ -33,6 +36,10 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 {
 	struct obj *arr_elem = get_obj(wk, arr_id);
 	assert(arr_elem->type == obj_array);
+
+	if (!arr_elem->dat.arr.len) {
+		return true;
+	}
 
 	while (true) {
 		switch (cb(wk, ctx, arr_elem->dat.arr.l)) {

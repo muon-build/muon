@@ -10,7 +10,8 @@ struct workspace;
 
 enum obj_type {
 	obj_any, // used for argument type checking
-	obj_none,
+	obj_default,
+	obj_null,
 	obj_string,
 	obj_compiler,
 	obj_meson,
@@ -18,14 +19,21 @@ enum obj_type {
 	obj_bool,
 	obj_file,
 	obj_build_target,
+	obj_subproject,
+	obj_dependency,
 	obj_type_count,
+};
+
+enum tgt_type {
+	tgt_executable,
+	tgt_library
 };
 
 struct obj {
 	enum obj_type type;
 	union {
 		uint64_t n;
-		const char *s;
+		uint32_t str;
 		struct {
 			uint32_t l;
 			uint32_t r;
@@ -35,10 +43,19 @@ struct obj {
 		} arr;
 		uint32_t file;
 		struct {
-			const char *name;
+			uint32_t name;
+			enum tgt_type type;
 			uint32_t src;
+			uint32_t link_with;
 			uint32_t include_directories;
+			uint32_t deps;
 		} tgt;
+		struct {
+			uint32_t name;
+			uint32_t link_with;
+			uint32_t include_directories;
+		} dep;
+		uint32_t subproj;
 	} dat;
 };
 

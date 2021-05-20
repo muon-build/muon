@@ -5,12 +5,10 @@
 #include <samu.h>
 #include <string.h>
 
+#include "eval.h"
 #include "filesystem.h"
-#include "interpreter.h"
 #include "log.h"
 #include "output.h"
-#include "output.h"
-#include "parser.h"
 
 #define BUF_LEN 256
 
@@ -36,23 +34,16 @@ cmd_setup(int argc, char **argv)
 
 	LOG_I(log_misc, "source: %s, build: %s", source, build);
 
-	struct ast ast = { 0 };
-	if (!parse_file(&ast, source)) {
-		return false;
-	}
-
-	struct workspace wk = { .cwd = cwd, .build_dir = build };
-	workspace_init(&wk);
-
-	if (!interpret(&ast, &wk)) {
+	struct workspace wk;
+	if (!eval_entry(&wk, source, cwd, build)) {
 		return false;
 	}
 
 	output_build(&wk, build);
 
-	if (samu_main(3, (char *[]){ "samu", "-C", build }) != 0) {
-		return false;
-	}
+	/* if (samu_main(3, (char *[]){ "samu", "-C", build }) != 0) { */
+	/* 	return false; */
+	/* } */
 
 	return true;
 }
@@ -65,15 +56,7 @@ cmd_ast(int argc, char **argv)
 		return false;
 	}
 
-	struct ast ast = { 0 };
-	if (!parse_file(&ast, argv[1])) {
-		return false;
-	}
-
-	uint32_t i;
-	for (i = 0; i < ast.ast.len; ++i) {
-		print_tree(&ast, *(uint32_t *)darr_get(&ast.ast, i), 0);
-	}
+	print_ast(argv[1]);
 
 	return true;
 }
@@ -86,19 +69,14 @@ cmd_eval(int argc, char **argv)
 		return false;
 	}
 
-	struct ast ast = { 0 };
-	if (!parse_file(&ast, argv[1])) {
+	char cwd[PATH_MAX + 1] = { 0 };
+	if (!getcwd(cwd, PATH_MAX )) {
+		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
 		return false;
 	}
 
-	struct workspace wk = { .cwd = "<cwd>", .build_dir = "<build_dir>" };
-	workspace_init(&wk);
-
-	if (!interpret(&ast, &wk)) {
-		return false;
-	}
-
-	return true;
+	struct workspace wk;
+	return eval_entry(&wk, argv[1], cwd, "<build_dir>");
 }
 
 static bool

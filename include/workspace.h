@@ -5,29 +5,40 @@
 #include "hash.h"
 #include "object.h"
 
-struct workspace {
-	const char *cwd, *build_dir;
+struct project {
+	uint32_t cwd, build_dir;
 
 	struct {
-		const char *name;
-		const char *version;
-		const char *license;
-		const char *meson_version;
+		uint32_t name;
+		uint32_t version;
+		uint32_t license;
+		uint32_t meson_version;
 		uint32_t args;
-	} project;
+	} cfg;
 
-	struct hash obj_names;
-	struct darr objs;
-	struct darr strs;
+	struct hash scope;
 	struct darr tgts;
 };
 
+struct workspace {
+	uint32_t cur_project;
+	struct darr projects;
+	struct darr objs;
+	struct darr strs;
+	struct hash scope;
+};
+
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
-struct obj *get_obj_by_name(struct workspace *wk, const char *name);
 struct obj *get_obj(struct workspace *wk, uint32_t id);
-bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id);
-uint32_t wk_str_pushf(struct workspace *wk, const char *fmt, ...);
+bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj);
+
+uint32_t wk_str_pushf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
 char *wk_str(struct workspace *wk, uint32_t id);
-void wk_strapp(struct workspace *wk, uint32_t *id, const char *fmt, ...);
+void wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+uint32_t wk_str_push(struct workspace *wk, const char *str);
+const char *wk_objstr(struct workspace *wk, uint32_t id);
+
 void workspace_init(struct workspace *wk);
+struct project *make_project(struct workspace *wk, uint32_t *id);
+struct project *current_project(struct workspace *wk);
 #endif

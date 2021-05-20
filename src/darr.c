@@ -9,13 +9,15 @@
 #include "log.h"
 #include "mem.h"
 
-#define DEFAULT_LEN 1024
-
 void
-_darr_init(struct darr *darr, size_t item_size)
+_darr_init(struct darr *darr, size_t initial, size_t item_size)
 {
 	assert(item_size > 0);
-	*darr = (struct darr) { .item_size = item_size };
+	*darr = (struct darr) {
+		.item_size = item_size,
+		.cap = initial,
+		.e = z_malloc(initial * item_size),
+	};
 }
 
 void
@@ -69,11 +71,8 @@ darr_get_mem(struct darr *da)
 	++da->len;
 	/* ensure_mem_size(elem, size, ++(*len), cap); */
 	if (da->len > da->cap) {
-		if (!da->cap) {
-			newcap = da->len > DEFAULT_LEN ? da->len : DEFAULT_LEN;
-		} else {
-			newcap = da->cap * 2;
-		}
+		assert(da->cap);
+		newcap = da->cap * 2;
 
 #ifndef NDEBUG
 		if (!da->secondary) {

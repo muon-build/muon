@@ -2,36 +2,55 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include "filesystem.h"
 #include "log.h"
 #include "mem.h"
 
 bool
-fs_file_exists(const char *path)
+fs_stat(const char *path, struct stat *sb)
 {
-	FILE *f;
-	if ((f = fopen(path, "r"))) {
-		fclose(f);
-		return true;
+	if (stat(path, sb) != 0) {
+		LOG_W(log_misc, "failed stat(%s): %s", path, strerror(errno));
+		return false;
 	}
 
-	return false;
+	return true;
+}
+
+bool
+fs_file_exists(const char *path)
+{
+	struct stat sb;
+	if (access(path, F_OK) != 0) {
+		return false;
+	} else if (!fs_stat(path, &sb)) {
+		return false;
+	} else if (!S_ISREG(sb.st_mode)) {
+		return false;
+	}
+
+	return true;
 }
 
 bool
 fs_dir_exists(const char *path)
 {
-	DIR *d;
-	if ((d = opendir(path))) {
-		closedir(d);
-		return true;
+	struct stat sb;
+	if (access(path, F_OK) != 0) {
+		return false;
+	} else if (!fs_stat(path, &sb)) {
+		return false;
+	} else if (!S_ISDIR(sb.st_mode)) {
+		return false;
 	}
 
-	return false;
+	return true;
 }
 
 bool
@@ -40,6 +59,36 @@ fs_mkdir(const char *path)
 	if (mkdir(path, 0755) == -1) {
 		LOG_W(log_misc, "failed to create directory %s: %s", path, strerror(errno));
 		return false;
+	}
+
+	return true;
+}
+
+bool
+fs_mkdir_p(const char *path)
+{
+	uint32_t i, len = strlen(path);
+	char buf[PATH_MAX + 1] = { 0 };
+	strncpy(buf, path, PATH_MAX);
+
+	assert(len > 1);
+
+	for (i = 1; i < len; ++i) {
+		if (buf[i] == '/') {
+			buf[i] = 0;
+			if (!fs_dir_exists(buf)) {
+				if (!fs_mkdir(buf)) {
+					return false;
+				}
+			}
+			buf[i] = '/';
+		}
+	}
+
+	if (!fs_dir_exists(path)) {
+		if (!fs_mkdir(path)) {
+			return false;
+		}
 	}
 
 	return true;
@@ -93,6 +142,11 @@ fs_read_entire_file(const char *path, char **buf, uint64_t *size)
 {
 	FILE *f;
 	size_t read;
+
+	if (!fs_file_exists(path)) {
+		LOG_W(log_misc, "'%s' is not a file", path);
+		return false;
+	}
 
 	if (!(f = fs_fopen(path, "r"))) {
 		return false;

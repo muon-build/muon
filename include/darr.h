@@ -21,18 +21,18 @@ struct darr {
 };
 
 #ifndef NDEBUG
-#define darr_init(darr, item_size) \
+#define darr_init(darr, initial, item_size) \
 	do { \
-		_darr_init((darr), (item_size)); \
+		_darr_init(darr, initial, item_size); \
 		(darr)->name = #darr; \
 		(darr)->func = __func__; \
 		(darr)->file = __FILE__; \
 		(darr)->line = __LINE__; \
 	} while (0)
 #else
-#define darr_init(darr, item_size) _darr_init(darr, item_size)
+#define darr_init(darr, initial, item_size) _darr_init(darr, initial, item_size)
 #endif
-void _darr_init(struct darr *darr, size_t item_size);
+void _darr_init(struct darr *darr, size_t initial, size_t item_size);
 
 void darr_destroy(struct darr *da);
 

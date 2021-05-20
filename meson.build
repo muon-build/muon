@@ -7,7 +7,7 @@ project(
 	default_options: [
 		'c_std=c11',
 		'warning_level=3',
-		'buildtype=debugoptimized',
+		'buildtype=debug',
 	],
 )
 
@@ -36,6 +36,7 @@ add_project_arguments(cc.get_supported_arguments([
 src = files([
 	'src/builtin.c',
 	'src/darr.c',
+	'src/eval.c',
 	'src/filesystem.c',
 	'src/hash.c',
 	'src/interpreter.c',

@@ -9,7 +9,7 @@
 #include "workspace.h"
 
 static void
-write_hdr(FILE *out, struct workspace *wk)
+write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
 	fprintf(
 		out,
@@ -28,6 +28,10 @@ write_hdr(FILE *out, struct workspace *wk)
 		"\n"
 		"# Rules for linking.\n"
 		"\n"
+		"rule STATIC_LINKER\n"
+		" command = rm -f $out && gcc-ar $LINK_ARGS $out $in\n"
+		" description = Linking static target $out\n"
+		"\n"
 		"rule c_LINKER\n"
 		" command = cc $ARGS -o $out $in $LINK_ARGS\n"
 		" description = Linking target $out\n"
@@ -44,7 +48,7 @@ write_hdr(FILE *out, struct workspace *wk)
 		"build PHONY: phony \n"
 		"\n"
 		"# Build rules for targets\n",
-		wk->project.name
+		wk_str(wk, main_proj->cfg.name)
 		);
 }
 
@@ -79,18 +83,16 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	assert(src->type == obj_file); // TODO
 	const char *path = wk_str(wk, src->dat.file), *pws = path_without_slashes(path);
 
+	const char *tgt_name = wk_str(wk, ctx->tgt->dat.tgt.name);
+
 	fprintf(ctx->out,
 		"build %s.p/%s.o: c_COMPILER %s\n"
 		" DEPFILE = %s.p/%s.o.d\n"
 		" DEPFILE_UNQUOTED = %s.p/%s.o.d\n"
 		" ARGS = %s\n\n",
-		ctx->tgt->dat.tgt.name,
-		pws,
-		path,
-		ctx->tgt->dat.tgt.name,
-		pws,
-		ctx->tgt->dat.tgt.name,
-		pws,
+		tgt_name, pws, path,
+		tgt_name, pws,
+		tgt_name, pws,
 		ctx->args
 		);
 
@@ -104,7 +106,7 @@ write_tgt_obj_name_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	const char *path = wk_str(wk, get_obj(wk, val_id)->dat.file),
 		   *pws = path_without_slashes(path);
 
-	fprintf(ctx->out, "%s.p/%s.o ", ctx->tgt->dat.tgt.name, pws);
+	fprintf(ctx->out, "%s.p/%s.o ", wk_str(wk, ctx->tgt->dat.tgt.name), pws);
 
 	return ir_cont;
 }
@@ -114,31 +116,33 @@ make_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *arg = get_obj(wk, val_id);
+
 	assert(arg->type == obj_string); // TODO
 
-	wk_strapp(wk, &ctx->args_id, "%s ", arg->dat.s);
+	wk_strappf(wk, &ctx->args_id, "%s ", wk_str(wk, arg->dat.str));
 
 	return ir_cont;
 }
 
 static bool
-write_tgt(FILE *out, struct workspace *wk, uint32_t tgt_id)
+write_tgt(FILE *out, struct workspace *wk, struct project *proj, uint32_t tgt_id)
 {
 	struct obj *tgt = get_obj(wk, tgt_id);
-	L(log_out, "writing rules for target '%s'", tgt->dat.tgt.name);
+	L(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.name));
 
 	struct write_tgt_iter_ctx ctx = { .tgt = tgt, .out = out };
 
-	ctx.args_id = wk_str_pushf(wk, "-I%s.p -I. -I.. ", tgt->dat.tgt.name);
+	L(log_out, "'%s'", wk_str(wk, proj->cwd));
+	ctx.args_id = wk_str_pushf(wk, "-I%s.p -I%s ", wk_str(wk, tgt->dat.tgt.name), wk_str(wk, proj->cwd));
 
 	if (tgt->dat.tgt.include_directories) {
 		struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
 		assert(inc->type == obj_file); // TODO
 
-		wk_strapp(wk, &ctx.args_id, "-I%s ", wk_str(wk, inc->dat.file));
+		wk_strappf(wk, &ctx.args_id, "-I%s ", wk_str(wk, inc->dat.file));
 	}
 
-	if (!obj_array_foreach(wk, wk->project.args, &ctx, make_args_iter)) {
+	if (!obj_array_foreach(wk, proj->cfg.args, &ctx, make_args_iter)) {
 		return false;
 	}
 
@@ -148,13 +152,26 @@ write_tgt(FILE *out, struct workspace *wk, uint32_t tgt_id)
 		return false;
 	}
 
-	fprintf(out, "build %s: c_LINKER ", tgt->dat.tgt.name);
+	fprintf(out, "build %s: c_LINKER ", wk_str(wk, tgt->dat.tgt.name));
 
 	if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_obj_name_iter)) {
 		return false;
 	}
 
-	fprintf(out, "\n LINK_ARGS = -Wl,--as-needed -Wl,--no-undefined\n");
+	fprintf(out, "\n LINK_ARGS = -Wl,--as-needed -Wl,--no-undefined\n\n");
+
+	return true;
+}
+
+static bool
+write_project(FILE *out, struct workspace *wk, struct project *proj)
+{
+	uint32_t i;
+	for (i = 0; i < proj->tgts.len; ++i) {
+		if (!write_tgt(out, wk, proj, *(uint32_t *)darr_get(&proj->tgts, i))) {
+			return false;
+		}
+	}
 
 	return true;
 }
@@ -162,10 +179,8 @@ write_tgt(FILE *out, struct workspace *wk, uint32_t tgt_id)
 static FILE *
 setup_outdir(const char *dir)
 {
-	if (!fs_dir_exists(dir)) {
-		if (!fs_mkdir(dir)) {
-			return false;
-		}
+	if (!fs_mkdir_p(dir)) {
+		return false;
 	}
 
 	char path[PATH_MAX + 1] = { 0 };
@@ -187,11 +202,11 @@ output_build(struct workspace *wk, const char *dir)
 		return false;
 	}
 
-	write_hdr(out, wk);
+	write_hdr(out, wk, darr_get(&wk->projects, 0));
 
 	uint32_t i;
-	for (i = 0; i < wk->tgts.len; ++i) {
-		if (!write_tgt(out, wk, *(uint32_t *)darr_get(&wk->tgts, i))) {
+	for (i = 0; i < wk->projects.len; ++i) {
+		if (!write_project(out, wk, darr_get(&wk->projects, i))) {
 			return false;
 		}
 	}

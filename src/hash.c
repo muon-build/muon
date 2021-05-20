@@ -56,9 +56,6 @@ fill_meta_with_empty(struct hash *h)
 static void
 prepare_table(struct hash *h)
 {
-	darr_grow_to(&h->meta, h->cap);
-	darr_grow_to(&h->e, h->cap);
-
 	fill_meta_with_empty(h);
 }
 
@@ -71,9 +68,9 @@ _hash_init(struct hash *h, size_t cap)
 		.cap = cap, .capm = cap - 1,
 		.max_load = (size_t)((float)cap * LOAD_FACTOR)
 	};
-	darr_init(&h->meta, sizeof(uint8_t));
-	darr_init(&h->e, sizeof(struct hash_elem));
-	darr_init(&h->keys, sizeof(const char *));
+	darr_init(&h->meta, h->cap, sizeof(uint8_t));
+	darr_init(&h->e, h->cap, sizeof(struct hash_elem));
+	darr_init(&h->keys, h->cap, sizeof(const char *));
 
 	prepare_table(h);
 }
@@ -185,8 +182,8 @@ resize(struct hash *h, size_t newcap)
 		.max_load = (size_t)((float)newcap * LOAD_FACTOR),
 	};
 
-	darr_init(&newh.meta, sizeof(uint8_t));
-	darr_init(&newh.e, sizeof(struct hash_elem));
+	darr_init(&newh.meta, newh.cap, sizeof(uint8_t));
+	darr_init(&newh.e, newh.cap, sizeof(struct hash_elem));
 
 #ifndef NDEBUG
 	newh.name = h->name;

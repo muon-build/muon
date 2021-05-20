@@ -157,7 +157,6 @@ node_type_to_s(enum node_type t)
 	return node_name[t];
 }
 
-
 const char *
 node_to_s(struct node *n)
 {
@@ -703,8 +702,8 @@ parse_file(struct ast *ast, const char *path)
 	struct parser parser = { .ast = ast };
 	uint32_t id;
 
-	darr_init(&parser.ast->nodes, sizeof(struct node));
-	darr_init(&ast->ast, sizeof(uint32_t));
+	darr_init(&parser.ast->nodes, 2048, sizeof(struct node));
+	darr_init(&ast->ast, 1024, sizeof(uint32_t));
 
 	if (!lexer_init(&parser.lexer, path)) {
 		return false;

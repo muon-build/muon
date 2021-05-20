@@ -117,7 +117,6 @@ is_skipchar(const char c)
 	return c == ' ' || c == '\t' || c == '#';
 }
 
-
 static bool
 keyword(struct lexer *lexer, struct token *token)
 {
@@ -190,12 +189,7 @@ copy_into_token_data(struct lexer *lexer, struct token *tok, uint32_t start, uin
 
 	tok->n = end - start;
 
-	if (tok->n > TOKEN_MAX_DATA) {
-		LOG_W(log_lex, "data too long for token");
-	}
-
-	memcpy(tok->data, &lexer->data[start], tok->n);
-	tok->data[tok->n] = 0;
+	tok->data = &lexer->data[start];
 }
 
 static void
@@ -243,7 +237,7 @@ lexer_tokenize_one(struct lexer *lexer)
 {
 	struct token *token = next_tok(lexer);
 
-	token->data[0] = 0;
+	token->data = NULL;
 	token->n = 0;
 	token->line = lexer->line;
 	token->col = lexer->i - lexer->line_start + 1;
@@ -366,6 +360,9 @@ skip:
 bool
 lexer_tokenize(struct lexer *lexer)
 {
+	uint32_t i;
+	struct token *tok;
+
 	while (true) {
 		switch (lexer_tokenize_one(lexer)) {
 		case lex_cont:
@@ -373,12 +370,25 @@ lexer_tokenize(struct lexer *lexer)
 		case lex_fail:
 			return false;
 		case lex_done:
-			return true;
+			goto done;
 		}
 	}
 
-	assert(false && "unreachable");
-	return false;
+done:
+	for (i = 0; i < lexer->tok.len; ++i) {
+		tok = darr_get(&lexer->tok, i);
+
+		switch (tok->type) {
+		case tok_string:
+		case tok_identifier:
+			lexer->data[(tok->data - lexer->data) + tok->n] = 0;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return true;
 }
 
 bool
@@ -389,7 +399,7 @@ lexer_init(struct lexer *lexer, const char *path)
 		.line = 1,
 	};
 
-	darr_init(&lexer->tok, sizeof(struct token));
+	darr_init(&lexer->tok, 2048, sizeof(struct token));
 
 	if (!fs_read_entire_file(path, &lexer->data, &lexer->data_len)) {
 		goto err;

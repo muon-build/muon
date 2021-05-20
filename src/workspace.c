@@ -3,9 +3,9 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "workspace.h"
 #include "interpreter.h"
 #include "log.h"
+#include "workspace.h"
 
 struct obj *
 get_obj(struct workspace *wk, uint32_t id)
@@ -14,10 +14,16 @@ get_obj(struct workspace *wk, uint32_t id)
 }
 
 bool
-get_obj_id(struct workspace *wk, const char *name, uint32_t *id)
+get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_id)
 {
 	uint64_t *idp;
-	if ((idp = hash_get(&wk->obj_names, name))) {
+	struct project *proj = darr_get(&wk->projects, proj_id);
+	L(log_misc, "%d", proj_id);
+
+	if ((idp = hash_get(&proj->scope, name))) {
+		*id = *idp;
+		return true;
+	} else if ((idp = hash_get(&wk->scope, name))) {
 		*id = *idp;
 		return true;
 	} else {
@@ -27,32 +33,27 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id)
 }
 
 struct obj *
-get_obj_by_name(struct workspace *wk, const char *name)
-{
-	uint32_t id;
-	if (!get_obj_id(wk, name, &id)) {
-		return NULL;
-	}
-
-	return get_obj(wk, id);
-}
-
-struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
 	*id = darr_push(&wk->objs, &(struct obj){ .type = type });
 	return darr_get(&wk->objs, *id);
 }
 
+#define BUF_SIZE 2048
+
 uint32_t
 wk_str_push(struct workspace *wk, const char *str)
 {
 	uint32_t len, ret;
 
-	len = strlen(str);
+	char buf[BUF_SIZE + 1] = { 0 };
+	strncpy(buf, str, BUF_SIZE);
+
+	len = strlen(buf) + 1;
 	ret = wk->strs.len;
-	darr_grow_by(&wk->strs, len + 1);
-	strncpy(darr_get(&wk->strs, ret), str, len + 1);
+
+	darr_grow_by(&wk->strs, len);
+	strncpy(darr_get(&wk->strs, ret), buf, len);
 
 	return ret;
 }
@@ -60,15 +61,16 @@ wk_str_push(struct workspace *wk, const char *str)
 uint32_t
 wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
 {
-	uint32_t len, ret, len2;
+	uint32_t len, ret;
 
-	len = vsnprintf(NULL, 0, fmt, args);
+	char buf[BUF_SIZE + 1] = { 0 };
+	vsnprintf(buf, BUF_SIZE, fmt,  args);
 
+	len = strlen(buf) + 1;
 	ret = wk->strs.len;
-	darr_grow_by(&wk->strs, len + 1);
-	len2 = vsnprintf(darr_get(&wk->strs, ret), len + 1, fmt,  args);
 
-	assert(len == len2);
+	darr_grow_by(&wk->strs, len);
+	strncpy(darr_get(&wk->strs, ret), buf, len);
 
 	return ret;
 }
@@ -85,7 +87,7 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 }
 
 void
-wk_strapp(struct workspace *wk, uint32_t *id, const char *fmt, ...)
+wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
 	uint32_t curlen;
 	const char *cur = wk_str(wk, *id);
@@ -114,23 +116,51 @@ wk_str(struct workspace *wk, uint32_t id)
 	return darr_get(&wk->strs, id);
 }
 
-static void
-init_builtin_objects(struct workspace *wk)
+const char *
+wk_objstr(struct workspace *wk, uint32_t id)
 {
-	uint32_t id;
-	make_obj(wk, &id, obj_meson);
-	hash_set(&wk->obj_names, "meson", id);
+	struct obj *obj = get_obj(wk, id);
+	assert(obj->type == obj_string);
+	return wk_str(wk, obj->dat.str);
+}
+
+static void
+project_init(struct workspace *wk, struct project *proj)
+{
+	hash_init(&proj->scope, 128);
+	darr_init(&proj->tgts, 64, sizeof(uint32_t));
+
+	make_obj(wk, &proj->cfg.args, obj_array);
+}
+
+struct project *
+make_project(struct workspace *wk, uint32_t *id)
+{
+	*id = darr_push(&wk->projects, &(struct project){ 0 });
+	struct project *proj = darr_get(&wk->projects, *id);
+	project_init(wk, proj);
+	return proj;
+}
+
+struct project *
+current_project(struct workspace *wk)
+{
+	return darr_get(&wk->projects, wk->cur_project);
 }
 
 void
 workspace_init(struct workspace *wk)
 {
-	darr_init(&wk->objs, sizeof(struct obj));
-	darr_init(&wk->tgts, sizeof(uint32_t));
-	darr_init(&wk->strs, sizeof(char));
-	hash_init(&wk->obj_names, 2048);
+	*wk = (struct workspace){ 0 };
+	darr_init(&wk->projects, 16, sizeof(struct project));
+	darr_init(&wk->objs, 1024, sizeof(struct obj));
+	darr_init(&wk->strs, 2048, sizeof(char));
+	hash_init(&wk->scope, 32);
 
-	init_builtin_objects(wk);
+	uint32_t id;
+	make_obj(wk, &id, obj_null);
+	assert(id == 0);
 
-	make_obj(wk, &wk->project.args, obj_array);
+	make_obj(wk, &id, obj_meson);
+	hash_set(&wk->scope, "meson", id);
 }

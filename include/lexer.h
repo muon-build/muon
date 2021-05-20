@@ -56,10 +56,8 @@ enum token_type {
 	tok_question_mark,
 };
 
-#define TOKEN_MAX_DATA 64
-
 struct token {
-	char data[TOKEN_MAX_DATA + 1];
+	const char *data;
 	enum token_type type;
 	uint32_t n, line, col;
 };
