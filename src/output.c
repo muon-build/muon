@@ -128,11 +128,10 @@ static bool
 write_tgt(FILE *out, struct workspace *wk, struct project *proj, uint32_t tgt_id)
 {
 	struct obj *tgt = get_obj(wk, tgt_id);
-	L(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.name));
+	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.name));
 
 	struct write_tgt_iter_ctx ctx = { .tgt = tgt, .out = out };
 
-	L(log_out, "'%s'", wk_str(wk, proj->cwd));
 	ctx.args_id = wk_str_pushf(wk, "-I%s.p -I%s ", wk_str(wk, tgt->dat.tgt.name), wk_str(wk, proj->cwd));
 
 	if (tgt->dat.tgt.include_directories) {

@@ -102,7 +102,7 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 {
 	*obj = 0;
 
-	L(log_interp, "%s", node_to_s(n));
+	/* L(log_interp, "%s", node_to_s(n)); */
 
 	switch (n->type) {
 	case node_function:

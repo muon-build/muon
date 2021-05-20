@@ -18,7 +18,6 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 {
 	uint64_t *idp;
 	struct project *proj = darr_get(&wk->projects, proj_id);
-	L(log_misc, "%d", proj_id);
 
 	if ((idp = hash_get(&proj->scope, name))) {
 		*id = *idp;

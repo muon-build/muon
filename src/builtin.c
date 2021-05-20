@@ -597,7 +597,7 @@ builtin_run(struct ast *ast, struct workspace *wk, uint32_t rcvr_id, struct node
 		recvr_type = obj_default;
 	}
 
-	L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name);
+	/* L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name); */
 
 	if (recvr_type == obj_null) {
 		LOG_W(log_misc, "tried to call %s on null", name);
@@ -611,7 +611,7 @@ builtin_run(struct ast *ast, struct workspace *wk, uint32_t rcvr_id, struct node
 				LOG_W(log_interp, "error in %s(), %s", name, source_location(ast, n->l));
 				return false;
 			}
-			L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name);
+			/* L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name); */
 			return true;
 		}
 	}
