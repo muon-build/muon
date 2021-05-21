@@ -396,6 +396,20 @@ tgt_common(struct ast *ast, struct workspace *wk, struct node *args, uint32_t *o
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.tgt.src = an[1].val;
 
+	const char *pref, *suff;
+	switch (type) {
+	case tgt_executable:
+		pref = "";
+		suff = "";
+		break;
+	case tgt_library:
+		pref = "lib";
+		suff = ".a";
+		break;
+	}
+
+	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
+
 	if (akw[kw_include_directories].set) {
 		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
 	}

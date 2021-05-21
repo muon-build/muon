@@ -45,7 +45,7 @@ struct obj {
 		} arr;
 		uint32_t file;
 		struct {
-			uint32_t name;
+			uint32_t name, build_name;
 			enum tgt_type type;
 			uint32_t src;
 			uint32_t link_with;

@@ -71,7 +71,6 @@ path_without_slashes(const char *path)
 struct write_tgt_iter_ctx {
 	struct obj *tgt;
 	FILE *out;
-	const char *args, *object_names;
 	uint32_t args_id;
 	uint32_t object_names_id;
 };
@@ -82,21 +81,19 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file); // TODO
-	const char *path = wk_str(wk, src->dat.file), *pws = path_without_slashes(path);
+	const char *pws = path_without_slashes(wk_str(wk, src->dat.file));
 
-	const char *tgt_name = wk_str(wk, ctx->tgt->dat.tgt.name);
-
-	wk_strappf(wk, &ctx->object_names_id, "%s.p/%s.o ", tgt_name, pws);
+	wk_strappf(wk, &ctx->object_names_id, "%s.p/%s.o ", wk_str(wk, ctx->tgt->dat.tgt.name), pws);
 
 	fprintf(ctx->out,
 		"build %s.p/%s.o: c_COMPILER %s\n"
 		" DEPFILE = %s.p/%s.o.d\n"
 		" DEPFILE_UNQUOTED = %s.p/%s.o.d\n"
 		" ARGS = %s\n\n",
-		tgt_name, pws, path,
-		tgt_name, pws,
-		tgt_name, pws,
-		ctx->args
+		wk_str(wk, ctx->tgt->dat.tgt.name), pws, wk_str(wk, src->dat.file),
+		wk_str(wk, ctx->tgt->dat.tgt.name), pws,
+		wk_str(wk, ctx->tgt->dat.tgt.name), pws,
+		wk_str(wk, ctx->args_id)
 		);
 
 	return ir_cont;
@@ -131,6 +128,31 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
+enum iteration_result
+process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	uint32_t *str = _ctx;
+
+	struct obj *tgt = get_obj(wk, val_id);
+	wk_strappf(wk, str, " %s", wk_str(wk, tgt->dat.tgt.build_name));
+
+	return ir_cont;
+}
+
+enum iteration_result
+process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct obj *dep = get_obj(wk, val_id);
+
+	if (dep->dat.dep.link_with) {
+		if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_dep_links_iter_iter)) {
+			return false;
+		}
+	}
+
+	return ir_cont;
+}
+
 struct write_tgt_ctx {
 	FILE *out;
 	struct project *proj;
@@ -147,7 +169,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	struct write_tgt_iter_ctx ctx = { .tgt = tgt, .out = out };
 
-	{/* arguments */
+	{ /* arguments */
 		ctx.args_id = wk_str_pushf(wk, "-I%s.p -I%s ", wk_str(wk, tgt->dat.tgt.name), wk_str(wk, proj->cwd));
 
 		if (tgt->dat.tgt.include_directories) {
@@ -168,8 +190,6 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (!obj_array_foreach(wk, proj->cfg.args, &ctx, make_args_iter)) {
 			return false;
 		}
-
-		ctx.args = wk_str(wk, ctx.args_id);
 	}
 
 	{ /* obj names */
@@ -177,24 +197,36 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_iter)) {
 			return false;
 		}
-		ctx.object_names = wk_str(wk, ctx.object_names_id);
 	}
 
 	{ /* target */
 		const char *rule;
+		uint32_t link_args_id;
 
 		switch (tgt->dat.tgt.type) {
 		case tgt_executable:
 			rule = "c_LINKER";
+			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined");
+
+			{ /* dep links */
+				if (tgt->dat.tgt.deps) {
+					if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &link_args_id, process_dep_links_iter)) {
+						return false;
+					}
+				}
+			}
+
+			wk_str(wk, link_args_id);
+
 			break;
 		case tgt_library:
 			rule = "STATIC_LINKER";
+			link_args_id = wk_str_push(wk, "csrD");
 			break;
 		}
 
-		fprintf(out, "build %s: %s %s", wk_str(wk, tgt->dat.tgt.name), rule, ctx.object_names);
-
-		fprintf(out, "\n LINK_ARGS = -Wl,--as-needed -Wl,--no-undefined\n\n");
+		fprintf(out, "build %s: %s %s", wk_str(wk, tgt->dat.tgt.build_name), rule, wk_str(wk, ctx.object_names_id));
+		fprintf(out, "\n LINK_ARGS = %s\n\n", wk_str(wk, link_args_id));
 	}
 
 	return true;
