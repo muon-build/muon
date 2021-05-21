@@ -44,7 +44,7 @@ interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 	}
 
 	// TODO check if we are overwriting?
-	hash_set(&wk->scope, get_node(ast, n->l)->tok->dat.s, rhs);
+	hash_set(&current_project(wk)->scope, get_node(ast, n->l)->tok->dat.s, rhs);
 
 	return true;
 }
@@ -55,6 +55,15 @@ interp_string(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 	struct obj *str;
 	str = make_obj(wk, obj, obj_string);
 	str->dat.str = wk_str_push(wk, n->tok->dat.s);
+	return true;
+}
+
+static bool
+interp_number(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	struct obj *num;
+	num = make_obj(wk, obj, obj_number);
+	num->dat.num = n->tok->dat.n;
 	return true;
 }
 
@@ -117,8 +126,9 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 		return interp_array(ast, wk, get_node(ast, n->l), obj);
 	case node_id:
 		return interp_id(ast, wk, n, obj);
+	case node_number:
+		return interp_number(ast, wk, n, obj);
 	case node_bool: break;
-	case node_number: break;
 	case node_format_string: break;
 	case node_continue: break;
 	case node_break: break;

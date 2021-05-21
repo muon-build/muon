@@ -19,6 +19,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_dependency: return "dependency";
 	case obj_meson: return "meson";
 	case obj_string: return "string";
+	case obj_number: return "number";
 	case obj_array: return "array";
 	case obj_bool: return "bool";
 	case obj_file: return "file";

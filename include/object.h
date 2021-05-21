@@ -13,6 +13,7 @@ enum obj_type {
 	obj_default,
 	obj_null,
 	obj_string,
+	obj_number,
 	obj_compiler,
 	obj_meson,
 	obj_array,
@@ -34,6 +35,7 @@ struct obj {
 	union {
 		uint64_t n;
 		uint32_t str;
+		int64_t num;
 		struct {
 			uint32_t l;
 			uint32_t r;

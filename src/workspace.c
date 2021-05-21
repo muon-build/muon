@@ -127,8 +127,8 @@ static void
 project_init(struct workspace *wk, struct project *proj)
 {
 	hash_init(&proj->scope, 128);
-	darr_init(&proj->tgts, 64, sizeof(uint32_t));
 
+	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->cfg.args, obj_array);
 }
 

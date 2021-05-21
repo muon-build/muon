@@ -359,6 +359,7 @@ func_declare_dependency(struct ast *ast, struct workspace *wk, uint32_t _, struc
 	}
 
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
+	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
 
 	if (akw[kw_link_with].set) {
 		dep->dat.dep.link_with = akw[kw_link_with].val;
@@ -403,7 +404,7 @@ tgt_common(struct ast *ast, struct workspace *wk, struct node *args, uint32_t *o
 		tgt->dat.tgt.deps = akw[kw_dependencies].val;
 	}
 
-	darr_push(&current_project(wk)->tgts, obj);
+	obj_array_push(wk, current_project(wk)->targets, *obj);
 
 	return true;
 }

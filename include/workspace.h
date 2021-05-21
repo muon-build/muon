@@ -17,7 +17,7 @@ struct project {
 	} cfg;
 
 	struct hash scope;
-	struct darr tgts;
+	uint32_t targets;
 };
 
 struct workspace {
