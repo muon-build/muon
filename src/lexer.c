@@ -174,6 +174,7 @@ keyword(struct lexer *lexer, struct token *token)
 		if (strlen(keywords[i].name) == token->n
 		    && strncmp(token->dat.s, keywords[i].name, token->n) == 0) {
 			token->type = keywords[i].type;
+			token->n = 0;
 			return true;
 		}
 	}

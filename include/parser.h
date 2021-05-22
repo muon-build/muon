@@ -36,6 +36,7 @@ enum if_type {
 };
 
 enum node_type {
+	node_null, // only used for parsing
 	node_bool,
 	node_id,
 	node_number,

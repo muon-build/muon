@@ -36,6 +36,31 @@ interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 }
 
 static bool
+interp_index(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	uint32_t l_id, r_id;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &l_id)) {
+		return false;
+	} else if (!interp_node(ast, wk, get_node(ast, n->r), &r_id)) {
+		return false;
+	}
+
+	struct obj *l = get_obj(wk, l_id), *r = get_obj(wk, r_id);
+	switch (l->type) {
+	case obj_array:
+		if (!typecheck(r, obj_number)) {
+			return false;
+		}
+
+		return obj_array_index(wk, l_id, r->dat.num, obj);
+	default:
+		LOG_W(log_interp, "index unsupported for %s", obj_type_to_s(l->type));
+		return false;
+	}
+}
+
+static bool
 interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	uint32_t rhs;
@@ -110,6 +135,124 @@ interp_block(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *ob
 }
 
 static bool
+interp_not(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	uint32_t obj_l_id;
+	struct obj *obj;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &obj_l_id)) {
+		return false;
+	} else if (!typecheck(get_obj(wk, obj_l_id), obj_bool)) {
+		return false;
+	}
+
+	obj = make_obj(wk, obj_id, obj_bool);
+	obj->dat.boolean = !get_obj(wk, obj_l_id)->dat.boolean;
+	return true;
+}
+
+static bool
+interp_andor(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	uint32_t obj_l_id, obj_r_id;
+	struct obj *obj;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &obj_l_id)) {
+		return false;
+	} else if (!typecheck(get_obj(wk, obj_l_id), obj_bool)) {
+		return false;
+	}
+
+	if (n->type == node_and && !get_obj(wk, obj_l_id)->dat.boolean) {
+		obj = make_obj(wk, obj_id, obj_bool);
+		obj->dat.boolean = false;
+		return true;
+	} else if (n->type == node_or && get_obj(wk, obj_l_id)->dat.boolean) {
+		obj = make_obj(wk, obj_id, obj_bool);
+		obj->dat.boolean = true;
+		return true;
+	}
+
+	if (!interp_node(ast, wk, get_node(ast, n->r), &obj_r_id)) {
+		return false;
+	} else if (!typecheck(get_obj(wk, obj_r_id), obj_bool)) {
+		return false;
+	}
+
+	obj = make_obj(wk, obj_id, obj_bool);
+	obj->dat.boolean = get_obj(wk, obj_r_id)->dat.boolean;
+	return true;
+}
+
+static bool
+interp_comparison(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	bool res;
+	uint32_t obj_l_id, obj_r_id;
+	struct obj *obj;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &obj_l_id)) {
+		return false;
+	} else if (!interp_node(ast, wk, get_node(ast, n->r), &obj_r_id)) {
+		return false;
+	}
+
+	switch ((enum comparison_type)n->data) {
+	case comp_equal:
+		res = obj_equal(wk, obj_l_id, obj_r_id);
+		break;
+	case comp_nequal:
+		res = !obj_equal(wk, obj_l_id, obj_r_id);
+		break;
+
+	case comp_in:
+	case comp_not_in:
+		if (!obj_array_in(wk, obj_l_id, obj_r_id, &res)) {
+			return false;
+		}
+
+		if (n->data == comp_not_in) {
+			res = !res;
+		}
+		break;
+
+	case comp_lt:
+	case comp_le:
+	case comp_gt:
+	case comp_ge: {
+		if (!typecheck(get_obj(wk, obj_l_id), obj_number)
+		    || !typecheck(get_obj(wk, obj_r_id), obj_number)) {
+			return false;
+		}
+
+		int64_t a = get_obj(wk, obj_l_id)->dat.num,
+			b = get_obj(wk, obj_r_id)->dat.num;
+
+		switch (n->data) {
+		case comp_lt:
+			res = a < b;
+			break;
+		case comp_le:
+			res = a <= b;
+			break;
+		case comp_gt:
+			res = a > b;
+			break;
+		case comp_ge:
+			res = a >= b;
+			break;
+		default: assert(false && "unreachable"); res = false;
+		}
+		break;
+	}
+	}
+
+	obj = make_obj(wk, obj_id, obj_bool);
+	obj->dat.boolean = res;
+	return true;
+}
+
+static bool
 interp_if(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	bool cond;
@@ -158,14 +301,12 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	/* L(log_interp, "%s", node_to_s(n)); */
 
 	switch (n->type) {
-	case node_block:
-		return interp_block(ast, wk, n, obj_id);
-	case node_function:
-		return builtin_run(ast, wk, 0, n, obj_id);
-	case node_method:
-		return interp_method(ast, wk, n, obj_id);
-	case node_assignment:
-		return interp_assign(ast, wk, n, obj_id);
+	/* literals */
+	case node_bool:
+		obj = make_obj(wk, obj_id, obj_bool);
+		obj->dat.boolean = n->data;
+		return true;
+	case node_format_string: // TODO :)
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
 		obj->dat.str = wk_str_push(wk, n->tok->dat.s);
@@ -178,28 +319,55 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 		obj = make_obj(wk, obj_id, obj_number);
 		obj->dat.num = n->tok->dat.n;
 		return true;
+	case node_dict: break;
+
+	/* control flow */
+	case node_block:
+		return interp_block(ast, wk, n, obj_id);
 	case node_if:
 		return interp_if(ast, wk, n, obj_id);
-	case node_bool:
-		obj = make_obj(wk, obj_id, obj_bool);
-		obj->dat.boolean = n->data;
-		return true;
-	case node_format_string: break;
+	case node_foreach_clause: break;
 	case node_continue: break;
 	case node_break: break;
-	case node_argument: break;
-	case node_dict: break;
-	case node_empty: break;
-	case node_or: break;
-	case node_and: break;
-	case node_comparison: break;
-	case node_arithmetic: break;
-	case node_not: break;
-	case node_index: break;
-	case node_plus_assignment: break;
-	case node_foreach_clause: break;
-	case node_u_minus: break;
+
+	/* functions */
+	case node_function:
+		return builtin_run(ast, wk, 0, n, obj_id);
+	case node_method:
+		return interp_method(ast, wk, n, obj_id);
+	case node_index:
+		return interp_index(ast, wk, n, obj_id);
+
+	/* assignment */
+	case node_assignment:
+		return interp_assign(ast, wk, n, obj_id);
+
+	/* comparison stuff */
+	case node_not:
+		return interp_not(ast, wk, n, obj_id);
+	case node_and:
+	case node_or:
+		return interp_andor(ast, wk, n, obj_id);
+	case node_comparison:
+		return interp_comparison(ast, wk, n, obj_id);
 	case node_ternary: break;
+
+	/* math */
+	case node_arithmetic: break;
+	case node_plus_assignment: break;
+	case node_u_minus: break;
+
+	/* handled in other places */
+	case node_argument:
+		assert(false && "unreachable");
+		break;
+
+	case node_empty: return true;
+
+	/* never valid */
+	case node_null:
+		assert(false && "unreachable");
+		break;
 	}
 
 	return true;

@@ -401,7 +401,13 @@ parse_e8(struct parser *p, uint32_t *id)
 	uint32_t v;
 
 	if (accept(p, tok_lparen)) {
-		return parse_stmt(p, id);
+		if (!parse_stmt(p, id)) {
+			return false;
+		} else if (!expect(p, tok_rparen)) {
+			return false;
+		}
+
+		return true;
 	} else if (accept(p, tok_lbrack)) {
 		if (!parse_args(p, &v)) {
 			return false;
@@ -487,15 +493,20 @@ static bool
 parse_e6(struct parser *p, uint32_t *id)
 {
 	uint32_t l_id;
+	enum node_type t = 0;
+
+	if (accept(p, tok_not)) {
+		t = node_not;
+	} else if (accept(p, tok_minus)) {
+		t = node_u_minus;
+	}
+
 	if (!(parse_e7(p, &l_id))) {
 		return false;
 	}
 
-	if (accept(p, tok_not)) {
-		make_node(p, id, node_not);
-		add_child(p, *id, node_child_l, l_id);
-	} else if (accept(p, tok_minus)) {
-		make_node(p, id, node_u_minus);
+	if (t) {
+		make_node(p, id, t);
 		add_child(p, *id, node_child_r, l_id);
 	} else {
 		*id = l_id;
@@ -610,48 +621,46 @@ parse_e4(struct parser *p, uint32_t *id)
 static bool
 parse_e3(struct parser *p, uint32_t *id)
 {
-	uint32_t p_id, l_id, r_id;
+	uint32_t l_id, r_id;
 	if (!(parse_e4(p, &l_id))) {
 		return false;
 	}
 
-	while (accept(p, tok_or)) {
-		make_node(p, &p_id, node_and);
-		if (!parse_e4(p, &r_id)) {
+	if (accept(p, tok_and)) {
+		if (!parse_e3(p, &r_id)) {
 			return false;
 		}
 
+		make_node(p, id, node_and);
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, r_id);
-
-		l_id = p_id;
+	} else {
+		*id = l_id;
 	}
 
-	*id = l_id;
 	return true;
 }
 
 static bool
 parse_e2(struct parser *p, uint32_t *id)
 {
-	uint32_t p_id, l_id, r_id;
+	uint32_t l_id, r_id;
 	if (!(parse_e3(p, &l_id))) {
 		return false;
 	}
 
-	while (accept(p, tok_or)) {
-		make_node(p, &p_id, node_or);
-		if (!parse_e3(p, &r_id)) {
+	if (accept(p, tok_or)) {
+		if (!parse_e2(p, &r_id)) {
 			return false;
 		}
 
+		make_node(p, id, node_or);
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, r_id);
-
-		l_id = p_id;
+	} else {
+		*id = l_id;
 	}
 
-	*id = l_id;
 	return true;
 }
 

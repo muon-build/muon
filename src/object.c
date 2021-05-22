@@ -89,3 +89,106 @@ obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id)
 	arr->dat.arr.tail = child_arr_id;
 	++arr->dat.arr.len;
 }
+
+bool
+obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
+{
+	if (l_id == r_id) {
+		return true;
+	}
+
+	struct obj *l = get_obj(wk, l_id),
+		   *r = get_obj(wk, r_id);
+
+	if (l->type != r->type) {
+		return false;
+	}
+
+	switch (l->type) {
+	case obj_string:
+		return strcmp(wk_str(wk, l->dat.str), wk_str(wk, r->dat.str)) == 0;
+	case obj_number:
+		return l->dat.num == r->dat.num;
+	case obj_bool:
+		return l->dat.boolean == r->dat.boolean;
+	case obj_array:
+	case obj_file:
+		L(log_interp, "TODO: compare %s", obj_type_to_s(l->type));
+		return false;
+	default:
+		return false;
+	}
+}
+
+struct obj_array_in_iter_ctx {
+	uint32_t l_id;
+	bool res;
+};
+
+static enum iteration_result
+obj_array_in_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	struct obj_array_in_iter_ctx *ctx = _ctx;
+
+	if (obj_equal(wk, ctx->l_id, v_id)) {
+		ctx->res = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+bool
+obj_array_in(struct workspace *wk, uint32_t l_id, uint32_t r_id, bool *res)
+{
+	if (!typecheck(get_obj(wk, r_id), obj_array)) {
+		return false;
+	}
+
+	struct obj_array_in_iter_ctx ctx = { .l_id = l_id };
+	if (!obj_array_foreach(wk, r_id, &ctx, obj_array_in_iter)) {
+		return false;
+	}
+
+	*res = ctx.res;
+	return true;
+}
+
+struct obj_array_index_iter_ctx { uint32_t res, i, tgt; };
+
+static enum iteration_result
+obj_array_index_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	struct obj_array_index_iter_ctx *ctx = _ctx;
+
+	if (ctx->i == ctx->tgt) {
+		ctx->res = v_id;
+		return ir_done;
+	}
+
+	++ctx->i;
+	return ir_cont;
+}
+
+bool
+obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
+{
+	struct obj *arr = get_obj(wk, arr_id);
+	if (!typecheck(arr, obj_array)) {
+		return false;
+	}
+
+	if (i < 0 || i >= arr->dat.arr.len) {
+		LOG_W(log_interp, "index %ld out of bounds", i);
+		return false;
+	}
+
+	struct obj_array_index_iter_ctx ctx = { .tgt = i };
+
+	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {
+		return false;
+	}
+
+	*res = ctx.res;
+	return true;
+}
