@@ -52,13 +52,15 @@ next_arg(struct ast *ast, struct node **arg, const char **kw, struct node **args
 
 bool
 interp_args(struct ast *ast, struct workspace *wk,
-	struct node *args, struct args_norm _an[],
-	struct args_norm ao[], struct args_kw akw[])
+	struct node *args,
+	struct args_norm positional_args[],
+	struct args_norm optional_positional_args[],
+	struct args_kw keyword_args[])
 {
 	const char *kw;
 	struct node *arg;
 	uint32_t i, stage;
-	struct args_norm *an[2] = { _an, ao };
+	struct args_norm *an[2] = { positional_args, optional_positional_args };
 
 	for (stage = 0; stage < 2; ++stage) {
 		if (!an[stage]) {
@@ -97,11 +99,11 @@ interp_args(struct ast *ast, struct workspace *wk,
 		}
 	}
 
-	if (akw) {
+	if (keyword_args) {
 		while (next_arg(ast, &arg, &kw, &args)) {
 			goto process_kwarg;
 kwargs:
-			if (!akw) {
+			if (!keyword_args) {
 				LOG_W(log_interp, "this function does not accept kwargs");
 				return false;
 			}
@@ -111,23 +113,23 @@ process_kwarg:
 				return false;
 			}
 
-			for (i = 0; akw[i].key; ++i) {
-				if (strcmp(kw, akw[i].key) == 0) {
-					if (!interp_node(ast, wk, arg, &akw[i].val)) {
+			for (i = 0; keyword_args[i].key; ++i) {
+				if (strcmp(kw, keyword_args[i].key) == 0) {
+					if (!interp_node(ast, wk, arg, &keyword_args[i].val)) {
 						return false;
 					}
 
-					if (!typecheck(get_obj(wk, akw[i].val), akw[i].type)) {
-						LOG_W(log_interp, "kwarg %s", akw[i].key);
+					if (!typecheck(get_obj(wk, keyword_args[i].val), keyword_args[i].type)) {
+						LOG_W(log_interp, "kwarg %s", keyword_args[i].key);
 						return false;
 					}
 
-					akw[i].set = true;
+					keyword_args[i].set = true;
 					break;
 				}
 			}
 
-			if (!akw[i].key) {
+			if (!keyword_args[i].key) {
 				LOG_W(log_interp, "invalid kwarg: '%s'", kw);
 				return false;
 			}
@@ -135,7 +137,11 @@ process_kwarg:
 
 
 	} else if (next_arg(ast, &arg, &kw, &args)) {
-		LOG_W(log_interp, "this function does not accept kwargs");
+		if (positional_args || optional_positional_args) {
+			LOG_W(log_interp, "this function does not accept kwargs");
+		} else {
+			LOG_W(log_interp, "this function does not accept args");
+		}
 		return false;
 	}
 
