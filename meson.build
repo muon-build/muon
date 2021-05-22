@@ -41,6 +41,7 @@ src = files([
 	'src/functions/compiler.c',
 	'src/functions/default.c',
 	'src/functions/meson.c',
+	'src/functions/number.c',
 	'src/functions/subproject.c',
 	'src/hash.c',
 	'src/interpreter.c',

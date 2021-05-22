@@ -6,6 +6,7 @@
 #include "functions/compiler.h"
 #include "functions/default.h"
 #include "functions/meson.h"
+#include "functions/number.h"
 #include "functions/subproject.h"
 #include "interpreter.h"
 #include "log.h"
@@ -193,6 +194,9 @@ builtin_run(struct ast *ast, struct workspace *wk, uint32_t rcvr_id, struct node
 		break;
 	case obj_subproject:
 		impl_tbl = impl_tbl_subproject;
+		break;
+	case obj_number:
+		impl_tbl = impl_tbl_number;
 		break;
 	default:
 		LOG_W(log_misc, "reciever %s does not have any methods", obj_type_to_s(recvr_type));
