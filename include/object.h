@@ -36,6 +36,7 @@ struct obj {
 		uint64_t n;
 		uint32_t str;
 		int64_t num;
+		bool boolean;
 		struct {
 			uint32_t l;
 			uint32_t r;

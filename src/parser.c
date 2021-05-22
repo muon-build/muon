@@ -37,9 +37,9 @@ static const char *node_name[] = {
 	[node_plus_assignment] = "plus_assignment",
 	[node_foreach_clause] = "foreach_clause",
 	[node_if] = "if",
-	[node_if_clause] = "if_clause",
 	[node_u_minus] = "u_minus",
 	[node_ternary] = "ternary",
+	[node_block] = "block",
 };
 
 struct parser {
@@ -189,6 +189,9 @@ node_to_s(struct node *n)
 	case node_argument:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == arg_kwarg ? "kwarg" : "normal");
 		break;
+	case node_if:
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == if_normal ? "normal" : "else");
+		break;
 	default:
 		break;
 	}
@@ -309,7 +312,21 @@ parse_key_values(struct parser *p, uint32_t *id)
 static bool
 parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id)
 {
-	return false;
+	uint32_t r_id;
+
+	if (!parse_stmt(p, &r_id)) {
+		return false;
+	}
+
+	if (!expect(p, tok_rbrack)) {
+		return false;
+	}
+
+	make_node(p, id, node_index);
+	add_child(p, *id, node_child_l, l_id);
+	add_child(p, *id, node_child_r, r_id);
+
+	return true;
 }
 
 static bool
@@ -692,14 +709,136 @@ parse_stmt(struct parser *p, uint32_t *id)
 	return true;
 }
 
+static bool parse_block(struct parser *p, uint32_t *id);
+
+static bool
+parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
+{
+	enum if_type child_type;
+	uint32_t cond_id, block_id, c_id;
+	bool have_c = false;
+
+	if (if_type == if_normal) {
+		if (!parse_stmt(p, &cond_id)) {
+			return false;
+		}
+	}
+
+	if (!expect(p, tok_eol)) {
+		return false;
+	}
+
+	if (!parse_block(p, &block_id)) {
+		return false;
+	}
+
+	if (if_type == if_normal) {
+		if (accept(p, tok_elif)) {
+			have_c = true;
+			child_type = if_normal;
+		} else if (accept(p, tok_else)) {
+			have_c = true;
+			child_type = if_else;
+		}
+
+		if (have_c) {
+			if (!parse_if(p, &c_id, child_type)) {
+				return false;
+			}
+		}
+	}
+
+	struct node *n = make_node(p, id, node_if);
+	n->data = if_type;
+
+	if (if_type == if_normal) {
+		add_child(p, *id, node_child_l, cond_id);
+	}
+
+	add_child(p, *id, node_child_r, block_id);
+
+	if (have_c) {
+		add_child(p, *id, node_child_c, c_id);
+	}
+
+	return true;
+}
+
+static bool
+parse_foreach(struct parser *p, uint32_t *id)
+{
+	return false;
+}
+
+static bool
+parse_line(struct parser *p, uint32_t *id)
+{
+	if (p->last->type == tok_eol) {
+		make_node(p, id, node_empty);
+	} else if (accept(p, tok_if)) {
+		if (!parse_if(p, id, if_normal)) {
+			return false;
+		}
+		return expect(p, tok_endif);
+	} else if (accept(p, tok_foreach)) {
+		if (!parse_foreach(p, id)) {
+			return false;
+		}
+		return expect(p, tok_endforeach);
+	} else if (accept(p, tok_continue)) {
+		make_node(p, id, node_continue);
+	} else if (accept(p, tok_break)) {
+		make_node(p, id, node_break);
+	} else {
+		return parse_stmt(p, id);
+	}
+
+	return true;
+}
+
+static bool
+parse_block(struct parser *p, uint32_t *id)
+{
+	uint32_t l_id, r_id;
+	bool loop = true, have_eol = true, have_r = false;
+
+	while (loop) {
+		if (!parse_line(p, &l_id)) {
+			return false;
+		}
+
+		if (get_node(p->ast, l_id)->type != node_empty) {
+			loop = false;
+		}
+
+		if (!accept(p, tok_eol)) {
+			have_eol = false;
+			break;
+		}
+	}
+
+	if (have_eol) {
+		if (!parse_block(p, &r_id)) {
+			return false;
+		}
+		have_r = true;
+	}
+
+	make_node(p, id, node_block);
+	add_child(p, *id, node_child_l, l_id);
+	if (have_r) {
+		add_child(p, *id, node_child_r, r_id);
+	}
+
+	return true;
+}
+
 bool
 parse_file(struct ast *ast, const char *path)
 {
 	struct parser parser = { .ast = ast, .src_path = path };
-	uint32_t id;
 
 	darr_init(&parser.ast->nodes, 2048, sizeof(struct node));
-	darr_init(&ast->ast, 1024, sizeof(uint32_t));
 
 	if (!lexer_init(&parser.lexer, path)) {
 		return false;
@@ -709,17 +848,8 @@ parse_file(struct ast *ast, const char *path)
 
 	next_tok(&parser);
 
-	bool loop = true;
-	while (loop) {
-		if (!(parse_stmt(&parser, &id))) {
-			goto err;
-		}
-
-		if (get_node(parser.ast, id)->type != node_empty) {
-			darr_push(&ast->ast, &id);
-		}
-
-		loop = accept(&parser, tok_eol);
+	if (!parse_block(&parser, &ast->root)) {
+		return false;
 	}
 
 	if (!expect(&parser, tok_eof)) {
@@ -753,8 +883,5 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d)
 void
 print_ast(struct ast *ast)
 {
-	uint32_t i;
-	for (i = 0; i < ast->ast.len; ++i) {
-		print_tree(ast, *(uint32_t *)darr_get(&ast->ast, i), 0);
-	}
+	print_tree(ast, ast->root, 0);
 }

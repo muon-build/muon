@@ -57,17 +57,6 @@ struct args_norm { enum obj_type type; uint32_t val; bool set; };
 struct args_kw { const char *key; enum obj_type type; uint32_t val; bool set; };
 
 static bool
-typecheck(struct obj *o, enum obj_type type)
-{
-	if (type != obj_any && o->type != type) {
-		LOG_W(log_interp, "expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(o->type));
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 interp_args(struct ast *ast, struct workspace *wk,
 	struct node *args, struct args_norm _an[],
 	struct args_norm ao[], struct args_kw akw[])

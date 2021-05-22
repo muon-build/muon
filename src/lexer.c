@@ -148,7 +148,6 @@ is_skipchar(const char c)
 static bool
 keyword(struct lexer *lexer, struct token *token)
 {
-	/* must stay in sorted order */
 	static const struct {
 		const char *name;
 		enum token_type type;
@@ -167,22 +166,15 @@ keyword(struct lexer *lexer, struct token *token)
 		{ "not", tok_not },
 		{ "or", tok_or },
 		{ "true", tok_true },
+		{ 0 },
 	};
 
-	int low = 0, high = (sizeof(keywords) / sizeof(keywords[0])) - 1, mid, cmp;
-
-	while (low <= high) {
-		mid = (low + high) / 2;
-		cmp = strcmp(token->dat.s, keywords[mid].name);
-		if (cmp == 0) {
-			token->type = keywords[mid].type;
+	uint32_t i;
+	for (i = 0; keywords[i].name; ++i) {
+		if (strlen(keywords[i].name) == token->n
+		    && strncmp(token->dat.s, keywords[i].name, token->n) == 0) {
+			token->type = keywords[i].type;
 			return true;
-		}
-
-		if (cmp < 0) {
-			high = mid - 1;
-		} else {
-			low = mid + 1;
 		}
 	}
 
@@ -403,7 +395,12 @@ lexer_tokenize_one(struct lexer *lexer)
 			token->type = tok_minus;
 			break;
 		case '=':
-			token->type = tok_assign;
+			if (lexer->data[lexer->i + 1] == '=') {
+				advance(lexer);
+				token->type = tok_eq;
+			} else {
+				token->type = tok_assign;
+			}
 			break;
 		case '\0':
 			token->type = tok_eof;

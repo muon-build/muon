@@ -30,6 +30,11 @@ enum arg_type {
 	arg_kwarg,
 };
 
+enum if_type {
+	if_normal,
+	if_else,
+};
+
 enum node_type {
 	node_bool,
 	node_id,
@@ -54,9 +59,9 @@ enum node_type {
 	node_plus_assignment,
 	node_foreach_clause,
 	node_if,
-	node_if_clause,
 	node_u_minus,
 	node_ternary,
+	node_block,
 };
 
 enum node_child_flag {
@@ -75,7 +80,8 @@ struct node {
 };
 
 struct ast {
-	struct darr nodes, ast;
+	struct darr nodes;
+	uint32_t root;
 };
 
 bool parse_file(struct ast *ast, const char *path);

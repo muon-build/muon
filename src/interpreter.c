@@ -11,11 +11,17 @@
 #include "parser.h"
 #include "workspace.h"
 
-static bool
-interp_function(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+bool
+typecheck(struct obj *o, enum obj_type type)
 {
-	return builtin_run(ast, wk, 0, n, obj);
+	if (type != obj_any && o->type != type) {
+		LOG_W(log_interp, "expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(o->type));
+		return false;
+	}
+
+	return true;
 }
+
 
 static bool
 interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
@@ -30,12 +36,6 @@ interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 }
 
 static bool
-interp_id(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
-{
-	return get_obj_id(wk, n->tok->dat.s, obj, wk->cur_project);
-}
-
-static bool
 interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	uint32_t rhs;
@@ -46,24 +46,6 @@ interp_assign(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *o
 	// TODO check if we are overwriting?
 	hash_set(&current_project(wk)->scope, get_node(ast, n->l)->tok->dat.s, rhs);
 
-	return true;
-}
-
-static bool
-interp_string(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
-{
-	struct obj *str;
-	str = make_obj(wk, obj, obj_string);
-	str->dat.str = wk_str_push(wk, n->tok->dat.s);
-	return true;
-}
-
-static bool
-interp_number(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
-{
-	struct obj *num;
-	num = make_obj(wk, obj, obj_number);
-	num->dat.num = n->tok->dat.n;
 	return true;
 }
 
@@ -106,29 +88,102 @@ interp_array(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *ob
 	return true;
 }
 
-bool
-interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+static bool
+interp_block(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	*obj = 0;
+	bool have_r = n->chflg & node_child_r
+		      && get_node(ast, n->r)->type != node_empty;
+
+	uint32_t obj_l, obj_r; // these return values are disregarded
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &obj_l)) {
+		return false;
+	}
+
+	if (have_r) {
+		if (!interp_node(ast, wk, get_node(ast, n->r), &obj_r)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+interp_if(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	bool cond;
+	uint32_t res_id;
+
+	switch ((enum if_type)n->data) {
+	case if_normal: {
+		uint32_t cond_id;
+		if (!interp_node(ast, wk, get_node(ast, n->l), &cond_id)) {
+			return false;
+		}
+
+		struct obj *cond_obj = get_obj(wk, cond_id);
+
+		if (!typecheck(cond_obj, obj_bool)) {
+			return false;
+		}
+
+		cond = cond_obj->dat.boolean;
+		break;
+	}
+	case if_else:
+		cond = true;
+		break;
+	}
+
+	if (cond) {
+		if (!interp_node(ast, wk, get_node(ast, n->r), &res_id)) {
+			return false;
+		}
+	} else if (n->chflg & node_child_c) {
+		if (!interp_node(ast, wk, get_node(ast, n->c), &res_id)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	struct obj *obj;
+	*obj_id = 0;
 
 	/* L(log_interp, "%s", node_to_s(n)); */
 
 	switch (n->type) {
+	case node_block:
+		return interp_block(ast, wk, n, obj_id);
 	case node_function:
-		return interp_function(ast, wk, n, obj);
+		return builtin_run(ast, wk, 0, n, obj_id);
 	case node_method:
-		return interp_method(ast, wk, n, obj);
+		return interp_method(ast, wk, n, obj_id);
 	case node_assignment:
-		return interp_assign(ast, wk, n, obj);
+		return interp_assign(ast, wk, n, obj_id);
 	case node_string:
-		return interp_string(ast, wk, n, obj);
+		obj = make_obj(wk, obj_id, obj_string);
+		obj->dat.str = wk_str_push(wk, n->tok->dat.s);
+		return true;
 	case node_array:
-		return interp_array(ast, wk, get_node(ast, n->l), obj);
+		return interp_array(ast, wk, get_node(ast, n->l), obj_id);
 	case node_id:
-		return interp_id(ast, wk, n, obj);
+		return get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project);
 	case node_number:
-		return interp_number(ast, wk, n, obj);
-	case node_bool: break;
+		obj = make_obj(wk, obj_id, obj_number);
+		obj->dat.num = n->tok->dat.n;
+		return true;
+	case node_if:
+		return interp_if(ast, wk, n, obj_id);
+	case node_bool:
+		obj = make_obj(wk, obj_id, obj_bool);
+		obj->dat.boolean = n->data;
+		return true;
 	case node_format_string: break;
 	case node_continue: break;
 	case node_break: break;
@@ -143,26 +198,21 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	case node_index: break;
 	case node_plus_assignment: break;
 	case node_foreach_clause: break;
-	case node_if: break;
-	case node_if_clause: break;
 	case node_u_minus: break;
 	case node_ternary: break;
 	}
 
 	return true;
+	/* assert(false && "unreachable"); */
+	/* return false; */
 }
 
 bool
 interpret(struct ast *ast, struct workspace *wk)
 {
-	uint32_t i, obj;
+	uint32_t obj;
 
-	for (i = 0; i < ast->ast.len; ++i) {
-		if (!interp_node(ast, wk, get_node(ast, *(uint32_t *)darr_get(&ast->ast, i)), &obj)) {
-			return false;
-		}
-		/* L(log_misc, "got %d", obj); */
-	}
+	return interp_node(ast, wk, get_node(ast, ast->root), &obj);
 
 	return true;
 }
