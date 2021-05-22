@@ -22,7 +22,6 @@ typecheck(struct obj *o, enum obj_type type)
 	return true;
 }
 
-
 static bool
 interp_method(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 {
@@ -383,6 +382,67 @@ interp_if(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
 	return true;
 }
 
+struct interp_foreach_ctx {
+	const char *arg1;
+	struct ast *ast;
+	uint32_t block;
+};
+
+static enum iteration_result
+interp_foreach_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	uint32_t block_result;
+	struct interp_foreach_ctx *ctx = _ctx;
+
+	hash_set(&current_project(wk)->scope, ctx->arg1, v_id);
+
+	if (!interp_block(ctx->ast, wk, get_node(ctx->ast, ctx->block), &block_result)) {
+		return ir_err;
+	}
+
+	switch (wk->loop_ctl) {
+	case loop_continuing:
+		wk->loop_ctl = loop_norm;
+		break;
+	case loop_breaking:
+		wk->loop_ctl = loop_norm;
+		return ir_done;
+	case loop_norm:
+		break;
+	}
+
+	return ir_cont;
+}
+
+static bool
+interp_foreach(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	uint32_t arr;
+
+	if (!interp_node(ast, wk, get_node(ast, n->r), &arr)) {
+		return false;
+	} else if (!typecheck(get_obj(wk, arr), obj_array)) {
+		// TODO: support dict
+		return false;
+	}
+
+	struct interp_foreach_ctx ctx = {
+		.arg1 = get_node(ast, get_node(ast, n->l)->l)->tok->dat.s,
+		.block = n->c,
+		.ast = ast,
+	};
+
+
+	++wk->loop_depth;
+	wk->loop_ctl = loop_norm;
+
+	obj_array_foreach(wk, arr, &ctx, interp_foreach_iter);
+
+	--wk->loop_depth;
+
+	return true;
+}
+
 bool
 interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
@@ -390,6 +450,9 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	*obj_id = 0;
 
 	/* L(log_interp, "%s", node_to_s(n)); */
+	if (wk->loop_ctl) {
+		return true;
+	}
 
 	switch (n->type) {
 	/* literals */
@@ -417,9 +480,22 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 		return interp_block(ast, wk, n, obj_id);
 	case node_if:
 		return interp_if(ast, wk, n, obj_id);
-	case node_foreach_clause: break;
-	case node_continue: break;
-	case node_break: break;
+	case node_foreach:
+		return interp_foreach(ast, wk, n, obj_id);
+	case node_continue:
+		if (!wk->loop_depth) {
+			LOG_W(log_interp, "continue outside loop");
+			return false;
+		}
+		wk->loop_ctl = loop_continuing;
+		break;
+	case node_break:
+		if (!wk->loop_depth) {
+			LOG_W(log_interp, "break outside loop");
+			return false;
+		}
+		wk->loop_ctl = loop_breaking;
+		break;
 
 	/* functions */
 	case node_function:
@@ -449,9 +525,8 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	case node_arithmetic:
 		return interp_arithmetic(ast, wk, n, obj_id);
 
-	case node_plus_assignment: break;
-
 	/* handled in other places */
+	case node_foreach_args:
 	case node_argument:
 		assert(false && "unreachable");
 		break;
@@ -475,6 +550,4 @@ interpret(struct ast *ast, struct workspace *wk)
 	uint32_t obj;
 
 	return interp_node(ast, wk, get_node(ast, ast->root), &obj);
-
-	return true;
 }

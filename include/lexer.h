@@ -18,25 +18,28 @@ enum token_type {
 	tok_dot,
 	tok_comma,
 	tok_colon,
-	tok_assign,
+	tok_question_mark,
+
+	/* math */
 	tok_plus,
 	tok_minus,
 	tok_star,
 	tok_slash,
 	tok_modulo,
-	tok_pluseq,
-	tok_mineq,
-	tok_stareq,
-	tok_slasheq,
-	tok_modeq,
+
+	/* assign */
+	tok_assign,
+	tok_plus_assign,
+
+	/* comparison */
 	tok_eq,
 	tok_neq,
 	tok_gt,
 	tok_geq,
 	tok_lt,
 	tok_leq,
-	tok_true,
-	tok_false,
+
+	/* keywords */
 	tok_if,
 	tok_else,
 	tok_elif,
@@ -44,16 +47,18 @@ enum token_type {
 	tok_and,
 	tok_or,
 	tok_not,
-	tok_qm,
 	tok_foreach,
 	tok_endforeach,
 	tok_in,
 	tok_continue,
 	tok_break,
+
+	/* literals */
 	tok_identifier,
 	tok_string,
 	tok_number,
-	tok_question_mark,
+	tok_true,
+	tok_false,
 };
 
 struct token {

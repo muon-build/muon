@@ -39,11 +39,7 @@ token_type_to_string(enum token_type type)
 	case tok_star: return "*";
 	case tok_slash: return "/";
 	case tok_modulo: return "%";
-	case tok_pluseq: return "+=";
-	case tok_mineq: return "-=";
-	case tok_stareq: return "*=";
-	case tok_slasheq: return "/=";
-	case tok_modeq: return "%=";
+	case tok_plus_assign: return "+=";
 	case tok_eq: return "==";
 	case tok_neq: return "!=";
 	case tok_gt: return ">";
@@ -59,7 +55,6 @@ token_type_to_string(enum token_type type)
 	case tok_and: return "and";
 	case tok_or: return "or";
 	case tok_not: return "not";
-	case tok_qm: return "tok_qm"; // ??
 	case tok_foreach: return "foreach";
 	case tok_endforeach: return "endforeach";
 	case tok_in: return "in";
@@ -387,13 +382,22 @@ lexer_tokenize_one(struct lexer *lexer)
 		case '+':
 			if (lexer->data[lexer->i + 1] == '=') {
 				advance(lexer);
-				token->type = tok_pluseq;
+				token->type = tok_plus_assign;
 			} else {
 				token->type = tok_plus;
 			}
 			break;
 		case '-':
 			token->type = tok_minus;
+			break;
+		case '*':
+			token->type = tok_minus;
+			break;
+		case '/':
+			token->type = tok_slash;
+			break;
+		case '%':
+			token->type = tok_modulo;
 			break;
 		case '=':
 			if (lexer->data[lexer->i + 1] == '=') {

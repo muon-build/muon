@@ -34,8 +34,8 @@ static const char *node_name[] = {
 	[node_method] = "method",
 	[node_function] = "function",
 	[node_assignment] = "assignment",
-	[node_plus_assignment] = "plus_assignment",
-	[node_foreach_clause] = "foreach_clause",
+	[node_foreach_args] = "foreach_args",
+	[node_foreach] = "foreach",
 	[node_if] = "if",
 	[node_u_minus] = "u_minus",
 	[node_ternary] = "ternary",
@@ -180,8 +180,10 @@ node_to_s(struct node *n)
 
 	switch (n->type) {
 	case node_id:
-	case node_string:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->tok->dat.s);
+		break;
+	case node_string:
+		i += snprintf(&buf[i], BUF_SIZE - i, ":'%s'", n->tok->dat.s);
 		break;
 	case node_number:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%ld", n->tok->dat.n);
@@ -192,6 +194,29 @@ node_to_s(struct node *n)
 	case node_if:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == if_normal ? "normal" : "else");
 		break;
+	case node_arithmetic: {
+		const char *s;
+		switch ((enum arithmetic_type)n->data) {
+		case arith_add:
+			s = "+";
+			break;
+		case arith_sub:
+			s = "-";
+			break;
+		case arith_mod:
+			s = "%";
+			break;
+		case arith_mul:
+			s = "*";
+			break;
+		case arith_div:
+			s = "/";
+			break;
+		}
+
+		i += snprintf(&buf[i], BUF_SIZE - i, " op '%s'", s);
+		break;
+	}
 	default:
 		break;
 	}
@@ -669,24 +694,29 @@ parse_stmt(struct parser *p, uint32_t *id)
 		return false;
 	}
 
-	if (accept(p, tok_plus)) {
-		uint32_t v;
+	if (accept(p, tok_plus_assign)) {
+		uint32_t v, arith;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			LOG_W(log_parse, "Plusassignment target must be an id.");
+			LOG_W(log_parse, "assignment target must be an id.");
 			return false;
 		} else if (!parse_stmt(p, &v)) {
 			return false;
 		}
 
-		make_node(p, id, node_plus_assignment);
+		struct node *n = make_node(p, &arith, node_arithmetic);
+		n->data = arith_add;
+		add_child(p, arith, node_child_l, l_id);
+		add_child(p, arith, node_child_r, v);
+
+		make_node(p, id, node_assignment);
 		add_child(p, *id, node_child_l, l_id);
-		add_child(p, *id, node_child_r, v);
+		add_child(p, *id, node_child_r, arith);
 	} else if (accept(p, tok_assign)) {
 		uint32_t v;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			LOG_W(log_parse, "assignment target must be an id.");
+			LOG_W(log_parse, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
 		} else if (!parse_stmt(p, &v)) {
 			return false;
@@ -771,9 +801,56 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 }
 
 static bool
+parse_foreach_args(struct parser *p, uint32_t *id, uint32_t d)
+{
+	uint32_t l_id, r_id;
+	bool have_r = false;
+	struct node *n;
+
+	if (!expect(p, tok_identifier)) {
+		return false;
+	}
+
+	n = make_node(p, &l_id, node_id);
+	n->tok = p->last_last;
+
+	if (d <= 0 && accept(p, tok_comma)) {
+		have_r = true;
+		if (!parse_foreach_args(p, &r_id, d + 1)) {
+			return false;
+		}
+	}
+
+	make_node(p, id, node_foreach_args);
+	add_child(p, *id, node_child_l, l_id);
+
+	if (have_r) {
+		add_child(p, *id, node_child_r, r_id);
+	}
+
+	return true;
+}
+
+static bool
 parse_foreach(struct parser *p, uint32_t *id)
 {
-	return false;
+	uint32_t args_id, r_id, c_id;
+	if (!parse_foreach_args(p, &args_id, 0)) {
+		return false;
+	} else if (!expect(p, tok_colon)) {
+		return false;
+	} else if (!parse_stmt(p, &r_id)) {
+		return false;
+	} else if (!parse_block(p, &c_id)) {
+		return false;
+	}
+
+	make_node(p, id, node_foreach);
+	add_child(p, *id, node_child_l, args_id);
+	add_child(p, *id, node_child_r, r_id);
+	add_child(p, *id, node_child_c, c_id);
+
+	return true;
 }
 
 static bool
@@ -877,7 +954,7 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d)
 		putc(' ', stdout);
 	}
 
-	printf("node: %d, %s\n", id, node_to_s(n));
+	printf("%s\n", node_to_s(n));
 
 	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
 		if ((1 << i) & n->chflg) {

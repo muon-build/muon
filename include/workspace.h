@@ -20,12 +20,21 @@ struct project {
 	uint32_t targets;
 };
 
+enum loop_ctl {
+	loop_norm,
+	loop_breaking,
+	loop_continuing,
+};
+
 struct workspace {
 	uint32_t cur_project;
 	struct darr projects;
 	struct darr objs;
 	struct darr strs;
 	struct hash scope;
+
+	uint32_t loop_depth;
+	enum loop_ctl loop_ctl;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
