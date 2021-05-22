@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "builtin.h"
+#include "functions/common.h"
 #include "hash.h"
 #include "interpreter.h"
 #include "log.h"
@@ -58,6 +58,97 @@ interp_index(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *ob
 		LOG_W(log_interp, "index unsupported for %s", obj_type_to_s(l->type));
 		return false;
 	}
+}
+
+static bool
+interp_u_minus(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj)
+{
+	uint32_t l_id;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &l_id)) {
+		return false;
+	} else if (!typecheck(get_obj(wk, l_id), obj_number)) {
+		return false;
+	}
+
+
+	struct obj *num = make_obj(wk, obj, obj_number);
+	num->dat.num = -get_obj(wk, l_id)->dat.num;
+
+	return true;
+}
+
+
+static bool
+interp_arithmetic(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	uint32_t l_id, r_id;
+	struct obj *obj, *l, *r;
+
+	if (!interp_node(ast, wk, get_node(ast, n->l), &l_id)
+	    || !interp_node(ast, wk, get_node(ast, n->r), &r_id)) {
+		return false;
+	}
+
+	l = get_obj(wk, l_id);
+	r = get_obj(wk, r_id);
+
+	if (l->type != r->type) {
+		LOG_W(log_interp, "arithmetic operands must match in type");
+		return false;
+	}
+
+	switch (get_obj(wk, l_id)->type) {
+	case obj_string: {
+		uint32_t res;
+
+		switch ((enum arithmetic_type)n->data) {
+		case arith_add:
+			res = wk_str_pushf(wk, "%s%s",
+				wk_str(wk, l->dat.str),
+				wk_str(wk, r->dat.str));
+			break;
+		default:
+			goto err1;
+		}
+
+		obj = make_obj(wk, obj_id, obj_string);
+		obj->dat.str = res;
+		break;
+	}
+	case obj_number: {
+		int64_t res;
+
+		switch ((enum arithmetic_type)n->data) {
+		case arith_add:
+			res = l->dat.num + r->dat.num;
+			break;
+		case arith_div:
+			res = l->dat.num / r->dat.num;
+			break;
+		case arith_sub:
+			res = l->dat.num - r->dat.num;
+			break;
+		case arith_mod:
+			res = l->dat.num % r->dat.num;
+			break;
+		case arith_mul:
+			res = l->dat.num * r->dat.num;
+			break;
+		}
+
+		obj = make_obj(wk, obj_id, obj_number);
+		obj->dat.num = res;
+		break;
+	}
+	default:
+		goto err1;
+	}
+
+	return true;
+err1:
+	LOG_W(log_interp, "invalid operator for %s", obj_type_to_s(get_obj(wk, l_id)->type));
+	return false;
 }
 
 static bool
@@ -353,9 +444,12 @@ interp_node(struct ast *ast, struct workspace *wk, struct node *n, uint32_t *obj
 	case node_ternary: break;
 
 	/* math */
-	case node_arithmetic: break;
+	case node_u_minus:
+		return interp_u_minus(ast, wk, n, obj_id);
+	case node_arithmetic:
+		return interp_arithmetic(ast, wk, n, obj_id);
+
 	case node_plus_assignment: break;
-	case node_u_minus: break;
 
 	/* handled in other places */
 	case node_argument:

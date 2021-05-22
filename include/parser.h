@@ -2,6 +2,7 @@
 #define BOSON_PARSER_H
 
 #include "darr.h"
+#include "lexer.h"
 
 #include <stdint.h>
 #include <stdbool.h>

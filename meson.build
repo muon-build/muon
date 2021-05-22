@@ -34,10 +34,14 @@ add_project_arguments(cc.get_supported_arguments([
 ]), language: 'c')
 
 src = files([
-	'src/builtin.c',
 	'src/darr.c',
 	'src/eval.c',
 	'src/filesystem.c',
+	'src/functions/common.c',
+	'src/functions/compiler.c',
+	'src/functions/default.c',
+	'src/functions/meson.c',
+	'src/functions/subproject.c',
 	'src/hash.c',
 	'src/interpreter.c',
 	'src/lexer.c',
