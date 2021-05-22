@@ -519,7 +519,7 @@ static bool
 parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 	uint32_t map_start, uint32_t map_end)
 {
-	static enum token_type map[] = {
+	static const enum token_type map[] = {
 		[arith_add] = tok_plus,
 		[arith_sub] = tok_minus,
 		[arith_mod] = tok_modulo,
@@ -528,32 +528,29 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 	};
 	struct node *n;
 
-	uint32_t i, p_id, l_id, r_id;
+	uint32_t i, l_id, r_id;
 	if (!(parse_upper(p, &l_id))) {
 		return false;
 	}
 
-	while (true) {
-		for (i = map_start; i < map_end; ++i) {
-			if (accept(p, map[i])) {
-				n = make_node(p, &p_id, node_arithmetic);
-				n->data = i;
-
-				if (!(parse_upper(p, &r_id))) {
-					return false;
-				}
-
-				add_child(p, p_id, node_child_l, l_id);
-				l_id = p_id;
+	for (i = map_start; i < map_end; ++i) {
+		if (accept(p, map[i])) {
+			if (!(parse_arith(p, &r_id, parse_upper, map_start, map_end))) {
+				return false;
 			}
-		}
-
-		if (i == map_end) {
 			break;
 		}
 	}
 
-	*id = l_id;
+	if (i != map_end) {
+		n = make_node(p, id, node_arithmetic);
+		n->data = i;
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, r_id);
+	} else {
+		*id = l_id;
+	}
+
 	return true;
 }
 
