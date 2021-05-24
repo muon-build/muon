@@ -924,6 +924,9 @@ parser_parse(struct ast *ast, struct tokens *toks)
 
 	ast->toks = toks;
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
+	uint32_t id;
+	make_node(&parser, &id, node_null);
+	assert(id == 0);
 
 	next_tok(&parser);
 
