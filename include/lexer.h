@@ -70,23 +70,16 @@ struct token {
 	uint32_t n, line, col;
 };
 
-struct lexer {
-	const char *path;
-	char *data;
-	uint32_t i, line, line_start;
-	uint64_t data_len;
-	struct {
-		uint32_t paren, bracket, curl;
-	} enclosing;
+struct tokens {
 	struct darr tok;
+	const char *src_path;
+	char *data;
+	uint64_t data_len;
 };
 
-bool lexer_tokenize(struct lexer *lexer);
+bool lexer_lex(struct tokens *toks, const char *path);
+void tokens_destroy(struct tokens *toks);
 
-bool lexer_init(struct lexer *lexer, const char *path);
-void lexer_finish(struct lexer *);
-
-const char *token_type_to_string(enum token_type);
-const char *token_to_string(struct token *);
-
-#endif // BOSON_LEXER_H
+const char *tok_type_to_s(enum token_type type);
+const char *tok_to_s(struct token *token);
+#endif

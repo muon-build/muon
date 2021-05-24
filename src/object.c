@@ -141,10 +141,6 @@ obj_array_in_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 bool
 obj_array_in(struct workspace *wk, uint32_t l_id, uint32_t r_id, bool *res)
 {
-	if (!typecheck(get_obj(wk, r_id), obj_array)) {
-		return false;
-	}
-
 	struct obj_array_in_iter_ctx ctx = { .l_id = l_id };
 	if (!obj_array_foreach(wk, r_id, &ctx, obj_array_in_iter)) {
 		return false;
@@ -173,16 +169,6 @@ obj_array_index_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 bool
 obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 {
-	struct obj *arr = get_obj(wk, arr_id);
-	if (!typecheck(arr, obj_array)) {
-		return false;
-	}
-
-	if (i < 0 || i >= arr->dat.arr.len) {
-		LOG_W(log_interp, "index %ld out of bounds", i);
-		return false;
-	}
-
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
 	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {

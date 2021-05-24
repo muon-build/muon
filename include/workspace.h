@@ -35,6 +35,7 @@ struct workspace {
 
 	uint32_t loop_depth;
 	enum loop_ctl loop_ctl;
+	struct ast *ast;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);

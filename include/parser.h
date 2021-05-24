@@ -82,14 +82,16 @@ struct node {
 };
 
 struct ast {
+	struct tokens *toks;
 	struct darr nodes;
 	uint32_t root;
 };
 
-bool parse_file(struct ast *ast, const char *path);
+bool parser_parse(struct ast *ast, struct tokens *toks);
 void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
 const char *source_location(struct ast *ast, uint32_t id);
+void ast_destroy(struct ast *ast);
 #endif // BOSON_PARSER_H

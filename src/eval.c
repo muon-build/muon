@@ -24,16 +24,33 @@ eval(struct workspace *wk, const char *src)
 {
 	L(log_misc, "evaluating '%s'", src);
 
-	struct ast ast = { 0 };
-	if (!parse_file(&ast, src)) {
-		return false;
+	struct tokens toks = { 0 };
+	struct ast ast = { 0 }, *old_ast = wk->ast;
+
+	if (!lexer_lex(&toks, src)) {
+		goto err1;
+	} else if (!parser_parse(&ast, &toks)) {
+		goto err2;
 	}
 
-	if (!interpret(&ast, wk)) {
-		return false;
+	wk->ast = &ast;
+	if (!interpreter_interpret(wk)) {
+		goto err3;
 	}
+
+	ast_destroy(&ast);
+	tokens_destroy(&toks);
+	wk->ast = old_ast;
 
 	return true;
+
+err3:
+	wk->ast = old_ast;
+	ast_destroy(&ast);
+err2:
+	tokens_destroy(&toks);
+err1:
+	return false;
 }
 
 void
@@ -57,20 +74,24 @@ error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va
 			}
 		}
 
-		++i;
-		for (; i < len; ++i) {
-			if (buf[i] == '\n') {
-				buf[i] = 0;
-				break;
+		fprintf(stderr, "%3d | ", line);
+		for (i = sol; buf[i] && buf[i] != '\n'; ++i) {
+			if (buf[i] == '\t') {
+				fputs("        ", stderr);
+			} else {
+				putc(buf[i], stderr);
 			}
 		}
+		putc('\n', stderr);
 
-		fprintf(stderr, "%3d | %s\n", line, &buf[sol]);
-
-		for (i = 1; i < col + 6; ++i) {
-			putc(' ', stderr);
+		fputs("      ", stderr);
+		for (i = 0; i < col; ++i) {
+			if (buf[sol + i] == '\t') {
+				fputs("        ", stderr);
+			} else {
+				putc(i == col - 1 ? '^' : ' ', stderr);
+			}
 		}
-		putc('^', stderr);
 		putc('\n', stderr);
 
 		z_free(buf);

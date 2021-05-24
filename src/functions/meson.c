@@ -6,7 +6,7 @@
 #include "log.h"
 
 static bool
-func_meson_get_compiler(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_native, };
@@ -14,7 +14,7 @@ func_meson_get_compiler(struct ast *ast, struct workspace *wk, uint32_t _, struc
 		[kw_native] = { "native", obj_bool },
 	};
 
-	if (!interp_args(ast, wk, args, an, NULL, akw)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 

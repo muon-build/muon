@@ -18,8 +18,19 @@ enum lex_result {
 	lex_fail,
 };
 
+struct lexer {
+	uint32_t i, line, line_start;
+	struct {
+		uint32_t paren, bracket, curl;
+	} enclosing;
+	const char *src_path;
+	struct darr *tok;
+	char *data;
+	uint64_t data_len;
+};
+
 const char *
-token_type_to_string(enum token_type type)
+tok_type_to_s(enum token_type type)
 {
 	switch (type) {
 	case tok_eof: return "end of file";
@@ -76,19 +87,19 @@ lex_error(struct lexer *l, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	struct token *last_tok = darr_get(&l->tok, l->tok.len - 1);
-	error_message(l->path, last_tok->line, last_tok->col, fmt, args);
+	struct token *last_tok = darr_get(l->tok, l->tok->len - 1);
+	error_message(l->src_path, last_tok->line, last_tok->col, fmt, args);
 	va_end(args);
 }
 
 #define BUF_LEN 256
 const char *
-token_to_string(struct token *tok)
+tok_to_s(struct token *tok)
 {
 	static char buf[BUF_LEN + 1];
 	uint32_t i;
 
-	i = snprintf(buf, BUF_LEN, "%s", token_type_to_string(tok->type));
+	i = snprintf(buf, BUF_LEN, "%s", tok_type_to_s(tok->type));
 	if (tok->n) {
 		i += snprintf(&buf[i], BUF_LEN - i, ":'%s'", tok->dat.s);
 	}
@@ -112,8 +123,8 @@ advance(struct lexer *l)
 static struct token *
 next_tok(struct lexer *l)
 {
-	uint32_t idx = darr_push(&l->tok, &(struct token){ 0 });
-	return darr_get(&l->tok, idx);
+	uint32_t idx = darr_push(l->tok, &(struct token){ 0 });
+	return darr_get(l->tok, idx);
 }
 
 static bool
@@ -423,13 +434,13 @@ lexer_tokenize_one(struct lexer *lexer)
 	return lex_fail;
 skip:
 	advance(lexer);
-	--lexer->tok.len;
+	--lexer->tok->len;
 	return lex_cont;
 }
 
 
-bool
-lexer_tokenize(struct lexer *lexer)
+static bool
+tokenize(struct lexer *lexer)
 {
 	uint32_t i;
 	struct token *tok;
@@ -446,8 +457,8 @@ lexer_tokenize(struct lexer *lexer)
 	}
 
 done:
-	for (i = 0; i < lexer->tok.len; ++i) {
-		tok = darr_get(&lexer->tok, i);
+	for (i = 0; i < lexer->tok->len; ++i) {
+		tok = darr_get(lexer->tok, i);
 
 		switch (tok->type) {
 		case tok_string:
@@ -465,31 +476,43 @@ done:
 }
 
 bool
-lexer_init(struct lexer *lexer, const char *path)
+lexer_lex(struct tokens *toks, const char *path)
 {
-	*lexer = (struct lexer) {
-		.path = path,
+	*toks = (struct tokens) {
+		.src_path = path,
+	};
+
+	struct lexer lexer = {
+		.src_path = path,
 		.line = 1,
 	};
 
-	darr_init(&lexer->tok, 2048, sizeof(struct token));
+	darr_init(&toks->tok, 2048, sizeof(struct token));
 
-	if (!fs_read_entire_file(path, &lexer->data, &lexer->data_len)) {
+	if (!fs_read_entire_file(path, &toks->data, &toks->data_len)) {
+		goto err;
+	}
+
+	lexer.data = toks->data;
+	lexer.data_len = toks->data_len;
+	lexer.tok = &toks->tok;
+
+	if (!tokenize(&lexer)) {
 		goto err;
 	}
 
 	return true;
 err:
-	lexer_finish(lexer);
+	tokens_destroy(toks);
 	return false;
 }
 
 void
-lexer_finish(struct lexer *lexer)
+tokens_destroy(struct tokens *toks)
 {
-	if (lexer->data) {
-		z_free(lexer->data);
+	if (toks->data) {
+		z_free(toks->data);
 	}
 
-	darr_destroy(&lexer->tok);
+	darr_destroy(&toks->tok);
 }

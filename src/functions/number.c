@@ -6,9 +6,9 @@
 #include "log.h"
 
 static bool
-func_number_to_string(struct ast *ast, struct workspace *wk, uint32_t rcvr, struct node *args, uint32_t *obj)
+func_number_to_string(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	if (!interp_args(ast, wk, args, NULL, NULL, NULL)) {
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 

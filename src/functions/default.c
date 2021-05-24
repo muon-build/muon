@@ -10,7 +10,7 @@
 #include "log.h"
 
 static bool
-func_project(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	static struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
@@ -30,7 +30,7 @@ func_project(struct ast *ast, struct workspace *wk, uint32_t _, struct node *arg
 		0
 	};
 
-	if (!interp_args(ast, wk, args, an, ao, akw)) {
+	if (!interp_args(wk, args_node, an, ao, akw)) {
 		return false;
 	}
 
@@ -46,11 +46,16 @@ func_project(struct ast *ast, struct workspace *wk, uint32_t _, struct node *arg
 	return true;
 }
 
+struct func_add_project_arguments_iter_ctx {
+	uint32_t node;
+};
+
 static enum iteration_result
 func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	struct obj *val = get_obj(wk, val_id);
-	if (!typecheck(val, obj_string)) {
+	struct func_add_project_arguments_iter_ctx *ctx = _ctx;
+
+	if (!typecheck(wk, ctx->node, val_id, obj_string)) {
 		return ir_err;
 	}
 
@@ -60,7 +65,7 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 }
 
 static bool
-func_add_project_arguments(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 	enum kwargs { kw_language, };
@@ -68,7 +73,7 @@ func_add_project_arguments(struct ast *ast, struct workspace *wk, uint32_t _, st
 		[kw_language] = { "language", obj_string },
 	};
 
-	if (!interp_args(ast, wk, args, an, NULL, akw)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
@@ -78,15 +83,21 @@ func_add_project_arguments(struct ast *ast, struct workspace *wk, uint32_t _, st
 		}
 	}
 
-	return obj_array_foreach(wk, an[0].val, NULL, func_add_project_arguments_iter);
+	return obj_array_foreach(wk, an[0].val, &(struct func_add_project_arguments_iter_ctx) {
+		.node = an[0].node,
+	}, func_add_project_arguments_iter);
 }
+
+struct func_files_iter_ctx {
+	uint32_t arr, node;
+};
 
 static enum iteration_result
 func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	uint32_t *arr = _ctx;
+	struct func_files_iter_ctx  *ctx = _ctx;
 
-	if (!typecheck(get_obj(wk, val_id), obj_string)) {
+	if (!typecheck(wk, ctx->node, val_id, obj_string)) {
 		return ir_err;
 	}
 
@@ -102,31 +113,34 @@ func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	obj_array_push(wk, *arr, file_id);
+	obj_array_push(wk, ctx->arr, file_id);
 
 	return ir_cont;
 }
 
 static bool
-func_files(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 
-	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, obj, obj_array);
 
-	return obj_array_foreach(wk, an[0].val, obj, func_files_iter);
+	return obj_array_foreach(wk, an[0].val, &(struct func_files_iter_ctx) {
+		.arr = *obj,
+		.node = an[0].node,
+	}, func_files_iter);
 }
 
 static bool
-func_include_directories(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
@@ -138,7 +152,7 @@ func_include_directories(struct ast *ast, struct workspace *wk, uint32_t _, stru
 }
 
 static bool
-func_declare_dependency(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	enum kwargs {
 		kw_link_with,
@@ -150,7 +164,7 @@ func_declare_dependency(struct ast *ast, struct workspace *wk, uint32_t _, struc
 		0
 	};
 
-	if (!interp_args(ast, wk, args, NULL, NULL, akw)) {
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
 		return false;
 	}
 
@@ -169,7 +183,7 @@ func_declare_dependency(struct ast *ast, struct workspace *wk, uint32_t _, struc
 }
 
 static bool
-tgt_common(struct ast *ast, struct workspace *wk, struct node *args, uint32_t *obj, enum tgt_type type)
+tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type)
 {
 	static struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -182,7 +196,7 @@ tgt_common(struct ast *ast, struct workspace *wk, struct node *args, uint32_t *o
 		0
 	};
 
-	if (!interp_args(ast, wk, args, an, NULL, akw)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
@@ -220,23 +234,23 @@ tgt_common(struct ast *ast, struct workspace *wk, struct node *args, uint32_t *o
 }
 
 static bool
-func_executable(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_executable(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	return tgt_common(ast, wk, args, obj, tgt_executable);
+	return tgt_common(wk, args_node, obj, tgt_executable);
 }
 
 static bool
-func_library(struct ast *ast, struct workspace *wk, uint32_t _, struct node *args, uint32_t *obj)
+func_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	return tgt_common(ast, wk, args, obj, tgt_library);
+	return tgt_common(wk, args_node, obj, tgt_library);
 }
 
 static bool
-func_message(struct ast *ast, struct workspace *wk, uint32_t rcvr, struct node *args, uint32_t *obj)
+func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
@@ -248,11 +262,11 @@ func_message(struct ast *ast, struct workspace *wk, uint32_t rcvr, struct node *
 }
 
 static bool
-func_subproject(struct ast *ast, struct workspace *wk, uint32_t rcvr, struct node *args, uint32_t *obj)
+func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(ast, wk, args, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 

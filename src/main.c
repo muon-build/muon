@@ -53,12 +53,19 @@ cmd_parse_check(int argc, char **argv)
 		return false;
 	}
 
+	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!parse_file(&ast, argv[1])) {
-		return false;
+	if (!lexer_lex(&toks, argv[1])) {
+		goto err1;
+	} else if (!parser_parse(&ast, &toks)) {
+		goto err2;
 	}
 
 	return true;
+err2:
+	tokens_destroy(&toks);
+err1:
+	return false;
 }
 
 static bool
@@ -69,14 +76,21 @@ cmd_ast(int argc, char **argv)
 		return false;
 	}
 
+	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!parse_file(&ast, argv[1])) {
-		return false;
+	if (!lexer_lex(&toks, argv[1])) {
+		goto err1;
+	} else if (!parser_parse(&ast, &toks)) {
+		goto err2;
 	}
 
 	print_ast(&ast);
 
 	return true;
+err2:
+	tokens_destroy(&toks);
+err1:
+	return false;
 }
 
 static bool

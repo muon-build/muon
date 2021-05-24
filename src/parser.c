@@ -13,6 +13,13 @@
 
 const uint32_t arithmetic_type_count = 5;
 
+struct parser {
+	struct tokens *toks;
+	struct token *last_last, *last;
+	struct ast *ast;
+	uint32_t token_i;
+};
+
 static const char *node_name[] = {
 	[node_bool] = "bool",
 	[node_id] = "id",
@@ -42,21 +49,13 @@ static const char *node_name[] = {
 	[node_block] = "block",
 };
 
-struct parser {
-	const char *src_path;
-	struct lexer lexer;
-	struct token *last_last, *last;
-	struct ast *ast;
-	uint32_t token_i;
-};
-
 __attribute__ ((format(printf, 2, 3)))
 static void
 parse_error(struct parser *p, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	error_message(p->src_path, p->last->line, p->last->col, fmt, args);
+	error_message(p->toks->src_path, p->last->line, p->last->col, fmt, args);
 	va_end(args);
 }
 
@@ -75,13 +74,13 @@ static struct token *
 next_tok(struct parser *p)
 {
 	p->last_last = p->last;
-	p->last = darr_get(&p->lexer.tok, p->token_i);
+	p->last = darr_get(&p->toks->tok, p->token_i);
 	++p->token_i;
-	if (p->token_i >= p->lexer.tok.len) {
-		p->token_i = p->lexer.tok.len - 1;
+	if (p->token_i >= p->toks->tok.len) {
+		p->token_i = p->toks->tok.len - 1;
 	}
 
-	return darr_get(&p->lexer.tok, p->token_i);
+	return darr_get(&p->toks->tok, p->token_i);
 }
 
 static bool
@@ -99,7 +98,7 @@ static bool
 expect(struct parser *p, enum token_type type)
 {
 	if (!accept(p, type)) {
-		parse_error(p, "expected '%s', got '%s'", token_type_to_string(type), token_type_to_string(p->last->type));
+		parse_error(p, "expected '%s', got '%s'", tok_type_to_s(type), tok_type_to_s(p->last->type));
 		return false;
 	}
 
@@ -116,7 +115,9 @@ static struct node *
 make_node(struct parser *p, uint32_t *idx, enum node_type t)
 {
 	*idx = darr_push(&p->ast->nodes, &(struct node){ .type = t });
-	return darr_get(&p->ast->nodes, *idx);
+	struct node *n = darr_get(&p->ast->nodes, *idx);
+	n->tok = p->last_last;
+	return n;
 }
 
 static uint32_t
@@ -917,17 +918,12 @@ parse_block(struct parser *p, uint32_t *id)
 }
 
 bool
-parse_file(struct ast *ast, const char *path)
+parser_parse(struct ast *ast, struct tokens *toks)
 {
-	struct parser parser = { .ast = ast, .src_path = path };
+	struct parser parser = { .ast = ast, .toks = toks };
 
-	darr_init(&parser.ast->nodes, 2048, sizeof(struct node));
-
-	if (!lexer_init(&parser.lexer, path)) {
-		return false;
-	} else if (!lexer_tokenize(&parser.lexer)) {
-		goto err;
-	}
+	ast->toks = toks;
+	darr_init(&ast->nodes, 2048, sizeof(struct node));
 
 	next_tok(&parser);
 
@@ -967,4 +963,10 @@ void
 print_ast(struct ast *ast)
 {
 	print_tree(ast, ast->root, 0);
+}
+
+void
+ast_destroy(struct ast *ast)
+{
+	darr_destroy(&ast->nodes);
 }
