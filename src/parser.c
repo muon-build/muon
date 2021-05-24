@@ -941,7 +941,7 @@ err:
 }
 
 static void
-print_tree(struct ast *ast, uint32_t id, uint32_t d)
+print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
 {
 	struct node *n = get_node(ast, id);
 	uint32_t i;
@@ -950,11 +950,13 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d)
 		putc(' ', stdout);
 	}
 
-	printf("%s\n", node_to_s(n));
+	printf("%c:%s\n", label, node_to_s(n));
+
+	static const char *child_labels = "lrcd";
 
 	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
 		if ((1 << i) & n->chflg) {
-			print_tree(ast, get_child(ast, id, i), d + 1);
+			print_tree(ast, get_child(ast, id, i), d + 1, child_labels[i]);
 		}
 	}
 }
@@ -962,7 +964,7 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d)
 void
 print_ast(struct ast *ast)
 {
-	print_tree(ast, ast->root, 0);
+	print_tree(ast, ast->root, 0, '#');
 }
 
 void
