@@ -128,13 +128,19 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
+struct process_dep_links_iter_ctx {
+	uint32_t *link_args_id;
+	uint32_t *implicit_deps_id;
+};
+
 enum iteration_result
 process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	uint32_t *str = _ctx;
+	struct process_dep_links_iter_ctx *ctx = _ctx;
 
 	struct obj *tgt = get_obj(wk, val_id);
-	wk_strappf(wk, str, " %s", wk_str(wk, tgt->dat.tgt.build_name));
+	wk_strappf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.tgt.build_name));
+	wk_strappf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, tgt->dat.tgt.build_name));
 
 	return ir_cont;
 }
@@ -201,7 +207,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	{ /* target */
 		const char *rule;
-		uint32_t link_args_id;
+		uint32_t link_args_id, implicit_deps_id = wk_str_push(wk, "");
 
 		switch (tgt->dat.tgt.type) {
 		case tgt_executable:
@@ -209,8 +215,13 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined");
 
 			{ /* dep links */
+				struct process_dep_links_iter_ctx ctx = {
+					.link_args_id = &link_args_id,
+					.implicit_deps_id = &implicit_deps_id
+				};
+
 				if (tgt->dat.tgt.deps) {
-					if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &link_args_id, process_dep_links_iter)) {
+					if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_links_iter)) {
 						return false;
 					}
 				}
@@ -225,7 +236,12 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			break;
 		}
 
-		fprintf(out, "build %s: %s %s", wk_str(wk, tgt->dat.tgt.build_name), rule, wk_str(wk, ctx.object_names_id));
+		fprintf(out, "build %s: %s %s | %s",
+			wk_str(wk, tgt->dat.tgt.build_name),
+			rule,
+			wk_str(wk, ctx.object_names_id),
+			wk_str(wk, implicit_deps_id)
+			);
 		fprintf(out, "\n LINK_ARGS = %s\n\n", wk_str(wk, link_args_id));
 	}
 
