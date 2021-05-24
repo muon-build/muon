@@ -197,22 +197,32 @@ interp_assign(struct workspace *wk, struct node *n, uint32_t *obj)
 }
 
 static bool
-interp_array(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 {
 	uint32_t l, r;
-	bool have_c = n->chflg & node_child_c && get_node(wk->ast, n->c)->type != node_empty;
+
+	struct node *n = get_node(wk->ast, n_id);
+
+	if (n->type == node_empty) {
+		struct obj *arr = make_obj(wk, obj, obj_array);
+		arr->dat.arr.len = 0;
+		arr->dat.arr.tail = *obj;
+		return true;
+	}
 
 	if (n->data == arg_kwarg) {
-		LOG_W(log_interp, "invalid kwarg in array constructor");
+		interp_error(wk, n->l, "kwarg not valid in array constructor");
 		return false;
 	}
+
+	bool have_c = n->chflg & node_child_c && get_node(wk->ast, n->c)->type != node_empty;
 
 	if (!interp_node(wk, n->l, &l)) {
 		return false;
 	}
 
 	if (have_c) {
-		if (!interp_array(wk, get_node(wk->ast, n->c), &r)) {
+		if (!interp_array(wk, n->c, &r)) {
 			return false;
 		}
 	}
@@ -495,7 +505,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj->dat.str = wk_str_push(wk, n->tok->dat.s);
 		return true;
 	case node_array:
-		return interp_array(wk, get_node(wk->ast, n->l), obj_id);
+		return interp_array(wk, n->l, obj_id);
 	case node_id:
 		if (!get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
