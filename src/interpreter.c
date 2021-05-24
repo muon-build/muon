@@ -497,7 +497,11 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case node_array:
 		return interp_array(wk, get_node(wk->ast, n->l), obj_id);
 	case node_id:
-		return get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project);
+		if (!get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project)) {
+			interp_error(wk, n_id, "undefined object");
+			return false;
+		}
+		return true;
 	case node_number:
 		obj = make_obj(wk, obj_id, obj_number);
 		obj->dat.num = n->tok->dat.n;

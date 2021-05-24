@@ -26,7 +26,6 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 		*id = *idp;
 		return true;
 	} else {
-		LOG_W(log_interp, "unknown object name '%s'", name);
 		return false;
 	}
 }
