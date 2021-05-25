@@ -18,7 +18,7 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		return false;
 	}
 
-	if (!check_lang(wk, an[0].val)) {
+	if (!check_lang(wk, an[0].node, an[0].val)) {
 		return false;
 	}
 

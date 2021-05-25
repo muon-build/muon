@@ -36,7 +36,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 
 	current_project(wk)->cfg.name = get_obj(wk, an[0].val)->dat.str;
 
-	if (ao[0].set && !check_lang(wk, ao[0].val)) {
+	if (ao[0].set && !check_lang(wk, ao[0].node, ao[0].val)) {
 		return false;
 	}
 
@@ -78,7 +78,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 	}
 
 	if (akw[kw_language].set) {
-		if (!check_lang(wk, akw[kw_language].val)) {
+		if (!check_lang(wk, akw[kw_language].node, akw[kw_language].val)) {
 			return false;
 		}
 	}

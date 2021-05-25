@@ -12,10 +12,10 @@
 #include "log.h"
 
 bool
-check_lang(struct workspace *wk, uint32_t id)
+check_lang(struct workspace *wk, uint32_t n_id, uint32_t id)
 {
 	if (strcmp("c", wk_objstr(wk, id)) != 0) {
-		LOG_W(log_interp, "only c is supported");
+		interp_error(wk, n_id, "only c is supported");
 		return false;
 	}
 
