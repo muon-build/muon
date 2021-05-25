@@ -70,6 +70,7 @@ src = files([
 	'src/object.c',
 	'src/output.c',
 	'src/parser.c',
+	'src/run_cmd.c',
 	'src/workspace.c',
 ])
 
