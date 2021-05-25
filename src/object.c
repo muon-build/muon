@@ -178,3 +178,55 @@ obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 	*res = ctx.res;
 	return true;
 }
+
+struct obj_array_dup_ctx { uint32_t *arr; };
+
+static enum iteration_result
+obj_array_dup_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	struct obj_array_dup_ctx *ctx = _ctx;
+
+	obj_array_push(wk, *ctx->arr, v_id);
+
+	return ir_cont;
+}
+
+bool
+obj_array_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
+{
+	struct obj_array_dup_ctx ctx = { .arr = res };
+
+	make_obj(wk, res, obj_array);
+
+	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_dup_iter)) {
+		return false;
+	}
+
+	return true;
+}
+
+void
+obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
+{
+	struct obj *a, *b, *tail;
+
+	assert(get_obj(wk, a_id)->type == obj_array && get_obj(wk, b_id)->type == obj_array);
+
+	if (!(b = get_obj(wk, b_id))->dat.arr.len) {
+		return;
+	}
+
+	if (!(a = get_obj(wk, a_id))->dat.arr.len) {
+		*a = *b;
+		return;
+	}
+
+	tail = get_obj(wk, a->dat.arr.tail);
+	assert(tail->type == obj_array);
+	assert(!tail->dat.arr.have_r);
+	tail->dat.arr.have_r = true;
+	tail->dat.arr.r = b_id;
+
+	a->dat.arr.tail = b_id;
+	a->dat.arr.len += b->dat.arr.len;
+}
