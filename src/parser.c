@@ -697,6 +697,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 
 	if (accept(p, tok_plus_assign)) {
 		uint32_t v, arith;
+		struct token *tok = p->last_last;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
 			LOG_W(log_parse, "assignment target must be an id.");
@@ -706,6 +707,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 		}
 
 		struct node *n = make_node(p, &arith, node_arithmetic);
+		n->tok = tok;
 		n->data = arith_add;
 		add_child(p, arith, node_child_l, l_id);
 		add_child(p, arith, node_child_r, v);

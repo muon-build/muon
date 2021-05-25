@@ -111,9 +111,10 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 
 
 static bool
-interp_arithmetic(struct workspace *wk, struct node *n, uint32_t *obj_id)
+interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 {
 	uint32_t l_id, r_id;
+	struct node *n = get_node(wk->ast, n_id);
 	struct obj *obj, *l, *r;
 
 	if (!interp_node(wk, n->l, &l_id)
@@ -125,7 +126,9 @@ interp_arithmetic(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	r = get_obj(wk, r_id);
 
 	if (l->type != r->type) {
-		LOG_W(log_interp, "arithmetic operands must match in type");
+		interp_error(wk, n_id, "arithmetic operands (%s and %s) must match in type",
+			obj_type_to_s(l->type),
+			obj_type_to_s(r->type));
 		return false;
 	}
 
@@ -178,7 +181,8 @@ interp_arithmetic(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	return true;
 err1:
-	LOG_W(log_interp, "invalid operator for %s", obj_type_to_s(get_obj(wk, l_id)->type));
+	assert(n->data < 5);
+	interp_error(wk, n_id, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+/-%*"[n->data]);
 	return false;
 }
 
@@ -566,7 +570,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case node_u_minus:
 		return interp_u_minus(wk, n, obj_id);
 	case node_arithmetic:
-		return interp_arithmetic(wk, n, obj_id);
+		return interp_arithmetic(wk, n_id, obj_id);
 
 	/* handled in other places */
 	case node_foreach_args:
