@@ -52,6 +52,7 @@ struct obj {
 			uint32_t link_with;
 			uint32_t include_directories;
 			uint32_t deps;
+			uint32_t c_args;
 		} tgt;
 		struct {
 			uint32_t name;

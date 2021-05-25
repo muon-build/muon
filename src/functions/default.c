@@ -188,11 +188,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	static struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_include_directories,
-		kw_dependencies
+		kw_dependencies,
+		kw_c_args,
 	};
 	static struct args_kw akw[] = {
 		[kw_include_directories] = { "include_directories", obj_file },
 		[kw_dependencies] = { "dependencies", obj_array },
+		[kw_c_args] = { "c_args", obj_array },
 		0
 	};
 
@@ -226,6 +228,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 
 	if (akw[kw_dependencies].set) {
 		tgt->dat.tgt.deps = akw[kw_dependencies].val;
+	}
+
+	if (akw[kw_c_args].set) {
+		tgt->dat.tgt.c_args = akw[kw_c_args].val;
 	}
 
 	obj_array_push(wk, current_project(wk)->targets, *obj);

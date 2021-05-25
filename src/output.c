@@ -196,6 +196,12 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (!obj_array_foreach(wk, proj->cfg.args, &ctx, make_args_iter)) {
 			return false;
 		}
+
+		if (tgt->dat.tgt.c_args) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.c_args, &ctx, make_args_iter)) {
+				return false;
+			}
+		}
 	}
 
 	{ /* obj names */
