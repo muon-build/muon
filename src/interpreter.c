@@ -175,6 +175,18 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj->dat.num = res;
 		break;
 	}
+	case obj_array: {
+		switch ((enum arithmetic_type)n->data) {
+		case arith_add:
+			if (!obj_array_dup(wk, l_id, obj_id)) {
+				return false;
+			}
+			obj_array_extend(wk, *obj_id, r_id);
+			return true;
+		default:
+			goto err1;
+		}
+	}
 	default:
 		goto err1;
 	}
