@@ -305,6 +305,18 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
+static bool
+func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct obj *dep = make_obj(wk, obj, obj_dependency);
+
+	// TODO
+	/* dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name)); */
+	/* dep->dat.dep.link_with = akw[kw_link_with].val; */
+	/* dep->dat.dep.include_directories = akw[kw_include_directories].val; */
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -321,7 +333,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "configure_file", todo },
 	{ "custom_target", todo },
 	{ "declare_dependency", func_declare_dependency },
-	{ "dependency", todo },
+	{ "dependency", func_dependency },
 	{ "disabler", todo },
 	{ "environment", todo },
 	{ "error", todo },

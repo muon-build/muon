@@ -57,6 +57,7 @@ src = files([
 	'src/functions/common.c',
 	'src/functions/compiler.c',
 	'src/functions/default.c',
+	'src/functions/dependency.c',
 	'src/functions/meson.c',
 	'src/functions/number.c',
 	'src/functions/subproject.c',

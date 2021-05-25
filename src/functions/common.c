@@ -5,6 +5,7 @@
 #include "functions/common.h"
 #include "functions/compiler.h"
 #include "functions/default.h"
+#include "functions/dependency.h"
 #include "functions/meson.h"
 #include "functions/number.h"
 #include "functions/subproject.h"
@@ -259,6 +260,9 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		break;
 	case obj_number:
 		impl_tbl = impl_tbl_number;
+		break;
+	case obj_dependency:
+		impl_tbl = impl_tbl_dependency;
 		break;
 	default:
 		interp_error(wk, n->l,  "reciever %s does not have any methods", obj_type_to_s(recvr_type));
