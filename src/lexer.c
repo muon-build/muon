@@ -422,7 +422,7 @@ lexer_tokenize_one(struct lexer *lexer)
 			token->type = tok_eof;
 			return lex_done;
 		default:
-			LOG_W(log_lex, "unexpected character: '%c'", lexer->data[lexer->i]);
+			lex_error(lexer, "unexpected character: '%c'", lexer->data[lexer->i]);
 			return lex_fail;
 		}
 
