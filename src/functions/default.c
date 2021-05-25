@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <limits.h>
+#include <string.h>
 
 #include "eval.h"
 #include "filesystem.h"
@@ -8,6 +9,7 @@
 #include "functions/default.h"
 #include "interpreter.h"
 #include "log.h"
+#include "run_cmd.h"
 
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
@@ -170,6 +172,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
 	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
+	dep->dat.dep.found = true;
 
 	if (akw[kw_link_with].set) {
 		dep->dat.dep.link_with = akw[kw_link_with].val;
@@ -306,12 +309,85 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 }
 
 static bool
+pkg_config(struct workspace *wk, struct run_cmd_ctx *ctx, uint32_t args_node, const char *arg, const char *depname)
+{
+	if (!run_cmd(ctx, "pkg-config", (char *[]){ "pkg-config", (char *)arg, (char *)depname, NULL })) {
+		if (ctx->err_msg) {
+			interp_error(wk, args_node, "error: %s", ctx->err_msg);
+		} else {
+			interp_error(wk, args_node, "error: %s", strerror(ctx->err_no));
+		}
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	struct obj *dep = make_obj(wk, obj, obj_dependency);
+	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_required,
+	};
+	static struct args_kw akw[] = {
+		[kw_required] = { "required", obj_bool },
+		0
+	};
 
-	// TODO
-	/* dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name)); */
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	struct run_cmd_ctx ctx = { 0 };
+
+	if (!pkg_config(wk, &ctx, args_node, "--modversion", wk_objstr(wk, an[0].val))) {
+		return false;
+	}
+
+	struct obj *dep = make_obj(wk, obj, obj_dependency);
+	dep->dat.dep.name = an[0].val;
+
+	if (ctx.status != 0) {
+		dep->dat.dep.found = false;
+		return true;
+	}
+
+	dep->dat.dep.found = true;
+
+	if (!pkg_config(wk, &ctx, args_node, "--libs", wk_objstr(wk, an[0].val))) {
+		return false;
+	}
+
+	if (ctx.status == 0) {
+		make_obj(wk, &dep->dat.dep.link_with, obj_array);
+
+		uint32_t i;
+		char *start;
+		bool first = false;
+		for (i = 0; ctx.out[i]; ++i) {
+			if (ctx.out[i] == ' ' || ctx.out[i] == '\t' || ctx.out[i] == '\n') {
+				ctx.out[i] = 0;
+				if (first) {
+					first = false;
+
+					uint32_t str_id;
+					make_obj(wk, &str_id, obj_string)->dat.str = wk_str_push(wk, start);
+
+					obj_array_push(wk, dep->dat.dep.link_with, str_id);
+				}
+				continue;
+			} else {
+				if (!first) {
+					start = &ctx.out[i];
+					first = true;
+				}
+				continue;
+			}
+		}
+		return true;
+	}
+
 	/* dep->dat.dep.link_with = akw[kw_link_with].val; */
 	/* dep->dat.dep.include_directories = akw[kw_include_directories].val; */
 	return true;

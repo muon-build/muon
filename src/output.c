@@ -139,8 +139,19 @@ process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct process_dep_links_iter_ctx *ctx = _ctx;
 
 	struct obj *tgt = get_obj(wk, val_id);
-	wk_strappf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.tgt.build_name));
-	wk_strappf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, tgt->dat.tgt.build_name));
+	uint32_t name_id;
+
+	if (tgt->type == obj_build_target) {
+		name_id = tgt->dat.tgt.build_name;
+		wk_strappf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, name_id));
+	} else if (tgt->type == obj_string) {
+		name_id = tgt->dat.str;
+	} else {
+		LOG_W(log_out, "invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
+		return ir_err;
+	}
+
+	wk_strappf(wk, ctx->link_args_id, " %s", wk_str(wk, name_id));
 
 	return ir_cont;
 }

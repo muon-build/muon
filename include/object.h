@@ -58,6 +58,7 @@ struct obj {
 			uint32_t name;
 			uint32_t link_with;
 			uint32_t include_directories;
+			bool found;
 		} dep;
 		uint32_t subproj;
 	} dat;

@@ -12,9 +12,8 @@ func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 		return false;
 	}
 
-	// TODO
 	struct obj *res = make_obj(wk, obj, obj_bool);
-	res->dat.boolean = false;
+	res->dat.boolean = get_obj(wk, rcvr)->dat.dep.found;
 
 	return true;
 }
