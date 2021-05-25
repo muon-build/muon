@@ -4,6 +4,7 @@
 #include "darr.h"
 #include "hash.h"
 #include "object.h"
+#include "parser.h"
 
 struct project {
 	uint32_t cwd, build_dir;
@@ -18,6 +19,8 @@ struct project {
 
 	struct hash scope;
 	uint32_t targets;
+	struct tokens toks;
+	struct ast ast;
 };
 
 enum loop_ctl {

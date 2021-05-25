@@ -24,33 +24,23 @@ eval(struct workspace *wk, const char *src)
 {
 	/* L(log_misc, "evaluating '%s'", src); */
 
-	struct tokens toks = { 0 };
-	struct ast ast = { 0 }, *old_ast = wk->ast;
+	struct tokens *toks = &current_project(wk)->toks;
+	struct ast *ast = &current_project(wk)->ast, *old_ast = wk->ast;
 
-	if (!lexer_lex(&toks, src)) {
-		goto err1;
-	} else if (!parser_parse(&ast, &toks)) {
-		goto err2;
+	if (!lexer_lex(toks, src)) {
+		return false;
+	} else if (!parser_parse(ast, toks)) {
+		return false;
 	}
 
-	wk->ast = &ast;
+	wk->ast = ast;
 	if (!interpreter_interpret(wk)) {
-		goto err3;
+		wk->ast = old_ast;
+		return false;
 	}
 
-	ast_destroy(&ast);
-	tokens_destroy(&toks);
 	wk->ast = old_ast;
-
 	return true;
-
-err3:
-	wk->ast = old_ast;
-	ast_destroy(&ast);
-err2:
-	tokens_destroy(&toks);
-err1:
-	return false;
 }
 
 void
