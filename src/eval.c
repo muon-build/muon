@@ -22,7 +22,7 @@ eval_entry(struct workspace *wk, const char *src, const char *cwd, const char *b
 bool
 eval(struct workspace *wk, const char *src)
 {
-	L(log_misc, "evaluating '%s'", src);
+	/* L(log_misc, "evaluating '%s'", src); */
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 }, *old_ast = wk->ast;
