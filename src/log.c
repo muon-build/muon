@@ -29,6 +29,7 @@ static char *log_filter_name[log_filter_count] = {
 	[log_parse]    = "parse",
 	[log_interp]   = "interp",
 	[log_out]      = "output",
+	[log_fetch]    = "fetch",
 };
 
 static uint32_t log_filter_bit[log_filter_count] = {
@@ -39,6 +40,7 @@ static uint32_t log_filter_bit[log_filter_count] = {
 	[log_parse]    = (1 << 4),
 	[log_interp]   = (1 << 5),
 	[log_out]      = (1 << 6),
+	[log_fetch]    = (1 << 7),
 };
 
 static struct {

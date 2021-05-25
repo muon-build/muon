@@ -33,9 +33,26 @@ add_project_arguments(cc.get_supported_arguments([
 	'-fstrict-aliasing',
 ]), language: 'c')
 
+# dependencies
+
+deps = []
+c_args = []
+
+samu = subproject('samurai')
+deps += [samu.get_variable('libsamu_dep')]
+
+libcurl_dep = dependency('libcurl', required: false)
+if libcurl_dep.found()
+	deps += [libcurl_dep]
+	c_args += ['-DBOSON_HAVE_CURL']
+endif
+
+# sources
+
 src = files([
 	'src/darr.c',
 	'src/eval.c',
+	'src/fetch.c',
 	'src/filesystem.c',
 	'src/functions/common.c',
 	'src/functions/compiler.c',
@@ -57,12 +74,10 @@ src = files([
 
 include_dir = include_directories('include')
 
-samu = subproject('samurai')
-libsamu = samu.get_variable('libsamu_dep')
-
 executable(
 	'boson',
 	src,
 	include_directories: include_dir,
-	dependencies: [libsamu],
+	dependencies: deps,
+	c_args: c_args,
 )

@@ -26,6 +26,7 @@ enum log_filter {
 	log_parse,
 	log_interp,
 	log_out,
+	log_fetch,
 	log_filter_count,
 };
 
