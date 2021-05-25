@@ -269,7 +269,11 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 	for (i = 0; impl_tbl[i].name; ++i) {
 		if (strcmp(impl_tbl[i].name, name) == 0) {
 			if (!impl_tbl[i].func(wk, rcvr_id, args_node, obj)) {
-				interp_error(wk, name_node, "in function %s.%s", obj_type_to_s(recvr_type), name);
+				if (recvr_type == obj_default) {
+					interp_error(wk, name_node, "in function %s",  name);
+				} else {
+					interp_error(wk, name_node, "in function %s.%s", obj_type_to_s(recvr_type), name);
+				}
 				return false;
 			}
 			/* L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name); */
