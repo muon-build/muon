@@ -20,34 +20,43 @@ struct parser {
 	uint32_t token_i;
 };
 
-static const char *node_name[] = {
-	[node_bool] = "bool",
-	[node_id] = "id",
-	[node_number] = "number",
-	[node_string] = "string",
-	[node_format_string] = "format_string",
-	[node_continue] = "continue",
-	[node_break] = "break",
-	[node_argument] = "argument",
-	[node_array] = "array",
-	[node_dict] = "dict",
-	[node_empty] = "empty",
-	[node_or] = "or",
-	[node_and] = "and",
-	[node_comparison] = "comparison",
-	[node_arithmetic] = "arithmetic",
-	[node_not] = "not",
-	[node_index] = "index",
-	[node_method] = "method",
-	[node_function] = "function",
-	[node_assignment] = "assignment",
-	[node_foreach_args] = "foreach_args",
-	[node_foreach] = "foreach",
-	[node_if] = "if",
-	[node_u_minus] = "u_minus",
-	[node_ternary] = "ternary",
-	[node_block] = "block",
-};
+const char *
+node_type_to_s(enum node_type t)
+{
+	switch (t) {
+	case node_null: return "null";
+	case node_bool: return "bool";
+	case node_id: return "id";
+	case node_number: return "number";
+	case node_string: return "string";
+	case node_format_string: return "format_string";
+	case node_continue: return "continue";
+	case node_break: return "break";
+	case node_argument: return "argument";
+	case node_array: return "array";
+	case node_dict: return "dict";
+	case node_empty: return "empty";
+	case node_or: return "or";
+	case node_and: return "and";
+	case node_comparison: return "comparison";
+	case node_arithmetic: return "arithmetic";
+	case node_not: return "not";
+	case node_index: return "index";
+	case node_method: return "method";
+	case node_function: return "function";
+	case node_assignment: return "assignment";
+	case node_foreach_args: return "foreach_args";
+	case node_foreach: return "foreach";
+	case node_if: return "if";
+	case node_u_minus: return "u_minus";
+	case node_ternary: return "ternary";
+	case node_block: return "block";
+	case node_function_definition: return "def";
+	}
+
+	assert(false && "unreachable");
+	return "";
+}
 
 __attribute__ ((format(printf, 2, 3)))
 static void
@@ -166,18 +175,12 @@ add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_
 }
 
 const char *
-node_type_to_s(enum node_type t)
-{
-	return node_name[t];
-}
-
-const char *
 node_to_s(struct node *n)
 {
 	static char buf[BUF_SIZE + 1];
 	uint32_t i = 0;
 
-	i += snprintf(&buf[i], BUF_SIZE - i, "%s", node_name[n->type]);
+	i += snprintf(&buf[i], BUF_SIZE - i, "%s", node_type_to_s(n->type));
 
 	switch (n->type) {
 	case node_id:
