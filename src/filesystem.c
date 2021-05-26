@@ -141,27 +141,44 @@ bool
 fs_read_entire_file(const char *path, char **buf, uint64_t *size)
 {
 	FILE *f;
+	bool opened = false;
 	size_t read;
 
-	if (!fs_file_exists(path)) {
-		LOG_W(log_misc, "'%s' is not a file", path);
-		return false;
+	if (strcmp(path, "-") == 0) {
+		f = stdin;
+	} else {
+		if (!fs_file_exists(path)) {
+			LOG_W(log_misc, "'%s' is not a file", path);
+			return false;
+		}
+
+		if (!(f = fs_fopen(path, "r"))) {
+			return false;
+		}
+
+		opened = true;
 	}
 
-	if (!(f = fs_fopen(path, "r"))) {
-		return false;
-	} else if (!fs_fsize(f, size)) {
+	if (!fs_fsize(f, size)) {
+		if (opened) {
+			fs_fclose(f);
+		}
+
 		return false;
 	}
 
 	*buf = z_calloc(*size + 1, 1);
 	read = fread(*buf, 1, *size, f);
 
-	if (!fs_fclose(f)) {
-		z_free(*buf);
-		*buf = NULL;
-		return false;
-	} else if (read != *size) {
+	if (opened) {
+		if (!fs_fclose(f)) {
+			z_free(*buf);
+			*buf = NULL;
+			return false;
+		}
+	}
+
+	if (read != *size) {
 		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, *size);
 		z_free(*buf);
 		*buf = NULL;
