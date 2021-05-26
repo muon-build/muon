@@ -913,6 +913,12 @@ parse_block(struct parser *p, uint32_t *id)
 		have_r = true;
 	}
 
+	if (get_node(p->ast, l_id)->type == node_empty) {
+		assert(!have_r);
+		*id = l_id;
+		return true;
+	}
+
 	make_node(p, id, node_block);
 	add_child(p, *id, node_child_l, l_id);
 	if (have_r) {
