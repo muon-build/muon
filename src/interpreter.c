@@ -273,10 +273,14 @@ interp_block(struct workspace *wk, struct node *n, uint32_t *obj)
 		return false;
 	}
 
-	if (have_r) {
+	if (have_r && get_node(wk->ast, n->r)->type != node_empty) {
 		if (!interp_node(wk, n->r, &obj_r)) {
 			return false;
 		}
+
+		*obj = obj_r;
+	} else {
+		*obj = obj_l;
 	}
 
 	return true;
