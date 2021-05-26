@@ -19,6 +19,7 @@ enum lex_result {
 };
 
 struct lexer {
+	enum language_mode lang_mode;
 	uint32_t i, line, line_start;
 	struct {
 		uint32_t paren, bracket, curl;
@@ -74,6 +75,8 @@ tok_type_to_s(enum token_type type)
 	case tok_identifier: return "identifier";
 	case tok_string: return "string";
 	case tok_number: return "number";
+	case tok_def: return "def";
+	case tok_end: return "end";
 	case tok_question_mark: return "?";
 	}
 
@@ -152,6 +155,31 @@ is_skipchar(const char c)
 }
 
 static bool
+internal_keyword(struct lexer *lexer, struct token *token)
+{
+	static const struct {
+		const char *name;
+		enum token_type type;
+	} keywords[] = {
+		{ "def", tok_def },
+		{ "end", tok_end },
+		{ 0 },
+	};
+
+	uint32_t i;
+	for (i = 0; keywords[i].name; ++i) {
+		if (strlen(keywords[i].name) == token->n
+		    && strncmp(token->dat.s, keywords[i].name, token->n) == 0) {
+			token->type = keywords[i].type;
+			token->n = 0;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
 keyword(struct lexer *lexer, struct token *token)
 {
 	static const struct {
@@ -183,6 +211,10 @@ keyword(struct lexer *lexer, struct token *token)
 			token->n = 0;
 			return true;
 		}
+	}
+
+	if (lexer->lang_mode == language_internal) {
+		return internal_keyword(lexer, token);
 	}
 
 	return false;
@@ -402,7 +434,7 @@ lexer_tokenize_one(struct lexer *lexer)
 			token->type = tok_minus;
 			break;
 		case '*':
-			token->type = tok_minus;
+			token->type = tok_star;
 			break;
 		case '/':
 			token->type = tok_slash;
@@ -476,13 +508,14 @@ done:
 }
 
 bool
-lexer_lex(struct tokens *toks, const char *path)
+lexer_lex(enum language_mode lang_mode, struct tokens *toks, const char *path)
 {
 	*toks = (struct tokens) {
 		.src_path = path,
 	};
 
 	struct lexer lexer = {
+		.lang_mode = lang_mode,
 		.src_path = path,
 		.line = 1,
 	};

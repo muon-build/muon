@@ -500,6 +500,121 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 	return true;
 }
 
+static bool
+interp_dyn_func_args(struct workspace *wk, uint32_t n_id, uint32_t func_id)
+{
+	struct node *n = get_node(wk->ast, n_id);
+	struct obj *func = get_obj(wk, func_id);
+
+	uint32_t caller_args_id = n->r, caller_arg_val,
+		 callee_args_id = func->dat.func.args, callee_arg_val;
+	struct node *caller_args, *callee_args;
+	bool caller_done, callee_done;
+
+	while (true) {
+		callee_args = get_node(wk->ast, callee_args_id);
+		caller_args = get_node(wk->ast, caller_args_id);
+
+		caller_done = caller_args->type == node_empty;
+		callee_done = callee_args->type == node_empty;
+
+		if (caller_done && callee_done) {
+			break;
+		} else if (caller_done) {
+			interp_error(wk, caller_args_id, "not enough arguments");
+			return false;
+		} else if (callee_done) {
+			interp_error(wk, caller_args_id, "too many arguments");
+			return false;
+		}
+
+		if (callee_args->data == arg_kwarg) {
+			interp_error(wk, callee_args->l, "kwargs not supported for def functions");
+			return false;
+		} else if (caller_args->data == arg_kwarg) {
+			interp_error(wk, caller_args->l, "kwargs not supported for def functions");
+			return false;
+		}
+
+		caller_arg_val = caller_args->l;
+		callee_arg_val = callee_args->l;
+
+		uint32_t res;
+		if (!interp_node(wk, caller_arg_val, &res)) {
+			return false;
+		}
+		hash_set(&current_project(wk)->scope, get_node(wk->ast, callee_arg_val)->tok->dat.s, res);
+
+		if ((caller_args->chflg & node_child_c)) {
+			caller_args_id = caller_args->c;
+		} else {
+			caller_done = true;
+		}
+
+		if ((callee_args->chflg & node_child_c)) {
+			callee_args_id = callee_args->c;
+		} else {
+			callee_done = true;
+		}
+
+		if (caller_done && callee_done) {
+			break;
+		} else if (caller_done) {
+			interp_error(wk, caller_args_id, "not enough arguments");
+			return false;
+		} else if (callee_done) {
+			interp_error(wk, caller_args_id, "too many arguments");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+{
+	uint32_t func_id;
+	struct node *n = get_node(wk->ast, n_id);
+	struct obj *func;
+
+	if (wk->lang_mode == language_internal
+	    && get_obj_id(wk, get_node(wk->ast, n->l)->tok->dat.s, &func_id, wk->cur_project)) {
+		func = get_obj(wk, func_id);
+
+		if (!interp_dyn_func_args(wk, n_id, func_id)) {
+			interp_error(wk, get_obj(wk, func_id)->dat.func.def, "invalid arguments passed");
+			return false;
+		}
+
+		if (!interp_node(wk, func->dat.func.body, obj)) {
+			interp_error(wk, n->l, "in function %s", get_node(wk->ast, n->l)->tok->dat.s);
+			return false;
+		}
+
+		return true;
+	} else {
+		return builtin_run(wk, 0, n_id, obj);
+	}
+}
+
+static bool
+interp_func_def(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+{
+	uint32_t func_id;
+	struct obj *func;
+	struct node *n = get_node(wk->ast, n_id);
+
+	func = make_obj(wk, &func_id, obj_function);
+	func->dat.func.def = n->l;
+	func->dat.func.args = n->r;
+	func->dat.func.body = n->c;
+
+	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->tok->dat.s, func_id);
+
+	return true;
+}
+
 bool
 interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 {
@@ -561,8 +676,11 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 
 	/* functions */
+	case node_function_definition:
+		assert(wk->lang_mode == language_internal);
+		return interp_func_def(wk, n_id, obj_id);
 	case node_function:
-		return builtin_run(wk, 0, n_id, obj_id);
+		return interp_func(wk, n_id, obj_id);
 	case node_method:
 		return interp_method(wk, n_id, obj_id);
 	case node_index:

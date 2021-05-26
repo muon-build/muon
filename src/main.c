@@ -36,7 +36,7 @@ cmd_setup(int argc, char **argv)
 	LOG_I(log_misc, "source: %s, build: %s", source, build);
 
 	struct workspace wk;
-	if (!eval_entry(&wk, source, cwd, build)) {
+	if (!eval_entry(language_external, &wk, source, cwd, build)) {
 		return false;
 	}
 
@@ -55,7 +55,7 @@ cmd_parse_check(int argc, char **argv)
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(&toks, argv[1])) {
+	if (!lexer_lex(language_internal, &toks, argv[1])) {
 		goto err1;
 	} else if (!parser_parse(&ast, &toks)) {
 		goto err2;
@@ -78,7 +78,7 @@ cmd_ast(int argc, char **argv)
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(&toks, argv[1])) {
+	if (!lexer_lex(language_internal, &toks, argv[1])) {
 		goto err1;
 	} else if (!parser_parse(&ast, &toks)) {
 		goto err2;
@@ -108,7 +108,7 @@ cmd_eval(int argc, char **argv)
 	}
 
 	struct workspace wk;
-	return eval_entry(&wk, argv[1], cwd, "<build_dir>");
+	return eval_entry(language_internal, &wk, argv[1], cwd, "<build_dir>");
 }
 
 static bool

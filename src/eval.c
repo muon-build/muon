@@ -8,9 +8,12 @@
 #include "parser.h"
 
 bool
-eval_entry(struct workspace *wk, const char *src, const char *cwd, const char *build_dir)
+eval_entry(enum language_mode mode, struct workspace *wk,
+	const char *src, const char *cwd, const char *build_dir)
 {
 	workspace_init(wk);
+	wk->lang_mode = mode;
+
 	struct project *proj = make_project(wk, &wk->cur_project);
 
 	proj->cwd = wk_str_push(wk, cwd);
@@ -27,7 +30,7 @@ eval(struct workspace *wk, const char *src)
 	struct tokens *toks = &current_project(wk)->toks;
 	struct ast *ast = &current_project(wk)->ast, *old_ast = wk->ast;
 
-	if (!lexer_lex(toks, src)) {
+	if (!lexer_lex(wk->lang_mode, toks, src)) {
 		return false;
 	} else if (!parser_parse(ast, toks)) {
 		return false;

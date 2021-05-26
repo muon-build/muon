@@ -274,9 +274,9 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		if (strcmp(impl_tbl[i].name, name) == 0) {
 			if (!impl_tbl[i].func(wk, rcvr_id, args_node, obj)) {
 				if (recvr_type == obj_default) {
-					interp_error(wk, name_node, "in function %s",  name);
+					interp_error(wk, name_node, "in builtin function %s",  name);
 				} else {
-					interp_error(wk, name_node, "in function %s.%s", obj_type_to_s(recvr_type), name);
+					interp_error(wk, name_node, "in builtin function %s.%s", obj_type_to_s(recvr_type), name);
 				}
 				return false;
 			}

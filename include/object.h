@@ -23,6 +23,7 @@ enum obj_type {
 	obj_subproject,
 	obj_dependency,
 	obj_type_count,
+	obj_function,
 };
 
 enum tgt_type {
@@ -60,6 +61,11 @@ struct obj {
 			uint32_t include_directories;
 			bool found;
 		} dep;
+		struct {
+			uint32_t def;
+			uint32_t args;
+			uint32_t body;
+		} func;
 		uint32_t subproj;
 	} dat;
 };

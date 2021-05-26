@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "darr.h"
+#include "eval.h"
 
 enum token_type {
 	tok_eof,
@@ -53,6 +54,10 @@ enum token_type {
 	tok_continue,
 	tok_break,
 
+	/* internal keywords */
+	tok_def,
+	tok_end,
+
 	/* literals */
 	tok_identifier,
 	tok_string,
@@ -77,7 +82,7 @@ struct tokens {
 	uint64_t data_len;
 };
 
-bool lexer_lex(struct tokens *toks, const char *path);
+bool lexer_lex(enum language_mode lang_mode, struct tokens *toks, const char *path);
 void tokens_destroy(struct tokens *toks);
 
 const char *tok_type_to_s(enum token_type type);

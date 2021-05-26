@@ -2,6 +2,7 @@
 #define BOSON_WORKSPACE_H
 
 #include "darr.h"
+#include "eval.h"
 #include "hash.h"
 #include "object.h"
 #include "parser.h"
@@ -39,6 +40,7 @@ struct workspace {
 	uint32_t loop_depth;
 	enum loop_ctl loop_ctl;
 	struct ast *ast;
+	enum language_mode lang_mode;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);

@@ -64,6 +64,8 @@ enum node_type {
 	node_u_minus,
 	node_ternary,
 	node_block,
+	/* internal language node */
+	node_function_definition,
 };
 
 enum node_child_flag {
