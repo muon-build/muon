@@ -263,7 +263,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	LOG_I(log_misc, "%s", wk_objstr(wk, an[0].val));
+	fputs(wk_objstr(wk, an[0].val), stdout);
 
 	*obj = 0;
 
