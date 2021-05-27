@@ -289,6 +289,8 @@ interp_block(struct workspace *wk, struct node *n, uint32_t *obj)
 	bool have_r = n->chflg & node_child_r
 		      && get_node(wk->ast, n->r)->type != node_empty;
 
+	assert(n->type == node_block);
+
 	uint32_t obj_l, obj_r; // these return values are disregarded
 
 	if (!interp_node(wk, n->l, &obj_l)) {
@@ -478,6 +480,10 @@ interp_foreach_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	struct interp_foreach_ctx *ctx = _ctx;
 
 	hash_set(&current_project(wk)->scope, ctx->arg1, v_id);
+
+	if (get_node(wk->ast, ctx->block)->type == node_empty) {
+		return ir_done;
+	}
 
 	if (!interp_block(wk, get_node(wk->ast, ctx->block), &block_result)) {
 		return ir_err;
