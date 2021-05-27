@@ -143,6 +143,12 @@ is_digit(const char c)
 }
 
 static bool
+is_hex_digit(const char c)
+{
+	return is_digit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
+}
+
+static bool
 is_valid_inside_of_identifier(const char c)
 {
 	return is_valid_start_of_identifier(c) || is_digit(c);
@@ -273,36 +279,72 @@ number(struct lexer *lexer, struct token *tok)
 	return lex_cont;
 }
 
-static void
-copy_into_token_data(struct lexer *lexer, struct token *tok, uint32_t start, uint32_t end)
-{
-	if (end == start) {
-		return;
-	}
-
-	assert(end > start);
-
-	tok->n = end - start;
-
-	tok->dat.s = &lexer->data[start];
-}
-
 static enum lex_result
 identifier(struct lexer *lexer, struct token *token)
 {
-	uint32_t start = lexer->i;
+	token->dat.s = &lexer->data[lexer->i];
 
 	while (is_valid_inside_of_identifier(lexer->data[lexer->i])) {
+		++token->n;
 		advance(lexer);
 	}
 
-	copy_into_token_data(lexer, token, start, lexer->i);
+	assert(token->n);
 
 	if (!keyword(lexer, token)) {
 		token->type = tok_identifier;
 	}
 
 	return lex_cont;
+}
+
+static bool
+write_utf8(struct lexer *l, struct token *tok, uint32_t s, uint32_t val)
+{
+	uint8_t pre, b, pre_len;
+	uint32_t len, i;
+
+	/* From: https://en.wikipedia.org/wiki/UTF-8#Encoding
+	 * U+0000  - U+007F   0x00 0xxxxxxx
+	 * U+0080  - U+07FF   0xc0 110xxxxx 10xxxxxx
+	 * U+0800  - U+FFFF   0xe0 1110xxxx 10xxxxxx 10xxxxxx
+	 * U+10000 - U+10FFFF 0xf0 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+	 * */
+
+	if (val <= 0x7f) {
+		l->data[s + tok->n] = val;
+		++tok->n;
+		return true;
+	} else if (val <= 0x07ff) {
+		len = 2;
+		pre_len = 5;
+		pre = 0xc0;
+		b = 11;
+	} else if (val <= 0xffff) {
+		len = 3;
+		pre_len = 4;
+		pre = 0xe0;
+		b = 16;
+	} else if (val <= 0x10ffff) {
+		len = 4;
+		pre_len = 3;
+		pre = 0xf0;
+		b = 21;
+	} else {
+		lex_error(l, "invalid utf-8 escape 0x%x", val);
+		return false;
+	}
+
+
+	l->data[s + tok->n] = pre | (val >> (b - pre_len));
+	++tok->n;
+
+	for (i = 1; i < len; ++i) {
+		l->data[s + tok->n] = 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f);
+		++tok->n;
+	}
+
+	return true;
 }
 
 static enum lex_result
@@ -312,29 +354,147 @@ string(struct lexer *lexer, struct token *token)
 
 	advance(lexer);
 
-	uint32_t start = lexer->i;
+	token->dat.s = &lexer->data[lexer->i];
+	const uint32_t s = lexer->i;
 
-	bool multiline = false;
+	bool multiline = false, loop = true;
 
-	while (lexer->data[lexer->i] && lexer->data[lexer->i] != '\'') {
-		if (lexer->data[lexer->i] == '\n') {
-			if (multiline) {
-			} else {
-				lex_error(lexer, "newline in string");
+	while (loop) {
+		switch (lexer->data[lexer->i]) {
+		case '\n':
+			if (lexer->data[lexer->i] == '\n') {
+				if (multiline) {
+				} else {
+					lex_error(lexer, "newline in string");
+					return lex_fail;
+				}
+			}
+			break;
+		case '\\':
+			switch (lexer->data[lexer->i + 1]) {
+			case '\\':
+			case '\'':
+				advance(lexer);
+				lexer->data[s + token->n] = lexer->data[lexer->i];
+				++token->n;
+				break;
+			case 'a':
+				advance(lexer);
+				lexer->data[s + token->n] = '\a';
+				++token->n;
+				break;
+			case 'b':
+				advance(lexer);
+				lexer->data[s + token->n] = '\b';
+				++token->n;
+				break;
+			case 'f':
+				advance(lexer);
+				lexer->data[s + token->n] = '\f';
+				++token->n;
+				break;
+			case 'r':
+				advance(lexer);
+				lexer->data[s + token->n] = '\r';
+				++token->n;
+				break;
+			case 't':
+				advance(lexer);
+				lexer->data[s + token->n] = '\t';
+				++token->n;
+				break;
+			case 'v':
+				advance(lexer);
+				lexer->data[s + token->n] = '\v';
+				++token->n;
+				break;
+			case 'n':
+				advance(lexer);
+				lexer->data[s + token->n] = '\n';
+				++token->n;
+				break;
+			case 'x':
+			case 'u':
+			case 'U': {
+				uint32_t len = 0;
+				switch (lexer->data[lexer->i + 1]) {
+				case 'x':
+					len = 2;
+					break;
+				case 'u':
+					len = 4;
+					break;
+				case 'U':
+					len = 8;
+					break;
+				}
+				advance(lexer);
+
+				char num[9] = { 0 };
+				uint32_t i;
+
+				for (i = 0; i < len; ++i) {
+					num[i] = lexer->data[lexer->i + 1];
+					if (!is_hex_digit(num[i])) {
+						lex_error(lexer, "unterminated hex escape");
+						return lex_fail;
+					}
+					advance(lexer);
+				}
+
+				uint32_t val = strtol(num, NULL, 16);
+
+				if (!write_utf8(lexer, token, s, val)) {
+					return lex_fail;
+				}
+				break;
+			}
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9': {
+				char num[4] = { 0 };
+				uint32_t i;
+
+				for (i = 0; i < 3; ++i) {
+					num[i] = lexer->data[lexer->i + 1];
+					if (!is_digit(num[i])) {
+						lex_error(lexer, "unterminated octal escape");
+						return lex_fail;
+					}
+					advance(lexer);
+				}
+
+				lexer->data[s + token->n] = strtol(num, NULL, 8);
+				++token->n;
+				break;
+			}
+			default:
+				lexer->data[s + token->n] = lexer->data[lexer->i];
+				++token->n;
+				advance(lexer);
+				lexer->data[s + token->n] = lexer->data[lexer->i];
+				++token->n;
+				break;
+			case 0:
+				lex_error(lexer, "unterminated escape");
 				return lex_fail;
 			}
+			break;
+		case 0:
+			lex_error(lexer, "unmatched single quote (\')");
+			return lex_fail;
+		case '\'':
+			lexer->data[s + token->n] = 0;
+			loop = false;
+			break;
+		default:
+			lexer->data[s + token->n] = lexer->data[lexer->i];
+			++token->n;
+			break;
 		}
+
 		advance(lexer);
 	}
 
-	if (!lexer->data[lexer->i]) {
-		lex_error(lexer, "unmatched single quote (\')");
-		return lex_fail;
-	}
-
-	copy_into_token_data(lexer, token, start, lexer->i);
-
-	advance(lexer);
 	return lex_cont;
 }
 
@@ -493,8 +653,11 @@ done:
 		tok = darr_get(lexer->tok, i);
 
 		switch (tok->type) {
-		case tok_string:
 		case tok_identifier:
+			assert(tok->n);
+			lexer->data[(tok->dat.s - lexer->data) + tok->n] = 0;
+			break;
+		case tok_string:
 			lexer->data[(tok->dat.s - lexer->data) + tok->n] = 0;
 			break;
 		default:
