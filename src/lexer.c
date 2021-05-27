@@ -610,6 +610,31 @@ lexer_tokenize_one(struct lexer *lexer)
 				token->type = tok_assign;
 			}
 			break;
+		case '!':
+			if (lexer->data[lexer->i + 1] == '=') {
+				advance(lexer);
+				token->type = tok_neq;
+			} else {
+				lex_error(lexer, "unexpected character: '%c'", lexer->data[lexer->i]);
+				return lex_fail;
+			}
+			break;
+		case '>':
+			if (lexer->data[lexer->i + 1] == '=') {
+				advance(lexer);
+				token->type = tok_geq;
+			} else {
+				token->type = tok_gt;
+			}
+			break;
+		case '<':
+			if (lexer->data[lexer->i + 1] == '=') {
+				advance(lexer);
+				token->type = tok_leq;
+			} else {
+				token->type = tok_lt;
+			}
+			break;
 		case '\0':
 			token->type = tok_eof;
 			return lex_done;
