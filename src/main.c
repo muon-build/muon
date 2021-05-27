@@ -56,16 +56,12 @@ cmd_parse_check(int argc, char **argv)
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
 	if (!lexer_lex(language_internal, &toks, argv[1])) {
-		goto err1;
+		return false;
 	} else if (!parser_parse(&ast, &toks)) {
-		goto err2;
+		return false;
 	}
 
 	return true;
-err2:
-	tokens_destroy(&toks);
-err1:
-	return false;
 }
 
 static bool
@@ -79,18 +75,13 @@ cmd_ast(int argc, char **argv)
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
 	if (!lexer_lex(language_internal, &toks, argv[1])) {
-		goto err1;
+		return false;
 	} else if (!parser_parse(&ast, &toks)) {
-		goto err2;
+		return false;
 	}
 
 	print_ast(&ast);
-
 	return true;
-err2:
-	tokens_destroy(&toks);
-err1:
-	return false;
 }
 
 static bool
@@ -111,7 +102,7 @@ cmd_eval(int argc, char **argv)
 	bool ret;
 	ret = eval_entry(language_internal, &wk, argv[1], cwd, "<build_dir>");
 
-	workspace_destroy(&wk);
+	workspace_destroy(&wk); // just to test for memory leaks in valgrind
 	return ret;
 }
 
