@@ -458,8 +458,11 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 		if (!interp_node(wk, n->c, &res_id)) {
 			return false;
 		}
+	} else {
+		res_id = 0;
 	}
 
+	*obj = res_id;
 	return true;
 }
 
