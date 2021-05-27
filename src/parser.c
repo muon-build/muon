@@ -728,7 +728,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 		struct token *tok = p->last_last;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			LOG_W(log_parse, "assignment target must be an id.");
+			parse_error(p, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
 		} else if (!parse_stmt(p, &v)) {
 			return false;
@@ -747,9 +747,19 @@ parse_stmt(struct parser *p, uint32_t *id)
 		uint32_t v;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			LOG_W(log_parse, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
+			parse_error(p, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
 		} else if (!parse_stmt(p, &v)) {
+			return false;
+		}
+
+		/* NOTE: a bare ?: is actually valid in meson, none of the
+		 * fields have to be filled. I'm making it an error here though,
+		 * because missing fields in ternary expressions is probably an
+		 * error
+		 */
+		if (get_node(p->ast, v)->type == node_empty) {
+			parse_error(p, "missing rhs");
 			return false;
 		}
 
@@ -761,7 +771,14 @@ parse_stmt(struct parser *p, uint32_t *id)
 
 		if (!(parse_stmt(p, &a))) {
 			return false;
+		} else if (!expect(p, tok_colon)) {
+			return false;
 		} else if (!(parse_stmt(p, &b))) {
+			return false;
+		}
+
+		if (get_node(p->ast, l_id)->type == node_empty) {
+			parse_error(p, "missing condition expression");
 			return false;
 		}
 
