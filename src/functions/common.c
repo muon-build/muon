@@ -265,7 +265,7 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		impl_tbl = impl_tbl_dependency;
 		break;
 	default:
-		interp_error(wk, n->l,  "reciever %s does not have any methods", obj_type_to_s(recvr_type));
+		interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
 		return false;
 	}
 

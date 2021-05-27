@@ -40,28 +40,33 @@ typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type ty
 	return true;
 }
 
+static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj);
+
 static bool
-interp_method(struct workspace *wk, uint32_t node_id, uint32_t *obj)
+interp_method(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj)
 {
-	uint32_t recvr_id;
+	uint32_t result;
 
 	struct node *n = get_node(wk->ast, node_id);
 
-	if (!interp_node(wk, n->l, &recvr_id)) {
+	if (!builtin_run(wk, l_id, node_id, &result)) {
 		return false;
 	}
 
-	return builtin_run(wk, recvr_id, node_id, obj);
+	if (n->chflg & node_child_d) {
+		return interp_chained(wk, n->d, result, obj);
+	} else {
+		*obj = result;
+		return true;
+	}
 }
 
 static bool
-interp_index(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 {
-	uint32_t l_id, r_id;
+	uint32_t r_id;
 
-	if (!interp_node(wk, n->l, &l_id)) {
-		return false;
-	} else if (!interp_node(wk, n->r, &r_id)) {
+	if (!interp_node(wk, n->r, &r_id)) {
 		return false;
 	}
 
@@ -86,11 +91,28 @@ interp_index(struct workspace *wk, struct node *n, uint32_t *obj)
 
 		return obj_array_index(wk, l_id, r->dat.num, obj);
 	default:
-		interp_error(wk, n->l, "index unsupported for %s", obj_type_to_s(l->type));
+		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(l->type));
 		return false;
 	}
 }
 
+static bool
+interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj)
+{
+	struct node *n = get_node(wk->ast, node_id);
+
+	switch (n->type) {
+	case node_method:
+		return interp_method(wk, node_id, l_id, obj);
+	case node_index:
+		return interp_index(wk, n, l_id, obj);
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+
+	return false;
+}
 static bool
 interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 {
@@ -682,9 +704,16 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case node_function:
 		return interp_func(wk, n_id, obj_id);
 	case node_method:
-		return interp_method(wk, n_id, obj_id);
-	case node_index:
-		return interp_index(wk, n, obj_id);
+	case node_index: {
+		uint32_t l_id;
+		assert(n->chflg & node_child_l);
+
+		if (!interp_node(wk, n->l, &l_id)) {
+			return false;
+		}
+
+		return interp_chained(wk, n_id, l_id, obj_id);
+	}
 
 	/* assignment */
 	case node_assignment:

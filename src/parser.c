@@ -8,7 +8,7 @@
 #include "parser.h"
 
 #define PATH_MAX 4096
-#define NODE_MAX_CHILDREN 3
+#define NODE_MAX_CHILDREN 4
 #define BUF_SIZE 255
 
 const uint32_t arithmetic_type_count = 5;
@@ -339,11 +339,16 @@ parse_key_values(struct parser *p, uint32_t *id)
 }
 
 static bool
-parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id)
+parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
 	uint32_t r_id;
 
 	if (!parse_stmt(p, &r_id)) {
+		return false;
+	}
+
+	if (get_node(p->ast, r_id)->type == node_empty) {
+		parse_error(p, "empty index");
 		return false;
 	}
 
@@ -352,7 +357,10 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id)
 	}
 
 	make_node(p, id, node_index);
-	add_child(p, *id, node_child_l, l_id);
+	if (have_l) {
+		add_child(p, *id, node_child_l, l_id);
+	}
+
 	add_child(p, *id, node_child_r, r_id);
 
 	return true;
@@ -386,7 +394,7 @@ parse_e9(struct parser *p, uint32_t *id)
 }
 
 static bool
-parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id)
+parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
 	uint32_t meth_id, args, c_id = 0;
 	bool have_c = false;
@@ -401,19 +409,14 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id)
 		return false;
 	}
 
-	if (accept(p, tok_dot)) {
-		have_c = true;
-
-		if (!parse_method_call(p, &c_id, l_id)) {
-			return false;
-		}
-	}
-
 	struct node *n;
 	n = make_node(p, id, node_method);
 	n->data = have_c;
 
-	add_child(p, *id, node_child_l, l_id);
+	if (have_l) {
+		add_child(p, *id, node_child_l, l_id);
+	}
+
 	add_child(p, *id, node_child_r, meth_id);
 	add_child(p, *id, node_child_c, args);
 
@@ -467,6 +470,38 @@ parse_e8(struct parser *p, uint32_t *id)
 }
 
 static bool
+parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
+{
+	bool loop = false;
+	if (accept(p, tok_dot)) {
+		loop = true;
+		if (!parse_method_call(p, id, l_id, have_l)) {
+			return false;
+		}
+	} else if (accept(p, tok_lbrack)) {
+		loop = true;
+		if (!parse_index_call(p, id, l_id, have_l)) {
+			return false;
+		}
+	}
+
+	if (loop) {
+		uint32_t child_id;
+		if (!parse_chained(p, &child_id, 0, false)) {
+			return false;
+		}
+
+		if (child_id) {
+			add_child(p, *id, node_child_d, child_id);
+		}
+		return true;
+	} else {
+		*id = l_id;
+		return true;
+	}
+}
+
+static bool
 parse_e7(struct parser *p, uint32_t *id)
 {
 	uint32_t p_id, l_id;
@@ -475,7 +510,7 @@ parse_e7(struct parser *p, uint32_t *id)
 	}
 
 	if (accept(p, tok_lparen)) {
-		uint32_t args;
+		uint32_t args, d_id;
 
 		if (!parse_args(p, &args)) {
 			return false;
@@ -491,31 +526,21 @@ parse_e7(struct parser *p, uint32_t *id)
 		make_node(p, &p_id, node_function);
 		add_child(p, p_id, node_child_l, l_id);
 		add_child(p, p_id, node_child_r, args);
-		l_id = p_id;
-	}
 
-	bool loop = true;
-	while (loop) {
-		loop = false;
-		if (accept(p, tok_dot)) {
-			loop = true;
-			if (!parse_method_call(p, &p_id, l_id)) {
-				return false;
-			}
-			l_id = p_id;
+		if (!parse_chained(p, &d_id, 0, false)) {
+			return false;
 		}
 
-		if (accept(p, tok_lbrack)) {
-			loop = true;
-			if (!parse_index_call(p, &p_id, l_id)) {
-				return false;
-			}
-			l_id = p_id;
+		if (d_id) {
+			add_child(p, p_id, node_child_d, d_id);
 		}
-	}
 
-	*id = l_id;
-	return true;
+		*id = p_id;
+
+		return true;
+	} else {
+		return parse_chained(p, id, l_id, true);
+	}
 }
 
 static bool
