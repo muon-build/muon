@@ -37,12 +37,16 @@ cmd_setup(int argc, const char *argv[])
 
 	struct workspace wk;
 	if (!eval_entry(language_external, &wk, source, cwd, build)) {
-		return false;
+		goto err;
 	}
 
 	output_build(&wk, build);
 
+	workspace_destroy(&wk);
 	return true;
+err:
+	workspace_destroy(&wk);
+	return false;
 }
 
 static bool
@@ -141,7 +145,7 @@ main(int argc, char *argv[])
 
 	for (i = 0; commands[i].name; ++i) {
 		if (strcmp(commands[i].name, cmd) == 0) {
-			if (!commands[i].cmd(argc - 1, &commands[i].name)) {
+			if (!commands[i].cmd(argc - 1, (const char **)&argv[1])) {
 				return 1;
 			}
 			return 0;

@@ -13,4 +13,5 @@ bool fs_read_entire_file(const char *path, char **buf, uint64_t *size);
 bool fs_fsize(FILE *file, uint64_t *ret);
 bool fs_fclose(FILE *file);
 FILE *fs_fopen(const char *path, const char *mode);
+bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
 #endif

@@ -47,9 +47,12 @@ if libcurl_dep.found()
 	c_args += ['-DBOSON_HAVE_CURL']
 endif
 
+deps += [dependency('zlib', required: true)]
+
 # sources
 
 src = files([
+	'src/archive.c',
 	'src/darr.c',
 	'src/eval.c',
 	'src/fetch.c',
@@ -62,6 +65,7 @@ src = files([
 	'src/functions/number.c',
 	'src/functions/subproject.c',
 	'src/hash.c',
+	'src/inih.c',
 	'src/interpreter.c',
 	'src/lexer.c',
 	'src/log.c',
@@ -72,6 +76,10 @@ src = files([
 	'src/parser.c',
 	'src/run_cmd.c',
 	'src/workspace.c',
+	'src/wrap.c',
+
+	'src/external/microtar.c',
+	'src/external/sha-256.c',
 ])
 
 include_dir = include_directories('include')

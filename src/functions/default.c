@@ -10,6 +10,7 @@
 #include "interpreter.h"
 #include "log.h"
 #include "run_cmd.h"
+#include "wrap.h"
 
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
@@ -287,23 +288,42 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	const char *subproj_name = wk_objstr(wk, an[0].val),
 		   *cur_cwd = wk_str(wk, current_project(wk)->cwd);
 
-	char source[PATH_MAX + 1];
+	char source[PATH_MAX + 1], subproject_dir[PATH_MAX + 1];
 
-	snprintf(source, PATH_MAX, "%s/subprojects/%s/%s", cur_cwd, subproj_name, "meson.build");
+	parent_project = wk->cur_project;
+	wk->cur_project = sub_project;
 
-	{
-		parent_project = wk->cur_project;
-		wk->cur_project = sub_project;
+	snprintf(subproject_dir, PATH_MAX, "%s/subprojects", cur_cwd);
 
-		current_project(wk)->cwd = wk_str_pushf(wk, "%s/subprojects/%s", cur_cwd, subproj_name);
-		current_project(wk)->build_dir = wk_str_pushf(wk, "%s/subprojects/%s", cur_cwd, subproj_name);
+	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", subproject_dir, subproj_name);
+	current_project(wk)->build_dir  = current_project(wk)->cwd;
 
-		if (!eval(wk, source)) {
+	if (!fs_dir_exists(wk_str(wk, current_project(wk)->cwd))) {
+		char wrap[PATH_MAX + 1];
+		snprintf(wrap, PATH_MAX, "%s/%s.wrap", subproject_dir, subproj_name);
+		if (fs_file_exists(wrap)) {
+
+			if (!wrap_handle(wk, an[0].node, wrap, subproject_dir)) {
+				return false;
+			}
+		} else {
+			interp_error(wk, an[0].node, "subproject not found");
 			return false;
 		}
-
-		wk->cur_project = parent_project;
 	}
+
+	snprintf(source, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd ));
+
+	if (!fs_file_exists(source)) {
+		interp_error(wk, an[0].node, "subproject does not contain a meson.build");
+		return false;
+	}
+
+	if (!eval(wk, source)) {
+		return false;
+	}
+
+	wk->cur_project = parent_project;
 
 	return true;
 }

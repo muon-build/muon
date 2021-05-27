@@ -187,3 +187,28 @@ fs_read_entire_file(const char *path, char **buf, uint64_t *size)
 
 	return true;
 }
+
+bool
+fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
+{
+	FILE *f;
+	if (!(f = fs_fopen(path, "w"))) {
+		return false;
+	}
+
+	uint64_t b;
+
+	b = fwrite(buf, 1, buf_len, f);
+
+	if (b != buf_len) {
+		LOG_W(log_misc, "failed to write entire file, only read %ld/%ld bytes", b, buf_len);
+		fs_fclose(f);
+		return false;
+	}
+
+	if (!fs_fclose(f)) {
+		return false;
+	}
+
+	return true;
+}

@@ -92,3 +92,12 @@ error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va
 		z_free(buf);
 	}
 }
+
+void
+error_messagef(const char *file, uint32_t line, uint32_t col, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	error_message(file, line, col, fmt, ap);
+	va_end(ap);
+}
