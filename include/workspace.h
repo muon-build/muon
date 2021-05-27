@@ -54,6 +54,7 @@ uint32_t wk_str_push(struct workspace *wk, const char *str);
 const char *wk_objstr(struct workspace *wk, uint32_t id);
 
 void workspace_init(struct workspace *wk);
+void workspace_destroy(struct workspace *wk);
 struct project *make_project(struct workspace *wk, uint32_t *id);
 struct project *current_project(struct workspace *wk);
 #endif

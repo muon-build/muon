@@ -108,7 +108,11 @@ cmd_eval(int argc, char **argv)
 	}
 
 	struct workspace wk;
-	return eval_entry(language_internal, &wk, argv[1], cwd, "<build_dir>");
+	bool ret;
+	ret = eval_entry(language_internal, &wk, argv[1], cwd, "<build_dir>");
+
+	workspace_destroy(&wk);
+	return ret;
 }
 
 static bool

@@ -162,3 +162,23 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &id, obj_meson);
 	hash_set(&wk->scope, "meson", id);
 }
+
+void
+workspace_destroy(struct workspace *wk)
+{
+	uint32_t i;
+	struct project *proj;
+	for (i = 0; i < wk->projects.len; ++i) {
+		proj = darr_get(&wk->projects, i);
+
+		hash_destroy(&proj->scope);
+
+		tokens_destroy(&proj->toks);
+		ast_destroy(&proj->ast);
+	}
+
+	darr_destroy(&wk->projects);
+	darr_destroy(&wk->objs);
+	darr_destroy(&wk->strs);
+	hash_destroy(&wk->scope);
+}
