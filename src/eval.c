@@ -49,9 +49,11 @@ eval(struct workspace *wk, const char *src)
 void
 error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va_list args)
 {
-	fprintf(stderr, "%s:%d:%d: \033[31merror:\033[0m ", file, line, col);
-	vfprintf(stderr, fmt, args);
-	putc('\n', stderr);
+	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
+
+	log_plain("%s:%d:%d: %s ", file, line, col, label);
+	log_plainv(fmt, args);
+	log_plain("\n");
 
 	char *buf;
 	uint64_t len, i, cl = 1, sol = 0;
@@ -67,25 +69,25 @@ error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va
 			}
 		}
 
-		fprintf(stderr, "%3d | ", line);
+		log_plain("%3d | ", line);
 		for (i = sol; buf[i] && buf[i] != '\n'; ++i) {
 			if (buf[i] == '\t') {
-				fputs("        ", stderr);
+				log_plain("        ");
 			} else {
 				putc(buf[i], stderr);
 			}
 		}
-		putc('\n', stderr);
+		log_plain("\n");
 
-		fputs("      ", stderr);
+		log_plain("      ");
 		for (i = 0; i < col; ++i) {
 			if (buf[sol + i] == '\t') {
-				fputs("        ", stderr);
+				log_plain("        ");
 			} else {
-				putc(i == col - 1 ? '^' : ' ', stderr);
+				log_plain(i == col - 1 ? "^" : " ");
 			}
 		}
-		putc('\n', stderr);
+		log_plain("\n");
 
 		z_free(buf);
 	}

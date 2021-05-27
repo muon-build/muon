@@ -51,7 +51,9 @@ bool log_file_is_a_tty(void);
 
 void log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 	enum log_filter type, const char *fmt, ...) __attribute__ ((format(printf, 6, 7)));
-void log_plain(enum log_level lvl, enum log_filter type, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
+bool log_clr(void);
+void log_plain(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
+void log_plainv(const char *fmt, va_list args);
 bool log_filter_name_to_bit(const char *name, uint32_t *res);
 uint32_t log_filter_to_bit(enum log_filter f);
 #endif

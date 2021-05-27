@@ -115,14 +115,24 @@ log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 }
 
 void
-log_plain(enum log_level lvl, enum log_filter type, const char *fmt, ...)
+log_plainv(const char *fmt, va_list ap)
 {
-	if (should_print(lvl, type)) {
-		va_list ap;
-		va_start(ap, fmt);
-		vprintf(fmt, ap);
-		va_end(ap);
-	}
+	vfprintf(log_cfg.file, fmt, ap);
+}
+
+void
+log_plain(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	log_plainv(fmt, ap);
+	va_end(ap);
+}
+
+bool
+log_clr(void)
+{
+	return log_cfg.clr;
 }
 
 void
@@ -139,7 +149,7 @@ log_init(void)
 	}
 
 	log_cfg.file = stderr;
-	log_cfg.clr = true;
+	log_cfg.clr = log_file_is_a_tty();
 	log_cfg.initialized = true;
 }
 
