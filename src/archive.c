@@ -13,99 +13,21 @@
 
 #define CHUNK_SIZE 1048576ul
 
-struct {
-	uint8_t *data;
-	uint32_t len;
-	uint32_t off;
-} mtar_stream_ctx;
-
-static int
-mtar_stream_read(mtar_t *tar, void *data, unsigned _size)
-{
-	/* L(log_misc, "requesting read of %d", _size); */
-
-	if (mtar_stream_ctx.off >= mtar_stream_ctx.len) {
-		((char *)data)[0] = 0;
-		return 0;
-	}
-
-	uint32_t size;
-	if (_size + mtar_stream_ctx.off > mtar_stream_ctx.len) {
-		size = mtar_stream_ctx.len - mtar_stream_ctx.off;
-	} else {
-		size = _size;
-	}
-
-	memcpy(data, &mtar_stream_ctx.data[mtar_stream_ctx.off], size);
-	mtar_stream_ctx.off += size;
-
-	return MTAR_ESUCCESS;
-}
-
-static int
-mtar_stream_seek(mtar_t *tar, unsigned pos)
-{
-	assert(pos < mtar_stream_ctx.len);
-	mtar_stream_ctx.off = pos;
-
-	return MTAR_ESUCCESS;
-}
-
-static int
-mtar_stream_close(mtar_t *tar)
-{
-	return MTAR_ESUCCESS;
-}
-
-static const char *
-mtar_type_to_s(char type)
-{
-	switch (type) {
-	case MTAR_TREG: return "regular";
-	case MTAR_TLNK: return "link";
-	case MTAR_TSYM: return "symlink";
-	case MTAR_TCHR: return "character";
-	case MTAR_TBLK: return "block";
-	case MTAR_TDIR: return "directory";
-	case MTAR_TFIFO: return "fifo";
-	}
-
-	return "unknown";
-}
-
 static bool
 archive_untar(uint8_t *data, uint64_t len, const char *destdir)
 {
-	mtar_stream_ctx.data = data;
-	mtar_stream_ctx.len = len;
-	mtar_stream_ctx.off = 0;
+	struct mtar tar = { .data = data, .len = len };
+	struct mtar_header hdr = { 0 };
 
-	mtar_t tar = {
-		.read = mtar_stream_read,
-		.seek = mtar_stream_seek,
-		.close = mtar_stream_close,
-	};
-	mtar_header_t hdr = { 0 };
-
-	uint8_t *buf = NULL;
-	uint64_t buf_size = 0;
 	char path[PATH_MAX + 1] = { 0 };
 
-	while ((mtar_read_header(&tar, &hdr)) == MTAR_ESUCCESS) {
-		if (hdr.type == MTAR_TDIR) {
-			mtar_next(&tar);
+	while ((mtar_read_header(&tar, &hdr)) == mtar_err_ok) {
+		if (hdr.type == mtar_file_type_dir) {
 			continue;
-		} else if (hdr.type != MTAR_TREG) {
-			LOG_W(log_misc, "skipping unsupported file '%s' of type '%s'", hdr.name, mtar_type_to_s(hdr.type));
+		} else if (hdr.type != mtar_file_type_reg) {
+			LOG_W(log_misc, "skipping unsupported file '%s' of type '%s'", hdr.name, mtar_file_type_to_s(hdr.type));
+			continue;
 		}
-
-		if (hdr.size + 1 > buf_size) {
-			buf_size = hdr.size + 1;
-			buf = z_realloc(buf, buf_size);
-		}
-
-		memset(buf, 0, buf_size);
-		mtar_read_data(&tar, buf, hdr.size);
 
 		uint32_t len;
 		int32_t i;
@@ -115,7 +37,6 @@ archive_untar(uint8_t *data, uint64_t len, const char *destdir)
 				path[i] = 0;
 
 				if (!fs_mkdir_p(path)) {
-					z_free(buf);
 					return false;
 				}
 				path[i] = '/';
@@ -123,15 +44,11 @@ archive_untar(uint8_t *data, uint64_t len, const char *destdir)
 			}
 		}
 
-		if (!fs_write(path, buf, buf_size)) {
-			z_free(buf);
+		if (!fs_write(path, hdr.data, hdr.size)) {
 			return false;
 		}
-
-		mtar_next(&tar);
 	}
 
-	z_free(buf);
 	return true;
 }
 

@@ -8,83 +8,44 @@
 #ifndef MICROTAR_H
 #define MICROTAR_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <stdint.h>
+#include <stdbool.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#define MTAR_VERSION "0.1.0"
-
-enum {
-	MTAR_ESUCCESS     =  0,
-	MTAR_EFAILURE     = -1,
-	MTAR_EOPENFAIL    = -2,
-	MTAR_EREADFAIL    = -3,
-	MTAR_EWRITEFAIL   = -4,
-	MTAR_ESEEKFAIL    = -5,
-	MTAR_EBADCHKSUM   = -6,
-	MTAR_ENULLRECORD  = -7,
-	MTAR_ENOTFOUND    = -8
+enum mtar_err {
+	mtar_err_ok,
+	mtar_err_badchksum,
+	mtar_err_nullrecord,
+	mtar_err_unknown_file_type,
 };
 
-enum {
-	MTAR_TREG   = '0',
-	MTAR_TLNK   = '1',
-	MTAR_TSYM   = '2',
-	MTAR_TCHR   = '3',
-	MTAR_TBLK   = '4',
-	MTAR_TDIR   = '5',
-	MTAR_TFIFO  = '6'
+enum mtar_file_type {
+	mtar_file_type_reg,
+	mtar_file_type_lnk,
+	mtar_file_type_sym,
+	mtar_file_type_chr,
+	mtar_file_type_blk,
+	mtar_file_type_dir,
+	mtar_file_type_fifo,
 };
 
-typedef struct {
-	unsigned mode;
-	unsigned owner;
-	unsigned size;
-	unsigned mtime;
-	unsigned type;
+struct mtar_header {
+	uint32_t mode;
+	uint32_t owner;
+	uint32_t size;
+	uint32_t mtime;
+	enum mtar_file_type type;
 	char name[100];
 	char linkname[100];
-} mtar_header_t;
-
-
-typedef struct mtar_t mtar_t;
-
-struct mtar_t {
-	int (*read)(mtar_t *tar, void *data, unsigned size);
-	int (*write)(mtar_t *tar, const void *data, unsigned size);
-	int (*seek)(mtar_t *tar, unsigned pos);
-	int (*close)(mtar_t *tar);
-	void *stream;
-	unsigned pos;
-	unsigned remaining_data;
-	unsigned last_header;
+	uint8_t *data;
 };
 
+struct mtar {
+	uint8_t *data;
+	uint32_t len;
+	uint32_t off;
+};
 
-const char* mtar_strerror(int err);
-
-int mtar_open(mtar_t *tar, const char *filename, const char *mode);
-int mtar_close(mtar_t *tar);
-
-int mtar_seek(mtar_t *tar, unsigned pos);
-int mtar_rewind(mtar_t *tar);
-int mtar_next(mtar_t *tar);
-int mtar_find(mtar_t *tar, const char *name, mtar_header_t *h);
-int mtar_read_header(mtar_t *tar, mtar_header_t *h);
-int mtar_read_data(mtar_t *tar, void *ptr, unsigned size);
-
-int mtar_write_header(mtar_t *tar, const mtar_header_t *h);
-int mtar_write_file_header(mtar_t *tar, const char *name, unsigned size);
-int mtar_write_dir_header(mtar_t *tar, const char *name);
-int mtar_write_data(mtar_t *tar, const void *data, unsigned size);
-int mtar_finalize(mtar_t *tar);
-
-#ifdef __cplusplus
-}
-#endif
-
+const char *mtar_strerror(enum mtar_err err);
+const char *mtar_file_type_to_s(enum mtar_file_type type);
+enum mtar_err mtar_read_header(struct mtar *tar, struct mtar_header *h);
 #endif
