@@ -67,15 +67,14 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 bool
 obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
 {
-	struct obj *arr_elem = get_obj(wk, arr_id);
-	assert(arr_elem->type == obj_array);
+	assert(get_obj(wk, arr_id)->type == obj_array);
 
-	if (!arr_elem->dat.arr.len) {
+	if (!get_obj(wk, arr_id)->dat.arr.len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, arr_elem->dat.arr.l)) {
+		switch (cb(wk, ctx, get_obj(wk, arr_id)->dat.arr.l)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -84,10 +83,10 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 			return false;
 		}
 
-		if (!arr_elem->dat.arr.have_r) {
+		if (!get_obj(wk, arr_id)->dat.arr.have_r) {
 			break;
 		}
-		arr_elem = get_obj(wk, arr_elem->dat.arr.r);
+		arr_id = get_obj(wk, arr_id)->dat.arr.r;
 	}
 
 	return true;
