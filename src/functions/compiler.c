@@ -43,7 +43,15 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t _, uint32_t
 	}, func_compiler_get_supported_arguments_iter);
 }
 
+static bool
+func_compiler_get_id(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, "gcc");
+	return true;
+}
+
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
+	{ "get_id", func_compiler_get_id },
 	{ NULL, NULL },
 };

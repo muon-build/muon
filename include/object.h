@@ -24,6 +24,7 @@ enum obj_type {
 	obj_dependency,
 	obj_type_count,
 	obj_function,
+	obj_machine,
 };
 
 enum tgt_type {
