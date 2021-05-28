@@ -271,6 +271,8 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 	return true;
 }
 
+#define BASE_PATH_MAX (PATH_MAX / 2)
+
 static bool
 func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -288,12 +290,12 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	const char *subproj_name = wk_objstr(wk, an[0].val),
 		   *cur_cwd = wk_str(wk, current_project(wk)->cwd);
 
-	char source[PATH_MAX + 1], subproject_dir[PATH_MAX + 1];
+	char source[PATH_MAX + 1], subproject_dir[BASE_PATH_MAX + 1];
 
 	parent_project = wk->cur_project;
 	wk->cur_project = sub_project;
 
-	snprintf(subproject_dir, PATH_MAX, "%s/subprojects", cur_cwd);
+	snprintf(subproject_dir, BASE_PATH_MAX, "%s/subprojects", cur_cwd);
 
 	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", subproject_dir, subproj_name);
 	current_project(wk)->build_dir  = current_project(wk)->cwd;
