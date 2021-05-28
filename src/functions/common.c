@@ -6,6 +6,7 @@
 #include "functions/compiler.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
+#include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/number.h"
 #include "functions/subproject.h"
@@ -263,6 +264,9 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		break;
 	case obj_dependency:
 		impl_tbl = impl_tbl_dependency;
+		break;
+	case obj_machine:
+		impl_tbl = impl_tbl_machine;
 		break;
 	default:
 		interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));

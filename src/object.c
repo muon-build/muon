@@ -27,6 +27,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_subproject: return "subproject";
 	case obj_type_count: assert(false); return "uh oh";
 	case obj_function: return "function";
+	case obj_machine: return "machine";
 	}
 
 	assert(false && "unreachable");

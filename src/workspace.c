@@ -161,6 +161,9 @@ workspace_init(struct workspace *wk)
 
 	make_obj(wk, &id, obj_meson);
 	hash_set(&wk->scope, "meson", id);
+
+	make_obj(wk, &id, obj_machine);
+	hash_set(&wk->scope, "host_machine", id);
 }
 
 void
