@@ -49,13 +49,11 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 			exit(1);
 		}
 
-		L(log_misc, "child: running %s", cmd);
-		char *const *ap;
-		for (ap = argv; *ap; ++ap) {
-			L(log_misc, "child: > arg '%s'", *ap);
-		}
-
-		L(log_misc, "child: PATH=\"%s\"", getenv("PATH"));
+		/* L(log_misc, "child: running %s", cmd); */
+		/* char *const *ap; */
+		/* for (ap = argv; *ap; ++ap) { */
+		/* 	L(log_misc, "child: > arg '%s'", *ap); */
+		/* } */
 
 		if (execvp(cmd, argv) == -1) {
 			exit(1);
@@ -65,6 +63,15 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	}
 
 	/* parent */
+	if (pipefd_err_open[1] && close(pipefd_err[1]) == -1) {
+		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+	}
+	pipefd_err_open[1] = false;
+
+	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
+		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+	}
+	pipefd_out_open[1] = false;
 
 	int status;
 	if (waitpid(pid, &status, 0) != pid) {
