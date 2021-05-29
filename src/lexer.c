@@ -508,8 +508,9 @@ lexer_tokenize_one(struct lexer *lexer)
 			while (lexer->data[lexer->i] && lexer->data[lexer->i] != '\n') {
 				advance(lexer);
 			}
+		} else {
+			advance(lexer);
 		}
-		advance(lexer);
 	}
 
 	*token = (struct token) {
@@ -689,7 +690,7 @@ done:
 			break;
 		}
 
-		/* L(log_lex, "%s", token_to_string(tok)); */
+		/* L(log_lex, "%s", tok_to_s(tok)); */
 	}
 
 	return true;
