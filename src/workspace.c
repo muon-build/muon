@@ -122,21 +122,22 @@ wk_objstr(struct workspace *wk, uint32_t id)
 	return wk_str(wk, obj->dat.str);
 }
 
-static void
-project_init(struct workspace *wk, struct project *proj)
-{
-	hash_init(&proj->scope, 128);
-
-	make_obj(wk, &proj->targets, obj_array);
-	make_obj(wk, &proj->cfg.args, obj_array);
-}
-
 struct project *
-make_project(struct workspace *wk, uint32_t *id)
+make_project(struct workspace *wk, uint32_t *id,
+	const char *cwd, const char *build_dir)
 {
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = darr_get(&wk->projects, *id);
-	project_init(wk, proj);
+
+	hash_init(&proj->scope, 128);
+
+	make_obj(wk, &proj->opts, obj_array);
+	make_obj(wk, &proj->targets, obj_array);
+	make_obj(wk, &proj->cfg.args, obj_array);
+
+	proj->cwd = wk_str_push(wk, cwd);
+	proj->build_dir = wk_str_push(wk, build_dir);
+
 	return proj;
 }
 
@@ -177,7 +178,6 @@ workspace_destroy(struct workspace *wk)
 		hash_destroy(&proj->scope);
 
 		tokens_destroy(&proj->toks);
-		ast_destroy(&proj->ast);
 	}
 
 	darr_destroy(&wk->projects);

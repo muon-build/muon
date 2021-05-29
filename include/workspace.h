@@ -8,7 +8,7 @@
 #include "parser.h"
 
 struct project {
-	uint32_t cwd, build_dir;
+	uint32_t cwd, build_dir, opts;
 
 	struct {
 		uint32_t name;
@@ -21,7 +21,6 @@ struct project {
 	struct hash scope;
 	uint32_t targets;
 	struct tokens toks;
-	struct ast ast;
 };
 
 enum loop_ctl {
@@ -55,6 +54,7 @@ const char *wk_objstr(struct workspace *wk, uint32_t id);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
-struct project *make_project(struct workspace *wk, uint32_t *id);
+struct project *make_project(struct workspace *wk, uint32_t *id,
+	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
 #endif

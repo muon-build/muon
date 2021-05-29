@@ -36,7 +36,9 @@ cmd_setup(int argc, const char *argv[])
 	LOG_I(log_misc, "source: %s, build: %s", source, build);
 
 	struct workspace wk;
-	if (!eval_entry(language_external, &wk, source, cwd, build)) {
+	workspace_init(&wk);
+	uint32_t project_id;
+	if (!eval_project(&wk, cwd, build, &project_id)) {
 		goto err;
 	}
 
@@ -109,8 +111,11 @@ cmd_eval(int argc, const char *argv[])
 	}
 
 	struct workspace wk;
+	workspace_init(&wk);
+	wk.lang_mode = language_internal;
+	make_project(&wk, &wk.cur_project, cwd,  "<build_dir>");
 	bool ret;
-	ret = eval_entry(language_internal, &wk, argv[1], cwd, "<build_dir>");
+	ret = eval(&wk, argv[1]);
 
 	workspace_destroy(&wk); // just to test for memory leaks in valgrind
 	return ret;

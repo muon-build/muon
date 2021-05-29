@@ -89,8 +89,7 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 }
 
 static bool
-fetch_checksum_extract(struct workspace *wk, uint32_t n_id,
-	const char *src, const char *dest, const char *sha256,
+fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, const char *sha256,
 	const char *dest_dir)
 {
 	uint8_t *dlbuf;
@@ -111,8 +110,7 @@ fetch_checksum_extract(struct workspace *wk, uint32_t n_id,
 }
 
 bool
-wrap_handle(struct workspace *wk, uint32_t n_id,
-	const char *wrap_file, const char *dest_path)
+wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 {
 	struct wrap wrap = { 0 };
 
@@ -124,19 +122,19 @@ wrap_handle(struct workspace *wk, uint32_t n_id,
 	uint32_t i;
 	for (i = 0; i < wrap_fields_count; ++i) {
 		if (!wrap.fields[i]) {
-			interp_error(wk, n_id, "wrap file at '%s' missing field '%s'", wrap_file, wrap_field_names[i]);
+			LOG_W(log_misc, "wrap file at '%s' missing field '%s'", wrap_file, wrap_field_names[i]);
 			goto err;
 		}
 	}
 
 	fetch_init();
 
-	if (!fetch_checksum_extract(wk, n_id, wrap.fields[wf_source_url],
+	if (!fetch_checksum_extract(wk, wrap.fields[wf_source_url],
 		wrap.fields[wf_source_filename], wrap.fields[wf_source_hash], dest_path)) {
 		goto err1;
 	}
 
-	if (!fetch_checksum_extract(wk, n_id, wrap.fields[wf_patch_url],
+	if (!fetch_checksum_extract(wk, wrap.fields[wf_patch_url],
 		wrap.fields[wf_patch_filename], wrap.fields[wf_patch_hash], dest_path)) {
 		goto err1;
 	}

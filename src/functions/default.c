@@ -283,50 +283,24 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	uint32_t parent_project, sub_project;
-	struct obj *subproj_obj = make_obj(wk, obj, obj_subproject);
-	make_project(wk, &sub_project);
-	subproj_obj->dat.subproj = sub_project;
-
 	const char *subproj_name = wk_objstr(wk, an[0].val),
 		   *cur_cwd = wk_str(wk, current_project(wk)->cwd);
 
-	char source[PATH_MAX + 1], subproject_dir[BASE_PATH_MAX + 1];
-
-	parent_project = wk->cur_project;
-	wk->cur_project = sub_project;
+	char cwd[PATH_MAX + 1] = { 0 },
+	     build_dir[PATH_MAX + 1] = { 0 },
+	     subproject_dir[BASE_PATH_MAX + 1] = { 0 };
 
 	snprintf(subproject_dir, BASE_PATH_MAX, "%s/subprojects", cur_cwd);
+	snprintf(cwd, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
+	snprintf(build_dir, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
 
-	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", subproject_dir, subproj_name);
-	current_project(wk)->build_dir  = current_project(wk)->cwd;
+	uint32_t subproject_id;
 
-	if (!fs_dir_exists(wk_str(wk, current_project(wk)->cwd))) {
-		char wrap[PATH_MAX + 1];
-		snprintf(wrap, PATH_MAX, "%s/%s.wrap", subproject_dir, subproj_name);
-		if (fs_file_exists(wrap)) {
-
-			if (!wrap_handle(wk, an[0].node, wrap, subproject_dir)) {
-				return false;
-			}
-		} else {
-			interp_error(wk, an[0].node, "subproject not found");
-			return false;
-		}
-	}
-
-	snprintf(source, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd ));
-
-	if (!fs_file_exists(source)) {
-		interp_error(wk, an[0].node, "subproject does not contain a meson.build");
+	if (!eval_project(wk, cwd, build_dir, &subproject_id)) {
 		return false;
 	}
 
-	if (!eval(wk, source)) {
-		return false;
-	}
-
-	wk->cur_project = parent_project;
+	make_obj(wk, obj, obj_subproject)->dat.subproj = subproject_id;
 
 	return true;
 }
