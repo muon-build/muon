@@ -607,25 +607,34 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 {
 	uint32_t func_id;
 	struct node *n = get_node(wk->ast, n_id);
-	struct obj *func;
+	uint32_t res_id;
 
 	if (wk->lang_mode == language_internal
 	    && get_obj_id(wk, get_node(wk->ast, n->l)->tok->dat.s, &func_id, wk->cur_project)) {
-		func = get_obj(wk, func_id);
+		if (!typecheck(wk, get_obj(wk, func_id)->dat.func.def, func_id, obj_function)) {
+			return false;
+		}
 
 		if (!interp_dyn_func_args(wk, n_id, func_id)) {
 			interp_error(wk, get_obj(wk, func_id)->dat.func.def, "invalid arguments passed");
 			return false;
 		}
 
-		if (!interp_node(wk, func->dat.func.body, obj)) {
+		if (!interp_node(wk, get_obj(wk, func_id)->dat.func.body, &res_id)) {
 			interp_error(wk, n->l, "in function %s", get_node(wk->ast, n->l)->tok->dat.s);
 			return false;
 		}
-
-		return true;
 	} else {
-		return builtin_run(wk, 0, n_id, obj);
+		if (!builtin_run(wk, 0, n_id, &res_id)) {
+			return false;
+		}
+	}
+
+	if (n->chflg & node_child_d) {
+		return interp_chained(wk, n->d, res_id, obj);
+	} else {
+		*obj = res_id;
+		return true;
 	}
 }
 
@@ -665,7 +674,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj = make_obj(wk, obj_id, obj_bool);
 		obj->dat.boolean = n->data;
 		return true;
-	case node_format_string: // TODO :)
+	case node_format_string: // TODO fallthrough for now :)
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
 		obj->dat.str = wk_str_push(wk, n->tok->dat.s);
@@ -682,7 +691,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj = make_obj(wk, obj_id, obj_number);
 		obj->dat.num = n->tok->dat.n;
 		return true;
-	case node_dict: break;
+	case node_dict: break; // TODO
 
 	/* control flow */
 	case node_block:
@@ -736,7 +745,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		return interp_andor(wk, n, obj_id);
 	case node_comparison:
 		return interp_comparison(wk, n, obj_id);
-	case node_ternary: break;
+	case node_ternary: break; // TODO
 
 	/* math */
 	case node_u_minus:
@@ -759,8 +768,6 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	}
 
 	return true;
-	/* assert(false && "unreachable"); */
-	/* return false; */
 }
 
 bool
