@@ -90,6 +90,19 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 		}
 
 		return obj_array_index(wk, l_id, r->dat.num, obj);
+	case obj_dict:
+		if (!typecheck(wk, n->r, r_id, obj_string)) {
+			return false;
+		}
+
+		bool found;
+		if (!obj_dict_index(wk, l_id, r_id, obj, &found)) {
+			return false;
+		} else if (!found) {
+			interp_error(wk, n->r, "key not in dictionary: '%s'", wk_objstr(wk, r_id));
+			return false;
+		}
+		return true;
 	default:
 		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(l->type));
 		return false;
@@ -284,6 +297,75 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 }
 
 static bool
+interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+{
+	uint32_t key, value, tail;
+
+	struct node *n = get_node(wk->ast, n_id);
+
+	if (n->type == node_empty) {
+		struct obj *dict = make_obj(wk, obj, obj_dict);
+		dict->dat.dict.len = 0;
+		dict->dat.dict.tail = *obj;
+		return true;
+	}
+
+	assert(n->type == node_argument);
+
+	if (n->data != arg_kwarg) {
+		interp_error(wk, n->l, "non-kwarg not valid in dict constructor");
+		return false;
+	}
+
+	bool have_c = n->chflg & node_child_c && get_node(wk->ast, n->c)->type != node_empty;
+
+	if (!interp_node(wk, n->l, &key)) {
+		return false;
+	}
+
+	if (!typecheck(wk, n->l, key, obj_string)) {
+		return false;
+	}
+
+	if (!interp_node(wk, n->r, &value)) {
+		return false;
+	}
+
+	if (have_c) {
+		if (!interp_dict(wk, n->c, &tail)) {
+			return false;
+		}
+	}
+
+	struct obj *dict = make_obj(wk, obj, obj_dict);
+	dict->dat.dict.key = key;
+	dict->dat.dict.l = value;
+
+	if ((dict->dat.dict.have_r = have_c)) {
+		struct obj *dict_r = get_obj(wk, tail);
+		assert(dict_r->type == obj_dict);
+
+		bool res;
+		if (!obj_dict_in(wk, key, tail, &res)) {
+			assert(false && "this shouldn't fail");
+			return false;
+		} else if (res) {
+			interp_error(wk, n->l, "key '%s' is duplicated", wk_objstr(wk, key));
+			return false;
+		}
+
+		dict->dat.dict.len = dict_r->dat.dict.len + 1;
+		dict->dat.dict.tail = dict_r->dat.dict.tail;
+		dict->dat.dict.r = tail;
+	} else {
+		dict->dat.dict.len = 1;
+		dict->dat.dict.tail = *obj;
+	}
+
+	return true;
+}
+
+static bool
 interp_block(struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	bool have_r = n->chflg & node_child_r
@@ -383,7 +465,27 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	case comp_in:
 	case comp_not_in:
-		if (!obj_array_in(wk, obj_l_id, obj_r_id, &res)) {
+		switch (get_obj(wk, obj_r_id)->type) {
+		case obj_array:
+			if (!typecheck(wk, n->l, obj_l_id, obj_number)) {
+				return false;
+			}
+
+			if (!obj_array_in(wk, obj_l_id, obj_r_id, &res)) {
+				return false;
+			}
+			break;
+		case obj_dict:
+			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
+				return false;
+			}
+
+			if (!obj_dict_in(wk, obj_l_id, obj_r_id, &res)) {
+				return false;
+			}
+			break;
+		default:
+			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj(wk, obj_r_id)->type));
 			return false;
 		}
 
@@ -469,23 +571,20 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 }
 
 struct interp_foreach_ctx {
-	const char *arg1;
-	uint32_t block;
+	const char *id1, *id2;
+	uint32_t block_node;
 };
 
 static enum iteration_result
-interp_foreach_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 {
 	uint32_t block_result;
-	struct interp_foreach_ctx *ctx = _ctx;
 
-	hash_set(&current_project(wk)->scope, ctx->arg1, v_id);
-
-	if (get_node(wk->ast, ctx->block)->type == node_empty) {
+	if (get_node(wk->ast, ctx->block_node)->type == node_empty) {
 		return ir_done;
 	}
 
-	if (!interp_block(wk, get_node(wk->ast, ctx->block), &block_result)) {
+	if (!interp_block(wk, get_node(wk->ast, ctx->block_node), &block_result)) {
 		return ir_err;
 	}
 
@@ -503,31 +602,82 @@ interp_foreach_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	return ir_cont;
 }
 
+static enum iteration_result
+interp_foreach_dict_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+{
+	struct interp_foreach_ctx *ctx = _ctx;
+
+	hash_set(&current_project(wk)->scope, ctx->id1, k_id);
+	hash_set(&current_project(wk)->scope, ctx->id2, v_id);
+
+	return interp_foreach_common(wk, ctx);
+}
+
+static enum iteration_result
+interp_foreach_arr_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	struct interp_foreach_ctx *ctx = _ctx;
+
+	hash_set(&current_project(wk)->scope, ctx->id1, v_id);
+
+	return interp_foreach_common(wk, ctx);
+}
+
 static bool
 interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 {
-	uint32_t arr;
+	uint32_t iterable;
 
-	if (!interp_node(wk, n->r, &arr)) {
-		return false;
-	} else if (!typecheck(wk, n->r, arr, obj_array)) {
-		// TODO: support dict
+	if (!interp_node(wk, n->r, &iterable)) {
 		return false;
 	}
 
-	struct interp_foreach_ctx ctx = {
-		.arg1 = get_node(wk->ast, get_node(wk->ast, n->l)->l)->tok->dat.s,
-		.block = n->c,
-	};
+	struct node *args = get_node(wk->ast, n->l);
 
+	switch (get_obj(wk, iterable)->type) {
+	case obj_array: {
+		if (args->chflg & node_child_r) {
+			interp_error(wk, n->l, "array foreach needs exactly one variable to set");
+			return false;
+		}
 
-	++wk->loop_depth;
-	wk->loop_ctl = loop_norm;
+		struct interp_foreach_ctx ctx = {
+			.id1 = get_node(wk->ast, args->l)->tok->dat.s,
+			.block_node = n->c,
+		};
 
-	obj_array_foreach(wk, arr, &ctx, interp_foreach_iter);
+		++wk->loop_depth;
+		wk->loop_ctl = loop_norm;
+		obj_array_foreach(wk, iterable, &ctx, interp_foreach_arr_iter);
+		--wk->loop_depth;
 
-	--wk->loop_depth;
+		break;
+	}
+	case obj_dict: {
+		if (!(args->chflg & node_child_r)) {
+			interp_error(wk, n->l, "dict foreach needs exactly two variables to set");
+			return false;
+		}
 
+		assert(get_node(wk->ast, get_node(wk->ast, args->r)->type == node_foreach_args));
+
+		struct interp_foreach_ctx ctx = {
+			.id1 = get_node(wk->ast, args->l)->tok->dat.s,
+			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->tok->dat.s,
+			.block_node = n->c,
+		};
+
+		++wk->loop_depth;
+		wk->loop_ctl = loop_norm;
+		obj_dict_foreach(wk, iterable, &ctx, interp_foreach_dict_iter);
+		--wk->loop_depth;
+
+		break;
+	}
+	default:
+		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj(wk, iterable)->type));
+		return false;
+	}
 	return true;
 }
 
@@ -681,6 +831,8 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		return true;
 	case node_array:
 		return interp_array(wk, n->l, obj_id);
+	case node_dict:
+		return interp_dict(wk, n->l, obj_id);
 	case node_id:
 		if (!get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
@@ -691,7 +843,6 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj = make_obj(wk, obj_id, obj_number);
 		obj->dat.num = n->tok->dat.n;
 		return true;
-	case node_dict: break; // TODO
 
 	/* control flow */
 	case node_block:

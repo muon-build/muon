@@ -21,6 +21,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_string: return "string";
 	case obj_number: return "number";
 	case obj_array: return "array";
+	case obj_dict: return "dict";
 	case obj_bool: return "bool";
 	case obj_file: return "file";
 	case obj_build_target: return "build_target";
@@ -63,6 +64,10 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 		return false;
 	}
 }
+
+/*
+ * arrays
+ */
 
 bool
 obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
@@ -231,3 +236,69 @@ obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
 	a->dat.arr.tail = b_id;
 	a->dat.arr.len += b->dat.arr.len;
 }
+
+/*
+ * dictionaries
+ */
+
+bool
+obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb)
+{
+	assert(get_obj(wk, dict_id)->type == obj_dict);
+
+	if (!get_obj(wk, dict_id)->dat.dict.len) {
+		return true;
+	}
+
+	while (true) {
+		switch (cb(wk, ctx, get_obj(wk, dict_id)->dat.dict.key, get_obj(wk, dict_id)->dat.dict.l)) {
+		case ir_cont:
+			break;
+		case ir_done:
+			return true;
+		case ir_err:
+			return false;
+		}
+
+		if (!get_obj(wk, dict_id)->dat.dict.have_r) {
+			break;
+		}
+		dict_id = get_obj(wk, dict_id)->dat.dict.r;
+	}
+
+	return true;
+}
+
+struct obj_dict_index_iter_ctx { uint32_t *res, k_id; bool *found; };
+
+static enum iteration_result
+obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+{
+	struct obj_dict_index_iter_ctx *ctx = _ctx;
+
+	/* L(log_interp, "%s ?= %s", wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)); */
+	if (strcmp(wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)) == 0) {
+		*ctx->found = true;
+		*ctx->res = v_id;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+bool
+obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found)
+{
+	struct obj_dict_index_iter_ctx ctx = { .k_id =  k_id, .res = res, .found = found };
+
+	*ctx.found = false;
+	return obj_dict_foreach(wk, dict_id, &ctx, obj_dict_index_iter);
+}
+
+bool
+obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id, bool *res)
+{
+	uint32_t res_id;
+	return obj_dict_index(wk, dict_id, k_id, &res_id, res);
+}
+
