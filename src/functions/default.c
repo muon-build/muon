@@ -416,6 +416,12 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
+static bool
+func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -456,7 +462,6 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "join_paths", todo },
 	{ "library", func_library },
 	{ "message", func_message },
-	{ "option", todo },
 	{ "project", func_project },
 	{ "run_command", todo },
 	{ "run_target", todo },
@@ -471,5 +476,10 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "test", todo },
 	{ "vcs_tag", todo },
 	{ "warning", func_message },
+	{ NULL, NULL },
+};
+
+const struct func_impl_name impl_tbl_default_opts[] = {
+	{ "option", func_option  },
 	{ NULL, NULL },
 };

@@ -10,6 +10,8 @@ struct workspace;
 enum language_mode {
 	language_external,
 	language_internal,
+	language_opts,
+	language_mode_count,
 };
 
 bool eval_entry(enum language_mode mode, struct workspace *wk, const char *src, const char *cwd, const char *build_dir);

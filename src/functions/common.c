@@ -215,6 +215,16 @@ todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 	return false;
 }
 
+static const struct func_impl_name *func_tbl[][language_mode_count] = {
+	[obj_default]    = { impl_tbl_default,    impl_tbl_default,    impl_tbl_default_opts },
+	[obj_meson]      = { impl_tbl_meson,      impl_tbl_meson,      NULL,                 },
+	[obj_subproject] = { impl_tbl_subproject, impl_tbl_subproject, NULL,                 },
+	[obj_number]     = { impl_tbl_number,     impl_tbl_number,     NULL,                 },
+	[obj_dependency] = { impl_tbl_dependency, impl_tbl_dependency, NULL,                 },
+	[obj_machine]    = { impl_tbl_machine,    impl_tbl_machine,    NULL,                 },
+	[obj_compiler]   = { impl_tbl_compiler,   impl_tbl_compiler,   NULL,                 },
+};
+
 bool
 builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj)
 {
@@ -243,33 +253,10 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		interp_error(wk, n->l, "tried to call %s on null", name);
 		return false;
 	}
+	const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
 
-	const struct func_impl_name *impl_tbl;
-
-	switch (recvr_type) {
-	case obj_default:
-		impl_tbl = impl_tbl_default;
-		break;
-	case obj_meson:
-		impl_tbl = impl_tbl_meson;
-		break;
-	case obj_compiler:
-		impl_tbl = impl_tbl_compiler;
-		break;
-	case obj_subproject:
-		impl_tbl = impl_tbl_subproject;
-		break;
-	case obj_number:
-		impl_tbl = impl_tbl_number;
-		break;
-	case obj_dependency:
-		impl_tbl = impl_tbl_dependency;
-		break;
-	case obj_machine:
-		impl_tbl = impl_tbl_machine;
-		break;
-	default:
-		interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
+	if (!impl_tbl) {
+		interp_error(wk, name_node,  "(%d), method on %s not found", wk->lang_mode, obj_type_to_s(recvr_type));
 		return false;
 	}
 
