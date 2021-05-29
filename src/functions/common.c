@@ -234,25 +234,27 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 	uint32_t args_node, name_node;
 	struct node *n = get_node(wk->ast, node_id);
 
+	if (!rcvr_id && !(n->chflg & node_child_l)) {
+		interp_error(wk, n->r, "tried to call function on null");
+		return false;
+	}
+
 	if (rcvr_id) {
 		struct obj *rcvr = get_obj(wk, rcvr_id);
 		name_node = n->r;
 		args_node = n->c;
 		recvr_type = rcvr->type;
 	} else {
+		assert(n->chflg & node_child_l);
 		name_node = n->l;
 		args_node = n->r;
 		recvr_type = obj_default;
 	}
 
-	name = get_node(wk->ast, name_node)->tok->dat.s;
-
 	/* L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name); */
 
-	if (recvr_type == obj_null) {
-		interp_error(wk, n->l, "tried to call %s on null", name);
-		return false;
-	}
+	name = get_node(wk->ast, name_node)->tok->dat.s;
+
 	const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
 
 	if (!impl_tbl) {

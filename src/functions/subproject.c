@@ -15,9 +15,9 @@ func_subproject_get_variable(struct workspace *wk, uint32_t rcvr, uint32_t args_
 	}
 
 	const char *name = wk_objstr(wk, an[0].val);
-	uint32_t subproj = get_obj(wk, rcvr)->dat.subproj;
+	uint32_t subproject_id = get_obj(wk, rcvr)->dat.subproj;
 
-	if (!get_obj_id(wk, name, obj, subproj)) {
+	if (!get_obj_id(wk, name, obj, subproject_id)) {
 		interp_error(wk, an[0].node, "subproject does not define '%s'", name);
 		return false;
 	}

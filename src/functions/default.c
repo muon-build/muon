@@ -357,7 +357,9 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	if (ctx.status == 0) {
-		make_obj(wk, &dep->dat.dep.link_with, obj_array);
+		uint32_t link_with;
+		make_obj(wk, &link_with, obj_array);
+		get_obj(wk, *obj)->dat.dep.link_with = link_with;
 
 		uint32_t i;
 		char *start;
@@ -371,7 +373,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 					uint32_t str_id;
 					make_obj(wk, &str_id, obj_string)->dat.str = wk_str_push(wk, start);
 
-					obj_array_push(wk, dep->dat.dep.link_with, str_id);
+					obj_array_push(wk, link_with, str_id);
 				}
 				continue;
 			} else {
@@ -385,14 +387,85 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return true;
 	}
 
-	/* dep->dat.dep.link_with = akw[kw_link_with].val; */
-	/* dep->dat.dep.include_directories = akw[kw_include_directories].val; */
+	/* get_obj(wk, *obj)->dat.dep.link_with = akw[kw_link_with].val; */
+	/* get_obj(wk, *obj)->dat.dep.include_directories = akw[kw_include_directories].val; */
 	return true;
 }
 
 static bool
 func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_choices,
+		kw_description,
+		kw_max,
+		kw_min,
+		kw_type,
+		kw_value,
+	};
+	struct args_kw akw[] = {
+		[kw_choices] = { "choices", obj_array },
+		[kw_description] = { "description", obj_string },
+		[kw_max] = { "max", obj_number },
+		[kw_min] = { "min", obj_number },
+		[kw_type] = { "type", obj_string },
+		[kw_value] = { "value", },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	if (!akw[kw_type].set) {
+		interp_error(wk, args_node, "missing required keyword 'type'");
+		return false;
+	}
+
+	enum build_option_type {
+		op_string,
+		op_boolean,
+		op_combo,
+		op_integer,
+		op_array,
+		op_feature,
+		build_option_type_count,
+	};
+
+	static const char *build_option_type_name[] = {
+		[op_string] = "string",
+		[op_boolean] = "boolean",
+		[op_combo] = "combo",
+		[op_integer] = "integer",
+		[op_array] = "array",
+		[op_feature] = "feature",
+	};
+
+	enum build_option_type type;
+	for (type = 0; type < build_option_type_count; ++type) {
+		if (strcmp(build_option_type_name[type], wk_objstr(wk, akw[kw_type].val)) == 0) {
+			break;
+		}
+	}
+
+	if (type == build_option_type_count) {
+		interp_error(wk, akw[kw_type].node, "invalid option type '%s'", wk_objstr(wk, akw[kw_type].val));
+		return false;
+	}
+
+	switch (type) {
+	case op_string: break;
+	case op_boolean: break;
+	case op_combo: break;
+	case op_integer: break;
+	case op_array: break;
+	case op_feature: break;
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+
 	return true;
 }
 

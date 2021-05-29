@@ -82,6 +82,11 @@ darr_get_mem(struct darr *da)
 
 		da->cap = newcap;
 		da->e = z_realloc(da->e, da->cap * da->item_size);
+	} else {
+		/* NOTE: uncomment the below line to cause a realloc for
+		 * _every_ push into a darr.  This can help find bugs where you
+		 * held a pointer into a darr too long. */
+		/* da->e = z_realloc(da->e, da->cap * da->item_size); */
 	}
 
 	i = da->len - 1;
