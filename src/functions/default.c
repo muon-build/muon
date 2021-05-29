@@ -15,8 +15,8 @@
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	static struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default_options,
 		kw_license,
@@ -24,7 +24,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 		kw_subproject_dir,
 		kw_version
 	};
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", obj_array },
 		[kw_license] = { "license" },
 		[kw_meson_version] = { "meson_version", obj_string },
@@ -70,9 +70,9 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 static bool
 func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 	enum kwargs { kw_language, };
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_language] = { "language", obj_string },
 	};
 
@@ -124,7 +124,7 @@ func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 static bool
 func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -141,7 +141,7 @@ func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 static bool
 func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -161,7 +161,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		kw_link_with,
 		kw_include_directories,
 	};
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_link_with] = { "link_with", obj_array },
 		[kw_include_directories] = { "include_directories", obj_file },
 		0
@@ -189,13 +189,13 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 static bool
 tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type)
 {
-	static struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_include_directories,
 		kw_dependencies,
 		kw_c_args,
 	};
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_include_directories] = { "include_directories", obj_file },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_c_args] = { "c_args", obj_array },
@@ -258,13 +258,14 @@ func_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 static bool
 func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
 	fputs(wk_objstr(wk, an[0].val), stdout);
+	fflush(stdout);
 
 	*obj = 0;
 
@@ -276,7 +277,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 static bool
 func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -348,11 +349,11 @@ pkg_config(struct workspace *wk, struct run_cmd_ctx *ctx, uint32_t args_node, co
 static bool
 func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 	};
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_required] = { "required", obj_bool },
 		0
 	};

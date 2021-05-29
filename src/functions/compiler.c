@@ -28,7 +28,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 static bool
 func_compiler_get_supported_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;

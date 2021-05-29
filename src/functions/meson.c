@@ -8,9 +8,9 @@
 static bool
 func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	static struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_native, };
-	static struct args_kw akw[] = {
+	struct args_kw akw[] = {
 		[kw_native] = { "native", obj_bool },
 	};
 
