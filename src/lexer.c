@@ -540,6 +540,7 @@ lexer_tokenize_one(struct lexer *lexer)
 			break;
 		case ')':
 			if (!lexer->enclosing.paren) {
+				lex_error(lexer, "closing ')' without a matching opening '('");
 				return lex_fail;
 			}
 			--lexer->enclosing.paren;
@@ -552,6 +553,7 @@ lexer_tokenize_one(struct lexer *lexer)
 			break;
 		case ']':
 			if (!lexer->enclosing.bracket) {
+				lex_error(lexer, "closing ']' without a matching opening '['");
 				return lex_fail;
 			}
 			--lexer->enclosing.bracket;
@@ -564,6 +566,7 @@ lexer_tokenize_one(struct lexer *lexer)
 			break;
 		case '}':
 			if (!lexer->enclosing.curl) {
+				lex_error(lexer, "closing '}' without a matching opening '{'");
 				return lex_fail;
 			}
 			--lexer->enclosing.curl;
@@ -712,7 +715,7 @@ lexer_lex(enum language_mode lang_mode, struct tokens *toks, const char *path)
 	darr_init(&toks->tok, 2048, sizeof(struct token));
 
 	if (!fs_read_entire_file(path, &toks->data, &toks->data_len)) {
-		goto err;
+		return false;
 	}
 
 	lexer.data = toks->data;
@@ -720,13 +723,10 @@ lexer_lex(enum language_mode lang_mode, struct tokens *toks, const char *path)
 	lexer.tok = &toks->tok;
 
 	if (!tokenize(&lexer)) {
-		goto err;
+		return false;
 	}
 
 	return true;
-err:
-	tokens_destroy(toks);
-	return false;
 }
 
 void

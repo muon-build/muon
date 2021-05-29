@@ -232,6 +232,42 @@ typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_stmt(struct parser *p, uint32_t *id);
 
 static bool
+parse_array(struct parser *p, uint32_t *id)
+{
+	uint32_t s_id, c_id;
+	struct node *n;
+
+	if (!parse_stmt(p, &s_id)) {
+		return false;
+	}
+
+	if (get_node(p->ast, s_id)->type == node_empty) {
+		*id = s_id;
+		return true;
+	}
+
+	if (!accept(p, tok_comma)) {
+		n = make_node(p, id, node_argument);
+		n->data = arg_normal;
+
+		add_child(p, *id, node_child_l, s_id);
+		return true;
+	}
+
+	if (!parse_array(p, &c_id)) {
+		return false;
+	}
+
+	n = make_node(p, id, node_argument);
+	n->data = arg_normal;
+
+	add_child(p, *id, node_child_l, s_id);
+	add_child(p, *id, node_child_c, c_id);
+
+	return true;
+}
+
+static bool
 parse_args(struct parser *p, uint32_t *id)
 {
 	uint32_t s_id, c_id, v_id;
@@ -251,7 +287,8 @@ parse_args(struct parser *p, uint32_t *id)
 		at = arg_kwarg;
 
 		if (get_node(p->ast, s_id)->type != node_id) {
-			LOG_W(log_parse, "Dictionary key must be a plain identifier.");
+			parse_error(p, "keyword argument key must be a plain identifier (not a %s)",
+				node_type_to_s(get_node(p->ast, s_id)->type));
 			return false;
 		}
 
@@ -306,8 +343,7 @@ parse_key_values(struct parser *p, uint32_t *id)
 		return true;
 	}
 
-	if (!accept(p, tok_colon)) {
-		LOG_W(log_parse, "missing colon");
+	if (!expect(p, tok_colon)) {
 		return false;
 	}
 
@@ -441,7 +477,7 @@ parse_e8(struct parser *p, uint32_t *id)
 
 		return true;
 	} else if (accept(p, tok_lbrack)) {
-		if (!parse_args(p, &v)) {
+		if (!parse_array(p, &v)) {
 			return false;
 		}
 
@@ -512,14 +548,14 @@ parse_e7(struct parser *p, uint32_t *id)
 	if (accept(p, tok_lparen)) {
 		uint32_t args, d_id;
 
-		if (!parse_args(p, &args)) {
-			return false;
-		} else if (!expect(p, tok_rparen)) {
+		if (get_node(p->ast, l_id)->type != node_id) {
+			parse_error(p, "Function call must be applied to plain id");
 			return false;
 		}
 
-		if (get_node(p->ast, l_id)->type != node_id) {
-			LOG_W(log_parse, "Function call must be applied to plain id");
+		if (!parse_args(p, &args)) {
+			return false;
+		} else if (!expect(p, tok_rparen)) {
 			return false;
 		}
 
