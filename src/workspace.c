@@ -161,6 +161,7 @@ workspace_init(struct workspace *wk)
 {
 	*wk = (struct workspace){ 0 };
 	darr_init(&wk->projects, 16, sizeof(struct project));
+	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	darr_init(&wk->objs, 1024, sizeof(struct obj));
 	darr_init(&wk->strs, 2048, sizeof(char));
 	hash_init(&wk->scope, 32);
@@ -192,6 +193,7 @@ workspace_destroy(struct workspace *wk)
 	}
 
 	darr_destroy(&wk->projects);
+	darr_destroy(&wk->option_overrides);
 	darr_destroy(&wk->objs);
 	darr_destroy(&wk->strs);
 	hash_destroy(&wk->scope);

@@ -32,9 +32,15 @@ enum loop_ctl {
 	loop_continuing,
 };
 
+struct option_override {
+	const char *proj, *name, *val;
+	bool used;
+};
+
 struct workspace {
 	uint32_t cur_project;
 	struct darr projects;
+	struct darr option_overrides;
 	struct darr objs;
 	struct darr strs;
 	struct hash scope;
