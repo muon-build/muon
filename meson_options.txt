@@ -1,0 +1,2 @@
+option('curl', type: 'feature', value: 'auto')
+option('zlib', type: 'feature', value: 'auto')
