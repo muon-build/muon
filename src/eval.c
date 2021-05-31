@@ -5,6 +5,7 @@
 
 #include "eval.h"
 #include "filesystem.h"
+#include "functions/default/options.h"
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
@@ -64,7 +65,8 @@ eval_project(struct workspace *wk, const char *subproject_name,
 	}
 
 	wk->lang_mode = language_external;
-	ret = eval(wk, src);
+
+	ret = eval(wk, src) && check_unused_option_overrides(wk);
 
 cleanup:
 	wk->cur_project = parent_project;
