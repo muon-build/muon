@@ -8,7 +8,10 @@
 #include "parser.h"
 
 struct project {
-	uint32_t cwd, build_dir, opts;
+	/* wk_strings */
+	uint32_t cwd, build_dir, subproject_name;
+	/* objects */
+	uint32_t opts;
 
 	struct {
 		uint32_t name;
@@ -54,7 +57,7 @@ const char *wk_objstr(struct workspace *wk, uint32_t id);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
-struct project *make_project(struct workspace *wk, uint32_t *id,
+struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
 #endif

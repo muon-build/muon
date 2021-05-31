@@ -38,7 +38,7 @@ cmd_setup(int argc, const char *argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 	uint32_t project_id;
-	if (!eval_project(&wk, cwd, build, &project_id)) {
+	if (!eval_project(&wk, NULL, cwd, build, &project_id)) {
 		goto err;
 	}
 
@@ -113,7 +113,7 @@ cmd_eval(int argc, const char *argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 	wk.lang_mode = language_internal;
-	make_project(&wk, &wk.cur_project, cwd,  "<build_dir>");
+	make_project(&wk, &wk.cur_project, NULL, cwd, "<build_dir>");
 	bool ret;
 	ret = eval(&wk, argv[1]);
 

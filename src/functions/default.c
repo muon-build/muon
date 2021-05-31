@@ -288,15 +288,29 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 
 	char cwd[PATH_MAX + 1] = { 0 },
 	     build_dir[PATH_MAX + 1] = { 0 },
-	     subproject_dir[BASE_PATH_MAX + 1] = { 0 };
+	     subproject_dir[BASE_PATH_MAX + 1] = { 0 },
+	     subproject_name_buf[PATH_MAX + 1] = { 0 };
 
+	/* copying subproj_name to a buffer and passing that to eval_project
+	 * (which in-turn passes it to make_proj) rather than simply passing
+	 * subproj_name because subproj_name is stored in the workspace's
+	 * string buffer.  This means that if anyone grows that buffer between
+	 * the time when make_project uses subproj_name and here, it could
+	 * become invalidated
+	 *
+	 * TODO: refactor make_project to accept wk_strings instead of char *
+	 *
+	 * The only reason this hasn't been done yet is because it will make it
+	 * more messy to call the entry eval_project().
+	 */
+	strncpy(subproject_name_buf, subproj_name, PATH_MAX);
 	snprintf(subproject_dir, BASE_PATH_MAX, "%s/subprojects", cur_cwd);
 	snprintf(cwd, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
 	snprintf(build_dir, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
 
 	uint32_t subproject_id;
 
-	if (!eval_project(wk, cwd, build_dir, &subproject_id)) {
+	if (!eval_project(wk, subproject_name_buf, cwd, build_dir, &subproject_id)) {
 		return false;
 	}
 

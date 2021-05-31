@@ -126,7 +126,7 @@ wk_objstr(struct workspace *wk, uint32_t id)
 }
 
 struct project *
-make_project(struct workspace *wk, uint32_t *id,
+make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	const char *cwd, const char *build_dir)
 {
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
@@ -137,6 +137,12 @@ make_project(struct workspace *wk, uint32_t *id,
 	make_obj(wk, &proj->opts, obj_array);
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->cfg.args, obj_array);
+
+	if (subproj_name) {
+		proj->subproject_name = wk_str_push(wk, subproj_name);
+	} else {
+		proj->subproject_name = 0;
+	}
 
 	proj->cwd = wk_str_push(wk, cwd);
 	proj->build_dir = wk_str_push(wk, build_dir);

@@ -12,8 +12,8 @@
 #include "wrap.h"
 
 bool
-eval_project(struct workspace *wk, const char *cwd, const char *build_dir,
-	uint32_t *proj_id)
+eval_project(struct workspace *wk, const char *subproject_name,
+	const char *cwd, const char *build_dir, uint32_t *proj_id)
 {
 	char src[PATH_MAX + 1] = { 0 }, meson_opts[PATH_MAX + 1] = { 0 };
 
@@ -53,7 +53,7 @@ eval_project(struct workspace *wk, const char *cwd, const char *build_dir,
 	uint32_t parent_project = wk->cur_project;
 	struct ast *parent_ast = wk->ast;
 
-	make_project(wk, &wk->cur_project, cwd, build_dir);
+	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
 	if (fs_file_exists(meson_opts)) {
