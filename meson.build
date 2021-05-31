@@ -41,13 +41,17 @@ c_args = []
 samu = subproject('samurai')
 deps += [samu.get_variable('libsamu_dep')]
 
-libcurl_dep = dependency('libcurl', required: false)
+libcurl_dep = dependency('libcurl', required: get_option('curl'))
 if libcurl_dep.found()
 	deps += [libcurl_dep]
 	c_args += ['-DBOSON_HAVE_CURL']
 endif
 
-deps += [dependency('zlib', required: true)]
+zlib_dep = dependency('zlib', required: get_option('zlib'))
+if zlib_dep.found()
+	deps += [zlib_dep]
+	c_args += ['-DBOSON_HAVE_ZLIB']
+endif
 
 # sources
 

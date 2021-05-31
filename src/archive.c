@@ -3,7 +3,10 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
+
+#ifdef BOSON_HAVE_ZLIB
 #include <zlib.h>
+#endif
 
 #include "archive.h"
 #include "external/microtar.h"
@@ -56,6 +59,7 @@ static const char *
 archive_z_strerror(int err)
 {
 	switch (err) {
+#ifdef BOSON_HAVE_ZLIB
 	case Z_OK: return "ok";
 	case Z_STREAM_END: return "stream end";
 	case Z_NEED_DICT: return "need dict";
@@ -65,6 +69,7 @@ archive_z_strerror(int err)
 	case Z_MEM_ERROR: return "memory";
 	case Z_BUF_ERROR: return "buffer";
 	case Z_VERSION_ERROR: return "version";
+#endif
 	default: return "unknown";
 	}
 }
@@ -72,6 +77,7 @@ archive_z_strerror(int err)
 static bool
 archive_unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 {
+#ifdef BOSON_HAVE_ZLIB
 	int err;
 	uint8_t *buf = z_malloc(CHUNK_SIZE);
 	uint64_t buf_len = CHUNK_SIZE;
@@ -115,6 +121,10 @@ archive_unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 
 	*out = buf;
 	return true;
+#else
+	LOG_W(log_misc, "zlib not enabled");
+	return false;
+#endif
 }
 
 bool

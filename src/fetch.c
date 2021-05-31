@@ -46,6 +46,7 @@ struct write_data_ctx {
 static size_t
 write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 {
+#ifdef BOSON_HAVE_CURL
 	struct write_data_ctx *ctx = _ctx;
 	uint64_t want_to_write = size * nmemb;
 
@@ -58,11 +59,14 @@ write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 	ctx->len += want_to_write;
 
 	return nmemb;
+#endif
+	return 0;
 }
 
 bool
-_fetch(const char *url, uint8_t **buf, uint64_t *len)
+fetch_fetch(const char *url, uint8_t **buf, uint64_t *len)
 {
+#ifdef BOSON_HAVE_CURL
 	CURL *curl_handle;
 	CURLcode err;
 	char errbuf[CURL_ERROR_SIZE] = { 0 };
@@ -137,13 +141,6 @@ err1:
 	curl_easy_cleanup(curl_handle);
 err0:
 	return false;
-}
-
-bool
-fetch_fetch(const char *url, uint8_t **buf, uint64_t *len)
-{
-#ifdef BOSON_HAVE_CURL
-	return _fetch(url, buf, len);
 #else
 	LOG_W(log_fetch, "curl not enabled");
 	return false;
