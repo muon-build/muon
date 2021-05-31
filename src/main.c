@@ -14,7 +14,7 @@
 #define BUF_LEN 256
 
 static bool
-cmd_setup(int argc, const char *argv[])
+cmd_setup(int argc, char *const argv[])
 {
 	if (argc < 2) {
 		LOG_W(log_misc, "missing build directory");
@@ -52,13 +52,13 @@ err:
 }
 
 static bool
-cmd_samu(int argc, const char *argv[])
+cmd_samu(int argc, char *const argv[])
 {
 	return samu_main(argc, (char **)argv) == 0;
 }
 
 static bool
-cmd_parse_check(int argc, const char *argv[])
+cmd_parse_check(int argc, char *const argv[])
 {
 	if (argc < 2) {
 		LOG_W(log_misc, "missing filename");
@@ -77,7 +77,7 @@ cmd_parse_check(int argc, const char *argv[])
 }
 
 static bool
-cmd_ast(int argc, const char *argv[])
+cmd_ast(int argc, char *const argv[])
 {
 	if (argc < 2) {
 		LOG_W(log_misc, "missing filename");
@@ -97,7 +97,7 @@ cmd_ast(int argc, const char *argv[])
 }
 
 static bool
-cmd_eval(int argc, const char *argv[])
+cmd_eval(int argc, char *const argv[])
 {
 	if (argc < 2) {
 		LOG_W(log_misc, "missing filename");
@@ -131,7 +131,7 @@ main(int argc, char *argv[])
 	uint32_t i;
 	static struct {
 		const char *name;
-		bool (*cmd)(int, const char*[]);
+		bool (*cmd)(int, char *const[]);
 	} commands[] = {
 		{ "setup", cmd_setup },
 		{ "eval", cmd_eval },
@@ -150,7 +150,7 @@ main(int argc, char *argv[])
 
 	for (i = 0; commands[i].name; ++i) {
 		if (strcmp(commands[i].name, cmd) == 0) {
-			if (!commands[i].cmd(argc - 1, (const char **)&argv[1])) {
+			if (!commands[i].cmd(argc - 1, &argv[1])) {
 				return 1;
 			}
 			return 0;
