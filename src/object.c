@@ -304,3 +304,34 @@ obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id, bool *res)
 	return obj_dict_index(wk, dict_id, k_id, &res_id, res);
 }
 
+void
+obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id)
+{
+	struct obj *dict; //, *tail;
+	uint32_t tail_id;
+
+	assert(get_obj(wk, dict_id)->type == obj_dict);
+
+	if (!(dict = get_obj(wk, dict_id))->dat.dict.len) {
+		dict->dat.dict.key = key_id;
+		dict->dat.dict.l = val_id;
+		dict->dat.dict.tail = dict_id;
+		++dict->dat.dict.len;
+		return;
+	}
+
+	dict = make_obj(wk, &tail_id, obj_dict);
+	dict->dat.dict.key = key_id;
+	dict->dat.dict.l = val_id;
+
+	dict = get_obj(wk, get_obj(wk, dict_id)->dat.dict.tail);
+	assert(dict->type == obj_dict);
+	assert(!dict->dat.dict.have_r);
+	dict->dat.dict.have_r = true;
+	dict->dat.dict.r = tail_id;
+
+	dict = get_obj(wk, dict_id);
+
+	dict->dat.dict.tail = tail_id;
+	++dict->dat.dict.len;
+}
