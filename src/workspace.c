@@ -111,6 +111,9 @@ wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 char *
 wk_str(struct workspace *wk, uint32_t id)
 {
+	if (id == 0) {
+		return NULL;
+	}
 	return darr_get(&wk->strs, id);
 }
 
@@ -165,6 +168,8 @@ workspace_init(struct workspace *wk)
 
 	make_obj(wk, &id, obj_machine);
 	hash_set(&wk->scope, "host_machine", id);
+
+	darr_push(&wk->strs, &(char) { 0 });
 }
 
 void
