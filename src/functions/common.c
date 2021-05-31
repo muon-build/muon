@@ -6,6 +6,7 @@
 #include "functions/compiler.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
+#include "functions/feature_opt.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/number.h"
@@ -216,13 +217,14 @@ todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 }
 
 static const struct func_impl_name *func_tbl[][language_mode_count] = {
-	[obj_default]    = { impl_tbl_default,    impl_tbl_default,    impl_tbl_default_opts },
-	[obj_meson]      = { impl_tbl_meson,      impl_tbl_meson,      NULL,                 },
-	[obj_subproject] = { impl_tbl_subproject, impl_tbl_subproject, NULL,                 },
-	[obj_number]     = { impl_tbl_number,     impl_tbl_number,     NULL,                 },
-	[obj_dependency] = { impl_tbl_dependency, impl_tbl_dependency, NULL,                 },
-	[obj_machine]    = { impl_tbl_machine,    impl_tbl_machine,    NULL,                 },
-	[obj_compiler]   = { impl_tbl_compiler,   impl_tbl_compiler,   NULL,                 },
+	[obj_default]     = { impl_tbl_default,     impl_tbl_default,     impl_tbl_default_opts },
+	[obj_meson]       = { impl_tbl_meson,       impl_tbl_meson,       NULL,                 },
+	[obj_subproject]  = { impl_tbl_subproject,  impl_tbl_subproject,  NULL,                 },
+	[obj_number]      = { impl_tbl_number,      impl_tbl_number,      NULL,                 },
+	[obj_dependency]  = { impl_tbl_dependency,  impl_tbl_dependency,  NULL,                 },
+	[obj_machine]     = { impl_tbl_machine,     impl_tbl_machine,     NULL,                 },
+	[obj_compiler]    = { impl_tbl_compiler,    impl_tbl_compiler,    NULL,                 },
+	[obj_feature_opt] = { impl_tbl_feature_opt, impl_tbl_feature_opt, NULL,                 },
 };
 
 bool
@@ -258,7 +260,7 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 	const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
 
 	if (!impl_tbl) {
-		interp_error(wk, name_node,  "(%d), method on %s not found", wk->lang_mode, obj_type_to_s(recvr_type));
+		interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
 		return false;
 	}
 

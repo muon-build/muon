@@ -25,12 +25,19 @@ enum obj_type {
 	obj_dependency,
 	obj_type_count,
 	obj_function,
+	obj_feature_opt,
 	obj_machine,
 };
 
 enum tgt_type {
 	tgt_executable,
 	tgt_library
+};
+
+enum feature_opt_state {
+	feature_opt_auto,
+	feature_opt_enabled,
+	feature_opt_disabled,
 };
 
 struct obj {
@@ -77,6 +84,9 @@ struct obj {
 			uint32_t body;
 		} func;
 		uint32_t subproj;
+		struct {
+			enum feature_opt_state state;
+		} feature_opt;
 	} dat;
 };
 

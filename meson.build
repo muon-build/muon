@@ -61,6 +61,7 @@ src = files([
 	'src/functions/compiler.c',
 	'src/functions/default.c',
 	'src/functions/dependency.c',
+	'src/functions/feature_opt.c',
 	'src/functions/machine.c',
 	'src/functions/meson.c',
 	'src/functions/number.c',
