@@ -8,6 +8,7 @@
 #include "eval.h"
 #include "filesystem.h"
 #include "log.h"
+#include "opts.h"
 #include "output.h"
 #include "parser.h"
 
@@ -16,14 +17,17 @@
 static bool
 cmd_setup(int argc, char *const argv[])
 {
-	if (argc < 2) {
-		LOG_W(log_misc, "missing build directory");
-		return false;
-	}
-
 	char cwd[BUF_LEN + 1] = { 0 },
 	     build[PATH_MAX + 1] = { 0 },
 	     source[PATH_MAX + 1] = { 0 };
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	struct setup_opts opts = { 0 };
+	if (!opts_parse_setup(&wk, &opts, argc, argv)) {
+		goto err;
+	}
 
 	if (!getcwd(cwd, BUF_LEN)) {
 		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
@@ -31,12 +35,10 @@ cmd_setup(int argc, char *const argv[])
 	}
 
 	snprintf(source, PATH_MAX, "%s/%s", cwd, "meson.build");
-	snprintf(build, PATH_MAX, "%s/%s", cwd, argv[1]);
+	snprintf(build, PATH_MAX, "%s/%s", cwd, opts.build);
 
 	LOG_I(log_misc, "source: %s, build: %s", source, build);
 
-	struct workspace wk;
-	workspace_init(&wk);
 	uint32_t project_id;
 	if (!eval_project(&wk, NULL, cwd, build, &project_id)) {
 		goto err;

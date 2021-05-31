@@ -74,6 +74,7 @@ src = files([
 	'src/main.c',
 	'src/mem.c',
 	'src/object.c',
+	'src/opts.c',
 	'src/output.c',
 	'src/parser.c',
 	'src/run_cmd.c',
