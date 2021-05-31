@@ -511,6 +511,12 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	bool loop = false;
 	if (accept(p, tok_dot)) {
 		loop = true;
+
+		if (have_l && get_node(p->ast, l_id)->type == node_empty) {
+			parse_error(p, "cannot call a method on nothing");
+			return false;
+		}
+
 		if (!parse_method_call(p, id, l_id, have_l)) {
 			return false;
 		}
