@@ -343,7 +343,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		kw_required,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required", obj_bool },
+		[kw_required] = { "required" },
 		0
 	};
 
@@ -351,9 +351,32 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
+	bool required = true;
+	if (akw[kw_required].set) {
+		if (get_obj(wk, akw[kw_required].val)->type == obj_bool) {
+			required = get_obj(wk, akw[kw_required].val)->dat.boolean;
+		} else if (get_obj(wk, akw[kw_required].val)->type == obj_feature_opt) {
+			if (get_obj(wk, akw[kw_required].val)->dat.feature_opt.state == feature_opt_disabled) {
+				struct obj *dep = make_obj(wk, obj, obj_dependency);
+				dep->dat.dep.name = an[0].val;
+				dep->dat.dep.found = false;
+				return true;
+			}
+
+			required = get_obj(wk, akw[kw_required].val)->dat.feature_opt.state == feature_opt_enabled;
+		} else {
+			interp_error(wk, akw[kw_required].node, "expected type %s or %s, got %s",
+				obj_type_to_s(obj_bool),
+				obj_type_to_s(obj_feature_opt),
+				obj_type_to_s(get_obj(wk, akw[kw_required].val)->type)
+				);
+			return false;
+		}
+	}
+
 	struct run_cmd_ctx ctx = { 0 };
 
-	if (!pkg_config(wk, &ctx, args_node, "--modversion", wk_objstr(wk, an[0].val))) {
+	if (!pkg_config(wk, &ctx, an[0].node, "--modversion", wk_objstr(wk, an[0].val))) {
 		return false;
 	}
 
@@ -361,6 +384,10 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	dep->dat.dep.name = an[0].val;
 
 	if (ctx.status != 0) {
+		if (required) {
+			interp_error(wk, an[0].node, "required dependency not found");
+			return false;
+		}
 		dep->dat.dep.found = false;
 		return true;
 	}
