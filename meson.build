@@ -60,6 +60,7 @@ src = files([
 	'src/functions/common.c',
 	'src/functions/compiler.c',
 	'src/functions/default.c',
+	'src/functions/default/options.c',
 	'src/functions/dependency.c',
 	'src/functions/feature_opt.c',
 	'src/functions/machine.c',

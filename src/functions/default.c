@@ -7,6 +7,7 @@
 #include "filesystem.h"
 #include "functions/common.h"
 #include "functions/default.h"
+#include "functions/default/options.h"
 #include "interpreter.h"
 #include "log.h"
 #include "run_cmd.h"
@@ -406,83 +407,6 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
-static bool
-func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
-{
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_choices,
-		kw_description,
-		kw_max,
-		kw_min,
-		kw_type,
-		kw_value,
-	};
-	struct args_kw akw[] = {
-		[kw_choices] = { "choices", obj_array },
-		[kw_description] = { "description", obj_string },
-		[kw_max] = { "max", obj_number },
-		[kw_min] = { "min", obj_number },
-		[kw_type] = { "type", obj_string },
-		[kw_value] = { "value", },
-		0
-	};
-
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
-		return false;
-	}
-
-	if (!akw[kw_type].set) {
-		interp_error(wk, args_node, "missing required keyword 'type'");
-		return false;
-	}
-
-	enum build_option_type {
-		op_string,
-		op_boolean,
-		op_combo,
-		op_integer,
-		op_array,
-		op_feature,
-		build_option_type_count,
-	};
-
-	static const char *build_option_type_name[] = {
-		[op_string] = "string",
-		[op_boolean] = "boolean",
-		[op_combo] = "combo",
-		[op_integer] = "integer",
-		[op_array] = "array",
-		[op_feature] = "feature",
-	};
-
-	enum build_option_type type;
-	for (type = 0; type < build_option_type_count; ++type) {
-		if (strcmp(build_option_type_name[type], wk_objstr(wk, akw[kw_type].val)) == 0) {
-			break;
-		}
-	}
-
-	if (type == build_option_type_count) {
-		interp_error(wk, akw[kw_type].node, "invalid option type '%s'", wk_objstr(wk, akw[kw_type].val));
-		return false;
-	}
-
-	switch (type) {
-	case op_string: break;
-	case op_boolean: break;
-	case op_combo: break;
-	case op_integer: break;
-	case op_array: break;
-	case op_feature: break;
-	default:
-		assert(false && "unreachable");
-		break;
-	}
-
-	return true;
-}
-
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -508,7 +432,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "find_library", todo },
 	{ "find_program", todo },
 	{ "generator", todo },
-	{ "get_option", todo },
+	{ "get_option", func_get_option },
 	{ "get_variable", todo },
 	{ "gettext", todo },
 	{ "import", todo },
