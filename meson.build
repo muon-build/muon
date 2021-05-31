@@ -38,8 +38,11 @@ add_project_arguments(cc.get_supported_arguments([
 deps = []
 c_args = []
 
-samu = subproject('samurai')
-deps += [samu.get_variable('libsamu_dep')]
+if get_option('samu')
+	samu = subproject('samurai')
+	deps += [samu.get_variable('libsamu_dep')]
+	c_args += ['-DBOSON_HAVE_SAMU']
+endif
 
 libcurl_dep = dependency('libcurl', required: get_option('curl'))
 if libcurl_dep.found()

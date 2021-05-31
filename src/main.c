@@ -2,8 +2,11 @@
 
 #include <errno.h>
 #include <limits.h>
-#include <samu.h>
 #include <string.h>
+
+#ifdef BOSON_HAVE_SAMU
+#include <samu.h>
+#endif
 
 #include "eval.h"
 #include "filesystem.h"
@@ -53,11 +56,13 @@ err:
 	return false;
 }
 
+#ifdef BOSON_HAVE_SAMU
 static bool
 cmd_samu(int argc, char *const argv[])
 {
 	return samu_main(argc, (char **)argv) == 0;
 }
+#endif
 
 static bool
 cmd_parse_check(int argc, char *const argv[])
@@ -139,7 +144,9 @@ main(int argc, char *argv[])
 		{ "eval", cmd_eval },
 		{ "ast", cmd_ast },
 		{ "parse_check", cmd_parse_check },
+#ifdef BOSON_HAVE_SAMU
 		{ "samu", cmd_samu },
+#endif
 		{ 0 },
 	};
 
