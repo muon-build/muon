@@ -6,6 +6,7 @@
 #include "functions/compiler.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
+#include "functions/external_program.h"
 #include "functions/feature_opt.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
@@ -249,6 +250,7 @@ static const struct func_impl_name *func_tbl[][language_mode_count] = {
 	[obj_machine]     = { impl_tbl_machine,     impl_tbl_machine,     NULL,                 },
 	[obj_compiler]    = { impl_tbl_compiler,    impl_tbl_compiler,    NULL,                 },
 	[obj_feature_opt] = { impl_tbl_feature_opt, impl_tbl_feature_opt, NULL,                 },
+	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program, NULL, },
 };
 
 bool

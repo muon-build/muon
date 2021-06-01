@@ -27,6 +27,7 @@ enum obj_type {
 	obj_function,
 	obj_feature_opt,
 	obj_machine,
+	obj_external_program,
 };
 
 enum tgt_type {
@@ -87,6 +88,10 @@ struct obj {
 		struct {
 			enum feature_opt_state state;
 		} feature_opt;
+		struct {
+			bool found;
+			uint32_t full_path;
+		} external_program;
 	} dat;
 };
 
