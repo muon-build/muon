@@ -184,6 +184,70 @@ func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 }
 
 static bool
+func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_required,
+	};
+	struct args_kw akw[] = {
+		[kw_required] = { "required" },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	enum requirement_type requirement;
+	if (!feature_opt_or_bool_to_requirement(wk, &akw[kw_required], &requirement)) {
+		return false;
+	}
+
+	if (requirement == requirement_skip) {
+		make_obj(wk, obj, obj_external_program)->dat.external_program.found = false;
+		return true;
+	}
+
+	char buf[PATH_MAX + 1] = { 0 };
+	char *cmd_path;
+
+	/* TODO: 1. Program overrides set via meson.override_find_program() */
+	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
+	/* TODO: 3. [binaries] section in your machine files */
+	/* TODO: 4. Directories provided using the dirs: kwarg (see below) */
+	/* 5. Project's source tree relative to the current subdir */
+	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
+	/* 6. PATH environment variable */
+	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
+
+	bool found = false;
+
+	snprintf(buf, PATH_MAX, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, an[0].val));
+	if (fs_file_exists(buf)) {
+		found = true;
+		cmd_path = buf;
+	} else if (fs_find_cmd(wk_objstr(wk, an[0].val), &cmd_path)) {
+		found = true;
+	}
+
+	if (!found) {
+		if (requirement == requirement_required) {
+			interp_error(wk, an[0].node, "program not found");
+			return false;
+		}
+
+		make_obj(wk, obj, obj_external_program)->dat.external_program.found = false;
+	} else {
+		struct obj *external_program = make_obj(wk, obj, obj_external_program);
+		external_program->dat.external_program.found = true;
+		external_program->dat.external_program.full_path = wk_str_push(wk, cmd_path);
+	}
+
+	return true;
+}
+
+static bool
 func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -490,7 +554,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "executable", func_executable },
 	{ "files", func_files },
 	{ "find_library", todo },
-	{ "find_program", todo },
+	{ "find_program", func_find_program },
 	{ "generator", todo },
 	{ "get_option", func_get_option },
 	{ "get_variable", todo },
