@@ -13,6 +13,50 @@
 #include "run_cmd.h"
 #include "wrap.h"
 
+enum requirement_type {
+	requirement_skip,
+	requirement_required,
+	requirement_auto,
+};
+
+static bool
+feature_opt_or_bool_to_requirement(struct workspace *wk, struct args_kw *kw_required,
+	enum requirement_type *requirement)
+{
+	if (kw_required->set) {
+		if (get_obj(wk, kw_required->val)->type == obj_bool) {
+			if (get_obj(wk, kw_required->val)->dat.boolean) {
+				*requirement = requirement_required;
+			} else {
+				*requirement = requirement_auto;
+			}
+		} else if (get_obj(wk, kw_required->val)->type == obj_feature_opt) {
+			switch (get_obj(wk, kw_required->val)->dat.feature_opt.state) {
+			case feature_opt_disabled:
+				*requirement = requirement_skip;
+				break;
+			case feature_opt_enabled:
+				*requirement = requirement_required;
+				break;
+			case feature_opt_auto:
+				*requirement = requirement_auto;
+				break;
+			}
+		} else {
+			interp_error(wk, kw_required->node, "expected type %s or %s, got %s",
+				obj_type_to_s(obj_bool),
+				obj_type_to_s(obj_feature_opt),
+				obj_type_to_s(get_obj(wk, kw_required->val)->type)
+				);
+			return false;
+		}
+	} else {
+		*requirement = requirement_required;
+	}
+
+	return true;
+}
+
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
@@ -351,27 +395,16 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	bool required = true;
-	if (akw[kw_required].set) {
-		if (get_obj(wk, akw[kw_required].val)->type == obj_bool) {
-			required = get_obj(wk, akw[kw_required].val)->dat.boolean;
-		} else if (get_obj(wk, akw[kw_required].val)->type == obj_feature_opt) {
-			if (get_obj(wk, akw[kw_required].val)->dat.feature_opt.state == feature_opt_disabled) {
-				struct obj *dep = make_obj(wk, obj, obj_dependency);
-				dep->dat.dep.name = an[0].val;
-				dep->dat.dep.found = false;
-				return true;
-			}
+	enum requirement_type requirement;
+	if (!feature_opt_or_bool_to_requirement(wk, &akw[kw_required], &requirement)) {
+		return false;
+	}
 
-			required = get_obj(wk, akw[kw_required].val)->dat.feature_opt.state == feature_opt_enabled;
-		} else {
-			interp_error(wk, akw[kw_required].node, "expected type %s or %s, got %s",
-				obj_type_to_s(obj_bool),
-				obj_type_to_s(obj_feature_opt),
-				obj_type_to_s(get_obj(wk, akw[kw_required].val)->type)
-				);
-			return false;
-		}
+	if (requirement == requirement_skip) {
+		struct obj *dep = make_obj(wk, obj, obj_dependency);
+		dep->dat.dep.name = an[0].val;
+		dep->dat.dep.found = false;
+		return true;
 	}
 
 	struct run_cmd_ctx ctx = { 0 };
@@ -384,7 +417,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	dep->dat.dep.name = an[0].val;
 
 	if (ctx.status != 0) {
-		if (required) {
+		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "required dependency not found");
 			return false;
 		}
