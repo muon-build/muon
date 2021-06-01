@@ -666,6 +666,28 @@ func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 	return true;
 }
 
+static bool
+func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char src[PATH_MAX + 1] = { 0 };
+
+	uint32_t old_cwd = current_project(wk)->cwd;
+	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", wk_str(wk, old_cwd), wk_objstr(wk, an[0].val));
+
+	snprintf(src, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd));
+
+	bool ret = eval(wk, src);
+	current_project(wk)->cwd = old_cwd;
+
+	return ret;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -713,7 +735,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "shared_library", todo },
 	{ "shared_module", todo },
 	{ "static_library", todo },
-	{ "subdir", todo },
+	{ "subdir", func_subdir },
 	{ "subdir_done", todo },
 	{ "subproject", func_subproject },
 	{ "summary", todo },

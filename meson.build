@@ -69,47 +69,9 @@ if zlib_dep.found()
 	c_args += ['-DBOSON_HAVE_ZLIB']
 endif
 
-# sources
-
-src = files([
-	'src/archive.c',
-	'src/darr.c',
-	'src/eval.c',
-	'src/fetch.c',
-	'src/filesystem.c',
-	'src/functions/common.c',
-	'src/functions/compiler.c',
-	'src/functions/default.c',
-	'src/functions/default/options.c',
-	'src/functions/dependency.c',
-	'src/functions/external_program.c',
-	'src/functions/feature_opt.c',
-	'src/functions/machine.c',
-	'src/functions/meson.c',
-	'src/functions/number.c',
-	'src/functions/run_result.c',
-	'src/functions/string.c',
-	'src/functions/subproject.c',
-	'src/hash.c',
-	'src/inih.c',
-	'src/interpreter.c',
-	'src/lexer.c',
-	'src/log.c',
-	'src/main.c',
-	'src/mem.c',
-	'src/object.c',
-	'src/opts.c',
-	'src/output.c',
-	'src/parser.c',
-	'src/run_cmd.c',
-	'src/workspace.c',
-	'src/wrap.c',
-
-	'src/external/microtar.c',
-	'src/external/sha-256.c',
-])
-
 include_dir = include_directories('include')
+
+subdir('src')
 
 executable(
 	'boson',

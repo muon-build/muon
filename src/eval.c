@@ -52,7 +52,6 @@ eval_project(struct workspace *wk, const char *subproject_name,
 
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;
-	struct ast *parent_ast = wk->ast;
 
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
@@ -70,7 +69,6 @@ eval_project(struct workspace *wk, const char *subproject_name,
 
 cleanup:
 	wk->cur_project = parent_project;
-	wk->ast = parent_ast;
 	return ret;
 }
 
@@ -100,12 +98,13 @@ eval(struct workspace *wk, const char *src)
 		return false;
 	}
 
+	struct ast *parent_ast = wk->ast;
 	wk->ast = &ast;
 
 	ret = interpreter_interpret(wk);
 	/* L(log_misc, "done evaluating '%s'", src); */
 
-	wk->ast = NULL;
+	wk->ast = parent_ast;
 
 	/* tokens_destroy(&toks); // See above note */
 	ast_destroy(&ast);
