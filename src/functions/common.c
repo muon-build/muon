@@ -243,7 +243,7 @@ todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 	return false;
 }
 
-static const struct func_impl_name *func_tbl[][language_mode_count] = {
+static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_default]     = { impl_tbl_default,     impl_tbl_default,     impl_tbl_default_opts },
 	[obj_meson]       = { impl_tbl_meson,       impl_tbl_meson,       NULL,                 },
 	[obj_subproject]  = { impl_tbl_subproject,  impl_tbl_subproject,  NULL,                 },
