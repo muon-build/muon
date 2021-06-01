@@ -123,6 +123,30 @@ interp_args(struct workspace *wk, uint32_t args_node,
 		}
 
 		for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
+			if (an[stage][i].type == ARG_TYPE_GLOB) {
+				assert(stage == 0 && "glob args must not be optional");
+				assert(!optional_positional_args && "glob args cannot be followed by optional args");
+				assert(an[stage][i + 1].type == ARG_TYPE_NULL && "glob args must come last");
+
+				make_obj(wk, &an[stage][i].val, obj_array);
+				an[stage][i].node = arg_node;
+				an[stage][i].set = true;
+
+				while (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
+					if (kw) {
+						goto kwargs;
+					}
+
+					uint32_t val;
+					if (!interp_node(wk, arg_node, &val)) {
+						return false;
+					}
+
+					obj_array_push(wk, an[stage][i].val, val);
+				}
+				continue;
+			}
+
 			if (!next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
 				if (stage == 0) { // required
 					interp_error(wk, args_node, "missing arguments %s", ARITY);
