@@ -468,10 +468,6 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	case comp_not_in:
 		switch (get_obj(wk, obj_r_id)->type) {
 		case obj_array:
-			if (!typecheck(wk, n->l, obj_l_id, obj_number)) {
-				return false;
-			}
-
 			if (!obj_array_in(wk, obj_l_id, obj_r_id, &res)) {
 				return false;
 			}
