@@ -387,8 +387,15 @@ static bool
 func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_default_options,
+	};
+	struct args_kw akw[] = {
+		[kw_default_options] = { "default_options", obj_array },
+		0
+	};
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
