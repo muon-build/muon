@@ -23,12 +23,13 @@ enum obj_type {
 	obj_build_target,
 	obj_subproject,
 	obj_dependency,
-	obj_type_count,
 	obj_function,
 	obj_feature_opt,
 	obj_machine,
 	obj_external_program,
 	obj_run_result,
+
+	obj_type_count,
 };
 
 enum tgt_type {
