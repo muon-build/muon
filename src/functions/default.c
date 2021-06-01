@@ -451,6 +451,22 @@ pkg_config(struct workspace *wk, struct run_cmd_ctx *ctx, uint32_t args_node, co
 }
 
 static bool
+handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
+	enum requirement_type requirement,  uint32_t *obj, bool *handled)
+{
+	if (strcmp(wk_objstr(wk, name), "threads") == 0) {
+		*handled = true;
+		struct obj *dep = make_obj(wk, obj, obj_dependency);
+		dep->dat.dep.name = get_obj(wk, name)->dat.str;
+		dep->dat.dep.found = true;
+	} else {
+		*handled = false;
+	}
+
+	return true;
+}
+
+static bool
 func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -475,6 +491,13 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		struct obj *dep = make_obj(wk, obj, obj_dependency);
 		dep->dat.dep.name = an[0].val;
 		dep->dat.dep.found = false;
+		return true;
+	}
+
+	bool handled;
+	if (!handle_special_dependency(wk, an[0].node, an[0].val, requirement, obj, &handled)) {
+		return false;
+	} else if (handled) {
 		return true;
 	}
 
