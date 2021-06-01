@@ -75,6 +75,7 @@ src = files([
 	'src/functions/meson.c',
 	'src/functions/number.c',
 	'src/functions/run_result.c',
+	'src/functions/string.c',
 	'src/functions/subproject.c',
 	'src/hash.c',
 	'src/inih.c',

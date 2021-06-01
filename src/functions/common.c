@@ -12,6 +12,7 @@
 #include "functions/meson.h"
 #include "functions/number.h"
 #include "functions/run_result.h"
+#include "functions/string.h"
 #include "functions/subproject.h"
 #include "interpreter.h"
 #include "log.h"
@@ -253,6 +254,7 @@ static const struct func_impl_name *func_tbl[][language_mode_count] = {
 	[obj_feature_opt] = { impl_tbl_feature_opt, impl_tbl_feature_opt, NULL,                 },
 	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program, NULL, },
 	[obj_run_result]  = { impl_tbl_run_result,  impl_tbl_run_result,  NULL, },
+	[obj_string]      = { impl_tbl_string,      impl_tbl_string,      NULL, },
 };
 
 bool
