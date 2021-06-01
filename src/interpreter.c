@@ -45,11 +45,11 @@ static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id
 static bool
 interp_method(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj)
 {
-	uint32_t result;
+	uint32_t result = 0;
 
 	struct node *n = get_node(wk->ast, node_id);
 
-	if (!builtin_run(wk, l_id, node_id, &result)) {
+	if (!builtin_run(wk, true, l_id, node_id, &result)) {
 		return false;
 	}
 
@@ -237,6 +237,7 @@ static bool
 interp_assign(struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	uint32_t rhs;
+
 	if (!interp_node(wk, n->r, &rhs)) {
 		return false;
 	}
@@ -757,7 +758,7 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 {
 	uint32_t func_id;
 	struct node *n = get_node(wk->ast, n_id);
-	uint32_t res_id;
+	uint32_t res_id = 0;
 
 	if (wk->lang_mode == language_internal
 	    && get_obj_id(wk, get_node(wk->ast, n->l)->tok->dat.s, &func_id, wk->cur_project)) {
@@ -775,7 +776,7 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 			return false;
 		}
 	} else {
-		if (!builtin_run(wk, 0, n_id, &res_id)) {
+		if (!builtin_run(wk, false, 0, n_id, &res_id)) {
 			return false;
 		}
 	}

@@ -228,7 +228,7 @@ static const struct func_impl_name *func_tbl[][language_mode_count] = {
 };
 
 bool
-builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj)
+builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj)
 {
 	const char *name;
 
@@ -236,12 +236,12 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 	uint32_t args_node, name_node;
 	struct node *n = get_node(wk->ast, node_id);
 
-	if (!rcvr_id && !(n->chflg & node_child_l)) {
+	if (have_rcvr && !rcvr_id) {
 		interp_error(wk, n->r, "tried to call function on null");
 		return false;
 	}
 
-	if (rcvr_id) {
+	if (have_rcvr) {
 		struct obj *rcvr = get_obj(wk, rcvr_id);
 		name_node = n->r;
 		args_node = n->c;
@@ -280,6 +280,6 @@ builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *
 		}
 	}
 
-	interp_error(wk, n->l, "function not found: %s", name);
+	interp_error(wk, name_node, "function not found: %s", name);
 	return false;
 }

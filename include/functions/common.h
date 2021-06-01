@@ -23,5 +23,5 @@ bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[]);
-bool builtin_run(struct workspace *wk, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj);
+bool builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj);
 #endif
