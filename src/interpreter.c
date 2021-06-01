@@ -624,6 +624,7 @@ static bool
 interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	uint32_t iterable;
+	bool ret;
 
 	if (!interp_node(wk, n->r, &iterable)) {
 		return false;
@@ -645,7 +646,7 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 
 		++wk->loop_depth;
 		wk->loop_ctl = loop_norm;
-		obj_array_foreach(wk, iterable, &ctx, interp_foreach_arr_iter);
+		ret = obj_array_foreach(wk, iterable, &ctx, interp_foreach_arr_iter);
 		--wk->loop_depth;
 
 		break;
@@ -666,7 +667,7 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 
 		++wk->loop_depth;
 		wk->loop_ctl = loop_norm;
-		obj_dict_foreach(wk, iterable, &ctx, interp_foreach_dict_iter);
+		ret = obj_dict_foreach(wk, iterable, &ctx, interp_foreach_dict_iter);
 		--wk->loop_depth;
 
 		break;
@@ -675,7 +676,8 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj(wk, iterable)->type));
 		return false;
 	}
-	return true;
+
+	return ret;
 }
 
 static bool
