@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -211,4 +212,46 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 	}
 
 	return true;
+}
+
+
+bool
+fs_find_cmd(const char *cmd, char **ret)
+{
+	uint32_t len, cmd_len = strlen(cmd);
+	static char cmd_path[PATH_MAX + 1] = { 0 };
+	const char *env_path, *base_start;
+
+	if (!(env_path = getenv("PATH"))) {
+		LOG_W(log_misc, "failed to get the value of PATH");
+		return false;
+	}
+
+	base_start = env_path;
+	while (true) {
+		if (!*env_path || *env_path == ':') {
+			len = env_path - base_start;
+			assert(len + cmd_len + 1 < PATH_MAX);
+
+			strncpy(cmd_path, base_start, len);
+			base_start = env_path + 1;
+
+			cmd_path[len] = '/';
+			strcpy(&cmd_path[len + 1], cmd);
+
+			if (fs_file_exists(cmd_path)) {
+				*ret = cmd_path;
+				return true;
+			}
+			/* L(log_misc, "%c %s", fs_file_exists(cmd_path) ? '!' : ' ', cmd_path); */
+
+			if (!*env_path) {
+				break;
+			}
+		}
+
+		++env_path;
+	}
+
+	return false;
 }
