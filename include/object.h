@@ -28,6 +28,7 @@ enum obj_type {
 	obj_machine,
 	obj_external_program,
 	obj_run_result,
+	obj_configuration_data,
 
 	obj_type_count,
 };
@@ -98,6 +99,9 @@ struct obj {
 			uint32_t out, err;
 			int status;
 		} run_result;
+		struct {
+			uint32_t dict;
+		} configuration_data;
 	} dat;
 };
 

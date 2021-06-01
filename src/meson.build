@@ -8,6 +8,7 @@ src = files([
 	'filesystem.c',
 	'functions/common.c',
 	'functions/compiler.c',
+	'functions/configuration_data.c',
 	'functions/default.c',
 	'functions/default/options.c',
 	'functions/dependency.c',

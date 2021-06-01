@@ -4,6 +4,7 @@
 
 #include "functions/common.h"
 #include "functions/compiler.h"
+#include "functions/configuration_data.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
 #include "functions/external_program.h"
@@ -255,6 +256,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program, NULL, },
 	[obj_run_result]  = { impl_tbl_run_result,  impl_tbl_run_result,  NULL, },
 	[obj_string]      = { impl_tbl_string,      impl_tbl_string,      NULL, },
+	[obj_configuration_data] = { impl_tbl_configuration_data, impl_tbl_configuration_data, NULL, },
 };
 
 bool

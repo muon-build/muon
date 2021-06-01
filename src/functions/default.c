@@ -688,6 +688,27 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	return ret;
 }
 
+static bool
+func_configuration_data(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_configuration_data);
+
+	if (ao[0].set) {
+		get_obj(wk, *obj)->dat.configuration_data.dict = ao[0].val;
+	} else {
+		uint32_t dict;
+		make_obj(wk, &dict, obj_dict);
+		get_obj(wk, *obj)->dat.configuration_data.dict = dict;
+	}
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -700,7 +721,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "benchmark", todo },
 	{ "both_libraries", todo },
 	{ "build_target", todo },
-	{ "configuration_data", todo },
+	{ "configuration_data", func_configuration_data },
 	{ "configure_file", todo },
 	{ "custom_target", todo },
 	{ "declare_dependency", func_declare_dependency },
