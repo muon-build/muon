@@ -525,35 +525,37 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	if (ctx.status == 0) {
-		uint32_t link_with;
-		make_obj(wk, &link_with, obj_array);
-		get_obj(wk, *obj)->dat.dep.link_with = link_with;
+	if (ctx.status != 0) {
+		interp_error(wk, an[0].node, "unexpected pkg-config error: %s", ctx.err);
+		return false;
+	}
 
-		uint32_t i;
-		char *start;
-		bool first = false;
-		for (i = 0; ctx.out[i]; ++i) {
-			if (ctx.out[i] == ' ' || ctx.out[i] == '\t' || ctx.out[i] == '\n') {
-				ctx.out[i] = 0;
-				if (first) {
-					first = false;
+	uint32_t link_with;
+	make_obj(wk, &link_with, obj_array);
+	get_obj(wk, *obj)->dat.dep.link_with = link_with;
 
-					uint32_t str_id;
-					make_obj(wk, &str_id, obj_string)->dat.str = wk_str_push(wk, start);
+	uint32_t i;
+	char *start;
+	bool first = false;
+	for (i = 0; ctx.out[i]; ++i) {
+		if (ctx.out[i] == ' ' || ctx.out[i] == '\t' || ctx.out[i] == '\n') {
+			ctx.out[i] = 0;
+			if (first) {
+				first = false;
 
-					obj_array_push(wk, link_with, str_id);
-				}
-				continue;
-			} else {
-				if (!first) {
-					start = &ctx.out[i];
-					first = true;
-				}
-				continue;
+				uint32_t str_id;
+				make_obj(wk, &str_id, obj_string)->dat.str = wk_str_push(wk, start);
+
+				obj_array_push(wk, link_with, str_id);
 			}
+			continue;
+		} else {
+			if (!first) {
+				start = &ctx.out[i];
+				first = true;
+			}
+			continue;
 		}
-		return true;
 	}
 
 	/* get_obj(wk, *obj)->dat.dep.link_with = akw[kw_link_with].val; */
