@@ -8,6 +8,8 @@
 #include "parser.h"
 
 struct project {
+	struct hash scope;
+	struct darr tokens;
 	/* wk_strings */
 	uint32_t cwd, build_dir, subproject_name;
 	/* objects */
@@ -21,9 +23,7 @@ struct project {
 		uint32_t args;
 	} cfg;
 
-	struct hash scope;
 	uint32_t targets;
-	struct tokens toks;
 };
 
 enum loop_ctl {
@@ -38,7 +38,6 @@ struct option_override {
 };
 
 struct workspace {
-	uint32_t cur_project;
 	struct darr projects;
 	struct darr option_overrides;
 	struct darr objs;
@@ -47,6 +46,7 @@ struct workspace {
 
 	uint32_t loop_depth;
 	enum loop_ctl loop_ctl;
+	uint32_t cur_project;
 	struct ast *ast;
 	enum language_mode lang_mode;
 };

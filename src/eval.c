@@ -88,7 +88,8 @@ eval(struct workspace *wk, const char *src)
 	 * storing these strings in the workspace's string buffer.
 	 */
 
-	struct tokens *toks = &current_project(wk)->toks;
+	struct tokens *toks = darr_get(&current_project(wk)->tokens,
+		darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 }));
 	struct ast ast = { 0 };
 	bool ret;
 

@@ -149,6 +149,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = darr_get(&wk->projects, *id);
 
+	darr_init(&proj->tokens, 4, sizeof(struct tokens));
 	hash_init(&proj->scope, 128);
 
 	make_obj(wk, &proj->opts, obj_dict);
@@ -199,14 +200,18 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy(struct workspace *wk)
 {
-	uint32_t i;
+	uint32_t i, j;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
 
 		hash_destroy(&proj->scope);
 
-		tokens_destroy(&proj->toks);
+		for (j = 0; j < proj->tokens.len; ++j) {
+			tokens_destroy(darr_get(&proj->tokens, j));
+		}
+
+		darr_destroy(&proj->tokens);
 	}
 
 	darr_destroy(&wk->projects);
