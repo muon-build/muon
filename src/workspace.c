@@ -40,6 +40,23 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 #define BUF_SIZE 2048
 
 uint32_t
+wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
+{
+	uint32_t len, ret;
+
+	char buf[BUF_SIZE + 1] = { 0 };
+	strncpy(buf, str, n > BUF_SIZE ? BUF_SIZE : n);
+
+	len = strlen(buf) + 1;
+	ret = wk->strs.len;
+
+	darr_grow_by(&wk->strs, len);
+	strncpy(darr_get(&wk->strs, ret), buf, len);
+
+	return ret;
+}
+
+uint32_t
 wk_str_push(struct workspace *wk, const char *str)
 {
 	uint32_t len, ret;
