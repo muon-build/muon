@@ -28,6 +28,7 @@ struct darr {
 		(darr)->func = __func__; \
 		(darr)->file = __FILE__; \
 		(darr)->line = __LINE__; \
+		L(log_mem, "created %s %ld -> %ld (%s:%d:%s)", (darr)->name, 0l, (darr)->cap, (darr)->file, (darr)->line, (darr)->func); \
 	} while (0)
 #else
 #define darr_init(darr, initial, item_size) _darr_init(darr, initial, item_size)

@@ -10,10 +10,10 @@
 #include "mem.h"
 
 void
-_darr_init(struct darr *darr, size_t initial, size_t item_size)
+_darr_init(struct darr *da, size_t initial, size_t item_size)
 {
 	assert(item_size > 0);
-	*darr = (struct darr) {
+	*da = (struct darr) {
 		.item_size = item_size,
 		.cap = initial,
 		.e = z_malloc(initial * item_size),
@@ -25,6 +25,10 @@ darr_destroy(struct darr *da)
 {
 	if (da->e) {
 		z_free(da->e);
+		da->e = NULL;
+#ifndef NDEBUG
+		L(log_mem, "destroyed %s (%s:%d:%s)", da->name, da->file, da->line, da->func);
+#endif
 	}
 }
 
