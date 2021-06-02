@@ -7,6 +7,7 @@
 #include "filesystem.h"
 #include "functions/common.h"
 #include "functions/default.h"
+#include "functions/default/configure_file.h"
 #include "functions/default/options.h"
 #include "interpreter.h"
 #include "log.h"
@@ -710,29 +711,6 @@ func_configuration_data(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	return true;
 }
 
-static bool
-func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
-{
-	enum kwargs {
-		kw_configuration,
-		kw_input,
-		kw_output,
-	};
-	struct args_kw akw[] = {
-		[kw_configuration] = { "configuration", obj_configuration_data, .required = true },
-		[kw_input] = { "input" },
-		[kw_output] = { "output", .required = true },
-		0
-	};
-
-	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
-		return false;
-	}
-
-
-
-	return true;
-}
 
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },

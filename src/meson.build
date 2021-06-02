@@ -10,6 +10,7 @@ src = files([
 	'functions/compiler.c',
 	'functions/configuration_data.c',
 	'functions/default.c',
+	'functions/default/configure_file.c',
 	'functions/default/options.c',
 	'functions/dependency.c',
 	'functions/external_program.c',
