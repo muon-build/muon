@@ -56,6 +56,8 @@ eval_project(struct workspace *wk, const char *subproject_name,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
+	set_default_options(wk);
+
 	if (fs_file_exists(meson_opts)) {
 		wk->lang_mode = language_opts;
 		if (!eval(wk, meson_opts)) {

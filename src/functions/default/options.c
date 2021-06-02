@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -409,4 +410,32 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	return true;
+}
+
+static void
+set_option(struct workspace *wk, const char *name, enum obj_type t, ...)
+{
+	uint32_t key, val;
+	make_obj(wk, &key, obj_string)->dat.str = wk_str_push(wk, name);
+	struct obj *val_obj = make_obj(wk, &val, t);
+
+	va_list ap;
+	va_start(ap, t);
+
+	switch (t) {
+	case obj_string: {
+		val_obj->dat.str = wk_str_push(wk, va_arg(ap, char *));
+		break;
+	}
+	default:
+		assert(false && "unsupported object type");
+	}
+
+	obj_dict_set(wk, current_project(wk)->opts, key, val);
+}
+
+void
+set_default_options(struct workspace *wk)
+{
+	set_option(wk, "default_library", obj_string, "static");
 }
