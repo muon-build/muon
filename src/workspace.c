@@ -142,6 +142,14 @@ wk_objstr(struct workspace *wk, uint32_t id)
 	return wk_str(wk, obj->dat.str);
 }
 
+char *
+wk_file_path(struct workspace *wk, uint32_t id)
+{
+	struct obj *obj = get_obj(wk, id);
+	assert(obj->type == obj_file);
+	return wk_str(wk, obj->dat.file);
+}
+
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	const char *cwd, const char *build_dir)

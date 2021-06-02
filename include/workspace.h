@@ -61,6 +61,7 @@ void wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __att
 uint32_t wk_str_push(struct workspace *wk, const char *str);
 uint32_t wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
 char *wk_objstr(struct workspace *wk, uint32_t id);
+char *wk_file_path(struct workspace *wk, uint32_t id);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
