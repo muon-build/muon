@@ -60,7 +60,7 @@ char *wk_str(struct workspace *wk, uint32_t id);
 void wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
 uint32_t wk_str_push(struct workspace *wk, const char *str);
 uint32_t wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
-const char *wk_objstr(struct workspace *wk, uint32_t id);
+char *wk_objstr(struct workspace *wk, uint32_t id);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);

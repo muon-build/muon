@@ -134,7 +134,7 @@ wk_str(struct workspace *wk, uint32_t id)
 	return darr_get(&wk->strs, id);
 }
 
-const char *
+char *
 wk_objstr(struct workspace *wk, uint32_t id)
 {
 	struct obj *obj = get_obj(wk, id);
