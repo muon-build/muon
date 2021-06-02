@@ -12,6 +12,7 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	enum kwargs { kw_native, };
 	struct args_kw akw[] = {
 		[kw_native] = { "native", obj_bool },
+		0
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {

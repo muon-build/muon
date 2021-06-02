@@ -218,7 +218,12 @@ process_kwarg:
 			}
 		}
 
-
+		for (i = 0; keyword_args[i].key; ++i) {
+			if (keyword_args[i].required && !keyword_args[i].set) {
+				interp_error(wk, args_node, "missing required kwarg: %s", keyword_args[i].key);
+				return false;
+			}
+		}
 	} else if (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
 		if (kw) {
 			interp_error(wk, kwarg_node, "this function does not accept kwargs %s", ARITY);

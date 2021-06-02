@@ -119,6 +119,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 	enum kwargs { kw_language, };
 	struct args_kw akw[] = {
 		[kw_language] = { "language", obj_string },
+		0
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {

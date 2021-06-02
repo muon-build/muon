@@ -12,7 +12,7 @@ struct func_impl_name {
 };
 
 struct args_norm { enum obj_type type; uint32_t val, node; bool set; };
-struct args_kw { const char *key; enum obj_type type; uint32_t val, node; bool set; };
+struct args_kw { const char *key; enum obj_type type; uint32_t val, node; bool set; bool required; };
 
 #define ARG_TYPE_NULL 1000 // a number higher than any valid node type
 #define ARG_TYPE_GLOB 1001 // a number higher than any valid node type
