@@ -123,5 +123,6 @@ typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *c
 bool obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb);
 bool obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id, bool *res);
 bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found);
+bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res, bool *found);
 void obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id);
 #endif

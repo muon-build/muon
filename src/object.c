@@ -274,7 +274,7 @@ obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_ite
 	return true;
 }
 
-struct obj_dict_index_iter_ctx { uint32_t *res, k_id; bool *found; };
+struct obj_dict_index_iter_ctx { const char *key; uint32_t *res, len; bool *found; };
 
 static enum iteration_result
 obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
@@ -282,7 +282,8 @@ obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_
 	struct obj_dict_index_iter_ctx *ctx = _ctx;
 
 	/* L(log_interp, "%s ?= %s", wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)); */
-	if (strcmp(wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)) == 0) {
+	if (strlen(wk_objstr(wk, k_id)) == ctx->len
+	    && strncmp(wk_objstr(wk, k_id), ctx->key, ctx->len) == 0) {
 		*ctx->found = true;
 		*ctx->res = v_id;
 		return ir_done;
@@ -292,12 +293,20 @@ obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_
 }
 
 bool
-obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found)
+obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key,
+	uint32_t len, uint32_t *res, bool *found)
 {
-	struct obj_dict_index_iter_ctx ctx = { .k_id =  k_id, .res = res, .found = found };
+	struct obj_dict_index_iter_ctx ctx = { .key = key, .len = len, .res = res, .found = found };
 
 	*ctx.found = false;
 	return obj_dict_foreach(wk, dict_id, &ctx, obj_dict_index_iter);
+}
+
+bool
+obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found)
+{
+	const char *key = wk_objstr(wk, k_id);
+	return obj_dict_index_strn(wk, dict_id, key, strlen(key), res, found);
 }
 
 bool
