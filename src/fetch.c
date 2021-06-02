@@ -1,10 +1,13 @@
 #include "posix.h"
 
 #include <assert.h>
-#include <curl/curl.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+
+#ifdef BOSON_HAVE_CURL
+#include <curl/curl.h>
+#endif
 
 #include "fetch.h"
 #include "log.h"

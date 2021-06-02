@@ -7,7 +7,7 @@ tasks:
   - build1: |
       cd boson
       meson setup build1
-      samu -C build
+      samu -C build1
 
   - build2: |
       cd boson
