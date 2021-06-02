@@ -14,6 +14,7 @@
 #include "opts.h"
 #include "output.h"
 #include "parser.h"
+#include "version.h"
 
 #define BUF_LEN 256
 
@@ -174,6 +175,7 @@ main(int argc, char *argv[])
 	return 0;
 
 print_commands:
+	LOG_I(log_misc, "boson v%s-%s", boson_version.version, boson_version.vcs_tag);
 	LOG_I(log_misc, "avaliable commands:");
 	for (i = 0; commands[i].name; ++i) {
 		LOG_I(log_misc, "  %s", commands[i].name);

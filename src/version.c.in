@@ -1,0 +1,8 @@
+#include "posix.h"
+
+#include "version.h"
+
+const struct boson_version boson_version = {
+	.version = "@version@",
+	.vcs_tag = "@vcs_tag@",
+};

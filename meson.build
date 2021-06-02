@@ -22,6 +22,10 @@ else
 	git_sha = 'unknown'
 endif
 
+version_info = configuration_data()
+version_info.set('version', meson.project_version())
+version_info.set('vcs_tag', git_sha)
+
 message(git_sha) # TODO use this
 
 # compiler setup

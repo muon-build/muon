@@ -38,4 +38,8 @@ src = files([
 
 	'external/microtar.c',
 	'external/sha-256.c',
-])
+]) + [configure_file(
+	configuration: version_info,
+	input: 'version.c.in',
+	output: 'version.c'
+)]
