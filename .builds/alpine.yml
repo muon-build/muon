@@ -1,16 +1,20 @@
 image: alpine/latest
 packages:
-  - samurai
+  - meson
 sources:
-  - https://git.sr.ht/~bl4ckb0ne/boson
+  - https://git.sr.ht/~lattis/boson
 tasks:
-  - build: |
+  - build1: |
       cd boson
-      mkdir build
-      cd build
-      ../configure
-      make
-  - ninja: |
+      meson setup build1
+      samu -C build
+
+  - build2: |
       cd boson
-      ./build/boson bosonbuild
-      samu -C bosonbuild
+      build1/boson setup build2
+      samu -C build2
+
+  - build3: |
+      cd boson
+      build2/boson setup build3
+      samu -C build3
