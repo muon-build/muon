@@ -2,6 +2,7 @@
 
 src = files([
 	'archive.c',
+	'coerce.c',
 	'darr.c',
 	'eval.c',
 	'fetch.c',

@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "coerce.h"
 #include "filesystem.h"
 #include "functions/common.h"
 #include "functions/default/configure_file.h"
@@ -122,75 +123,6 @@ cleanup:
 	return ret;
 }
 
-struct coerce_into_files_ctx {
-	struct args_kw *arg;
-	uint32_t arr;
-};
-
-static enum iteration_result
-coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct coerce_into_files_ctx *ctx = _ctx;
-
-	switch (get_obj(wk, val)->type) {
-	case obj_string: {
-		uint32_t abs = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
-
-		if (!fs_file_exists(wk_str(wk, abs))) {
-			interp_error(wk, ctx->arg->node, "file '%s' does not exist",
-				wk_str(wk, abs));
-			return false;
-		}
-
-		uint32_t file;
-		make_obj(wk, &file, obj_file)->dat.file = abs;
-
-		obj_array_push(wk, ctx->arr, file);
-		break;
-	}
-	case obj_file:
-		obj_array_push(wk, ctx->arr, val);
-		break;
-	default:
-		interp_error(wk, ctx->arg->node, "unable to coerce object with type %s into file",
-			obj_type_to_s(get_obj(wk, val)->type));
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static bool
-coerce_into_files(struct workspace *wk, struct args_kw *arg, uint32_t *res)
-{
-	make_obj(wk, res, obj_array);
-
-	struct coerce_into_files_ctx ctx = { .arg = arg, .arr = *res, };
-
-	switch (get_obj(wk, arg->val)->type) {
-	case obj_string:
-	case obj_file:
-		switch (coerce_into_files_iter(wk, &ctx, arg->val)) {
-		case ir_err:
-			return false;
-		default:
-			return true;
-		}
-		break;
-	case obj_array:
-		if (!obj_array_foreach(wk, arg->val, &ctx, coerce_into_files_iter)) {
-			return false;
-		}
-		break;
-	default:
-		interp_error(wk, ctx.arg->node, "unable to coerce object with type %s into file",
-			obj_type_to_s(get_obj(wk, arg->val)->type));
-		return false;
-	}
-
-	return true;
-}
-
 bool
 func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
@@ -213,7 +145,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 
 	if (akw[kw_input].set) {
 		uint32_t input_arr, input;
-		if (!coerce_into_files(wk, &akw[kw_input], &input_arr)) {
+		if (!coerce_files(wk, &akw[kw_input], &input_arr)) {
 			return false;
 		}
 
