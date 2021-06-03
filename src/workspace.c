@@ -40,6 +40,64 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 #define BUF_SIZE 2048
 
 uint32_t
+wk_str_split(struct workspace *wk, const char *s, const char *sep)
+{
+	uint32_t arr;
+	make_obj(wk, &arr, obj_array);
+
+	uint32_t i, len;
+	const char *start;
+	bool first = false;
+	for (i = 0; s[i]; ++i) {
+		if (strchr(sep, s[i])) {
+			if (first) {
+				first = false;
+
+				uint32_t str_id;
+				make_obj(wk, &str_id, obj_string)->dat.str = wk_str_pushn(wk, start, len);
+
+				/* L(log_interp, "split: '%s'", wk_objstr(wk, str_id)); */
+
+				obj_array_push(wk, arr, str_id);
+			}
+		} else {
+			if (!first) {
+				start = &s[i];
+				first = true;
+				len = 0;
+			}
+			++len;
+		}
+	}
+
+	return arr;
+}
+
+uint32_t
+wk_str_push_stripped(struct workspace *wk, const char *s)
+{
+	while (*s && (*s == ' ' || *s == '\n')) {
+		++s;
+	}
+
+	int32_t len;
+
+	for (len = strlen(s) - 1; len >= 0; --len) {
+		if (!(s[len] == ' ' || s[len] == '\n')) {
+			break;
+		}
+	}
+	++len;
+
+	/* while (*s && !(*s == ' ' || *s == '\n')) { */
+	/* 	++s; */
+	/* 	++len; */
+	/* } */
+
+	return wk_str_pushn(wk, s, len);
+}
+
+uint32_t
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
 	uint32_t len, ret;

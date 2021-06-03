@@ -12,21 +12,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	const char *s = wk_objstr(wk, rcvr), *start;
-	uint32_t len = 0;
-
-	while (*s && (*s == ' ' || *s == '\n')) {
-		++s;
-	}
-
-	start = s;
-
-	while (*s && !(*s == ' ' || *s == '\n')) {
-		++s;
-		++len;
-	}
-
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_pushn(wk, start, len);
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push_stripped(wk, wk_objstr(wk, rcvr));
 	return true;
 }
 

@@ -62,6 +62,8 @@ uint32_t wk_str_push(struct workspace *wk, const char *str);
 uint32_t wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
 char *wk_objstr(struct workspace *wk, uint32_t id);
 char *wk_file_path(struct workspace *wk, uint32_t id);
+uint32_t wk_str_push_stripped(struct workspace *wk, const char *s);
+uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
