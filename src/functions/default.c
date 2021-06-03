@@ -392,9 +392,13 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
+		kw_native,
+		kw_version,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
+		[kw_native] = { "native", obj_bool },
+		[kw_version] = { "version", obj_string },
 		0
 	};
 
@@ -429,15 +433,20 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
 	dep->dat.dep.name = an[0].val;
+	dep->dat.dep.version = wk_str_push_stripped(wk, ctx.out);
 
 	if (ctx.status != 0) {
 		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "required dependency not found");
 			return false;
 		}
+
+		LOG_I(log_interp, "dependency %s not found", wk_objstr(wk, dep->dat.dep.name));
 		dep->dat.dep.found = false;
 		return true;
 	}
+
+	LOG_I(log_interp, "dependency %s found: %s", wk_objstr(wk, dep->dat.dep.name), wk_str(wk, dep->dat.dep.version));
 
 	dep->dat.dep.found = true;
 
