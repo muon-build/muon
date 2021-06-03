@@ -598,12 +598,16 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	char src[PATH_MAX + 1] = { 0 };
 
 	uint32_t old_cwd = current_project(wk)->cwd;
+	uint32_t old_build_dir = current_project(wk)->build_dir;
+
 	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", wk_str(wk, old_cwd), wk_objstr(wk, an[0].val));
+	current_project(wk)->build_dir = wk_str_pushf(wk, "%s/%s", wk_str(wk, old_build_dir), wk_objstr(wk, an[0].val));
 
 	snprintf(src, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd));
 
 	bool ret = eval(wk, src);
 	current_project(wk)->cwd = old_cwd;
+	current_project(wk)->build_dir = old_build_dir;
 
 	return ret;
 }
