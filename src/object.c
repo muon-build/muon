@@ -30,6 +30,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_machine: return "machine";
 	case obj_feature_opt: return "feature_opt";
 	case obj_external_program: return "external_program";
+	case obj_external_library: return "external_library";
 	case obj_run_result: return "run_result";
 	case obj_configuration_data: return "configuration_data";
 

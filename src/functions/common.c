@@ -7,6 +7,7 @@
 #include "functions/configuration_data.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
+#include "functions/external_library.h"
 #include "functions/external_program.h"
 #include "functions/feature_opt.h"
 #include "functions/machine.h"
@@ -259,6 +260,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_compiler]    = { impl_tbl_compiler,    impl_tbl_compiler,    NULL,                 },
 	[obj_feature_opt] = { impl_tbl_feature_opt, impl_tbl_feature_opt, NULL,                 },
 	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program, NULL, },
+	[obj_external_library] = { impl_tbl_external_library, impl_tbl_external_library, NULL, },
 	[obj_run_result]  = { impl_tbl_run_result,  impl_tbl_run_result,  NULL, },
 	[obj_string]      = { impl_tbl_string,      impl_tbl_string,      NULL, },
 	[obj_configuration_data] = { impl_tbl_configuration_data, impl_tbl_configuration_data, NULL, },

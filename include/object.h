@@ -27,6 +27,7 @@ enum obj_type {
 	obj_feature_opt,
 	obj_machine,
 	obj_external_program,
+	obj_external_library,
 	obj_run_result,
 	obj_configuration_data,
 
@@ -95,6 +96,10 @@ struct obj {
 			bool found;
 			uint32_t full_path;
 		} external_program;
+		struct {
+			bool found;
+			uint32_t full_path;
+		} external_library;
 		struct {
 			uint32_t out, err;
 			int status;

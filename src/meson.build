@@ -15,6 +15,7 @@ src = files([
 	'functions/default/options.c',
 	'functions/dependency.c',
 	'functions/external_program.c',
+	'functions/external_library.c',
 	'functions/feature_opt.c',
 	'functions/machine.c',
 	'functions/meson.c',
