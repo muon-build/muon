@@ -75,6 +75,7 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
  * arrays
  */
 
+
 bool
 obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
 {
@@ -101,6 +102,40 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 	}
 
 	return true;
+}
+
+struct obj_array_foreach_flat_ctx {
+	void *usr_ctx;
+	obj_array_iterator cb;
+};
+
+static enum iteration_result
+obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct obj_array_foreach_flat_ctx *ctx = _ctx;
+
+	if (get_obj(wk, val)->type == obj_array) {
+		if (!obj_array_foreach(wk, val, ctx, obj_array_foreach_flat_iter)) {
+			return ir_err;
+		} else {
+			return ir_cont;
+		}
+	} else {
+		return ctx->cb(wk, ctx->usr_ctx, val);
+	}
+
+	return ir_cont;
+}
+
+bool
+obj_array_foreach_flat(struct workspace *wk, uint32_t arr_id, void *usr_ctx, obj_array_iterator cb)
+{
+	struct obj_array_foreach_flat_ctx ctx = {
+		.usr_ctx = usr_ctx,
+		.cb = cb,
+	};
+
+	return obj_array_foreach(wk, arr_id, &ctx, obj_array_foreach_flat_iter);
 }
 
 void
