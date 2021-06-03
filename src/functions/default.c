@@ -614,6 +614,13 @@ func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 	return true;
 }
 
+static bool
+func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	L(log_interp, "TODO: test()");
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -665,7 +672,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "subdir_done", todo },
 	{ "subproject", func_subproject },
 	{ "summary", todo },
-	{ "test", todo },
+	{ "test", func_test },
 	{ "vcs_tag", todo },
 	{ "warning", func_message },
 	{ NULL, NULL },
