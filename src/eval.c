@@ -88,8 +88,10 @@ eval(struct workspace *wk, const char *src)
 	 * storing these strings in the workspace's string buffer.
 	 */
 
-	struct tokens *toks = darr_get(&current_project(wk)->tokens,
-		darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 }));
+	uint32_t parent_tokens = current_project(wk)->cur_tokens;
+
+	current_project(wk)->cur_tokens = darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 });
+	struct tokens *toks = darr_get(&current_project(wk)->tokens, current_project(wk)->cur_tokens);
 	struct ast ast = { 0 };
 	bool ret;
 
@@ -106,7 +108,11 @@ eval(struct workspace *wk, const char *src)
 	ret = interpreter_interpret(wk);
 	/* L(log_misc, "done evaluating '%s'", src); */
 
+	current_project(wk)->cur_tokens = parent_tokens;
 	wk->ast = parent_ast;
+	if (parent_ast) {
+		wk->ast->toks = darr_get(&current_project(wk)->tokens, current_project(wk)->cur_tokens);
+	}
 
 	/* tokens_destroy(&toks); // See above note */
 	ast_destroy(&ast);

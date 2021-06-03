@@ -10,6 +10,7 @@
 struct project {
 	struct hash scope;
 	struct darr tokens;
+	uint32_t cur_tokens;
 	/* wk_strings */
 	uint32_t cwd, build_dir, subproject_name;
 	/* objects */
