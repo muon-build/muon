@@ -629,6 +629,12 @@ func_configuration_data(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	return true;
 }
 
+static bool
+func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	L(log_interp, "TODO: installation");
+	return true;
+}
 
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
@@ -660,10 +666,10 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "gettext", todo },
 	{ "import", todo },
 	{ "include_directories", func_include_directories },
-	{ "install_data", todo },
-	{ "install_headers", todo },
-	{ "install_man", todo },
-	{ "install_subdir", todo },
+	{ "install_data", func_install_todo },
+	{ "install_headers", func_install_todo },
+	{ "install_man", func_install_todo },
+	{ "install_subdir", func_install_todo },
 	{ "is_disabler", todo },
 	{ "is_variable", todo },
 	{ "jar", todo },
