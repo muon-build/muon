@@ -225,11 +225,21 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_c_args,
 	};
 	struct args_kw akw[] = {
-		[kw_include_directories] = { "include_directories", obj_file },
+		[kw_include_directories] = { "include_directories", obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_c_args] = { "c_args", obj_array },
 		0
 	};
+
+	if (akw[kw_include_directories].set) {
+		uint32_t inc_dirs;
+
+		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+			return false;
+		}
+
+		akw[kw_include_directories].val = inc_dirs;
+	}
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
