@@ -95,51 +95,16 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 	}, func_add_project_arguments_iter);
 }
 
-struct func_files_iter_ctx {
-	uint32_t arr, node;
-};
-
-static enum iteration_result
-func_files_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
-{
-	struct func_files_iter_ctx  *ctx = _ctx;
-
-	if (!typecheck(wk, ctx->node, val_id, obj_string)) {
-		return ir_err;
-	}
-
-	uint32_t file_id;
-	struct obj *file = make_obj(wk, &file_id, obj_file);
-
-	file->dat.file = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val_id));
-
-	const char *abs_path = wk_str(wk, file->dat.file);
-
-	if (!fs_file_exists(abs_path)) {
-		LOG_W(log_interp, "the file '%s' does not exist", abs_path);
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->arr, file_id);
-
-	return ir_cont;
-}
-
 static bool
 func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_array);
-
-	return obj_array_foreach(wk, an[0].val, &(struct func_files_iter_ctx) {
-		.arr = *obj,
-		.node = an[0].node,
-	}, func_files_iter);
+	return coerce_files(wk, an[0].node, an[0].val, obj);
 }
 
 static bool
@@ -209,17 +174,13 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 static bool
 func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	struct obj *file = make_obj(wk, obj, obj_file);
-
-	file->dat.file = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, an[0].val));
-
-	return true;
+	return coerce_dirs(wk, an[0].node, an[0].val, obj);
 }
 
 static bool

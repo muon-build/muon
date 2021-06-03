@@ -9,5 +9,6 @@ enum requirement_type {
 };
 
 bool coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requirement_type *requirement);
-bool coerce_files(struct workspace *wk, struct args_kw *arg, uint32_t *res);
+bool coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res);
+bool coerce_dirs(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res);
 #endif

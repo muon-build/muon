@@ -145,7 +145,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 
 	if (akw[kw_input].set) {
 		uint32_t input_arr, input;
-		if (!coerce_files(wk, &akw[kw_input], &input_arr)) {
+		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
 			return false;
 		}
 
