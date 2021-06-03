@@ -142,7 +142,6 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		return false;
 	}
 
-
 	if (akw[kw_input].set) {
 		uint32_t input_arr, input;
 		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
@@ -169,6 +168,10 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 				interp_error(wk, akw[kw_output].node, "config file output cannot contain '/'");
 				return false;
 			}
+		}
+
+		if (!fs_mkdir_p(wk_str(wk, current_project(wk)->build_dir))) {
+			return false;
 		}
 
 		make_obj(wk, obj, obj_file)->dat.file =
