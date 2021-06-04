@@ -223,11 +223,15 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_include_directories,
 		kw_dependencies,
 		kw_c_args,
+		kw_install,
+		kw_link_with,
 	};
 	struct args_kw akw[] = {
 		[kw_include_directories] = { "include_directories", obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_c_args] = { "c_args", obj_array },
+		[kw_install] = { "install", obj_bool },
+		[kw_link_with] = { "link_with", obj_array },
 		0
 	};
 
@@ -275,6 +279,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 
 	if (akw[kw_c_args].set) {
 		tgt->dat.tgt.c_args = akw[kw_c_args].val;
+	}
+
+	if (akw[kw_link_with].set) {
+		tgt->dat.tgt.link_with = akw[kw_link_with].val;
 	}
 
 	obj_array_push(wk, current_project(wk)->targets, *obj);
