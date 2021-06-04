@@ -237,6 +237,15 @@ fs_find_cmd(const char *cmd, const char **ret)
 	static char cmd_path[PATH_MAX + 1] = { 0 };
 	const char *env_path, *base_start;
 
+	if (*cmd == '/') {
+		if (fs_exe_exists(cmd)) {
+			*ret = cmd;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	if (!(env_path = getenv("PATH"))) {
 		LOG_W(log_misc, "failed to get the value of PATH");
 		return false;
