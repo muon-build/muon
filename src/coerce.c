@@ -113,6 +113,18 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res, 
 	}
 }
 
+static bool
+dont_check_exists(const char *_)
+{
+	return true;
+}
+
+bool
+coerce_output_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+{
+	return _coerce_files(wk, node, val, res, "output file", dont_check_exists);
+}
+
 bool
 coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
