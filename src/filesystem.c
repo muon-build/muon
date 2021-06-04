@@ -40,6 +40,21 @@ fs_file_exists(const char *path)
 }
 
 bool
+fs_exe_exists(const char *path)
+{
+	struct stat sb;
+	if (access(path, X_OK) != 0) {
+		return false;
+	} else if (!fs_stat(path, &sb)) {
+		return false;
+	} else if (!S_ISREG(sb.st_mode)) {
+		return false;
+	}
+
+	return true;
+}
+
+bool
 fs_dir_exists(const char *path)
 {
 	struct stat sb;

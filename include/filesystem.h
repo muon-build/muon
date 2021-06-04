@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 bool fs_file_exists(const char *path);
+bool fs_exe_exists(const char *path);
 bool fs_dir_exists(const char *path);
 bool fs_mkdir(const char *path);
 bool fs_mkdir_p(const char *path);
