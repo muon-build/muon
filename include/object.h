@@ -45,6 +45,11 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
+enum dep_flags {
+	dep_flag_found = 1 << 0,
+	dep_flag_pkg_config = 1 << 1,
+};
+
 struct obj {
 	enum obj_type type;
 	union {
@@ -82,7 +87,7 @@ struct obj {
 			uint32_t version;
 			uint32_t link_with;
 			uint32_t include_directories;
-			bool found;
+			uint32_t flags;
 		} dep;
 		struct {
 			uint32_t def;
