@@ -33,6 +33,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_external_library: return "external_library";
 	case obj_run_result: return "run_result";
 	case obj_configuration_data: return "configuration_data";
+	case obj_custom_target: return "custom_target";
 
 	case obj_type_count: assert(false); return "uh oh";
 	}
@@ -219,6 +220,7 @@ obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
 	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {
+		LOG_W(log_interp, "obj_array_index failed");
 		return false;
 	}
 

@@ -21,6 +21,7 @@ enum obj_type {
 	obj_bool,
 	obj_file,
 	obj_build_target,
+	obj_custom_target,
 	obj_subproject,
 	obj_dependency,
 	obj_function,
@@ -48,6 +49,10 @@ enum feature_opt_state {
 enum dep_flags {
 	dep_flag_found = 1 << 0,
 	dep_flag_pkg_config = 1 << 1,
+};
+
+enum custom_target_flags {
+	custom_target_capture = 1 << 0,
 };
 
 struct obj {
@@ -82,6 +87,14 @@ struct obj {
 			uint32_t deps;
 			uint32_t c_args;
 		} tgt;
+		struct {
+			uint32_t name;
+			uint32_t cmd;
+			uint32_t args;
+			uint32_t input;
+			uint32_t output;
+			uint32_t flags;
+		} custom_target;
 		struct {
 			uint32_t name;
 			uint32_t version;

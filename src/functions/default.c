@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "coerce.h"
@@ -11,6 +12,7 @@
 #include "functions/default/configure_file.h"
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
+#include "functions/string.h"
 #include "interpreter.h"
 #include "log.h"
 #include "run_cmd.h"
@@ -540,6 +542,248 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	return true;
 }
 
+struct custom_target_cmd_fmt_ctx {
+	uint32_t arr, err_node;
+	uint32_t input, output;
+};
+
+static bool
+prefix_plus_index(const char *str, const char *prefix, int64_t *index)
+{
+	uint32_t len = strlen(prefix);
+	if (strlen(str) > len && strncmp(prefix, str, len) == 0) {
+		char *endptr;
+		*index = strtol(&str[len], &endptr, 10);
+
+		if (*endptr) {
+			return false;
+		}
+		return true;
+	}
+
+	return false;
+}
+
+enum format_cb_result
+format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *strkey, uint32_t *elem)
+{
+	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
+
+	enum cmd_arg_fmt_key {
+		key_input,
+		key_output,
+		key_outdir,
+		key_depfile,
+		key_plainname,
+		key_basename,
+		key_private_dir,
+		key_source_root,
+		key_build_root,
+		key_current_source_dir,
+		cmd_arg_fmt_key_count,
+	};
+
+	const char *key_names[cmd_arg_fmt_key_count] = {
+		[key_input             ] = "INPUT",
+		[key_output            ] = "OUTPUT",
+		[key_outdir            ] = "OUTDIR",
+		[key_depfile           ] = "DEPFILE",
+		[key_plainname         ] = "PLAINNAME",
+		[key_basename          ] = "BASENAME",
+		[key_private_dir       ] = "PRIVATE_DIR",
+		[key_source_root       ] = "SOURCE_ROOT",
+		[key_build_root        ] = "BUILD_ROOT",
+		[key_current_source_dir] = "CURRENT_SOURCE_DIR",
+	};
+
+	enum cmd_arg_fmt_key key;
+	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
+		if (strcmp(key_names[key], strkey) == 0) {
+			break;
+		}
+	}
+
+	uint32_t obj;
+
+	switch (key) {
+	case key_input:
+		if (!obj_array_index(wk, ctx->input, 0, &obj)) {
+			return format_cb_error;
+		}
+
+		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
+		return format_cb_found;
+	case key_output:
+		if (!obj_array_index(wk, ctx->output, 0, &obj)) {
+			return format_cb_error;
+		}
+
+		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
+		return format_cb_found;
+	case key_outdir:
+		/* @OUTDIR@: the full path to the directory where the output(s)
+		 * must be written */
+		make_obj(wk, elem, obj_string)->dat.str = current_project(wk)->build_dir;
+		return format_cb_found;
+	case key_current_source_dir:
+		/* @CURRENT_SOURCE_DIR@: this is the directory where the
+		 * currently processed meson.build is located in. Depending on
+		 * the backend, this may be an absolute or a relative to
+		 * current workdir path. */
+		make_obj(wk, elem, obj_string)->dat.str = current_project(wk)->cwd;
+		return format_cb_found;
+	case key_private_dir:
+		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
+		 * custom target must store all its intermediate files. */
+		make_obj(wk, elem, obj_string)->dat.str = wk_str_push(wk, "/tmp");
+		return format_cb_found;
+	case key_source_root:
+	/* @SOURCE_ROOT@: the path to the root of the source tree.
+	 * Depending on the backend, this may be an absolute or a
+	 * relative to current workdir path. */
+	case key_build_root:
+	/* @BUILD_ROOT@: the path to the root of the build tree.
+	 * Depending on the backend, this may be an absolute or a
+	 * relative to current workdir path. */
+	case key_plainname:
+	/* @PLAINNAME@: the input filename, without a path */
+	case key_basename:
+	/* @BASENAME@: the input filename, with extension removed */
+	case key_depfile:
+		/* @DEPFILE@: the full path to the dependency file passed to
+		 * depfile */
+		LOG_W(log_interp, "TODO: handle @%s@", strkey);
+		return format_cb_error;
+	default:
+		break;
+	}
+
+
+	int64_t index;
+	uint32_t arr;
+
+	if (prefix_plus_index(strkey, "INPUT", &index)) {
+		arr = ctx->input;
+	} else if (prefix_plus_index(strkey, "OUTPUT", &index)) {
+		arr = ctx->output;
+	} else {
+		return format_cb_not_found;
+	}
+
+	if (!boundscheck(wk, ctx->err_node, arr, &index)) {
+		return format_cb_error;
+	} else if (!obj_array_index(wk, arr, index, &obj)) {
+		return format_cb_error;
+	}
+
+	make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
+	return format_cb_found;
+}
+
+static enum iteration_result
+custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
+
+	uint32_t str;
+	struct obj *obj;
+
+	switch ((obj = get_obj(wk, val))->type) {
+	case obj_external_program:
+		str = obj->dat.external_program.full_path;
+		break;
+	case obj_file:
+		str = obj->dat.file;
+		break;
+	case obj_string: {
+		if (!string_format(wk, ctx->err_node, get_obj(wk, val)->dat.str,
+			&str, ctx, format_cmd_arg_cb)) {
+			return ir_err;
+		}
+		break;
+	}
+	default:
+		interp_error(wk, ctx->err_node, "unable to coerce '%s' to string", obj_type_to_s(obj->type));
+		return ir_err;
+	}
+
+	/* L(log_interp, "cmd arg: '%s'", wk_str(wk, str)); */
+
+	uint32_t str_id;
+	make_obj(wk, &str_id, obj_string)->dat.str = str;
+	obj_array_push(wk, ctx->arr, str_id);
+
+	return ir_cont;
+}
+
+static bool
+func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_input,
+		kw_output,
+		kw_command,
+		kw_capture,
+		kw_install,
+		kw_install_dir,
+
+	};
+	struct args_kw akw[] = {
+		[kw_input]       = { "input", obj_any, .required = true },
+		[kw_output]      = { "output", obj_any, .required = true },
+		[kw_command]     = { "command", obj_array, .required = true },
+		[kw_capture]     = { "capture", obj_bool },
+		[kw_install]     = { "install", obj_bool }, // TODO
+		[kw_install_dir] = { "install_dir", obj_string }, // TODO
+		0
+	};
+	uint32_t input, output, cmd, flags = 0;
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input)) {
+		return false;
+	} else if (!get_obj(wk, input)->dat.arr.len) {
+		interp_error(wk, akw[kw_input].node, "input cannot be empty");
+	}
+
+	if (!coerce_output_files(wk, akw[kw_input].node, akw[kw_input].val, &output)) {
+		return false;
+	} else if (!get_obj(wk, output)->dat.arr.len) {
+		interp_error(wk, akw[kw_output].node, "output cannot be empty");
+	}
+
+	{
+		make_obj(wk, &cmd, obj_array);
+		struct custom_target_cmd_fmt_ctx ctx = {
+			.arr = cmd,
+			.err_node = akw[kw_command].node,
+			.input = input,
+			.output = output,
+		};
+
+		if (!obj_array_foreach(wk, akw[kw_command].val, &ctx, custom_target_cmd_fmt_iter)) {
+			return false;
+		}
+	}
+
+	if (akw[kw_capture].set && get_obj(wk, akw[kw_capture].val)->dat.boolean) {
+		flags |= custom_target_capture;
+	}
+
+	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
+	tgt->dat.custom_target.name = an[0].val;
+	tgt->dat.custom_target.cmd = cmd;
+	tgt->dat.custom_target.input = input;
+	/* tgt->dat.custom_target.output = output; */
+	tgt->dat.custom_target.flags = flags;
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -554,7 +798,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "build_target", todo },
 	{ "configuration_data", func_configuration_data },
 	{ "configure_file", func_configure_file },
-	{ "custom_target", todo },
+	{ "custom_target", func_custom_target },
 	{ "declare_dependency", func_declare_dependency },
 	{ "dependency", func_dependency },
 	{ "disabler", todo },
