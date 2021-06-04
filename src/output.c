@@ -170,6 +170,17 @@ process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
+static enum iteration_result
+process_include_dirs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	uint32_t *args_id = _ctx;
+	struct obj *inc = get_obj(wk, val_id);
+	assert(inc->type == obj_file);
+
+	wk_strappf(wk, args_id, "-I%s ", wk_str(wk, inc->dat.file));
+	return ir_cont;
+}
+
 struct write_tgt_ctx {
 	FILE *out;
 	struct project *proj;
@@ -191,9 +202,10 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
-			assert(inc->type == obj_file); // TODO
-
-			wk_strappf(wk, &ctx.args_id, "-I%s ", wk_str(wk, inc->dat.file));
+			assert(inc->type == obj_array);
+			if (!obj_array_foreach(wk, tgt->dat.tgt.include_directories, &ctx.args_id, process_include_dirs_iter)) {
+				return false;
+			}
 		}
 
 		{ /* dep includes */
