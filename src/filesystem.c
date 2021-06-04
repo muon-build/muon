@@ -254,7 +254,7 @@ fs_find_cmd(const char *cmd, char **ret)
 			cmd_path[len] = '/';
 			strcpy(&cmd_path[len + 1], cmd);
 
-			if (fs_file_exists(cmd_path)) {
+			if (fs_exe_exists(cmd_path)) {
 				*ret = cmd_path;
 				return true;
 			}
