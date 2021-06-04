@@ -203,7 +203,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
 			assert(inc->type == obj_array);
-			if (!obj_array_foreach(wk, tgt->dat.tgt.include_directories, &ctx.args_id, process_include_dirs_iter)) {
+			if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories, &ctx.args_id, process_include_dirs_iter)) {
 				return false;
 			}
 		}
