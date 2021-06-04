@@ -438,4 +438,5 @@ void
 set_default_options(struct workspace *wk)
 {
 	set_option(wk, "default_library", obj_string, "static");
+	set_option(wk, "mandir", obj_string, "/usr/share/man");
 }
