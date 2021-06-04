@@ -26,6 +26,24 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 	va_end(args);
 }
 
+bool
+boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
+{
+	struct obj *arr = get_obj(wk, obj_id);
+
+	assert(arr->type == obj_array);
+
+	if (labs(*i) >= arr->dat.arr.len) {
+		interp_error(wk, n_id, "index %ld out of bounds", *i);
+		return false;
+	}
+
+	if (*i < 0) {
+		*i += arr->dat.n;
+	}
+
+	return true;
+}
 
 bool
 typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type)
@@ -77,16 +95,11 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
+
 		int64_t i = r->dat.num;
 
-		struct obj *arr = get_obj(wk, l_id);
-		if (labs(i) >= arr->dat.arr.len) {
-			interp_error(wk, n->r, "index %ld out of bounds", i);
+		if (!boundscheck(wk, n->r, l_id, &i)) {
 			return false;
-		}
-
-		if (i < 0) {
-			i += arr->dat.n;
 		}
 
 		return obj_array_index(wk, l_id, r->dat.num, obj);

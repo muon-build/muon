@@ -15,4 +15,5 @@ void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
 
 bool typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type);
+bool boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i);
 #endif
