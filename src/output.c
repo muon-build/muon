@@ -83,7 +83,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	assert(src->type == obj_file); // TODO
 	const char *pws = path_without_slashes(wk_str(wk, src->dat.file));
 
-	wk_strappf(wk, &ctx->object_names_id, "%s.p/%s.o ", wk_str(wk, ctx->tgt->dat.tgt.name), pws);
+	wk_str_appf(wk, &ctx->object_names_id, "%s.p/%s.o ", wk_str(wk, ctx->tgt->dat.tgt.name), pws);
 
 	fprintf(ctx->out,
 		"build %s.p/%s.o: c_COMPILER %s\n"
@@ -107,7 +107,7 @@ make_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	assert(arg->type == obj_string); // TODO
 
-	wk_strappf(wk, &ctx->args_id, "%s ", wk_str(wk, arg->dat.str));
+	wk_str_appf(wk, &ctx->args_id, "%s ", wk_str(wk, arg->dat.str));
 
 	return ir_cont;
 }
@@ -122,7 +122,7 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		struct obj *inc = get_obj(wk, dep->dat.dep.include_directories);
 		assert(inc->type == obj_file); // TODO
 
-		wk_strappf(wk, &ctx->args_id, "-I%s ", wk_str(wk, inc->dat.file));
+		wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, inc->dat.file));
 	}
 
 	return ir_cont;
@@ -143,7 +143,7 @@ process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	if (tgt->type == obj_build_target) {
 		name_id = tgt->dat.tgt.build_name;
-		wk_strappf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, name_id));
+		wk_str_appf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, name_id));
 	} else if (tgt->type == obj_string) {
 		name_id = tgt->dat.str;
 	} else {
@@ -151,7 +151,7 @@ process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	wk_strappf(wk, ctx->link_args_id, " %s", wk_str(wk, name_id));
+	wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, name_id));
 
 	return ir_cont;
 }
@@ -177,7 +177,7 @@ process_include_dirs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *inc = get_obj(wk, val_id);
 	assert(inc->type == obj_file);
 
-	wk_strappf(wk, args_id, "-I%s ", wk_str(wk, inc->dat.file));
+	wk_str_appf(wk, args_id, "-I%s ", wk_str(wk, inc->dat.file));
 	return ir_cont;
 }
 

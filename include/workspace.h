@@ -58,7 +58,9 @@ bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t p
 
 uint32_t wk_str_pushf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
 char *wk_str(struct workspace *wk, uint32_t id);
-void wk_strappf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+void wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+void wk_str_app(struct workspace *wk, uint32_t *id, const char *str);
+void wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n);
 uint32_t wk_str_push(struct workspace *wk, const char *str);
 uint32_t wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
 char *wk_objstr(struct workspace *wk, uint32_t id);
