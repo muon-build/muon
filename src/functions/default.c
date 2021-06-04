@@ -113,9 +113,11 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
+		kw_native,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
+		[kw_native] = { "native", obj_bool },
 		0
 	};
 
