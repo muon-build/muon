@@ -17,10 +17,13 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 {
 	pid_t pid;
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
-	int pipefd_out[2], pipefd_err[2];
+	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 
 	static char out_buf[BUF_LEN] = { 0 };
 	static char err_buf[BUF_LEN] = { 0 };
+
+	memset(out_buf, 0, BUF_LEN);
+	memset(err_buf, 0, BUF_LEN);
 
 	if (pipe(pipefd_out) == -1) {
 		ctx->err_no = errno;
