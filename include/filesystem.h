@@ -15,5 +15,5 @@ bool fs_fsize(FILE *file, uint64_t *ret);
 bool fs_fclose(FILE *file);
 FILE *fs_fopen(const char *path, const char *mode);
 bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
-bool fs_find_cmd(const char *cmd, char **ret);
+bool fs_find_cmd(const char *cmd, const char **ret);
 #endif

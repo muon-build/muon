@@ -134,7 +134,7 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 	}
 
 	char buf[PATH_MAX + 1] = { 0 };
-	char *cmd_path;
+	const char *cmd_path;
 
 	/* TODO: 1. Program overrides set via meson.override_find_program() */
 	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */

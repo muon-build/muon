@@ -231,7 +231,7 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 
 
 bool
-fs_find_cmd(const char *cmd, char **ret)
+fs_find_cmd(const char *cmd, const char **ret)
 {
 	uint32_t len, cmd_len = strlen(cmd);
 	static char cmd_path[PATH_MAX + 1] = { 0 };
