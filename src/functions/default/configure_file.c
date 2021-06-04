@@ -32,8 +32,8 @@ buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 static bool
 substitute_config(struct workspace *wk, uint32_t conf_data, uint32_t in_node, const char *in, const char *out)
 {
-	L(log_interp, "in: %s", in);
-	L(log_interp, "out: %s", out);
+	/* L(log_interp, "in: %s", in); */
+	/* L(log_interp, "out: %s", out); */
 
 	uint32_t dict = get_obj(wk, conf_data)->dat.configuration_data.dict;
 	bool ret = true;
@@ -81,7 +81,6 @@ substitute_config(struct workspace *wk, uint32_t conf_data, uint32_t in_node, co
 				}
 
 				const char *sub = wk_objstr(wk, elem);
-				L(log_interp, "%s", sub);
 				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 
 				reading_id = false;
