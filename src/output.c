@@ -75,7 +75,7 @@ struct write_tgt_iter_ctx {
 	uint32_t object_names_id;
 };
 
-enum iteration_result
+static enum iteration_result
 write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
@@ -99,7 +99,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-enum iteration_result
+static enum iteration_result
 make_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
@@ -112,7 +112,7 @@ make_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-enum iteration_result
+static enum iteration_result
 process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
@@ -133,7 +133,7 @@ struct process_dep_links_iter_ctx {
 	uint32_t *implicit_deps_id;
 };
 
-enum iteration_result
+static enum iteration_result
 process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct process_dep_links_iter_ctx *ctx = _ctx;
@@ -156,7 +156,7 @@ process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-enum iteration_result
+static enum iteration_result
 process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct obj *dep = get_obj(wk, val_id);
