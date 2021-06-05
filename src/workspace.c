@@ -102,8 +102,6 @@ _str_push(struct workspace *wk, const char *buf)
 {
 	uint32_t len, ret;
 
-	/* L(log_misc, "pushing: '%s'", buf); */
-
 	len = strlen(buf) + 1;
 	ret = wk->strs.len;
 
@@ -133,7 +131,7 @@ uint32_t
 wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
 {
 	static char buf[BUF_SIZE + 1] = { 0 };
-	memset(buf, 0, BUF_SIZE);
+	/* memset(buf, 0, BUF_SIZE); */
 	vsnprintf(buf, BUF_SIZE, fmt,  args);
 
 	return _str_push(wk, buf);
@@ -151,8 +149,8 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 	return ret;
 }
 
-void
-wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
+static void
+_str_app(struct workspace *wk, uint32_t *id, const char *buf)
 {
 	uint32_t curlen;
 	const char *cur = wk_str(wk, *id);
@@ -168,8 +166,17 @@ wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
 
 	assert(wk->strs.len);
 	--wk->strs.len;
+	_str_push(wk, buf);
+}
 
-	wk_str_pushn(wk, str, n);
+void
+wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
+{
+	static char buf[BUF_SIZE + 1] = { 0 };
+	memset(buf, 0, BUF_SIZE);
+	strncpy(buf, str, n > BUF_SIZE ? BUF_SIZE : n);
+
+	_str_app(wk, id, buf);
 }
 
 void
@@ -181,25 +188,15 @@ wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
 void
 wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
-	uint32_t curlen;
-	const char *cur = wk_str(wk, *id);
-
-	curlen = strlen(cur);
-
-	if (*id + curlen + 1 == wk->strs.len) {
-		/* L(log_misc, "str '%s' is already at the end of pool", cur); */
-	} else {
-		/* L(log_misc, "moving '%s' to the end of pool", cur); */
-		*id = wk_str_push(wk, cur);
-	}
-
-	assert(wk->strs.len);
-	--wk->strs.len;
+	static char buf[BUF_SIZE + 1] = { 0 };
+	/* memset(buf, 0, BUF_SIZE); */
 
 	va_list args;
 	va_start(args, fmt);
-	wk_str_vpushf(wk, fmt, args);
+	vsnprintf(buf, BUF_SIZE, fmt, args);
 	va_end(args);
+
+	_str_app(wk, id, buf);
 }
 
 char *
