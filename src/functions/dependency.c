@@ -16,7 +16,8 @@ func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 	}
 
 	struct obj *res = make_obj(wk, obj, obj_bool);
-	res->dat.boolean = get_obj(wk, rcvr)->dat.dep.flags & dep_flag_found;
+	res->dat.boolean = (get_obj(wk, rcvr)->dat.dep.flags & dep_flag_found)
+			   == dep_flag_found;
 
 	return true;
 }
