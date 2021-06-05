@@ -204,25 +204,25 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
 			assert(inc->type == obj_array);
 			if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories, &ctx.args_id, process_include_dirs_iter)) {
-				return false;
+				return ir_err;
 			}
 		}
 
 		{ /* dep includes */
 			if (tgt->dat.tgt.deps) {
 				if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_args_iter)) {
-					return false;
+					return ir_err;
 				}
 			}
 		}
 
 		if (!obj_array_foreach(wk, proj->cfg.args, &ctx, make_args_iter)) {
-			return false;
+			return ir_err;
 		}
 
 		if (tgt->dat.tgt.c_args) {
 			if (!obj_array_foreach(wk, tgt->dat.tgt.c_args, &ctx, make_args_iter)) {
-				return false;
+				return ir_err;
 			}
 		}
 	}
@@ -230,7 +230,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	{ /* obj names */
 		ctx.object_names_id = wk_str_push(wk, "");
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_iter)) {
-			return false;
+			return ir_err;
 		}
 	}
 
@@ -251,12 +251,11 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 				if (tgt->dat.tgt.deps) {
 					if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_links_iter)) {
-						return false;
+						return ir_err;
 					}
 				}
 			}
 
-			wk_str(wk, link_args_id);
 
 			break;
 		case tgt_library:
@@ -274,7 +273,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		fprintf(out, "\n LINK_ARGS = %s\n\n", wk_str(wk, link_args_id));
 	}
 
-	return true;
+	return ir_cont;
 }
 
 static bool
