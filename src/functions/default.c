@@ -274,6 +274,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 
 	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
 
+	LOG_I(log_interp, "adding target %s", wk_str(wk, tgt->dat.tgt.build_name));
+
 	if (akw[kw_include_directories].set) {
 		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
 	}
@@ -738,7 +740,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		[kw_install_dir] = { "install_dir", obj_string }, // TODO
 		0
 	};
-	uint32_t input, output, cmd, flags = 0;
+	uint32_t input, output, args, cmd, flags = 0;
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -750,22 +752,31 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		interp_error(wk, akw[kw_input].node, "input cannot be empty");
 	}
 
-	if (!coerce_output_files(wk, akw[kw_input].node, akw[kw_input].val, &output)) {
+	if (!coerce_output_files(wk, akw[kw_output].node, akw[kw_output].val, &output)) {
 		return false;
 	} else if (!get_obj(wk, output)->dat.arr.len) {
 		interp_error(wk, akw[kw_output].node, "output cannot be empty");
 	}
 
 	{
-		make_obj(wk, &cmd, obj_array);
+		make_obj(wk, &args, obj_array);
 		struct custom_target_cmd_fmt_ctx ctx = {
-			.arr = cmd,
+			.arr = args,
 			.err_node = akw[kw_command].node,
 			.input = input,
 			.output = output,
 		};
 
 		if (!obj_array_foreach(wk, akw[kw_command].val, &ctx, custom_target_cmd_fmt_iter)) {
+			return false;
+		}
+
+		if (!get_obj(wk, args)->dat.arr.len) {
+			interp_error(wk, akw[kw_command].node, "cmd cannot be empty");
+			return false;
+		}
+
+		if (!obj_array_index(wk, args, 0, &cmd)) {
 			return false;
 		}
 	}
@@ -775,12 +786,14 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 	}
 
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
-	tgt->dat.custom_target.name = an[0].val;
+	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.custom_target.cmd = cmd;
+	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
-	/* tgt->dat.custom_target.output = output; */
+	tgt->dat.custom_target.output = output;
 	tgt->dat.custom_target.flags = flags;
 
+	obj_array_push(wk, current_project(wk)->targets, *obj);
 	return true;
 }
 

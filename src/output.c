@@ -76,7 +76,7 @@ struct write_tgt_iter_ctx {
 };
 
 static enum iteration_result
-write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *src = get_obj(wk, val_id);
@@ -187,7 +187,7 @@ struct write_tgt_ctx {
 };
 
 static enum iteration_result
-write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
+write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
 	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
 	struct project *proj = ((struct write_tgt_ctx *)_ctx)->proj;
@@ -229,7 +229,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	{ /* obj names */
 		ctx.object_names_id = wk_str_push(wk, "");
-		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_iter)) {
+		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_sources_iter)) {
 			return ir_err;
 		}
 	}
@@ -281,12 +281,138 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	return ir_cont;
 }
 
+struct concat_strings_ctx {
+	uint32_t *res;
+};
+
+#define BUF_SIZE 2048
+
+static enum iteration_result
+concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct concat_strings_ctx *ctx = _ctx;
+	struct obj *obj = get_obj(wk, val);
+	uint32_t str;
+
+	switch (obj->type) {
+	case obj_string:
+		str = obj->dat.str;
+		break;
+	case obj_file:
+		str = obj->dat.file;
+		break;
+	default:
+		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
+		return ir_err;
+	}
+
+
+	const char *s = wk_str(wk, str);
+
+	if (strlen(s) >= BUF_SIZE) {
+		LOG_W(log_out, "string too long in concat strings: '%s'", s);
+		return ir_err;
+	}
+
+	static char buf[BUF_SIZE + 2] = { 0 };
+	uint32_t i = 0;
+	bool quote = false;
+
+	for (; *s; ++s) {
+		if (*s == ' ') {
+			quote = true;
+			buf[i] = '$';
+			++i;
+		}
+
+		buf[i] = *s;
+		++i;
+	}
+
+	buf[i] = 0;
+	++i;
+
+	if (quote) {
+		wk_str_app(wk, ctx->res, "'");
+	}
+
+	wk_str_app(wk, ctx->res, buf);
+
+	if (quote) {
+		wk_str_app(wk, ctx->res, "'");
+	}
+
+	wk_str_app(wk, ctx->res, " ");
+	return ir_cont;
+}
+
+static bool
+concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
+{
+	*res = wk_str_push(wk, "");
+
+	struct concat_strings_ctx ctx = {
+		.res = res,
+	};
+
+	return obj_array_foreach(wk, arr, &ctx, concat_strings_iter);
+}
+
+static enum iteration_result
+write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
+{
+	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
+
+	struct obj *tgt = get_obj(wk, tgt_id);
+	LOG_I(log_out, "writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
+
+	uint32_t outputs, inputs, cmdline;
+
+	if (!concat_strings(wk, tgt->dat.custom_target.input, &inputs)) {
+		return ir_err;
+	}
+
+	if (!concat_strings(wk, tgt->dat.custom_target.output, &outputs)) {
+		return ir_err;
+	}
+
+	if (!concat_strings(wk, tgt->dat.custom_target.args, &cmdline)) {
+		return ir_err;
+	}
+
+	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
+		" COMMAND = %s\n"
+		" DESCRIPTION = Generating$ %s$ with$ a$ custom$ command\n",
+		wk_str(wk, outputs),
+		wk_str(wk, inputs),
+		wk_objstr(wk, tgt->dat.custom_target.cmd),
+		wk_str(wk, cmdline),
+		wk_str(wk, tgt->dat.custom_target.name)
+		);
+
+	return ir_cont;
+}
+
+static enum iteration_result
+write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
+{
+	switch (get_obj(wk, tgt_id)->type) {
+	case obj_build_target:
+		return write_build_tgt(wk, _ctx, tgt_id);
+	case obj_custom_target:
+		return write_custom_tgt(wk, _ctx, tgt_id);
+	default:
+		LOG_W(log_out, "invalid tgt type '%s'", obj_type_to_s(get_obj(wk, tgt_id)->type));
+		return ir_err;
+	}
+}
+
 static bool
 write_project(FILE *out, struct workspace *wk, struct project *proj)
 {
 	struct write_tgt_ctx ctx = { .out = out, .proj = proj };
 
-	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt)) {
+	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
 		return false;
 	}
 
