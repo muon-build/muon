@@ -128,15 +128,15 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-struct process_dep_links_iter_ctx {
+struct process_link_with_ctx {
 	uint32_t *link_args_id;
 	uint32_t *implicit_deps_id;
 };
 
 static enum iteration_result
-process_dep_links_iter_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	struct process_dep_links_iter_ctx *ctx = _ctx;
+	struct process_link_with_ctx *ctx = _ctx;
 
 	struct obj *tgt = get_obj(wk, val_id);
 	uint32_t name_id;
@@ -162,7 +162,7 @@ process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *dep = get_obj(wk, val_id);
 
 	if (dep->dat.dep.link_with) {
-		if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_dep_links_iter_iter)) {
+		if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_link_with_iter)) {
 			return false;
 		}
 	}
@@ -193,7 +193,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct project *proj = ((struct write_tgt_ctx *)_ctx)->proj;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.name));
+	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
 	struct write_tgt_iter_ctx ctx = { .tgt = tgt, .out = out };
 
@@ -244,7 +244,7 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined");
 
 			{ /* dep links */
-				struct process_dep_links_iter_ctx ctx = {
+				struct process_link_with_ctx ctx = {
 					.link_args_id = &link_args_id,
 					.implicit_deps_id = &implicit_deps_id
 				};
@@ -254,8 +254,13 @@ write_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 						return ir_err;
 					}
 				}
-			}
 
+				if (tgt->dat.tgt.link_with) {
+					if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, &ctx, process_link_with_iter)) {
+						return ir_err;
+					}
+				}
+			}
 
 			break;
 		case tgt_library:
