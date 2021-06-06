@@ -79,13 +79,15 @@ struct obj {
 		} dict;
 		uint32_t file;
 		struct {
-			uint32_t name, build_name;
-			enum tgt_type type;
+			uint32_t name;
+			uint32_t build_name;
+			uint32_t build_dir;
 			uint32_t src;
 			uint32_t link_with;
 			uint32_t include_directories;
 			uint32_t deps;
 			uint32_t c_args;
+			enum tgt_type type;
 		} tgt;
 		struct {
 			uint32_t name;

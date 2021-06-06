@@ -279,6 +279,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	}
 
 	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
+	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 
 	LOG_I(log_interp, "adding target %s", wk_str(wk, tgt->dat.tgt.build_name));
 
