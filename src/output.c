@@ -40,7 +40,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"\n"
 		"rule CUSTOM_COMMAND\n"
 		" command = $COMMAND\n"
-		" description = $DESC\n"
+		" description = $DESCRIPTION\n"
 		" restat = 1\n"
 		"\n"
 		"# Phony build target, always out of date\n"
@@ -287,11 +287,10 @@ struct concat_strings_ctx {
 
 #define BUF_SIZE 2048
 
-static enum iteration_result
-concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
+static bool
+concat_str(struct workspace *wk, uint32_t *dest, uint32_t src)
 {
-	struct concat_strings_ctx *ctx = _ctx;
-	struct obj *obj = get_obj(wk, val);
+	struct obj *obj = get_obj(wk, src);
 	uint32_t str;
 
 	switch (obj->type) {
@@ -306,12 +305,11 @@ concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		return ir_err;
 	}
 
-
 	const char *s = wk_str(wk, str);
 
 	if (strlen(s) >= BUF_SIZE) {
 		LOG_W(log_out, "string too long in concat strings: '%s'", s);
-		return ir_err;
+		return false;
 	}
 
 	static char buf[BUF_SIZE + 2] = { 0 };
@@ -333,16 +331,27 @@ concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	++i;
 
 	if (quote) {
-		wk_str_app(wk, ctx->res, "'");
+		wk_str_app(wk, dest, "'");
 	}
 
-	wk_str_app(wk, ctx->res, buf);
+	wk_str_app(wk, dest, buf);
 
 	if (quote) {
-		wk_str_app(wk, ctx->res, "'");
+		wk_str_app(wk, dest, "'");
 	}
 
-	wk_str_app(wk, ctx->res, " ");
+	wk_str_app(wk, dest, " ");
+	return true;
+}
+
+static enum iteration_result
+concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct concat_strings_ctx *ctx = _ctx;
+	if (!concat_str(wk, ctx->res, val)) {
+		return ir_err;
+	}
+
 	return ir_cont;
 }
 
@@ -366,7 +375,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
 
-	uint32_t outputs, inputs, cmdline;
+	uint32_t outputs, inputs, cmdline_pre, cmdline;
 
 	if (!concat_strings(wk, tgt->dat.custom_target.input, &inputs)) {
 		return ir_err;
@@ -376,16 +385,33 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
+	cmdline_pre = wk_str_pushf(wk, "%s internal exe ", wk->argv0);
+	if (tgt->dat.custom_target.flags & custom_target_capture) {
+		wk_str_app(wk, &cmdline_pre, "-c ");
+
+		uint32_t elem;
+		if (!obj_array_index(wk, tgt->dat.custom_target.output, 0, &elem)) {
+			return ir_err;
+		}
+
+		if (!concat_str(wk, &cmdline_pre, elem)) {
+			return ir_err;
+		}
+	}
+
+	wk_str_app(wk, &cmdline_pre, "--");
+
 	if (!concat_strings(wk, tgt->dat.custom_target.args, &cmdline)) {
 		return ir_err;
 	}
 
 	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
-		" COMMAND = %s\n"
+		" COMMAND = %s %s\n"
 		" DESCRIPTION = Generating$ %s$ with$ a$ custom$ command\n",
 		wk_str(wk, outputs),
 		wk_str(wk, inputs),
 		wk_objstr(wk, tgt->dat.custom_target.cmd),
+		wk_str(wk, cmdline_pre),
 		wk_str(wk, cmdline),
 		wk_str(wk, tgt->dat.custom_target.name)
 		);
