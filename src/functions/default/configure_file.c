@@ -30,12 +30,11 @@ buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 }
 
 static bool
-substitute_config(struct workspace *wk, uint32_t conf_data, uint32_t in_node, const char *in, const char *out)
+substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, const char *out)
 {
 	/* L(log_interp, "in: %s", in); */
 	/* L(log_interp, "out: %s", out); */
 
-	uint32_t dict = get_obj(wk, conf_data)->dat.configuration_data.dict;
 	bool ret = true;
 	char *in_buf = NULL, *out_buf = NULL;
 	uint64_t in_len, out_len, out_cap;
@@ -131,13 +130,28 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		kw_output,
 	};
 	struct args_kw akw[] = {
-		[kw_configuration] = { "configuration", obj_configuration_data, .required = true },
+		[kw_configuration] = { "configuration", obj_any, .required = true },
 		[kw_input] = { "input", },
 		[kw_output] = { "output", obj_string, .required = true },
 		0
 	};
 
 	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	uint32_t dict;
+
+	switch (get_obj(wk, akw[kw_configuration].val)->type) {
+	case obj_dict:
+		dict = akw[kw_configuration].val;
+		break;
+	case obj_configuration_data:
+		dict = get_obj(wk, akw[kw_configuration].val)->dat.configuration_data.dict;
+		break;
+	default:
+		interp_error(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
+			obj_type_to_s(get_obj(wk, akw[kw_configuration].val)->type));
 		return false;
 	}
 
@@ -176,7 +190,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		make_obj(wk, obj, obj_file)->dat.file =
 			wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), out);
 
-		if (!substitute_config(wk, akw[kw_configuration].val, akw[kw_input].node,
+		if (!substitute_config(wk, dict, akw[kw_input].node,
 			wk_file_path(wk, input), wk_file_path(wk, *obj))) {
 			return false;
 		}
