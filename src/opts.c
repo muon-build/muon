@@ -49,11 +49,13 @@ parse_config_opt(struct workspace *wk, char *lhs)
 
 bool
 opts_parse_setup(struct workspace *wk, struct setup_opts *opts,
-	int argc, char *const argv[])
+	uint32_t argc, uint32_t argi, char *const argv[])
 {
 	signed char opt;
 
-	while ((opt = getopt(argc, argv,  "D:")) != -1) {
+	assert(argc >= argi);
+
+	while ((opt = getopt(argc - argi, &argv[argi],  "D:")) != -1) {
 		switch (opt) {
 		case 'D':
 			if (!parse_config_opt(wk, optarg)) {
@@ -66,12 +68,46 @@ opts_parse_setup(struct workspace *wk, struct setup_opts *opts,
 		}
 	}
 
-	if (optind >= argc) {
+	assert(optind >= 0);
+	optind += argi;
+
+	if ((uint32_t)optind >= argc) {
 		LOG_W(log_misc, "missing build directory");
 		return false;
 	}
 
 	opts->build = argv[optind];
+
+	return true;
+}
+
+bool
+opts_parse_exe(struct exe_opts *opts, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	signed char opt;
+
+	assert(argc >= argi);
+
+	while ((opt = getopt(argc - argi, &argv[argi],  "c:")) != -1) {
+		switch (opt) {
+		case 'c':
+			opts->capture = optarg;
+			break;
+		default:
+			LOG_W(log_misc, "unknown flag: '%c'", opt);
+			return false;
+		}
+	}
+
+	assert(optind >= 0);
+	optind += argi;
+
+	if ((uint32_t)optind >= argc) {
+		LOG_W(log_misc, "missing command");
+		return false;
+	}
+
+	opts->cmd = &argv[optind];
 
 	return true;
 }

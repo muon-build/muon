@@ -6,5 +6,13 @@ struct setup_opts {
 	const char *build;
 };
 
-bool opts_parse_setup(struct workspace *wk, struct setup_opts *opts, int argc, char *const argv[]);
+struct exe_opts {
+	const char *capture;
+	char *const *cmd;
+};
+
+bool opts_parse_setup(struct workspace *wk, struct setup_opts *opts,
+	uint32_t argc, uint32_t argi, char *const argv[]);
+bool opts_parse_exe(struct exe_opts *opts, uint32_t argc, uint32_t argi,
+	char *const argv[]);
 #endif

@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef BOSON_HAVE_SAMU
@@ -14,12 +15,93 @@
 #include "opts.h"
 #include "output.h"
 #include "parser.h"
+#include "run_cmd.h"
 #include "version.h"
 
 #define BUF_LEN 256
 
+typedef bool (*cmd_func)(uint32_t argc, uint32_t argi, char *const[]);
+struct command {
+	const char *name;
+	cmd_func cmd;
+};
+
+static void
+print_usage(const struct command *commands, const char *pre)
+{
+	uint32_t i;
+	LOG_I(log_misc, "boson v%s-%s", boson_version.version, boson_version.vcs_tag);
+
+	LOG_I(log_misc, "usage: %s COMMAND", pre);
+
+	for (i = 0; commands[i].name; ++i) {
+		LOG_I(log_misc, "  %s", commands[i].name);
+	}
+}
+
 static bool
-cmd_setup(int argc, char *const argv[])
+cmd_run(const struct command *commands, uint32_t argc, uint32_t argi, char *const argv[], const char *pre)
+{
+	uint32_t i;
+
+	if (argi + 1 >= argc) {
+		LOG_W(log_misc, "missing command");
+		print_usage(commands, pre);
+		return false;
+	}
+
+	const char *cmd = argv[argi + 1];
+
+	for (i = 0; commands[i].name; ++i) {
+		if (strcmp(commands[i].name, cmd) == 0) {
+			return commands[i].cmd(argc, argi + 1, argv);
+		}
+	}
+
+	LOG_W(log_misc, "unknown command '%s'", argv[argi + 1]);
+	print_usage(commands, pre);
+	return false;
+}
+
+static bool
+cmd_internal_exe(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct exe_opts opts = { 0 };
+	if (!opts_parse_exe(&opts, argc, argi, argv)) {
+		return false;
+	}
+
+	struct run_cmd_ctx ctx = { 0 };
+	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd)) {
+		return false;
+	}
+
+	if (ctx.status != 0) {
+		fputs(ctx.err, stderr);
+		return false;
+	}
+
+	if (opts.capture) {
+		return fs_write(opts.capture, (uint8_t *)ctx.out, strlen(ctx.out));
+	} else {
+		fputs(ctx.out, stdout);
+		return true;
+	}
+}
+
+static bool
+cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	static const struct command commands[] = {
+		{ "exe", cmd_internal_exe },
+		0,
+	};
+
+	return cmd_run(commands, argc, argi, argv, argv[argi]);
+}
+
+static bool
+cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	char cwd[BUF_LEN + 1] = { 0 },
 	     build[PATH_MAX + 1] = { 0 },
@@ -27,9 +109,10 @@ cmd_setup(int argc, char *const argv[])
 
 	struct workspace wk;
 	workspace_init(&wk);
+	wk.argv0 = argv[0];
 
 	struct setup_opts opts = { 0 };
-	if (!opts_parse_setup(&wk, &opts, argc, argv)) {
+	if (!opts_parse_setup(&wk, &opts, argc, argi, argv)) {
 		goto err;
 	}
 
@@ -59,23 +142,23 @@ err:
 
 #ifdef BOSON_HAVE_SAMU
 static bool
-cmd_samu(int argc, char *const argv[])
+cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	return samu_main(argc, (char **)argv) == 0;
+	return samu_main(argc - argi, (char **)&argv[argi]) == 0;
 }
 #endif
 
 static bool
-cmd_parse_check(int argc, char *const argv[])
+cmd_parse_check(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argc < 2) {
+	if (argi + 1 >= argc) {
 		LOG_W(log_misc, "missing filename");
 		return false;
 	}
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, argv[1])) {
+	if (!lexer_lex(language_internal, &toks, argv[argi + 1])) {
 		return false;
 	} else if (!parser_parse(&ast, &toks)) {
 		return false;
@@ -85,16 +168,16 @@ cmd_parse_check(int argc, char *const argv[])
 }
 
 static bool
-cmd_ast(int argc, char *const argv[])
+cmd_ast(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argc < 2) {
+	if (argi + 1 >= argc) {
 		LOG_W(log_misc, "missing filename");
 		return false;
 	}
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, argv[1])) {
+	if (!lexer_lex(language_internal, &toks, argv[argi + 1])) {
 		return false;
 	} else if (!parser_parse(&ast, &toks)) {
 		return false;
@@ -105,9 +188,9 @@ cmd_ast(int argc, char *const argv[])
 }
 
 static bool
-cmd_eval(int argc, char *const argv[])
+cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argc < 2) {
+	if (argi + 1 >= argc) {
 		LOG_W(log_misc, "missing filename");
 		return false;
 	}
@@ -123,7 +206,7 @@ cmd_eval(int argc, char *const argv[])
 	wk.lang_mode = language_internal;
 	make_project(&wk, &wk.cur_project, NULL, cwd, "<build_dir>");
 	bool ret;
-	ret = eval(&wk, argv[1]);
+	ret = eval(&wk, argv[argi + 1]);
 
 	workspace_destroy(&wk); // just to test for memory leaks in valgrind
 	return ret;
@@ -136,11 +219,10 @@ main(int argc, char *argv[])
 	log_set_lvl(log_debug);
 	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
 
-	uint32_t i;
-	static struct {
-		const char *name;
-		bool (*cmd)(int, char *const[]);
-	} commands[] = {
+	assert(argc > 0);
+
+	static const struct command commands[] = {
+		{ "internal", cmd_internal },
 		{ "setup", cmd_setup },
 		{ "eval", cmd_eval },
 		{ "ast", cmd_ast },
@@ -151,34 +233,5 @@ main(int argc, char *argv[])
 		{ 0 },
 	};
 
-	if (argc < 2) {
-		LOG_W(log_misc, "missing command");
-		goto print_commands;
-	}
-
-	const char *cmd = argv[1];
-
-	for (i = 0; commands[i].name; ++i) {
-		if (strcmp(commands[i].name, cmd) == 0) {
-			if (!commands[i].cmd(argc - 1, &argv[1])) {
-				return 1;
-			}
-			return 0;
-		}
-	}
-
-	if (!commands[i].name) {
-		LOG_W(log_misc, "unknown command '%s'", argv[1]);
-		goto print_commands;
-	}
-
-	return 0;
-
-print_commands:
-	LOG_I(log_misc, "boson v%s-%s", boson_version.version, boson_version.vcs_tag);
-	LOG_I(log_misc, "avaliable commands:");
-	for (i = 0; commands[i].name; ++i) {
-		LOG_I(log_misc, "  %s", commands[i].name);
-	}
-	return 1;
+	return cmd_run(commands, argc, 0, argv, argv[0]) ? 0 : 1;
 }

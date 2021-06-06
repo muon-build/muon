@@ -50,6 +50,7 @@ struct workspace {
 	uint32_t cur_project;
 	struct ast *ast;
 	enum language_mode lang_mode;
+	const char *argv0;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
