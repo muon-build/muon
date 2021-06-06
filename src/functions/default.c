@@ -223,8 +223,9 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 static bool
 tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type)
 {
-	struct args_norm an[] = { { obj_string }, { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
+		kw_sources,
 		kw_include_directories,
 		kw_dependencies,
 		kw_c_args,
@@ -232,6 +233,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_link_with,
 	};
 	struct args_kw akw[] = {
+		[kw_sources] = { "sources", obj_array },
 		[kw_include_directories] = { "include_directories", obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_c_args] = { "c_args", obj_array },
@@ -259,6 +261,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.tgt.src = an[1].val;
+
+	if (akw[kw_sources].set) {
+		obj_array_extend(wk, tgt->dat.tgt.src, akw[kw_sources].val);
+	}
 
 	const char *pref, *suff;
 	switch (type) {
