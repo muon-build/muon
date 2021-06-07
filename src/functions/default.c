@@ -197,12 +197,22 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	};
 	struct args_kw akw[] = {
 		[kw_link_with] = { "link_with", obj_array },
-		[kw_include_directories] = { "include_directories", obj_file },
+		[kw_include_directories] = { "include_directories", obj_any },
 		0
 	};
 
 	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
 		return false;
+	}
+
+	if (akw[kw_include_directories].set) {
+		uint32_t inc_dirs;
+
+		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+			return false;
+		}
+
+		akw[kw_include_directories].val = inc_dirs;
 	}
 
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
