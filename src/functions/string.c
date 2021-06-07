@@ -159,9 +159,32 @@ func_format(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	return true;
 }
 
+static bool
+func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	uint32_t s_id = wk_str_push(wk, wk_str(wk, rcvr));
+	char *s = wk_str(wk, s_id);
+
+	for (; *s; ++s) {
+		if (!(('a' <= *s && *s <= 'z')
+		      || ('A' <= *s && *s <= 'Z')
+		      || ('0' <= *s && *s <= '9'))) {
+			*s = '_';
+		}
+	}
+
+	make_obj(wk, obj, obj_string)->dat.str = s_id;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "strip", func_strip },
 	{ "to_upper", func_to_upper },
 	{ "format", func_format },
+	{ "underscorify", func_underscorify },
 	{ NULL, NULL },
 };
