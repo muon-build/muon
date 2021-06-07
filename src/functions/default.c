@@ -76,7 +76,7 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 static bool
 func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs { kw_language, };
 	struct args_kw akw[] = {
 		[kw_language] = { "language", obj_string },
@@ -93,7 +93,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 		}
 	}
 
-	return obj_array_foreach(wk, an[0].val, &(struct func_add_project_arguments_iter_ctx) {
+	return obj_array_foreach_flat(wk, an[0].val, &(struct func_add_project_arguments_iter_ctx) {
 		.node = an[0].node,
 	}, func_add_project_arguments_iter);
 }
@@ -101,7 +101,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 static bool
 func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
