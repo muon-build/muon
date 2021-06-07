@@ -8,6 +8,133 @@
 #include "output.h"
 #include "workspace.h"
 
+struct concat_strings_ctx {
+	uint32_t *res;
+};
+
+#define BUF_SIZE 2048
+
+static bool
+concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
+{
+	const char *s = wk_str(wk, str);
+
+	if (strlen(s) >= BUF_SIZE) {
+		LOG_W(log_out, "string too long in concat strings: '%s'", s);
+		return false;
+	}
+
+	static char buf[BUF_SIZE + 2] = { 0 };
+	uint32_t i = 0;
+	bool quote = false;
+
+	for (; *s; ++s) {
+		if (*s == ' ') {
+			quote = true;
+			buf[i] = '$';
+			++i;
+		} else if (*s == '"') {
+			quote = true;
+		}
+
+		buf[i] = *s;
+		++i;
+	}
+
+	buf[i] = 0;
+	++i;
+
+	if (quote) {
+		wk_str_app(wk, dest, "'");
+	}
+
+	wk_str_app(wk, dest, buf);
+
+	if (quote) {
+		wk_str_app(wk, dest, "'");
+	}
+
+	wk_str_app(wk, dest, " ");
+	return true;
+}
+
+static bool
+concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
+{
+	struct obj *obj = get_obj(wk, src);
+	uint32_t str;
+
+	switch (obj->type) {
+	case obj_string:
+		str = obj->dat.str;
+		break;
+	case obj_file:
+		str = obj->dat.file;
+		break;
+	default:
+		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
+		return ir_err;
+	}
+
+	return concat_str(wk, dest, str);
+}
+
+static enum iteration_result
+concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct concat_strings_ctx *ctx = _ctx;
+	if (!concat_strobj(wk, ctx->res, val)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
+{
+	if (!*res) {
+		*res = wk_str_push(wk, "");
+	}
+
+	struct concat_strings_ctx ctx = {
+		.res = res,
+	};
+
+	return obj_array_foreach(wk, arr, &ctx, concat_strings_iter);
+}
+
+static bool
+prefix_len(const char *str, const char *prefix, uint32_t *len)
+{
+	uint32_t l = strlen(prefix);
+	if (strncmp(str, prefix, l) == 0) {
+		if (strlen(str) > l && str[l] == '/') {
+			++l;
+		}
+		*len = l;
+		return true;
+	} else {
+		*len = 0;
+		return false;
+	}
+}
+
+static uint32_t
+longest_prefix_len(const char *str, const char *prefix[])
+{
+	uint32_t len, max = 0;
+	for (; *prefix; ++prefix) {
+		if (prefix_len(str, *prefix, &len)) {
+			if (len > max) {
+				max = len;
+			}
+		}
+	}
+
+	return max;
+}
+
 static void
 write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
@@ -52,37 +179,6 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		);
 }
 
-static bool
-prefix_len(const char *str, const char *prefix, uint32_t *len)
-{
-	uint32_t l = strlen(prefix);
-	if (strncmp(str, prefix, l) == 0) {
-		if (strlen(str) > l && str[l] == '/') {
-			++l;
-		}
-		*len = l;
-		return true;
-	} else {
-		*len = 0;
-		return false;
-	}
-}
-
-static uint32_t
-longest_prefix_len(const char *str, const char *prefix[])
-{
-	uint32_t len, max = 0;
-	for (; *prefix; ++prefix) {
-		if (prefix_len(str, *prefix, &len)) {
-			if (len > max) {
-				max = len;
-			}
-		}
-	}
-
-	return max;
-}
-
 struct write_tgt_iter_ctx {
 	struct obj *tgt;
 	FILE *out;
@@ -119,19 +215,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		wk_str(wk, out),
 		wk_str(wk, ctx->args_id)
 		);
-
-	return ir_cont;
-}
-
-static enum iteration_result
-make_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
-{
-	struct write_tgt_iter_ctx *ctx = _ctx;
-	struct obj *arg = get_obj(wk, val_id);
-
-	assert(arg->type == obj_string); // TODO
-
-	wk_str_appf(wk, &ctx->args_id, "%s ", wk_str(wk, arg->dat.str));
 
 	return ir_cont;
 }
@@ -258,12 +341,12 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			}
 		}
 
-		if (!obj_array_foreach(wk, proj->cfg.args, &ctx, make_args_iter)) {
+		if (!concat_strings(wk, proj->cfg.args, &ctx.args_id)) {
 			return ir_err;
 		}
 
 		if (tgt->dat.tgt.c_args) {
-			if (!obj_array_foreach(wk, tgt->dat.tgt.c_args, &ctx, make_args_iter)) {
+			if (!concat_strings(wk, tgt->dat.tgt.c_args, &ctx.args_id)) {
 				return ir_err;
 			}
 		}
@@ -324,98 +407,6 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	return ir_cont;
 }
 
-struct concat_strings_ctx {
-	uint32_t *res;
-};
-
-#define BUF_SIZE 2048
-
-static bool
-concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
-{
-	const char *s = wk_str(wk, str);
-
-	if (strlen(s) >= BUF_SIZE) {
-		LOG_W(log_out, "string too long in concat strings: '%s'", s);
-		return false;
-	}
-
-	static char buf[BUF_SIZE + 2] = { 0 };
-	uint32_t i = 0;
-	bool quote = false;
-
-	for (; *s; ++s) {
-		if (*s == ' ') {
-			quote = true;
-			buf[i] = '$';
-			++i;
-		}
-
-		buf[i] = *s;
-		++i;
-	}
-
-	buf[i] = 0;
-	++i;
-
-	if (quote) {
-		wk_str_app(wk, dest, "'");
-	}
-
-	wk_str_app(wk, dest, buf);
-
-	if (quote) {
-		wk_str_app(wk, dest, "'");
-	}
-
-	wk_str_app(wk, dest, " ");
-	return true;
-}
-
-static bool
-concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
-{
-	struct obj *obj = get_obj(wk, src);
-	uint32_t str;
-
-	switch (obj->type) {
-	case obj_string:
-		str = obj->dat.str;
-		break;
-	case obj_file:
-		str = obj->dat.file;
-		break;
-	default:
-		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
-		return ir_err;
-	}
-
-	return concat_str(wk, dest, str);
-}
-
-static enum iteration_result
-concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct concat_strings_ctx *ctx = _ctx;
-	if (!concat_strobj(wk, ctx->res, val)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static bool
-concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
-{
-	*res = wk_str_push(wk, "");
-
-	struct concat_strings_ctx ctx = {
-		.res = res,
-	};
-
-	return obj_array_foreach(wk, arr, &ctx, concat_strings_iter);
-}
-
 static enum iteration_result
 custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
@@ -442,7 +433,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
 
-	uint32_t outputs, inputs, cmdline_pre, cmdline;
+	uint32_t outputs, inputs = 0, cmdline_pre, cmdline = 0;
 
 	if (!concat_strings(wk, tgt->dat.custom_target.input, &inputs)) {
 		return ir_err;
