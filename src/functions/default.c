@@ -268,11 +268,6 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		return false;
 	}
 
-	struct obj *tgt = make_obj(wk, obj, obj_build_target);
-
-	tgt->dat.tgt.type = type;
-	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
-
 	uint32_t input;
 
 	if (akw[kw_sources].set) {
@@ -282,8 +277,6 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	if (!coerce_files(wk, an[1].node, an[1].val, &input)) {
 		return false;
 	}
-
-	tgt->dat.tgt.src = input;
 
 	const char *pref, *suff;
 	switch (type) {
@@ -297,11 +290,15 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		break;
 	}
 
+	struct obj *tgt = make_obj(wk, obj, obj_build_target);
+	tgt->dat.tgt.type = type;
+	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
+	tgt->dat.tgt.src = input;
 	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 
-	LOG_I(log_interp, "adding target %s", wk_str(wk, tgt->dat.tgt.build_name));
+	LOG_I(log_interp, "added target %s", wk_str(wk, tgt->dat.tgt.build_name));
 
 	if (akw[kw_include_directories].set) {
 		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
