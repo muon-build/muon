@@ -387,12 +387,9 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	const char *subproj_name = wk_objstr(wk, an[0].val),
-		   *cur_cwd = wk_str(wk, current_project(wk)->cwd);
-
+	const char *subproj_name = wk_objstr(wk, an[0].val);
 	char cwd[PATH_MAX + 1] = { 0 },
 	     build_dir[PATH_MAX + 1] = { 0 },
-	     subproject_dir[BASE_PATH_MAX + 1] = { 0 },
 	     subproject_name_buf[PATH_MAX + 1] = { 0 };
 
 	/* copying subproj_name to a buffer and passing that to eval_project
@@ -407,10 +404,12 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	 * The only reason this hasn't been done yet is because it will make it
 	 * more messy to call the entry eval_project().
 	 */
+
 	strncpy(subproject_name_buf, subproj_name, PATH_MAX);
-	snprintf(subproject_dir, BASE_PATH_MAX, "%s/subprojects", cur_cwd);
-	snprintf(cwd, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
-	snprintf(build_dir, PATH_MAX, "%s/%s", subproject_dir, subproj_name);
+	snprintf(cwd, PATH_MAX, "%s/subprojects/%s",
+		wk_str(wk, current_project(wk)->cwd), subproj_name);
+	snprintf(build_dir, PATH_MAX, "%s/subprojects/%s",
+		wk_str(wk, current_project(wk)->build_dir), subproj_name);
 
 	uint32_t subproject_id;
 
