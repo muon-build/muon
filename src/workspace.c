@@ -108,6 +108,8 @@ _str_push(struct workspace *wk, const char *buf)
 	darr_grow_by(&wk->strs, len);
 	strncpy(darr_get(&wk->strs, ret), buf, len);
 
+	/* L(log_interp, "%d, '%s'", ret, buf); */
+
 	return ret;
 }
 
@@ -197,6 +199,26 @@ wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 	va_end(args);
 
 	_str_app(wk, id, buf);
+}
+
+uint32_t
+wk_str_basename(struct workspace *wk, uint32_t path)
+{
+	const char *p = wk_str(wk, path);
+	uint32_t len = strlen(p);
+	int32_t i;
+
+	if (p[len - 1] == '/') {
+		return _str_push(wk, "");
+	}
+
+	for (i = len - 1; i >= 0; --i) {
+		if (p[i] == '/') {
+			break;
+		}
+	}
+
+	return _str_push(wk, &p[i + 1]);
 }
 
 char *

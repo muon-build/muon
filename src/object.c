@@ -276,7 +276,7 @@ obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
 	tail->dat.arr.have_r = true;
 	tail->dat.arr.r = b_id;
 
-	a->dat.arr.tail = b_id;
+	a->dat.arr.tail = b->dat.arr.tail;
 	a->dat.arr.len += b->dat.arr.len;
 }
 

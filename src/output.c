@@ -52,20 +52,35 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		);
 }
 
-static char *
-path_without_slashes(const char *path)
+static bool
+prefix_len(const char *str, const char *prefix, uint32_t *len)
 {
-	uint32_t i;
-	static char buf[PATH_MAX + 1];
+	uint32_t l = strlen(prefix);
+	if (strncmp(str, prefix, l) == 0) {
+		if (strlen(str) > l && str[l] == '/') {
+			++l;
+		}
+		*len = l;
+		return true;
+	} else {
+		*len = 0;
+		return false;
+	}
+}
 
-	strncpy(buf, path, PATH_MAX);
-	for (i = 0; buf[i]; ++i) {
-		if (buf[i] == '/') {
-			buf[i] = '_';
+static uint32_t
+longest_prefix_len(const char *str, const char *prefix[])
+{
+	uint32_t len, max = 0;
+	for (; *prefix; ++prefix) {
+		if (prefix_len(str, *prefix, &len)) {
+			if (len > max) {
+				max = len;
+			}
 		}
 	}
-	return buf;
 
+	return max;
 }
 
 struct write_tgt_iter_ctx {
@@ -73,6 +88,7 @@ struct write_tgt_iter_ctx {
 	FILE *out;
 	uint32_t args_id;
 	uint32_t object_names_id;
+	uint32_t tgt_dir;
 };
 
 static enum iteration_result
@@ -81,18 +97,26 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file); // TODO
-	const char *pws = path_without_slashes(wk_str(wk, src->dat.file));
 
-	wk_str_appf(wk, &ctx->object_names_id, "%s.p/%s.o ", wk_str(wk, ctx->tgt->dat.tgt.name), pws);
+	uint32_t pre = longest_prefix_len(wk_str(wk, src->dat.file), (const char *[]) {
+		wk_str(wk, ctx->tgt->dat.tgt.cwd),
+		wk_str(wk, ctx->tgt->dat.tgt.build_dir),
+		NULL,
+	});
+
+	uint32_t out;
+	out = wk_str_pushf(wk, "%s/%s.o", wk_str(wk, ctx->tgt_dir), &wk_str(wk, src->dat.file)[pre]);
+
+	wk_str_appf(wk, &ctx->object_names_id, "%s ", wk_str(wk, out));
 
 	fprintf(ctx->out,
-		"build %s.p/%s.o: c_COMPILER %s\n"
-		" DEPFILE = %s.p/%s.o.d\n"
-		" DEPFILE_UNQUOTED = %s.p/%s.o.d\n"
+		"build %s: c_COMPILER %s\n"
+		" DEPFILE = %s.d\n"
+		" DEPFILE_UNQUOTED = %s.d\n"
 		" ARGS = %s\n\n",
-		wk_str(wk, ctx->tgt->dat.tgt.name), pws, wk_str(wk, src->dat.file),
-		wk_str(wk, ctx->tgt->dat.tgt.name), pws,
-		wk_str(wk, ctx->tgt->dat.tgt.name), pws,
+		wk_str(wk, out), wk_str(wk, src->dat.file),
+		wk_str(wk, out),
+		wk_str(wk, out),
 		wk_str(wk, ctx->args_id)
 		);
 
@@ -139,19 +163,20 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct process_link_with_ctx *ctx = _ctx;
 
 	struct obj *tgt = get_obj(wk, val_id);
-	uint32_t name_id;
 
 	if (tgt->type == obj_build_target) {
-		name_id = tgt->dat.tgt.build_name;
-		wk_str_appf(wk, ctx->implicit_deps_id, " %s", wk_str(wk, name_id));
+		wk_str_appf(wk, ctx->implicit_deps_id, " %s/%s",
+			wk_str(wk, tgt->dat.tgt.build_dir),
+			wk_str(wk, tgt->dat.tgt.build_name));
+		wk_str_appf(wk, ctx->link_args_id, " %s/%s",
+			wk_str(wk, tgt->dat.tgt.build_dir),
+			wk_str(wk, tgt->dat.tgt.build_name));
 	} else if (tgt->type == obj_string) {
-		name_id = tgt->dat.str;
+		wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
 	} else {
 		LOG_W(log_out, "invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
 		return ir_err;
 	}
-
-	wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, name_id));
 
 	return ir_cont;
 }
@@ -195,10 +220,27 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
-	struct write_tgt_iter_ctx ctx = { .tgt = tgt, .out = out };
+	uint32_t pre;
+	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &pre)) {
+		pre = 0;
+	}
+
+	uint32_t tgt_dir;
+	if (pre == strlen(wk->build_root)) {
+		tgt_dir = wk_str_pushf(wk, "%s.p", wk_str(wk, tgt->dat.tgt.build_name));
+	} else {
+		tgt_dir = wk_str_pushf(wk, "%s/%s.p", &wk_str(wk, tgt->dat.tgt.build_dir)[pre],
+			wk_str(wk, tgt->dat.tgt.build_name));
+	}
+
+	struct write_tgt_iter_ctx ctx = {
+		.tgt = tgt,
+		.out = out,
+		.tgt_dir = tgt_dir,
+	};
 
 	{ /* arguments */
-		ctx.args_id = wk_str_pushf(wk, "-I%s.p -I%s ", wk_str(wk, tgt->dat.tgt.name), wk_str(wk, proj->cwd));
+		ctx.args_id = wk_str_pushf(wk, "-I%s -I%s ", wk_str(wk, tgt_dir), wk_str(wk, proj->cwd));
 
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
@@ -269,7 +311,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			break;
 		}
 
-		fprintf(out, "build %s: %s %s | %s",
+		fprintf(out, "build %s/%s: %s %s | %s",
+			wk_str(wk, tgt->dat.tgt.build_dir),
 			wk_str(wk, tgt->dat.tgt.build_name),
 			rule,
 			wk_str(wk, ctx.object_names_id),
@@ -288,23 +331,8 @@ struct concat_strings_ctx {
 #define BUF_SIZE 2048
 
 static bool
-concat_str(struct workspace *wk, uint32_t *dest, uint32_t src)
+concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
 {
-	struct obj *obj = get_obj(wk, src);
-	uint32_t str;
-
-	switch (obj->type) {
-	case obj_string:
-		str = obj->dat.str;
-		break;
-	case obj_file:
-		str = obj->dat.file;
-		break;
-	default:
-		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
-		return ir_err;
-	}
-
 	const char *s = wk_str(wk, str);
 
 	if (strlen(s) >= BUF_SIZE) {
@@ -344,11 +372,32 @@ concat_str(struct workspace *wk, uint32_t *dest, uint32_t src)
 	return true;
 }
 
+static bool
+concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
+{
+	struct obj *obj = get_obj(wk, src);
+	uint32_t str;
+
+	switch (obj->type) {
+	case obj_string:
+		str = obj->dat.str;
+		break;
+	case obj_file:
+		str = obj->dat.file;
+		break;
+	default:
+		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
+		return ir_err;
+	}
+
+	return concat_str(wk, dest, str);
+}
+
 static enum iteration_result
 concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct concat_strings_ctx *ctx = _ctx;
-	if (!concat_str(wk, ctx->res, val)) {
+	if (!concat_strobj(wk, ctx->res, val)) {
 		return ir_err;
 	}
 
@@ -368,6 +417,24 @@ concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
 }
 
 static enum iteration_result
+custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	uint32_t *dest = _ctx;
+
+	struct obj *out = get_obj(wk, val_id);
+	assert(out->type == obj_file);
+
+	uint32_t pre, str;
+	if (prefix_len(wk_str(wk, out->dat.file), wk->build_root, &pre)) {
+		str = wk_str_push(wk, &wk_str(wk, out->dat.file)[pre]);
+	} else {
+		str = out->dat.file;
+	}
+
+	return concat_str(wk, dest, str) == true ? ir_cont : ir_err;
+}
+
+static enum iteration_result
 write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
 	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
@@ -381,7 +448,8 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-	if (!concat_strings(wk, tgt->dat.custom_target.output, &outputs)) {
+	outputs = wk_str_push(wk, "");
+	if (!obj_array_foreach(wk, tgt->dat.custom_target.output, &outputs, custom_tgt_outputs_iter)) {
 		return ir_err;
 	}
 
@@ -394,7 +462,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			return ir_err;
 		}
 
-		if (!concat_str(wk, &cmdline_pre, elem)) {
+		if (custom_tgt_outputs_iter(wk, &cmdline_pre, elem) == ir_err) {
 			return ir_err;
 		}
 	}
@@ -405,15 +473,29 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
+
+	/* desc = wk_str_push(wk, ""); */
+	/* if (!concat_str(wk, &desc, wk_str_pushf(wk, "Generating %s with a custom command", wk_str(wk, tgt->dat.custom_target.name)))) { */
+	/* 	return ir_err; */
+	/* } */
+
+	/* if (tgt->dat.custom_target.flags & custom_target_capture) { */
+	/* 	if (!concat_str(wk, &desc, wk_str_push(wk, " (output captured)"))) { */
+	/* 		return ir_err; */
+	/* 	} */
+	/* } */
+
 	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s %s\n"
-		" DESCRIPTION = Generating$ %s$ with$ a$ custom$ command\n",
+		" DESCRIPTION = %s%s\n",
 		wk_str(wk, outputs),
 		wk_str(wk, inputs),
 		wk_objstr(wk, tgt->dat.custom_target.cmd),
+
 		wk_str(wk, cmdline_pre),
 		wk_str(wk, cmdline),
-		wk_str(wk, tgt->dat.custom_target.name)
+		wk_str(wk, cmdline),
+		tgt->dat.custom_target.flags & custom_target_capture ? "(captured)": ""
 		);
 
 	return ir_cont;

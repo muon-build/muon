@@ -81,6 +81,7 @@ struct obj {
 		struct {
 			uint32_t name;
 			uint32_t build_name;
+			uint32_t cwd;
 			uint32_t build_dir;
 			uint32_t src;
 			uint32_t link_with;

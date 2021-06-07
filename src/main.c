@@ -105,11 +105,11 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	char cwd[BUF_LEN + 1] = { 0 },
 	     build[PATH_MAX + 1] = { 0 },
-	     source[PATH_MAX + 1] = { 0 };
+	     source[PATH_MAX + 1] = { 0 },
+	     argv0[PATH_MAX + 1] = { 0 };
 
 	struct workspace wk;
 	workspace_init(&wk);
-	wk.argv0 = argv[0];
 
 	struct setup_opts opts = { 0 };
 	if (!opts_parse_setup(&wk, &opts, argc, argi, argv)) {
@@ -123,6 +123,16 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	snprintf(source, PATH_MAX, "%s/%s", cwd, "meson.build");
 	snprintf(build, PATH_MAX, "%s/%s", cwd, opts.build);
+
+	if (argv[0][0] == '/') {
+		wk.argv0 = argv[0];
+	} else {
+		snprintf(argv0, PATH_MAX, "%s/%s", cwd, argv[0]);
+		wk.argv0 = argv0;
+	}
+
+	wk.source_root = cwd;
+	wk.build_root = build;
 
 	LOG_I(log_misc, "source: %s, build: %s", source, build);
 

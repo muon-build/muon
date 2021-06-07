@@ -423,6 +423,10 @@ set_option(struct workspace *wk, const char *name, enum obj_type t, ...)
 	va_start(ap, t);
 
 	switch (t) {
+	case obj_bool: {
+		val_obj->dat.boolean = va_arg(ap, int);
+		break;
+	}
 	case obj_string: {
 		val_obj->dat.str = wk_str_push(wk, va_arg(ap, char *));
 		break;
@@ -439,4 +443,5 @@ set_default_options(struct workspace *wk)
 {
 	set_option(wk, "default_library", obj_string, "static");
 	set_option(wk, "mandir", obj_string, "/usr/share/man");
+	set_option(wk, "debug", obj_bool, true);
 }

@@ -1,5 +1,7 @@
 #include "posix.h"
 
+#include <string.h>
+
 #include "coerce.h"
 #include "filesystem.h"
 #include "interpreter.h"
@@ -44,12 +46,17 @@ coerce_requirement(struct workspace *wk, struct args_kw *kw_required,
 
 typedef bool (*exists_func)(const char *);
 
+enum coerce_into_files_mode {
+	mode_input,
+	mode_output,
+};
 
 struct coerce_into_files_ctx {
 	uint32_t node;
 	uint32_t arr;
 	const char *type;
 	exists_func exists;
+	enum coerce_into_files_mode mode;
 };
 
 static enum iteration_result
@@ -59,25 +66,40 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 	switch (get_obj(wk, val)->type) {
 	case obj_string: {
-		uint32_t abs = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+		uint32_t path;
 
-		if (!ctx->exists(wk_str(wk, abs))) {
-			interp_error(wk, ctx->node, "%s '%s' does not exist",
-				ctx->type,
-				wk_str(wk, abs));
-			return false;
+		switch (ctx->mode) {
+		case mode_input:
+			path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+
+			if (!ctx->exists(wk_str(wk, path))) {
+				interp_error(wk, ctx->node, "%s '%s' does not exist",
+					ctx->type,
+					wk_str(wk, path));
+				return ir_err;
+			}
+			break;
+		case mode_output:
+			if (strchr(wk_objstr(wk, val), '/')) {
+				interp_error(wk, ctx->node, "output files may not contain '/'");
+				return ir_err;
+			}
+			path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val));
 		}
 
 		uint32_t file;
-		make_obj(wk, &file, obj_file)->dat.file = abs;
-
+		make_obj(wk, &file, obj_file)->dat.file = path;
 		obj_array_push(wk, ctx->arr, file);
 		break;
 	}
 	case obj_file:
+		if (ctx->mode == mode_output) {
+			goto type_error;
+		}
 		obj_array_push(wk, ctx->arr, val);
 		break;
 	default:
+type_error:
 		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
 			obj_type_to_s(get_obj(wk, val)->type),
 			ctx->type
@@ -89,7 +111,8 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static bool
-_coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res, const char *type_name, exists_func exists)
+_coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
+	const char *type_name, exists_func exists, enum coerce_into_files_mode mode)
 {
 	make_obj(wk, res, obj_array);
 
@@ -97,7 +120,8 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res, 
 		.node = node,
 		.arr = *res,
 		.type = type_name,
-		.exists = exists
+		.exists = exists,
+		.mode = mode,
 	};
 
 	switch (get_obj(wk, val)->type) {
@@ -113,26 +137,20 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res, 
 	}
 }
 
-static bool
-dont_check_exists(const char *_)
-{
-	return true;
-}
-
 bool
 coerce_output_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
-	return _coerce_files(wk, node, val, res, "output file", dont_check_exists);
+	return _coerce_files(wk, node, val, res, "output file", NULL, mode_output);
 }
 
 bool
 coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
-	return _coerce_files(wk, node, val, res, "file", fs_file_exists);
+	return _coerce_files(wk, node, val, res, "file", fs_file_exists, mode_input);
 }
 
 bool
 coerce_dirs(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
-	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists);
+	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists, mode_input);
 }

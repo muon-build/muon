@@ -260,11 +260,18 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
-	tgt->dat.tgt.src = an[1].val;
+
+	uint32_t input;
 
 	if (akw[kw_sources].set) {
-		obj_array_extend(wk, tgt->dat.tgt.src, akw[kw_sources].val);
+		obj_array_extend(wk, an[1].val, akw[kw_sources].val);
 	}
+
+	if (!coerce_files(wk, an[1].node, an[1].val, &input)) {
+		return false;
+	}
+
+	tgt->dat.tgt.src = input;
 
 	const char *pref, *suff;
 	switch (type) {
@@ -279,6 +286,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	}
 
 	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
+	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 
 	LOG_I(log_interp, "adding target %s", wk_str(wk, tgt->dat.tgt.build_name));
