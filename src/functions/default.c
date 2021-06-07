@@ -325,6 +325,36 @@ func_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 }
 
 static bool
+func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_W(log_misc, "%s", wk_objstr(wk, an[0].val));
+	*obj = 0;
+
+	return false;
+}
+
+static bool
+func_warning(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_W(log_misc, "%s", wk_objstr(wk, an[0].val));
+	*obj = 0;
+
+	return true;
+}
+
+static bool
 func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -333,9 +363,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	fputs(wk_objstr(wk, an[0].val), stdout);
-	fflush(stdout);
-
+	LOG_I(log_misc, "%s", wk_objstr(wk, an[0].val));
 	*obj = 0;
 
 	return true;
@@ -831,7 +859,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "dependency", func_dependency },
 	{ "disabler", todo },
 	{ "environment", todo },
-	{ "error", todo },
+	{ "error", func_error },
 	{ "executable", func_executable },
 	{ "files", func_files },
 	{ "find_library", todo },
@@ -865,7 +893,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "summary", todo },
 	{ "test", func_test },
 	{ "vcs_tag", todo },
-	{ "warning", func_message },
+	{ "warning", func_warning },
 	{ NULL, NULL },
 };
 
