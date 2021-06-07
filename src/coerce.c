@@ -70,7 +70,11 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 		switch (ctx->mode) {
 		case mode_input:
-			path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+			if (*wk_objstr(wk, val) == '/') {
+				path = get_obj(wk, val)->dat.str;
+			} else {
+				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+			}
 
 			if (!ctx->exists(wk_str(wk, path))) {
 				interp_error(wk, ctx->node, "%s '%s' does not exist",
@@ -84,7 +88,12 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 				interp_error(wk, ctx->node, "output files may not contain '/'");
 				return ir_err;
 			}
-			path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val));
+
+			if (*wk_objstr(wk, val) == '/') {
+				path = get_obj(wk, val)->dat.str;
+			} else {
+				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+			}
 		}
 
 		uint32_t file;
