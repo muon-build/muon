@@ -1,5 +1,5 @@
-#ifndef BOSON_FILESYSTEM_H
-#define BOSON_FILESYSTEM_H
+#ifndef MUON_FILESYSTEM_H
+#define MUON_FILESYSTEM_H
 
 #include <stdbool.h>
 #include <stdio.h>

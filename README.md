@@ -1,15 +1,15 @@
-# boson
+# muon
 
-`boson` is an implementation of the meson language in written in C11
+`muon` is an implementation of the meson language in written in C11
 
 ## Status
 
-`boson` is currently a work in progress. There's a lot to do, don't expect it
+`muon` is currently a work in progress. There's a lot to do, don't expect it
 to be able to build your project.
 
 ## Requirements
 
-`boson` requires various POSIX interfaces and a compiler offering c11 support.
+`muon` requires various POSIX interfaces and a compiler offering c11 support.
 
 ## Building
 

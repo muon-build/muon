@@ -1,5 +1,5 @@
-#ifndef BOSON_WRAP_H
-#define BOSON_WRAP_H
+#ifndef MUON_WRAP_H
+#define MUON_WRAP_H
 #include <stdbool.h>
 #include <stdint.h>
 

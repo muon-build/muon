@@ -143,7 +143,7 @@ log_init(void)
 
 	assert(!log_cfg.initialized);
 
-	if ((sll = getenv("BOSON_LOG_LVL"))) {
+	if ((sll = getenv("MUON_LOG_LVL"))) {
 		ll = strtoul(sll, NULL, 10);
 		log_set_lvl(ll);
 	}

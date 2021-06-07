@@ -1,5 +1,5 @@
-#ifndef BOSON_MEM_H
-#define BOSON_MEM_H
+#ifndef MUON_MEM_H
+#define MUON_MEM_H
 #include <stddef.h>
 
 void *z_calloc(size_t nmemb, size_t size);

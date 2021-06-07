@@ -1,5 +1,5 @@
-#ifndef BOSON_OPTS_H
-#define BOSON_OPTS_H
+#ifndef MUON_OPTS_H
+#define MUON_OPTS_H
 #include "workspace.h"
 
 struct setup_opts {

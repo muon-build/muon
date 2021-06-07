@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef BOSON_HAVE_ZLIB
+#ifdef MUON_HAVE_ZLIB
 #include <zlib.h>
 #endif
 
@@ -59,7 +59,7 @@ static const char *
 archive_z_strerror(int err)
 {
 	switch (err) {
-#ifdef BOSON_HAVE_ZLIB
+#ifdef MUON_HAVE_ZLIB
 	case Z_OK: return "ok";
 	case Z_STREAM_END: return "stream end";
 	case Z_NEED_DICT: return "need dict";
@@ -77,7 +77,7 @@ archive_z_strerror(int err)
 static bool
 archive_unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 {
-#ifdef BOSON_HAVE_ZLIB
+#ifdef MUON_HAVE_ZLIB
 	int err;
 	uint8_t *buf = z_malloc(CHUNK_SIZE);
 	uint64_t buf_len = CHUNK_SIZE;

@@ -1,5 +1,5 @@
-#ifndef BOSON_RUNTIME_H
-#define BOSON_RUNTIME_H
+#ifndef MUON_RUNTIME_H
+#define MUON_RUNTIME_H
 
 #include <stdarg.h>
 #include <stdbool.h>

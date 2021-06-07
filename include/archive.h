@@ -1,5 +1,5 @@
-#ifndef BOSON_ARCHIVE_H
-#define BOSON_ARCHIVE_H
+#ifndef MUON_ARCHIVE_H
+#define MUON_ARCHIVE_H
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef BOSON_COERCE_H
-#define BOSON_COERCE_H
+#ifndef MUON_COERCE_H
+#define MUON_COERCE_H
 #include "functions/common.h"
 
 enum requirement_type {

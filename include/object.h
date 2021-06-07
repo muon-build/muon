@@ -1,5 +1,5 @@
-#ifndef BOSON_OBJECT_H
-#define BOSON_OBJECT_H
+#ifndef MUON_OBJECT_H
+#define MUON_OBJECT_H
 
 #include <stdbool.h>
 #include <stdint.h>

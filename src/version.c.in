@@ -2,7 +2,7 @@
 
 #include "version.h"
 
-const struct boson_version boson_version = {
+const struct muon_version muon_version = {
 	.version = "@version@",
 	.vcs_tag = "@vcs_tag@",
 };

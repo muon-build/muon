@@ -1,5 +1,5 @@
-#ifndef BOSON_OUTPUT_H
-#define BOSON_OUTPUT_H
+#ifndef MUON_OUTPUT_H
+#define MUON_OUTPUT_H
 
 #include "workspace.h"
 

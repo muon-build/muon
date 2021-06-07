@@ -1,5 +1,5 @@
-#ifndef BOSON_LEXER_H
-#define BOSON_LEXER_H
+#ifndef MUON_LEXER_H
+#define MUON_LEXER_H
 
 #include <stdbool.h>
 #include <stdint.h>

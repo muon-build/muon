@@ -1,5 +1,5 @@
-#ifndef BOSON_INTERPRETER_H
-#define BOSON_INTERPRETER_H
+#ifndef MUON_INTERPRETER_H
+#define MUON_INTERPRETER_H
 
 #include <stdbool.h>
 #include <stddef.h>

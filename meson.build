@@ -1,5 +1,5 @@
 project(
-	'boson',
+	'muon',
 	'c',
 	version: '0.0.1',
 	license: 'GPL3',
@@ -58,19 +58,19 @@ c_args = []
 if get_option('samu')
 	samu = subproject('samurai')
 	deps += [samu.get_variable('libsamu_dep')]
-	c_args += ['-DBOSON_HAVE_SAMU']
+	c_args += ['-DMUON_HAVE_SAMU']
 endif
 
 libcurl_dep = dependency('libcurl', required: get_option('curl'))
 if libcurl_dep.found()
 	deps += [libcurl_dep]
-	c_args += ['-DBOSON_HAVE_CURL']
+	c_args += ['-DMUON_HAVE_CURL']
 endif
 
 zlib_dep = dependency('zlib', required: get_option('zlib'))
 if zlib_dep.found()
 	deps += [zlib_dep]
-	c_args += ['-DBOSON_HAVE_ZLIB']
+	c_args += ['-DMUON_HAVE_ZLIB']
 endif
 
 include_dir = include_directories('include')
@@ -78,7 +78,7 @@ include_dir = include_directories('include')
 subdir('src')
 
 executable(
-	'boson',
+	'muon',
 	src,
 	include_directories: include_dir,
 	dependencies: deps,

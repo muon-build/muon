@@ -1,5 +1,5 @@
-#ifndef BOSON_WORKSPACE_H
-#define BOSON_WORKSPACE_H
+#ifndef MUON_WORKSPACE_H
+#define MUON_WORKSPACE_H
 
 #include "darr.h"
 #include "eval.h"

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef BOSON_HAVE_CURL
+#ifdef MUON_HAVE_CURL
 #include <curl/curl.h>
 #endif
 
@@ -20,7 +20,7 @@ static struct {
 void
 fetch_init(void)
 {
-#ifdef BOSON_HAVE_CURL
+#ifdef MUON_HAVE_CURL
 	if (curl_global_init(CURL_GLOBAL_DEFAULT) == 0) {
 		fetch_ctx.init = true;
 	}
@@ -30,7 +30,7 @@ fetch_init(void)
 void
 fetch_deinit(void)
 {
-#ifdef BOSON_HAVE_CURL
+#ifdef MUON_HAVE_CURL
 	if (!fetch_ctx.init) {
 		LOG_W(log_fetch, "curl is not initialized");
 		return;
@@ -49,7 +49,7 @@ struct write_data_ctx {
 static size_t
 write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 {
-#ifdef BOSON_HAVE_CURL
+#ifdef MUON_HAVE_CURL
 	struct write_data_ctx *ctx = _ctx;
 	uint64_t want_to_write = size * nmemb;
 
@@ -69,7 +69,7 @@ write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 bool
 fetch_fetch(const char *url, uint8_t **buf, uint64_t *len)
 {
-#ifdef BOSON_HAVE_CURL
+#ifdef MUON_HAVE_CURL
 	CURL *curl_handle;
 	CURLcode err;
 	char errbuf[CURL_ERROR_SIZE] = { 0 };

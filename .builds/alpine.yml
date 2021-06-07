@@ -2,19 +2,19 @@ image: alpine/latest
 packages:
   - meson
 sources:
-  - https://git.sr.ht/~lattis/boson
+  - https://git.sr.ht/~lattis/muon
 tasks:
   - build1: |
-      cd boson
+      cd muon
       meson setup build1
       samu -C build1
 
   - build2: |
-      cd boson
-      build1/boson setup build2
+      cd muon
+      build1/muon setup build2
       samu -C build2
 
   - build3: |
-      cd boson
-      build2/boson setup build3
+      cd muon
+      build2/muon setup build3
       samu -C build3

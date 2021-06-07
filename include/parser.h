@@ -1,5 +1,5 @@
-#ifndef BOSON_PARSER_H
-#define BOSON_PARSER_H
+#ifndef MUON_PARSER_H
+#define MUON_PARSER_H
 
 #include "darr.h"
 #include "lexer.h"
@@ -96,4 +96,4 @@ const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
 const char *source_location(struct ast *ast, uint32_t id);
 void ast_destroy(struct ast *ast);
-#endif // BOSON_PARSER_H
+#endif // MUON_PARSER_H

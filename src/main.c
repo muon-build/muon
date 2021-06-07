@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef BOSON_HAVE_SAMU
+#ifdef MUON_HAVE_SAMU
 #include <samu.h>
 #endif
 
@@ -30,7 +30,7 @@ static void
 print_usage(const struct command *commands, const char *pre)
 {
 	uint32_t i;
-	LOG_I(log_misc, "boson v%s-%s", boson_version.version, boson_version.vcs_tag);
+	LOG_I(log_misc, "muon v%s-%s", muon_version.version, muon_version.vcs_tag);
 
 	LOG_I(log_misc, "usage: %s COMMAND", pre);
 
@@ -150,7 +150,7 @@ err:
 	return false;
 }
 
-#ifdef BOSON_HAVE_SAMU
+#ifdef MUON_HAVE_SAMU
 static bool
 cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -237,7 +237,7 @@ main(int argc, char *argv[])
 		{ "eval", cmd_eval },
 		{ "ast", cmd_ast },
 		{ "parse_check", cmd_parse_check },
-#ifdef BOSON_HAVE_SAMU
+#ifdef MUON_HAVE_SAMU
 		{ "samu", cmd_samu },
 #endif
 		{ 0 },

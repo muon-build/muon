@@ -1,5 +1,5 @@
-#ifndef BOSON_FETCH_H
-#define BOSON_FETCH_H
+#ifndef MUON_FETCH_H
+#define MUON_FETCH_H
 
 #include <stdbool.h>
 #include <stdint.h>
