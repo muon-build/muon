@@ -10,7 +10,6 @@
 struct project {
 	struct hash scope;
 	struct darr tokens;
-	uint32_t cur_tokens;
 	/* wk_strings */
 	uint32_t cwd, build_dir, subproject_name;
 	/* objects */
@@ -51,6 +50,7 @@ struct workspace {
 	struct ast *ast;
 	enum language_mode lang_mode;
 	const char *argv0, *source_root, *build_root;
+	const char *cur_src_path;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);

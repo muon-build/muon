@@ -88,35 +88,42 @@ eval(struct workspace *wk, const char *src)
 	 * storing these strings in the workspace's string buffer.
 	 */
 
-	uint32_t parent_tokens = current_project(wk)->cur_tokens;
-
-	current_project(wk)->cur_tokens = darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 });
-	struct tokens *toks = darr_get(&current_project(wk)->tokens, current_project(wk)->cur_tokens);
+	const char *old_src_path = wk->cur_src_path;
+	struct tokens *toks = darr_get(&current_project(wk)->tokens,
+		darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 }));
 	struct ast ast = { 0 };
 	bool ret;
 
+	wk->cur_src_path = src;
+
 	if (!lexer_lex(wk->lang_mode, toks, src)) {
-		return false;
+		ret = false;
+		goto cleanup;
 	} else if (!parser_parse(&ast, toks)) {
-		/* tokens_destroy(&toks); // See above note */
-		return false;
+		ret = false;
+		goto cleanup;
 	}
 
 	struct ast *parent_ast = wk->ast;
 	wk->ast = &ast;
 
 	ret = interpreter_interpret(wk);
-	/* L(log_misc, "done evaluating '%s'", src); */
 
-	current_project(wk)->cur_tokens = parent_tokens;
 	wk->ast = parent_ast;
-	if (parent_ast) {
-		wk->ast->toks = darr_get(&current_project(wk)->tokens, current_project(wk)->cur_tokens);
+	if (wk->ast) {
+		/* setting wk->ast->toks to NULL here to prevent misuse.
+		 * Currently, no effort is made to ensure the value of
+		 * wk->ast->toks actually points to the current source file's
+		 * tokens struct.  That is okay, since no one uses it.  This is
+		 * to make sure it stays that way.
+		 */
+		wk->ast->toks = NULL;
 	}
 
-	/* tokens_destroy(&toks); // See above note */
 	ast_destroy(&ast);
 
+cleanup:
+	wk->cur_src_path = old_src_path;
 	return ret;
 }
 

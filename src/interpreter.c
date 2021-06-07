@@ -22,7 +22,7 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	error_message(wk->ast->toks->src_path, n->tok->line, n->tok->col, fmt, args);
+	error_message(wk->cur_src_path, n->tok->line, n->tok->col, fmt, args);
 	va_end(args);
 }
 
