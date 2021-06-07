@@ -241,6 +241,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_c_args,
 		kw_install,
 		kw_link_with,
+		kw_version,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", obj_array },
@@ -249,6 +250,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_c_args] = { "c_args", obj_array },
 		[kw_install] = { "install", obj_bool },
 		[kw_link_with] = { "link_with", obj_array },
+		[kw_version] = { "version", obj_string },
 		0
 	};
 
