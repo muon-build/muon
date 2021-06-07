@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <assert.h>
 #include <string.h>
 
 #include "coerce.h"
@@ -60,6 +61,16 @@ struct coerce_into_files_ctx {
 };
 
 static enum iteration_result
+coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct coerce_into_files_ctx *ctx = _ctx;
+	assert(get_obj(wk, val)->type == obj_file);
+
+	obj_array_push(wk, ctx->arr, val);
+	return ir_cont;
+}
+
+static enum iteration_result
 coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct coerce_into_files_ctx *ctx = _ctx;
@@ -99,6 +110,13 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		uint32_t file;
 		make_obj(wk, &file, obj_file)->dat.file = path;
 		obj_array_push(wk, ctx->arr, file);
+		break;
+	}
+	case obj_custom_target: {
+		if (!obj_array_foreach(wk, get_obj(wk, val)->dat.custom_target.output,
+			ctx, coerce_custom_target_output_iter)) {
+			return ir_err;
+		}
 		break;
 	}
 	case obj_file:
