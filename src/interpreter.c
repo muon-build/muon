@@ -173,16 +173,13 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	l = get_obj(wk, l_id);
 	r = get_obj(wk, r_id);
 
-	if (l->type != r->type) {
-		interp_error(wk, n_id, "arithmetic operands (%s and %s) must match in type",
-			obj_type_to_s(l->type),
-			obj_type_to_s(r->type));
-		return false;
-	}
-
 	switch (get_obj(wk, l_id)->type) {
 	case obj_string: {
 		uint32_t res;
+
+		if (!typecheck(wk, n->r, r_id, obj_string)) {
+			return false;
+		}
 
 		switch ((enum arithmetic_type)n->data) {
 		case arith_add:
@@ -200,6 +197,10 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	}
 	case obj_number: {
 		int64_t res;
+
+		if (!typecheck(wk, n->r, r_id, obj_number)) {
+			return false;
+		}
 
 		switch ((enum arithmetic_type)n->data) {
 		case arith_add:
@@ -229,7 +230,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			if (!obj_array_dup(wk, l_id, obj_id)) {
 				return false;
 			}
-			obj_array_extend(wk, *obj_id, r_id);
+
+			if (r->type == obj_array) {
+				obj_array_extend(wk, *obj_id, r_id);
+			} else {
+				obj_array_push(wk, *obj_id, r_id);
+			}
 			return true;
 		default:
 			goto err1;
