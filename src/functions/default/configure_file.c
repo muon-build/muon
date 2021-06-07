@@ -121,6 +121,68 @@ cleanup:
 	return ret;
 }
 
+struct generate_config_ctx {
+	FILE *out;
+	uint32_t node;
+};
+
+static enum iteration_result
+generate_config_iter(struct workspace *wk, void *_ctx, uint32_t key_id, uint32_t val_id)
+{
+	struct generate_config_ctx *ctx = _ctx;
+	struct obj *val = get_obj(wk, val_id);
+
+	switch (val->type) {
+	case obj_string:
+		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
+		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
+		fprintf(ctx->out, "#define %s %s\n", wk_objstr(wk, key_id), wk_objstr(wk, val_id));
+		break;
+	case obj_bool:
+		/* conf_data.set('FOO', true)       => #define FOO */
+		/* conf_data.set('FOO', false)      => #undef FOO */
+		if (val->dat.boolean) {
+			fprintf(ctx->out, "#define %s\n", wk_objstr(wk, key_id));
+		} else {
+			fprintf(ctx->out, "#undef %s\n", wk_objstr(wk, key_id));
+		}
+		break;
+	case obj_number:
+		/* conf_data.set('FOO', 1)          => #define FOO 1 */
+		/* conf_data.set('FOO', 0)          => #define FOO 0 */
+		fprintf(ctx->out, "#define %s %ld\n", wk_objstr(wk, key_id), val->dat.num);
+		break;
+	default:
+		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(val->type));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+generate_config(struct workspace *wk, uint32_t dict, uint32_t node, const char *out_path)
+{
+	FILE *out;
+	if (!(out = fs_fopen(out_path, "wb"))) {
+		return false;
+	}
+
+	struct generate_config_ctx ctx = {
+		.out = out,
+		.node = node,
+	};
+
+	bool ret;
+	ret = obj_dict_foreach(wk, dict, &ctx, generate_config_iter);
+
+	if (!fs_fclose(out)) {
+		return false;
+	}
+
+	return ret;
+}
+
 bool
 func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
@@ -155,6 +217,23 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		return false;
 	}
 
+	{ /* setup out file */
+		const char *out = wk_objstr(wk, akw[kw_output].val), *p;
+		for (p = out; *p; ++p) {
+			if (*p == '/') {
+				interp_error(wk, akw[kw_output].node, "config file output cannot contain '/'");
+				return false;
+			}
+		}
+
+		if (!fs_mkdir_p(wk_str(wk, current_project(wk)->build_dir))) {
+			return false;
+		}
+
+		make_obj(wk, obj, obj_file)->dat.file =
+			wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), out);
+	}
+
 	if (akw[kw_input].set) {
 		uint32_t input_arr, input;
 		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
@@ -175,28 +254,14 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		const char *out = wk_objstr(wk, akw[kw_output].val), *p;
-		for (p = out; *p; ++p) {
-			if (*p == '/') {
-				interp_error(wk, akw[kw_output].node, "config file output cannot contain '/'");
-				return false;
-			}
-		}
-
-		if (!fs_mkdir_p(wk_str(wk, current_project(wk)->build_dir))) {
-			return false;
-		}
-
-		make_obj(wk, obj, obj_file)->dat.file =
-			wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), out);
-
 		if (!substitute_config(wk, dict, akw[kw_input].node,
 			wk_file_path(wk, input), wk_file_path(wk, *obj))) {
 			return false;
 		}
 	} else {
-		interp_error(wk, args_node, "TODO: input config file with no input");
-		return false;
+		if (!generate_config(wk, dict, akw[kw_input].node, wk_file_path(wk, *obj))) {
+			return true;
+		}
 	}
 
 	return true;
