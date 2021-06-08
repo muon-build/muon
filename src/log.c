@@ -51,7 +51,7 @@ static struct {
 	uint32_t opts;
 } log_cfg = { .level = log_info, };
 
-#define BUF_LEN 512
+#define BUF_LEN 4096
 
 static bool
 should_print(enum log_level lvl, enum log_filter type)
