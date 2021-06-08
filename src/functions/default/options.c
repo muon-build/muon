@@ -442,6 +442,8 @@ void
 set_default_options(struct workspace *wk)
 {
 	set_option(wk, "default_library", obj_string, "static");
-	set_option(wk, "mandir", obj_string, "/usr/share/man");
 	set_option(wk, "debug", obj_bool, true);
+	set_option(wk, "mandir", obj_string, "share/man");
+	set_option(wk, "datadir", obj_string, "share");
+	set_option(wk, "prefix", obj_string, "/usr/local");
 }
