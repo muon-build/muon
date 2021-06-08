@@ -181,10 +181,55 @@ func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint3
 	return true;
 }
 
+#define BUF_LEN 2048
+
+static bool
+func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	uint32_t i, start = 0, seplen, s_id;
+	static char sep[BUF_LEN + 1] = { 0 };
+
+	if (ao[0].set) {
+		strncpy(sep, wk_objstr(wk, ao[0].val), BUF_LEN);
+	} else {
+		strncpy(sep, " ", BUF_LEN);
+	}
+	seplen = strlen(sep);
+
+	make_obj(wk, obj, obj_array);
+
+	const char *str = wk_objstr(wk, rcvr);
+	for (i = 0; str[i]; ++i) {
+		if (strncmp(&str[i], sep, seplen) == 0) {
+			make_obj(wk, &s_id, obj_string)->dat.str =
+				wk_str_pushn(wk, &str[start], i - start);
+
+			obj_array_push(wk, *obj, s_id);
+
+			start = i + seplen;
+			i += seplen - 1;
+		}
+	}
+
+	make_obj(wk, &s_id, obj_string)->dat.str =
+		wk_str_pushn(wk, &str[start], i - start);
+
+	obj_array_push(wk, *obj, s_id);
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "strip", func_strip },
 	{ "to_upper", func_to_upper },
 	{ "format", func_format },
 	{ "underscorify", func_underscorify },
+	{ "split", func_split },
 	{ NULL, NULL },
 };
