@@ -103,7 +103,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 			if (*wk_objstr(wk, val) == '/') {
 				path = get_obj(wk, val)->dat.str;
 			} else {
-				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val));
 			}
 		}
 
