@@ -786,7 +786,6 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		kw_install,
 		kw_install_dir,
 		kw_build_by_default,
-
 	};
 	struct args_kw akw[] = {
 		[kw_input]       = { "input", obj_any, },
@@ -849,6 +848,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
 	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
+	LOG_I(log_interp, "adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name ));
 	tgt->dat.custom_target.cmd = cmd;
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
