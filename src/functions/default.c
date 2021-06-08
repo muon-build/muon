@@ -242,6 +242,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_install,
 		kw_link_with,
 		kw_version,
+		kw_build_by_default,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", obj_array },
@@ -251,6 +252,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_install] = { "install", obj_bool },
 		[kw_link_with] = { "link_with", obj_array },
 		[kw_version] = { "version", obj_string },
+		[kw_build_by_default] = { "build_by_default", obj_bool },
 		0
 	};
 
@@ -780,6 +782,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		kw_capture,
 		kw_install,
 		kw_install_dir,
+		kw_build_by_default,
 
 	};
 	struct args_kw akw[] = {
@@ -789,6 +792,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		[kw_capture]     = { "capture", obj_bool },
 		[kw_install]     = { "install", obj_bool }, // TODO
 		[kw_install_dir] = { "install_dir", obj_string }, // TODO
+		[kw_build_by_default] = { "build_by_default", obj_bool },
 		0
 	};
 	uint32_t input, output, args, cmd, flags = 0;
