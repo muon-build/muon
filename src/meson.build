@@ -15,6 +15,7 @@ src = files([
 	'functions/default/dependency.c',
 	'functions/default/options.c',
 	'functions/dependency.c',
+	'functions/dict.c',
 	'functions/external_library.c',
 	'functions/external_program.c',
 	'functions/feature_opt.c',
