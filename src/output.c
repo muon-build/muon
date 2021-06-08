@@ -351,13 +351,14 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		tgt_pre = 0;
 	}
 
-	uint32_t tgt_dir;
+	uint32_t tgt_dir, tgt_basedir;
 	if (tgt_pre == strlen(wk->build_root)) {
-		tgt_dir = wk_str_pushf(wk, "%s.p", wk_str(wk, tgt->dat.tgt.build_name));
+		tgt_basedir = wk_str_push(wk, "");
 	} else {
-		tgt_dir = wk_str_pushf(wk, "%s/%s.p", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre],
-			wk_str(wk, tgt->dat.tgt.build_name));
+		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
 	}
+
+	tgt_dir = wk_str_pushf(wk, "%s%s.p", wk_str(wk, tgt_basedir), wk_str(wk, tgt->dat.tgt.build_name));
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
@@ -446,8 +447,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			break;
 		}
 
-		fprintf(out, "build %s/%s: %s %s | %s %s",
-			&wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre],
+		fprintf(out, "build %s%s: %s %s | %s %s",
+			wk_str(wk, tgt_basedir),
 			wk_str(wk, tgt->dat.tgt.build_name),
 			rule,
 			wk_str(wk, ctx.object_names_id),
