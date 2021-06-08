@@ -153,37 +153,94 @@ struct write_tgt_iter_ctx {
 	FILE *out;
 	uint32_t args_id;
 	uint32_t object_names_id;
+	uint32_t order_deps_id;
+	bool have_order_deps;
 	uint32_t tgt_dir;
 };
+
+static bool
+suffixed_by(const char *str, const char *suffix)
+{
+	uint32_t len = strlen(str), sufflen = strlen(suffix);
+	if (sufflen > len) {
+		return false;
+	}
+
+	return strcmp(&str[len - sufflen], suffix) == 0;
+}
 
 static enum iteration_result
 write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *src = get_obj(wk, val_id);
-	assert(src->type == obj_file); // TODO
+	assert(src->type == obj_file);
 
-	uint32_t pre = longest_prefix_len(wk_str(wk, src->dat.file), (const char *[]) {
-		wk_str(wk, ctx->tgt->dat.tgt.cwd),
-		wk_str(wk, ctx->tgt->dat.tgt.build_dir),
-		NULL,
-	});
+	uint32_t src_pre = 0;
+	prefix_len(wk_str(wk, src->dat.file), wk->build_root, &src_pre);
 
-	uint32_t out;
-	out = wk_str_pushf(wk, "%s/%s.o", wk_str(wk, ctx->tgt_dir), &wk_str(wk, src->dat.file)[pre]);
+	if (suffixed_by(wk_str(wk, src->dat.file), ".h")) {
+		wk_str_appf(wk, &ctx->order_deps_id, "%s ", &wk_str(wk, src->dat.file)[src_pre]);
+		ctx->have_order_deps = true;
+	} else {
+		uint32_t dest_pre = longest_prefix_len(wk_str(wk, src->dat.file), (const char *[]) {
+			wk_str(wk, ctx->tgt->dat.tgt.cwd),
+			wk_str(wk, ctx->tgt->dat.tgt.build_dir),
+			NULL,
+		});
 
-	wk_str_appf(wk, &ctx->object_names_id, "%s ", wk_str(wk, out));
+		uint32_t out;
+		out = wk_str_pushf(wk, "%s/%s.o", wk_str(wk, ctx->tgt_dir), &wk_str(wk, src->dat.file)[dest_pre]);
 
-	fprintf(ctx->out,
-		"build %s: c_COMPILER %s\n"
-		" DEPFILE = %s.d\n"
-		" DEPFILE_UNQUOTED = %s.d\n"
-		" ARGS = %s\n\n",
-		wk_str(wk, out), wk_str(wk, src->dat.file),
-		wk_str(wk, out),
-		wk_str(wk, out),
-		wk_str(wk, ctx->args_id)
-		);
+		wk_str_appf(wk, &ctx->object_names_id, "%s ", wk_str(wk, out));
+
+		fprintf(ctx->out,
+			"build %s: c_COMPILER %s\n"
+			" DEPFILE = %s.d\n"
+			" DEPFILE_UNQUOTED = %s.d\n"
+			" ARGS = %s\n\n",
+			wk_str(wk, out), &wk_str(wk, src->dat.file)[src_pre],
+			wk_str(wk, out),
+			wk_str(wk, out),
+			wk_str(wk, ctx->args_id)
+			);
+	}
+
+	return ir_cont;
+}
+
+static uint32_t
+dirname_len(const char *path)
+{
+	uint32_t len = strlen(path);
+	int32_t i;
+	for (i = len - 1; i >= 0; --i) {
+		if (path[i] == '/') {
+			break;
+		}
+	}
+
+	return i;
+}
+
+static enum iteration_result
+process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct write_tgt_iter_ctx *ctx = _ctx;
+	struct obj *src = get_obj(wk, val_id);
+	assert(src->type == obj_file);
+
+	if (!suffixed_by(wk_str(wk, src->dat.file), ".h")) {
+		return ir_cont;
+	}
+
+	uint32_t src_pre = 0, dir_len;
+	prefix_len(wk_str(wk, src->dat.file), wk->build_root, &src_pre);
+
+	dir_len = dirname_len(&wk_str(wk, src->dat.file)[src_pre]);
+
+	uint32_t dir = wk_str_pushn(wk, &wk_str(wk, src->dat.file)[src_pre], dir_len);
+	wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, dir));
 
 	return ir_cont;
 }
@@ -219,6 +276,7 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 struct process_link_with_ctx {
 	uint32_t *link_args_id;
 	uint32_t *implicit_deps_id;
+	bool have_implicit_deps;
 };
 
 static enum iteration_result
@@ -229,12 +287,16 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *tgt = get_obj(wk, val_id);
 
 	if (tgt->type == obj_build_target) {
+		uint32_t pre;
+		prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &pre);
+
 		wk_str_appf(wk, ctx->implicit_deps_id, " %s/%s",
-			wk_str(wk, tgt->dat.tgt.build_dir),
+			&wk_str(wk, tgt->dat.tgt.build_dir)[pre],
 			wk_str(wk, tgt->dat.tgt.build_name));
 		wk_str_appf(wk, ctx->link_args_id, " %s/%s",
-			wk_str(wk, tgt->dat.tgt.build_dir),
+			&wk_str(wk, tgt->dat.tgt.build_dir)[pre],
 			wk_str(wk, tgt->dat.tgt.build_name));
+		ctx->have_implicit_deps = true;
 	} else if (tgt->type == obj_string) {
 		wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
 	} else {
@@ -284,16 +346,16 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
-	uint32_t pre;
-	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &pre)) {
-		pre = 0;
+	uint32_t tgt_pre;
+	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
+		tgt_pre = 0;
 	}
 
 	uint32_t tgt_dir;
-	if (pre == strlen(wk->build_root)) {
+	if (tgt_pre == strlen(wk->build_root)) {
 		tgt_dir = wk_str_pushf(wk, "%s.p", wk_str(wk, tgt->dat.tgt.build_name));
 	} else {
-		tgt_dir = wk_str_pushf(wk, "%s/%s.p", &wk_str(wk, tgt->dat.tgt.build_dir)[pre],
+		tgt_dir = wk_str_pushf(wk, "%s/%s.p", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre],
 			wk_str(wk, tgt->dat.tgt.build_name));
 	}
 
@@ -322,6 +384,11 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			}
 		}
 
+		/* sources includes */
+		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, process_source_includes_iter)) {
+			return ir_err;
+		}
+
 		if (!concat_strings(wk, proj->cfg.args, &ctx.args_id)) {
 			return ir_err;
 		}
@@ -333,7 +400,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		}
 	}
 
-	{ /* obj names */
+	{ /* sources */
+		ctx.order_deps_id = wk_str_push(wk, "|| ");
 		ctx.object_names_id = wk_str_push(wk, "");
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_sources_iter)) {
 			return ir_err;
@@ -343,6 +411,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	{ /* target */
 		const char *rule;
 		uint32_t link_args_id, implicit_deps_id = wk_str_push(wk, "");
+		bool have_implicit_deps = false;
 
 		switch (tgt->dat.tgt.type) {
 		case tgt_executable:
@@ -366,6 +435,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 						return ir_err;
 					}
 				}
+
+				have_implicit_deps = ctx.have_implicit_deps;
 			}
 
 			break;
@@ -375,12 +446,14 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			break;
 		}
 
-		fprintf(out, "build %s/%s: %s %s | %s",
-			wk_str(wk, tgt->dat.tgt.build_dir),
+		fprintf(out, "build %s/%s: %s %s | %s %s",
+			&wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre],
 			wk_str(wk, tgt->dat.tgt.build_name),
 			rule,
 			wk_str(wk, ctx.object_names_id),
-			wk_str(wk, implicit_deps_id)
+			have_implicit_deps ? wk_str(wk, implicit_deps_id) : "",
+
+			ctx.have_order_deps ? wk_str(wk, ctx.order_deps_id) : ""
 			);
 		fprintf(out, "\n LINK_ARGS = %s\n\n", wk_str(wk, link_args_id));
 	}
