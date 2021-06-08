@@ -789,7 +789,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 
 	};
 	struct args_kw akw[] = {
-		[kw_input]       = { "input", obj_any, .required = true },
+		[kw_input]       = { "input", obj_any, },
 		[kw_output]      = { "output", obj_any, .required = true },
 		[kw_command]     = { "command", obj_array, .required = true },
 		[kw_capture]     = { "capture", obj_bool },
@@ -804,10 +804,14 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		return false;
 	}
 
-	if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input)) {
-		return false;
-	} else if (!get_obj(wk, input)->dat.arr.len) {
-		interp_error(wk, akw[kw_input].node, "input cannot be empty");
+	if (akw[kw_input].set) {
+		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input)) {
+			return false;
+		} else if (!get_obj(wk, input)->dat.arr.len) {
+			interp_error(wk, akw[kw_input].node, "input cannot be empty");
+		}
+	} else {
+		make_obj(wk, &input, obj_array);
 	}
 
 	if (!coerce_output_files(wk, akw[kw_output].node, akw[kw_output].val, &output)) {
