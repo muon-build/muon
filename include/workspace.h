@@ -51,6 +51,8 @@ struct workspace {
 	enum language_mode lang_mode;
 	const char *argv0, *source_root, *build_root;
 	const char *cur_src_path;
+	char *strbuf;
+	uint32_t strbuf_cap;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
@@ -68,7 +70,6 @@ char *wk_objstr(struct workspace *wk, uint32_t id);
 char *wk_file_path(struct workspace *wk, uint32_t id);
 uint32_t wk_str_push_stripped(struct workspace *wk, const char *s);
 uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
-uint32_t wk_str_basename(struct workspace *wk, uint32_t path);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);

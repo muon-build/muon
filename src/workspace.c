@@ -5,6 +5,7 @@
 
 #include "interpreter.h"
 #include "log.h"
+#include "mem.h"
 #include "workspace.h"
 
 struct obj *
@@ -36,8 +37,6 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 	*id = darr_push(&wk->objs, &(struct obj){ .type = type });
 	return darr_get(&wk->objs, *id);
 }
-
-#define BUF_SIZE 2048
 
 uint32_t
 wk_str_split(struct workspace *wk, const char *s, const char *sep)
@@ -97,16 +96,27 @@ wk_str_push_stripped(struct workspace *wk, const char *s)
 	return wk_str_pushn(wk, s, len);
 }
 
+static void
+grow_strbuf(struct workspace *wk, uint32_t len)
+{
+	if (len >= wk->strbuf_cap) {
+		LOG_W(log_misc, "growing strbuf: %d", len);
+		wk->strbuf_cap = len + 1;
+		wk->strbuf = z_realloc(wk->strbuf, len);
+	}
+
+}
+
 uint32_t
-_str_push(struct workspace *wk, const char *buf)
+_str_push(struct workspace *wk)
 {
 	uint32_t len, ret;
 
-	len = strlen(buf) + 1;
+	len = strlen(wk->strbuf) + 1;
 	ret = wk->strs.len;
 
 	darr_grow_by(&wk->strs, len);
-	strncpy(darr_get(&wk->strs, ret), buf, len);
+	strncpy(darr_get(&wk->strs, ret), wk->strbuf, len);
 
 	/* L(log_interp, "%d, '%s'", ret, buf); */
 
@@ -116,11 +126,11 @@ _str_push(struct workspace *wk, const char *buf)
 uint32_t
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
-	memset(buf, 0, BUF_SIZE);
-	strncpy(buf, str, n > BUF_SIZE ? BUF_SIZE : n);
+	grow_strbuf(wk, n + 1);
+	strncpy(wk->strbuf, str, n);
+	wk->strbuf[n] = 0;
 
-	return _str_push(wk, buf);
+	return _str_push(wk);
 }
 
 uint32_t
@@ -132,11 +142,11 @@ wk_str_push(struct workspace *wk, const char *str)
 uint32_t
 wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
-	/* memset(buf, 0, BUF_SIZE); */
-	vsnprintf(buf, BUF_SIZE, fmt,  args);
+	uint32_t len = vsnprintf(NULL, 0, fmt,  args);
+	grow_strbuf(wk, len);
+	vsprintf(wk->strbuf, fmt,  args);
 
-	return _str_push(wk, buf);
+	return _str_push(wk);
 }
 
 uint32_t
@@ -152,33 +162,35 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 }
 
 static void
-_str_app(struct workspace *wk, uint32_t *id, const char *buf)
+_str_app(struct workspace *wk, uint32_t *id)
 {
-	uint32_t curlen;
-	const char *cur = wk_str(wk, *id);
+	uint32_t curlen, cur_end, new_id;
 
-	curlen = strlen(cur);
+	curlen = strlen(wk_str(wk, *id)) + 1;
+	cur_end = *id + curlen;
 
-	if (*id + curlen + 1 == wk->strs.len) {
-		/* L(log_misc, "str '%s' is already at the end of pool", cur); */
-	} else {
-		/* L(log_misc, "moving '%s' to the end of pool", cur); */
-		*id = wk_str_push(wk, cur);
+	if (cur_end != wk->strs.len) {
+		/* L(log_misc, "moving '%s' to the end of pool (%d, %d)", wk_str(wk, *id), cur_end, curlen); */
+		new_id = wk->strs.len;
+		darr_grow_by(&wk->strs, curlen);
+		memcpy(&wk->strs.e[new_id], wk_str(wk, *id), curlen);
+		*id = new_id;
+		/* L(log_misc, "result: '%s'", wk_str(wk, *id)); */
 	}
 
 	assert(wk->strs.len);
 	--wk->strs.len;
-	_str_push(wk, buf);
+	_str_push(wk);
 }
 
 void
 wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
-	memset(buf, 0, BUF_SIZE);
-	strncpy(buf, str, n > BUF_SIZE ? BUF_SIZE : n);
+	grow_strbuf(wk, n + 1);
+	strncpy(wk->strbuf, str, n);
+	wk->strbuf[n] = 0;
 
-	_str_app(wk, id, buf);
+	_str_app(wk, id);
 }
 
 void
@@ -190,35 +202,14 @@ wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
 void
 wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
-	/* memset(buf, 0, BUF_SIZE); */
-
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buf, BUF_SIZE, fmt, args);
+	uint32_t len = vsnprintf(NULL, 0, fmt, args);
+	grow_strbuf(wk, len);
+	vsprintf(wk->strbuf, fmt, args);
 	va_end(args);
 
-	_str_app(wk, id, buf);
-}
-
-uint32_t
-wk_str_basename(struct workspace *wk, uint32_t path)
-{
-	const char *p = wk_str(wk, path);
-	uint32_t len = strlen(p);
-	int32_t i;
-
-	if (p[len - 1] == '/') {
-		return _str_push(wk, "");
-	}
-
-	for (i = len - 1; i >= 0; --i) {
-		if (p[i] == '/') {
-			break;
-		}
-	}
-
-	return _str_push(wk, &p[i + 1]);
+	_str_app(wk, id);
 }
 
 char *
@@ -299,6 +290,9 @@ workspace_init(struct workspace *wk)
 	hash_set(&wk->scope, "host_machine", id);
 
 	darr_push(&wk->strs, &(char) { 0 });
+
+	wk->strbuf_cap = 2048;
+	wk->strbuf = z_malloc(wk->strbuf_cap);
 }
 
 void
@@ -323,4 +317,6 @@ workspace_destroy(struct workspace *wk)
 	darr_destroy(&wk->objs);
 	darr_destroy(&wk->strs);
 	hash_destroy(&wk->scope);
+
+	z_free(wk->strbuf);
 }
