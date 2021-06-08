@@ -90,11 +90,10 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 
 	struct obj *l = get_obj(wk, l_id), *r = get_obj(wk, r_id);
 	switch (l->type) {
-	case obj_array:
+	case obj_array: {
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
 			return false;
 		}
-
 
 		int64_t i = r->dat.num;
 
@@ -102,8 +101,9 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		return obj_array_index(wk, l_id, r->dat.num, obj);
-	case obj_dict:
+		return obj_array_index(wk, l_id, i, obj);
+	}
+	case obj_dict: {
 		if (!typecheck(wk, n->r, r_id, obj_string)) {
 			return false;
 		}
@@ -116,6 +116,20 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 		return true;
+	}
+	case obj_custom_target: {
+		if (!typecheck(wk, n->r, r_id, obj_number)) {
+			return false;
+		}
+
+		int64_t i = r->dat.num;
+
+		if (!boundscheck(wk, n->r, l->dat.custom_target.output, &i)) {
+			return false;
+		}
+
+		return obj_array_index(wk, l->dat.custom_target.output, i, obj);
+	}
 	default:
 		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(l->type));
 		return false;
