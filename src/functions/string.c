@@ -166,7 +166,7 @@ func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint3
 		return false;
 	}
 
-	uint32_t s_id = wk_str_push(wk, wk_str(wk, rcvr));
+	uint32_t s_id = wk_str_push(wk, wk_objstr(wk, rcvr));
 	char *s = wk_str(wk, s_id);
 
 	for (; *s; ++s) {
