@@ -38,6 +38,38 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 	return darr_get(&wk->objs, *id);
 }
 
+bool
+prefix_len(const char *str, const char *prefix, uint32_t *len)
+{
+	uint32_t l = strlen(prefix);
+	if (strncmp(str, prefix, l) == 0) {
+		if (strlen(str) > l && str[l] == '/') {
+			++l;
+		}
+		*len = l;
+		return true;
+	} else {
+		*len = 0;
+		return false;
+	}
+}
+
+uint32_t
+longest_prefix_len(const char *str, const char *prefix[])
+{
+	uint32_t len, max = 0;
+	for (; *prefix; ++prefix) {
+		if (prefix_len(str, *prefix, &len)) {
+			if (len > max) {
+				max = len;
+			}
+		}
+	}
+
+	return max;
+}
+
+
 uint32_t
 wk_str_split(struct workspace *wk, const char *s, const char *sep)
 {
