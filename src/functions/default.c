@@ -744,9 +744,15 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	struct obj *obj;
 
 	switch ((obj = get_obj(wk, val))->type) {
-	case obj_build_target:
-		str = obj->dat.tgt.build_name;
+	case obj_build_target: {
+		uint32_t pre;
+		prefix_len(wk_str(wk, obj->dat.tgt.build_dir), wk->build_root, &pre);
+
+		str = wk_str_pushf(wk, "%s/%s",
+			&wk_str(wk, obj->dat.tgt.build_dir)[pre],
+			wk_str(wk, obj->dat.tgt.build_name));
 		break;
+	}
 	case obj_external_program:
 		str = obj->dat.external_program.full_path;
 		break;
