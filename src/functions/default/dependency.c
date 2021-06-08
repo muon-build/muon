@@ -48,12 +48,14 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		kw_native,
 		kw_version,
 		kw_static,
+		kw_modules,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
 		[kw_native] = { "native", obj_bool },
 		[kw_version] = { "version", obj_string },
 		[kw_static] = { "static", obj_bool },
+		[kw_modules] = { "modules", obj_array },
 		0
 	};
 
