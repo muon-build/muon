@@ -425,7 +425,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		switch (tgt->dat.tgt.type) {
 		case tgt_executable:
 			rule = "c_LINKER";
-			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined");
+			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined -Wl,--start-group");
 
 			{ /* dep links */
 				struct process_link_with_ctx ctx = {
@@ -448,6 +448,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 				have_implicit_deps = ctx.have_implicit_deps;
 			}
 
+			wk_str_app(wk, &link_args_id, " -Wl,--end-group");
 			break;
 		case tgt_library:
 			rule = "STATIC_LINKER";
