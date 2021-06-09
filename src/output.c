@@ -279,6 +279,8 @@ struct process_link_with_ctx {
 	bool have_implicit_deps;
 };
 
+static enum iteration_result process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id);
+
 static enum iteration_result
 process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
@@ -297,6 +299,12 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			&wk_str(wk, tgt->dat.tgt.build_dir)[pre],
 			wk_str(wk, tgt->dat.tgt.build_name));
 		ctx->have_implicit_deps = true;
+
+		if (tgt->dat.tgt.deps) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, ctx, process_dep_links_iter)) {
+				return ir_err;
+			}
+		}
 	} else if (tgt->type == obj_string) {
 		wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
 	} else {
