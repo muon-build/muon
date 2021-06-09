@@ -11,6 +11,7 @@
 #include "mem.h"
 
 #define GROW_SIZE 2048
+#define TMP_BUF_LEN 1024
 
 static void
 buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
@@ -29,11 +30,14 @@ buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 	*i += len;
 }
 
+static const char *mesondefine = "#mesondefine ";
+
 static bool
 substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, const char *out)
 {
 	/* L(log_interp, "in: %s", in); */
 	/* L(log_interp, "out: %s", out); */
+	const uint32_t mesondefine_len = strlen(mesondefine);
 
 	bool ret = true;
 	char *in_buf = NULL, *out_buf = NULL;
@@ -51,6 +55,9 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	uint32_t i, id_start, id_end = 0,
 		 line = 1, start_of_line = 0, id_start_col, id_start_line;
 	bool reading_id = false;
+	uint32_t elem;
+	bool found;
+	char tmp_buf[TMP_BUF_LEN] = { 0 };
 
 	for (i = 0; i < in_len; ++i) {
 		if (in_buf[i] == '\n') {
@@ -58,10 +65,78 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			++line;
 		}
 
-		if (in_buf[i] == '@') {
+		if (!reading_id && i == start_of_line && strncmp(&in_buf[i], mesondefine, mesondefine_len) == 0) {
+			if (i > id_end) {
+				buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_end], i - id_end);
+			}
+
+			/* L(log_interp, "%s", out_buf); */
+
+			i += mesondefine_len;
+			id_start = i;
+			id_start_line = line;
+			id_start_col = i - start_of_line;
+
+			char *end = strchr(&in_buf[id_start], '\n');
+			const char *sub = NULL, *deftype = "#define";
+
+			if (!end) {
+				error_messagef(in, id_start_line, id_start_col, "got EOF while scanning #mesondefine");
+				return false;
+			}
+
+			id_end = end - in_buf;
+			i = id_end - 1;
+			++line;
+
+			strncpy(tmp_buf, &in_buf[id_start], id_end - id_start);
+			tmp_buf[i - id_start + 1] = 0;
+			L(log_interp, "key: %s", tmp_buf);
+
+			if (id_end - id_start == 0) {
+				error_messagef(in, id_start_line, id_start_col, "key of zero length not supported");
+				return false;
+			} else if (!obj_dict_index_strn(wk, dict, &in_buf[id_start], id_end - id_start, &elem, &found)) {
+				error_messagef(in, id_start_line, id_start_col, "failed to index dict");
+				return false; // shouldn't happen tbh
+			} else if (!found) {
+				deftype = "/* undef";
+				sub = "*/";
+				goto write_mesondefine;
+			}
+
+			switch (get_obj(wk, elem)->type) {
+			case obj_bool: {
+				if (!get_obj(wk, elem)->dat.boolean) {
+					deftype = "#undef";
+				}
+				break;
+			}
+			case obj_string: {
+				sub = wk_objstr(wk, elem);
+				break;
+			}
+			case obj_number:
+				snprintf(tmp_buf, TMP_BUF_LEN, "%ld", get_obj(wk, elem)->dat.num);
+				sub = tmp_buf;
+				break;
+			default:
+				error_messagef(in, id_start_line, id_start_col,
+					"invalid type for #mesondefine: '%s'",
+					obj_type_to_s(get_obj(wk, elem)->type));
+				return false;
+			}
+
+write_mesondefine:
+			buf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
+			buf_push(&out_buf, &out_cap, &out_len, " ", 1);
+			buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_start], id_end - id_start);
+			if (sub) {
+				buf_push(&out_buf, &out_cap, &out_len, " ", 1);
+				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
+			}
+		} else if (in_buf[i] == '@') {
 			if (reading_id) {
-				uint32_t elem;
-				bool found;
 				id_end = i + 1;
 
 				if (i == id_start) {
