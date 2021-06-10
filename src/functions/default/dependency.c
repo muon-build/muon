@@ -39,6 +39,27 @@ handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
 	return true;
 }
 
+struct parse_cflags_iter_ctx {
+	uint32_t include_directories;
+};
+
+static enum iteration_result
+parse_cflags_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct parse_cflags_iter_ctx *ctx = _ctx;
+	static const char *pre = "-I";
+	const uint32_t pre_len = strlen(pre);
+	uint32_t s;
+
+	if (strncmp(pre, wk_objstr(wk, val_id), pre_len) == 0) {
+		make_obj(wk, &s, obj_file)->dat.file = wk_str_push(wk, &wk_objstr(wk, val_id)[pre_len]);
+
+		obj_array_push(wk, ctx->include_directories, s);
+	}
+
+	return ir_cont;
+}
+
 bool
 func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -108,17 +129,29 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 
 	if (!pkg_config(wk, &ctx, args_node, "--libs", wk_objstr(wk, an[0].val))) {
 		return false;
-	}
-
-	if (ctx.status != 0) {
+	} else if (ctx.status != 0) {
 		interp_error(wk, an[0].node, "unexpected pkg-config error: %s", ctx.err);
 		return false;
 	}
 
 	get_obj(wk, *obj)->dat.dep.link_with = wk_str_split(wk, ctx.out, " \t\n");
 
-	/* get_obj(wk, *obj)->dat.dep.link_with = akw[kw_link_with].val; */
-	/* get_obj(wk, *obj)->dat.dep.include_directories = akw[kw_include_directories].val; */
+	if (!pkg_config(wk, &ctx, args_node, "--cflags", wk_objstr(wk, an[0].val))) {
+		return false;
+	} else if (ctx.status != 0) {
+		interp_error(wk, an[0].node, "unexpected pkg-config error: %s", ctx.err);
+		return false;
+	}
+
+	make_obj(wk, &get_obj(wk, *obj)->dat.dep.include_directories, obj_array);
+
+	struct parse_cflags_iter_ctx parse_cflags_iter_ctx  = {
+		.include_directories = get_obj(wk, *obj)->dat.dep.include_directories
+	};
+
+	if (!obj_array_foreach(wk, wk_str_split(wk, ctx.out, " \t\n"), &parse_cflags_iter_ctx, parse_cflags_iter)) {
+		return false;
+	}
 	return true;
 }
 
