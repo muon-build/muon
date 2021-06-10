@@ -45,8 +45,6 @@ prefix_len(const char *str, const char *prefix, uint32_t *len)
 	if (strncmp(str, prefix, l) == 0) {
 		if (strlen(str) > l && str[l] == '/') {
 			++l;
-		} else {
-			return false;
 		}
 		*len = l;
 		return true;
