@@ -12,6 +12,11 @@ struct concat_strings_ctx {
 	uint32_t *res;
 };
 
+struct output {
+	FILE *build_ninja, *compile_commands_json;
+	bool compile_commands_comma;
+};
+
 #define BUF_SIZE 2048
 
 static bool
@@ -150,7 +155,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 
 struct write_tgt_iter_ctx {
 	struct obj *tgt;
-	FILE *out;
+	struct output *output;
 	uint32_t args_id;
 	uint32_t object_names_id;
 	uint32_t order_deps_id;
@@ -194,7 +199,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 		wk_str_appf(wk, &ctx->object_names_id, "%s ", wk_str(wk, out));
 
-		fprintf(ctx->out,
+		fprintf(ctx->output->build_ninja,
 			"build %s: c_COMPILER %s\n"
 			" DEPFILE = %s.d\n"
 			" DEPFILE_UNQUOTED = %s.d\n"
@@ -203,6 +208,27 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			wk_str(wk, out),
 			wk_str(wk, out),
 			wk_str(wk, ctx->args_id)
+			);
+
+
+		if (ctx->output->compile_commands_comma) {
+			fputs(",\n", ctx->output->compile_commands_json);
+		} else {
+			ctx->output->compile_commands_comma = true;
+		}
+
+		fprintf(ctx->output->compile_commands_json,
+			"  {\n"
+			"    \"directory\": \"%s\",\n"
+			"    \"command\": \"cc %s -o %s -c %s\",\n"
+			"    \"file\": \"%s\",\n"
+			"    \"output\": \"%s\"\n"
+			"  }",
+			wk->build_root,
+			wk_str(wk, ctx->args_id),
+			wk_str(wk, out), &wk_str(wk, src->dat.file)[src_pre],
+			&wk_str(wk, src->dat.file)[src_pre],
+			wk_str(wk, out)
 			);
 	}
 
@@ -341,14 +367,14 @@ process_include_dirs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 }
 
 struct write_tgt_ctx {
-	FILE *out;
+	struct output *output;
 	struct project *proj;
 };
 
 static enum iteration_result
 write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
-	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
+	struct output *output = ((struct write_tgt_ctx *)_ctx)->output;
 	struct project *proj = ((struct write_tgt_ctx *)_ctx)->proj;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
@@ -370,7 +396,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
-		.out = out,
+		.output = output,
 		.tgt_dir = tgt_dir,
 	};
 
@@ -456,16 +482,18 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			break;
 		}
 
-		fprintf(out, "build %s%s: %s %s | %s %s",
+		fprintf(output->build_ninja, "build %s%s: %s %s | %s %s"
+			"\n LINK_ARGS = %s\n\n"
+			,
 			wk_str(wk, tgt_basedir),
 			wk_str(wk, tgt->dat.tgt.build_name),
 			rule,
 			wk_str(wk, ctx.object_names_id),
 			have_implicit_deps ? wk_str(wk, implicit_deps_id) : "",
+			ctx.have_order_deps ? wk_str(wk, ctx.order_deps_id) : "",
 
-			ctx.have_order_deps ? wk_str(wk, ctx.order_deps_id) : ""
+			wk_str(wk, link_args_id)
 			);
-		fprintf(out, "\n LINK_ARGS = %s\n\n", wk_str(wk, link_args_id));
 	}
 
 	return ir_cont;
@@ -492,7 +520,7 @@ custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 static enum iteration_result
 write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
-	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
+	struct output *output = ((struct write_tgt_ctx *)_ctx)->output;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
@@ -528,19 +556,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-
-	/* desc = wk_str_push(wk, ""); */
-	/* if (!concat_str(wk, &desc, wk_str_pushf(wk, "Generating %s with a custom command", wk_str(wk, tgt->dat.custom_target.name)))) { */
-	/* 	return ir_err; */
-	/* } */
-
-	/* if (tgt->dat.custom_target.flags & custom_target_capture) { */
-	/* 	if (!concat_str(wk, &desc, wk_str_push(wk, " (output captured)"))) { */
-	/* 		return ir_err; */
-	/* 	} */
-	/* } */
-
-	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
+	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s %s\n"
 		" DESCRIPTION = %s%s\n",
 		wk_str(wk, outputs),
@@ -571,9 +587,9 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 }
 
 static bool
-write_project(FILE *out, struct workspace *wk, struct project *proj)
+write_project(struct output *output, struct workspace *wk, struct project *proj)
 {
-	struct write_tgt_ctx ctx = { .out = out, .proj = proj };
+	struct write_tgt_ctx ctx = { .output = output, .proj = proj };
 
 	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
 		return false;
@@ -583,41 +599,48 @@ write_project(FILE *out, struct workspace *wk, struct project *proj)
 }
 
 static FILE *
-setup_outdir(const char *dir)
+open_out(const char *dir, const char *name)
 {
-	if (!fs_mkdir_p(dir)) {
-		return false;
-	}
-
 	char path[PATH_MAX + 1] = { 0 };
-	snprintf(path, PATH_MAX, "%s/%s", dir, "build.ninja");
-
-	FILE *out;
-	if (!(out = fs_fopen(path, "w"))) {
-		return NULL;
-	}
-
-	return out;
+	snprintf(path, PATH_MAX, "%s/%s", dir, name);
+	return fs_fopen(path, "w");
 }
 
 bool
 output_build(struct workspace *wk, const char *dir)
 {
-	FILE *out;
-	if (!(out = setup_outdir(dir))) {
+	if (!fs_mkdir_p(dir)) {
 		return false;
 	}
 
-	write_hdr(out, wk, darr_get(&wk->projects, 0));
+	struct output output = { 0 };
+
+	if (!(output.build_ninja  = open_out(dir, "build.ninja"))) {
+		return false;
+	}
+
+	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
+
+	if (!(output.compile_commands_json = open_out(dir, "compile_commands.json"))) {
+		return false;
+	}
+
+	fputs("[\n", output.compile_commands_json);
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
-		if (!write_project(out, wk, darr_get(&wk->projects, i))) {
+		if (!write_project(&output, wk, darr_get(&wk->projects, i))) {
 			return false;
 		}
 	}
 
-	if (!fs_fclose(out)) {
+	fputs("\n]\n", output.compile_commands_json);
+
+	if (!fs_fclose(output.build_ninja)) {
+		return false;
+	}
+
+	if (!fs_fclose(output.compile_commands_json)) {
 		return false;
 	}
 
