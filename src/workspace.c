@@ -41,11 +41,15 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 bool
 prefix_len(const char *str, const char *prefix, uint32_t *len)
 {
-	uint32_t l = strlen(prefix);
+	uint32_t l = strlen(prefix), sl = strlen(str);
 	if (strncmp(str, prefix, l) == 0) {
-		if (strlen(str) > l && str[l] == '/') {
+		if (sl > l && str[l] == '/') {
 			++l;
+		} else if (sl == l) {
+		} else {
+			return false;
 		}
+
 		*len = l;
 		return true;
 	} else {
