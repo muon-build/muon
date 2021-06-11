@@ -744,26 +744,20 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	struct obj *obj;
 
 	switch ((obj = get_obj(wk, val))->type) {
-	case obj_build_target: {
-		uint32_t pre;
-		prefix_len(wk_str(wk, obj->dat.tgt.build_dir), wk->build_root, &pre);
-
-		str = wk_str_pushf(wk, "%s/%s",
-			&wk_str(wk, obj->dat.tgt.build_dir)[pre],
-			wk_str(wk, obj->dat.tgt.build_name));
-		break;
-	}
+	case obj_build_target:
 	case obj_external_program:
-		str = obj->dat.external_program.full_path;
-		break;
 	case obj_file:
-		str = obj->dat.file;
-		break;
-	case obj_string: {
-		if (!string_format(wk, ctx->err_node, get_obj(wk, val)->dat.str,
-			&str, ctx, format_cmd_arg_cb)) {
+		if (!coerce_executable(wk, ctx->err_node, val, &str)) {
 			return ir_err;
 		}
+		break;
+	case obj_string: {
+		uint32_t s;
+		if (!string_format(wk, ctx->err_node, get_obj(wk, val)->dat.str,
+			&s, ctx, format_cmd_arg_cb)) {
+			return ir_err;
+		}
+		make_obj(wk, &str, obj_string)->dat.str = s;
 		break;
 	}
 	default:
@@ -773,10 +767,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 	/* L(log_interp, "cmd arg: '%s'", wk_str(wk, str)); */
 
-	uint32_t str_id;
-	make_obj(wk, &str_id, obj_string)->dat.str = str;
-	obj_array_push(wk, ctx->arr, str_id);
-
+	obj_array_push(wk, ctx->arr, str);
 	return ir_cont;
 }
 

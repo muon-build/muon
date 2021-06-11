@@ -8,8 +8,41 @@
 #include "interpreter.h"
 
 bool
-coerce_requirement(struct workspace *wk, struct args_kw *kw_required,
-	enum requirement_type *requirement)
+coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+{
+	struct obj *obj;
+	uint32_t str;
+
+	switch ((obj = get_obj(wk, val))->type) {
+	case obj_file:
+		*res = val;
+		return true;
+	case obj_build_target: {
+		uint32_t pre;
+		prefix_len(wk_str(wk, obj->dat.tgt.build_dir), wk->build_root, &pre);
+		if (strlen(wk_str(wk, obj->dat.tgt.build_dir)) == pre) {
+			str = wk_str_pushf(wk, "./%s", wk_str(wk, obj->dat.tgt.build_name));
+		} else {
+			str = wk_str_pushf(wk, "%s/%s",
+				&wk_str(wk, obj->dat.tgt.build_dir)[pre],
+				wk_str(wk, obj->dat.tgt.build_name));
+		}
+		break;
+	}
+	case obj_external_program:
+		str = obj->dat.external_program.full_path;
+		break;
+	default:
+		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(obj->type));
+		return false;
+	}
+
+	make_obj(wk, res, obj_string)->dat.str = str;
+	return true;
+}
+
+bool
+coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requirement_type *requirement)
 {
 	if (kw_required->set) {
 		if (get_obj(wk, kw_required->val)->type == obj_bool) {
