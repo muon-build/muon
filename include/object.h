@@ -31,6 +31,7 @@ enum obj_type {
 	obj_external_library,
 	obj_run_result,
 	obj_configuration_data,
+	obj_test,
 
 	obj_type_count,
 };
@@ -129,6 +130,11 @@ struct obj {
 		struct {
 			uint32_t dict;
 		} configuration_data;
+		struct {
+			uint32_t name;
+			uint32_t exe;
+			uint32_t args;
+		} test;
 	} dat;
 };
 

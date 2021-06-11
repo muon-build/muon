@@ -91,7 +91,6 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 
 			strncpy(tmp_buf, &in_buf[id_start], id_end - id_start);
 			tmp_buf[i - id_start + 1] = 0;
-			L(log_interp, "key: %s", tmp_buf);
 
 			if (id_end - id_start == 0) {
 				error_messagef(in, id_start_line, id_start_col, "key of zero length not supported");

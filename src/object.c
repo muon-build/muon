@@ -34,6 +34,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_run_result: return "run_result";
 	case obj_configuration_data: return "configuration_data";
 	case obj_custom_target: return "custom_target";
+	case obj_test: return "test";
 
 	case obj_type_count: assert(false); return "uh oh";
 	}

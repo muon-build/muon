@@ -593,7 +593,31 @@ func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 static bool
 func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	L(log_interp, "TODO: test()");
+	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", obj_array, },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	uint32_t exe;
+	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
+		return false;
+	}
+
+	uint32_t test_id;
+	struct obj *test = make_obj(wk, &test_id, obj_test);
+	test->dat.test.name = an[0].val;
+	test->dat.test.exe = exe;
+	test->dat.test.args = akw[kw_args].val;
+
+	obj_array_push(wk, current_project(wk)->tests, test_id);
 	return true;
 }
 

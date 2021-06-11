@@ -24,6 +24,7 @@ struct project {
 	} cfg;
 
 	uint32_t targets;
+	uint32_t tests;
 };
 
 enum loop_ctl {
