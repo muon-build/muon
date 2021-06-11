@@ -1,6 +1,7 @@
 image: alpine/latest
 packages:
   - meson
+  - pkgconf-dev
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
