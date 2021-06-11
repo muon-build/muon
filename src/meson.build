@@ -36,6 +36,7 @@ src = files([
 	'opts.c',
 	'output.c',
 	'parser.c',
+	'pkgconf.c',
 	'run_cmd.c',
 	'workspace.c',
 	'wrap.c',

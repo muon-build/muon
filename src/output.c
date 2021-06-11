@@ -275,10 +275,9 @@ static enum iteration_result
 process_dep_args_includes_iter(struct workspace *wk, void *_ctx, uint32_t inc_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
-	struct obj *inc = get_obj(wk, inc_id);
 
-	assert(inc->type == obj_file);
-	wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, inc->dat.file));
+	assert(get_obj(wk, inc_id)->type == obj_file);
+	wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_file_path(wk, inc_id));
 	return ir_cont;
 }
 

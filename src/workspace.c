@@ -6,6 +6,7 @@
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
+#include "pkgconf.h"
 #include "workspace.h"
 
 struct obj *
@@ -308,6 +309,8 @@ current_project(struct workspace *wk)
 void
 workspace_init(struct workspace *wk)
 {
+	pkgconf_init();
+
 	*wk = (struct workspace){ 0 };
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -334,6 +337,8 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy(struct workspace *wk)
 {
+	pkgconf_deinit();
+
 	uint32_t i, j;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {

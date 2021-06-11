@@ -52,7 +52,9 @@ add_project_arguments(cc.get_supported_arguments([
 
 # dependencies
 
-deps = []
+deps = [
+	dependency('libpkgconf', required: true),
+]
 c_args = []
 
 if get_option('samu')
