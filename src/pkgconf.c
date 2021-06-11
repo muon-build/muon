@@ -32,6 +32,9 @@ pkgconf_init(void)
 void
 pkgconf_deinit(void)
 {
+	pkgconf_path_free(&personality->dir_list);
+	pkgconf_path_free(&personality->filter_libdirs);
+	pkgconf_path_free(&personality->filter_includedirs);
 	pkgconf_client_deinit(&client);
 }
 
