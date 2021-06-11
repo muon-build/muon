@@ -12,6 +12,7 @@
 
 static pkgconf_client_t client;
 static pkgconf_cross_personality_t *personality;
+static const int maxdepth = 200;
 
 static bool
 error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
@@ -192,10 +193,10 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 		if (!first) {
 			assert(false && "there should only be one version for one package, right?");
 		}
+		first = false;
 
 		pkgconf_dependency_t *dep = node->data;
 		pkgconf_pkg_t *pkg = dep->match;
-		first = false;
 
 		if (pkg->version != NULL) {
 			strncpy(ctx->info->version, pkg->version, MAX_VERSION_LEN);
@@ -208,7 +209,6 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 bool
 pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
 {
-	const int maxdepth = 200;
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, name);
@@ -232,6 +232,58 @@ pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info
 
 	ctx.apply_func = pkgconf_pkg_cflags;
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_and_collect, maxdepth, &ctx)) {
+		ret = false;
+		goto ret;
+	}
+
+ret:
+	pkgconf_queue_free(&pkgq);
+	return ret;
+}
+
+struct pkgconf_get_variable_ctx {
+	struct workspace *wk;
+	const char *var;
+	uint32_t *res;
+};
+
+static bool
+apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
+{
+	struct pkgconf_get_variable_ctx *ctx = _ctx;
+	pkgconf_node_t *node;
+	bool first = true, found = false;
+	const char *var;
+
+	PKGCONF_FOREACH_LIST_ENTRY(world->required.head, node){
+		if (!first) {
+			assert(false && "there should only be one iteration for one package, right?");
+		}
+		first = false;
+
+		pkgconf_dependency_t *dep = node->data;
+		pkgconf_pkg_t *pkg = dep->match;
+
+		var = pkgconf_tuple_find(client, &pkg->vars, ctx->var);
+		if (var != NULL) {
+			*ctx->res = wk_str_push(ctx->wk, var);
+			found = true;
+		}
+	}
+
+	return found;
+}
+
+bool
+pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res)
+{
+	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
+	pkgconf_queue_push(&pkgq, pkg_name);
+	bool ret = true;
+
+	struct pkgconf_get_variable_ctx ctx = { .wk = wk, .res = res, .var = var, };
+
+	if (!pkgconf_queue_apply(&client, &pkgq, apply_variable, maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}

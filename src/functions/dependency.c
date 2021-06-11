@@ -3,10 +3,10 @@
 #include <string.h>
 
 #include "functions/common.h"
-#include "functions/default/dependency.h"
 #include "functions/dependency.h"
 #include "interpreter.h"
 #include "log.h"
+#include "pkgconf.h"
 
 static bool
 func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
@@ -39,31 +39,13 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
 		return false;
 	}
 
-	char arg[BUF_LEN] = "--variable=";
-	const uint32_t len = strlen(arg);
-	strncpy(&arg[len], wk_objstr(wk, an[0].val), BUF_LEN - len);
-
-	struct run_cmd_ctx ctx = { 0 };
-	if (!pkg_config(wk, &ctx, an[0].node, arg, wk_objstr(wk, get_obj(wk, rcvr)->dat.dep.name))) {
-		return false;
-	}
-
-	bool empty = true;
-	const char *s;
-	for (s = ctx.out; *s; ++s) {
-		if (!(*s == ' ' || *s == '\n')) {
-			empty = false;
-			break;
-		}
-	}
-
-	if (empty) {
+	uint32_t res;
+	if (!pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, rcvr)->dat.dep.name), wk_objstr(wk, an[0].val), &res)) {
 		interp_error(wk, an[0].node, "undefined pkg_config variable");
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push_stripped(wk, ctx.out);
-
+	make_obj(wk, obj, obj_string)->dat.str = res;
 	return true;
 }
 

@@ -10,21 +10,6 @@
 #include "pkgconf.h"
 #include "run_cmd.h"
 
-bool
-pkg_config(struct workspace *wk, struct run_cmd_ctx *ctx, uint32_t args_node, const char *arg, const char *depname)
-{
-	if (!run_cmd(ctx, "pkg-config", (char *[]){ "pkg-config", (char *)arg, (char *)depname, NULL })) {
-		if (ctx->err_msg) {
-			interp_error(wk, args_node, "error: %s", ctx->err_msg);
-		} else {
-			interp_error(wk, args_node, "error: %s", strerror(ctx->err_no));
-		}
-		return false;
-	}
-
-	return true;
-}
-
 static bool
 get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name, enum requirement_type requirement)
 {

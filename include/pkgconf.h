@@ -13,4 +13,5 @@ struct pkgconf_info {
 void pkgconf_deinit(void);
 void pkgconf_init(void);
 bool pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info);
+bool pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res);
 #endif
