@@ -16,6 +16,7 @@
 #include "output.h"
 #include "parser.h"
 #include "run_cmd.h"
+#include "tests.h"
 #include "version.h"
 
 #define BUF_LEN 256
@@ -222,6 +223,17 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	return ret;
 }
 
+static bool
+cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	if (argi + 1 >= argc) {
+		LOG_W(log_misc, "missing argument: build_dir");
+		return false;
+	}
+
+	return tests_run(argv[argi + 1]);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -237,6 +249,7 @@ main(int argc, char *argv[])
 		{ "eval", cmd_eval },
 		{ "ast", cmd_ast },
 		{ "parse_check", cmd_parse_check },
+		{ "test", cmd_test },
 #ifdef MUON_HAVE_SAMU
 		{ "samu", cmd_samu },
 #endif
