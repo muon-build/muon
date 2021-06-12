@@ -13,7 +13,9 @@ struct concat_strings_ctx {
 };
 
 struct output {
-	FILE *build_ninja, *compile_commands_json;
+	FILE *build_ninja,
+	     *compile_commands_json,
+	     *tests;
 	bool compile_commands_comma;
 };
 
@@ -63,22 +65,31 @@ concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
 	return true;
 }
 
+
 static bool
-concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
+strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 {
 	struct obj *obj = get_obj(wk, src);
-	uint32_t str;
 
 	switch (obj->type) {
 	case obj_string:
-		str = obj->dat.str;
-		break;
+		*dest = obj->dat.str;
+		return true;
 	case obj_file:
-		str = obj->dat.file;
-		break;
+		*dest = obj->dat.file;
+		return true;
 	default:
 		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
-		return ir_err;
+		return false;
+	}
+}
+
+static bool
+concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
+{
+	uint32_t str;
+	if (!strobj(wk, &str, src)) {
+		return false;
 	}
 
 	return concat_str(wk, dest, str);
@@ -144,12 +155,27 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" description = $DESCRIPTION\n"
 		" restat = 1\n"
 		"\n"
+		"rule REGENERATE_BUILD\n"
+		" command = %s setup %s"
+		" description = Regenerating build files."
+		" generator = 1"
 		"# Phony build target, always out of date\n"
 		"\n"
 		"build PHONY: phony \n"
 		"\n"
+		"# Built-in targets\n"
+		"\n"
+		"build test: CUSTOM_COMMAND all PHONY\n"
+		" COMMAND = %s test %s\n"
+		" DESC = Running$ all$ tests.\n"
+		" pool = console\n"
+		"\n"
 		"# Build rules for targets\n",
-		wk_str(wk, main_proj->cfg.name)
+		wk_str(wk, main_proj->cfg.name),
+		wk->argv0,
+		wk->build_root,
+		wk->argv0,
+		wk->build_root
 		);
 }
 
@@ -585,12 +611,52 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	}
 }
 
+static enum iteration_result
+write_test_args_iter(struct workspace *wk, void *_ctx, uint32_t arg)
+{
+	struct write_tgt_ctx *ctx = _ctx;
+	fputc(0, ctx->output->tests);
+
+	uint32_t str;
+	if (!strobj(wk, &str, arg)) {
+		return ir_err;
+	}
+
+	fputs(wk_str(wk, str), ctx->output->tests);
+	return ir_cont;
+}
+
+static enum iteration_result
+write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
+{
+	struct write_tgt_ctx *ctx = _ctx;
+	struct obj *t = get_obj(wk, test);
+
+	fputs(wk_objstr(wk, t->dat.test.name), ctx->output->tests);
+	fputc(0, ctx->output->tests);
+	fputs(wk_objstr(wk, t->dat.test.exe), ctx->output->tests);
+
+	if (t->dat.test.args) {
+		if (!obj_array_foreach(wk, t->dat.test.args, ctx, write_test_args_iter)) {
+			return false;
+		}
+	}
+	fputc(0, ctx->output->tests);
+	fputc(0, ctx->output->tests);
+
+	return ir_cont;
+}
+
 static bool
 write_project(struct output *output, struct workspace *wk, struct project *proj)
 {
 	struct write_tgt_ctx ctx = { .output = output, .proj = proj };
 
 	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
+		return false;
+	}
+
+	if (!obj_array_foreach(wk, proj->tests, &ctx, write_test_iter)) {
 		return false;
 	}
 
@@ -620,6 +686,10 @@ output_build(struct workspace *wk, const char *dir)
 
 	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
 
+	if (!(output.tests  = open_out(dir, "muon_tests.dat"))) {
+		return false;
+	}
+
 	if (!(output.compile_commands_json = open_out(dir, "compile_commands.json"))) {
 		return false;
 	}
@@ -636,6 +706,10 @@ output_build(struct workspace *wk, const char *dir)
 	fputs("\n]\n", output.compile_commands_json);
 
 	if (!fs_fclose(output.build_ninja)) {
+		return false;
+	}
+
+	if (!fs_fclose(output.tests)) {
 		return false;
 	}
 
