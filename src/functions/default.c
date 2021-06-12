@@ -336,6 +336,24 @@ func_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 }
 
 static bool
+func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_bool }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	*obj = 0;
+
+	if (!get_obj(wk, an[0].val)->dat.boolean) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -888,7 +906,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "add_project_link_arguments", todo },
 	{ "add_test_setup", todo },
 	{ "alias_target", todo },
-	{ "assert", todo },
+	{ "assert", func_assert },
 	{ "benchmark", todo },
 	{ "both_libraries", todo },
 	{ "build_target", todo },
