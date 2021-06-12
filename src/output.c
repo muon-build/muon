@@ -165,15 +165,8 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"\n"
 		"# Built-in targets\n"
 		"\n"
-		"build test: CUSTOM_COMMAND all PHONY\n"
-		" COMMAND = %s test %s\n"
-		" DESC = Running$ all$ tests.\n"
-		" pool = console\n"
-		"\n"
 		"# Build rules for targets\n",
 		wk_str(wk, main_proj->cfg.name),
-		wk->argv0,
-		wk->build_root,
 		wk->argv0,
 		wk->build_root
 		);
