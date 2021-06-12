@@ -79,10 +79,12 @@ include_dir = include_directories('include')
 
 subdir('src')
 
-executable(
+muon = executable(
 	'muon',
 	src,
 	include_directories: include_dir,
 	dependencies: deps,
 	c_args: c_args,
 )
+
+subdir('tests')
