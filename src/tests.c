@@ -66,6 +66,9 @@ tests_run(const char *build_root)
 		return false;
 	}
 
+	if (chdir(build_root) != 0) {
+		return false;
+	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
