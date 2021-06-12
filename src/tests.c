@@ -86,6 +86,7 @@ tests_run(const char *build_root)
 
 		if (cmd_ctx.status) {
 			LOG_W(log_misc, "%s - failed (%d)", test_parser.name, cmd_ctx.status);
+			log_plain("%s", cmd_ctx.err);
 			ret = false;
 		} else {
 			LOG_I(log_misc, "%s - succes", test_parser.name);
