@@ -57,6 +57,7 @@ next_test(struct test_parser *p)
 bool
 tests_run(const char *build_root)
 {
+	bool ret = true;
 	char tests_src[PATH_MAX + 1] = { 0 };
 	snprintf(tests_src, PATH_MAX, "%s/%s", build_root, "muon_tests.dat");
 
@@ -85,10 +86,11 @@ tests_run(const char *build_root)
 
 		if (cmd_ctx.status) {
 			LOG_W(log_misc, "%s - failed (%d)", test_parser.name, cmd_ctx.status);
+			ret = false;
 		} else {
 			LOG_I(log_misc, "%s - succes", test_parser.name);
 		}
 	}
 
-	return true;
+	return ret;
 }
