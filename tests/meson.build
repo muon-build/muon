@@ -1,5 +1,6 @@
 tests = [
 	'test.meson',
+	'dict.meson',
 ]
 
 foreach t : tests
