@@ -19,3 +19,7 @@ tasks:
       cd muon
       build2/muon setup build3
       samu -C build3
+
+  - test: |
+      cd muon
+      build3/muon test build3
