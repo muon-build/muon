@@ -134,13 +134,19 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				assert(!optional_positional_args && "glob args cannot be followed by optional args");
 				assert(an[stage][i + 1].type == ARG_TYPE_NULL && "glob args must come last");
 
+				bool set_arg_node = false;
+
 				make_obj(wk, &an[stage][i].val, obj_array);
-				an[stage][i].node = arg_node;
 				an[stage][i].set = true;
 
 				while (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
 					if (kw) {
 						goto kwargs;
+					}
+
+					if (!set_arg_node) {
+						an[stage][i].node = arg_node;
+						set_arg_node = true;
 					}
 
 					uint32_t val;
@@ -149,6 +155,10 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					}
 
 					obj_array_push(wk, an[stage][i].val, val);
+				}
+
+				if (!set_arg_node) {
+					an[stage][i].node = args_node;
 				}
 				continue;
 			}
