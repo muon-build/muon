@@ -603,7 +603,7 @@ parse_e6(struct parser *p, uint32_t *id)
 
 	if (t) {
 		make_node(p, id, t);
-		add_child(p, *id, node_child_r, l_id);
+		add_child(p, *id, node_child_l, l_id);
 	} else {
 		*id = l_id;
 	}
