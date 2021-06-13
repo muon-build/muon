@@ -180,6 +180,9 @@ struct write_tgt_iter_ctx {
 	uint32_t object_names_id;
 	uint32_t order_deps_id;
 	bool have_order_deps;
+	uint32_t link_args_id;
+	uint32_t implicit_deps_id;
+	bool have_implicit_deps;
 	uint32_t tgt_dir;
 };
 
@@ -286,8 +289,8 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	uint32_t src_pre = 0, dir_len;
 	prefix_len(wk_str(wk, src->dat.file), wk->build_root, &src_pre);
-
 	dir_len = dirname_len(&wk_str(wk, src->dat.file)[src_pre]);
+
 
 	if (dir_len) {
 		uint32_t dir = wk_str_pushn(wk, &wk_str(wk, src->dat.file)[src_pre], dir_len);
@@ -326,41 +329,65 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-struct process_link_with_ctx {
-	uint32_t *link_args_id;
-	uint32_t *implicit_deps_id;
-	bool have_implicit_deps;
-};
+static uint32_t
+get_tgt_basedir(struct workspace *wk, struct obj *tgt)
+{
+	uint32_t tgt_pre, tgt_basedir;
+	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
+		tgt_pre = 0;
+	}
+
+	if (tgt_pre == strlen(wk->build_root)) {
+		tgt_basedir = wk_str_push(wk, "");
+	} else {
+		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
+	}
+
+	return tgt_basedir;
+}
 
 static enum iteration_result process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id);
 
 static enum iteration_result
 process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	struct process_link_with_ctx *ctx = _ctx;
+	struct write_tgt_iter_ctx *ctx = _ctx;
 
 	struct obj *tgt = get_obj(wk, val_id);
 
-	if (tgt->type == obj_build_target) {
-		uint32_t pre;
-		prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &pre);
+	switch (tgt->type) {
+	case  obj_build_target: {
+		uint32_t tgt_basedir = get_tgt_basedir(wk, tgt);
 
-		wk_str_appf(wk, ctx->implicit_deps_id, " %s/%s",
-			&wk_str(wk, tgt->dat.tgt.build_dir)[pre],
-			wk_str(wk, tgt->dat.tgt.build_name));
-		wk_str_appf(wk, ctx->link_args_id, " %s/%s",
-			&wk_str(wk, tgt->dat.tgt.build_dir)[pre],
-			wk_str(wk, tgt->dat.tgt.build_name));
-		ctx->have_implicit_deps = true;
+		if (ctx->tgt->dat.tgt.type == tgt_executable) {
+			wk_str_appf(wk, &ctx->implicit_deps_id, " %s%s",
+				wk_str(wk, tgt_basedir),
+				wk_str(wk, tgt->dat.tgt.build_name));
+			wk_str_appf(wk, &ctx->link_args_id, " %s%s",
+				wk_str(wk, tgt_basedir),
+				wk_str(wk, tgt->dat.tgt.build_name));
+			ctx->have_implicit_deps = true;
+		}
+
+		if (*wk_str(wk, tgt_basedir)) {
+			wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, tgt_basedir));
+		} else {
+			wk_str_appf(wk, &ctx->args_id, "-I. ");
+		}
 
 		if (tgt->dat.tgt.deps) {
 			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, ctx, process_dep_links_iter)) {
 				return ir_err;
 			}
 		}
-	} else if (tgt->type == obj_string) {
-		wk_str_appf(wk, ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
-	} else {
+		break;
+	}
+	case obj_string:
+		if (ctx->tgt->dat.tgt.type == tgt_executable) {
+			wk_str_appf(wk, &ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
+		}
+		break;
+	default:
 		LOG_W(log_out, "invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
 		return ir_err;
 	}
@@ -407,28 +434,32 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
-	uint32_t tgt_pre;
-	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
-		tgt_pre = 0;
-	}
-
 	uint32_t tgt_dir, tgt_basedir;
-	if (tgt_pre == strlen(wk->build_root)) {
-		tgt_basedir = wk_str_push(wk, "");
-	} else {
-		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
-	}
-
+	tgt_basedir = get_tgt_basedir(wk, tgt);
 	tgt_dir = wk_str_pushf(wk, "%s%s.p", wk_str(wk, tgt_basedir), wk_str(wk, tgt->dat.tgt.build_name));
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
 		.output = output,
 		.tgt_dir = tgt_dir,
+		.implicit_deps_id = wk_str_push(wk, ""),
 	};
 
-	{ /* arguments */
-		ctx.args_id = wk_str_pushf(wk, "-I%s -I%s ", wk_str(wk, tgt_dir), wk_str(wk, proj->cwd));
+	const char *rule;
+	switch (tgt->dat.tgt.type) {
+	case tgt_executable:
+		rule = "c_LINKER";
+		ctx.link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined -Wl,--start-group");
+
+		break;
+	case tgt_library:
+		rule = "STATIC_LINKER";
+		ctx.link_args_id = wk_str_push(wk, "csrD");
+		break;
+	}
+
+	{ /* includes */
+		ctx.args_id = wk_str_pushf(wk, "-I%s ", wk_str(wk, proj->cwd));
 
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
@@ -450,7 +481,23 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, process_source_includes_iter)) {
 			return ir_err;
 		}
+	}
 
+	{ /* dependencies / link_with */
+		if (tgt->dat.tgt.deps) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_links_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (tgt->dat.tgt.link_with) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, &ctx, process_link_with_iter)) {
+				return ir_err;
+			}
+		}
+	}
+
+	{ /* trailing args */
 		if (!concat_strings(wk, proj->cfg.args, &ctx.args_id)) {
 			return ir_err;
 		}
@@ -470,58 +517,22 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		}
 	}
 
-	{ /* target */
-		const char *rule;
-		uint32_t link_args_id, implicit_deps_id = wk_str_push(wk, "");
-		bool have_implicit_deps = false;
-
-		switch (tgt->dat.tgt.type) {
-		case tgt_executable:
-			rule = "c_LINKER";
-			link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined -Wl,--start-group");
-
-			{ /* dep links */
-				struct process_link_with_ctx ctx = {
-					.link_args_id = &link_args_id,
-					.implicit_deps_id = &implicit_deps_id
-				};
-
-				if (tgt->dat.tgt.deps) {
-					if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_links_iter)) {
-						return ir_err;
-					}
-				}
-
-				if (tgt->dat.tgt.link_with) {
-					if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, &ctx, process_link_with_iter)) {
-						return ir_err;
-					}
-				}
-
-				have_implicit_deps = ctx.have_implicit_deps;
-			}
-
-			wk_str_app(wk, &link_args_id, " -Wl,--end-group");
-			break;
-		case tgt_library:
-			rule = "STATIC_LINKER";
-			link_args_id = wk_str_push(wk, "csrD");
-			break;
-		}
-
-		fprintf(output->build_ninja, "build %s%s: %s %s | %s %s"
-			"\n LINK_ARGS = %s\n\n"
-			,
-			wk_str(wk, tgt_basedir),
-			wk_str(wk, tgt->dat.tgt.build_name),
-			rule,
-			wk_str(wk, ctx.object_names_id),
-			have_implicit_deps ? wk_str(wk, implicit_deps_id) : "",
-			ctx.have_order_deps ? wk_str(wk, ctx.order_deps_id) : "",
-
-			wk_str(wk, link_args_id)
-			);
+	if (tgt->dat.tgt.type == tgt_executable) {
+		wk_str_app(wk, &ctx.link_args_id, " -Wl,--end-group");
 	}
+
+	fprintf(output->build_ninja, "build %s%s: %s %s | %s %s"
+		"\n LINK_ARGS = %s\n\n"
+		,
+		wk_str(wk, tgt_basedir),
+		wk_str(wk, tgt->dat.tgt.build_name),
+		rule,
+		wk_str(wk, ctx.object_names_id),
+		ctx.have_implicit_deps ? wk_str(wk, ctx.implicit_deps_id) : "",
+		ctx.have_order_deps ? wk_str(wk, ctx.order_deps_id) : "",
+
+		wk_str(wk, ctx.link_args_id)
+		);
 
 	return ir_cont;
 }
