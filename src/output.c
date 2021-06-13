@@ -289,8 +289,12 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	dir_len = dirname_len(&wk_str(wk, src->dat.file)[src_pre]);
 
-	uint32_t dir = wk_str_pushn(wk, &wk_str(wk, src->dat.file)[src_pre], dir_len);
-	wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, dir));
+	if (dir_len) {
+		uint32_t dir = wk_str_pushn(wk, &wk_str(wk, src->dat.file)[src_pre], dir_len);
+		wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, dir));
+	} else {
+		wk_str_appf(wk, &ctx->args_id, "-I. ");
+	}
 
 	return ir_cont;
 }
