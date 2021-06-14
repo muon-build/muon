@@ -898,6 +898,62 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 	return true;
 }
 
+struct join_paths_ctx {
+	uint32_t str, node;
+};
+
+
+static enum iteration_result
+join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct join_paths_ctx *ctx = _ctx;
+
+	if (!typecheck(wk, ctx->node, val, obj_string)) {
+		return ir_err;
+	}
+
+	const char *s = wk_objstr(wk, val);
+
+	uint32_t end = strlen(s);
+
+	if (end == 0) {
+		return ir_cont;
+	} else if (end > 1 && s[end - 1] == '/') {
+		--end;
+	}
+
+	if (s[0] == '/') {
+		// abs path section
+		ctx->str = wk_str_pushn(wk, s, end);
+	} else {
+		wk_str_app(wk, &ctx->str, "/");
+		wk_str_appn(wk, &ctx->str, s, end);
+	}
+	return ir_cont;
+}
+
+static bool
+func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	struct join_paths_ctx ctx = {
+		.node = args_node,
+		.str = wk_str_push(wk, ""),
+	};
+
+	if (!obj_array_foreach(wk, an[0].val, &ctx, join_paths_iter)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_string)->dat.str = ctx.str;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -935,7 +991,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "is_disabler", todo },
 	{ "is_variable", todo },
 	{ "jar", todo },
-	{ "join_paths", todo },
+	{ "join_paths", func_join_paths },
 	{ "library", func_library },
 	{ "message", func_message },
 	{ "project", func_project },
