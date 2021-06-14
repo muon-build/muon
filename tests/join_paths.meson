@@ -1,0 +1,11 @@
+root = '/'
+a = '/abs/path/'
+b = '/abs/path2/'
+c = 'no_slashes'
+d = 'trailing/'
+e = ''
+f = 'rel/path'
+
+p = join_paths(root, a, b, c, d, e, f)
+message(p)
+assert(p == '/abs/path2/no_slashes/trailing/rel/path')
