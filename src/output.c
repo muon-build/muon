@@ -568,8 +568,9 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-	cmdline_pre = wk_str_pushf(wk, "%s internal exe ", wk->argv0);
 	if (tgt->dat.custom_target.flags & custom_target_capture) {
+		cmdline_pre = wk_str_pushf(wk, "%s internal exe ", wk->argv0);
+
 		wk_str_app(wk, &cmdline_pre, "-c ");
 
 		uint32_t elem;
@@ -580,9 +581,11 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		if (custom_tgt_outputs_iter(wk, &cmdline_pre, elem) == ir_err) {
 			return ir_err;
 		}
-	}
 
-	wk_str_app(wk, &cmdline_pre, "--");
+		wk_str_app(wk, &cmdline_pre, "--");
+	} else {
+		cmdline_pre = wk_str_push(wk, "");
+	}
 
 	if (!concat_strings(wk, tgt->dat.custom_target.args, &cmdline)) {
 		return ir_err;
@@ -590,7 +593,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s %s\n"
-		" DESCRIPTION = %s%s\n",
+		" DESCRIPTION = %s%s\n\n",
 		wk_str(wk, outputs),
 		wk_str(wk, inputs),
 		wk_objstr(wk, tgt->dat.custom_target.cmd),
