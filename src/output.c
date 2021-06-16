@@ -160,13 +160,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" description = Regenerating build files.\n"
 		" generator = 1\n"
 		"\n"
-		"# Phony build target, always out of date\n"
-		"\n"
-		"build PHONY: phony \n"
-		"\n"
-		"# Built-in targets\n"
-		"\n"
-		"# Build rules for targets\n",
+		"# targets\n\n",
 		wk_str(wk, main_proj->cfg.name),
 		wk->argv0,
 		wk->build_root
