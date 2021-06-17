@@ -1,0 +1,11 @@
+name = 'stone'
+
+if name == 'katie'
+	hobby = 'birdwatching'
+elif name == 'stone'
+	hobby = 'coding'
+else
+	hobby = 'unknown'
+endif
+
+message('hello ' + name + ' your hobby is: ' + hobby)
