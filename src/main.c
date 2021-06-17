@@ -5,11 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef MUON_HAVE_SAMU
-#include <samu.h>
-#endif
-
 #include "eval.h"
+#include "external/samu.h"
 #include "filesystem.h"
 #include "inih.h"
 #include "log.h"
@@ -103,13 +100,11 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	return cmd_run(commands, argc, argi, argv, argv[argi]);
 }
 
-#ifdef MUON_HAVE_SAMU
 static bool
 cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	return samu_main(argc - argi, (char **)&argv[argi]) == 0;
+	return muon_samu(argc - argi, (char **)&argv[argi]) == 0;
 }
-#endif
 
 static bool
 cmd_parse_check(uint32_t argc, uint32_t argi, char *const argv[])
@@ -231,7 +226,7 @@ do_build(struct workspace *wk)
 
 	if (chdir(wk->build_root) < 0) {
 		goto ret;
-	} else if (!cmd_samu(0, 0, (char *[]){ "<muon_samu>", NULL })) {
+	} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {
 		goto ret;
 	} else if (chdir(wk->source_root) < 0) {
 		goto ret;
@@ -358,9 +353,7 @@ main(int argc, char *argv[])
 		{ "ast", cmd_ast },
 		{ "parse_check", cmd_parse_check },
 		{ "test", cmd_test },
-#ifdef MUON_HAVE_SAMU
 		{ "samu", cmd_samu },
-#endif
 		{ 0 },
 	};
 

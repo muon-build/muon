@@ -3,10 +3,10 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "external/pkgconf.h"
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
-#include "pkgconf.h"
 #include "workspace.h"
 
 struct obj *
@@ -310,7 +310,7 @@ current_project(struct workspace *wk)
 void
 workspace_init(struct workspace *wk)
 {
-	pkgconf_init();
+	muon_pkgconf_init();
 
 	*wk = (struct workspace){ 0 };
 	darr_init(&wk->projects, 16, sizeof(struct project));
@@ -338,7 +338,7 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy(struct workspace *wk)
 {
-	pkgconf_deinit();
+	muon_pkgconf_deinit();
 
 	uint32_t i, j;
 	struct project *proj;

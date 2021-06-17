@@ -7,7 +7,7 @@
 #include "filesystem.h"
 #include "log.h"
 #include "object.h"
-#include "pkgconf.h"
+#include "external/pkgconf.h"
 #include "workspace.h"
 
 static pkgconf_client_t client;
@@ -24,7 +24,7 @@ error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 }
 
 void
-pkgconf_init(void)
+muon_pkgconf_init(void)
 {
 	// HACK: TODO: libpkgconf breaks if you try use it after deiniting a
 	// client.  Also there are memory leaks abound.
@@ -40,7 +40,7 @@ pkgconf_init(void)
 }
 
 void
-pkgconf_deinit(void)
+muon_pkgconf_deinit(void)
 {
 	return;
 	pkgconf_path_free(&personality->dir_list);
@@ -217,7 +217,7 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 bool
-pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
 {
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
@@ -285,7 +285,7 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 }
 
 bool
-pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res)
+muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res)
 {
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, pkg_name);

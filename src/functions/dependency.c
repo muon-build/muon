@@ -2,11 +2,11 @@
 
 #include <string.h>
 
+#include "external/pkgconf.h"
 #include "functions/common.h"
 #include "functions/dependency.h"
 #include "interpreter.h"
 #include "log.h"
-#include "pkgconf.h"
 
 static bool
 func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
@@ -40,7 +40,7 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
 	}
 
 	uint32_t res;
-	if (!pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, rcvr)->dat.dep.name), wk_objstr(wk, an[0].val), &res)) {
+	if (!muon_pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, rcvr)->dat.dep.name), wk_objstr(wk, an[0].val), &res)) {
 		interp_error(wk, an[0].node, "undefined pkg_config variable");
 		return false;
 	}

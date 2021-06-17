@@ -4,11 +4,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef MUON_HAVE_ZLIB
 #include <zlib.h>
-#endif
 
-#include "archive.h"
+#include "external/zlib.h"
 #include "external/microtar.h"
 #include "filesystem.h"
 #include "log.h"
@@ -16,50 +14,10 @@
 
 #define CHUNK_SIZE 1048576ul
 
-static bool
-archive_untar(uint8_t *data, uint64_t len, const char *destdir)
-{
-	struct mtar tar = { .data = data, .len = len };
-	struct mtar_header hdr = { 0 };
-
-	char path[PATH_MAX + 1] = { 0 };
-
-	while ((mtar_read_header(&tar, &hdr)) == mtar_err_ok) {
-		if (hdr.type == mtar_file_type_dir) {
-			continue;
-		} else if (hdr.type != mtar_file_type_reg) {
-			LOG_W(log_misc, "skipping unsupported file '%s' of type '%s'", hdr.name, mtar_file_type_to_s(hdr.type));
-			continue;
-		}
-
-		uint32_t len;
-		int32_t i;
-		len = snprintf(path, PATH_MAX, "%s/%s", destdir, hdr.name);
-		for (i = len - 1; i >= 0; --i) {
-			if (path[i] == '/') {
-				path[i] = 0;
-
-				if (!fs_mkdir_p(path)) {
-					return false;
-				}
-				path[i] = '/';
-				break;
-			}
-		}
-
-		if (!fs_write(path, hdr.data, hdr.size)) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
 static const char *
 archive_z_strerror(int err)
 {
 	switch (err) {
-#ifdef MUON_HAVE_ZLIB
 	case Z_OK: return "ok";
 	case Z_STREAM_END: return "stream end";
 	case Z_NEED_DICT: return "need dict";
@@ -69,15 +27,13 @@ archive_z_strerror(int err)
 	case Z_MEM_ERROR: return "memory";
 	case Z_BUF_ERROR: return "buffer";
 	case Z_VERSION_ERROR: return "version";
-#endif
 	default: return "unknown";
 	}
 }
 
 static bool
-archive_unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
+unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 {
-#ifdef MUON_HAVE_ZLIB
 	int err;
 	uint8_t *buf = z_malloc(CHUNK_SIZE);
 	uint64_t buf_len = CHUNK_SIZE;
@@ -121,21 +77,17 @@ archive_unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 
 	*out = buf;
 	return true;
-#else
-	LOG_W(log_misc, "zlib not enabled");
-	return false;
-#endif
 }
 
 bool
-archive_extract(uint8_t *data, uint64_t len, const char *destdir)
+muon_zlib_extract(uint8_t *data, uint64_t len, const char *destdir)
 {
 	uint8_t *unzipped;
 	uint64_t unzipped_len;
 
-	if (!archive_unzip(data, len, &unzipped, &unzipped_len)) {
+	if (!unzip(data, len, &unzipped, &unzipped_len)) {
 		return false;
-	} else if (!archive_untar(unzipped, unzipped_len, destdir)) {
+	} else if (!untar(unzipped, unzipped_len, destdir)) {
 		z_free(unzipped);
 		return false;
 	}

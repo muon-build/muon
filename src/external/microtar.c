@@ -26,7 +26,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
+#include "filesystem.h"
 #include "external/microtar.h"
 #include "log.h"
 
@@ -182,4 +184,43 @@ mtar_read_header(struct mtar *tar, struct mtar_header *h)
 
 	tar->off += mtar_round_up(h->size, 512);
 	return mtar_err_ok;
+}
+
+bool
+untar(uint8_t *data, uint64_t len, const char *destdir)
+{
+	struct mtar tar = { .data = data, .len = len };
+	struct mtar_header hdr = { 0 };
+
+	char path[PATH_MAX + 1] = { 0 };
+
+	while ((mtar_read_header(&tar, &hdr)) == mtar_err_ok) {
+		if (hdr.type == mtar_file_type_dir) {
+			continue;
+		} else if (hdr.type != mtar_file_type_reg) {
+			LOG_W(log_misc, "skipping unsupported file '%s' of type '%s'", hdr.name, mtar_file_type_to_s(hdr.type));
+			continue;
+		}
+
+		uint32_t len;
+		int32_t i;
+		len = snprintf(path, PATH_MAX, "%s/%s", destdir, hdr.name);
+		for (i = len - 1; i >= 0; --i) {
+			if (path[i] == '/') {
+				path[i] = 0;
+
+				if (!fs_mkdir_p(path)) {
+					return false;
+				}
+				path[i] = '/';
+				break;
+			}
+		}
+
+		if (!fs_write(path, hdr.data, hdr.size)) {
+			return false;
+		}
+	}
+
+	return true;
 }

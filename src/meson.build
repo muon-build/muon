@@ -1,11 +1,11 @@
 # sources
 
 src = files([
-	'archive.c',
 	'coerce.c',
 	'darr.c',
 	'eval.c',
-	'fetch.c',
+	'external/microtar.c',
+	'external/sha-256.c',
 	'filesystem.c',
 	'functions/common.c',
 	'functions/compiler.c',
@@ -36,16 +36,40 @@ src = files([
 	'opts.c',
 	'output.c',
 	'parser.c',
-	'pkgconf.c',
 	'run_cmd.c',
 	'tests.c',
 	'workspace.c',
 	'wrap.c',
-
-	'external/microtar.c',
-	'external/sha-256.c',
 ]) + [configure_file(
 	configuration: version_info,
 	input: 'version.c.in',
 	output: 'version.c'
 )]
+
+foreach d: [
+		['libcurl',    'curl',       'dependency'],
+		['zlib',       'zlib',       'dependency'],
+		['libpkgconf', 'libpkgconf', 'dependency'],
+		['samurai',    'samu',       'subproject', 'libsamu_dep'],
+	]
+
+	found = false
+
+	if d[2] == 'subproject'
+		if not get_option(d[1]).disabled()
+			sub = subproject(d[1])
+			dep = sub.get_variable(d[3])
+			found = true
+		endif
+	else
+		dep = dependency(d[0], required: get_option(d[1]))
+		found = dep.found()
+	endif
+
+	if found
+		deps += [dep]
+		src += [files(['external/' + d[1] + '.c'])]
+	else
+		src += [files(['external/' + d[1] + '_null.c'])]
+	endif
+endforeach

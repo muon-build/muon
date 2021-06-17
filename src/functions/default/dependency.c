@@ -3,11 +3,11 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "external/pkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
 #include "interpreter.h"
 #include "log.h"
-#include "pkgconf.h"
 #include "run_cmd.h"
 
 static bool
@@ -18,7 +18,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
 	dep->dat.dep.name = name;
 
-	if (!pkgconf_lookup(wk, wk_objstr(wk, name), &info)) {
+	if (!muon_pkgconf_lookup(wk, wk_objstr(wk, name), &info)) {
 		if (requirement == requirement_required) {
 			interp_error(wk, node, "required dependency not found");
 			return false;

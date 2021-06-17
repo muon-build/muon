@@ -52,28 +52,8 @@ add_project_arguments(cc.get_supported_arguments([
 
 # dependencies
 
-deps = [
-	dependency('libpkgconf', required: true),
-]
+deps = []
 c_args = []
-
-if get_option('samu')
-	samu = subproject('samurai')
-	deps += [samu.get_variable('libsamu_dep')]
-	c_args += ['-DMUON_HAVE_SAMU']
-endif
-
-libcurl_dep = dependency('libcurl', required: get_option('curl'))
-if libcurl_dep.found()
-	deps += [libcurl_dep]
-	c_args += ['-DMUON_HAVE_CURL']
-endif
-
-zlib_dep = dependency('zlib', required: get_option('zlib'))
-if zlib_dep.found()
-	deps += [zlib_dep]
-	c_args += ['-DMUON_HAVE_ZLIB']
-endif
 
 include_dir = include_directories('include')
 

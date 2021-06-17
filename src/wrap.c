@@ -3,10 +3,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "archive.h"
 #include "eval.h"
+#include "external/curl.h"
 #include "external/sha-256.h"
-#include "fetch.h"
+#include "external/zlib.h"
 #include "filesystem.h"
 #include "inih.h"
 #include "interpreter.h"
@@ -95,12 +95,12 @@ fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, 
 	uint8_t *dlbuf;
 	uint64_t dlbuf_len;
 
-	if (!fetch_fetch(src, &dlbuf, &dlbuf_len)) {
+	if (!muon_curl_fetch(src, &dlbuf, &dlbuf_len)) {
 		return false;
 	} else if (!checksum(dlbuf, dlbuf_len, sha256)) {
 		z_free(dlbuf);
 		return false;
-	} else if (!archive_extract(dlbuf, dlbuf_len, dest_dir)) {
+	} else if (!muon_zlib_extract(dlbuf, dlbuf_len, dest_dir)) {
 		z_free(dlbuf);
 		return false;
 	}
@@ -133,7 +133,7 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 		}
 	}
 
-	fetch_init();
+	muon_curl_init();
 
 	if (!fetch_checksum_extract(wk, wrap.fields[wf_source_url],
 		wrap.fields[wf_source_filename], wrap.fields[wf_source_hash], dest_path)) {
@@ -145,11 +145,11 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 		goto err1;
 	}
 
-	fetch_deinit();
+	muon_curl_deinit();
 	z_free(ini_buf);
 	return true;
 err1:
-	fetch_deinit();
+	muon_curl_deinit();
 err:
 	z_free(ini_buf);
 	return false;

@@ -48,4 +48,6 @@ struct mtar {
 const char *mtar_strerror(enum mtar_err err);
 const char *mtar_file_type_to_s(enum mtar_file_type type);
 enum mtar_err mtar_read_header(struct mtar *tar, struct mtar_header *h);
+
+bool untar(uint8_t *data, uint64_t len, const char *destdir);
 #endif

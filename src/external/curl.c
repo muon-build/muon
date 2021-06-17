@@ -5,11 +5,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef MUON_HAVE_CURL
 #include <curl/curl.h>
-#endif
 
-#include "fetch.h"
+#include "external/curl.h"
 #include "log.h"
 #include "mem.h"
 
@@ -18,19 +16,16 @@ static struct {
 } fetch_ctx = { 0 };
 
 void
-fetch_init(void)
+muon_curl_init(void)
 {
-#ifdef MUON_HAVE_CURL
 	if (curl_global_init(CURL_GLOBAL_DEFAULT) == 0) {
 		fetch_ctx.init = true;
 	}
-#endif
 }
 
 void
-fetch_deinit(void)
+muon_curl_deinit(void)
 {
-#ifdef MUON_HAVE_CURL
 	if (!fetch_ctx.init) {
 		LOG_W(log_fetch, "curl is not initialized");
 		return;
@@ -38,7 +33,6 @@ fetch_deinit(void)
 
 	curl_global_cleanup();
 	fetch_ctx.init = false;
-#endif
 }
 
 struct write_data_ctx {
@@ -49,7 +43,6 @@ struct write_data_ctx {
 static size_t
 write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 {
-#ifdef MUON_HAVE_CURL
 	struct write_data_ctx *ctx = _ctx;
 	uint64_t want_to_write = size * nmemb;
 
@@ -62,14 +55,11 @@ write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 	ctx->len += want_to_write;
 
 	return nmemb;
-#endif
-	return 0;
 }
 
 bool
-fetch_fetch(const char *url, uint8_t **buf, uint64_t *len)
+muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 {
-#ifdef MUON_HAVE_CURL
 	CURL *curl_handle;
 	CURLcode err;
 	char errbuf[CURL_ERROR_SIZE] = { 0 };
@@ -144,8 +134,4 @@ err1:
 	curl_easy_cleanup(curl_handle);
 err0:
 	return false;
-#else
-	LOG_W(log_fetch, "curl not enabled");
-	return false;
-#endif
 }
