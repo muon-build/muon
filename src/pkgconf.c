@@ -14,6 +14,8 @@ static pkgconf_client_t client;
 static pkgconf_cross_personality_t *personality;
 static const int maxdepth = 200;
 
+static bool init = false;
+
 static bool
 error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 {
@@ -24,15 +26,23 @@ error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 void
 pkgconf_init(void)
 {
+	// HACK: TODO: libpkgconf breaks if you try use it after deiniting a
+	// client.  Also there are memory leaks abound.
+	if (init) {
+		return;
+	}
+
 	personality = pkgconf_cross_personality_default();
 	pkgconf_client_init(&client, error_handler, NULL, personality);
 	pkgconf_client_dir_list_build(&client, personality);
 	pkgconf_client_set_flags(&client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
+	init = true;
 }
 
 void
 pkgconf_deinit(void)
 {
+	return;
 	pkgconf_path_free(&personality->dir_list);
 	pkgconf_path_free(&personality->filter_libdirs);
 	pkgconf_path_free(&personality->filter_includedirs);
