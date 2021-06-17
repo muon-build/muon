@@ -119,8 +119,14 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 		goto err;
 	}
 
-	uint32_t i;
-	for (i = 0; i < wrap_fields_count; ++i) {
+	uint32_t i, end = wf_patch_filename;
+	bool have_patch = wrap.fields[wf_patch_filename] != NULL;
+
+	if (have_patch) {
+		end = wrap_fields_count;
+	}
+
+	for (i = 0; i < end; ++i) {
 		if (!wrap.fields[i]) {
 			LOG_W(log_misc, "wrap file at '%s' missing field '%s'", wrap_file, wrap_field_names[i]);
 			goto err;
@@ -134,7 +140,7 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 		goto err1;
 	}
 
-	if (!fetch_checksum_extract(wk, wrap.fields[wf_patch_url],
+	if (have_patch && !fetch_checksum_extract(wk, wrap.fields[wf_patch_url],
 		wrap.fields[wf_patch_filename], wrap.fields[wf_patch_hash], dest_path)) {
 		goto err1;
 	}
