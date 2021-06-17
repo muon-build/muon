@@ -319,10 +319,19 @@ cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build_cfg_src = "muon.ini";
 	struct build_cfg cfg = { .argv0 = argv[0] };
 	bool ret = false;
+	char *ini_buf = NULL;
 
-	char *ini_buf;
-	if (!ini_parse(build_cfg_src, &ini_buf, build_cfg_cb, &cfg)) {
-		goto ret;
+	if (fs_file_exists(build_cfg_src)) {
+		if (!ini_parse(build_cfg_src, &ini_buf, build_cfg_cb, &cfg)) {
+			goto ret;
+		}
+	} else {
+		workspace_init(&cfg.wk);
+		cfg.workspace_init = true;
+
+		if (!setup_workspace_dirs(&cfg.wk, "build", cfg.argv0)) {
+			return false;
+		}
 	}
 
 	if (cfg.workspace_init) {
@@ -333,7 +342,9 @@ cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 
 	ret = true;
 ret:
-	z_free(ini_buf);
+	if (ini_buf) {
+		z_free(ini_buf);
+	}
 	return ret;
 }
 
