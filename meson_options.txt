@@ -1,4 +1,4 @@
 option('curl', type: 'feature', value: 'auto')
 option('zlib', type: 'feature', value: 'auto')
 option('libpkgconf', type: 'feature', value: 'auto')
-option('samu', type: 'boolean', value: false, description: 'embed samurai into the muon executable')
+option('samu', type: 'boolean', value: true, description: 'embed samurai into the muon executable')
