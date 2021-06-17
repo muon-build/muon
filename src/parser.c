@@ -80,7 +80,7 @@ source_location(struct ast *ast, uint32_t id)
 }
 
 static struct token *
-next_tok(struct parser *p)
+get_next_tok(struct parser *p)
 {
 	p->last_last = p->last;
 	p->last = darr_get(&p->toks->tok, p->token_i);
@@ -96,7 +96,7 @@ static bool
 accept(struct parser *p, enum token_type type)
 {
 	if (p->last->type == type) {
-		next_tok(p);
+		get_next_tok(p);
 		return true;
 	}
 
@@ -1069,7 +1069,7 @@ parser_parse(struct ast *ast, struct tokens *toks)
 	make_node(&parser, &id, node_null);
 	assert(id == 0);
 
-	next_tok(&parser);
+	get_next_tok(&parser);
 
 	if (!parse_block(&parser, &ast->root)) {
 		return false;
