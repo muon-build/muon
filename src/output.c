@@ -682,25 +682,25 @@ open_out(const char *dir, const char *name)
 }
 
 bool
-output_build(struct workspace *wk, const char *dir)
+output_build(struct workspace *wk)
 {
-	if (!fs_mkdir_p(dir)) {
+	if (!fs_mkdir_p(wk->build_root)) {
 		return false;
 	}
 
 	struct output output = { 0 };
 
-	if (!(output.build_ninja  = open_out(dir, "build.ninja"))) {
+	if (!(output.build_ninja  = open_out(wk->build_root, "build.ninja"))) {
 		return false;
 	}
 
 	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
 
-	if (!(output.tests  = open_out(dir, "muon_tests.dat"))) {
+	if (!(output.tests  = open_out(wk->build_root, "muon_tests.dat"))) {
 		return false;
 	}
 
-	if (!(output.compile_commands_json = open_out(dir, "compile_commands.json"))) {
+	if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
 		return false;
 	}
 

@@ -12,7 +12,8 @@ struct exe_opts {
 };
 
 bool opts_parse_setup(struct workspace *wk, struct setup_opts *opts,
-	uint32_t argc, uint32_t argi, char *const argv[]);
+	uint32_t argc, uint32_t *argi, char *const argv[]);
 bool opts_parse_exe(struct exe_opts *opts, uint32_t argc, uint32_t argi,
 	char *const argv[]);
+bool parse_config_key_value(struct workspace *wk, char *lhs, const char *val);
 #endif

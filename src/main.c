@@ -11,7 +11,9 @@
 
 #include "eval.h"
 #include "filesystem.h"
+#include "inih.h"
 #include "log.h"
+#include "mem.h"
 #include "opts.h"
 #include "output.h"
 #include "parser.h"
@@ -101,56 +103,6 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	return cmd_run(commands, argc, argi, argv, argv[argi]);
 }
 
-static bool
-cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	char cwd[BUF_LEN + 1] = { 0 },
-	     build[PATH_MAX + 1] = { 0 },
-	     source[PATH_MAX + 1] = { 0 },
-	     argv0[PATH_MAX + 1] = { 0 };
-
-	struct workspace wk;
-	workspace_init(&wk);
-
-	struct setup_opts opts = { 0 };
-	if (!opts_parse_setup(&wk, &opts, argc, argi, argv)) {
-		goto err;
-	}
-
-	if (!getcwd(cwd, BUF_LEN)) {
-		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
-		return false;
-	}
-
-	snprintf(source, PATH_MAX, "%s/%s", cwd, "meson.build");
-	snprintf(build, PATH_MAX, "%s/%s", cwd, opts.build);
-
-	if (argv[0][0] == '/') {
-		wk.argv0 = argv[0];
-	} else {
-		snprintf(argv0, PATH_MAX, "%s/%s", cwd, argv[0]);
-		wk.argv0 = argv0;
-	}
-
-	wk.source_root = cwd;
-	wk.build_root = build;
-
-	LOG_I(log_misc, "source: %s, build: %s", source, build);
-
-	uint32_t project_id;
-	if (!eval_project(&wk, NULL, cwd, build, &project_id)) {
-		goto err;
-	}
-
-	output_build(&wk, build);
-
-	workspace_destroy(&wk);
-	return true;
-err:
-	workspace_destroy(&wk);
-	return false;
-}
-
 #ifdef MUON_HAVE_SAMU
 static bool
 cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
@@ -234,6 +186,162 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	return tests_run(argv[argi + 1]);
 }
 
+static bool
+setup_workspace_dirs(struct workspace *wk, const char *build, const char *argv0)
+{
+	static char cwd[BUF_LEN + 1] = { 0 },
+		    abs_build[PATH_MAX + 1] = { 0 },
+		    abs_argv0[PATH_MAX + 1] = { 0 };
+
+	if (!getcwd(cwd, BUF_LEN)) {
+		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
+		return false;
+	}
+
+	snprintf(abs_build, PATH_MAX, "%s/%s", cwd, build);
+
+	if (argv0[0] == '/') {
+		strncpy(abs_argv0, argv0, PATH_MAX);
+	} else {
+		snprintf(abs_argv0, PATH_MAX, "%s/%s", cwd, argv0);
+	}
+
+	wk->argv0 = abs_argv0;
+	wk->source_root = cwd;
+	wk->build_root = abs_build;
+	return true;
+}
+
+static bool
+do_build(struct workspace *wk)
+{
+	uint32_t project_id;
+	bool ret = false;
+	char buf[PATH_MAX + 1] = { 0 };
+
+	snprintf(buf, PATH_MAX, "%s/build.ninja", wk->build_root);
+
+	if (!fs_file_exists(buf)) {
+		if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
+			goto ret;
+		} else if (!output_build(wk)) {
+			goto ret;
+		}
+	}
+
+	if (chdir(wk->build_root) < 0) {
+		goto ret;
+	} else if (!cmd_samu(0, 0, (char *[]){ "<muon_samu>", NULL })) {
+		goto ret;
+	} else if (chdir(wk->source_root) < 0) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	workspace_destroy(wk);
+	return ret;
+}
+
+static bool
+cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct workspace wk;
+	workspace_init(&wk);
+
+	struct setup_opts opts = { 0 };
+	if (!opts_parse_setup(&wk, &opts, argc, &argi, argv)) {
+		goto err;
+	}
+
+	if (argi >= argc) {
+		LOG_W(log_misc, "missing build directory");
+		return false;
+	}
+
+	if (!setup_workspace_dirs(&wk, argv[argi], argv[0])) {
+		goto err;
+	}
+
+	uint32_t project_id;
+	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
+		goto err;
+	}
+
+	if (!output_build(&wk)) {
+		goto err;
+	}
+
+	workspace_destroy(&wk);
+	return true;
+err:
+	workspace_destroy(&wk);
+	return false;
+}
+
+
+struct build_cfg {
+	const char *dir, *argv0;
+	struct workspace wk;
+	bool workspace_init;
+};
+
+static bool
+build_cfg_cb(void *_cfg, const char *path, const char *sect,
+	const char *k, const char *v, uint32_t line)
+{
+	struct build_cfg *cfg = _cfg;
+
+	if (!sect) {
+		error_messagef(path, line, 1, "missing [build_dir]");
+		return false;
+	}
+
+	if (cfg->dir != sect) {
+		if (cfg->workspace_init) {
+			if (!do_build(&cfg->wk)) {
+				return false;
+			}
+		}
+
+		workspace_init(&cfg->wk);
+		cfg->workspace_init = true;
+		cfg->dir = sect;
+		if (!setup_workspace_dirs(&cfg->wk, cfg->dir, cfg->argv0)) {
+			return false;
+		}
+	}
+
+	if (!parse_config_key_value(&cfg->wk, (char *)k, v)) {
+		return false;
+	}
+	return true;
+}
+
+static bool
+cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	const char *build_cfg_src = "muon.ini";
+	struct build_cfg cfg = { .argv0 = argv[0] };
+	bool ret = false;
+
+	char *ini_buf;
+	if (!ini_parse(build_cfg_src, &ini_buf, build_cfg_cb, &cfg)) {
+		goto ret;
+	}
+
+	if (cfg.workspace_init) {
+		if (!do_build(&cfg.wk)) {
+			goto ret;
+		}
+	}
+
+	ret = true;
+ret:
+	z_free(ini_buf);
+	return ret;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -255,6 +363,11 @@ main(int argc, char *argv[])
 #endif
 		{ 0 },
 	};
+
+
+	if (argc == 1) {
+		return cmd_build(argc, 0, argv) ? 0 : 1;
+	}
 
 	return cmd_run(commands, argc, 0, argv, argv[0]) ? 0 : 1;
 }
