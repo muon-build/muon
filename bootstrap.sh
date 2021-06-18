@@ -2,7 +2,6 @@
 
 # requirements:
 # - cc
-# - ninja compatible
 # - pkgconf
 # - libpkgconf
 
