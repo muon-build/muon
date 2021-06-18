@@ -57,7 +57,7 @@ foreach d: [
 
 	if d[2] == 'subproject'
 		if not get_option(d[1]).disabled()
-			sub = subproject(d[1])
+			sub = subproject(d[0])
 			dep = sub.get_variable(d[3])
 			found = true
 		endif

@@ -440,7 +440,7 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 
 	strncpy(subproject_name_buf, subproj_name, PATH_MAX);
 	snprintf(cwd, PATH_MAX, "%s/subprojects/%s",
-		wk_str(wk, current_project(wk)->cwd), subproj_name);
+		wk_str(wk, current_project(wk)->source_root), subproj_name);
 	snprintf(build_dir, PATH_MAX, "%s/subprojects/%s",
 		wk_str(wk, current_project(wk)->build_dir), subproj_name);
 

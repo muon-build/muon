@@ -11,7 +11,7 @@ struct project {
 	struct hash scope;
 	struct darr tokens;
 	/* wk_strings */
-	uint32_t cwd, build_dir, subproject_name;
+	uint32_t source_root, cwd, build_dir, subproject_name;
 	/* objects */
 	uint32_t opts;
 
