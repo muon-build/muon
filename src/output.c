@@ -19,6 +19,41 @@ struct output {
 	bool compile_commands_comma;
 };
 
+static uint32_t
+dirname_len(const char *path)
+{
+	uint32_t len = strlen(path);
+	int32_t i;
+	for (i = len - 1; i >= 0; --i) {
+		if (path[i] == '/') {
+			break;
+		}
+	}
+
+	if (i < 0) {
+		return 0;
+	}
+
+	return i;
+}
+
+static uint32_t
+get_tgt_basedir(struct workspace *wk, struct obj *tgt)
+{
+	uint32_t tgt_pre, tgt_basedir;
+	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
+		tgt_pre = 0;
+	}
+
+	if (tgt_pre == strlen(wk->build_root)) {
+		tgt_basedir = wk_str_push(wk, "");
+	} else {
+		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
+	}
+
+	return tgt_basedir;
+}
+
 #define BUF_SIZE 2048
 
 static bool
@@ -78,6 +113,15 @@ strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 	case obj_file:
 		*dest = obj->dat.file;
 		return true;
+
+	case obj_build_target: {
+		uint32_t tgt_basedir = get_tgt_basedir(wk, obj);
+
+		*dest = wk_str_pushf(wk, "%s%s",
+			wk_str(wk, tgt_basedir),
+			wk_str(wk, obj->dat.tgt.build_name));
+		return true;
+	}
 	default:
 		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
 		return false;
@@ -252,24 +296,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	return ir_cont;
 }
 
-static uint32_t
-dirname_len(const char *path)
-{
-	uint32_t len = strlen(path);
-	int32_t i;
-	for (i = len - 1; i >= 0; --i) {
-		if (path[i] == '/') {
-			break;
-		}
-	}
-
-	if (i < 0) {
-		return 0;
-	}
-
-	return i;
-}
-
 static enum iteration_result
 process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
@@ -321,23 +347,6 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	}
 
 	return ir_cont;
-}
-
-static uint32_t
-get_tgt_basedir(struct workspace *wk, struct obj *tgt)
-{
-	uint32_t tgt_pre, tgt_basedir;
-	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
-		tgt_pre = 0;
-	}
-
-	if (tgt_pre == strlen(wk->build_root)) {
-		tgt_basedir = wk_str_push(wk, "");
-	} else {
-		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
-	}
-
-	return tgt_basedir;
 }
 
 static enum iteration_result process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id);
@@ -648,7 +657,7 @@ write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
 
 	if (t->dat.test.args) {
 		if (!obj_array_foreach(wk, t->dat.test.args, ctx, write_test_args_iter)) {
-			return false;
+			return ir_err;
 		}
 	}
 	fputc(0, ctx->output->tests);
