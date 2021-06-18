@@ -77,6 +77,8 @@ tests_run(const char *build_root)
 			return false;
 		}
 
+		LOG_I(log_misc, "%s - running", test_parser.name);
+
 		if (!run_cmd(&cmd_ctx, test_parser.cmd[0], test_parser.cmd)) {
 			if (cmd_ctx.err_msg) {
 				LOG_W(log_misc, "error: %s", cmd_ctx.err_msg);
