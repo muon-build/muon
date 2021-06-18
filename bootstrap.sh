@@ -1,14 +1,15 @@
 #!/bin/sh
 
 # requirements:
-# - c toolchain (gcc tested)
-# - ninja compatible build tool
+# - cc
+# - ninja compatible
 # - pkgconf
 # - libpkgconf
 
 set -eu
 
 dir="$1"
+mkdir "$dir"
 
 cat     src/coerce.c \
 	src/darr.c \
@@ -54,13 +55,6 @@ cat     src/coerce.c \
 	src/version.c.in \
 	src/workspace.c \
 	src/wrap.c \
-	| cc -Iinclude $(pkgconf --cflags libpkgconf) -x c -o muon.o -c -
+	| cc -Iinclude $(pkgconf --cflags libpkgconf) -x c -o "$dir/muon.o" -c -
 
-cc muon.o $(pkgconf --libs libpkgconf) -o muon
-
-./muon setup -Dsamu=disabled stage1
-ninja -C stage1
-rm muon.o muon
-
-stage1/muon setup stage2
-ninja -C stage2
+cc "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
