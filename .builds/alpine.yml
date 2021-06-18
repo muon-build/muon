@@ -1,25 +1,24 @@
 image: alpine/latest
 packages:
-  - meson
+  - curl-dev
   - pkgconf-dev
+  - samurai
+  - zlib-dev
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
-  - build1: |
+  - bootstrap: |
       cd muon
-      meson setup build1
-      samu -C build1
+      ./bootstrap.sh stage0
+      stage0/muon setup -Dsamu=disabled stage1
+      samu -C stage1
+      stage1/muon setup stage2
+      samu -C stage2
 
-  - build2: |
+  - build: |
       cd muon
-      build1/muon setup build2
-      samu -C build2
-
-  - build3: |
-      cd muon
-      build2/muon setup build3
-      samu -C build3
+      stage2/muon
 
   - test: |
       cd muon
-      build3/muon test build3
+      build/muon test build
