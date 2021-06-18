@@ -50,9 +50,21 @@ func_meson_current_source_dir(struct workspace *wk, uint32_t _, uint32_t args_no
 	return true;
 }
 
+static bool
+func_meson_current_build_dir(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->build_dir;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "get_compiler", func_meson_get_compiler },
 	{ "project_version", func_meson_project_version },
 	{ "current_source_dir", func_meson_current_source_dir },
+	{ "current_build_dir", func_meson_current_build_dir },
 	{ NULL, NULL },
 };
