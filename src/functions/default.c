@@ -618,9 +618,11 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
+		kw_workdir,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", obj_array, },
+		[kw_workdir] = { "workdir", obj_string, },
 		0
 	};
 
