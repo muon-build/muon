@@ -10,9 +10,9 @@ tasks:
   - bootstrap: |
       cd muon
       ./bootstrap.sh stage0
-      stage0/muon setup -Dsamu=disabled stage1
+      stage0/muon setup stage1
       samu -C stage1
-      stage1/muon setup stage2
+      stage1/muon setup -Dsamu=enabled stage2
       samu -C stage2
 
   - build: |
