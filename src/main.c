@@ -224,12 +224,14 @@ do_build(struct workspace *wk)
 		}
 	}
 
-	if (chdir(wk->build_root) < 0) {
-		goto ret;
-	} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {
-		goto ret;
-	} else if (chdir(wk->source_root) < 0) {
-		goto ret;
+	if (have_samu) {
+		if (chdir(wk->build_root) < 0) {
+			goto ret;
+		} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {
+			goto ret;
+		} else if (chdir(wk->source_root) < 0) {
+			goto ret;
+		}
 	}
 
 	ret = true;
