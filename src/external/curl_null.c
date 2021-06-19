@@ -3,6 +3,8 @@
 #include "external/curl.h"
 #include "log.h"
 
+const bool have_curl = false;
+
 void
 muon_curl_init(void)
 {

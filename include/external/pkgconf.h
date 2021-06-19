@@ -10,6 +10,8 @@ struct pkgconf_info {
 	uint32_t includes, libs;
 };
 
+extern const bool have_libpkgconf;
+
 void muon_pkgconf_deinit(void);
 void muon_pkgconf_init(void);
 bool muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info);

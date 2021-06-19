@@ -3,6 +3,8 @@
 #include "external/pkgconf.h"
 #include "log.h"
 
+const bool have_libpkgconf = false;
+
 void
 muon_pkgconf_deinit(void)
 {

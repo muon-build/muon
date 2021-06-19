@@ -3,6 +3,8 @@
 #include "external/samu.h"
 #include "log.h"
 
+const bool have_samu = false;
+
 bool
 muon_samu(uint32_t argc, char *const argv[])
 {

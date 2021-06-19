@@ -11,6 +11,8 @@
 #include "log.h"
 #include "mem.h"
 
+const bool have_curl = true;
+
 static struct {
 	bool init;
 } fetch_ctx = { 0 };

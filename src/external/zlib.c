@@ -12,6 +12,8 @@
 #include "log.h"
 #include "mem.h"
 
+const bool have_zlib = true;
+
 #define CHUNK_SIZE 1048576ul
 
 static const char *

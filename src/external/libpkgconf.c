@@ -10,6 +10,8 @@
 #include "external/pkgconf.h"
 #include "workspace.h"
 
+const bool have_libpkgconf = true;
+
 static pkgconf_client_t client;
 static pkgconf_cross_personality_t *personality;
 static const int maxdepth = 200;

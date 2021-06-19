@@ -4,6 +4,8 @@
 
 #include "external/samu.h"
 
+const bool have_samu = true;
+
 bool
 muon_samu(uint32_t argc, char *const argv[])
 {
