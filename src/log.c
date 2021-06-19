@@ -16,7 +16,7 @@ static char *log_level_clr[log_level_count] = {
 };
 
 static char *log_level_name[log_level_count] = {
-	[log_warn] = "warn",
+	[log_warn] = "error",
 	[log_info] = "info",
 	[log_debug] = "dbg",
 };

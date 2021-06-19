@@ -6,7 +6,10 @@
 #include <string.h>
 
 #include "eval.h"
+#include "external/curl.h"
+#include "external/pkgconf.h"
 #include "external/samu.h"
+#include "external/zlib.h"
 #include "filesystem.h"
 #include "inih.h"
 #include "log.h"
@@ -18,58 +21,33 @@
 #include "tests.h"
 #include "version.h"
 
-#define BUF_LEN 256
-
-typedef bool (*cmd_func)(uint32_t argc, uint32_t argi, char *const[]);
-struct command {
-	const char *name;
-	cmd_func cmd;
-};
-
-static void
-print_usage(const struct command *commands, const char *pre)
-{
-	uint32_t i;
-	LOG_I(log_misc, "muon v%s-%s", muon_version.version, muon_version.vcs_tag);
-
-	LOG_I(log_misc, "usage: %s COMMAND", pre);
-
-	for (i = 0; commands[i].name; ++i) {
-		LOG_I(log_misc, "  %s", commands[i].name);
-	}
-}
-
 static bool
-cmd_run(const struct command *commands, uint32_t argc, uint32_t argi, char *const argv[], const char *pre)
+cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	uint32_t i;
+	struct {
+		const char *capture;
+		char *const *cmd;
+	} opts = { 0 };
 
-	if (argi + 1 >= argc) {
+	OPTSTART("c:") {
+	case 'c':
+		opts.capture = optarg;
+		break;
+	} OPTEND(argv[argi],
+		" <cmd> [arg1[ arg2[...]]]",
+		"  -c <file> - capture output to file\n",
+		NULL)
+
+
+	if (argi >= argc) {
 		LOG_W(log_misc, "missing command");
-		print_usage(commands, pre);
 		return false;
 	}
 
-	const char *cmd = argv[argi + 1];
+	opts.cmd = &argv[argi];
+	++argi;
 
-	for (i = 0; commands[i].name; ++i) {
-		if (strcmp(commands[i].name, cmd) == 0) {
-			return commands[i].cmd(argc, argi + 1, argv);
-		}
-	}
-
-	LOG_W(log_misc, "unknown command '%s'", argv[argi + 1]);
-	print_usage(commands, pre);
-	return false;
-}
-
-static bool
-cmd_internal_exe(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	struct exe_opts opts = { 0 };
-	if (!opts_parse_exe(&opts, argc, argi, argv)) {
-		return false;
-	}
+	return true;
 
 	struct run_cmd_ctx ctx = { 0 };
 	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd)) {
@@ -89,34 +67,31 @@ cmd_internal_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 }
 
-static bool
-cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
+static const char *
+get_filename_as_only_arg(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	static const struct command commands[] = {
-		{ "exe", cmd_internal_exe },
-		0,
-	};
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <filename>", "", NULL)
 
-	return cmd_run(commands, argc, argi, argv, argv[argi]);
-}
+	if (argi >= argc) {
+		LOG_W(log_misc, "missing filename");
+		return NULL;
+	}
 
-static bool
-cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	return muon_samu(argc - argi, (char **)&argv[argi]) == 0;
+	return argv[argi];
 }
 
 static bool
 cmd_parse_check(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argi + 1 >= argc) {
-		LOG_W(log_misc, "missing filename");
+	const char *filename;
+	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
 		return false;
 	}
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, argv[argi + 1])) {
+	if (!lexer_lex(language_internal, &toks, filename)) {
 		return false;
 	} else if (!parser_parse(&ast, &toks)) {
 		return false;
@@ -128,14 +103,14 @@ cmd_parse_check(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_ast(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argi + 1 >= argc) {
-		LOG_W(log_misc, "missing filename");
+	const char *filename;
+	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
 		return false;
 	}
 
 	struct tokens toks = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, argv[argi + 1])) {
+	if (!lexer_lex(language_internal, &toks, filename)) {
 		return false;
 	} else if (!parser_parse(&ast, &toks)) {
 		return false;
@@ -148,8 +123,8 @@ cmd_ast(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (argi + 1 >= argc) {
-		LOG_W(log_misc, "missing filename");
+	const char *filename;
+	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
 		return false;
 	}
 
@@ -164,22 +139,55 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	wk.lang_mode = language_internal;
 	make_project(&wk, &wk.cur_project, NULL, cwd, "<build_dir>");
 	bool ret;
-	ret = eval(&wk, argv[argi + 1]);
+	ret = eval(&wk, filename);
 
 	workspace_destroy(&wk); // just to test for memory leaks in valgrind
 	return ret;
 }
 
 static bool
+cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	static const struct command commands[] = {
+		{ "exe", cmd_exe, "run an external command" },
+		{ "ast", cmd_ast, "print a file's ast" },
+		{ "eval", cmd_eval, "evaluate a file" },
+		0,
+	};
+
+	OPTSTART("") {
+	} OPTEND(argv[argi], "", "", commands);
+
+	cmd_func cmd = NULL;;
+	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+		return false;
+	}
+
+	assert(cmd);
+	return cmd(argc, argi, argv);
+}
+
+static bool
+cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	return muon_samu(argc - argi, (char **)&argv[argi]) == 0;
+}
+
+static bool
 cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <build dir>", "", NULL)
+
 	if (argi + 1 >= argc) {
-		LOG_W(log_misc, "missing argument: build_dir");
+		LOG_W(log_misc, "missing build dir");
 		return false;
 	}
 
 	return tests_run(argv[argi + 1]);
 }
+
+#define BUF_LEN 1024
 
 static bool
 setup_workspace_dirs(struct workspace *wk, const char *build, const char *argv0)
@@ -246,17 +254,27 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 
-	struct setup_opts opts = { 0 };
-	if (!opts_parse_setup(&wk, &opts, argc, &argi, argv)) {
-		goto err;
-	}
+	OPTSTART("D:") {
+	case 'D':
+		if (!parse_config_opt(&wk, optarg)) {
+			return false;
+		}
+		break;
+	} OPTEND(argv[argi],
+		" <build dir>",
+		"  -D <option>=<value> - set project options\n",
+		NULL)
+
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing build directory");
+		LOG_W(log_misc, "missing build dir");
 		return false;
 	}
 
-	if (!setup_workspace_dirs(&wk, argv[argi], argv[0])) {
+	const char *build = argv[argi];
+	++argi;
+
+	if (!setup_workspace_dirs(&wk, build, argv[0])) {
 		goto err;
 	}
 
@@ -350,30 +368,68 @@ ret:
 	return ret;
 }
 
-int
-main(int argc, char *argv[])
+static bool
+cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	printf("muon v%s-%s\nenabled features:",
+		muon_version.version, muon_version.vcs_tag);
+	if (have_curl) {
+		printf(" curl");
+	}
+
+	if (have_libpkgconf) {
+		printf(" libpkgconf");
+	}
+
+	if (have_zlib) {
+		printf(" zlib");
+	}
+
+	if (have_samu) {
+		printf(" samu");
+	}
+
+	printf("\n");
+	return true;
+}
+
+static bool
+cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	log_init();
 	log_set_lvl(log_debug);
 	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
 
-	assert(argc > 0);
-
 	static const struct command commands[] = {
-		{ "internal", cmd_internal },
-		{ "setup", cmd_setup },
-		{ "eval", cmd_eval },
-		{ "ast", cmd_ast },
-		{ "parse_check", cmd_parse_check },
-		{ "test", cmd_test },
-		{ "samu", cmd_samu },
+		{ "build", cmd_parse_check, "build the project with default options" },
+		{ "check", cmd_parse_check, "check if a meson file parses" },
+		{ "internal", cmd_internal, "internal subcommands" },
+		{ "setup", cmd_setup, "setup a build directory" },
+		{ "test", cmd_test, "run tests" },
+		{ "version", cmd_version, "print version information" },
+		{ "samu", cmd_samu, "run samurai" },
 		{ 0 },
 	};
 
+	OPTSTART("") {
+	} OPTEND(argv[0], "", "", commands)
 
-	if (argc == 1) {
-		return cmd_build(argc, 0, argv) ? 0 : 1;
+	cmd_func cmd;
+	if (!find_cmd(commands, &cmd, argc, argi, argv, true)) {
+		return false;
 	}
 
-	return cmd_run(commands, argc, 0, argv, argv[0]) ? 0 : 1;
+	if (cmd) {
+		return cmd(argc, argi, argv);
+	} else {
+		return cmd_build(argc, argi, argv);
+	}
+
+	return true;
+}
+
+int
+main(int argc, char *argv[])
+{
+	return cmd_main(argc, 0, argv) ? 0 : 1;
 }
