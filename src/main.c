@@ -265,7 +265,6 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -D <option>=<value> - set project options\n",
 		NULL)
 
-
 	if (argi >= argc) {
 		LOG_W(log_misc, "missing build dir");
 		return false;
@@ -336,13 +335,24 @@ build_cfg_cb(void *_cfg, const char *path, const char *sect,
 static bool
 cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	const char *build_cfg_src = "muon.ini";
+	struct {
+		const char *cfg;
+	} opts = { .cfg = ".muon" };
+
+	OPTSTART("c:") {
+	case 'c':
+		opts.cfg = optarg;
+		break;
+	} OPTEND(argv[argi], "",
+		"  -c config - load config alternate file (default: .muon)\n",
+		NULL)
+
 	struct build_cfg cfg = { .argv0 = argv[0] };
 	bool ret = false;
 	char *ini_buf = NULL;
 
-	if (fs_file_exists(build_cfg_src)) {
-		if (!ini_parse(build_cfg_src, &ini_buf, build_cfg_cb, &cfg)) {
+	if (fs_file_exists(opts.cfg)) {
+		if (!ini_parse(opts.cfg, &ini_buf, build_cfg_cb, &cfg)) {
 			goto ret;
 		}
 	} else {
@@ -401,7 +411,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
 
 	static const struct command commands[] = {
-		{ "build", cmd_parse_check, "build the project with default options" },
+		{ "build", cmd_build, "build the project with default options" },
 		{ "check", cmd_parse_check, "check if a meson file parses" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "setup", cmd_setup, "setup a build directory" },
