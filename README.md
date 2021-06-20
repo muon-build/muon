@@ -13,9 +13,9 @@ where meson will not, but where it seems appropriate.
 
 ## Status
 
-`muon` is complete enough to build complicated projects, but many unimplemented
-corners remain.  Your best bet is to run it on your project, and submit a bug
-report when you hit one.
+`muon` is complete enough to build complicated projects, however, many things
+are still not implemented.  If you want to contribute, try using `muon` to build
+your favorite project.
 
 ## Requirements
 
