@@ -179,12 +179,12 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("") {
 	} OPTEND(argv[argi], " <build dir>", "", NULL)
 
-	if (argi + 1 >= argc) {
+	if (argi >= argc) {
 		LOG_W(log_misc, "missing build dir");
 		return false;
 	}
 
-	return tests_run(argv[argi + 1]);
+	return tests_run(argv[argi]);
 }
 
 #define BUF_LEN 1024
