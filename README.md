@@ -1,26 +1,42 @@
 # muon
 
-`muon` is an implementation of the meson language in written in C11
+`muon` is an implementation of the meson build system in C with minimal
+dependencies.
+
+## Goals
+
+`muon` aspires to generate build files functionally equivalent to what meson
+generates.  Currently only a subset of meson's functionality is implemented, in
+particular only C projects are supported.  Additionally, `muon` does not aspire
+to be bug-for-bug compatible with meson, and will throw an error in some cases
+where meson will not, but where it seems appropriate.
 
 ## Status
 
-`muon` is currently a work in progress. There's a lot to do, don't expect it to
-be able to build your project.  In particular, `muon` only supports building C
-projects.  If you'd like that to change, [send me an
-email](mailto:lattis@mochiro.moe).
+`muon` is complete enough to build complicated projects, but many unimplemented
+corners remain.  Your best bet is to run it on your project, and submit a bug
+report when you hit one.
 
 ## Requirements
 
 `muon` requires various POSIX interfaces and a compiler offering c11 support.
 
-Depencency discovery requires `libpkgconf`.
+Dependency discovery requires `libpkgconf`.
 
 Wrap support requires `libcurl` and `zlib`.
 
 ## Building
 
+You can bootstrap muon like this:
+
+```sh
+./bootstrap.sh bootstrap
 ```
-meson build
+
+You can then use the bootstrapped muon to build itself:
+
+```
+bootstrap/muon setup build
 ninja -C build
 ```
 
