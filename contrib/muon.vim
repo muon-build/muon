@@ -9,7 +9,7 @@ function! ale_linters#meson#muon#GetCommand(buffer) abort
 	let l:executable = ale_linters#meson#muon#GetExecutable(a:buffer)
 
 	return ale#path#BufferCdString(a:buffer)
-	\   . ale#Escape(l:executable) . ' parse_check -'
+	\   . ale#Escape(l:executable) . ' check -'
 endfunction
 
 function! ale_linters#meson#muon#Handle(buffer, lines) abort
