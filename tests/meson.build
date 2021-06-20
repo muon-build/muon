@@ -6,5 +6,5 @@ tests = [
 ]
 
 foreach t : tests
-	test(t, muon, args: ['eval'] + files([t]))
+	test(t, muon, args: ['internal', 'eval'] + files([t]))
 endforeach
