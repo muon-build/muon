@@ -16,6 +16,7 @@
 #include "functions/string.h"
 #include "interpreter.h"
 #include "log.h"
+#include "path.h"
 #include "run_cmd.h"
 #include "wrap.h"
 
@@ -139,7 +140,7 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 		return true;
 	}
 
-	char buf[PATH_MAX + 1] = { 0 };
+	char buf[PATH_MAX];
 	const char *cmd_path;
 
 	/* TODO: 1. Program overrides set via meson.override_find_program() */
@@ -153,7 +154,10 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 
 	bool found = false;
 
-	snprintf(buf, PATH_MAX, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, an[0].val));
+	if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, an[0].val))) {
+		return false;
+	}
+
 	if (fs_file_exists(buf)) {
 		found = true;
 		cmd_path = buf;
@@ -906,9 +910,9 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 }
 
 struct join_paths_ctx {
-	uint32_t str, node;
+	uint32_t node;
+	char buf[PATH_MAX];
 };
-
 
 static enum iteration_result
 join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
@@ -919,23 +923,13 @@ join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		return ir_err;
 	}
 
-	const char *s = wk_objstr(wk, val);
+	char buf[PATH_MAX];
+	strcpy(buf, ctx->buf);
 
-	uint32_t end = strlen(s);
-
-	if (end == 0) {
-		return ir_cont;
-	} else if (end > 1 && s[end - 1] == '/') {
-		--end;
+	if (!path_join(ctx->buf, PATH_MAX, buf, wk_objstr(wk, val))) {
+		return ir_err;
 	}
 
-	if (s[0] == '/') {
-		// abs path section
-		ctx->str = wk_str_pushn(wk, s, end);
-	} else {
-		wk_str_app(wk, &ctx->str, "/");
-		wk_str_appn(wk, &ctx->str, s, end);
-	}
 	return ir_cont;
 }
 
@@ -950,14 +944,13 @@ func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 
 	struct join_paths_ctx ctx = {
 		.node = args_node,
-		.str = wk_str_push(wk, ""),
 	};
 
 	if (!obj_array_foreach(wk, an[0].val, &ctx, join_paths_iter)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = ctx.str;
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, ctx.buf);
 	return true;
 }
 
