@@ -6,6 +6,7 @@
 #include "filesystem.h"
 #include "log.h"
 #include "output.h"
+#include "path.h"
 #include "workspace.h"
 
 struct concat_strings_ctx {
@@ -18,41 +19,6 @@ struct output {
 	     *tests;
 	bool compile_commands_comma;
 };
-
-static uint32_t
-dirname_len(const char *path)
-{
-	uint32_t len = strlen(path);
-	int32_t i;
-	for (i = len - 1; i >= 0; --i) {
-		if (path[i] == '/') {
-			break;
-		}
-	}
-
-	if (i < 0) {
-		return 0;
-	}
-
-	return i;
-}
-
-static uint32_t
-get_tgt_basedir(struct workspace *wk, struct obj *tgt)
-{
-	uint32_t tgt_pre, tgt_basedir;
-	if (!prefix_len(wk_str(wk, tgt->dat.tgt.build_dir), wk->build_root, &tgt_pre)) {
-		tgt_pre = 0;
-	}
-
-	if (tgt_pre == strlen(wk->build_root)) {
-		tgt_basedir = wk_str_push(wk, "");
-	} else {
-		tgt_basedir = wk_str_pushf(wk, "%s/", &wk_str(wk, tgt->dat.tgt.build_dir)[tgt_pre]);
-	}
-
-	return tgt_basedir;
-}
 
 #define BUF_SIZE 2048
 
@@ -102,6 +68,29 @@ concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
 
 
 static bool
+tgt_build_dir(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
+{
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, tgt->dat.tgt.build_dir))) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+tgt_build_path(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
+{
+	char tmp[PATH_MAX] = { 0 };
+	if (!path_join(tmp, PATH_MAX, wk_str(wk, tgt->dat.tgt.build_dir), wk_str(wk, tgt->dat.tgt.build_name))) {
+		return false;
+	} else if (!path_relative_to(buf, PATH_MAX, wk->build_root, tmp)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 {
 	struct obj *obj = get_obj(wk, src);
@@ -115,11 +104,12 @@ strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 		return true;
 
 	case obj_build_target: {
-		uint32_t tgt_basedir = get_tgt_basedir(wk, obj);
+		char path[PATH_MAX];
+		if (!tgt_build_path(path, wk, obj)) {
+			return false;
+		}
 
-		*dest = wk_str_pushf(wk, "%s%s",
-			wk_str(wk, tgt_basedir),
-			wk_str(wk, obj->dat.tgt.build_name));
+		*dest = wk_str_push(wk, path);
 		return true;
 	}
 	default:
@@ -212,6 +202,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 }
 
 struct write_tgt_iter_ctx {
+	char *tgt_parts_dir;
 	struct obj *tgt;
 	struct output *output;
 	uint32_t args_id;
@@ -221,7 +212,6 @@ struct write_tgt_iter_ctx {
 	uint32_t link_args_id;
 	uint32_t implicit_deps_id;
 	bool have_implicit_deps;
-	uint32_t tgt_dir;
 };
 
 static bool
@@ -242,32 +232,46 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file);
 
-	uint32_t src_pre = 0;
-	prefix_len(wk_str(wk, src->dat.file), wk->build_root, &src_pre);
+	char src_path[PATH_MAX];
+	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, wk_str(wk, src->dat.file))) {
+		return ir_err;
+	}
 
 	if (suffixed_by(wk_str(wk, src->dat.file), ".h")) {
-		wk_str_appf(wk, &ctx->order_deps_id, "%s ", &wk_str(wk, src->dat.file)[src_pre]);
+		wk_str_appf(wk, &ctx->order_deps_id, "%s ", src_path);
 		ctx->have_order_deps = true;
 	} else {
-		uint32_t dest_pre = longest_prefix_len(wk_str(wk, src->dat.file), (const char *[]) {
-			wk_str(wk, ctx->tgt->dat.tgt.cwd),
-			wk_str(wk, ctx->tgt->dat.tgt.build_dir),
-			NULL,
-		});
+		char rel[PATH_MAX], dest_path[PATH_MAX];
+		const char *base;
 
-		uint32_t out;
-		out = wk_str_pushf(wk, "%s/%s.o", wk_str(wk, ctx->tgt_dir), &wk_str(wk, src->dat.file)[dest_pre]);
+		if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.build_dir),
+			wk_str(wk, src->dat.file))) {
+			base = wk_str(wk, ctx->tgt->dat.tgt.build_dir);
+		} else if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.cwd),
+			wk_str(wk, src->dat.file))) {
+			base = wk_str(wk, ctx->tgt->dat.tgt.cwd);
+		} else {
+			base = wk->source_root;
+		}
 
-		wk_str_appf(wk, &ctx->object_names_id, "%s ", wk_str(wk, out));
+		if (!path_relative_to(rel, PATH_MAX, base, wk_str(wk, src->dat.file))) {
+			return ir_err;
+		} else if (!path_join(dest_path, PATH_MAX, ctx->tgt_parts_dir, rel)) {
+			return ir_err;
+		} else if (!path_add_suffix(dest_path, PATH_MAX, ".o")) {
+			return ir_err;
+		}
+
+		wk_str_appf(wk, &ctx->object_names_id, "%s ", dest_path);
 
 		fprintf(ctx->output->build_ninja,
 			"build %s: c_COMPILER %s\n"
 			" DEPFILE = %s.d\n"
 			" DEPFILE_UNQUOTED = %s.d\n"
 			" ARGS = %s\n\n",
-			wk_str(wk, out), &wk_str(wk, src->dat.file)[src_pre],
-			wk_str(wk, out),
-			wk_str(wk, out),
+			dest_path, src_path,
+			dest_path,
+			dest_path,
 			wk_str(wk, ctx->args_id)
 			);
 
@@ -287,9 +291,9 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			"  }",
 			wk->build_root,
 			wk_str(wk, ctx->args_id),
-			wk_str(wk, out), &wk_str(wk, src->dat.file)[src_pre],
-			&wk_str(wk, src->dat.file)[src_pre],
-			wk_str(wk, out)
+			dest_path, src_path,
+			src_path,
+			dest_path
 			);
 	}
 
@@ -307,17 +311,15 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_cont;
 	}
 
-	uint32_t src_pre = 0, dir_len;
-	prefix_len(wk_str(wk, src->dat.file), wk->build_root, &src_pre);
-	dir_len = dirname_len(&wk_str(wk, src->dat.file)[src_pre]);
+	char dir[PATH_MAX], path[PATH_MAX];
 
-
-	if (dir_len) {
-		uint32_t dir = wk_str_pushn(wk, &wk_str(wk, src->dat.file)[src_pre], dir_len);
-		wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, dir));
-	} else {
-		wk_str_appf(wk, &ctx->args_id, "-I. ");
+	if (!path_dirname(dir, PATH_MAX, wk_str(wk, src->dat.file))) {
+		return ir_err;
+	} else if (!path_relative_to(path, PATH_MAX, wk->build_root, dir)) {
+		return ir_err;
 	}
+
+	wk_str_appf(wk, &ctx->args_id, "-I%s ", path);
 
 	return ir_cont;
 }
@@ -360,23 +362,25 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	switch (tgt->type) {
 	case  obj_build_target: {
-		uint32_t tgt_basedir = get_tgt_basedir(wk, tgt);
+		char path[PATH_MAX];
+
+		if (!tgt_build_path(path, wk, tgt)) {
+			return ir_err;
+		} else if (!path_add_suffix(path, PATH_MAX, " ")) {
+			return ir_err;
+		}
 
 		if (ctx->tgt->dat.tgt.type == tgt_executable) {
-			wk_str_appf(wk, &ctx->implicit_deps_id, " %s%s",
-				wk_str(wk, tgt_basedir),
-				wk_str(wk, tgt->dat.tgt.build_name));
-			wk_str_appf(wk, &ctx->link_args_id, " %s%s",
-				wk_str(wk, tgt_basedir),
-				wk_str(wk, tgt->dat.tgt.build_name));
+			wk_str_app(wk, &ctx->implicit_deps_id, path);
+			wk_str_app(wk, &ctx->link_args_id, path);
 			ctx->have_implicit_deps = true;
 		}
 
-		if (*wk_str(wk, tgt_basedir)) {
-			wk_str_appf(wk, &ctx->args_id, "-I%s ", wk_str(wk, tgt_basedir));
-		} else {
-			wk_str_appf(wk, &ctx->args_id, "-I. ");
+		if (!tgt_build_dir(path, wk, tgt)) {
+			return ir_err;
 		}
+
+		wk_str_appf(wk, &ctx->args_id, "-I%s ", path);
 
 		if (tgt->dat.tgt.deps) {
 			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, ctx, process_dep_links_iter)) {
@@ -387,7 +391,7 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	}
 	case obj_string:
 		if (ctx->tgt->dat.tgt.type == tgt_executable) {
-			wk_str_appf(wk, &ctx->link_args_id, " %s", wk_str(wk, tgt->dat.str));
+			wk_str_appf(wk, &ctx->link_args_id, "%s ", wk_str(wk, tgt->dat.str));
 		}
 		break;
 	default:
@@ -437,14 +441,17 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
-	uint32_t tgt_dir, tgt_basedir;
-	tgt_basedir = get_tgt_basedir(wk, tgt);
-	tgt_dir = wk_str_pushf(wk, "%s%s.p", wk_str(wk, tgt_basedir), wk_str(wk, tgt->dat.tgt.build_name));
+	char path[PATH_MAX];
+	if (!tgt_build_path(path, wk, tgt)) {
+		return ir_err;
+	} else if (!path_add_suffix(path, PATH_MAX, ".p")) {
+		return ir_err;
+	}
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
 		.output = output,
-		.tgt_dir = tgt_dir,
+		.tgt_parts_dir = path,
 		.implicit_deps_id = wk_str_push(wk, ""),
 	};
 
@@ -452,7 +459,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	switch (tgt->dat.tgt.type) {
 	case tgt_executable:
 		rule = "c_LINKER";
-		ctx.link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined -Wl,--start-group");
+		ctx.link_args_id = wk_str_push(wk, "-Wl,--as-needed -Wl,--no-undefined -Wl,--start-group ");
 
 		break;
 	case tgt_library:
@@ -524,11 +531,13 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		wk_str_app(wk, &ctx.link_args_id, " -Wl,--end-group");
 	}
 
-	fprintf(output->build_ninja, "build %s%s: %s %s | %s %s"
-		"\n LINK_ARGS = %s\n\n"
-		,
-		wk_str(wk, tgt_basedir),
-		wk_str(wk, tgt->dat.tgt.build_name),
+	if (!tgt_build_path(path, wk, tgt)) {
+		return ir_err;
+	}
+
+	fprintf(output->build_ninja, "build %s: %s %s | %s %s"
+		"\n LINK_ARGS = %s\n\n",
+		path,
 		rule,
 		wk_str(wk, ctx.object_names_id),
 		ctx.have_implicit_deps ? wk_str(wk, ctx.implicit_deps_id) : "",
@@ -685,8 +694,11 @@ write_project(struct output *output, struct workspace *wk, struct project *proj)
 static FILE *
 open_out(const char *dir, const char *name)
 {
-	char path[PATH_MAX + 1] = { 0 };
-	snprintf(path, PATH_MAX, "%s/%s", dir, name);
+	char path[PATH_MAX];
+	if (!path_join(path, PATH_MAX, dir, name)) {
+		return NULL;
+	}
+
 	return fs_fopen(path, "w");
 }
 
