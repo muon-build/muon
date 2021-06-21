@@ -113,33 +113,37 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	switch (get_obj(wk, val)->type) {
 	case obj_string: {
 		uint32_t path;
+		char buf[PATH_MAX];
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (*wk_objstr(wk, val) == '/') {
+			if (path_is_absolute(wk_objstr(wk, val))) {
 				path = get_obj(wk, val)->dat.str;
 			} else {
-				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val));
+				if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val))) {
+					return ir_err;
+				}
+
+				path = wk_str_push(wk, buf);
 			}
 
 			if (!ctx->exists(wk_str(wk, path))) {
 				interp_error(wk, ctx->node, "%s '%s' does not exist",
-					ctx->type,
-					wk_str(wk, path));
+					ctx->type, wk_str(wk, path));
 				return ir_err;
 			}
 			break;
 		case mode_output:
-			if (strchr(wk_objstr(wk, val), '/')) {
-				interp_error(wk, ctx->node, "output files may not contain '/'");
+			if (!path_is_basename(wk_objstr(wk, val))) {
+				interp_error(wk, ctx->node, "output file '%s' contains path seperators", wk_objstr(wk, val));
 				return ir_err;
 			}
 
-			if (*wk_objstr(wk, val) == '/') {
-				path = get_obj(wk, val)->dat.str;
-			} else {
-				path = wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val));
+			if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val))) {
+				return ir_err;
 			}
+
+			path = wk_str_push(wk, buf);
 		}
 
 		uint32_t file;
@@ -163,9 +167,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	default:
 type_error:
 		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
-			obj_type_to_s(get_obj(wk, val)->type),
-			ctx->type
-			);
+			obj_type_to_s(get_obj(wk, val)->type), ctx->type);
 		return ir_err;
 	}
 
