@@ -34,7 +34,7 @@ enum loop_ctl {
 };
 
 struct option_override {
-	const char *proj, *name, *val;
+	uint32_t proj, name, val;
 	bool used;
 };
 

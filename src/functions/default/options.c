@@ -61,14 +61,15 @@ subproj_name_matches(struct workspace *wk, uint32_t subproj_name, const char *te
 #define BUF_SIZE 2048
 
 static const char *
-option_override_to_s(struct option_override *oo)
+option_override_to_s(struct workspace *wk, struct option_override *oo)
 {
 	static char buf[BUF_SIZE + 1] = { 0 };
 	snprintf(buf, BUF_SIZE, "%s%s%s=%s",
-		oo->proj ? oo->proj : "",
+		oo->proj ? wk_str(wk, oo->proj) : "",
 		oo->proj ? ":" : "",
-		oo->name,
-		oo->val);
+		wk_str(wk, oo->name),
+		wk_str(wk, oo->val)
+		);
 
 	return buf;
 }
@@ -85,9 +86,9 @@ check_unused_option_overrides(struct workspace *wk)
 		oo = darr_get(&wk->option_overrides, i);
 
 		if (current_project(wk)->subproject_name == 0
-		    || subproj_name_matches(wk, current_project(wk)->subproject_name, oo->proj)) {
+		    || subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, oo->proj))) {
 			if (!oo->used) {
-				LOG_W(log_interp, "invalid option override: '%s'", option_override_to_s(oo));
+				LOG_W(log_interp, "invalid option override: '%s'", option_override_to_s(wk, oo));
 				ret = false;
 			}
 		}
@@ -105,8 +106,8 @@ find_option_override(struct workspace *wk, uint32_t key, struct option_override 
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		*oo = darr_get(&wk->option_overrides, i);
 
-		if (subproj_name_matches(wk, current_project(wk)->subproject_name, (*oo)->proj)
-		    && strcmp(strkey, (*oo)->name) == 0) {
+		if (subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, (*oo)->proj))
+		    && strcmp(strkey, wk_str(wk, (*oo)->name)) == 0) {
 			return true;
 		}
 	}
@@ -335,7 +336,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	if (find_option_override(wk, an[0].val, &oo)) {
 		oo->used = true;
-		if (!coerce_option_override(wk, akw[kw_type].node, type, oo->val, &val)) {
+		if (!coerce_option_override(wk, akw[kw_type].node, type, wk_str(wk, oo->val), &val)) {
 			return false;
 		}
 	}

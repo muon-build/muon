@@ -99,10 +99,13 @@ parse_config_key_value(struct workspace *wk, char *lhs, const char *val)
 	}
 
 	struct option_override oo = {
-		.proj = subproj,
-		.name = lhs,
-		.val = val,
+		.name = wk_str_push(wk, lhs),
+		.val = wk_str_push(wk, val),
 	};
+
+	if (subproj) {
+		oo.proj = wk_str_push(wk, subproj);
+	}
 
 	darr_push(&wk->option_overrides, &oo);
 
