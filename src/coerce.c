@@ -6,6 +6,7 @@
 #include "coerce.h"
 #include "filesystem.h"
 #include "interpreter.h"
+#include "path.h"
 
 bool
 coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
@@ -18,15 +19,16 @@ coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *r
 		*res = val;
 		return true;
 	case obj_build_target: {
-		uint32_t pre;
-		prefix_len(wk_str(wk, obj->dat.tgt.build_dir), wk->build_root, &pre);
-		if (strlen(wk_str(wk, obj->dat.tgt.build_dir)) == pre) {
-			str = wk_str_pushf(wk, "./%s", wk_str(wk, obj->dat.tgt.build_name));
-		} else {
-			str = wk_str_pushf(wk, "%s/%s",
-				&wk_str(wk, obj->dat.tgt.build_dir)[pre],
-				wk_str(wk, obj->dat.tgt.build_name));
+		char join[PATH_MAX], dest[PATH_MAX];
+
+		if (!path_join(join, PATH_MAX, wk_str(wk, obj->dat.tgt.build_dir),
+			wk_str(wk, obj->dat.tgt.build_name))) {
+			return false;
+		} else if (!path_relative_to(dest, PATH_MAX, wk->build_root, join)) {
+			return false;
 		}
+
+		str = wk_str_push(wk, dest);
 		break;
 	}
 	case obj_external_program:

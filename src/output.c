@@ -23,10 +23,8 @@ struct output {
 #define BUF_SIZE 2048
 
 static bool
-concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
+concat_str(struct workspace *wk, uint32_t *dest, const char *s)
 {
-	const char *s = wk_str(wk, str);
-
 	if (strlen(s) >= BUF_SIZE) {
 		LOG_W(log_out, "string too long in concat strings: '%s'", s);
 		return false;
@@ -65,7 +63,6 @@ concat_str(struct workspace *wk, uint32_t *dest, uint32_t str)
 	wk_str_app(wk, dest, " ");
 	return true;
 }
-
 
 static bool
 tgt_build_dir(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
@@ -126,7 +123,7 @@ concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 		return false;
 	}
 
-	return concat_str(wk, dest, str);
+	return concat_str(wk, dest, wk_str(wk, str));
 }
 
 static enum iteration_result
@@ -557,14 +554,13 @@ custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *out = get_obj(wk, val_id);
 	assert(out->type == obj_file);
 
-	uint32_t pre, str;
-	if (prefix_len(wk_str(wk, out->dat.file), wk->build_root, &pre)) {
-		str = wk_str_push(wk, &wk_str(wk, out->dat.file)[pre]);
-	} else {
-		str = out->dat.file;
+	char buf[PATH_MAX];
+
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, out->dat.file))) {
+		return ir_err;
 	}
 
-	return concat_str(wk, dest, str) == true ? ir_cont : ir_err;
+	return concat_str(wk, dest, buf) == true ? ir_cont : ir_err;
 }
 
 static enum iteration_result

@@ -82,9 +82,6 @@ char *wk_file_path(struct workspace *wk, uint32_t id);
 uint32_t wk_str_push_stripped(struct workspace *wk, const char *s);
 uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
 
-bool prefix_len(const char *str, const char *prefix, uint32_t *len);
-uint32_t longest_prefix_len(const char *str, const char *prefix[]);
-
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0);
