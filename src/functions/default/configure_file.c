@@ -9,6 +9,7 @@
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
+#include "path.h"
 
 #define GROW_SIZE 2048
 #define TMP_BUF_LEN 1024
@@ -292,20 +293,22 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 	}
 
 	{ /* setup out file */
-		const char *out = wk_objstr(wk, akw[kw_output].val), *p;
-		for (p = out; *p; ++p) {
-			if (*p == '/') {
-				interp_error(wk, akw[kw_output].node, "config file output cannot contain '/'");
-				return false;
-			}
+		const char *out = wk_objstr(wk, akw[kw_output].val);
+		if (!path_is_basename(out)) {
+			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path seperator", out);
+			return false;
 		}
 
 		if (!fs_mkdir_p(wk_str(wk, current_project(wk)->build_dir))) {
 			return false;
 		}
 
-		make_obj(wk, obj, obj_file)->dat.file =
-			wk_str_pushf(wk, "%s/%s", wk_str(wk, current_project(wk)->build_dir), out);
+		char buf[PATH_MAX];
+		if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), out)) {
+			return false;
+		}
+
+		make_obj(wk, obj, obj_file)->dat.file = wk_str_push(wk, buf);
 	}
 
 	if (akw[kw_input].set) {
