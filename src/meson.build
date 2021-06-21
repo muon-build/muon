@@ -36,6 +36,7 @@ src = files([
 	'opts.c',
 	'output.c',
 	'parser.c',
+	'path.c',
 	'run_cmd.c',
 	'tests.c',
 	'workspace.c',

@@ -49,6 +49,7 @@ cat     src/coerce.c \
 	src/opts.c \
 	src/output.c \
 	src/parser.c \
+	src/path.c \
 	src/run_cmd.c \
 	src/tests.c \
 	src/version.c.in \
