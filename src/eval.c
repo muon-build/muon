@@ -10,33 +10,31 @@
 #include "log.h"
 #include "mem.h"
 #include "parser.h"
+#include "path.h"
 #include "wrap.h"
 
 bool
 eval_project(struct workspace *wk, const char *subproject_name,
 	const char *cwd, const char *build_dir, uint32_t *proj_id)
 {
-	char src[PATH_MAX + 1] = { 0 }, meson_opts[PATH_MAX + 1] = { 0 };
+	char src[PATH_MAX], meson_opts[PATH_MAX];
 
-	snprintf(src, PATH_MAX, "%s/%s", cwd, "meson.build");
-	snprintf(meson_opts, PATH_MAX, "%s/%s", cwd, "meson_options.txt");
+	if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
+		return false;
+	} else if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
+		return false;
+	}
 
 	if (!fs_dir_exists(cwd)) {
-		int32_t i;
-		char wrap[PATH_MAX + 1] = { 0 }, basedir[PATH_MAX + 1] = { 0 };
-
-		strncpy(basedir, cwd, PATH_MAX);
+		char wrap[PATH_MAX], base[PATH_MAX];
 		snprintf(wrap, PATH_MAX, "%s.wrap", cwd);
 
-		for (i = strlen(cwd); i >= 0; --i) {
-			if (basedir[i] == '/') {
-				basedir[i] = 0;
-				break;
-			}
-		}
-
 		if (fs_file_exists(wrap)) {
-			if (!wrap_handle(wk, wrap, basedir)) {
+			if (!path_basename(base, PATH_MAX, cwd)) {
+				return false;
+			}
+
+			if (!wrap_handle(wk, wrap, base)) {
 				return false;
 			}
 		} else {

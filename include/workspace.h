@@ -1,6 +1,10 @@
 #ifndef MUON_WORKSPACE_H
 #define MUON_WORKSPACE_H
 
+#include "posix.h"
+
+#include <limits.h>
+
 #include "darr.h"
 #include "eval.h"
 #include "hash.h"
@@ -39,6 +43,11 @@ struct option_override {
 };
 
 struct workspace {
+	char argv0[PATH_MAX],
+	     source_root[PATH_MAX],
+	     build_root[PATH_MAX];
+	const char *cur_src_path;
+
 	struct darr projects;
 	struct darr option_overrides;
 	struct darr objs;
@@ -47,11 +56,12 @@ struct workspace {
 
 	uint32_t loop_depth;
 	enum loop_ctl loop_ctl;
+
 	uint32_t cur_project;
 	struct ast *ast;
+
 	enum language_mode lang_mode;
-	const char *argv0, *source_root, *build_root;
-	const char *cur_src_path;
+
 	char *strbuf;
 	uint32_t strbuf_cap;
 };
@@ -77,6 +87,7 @@ uint32_t longest_prefix_len(const char *str, const char *prefix[]);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
+bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0);
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);

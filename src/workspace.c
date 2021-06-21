@@ -7,6 +7,7 @@
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
+#include "path.h"
 #include "workspace.h"
 
 struct obj *
@@ -362,4 +363,18 @@ workspace_destroy(struct workspace *wk)
 	hash_destroy(&wk->scope);
 
 	z_free(wk->strbuf);
+}
+
+bool
+workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
+{
+	if (!path_cwd(wk->source_root, PATH_MAX)) {
+		return false;
+	} else if (!path_make_absolute(wk->build_root, PATH_MAX, build)) {
+		return false;
+	} else if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
+		return false;
+	}
+
+	return true;
 }

@@ -27,6 +27,7 @@ cat     src/coerce.c \
 	src/functions/default/configure_file.c \
 	src/functions/default/dependency.c \
 	src/functions/default/options.c \
+	src/functions/default/setup.c \
 	src/functions/dependency.c \
 	src/functions/dict.c \
 	src/functions/external_library.c \

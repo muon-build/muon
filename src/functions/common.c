@@ -262,20 +262,20 @@ todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 }
 
 static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
-	[obj_default]     = { impl_tbl_default,     impl_tbl_default,     impl_tbl_default_opts },
-	[obj_meson]       = { impl_tbl_meson,       impl_tbl_meson,       NULL,                 },
-	[obj_subproject]  = { impl_tbl_subproject,  impl_tbl_subproject,  NULL,                 },
-	[obj_number]      = { impl_tbl_number,      impl_tbl_number,      NULL,                 },
-	[obj_dependency]  = { impl_tbl_dependency,  impl_tbl_dependency,  NULL,                 },
-	[obj_machine]     = { impl_tbl_machine,     impl_tbl_machine,     NULL,                 },
-	[obj_compiler]    = { impl_tbl_compiler,    impl_tbl_compiler,    NULL,                 },
-	[obj_feature_opt] = { impl_tbl_feature_opt, impl_tbl_feature_opt, NULL,                 },
-	[obj_run_result]  = { impl_tbl_run_result,  impl_tbl_run_result,  NULL, },
-	[obj_string]      = { impl_tbl_string,      impl_tbl_string,      NULL, },
-	[obj_dict]        = { impl_tbl_dict,        impl_tbl_dict,        NULL, },
-	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program, NULL, },
-	[obj_external_library] = { impl_tbl_external_library, impl_tbl_external_library, NULL, },
-	[obj_configuration_data] = { impl_tbl_configuration_data, impl_tbl_configuration_data, NULL, },
+	[obj_default] = { impl_tbl_default, impl_tbl_default_external, impl_tbl_default_opts },
+	[obj_meson] = { impl_tbl_meson, },
+	[obj_subproject] = { impl_tbl_subproject },
+	[obj_number] = { impl_tbl_number, impl_tbl_number, },
+	[obj_dependency] = { impl_tbl_dependency },
+	[obj_machine] = { impl_tbl_machine },
+	[obj_compiler] = { impl_tbl_compiler },
+	[obj_feature_opt] = { impl_tbl_feature_opt },
+	[obj_run_result] = { impl_tbl_run_result, impl_tbl_run_result },
+	[obj_string] = { impl_tbl_string, impl_tbl_string },
+	[obj_dict] = { impl_tbl_dict, impl_tbl_dict },
+	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program },
+	[obj_external_library] = { impl_tbl_external_library },
+	[obj_configuration_data] = { impl_tbl_configuration_data },
 };
 
 bool

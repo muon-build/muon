@@ -17,6 +17,7 @@
 #include "opts.h"
 #include "output.h"
 #include "parser.h"
+#include "path.h"
 #include "run_cmd.h"
 #include "tests.h"
 #include "version.h"
@@ -46,8 +47,6 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 
 	opts.cmd = &argv[argi];
 	++argi;
-
-	return true;
 
 	struct run_cmd_ctx ctx = { 0 };
 	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd)) {
@@ -121,28 +120,41 @@ cmd_ast(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+eval_internal(const char *filename, const char *argv0)
+{
+	bool ret = false;
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	if (!workspace_setup_dirs(&wk, "dummy", argv0)) {
+		goto ret;
+	}
+
+	wk.lang_mode = language_internal;
+
+	make_project(&wk, &wk.cur_project, NULL, wk.source_root, "dummy");
+
+	if (!eval(&wk, filename)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	workspace_destroy(&wk);
+	return ret;
+}
+
+static bool
 cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	const char *filename;
+
 	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
 		return false;
 	}
 
-	char cwd[PATH_MAX + 1] = { 0 };
-	if (!getcwd(cwd, PATH_MAX )) {
-		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
-		return false;
-	}
-
-	struct workspace wk;
-	workspace_init(&wk);
-	wk.lang_mode = language_internal;
-	make_project(&wk, &wk.cur_project, NULL, cwd, "<build_dir>");
-	bool ret;
-	ret = eval(&wk, filename);
-
-	workspace_destroy(&wk); // just to test for memory leaks in valgrind
-	return ret;
+	return eval_internal(filename, argv[0]);
 }
 
 static bool
@@ -187,72 +199,12 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	return tests_run(argv[argi]);
 }
 
-#define BUF_LEN 1024
-
-static bool
-setup_workspace_dirs(struct workspace *wk, const char *build, const char *argv0)
-{
-	static char cwd[BUF_LEN + 1] = { 0 },
-		    abs_build[PATH_MAX + 1] = { 0 },
-		    abs_argv0[PATH_MAX + 1] = { 0 };
-
-	if (!getcwd(cwd, BUF_LEN)) {
-		LOG_W(log_misc, "failed getcwd: '%s'", strerror(errno));
-		return false;
-	}
-
-	snprintf(abs_build, PATH_MAX, "%s/%s", cwd, build);
-
-	if (argv0[0] == '/') {
-		strncpy(abs_argv0, argv0, PATH_MAX);
-	} else {
-		snprintf(abs_argv0, PATH_MAX, "%s/%s", cwd, argv0);
-	}
-
-	wk->argv0 = abs_argv0;
-	wk->source_root = cwd;
-	wk->build_root = abs_build;
-	return true;
-}
-
-static bool
-do_build(struct workspace *wk)
-{
-	uint32_t project_id;
-	bool ret = false;
-	char buf[PATH_MAX + 1] = { 0 };
-
-	snprintf(buf, PATH_MAX, "%s/build.ninja", wk->build_root);
-
-	if (!fs_file_exists(buf)) {
-		if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
-			goto ret;
-		} else if (!output_build(wk)) {
-			goto ret;
-		}
-	}
-
-	if (have_samu) {
-		if (chdir(wk->build_root) < 0) {
-			goto ret;
-		} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {
-			goto ret;
-		} else if (chdir(wk->source_root) < 0) {
-			goto ret;
-		}
-	}
-
-	ret = true;
-ret:
-	workspace_destroy(wk);
-	return ret;
-}
-
 static bool
 cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init(&wk);
+	wk.lang_mode = language_internal;
 
 	OPTSTART("D:") {
 	case 'D':
@@ -273,7 +225,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	if (!setup_workspace_dirs(&wk, build, argv[0])) {
+	if (!workspace_setup_dirs(&wk, build, argv[0])) {
 		goto err;
 	}
 
@@ -293,45 +245,6 @@ err:
 	return false;
 }
 
-
-struct build_cfg {
-	const char *dir, *argv0;
-	struct workspace wk;
-	bool workspace_init;
-};
-
-static bool
-build_cfg_cb(void *_cfg, const char *path, const char *sect,
-	const char *k, const char *v, uint32_t line)
-{
-	struct build_cfg *cfg = _cfg;
-
-	if (!sect) {
-		error_messagef(path, line, 1, "missing [build_dir]");
-		return false;
-	}
-
-	if (cfg->dir != sect) {
-		if (cfg->workspace_init) {
-			if (!do_build(&cfg->wk)) {
-				return false;
-			}
-		}
-
-		workspace_init(&cfg->wk);
-		cfg->workspace_init = true;
-		cfg->dir = sect;
-		if (!setup_workspace_dirs(&cfg->wk, cfg->dir, cfg->argv0)) {
-			return false;
-		}
-	}
-
-	if (!parse_config_key_value(&cfg->wk, (char *)k, v)) {
-		return false;
-	}
-	return true;
-}
-
 static bool
 cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -347,35 +260,7 @@ cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -c config - load config alternate file (default: .muon)\n",
 		NULL)
 
-	struct build_cfg cfg = { .argv0 = argv[0] };
-	bool ret = false;
-	char *ini_buf = NULL;
-
-	if (fs_file_exists(opts.cfg)) {
-		if (!ini_parse(opts.cfg, &ini_buf, build_cfg_cb, &cfg)) {
-			goto ret;
-		}
-	} else {
-		workspace_init(&cfg.wk);
-		cfg.workspace_init = true;
-
-		if (!setup_workspace_dirs(&cfg.wk, "build", cfg.argv0)) {
-			return false;
-		}
-	}
-
-	if (cfg.workspace_init) {
-		if (!do_build(&cfg.wk)) {
-			goto ret;
-		}
-	}
-
-	ret = true;
-ret:
-	if (ini_buf) {
-		z_free(ini_buf);
-	}
-	return ret;
+	return eval_internal(opts.cfg, argv[0]);
 }
 
 static bool
@@ -406,10 +291,6 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	log_init();
-	log_set_lvl(log_debug);
-	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
-
 	static const struct command commands[] = {
 		{ "build", cmd_build, "build the project with default options" },
 		{ "check", cmd_parse_check, "check if a meson file parses" },
@@ -438,8 +319,25 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
+#define len 2048
 int
 main(int argc, char *argv[])
 {
+	log_init();
+	log_set_lvl(log_debug);
+	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
+
+	if (!path_init()) {
+		return 1;
+	}
+
+	/* if (path_is_subpath(argv[1], argv[2])) { */
+	/* 	printf("yes\n"); */
+	/* 	return 0; */
+	/* } else { */
+	/* 	printf("no\n"); */
+	/* 	return 1; */
+	/* } */
+
 	return cmd_main(argc, 0, argv) ? 0 : 1;
 }

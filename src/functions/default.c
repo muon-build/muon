@@ -12,6 +12,7 @@
 #include "functions/default/configure_file.h"
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
+#include "functions/default/setup.h"
 #include "functions/string.h"
 #include "interpreter.h"
 #include "log.h"
@@ -1014,6 +1015,11 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "test", func_test },
 	{ "vcs_tag", todo },
 	{ "warning", func_warning },
+	{ NULL, NULL },
+};
+
+const struct func_impl_name impl_tbl_default_external[] = {
+	{ "setup", func_setup },
 	{ NULL, NULL },
 };
 
