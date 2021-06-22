@@ -204,7 +204,6 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init(&wk);
-	wk.lang_mode = language_internal;
 
 	OPTSTART("D:") {
 	case 'D':
