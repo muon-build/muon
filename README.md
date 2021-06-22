@@ -3,19 +3,28 @@
 `muon` is an implementation of the meson build system in C with minimal
 dependencies.
 
-## Goals
+## Non-features
 
-`muon` aspires to generate build files functionally equivalent to what meson
-generates.  Currently only a subset of meson's functionality is implemented, in
-particular only C projects are supported.  Additionally, `muon` does not aspire
-to be bug-for-bug compatible with meson, and will throw an error in some cases
-where meson will not, but where it seems appropriate.
+- bug-for-bug compatibility with meson.  In fact, `muon` aspires to be stricter
+  than meson in cases where meson's implementation seems error prone.  `muon`
+  uses the official meson documentation as its specification.
+- cli compatibility with meson.  `muon` has different flags, subcommands, etc.,
+  and should _not_ be renamed/symlinked to meson.
+  - additionally, various meson subcommands are not on the roadmap at all,
+    including:
+    - introspect
+    - devenv
+- phony build target generation (e.g. test, clean, etc.)
+
+Contributions welcome:
+- language support for languages other than C and C++
+- dynamic library building
 
 ## Status
 
 `muon` is complete enough to build complicated projects, however, many things
 are still not implemented.  If you want to contribute, try using `muon` to build
-your favorite project.
+your favorite project.  Bug reports welcome!
 
 ## Requirements
 
