@@ -661,7 +661,7 @@ write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
 	fputs(wk_objstr(wk, t->dat.test.exe), ctx->output->tests);
 
 	if (t->dat.test.args) {
-		if (!obj_array_foreach(wk, t->dat.test.args, ctx, write_test_args_iter)) {
+		if (!obj_array_foreach_flat(wk, t->dat.test.args, ctx, write_test_args_iter)) {
 			LOG_W(log_out, "failed to write test '%s'", wk_objstr(wk, t->dat.test.name));
 			return ir_err;
 		}
