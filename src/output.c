@@ -110,7 +110,7 @@ strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 		return true;
 	}
 	default:
-		LOG_W(log_out, "invalid type in concat strings: '%s'", obj_type_to_s(obj->type));
+		LOG_W(log_out, "cannot convert '%s' to string", obj_type_to_s(obj->type));
 		return false;
 	}
 }
@@ -662,6 +662,7 @@ write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
 
 	if (t->dat.test.args) {
 		if (!obj_array_foreach(wk, t->dat.test.args, ctx, write_test_args_iter)) {
+			LOG_W(log_out, "failed to write test '%s'", wk_objstr(wk, t->dat.test.name));
 			return ir_err;
 		}
 	}
@@ -679,6 +680,8 @@ write_project(struct output *output, struct workspace *wk, struct project *proj)
 	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
 		return false;
 	}
+
+	LOG_I(log_out, "writing tests");
 
 	if (!obj_array_foreach(wk, proj->tests, &ctx, write_test_iter)) {
 		return false;
