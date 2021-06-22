@@ -30,7 +30,7 @@ eval_project(struct workspace *wk, const char *subproject_name,
 		snprintf(wrap, PATH_MAX, "%s.wrap", cwd);
 
 		if (fs_file_exists(wrap)) {
-			if (!path_basename(base, PATH_MAX, cwd)) {
+			if (!path_dirname(base, PATH_MAX, cwd)) {
 				return false;
 			}
 
