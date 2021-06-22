@@ -247,6 +247,10 @@ path_basename(char *buf, uint32_t len, const char *path)
 	int32_t i;
 	uint32_t j;
 
+	assert(len);
+
+	buf[0] = 0;
+
 	if (!*path) {
 		return true;
 	}
