@@ -144,6 +144,8 @@ void obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id);
 
 bool obj_equal(struct workspace *wk, uint32_t l, uint32_t r);
 
+bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret);
+
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, uint32_t val);
 bool obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb);
 bool obj_array_foreach_flat(struct workspace *wk, uint32_t arr_id, void *usr_ctx, obj_array_iterator cb);

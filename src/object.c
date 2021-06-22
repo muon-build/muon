@@ -386,3 +386,77 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 	dict->dat.dict.tail = tail_id;
 	++dict->dat.dict.len;
 }
+
+struct obj_clone_ctx {
+	struct workspace *wk_dest;
+	uint32_t container;
+};
+
+static enum iteration_result
+obj_clone_array_iter(struct workspace *wk_src, void *_ctx, uint32_t val)
+{
+	struct obj_clone_ctx *ctx = _ctx;
+
+	uint32_t dest_val;
+
+	if (!obj_clone(wk_src, ctx->wk_dest, val, &dest_val)) {
+		return ir_err;
+	}
+
+	obj_array_push(ctx->wk_dest, ctx->container, dest_val);
+	return ir_cont;
+}
+
+static enum iteration_result
+obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, uint32_t key, uint32_t val)
+{
+	struct obj_clone_ctx *ctx = _ctx;
+
+	uint32_t dest_key, dest_val;
+
+	if (!obj_clone(wk_src, ctx->wk_dest, key, &dest_key)) {
+		return ir_err;
+	} else if (!obj_clone(wk_src, ctx->wk_dest, val, &dest_val)) {
+		return ir_err;
+	}
+
+	obj_dict_set(ctx->wk_dest, ctx->container, dest_key, dest_val);
+	return ir_cont;
+}
+
+bool
+obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret)
+{
+	enum obj_type t = get_obj(wk_src, val)->type;
+	struct obj *obj;
+
+	switch (t) {
+	case obj_number:
+	case obj_bool: {
+		obj = make_obj(wk_dest, ret, t);
+		*obj = *get_obj(wk_src, val);
+		return true;
+	}
+	case obj_string:
+		obj = make_obj(wk_dest, ret, t);
+		obj->dat.str = wk_str_push(wk_dest, wk_objstr(wk_src, val));
+		return true;
+	case obj_file:
+		obj = make_obj(wk_dest, ret, t);
+		obj->dat.file = wk_str_push(wk_dest, wk_file_path(wk_src, val));
+		return true;
+	case obj_array:
+		make_obj(wk_dest, ret, t);
+		return obj_array_foreach(wk_src, val, &(struct obj_clone_ctx) {
+			.container = *ret, .wk_dest = wk_dest
+		}, obj_clone_array_iter);
+	case obj_dict:
+		make_obj(wk_dest, ret, t);
+		return obj_dict_foreach(wk_src, val, &(struct obj_clone_ctx) {
+			.container = *ret, .wk_dest = wk_dest
+		}, obj_clone_dict_iter);
+	default:
+		LOG_W(log_interp, "unable to clone '%s'", obj_type_to_s(t));
+		return false;
+	}
+}
