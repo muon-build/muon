@@ -319,7 +319,6 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
-#define len 2048
 int
 main(int argc, char *argv[])
 {
@@ -330,14 +329,6 @@ main(int argc, char *argv[])
 	if (!path_init()) {
 		return 1;
 	}
-
-	/* if (path_is_subpath(argv[1], argv[2])) { */
-	/* 	printf("yes\n"); */
-	/* 	return 0; */
-	/* } else { */
-	/* 	printf("no\n"); */
-	/* 	return 1; */
-	/* } */
 
 	return cmd_main(argc, 0, argv) ? 0 : 1;
 }
