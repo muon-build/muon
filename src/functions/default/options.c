@@ -64,11 +64,20 @@ static const char *
 option_override_to_s(struct workspace *wk, struct option_override *oo)
 {
 	static char buf[BUF_SIZE + 1] = { 0 };
+
+	const char *val;
+
+	if (oo->obj_value) {
+		val = "<object>"; // TODO obj_to_s
+	} else {
+		val = wk_str(wk, oo->val);
+	}
+
 	snprintf(buf, BUF_SIZE, "%s%s%s=%s",
 		oo->proj ? wk_str(wk, oo->proj) : "",
 		oo->proj ? ":" : "",
 		wk_str(wk, oo->name),
-		wk_str(wk, oo->val)
+		val
 		);
 
 	return buf;
@@ -203,6 +212,40 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	return ir_cont;
 }
 
+static bool
+typecheck_opt(struct workspace *wk, uint32_t err_node, uint32_t val, enum build_option_type type, uint32_t *res)
+{
+	enum obj_type expected_type;
+
+	if (type == op_feature) {
+		if (!typecheck(wk, err_node, val, obj_string)) {
+			return false;
+		} else if (!coerce_feature_opt(wk, err_node, wk_objstr(wk, val), res)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	switch (type) {
+	case op_string: expected_type = obj_string; break;
+	case op_boolean: expected_type = obj_bool; break;
+	case op_combo: expected_type = obj_string; break;
+	case op_integer: expected_type = obj_number; break;
+	case op_array: expected_type = obj_array; break;
+	default:
+		assert(false && "unreachable");
+		return false;
+	}
+
+	if (!typecheck(wk, err_node, val, expected_type)) {
+		return false;
+	}
+
+	*res = val;
+	return true;
+}
+
 bool
 func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -281,31 +324,8 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	uint32_t val = 0;
 	struct option_override *oo;
 	if (akw[kw_value].set) {
-		if (type == op_feature) {
-			if (!typecheck(wk, akw[kw_value].node, akw[kw_value].val, obj_string)) {
-				return false;
-			} else if (!coerce_feature_opt(wk, akw[kw_value].node, wk_objstr(wk, akw[kw_value].val), &val)) {
-				return false;
-			}
-		} else {
-			enum obj_type expected_type;
-
-			switch (type) {
-			case op_string: expected_type = obj_string; break;
-			case op_boolean: expected_type = obj_bool; break;
-			case op_combo: expected_type = obj_string; break;
-			case op_integer: expected_type = obj_number; break;
-			case op_array: expected_type = obj_array; break;
-			default:
-				assert(false && "unreachable");
-				return false;
-			}
-
-			if (!typecheck(wk, akw[kw_value].node, akw[kw_value].val, expected_type)) {
-				return false;
-			}
-
-			val = akw[kw_value].val;
+		if (!typecheck_opt(wk, akw[kw_value].node, akw[kw_value].val, type, &val)) {
+			return false;
 		}
 	} else {
 		switch (type) {
@@ -336,11 +356,14 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	if (find_option_override(wk, an[0].val, &oo)) {
 		oo->used = true;
-		if (!coerce_option_override(wk, akw[kw_type].node, type, wk_str(wk, oo->val), &val)) {
+		if (oo->obj_value) {
+			if (!typecheck_opt(wk, akw[kw_type].node, oo->val, type, &val)) {
+				return false;
+			}
+		} else if (!coerce_option_override(wk, akw[kw_type].node, type, wk_str(wk, oo->val), &val)) {
 			return false;
 		}
 	}
-
 
 	switch (type) {
 	case op_combo: {

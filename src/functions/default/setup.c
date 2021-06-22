@@ -22,18 +22,6 @@ set_options_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 	struct set_options_ctx *ctx = _ctx;
 
 	switch (get_obj(wk, val)->type) {
-	case obj_string: {
-		struct option_override oo = { 0 };
-		if (ctx->parent) {
-			oo.proj = wk_str_push(ctx->sub_wk, wk_objstr(wk, ctx->parent));
-		}
-
-		oo.name = wk_str_push(ctx->sub_wk, wk_objstr(wk, key));
-		oo.val = wk_str_push(ctx->sub_wk, wk_objstr(wk, val));
-
-		darr_push(&ctx->sub_wk->option_overrides, &oo);
-		break;
-	}
 	case obj_dict:
 		if (ctx->parent) {
 			interp_error(wk, ctx->err_node, "options nested too deep");
@@ -48,10 +36,23 @@ set_options_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 
 		ctx->parent = 0;
 		break;
-	default:
-		interp_error(wk, ctx->err_node, "invalid type for value: '%s'",
-			obj_type_to_s(get_obj(wk, val)->type));
-		return ir_err;
+	default: {
+		struct option_override oo = { .obj_value = true };
+		if (ctx->parent) {
+			oo.proj = wk_str_push(ctx->sub_wk, wk_objstr(wk, ctx->parent));
+		}
+
+		oo.name = wk_str_push(ctx->sub_wk, wk_objstr(wk, key));
+
+		L(log_interp, "setting '%s':'%s'", wk_str(ctx->sub_wk, oo.proj), wk_str(ctx->sub_wk, oo.name));
+		if (!obj_clone(wk, ctx->sub_wk, val, &oo.val)) {
+			return ir_err;
+		}
+		L(log_interp, "val '%s'", obj_type_to_s(get_obj(ctx->sub_wk, oo.val)->type));
+
+		darr_push(&ctx->sub_wk->option_overrides, &oo);
+		break;
+	}
 	}
 
 	return ir_cont;

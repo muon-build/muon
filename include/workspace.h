@@ -39,7 +39,7 @@ enum loop_ctl {
 
 struct option_override {
 	uint32_t proj, name, val;
-	bool used;
+	bool obj_value, used;
 };
 
 struct workspace {
