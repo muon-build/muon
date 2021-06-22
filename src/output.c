@@ -101,8 +101,10 @@ strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 		return true;
 
 	case obj_build_target: {
-		char path[PATH_MAX];
-		if (!tgt_build_path(path, wk, obj)) {
+		char tmp1[PATH_MAX], path[PATH_MAX];
+		if (!tgt_build_path(tmp1, wk, obj)) {
+			return false;
+		} else if (!path_executable(path, PATH_MAX, tmp1)) {
 			return false;
 		}
 

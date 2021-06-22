@@ -19,12 +19,14 @@ coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *r
 		*res = val;
 		return true;
 	case obj_build_target: {
-		char join[PATH_MAX], dest[PATH_MAX];
+		char tmp1[PATH_MAX], dest[PATH_MAX];
 
-		if (!path_join(join, PATH_MAX, wk_str(wk, obj->dat.tgt.build_dir),
+		if (!path_join(dest, PATH_MAX, wk_str(wk, obj->dat.tgt.build_dir),
 			wk_str(wk, obj->dat.tgt.build_name))) {
 			return false;
-		} else if (!path_relative_to(dest, PATH_MAX, wk->build_root, join)) {
+		} else if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest)) {
+			return false;
+		} else if (!path_executable(dest, PATH_MAX, tmp1)) {
 			return false;
 		}
 

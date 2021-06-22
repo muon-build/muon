@@ -14,4 +14,5 @@ bool path_basename(char *buf, uint32_t len, const char *path);
 bool path_dirname(char *buf, uint32_t len, const char *path);
 bool path_is_subpath(const char *base, const char *sub);
 bool path_add_suffix(char *path, uint32_t len, const char *suff);
+bool path_executable(char *buf, uint32_t len, const char *path);
 #endif
