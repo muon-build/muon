@@ -44,11 +44,9 @@ set_options_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 
 		oo.name = wk_str_push(ctx->sub_wk, wk_objstr(wk, key));
 
-		L(log_interp, "setting '%s':'%s'", wk_str(ctx->sub_wk, oo.proj), wk_str(ctx->sub_wk, oo.name));
 		if (!obj_clone(wk, ctx->sub_wk, val, &oo.val)) {
 			return ir_err;
 		}
-		L(log_interp, "val '%s'", obj_type_to_s(get_obj(ctx->sub_wk, oo.val)->type));
 
 		darr_push(&ctx->sub_wk->option_overrides, &oo);
 		break;
