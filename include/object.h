@@ -32,6 +32,7 @@ enum obj_type {
 	obj_run_result,
 	obj_configuration_data,
 	obj_test,
+	obj_module,
 
 	obj_type_count,
 };
@@ -135,6 +136,7 @@ struct obj {
 			uint32_t exe;
 			uint32_t args;
 		} test;
+		uint32_t module;
 	} dat;
 };
 

@@ -10,7 +10,8 @@ set -eu
 dir="$1"
 mkdir "$dir"
 
-cat     src/coerce.c \
+cat \
+	src/coerce.c \
 	src/darr.c \
 	src/eval.c \
 	src/external/curl_null.c \
@@ -35,6 +36,8 @@ cat     src/coerce.c \
 	src/functions/feature_opt.c \
 	src/functions/machine.c \
 	src/functions/meson.c \
+	src/functions/modules.c \
+	src/functions/modules/fs.c \
 	src/functions/number.c \
 	src/functions/run_result.c \
 	src/functions/string.c \

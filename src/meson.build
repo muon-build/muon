@@ -22,6 +22,8 @@ src = files([
 	'functions/feature_opt.c',
 	'functions/machine.c',
 	'functions/meson.c',
+	'functions/modules.c',
+	'functions/modules/fs.c',
 	'functions/number.c',
 	'functions/run_result.c',
 	'functions/string.c',

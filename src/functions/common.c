@@ -13,6 +13,7 @@
 #include "functions/feature_opt.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
+#include "functions/modules.h"
 #include "functions/number.h"
 #include "functions/run_result.h"
 #include "functions/string.h"
@@ -279,6 +280,20 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 };
 
 bool
+func_lookup(const struct func_impl_name *impl_tbl, const char *name, func_impl *res)
+{
+	uint32_t i;
+	for (i = 0; impl_tbl[i].name; ++i) {
+		if (strcmp(impl_tbl[i].name, name) == 0) {
+			*res = impl_tbl[i].func;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool
 builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj)
 {
 	const char *name;
@@ -306,31 +321,37 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 
 	/* L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name); */
 
+	func_impl func;
 	name = get_node(wk->ast, name_node)->tok->dat.s;
 
-	const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
+	if (recvr_type == obj_module) {
+		enum module mod = get_obj(wk, rcvr_id)->dat.module;
 
-	if (!impl_tbl) {
-		interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
-		return false;
-	}
+		if (!module_lookup_func(name, mod, &func)) {
+			interp_error(wk, name_node, "function %s not found in module %s", name, module_names[mod]);
+			return false;
+		}
+	} else {
+		const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
 
-	uint32_t i;
-	for (i = 0; impl_tbl[i].name; ++i) {
-		if (strcmp(impl_tbl[i].name, name) == 0) {
-			if (!impl_tbl[i].func(wk, rcvr_id, args_node, obj)) {
-				if (recvr_type == obj_default) {
-					interp_error(wk, name_node, "in builtin function %s",  name);
-				} else {
-					interp_error(wk, name_node, "in builtin function %s.%s", obj_type_to_s(recvr_type), name);
-				}
-				return false;
-			}
-			/* L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name); */
-			return true;
+		if (!impl_tbl) {
+			interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
+			return false;
+		}
+
+		if (!func_lookup(impl_tbl, name, &func)) {
+			interp_error(wk, name_node, "function %s not found", name);
 		}
 	}
 
-	interp_error(wk, name_node, "function not found: %s", name);
-	return false;
+	if (!func(wk, rcvr_id, args_node, obj)) {
+		if (recvr_type == obj_default) {
+			interp_error(wk, name_node, "in builtin function %s",  name);
+		} else {
+			interp_error(wk, name_node, "in builtin function %s.%s", obj_type_to_s(recvr_type), name);
+		}
+		return false;
+	}
+	/* L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name); */
+	return true;
 }

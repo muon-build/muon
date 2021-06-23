@@ -19,6 +19,7 @@ struct args_kw { const char *key; enum obj_type type; uint32_t val, node; bool s
 
 bool todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj);
 bool check_lang(struct workspace *wk, uint32_t n_id, uint32_t id);
+bool func_lookup(const struct func_impl_name *impl_tbl, const char *name, func_impl *res);
 
 bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],

@@ -13,6 +13,7 @@
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
+#include "functions/modules.h"
 #include "functions/string.h"
 #include "interpreter.h"
 #include "log.h"
@@ -954,6 +955,24 @@ func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 	return true;
 }
 
+static bool
+func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	enum module mod;
+	if (!module_lookup(wk_objstr(wk, an[0].val), &mod)) {
+		interp_error(wk, an[0].node, "module not found");
+		return false;
+	}
+
+	make_obj(wk, obj, obj_module)->dat.module = mod;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] = {
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
@@ -982,7 +1001,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "get_option", func_get_option },
 	{ "get_variable", todo },
 	{ "gettext", todo },
-	{ "import", todo },
+	{ "import", func_import },
 	{ "include_directories", func_include_directories },
 	{ "install_data", func_install_todo },
 	{ "install_headers", func_install_todo },
