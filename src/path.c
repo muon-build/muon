@@ -10,8 +10,6 @@
 #include "log.h"
 #include "path.h"
 
-#define PATH_SEP '/'
-
 static char cwd[PATH_MAX + 1];
 
 bool

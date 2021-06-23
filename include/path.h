@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define PATH_SEP '/'
+
 bool path_init(void);
 bool path_cwd(char *buf, uint32_t len);
 bool path_is_absolute(const char *path);
