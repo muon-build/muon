@@ -234,13 +234,18 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 bool
 fs_find_cmd(const char *cmd, const char **ret)
 {
-	uint32_t len, cmd_len = strlen(cmd);
-	static char cmd_path[PATH_MAX + 1] = { 0 };
+	uint32_t len;
+	static char cmd_path[PATH_MAX];
+	char path_elem[PATH_MAX];
 	const char *env_path, *base_start;
 
-	if (*cmd == '/') {
-		if (fs_exe_exists(cmd)) {
-			*ret = cmd;
+	if (!path_is_basename(cmd)) {
+		if (!path_make_absolute(cmd_path, PATH_MAX, cmd)) {
+			return false;
+		}
+
+		if (fs_exe_exists(cmd_path)) {
+			*ret = cmd_path;
 			return true;
 		} else {
 			return false;
@@ -256,19 +261,19 @@ fs_find_cmd(const char *cmd, const char **ret)
 	while (true) {
 		if (!*env_path || *env_path == ':') {
 			len = env_path - base_start;
-			assert(len + cmd_len + 1 < PATH_MAX);
+			assert(len + 1 < PATH_MAX);
 
-			strncpy(cmd_path, base_start, len);
+			strncpy(path_elem, base_start, len);
 			base_start = env_path + 1;
 
-			cmd_path[len] = '/';
-			strcpy(&cmd_path[len + 1], cmd);
+			if (!path_join(cmd_path, PATH_MAX, path_elem, cmd)) {
+				return false;
+			}
 
 			if (fs_exe_exists(cmd_path)) {
 				*ret = cmd_path;
 				return true;
 			}
-			/* L(log_misc, "%c %s", fs_file_exists(cmd_path) ? '!' : ' ', cmd_path); */
 
 			if (!*env_path) {
 				break;
