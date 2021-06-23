@@ -12,6 +12,7 @@
 #include "interpreter.h"
 #include "log.h"
 #include "parser.h"
+#include "path.h"
 #include "workspace.h"
 
 __attribute__ ((format(printf, 3, 4)))
@@ -201,6 +202,15 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 				wk_str(wk, l->dat.str),
 				wk_str(wk, r->dat.str));
 			break;
+		case arith_div: {
+			char buf[PATH_MAX];
+			if (!path_join(buf, PATH_MAX, wk_str(wk, l->dat.str), wk_str(wk, r->dat.str))) {
+				return false;
+			}
+
+			res = wk_str_push(wk, buf);
+			break;
+		}
 		default:
 			goto err1;
 		}
