@@ -28,9 +28,10 @@
 #include <string.h>
 #include <limits.h>
 
-#include "filesystem.h"
 #include "external/microtar.h"
+#include "filesystem.h"
 #include "log.h"
+#include "path.h"
 
 struct mtar_raw_header {
 	char name[100];
@@ -192,7 +193,7 @@ untar(uint8_t *data, uint64_t len, const char *destdir)
 	struct mtar tar = { .data = data, .len = len };
 	struct mtar_header hdr = { 0 };
 
-	char path[PATH_MAX + 1] = { 0 };
+	char path[PATH_MAX], dir[PATH_MAX];
 
 	while ((mtar_read_header(&tar, &hdr)) == mtar_err_ok) {
 		if (hdr.type == mtar_file_type_dir) {
@@ -202,22 +203,13 @@ untar(uint8_t *data, uint64_t len, const char *destdir)
 			continue;
 		}
 
-		uint32_t len;
-		int32_t i;
-		len = snprintf(path, PATH_MAX, "%s/%s", destdir, hdr.name);
-		for (i = len - 1; i >= 0; --i) {
-			if (path[i] == '/') {
-				path[i] = 0;
-
-				if (!fs_mkdir_p(path)) {
-					return false;
-				}
-				path[i] = '/';
-				break;
-			}
-		}
-
-		if (!fs_write(path, hdr.data, hdr.size)) {
+		if (!path_join(path, PATH_MAX, destdir, hdr.name)) {
+			return false;
+		} else if (!path_dirname(dir, PATH_MAX, path)) {
+			return false;
+		} else if (!fs_mkdir_p(dir)) {
+			return false;
+		} else if (!fs_write(path, hdr.data, hdr.size)) {
 			return false;
 		}
 	}
