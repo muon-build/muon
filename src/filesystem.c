@@ -12,6 +12,7 @@
 #include "filesystem.h"
 #include "log.h"
 #include "mem.h"
+#include "path.h"
 
 bool
 fs_stat(const char *path, struct stat *sb)
@@ -90,14 +91,14 @@ fs_mkdir_p(const char *path)
 	assert(len > 1);
 
 	for (i = 1; i < len; ++i) {
-		if (buf[i] == '/') {
+		if (buf[i] == PATH_SEP) {
 			buf[i] = 0;
 			if (!fs_dir_exists(buf)) {
 				if (!fs_mkdir(buf)) {
 					return false;
 				}
 			}
-			buf[i] = '/';
+			buf[i] = PATH_SEP;
 		}
 	}
 
