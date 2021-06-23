@@ -336,8 +336,15 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
 		return false;
 	} else if (!path_make_absolute(wk->build_root, PATH_MAX, build)) {
 		return false;
-	} else if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
-		return false;
+	}
+
+	if (path_is_basename(argv0)) {
+		assert(strlen(argv0) < PATH_MAX);
+		strncpy(wk->argv0, argv0, PATH_MAX);
+	} else {
+		if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
+			return false;
+		}
 	}
 
 	return true;
