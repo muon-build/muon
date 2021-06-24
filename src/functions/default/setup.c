@@ -1,7 +1,5 @@
 #include "posix.h"
 
-#include <unistd.h>
-
 #include "eval.h"
 #include "external/samu.h"
 #include "filesystem.h"
@@ -10,6 +8,8 @@
 #include "log.h"
 #include "output.h"
 #include "path.h"
+
+uint32_t func_setup_flags = 0;
 
 struct set_options_ctx {
 	struct workspace *sub_wk;
@@ -62,9 +62,11 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_options,
+		kw_source,
 		kw_cross,
 	};
 	struct args_kw akw[] = {
+		[kw_source] = { "source", obj_string },
 		[kw_options] = { "options", obj_dict },
 		[kw_cross] = { "cross", obj_string },
 		0
@@ -79,6 +81,13 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	char build_ninja[PATH_MAX];
 	uint32_t project_id;
 
+	if (akw[kw_source].set) {
+		L(log_interp, "chdir to '%s'", wk_objstr(wk, akw[kw_source].val));
+		if (!path_chdir(wk_objstr(wk, akw[kw_source].val))) {
+			return false;
+		}
+	}
+
 	workspace_init(&sub_wk);
 
 	if (!workspace_setup_dirs(&sub_wk, wk_objstr(wk, an[0].val), wk->argv0)) {
@@ -90,6 +99,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 			.sub_wk = &sub_wk,
 			.err_node = akw[kw_options].node
 		};
+
 		if (!obj_dict_foreach(wk, akw[kw_options].val, &ctx, set_options_iter)) {
 			goto ret;
 		}
@@ -99,7 +109,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 		goto ret;
 	}
 
-	if (!fs_file_exists(build_ninja)) {
+	if ((func_setup_flags & func_setup_flag_force) || !fs_file_exists(build_ninja)) {
 		if (!eval_project(&sub_wk, NULL, sub_wk.source_root, sub_wk.build_root, &project_id)) {
 			goto ret;
 		}
@@ -107,15 +117,14 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 		if (!output_build(&sub_wk)) {
 			goto ret;
 		}
-
 	}
 
-	if (have_samu) {
-		if (chdir(sub_wk.build_root) < 0) {
+	if (!(func_setup_flags & func_setup_flag_no_build) && have_samu) {
+		if (!path_chdir(sub_wk.build_root)) {
 			return false;
 		} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {
 			return false;
-		} else if (chdir(sub_wk.source_root) < 0) {
+		} else if (!path_chdir(sub_wk.source_root)) {
 			return false;
 		}
 	}
@@ -123,5 +132,11 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	ret = true;
 ret:
 	workspace_destroy(&sub_wk);
+
+	if (akw[kw_source].set) {
+		if (!path_chdir(wk->source_root)) {
+			return false;
+		}
+	}
 	return ret;
 }

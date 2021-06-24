@@ -11,12 +11,12 @@
 #include "external/samu.h"
 #include "external/zlib.h"
 #include "filesystem.h"
+#include "functions/default/setup.h"
 #include "inih.h"
 #include "log.h"
 #include "mem.h"
 #include "opts.h"
 #include "output.h"
-#include "parser.h"
 #include "path.h"
 #include "run_cmd.h"
 #include "tests.h"
@@ -251,12 +251,25 @@ cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 		const char *cfg;
 	} opts = { .cfg = ".muon" };
 
-	OPTSTART("c:") {
+	OPTSTART("c:f") {
+	case 'r':
+		// HACK this should be redesigned as soon as more than one
+		// function has command-line controllable behaviour.
+		func_setup_flags |= func_setup_flag_force;
+		func_setup_flags |= func_setup_flag_no_build;
+		break;
+	case 'f':
+		// HACK this should be redesigned as soon as more than one
+		// function has command-line controllable behaviour.
+		func_setup_flags |= func_setup_flag_force;
+		break;
 	case 'c':
 		opts.cfg = optarg;
 		break;
 	} OPTEND(argv[argi], "",
-		"  -c config - load config alternate file (default: .muon)\n",
+		"  -c config - load config alternate file (default: .muon)\n"
+		"  -f - regenerate build file and rebuild\n"
+		"  -r - regenerate build file only\n",
 		NULL)
 
 	return eval_internal(opts.cfg, argv[0]);
