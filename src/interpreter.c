@@ -178,15 +178,11 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 {
 	uint32_t l_id, r_id;
 	struct node *n = get_node(wk->ast, n_id);
-	struct obj *obj, *l, *r;
 
 	if (!interp_node(wk, n->l, &l_id)
 	    || !interp_node(wk, n->r, &r_id)) {
 		return false;
 	}
-
-	l = get_obj(wk, l_id);
-	r = get_obj(wk, r_id);
 
 	switch (get_obj(wk, l_id)->type) {
 	case obj_string: {
@@ -199,12 +195,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		switch ((enum arithmetic_type)n->data) {
 		case arith_add:
 			res = wk_str_pushf(wk, "%s%s",
-				wk_str(wk, l->dat.str),
-				wk_str(wk, r->dat.str));
+				wk_objstr(wk, l_id),
+				wk_objstr(wk, r_id));
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];
-			if (!path_join(buf, PATH_MAX, wk_str(wk, l->dat.str), wk_str(wk, r->dat.str))) {
+			if (!path_join(buf, PATH_MAX, wk_objstr(wk, l_id), wk_objstr(wk, r_id))) {
 				return false;
 			}
 
@@ -215,37 +211,38 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			goto err1;
 		}
 
-		obj = make_obj(wk, obj_id, obj_string);
-		obj->dat.str = res;
+		make_obj(wk, obj_id, obj_string)->dat.str = res;
 		break;
 	}
 	case obj_number: {
-		int64_t res;
+		int64_t res, l, r;
 
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
 			return false;
 		}
 
+		l = get_obj(wk, l_id)->dat.num;
+		r = get_obj(wk, r_id)->dat.num;
+
 		switch ((enum arithmetic_type)n->data) {
 		case arith_add:
-			res = l->dat.num + r->dat.num;
+			res = l + r;
 			break;
 		case arith_div:
-			res = l->dat.num / r->dat.num;
+			res = l / r;
 			break;
 		case arith_sub:
-			res = l->dat.num - r->dat.num;
+			res = l - r;
 			break;
 		case arith_mod:
-			res = l->dat.num % r->dat.num;
+			res = l % r;
 			break;
 		case arith_mul:
-			res = l->dat.num * r->dat.num;
+			res = l * r;
 			break;
 		}
 
-		obj = make_obj(wk, obj_id, obj_number);
-		obj->dat.num = res;
+		make_obj(wk, obj_id, obj_number)->dat.num = res;
 		break;
 	}
 	case obj_array: {
@@ -255,7 +252,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 				return false;
 			}
 
-			if (r->type == obj_array) {
+			if (get_obj(wk, r_id)->type == obj_array) {
 				obj_array_extend(wk, *obj_id, r_id);
 			} else {
 				obj_array_push(wk, *obj_id, r_id);
