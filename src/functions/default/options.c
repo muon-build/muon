@@ -64,11 +64,16 @@ static const char *
 option_override_to_s(struct workspace *wk, struct option_override *oo)
 {
 	static char buf[BUF_SIZE + 1] = { 0 };
+	char buf1[BUF_SIZE];
 
 	const char *val;
 
 	if (oo->obj_value) {
-		val = "<object>"; // TODO obj_to_s
+		if (obj_to_s(wk, oo->val, buf1, BUF_SIZE)) {
+			val = buf1;
+		} else {
+			val = "<object>";
+		}
 	} else {
 		val = wk_str(wk, oo->val);
 	}
