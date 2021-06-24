@@ -118,11 +118,24 @@ simple_copy(char *buf, uint32_t len, const char *path)
 }
 
 bool
+path_chdir(const char *path)
+{
+	if (!simple_copy(cwd, PATH_MAX, path)) {
+		return false;
+	}
+
+	if (chdir(cwd) < 0) {
+		return false;
+	}
+
+	return true;
+}
+
+bool
 path_cwd(char *buf, uint32_t len)
 {
 	return simple_copy(buf, len, cwd);
 }
-
 
 bool
 path_is_absolute(const char *path)

@@ -7,6 +7,7 @@
 
 bool path_init(void);
 bool path_cwd(char *buf, uint32_t len);
+bool path_chdir(const char *path);
 bool path_is_absolute(const char *path);
 bool path_join(char *buf, uint32_t len, const char *a, const char *b);
 bool path_make_absolute(char *buf, uint32_t len, const char *path);
