@@ -369,6 +369,32 @@ obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_ite
 	return true;
 }
 
+struct obj_dict_dup_ctx { uint32_t *dict; };
+
+static enum iteration_result
+obj_dict_dup_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+{
+	struct obj_dict_dup_ctx *ctx = _ctx;
+
+	obj_dict_set(wk, *ctx->dict, k_id, v_id);
+
+	return ir_cont;
+}
+
+bool
+obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
+{
+	struct obj_dict_dup_ctx ctx = { .dict = res };
+
+	make_obj(wk, res, obj_dict);
+
+	if (!obj_dict_foreach(wk, arr_id, &ctx, obj_dict_dup_iter)) {
+		return false;
+	}
+
+	return true;
+}
+
 struct obj_dict_index_iter_ctx { const char *key; uint32_t *res, len; bool *found; };
 
 static enum iteration_result
