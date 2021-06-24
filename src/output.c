@@ -9,6 +9,11 @@
 #include "path.h"
 #include "workspace.h"
 
+const struct outpath outpath = {
+	.private_dir = "muon-private",
+	.tests = "tests",
+};
+
 struct concat_strings_ctx {
 	uint32_t *res;
 };
@@ -706,26 +711,26 @@ open_out(const char *dir, const char *name)
 bool
 output_build(struct workspace *wk)
 {
+	char muon_private[PATH_MAX];
 	if (!fs_mkdir_p(wk->build_root)) {
+		return false;
+	} else if (!path_join(muon_private, PATH_MAX, wk->build_root, outpath.private_dir)) {
+		return false;
+	} else if (!fs_mkdir_p(muon_private)) {
 		return false;
 	}
 
 	struct output output = { 0 };
 
-	if (!(output.build_ninja  = open_out(wk->build_root, "build.ninja"))) {
+	if (!(output.build_ninja = open_out(wk->build_root, "build.ninja"))) {
+		return false;
+	} else if (!(output.tests = open_out(muon_private, outpath.tests))) {
+		return false;
+	} else if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
 		return false;
 	}
 
 	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
-
-	if (!(output.tests  = open_out(wk->build_root, "muon_tests.dat"))) {
-		return false;
-	}
-
-	if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
-		return false;
-	}
-
 	fputs("[\n", output.compile_commands_json);
 
 	uint32_t i;
@@ -739,13 +744,9 @@ output_build(struct workspace *wk)
 
 	if (!fs_fclose(output.build_ninja)) {
 		return false;
-	}
-
-	if (!fs_fclose(output.tests)) {
+	} else if (!fs_fclose(output.tests)) {
 		return false;
-	}
-
-	if (!fs_fclose(output.compile_commands_json)) {
+	} else if (!fs_fclose(output.compile_commands_json)) {
 		return false;
 	}
 

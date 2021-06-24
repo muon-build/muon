@@ -5,6 +5,8 @@
 
 #include "filesystem.h"
 #include "log.h"
+#include "output.h"
+#include "path.h"
 #include "run_cmd.h"
 #include "tests.h"
 
@@ -58,8 +60,12 @@ bool
 tests_run(const char *build_root)
 {
 	bool ret = true;
-	char tests_src[PATH_MAX + 1] = { 0 };
-	snprintf(tests_src, PATH_MAX, "%s/%s", build_root, "muon_tests.dat");
+	char tests_src[PATH_MAX], private[PATH_MAX];
+	if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
+		return false;
+	} else if (!path_join(tests_src, PATH_MAX, private, outpath.tests)) {
+		return false;
+	}
 
 	struct test_parser test_parser = { .start = true };
 	if (!fs_read_entire_file(tests_src, &test_parser.buf, &test_parser.len)) {
