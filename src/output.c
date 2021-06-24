@@ -11,6 +11,7 @@
 
 const struct outpath outpath = {
 	.private_dir = "muon-private",
+	.setup = "setup.meson",
 	.tests = "tests",
 };
 
@@ -21,7 +22,8 @@ struct concat_strings_ctx {
 struct output {
 	FILE *build_ninja,
 	     *compile_commands_json,
-	     *tests;
+	     *tests,
+	     *opts;
 	bool compile_commands_comma;
 };
 
@@ -161,6 +163,10 @@ concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
 static void
 write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
+	uint32_t sep, sources;
+	make_obj(wk, &sep, obj_string)->dat.str = wk_str_push(wk, " ");
+	obj_array_join(wk, wk->sources, sep, &sources);
+
 	fprintf(
 		out,
 		"# This is the build file for project \"%s\"\n"
@@ -194,15 +200,47 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" restat = 1\n"
 		"\n"
 		"rule REGENERATE_BUILD\n"
-		" command = %s setup %s\n"
+		" command = %s build -f -c %s%c%s\n"
 		" description = Regenerating build files.\n"
 		" generator = 1\n"
+		"\n"
+		"build build.ninja: REGENERATE_BUILD %s\n"
+		" pool = console\n"
 		"\n"
 		"# targets\n\n",
 		wk_str(wk, main_proj->cfg.name),
 		wk->argv0,
-		wk->build_root
+		outpath.private_dir, PATH_SEP, outpath.setup,
+		wk_objstr(wk, sources)
 		);
+}
+
+static bool
+write_opts(FILE *f, struct workspace *wk)
+{
+	struct project *proj;
+	uint32_t i;
+	char buf[2048];
+	uint32_t opts;
+	proj = darr_get(&wk->projects, 0);
+
+	if (!obj_dict_dup(wk, proj->opts, &opts)) {
+		return false;
+	}
+
+	for (i = 1; i < wk->projects.len; ++i) {
+		proj = darr_get(&wk->projects, i);
+		uint32_t str;
+		make_obj(wk, &str, obj_string)->dat.str = proj->subproject_name;
+		obj_dict_set(wk, opts, str, proj->opts);
+	}
+
+	if (!obj_to_s(wk, opts, buf, 2048)) {
+		return false;
+	}
+
+	fprintf(f, "setup(\n\t'%s',\n\tsource: '%s',\n\toptions: %s\n)\n", wk->build_root, wk->source_root, buf);
+	return true;
 }
 
 struct write_tgt_iter_ctx {
@@ -726,11 +764,15 @@ output_build(struct workspace *wk)
 		return false;
 	} else if (!(output.tests = open_out(muon_private, outpath.tests))) {
 		return false;
+	} else if (!(output.opts = open_out(muon_private, outpath.setup))) {
+		return false;
 	} else if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
 		return false;
 	}
 
 	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
+	write_opts(output.opts, wk);
+
 	fputs("[\n", output.compile_commands_json);
 
 	uint32_t i;
@@ -745,6 +787,8 @@ output_build(struct workspace *wk)
 	if (!fs_fclose(output.build_ninja)) {
 		return false;
 	} else if (!fs_fclose(output.tests)) {
+		return false;
+	} else if (!fs_fclose(output.opts)) {
 		return false;
 	} else if (!fs_fclose(output.compile_commands_json)) {
 		return false;
