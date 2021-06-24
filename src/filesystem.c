@@ -270,6 +270,7 @@ fs_find_cmd(const char *cmd, const char **ret)
 			assert(len + 1 < PATH_MAX);
 
 			strncpy(path_elem, base_start, len);
+			path_elem[len] = 0;
 			base_start = env_path + 1;
 
 			if (!path_join(cmd_path, PATH_MAX, path_elem, cmd)) {
