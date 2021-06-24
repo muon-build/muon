@@ -44,6 +44,19 @@ obj_type_to_s(enum obj_type t)
 	return NULL;
 }
 
+static bool
+typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
+{
+	struct obj *obj = get_obj(wk, obj_id);
+
+	if (type != obj_any && obj->type != type) {
+		LOG_W(log_interp, "expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
+		return false;
+	}
+
+	return true;
+}
+
 bool
 obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 {
@@ -280,6 +293,48 @@ obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
 
 	a->dat.arr.tail = b->dat.arr.tail;
 	a->dat.arr.len += b->dat.arr.len;
+}
+
+struct obj_array_join_ctx {
+	uint32_t join_id, i, len;
+	uint32_t *obj;
+};
+
+static enum iteration_result
+obj_array_join_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct obj_array_join_ctx *ctx = _ctx;
+
+	if (!typecheck_simple_err(wk, val, obj_string)) {
+		return ir_err;
+	}
+
+	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_objstr(wk, val));
+
+	if (ctx->i < ctx->len - 1) {
+		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_str(wk, ctx->join_id));
+	}
+
+	++ctx->i;
+
+	return ir_cont;
+}
+
+bool
+obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint32_t *obj)
+{
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, "");
+
+	if (!typecheck_simple_err(wk, join_id, obj_string)) {
+		return false;
+	}
+
+	struct obj_array_join_ctx ctx = {
+		.join_id = get_obj(wk, join_id)->dat.str,
+		.obj = obj,
+		.len = get_obj(wk, a_id)->dat.arr.len
+	};
+	return obj_array_foreach(wk, a_id, &ctx, obj_array_join_iter);
 }
 
 /*
