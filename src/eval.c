@@ -63,10 +63,21 @@ eval_project(struct workspace *wk, const char *subproject_name,
 		}
 	}
 
+	if (!check_invalid_option_overrides(wk)) {
+		goto cleanup;
+	}
+
 	wk->lang_mode = language_external;
 
-	ret = eval(wk, src) && check_unused_option_overrides(wk);
+	if (!eval(wk, src)) {
+		goto cleanup;
+	}
 
+	if (wk->cur_project == 0 && !check_invalid_subproject_option(wk)) {
+		goto cleanup;
+	}
+
+	ret = true;
 cleanup:
 	wk->cur_project = parent_project;
 	return ret;

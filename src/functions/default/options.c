@@ -85,7 +85,7 @@ option_override_to_s(struct workspace *wk, struct option_override *oo)
 
 
 bool
-check_unused_option_overrides(struct workspace *wk)
+check_invalid_option_overrides(struct workspace *wk)
 {
 	bool ret = true;
 	uint32_t i;
@@ -94,12 +94,51 @@ check_unused_option_overrides(struct workspace *wk)
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		oo = darr_get(&wk->option_overrides, i);
 
-		if (current_project(wk)->subproject_name == 0
-		    || subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, oo->proj))) {
-			if (!oo->used) {
-				LOG_W(log_interp, "invalid option override: '%s'", option_override_to_s(wk, oo));
+		if (subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, oo->proj))) {
+			bool found;
+			uint32_t res;
+			char *name = wk_str(wk, oo->name);
+
+			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res, &found)) {
+				return false;
+			} else if (!found) {
+				LOG_W(log_interp, "invalid option: '%s'", option_override_to_s(wk, oo));
 				ret = false;
 			}
+		}
+	}
+
+	return ret;
+}
+
+bool
+check_invalid_subproject_option(struct workspace *wk)
+{
+	uint32_t i, j;
+	struct option_override *oo;
+	struct project *proj;
+	bool found, ret = true;
+
+	for (i = 0; i < wk->option_overrides.len; ++i) {
+		oo = darr_get(&wk->option_overrides, i);
+		if (!oo->proj) {
+			continue;
+		}
+
+		found = false;
+
+		for (j = 1; j < wk->projects.len; ++j) {
+			proj = darr_get(&wk->projects, j);
+
+			if (strcmp(wk_str(wk, proj->subproject_name), wk_str(wk, oo->proj)) == 0) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			LOG_W(log_interp, "invalid option: '%s' (no such subproject)", option_override_to_s(wk, oo));
+			ret = false;
 		}
 	}
 
@@ -355,7 +394,6 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	}
 
 	if (find_option_override(wk, an[0].val, &oo)) {
-		oo->used = true;
 		if (oo->obj_value) {
 			if (!typecheck_opt(wk, akw[kw_type].node, oo->val, type, &val)) {
 				return false;
