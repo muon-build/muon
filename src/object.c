@@ -461,3 +461,128 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uin
 		return false;
 	}
 }
+
+struct obj_to_s_ctx {
+	char *buf;
+	uint32_t i, len;
+	uint32_t cont_i, cont_len;
+};
+
+static bool _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *w);
+
+static enum iteration_result
+obj_to_s_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct obj_to_s_ctx *ctx = _ctx;
+	uint32_t w;
+
+	if (!_obj_to_s(wk, val, &ctx->buf[ctx->i], ctx->len - ctx->i, &w)) {
+		return ir_err;
+	}
+
+	ctx->i += w;
+
+	if (ctx->cont_i < ctx->cont_len - 1) {
+		ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ", ");
+	}
+
+	++ctx->cont_i;
+	return ir_cont;
+}
+
+static enum iteration_result
+obj_to_s_dict_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
+{
+	struct obj_to_s_ctx *ctx = _ctx;
+	uint32_t w;
+
+	if (!_obj_to_s(wk, key, &ctx->buf[ctx->i], ctx->len - ctx->i, &w)) {
+		return ir_err;
+	}
+	ctx->i += w;
+
+	ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ": ");
+
+	if (!_obj_to_s(wk, val, &ctx->buf[ctx->i], ctx->len - ctx->i, &w)) {
+		return ir_err;
+	}
+	ctx->i += w;
+
+	if (ctx->cont_i < ctx->cont_len - 1) {
+		ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ", ");
+	}
+
+	++ctx->cont_i;
+	return ir_cont;
+}
+
+static bool
+_obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *w)
+{
+	struct obj_to_s_ctx ctx = { .buf = buf, .len = len };
+	enum obj_type t = get_obj(wk, id)->type;
+
+	switch (t) {
+	case obj_feature_opt:
+		switch (get_obj(wk, id)->dat.feature_opt.state) {
+		case feature_opt_auto:
+			ctx.i += snprintf(buf, len, "'auto'");
+			break;
+		case feature_opt_enabled:
+			ctx.i += snprintf(buf, len, "'enabled'");
+			break;
+		case feature_opt_disabled:
+			ctx.i += snprintf(buf, len, "'disabled'");
+			break;
+		}
+
+		break;
+	case obj_file:
+		ctx.i += snprintf(buf, len, "files('%s')", wk_objstr(wk, id));
+		break;
+	case obj_string:
+		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, id));
+		break;
+	case obj_number:
+		ctx.i += snprintf(buf, len, "%ld", get_obj(wk, id)->dat.num);
+		break;
+	case obj_bool:
+		if (get_obj(wk, id)->dat.boolean) {
+			ctx.i += snprintf(buf, len, "true");
+		} else {
+			ctx.i += snprintf(buf, len, "false");
+		}
+		break;
+	case obj_array:
+		ctx.cont_len = get_obj(wk, id)->dat.arr.len;
+
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "[");
+		if (!obj_array_foreach(wk, id, &ctx, obj_to_s_array_iter)) {
+			return false;
+		}
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "]");
+		break;
+	case obj_dict:
+		ctx.cont_len = get_obj(wk, id)->dat.dict.len;
+
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "{ ");
+		if (!obj_dict_foreach(wk, id, &ctx, obj_to_s_dict_iter)) {
+			return false;
+		}
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
+		break;
+	default:
+		LOG_W(log_interp, "unable to convert '%s' to string", obj_type_to_s(t));
+		return false;
+	}
+
+	*w = ctx.i;
+	return true;
+}
+
+bool
+obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len)
+{
+	uint32_t w;
+	return _obj_to_s(wk, id, buf, len, &w);
+}

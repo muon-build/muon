@@ -141,6 +141,7 @@ struct obj {
 };
 
 const char *obj_type_to_s(enum obj_type t);
+bool obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len);
 bool obj_equal(struct workspace *wk, uint32_t l, uint32_t r);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret);
 
