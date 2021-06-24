@@ -3,6 +3,7 @@ tests = [
 	'dict.meson',
 	'join_paths.meson',
 	'katie.meson',
+	'join.meson',
 ]
 
 foreach t : tests

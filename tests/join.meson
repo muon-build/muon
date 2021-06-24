@@ -1,0 +1,8 @@
+arr = ['a', 'b', 'c']
+assert(' '.join(arr) == 'a b c')
+assert(''.join(arr) == 'abc')
+assert(', '.join(arr) == 'a, b, c')
+arr = []
+assert(' '.join(arr) == '')
+arr = ['a']
+assert(' '.join(arr) == 'a')

@@ -225,11 +225,24 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	return true;
 }
 
+static bool
+func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	return obj_array_join(wk, an[0].val, rcvr, obj);
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "strip", func_strip },
 	{ "to_upper", func_to_upper },
 	{ "format", func_format },
 	{ "underscorify", func_underscorify },
 	{ "split", func_split },
+	{ "join", func_join },
 	{ NULL, NULL },
 };
