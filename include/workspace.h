@@ -48,6 +48,8 @@ struct workspace {
 	     build_root[PATH_MAX];
 	const char *cur_src_path;
 
+	uint32_t sources;
+
 	struct darr projects;
 	struct darr option_overrides;
 	struct darr objs;

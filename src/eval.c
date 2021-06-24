@@ -76,6 +76,11 @@ bool
 eval(struct workspace *wk, const char *src)
 {
 	/* L(log_misc, "evaluating '%s'", src); */
+	{
+		uint32_t id;
+		make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, src);
+		obj_array_push(wk, wk->sources, id);
+	}
 
 	/* TODO:
 	 *
@@ -85,7 +90,6 @@ eval(struct workspace *wk, const char *src)
 	 * the parent project is done evaluating.  This should be fixed by
 	 * storing these strings in the workspace's string buffer.
 	 */
-
 	const char *old_src_path = wk->cur_src_path;
 	struct tokens *toks = darr_get(&current_project(wk)->tokens,
 		darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 }));

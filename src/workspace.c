@@ -295,6 +295,8 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &id, obj_machine);
 	hash_set(&wk->scope, "host_machine", id);
 
+	make_obj(wk, &wk->sources, obj_array);
+
 	darr_push(&wk->strs, &(char) { 0 });
 
 	wk->strbuf_cap = 2048;
