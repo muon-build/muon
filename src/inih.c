@@ -112,6 +112,7 @@ done_with_line:
 bool
 ini_parse(const char *path, char **buf, inihcb cb, void *octx)
 {
+	*buf = NULL;
 	bool ret = false;
 
 	struct each_line_ctx ctx = {

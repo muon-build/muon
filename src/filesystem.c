@@ -166,7 +166,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	FILE *f;
 	bool opened = false;
 	size_t read;
-	char *buf;
+	char *buf = NULL;
 
 	*src = (struct source) { .label = path };
 
@@ -216,7 +216,9 @@ fs_read_entire_file(const char *path, struct source *src)
 void
 fs_source_destroy(struct source *src)
 {
-	z_free((char *)src->src);
+	if (src->src) {
+		z_free((char *)src->src);
+	}
 }
 
 bool

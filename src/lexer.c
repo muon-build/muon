@@ -705,8 +705,8 @@ lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
 	darr_init(&toks->tok, 2048, sizeof(struct token));
 
 	// TODO: this could be done much more conservatively
-	sdata->data = z_malloc(src->len);
-	sdata->data_len = src->len;
+	sdata->data_len = src->len + 1;
+	sdata->data = z_malloc(sdata->data_len);
 
 	return tokenize(&lexer);
 }
