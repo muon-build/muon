@@ -14,7 +14,6 @@
 #include "functions/default/setup.h"
 #include "inih.h"
 #include "log.h"
-#include "machine_file.h"
 #include "mem.h"
 #include "opts.h"
 #include "output.h"
@@ -361,9 +360,6 @@ main(int argc, char *argv[])
 	if (!path_init()) {
 		return 1;
 	}
-
-	machine_file_parse(argv[1]);
-	return 0;
 
 	return cmd_main(argc, 0, argv) ? 0 : 1;
 }

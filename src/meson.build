@@ -33,6 +33,7 @@ src = files([
 	'interpreter.c',
 	'lexer.c',
 	'log.c',
+	'machine_file.c',
 	'main.c',
 	'mem.c',
 	'object.c',

@@ -47,6 +47,7 @@ cat \
 	src/interpreter.c \
 	src/lexer.c \
 	src/log.c \
+	src/machine_file.c \
 	src/main.c \
 	src/mem.c \
 	src/object.c \
