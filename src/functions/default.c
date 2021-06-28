@@ -583,7 +583,7 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	snprintf(src, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd));
 
-	bool ret = eval(wk, src);
+	bool ret = eval_project_file(wk, src);
 	current_project(wk)->cwd = old_cwd;
 	current_project(wk)->build_dir = old_build_dir;
 

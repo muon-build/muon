@@ -221,6 +221,10 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 bool
 muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
 {
+	if (!init) {
+		muon_pkgconf_init();
+	}
+
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, name);
@@ -289,6 +293,10 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 bool
 muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res)
 {
+	if (!init) {
+		muon_pkgconf_init();
+	}
+
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, pkg_name);
 	bool ret = true;

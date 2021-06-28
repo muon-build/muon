@@ -58,7 +58,7 @@ eval_project(struct workspace *wk, const char *subproject_name,
 
 	if (fs_file_exists(meson_opts)) {
 		wk->lang_mode = language_opts;
-		if (!eval(wk, meson_opts)) {
+		if (!eval_project_file(wk, meson_opts)) {
 			goto cleanup;
 		}
 	}
@@ -69,7 +69,7 @@ eval_project(struct workspace *wk, const char *subproject_name,
 
 	wk->lang_mode = language_external;
 
-	if (!eval(wk, src)) {
+	if (!eval_project_file(wk, src)) {
 		goto cleanup;
 	}
 
@@ -84,114 +84,113 @@ cleanup:
 }
 
 bool
-eval(struct workspace *wk, const char *src)
+eval(struct workspace *wk, struct source *src)
 {
-	/* L(log_misc, "evaluating '%s'", src); */
-	{
-		uint32_t id;
-		make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, src);
-		obj_array_push(wk, wk->sources, id);
-	}
-
-	/* TODO:
-	 *
-	 * currently ids and string literals are stored as pointers to
-	 * locations in the block originally read to do lexing, which is owned
-	 * by struct tokens.  Because of this, tokens need to stay live until
-	 * the parent project is done evaluating.  This should be fixed by
-	 * storing these strings in the workspace's string buffer.
-	 */
-	const char *old_src_path = wk->cur_src_path;
-	struct tokens *toks = darr_get(&current_project(wk)->tokens,
-		darr_push(&current_project(wk)->tokens, &(struct tokens) { 0 }));
+	bool ret = false;
 	struct ast ast = { 0 };
-	bool ret;
 
-	wk->cur_src_path = src;
+	struct source_data *sdata =
+		darr_get(&wk->source_data, darr_push(&wk->source_data, &(struct source_data) { 0 }));
 
-	if (!lexer_lex(wk->lang_mode, toks, src)) {
-		ret = false;
-		goto cleanup;
-	} else if (!parser_parse(&ast, toks)) {
-		ret = false;
-		goto cleanup;
+	if (!parser_parse(&ast, sdata, src, wk->lang_mode)) {
+		goto ret;
 	}
 
-	struct ast *parent_ast = wk->ast;
+	struct source *old_src = wk->src;
+	struct ast *old_ast = wk->ast;
+
+	wk->src = src;
 	wk->ast = &ast;
 
 	ret = interpreter_interpret(wk);
 
-	wk->ast = parent_ast;
-	if (wk->ast) {
-		/* setting wk->ast->toks to NULL here to prevent misuse.
-		 * Currently, no effort is made to ensure the value of
-		 * wk->ast->toks actually points to the current source file's
-		 * tokens struct.  That is okay, since no one uses it.  This is
-		 * to make sure it stays that way.
-		 */
-		wk->ast->toks = NULL;
+	wk->src = old_src;
+	wk->ast = old_ast;
+ret:
+	ast_destroy(&ast);
+	return ret;
+}
+
+bool
+eval_project_file(struct workspace *wk, const char *path)
+{
+	/* L(log_misc, "evaluating '%s'", src); */
+	bool ret = false;
+	{
+		uint32_t id;
+		make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, path);
+		obj_array_push(wk, wk->sources, id);
 	}
 
-	ast_destroy(&ast);
+	struct source src = { 0 };
+	if (!fs_read_entire_file(path, &src)) {
+		return false;
+	}
 
-cleanup:
-	wk->cur_src_path = old_src_path;
+	if (!eval(wk, &src)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	fs_source_destroy(&src);
 	return ret;
 }
 
 void
-error_message(const char *file, uint32_t line, uint32_t col, const char *fmt, va_list args)
+source_data_destroy(struct source_data *sdata)
 {
-	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
-
-	log_plain("%s:%d:%d: %s ", file, line, col, label);
-	log_plainv(fmt, args);
-	log_plain("\n");
-
-	char *buf;
-	uint64_t len, i, cl = 1, sol = 0;
-	if (fs_read_entire_file(file, &buf, &len)) {
-		for (i = 0; i < len; ++i) {
-			if (buf[i] == '\n') {
-				++cl;
-				sol = i + 1;
-			}
-
-			if (cl == line) {
-				break;
-			}
-		}
-
-		log_plain("%3d | ", line);
-		for (i = sol; buf[i] && buf[i] != '\n'; ++i) {
-			if (buf[i] == '\t') {
-				log_plain("        ");
-			} else {
-				putc(buf[i], stderr);
-			}
-		}
-		log_plain("\n");
-
-		log_plain("      ");
-		for (i = 0; i < col; ++i) {
-			if (buf[sol + i] == '\t') {
-				log_plain("        ");
-			} else {
-				log_plain(i == col - 1 ? "^" : " ");
-			}
-		}
-		log_plain("\n");
-
-		z_free(buf);
-	}
+	z_free(sdata->data);
 }
 
 void
-error_messagef(const char *file, uint32_t line, uint32_t col, const char *fmt, ...)
+error_message(struct source *src, uint32_t line,
+	uint32_t col, const char *fmt, va_list args)
+{
+	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
+
+	log_plain("%s:%d:%d: %s ", src->label, line, col, label);
+	log_plainv(fmt, args);
+	log_plain("\n");
+
+	uint64_t i, cl = 1, sol = 0;
+	for (i = 0; i < src->len; ++i) {
+		if (src->src[i] == '\n') {
+			++cl;
+			sol = i + 1;
+		}
+
+		if (cl == line) {
+			break;
+		}
+	}
+
+	log_plain("%3d | ", line);
+	for (i = sol; src->src[i] && src->src[i] != '\n'; ++i) {
+		if (src->src[i] == '\t') {
+			log_plain("        ");
+		} else {
+			putc(src->src[i], stderr);
+		}
+	}
+	log_plain("\n");
+
+	log_plain("      ");
+	for (i = 0; i < col; ++i) {
+		if (src->src[sol + i] == '\t') {
+			log_plain("        ");
+		} else {
+			log_plain(i == col - 1 ? "^" : " ");
+		}
+	}
+	log_plain("\n");
+}
+
+void
+error_messagef(struct source *src, uint32_t line, uint32_t col, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	error_message(file, line, col, fmt, ap);
+	error_message(src, line, col, fmt, ap);
 	va_end(ap);
 }

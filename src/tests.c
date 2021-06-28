@@ -5,6 +5,7 @@
 
 #include "filesystem.h"
 #include "log.h"
+#include "mem.h"
 #include "output.h"
 #include "path.h"
 #include "run_cmd.h"
@@ -13,10 +14,9 @@
 #define MAX_ARGS 64
 
 struct test_parser {
+	struct source src;
 	const char *name;
-	char *cmd[MAX_ARGS];
-	char *buf;
-	uint64_t len;
+	const char *cmd[MAX_ARGS];
 	uint32_t i, argv;
 	bool start, finished;
 };
@@ -24,30 +24,30 @@ struct test_parser {
 bool
 next_test(struct test_parser *p)
 {
-	for (; p->i < p->len; ++p->i) {
+	for (; p->i < p->src.len; ++p->i) {
 		if (p->start) {
-			p->name = &p->buf[p->i];
+			p->name = &p->src.src[p->i];
 			p->argv = 0;
 			p->start = false;
 		}
 
-		if (!p->buf[p->i]) {
-			if (p->i + 1 >= p->len) {
+		if (!p->src.src[p->i]) {
+			if (p->i + 1 >= p->src.len) {
 				LOG_W(log_misc, "invalid test file");
 				return false;
 			}
 
-			if (!p->buf[p->i + 1]) {
+			if (!p->src.src[p->i + 1]) {
 				p->i += 2;
 				p->start = true;
 
-				if (p->i >= p->len) {
+				if (p->i >= p->src.len) {
 					p->finished = true;
 				}
 
 				return true;
 			} else {
-				p->cmd[p->argv] = &p->buf[p->i + 1];
+				p->cmd[p->argv] = &p->src.src[p->i + 1];
 				++p->argv;
 			}
 		}
@@ -68,7 +68,7 @@ tests_run(const char *build_root)
 	}
 
 	struct test_parser test_parser = { .start = true };
-	if (!fs_read_entire_file(tests_src, &test_parser.buf, &test_parser.len)) {
+	if (!fs_read_entire_file(tests_src, &test_parser.src)) {
 		return false;
 	}
 
@@ -85,7 +85,7 @@ tests_run(const char *build_root)
 
 		LOG_I(log_misc, "%s - running", test_parser.name);
 
-		if (!run_cmd(&cmd_ctx, test_parser.cmd[0], test_parser.cmd)) {
+		if (!run_cmd(&cmd_ctx, test_parser.cmd[0], (char *const *)test_parser.cmd)) {
 			if (cmd_ctx.err_msg) {
 				LOG_W(log_misc, "error: %s", cmd_ctx.err_msg);
 			} else {
@@ -104,5 +104,6 @@ tests_run(const char *build_root)
 		}
 	}
 
+	fs_source_destroy(&test_parser.src);
 	return ret;
 }

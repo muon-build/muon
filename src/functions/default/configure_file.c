@@ -41,16 +41,18 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	const uint32_t mesondefine_len = strlen(mesondefine);
 
 	bool ret = true;
-	char *in_buf = NULL, *out_buf = NULL;
-	uint64_t in_len, out_len, out_cap;
+	char *out_buf = NULL;
+	struct source src;
+	uint64_t out_len, out_cap;
 
-	if (!fs_read_entire_file(in, &in_buf, &in_len)) {
+
+	if (!fs_read_entire_file(in, &src)) {
 		ret = false;
 		goto cleanup;
 	}
 
 	out_len = 0;
-	out_cap = in_len;
+	out_cap = src.len;
 	out_buf = z_malloc(out_cap);
 
 	uint32_t i, id_start, id_end = 0,
@@ -60,15 +62,15 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	bool found;
 	char tmp_buf[TMP_BUF_LEN] = { 0 };
 
-	for (i = 0; i < in_len; ++i) {
-		if (in_buf[i] == '\n') {
+	for (i = 0; i < src.len; ++i) {
+		if (src.src[i] == '\n') {
 			start_of_line = i + 1;
 			++line;
 		}
 
-		if (!reading_id && i == start_of_line && strncmp(&in_buf[i], mesondefine, mesondefine_len) == 0) {
+		if (!reading_id && i == start_of_line && strncmp(&src.src[i], mesondefine, mesondefine_len) == 0) {
 			if (i > id_end) {
-				buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_end], i - id_end);
+				buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 			}
 
 			/* L(log_interp, "%s", out_buf); */
@@ -78,26 +80,26 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			id_start_line = line;
 			id_start_col = i - start_of_line;
 
-			char *end = strchr(&in_buf[id_start], '\n');
+			char *end = strchr(&src.src[id_start], '\n');
 			const char *sub = NULL, *deftype = "#define";
 
 			if (!end) {
-				error_messagef(in, id_start_line, id_start_col, "got EOF while scanning #mesondefine");
+				error_messagef(&src, id_start_line, id_start_col, "got EOF while scanning #mesondefine");
 				return false;
 			}
 
-			id_end = end - in_buf;
+			id_end = end - src.src;
 			i = id_end - 1;
 			++line;
 
-			strncpy(tmp_buf, &in_buf[id_start], id_end - id_start);
+			strncpy(tmp_buf, &src.src[id_start], id_end - id_start);
 			tmp_buf[i - id_start + 1] = 0;
 
 			if (id_end - id_start == 0) {
-				error_messagef(in, id_start_line, id_start_col, "key of zero length not supported");
+				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 				return false;
-			} else if (!obj_dict_index_strn(wk, dict, &in_buf[id_start], id_end - id_start, &elem, &found)) {
-				error_messagef(in, id_start_line, id_start_col, "failed to index dict");
+			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_end - id_start, &elem, &found)) {
+				error_messagef(&src, id_start_line, id_start_col, "failed to index dict");
 				return false; // shouldn't happen tbh
 			} else if (!found) {
 				deftype = "/* undef";
@@ -121,7 +123,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				sub = tmp_buf;
 				break;
 			default:
-				error_messagef(in, id_start_line, id_start_col,
+				error_messagef(&src, id_start_line, id_start_col,
 					"invalid type for #mesondefine: '%s'",
 					obj_type_to_s(get_obj(wk, elem)->type));
 				return false;
@@ -130,23 +132,23 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 write_mesondefine:
 			buf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
 			buf_push(&out_buf, &out_cap, &out_len, " ", 1);
-			buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_start], id_end - id_start);
+			buf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], id_end - id_start);
 			if (sub) {
 				buf_push(&out_buf, &out_cap, &out_len, " ", 1);
 				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 			}
-		} else if (in_buf[i] == '@') {
+		} else if (src.src[i] == '@') {
 			if (reading_id) {
 				id_end = i + 1;
 
 				if (i == id_start) {
-					error_messagef(in, id_start_line, id_start_col, "key of zero length not supported");
+					error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 					return false;
-				} else if (!obj_dict_index_strn(wk, dict, &in_buf[id_start], i - id_start, &elem, &found)) {
-					error_messagef(in, id_start_line, id_start_col, "failed to index dict");
+				} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem, &found)) {
+					error_messagef(&src, id_start_line, id_start_col, "failed to index dict");
 					return false; // shouldn't happen tbh
 				} else if (!found) {
-					error_messagef(in, id_start_line, id_start_col, "key not found in configuration data");
+					error_messagef(&src, id_start_line, id_start_col, "key not found in configuration data");
 					return false;
 				}
 
@@ -160,7 +162,7 @@ write_mesondefine:
 				reading_id = false;
 			} else {
 				if (i) {
-					buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_end], i - id_end);
+					buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 				}
 
 				id_start_line = line;
@@ -172,12 +174,12 @@ write_mesondefine:
 	}
 
 	if (reading_id) {
-		error_messagef(in, id_start_line, id_start_col - 1, "missing closing '@'");
+		error_messagef(&src, id_start_line, id_start_col - 1, "missing closing '@'");
 		return false;
 	}
 
 	if (i > id_end) {
-		buf_push(&out_buf, &out_cap, &out_len, &in_buf[id_end], i - id_end);
+		buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 	}
 
 	if (!fs_write(out, (uint8_t *)out_buf, out_len)) {
@@ -186,9 +188,7 @@ write_mesondefine:
 	}
 
 cleanup:
-	if (in_buf) {
-		z_free(in_buf);
-	}
+	fs_source_destroy(&src);
 
 	if (out_buf) {
 		z_free(out_buf);

@@ -14,6 +14,7 @@
 const uint32_t arithmetic_type_count = 5;
 
 struct parser {
+	struct source *src;
 	struct tokens *toks;
 	struct token *last_last, *last;
 	struct ast *ast;
@@ -64,7 +65,7 @@ parse_error(struct parser *p, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	error_message(p->toks->src_path, p->last->line, p->last->col, fmt, args);
+	error_message(p->src, p->last->line, p->last->col, fmt, args);
 	va_end(args);
 }
 
@@ -74,7 +75,7 @@ source_location(struct ast *ast, uint32_t id)
 	struct node *n = get_node(ast, id);
 	static char buf[BUF_SIZE + 1];
 
-	snprintf(buf, BUF_SIZE, "line: %d, col: %d", n->tok->line, n->tok->col);
+	snprintf(buf, BUF_SIZE, "line: %d, col: %d", n->line, n->col);
 
 	return buf;
 }
@@ -125,7 +126,12 @@ make_node(struct parser *p, uint32_t *idx, enum node_type t)
 {
 	*idx = darr_push(&p->ast->nodes, &(struct node){ .type = t });
 	struct node *n = darr_get(&p->ast->nodes, *idx);
-	n->tok = p->last_last;
+
+	if (p->last_last) {
+		n->line = p->last_last->line;
+		n->col = p->last_last->col;
+		n->dat = p->last_last->dat;
+	}
 	return n;
 }
 
@@ -184,23 +190,23 @@ node_to_s(struct node *n)
 
 	switch (n->type) {
 	case node_id:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->tok->dat.s);
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->dat.s);
 		break;
 	case node_string:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":'%s'", n->tok->dat.s);
+		i += snprintf(&buf[i], BUF_SIZE - i, ":'%s'", n->dat.s);
 		break;
 	case node_number:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%ld", n->tok->dat.n);
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%ld", n->dat.n);
 		break;
 	case node_argument:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == arg_kwarg ? "kwarg" : "normal");
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");
 		break;
 	case node_if:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->data == if_normal ? "normal" : "else");
+		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->subtype == if_normal ? "normal" : "else");
 		break;
 	case node_arithmetic: {
 		const char *s;
-		switch ((enum arithmetic_type)n->data) {
+		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
 			s = "+";
 			break;
@@ -248,7 +254,7 @@ parse_array(struct parser *p, uint32_t *id)
 
 	if (!accept(p, tok_comma)) {
 		n = make_node(p, id, node_argument);
-		n->data = arg_normal;
+		n->subtype = arg_normal;
 
 		add_child(p, *id, node_child_l, s_id);
 		return true;
@@ -259,7 +265,7 @@ parse_array(struct parser *p, uint32_t *id)
 	}
 
 	n = make_node(p, id, node_argument);
-	n->data = arg_normal;
+	n->subtype = arg_normal;
 
 	add_child(p, *id, node_child_l, s_id);
 	add_child(p, *id, node_child_c, c_id);
@@ -298,7 +304,7 @@ parse_args(struct parser *p, uint32_t *id)
 
 		if (!accept(p, tok_comma)) {
 			n = make_node(p, id, node_argument);
-			n->data = at;
+			n->subtype = at;
 
 			add_child(p, *id, node_child_l, s_id);
 			add_child(p, *id, node_child_r, v_id);
@@ -306,7 +312,7 @@ parse_args(struct parser *p, uint32_t *id)
 		}
 	} else if (!accept(p, tok_comma)) {
 		n = make_node(p, id, node_argument);
-		n->data = at;
+		n->subtype = at;
 
 		add_child(p, *id, node_child_l, s_id);
 		return true;
@@ -317,7 +323,7 @@ parse_args(struct parser *p, uint32_t *id)
 	}
 
 	n = make_node(p, id, node_argument);
-	n->data = at;
+	n->subtype = at;
 
 	add_child(p, *id, node_child_l, s_id);
 	if (at == arg_kwarg) {
@@ -353,7 +359,7 @@ parse_key_values(struct parser *p, uint32_t *id)
 
 	if (!accept(p, tok_comma)) {
 		n = make_node(p, id, node_argument);
-		n->data = arg_kwarg;
+		n->subtype = arg_kwarg;
 
 		add_child(p, *id, node_child_l, s_id);
 		add_child(p, *id, node_child_r, v_id);
@@ -365,7 +371,7 @@ parse_key_values(struct parser *p, uint32_t *id)
 	}
 
 	n = make_node(p, id, node_argument);
-	n->data = arg_kwarg;
+	n->subtype = arg_kwarg;
 
 	add_child(p, *id, node_child_l, s_id);
 	add_child(p, *id, node_child_r, v_id);
@@ -409,19 +415,16 @@ parse_e9(struct parser *p, uint32_t *id)
 
 	if (accept(p, tok_true)) {
 		n = make_node(p, id, node_bool);
-		n->data = 1;
+		n->subtype = 1;
 	} else if (accept(p, tok_false)) {
 		n = make_node(p, id, node_bool);
-		n->data = 0;
+		n->subtype = 0;
 	} else if (accept(p, tok_identifier)) {
 		n = make_node(p, id, node_id);
-		n->tok = p->last_last;
 	} else if (accept(p, tok_number)) {
 		n = make_node(p, id, node_number);
-		n->tok = p->last_last;
 	} else if (accept(p, tok_string)) {
 		n = make_node(p, id, node_string);
-		n->tok = p->last_last;
 	} else {
 		make_node(p, id, node_empty);
 	}
@@ -447,7 +450,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 
 	struct node *n;
 	n = make_node(p, id, node_method);
-	n->data = have_c;
+	n->subtype = have_c;
 
 	if (have_l) {
 		add_child(p, *id, node_child_l, l_id);
@@ -640,7 +643,7 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 
 	if (i != map_end) {
 		n = make_node(p, id, node_arithmetic);
-		n->data = i;
+		n->subtype = i;
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, r_id);
 	} else {
@@ -667,7 +670,7 @@ make_comparison_node(struct parser *p, uint32_t *id, uint32_t l_id, enum compari
 {
 	uint32_t r_id;
 	struct node *n = make_node(p, id, node_comparison);
-	n->data = comp;
+	n->subtype = comp;
 
 	if (!(parse_e5addsub(p, &r_id))) {
 		return false;
@@ -767,7 +770,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 
 	if (accept(p, tok_plus_assign)) {
 		uint32_t v, arith;
-		struct token *tok = p->last_last;
+		make_node(p, &arith, node_arithmetic);
 
 		if (get_node(p->ast, l_id)->type != node_id) {
 			parse_error(p, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
@@ -776,9 +779,8 @@ parse_stmt(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		struct node *n = make_node(p, &arith, node_arithmetic);
-		n->tok = tok;
-		n->data = arith_add;
+		struct node *n = get_node(p->ast, arith);
+		n->subtype = arith_add;
 		add_child(p, arith, node_child_l, l_id);
 		add_child(p, arith, node_child_r, v);
 
@@ -875,7 +877,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	}
 
 	struct node *n = make_node(p, id, node_if);
-	n->data = if_type;
+	n->subtype = if_type;
 
 	if (if_type == if_normal) {
 		add_child(p, *id, node_child_l, cond_id);
@@ -902,7 +904,6 @@ parse_foreach_args(struct parser *p, uint32_t *id, uint32_t d)
 	}
 
 	n = make_node(p, &l_id, node_id);
-	n->tok = p->last_last;
 
 	if (d <= 0 && accept(p, tok_comma)) {
 		have_r = true;
@@ -954,7 +955,6 @@ parse_function_definition(struct parser *p, uint32_t *id)
 	}
 
 	n = make_node(p, &name_id, node_id);
-	n->tok = p->last_last;
 
 	if (!expect(p, tok_lparen)) {
 		return false;
@@ -1059,11 +1059,18 @@ parse_block(struct parser *p, uint32_t *id)
 }
 
 bool
-parser_parse(struct ast *ast, struct tokens *toks)
+parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
+	enum language_mode lang_mode)
 {
-	struct parser parser = { .ast = ast, .toks = toks };
+	bool ret = false;
+	struct tokens toks;
 
-	ast->toks = toks;
+	if (!lexer_lex(&toks, sdata, src, lang_mode)) {
+		goto ret;
+	}
+
+	struct parser parser = { .src = src, .ast = ast, .toks = &toks };
+
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
 	uint32_t id;
 	make_node(&parser, &id, node_null);
@@ -1072,16 +1079,15 @@ parser_parse(struct ast *ast, struct tokens *toks)
 	get_next_tok(&parser);
 
 	if (!parse_block(&parser, &ast->root)) {
-		return false;
+		goto ret;
+	} else if (!expect(&parser, tok_eof)) {
+		goto ret;
 	}
 
-	if (!expect(&parser, tok_eof)) {
-		goto err;
-	}
-
-	return true;
-err:
-	return false;
+	ret = true;
+ret:
+	tokens_destroy(&toks);
+	return ret;
 }
 
 static void
@@ -1108,7 +1114,7 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
 void
 print_ast(struct ast *ast)
 {
-	print_tree(ast, ast->root, 0, '#');
+	print_tree(ast, ast->root, 0, 'l');
 }
 
 void

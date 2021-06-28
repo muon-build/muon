@@ -143,7 +143,7 @@ fs_fclose(FILE *file)
 bool
 fs_fsize(FILE *file, uint64_t *ret)
 {
-	int64_t size;
+	int64_t size = 0;
 	if (fseek(file, 0, SEEK_END) == -1) {
 		LOG_W(log_misc, "failed fseek: %s", strerror(errno));
 		return false;
@@ -161,11 +161,14 @@ fs_fsize(FILE *file, uint64_t *ret)
 }
 
 bool
-fs_read_entire_file(const char *path, char **buf, uint64_t *size)
+fs_read_entire_file(const char *path, struct source *src)
 {
 	FILE *f;
 	bool opened = false;
 	size_t read;
+	char *buf;
+
+	*src = (struct source) { .label = path };
 
 	if (strcmp(path, "-") == 0) {
 		f = stdin;
@@ -182,7 +185,7 @@ fs_read_entire_file(const char *path, char **buf, uint64_t *size)
 		opened = true;
 	}
 
-	if (!fs_fsize(f, size)) {
+	if (!fs_fsize(f, &src->len)) {
 		if (opened) {
 			fs_fclose(f);
 		}
@@ -190,25 +193,30 @@ fs_read_entire_file(const char *path, char **buf, uint64_t *size)
 		return false;
 	}
 
-	*buf = z_calloc(*size + 1, 1);
-	read = fread(*buf, 1, *size, f);
+	buf = z_calloc(src->len + 1, 1);
+	read = fread(buf, 1, src->len, f);
 
 	if (opened) {
 		if (!fs_fclose(f)) {
-			z_free(*buf);
-			*buf = NULL;
+			z_free(buf);
 			return false;
 		}
 	}
 
-	if (read != *size) {
-		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, *size);
-		z_free(*buf);
-		*buf = NULL;
+	if (read != src->len) {
+		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, src->len);
+		z_free(buf);
 		return false;
 	}
 
+	src->src = buf;
 	return true;
+}
+
+void
+fs_source_destroy(struct source *src)
+{
+	z_free((char *)src->src);
 }
 
 bool

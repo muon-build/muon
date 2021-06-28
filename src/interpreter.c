@@ -23,7 +23,7 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	error_message(wk->cur_src_path, n->tok->line, n->tok->col, fmt, args);
+	error_message(wk->src, n->line, n->col, fmt, args);
 	va_end(args);
 }
 
@@ -192,7 +192,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			return false;
 		}
 
-		switch ((enum arithmetic_type)n->data) {
+		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
 			res = wk_str_pushf(wk, "%s%s",
 				wk_objstr(wk, l_id),
@@ -224,7 +224,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		l = get_obj(wk, l_id)->dat.num;
 		r = get_obj(wk, r_id)->dat.num;
 
-		switch ((enum arithmetic_type)n->data) {
+		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
 			res = l + r;
 			break;
@@ -246,7 +246,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	}
 	case obj_array: {
-		switch ((enum arithmetic_type)n->data) {
+		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
 			if (!obj_array_dup(wk, l_id, obj_id)) {
 				return false;
@@ -268,8 +268,8 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	return true;
 err1:
-	assert(n->data < 5);
-	interp_error(wk, n_id, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+-%*/"[n->data]);
+	assert(n->subtype < 5);
+	interp_error(wk, n_id, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+-%*/"[n->subtype]);
 	return false;
 }
 
@@ -282,9 +282,7 @@ interp_assign(struct workspace *wk, struct node *n, uint32_t *obj)
 		return false;
 	}
 
-	// TODO check if we are overwriting?
-	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->tok->dat.s, rhs);
-
+	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
 	return true;
 }
 
@@ -302,7 +300,7 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		return true;
 	}
 
-	if (n->data == arg_kwarg) {
+	if (n->subtype == arg_kwarg) {
 		interp_error(wk, n->l, "kwarg not valid in array constructor");
 		return false;
 	}
@@ -353,7 +351,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 
 	assert(n->type == node_argument);
 
-	if (n->data != arg_kwarg) {
+	if (n->subtype != arg_kwarg) {
 		interp_error(wk, n->l, "non-kwarg not valid in dict constructor");
 		return false;
 	}
@@ -496,7 +494,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	switch ((enum comparison_type)n->data) {
+	switch ((enum comparison_type)n->subtype) {
 	case comp_equal:
 		res = obj_equal(wk, obj_l_id, obj_r_id);
 		break;
@@ -526,7 +524,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 			return false;
 		}
 
-		if (n->data == comp_not_in) {
+		if (n->subtype == comp_not_in) {
 			res = !res;
 		}
 		break;
@@ -543,7 +541,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		int64_t a = get_obj(wk, obj_l_id)->dat.num,
 			b = get_obj(wk, obj_r_id)->dat.num;
 
-		switch (n->data) {
+		switch (n->subtype) {
 		case comp_lt:
 			res = a < b;
 			break;
@@ -573,7 +571,7 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 	bool cond;
 	uint32_t res_id;
 
-	switch ((enum if_type)n->data) {
+	switch ((enum if_type)n->subtype) {
 	case if_normal: {
 		uint32_t cond_id;
 		if (!interp_node(wk, n->l, &cond_id)) {
@@ -680,7 +678,7 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 		}
 
 		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->tok->dat.s,
+			.id1 = get_node(wk->ast, args->l)->dat.s,
 			.block_node = n->c,
 		};
 
@@ -700,8 +698,8 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 		assert(get_node(wk->ast, get_node(wk->ast, args->r)->type == node_foreach_args));
 
 		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->tok->dat.s,
-			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->tok->dat.s,
+			.id1 = get_node(wk->ast, args->l)->dat.s,
+			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->dat.s,
 			.block_node = n->c,
 		};
 
@@ -748,10 +746,10 @@ interp_dyn_func_args(struct workspace *wk, uint32_t n_id, uint32_t func_id)
 			return false;
 		}
 
-		if (callee_args->data == arg_kwarg) {
+		if (callee_args->subtype == arg_kwarg) {
 			interp_error(wk, callee_args->l, "kwargs not supported for def functions");
 			return false;
-		} else if (caller_args->data == arg_kwarg) {
+		} else if (caller_args->subtype == arg_kwarg) {
 			interp_error(wk, caller_args->l, "kwargs not supported for def functions");
 			return false;
 		}
@@ -763,7 +761,7 @@ interp_dyn_func_args(struct workspace *wk, uint32_t n_id, uint32_t func_id)
 		if (!interp_node(wk, caller_arg_val, &res)) {
 			return false;
 		}
-		hash_set(&current_project(wk)->scope, get_node(wk->ast, callee_arg_val)->tok->dat.s, res);
+		hash_set(&current_project(wk)->scope, get_node(wk->ast, callee_arg_val)->dat.s, res);
 
 		if ((caller_args->chflg & node_child_c)) {
 			caller_args_id = caller_args->c;
@@ -799,7 +797,7 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	uint32_t res_id = 0;
 
 	if (wk->lang_mode == language_internal
-	    && get_obj_id(wk, get_node(wk->ast, n->l)->tok->dat.s, &func_id, wk->cur_project)) {
+	    && get_obj_id(wk, get_node(wk->ast, n->l)->dat.s, &func_id, wk->cur_project)) {
 		if (!typecheck(wk, get_obj(wk, func_id)->dat.func.def, func_id, obj_function)) {
 			return false;
 		}
@@ -810,7 +808,7 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		}
 
 		if (!interp_node(wk, get_obj(wk, func_id)->dat.func.body, &res_id)) {
-			interp_error(wk, n->l, "in function %s", get_node(wk->ast, n->l)->tok->dat.s);
+			interp_error(wk, n->l, "in function %s", get_node(wk->ast, n->l)->dat.s);
 			return false;
 		}
 	} else {
@@ -839,7 +837,7 @@ interp_func_def(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	func->dat.func.args = n->r;
 	func->dat.func.body = n->c;
 
-	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->tok->dat.s, func_id);
+	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, func_id);
 
 	return true;
 }
@@ -861,26 +859,26 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	/* literals */
 	case node_bool:
 		obj = make_obj(wk, obj_id, obj_bool);
-		obj->dat.boolean = n->data;
+		obj->dat.boolean = n->subtype;
 		return true;
 	case node_format_string: // TODO fallthrough for now :)
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
-		obj->dat.str = wk_str_push(wk, n->tok->dat.s);
+		obj->dat.str = wk_str_push(wk, n->dat.s);
 		return true;
 	case node_array:
 		return interp_array(wk, n->l, obj_id);
 	case node_dict:
 		return interp_dict(wk, n->l, obj_id);
 	case node_id:
-		if (!get_obj_id(wk, n->tok->dat.s, obj_id, wk->cur_project)) {
+		if (!get_obj_id(wk, n->dat.s, obj_id, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
 			return false;
 		}
 		return true;
 	case node_number:
 		obj = make_obj(wk, obj_id, obj_number);
-		obj->dat.num = n->tok->dat.n;
+		obj->dat.num = n->dat.n;
 		return true;
 
 	/* control flow */

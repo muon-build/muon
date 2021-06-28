@@ -81,42 +81,53 @@ get_filename_as_only_arg(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_parse_check(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	const char *filename;
-	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
-		return false;
+	struct {
+		const char *filename;
+		bool print_ast;
+	} opts = { 0 };
+
+	OPTSTART("p") {
+	case 'p':
+		opts.print_ast = true;
+		break;
+	} OPTEND(argv[argi],
+		" <filename>",
+		"-p - print parsed ast\n",
+		NULL)
+
+	if (argi >= argc) {
+		LOG_W(log_misc, "missing filename");
+		return NULL;
 	}
 
-	struct tokens toks = { 0 };
+	opts.filename = argv[argi];
+
+	bool ret = false;
+
+	struct source src = { 0 };
 	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, filename)) {
-		return false;
-	} else if (!parser_parse(&ast, &toks)) {
-		return false;
+	struct source_data sdata = { 0 };
+
+	if (!fs_read_entire_file(opts.filename, &src)) {
+		goto ret;
 	}
 
-	return true;
-}
-
-static bool
-cmd_ast(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	const char *filename;
-	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
-		return false;
+	if (!parser_parse(&ast, &sdata, &src, language_external)) {
+		goto ret;
 	}
 
-	struct tokens toks = { 0 };
-	struct ast ast = { 0 };
-	if (!lexer_lex(language_internal, &toks, filename)) {
-		return false;
-	} else if (!parser_parse(&ast, &toks)) {
-		return false;
+	if (opts.print_ast) {
+		print_ast(&ast);
 	}
 
-	print_ast(&ast);
-	return true;
+	ret = true;
+ret:
+	fs_source_destroy(&src);
+	ast_destroy(&ast);
+	source_data_destroy(&sdata);
+	return ret;
 }
 
 static bool
@@ -133,14 +144,22 @@ eval_internal(const char *filename, const char *argv0)
 
 	wk.lang_mode = language_internal;
 
-	make_project(&wk, &wk.cur_project, NULL, wk.source_root, "dummy");
+	struct source src = { 0 };
 
-	if (!eval(&wk, filename)) {
+	if (!fs_read_entire_file(filename, &src)) {
+		goto ret;
+	}
+
+	uint32_t id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+
+	if (!eval(&wk, &src)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
+	fs_source_destroy(&src);
 	workspace_destroy(&wk);
 	return ret;
 }
@@ -162,7 +181,6 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "exe", cmd_exe, "run an external command" },
-		{ "ast", cmd_ast, "print a file's ast" },
 		{ "eval", cmd_eval, "evaluate a file" },
 		0,
 	};
@@ -305,7 +323,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "build", cmd_build, "build the project with default options" },
-		{ "check", cmd_parse_check, "check if a meson file parses" },
+		{ "check", cmd_check, "check if a meson file parses" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "test", cmd_test, "run tests" },

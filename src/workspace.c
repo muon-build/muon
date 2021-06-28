@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "external/pkgconf.h"
+#include "eval.h"
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
@@ -246,7 +246,6 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = darr_get(&wk->projects, *id);
 
-	darr_init(&proj->tokens, 4, sizeof(struct tokens));
 	hash_init(&proj->scope, 128);
 
 	make_obj(wk, &proj->opts, obj_dict);
@@ -276,13 +275,12 @@ current_project(struct workspace *wk)
 void
 workspace_init(struct workspace *wk)
 {
-	muon_pkgconf_init();
-
 	*wk = (struct workspace){ 0 };
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	darr_init(&wk->objs, 1024, sizeof(struct obj));
 	darr_init(&wk->strs, 2048, sizeof(char));
+	darr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init(&wk->scope, 32);
 
 	uint32_t id;
@@ -306,26 +304,25 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy(struct workspace *wk)
 {
-	muon_pkgconf_deinit();
-
-	uint32_t i, j;
+	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
 
 		hash_destroy(&proj->scope);
+	}
 
-		for (j = 0; j < proj->tokens.len; ++j) {
-			tokens_destroy(darr_get(&proj->tokens, j));
-		}
+	for (i = 0; i < wk->source_data.len; ++i) {
+		struct source_data *sdata = darr_get(&wk->source_data, i);
 
-		darr_destroy(&proj->tokens);
+		source_data_destroy(sdata);
 	}
 
 	darr_destroy(&wk->projects);
 	darr_destroy(&wk->option_overrides);
 	darr_destroy(&wk->objs);
 	darr_destroy(&wk->strs);
+	darr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
 
 	z_free(wk->strbuf);

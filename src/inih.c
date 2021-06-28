@@ -36,8 +36,8 @@ each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
 }
 
 struct each_line_ctx {
+	struct source src;
 	void *octx;
-	const char *path;
 	char *sect;
 	inihcb cb;
 	uint32_t line;
@@ -60,7 +60,7 @@ each_line_cb(void *_ctx, char *line, size_t len)
 		goto done_with_line;
 	} else if (*line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			error_messagef(ctx->path, ctx->line, 1, "expected ']'");
+			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, "expected ']'");
 			ctx->success = false;
 			goto done_with_line;
 		}
@@ -68,11 +68,15 @@ each_line_cb(void *_ctx, char *line, size_t len)
 		*ptr = '\0';
 
 		ctx->sect = line + 1;
+
+		if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, NULL, NULL, ctx->line)) {
+			ctx->success = false;
+		}
 		goto done_with_line;
 	}
 
 	if (!(ptr = strchr(line, '='))) {
-		error_messagef(ctx->path, ctx->line, 1, "expected '='");
+		error_messagef(&ctx->src, ctx->line, strlen(line) + 1, "expected '='");
 		ctx->success = false;
 		goto done_with_line;
 	}
@@ -91,7 +95,7 @@ each_line_cb(void *_ctx, char *line, size_t len)
 		++val;
 	}
 
-	if (!ctx->cb(ctx->octx, ctx->path, ctx->sect, key, val, ctx->line)) {
+	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, ctx->line)) {
 		ctx->success = false;
 	}
 
@@ -108,20 +112,28 @@ done_with_line:
 bool
 ini_parse(const char *path, char **buf, inihcb cb, void *octx)
 {
+	bool ret = false;
+
 	struct each_line_ctx ctx = {
 		.octx = octx,
 		.cb = cb,
 		.line = 1,
 		.success = true,
-		.path = path,
 	};
 
 	uint64_t len;
-	if (!fs_read_entire_file(path, buf, &len)) {
-		return false;
+	if (!fs_read_entire_file(path, &ctx.src)) {
+		goto ret;
 	}
+
+	len = ctx.src.len;
+	*buf = z_malloc(len);
+	memcpy(*buf, ctx.src.src, len);
 
 	each_line(*buf, len, &ctx, each_line_cb);
 
-	return ctx.success;
+	ret = true;
+ret:
+	fs_source_destroy(&ctx.src);
+	return ret && ctx.success;
 }

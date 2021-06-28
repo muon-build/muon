@@ -67,22 +67,17 @@ enum token_type {
 };
 
 struct token {
-	union {
-		const char *s;
-		int64_t n;
-	} dat;
+	union token_data dat;
 	enum token_type type;
 	uint32_t n, line, col;
 };
 
 struct tokens {
 	struct darr tok;
-	const char *src_path;
-	char *data;
-	uint64_t data_len;
 };
 
-bool lexer_lex(enum language_mode lang_mode, struct tokens *toks, const char *path);
+bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
+	enum language_mode lang_mode);
 void tokens_destroy(struct tokens *toks);
 
 const char *tok_type_to_s(enum token_type type);

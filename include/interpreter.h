@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "lexer.h"
 #include "parser.h"
 #include "workspace.h"
 #include "object.h"

@@ -41,8 +41,8 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 
 	assert((*args)->type == node_argument);
 
-	if ((*args)->data == arg_kwarg) {
-		*kw = get_node(ast, (*args)->l)->tok->dat.s;
+	if ((*args)->subtype == arg_kwarg) {
+		*kw = get_node(ast, (*args)->l)->dat.s;
 		*kwarg_node = (*args)->l;
 		*arg_node = (*args)->r;
 	} else {
@@ -322,7 +322,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 	/* L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name); */
 
 	func_impl func;
-	name = get_node(wk->ast, name_node)->tok->dat.s;
+	name = get_node(wk->ast, name_node)->dat.s;
 
 	if (recvr_type == obj_module) {
 		enum module mod = get_obj(wk, rcvr_id)->dat.module;

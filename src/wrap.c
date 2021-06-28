@@ -34,21 +34,30 @@ static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_patch_hash] = "patch_hash",
 };
 
-struct wrap { const char *fields[wrap_fields_count]; };
+struct wrap {
+	const char *fields[wrap_fields_count];
+	struct source src;
+};
 
 static bool
-wrap_parse_cb(void *_wrap, const char *path, const char *sect,
+wrap_parse_cb(void *_wrap, struct source *src, const char *sect,
 	const char *k, const char *v, uint32_t line)
 {
 	struct wrap *wrap = _wrap;
 
 	if (!sect) {
-		error_messagef(path, line, 1, "key not under [wrap-file] section");
+		error_messagef(src, line, 1, "key not under [wrap-file] section");
 		return false;
-	} else if (strcmp(sect, "wrap-file") != 0) {
-		error_messagef(path, line, 1, "key under invalid section \"%s\"", sect);
-		return false;
+	} else if (!k) {
+		if (strcmp(sect, "wrap-file") != 0) {
+			error_messagef(src, line, 1, "invalid section '%s'", sect);
+			return false;
+		}
+
+		return true;
 	}
+
+	assert(k && v);
 
 	uint32_t i;
 	for (i = 0; i < wrap_fields_count; ++i) {
@@ -58,7 +67,7 @@ wrap_parse_cb(void *_wrap, const char *path, const char *sect,
 		}
 	}
 
-	error_messagef(path, line, 1, "invalid key \"%s\"", k);
+	error_messagef(src, line, 1, "invalid key \"%s\"", k);
 	return false;
 }
 

@@ -13,7 +13,6 @@
 
 struct project {
 	struct hash scope;
-	struct darr tokens;
 	/* wk_strings */
 	uint32_t source_root, cwd, build_dir, subproject_name;
 	/* objects */
@@ -46,21 +45,26 @@ struct workspace {
 	char argv0[PATH_MAX],
 	     source_root[PATH_MAX],
 	     build_root[PATH_MAX];
-	const char *cur_src_path;
 
+
+	/* obj_array that tracks each source file eval'd */
 	uint32_t sources;
 
 	struct darr projects;
 	struct darr option_overrides;
 	struct darr objs;
 	struct darr strs;
+	struct darr source_data;
 	struct hash scope;
 
 	uint32_t loop_depth;
 	enum loop_ctl loop_ctl;
 
 	uint32_t cur_project;
+	/* ast of current file */
 	struct ast *ast;
+	/* source of current file */
+	struct source *src;
 
 	enum language_mode lang_mode;
 

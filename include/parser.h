@@ -2,7 +2,7 @@
 #define MUON_PARSER_H
 
 #include "darr.h"
-#include "lexer.h"
+#include "eval.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -77,19 +77,19 @@ enum node_child_flag {
 
 struct node {
 	enum node_type type;
-	struct token *tok;
-	uint32_t data;
+	uint32_t line, col;
+	uint32_t subtype;
+	union token_data dat;
 	uint32_t l, r, c, d;
 	uint8_t chflg;
 };
 
 struct ast {
-	struct tokens *toks;
 	struct darr nodes;
 	uint32_t root;
 };
 
-bool parser_parse(struct ast *ast, struct tokens *toks);
+bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src, enum language_mode lang_mode);
 void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);
