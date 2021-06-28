@@ -957,11 +957,3 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	return true;
 }
-
-bool
-interpreter_interpret(struct workspace *wk)
-{
-	uint32_t obj;
-
-	return interp_node(wk, wk->ast->root, &obj);
-}

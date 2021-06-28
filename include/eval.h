@@ -30,7 +30,7 @@ void source_data_destroy(struct source_data *sdata);
 bool eval_project(struct workspace *wk, const char *subproject_name,
 	const char *cwd, const char *build_dir, uint32_t *proj_id);
 bool eval_project_file(struct workspace *wk, const char *src);
-bool eval(struct workspace *wk, struct source *src);
+bool eval(struct workspace *wk, struct source *src, uint32_t *obj);
 void error_message(struct source *src, uint32_t line, uint32_t col, const char *fmt, va_list args);
 void error_messagef(struct source *src, uint32_t line, uint32_t col, const char *fmt, ...)
 __attribute__ ((format(printf, 4, 5)));

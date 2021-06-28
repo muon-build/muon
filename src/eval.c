@@ -84,7 +84,7 @@ cleanup:
 }
 
 bool
-eval(struct workspace *wk, struct source *src)
+eval(struct workspace *wk, struct source *src, uint32_t *obj)
 {
 	bool ret = false;
 	struct ast ast = { 0 };
@@ -102,7 +102,7 @@ eval(struct workspace *wk, struct source *src)
 	wk->src = src;
 	wk->ast = &ast;
 
-	ret = interpreter_interpret(wk);
+	ret = interp_node(wk, wk->ast->root, obj);
 
 	wk->src = old_src;
 	wk->ast = old_ast;
@@ -127,7 +127,8 @@ eval_project_file(struct workspace *wk, const char *path)
 		return false;
 	}
 
-	if (!eval(wk, &src)) {
+	uint32_t obj;
+	if (!eval(wk, &src, &obj)) {
 		goto ret;
 	}
 
