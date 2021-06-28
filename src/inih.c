@@ -56,7 +56,7 @@ each_line_cb(void *_ctx, char *line, size_t len)
 	struct each_line_ctx *ctx = _ctx;
 	char *ptr, *key, *val;
 
-	if (*line == '\0' || *line == ';') {
+	if (*line == '\0' || *line == ';' || *line == '#') {
 		goto done_with_line;
 	} else if (*line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
