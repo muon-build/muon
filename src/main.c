@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "eval.h"
+#include "machine_file.h"
 #include "external/curl.h"
 #include "external/pkgconf.h"
 #include "external/samu.h"
@@ -224,9 +225,14 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 
-	OPTSTART("D:") {
+	OPTSTART("D:m:") {
 	case 'D':
 		if (!parse_config_opt(&wk, optarg)) {
+			return false;
+		}
+		break;
+	case 'm':
+		if (!machine_file_parse(&wk, optarg)) {
 			return false;
 		}
 		break;

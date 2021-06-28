@@ -160,6 +160,24 @@ concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
 	return obj_array_foreach(wk, arr, &ctx, concat_strings_iter);
 }
 
+static const char *
+get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fallback)
+{
+	bool found;
+	uint32_t res;
+
+	if (!obj_dict_index_strn(wk, dict, k, strlen(k), &res, &found)) {
+		L(log_out, "couldn't find %s", k);
+		return fallback;
+	} else if (!found) {
+		L(log_out, "couldn't find %s", k);
+		return fallback;
+	} else {
+		L(log_out, "found %s: %s", k, wk_objstr(wk, res));
+		return wk_objstr(wk, res);
+	}
+}
+
 static void
 write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
@@ -177,7 +195,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"# Rules for compiling.\n"
 		"\n"
 		"rule c_COMPILER\n"
-		" command = cc $ARGS -MD -MQ $out -MF $DEPFILE -o $out -c $in\n"
+		" command = %s $ARGS -MD -MQ $out -MF $DEPFILE -o $out -c $in\n"
 		" deps = gcc\n"
 		" depfile = $DEPFILE_UNQUOTED\n"
 		" description = Compiling C object $out\n"
@@ -185,11 +203,11 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"# Rules for linking.\n"
 		"\n"
 		"rule STATIC_LINKER\n"
-		" command = rm -f $out && gcc-ar $LINK_ARGS $out $in\n"
+		" command = rm -f $out && %s $LINK_ARGS $out $in\n"
 		" description = Linking static target $out\n"
 		"\n"
 		"rule c_LINKER\n"
-		" command = cc $ARGS -o $out $in $LINK_ARGS\n"
+		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
 		" description = Linking target $out\n"
 		"\n"
 		"# Other rules\n"
@@ -209,6 +227,9 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"\n"
 		"# targets\n\n",
 		wk_str(wk, main_proj->cfg.name),
+		get_dict_str(wk, wk->binaries, "c", "cc"),
+		get_dict_str(wk, wk->binaries, "ar", "ar"),
+		get_dict_str(wk, wk->binaries, "c_ld", "cc"),
 		wk->argv0,
 		outpath.private_dir, PATH_SEP, outpath.setup,
 		wk_objstr(wk, sources)

@@ -49,6 +49,10 @@ struct workspace {
 
 	/* obj_array that tracks each source file eval'd */
 	uint32_t sources;
+	/* host machine dict */
+	uint32_t host_machine;
+	/* binaries dict */
+	uint32_t binaries;
 
 	struct darr projects;
 	struct darr option_overrides;

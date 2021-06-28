@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <assert.h>
 #include <string.h>
 
 #include "eval.h"
@@ -47,7 +48,7 @@ mfile_lookup(const char *val, const char *table[], uint32_t len, uint32_t *ret)
 }
 
 struct machine_file_parse_ctx {
-	struct workspace *wk;
+	struct workspace *wk, *dest_wk;
 };
 
 static bool
@@ -90,15 +91,37 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 		hash_set(&ctx->wk->scope, k, res);
 	} else {
 		hash_set(&current_project(ctx->wk)->scope, k, res);
-	}
 
-	printf("%s = %s\n", k, buf);
+		uint32_t cloned, objkey, dest_dict;
+		if (!obj_clone(ctx->wk, ctx->dest_wk, res, &cloned)) {
+			return false;
+		}
+
+		make_obj(ctx->dest_wk, &objkey, obj_string)->dat.str =
+			wk_str_push(ctx->dest_wk, k);
+
+		switch (sect) {
+		case mfile_section_binaries:
+			printf("setting binaries.%s=%s\n", k, buf);
+
+			dest_dict = ctx->dest_wk->binaries;
+			break;
+		case mfile_section_host_machine:
+			dest_dict = ctx->dest_wk->host_machine;
+			break;
+		default:
+			assert(false && "todo");
+			return false;
+		}
+
+		obj_dict_set(ctx->dest_wk, dest_dict, objkey, cloned);
+	}
 
 	return true;
 }
 
 bool
-machine_file_parse(const char *path)
+machine_file_parse(struct workspace *dest_wk, const char *path)
 {
 	bool ret = false;
 	char *ini_buf;
@@ -111,9 +134,7 @@ machine_file_parse(const char *path)
 	uint32_t id;
 	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
 
-	struct machine_file_parse_ctx ctx = {
-		.wk = &wk,
-	};
+	struct machine_file_parse_ctx ctx = { .wk = &wk, .dest_wk = dest_wk, };
 
 	if (!ini_parse(path, &ini_buf, machine_file_parse_cb, &ctx)) {
 		goto ret;

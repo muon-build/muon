@@ -1,7 +1,7 @@
 #ifndef MUON_MACHINE_FILE_H
 #define MUON_MACHINE_FILE_H
 
-#include <stdbool.h>
+#include "workspace.h"
 
-bool machine_file_parse(const char *path);
+bool machine_file_parse(struct workspace *dest_wk, const char *path);
 #endif

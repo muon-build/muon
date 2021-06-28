@@ -445,6 +445,7 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 
 	assert(get_obj(wk, dict_id)->type == obj_dict);
 
+	/* empty dict */
 	if (!(dict = get_obj(wk, dict_id))->dat.dict.len) {
 		dict->dat.dict.key = key_id;
 		dict->dat.dict.l = val_id;
@@ -453,6 +454,24 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 		return;
 	}
 
+	{ /* find previously set value */
+		uint32_t subdict = dict_id;
+		while (true) {
+			uint32_t k_id = get_obj(wk, subdict)->dat.dict.key;
+
+			if (strcmp(wk_objstr(wk, key_id), wk_objstr(wk, k_id)) == 0) {
+				get_obj(wk, subdict)->dat.dict.l = val_id;
+				return;
+			}
+
+			if (!get_obj(wk, subdict)->dat.dict.have_r) {
+				break;
+			}
+			subdict = get_obj(wk, subdict)->dat.dict.r;
+		}
+	}
+
+	/* set new value */
 	dict = make_obj(wk, &tail_id, obj_dict);
 	dict->dat.dict.key = key_id;
 	dict->dat.dict.l = val_id;
