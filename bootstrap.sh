@@ -8,7 +8,7 @@
 set -eu
 
 dir="$1"
-mkdir "$dir"
+mkdir -p "$dir"
 
 cat \
 	src/coerce.c \
