@@ -480,6 +480,8 @@ parse_e8(struct parser *p, uint32_t *id)
 
 		return true;
 	} else if (accept(p, tok_lbrack)) {
+		make_node(p, id, node_array);
+
 		if (!parse_array(p, &v)) {
 			return false;
 		}
@@ -488,9 +490,10 @@ parse_e8(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		make_node(p, id, node_array);
 		add_child(p, *id, node_child_l, v);
 	} else if (accept(p, tok_lcurl)) {
+		make_node(p, id, node_dict);
+
 		if (!parse_key_values(p, &v)) {
 			return false;
 		}
@@ -499,7 +502,6 @@ parse_e8(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		make_node(p, id, node_dict);
 		add_child(p, *id, node_child_l, v);
 	} else {
 		return parse_e9(p, id);
