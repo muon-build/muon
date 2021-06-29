@@ -151,16 +151,14 @@ check_invalid_subproject_option(struct workspace *wk)
 }
 
 static bool
-find_option_override(struct workspace *wk, uint32_t key, struct option_override **oo)
+find_option_override(struct workspace *wk, const char *key, struct option_override **oo)
 {
-	const char *strkey = wk_objstr(wk, key);
-
 	uint32_t i;
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		*oo = darr_get(&wk->option_overrides, i);
 
 		if (subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, (*oo)->proj))
-		    && strcmp(strkey, wk_str(wk, (*oo)->name)) == 0) {
+		    && strcmp(key, wk_str(wk, (*oo)->name)) == 0) {
 			return true;
 		}
 	}
@@ -366,7 +364,6 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	}
 
 	uint32_t val = 0;
-	struct option_override *oo;
 	if (akw[kw_value].set) {
 		if (!typecheck_opt(wk, akw[kw_value].node, akw[kw_value].val, type, &val)) {
 			return false;
@@ -398,7 +395,8 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		}
 	}
 
-	if (find_option_override(wk, an[0].val, &oo)) {
+	struct option_override *oo;
+	if (find_option_override(wk, wk_objstr(wk, an[0].val), &oo)) {
 		if (oo->obj_value) {
 			if (!typecheck_opt(wk, akw[kw_type].node, oo->val, type, &val)) {
 				return false;
@@ -414,7 +412,8 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		if (!obj_array_in(wk, val, akw[kw_choices].val, &res)) {
 			return false;
 		} else if (!res) {
-			interp_error(wk, akw[kw_choices].node, "combo opt value '%s' is not one of the choices", wk_objstr(wk, akw[kw_choices].val));
+			interp_error(wk, akw[kw_choices].node, "'%s' is not valid for '%s'",
+				wk_objstr(wk, val), wk_objstr(wk, an[0].val));
 			return false;
 		}
 		break;
