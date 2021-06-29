@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "filesystem.h"
+#include "functions/default/options.h"
 #include "log.h"
 #include "output.h"
 #include "path.h"
@@ -167,13 +168,10 @@ get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fal
 	uint32_t res;
 
 	if (!obj_dict_index_strn(wk, dict, k, strlen(k), &res, &found)) {
-		L(log_out, "couldn't find %s", k);
 		return fallback;
 	} else if (!found) {
-		L(log_out, "couldn't find %s", k);
 		return fallback;
 	} else {
-		L(log_out, "found %s: %s", k, wk_objstr(wk, res));
 		return wk_objstr(wk, res);
 	}
 }
@@ -495,6 +493,67 @@ struct write_tgt_ctx {
 	struct project *proj;
 };
 
+static const char *
+get_optimization_flag(struct workspace *wk, struct project *proj)
+{
+	uint32_t i;
+	static const char *lvls = "0g123";
+	static char custom[] = "-OX\0XX";
+	static struct {
+		const char *name, *flag;
+	} tbl[] = {
+		{ "plain", "-O0" },
+		{ "debug", "-g" },
+		{ "debugoptimized", "-Og" },
+		{ "release", "-O3" },
+		{ "minsize", "-Os" },
+		{ "custom", NULL },
+		{ NULL }
+	};
+
+	uint32_t buildtype, optimization, debug;
+
+	if (!get_option(wk, proj, "buildtype", &buildtype)) {
+		return NULL;
+	} else if (!get_option(wk, proj, "optimization", &optimization)) {
+		return NULL;
+	} else if (!get_option(wk, proj, "debug", &debug)) {
+		return NULL;
+	}
+
+	const char *str = wk_objstr(wk, buildtype);
+
+	L(log_out, "buildtype='%s'", str);
+
+	for (i = 0; tbl[i].name; ++i) {
+		if (strcmp(str, tbl[i].name) == 0) {
+			if (tbl[i].flag) {
+				return tbl[i].flag;
+			} else {
+				str = wk_objstr(wk, optimization);
+
+				if (strlen(str) != 1 || !strchr(lvls, *str)) {
+					LOG_W(log_out, "invalid optimization: '%s'", str);
+					return NULL;
+				}
+
+				custom[2] = *str;
+
+				if (get_obj(wk, debug)->dat.boolean) {
+					custom[3] = ' ';
+					custom[4] = '-';
+					custom[5] = 'g';
+				}
+
+				return custom;
+			}
+		}
+	}
+
+	LOG_W(log_out, "invalid build type: '%s'", wk_objstr(wk, buildtype));
+	return NULL;
+}
+
 static enum iteration_result
 write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
@@ -531,8 +590,14 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		break;
 	}
 
+	const char *opt_flag;
+	if (!(opt_flag = get_optimization_flag(wk, proj))) {
+		LOG_W(log_out, "unable to get optimization flags");
+		return ir_err;
+	}
+
 	{ /* includes */
-		ctx.args_id = wk_str_pushf(wk, "-I%s ", wk_str(wk, proj->cwd));
+		ctx.args_id = wk_str_pushf(wk, "%s -I%s ", opt_flag, wk_str(wk, proj->cwd));
 
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);

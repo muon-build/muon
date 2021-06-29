@@ -479,6 +479,20 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
+bool
+get_option(struct workspace *wk, struct project *proj, const char *name, uint32_t *obj)
+{
+	bool res;
+	if (!obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj, &res)) {
+		return false;
+	} else if (!res) {
+		LOG_W(log_misc, "tried to get value for undefined option '%s'", name);
+		return false;
+	}
+
+	return true;
+}
+
 static void
 set_option(struct workspace *wk, const char *name, enum obj_type t, ...)
 {
