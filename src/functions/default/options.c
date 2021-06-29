@@ -493,38 +493,19 @@ get_option(struct workspace *wk, struct project *proj, const char *name, uint32_
 	return true;
 }
 
-static void
-set_option(struct workspace *wk, const char *name, enum obj_type t, ...)
-{
-	uint32_t key, val;
-	make_obj(wk, &key, obj_string)->dat.str = wk_str_push(wk, name);
-	struct obj *val_obj = make_obj(wk, &val, t);
-
-	va_list ap;
-	va_start(ap, t);
-
-	switch (t) {
-	case obj_bool: {
-		val_obj->dat.boolean = va_arg(ap, int);
-		break;
-	}
-	case obj_string: {
-		val_obj->dat.str = wk_str_push(wk, va_arg(ap, char *));
-		break;
-	}
-	default:
-		assert(false && "unsupported object type");
-	}
-
-	obj_dict_set(wk, current_project(wk)->opts, key, val);
-}
-
-void
+bool
 set_default_options(struct workspace *wk)
 {
-	set_option(wk, "default_library", obj_string, "static");
-	set_option(wk, "debug", obj_bool, true);
-	set_option(wk, "mandir", obj_string, "share/man");
-	set_option(wk, "datadir", obj_string, "share");
-	set_option(wk, "prefix", obj_string, "/usr/local");
+	uint32_t obj;
+	return eval_str(wk,
+		"option('default_library', type: 'string', value: 'static')\n"
+		"option('debug', type: 'boolean', value: true)\n"
+		"option('buildtype', type: 'combo', value: 'debugoptimized',\n"
+		"\tchoices: ['plain', 'debug', 'debugoptimized', 'release', 'minsize', 'custom'])\n"
+		"option('optimization', type: 'combo', value: 'g',\n"
+		"\tchoices: ['0', 'g', '1', '2', '3', 's'])\n"
+		"option('prefix', type: 'string', value: '/usr/local')\n"
+		"option('mandir', type: 'string', value: 'share/man')\n"
+		"option('datadir', type: 'string', value: 'share')\n"
+		, &obj);
 }
