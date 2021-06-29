@@ -112,6 +112,13 @@ ret:
 }
 
 bool
+eval_str(struct workspace *wk, const char *str, uint32_t *obj)
+{
+	struct source src = { .label = "<internal>", .src = str, .len = strlen(str) };
+	return eval(wk, &src, obj);
+}
+
+bool
 eval_project_file(struct workspace *wk, const char *path)
 {
 	/* L(log_misc, "evaluating '%s'", src); */
