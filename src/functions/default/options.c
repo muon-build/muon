@@ -88,7 +88,6 @@ option_override_to_s(struct workspace *wk, struct option_override *oo)
 	return buf;
 }
 
-
 bool
 check_invalid_option_overrides(struct workspace *wk)
 {
@@ -288,6 +287,22 @@ typecheck_opt(struct workspace *wk, uint32_t err_node, uint32_t val, enum build_
 	return true;
 }
 
+static bool
+check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type type, uint32_t name, uint32_t *ret)
+{
+	uint32_t val;
+	if (!get_option(wk, darr_get(&wk->projects, 0), wk_objstr(wk, name), &val)) {
+		return true;
+	}
+
+	if (!typecheck(wk, node, val, type)) {
+		return false;
+	}
+
+	*ret = val;
+	return true;
+}
+
 bool
 func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -299,6 +314,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		kw_choices,
 		kw_max,
 		kw_min,
+		kw_yield,
 		kwargs_count
 	};
 	struct args_kw akw[] = {
@@ -308,6 +324,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		[kw_choices] = { "choices", obj_array },
 		[kw_max] = { "max", obj_number },
 		[kw_min] = { "min", obj_number },
+		[kw_yield] = { "yield", obj_bool },
 		0
 	};
 
@@ -332,13 +349,13 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	};
 
 	static const enum keyword_req keyword_validity[build_option_type_count][kwargs_count] = {
-		/*               kw_type, kw_value, kw_description, kw_choices, kw_max, kw_min, */
-		[op_string]  = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, },
-		[op_boolean] = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, },
-		[op_combo]   = { kw_req,  kw_opt,   kw_opt,         kw_req,     kw_inv, kw_inv, },
-		[op_integer] = { kw_req,  kw_req,   kw_opt,         kw_inv,     kw_opt, kw_opt, },
-		[op_array]   = { kw_req,  kw_opt,   kw_opt,         kw_opt,     kw_inv, kw_inv, },
-		[op_feature] = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, },
+		/*               kw_type, kw_value, kw_description, kw_choices, kw_max, kw_min, kw_yield */
+		[op_string]  = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, kw_opt, },
+		[op_boolean] = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, kw_opt, },
+		[op_combo]   = { kw_req,  kw_opt,   kw_opt,         kw_req,     kw_inv, kw_inv, kw_opt, },
+		[op_integer] = { kw_req,  kw_req,   kw_opt,         kw_inv,     kw_opt, kw_opt, kw_opt, },
+		[op_array]   = { kw_req,  kw_opt,   kw_opt,         kw_opt,     kw_inv, kw_inv, kw_opt, },
+		[op_feature] = { kw_req,  kw_opt,   kw_opt,         kw_inv,     kw_inv, kw_inv, kw_opt, },
 	};
 
 	uint32_t i;
@@ -402,6 +419,10 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 				return false;
 			}
 		} else if (!coerce_option_override(wk, akw[kw_type].node, type, wk_str(wk, oo->val), &val)) {
+			return false;
+		}
+	} else if (wk->cur_project != 0 && akw[kw_yield].set && get_obj(wk, akw[kw_yield].val)->dat.boolean) {
+		if (!check_superproject_option(wk, akw[kw_type].node, get_obj(wk, val)->type, an[0].val, &val)) {
 			return false;
 		}
 	}
@@ -485,7 +506,6 @@ get_option(struct workspace *wk, struct project *proj, const char *name, uint32_
 	if (!obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj, &res)) {
 		return false;
 	} else if (!res) {
-		LOG_W(log_misc, "tried to get value for undefined option '%s'", name);
 		return false;
 	}
 
@@ -497,14 +517,14 @@ set_default_options(struct workspace *wk)
 {
 	uint32_t obj;
 	return eval_str(wk,
-		"option('default_library', type: 'string', value: 'static')\n"
-		"option('debug', type: 'boolean', value: true)\n"
-		"option('buildtype', type: 'combo', value: 'debugoptimized',\n"
+		"option('default_library', yield: true, type: 'string', value: 'static')\n"
+		"option('debug', yield: true, type: 'boolean', value: true)\n"
+		"option('buildtype', yield: true, type: 'combo', value: 'debugoptimized',\n"
 		"\tchoices: ['plain', 'debug', 'debugoptimized', 'release', 'minsize', 'custom'])\n"
-		"option('optimization', type: 'combo', value: 'g',\n"
+		"option('optimization', yield: true, type: 'combo', value: 'g',\n"
 		"\tchoices: ['0', 'g', '1', '2', '3', 's'])\n"
-		"option('prefix', type: 'string', value: '/usr/local')\n"
-		"option('mandir', type: 'string', value: 'share/man')\n"
-		"option('datadir', type: 'string', value: 'share')\n"
+		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
+		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
+		"option('datadir', yield: true, type: 'string', value: 'share')\n"
 		, &obj);
 }
