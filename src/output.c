@@ -470,7 +470,7 @@ process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	if (dep->dat.dep.link_with) {
 		if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_link_with_iter)) {
-			return false;
+			return ir_err;
 		}
 	}
 
@@ -514,11 +514,11 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 	uint32_t buildtype, optimization, debug;
 
 	if (!get_option(wk, proj, "buildtype", &buildtype)) {
-		return NULL;
+		assert(false);
 	} else if (!get_option(wk, proj, "optimization", &optimization)) {
-		return NULL;
+		assert(false);
 	} else if (!get_option(wk, proj, "debug", &debug)) {
-		return NULL;
+		assert(false);
 	}
 
 	const char *str = wk_objstr(wk, buildtype);

@@ -499,7 +499,7 @@ run_command_collect_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	}
 
 	if (!arg_buf_push(wk, ctx, wk_objstr(wk, val))) {
-		return false;
+		return ir_err;
 	}
 
 	return ir_cont;
@@ -528,7 +528,8 @@ func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 		cmd_path = get_obj(wk, an[0].val)->dat.external_program.full_path;
 		break;
 	default:
-		interp_error(wk, an[0].node, "expecting string or external command, got %s", obj_type_to_s(an[0].val));
+		interp_error(wk, an[0].node, "expecting string or external command, got %s",
+			obj_type_to_s(get_obj(wk, an[0].val)->type));
 		return false;
 	}
 
