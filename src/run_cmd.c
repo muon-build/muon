@@ -19,6 +19,12 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 
+	/* L(log_misc, "child: running %s", cmd); */
+	/* char *const *ap; */
+	/* for (ap = argv; *ap; ++ap) { */
+	/* 	L(log_misc, "child: > arg '%s'", *ap); */
+	/* } */
+
 	static char out_buf[BUF_LEN] = { 0 };
 	static char err_buf[BUF_LEN] = { 0 };
 

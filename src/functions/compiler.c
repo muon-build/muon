@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <limits.h>
+#include <string.h>
 
 #include "coerce.h"
 #include "filesystem.h"
@@ -8,9 +9,13 @@
 #include "functions/compiler.h"
 #include "interpreter.h"
 #include "log.h"
+#include "output.h"
+#include "path.h"
+#include "run_cmd.h"
 
 struct func_compiler_get_supported_arguments_iter_ctx {
-	uint32_t arr, node;
+	uint32_t arr, node, compiler;
+	char *test_c, *test_o;
 };
 
 static enum iteration_result
@@ -22,15 +27,39 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 		return ir_err;
 	}
 
-	L(log_interp, "TODO: check '%s'", wk_objstr(wk, val_id));
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd(&cmd_ctx, "cc", (char *[]){
+		"cc",
+		wk_objstr(wk, val_id),
+		"-x", "c",
+		"-o", ctx->test_o,
+		"-c",
+		ctx->test_c,
+		NULL,
+	})) {
+		if (cmd_ctx.err_msg) {
+			interp_error(wk, ctx->node, "error: %s", cmd_ctx.err_msg);
+		} else {
+			interp_error(wk, ctx->node, "error: %s", strerror(cmd_ctx.err_no));
+		}
+		return ir_err;
+	}
 
-	obj_array_push(wk, ctx->arr, val_id);
+	LOG_I(log_misc, "'%s' supported: %s",
+		wk_objstr(wk, val_id),
+		cmd_ctx.status == 0 ? "YES" : "NO"
+		);
+
+	if (cmd_ctx.status == 0) {
+		obj_array_push(wk, ctx->arr, val_id);
+	}
+
 
 	return ir_cont;
 }
 
 static bool
-func_compiler_get_supported_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
 
@@ -40,8 +69,19 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t _, uint32_t
 
 	make_obj(wk, obj, obj_array);
 
+	char test_c[PATH_MAX], test_o[PATH_MAX];
+	output_private_file(wk, test_c, "test.c", "int main(void){}\n");
+
+	strcpy(test_o, test_c);
+	if (!path_add_suffix(test_o, PATH_MAX, ".o")) {
+		return false;
+	}
+
 	return obj_array_foreach(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
+		.compiler = rcvr,
+		.test_c = test_c,
+		.test_o = test_o,
 		.arr = *obj,
 		.node = an[0].node,
 	}, func_compiler_get_supported_arguments_iter);

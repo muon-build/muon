@@ -24,7 +24,6 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	}
 
 	make_obj(wk, obj, obj_compiler);
-
 	return true;
 }
 
