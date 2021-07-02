@@ -216,7 +216,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" restat = 1\n"
 		"\n"
 		"rule REGENERATE_BUILD\n"
-		" command = %s build -f -c %s%c%s\n"
+		" command = %s build -r -c %s%c%s\n"
 		" description = Regenerating build files.\n"
 		" generator = 1\n"
 		"\n"

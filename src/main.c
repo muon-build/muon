@@ -276,7 +276,7 @@ cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
 		const char *cfg;
 	} opts = { .cfg = ".muon" };
 
-	OPTSTART("c:f") {
+	OPTSTART("c:rf") {
 	case 'r':
 		// HACK this should be redesigned as soon as more than one
 		// function has command-line controllable behaviour.
