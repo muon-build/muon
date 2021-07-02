@@ -523,8 +523,6 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 
 	const char *str = wk_objstr(wk, buildtype);
 
-	L(log_out, "buildtype='%s'", str);
-
 	for (i = 0; tbl[i].name; ++i) {
 		if (strcmp(str, tbl[i].name) == 0) {
 			if (tbl[i].flag) {
