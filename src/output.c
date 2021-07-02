@@ -831,17 +831,15 @@ open_out(const char *dir, const char *name)
 }
 
 bool
-output_build(struct workspace *wk)
+output_private_file(struct workspace *wk, char dest[PATH_MAX],
+	const char *path, const char *txt)
 {
-	char muon_private[PATH_MAX];
-	if (!fs_mkdir_p(wk->build_root)) {
-		return false;
-	} else if (!path_join(muon_private, PATH_MAX, wk->build_root, outpath.private_dir)) {
-		return false;
-	} else if (!fs_mkdir_p(muon_private)) {
+	if (!path_join(dest, PATH_MAX, wk->muon_private, path)) {
 		return false;
 	}
 
+	return fs_write(dest, (uint8_t *)txt, strlen(txt));
+}
 
 bool
 output_build(struct workspace *wk)
