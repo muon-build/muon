@@ -24,6 +24,7 @@ cat \
 	src/functions/common.c \
 	src/functions/compiler.c \
 	src/functions/configuration_data.c \
+	src/functions/custom_target.c \
 	src/functions/default.c \
 	src/functions/default/configure_file.c \
 	src/functions/default/dependency.c \
@@ -34,6 +35,7 @@ cat \
 	src/functions/external_library.c \
 	src/functions/external_program.c \
 	src/functions/feature_opt.c \
+	src/functions/file.c \
 	src/functions/machine.c \
 	src/functions/meson.c \
 	src/functions/modules.c \

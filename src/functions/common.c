@@ -5,12 +5,14 @@
 #include "functions/common.h"
 #include "functions/compiler.h"
 #include "functions/configuration_data.h"
+#include "functions/custom_target.h"
 #include "functions/default.h"
 #include "functions/dependency.h"
 #include "functions/dict.h"
 #include "functions/external_library.h"
 #include "functions/external_program.h"
 #include "functions/feature_opt.h"
+#include "functions/file.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/modules.h"
@@ -277,6 +279,8 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program },
 	[obj_external_library] = { impl_tbl_external_library },
 	[obj_configuration_data] = { impl_tbl_configuration_data },
+	[obj_custom_target] = { impl_tbl_custom_target },
+	[obj_file] = { impl_tbl_file },
 };
 
 bool
