@@ -4,9 +4,11 @@
 #include <string.h>
 
 #include "eval.h"
+#include "filesystem.h"
 #include "interpreter.h"
 #include "log.h"
 #include "mem.h"
+#include "output.h"
 #include "path.h"
 #include "workspace.h"
 
@@ -346,6 +348,14 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
 		if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
 			return false;
 		}
+	}
+
+	if (!path_join(wk->muon_private, PATH_MAX, wk->build_root, outpath.private_dir)) {
+		return false;
+	}
+
+	if (!fs_mkdir_p(wk->muon_private)) {
+		return false;
 	}
 
 	return true;

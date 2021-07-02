@@ -842,13 +842,17 @@ output_build(struct workspace *wk)
 		return false;
 	}
 
+
+bool
+output_build(struct workspace *wk)
+{
 	struct output output = { 0 };
 
 	if (!(output.build_ninja = open_out(wk->build_root, "build.ninja"))) {
 		return false;
-	} else if (!(output.tests = open_out(muon_private, outpath.tests))) {
+	} else if (!(output.tests = open_out(wk->muon_private, outpath.tests))) {
 		return false;
-	} else if (!(output.opts = open_out(muon_private, outpath.setup))) {
+	} else if (!(output.opts = open_out(wk->muon_private, outpath.setup))) {
 		return false;
 	} else if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
 		return false;

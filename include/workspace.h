@@ -44,7 +44,8 @@ struct option_override {
 struct workspace {
 	char argv0[PATH_MAX],
 	     source_root[PATH_MAX],
-	     build_root[PATH_MAX];
+	     build_root[PATH_MAX],
+	     muon_private[PATH_MAX];
 
 
 	/* obj_array that tracks each source file eval'd */
