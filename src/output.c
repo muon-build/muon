@@ -293,49 +293,50 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file);
 
+	if (suffixed_by(wk_str(wk, src->dat.file), ".h")) {
+		return ir_cont;
+	}
+
 	char src_path[PATH_MAX];
 	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, wk_str(wk, src->dat.file))) {
 		return ir_err;
 	}
 
-	if (suffixed_by(wk_str(wk, src->dat.file), ".h")) {
-		wk_str_appf(wk, &ctx->order_deps_id, "%s ", src_path);
-		ctx->have_order_deps = true;
+	char rel[PATH_MAX], dest_path[PATH_MAX];
+	const char *base;
+
+	if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.build_dir),
+		wk_str(wk, src->dat.file))) {
+		base = wk_str(wk, ctx->tgt->dat.tgt.build_dir);
+	} else if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.cwd),
+		wk_str(wk, src->dat.file))) {
+		base = wk_str(wk, ctx->tgt->dat.tgt.cwd);
 	} else {
-		char rel[PATH_MAX], dest_path[PATH_MAX];
-		const char *base;
-
-		if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.build_dir),
-			wk_str(wk, src->dat.file))) {
-			base = wk_str(wk, ctx->tgt->dat.tgt.build_dir);
-		} else if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.cwd),
-			wk_str(wk, src->dat.file))) {
-			base = wk_str(wk, ctx->tgt->dat.tgt.cwd);
-		} else {
-			base = wk->source_root;
-		}
-
-		if (!path_relative_to(rel, PATH_MAX, base, wk_str(wk, src->dat.file))) {
-			return ir_err;
-		} else if (!path_join(dest_path, PATH_MAX, ctx->tgt_parts_dir, rel)) {
-			return ir_err;
-		} else if (!path_add_suffix(dest_path, PATH_MAX, ".o")) {
-			return ir_err;
-		}
-
-		wk_str_appf(wk, &ctx->object_names_id, "%s ", dest_path);
-
-		fprintf(ctx->output->build_ninja,
-			"build %s: c_COMPILER %s\n"
-			" DEPFILE = %s.d\n"
-			" DEPFILE_UNQUOTED = %s.d\n"
-			" ARGS = %s\n\n",
-			dest_path, src_path,
-			dest_path,
-			dest_path,
-			wk_str(wk, ctx->args_id)
-			);
+		base = wk->source_root;
 	}
+
+	if (!path_relative_to(rel, PATH_MAX, base, wk_str(wk, src->dat.file))) {
+		return ir_err;
+	} else if (!path_join(dest_path, PATH_MAX, ctx->tgt_parts_dir, rel)) {
+		return ir_err;
+	} else if (!path_add_suffix(dest_path, PATH_MAX, ".o")) {
+		return ir_err;
+	}
+
+	wk_str_appf(wk, &ctx->object_names_id, "%s ", dest_path);
+
+	/* TODO: add order_deps here */
+	fprintf(ctx->output->build_ninja,
+		"build %s: c_COMPILER %s %s\n"
+		" DEPFILE = %s.d\n"
+		" DEPFILE_UNQUOTED = %s.d\n"
+		" ARGS = %s\n\n",
+		dest_path, src_path,
+		ctx->have_order_deps ? wk_str(wk, ctx->order_deps_id) : "",
+		dest_path,
+		dest_path,
+		wk_str(wk, ctx->args_id)
+		);
 
 	return ir_cont;
 }
@@ -353,13 +354,18 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	char dir[PATH_MAX], path[PATH_MAX];
 
-	if (!path_dirname(dir, PATH_MAX, wk_str(wk, src->dat.file))) {
-		return ir_err;
-	} else if (!path_relative_to(path, PATH_MAX, wk->build_root, dir)) {
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, wk_str(wk, src->dat.file))) {
 		return ir_err;
 	}
 
-	wk_str_appf(wk, &ctx->args_id, "-I%s ", path);
+	wk_str_appf(wk, &ctx->order_deps_id, "%s ", path);
+	ctx->have_order_deps = true;
+
+	if (!path_dirname(dir, PATH_MAX, path)) {
+		return ir_err;
+	}
+
+	wk_str_appf(wk, &ctx->args_id, "-I%s ", dir);
 
 	return ir_cont;
 }
@@ -551,7 +557,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		.tgt = tgt,
 		.output = output,
 		.tgt_parts_dir = path,
-		.implicit_deps_id = wk_str_push(wk, ""),
+		.implicit_deps_id = wk_str_push(wk, "| "),
+		.order_deps_id = wk_str_push(wk, "|| "),
 	};
 
 	const char *rule;
@@ -625,7 +632,6 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	}
 
 	{ /* sources */
-		ctx.order_deps_id = wk_str_push(wk, "|| ");
 		ctx.object_names_id = wk_str_push(wk, "");
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_sources_iter)) {
 			return ir_err;
@@ -640,7 +646,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-	fprintf(output->build_ninja, "build %s: %s %s | %s %s"
+	fprintf(output->build_ninja, "build %s: %s %s %s %s"
 		"\n LINK_ARGS = %s\n\n",
 		path,
 		rule,
