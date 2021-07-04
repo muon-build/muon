@@ -125,6 +125,7 @@ path_chdir(const char *path)
 	}
 
 	if (chdir(cwd) < 0) {
+		LOG_W(log_misc, "failed chdir(%s): %s", cwd, strerror(errno));
 		return false;
 	}
 
