@@ -28,7 +28,7 @@ fs_stat(const char *path, struct stat *sb)
 bool
 fs_exists(const char *path)
 {
-	return access(path, F_OK) != 0;
+	return access(path, F_OK) == 0;
 }
 
 bool
