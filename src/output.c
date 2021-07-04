@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "external/samu.h"
 #include "filesystem.h"
 #include "functions/default/options.h"
 #include "log.h"
@@ -22,7 +23,6 @@ struct concat_strings_ctx {
 
 struct output {
 	FILE *build_ninja,
-	     *compile_commands_json,
 	     *tests,
 	     *opts;
 	bool compile_commands_comma;
@@ -334,27 +334,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			dest_path,
 			dest_path,
 			wk_str(wk, ctx->args_id)
-			);
-
-
-		if (ctx->output->compile_commands_comma) {
-			fputs(",\n", ctx->output->compile_commands_json);
-		} else {
-			ctx->output->compile_commands_comma = true;
-		}
-
-		fprintf(ctx->output->compile_commands_json,
-			"  {\n"
-			"    \"directory\": \"%s\",\n"
-			"    \"command\": \"cc %s -o %s -c %s\",\n"
-			"    \"file\": \"%s\",\n"
-			"    \"output\": \"%s\"\n"
-			"  }",
-			wk->build_root,
-			wk_str(wk, ctx->args_id),
-			dest_path, src_path,
-			src_path,
-			dest_path
 			);
 	}
 
@@ -852,14 +831,10 @@ output_build(struct workspace *wk)
 		return false;
 	} else if (!(output.opts = open_out(wk->muon_private, outpath.setup))) {
 		return false;
-	} else if (!(output.compile_commands_json = open_out(wk->build_root, "compile_commands.json"))) {
-		return false;
 	}
 
 	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
 	write_opts(output.opts, wk);
-
-	fputs("[\n", output.compile_commands_json);
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -868,16 +843,23 @@ output_build(struct workspace *wk)
 		}
 	}
 
-	fputs("\n]\n", output.compile_commands_json);
-
 	if (!fs_fclose(output.build_ninja)) {
 		return false;
 	} else if (!fs_fclose(output.tests)) {
 		return false;
 	} else if (!fs_fclose(output.opts)) {
 		return false;
-	} else if (!fs_fclose(output.compile_commands_json)) {
-		return false;
+	}
+
+	if (have_samu) {
+		char compile_commands[PATH_MAX];
+		if (!path_join(compile_commands, PATH_MAX, wk->build_root, "compile_commands.json")) {
+			return false;
+		}
+
+		if (!muon_samu_compdb(wk->build_root, compile_commands)) {
+			return false;
+		}
 	}
 
 	return true;
