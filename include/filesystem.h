@@ -24,4 +24,6 @@ FILE *fs_fopen(const char *path, const char *mode);
 bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
 bool fs_find_cmd(const char *cmd, const char **ret);
 void fs_source_destroy(struct source *src);
+bool fs_redirect(const char *path, const char *mode, int fd, int *old_fd);
+bool fs_redirect_restore(int fd, int old_fd);
 #endif

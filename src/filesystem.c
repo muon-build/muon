@@ -246,7 +246,6 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 	return true;
 }
 
-
 bool
 fs_find_cmd(const char *cmd, const char **ret)
 {
@@ -301,4 +300,64 @@ fs_find_cmd(const char *cmd, const char **ret)
 	}
 
 	return false;
+}
+
+
+bool
+fs_dup2(int oldfd, int newfd)
+{
+	if ((dup2(oldfd, newfd)) == -1) {
+		LOG_W(log_misc, "failed dup2(%d, %d): %s", oldfd, newfd, strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+fs_fileno(FILE *f, int *ret)
+{
+	int v;
+
+	if ((v = fileno(f)) == -1) {
+		LOG_W(log_misc, "failed fileno: %s", strerror(errno));
+		return false;
+	}
+
+	*ret = v;
+	return true;
+}
+
+bool
+fs_redirect(const char *path, const char *mode, int fd, int *old_fd)
+{
+	FILE *out;
+	int out_fd;
+
+	if ((*old_fd = dup(fd)) == -1) {
+		LOG_W(log_misc, "failed dup(%d): %s", fd, strerror(errno));
+		return false;
+	} else if (!(out = fs_fopen(path, mode))) {
+		return false;
+	} else if (!fs_fileno(out, &out_fd)) {
+		return false;
+	} else if (!fs_dup2(out_fd, fd)) {
+		return false;
+	} else if (!fs_fclose(out)) {
+		return false;
+	}
+
+	return true;
+}
+
+bool
+fs_redirect_restore(int fd, int old_fd)
+{
+	if (!fs_dup2(old_fd, fd)) {
+		return false;
+	} else if (close(old_fd) == -1) {
+		LOG_W(log_misc, "failed close(%d): %s", old_fd, strerror(errno));
+		return false;
+	}
+	return true;
 }
