@@ -59,7 +59,7 @@ func_dependency_version(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 	uint32_t version = get_obj(wk, rcvr)->dat.dep.version;
 
 	if (version) {
-		make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, wk_str(wk, version));
+		make_obj(wk, obj, obj_string)->dat.str = version;
 		return true;
 	}
 
@@ -70,6 +70,6 @@ func_dependency_version(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 const struct func_impl_name impl_tbl_dependency[] = {
 	{ "found", func_dependency_found },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
-	{ "version", func_dependency_version},
+	{ "version", func_dependency_version },
 	{ NULL, NULL },
 };
