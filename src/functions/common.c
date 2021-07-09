@@ -345,6 +345,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 
 		if (!func_lookup(impl_tbl, name, &func)) {
 			interp_error(wk, name_node, "function %s not found", name);
+			return false;
 		}
 	}
 
