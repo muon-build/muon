@@ -12,10 +12,17 @@
 #include "path.h"
 #include "workspace.h"
 
+enum id_tag {
+	id_tag_obj = 0x0,
+	id_tag_str = 0x1,
+};
+
 struct obj *
 get_obj(struct workspace *wk, uint32_t id)
 {
-	return bucket_array_get(&wk->objs, id);
+	assert(((id & id_tag_obj) == id_tag_obj) && "wk_str passed to get_obj");
+
+	return bucket_array_get(&wk->objs, id >> 1);
 }
 
 bool
@@ -38,7 +45,7 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
-	*id = wk->objs.len;
+	*id = ((wk->objs.len) << 1) | id_tag_obj;
 	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
 }
 
@@ -124,7 +131,7 @@ _str_push(struct workspace *wk)
 
 	/* L(log_interp, "%d, '%s'", ret, buf); */
 
-	return ret;
+	return (ret << 1) | id_tag_str;
 }
 
 uint32_t
@@ -166,21 +173,27 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 }
 
 static void
-_str_app(struct workspace *wk, uint32_t *id)
+_str_app(struct workspace *wk, uint32_t *_id)
 {
 	uint32_t curlen, cur_end, new_id;
 
-	curlen = strlen(wk_str(wk, *id)) + 1;
-	cur_end = *id + curlen;
+	assert(((*_id & id_tag_str) == id_tag_str) && "obj passed as wk_str");
+
+	uint32_t id = (*_id >> 1);
+
+	curlen = strlen(wk_str(wk, *_id)) + 1;
+	cur_end = id + curlen;
 
 	if (cur_end != wk->strs.len) {
 		/* L(log_misc, "moving '%s' to the end of pool (%d, %d)", wk_str(wk, *id), cur_end, curlen); */
 		new_id = wk->strs.len;
 		darr_grow_by(&wk->strs, curlen);
-		memcpy(&wk->strs.e[new_id], wk_str(wk, *id), curlen);
-		*id = new_id;
+		memcpy(&wk->strs.e[new_id], wk_str(wk, *_id), curlen);
+		id = new_id;
 		/* L(log_misc, "result: '%s'", wk_str(wk, *id)); */
 	}
+
+	*_id = (id << 1) | id_tag_str;
 
 	assert(wk->strs.len);
 	--wk->strs.len;
@@ -219,9 +232,13 @@ wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 char *
 wk_str(struct workspace *wk, uint32_t id)
 {
-	if (id == 0) {
+	if ((id >> 1) == 0) {
 		return NULL;
 	}
+
+	assert(((id & id_tag_str) == id_tag_str) && "obj passed as wk_str");
+	id >>= 1;
+
 	return darr_get(&wk->strs, id);
 }
 
@@ -288,7 +305,7 @@ workspace_init(struct workspace *wk)
 
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
-	assert(id == 0);
+	assert((id >> 1) == 0);
 
 	make_obj(wk, &id, obj_meson);
 	hash_set(&wk->scope, "meson", id);
