@@ -15,7 +15,7 @@
 struct obj *
 get_obj(struct workspace *wk, uint32_t id)
 {
-	return darr_get(&wk->objs, id);
+	return bucket_array_get(&wk->objs, id);
 }
 
 bool
@@ -38,8 +38,8 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
-	*id = darr_push(&wk->objs, &(struct obj){ .type = type });
-	return darr_get(&wk->objs, *id);
+	*id = wk->objs.len;
+	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
 }
 
 uint32_t
@@ -280,10 +280,11 @@ workspace_init(struct workspace *wk)
 	*wk = (struct workspace){ 0 };
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
-	darr_init(&wk->objs, 1024, sizeof(struct obj));
 	darr_init(&wk->strs, 2048, sizeof(char));
 	darr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init(&wk->scope, 32);
+
+	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
 
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
@@ -324,10 +325,11 @@ workspace_destroy(struct workspace *wk)
 
 	darr_destroy(&wk->projects);
 	darr_destroy(&wk->option_overrides);
-	darr_destroy(&wk->objs);
 	darr_destroy(&wk->strs);
 	darr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
+
+	bucket_array_destroy(&wk->objs);
 
 	z_free(wk->strbuf);
 }

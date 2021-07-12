@@ -5,6 +5,7 @@
 
 #include <limits.h>
 
+#include "bucket_array.h"
 #include "darr.h"
 #include "eval.h"
 #include "hash.h"
@@ -55,11 +56,13 @@ struct workspace {
 	/* binaries dict */
 	uint32_t binaries;
 
+	struct darr strs;
+	struct bucket_array objs;
+
 	struct darr projects;
 	struct darr option_overrides;
-	struct darr objs;
-	struct darr strs;
 	struct darr source_data;
+
 	struct hash scope;
 
 	uint32_t loop_depth;

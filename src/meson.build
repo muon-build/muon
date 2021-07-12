@@ -1,6 +1,7 @@
 # sources
 
 src = files([
+	'bucket_array.c',
 	'coerce.c',
 	'darr.c',
 	'eval.c',

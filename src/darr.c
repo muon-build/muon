@@ -114,7 +114,6 @@ darr_grow_to(struct darr *da, size_t size)
 	}
 }
 
-
 size_t
 darr_push(struct darr *da, const void *item)
 {

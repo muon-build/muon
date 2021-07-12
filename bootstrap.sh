@@ -11,6 +11,7 @@ dir="$1"
 mkdir -p "$dir"
 
 cat \
+	src/bucket_array.c \
 	src/coerce.c \
 	src/darr.c \
 	src/eval.c \
