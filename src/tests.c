@@ -100,7 +100,7 @@ tests_run(const char *build_root)
 			log_plain("%s", cmd_ctx.err);
 			ret = false;
 		} else {
-			LOG_I(log_misc, "%s - succes", test_parser.name);
+			LOG_I(log_misc, "%s - success", test_parser.name);
 		}
 	}
 

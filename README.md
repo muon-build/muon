@@ -49,6 +49,10 @@ bootstrap/muon setup build
 ninja -C build
 ```
 
+## Contributing
+
+Please refer to the contributing [guide](https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md) before sending patches.
+
 ## Credits
 
 Although I had already had the idea to re-implement meson in C, I was initially

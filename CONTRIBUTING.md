@@ -37,7 +37,7 @@ All errors that can be checked, should be checked.  If an error is detected, an
 error message should be printed using `interp_error`, or if there is no source
 code associated with the error, `LOG_W`.  The error should be immediately
 returned.  Most functions returning  a `bool` return `false` on error.  The most
-common type other type of error returning function has the return type
+common other type of error returning function has the return type
 `enum iteration_result`.  These functions should return `ir_err` on error.
 
 ## Meson functions
