@@ -77,6 +77,9 @@ darr_get_mem(struct darr *da)
 	if (da->len > da->cap) {
 		assert(da->cap);
 		newcap = da->cap * 2;
+		if (newcap < da->len) {
+			newcap = da->len * 2;
+		}
 
 #ifndef NDEBUG
 		if (!da->secondary) {
