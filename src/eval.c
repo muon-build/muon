@@ -150,7 +150,9 @@ ret:
 void
 source_data_destroy(struct source_data *sdata)
 {
-	z_free(sdata->data);
+	if (sdata->data) {
+		z_free(sdata->data);
+	}
 }
 
 void
