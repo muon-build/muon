@@ -436,6 +436,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
 	uint32_t meth_id, args, c_id = 0;
 	bool have_c = false;
+	struct token *start_tok = p->last;
 
 	if (!parse_e9(p, &meth_id)) {
 		return false;
@@ -453,6 +454,12 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 
 	if (have_l) {
 		add_child(p, *id, node_child_l, l_id);
+	}
+
+	if (get_node(p->ast, meth_id)->type == node_empty) {
+		p->last = start_tok;
+		parse_error(p, "missing method name");
+		return false;
 	}
 
 	add_child(p, *id, node_child_r, meth_id);
