@@ -248,7 +248,11 @@ number(struct lexer *lexer, struct token *tok)
 	errno = 0;
 	int64_t val = strtol(&lexer->src[lexer->i], &endptr, base);
 
-	assert(endptr && endptr != &lexer->src[lexer->i]);
+	assert(endptr);
+	if (endptr == &lexer->src[lexer->i]) {
+		lex_error(lexer, "invalid number");
+		return lex_fail;
+	}
 
 	if (errno == ERANGE) {
 		if (val == LONG_MIN) {
