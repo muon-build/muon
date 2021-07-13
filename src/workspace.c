@@ -127,6 +127,8 @@ _str_push(struct workspace *wk)
 	ret = wk->strs.len;
 
 	darr_grow_by(&wk->strs, len);
+
+	/* LOG_I(log_interp, "pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
 	memcpy(darr_get(&wk->strs, ret), wk->strbuf, len);
 
 	/* L(log_interp, "%d, '%s'", ret, buf); */
@@ -154,7 +156,7 @@ uint32_t
 wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
 {
 	uint32_t len = vsnprintf(NULL, 0, fmt,  args);
-	grow_strbuf(wk, len);
+	grow_strbuf(wk, len + 1);
 	vsprintf(wk->strbuf, fmt,  args);
 
 	return _str_push(wk);
@@ -222,7 +224,7 @@ wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	uint32_t len = vsnprintf(NULL, 0, fmt, args);
-	grow_strbuf(wk, len);
+	grow_strbuf(wk, len + 1);
 	vsprintf(wk->strbuf, fmt, args);
 	va_end(args);
 
