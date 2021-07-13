@@ -747,6 +747,16 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 bool
 interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 {
+	static const uint32_t maximum_stack_depth = 1000;
+
+	++wk->stack_depth;
+	if (wk->stack_depth > maximum_stack_depth) {
+		interp_error(wk, n_id, "stack too deep");
+		--wk->stack_depth;
+		return false;
+	}
+
+	bool ret;
 	struct obj *obj;
 	*obj_id = 0;
 
@@ -754,6 +764,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	/* L(log_interp, "%s", node_to_s(n)); */
 	if (wk->loop_ctl) {
+		--wk->stack_depth;
 		return true;
 	}
 
@@ -762,83 +773,109 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case node_bool:
 		obj = make_obj(wk, obj_id, obj_bool);
 		obj->dat.boolean = n->subtype;
-		return true;
+		ret = true;
+		break;
 	case node_format_string: // TODO fallthrough for now :)
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
 		obj->dat.str = wk_str_push(wk, n->dat.s);
-		return true;
+		ret = true;
+		break;
 	case node_array:
-		return interp_array(wk, n->l, obj_id);
+		ret = interp_array(wk, n->l, obj_id);
+		break;
 	case node_dict:
-		return interp_dict(wk, n->l, obj_id);
+		ret = interp_dict(wk, n->l, obj_id);
+		break;
 	case node_id:
 		if (!get_obj_id(wk, n->dat.s, obj_id, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
-			return false;
+			ret = false;
+			break;
 		}
-		return true;
+		ret = true;
+		break;
 	case node_number:
 		obj = make_obj(wk, obj_id, obj_number);
 		obj->dat.num = n->dat.n;
-		return true;
+		ret = true;
+		break;
 
 	/* control flow */
 	case node_block:
-		return interp_block(wk, n, obj_id);
+		ret = interp_block(wk, n, obj_id);
+		break;
 	case node_if:
-		return interp_if(wk, n, obj_id);
+		ret = interp_if(wk, n, obj_id);
+		break;
 	case node_foreach:
-		return interp_foreach(wk, n, obj_id);
+		ret = interp_foreach(wk, n, obj_id);
+		break;
 	case node_continue:
 		if (!wk->loop_depth) {
 			LOG_W(log_interp, "continue outside loop");
-			return false;
+			ret = false;
+			break;
 		}
 		wk->loop_ctl = loop_continuing;
+		ret = true;
 		break;
 	case node_break:
 		if (!wk->loop_depth) {
 			LOG_W(log_interp, "break outside loop");
-			return false;
+			ret = false;
+			break;
 		}
 		wk->loop_ctl = loop_breaking;
+		ret = true;
 		break;
 
 	/* functions */
 	case node_function:
-		return interp_func(wk, n_id, obj_id);
+		ret = interp_func(wk, n_id, obj_id);
+		break;
 	case node_method:
 	case node_index: {
 		uint32_t l_id;
 		assert(n->chflg & node_child_l);
 
 		if (!interp_node(wk, n->l, &l_id)) {
-			return false;
+			ret = false;
+			break;
 		}
 
-		return interp_chained(wk, n_id, l_id, obj_id);
+		ret = interp_chained(wk, n_id, l_id, obj_id);
+		break;
 	}
 
 	/* assignment */
 	case node_assignment:
-		return interp_assign(wk, n, obj_id);
+		ret = interp_assign(wk, n, obj_id);
+		break;
 
 	/* comparison stuff */
 	case node_not:
-		return interp_not(wk, n, obj_id);
+		ret = interp_not(wk, n, obj_id);
+		break;
 	case node_and:
 	case node_or:
-		return interp_andor(wk, n, obj_id);
+		ret = interp_andor(wk, n, obj_id);
+		break;
 	case node_comparison:
-		return interp_comparison(wk, n, obj_id);
-	case node_ternary: break; // TODO
+		ret = interp_comparison(wk, n, obj_id);
+		break;
+	case node_ternary:
+		LOG_W(log_misc, "ternary not yet implemented");
+		ret = false;
+		break;
 
 	/* math */
 	case node_u_minus:
-		return interp_u_minus(wk, n, obj_id);
+		ret = interp_u_minus(wk, n, obj_id);
+		break;
 	case node_arithmetic:
-		return interp_arithmetic(wk, n_id, obj_id);
+		ret = interp_arithmetic(wk, n_id, obj_id);
+		break;
 
 	/* handled in other places */
 	case node_foreach_args:
@@ -846,13 +883,17 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		assert(false && "unreachable");
 		break;
 
-	case node_empty: return true;
+	case node_empty:
+		ret = true;
+		break;
 
 	/* never valid */
 	case node_null:
 		LOG_W(log_interp, "bug in the interpreter: encountered null node");
-		return false;
+		ret = false;
+		break;
 	}
 
-	return true;
+	--wk->stack_depth;
+	return ret;
 }

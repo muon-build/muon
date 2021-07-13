@@ -65,7 +65,7 @@ struct workspace {
 
 	struct hash scope;
 
-	uint32_t loop_depth;
+	uint32_t stack_depth, loop_depth;
 	enum loop_ctl loop_ctl;
 
 	uint32_t cur_project;
