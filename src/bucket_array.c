@@ -81,4 +81,6 @@ bucket_array_destroy(struct bucket_array *ba)
 
 		z_free(b->mem);
 	}
+
+	darr_destroy(&ba->buckets);
 }
