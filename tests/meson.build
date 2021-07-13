@@ -1,5 +1,6 @@
 tests = [
 	'unicode.meson',
+	'badnum.meson',
 	'dict.meson',
 	'join_paths.meson',
 	'katie.meson',
