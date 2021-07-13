@@ -111,7 +111,7 @@ static void
 grow_strbuf(struct workspace *wk, uint32_t len)
 {
 	if (len >= wk->strbuf_cap) {
-		LOG_W(log_misc, "growing strbuf: %d", len);
+		L(log_mem, "growing strbuf: %d", len);
 		wk->strbuf_cap = len + 1;
 		wk->strbuf = z_realloc(wk->strbuf, len);
 	}
