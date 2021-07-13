@@ -127,7 +127,7 @@ _str_push(struct workspace *wk)
 	ret = wk->strs.len;
 
 	darr_grow_by(&wk->strs, len);
-	strncpy(darr_get(&wk->strs, ret), wk->strbuf, len);
+	memcpy(darr_get(&wk->strs, ret), wk->strbuf, len);
 
 	/* L(log_interp, "%d, '%s'", ret, buf); */
 
