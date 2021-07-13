@@ -229,12 +229,20 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			res = l + r;
 			break;
 		case arith_div:
+			if (!r) {
+				interp_error(wk, n->r, "divide by 0");
+				return false;
+			}
 			res = l / r;
 			break;
 		case arith_sub:
 			res = l - r;
 			break;
 		case arith_mod:
+			if (!r) {
+				interp_error(wk, n->r, "divide by 0");
+				return false;
+			}
 			res = l % r;
 			break;
 		case arith_mul:
