@@ -26,7 +26,6 @@ obj_type_to_s(enum obj_type t)
 	case obj_file: return "file";
 	case obj_build_target: return "build_target";
 	case obj_subproject: return "subproject";
-	case obj_function: return "function";
 	case obj_machine: return "machine";
 	case obj_feature_opt: return "feature_opt";
 	case obj_external_program: return "external_program";

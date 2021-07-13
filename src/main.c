@@ -115,7 +115,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
-	if (!parser_parse(&ast, &sdata, &src, language_external)) {
+	if (!parser_parse(&ast, &sdata, &src)) {
 		goto ret;
 	}
 

@@ -1,0 +1,5 @@
+foreach i : [1, 2, 3, 4, 5, 6, 7]
+	str = 'hello, world \u2713'
+	msg = '\x1b[3' + i.to_string() + 'm' + str + '\x1b[0m'
+	message(msg)
+endforeach

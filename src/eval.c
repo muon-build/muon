@@ -94,7 +94,7 @@ eval(struct workspace *wk, struct source *src, uint32_t *obj)
 	struct source_data *sdata =
 		darr_get(&wk->source_data, darr_push(&wk->source_data, &(struct source_data) { 0 }));
 
-	if (!parser_parse(&ast, sdata, src, wk->lang_mode)) {
+	if (!parser_parse(&ast, sdata, src)) {
 		goto ret;
 	}
 

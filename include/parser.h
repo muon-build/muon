@@ -64,8 +64,6 @@ enum node_type {
 	node_u_minus,
 	node_ternary,
 	node_block,
-	/* internal language node */
-	node_function_definition,
 };
 
 enum node_child_flag {
@@ -89,7 +87,7 @@ struct ast {
 	uint32_t root;
 };
 
-bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src, enum language_mode lang_mode);
+bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src);
 void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);

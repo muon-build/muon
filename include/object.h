@@ -24,7 +24,6 @@ enum obj_type {
 	obj_custom_target,
 	obj_subproject,
 	obj_dependency,
-	obj_function,
 	obj_feature_opt,
 	obj_machine,
 	obj_external_program,

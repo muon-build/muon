@@ -52,7 +52,6 @@ node_type_to_s(enum node_type t)
 	case node_u_minus: return "u_minus";
 	case node_ternary: return "ternary";
 	case node_block: return "block";
-	case node_function_definition: return "def";
 	}
 
 	assert(false && "unreachable");
@@ -947,46 +946,6 @@ parse_foreach(struct parser *p, uint32_t *id)
 }
 
 static bool
-parse_function_definition(struct parser *p, uint32_t *id)
-{
-	struct node *n;
-	uint32_t name_id, args_id, block_id;
-
-	if (!expect(p, tok_identifier)) {
-		return false;
-	}
-
-	n = make_node(p, &name_id, node_id);
-
-	if (!expect(p, tok_lparen)) {
-		return false;
-	}
-
-	if (!parse_args(p, &args_id)) {
-		return false;
-	}
-
-	if (!expect(p, tok_rparen)) {
-		return false;
-	}
-
-	if (!expect(p, tok_eol)) {
-		return false;
-	}
-
-	if (!parse_block(p, &block_id)) {
-		return false;
-	}
-
-	make_node(p, id, node_function_definition);
-	add_child(p, *id, node_child_l, name_id);
-	add_child(p, *id, node_child_r, args_id);
-	add_child(p, *id, node_child_c, block_id);
-
-	return true;
-}
-
-static bool
 parse_line(struct parser *p, uint32_t *id)
 {
 	if (p->last->type == tok_eol) {
@@ -1001,11 +960,6 @@ parse_line(struct parser *p, uint32_t *id)
 			return false;
 		}
 		return expect(p, tok_endforeach);
-	} else if (accept(p, tok_def)) {
-		if (!parse_function_definition(p, id)) {
-			return false;
-		}
-		return expect(p, tok_end);
 	} else if (accept(p, tok_continue)) {
 		make_node(p, id, node_continue);
 	} else if (accept(p, tok_break)) {
@@ -1061,13 +1015,12 @@ parse_block(struct parser *p, uint32_t *id)
 }
 
 bool
-parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
-	enum language_mode lang_mode)
+parser_parse(struct ast *ast, struct source_data *sdata, struct source *src)
 {
 	bool ret = false;
 	struct tokens toks;
 
-	if (!lexer_lex(&toks, sdata, src, lang_mode)) {
+	if (!lexer_lex(&toks, sdata, src)) {
 		goto ret;
 	}
 

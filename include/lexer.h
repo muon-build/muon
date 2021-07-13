@@ -54,10 +54,6 @@ enum token_type {
 	tok_continue,
 	tok_break,
 
-	/* internal keywords */
-	tok_def,
-	tok_end,
-
 	/* literals */
 	tok_identifier,
 	tok_string,
@@ -76,8 +72,7 @@ struct tokens {
 	struct darr tok;
 };
 
-bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
-	enum language_mode lang_mode);
+bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src);
 void tokens_destroy(struct tokens *toks);
 
 const char *tok_type_to_s(enum token_type type);

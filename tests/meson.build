@@ -1,5 +1,5 @@
 tests = [
-	'test.meson',
+	'unicode.meson',
 	'dict.meson',
 	'join_paths.meson',
 	'katie.meson',

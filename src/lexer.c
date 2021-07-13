@@ -19,7 +19,6 @@ enum lex_result {
 };
 
 struct lexer {
-	enum language_mode lang_mode;
 	struct tokens *toks;
 	struct source *source;
 	struct source_data *sdata;
@@ -73,8 +72,6 @@ tok_type_to_s(enum token_type type)
 	case tok_identifier: return "identifier";
 	case tok_string: return "string";
 	case tok_number: return "number";
-	case tok_def: return "def";
-	case tok_end: return "end";
 	case tok_question_mark: return "?";
 	}
 
@@ -198,16 +195,7 @@ keyword(struct lexer *lexer, const char *id, uint32_t len, enum token_type *res)
 		{ 0 },
 	};
 
-	static const struct kw_table internal_keywords[] = {
-		{ "def", tok_def },
-		{ "end", tok_end },
-		{ 0 },
-	};
-
 	if (kw_lookup(keywords, id, len, res)) {
-		return true;
-	} else if (lexer->lang_mode == language_internal
-		   && kw_lookup(internal_keywords, id, len, res)) {
 		return true;
 	}
 
@@ -692,13 +680,11 @@ done:
 }
 
 bool
-lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
-	enum language_mode lang_mode)
+lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src)
 {
 	*toks = (struct tokens) { 0 };
 
 	struct lexer lexer = {
-		.lang_mode = lang_mode,
 		.source = src,
 		.line = 1,
 		.src = src->src,
