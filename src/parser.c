@@ -601,11 +601,18 @@ parse_e6(struct parser *p, uint32_t *id)
 		t = node_u_minus;
 	}
 
+	struct token *op_tok = p->last_last;
+
 	if (!(parse_e7(p, &l_id))) {
 		return false;
 	}
 
 	if (t) {
+		if (get_node(p->ast, l_id)->type == node_empty) {
+			p->last = op_tok;
+			parse_error(p, "missing operand to unary operator");
+			return false;
+		}
 		make_node(p, id, t);
 		add_child(p, *id, node_child_l, l_id);
 	} else {
@@ -633,8 +640,12 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 		return false;
 	}
 
+	struct token *op_tok = NULL;
+
 	for (i = map_start; i < map_end; ++i) {
 		if (accept(p, map[i])) {
+			op_tok = p->last_last;
+
 			if (!(parse_arith(p, &r_id, parse_upper, map_start, map_end))) {
 				return false;
 			}
@@ -643,6 +654,18 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 	}
 
 	if (i != map_end) {
+		switch (get_node(p->ast, l_id)->type) {
+		case node_empty:
+		case node_arithmetic:
+			if (op_tok) {
+				p->last = op_tok;
+			}
+			parse_error(p, "missing operand to binary operator");
+			return false;
+		default:
+			break;
+		}
+
 		n = make_node(p, id, node_arithmetic);
 		n->subtype = i;
 		add_child(p, *id, node_child_l, l_id);
