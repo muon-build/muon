@@ -246,7 +246,7 @@ wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
 	grow_strbuf(wk, l + 1);
 	strcpy(wk->strbuf, str);
 
-	return _str_app(wk, id);
+	_str_app(wk, id);
 }
 
 void

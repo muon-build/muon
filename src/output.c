@@ -619,6 +619,9 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		rule = "STATIC_LINKER";
 		ctx.link_args_id = wk_str_push(wk, "csrD");
 		break;
+	default:
+		assert(false);
+		return ir_err;
 	}
 
 	const char *opt_flag;

@@ -221,6 +221,9 @@ node_to_s(struct node *n)
 		case arith_div:
 			s = "/";
 			break;
+		default:
+			assert(false);
+			return NULL;
 		}
 
 		i += snprintf(&buf[i], BUF_SIZE - i, " op '%s'", s);
@@ -928,13 +931,12 @@ parse_foreach_args(struct parser *p, uint32_t *id, uint32_t d)
 {
 	uint32_t l_id, r_id;
 	bool have_r = false;
-	struct node *n;
 
 	if (!expect(p, tok_identifier)) {
 		return false;
 	}
 
-	n = make_node(p, &l_id, node_id);
+	make_node(p, &l_id, node_id);
 
 	if (d <= 0 && accept(p, tok_comma)) {
 		have_r = true;

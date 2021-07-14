@@ -7,7 +7,7 @@ struct outpath {
 	const char *private_dir, *setup, *tests;
 };
 
-const extern struct outpath outpath;
+extern const struct outpath outpath;
 
 bool output_build(struct workspace *wk);
 bool output_private_file(struct workspace *wk, char dest[PATH_MAX],

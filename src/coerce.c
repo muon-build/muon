@@ -146,6 +146,10 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 			}
 
 			path = wk_str_push(wk, buf);
+			break;
+		default:
+			assert(false);
+			return ir_err;
 		}
 
 		uint32_t file;

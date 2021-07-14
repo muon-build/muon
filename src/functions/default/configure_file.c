@@ -56,7 +56,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	out_buf = z_malloc(out_cap);
 
 	uint32_t i, id_start, id_end = 0,
-		 line = 1, start_of_line = 0, id_start_col, id_start_line;
+		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
 	bool reading_id = false;
 	uint32_t elem;
 	bool found;

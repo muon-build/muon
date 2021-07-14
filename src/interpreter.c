@@ -248,6 +248,9 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		case arith_mul:
 			res = l * r;
 			break;
+		default:
+			assert(false);
+			return false;
 		}
 
 		make_obj(wk, obj_id, obj_number)->dat.num = res;
@@ -595,6 +598,9 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 	case if_else:
 		cond = true;
 		break;
+	default:
+		assert(false);
+		return false;
 	}
 
 	if (cond) {
@@ -756,7 +762,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		return false;
 	}
 
-	bool ret;
+	bool ret = false;
 	struct obj *obj;
 	*obj_id = 0;
 

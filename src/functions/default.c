@@ -300,6 +300,9 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		pref = "lib";
 		suff = ".a";
 		break;
+	default:
+		assert(false);
+		return false;
 	}
 
 	struct obj *tgt = make_obj(wk, obj, obj_build_target);
