@@ -78,6 +78,7 @@ struct workspace {
 
 	char *strbuf;
 	uint32_t strbuf_cap;
+	uint32_t strbuf_len;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);

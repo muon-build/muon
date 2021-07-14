@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <limits.h>
+#include <stdlib.h> // exit
 #include <string.h>
 
 #include "eval.h"
@@ -153,6 +154,18 @@ source_data_destroy(struct source_data *sdata)
 	if (sdata->data) {
 		z_free(sdata->data);
 	}
+}
+
+void
+error_unrecoverable(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	log_plainv(fmt, ap);
+	log_plain("\n");
+	va_end(ap);
+
+	exit(1);
 }
 
 void

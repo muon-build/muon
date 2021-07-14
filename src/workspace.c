@@ -45,6 +45,10 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
+	if (wk->objs.len > UINT32_MAX >> 1) {
+		error_unrecoverable("object overflow");
+	}
+
 	*id = ((wk->objs.len) << 1) | id_tag_obj;
 	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
 }
@@ -99,17 +103,13 @@ wk_str_push_stripped(struct workspace *wk, const char *s)
 	}
 	++len;
 
-	/* while (*s && !(*s == ' ' || *s == '\n')) { */
-	/* 	++s; */
-	/* 	++len; */
-	/* } */
-
 	return wk_str_pushn(wk, s, len);
 }
 
 static void
 grow_strbuf(struct workspace *wk, uint32_t len)
 {
+	wk->strbuf_len = len;
 	if (len >= wk->strbuf_cap) {
 		L(log_mem, "growing strbuf: %d", len);
 		wk->strbuf_cap = len + 1;
@@ -121,17 +121,20 @@ grow_strbuf(struct workspace *wk, uint32_t len)
 uint32_t
 _str_push(struct workspace *wk)
 {
-	uint32_t len, ret;
+	uint32_t ret;
 
-	len = strlen(wk->strbuf) + 1;
 	ret = wk->strs.len;
 
-	darr_grow_by(&wk->strs, len);
+	darr_grow_by(&wk->strs, wk->strbuf_len);
 
 	/* LOG_I(log_interp, "pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
-	memcpy(darr_get(&wk->strs, ret), wk->strbuf, len);
+	memcpy(darr_get(&wk->strs, ret), wk->strbuf, wk->strbuf_len);
 
 	/* L(log_interp, "%d, '%s'", ret, buf); */
+
+	if (ret > UINT32_MAX >> 1) {
+		error_unrecoverable("string overflow");
+	}
 
 	return (ret << 1) | id_tag_str;
 }
@@ -139,6 +142,10 @@ _str_push(struct workspace *wk)
 uint32_t
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
+	if (n >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
 	grow_strbuf(wk, n + 1);
 	strncpy(wk->strbuf, str, n);
 	wk->strbuf[n] = 0;
@@ -149,13 +156,25 @@ wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 uint32_t
 wk_str_push(struct workspace *wk, const char *str)
 {
-	return wk_str_pushn(wk, str, strlen(str));
+	size_t l = strlen(str);
+	if (l >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
+	grow_strbuf(wk, l + 1);
+	strcpy(wk->strbuf, str);
+
+	return _str_push(wk);
 }
 
 uint32_t
 wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
 {
 	uint32_t len = vsnprintf(NULL, 0, fmt,  args);
+	if (len >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
 	grow_strbuf(wk, len + 1);
 	vsprintf(wk->strbuf, fmt,  args);
 
@@ -205,6 +224,10 @@ _str_app(struct workspace *wk, uint32_t *_id)
 void
 wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
 {
+	if (n >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
 	grow_strbuf(wk, n + 1);
 	strncpy(wk->strbuf, str, n);
 	wk->strbuf[n] = 0;
@@ -215,7 +238,15 @@ wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
 void
 wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
 {
-	wk_str_appn(wk, id, str, strlen(str));
+	size_t l = strlen(str);
+	if (l >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
+	grow_strbuf(wk, l + 1);
+	strcpy(wk->strbuf, str);
+
+	return _str_app(wk, id);
 }
 
 void
@@ -223,7 +254,12 @@ wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
+
 	uint32_t len = vsnprintf(NULL, 0, fmt, args);
+	if (len >= UINT32_MAX) {
+		error_unrecoverable("string overflow");
+	}
+
 	grow_strbuf(wk, len + 1);
 	vsprintf(wk->strbuf, fmt, args);
 	va_end(args);
