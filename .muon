@@ -1,4 +1,8 @@
 setup(
 	'build',
-	options: { 'samu': 'enabled' },
+	options: {
+		'c_std': 'c11',
+		'buildtype': 'debugoptimized',
+		'samu': 'enabled'
+	},
 )
