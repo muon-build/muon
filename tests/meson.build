@@ -1,12 +1,23 @@
 tests = [
-	'unicode.meson',
-	'badnum.meson',
-	'dict.meson',
-	'join_paths.meson',
-	'katie.meson',
-	'join.meson',
+	{ 'name': 'unicode.meson', },
+	{ 'name': 'badnum.meson', 'should_fail': true },
+	{ 'name': 'dict.meson', },
+	{ 'name': 'join_paths.meson', },
+	{ 'name': 'katie.meson', },
+	{ 'name': 'join.meson', },
 ]
 
 foreach t : tests
-	test(t, muon, args: ['internal', 'eval'] + files([t]))
+	if 'should_fail' in t
+		should_fail = t['should_fail']
+	else
+		should_fail = false
+	endif
+
+	test(
+		t['name'],
+		muon,
+		args: ['internal', 'eval'] + files([t['name']]),
+		should_fail: should_fail
+	)
 endforeach
