@@ -626,10 +626,12 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	enum kwargs {
 		kw_args,
 		kw_workdir,
+		kw_should_fail,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", obj_array, },
-		[kw_workdir] = { "workdir", obj_string, },
+		[kw_workdir] = { "workdir", obj_string, }, // TODO
+		[kw_should_fail] = { "should_fail", obj_bool, },
 		0
 	};
 
@@ -647,6 +649,9 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	test->dat.test.name = an[0].val;
 	test->dat.test.exe = exe;
 	test->dat.test.args = akw[kw_args].val;
+	test->dat.test.should_fail =
+		akw[kw_should_fail].set
+		&& get_obj(wk, akw[kw_should_fail].val)->dat.boolean;
 
 	obj_array_push(wk, current_project(wk)->tests, test_id);
 	return true;

@@ -134,6 +134,7 @@ struct obj {
 			uint32_t name;
 			uint32_t exe;
 			uint32_t args;
+			bool should_fail;
 		} test;
 		uint32_t module;
 	} dat;

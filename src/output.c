@@ -9,6 +9,7 @@
 #include "log.h"
 #include "output.h"
 #include "path.h"
+#include "tests.h"
 #include "workspace.h"
 
 const struct outpath outpath = {
@@ -769,6 +770,14 @@ write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
 {
 	struct write_tgt_ctx *ctx = _ctx;
 	struct obj *t = get_obj(wk, test);
+
+	uint32_t test_flags = 0;
+
+	if (t->dat.test.should_fail) {
+		test_flags |= test_flag_should_fail;
+	}
+
+	fs_fwrite(&test_flags, sizeof(uint32_t), ctx->output->tests);
 
 	fputs(wk_objstr(wk, t->dat.test.name), ctx->output->tests);
 	fputc(0, ctx->output->tests);
