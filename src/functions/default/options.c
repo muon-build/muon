@@ -523,8 +523,14 @@ set_default_options(struct workspace *wk)
 		"\tchoices: ['plain', 'debug', 'debugoptimized', 'release', 'minsize', 'custom'])\n"
 		"option('optimization', yield: true, type: 'combo', value: 'g',\n"
 		"\tchoices: ['0', 'g', '1', '2', '3', 's'])\n"
+		"option('warning_level', yield: true, type: 'integer', value: 3,\n"
+		"\tmin: 0, max: 3)\n"
+		"option('c_std', yield: true, type: 'combo', value: 'none',\n"
+		"\tchoices: ['none', 'c89', 'c99', 'c11', 'c17', 'c18', 'c2x', 'gnu89', 'gnu99',"
+		" 'gnu11', 'gnu17', 'gnu18', 'gnu2x'])\n"
 		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
 		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
 		"option('datadir', yield: true, type: 'string', value: 'share')\n"
+
 		, &obj);
 }

@@ -538,6 +538,52 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 	return NULL;
 }
 
+static const char *
+get_warning_flag(struct workspace *wk, struct project *proj)
+{
+	uint32_t lvl;
+
+	if (!get_option(wk, proj, "warning_level", &lvl)) {
+		assert(false);
+	}
+
+	assert(get_obj(wk, lvl)->type == obj_number);
+
+	switch (get_obj(wk, lvl)->dat.num) {
+	case 0:
+		return "";
+	case 1:
+		return "-Wall";
+	case 2:
+		return "-Wall -Wextra";
+	case 3:
+		return "-Wall -Wextra -Wpedantic";
+	default:
+		assert(false);
+		return NULL;
+	}
+}
+
+static const char *
+get_std_flag(struct workspace *wk, struct project *proj)
+{
+	uint32_t std;
+
+	if (!get_option(wk, proj, "c_std", &std)) {
+		assert(false);
+	}
+
+	static char buf[BUF_SIZE + 1] = { 0 };
+	const char *s = wk_objstr(wk, std);
+
+	if (strcmp(s, "none") == 0) {
+		return "";
+	} else {
+		snprintf(buf, BUF_SIZE, "-std=%s", s);
+		return buf;
+	}
+}
+
 static enum iteration_result
 write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
@@ -581,8 +627,22 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
+	const char *warning_flag;
+	if (!(warning_flag = get_warning_flag(wk, proj))) {
+		LOG_W(log_out, "unable to get warning flags");
+		return ir_err;
+	}
+
+	const char *c_std;
+	if (!(c_std = get_std_flag(wk, proj))) {
+		LOG_W(log_out, "unable to get std flag");
+		return ir_err;
+	}
+
+	/* default arguments */
+	ctx.args_id = wk_str_pushf(wk, "%s %s %s -I%s ", c_std, opt_flag, warning_flag, wk_str(wk, proj->cwd));
+
 	{ /* includes */
-		ctx.args_id = wk_str_pushf(wk, "%s -I%s ", opt_flag, wk_str(wk, proj->cwd));
 
 		if (tgt->dat.tgt.include_directories) {
 			struct obj *inc = get_obj(wk, tgt->dat.tgt.include_directories);
