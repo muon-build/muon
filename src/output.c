@@ -490,7 +490,7 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 	} tbl[] = {
 		{ "plain", "-O0" },
 		{ "debug", "-g" },
-		{ "debugoptimized", "-Og" },
+		{ "debugoptimized", "-g -Og" },
 		{ "release", "-O3" },
 		{ "minsize", "-Os" },
 		{ "custom", NULL },
