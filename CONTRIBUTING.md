@@ -26,6 +26,8 @@ Muon uses a style similar to the linux kernel.  A few differences are:
 - never omit braces for single statement if, else, for, while,  etc.
 - avoid function-like macros except in exceptional cases
 - it is OK (but not great) if your line is more than 80 characters
+- please use fixed-width integer types (e.g. `uint32_t`, `uint64_t`, `uint8_t`)
+  whenever possible
 
 In general, just try to follow the style of surrounding code.
 
