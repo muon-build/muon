@@ -8,6 +8,10 @@ enum format_cb_result {
 	format_cb_error,
 };
 
+struct version {
+	uint32_t major, minor, patch;
+};
+
 typedef enum format_cb_result ((*string_format_cb)(struct workspace *wk, uint32_t node, void *ctx, const char *key, uint32_t *elem));
 
 bool string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, void *ctx, string_format_cb cb);

@@ -5,6 +5,7 @@ tests = [
 	{ 'name': 'join_paths.meson', },
 	{ 'name': 'katie.meson', },
 	{ 'name': 'join.meson', },
+	{ 'name': 'version_compare.meson', },
 ]
 
 foreach t : tests
