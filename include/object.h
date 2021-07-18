@@ -34,6 +34,9 @@ enum obj_type {
 	obj_module,
 
 	obj_type_count,
+
+	ARG_TYPE_NULL = 1000,
+	ARG_TYPE_GLOB = 1001,
 };
 
 enum tgt_type {
