@@ -204,7 +204,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	}
 
 	if (read != src->len) {
-		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, src->len);
+		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, (intmax_t)src->len);
 		z_free(buf);
 		return false;
 	}

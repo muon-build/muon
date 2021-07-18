@@ -195,7 +195,7 @@ node_to_s(struct node *n)
 		i += snprintf(&buf[i], BUF_SIZE - i, ":'%s'", n->dat.s);
 		break;
 	case node_number:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%ld", n->dat.n);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%ld", (intmax_t)n->dat.n);
 		break;
 	case node_argument:
 		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");

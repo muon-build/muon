@@ -643,7 +643,7 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, id));
 		break;
 	case obj_number:
-		ctx.i += snprintf(buf, len, "%ld", get_obj(wk, id)->dat.num);
+		ctx.i += snprintf(buf, len, "%ld", (intmax_t)get_obj(wk, id)->dat.num);
 		break;
 	case obj_bool:
 		if (get_obj(wk, id)->dat.boolean) {

@@ -35,7 +35,7 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
 	assert(arr->type == obj_array);
 
 	if (labs(*i) >= arr->dat.arr.len) {
-		interp_error(wk, n_id, "index %ld out of bounds", *i);
+		interp_error(wk, n_id, "index %ld out of bounds", (intmax_t)*i);
 		return false;
 	}
 

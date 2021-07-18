@@ -13,7 +13,7 @@ func_number_to_string(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 	}
 
 	struct obj *str = make_obj(wk, obj, obj_string);
-	str->dat.str = wk_str_pushf(wk, "%ld", get_obj(wk, rcvr)->dat.num);
+	str->dat.str = wk_str_pushf(wk, "%ld", (intmax_t)get_obj(wk, rcvr)->dat.num);
 
 	return true;
 }

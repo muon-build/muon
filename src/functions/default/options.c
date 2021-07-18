@@ -441,12 +441,12 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	}
 	case op_integer: {
 		if (akw[kw_max].set && get_obj(wk, val)->dat.num > get_obj(wk, akw[kw_max].val)->dat.num) {
-			interp_error(wk, akw[kw_max].node, "value %ld is too large", get_obj(wk, val)->dat.num);
+			interp_error(wk, akw[kw_max].node, "value %ld is too large", (intmax_t)get_obj(wk, val)->dat.num);
 			return false;
 		}
 
 		if (akw[kw_min].set && get_obj(wk, val)->dat.num < get_obj(wk, akw[kw_min].val)->dat.num) {
-			interp_error(wk, akw[kw_min].node, "value %ld is too small", get_obj(wk, val)->dat.num);
+			interp_error(wk, akw[kw_min].node, "value %ld is too small", (intmax_t)get_obj(wk, val)->dat.num);
 			return false;
 		}
 		break;
