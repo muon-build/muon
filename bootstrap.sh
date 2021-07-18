@@ -63,6 +63,6 @@ cat \
 	src/version.c.in \
 	src/workspace.c \
 	src/wrap.c \
-	| cc -g -Iinclude $(pkgconf --cflags libpkgconf) -x c -o "$dir/muon.o" -c -
+	| cc ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -x c -o "$dir/muon.o" -c -
 
-cc "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
+cc ${LDFLAGS:-} $(pkgconf --libs libpkgconf) "$dir/muon.o" -o "$dir/muon"
