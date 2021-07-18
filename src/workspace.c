@@ -400,7 +400,7 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
 
 	if (path_is_basename(argv0)) {
 		assert(strlen(argv0) < PATH_MAX);
-		strncpy(wk->argv0, argv0, PATH_MAX);
+		memcpy(wk->argv0, argv0, PATH_MAX);
 	} else {
 		if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
 			return false;
