@@ -36,7 +36,10 @@ obj_type_to_s(enum obj_type t)
 	case obj_test: return "test";
 	case obj_module: return "module";
 
-	case obj_type_count: assert(false); return "uh oh";
+	case obj_type_count:
+	case ARG_TYPE_NULL:
+	case ARG_TYPE_GLOB:
+			assert(false); return "uh oh";
 	}
 
 	assert(false && "unreachable");
