@@ -7,7 +7,7 @@
 
 #define OPTSTART(optstring) \
 	signed char opt; \
-	optind = 0; \
+	optind = 1; \
 	while ((opt = getopt(argc - argi, &argv[argi], optstring "h")) != -1) { \
 		switch (opt) {
 #define OPTEND(usage_pre, usage_post, usage_opts, commands) \
