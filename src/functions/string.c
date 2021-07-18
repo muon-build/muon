@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "functions/common.h"
 #include "functions/string.h"
 #include "interpreter.h"
@@ -181,8 +182,6 @@ func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint3
 	return true;
 }
 
-#define BUF_LEN 2048
-
 static bool
 func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -193,12 +192,12 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	}
 
 	uint32_t i, start = 0, seplen, s_id;
-	static char sep[BUF_LEN + 1] = { 0 };
+	static char sep[BUF_SIZE_2k + 1] = { 0 };
 
 	if (ao[0].set) {
-		strncpy(sep, wk_objstr(wk, ao[0].val), BUF_LEN);
+		strncpy(sep, wk_objstr(wk, ao[0].val), BUF_SIZE_2k);
 	} else {
-		strncpy(sep, " ", BUF_LEN);
+		strncpy(sep, " ", BUF_SIZE_2k);
 	}
 	seplen = strlen(sep);
 
@@ -257,17 +256,17 @@ str_to_uint32(struct workspace *wk, uint32_t error_node, const char *s, uint32_t
 	return true;
 }
 
-#define MAX_VER_BUF_LEN 64
+#define MAX_VER_BUF_SIZE_2k 64
 
 static bool
 str_to_version(struct workspace *wk, uint32_t error_node, struct version *v, const char *str)
 {
-	char buf[MAX_VER_BUF_LEN];
+	char buf[MAX_VER_BUF_SIZE_2k];
 	uint32_t n = 0;
 	size_t j = 0;
 	uint32_t num = 0;
 	for (size_t i = 0; str[i]; i++) {
-		if (!(j < MAX_VER_BUF_LEN)) {
+		if (!(j < MAX_VER_BUF_SIZE_2k)) {
 			interp_error(wk, error_node, "exceeded maximum buffer length when parsing semantic version");
 			return false;
 		}
@@ -294,7 +293,7 @@ str_to_version(struct workspace *wk, uint32_t error_node, struct version *v, con
 		j++;
 	}
 
-	if (j < MAX_VER_BUF_LEN) {
+	if (j < MAX_VER_BUF_SIZE_2k) {
 		buf[j] = '\0';
 	}
 

@@ -22,8 +22,6 @@ func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 	return true;
 }
 
-#define BUF_LEN 2048
-
 static bool
 func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
 	uint32_t args_node, uint32_t *obj)

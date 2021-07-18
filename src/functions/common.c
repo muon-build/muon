@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
 #include "functions/configuration_data.h"
@@ -63,14 +64,12 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 	return true;
 }
 
-#define BUF_SIZE 2048
-
 const char *
 arity_to_s(struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
+	static char buf[BUF_SIZE_2k + 1] = { 0 };
 
 	uint32_t i, bufi = 0;
 
@@ -78,13 +77,13 @@ arity_to_s(struct args_norm positional_args[],
 		return "no args";
 	}
 
-	bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, "(signature: ");
+	bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "(signature: ");
 
 	if (positional_args) {
 		for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
 		}
 
-		bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, "%d positional", i);
+		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d positional", i);
 	}
 
 	if (optional_positional_args) {
@@ -92,9 +91,9 @@ arity_to_s(struct args_norm positional_args[],
 		}
 
 		if (bufi) {
-			bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, ", ");
+			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ", ");
 		}
-		bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, "%d optional", i);
+		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d optional", i);
 	}
 
 	if (keyword_args) {
@@ -102,12 +101,12 @@ arity_to_s(struct args_norm positional_args[],
 		}
 
 		if (bufi) {
-			bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, ", ");
+			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ", ");
 		}
-		bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, "%d keyword", i);
+		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d keyword", i);
 	}
 
-	bufi += snprintf(&buf[bufi], BUF_SIZE - bufi, ")");
+	bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ")");
 
 	return buf;
 }

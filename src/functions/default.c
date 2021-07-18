@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "coerce.h"
 #include "eval.h"
 #include "filesystem.h"
@@ -464,8 +465,6 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
-#define MAX_ARGS 32
-#define ARG_BUF_SIZE 4096
 struct run_command_collect_args_ctx {
 	char buf[ARG_BUF_SIZE];
 	char *argv[MAX_ARGS + 1];
@@ -577,15 +576,21 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		return false;
 	}
 
-	char src[PATH_MAX + 1] = { 0 };
+	char src[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
 
 	uint32_t old_cwd = current_project(wk)->cwd;
 	uint32_t old_build_dir = current_project(wk)->build_dir;
 
-	current_project(wk)->cwd = wk_str_pushf(wk, "%s/%s", wk_str(wk, old_cwd), wk_objstr(wk, an[0].val));
-	current_project(wk)->build_dir = wk_str_pushf(wk, "%s/%s", wk_str(wk, old_build_dir), wk_objstr(wk, an[0].val));
+	if (!path_join(cwd, PATH_MAX, wk_str(wk, old_cwd), wk_objstr(wk, an[0].val))) {
+		return false;
+	} else if (!path_join(build_dir, PATH_MAX, wk_str(wk, old_build_dir), wk_objstr(wk, an[0].val))) {
+		return false;
+	} else if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
+		return false;
+	}
 
-	snprintf(src, PATH_MAX, "%s/meson.build", wk_str(wk, current_project(wk)->cwd));
+	current_project(wk)->cwd = wk_str_push(wk, cwd);
+	current_project(wk)->build_dir = wk_str_push(wk, build_dir);
 
 	bool ret = eval_project_file(wk, src);
 	current_project(wk)->cwd = old_cwd;

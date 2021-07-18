@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "filesystem.h"
 #include "log.h"
 #include "mem.h"
@@ -10,8 +11,6 @@
 #include "path.h"
 #include "run_cmd.h"
 #include "tests.h"
-
-#define MAX_ARGS 64
 
 struct test_parser {
 	struct source src;

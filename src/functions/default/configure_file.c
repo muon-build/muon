@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "coerce.h"
 #include "filesystem.h"
 #include "functions/common.h"
@@ -11,17 +12,14 @@
 #include "mem.h"
 #include "path.h"
 
-#define GROW_SIZE 2048
-#define TMP_BUF_LEN 1024
-
 static void
 buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 {
 	if (*i + len >= *cap) {
-		if (len > GROW_SIZE) {
+		if (len > BUF_SIZE_2k) {
 			*cap += len;
 		} else {
-			*cap += GROW_SIZE;
+			*cap += BUF_SIZE_2k;
 		}
 
 		*buf = z_realloc(*buf, *cap);
@@ -60,7 +58,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	bool reading_id = false;
 	uint32_t elem;
 	bool found;
-	char tmp_buf[TMP_BUF_LEN] = { 0 };
+	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
 		if (src.src[i] == '\n') {

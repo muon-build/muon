@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "external/samu.h"
 #include "filesystem.h"
 #include "functions/default/options.h"
@@ -29,17 +30,15 @@ struct output {
 	bool compile_commands_comma;
 };
 
-#define BUF_SIZE 2048
-
 static bool
 concat_str(struct workspace *wk, uint32_t *dest, const char *s)
 {
-	if (strlen(s) >= BUF_SIZE) {
+	if (strlen(s) >= BUF_SIZE_2k) {
 		LOG_W(log_out, "string too long in concat strings: '%s'", s);
 		return false;
 	}
 
-	static char buf[BUF_SIZE + 2] = { 0 };
+	static char buf[BUF_SIZE_2k + 2] = { 0 };
 	uint32_t i = 0;
 	bool quote = false;
 
@@ -573,13 +572,13 @@ get_std_flag(struct workspace *wk, struct project *proj)
 		assert(false);
 	}
 
-	static char buf[BUF_SIZE + 1] = { 0 };
+	static char buf[BUF_SIZE_2k + 1] = { 0 };
 	const char *s = wk_objstr(wk, std);
 
 	if (strcmp(s, "none") == 0) {
 		return "";
 	} else {
-		snprintf(buf, BUF_SIZE, "-std=%s", s);
+		snprintf(buf, BUF_SIZE_2k, "-std=%s", s);
 		return buf;
 	}
 }

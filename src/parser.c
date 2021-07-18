@@ -1,15 +1,15 @@
 #include "posix.h"
 
+#include <limits.h>
 #include <stdarg.h>
 
+#include "buf_size.h"
 #include "eval.h"
 #include "lexer.h"
 #include "log.h"
 #include "parser.h"
 
-#define PATH_MAX 4096
 #define NODE_MAX_CHILDREN 4
-#define BUF_SIZE 255
 
 const uint32_t arithmetic_type_count = 5;
 
@@ -72,9 +72,9 @@ const char *
 source_location(struct ast *ast, uint32_t id)
 {
 	struct node *n = get_node(ast, id);
-	static char buf[BUF_SIZE + 1];
+	static char buf[BUF_SIZE_S + 1];
 
-	snprintf(buf, BUF_SIZE, "line: %d, col: %d", n->line, n->col);
+	snprintf(buf, BUF_SIZE_S, "line: %d, col: %d", n->line, n->col);
 
 	return buf;
 }
@@ -182,26 +182,26 @@ add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_
 const char *
 node_to_s(struct node *n)
 {
-	static char buf[BUF_SIZE + 1];
+	static char buf[BUF_SIZE_S + 1];
 	uint32_t i = 0;
 
-	i += snprintf(&buf[i], BUF_SIZE - i, "%s", node_type_to_s(n->type));
+	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s", node_type_to_s(n->type));
 
 	switch (n->type) {
 	case node_id:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->dat.s);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->dat.s);
 		break;
 	case node_string:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":'%s'", n->dat.s);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", n->dat.s);
 		break;
 	case node_number:
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%ld", (intmax_t)n->dat.n);
 		break;
 	case node_argument:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");
 		break;
 	case node_if:
-		i += snprintf(&buf[i], BUF_SIZE - i, ":%s", n->subtype == if_normal ? "normal" : "else");
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == if_normal ? "normal" : "else");
 		break;
 	case node_arithmetic: {
 		const char *s;
@@ -226,7 +226,7 @@ node_to_s(struct node *n)
 			return NULL;
 		}
 
-		i += snprintf(&buf[i], BUF_SIZE - i, " op '%s'", s);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, " op '%s'", s);
 		break;
 	}
 	default:

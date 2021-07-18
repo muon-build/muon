@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "eval.h"
 #include "filesystem.h"
 #include "lexer.h"
@@ -90,19 +91,18 @@ lex_error(struct lexer *l, const char *fmt, ...)
 	va_end(args);
 }
 
-#define BUF_LEN 256
 const char *
 tok_to_s(struct token *tok)
 {
-	static char buf[BUF_LEN + 1];
+	static char buf[BUF_SIZE_S + 1];
 	uint32_t i;
 
-	i = snprintf(buf, BUF_LEN, "%s", tok_type_to_s(tok->type));
+	i = snprintf(buf, BUF_SIZE_S, "%s", tok_type_to_s(tok->type));
 	if (tok->n) {
-		i += snprintf(&buf[i], BUF_LEN - i, ":'%s'", tok->dat.s);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", tok->dat.s);
 	}
 
-	i += snprintf(&buf[i], BUF_LEN - i, " line %d, col: %d", tok->line, tok->col);
+	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", tok->line, tok->col);
 
 	return buf;
 }

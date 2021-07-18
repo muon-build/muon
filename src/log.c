@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "log.h"
 
 static char *log_level_clr[log_level_count] = {
@@ -51,8 +52,6 @@ static struct {
 	uint32_t opts;
 } log_cfg = { .level = log_info, };
 
-#define BUF_LEN 4096
-
 static bool
 should_print(enum log_level lvl, enum log_filter type)
 {
@@ -65,7 +64,7 @@ void
 log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 	enum log_filter type, const char *fmt, ...)
 {
-	static char buf[BUF_LEN + 3];
+	static char buf[BUF_SIZE_4k + 3];
 
 	if (should_print(lvl, type)) {
 		uint32_t len = 0;
@@ -73,17 +72,17 @@ log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 		assert(log_cfg.initialized);
 
 		if (log_cfg.clr) {
-			len += snprintf(&buf[len], BUF_LEN - len, "\033[%sm%s\033[0m",
+			len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
 				log_level_clr[lvl], log_level_name[lvl]);
 		} else {
 			len = strlen(log_level_name[lvl]);
-			strncpy(buf, log_level_name[lvl], BUF_LEN);
+			strncpy(buf, log_level_name[lvl], BUF_SIZE_4k);
 		}
 
 		if (type != log_misc) {
 			buf[len] = ':';
 			++len;
-			strncpy(&buf[len], log_filter_name[type], BUF_LEN - len);
+			strncpy(&buf[len], log_filter_name[type], BUF_SIZE_4k - len);
 			len += strlen(log_filter_name[type]);
 		}
 
@@ -92,20 +91,20 @@ log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 
 		if (log_cfg.opts & log_show_source) {
 			if (log_cfg.clr) {
-				len += snprintf(&buf[len], BUF_LEN - len,
+				len += snprintf(&buf[len], BUF_SIZE_4k - len,
 					"%s:%d [\033[35m%s\033[0m] ", file, line, func);
 			} else {
-				len += snprintf(&buf[len], BUF_LEN - len,
+				len += snprintf(&buf[len], BUF_SIZE_4k - len,
 					"%s:%d [%s] ", file, line, func);
 			}
 		}
 
 		va_list ap;
 		va_start(ap, fmt);
-		len += vsnprintf(&buf[len], BUF_LEN - len, fmt, ap);
+		len += vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
 		va_end(ap);
 
-		if (len < BUF_LEN) {
+		if (len < BUF_SIZE_4k) {
 			buf[len] = '\n';
 			buf[len + 1] = 0;
 		}

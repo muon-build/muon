@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "functions/common.h"
 #include "functions/default/options.h"
 #include "interpreter.h"
@@ -58,18 +59,16 @@ subproj_name_matches(struct workspace *wk, uint32_t subproj_name, const char *te
 
 }
 
-#define BUF_SIZE 2048
-
 static const char *
 option_override_to_s(struct workspace *wk, struct option_override *oo)
 {
-	static char buf[BUF_SIZE + 1] = { 0 };
-	char buf1[BUF_SIZE / 2];
+	static char buf[BUF_SIZE_2k + 1] = { 0 };
+	char buf1[BUF_SIZE_2k / 2];
 
 	const char *val;
 
 	if (oo->obj_value) {
-		if (obj_to_s(wk, oo->val, buf1, BUF_SIZE / 2)) {
+		if (obj_to_s(wk, oo->val, buf1, BUF_SIZE_2k / 2)) {
 			val = buf1;
 		} else {
 			val = "<object>";
@@ -78,7 +77,7 @@ option_override_to_s(struct workspace *wk, struct option_override *oo)
 		val = wk_str(wk, oo->val);
 	}
 
-	snprintf(buf, BUF_SIZE, "%s%s%s=%s",
+	snprintf(buf, BUF_SIZE_2k, "%s%s%s=%s",
 		oo->proj ? wk_str(wk, oo->proj) : "",
 		oo->proj ? ":" : "",
 		wk_str(wk, oo->name),

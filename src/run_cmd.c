@@ -7,10 +7,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "buf_size.h"
 #include "log.h"
 #include "run_cmd.h"
-
-#define BUF_LEN 1048576ul // 1mb
 
 bool
 run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
@@ -25,11 +24,11 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	/* 	L(log_misc, "child: > arg '%s'", *ap); */
 	/* } */
 
-	static char out_buf[BUF_LEN] = { 0 };
-	static char err_buf[BUF_LEN] = { 0 };
+	static char out_buf[BUF_SIZE_1m] = { 0 };
+	static char err_buf[BUF_SIZE_1m] = { 0 };
 
-	memset(out_buf, 0, BUF_LEN);
-	memset(err_buf, 0, BUF_LEN);
+	memset(out_buf, 0, BUF_SIZE_1m);
+	memset(err_buf, 0, BUF_SIZE_1m);
 
 	if (pipe(pipefd_out) == -1) {
 		ctx->err_no = errno;
@@ -91,8 +90,8 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
 
-		read(pipefd_out[0], out_buf, BUF_LEN);
-		read(pipefd_err[0], err_buf, BUF_LEN);
+		read(pipefd_out[0], out_buf, BUF_SIZE_1m);
+		read(pipefd_err[0], err_buf, BUF_SIZE_1m);
 
 		ctx->out = out_buf;
 		ctx->err = err_buf;
