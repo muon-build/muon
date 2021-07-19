@@ -130,7 +130,7 @@ _str_push(struct workspace *wk)
 	/* LOG_I(log_interp, "pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
 	memcpy(darr_get(&wk->strs, ret), wk->strbuf, wk->strbuf_len);
 
-	/* L(log_interp, "%d, '%s'", ret, buf); */
+	/* L(log_interp, "%d, '%s'", ret, wk->strbuf); */
 
 	if (ret > UINT32_MAX >> 1) {
 		error_unrecoverable("string overflow");
@@ -168,26 +168,25 @@ wk_str_push(struct workspace *wk, const char *str)
 }
 
 uint32_t
-wk_str_vpushf(struct workspace *wk, const char *fmt, va_list args)
+wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 {
-	uint32_t len = vsnprintf(NULL, 0, fmt,  args);
+	uint32_t ret, len;
+	va_list args, args_copy;
+	va_start(args, fmt);
+	va_copy(args_copy, args);
+
+	len = vsnprintf(NULL, 0, fmt,  args_copy);
+
 	if (len >= UINT32_MAX) {
 		error_unrecoverable("string overflow");
 	}
 
 	grow_strbuf(wk, len + 1);
-	vsprintf(wk->strbuf, fmt,  args);
+	vsprintf(wk->strbuf, fmt, args);
 
-	return _str_push(wk);
-}
+	ret = _str_push(wk);
 
-uint32_t
-wk_str_pushf(struct workspace *wk, const char *fmt, ...)
-{
-	uint32_t ret;
-	va_list args;
-	va_start(args, fmt);
-	ret = wk_str_vpushf(wk, fmt, args);
+	va_end(args_copy);
 	va_end(args);
 
 	return ret;
@@ -252,16 +251,21 @@ wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
 void
 wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
-	va_list args;
+	uint32_t len;
+	va_list args, args_copy;
 	va_start(args, fmt);
+	va_copy(args_copy, args);
 
-	uint32_t len = vsnprintf(NULL, 0, fmt, args);
+	len = vsnprintf(NULL, 0, fmt, args_copy);
+
 	if (len >= UINT32_MAX) {
 		error_unrecoverable("string overflow");
 	}
 
 	grow_strbuf(wk, len + 1);
 	vsprintf(wk->strbuf, fmt, args);
+
+	va_end(args_copy);
 	va_end(args);
 
 	_str_app(wk, id);
