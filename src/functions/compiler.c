@@ -30,6 +30,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd(&cmd_ctx, "cc", (char *[]){
 		"cc",
+		"-Werror",
 		wk_objstr(wk, val_id),
 		"-x", "c",
 		"-o", ctx->test_o,
