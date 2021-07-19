@@ -82,6 +82,7 @@ struct workspace {
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
+uint32_t make_str(struct workspace *wk, const char *str);
 struct obj *get_obj(struct workspace *wk, uint32_t id);
 bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj);
 

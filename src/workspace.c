@@ -54,6 +54,14 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 }
 
 uint32_t
+make_str(struct workspace *wk, const char *str)
+{
+	uint32_t id;
+	make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, str);
+	return id;
+}
+
+uint32_t
 wk_str_split(struct workspace *wk, const char *s, const char *sep)
 {
 	uint32_t arr;
