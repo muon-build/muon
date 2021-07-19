@@ -11,11 +11,11 @@
 #include "run_cmd.h"
 
 static bool
-get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name, enum requirement_type requirement)
+get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name, bool is_static, enum requirement_type requirement)
 {
 	struct pkgconf_info info = { 0 };
 
-	if (!muon_pkgconf_lookup(wk, wk_objstr(wk, name), &info)) {
+	if (!muon_pkgconf_lookup(wk, wk_objstr(wk, name), is_static, &info)) {
 		if (requirement == requirement_required) {
 			interp_error(wk, node, "required dependency not found");
 			return false;
@@ -34,14 +34,15 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	dep->dat.dep.link_with = info.libs;
 	dep->dat.dep.include_directories = info.includes;
 
-	LOG_I(log_interp, "dependency %s found: %s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version));
+	LOG_I(log_interp, "dependency %s found: %s, %s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version),
+		is_static ? "static" : "dynamic");
 
 	return true;
 }
 
 static bool
 handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
-	enum requirement_type requirement,  uint32_t *obj, bool *handled)
+	bool is_static, enum requirement_type requirement, uint32_t *obj, bool *handled)
 {
 	if (strcmp(wk_objstr(wk, name), "threads") == 0) {
 		*handled = true;
@@ -52,7 +53,7 @@ handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
 		*handled = true;
 		uint32_t s;
 		make_obj(wk, &s, obj_string)->dat.str = wk_str_push(wk, "ncurses");
-		if (!get_dependency(wk, obj, node, s, requirement)) {
+		if (!get_dependency(wk, obj, node, s, is_static, requirement)) {
 			return false;
 		}
 	} else {
@@ -101,12 +102,17 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return true;
 	}
 
+	bool is_static = false;
+	if (akw[kw_static].set && get_obj(wk, akw[kw_static].val)->dat.boolean) {
+		is_static = true;
+	}
+
 	bool handled;
-	if (!handle_special_dependency(wk, an[0].node, an[0].val, requirement, obj, &handled)) {
+	if (!handle_special_dependency(wk, an[0].node, an[0].val, is_static, requirement, obj, &handled)) {
 		return false;
 	} else if (handled) {
 		return true;
 	}
 
-	return get_dependency(wk, obj, an[0].node, an[0].val, requirement);
+	return get_dependency(wk, obj, an[0].node, an[0].val, is_static, requirement);
 }

@@ -70,7 +70,7 @@ foreach d: [
 			found = true
 		endif
 	else
-		dep = dependency(d[0], required: get_option(d[1]))
+		dep = dependency(d[0], required: get_option(d[1]), static: true)
 		found = dep.found()
 	endif
 

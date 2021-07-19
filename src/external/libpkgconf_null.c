@@ -16,7 +16,7 @@ muon_pkgconf_init(void)
 }
 
 bool
-muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, const char *name, bool is_static, struct pkgconf_info *info)
 {
 	LOG_W(log_misc, "pkgconf not enabled");
 	return false;

@@ -4,10 +4,11 @@
 #include <limits.h>
 #include <string.h>
 
+#include "external/pkgconf.h"
 #include "filesystem.h"
 #include "log.h"
 #include "object.h"
-#include "external/pkgconf.h"
+#include "path.h"
 #include "workspace.h"
 
 const bool have_libpkgconf = true;
@@ -37,7 +38,6 @@ muon_pkgconf_init(void)
 	personality = pkgconf_cross_personality_default();
 	pkgconf_client_init(&client, error_handler, NULL, personality);
 	pkgconf_client_dir_list_build(&client, personality);
-	pkgconf_client_set_flags(&client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
 	init = true;
 }
 
@@ -79,9 +79,11 @@ struct pkgconf_lookup_ctx {
 	struct workspace *wk;
 	struct pkgconf_info *info;
 	uint32_t libdirs;
+	const char *name;
 };
 
 struct find_lib_path_ctx {
+	bool is_static;
 	bool found;
 	const char *name;
 	char *buf;
@@ -90,11 +92,28 @@ struct find_lib_path_ctx {
 static bool
 check_lib_path(struct find_lib_path_ctx *ctx, const char *lib_path)
 {
-	static const char *ext[] = { ".a", ".so", NULL };
+	enum ext { ext_a, ext_so, ext_count };
+	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so" };
+	static const uint8_t ext_order_static[] = { ext_a, ext_so },
+			     ext_order_dynamic[] = { ext_so, ext_a },
+			     *ext_order;
+
+	if (ctx->is_static) {
+		ext_order = ext_order_static;
+	} else {
+		ext_order = ext_order_dynamic;
+	}
+
 	uint32_t i;
 
-	for (i = 0; ext[i]; ++i) {
-		snprintf(ctx->buf, PATH_MAX, "%s/lib%s%s", lib_path, ctx->name, ext[i]);
+	char name[PATH_MAX];
+
+	for (i = 0; i < ext_count; ++i) {
+		snprintf(name, PATH_MAX - 1, "lib%s%s", ctx->name, ext[ext_order[i]]);
+
+		if (!path_join(ctx->buf, PATH_MAX, lib_path, name)) {
+			return false;
+		}
 
 		if (fs_file_exists(ctx->buf)) {
 			ctx->found = true;
@@ -161,6 +180,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 
 	PKGCONF_FOREACH_LIST_ENTRY(list.head, node) {
 		const pkgconf_fragment_t *frag = node->data;
+
 		switch (frag->type) {
 		case 'I':
 			make_obj(ctx->wk, &str, obj_file)->dat.file = wk_str_push(ctx->wk, frag->data);
@@ -172,14 +192,13 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			break;
 		case 'l': {
 			const char *path;
-			if (!(path = find_lib_path(client, ctx, frag->data))) {
-				LOG_W(log_misc, "couldn't resolve lib '%s'", frag->data);
-				ret = false;
-				goto ret;
+			if ((path = find_lib_path(client, ctx, frag->data))) {
+				make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
+				obj_array_push(ctx->wk, ctx->info->libs, str);
+			} else {
+				LOG_I(log_misc, "library '%s' not found for dependency '%s'", frag->data, ctx->name);
+				return false;
 			}
-
-			make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
-			obj_array_push(ctx->wk, ctx->info->libs, str);
 			break;
 		}
 		default:
@@ -219,17 +238,25 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 bool
-muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, const char *name, bool is_static, struct pkgconf_info *info)
 {
 	if (!init) {
 		muon_pkgconf_init();
 	}
 
+	int flags = PKGCONF_PKG_PKGF_SEARCH_PRIVATE;
+
+	if (is_static) {
+		flags |= PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS;
+	}
+
+	pkgconf_client_set_flags(&client, flags);
+
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, name);
 
-	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info };
+	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name };
 
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_modversion, maxdepth, &ctx)) {
 		ret = false;
@@ -239,6 +266,7 @@ muon_pkgconf_lookup(struct workspace *wk, const char *name, struct pkgconf_info 
 	make_obj(wk, &info->includes, obj_array);
 	make_obj(wk, &info->libs, obj_array);
 	make_obj(wk, &ctx.libdirs, obj_array);
+	obj_array_push(wk, ctx.libdirs, make_str(wk, "/lib")); // TODO platform-specific
 
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_and_collect, maxdepth, &ctx)) {
@@ -296,6 +324,8 @@ muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var,
 	if (!init) {
 		muon_pkgconf_init();
 	}
+
+	pkgconf_client_set_flags(&client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
 
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, pkg_name);
