@@ -194,10 +194,12 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		case 'l': {
 			const char *path;
 			if ((path = find_lib_path(client, ctx, frag->data))) {
+				LOG_I(log_misc, "library '%s' found for dependency '%s'", path, ctx->name);
+
 				make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
 				obj_array_push(ctx->wk, ctx->info->libs, str);
 			} else {
-				LOG_I(log_misc, "library '%s' not found for dependency '%s'", frag->data, ctx->name);
+				LOG_W(log_misc, "library '%s' not found for dependency '%s'", frag->data, ctx->name);
 				return false;
 			}
 			break;
