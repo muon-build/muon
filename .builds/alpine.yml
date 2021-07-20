@@ -7,18 +7,9 @@ packages:
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
-  - bootstrap: |
-      cd muon
-      ./bootstrap.sh stage0
-      stage0/muon setup stage1
-      samu -C stage1
-      stage1/muon setup -Dsamu=enabled stage2
-      samu -C stage2
-
   - build: |
       cd muon
-      stage2/muon
-
+      sh .builds/fullbootstrap.sh
   - test: |
       cd muon
       build/muon test build
