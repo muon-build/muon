@@ -80,6 +80,7 @@ struct pkgconf_lookup_ctx {
 	struct pkgconf_info *info;
 	uint32_t libdirs;
 	const char *name;
+	bool is_static;
 };
 
 struct find_lib_path_ctx {
@@ -140,7 +141,7 @@ static const char *
 find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const char *name)
 {
 	static char buf[PATH_MAX + 1];
-	struct find_lib_path_ctx find_lib_path_ctx = { .buf = buf, .name = name };
+	struct find_lib_path_ctx find_lib_path_ctx = { .buf = buf, .name = name, .is_static = ctx->is_static };
 	pkgconf_node_t *node;
 	pkgconf_path_t *path;
 
@@ -256,7 +257,7 @@ muon_pkgconf_lookup(struct workspace *wk, const char *name, bool is_static, stru
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, name);
 
-	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name };
+	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static };
 
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_modversion, maxdepth, &ctx)) {
 		ret = false;
