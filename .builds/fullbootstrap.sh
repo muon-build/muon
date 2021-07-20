@@ -6,9 +6,9 @@ set -eux
 ./bootstrap.sh build
 
 # get curl and zlib
-build/muon setup build
+build/muon setup "$@" build
 samu -C build
 
 # enable samurai wrap
-build/muon setup -Dsamu=enabled build
+build/muon setup -Dsamu=enabled "$@" build
 samu -C build

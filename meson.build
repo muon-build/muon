@@ -11,7 +11,6 @@ project(
 	],
 )
 
-
 # version information
 
 git = find_program('git', required: false)
@@ -47,8 +46,6 @@ add_project_arguments(cc.get_supported_arguments([
 	'-Wundef',
 	'-fstrict-aliasing',
 ]), language: 'c')
-
-# dependencies
 
 deps = []
 c_args = []
