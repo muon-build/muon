@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "interpreter.h"
 #include "log.h"
 #include "object.h"
@@ -687,4 +688,156 @@ obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len)
 {
 	uint32_t w;
 	return _obj_to_s(wk, id, buf, len, &w);
+}
+
+bool
+obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
+{
+#define CHECK_TRUNC(len) if (bufi + len > BUF_SIZE_4k) goto would_truncate
+
+	static char fmt_buf[BUF_SIZE_4k];
+
+	const char *fmt_start, *s;
+	uint32_t bufi = 0, len, obj_id;
+	bool got_object;
+	va_list ap, ap_copy;
+
+	va_copy(ap, ap_orig);
+	va_copy(ap_copy, ap);
+
+	for (; *fmt; ++fmt) {
+		if (*fmt == '%') {
+			got_object = false;
+			fmt_start = fmt;
+			++fmt;
+
+			// skip flags
+			while (strchr("#0- +", *fmt)) {
+				++fmt;
+			}
+			// skip field width / precision
+			while (strchr("1234567890.", *fmt)) {
+				++fmt;
+			}
+			// skip field length modifier
+			while (strchr("hlLjzt", *fmt)) {
+				++fmt;
+			}
+
+			switch (*fmt) {
+			case 'c':
+			case 'd': case 'i':
+				va_arg(ap, int);
+				break;
+			case 'u': case 'x': case 'X':
+				va_arg(ap, unsigned int);
+				break;
+			case 'e': case 'E':
+			case 'f': case 'F':
+			case 'g': case 'G':
+			case 'a': case 'A':
+				va_arg(ap, double);
+				break;
+			case 's':
+				va_arg(ap, char *);
+				break;
+			case 'p':
+				va_arg(ap, void *);
+				break;
+			case 'n':
+			case '%':
+				break;
+			case 'o':
+				got_object = true;
+				obj_id = va_arg(ap, uint32_t);
+				break;
+			default:
+				assert(false && "unrecognized format");
+				break;
+			}
+
+			if (got_object) {
+				if (!obj_to_s(wk, obj_id, out_buf, BUF_SIZE_4k)) {
+					goto would_truncate;
+				}
+
+				// escape % and copy to fmt
+				for (s = out_buf; *s; ++s) {
+					if (*s == '%') {
+						CHECK_TRUNC(1);
+						fmt_buf[bufi] = '%';
+						++bufi;
+					}
+
+					CHECK_TRUNC(1);
+					fmt_buf[bufi] = *s;
+					++bufi;
+				}
+			} else {
+				len = fmt - fmt_start + 1;
+				CHECK_TRUNC(len);
+				memcpy(&fmt_buf[bufi], fmt_start, len);
+				bufi += len;
+			}
+		} else {
+			CHECK_TRUNC(1);
+			fmt_buf[bufi] = *fmt;
+			++bufi;
+		}
+	}
+
+	CHECK_TRUNC(1);
+	fmt_buf[bufi] = 0;
+	++bufi;
+
+	vsnprintf(out_buf, buflen, fmt_buf, ap_copy);
+
+	va_end(ap);
+	va_end(ap_copy);
+	return true;
+would_truncate:
+	va_end(ap);
+	va_end(ap_copy);
+	return false;
+
+#undef CHECK_TRUNC
+}
+
+bool
+obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = obj_vsnprintf(wk, out_buf, buflen, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+bool
+obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
+{
+	char buf[BUF_SIZE_4k];
+	bool ret = obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, ap);
+	fputs(buf, f);
+	return ret;
+}
+
+bool
+obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = obj_vfprintf(wk, f, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+bool
+obj_printf(struct workspace *wk, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = obj_vfprintf(wk, stdout, fmt, ap);
+	va_end(ap);
+	return ret;
 }
