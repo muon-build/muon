@@ -82,7 +82,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	uint32_t project_id;
 
 	if (akw[kw_source].set) {
-		L(log_interp, "chdir to '%s'", wk_objstr(wk, akw[kw_source].val));
+		L("chdir to '%s'", wk_objstr(wk, akw[kw_source].val));
 		if (!path_chdir(wk_objstr(wk, akw[kw_source].val))) {
 			return false;
 		}

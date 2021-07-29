@@ -23,7 +23,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 
 		struct obj *dep = make_obj(wk, obj, obj_dependency);
 		dep->dat.dep.name = name;
-		LOG_I(log_interp, "dependency %s not found", wk_objstr(wk, name));
+		LOG_I("dependency %s not found", wk_objstr(wk, name));
 		return true;
 	}
 
@@ -34,7 +34,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	dep->dat.dep.link_with = info.libs;
 	dep->dat.dep.include_directories = info.includes;
 
-	LOG_I(log_interp, "dependency %s found: %s, %s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version),
+	LOG_I("dependency %s found: %s, %s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version),
 		is_static ? "static" : "dynamic");
 
 	return true;

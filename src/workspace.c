@@ -78,7 +78,7 @@ wk_str_split(struct workspace *wk, const char *s, const char *sep)
 				uint32_t str_id;
 				make_obj(wk, &str_id, obj_string)->dat.str = wk_str_pushn(wk, start, len);
 
-				/* L(log_interp, "split: '%s'", wk_objstr(wk, str_id)); */
+				/* L("split: '%s'", wk_objstr(wk, str_id)); */
 
 				obj_array_push(wk, arr, str_id);
 			}
@@ -119,7 +119,7 @@ grow_strbuf(struct workspace *wk, uint32_t len)
 {
 	wk->strbuf_len = len;
 	if (len >= wk->strbuf_cap) {
-		L(log_mem, "growing strbuf: %d", len);
+		L("growing strbuf: %d", len);
 		wk->strbuf_cap = len + 1;
 		wk->strbuf = z_realloc(wk->strbuf, len);
 	}
@@ -135,10 +135,10 @@ _str_push(struct workspace *wk)
 
 	darr_grow_by(&wk->strs, wk->strbuf_len);
 
-	/* LOG_I(log_interp, "pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
+	/* LOG_I("pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
 	memcpy(darr_get(&wk->strs, ret), wk->strbuf, wk->strbuf_len);
 
-	/* L(log_interp, "%d, '%s'", ret, wk->strbuf); */
+	/* L("%d, '%s'", ret, wk->strbuf); */
 
 	if (ret > UINT32_MAX >> 1) {
 		error_unrecoverable("string overflow");
@@ -213,12 +213,12 @@ _str_app(struct workspace *wk, uint32_t *_id)
 	cur_end = id + curlen;
 
 	if (cur_end != wk->strs.len) {
-		/* L(log_misc, "moving '%s' to the end of pool (%d, %d)", wk_str(wk, *id), cur_end, curlen); */
+		/* L("moving '%s' to the end of pool (%d, %d)", wk_str(wk, *id), cur_end, curlen); */
 		new_id = wk->strs.len;
 		darr_grow_by(&wk->strs, curlen);
 		memcpy(&wk->strs.e[new_id], wk_str(wk, *_id), curlen);
 		id = new_id;
-		/* L(log_misc, "result: '%s'", wk_str(wk, *id)); */
+		/* L("result: '%s'", wk_str(wk, *id)); */
 	}
 
 	*_id = (id << 1) | id_tag_str;

@@ -16,7 +16,7 @@ bool
 path_init(void)
 {
 	if (getcwd(cwd, PATH_MAX) == NULL) {
-		LOG_W(log_misc, "getcwd failed: %s", strerror(errno));
+		LOG_E("getcwd failed: %s", strerror(errno));
 		return false;
 	}
 
@@ -43,7 +43,7 @@ buf_push_s(char *buf, const char *s, uint32_t *i, uint32_t n)
 		++si;
 	}
 
-	LOG_W(log_misc, "path '%s' would be truncated", s);
+	LOG_E("path '%s' would be truncated", s);
 	return false;
 }
 
@@ -69,7 +69,7 @@ buf_push_sn(char *buf, const char *s, uint32_t m, uint32_t *i, uint32_t n)
 	}
 
 	if (*i + 1 >= n) {
-		LOG_W(log_misc, "'%s', path '%s' would be truncated", buf, s);
+		LOG_E("'%s', path '%s' would be truncated", buf, s);
 		return false;
 	} else {
 		buf[*i] = 0;
@@ -91,7 +91,7 @@ buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
 		return true;
 	}
 
-	LOG_W(log_misc, "path would be truncated");
+	LOG_E("path would be truncated");
 	return false;
 }
 
@@ -125,7 +125,7 @@ path_chdir(const char *path)
 	}
 
 	if (chdir(cwd) < 0) {
-		LOG_W(log_misc, "failed chdir(%s): %s", cwd, strerror(errno));
+		LOG_E("failed chdir(%s): %s", cwd, strerror(errno));
 		return false;
 	}
 
@@ -191,12 +191,12 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 	 */
 
 	if (!path_is_absolute(base)) {
-		LOG_W(log_misc, "base path '%s' is not absolute", base);
+		LOG_E("base path '%s' is not absolute", base);
 		return false;
 	}
 
 	if (!path_is_absolute(path)) {
-		LOG_W(log_misc, "path '%s' is not absolute", path);
+		LOG_E("path '%s' is not absolute", path);
 		return false;
 	}
 

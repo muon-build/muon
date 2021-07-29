@@ -22,28 +22,6 @@ static char *log_level_name[log_level_count] = {
 	[log_debug] = "dbg",
 };
 
-static char *log_filter_name[log_filter_count] = {
-	[log_misc]     = "misc",
-	[log_mem]      = "mem",
-	[log_tok]      = "tok",
-	[log_lex]      = "lex",
-	[log_parse]    = "parse",
-	[log_interp]   = "interp",
-	[log_out]      = "output",
-	[log_fetch]    = "fetch",
-};
-
-static uint32_t log_filter_bit[log_filter_count] = {
-	[log_misc]     = (1 << 0),
-	[log_mem]      = (1 << 1),
-	[log_tok]      = (1 << 2),
-	[log_lex]      = (1 << 3),
-	[log_parse]    = (1 << 4),
-	[log_interp]   = (1 << 5),
-	[log_out]      = (1 << 6),
-	[log_fetch]    = (1 << 7),
-};
-
 static struct {
 	FILE *file;
 	enum log_level level;
@@ -52,21 +30,12 @@ static struct {
 	uint32_t opts;
 } log_cfg = { .level = log_info, };
 
-static bool
-should_print(enum log_level lvl, enum log_filter type)
-{
-	return lvl <= log_info
-	       || (log_cfg.level >= lvl && log_cfg.filter & log_filter_bit[type]);
-}
-
-
 void
-log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
-	enum log_filter type, const char *fmt, ...)
+log_print(const char *file, uint32_t line, const char *func, enum log_level lvl, const char *fmt, ...)
 {
 	static char buf[BUF_SIZE_4k + 3];
 
-	if (should_print(lvl, type)) {
+	if (lvl <= log_cfg.level) {
 		uint32_t len = 0;
 
 		assert(log_cfg.initialized);
@@ -77,13 +46,6 @@ log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 		} else {
 			len = strlen(log_level_name[lvl]);
 			strncpy(buf, log_level_name[lvl], BUF_SIZE_4k);
-		}
-
-		if (type != log_misc) {
-			buf[len] = ':';
-			++len;
-			strncpy(&buf[len], log_filter_name[type], BUF_SIZE_4k - len);
-			len += strlen(log_filter_name[type]);
 		}
 
 		buf[len] = ' ';
@@ -198,7 +160,7 @@ void
 log_set_lvl(enum log_level ll)
 {
 	if (ll > log_level_count) {
-		L(log_misc, "attempted to set log level to invalid value %d (max: %d)", ll, log_level_count);
+		L("attempted to set log level to invalid value %d (max: %d)", ll, log_level_count);
 		return;
 	}
 
@@ -209,35 +171,4 @@ void
 log_set_opts(enum log_opts opts)
 {
 	log_cfg.opts = opts;
-}
-
-void
-log_set_filters(enum log_filter f)
-{
-	log_cfg.filter = f;
-}
-
-uint32_t
-log_filter_to_bit(enum log_filter f)
-{
-	return log_filter_bit[f];
-}
-
-bool
-log_filter_name_to_bit(const char *name, uint32_t *res)
-{
-	if (strcmp(name, "all") == 0) {
-		*res = 0xffffffff;
-		return true;
-	}
-
-	uint32_t i;
-	for (i = 0; i < log_filter_count; ++i) {
-		if (strcmp(name, log_filter_name[i]) == 0) {
-			*res = log_filter_bit[i];
-			return true;
-		}
-	}
-
-	return false;
 }

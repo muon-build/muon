@@ -60,7 +60,7 @@ prepare_table(struct hash *h)
 }
 
 void
-_hash_init(struct hash *h, size_t cap)
+hash_init(struct hash *h, size_t cap)
 {
 	ASSERT_VALID_CAP(cap);
 
@@ -166,10 +166,6 @@ resize(struct hash *h, size_t newcap)
 	ASSERT_VALID_CAP(newcap);
 	assert(h->len <= newcap);
 
-#ifndef NDEBUG
-	L(log_mem, "%s %ld -> %ld (%s:%d:%s)", h->name, h->cap, newcap, h->file, h->line, h->func);
-#endif
-
 	uint32_t i;
 	struct hash_elem *ohe, *he;
 	uint64_t hv;
@@ -184,26 +180,6 @@ resize(struct hash *h, size_t newcap)
 
 	darr_init(&newh.meta, newh.cap, sizeof(uint8_t));
 	darr_init(&newh.e, newh.cap, sizeof(struct hash_elem));
-
-#ifndef NDEBUG
-	newh.name = h->name;
-	newh.file = h->file;
-	newh.func = h->func;
-	newh.line = h->line;
-	newh.secondary = h->secondary;
-
-	newh.meta.name = h->meta.name;
-	newh.meta.func = h->meta.func;
-	newh.meta.file = h->meta.file;
-	newh.meta.line = h->meta.line;
-	newh.meta.secondary = h->meta.secondary;
-
-	newh.e.name = h->meta.name;
-	newh.e.func = h->meta.func;
-	newh.e.file = h->meta.file;
-	newh.e.line = h->meta.line;
-	newh.e.secondary = h->meta.secondary;
-#endif
 
 	prepare_table(&newh);
 

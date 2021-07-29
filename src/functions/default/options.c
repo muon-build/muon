@@ -105,7 +105,7 @@ check_invalid_option_overrides(struct workspace *wk)
 			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res, &found)) {
 				return false;
 			} else if (!found) {
-				LOG_W(log_interp, "invalid option: '%s'", option_override_to_s(wk, oo));
+				LOG_E("invalid option: '%s'", option_override_to_s(wk, oo));
 				ret = false;
 			}
 		}
@@ -140,7 +140,7 @@ check_invalid_subproject_option(struct workspace *wk)
 		}
 
 		if (!found) {
-			LOG_W(log_interp, "invalid option: '%s' (no such subproject)", option_override_to_s(wk, oo));
+			LOG_E("invalid option: '%s' (no such subproject)", option_override_to_s(wk, oo));
 			ret = false;
 		}
 	}

@@ -18,10 +18,10 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 
-	/* L(log_misc, "child: running %s", cmd); */
+	/* L("child: running %s", cmd); */
 	/* char *const *ap; */
 	/* for (ap = argv; *ap; ++ap) { */
-	/* 	L(log_misc, "child: > arg '%s'", *ap); */
+	/* 	L("child: > arg '%s'", *ap); */
 	/* } */
 
 	static char out_buf[BUF_SIZE_1m] = { 0 };
@@ -49,18 +49,18 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 		goto err;
 	} else if (pid == 0 /* child */) {
 		if (dup2(pipefd_out[1], 1) == -1) {
-			L(log_misc, "child: failed to dup stdout: %s", strerror(errno));
+			L("child: failed to dup stdout: %s", strerror(errno));
 			exit(1);
 		}
 		if (dup2(pipefd_err[1], 2) == -1) {
-			L(log_misc, "child: failed to dup stderr: %s", strerror(errno));
+			L("child: failed to dup stderr: %s", strerror(errno));
 			exit(1);
 		}
 
-		/* L(log_misc, "child: running %s", cmd); */
+		/* L("child: running %s", cmd); */
 		/* char *const *ap; */
 		/* for (ap = argv; *ap; ++ap) { */
-		/* 	L(log_misc, "child: > arg '%s'", *ap); */
+		/* 	L("child: > arg '%s'", *ap); */
 		/* } */
 
 		if (execvp(cmd, argv) == -1) {
@@ -72,12 +72,12 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 
 	/* parent */
 	if (pipefd_err_open[1] && close(pipefd_err[1]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 	pipefd_err_open[1] = false;
 
 	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 	pipefd_out_open[1] = false;
 
@@ -101,16 +101,16 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 	}
 err:
 	if (pipefd_err_open[0] && close(pipefd_err[0]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 	if (pipefd_err_open[1] && close(pipefd_err[1]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 	if (pipefd_out_open[0] && close(pipefd_out[0]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
-		LOG_W(log_misc, "failed to close: %s", strerror(errno));
+		LOG_E("failed to close: %s", strerror(errno));
 	}
 
 	return res;

@@ -34,7 +34,7 @@ static bool
 concat_str(struct workspace *wk, uint32_t *dest, const char *s)
 {
 	if (strlen(s) >= BUF_SIZE_2k) {
-		LOG_W(log_out, "string too long in concat strings: '%s'", s);
+		LOG_E("string too long in concat strings: '%s'", s);
 		return false;
 	}
 
@@ -120,7 +120,7 @@ strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
 		return true;
 	}
 	default:
-		LOG_W(log_out, "cannot convert '%s' to string", obj_type_to_s(obj->type));
+		LOG_E("cannot convert '%s' to string", obj_type_to_s(obj->type));
 		return false;
 	}
 }
@@ -441,7 +441,7 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		}
 		break;
 	default:
-		LOG_W(log_out, "invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
+		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
 		return ir_err;
 	}
 
@@ -516,7 +516,7 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 				str = wk_objstr(wk, optimization);
 
 				if (strlen(str) != 1 || !strchr(lvls, *str)) {
-					LOG_W(log_out, "invalid optimization: '%s'", str);
+					LOG_E("invalid optimization: '%s'", str);
 					return NULL;
 				}
 
@@ -533,7 +533,7 @@ get_optimization_flag(struct workspace *wk, struct project *proj)
 		}
 	}
 
-	LOG_W(log_out, "invalid build type: '%s'", wk_objstr(wk, buildtype));
+	LOG_E("invalid build type: '%s'", wk_objstr(wk, buildtype));
 	return NULL;
 }
 
@@ -590,7 +590,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct project *proj = ((struct write_tgt_ctx *)_ctx)->proj;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I(log_out, "writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
+	LOG_I("writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
 
 	char path[PATH_MAX];
 	if (!tgt_build_path(path, wk, tgt)) {
@@ -625,19 +625,19 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	const char *opt_flag;
 	if (!(opt_flag = get_optimization_flag(wk, proj))) {
-		LOG_W(log_out, "unable to get optimization flags");
+		LOG_E("unable to get optimization flags");
 		return ir_err;
 	}
 
 	const char *warning_flag;
 	if (!(warning_flag = get_warning_flag(wk, proj))) {
-		LOG_W(log_out, "unable to get warning flags");
+		LOG_E("unable to get warning flags");
 		return ir_err;
 	}
 
 	const char *c_std;
 	if (!(c_std = get_std_flag(wk, proj))) {
-		LOG_W(log_out, "unable to get std flag");
+		LOG_E("unable to get std flag");
 		return ir_err;
 	}
 
@@ -746,7 +746,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct output *output = ((struct write_tgt_ctx *)_ctx)->output;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I(log_out, "writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
+	LOG_I("writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
 
 	uint32_t outputs, inputs = 0, cmdline_pre, cmdline = 0;
 
@@ -807,7 +807,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	case obj_custom_target:
 		return write_custom_tgt(wk, _ctx, tgt_id);
 	default:
-		LOG_W(log_out, "invalid tgt type '%s'", obj_type_to_s(get_obj(wk, tgt_id)->type));
+		LOG_E("invalid tgt type '%s'", obj_type_to_s(get_obj(wk, tgt_id)->type));
 		return ir_err;
 	}
 }
@@ -847,7 +847,7 @@ write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
 
 	if (t->dat.test.args) {
 		if (!obj_array_foreach_flat(wk, t->dat.test.args, ctx, write_test_args_iter)) {
-			LOG_W(log_out, "failed to write test '%s'", wk_objstr(wk, t->dat.test.name));
+			LOG_E("failed to write test '%s'", wk_objstr(wk, t->dat.test.name));
 			return ir_err;
 		}
 	}
@@ -866,7 +866,7 @@ write_project(struct output *output, struct workspace *wk, struct project *proj)
 		return false;
 	}
 
-	LOG_I(log_out, "writing tests");
+	LOG_I("writing tests");
 
 	if (!obj_array_foreach(wk, proj->tests, &ctx, write_test_iter)) {
 		return false;

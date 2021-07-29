@@ -314,7 +314,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 
-	LOG_I(log_interp, "added target %s", wk_str(wk, tgt->dat.tgt.build_name));
+	LOG_I("added target %s", wk_str(wk, tgt->dat.tgt.build_name));
 
 	if (akw[kw_include_directories].set) {
 		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
@@ -376,7 +376,7 @@ func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	LOG_W(log_misc, "%s", wk_objstr(wk, an[0].val));
+	LOG_E("%s", wk_objstr(wk, an[0].val));
 	*obj = 0;
 
 	return false;
@@ -391,7 +391,7 @@ func_warning(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	LOG_W(log_misc, "%s", wk_objstr(wk, an[0].val));
+	LOG_E("%s", wk_objstr(wk, an[0].val));
 	*obj = 0;
 
 	return true;
@@ -406,7 +406,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	LOG_I(log_misc, "%s", wk_objstr(wk, an[0].val));
+	LOG_I("%s", wk_objstr(wk, an[0].val));
 	*obj = 0;
 
 	return true;
@@ -545,7 +545,7 @@ func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 
 /* 	uint32_t i; */
 /* 	for (i = 0; args_ctx.argv[i]; ++i) { */
-/* 		L(log_interp, "%s", args_ctx.argv[i]); */
+/* 		L("%s", args_ctx.argv[i]); */
 /* 	} */
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -623,7 +623,7 @@ func_configuration_data(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 static bool
 func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	L(log_interp, "TODO: installation");
+	L("TODO: installation");
 	return true;
 }
 
@@ -775,7 +775,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	case key_depfile:
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		LOG_W(log_interp, "TODO: handle @%s@", strkey);
+		LOG_E("TODO: handle @%s@", strkey);
 		return format_cb_error;
 	default:
 		break;
@@ -833,7 +833,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		return ir_err;
 	}
 
-	/* L(log_interp, "cmd arg: '%s'", wk_str(wk, str)); */
+	/* L("cmd arg: '%s'", wk_str(wk, str)); */
 
 	obj_array_push(wk, ctx->arr, str);
 	return ir_cont;
@@ -913,7 +913,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
 	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
-	LOG_I(log_interp, "adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name ));
+	LOG_I("adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name ));
 	tgt->dat.custom_target.cmd = cmd;
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;

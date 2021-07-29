@@ -29,7 +29,7 @@ void
 muon_curl_deinit(void)
 {
 	if (!fetch_ctx.init) {
-		LOG_W(log_fetch, "curl is not initialized");
+		LOG_E("curl is not initialized");
 		return;
 	}
 
@@ -66,15 +66,15 @@ muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 	CURLcode err;
 	char errbuf[CURL_ERROR_SIZE] = { 0 };
 
-	LOG_I(log_fetch, "fetching '%s", url);
+	LOG_I("fetching '%s", url);
 
 	if (!fetch_ctx.init) {
-		LOG_W(log_fetch, "curl is not initialized");
+		LOG_E("curl is not initialized");
 		goto err0;
 	}
 
 	if (!(curl_handle = curl_easy_init())) {
-		LOG_W(log_fetch, "failed to get curl handle");
+		LOG_E("failed to get curl handle");
 		goto err0;
 	}
 
@@ -127,11 +127,11 @@ muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 
 err1:
 	if (*errbuf) {
-		LOG_W(log_fetch, "curl failed to fetch '%s': %s", url, errbuf);
+		LOG_E("curl failed to fetch '%s': %s", url, errbuf);
 	} else if (err != CURLE_OK) {
-		LOG_W(log_fetch, "curl failed to fetch '%s': %s", url, curl_easy_strerror(err));
+		LOG_E("curl failed to fetch '%s': %s", url, curl_easy_strerror(err));
 	} else {
-		LOG_W(log_fetch, "curl failed to fetch '%s'", url);
+		LOG_E("curl failed to fetch '%s'", url);
 	}
 	curl_easy_cleanup(curl_handle);
 err0:

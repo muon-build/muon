@@ -53,7 +53,7 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 		*arg_node = (*args)->l;
 	}
 
-	/* L(log_interp, "got arg %s:%s", *kw, node_to_s(*arg)); */
+	/* L("got arg %s:%s", *kw, node_to_s(*arg)); */
 
 	if ((*args)->chflg & node_child_c) {
 		*args = get_node(ast, (*args)->c);
@@ -256,9 +256,9 @@ todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 {
 	if (rcvr_id) {
 		struct obj *rcvr = get_obj(wk, rcvr_id);
-		LOG_W(log_misc, "method on %s not implemented", obj_type_to_s(rcvr->type));
+		LOG_E("method on %s not implemented", obj_type_to_s(rcvr->type));
 	} else {
-		LOG_W(log_misc, "function not implemented");
+		LOG_E("function not implemented");
 	}
 	return false;
 }
@@ -322,7 +322,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 		recvr_type = obj_default;
 	}
 
-	/* L(log_misc, "calling %s.%s", obj_type_to_s(recvr_type), name); */
+	/* L("calling %s.%s", obj_type_to_s(recvr_type), name); */
 
 	func_impl func;
 	name = get_node(wk->ast, name_node)->dat.s;
@@ -356,6 +356,6 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 		}
 		return false;
 	}
-	/* L(log_misc, "finished calling %s.%s", obj_type_to_s(recvr_type), name); */
+	/* L("finished calling %s.%s", obj_type_to_s(recvr_type), name); */
 	return true;
 }

@@ -174,7 +174,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 
 	err = ctx->apply_func(client, world, &list, maxdepth);
 	if (err != PKGCONF_PKG_ERRF_OK) {
-		LOG_W(log_misc, "apply_func failed: %s", pkgconf_strerr(err));
+		LOG_E("apply_func failed: %s", pkgconf_strerr(err));
 		ret = false;
 		goto ret;
 	}
@@ -194,18 +194,18 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		case 'l': {
 			const char *path;
 			if ((path = find_lib_path(client, ctx, frag->data))) {
-				LOG_I(log_misc, "library '%s' found for dependency '%s'", path, ctx->name);
+				LOG_I("library '%s' found for dependency '%s'", path, ctx->name);
 
 				make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
 				obj_array_push(ctx->wk, ctx->info->libs, str);
 			} else {
-				LOG_W(log_misc, "library '%s' not found for dependency '%s'", frag->data, ctx->name);
+				LOG_E("library '%s' not found for dependency '%s'", frag->data, ctx->name);
 				return false;
 			}
 			break;
 		}
 		default:
-			/* L(log_misc, "skipping unknown option: -'%d' '%s'", frag->type, frag->data); */
+			/* L("skipping unknown option: -'%d' '%s'", frag->type, frag->data); */
 			break;
 		}
 	}

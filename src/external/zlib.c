@@ -49,7 +49,7 @@ unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 	};
 
 	if ((err = inflateInit2(&stream, 16 + MAX_WBITS)) != Z_OK) {
-		LOG_W(log_misc, "failed inflateInit2: %s", archive_z_strerror(err));
+		LOG_E("failed inflateInit2: %s", archive_z_strerror(err));
 		return false;
 	}
 
@@ -63,16 +63,16 @@ unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 	*out_len = stream.total_out;
 
 	if (err != Z_STREAM_END) {
-		LOG_W(log_misc, "failed to inflate: %s", archive_z_strerror(err));
+		LOG_E("failed to inflate: %s", archive_z_strerror(err));
 		if ((err = inflateEnd(&stream)) != Z_OK) {
-			LOG_W(log_misc, "failed inflateEnd: %s", archive_z_strerror(err));
+			LOG_E("failed inflateEnd: %s", archive_z_strerror(err));
 		}
 		z_free(buf);
 		return false;
 	}
 
 	if ((err = inflateEnd(&stream)) != Z_OK) {
-		LOG_W(log_misc, "failed inflateEnd: %s", archive_z_strerror(err));
+		LOG_E("failed inflateEnd: %s", archive_z_strerror(err));
 		z_free(buf);
 		return false;
 	}

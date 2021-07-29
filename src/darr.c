@@ -10,7 +10,7 @@
 #include "mem.h"
 
 void
-_darr_init(struct darr *da, size_t initial, size_t item_size)
+darr_init(struct darr *da, size_t initial, size_t item_size)
 {
 	assert(item_size > 0);
 	*da = (struct darr) {
@@ -26,9 +26,6 @@ darr_destroy(struct darr *da)
 	if (da->e) {
 		z_free(da->e);
 		da->e = NULL;
-#ifndef NDEBUG
-		L(log_mem, "destroyed %s (%s:%d:%s)", da->name, da->file, da->line, da->func);
-#endif
 	}
 }
 
@@ -80,12 +77,6 @@ darr_get_mem(struct darr *da)
 		if (newcap < da->len) {
 			newcap = da->len * 2;
 		}
-
-#ifndef NDEBUG
-		if (!da->secondary) {
-			L(log_mem, "%s %ld -> %ld (%s:%d:%s)", da->name, da->cap, newcap, da->file, da->line, da->func);
-		}
-#endif
 
 		da->cap = newcap;
 		da->e = z_realloc(da->e, da->cap * da->item_size);
@@ -139,7 +130,7 @@ void *
 darr_get(const struct darr *da, size_t i)
 {
 	if (i >= da->len) {
-		L(log_mem, "%s index %ld out of bounds (%ld) (%s:%d:%s)", da->name, i, da->len, da->file, da->line, da->func);
+		L("index %ld out of bounds (%ld)", i, da->len);
 	}
 	assert(i < da->len);
 

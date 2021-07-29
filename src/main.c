@@ -42,7 +42,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing command");
+		LOG_E("missing command");
 		return false;
 	}
 
@@ -74,7 +74,7 @@ get_filename_as_only_arg(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi], " <filename>", "", NULL)
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing filename");
+		LOG_E("missing filename");
 		return NULL;
 	}
 
@@ -99,7 +99,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		NULL)
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing filename");
+		LOG_E("missing filename");
 		return NULL;
 	}
 
@@ -212,7 +212,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi], " <build dir>", "", NULL)
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing build dir");
+		LOG_E("missing build dir");
 		return false;
 	}
 
@@ -242,7 +242,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		NULL)
 
 	if (argi >= argc) {
-		LOG_W(log_misc, "missing build dir");
+		LOG_E("missing build dir");
 		return false;
 	}
 
@@ -339,8 +339,13 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		{ 0 },
 	};
 
-	OPTSTART("") {
-	} OPTEND(argv[0], "", "", commands)
+	OPTSTART("v") {
+	case 'v':
+		log_set_lvl(log_debug);
+		break;
+	} OPTEND(argv[0], "",
+		"  -v - turn on debug messages",
+		commands)
 
 	cmd_func cmd;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, true)) {
@@ -360,8 +365,7 @@ int
 main(int argc, char *argv[])
 {
 	log_init();
-	log_set_lvl(log_debug);
-	log_set_filters(0xffffffff & (~log_filter_to_bit(log_mem)));
+	log_set_lvl(log_info);
 
 	if (!path_init()) {
 		return 1;

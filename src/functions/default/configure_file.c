@@ -34,8 +34,8 @@ static const char *mesondefine = "#mesondefine ";
 static bool
 substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, const char *out)
 {
-	/* L(log_interp, "in: %s", in); */
-	/* L(log_interp, "out: %s", out); */
+	/* L("in: %s", in); */
+	/* L("out: %s", out); */
 	const uint32_t mesondefine_len = strlen(mesondefine);
 
 	bool ret = true;
@@ -71,7 +71,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 			}
 
-			/* L(log_interp, "%s", out_buf); */
+			/* L("%s", out_buf); */
 
 			i += mesondefine_len;
 			id_start = i;

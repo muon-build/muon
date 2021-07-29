@@ -27,7 +27,7 @@ next_test(struct test_parser *p)
 	for (; p->i < p->src.len; ++p->i) {
 		if (p->start) {
 			if (p->i + 4 >= p->src.len) {
-				LOG_W(log_misc, "invalid test file");
+				LOG_E("invalid test file");
 				return false;
 			}
 
@@ -41,7 +41,7 @@ next_test(struct test_parser *p)
 
 		if (!p->src.src[p->i]) {
 			if (p->i + 1 >= p->src.len) {
-				LOG_W(log_misc, "invalid test file");
+				LOG_E("invalid test file");
 				return false;
 			}
 
@@ -61,7 +61,7 @@ next_test(struct test_parser *p)
 		}
 	}
 
-	LOG_W(log_misc, "invalid test file");
+	LOG_E("invalid test file");
 	return false;
 }
 
@@ -92,24 +92,24 @@ tests_run(const char *build_root)
 			return false;
 		}
 
-		LOG_I(log_misc, "%s - running", test_parser.name);
+		LOG_I("%s - running", test_parser.name);
 
 		if (!run_cmd(&cmd_ctx, test_parser.cmd[0], (char *const *)test_parser.cmd)) {
 			if (cmd_ctx.err_msg) {
-				LOG_W(log_misc, "error: %s", cmd_ctx.err_msg);
+				LOG_E("error: %s", cmd_ctx.err_msg);
 			} else {
-				LOG_W(log_misc, "error: %s", strerror(cmd_ctx.err_no));
+				LOG_E("error: %s", strerror(cmd_ctx.err_no));
 			}
 
 			return false;
 		}
 
 		if (cmd_ctx.status && !(test_parser.test_flags & test_flag_should_fail)) {
-			LOG_W(log_misc, "%s - failed (%d)", test_parser.name, cmd_ctx.status);
+			LOG_E("%s - failed (%d)", test_parser.name, cmd_ctx.status);
 			log_plain("%s", cmd_ctx.err);
 			ret = false;
 		} else {
-			LOG_I(log_misc, "%s - success (%d)", test_parser.name, cmd_ctx.status);
+			LOG_I("%s - success (%d)", test_parser.name, cmd_ctx.status);
 		}
 	}
 

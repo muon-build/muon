@@ -71,7 +71,7 @@ mtar_checksum(const struct mtar_raw_header* rh)
 static enum mtar_err
 mtar_read(struct mtar *tar, uint8_t *data, uint32_t size)
 {
-	/* L(log_misc, "requesting read of %d", size); */
+	/* L("requesting read of %d", size); */
 
 	if (tar->off >= tar->len) {
 		data[0] = 0;
@@ -181,7 +181,7 @@ mtar_read_header(struct mtar *tar, struct mtar_header *h)
 
 	h->data = &tar->data[tar->off];
 
-	/* L(log_misc, "read header, %s, %d, %d", h->name, h->size, tar->off); */
+	/* L("read header, %s, %d, %d", h->name, h->size, tar->off); */
 
 	tar->off += mtar_round_up(h->size, 512);
 	return mtar_err_ok;
@@ -199,7 +199,7 @@ untar(uint8_t *data, uint64_t len, const char *destdir)
 		if (hdr.type == mtar_file_type_dir) {
 			continue;
 		} else if (hdr.type != mtar_file_type_reg) {
-			LOG_W(log_misc, "skipping unsupported file '%s' of type '%s'", hdr.name, mtar_file_type_to_s(hdr.type));
+			LOG_E("skipping unsupported file '%s' of type '%s'", hdr.name, mtar_file_type_to_s(hdr.type));
 			continue;
 		}
 

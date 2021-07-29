@@ -79,7 +79,7 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 	uint8_t b, hash[32];
 
 	if (strlen(sha256) != 64) {
-		LOG_W(log_misc, "checksum '%s' is not 64 characters long", sha256);
+		LOG_E("checksum '%s' is not 64 characters long", sha256);
 		return false;
 	}
 
@@ -89,7 +89,7 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 		memcpy(buf, &sha256[i], 2);
 		b = strtol(buf, NULL, 16);
 		if (b != hash[i / 2]) {
-			LOG_W(log_misc, "checksum mismatch");
+			LOG_E("checksum mismatch");
 			return false;
 		}
 	}
@@ -137,7 +137,7 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 
 	for (i = 0; i < end; ++i) {
 		if (!wrap.fields[i]) {
-			LOG_W(log_misc, "wrap file at '%s' missing field '%s'", wrap_file, wrap_field_names[i]);
+			LOG_E("wrap file at '%s' missing field '%s'", wrap_file, wrap_field_names[i]);
 			goto err;
 		}
 	}

@@ -52,7 +52,7 @@ typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
 	struct obj *obj = get_obj(wk, obj_id);
 
 	if (type != obj_any && obj->type != type) {
-		LOG_W(log_interp, "expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
+		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
 		return false;
 	}
 
@@ -82,7 +82,7 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 		return l->dat.boolean == r->dat.boolean;
 	case obj_array:
 	case obj_file:
-		L(log_interp, "TODO: compare %s", obj_type_to_s(l->type));
+		L("TODO: compare %s", obj_type_to_s(l->type));
 		return false;
 	default:
 		return false;
@@ -237,7 +237,7 @@ obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
 	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {
-		LOG_W(log_interp, "obj_array_index failed");
+		LOG_E("obj_array_index failed");
 		return false;
 	}
 
@@ -404,7 +404,7 @@ obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_
 {
 	struct obj_dict_index_iter_ctx *ctx = _ctx;
 
-	/* L(log_interp, "%s ?= %s", wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)); */
+	/* L("%s ?= %s", wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)); */
 	if (strlen(wk_objstr(wk, k_id)) == ctx->len
 	    && strncmp(wk_objstr(wk, k_id), ctx->key, ctx->len) == 0) {
 		*ctx->found = true;
@@ -559,7 +559,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uin
 			.container = *ret, .wk_dest = wk_dest
 		}, obj_clone_dict_iter);
 	default:
-		LOG_W(log_interp, "unable to clone '%s'", obj_type_to_s(t));
+		LOG_E("unable to clone '%s'", obj_type_to_s(t));
 		return false;
 	}
 }
@@ -674,7 +674,7 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
 		break;
 	default:
-		LOG_W(log_interp, "unable to convert '%s' to string", obj_type_to_s(t));
+		LOG_E("unable to convert '%s' to string", obj_type_to_s(t));
 		return false;
 	}
 

@@ -18,7 +18,7 @@ bool
 fs_stat(const char *path, struct stat *sb)
 {
 	if (stat(path, sb) != 0) {
-		LOG_W(log_misc, "failed stat(%s): %s", path, strerror(errno));
+		LOG_E("failed stat(%s): %s", path, strerror(errno));
 		return false;
 	}
 
@@ -80,7 +80,7 @@ bool
 fs_mkdir(const char *path)
 {
 	if (mkdir(path, 0755) == -1) {
-		LOG_W(log_misc, "failed to create directory %s: %s", path, strerror(errno));
+		LOG_E("failed to create directory %s: %s", path, strerror(errno));
 		return false;
 	}
 
@@ -122,7 +122,7 @@ fs_fopen(const char *path, const char *mode)
 {
 	FILE *f;
 	if (!(f = fopen(path, mode))) {
-		LOG_W(log_misc, "failed to open '%s': %s", path, strerror(errno));
+		LOG_E("failed to open '%s': %s", path, strerror(errno));
 		return NULL;
 	}
 
@@ -133,7 +133,7 @@ bool
 fs_fclose(FILE *file)
 {
 	if (fclose(file) != 0) {
-		LOG_W(log_misc, "failed fclose: %s", strerror(errno));
+		LOG_E("failed fclose: %s", strerror(errno));
 		return false;
 	}
 
@@ -145,10 +145,10 @@ fs_fsize(FILE *file, uint64_t *ret)
 {
 	int64_t size = 0;
 	if (fseek(file, 0, SEEK_END) == -1) {
-		LOG_W(log_misc, "failed fseek: %s", strerror(errno));
+		LOG_E("failed fseek: %s", strerror(errno));
 		return false;
 	} else if ((size = ftell(file)) == -1) {
-		LOG_W(log_misc, "failed ftell: %s", strerror(errno));
+		LOG_E("failed ftell: %s", strerror(errno));
 		return false;
 	}
 
@@ -174,7 +174,7 @@ fs_read_entire_file(const char *path, struct source *src)
 		f = stdin;
 	} else {
 		if (!fs_file_exists(path)) {
-			LOG_W(log_misc, "'%s' is not a file", path);
+			LOG_E("'%s' is not a file", path);
 			return false;
 		}
 
@@ -204,7 +204,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	}
 
 	if (read != src->len) {
-		LOG_W(log_misc, "failed to read entire file, only read %ld/%ld bytes", read, (intmax_t)src->len);
+		LOG_E("failed to read entire file, only read %ld/%ld bytes", read, (intmax_t)src->len);
 		z_free(buf);
 		return false;
 	}
@@ -238,9 +238,9 @@ fs_fwrite(const void *ptr, size_t size, FILE *f)
 		return true;
 	} else {
 		if ((err = ferror(f))) {
-			LOG_W(log_misc, "fwrite failed: %s", strerror(err));
+			LOG_E("fwrite failed: %s", strerror(err));
 		} else {
-			LOG_W(log_misc, "fwrite failed: unknown");
+			LOG_E("fwrite failed: unknown");
 		}
 		return false;
 	}
@@ -255,7 +255,7 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 	}
 
 	if (!fs_fwrite(buf, buf_len, f)) {
-		LOG_W(log_misc, "failed to write entire file");
+		LOG_E("failed to write entire file");
 		fs_fclose(f);
 		return false;
 	}
@@ -289,7 +289,7 @@ fs_find_cmd(const char *cmd, const char **ret)
 	}
 
 	if (!(env_path = getenv("PATH"))) {
-		LOG_W(log_misc, "failed to get the value of PATH");
+		LOG_E("failed to get the value of PATH");
 		return false;
 	}
 
@@ -328,7 +328,7 @@ bool
 fs_dup2(int oldfd, int newfd)
 {
 	if ((dup2(oldfd, newfd)) == -1) {
-		LOG_W(log_misc, "failed dup2(%d, %d): %s", oldfd, newfd, strerror(errno));
+		LOG_E("failed dup2(%d, %d): %s", oldfd, newfd, strerror(errno));
 		return false;
 	}
 
@@ -341,7 +341,7 @@ fs_fileno(FILE *f, int *ret)
 	int v;
 
 	if ((v = fileno(f)) == -1) {
-		LOG_W(log_misc, "failed fileno: %s", strerror(errno));
+		LOG_E("failed fileno: %s", strerror(errno));
 		return false;
 	}
 
@@ -356,7 +356,7 @@ fs_redirect(const char *path, const char *mode, int fd, int *old_fd)
 	int out_fd;
 
 	if ((*old_fd = dup(fd)) == -1) {
-		LOG_W(log_misc, "failed dup(%d): %s", fd, strerror(errno));
+		LOG_E("failed dup(%d): %s", fd, strerror(errno));
 		return false;
 	} else if (!(out = fs_fopen(path, mode))) {
 		return false;
@@ -377,7 +377,7 @@ fs_redirect_restore(int fd, int old_fd)
 	if (!fs_dup2(old_fd, fd)) {
 		return false;
 	} else if (close(old_fd) == -1) {
-		LOG_W(log_misc, "failed close(%d): %s", old_fd, strerror(errno));
+		LOG_E("failed close(%d): %s", old_fd, strerror(errno));
 		return false;
 	}
 	return true;

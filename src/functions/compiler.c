@@ -46,7 +46,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 		return ir_err;
 	}
 
-	LOG_I(log_misc, "'%s' supported: %s",
+	LOG_I("'%s' supported: %s",
 		wk_objstr(wk, val_id),
 		cmd_ctx.status == 0 ? "YES" : "NO"
 		);

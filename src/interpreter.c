@@ -768,7 +768,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	struct node *n = get_node(wk->ast, n_id);
 
-	/* L(log_interp, "%s", node_to_s(n)); */
+	/* L("%s", node_to_s(n)); */
 	if (wk->loop_ctl) {
 		--wk->stack_depth;
 		return true;
@@ -819,7 +819,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	case node_continue:
 		if (!wk->loop_depth) {
-			LOG_W(log_interp, "continue outside loop");
+			LOG_E("continue outside loop");
 			ret = false;
 			break;
 		}
@@ -828,7 +828,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	case node_break:
 		if (!wk->loop_depth) {
-			LOG_W(log_interp, "break outside loop");
+			LOG_E("break outside loop");
 			ret = false;
 			break;
 		}
@@ -871,7 +871,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = interp_comparison(wk, n, obj_id);
 		break;
 	case node_ternary:
-		LOG_W(log_misc, "ternary not yet implemented");
+		LOG_E("ternary not yet implemented");
 		ret = false;
 		break;
 
@@ -895,7 +895,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	/* never valid */
 	case node_null:
-		LOG_W(log_interp, "bug in the interpreter: encountered null node");
+		LOG_E("bug in the interpreter: encountered null node");
 		ret = false;
 		break;
 	}

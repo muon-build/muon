@@ -672,7 +672,7 @@ done:
 	for (i = 0; i < lexer->toks->tok.len; ++i) {
 		tok = darr_get(&lexer->toks->tok, i);
 
-		L(log_lex, "%s", tok_to_s(tok));
+		L("%s", tok_to_s(tok));
 	}
 #endif
 

@@ -56,7 +56,7 @@ find_cmd(const struct command *commands, cmd_func *ret,
 			*ret = NULL;
 			return true;
 		} else {
-			LOG_W(log_misc, "missing command");
+			LOG_E("missing command");
 			return false;
 		}
 	} else {
@@ -70,7 +70,7 @@ find_cmd(const struct command *commands, cmd_func *ret,
 		}
 	}
 
-	LOG_W(log_misc, "invalid command '%s'", cmd);
+	LOG_E("invalid command '%s'", cmd);
 	return false;
 }
 
@@ -89,11 +89,11 @@ parse_config_key_value(struct workspace *wk, char *lhs, const char *val)
 	}
 
 	if (!*lhs) {
-		LOG_W(log_misc, "'%s%s=%s' missing option name",
+		LOG_E("'%s%s=%s' missing option name",
 			subproj ? subproj : "", subproj ? ":" : "", val);
 		return false;
 	} else if (subproj && !*subproj) {
-		LOG_W(log_misc, "':%s=%s' there is a colon in the option name,"
+		LOG_E("':%s=%s' there is a colon in the option name,"
 			"but no subproject was specified", lhs, val);
 		return false;
 	}
@@ -117,7 +117,7 @@ parse_config_opt(struct workspace *wk, char *lhs)
 {
 	char *rhs = strchr(lhs, '=');
 	if (!rhs) {
-		LOG_W(log_misc, "expected '=' in config opt '%s'", lhs);
+		LOG_E("expected '=' in config opt '%s'", lhs);
 		return false;
 	}
 	*rhs = 0;

@@ -39,13 +39,13 @@ eval_project(struct workspace *wk, const char *subproject_name,
 				return false;
 			}
 		} else {
-			LOG_W(log_misc, "project %s not found", cwd);
+			LOG_E("project %s not found", cwd);
 			return false;
 		}
 	}
 
 	if (!fs_file_exists(src)) {
-		LOG_W(log_misc, "project %s does not contain a meson.build", cwd);
+		LOG_E("project %s does not contain a meson.build", cwd);
 		return false;
 	}
 
@@ -124,7 +124,7 @@ eval_str(struct workspace *wk, const char *str, uint32_t *obj)
 bool
 eval_project_file(struct workspace *wk, const char *path)
 {
-	/* L(log_misc, "evaluating '%s'", src); */
+	/* L("evaluating '%s'", src); */
 	bool ret = false;
 	{
 		uint32_t id;
