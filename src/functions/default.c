@@ -25,8 +25,7 @@
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default_options,
 		kw_license,
@@ -43,15 +42,12 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, ao, akw)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
 	current_project(wk)->cfg.name = get_obj(wk, an[0].val)->dat.str;
-
-	if (ao[0].set && !check_lang(wk, ao[0].node, ao[0].val)) {
-		return false;
-	}
+	// TODO
 
 	current_project(wk)->cfg.license = get_obj(wk, akw[kw_license].val)->dat.str;
 	current_project(wk)->cfg.version = get_obj(wk, akw[kw_version].val)->dat.str;
