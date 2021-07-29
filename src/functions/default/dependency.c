@@ -15,7 +15,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 {
 	struct pkgconf_info info = { 0 };
 
-	if (!muon_pkgconf_lookup(wk, wk_objstr(wk, name), is_static, &info)) {
+	if (!muon_pkgconf_lookup(wk, get_obj(wk, name)->dat.str, is_static, &info)) {
 		if (requirement == requirement_required) {
 			interp_error(wk, node, "required dependency not found");
 			return false;
