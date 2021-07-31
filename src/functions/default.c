@@ -1024,7 +1024,20 @@ func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	return true;
 }
 
-const struct func_impl_name impl_tbl_default[] = {
+static bool
+func_is_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_bool)->dat.boolean = false;
+	return true;
+}
+
+const struct func_impl_name impl_tbl_default[] =
+{
 	{ "add_global_arguments", todo },
 	{ "add_global_link_arguments", todo },
 	{ "add_languages", todo },
@@ -1058,7 +1071,7 @@ const struct func_impl_name impl_tbl_default[] = {
 	{ "install_headers", func_install_todo },
 	{ "install_man", func_install_todo },
 	{ "install_subdir", func_install_todo },
-	{ "is_disabler", todo },
+	{ "is_disabler", func_is_disabler },
 	{ "is_variable", todo },
 	{ "jar", todo },
 	{ "join_paths", func_join_paths },
