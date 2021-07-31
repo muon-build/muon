@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "compilers.h"
 #include "eval.h"
 #include "filesystem.h"
 #include "interpreter.h"
@@ -318,6 +319,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	hash_init(&proj->scope, 128);
 
 	make_obj(wk, &proj->opts, obj_dict);
+	make_obj(wk, &proj->compilers, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->tests, obj_array);
 	make_obj(wk, &proj->cfg.args, obj_array);

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "compilers.h"
 #include "external/samu.h"
 #include "filesystem.h"
 #include "functions/default/options.h"
@@ -176,6 +177,30 @@ get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fal
 	}
 }
 
+static enum iteration_result
+write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t lang, uint32_t comp_id)
+{
+	FILE *out = _ctx;
+	struct obj *comp = get_obj(wk, comp_id);
+	assert(comp->type == obj_compiler);
+
+	enum compiler_type t = comp->dat.compiler.type;
+
+	fprintf(out, "rule %s_COMPILER\n"
+		" command = %s %s\n"
+		" deps = %s\n"
+		" depfile = %s\n"
+		" description = %s\n",
+		wk_objstr(wk, lang),
+		wk_str(wk, comp->dat.compiler.name),
+		compilers[t].command,
+		compilers[t].deps,
+		compilers[t].depfile,
+		compilers[t].description);
+
+	return ir_cont;
+}
+
 static void
 write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
@@ -191,13 +216,13 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"ninja_required_version = 1.7.1\n"
 		"\n"
 		"# Rules for compiling.\n"
-		"\n"
-		"rule c_COMPILER\n"
-		" command = %s $ARGS -MD -MQ $out -MF $DEPFILE -o $out -c $in\n"
-		" deps = gcc\n"
-		" depfile = $DEPFILE_UNQUOTED\n"
-		" description = Compiling C object $out\n"
-		"\n"
+		"\n",
+		wk_str(wk, main_proj->cfg.name)
+		);
+
+	obj_dict_foreach(wk, main_proj->compilers, out, write_compiler_rule_iter);
+
+	fprintf(out,
 		"# Rules for linking.\n"
 		"\n"
 		"rule STATIC_LINKER\n"
@@ -224,8 +249,6 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" pool = console\n"
 		"\n"
 		"# targets\n\n",
-		wk_str(wk, main_proj->cfg.name),
-		get_dict_str(wk, wk->binaries, "c", "cc"),
 		get_dict_str(wk, wk->binaries, "ar", "ar"),
 		get_dict_str(wk, wk->binaries, "c_ld", "cc"),
 		wk->argv0,

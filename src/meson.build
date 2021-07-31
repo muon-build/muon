@@ -3,6 +3,7 @@
 src = files([
 	'bucket_array.c',
 	'coerce.c',
+	'compilers.c',
 	'darr.c',
 	'eval.c',
 	'external/microtar.c',

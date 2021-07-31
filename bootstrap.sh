@@ -13,6 +13,7 @@ mkdir -p "$dir"
 cat \
 	src/bucket_array.c \
 	src/coerce.c \
+	src/compilers.c \
 	src/darr.c \
 	src/eval.c \
 	src/external/curl_null.c \

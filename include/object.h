@@ -141,6 +141,11 @@ struct obj {
 			uint32_t args;
 			bool should_fail;
 		} test;
+		struct {
+			uint32_t type; // enum compiler type
+			uint32_t name; // str
+			uint32_t version; // str
+		} compiler;
 		uint32_t module;
 	} dat;
 };

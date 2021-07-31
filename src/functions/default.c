@@ -6,6 +6,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "compilers.h"
 #include "eval.h"
 #include "filesystem.h"
 #include "functions/common.h"
@@ -21,6 +22,41 @@
 #include "path.h"
 #include "run_cmd.h"
 #include "wrap.h"
+
+static bool
+project_add_language(struct workspace *wk, uint32_t err_node, uint32_t l)
+{
+	if (strcmp(wk_objstr(wk, l), "c") == 0) {
+		uint32_t comp_id;
+		if (compiler_detect_c(wk, &comp_id)) {
+			obj_dict_setc(wk, current_project(wk)->compilers, "c", comp_id);
+			return true;
+		}
+	} else {
+		interp_error(wk, err_node, "unsupported language");
+		return false;
+	}
+
+	interp_error(wk, err_node, "unable to detect %s compiler", wk_objstr(wk, l));
+	return false;
+}
+
+struct project_add_language_iter_ctx {
+	uint32_t err_node;
+};
+
+static enum iteration_result
+project_add_language_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+
+	struct project_add_language_iter_ctx *ctx = _ctx;
+
+	if (project_add_language(wk, ctx->err_node, val)) {
+		return ir_cont;
+	} else {
+		return ir_err;
+	}
+}
 
 static bool
 func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
@@ -47,7 +83,12 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 	}
 
 	current_project(wk)->cfg.name = get_obj(wk, an[0].val)->dat.str;
-	// TODO
+
+	if (!obj_array_foreach_flat(wk, an[1].val,
+		&(struct project_add_language_iter_ctx) { an[1].node },
+		project_add_language_iter) ) {
+		return false;
+	}
 
 	current_project(wk)->cfg.license = get_obj(wk, akw[kw_license].val)->dat.str;
 	current_project(wk)->cfg.version = get_obj(wk, akw[kw_version].val)->dat.str;

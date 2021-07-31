@@ -14,10 +14,11 @@
 
 struct project {
 	struct hash scope;
+
 	/* wk_strings */
 	uint32_t source_root, cwd, build_dir, subproject_name;
 	/* objects */
-	uint32_t opts;
+	uint32_t opts, compilers;
 
 	struct {
 		uint32_t name;
