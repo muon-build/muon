@@ -9,6 +9,7 @@ src = files([
 	'external/microtar.c',
 	'external/sha-256.c',
 	'filesystem.c',
+	'functions/build_target.c',
 	'functions/common.c',
 	'functions/compiler.c',
 	'functions/configuration_data.c',

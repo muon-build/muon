@@ -23,6 +23,7 @@ cat \
 	src/external/sha-256.c \
 	src/external/zlib_null.c \
 	src/filesystem.c \
+	src/functions/build_target.c \
 	src/functions/common.c \
 	src/functions/compiler.c \
 	src/functions/configuration_data.c \
