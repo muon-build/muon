@@ -66,7 +66,7 @@ muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 	CURLcode err;
 	char errbuf[CURL_ERROR_SIZE] = { 0 };
 
-	LOG_I("fetching '%s", url);
+	LOG_I("fetching '%s'", url);
 
 	if (!fetch_ctx.init) {
 		LOG_E("curl is not initialized");
