@@ -390,14 +390,18 @@ static bool
 func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_bool }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
 		return false;
 	}
 
 	*obj = 0;
 
 	if (!get_obj(wk, an[0].val)->dat.boolean) {
+		if (ao[0].set) {
+			LOG_E("%s", wk_objstr(wk, ao[0].val));
+		}
 		return false;
 	}
 
