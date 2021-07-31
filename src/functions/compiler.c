@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "compilers.h"
 #include "filesystem.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
@@ -93,9 +94,9 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint3
 }
 
 static bool
-func_compiler_get_id(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, "gcc");
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, compiler_type_to_s(get_obj(wk, rcvr)->dat.compiler.type));
 	return true;
 }
 
