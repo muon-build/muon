@@ -178,4 +178,6 @@ bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint3
 bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res, bool *found);
 void obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id);
 bool obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res);
+void obj_dict_setc(struct workspace *wk, uint32_t dict, const char *k, uint32_t v);
+bool obj_dict_getc(struct workspace *wk, uint32_t dict, const char *k, uint32_t *v);
 #endif

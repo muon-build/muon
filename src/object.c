@@ -491,6 +491,22 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 	++dict->dat.dict.len;
 }
 
+void
+obj_dict_setc(struct workspace *wk, uint32_t dict, const char *k, uint32_t v)
+{
+	obj_dict_set(wk, dict, make_str(wk, k), v);
+}
+
+bool
+obj_dict_getc(struct workspace *wk, uint32_t dict, const char *k, uint32_t *v)
+{
+	bool found;
+	return obj_dict_index(wk, dict, make_str(wk, k), v, &found)
+	       && found;
+}
+
+/* */
+
 struct obj_clone_ctx {
 	struct workspace *wk_dest;
 	uint32_t container;
