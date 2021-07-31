@@ -11,13 +11,15 @@
 #include "log.h"
 
 static char *log_level_clr[log_level_count] = {
-	[log_warn] = "31",
+	[log_error] = "31",
+	[log_warn] = "33",
 	[log_info] = "34",
 	[log_debug] = "0",
 };
 
 static char *log_level_name[log_level_count] = {
-	[log_warn] = "error",
+	[log_error] = "error",
+	[log_warn] = "warn",
 	[log_info] = "info",
 	[log_debug] = "dbg",
 };
