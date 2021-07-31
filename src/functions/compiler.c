@@ -23,13 +23,17 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 {
 	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
 
+	struct obj *comp = get_obj(wk, ctx->compiler);
+
 	if (!typecheck(wk, ctx->node, val_id, obj_string)) {
 		return ir_err;
 	}
 
+	char *name = wk_str(wk, comp->dat.compiler.name);
+
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, "cc", (char *[]){
-		"cc",
+	if (!run_cmd(&cmd_ctx, name, (char *[]){
+		name,
 		"-Werror",
 		wk_objstr(wk, val_id),
 		"-x", "c",
