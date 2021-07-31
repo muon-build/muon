@@ -19,11 +19,12 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		return false;
 	}
 
-	if (!check_lang(wk, an[0].node, an[0].val)) {
+	bool found;
+	if (!obj_dict_index(wk, current_project(wk)->compilers, an[0].val, obj, &found) || !found) {
+		interp_error(wk, an[0].node, "no compiler found for '%s'", wk_objstr(wk, an[0].val));
 		return false;
 	}
 
-	make_obj(wk, obj, obj_compiler);
 	return true;
 }
 
