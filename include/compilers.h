@@ -9,15 +9,24 @@ enum compiler_type {
 	compiler_type_count,
 };
 
+enum compiler_language {
+	compiler_language_c,
+	compiler_language_cpp,
+	compiler_language_count,
+};
+
 struct compiler {
 	const char *command,
 		   *deps,
 		   *depfile,
 		   *description;
+	enum compiler_language lang;
 };
 
 extern const struct compiler compilers[];
 
 const char *compiler_type_to_s(enum compiler_type t);
-bool compiler_detect_c(struct workspace *wk, uint32_t *comp);
+const char *compiler_language_to_s(enum compiler_language l);
+bool s_to_compiler_language(const char *s, enum compiler_language *l);
+bool compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language);
 #endif

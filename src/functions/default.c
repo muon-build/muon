@@ -24,21 +24,28 @@
 #include "wrap.h"
 
 static bool
-project_add_language(struct workspace *wk, uint32_t err_node, uint32_t l)
+project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 {
-	if (strcmp(wk_objstr(wk, l), "c") == 0) {
-		uint32_t comp_id;
-		if (compiler_detect_c(wk, &comp_id)) {
-			obj_dict_setc(wk, current_project(wk)->compilers, "c", comp_id);
-			return true;
-		}
-	} else {
-		interp_error(wk, err_node, "unsupported language");
+	bool found;
+	if (!obj_dict_in(wk, str, current_project(wk)->compilers, &found) || found) {
+		interp_error(wk, err_node, "language '%s' has already been added", wk_objstr(wk, str));
 		return false;
 	}
 
-	interp_error(wk, err_node, "unable to detect %s compiler", wk_objstr(wk, l));
-	return false;
+	uint32_t comp_id;
+	enum compiler_language l;
+	if (!s_to_compiler_language(wk_objstr(wk, str), &l)) {
+		interp_error(wk, err_node, "unsupported language '%s'", wk_objstr(wk, str));
+		return false;
+	}
+
+	if (!compiler_detect(wk, &comp_id, l)) {
+		interp_error(wk, err_node, "unable to detect %s compiler", wk_objstr(wk, str));
+		return false;
+	}
+
+	obj_dict_set(wk, current_project(wk)->compilers, str, comp_id);
+	return true;
 }
 
 struct project_add_language_iter_ctx {
@@ -48,7 +55,6 @@ struct project_add_language_iter_ctx {
 static enum iteration_result
 project_add_language_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
-
 	struct project_add_language_iter_ctx *ctx = _ctx;
 
 	if (project_add_language(wk, ctx->err_node, val)) {

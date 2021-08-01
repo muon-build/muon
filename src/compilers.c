@@ -18,14 +18,35 @@ compiler_type_to_s(enum compiler_type t)
 	}
 }
 
-bool
-compiler_detect_c(struct workspace *wk, uint32_t *comp_id)
+static const char *compiler_language_names[compiler_language_count] = {
+	[compiler_language_c] = "c",
+	[compiler_language_cpp] = "cpp",
+};
+
+const char *
+compiler_language_to_s(enum compiler_language l)
 {
-	const char *cc;
-	if (!(cc = getenv("CC"))) {
-		cc = "cc";
+	assert(l < compiler_language_count);
+	return compiler_language_names[l];
+}
+
+bool
+s_to_compiler_language(const char *s, enum compiler_language *l)
+{
+	uint32_t i;
+	for (i = 0; i < compiler_language_count; ++i) {
+		if (strcmp(s, compiler_language_names[i]) == 0) {
+			*l = i;
+			return true;
+		}
 	}
 
+	return false;
+}
+
+static bool
+compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id)
+{
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd(&cmd_ctx, cc, (char *[]){
@@ -62,13 +83,42 @@ compiler_detect_c(struct workspace *wk, uint32_t *comp_id)
 		}
 	}
 
-	LOG_I("detected C compiler %s %s", compiler_type_to_s(type), ver);
+	LOG_I("detected compiler %s %s (%s)", compiler_type_to_s(type), ver, cc);
 
 	struct obj *comp = make_obj(wk, comp_id, obj_compiler);
 	comp->dat.compiler.name = wk_str_push(wk, cc);
 	comp->dat.compiler.type = type;
 	comp->dat.compiler.version = wk_str_push(wk, ver);
 	return true;
+}
+
+bool
+compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language lang)
+{
+	const char *cmd;
+
+	static const char *compiler_env_override[] = {
+		[compiler_language_c] = "CC",
+		[compiler_language_cpp] = "CXX",
+	};
+
+	static const char *compiler_default[] = {
+		[compiler_language_c] = "cc",
+		[compiler_language_cpp] = "cpp",
+	};
+
+	if (!(cmd = getenv(compiler_env_override[lang]))) {
+		cmd = compiler_default[lang];
+	}
+
+	switch (lang) {
+	case compiler_language_c:
+	case compiler_language_cpp:
+		return compiler_detect_c_or_cpp(wk, cmd, comp_id);
+	default:
+		assert(false);
+		return false;
+	}
 }
 
 const struct compiler compilers[] = {
