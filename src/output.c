@@ -264,15 +264,35 @@ struct write_tgt_iter_ctx {
 	bool have_implicit_deps;
 };
 
+enum file_type {
+	file_type_c,
+	file_type_cpp,
+	file_type_h,
+	file_type_count,
+};
+
 static bool
-suffixed_by(const char *str, const char *suffix)
+file_type_from_ext(const char *str, enum file_type *ret)
 {
-	uint32_t len = strlen(str), sufflen = strlen(suffix);
-	if (sufflen > len) {
-		return false;
+	static const char *ext[][10] = {
+		[file_type_c] = { ".c" },
+		[file_type_cpp] = { ".cc" },
+		[file_type_h] = { ".h" },
+	};
+
+	uint32_t i, j, len = strlen(str), sufflen;
+
+	for (i = 0; i < file_type_count; ++i) {
+		for (j = 0; ext[i][j]; ++j) {
+			sufflen = strlen(ext[i][j]);
+			if (sufflen < len && strcmp(&str[len - sufflen], ext[i][j]) == 0) {
+				*ret = i;
+				return true;
+			}
+		}
 	}
 
-	return strcmp(&str[len - sufflen], suffix) == 0;
+	return false;
 }
 
 static enum iteration_result
@@ -282,7 +302,14 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file);
 
-	if (suffixed_by(wk_str(wk, src->dat.file), ".h")) {
+	enum file_type ft;
+
+	if (!file_type_from_ext(wk_str(wk, src->dat.file), &ft)) {
+		LOG_E("unable to determine language for '%s'", wk_str(wk, src->dat.file));
+		return ir_err;
+	}
+
+	if (ft == file_type_h) {
 		return ir_cont;
 	}
 
@@ -314,13 +341,28 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	wk_str_appf(wk, &ctx->object_names_id, "%s ", dest_path);
 
+	const char *rule = NULL;
+	switch (ft) {
+	case file_type_c:
+		rule = "c_COMPILER";
+		break;
+	case file_type_cpp:
+		rule = "cpp_COMPILER";
+		break;
+	case file_type_h:
+	case file_type_count:
+		assert(false);
+		return ir_err;
+		/* default: */
+	}
+
 	/* TODO: add order_deps here */
 	fprintf(ctx->output->build_ninja,
-		"build %s: c_COMPILER %s %s\n"
+		"build %s: %s %s %s\n"
 		" DEPFILE = %s.d\n"
 		" DEPFILE_UNQUOTED = %s.d\n"
 		" ARGS = %s\n\n",
-		dest_path, src_path,
+		dest_path, rule, src_path,
 		ctx->have_order_deps ? wk_str(wk, ctx->order_deps_id) : "",
 		dest_path,
 		dest_path,
@@ -337,9 +379,17 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file);
 
-	if (!suffixed_by(wk_str(wk, src->dat.file), ".h")) {
+	enum file_type ft;
+
+	if (!file_type_from_ext(wk_str(wk, src->dat.file), &ft)) {
+		LOG_E("unable to determine compilation rule for '%s'", wk_str(wk, src->dat.file));
+		return ir_err;
+	}
+
+	if (ft != file_type_h) {
 		return ir_cont;
 	}
+
 
 	char dir[PATH_MAX], path[PATH_MAX];
 
