@@ -381,7 +381,7 @@ func_executable(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 }
 
 static bool
-func_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_static_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	return tgt_common(wk, args_node, obj, tgt_library);
 }
@@ -1079,15 +1079,15 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "is_variable", todo },
 	{ "jar", todo },
 	{ "join_paths", func_join_paths },
-	{ "library", func_library },
+	{ "library", func_static_library },
 	{ "message", func_message },
 	{ "project", func_project },
 	{ "run_command", func_run_command },
 	{ "run_target", todo },
 	{ "set_variable", todo },
-	{ "shared_library", todo },
+	{ "shared_library", func_static_library },
 	{ "shared_module", todo },
-	{ "static_library", todo },
+	{ "static_library", func_static_library },
 	{ "subdir", func_subdir },
 	{ "subdir_done", todo },
 	{ "subproject", func_subproject },
