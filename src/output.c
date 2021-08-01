@@ -257,34 +257,6 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		);
 }
 
-static bool
-write_opts(FILE *f, struct workspace *wk)
-{
-	struct project *proj;
-	uint32_t i;
-	char buf[2048];
-	uint32_t opts;
-	proj = darr_get(&wk->projects, 0);
-
-	if (!obj_dict_dup(wk, proj->opts, &opts)) {
-		return false;
-	}
-
-	for (i = 1; i < wk->projects.len; ++i) {
-		proj = darr_get(&wk->projects, i);
-		uint32_t str;
-		make_obj(wk, &str, obj_string)->dat.str = proj->subproject_name;
-		obj_dict_set(wk, opts, str, proj->opts);
-	}
-
-	if (!obj_to_s(wk, opts, buf, 2048)) {
-		return false;
-	}
-
-	fprintf(f, "setup(\n\t'%s',\n\tsource: '%s',\n\toptions: %s\n)\n", wk->build_root, wk->source_root, buf);
-	return true;
-}
-
 struct write_tgt_iter_ctx {
 	char *tgt_parts_dir;
 	struct obj *tgt;
@@ -895,6 +867,34 @@ write_project(struct output *output, struct workspace *wk, struct project *proj)
 		return false;
 	}
 
+	return true;
+}
+
+static bool
+write_opts(FILE *f, struct workspace *wk)
+{
+	struct project *proj;
+	uint32_t i;
+	char buf[2048];
+	uint32_t opts;
+	proj = darr_get(&wk->projects, 0);
+
+	if (!obj_dict_dup(wk, proj->opts, &opts)) {
+		return false;
+	}
+
+	for (i = 1; i < wk->projects.len; ++i) {
+		proj = darr_get(&wk->projects, i);
+		uint32_t str;
+		make_obj(wk, &str, obj_string)->dat.str = proj->subproject_name;
+		obj_dict_set(wk, opts, str, proj->opts);
+	}
+
+	if (!obj_to_s(wk, opts, buf, 2048)) {
+		return false;
+	}
+
+	fprintf(f, "setup(\n\t'%s',\n\tsource: '%s',\n\toptions: %s\n)\n", wk->build_root, wk->source_root, buf);
 	return true;
 }
 
