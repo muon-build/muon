@@ -35,34 +35,10 @@ darr_clear(struct darr *da)
 	da->len = 0;
 }
 
-uint8_t *
+static uint8_t *
 darr_point_at(const struct darr *da, size_t i)
 {
 	return da->e + (i * da->item_size);
-}
-
-size_t
-darr_len(const struct darr *da)
-{
-	return da->len;
-}
-
-size_t
-darr_item_size(const struct darr *da)
-{
-	return da->item_size;
-}
-
-size_t
-darr_size(const struct darr *da)
-{
-	return da->item_size * da->len;
-}
-
-void *
-darr_raw_memory(const struct darr *da)
-{
-	return da->e;
 }
 
 static void *
@@ -99,31 +75,12 @@ darr_grow_by(struct darr *da, size_t size)
 	darr_get_mem(da);
 }
 
-void
-darr_grow_to(struct darr *da, size_t size)
-{
-	if (size > da->len) {
-		da->len = size - 1;
-		darr_get_mem(da);
-	}
-}
-
 size_t
 darr_push(struct darr *da, const void *item)
 {
 	memcpy(darr_get_mem(da), item, da->item_size);
 
 	return da->len - 1;
-}
-
-void *
-darr_try_get(const struct darr *da, size_t i)
-{
-	if (i < da->len) {
-		return darr_point_at(da, i);
-	} else {
-		return NULL;
-	}
 }
 
 void *
@@ -138,14 +95,6 @@ darr_get(const struct darr *da, size_t i)
 }
 
 void
-darr_set(struct darr *da, size_t i, const void *item)
-{
-	assert(i < da->len);
-
-	memcpy(darr_point_at(da, i), item, da->item_size);
-}
-
-void
 darr_del(struct darr *da, size_t i)
 {
 	assert(i < da->len);
@@ -155,19 +104,4 @@ darr_del(struct darr *da, size_t i)
 	if (da->len > 0 && da->len != i) {
 		memmove(darr_point_at(da, i), darr_point_at(da, da->len), da->item_size);
 	}
-}
-
-void
-darr_swap(struct darr *da, size_t i, size_t j)
-{
-	assert(i != j);
-
-	uint8_t tmp[da->item_size];
-
-	void *a = darr_get(da, i),
-	     *b = darr_get(da, j);
-
-	memcpy(tmp, a, da->item_size);
-	darr_set(da, i, b);
-	darr_set(da, j, tmp);
 }
