@@ -1,7 +1,7 @@
 #ifndef COMPILERS_H
 #define COMPILERS_H
 
-#include "workspace.h"
+#include "lang/workspace.h"
 
 enum compiler_type {
 	compiler_gcc,

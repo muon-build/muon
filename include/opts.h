@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "workspace.h"
+#include "lang/workspace.h"
 
 #define OPTSTART(optstring) \
 	signed char opt; \

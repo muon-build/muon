@@ -4,10 +4,11 @@
 #include <stdarg.h>
 
 #include "buf_size.h"
-#include "eval.h"
-#include "lexer.h"
+#include "error.h"
+#include "lang/eval.h"
+#include "lang/lexer.h"
+#include "lang/parser.h"
 #include "log.h"
-#include "parser.h"
 
 #define NODE_MAX_CHILDREN 4
 

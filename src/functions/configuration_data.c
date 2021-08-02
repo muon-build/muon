@@ -2,7 +2,7 @@
 
 #include "functions/common.h"
 #include "functions/configuration_data.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 static bool

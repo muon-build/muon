@@ -5,11 +5,11 @@
 #include <string.h>
 
 #include "external/pkgconf.h"
-#include "filesystem.h"
+#include "lang/object.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "object.h"
-#include "path.h"
-#include "workspace.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 
 const bool have_libpkgconf = true;
 

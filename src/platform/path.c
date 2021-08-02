@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "path.h"
+#include "platform/path.h"
 
 static char cwd[PATH_MAX + 1];
 

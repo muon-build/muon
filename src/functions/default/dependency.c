@@ -6,9 +6,9 @@
 #include "external/pkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
-#include "run_cmd.h"
+#include "platform/run_cmd.h"
 
 static bool
 get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name, bool is_static, enum requirement_type requirement)

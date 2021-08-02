@@ -1,7 +1,7 @@
 #ifndef MUON_OUTPUT_H
 #define MUON_OUTPUT_H
 
-#include "workspace.h"
+#include "lang/workspace.h"
 
 struct outpath {
 	const char *private_dir, *setup, *tests;

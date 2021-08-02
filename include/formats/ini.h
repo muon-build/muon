@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "eval.h"
 #include "iterator.h"
+#include "platform/filesystem.h"
 
 typedef bool ((*inihcb)(void *ctx, struct source *src, const char *sect, const char *k, const char *v, uint32_t line));
 

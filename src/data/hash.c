@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "darr.h"
-#include "hash.h"
+#include "data/darr.h"
+#include "data/hash.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/mem.h"
 
 #define k_empty    0x80 // 0b10000000
 #define k_deleted  0xfe // 0b11111110
@@ -135,12 +135,12 @@ hash_clear(struct hash *h)
 	fill_meta_with_empty(h);
 }
 
-#define match ((meta & 0x7f) == h2 \
-	       && strcmp(*(char **)(h->keys.e + (h->keys.item_size * he->keyi)), key) == 0)
-
 static void
 probe(const struct hash *h, const char *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
 {
+#define match ((meta & 0x7f) == h2 \
+	       && strcmp(*(char **)(h->keys.e + (h->keys.item_size * he->keyi)), key) == 0)
+
 	struct hash_elem *he;
 	*hv = HASH_FUNC(key);
 	const uint64_t h1 = *hv >> 7, h2 = *hv & 0x7f;
@@ -158,6 +158,8 @@ probe(const struct hash *h, const char *key, struct hash_elem **ret_he, uint8_t 
 
 	*ret_meta = &((uint8_t *)h->meta.e)[hvi];
 	*ret_he = he;
+
+#undef match
 }
 
 static void

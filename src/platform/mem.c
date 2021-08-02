@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "eval.h"
-#include "mem.h"
+#include "error.h"
+#include "platform/mem.h"
 
 void *
 z_calloc(size_t nmemb, size_t size)

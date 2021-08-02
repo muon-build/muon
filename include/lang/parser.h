@@ -1,11 +1,11 @@
 #ifndef MUON_PARSER_H
 #define MUON_PARSER_H
 
-#include "darr.h"
-#include "eval.h"
-
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "data/darr.h"
+#include "lang/eval.h"
 
 enum comparison_type {
 	comp_equal,

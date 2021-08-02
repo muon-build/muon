@@ -4,14 +4,15 @@
 #include <string.h>
 
 #include "compilers.h"
-#include "eval.h"
-#include "filesystem.h"
-#include "interpreter.h"
+#include "error.h"
+#include "lang/eval.h"
+#include "lang/interpreter.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "mem.h"
-#include "output.h"
-#include "path.h"
-#include "workspace.h"
+#include "output/output.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
+#include "platform/path.h"
 
 enum id_tag {
 	id_tag_obj = 0x0,

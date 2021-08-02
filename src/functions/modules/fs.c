@@ -1,10 +1,10 @@
 #include "posix.h"
 
-#include "filesystem.h"
 #include "functions/common.h"
 #include "functions/modules/fs.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
+#include "platform/filesystem.h"
 
 static bool
 func_exists(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)

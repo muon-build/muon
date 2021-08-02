@@ -1,7 +1,7 @@
 #ifndef MUON_EXTERNAL_PKGCONF_H
 #define MUON_EXTERNAL_PKGCONF_H
 
-#include "workspace.h"
+#include "lang/workspace.h"
 
 #define MAX_VERSION_LEN 32
 

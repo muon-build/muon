@@ -6,7 +6,7 @@
 #include "buf_size.h"
 #include "functions/common.h"
 #include "functions/string.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 static bool
@@ -418,7 +418,7 @@ func_version_compare(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if(!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 

@@ -5,14 +5,14 @@
 
 #include "coerce.h"
 #include "compilers.h"
-#include "filesystem.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
-#include "output.h"
-#include "path.h"
-#include "run_cmd.h"
+#include "output/output.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
+#include "platform/run_cmd.h"
 
 struct func_compiler_get_supported_arguments_iter_ctx {
 	uint32_t arr, node, compiler;

@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "data/bucket_array.h"
 #include "log.h"
-#include "mem.h"
-#include "bucket_array.h"
+#include "platform/mem.h"
 
 struct bucket {
 	uint8_t *mem;

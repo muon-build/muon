@@ -9,7 +9,7 @@
 #include "buf_size.h"
 #include "functions/common.h"
 #include "functions/default/options.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 enum build_option_type {

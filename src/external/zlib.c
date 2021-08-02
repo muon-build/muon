@@ -7,10 +7,10 @@
 #include <zlib.h>
 
 #include "external/zlib.h"
-#include "external/microtar.h"
-#include "filesystem.h"
+#include "formats/tar.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 
 const bool have_zlib = true;
 

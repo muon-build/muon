@@ -9,7 +9,7 @@
 
 #include "buf_size.h"
 #include "log.h"
-#include "run_cmd.h"
+#include "platform/run_cmd.h"
 
 bool
 run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])

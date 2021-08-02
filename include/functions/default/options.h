@@ -1,7 +1,7 @@
 #ifndef MUON_FUNCTIONS_DEFAULT_OPTIONS_H
 #define MUON_FUNCTIONS_DEFAULT_OPTIONS_H
 
-#include "workspace.h"
+#include "lang/workspace.h"
 
 bool func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj);
 bool func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj);

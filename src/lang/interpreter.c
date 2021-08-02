@@ -6,14 +6,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "eval.h"
+#include "data/hash.h"
+#include "error.h"
 #include "functions/common.h"
-#include "hash.h"
-#include "interpreter.h"
+#include "lang/eval.h"
+#include "lang/interpreter.h"
+#include "lang/parser.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "parser.h"
-#include "path.h"
-#include "workspace.h"
+#include "platform/path.h"
 
 __attribute__ ((format(printf, 3, 4)))
 void

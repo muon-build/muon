@@ -4,9 +4,9 @@
 #include <string.h>
 
 #include "coerce.h"
-#include "filesystem.h"
-#include "interpreter.h"
-#include "path.h"
+#include "lang/interpreter.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 
 bool
 coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)

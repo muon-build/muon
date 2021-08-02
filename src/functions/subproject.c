@@ -2,7 +2,7 @@
 
 #include "functions/common.h"
 #include "functions/subproject.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 static bool

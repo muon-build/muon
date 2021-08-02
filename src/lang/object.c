@@ -4,10 +4,10 @@
 #include <string.h>
 
 #include "buf_size.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
+#include "lang/object.h"
+#include "lang/parser.h"
 #include "log.h"
-#include "object.h"
-#include "parser.h"
 
 const char *
 obj_type_to_s(enum obj_type t)

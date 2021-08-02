@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "darr.h"
+#include "data/darr.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/mem.h"
 
 void
 darr_init(struct darr *da, size_t initial, size_t item_size)

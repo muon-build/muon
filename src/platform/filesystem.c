@@ -9,10 +9,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "filesystem.h"
 #include "log.h"
-#include "mem.h"
-#include "path.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
+#include "platform/path.h"
 
 bool
 fs_stat(const char *path, struct stat *sb)

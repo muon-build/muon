@@ -3,16 +3,17 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "eval.h"
+#include "error.h"
 #include "external/curl.h"
-#include "external/sha-256.h"
 #include "external/zlib.h"
-#include "filesystem.h"
-#include "inih.h"
-#include "interpreter.h"
+#include "formats/ini.h"
+#include "lang/eval.h"
+#include "lang/interpreter.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "mem.h"
-#include "workspace.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
+#include "sha_256.h"
 #include "wrap.h"
 
 enum wrap_fields {

@@ -91,7 +91,7 @@ memory is managed by the workspace, and with the current implementation, pushing
 new strings can invalidate all string pointers.  This means you generally
 shouldn't hold on to a pointer to a wk\_str for very long.  I hope to improve
 this situation in the future, but for the time being you can uncomment the else
-branch in `darr_get_mem` (`darr.c`) and run muon under valgrind to check for
+branch in `darr_get_mem` (`data/darr.c`) and run muon under valgrind to check for
 errors.
 
 Unfortunately, since strings and objects are both referred to by ids

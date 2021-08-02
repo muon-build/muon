@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "darr.h"
-#include "eval.h"
+#include "data/darr.h"
+#include "lang/eval.h"
 
 enum token_type {
 	tok_eof,

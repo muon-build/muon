@@ -6,13 +6,13 @@
 #include "buf_size.h"
 #include "compilers.h"
 #include "external/samu.h"
-#include "filesystem.h"
 #include "functions/default/options.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "output.h"
-#include "path.h"
+#include "output/output.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 #include "tests.h"
-#include "workspace.h"
 
 const struct outpath outpath = {
 	.private_dir = "muon-private",

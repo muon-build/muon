@@ -3,13 +3,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "eval.h"
-#include "filesystem.h"
-#include "inih.h"
+#include "error.h"
+#include "formats/ini.h"
 #include "machine_file.h"
-#include "mem.h"
-#include "parser.h"
-#include "workspace.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 
 struct machine_info {
 	uint32_t system, cpu_family, cpu, endian;

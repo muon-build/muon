@@ -9,7 +9,7 @@
 
 #include "external/curl.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/mem.h"
 
 const bool have_curl = true;
 

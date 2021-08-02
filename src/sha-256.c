@@ -1,6 +1,6 @@
 #include "posix.h"
 
-#include "external/sha-256.h"
+#include "sha_256.h"
 
 #define CHUNK_SIZE 64
 #define TOTAL_LEN_LEN 8

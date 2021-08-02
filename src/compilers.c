@@ -4,9 +4,9 @@
 #include <string.h>
 
 #include "compilers.h"
+#include "lang/workspace.h"
 #include "log.h"
-#include "run_cmd.h"
-#include "workspace.h"
+#include "platform/run_cmd.h"
 
 const char *
 compiler_type_to_s(enum compiler_type t)

@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lang/workspace.h"
 #include "log.h"
 #include "opts.h"
-#include "workspace.h"
 
 void
 print_usage(FILE *f, const struct command *commands,

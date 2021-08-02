@@ -5,7 +5,7 @@
 #include "external/pkgconf.h"
 #include "functions/common.h"
 #include "functions/dependency.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 static bool

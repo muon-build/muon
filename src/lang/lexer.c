@@ -7,11 +7,12 @@
 #include <string.h>
 
 #include "buf_size.h"
-#include "eval.h"
-#include "filesystem.h"
-#include "lexer.h"
+#include "error.h"
+#include "lang/eval.h"
+#include "lang/lexer.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 
 enum lex_result {
 	lex_cont,

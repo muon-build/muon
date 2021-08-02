@@ -4,13 +4,14 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "filesystem.h"
+#include "error.h"
 #include "functions/common.h"
 #include "functions/default/configure_file.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
-#include "mem.h"
-#include "path.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
+#include "platform/path.h"
 
 static void
 buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)

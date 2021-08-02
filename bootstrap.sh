@@ -11,18 +11,18 @@ dir="$1"
 mkdir -p "$dir"
 
 cat \
-	src/bucket_array.c \
 	src/coerce.c \
 	src/compilers.c \
-	src/darr.c \
-	src/eval.c \
+	src/data/bucket_array.c \
+	src/data/darr.c \
+	src/data/hash.c \
+	src/error.c \
 	src/external/curl_null.c \
 	src/external/libpkgconf.c \
-	src/external/microtar.c \
 	src/external/samu_null.c \
-	src/external/sha-256.c \
 	src/external/zlib_null.c \
-	src/filesystem.c \
+	src/formats/ini.c \
+	src/formats/tar.c \
 	src/functions/build_target.c \
 	src/functions/common.c \
 	src/functions/compiler.c \
@@ -47,24 +47,28 @@ cat \
 	src/functions/run_result.c \
 	src/functions/string.c \
 	src/functions/subproject.c \
-	src/hash.c \
-	src/inih.c \
-	src/interpreter.c \
-	src/lexer.c \
+	src/lang/eval.c \
+	src/lang/interpreter.c \
+	src/lang/lexer.c \
+	src/lang/object.c \
+	src/lang/parser.c \
+	src/lang/workspace.c \
 	src/log.c \
 	src/machine_file.c \
 	src/main.c \
-	src/mem.c \
-	src/object.c \
 	src/opts.c \
-	src/output.c \
-	src/parser.c \
-	src/path.c \
-	src/run_cmd.c \
+	src/output/output.c \
+	src/platform/filesystem.c \
+	src/platform/mem.c \
+	src/platform/path.c \
+	src/platform/run_cmd.c \
+	src/sha-256.c \
 	src/tests.c \
 	src/version.c.in \
-	src/workspace.c \
 	src/wrap.c \
-	| cc ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -x c -o "$dir/muon.o" -c -
+	> "$dir/muon.c"
+
+cc ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -o "$dir/muon.o" -c "$dir/muon.c"
 
 cc ${LDFLAGS:-} "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
+

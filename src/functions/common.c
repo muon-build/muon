@@ -22,7 +22,7 @@
 #include "functions/run_result.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
-#include "interpreter.h"
+#include "lang/interpreter.h"
 #include "log.h"
 
 bool

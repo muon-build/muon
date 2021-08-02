@@ -1,8 +1,8 @@
 #ifndef FUNCTIONS_COMMON_H
 #define FUNCTIONS_COMMON_H
 
-#include "parser.h"
-#include "workspace.h"
+#include "lang/parser.h"
+#include "lang/workspace.h"
 
 typedef bool (*func_impl)(struct workspace *wk, uint32_t recvr, uint32_t args_node, uint32_t *obj);
 

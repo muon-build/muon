@@ -1,13 +1,13 @@
 #include "posix.h"
 
-#include "eval.h"
 #include "external/samu.h"
-#include "filesystem.h"
 #include "functions/default/setup.h"
-#include "interpreter.h"
+#include "lang/eval.h"
+#include "lang/interpreter.h"
 #include "log.h"
-#include "output.h"
-#include "path.h"
+#include "output/output.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 
 uint32_t func_setup_flags = 0;
 

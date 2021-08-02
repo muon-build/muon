@@ -4,9 +4,9 @@
 #include <samu.h>
 #include <unistd.h>
 
-#include "path.h"
 #include "external/samu.h"
-#include "filesystem.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 
 const bool have_samu = true;
 

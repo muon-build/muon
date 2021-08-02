@@ -5,12 +5,12 @@
 
 #include <limits.h>
 
-#include "bucket_array.h"
-#include "darr.h"
-#include "eval.h"
-#include "hash.h"
-#include "object.h"
-#include "parser.h"
+#include "data/bucket_array.h"
+#include "data/darr.h"
+#include "data/hash.h"
+#include "lang/eval.h"
+#include "lang/object.h"
+#include "lang/parser.h"
 
 struct project {
 	struct hash scope;

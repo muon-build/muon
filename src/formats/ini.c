@@ -4,12 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "eval.h"
-#include "filesystem.h"
-#include "inih.h"
+#include "error.h"
+#include "formats/ini.h"
 #include "iterator.h"
 #include "log.h"
-#include "mem.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 
 typedef enum iteration_result ((*each_line_callback)(void *ctx, char *line, size_t len));
 
