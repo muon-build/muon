@@ -44,6 +44,35 @@ s_to_compiler_language(const char *s, enum compiler_language *l)
 	return false;
 }
 
+bool
+filename_to_compiler_language(const char *str, enum compiler_language *l)
+{
+	static const char *exts[][10] = {
+		[compiler_language_c] = { "c" },
+		[compiler_language_c_hdr] = { "h" },
+		[compiler_language_cpp] = { "cc" },
+		[compiler_language_cpp_hdr] = { "hpp" },
+	};
+	uint32_t i, j;
+	const char *ext;
+
+	if (!(ext = strrchr(str, '.'))) {
+		return false;
+	}
+	++ext;
+
+	for (i = 0; i < compiler_language_count; ++i) {
+		for (j = 0; exts[i][j]; ++j) {
+			if (strcmp(ext, exts[i][j]) == 0) {
+				*l = i;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 static bool
 compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id)
 {
