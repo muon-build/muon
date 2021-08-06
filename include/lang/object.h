@@ -178,11 +178,11 @@ bool obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint3
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, uint32_t key, uint32_t val);
 bool obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb);
-bool obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id, bool *res);
-bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found);
-bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res, bool *found);
+bool obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id);
+bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res);
+bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res);
 void obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id);
 bool obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res);
-void obj_dict_setc(struct workspace *wk, uint32_t dict, const char *k, uint32_t v);
-bool obj_dict_getc(struct workspace *wk, uint32_t dict, const char *k, uint32_t *v);
+void obj_dict_seti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t v);
+bool obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v);
 #endif

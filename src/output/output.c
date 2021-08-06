@@ -165,12 +165,9 @@ concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
 static const char *
 get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fallback)
 {
-	bool found;
 	uint32_t res;
 
-	if (!obj_dict_index_strn(wk, dict, k, strlen(k), &res, &found)) {
-		return fallback;
-	} else if (!found) {
+	if (!obj_dict_index_strn(wk, dict, k, strlen(k), &res)) {
 		return fallback;
 	} else {
 		return wk_objstr(wk, res);

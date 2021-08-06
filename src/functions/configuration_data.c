@@ -8,10 +8,7 @@
 static bool
 ensure_not_in(struct workspace *wk, uint32_t node, uint32_t dict, uint32_t key)
 {
-	bool res;
-	if (!obj_dict_in(wk, key, dict, &res)) {
-		return false;
-	} else if (res) {
+	if (obj_dict_in(wk, key, dict)) {
 		interp_error(wk, node, "duplicate key in configuration_data");
 		return false;
 	}

@@ -110,10 +110,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		bool found;
-		if (!obj_dict_index(wk, l_id, r_id, obj, &found)) {
-			return false;
-		} else if (!found) {
+		if (!obj_dict_index(wk, l_id, r_id, obj)) {
 			interp_error(wk, n->r, "key not in dictionary: '%s'", wk_objstr(wk, r_id));
 			return false;
 		}
@@ -396,11 +393,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		struct obj *dict_r = get_obj(wk, tail);
 		assert(dict_r->type == obj_dict);
 
-		bool res;
-		if (!obj_dict_in(wk, key, tail, &res)) {
-			assert(false && "this shouldn't fail");
-			return false;
-		} else if (res) {
+		if (obj_dict_in(wk, key, tail)) {
 			interp_error(wk, n->l, "key '%s' is duplicated", wk_objstr(wk, key));
 			return false;
 		}
@@ -527,9 +520,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 				return false;
 			}
 
-			if (!obj_dict_in(wk, obj_l_id, obj_r_id, &res)) {
-				return false;
-			}
+			res = obj_dict_in(wk, obj_l_id, obj_r_id);
 			break;
 		default:
 			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj(wk, obj_r_id)->type));

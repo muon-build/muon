@@ -398,50 +398,104 @@ obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
 	return true;
 }
 
-struct obj_dict_index_iter_ctx { const char *key; uint32_t *res, len; bool *found; };
+union obj_dict_key_comparison_key {
+	struct {
+		const char *s;
+		uint32_t len;
+	} string;
+	uint32_t num;
+};
 
-static enum iteration_result
-obj_dict_index_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+typedef bool ((*obj_dict_key_comparison_func)(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other));
+
+static bool
+obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
-	struct obj_dict_index_iter_ctx *ctx = _ctx;
+	const char *a = wk_objstr(wk, other);
+	return strlen(a) == key->string.len
+	       && strncmp(a, key->string.s, key->string.len) == 0;
+}
 
-	/* L("%s ?= %s", wk_objstr(wk, ctx->k_id), wk_objstr(wk, k_id)); */
-	if (strlen(wk_objstr(wk, k_id)) == ctx->len
-	    && strncmp(wk_objstr(wk, k_id), ctx->key, ctx->len) == 0) {
-		*ctx->found = true;
-		*ctx->res = v_id;
-		return ir_done;
+static bool
+obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
+{
+	return strcmp(wk_objstr(wk, key->num), wk_objstr(wk, other)) == 0;
+}
+
+static bool
+obj_dict_key_comparison_func_int(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
+{
+	return key->num == other;
+}
+
+static bool
+_obj_dict_index(struct workspace *wk, uint32_t dict_id,
+	union obj_dict_key_comparison_key *key,
+	obj_dict_key_comparison_func comp,
+	uint32_t **res)
+
+{
+	if (!get_obj(wk, dict_id)->dat.dict.len) {
+		return false;
 	}
 
-	return ir_cont;
+	uint32_t k_id;
+	while (true) {
+		k_id = get_obj(wk, dict_id)->dat.dict.key;
+
+		/* L("%d, %s, '%s'", k_id, obj_type_to_s(get_obj(wk, k_id)->type), wk_objstr(wk, k_id)); */
+
+		if (comp(wk, key, k_id)) {
+			*res = &get_obj(wk, dict_id)->dat.dict.l;
+			return true;
+		}
+
+		if (!get_obj(wk, dict_id)->dat.dict.have_r) {
+			break;
+		}
+		dict_id = get_obj(wk, dict_id)->dat.dict.r;
+	}
+
+	return false;
 }
 
 bool
 obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key,
-	uint32_t len, uint32_t *res, bool *found)
+	uint32_t len, uint32_t *res)
 {
-	struct obj_dict_index_iter_ctx ctx = { .key = key, .len = len, .res = res, .found = found };
+	uint32_t *r;
+	if (!_obj_dict_index(
+		wk,
+		dict_id,
+		&(union obj_dict_key_comparison_key){ .string = { .s = key, .len = len, } },
+		obj_dict_key_comparison_func_string,
+		&r
+		)) {
+		return false;
+	}
 
-	*ctx.found = false;
-	return obj_dict_foreach(wk, dict_id, &ctx, obj_dict_index_iter);
+	*res = *r;
+
+	return true;
 }
 
 bool
-obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res, bool *found)
+obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res)
 {
 	const char *key = wk_objstr(wk, k_id);
-	return obj_dict_index_strn(wk, dict_id, key, strlen(key), res, found);
+	return obj_dict_index_strn(wk, dict_id, key, strlen(key), res);
 }
 
 bool
-obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id, bool *res)
+obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id)
 {
 	uint32_t res_id;
-	return obj_dict_index(wk, dict_id, k_id, &res_id, res);
+	return obj_dict_index(wk, dict_id, k_id, &res_id);
 }
 
-void
-obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id)
+static void
+_obj_dict_set(struct workspace *wk, uint32_t dict_id,
+	obj_dict_key_comparison_func comp, uint32_t key_id, uint32_t val_id)
 {
 	struct obj *dict; //, *tail;
 	uint32_t tail_id;
@@ -457,21 +511,12 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 		return;
 	}
 
-	{ /* find previously set value */
-		uint32_t subdict = dict_id;
-		while (true) {
-			uint32_t k_id = get_obj(wk, subdict)->dat.dict.key;
-
-			if (strcmp(wk_objstr(wk, key_id), wk_objstr(wk, k_id)) == 0) {
-				get_obj(wk, subdict)->dat.dict.l = val_id;
-				return;
-			}
-
-			if (!get_obj(wk, subdict)->dat.dict.have_r) {
-				break;
-			}
-			subdict = get_obj(wk, subdict)->dat.dict.r;
-		}
+	uint32_t *r;
+	if (_obj_dict_index(wk, dict_id,
+		&(union obj_dict_key_comparison_key){ .num = key_id },
+		comp, &r)) {
+		*r = val_id;
+		return;
 	}
 
 	/* set new value */
@@ -492,17 +537,31 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 }
 
 void
-obj_dict_setc(struct workspace *wk, uint32_t dict, const char *k, uint32_t v)
+obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id)
 {
-	obj_dict_set(wk, dict, make_str(wk, k), v);
+	_obj_dict_set(wk, dict_id, obj_dict_key_comparison_func_objstr, key_id, val_id);
+}
+
+/* dict convienence functions */
+
+void
+obj_dict_seti(struct workspace *wk, uint32_t dict_id, uint32_t k, uint32_t v)
+{
+	_obj_dict_set(wk, dict_id, obj_dict_key_comparison_func_int, k, v);
 }
 
 bool
-obj_dict_getc(struct workspace *wk, uint32_t dict, const char *k, uint32_t *v)
+obj_dict_geti(struct workspace *wk, uint32_t dict_id, uint32_t k, uint32_t *v)
 {
-	bool found;
-	return obj_dict_index(wk, dict, make_str(wk, k), v, &found)
-	       && found;
+	uint32_t *r;
+	if (_obj_dict_index(wk, dict_id,
+		&(union obj_dict_key_comparison_key){ .num = k },
+		obj_dict_key_comparison_func_int, &r)) {
+		*v = *r;
+		return true;
+	}
+
+	return false;
 }
 
 /* */

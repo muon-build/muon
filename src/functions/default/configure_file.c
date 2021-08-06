@@ -58,7 +58,6 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
 	bool reading_id = false;
 	uint32_t elem;
-	bool found;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
@@ -97,10 +96,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			if (id_end - id_start == 0) {
 				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 				return false;
-			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_end - id_start, &elem, &found)) {
-				error_messagef(&src, id_start_line, id_start_col, "failed to index dict");
-				return false; // shouldn't happen tbh
-			} else if (!found) {
+			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_end - id_start, &elem)) {
 				deftype = "/* undef";
 				sub = "*/";
 				goto write_mesondefine;
@@ -143,10 +139,7 @@ write_mesondefine:
 				if (i == id_start) {
 					error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 					return false;
-				} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem, &found)) {
-					error_messagef(&src, id_start_line, id_start_col, "failed to index dict");
-					return false; // shouldn't happen tbh
-				} else if (!found) {
+				} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
 					error_messagef(&src, id_start_line, id_start_col, "key not found in configuration data");
 					return false;
 				}

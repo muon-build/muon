@@ -26,16 +26,16 @@
 static bool
 project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 {
-	bool found;
-	if (!obj_dict_in(wk, str, current_project(wk)->compilers, &found) || found) {
-		interp_error(wk, err_node, "language '%s' has already been added", wk_objstr(wk, str));
-		return false;
-	}
-
 	uint32_t comp_id;
 	enum compiler_language l;
 	if (!s_to_compiler_language(wk_objstr(wk, str), &l)) {
 		interp_error(wk, err_node, "unsupported language '%s'", wk_objstr(wk, str));
+		return false;
+	}
+
+	uint32_t res;
+	if (obj_dict_geti(wk, l, current_project(wk)->compilers, &res)) {
+		interp_error(wk, err_node, "language '%s' has already been added", wk_objstr(wk, str));
 		return false;
 	}
 
@@ -44,7 +44,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 		return false;
 	}
 
-	obj_dict_set(wk, current_project(wk)->compilers, str, comp_id);
+	obj_dict_seti(wk, current_project(wk)->compilers, l, comp_id);
 	return true;
 }
 

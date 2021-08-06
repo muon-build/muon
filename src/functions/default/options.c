@@ -98,13 +98,10 @@ check_invalid_option_overrides(struct workspace *wk)
 		oo = darr_get(&wk->option_overrides, i);
 
 		if (subproj_name_matches(wk, current_project(wk)->subproject_name, wk_str(wk, oo->proj))) {
-			bool found;
 			uint32_t res;
 			char *name = wk_str(wk, oo->name);
 
-			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res, &found)) {
-				return false;
-			} else if (!found) {
+			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res)) {
 				LOG_E("invalid option: '%s'", option_override_to_s(wk, oo));
 				ret = false;
 			}
@@ -466,10 +463,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		return false;
 	}
 
-	bool res;
-	if (!obj_dict_in(wk, an[0].val, current_project(wk)->opts, &res)) {
-		return false;
-	} else if (res) {
+	if (obj_dict_in(wk, an[0].val, current_project(wk)->opts)) {
 		interp_error(wk, an[0].node, "duplicate option name");
 		return false;
 	}
@@ -487,10 +481,7 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	bool res;
-	if (!obj_dict_index(wk, current_project(wk)->opts, an[0].val, obj, &res)) {
-		return false;
-	} else if (!res) {
+	if (!obj_dict_index(wk, current_project(wk)->opts, an[0].val, obj)) {
 		interp_error(wk, an[0].node, "undefined option");
 		return false;
 	}
@@ -501,14 +492,7 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 bool
 get_option(struct workspace *wk, struct project *proj, const char *name, uint32_t *obj)
 {
-	bool res;
-	if (!obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj, &res)) {
-		return false;
-	} else if (!res) {
-		return false;
-	}
-
-	return true;
+	return obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj);
 }
 
 bool

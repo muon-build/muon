@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "compilers.h"
 #include "functions/common.h"
 #include "functions/meson.h"
 #include "lang/interpreter.h"
@@ -19,8 +20,9 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		return false;
 	}
 
-	bool found;
-	if (!obj_dict_index(wk, current_project(wk)->compilers, an[0].val, obj, &found) || !found) {
+	enum compiler_language l;
+	if (!s_to_compiler_language(wk_objstr(wk, an[0].val), &l)
+	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, obj)) {
 		interp_error(wk, an[0].node, "no compiler found for '%s'", wk_objstr(wk, an[0].val));
 		return false;
 	}
