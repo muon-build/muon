@@ -164,3 +164,10 @@ const struct compiler compilers[] = {
 		.description = "Compiling C object $out",
 	},
 };
+
+const struct language languages[] = {
+	[compiler_language_c] = { .is_header = false },
+	[compiler_language_c_hdr] = { .is_header = true },
+	[compiler_language_cpp] = { .is_header = false },
+	[compiler_language_cpp_hdr] = { .is_header = true },
+};

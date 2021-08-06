@@ -23,9 +23,12 @@ struct compiler {
 		   *depfile,
 		   *description;
 	enum compiler_language lang;
+struct language {
+	bool is_header;
 };
 
 extern const struct compiler compilers[];
+extern const struct language languages[];
 
 const char *compiler_type_to_s(enum compiler_type t);
 const char *compiler_language_to_s(enum compiler_language l);
