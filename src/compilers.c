@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "compilers.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -150,18 +151,154 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 	}
 }
 
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
+#define COMPILER_ARGS(...) \
+	static const char *argv[] = __VA_ARGS__; \
+	static struct compiler_args args = { \
+		.args = argv, \
+		.len = ARRAY_SIZE(argv) \
+	};
+
+static const struct compiler_args *
+compiler_gcc_args_deps(const char *out_target, const char *out_file)
+{
+	COMPILER_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
+
+	argv[2] = out_target;
+	argv[4] = out_file;
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_compile_only(void)
+{
+	COMPILER_ARGS({ "-c" });
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_output(const char *f)
+{
+	COMPILER_ARGS({ "-o", NULL });
+
+	argv[1] = f;
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_optimization(uint32_t lvl)
+{
+	COMPILER_ARGS({ NULL });
+
+	switch ((enum compiler_optimization_lvl)lvl) {
+	case compiler_optimization_lvl_0:
+		argv[0] = "-O0";
+		break;
+	case compiler_optimization_lvl_1:
+		argv[0] = "-O1";
+		break;
+	case compiler_optimization_lvl_2:
+		argv[0] = "-O2";
+		break;
+	case compiler_optimization_lvl_3:
+		argv[0] = "-O3";
+		break;
+	case compiler_optimization_lvl_g:
+		argv[0] = "-Og";
+		break;
+	case compiler_optimization_lvl_s:
+		argv[0] = "-Os";
+		break;
+	}
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_debug(void)
+{
+	COMPILER_ARGS({ "-g" });
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_warning_lvl(uint32_t lvl)
+{
+	COMPILER_ARGS({ NULL, NULL, NULL });
+
+	args.len = 0;
+
+	switch ((enum compiler_warning_lvl)lvl) {
+	case compiler_warning_lvl_3:
+		argv[args.len] = "-Wpedantic";
+		++args.len;
+	/* fallthrough */
+	case compiler_warning_lvl_2:
+		argv[args.len] = "-Wextra";
+		++args.len;
+	/* fallthrough */
+	case compiler_warning_lvl_1:
+		argv[args.len] = "-Wall";
+		++args.len;
+	/* fallthrough */
+	case compiler_warning_lvl_0:
+		break;
+	}
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_set_std(const char *std)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "-std=%s", std);
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_gcc_args_include(const char *dir)
+{
+	COMPILER_ARGS({ "-I", NULL });
+
+	argv[1] = dir;
+
+	return &args;
+}
+
 const struct compiler compilers[] = {
 	[compiler_gcc] = {
-		.command = "$ARGS -MD -MQ $out -MF $DEPFILE -o $out -c $in",
-		.deps = "gcc",
-		.depfile = "$DEPFILE_UNQUOTED",
-		.description = "Compiling C object $out",
+		.args = {
+			.deps = compiler_gcc_args_deps,
+			.compile_only = compiler_gcc_args_compile_only,
+			.output = compiler_gcc_args_output,
+			.optimization = compiler_gcc_args_optimization,
+			.debug = compiler_gcc_args_debug,
+			.warning_lvl = compiler_gcc_args_warning_lvl,
+			.set_std = compiler_gcc_args_set_std,
+			.include = compiler_gcc_args_include,
+		},
+		.deps = compiler_deps_gcc,
 	},
 	[compiler_clang] = {
-		.command = "$ARGS -MD -MQ $out -MF $DEPFILE -o $out -c $in",
-		.deps = "gcc",
-		.depfile = "$DEPFILE_UNQUOTED",
-		.description = "Compiling C object $out",
+		.args = {
+			.deps = compiler_gcc_args_deps,
+			.compile_only = compiler_gcc_args_compile_only,
+			.output = compiler_gcc_args_output,
+			.optimization = compiler_gcc_args_optimization,
+			.debug = compiler_gcc_args_debug,
+			.warning_lvl = compiler_gcc_args_warning_lvl,
+			.set_std = compiler_gcc_args_set_std,
+			.include = compiler_gcc_args_include,
+		},
+		.deps = compiler_deps_gcc,
 	},
 };
 

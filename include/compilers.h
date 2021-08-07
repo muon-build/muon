@@ -17,12 +17,53 @@ enum compiler_language {
 	compiler_language_count,
 };
 
+enum compiler_deps_type {
+	compiler_deps_none,
+	compiler_deps_gcc,
+	compiler_deps_msvc,
+};
+
+enum compiler_optimization_lvl {
+	compiler_optimization_lvl_0,
+	compiler_optimization_lvl_1,
+	compiler_optimization_lvl_2,
+	compiler_optimization_lvl_3,
+	compiler_optimization_lvl_g,
+	compiler_optimization_lvl_s,
+};
+
+enum compiler_warning_lvl {
+	compiler_warning_lvl_0,
+	compiler_warning_lvl_1,
+	compiler_warning_lvl_2,
+	compiler_warning_lvl_3,
+};
+
+struct compiler_args {
+	const char **args;
+	uint32_t len;
+};
+
+typedef const struct compiler_args *((*compiler_get_arg_func_0)(void));
+typedef const struct compiler_args *((*compiler_get_arg_func_1i)(uint32_t));
+typedef const struct compiler_args *((*compiler_get_arg_func_1s)(const char *));
+typedef const struct compiler_args *((*compiler_get_arg_func_2s)(const char *, const char *));
+
 struct compiler {
-	const char *command,
-		   *deps,
-		   *depfile,
-		   *description;
+	struct {
+		compiler_get_arg_func_2s deps;
+		compiler_get_arg_func_0 compile_only;
+		compiler_get_arg_func_1s output;
+		compiler_get_arg_func_1i optimization;
+		compiler_get_arg_func_0 debug;
+		compiler_get_arg_func_1i warning_lvl;
+		compiler_get_arg_func_1s set_std;
+		compiler_get_arg_func_1s include;
+	} args;
 	enum compiler_language lang;
+	enum compiler_deps_type deps;
+};
+
 struct language {
 	bool is_header;
 };
