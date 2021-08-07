@@ -210,7 +210,9 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 		++i;
 	}
 
-	if (!base[i] && path[i] == PATH_SEP) {
+	if ((!base[i] && path[i] == PATH_SEP)) {
+		common_end = i;
+	} else if (!path[i] && base[i] == PATH_SEP) {
 		common_end = i;
 	}
 
@@ -239,8 +241,10 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 		} while (base[i]);
 	}
 
-	if (!buf_push_s(buf, &path[common_end + 1], &j, len)) {
-		return false;
+	if (path[common_end]) {
+		if (!buf_push_s(buf, &path[common_end + 1], &j, len)) {
+			return false;
+		}
 	}
 
 	buf_normalize(buf, j, len);
