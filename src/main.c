@@ -179,11 +179,50 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	char buf[2048];
+	bool ret = false;
+	struct source src = { .label = "repl", .src = buf };
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	if (!workspace_setup_dirs(&wk, "dummy", argv[0])) {
+		goto ret;
+	}
+
+	wk.lang_mode = language_internal;
+
+	uint32_t id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+
+	fputs("> ", stderr);
+	while (fgets(buf, 2048, stdin)) {
+		src.len = strlen(buf);
+
+		uint32_t res;
+		if (eval(&wk, &src, &res)) {
+			if (res) {
+				obj_fprintf(&wk, stderr, "%o\n", res);
+			}
+		}
+		fputs("> ", stderr);
+	}
+
+	ret = true;
+ret:
+	workspace_destroy(&wk);
+	return ret;
+}
+
+static bool
 cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "exe", cmd_exe, "run an external command" },
 		{ "eval", cmd_eval, "evaluate a file" },
+		{ "repl", cmd_repl, "start a meson langauge repl" },
 		0,
 	};
 
