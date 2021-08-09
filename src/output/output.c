@@ -757,14 +757,24 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t lang, uint32
 	uint32_t args;
 	make_obj(wk, &args, obj_array);
 
-	if (!get_buildtype_args(wk, ctx->proj, args, t)) {
+	uint32_t proj_cwd;
+	make_obj(wk, &proj_cwd, obj_string)->dat.str = ctx->proj->cwd;
+	obj_array_push(wk, ctx->include_dirs, proj_cwd);
+	if (!obj_array_foreach(wk, ctx->include_dirs, &(struct setup_compiler_args_includes_ctx) {
+		.args = args,
+		.t = t,
+	}, setup_compiler_args_includes)) {
+		return ir_err;
+	}
+
+	if (!get_std_args(wk, ctx->proj, args, t)) {
+		LOG_E("unable to get std flag");
+		return ir_err;
+	} else if (!get_buildtype_args(wk, ctx->proj, args, t)) {
 		LOG_E("unable to get optimization flags");
 		return ir_err;
 	} else if (!get_warning_args(wk, ctx->proj, args, t)) {
 		LOG_E("unable to get warning flags");
-		return ir_err;
-	} else if (!get_std_args(wk, ctx->proj, args, t)) {
-		LOG_E("unable to get std flag");
 		return ir_err;
 	}
 
@@ -780,16 +790,6 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t lang, uint32
 		uint32_t tgt_args;
 		obj_array_dup(wk, ctx->tgt->dat.tgt.c_args, &tgt_args);
 		obj_array_extend(wk, args, tgt_args);
-	}
-
-	uint32_t proj_cwd;
-	make_obj(wk, &proj_cwd, obj_string)->dat.str = ctx->proj->cwd;
-	obj_array_push(wk, ctx->include_dirs, proj_cwd);
-	if (!obj_array_foreach(wk, ctx->include_dirs, &(struct setup_compiler_args_includes_ctx) {
-		.args = args,
-		.t = t,
-	}, setup_compiler_args_includes)) {
-		return ir_err;
 	}
 
 	obj_dict_set(wk, ctx->args_dict, lang, join_args(wk, args));
