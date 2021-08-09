@@ -10,6 +10,12 @@ enum compiler_type {
 	compiler_type_count,
 };
 
+enum linker_type {
+	linker_posix,
+	linker_gcc,
+	linker_type_count,
+};
+
 enum compiler_language {
 	compiler_language_c,
 	compiler_language_c_hdr,
@@ -62,8 +68,17 @@ struct compiler {
 		compiler_get_arg_func_1s set_std;
 		compiler_get_arg_func_1s include;
 	} args;
-	enum compiler_language lang;
 	enum compiler_deps_type deps;
+	enum linker_type linker;
+};
+
+struct linker {
+	struct {
+		compiler_get_arg_func_0 as_needed;
+		compiler_get_arg_func_0 no_undefined;
+		compiler_get_arg_func_0 start_group;
+		compiler_get_arg_func_0 end_group;
+	} args;
 };
 
 struct language {
@@ -71,6 +86,7 @@ struct language {
 };
 
 extern struct compiler compilers[];
+extern struct linker linkers[];
 extern const struct language languages[];
 
 const char *compiler_type_to_s(enum compiler_type t);

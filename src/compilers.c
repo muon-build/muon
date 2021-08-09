@@ -322,14 +322,10 @@ compiler_gcc_args_set_std(const char *std)
 	return &args;
 }
 
-struct compiler compilers[compiler_type_count];
-
-const struct language languages[] = {
-	[compiler_language_c] = { .is_header = false },
-	[compiler_language_c_hdr] = { .is_header = true },
-	[compiler_language_cpp] = { .is_header = false },
-	[compiler_language_cpp_hdr] = { .is_header = true },
-};
+compiler_get_arg_func_0 as_needed;
+compiler_get_arg_func_0 no_undefined;
+compiler_get_arg_func_0 start_group;
+compiler_get_arg_func_0 end_group;
 
 static const struct compiler_args *
 compiler_arg_empty_0(void)
@@ -363,8 +359,18 @@ compiler_arg_empty_2s(const char *_, const char *__)
 	return &args;
 }
 
-void
-compilers_init(void)
+struct compiler compilers[compiler_type_count];
+struct linker linkers[linker_type_count];
+
+const struct language languages[] = {
+	[compiler_language_c] = { .is_header = false },
+	[compiler_language_c_hdr] = { .is_header = true },
+	[compiler_language_cpp] = { .is_header = false },
+	[compiler_language_cpp_hdr] = { .is_header = true },
+};
+
+static void
+build_compilers(void)
 {
 	struct compiler empty = {
 		.args = {
@@ -380,13 +386,13 @@ compilers_init(void)
 		}
 	};
 
-
 	struct compiler posix = empty;
 	posix.args.compile_only = compiler_posix_args_compile_only;
 	posix.args.output = compiler_posix_args_output;
 	posix.args.optimization = compiler_posix_args_optimization;
 	posix.args.debug = compiler_posix_args_debug;
 	posix.args.include = compiler_posix_args_include;
+	posix.linker = linker_posix;
 
 	struct compiler gcc = posix;
 	gcc.args.deps = compiler_gcc_args_deps;
@@ -394,8 +400,73 @@ compilers_init(void)
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.deps = compiler_deps_gcc;
+	gcc.linker = linker_gcc;
 
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
 	compilers[compiler_clang] = gcc;
+
+}
+
+static const struct compiler_args *
+linker_gcc_args_as_needed(void)
+{
+	COMPILER_ARGS({ "-Wl,--as-needed" });
+	return &args;
+}
+
+
+static const struct compiler_args *
+linker_gcc_args_no_undefined(void)
+{
+	COMPILER_ARGS({ "-Wl,--no-undefined" });
+	return &args;
+}
+
+
+static const struct compiler_args *
+linker_gcc_args_start_group(void)
+{
+	COMPILER_ARGS({ "-Wl,--start-group" });
+	return &args;
+}
+
+
+static const struct compiler_args *
+linker_gcc_args_end_group(void)
+{
+	COMPILER_ARGS({ "-Wl,--end-group" });
+	return &args;
+}
+
+static void
+build_linkers(void)
+{
+	/* linkers */
+	struct linker empty = {
+		.args = {
+			.as_needed    = compiler_arg_empty_0,
+			.no_undefined = compiler_arg_empty_0,
+			.start_group  = compiler_arg_empty_0,
+			.end_group    = compiler_arg_empty_0,
+		}
+	};
+
+	struct linker posix = empty;
+
+	struct linker gcc = posix;
+	gcc.args.as_needed = linker_gcc_args_as_needed;
+	gcc.args.no_undefined = linker_gcc_args_no_undefined;
+	gcc.args.start_group = linker_gcc_args_start_group;
+	gcc.args.end_group = linker_gcc_args_end_group;
+
+	linkers[linker_posix] = posix;
+	linkers[linker_gcc] = gcc;
+}
+
+void
+compilers_init(void)
+{
+	build_compilers();
+	build_linkers();
 }

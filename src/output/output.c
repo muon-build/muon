@@ -290,6 +290,12 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		" description = compiling %s $out\n\n",
 		compiler_language_to_s(l));
 
+	fprintf(out, "rule %s_LINKER\n"
+		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
+		" description = Linking target $out\n\n",
+		compiler_language_to_s(l),
+		wk_objstr(wk, compiler_name));
+
 	return ir_cont;
 }
 
@@ -312,14 +318,9 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 	obj_dict_foreach(wk, main_proj->compilers, out, write_compiler_rule_iter);
 
 	fprintf(out,
-		"\n"
 		"rule STATIC_LINKER\n"
 		" command = rm -f $out && %s $LINK_ARGS $out $in\n"
 		" description = Linking static target $out\n"
-		"\n"
-		"rule c_LINKER\n"
-		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
-		" description = Linking target $out\n"
 		"\n"
 		"rule CUSTOM_COMMAND\n"
 		" command = $COMMAND\n"
@@ -336,7 +337,6 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"\n"
 		"# targets\n\n",
 		get_dict_str(wk, wk->binaries, "ar", "ar"),
-		get_dict_str(wk, wk->binaries, "c_ld", "cc"),
 		wk->argv0,
 		outpath.private_dir, PATH_SEP, outpath.setup,
 		wk_objstr(wk, sources)
@@ -356,6 +356,8 @@ struct write_tgt_iter_ctx {
 	uint32_t link_args;
 	bool have_order_deps;
 	bool have_implicit_deps;
+	bool have_link_language;
+	enum compiler_language link_language;
 };
 
 static void
@@ -799,6 +801,44 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 }
 
 static enum iteration_result
+determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+{
+	struct write_tgt_iter_ctx *ctx = _ctx;
+	struct obj *src = get_obj(wk, v_id);
+	assert(src->type == obj_file);
+
+	enum compiler_language fl;
+
+	if (!filename_to_compiler_language(wk_str(wk, src->dat.file), &fl)) {
+		LOG_E("unable to determine language for '%s'", wk_str(wk, src->dat.file));
+		return ir_err;
+	}
+
+	switch (fl) {
+	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr:
+		return ir_cont;
+	case compiler_language_c:
+		if (!ctx->have_link_language) {
+			ctx->link_language = compiler_language_c;
+		}
+		break;
+	case compiler_language_cpp:
+		if (!ctx->have_link_language
+		    || ctx->link_language == compiler_language_c) {
+			ctx->link_language = compiler_language_cpp;
+		}
+		break;
+	case compiler_language_count:
+		assert(false);
+		return ir_err;
+	}
+
+	ctx->have_link_language = true;
+	return ir_cont;
+}
+
+static enum iteration_result
 write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
 	struct output *output = ((struct write_tgt_ctx *)_ctx)->output;
@@ -827,16 +867,34 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	make_obj(wk, &ctx.implicit_deps, obj_array);
 	make_obj(wk, &ctx.include_dirs, obj_array);
 
-	const char *rule;
+	enum linker_type linker;
+
+	{ /* determine linker */
+		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, determine_linker_iter)) {
+			return ir_err;
+		} else if (!ctx.have_link_language) {
+			LOG_E("unable to determine linker for target");
+			return ir_err;
+		}
+
+		uint32_t comp_id;
+		if (!obj_dict_geti(wk, ctx.proj->compilers, ctx.link_language, &comp_id)) {
+			assert(false);
+		}
+
+		linker = compilers[get_obj(wk, comp_id)->dat.compiler.type].linker;
+	}
+
+	const char *linker_type;
 	switch (tgt->dat.tgt.type) {
 	case tgt_executable:
-		rule = "c_LINKER";
-		obj_array_push(wk, ctx.link_args, make_str(wk, "-Wl,--as-needed"));
-		obj_array_push(wk, ctx.link_args, make_str(wk, "-Wl,--no-undefined"));
-		obj_array_push(wk, ctx.link_args, make_str(wk, "-Wl,--start-group"));
+		linker_type = compiler_language_to_s(ctx.link_language);
+		push_args(wk, ctx.link_args, linkers[linker].args.as_needed());
+		push_args(wk, ctx.link_args, linkers[linker].args.no_undefined());
+		push_args(wk, ctx.link_args, linkers[linker].args.start_group());
 		break;
 	case tgt_library:
-		rule = "STATIC_LINKER";
+		linker_type = "STATIC";
 		obj_array_push(wk, ctx.link_args, make_str(wk, "csrD"));
 		break;
 	default:
@@ -867,6 +925,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		}
 	}
 
+	/* how to determine which linker to use? */
+
 	{ /* dependencies / link_with */
 		if (tgt->dat.tgt.deps) {
 			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, process_dep_links_iter)) {
@@ -895,7 +955,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	}
 
 	if (tgt->dat.tgt.type == tgt_executable) {
-		obj_array_push(wk, ctx.link_args, make_str(wk, "-Wl,--end-group"));
+		push_args(wk, ctx.link_args, linkers[linker].args.end_group());
 	}
 
 	if (!tgt_build_path(path, wk, tgt)) {
@@ -906,7 +966,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	fputs("build ", output->build_ninja);
 	write_escaped(output->build_ninja, path);
-	fprintf(output->build_ninja, ": %s ", rule);
+	fprintf(output->build_ninja, ": %s_LINKER ", linker_type);
 	fputs(wk_objstr(wk, join_args(wk, ctx.object_names)), output->build_ninja); // escape
 	if (ctx.have_implicit_deps) {
 		fputs(" | ", output->build_ninja);
