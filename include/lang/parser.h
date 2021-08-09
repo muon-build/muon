@@ -42,7 +42,6 @@ enum node_type {
 	node_id,
 	node_number,
 	node_string,
-	node_format_string,
 	node_continue,
 	node_break,
 	node_argument,

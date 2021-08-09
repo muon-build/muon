@@ -8,6 +8,7 @@ tests = [
 	{ 'name': 'version_compare.meson', },
 	{ 'name': 'multiline.meson', },
 	{ 'name': 'ternary.meson', },
+	{ 'name': 'fstring.meson', },
 ]
 
 foreach t : tests

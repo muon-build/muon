@@ -47,17 +47,23 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
 	return true;
 }
 
-bool
-typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type)
+static bool
+typecheck_custom(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type, const char *fmt)
 {
 	struct obj *obj = get_obj(wk, obj_id);
 
 	if (type != obj_any && obj->type != type) {
-		interp_error(wk, n_id, "expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
+		interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(obj->type));
 		return false;
 	}
 
 	return true;
+}
+
+bool
+typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type)
+{
+	return typecheck_custom(wk, n_id, obj_id, type, "expected type %s, got %s");
 }
 
 static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj);
@@ -186,7 +192,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_string: {
 		uint32_t res;
 
-		if (!typecheck(wk, n->r, r_id, obj_string)) {
+		if (!typecheck_custom(wk, n->r, r_id, obj_string, "unable to add %s and %s")) {
 			return false;
 		}
 
@@ -215,7 +221,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_number: {
 		int64_t res, l, r;
 
-		if (!typecheck(wk, n->r, r_id, obj_number)) {
+		if (!typecheck_custom(wk, n->r, r_id, obj_number, "unable to add %s and %s")) {
 			return false;
 		}
 
@@ -795,7 +801,6 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		obj->dat.boolean = n->subtype;
 		ret = true;
 		break;
-	case node_format_string: // TODO fallthrough for now :)
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
 		obj->dat.str = wk_str_push(wk, n->dat.s);

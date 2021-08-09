@@ -31,7 +31,6 @@ node_type_to_s(enum node_type t)
 	case node_id: return "id";
 	case node_number: return "number";
 	case node_string: return "string";
-	case node_format_string: return "format_string";
 	case node_continue: return "continue";
 	case node_break: return "break";
 	case node_argument: return "argument";
@@ -665,6 +664,10 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 	}
 
 	if (i != map_end) {
+		if (op_tok) {
+			p->last_last = op_tok;
+		}
+
 		switch (get_node(p->ast, l_id)->type) {
 		case node_empty:
 		case node_arithmetic:
