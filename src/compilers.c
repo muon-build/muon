@@ -13,6 +13,7 @@ const char *
 compiler_type_to_s(enum compiler_type t)
 {
 	switch (t) {
+	case compiler_posix: return "posix";
 	case compiler_gcc: return "gcc";
 	case compiler_clang: return "clang";
 	default: assert(false); return "";
@@ -159,19 +160,10 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 		.len = ARRAY_SIZE(argv) \
 	};
 
-static const struct compiler_args *
-compiler_gcc_args_deps(const char *out_target, const char *out_file)
-{
-	COMPILER_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
-
-	argv[2] = out_target;
-	argv[4] = out_file;
-
-	return &args;
-}
+/* posix compilers */
 
 static const struct compiler_args *
-compiler_gcc_args_compile_only(void)
+compiler_posix_args_compile_only(void)
 {
 	COMPILER_ARGS({ "-c" });
 
@@ -179,11 +171,65 @@ compiler_gcc_args_compile_only(void)
 }
 
 static const struct compiler_args *
-compiler_gcc_args_output(const char *f)
+compiler_posix_args_output(const char *f)
 {
 	COMPILER_ARGS({ "-o", NULL });
 
 	argv[1] = f;
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_posix_args_optimization(uint32_t lvl)
+{
+	COMPILER_ARGS({ NULL });
+
+	switch ((enum compiler_optimization_lvl)lvl) {
+	case compiler_optimization_lvl_0:
+		argv[0] = "-O0";
+		break;
+	case compiler_optimization_lvl_1:
+	case compiler_optimization_lvl_2:
+	case compiler_optimization_lvl_3:
+		argv[0] = "-O1";
+		break;
+	case compiler_optimization_lvl_g:
+	case compiler_optimization_lvl_s:
+		args.len = 0;
+		break;
+	}
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_posix_args_debug(void)
+{
+	COMPILER_ARGS({ "-g" });
+
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_posix_args_include(const char *dir)
+{
+	COMPILER_ARGS({ "-I", NULL });
+
+	argv[1] = dir;
+
+	return &args;
+}
+
+/* gcc compilers */
+
+static const struct compiler_args *
+compiler_gcc_args_deps(const char *out_target, const char *out_file)
+{
+	COMPILER_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
+
+	argv[2] = out_target;
+	argv[4] = out_file;
 
 	return &args;
 }
@@ -213,14 +259,6 @@ compiler_gcc_args_optimization(uint32_t lvl)
 		argv[0] = "-Os";
 		break;
 	}
-
-	return &args;
-}
-
-static const struct compiler_args *
-compiler_gcc_args_debug(void)
-{
-	COMPILER_ARGS({ "-g" });
 
 	return &args;
 }
@@ -263,44 +301,7 @@ compiler_gcc_args_set_std(const char *std)
 	return &args;
 }
 
-static const struct compiler_args *
-compiler_gcc_args_include(const char *dir)
-{
-	COMPILER_ARGS({ "-I", NULL });
-
-	argv[1] = dir;
-
-	return &args;
-}
-
-const struct compiler compilers[] = {
-	[compiler_gcc] = {
-		.args = {
-			.deps = compiler_gcc_args_deps,
-			.compile_only = compiler_gcc_args_compile_only,
-			.output = compiler_gcc_args_output,
-			.optimization = compiler_gcc_args_optimization,
-			.debug = compiler_gcc_args_debug,
-			.warning_lvl = compiler_gcc_args_warning_lvl,
-			.set_std = compiler_gcc_args_set_std,
-			.include = compiler_gcc_args_include,
-		},
-		.deps = compiler_deps_gcc,
-	},
-	[compiler_clang] = {
-		.args = {
-			.deps = compiler_gcc_args_deps,
-			.compile_only = compiler_gcc_args_compile_only,
-			.output = compiler_gcc_args_output,
-			.optimization = compiler_gcc_args_optimization,
-			.debug = compiler_gcc_args_debug,
-			.warning_lvl = compiler_gcc_args_warning_lvl,
-			.set_std = compiler_gcc_args_set_std,
-			.include = compiler_gcc_args_include,
-		},
-		.deps = compiler_deps_gcc,
-	},
-};
+struct compiler compilers[compiler_type_count];
 
 const struct language languages[] = {
 	[compiler_language_c] = { .is_header = false },
@@ -308,3 +309,72 @@ const struct language languages[] = {
 	[compiler_language_cpp] = { .is_header = false },
 	[compiler_language_cpp_hdr] = { .is_header = true },
 };
+
+static const struct compiler_args *
+compiler_arg_empty_0(void)
+{
+	COMPILER_ARGS({ NULL });
+	args.len = 0;
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_arg_empty_1i(uint32_t _)
+{
+	COMPILER_ARGS({ NULL });
+	args.len = 0;
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_arg_empty_1s(const char * _)
+{
+	COMPILER_ARGS({ NULL });
+	args.len = 0;
+	return &args;
+}
+
+static const struct compiler_args *
+compiler_arg_empty_2s(const char *_, const char *__)
+{
+	COMPILER_ARGS({ NULL });
+	args.len = 0;
+	return &args;
+}
+
+void
+compilers_init(void)
+{
+	struct compiler empty = {
+		.args = {
+			.deps         = compiler_arg_empty_2s,
+			.compile_only = compiler_arg_empty_0,
+			.output       = compiler_arg_empty_1s,
+			.optimization = compiler_arg_empty_1i,
+			.debug        = compiler_arg_empty_0,
+			.warning_lvl  = compiler_arg_empty_1i,
+			.werror       = compiler_arg_empty_0,
+			.set_std      = compiler_arg_empty_1s,
+			.include      = compiler_arg_empty_1s,
+		}
+	};
+
+
+	struct compiler posix = empty;
+	posix.args.compile_only = compiler_posix_args_compile_only;
+	posix.args.output = compiler_posix_args_output;
+	posix.args.optimization = compiler_posix_args_optimization;
+	posix.args.debug = compiler_posix_args_debug;
+	posix.args.include = compiler_posix_args_include;
+
+	struct compiler gcc = posix;
+	gcc.args.deps = compiler_gcc_args_deps;
+	gcc.args.optimization = compiler_gcc_args_optimization;
+	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
+	gcc.args.set_std = compiler_gcc_args_set_std;
+	gcc.deps = compiler_deps_gcc;
+
+	compilers[compiler_posix] = posix;
+	compilers[compiler_gcc] = gcc;
+	compilers[compiler_clang] = gcc;
+}

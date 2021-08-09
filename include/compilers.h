@@ -4,6 +4,7 @@
 #include "lang/workspace.h"
 
 enum compiler_type {
+	compiler_posix,
 	compiler_gcc,
 	compiler_clang,
 	compiler_type_count,
@@ -57,6 +58,7 @@ struct compiler {
 		compiler_get_arg_func_1i optimization;
 		compiler_get_arg_func_0 debug;
 		compiler_get_arg_func_1i warning_lvl;
+		compiler_get_arg_func_0 werror;
 		compiler_get_arg_func_1s set_std;
 		compiler_get_arg_func_1s include;
 	} args;
@@ -68,7 +70,7 @@ struct language {
 	bool is_header;
 };
 
-extern const struct compiler compilers[];
+extern struct compiler compilers[];
 extern const struct language languages[];
 
 const char *compiler_type_to_s(enum compiler_type t);
@@ -76,4 +78,5 @@ const char *compiler_language_to_s(enum compiler_language l);
 bool s_to_compiler_language(const char *s, enum compiler_language *l);
 bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 bool compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language);
+void compilers_init(void);
 #endif

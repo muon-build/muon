@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compilers.h"
 #include "external/curl.h"
 #include "external/pkgconf.h"
 #include "external/samu.h"
@@ -413,6 +414,8 @@ main(int argc, char *argv[])
 	if (!path_init()) {
 		return 1;
 	}
+
+	compilers_init();
 
 	return cmd_main(argc, 0, argv) ? 0 : 1;
 }
