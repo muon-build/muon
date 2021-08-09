@@ -87,13 +87,18 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 	}
 
 	enum compiler_type type;
+	bool unknown = true;
+
+	if (cmd_ctx.status != 0) {
+		goto detection_over;
+	}
+
 	if (strstr(cmd_ctx.out, "clang") || strstr(cmd_ctx.out, "Clang")) {
 		type = compiler_clang;
 	} else if (strstr(cmd_ctx.out, "Free Software Foundation")) {
 		type = compiler_gcc;
 	} else {
-		LOG_E("unknown compiler: '%s'", cmd_ctx.out);
-		return false;
+		goto detection_over;
 	}
 
 	char *p;
@@ -114,7 +119,15 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 		}
 	}
 
+	unknown = false;
 	LOG_I("detected compiler %s %s (%s)", compiler_type_to_s(type), ver, cc);
+
+detection_over:
+	if (unknown) {
+		LOG_W("unable to detect compiler type, falling back on posix compiler");
+		type = compiler_posix;
+		ver = "unknown";
+	}
 
 	struct obj *comp = make_obj(wk, comp_id, obj_compiler);
 	comp->dat.compiler.name = wk_str_push(wk, cc);
