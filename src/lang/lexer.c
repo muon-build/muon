@@ -341,22 +341,32 @@ string(struct lexer *lexer, struct token *token)
 {
 	token->type = tok_string;
 
-	advance(lexer);
+	bool multiline;
+	uint32_t quotes = 0;
+	bool got_quote = false;
+
+	if (strncmp(&lexer->src[lexer->i], "'''", 3) == 0) {
+		multiline = true;
+		advance(lexer);
+		advance(lexer);
+		advance(lexer);
+	} else {
+		multiline = false;
+		advance(lexer);
+	}
 
 	char *str = &lexer->sdata->data[lexer->data_i];
 	token->dat.s = str;
 
-	bool multiline = false, loop = true;
-
-	while (loop) {
+	while (true) {
 		switch (lexer->src[lexer->i]) {
 		case '\n':
-			if (lexer->src[lexer->i] == '\n') {
-				if (multiline) {
-				} else {
-					lex_error(lexer, "newline in string");
-					return lex_fail;
-				}
+			if (multiline) {
+				str[token->n] = '\n';
+				++token->n;
+			} else {
+				lex_error(lexer, "unterminated string (unexpected newline)");
+				return lex_fail;
 			}
 			break;
 		case '\\':
@@ -469,11 +479,10 @@ string(struct lexer *lexer, struct token *token)
 			}
 			break;
 		case 0:
-			lex_error(lexer, "unmatched single quote (\')");
+			lex_error(lexer, "unterminated string");
 			return lex_fail;
 		case '\'':
-			str[token->n] = 0;
-			loop = false;
+			got_quote = true;
 			break;
 		default:
 			str[token->n] = lexer->src[lexer->i];
@@ -482,6 +491,19 @@ string(struct lexer *lexer, struct token *token)
 		}
 
 		advance(lexer);
+
+		if (got_quote) {
+			++quotes;
+			got_quote = false;
+		} else {
+			quotes = 0;
+		}
+
+		assert(quotes <= 3);
+		if ((multiline && quotes == 3) || (!multiline && quotes == 1)) {
+			str[token->n] = 0;
+			break;
+		}
 	}
 
 	lexer->data_i += token->n + 1;
@@ -667,15 +689,14 @@ tokenize(struct lexer *lexer)
 
 done:
 
-#if 0
-	uint32_t i;
-	struct token *tok;
-	for (i = 0; i < lexer->toks->tok.len; ++i) {
-		tok = darr_get(&lexer->toks->tok, i);
-
-		L("%s", tok_to_s(tok));
-	}
-#endif
+	/* { */
+	/* 	uint32_t i; */
+	/* 	struct token *tok; */
+	/* 	for (i = 0; i < lexer->toks->tok.len; ++i) { */
+	/* 		tok = darr_get(&lexer->toks->tok, i); */
+	/* 		L("%s", tok_to_s(tok)); */
+	/* 	} */
+	/* } */
 
 	return true;
 }

@@ -6,6 +6,7 @@ tests = [
 	{ 'name': 'katie.meson', },
 	{ 'name': 'join.meson', },
 	{ 'name': 'version_compare.meson', },
+	{ 'name': 'multiline.meson', },
 ]
 
 foreach t : tests
