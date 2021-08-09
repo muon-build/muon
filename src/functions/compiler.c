@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "functions/common.h"
@@ -19,6 +20,23 @@ struct func_compiler_get_supported_arguments_iter_ctx {
 	char *test_c, *test_o;
 };
 
+static void
+push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg)
+{
+	assert(*len < max && "too many arguments");
+	argv[*len] = arg;
+	++(*len);
+}
+
+static void
+push_argv(const char **argv, uint32_t *len, uint32_t max, const struct compiler_args *args)
+{
+	uint32_t i;
+	for (i = 0; i < args->len; ++i) {
+		push_argv_single(argv, len, max, args->args[i]);
+	}
+}
+
 static enum iteration_result
 func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
@@ -31,18 +49,18 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 	}
 
 	char *name = wk_str(wk, comp->dat.compiler.name);
+	enum compiler_type t = comp->dat.compiler.type;
+
+	const char *argv[MAX_ARGS + 1] = { name };
+	uint32_t len = 1;
+	push_argv(argv, &len, MAX_ARGS, compilers[t].args.werror());
+	push_argv_single(argv, &len, MAX_ARGS, wk_objstr(wk, val_id));
+	push_argv(argv, &len, MAX_ARGS, compilers[t].args.compile_only());
+	push_argv(argv, &len, MAX_ARGS, compilers[t].args.output(ctx->test_o));
+	push_argv_single(argv, &len, MAX_ARGS, ctx->test_c);
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, name, (char *[]){
-		name,
-		"-Werror",
-		wk_objstr(wk, val_id),
-		"-x", "c",
-		"-o", ctx->test_o,
-		"-c",
-		ctx->test_c,
-		NULL,
-	})) {
+	if (!run_cmd(&cmd_ctx, name, (char **)argv)) {
 		if (cmd_ctx.err_msg) {
 			interp_error(wk, ctx->node, "error: %s", cmd_ctx.err_msg);
 		} else {
