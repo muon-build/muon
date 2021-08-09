@@ -182,10 +182,14 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 	PKGCONF_FOREACH_LIST_ENTRY(list.head, node) {
 		const pkgconf_fragment_t *frag = node->data;
 
+		/* L("got option: -'%c' '%s'", frag->type, frag->data); */
+
 		switch (frag->type) {
 		case 'I':
-			make_obj(ctx->wk, &str, obj_file)->dat.file = wk_str_push(ctx->wk, frag->data);
-			obj_array_push(ctx->wk, ctx->info->includes, str);
+			if (!pkgconf_fragment_has_system_dir(client, frag)) {
+				make_obj(ctx->wk, &str, obj_file)->dat.file = wk_str_push(ctx->wk, frag->data);
+				obj_array_push(ctx->wk, ctx->info->includes, str);
+			}
 			break;
 		case 'L':
 			make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, frag->data);
@@ -205,7 +209,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			break;
 		}
 		default:
-			/* L("skipping unknown option: -'%d' '%s'", frag->type, frag->data); */
+			L("skipping unknown pkgconf fragment: -%c '%s'", frag->type, frag->data);
 			break;
 		}
 	}
