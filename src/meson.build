@@ -48,7 +48,7 @@ src = files([
 	'platform/mem.c',
 	'platform/path.c',
 	'platform/run_cmd.c',
-	'sha-256.c',
+	'sha_256.c',
 	'tests.c',
 	'wrap.c',
 ]) + [configure_file(

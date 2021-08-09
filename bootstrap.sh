@@ -62,7 +62,7 @@ cat \
 	src/platform/mem.c \
 	src/platform/path.c \
 	src/platform/run_cmd.c \
-	src/sha-256.c \
+	src/sha_256.c \
 	src/tests.c \
 	src/version.c.in \
 	src/wrap.c \
