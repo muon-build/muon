@@ -313,25 +313,26 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_sources,
 		kw_include_directories,
 		kw_dependencies,
-		kw_c_args,
-		kw_cpp_args,
-		kw_objc_args,
 		kw_install,
 		kw_link_with,
 		kw_version,
 		kw_build_by_default,
+		kw_c_args,
+		kw_cpp_args,
+		kw_objc_args,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", obj_array },
 		[kw_include_directories] = { "include_directories", obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
-		[kw_c_args] = { "c_args", obj_array },
-		[kw_cpp_args] = { "cpp_args", obj_array },
-		[kw_objc_args] = { "objc_args", obj_array },
 		[kw_install] = { "install", obj_bool },
 		[kw_link_with] = { "link_with", obj_array },
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
+		/* lang args */
+		[kw_c_args] = { "c_args", obj_array },
+		[kw_cpp_args] = { "cpp_args", obj_array },
+		[kw_objc_args] = { "objc_args", obj_array },
 		0
 	};
 
@@ -381,6 +382,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
+	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
 
 	LOG_I("added target %s", wk_str(wk, tgt->dat.tgt.build_name));
 
@@ -392,8 +394,20 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		tgt->dat.tgt.deps = akw[kw_dependencies].val;
 	}
 
-	if (akw[kw_c_args].set) {
-		tgt->dat.tgt.c_args = akw[kw_c_args].val;
+	static struct {
+		enum kwargs kw;
+		enum compiler_language l;
+	} lang_args[] = {
+		{ kw_c_args, compiler_language_c },
+		{ kw_cpp_args, compiler_language_cpp },
+		/* { kw_objc_args, compiler_language_objc }, */
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_SIZE(lang_args); ++i) {
+		if (akw[lang_args[i].kw].set) {
+			obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[kw_c_args].val);
+		}
 	}
 
 	if (akw[kw_link_with].set) {

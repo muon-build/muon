@@ -778,22 +778,19 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		return ir_err;
 	}
 
-	{
+	{ /* project default args */
 		uint32_t proj_args, proj_args_dup;
-		/* project default args */
 		if (obj_dict_geti(wk, ctx->proj->cfg.args, l, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
 			obj_array_extend(wk, args, proj_args_dup);
 		}
 	}
 
-	{
-		/* target args */
-		// TODO language specific
-		if (ctx->tgt->dat.tgt.c_args) {
-			uint32_t tgt_args;
-			obj_array_dup(wk, ctx->tgt->dat.tgt.c_args, &tgt_args);
-			obj_array_extend(wk, args, tgt_args);
+	{ /* target args */
+		uint32_t tgt_args, tgt_args_dup;
+		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, l, &tgt_args)) {
+			obj_array_dup(wk, tgt_args, &tgt_args_dup);
+			obj_array_extend(wk, args, tgt_args_dup);
 		}
 	}
 

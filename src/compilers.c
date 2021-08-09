@@ -174,7 +174,6 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 	}
 }
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 #define COMPILER_ARGS(...) \
 	static const char *argv[] = __VA_ARGS__; \
 	static struct compiler_args args = { \

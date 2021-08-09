@@ -9,4 +9,6 @@
 #define MAX_ARGS 64
 #define ARG_BUF_SIZE BUF_SIZE_4k
 
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
+
 #endif
