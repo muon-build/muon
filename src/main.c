@@ -378,12 +378,16 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		{ 0 },
 	};
 
-	OPTSTART("v") {
+	OPTSTART("vl") {
 	case 'v':
 		log_set_lvl(log_debug);
 		break;
+	case 'l':
+		log_set_opts(log_show_source);
+		break;
 	} OPTEND(argv[0], "",
-		"  -v - turn on debug messages",
+		"  -v - turn on debug messages"
+		"  -l - show source locations for log messages",
 		commands)
 
 	cmd_func cmd;
