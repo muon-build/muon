@@ -96,7 +96,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	} OPTEND(argv[argi],
 		" <filename>",
-		"-p - print parsed ast\n",
+		"  -p - print parsed ast\n",
 		NULL)
 
 	if (argi >= argc) {
@@ -382,8 +382,8 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		log_set_opts(log_show_source);
 		break;
 	} OPTEND(argv[0], "",
-		"  -v - turn on debug messages"
-		"  -l - show source locations for log messages",
+		"  -v - turn on debug messages\n"
+		"  -l - show source locations for log messages\n",
 		commands)
 
 	cmd_func cmd;
