@@ -189,10 +189,6 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 
-	if (!workspace_setup_dirs(&wk, "dummy", argv[0])) {
-		goto ret;
-	}
-
 	wk.lang_mode = language_internal;
 
 	uint32_t id;
@@ -212,7 +208,6 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	ret = true;
-ret:
 	workspace_destroy(&wk);
 	return ret;
 }
