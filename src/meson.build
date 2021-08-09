@@ -1,5 +1,3 @@
-# sources
-
 src = files([
 	'coerce.c',
 	'compilers.c',
