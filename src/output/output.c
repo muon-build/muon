@@ -746,7 +746,7 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t lang, uint32_t comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
 
@@ -778,21 +778,26 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t lang, uint32
 		return ir_err;
 	}
 
-	uint32_t proj_args;
-	/* project default args */
-	// TODO language specific
-	obj_array_dup(wk, ctx->proj->cfg.args, &proj_args);
-	obj_array_extend(wk, args, proj_args);
-
-	/* target args */
-	// TODO language specific
-	if (ctx->tgt->dat.tgt.c_args) {
-		uint32_t tgt_args;
-		obj_array_dup(wk, ctx->tgt->dat.tgt.c_args, &tgt_args);
-		obj_array_extend(wk, args, tgt_args);
+	{
+		uint32_t proj_args, proj_args_dup;
+		/* project default args */
+		if (obj_dict_geti(wk, ctx->proj->cfg.args, l, &proj_args)) {
+			obj_array_dup(wk, proj_args, &proj_args_dup);
+			obj_array_extend(wk, args, proj_args_dup);
+		}
 	}
 
-	obj_dict_set(wk, ctx->args_dict, lang, join_args(wk, args));
+	{
+		/* target args */
+		// TODO language specific
+		if (ctx->tgt->dat.tgt.c_args) {
+			uint32_t tgt_args;
+			obj_array_dup(wk, ctx->tgt->dat.tgt.c_args, &tgt_args);
+			obj_array_extend(wk, args, tgt_args);
+		}
+	}
+
+	obj_dict_set(wk, ctx->args_dict, l, join_args(wk, args));
 	return ir_cont;
 }
 

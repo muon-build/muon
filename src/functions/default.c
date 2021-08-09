@@ -24,17 +24,27 @@
 #include "wrap.h"
 
 static bool
+s_to_lang(struct workspace *wk, uint32_t err_node, uint32_t lang, enum compiler_language *l)
+{
+	if (!s_to_compiler_language(wk_objstr(wk, lang), l)) {
+		interp_error(wk, err_node, "unknown language '%s'", wk_objstr(wk, lang));
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 {
 	uint32_t comp_id;
 	enum compiler_language l;
-	if (!s_to_compiler_language(wk_objstr(wk, str), &l)) {
-		interp_error(wk, err_node, "unsupported language '%s'", wk_objstr(wk, str));
+	if (!s_to_lang(wk, err_node, str, &l)) {
 		return false;
 	}
 
 	uint32_t res;
-	if (obj_dict_geti(wk, l, current_project(wk)->compilers, &res)) {
+	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
 		interp_error(wk, err_node, "language '%s' has already been added", wk_objstr(wk, str));
 		return false;
 	}
@@ -104,6 +114,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 
 struct func_add_project_arguments_iter_ctx {
 	uint32_t node;
+	uint32_t args;
 };
 
 static enum iteration_result
@@ -115,7 +126,7 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 		return ir_err;
 	}
 
-	obj_array_push(wk, current_project(wk)->cfg.args, val_id);
+	obj_array_push(wk, ctx->args, val_id);
 
 	return ir_cont;
 }
@@ -126,7 +137,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs { kw_language, };
 	struct args_kw akw[] = {
-		[kw_language] = { "language", obj_string },
+		[kw_language] = { "language", obj_string, .required = true },
 		0
 	};
 
@@ -134,14 +145,28 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 		return false;
 	}
 
-	if (akw[kw_language].set) {
-		if (!check_lang(wk, akw[kw_language].node, akw[kw_language].val)) {
-			return false;
-		}
+	enum compiler_language l;
+
+	if (!s_to_lang(wk, akw[kw_language].node, akw[kw_language].val, &l)) {
+		return false;
+	}
+
+	uint32_t comp_id;
+	if (!obj_dict_geti(wk, current_project(wk)->compilers, l, &comp_id)) {
+		interp_error(wk, akw[kw_language].node,
+			"language '%s' has not been added", compiler_language_to_s(l));
+		return false;
+	}
+
+	uint32_t args;
+	if (!obj_dict_geti(wk, current_project(wk)->cfg.args, l, &args)) {
+		make_obj(wk, &args, obj_array);
+		obj_dict_seti(wk, current_project(wk)->cfg.args, l, args);
 	}
 
 	return obj_array_foreach_flat(wk, an[0].val, &(struct func_add_project_arguments_iter_ctx) {
 		.node = an[0].node,
+		.args = args,
 	}, func_add_project_arguments_iter);
 }
 

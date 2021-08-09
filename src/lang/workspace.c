@@ -323,7 +323,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	make_obj(wk, &proj->compilers, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->tests, obj_array);
-	make_obj(wk, &proj->cfg.args, obj_array);
+	make_obj(wk, &proj->cfg.args, obj_dict);
 
 	if (subproj_name) {
 		proj->subproject_name = wk_str_push(wk, subproj_name);

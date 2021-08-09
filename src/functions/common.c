@@ -25,17 +25,6 @@
 #include "lang/interpreter.h"
 #include "log.h"
 
-bool
-check_lang(struct workspace *wk, uint32_t n_id, uint32_t id)
-{
-	if (strcmp("c", wk_objstr(wk, id)) != 0) {
-		interp_error(wk, n_id, "only c is supported");
-		return false;
-	}
-
-	return true;
-}
-
 static bool
 next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char **kw, struct node **args)
 {
