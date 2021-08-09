@@ -102,12 +102,12 @@ Internally, these ids are tagged and a runtime assert should catch any mix-ups.
 
 You may be wondering, what about resource cleanup? Garbage collection?  Muon's
 current approach is to cleanup only once at the very end.  Why? Meson is not a
-Turing complete language, so we don't need to worry about long running programs.
+turing-complete language, so we don't need to worry about long running programs.
 Furthermore, comparing `meson setup` to `muon setup` on this project tells us
-that we are still doing far better than `meson`.
+that even with this naive approach, we are still doing far better than `meson`.
 
 meson setup build:
-total heap usage: 42,069 allocs, 41,566 frees, 58,483,921 bytes allocated
+total heap usage: 48,266 allocs, 47,764 frees, 57,225,893 bytes allocated
 
 muon setup build:
-total heap usage: 2,293 allocs, 943 frees, 1,013,280 bytes allocated
+total heap usage: 359 allocs, 214 frees, 880,987 bytes allocated
