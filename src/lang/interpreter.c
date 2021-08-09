@@ -569,6 +569,28 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 }
 
 static bool
+interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
+{
+	bool cond;
+	{
+		uint32_t cond_id;
+		if (!interp_node(wk, n->l, &cond_id)) {
+			return false;
+		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
+			return false;
+		}
+
+		struct obj *cond_obj = get_obj(wk, cond_id);
+		cond = cond_obj->dat.boolean;
+	}
+
+
+	uint32_t node = cond ? n->r : n->c;
+
+	return interp_node(wk, node, obj_id);
+}
+
+static bool
 interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 {
 	bool cond;
@@ -863,8 +885,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = interp_comparison(wk, n, obj_id);
 		break;
 	case node_ternary:
-		LOG_E("ternary not yet implemented");
-		ret = false;
+		ret = interp_ternary(wk, n, obj_id);
 		break;
 
 	/* math */

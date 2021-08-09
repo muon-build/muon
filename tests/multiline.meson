@@ -1,0 +1,6 @@
+single_line = '''test'''
+multi_line = '''abc
+def'''
+assert(single_line == 'test')
+assert(multi_line == '''abc
+def''')

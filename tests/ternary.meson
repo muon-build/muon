@@ -1,0 +1,5 @@
+assert((true ? 1 : 2) == 1)
+assert((false ? 1 : 2) == 2)
+t = true
+f = false
+assert((t ? f ? 0 : f ? 0 : t ? 1 : 0 : 0) == 1)
