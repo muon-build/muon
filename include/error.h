@@ -1,6 +1,8 @@
 #ifndef MUON_ERROR_H
 #define MUON_ERROR_H
 
+#include <stdarg.h>
+
 #include "platform/filesystem.h"
 
 void error_unrecoverable(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));

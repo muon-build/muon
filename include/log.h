@@ -4,11 +4,10 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <unistd.h>
 
 enum log_level {
 	log_quiet,
@@ -25,7 +24,7 @@ enum log_opts {
 
 #define L(...) log_print(__FILE__, __LINE__, __func__, log_debug, __VA_ARGS__)
 #define LOG_I(...) log_print(__FILE__, __LINE__, __func__, log_info, __VA_ARGS__)
-/* #define LOG_W(...) log_print(__FILE__, __LINE__, __func__, log_warn, __VA_ARGS__) */
+#define LOG_W(...) log_print(__FILE__, __LINE__, __func__, log_warn, __VA_ARGS__)
 #define LOG_E(...) log_print(__FILE__, __LINE__, __func__, log_error, __VA_ARGS__)
 
 void log_bytes_r(const void *src, size_t size);
