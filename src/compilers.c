@@ -312,6 +312,14 @@ compiler_gcc_args_warning_lvl(uint32_t lvl)
 }
 
 static const struct compiler_args *
+compiler_gcc_args_werror(void)
+{
+	COMPILER_ARGS({ "-Werror" });
+	return &args;
+}
+
+
+static const struct compiler_args *
 compiler_gcc_args_set_std(const char *std)
 {
 	static char buf[BUF_SIZE_S];
@@ -398,6 +406,7 @@ build_compilers(void)
 	gcc.args.deps = compiler_gcc_args_deps;
 	gcc.args.optimization = compiler_gcc_args_optimization;
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
+	gcc.args.werror = compiler_gcc_args_werror;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
