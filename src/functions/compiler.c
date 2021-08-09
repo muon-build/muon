@@ -71,7 +71,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 
 	LOG_I("'%s' supported: %s",
 		wk_objstr(wk, val_id),
-		cmd_ctx.status == 0 ? "YES" : "NO"
+		cmd_ctx.status == 0 ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m"
 		);
 
 	if (cmd_ctx.status == 0) {
