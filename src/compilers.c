@@ -86,6 +86,15 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 		return false;
 	}
 
+	if (cmd_ctx.status != 0) {
+		cmd_ctx = (struct run_cmd_ctx) { 0 };
+		if (!run_cmd(&cmd_ctx, cc, (char *[]){
+			(char *)cc, "-v", NULL,
+		})) {
+			return false;
+		}
+	}
+
 	enum compiler_type type;
 	bool unknown = true;
 
