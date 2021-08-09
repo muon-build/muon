@@ -101,7 +101,7 @@ uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
 
 void workspace_init(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
-bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0);
+bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0, bool mkdir);
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);

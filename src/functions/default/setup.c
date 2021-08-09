@@ -90,7 +90,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 
 	workspace_init(&sub_wk);
 
-	if (!workspace_setup_dirs(&sub_wk, wk_objstr(wk, an[0].val), wk->argv0)) {
+	if (!workspace_setup_dirs(&sub_wk, wk_objstr(wk, an[0].val), wk->argv0, true)) {
 		goto ret;
 	}
 

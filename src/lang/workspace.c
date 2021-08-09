@@ -405,7 +405,7 @@ workspace_destroy(struct workspace *wk)
 }
 
 bool
-workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
+workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0, bool mkdir)
 {
 	if (!path_cwd(wk->source_root, PATH_MAX)) {
 		return false;
@@ -427,8 +427,10 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0)
 		return false;
 	}
 
-	if (!fs_mkdir_p(wk->muon_private)) {
-		return false;
+	if (mkdir) {
+		if (!fs_mkdir_p(wk->muon_private)) {
+			return false;
+		}
 	}
 
 	return true;

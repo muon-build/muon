@@ -140,7 +140,7 @@ eval_internal(const char *filename, const char *argv0)
 	struct workspace wk;
 	workspace_init(&wk);
 
-	if (!workspace_setup_dirs(&wk, "dummy", argv0)) {
+	if (!workspace_setup_dirs(&wk, "dummy", argv0, false)) {
 		goto ret;
 	}
 
@@ -284,7 +284,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	if (!workspace_setup_dirs(&wk, build, argv[0])) {
+	if (!workspace_setup_dirs(&wk, build, argv[0], true)) {
 		goto err;
 	}
 
