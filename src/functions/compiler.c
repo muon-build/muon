@@ -172,7 +172,6 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 		external_library->dat.external_library.full_path = wk_str_push(wk, buf);
 	}
 
-
 	return true;
 }
 

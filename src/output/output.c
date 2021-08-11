@@ -584,12 +584,28 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 static enum iteration_result
 process_dep_links_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
+	struct write_tgt_iter_ctx *ctx = _ctx;
 	struct obj *dep = get_obj(wk, val_id);
 
-	if (dep->dat.dep.link_with) {
-		if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_link_with_iter)) {
-			return ir_err;
+	switch (dep->type) {
+	case obj_dependency:
+		if (dep->dat.dep.link_with) {
+			if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, process_link_with_iter)) {
+				return ir_err;
+			}
 		}
+		break;
+	case obj_external_library:
+		if (ctx->tgt->dat.tgt.type == tgt_executable) {
+			uint32_t val_id;
+			make_obj(wk, &val_id, obj_string)->dat.str =
+				dep->dat.external_library.full_path;
+			obj_array_push(wk, ctx->link_args, val_id);
+		}
+		break;
+	default:
+		LOG_E("invalid type for dependency: %s", obj_type_to_s(dep->type));
+		return ir_err;
 	}
 
 	return ir_cont;
