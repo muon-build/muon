@@ -11,7 +11,6 @@ dir="$1"
 mkdir -p "$dir"
 
 cat \
-	platform/dirs.c \
 	src/coerce.c \
 	src/compilers.c \
 	src/data/bucket_array.c \
@@ -59,6 +58,7 @@ cat \
 	src/main.c \
 	src/opts.c \
 	src/output/output.c \
+	src/platform/dirs.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
 	src/platform/path.c \
