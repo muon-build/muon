@@ -131,8 +131,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *key,
 	int64_t i = strtol(key, &endptr, 10);
 
 	if (*endptr) {
-		interp_error(wk, node, "key is not an integer");
-		return format_cb_error;
+		return format_cb_skip;
 	} else if (!boundscheck(wk, node, ctx->arr, &i)) {
 		return format_cb_error;
 	} else if (!obj_array_index(wk, ctx->arr, i, elem)) {
