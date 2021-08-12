@@ -720,11 +720,13 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	enum kwargs {
 		kw_args,
 		kw_workdir,
+		kw_depends,
 		kw_should_fail,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", obj_array, },
 		[kw_workdir] = { "workdir", obj_string, }, // TODO
+		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		0
 	};
