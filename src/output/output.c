@@ -189,7 +189,7 @@ struct join_args_iter_ctx {
 };
 
 static enum iteration_result
-join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
+join_args_iter_shell(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct join_args_iter_ctx *ctx = _ctx;
 
@@ -223,8 +223,52 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	return ir_cont;
 }
 
+static enum iteration_result
+join_args_iter_ninja(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct join_args_iter_ctx *ctx = _ctx;
+
+	assert(get_obj(wk, val)->type == obj_string);
+
+	const char *s = wk_objstr(wk, val);
+
+	char buf[BUF_SIZE_2k] = { 0 };
+	uint32_t bufi = 0, check;
+
+	for (; *s; ++s) {
+		if (*s == ' ' || *s == ':' || *s == '$') {
+			check = 2;
+		} else {
+			check = 1;
+		}
+
+		if (bufi + check >= BUF_SIZE_2k) {
+			LOG_E("ninja argument too long");
+			return ir_err;
+		}
+
+		if (check == 2) {
+			buf[bufi] = '$';
+			++bufi;
+		}
+
+		buf[bufi] = *s;
+		++bufi;
+	}
+
+	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, buf);
+
+	if (ctx->i < ctx->len - 1) {
+		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
+	}
+
+	++ctx->i;
+
+	return ir_cont;
+}
+
 static uint32_t
-join_args(struct workspace *wk, uint32_t arr)
+join_args(struct workspace *wk, uint32_t arr, obj_array_iterator cb)
 {
 	uint32_t obj;
 	make_obj(wk, &obj, obj_string)->dat.str = wk_str_push(wk, "");
@@ -234,13 +278,26 @@ join_args(struct workspace *wk, uint32_t arr)
 		.len = get_obj(wk, arr)->dat.arr.len
 	};
 
-	if (!obj_array_foreach(wk, arr, &ctx, join_args_iter)) {
+	if (!obj_array_foreach(wk, arr, &ctx, cb)) {
 		assert(false);
 		return 0;
 	}
 
 	return obj;
 }
+
+static uint32_t
+join_args_shell(struct workspace *wk, uint32_t arr)
+{
+	return join_args(wk, arr, join_args_iter_shell);
+}
+
+static uint32_t
+join_args_ninja(struct workspace *wk, uint32_t arr)
+{
+	return join_args(wk, arr, join_args_iter_ninja);
+}
+
 
 static enum iteration_result
 write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
@@ -274,7 +331,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));
-	uint32_t command = join_args(wk, args);
+	uint32_t command = join_args_shell(wk, args);
 
 	fprintf(out, "rule %s_COMPILER\n"
 		" command = %s\n",
@@ -300,12 +357,19 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 }
 
 static void
+write_escaped(FILE *f, const char *s)
+{
+	for (; *s; ++s) {
+		if (*s == ' ' || *s == ':' || *s == '$') {
+			fputc('$', f);
+		}
+		fputc(*s, f);
+	}
+}
+
+static bool
 write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 {
-	uint32_t sep, sources;
-	make_obj(wk, &sep, obj_string)->dat.str = wk_str_push(wk, " ");
-	obj_array_join(wk, wk->sources, sep, &sources);
-
 	fprintf(
 		out,
 		"# This is the build file for project \"%s\"\n"
@@ -326,21 +390,34 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		" command = $COMMAND\n"
 		" description = $DESCRIPTION\n"
 		" restat = 1\n"
-		"\n"
+		"\n",
+		get_dict_str(wk, wk->binaries, "ar", "ar")
+		);
+
+	fprintf(out,
 		"rule REGENERATE_BUILD\n"
-		" command = %s build -r -c %s%c%s\n"
-		" description = Regenerating build files.\n"
+		" command = ");
+	write_escaped(out, wk->argv0);
+	fputs(" build -r -c ", out);
+
+	char setup_file[PATH_MAX];
+	if (!path_join(setup_file, PATH_MAX, outpath.private_dir, outpath.setup)) {
+		return false;
+	}
+	write_escaped(out, setup_file);
+
+	fputs("\n description = Regenerating build files.\n"
 		" generator = 1\n"
-		"\n"
+		"\n", out);
+
+	fprintf(out,
 		"build build.ninja: REGENERATE_BUILD %s\n"
 		" pool = console\n"
 		"\n"
 		"# targets\n\n",
-		get_dict_str(wk, wk->binaries, "ar", "ar"),
-		wk->argv0,
-		outpath.private_dir, PATH_SEP, outpath.setup,
-		wk_objstr(wk, sources)
+		wk_objstr(wk, join_args_ninja(wk, wk->sources))
 		);
+	return true;
 }
 
 struct write_tgt_iter_ctx {
@@ -359,17 +436,6 @@ struct write_tgt_iter_ctx {
 	bool have_link_language;
 	enum compiler_language link_language;
 };
-
-static void
-write_escaped(FILE *f, const char *s)
-{
-	for (; *s; ++s) {
-		if (*s == ' ' || *s == ':' || *s == '$') {
-			fputc('$', f);
-		}
-		fputc(*s, f);
-	}
-}
 
 static enum iteration_result
 write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
@@ -812,7 +878,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		}
 	}
 
-	obj_dict_set(wk, ctx->args_dict, l, join_args(wk, args));
+	obj_dict_set(wk, ctx->args_dict, l, join_args_shell(wk, args));
 	return ir_cont;
 }
 
@@ -962,7 +1028,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-	ctx.order_deps = join_args(wk, ctx.order_deps);
+	ctx.order_deps = join_args_ninja(wk, ctx.order_deps);
 
 	{ /* sources */
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_sources_iter)) {
@@ -978,12 +1044,12 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
-	ctx.implicit_deps = join_args(wk, ctx.implicit_deps);
+	ctx.implicit_deps = join_args_ninja(wk, ctx.implicit_deps);
 
 	fputs("build ", output->build_ninja);
 	write_escaped(output->build_ninja, path);
 	fprintf(output->build_ninja, ": %s_LINKER ", linker_type);
-	fputs(wk_objstr(wk, join_args(wk, ctx.object_names)), output->build_ninja); // escape
+	fputs(wk_objstr(wk, join_args_ninja(wk, ctx.object_names)), output->build_ninja); // escape
 	if (ctx.have_implicit_deps) {
 		fputs(" | ", output->build_ninja);
 		fputs(wk_objstr(wk, ctx.implicit_deps), output->build_ninja); // escape
@@ -992,7 +1058,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		fputs(" || ", output->build_ninja);
 		fputs(wk_objstr(wk, ctx.order_deps), output->build_ninja); // escape
 	}
-	fprintf(output->build_ninja, "\n LINK_ARGS = %s\n\n", wk_objstr(wk, join_args(wk, ctx.link_args)));
+	fprintf(output->build_ninja, "\n LINK_ARGS = %s\n\n", wk_objstr(wk, join_args_shell(wk, ctx.link_args)));
 
 	return ir_cont;
 }
@@ -1212,7 +1278,9 @@ output_build(struct workspace *wk)
 		return false;
 	}
 
-	write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0));
+	if (!write_hdr(output.build_ninja, wk, darr_get(&wk->projects, 0))) {
+		return false;
+	}
 	write_opts(output.opts, wk);
 
 	uint32_t i;
