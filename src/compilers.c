@@ -22,7 +22,9 @@ compiler_type_to_s(enum compiler_type t)
 
 static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_c] = "c",
+	[compiler_language_c_hdr] = "c_hdr",
 	[compiler_language_cpp] = "cpp",
+	[compiler_language_cpp_hdr] = "cpp_hdr",
 };
 
 const char *
