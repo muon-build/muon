@@ -11,6 +11,7 @@
 #include "lang/interpreter.h"
 #include "log.h"
 #include "output/output.h"
+#include "platform/dirs.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -147,15 +148,22 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 	}
 
 	bool found = false;
-	char buf[PATH_MAX + 1] = { 0 };
-	const char *pre = "/usr/lib/lib", *suf[] = { "so", "a", NULL };
-	uint32_t i;
+	char lib[PATH_MAX], path[PATH_MAX];
+	const char *suf[] = { "so", "a", NULL };
 
-	for (i = 0; suf[i]; ++i) {
-		snprintf(buf, PATH_MAX, "%s%s.%s", pre, wk_objstr(wk, an[0].val), suf[i]);
-		if (fs_file_exists(buf)) {
-			found = true;
-			break;
+	uint32_t i, j;
+	for (i = 0; libdirs[i]; ++i) {
+		for (j = 0; suf[j]; ++j) {
+			snprintf(lib, PATH_MAX, "lib%s.%s", wk_objstr(wk, an[0].val), suf[j]);
+
+			if (!path_join(path, PATH_MAX, libdirs[i], lib)) {
+				return false;
+			}
+
+			if (fs_file_exists(path)) {
+				found = true;
+				break;
+			}
 		}
 	}
 
@@ -169,7 +177,7 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 	} else {
 		struct obj *external_library = make_obj(wk, obj, obj_external_library);
 		external_library->dat.external_library.found = true;
-		external_library->dat.external_library.full_path = wk_str_push(wk, buf);
+		external_library->dat.external_library.full_path = wk_str_push(wk, path);
 	}
 
 	return true;

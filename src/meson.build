@@ -42,6 +42,7 @@ src = files([
 	'main.c',
 	'opts.c',
 	'output/output.c',
+	'platform/dirs.c',
 	'platform/filesystem.c',
 	'platform/mem.c',
 	'platform/path.c',

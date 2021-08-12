@@ -8,6 +8,7 @@
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/dirs.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -273,7 +274,11 @@ muon_pkgconf_lookup(struct workspace *wk, uint32_t name, bool is_static, struct 
 	make_obj(wk, &info->includes, obj_array);
 	make_obj(wk, &info->libs, obj_array);
 	make_obj(wk, &ctx.libdirs, obj_array);
-	obj_array_push(wk, ctx.libdirs, make_str(wk, "/lib")); // TODO platform-specific
+
+	uint32_t i;
+	for (i = 0; libdirs[i]; ++i) {
+		obj_array_push(wk, ctx.libdirs, make_str(wk, libdirs[i]));
+	}
 
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_and_collect, maxdepth, &ctx)) {
