@@ -159,7 +159,7 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 
 	static const char *compiler_default[] = {
 		[compiler_language_c] = "cc",
-		[compiler_language_cpp] = "cpp",
+		[compiler_language_cpp] = "c++",
 	};
 
 	if (!(cmd = getenv(compiler_env_override[lang]))) {
