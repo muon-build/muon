@@ -68,7 +68,6 @@ cat \
 	src/wrap.c \
 	> "$dir/muon.c"
 
-cc ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -o "$dir/muon.o" -c "$dir/muon.c"
+${CC:-cc} ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -o "$dir/muon.o" -c "$dir/muon.c"
 
-cc ${LDFLAGS:-} "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
-
+${CC:-cc} ${LDFLAGS:-} "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
