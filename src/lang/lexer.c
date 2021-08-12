@@ -498,7 +498,7 @@ string(struct lexer *lexer, struct token *token, bool fstring)
 		case '\'':
 			got_quote = true;
 			break;
-		case '{': {
+		case '@': {
 			if (!fstring) {
 				str[token->n] = lexer->src[lexer->i];
 				++token->n;
@@ -508,9 +508,6 @@ string(struct lexer *lexer, struct token *token, bool fstring)
 			advance(lexer);
 			lexer->data_i += token->n + 1;
 
-			++lexer->enclosing.curl;
-
-			/* L("%d"); */
 			next_tok(lexer)->type = tok_plus;
 
 			if (lexer_tokenize_one(lexer) != lex_cont) {
@@ -518,14 +515,20 @@ string(struct lexer *lexer, struct token *token, bool fstring)
 			} else if (last_tok(lexer)->type != tok_identifier) {
 				lex_error(lexer, "invalid expression in f-string");
 				return lex_fail;
-			} else if (lexer_tokenize_one(lexer) != lex_cont) {
-				return lex_fail;
-			} else if (last_tok(lexer)->type != tok_rcurl) {
+			}
+
+			while (lexer->src[lexer->i] == ' ' || lexer->src[lexer->i] == '\t') {
+				advance(lexer);
+			}
+
+			if (lexer->src[lexer->i] != '@') {
 				lex_error(lexer, "unterminated expression in f-string");
 				return lex_fail;
 			}
 
-			last_tok(lexer)->type = tok_plus;
+			advance(lexer);
+
+			next_tok(lexer)->type = tok_plus;
 
 			token = next_tok(lexer);
 			str = &lexer->sdata->data[lexer->data_i];
