@@ -57,7 +57,6 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 	in = wk_str(wk, str);
 
 	for (i = 0; i < in_len; ++i) {
-
 		if (in[i] == '@') {
 			if (reading_id) {
 				uint32_t elem;
@@ -79,16 +78,22 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 					return false;
 				case format_cb_error:
 					return false;
-				case format_cb_found:
+				case format_cb_found: {
+					if (!typecheck(wk, node, elem, obj_string)) {
+						return false;
+					}
+
+					wk_str_app(wk, out, wk_objstr(wk, elem));
+					in = wk_str(wk, str);
 					break;
 				}
-
-				if (!typecheck(wk, node, elem, obj_string)) {
-					return false;
+				case format_cb_skip: {
+					wk_str_appf(wk, out, "@%s@", key);
+					in = wk_str(wk, str);
+					break;
+				}
 				}
 
-				wk_str_app(wk, out, wk_objstr(wk, elem));
-				in = wk_str(wk, str);
 				reading_id = false;
 			} else {
 				if (i) {

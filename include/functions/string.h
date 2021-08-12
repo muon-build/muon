@@ -6,6 +6,7 @@ enum format_cb_result {
 	format_cb_found,
 	format_cb_not_found,
 	format_cb_error,
+	format_cb_skip,
 };
 
 struct version {
