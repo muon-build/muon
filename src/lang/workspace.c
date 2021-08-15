@@ -345,16 +345,28 @@ current_project(struct workspace *wk)
 }
 
 void
-workspace_init(struct workspace *wk)
+workspace_init_bare(struct workspace *wk)
 {
 	*wk = (struct workspace){ 0 };
-	darr_init(&wk->projects, 16, sizeof(struct project));
-	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
+
 	darr_init(&wk->strs, 2048, sizeof(char));
-	darr_init(&wk->source_data, 4, sizeof(struct source_data));
-	hash_init(&wk->scope, 32);
+	darr_push(&wk->strs, &(char) { 0 });
 
 	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
+
+	wk->strbuf_cap = 2048;
+	wk->strbuf = z_malloc(wk->strbuf_cap);
+}
+
+void
+workspace_init(struct workspace *wk)
+{
+	workspace_init_bare(wk);
+
+	darr_init(&wk->projects, 16, sizeof(struct project));
+	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
+	darr_init(&wk->source_data, 4, sizeof(struct source_data));
+	hash_init(&wk->scope, 32);
 
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
@@ -369,11 +381,14 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);
 	make_obj(wk, &wk->sources, obj_array);
+}
 
-	darr_push(&wk->strs, &(char) { 0 });
-
-	wk->strbuf_cap = 2048;
-	wk->strbuf = z_malloc(wk->strbuf_cap);
+void
+workspace_destroy_bare(struct workspace *wk)
+{
+	darr_destroy(&wk->strs);
+	bucket_array_destroy(&wk->objs);
+	z_free(wk->strbuf);
 }
 
 void
@@ -395,13 +410,10 @@ workspace_destroy(struct workspace *wk)
 
 	darr_destroy(&wk->projects);
 	darr_destroy(&wk->option_overrides);
-	darr_destroy(&wk->strs);
 	darr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
 
-	bucket_array_destroy(&wk->objs);
-
-	z_free(wk->strbuf);
+	workspace_destroy_bare(wk);
 }
 
 bool

@@ -49,7 +49,6 @@ struct workspace {
 	     build_root[PATH_MAX],
 	     muon_private[PATH_MAX];
 
-
 	/* obj_array that tracks each source file eval'd */
 	uint32_t sources;
 	/* host machine dict */
@@ -99,7 +98,9 @@ char *wk_file_path(struct workspace *wk, uint32_t id);
 uint32_t wk_str_push_stripped(struct workspace *wk, const char *s);
 uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
 
+void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);
+void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0, bool mkdir);
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,

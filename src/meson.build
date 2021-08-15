@@ -37,6 +37,7 @@ src = files([
 	'lang/lexer.c',
 	'lang/object.c',
 	'lang/parser.c',
+	'lang/serial.c',
 	'lang/workspace.c',
 	'log.c',
 	'machine_file.c',
