@@ -634,6 +634,16 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uin
 		return obj_dict_foreach(wk_src, val, &(struct obj_clone_ctx) {
 			.container = *ret, .wk_dest = wk_dest
 		}, obj_clone_dict_iter);
+	case obj_test: {
+		struct obj *test = get_obj(wk_src, val);
+
+		obj = make_obj(wk_dest, ret, t);
+		obj->dat.test.name = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.name));
+		obj->dat.test.exe = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.exe));
+		obj->dat.test.should_fail = test->dat.test.should_fail;
+
+		return obj_clone(wk_src, wk_dest, test->dat.test.args, &obj->dat.test.args);
+	}
 	default:
 		LOG_E("unable to clone '%s'", obj_type_to_s(t));
 		return false;
@@ -715,8 +725,31 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		}
 
 		break;
+	case obj_test: {
+		struct obj *test = get_obj(wk, id);
+		ctx.i += snprintf(buf, len, "test('%s', '%s'",
+			wk_objstr(wk, test->dat.test.name),
+			wk_objstr(wk, test->dat.test.exe)
+			);
+
+		if (test->dat.test.args) {
+			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", args: ");
+			uint32_t w;
+			if (!_obj_to_s(wk, test->dat.test.args, &ctx.buf[ctx.i], ctx.len - ctx.i, &w)) {
+				return ir_err;
+			}
+			ctx.i += w;
+		}
+
+		if (test->dat.test.should_fail) {
+			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", should_fail: true");
+		}
+
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, ")");
+		break;
+	}
 	case obj_file:
-		ctx.i += snprintf(buf, len, "files('%s')", wk_objstr(wk, id));
+		ctx.i += snprintf(buf, len, "files('%s')", wk_str(wk, get_obj(wk, id)->dat.file));
 		break;
 	case obj_string:
 		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, id));
