@@ -248,6 +248,31 @@ fs_fwrite(const void *ptr, size_t size, FILE *f)
 }
 
 bool
+fs_fread(void *ptr, size_t size, FILE *f)
+{
+	size_t r;
+	int err;
+
+	if (!size) {
+		return true;
+	}
+
+	r = fread(ptr, 1, size, f);
+	assert(r <= size);
+
+	if (r == size) {
+		return true;
+	} else {
+		if ((err = ferror(f))) {
+			LOG_E("fread failed: %s", strerror(err));
+		} else {
+			LOG_E("fread failed: unknown");
+		}
+		return false;
+	}
+}
+
+bool
 fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 {
 	FILE *f;
