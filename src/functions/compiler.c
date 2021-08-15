@@ -162,11 +162,12 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 
 			if (fs_file_exists(path)) {
 				found = true;
-				break;
+				goto done;
 			}
 		}
 	}
 
+done:
 	if (!found) {
 		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "library not found");
@@ -175,6 +176,7 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 
 		make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
 	} else {
+		LOG_I("found library '%s' at '%s'", wk_objstr(wk, an[0].val), path);
 		struct obj *external_library = make_obj(wk, obj, obj_external_library);
 		external_library->dat.external_library.found = true;
 		external_library->dat.external_library.full_path = wk_str_push(wk, path);
