@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -20,14 +21,29 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	char *cmd[] = { NULL };
-	assert(false && "todo: implement cmd");
+	uint32_t cmdline;
+	make_obj(wk, &cmdline, obj_array);
+	obj_array_push(wk, cmdline, test->dat.test.exe);
 
-	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), (char *const *)cmd)) {
+	uint32_t test_args;
+	if (!arr_to_args(wk, test->dat.test.args, &test_args)) {
+		return ir_err;
+	}
+
+	obj_array_extend(wk, cmdline, test_args);
+
+	char *argv[MAX_ARGS];
+
+	if (!join_args_argv(wk, argv, MAX_ARGS, cmdline)) {
+		LOG_E("failed to prepare arguments");
+		return ir_err;
+	}
+
+	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv)) {
 		if (cmd_ctx.err_msg) {
-			LOG_E("error: %s", cmd_ctx.err_msg);
+			LOG_E("%s", cmd_ctx.err_msg);
 		} else {
-			LOG_E("error: %s", strerror(cmd_ctx.err_no));
+			LOG_E("%s", strerror(cmd_ctx.err_no));
 		}
 
 		return ir_err;

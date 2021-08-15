@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "args.h"
 #include "buf_size.h"
@@ -35,77 +36,66 @@ push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *arg
 	}
 }
 
-struct join_args_iter_ctx {
-	uint32_t i, len;
-	uint32_t *obj;
-};
-
-static enum iteration_result
-join_args_iter_shell(struct workspace *wk, void *_ctx, uint32_t val)
+static bool
+escape_str(char *buf, uint32_t len, const char *str, char esc_char, const char *need_escaping)
 {
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	assert(get_obj(wk, val)->type == obj_string);
-
-	const char *s = wk_objstr(wk, val);
-	bool needs_escaping = false;
+	const char *s = str;
+	uint32_t bufi = 0;
+	bool esc;
 
 	for (; *s; ++s) {
-		if (*s == '"' || *s == ' ') {
-			needs_escaping = true;
-		}
-	}
+		esc = strchr(need_escaping, *s) != NULL;
 
-	if (needs_escaping) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, "'");
-	}
-
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_objstr(wk, val));
-
-	if (needs_escaping) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, "'");
-	}
-
-	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
-static enum iteration_result
-join_args_iter_ninja(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	assert(get_obj(wk, val)->type == obj_string);
-
-	const char *s = wk_objstr(wk, val);
-
-	char buf[BUF_SIZE_2k] = { 0 };
-	uint32_t bufi = 0, check;
-
-	for (; *s; ++s) {
-		if (*s == ' ' || *s == ':' || *s == '$') {
-			check = 2;
-		} else {
-			check = 1;
+		if (bufi + 1 + (esc ? 1 : 0) >= len - 1) {
+			return false;
 		}
 
-		if (bufi + check >= BUF_SIZE_2k) {
-			LOG_E("ninja argument too long");
-			return ir_err;
-		}
-
-		if (check == 2) {
-			buf[bufi] = '$';
+		if (esc) {
+			buf[bufi] = esc_char;
 			++bufi;
 		}
 
 		buf[bufi] = *s;
 		++bufi;
+	}
+
+	assert(bufi < len);
+	buf[bufi] = 0;
+	return true;
+}
+
+static bool
+shell_escape(char *buf, uint32_t len, const char *str)
+{
+	return escape_str(buf, len, str, '\\', "\"'$ \\");
+}
+
+static bool
+ninja_escape(char *buf, uint32_t len, const char *str)
+{
+	return escape_str(buf, len, str, '$', " :$");
+}
+
+typedef bool ((*escape_func)(char *buf, uint32_t len, const char *str));
+
+struct join_args_iter_ctx {
+	uint32_t i, len;
+	uint32_t *obj;
+	escape_func escape;
+};
+
+static enum iteration_result
+join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct join_args_iter_ctx *ctx = _ctx;
+
+	assert(get_obj(wk, val)->type == obj_string);
+
+	const char *s = wk_objstr(wk, val);
+	char buf[BUF_SIZE_4k];
+
+	if (!ctx->escape(buf, BUF_SIZE_4k, s)) {
+		return ir_err;
 	}
 
 	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, buf);
@@ -120,17 +110,18 @@ join_args_iter_ninja(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static uint32_t
-join_args(struct workspace *wk, uint32_t arr, obj_array_iterator cb)
+join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 {
 	uint32_t obj;
 	make_obj(wk, &obj, obj_string)->dat.str = wk_str_push(wk, "");
 
 	struct join_args_iter_ctx ctx = {
 		.obj = &obj,
-		.len = get_obj(wk, arr)->dat.arr.len
+		.len = get_obj(wk, arr)->dat.arr.len,
+		.escape = escape
 	};
 
-	if (!obj_array_foreach(wk, arr, &ctx, cb)) {
+	if (!obj_array_foreach(wk, arr, &ctx, join_args_iter)) {
 		assert(false);
 		return 0;
 	}
@@ -141,20 +132,71 @@ join_args(struct workspace *wk, uint32_t arr, obj_array_iterator cb)
 uint32_t
 join_args_shell(struct workspace *wk, uint32_t arr)
 {
-	return join_args(wk, arr, join_args_iter_shell);
-}
-
-const char **
-join_args_shell_argv(struct workspace *wk, uint32_t arr)
-{
-	// TODO
-	return NULL;
+	return join_args(wk, arr, shell_escape);
 }
 
 uint32_t
 join_args_ninja(struct workspace *wk, uint32_t arr)
 {
-	return join_args(wk, arr, join_args_iter_ninja);
+	return join_args(wk, arr, ninja_escape);
+}
+
+struct join_args_argv_iter_ctx {
+	uint32_t escaped;
+	char **argv;
+	uint32_t len;
+	uint32_t i;
+};
+
+static enum iteration_result
+join_args_argv_escape_iter(struct workspace *wk, void *_ctx, uint32_t v)
+{
+	struct join_args_argv_iter_ctx *ctx = _ctx;
+	char buf[BUF_SIZE_4k];
+	if (!shell_escape(buf, BUF_SIZE_4k, wk_objstr(wk, v))) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, ctx->escaped, make_str(wk, buf));
+	return ir_cont;
+}
+
+static enum iteration_result
+join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
+{
+	struct join_args_argv_iter_ctx *ctx = _ctx;
+
+	if (ctx->i >= ctx->len - 1) {
+		return ir_err;
+	}
+
+	ctx->argv[ctx->i] = wk_objstr(wk, v);
+	++ctx->i;
+	return ir_cont;
+}
+
+bool
+join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t arr)
+{
+	struct join_args_argv_iter_ctx ctx = {
+		.argv = argv,
+		.len = len,
+	};
+
+	make_obj(wk, &ctx.escaped, obj_array);
+
+	if (!obj_array_foreach(wk, arr, &ctx, join_args_argv_escape_iter)) {
+		return false;
+	}
+
+	if (!obj_array_foreach(wk, ctx.escaped, &ctx, join_args_argv_iter)) {
+		return false;
+	}
+
+	assert(ctx.i < ctx.len);
+	ctx.argv[ctx.i] = NULL;
+
+	return true;
 }
 
 static enum iteration_result
