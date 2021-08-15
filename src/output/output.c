@@ -8,6 +8,7 @@
 #include "compilers.h"
 #include "external/samu.h"
 #include "functions/default/options.h"
+#include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "output/output.h"
@@ -922,51 +923,6 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	}
 }
 
-static enum iteration_result
-write_test_args_iter(struct workspace *wk, void *_ctx, uint32_t arg)
-{
-	struct write_tgt_ctx *ctx = _ctx;
-	fputc(0, ctx->output->tests);
-
-	uint32_t str;
-	if (!strobj(wk, &str, arg)) {
-		return ir_err;
-	}
-
-	fputs(wk_str(wk, str), ctx->output->tests);
-	return ir_cont;
-}
-
-static enum iteration_result
-write_test_iter(struct workspace *wk, void *_ctx, uint32_t test)
-{
-	struct write_tgt_ctx *ctx = _ctx;
-	struct obj *t = get_obj(wk, test);
-
-	uint32_t test_flags = 0;
-
-	if (t->dat.test.should_fail) {
-		test_flags |= test_flag_should_fail;
-	}
-
-	fs_fwrite(&test_flags, sizeof(uint32_t), ctx->output->tests);
-
-	fputs(wk_objstr(wk, t->dat.test.name), ctx->output->tests);
-	fputc(0, ctx->output->tests);
-	fputs(wk_objstr(wk, t->dat.test.exe), ctx->output->tests);
-
-	if (t->dat.test.args) {
-		if (!obj_array_foreach_flat(wk, t->dat.test.args, ctx, write_test_args_iter)) {
-			LOG_E("failed to write test '%s'", wk_objstr(wk, t->dat.test.name));
-			return ir_err;
-		}
-	}
-	fputc(0, ctx->output->tests);
-	fputc(0, ctx->output->tests);
-
-	return ir_cont;
-}
-
 static bool
 write_project(struct output *output, struct workspace *wk, struct project *proj)
 {
@@ -978,7 +934,7 @@ write_project(struct output *output, struct workspace *wk, struct project *proj)
 
 	LOG_I("writing tests");
 
-	if (!obj_array_foreach(wk, proj->tests, &ctx, write_test_iter)) {
+	if (!serial_dump(wk, proj->tests, output->tests)) {
 		return false;
 	}
 

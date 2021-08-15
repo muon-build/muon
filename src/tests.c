@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "lang/serial.h"
 #include "log.h"
 #include "output/output.h"
 #include "platform/filesystem.h"
@@ -12,57 +13,35 @@
 #include "platform/run_cmd.h"
 #include "tests.h"
 
-struct test_parser {
-	struct source src;
-	const char *name;
-	const char *cmd[MAX_ARGS];
-	uint32_t test_flags;
-	uint32_t i, argv;
-	bool start, finished;
-};
-
-bool
-next_test(struct test_parser *p)
+static enum iteration_result
+run_test(struct workspace *wk, void *_ctx, uint32_t t)
 {
-	for (; p->i < p->src.len; ++p->i) {
-		if (p->start) {
-			if (p->i + 4 >= p->src.len) {
-				LOG_E("invalid test file");
-				return false;
-			}
+	struct obj *test = get_obj(wk, t);
 
-			memcpy(&p->test_flags, &p->src.src[p->i], sizeof(uint32_t));
-			p->i += 4;
+	struct run_cmd_ctx cmd_ctx = { 0 };
 
-			p->name = &p->src.src[p->i];
-			p->argv = 0;
-			p->start = false;
+	char *cmd[] = { NULL };
+	assert(false && "todo: implement cmd");
+
+	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), (char *const *)cmd)) {
+		if (cmd_ctx.err_msg) {
+			LOG_E("error: %s", cmd_ctx.err_msg);
+		} else {
+			LOG_E("error: %s", strerror(cmd_ctx.err_no));
 		}
 
-		if (!p->src.src[p->i]) {
-			if (p->i + 1 >= p->src.len) {
-				LOG_E("invalid test file");
-				return false;
-			}
-
-			if (!p->src.src[p->i + 1]) {
-				p->i += 2;
-				p->start = true;
-
-				if (p->i >= p->src.len) {
-					p->finished = true;
-				}
-
-				return true;
-			} else {
-				p->cmd[p->argv] = &p->src.src[p->i + 1];
-				++p->argv;
-			}
-		}
+		return ir_err;
 	}
 
-	LOG_E("invalid test file");
-	return false;
+	if (cmd_ctx.status && !test->dat.test.should_fail) {
+		LOG_E("%s - failed (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
+		log_plain("%s", cmd_ctx.err);
+		return ir_err;
+	} else {
+		LOG_I("%s - success (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
+	}
+
+	return ir_cont;
 }
 
 bool
@@ -76,43 +55,28 @@ tests_run(const char *build_root)
 		return false;
 	}
 
-	struct test_parser test_parser = { .start = true };
-	if (!fs_read_entire_file(tests_src, &test_parser.src)) {
+	FILE *f;
+	if (!(f = fs_fopen(tests_src, "r"))) {
 		return false;
 	}
 
-	if (chdir(build_root) != 0) {
-		return false;
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
+	uint32_t tests_arr;
+	if (!serial_load(&wk, &tests_arr, f)) {
+		LOG_E("invalid tests file");
+		goto ret;
+	} else if (!fs_fclose(f)) {
+		goto ret;
+	} else if (chdir(build_root) != 0) {
+		goto ret;
+	} else if (!obj_array_foreach(&wk, tests_arr, NULL, run_test)) {
+		goto ret;
 	}
 
-	struct run_cmd_ctx cmd_ctx = { 0 };
-
-	while (!test_parser.finished) {
-		if (!next_test(&test_parser)) {
-			return false;
-		}
-
-		LOG_I("%s - running", test_parser.name);
-
-		if (!run_cmd(&cmd_ctx, test_parser.cmd[0], (char *const *)test_parser.cmd)) {
-			if (cmd_ctx.err_msg) {
-				LOG_E("error: %s", cmd_ctx.err_msg);
-			} else {
-				LOG_E("error: %s", strerror(cmd_ctx.err_no));
-			}
-
-			return false;
-		}
-
-		if (cmd_ctx.status && !(test_parser.test_flags & test_flag_should_fail)) {
-			LOG_E("%s - failed (%d)", test_parser.name, cmd_ctx.status);
-			log_plain("%s", cmd_ctx.err);
-			ret = false;
-		} else {
-			LOG_I("%s - success (%d)", test_parser.name, cmd_ctx.status);
-		}
-	}
-
-	fs_source_destroy(&test_parser.src);
+	ret = true;
+ret:
+	workspace_destroy_bare(&wk);
 	return ret;
 }
