@@ -178,14 +178,14 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 
 #define COMPILER_ARGS(...) \
 	static const char *argv[] = __VA_ARGS__; \
-	static struct compiler_args args = { \
+	static struct args args = { \
 		.args = argv, \
 		.len = ARRAY_SIZE(argv) \
 	};
 
 /* posix compilers */
 
-static const struct compiler_args *
+static const struct args *
 compiler_posix_args_compile_only(void)
 {
 	COMPILER_ARGS({ "-c" });
@@ -193,7 +193,7 @@ compiler_posix_args_compile_only(void)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_posix_args_output(const char *f)
 {
 	COMPILER_ARGS({ "-o", NULL });
@@ -203,7 +203,7 @@ compiler_posix_args_output(const char *f)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_posix_args_optimization(uint32_t lvl)
 {
 	COMPILER_ARGS({ NULL });
@@ -226,7 +226,7 @@ compiler_posix_args_optimization(uint32_t lvl)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_posix_args_debug(void)
 {
 	COMPILER_ARGS({ "-g" });
@@ -234,7 +234,7 @@ compiler_posix_args_debug(void)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_posix_args_include(const char *dir)
 {
 	COMPILER_ARGS({ "-I", NULL });
@@ -246,7 +246,7 @@ compiler_posix_args_include(const char *dir)
 
 /* gcc compilers */
 
-static const struct compiler_args *
+static const struct args *
 compiler_gcc_args_deps(const char *out_target, const char *out_file)
 {
 	COMPILER_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
@@ -257,7 +257,7 @@ compiler_gcc_args_deps(const char *out_target, const char *out_file)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_gcc_args_optimization(uint32_t lvl)
 {
 	COMPILER_ARGS({ NULL });
@@ -286,7 +286,7 @@ compiler_gcc_args_optimization(uint32_t lvl)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_gcc_args_warning_lvl(uint32_t lvl)
 {
 	COMPILER_ARGS({ NULL, NULL, NULL });
@@ -313,7 +313,7 @@ compiler_gcc_args_warning_lvl(uint32_t lvl)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_gcc_args_werror(void)
 {
 	COMPILER_ARGS({ "-Werror" });
@@ -321,7 +321,7 @@ compiler_gcc_args_werror(void)
 }
 
 
-static const struct compiler_args *
+static const struct args *
 compiler_gcc_args_set_std(const char *std)
 {
 	static char buf[BUF_SIZE_S];
@@ -337,7 +337,7 @@ compiler_get_arg_func_0 no_undefined;
 compiler_get_arg_func_0 start_group;
 compiler_get_arg_func_0 end_group;
 
-static const struct compiler_args *
+static const struct args *
 compiler_arg_empty_0(void)
 {
 	COMPILER_ARGS({ NULL });
@@ -345,7 +345,7 @@ compiler_arg_empty_0(void)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_arg_empty_1i(uint32_t _)
 {
 	COMPILER_ARGS({ NULL });
@@ -353,7 +353,7 @@ compiler_arg_empty_1i(uint32_t _)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_arg_empty_1s(const char * _)
 {
 	COMPILER_ARGS({ NULL });
@@ -361,7 +361,7 @@ compiler_arg_empty_1s(const char * _)
 	return &args;
 }
 
-static const struct compiler_args *
+static const struct args *
 compiler_arg_empty_2s(const char *_, const char *__)
 {
 	COMPILER_ARGS({ NULL });
@@ -419,7 +419,7 @@ build_compilers(void)
 
 }
 
-static const struct compiler_args *
+static const struct args *
 linker_gcc_args_as_needed(void)
 {
 	COMPILER_ARGS({ "-Wl,--as-needed" });
@@ -427,7 +427,7 @@ linker_gcc_args_as_needed(void)
 }
 
 
-static const struct compiler_args *
+static const struct args *
 linker_gcc_args_no_undefined(void)
 {
 	COMPILER_ARGS({ "-Wl,--no-undefined" });
@@ -435,7 +435,7 @@ linker_gcc_args_no_undefined(void)
 }
 
 
-static const struct compiler_args *
+static const struct args *
 linker_gcc_args_start_group(void)
 {
 	COMPILER_ARGS({ "-Wl,--start-group" });
@@ -443,7 +443,7 @@ linker_gcc_args_start_group(void)
 }
 
 
-static const struct compiler_args *
+static const struct args *
 linker_gcc_args_end_group(void)
 {
 	COMPILER_ARGS({ "-Wl,--end-group" });

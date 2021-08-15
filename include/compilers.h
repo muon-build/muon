@@ -1,6 +1,7 @@
 #ifndef COMPILERS_H
 #define COMPILERS_H
 
+#include "args.h"
 #include "lang/workspace.h"
 
 enum compiler_type {
@@ -46,15 +47,10 @@ enum compiler_warning_lvl {
 	compiler_warning_lvl_3,
 };
 
-struct compiler_args {
-	const char **args;
-	uint32_t len;
-};
-
-typedef const struct compiler_args *((*compiler_get_arg_func_0)(void));
-typedef const struct compiler_args *((*compiler_get_arg_func_1i)(uint32_t));
-typedef const struct compiler_args *((*compiler_get_arg_func_1s)(const char *));
-typedef const struct compiler_args *((*compiler_get_arg_func_2s)(const char *, const char *));
+typedef const struct args *((*compiler_get_arg_func_0)(void));
+typedef const struct args *((*compiler_get_arg_func_1i)(uint32_t));
+typedef const struct args *((*compiler_get_arg_func_1s)(const char *));
+typedef const struct args *((*compiler_get_arg_func_2s)(const char *, const char *));
 
 struct compiler {
 	struct {

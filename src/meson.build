@@ -1,4 +1,5 @@
 src = files([
+	'args.c',
 	'coerce.c',
 	'compilers.c',
 	'data/bucket_array.c',

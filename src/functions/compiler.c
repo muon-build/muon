@@ -21,23 +21,6 @@ struct func_compiler_get_supported_arguments_iter_ctx {
 	char *test_c, *test_o;
 };
 
-static void
-push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg)
-{
-	assert(*len < max && "too many arguments");
-	argv[*len] = arg;
-	++(*len);
-}
-
-static void
-push_argv(const char **argv, uint32_t *len, uint32_t max, const struct compiler_args *args)
-{
-	uint32_t i;
-	for (i = 0; i < args->len; ++i) {
-		push_argv_single(argv, len, max, args->args[i]);
-	}
-}
-
 static enum iteration_result
 func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {

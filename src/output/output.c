@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
 #include "external/samu.h"
@@ -20,58 +21,12 @@ const struct outpath outpath = {
 	.tests = "tests",
 };
 
-struct concat_strings_ctx {
-	uint32_t *res;
-};
-
 struct output {
 	FILE *build_ninja,
 	     *tests,
 	     *opts;
 	bool compile_commands_comma;
 };
-
-static bool
-concat_str(struct workspace *wk, uint32_t *dest, const char *s)
-{
-	if (strlen(s) >= BUF_SIZE_2k) {
-		LOG_E("string too long in concat strings: '%s'", s);
-		return false;
-	}
-
-	static char buf[BUF_SIZE_2k + 2] = { 0 };
-	uint32_t i = 0;
-	bool quote = false;
-
-	for (; *s; ++s) {
-		if (*s == ' ') {
-			quote = true;
-			buf[i] = '$';
-			++i;
-		} else if (*s == '"') {
-			quote = true;
-		}
-
-		buf[i] = *s;
-		++i;
-	}
-
-	buf[i] = 0;
-	++i;
-
-	if (quote) {
-		wk_str_app(wk, dest, "'");
-	}
-
-	wk_str_app(wk, dest, buf);
-
-	if (quote) {
-		wk_str_app(wk, dest, "'");
-	}
-
-	wk_str_app(wk, dest, " ");
-	return true;
-}
 
 static bool
 tgt_build_dir(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
@@ -96,72 +51,6 @@ tgt_build_path(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
 	return true;
 }
 
-static bool
-strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
-{
-	struct obj *obj = get_obj(wk, src);
-
-	switch (obj->type) {
-	case obj_string:
-		*dest = obj->dat.str;
-		return true;
-	case obj_file:
-		*dest = obj->dat.file;
-		return true;
-
-	case obj_build_target: {
-		char tmp1[PATH_MAX], path[PATH_MAX];
-		if (!tgt_build_path(tmp1, wk, obj)) {
-			return false;
-		} else if (!path_executable(path, PATH_MAX, tmp1)) {
-			return false;
-		}
-
-		*dest = wk_str_push(wk, path);
-		return true;
-	}
-	default:
-		LOG_E("cannot convert '%s' to string", obj_type_to_s(obj->type));
-		return false;
-	}
-}
-
-static bool
-concat_strobj(struct workspace *wk, uint32_t *dest, uint32_t src)
-{
-	uint32_t str;
-	if (!strobj(wk, &str, src)) {
-		return false;
-	}
-
-	return concat_str(wk, dest, wk_str(wk, str));
-}
-
-static enum iteration_result
-concat_strings_iter(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct concat_strings_ctx *ctx = _ctx;
-	if (!concat_strobj(wk, ctx->res, val)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static bool
-concat_strings(struct workspace *wk, uint32_t arr, uint32_t *res)
-{
-	if (!*res) {
-		*res = wk_str_push(wk, "");
-	}
-
-	struct concat_strings_ctx ctx = {
-		.res = res,
-	};
-
-	return obj_array_foreach(wk, arr, &ctx, concat_strings_iter);
-}
-
 static const char *
 get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fallback)
 {
@@ -173,131 +62,6 @@ get_dict_str(struct workspace *wk, uint32_t dict, const char *k, const char *fal
 		return wk_objstr(wk, res);
 	}
 }
-
-static void
-push_args(struct workspace *wk, uint32_t arr, const struct compiler_args *args)
-{
-	uint32_t i;
-	for (i = 0; i < args->len; ++i) {
-		obj_array_push(wk, arr, make_str(wk, args->args[i]));
-	}
-}
-
-struct join_args_iter_ctx {
-	uint32_t i, len;
-	uint32_t *obj;
-};
-
-static enum iteration_result
-join_args_iter_shell(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	assert(get_obj(wk, val)->type == obj_string);
-
-	const char *s = wk_objstr(wk, val);
-	bool needs_escaping = false;
-
-	for (; *s; ++s) {
-		if (*s == '"' || *s == ' ') {
-			needs_escaping = true;
-		}
-	}
-
-	if (needs_escaping) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, "'");
-	}
-
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_objstr(wk, val));
-
-	if (needs_escaping) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, "'");
-	}
-
-	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
-static enum iteration_result
-join_args_iter_ninja(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	assert(get_obj(wk, val)->type == obj_string);
-
-	const char *s = wk_objstr(wk, val);
-
-	char buf[BUF_SIZE_2k] = { 0 };
-	uint32_t bufi = 0, check;
-
-	for (; *s; ++s) {
-		if (*s == ' ' || *s == ':' || *s == '$') {
-			check = 2;
-		} else {
-			check = 1;
-		}
-
-		if (bufi + check >= BUF_SIZE_2k) {
-			LOG_E("ninja argument too long");
-			return ir_err;
-		}
-
-		if (check == 2) {
-			buf[bufi] = '$';
-			++bufi;
-		}
-
-		buf[bufi] = *s;
-		++bufi;
-	}
-
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, buf);
-
-	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
-static uint32_t
-join_args(struct workspace *wk, uint32_t arr, obj_array_iterator cb)
-{
-	uint32_t obj;
-	make_obj(wk, &obj, obj_string)->dat.str = wk_str_push(wk, "");
-
-	struct join_args_iter_ctx ctx = {
-		.obj = &obj,
-		.len = get_obj(wk, arr)->dat.arr.len
-	};
-
-	if (!obj_array_foreach(wk, arr, &ctx, cb)) {
-		assert(false);
-		return 0;
-	}
-
-	return obj;
-}
-
-static uint32_t
-join_args_shell(struct workspace *wk, uint32_t arr)
-{
-	return join_args(wk, arr, join_args_iter_shell);
-}
-
-static uint32_t
-join_args_ninja(struct workspace *wk, uint32_t arr)
-{
-	return join_args(wk, arr, join_args_iter_ninja);
-}
-
 
 static enum iteration_result
 write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
@@ -1049,14 +813,14 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	fputs("build ", output->build_ninja);
 	write_escaped(output->build_ninja, path);
 	fprintf(output->build_ninja, ": %s_LINKER ", linker_type);
-	fputs(wk_objstr(wk, join_args_ninja(wk, ctx.object_names)), output->build_ninja); // escape
+	fputs(wk_objstr(wk, join_args_ninja(wk, ctx.object_names)), output->build_ninja);
 	if (ctx.have_implicit_deps) {
 		fputs(" | ", output->build_ninja);
-		fputs(wk_objstr(wk, ctx.implicit_deps), output->build_ninja); // escape
+		fputs(wk_objstr(wk, ctx.implicit_deps), output->build_ninja);
 	}
 	if (ctx.have_order_deps) {
 		fputs(" || ", output->build_ninja);
-		fputs(wk_objstr(wk, ctx.order_deps), output->build_ninja); // escape
+		fputs(wk_objstr(wk, ctx.order_deps), output->build_ninja);
 	}
 	fprintf(output->build_ninja, "\n LINK_ARGS = %s\n\n", wk_objstr(wk, join_args_shell(wk, ctx.link_args)));
 
@@ -1077,7 +841,8 @@ custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	return concat_str(wk, dest, buf) == true ? ir_cont : ir_err;
+	obj_array_push(wk, *dest, make_str(wk, buf));
+	return ir_cont;
 }
 
 static enum iteration_result
@@ -1088,51 +853,56 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I("writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
 
-	uint32_t outputs, inputs = 0, cmdline_pre, cmdline = 0;
+	uint32_t outputs, inputs, cmdline;
 
-	if (!concat_strings(wk, tgt->dat.custom_target.input, &inputs)) {
+	if (!arr_to_args(wk, tgt->dat.custom_target.input, &inputs)) {
 		return ir_err;
 	}
 
-	outputs = wk_str_push(wk, "");
+	make_obj(wk, &outputs, obj_array);
 	if (!obj_array_foreach(wk, tgt->dat.custom_target.output, &outputs, custom_tgt_outputs_iter)) {
 		return ir_err;
 	}
 
+	make_obj(wk, &cmdline, obj_array);
 	if (tgt->dat.custom_target.flags & custom_target_capture) {
-		cmdline_pre = wk_str_pushf(wk, "%s internal exe ", wk->argv0);
-
-		wk_str_app(wk, &cmdline_pre, "-c ");
+		obj_array_push(wk, cmdline, make_str(wk, wk->argv0));
+		obj_array_push(wk, cmdline, make_str(wk, "internal"));
+		obj_array_push(wk, cmdline, make_str(wk, "exe"));
+		obj_array_push(wk, cmdline, make_str(wk, "-c"));
 
 		uint32_t elem;
 		if (!obj_array_index(wk, tgt->dat.custom_target.output, 0, &elem)) {
+			assert(false && "custom target with no output");
 			return ir_err;
 		}
 
-		if (custom_tgt_outputs_iter(wk, &cmdline_pre, elem) == ir_err) {
+		if (custom_tgt_outputs_iter(wk, &cmdline, elem) == ir_err) {
 			return ir_err;
 		}
 
-		wk_str_app(wk, &cmdline_pre, "--");
-	} else {
-		cmdline_pre = wk_str_push(wk, "");
+		obj_array_push(wk, cmdline, make_str(wk, "--"));
 	}
 
-	if (!concat_strings(wk, tgt->dat.custom_target.args, &cmdline)) {
+	uint32_t tgt_args;
+	if (!arr_to_args(wk, tgt->dat.custom_target.args, &tgt_args)) {
 		return ir_err;
 	}
 
-	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
-		" COMMAND = %s %s\n"
-		" DESCRIPTION = %s%s\n\n",
-		wk_str(wk, outputs),
-		wk_str(wk, inputs),
-		wk_objstr(wk, tgt->dat.custom_target.cmd),
+	obj_array_extend(wk, cmdline, tgt_args);
 
-		wk_str(wk, cmdline_pre),
-		wk_str(wk, cmdline),
-		wk_str(wk, cmdline),
-		tgt->dat.custom_target.flags & custom_target_capture ? "(captured)": ""
+	outputs = join_args_ninja(wk, outputs);
+	inputs = join_args_ninja(wk, inputs);
+	cmdline = join_args_shell(wk, cmdline);
+
+	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
+		" COMMAND = %s\n"
+		" DESCRIPTION = %s\n\n",
+		wk_objstr(wk, outputs),
+		wk_objstr(wk, inputs),
+		wk_objstr(wk, tgt->dat.custom_target.cmd),
+		wk_objstr(wk, cmdline),
+		wk_objstr(wk, cmdline)
 		);
 
 	return ir_cont;
