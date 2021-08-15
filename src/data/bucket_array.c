@@ -58,7 +58,7 @@ bucket_array_push(struct bucket_array *ba, const void *item)
 }
 
 void *
-bucket_array_get(struct bucket_array *ba, uint32_t i)
+bucket_array_get(const struct bucket_array *ba, uint32_t i)
 {
 	struct bucket *b;
 	uint32_t bucket_i = i % ba->bucket_size;

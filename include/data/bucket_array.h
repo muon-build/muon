@@ -12,6 +12,6 @@ struct bucket_array {
 
 void bucket_array_init(struct bucket_array *ba, uint32_t bucket_size, uint32_t item_size);
 void *bucket_array_push(struct bucket_array *ba, const void *item);
-void *bucket_array_get(struct bucket_array *ba, uint32_t i);
+void *bucket_array_get(const struct bucket_array *ba, uint32_t i);
 void bucket_array_destroy(struct bucket_array *ba);
 #endif
