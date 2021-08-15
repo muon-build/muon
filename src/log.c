@@ -114,34 +114,6 @@ log_init(void)
 	log_cfg.initialized = true;
 }
 
-void
-log_bytes(const void *src, size_t size)
-{
-	const char *bytes = src;
-	int32_t i, j;
-
-	for (i = size - 1; i >= 0; --i) {
-		for (j = 7; j >= 0; --j) {
-			fprintf(log_cfg.file, "%c", bytes[i] & (1 << j) ? '1' : '0');
-		}
-		fprintf(log_cfg.file, " ");
-	}
-}
-
-void
-log_bytes_r(const void *src, size_t size)
-{
-	const char *bytes = src;
-	uint32_t i, j;
-
-	for (i = 0; i < size; ++i) {
-		for (j = 0; j < 8; ++j) {
-			fprintf(log_cfg.file, "%c", bytes[i] & (1 << j) ? '1' : '0');
-		}
-		fprintf(log_cfg.file, " ");
-	}
-}
-
 bool
 log_file_is_a_tty(void)
 {
@@ -171,4 +143,10 @@ void
 log_set_opts(enum log_opts opts)
 {
 	log_cfg.opts = opts;
+}
+
+FILE *
+log_file(void)
+{
+	return log_cfg.file;
 }

@@ -27,9 +27,6 @@ enum log_opts {
 #define LOG_W(...) log_print(__FILE__, __LINE__, __func__, log_warn, __VA_ARGS__)
 #define LOG_E(...) log_print(__FILE__, __LINE__, __func__, log_error, __VA_ARGS__)
 
-void log_bytes_r(const void *src, size_t size);
-void log_bytes(const void *src, size_t size);
-
 void log_init(void);
 void log_set_file(FILE *logfile);
 void log_set_lvl(enum log_level level);
@@ -42,4 +39,5 @@ void log_print(const char *file, uint32_t line, const char *func, enum log_level
 bool log_clr(void);
 void log_plain(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
 void log_plainv(const char *fmt, va_list args);
+FILE *log_file(void);
 #endif
