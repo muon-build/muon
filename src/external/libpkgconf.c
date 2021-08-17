@@ -224,22 +224,12 @@ ret:
 static bool
 apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
-	pkgconf_node_t *node;
-	bool first = true;
 	struct pkgconf_lookup_ctx *ctx = _ctx;
+	pkgconf_dependency_t *dep = world->required.head->data;
+	pkgconf_pkg_t *pkg = dep->match;
 
-	PKGCONF_FOREACH_LIST_ENTRY(world->required.head, node){
-		if (!first) {
-			assert(false && "there should only be one version for one package, right?");
-		}
-		first = false;
-
-		pkgconf_dependency_t *dep = node->data;
-		pkgconf_pkg_t *pkg = dep->match;
-
-		if (pkg->version != NULL) {
-			strncpy(ctx->info->version, pkg->version, MAX_VERSION_LEN);
-		}
+	if (pkg != NULL && pkg->version != NULL) {
+		strncpy(ctx->info->version, pkg->version, MAX_VERSION_LEN);
 	}
 
 	return true;
@@ -307,19 +297,12 @@ static bool
 apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
 	struct pkgconf_get_variable_ctx *ctx = _ctx;
-	pkgconf_node_t *node;
-	bool first = true, found = false;
+	bool found = false;
 	const char *var;
+	pkgconf_dependency_t *dep = world->required.head->data;
+	pkgconf_pkg_t *pkg = dep->match;
 
-	PKGCONF_FOREACH_LIST_ENTRY(world->required.head, node){
-		if (!first) {
-			assert(false && "there should only be one iteration for one package, right?");
-		}
-		first = false;
-
-		pkgconf_dependency_t *dep = node->data;
-		pkgconf_pkg_t *pkg = dep->match;
-
+	if (pkg != NULL) {
 		var = pkgconf_tuple_find(client, &pkg->vars, ctx->var);
 		if (var != NULL) {
 			*ctx->res = wk_str_push(ctx->wk, var);
