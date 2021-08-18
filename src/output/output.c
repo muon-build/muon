@@ -925,24 +925,6 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 }
 
 static bool
-write_project(struct output *output, struct workspace *wk, struct project *proj)
-{
-	struct write_tgt_ctx ctx = { .output = output, .proj = proj };
-
-	if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
-		return false;
-	}
-
-	LOG_I("writing tests");
-
-	if (!serial_dump(wk, proj->tests, output->tests)) {
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 write_opts(FILE *f, struct workspace *wk)
 {
 	struct project *proj;
@@ -1010,11 +992,34 @@ output_build(struct workspace *wk)
 	}
 	write_opts(output.opts, wk);
 
-	uint32_t i;
+	uint32_t i, tests;
+	make_obj(wk, &tests, obj_dict);
+
 	for (i = 0; i < wk->projects.len; ++i) {
-		if (!write_project(&output, wk, darr_get(&wk->projects, i))) {
+		struct project *proj = darr_get(&wk->projects, i);
+
+		struct write_tgt_ctx ctx = { .output = &output, .proj = proj };
+
+		if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
 			return false;
 		}
+
+		if (proj->tests) {
+			uint32_t res, key;
+			make_obj(wk, &key, obj_string)->dat.str = proj->cfg.name;
+
+			if (obj_dict_index(wk, tests, key, &res)) {
+				LOG_E("project defined multiple times");
+				return false;
+			}
+
+			obj_dict_set(wk, tests, key, proj->tests);
+		}
+	}
+
+	LOG_I("writing tests");
+	if (!serial_dump(wk, tests, output.tests)) {
+		return false;
 	}
 
 	if (!fs_fclose(output.build_ninja)) {

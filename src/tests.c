@@ -60,6 +60,18 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 	return ir_cont;
 }
 
+static enum iteration_result
+run_project_tests(struct workspace *wk, void *_ctx, uint32_t proj_name, uint32_t tests)
+{
+	LOG_I("running tests for project '%s'", wk_objstr(wk, proj_name));
+
+	if (!obj_array_foreach(wk, tests, NULL, run_test)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 bool
 tests_run(const char *build_root)
 {
@@ -79,15 +91,15 @@ tests_run(const char *build_root)
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
-	uint32_t tests_arr;
-	if (!serial_load(&wk, &tests_arr, f)) {
+	uint32_t tests_dict;
+	if (!serial_load(&wk, &tests_dict, f)) {
 		LOG_E("invalid tests file");
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
 	} else if (chdir(build_root) != 0) {
 		goto ret;
-	} else if (!obj_array_foreach(&wk, tests_arr, NULL, run_test)) {
+	} else if (!obj_dict_foreach(&wk, tests_dict, NULL, run_project_tests)) {
 		goto ret;
 	}
 
