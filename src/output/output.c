@@ -726,7 +726,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 		uint32_t comp_id;
 		if (!obj_dict_geti(wk, ctx.proj->compilers, ctx.link_language, &comp_id)) {
-			assert(false);
+			LOG_E("no compiler defined for language %s", compiler_language_to_s(ctx.link_language));
+			return false;
 		}
 
 		linker = compilers[get_obj(wk, comp_id)->dat.compiler.type].linker;
