@@ -25,12 +25,14 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 	make_obj(wk, &cmdline, obj_array);
 	obj_array_push(wk, cmdline, test->dat.test.exe);
 
-	uint32_t test_args;
-	if (!arr_to_args(wk, test->dat.test.args, &test_args)) {
-		return ir_err;
-	}
+	if (test->dat.test.args) {
+		uint32_t test_args;
+		if (!arr_to_args(wk, test->dat.test.args, &test_args)) {
+			return ir_err;
+		}
 
-	obj_array_extend(wk, cmdline, test_args);
+		obj_array_extend(wk, cmdline, test_args);
+	}
 
 	char *argv[MAX_ARGS];
 
