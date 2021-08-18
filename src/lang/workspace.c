@@ -353,6 +353,10 @@ workspace_init_bare(struct workspace *wk)
 	darr_push(&wk->strs, &(char) { 0 });
 
 	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
+	uint32_t id;
+	make_obj(wk, &id, obj_null);
+	assert((id >> 1) == 0);
+
 
 	wk->strbuf_cap = 2048;
 	wk->strbuf = z_malloc(wk->strbuf_cap);
@@ -369,9 +373,6 @@ workspace_init(struct workspace *wk)
 	hash_init(&wk->scope, 32);
 
 	uint32_t id;
-	make_obj(wk, &id, obj_null);
-	assert((id >> 1) == 0);
-
 	make_obj(wk, &id, obj_meson);
 	hash_set(&wk->scope, "meson", id);
 

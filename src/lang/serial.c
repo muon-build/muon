@@ -155,6 +155,7 @@ serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
 	struct workspace wk_src = { 0 };
 	workspace_init_bare(&wk_src);
 	darr_clear(&wk_src.strs);
+	bucket_array_clear(&wk_src.objs);
 
 	uint32_t obj_src;
 	if (!(load_serial_header(f)

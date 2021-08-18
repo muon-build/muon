@@ -609,7 +609,12 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uin
 	enum obj_type t = get_obj(wk_src, val)->type;
 	struct obj *obj;
 
+	/* L("cloning %s", obj_type_to_s(t)); */
+
 	switch (t) {
+	case obj_null:
+		*ret = 0;
+		return true;
 	case obj_number:
 	case obj_bool: {
 		obj = make_obj(wk_dest, ret, t);
