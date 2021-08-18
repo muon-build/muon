@@ -250,5 +250,5 @@ arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res)
 {
 	make_obj(wk, res, obj_array);
 
-	return obj_array_foreach(wk, arr, res, arr_to_args_iter);
+	return obj_array_foreach_flat(wk, arr, res, arr_to_args_iter);
 }
