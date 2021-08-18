@@ -36,6 +36,21 @@ bucket_array_init(struct bucket_array *ba,
 	init_bucket(ba, darr_get(&ba->buckets, 0));
 }
 
+void
+bucket_array_clear(struct bucket_array *ba)
+{
+	uint32_t i;
+	struct bucket *b;
+
+	for (i = 0; i < ba->buckets.len; ++i) {
+		b = darr_get(&ba->buckets, i);
+		b->len = 0;
+	}
+
+	ba->buckets.len = 1;
+	ba->len = 0;
+}
+
 void *
 bucket_array_push(struct bucket_array *ba, const void *item)
 {
