@@ -94,11 +94,15 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	const char *s = wk_objstr(wk, val);
 	char buf[BUF_SIZE_4k];
 
-	if (!ctx->escape(buf, BUF_SIZE_4k, s)) {
-		return ir_err;
+	if (ctx->escape) {
+		if (!ctx->escape(buf, BUF_SIZE_4k, s)) {
+			return ir_err;
+		}
+
+		s = buf;
 	}
 
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, buf);
+	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, s);
 
 	if (ctx->i < ctx->len - 1) {
 		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
@@ -127,6 +131,12 @@ join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 	}
 
 	return obj;
+}
+
+uint32_t
+join_args_plain(struct workspace *wk, uint32_t arr)
+{
+	return join_args(wk, arr, NULL);
 }
 
 uint32_t

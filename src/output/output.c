@@ -96,7 +96,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));
-	uint32_t command = join_args_shell(wk, args);
+	uint32_t command = join_args_plain(wk, args);
 
 	fprintf(out, "rule %s_COMPILER\n"
 		" command = %s\n",
@@ -114,7 +114,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 
 	fprintf(out, "rule %s_LINKER\n"
 		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
-		" description = Linking target $out\n\n",
+		" description = linking $out\n\n",
 		compiler_language_to_s(l),
 		wk_objstr(wk, compiler_name));
 
@@ -149,7 +149,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 	fprintf(out,
 		"rule STATIC_LINKER\n"
 		" command = rm -f $out && %s $LINK_ARGS $out $in\n"
-		" description = Linking static target $out\n"
+		" description = linking static $out\n"
 		"\n"
 		"rule CUSTOM_COMMAND\n"
 		" command = $COMMAND\n"
