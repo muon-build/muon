@@ -39,13 +39,13 @@ Wrap support requires `libcurl` and `zlib`.
 You can bootstrap muon like this:
 
 ```sh
-./bootstrap.sh bootstrap
+./bootstrap.sh build
 ```
 
 You can then use the bootstrapped muon to build itself:
 
 ```
-bootstrap/muon setup build
+build/muon setup build
 ninja -C build
 ```
 
