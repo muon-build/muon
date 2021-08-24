@@ -1049,7 +1049,7 @@ func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 		.node = args_node,
 	};
 
-	if (!obj_array_foreach(wk, an[0].val, &ctx, join_paths_iter)) {
+	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, join_paths_iter)) {
 		return false;
 	}
 
