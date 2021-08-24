@@ -18,7 +18,7 @@ struct project {
 	/* wk_strings */
 	uint32_t source_root, cwd, build_dir, subproject_name;
 	/* objects */
-	uint32_t opts, compilers;
+	uint32_t opts, compilers, targets, tests;
 
 	struct {
 		uint32_t name;
@@ -27,9 +27,6 @@ struct project {
 		uint32_t meson_version;
 		uint32_t args;
 	} cfg;
-
-	uint32_t targets;
-	uint32_t tests;
 };
 
 enum loop_ctl {
