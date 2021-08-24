@@ -34,8 +34,8 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	dep->dat.dep.link_with = info.libs;
 	dep->dat.dep.include_directories = info.includes;
 
-	LOG_I("dependency %s found: %s, %s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version),
-		is_static ? "static" : "");
+	LOG_I("dependency %s found: %s%s", wk_objstr(wk, name), wk_str(wk, dep->dat.dep.version),
+		is_static ? ", static" : "");
 
 	return true;
 }
