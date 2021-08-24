@@ -1,8 +1,9 @@
 #ifndef COMPILERS_H
 #define COMPILERS_H
 
-#include "args.h"
-#include "lang/workspace.h"
+#include <stdbool.h>
+#include <stdint.h>
+struct workspace;
 
 enum compiler_type {
 	compiler_posix,

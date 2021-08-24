@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "compilers.h"
 #include "iterator.h"
 
 struct workspace;
@@ -142,7 +143,8 @@ struct obj {
 			bool should_fail;
 		} test;
 		struct {
-			uint32_t type; // enum compiler type
+			enum compiler_type type;
+			enum compiler_language lang;
 			uint32_t name; // str
 			uint32_t version; // str
 		} compiler;

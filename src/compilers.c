@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
 #include "lang/workspace.h"
@@ -169,7 +170,12 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 	switch (lang) {
 	case compiler_language_c:
 	case compiler_language_cpp:
-		return compiler_detect_c_or_cpp(wk, cmd, comp_id);
+		if (!compiler_detect_c_or_cpp(wk, cmd, comp_id)) {
+			return false;
+		}
+
+		get_obj(wk, *comp_id)->dat.compiler.lang = lang;
+		return true;
 	default:
 		assert(false);
 		return false;
