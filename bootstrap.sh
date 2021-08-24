@@ -24,6 +24,7 @@ cat \
 	src/external/zlib_null.c \
 	src/formats/ini.c \
 	src/formats/tar.c \
+	src/functions/array.c \
 	src/functions/build_target.c \
 	src/functions/common.c \
 	src/functions/compiler.c \

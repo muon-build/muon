@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "functions/array.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
@@ -270,6 +271,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_configuration_data] = { impl_tbl_configuration_data },
 	[obj_custom_target] = { impl_tbl_custom_target },
 	[obj_file] = { impl_tbl_file },
+	[obj_array] = { impl_tbl_array },
 	[obj_build_target] = { impl_tbl_build_target },
 };
 

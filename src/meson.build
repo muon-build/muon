@@ -8,6 +8,7 @@ src = files([
 	'error.c',
 	'formats/ini.c',
 	'formats/tar.c',
+	'functions/array.c',
 	'functions/build_target.c',
 	'functions/common.c',
 	'functions/compiler.c',
