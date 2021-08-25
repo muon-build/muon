@@ -357,7 +357,6 @@ workspace_init_bare(struct workspace *wk)
 	make_obj(wk, &id, obj_null);
 	assert((id >> 1) == 0);
 
-
 	wk->strbuf_cap = 2048;
 	wk->strbuf = z_malloc(wk->strbuf_cap);
 }
