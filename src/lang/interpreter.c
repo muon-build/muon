@@ -104,6 +104,7 @@ static bool
 interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 {
 	uint32_t r_id;
+	uint32_t result = 0;
 
 	if (!interp_node(wk, n->r, &r_id)) {
 		return false;
@@ -122,18 +123,21 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		return obj_array_index(wk, l_id, i, obj);
+		if (!obj_array_index(wk, l_id, i, &result)) {
+			return false;
+		}
+		break;
 	}
 	case obj_dict: {
 		if (!typecheck(wk, n->r, r_id, obj_string)) {
 			return false;
 		}
 
-		if (!obj_dict_index(wk, l_id, r_id, obj)) {
+		if (!obj_dict_index(wk, l_id, r_id, &result)) {
 			interp_error(wk, n->r, "key not in dictionary: '%s'", wk_objstr(wk, r_id));
 			return false;
 		}
-		return true;
+		break;
 	}
 	case obj_custom_target: {
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
@@ -146,11 +150,21 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		return obj_array_index(wk, l->dat.custom_target.output, i, obj);
+		if (!obj_array_index(wk, l->dat.custom_target.output, i, &result)) {
+			return false;
+		}
+		break;
 	}
 	default:
 		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(l->type));
 		return false;
+	}
+
+	if (n->chflg & node_child_d) {
+		return interp_chained(wk, n->d, result, obj);
+	} else {
+		*obj = result;
+		return true;
 	}
 }
 
