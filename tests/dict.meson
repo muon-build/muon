@@ -21,3 +21,12 @@ foreach x, y : a
 endforeach
 
 assert(count == 3)
+
+b = { 'a': 1, 'b': 2 }
+b += { 'c': 3 }
+assert(b['a'] == 1)
+assert(b['c'] == 3)
+b += { 'a': 2 }
+assert(b['a'] == 2)
+
+assert(b['c'].to_string() == '3')
