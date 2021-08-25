@@ -964,17 +964,6 @@ open_out(const char *dir, const char *name)
 }
 
 bool
-output_private_file(struct workspace *wk, char dest[PATH_MAX],
-	const char *path, const char *txt)
-{
-	if (!path_join(dest, PATH_MAX, wk->muon_private, path)) {
-		return false;
-	}
-
-	return fs_write(dest, (uint8_t *)txt, strlen(txt));
-}
-
-bool
 output_build(struct workspace *wk)
 {
 	struct output output = { 0 };

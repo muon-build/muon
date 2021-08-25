@@ -11,7 +11,6 @@
 #include "functions/compiler.h"
 #include "lang/interpreter.h"
 #include "log.h"
-#include "output/output.h"
 #include "platform/dirs.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -46,6 +45,10 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 
 	assert(test_name && test_source);
 
+	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, test_name)) {
+		return false;
+	}
+
 	strcpy(test_out_path, test_source_path);
 	if (!path_add_suffix(test_out_path, PATH_MAX, ".o")) {
 		return false;
@@ -59,11 +62,7 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 	}
 	already_output[l] = true;
 
-	if (!output_private_file(wk, test_source_path, test_name, test_source)) {
-		return false;
-	}
-
-	return true;
+	return fs_write(test_source_path, (uint8_t *)test_source, strlen(test_source));
 }
 
 static bool
