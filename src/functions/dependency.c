@@ -23,28 +23,56 @@ func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 }
 
 static bool
-func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
-	uint32_t args_node, uint32_t *obj)
+dep_get_pkgconfig_variable(struct workspace *wk, uint32_t dep, uint32_t node, uint32_t var, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	if (!(get_obj(wk, rcvr)->dat.dep.flags & dep_flag_pkg_config)) {
-		interp_error(wk, args_node, "this dependency is not from pkg_config");
+	if (!(get_obj(wk, dep)->dat.dep.flags & dep_flag_pkg_config)) {
+		interp_error(wk, node, "this dependency is not from pkg_config");
 		return false;
 	}
 
 	uint32_t res;
-	if (!muon_pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, rcvr)->dat.dep.name), wk_objstr(wk, an[0].val), &res)) {
-		interp_error(wk, an[0].node, "undefined pkg_config variable");
+	if (!muon_pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, dep)->dat.dep.name), wk_objstr(wk, var), &res)) {
+		interp_error(wk, node, "undefined pkg_config variable");
 		return false;
 	}
 
 	make_obj(wk, obj, obj_string)->dat.str = res;
 	return true;
+}
+
+static bool
+func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
+	uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	return dep_get_pkgconfig_variable(wk, rcvr, an[0].node, an[0].val, obj);
+}
+
+static bool
+func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
+	uint32_t args_node, uint32_t *obj)
+{
+	enum kwargs {
+		kw_pkgconfig,
+	};
+	struct args_kw akw[] = {
+		[kw_pkgconfig] = { "pkgconfig", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	if (akw[kw_pkgconfig].set) {
+		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, obj);
+	} else {
+		interp_error(wk, args_node, "I don't know how to get this type of variable");
+		return false;
+	}
 }
 
 static bool
@@ -68,6 +96,7 @@ func_dependency_version(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 const struct func_impl_name impl_tbl_dependency[] = {
 	{ "found", func_dependency_found },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
+	{ "get_variable", func_dependency_get_variable },
 	{ "version", func_dependency_version },
 	{ NULL, NULL },
 };
