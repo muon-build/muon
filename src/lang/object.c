@@ -373,13 +373,37 @@ obj_dict_dup_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id
 }
 
 bool
-obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
+obj_dict_dup(struct workspace *wk, uint32_t dict_id, uint32_t *res)
 {
 	struct obj_dict_dup_ctx ctx = { .dict = res };
 
 	make_obj(wk, res, obj_dict);
 
-	if (!obj_dict_foreach(wk, arr_id, &ctx, obj_dict_dup_iter)) {
+	if (!obj_dict_foreach(wk, dict_id, &ctx, obj_dict_dup_iter)) {
+		return false;
+	}
+
+	return true;
+}
+
+static enum iteration_result
+obj_dict_merge_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+{
+	uint32_t *res = _ctx;
+
+	obj_dict_set(wk, *res, k_id, v_id);
+
+	return ir_cont;
+}
+
+bool
+obj_dict_merge(struct workspace *wk, uint32_t dict_a_id, uint32_t dict_b_id, uint32_t *res)
+{
+	if (!obj_dict_dup(wk, dict_a_id, res)) {
+		return false;
+	}
+
+	if (!obj_dict_foreach(wk, dict_b_id, res, obj_dict_merge_iter)) {
 		return false;
 	}
 
