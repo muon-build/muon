@@ -290,6 +290,16 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			goto err1;
 		}
 	}
+	case obj_dict: {
+		if (!typecheck_custom(wk, n->r, r_id, obj_dict, "unsupported operator for %s and %s")) {
+			return false;
+		} else if ((enum arithmetic_type)n->subtype != arith_add) {
+			goto err1;
+		}
+
+		obj_dict_merge(wk, l_id, r_id, obj_id);
+		break;
+	}
 	default:
 		goto err1;
 	}
