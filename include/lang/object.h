@@ -35,6 +35,7 @@ enum obj_type {
 	obj_configuration_data,
 	obj_test,
 	obj_module,
+	obj_install_target,
 
 	obj_type_count,
 
@@ -149,6 +150,12 @@ struct obj {
 			uint32_t version; // str
 		} compiler;
 		uint32_t module;
+		struct {
+			uint32_t base_path;
+			uint32_t filename;
+			uint32_t install_dir;
+			uint32_t install_mode;
+		} install_target;
 	} dat;
 };
 

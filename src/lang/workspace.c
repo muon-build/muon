@@ -166,6 +166,10 @@ wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 uint32_t
 wk_str_push(struct workspace *wk, const char *str)
 {
+	if (!str) {
+		return id_tag_str;
+	}
+
 	size_t l = strlen(str);
 	if (l >= UINT32_MAX) {
 		error_unrecoverable("string overflow");
@@ -310,6 +314,88 @@ wk_file_path(struct workspace *wk, uint32_t id)
 	return wk_str(wk, obj->dat.file);
 }
 
+void
+push_install_target(struct workspace *wk, uint32_t base_path, uint32_t filename,
+	uint32_t install_dir, uint32_t install_mode)
+{
+	uint32_t id;
+	struct obj *tgt = make_obj(wk, &id, obj_install_target);
+	tgt->dat.install_target.base_path = base_path;
+	tgt->dat.install_target.filename = filename;
+	tgt->dat.install_target.install_dir = install_dir;
+	tgt->dat.install_target.install_mode = install_mode;
+
+	obj_array_push(wk, wk->install, id);
+}
+
+struct push_install_targets_ctx {
+	uint32_t base_path;
+	uint32_t install_dirs;
+	uint32_t install_mode;
+	bool install_dirs_is_arr;
+	uint32_t i;
+};
+
+static enum iteration_result
+push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct push_install_targets_ctx *ctx = _ctx;
+
+	assert(get_obj(wk, val_id)->type == obj_file);
+
+	uint32_t install_dir_id;
+
+	if (ctx->install_dirs_is_arr) {
+		obj_array_index(wk, ctx->install_dirs, ctx->i, &install_dir_id);
+		assert(install_dir_id);
+	} else {
+		install_dir_id = ctx->install_dirs;
+	}
+
+	++ctx->i;
+
+	struct obj *install_dir = get_obj(wk, install_dir_id);
+
+	if (install_dir->type == obj_bool && !install_dir->dat.boolean) {
+		// skip if we get passed `false` for an install dir
+		return ir_cont;
+	}
+
+	if (install_dir->type != obj_string) {
+		LOG_E("install_dir values must be strings, got %s", obj_type_to_s(install_dir->type));
+		return ir_err;
+	}
+
+	push_install_target(wk, ctx->base_path, get_obj(wk, val_id)->dat.file,
+		get_obj(wk, install_dir_id)->dat.str, ctx->install_mode);
+
+	return ir_cont;
+}
+
+bool
+push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t filenames,
+	uint32_t install_dirs, uint32_t install_mode)
+{
+	struct push_install_targets_ctx ctx = {
+		.base_path = base_path,
+		.install_dirs = install_dirs,
+		.install_mode = install_mode,
+		.install_dirs_is_arr = get_obj(wk, install_dirs)->type == obj_array,
+	};
+
+	assert(get_obj(wk, filenames)->type == obj_array);
+	assert(ctx.install_dirs_is_arr || get_obj(wk, install_dirs)->type == obj_string);
+
+	if (ctx.install_dirs_is_arr
+	    && get_obj(wk, install_dirs)->dat.arr.len != get_obj(wk, filenames)->dat.arr.len) {
+		LOG_E("missing/extra install_dirs");
+		return false;
+
+	}
+
+	return obj_array_foreach(wk, filenames, &ctx, push_install_targets_iter);
+}
+
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	const char *cwd, const char *build_dir)
@@ -381,6 +467,7 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);
 	make_obj(wk, &wk->sources, obj_array);
+	make_obj(wk, &wk->install, obj_array);
 }
 
 void

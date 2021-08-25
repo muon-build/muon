@@ -36,6 +36,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_custom_target: return "custom_target";
 	case obj_test: return "test";
 	case obj_module: return "module";
+	case obj_install_target: return "install_target";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:
@@ -45,19 +46,6 @@ obj_type_to_s(enum obj_type t)
 
 	assert(false && "unreachable");
 	return NULL;
-}
-
-static bool
-typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
-{
-	struct obj *obj = get_obj(wk, obj_id);
-
-	if (type != obj_any && obj->type != type) {
-		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
-		return false;
-	}
-
-	return true;
 }
 
 bool
@@ -648,6 +636,21 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uin
 		obj->dat.test.should_fail = test->dat.test.should_fail;
 
 		return obj_clone(wk_src, wk_dest, test->dat.test.args, &obj->dat.test.args);
+	}
+	case obj_install_target: {
+		struct obj *in = get_obj(wk_src, val);
+
+		obj = make_obj(wk_dest, ret, t);
+		obj->dat.install_target.base_path =
+			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.base_path));
+		obj->dat.install_target.filename =
+			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.filename));
+		obj->dat.install_target.install_dir =
+			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.install_dir));
+
+		// TODO
+		obj->dat.install_target.install_mode = in->dat.install_target.install_mode;
+		return true;
 	}
 	default:
 		LOG_E("unable to clone '%s'", obj_type_to_s(t));

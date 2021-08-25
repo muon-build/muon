@@ -19,13 +19,15 @@
 const struct outpath outpath = {
 	.private_dir = "muon-private",
 	.setup = "setup.meson",
-	.tests = "tests",
+	.tests = "tests.dat",
+	.install = "install.dat",
 };
 
 struct output {
 	FILE *build_ninja,
 	     *tests,
-	     *opts;
+	     *opts,
+	     *install;
 	bool compile_commands_comma;
 };
 
@@ -972,6 +974,8 @@ output_build(struct workspace *wk)
 		return false;
 	} else if (!(output.tests = open_out(wk->muon_private, outpath.tests))) {
 		return false;
+	} else if (!(output.install = open_out(wk->muon_private, outpath.install))) {
+		return false;
 	} else if (!(output.opts = open_out(wk->muon_private, outpath.setup))) {
 		return false;
 	}
@@ -1011,9 +1015,16 @@ output_build(struct workspace *wk)
 		return false;
 	}
 
+	LOG_I("writing install rules");
+	if (!serial_dump(wk, wk->install, output.install)) {
+		return false;
+	}
+
 	if (!fs_fclose(output.build_ninja)) {
 		return false;
 	} else if (!fs_fclose(output.tests)) {
+		return false;
+	} else if (!fs_fclose(output.install)) {
 		return false;
 	} else if (!fs_fclose(output.opts)) {
 		return false;

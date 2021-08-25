@@ -314,6 +314,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_include_directories,
 		kw_dependencies,
 		kw_install,
+		kw_install_dir,
 		kw_link_with,
 		kw_version,
 		kw_build_by_default,
@@ -326,6 +327,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_include_directories] = { "include_directories", obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_install] = { "install", obj_bool },
+		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_link_with] = { "link_with", obj_array },
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
@@ -412,6 +414,16 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 
 	if (akw[kw_link_with].set) {
 		tgt->dat.tgt.link_with = akw[kw_link_with].val;
+	}
+
+	if (akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean) {
+		uint32_t install_dir = 0;
+		if (akw[kw_install_dir].set) {
+			install_dir = get_obj(wk, akw[kw_install_dir].val)->dat.str;
+		}
+
+		push_install_target(wk, tgt->dat.tgt.build_dir,
+			tgt->dat.tgt.build_name, install_dir, 0);
 	}
 
 	obj_array_push(wk, current_project(wk)->targets, *obj);
@@ -945,7 +957,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		[kw_output]      = { "output", obj_any, .required = true },
 		[kw_command]     = { "command", obj_array, .required = true },
 		[kw_capture]     = { "capture", obj_bool },
-		[kw_install]     = { "install", obj_bool }, // TODO
+		[kw_install]     = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_any }, // TODO
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		0
@@ -1001,12 +1013,24 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
 	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
-	LOG_I("adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name ));
+	LOG_I("adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
 	tgt->dat.custom_target.cmd = cmd;
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
 	tgt->dat.custom_target.output = output;
 	tgt->dat.custom_target.flags = flags;
+
+	if ((akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean)
+	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
+		if (!akw[kw_install_dir].set) {
+			interp_error(wk, akw[kw_install].node, "custom target installation requires install_dir");
+			return false;
+		}
+
+		if (!push_install_targets(wk, 0, output, akw[kw_install_dir].val, 0)) {
+			return false;
+		}
+	}
 
 	obj_array_push(wk, current_project(wk)->targets, *obj);
 	return true;

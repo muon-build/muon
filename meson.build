@@ -60,6 +60,7 @@ muon = executable(
 	include_directories: include_dir,
 	dependencies: deps,
 	c_args: c_args,
+	install: true,
 )
 
 subdir('tests')

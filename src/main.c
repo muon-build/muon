@@ -12,6 +12,7 @@
 #include "external/zlib.h"
 #include "formats/ini.h"
 #include "functions/default/setup.h"
+#include "install.h"
 #include "lang/eval.h"
 #include "log.h"
 #include "machine_file.h"
@@ -255,6 +256,20 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <build dir>", "", NULL)
+
+	if (argi >= argc) {
+		LOG_E("missing build dir");
+		return false;
+	}
+
+	return install_run(argv[argi]);
+}
+
+static bool
 cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
@@ -369,6 +384,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "test", cmd_test, "run tests" },
+		{ "install", cmd_install, "install project" },
 		{ "version", cmd_version, "print version information" },
 		{ "samu", cmd_samu, "run samurai" },
 		{ 0 },

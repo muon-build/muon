@@ -4,7 +4,7 @@
 #include "lang/workspace.h"
 
 struct outpath {
-	const char *private_dir, *setup, *tests;
+	const char *private_dir, *setup, *tests, *install;
 };
 
 extern const struct outpath outpath;

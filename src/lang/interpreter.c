@@ -47,6 +47,19 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
 	return true;
 }
 
+bool
+typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
+{
+	struct obj *obj = get_obj(wk, obj_id);
+
+	if (type != obj_any && obj->type != type) {
+		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
+		return false;
+	}
+
+	return true;
+}
+
 static bool
 typecheck_custom(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type, const char *fmt)
 {

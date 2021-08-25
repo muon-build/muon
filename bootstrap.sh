@@ -50,6 +50,7 @@ cat \
 	src/functions/run_result.c \
 	src/functions/string.c \
 	src/functions/subproject.c \
+	src/install.c \
 	src/lang/eval.c \
 	src/lang/interpreter.c \
 	src/lang/lexer.c \
