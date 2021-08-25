@@ -205,7 +205,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_string: {
 		uint32_t res;
 
-		if (!typecheck_custom(wk, n->r, r_id, obj_string, "unable to add %s and %s")) {
+		if (!typecheck_custom(wk, n->r, r_id, obj_string, "unsupported operator for %s and %s")) {
 			return false;
 		}
 
@@ -234,7 +234,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_number: {
 		int64_t res, l, r;
 
-		if (!typecheck_custom(wk, n->r, r_id, obj_number, "unable to add %s and %s")) {
+		if (!typecheck_custom(wk, n->r, r_id, obj_number, "unsupported operator for %s and %s")) {
 			return false;
 		}
 
