@@ -96,6 +96,7 @@ struct obj {
 			uint32_t include_directories;
 			uint32_t deps;
 			uint32_t args;
+			uint32_t link_args;
 			enum tgt_type type;
 		} tgt;
 		struct {

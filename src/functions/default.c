@@ -321,6 +321,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_c_args,
 		kw_cpp_args,
 		kw_objc_args,
+		kw_link_args,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", obj_array },
@@ -335,6 +336,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_c_args] = { "c_args", obj_array },
 		[kw_cpp_args] = { "cpp_args", obj_array },
 		[kw_objc_args] = { "objc_args", obj_array },
+		[kw_link_args] = { "link_args", obj_array },
 		0
 	};
 
@@ -410,6 +412,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		if (akw[lang_args[i].kw].set) {
 			obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[kw_c_args].val);
 		}
+	}
+
+	if (akw[kw_link_args].set) {
+		tgt->dat.tgt.link_args = akw[kw_link_args].val;
 	}
 
 	if (akw[kw_link_with].set) {

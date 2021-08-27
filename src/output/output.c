@@ -712,7 +712,11 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	make_obj(wk, &ctx.object_names, obj_array);
 	make_obj(wk, &ctx.order_deps, obj_array);
-	make_obj(wk, &ctx.link_args, obj_array);
+	if (tgt->dat.tgt.link_args) {
+		obj_array_dup(wk, tgt->dat.tgt.link_args, &ctx.link_args);
+	} else {
+		make_obj(wk, &ctx.link_args, obj_array);
+	}
 	make_obj(wk, &ctx.implicit_deps, obj_array);
 	make_obj(wk, &ctx.include_dirs, obj_array);
 
