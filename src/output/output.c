@@ -836,16 +836,16 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 }
 
 static enum iteration_result
-custom_tgt_outputs_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+relativize_paths_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	uint32_t *dest = _ctx;
 
-	struct obj *out = get_obj(wk, val_id);
-	assert(out->type == obj_file);
+	struct obj *file = get_obj(wk, val_id);
+	assert(file->type == obj_file);
 
 	char buf[PATH_MAX];
 
-	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, out->dat.file))) {
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, file->dat.file))) {
 		return ir_err;
 	}
 
@@ -863,12 +863,13 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	uint32_t outputs, inputs, cmdline;
 
-	if (!arr_to_args(wk, tgt->dat.custom_target.input, &inputs)) {
+	make_obj(wk, &inputs, obj_array);
+	if (!obj_array_foreach(wk, tgt->dat.custom_target.input, &inputs, relativize_paths_iter)) {
 		return ir_err;
 	}
 
 	make_obj(wk, &outputs, obj_array);
-	if (!obj_array_foreach(wk, tgt->dat.custom_target.output, &outputs, custom_tgt_outputs_iter)) {
+	if (!obj_array_foreach(wk, tgt->dat.custom_target.output, &outputs, relativize_paths_iter)) {
 		return ir_err;
 	}
 
@@ -885,7 +886,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			return ir_err;
 		}
 
-		if (custom_tgt_outputs_iter(wk, &cmdline, elem) == ir_err) {
+		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
 			return ir_err;
 		}
 
