@@ -164,6 +164,19 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		}
 		break;
 	}
+	case obj_build_target: {
+		struct obj *tgt = get_obj(wk, val);
+
+		char path[PATH_MAX];
+		if (!path_join(path, PATH_MAX, wk_str(wk, tgt->dat.tgt.build_dir), wk_str(wk, tgt->dat.tgt.build_name))) {
+			return ir_err;
+		}
+
+		uint32_t file;
+		make_obj(wk, &file, obj_file)->dat.file = wk_str_push(wk, path);
+		obj_array_push(wk, ctx->arr, file);
+		break;
+	}
 	case obj_file:
 		if (ctx->mode == mode_output) {
 			goto type_error;
