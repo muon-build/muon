@@ -155,6 +155,11 @@ version_type_error:
 	} else {
 		current_project(wk)->cfg.version = wk_str_push(wk, "unknown");
 	}
+
+	LOG_I("configuring '%s', version: %s",
+		wk_str(wk, current_project(wk)->cfg.name),
+		wk_str(wk, current_project(wk)->cfg.version)
+		);
 	return true;
 }
 
