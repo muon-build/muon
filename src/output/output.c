@@ -655,7 +655,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		}
 	}
 
-	obj_dict_set(wk, ctx->args_dict, l, join_args_shell(wk, args));
+	obj_dict_seti(wk, ctx->args_dict, l, join_args_shell(wk, args));
 	return ir_cont;
 }
 
