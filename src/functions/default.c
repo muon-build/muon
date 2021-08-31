@@ -369,6 +369,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_link_with,
 		kw_version,
 		kw_build_by_default,
+		kw_extra_files,
 		kw_c_args,
 		kw_cpp_args,
 		kw_objc_args,
@@ -383,6 +384,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_link_with] = { "link_with", obj_array },
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
+		[kw_extra_files] = { "extra_files", obj_any }, // ignored
 		/* lang args */
 		[kw_c_args] = { "c_args", obj_array },
 		[kw_cpp_args] = { "cpp_args", obj_array },
