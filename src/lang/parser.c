@@ -670,7 +670,6 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 
 		switch (get_node(p->ast, l_id)->type) {
 		case node_empty:
-		case node_arithmetic:
 			if (op_tok) {
 				p->last = op_tok;
 			}
