@@ -743,6 +743,21 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 	enum obj_type t = get_obj(wk, id)->type;
 
 	switch (t) {
+	case obj_build_target: {
+		struct obj *tgt = get_obj(wk, id);
+		const char *type = NULL;
+		switch (tgt->dat.tgt.type) {
+		case tgt_executable:
+			type = "executable";
+			break;
+		case tgt_library:
+			type = "library";
+			break;
+		}
+
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s %s>", type, wk_str(wk, tgt->dat.tgt.name));
+		break;
+	}
 	case obj_feature_opt:
 		switch (get_obj(wk, id)->dat.feature_opt.state) {
 		case feature_opt_auto:
