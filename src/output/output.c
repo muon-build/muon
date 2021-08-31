@@ -399,6 +399,12 @@ process_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 				return ir_err;
 			}
 		}
+
+		if (tgt->dat.tgt.include_directories) {
+			if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories, _ctx, process_dep_args_includes_iter)) {
+				return ir_err;
+			}
+		}
 		break;
 	}
 	case obj_string:
