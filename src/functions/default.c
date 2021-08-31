@@ -1210,6 +1210,17 @@ func_is_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t 
 	return true;
 }
 
+static bool
+func_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	interp_error(wk, args_node, "disablers are not supported");
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", todo },
@@ -1228,7 +1239,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "custom_target", func_custom_target },
 	{ "declare_dependency", func_declare_dependency },
 	{ "dependency", func_dependency },
-	{ "disabler", todo },
+	{ "disabler", func_disabler },
 	{ "environment", todo },
 	{ "error", func_error },
 	{ "executable", func_executable },
