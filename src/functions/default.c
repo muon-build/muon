@@ -357,7 +357,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 }
 
 static bool
-tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type)
+tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -370,6 +370,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_version,
 		kw_build_by_default,
 		kw_extra_files,
+		kw_target_type,
+
 		kw_c_args,
 		kw_cpp_args,
 		kw_objc_args,
@@ -377,7 +379,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", obj_array },
-		[kw_include_directories] = { "include_directories", obj_any },
+		[kw_include_directories] = { "include_directories", obj_array },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
@@ -385,6 +387,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_extra_files] = { "extra_files", obj_any }, // ignored
+		[kw_target_type] = { "target_type", obj_string },
 		/* lang args */
 		[kw_c_args] = { "c_args", obj_array },
 		[kw_cpp_args] = { "cpp_args", obj_array },
@@ -393,18 +396,43 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		0
 	};
 
-	if (akw[kw_include_directories].set) {
-		uint32_t inc_dirs;
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
 
-		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+	if (tgt_type_from_kw) {
+		if (!akw[kw_target_type].set) {
+			interp_error(wk, args_node, "missing required kwarg: %s", akw[kw_target_type].key);
 			return false;
 		}
 
-		akw[kw_include_directories].val = inc_dirs;
-	}
+		const char *tgt_type = wk_objstr(wk, akw[kw_target_type].val);
+		static struct { char *name; enum tgt_type type; } tgt_tbl[] = {
+			{ "executable", tgt_executable, },
+			{ "shared_library", tgt_library, },
+			{ "static_library", tgt_library, },
+			{ "both_libraries", tgt_library, },
+			{ "library", tgt_library, },
+			{ 0 },
+		};
+		uint32_t i;
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
-		return false;
+		for (i = 0; tgt_tbl[i].name; ++i) {
+			if (strcmp(tgt_type, tgt_tbl[i].name) == 0) {
+				type = tgt_tbl[i].type;
+				break;
+			}
+		}
+
+		if (!tgt_tbl[i].name) {
+			interp_error(wk, akw[kw_target_type].node, "unsupported target type '%s'", tgt_type);
+			return false;
+		}
+	} else {
+		if (akw[kw_target_type].set) {
+			interp_error(wk, akw[kw_target_type].node, "invalid kwarg");
+			return false;
+		}
 	}
 
 	uint32_t input;
@@ -444,7 +472,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	LOG_I("added target %s", wk_str(wk, tgt->dat.tgt.build_name));
 
 	if (akw[kw_include_directories].set) {
-		tgt->dat.tgt.include_directories = akw[kw_include_directories].val;
+		uint32_t inc_dirs;
+
+		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+			return false;
+		}
+
+		tgt->dat.tgt.include_directories = inc_dirs;
 	}
 
 	if (akw[kw_dependencies].set) {
@@ -493,13 +527,19 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 static bool
 func_executable(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	return tgt_common(wk, args_node, obj, tgt_executable);
+	return tgt_common(wk, args_node, obj, tgt_executable, false);
 }
 
 static bool
 func_static_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-	return tgt_common(wk, args_node, obj, tgt_library);
+	return tgt_common(wk, args_node, obj, tgt_library, false);
+}
+
+static bool
+func_build_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	return tgt_common(wk, args_node, obj, 0, true);
 }
 
 static bool
@@ -1182,7 +1222,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "assert", func_assert },
 	{ "benchmark", todo },
 	{ "both_libraries", todo },
-	{ "build_target", todo },
+	{ "build_target", func_build_target },
 	{ "configuration_data", func_configuration_data },
 	{ "configure_file", func_configure_file },
 	{ "custom_target", func_custom_target },
