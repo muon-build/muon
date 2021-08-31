@@ -341,9 +341,13 @@ process_dep_args_includes_iter(struct workspace *wk, void *_ctx, uint32_t inc_id
 	struct write_tgt_iter_ctx *ctx = _ctx;
 
 	assert(get_obj(wk, inc_id)->type == obj_file);
-	uint32_t str;
-	make_obj(wk, &str, obj_string)->dat.str = get_obj(wk, inc_id)->dat.file;
-	obj_array_push(wk, ctx->include_dirs, str);
+
+	char path[PATH_MAX];
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, wk_str(wk, get_obj(wk, inc_id)->dat.file))) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, ctx->include_dirs, make_str(wk, path));
 	return ir_cont;
 }
 
