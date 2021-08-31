@@ -90,7 +90,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 		[kw_license] = { "license" },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
-		[kw_version] = { "version", obj_string },
+		[kw_version] = { "version", obj_any },
 		0
 	};
 
@@ -107,8 +107,54 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 	}
 
 	current_project(wk)->cfg.license = get_obj(wk, akw[kw_license].val)->dat.str;
-	current_project(wk)->cfg.version = get_obj(wk, akw[kw_version].val)->dat.str;
 
+	if (akw[kw_version].set) {
+		struct obj *ver = get_obj(wk, akw[kw_version].val);
+		if (ver->type == obj_array) {
+			if (ver->dat.arr.len != 1) {
+				goto version_type_error;
+				// type error
+				return false;
+			}
+
+			uint32_t e;
+			obj_array_index(wk, akw[kw_version].val, 0, &e);
+			ver = get_obj(wk, e);
+		}
+
+		if (ver->type == obj_string) {
+			current_project(wk)->cfg.version = ver->dat.str;
+		} else if (ver->type == obj_file) {
+			struct source ver_src = { 0 };
+			if (!fs_read_entire_file(wk_str(wk, ver->dat.file), &ver_src)) {
+				return false;
+			}
+
+			const char *str_ver = ver_src.src;
+			uint32_t i;
+			for (i = 0; ver_src.src[i]; ++i) {
+				if (ver_src.src[i] == '\n') {
+					if (ver_src.src[i + 1]) {
+						interp_error(wk, akw[kw_version].node, "version file is more than one line long");
+						return false;
+					}
+					break;
+				}
+			}
+
+			current_project(wk)->cfg.version = wk_str_pushn(wk, str_ver, i);
+
+			fs_source_destroy(&ver_src);
+		} else {
+version_type_error:
+			interp_error(wk, akw[kw_version].node,
+				"invalid type for version: '%s'",
+				obj_type_to_s(get_obj(wk, akw[kw_version].val)->type));
+			return false;
+		}
+	} else {
+		current_project(wk)->cfg.version = wk_str_push(wk, "unknown");
+	}
 	return true;
 }
 
