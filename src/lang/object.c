@@ -48,6 +48,27 @@ obj_type_to_s(enum obj_type t)
 	return NULL;
 }
 
+struct obj_equal_iter_ctx {
+	uint32_t other_container;
+	uint32_t i;
+};
+
+static enum iteration_result
+obj_equal_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct obj_equal_iter_ctx *ctx = _ctx;
+	uint32_t r_id;
+
+	obj_array_index(wk, ctx->other_container, ctx->i, &r_id);
+
+	if (!obj_equal(wk, val, r_id)) {
+		return ir_err;
+	}
+
+	++ctx->i;
+	return ir_cont;
+}
+
 bool
 obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 {
@@ -65,13 +86,23 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 	switch (l->type) {
 	case obj_string:
 		return strcmp(wk_str(wk, l->dat.str), wk_str(wk, r->dat.str)) == 0;
+	case obj_file:
+		return strcmp(wk_str(wk, l->dat.file), wk_str(wk, r->dat.file)) == 0;
 	case obj_number:
 		return l->dat.num == r->dat.num;
 	case obj_bool:
 		return l->dat.boolean == r->dat.boolean;
-	case obj_array:
-	case obj_file:
-		L("TODO: compare %s", obj_type_to_s(l->type));
+	case obj_array: {
+		struct obj_equal_iter_ctx ctx = {
+			.other_container = r_id,
+		};
+
+		return l->dat.arr.len == r->dat.arr.len
+		       && obj_array_foreach(wk, l_id, &ctx, obj_equal_array_iter);
+	}
+	break;
+	case obj_dict:
+		LOG_W("TODO: compare %s", obj_type_to_s(l->type));
 		return false;
 	default:
 		return false;
@@ -81,7 +112,6 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 /*
  * arrays
  */
-
 
 bool
 obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
