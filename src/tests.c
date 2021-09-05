@@ -19,8 +19,6 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 {
 	struct obj *test = get_obj(wk, t);
 
-	struct run_cmd_ctx cmd_ctx = { 0 };
-
 	uint32_t cmdline;
 	make_obj(wk, &cmdline, obj_array);
 	obj_array_push(wk, cmdline, test->dat.test.exe);
@@ -41,25 +39,26 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_err;
 	}
 
-	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv)) {
-		if (cmd_ctx.err_msg) {
-			LOG_E("%s", cmd_ctx.err_msg);
-		} else {
-			LOG_E("%s", strerror(cmd_ctx.err_no));
-		}
+	enum iteration_result ret = ir_err;
+	struct run_cmd_ctx cmd_ctx = { 0 };
 
-		return ir_err;
+	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv, NULL)) {
+		LOG_E("%s", cmd_ctx.err_msg);
+		goto ret;
 	}
 
 	if (cmd_ctx.status && !test->dat.test.should_fail) {
 		LOG_E("%s - failed (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
 		log_plain("%s", cmd_ctx.err);
-		return ir_err;
+		goto ret;
 	} else {
 		LOG_I("%s - success (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
 	}
 
-	return ir_cont;
+	ret = ir_cont;
+ret:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
 }
 
 static enum iteration_result

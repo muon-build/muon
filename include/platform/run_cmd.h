@@ -11,8 +11,8 @@ struct run_cmd_ctx {
 
 	/* error handling */
 	const char *err_msg;
-	int64_t err_no;
 };
 
-bool run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[]);
+bool run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *const envp[]);
+void run_cmd_ctx_destroy(struct run_cmd_ctx *ctx);
 #endif

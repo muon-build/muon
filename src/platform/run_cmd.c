@@ -9,65 +9,90 @@
 
 #include "buf_size.h"
 #include "log.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 #include "platform/run_cmd.h"
 
+static bool
+copy_pipe(int pipe, char **dest)
+{
+	uint32_t block_size = 256;
+	uint32_t size = block_size + 1, i = 0;
+	ssize_t b;
+
+	char *buf = z_calloc(1, size);
+
+	while (true) {
+		b = read(pipe, &buf[i], block_size);
+
+		if (b == -1) {
+			return false;
+		} else if (b < size) {
+			break;
+		}
+
+		i += size;
+		block_size *= 2;
+		size += block_size;
+		buf = z_realloc(buf, size);
+	}
+
+	*dest = buf;
+	return true;
+}
+
 bool
-run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
+run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *const envp[])
 {
 	pid_t pid;
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 
-	/* L("child: running %s", cmd); */
-	/* char *const *ap; */
-	/* for (ap = argv; *ap; ++ap) { */
-	/* 	L("child: > arg '%s'", *ap); */
-	/* } */
+	const char *cmd;
+	if (!fs_find_cmd(_cmd, &cmd)) {
+		ctx->err_msg = "command not found";
+		return false;
+	}
 
-	static char out_buf[BUF_SIZE_1m] = { 0 };
-	static char err_buf[BUF_SIZE_1m] = { 0 };
-
-	memset(out_buf, 0, BUF_SIZE_1m);
-	memset(err_buf, 0, BUF_SIZE_1m);
+	if (log_should_print(log_debug)) {
+		LL("executing %s: ", cmd);
+		char *const *ap;
+		for (ap = argv; *ap; ++ap) {
+			log_plain(" '%s'", *ap);
+		}
+		log_plain("\n");
+	}
 
 	if (pipe(pipefd_out) == -1) {
-		ctx->err_no = errno;
-		return false;
+		goto err;
 	}
 	pipefd_out_open[0] = true;
 	pipefd_out_open[1] = true;
 
 	if (pipe(pipefd_err) == -1) {
-		ctx->err_no = errno;
 		goto err;
 	}
 	pipefd_err_open[0] = true;
 	pipefd_err_open[1] = true;
 
 	if ((pid = fork()) == -1) {
-		ctx->err_no = errno;
 		goto err;
 	} else if (pid == 0 /* child */) {
 		if (dup2(pipefd_out[1], 1) == -1) {
-			L("child: failed to dup stdout: %s", strerror(errno));
+			log_plain("failed to dup stdout: %s", strerror(errno));
 			exit(1);
 		}
 		if (dup2(pipefd_err[1], 2) == -1) {
-			L("child: failed to dup stderr: %s", strerror(errno));
+			log_plain("failed to dup stderr: %s", strerror(errno));
 			exit(1);
 		}
 
-		/* L("child: running %s", cmd); */
-		/* char *const *ap; */
-		/* for (ap = argv; *ap; ++ap) { */
-		/* 	L("child: > arg '%s'", *ap); */
-		/* } */
-
-		if (execvp(cmd, argv) == -1) {
+		if (execve(cmd, argv, envp) == -1) {
+			log_plain("%s: %s", cmd, strerror(errno));
 			exit(1);
 		}
 
-		exit(1); // unreachable
+		abort();
 	}
 
 	/* parent */
@@ -83,23 +108,28 @@ run_cmd(struct run_cmd_ctx *ctx, const char *cmd, char *const argv[])
 
 	int status;
 	if (waitpid(pid, &status, 0) != pid) {
-		ctx->err_no = errno;
 		goto err;
 	}
 
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
 
-		read(pipefd_out[0], out_buf, BUF_SIZE_1m);
-		read(pipefd_err[0], err_buf, BUF_SIZE_1m);
+		if (!copy_pipe(pipefd_out[0], &ctx->out)) {
+			goto err;
+		}
+		if (!copy_pipe(pipefd_err[0], &ctx->err)) {
+			goto err;
+		}
 
-		ctx->out = out_buf;
-		ctx->err = err_buf;
 		res = true;
 	} else {
 		ctx->err_msg = "child exited abnormally";
 	}
 err:
+	if (!res && !ctx->err_msg) {
+		ctx->err_msg = errno ? strerror(errno) : "unknown";
+	}
+
 	if (pipefd_err_open[0] && close(pipefd_err[0]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
@@ -114,4 +144,16 @@ err:
 	}
 
 	return res;
+}
+
+void
+run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
+{
+	if (ctx->out) {
+		z_free(ctx->out);
+	}
+
+	if (ctx->err) {
+		z_free(ctx->err);
+	}
 }

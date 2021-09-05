@@ -740,20 +740,12 @@ func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 		return false;
 	}
 
-/* 	uint32_t i; */
-/* 	for (i = 0; args_ctx.argv[i]; ++i) { */
-/* 		L("%s", args_ctx.argv[i]); */
-/* 	} */
-
+	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, wk_str(wk, cmd_path), args_ctx.argv)) {
-		if (cmd_ctx.err_msg) {
-			interp_error(wk, an[0].node, "error: %s", cmd_ctx.err_msg);
-		} else {
-			interp_error(wk, an[0].node, "error: %s", strerror(cmd_ctx.err_no));
-		}
-		return false;
+	if (!run_cmd(&cmd_ctx, wk_str(wk, cmd_path), args_ctx.argv, NULL)) {
+		interp_error(wk, an[0].node, "error: %s", cmd_ctx.err_msg);
+		goto ret;
 	}
 
 	struct obj *run_result = make_obj(wk, obj, obj_run_result);
@@ -761,7 +753,10 @@ func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 	run_result->dat.run_result.out = wk_str_push(wk, cmd_ctx.out);
 	run_result->dat.run_result.err = wk_str_push(wk, cmd_ctx.err);
 
-	return true;
+	ret = true;
+ret:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
 }
 
 static bool

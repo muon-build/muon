@@ -30,12 +30,19 @@ static struct {
 	uint32_t opts;
 } log_cfg = { .level = log_info, };
 
+bool
+log_should_print(enum log_level lvl)
+{
+	return lvl <= log_cfg.level;
+}
+
 void
-log_print(const char *file, uint32_t line, const char *func, enum log_level lvl, const char *fmt, ...)
+log_print(const char *file, uint32_t line, const char *func, bool nl,
+	enum log_level lvl, const char *fmt, ...)
 {
 	static char buf[BUF_SIZE_4k + 3];
 
-	if (lvl <= log_cfg.level) {
+	if (log_should_print(lvl)) {
 		uint32_t len = 0;
 
 		assert(log_cfg.initialized);
@@ -66,7 +73,7 @@ log_print(const char *file, uint32_t line, const char *func, enum log_level lvl,
 		len += vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
 		va_end(ap);
 
-		if (len < BUF_SIZE_4k) {
+		if (nl && len < BUF_SIZE_4k) {
 			buf[len] = '\n';
 			buf[len + 1] = 0;
 		}

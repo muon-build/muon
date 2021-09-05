@@ -90,14 +90,12 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 	push_argv(argv, &len, MAX_ARGS, compilers[t].args.output(test_out));
 	push_argv_single(argv, &len, MAX_ARGS, test_source);
 
+	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, name, (char **)argv)) {
-		if (cmd_ctx.err_msg) {
-			interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
-		} else {
-			interp_error(wk, err_node, "error: %s", strerror(cmd_ctx.err_no));
-		}
-		return ir_err;
+
+	if (!run_cmd(&cmd_ctx, name, (char * const *)argv, NULL)) {
+		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
+		goto ret;
 	}
 
 	*has_argument = cmd_ctx.status == 0;
@@ -107,7 +105,10 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 		*has_argument ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m"
 		);
 
-	return true;
+	ret = true;
+ret:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
 }
 
 static enum iteration_result

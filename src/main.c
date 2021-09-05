@@ -51,22 +51,28 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	opts.cmd = &argv[argi];
 	++argi;
 
+	bool ret = false;
 	struct run_cmd_ctx ctx = { 0 };
-	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd)) {
-		return false;
+
+	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd, NULL)) {
+		LOG_E("failed to run command: %s", ctx.err);
+		goto ret;
 	}
 
 	if (ctx.status != 0) {
 		fputs(ctx.err, stderr);
-		return false;
+		goto ret;
 	}
 
 	if (opts.capture) {
-		return fs_write(opts.capture, (uint8_t *)ctx.out, strlen(ctx.out));
+		ret = fs_write(opts.capture, (uint8_t *)ctx.out, strlen(ctx.out));
 	} else {
 		fputs(ctx.out, stdout);
-		return true;
+		ret = true;
 	}
+ret:
+	run_cmd_ctx_destroy(&ctx);
+	return ret;
 }
 
 static const char *

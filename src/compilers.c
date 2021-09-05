@@ -85,7 +85,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd(&cmd_ctx, cc, (char *[]){
 		(char *)cc, "--version", NULL,
-	})) {
+	}, NULL)) {
+		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
 
@@ -93,7 +94,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 		cmd_ctx = (struct run_cmd_ctx) { 0 };
 		if (!run_cmd(&cmd_ctx, cc, (char *[]){
 			(char *)cc, "-v", NULL,
-		})) {
+		}, NULL)) {
+			run_cmd_ctx_destroy(&cmd_ctx);
 			return false;
 		}
 	}
@@ -145,6 +147,8 @@ detection_over:
 	comp->dat.compiler.name = wk_str_push(wk, cc);
 	comp->dat.compiler.type = type;
 	comp->dat.compiler.version = wk_str_push(wk, ver);
+
+	run_cmd_ctx_destroy(&cmd_ctx);
 	return true;
 }
 
