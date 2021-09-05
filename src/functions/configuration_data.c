@@ -20,8 +20,15 @@ static bool
 func_configuration_data_set_quoted(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_description, // TODO
+	};
+	struct args_kw akw[] = {
+		[kw_description] = { "description", obj_string, },
+		0
+	};
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
@@ -42,8 +49,15 @@ static bool
 func_configuration_data_set(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_description, // TODO
+	};
+	struct args_kw akw[] = {
+		[kw_description] = { "description", obj_string, },
+		0
+	};
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
