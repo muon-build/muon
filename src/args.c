@@ -152,24 +152,10 @@ join_args_ninja(struct workspace *wk, uint32_t arr)
 }
 
 struct join_args_argv_iter_ctx {
-	uint32_t escaped;
 	char **argv;
 	uint32_t len;
 	uint32_t i;
 };
-
-static enum iteration_result
-join_args_argv_escape_iter(struct workspace *wk, void *_ctx, uint32_t v)
-{
-	struct join_args_argv_iter_ctx *ctx = _ctx;
-	char buf[BUF_SIZE_4k];
-	if (!shell_escape(buf, BUF_SIZE_4k, wk_objstr(wk, v))) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->escaped, make_str(wk, buf));
-	return ir_cont;
-}
 
 static enum iteration_result
 join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
@@ -193,13 +179,7 @@ join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t arr)
 		.len = len,
 	};
 
-	make_obj(wk, &ctx.escaped, obj_array);
-
-	if (!obj_array_foreach(wk, arr, &ctx, join_args_argv_escape_iter)) {
-		return false;
-	}
-
-	if (!obj_array_foreach(wk, ctx.escaped, &ctx, join_args_argv_iter)) {
+	if (!obj_array_foreach(wk, arr, &ctx, join_args_argv_iter)) {
 		return false;
 	}
 
@@ -251,4 +231,48 @@ arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res)
 	make_obj(wk, res, obj_array);
 
 	return obj_array_foreach_flat(wk, arr, res, arr_to_args_iter);
+}
+
+static bool
+push_envp(char envp[MAX_ENV][BUF_SIZE_4k], uint32_t *i, const char *k, const char *v)
+{
+	if (*i >= MAX_ENV) {
+		return false;
+	}
+
+	if (strlen(k) + strlen(v) + 1 >= BUF_SIZE_4k) {
+		return false;
+	}
+
+	sprintf(envp[*i], "%s=%s", k, v);
+	++(*i);
+	return true;
+}
+
+bool
+build_envp(struct workspace *wk, char *const *ret[], enum build_envp_flags flags)
+{
+	static char *envp[MAX_ENV + 1],
+		    envd[MAX_ENV][BUF_SIZE_4k];
+	uint32_t i = 0, j;
+
+	push_envp(envd, &i, "MESON_BUILD_ROOT", wk->build_root);
+	push_envp(envd, &i, "MESON_SOURCE_ROOT", wk->source_root);
+
+	if (flags & build_envp_flag_dist_root) {
+		assert(false && "TODO");
+	}
+
+	if (flags & build_envp_flag_subdir) {
+		push_envp(envd, &i, "MESON_SUBDIR", wk_str(wk, current_project(wk)->cwd));
+	}
+
+	for (j = 0; j < i; ++j) {
+		envp[j] = envd[j];
+	}
+	assert(j < MAX_ARGS);
+	envp[j] = NULL;
+
+	*ret = envp;
+	return true;
 }

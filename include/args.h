@@ -18,4 +18,11 @@ uint32_t join_args_ninja(struct workspace *wk, uint32_t arr);
 bool join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t arr);
 
 bool arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res);
+
+enum build_envp_flags {
+	build_envp_flag_subdir    = 1 << 0,
+	build_envp_flag_dist_root = 1 << 1,
+};
+
+bool build_envp(struct workspace *wk, char *const *ret[], enum build_envp_flags flags);
 #endif

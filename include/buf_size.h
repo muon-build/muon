@@ -7,6 +7,7 @@
 #define BUF_SIZE_4k 4096
 #define BUF_SIZE_1m 1048576ul
 #define MAX_ARGS 64
+#define MAX_ENV 16
 #define ARG_BUF_SIZE BUF_SIZE_4k
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
