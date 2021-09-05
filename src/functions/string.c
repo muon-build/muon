@@ -437,9 +437,29 @@ func_version_compare(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 	return true;
 }
 
+static bool
+func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	const char *s = wk_objstr(wk, rcvr);
+	char *endptr = NULL;
+	int64_t n = strtol(s, &endptr, 10);
+	if (*endptr) {
+		interp_error(wk, args_node, "unable to parse '%s'", s);
+		return false;
+	}
+
+	make_obj(wk, obj, obj_number)->dat.num = n;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "strip", func_strip },
 	{ "to_upper", func_to_upper },
+	{ "to_int", func_string_to_int },
 	{ "format", func_format },
 	{ "underscorify", func_underscorify },
 	{ "split", func_split },
