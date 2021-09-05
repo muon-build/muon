@@ -514,6 +514,7 @@ set_default_options(struct workspace *wk)
 		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
 		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
 		"option('datadir', yield: true, type: 'string', value: 'share')\n"
+		"option('auto_features', yield: true, type: 'feature', value: 'auto')\n"
 
 		, &obj);
 }
