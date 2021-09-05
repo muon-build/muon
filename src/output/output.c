@@ -165,7 +165,7 @@ write_hdr(FILE *out, struct workspace *wk, struct project *main_proj)
 		"rule REGENERATE_BUILD\n"
 		" command = ");
 	write_escaped(out, wk->argv0);
-	fputs(" build -r -c ", out);
+	fputs(" auto -r -c ", out);
 
 	char setup_file[PATH_MAX];
 	if (!path_join(setup_file, PATH_MAX, outpath.private_dir, outpath.setup)) {
