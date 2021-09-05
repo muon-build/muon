@@ -40,8 +40,20 @@ func_configuration_data_set_quoted(struct workspace *wk, uint32_t rcvr, uint32_t
 	}
 
 	uint32_t val;
-	make_obj(wk, &val, obj_string)->dat.str = wk_str_pushf(wk, "\"%s\"", wk_objstr(wk, an[1].val));
+	const char *s = wk_objstr(wk, an[1].val);
+	uint32_t str = wk_str_push(wk, "\"");
 
+	for (; *s; ++s) {
+		if (*s == '"') {
+			wk_str_app(wk, &str, "\\");
+		}
+
+		wk_str_appn(wk, &str, s, 1);
+	}
+
+	wk_str_app(wk, &str, "\"");
+
+	make_obj(wk, &val, obj_string)->dat.str = str;
 	obj_dict_set(wk, dict, an[0].val, val);
 
 	return true;
