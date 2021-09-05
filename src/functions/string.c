@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "coerce.h"
 #include "functions/common.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
@@ -79,18 +80,11 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 				case format_cb_error:
 					return false;
 				case format_cb_found: {
-					struct obj *value = get_obj(wk, elem);
-					switch (value->type) {
-					case obj_number:
-						wk_str_appf(wk, out, "%ld", value->dat.num);
-						break;
-					case obj_string:
-						wk_str_app(wk, out, wk_str(wk, value->dat.str));
-						break;
-					default:
-						interp_error(wk, node, "unable to coerce %s to string", obj_type_to_s(value->type));
+					const char *coerced;
+					if (!coerce_string(wk, node, elem, &coerced)) {
 						return false;
 					}
+					wk_str_app(wk, out, coerced);
 					in = wk_str(wk, str);
 					break;
 				}
