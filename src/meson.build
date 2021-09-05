@@ -17,6 +17,7 @@ src = files([
 	'functions/custom_target.c',
 	'functions/default.c',
 	'functions/default/configure_file.c',
+	'functions/default/custom_target.c',
 	'functions/default/dependency.c',
 	'functions/default/options.c',
 	'functions/default/setup.c',

@@ -33,6 +33,7 @@ cat \
 	src/functions/custom_target.c \
 	src/functions/default.c \
 	src/functions/default/configure_file.c \
+	src/functions/default/custom_target.c \
 	src/functions/default/dependency.c \
 	src/functions/default/options.c \
 	src/functions/default/setup.c \
