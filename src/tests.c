@@ -43,7 +43,7 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv, NULL)) {
-		LOG_E("%s", cmd_ctx.err_msg);
+		LOG_E("test command failed: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
@@ -76,9 +76,9 @@ run_project_tests(struct workspace *wk, void *_ctx, uint32_t proj_name, uint32_t
 bool
 tests_run(const char *build_root)
 {
-	bool ret = true;
 	char tests_src[PATH_MAX], private[PATH_MAX];
 	if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
+	bool ret = false;
 		return false;
 	} else if (!path_join(tests_src, PATH_MAX, private, outpath.tests)) {
 		return false;
