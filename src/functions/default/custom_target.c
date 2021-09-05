@@ -37,8 +37,6 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
 	enum cmd_arg_fmt_key {
-		key_input,
-		key_output,
 		key_outdir,
 		key_depfile,
 		key_plainname,
@@ -51,8 +49,6 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	};
 
 	const char *key_names[cmd_arg_fmt_key_count] = {
-		[key_input             ] = "INPUT",
-		[key_output            ] = "OUTPUT",
 		[key_outdir            ] = "OUTDIR",
 		[key_depfile           ] = "DEPFILE",
 		[key_plainname         ] = "PLAINNAME",
@@ -73,20 +69,6 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	uint32_t obj;
 
 	switch (key) {
-	case key_input:
-		if (!obj_array_index(wk, ctx->input, 0, &obj)) {
-			return format_cb_error;
-		}
-
-		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
-		return format_cb_found;
-	case key_output:
-		if (!obj_array_index(wk, ctx->output, 0, &obj)) {
-			return format_cb_error;
-		}
-
-		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
-		return format_cb_found;
 	case key_outdir:
 		/* @OUTDIR@: the full path to the directory where the output(s)
 		 * must be written */
@@ -166,6 +148,18 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		}
 		break;
 	case obj_string: {
+		if (strcmp(wk_objstr(wk, val), "@INPUT@") == 0) {
+			if (!obj_array_foreach(wk, ctx->input, ctx, custom_target_cmd_fmt_iter)) {
+				return ir_err;
+			}
+			return ir_cont;
+		} else if (strcmp(wk_objstr(wk, val), "@OUTPUT@") == 0) {
+			if (!obj_array_foreach(wk, ctx->output, ctx, custom_target_cmd_fmt_iter)) {
+				return ir_err;
+			}
+			return ir_cont;
+		}
+
 		uint32_t s;
 		if (!string_format(wk, ctx->err_node, get_obj(wk, val)->dat.str,
 			&s, ctx, format_cmd_arg_cb)) {
