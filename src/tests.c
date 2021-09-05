@@ -74,11 +74,14 @@ run_project_tests(struct workspace *wk, void *_ctx, uint32_t proj_name, uint32_t
 }
 
 bool
-tests_run(const char *build_root)
+tests_run(const char *build_dir)
 {
-	char tests_src[PATH_MAX], private[PATH_MAX];
-	if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
 	bool ret = false;
+	char tests_src[PATH_MAX], private[PATH_MAX], build_root[PATH_MAX];
+
+	if (!path_make_absolute(build_root, PATH_MAX, build_dir)) {
+		return false;
+	} else if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
 		return false;
 	} else if (!path_join(tests_src, PATH_MAX, private, outpath.tests)) {
 		return false;
@@ -98,7 +101,7 @@ tests_run(const char *build_root)
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
-	} else if (chdir(build_root) != 0) {
+	} else if (!path_chdir(build_root)) {
 		goto ret;
 	} else if (!obj_dict_foreach(&wk, tests_dict, NULL, run_project_tests)) {
 		goto ret;
