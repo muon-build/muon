@@ -502,8 +502,11 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		}
 
 		if (!fs_write(wk_str(wk, output_str), (uint8_t *)src.src, src.len)) {
+			fs_source_destroy(&src);
 			return false;
 		}
+
+		fs_source_destroy(&src);
 	} else {
 		uint32_t dict, conf = akw[kw_configuration].val;
 
