@@ -103,6 +103,58 @@ arity_to_s(struct args_norm positional_args[],
 	return buf;
 }
 
+struct typecheck_function_arg_ctx {
+	uint32_t err_node;
+	enum obj_type type;
+};
+
+static enum iteration_result
+typecheck_function_arg_iter(struct workspace *wk, void *_ctx, uint32_t val)
+{
+	struct typecheck_function_arg_ctx *ctx = _ctx;
+
+	if (!typecheck(wk, ctx->err_node, val, ctx->type)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+typecheck_function_arg(struct workspace *wk, uint32_t err_node, uint32_t *val, enum obj_type type)
+{
+	bool array_of = false;
+	if (type & ARG_TYPE_ARRAY_OF) {
+		array_of = true;
+		type &= ~ARG_TYPE_ARRAY_OF;
+	}
+
+	assert(type < obj_type_count);
+
+	if (!array_of) {
+		return typecheck(wk, err_node, *val, type);
+	}
+
+	struct typecheck_function_arg_ctx ctx = {
+		.err_node = err_node,
+		.type = type,
+	};
+
+	if (get_obj(wk, *val)->type == obj_array) {
+		return obj_array_foreach(wk, *val, &ctx, typecheck_function_arg_iter);
+	} else {
+		if (!typecheck(wk, err_node, *val, type)) {
+			return false;
+		}
+
+		uint32_t arr;
+		make_obj(wk, &arr, obj_array);
+		obj_array_push(wk, arr, *val);
+		*val = arr;
+		return true;
+	}
+}
+
 #define ARITY arity_to_s(positional_args, optional_positional_args, keyword_args)
 
 bool
@@ -179,7 +231,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				return false;
 			}
 
-			if (!typecheck(wk, arg_node, an[stage][i].val, an[stage][i].type)) {
+			if (!typecheck_function_arg(wk, arg_node, &an[stage][i].val, an[stage][i].type)) {
 				return false;
 			}
 
@@ -208,7 +260,7 @@ process_kwarg:
 						return false;
 					}
 
-					if (!typecheck(wk, arg_node, keyword_args[i].val, keyword_args[i].type)) {
+					if (!typecheck_function_arg(wk, arg_node, &keyword_args[i].val, keyword_args[i].type)) {
 						return false;
 					}
 

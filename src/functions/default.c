@@ -380,12 +380,12 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_link_args,
 	};
 	struct args_kw akw[] = {
-		[kw_sources] = { "sources", obj_array },
-		[kw_include_directories] = { "include_directories", obj_array },
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_dependencies] = { "dependencies", obj_array },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_link_with] = { "link_with", obj_array },
+		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_extra_files] = { "extra_files", obj_any }, // ignored
@@ -394,7 +394,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_c_args] = { "c_args", obj_array },
 		[kw_cpp_args] = { "cpp_args", obj_array },
 		[kw_objc_args] = { "objc_args", obj_array },
-		[kw_link_args] = { "link_args", obj_array },
+		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 

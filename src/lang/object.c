@@ -41,6 +41,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_type_count:
 	case ARG_TYPE_NULL:
 	case ARG_TYPE_GLOB:
+	case ARG_TYPE_ARRAY_OF:
 		assert(false); return "uh oh";
 	}
 

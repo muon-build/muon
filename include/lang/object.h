@@ -39,8 +39,9 @@ enum obj_type {
 
 	obj_type_count,
 
-	ARG_TYPE_NULL = 1000,
-	ARG_TYPE_GLOB = 1001,
+	ARG_TYPE_NULL     = 1000,
+	ARG_TYPE_GLOB     = 1001,
+	ARG_TYPE_ARRAY_OF = 1 << 20,
 };
 
 enum tgt_type {
