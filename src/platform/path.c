@@ -421,7 +421,7 @@ path_executable(char *buf, uint32_t len, const char *path)
 	if (path_is_basename(path)) {
 		uint32_t i = 0;
 		return buf_push_c(buf, '.', &i, len)
-		       && buf_push_c(buf, '/', &i, len)
+		       && buf_push_c(buf, PATH_SEP, &i, len)
 		       && buf_push_s(buf, path, &i, len);
 	} else {
 		return simple_copy(buf, len, path);
