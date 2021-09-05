@@ -2,16 +2,19 @@
 
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
 #include "functions/common.h"
 #include "functions/default/configure_file.h"
+#include "functions/default/custom_target.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
+#include "platform/run_cmd.h"
 
 static void
 buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
@@ -33,7 +36,7 @@ buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 static const char *mesondefine = "#mesondefine ";
 
 static bool
-substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, const char *out)
+substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, uint32_t out)
 {
 	/* L("in: %s", in); */
 	/* L("out: %s", out); */
@@ -43,7 +46,6 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	char *out_buf = NULL;
 	struct source src;
 	uint64_t out_len, out_cap;
-
 
 	if (!fs_read_entire_file(in, &src)) {
 		ret = false;
@@ -144,13 +146,13 @@ write_mesondefine:
 					return false;
 				}
 
-				if (!typecheck(wk, in_node, elem, obj_string)) {
+				const char *sub = NULL;
+				if (!coerce_string(wk, in_node, elem, &sub)) {
+					error_messagef(&src, id_start_line, id_start_col, "unable to substitue value");
 					return false;
 				}
 
-				const char *sub = wk_objstr(wk, elem);
 				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
-
 				reading_id = false;
 			} else {
 				if (i) {
@@ -174,7 +176,7 @@ write_mesondefine:
 		buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 	}
 
-	if (!fs_write(out, (uint8_t *)out_buf, out_len)) {
+	if (!fs_write(wk_str(wk, out), (uint8_t *)out_buf, out_len)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -228,10 +230,10 @@ generate_config_iter(struct workspace *wk, void *_ctx, uint32_t key_id, uint32_t
 }
 
 static bool
-generate_config(struct workspace *wk, uint32_t dict, uint32_t node, const char *out_path)
+generate_config(struct workspace *wk, uint32_t dict, uint32_t node, uint32_t out_path)
 {
 	FILE *out;
-	if (!(out = fs_fopen(out_path, "wb"))) {
+	if (!(out = fs_fopen(wk_str(wk, out_path), "wb"))) {
 		return false;
 	}
 
@@ -250,18 +252,80 @@ generate_config(struct workspace *wk, uint32_t dict, uint32_t node, const char *
 	return ret;
 }
 
+static bool
+configure_file_with_command(struct workspace *wk, uint32_t node,
+	uint32_t command, uint32_t input, uint32_t out_path, uint32_t depfile,
+	bool capture)
+{
+	uint32_t args, output_arr;
+
+	{
+		uint32_t f;
+		make_obj(wk, &f, obj_file)->dat.file = out_path;
+		make_obj(wk, &output_arr, obj_array);
+		obj_array_push(wk, output_arr, f);
+	}
+
+	if (!process_custom_target_commandline(wk, node, command, input,
+		output_arr, depfile, &args)) {
+		return false;
+	}
+
+	char *argv[MAX_ARGS];
+	if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
+		interp_error(wk, node, "failed to prepare arguments");
+		return false;
+	}
+
+	bool ret = false;
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	char *const *envp;
+
+	if (!build_envp(wk, &envp, build_envp_flag_subdir)) {
+		goto ret;
+	} else if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
+		interp_error(wk, node, "error running command: %s", cmd_ctx.err_msg);
+		goto ret;
+	}
+
+	if (cmd_ctx.status != 0) {
+		interp_error(wk, node, "error running command: %s", cmd_ctx.err);
+		goto ret;
+	}
+
+	if (capture) {
+		ret = fs_write(wk_str(wk, out_path), (uint8_t *)cmd_ctx.out, strlen(cmd_ctx.out));
+	} else {
+		ret = true;
+	}
+ret:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
+}
+
 bool
 func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
+	uint32_t input_arr = 0, output_str;
 	enum kwargs {
 		kw_configuration,
 		kw_input,
 		kw_output,
+		kw_command,
+		kw_capture,
+		kw_install,
+		kw_install_dir,
+		kw_depfile, // TODO: ignored
 	};
 	struct args_kw akw[] = {
-		[kw_configuration] = { "configuration", obj_any, .required = true },
-		[kw_input] = { "input", },
+		[kw_configuration] = { "configuration", obj_any },
+		[kw_input] = { "input", obj_any, },
 		[kw_output] = { "output", obj_string, .required = true },
+		[kw_command] = { "command", obj_array },
+		[kw_capture] = { "capture", obj_bool },
+		[kw_install] = { "install", obj_bool },
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_depfile] = { "depfile", obj_string },
 		0
 	};
 
@@ -269,23 +333,10 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		return false;
 	}
 
-	uint32_t dict;
-
-	switch (get_obj(wk, akw[kw_configuration].val)->type) {
-	case obj_dict:
-		dict = akw[kw_configuration].val;
-		break;
-	case obj_configuration_data:
-		dict = get_obj(wk, akw[kw_configuration].val)->dat.configuration_data.dict;
-		break;
-	default:
-		interp_error(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
-			obj_type_to_s(get_obj(wk, akw[kw_configuration].val)->type));
-		return false;
-	}
-
-	{ /* setup out file */
+	{         /* setup out file */
 		const char *out = wk_objstr(wk, akw[kw_output].val);
+		char out_path[PATH_MAX];
+
 		if (!path_is_basename(out)) {
 			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path seperator", out);
 			return false;
@@ -295,42 +346,89 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		char buf[PATH_MAX];
-		if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), out)) {
+		if (!path_join(out_path, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), out)) {
 			return false;
 		}
 
-		make_obj(wk, obj, obj_file)->dat.file = wk_str_push(wk, buf);
+		output_str = wk_str_push(wk, out_path);
+		make_obj(wk, obj, obj_file)->dat.file = output_str;
+	}
+
+	if ((akw[kw_command].set && akw[kw_configuration].set)
+	    || (!akw[kw_command].set && !akw[kw_configuration].set)) {
+		interp_error(wk, args_node, "you must pass either command: or configuration:");
+		return false;
 	}
 
 	if (akw[kw_input].set) {
-		uint32_t input_arr, input;
 		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
 			return false;
 		}
+	}
 
-		/* NOTE: when meson gets an empty array as the input argument
-		 * to configure file, it acts like the input keyword wasn't set.
-		 * We throw an error.
-		 */
-		if (get_obj(wk, input_arr)->dat.arr.len != 1) {
-			interp_error(wk, akw[kw_input].node, "configure_file needs exactly one input (got %d)",
-				get_obj(wk, input_arr)->dat.arr.len);
-			return false;
+	if (akw[kw_command].set) {
+		bool capture = false;
+		if (akw[kw_capture].set) {
+			capture = get_obj(wk, akw[kw_capture].val)->dat.boolean;
 		}
 
-		if (!obj_array_index(wk, input_arr, 0, &input)) {
-			return false;
-		}
-
-		if (!substitute_config(wk, dict, akw[kw_input].node,
-			wk_file_path(wk, input), wk_file_path(wk, *obj))) {
+		if (!configure_file_with_command(wk, akw[kw_command].node,
+			akw[kw_command].val, input_arr, output_str,
+			akw[kw_depfile].val, capture)) {
 			return false;
 		}
 	} else {
-		if (!generate_config(wk, dict, akw[kw_input].node, wk_file_path(wk, *obj))) {
-			return true;
+		uint32_t dict, conf = akw[kw_configuration].val;
+
+		switch (get_obj(wk, conf)->type) {
+		case obj_dict:
+			dict = conf;
+			break;
+		case obj_configuration_data:
+			dict = get_obj(wk, conf)->dat.configuration_data.dict;
+			break;
+		default:
+			interp_error(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
+				obj_type_to_s(get_obj(wk, conf)->type));
+			return false;
 		}
+
+		if (akw[kw_input].set) {
+			uint32_t input;
+
+			/* NOTE: when meson gets an empty array as the input argument
+			 * to configure file, it acts like the input keyword wasn't set.
+			 * We throw an error.
+			 */
+			if ((akw[kw_command].set && get_obj(wk, input_arr)->dat.arr.len == 0)
+			    || get_obj(wk, input_arr)->dat.arr.len != 1) {
+				interp_error(wk, akw[kw_input].node, "configure_file with configuration: needs exactly one input (got %d), or omit the input keyword",
+					get_obj(wk, input_arr)->dat.arr.len);
+				return false;
+			}
+
+			if (!obj_array_index(wk, input_arr, 0, &input)) {
+				return false;
+			}
+			if (!substitute_config(wk, dict, akw[kw_input].node,
+				wk_file_path(wk, input), output_str)) {
+				return false;
+			}
+		} else {
+			if (!generate_config(wk, dict, akw[kw_configuration].node, output_str)) {
+				return false;
+			}
+		}
+	}
+
+	if ((akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean)
+	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
+		if (!akw[kw_install_dir].set) {
+			interp_error(wk, akw[kw_install].node, "configure_file installation requires install_dir");
+			return false;
+		}
+
+		push_install_target(wk, 0, output_str, akw[kw_install_dir].val, 0);
 	}
 
 	return true;
