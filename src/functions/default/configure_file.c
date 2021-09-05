@@ -31,6 +31,7 @@ buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 
 	strncpy(&(*buf)[*i], str, len);
 	*i += len;
+	(*buf)[*i] = 0;
 }
 
 static const char *mesondefine = "#mesondefine ";
@@ -54,25 +55,21 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 
 	out_len = 0;
 	out_cap = src.len;
-	out_buf = z_malloc(out_cap);
+	out_buf = z_calloc(out_cap, 1);
 
 	uint32_t i, id_start, id_end = 0,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
-	bool reading_id = false;
 	uint32_t elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
+		/* L("%c '%s'", src.src[i], out_buf); */
 		if (src.src[i] == '\n') {
 			start_of_line = i + 1;
 			++line;
 		}
 
-		if (!reading_id && i == start_of_line && strncmp(&src.src[i], mesondefine, mesondefine_len) == 0) {
-			if (i > id_end) {
-				buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
-			}
-
+		if (i == start_of_line && strncmp(&src.src[i], mesondefine, mesondefine_len) == 0) {
 			/* L("%s", out_buf); */
 
 			i += mesondefine_len;
@@ -134,46 +131,59 @@ write_mesondefine:
 				buf_push(&out_buf, &out_cap, &out_len, " ", 1);
 				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 			}
-		} else if (src.src[i] == '@') {
-			if (reading_id) {
-				id_end = i + 1;
-
-				if (i == id_start) {
-					error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
-					return false;
-				} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
-					error_messagef(&src, id_start_line, id_start_col, "key not found in configuration data");
-					return false;
-				}
-
-				const char *sub = NULL;
-				if (!coerce_string(wk, in_node, elem, &sub)) {
-					error_messagef(&src, id_start_line, id_start_col, "unable to substitue value");
-					return false;
-				}
-
-				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
-				reading_id = false;
+		} else if (src.src[i] == '\\') {
+			if (src.src[i + 1] == '@') {
+				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				++i;
+			} else if (src.src[i + 1]) {
+				buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 2);
+				++i;
 			} else {
-				if (i) {
-					buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
-				}
-
-				id_start_line = line;
-				id_start = i + 1;
-				id_start_col = id_start - start_of_line + 1;
-				reading_id = true;
+				buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
 			}
+		} else if (src.src[i] == '@') {
+			// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
+
+			++i;
+			id_start_line = line;
+			id_start = i;
+			id_start_col = id_start - start_of_line + 1;
+
+			while (('a' <= src.src[i] && src.src[i] <= 'z')
+			       || ('A' <= src.src[i] && src.src[i] <= 'Z')
+			       || ('0' <= src.src[i] && src.src[i] <= '9')
+			       || '_' == src.src[i]
+			       || '-' == src.src[i]
+			       ) {
+				++i;
+			}
+
+			id_end = i - 1;
+
+			if (src.src[i] != '@') {
+				i = id_start - 1;
+				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				continue;
+			}
+
+			if (i == id_start) {
+				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
+				return false;
+			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
+				error_messagef(&src, id_start_line, id_start_col, "key not found in configuration data");
+				return false;
+			}
+
+			const char *sub = NULL;
+			if (!coerce_string(wk, in_node, elem, &sub)) {
+				error_messagef(&src, id_start_line, id_start_col, "unable to substitue value");
+				return false;
+			}
+
+			buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
+		} else {
+			buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
 		}
-	}
-
-	if (reading_id) {
-		error_messagef(&src, id_start_line, id_start_col - 1, "missing closing '@'");
-		return false;
-	}
-
-	if (i > id_end) {
-		buf_push(&out_buf, &out_cap, &out_len, &src.src[id_end], i - id_end);
 	}
 
 	if (!fs_write(wk_str(wk, out), (uint8_t *)out_buf, out_len)) {
@@ -303,6 +313,94 @@ ret:
 	return ret;
 }
 
+static bool
+array_to_elem_or_err(struct workspace *wk, uint32_t node, uint32_t arr, uint32_t *res)
+{
+	if (!typecheck(wk, node, arr, obj_array)) {
+		return false;
+	}
+
+	struct obj *a = get_obj(wk, arr);
+
+	if (a->dat.arr.len != 1) {
+		interp_error(wk, node, "expected an array of length 1");
+		return false;
+	}
+
+	obj_array_index(wk, arr, 0, res);
+	return true;
+}
+
+static bool
+is_substr(const char *s, const char *sub, uint32_t *len)
+{
+	*len = strlen(sub);
+	return strncmp(s, sub, *len) == 0;
+}
+
+static bool
+perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_t src, uint32_t input_arr, uint32_t *res)
+{
+	const char *s = wk_objstr(wk, src);
+	uint32_t str = wk_str_push(wk, ""), e = 0, len;
+
+	for (; *s; ++s) {
+		if (is_substr(s, "@BASENAME@", &len)) {
+			if (!array_to_elem_or_err(wk, node, input_arr, &e)) {
+				return false;
+			}
+			assert(e);
+
+			char buf[PATH_MAX], *c;
+			if (!path_basename(buf, PATH_MAX, wk_file_path(wk, e))) {
+				return false;
+			}
+
+			if ((c = strrchr(buf, '.'))) {
+				*c = 0;
+			}
+
+			wk_str_app(wk, &str, buf);
+			s += len - 1;
+		} else if (is_substr(s, "@PLAINNAME@", &len)) {
+			if (!array_to_elem_or_err(wk, node, input_arr, &e)) {
+				return false;
+			}
+
+			char buf[PATH_MAX];
+			if (!path_basename(buf, PATH_MAX, wk_file_path(wk, e))) {
+				return false;
+			}
+
+			wk_str_app(wk, &str, buf);
+			s += len - 1;
+		} else {
+			wk_str_appn(wk, &str, s, 1);
+		}
+	}
+
+	make_obj(wk, res, obj_string)->dat.str = str;
+	return true;
+}
+
+static bool
+exclusive_or(bool *vals, uint32_t len)
+{
+	uint32_t i;
+	bool found = false;
+	for (i = 0; i < len; ++i) {
+		if (vals[i]) {
+			if (found) {
+				return false;
+			} else {
+				found = true;
+			}
+		}
+	}
+
+	return found;
+}
+
 bool
 func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
@@ -315,6 +413,8 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		kw_capture,
 		kw_install,
 		kw_install_dir,
+		kw_copy,
+		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
 	};
 	struct args_kw akw[] = {
@@ -325,6 +425,8 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_copy] = { "copy", obj_bool },
+		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
 		0
 	};
@@ -333,9 +435,25 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		return false;
 	}
 
-	{         /* setup out file */
-		const char *out = wk_objstr(wk, akw[kw_output].val);
+	if (akw[kw_input].set) {
+		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
+			return false;
+		}
+	} else {
+		// set this so we can use it in error handling later
+		akw[kw_input].node = args_node;
+	}
+
+	{       /* setup out file */
+		uint32_t subd;
+		if (!perform_output_string_substitutions(wk, akw[kw_output].node,
+			akw[kw_output].val, input_arr, &subd)) {
+			return false;
+		}
+
+		const char *out = wk_objstr(wk, subd);
 		char out_path[PATH_MAX];
+
 
 		if (!path_is_basename(out)) {
 			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path seperator", out);
@@ -350,20 +468,14 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
+		LOG_I("configuring '%s", out_path);
 		output_str = wk_str_push(wk, out_path);
 		make_obj(wk, obj, obj_file)->dat.file = output_str;
 	}
 
-	if ((akw[kw_command].set && akw[kw_configuration].set)
-	    || (!akw[kw_command].set && !akw[kw_configuration].set)) {
-		interp_error(wk, args_node, "you must pass either command: or configuration:");
+	if (!exclusive_or((bool []) { akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
+		interp_error(wk, args_node, "you must pass either command:, configuration:, or copy:");
 		return false;
-	}
-
-	if (akw[kw_input].set) {
-		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
-			return false;
-		}
 	}
 
 	if (akw[kw_command].set) {
@@ -375,6 +487,21 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		if (!configure_file_with_command(wk, akw[kw_command].node,
 			akw[kw_command].val, input_arr, output_str,
 			akw[kw_depfile].val, capture)) {
+			return false;
+		}
+	} else if (akw[kw_copy].set) {
+		uint32_t input;
+
+		if (!array_to_elem_or_err(wk, akw[kw_input].node, input_arr, &input)) {
+			return false;
+		}
+
+		struct source src = { 0 };
+		if (!fs_read_entire_file(wk_file_path(wk, input), &src)) {
+			return false;
+		}
+
+		if (!fs_write(wk_str(wk, output_str), (uint8_t *)src.src, src.len)) {
 			return false;
 		}
 	} else {
@@ -400,16 +527,10 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			 * to configure file, it acts like the input keyword wasn't set.
 			 * We throw an error.
 			 */
-			if ((akw[kw_command].set && get_obj(wk, input_arr)->dat.arr.len == 0)
-			    || get_obj(wk, input_arr)->dat.arr.len != 1) {
-				interp_error(wk, akw[kw_input].node, "configure_file with configuration: needs exactly one input (got %d), or omit the input keyword",
-					get_obj(wk, input_arr)->dat.arr.len);
+			if (!array_to_elem_or_err(wk, akw[kw_input].node, input_arr, &input)) {
 				return false;
 			}
 
-			if (!obj_array_index(wk, input_arr, 0, &input)) {
-				return false;
-			}
 			if (!substitute_config(wk, dict, akw[kw_input].node,
 				wk_file_path(wk, input), output_str)) {
 				return false;
@@ -428,7 +549,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		push_install_target(wk, 0, output_str, akw[kw_install_dir].val, 0);
+		push_install_target(wk, 0, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, 0);
 	}
 
 	return true;
