@@ -730,6 +730,8 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	make_obj(wk, &ctx.implicit_deps, obj_array);
 	make_obj(wk, &ctx.include_dirs, obj_array);
 
+	obj_array_push(wk, ctx.include_dirs, make_str(wk, wk->build_root));
+
 	enum linker_type linker;
 
 	{ /* determine linker */
