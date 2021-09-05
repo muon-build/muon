@@ -13,6 +13,8 @@
 #include "platform/mem.h"
 #include "platform/run_cmd.h"
 
+extern char *const *environ;
+
 static bool
 copy_pipe(int pipe, char **dest)
 {
@@ -47,6 +49,10 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 	pid_t pid;
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
+
+	if (!envp) {
+		envp = environ;
+	}
 
 	const char *cmd;
 	if (!fs_find_cmd(_cmd, &cmd)) {
