@@ -325,7 +325,7 @@ bool
 path_basename(char *buf, uint32_t len, const char *path)
 {
 	int32_t i;
-	uint32_t j;
+	uint32_t j = 0;
 
 	assert(len);
 
