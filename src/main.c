@@ -223,8 +223,8 @@ static bool
 cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
-		{ "exe", cmd_exe, "run an external command" },
 		{ "eval", cmd_eval, "evaluate a file" },
+		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson langauge repl" },
 		0,
 	};
@@ -326,7 +326,7 @@ err:
 }
 
 static bool
-cmd_build(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *cfg;
@@ -385,14 +385,14 @@ static bool
 cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
-		{ "build", cmd_build, "build the project with default options" },
+		{ "auto", cmd_auto, "build the project with default options" },
 		{ "check", cmd_check, "check if a meson file parses" },
+		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
+		{ "samu", cmd_samu, "run samurai" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "test", cmd_test, "run tests" },
-		{ "install", cmd_install, "install project" },
 		{ "version", cmd_version, "print version information" },
-		{ "samu", cmd_samu, "run samurai" },
 		{ 0 },
 	};
 
@@ -416,7 +416,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	if (cmd) {
 		return cmd(argc, argi, argv);
 	} else {
-		return cmd_build(argc, argi, argv);
+		return cmd_auto(argc, argi, argv);
 	}
 
 	return true;
