@@ -9,6 +9,31 @@
 #include "platform/path.h"
 
 bool
+coerce_string(struct workspace *wk, uint32_t node, uint32_t val, const char **res)
+{
+	struct obj *v = get_obj(wk, val);
+	switch (v->type) {
+	case obj_file:
+		*res = wk_file_path(wk, val);
+		break;
+	case obj_number: {
+		static char num[32] = { 0 };
+		snprintf(num, 31, "%ld", v->dat.num);
+		*res = num;
+		break;
+	}
+	case obj_string: {
+		*res = wk_objstr(wk, val);
+		break;
+	}
+	default:
+		interp_error(wk, node, "unable to coerce '%s' to string", obj_type_to_s(v->type));
+	}
+
+	return true;
+}
+
+bool
 coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
 	struct obj *obj;
