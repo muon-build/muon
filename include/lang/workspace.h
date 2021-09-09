@@ -53,6 +53,7 @@ struct workspace {
 	/* TODO binaries dict */
 	uint32_t binaries;
 	uint32_t install;
+	uint32_t subprojects;
 
 	struct darr strs;
 	struct bucket_array objs;

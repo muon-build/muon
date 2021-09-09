@@ -635,6 +635,11 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
+	// don't re-evaluate the same subproject
+	if (obj_dict_index(wk, wk->subprojects, an[0].val, obj)) {
+		return true;
+	}
+
 	const char *subproj_name = wk_objstr(wk, an[0].val);
 	char cwd[PATH_MAX + 1] = { 0 },
 	     build_dir[PATH_MAX + 1] = { 0 },
@@ -666,6 +671,8 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	make_obj(wk, obj, obj_subproject)->dat.subproj = subproject_id;
+
+	obj_dict_set(wk, wk->subprojects, an[0].val, *obj);
 
 	return true;
 }
