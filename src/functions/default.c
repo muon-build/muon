@@ -87,7 +87,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 		kw_version
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", obj_array },
+		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_license] = { "license" },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
@@ -329,7 +329,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_version] = { "version", obj_string },
-		[kw_include_directories] = { "include_directories", obj_any },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 
@@ -388,7 +388,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_dependencies] = { "dependencies", obj_array },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
@@ -397,9 +397,9 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_extra_files] = { "extra_files", obj_any }, // ignored
 		[kw_target_type] = { "target_type", obj_string },
 		/* lang args */
-		[kw_c_args] = { "c_args", obj_array },
-		[kw_cpp_args] = { "cpp_args", obj_array },
-		[kw_objc_args] = { "objc_args", obj_array },
+		[kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_objc_args] = { "objc_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
@@ -627,7 +627,7 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		kw_default_options,
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", obj_array },
+		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
