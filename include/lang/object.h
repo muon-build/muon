@@ -112,6 +112,7 @@ struct obj {
 			uint32_t name;
 			uint32_t version;
 			uint32_t link_with;
+			uint32_t link_args;
 			uint32_t include_directories;
 			uint32_t flags;
 		} dep;
