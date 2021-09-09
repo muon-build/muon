@@ -321,10 +321,14 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 {
 	enum kwargs {
 		kw_link_with,
+		kw_link_args,
+		kw_version,
 		kw_include_directories,
 	};
 	struct args_kw akw[] = {
-		[kw_link_with] = { "link_with", obj_array },
+		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", obj_any },
 		0
 	};
@@ -345,6 +349,8 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 
 	struct obj *dep = make_obj(wk, obj, obj_dependency);
 	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
+	dep->dat.dep.link_args = akw[kw_link_args].val;
+	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
 
 	if (akw[kw_link_with].set) {

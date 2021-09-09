@@ -355,6 +355,7 @@ static enum iteration_result
 process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct obj *dep = get_obj(wk, val_id);
+	struct write_tgt_iter_ctx *ctx = _ctx;
 
 	if (dep->dat.dep.include_directories) {
 		struct obj *inc = get_obj(wk, dep->dat.dep.include_directories);
@@ -363,6 +364,12 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			_ctx, process_dep_args_includes_iter)) {
 			return ir_err;
 		}
+	}
+
+	if (dep->dat.dep.link_args) {
+		uint32_t dup;
+		obj_array_dup(wk, dep->dat.dep.link_args, &dup);
+		obj_array_extend(wk, ctx->link_args, dup);
 	}
 
 	return ir_cont;
