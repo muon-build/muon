@@ -230,7 +230,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		[kw_depfile]     = { "depfile", obj_string },
 		0
 	};
-	uint32_t input, output, args, cmd, flags = 0;
+	uint32_t input, output, args, flags = 0;
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -257,10 +257,6 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		return false;
 	}
 
-	if (!obj_array_index(wk, args, 0, &cmd)) {
-		return false;
-	}
-
 	if (akw[kw_capture].set && get_obj(wk, akw[kw_capture].val)->dat.boolean) {
 		flags |= custom_target_capture;
 	}
@@ -268,7 +264,6 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
 	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
 	LOG_I("adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
-	tgt->dat.custom_target.cmd = cmd;
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
 	tgt->dat.custom_target.output = output;

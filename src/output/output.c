@@ -917,18 +917,22 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 		return ir_err;
 	}
 
+	uint32_t cmd;
+	obj_array_index(wk, tgt->dat.custom_target.args, 0, &cmd);
+
 	obj_array_extend(wk, cmdline, tgt_args);
 
 	outputs = join_args_ninja(wk, outputs);
 	inputs = join_args_ninja(wk, inputs);
 	cmdline = join_args_shell(wk, cmdline);
 
+
 	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"
 		" DESCRIPTION = %s\n\n",
 		wk_objstr(wk, outputs),
 		wk_objstr(wk, inputs),
-		wk_objstr(wk, tgt->dat.custom_target.cmd),
+		wk_objstr(wk, cmd),
 		wk_objstr(wk, cmdline),
 		wk_objstr(wk, cmdline)
 		);
