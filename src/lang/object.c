@@ -224,14 +224,13 @@ obj_array_in_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 bool
-obj_array_in(struct workspace *wk, uint32_t l_id, uint32_t r_id, bool *res)
+obj_array_in(struct workspace *wk, obj arr, obj val)
 {
-	struct obj_array_in_iter_ctx ctx = { .l_id = l_id };
-	if (!obj_array_foreach(wk, r_id, &ctx, obj_array_in_iter)) {
+	struct obj_array_in_iter_ctx ctx = { .l_id = arr };
+	if (!obj_array_foreach(wk, val, &ctx, obj_array_in_iter)) {
 		return false;
 	}
 
-	*res = ctx.res;
 	return true;
 }
 

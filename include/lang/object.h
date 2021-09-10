@@ -184,11 +184,11 @@ typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *
 void obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id);
 bool obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb);
 bool obj_array_foreach_flat(struct workspace *wk, uint32_t arr_id, void *usr_ctx, obj_array_iterator cb);
-bool obj_array_in(struct workspace *wk, uint32_t l_id, uint32_t r_id, bool *res);
 bool obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res);
 void obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id);
 bool obj_array_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res);
 bool obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint32_t *obj);
+bool obj_array_in(struct workspace *wk, obj arr, obj val);
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, uint32_t key, uint32_t val);
 bool obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb);

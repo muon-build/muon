@@ -238,10 +238,7 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct check_array_opt_ctx *ctx = _ctx;
 
-	bool res;
-	if (!obj_array_in(wk, val, ctx->choices->val, &res)) {
-		return ir_err;
-	} else if (!res) {
+	if (!obj_array_in(wk, val, ctx->choices->val)) {
 		interp_error(wk, ctx->choices->node, "array element '%s' is not a valid choice", wk_objstr(wk, val));
 		return ir_err;
 	}
@@ -425,10 +422,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	switch (type) {
 	case op_combo: {
-		bool res;
-		if (!obj_array_in(wk, val, akw[kw_choices].val, &res)) {
-			return false;
-		} else if (!res) {
+		if (!obj_array_in(wk, val, akw[kw_choices].val)) {
 			interp_error(wk, akw[kw_choices].node, "'%s' is not valid for '%s'",
 				wk_objstr(wk, val), wk_objstr(wk, an[0].val));
 			return false;
