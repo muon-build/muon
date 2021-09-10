@@ -41,7 +41,7 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
 	}
 
 	if (*i < 0) {
-		*i += arr->dat.n;
+		*i += arr->dat.arr.len;
 	}
 
 	return true;
@@ -370,15 +370,15 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	}
 
 	struct obj *arr = make_obj(wk, obj, obj_array);
-	arr->dat.arr.l = l;
+	arr->dat.arr.val = l;
 
-	if ((arr->dat.arr.have_r = have_c)) {
+	if ((arr->dat.arr.have_next = have_c)) {
 		struct obj *arr_r = get_obj(wk, r);
 		assert(arr_r->type == obj_array);
 
 		arr->dat.arr.len = arr_r->dat.arr.len + 1;
 		arr->dat.arr.tail = arr_r->dat.arr.tail;
-		arr->dat.arr.r = r;
+		arr->dat.arr.next = r;
 	} else {
 		arr->dat.arr.len = 1;
 		arr->dat.arr.tail = *obj;
@@ -430,9 +430,9 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 
 	struct obj *dict = make_obj(wk, obj, obj_dict);
 	dict->dat.dict.key = key;
-	dict->dat.dict.l = value;
+	dict->dat.dict.val = value;
 
-	if ((dict->dat.dict.have_r = have_c)) {
+	if ((dict->dat.dict.have_next = have_c)) {
 		struct obj *dict_r = get_obj(wk, tail);
 		assert(dict_r->type == obj_dict);
 
@@ -443,7 +443,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 
 		dict->dat.dict.len = dict_r->dat.dict.len + 1;
 		dict->dat.dict.tail = dict_r->dat.dict.tail;
-		dict->dat.dict.r = tail;
+		dict->dat.dict.next = tail;
 	} else {
 		dict->dat.dict.len = 1;
 		dict->dat.dict.tail = *obj;
@@ -554,9 +554,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	case comp_not_in:
 		switch (get_obj(wk, obj_r_id)->type) {
 		case obj_array:
-			if (!obj_array_in(wk, obj_l_id, obj_r_id, &res)) {
-				return false;
-			}
+			res = obj_array_in(wk, obj_l_id, obj_r_id);
 			break;
 		case obj_dict:
 			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {

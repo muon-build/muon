@@ -124,7 +124,7 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, arr_id)->dat.arr.l)) {
+		switch (cb(wk, ctx, get_obj(wk, arr_id)->dat.arr.val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -133,10 +133,10 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 			return false;
 		}
 
-		if (!get_obj(wk, arr_id)->dat.arr.have_r) {
+		if (!get_obj(wk, arr_id)->dat.arr.have_next) {
 			break;
 		}
-		arr_id = get_obj(wk, arr_id)->dat.arr.r;
+		arr_id = get_obj(wk, arr_id)->dat.arr.next;
 	}
 
 	return true;
@@ -185,21 +185,21 @@ obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id)
 	if (!(arr = get_obj(wk, arr_id))->dat.arr.len) {
 		arr->dat.arr.tail = arr_id;
 		arr->dat.arr.len = 1;
-		arr->dat.arr.l = child_id;
+		arr->dat.arr.val = child_id;
 		return;
 	}
 
 	child_arr = make_obj(wk, &child_arr_id, obj_array);
-	child_arr->dat.arr.l = child_id;
+	child_arr->dat.arr.val = child_id;
 
 	arr = get_obj(wk, arr_id);
 	assert(arr->type == obj_array);
 
 	tail = get_obj(wk, arr->dat.arr.tail);
 	assert(tail->type == obj_array);
-	assert(!tail->dat.arr.have_r);
-	tail->dat.arr.have_r = true;
-	tail->dat.arr.r = child_arr_id;
+	assert(!tail->dat.arr.have_next);
+	tail->dat.arr.have_next = true;
+	tail->dat.arr.next = child_arr_id;
 
 	arr->dat.arr.tail = child_arr_id;
 	++arr->dat.arr.len;
@@ -311,9 +311,9 @@ obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
 
 	tail = get_obj(wk, a->dat.arr.tail);
 	assert(tail->type == obj_array);
-	assert(!tail->dat.arr.have_r);
-	tail->dat.arr.have_r = true;
-	tail->dat.arr.r = b_id;
+	assert(!tail->dat.arr.have_next);
+	tail->dat.arr.have_next = true;
+	tail->dat.arr.next = b_id;
 
 	a->dat.arr.tail = b->dat.arr.tail;
 	a->dat.arr.len += b->dat.arr.len;
@@ -375,7 +375,7 @@ obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_ite
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, dict_id)->dat.dict.key, get_obj(wk, dict_id)->dat.dict.l)) {
+		switch (cb(wk, ctx, get_obj(wk, dict_id)->dat.dict.key, get_obj(wk, dict_id)->dat.dict.val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -384,10 +384,10 @@ obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_ite
 			return false;
 		}
 
-		if (!get_obj(wk, dict_id)->dat.dict.have_r) {
+		if (!get_obj(wk, dict_id)->dat.dict.have_next) {
 			break;
 		}
-		dict_id = get_obj(wk, dict_id)->dat.dict.r;
+		dict_id = get_obj(wk, dict_id)->dat.dict.next;
 	}
 
 	return true;
@@ -491,14 +491,14 @@ _obj_dict_index(struct workspace *wk, uint32_t dict_id,
 		/* L("%d, %s, '%s'", k_id, obj_type_to_s(get_obj(wk, k_id)->type), wk_objstr(wk, k_id)); */
 
 		if (comp(wk, key, k_id)) {
-			*res = &get_obj(wk, dict_id)->dat.dict.l;
+			*res = &get_obj(wk, dict_id)->dat.dict.val;
 			return true;
 		}
 
-		if (!get_obj(wk, dict_id)->dat.dict.have_r) {
+		if (!get_obj(wk, dict_id)->dat.dict.have_next) {
 			break;
 		}
-		dict_id = get_obj(wk, dict_id)->dat.dict.r;
+		dict_id = get_obj(wk, dict_id)->dat.dict.next;
 	}
 
 	return false;
@@ -550,7 +550,7 @@ _obj_dict_set(struct workspace *wk, uint32_t dict_id,
 	/* empty dict */
 	if (!(dict = get_obj(wk, dict_id))->dat.dict.len) {
 		dict->dat.dict.key = key_id;
-		dict->dat.dict.l = val_id;
+		dict->dat.dict.val = val_id;
 		dict->dat.dict.tail = dict_id;
 		++dict->dat.dict.len;
 		return;
@@ -567,13 +567,13 @@ _obj_dict_set(struct workspace *wk, uint32_t dict_id,
 	/* set new value */
 	dict = make_obj(wk, &tail_id, obj_dict);
 	dict->dat.dict.key = key_id;
-	dict->dat.dict.l = val_id;
+	dict->dat.dict.val = val_id;
 
 	dict = get_obj(wk, get_obj(wk, dict_id)->dat.dict.tail);
 	assert(dict->type == obj_dict);
-	assert(!dict->dat.dict.have_r);
-	dict->dat.dict.have_r = true;
-	dict->dat.dict.r = tail_id;
+	assert(!dict->dat.dict.have_next);
+	dict->dat.dict.have_next = true;
+	dict->dat.dict.next = tail_id;
 
 	dict = get_obj(wk, dict_id);
 

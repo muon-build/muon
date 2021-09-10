@@ -3,11 +3,6 @@
 
 #include "functions/common.h"
 
-enum module {
-	module_fs,
-	module_count,
-};
-
 extern const char *module_names[module_count];
 
 bool module_lookup(const char *name, enum module *res);

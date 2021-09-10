@@ -9,16 +9,17 @@
 #include "data/darr.h"
 #include "data/hash.h"
 #include "lang/eval.h"
-#include "lang/object.h"
 #include "lang/parser.h"
+
+typedef uint32_t str;
+
+#include "lang/object.h"
 
 struct project {
 	struct hash scope;
 
-	/* wk_strings */
-	uint32_t source_root, cwd, build_dir, subproject_name;
-	/* objects */
-	uint32_t opts, compilers, targets, tests;
+	str source_root, cwd, build_dir, subproject_name;
+	obj opts, compilers, targets, tests;
 
 	struct {
 		uint32_t name;

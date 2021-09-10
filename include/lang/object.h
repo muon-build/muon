@@ -9,8 +9,6 @@
 #include "compilers.h"
 #include "iterator.h"
 
-struct workspace;
-
 enum obj_type {
 	obj_any, // used for argument type checking
 	obj_default,
@@ -44,6 +42,11 @@ enum obj_type {
 	ARG_TYPE_ARRAY_OF = 1 << 20,
 };
 
+typedef uint32_t obj;
+
+// this has to be included here so that obj_type and obj can be defined already
+#include "lang/workspace.h"
+
 enum tgt_type {
 	tgt_executable,
 	tgt_library
@@ -64,64 +67,63 @@ enum custom_target_flags {
 	custom_target_capture = 1 << 0,
 };
 
+enum module {
+	module_fs,
+	module_count,
+};
+
 struct obj {
 	enum obj_type type;
 	union {
-		uint64_t n;
-		uint32_t str;
+		str str;
+		str file;
 		int64_t num;
 		bool boolean;
+		uint32_t subproj;
+		enum module module;
 		struct {
-			uint32_t l; // value
-			uint32_t r; // tail
-			uint32_t tail;
+			obj val; // obj_any
+			obj next; // obj_array
+			obj tail; // obj_array
 			uint32_t len;
-			bool have_r;
+			bool have_next;
 		} arr;
 		struct {
-			uint32_t key;
-			uint32_t l; // value
-			uint32_t r; // tail
-			uint32_t tail;
+			obj key; // obj_string
+			obj val; // obj_any
+			obj next; // obj_array
+			obj tail; // obj_array
 			uint32_t len;
-			bool have_r;
+			bool have_next;
 		} dict;
-		uint32_t file;
 		struct {
-			uint32_t name;
-			uint32_t build_name;
-			uint32_t cwd;
-			uint32_t build_dir;
-			uint32_t src;
-			uint32_t link_with;
-			uint32_t include_directories;
-			uint32_t deps;
-			uint32_t args;
-			uint32_t link_args;
+			str name;
+			str build_name;
+			str cwd;
+			str build_dir;
+			obj src; // obj_array
+			obj link_with; // obj_array
+			obj include_directories; // obj_array
+			obj deps; // obj_array
+			obj args; // obj_dict
+			obj link_args; // obj_array
 			enum tgt_type type;
 		} tgt;
 		struct {
-			uint32_t name;
-			uint32_t cmd;
-			uint32_t args;
-			uint32_t input;
-			uint32_t output;
-			uint32_t flags;
+			str name;
+			obj args; // obj_array
+			obj input; // obj_array
+			obj output; // obj_array
+			enum custom_target_flags flags;
 		} custom_target;
 		struct {
-			uint32_t name;
-			uint32_t version;
-			uint32_t link_with;
-			uint32_t link_args;
-			uint32_t include_directories;
-			uint32_t flags;
+			obj name; // obj_string
+			obj version; // obj_string
+			obj link_with; // obj_array
+			obj link_args; // obj_array
+			obj include_directories; // obj_array
+			enum dep_flags flags;
 		} dep;
-		struct {
-			uint32_t def;
-			uint32_t args;
-			uint32_t body;
-		} func;
-		uint32_t subproj;
 		struct {
 			enum feature_opt_state state;
 		} feature_opt;
@@ -130,33 +132,33 @@ struct obj {
 			uint32_t full_path;
 		} external_program;
 		struct {
+			str full_path;
 			bool found;
-			uint32_t full_path;
 		} external_library;
 		struct {
-			uint32_t out, err;
-			int status;
+			str out;
+			str err;
+			int32_t status;
 		} run_result;
 		struct {
-			uint32_t dict;
+			obj dict; // obj_dict
 		} configuration_data;
 		struct {
-			uint32_t name;
-			uint32_t exe;
-			uint32_t args;
+			obj name; // obj_string
+			obj exe; // obj_string
+			obj args; // obj_array
 			bool should_fail;
 		} test;
 		struct {
+			str name;
+			str version;
 			enum compiler_type type;
 			enum compiler_language lang;
-			uint32_t name; // str
-			uint32_t version; // str
 		} compiler;
-		uint32_t module;
 		struct {
-			uint32_t base_path;
-			uint32_t filename;
-			uint32_t install_dir;
+			str base_path;
+			str filename;
+			str install_dir;
 			uint32_t install_mode;
 		} install_target;
 	} dat;
