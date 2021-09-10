@@ -861,8 +861,8 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
 		break;
 	default:
-		LOG_E("unable to convert '%s' to string", obj_type_to_s(t));
-		return false;
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<obj %s>", obj_type_to_s(t));
+		return true;
 	}
 
 	*w = ctx.i;
