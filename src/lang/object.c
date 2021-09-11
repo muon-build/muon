@@ -351,8 +351,6 @@ obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 		return false;
 	}
 
-	return false;
-
 	struct obj_array_join_ctx ctx = {
 		.join = get_obj(wk, join)->dat.str,
 		.res = res,
