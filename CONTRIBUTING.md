@@ -83,17 +83,17 @@ will cause `interp_args` to do the following things:
 ## Workspace
 
 The workspace is a structure that contains all the data for an entire build
-setup, including all subprojects, ast, options, objects, strings.  Most
+setup, including all subprojects, AST, options, objects, strings.  Most
 interpreter related functions take a workspace as one of their arguments.
 
 ## Objects, strings, and `uint32_t`
 
 All objects and strings are stored and passed by id, rather than pointer.  Until
 recently, all these ids were `uint32_t`s.  Since that hurts readability, and it
-is somewhat inconvinent to type, `obj` and `str` (both `uint32_t` typedefs) were
-introduced.  While these don't help with C typechecking unfortunately, they do
-help document the code, and are also convinent to type.  Internally, these ids
-are tagged and a runtime assert should catch any mix-ups.
+is somewhat inconvenient to type, `obj` and `str` (both `uint32_t` typedefs)
+were introduced.  While these don't help with C type checking unfortunately,
+they do help document the code, and are also convenient to type.  Internally,
+these ids are tagged and a runtime assert should catch any mix-ups.
 
 Currently, the migration from `uint32_t` is in progress, so be aware that some
 code still refers to strings and objects that way.
@@ -120,7 +120,7 @@ errors.
 
 You may be wondering, what about resource cleanup? Garbage collection?  Muon's
 current approach is to cleanup only once at the very end.  Why? Meson is not a
-turing-complete language, so we don't need to worry about long running programs.
+Turing-complete language, so we don't need to worry about long running programs.
 Furthermore, comparing `meson setup` to `muon setup` on this project tells us
 that even with this naive approach, we are still doing far better than `meson`.
 
