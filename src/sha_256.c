@@ -1,5 +1,7 @@
 #include "posix.h"
 
+#include <string.h>
+
 #include "sha_256.h"
 
 #define CHUNK_SIZE 64
