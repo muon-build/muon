@@ -602,6 +602,8 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		}
 		break;
 	}
+	default: assert(false && "unreachable"); res = false;
+		break;
 	}
 
 	obj = make_obj(wk, obj_id, obj_bool);
