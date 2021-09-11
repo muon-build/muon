@@ -14,7 +14,7 @@ func_has_key(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	make_obj(wk, obj, obj_bool)->dat.boolean = obj_dict_in(wk, an[0].val, rcvr);
+	make_obj(wk, obj, obj_bool)->dat.boolean = obj_dict_in(wk, rcvr, an[0].val);
 	return true;
 }
 

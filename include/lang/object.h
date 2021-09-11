@@ -165,9 +165,9 @@ struct obj {
 };
 
 const char *obj_type_to_s(enum obj_type t);
-bool obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len);
-bool obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id);
-bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret);
+bool obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len);
+bool obj_equal(struct workspace *wk, obj left, obj right);
+bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 
 bool obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
 __attribute__ ((format(printf, 4, 0)));
@@ -180,24 +180,24 @@ __attribute__ ((format(printf, 3, 4)));
 bool obj_printf(struct workspace *wk, const char *fmt, ...)
 __attribute__ ((format(printf, 2, 3)));
 
-typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, uint32_t val);
-void obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id);
-bool obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb);
-bool obj_array_foreach_flat(struct workspace *wk, uint32_t arr_id, void *usr_ctx, obj_array_iterator cb);
-bool obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res);
-void obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id);
-bool obj_array_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res);
-bool obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint32_t *obj);
+typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
+void obj_array_push(struct workspace *wk, obj arr, obj child);
+bool obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb);
+bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb);
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
+bool obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
+void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
+bool obj_array_dup(struct workspace *wk, obj arr, obj *res);
+bool obj_array_join(struct workspace *wk, obj arr, obj join, obj *res);
 
-typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, uint32_t key, uint32_t val);
-bool obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb);
-bool obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id);
-bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res);
-bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res);
-void obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id);
-bool obj_dict_dup(struct workspace *wk, uint32_t dict_id, uint32_t *res);
-bool obj_dict_merge(struct workspace *wk, uint32_t dict_a_id, uint32_t dict_b_id, uint32_t *res);
-void obj_dict_seti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t v);
-bool obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v);
+typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, obj key, obj val);
+bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb);
+bool obj_dict_in(struct workspace *wk, obj dict, obj key);
+bool obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res);
+bool obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res);
+void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
+bool obj_dict_dup(struct workspace *wk, obj dict, obj *res);
+bool obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);
+void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);
+bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
 #endif

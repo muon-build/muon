@@ -436,7 +436,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		struct obj *dict_r = get_obj(wk, tail);
 		assert(dict_r->type == obj_dict);
 
-		if (obj_dict_in(wk, key, tail)) {
+		if (obj_dict_in(wk, tail, key)) {
 			interp_error(wk, n->l, "key '%s' is duplicated", wk_objstr(wk, key));
 			return false;
 		}
@@ -554,14 +554,14 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	case comp_not_in:
 		switch (get_obj(wk, obj_r_id)->type) {
 		case obj_array:
-			res = obj_array_in(wk, obj_l_id, obj_r_id);
+			res = obj_array_in(wk, obj_r_id, obj_l_id);
 			break;
 		case obj_dict:
 			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
 				return false;
 			}
 
-			res = obj_dict_in(wk, obj_l_id, obj_r_id);
+			res = obj_dict_in(wk, obj_r_id, obj_l_id);
 			break;
 		default:
 			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj(wk, obj_r_id)->type));

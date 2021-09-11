@@ -239,7 +239,7 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct check_array_opt_ctx *ctx = _ctx;
 
-	if (!obj_array_in(wk, val, ctx->choices->val)) {
+	if (!obj_array_in(wk, ctx->choices->val, val)) {
 		interp_error(wk, ctx->choices->node, "array element '%s' is not a valid choice", wk_objstr(wk, val));
 		return ir_err;
 	}
@@ -423,7 +423,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	switch (type) {
 	case op_combo: {
-		if (!obj_array_in(wk, val, akw[kw_choices].val)) {
+		if (!obj_array_in(wk, akw[kw_choices].val, val)) {
 			interp_error(wk, akw[kw_choices].node, "'%s' is not valid for '%s'",
 				wk_objstr(wk, val), wk_objstr(wk, an[0].val));
 			return false;
@@ -458,7 +458,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		return false;
 	}
 
-	if (obj_dict_in(wk, an[0].val, current_project(wk)->opts)) {
+	if (obj_dict_in(wk, current_project(wk)->opts, an[0].val)) {
 		interp_error(wk, an[0].node, "duplicate option name");
 		return false;
 	}

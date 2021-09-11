@@ -50,19 +50,19 @@ obj_type_to_s(enum obj_type t)
 }
 
 struct obj_equal_iter_ctx {
-	uint32_t other_container;
+	obj other_container;
 	uint32_t i;
 };
 
 static enum iteration_result
-obj_equal_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
+obj_equal_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_equal_iter_ctx *ctx = _ctx;
-	uint32_t r_id;
+	obj r;
 
-	obj_array_index(wk, ctx->other_container, ctx->i, &r_id);
+	obj_array_index(wk, ctx->other_container, ctx->i, &r);
 
-	if (!obj_equal(wk, val, r_id)) {
+	if (!obj_equal(wk, val, r)) {
 		return ir_err;
 	}
 
@@ -71,14 +71,14 @@ obj_equal_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 bool
-obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
+obj_equal(struct workspace *wk, obj left, obj right)
 {
-	if (l_id == r_id) {
+	if (left == right) {
 		return true;
 	}
 
-	struct obj *l = get_obj(wk, l_id),
-		   *r = get_obj(wk, r_id);
+	struct obj *l = get_obj(wk, left),
+		   *r = get_obj(wk, right);
 
 	if (l->type != r->type) {
 		return false;
@@ -95,11 +95,11 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
 		return l->dat.boolean == r->dat.boolean;
 	case obj_array: {
 		struct obj_equal_iter_ctx ctx = {
-			.other_container = r_id,
+			.other_container = right,
 		};
 
 		return l->dat.arr.len == r->dat.arr.len
-		       && obj_array_foreach(wk, l_id, &ctx, obj_equal_array_iter);
+		       && obj_array_foreach(wk, left, &ctx, obj_equal_array_iter);
 	}
 	break;
 	case obj_dict:
@@ -115,16 +115,16 @@ obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id)
  */
 
 bool
-obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_iterator cb)
+obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb)
 {
-	assert(get_obj(wk, arr_id)->type == obj_array);
+	assert(get_obj(wk, arr)->type == obj_array);
 
-	if (!get_obj(wk, arr_id)->dat.arr.len) {
+	if (!get_obj(wk, arr)->dat.arr.len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, arr_id)->dat.arr.val)) {
+		switch (cb(wk, ctx, get_obj(wk, arr)->dat.arr.val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -133,10 +133,10 @@ obj_array_foreach(struct workspace *wk, uint32_t arr_id, void *ctx, obj_array_it
 			return false;
 		}
 
-		if (!get_obj(wk, arr_id)->dat.arr.have_next) {
+		if (!get_obj(wk, arr)->dat.arr.have_next) {
 			break;
 		}
-		arr_id = get_obj(wk, arr_id)->dat.arr.next;
+		arr = get_obj(wk, arr)->dat.arr.next;
 	}
 
 	return true;
@@ -148,7 +148,7 @@ struct obj_array_foreach_flat_ctx {
 };
 
 static enum iteration_result
-obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, uint32_t val)
+obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_array_foreach_flat_ctx *ctx = _ctx;
 
@@ -166,56 +166,56 @@ obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 bool
-obj_array_foreach_flat(struct workspace *wk, uint32_t arr_id, void *usr_ctx, obj_array_iterator cb)
+obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb)
 {
 	struct obj_array_foreach_flat_ctx ctx = {
 		.usr_ctx = usr_ctx,
 		.cb = cb,
 	};
 
-	return obj_array_foreach(wk, arr_id, &ctx, obj_array_foreach_flat_iter);
+	return obj_array_foreach(wk, arr, &ctx, obj_array_foreach_flat_iter);
 }
 
 void
-obj_array_push(struct workspace *wk, uint32_t arr_id, uint32_t child_id)
+obj_array_push(struct workspace *wk, obj arr, obj child)
 {
-	uint32_t child_arr_id;
-	struct obj *arr, *tail, *child_arr;
+	obj child_arr;
+	struct obj *a, *tail, *c;
 
-	if (!(arr = get_obj(wk, arr_id))->dat.arr.len) {
-		arr->dat.arr.tail = arr_id;
-		arr->dat.arr.len = 1;
-		arr->dat.arr.val = child_id;
+	if (!(a = get_obj(wk, arr))->dat.arr.len) {
+		a->dat.arr.tail = arr;
+		a->dat.arr.len = 1;
+		a->dat.arr.val = child;
 		return;
 	}
 
-	child_arr = make_obj(wk, &child_arr_id, obj_array);
-	child_arr->dat.arr.val = child_id;
+	c = make_obj(wk, &child_arr, obj_array);
+	c->dat.arr.val = child;
 
-	arr = get_obj(wk, arr_id);
-	assert(arr->type == obj_array);
+	a = get_obj(wk, arr);
+	assert(a->type == obj_array);
 
-	tail = get_obj(wk, arr->dat.arr.tail);
+	tail = get_obj(wk, a->dat.arr.tail);
 	assert(tail->type == obj_array);
 	assert(!tail->dat.arr.have_next);
 	tail->dat.arr.have_next = true;
-	tail->dat.arr.next = child_arr_id;
+	tail->dat.arr.next = child_arr;
 
-	arr->dat.arr.tail = child_arr_id;
-	++arr->dat.arr.len;
+	a->dat.arr.tail = child_arr;
+	++a->dat.arr.len;
 }
 
 struct obj_array_in_iter_ctx {
-	uint32_t l_id;
+	obj l;
 	bool res;
 };
 
 static enum iteration_result
-obj_array_in_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+obj_array_in_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct obj_array_in_iter_ctx *ctx = _ctx;
 
-	if (obj_equal(wk, ctx->l_id, v_id)) {
+	if (obj_equal(wk, ctx->l, v)) {
 		ctx->res = true;
 		return ir_done;
 	}
@@ -226,23 +226,21 @@ obj_array_in_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 bool
 obj_array_in(struct workspace *wk, obj arr, obj val)
 {
-	struct obj_array_in_iter_ctx ctx = { .l_id = arr };
-	if (!obj_array_foreach(wk, val, &ctx, obj_array_in_iter)) {
-		return false;
-	}
+	struct obj_array_in_iter_ctx ctx = { .l = val };
+	obj_array_foreach(wk, arr, &ctx, obj_array_in_iter);
 
-	return true;
+	return ctx.res;
 }
 
-struct obj_array_index_iter_ctx { uint32_t res, i, tgt; };
+struct obj_array_index_iter_ctx { obj res, i, tgt; };
 
 static enum iteration_result
-obj_array_index_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+obj_array_index_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct obj_array_index_iter_ctx *ctx = _ctx;
 
 	if (ctx->i == ctx->tgt) {
-		ctx->res = v_id;
+		ctx->res = v;
 		return ir_done;
 	}
 
@@ -251,13 +249,13 @@ obj_array_index_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 bool
-obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
+obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 {
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
-	assert(i >= 0 && i < get_obj(wk, arr_id)->dat.arr.len);
+	assert(i >= 0 && i < get_obj(wk, arr)->dat.arr.len);
 
-	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {
+	if (!obj_array_foreach(wk, arr, &ctx, obj_array_index_iter)) {
 		LOG_E("obj_array_index failed");
 		return false;
 	}
@@ -266,26 +264,26 @@ obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 	return true;
 }
 
-struct obj_array_dup_ctx { uint32_t *arr; };
+struct obj_array_dup_ctx { obj *arr; };
 
 static enum iteration_result
-obj_array_dup_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+obj_array_dup_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct obj_array_dup_ctx *ctx = _ctx;
 
-	obj_array_push(wk, *ctx->arr, v_id);
+	obj_array_push(wk, *ctx->arr, v);
 
 	return ir_cont;
 }
 
 bool
-obj_array_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
+obj_array_dup(struct workspace *wk, obj arr, obj *res)
 {
 	struct obj_array_dup_ctx ctx = { .arr = res };
 
 	make_obj(wk, res, obj_array);
 
-	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_dup_iter)) {
+	if (!obj_array_foreach(wk, arr, &ctx, obj_array_dup_iter)) {
 		return false;
 	}
 
@@ -293,17 +291,18 @@ obj_array_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res)
 }
 
 void
-obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
+obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 {
 	struct obj *a, *b, *tail;
 
-	assert(get_obj(wk, a_id)->type == obj_array && get_obj(wk, b_id)->type == obj_array);
+	assert(get_obj(wk, arr)->type == obj_array
+		&& get_obj(wk, arr2)->type == obj_array);
 
-	if (!(b = get_obj(wk, b_id))->dat.arr.len) {
+	if (!(b = get_obj(wk, arr2))->dat.arr.len) {
 		return;
 	}
 
-	if (!(a = get_obj(wk, a_id))->dat.arr.len) {
+	if (!(a = get_obj(wk, arr))->dat.arr.len) {
 		*a = *b;
 		return;
 	}
@@ -312,19 +311,19 @@ obj_array_extend(struct workspace *wk, uint32_t a_id, uint32_t b_id)
 	assert(tail->type == obj_array);
 	assert(!tail->dat.arr.have_next);
 	tail->dat.arr.have_next = true;
-	tail->dat.arr.next = b_id;
+	tail->dat.arr.next = arr2;
 
 	a->dat.arr.tail = b->dat.arr.tail;
 	a->dat.arr.len += b->dat.arr.len;
 }
 
 struct obj_array_join_ctx {
-	uint32_t join_id, i, len;
-	uint32_t *obj;
+	obj join, *res;
+	uint32_t i, len;
 };
 
 static enum iteration_result
-obj_array_join_iter(struct workspace *wk, void *_ctx, uint32_t val)
+obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_array_join_ctx *ctx = _ctx;
 
@@ -332,10 +331,10 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		return ir_err;
 	}
 
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_objstr(wk, val));
+	wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, wk_objstr(wk, val));
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, wk_str(wk, ctx->join_id));
+		wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, wk_str(wk, ctx->join));
 	}
 
 	++ctx->i;
@@ -344,20 +343,23 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 bool
-obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint32_t *obj)
+obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 {
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, "");
+	make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, "");
 
-	if (!typecheck_simple_err(wk, join_id, obj_string)) {
+	if (!typecheck_simple_err(wk, join, obj_string)) {
 		return false;
 	}
 
+	return false;
+
 	struct obj_array_join_ctx ctx = {
-		.join_id = get_obj(wk, join_id)->dat.str,
-		.obj = obj,
-		.len = get_obj(wk, a_id)->dat.arr.len
+		.join = get_obj(wk, join)->dat.str,
+		.res = res,
+		.len = get_obj(wk, arr)->dat.arr.len
 	};
-	return obj_array_foreach(wk, a_id, &ctx, obj_array_join_iter);
+
+	return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
 }
 
 /*
@@ -365,16 +367,16 @@ obj_array_join(struct workspace *wk, uint32_t a_id, uint32_t join_id, uint32_t *
  */
 
 bool
-obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_iterator cb)
+obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb)
 {
-	assert(get_obj(wk, dict_id)->type == obj_dict);
+	assert(get_obj(wk, dict)->type == obj_dict);
 
-	if (!get_obj(wk, dict_id)->dat.dict.len) {
+	if (!get_obj(wk, dict)->dat.dict.len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, dict_id)->dat.dict.key, get_obj(wk, dict_id)->dat.dict.val)) {
+		switch (cb(wk, ctx, get_obj(wk, dict)->dat.dict.key, get_obj(wk, dict)->dat.dict.val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -383,35 +385,35 @@ obj_dict_foreach(struct workspace *wk, uint32_t dict_id, void *ctx, obj_dict_ite
 			return false;
 		}
 
-		if (!get_obj(wk, dict_id)->dat.dict.have_next) {
+		if (!get_obj(wk, dict)->dat.dict.have_next) {
 			break;
 		}
-		dict_id = get_obj(wk, dict_id)->dat.dict.next;
+		dict = get_obj(wk, dict)->dat.dict.next;
 	}
 
 	return true;
 }
 
-struct obj_dict_dup_ctx { uint32_t *dict; };
+struct obj_dict_dup_ctx { obj *dict; };
 
 static enum iteration_result
-obj_dict_dup_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+obj_dict_dup_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct obj_dict_dup_ctx *ctx = _ctx;
 
-	obj_dict_set(wk, *ctx->dict, k_id, v_id);
+	obj_dict_set(wk, *ctx->dict, key, val);
 
 	return ir_cont;
 }
 
 bool
-obj_dict_dup(struct workspace *wk, uint32_t dict_id, uint32_t *res)
+obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 {
 	struct obj_dict_dup_ctx ctx = { .dict = res };
 
 	make_obj(wk, res, obj_dict);
 
-	if (!obj_dict_foreach(wk, dict_id, &ctx, obj_dict_dup_iter)) {
+	if (!obj_dict_foreach(wk, dict, &ctx, obj_dict_dup_iter)) {
 		return false;
 	}
 
@@ -419,23 +421,23 @@ obj_dict_dup(struct workspace *wk, uint32_t dict_id, uint32_t *res)
 }
 
 static enum iteration_result
-obj_dict_merge_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+obj_dict_merge_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
-	uint32_t *res = _ctx;
+	obj *res = _ctx;
 
-	obj_dict_set(wk, *res, k_id, v_id);
+	obj_dict_set(wk, *res, key, val);
 
 	return ir_cont;
 }
 
 bool
-obj_dict_merge(struct workspace *wk, uint32_t dict_a_id, uint32_t dict_b_id, uint32_t *res)
+obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res)
 {
-	if (!obj_dict_dup(wk, dict_a_id, res)) {
+	if (!obj_dict_dup(wk, dict, res)) {
 		return false;
 	}
 
-	if (!obj_dict_foreach(wk, dict_b_id, res, obj_dict_merge_iter)) {
+	if (!obj_dict_foreach(wk, dict2, res, obj_dict_merge_iter)) {
 		return false;
 	}
 
@@ -450,6 +452,8 @@ union obj_dict_key_comparison_key {
 	uint32_t num;
 };
 
+/* other is marked uint32_t since it can be used to represent an obj or a
+ * number */
 typedef bool ((*obj_dict_key_comparison_func)(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other));
 
 static bool
@@ -473,48 +477,42 @@ obj_dict_key_comparison_func_int(struct workspace *wk, union obj_dict_key_compar
 }
 
 static bool
-_obj_dict_index(struct workspace *wk, uint32_t dict_id,
+_obj_dict_index(struct workspace *wk, obj dict,
 	union obj_dict_key_comparison_key *key,
 	obj_dict_key_comparison_func comp,
-	uint32_t **res)
+	obj **res)
 
 {
-	if (!get_obj(wk, dict_id)->dat.dict.len) {
+	if (!get_obj(wk, dict)->dat.dict.len) {
 		return false;
 	}
 
-	uint32_t k_id;
 	while (true) {
-		k_id = get_obj(wk, dict_id)->dat.dict.key;
-
-		/* L("%d, %s, '%s'", k_id, obj_type_to_s(get_obj(wk, k_id)->type), wk_objstr(wk, k_id)); */
-
-		if (comp(wk, key, k_id)) {
-			*res = &get_obj(wk, dict_id)->dat.dict.val;
+		if (comp(wk, key, get_obj(wk, dict)->dat.dict.key)) {
+			*res = &get_obj(wk, dict)->dat.dict.val;
 			return true;
 		}
 
-		if (!get_obj(wk, dict_id)->dat.dict.have_next) {
+		if (!get_obj(wk, dict)->dat.dict.have_next) {
 			break;
 		}
-		dict_id = get_obj(wk, dict_id)->dat.dict.next;
+		dict = get_obj(wk, dict)->dat.dict.next;
 	}
 
 	return false;
 }
 
 bool
-obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key,
-	uint32_t key_len, uint32_t *res)
+obj_dict_index_strn(struct workspace *wk, obj dict, const char *str,
+	uint32_t len, obj *res)
 {
 	uint32_t *r;
-	if (!_obj_dict_index(
-		wk,
-		dict_id,
-		&(union obj_dict_key_comparison_key){ .string = { .s = key, .len = key_len, } },
-		obj_dict_key_comparison_func_string,
-		&r
-		)) {
+	union obj_dict_key_comparison_key key = {
+		.string = { .s = str, .len = len, }
+	};
+
+	if (!_obj_dict_index(wk, dict, &key,
+		obj_dict_key_comparison_func_string, &r)) {
 		return false;
 	}
 
@@ -524,84 +522,83 @@ obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key,
 }
 
 bool
-obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res)
+obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res)
 {
-	const char *key = wk_objstr(wk, k_id);
-	return obj_dict_index_strn(wk, dict_id, key, strlen(key), res);
+	const char *k = wk_objstr(wk, key);
+	return obj_dict_index_strn(wk, dict, k, strlen(k), res);
 }
 
 bool
-obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id)
+obj_dict_in(struct workspace *wk, obj dict, obj key)
 {
-	uint32_t res_id;
-	return obj_dict_index(wk, dict_id, k_id, &res_id);
+	obj res;
+	return obj_dict_index(wk, dict, key, &res);
 }
 
 static void
-_obj_dict_set(struct workspace *wk, uint32_t dict_id,
-	obj_dict_key_comparison_func comp, uint32_t key_id, uint32_t val_id)
+_obj_dict_set(struct workspace *wk, obj dict,
+	obj_dict_key_comparison_func comp, obj key, obj val)
 {
-	struct obj *dict; //, *tail;
-	uint32_t tail_id;
+	struct obj *d; //, *tail;
+	obj tail;
 
-	assert(get_obj(wk, dict_id)->type == obj_dict);
+	assert(get_obj(wk, dict)->type == obj_dict);
 
 	/* empty dict */
-	if (!(dict = get_obj(wk, dict_id))->dat.dict.len) {
-		dict->dat.dict.key = key_id;
-		dict->dat.dict.val = val_id;
-		dict->dat.dict.tail = dict_id;
-		++dict->dat.dict.len;
+	if (!(d = get_obj(wk, dict))->dat.dict.len) {
+		d->dat.dict.key = key;
+		d->dat.dict.val = val;
+		d->dat.dict.tail = dict;
+		++d->dat.dict.len;
 		return;
 	}
 
-	uint32_t *r;
-	if (_obj_dict_index(wk, dict_id,
-		&(union obj_dict_key_comparison_key){ .num = key_id },
-		comp, &r)) {
-		*r = val_id;
+	obj *r;
+	union obj_dict_key_comparison_key k = { .num = key };
+	if (_obj_dict_index(wk, dict, &k, comp, &r)) {
+		*r = val;
 		return;
 	}
 
 	/* set new value */
-	dict = make_obj(wk, &tail_id, obj_dict);
-	dict->dat.dict.key = key_id;
-	dict->dat.dict.val = val_id;
+	d = make_obj(wk, &tail, obj_dict);
+	d->dat.dict.key = key;
+	d->dat.dict.val = val;
 
-	dict = get_obj(wk, get_obj(wk, dict_id)->dat.dict.tail);
-	assert(dict->type == obj_dict);
-	assert(!dict->dat.dict.have_next);
-	dict->dat.dict.have_next = true;
-	dict->dat.dict.next = tail_id;
+	d = get_obj(wk, get_obj(wk, dict)->dat.dict.tail);
+	assert(d->type == obj_dict);
+	assert(!d->dat.dict.have_next);
+	d->dat.dict.have_next = true;
+	d->dat.dict.next = tail;
 
-	dict = get_obj(wk, dict_id);
+	d = get_obj(wk, dict);
 
-	dict->dat.dict.tail = tail_id;
-	++dict->dat.dict.len;
+	d->dat.dict.tail = tail;
+	++d->dat.dict.len;
 }
 
 void
-obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id)
+obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 {
-	_obj_dict_set(wk, dict_id, obj_dict_key_comparison_func_objstr, key_id, val_id);
+	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_objstr, key, val);
 }
 
 /* dict convienence functions */
 
 void
-obj_dict_seti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t v)
+obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val)
 {
-	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_int, k, v);
+	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_int, key, val);
 }
 
 bool
-obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v)
+obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 {
-	uint32_t *r;
+	obj *r;
 	if (_obj_dict_index(wk, dict,
-		&(union obj_dict_key_comparison_key){ .num = k },
+		&(union obj_dict_key_comparison_key){ .num = key },
 		obj_dict_key_comparison_func_int, &r)) {
-		*v = *r;
+		*val = *r;
 		return true;
 	}
 
@@ -612,15 +609,15 @@ obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v)
 
 struct obj_clone_ctx {
 	struct workspace *wk_dest;
-	uint32_t container;
+	obj container;
 };
 
 static enum iteration_result
-obj_clone_array_iter(struct workspace *wk_src, void *_ctx, uint32_t val)
+obj_clone_array_iter(struct workspace *wk_src, void *_ctx, obj val)
 {
 	struct obj_clone_ctx *ctx = _ctx;
 
-	uint32_t dest_val;
+	obj dest_val;
 
 	if (!obj_clone(wk_src, ctx->wk_dest, val, &dest_val)) {
 		return ir_err;
@@ -631,11 +628,11 @@ obj_clone_array_iter(struct workspace *wk_src, void *_ctx, uint32_t val)
 }
 
 static enum iteration_result
-obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, uint32_t key, uint32_t val)
+obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, obj key, obj val)
 {
 	struct obj_clone_ctx *ctx = _ctx;
 
-	uint32_t dest_key, dest_val;
+	obj dest_key, dest_val;
 
 	if (!obj_clone(wk_src, ctx->wk_dest, key, &dest_key)) {
 		return ir_err;
@@ -648,7 +645,7 @@ obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, uint32_t key, uint32_t
 }
 
 bool
-obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret)
+obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
 	enum obj_type t = get_obj(wk_src, val)->type;
 	struct obj *obj;
@@ -720,10 +717,10 @@ struct obj_to_s_ctx {
 	uint32_t cont_i, cont_len;
 };
 
-static bool _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *w);
+static bool _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w);
 
 static enum iteration_result
-obj_to_s_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
+obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
 	uint32_t w;
@@ -743,7 +740,7 @@ obj_to_s_array_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static enum iteration_result
-obj_to_s_dict_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
+obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
 	uint32_t w;
@@ -769,14 +766,14 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 }
 
 static bool
-_obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *w)
+_obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 {
 	struct obj_to_s_ctx ctx = { .buf = buf, .len = len };
-	enum obj_type t = get_obj(wk, id)->type;
+	enum obj_type t = get_obj(wk, obj)->type;
 
 	switch (t) {
 	case obj_build_target: {
-		struct obj *tgt = get_obj(wk, id);
+		struct obj *tgt = get_obj(wk, obj);
 		const char *type = NULL;
 		switch (tgt->dat.tgt.type) {
 		case tgt_executable:
@@ -791,7 +788,7 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		break;
 	}
 	case obj_feature_opt:
-		switch (get_obj(wk, id)->dat.feature_opt.state) {
+		switch (get_obj(wk, obj)->dat.feature_opt.state) {
 		case feature_opt_auto:
 			ctx.i += snprintf(buf, len, "'auto'");
 			break;
@@ -805,7 +802,7 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 
 		break;
 	case obj_test: {
-		struct obj *test = get_obj(wk, id);
+		struct obj *test = get_obj(wk, obj);
 		ctx.i += snprintf(buf, len, "test('%s', '%s'",
 			wk_objstr(wk, test->dat.test.name),
 			wk_objstr(wk, test->dat.test.exe)
@@ -828,35 +825,35 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 		break;
 	}
 	case obj_file:
-		ctx.i += snprintf(buf, len, "files('%s')", wk_str(wk, get_obj(wk, id)->dat.file));
+		ctx.i += snprintf(buf, len, "files('%s')", wk_str(wk, get_obj(wk, obj)->dat.file));
 		break;
 	case obj_string:
-		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, id));
+		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, obj));
 		break;
 	case obj_number:
-		ctx.i += snprintf(buf, len, "%ld", (intmax_t)get_obj(wk, id)->dat.num);
+		ctx.i += snprintf(buf, len, "%ld", (intmax_t)get_obj(wk, obj)->dat.num);
 		break;
 	case obj_bool:
-		if (get_obj(wk, id)->dat.boolean) {
+		if (get_obj(wk, obj)->dat.boolean) {
 			ctx.i += snprintf(buf, len, "true");
 		} else {
 			ctx.i += snprintf(buf, len, "false");
 		}
 		break;
 	case obj_array:
-		ctx.cont_len = get_obj(wk, id)->dat.arr.len;
+		ctx.cont_len = get_obj(wk, obj)->dat.arr.len;
 
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, "[");
-		if (!obj_array_foreach(wk, id, &ctx, obj_to_s_array_iter)) {
+		if (!obj_array_foreach(wk, obj, &ctx, obj_to_s_array_iter)) {
 			return false;
 		}
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, "]");
 		break;
 	case obj_dict:
-		ctx.cont_len = get_obj(wk, id)->dat.dict.len;
+		ctx.cont_len = get_obj(wk, obj)->dat.dict.len;
 
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, "{ ");
-		if (!obj_dict_foreach(wk, id, &ctx, obj_to_s_dict_iter)) {
+		if (!obj_dict_foreach(wk, obj, &ctx, obj_to_s_dict_iter)) {
 			return false;
 		}
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
@@ -871,10 +868,10 @@ _obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len, uint32_t *
 }
 
 bool
-obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len)
+obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len)
 {
 	uint32_t w;
-	return _obj_to_s(wk, id, buf, len, &w);
+	return _obj_to_s(wk, obj, buf, len, &w);
 }
 
 bool
@@ -885,7 +882,8 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 	static char fmt_buf[BUF_SIZE_4k];
 
 	const char *fmt_start, *s;
-	uint32_t bufi = 0, len, obj_id;
+	uint32_t bufi = 0, len;
+	obj obj;
 	bool got_object;
 	va_list ap, ap_copy;
 
@@ -936,7 +934,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				break;
 			case 'o':
 				got_object = true;
-				obj_id = va_arg(ap, uint32_t);
+				obj = va_arg(ap, uint32_t);
 				break;
 			default:
 				assert(false && "unrecognized format");
@@ -944,7 +942,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			}
 
 			if (got_object) {
-				if (!obj_to_s(wk, obj_id, out_buf, BUF_SIZE_4k)) {
+				if (!obj_to_s(wk, obj, out_buf, BUF_SIZE_4k)) {
 					goto would_truncate;
 				}
 
