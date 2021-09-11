@@ -37,7 +37,7 @@ In general, just try to follow the style of surrounding code.
 
 All errors that can be checked, should be checked.  If an error is detected, an
 error message should be printed using `interp_error`, or if there is no source
-code associated with the error, `LOG_W`.  The error should be immediately
+code associated with the error, `LOG_E`.  The error should be immediately
 returned.  Most functions returning  a `bool` return `false` on error.  The most
 common other type of error returning function has the return type
 `enum iteration_result`.  These functions should return `ir_err` on error.
@@ -70,11 +70,33 @@ used as the last element of `an`, and will store the remaining arguments in an
 `obj_array`.  This is similar to e.g. `def func(a, b, *c):` in python, where `c`
 is the "glob" argument.
 
+You may also bitwise or any obj\_ type with `ARG_TYPE_ARRAY_OF`.  This "type"
+will cause `interp_args` to do the following things:
+  1. coerce single elements to arrays
+    - `'hello' #=> ['hello']`
+  2. flatten arrays
+    - `['hello', [], [['world']]] #=> ['hello', 'world']`
+  3. typecheck all elements of the array
+    - given the "type" `ARG_TYPE_ARRAY_OF | obj_string`, the above examples
+      would pass, but `['a', false]` would not.
+
 ## Workspace
 
 The workspace is a structure that contains all the data for an entire build
 setup, including all subprojects, ast, options, objects, strings.  Most
 interpreter related functions take a workspace as one of their arguments.
+
+## Objects, strings, and `uint32_t`
+
+All objects and strings are stored and passed by id, rather than pointer.  Until
+recently, all these ids were `uint32_t`s.  Since that hurts readability, and it
+is somewhat inconvinent to type, `obj` and `str` (both `uint32_t` typedefs) were
+introduced.  While these don't help with C typechecking unfortunately, they do
+help document the code, and are also convinent to type.  Internally, these ids
+are tagged and a runtime assert should catch any mix-ups.
+
+Currently, the migration from `uint32_t` is in progress, so be aware that some
+code still refers to strings and objects that way.
 
 ## Objects
 
@@ -94,10 +116,6 @@ this situation in the future, but for the time being you can uncomment the else
 branch in `darr_get_mem` (`data/darr.c`) and run muon under valgrind to check for
 errors.
 
-Unfortunately, since strings and objects are both referred to by ids
-(uint32\_t), there is no easy way for the C compiler to typecheck them.
-Internally, these ids are tagged and a runtime assert should catch any mix-ups.
-
 ## Memory
 
 You may be wondering, what about resource cleanup? Garbage collection?  Muon's
@@ -110,4 +128,4 @@ meson setup build:
 total heap usage: 48,266 allocs, 47,764 frees, 57,225,893 bytes allocated
 
 muon setup build:
-total heap usage: 359 allocs, 214 frees, 880,987 bytes allocated
+total heap usage: 405 allocs, 260 frees, 934,135 bytes allocated
