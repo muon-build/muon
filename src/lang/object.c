@@ -255,7 +255,7 @@ obj_array_index(struct workspace *wk, uint32_t arr_id, int64_t i, uint32_t *res)
 {
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
-	assert(i > 0 && i < get_obj(wk, arr_id)->dat.arr.len);
+	assert(i >= 0 && i < get_obj(wk, arr_id)->dat.arr.len);
 
 	if (!obj_array_foreach(wk, arr_id, &ctx, obj_array_index_iter)) {
 		LOG_E("obj_array_index failed");
