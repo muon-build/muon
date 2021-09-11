@@ -1,5 +1,5 @@
-#ifndef SHARED_UTIL_LOG_H
-#define SHARED_UTIL_LOG_H
+#ifndef MUON_LOG_H
+#define MUON_LOG_H
 
 #include "posix.h"
 

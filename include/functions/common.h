@@ -1,5 +1,5 @@
-#ifndef FUNCTIONS_COMMON_H
-#define FUNCTIONS_COMMON_H
+#ifndef MUON_FUNCTIONS_COMMON_H
+#define MUON_FUNCTIONS_COMMON_H
 
 #include "lang/parser.h"
 #include "lang/workspace.h"

@@ -1,5 +1,5 @@
-#ifndef MUON_PARSER_H
-#define MUON_PARSER_H
+#ifndef MUON_LANG_PARSER_H
+#define MUON_LANG_PARSER_H
 
 #include <stdint.h>
 #include <stdbool.h>

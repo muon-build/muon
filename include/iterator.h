@@ -1,5 +1,5 @@
-#ifndef SHARED_TYPES_ITERATOR_H
-#define SHARED_TYPES_ITERATOR_H
+#ifndef MUON_ITERATOR_H
+#define MUON_ITERATOR_H
 enum iteration_result {
 	ir_err,
 	ir_cont,

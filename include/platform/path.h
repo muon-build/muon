@@ -1,5 +1,5 @@
-#ifndef MUON_PATH_H
-#define MUON_PATH_H
+#ifndef MUON_PLATFORM_PATH_H
+#define MUON_PLATFORM_PATH_H
 #include <stdbool.h>
 #include <stdint.h>
 

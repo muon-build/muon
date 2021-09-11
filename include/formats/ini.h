@@ -1,5 +1,5 @@
-#ifndef INIH_H
-#define INIH_H
+#ifndef MUON_FORMATS_INI_H
+#define MUON_FORMATS_INI_H
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef MUON_OBJECT_H
-#define MUON_OBJECT_H
+#ifndef MUON_LANG_OBJECT_H
+#define MUON_LANG_OBJECT_H
 
 #include <stdarg.h>
 #include <stdbool.h>

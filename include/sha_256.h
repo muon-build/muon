@@ -1,5 +1,5 @@
-#ifndef SHA_256_H
-#define SHA_256_H
+#ifndef MUON_SHA_256_H
+#define MUON_SHA_256_H
 
 #include <stdint.h>
 #include <stddef.h>

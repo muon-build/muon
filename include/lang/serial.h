@@ -1,5 +1,5 @@
-#ifndef LANG_SERIAL_H
-#define LANG_SERIAL_H
+#ifndef MUON_LANG_SERIAL_H
+#define MUON_LANG_SERIAL_H
 
 #include "lang/workspace.h"
 

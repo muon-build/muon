@@ -1,5 +1,5 @@
-#ifndef BUF_SIZE_H
-#define BUF_SIZE_H
+#ifndef MUON_BUF_SIZE_H
+#define MUON_BUF_SIZE_H
 
 #define BUF_SIZE_S 255
 #define BUF_SIZE_1k 1024

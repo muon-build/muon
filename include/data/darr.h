@@ -1,5 +1,5 @@
-#ifndef SHARED_TYPES_DARR_H
-#define SHARED_TYPES_DARR_H
+#ifndef MUON_DATA_DARR_H
+#define MUON_DATA_DARR_H
 
 #include <stdbool.h>
 #include <stddef.h>

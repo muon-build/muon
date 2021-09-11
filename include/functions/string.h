@@ -1,5 +1,5 @@
-#ifndef FUNCTIONS_string_H
-#define FUNCTIONS_string_H
+#ifndef MUON_FUNCTIONS_STRING_H
+#define MUON_FUNCTIONS_STRING_H
 #include "functions/common.h"
 
 enum format_cb_result {

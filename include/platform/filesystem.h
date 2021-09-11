@@ -1,5 +1,5 @@
-#ifndef MUON_FILESYSTEM_H
-#define MUON_FILESYSTEM_H
+#ifndef MUON_PLATFORM_FILESYSTEM_H
+#define MUON_PLATFORM_FILESYSTEM_H
 
 #include <stdbool.h>
 #include <stdio.h>

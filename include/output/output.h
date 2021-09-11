@@ -1,5 +1,5 @@
-#ifndef MUON_OUTPUT_H
-#define MUON_OUTPUT_H
+#ifndef MUON_OUTPUT_OUTPUT_H
+#define MUON_OUTPUT_OUTPUT_H
 
 #include "lang/workspace.h"
 

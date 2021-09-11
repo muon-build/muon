@@ -1,5 +1,5 @@
-#ifndef FUNCTIONS_SUBPROJECT_H
-#define FUNCTIONS_SUBPROJECT_H
+#ifndef MUON_FUNCTIONS_SUBPROJECT_H
+#define MUON_FUNCTIONS_SUBPROJECT_H
 #include "functions/common.h"
 
 bool subproject_get_variable(struct workspace *wk, uint32_t node, uint32_t name_id,

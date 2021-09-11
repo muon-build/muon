@@ -1,5 +1,5 @@
-#ifndef COMPILERS_H
-#define COMPILERS_H
+#ifndef MUON_COMPILERS_H
+#define MUON_COMPILERS_H
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef MUON_WORKSPACE_H
-#define MUON_WORKSPACE_H
+#ifndef MUON_LANG_WORKSPACE_H
+#define MUON_LANG_WORKSPACE_H
 
 #include "posix.h"
 

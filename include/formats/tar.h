@@ -1,5 +1,5 @@
-#ifndef MUON_TAR_H
-#define MUON_TAR_H
+#ifndef MUON_FORMATS_TAR_H
+#define MUON_FORMATS_TAR_H
 
 #include <stdint.h>
 #include <stdbool.h>

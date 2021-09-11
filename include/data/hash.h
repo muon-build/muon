@@ -1,5 +1,5 @@
-#ifndef TYPES_HASH_H
-#define TYPES_HASH_H
+#ifndef MUON_DATA_HASH_H
+#define MUON_DATA_HASH_H
 
 #include <stddef.h>
 #include <stdint.h>

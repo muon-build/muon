@@ -1,5 +1,5 @@
-#ifndef MUON_RUN_CMD_H
-#define MUON_RUN_CMD_H
+#ifndef MUON_PLATFORM_RUN_CMD_H
+#define MUON_PLATFORM_RUN_CMD_H
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef BUCKET_ARRAY_H
-#define BUCKET_ARRAY_H
+#ifndef MUON_DATA_BUCKET_ARRAY_H
+#define MUON_DATA_BUCKET_ARRAY_H
 
 #include "darr.h"
 
