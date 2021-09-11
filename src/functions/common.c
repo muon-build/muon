@@ -105,6 +105,7 @@ arity_to_s(struct args_norm positional_args[],
 
 struct typecheck_function_arg_ctx {
 	uint32_t err_node;
+	obj arr;
 	enum obj_type type;
 };
 
@@ -116,6 +117,8 @@ typecheck_function_arg_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	if (!typecheck(wk, ctx->err_node, val, ctx->type)) {
 		return ir_err;
 	}
+
+	obj_array_push(wk, ctx->arr, val);
 
 	return ir_cont;
 }
@@ -139,20 +142,20 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, uint32_t *val, e
 		.err_node = err_node,
 		.type = type,
 	};
+	make_obj(wk, &ctx.arr, obj_array);
 
 	if (get_obj(wk, *val)->type == obj_array) {
-		return obj_array_foreach(wk, *val, &ctx, typecheck_function_arg_iter);
-	} else {
-		if (!typecheck(wk, err_node, *val, type)) {
+		if (!obj_array_foreach_flat(wk, *val, &ctx, typecheck_function_arg_iter)) {
 			return false;
 		}
-
-		uint32_t arr;
-		make_obj(wk, &arr, obj_array);
-		obj_array_push(wk, arr, *val);
-		*val = arr;
-		return true;
+	} else {
+		if (!typecheck_function_arg_iter(wk, &ctx, *val)) {
+			return false;
+		}
 	}
+
+	*val = ctx.arr;
+	return true;
 }
 
 #define ARITY arity_to_s(positional_args, optional_positional_args, keyword_args)
