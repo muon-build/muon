@@ -233,7 +233,8 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 struct check_array_opt_ctx {
 	struct args_kw *choices;
 };
-enum iteration_result
+
+static enum iteration_result
 check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct check_array_opt_ctx *ctx = _ctx;

@@ -93,17 +93,17 @@ lex_error(struct lexer *l, const char *fmt, ...)
 }
 
 const char *
-tok_to_s(struct token *tok)
+tok_to_s(struct token *token)
 {
 	static char buf[BUF_SIZE_S + 1];
 	uint32_t i;
 
-	i = snprintf(buf, BUF_SIZE_S, "%s", tok_type_to_s(tok->type));
-	if (tok->n) {
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", tok->dat.s);
+	i = snprintf(buf, BUF_SIZE_S, "%s", tok_type_to_s(token->type));
+	if (token->n) {
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", token->dat.s);
 	}
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", tok->line, tok->col);
+	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->line, token->col);
 
 	return buf;
 }

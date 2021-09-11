@@ -3,7 +3,7 @@
 
 #include "lang/workspace.h"
 
-bool serial_dump(struct workspace *wk, uint32_t obj, FILE *f);
+bool serial_dump(struct workspace *wk_src, uint32_t obj, FILE *f);
 bool serial_load(struct workspace *wk, uint32_t *obj, FILE *f);
 
 #endif

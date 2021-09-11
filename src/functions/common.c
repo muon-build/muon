@@ -56,7 +56,7 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 	return true;
 }
 
-const char *
+static const char *
 arity_to_s(struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])

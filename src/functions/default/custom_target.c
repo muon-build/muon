@@ -31,7 +31,7 @@ prefix_plus_index(const char *str, const char *prefix, int64_t *index)
 	return false;
 }
 
-enum format_cb_result
+static enum format_cb_result
 format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *strkey, uint32_t *elem)
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;

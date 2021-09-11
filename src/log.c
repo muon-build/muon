@@ -136,14 +136,14 @@ log_set_file(FILE *log_file)
 }
 
 void
-log_set_lvl(enum log_level ll)
+log_set_lvl(enum log_level lvl)
 {
-	if (ll > log_level_count) {
-		L("attempted to set log level to invalid value %d (max: %d)", ll, log_level_count);
+	if (lvl > log_level_count) {
+		L("attempted to set log level to invalid value %d (max: %d)", lvl, log_level_count);
 		return;
 	}
 
-	log_cfg.level = ll;
+	log_cfg.level = lvl;
 }
 
 void

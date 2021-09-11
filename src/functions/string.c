@@ -124,7 +124,7 @@ struct func_format_ctx {
 	uint32_t arr;
 };
 
-enum format_cb_result
+static enum format_cb_result
 func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *key, uint32_t *elem)
 {
 	struct func_format_ctx *ctx = _ctx;

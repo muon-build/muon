@@ -153,7 +153,7 @@ detection_over:
 }
 
 bool
-compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language lang)
+compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lang)
 {
 	const char *cmd;
 
@@ -174,11 +174,11 @@ compiler_detect(struct workspace *wk, uint32_t *comp_id, enum compiler_language 
 	switch (lang) {
 	case compiler_language_c:
 	case compiler_language_cpp:
-		if (!compiler_detect_c_or_cpp(wk, cmd, comp_id)) {
+		if (!compiler_detect_c_or_cpp(wk, cmd, comp)) {
 			return false;
 		}
 
-		get_obj(wk, *comp_id)->dat.compiler.lang = lang;
+		get_obj(wk, *comp)->dat.compiler.lang = lang;
 		return true;
 	default:
 		assert(false);

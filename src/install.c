@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "install.h"
 #include "lang/serial.h"
 #include "log.h"
 #include "output/output.h"

@@ -128,7 +128,7 @@ grow_strbuf(struct workspace *wk, uint32_t len)
 
 }
 
-uint32_t
+static uint32_t
 _str_push(struct workspace *wk)
 {
 	uint32_t ret;
@@ -397,7 +397,7 @@ push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t filename
 }
 
 struct project *
-make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
+make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir)
 {
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
@@ -411,8 +411,8 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproj_name,
 	make_obj(wk, &proj->tests, obj_array);
 	make_obj(wk, &proj->cfg.args, obj_dict);
 
-	if (subproj_name) {
-		proj->subproject_name = wk_str_push(wk, subproj_name);
+	if (subproject_name) {
+		proj->subproject_name = wk_str_push(wk, subproject_name);
 	} else {
 		proj->subproject_name = 0;
 	}

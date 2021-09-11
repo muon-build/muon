@@ -12,7 +12,7 @@ struct darr {
 	uint8_t *e;
 };
 
-void darr_init(struct darr *darr, size_t initial, size_t item_size);
+void darr_init(struct darr *da, size_t initial, size_t item_size);
 void darr_destroy(struct darr *da);
 size_t darr_push(struct darr *da, const void *item);
 void *darr_get(const struct darr *da, size_t i);

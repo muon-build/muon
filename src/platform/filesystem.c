@@ -15,7 +15,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 
-bool
+static bool
 fs_stat(const char *path, struct stat *sb)
 {
 	if (stat(path, sb) != 0) {
@@ -350,7 +350,7 @@ fs_find_cmd(const char *cmd, const char **ret)
 }
 
 
-bool
+static bool
 fs_dup2(int oldfd, int newfd)
 {
 	if ((dup2(oldfd, newfd)) == -1) {

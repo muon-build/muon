@@ -7,6 +7,6 @@ enum test_flag {
 	test_flag_should_fail = 1 << 0,
 };
 
-bool tests_run(const char *build_root);
+bool tests_run(const char *build_dir);
 #endif
 

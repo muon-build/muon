@@ -166,7 +166,7 @@ struct obj {
 
 const char *obj_type_to_s(enum obj_type t);
 bool obj_to_s(struct workspace *wk, uint32_t id, char *buf, uint32_t len);
-bool obj_equal(struct workspace *wk, uint32_t l, uint32_t r);
+bool obj_equal(struct workspace *wk, uint32_t l_id, uint32_t r_id);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, uint32_t val, uint32_t *ret);
 
 bool obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
@@ -196,7 +196,7 @@ bool obj_dict_in(struct workspace *wk, uint32_t k_id, uint32_t dict_id);
 bool obj_dict_index(struct workspace *wk, uint32_t dict_id, uint32_t k_id, uint32_t *res);
 bool obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key, uint32_t key_len, uint32_t *res);
 void obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t val_id);
-bool obj_dict_dup(struct workspace *wk, uint32_t arr_id, uint32_t *res);
+bool obj_dict_dup(struct workspace *wk, uint32_t dict_id, uint32_t *res);
 bool obj_dict_merge(struct workspace *wk, uint32_t dict_a_id, uint32_t dict_b_id, uint32_t *res);
 void obj_dict_seti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t v);
 bool obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v);

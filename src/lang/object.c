@@ -505,13 +505,13 @@ _obj_dict_index(struct workspace *wk, uint32_t dict_id,
 
 bool
 obj_dict_index_strn(struct workspace *wk, uint32_t dict_id, const char *key,
-	uint32_t len, uint32_t *res)
+	uint32_t key_len, uint32_t *res)
 {
 	uint32_t *r;
 	if (!_obj_dict_index(
 		wk,
 		dict_id,
-		&(union obj_dict_key_comparison_key){ .string = { .s = key, .len = len, } },
+		&(union obj_dict_key_comparison_key){ .string = { .s = key, .len = key_len, } },
 		obj_dict_key_comparison_func_string,
 		&r
 		)) {
@@ -589,16 +589,16 @@ obj_dict_set(struct workspace *wk, uint32_t dict_id, uint32_t key_id, uint32_t v
 /* dict convienence functions */
 
 void
-obj_dict_seti(struct workspace *wk, uint32_t dict_id, uint32_t k, uint32_t v)
+obj_dict_seti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t v)
 {
-	_obj_dict_set(wk, dict_id, obj_dict_key_comparison_func_int, k, v);
+	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_int, k, v);
 }
 
 bool
-obj_dict_geti(struct workspace *wk, uint32_t dict_id, uint32_t k, uint32_t *v)
+obj_dict_geti(struct workspace *wk, uint32_t dict, uint32_t k, uint32_t *v)
 {
 	uint32_t *r;
-	if (_obj_dict_index(wk, dict_id,
+	if (_obj_dict_index(wk, dict,
 		&(union obj_dict_key_comparison_key){ .num = k },
 		obj_dict_key_comparison_func_int, &r)) {
 		*v = *r;
