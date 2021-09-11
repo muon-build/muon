@@ -29,11 +29,11 @@ copy_pipe(int pipe, char **dest)
 
 		if (b == -1) {
 			return false;
-		} else if (b < size) {
+		} else if (b < block_size) {
 			break;
 		}
 
-		i += size;
+		i += block_size;
 		block_size *= 2;
 		size += block_size;
 		buf = z_realloc(buf, size);
