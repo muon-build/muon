@@ -5,10 +5,12 @@
 #include "functions/common.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
+#include "functions/modules/python3.h"
 #include "log.h"
 
 const char *module_names[module_count] = {
 	[module_fs] = "fs",
+	[module_python3] = "python3",
 };
 
 bool
@@ -27,6 +29,7 @@ module_lookup(const char *name, enum module *res)
 
 static const struct func_impl_name *module_func_tbl[module_count] = {
 	[module_fs] = impl_tbl_module_fs,
+	[module_python3] = impl_tbl_module_python3,
 };
 
 bool

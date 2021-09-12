@@ -69,6 +69,7 @@ enum custom_target_flags {
 
 enum module {
 	module_fs,
+	module_python3,
 	module_count,
 };
 

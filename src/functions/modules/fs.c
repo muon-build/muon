@@ -7,7 +7,7 @@
 #include "platform/filesystem.h"
 
 static bool
-func_exists(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_module_fs_exists(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -20,6 +20,6 @@ func_exists(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 }
 
 const struct func_impl_name impl_tbl_module_fs[] = {
-	{ "exists", func_exists },
+	{ "exists", func_module_fs_exists },
 	{ NULL, NULL },
 };
