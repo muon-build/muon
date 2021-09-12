@@ -47,7 +47,7 @@ cat \
 	src/functions/meson.c \
 	src/functions/modules.c \
 	src/functions/modules/fs.c \
-	src/functions/modules/python3.c \
+	src/functions/modules/python.c \
 	src/functions/number.c \
 	src/functions/run_result.c \
 	src/functions/string.c \

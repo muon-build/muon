@@ -31,7 +31,7 @@ src = files([
 	'functions/meson.c',
 	'functions/modules.c',
 	'functions/modules/fs.c',
-	'functions/modules/python3.c',
+	'functions/modules/python.c',
 	'functions/number.c',
 	'functions/run_result.c',
 	'functions/string.c',

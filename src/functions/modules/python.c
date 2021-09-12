@@ -1,11 +1,11 @@
 #include "posix.h"
 
-#include "functions/modules/python3.h"
+#include "functions/modules/python.h"
 #include "lang/interpreter.h"
 #include "platform/filesystem.h"
 
 static bool
-func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *obj)
+func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *obj)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -24,7 +24,12 @@ func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 
+const struct func_impl_name impl_tbl_module_python[] = {
+	{ "find_installation", func_module_python_find_python },
+	{ NULL, NULL },
+};
+
 const struct func_impl_name impl_tbl_module_python3[] = {
-	{ "find_python", func_module_python3_find_python },
+	{ "find_python", func_module_python_find_python },
 	{ NULL, NULL },
 };
