@@ -47,6 +47,7 @@ escape_str(char *buf, uint32_t len, const char *str, char esc_char, const char *
 		esc = strchr(need_escaping, *s) != NULL;
 
 		if (bufi + 1 + (esc ? 1 : 0) >= len - 1) {
+			LOG_E("truncation during escape");
 			return false;
 		}
 
@@ -195,28 +196,35 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 	uint32_t *res = _ctx;
 	uint32_t str, str_obj;
 
-	struct obj *obj = get_obj(wk, src);
+	struct obj *o = get_obj(wk, src);
 
-	switch (obj->type) {
+	switch (o->type) {
 	case obj_string:
-		str = obj->dat.str;
+		str = o->dat.str;
 		break;
 	case obj_file:
-		str = obj->dat.file;
+		str = o->dat.file;
 		break;
 	case obj_build_target: {
-		char tmp[PATH_MAX], path[PATH_MAX];
+		char tmp[PATH_MAX];
 
-		if (!path_join(tmp, PATH_MAX, wk_str(wk, obj->dat.tgt.build_dir),
-			wk_str(wk, obj->dat.tgt.build_name))) {
+		if (!path_join(tmp, PATH_MAX, wk_str(wk, o->dat.tgt.build_dir),
+			wk_str(wk, o->dat.tgt.build_name))) {
 			return ir_err;
 		}
 
-		str = wk_str_push(wk, path);
+		str = wk_str_push(wk, tmp);
 		break;
 	}
+	case obj_custom_target: {
+		obj output_arr = get_obj(wk, src)->dat.custom_target.output;
+		if (!obj_array_foreach(wk, output_arr, res, arr_to_args_iter)) {
+			return ir_err;
+		}
+		return ir_cont;
+	}
 	default:
-		LOG_E("cannot convert '%s' to argument", obj_type_to_s(obj->type));
+		LOG_E("cannot convert '%s' to argument", obj_type_to_s(o->type));
 		return ir_err;
 	}
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
@@ -846,7 +847,7 @@ func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 }
 
 static bool
-func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
 	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -867,21 +868,29 @@ func_test(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 		return false;
 	}
 
-	uint32_t exe;
+	obj exe;
 	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
 		return false;
 	}
 
-	uint32_t test_id;
-	struct obj *test = make_obj(wk, &test_id, obj_test);
-	test->dat.test.name = an[0].val;
-	test->dat.test.exe = exe;
-	test->dat.test.args = akw[kw_args].val;
-	test->dat.test.should_fail =
+	obj args = 0;
+	if (akw[kw_args].set) {
+		if (!arr_to_args(wk, akw[kw_args].val, &args)) {
+			return false;
+		}
+	}
+
+
+	obj test;
+	struct obj *t = make_obj(wk, &test, obj_test);
+	t->dat.test.name = an[0].val;
+	t->dat.test.exe = exe;
+	t->dat.test.args = args;
+	t->dat.test.should_fail =
 		akw[kw_should_fail].set
 		&& get_obj(wk, akw[kw_should_fail].val)->dat.boolean;
 
-	obj_array_push(wk, current_project(wk)->tests, test_id);
+	obj_array_push(wk, current_project(wk)->tests, test);
 	return true;
 }
 
