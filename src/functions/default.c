@@ -980,6 +980,39 @@ func_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *ob
 	return true;
 }
 
+static bool
+func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	hash_set(&current_project(wk)->scope, wk_objstr(wk, an[0].val), an[1].val);
+	return true;
+}
+
+static bool
+func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	if (!get_obj_id(wk, wk_objstr(wk, an[0].val), res, wk->cur_project)) {
+		if (ao[0].set) {
+			*res = ao[0].val;
+		} else {
+			interp_error(wk, an[0].node, "undefined object");
+			return false;
+		}
+	}
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", todo },
@@ -1007,7 +1040,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "find_program", func_find_program },
 	{ "generator", todo },
 	{ "get_option", func_get_option },
-	{ "get_variable", todo },
+	{ "get_variable", func_get_variable },
 	{ "gettext", todo },
 	{ "import", func_import },
 	{ "include_directories", func_include_directories },
@@ -1024,7 +1057,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "project", func_project },
 	{ "run_command", func_run_command },
 	{ "run_target", todo },
-	{ "set_variable", todo },
+	{ "set_variable", func_set_variable },
 	{ "shared_library", func_static_library },
 	{ "shared_module", todo },
 	{ "static_library", func_static_library },

@@ -6,7 +6,7 @@
 #include "log.h"
 
 static bool
-func_length(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_array_length(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -16,7 +16,32 @@ func_length(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	return true;
 }
 
+static bool
+func_array_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	int64_t i = get_obj(wk, an[0].val)->dat.num;
+
+	if (!bounds_adjust(wk, rcvr, &i)) {
+		if (ao[0].set) {
+			*res = ao[0].val;
+		} else {
+			interp_error(wk, an[0].node, "index out of bounds");
+			return false;
+		}
+	} else {
+		obj_array_index(wk, rcvr, i, res);
+	}
+
+	return true;
+}
 const struct func_impl_name impl_tbl_array[] = {
-	{ "length", func_length },
+	{ "length", func_array_length },
+	{ "get", func_array_get },
 	{ NULL, NULL },
 };

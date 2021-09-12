@@ -29,19 +29,24 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 }
 
 bool
-boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
+bounds_adjust(struct workspace *wk, obj arr, int64_t *i)
 {
-	struct obj *arr = get_obj(wk, obj_id);
-
-	assert(arr->type == obj_array);
-
-	if (labs(*i) >= arr->dat.arr.len) {
-		interp_error(wk, n_id, "index %ld out of bounds", (intmax_t)*i);
-		return false;
-	}
+	struct obj *a = get_obj(wk, arr);
+	assert(a->type == obj_array);
 
 	if (*i < 0) {
-		*i += arr->dat.arr.len;
+		*i += a->dat.arr.len;
+	}
+
+	return *i < a->dat.arr.len;
+}
+
+bool
+boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
+{
+	if (!bounds_adjust(wk, obj_id, i)) {
+		interp_error(wk, n_id, "index %ld out of bounds", (intmax_t)*i);
+		return false;
 	}
 
 	return true;
