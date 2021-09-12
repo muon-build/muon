@@ -70,7 +70,7 @@ shell_escape(char *buf, uint32_t len, const char *str)
 	return escape_str(buf, len, str, '\\', "\"'$ \\");
 }
 
-static bool
+bool
 ninja_escape(char *buf, uint32_t len, const char *str)
 {
 	return escape_str(buf, len, str, '$', " :$");

@@ -919,6 +919,10 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 
 	uint32_t cmd;
 	obj_array_index(wk, tgt->dat.custom_target.args, 0, &cmd);
+	char cmd_escaped[PATH_MAX];
+	if (!ninja_escape(cmd_escaped, PATH_MAX, wk_objstr(wk, cmd))) {
+		return ir_err;
+	}
 
 	obj_array_extend(wk, cmdline, tgt_args);
 
@@ -926,13 +930,12 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	inputs = join_args_ninja(wk, inputs);
 	cmdline = join_args_shell(wk, cmdline);
 
-
 	fprintf(output->build_ninja, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"
 		" DESCRIPTION = %s\n\n",
 		wk_objstr(wk, outputs),
 		wk_objstr(wk, inputs),
-		wk_objstr(wk, cmd),
+		cmd_escaped,
 		wk_objstr(wk, cmdline),
 		wk_objstr(wk, cmdline)
 		);
