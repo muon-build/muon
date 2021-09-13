@@ -71,6 +71,7 @@ enum module {
 	module_fs,
 	module_python,
 	module_python3,
+	module_pkgconfig,
 	module_count,
 };
 

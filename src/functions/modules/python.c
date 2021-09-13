@@ -23,7 +23,6 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 	return true;
 }
 
-
 const struct func_impl_name impl_tbl_module_python[] = {
 	{ "find_installation", func_module_python_find_python },
 	{ NULL, NULL },

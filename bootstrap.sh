@@ -47,6 +47,7 @@ cat \
 	src/functions/meson.c \
 	src/functions/modules.c \
 	src/functions/modules/fs.c \
+	src/functions/modules/pkgconfig.c \
 	src/functions/modules/python.c \
 	src/functions/number.c \
 	src/functions/run_result.c \
