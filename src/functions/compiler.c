@@ -168,6 +168,10 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint3
 static bool
 func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
 	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, compiler_type_to_s(get_obj(wk, rcvr)->dat.compiler.type));
 	return true;
 }
@@ -238,10 +242,26 @@ done:
 	return true;
 }
 
+static bool
+func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+	obj s;
+	make_obj(wk, &s, obj_string)->dat.str = get_obj(wk, rcvr)->dat.compiler.name;
+	obj_array_push(wk, *res, s);
+	return true;
+}
+
+
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "get_id", func_compiler_get_id },
 	{ "find_library", func_compiler_find_library },
+	{ "cmd_array", func_compiler_cmd_array },
 	{ NULL, NULL },
 };
