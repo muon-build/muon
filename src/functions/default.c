@@ -1013,6 +1013,18 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj_printf(wk, "%o\n", an[0].val);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", todo },
@@ -1068,6 +1080,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "test", func_test },
 	{ "vcs_tag", todo },
 	{ "warning", func_warning },
+	{ "p", func_p },
 	{ NULL, NULL },
 };
 
@@ -1080,10 +1093,12 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "run_command", func_run_command },
 	{ "setup", func_setup },
 	{ "warning", func_warning },
+	{ "p", func_p },
 	{ NULL, NULL },
 };
 
 const struct func_impl_name impl_tbl_default_opts[] = {
 	{ "option", func_option  },
+	{ "p", func_p },
 	{ NULL, NULL },
 };
