@@ -237,9 +237,56 @@ func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 }
 
 static bool
-func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+find_program(struct workspace *wk, const char *prog, const char **res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	static char buf[PATH_MAX];
+
+	/* TODO: 1. Program overrides set via meson.override_find_program() */
+	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
+	/* TODO: 3. [binaries] section in your machine files */
+	/* TODO: 4. Directories provided using the dirs: kwarg (see below) */
+	/* 5. Project's source tree relative to the current subdir */
+	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
+	/* 6. PATH environment variable */
+	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
+
+	if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), prog)) {
+		return false;
+	}
+
+	if (fs_file_exists(buf)) {
+		*res = buf;
+		return true;
+	} else if (fs_find_cmd(prog, res)) {
+		return true;
+	} else {
+		return false;
+	}
+
+}
+
+struct find_program_iter_ctx {
+	bool found;
+	const char *res;
+};
+
+static enum iteration_result
+find_program_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct find_program_iter_ctx *ctx = _ctx;
+
+	if (find_program(wk, wk_objstr(wk, val), &ctx->res)) {
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native,
@@ -260,46 +307,24 @@ func_find_program(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, obj, obj_external_program)->dat.external_program.found = false;
+		make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
 		return true;
 	}
 
-	char buf[PATH_MAX];
-	const char *cmd_path;
+	struct find_program_iter_ctx ctx = { 0 };
+	obj_array_foreach(wk, an[0].val, &ctx, find_program_iter);
 
-	/* TODO: 1. Program overrides set via meson.override_find_program() */
-	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
-	/* TODO: 3. [binaries] section in your machine files */
-	/* TODO: 4. Directories provided using the dirs: kwarg (see below) */
-	/* 5. Project's source tree relative to the current subdir */
-	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	/* 6. PATH environment variable */
-	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
-
-	bool found = false;
-
-	if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, an[0].val))) {
-		return false;
-	}
-
-	if (fs_file_exists(buf)) {
-		found = true;
-		cmd_path = buf;
-	} else if (fs_find_cmd(wk_objstr(wk, an[0].val), &cmd_path)) {
-		found = true;
-	}
-
-	if (!found) {
+	if (!ctx.found) {
 		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "program not found");
 			return false;
 		}
 
-		make_obj(wk, obj, obj_external_program)->dat.external_program.found = false;
+		make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
 	} else {
-		struct obj *external_program = make_obj(wk, obj, obj_external_program);
+		struct obj *external_program = make_obj(wk, res, obj_external_program);
 		external_program->dat.external_program.found = true;
-		external_program->dat.external_program.full_path = wk_str_push(wk, cmd_path);
+		external_program->dat.external_program.full_path = wk_str_push(wk, ctx.res);
 	}
 
 	return true;
@@ -1088,6 +1113,7 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "assert", func_assert },
 	{ "error", func_error },
 	{ "files", func_files },
+	{ "find_program", func_find_program },
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
 	{ "run_command", func_run_command },

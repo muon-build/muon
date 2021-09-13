@@ -856,6 +856,20 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		}
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
 		break;
+	case obj_external_program: {
+		struct obj *prog = get_obj(wk, obj);
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s found: %s", obj_type_to_s(t),
+			prog->dat.external_program.found ? "true" : "false"
+			);
+
+		if (prog->dat.external_program.found) {
+			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", path: %s",
+				wk_str(wk, prog->dat.external_program.full_path));
+		}
+
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, ">");
+		break;
+	}
 	default:
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<obj %s>", obj_type_to_s(t));
 		return true;
