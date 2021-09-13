@@ -150,6 +150,7 @@ struct obj {
 			obj name; // obj_string
 			obj exe; // obj_string
 			obj args; // obj_array
+			obj env; // obj_array
 			bool should_fail;
 		} test;
 		struct {

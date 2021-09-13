@@ -880,12 +880,14 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_workdir,
 		kw_depends,
 		kw_should_fail,
+		kw_env,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", obj_array, },
 		[kw_workdir] = { "workdir", obj_string, }, // TODO
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
+		[kw_env] = { "env", ARG_TYPE_ARRAY_OF | obj_string, },
 		0
 	};
 
@@ -905,12 +907,12 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		}
 	}
 
-
 	obj test;
 	struct obj *t = make_obj(wk, &test, obj_test);
 	t->dat.test.name = an[0].val;
 	t->dat.test.exe = exe;
 	t->dat.test.args = args;
+	t->dat.test.env = akw[kw_env].val;
 	t->dat.test.should_fail =
 		akw[kw_should_fail].set
 		&& get_obj(wk, akw[kw_should_fail].val)->dat.boolean;

@@ -686,7 +686,15 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		obj->dat.test.exe = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.exe));
 		obj->dat.test.should_fail = test->dat.test.should_fail;
 
-		return obj_clone(wk_src, wk_dest, test->dat.test.args, &obj->dat.test.args);
+		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &obj->dat.test.args)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, test->dat.test.env, &obj->dat.test.env)) {
+			return false;
+		}
+
+		return true;
 	}
 	case obj_install_target: {
 		struct obj *in = get_obj(wk_src, val);

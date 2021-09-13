@@ -32,17 +32,24 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		obj_array_extend(wk, cmdline, test_args);
 	}
 
-	char *argv[MAX_ARGS];
+	char *argv[MAX_ARGS], *envp[MAX_ARGS] = { 0 };
 
 	if (!join_args_argv(wk, argv, MAX_ARGS, cmdline)) {
 		LOG_E("failed to prepare arguments");
 		return ir_err;
 	}
 
+	if (test->dat.test.env) {
+		if (!join_args_argv(wk, envp, MAX_ARGS, test->dat.test.env)) {
+			LOG_E("failed to prepare environment");
+			return ir_err;
+		}
+	}
+
 	enum iteration_result ret = ir_err;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv, NULL)) {
+	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv, envp)) {
 		LOG_E("test command failed: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
