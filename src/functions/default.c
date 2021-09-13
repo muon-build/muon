@@ -347,13 +347,17 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 {
 	enum kwargs {
 		kw_link_with,
+		kw_link_whole, // TODO
 		kw_link_args,
+		kw_dependencies, // TODO
 		kw_version,
 		kw_include_directories,
 	};
 	struct args_kw akw[] = {
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		0
@@ -401,10 +405,12 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		kw_install,
 		kw_install_dir,
 		kw_link_with,
+		kw_link_whole, // TODO
 		kw_version,
-		kw_build_by_default,
-		kw_extra_files,
+		kw_build_by_default, // TODO
+		kw_extra_files, // TODO
 		kw_target_type,
+		kw_name_prefix,
 
 		kw_c_args,
 		kw_cpp_args,
@@ -418,10 +424,12 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_extra_files] = { "extra_files", obj_any }, // ignored
 		[kw_target_type] = { "target_type", obj_string },
+		[kw_name_prefix] = { "name_prefix", obj_string },
 		/* lang args */
 		[kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
@@ -480,6 +488,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	}
 
 	const char *pref, *suff;
+
 	switch (type) {
 	case tgt_executable:
 		pref = "";
@@ -492,6 +501,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 	default:
 		assert(false);
 		return false;
+	}
+
+	if (akw[kw_name_prefix].set) {
+		pref = wk_objstr(wk, akw[kw_name_prefix].val);
 	}
 
 	struct obj *tgt = make_obj(wk, obj, obj_build_target);
