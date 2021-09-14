@@ -8,6 +8,8 @@
 #include "functions/string.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/path.h"
+#include "platform/filesystem.h"
 
 struct custom_target_cmd_fmt_ctx {
 	uint32_t arr, err_node;
@@ -200,6 +202,20 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 	if (!get_obj(wk, *res)->dat.arr.len) {
 		interp_error(wk, err_node, "cmd cannot be empty");
 		return false;
+	}
+
+	obj cmd;
+	obj_array_index(wk, *res, 0, &cmd);
+
+	if (!path_is_absolute(wk_objstr(wk, cmd))) {
+		const char *cmd_path;
+		if (!fs_find_cmd(wk_objstr(wk, cmd), &cmd_path)) {
+			interp_error(wk, err_node, "command '%s' not found",
+				wk_objstr(wk, cmd));
+			return false;
+		}
+
+		obj_array_set(wk, *res, 0, make_str(wk, cmd_path));
 	}
 
 	return true;
