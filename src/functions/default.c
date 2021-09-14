@@ -673,104 +673,65 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	return true;
 }
 
-struct run_command_collect_args_ctx {
-	char buf[ARG_BUF_SIZE];
-	char *argv[MAX_ARGS + 1];
-	uint32_t i, argc, err_node;
-};
-
 static bool
-arg_buf_push(struct workspace *wk, struct run_command_collect_args_ctx *ctx, const char *arg)
+func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	uint32_t len = strlen(arg) + 1;
-
-	if (ctx->argc >= MAX_ARGS) {
-		interp_error(wk, ctx->err_node, "too many arguments (max: %d)", MAX_ARGS);
-		return false;
-	} else if (ctx->i + len >= ARG_BUF_SIZE) {
-		interp_error(wk, ctx->err_node, "combined arguments exceed maximum length %d", MAX_ARGS);
-		return false;
-	}
-
-	ctx->argv[ctx->argc] = &ctx->buf[ctx->i + 1];
-	strcpy(ctx->argv[ctx->argc], arg);
-	++ctx->argc;
-	ctx->i += len;
-	return true;
-}
-
-static enum iteration_result
-run_command_collect_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
-{
-	struct run_command_collect_args_ctx *ctx = _ctx;
-	struct obj *v = get_obj(wk, val);
-
-	char *arg;
-	switch (v->type) {
-	case obj_file:
-		arg = wk_file_path(wk, val);
-		break;
-	case obj_string:
-		arg = wk_objstr(wk, val);
-		break;
-	default:
-		interp_error(wk, ctx->err_node, "invalid type for run_command argument: '%s'",
-			obj_type_to_s(v->type));
-		return ir_err;
-	}
-
-	if (!arg_buf_push(wk, ctx, arg)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static bool
-func_run_command(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
-{
-	struct args_norm an[] = { { obj_any }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
-
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	struct run_command_collect_args_ctx args_ctx = {
-		.err_node = an[1].node, // TODO improve error location reporting
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_check,
+		kw_env,
 	};
-
-	uint32_t cmd_path;
-
-	switch (get_obj(wk, an[0].val)->type) {
-	case obj_string:
-		cmd_path = get_obj(wk, an[0].val)->dat.str;
-		break;
-	case obj_external_program:
-		cmd_path = get_obj(wk, an[0].val)->dat.external_program.full_path;
-		break;
-	default:
-		interp_error(wk, an[0].node, "expecting string or external command, got %s",
-			obj_type_to_s(get_obj(wk, an[0].val)->type));
+	struct args_kw akw[] = {
+		[kw_check] = { "check", obj_bool },
+		[kw_env] = { "env", ARG_TYPE_ARRAY_OF | obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	if (!arg_buf_push(wk, &args_ctx, wk_str(wk, cmd_path))) {
-		return false;
+	obj cmd;
+	char *argv[MAX_ARGS], *envp[MAX_ARGS] = { 0 };
+
+	{
+		obj args;
+		if (!arr_to_args(wk, an[0].val, &args)) {
+			return false;
+		}
+
+		int64_t i = 0;
+		if (!boundscheck(wk, an[0].node, args, &i)) {
+			return false;
+		}
+		obj_array_index(wk, args, 0, &cmd);
+
+		if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
+			return false;
+		}
 	}
 
-	if (!obj_array_foreach(wk, an[1].val, &args_ctx, run_command_collect_args_iter)) {
-		return false;
+	if (akw[kw_env].set) {
+		if (!join_args_argv(wk, envp, MAX_ARGS, akw[kw_env].val)) {
+			return false;
+		}
 	}
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, wk_str(wk, cmd_path), args_ctx.argv, NULL)) {
+	if (!run_cmd(&cmd_ctx, wk_objstr(wk, cmd), argv, envp)) {
 		interp_error(wk, an[0].node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
-	struct obj *run_result = make_obj(wk, obj, obj_run_result);
+	if (akw[kw_check].set && get_obj(wk, akw[kw_check].val)->dat.boolean
+	    && cmd_ctx.status != 0) {
+		interp_error(wk, an[0].node, "command failed: '%s'", cmd_ctx.err);
+		return false;
+
+	}
+
+	struct obj *run_result = make_obj(wk, res, obj_run_result);
 	run_result->dat.run_result.status = cmd_ctx.status;
 	run_result->dat.run_result.out = wk_str_push(wk, cmd_ctx.out);
 	run_result->dat.run_result.err = wk_str_push(wk, cmd_ctx.err);

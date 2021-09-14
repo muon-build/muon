@@ -223,6 +223,9 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		}
 		return ir_cont;
 	}
+	case obj_external_program:
+		str = o->dat.external_program.full_path;
+		break;
 	default:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(o->type));
 		return ir_err;
