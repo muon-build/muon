@@ -39,6 +39,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
 	enum cmd_arg_fmt_key {
+		key_input,
+		key_output,
 		key_outdir,
 		key_depfile,
 		key_plainname,
@@ -51,6 +53,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 	};
 
 	const char *key_names[cmd_arg_fmt_key_count] = {
+		[key_input             ] = "INPUT",
+		[key_output            ] = "OUTPUT",
 		[key_outdir            ] = "OUTDIR",
 		[key_depfile           ] = "DEPFILE",
 		[key_plainname         ] = "PLAINNAME",
@@ -68,9 +72,22 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 		}
 	}
 
-	uint32_t obj;
+	obj e;
 
 	switch (key) {
+	case key_input:
+	case key_output: {
+		obj arr = key == key_input ? ctx->input : ctx->output;
+
+		int64_t index = 0;
+		if (!boundscheck(wk, ctx->err_node, arr, &index)) {
+			return format_cb_error;
+		}
+		obj_array_index(wk, arr, 0, &e);
+
+		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, e)->dat.file;
+		return format_cb_found;
+	}
 	case key_outdir:
 		/* @OUTDIR@: the full path to the directory where the output(s)
 		 * must be written */
@@ -125,11 +142,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 
 	if (!boundscheck(wk, ctx->err_node, arr, &index)) {
 		return format_cb_error;
-	} else if (!obj_array_index(wk, arr, index, &obj)) {
+	} else if (!obj_array_index(wk, arr, index, &e)) {
 		return format_cb_error;
 	}
 
-	make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, obj)->dat.file;
+	make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, e)->dat.file;
 	return format_cb_found;
 }
 
