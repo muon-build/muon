@@ -360,6 +360,28 @@ obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 	return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
 }
 
+void
+obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
+{
+	assert(get_obj(wk, arr)->type == obj_array);
+	assert(i >= 0 && i < get_obj(wk, arr)->dat.arr.len);
+
+	uint32_t j = 0;
+
+	while (true) {
+		if (j == i) {
+			get_obj(wk, arr)->dat.arr.val = v;
+			return;
+		}
+
+		assert(get_obj(wk, arr)->dat.arr.have_next);
+		arr = get_obj(wk, arr)->dat.arr.next;
+		++j;
+	}
+
+	assert(false && "unreachable");
+}
+
 /*
  * dictionaries
  */
