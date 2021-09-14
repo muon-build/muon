@@ -68,7 +68,7 @@ escape_str(char *buf, uint32_t len, const char *str, char esc_char, const char *
 static bool
 shell_escape(char *buf, uint32_t len, const char *str)
 {
-	return escape_str(buf, len, str, '\\', "\"'$ \\");
+	return escape_str(buf, len, str, '\\', "\"'$ \\><&#");
 }
 
 bool
