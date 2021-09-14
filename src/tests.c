@@ -56,7 +56,8 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 
 	if (cmd_ctx.status && !test->dat.test.should_fail) {
 		LOG_E("%s - failed (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
-		log_plain("%s", cmd_ctx.err);
+		LOG_E("stdout: '%s'", cmd_ctx.out);
+		LOG_E("stderr: '%s'", cmd_ctx.err);
 		goto ret;
 	} else {
 		LOG_I("%s - success (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
