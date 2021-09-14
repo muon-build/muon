@@ -213,6 +213,7 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		if (strncmp(&str[i], sep, seplen) == 0) {
 			make_obj(wk, &s_id, obj_string)->dat.str =
 				wk_str_pushn(wk, &str[start], i - start);
+			str = wk_objstr(wk, rcvr); // str may have been moved by the above line
 
 			obj_array_push(wk, *obj, s_id);
 
