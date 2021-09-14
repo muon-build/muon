@@ -34,12 +34,12 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 static bool
 func_meson_project_name(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
-    if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
-        return false;
-    }
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
 
-    make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->cfg.name;
-    return true;
+	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->cfg.name;
+	return true;
 }
 
 static bool
@@ -97,6 +97,17 @@ func_meson_global_build_root(struct workspace *wk, uint32_t _, uint32_t args_nod
 	return true;
 }
 
+static bool
+func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = wk->cur_project != 0;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "get_compiler", func_meson_get_compiler },
 	{ "project_name", func_meson_project_name },
@@ -105,5 +116,6 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "current_source_dir", func_meson_current_source_dir },
 	{ "current_build_dir", func_meson_current_build_dir },
 	{ "global_build_root", func_meson_global_build_root },
+	{ "is_subproject", func_meson_is_subproject },
 	{ NULL, NULL },
 };
