@@ -343,58 +343,6 @@ func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, u
 }
 
 static bool
-func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
-{
-	enum kwargs {
-		kw_link_with,
-		kw_link_whole, // TODO
-		kw_link_args,
-		kw_dependencies, // TODO
-		kw_version,
-		kw_include_directories,
-	};
-	struct args_kw akw[] = {
-		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_version] = { "version", obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		0
-	};
-
-	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
-		return false;
-	}
-
-	if (akw[kw_include_directories].set) {
-		uint32_t inc_dirs;
-
-		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
-			return false;
-		}
-
-		akw[kw_include_directories].val = inc_dirs;
-	}
-
-	struct obj *dep = make_obj(wk, obj, obj_dependency);
-	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
-	dep->dat.dep.link_args = akw[kw_link_args].val;
-	dep->dat.dep.version = akw[kw_version].val;
-	dep->dat.dep.flags |= dep_flag_found;
-
-	if (akw[kw_link_with].set) {
-		dep->dat.dep.link_with = akw[kw_link_with].val;
-	}
-
-	if (akw[kw_include_directories].set) {
-		dep->dat.dep.include_directories = akw[kw_include_directories].val;
-	}
-
-	return true;
-}
-
-static bool
 tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
