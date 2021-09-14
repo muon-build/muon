@@ -354,6 +354,7 @@ process_dep_args_includes_iter(struct workspace *wk, void *_ctx, uint32_t inc_id
 static enum iteration_result
 process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
+	assert(get_obj(wk, val_id)->type == obj_dependency);
 	struct obj *dep = get_obj(wk, val_id);
 	struct write_tgt_iter_ctx *ctx = _ctx;
 
@@ -367,7 +368,7 @@ process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	}
 
 	if (dep->dat.dep.link_args) {
-		uint32_t dup;
+		obj dup;
 		obj_array_dup(wk, dep->dat.dep.link_args, &dup);
 		obj_array_extend(wk, ctx->link_args, dup);
 	}
