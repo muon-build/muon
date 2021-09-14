@@ -150,7 +150,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 }
 
 bool
-func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
 {
 	enum kwargs {
 		kw_link_with,
@@ -184,14 +184,23 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		akw[kw_include_directories].val = inc_dirs;
 	}
 
-	struct obj *dep = make_obj(wk, obj, obj_dependency);
+	struct obj *dep = make_obj(wk, res, obj_dependency);
 	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
 	dep->dat.dep.link_args = akw[kw_link_args].val;
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
 
+	make_obj(wk, &dep->dat.dep.link_with, obj_array);
 	if (akw[kw_link_with].set) {
-		dep->dat.dep.link_with = akw[kw_link_with].val;
+		obj arr;
+		obj_array_dup(wk, akw[kw_link_with].val, &arr);
+		obj_array_extend(wk, dep->dat.dep.link_with, arr);
+	}
+
+	if (akw[kw_link_whole].set) {
+		obj arr;
+		obj_array_dup(wk, akw[kw_link_whole].val, &arr);
+		obj_array_extend(wk, dep->dat.dep.link_with, arr);
 	}
 
 	if (akw[kw_include_directories].set) {

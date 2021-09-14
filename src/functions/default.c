@@ -343,7 +343,7 @@ func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, u
 }
 
 static bool
-tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_type type, bool tgt_type_from_kw)
+tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -455,7 +455,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		pref = wk_objstr(wk, akw[kw_name_prefix].val);
 	}
 
-	struct obj *tgt = make_obj(wk, obj, obj_build_target);
+	struct obj *tgt = make_obj(wk, res, obj_build_target);
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.tgt.src = input;
@@ -500,8 +500,17 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 		tgt->dat.tgt.link_args = akw[kw_link_args].val;
 	}
 
+	make_obj(wk, &tgt->dat.tgt.link_with, obj_array);
 	if (akw[kw_link_with].set) {
-		tgt->dat.tgt.link_with = akw[kw_link_with].val;
+		obj arr;
+		obj_array_dup(wk, akw[kw_link_with].val, &arr);
+		obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+	}
+
+	if (akw[kw_link_whole].set) {
+		obj arr;
+		obj_array_dup(wk, akw[kw_link_whole].val, &arr);
+		obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
 	}
 
 	if (akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean) {
@@ -514,7 +523,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, uint32_t *obj, enum tgt_typ
 			tgt->dat.tgt.build_name, install_dir, 0);
 	}
 
-	obj_array_push(wk, current_project(wk)->targets, *obj);
+	obj_array_push(wk, current_project(wk)->targets, *res);
 
 	return true;
 }
