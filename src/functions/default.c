@@ -385,7 +385,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },

@@ -354,23 +354,40 @@ process_dep_args_includes_iter(struct workspace *wk, void *_ctx, uint32_t inc_id
 static enum iteration_result
 process_dep_args_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	assert(get_obj(wk, val_id)->type == obj_dependency);
-	struct obj *dep = get_obj(wk, val_id);
 	struct write_tgt_iter_ctx *ctx = _ctx;
 
-	if (dep->dat.dep.include_directories) {
-		struct obj *inc = get_obj(wk, dep->dat.dep.include_directories);
-		assert(inc->type == obj_array);
-		if (!obj_array_foreach_flat(wk, dep->dat.dep.include_directories,
-			_ctx, process_dep_args_includes_iter)) {
-			return ir_err;
-		}
-	}
+	struct obj *o = get_obj(wk, val_id);
 
-	if (dep->dat.dep.link_args) {
-		obj dup;
-		obj_array_dup(wk, dep->dat.dep.link_args, &dup);
-		obj_array_extend(wk, ctx->link_args, dup);
+	switch (o->type) {
+	case obj_external_library: {
+		if (ctx->tgt->dat.tgt.type == tgt_executable) {
+			obj str;
+			make_obj(wk, &str, obj_string)->dat.str = o->dat.external_library.full_path;
+
+			obj_array_push(wk, ctx->link_args, str);
+		}
+		break;
+	}
+	case obj_dependency: {
+		if (o->dat.dep.include_directories) {
+			struct obj *inc = get_obj(wk, o->dat.dep.include_directories);
+			assert(inc->type == obj_array);
+			if (!obj_array_foreach_flat(wk, o->dat.dep.include_directories,
+				_ctx, process_dep_args_includes_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (o->dat.dep.link_args) {
+			obj dup;
+			obj_array_dup(wk, o->dat.dep.link_args, &dup);
+			obj_array_extend(wk, ctx->link_args, dup);
+		}
+		break;
+	}
+	default:
+		LOG_E("invalid type for dependency: %s", obj_type_to_s(o->type));
+		return ir_err;
 	}
 
 	return ir_cont;
@@ -798,8 +815,6 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 			return ir_err;
 		}
 	}
-
-	/* how to determine which linker to use? */
 
 	{ /* dependencies / link_with */
 		if (tgt->dat.tgt.deps) {
