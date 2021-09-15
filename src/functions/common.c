@@ -161,6 +161,53 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, uint32_t *val, e
 
 #define ARITY arity_to_s(positional_args, optional_positional_args, keyword_args)
 
+static bool
+process_kwarg(struct workspace *wk, uint32_t kwarg_node, uint32_t arg_node, struct args_kw *keyword_args, const char *kw, obj val)
+{
+	uint32_t i;
+	for (i = 0; keyword_args[i].key; ++i) {
+		if (strcmp(kw, keyword_args[i].key) == 0) {
+			break;
+		}
+	}
+
+	if (!keyword_args[i].key) {
+		interp_error(wk, kwarg_node, "invalid kwarg: '%s'", kw);
+		return false;
+	}
+
+	if (!typecheck_function_arg(wk, arg_node, &val, keyword_args[i].type)) {
+		return false;
+	} else if (keyword_args[i].set) {
+		interp_error(wk, arg_node, "keyword argument '%s' set twice", keyword_args[i].key);
+		return false;
+	}
+
+	keyword_args[i].val = val;
+	keyword_args[i].node = arg_node;
+	keyword_args[i].set = true;
+
+	return true;
+}
+
+struct process_kwarg_dict_ctx {
+	uint32_t kwarg_node;
+	uint32_t arg_node;
+	struct args_kw *keyword_args;
+};
+
+static enum iteration_result
+process_kwarg_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	struct process_kwarg_dict_ctx *ctx = _ctx;
+
+	if (!process_kwarg(wk, ctx->kwarg_node, ctx->arg_node, ctx->keyword_args, wk_objstr(wk, key), val)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 bool
 interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],
@@ -258,25 +305,29 @@ process_kwarg:
 				return false;
 			}
 
-			for (i = 0; keyword_args[i].key; ++i) {
-				if (strcmp(kw, keyword_args[i].key) == 0) {
-					if (!interp_node(wk, arg_node, &keyword_args[i].val)) {
-						return false;
-					}
-
-					if (!typecheck_function_arg(wk, arg_node, &keyword_args[i].val, keyword_args[i].type)) {
-						return false;
-					}
-
-					keyword_args[i].node = arg_node;
-					keyword_args[i].set = true;
-					break;
-				}
+			obj val;
+			if (!interp_node(wk, arg_node, &val)) {
+				return false;
 			}
 
-			if (!keyword_args[i].key) {
-				interp_error(wk, kwarg_node, "invalid kwarg");
-				return false;
+			if (strcmp(kw, "kwargs") == 0) {
+				if (!typecheck(wk, arg_node, val, obj_dict)) {
+					return false;
+				}
+
+				struct process_kwarg_dict_ctx ctx = {
+					.kwarg_node = kwarg_node,
+					.arg_node = arg_node,
+					.keyword_args = keyword_args
+				};
+
+				if (!obj_dict_foreach(wk, val, &ctx, process_kwarg_dict_iter)) {
+					return false;
+				}
+			} else {
+				if (!process_kwarg(wk, kwarg_node, arg_node, keyword_args, kw, val)) {
+					return false;
+				}
 			}
 		}
 
