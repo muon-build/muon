@@ -185,7 +185,7 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 		kw_static,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required" },
+		[kw_required] = { "required", obj_any },
 		[kw_static] = { "static", obj_bool },
 		0
 	};

@@ -23,6 +23,7 @@ src = files([
 	'functions/default/setup.c',
 	'functions/dependency.c',
 	'functions/dict.c',
+	'functions/environment.c',
 	'functions/external_library.c',
 	'functions/external_program.c',
 	'functions/feature_opt.c',

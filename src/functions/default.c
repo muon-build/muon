@@ -15,6 +15,7 @@
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
+#include "functions/environment.h"
 #include "functions/modules.h"
 #include "functions/string.h"
 #include "lang/eval.h"
@@ -683,7 +684,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
-		[kw_env] = { "env", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_env] = { "env", obj_any },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -691,7 +692,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	obj cmd;
-	char *argv[MAX_ARGS], *envp[MAX_ARGS] = { 0 };
+	char *argv[MAX_ARGS], *const *envp;
 
 	{
 		obj args;
@@ -711,7 +712,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_env].set) {
-		if (!join_args_argv(wk, envp, MAX_ARGS, akw[kw_env].val)) {
+		if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, env_to_envp_flag_subdir)) {
 			return false;
 		}
 	}
@@ -818,7 +819,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_workdir] = { "workdir", obj_string, }, // TODO
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
-		[kw_env] = { "env", ARG_TYPE_ARRAY_OF | obj_string, },
+		[kw_env] = { "env", obj_any, },
 		0
 	};
 
@@ -896,6 +897,29 @@ func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, ctx.buf);
 	return true;
 }
+
+static bool
+func_environment(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	struct obj *d = make_obj(wk, obj, obj_environment);
+
+	if (ao[0].set) {
+		if (!typecheck_environment_dict(wk, ao[0].node, ao[0].val)) {
+			return false;
+		}
+		d->dat.environment.env = ao[0].val;
+	} else {
+		make_obj(wk, &d->dat.environment.env, obj_dict);
+	}
+
+	return true;
+}
+
 
 static bool
 func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
@@ -1002,7 +1026,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "declare_dependency", func_declare_dependency },
 	{ "dependency", func_dependency },
 	{ "disabler", func_disabler },
-	{ "environment", todo },
+	{ "environment", func_environment },
 	{ "error", func_error },
 	{ "executable", func_executable },
 	{ "files", func_files },

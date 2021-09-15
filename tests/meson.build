@@ -9,6 +9,8 @@ tests = [
 	{ 'name': 'multiline.meson', },
 	{ 'name': 'ternary.meson', },
 	{ 'name': 'fstring.meson', },
+	{ 'name': 'array.meson', },
+	{ 'name': 'environment.meson', },
 ]
 
 foreach t : tests

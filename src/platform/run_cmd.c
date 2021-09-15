@@ -50,10 +50,6 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 
-	if (!envp) {
-		envp = environ;
-	}
-
 	const char *cmd;
 	if (!fs_find_cmd(_cmd, &cmd)) {
 		ctx->err_msg = "command not found";
@@ -61,12 +57,24 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 	}
 
 	if (log_should_print(log_debug)) {
-		LL("executing %s: ", cmd);
+		LL("executing %s:", cmd);
 		char *const *ap;
 		for (ap = argv; *ap; ++ap) {
 			log_plain(" '%s'", *ap);
 		}
 		log_plain("\n");
+
+		if (envp) {
+			LL("env:");
+			for (ap = envp; *ap; ++ap) {
+				log_plain(" '%s'", *ap);
+			}
+			log_plain("\n");
+		}
+	}
+
+	if (!envp) {
+		envp = environ;
 	}
 
 	if (pipe(pipefd_out) == -1) {

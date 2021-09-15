@@ -6,6 +6,8 @@
 #include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
+#include "functions/environment.h"
+#include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
@@ -244,46 +246,110 @@ arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res)
 	return obj_array_foreach_flat(wk, arr, res, arr_to_args_iter);
 }
 
+struct env_to_envp_ctx {
+	char *envp[MAX_ENV + 1], envd[MAX_ENV][BUF_SIZE_4k];
+	uint32_t i;
+};
+
 static bool
-push_envp(char envp[MAX_ENV][BUF_SIZE_4k], uint32_t *i, const char *k, const char *v)
+push_envp_str(struct env_to_envp_ctx *ctx, const char *s)
 {
-	if (*i >= MAX_ENV) {
+	if (ctx->i >= MAX_ENV) {
+		LOG_E("too many environment elements (max: %d)", MAX_ENV);
 		return false;
 	}
 
-	if (strlen(k) + strlen(v) + 1 >= BUF_SIZE_4k) {
+	if (!strchr(s, '=')) {
+		LOG_E("env elements must be of the format key=value: '%s'", s);
 		return false;
 	}
 
-	sprintf(envp[*i], "%s=%s", k, v);
-	++(*i);
+	if (strlen(s) + 1 >= BUF_SIZE_4k) {
+		LOG_E("env element too long: '%s'", s);
+		return false;
+	}
+
+	strncpy(ctx->envd[ctx->i], s, BUF_SIZE_4k);
+	ctx->envp[ctx->i] = ctx->envd[ctx->i];
+	++ctx->i;
 	return true;
 }
 
-bool
-build_envp(struct workspace *wk, char *const *ret[], enum build_envp_flags flags)
+static bool
+push_envp_key_val(struct env_to_envp_ctx *ctx, const char *k, const char *v)
 {
-	static char *envp[MAX_ENV + 1],
-		    envd[MAX_ENV][BUF_SIZE_4k];
-	uint32_t i = 0, j;
+	if (strlen(k) + strlen(v) + 1 >= BUF_SIZE_4k) {
+		LOG_E("env element too long: '%s=%s'", k, v);
+		return false;
+	}
 
-	push_envp(envd, &i, "MESON_BUILD_ROOT", wk->build_root);
-	push_envp(envd, &i, "MESON_SOURCE_ROOT", wk->source_root);
+	char buf[BUF_SIZE_4k];
+	sprintf(buf, "%s=%s", k, v);
+	return push_envp_str(ctx, buf);
+}
 
-	if (flags & build_envp_flag_dist_root) {
+static enum iteration_result
+env_to_envp_arr_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct env_to_envp_ctx *ctx = _ctx;
+
+	if (!push_envp_str(ctx, wk_objstr(wk, val))) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+env_to_envp_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	struct env_to_envp_ctx *ctx = _ctx;
+
+	if (!push_envp_key_val(ctx, wk_objstr(wk, key), wk_objstr(wk, val))) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+bool
+env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val, enum env_to_envp_flags flags)
+{
+	static struct env_to_envp_ctx ctx = { 0 };
+	memset(&ctx, 0, sizeof(struct env_to_envp_ctx));
+
+	*ret = ctx.envp;
+
+	push_envp_key_val(&ctx, "MESON_BUILD_ROOT", wk->build_root);
+	push_envp_key_val(&ctx, "MESON_SOURCE_ROOT", wk->source_root);
+
+	if (flags & env_to_envp_flag_dist_root) {
 		assert(false && "TODO");
 	}
 
-	if (flags & build_envp_flag_subdir) {
-		push_envp(envd, &i, "MESON_SUBDIR", wk_str(wk, current_project(wk)->cwd));
+	if (flags & env_to_envp_flag_subdir) {
+		push_envp_key_val(&ctx, "MESON_SUBDIR", wk_str(wk, current_project(wk)->cwd));
 	}
 
-	for (j = 0; j < i; ++j) {
-		envp[j] = envd[j];
+	if (!val) {
+		return true;
 	}
-	assert(j < MAX_ARGS);
-	envp[j] = NULL;
 
-	*ret = envp;
-	return true;
+	struct obj *v = get_obj(wk, val);
+	switch (v->type) {
+	case obj_string:
+		return push_envp_str(&ctx, wk_str(wk, v->dat.str));
+	case obj_array:
+		return obj_array_foreach(wk, val, &ctx, env_to_envp_arr_iter);
+	case obj_dict:
+		if (!typecheck_environment_dict(wk, err_node, val)) {
+			return false;
+		}
+		return obj_dict_foreach(wk, val, &ctx, env_to_envp_dict_iter);
+	case obj_environment:
+		return obj_dict_foreach(wk, v->dat.environment.env, &ctx, env_to_envp_dict_iter);
+	default:
+		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(v->type));
+		return false;
+	}
 }

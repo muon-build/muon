@@ -21,10 +21,10 @@ bool join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t ar
 
 bool arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res);
 
-enum build_envp_flags {
-	build_envp_flag_subdir    = 1 << 0,
-	build_envp_flag_dist_root = 1 << 1,
+enum env_to_envp_flags {
+	env_to_envp_flag_subdir    = 1 << 0,
+	env_to_envp_flag_dist_root = 1 << 1,
 };
 
-bool build_envp(struct workspace *wk, char *const *ret[], enum build_envp_flags flags);
+bool env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val, enum env_to_envp_flags flags);
 #endif

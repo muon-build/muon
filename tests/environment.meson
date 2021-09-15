@@ -1,0 +1,34 @@
+env = environment({'other_key': 'val', 'other_key2': 'val1'})
+env.set('key', 'val')
+env.prepend('other_key2', 'hello')
+env.set('key2', 'val', 'val2', separator: '!!')
+env.append('key2', 'val', 'val2', separator: ';;')
+
+d = {}
+
+foreach line : run_command('env', env: env, check: true).stdout().strip().split('\n')
+	l = line.split('=')
+	d += { l[0]: l[1] }
+endforeach
+
+assert(d['other_key'] == 'val')
+assert(d['other_key2'] == 'hello:val1')
+assert(d['key'] == 'val')
+assert(d['key2'] == 'val!!val2;;val;;val2')
+
+d = {}
+foreach line : run_command('env', env: 'test=1', check: true).stdout().strip().split('\n')
+	l = line.split('=')
+	d += { l[0]: l[1] }
+endforeach
+
+assert(d['test'] == '1')
+
+d = {}
+foreach line : run_command('env', env: ['test=1', 'test2=2'], check: true).stdout().strip().split('\n')
+	l = line.split('=')
+	d += { l[0]: l[1] }
+endforeach
+
+assert(d['test'] == '1')
+assert(d['test2'] == '2')

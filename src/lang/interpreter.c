@@ -84,6 +84,36 @@ typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type ty
 	return typecheck_custom(wk, n_id, obj_id, type, "expected type %s, got %s");
 }
 
+struct typecheck_array_ctx {
+	uint32_t err_node;
+	enum obj_type t;
+};
+
+static enum iteration_result
+typecheck_array_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct typecheck_array_ctx *ctx = _ctx;
+
+	if (!typecheck_custom(wk, ctx->err_node, val, ctx->t, "expected type %s, got %s")) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+bool
+typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type)
+{
+	if (!typecheck(wk, n_id, arr, obj_array)) {
+		return false;
+	}
+
+	return obj_array_foreach(wk, arr, &(struct typecheck_array_ctx) {
+		.err_node = n_id,
+		.t = type,
+	}, typecheck_array_iter);
+}
+
 static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj);
 
 static bool

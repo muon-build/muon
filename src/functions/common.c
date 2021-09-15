@@ -13,6 +13,7 @@
 #include "functions/default.h"
 #include "functions/dependency.h"
 #include "functions/dict.h"
+#include "functions/environment.h"
 #include "functions/external_library.h"
 #include "functions/external_program.h"
 #include "functions/feature_opt.h"
@@ -330,6 +331,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_bool] = { impl_tbl_boolean },
 	[obj_array] = { impl_tbl_array },
 	[obj_build_target] = { impl_tbl_build_target },
+	[obj_environment] = { impl_tbl_environment },
 };
 
 bool

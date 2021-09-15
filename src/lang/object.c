@@ -37,6 +37,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_test: return "test";
 	case obj_module: return "module";
 	case obj_install_target: return "install_target";
+	case obj_environment: return "environment";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:
@@ -668,7 +669,7 @@ bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
 	enum obj_type t = get_obj(wk_src, val)->type;
-	struct obj *obj;
+	struct obj *o;
 
 	/* L("cloning %s", obj_type_to_s(t)); */
 
@@ -678,17 +679,17 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	case obj_number:
 	case obj_bool: {
-		obj = make_obj(wk_dest, ret, t);
-		*obj = *get_obj(wk_src, val);
+		o = make_obj(wk_dest, ret, t);
+		*o = *get_obj(wk_src, val);
 		return true;
 	}
 	case obj_string:
-		obj = make_obj(wk_dest, ret, t);
-		obj->dat.str = wk_str_push(wk_dest, wk_objstr(wk_src, val));
+		o = make_obj(wk_dest, ret, t);
+		o->dat.str = wk_str_push(wk_dest, wk_objstr(wk_src, val));
 		return true;
 	case obj_file:
-		obj = make_obj(wk_dest, ret, t);
-		obj->dat.file = wk_str_push(wk_dest, wk_file_path(wk_src, val));
+		o = make_obj(wk_dest, ret, t);
+		o->dat.file = wk_str_push(wk_dest, wk_file_path(wk_src, val));
 		return true;
 	case obj_array:
 		make_obj(wk_dest, ret, t);
@@ -703,16 +704,16 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	case obj_test: {
 		struct obj *test = get_obj(wk_src, val);
 
-		obj = make_obj(wk_dest, ret, t);
-		obj->dat.test.name = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.name));
-		obj->dat.test.exe = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.exe));
-		obj->dat.test.should_fail = test->dat.test.should_fail;
+		o = make_obj(wk_dest, ret, t);
+		o->dat.test.name = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.name));
+		o->dat.test.exe = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.exe));
+		o->dat.test.should_fail = test->dat.test.should_fail;
 
-		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &obj->dat.test.args)) {
+		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &o->dat.test.args)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, test->dat.test.env, &obj->dat.test.env)) {
+		if (!obj_clone(wk_src, wk_dest, test->dat.test.env, &o->dat.test.env)) {
 			return false;
 		}
 
@@ -721,16 +722,25 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	case obj_install_target: {
 		struct obj *in = get_obj(wk_src, val);
 
-		obj = make_obj(wk_dest, ret, t);
-		obj->dat.install_target.base_path =
+		o = make_obj(wk_dest, ret, t);
+		o->dat.install_target.base_path =
 			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.base_path));
-		obj->dat.install_target.filename =
+		o->dat.install_target.filename =
 			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.filename));
-		obj->dat.install_target.install_dir =
+		o->dat.install_target.install_dir =
 			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.install_dir));
 
 		// TODO
-		obj->dat.install_target.install_mode = in->dat.install_target.install_mode;
+		o->dat.install_target.install_mode = in->dat.install_target.install_mode;
+		return true;
+	}
+	case obj_environment: {
+		struct obj *env = get_obj(wk_src, val);
+		o = make_obj(wk_dest, ret, obj_environment);
+
+		if (!obj_clone(wk_src, wk_dest, env->dat.environment.env, &o->dat.environment.env)) {
+			return false;
+		}
 		return true;
 	}
 	default:

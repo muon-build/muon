@@ -34,6 +34,7 @@ enum obj_type {
 	obj_test,
 	obj_module,
 	obj_install_target,
+	obj_environment,
 
 	obj_type_count,
 
@@ -165,6 +166,9 @@ struct obj {
 			str install_dir;
 			uint32_t install_mode;
 		} install_target;
+		struct {
+			obj env; /* dict */
+		} environment;
 	} dat;
 };
 
