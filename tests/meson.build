@@ -1,29 +1,27 @@
 tests = [
-	{ 'name': 'unicode.meson', },
-	{ 'name': 'badnum.meson', 'should_fail': true },
-	{ 'name': 'dict.meson', },
-	{ 'name': 'join_paths.meson', },
-	{ 'name': 'katie.meson', },
-	{ 'name': 'join.meson', },
-	{ 'name': 'version_compare.meson', },
-	{ 'name': 'multiline.meson', },
-	{ 'name': 'ternary.meson', },
-	{ 'name': 'fstring.meson', },
-	{ 'name': 'array.meson', },
-	{ 'name': 'environment.meson', },
+	['unicode.meson'],
+	['badnum.meson', {'should_fail': true }],
+	['dict.meson'],
+	['join_paths.meson'],
+	['katie.meson'],
+	['join.meson'],
+	['version_compare.meson'],
+	['multiline.meson'],
+	['ternary.meson'],
+	['fstring.meson'],
+	['array.meson'],
+	['environment.meson', {'env': 'inherited=secert' }],
 ]
 
 foreach t : tests
-	if 'should_fail' in t
-		should_fail = t['should_fail']
+
+	if t.length() == 2
+		kwargs = t[1]
 	else
-		should_fail = false
+		kwargs = {}
 	endif
 
-	test(
-		t['name'],
-		muon,
-		args: ['internal', 'eval'] + files([t['name']]),
-		should_fail: should_fail
-	)
+	args = ['internal', 'eval'] + files([t[0]])
+
+	test(t[0], muon, args: args, kwargs: kwargs)
 endforeach

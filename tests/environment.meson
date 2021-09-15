@@ -11,6 +11,7 @@ foreach line : run_command('env', env: env, check: true).stdout().strip().split(
 	d += { l[0]: l[1] }
 endforeach
 
+assert(d['inherited'] == 'secret')
 assert(d['other_key'] == 'val')
 assert(d['other_key2'] == 'hello:val1')
 assert(d['key'] == 'val')
