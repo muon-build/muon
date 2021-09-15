@@ -727,10 +727,8 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (akw[kw_env].set) {
-		if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, env_to_envp_flag_subdir)) {
-			return false;
-		}
+	if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, env_to_envp_flag_subdir)) {
+		return false;
 	}
 
 	bool ret = false;
