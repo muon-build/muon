@@ -982,7 +982,7 @@ func_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *ob
 	}
 
 	interp_error(wk, args_node, "disablers are not supported");
-	return true;
+	return false;
 }
 
 static bool
