@@ -25,7 +25,7 @@ fnv_1a_64(const char *key)
 	uint64_t h = 14695981039346656037u;
 	uint16_t i;
 
-	for (i = 0; i < key[i]; i++) {
+	for (i = 0; key[i]; i++) {
 		h ^= key[i];
 		h *= 1099511628211u;
 	}
@@ -92,7 +92,6 @@ hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
 		if (!k_full(((uint8_t *)h->meta.e)[i])) {
 			continue;
 		}
-
 
 		switch (ifnc(ctx, &((struct hash_elem *)h->e.e)[i].val)) {
 		case ir_cont:
@@ -172,7 +171,7 @@ resize(struct hash *h, size_t newcap)
 	struct hash_elem *ohe, *he;
 	uint64_t hv;
 	uint8_t *meta;
-	void *key;
+	char *key;
 
 	struct hash newh = (struct hash) {
 		.cap = newcap, .capm = newcap - 1, .keys = h->keys,
@@ -191,7 +190,7 @@ resize(struct hash *h, size_t newcap)
 		}
 
 		ohe = &((struct hash_elem *)h->e.e)[i];
-		key = h->keys.e + (ohe->keyi * h->keys.item_size);
+		key = *(char **)(h->keys.e + (h->keys.item_size * ohe->keyi));
 
 		probe(&newh, key, &he, &meta, &hv);
 
