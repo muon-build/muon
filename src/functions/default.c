@@ -186,29 +186,25 @@ func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_i
 	return ir_cont;
 }
 
-static bool
-func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+struct add_project_arguments_ctx {
+	uint32_t lang_node;
+	uint32_t args_node;
+	obj args;
+};
+
+static enum iteration_result
+add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
-	enum kwargs { kw_language, };
-	struct args_kw akw[] = {
-		[kw_language] = { "language", obj_string, .required = true },
-		0
-	};
-
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
-		return false;
-	}
-
+	struct add_project_arguments_ctx *ctx = _ctx;
 	enum compiler_language l;
 
-	if (!s_to_lang(wk, akw[kw_language].node, akw[kw_language].val, &l)) {
+	if (!s_to_lang(wk, ctx->lang_node, val, &l)) {
 		return false;
 	}
 
 	uint32_t comp_id;
 	if (!obj_dict_geti(wk, current_project(wk)->compilers, l, &comp_id)) {
-		interp_error(wk, akw[kw_language].node,
+		interp_error(wk, ctx->lang_node,
 			"language '%s' has not been added", compiler_language_to_s(l));
 		return false;
 	}
@@ -219,10 +215,37 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 		obj_dict_seti(wk, current_project(wk)->cfg.args, l, args);
 	}
 
-	return obj_array_foreach_flat(wk, an[0].val, &(struct func_add_project_arguments_iter_ctx) {
-		.node = an[0].node,
+	if (!obj_array_foreach_flat(wk, ctx->args, &(struct func_add_project_arguments_iter_ctx) {
+		.node = ctx->args_node,
 		.args = args,
-	}, func_add_project_arguments_iter);
+	}, func_add_project_arguments_iter)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs { kw_language, };
+	struct args_kw akw[] = {
+		[kw_language] = { "language", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+
+	struct add_project_arguments_ctx ctx = {
+		.lang_node = akw[kw_language].node,
+		.args_node = an[0].node,
+		.args = an[0].val,
+	};
+	return obj_array_foreach(wk, akw[kw_language].val, &ctx, add_project_arguments_iter);
 }
 
 static bool
