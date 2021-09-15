@@ -202,13 +202,6 @@ add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 		return false;
 	}
 
-	uint32_t comp_id;
-	if (!obj_dict_geti(wk, current_project(wk)->compilers, l, &comp_id)) {
-		interp_error(wk, ctx->lang_node,
-			"language '%s' has not been added", compiler_language_to_s(l));
-		return false;
-	}
-
 	uint32_t args;
 	if (!obj_dict_geti(wk, current_project(wk)->cfg.args, l, &args)) {
 		make_obj(wk, &args, obj_array);
