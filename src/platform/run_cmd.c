@@ -73,10 +73,6 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 		}
 	}
 
-	if (!envp) {
-		envp = environ;
-	}
-
 	if (pipe(pipefd_out) == -1) {
 		goto err;
 	}
@@ -101,7 +97,24 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 			exit(1);
 		}
 
-		if (execve(cmd, argv, envp) == -1) {
+		if (envp) {
+			char *const *ap;
+			for (ap = envp; *ap; ++ap) {
+				char *const k = *ap;
+				char *v = strchr(k, '=');
+				assert(v);
+				*v = 0;
+				++v;
+
+				int err;
+				if ((err = setenv(k, v, 1)) != 0) {
+					log_plain("failed to set environment: %s", strerror(err));
+					exit(1);
+				}
+			}
+		}
+
+		if (execve(cmd, argv, environ) == -1) {
 			log_plain("%s: %s", cmd, strerror(errno));
 			exit(1);
 		}

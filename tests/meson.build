@@ -10,16 +10,11 @@ tests = [
 	['ternary.meson'],
 	['fstring.meson'],
 	['array.meson'],
-	['environment.meson', {'env': 'inherited=secert' }],
+	['environment.meson', {'env': 'inherited=secret' }],
 ]
 
 foreach t : tests
-
-	if t.length() == 2
-		kwargs = t[1]
-	else
-		kwargs = {}
-	endif
+	kwargs = t.length() == 2 ? t[1] : {}
 
 	args = ['internal', 'eval'] + files([t[0]])
 
