@@ -839,6 +839,15 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		}
 	}
 
+	if (akw[kw_env].set) {
+		char *const *envp;
+		/* even though we won't use the result, do this type-checking
+		 * here so you don't get type errors when running tests */
+		if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, 0)) {
+			return false;
+		}
+	}
+
 	obj test;
 	struct obj *t = make_obj(wk, &test, obj_test);
 	t->dat.test.name = an[0].val;
