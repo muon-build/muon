@@ -1077,15 +1077,16 @@ const struct func_impl_name impl_tbl_default[] =
 
 const struct func_impl_name impl_tbl_default_external[] = {
 	{ "assert", func_assert },
+	{ "environment", func_environment },
 	{ "error", func_error },
 	{ "files", func_files },
 	{ "find_program", func_find_program },
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
+	{ "p", func_p },
 	{ "run_command", func_run_command },
 	{ "setup", func_setup },
 	{ "warning", func_warning },
-	{ "p", func_p },
 	{ NULL, NULL },
 };
 

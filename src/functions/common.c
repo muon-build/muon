@@ -378,11 +378,11 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_external_library] = { impl_tbl_external_library },
 	[obj_configuration_data] = { impl_tbl_configuration_data },
 	[obj_custom_target] = { impl_tbl_custom_target },
-	[obj_file] = { impl_tbl_file },
-	[obj_bool] = { impl_tbl_boolean },
-	[obj_array] = { impl_tbl_array },
+	[obj_file] = { impl_tbl_file, impl_tbl_file },
+	[obj_bool] = { impl_tbl_boolean, impl_tbl_boolean },
+	[obj_array] = { impl_tbl_array, impl_tbl_array },
 	[obj_build_target] = { impl_tbl_build_target },
-	[obj_environment] = { impl_tbl_environment },
+	[obj_environment] = { impl_tbl_environment, impl_tbl_environment },
 };
 
 bool
