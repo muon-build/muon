@@ -32,18 +32,16 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		obj_array_extend(wk, cmdline, test_args);
 	}
 
-	char *argv[MAX_ARGS], *const *envp;
+	char *argv[MAX_ARGS], *const *envp = NULL;
 
 	if (!join_args_argv(wk, argv, MAX_ARGS, cmdline)) {
 		LOG_E("failed to prepare arguments");
 		return ir_err;
 	}
 
-	if (test->dat.test.env) {
-		if (!env_to_envp(wk, 0, &envp, test->dat.test.env, 0)) {
-			LOG_E("failed to prepare environment");
-			return ir_err;
-		}
+	if (!env_to_envp(wk, 0, &envp, test->dat.test.env, 0)) {
+		LOG_E("failed to prepare environment");
+		return ir_err;
 	}
 
 	enum iteration_result ret = ir_err;
