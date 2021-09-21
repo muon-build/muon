@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "backend/ninja.h"
 #include "compilers.h"
 #include "external/curl.h"
 #include "external/pkgconf.h"
@@ -17,7 +18,6 @@
 #include "log.h"
 #include "machine_file.h"
 #include "opts.h"
-#include "output/output.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

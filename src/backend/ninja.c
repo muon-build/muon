@@ -11,7 +11,7 @@
 #include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "output/output.h"
+#include "backend/ninja.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "tests.h"

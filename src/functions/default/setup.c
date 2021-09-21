@@ -1,11 +1,11 @@
 #include "posix.h"
 
+#include "backend/ninja.h"
 #include "external/samu.h"
 #include "functions/default/setup.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "log.h"
-#include "output/output.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

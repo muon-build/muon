@@ -1,5 +1,6 @@
 src = files([
 	'args.c',
+	'backend/ninja.c',
 	'coerce.c',
 	'compilers.c',
 	'data/bucket_array.c',
@@ -50,7 +51,6 @@ src = files([
 	'machine_file.c',
 	'main.c',
 	'opts.c',
-	'output/output.c',
 	'platform/dirs.c',
 	'platform/filesystem.c',
 	'platform/mem.c',

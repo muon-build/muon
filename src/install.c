@@ -1,9 +1,9 @@
 #include "posix.h"
 
+#include "backend/ninja.h"
 #include "install.h"
 #include "lang/serial.h"
 #include "log.h"
-#include "output/output.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

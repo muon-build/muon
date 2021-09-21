@@ -4,10 +4,10 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/ninja.h"
 #include "buf_size.h"
 #include "lang/serial.h"
 #include "log.h"
-#include "output/output.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

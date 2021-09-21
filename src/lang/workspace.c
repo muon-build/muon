@@ -3,13 +3,13 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "backend/ninja.h"
 #include "compilers.h"
 #include "error.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "output/output.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

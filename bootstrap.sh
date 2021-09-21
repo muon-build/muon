@@ -12,6 +12,7 @@ mkdir -p "$dir"
 
 cat \
 	src/args.c \
+	src/backend/ninja.c \
 	src/coerce.c \
 	src/compilers.c \
 	src/data/bucket_array.c \
@@ -66,7 +67,6 @@ cat \
 	src/machine_file.c \
 	src/main.c \
 	src/opts.c \
-	src/output/output.c \
 	src/platform/dirs.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
