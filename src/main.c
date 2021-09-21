@@ -314,7 +314,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		goto err;
 	}
 
-	if (!output_build(&wk)) {
+	if (!ninja_write_all(&wk)) {
 		goto err;
 	}
 

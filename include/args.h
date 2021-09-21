@@ -11,6 +11,7 @@ struct args {
 bool ninja_escape(char *buf, uint32_t len, const char *str);
 
 void push_args(struct workspace *wk, uint32_t arr, const struct args *args);
+void push_args_null_terminated(struct workspace *wk, uint32_t arr, char *const *argv);
 void push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg);
 void push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *args);
 

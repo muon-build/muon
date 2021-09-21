@@ -1,13 +1,7 @@
-#ifndef MUON_OUTPUT_OUTPUT_H
-#define MUON_OUTPUT_OUTPUT_H
+#ifndef MUON_BACKEND_NINJA_H
+#define MUON_BACKEND_NINJA_H
 
 #include "lang/workspace.h"
 
-struct outpath {
-	const char *private_dir, *setup, *tests, *install;
-};
-
-extern const struct outpath outpath;
-
-bool output_build(struct workspace *wk);
+bool ninja_write_all(struct workspace *wk);
 #endif

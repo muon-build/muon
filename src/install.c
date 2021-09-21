@@ -1,6 +1,6 @@
 #include "posix.h"
 
-#include "backend/ninja.h"
+#include "backend/output.h"
 #include "install.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -22,9 +22,9 @@ install_run(const char *build_root)
 {
 	bool ret = true;
 	char install_src[PATH_MAX], private[PATH_MAX];
-	if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
+	if (!path_join(private, PATH_MAX, build_root, output_path.private_dir)) {
 		return false;
-	} else if (!path_join(install_src, PATH_MAX, private, outpath.install)) {
+	} else if (!path_join(install_src, PATH_MAX, private, output_path.install)) {
 		return false;
 	}
 
@@ -38,7 +38,7 @@ install_run(const char *build_root)
 
 	uint32_t install_arr;
 	if (!serial_load(&wk, &install_arr, f)) {
-		LOG_E("failed to load %s", outpath.install);
+		LOG_E("failed to load %s", output_path.install);
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;

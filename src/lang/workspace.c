@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "backend/ninja.h"
+#include "backend/output.h"
 #include "compilers.h"
 #include "error.h"
 #include "lang/eval.h"
@@ -523,7 +523,7 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0,
 		}
 	}
 
-	if (!path_join(wk->muon_private, PATH_MAX, wk->build_root, outpath.private_dir)) {
+	if (!path_join(wk->muon_private, PATH_MAX, wk->build_root, output_path.private_dir)) {
 		return false;
 	}
 

@@ -1,6 +1,8 @@
 src = files([
 	'args.c',
 	'backend/ninja.c',
+	'backend/ninja/rules.c',
+	'backend/output.c',
 	'coerce.c',
 	'compilers.c',
 	'data/bucket_array.c',

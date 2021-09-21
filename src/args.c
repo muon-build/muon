@@ -22,6 +22,15 @@ push_args(struct workspace *wk, uint32_t arr, const struct args *args)
 }
 
 void
+push_args_null_terminated(struct workspace *wk, uint32_t arr, char *const *argv)
+{
+	const char *arg;
+	for (arg = *argv; *arg; ++arg) {
+		obj_array_push(wk, arr, make_str(wk, arg));
+	}
+}
+
+void
 push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg)
 {
 	assert(*len < max && "too many arguments");

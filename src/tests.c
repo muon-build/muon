@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "args.h"
-#include "backend/ninja.h"
+#include "backend/output.h"
 #include "buf_size.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -87,9 +87,9 @@ tests_run(const char *build_dir)
 
 	if (!path_make_absolute(build_root, PATH_MAX, build_dir)) {
 		return false;
-	} else if (!path_join(private, PATH_MAX, build_root, outpath.private_dir)) {
+	} else if (!path_join(private, PATH_MAX, build_root, output_path.private_dir)) {
 		return false;
-	} else if (!path_join(tests_src, PATH_MAX, private, outpath.tests)) {
+	} else if (!path_join(tests_src, PATH_MAX, private, output_path.tests)) {
 		return false;
 	}
 

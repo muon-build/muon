@@ -13,6 +13,8 @@ mkdir -p "$dir"
 cat \
 	src/args.c \
 	src/backend/ninja.c \
+	src/backend/ninja/rules.c \
+	src/backend/output.c \
 	src/coerce.c \
 	src/compilers.c \
 	src/data/bucket_array.c \

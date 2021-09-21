@@ -114,7 +114,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 			goto ret;
 		}
 
-		if (!output_build(&sub_wk)) {
+		if (!ninja_write_all(&sub_wk)) {
 			goto ret;
 		}
 	}
