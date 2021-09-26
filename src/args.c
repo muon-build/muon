@@ -24,9 +24,9 @@ push_args(struct workspace *wk, uint32_t arr, const struct args *args)
 void
 push_args_null_terminated(struct workspace *wk, uint32_t arr, char *const *argv)
 {
-	const char *arg;
-	for (arg = *argv; *arg; ++arg) {
-		obj_array_push(wk, arr, make_str(wk, arg));
+	char *const *arg;
+	for (arg = argv; *arg; ++arg) {
+		obj_array_push(wk, arr, make_str(wk, *arg));
 	}
 }
 
