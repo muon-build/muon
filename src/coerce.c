@@ -13,6 +13,13 @@ coerce_string(struct workspace *wk, uint32_t node, uint32_t val, const char **re
 {
 	struct obj *v = get_obj(wk, val);
 	switch (v->type) {
+	case obj_bool:
+		if (v->dat.boolean) {
+			*res = "true";
+		} else {
+			*res = "false";
+		}
+		break;
 	case obj_file:
 		*res = wk_file_path(wk, val);
 		break;
