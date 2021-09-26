@@ -103,9 +103,8 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj)
 
 	obj_array_push(wk, regen_args, make_str(wk, wk->argv0));
 	push_args_null_terminated(wk, regen_args, (char *[]) {
-		"auto", "-r", "-c", NULL
+		"auto", "-r", "-c", setup_file, NULL
 	});
-	obj_array_push(wk, regen_args, make_str(wk, setup_file));
 
 	str regen_cmd = join_args_shell(wk, regen_args);
 
