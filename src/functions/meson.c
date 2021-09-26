@@ -115,6 +115,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "version", func_meson_version },
 	{ "current_source_dir", func_meson_current_source_dir },
 	{ "current_build_dir", func_meson_current_build_dir },
+	{ "build_root", func_meson_global_build_root },
 	{ "global_build_root", func_meson_global_build_root },
 	{ "is_subproject", func_meson_is_subproject },
 	{ NULL, NULL },
