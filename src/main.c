@@ -301,6 +301,10 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		LOG_E("missing build dir");
 		return false;
 	}
+	if (argc - argi > 1) {
+		LOG_E("too many operands (did you try passing options after operands?)");
+		return false;
+	}
 
 	const char *build = argv[argi];
 	++argi;
