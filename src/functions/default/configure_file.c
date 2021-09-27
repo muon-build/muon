@@ -413,6 +413,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		kw_capture,
 		kw_install,
 		kw_install_dir,
+		kw_install_mode,
 		kw_copy,
 		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
@@ -425,6 +426,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_copy] = { "copy", obj_bool },
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
@@ -552,7 +554,12 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		push_install_target(wk, 0, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, 0);
+		uint32_t install_mode_id = 0;
+		if (akw[kw_install_mode].set) {
+			install_mode_id = akw[kw_install_mode].val;
+		}
+
+		push_install_target(wk, 0, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, install_mode_id);
 	}
 
 	return true;

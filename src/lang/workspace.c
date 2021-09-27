@@ -323,6 +323,7 @@ push_install_target(struct workspace *wk, uint32_t base_path, uint32_t filename,
 	tgt->dat.install_target.base_path = base_path;
 	tgt->dat.install_target.filename = filename;
 	tgt->dat.install_target.install_dir = install_dir;
+	// TODO this has a mode [, user, group]
 	tgt->dat.install_target.install_mode = install_mode;
 
 	obj_array_push(wk, wk->install, id);

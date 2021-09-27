@@ -369,6 +369,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		kw_dependencies,
 		kw_install,
 		kw_install_dir,
+		kw_install_mode,
 		kw_link_with,
 		kw_link_whole, // TODO
 		kw_version,
@@ -388,6 +389,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
@@ -535,9 +537,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		if (akw[kw_install_dir].set) {
 			install_dir = get_obj(wk, akw[kw_install_dir].val)->dat.str;
 		}
+		uint32_t install_mode_id = 0;
+		if (akw[kw_install_mode].set) {
+			install_mode_id = akw[kw_install_mode].val;
+		}
 
 		push_install_target(wk, tgt->dat.tgt.build_dir,
-			tgt->dat.tgt.build_name, install_dir, 0);
+			tgt->dat.tgt.build_name, install_dir, install_mode_id);
 	}
 
 	obj_array_push(wk, current_project(wk)->targets, *res);

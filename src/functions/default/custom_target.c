@@ -251,6 +251,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		kw_capture,
 		kw_install,
 		kw_install_dir,
+		kw_install_mode,
 		kw_build_by_default,
 		kw_depfile,
 	};
@@ -261,6 +262,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 		[kw_capture]     = { "capture", obj_bool },
 		[kw_install]     = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_any }, // TODO
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile]     = { "depfile", obj_string },
 		0
@@ -311,7 +313,12 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 			return false;
 		}
 
-		if (!push_install_targets(wk, 0, output, akw[kw_install_dir].val, 0)) {
+		uint32_t install_mode_id = 0;
+		if (akw[kw_install_mode].set) {
+			install_mode_id = akw[kw_install_mode].val;
+		}
+
+		if (!push_install_targets(wk, 0, output, akw[kw_install_dir].val, install_mode_id)) {
 			return false;
 		}
 	}
