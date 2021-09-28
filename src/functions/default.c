@@ -29,8 +29,8 @@
 static bool
 s_to_lang(struct workspace *wk, uint32_t err_node, uint32_t lang, enum compiler_language *l)
 {
-	if (!s_to_compiler_language(wk_objstr(wk, lang), l)) {
-		interp_error(wk, err_node, "unknown language '%s'", wk_objstr(wk, lang));
+	if (!s_to_compiler_language(get_cstr(wk, lang), l)) {
+		interp_error(wk, err_node, "unknown language '%s'", get_cstr(wk, lang));
 		return false;
 	}
 
@@ -48,12 +48,12 @@ project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 
 	uint32_t res;
 	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
-		interp_error(wk, err_node, "language '%s' has already been added", wk_objstr(wk, str));
+		interp_error(wk, err_node, "language '%s' has already been added", get_cstr(wk, str));
 		return false;
 	}
 
 	if (!compiler_detect(wk, &comp_id, l)) {
-		interp_error(wk, err_node, "unable to detect %s compiler", wk_objstr(wk, str));
+		interp_error(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
 		return false;
 	}
 
@@ -129,7 +129,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 			current_project(wk)->cfg.version = ver->dat.str;
 		} else if (ver->type == obj_file) {
 			struct source ver_src = { 0 };
-			if (!fs_read_entire_file(wk_str(wk, ver->dat.file), &ver_src)) {
+			if (!fs_read_entire_file(get_cstr(wk, ver->dat.file), &ver_src)) {
 				interp_error(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
@@ -161,8 +161,8 @@ version_type_error:
 	}
 
 	LOG_I("configuring '%s', version: %s",
-		wk_str(wk, current_project(wk)->cfg.name),
-		wk_str(wk, current_project(wk)->cfg.version)
+		get_cstr(wk, current_project(wk)->cfg.name),
+		get_cstr(wk, current_project(wk)->cfg.version)
 		);
 	return true;
 }
@@ -267,7 +267,7 @@ find_program(struct workspace *wk, const char *prog, const char **res)
 	/* 6. PATH environment variable */
 	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
 
-	if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), prog)) {
+	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), prog)) {
 		return false;
 	}
 
@@ -292,7 +292,7 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_iter_ctx *ctx = _ctx;
 
-	if (find_program(wk, wk_objstr(wk, val), &ctx->res)) {
+	if (find_program(wk, get_cstr(wk, val), &ctx->res)) {
 		ctx->found = true;
 		return ir_done;
 	}
@@ -415,7 +415,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			return false;
 		}
 
-		const char *tgt_type = wk_objstr(wk, akw[kw_target_type].val);
+		const char *tgt_type = get_cstr(wk, akw[kw_target_type].val);
 		static struct { char *name; enum tgt_type type; } tgt_tbl[] = {
 			{ "executable", tgt_executable, },
 			{ "shared_library", tgt_library, },
@@ -471,19 +471,19 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	}
 
 	if (akw[kw_name_prefix].set) {
-		pref = wk_objstr(wk, akw[kw_name_prefix].val);
+		pref = get_cstr(wk, akw[kw_name_prefix].val);
 	}
 
 	struct obj *tgt = make_obj(wk, res, obj_build_target);
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.tgt.src = input;
-	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, wk_str(wk, tgt->dat.tgt.name), suff);
+	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
 
-	LOG_I("added target %s", wk_str(wk, tgt->dat.tgt.build_name));
+	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
 
 	if (akw[kw_include_directories].set) {
 		uint32_t inc_dirs;
@@ -583,7 +583,7 @@ func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	if (!get_obj(wk, an[0].val)->dat.boolean) {
 		if (ao[0].set) {
-			LOG_E("%s", wk_objstr(wk, ao[0].val));
+			LOG_E("%s", get_cstr(wk, ao[0].val));
 		}
 		return false;
 	}
@@ -600,7 +600,7 @@ func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	LOG_E("%s", wk_objstr(wk, an[0].val));
+	LOG_E("%s", get_cstr(wk, an[0].val));
 	*obj = 0;
 
 	return false;
@@ -615,7 +615,7 @@ func_warning(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	LOG_E("%s", wk_objstr(wk, an[0].val));
+	LOG_E("%s", get_cstr(wk, an[0].val));
 	*obj = 0;
 
 	return true;
@@ -630,7 +630,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	LOG_I("%s", wk_objstr(wk, an[0].val));
+	LOG_I("%s", get_cstr(wk, an[0].val));
 	*obj = 0;
 
 	return true;
@@ -659,7 +659,7 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return true;
 	}
 
-	const char *subproj_name = wk_objstr(wk, an[0].val);
+	const char *subproj_name = get_cstr(wk, an[0].val);
 	char cwd[PATH_MAX + 1] = { 0 },
 	     build_dir[PATH_MAX + 1] = { 0 },
 	     subproject_name_buf[PATH_MAX + 1] = { 0 };
@@ -679,9 +679,9 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 
 	strncpy(subproject_name_buf, subproj_name, PATH_MAX);
 	snprintf(cwd, PATH_MAX, "%s/subprojects/%s",
-		wk_str(wk, current_project(wk)->source_root), subproj_name);
+		get_cstr(wk, current_project(wk)->source_root), subproj_name);
 	snprintf(build_dir, PATH_MAX, "%s/subprojects/%s",
-		wk_str(wk, current_project(wk)->build_dir), subproj_name);
+		get_cstr(wk, current_project(wk)->build_dir), subproj_name);
 
 	uint32_t subproject_id;
 
@@ -740,7 +740,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, wk_objstr(wk, cmd), argv, envp)) {
+	if (!run_cmd(&cmd_ctx, get_cstr(wk, cmd), argv, envp)) {
 		interp_error(wk, an[0].node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -777,9 +777,9 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	uint32_t old_cwd = current_project(wk)->cwd;
 	uint32_t old_build_dir = current_project(wk)->build_dir;
 
-	if (!path_join(cwd, PATH_MAX, wk_str(wk, old_cwd), wk_objstr(wk, an[0].val))) {
+	if (!path_join(cwd, PATH_MAX, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val))) {
 		return false;
-	} else if (!path_join(build_dir, PATH_MAX, wk_str(wk, old_build_dir), wk_objstr(wk, an[0].val))) {
+	} else if (!path_join(build_dir, PATH_MAX, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val))) {
 		return false;
 	} else if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
 		return false;
@@ -899,7 +899,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	char buf[PATH_MAX];
 	strcpy(buf, ctx->buf);
 
-	if (!path_join(ctx->buf, PATH_MAX, buf, wk_objstr(wk, val))) {
+	if (!path_join(ctx->buf, PATH_MAX, buf, get_cstr(wk, val))) {
 		return ir_err;
 	}
 
@@ -959,7 +959,7 @@ func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	}
 
 	enum module mod;
-	if (!module_lookup(wk_objstr(wk, an[0].val), &mod)) {
+	if (!module_lookup(get_cstr(wk, an[0].val), &mod)) {
 		interp_error(wk, an[0].node, "module not found");
 		return false;
 	}
@@ -999,7 +999,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	hash_set(&current_project(wk)->scope, wk_objstr(wk, an[0].val), an[1].val);
+	hash_set(&current_project(wk)->scope, get_cstr(wk, an[0].val), an[1].val);
 	return true;
 }
 
@@ -1012,7 +1012,7 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!get_obj_id(wk, wk_objstr(wk, an[0].val), res, wk->cur_project)) {
+	if (!get_obj_id(wk, get_cstr(wk, an[0].val), res, wk->cur_project)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {

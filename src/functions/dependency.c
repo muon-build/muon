@@ -31,7 +31,7 @@ dep_get_pkgconfig_variable(struct workspace *wk, uint32_t dep, uint32_t node, ui
 	}
 
 	uint32_t res;
-	if (!muon_pkgconf_get_variable(wk, wk_objstr(wk, get_obj(wk, dep)->dat.dep.name), wk_objstr(wk, var), &res)) {
+	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, get_obj(wk, dep)->dat.dep.name), get_cstr(wk, var), &res)) {
 		interp_error(wk, node, "undefined pkg_config variable");
 		return false;
 	}

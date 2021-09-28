@@ -109,7 +109,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				break;
 			}
 			case obj_string: {
-				sub = wk_objstr(wk, elem);
+				sub = get_cstr(wk, elem);
 				break;
 			}
 			case obj_number:
@@ -186,7 +186,7 @@ write_mesondefine:
 		}
 	}
 
-	if (!fs_write(wk_str(wk, out), (uint8_t *)out_buf, out_len)) {
+	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf, out_len)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -215,21 +215,21 @@ generate_config_iter(struct workspace *wk, void *_ctx, uint32_t key_id, uint32_t
 	case obj_string:
 		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
 		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		fprintf(ctx->out, "#define %s %s\n", wk_objstr(wk, key_id), wk_objstr(wk, val_id));
+		fprintf(ctx->out, "#define %s %s\n", get_cstr(wk, key_id), get_cstr(wk, val_id));
 		break;
 	case obj_bool:
 		/* conf_data.set('FOO', true)       => #define FOO */
 		/* conf_data.set('FOO', false)      => #undef FOO */
 		if (val->dat.boolean) {
-			fprintf(ctx->out, "#define %s\n", wk_objstr(wk, key_id));
+			fprintf(ctx->out, "#define %s\n", get_cstr(wk, key_id));
 		} else {
-			fprintf(ctx->out, "#undef %s\n", wk_objstr(wk, key_id));
+			fprintf(ctx->out, "#undef %s\n", get_cstr(wk, key_id));
 		}
 		break;
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		fprintf(ctx->out, "#define %s %ld\n", wk_objstr(wk, key_id), (intmax_t)val->dat.num);
+		fprintf(ctx->out, "#define %s %ld\n", get_cstr(wk, key_id), (intmax_t)val->dat.num);
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(val->type));
@@ -243,7 +243,7 @@ static bool
 generate_config(struct workspace *wk, uint32_t dict, uint32_t node, uint32_t out_path)
 {
 	FILE *out;
-	if (!(out = fs_fopen(wk_str(wk, out_path), "wb"))) {
+	if (!(out = fs_fopen(get_cstr(wk, out_path), "wb"))) {
 		return false;
 	}
 
@@ -304,7 +304,7 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	}
 
 	if (capture) {
-		ret = fs_write(wk_str(wk, out_path), (uint8_t *)cmd_ctx.out, strlen(cmd_ctx.out));
+		ret = fs_write(get_cstr(wk, out_path), (uint8_t *)cmd_ctx.out, strlen(cmd_ctx.out));
 	} else {
 		ret = true;
 	}
@@ -341,7 +341,7 @@ is_substr(const char *s, const char *sub, uint32_t *len)
 static bool
 perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_t src, uint32_t input_arr, uint32_t *res)
 {
-	const char *s = wk_objstr(wk, src);
+	const char *s = get_cstr(wk, src);
 	uint32_t str = wk_str_push(wk, ""), e = 0, len;
 
 	for (; *s; ++s) {
@@ -453,7 +453,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		const char *out = wk_objstr(wk, subd);
+		const char *out = get_cstr(wk, subd);
 		char out_path[PATH_MAX];
 
 
@@ -462,11 +462,11 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		if (!fs_mkdir_p(wk_str(wk, current_project(wk)->build_dir))) {
+		if (!fs_mkdir_p(get_cstr(wk, current_project(wk)->build_dir))) {
 			return false;
 		}
 
-		if (!path_join(out_path, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), out)) {
+		if (!path_join(out_path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), out)) {
 			return false;
 		}
 
@@ -503,7 +503,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		if (!fs_write(wk_str(wk, output_str), (uint8_t *)src.src, src.len)) {
+		if (!fs_write(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
 			fs_source_destroy(&src);
 			return false;
 		}

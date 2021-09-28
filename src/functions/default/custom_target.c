@@ -167,12 +167,12 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		}
 		break;
 	case obj_string: {
-		if (strcmp(wk_objstr(wk, val), "@INPUT@") == 0) {
+		if (strcmp(get_cstr(wk, val), "@INPUT@") == 0) {
 			if (!obj_array_foreach(wk, ctx->input, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			return ir_cont;
-		} else if (strcmp(wk_objstr(wk, val), "@OUTPUT@") == 0) {
+		} else if (strcmp(get_cstr(wk, val), "@OUTPUT@") == 0) {
 			if (!obj_array_foreach(wk, ctx->output, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
@@ -226,11 +226,11 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 
 	/* TODO: this needs to be handle differentiation between commands that
 	   are build targets */
-	/* if (!path_is_absolute(wk_objstr(wk, cmd))) { */
+	/* if (!path_is_absolute(get_cstr(wk, cmd))) { */
 	/* 	const char *cmd_path; */
-	/* 	if (!fs_find_cmd(wk_objstr(wk, cmd), &cmd_path)) { */
+	/* 	if (!fs_find_cmd(get_cstr(wk, cmd), &cmd_path)) { */
 	/* 		interp_error(wk, err_node, "command '%s' not found", */
-	/* 			wk_objstr(wk, cmd)); */
+	/* 			get_cstr(wk, cmd)); */
 	/* 		return false; */
 	/* 	} */
 
@@ -300,7 +300,7 @@ func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_
 
 	struct obj *tgt = make_obj(wk, obj, obj_custom_target);
 	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
-	LOG_I("adding custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
+	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->dat.custom_target.name));
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
 	tgt->dat.custom_target.output = output;

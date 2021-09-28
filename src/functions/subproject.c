@@ -9,7 +9,7 @@ bool
 subproject_get_variable(struct workspace *wk, uint32_t node, uint32_t name_id,
 	uint32_t subproj, uint32_t *obj)
 {
-	const char *name = wk_objstr(wk, name_id);
+	const char *name = get_cstr(wk, name_id);
 	uint32_t subproject_id = get_obj(wk, subproj)->dat.subproj;
 
 	if (!get_obj_id(wk, name, obj, subproject_id)) {

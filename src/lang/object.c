@@ -87,9 +87,9 @@ obj_equal(struct workspace *wk, obj left, obj right)
 
 	switch (l->type) {
 	case obj_string:
-		return strcmp(wk_str(wk, l->dat.str), wk_str(wk, r->dat.str)) == 0;
+		return strcmp(get_cstr(wk, l->dat.str), get_cstr(wk, r->dat.str)) == 0;
 	case obj_file:
-		return strcmp(wk_str(wk, l->dat.file), wk_str(wk, r->dat.file)) == 0;
+		return strcmp(get_cstr(wk, l->dat.file), get_cstr(wk, r->dat.file)) == 0;
 	case obj_number:
 		return l->dat.num == r->dat.num;
 	case obj_bool:
@@ -332,10 +332,10 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, wk_objstr(wk, val));
+	wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, get_cstr(wk, val));
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, wk_str(wk, ctx->join));
+		wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, get_cstr(wk, ctx->join));
 	}
 
 	++ctx->i;
@@ -480,7 +480,7 @@ typedef bool ((*obj_dict_key_comparison_func)(struct workspace *wk, union obj_di
 static bool
 obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
-	const char *a = wk_objstr(wk, other);
+	const char *a = get_cstr(wk, other);
 	return strlen(a) == key->string.len
 	       && strncmp(a, key->string.s, key->string.len) == 0;
 }
@@ -488,7 +488,7 @@ obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_com
 static bool
 obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
-	return strcmp(wk_objstr(wk, key->num), wk_objstr(wk, other)) == 0;
+	return strcmp(get_cstr(wk, key->num), get_cstr(wk, other)) == 0;
 }
 
 static bool
@@ -545,7 +545,7 @@ obj_dict_index_strn(struct workspace *wk, obj dict, const char *str,
 bool
 obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res)
 {
-	const char *k = wk_objstr(wk, key);
+	const char *k = get_cstr(wk, key);
 	return obj_dict_index_strn(wk, dict, k, strlen(k), res);
 }
 
@@ -685,7 +685,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	}
 	case obj_string:
 		o = make_obj(wk_dest, ret, t);
-		o->dat.str = wk_str_push(wk_dest, wk_objstr(wk_src, val));
+		o->dat.str = wk_str_push(wk_dest, get_cstr(wk_src, val));
 		return true;
 	case obj_file:
 		o = make_obj(wk_dest, ret, t);
@@ -705,8 +705,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		struct obj *test = get_obj(wk_src, val);
 
 		o = make_obj(wk_dest, ret, t);
-		o->dat.test.name = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.name));
-		o->dat.test.exe = make_str(wk_dest, wk_objstr(wk_src, test->dat.test.exe));
+		o->dat.test.name = make_str(wk_dest, get_cstr(wk_src, test->dat.test.name));
+		o->dat.test.exe = make_str(wk_dest, get_cstr(wk_src, test->dat.test.exe));
 		o->dat.test.should_fail = test->dat.test.should_fail;
 
 		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &o->dat.test.args)) {
@@ -724,11 +724,11 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 
 		o = make_obj(wk_dest, ret, t);
 		o->dat.install_target.base_path =
-			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.base_path));
+			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.base_path));
 		o->dat.install_target.filename =
-			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.filename));
+			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.filename));
 		o->dat.install_target.install_dir =
-			wk_str_push(wk_dest, wk_str(wk_src, in->dat.install_target.install_dir));
+			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.install_dir));
 
 		// TODO
 		o->dat.install_target.install_mode = in->dat.install_target.install_mode;
@@ -822,7 +822,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			break;
 		}
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s %s>", type, wk_str(wk, tgt->dat.tgt.name));
+		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s %s>", type, get_cstr(wk, tgt->dat.tgt.name));
 		break;
 	}
 	case obj_feature_opt:
@@ -842,8 +842,8 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	case obj_test: {
 		struct obj *test = get_obj(wk, obj);
 		ctx.i += snprintf(buf, len, "test('%s', '%s'",
-			wk_objstr(wk, test->dat.test.name),
-			wk_objstr(wk, test->dat.test.exe)
+			get_cstr(wk, test->dat.test.name),
+			get_cstr(wk, test->dat.test.exe)
 			);
 
 		if (test->dat.test.args) {
@@ -863,10 +863,10 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_file:
-		ctx.i += snprintf(buf, len, "files('%s')", wk_str(wk, get_obj(wk, obj)->dat.file));
+		ctx.i += snprintf(buf, len, "files('%s')", get_cstr(wk, get_obj(wk, obj)->dat.file));
 		break;
 	case obj_string:
-		ctx.i += snprintf(buf, len, "'%s'", wk_objstr(wk, obj));
+		ctx.i += snprintf(buf, len, "'%s'", get_cstr(wk, obj));
 		break;
 	case obj_number:
 		ctx.i += snprintf(buf, len, "%ld", (intmax_t)get_obj(wk, obj)->dat.num);
@@ -904,7 +904,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 
 		if (prog->dat.external_program.found) {
 			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", path: %s",
-				wk_str(wk, prog->dat.external_program.full_path));
+				get_cstr(wk, prog->dat.external_program.full_path));
 		}
 
 		ctx.i += snprintf(&ctx.buf[ctx.i], len, ">");

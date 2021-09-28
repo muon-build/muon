@@ -17,7 +17,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push_stripped(wk, wk_objstr(wk, rcvr));
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push_stripped(wk, get_cstr(wk, rcvr));
 	return true;
 }
 
@@ -28,9 +28,9 @@ func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t 
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, wk_objstr(wk, rcvr));
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, get_cstr(wk, rcvr));
 
-	char *s = wk_objstr(wk, *obj);
+	char *s = get_cstr(wk, *obj);
 
 	for (; *s; ++s) {
 		if ('a' <= *s && *s <= 'z') {
@@ -49,13 +49,13 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 	char *in;
 	char key[MAX_KEY_LEN + 1] = { 0 };
 
-	uint32_t in_len = strlen(wk_str(wk, str));
+	uint32_t in_len = strlen(get_cstr(wk, str));
 
 	uint32_t i, id_start, id_end = 0;
 	bool reading_id = false;
 
 	*out = wk_str_push(wk, "");
-	in = wk_str(wk, str);
+	in = get_cstr(wk, str);
 
 	for (i = 0; i < in_len; ++i) {
 		if (in[i] == '@') {
@@ -85,12 +85,12 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 						return false;
 					}
 					wk_str_app(wk, out, coerced);
-					in = wk_str(wk, str);
+					in = get_cstr(wk, str);
 					break;
 				}
 				case format_cb_skip: {
 					wk_str_appf(wk, out, "@%s@", key);
-					in = wk_str(wk, str);
+					in = get_cstr(wk, str);
 					break;
 				}
 				}
@@ -99,7 +99,7 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 			} else {
 				if (i) {
 					wk_str_appn(wk, out, &in[id_end], i - id_end);
-					in = wk_str(wk, str);
+					in = get_cstr(wk, str);
 				}
 
 				id_start = i + 1;
@@ -172,8 +172,8 @@ func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint3
 		return false;
 	}
 
-	uint32_t s_id = wk_str_push(wk, wk_objstr(wk, rcvr));
-	char *s = wk_str(wk, s_id);
+	uint32_t s_id = wk_str_push(wk, get_cstr(wk, rcvr));
+	char *s = get_cstr(wk, s_id);
 
 	for (; *s; ++s) {
 		if (!(('a' <= *s && *s <= 'z')
@@ -200,7 +200,7 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	static char sep[BUF_SIZE_2k + 1] = { 0 };
 
 	if (ao[0].set) {
-		strncpy(sep, wk_objstr(wk, ao[0].val), BUF_SIZE_2k);
+		strncpy(sep, get_cstr(wk, ao[0].val), BUF_SIZE_2k);
 	} else {
 		strncpy(sep, " ", BUF_SIZE_2k);
 	}
@@ -208,12 +208,12 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 
 	make_obj(wk, obj, obj_array);
 
-	const char *str = wk_objstr(wk, rcvr);
+	const char *str = get_cstr(wk, rcvr);
 	for (i = 0; str[i]; ++i) {
 		if (strncmp(&str[i], sep, seplen) == 0) {
 			make_obj(wk, &s_id, obj_string)->dat.str =
 				wk_str_pushn(wk, &str[start], i - start);
-			str = wk_objstr(wk, rcvr); // str may have been moved by the above line
+			str = get_cstr(wk, rcvr); // str may have been moved by the above line
 
 			obj_array_push(wk, *obj, s_id);
 
@@ -428,8 +428,8 @@ func_version_compare(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 		return false;
 	}
 
-	const char *str = wk_objstr(wk, rcvr);
-	const char *str_arg = wk_objstr(wk, an[0].val);
+	const char *str = get_cstr(wk, rcvr);
+	const char *str_arg = get_cstr(wk, an[0].val);
 	struct obj *res = make_obj(wk, obj, obj_bool);
 	if (!string_version_compare(wk, rcvr, str, str_arg, an[0].node, &res->dat.boolean)) {
 		return false;
@@ -445,7 +445,7 @@ func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint
 		return false;
 	}
 
-	const char *s = wk_objstr(wk, rcvr);
+	const char *s = get_cstr(wk, rcvr);
 	char *endptr = NULL;
 	int64_t n = strtol(s, &endptr, 10);
 	if (*endptr) {

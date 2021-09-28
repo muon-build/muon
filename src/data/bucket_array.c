@@ -68,7 +68,11 @@ bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len, uint
 	}
 
 	dest = b->mem + (b->len * ba->item_size);
-	memcpy(dest, data, ba->item_size * len);
+	if (len) {
+		memcpy(dest, data, ba->item_size * len);
+	} else {
+		memset(dest, 0, ba->item_size * len);
+	}
 	b->len += reserve;
 	ba->len += reserve;
 

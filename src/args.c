@@ -103,7 +103,7 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 	assert(get_obj(wk, val)->type == obj_string);
 
-	const char *s = wk_objstr(wk, val);
+	const char *s = get_cstr(wk, val);
 	char buf[BUF_SIZE_4k];
 
 	if (ctx->escape) {
@@ -178,7 +178,7 @@ join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
 		return ir_err;
 	}
 
-	ctx->argv[ctx->i] = wk_objstr(wk, v);
+	ctx->argv[ctx->i] = get_cstr(wk, v);
 	++ctx->i;
 	return ir_cont;
 }
@@ -219,8 +219,8 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 	case obj_build_target: {
 		char tmp[PATH_MAX];
 
-		if (!path_join(tmp, PATH_MAX, wk_str(wk, o->dat.tgt.build_dir),
-			wk_str(wk, o->dat.tgt.build_name))) {
+		if (!path_join(tmp, PATH_MAX, get_cstr(wk, o->dat.tgt.build_dir),
+			get_cstr(wk, o->dat.tgt.build_name))) {
 			return ir_err;
 		}
 
@@ -302,7 +302,7 @@ env_to_envp_arr_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct env_to_envp_ctx *ctx = _ctx;
 
-	if (!push_envp_str(ctx, wk_objstr(wk, val))) {
+	if (!push_envp_str(ctx, get_cstr(wk, val))) {
 		return ir_err;
 	}
 
@@ -314,7 +314,7 @@ env_to_envp_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct env_to_envp_ctx *ctx = _ctx;
 
-	if (!push_envp_key_val(ctx, wk_objstr(wk, key), wk_objstr(wk, val))) {
+	if (!push_envp_key_val(ctx, get_cstr(wk, key), get_cstr(wk, val))) {
 		return ir_err;
 	}
 
@@ -337,7 +337,7 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 	}
 
 	if (flags & env_to_envp_flag_subdir) {
-		push_envp_key_val(&ctx, "MESON_SUBDIR", wk_str(wk, current_project(wk)->cwd));
+		push_envp_key_val(&ctx, "MESON_SUBDIR", get_cstr(wk, current_project(wk)->cwd));
 	}
 
 	if (!val) {
@@ -347,7 +347,7 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 	struct obj *v = get_obj(wk, val);
 	switch (v->type) {
 	case obj_string:
-		return push_envp_str(&ctx, wk_str(wk, v->dat.str));
+		return push_envp_str(&ctx, get_cstr(wk, v->dat.str));
 	case obj_array:
 		return obj_array_foreach(wk, val, &ctx, env_to_envp_arr_iter);
 	case obj_dict:

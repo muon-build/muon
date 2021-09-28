@@ -39,10 +39,10 @@ set_options_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 	default: {
 		struct option_override oo = { .obj_value = true };
 		if (ctx->parent) {
-			oo.proj = wk_str_push(ctx->sub_wk, wk_objstr(wk, ctx->parent));
+			oo.proj = wk_str_push(ctx->sub_wk, get_cstr(wk, ctx->parent));
 		}
 
-		oo.name = wk_str_push(ctx->sub_wk, wk_objstr(wk, key));
+		oo.name = wk_str_push(ctx->sub_wk, get_cstr(wk, key));
 
 		if (!obj_clone(wk, ctx->sub_wk, val, &oo.val)) {
 			return ir_err;
@@ -82,15 +82,15 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	uint32_t project_id;
 
 	if (akw[kw_source].set) {
-		L("chdir to '%s'", wk_objstr(wk, akw[kw_source].val));
-		if (!path_chdir(wk_objstr(wk, akw[kw_source].val))) {
+		L("chdir to '%s'", get_cstr(wk, akw[kw_source].val));
+		if (!path_chdir(get_cstr(wk, akw[kw_source].val))) {
 			return false;
 		}
 	}
 
 	workspace_init(&sub_wk);
 
-	if (!workspace_setup_dirs(&sub_wk, wk_objstr(wk, an[0].val), wk->argv0, true)) {
+	if (!workspace_setup_dirs(&sub_wk, get_cstr(wk, an[0].val), wk->argv0, true)) {
 		goto ret;
 	}
 

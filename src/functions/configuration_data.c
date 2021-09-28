@@ -40,7 +40,7 @@ func_configuration_data_set_quoted(struct workspace *wk, uint32_t rcvr, uint32_t
 	}
 
 	uint32_t val;
-	const char *s = wk_objstr(wk, an[1].val);
+	const char *s = get_cstr(wk, an[1].val);
 	uint32_t str = wk_str_push(wk, "\"");
 
 	for (; *s; ++s) {
@@ -96,7 +96,7 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, uint32_t conf,
 		if (def) {
 			*obj = def;
 		} else {
-			interp_error(wk, err_node, "key '%s' not found", wk_objstr(wk, key));
+			interp_error(wk, err_node, "key '%s' not found", get_cstr(wk, key));
 			return false;
 		}
 	}
@@ -132,7 +132,7 @@ func_configuration_data_get_unquoted(struct workspace *wk, uint32_t rcvr, uint32
 		return false;
 	}
 
-	const char *s = wk_objstr(wk, res);
+	const char *s = get_cstr(wk, res);
 	uint32_t l = strlen(s);
 
 	if (l >= 2 && s[0] == '"' && s[l - 1] == '"') {

@@ -201,7 +201,7 @@ process_kwarg_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct process_kwarg_dict_ctx *ctx = _ctx;
 
-	if (!process_kwarg(wk, ctx->kwarg_node, ctx->arg_node, ctx->keyword_args, wk_objstr(wk, key), val)) {
+	if (!process_kwarg(wk, ctx->kwarg_node, ctx->arg_node, ctx->keyword_args, get_cstr(wk, key), val)) {
 		return ir_err;
 	}
 

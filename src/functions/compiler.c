@@ -79,13 +79,13 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 		return ir_err;
 	}
 
-	char *name = wk_str(wk, comp->dat.compiler.name);
+	char *name = get_cstr(wk, comp->dat.compiler.name);
 	enum compiler_type t = comp->dat.compiler.type;
 
 	const char *argv[MAX_ARGS + 1] = { name };
 	uint32_t len = 1;
 	push_argv(argv, &len, MAX_ARGS, compilers[t].args.werror());
-	push_argv_single(argv, &len, MAX_ARGS, wk_objstr(wk, arg));
+	push_argv_single(argv, &len, MAX_ARGS, get_cstr(wk, arg));
 	push_argv(argv, &len, MAX_ARGS, compilers[t].args.compile_only());
 	push_argv(argv, &len, MAX_ARGS, compilers[t].args.output(test_out));
 	push_argv_single(argv, &len, MAX_ARGS, test_source);
@@ -101,7 +101,7 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 	*has_argument = cmd_ctx.status == 0;
 
 	LOG_I("'%s' supported: %s",
-		wk_objstr(wk, arg),
+		get_cstr(wk, arg),
 		*has_argument ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m"
 		);
 
@@ -211,7 +211,7 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 	uint32_t i, j;
 	for (i = 0; libdirs[i]; ++i) {
 		for (j = 0; suf[j]; ++j) {
-			snprintf(lib, PATH_MAX, "lib%s.%s", wk_objstr(wk, an[0].val), suf[j]);
+			snprintf(lib, PATH_MAX, "lib%s.%s", get_cstr(wk, an[0].val), suf[j]);
 
 			if (!path_join(path, PATH_MAX, libdirs[i], lib)) {
 				return false;
@@ -233,7 +233,7 @@ done:
 
 		make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
 	} else {
-		LOG_I("found library '%s' at '%s'", wk_objstr(wk, an[0].val), path);
+		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), path);
 		struct obj *external_library = make_obj(wk, obj, obj_external_library);
 		external_library->dat.external_library.found = true;
 		external_library->dat.external_library.full_path = wk_str_push(wk, path);

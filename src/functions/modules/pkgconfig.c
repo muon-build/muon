@@ -65,7 +65,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	if (ao[0].set) {
 		name = get_obj(wk, ao[0].val)->dat.tgt.name;
 		if (!akw[kw_description].set) {
-			desc = wk_str_pushf(wk, "generated pc file for %s", wk_str(wk, name));
+			desc = wk_str_pushf(wk, "generated pc file for %s", get_cstr(wk, name));
 		}
 	}
 
@@ -85,7 +85,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	}
 
 	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, wk->muon_private, wk_str(wk, filebase))) {
+	if (!path_join(path, PATH_MAX, wk->muon_private, get_cstr(wk, filebase))) {
 		return false;
 	} else if (!path_add_suffix(path, PATH_MAX, ".pc")) {
 		return false;
@@ -104,14 +104,14 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		"Name: %s\n"
 		"Description: %s\n"
 		"Cflags: -I${includedir}\n",
-		wk_str(wk, name),
-		wk_str(wk, desc)
+		get_cstr(wk, name),
+		get_cstr(wk, desc)
 		);
 
 	{
 		const char *ver = "undefined";
 		if (akw[kw_version].set) {
-			ver = wk_objstr(wk, akw[kw_version].val);
+			ver = get_cstr(wk, akw[kw_version].val);
 		}
 		fprintf(f, "Version: %s\n", ver);
 	}

@@ -169,7 +169,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 		}
 
 		if (!obj_dict_index(wk, l_id, r_id, &result)) {
-			interp_error(wk, n->r, "key not in dictionary: '%s'", wk_objstr(wk, r_id));
+			interp_error(wk, n->r, "key not in dictionary: '%s'", get_cstr(wk, r_id));
 			return false;
 		}
 		break;
@@ -261,12 +261,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
 			res = wk_str_pushf(wk, "%s%s",
-				wk_objstr(wk, l_id),
-				wk_objstr(wk, r_id));
+				get_cstr(wk, l_id),
+				get_cstr(wk, r_id));
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];
-			if (!path_join(buf, PATH_MAX, wk_objstr(wk, l_id), wk_objstr(wk, r_id))) {
+			if (!path_join(buf, PATH_MAX, get_cstr(wk, l_id), get_cstr(wk, r_id))) {
 				return false;
 			}
 
@@ -472,7 +472,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		assert(dict_r->type == obj_dict);
 
 		if (obj_dict_in(wk, tail, key)) {
-			interp_error(wk, n->l, "key '%s' is duplicated", wk_objstr(wk, key));
+			interp_error(wk, n->l, "key '%s' is duplicated", get_cstr(wk, key));
 			return false;
 		}
 

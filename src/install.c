@@ -13,7 +13,7 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	struct obj *in = get_obj(wk, v_id);
 	assert(in->type == obj_install_target);
 
-	LOG_I("TODO: install '%s'", wk_str(wk, in->dat.install_target.filename));
+	LOG_I("TODO: install '%s'", get_cstr(wk, in->dat.install_target.filename));
 	return ir_cont;
 }
 

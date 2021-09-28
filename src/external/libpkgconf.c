@@ -131,7 +131,7 @@ find_lib_path_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct find_lib_path_ctx *ctx = _ctx;
 
-	if (check_lib_path(ctx, wk_objstr(wk, val_id))) {
+	if (check_lib_path(ctx, get_cstr(wk, val_id))) {
 		return ir_done;
 	}
 
@@ -199,12 +199,12 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		case 'l': {
 			const char *path;
 			if ((path = find_lib_path(client, ctx, frag->data))) {
-				LOG_I("library '%s' found for dependency '%s'", path, wk_str(ctx->wk, ctx->name));
+				LOG_I("library '%s' found for dependency '%s'", path, get_cstr(ctx->wk, ctx->name));
 
 				make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
 				obj_array_push(ctx->wk, ctx->info->libs, str);
 			} else {
-				LOG_E("library '%s' not found for dependency '%s'", frag->data, wk_str(ctx->wk, ctx->name));
+				LOG_E("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));
 				return false;
 			}
 			break;
@@ -252,7 +252,7 @@ muon_pkgconf_lookup(struct workspace *wk, uint32_t name, bool is_static, struct 
 
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
-	pkgconf_queue_push(&pkgq, wk_str(wk, name));
+	pkgconf_queue_push(&pkgq, get_cstr(wk, name));
 
 	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static };
 

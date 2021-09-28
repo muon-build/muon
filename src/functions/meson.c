@@ -22,9 +22,9 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 	}
 
 	enum compiler_language l;
-	if (!s_to_compiler_language(wk_objstr(wk, an[0].val), &l)
+	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
 	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, obj)) {
-		interp_error(wk, an[0].node, "no compiler found for '%s'", wk_objstr(wk, an[0].val));
+		interp_error(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
 

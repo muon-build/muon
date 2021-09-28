@@ -27,7 +27,7 @@ func_build_target_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_n
 	struct obj *tgt = get_obj(wk, rcvr);
 
 	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, wk_str(wk, tgt->dat.tgt.build_dir), wk_str(wk, tgt->dat.tgt.build_name))) {
+	if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
 		return false;
 	}
 

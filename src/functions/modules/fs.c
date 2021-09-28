@@ -15,7 +15,7 @@ func_module_fs_exists(struct workspace *wk, uint32_t rcvr, uint32_t args_node, u
 		return false;
 	}
 
-	make_obj(wk, obj, obj_bool)->dat.boolean = fs_exists(wk_objstr(wk, an[0].val));
+	make_obj(wk, obj, obj_bool)->dat.boolean = fs_exists(get_cstr(wk, an[0].val));
 	return true;
 }
 

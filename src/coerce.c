@@ -30,7 +30,7 @@ coerce_string(struct workspace *wk, uint32_t node, uint32_t val, const char **re
 		break;
 	}
 	case obj_string: {
-		*res = wk_objstr(wk, val);
+		*res = get_cstr(wk, val);
 		break;
 	}
 	default:
@@ -53,8 +53,8 @@ coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *r
 	case obj_build_target: {
 		char tmp1[PATH_MAX], dest[PATH_MAX];
 
-		if (!path_join(dest, PATH_MAX, wk_str(wk, obj->dat.tgt.build_dir),
-			wk_str(wk, obj->dat.tgt.build_name))) {
+		if (!path_join(dest, PATH_MAX, get_cstr(wk, obj->dat.tgt.build_dir),
+			get_cstr(wk, obj->dat.tgt.build_name))) {
 			return false;
 		} else if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest)) {
 			return false;
@@ -151,29 +151,29 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (path_is_absolute(wk_objstr(wk, val))) {
+			if (path_is_absolute(get_cstr(wk, val))) {
 				path = get_obj(wk, val)->dat.str;
 			} else {
-				if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->cwd), wk_objstr(wk, val))) {
+				if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, val))) {
 					return ir_err;
 				}
 
 				path = wk_str_push(wk, buf);
 			}
 
-			if (!ctx->exists(wk_str(wk, path))) {
+			if (!ctx->exists(get_cstr(wk, path))) {
 				interp_error(wk, ctx->node, "%s '%s' does not exist",
-					ctx->type, wk_str(wk, path));
+					ctx->type, get_cstr(wk, path));
 				return ir_err;
 			}
 			break;
 		case mode_output:
-			if (!path_is_basename(wk_objstr(wk, val))) {
-				interp_error(wk, ctx->node, "output file '%s' contains path seperators", wk_objstr(wk, val));
+			if (!path_is_basename(get_cstr(wk, val))) {
+				interp_error(wk, ctx->node, "output file '%s' contains path seperators", get_cstr(wk, val));
 				return ir_err;
 			}
 
-			if (!path_join(buf, PATH_MAX, wk_str(wk, current_project(wk)->build_dir), wk_objstr(wk, val))) {
+			if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, val))) {
 				return ir_err;
 			}
 
@@ -200,7 +200,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		struct obj *tgt = get_obj(wk, val);
 
 		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, wk_str(wk, tgt->dat.tgt.build_dir), wk_str(wk, tgt->dat.tgt.build_name))) {
+		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
 			return ir_err;
 		}
 

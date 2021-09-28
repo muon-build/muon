@@ -43,7 +43,7 @@ struct write_tgt_iter_ctx {
 static bool
 tgt_build_dir(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
 {
-	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, tgt->dat.tgt.build_dir))) {
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_cstr(wk, tgt->dat.tgt.build_dir))) {
 		return false;
 	}
 
@@ -54,7 +54,7 @@ static bool
 tgt_build_path(char buf[PATH_MAX], struct workspace *wk, struct obj *tgt)
 {
 	char tmp[PATH_MAX] = { 0 };
-	if (!path_join(tmp, PATH_MAX, wk_str(wk, tgt->dat.tgt.build_dir), wk_str(wk, tgt->dat.tgt.build_name))) {
+	if (!path_join(tmp, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
 		return false;
 	} else if (!path_relative_to(buf, PATH_MAX, wk->build_root, tmp)) {
 		return false;
@@ -88,8 +88,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		uint32_t comp_id;
 
 		// TODO put these checks into tgt creation
-		if (!filename_to_compiler_language(wk_str(wk, src->dat.file), &fl)) {
-			LOG_E("unable to determine language for '%s'", wk_str(wk, src->dat.file));
+		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+			LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
 			return ir_err;
 
 		}
@@ -109,24 +109,24 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	/* build paths */
 
 	char src_path[PATH_MAX];
-	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, wk_str(wk, src->dat.file))) {
+	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
 		return ir_err;
 	}
 
 	char rel[PATH_MAX], dest_path[PATH_MAX];
 	const char *base;
 
-	if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.build_dir),
-		wk_str(wk, src->dat.file))) {
-		base = wk_str(wk, ctx->tgt->dat.tgt.build_dir);
-	} else if (path_is_subpath(wk_str(wk, ctx->tgt->dat.tgt.cwd),
-		wk_str(wk, src->dat.file))) {
-		base = wk_str(wk, ctx->tgt->dat.tgt.cwd);
+	if (path_is_subpath(get_cstr(wk, ctx->tgt->dat.tgt.build_dir),
+		get_cstr(wk, src->dat.file))) {
+		base = get_cstr(wk, ctx->tgt->dat.tgt.build_dir);
+	} else if (path_is_subpath(get_cstr(wk, ctx->tgt->dat.tgt.cwd),
+		get_cstr(wk, src->dat.file))) {
+		base = get_cstr(wk, ctx->tgt->dat.tgt.cwd);
 	} else {
 		base = wk->source_root;
 	}
 
-	if (!path_relative_to(rel, PATH_MAX, base, wk_str(wk, src->dat.file))) {
+	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src->dat.file))) {
 		return ir_err;
 	} else if (!path_join(dest_path, PATH_MAX, ctx->tgt_parts_dir, rel)) {
 		return ir_err;
@@ -149,12 +149,12 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	fprintf(ctx->out, ": %s_COMPILER ", compiler_language_to_s(fl));
 	write_escaped(ctx->out, src_path);
 	if (ctx->have_order_deps) {
-		fprintf(ctx->out, " || %s", wk_objstr(wk, ctx->order_deps));
+		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
 	fputc('\n', ctx->out);
 
 	fprintf(ctx->out,
-		" ARGS = %s\n", wk_objstr(wk, args_id));
+		" ARGS = %s\n", get_cstr(wk, args_id));
 
 	if (compilers[ct].deps) {
 		fprintf(ctx->out,
@@ -177,8 +177,8 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	enum compiler_language fl;
 
-	if (!filename_to_compiler_language(wk_str(wk, src->dat.file), &fl)) {
-		LOG_E("unable to determine language for '%s'", wk_str(wk, src->dat.file));
+	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+		LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
 		return ir_err;
 
 	}
@@ -189,7 +189,7 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	char dir[PATH_MAX], path[PATH_MAX];
 
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, wk_str(wk, src->dat.file))) {
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
 		return ir_err;
 	}
 
@@ -213,7 +213,7 @@ process_dep_args_includes_iter(struct workspace *wk, void *_ctx, uint32_t inc_id
 	assert(get_obj(wk, inc_id)->type == obj_file);
 
 	char path[PATH_MAX];
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, wk_str(wk, get_obj(wk, inc_id)->dat.file))) {
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, get_obj(wk, inc_id)->dat.file))) {
 		return ir_err;
 	}
 
@@ -389,7 +389,7 @@ get_buildtype_args(struct workspace *wk, struct project *proj, uint32_t args_id,
 		return false;
 	}
 
-	const char *str = wk_objstr(wk, buildtype);
+	const char *str = get_cstr(wk, buildtype);
 
 	if (strcmp(str, "custom") == 0) {
 		uint32_t optimization_id, debug_id;
@@ -400,7 +400,7 @@ get_buildtype_args(struct workspace *wk, struct project *proj, uint32_t args_id,
 			return false;
 		}
 
-		str = wk_objstr(wk, optimization_id);
+		str = get_cstr(wk, optimization_id);
 		switch (*str) {
 		case '0': case '1': case '2': case '3':
 			opt = compiler_optimization_lvl_0 + (*str - '0');
@@ -464,7 +464,7 @@ get_std_args(struct workspace *wk, struct project *proj, uint32_t args_id, enum 
 		return false;
 	}
 
-	const char *s = wk_objstr(wk, std);
+	const char *s = get_cstr(wk, std);
 
 	if (strcmp(s, "none") != 0) {
 		push_args(wk, args_id, compilers[t].args.set_std(s));
@@ -481,7 +481,7 @@ struct setup_compiler_args_includes_ctx {
 static enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, uint32_t v_id)
 {
-	char *dir = wk_objstr(wk, v_id);
+	char *dir = get_cstr(wk, v_id);
 
 	if (path_is_absolute(dir)) {
 		char rel[PATH_MAX];
@@ -558,8 +558,8 @@ determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 
 	enum compiler_language fl;
 
-	if (!filename_to_compiler_language(wk_str(wk, src->dat.file), &fl)) {
-		LOG_E("unable to determine language for '%s'", wk_str(wk, src->dat.file));
+	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+		LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
 		return ir_err;
 	}
 
@@ -594,7 +594,7 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct project *proj = ((struct write_tgt_ctx *)_ctx)->proj;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I("writing rules for target '%s'", wk_str(wk, tgt->dat.tgt.build_name));
+	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->dat.tgt.build_name));
 
 	char path[PATH_MAX];
 	if (!tgt_build_path(path, wk, tgt)) {
@@ -721,16 +721,16 @@ write_build_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	fputs("build ", out);
 	write_escaped(out, path);
 	fprintf(out, ": %s_LINKER ", linker_type);
-	fputs(wk_objstr(wk, join_args_ninja(wk, ctx.object_names)), out);
+	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), out);
 	if (ctx.have_implicit_deps) {
 		fputs(" | ", out);
-		fputs(wk_objstr(wk, ctx.implicit_deps), out);
+		fputs(get_cstr(wk, ctx.implicit_deps), out);
 	}
 	if (ctx.have_order_deps) {
 		fputs(" || ", out);
-		fputs(wk_objstr(wk, ctx.order_deps), out);
+		fputs(get_cstr(wk, ctx.order_deps), out);
 	}
-	fprintf(out, "\n LINK_ARGS = %s\n\n", wk_objstr(wk, join_args_shell(wk, ctx.link_args)));
+	fprintf(out, "\n LINK_ARGS = %s\n\n", get_cstr(wk, join_args_shell(wk, ctx.link_args)));
 
 	return ir_cont;
 }
@@ -745,7 +745,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	char buf[PATH_MAX];
 
-	if (!path_relative_to(buf, PATH_MAX, wk->build_root, wk_str(wk, file->dat.file))) {
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_cstr(wk, file->dat.file))) {
 		return ir_err;
 	}
 
@@ -759,7 +759,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	FILE *out = ((struct write_tgt_ctx *)_ctx)->out;
 
 	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I("writing rules for custom target '%s'", wk_str(wk, tgt->dat.custom_target.name));
+	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->dat.custom_target.name));
 
 	uint32_t outputs, inputs, cmdline;
 
@@ -801,7 +801,7 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	uint32_t cmd;
 	obj_array_index(wk, tgt->dat.custom_target.args, 0, &cmd);
 	char cmd_escaped[PATH_MAX];
-	if (!ninja_escape(cmd_escaped, PATH_MAX, wk_objstr(wk, cmd))) {
+	if (!ninja_escape(cmd_escaped, PATH_MAX, get_cstr(wk, cmd))) {
 		return ir_err;
 	}
 
@@ -814,11 +814,11 @@ write_custom_tgt(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"
 		" DESCRIPTION = %s\n\n",
-		wk_objstr(wk, outputs),
-		wk_objstr(wk, inputs),
+		get_cstr(wk, outputs),
+		get_cstr(wk, inputs),
 		cmd_escaped,
-		wk_objstr(wk, cmdline),
-		wk_objstr(wk, cmdline)
+		get_cstr(wk, cmdline),
+		get_cstr(wk, cmdline)
 		);
 
 	return ir_cont;

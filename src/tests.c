@@ -47,18 +47,18 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 	enum iteration_result ret = ir_err;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, wk_objstr(wk, test->dat.test.exe), argv, envp)) {
+	if (!run_cmd(&cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp)) {
 		LOG_E("test command failed: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
 	if (cmd_ctx.status && !test->dat.test.should_fail) {
-		LOG_E("%s - failed (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
+		LOG_E("%s - failed (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
 		LOG_E("stdout: '%s'", cmd_ctx.out);
 		LOG_E("stderr: '%s'", cmd_ctx.err);
 		goto ret;
 	} else {
-		LOG_I("%s - success (%d)", wk_objstr(wk, test->dat.test.name), cmd_ctx.status);
+		LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
 	}
 
 	ret = ir_cont;
@@ -70,7 +70,7 @@ ret:
 static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, uint32_t proj_name, uint32_t tests)
 {
-	LOG_I("running tests for project '%s'", wk_objstr(wk, proj_name));
+	LOG_I("running tests for project '%s'", get_cstr(wk, proj_name));
 
 	if (!obj_array_foreach(wk, tests, NULL, run_test)) {
 		return ir_err;

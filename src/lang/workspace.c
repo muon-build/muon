@@ -51,7 +51,7 @@ wk_file_path(struct workspace *wk, uint32_t id)
 {
 	struct obj *obj = get_obj(wk, id);
 	assert(obj->type == obj_file);
-	return wk_str(wk, obj->dat.file);
+	return get_cstr(wk, obj->dat.file);
 }
 
 void

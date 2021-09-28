@@ -26,7 +26,7 @@ handle_dependency_fallback(struct workspace *wk, uint32_t *obj, uint32_t node, u
 	obj_array_index(wk, fallback, 1, &subproj_dep);
 
 	char src[BUF_SIZE_2k];
-	snprintf(src, BUF_SIZE_2k, "subproject('%s')", wk_objstr(wk, subproj_name));
+	snprintf(src, BUF_SIZE_2k, "subproject('%s')", get_cstr(wk, subproj_name));
 	if (!eval_str(wk, src, &subproj)) {
 		return false;
 	}
@@ -52,7 +52,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 
 		struct obj *dep = make_obj(wk, obj, obj_dependency);
 		dep->dat.dep.name = name;
-		LOG_I("dependency %s not found", wk_objstr(wk, name));
+		LOG_I("dependency %s not found", get_cstr(wk, name));
 		return true;
 	}
 
@@ -63,7 +63,7 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	dep->dat.dep.link_with = info.libs;
 	dep->dat.dep.include_directories = info.includes;
 
-	LOG_I("dependency %s found: %s%s", wk_objstr(wk, name), wk_objstr(wk, dep->dat.dep.version),
+	LOG_I("dependency %s found: %s%s", get_cstr(wk, name), get_cstr(wk, dep->dat.dep.version),
 		is_static ? ", static" : "");
 
 	return true;
@@ -73,12 +73,12 @@ static bool
 handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
 	bool is_static, enum requirement_type requirement, uint32_t *obj, bool *handled)
 {
-	if (strcmp(wk_objstr(wk, name), "threads") == 0) {
+	if (strcmp(get_cstr(wk, name), "threads") == 0) {
 		*handled = true;
 		struct obj *dep = make_obj(wk, obj, obj_dependency);
 		dep->dat.dep.name = get_obj(wk, name)->dat.str;
 		dep->dat.dep.flags |= dep_flag_found;
-	} else if (strcmp(wk_objstr(wk, name), "curses") == 0) {
+	} else if (strcmp(get_cstr(wk, name), "curses") == 0) {
 		*handled = true;
 		uint32_t s;
 		make_obj(wk, &s, obj_string)->dat.str = wk_str_push(wk, "ncurses");
@@ -185,7 +185,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	}
 
 	struct obj *dep = make_obj(wk, res, obj_dependency);
-	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", wk_str(wk, current_project(wk)->cfg.name));
+	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name));
 	dep->dat.dep.link_args = akw[kw_link_args].val;
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;

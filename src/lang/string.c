@@ -19,7 +19,7 @@ get_str(struct workspace *wk, str s)
 	/* } */
 
 	if (!((s & wk_id_tag_str) == wk_id_tag_str)) {
-		struct obj *obj = get_obj(wk, s >> 1);
+		struct obj *obj = bucket_array_get(&wk->objs, s >> 1);
 		assert(obj->type == obj_string);
 		s = obj->dat.str;
 	}
@@ -52,7 +52,7 @@ grow_str(struct workspace *wk, str s, uint32_t grow_by)
 	uint32_t i = s >> 1;
 
 	struct str *ss = bucket_array_get(&wk->strs, i);
-	uint32_t new_len = ss->len + grow_by;
+	uint32_t new_len = ss->len + grow_by + 1;
 
 	if (ss->flags & str_flag_big) {
 		ss->s = z_realloc((void *)ss->s, new_len);
@@ -81,11 +81,13 @@ reserve_str(struct workspace *wk, str *s, uint32_t len)
 	enum str_flags f = 0;
 	const char *p;
 
-	if (len > wk->chrs.bucket_size) {
+	uint32_t new_len = len + 1;
+
+	if (new_len > wk->chrs.bucket_size) {
 		f |= str_flag_big;
-		p = z_malloc(len);
+		p = z_calloc(new_len, 1);
 	} else {
-		p = bucket_array_pushn(&wk->chrs, NULL, 0, len);
+		p = bucket_array_pushn(&wk->chrs, NULL, 0, new_len);
 	}
 
 	return bucket_array_push(&wk->strs, &(struct str){
