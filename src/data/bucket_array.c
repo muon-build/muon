@@ -30,7 +30,7 @@ bucket_array_init(struct bucket_array *ba,
 		.bucket_size = bucket_size,
 	};
 
-	darr_init(&ba->buckets, 1, item_size);
+	darr_init(&ba->buckets, 1, sizeof(struct bucket));
 
 	darr_push(&ba->buckets, &(struct bucket) { 0 });
 	init_bucket(ba, darr_get(&ba->buckets, 0));
