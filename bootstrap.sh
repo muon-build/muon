@@ -64,6 +64,7 @@ cat \
 	src/lang/object.c \
 	src/lang/parser.c \
 	src/lang/serial.c \
+	src/lang/string.c \
 	src/lang/workspace.c \
 	src/log.c \
 	src/machine_file.c \

@@ -8,6 +8,7 @@
 
 #include "compilers.h"
 #include "iterator.h"
+#include "lang/string.h"
 
 enum obj_type {
 	obj_any, // used for argument type checking
@@ -44,9 +45,6 @@ enum obj_type {
 };
 
 typedef uint32_t obj;
-
-// this has to be included here so that obj_type and obj can be defined already
-#include "lang/workspace.h"
 
 enum tgt_type {
 	tgt_executable,

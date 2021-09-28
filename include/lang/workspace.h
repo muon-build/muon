@@ -9,11 +9,9 @@
 #include "data/darr.h"
 #include "data/hash.h"
 #include "lang/eval.h"
-#include "lang/parser.h"
-
-typedef uint32_t str;
-
 #include "lang/object.h"
+#include "lang/parser.h"
+#include "lang/string.h"
 
 struct project {
 	struct hash scope;
@@ -85,18 +83,6 @@ struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);
 uint32_t make_str(struct workspace *wk, const char *str);
 struct obj *get_obj(struct workspace *wk, uint32_t id);
 bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_id);
-
-uint32_t wk_str_pushf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
-char *wk_str(struct workspace *wk, uint32_t id);
-void wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
-void wk_str_app(struct workspace *wk, uint32_t *id, const char *str);
-void wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n);
-uint32_t wk_str_push(struct workspace *wk, const char *str);
-uint32_t wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
-char *wk_objstr(struct workspace *wk, uint32_t id);
-char *wk_file_path(struct workspace *wk, uint32_t id);
-uint32_t wk_str_push_stripped(struct workspace *wk, const char *s);
-uint32_t wk_str_split(struct workspace *wk, const char *s, const char *sep);
 
 void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);

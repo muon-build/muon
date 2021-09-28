@@ -48,6 +48,7 @@ src = files([
 	'lang/object.c',
 	'lang/parser.c',
 	'lang/serial.c',
+	'lang/string.c',
 	'lang/workspace.c',
 	'log.c',
 	'machine_file.c',
