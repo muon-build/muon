@@ -25,26 +25,6 @@ load_uint32(uint32_t *v, FILE *f)
 }
 
 static bool
-dump_darr(const struct darr *da, FILE *f)
-{
-	return dump_uint32(da->len, f)
-	       && fs_fwrite(da->e, da->item_size * da->len, f);
-}
-
-static bool
-load_darr(struct darr *da, FILE *f)
-{
-	uint32_t start = da->len, len;
-	if (!load_uint32(&len, f)) {
-		return false;
-	}
-
-	darr_grow_by(da, len);
-	assert(da->cap - (start * da->item_size) >= len * da->item_size);
-	return fs_fread(da->e + start * da->item_size, len * da->item_size, f);
-}
-
-static bool
 dump_bucket_array(const struct bucket_array *ba, FILE *f)
 {
 	uint32_t i;
@@ -137,7 +117,7 @@ serial_dump(struct workspace *wk_src, uint32_t obj, FILE *f)
 
 	if (!(dump_serial_header(f)
 	      && dump_uint32(obj_dest, f)
-	      && dump_darr(&wk_dest.strs, f)
+	      && dump_bucket_array(&wk_dest.strs, f)
 	      && dump_bucket_array(&wk_dest.objs, f))) {
 		goto ret;
 	}
@@ -154,13 +134,13 @@ serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
 	bool ret = false;
 	struct workspace wk_src = { 0 };
 	workspace_init_bare(&wk_src);
-	darr_clear(&wk_src.strs);
+	bucket_array_clear(&wk_src.strs);
 	bucket_array_clear(&wk_src.objs);
 
 	uint32_t obj_src;
 	if (!(load_serial_header(f)
 	      && load_uint32(&obj_src, f)
-	      && load_darr(&wk_src.strs, f)
+	      && load_bucket_array(&wk_src.strs, f)
 	      && load_bucket_array(&wk_src.objs, f))) {
 		goto ret;
 	}

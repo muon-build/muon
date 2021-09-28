@@ -3,52 +3,110 @@
 #include <string.h>
 
 #include "error.h"
+#include "lang/object.h"
 #include "lang/private.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
 
-uint32_t
-make_str(struct workspace *wk, const char *str)
+struct str *
+get_str(struct workspace *wk, str s)
 {
-	uint32_t id;
-	make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, str);
-	return id;
+	assert(s);
+	/* if ((s >> 1) == 0) { */
+	/* 	return NULL; */
+	/* } */
+
+	if (!((s & wk_id_tag_str) == wk_id_tag_str)) {
+		struct obj *obj = get_obj(wk, s >> 1);
+		assert(obj->type == obj_string);
+		s = obj->dat.str;
+	}
+
+	assert((s & wk_id_tag_str) == wk_id_tag_str);
+	return bucket_array_get(&wk->strs, s >> 1);
 }
 
-uint32_t
-wk_str_split(struct workspace *wk, const char *s, const char *sep)
+const char *
+get_cstr(struct workspace *wk, str s)
 {
-	uint32_t arr;
-	make_obj(wk, &arr, obj_array);
+	struct str *ss = get_str(wk, s);
 
-	uint32_t i, len;
-	const char *start;
-	bool first = false;
-	for (i = 0; s[i]; ++i) {
-		if (strchr(sep, s[i])) {
-			if (first) {
-				first = false;
-
-				uint32_t str_id;
-				make_obj(wk, &str_id, obj_string)->dat.str = wk_str_pushn(wk, start, len);
-
-				/* L("split: '%s'", wk_objstr(wk, str_id)); */
-
-				obj_array_push(wk, arr, str_id);
-			}
-		} else {
-			if (!first) {
-				start = &s[i];
-				first = true;
-				len = 0;
-			}
-			++len;
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (!ss->s[i]) {
+			assert(false && "cstr can not contain null bytes");
 		}
 	}
 
-	return arr;
+	return ss->s;
+}
+
+static struct str *
+grow_str(struct workspace *wk, str s, uint32_t grow_by)
+{
+	assert(s);
+	assert(((s & wk_id_tag_str) == wk_id_tag_str));
+
+	uint32_t i = s >> 1;
+
+	struct str *ss = bucket_array_get(&wk->strs, i);
+	uint32_t new_len = ss->len + grow_by;
+
+	if (ss->flags & str_flag_big) {
+		ss->s = z_realloc((void *)ss->s, new_len);
+	} else if (new_len > wk->chrs.bucket_size) {
+		ss->flags |= str_flag_big;
+		char *np = z_malloc(new_len);
+		memcpy(np, ss->s, ss->len);
+		ss->s = np;
+	} else {
+		char *np = bucket_array_pushn(&wk->chrs, ss->s, ss->len, new_len);
+		ss->s = np;
+	}
+
+	return ss;
+}
+
+static struct str *
+reserve_str(struct workspace *wk, str *s, uint32_t len)
+{
+	if (wk->strs.len >= UINT32_MAX >> 1) {
+		error_unrecoverable("string overflow");
+	}
+
+	*s = ((wk->strs.len) << 1) | wk_id_tag_str;
+
+	enum str_flags f = 0;
+	const char *p;
+
+	if (len > wk->chrs.bucket_size) {
+		f |= str_flag_big;
+		p = z_malloc(len);
+	} else {
+		p = bucket_array_pushn(&wk->chrs, NULL, 0, len);
+	}
+
+	return bucket_array_push(&wk->strs, &(struct str){
+		.s = p,
+		.len = len,
+		.flags = f,
+	});
+}
+
+str
+_make_str(struct workspace *wk, const char *p, uint32_t len)
+{
+	str s;
+
+	if (!p) {
+		return wk_id_tag_str;
+	}
+
+	memcpy((void *)reserve_str(wk, &s, len)->s, p, len);
+
+	return s;
 }
 
 uint32_t
@@ -70,154 +128,20 @@ wk_str_push_stripped(struct workspace *wk, const char *s)
 	return wk_str_pushn(wk, s, len);
 }
 
-static void
-grow_strbuf(struct workspace *wk, uint32_t len)
-{
-	wk->strbuf_len = len;
-	if (len >= wk->strbuf_cap) {
-		L("growing strbuf: %d", len);
-		wk->strbuf_cap = len + 1;
-		wk->strbuf = z_realloc(wk->strbuf, len);
-	}
-
-}
-
-static uint32_t
-_str_push(struct workspace *wk)
-{
-	uint32_t ret;
-
-	ret = wk->strs.len;
-
-	darr_grow_by(&wk->strs, wk->strbuf_len);
-
-	/* LOG_I("pushing %d, to %ld (%ld)", len, wk->strs.len - ret, wk->strs.cap - ret); */
-	memcpy(darr_get(&wk->strs, ret), wk->strbuf, wk->strbuf_len);
-
-	/* L("%d, '%s'", ret, wk->strbuf); */
-
-	if (ret > UINT32_MAX >> 1) {
-		error_unrecoverable("string overflow");
-	}
-
-	return (ret << 1) | wk_id_tag_str;
-}
-
-uint32_t
+str
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
-	if (n >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, n + 1);
-	strncpy(wk->strbuf, str, n);
-	wk->strbuf[n] = 0;
-
-	return _str_push(wk);
+	return _make_str(wk, str, n);
 }
 
-uint32_t
+str
 wk_str_push(struct workspace *wk, const char *str)
 {
-	if (!str) {
-		return wk_id_tag_str;
-	}
-
-	size_t l = strlen(str);
-	if (l >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, l + 1);
-	strcpy(wk->strbuf, str);
-
-	return _str_push(wk);
+	return _make_str(wk, str, strlen(str));
 }
 
-uint32_t
+str
 wk_str_pushf(struct workspace *wk, const char *fmt, ...)
-{
-	uint32_t ret, len;
-	va_list args, args_copy;
-	va_start(args, fmt);
-	va_copy(args_copy, args);
-
-	len = vsnprintf(NULL, 0, fmt,  args_copy);
-
-	if (len >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, len + 1);
-	vsprintf(wk->strbuf, fmt, args);
-
-	ret = _str_push(wk);
-
-	va_end(args_copy);
-	va_end(args);
-
-	return ret;
-}
-
-static void
-_str_app(struct workspace *wk, uint32_t *_id)
-{
-	uint32_t curlen, cur_end, new_id;
-
-	assert(((*_id & wk_id_tag_str) == wk_id_tag_str) && "obj passed as wk_str");
-
-	uint32_t id = (*_id >> 1);
-
-	curlen = strlen(wk_str(wk, *_id)) + 1;
-	cur_end = id + curlen;
-
-	if (cur_end != wk->strs.len) {
-		/* L("moving '%s' to the end of pool (%d, %d)", wk_str(wk, *id), cur_end, curlen); */
-		new_id = wk->strs.len;
-		darr_grow_by(&wk->strs, curlen);
-		memcpy(&wk->strs.e[new_id], wk_str(wk, *_id), curlen);
-		id = new_id;
-		/* L("result: '%s'", wk_str(wk, *id)); */
-	}
-
-	*_id = (id << 1) | wk_id_tag_str;
-
-	assert(wk->strs.len);
-	--wk->strs.len;
-	_str_push(wk);
-}
-
-void
-wk_str_appn(struct workspace *wk, uint32_t *id, const char *str, uint32_t n)
-{
-	if (n >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, n + 1);
-	strncpy(wk->strbuf, str, n);
-	wk->strbuf[n] = 0;
-
-	_str_app(wk, id);
-}
-
-void
-wk_str_app(struct workspace *wk, uint32_t *id, const char *str)
-{
-	size_t l = strlen(str);
-	if (l >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, l + 1);
-	strcpy(wk->strbuf, str);
-
-	_str_app(wk, id);
-}
-
-void
-wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 {
 	uint32_t len;
 	va_list args, args_copy;
@@ -226,37 +150,75 @@ wk_str_appf(struct workspace *wk, uint32_t *id, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	if (len >= UINT32_MAX) {
-		error_unrecoverable("string overflow");
-	}
-
-	grow_strbuf(wk, len + 1);
-	vsprintf(wk->strbuf, fmt, args);
+	str s;
+	struct str *ss = reserve_str(wk, &s, len);
+	obj_vsnprintf(wk, (char *)ss->s, len, fmt, args);
 
 	va_end(args_copy);
 	va_end(args);
 
-	_str_app(wk, id);
+	return s;
 }
 
-char *
-wk_str(struct workspace *wk, uint32_t id)
+void
+// TODO: remove *
+wk_str_appn(struct workspace *wk, str *s, const char *str, uint32_t n)
 {
-	if ((id >> 1) == 0) {
-		return NULL;
-	}
-
-	assert(((id & wk_id_tag_str) == wk_id_tag_str) && "obj passed as wk_str");
-	id >>= 1;
-
-	return darr_get(&wk->strs, id);
+	struct str *ss = grow_str(wk, *s, n);
+	memcpy((char *)&ss->s[ss->len], str, n);
+	ss->len += n;
 }
 
-char *
-wk_objstr(struct workspace *wk, uint32_t id)
+void
+// TODO: remove *
+wk_str_app(struct workspace *wk, str *s, const char *str)
 {
-	struct obj *obj = get_obj(wk, id);
-	assert(obj->type == obj_string);
-	return wk_str(wk, obj->dat.str);
+	wk_str_appn(wk, s, str, strlen(str));
 }
 
+void
+// TODO: remove *
+wk_str_appf(struct workspace *wk, str *s, const char *fmt, ...)
+{
+	uint32_t len;
+	va_list args, args_copy;
+	va_start(args, fmt);
+	va_copy(args_copy, args);
+
+	len = vsnprintf(NULL, 0, fmt, args_copy);
+
+	struct str *ss = grow_str(wk, *s, len);
+
+	obj_vsnprintf(wk, (char *)ss->s, len, fmt, args);
+
+	va_end(args_copy);
+	va_end(args);
+}
+
+uint32_t
+make_str(struct workspace *wk, const char *str)
+{
+	uint32_t id;
+	make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, str);
+	return id;
+}
+
+static bool
+_wk_streql(struct workspace *wk, struct str *ss1, struct str *ss2)
+{
+	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
+}
+
+bool
+wk_streql(struct workspace *wk, str s1, str s2)
+{
+	return _wk_streql(wk, get_str(wk, s1), get_str(wk, s2));
+}
+
+bool
+wk_cstreql(struct workspace *wk, str s1, const char *cstring)
+{
+#define WKSTR(cstring) (struct str){ .s = cstring, .len = strlen(cstring) }
+
+	return _wk_streql(wk, get_str(wk, s1), &WKSTR("hello"));
+}

@@ -54,7 +54,8 @@ struct workspace {
 	uint32_t install;
 	uint32_t subprojects;
 
-	struct darr strs;
+	struct bucket_array chrs;
+	struct bucket_array strs;
 	struct bucket_array objs;
 
 	struct darr projects;
@@ -73,10 +74,6 @@ struct workspace {
 	struct source *src;
 
 	enum language_mode lang_mode;
-
-	char *strbuf;
-	uint32_t strbuf_cap;
-	uint32_t strbuf_len;
 };
 
 struct obj *make_obj(struct workspace *wk, uint32_t *id, enum obj_type type);

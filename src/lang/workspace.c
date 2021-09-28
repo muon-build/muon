@@ -38,7 +38,7 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
-	if (wk->objs.len > UINT32_MAX >> 1) {
+	if (wk->objs.len >= UINT32_MAX >> 1) {
 		error_unrecoverable("object overflow");
 	}
 
@@ -176,16 +176,13 @@ workspace_init_bare(struct workspace *wk)
 {
 	*wk = (struct workspace){ 0 };
 
-	darr_init(&wk->strs, 2048, sizeof(char));
-	darr_push(&wk->strs, &(char) { 0 });
+	bucket_array_init(&wk->chrs, 4096, 1);
+	bucket_array_init(&wk->strs, 128, sizeof(struct str));
 
 	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
 	assert((id >> 1) == 0);
-
-	wk->strbuf_cap = 2048;
-	wk->strbuf = z_malloc(wk->strbuf_cap);
 }
 
 void
@@ -215,9 +212,9 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy_bare(struct workspace *wk)
 {
-	darr_destroy(&wk->strs);
+	bucket_array_destroy(&wk->chrs);
+	bucket_array_destroy(&wk->strs);
 	bucket_array_destroy(&wk->objs);
-	z_free(wk->strbuf);
 }
 
 void
