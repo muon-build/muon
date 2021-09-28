@@ -40,8 +40,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -c <file> - capture output to file\n",
-		NULL)
-
+		NULL, -1)
 
 	if (argi >= argc) {
 		LOG_E("missing command");
@@ -79,12 +78,7 @@ static const char *
 get_filename_as_only_arg(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], " <filename>", "", NULL)
-
-	if (argi >= argc) {
-		LOG_E("missing filename");
-		return NULL;
-	}
+	} OPTEND(argv[argi], " <filename>", "", NULL, 1)
 
 	return argv[argi];
 }
@@ -104,12 +98,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n",
-		NULL)
-
-	if (argi >= argc) {
-		LOG_E("missing filename");
-		return NULL;
-	}
+		NULL, 1)
 
 	opts.filename = argv[argi];
 
@@ -230,7 +219,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", commands);
+	} OPTEND(argv[argi], "", "", commands, -1);
 
 	cmd_func cmd = NULL;;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
@@ -251,12 +240,7 @@ static bool
 cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], " <build dir>", "", NULL)
-
-	if (argi >= argc) {
-		LOG_E("missing build dir");
-		return false;
-	}
+	} OPTEND(argv[argi], " <build dir>", "", NULL, 1)
 
 	return tests_run(argv[argi]);
 }
@@ -265,12 +249,7 @@ static bool
 cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], " <build dir>", "", NULL)
-
-	if (argi >= argc) {
-		LOG_E("missing build dir");
-		return false;
-	}
+	} OPTEND(argv[argi], " <build dir>", "", NULL, 1)
 
 	return install_run(argv[argi]);
 }
@@ -295,16 +274,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n",
-		NULL)
-
-	if (argi >= argc) {
-		LOG_E("missing build dir");
-		return false;
-	}
-	if (argc - argi > 1) {
-		LOG_E("too many operands (did you try passing options after operands?)");
-		return false;
-	}
+		NULL, 1)
 
 	const char *build = argv[argi];
 	++argi;
@@ -355,7 +325,7 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -c config - load config alternate file (default: .muon)\n"
 		"  -f - regenerate build file and rebuild\n"
 		"  -r - regenerate build file only\n",
-		NULL)
+		NULL, 0)
 
 	return eval_internal(opts.cfg, argv[0]);
 }
@@ -410,7 +380,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[0], "",
 		"  -v - turn on debug messages\n"
 		"  -l - show source locations for log messages\n",
-		commands)
+		commands, -1)
 
 	cmd_func cmd;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, true)) {
@@ -420,7 +390,10 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	if (cmd) {
 		return cmd(argc, argi, argv);
 	} else {
-		return cmd_auto(argc, argi, argv);
+		/* subtract one from argi here since it gets incremented by 1
+		 * implicitly during option parsing, but in this case there was
+		 * no subcommand arg */
+		return cmd_auto(argc, argi - 1, argv);
 	}
 
 	return true;

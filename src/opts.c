@@ -9,6 +9,28 @@
 #include "log.h"
 #include "opts.h"
 
+bool
+check_operands(uint32_t argc, uint32_t argi, int32_t expected)
+{
+	assert(argc >= argi);
+
+	uint32_t rem = argc - argi;
+
+	if (expected < 0) {
+		return true;
+	}
+
+	if (rem < (uint32_t)expected) {
+		LOG_E("missing operand");
+		return false;
+	} else if (rem > (uint32_t)expected) {
+		LOG_E("too many operands (did you try passing options after operands?)");
+		return false;
+	}
+
+	return true;
+}
+
 void
 print_usage(FILE *f, const struct command *commands,
 	const char *pre, const char *opts, const char *post)
