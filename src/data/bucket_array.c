@@ -16,7 +16,7 @@ struct bucket {
 static void
 init_bucket(struct bucket_array *ba, struct bucket *b)
 {
-	b->mem = z_malloc(ba->item_size * ba->bucket_size);
+	b->mem = z_calloc(ba->item_size, ba->bucket_size);
 }
 
 void
@@ -68,11 +68,7 @@ bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len, uint
 	}
 
 	dest = b->mem + (b->len * ba->item_size);
-	if (len) {
-		memcpy(dest, data, ba->item_size * len);
-	} else {
-		memset(dest, 0, ba->item_size * len);
-	}
+	memcpy(dest, data, ba->item_size * len);
 	b->len += reserve;
 	ba->len += reserve;
 
