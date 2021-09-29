@@ -767,6 +767,10 @@ static void
 __attribute__ ((format(printf, 2, 3)))
 obj_to_s_buf_push(struct obj_to_s_ctx *ctx, const char *fmt, ...)
 {
+	if (ctx->i >= ctx->len) {
+		return;
+	}
+
 	va_list ap;
 	va_start(ap, fmt);
 
@@ -886,7 +890,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	case obj_string: {
 		uint32_t i;
-		struct str *ss = get_str(wk, obj);
+		const struct str *ss = get_str(wk, obj);
 
 		obj_to_s_buf_push(&ctx, "'");
 
@@ -941,7 +945,6 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	}
 	default:
 		obj_to_s_buf_push(&ctx, "<obj %s>", obj_type_to_s(t));
-		return true;
 	}
 
 	*w = ctx.i;
@@ -949,10 +952,10 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 }
 
 bool
-obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len)
+obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len)
 {
 	uint32_t w;
-	return _obj_to_s(wk, obj, buf, len, &w);
+	return _obj_to_s(wk, o, buf, len, &w);
 }
 
 bool
