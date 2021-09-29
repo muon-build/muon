@@ -470,11 +470,12 @@ string(struct lexer *lexer, struct token *token, bool fstring)
 				for (i = 0; i < 3; ++i) {
 					num[i] = lexer->src[lexer->i + 1];
 					if (!is_digit(num[i])) {
-						lex_error(lexer, "unterminated octal escape");
-						return lex_fail;
+						break;
 					}
 					advance(lexer);
 				}
+
+				assert(i);
 
 				str[token->n] = strtol(num, NULL, 8);
 				++token->n;
