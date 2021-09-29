@@ -95,4 +95,7 @@ bool push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t fil
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
+
+//TODO: ?
+const char *wk_file_path(struct workspace *wk, uint32_t id);
 #endif

@@ -31,7 +31,5 @@ void wk_str_appf(struct workspace *wk, str *id, const char *fmt, ...)  __attribu
 void wk_str_app(struct workspace *wk, str *id, const char *str);
 void wk_str_appn(struct workspace *wk, str *id, const char *str, uint32_t n);
 
-//TODO: ?
-char *wk_file_path(struct workspace *wk, uint32_t id);
 
 #endif

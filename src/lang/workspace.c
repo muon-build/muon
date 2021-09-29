@@ -46,7 +46,7 @@ make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
 }
 
-char *
+const char *
 wk_file_path(struct workspace *wk, uint32_t id)
 {
 	struct obj *obj = get_obj(wk, id);
