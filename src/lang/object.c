@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -757,6 +758,18 @@ struct obj_to_s_ctx {
 
 static bool _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w);
 
+static void
+__attribute__ ((format(printf, 2, 3)))
+obj_to_s_buf_push(struct obj_to_s_ctx *ctx, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+
+	ctx->i += vsnprintf(&ctx->buf[ctx->i], ctx->len - ctx->i, fmt, ap);
+
+	va_end(ap);
+}
+
 static enum iteration_result
 obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
@@ -770,7 +783,7 @@ obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 	ctx->i += w;
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ", ");
+		obj_to_s_buf_push(ctx, ", ");
 	}
 
 	++ctx->cont_i;
@@ -788,7 +801,7 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	}
 	ctx->i += w;
 
-	ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ": ");
+	obj_to_s_buf_push(ctx, ": ");
 
 	if (!_obj_to_s(wk, val, &ctx->buf[ctx->i], ctx->len - ctx->i, &w)) {
 		return ir_err;
@@ -796,7 +809,7 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	ctx->i += w;
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		ctx->i += snprintf(&ctx->buf[ctx->i], ctx->len, ", ");
+		obj_to_s_buf_push(ctx, ", ");
 	}
 
 	++ctx->cont_i;
@@ -822,7 +835,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			break;
 		}
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s %s>", type, get_cstr(wk, tgt->dat.tgt.name));
+		obj_to_s_buf_push(&ctx, "<%s %s>", type, get_cstr(wk, tgt->dat.tgt.name));
 		break;
 	}
 	case obj_feature_opt:
@@ -841,13 +854,13 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	case obj_test: {
 		struct obj *test = get_obj(wk, obj);
-		ctx.i += snprintf(buf, len, "test('%s', '%s'",
+		obj_to_s_buf_push(&ctx, "test('%s', '%s'",
 			get_cstr(wk, test->dat.test.name),
-			get_cstr(wk, test->dat.test.exe)
-			);
+			get_cstr(wk, test->dat.test.exe));
 
 		if (test->dat.test.args) {
-			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", args: ");
+			obj_to_s_buf_push(&ctx, ", args: ");
+
 			uint32_t w;
 			if (!_obj_to_s(wk, test->dat.test.args, &ctx.buf[ctx.i], ctx.len - ctx.i, &w)) {
 				return ir_err;
@@ -856,62 +869,73 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		}
 
 		if (test->dat.test.should_fail) {
-			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", should_fail: true");
+			obj_to_s_buf_push(&ctx, ", should_fail: true");
+
 		}
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, ")");
+		obj_to_s_buf_push(&ctx, ")");
 		break;
 	}
 	case obj_file:
-		ctx.i += snprintf(buf, len, "files('%s')", get_cstr(wk, get_obj(wk, obj)->dat.file));
+		obj_to_s_buf_push(&ctx, "files('%s')", get_cstr(wk, get_obj(wk, obj)->dat.file));
 		break;
-	case obj_string:
-		ctx.i += snprintf(buf, len, "'%s'", get_cstr(wk, obj));
+	case obj_string: {
+		uint32_t i;
+		struct str *ss = get_str(wk, obj);
+
+		obj_to_s_buf_push(&ctx, "'");
+
+		for (i = 0; i < ss->len; ++i) {
+			if (ss->s[i] == 0) {
+				obj_to_s_buf_push(&ctx, "\\0");
+			} else {
+				obj_to_s_buf_push(&ctx, "%c", ss->s[i]);
+			}
+		}
+
+		obj_to_s_buf_push(&ctx, "':%d", ss->len);
 		break;
+	}
 	case obj_number:
-		ctx.i += snprintf(buf, len, "%ld", (intmax_t)get_obj(wk, obj)->dat.num);
+		obj_to_s_buf_push(&ctx, "%ld", (intmax_t)get_obj(wk, obj)->dat.num);
 		break;
 	case obj_bool:
-		if (get_obj(wk, obj)->dat.boolean) {
-			ctx.i += snprintf(buf, len, "true");
-		} else {
-			ctx.i += snprintf(buf, len, "false");
-		}
+		obj_to_s_buf_push(&ctx, get_obj(wk, obj)->dat.boolean ? "true" : "false");
 		break;
 	case obj_array:
 		ctx.cont_len = get_obj(wk, obj)->dat.arr.len;
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "[");
+		obj_to_s_buf_push(&ctx, "[");
 		if (!obj_array_foreach(wk, obj, &ctx, obj_to_s_array_iter)) {
 			return false;
 		}
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "]");
+		obj_to_s_buf_push(&ctx, "]");
 		break;
 	case obj_dict:
 		ctx.cont_len = get_obj(wk, obj)->dat.dict.len;
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "{ ");
+		obj_to_s_buf_push(&ctx, "{");
 		if (!obj_dict_foreach(wk, obj, &ctx, obj_to_s_dict_iter)) {
 			return false;
 		}
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, " }");
+		obj_to_s_buf_push(&ctx, "}");
 		break;
 	case obj_external_program: {
 		struct obj *prog = get_obj(wk, obj);
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<%s found: %s", obj_type_to_s(t),
+		obj_to_s_buf_push(&ctx, "<%s found: %s", obj_type_to_s(t),
 			prog->dat.external_program.found ? "true" : "false"
 			);
 
 		if (prog->dat.external_program.found) {
-			ctx.i += snprintf(&ctx.buf[ctx.i], len, ", path: %s",
+			obj_to_s_buf_push(&ctx, ", path: %s",
 				get_cstr(wk, prog->dat.external_program.full_path));
 		}
 
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, ">");
+		obj_to_s_buf_push(&ctx, ">");
 		break;
 	}
 	default:
-		ctx.i += snprintf(&ctx.buf[ctx.i], len, "<obj %s>", obj_type_to_s(t));
+		obj_to_s_buf_push(&ctx, "<obj %s>", obj_type_to_s(t));
 		return true;
 	}
 
