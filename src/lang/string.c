@@ -230,3 +230,18 @@ wk_cstreql(struct workspace *wk, str s1, const char *cstring)
 
 	return _wk_streql(wk, get_str(wk, s1), &WKSTR("hello"));
 }
+
+str
+wk_strcat(struct workspace *wk, str s1, str s2)
+{
+	str res;
+	const struct str *ss1 = get_str(wk, s1),
+			 *ss2 = get_str(wk, s2);
+
+	struct str *ss = reserve_str(wk, &res, ss1->len + ss2->len);
+
+	memcpy((char *)ss->s, ss1->s, ss1->len);
+	memcpy((char *)&ss->s[ss1->len], ss2->s, ss2->len);
+
+	return res;
+}

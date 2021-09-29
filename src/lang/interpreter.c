@@ -260,9 +260,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
-			res = wk_str_pushf(wk, "%s%s",
-				get_cstr(wk, l_id),
-				get_cstr(wk, r_id));
+			res = wk_strcat(wk, l_id, r_id);
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];

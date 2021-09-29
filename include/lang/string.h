@@ -33,4 +33,5 @@ void wk_str_appn(struct workspace *wk, str *id, const char *str, uint32_t n);
 
 str str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val);
 
+str wk_strcat(struct workspace *wk, str s1, str s2);
 #endif
