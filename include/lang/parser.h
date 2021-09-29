@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #include "data/darr.h"
-#include "lang/eval.h"
+#include "lang/lexer.h"
 
 enum comparison_type {
 	comp_equal,

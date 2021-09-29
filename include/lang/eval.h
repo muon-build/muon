@@ -21,11 +21,6 @@ struct source_data {
 	uint64_t data_len;
 };
 
-union token_data {
-	const char *s;
-	int64_t n;
-};
-
 void source_data_destroy(struct source_data *sdata);
 bool eval_project(struct workspace *wk, const char *subproject_name,
 	const char *cwd, const char *build_dir, uint32_t *proj_id);

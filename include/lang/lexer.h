@@ -62,6 +62,11 @@ enum token_type {
 	tok_false,
 };
 
+union token_data {
+	const char *s;
+	int64_t n;
+};
+
 struct token {
 	union token_data dat;
 	enum token_type type;
