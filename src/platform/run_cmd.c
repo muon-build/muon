@@ -37,6 +37,7 @@ copy_pipe(int pipe, char **dest)
 		block_size *= 2;
 		size += block_size;
 		buf = z_realloc(buf, size);
+		memset(&buf[i], 0, size - i);
 	}
 
 	*dest = buf;
