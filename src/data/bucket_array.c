@@ -61,7 +61,7 @@ bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len, uint
 	assert(reserve < ba->bucket_size);
 
 	b = darr_get(&ba->buckets, ba->buckets.len - 1);
-	if (b->len + reserve >= ba->bucket_size) {
+	if (b->len + reserve > ba->bucket_size) {
 		darr_push(&ba->buckets, &(struct bucket) { 0 });
 		b = darr_get(&ba->buckets, ba->buckets.len - 1);
 		init_bucket(ba, b);
