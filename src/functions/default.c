@@ -754,8 +754,8 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	struct obj *run_result = make_obj(wk, res, obj_run_result);
 	run_result->dat.run_result.status = cmd_ctx.status;
-	run_result->dat.run_result.out = wk_str_push(wk, cmd_ctx.out);
-	run_result->dat.run_result.err = wk_str_push(wk, cmd_ctx.err);
+	run_result->dat.run_result.out = wk_str_pushn(wk, cmd_ctx.out, cmd_ctx.out_len);
+	run_result->dat.run_result.err = wk_str_pushn(wk, cmd_ctx.err, cmd_ctx.err_len);
 
 	ret = true;
 ret:
