@@ -875,7 +875,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	case node_string:
 		obj = make_obj(wk, obj_id, obj_string);
-		obj->dat.str = wk_str_push(wk, n->dat.s);
+		obj->dat.str = wk_str_pushn(wk, n->dat.s, n->subtype);
 		ret = true;
 		break;
 	case node_array:

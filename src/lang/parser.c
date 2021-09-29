@@ -427,6 +427,7 @@ parse_e9(struct parser *p, uint32_t *id)
 		n = make_node(p, id, node_number);
 	} else if (accept(p, tok_string)) {
 		n = make_node(p, id, node_string);
+		n->subtype = p->last_last->n;
 	} else {
 		make_node(p, id, node_empty);
 	}
