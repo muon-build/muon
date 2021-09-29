@@ -64,7 +64,7 @@ parse_error(struct parser *p, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	error_message(p->src, p->last->line, p->last->col, fmt, args);
+	error_messagev(p->src, p->last->line, p->last->col, fmt, args);
 	va_end(args);
 }
 

@@ -88,7 +88,7 @@ lex_error(struct lexer *l, const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	struct token *last_tok = darr_get(&l->toks->tok, l->toks->tok.len - 1);
-	error_message(l->source, last_tok->line, last_tok->col, fmt, args);
+	error_messagev(l->source, last_tok->line, last_tok->col, fmt, args);
 	va_end(args);
 }
 

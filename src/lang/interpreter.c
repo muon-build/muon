@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "data/hash.h"
 #include "error.h"
 #include "functions/common.h"
@@ -24,8 +25,12 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	error_message(wk->src, n->line, n->col, fmt, args);
+
+	static char buf[BUF_SIZE_4k];
+	obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, args);
 	va_end(args);
+
+	error_message(wk->src, n->line, n->col, buf);
 }
 
 bool

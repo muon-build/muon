@@ -3,8 +3,9 @@
 #include <stdarg.h>
 #include <stdlib.h> // exit
 
-#include "log.h"
+#include "buf_size.h"
 #include "error.h"
+#include "log.h"
 
 void
 error_unrecoverable(const char *fmt, ...)
@@ -19,14 +20,11 @@ error_unrecoverable(const char *fmt, ...)
 }
 
 void
-error_message(struct source *src, uint32_t line,
-	uint32_t col, const char *fmt, va_list args)
+error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
 {
 	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
 
-	log_plain("%s:%d:%d: %s ", src->label, line, col, label);
-	log_plainv(fmt, args);
-	log_plain("\n");
+	log_plain("%s:%d:%d: %s \n%s\n", src->label, line, col, label, msg);
 
 	uint64_t i, cl = 1, sol = 0;
 	for (i = 0; i < src->len; ++i) {
@@ -62,10 +60,18 @@ error_message(struct source *src, uint32_t line,
 }
 
 void
+error_messagev(struct source *src, uint32_t line, uint32_t col, const char *fmt, va_list args)
+{
+	static char buf[BUF_SIZE_4k];
+	snprintf(buf, BUF_SIZE_4k, fmt, args);
+	error_message(src, line, col, buf);
+}
+
+void
 error_messagef(struct source *src, uint32_t line, uint32_t col, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	error_message(src, line, col, fmt, ap);
+	error_messagev(src, line, col, fmt, ap);
 	va_end(ap);
 }
