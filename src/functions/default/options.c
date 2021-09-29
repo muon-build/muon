@@ -99,7 +99,7 @@ check_invalid_option_overrides(struct workspace *wk)
 
 		if (subproj_name_matches(wk, current_project(wk)->subproject_name, get_cstr(wk, oo->proj))) {
 			uint32_t res;
-			char *name = get_cstr(wk, oo->name);
+			const char *name = get_cstr(wk, oo->name);
 
 			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res)) {
 				LOG_E("invalid option: '%s'", option_override_to_s(wk, oo));

@@ -178,6 +178,7 @@ workspace_init_bare(struct workspace *wk)
 
 	bucket_array_init(&wk->chrs, 4096, 1);
 	bucket_array_init(&wk->strs, 128, sizeof(struct str));
+	bucket_array_push(&wk->strs, &(struct str) { 0 });
 
 	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
 	uint32_t id;

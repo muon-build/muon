@@ -13,10 +13,9 @@
 const struct str *
 get_str(struct workspace *wk, str s)
 {
-	assert(s);
-	/* if ((s >> 1) == 0) { */
-	/* 	return NULL; */
-	/* } */
+	if (!s) {
+		return bucket_array_get(&wk->strs, 0);
+	}
 
 	if (!((s & wk_id_tag_str) == wk_id_tag_str)) {
 		struct obj *obj = bucket_array_get(&wk->objs, s >> 1);
@@ -203,6 +202,13 @@ make_str(struct workspace *wk, const char *str)
 	uint32_t id;
 	make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, str);
 	return id;
+}
+
+str
+str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val)
+{
+	const struct str *ss = get_str(wk_src, val);
+	return wk_str_pushn(wk_dest, ss->s, ss->len);
 }
 
 static bool

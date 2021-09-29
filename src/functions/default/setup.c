@@ -42,7 +42,7 @@ set_options_iter(struct workspace *wk, void *_ctx, uint32_t key, uint32_t val)
 			oo.proj = wk_str_push(ctx->sub_wk, get_cstr(wk, ctx->parent));
 		}
 
-		oo.name = wk_str_push(ctx->sub_wk, get_cstr(wk, key));
+		oo.name = str_clone(wk, ctx->sub_wk, key);
 
 		if (!obj_clone(wk, ctx->sub_wk, val, &oo.val)) {
 			return ir_err;

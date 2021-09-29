@@ -684,13 +684,15 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		*o = *get_obj(wk_src, val);
 		return true;
 	}
-	case obj_string:
+	case obj_string: {
 		o = make_obj(wk_dest, ret, t);
-		o->dat.str = wk_str_push(wk_dest, get_cstr(wk_src, val));
+		o->dat.str = str_clone(wk_src, wk_dest, val);
+
 		return true;
+	}
 	case obj_file:
 		o = make_obj(wk_dest, ret, t);
-		o->dat.file = wk_str_push(wk_dest, wk_file_path(wk_src, val));
+		o->dat.file = str_clone(wk_src, wk_dest, get_obj(wk_src, val)->dat.file);
 		return true;
 	case obj_array:
 		make_obj(wk_dest, ret, t);
@@ -706,8 +708,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		struct obj *test = get_obj(wk_src, val);
 
 		o = make_obj(wk_dest, ret, t);
-		o->dat.test.name = make_str(wk_dest, get_cstr(wk_src, test->dat.test.name));
-		o->dat.test.exe = make_str(wk_dest, get_cstr(wk_src, test->dat.test.exe));
+		o->dat.test.name = str_clone(wk_src, wk_dest, test->dat.test.name);
+		o->dat.test.exe = str_clone(wk_src, wk_dest, test->dat.test.exe);
 		o->dat.test.should_fail = test->dat.test.should_fail;
 
 		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &o->dat.test.args)) {
@@ -725,11 +727,14 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 
 		o = make_obj(wk_dest, ret, t);
 		o->dat.install_target.base_path =
-			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.base_path));
+			str_clone(wk_src, wk_dest, in->dat.install_target.base_path);
 		o->dat.install_target.filename =
-			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.filename));
-		o->dat.install_target.install_dir =
-			wk_str_push(wk_dest, get_cstr(wk_src, in->dat.install_target.install_dir));
+			str_clone(wk_src, wk_dest, in->dat.install_target.filename);
+
+		if (in->dat.install_target.install_dir) {
+			o->dat.install_target.install_dir =
+				str_clone(wk_src, wk_dest, in->dat.install_target.install_dir);
+		}
 
 		// TODO
 		o->dat.install_target.install_mode = in->dat.install_target.install_mode;

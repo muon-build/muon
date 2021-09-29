@@ -16,4 +16,5 @@ void *bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len
 void *bucket_array_get(const struct bucket_array *ba, uint32_t i);
 void bucket_array_clear(struct bucket_array *ba);
 void bucket_array_destroy(struct bucket_array *ba);
+bool bucket_array_lookup_pointer(struct bucket_array *ba, const uint8_t *p, uint32_t *ret);
 #endif

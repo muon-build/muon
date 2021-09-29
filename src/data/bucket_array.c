@@ -108,3 +108,19 @@ bucket_array_destroy(struct bucket_array *ba)
 
 	darr_destroy(&ba->buckets);
 }
+
+bool
+bucket_array_lookup_pointer(struct bucket_array *ba, const uint8_t *p, uint32_t *ret)
+{
+	uint32_t i;
+	for (i = 0; i < ba->buckets.len; ++i) {
+		struct bucket *b = b = darr_get(&ba->buckets, i);
+
+		if (b->mem <= p && p < b->mem + (b->len * ba->item_size)) {
+			*ret = i * ba->bucket_size + (p - b->mem) / ba->item_size;
+			return true;
+		}
+	}
+
+	return false;
+}
