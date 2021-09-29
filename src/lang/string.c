@@ -154,7 +154,7 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 
 	str s;
 	struct str *ss = reserve_str(wk, &s, len);
-	obj_vsnprintf(wk, (char *)ss->s, len, fmt, args);
+	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
 
 	va_end(args_copy);
 	va_end(args);
@@ -191,7 +191,7 @@ wk_str_appf(struct workspace *wk, str *s, const char *fmt, ...)
 
 	struct str *ss = grow_str(wk, *s, len);
 
-	obj_vsnprintf(wk, (char *)ss->s, len, fmt, args);
+	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
 
 	va_end(args_copy);
 	va_end(args);
