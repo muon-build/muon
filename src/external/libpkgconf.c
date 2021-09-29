@@ -314,7 +314,7 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 }
 
 bool
-muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, char *var, uint32_t *res)
+muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, uint32_t *res)
 {
 	if (!init) {
 		muon_pkgconf_init();
