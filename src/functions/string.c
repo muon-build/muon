@@ -11,13 +11,47 @@
 #include "log.h"
 
 static bool
+chr_in_str(char c, const struct str *ss)
+{
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (ss->s[i] == c) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
 func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push_stripped(wk, get_cstr(wk, rcvr));
+	const struct str *strip = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" \n");
+
+	uint32_t i;
+	int32_t len;
+	const struct str *ss = get_str(wk, rcvr);
+
+	for (i = 0; i < ss->len; ++i) {
+		if (!chr_in_str(ss->s[i], strip)) {
+			break;
+		}
+	}
+
+	for (len = ss->len - 1; len >= 0; --len) {
+		if (!chr_in_str(ss->s[i], strip)) {
+			break;
+		}
+	}
+	++len;
+
+	make_obj(wk, obj, obj_string)->dat.str = wk_str_pushn(wk, &ss->s[i], len - i);
 	return true;
 }
 

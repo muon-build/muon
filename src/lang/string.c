@@ -110,25 +110,6 @@ _make_str(struct workspace *wk, const char *p, uint32_t len)
 	return s;
 }
 
-uint32_t
-wk_str_push_stripped(struct workspace *wk, const char *s)
-{
-	while (*s && (*s == ' ' || *s == '\n')) {
-		++s;
-	}
-
-	int32_t len;
-
-	for (len = strlen(s) - 1; len >= 0; --len) {
-		if (!(s[len] == ' ' || s[len] == '\n')) {
-			break;
-		}
-	}
-	++len;
-
-	return wk_str_pushn(wk, s, len);
-}
-
 str
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
@@ -226,8 +207,6 @@ wk_streql(struct workspace *wk, str s1, str s2)
 bool
 wk_cstreql(struct workspace *wk, str s1, const char *cstring)
 {
-#define WKSTR(cstring) (struct str){ .s = cstring, .len = strlen(cstring) }
-
 	return _wk_streql(wk, get_str(wk, s1), &WKSTR("hello"));
 }
 
