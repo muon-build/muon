@@ -16,7 +16,7 @@
 extern char *const *environ;
 
 static bool
-copy_pipe(int pipe, char **dest)
+copy_pipe(int pipe, char **dest, uint32_t *len)
 {
 	uint32_t block_size = 256;
 	uint32_t size = block_size + 1, i = 0;
@@ -30,6 +30,7 @@ copy_pipe(int pipe, char **dest)
 		if (b == -1) {
 			return false;
 		} else if (b < block_size) {
+			i += b;
 			break;
 		}
 
@@ -41,6 +42,7 @@ copy_pipe(int pipe, char **dest)
 	}
 
 	*dest = buf;
+	*len = i;
 	return true;
 }
 
@@ -142,10 +144,10 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
 
-		if (!copy_pipe(pipefd_out[0], &ctx->out)) {
+		if (!copy_pipe(pipefd_out[0], &ctx->out, &ctx->out_len)) {
 			goto err;
 		}
-		if (!copy_pipe(pipefd_err[0], &ctx->err)) {
+		if (!copy_pipe(pipefd_err[0], &ctx->err, &ctx->err_len)) {
 			goto err;
 		}
 

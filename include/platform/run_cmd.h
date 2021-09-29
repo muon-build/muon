@@ -7,6 +7,7 @@
 
 struct run_cmd_ctx {
 	char *err, *out;
+	uint32_t err_len, out_len;
 	int status;
 
 	/* error handling */
