@@ -19,7 +19,7 @@ _Static_assert(sizeof(struct str) == 16, "");
 
 typedef uint32_t str;
 
-struct str *get_str(struct workspace *wk, str s);
+const struct str *get_str(struct workspace *wk, str s);
 const char *get_cstr(struct workspace *wk, str s);
 str wk_str_push(struct workspace *wk, const char *str);
 str wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);

@@ -10,7 +10,7 @@
 #include "log.h"
 #include "platform/mem.h"
 
-struct str *
+const struct str *
 get_str(struct workspace *wk, str s)
 {
 	assert(s);
@@ -31,7 +31,7 @@ get_str(struct workspace *wk, str s)
 const char *
 get_cstr(struct workspace *wk, str s)
 {
-	struct str *ss = get_str(wk, s);
+	const struct str *ss = get_str(wk, s);
 
 	uint32_t i;
 	for (i = 0; i < ss->len; ++i) {
@@ -206,7 +206,7 @@ make_str(struct workspace *wk, const char *str)
 }
 
 static bool
-_wk_streql(struct workspace *wk, struct str *ss1, struct str *ss2)
+_wk_streql(struct workspace *wk, const struct str *ss1, const struct str *ss2)
 {
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
