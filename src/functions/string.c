@@ -45,7 +45,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	}
 
 	for (len = ss->len - 1; len >= 0; --len) {
-		if (!chr_in_str(ss->s[i], strip)) {
+		if (!chr_in_str(ss->s[len], strip)) {
 			break;
 		}
 	}
