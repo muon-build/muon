@@ -895,7 +895,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		obj_to_s_buf_push(&ctx, "'");
 		uint32_t w = 0;
 		if (!wk_str_unescape(&ctx.buf[ctx.i], ctx.len - ctx.i, get_str(wk, obj), &w)) {
-			return true;
+			return false;
 		}
 		ctx.i += w;
 		obj_to_s_buf_push(&ctx, "'");

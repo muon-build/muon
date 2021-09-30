@@ -43,10 +43,10 @@ wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 
 	for (i = 0; i < ss->len; ++i) {
 		if (ss->s[i] < 32) {
-			char buf[32];
-			uint32_t len = snprintf(buf, 32, "\\%d", ss->s[i]);
+			char unescaped[32];
+			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
 
-			if (!wk_str_unescape_buf_pushn(buf, len, &j, buf, len)) {
+			if (!wk_str_unescape_buf_pushn(buf, len, &j, unescaped, n)) {
 				return false;
 			}
 		} else {
