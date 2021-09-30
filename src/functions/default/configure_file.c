@@ -281,7 +281,7 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		return false;
 	}
 
-	char *argv[MAX_ARGS];
+	const char *argv[MAX_ARGS];
 	if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
 		interp_error(wk, node, "failed to prepare arguments");
 		return false;

@@ -164,7 +164,7 @@ join_args_ninja(struct workspace *wk, uint32_t arr)
 }
 
 struct join_args_argv_iter_ctx {
-	char **argv;
+	const char **argv;
 	uint32_t len;
 	uint32_t i;
 };
@@ -184,7 +184,7 @@ join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
 }
 
 bool
-join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t arr)
+join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t arr)
 {
 	struct join_args_argv_iter_ctx ctx = {
 		.argv = argv,

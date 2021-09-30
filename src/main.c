@@ -30,7 +30,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *capture;
-		char *const *cmd;
+		const char *const *cmd;
 	} opts = { 0 };
 
 	OPTSTART("c:") {
@@ -47,7 +47,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	opts.cmd = &argv[argi];
+	opts.cmd = (const char *const *)&argv[argi];
 	++argi;
 
 	bool ret = false;

@@ -47,7 +47,7 @@ copy_pipe(int pipe, char **dest, uint32_t *len)
 }
 
 bool
-run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *const envp[])
+run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[])
 {
 	pid_t pid;
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
@@ -61,13 +61,16 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 
 	if (log_should_print(log_debug)) {
 		LL("executing %s:", cmd);
-		char *const *ap;
+		const char *const *ap;
+
 		for (ap = argv; *ap; ++ap) {
 			log_plain(" '%s'", *ap);
 		}
 		log_plain("\n");
 
 		if (envp) {
+			char *const *ap;
+
 			LL("env:");
 			for (ap = envp; *ap; ++ap) {
 				log_plain(" '%s'", *ap);
@@ -117,7 +120,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, char *const argv[], char *con
 			}
 		}
 
-		if (execve(cmd, argv, environ) == -1) {
+		if (execve(cmd, (char *const *)argv, environ) == -1) {
 			log_plain("%s: %s", cmd, strerror(errno));
 			exit(1);
 		}

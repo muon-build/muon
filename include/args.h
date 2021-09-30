@@ -18,7 +18,7 @@ void push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args
 uint32_t join_args_plain(struct workspace *wk, uint32_t arr);
 uint32_t join_args_shell(struct workspace *wk, uint32_t arr);
 uint32_t join_args_ninja(struct workspace *wk, uint32_t arr);
-bool join_args_argv(struct workspace *wk, char **argv, uint32_t len, uint32_t arr);
+bool join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t arr);
 
 bool arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res);
 

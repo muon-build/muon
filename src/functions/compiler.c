@@ -79,7 +79,7 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 		return ir_err;
 	}
 
-	char *name = get_cstr(wk, comp->dat.compiler.name);
+	const char *name = get_cstr(wk, comp->dat.compiler.name);
 	enum compiler_type t = comp->dat.compiler.type;
 
 	const char *argv[MAX_ARGS + 1] = { name };
@@ -93,7 +93,7 @@ compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node,
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, name, (char * const *)argv, NULL)) {
+	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}

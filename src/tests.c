@@ -32,7 +32,8 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		obj_array_extend(wk, cmdline, test_args);
 	}
 
-	char *argv[MAX_ARGS], *const *envp = NULL;
+	const char *argv[MAX_ARGS];
+	char *const *envp = NULL;
 
 	if (!join_args_argv(wk, argv, MAX_ARGS, cmdline)) {
 		LOG_E("failed to prepare arguments");

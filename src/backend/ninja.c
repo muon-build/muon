@@ -481,7 +481,7 @@ struct setup_compiler_args_includes_ctx {
 static enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, uint32_t v_id)
 {
-	char *dir = get_cstr(wk, v_id);
+	const char *dir = get_cstr(wk, v_id);
 
 	if (path_is_absolute(dir)) {
 		char rel[PATH_MAX];

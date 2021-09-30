@@ -714,7 +714,8 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	obj cmd;
-	char *argv[MAX_ARGS], *const *envp = NULL;
+	const char *argv[MAX_ARGS];
+	char *const *envp = NULL;
 
 	{
 		obj args;

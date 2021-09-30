@@ -83,7 +83,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 {
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, cc, (char *[]){
+	if (!run_cmd(&cmd_ctx, cc, (const char *[]){
 		(char *)cc, "--version", NULL,
 	}, NULL)) {
 		run_cmd_ctx_destroy(&cmd_ctx);
@@ -92,7 +92,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 
 	if (cmd_ctx.status != 0) {
 		cmd_ctx = (struct run_cmd_ctx) { 0 };
-		if (!run_cmd(&cmd_ctx, cc, (char *[]){
+		if (!run_cmd(&cmd_ctx, cc, (const char *[]){
 			(char *)cc, "-v", NULL,
 		}, NULL)) {
 			run_cmd_ctx_destroy(&cmd_ctx);
