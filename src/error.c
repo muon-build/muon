@@ -24,7 +24,7 @@ error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
 {
 	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
 
-	log_plain("%s:%d:%d: %s \n%s\n", src->label, line, col, label, msg);
+	log_plain("%s:%d:%d: %s %s\n", src->label, line, col, label, msg);
 
 	uint64_t i, cl = 1, sol = 0;
 	for (i = 0; i < src->len; ++i) {
