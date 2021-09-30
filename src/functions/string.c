@@ -56,19 +56,20 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 }
 
 static bool
-func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, get_cstr(wk, rcvr));
+	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
 
-	char *s = get_cstr(wk, *obj);
+	const struct str *ss = get_str(wk, *res);
 
-	for (; *s; ++s) {
-		if ('a' <= *s && *s <= 'z') {
-			*s -= 32;
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if ('a' <= ss->s[i] && ss->s[i] <= 'z') {
+			((char *)ss->s)[i] -= 32;
 		}
 	}
 
@@ -78,53 +79,52 @@ func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t 
 #define MAX_KEY_LEN 64
 
 bool
-string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, void *ctx, string_format_cb cb)
+string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, void *ctx, string_format_cb cb)
 {
-	char *in;
-	char key[MAX_KEY_LEN + 1] = { 0 };
-
-	uint32_t in_len = strlen(get_cstr(wk, str));
+	struct str key;
+	const struct str *ss_in = get_str(wk, s_in);
 
 	uint32_t i, id_start, id_end = 0;
 	bool reading_id = false;
 
-	*out = wk_str_push(wk, "");
-	in = get_cstr(wk, str);
+	*s_out = wk_str_push(wk, "");
 
-	for (i = 0; i < in_len; ++i) {
-		if (in[i] == '@') {
+	for (i = 0; i < ss_in->len; ++i) {
+		if (ss_in->s[i] == '@') {
 			if (reading_id) {
 				uint32_t elem;
 				id_end = i + 1;
 
 				if (i == id_start) {
-					interp_error(wk, node, "key of zero length not supported");
+					interp_error(wk, err_node, "key of zero length not supported");
 					return false;
 				} else if (i - id_start >= MAX_KEY_LEN) {
-					interp_error(wk, node, "key is too long (max: %d)", MAX_KEY_LEN);
+					interp_error(wk, err_node, "key is too long (max: %d)", MAX_KEY_LEN);
 					return false;
 				}
 
-				strncpy(key, &in[id_start], i - id_start);
+				key = (struct str){ .s = &ss_in->s[id_start], .len = i - id_start };
 
-				switch (cb(wk, node, ctx, key, &elem)) {
-				case format_cb_not_found:
-					interp_error(wk, node, "key '%s' not found", key);
+				switch (cb(wk, err_node, ctx, &key, &elem)) {
+				case format_cb_not_found: {
+					// TODO!
+					interp_error(wk, err_node, "key '%s' not found", key.s);
 					return false;
+				}
 				case format_cb_error:
 					return false;
 				case format_cb_found: {
 					const char *coerced;
-					if (!coerce_string(wk, node, elem, &coerced)) {
+					if (!coerce_string(wk, err_node, elem, &coerced)) {
 						return false;
 					}
-					wk_str_app(wk, out, coerced);
-					in = get_cstr(wk, str);
+					wk_str_app(wk, s_out, coerced);
 					break;
 				}
 				case format_cb_skip: {
-					wk_str_appf(wk, out, "@%s@", key);
-					in = get_cstr(wk, str);
+					wk_str_app(wk, s_out, "@");
+					wk_str_appn(wk, s_out, key.s, key.len);
+					wk_str_app(wk, s_out, "@");
 					break;
 				}
 				}
@@ -132,8 +132,7 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 				reading_id = false;
 			} else {
 				if (i) {
-					wk_str_appn(wk, out, &in[id_end], i - id_end);
-					in = get_cstr(wk, str);
+					wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
 				}
 
 				id_start = i + 1;
@@ -143,12 +142,12 @@ string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, 
 	}
 
 	if (reading_id) {
-		interp_error(wk, node, "missing closing '@'");
+		interp_error(wk, err_node, "missing closing '@'");
 		return false;
 	}
 
 	if (i > id_end) {
-		wk_str_appn(wk, out, &in[id_end], i - id_end);
+		wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
 	}
 
 	return true;
@@ -159,15 +158,16 @@ struct func_format_ctx {
 };
 
 static enum format_cb_result
-func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *key, uint32_t *elem)
+func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str *key, uint32_t *elem)
 {
 	struct func_format_ctx *ctx = _ctx;
-	char *endptr;
-	int64_t i = strtol(key, &endptr, 10);
+	int64_t i;
 
-	if (*endptr) {
+	if (!wk_str_to_i(key, &i)) {
 		return format_cb_skip;
-	} else if (!boundscheck(wk, node, ctx->arr, &i)) {
+	}
+
+	if (!boundscheck(wk, node, ctx->arr, &i)) {
 		return format_cb_error;
 	} else if (!obj_array_index(wk, ctx->arr, i, elem)) {
 		return format_cb_error;
@@ -200,24 +200,25 @@ func_format(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 }
 
 static bool
-func_underscorify(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	uint32_t s_id = wk_str_push(wk, get_cstr(wk, rcvr));
-	char *s = get_cstr(wk, s_id);
+	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
 
-	for (; *s; ++s) {
-		if (!(('a' <= *s && *s <= 'z')
-		      || ('A' <= *s && *s <= 'Z')
-		      || ('0' <= *s && *s <= '9'))) {
-			*s = '_';
+	const struct str *ss = get_str(wk, *res);
+
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (!(('a' <= ss->s[i] && ss->s[i] <= 'z')
+		      || ('A' <= ss->s[i] && ss->s[i] <= 'Z')
+		      || ('0' <= ss->s[i] && ss->s[i] <= '9'))) {
+			((char *)ss->s)[i] = '_';
 		}
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = s_id;
 	return true;
 }
 
@@ -230,34 +231,29 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	uint32_t i, start = 0, seplen, s_id;
-	static char sep[BUF_SIZE_2k + 1] = { 0 };
+	uint32_t i, start = 0, s_id;
 
-	if (ao[0].set) {
-		strncpy(sep, get_cstr(wk, ao[0].val), BUF_SIZE_2k);
-	} else {
-		strncpy(sep, " ", BUF_SIZE_2k);
-	}
-	seplen = strlen(sep);
+	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" ");
 
 	make_obj(wk, obj, obj_array);
 
-	const char *str = get_cstr(wk, rcvr);
-	for (i = 0; str[i]; ++i) {
-		if (strncmp(&str[i], sep, seplen) == 0) {
+	const struct str* ss = get_str(wk, rcvr);
+	for (i = 0; i < ss->len; ++i) {
+		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
+
+		if (wk_str_startswith(&slice, split)) {
 			make_obj(wk, &s_id, obj_string)->dat.str =
-				wk_str_pushn(wk, &str[start], i - start);
-			str = get_cstr(wk, rcvr); // str may have been moved by the above line
+				wk_str_pushn(wk, &ss->s[start], i - start);
 
 			obj_array_push(wk, *obj, s_id);
 
-			start = i + seplen;
-			i += seplen - 1;
+			start = i + split->len;
+			i += split->len - 1;
 		}
 	}
 
 	make_obj(wk, &s_id, obj_string)->dat.str =
-		wk_str_pushn(wk, &str[start], i - start);
+		wk_str_pushn(wk, &ss->s[start], i - start);
 
 	obj_array_push(wk, *obj, s_id);
 
@@ -277,71 +273,45 @@ func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj
 }
 
 static bool
-str_to_uint32(struct workspace *wk, uint32_t error_node, const char *s, uint32_t *output)
+string_to_version(struct workspace *wk, struct version *v, const struct str *ss)
 {
-	char *endptr = NULL;
-	int32_t n = strtol(s, &endptr, 10);
-	if (*endptr) {
-		interp_error(wk, error_node, "nondigit in version core: %s", s);
-		return false;
-	}
-
-	if (n < 0) {
-		interp_error(wk, error_node, "negative digit in version core: %s", s);
-		return false;
-	}
-
-	*output = n;
-
-	return true;
-}
-
-#define MAX_VER_BUF_SIZE_2k 64
-
-static bool
-str_to_version(struct workspace *wk, uint32_t error_node, struct version *v, const char *str)
-{
-	char buf[MAX_VER_BUF_SIZE_2k];
+	uint32_t i;
 	uint32_t n = 0;
-	size_t j = 0;
-	uint32_t num = 0;
-	for (size_t i = 0; str[i]; i++) {
-		if (!(j < MAX_VER_BUF_SIZE_2k)) {
-			interp_error(wk, error_node, "exceeded maximum buffer length when parsing semantic version");
-			return false;
-		}
+	bool last = false;
 
-		if (str[i] == '.') {
-			buf[j] = '\0';
-			if (!str_to_uint32(wk, error_node, buf, &num)) {
+	struct str strnum = { .s = ss->s };
+
+	for (i = 0; i < ss->len; ++i) {
+		if (ss->s[i] == '.' || (last = (i == ss->len - 1))) {
+			int64_t res;
+
+			if (last) {
+				++strnum.len;
+			}
+
+			if (!wk_str_to_i(&strnum, &res)) {
+				return false;
+			} else if (res < 0) {
 				return false;
 			}
 
-			if (n == 0) {
-				v->major = num;
-			} else if (n == 1) {
-				v->minor = num;
+			if (n > 2) {
+				return false;
 			}
 
-			n++;
-			buf[0] = '\0';
-			j = 0;
-			continue;
+			v->v[n] = res;
+			++n;
+
+			strnum.s = &ss->s[i + 1];
+			strnum.len = 0;
+		} else {
+			++strnum.len;
 		}
-
-		buf[j] = str[i];
-		j++;
 	}
 
-	if (j < MAX_VER_BUF_SIZE_2k) {
-		buf[j] = '\0';
-	}
-
-	if (!str_to_uint32(wk, error_node, buf, &num)) {
+	if (n < 2 || i != ss->len) {
 		return false;
 	}
-
-	v->patch = num;
 
 	return true;
 }
@@ -385,76 +355,59 @@ op_ne(uint32_t a, uint32_t b)
 typedef bool ((*comparator)(uint32_t a, uint32_t b));
 
 static bool
-string_version_compare(struct workspace *wk, uint32_t rcvr, const char *str, const char *str_arg, uint32_t str_arg_node, bool *output)
+version_compare(struct workspace *wk, uint32_t err_node, const struct version *ver1, str s2, bool *res)
 {
-	struct version v = { 0, 0, 0 };
-	if (!str_to_version(wk, rcvr, &v, str)) {
-		interp_error(wk, rcvr, "invalid version string");
-		return false;
-	}
-
+	struct version ver2;
+	struct str ss2 = *get_str(wk, s2);
 	comparator op = op_eq;
 
-	static struct {
-		const char *name;
+	struct {
+		const struct str name;
 		comparator op;
 	} ops[] = {
-		{ ">=", op_ge, },
-		{ ">",  op_gt, },
-		{ "==", op_eq, },
-		{ "!=", op_ne, },
-		{ "<=", op_le, },
-		{ "<",  op_lt, },
-		{ "=", op_eq, },
-		NULL
+		{ WKSTR(">="), op_ge, },
+		{ WKSTR(">"),  op_gt, },
+		{ WKSTR("=="), op_eq, },
+		{ WKSTR("!="), op_ne, },
+		{ WKSTR("<="), op_le, },
+		{ WKSTR("<"),  op_lt, },
+		{ WKSTR("="), op_eq, },
 	};
 
-	uint32_t i, op_len = 0;
-	for (i = 0; ops[i].name; ++i) {
-		op_len = strlen(ops[i].name);
+	uint32_t i;
 
-		if (!strncmp(str_arg, ops[i].name, op_len)) {
-			str_arg = &str_arg[op_len];
+	for (i = 0; i < ARRAY_LEN(ops); ++i) {
+		if (wk_str_startswith(&ss2, &ops[i].name)) {
 			op = ops[i].op;
+			ss2.s += ops[i].name.len;
+			ss2.len -= ops[i].name.len;
 			break;
 		}
 	}
 
-	struct version v_arg = { 0, 0, 0 };
-
-	if (!str_to_version(wk, str_arg_node, &v_arg, str_arg)) {
-		interp_error(wk, str_arg_node, "invalid version string");
+	if (!string_to_version(wk, &ver2, &ss2)) {
+		interp_error(wk, err_node, "invalid comparison string: %o", s2);
 		return false;
 	}
 
-	if (v.major != v_arg.major) {
-		*output = op(v.major, v_arg.major);
-		goto ret;
-	}
-
-	if (v.minor != v_arg.minor) {
-		*output = op(v.minor, v_arg.minor);
-		goto ret;
-	}
-
-	if (v.patch != v_arg.patch) {
-		*output = op(v.patch, v_arg.patch);
-		goto ret;
+	for (i = 0; i < 3; ++i) {
+		if (ver1->v[i] != ver2.v[i]) {
+			*res = op(ver1->v[i], ver2.v[i]);
+			return true;
+		}
 	}
 
 	if (op == op_eq || op == op_ge || op == op_le) {
-		*output = true;
-		goto ret;
+		*res = true;
+		return true;
 	}
 
-	*output = false;
-
-ret:
+	*res = false;
 	return true;
 }
 
 static bool
-func_version_compare(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -462,10 +415,15 @@ func_version_compare(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 		return false;
 	}
 
-	const char *str = get_cstr(wk, rcvr);
-	const char *str_arg = get_cstr(wk, an[0].val);
-	struct obj *res = make_obj(wk, obj, obj_bool);
-	if (!string_version_compare(wk, rcvr, str, str_arg, an[0].node, &res->dat.boolean)) {
+	struct version v;
+	if (!string_to_version(wk, &v, get_str(wk, rcvr))) {
+		interp_error(wk, args_node, "comparing against invalid version string: %o", rcvr);
+		return false;
+	}
+
+	bool *comp_res = &make_obj(wk, res, obj_bool)->dat.boolean;
+
+	if (!version_compare(wk, an[0].node, &v, an[0].val, comp_res)) {
 		return false;
 	}
 
@@ -479,11 +437,12 @@ func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint
 		return false;
 	}
 
-	const char *s = get_cstr(wk, rcvr);
+	const struct str *ss = get_str(wk, rcvr);
+
 	char *endptr = NULL;
-	int64_t n = strtol(s, &endptr, 10);
-	if (*endptr) {
-		interp_error(wk, args_node, "unable to parse '%s'", s);
+	int64_t n = strtol(ss->s, &endptr, 10);
+	if (endptr - ss->s != ss->len) {
+		interp_error(wk, args_node, "unable to parse %o", rcvr);
 		return false;
 	}
 

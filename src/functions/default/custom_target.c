@@ -17,24 +17,21 @@ struct custom_target_cmd_fmt_ctx {
 };
 
 static bool
-prefix_plus_index(const char *str, const char *prefix, int64_t *index)
+prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 {
 	uint32_t len = strlen(prefix);
-	if (strlen(str) > len && strncmp(prefix, str, len) == 0) {
-		char *endptr;
-		*index = strtol(&str[len], &endptr, 10);
-
-		if (*endptr) {
-			return false;
-		}
-		return true;
+	if (wk_str_startswith(ss, &WKSTR(prefix))) {
+		return wk_str_to_i(&(struct str) {
+			.s = &ss->s[len],
+			.len = ss->len - len
+		}, index);
 	}
 
 	return false;
 }
 
 static enum format_cb_result
-format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *strkey, uint32_t *elem)
+format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str *strkey, uint32_t *elem)
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
@@ -67,7 +64,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 
 	enum cmd_arg_fmt_key key;
 	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
-		if (strcmp(key_names[key], strkey) == 0) {
+		if (wk_cstreql(strkey, key_names[key])) {
 			break;
 		}
 	}
@@ -122,7 +119,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const char *s
 		/* @BASENAME@: the input filename, with extension removed */
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		LOG_E("TODO: handle @%s@", strkey);
+		LOG_E("TODO: handle @%s@", strkey->s);
 		return format_cb_error;
 	default:
 		break;

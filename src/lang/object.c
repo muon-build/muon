@@ -320,7 +320,8 @@ obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 }
 
 struct obj_array_join_ctx {
-	obj join, *res;
+	obj *res;
+	const struct str *join;
 	uint32_t i, len;
 };
 
@@ -333,10 +334,12 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, get_cstr(wk, val));
+	const struct str *ss = get_str(wk, val);
+
+	wk_str_appn(wk, &get_obj(wk, *ctx->res)->dat.str, ss->s, ss->len);
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->res)->dat.str, get_cstr(wk, ctx->join));
+		wk_str_appn(wk, &get_obj(wk, *ctx->res)->dat.str, ctx->join->s, ctx->join->len);
 	}
 
 	++ctx->i;
@@ -354,7 +357,7 @@ obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 	}
 
 	struct obj_array_join_ctx ctx = {
-		.join = get_obj(wk, join)->dat.str,
+		.join = get_str(wk, join),
 		.res = res,
 		.len = get_obj(wk, arr)->dat.arr.len
 	};
