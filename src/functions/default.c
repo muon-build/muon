@@ -509,7 +509,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	};
 
 	uint32_t i;
-	for (i = 0; i < ARRAY_SIZE(lang_args); ++i) {
+	for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
 		if (akw[lang_args[i].kw].set) {
 			obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[kw_c_args].val);
 		}

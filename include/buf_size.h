@@ -10,6 +10,6 @@
 #define MAX_ENV 16
 #define ARG_BUF_SIZE BUF_SIZE_4k
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
+#define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
 
 #endif

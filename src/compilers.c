@@ -190,7 +190,7 @@ compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lan
 	static const char *argv[] = __VA_ARGS__; \
 	static struct args args = { \
 		.args = argv, \
-		.len = ARRAY_SIZE(argv) \
+		.len = ARRAY_LEN(argv) \
 	};
 
 /* posix compilers */
