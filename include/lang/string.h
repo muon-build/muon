@@ -39,6 +39,7 @@ void wk_str_appn(struct workspace *wk, str *id, const char *str, uint32_t n);
 
 str str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val);
 
+bool wk_streql(const struct str *ss1, const struct str *ss2);
 bool wk_cstreql(const struct str *ss, const char *cstring);
 bool wk_str_startswith(const struct str *ss, const struct str *pre);
 str wk_strcat(struct workspace *wk, str s1, str s2);

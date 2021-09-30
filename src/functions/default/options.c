@@ -68,11 +68,8 @@ option_override_to_s(struct workspace *wk, struct option_override *oo)
 	const char *val;
 
 	if (oo->obj_value) {
-		if (obj_to_s(wk, oo->val, buf1, BUF_SIZE_2k / 2)) {
-			val = buf1;
-		} else {
-			val = "<object>";
-		}
+		obj_to_s(wk, oo->val, buf1, BUF_SIZE_2k / 2);
+		val = buf1;
 	} else {
 		val = get_cstr(wk, oo->val);
 	}

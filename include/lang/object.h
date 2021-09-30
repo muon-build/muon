@@ -171,7 +171,7 @@ struct obj {
 };
 
 const char *obj_type_to_s(enum obj_type t);
-bool obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len);
+void obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 

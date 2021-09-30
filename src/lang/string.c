@@ -251,8 +251,8 @@ str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val)
 	return wk_str_pushn(wk_dest, ss->s, ss->len);
 }
 
-static bool
-_wk_streql(const struct str *ss1, const struct str *ss2)
+bool
+wk_streql(const struct str *ss1, const struct str *ss2)
 {
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
@@ -270,7 +270,7 @@ wk_str_startswith(const struct str *ss, const struct str *pre)
 bool
 wk_cstreql(const struct str *ss, const char *cstring)
 {
-	return _wk_streql(ss, &WKSTR(cstring));
+	return wk_streql(ss, &WKSTR(cstring));
 }
 
 str

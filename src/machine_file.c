@@ -81,9 +81,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	}
 
 	char buf[2048];
-	if (!obj_to_s(ctx->wk, res, buf, 2048)) {
-		return false;
-	}
+	obj_to_s(ctx->wk, res, buf, 2048);
 
 	if (sect == mfile_section_constants) {
 		hash_set(&ctx->wk->scope, k, res);

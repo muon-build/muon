@@ -913,9 +913,8 @@ ninja_write_setup(struct workspace *wk, void *_ctx, FILE *f)
 		obj_dict_set(wk, opts, str, proj->opts);
 	}
 
-	if (!obj_to_s(wk, opts, buf, 2048)) {
-		return false;
-	}
+	// TODO: if this truncates, we generate something invalid here
+	obj_to_s(wk, opts, buf, 2048);
 
 	fprintf(f, "setup(\n\t'%s',\n\tsource: '%s',\n\toptions: %s\n)\n", wk->build_root, wk->source_root, buf);
 	return true;
