@@ -24,6 +24,8 @@ typedef uint32_t str;
 
 bool wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
 
+bool wk_str_has_null(const struct str *ss);
+
 const struct str *get_str(struct workspace *wk, str s);
 const char *get_cstr(struct workspace *wk, str s);
 str wk_str_push(struct workspace *wk, const char *str);

@@ -78,17 +78,25 @@ get_str(struct workspace *wk, str s)
 	return bucket_array_get(&wk->strs, s >> 1);
 }
 
+bool
+wk_str_has_null(const struct str *ss)
+{
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (!ss->s[i]) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 const char *
 get_cstr(struct workspace *wk, str s)
 {
 	const struct str *ss = get_str(wk, s);
 
-	uint32_t i;
-	for (i = 0; i < ss->len; ++i) {
-		if (!ss->s[i]) {
-			assert(false && "cstr can not contain null bytes");
-		}
-	}
+	assert(!wk_str_has_null(ss) && "cstr can not contain null bytes");
 
 	return ss->s;
 }

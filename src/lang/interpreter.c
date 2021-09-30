@@ -174,7 +174,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 		}
 
 		if (!obj_dict_index(wk, l_id, r_id, &result)) {
-			interp_error(wk, n->r, "key not in dictionary: '%s'", get_cstr(wk, r_id));
+			interp_error(wk, n->r, "key not in dictionary: %o", r_id);
 			return false;
 		}
 		break;
@@ -269,7 +269,21 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];
-			if (!path_join(buf, PATH_MAX, get_cstr(wk, l_id), get_cstr(wk, r_id))) {
+
+			const struct str *ss1 = get_str(wk, l_id),
+					 *ss2 = get_str(wk, r_id);
+
+			if (wk_str_has_null(ss1)) {
+				interp_error(wk, n->l, "%o is an invalid path", l_id);
+				return false;
+			}
+
+			if (wk_str_has_null(ss2)) {
+				interp_error(wk, n->r, "%o is an invalid path", r_id);
+				return false;
+			}
+
+			if (!path_join(buf, PATH_MAX, ss1->s, ss2->s)) {
 				return false;
 			}
 
@@ -475,7 +489,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		assert(dict_r->type == obj_dict);
 
 		if (obj_dict_in(wk, tail, key)) {
-			interp_error(wk, n->l, "key '%s' is duplicated", get_cstr(wk, key));
+			interp_error(wk, n->l, "key %o is duplicated", key);
 			return false;
 		}
 
@@ -852,7 +866,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	++wk->stack_depth;
 	if (wk->stack_depth > maximum_stack_depth) {
-		interp_error(wk, n_id, "stack too deep");
+		interp_error(wk, n_id, "stack overflow");
 		--wk->stack_depth;
 		return false;
 	}
