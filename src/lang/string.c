@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "error.h"
@@ -9,6 +10,56 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
+
+static bool
+wk_str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
+{
+	if (*i >= len) {
+		return false;
+	}
+
+	buf[*i] = s;
+	++(*i);
+	return true;
+}
+
+static bool
+wk_str_unescape_buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
+{
+	uint32_t j;
+	for (j = 0; j < n; ++j) {
+		if (!wk_str_unescape_buf_push(buf, len, i, s[j])) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
+{
+	uint32_t i, j = 0;
+
+	for (i = 0; i < ss->len; ++i) {
+		if (ss->s[i] < 32) {
+			char buf[32];
+			uint32_t len = snprintf(buf, 32, "\\%d", ss->s[i]);
+
+			if (!wk_str_unescape_buf_pushn(buf, len, &j, buf, len)) {
+				return false;
+			}
+		} else {
+			if (!wk_str_unescape_buf_push(buf, len, &j, ss->s[i])) {
+				return false;
+			}
+		}
+	}
+
+	*r = j;
+
+	return true;
+}
 
 const struct str *
 get_str(struct workspace *wk, str s)
@@ -193,21 +244,25 @@ str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val)
 }
 
 static bool
-_wk_streql(struct workspace *wk, const struct str *ss1, const struct str *ss2)
+_wk_streql(const struct str *ss1, const struct str *ss2)
 {
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
 
 bool
-wk_streql(struct workspace *wk, str s1, str s2)
+wk_str_startswith(const struct str *ss, const struct str *pre)
 {
-	return _wk_streql(wk, get_str(wk, s1), get_str(wk, s2));
+	if (ss->len < pre->len) {
+		return false;
+	}
+
+	return memcmp(ss->s, pre->s, pre->len) == 0;
 }
 
 bool
-wk_cstreql(struct workspace *wk, str s1, const char *cstring)
+wk_cstreql(const struct str *ss, const char *cstring)
 {
-	return _wk_streql(wk, get_str(wk, s1), &WKSTR("hello"));
+	return _wk_streql(ss, &WKSTR(cstring));
 }
 
 str
@@ -223,4 +278,16 @@ wk_strcat(struct workspace *wk, str s1, str s2)
 	memcpy((char *)&ss->s[ss1->len], ss2->s, ss2->len);
 
 	return res;
+}
+
+bool
+wk_str_to_i(const struct str *ss, int64_t *res)
+{
+	char *endptr = NULL;
+	*res = strtol(ss->s, &endptr, 10);
+	if (endptr - ss->s != ss->len) {
+		return false;
+	}
+
+	return true;
 }

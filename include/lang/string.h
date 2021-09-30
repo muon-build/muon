@@ -1,6 +1,7 @@
 #ifndef MUON_LANG_STRING_H
 #define MUON_LANG_STRING_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct workspace;
@@ -21,6 +22,8 @@ _Static_assert(sizeof(struct str) == 16, "");
 
 typedef uint32_t str;
 
+bool wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
+
 const struct str *get_str(struct workspace *wk, str s);
 const char *get_cstr(struct workspace *wk, str s);
 str wk_str_push(struct workspace *wk, const char *str);
@@ -34,5 +37,9 @@ void wk_str_appn(struct workspace *wk, str *id, const char *str, uint32_t n);
 
 str str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val);
 
+bool wk_cstreql(const struct str *ss, const char *cstring);
+bool wk_str_startswith(const struct str *ss, const struct str *pre);
 str wk_strcat(struct workspace *wk, str s1, str s2);
+
+bool wk_str_to_i(const struct str *ss, int64_t *res);
 #endif

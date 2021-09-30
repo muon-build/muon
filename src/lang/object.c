@@ -889,20 +889,13 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		obj_to_s_buf_push(&ctx, "files('%s')", get_cstr(wk, get_obj(wk, obj)->dat.file));
 		break;
 	case obj_string: {
-		uint32_t i;
-		const struct str *ss = get_str(wk, obj);
-
 		obj_to_s_buf_push(&ctx, "'");
-
-		for (i = 0; i < ss->len; ++i) {
-			if (ss->s[i] == 0) {
-				obj_to_s_buf_push(&ctx, "\\0");
-			} else {
-				obj_to_s_buf_push(&ctx, "%c", ss->s[i]);
-			}
+		uint32_t w = 0;
+		if (!wk_str_unescape(&ctx.buf[ctx.i], ctx.len - ctx.i, get_str(wk, obj), &w)) {
+			return true;
 		}
-
-		obj_to_s_buf_push(&ctx, "':%d", ss->len);
+		ctx.i += w;
+		obj_to_s_buf_push(&ctx, "'");
 		break;
 	}
 	case obj_number:
