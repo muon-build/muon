@@ -21,6 +21,7 @@ struct parser {
 	struct ast *ast;
 	uint32_t token_i;
 	bool caused_effect;
+	uint32_t loop_depth;
 };
 
 const char *
@@ -1008,9 +1009,12 @@ parse_foreach(struct parser *p, uint32_t *id)
 		parse_error(p, "expected statement");
 		return false;
 	}
+
+	++p->loop_depth;
 	if (!parse_block(p, &c_id)) {
 		return false;
 	}
+	--p->loop_depth;
 
 	if (get_node(p->ast, c_id)->type != node_empty) {
 		p->caused_effect = true;
@@ -1067,9 +1071,19 @@ parse_line(struct parser *p, uint32_t *id)
 			return false;
 		}
 	} else if (accept(p, tok_continue)) {
+		if (!p->loop_depth) {
+			parse_error(p, "continue outside a loop");
+			return false;
+		}
+
 		p->caused_effect = true;
 		make_node(p, id, node_continue);
 	} else if (accept(p, tok_break)) {
+		if (!p->loop_depth) {
+			parse_error(p, "break outside a loop");
+			return false;
+		}
+
 		p->caused_effect = true;
 		make_node(p, id, node_break);
 	} else {
