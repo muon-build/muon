@@ -9,28 +9,26 @@
 #include "platform/path.h"
 
 bool
-coerce_string(struct workspace *wk, uint32_t node, uint32_t val, const char **res)
+coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	struct obj *v = get_obj(wk, val);
 	switch (v->type) {
 	case obj_bool:
 		if (v->dat.boolean) {
-			*res = "true";
+			*res = make_str(wk, "true");
 		} else {
-			*res = "false";
+			*res = make_str(wk, "false");
 		}
 		break;
 	case obj_file:
-		*res = wk_file_path(wk, val);
+		make_obj(wk, res, obj_string)->dat.str = v->dat.str;
 		break;
 	case obj_number: {
-		static char num[32] = { 0 };
-		snprintf(num, 31, "%ld", v->dat.num);
-		*res = num;
+		make_obj(wk, res, obj_string)->dat.str = wk_str_pushf(wk, "%ld", v->dat.num);
 		break;
 	}
 	case obj_string: {
-		*res = get_cstr(wk, val);
+		*res = val;
 		break;
 	}
 	default:

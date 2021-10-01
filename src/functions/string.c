@@ -114,11 +114,13 @@ string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, voi
 				case format_cb_error:
 					return false;
 				case format_cb_found: {
-					const char *coerced;
+					obj coerced;
 					if (!coerce_string(wk, err_node, elem, &coerced)) {
 						return false;
 					}
-					wk_str_app(wk, s_out, coerced);
+
+					const struct str *ss = get_str(wk, coerced);
+					wk_str_appn(wk, s_out, ss->s, ss->len);
 					break;
 				}
 				case format_cb_skip: {

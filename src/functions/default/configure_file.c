@@ -174,13 +174,14 @@ write_mesondefine:
 				return false;
 			}
 
-			const char *sub = NULL;
+			obj sub;
 			if (!coerce_string(wk, in_node, elem, &sub)) {
 				error_messagef(&src, id_start_line, id_start_col, "unable to substitue value");
 				return false;
 			}
 
-			buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
+			const struct str *ss = get_str(wk, sub);
+			buf_push(&out_buf, &out_cap, &out_len, ss->s, ss->len);
 		} else {
 			buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
 		}
