@@ -1072,12 +1072,15 @@ parse_block(struct parser *p, uint32_t *id)
 	bool loop = true, have_eol = true, have_r = false;
 
 	while (loop) {
-		if (!parse_line(p, &l_id)) {
-			return false;
-		}
-
-		if (get_node(p->ast, l_id)->type != node_empty) {
-			loop = false;
+		if (parse_line(p, &l_id)) {
+			if (get_node(p->ast, l_id)->type != node_empty) {
+				loop = false;
+			}
+		} else {
+			while (p->last->type != tok_eol
+			       && p->last->type != tok_eof) {
+				get_next_tok(p);
+			}
 		}
 
 		if (!accept(p, tok_eol)) {

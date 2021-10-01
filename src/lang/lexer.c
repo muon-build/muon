@@ -734,30 +734,22 @@ skip:
 static bool
 tokenize(struct lexer *lexer)
 {
+	bool success = true, loop = true;
 
-	while (true) {
+	while (loop) {
 		switch (lexer_tokenize_one(lexer)) {
 		case lex_cont:
 			break;
 		case lex_fail:
-			return false;
+			success = false;
+			break;
 		case lex_done:
-			goto done;
+			loop = false;
+			break;
 		}
 	}
 
-done:
-
-/* 	{ */
-/* 		uint32_t i; */
-/* 		struct token *tok; */
-/* 		for (i = 0; i < lexer->toks->tok.len; ++i) { */
-/* 			tok = darr_get(&lexer->toks->tok, i); */
-/* 			L("%s", tok_to_s(tok)); */
-/* 		} */
-/* 	} */
-
-	return true;
+	return success;
 }
 
 bool
