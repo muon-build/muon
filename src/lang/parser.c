@@ -19,9 +19,8 @@ struct parser {
 	struct tokens *toks;
 	struct token *last_last, *last;
 	struct ast *ast;
-	uint32_t token_i;
-	bool caused_effect;
-	uint32_t loop_depth;
+	uint32_t token_i, loop_depth;
+	bool caused_effect, valid;
 };
 
 const char *
@@ -673,7 +672,8 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 			p->last_last = op_tok;
 		}
 
-		if (get_node(p->ast, l_id)->type == node_empty || get_node(p->ast, r_id)->type == node_empty) {
+		if (get_node(p->ast, l_id)->type == node_empty
+		    || get_node(p->ast, r_id)->type == node_empty) {
 			if (op_tok) {
 				p->last = op_tok;
 			}
@@ -1115,6 +1115,7 @@ parse_block(struct parser *p, uint32_t *id)
 				loop = false;
 			}
 		} else {
+			p->valid = false;
 			consume_until(p, tok_eol);
 		}
 
@@ -1156,7 +1157,12 @@ parser_parse(struct ast *ast, struct source_data *sdata, struct source *src)
 		goto ret;
 	}
 
-	struct parser parser = { .src = src, .ast = ast, .toks = &toks };
+	struct parser parser = {
+		.src = src,
+		.ast = ast,
+		.toks = &toks,
+		.valid = true
+	};
 
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
 	uint32_t id;
@@ -1171,7 +1177,7 @@ parser_parse(struct ast *ast, struct source_data *sdata, struct source *src)
 		goto ret;
 	}
 
-	ret = true;
+	ret = parser.valid;
 ret:
 	tokens_destroy(&toks);
 	return ret;
