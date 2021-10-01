@@ -75,6 +75,7 @@ tok_type_to_s(enum token_type type)
 	case tok_string: return "string";
 	case tok_number: return "number";
 	case tok_question_mark: return "?";
+	case tok_stringify: return "stringify";
 	}
 
 	assert(false && "unreachable");
@@ -515,8 +516,9 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 		lexer->data_i += token->n + 1;
 
 		next_tok(lexer)->type = tok_plus;
-		lex_identifier(lexer, next_tok(lexer));
 
+		next_tok(lexer)->type = tok_stringify;
+		lex_identifier(lexer, next_tok(lexer));
 		advance(lexer);
 
 		next_tok(lexer)->type = tok_plus;

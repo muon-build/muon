@@ -60,6 +60,9 @@ enum token_type {
 	tok_number,
 	tok_true,
 	tok_false,
+
+	/* special */
+	tok_stringify,
 };
 
 union token_data {

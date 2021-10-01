@@ -53,6 +53,7 @@ node_type_to_s(enum node_type t)
 	case node_u_minus: return "u_minus";
 	case node_ternary: return "ternary";
 	case node_block: return "block";
+	case node_stringify: return "stringify";
 	}
 
 	assert(false && "unreachable");
@@ -613,6 +614,8 @@ parse_e6(struct parser *p, uint32_t *id)
 		t = node_not;
 	} else if (accept(p, tok_minus)) {
 		t = node_u_minus;
+	} else if (accept(p, tok_stringify)) {
+		t = node_stringify;
 	}
 
 	struct token *op_tok = p->last_last;

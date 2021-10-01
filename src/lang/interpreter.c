@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "coerce.h"
 #include "data/hash.h"
 #include "error.h"
 #include "functions/common.h"
@@ -225,6 +226,7 @@ interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *
 
 	return false;
 }
+
 static bool
 interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 {
@@ -242,7 +244,6 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 
 	return true;
 }
-
 
 static bool
 interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
@@ -859,6 +860,22 @@ interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	}
 }
 
+static bool
+interp_stringify(struct workspace *wk, struct node *n, obj *res)
+{
+	obj l_id;
+
+	if (!interp_node(wk, n->l, &l_id)) {
+		return false;
+	}
+
+	if (!coerce_string(wk, n->l, l_id, res)) {
+		return false;
+	}
+
+	return true;
+}
+
 bool
 interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 {
@@ -988,6 +1005,11 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	case node_arithmetic:
 		ret = interp_arithmetic(wk, n_id, obj_id);
+		break;
+
+	/* special */
+	case node_stringify:
+		ret = interp_stringify(wk, n, obj_id);
 		break;
 
 	/* handled in other places */

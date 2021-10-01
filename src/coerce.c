@@ -32,7 +32,8 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		break;
 	}
 	default:
-		interp_error(wk, node, "unable to coerce '%s' to string", obj_type_to_s(v->type));
+		interp_error(wk, node, "unable to coerce %o to string", val);
+		return false;
 	}
 
 	return true;

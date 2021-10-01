@@ -63,6 +63,7 @@ enum node_type {
 	node_u_minus,
 	node_ternary,
 	node_block,
+	node_stringify,
 };
 
 enum node_child_flag {
