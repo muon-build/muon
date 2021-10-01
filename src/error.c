@@ -63,7 +63,7 @@ void
 error_messagev(struct source *src, uint32_t line, uint32_t col, const char *fmt, va_list args)
 {
 	static char buf[BUF_SIZE_4k];
-	snprintf(buf, BUF_SIZE_4k, fmt, args);
+	vsnprintf(buf, BUF_SIZE_4k, fmt, args);
 	error_message(src, line, col, buf);
 }
 
