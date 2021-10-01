@@ -91,6 +91,5 @@ void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
-const char *source_location(struct ast *ast, uint32_t id);
 void ast_destroy(struct ast *ast);
 #endif // MUON_PARSER_H

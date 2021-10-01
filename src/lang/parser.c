@@ -69,17 +69,6 @@ parse_error(struct parser *p, const char *fmt, ...)
 	va_end(args);
 }
 
-const char *
-source_location(struct ast *ast, uint32_t id)
-{
-	struct node *n = get_node(ast, id);
-	static char buf[BUF_SIZE_S + 1];
-
-	snprintf(buf, BUF_SIZE_S, "line: %d, col: %d", n->line, n->col);
-
-	return buf;
-}
-
 static struct token *
 get_next_tok(struct parser *p)
 {
