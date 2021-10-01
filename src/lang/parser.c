@@ -104,6 +104,15 @@ expect(struct parser *p, enum token_type type)
 	return true;
 }
 
+static void
+consume_until(struct parser *p, enum token_type t)
+{
+	while (p->last->type != t
+	       && p->last->type != tok_eof) {
+		get_next_tok(p);
+	}
+}
+
 struct node *
 get_node(struct ast *ast, uint32_t i)
 {
@@ -894,7 +903,14 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	bool have_c = false;
 
 	if (if_type == if_normal) {
+		struct token *if_ = p->last;
 		if (!parse_stmt(p, &cond_id)) {
+			return false;
+		}
+
+		if (get_node(p->ast, cond_id)->type == node_empty) {
+			p->last = if_;
+			parse_error(p, "missing condition");
 			return false;
 		}
 	}
@@ -977,11 +993,22 @@ parse_foreach(struct parser *p, uint32_t *id)
 	uint32_t args_id, r_id, c_id;
 	if (!parse_foreach_args(p, &args_id, 0)) {
 		return false;
-	} else if (!expect(p, tok_colon)) {
+	}
+
+	struct token *colon = p->last;
+
+	if (!expect(p, tok_colon)) {
 		return false;
 	} else if (!parse_stmt(p, &r_id)) {
 		return false;
-	} else if (!parse_block(p, &c_id)) {
+	}
+
+	if (get_node(p->ast, r_id)->type == node_empty) {
+		p->last = colon;
+		parse_error(p, "expected statement");
+		return false;
+	}
+	if (!parse_block(p, &c_id)) {
 		return false;
 	}
 
@@ -1015,18 +1042,25 @@ parse_line(struct parser *p, uint32_t *id)
 		break;
 	}
 
-	bool caused_effect_old = p->caused_effect;
+	bool caused_effect_old = p->caused_effect,
+	     ret = true;
 	p->caused_effect = false;
+
+	struct token *stmt_start = p->last;
 
 	if (accept(p, tok_if)) {
 		if (!parse_if(p, id, if_normal)) {
-			return false;
-		} else if (!expect(p, tok_endif)) {
+			ret = false;
+			consume_until(p, tok_endif);
+		}
+
+		if (!expect(p, tok_endif)) {
 			return false;
 		}
 	} else if (accept(p, tok_foreach)) {
 		if (!parse_foreach(p, id)) {
-			return false;
+			ret = false;
+			consume_until(p, tok_endforeach);
 		}
 
 		if (!expect(p, tok_endforeach)) {
@@ -1044,14 +1078,15 @@ parse_line(struct parser *p, uint32_t *id)
 		}
 	}
 
-	if (!p->caused_effect) {
+	if (ret && !p->caused_effect) {
+		p->last = stmt_start;
 		parse_error(p, "statement with no effect");
 		return false;
 	}
 
 	p->caused_effect = caused_effect_old;
 
-	return true;
+	return ret;
 }
 
 static bool
@@ -1066,10 +1101,7 @@ parse_block(struct parser *p, uint32_t *id)
 				loop = false;
 			}
 		} else {
-			while (p->last->type != tok_eol
-			       && p->last->type != tok_eof) {
-				get_next_tok(p);
-			}
+			consume_until(p, tok_eol);
 		}
 
 		if (!accept(p, tok_eol)) {
