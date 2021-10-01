@@ -354,11 +354,207 @@ write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
 static enum lex_result lexer_tokenize_one(struct lexer *lexer);
 
 static enum lex_result
-string(struct lexer *lexer, struct token *token, bool fstring)
+lex_string_char(struct lexer *lexer, struct token *token, bool multiline, bool fstring, char *str, uint32_t *quotes)
+{
+	bool got_quote = false;
+
+	switch (lexer->src[lexer->i]) {
+	case '\n':
+		if (multiline) {
+			str[token->n] = '\n';
+			++token->n;
+		} else {
+			// unterminated string
+			return lex_fail;
+		}
+		break;
+	case '\\': {
+		uint32_t esc_line = lexer->line;
+		uint32_t esc_col = lexer->i - lexer->line_start + 1;
+
+		switch (lexer->src[lexer->i + 1]) {
+		case '\\':
+		case '\'':
+			advance(lexer);
+			str[token->n] = lexer->src[lexer->i];
+			++token->n;
+			break;
+		case 'a':
+			advance(lexer);
+			str[token->n] = '\a';
+			++token->n;
+			break;
+		case 'b':
+			advance(lexer);
+			str[token->n] = '\b';
+			++token->n;
+			break;
+		case 'f':
+			advance(lexer);
+			str[token->n] = '\f';
+			++token->n;
+			break;
+		case 'r':
+			advance(lexer);
+			str[token->n] = '\r';
+			++token->n;
+			break;
+		case 't':
+			advance(lexer);
+			str[token->n] = '\t';
+			++token->n;
+			break;
+		case 'v':
+			advance(lexer);
+			str[token->n] = '\v';
+			++token->n;
+			break;
+		case 'n':
+			advance(lexer);
+			str[token->n] = '\n';
+			++token->n;
+			break;
+		case 'x':
+		case 'u':
+		case 'U': {
+			uint32_t len = 0;
+			switch (lexer->src[lexer->i + 1]) {
+			case 'x':
+				len = 2;
+				break;
+			case 'u':
+				len = 4;
+				break;
+			case 'U':
+				len = 8;
+				break;
+			}
+			advance(lexer);
+
+			char num[9] = { 0 };
+			uint32_t i;
+
+			for (i = 0; i < len; ++i) {
+				num[i] = lexer->src[lexer->i + 1];
+				if (!is_hex_digit(num[i])) {
+					error_message(lexer->source, esc_line, esc_col, "unterminated hex escape");
+					return lex_fail;
+				}
+				advance(lexer);
+			}
+
+			uint32_t val = strtol(num, NULL, 16);
+
+			if (!write_utf8(lexer, token, str, val)) {
+				return lex_fail;
+			}
+			break;
+		}
+		case '0': case '1': case '2': case '3': case '4':
+		case '5': case '6': case '7': case '8': case '9': {
+			char num[4] = { 0 };
+			uint32_t i;
+
+			for (i = 0; i < 3; ++i) {
+				num[i] = lexer->src[lexer->i + 1];
+				if (!is_digit(num[i])) {
+					break;
+				}
+				advance(lexer);
+			}
+
+			assert(i);
+
+			str[token->n] = strtol(num, NULL, 8);
+			++token->n;
+			break;
+		}
+		default:
+			str[token->n] = lexer->src[lexer->i];
+			++token->n;
+			advance(lexer);
+			str[token->n] = lexer->src[lexer->i];
+			++token->n;
+			break;
+		case 0:
+			error_message(lexer->source, esc_line, esc_col, "unterminated hex escape");
+			return lex_fail;
+		}
+		break;
+	}
+	case 0:
+		// unterminated string
+		return lex_fail;
+	case '\'':
+		got_quote = true;
+		break;
+	case '@': {
+		if (!fstring) {
+			str[token->n] = lexer->src[lexer->i];
+			++token->n;
+			break;
+		}
+
+		advance(lexer);
+		lexer->data_i += token->n + 1;
+
+		next_tok(lexer)->type = tok_plus;
+
+		if (lexer_tokenize_one(lexer) != lex_cont) {
+			return lex_fail;
+		} else if (last_tok(lexer)->type != tok_identifier) {
+			lex_error(lexer, "invalid expression in f-string");
+			return lex_fail;
+		}
+
+		while (lexer->src[lexer->i] == ' ' || lexer->src[lexer->i] == '\t') {
+			advance(lexer);
+		}
+
+		if (lexer->src[lexer->i] != '@') {
+			lex_error(lexer, "unterminated expression in f-string");
+			return lex_fail;
+		}
+
+		advance(lexer);
+
+		next_tok(lexer)->type = tok_plus;
+
+		token = next_tok(lexer);
+		str = &lexer->sdata->data[lexer->data_i];
+		token->type = tok_string;
+		token->dat.s = str;
+		return lex_cont;
+	}
+	default:
+		str[token->n] = lexer->src[lexer->i];
+		++token->n;
+		break;
+	}
+
+	advance(lexer);
+
+	if (got_quote) {
+		++(*quotes);
+		got_quote = false;
+	} else {
+		*quotes = 0;
+	}
+
+	assert(*quotes <= 3);
+	if ((multiline && *quotes == 3) || (!multiline && *quotes == 1)) {
+		str[token->n] = 0;
+		return lex_done;
+	}
+
+	return lex_cont;
+}
+
+static enum lex_result
+lex_string(struct lexer *lexer, struct token *token, bool fstring)
 {
 	bool multiline;
 	uint32_t quotes = 0;
-	bool got_quote = false;
 
 	if (strncmp(&lexer->src[lexer->i], "'''", 3) == 0) {
 		multiline = true;
@@ -374,195 +570,43 @@ string(struct lexer *lexer, struct token *token, bool fstring)
 	token->type = tok_string;
 	token->dat.s = str;
 
-	while (true) {
-		switch (lexer->src[lexer->i]) {
-		case '\n':
-			if (multiline) {
-				str[token->n] = '\n';
-				++token->n;
-			} else {
-				lex_error(lexer, "unterminated string (unexpected newline)");
-				return lex_fail;
-			}
+	bool loop = true;
+	enum lex_result ret = lex_cont;
+	while (loop) {
+		switch (lex_string_char(lexer, token, multiline, fstring, str, &quotes)) {
+		case lex_cont:
 			break;
-		case '\\':
-			switch (lexer->src[lexer->i + 1]) {
-			case '\\':
-			case '\'':
-				advance(lexer);
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				break;
-			case 'a':
-				advance(lexer);
-				str[token->n] = '\a';
-				++token->n;
-				break;
-			case 'b':
-				advance(lexer);
-				str[token->n] = '\b';
-				++token->n;
-				break;
-			case 'f':
-				advance(lexer);
-				str[token->n] = '\f';
-				++token->n;
-				break;
-			case 'r':
-				advance(lexer);
-				str[token->n] = '\r';
-				++token->n;
-				break;
-			case 't':
-				advance(lexer);
-				str[token->n] = '\t';
-				++token->n;
-				break;
-			case 'v':
-				advance(lexer);
-				str[token->n] = '\v';
-				++token->n;
-				break;
-			case 'n':
-				advance(lexer);
-				str[token->n] = '\n';
-				++token->n;
-				break;
-			case 'x':
-			case 'u':
-			case 'U': {
-				uint32_t len = 0;
-				switch (lexer->src[lexer->i + 1]) {
-				case 'x':
-					len = 2;
-					break;
-				case 'u':
-					len = 4;
-					break;
-				case 'U':
-					len = 8;
-					break;
-				}
-				advance(lexer);
-
-				char num[9] = { 0 };
-				uint32_t i;
-
-				for (i = 0; i < len; ++i) {
-					num[i] = lexer->src[lexer->i + 1];
-					if (!is_hex_digit(num[i])) {
-						lex_error(lexer, "unterminated hex escape");
-						return lex_fail;
-					}
-					advance(lexer);
-				}
-
-				uint32_t val = strtol(num, NULL, 16);
-
-				if (!write_utf8(lexer, token, str, val)) {
-					return lex_fail;
-				}
-				break;
-			}
-			case '0': case '1': case '2': case '3': case '4':
-			case '5': case '6': case '7': case '8': case '9': {
-				char num[4] = { 0 };
-				uint32_t i;
-
-				for (i = 0; i < 3; ++i) {
-					num[i] = lexer->src[lexer->i + 1];
-					if (!is_digit(num[i])) {
+		case lex_done:
+			loop = false;
+			break;
+		case lex_fail: {
+			bool terminated = false;
+			while (lexer->src[lexer->i] &&
+			       (multiline || (!multiline && lexer->src[lexer->i] != '\n'))) {
+				if (lexer->src[lexer->i] == '\'') {
+					++quotes;
+					if ((multiline && quotes == 3) || (!multiline && quotes)) {
+						advance(lexer);
+						terminated = true;
 						break;
 					}
-					advance(lexer);
 				}
-
-				assert(i);
-
-				str[token->n] = strtol(num, NULL, 8);
-				++token->n;
-				break;
-			}
-			default:
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				advance(lexer);
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				break;
-			case 0:
-				lex_error(lexer, "unterminated escape");
-				return lex_fail;
-			}
-			break;
-		case 0:
-			lex_error(lexer, "unterminated string");
-			return lex_fail;
-		case '\'':
-			got_quote = true;
-			break;
-		case '@': {
-			if (!fstring) {
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				break;
-			}
-
-			advance(lexer);
-			lexer->data_i += token->n + 1;
-
-			next_tok(lexer)->type = tok_plus;
-
-			if (lexer_tokenize_one(lexer) != lex_cont) {
-				return lex_fail;
-			} else if (last_tok(lexer)->type != tok_identifier) {
-				lex_error(lexer, "invalid expression in f-string");
-				return lex_fail;
-			}
-
-			while (lexer->src[lexer->i] == ' ' || lexer->src[lexer->i] == '\t') {
 				advance(lexer);
 			}
 
-			if (lexer->src[lexer->i] != '@') {
-				lex_error(lexer, "unterminated expression in f-string");
-				return lex_fail;
+			if (!terminated) {
+				lex_error(lexer, "unterminated string");
 			}
 
-			advance(lexer);
-
-			next_tok(lexer)->type = tok_plus;
-
-			token = next_tok(lexer);
-			str = &lexer->sdata->data[lexer->data_i];
-			token->type = tok_string;
-			token->dat.s = str;
-			continue;
-		}
-		default:
-			str[token->n] = lexer->src[lexer->i];
-			++token->n;
+			loop = false;
+			ret = lex_fail;
 			break;
 		}
-
-		advance(lexer);
-
-		if (got_quote) {
-			++quotes;
-			got_quote = false;
-		} else {
-			quotes = 0;
-		}
-
-		assert(quotes <= 3);
-		if ((multiline && quotes == 3) || (!multiline && quotes == 1)) {
-			str[token->n] = 0;
-			break;
 		}
 	}
 
 	lexer->data_i += token->n + 1;
-	return lex_cont;
+	return ret;
 }
 
 static enum lex_result
@@ -588,9 +632,9 @@ lexer_tokenize_one(struct lexer *lexer)
 
 	if (lexer->src[lexer->i] == 'f' && lexer->src[lexer->i + 1] == '\'') {
 		advance(lexer);
-		return string(lexer, token, true);
+		return lex_string(lexer, token, true);
 	} else if (lexer->src[lexer->i] == '\'') {
-		return string(lexer, token, false);
+		return lex_string(lexer, token, false);
 	} else if (is_valid_start_of_identifier(lexer->src[lexer->i])) {
 		return identifier(lexer, token);
 	} else if (is_digit(lexer->src[lexer->i])) {
@@ -742,6 +786,7 @@ tokenize(struct lexer *lexer)
 			break;
 		case lex_fail:
 			success = false;
+			advance(lexer);
 			break;
 		case lex_done:
 			loop = false;
