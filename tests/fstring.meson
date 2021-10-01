@@ -5,4 +5,10 @@ assert(f'''hello @test@''' == 'hello world')
 a = '1'
 b = '2'
 c = '3'
-assert(f'a@ a @b@ b @c@ c @d' == 'a1b2c3d')
+assert(f'a@a@b@b@c@c@d' == 'a1b2c3d')
+
+n = '@0@'.format(10)
+m = 'bar'
+s = f'test @n@ string (@@n@@): @m@'
+
+assert(s == 'test 10 string (@10@): bar', 'Incorrect string formatting')
