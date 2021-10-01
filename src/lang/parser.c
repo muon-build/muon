@@ -20,6 +20,7 @@ struct parser {
 	struct token *last_last, *last;
 	struct ast *ast;
 	uint32_t token_i;
+	bool caused_effect;
 };
 
 const char *
@@ -438,6 +439,8 @@ parse_e9(struct parser *p, uint32_t *id)
 static bool
 parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
+	p->caused_effect = true;
+
 	uint32_t meth_id, args, c_id = 0;
 	bool have_c = false;
 	struct token *start_tok = p->last;
@@ -567,6 +570,8 @@ parse_e7(struct parser *p, uint32_t *id)
 	}
 
 	if (accept(p, tok_lparen)) {
+		p->caused_effect = true;
+
 		uint32_t args, d_id;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
@@ -818,6 +823,8 @@ parse_stmt(struct parser *p, uint32_t *id)
 	}
 
 	if (accept(p, tok_plus_assign)) {
+		p->caused_effect = true;
+
 		uint32_t v, arith;
 		make_node(p, &arith, node_arithmetic);
 
@@ -837,6 +844,8 @@ parse_stmt(struct parser *p, uint32_t *id)
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, arith);
 	} else if (accept(p, tok_assign)) {
+		p->caused_effect = true;
+
 		uint32_t v;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
@@ -932,6 +941,9 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 		add_child(p, *id, node_child_l, cond_id);
 	}
 
+	if (get_node(p->ast, block_id)->type != node_empty) {
+		p->caused_effect = true;
+	}
 	add_child(p, *id, node_child_r, block_id);
 
 	if (have_c) {
@@ -984,6 +996,10 @@ parse_foreach(struct parser *p, uint32_t *id)
 		return false;
 	}
 
+	if (get_node(p->ast, c_id)->type != node_empty) {
+		p->caused_effect = true;
+	}
+
 	make_node(p, id, node_foreach);
 	add_child(p, *id, node_child_l, args_id);
 	add_child(p, *id, node_child_r, r_id);
@@ -995,25 +1011,56 @@ parse_foreach(struct parser *p, uint32_t *id)
 static bool
 parse_line(struct parser *p, uint32_t *id)
 {
-	if (p->last->type == tok_eol) {
+	while (accept(p, tok_eol)) {
+	}
+
+	switch (p->last->type) {
+	case tok_endforeach:
+	case tok_else:
+	case tok_elif:
+	case tok_endif:
+	case tok_eof:
 		make_node(p, id, node_empty);
-	} else if (accept(p, tok_if)) {
+		return true;
+	default:
+		break;
+	}
+
+	bool caused_effect_old = p->caused_effect;
+	p->caused_effect = false;
+
+	if (accept(p, tok_if)) {
 		if (!parse_if(p, id, if_normal)) {
 			return false;
+		} else if (!expect(p, tok_endif)) {
+			return false;
 		}
-		return expect(p, tok_endif);
 	} else if (accept(p, tok_foreach)) {
 		if (!parse_foreach(p, id)) {
 			return false;
 		}
-		return expect(p, tok_endforeach);
+
+		if (!expect(p, tok_endforeach)) {
+			return false;
+		}
 	} else if (accept(p, tok_continue)) {
+		p->caused_effect = true;
 		make_node(p, id, node_continue);
 	} else if (accept(p, tok_break)) {
+		p->caused_effect = true;
 		make_node(p, id, node_break);
 	} else {
-		return parse_stmt(p, id);
+		if (!parse_stmt(p, id)) {
+			return false;
+		}
 	}
+
+	if (!p->caused_effect) {
+		parse_error(p, "statement with no effect");
+		return false;
+	}
+
+	p->caused_effect = caused_effect_old;
 
 	return true;
 }
