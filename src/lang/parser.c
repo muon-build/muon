@@ -669,15 +669,12 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 			p->last_last = op_tok;
 		}
 
-		switch (get_node(p->ast, l_id)->type) {
-		case node_empty:
+		if (get_node(p->ast, l_id)->type == node_empty || get_node(p->ast, r_id)->type == node_empty) {
 			if (op_tok) {
 				p->last = op_tok;
 			}
 			parse_error(p, "missing operand to binary operator");
 			return false;
-		default:
-			break;
 		}
 
 		n = make_node(p, id, node_arithmetic);
