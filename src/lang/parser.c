@@ -707,7 +707,21 @@ make_comparison_node(struct parser *p, uint32_t *id, uint32_t l_id, enum compari
 	struct node *n = make_node(p, id, node_comparison);
 	n->subtype = comp;
 
+	struct token *comp_op = p->last_last;
+
+	if (get_node(p->ast, l_id)->type == node_empty) {
+		p->last = comp_op;
+		parse_error(p, "missing lhs operand");
+		return false;
+	}
+
 	if (!(parse_e5addsub(p, &r_id))) {
+		return false;
+	}
+
+	if (get_node(p->ast, r_id)->type == node_empty) {
+		p->last = comp_op;
+		parse_error(p, "missing rhs operand");
 		return false;
 	}
 
