@@ -828,7 +828,7 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, str s)
 	}
 	ctx->i += w;
 
-	obj_to_s_buf_push(ctx, "'>");
+	obj_to_s_buf_push(ctx, "'");
 	return;
 }
 
