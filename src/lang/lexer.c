@@ -578,6 +578,12 @@ lexer_tokenize_one(struct lexer *lexer)
 		}
 	}
 
+	if (lexer->src[lexer->i] == '\\' && lexer->src[lexer->i + 1] == '\n') {
+		advance(lexer);
+		advance(lexer);
+		return lexer_tokenize_one(lexer);
+	}
+
 	struct token *token = next_tok(lexer);
 
 	if (lexer->src[lexer->i] == 'f' && lexer->src[lexer->i + 1] == '\'') {
