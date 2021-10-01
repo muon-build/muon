@@ -11,6 +11,7 @@ tests = [
 	['fstring.meson'],
 	['array.meson'],
 	['environment.meson', {'env': 'inherited=secret' }],
+	['strings.meson'],
 ]
 
 foreach t : tests
