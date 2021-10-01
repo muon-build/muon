@@ -225,18 +225,20 @@ number(struct lexer *lexer, struct token *tok)
 
 	if (lexer->src[lexer->i] == '0') {
 		switch (lexer->src[lexer->i + 1]) {
+		case 'X':
 		case 'x':
 			base = 16;
 			lexer->i += 2;
 			break;
+		case 'B':
 		case 'b':
 			base = 2;
 			lexer->i += 2;
 			break;
-		case '0': case '1': case '2': case '3': case '4':
-		case '5': case '6': case '7': case '8': case '9':
+		case 'O':
+		case 'o':
 			base = 8;
-			advance(lexer);
+			lexer->i += 2;
 			break;
 		default:
 			tok->dat.n = 0;
