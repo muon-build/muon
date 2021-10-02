@@ -30,3 +30,14 @@ b += { 'a': 2 }
 assert(b['a'] == 2)
 
 assert(b['c'].to_string() == '3')
+
+dict = { 'a': 0, 'b': 0, 'c': 0 }
+assert(dict.keys().length() == 3)
+foreach k : dict.keys()
+	dict += { k: 7 }
+endforeach
+
+assert(dict['a'] == 7)
+assert(dict['b'] == 7)
+assert(dict['c'] == 7)
+

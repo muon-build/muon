@@ -5,6 +5,29 @@
 #include "lang/interpreter.h"
 #include "log.h"
 
+static enum iteration_result
+dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	obj *arr = _ctx;
+
+	obj_array_push(wk, *arr, k);
+
+	return ir_cont;
+}
+
+static bool
+func_dict_keys(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+	obj_dict_foreach(wk, rcvr, res, dict_keys_iter);
+
+	return true;
+}
+
 static bool
 func_dict_has_key(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -39,6 +62,7 @@ func_dict_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 }
 
 const struct func_impl_name impl_tbl_dict[] = {
+	{ "keys", func_dict_keys },
 	{ "has_key", func_dict_has_key },
 	{ "get", func_dict_get },
 	{ NULL, NULL },
