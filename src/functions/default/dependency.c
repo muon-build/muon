@@ -166,6 +166,10 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 
 		if (!ver_eql) {
+			if (akw[kw_fallback].set) {
+				return handle_dependency_fallback(wk, res, an[0].node, an[0].val, akw[kw_fallback].val);
+			}
+
 			interp_error(wk, an[0].node, "dependency %o not found, have: %o, but need %o",
 				dep->dat.dep.name, dep->dat.dep.version, akw[kw_version].val);
 
