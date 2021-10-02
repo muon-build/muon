@@ -54,8 +54,9 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
 
 static bool
 func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
-	uint32_t args_node, uint32_t *obj)
+	uint32_t args_node, obj *res)
 {
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_pkgconfig,
 	};
@@ -63,12 +64,14 @@ func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+	if (!interp_args(wk, args_node, NULL, ao, akw)) {
 		return false;
 	}
 
-	if (akw[kw_pkgconfig].set) {
-		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, obj);
+	if (ao[0].set) {
+		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, ao[0].val, res);
+	} else if (akw[kw_pkgconfig].set) {
+		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res);
 	} else {
 		interp_error(wk, args_node, "I don't know how to get this type of variable");
 		return false;
