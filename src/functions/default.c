@@ -1102,6 +1102,7 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "error", func_error },
 	{ "files", func_files },
 	{ "find_program", func_find_program },
+	{ "import", func_import },
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
 	{ "p", func_p },
