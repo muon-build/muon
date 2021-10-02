@@ -762,6 +762,10 @@ lexer_tokenize_one(struct lexer *lexer)
 			}
 			break;
 		case '\0':
+			if (lexer->i != lexer->source->len) {
+				lex_error(lexer, "unexpected null byte");
+				return lex_fail;
+			}
 			token->type = tok_eof;
 			return lex_done;
 		default:
@@ -787,7 +791,7 @@ tokenize(struct lexer *lexer)
 {
 	bool success = true, loop = true;
 
-	while (loop) {
+	while (loop && lexer->i <= lexer->source->len) {
 		switch (lexer_tokenize_one(lexer)) {
 		case lex_cont:
 			break;
@@ -799,6 +803,11 @@ tokenize(struct lexer *lexer)
 			loop = false;
 			break;
 		}
+	}
+
+	if (success) {
+		assert(((struct token *)darr_get(&lexer->toks->tok, lexer->toks->tok.len - 1))->type == tok_eof
+			&& "lexer failed to terminate token stream with tok_eof");
 	}
 
 	/* { */
