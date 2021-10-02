@@ -106,7 +106,8 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		kw_version, // ignored
 		kw_static,
 		kw_modules, // ignored
-		kw_fallback, // ignored
+		kw_fallback,
+		kw_default_options, // ignored
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
@@ -115,6 +116,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		[kw_static] = { "static", obj_bool },
 		[kw_modules] = { "modules", obj_array },
 		[kw_fallback] = { "fallback", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
