@@ -453,9 +453,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 
 	if (!func(wk, rcvr_id, args_node, obj)) {
 		if (recvr_type == obj_default) {
-			interp_error(wk, name_node, "in builtin function %s",  name);
+			interp_error(wk, name_node, "in function %s",  name);
 		} else {
-			interp_error(wk, name_node, "in builtin function %s.%s", obj_type_to_s(recvr_type), name);
+			interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(recvr_type), name);
 		}
 		return false;
 	}
