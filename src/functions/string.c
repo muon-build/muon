@@ -274,12 +274,14 @@ func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj
 	return obj_array_join(wk, an[0].val, rcvr, obj);
 }
 
-static bool
+bool
 string_to_version(struct workspace *wk, struct version *v, const struct str *ss)
 {
 	uint32_t i;
 	uint32_t n = 0;
 	bool last = false;
+
+	*v = (struct version) { 0 };
 
 	struct str strnum = { .s = ss->s };
 
@@ -356,9 +358,16 @@ op_ne(uint32_t a, uint32_t b)
 
 typedef bool ((*comparator)(uint32_t a, uint32_t b));
 
-static bool
-version_compare(struct workspace *wk, uint32_t err_node, const struct version *ver1, str s2, bool *res)
+struct version_compare_ctx {
+	bool res;
+	uint32_t err_node;
+	const struct version *ver1;
+};
+
+static enum iteration_result
+version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 {
+	struct version_compare_ctx *ctx = _ctx;
 	struct version ver2;
 	struct str ss2 = *get_str(wk, s2);
 	comparator op = op_eq;
@@ -388,23 +397,44 @@ version_compare(struct workspace *wk, uint32_t err_node, const struct version *v
 	}
 
 	if (!string_to_version(wk, &ver2, &ss2)) {
-		interp_error(wk, err_node, "invalid comparison string: %o", s2);
-		return false;
+		interp_error(wk, ctx->err_node, "invalid comparison string: %o", s2);
+		return ir_err;
 	}
 
 	for (i = 0; i < 3; ++i) {
-		if (ver1->v[i] != ver2.v[i]) {
-			*res = op(ver1->v[i], ver2.v[i]);
-			return true;
+		if (ctx->ver1->v[i] != ver2.v[i]) {
+			ctx->res = op(ctx->ver1->v[i], ver2.v[i]);
+
+			if (!ctx->res) {
+				return ir_done;
+			}
+
+			return ir_cont;
 		}
 	}
 
 	if (op == op_eq || op == op_ge || op == op_le) {
-		*res = true;
-		return true;
+		ctx->res = true;
+		return ir_cont;
 	}
 
-	*res = false;
+	ctx->res = false;
+	return ir_done;
+}
+
+bool
+version_compare(struct workspace *wk, uint32_t err_node, const struct version *ver1, obj arr, bool *res)
+{
+	struct version_compare_ctx ctx = {
+		.err_node = err_node,
+		.ver1 = ver1,
+	};
+
+	if (!obj_array_foreach(wk, arr, &ctx, version_compare_iter)) {
+		return false;
+	}
+
+	*res = ctx.res;
 	return true;
 }
 
@@ -425,10 +455,16 @@ func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 
 	bool *comp_res = &make_obj(wk, res, obj_bool)->dat.boolean;
 
-	if (!version_compare(wk, an[0].node, &v, an[0].val, comp_res)) {
+	struct version_compare_ctx ctx = {
+		.err_node = an[0].node,
+		.ver1 = &v,
+	};
+
+	if (version_compare_iter(wk, &ctx, an[0].val) == ir_err) {
 		return false;
 	}
 
+	*comp_res = ctx.res;
 	return true;
 }
 

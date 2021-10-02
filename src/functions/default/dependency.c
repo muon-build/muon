@@ -7,6 +7,7 @@
 #include "external/pkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
+#include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -63,9 +64,6 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 	dep->dat.dep.link_with = info.libs;
 	dep->dat.dep.include_directories = info.includes;
 
-	LOG_I("dependency %s found: %s%s", get_cstr(wk, name), get_cstr(wk, dep->dat.dep.version),
-		is_static ? ", static" : "");
-
 	return true;
 }
 
@@ -97,13 +95,13 @@ struct parse_cflags_iter_ctx {
 };
 
 bool
-func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native, // ignored
-		kw_version, // ignored
+		kw_version,
 		kw_static,
 		kw_modules, // ignored
 		kw_fallback,
@@ -130,7 +128,7 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	if (requirement == requirement_skip) {
-		struct obj *dep = make_obj(wk, obj, obj_dependency);
+		struct obj *dep = make_obj(wk, res, obj_dependency);
 		dep->dat.dep.name = an[0].val;
 		return true;
 	}
@@ -141,14 +139,51 @@ func_dependency(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	bool handled;
-	if (!handle_special_dependency(wk, an[0].node, an[0].val, is_static, requirement, obj, &handled)) {
+	if (!handle_special_dependency(wk, an[0].node, an[0].val,
+		is_static, requirement, res, &handled)) {
 		return false;
-	} else if (handled) {
-		return true;
+	} else if (!handled) {
+		if (!get_dependency(wk, res, an[0].node, an[0].val, is_static,
+			akw[kw_fallback].val, requirement)) {
+			return false;
+		}
 	}
 
-	return get_dependency(wk, obj, an[0].node, an[0].val, is_static,
-		akw[kw_fallback].val, requirement);
+	struct obj *dep = get_obj(wk, *res);
+
+	if (akw[kw_version].set) {
+		struct version dep_ver;
+		if (!string_to_version(wk, &dep_ver, get_str(wk, dep->dat.dep.version))) {
+			interp_error(wk, an[0].node,
+				"dependency version %o not parseable",
+				dep->dat.dep.version);
+			return false;
+		}
+
+		bool ver_eql;
+		if (!version_compare(wk, akw[kw_version].node, &dep_ver, akw[kw_version].val, &ver_eql)) {
+			return false;
+		}
+
+		if (!ver_eql) {
+			interp_error(wk, an[0].node, "dependency %o not found, have: %o, but need %o",
+				dep->dat.dep.name, dep->dat.dep.version, akw[kw_version].val);
+
+			if (requirement == requirement_required) {
+				return false;
+			} else {
+				struct obj *dep = make_obj(wk, res, obj_dependency);
+				dep->dat.dep.name = an[0].val;
+				return true;
+			}
+		}
+	}
+
+	LOG_I("dependency %s found: %s%s", get_cstr(wk, dep->dat.dep.name),
+		get_cstr(wk, dep->dat.dep.version),
+		is_static ? ", static" : "");
+
+	return true;
 }
 
 bool
