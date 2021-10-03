@@ -119,6 +119,13 @@ func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *r
 	return true;
 }
 
+static bool
+func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	LOG_I("TODO: meson.override_dependency");
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "get_compiler", func_meson_get_compiler },
 	{ "project_name", func_meson_project_name },
@@ -131,5 +138,6 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "build_root", func_meson_global_build_root },
 	{ "global_build_root", func_meson_global_build_root },
 	{ "is_subproject", func_meson_is_subproject },
+	{ "override_dependency", func_meson_override_dependency },
 	{ NULL, NULL },
 };
