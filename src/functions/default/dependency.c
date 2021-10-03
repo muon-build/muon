@@ -200,6 +200,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		kw_dependencies, // TODO
 		kw_version,
 		kw_include_directories,
+		kw_variables,
 	};
 	struct args_kw akw[] = {
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
@@ -208,6 +209,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_variables] = { "variables", obj_dict },
 		0
 	};
 
@@ -230,6 +232,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	dep->dat.dep.link_args = akw[kw_link_args].val;
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
+	dep->dat.dep.variables = akw[kw_variables].val;
 
 	make_obj(wk, &dep->dat.dep.link_with, obj_array);
 	if (akw[kw_link_with].set) {

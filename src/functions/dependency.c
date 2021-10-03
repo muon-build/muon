@@ -68,8 +68,17 @@ func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
 		return false;
 	}
 
+	struct obj *dep = get_obj(wk, rcvr);
 	if (ao[0].set) {
-		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, ao[0].val, res);
+		if (dep->dat.dep.variables) {
+			if (!obj_dict_index(wk, dep->dat.dep.variables, ao[0].val, res)) {
+				interp_error(wk, ao[0].node, "undefined variable");
+				return false;
+			}
+			return true;
+		} else {
+			return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, ao[0].val, res);
+		}
 	} else if (akw[kw_pkgconfig].set) {
 		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res);
 	} else {

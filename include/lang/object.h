@@ -124,6 +124,7 @@ struct obj {
 			obj link_with; // obj_array
 			obj link_args; // obj_array
 			obj include_directories; // obj_array
+			obj variables; // obj_dict
 			enum dep_flags flags;
 		} dep;
 		struct {
