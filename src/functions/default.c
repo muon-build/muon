@@ -836,7 +836,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_env,
 	};
 	struct args_kw akw[] = {
-		[kw_args] = { "args", obj_array, },
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_any, },
 		[kw_workdir] = { "workdir", obj_string, }, // TODO
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
