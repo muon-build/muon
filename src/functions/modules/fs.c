@@ -8,16 +8,63 @@
 #include "platform/path.h"
 
 static bool
-func_module_fs_exists(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+fix_file_path(struct workspace *wk, uint32_t err_node, obj path, const char **res)
+{
+	const struct str *ss = get_str(wk, path);
+	if (wk_str_has_null(ss)) {
+		interp_error(wk, err_node, "path cannot contain null bytes");
+		return false;
+	}
+
+	if (path_is_absolute(ss->s)) {
+		*res = ss->s;
+	} else {
+		static char buf[PATH_MAX];
+		if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), ss->s )) {
+			return false;
+		}
+
+		*res = buf;
+	}
+
+	return true;
+}
+
+typedef bool ((*fs_lookup_func)(const char *));
+
+static bool
+func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res, fs_lookup_func lookup)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = fs_exists(get_cstr(wk, an[0].val));
+	const char *path;
+	if (!fix_file_path(wk, an[0].node, an[0].val, &path)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = lookup(path);
 	return true;
+}
+
+static bool
+func_module_fs_exists(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return func_module_fs_lookup_common(wk, args_node, res, fs_exists);
+}
+
+static bool
+func_module_fs_is_file(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return func_module_fs_lookup_common(wk, args_node, res, fs_file_exists);
+}
+
+static bool
+func_module_fs_is_dir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return func_module_fs_lookup_common(wk, args_node, res, fs_dir_exists);
 }
 
 static bool
@@ -40,6 +87,8 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 
 const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "exists", func_module_fs_exists },
+	{ "is_file", func_module_fs_is_file },
+	{ "is_dir", func_module_fs_is_dir },
 	{ "parent", func_module_fs_parent },
 	{ NULL, NULL },
 };
