@@ -160,6 +160,12 @@ version_type_error:
 		current_project(wk)->cfg.version = wk_str_push(wk, "unknown");
 	}
 
+	if (akw[kw_default_options].set) {
+		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, 0)) {
+			return false;
+		}
+	}
+
 	LOG_I("configuring '%s', version: %s",
 		get_cstr(wk, current_project(wk)->cfg.name),
 		get_cstr(wk, current_project(wk)->cfg.version)
@@ -660,32 +666,28 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	const char *subproj_name = get_cstr(wk, an[0].val);
-	char cwd[PATH_MAX + 1] = { 0 },
-	     build_dir[PATH_MAX + 1] = { 0 },
-	     subproject_name_buf[PATH_MAX + 1] = { 0 };
+	char buf[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
 
-	/* copying subproj_name to a buffer and passing that to eval_project
-	 * (which in-turn passes it to make_proj) rather than simply passing
-	 * subproj_name because subproj_name is stored in the workspace's
-	 * string buffer.  This means that if anyone grows that buffer between
-	 * the time when make_project uses subproj_name and here, it could
-	 * become invalidated
-	 *
-	 * TODO: refactor make_project to accept wk_strings instead of char *
-	 *
-	 * The only reason this hasn't been done yet is because it will make it
-	 * more messy to call the entry eval_project().
-	 */
+	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->source_root), "subprojects")) {
+		return false;
+	} else if (!path_join(cwd, PATH_MAX, buf, subproj_name)) {
+		return false;
+	}
 
-	strncpy(subproject_name_buf, subproj_name, PATH_MAX);
-	snprintf(cwd, PATH_MAX, "%s/subprojects/%s",
-		get_cstr(wk, current_project(wk)->source_root), subproj_name);
-	snprintf(build_dir, PATH_MAX, "%s/subprojects/%s",
-		get_cstr(wk, current_project(wk)->build_dir), subproj_name);
+	if (!path_join(buf, PATH_MAX, wk->build_root, "subprojects")) {
+		return false;
+	} else if (!path_join(build_dir, PATH_MAX, buf, subproj_name)) {
+		return false;
+	}
+
+	if (akw[kw_default_options].set) {
+		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, an[0].val)) {
+			return false;
+		}
+	}
 
 	uint32_t subproject_id;
-
-	if (!eval_project(wk, subproject_name_buf, cwd, build_dir, &subproject_id)) {
+	if (!eval_project(wk, subproj_name, cwd, build_dir, &subproject_id)) {
 		return false;
 	}
 

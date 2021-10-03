@@ -12,6 +12,7 @@
 #include "external/samu.h"
 #include "external/zlib.h"
 #include "formats/ini.h"
+#include "functions/default/options.h"
 #include "functions/default/setup.h"
 #include "install.h"
 #include "lang/eval.h"
@@ -262,7 +263,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	OPTSTART("D:m:") {
 	case 'D':
-		if (!parse_config_opt(&wk, optarg)) {
+		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			return false;
 		}
 		break;

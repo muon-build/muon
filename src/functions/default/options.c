@@ -12,6 +12,47 @@
 #include "lang/interpreter.h"
 #include "log.h"
 
+bool
+parse_config_string(struct workspace *wk, char *lhs, struct option_override *oo)
+{
+	char *rhs = strchr(lhs, '=');
+	if (!rhs) {
+		LOG_E("expected '=' in config opt '%s'", lhs);
+		return false;
+	}
+	*rhs = 0;
+	++rhs;
+
+	char *subproj;
+
+	subproj = lhs;
+	if ((lhs = strchr(lhs, ':'))) {
+		*lhs = 0;
+		++lhs;
+	} else {
+		lhs = subproj;
+		subproj = NULL;
+	}
+
+	if (!*lhs) {
+		LOG_E("'%s%s=%s' missing option name",
+			subproj ? subproj : "", subproj ? ":" : "", rhs);
+		return false;
+	} else if (subproj && !*subproj) {
+		LOG_E("':%s=%s' there is a colon in the option name,"
+			"but no subproject was specified", lhs, rhs);
+		return false;
+	}
+
+	oo->name = wk_str_push(wk, lhs);
+	oo->val = wk_str_push(wk, rhs);
+	if (subproj) {
+		oo->proj = wk_str_push(wk, subproj);
+	}
+
+	return true;
+}
+
 enum build_option_type {
 	op_string,
 	op_boolean,
@@ -47,10 +88,8 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 }
 
 static bool
-subproj_name_matches(struct workspace *wk, uint32_t subproj_name, const char *test)
+subproj_name_matches(struct workspace *wk, const char *name, const char *test)
 {
-	const char *name = get_cstr(wk, subproj_name);
-
 	if (test) {
 		return name && strcmp(test, name) == 0;
 	} else {
@@ -94,7 +133,7 @@ check_invalid_option_overrides(struct workspace *wk)
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		oo = darr_get(&wk->option_overrides, i);
 
-		if (subproj_name_matches(wk, current_project(wk)->subproject_name, get_cstr(wk, oo->proj))) {
+		if (subproj_name_matches(wk, get_cstr(wk, current_project(wk)->subproject_name), get_cstr(wk, oo->proj))) {
 			uint32_t res;
 			const char *name = get_cstr(wk, oo->name);
 
@@ -143,13 +182,13 @@ check_invalid_subproject_option(struct workspace *wk)
 }
 
 static bool
-find_option_override(struct workspace *wk, const char *key, struct option_override **oo)
+find_option_override(struct workspace *wk, const char *subproject_name, const char *key, struct option_override **oo)
 {
 	uint32_t i;
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		*oo = darr_get(&wk->option_overrides, i);
 
-		if (subproj_name_matches(wk, current_project(wk)->subproject_name, get_cstr(wk, (*oo)->proj))
+		if (subproj_name_matches(wk, subproject_name, get_cstr(wk, (*oo)->proj))
 		    && strcmp(key, get_cstr(wk, (*oo)->name)) == 0) {
 			return true;
 		}
@@ -404,7 +443,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	}
 
 	struct option_override *oo;
-	if (find_option_override(wk, get_cstr(wk, an[0].val), &oo)) {
+	if (find_option_override(wk, get_cstr(wk, current_project(wk)->subproject_name), get_cstr(wk, an[0].val), &oo)) {
 		if (oo->obj_value) {
 			if (!typecheck_opt(wk, akw[kw_type].node, oo->val, type, &val)) {
 				return false;
@@ -488,7 +527,7 @@ get_option(struct workspace *wk, struct project *proj, const char *name, uint32_
 }
 
 bool
-set_default_options(struct workspace *wk)
+set_builtin_options(struct workspace *wk)
 {
 	uint32_t obj;
 	return eval_str(wk,
@@ -518,4 +557,65 @@ set_default_options(struct workspace *wk)
 		"option('sysconfdir', yield: true, type: 'string', value: '/etc')\n"
 
 		, &obj);
+}
+
+bool
+parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
+{
+	struct option_override oo = { 0 };
+	if (!parse_config_string(wk, lhs, &oo)) {
+		return false;
+	}
+
+	darr_push(&wk->option_overrides, &oo);
+	return true;
+}
+
+struct parse_and_set_default_options_ctx {
+	uint32_t node;
+	str project_name;
+};
+
+static enum iteration_result
+parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct parse_and_set_default_options_ctx *ctx = _ctx;
+
+	const struct str *ss = get_str(wk, v);
+	if (wk_str_has_null(ss)) {
+		interp_error(wk, ctx->node, "invalid option string");
+		return ir_err;
+	}
+
+	char *s = (char *)ss->s;
+	struct option_override oo = { 0 }, *other_oo;
+	if (!parse_config_string(wk, s, &oo)) {
+		interp_error(wk, ctx->node, "invalid option string");
+		return ir_err;
+	}
+
+	if (!oo.proj) {
+		oo.proj = ctx->project_name;
+	}
+
+	if (find_option_override(wk, get_cstr(wk, oo.proj), get_cstr(wk, oo.name), &other_oo)) {
+		/* ignore, already set */
+		LOG_I("ignoring default_options value %s as it was already set on the commandline", option_override_to_s(wk, &oo));
+		return ir_cont;
+	}
+	LOG_I("setting default_option %s", option_override_to_s(wk, &oo));
+
+	darr_push(&wk->option_overrides, &oo);
+	return ir_cont;
+}
+
+bool
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, str project_name)
+{
+	struct parse_and_set_default_options_ctx ctx = {
+		.node = err_node,
+		.project_name = project_name,
+	};
+
+	return obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter);
 }

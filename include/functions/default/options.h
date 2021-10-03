@@ -8,5 +8,8 @@ bool func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 bool get_option(struct workspace *wk, struct project *proj, const char *name, uint32_t *obj);
 bool check_invalid_option_overrides(struct workspace *wk);
 bool check_invalid_subproject_option(struct workspace *wk);
-bool set_default_options(struct workspace *wk);
+bool set_builtin_options(struct workspace *wk);
+
+bool parse_and_set_cmdline_option(struct workspace *wk, char *lhs);
+bool parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, str project_name);
 #endif

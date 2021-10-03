@@ -55,7 +55,7 @@ eval_project(struct workspace *wk, const char *subproject_name,
 	*proj_id = wk->cur_project;
 
 	wk->lang_mode = language_opts;
-	if (!set_default_options(wk)) {
+	if (!set_builtin_options(wk)) {
 		goto cleanup;
 	}
 

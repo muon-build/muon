@@ -14,8 +14,8 @@
 #include "platform/run_cmd.h"
 
 static bool
-handle_dependency_fallback(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name,
-	uint32_t fallback)
+handle_dependency_fallback(struct workspace *wk, obj *res, uint32_t node, obj name,
+	obj fallback, obj default_options)
 {
 	if (get_obj(wk, fallback)->dat.arr.len != 2) {
 		interp_error(wk, node, "expected array of length 2 for fallback");
@@ -27,23 +27,31 @@ handle_dependency_fallback(struct workspace *wk, uint32_t *obj, uint32_t node, u
 	obj_array_index(wk, fallback, 1, &subproj_dep);
 
 	char src[BUF_SIZE_2k];
-	snprintf(src, BUF_SIZE_2k, "subproject('%s')", get_cstr(wk, subproj_name));
+
+	if (default_options) {
+		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', default_options: %o)",
+			get_cstr(wk, subproj_name), default_options);
+	} else {
+		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s')", get_cstr(wk, subproj_name));
+	}
+
 	if (!eval_str(wk, src, &subproj)) {
 		return false;
 	}
 
-	return subproject_get_variable(wk, node, subproj_dep, subproj, obj);
+	return subproject_get_variable(wk, node, subproj_dep, subproj, res);
 }
 
 static bool
-get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name,
-	bool is_static, uint32_t fallback, enum requirement_type requirement)
+get_dependency(struct workspace *wk, obj *res, uint32_t node, obj name,
+	bool is_static, obj fallback, obj default_options,
+	enum requirement_type requirement)
 {
 	struct pkgconf_info info = { 0 };
 
 	if (!muon_pkgconf_lookup(wk, get_obj(wk, name)->dat.str, is_static, &info)) {
 		if (fallback) {
-			return handle_dependency_fallback(wk, obj, node, name, fallback);
+			return handle_dependency_fallback(wk, res, node, name, fallback, default_options);
 		}
 
 		if (requirement == requirement_required) {
@@ -51,13 +59,13 @@ get_dependency(struct workspace *wk, uint32_t *obj, uint32_t node, uint32_t name
 			return false;
 		}
 
-		struct obj *dep = make_obj(wk, obj, obj_dependency);
+		struct obj *dep = make_obj(wk, res, obj_dependency);
 		dep->dat.dep.name = name;
 		LOG_I("dependency %s not found", get_cstr(wk, name));
 		return true;
 	}
 
-	struct obj *dep = make_obj(wk, obj, obj_dependency);
+	struct obj *dep = make_obj(wk, res, obj_dependency);
 	dep->dat.dep.name = name;
 	dep->dat.dep.version = make_str(wk, info.version);
 	dep->dat.dep.flags |= dep_flag_found | dep_flag_pkg_config;
@@ -80,7 +88,7 @@ handle_special_dependency(struct workspace *wk, uint32_t node, uint32_t name,
 		*handled = true;
 		uint32_t s;
 		make_obj(wk, &s, obj_string)->dat.str = wk_str_push(wk, "ncurses");
-		if (!get_dependency(wk, obj, node, s, is_static, 0, requirement)) {
+		if (!get_dependency(wk, obj, node, s, is_static, 0, 0, requirement)) {
 			return false;
 		}
 	} else {
@@ -144,7 +152,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	} else if (!handled) {
 		if (!get_dependency(wk, res, an[0].node, an[0].val, is_static,
-			akw[kw_fallback].val, requirement)) {
+			akw[kw_fallback].val, akw[kw_default_options].val, requirement)) {
 			return false;
 		}
 	}
@@ -167,7 +175,8 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 		if (!ver_eql) {
 			if (akw[kw_fallback].set) {
-				return handle_dependency_fallback(wk, res, an[0].node, an[0].val, akw[kw_fallback].val);
+				return handle_dependency_fallback(wk, res, an[0].node, an[0].val,
+					akw[kw_fallback].val, akw[kw_default_options].val);
 			}
 
 			interp_error(wk, an[0].node, "dependency %o not found, have: %o, but need %o",
