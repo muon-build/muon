@@ -60,13 +60,17 @@ node_type_to_s(enum node_type t)
 	return "";
 }
 
-__attribute__ ((format(printf, 2, 3)))
+__attribute__ ((format(printf, 3, 4)))
 static void
-parse_error(struct parser *p, const char *fmt, ...)
+parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
 {
+	if (!err_tok) {
+		err_tok = p->last;
+	}
+
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(p->src, p->last->line, p->last->col, fmt, args);
+	error_messagev(p->src, err_tok->line, err_tok->col, fmt, args);
 	va_end(args);
 }
 
@@ -98,7 +102,7 @@ static bool
 expect(struct parser *p, enum token_type type)
 {
 	if (!accept(p, type)) {
-		parse_error(p, "expected '%s', got '%s'", tok_type_to_s(type), tok_type_to_s(p->last->type));
+		parse_error(p, NULL, "expected '%s', got '%s'", tok_type_to_s(type), tok_type_to_s(p->last->type));
 		return false;
 	}
 
@@ -236,6 +240,29 @@ node_to_s(struct node *n)
 	return buf;
 }
 
+static bool
+check_binary_operands(struct parser *p, uint32_t l_id, uint32_t r_id, struct token *err_tok)
+{
+	if (get_node(p->ast, l_id)->type == node_empty
+	    || get_node(p->ast, r_id)->type == node_empty) {
+		parse_error(p, err_tok, "missing operand to binary operator");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+ensure_in_loop(struct parser *p)
+{
+	if (!p->loop_depth) {
+		parse_error(p, NULL, "statement not allowed outside of a foreach loop");
+		return false;
+	}
+
+	return true;
+}
+
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_stmt(struct parser *p, uint32_t *id);
 
@@ -295,7 +322,7 @@ parse_args(struct parser *p, uint32_t *id)
 		at = arg_kwarg;
 
 		if (get_node(p->ast, s_id)->type != node_id) {
-			parse_error(p, "keyword argument key must be a plain identifier (not a %s)",
+			parse_error(p, NULL, "keyword argument key must be a plain identifier (not a %s)",
 				node_type_to_s(get_node(p->ast, s_id)->type));
 			return false;
 		}
@@ -392,7 +419,7 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	}
 
 	if (get_node(p->ast, r_id)->type == node_empty) {
-		parse_error(p, "empty index");
+		parse_error(p, NULL, "empty index");
 		return false;
 	}
 
@@ -463,8 +490,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	}
 
 	if (get_node(p->ast, meth_id)->type == node_empty) {
-		p->last = start_tok;
-		parse_error(p, "missing method name");
+		parse_error(p, start_tok, "missing method name");
 		return false;
 	}
 
@@ -530,7 +556,7 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 		loop = true;
 
 		if (have_l && get_node(p->ast, l_id)->type == node_empty) {
-			parse_error(p, "cannot call a method on nothing");
+			parse_error(p, NULL, "cannot call a method on nothing");
 			return false;
 		}
 
@@ -574,7 +600,7 @@ parse_e7(struct parser *p, uint32_t *id)
 		uint32_t args, d_id;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, "Function call must be applied to plain id");
+			parse_error(p, NULL, "Function call must be applied to plain id");
 			return false;
 		}
 
@@ -626,8 +652,7 @@ parse_e6(struct parser *p, uint32_t *id)
 
 	if (t) {
 		if (get_node(p->ast, l_id)->type == node_empty) {
-			p->last = op_tok;
-			parse_error(p, "missing operand to unary operator");
+			parse_error(p, op_tok, "missing operand to unary operator");
 			return false;
 		}
 		make_node(p, id, t);
@@ -675,12 +700,7 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 			p->last_last = op_tok;
 		}
 
-		if (get_node(p->ast, l_id)->type == node_empty
-		    || get_node(p->ast, r_id)->type == node_empty) {
-			if (op_tok) {
-				p->last = op_tok;
-			}
-			parse_error(p, "missing operand to binary operator");
+		if (!check_binary_operands(p, l_id, r_id, op_tok)) {
 			return false;
 		}
 
@@ -716,19 +736,11 @@ make_comparison_node(struct parser *p, uint32_t *id, uint32_t l_id, enum compari
 
 	struct token *comp_op = p->last_last;
 
-	if (get_node(p->ast, l_id)->type == node_empty) {
-		p->last = comp_op;
-		parse_error(p, "missing lhs operand");
-		return false;
-	}
-
 	if (!(parse_e5addsub(p, &r_id))) {
 		return false;
 	}
 
-	if (get_node(p->ast, r_id)->type == node_empty) {
-		p->last = comp_op;
-		parse_error(p, "missing rhs operand");
+	if (!check_binary_operands(p, l_id, r_id, comp_op)) {
 		return false;
 	}
 
@@ -779,7 +791,13 @@ parse_e3(struct parser *p, uint32_t *id)
 	}
 
 	if (accept(p, tok_and)) {
+		struct token *and = p->last_last;
+
 		if (!parse_e3(p, &r_id)) {
+			return false;
+		}
+
+		if (!check_binary_operands(p, l_id, r_id, and)) {
 			return false;
 		}
 
@@ -802,7 +820,13 @@ parse_e2(struct parser *p, uint32_t *id)
 	}
 
 	if (accept(p, tok_or)) {
+		struct token *or = p->last_last;
+
 		if (!parse_e2(p, &r_id)) {
+			return false;
+		}
+
+		if (!check_binary_operands(p, l_id, r_id, or)) {
 			return false;
 		}
 
@@ -831,7 +855,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 		make_node(p, &arith, node_arithmetic);
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
+			parse_error(p, NULL, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
 		} else if (!parse_stmt(p, &v)) {
 			return false;
@@ -851,19 +875,14 @@ parse_stmt(struct parser *p, uint32_t *id)
 		uint32_t v;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
+			parse_error(p, NULL, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
 		} else if (!parse_stmt(p, &v)) {
 			return false;
 		}
 
-		/* NOTE: a bare ?: is actually valid in meson, none of the
-		 * fields have to be filled. I'm making it an error here though,
-		 * because missing fields in ternary expressions is probably an
-		 * error
-		 */
 		if (get_node(p->ast, v)->type == node_empty) {
-			parse_error(p, "missing rhs");
+			parse_error(p, NULL, "missing rhs");
 			return false;
 		}
 
@@ -881,8 +900,13 @@ parse_stmt(struct parser *p, uint32_t *id)
 			return false;
 		}
 
+		/* NOTE: a bare ?: is actually valid in meson, none of the
+		 * fields have to be filled. I'm making it an error here though,
+		 * because missing fields in ternary expressions is probably an
+		 * error
+		 */
 		if (get_node(p->ast, l_id)->type == node_empty) {
-			parse_error(p, "missing condition expression");
+			parse_error(p, NULL, "missing condition expression");
 			return false;
 		}
 
@@ -913,8 +937,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 		}
 
 		if (get_node(p->ast, cond_id)->type == node_empty) {
-			p->last = if_;
-			parse_error(p, "missing condition");
+			parse_error(p, if_, "missing condition");
 			return false;
 		}
 	}
@@ -1008,8 +1031,7 @@ parse_foreach(struct parser *p, uint32_t *id)
 	}
 
 	if (get_node(p->ast, r_id)->type == node_empty) {
-		p->last = colon;
-		parse_error(p, "expected statement");
+		parse_error(p, colon, "expected statement");
 		return false;
 	}
 
@@ -1074,20 +1096,20 @@ parse_line(struct parser *p, uint32_t *id)
 			return false;
 		}
 	} else if (accept(p, tok_continue)) {
-		if (!p->loop_depth) {
-			parse_error(p, "continue outside a loop");
+		p->caused_effect = true;
+
+		if (!ensure_in_loop(p)) {
 			return false;
 		}
 
-		p->caused_effect = true;
 		make_node(p, id, node_continue);
 	} else if (accept(p, tok_break)) {
-		if (!p->loop_depth) {
-			parse_error(p, "break outside a loop");
+		p->caused_effect = true;
+
+		if (!ensure_in_loop(p)) {
 			return false;
 		}
 
-		p->caused_effect = true;
 		make_node(p, id, node_break);
 	} else {
 		if (!parse_stmt(p, id)) {
@@ -1096,8 +1118,7 @@ parse_line(struct parser *p, uint32_t *id)
 	}
 
 	if (ret && !p->caused_effect) {
-		p->last = stmt_start;
-		parse_error(p, "statement with no effect");
+		parse_error(p, stmt_start, "statement with no effect");
 		return false;
 	}
 
@@ -1119,6 +1140,7 @@ parse_block(struct parser *p, uint32_t *id)
 			}
 		} else {
 			p->valid = false;
+			loop = false;
 			consume_until(p, tok_eol);
 		}
 

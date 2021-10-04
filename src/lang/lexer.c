@@ -102,6 +102,8 @@ tok_to_s(struct token *token)
 	i = snprintf(buf, BUF_SIZE_S, "%s", tok_type_to_s(token->type));
 	if (token->n) {
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", token->dat.s);
+	} else if (token->dat.n) {
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%ld", token->dat.n);
 	}
 
 	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->line, token->col);
