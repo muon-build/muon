@@ -3,10 +3,137 @@
 #include <string.h>
 
 #include "external/pkgconf.h"
+#include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/path.h"
+
+enum iteration_result
+dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
+{
+	struct dep_args_iter_ctx *ctx = _ctx;
+	assert(get_obj(wk, inc_id)->type == obj_file);
+
+	if (ctx->relativize) {
+		char path[PATH_MAX];
+		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, get_obj(wk, inc_id)->dat.file))) {
+			return ir_err;
+		}
+
+		obj_array_push(wk, ctx->include_dirs, make_str(wk, path));
+	} else {
+		obj path;
+		make_obj(wk, &path, obj_string)->dat.str = get_obj(wk, inc_id)->dat.file;
+		obj_array_push(wk, ctx->include_dirs, path);
+	}
+
+	return ir_cont;
+}
+
+enum iteration_result
+dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct dep_args_iter_ctx *ctx = _ctx;
+	struct obj *tgt = get_obj(wk, val_id);
+
+	switch (tgt->type) {
+	case  obj_build_target: {
+		char path[PATH_MAX];
+		if (!tgt_build_path(wk, tgt, ctx->relativize, path)) {
+			return ir_err;
+		}
+
+		obj_array_push(wk, ctx->link_with, make_str(wk, path));
+
+		/* TODO: meson adds -I path/to/build/target.p, but why? */
+		/* char tgt_parts_dir[PATH_MAX]; */
+		/* if (!path_dirname(tgt_parts_dir, PATH_MAX, path)) { */
+		/* 	return ir_err; */
+		/* } else if (!path_add_suffix(tgt_parts_dir, PATH_MAX, ".p")) { */
+		/* 	return ir_err; */
+		/* } */
+
+		/* obj_array_push(wk, ctx->include_dirs, make_str(wk, tgt_parts_dir)); */
+
+		if (ctx->recursive && tgt->dat.tgt.deps) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, ctx, dep_args_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (tgt->dat.tgt.include_directories) {
+			if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories,
+				ctx, dep_args_includes_iter)) {
+				return ir_err;
+			}
+		}
+		break;
+	}
+	case obj_string:
+		obj_array_push(wk, ctx->link_with, val_id);
+		break;
+	default:
+		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(tgt->type));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+enum iteration_result
+dep_args_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct dep_args_iter_ctx *ctx = _ctx;
+	struct obj *dep = get_obj(wk, val);
+
+	switch (dep->type) {
+	case obj_dependency:
+		if (dep->dat.dep.link_with) {
+			if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, dep_args_link_with_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (dep->dat.dep.include_directories) {
+			if (!obj_array_foreach_flat(wk, dep->dat.dep.include_directories,
+				_ctx, dep_args_includes_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (dep->dat.dep.link_args) {
+			obj dup;
+			obj_array_dup(wk, dep->dat.dep.link_args, &dup);
+			obj_array_extend(wk, ctx->link_args, dup);
+		}
+		break;
+	case obj_external_library: {
+		obj val;
+		make_obj(wk, &val, obj_string)->dat.str = dep->dat.external_library.full_path;
+		obj_array_push(wk, ctx->link_with, val);
+		break;
+	}
+	default:
+		LOG_E("invalid type for dependency: %s", obj_type_to_s(dep->type));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+bool
+deps_args(struct workspace *wk, obj deps, struct dep_args_iter_ctx *ctx)
+{
+	return obj_array_foreach(wk, deps, ctx, dep_args_iter);
+}
+
+bool
+dep_args(struct workspace *wk, obj dep, struct dep_args_iter_ctx *ctx)
+{
+	return dep_args_iter(wk, ctx, dep) != ir_err;
+}
 
 static bool
 func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)

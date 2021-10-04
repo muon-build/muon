@@ -521,7 +521,7 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 }
 
 bool
-get_option(struct workspace *wk, struct project *proj, const char *name, uint32_t *obj)
+get_option(struct workspace *wk, const struct project *proj, const char *name, uint32_t *obj)
 {
 	return obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj);
 }

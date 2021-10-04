@@ -1,6 +1,9 @@
 src = files([
 	'args.c',
+	'backend/common_args.c',
 	'backend/ninja.c',
+	'backend/ninja/build_target.c',
+	'backend/ninja/custom_target.c',
 	'backend/ninja/rules.c',
 	'backend/output.c',
 	'coerce.c',
