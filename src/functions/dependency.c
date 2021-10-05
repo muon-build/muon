@@ -226,20 +226,20 @@ func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
 }
 
 static bool
-func_dependency_version(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_dependency_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	uint32_t version = get_obj(wk, rcvr)->dat.dep.version;
+	obj version = get_obj(wk, rcvr)->dat.dep.version;
 
 	if (version) {
-		make_obj(wk, obj, obj_string)->dat.str = version;
-		return true;
+		*res = version;
+	} else {
+		make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, "unknown");
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, "unknown");
 	return true;
 }
 
