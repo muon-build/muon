@@ -895,6 +895,10 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	struct node *n = get_node(wk->ast, n_id);
 
 	/* L("%s", node_to_s(n)); */
+	if (wk->subdir_done) {
+		return true;
+	}
+
 	if (wk->loop_ctl) {
 		--wk->stack_depth;
 		return true;

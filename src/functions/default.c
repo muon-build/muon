@@ -1028,6 +1028,17 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 }
 
 static bool
+func_subdir_done(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	wk->subdir_done = true;
+	return true;
+}
+
+static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
@@ -1088,7 +1099,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "shared_module", todo },
 	{ "static_library", func_static_library },
 	{ "subdir", func_subdir },
-	{ "subdir_done", todo },
+	{ "subdir_done", func_subdir_done },
 	{ "subproject", func_subproject },
 	{ "summary", todo },
 	{ "test", func_test },

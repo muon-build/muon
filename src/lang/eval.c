@@ -106,6 +106,10 @@ eval(struct workspace *wk, struct source *src, uint32_t *obj)
 
 	ret = interp_node(wk, wk->ast->root, obj);
 
+	if (wk->subdir_done) {
+		wk->subdir_done = false;
+	}
+
 	wk->src = old_src;
 	wk->ast = old_ast;
 ret:

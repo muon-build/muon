@@ -66,6 +66,7 @@ struct workspace {
 
 	uint32_t stack_depth, loop_depth;
 	enum loop_ctl loop_ctl;
+	bool subdir_done;
 
 	uint32_t cur_project;
 	/* ast of current file */
