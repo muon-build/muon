@@ -205,19 +205,33 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 
 bool
 setup_compiler_args(struct workspace *wk, const struct obj *tgt,
-	const struct project *proj, obj include_dirs, obj *res)
+	const struct project *proj, obj include_dirs, obj args_dict)
 {
 	struct setup_compiler_args_ctx ctx = {
 		.tgt = tgt,
 		.proj = proj,
 		.include_dirs = include_dirs,
+		.args_dict = args_dict,
 	};
 
-	make_obj(wk, &ctx.args_dict, obj_dict);
 	if (!obj_dict_foreach(wk, proj->compilers, &ctx, setup_compiler_args_iter)) {
 		return false;
 	}
 
-	*res = ctx.args_dict;
 	return true;
+}
+
+void
+push_linker_args_link_with(struct workspace *wk, enum linker_type linker,
+	obj link_args, obj link_with)
+{
+	push_args(wk, link_args, linkers[linker].args.as_needed());
+	push_args(wk, link_args, linkers[linker].args.no_undefined());
+	push_args(wk, link_args, linkers[linker].args.start_group());
+
+	obj arr;
+	obj_array_dup(wk, link_with, &arr);
+	obj_array_extend(wk, link_args, arr);
+
+	push_args(wk, link_args, linkers[linker].args.end_group());
 }

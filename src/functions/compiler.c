@@ -4,11 +4,13 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/common_args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
+#include "functions/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/dirs.h"
@@ -66,7 +68,101 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 }
 
 static bool
-compiler_has_argument(struct workspace *wk, uint32_t comp_id, uint32_t err_node, uint32_t arg, bool *has_argument)
+compiler_links(struct workspace *wk, obj comp_id, uint32_t err_node, const struct str *src, obj deps, bool *res)
+{
+	char test_source_path[PATH_MAX];
+	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.c")) {
+		return false;
+	}
+
+	if (!fs_write(test_source_path, (const uint8_t *)src->s, src->len)) {
+		return false;
+	}
+
+	struct obj *comp = get_obj(wk, comp_id);
+	const char *name = get_cstr(wk, comp->dat.compiler.name);
+	enum compiler_type t = comp->dat.compiler.type;
+
+	obj compiler_args;
+	make_obj(wk, &compiler_args, obj_array);
+
+	obj_array_push(wk, compiler_args, /* make_string? */ comp->dat.compiler.name);
+	push_args(wk, compiler_args, compilers[t].args.werror());
+	push_args(wk, compiler_args, compilers[t].args.output("/dev/null"));
+	obj_array_push(wk, compiler_args, make_str(wk, test_source_path));
+
+	if (deps) {
+		struct dep_args_ctx da_ctx;
+		dep_args_ctx_init(wk, &da_ctx);
+
+		if (!deps_args(wk, deps, &da_ctx)) {
+			return false;
+		}
+
+		push_linker_args_link_with(wk, compilers[t].linker, da_ctx.link_args, da_ctx.link_with);
+		obj_array_extend(wk, compiler_args, da_ctx.link_args);
+	}
+
+	bool ret = false;
+	struct run_cmd_ctx cmd_ctx = { 0 };
+
+	const char *argv[MAX_ARGS] = { name };
+	if (!join_args_argv(wk, argv, MAX_ARGS, compiler_args)) {
+		return false;
+	}
+
+	L("compiling: '%s'", src->s);
+
+	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
+		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
+		goto ret;
+	}
+
+	L("compiler stdout: '%s'", cmd_ctx.err);
+	L("compiler stderr: '%s'", cmd_ctx.out);
+
+	*res = cmd_ctx.status == 0;
+	ret = true;
+ret:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
+}
+
+static bool
+func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_dependencies,
+	};
+	struct args_kw akw[] = {
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"char %s (void);\n"
+		"int main(void) { return %s(); }\n",
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[0].val)
+		);
+
+	bool links;
+	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+		akw[kw_dependencies].val, &links)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	return true;
+}
+
+static bool
+compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
 	struct obj *comp = get_obj(wk, comp_id);
 
@@ -132,7 +228,6 @@ static bool
 func_compiler_has_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -256,10 +351,10 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	return true;
 }
 
-
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
+	{ "has_function", func_compiler_has_function },
 	{ "get_id", func_compiler_get_id },
 	{ "find_library", func_compiler_find_library },
 	{ "cmd_array", func_compiler_cmd_array },

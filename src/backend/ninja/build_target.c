@@ -16,13 +16,9 @@ struct write_tgt_iter_ctx {
 	char *tgt_parts_dir;
 	const struct obj *tgt;
 	const struct project *proj;
+	struct dep_args_ctx args;
 	obj object_names;
-
-	obj args_dict;
 	obj order_deps;
-	obj include_dirs;
-	obj link_with;
-	obj link_args;
 	bool have_order_deps;
 	bool have_link_language;
 	enum compiler_language link_language;
@@ -104,7 +100,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	/* build rules and args */
 
 	uint32_t args_id;
-	if (!obj_dict_geti(wk, ctx->args_dict, fl, &args_id)) {
+	if (!obj_dict_geti(wk, ctx->args.args_dict, fl, &args_id)) {
 		LOG_E("couldn't get args for language %s", compiler_language_to_s(fl));
 		return ir_err;
 	}
@@ -165,7 +161,7 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	obj_array_push(wk, ctx->include_dirs, make_str(wk, dir));
+	obj_array_push(wk, ctx->args.include_dirs, make_str(wk, dir));
 
 	return ir_cont;
 }
@@ -209,7 +205,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 static bool
-tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_iter_ctx *ctx)
+tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_ctx *ctx)
 {
 	if (tgt->dat.tgt.include_directories) {
 		if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories,
@@ -228,6 +224,12 @@ tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_iter_ctx *
 		if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, ctx, dep_args_link_with_iter)) {
 			return false;
 		}
+	}
+
+	if (tgt->dat.tgt.link_args) {
+		obj arr;
+		obj_array_dup(wk, tgt->dat.tgt.link_args, &arr);
+		obj_array_extend(wk, ctx->link_args, arr);
 	}
 
 	return true;
@@ -257,20 +259,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		.tgt_parts_dir = tgt_parts_dir,
 	};
 
-	make_obj(wk, &ctx.object_names, obj_array);
-	make_obj(wk, &ctx.order_deps, obj_array);
-	if (tgt->dat.tgt.link_args) {
-		obj_array_dup(wk, tgt->dat.tgt.link_args, &ctx.link_args);
-	} else {
-		make_obj(wk, &ctx.link_args, obj_array);
-	}
-	make_obj(wk, &ctx.include_dirs, obj_array);
-	make_obj(wk, &ctx.link_with, obj_array);
-
-	obj_array_push(wk, ctx.include_dirs, make_str(wk, wk->build_root));
-
 	enum linker_type linker;
-
 	{ /* determine linker */
 		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, determine_linker_iter)) {
 			return ir_err;
@@ -288,16 +277,16 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		linker = compilers[get_obj(wk, comp_id)->dat.compiler.type].linker;
 	}
 
-	struct dep_args_iter_ctx dep_args_ctx = {
-		.args_dict = ctx.args_dict,
-		.include_dirs = ctx.include_dirs,
-		.link_with = ctx.link_with,
-		.link_args = ctx.link_args,
-		.relativize = true,
-		.recursive = true,
-	};
+	make_obj(wk, &ctx.object_names, obj_array);
+	make_obj(wk, &ctx.order_deps, obj_array);
 
-	if (!tgt_args(wk, tgt, &dep_args_ctx)) {
+	dep_args_ctx_init(wk, &ctx.args);
+	ctx.args.relativize = true;
+	ctx.args.recursive = true;
+
+	obj_array_push(wk, ctx.args.include_dirs, make_str(wk, wk->build_root));
+
+	if (!tgt_args(wk, tgt, &ctx.args)) {
 		return false;
 	}
 
@@ -306,7 +295,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		return false;
 	}
 
-	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.include_dirs, &ctx.args_dict)) {
+	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.args_dict)) {
 		return false;
 	}
 
@@ -327,25 +316,17 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		break;
 	case tgt_library:
 		linker_type = "STATIC";
-		obj_array_push(wk, ctx.link_args, make_str(wk, "csrD"));
+		obj_array_push(wk, ctx.args.link_args, make_str(wk, "csrD"));
 		break;
 	default:
 		assert(false);
 		return false;
 	}
 
-	if (get_obj(wk, ctx.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
-		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, ctx.link_with));
+	if (get_obj(wk, ctx.args.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
+		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, ctx.args.link_with));
 
-		push_args(wk, ctx.link_args, linkers[linker].args.as_needed());
-		push_args(wk, ctx.link_args, linkers[linker].args.no_undefined());
-		push_args(wk, ctx.link_args, linkers[linker].args.start_group());
-
-		obj arr;
-		obj_array_dup(wk, ctx.link_with, &arr);
-		obj_array_extend(wk, ctx.link_args, arr);
-
-		push_args(wk, ctx.link_args, linkers[linker].args.end_group());
+		push_linker_args_link_with(wk, linker, ctx.args.link_args, ctx.args.link_with);
 	}
 
 	fputs("build ", out);
@@ -359,7 +340,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		fputs(" || ", out);
 		fputs(get_cstr(wk, ctx.order_deps), out);
 	}
-	fprintf(out, "\n LINK_ARGS = %s\n\n", get_cstr(wk, join_args_shell(wk, ctx.link_args)));
+	fprintf(out, "\n LINK_ARGS = %s\n\n", get_cstr(wk, join_args_shell(wk, ctx.args.link_args)));
 
 	return true;
 }

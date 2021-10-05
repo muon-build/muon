@@ -13,7 +13,7 @@
 enum iteration_result
 dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 {
-	struct dep_args_iter_ctx *ctx = _ctx;
+	struct dep_args_ctx *ctx = _ctx;
 	assert(get_obj(wk, inc_id)->type == obj_file);
 
 	if (ctx->relativize) {
@@ -35,7 +35,7 @@ dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 enum iteration_result
 dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
-	struct dep_args_iter_ctx *ctx = _ctx;
+	struct dep_args_ctx *ctx = _ctx;
 	struct obj *tgt = get_obj(wk, val_id);
 
 	switch (tgt->type) {
@@ -85,7 +85,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 enum iteration_result
 dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct dep_args_iter_ctx *ctx = _ctx;
+	struct dep_args_ctx *ctx = _ctx;
 	struct obj *dep = get_obj(wk, val);
 
 	switch (dep->type) {
@@ -123,14 +123,25 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+void
+dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
+{
+	*ctx = (struct dep_args_ctx) { 0 };
+
+	make_obj(wk, &ctx->include_dirs, obj_array);
+	make_obj(wk, &ctx->link_with, obj_array);
+	make_obj(wk, &ctx->link_args, obj_array);
+	make_obj(wk, &ctx->args_dict, obj_dict);
+}
+
 bool
-deps_args(struct workspace *wk, obj deps, struct dep_args_iter_ctx *ctx)
+deps_args(struct workspace *wk, obj deps, struct dep_args_ctx *ctx)
 {
 	return obj_array_foreach(wk, deps, ctx, dep_args_iter);
 }
 
 bool
-dep_args(struct workspace *wk, obj dep, struct dep_args_iter_ctx *ctx)
+dep_args(struct workspace *wk, obj dep, struct dep_args_ctx *ctx)
 {
 	return dep_args_iter(wk, ctx, dep) != ir_err;
 }
