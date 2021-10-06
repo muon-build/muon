@@ -774,6 +774,9 @@ obj_to_s_buf_push(struct obj_to_s_ctx *ctx, const char *fmt, ...)
 	va_start(ap, fmt);
 
 	ctx->i += vsnprintf(&ctx->buf[ctx->i], ctx->len - ctx->i, fmt, ap);
+	if (ctx->i > ctx->len) {
+		ctx->i = ctx->len;
+	}
 
 	va_end(ap);
 }
@@ -826,6 +829,7 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, str s)
 	if (!wk_str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w)) {
 		return;
 	}
+	assert(ctx->i + w <= ctx->len);
 	ctx->i += w;
 
 	obj_to_s_buf_push(ctx, "'");
@@ -835,6 +839,11 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, str s)
 static void
 _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 {
+	if (!len) {
+		*w = 0;
+		return;
+	}
+
 	struct obj_to_s_ctx ctx = { .buf = buf, .len = len };
 	enum obj_type t = get_obj(wk, obj)->type;
 
@@ -877,7 +886,6 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		obj_to_s_str(wk, &ctx, test->dat.test.name);
 		obj_to_s_buf_push(&ctx, ", ");
 		obj_to_s_str(wk, &ctx, test->dat.test.exe);
-
 
 		if (test->dat.test.args) {
 			obj_to_s_buf_push(&ctx, ", args: ");
@@ -1026,10 +1034,10 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			if (got_object) {
 				if (get_obj(wk, obj)->type == obj_string && !quote_string) {
 					uint32_t w;
-					wk_str_unescape(out_buf, BUF_SIZE_4k, get_str(wk, obj), &w);
+					wk_str_unescape(out_buf, buflen, get_str(wk, obj), &w);
 					out_buf[w] = 0;
 				} else {
-					obj_to_s(wk, obj, out_buf, BUF_SIZE_4k);
+					obj_to_s(wk, obj, out_buf, buflen);
 				}
 
 				// escape % and copy to fmt
