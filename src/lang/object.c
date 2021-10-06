@@ -962,7 +962,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 	const char *fmt_start, *s;
 	uint32_t bufi = 0, len;
 	obj obj;
-	bool got_object;
+	bool got_object, quote_string;
 	va_list ap, ap_copy;
 
 	va_copy(ap, ap_orig);
@@ -971,11 +971,15 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 	for (; *fmt; ++fmt) {
 		if (*fmt == '%') {
 			got_object = false;
+			quote_string = true;
 			fmt_start = fmt;
 			++fmt;
 
 			// skip flags
 			while (strchr("#0- +", *fmt)) {
+				if (*fmt == '#') {
+					quote_string = false;
+				}
 				++fmt;
 			}
 			// skip field width / precision
@@ -1020,7 +1024,13 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			}
 
 			if (got_object) {
-				obj_to_s(wk, obj, out_buf, BUF_SIZE_4k);
+				if (get_obj(wk, obj)->type == obj_string && !quote_string) {
+					uint32_t w;
+					wk_str_unescape(out_buf, BUF_SIZE_4k, get_str(wk, obj), &w);
+					out_buf[w] = 0;
+				} else {
+					obj_to_s(wk, obj, out_buf, BUF_SIZE_4k);
+				}
 
 				// escape % and copy to fmt
 				for (s = out_buf; *s; ++s) {
