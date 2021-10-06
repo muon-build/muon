@@ -963,9 +963,9 @@ obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len)
 bool
 obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
 {
-#define CHECK_TRUNC(len) if (bufi + len > BUF_SIZE_4k) goto would_truncate
+#define CHECK_TRUNC(len) if (bufi + len > BUF_SIZE_32k) goto would_truncate
 
-	static char fmt_buf[BUF_SIZE_4k];
+	static char fmt_buf[BUF_SIZE_32k];
 
 	const char *fmt_start, *s;
 	uint32_t bufi = 0, len;
@@ -1095,8 +1095,8 @@ obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *f
 bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
-	char buf[BUF_SIZE_4k];
-	bool ret = obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, ap);
+	static char buf[BUF_SIZE_32k];
+	bool ret = obj_vsnprintf(wk, buf, BUF_SIZE_32k, fmt, ap);
 	fputs(buf, f);
 	return ret;
 }
