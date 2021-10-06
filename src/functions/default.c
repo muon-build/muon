@@ -1039,6 +1039,53 @@ func_subdir_done(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 }
 
 static bool
+func_summary(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_section,
+		kw_bool_yn, // ignored
+	};
+	struct args_kw akw[] = {
+		[kw_section] = { "section", obj_string, },
+		[kw_bool_yn] = { "bool_yn", obj_bool, },
+		0
+	};
+	if (!interp_args(wk, args_node, an, ao, akw)) {
+		return false;
+	}
+
+	obj sec = akw[kw_section].set ? akw[kw_section].val : make_str(wk, "");
+	obj dict;
+
+	if (ao[0].set) {
+		if (!typecheck(wk, an[0].node, an[0].val, obj_string)) {
+			return false;
+		}
+
+		make_obj(wk, &dict, obj_dict);
+		obj_dict_set(wk, dict, an[0].val, ao[0].val);
+	} else {
+		if (!typecheck(wk, an[0].node, an[0].val, obj_dict)) {
+			return false;
+		}
+
+		dict = an[0].val;
+	}
+
+	obj prev;
+	if (obj_dict_index(wk, current_project(wk)->summary, sec, &prev)) {
+		obj ndict;
+		obj_dict_merge(wk, prev, dict, &ndict);
+		dict = ndict;
+	}
+
+	obj_dict_set(wk, current_project(wk)->summary, sec, dict);
+	return true;
+}
+
+static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
@@ -1101,7 +1148,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "subdir", func_subdir },
 	{ "subdir_done", func_subdir_done },
 	{ "subproject", func_subproject },
-	{ "summary", todo },
+	{ "summary", func_summary },
 	{ "test", func_test },
 	{ "vcs_tag", todo },
 	{ "warning", func_warning },

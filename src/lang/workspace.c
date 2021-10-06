@@ -4,8 +4,8 @@
 
 #include "backend/output.h"
 #include "error.h"
-#include "lang/workspace.h"
 #include "lang/private.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -151,6 +151,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->tests, obj_array);
 	make_obj(wk, &proj->cfg.args, obj_dict);
+	make_obj(wk, &proj->summary, obj_dict);
 
 	if (subproject_name) {
 		proj->subproject_name = wk_str_push(wk, subproject_name);
@@ -275,4 +276,39 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0,
 	}
 
 	return true;
+}
+
+static enum iteration_result
+print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	obj_fprintf(wk, log_file(), "    %#o: %o\n", k, v);
+
+	return ir_cont;
+}
+
+static enum iteration_result
+print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	obj_fprintf(wk, log_file(), "  %#o\n", k);
+
+	obj_dict_foreach(wk, v, NULL, print_summaries_line_iter);
+	return ir_cont;
+}
+
+void
+workspace_print_summaries(struct workspace *wk)
+{
+	uint32_t i;
+	struct project *proj;
+	for (i = 0; i < wk->projects.len; ++i) {
+		proj = darr_get(&wk->projects, i);
+
+		struct obj *d = get_obj(wk, proj->summary);
+		if (!d->dat.dict.len) {
+			continue;
+		}
+
+		LOG_I("%s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
+		obj_dict_foreach(wk, proj->summary, NULL, print_summaries_section_iter);
+	}
 }

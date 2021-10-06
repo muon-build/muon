@@ -17,7 +17,7 @@ struct project {
 	struct hash scope;
 
 	str source_root, cwd, build_dir, subproject_name;
-	obj opts, compilers, targets, tests;
+	obj opts, compilers, targets, tests, summary;
 
 	struct {
 		uint32_t name;
@@ -96,6 +96,7 @@ bool push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t fil
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
+void workspace_print_summaries(struct workspace *wk);
 
 //TODO: ?
 const char *wk_file_path(struct workspace *wk, uint32_t id);

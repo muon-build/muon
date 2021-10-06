@@ -289,6 +289,8 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		goto err;
 	}
 
+	workspace_print_summaries(&wk);
+
 	if (!ninja_write_all(&wk)) {
 		goto err;
 	}
