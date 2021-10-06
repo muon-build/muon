@@ -40,8 +40,23 @@ func_array_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res
 
 	return true;
 }
+
+static bool
+func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.num = obj_array_in(wk, rcvr, an[0].val);
+	return true;
+}
+
+
 const struct func_impl_name impl_tbl_array[] = {
 	{ "length", func_array_length },
 	{ "get", func_array_get },
+	{ "contains", func_array_contains },
 	{ NULL, NULL },
 };
