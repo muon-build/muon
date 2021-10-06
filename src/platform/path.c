@@ -322,6 +322,33 @@ path_is_basename(const char *path)
 }
 
 bool
+path_without_ext(char *buf, uint32_t len, const char *path)
+{
+	int32_t i;
+	uint32_t j = 0;
+
+	assert(len);
+
+	buf[0] = 0;
+
+	if (!*path) {
+		return true;
+	}
+
+	for (i = strlen(path) - 1; i >= 0; --i) {
+		if (path[i] == '.') {
+			break;
+		}
+	}
+
+	if (!buf_push_sn(buf, path, i, &j, len)) {
+		return false;
+	}
+
+	return path_normalize(buf, len);
+}
+
+bool
 path_basename(char *buf, uint32_t len, const char *path)
 {
 	int32_t i;

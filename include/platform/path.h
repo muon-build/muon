@@ -13,6 +13,7 @@ bool path_join(char *buf, uint32_t len, const char *a, const char *b);
 bool path_make_absolute(char *buf, uint32_t len, const char *path);
 bool path_relative_to(char *buf, uint32_t len, const char *base, const char *path);
 bool path_is_basename(const char *path);
+bool path_without_ext(char *buf, uint32_t len, const char *path);
 bool path_basename(char *buf, uint32_t len, const char *path);
 bool path_dirname(char *buf, uint32_t len, const char *path);
 bool path_is_subpath(const char *base, const char *sub);
