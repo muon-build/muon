@@ -51,22 +51,6 @@ check_dependency_version(struct workspace *wk, str dep_ver_str, uint32_t err_nod
 		return false;
 	}
 
-	/* if (!ver_eql) { */
-	/* 	if (akw[kw_fallback].set) { */
-	/* 		return handle_dependency_fallback(wk, &ctx); */
-	/* 	} */
-
-	/* interp_error(wk, ver_node, "dependency %o not found, have: %o, but need %o", */
-	/* 	dep->dat.dep.name, dep->dat.dep.version, ver); */
-
-/* 		if (requirement == requirement_required) { */
-/* 			return false; */
-/* 		} else { */
-/* 			struct obj *dep = make_obj(wk, res, obj_dependency); */
-/* 			dep->dat.dep.name = an[0].val; */
-/* 			return true; */
-/* 		} */
-/* 	} */
 	return true;
 }
 
@@ -150,17 +134,20 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	}
 
 	if (!found) {
-		LLOG_I("dependency %s not found: ", get_cstr(wk, ctx->name));
+		LLOG_W("dependency %s not found", get_cstr(wk, ctx->name));
+
 		if (ctx->not_found_reason == dep_not_found_reason_version) {
 			struct obj *dep = get_obj(wk, *ctx->res);
 
-			obj_fprintf(wk, log_file(), "bad verson, have: %o, but need %o\n",
+			obj_fprintf(wk, log_file(), ": bad verson, have: %o, but need %o\n",
 				dep->dat.dep.version, ctx->version);
 		}
 
 		if (ctx->not_found_message) {
-			obj_fprintf(wk, log_file(), "%o\n", ctx->not_found_message);
+			obj_fprintf(wk, log_file(), ", %#o", ctx->not_found_message);
 		}
+
+		log_plain("\n");
 
 		if (ctx->requirement == requirement_required) {
 			interp_error(wk, ctx->err_node, "required dependency not found");
