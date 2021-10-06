@@ -202,6 +202,8 @@ workspace_init(struct workspace *wk)
 
 	make_obj(wk, &id, obj_machine);
 	hash_set(&wk->scope, "host_machine", id);
+	hash_set(&wk->scope, "build_machine", id);
+	hash_set(&wk->scope, "target_machine", id);
 
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);
