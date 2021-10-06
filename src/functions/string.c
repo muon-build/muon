@@ -488,14 +488,27 @@ func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint
 	return true;
 }
 
+static bool
+func_string_startswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = wk_str_startswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
-	{ "strip", func_strip },
-	{ "to_upper", func_to_upper },
-	{ "to_int", func_string_to_int },
 	{ "format", func_format },
-	{ "underscorify", func_underscorify },
-	{ "split", func_split },
 	{ "join", func_join },
+	{ "split", func_split },
+	{ "startswith", func_string_startswith },
+	{ "strip", func_strip },
+	{ "to_int", func_string_to_int },
+	{ "to_upper", func_to_upper },
+	{ "underscorify", func_underscorify },
 	{ "version_compare", func_version_compare },
 	{ NULL, NULL },
 };
