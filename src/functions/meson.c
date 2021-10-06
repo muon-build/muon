@@ -122,7 +122,7 @@ func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *r
 static bool
 func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	LOG_I("TODO: meson.override_dependency");
+	LOG_W("TODO: meson.override_dependency");
 	return true;
 }
 
