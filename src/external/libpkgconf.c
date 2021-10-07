@@ -199,10 +199,13 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		case 'l': {
 			const char *path;
 			if ((path = find_lib_path(client, ctx, frag->data))) {
-				LOG_I("library '%s' found for dependency '%s'", path, get_cstr(ctx->wk, ctx->name));
+				str = make_str(ctx->wk, path);
 
-				make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, path);
-				obj_array_push(ctx->wk, ctx->info->libs, str);
+				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
+					L("library '%s' found for dependency '%s'", path, get_cstr(ctx->wk, ctx->name));
+
+					obj_array_push(ctx->wk, ctx->info->libs, str);
+				}
 			} else {
 				LOG_E("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));
 				return false;
@@ -210,7 +213,11 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			break;
 		}
 		default:
-			L("skipping unknown pkgconf fragment: -%c '%s'", frag->type, frag->data);
+			if (frag->type) {
+				L("skipping unknown pkgconf fragment: -%c '%s'", frag->type, frag->data);
+			} else {
+				L("skipping null pkgconf fragment: '%s'", frag->data);
+			}
 			break;
 		}
 	}
