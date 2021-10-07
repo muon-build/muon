@@ -387,6 +387,24 @@ obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 	assert(false && "unreachable");
 }
 
+static enum iteration_result
+obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj *res = _ctx;
+	if (!obj_array_in(wk, *res, val)) {
+		obj_array_push(wk, *res, val);
+	}
+
+	return ir_cont;
+}
+
+void
+obj_array_dedup(struct workspace *wk, obj arr, obj *res)
+{
+	make_obj(wk, res, obj_array);
+	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
+}
+
 /*
  * dictionaries
  */

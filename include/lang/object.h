@@ -197,6 +197,7 @@ void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 bool obj_array_dup(struct workspace *wk, obj arr, obj *res);
 bool obj_array_join(struct workspace *wk, obj arr, obj join, obj *res);
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);
+void obj_array_dedup(struct workspace *wk, obj arr, obj *res);
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, obj key, obj val);
 bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb);
