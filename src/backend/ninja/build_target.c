@@ -309,14 +309,15 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 	obj implicit_deps = 0;
 
-	const char *linker_type;
+	const char *linker_type, *link_args;
 	switch (tgt->dat.tgt.type) {
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
+		link_args = get_cstr(wk, join_args_shell(wk, ctx.args.link_args));
 		break;
 	case tgt_library:
 		linker_type = "STATIC";
-		obj_array_push(wk, ctx.args.link_args, make_str(wk, "csrD"));
+		link_args = "csrD";
 		break;
 	default:
 		assert(false);
@@ -343,7 +344,6 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		fputs(" || ", out);
 		fputs(get_cstr(wk, ctx.order_deps), out);
 	}
-	fprintf(out, "\n LINK_ARGS = %s\n\n", get_cstr(wk, join_args_shell(wk, ctx.args.link_args)));
-
+	fprintf(out, "\n LINK_ARGS = %s\n\n", link_args);
 	return true;
 }
