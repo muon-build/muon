@@ -353,16 +353,50 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static enum iteration_result
+include_directories_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	obj *res = _ctx;
+
+	obj_array_push(wk, *res, v);
+
+	const char *p = get_cstr(wk, get_obj(wk, v)->dat.file);
+
+	if (path_is_subpath(wk->source_root, p)) {
+		char path[PATH_MAX], tmp[PATH_MAX];
+		if (!path_relative_to(tmp, PATH_MAX, wk->source_root, p)) {
+			return ir_err;
+		} else if (!path_join(path, PATH_MAX, wk->build_root, tmp)) {
+			return ir_err;
+		}
+
+		obj f;
+		make_obj(wk, &f, obj_file)->dat.file = wk_str_push(wk, path);
+		obj_array_push(wk, *res, f);
+	}
+
+	return ir_cont;
+}
+
 static bool
-func_include_directories(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
-
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	return coerce_dirs(wk, an[0].node, an[0].val, obj);
+	obj dirs;
+	if (!coerce_dirs(wk, an[0].node, an[0].val, &dirs)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+	if (!obj_array_foreach(wk, dirs, res, include_directories_iter)) {
+		return false;
+	}
+
+	return true;
 }
 
 static bool
