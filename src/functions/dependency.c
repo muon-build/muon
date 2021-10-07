@@ -16,18 +16,9 @@ dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 	struct dep_args_ctx *ctx = _ctx;
 	assert(get_obj(wk, inc_id)->type == obj_file);
 
-	if (ctx->relativize) {
-		char path[PATH_MAX];
-		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, get_obj(wk, inc_id)->dat.file))) {
-			return ir_err;
-		}
-
-		obj_array_push(wk, ctx->include_dirs, make_str(wk, path));
-	} else {
-		obj path;
-		make_obj(wk, &path, obj_string)->dat.str = get_obj(wk, inc_id)->dat.file;
-		obj_array_push(wk, ctx->include_dirs, path);
-	}
+	obj path;
+	make_obj(wk, &path, obj_string)->dat.str = get_obj(wk, inc_id)->dat.file;
+	obj_array_push(wk, ctx->include_dirs, path);
 
 	return ir_cont;
 }
