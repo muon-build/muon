@@ -242,10 +242,10 @@ muon_pkgconf_lookup(struct workspace *wk, uint32_t name, bool is_static, struct 
 		muon_pkgconf_init();
 	}
 
-	int flags = PKGCONF_PKG_PKGF_SEARCH_PRIVATE;
+	int flags = 0;
 
 	if (is_static) {
-		flags |= PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS;
+		flags |= (PKGCONF_PKG_PKGF_SEARCH_PRIVATE | PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS);
 	}
 
 	pkgconf_client_set_flags(&client, flags);
