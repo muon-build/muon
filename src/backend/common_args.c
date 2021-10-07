@@ -7,6 +7,7 @@
 #include "backend/common_args.h"
 #include "functions/default/options.h"
 #include "log.h"
+#include "platform/filesystem.h"
 #include "platform/path.h"
 
 static bool
@@ -128,6 +129,10 @@ static enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v_id)
 {
 	const char *dir = get_cstr(wk, v_id);
+
+	if (!fs_dir_exists(dir)) {
+		return ir_cont;
+	}
 
 	if (path_is_absolute(dir)) {
 		char rel[PATH_MAX];
