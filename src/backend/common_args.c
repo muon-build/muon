@@ -120,12 +120,12 @@ get_std_args(struct workspace *wk, const struct project *proj, uint32_t args_id,
 }
 
 struct setup_compiler_args_includes_ctx {
-	uint32_t args;
+	obj args;
 	enum compiler_type t;
 };
 
 static enum iteration_result
-setup_compiler_args_includes(struct workspace *wk, void *_ctx, uint32_t v_id)
+setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v_id)
 {
 	const char *dir = get_cstr(wk, v_id);
 
@@ -151,7 +151,7 @@ struct setup_compiler_args_ctx {
 };
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id)
 {
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
@@ -165,7 +165,11 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 	uint32_t proj_cwd;
 	make_obj(wk, &proj_cwd, obj_string)->dat.str = ctx->proj->cwd;
 	obj_array_push(wk, ctx->include_dirs, proj_cwd);
-	if (!obj_array_foreach(wk, ctx->include_dirs, &(struct setup_compiler_args_includes_ctx) {
+
+	obj inc_dirs;
+	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
+
+	if (!obj_array_foreach(wk, inc_dirs, &(struct setup_compiler_args_includes_ctx) {
 		.args = args,
 		.t = t,
 	}, setup_compiler_args_includes)) {
@@ -185,7 +189,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 
 	{ /* project default args */
 		uint32_t proj_args, proj_args_dup;
-		if (obj_dict_geti(wk, ctx->proj->cfg.args, l, &proj_args)) {
+		if (obj_dict_geti(wk, ctx->proj->cfg.args, lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
 			obj_array_extend(wk, args, proj_args_dup);
 		}
@@ -193,13 +197,13 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 
 	{ /* target args */
 		uint32_t tgt_args, tgt_args_dup;
-		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, l, &tgt_args)) {
+		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, lang, &tgt_args)) {
 			obj_array_dup(wk, tgt_args, &tgt_args_dup);
 			obj_array_extend(wk, args, tgt_args_dup);
 		}
 	}
 
-	obj_dict_seti(wk, ctx->args_dict, l, join_args_shell(wk, args));
+	obj_dict_seti(wk, ctx->args_dict, lang, join_args_shell(wk, args));
 	return ir_cont;
 }
 

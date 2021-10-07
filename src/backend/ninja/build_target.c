@@ -324,9 +324,12 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	}
 
 	if (get_obj(wk, ctx.args.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
-		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, ctx.args.link_with));
+		obj link_with;
+		obj_array_dedup(wk, ctx.args.link_with, &link_with);
 
-		push_linker_args_link_with(wk, linker, ctx.args.link_args, ctx.args.link_with);
+		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
+
+		push_linker_args_link_with(wk, linker, ctx.args.link_args, link_with);
 	}
 
 	fputs("build ", out);
