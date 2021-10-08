@@ -308,6 +308,14 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	}
 
 	obj implicit_deps = 0;
+	if (get_obj(wk, ctx.args.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
+		obj link_with;
+		obj_array_dedup(wk, ctx.args.link_with, &link_with);
+
+		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
+
+		push_linker_args_link_with(wk, linker, ctx.args.link_args, link_with);
+	}
 
 	const char *linker_type, *link_args;
 	switch (tgt->dat.tgt.type) {
@@ -322,15 +330,6 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	default:
 		assert(false);
 		return false;
-	}
-
-	if (get_obj(wk, ctx.args.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
-		obj link_with;
-		obj_array_dedup(wk, ctx.args.link_with, &link_with);
-
-		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
-
-		push_linker_args_link_with(wk, linker, ctx.args.link_args, link_with);
 	}
 
 	fputs("build ", out);
