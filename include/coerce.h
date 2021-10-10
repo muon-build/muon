@@ -14,4 +14,5 @@ bool coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum 
 bool coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res);
 bool coerce_dirs(struct workspace *wk, uint32_t node, obj val, obj *res);
 bool coerce_output_files(struct workspace *wk, uint32_t node, obj val, obj *res);
+bool coerce_include_dirs(struct workspace *wk, uint32_t node, obj val, bool is_system, obj *res);
 #endif

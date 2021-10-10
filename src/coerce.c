@@ -5,6 +5,7 @@
 
 #include "coerce.h"
 #include "lang/interpreter.h"
+#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -267,4 +268,82 @@ bool
 coerce_dirs(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
 {
 	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists, mode_input);
+}
+
+struct include_directories_iter_ctx {
+	uint32_t node;
+	obj res;
+	bool is_system;
+};
+
+static enum iteration_result
+include_directories_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct include_directories_iter_ctx *ctx = _ctx;
+	struct obj *d = get_obj(wk, v);
+
+	if (d->type == obj_include_directory) {
+		obj_array_push(wk, ctx->res, v);
+		return ir_cont;
+	} else if (d->type != obj_string) {
+		interp_error(wk, ctx->node, "unable to coerce %o to include_directory", v);
+		return ir_err;
+	}
+
+	str path = d->dat.str;
+	char buf1[PATH_MAX], buf2[PATH_MAX];
+	const char *p = get_cstr(wk, path);
+
+	if (!path_is_absolute(p)) {
+		if (!path_join(buf1, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
+			return ir_err;
+		}
+
+		path = wk_str_push(wk, buf1);
+	}
+
+	p = get_cstr(wk, path);
+
+	if (!fs_dir_exists(p)) {
+		interp_error(wk, ctx->node, "directory '%s' does not exist", get_cstr(wk, path));
+		return ir_err;
+	}
+
+	obj inc;
+	d = make_obj(wk, &inc, obj_include_directory);
+	d->dat.include_directory.path = path;
+	d->dat.include_directory.is_system = ctx->is_system;
+	obj_array_push(wk, ctx->res, inc);
+
+	if (path_is_subpath(wk->source_root, p)) {
+		if (!path_relative_to(buf1, PATH_MAX, wk->source_root, p)) {
+			return ir_err;
+		} else if (!path_join(buf2, PATH_MAX, wk->build_root, buf1)) {
+			return ir_err;
+		}
+
+		d = make_obj(wk, &inc, obj_include_directory);
+		d->dat.include_directory.path = wk_str_push(wk, buf2);
+		d->dat.include_directory.is_system = ctx->is_system;
+		obj_array_push(wk, ctx->res, inc);
+	}
+
+	return ir_cont;
+}
+
+bool
+coerce_include_dirs(struct workspace *wk, uint32_t node, obj val, bool is_system, obj *res)
+{
+	struct include_directories_iter_ctx ctx = {
+		.node = node,
+		.is_system = is_system,
+	};
+
+	make_obj(wk, &ctx.res, obj_array);
+	if (!obj_array_foreach_flat(wk, val, &ctx, include_directories_iter)) {
+		return false;
+	}
+
+	*res = ctx.res;
+	return true;
 }

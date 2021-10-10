@@ -126,9 +126,11 @@ struct setup_compiler_args_includes_ctx {
 };
 
 static enum iteration_result
-setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v_id)
+setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 {
-	const char *dir = get_cstr(wk, v_id);
+	struct setup_compiler_args_includes_ctx *ctx = _ctx;
+	struct obj *inc = get_obj(wk, v);
+	const char *dir = get_cstr(wk, inc->dat.include_directory.path);
 
 	if (!fs_dir_exists(dir)) {
 		return ir_cont;
@@ -142,8 +144,11 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v_id)
 		dir = rel;
 	}
 
-	struct setup_compiler_args_includes_ctx *ctx = _ctx;
-	push_args(wk, ctx->args, compilers[ctx->t].args.include(dir));
+	if (inc->dat.include_directory.is_system) {
+		push_args(wk, ctx->args, compilers[ctx->t].args.include_system(dir));
+	} else {
+		push_args(wk, ctx->args, compilers[ctx->t].args.include(dir));
+	}
 	return ir_cont;
 }
 

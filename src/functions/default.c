@@ -353,46 +353,26 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-static enum iteration_result
-include_directories_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	obj *res = _ctx;
-
-	obj_array_push(wk, *res, v);
-
-	const char *p = get_cstr(wk, get_obj(wk, v)->dat.file);
-
-	if (path_is_subpath(wk->source_root, p)) {
-		char path[PATH_MAX], tmp[PATH_MAX];
-		if (!path_relative_to(tmp, PATH_MAX, wk->source_root, p)) {
-			return ir_err;
-		} else if (!path_join(path, PATH_MAX, wk->build_root, tmp)) {
-			return ir_err;
-		}
-
-		obj f;
-		make_obj(wk, &f, obj_file)->dat.file = wk_str_push(wk, path);
-		obj_array_push(wk, *res, f);
-	}
-
-	return ir_cont;
-}
-
 static bool
 func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	enum kwargs {
+		kw_is_system,
+	};
+	struct args_kw akw[] = {
+		[kw_is_system] = { "is_system", obj_bool },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	obj dirs;
-	if (!coerce_dirs(wk, an[0].node, an[0].val, &dirs)) {
-		return false;
-	}
+	bool is_system = akw[kw_is_system].set
+		? get_obj(wk, akw[kw_is_system].val)->dat.boolean
+		: false;
 
-	make_obj(wk, res, obj_array);
-	if (!obj_array_foreach(wk, dirs, res, include_directories_iter)) {
+	if (!coerce_include_dirs(wk, an[0].node, an[0].val, is_system, res)) {
 		return false;
 	}
 
@@ -526,9 +506,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
 
 	if (akw[kw_include_directories].set) {
-		uint32_t inc_dirs;
-
-		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+		obj inc_dirs;
+		if (!coerce_include_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, false, &inc_dirs)) {
 			return false;
 		}
 

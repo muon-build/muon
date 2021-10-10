@@ -286,9 +286,8 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	}
 
 	if (akw[kw_include_directories].set) {
-		uint32_t inc_dirs;
-
-		if (!coerce_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, &inc_dirs)) {
+		obj inc_dirs;
+		if (!coerce_include_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, false, &inc_dirs)) {
 			return false;
 		}
 

@@ -14,12 +14,9 @@ enum iteration_result
 dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 {
 	struct dep_args_ctx *ctx = _ctx;
-	assert(get_obj(wk, inc_id)->type == obj_file);
+	assert(get_obj(wk, inc_id)->type == obj_include_directory);
 
-	obj path;
-	make_obj(wk, &path, obj_string)->dat.str = get_obj(wk, inc_id)->dat.file;
-	obj_array_push(wk, ctx->include_dirs, path);
-
+	obj_array_push(wk, ctx->include_dirs, inc_id);
 	return ir_cont;
 }
 

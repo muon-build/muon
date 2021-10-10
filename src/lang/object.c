@@ -39,6 +39,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_module: return "module";
 	case obj_install_target: return "install_target";
 	case obj_environment: return "environment";
+	case obj_include_directory: return "include_directory";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:

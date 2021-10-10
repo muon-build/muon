@@ -257,6 +257,16 @@ compiler_posix_args_include(const char *dir)
 /* gcc compilers */
 
 static const struct args *
+compiler_gcc_args_include_system(const char *dir)
+{
+	COMPILER_ARGS({ "-isystem", NULL });
+
+	argv[1] = dir;
+
+	return &args;
+}
+
+static const struct args *
 compiler_gcc_args_deps(const char *out_target, const char *out_file)
 {
 	COMPILER_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
@@ -403,6 +413,7 @@ build_compilers(void)
 			.werror       = compiler_arg_empty_0,
 			.set_std      = compiler_arg_empty_1s,
 			.include      = compiler_arg_empty_1s,
+			.include_system = compiler_arg_empty_1s,
 		}
 	};
 
@@ -412,6 +423,7 @@ build_compilers(void)
 	posix.args.optimization = compiler_posix_args_optimization;
 	posix.args.debug = compiler_posix_args_debug;
 	posix.args.include = compiler_posix_args_include;
+	posix.args.include_system = compiler_posix_args_include;
 	posix.linker = linker_posix;
 
 	struct compiler gcc = posix;
@@ -420,6 +432,7 @@ build_compilers(void)
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
 	gcc.args.werror = compiler_gcc_args_werror;
 	gcc.args.set_std = compiler_gcc_args_set_std;
+	gcc.args.include_system = compiler_gcc_args_include_system;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 

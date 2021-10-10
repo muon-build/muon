@@ -36,6 +36,7 @@ enum obj_type {
 	obj_module,
 	obj_install_target,
 	obj_environment,
+	obj_include_directory,
 
 	obj_type_count,
 
@@ -168,6 +169,10 @@ struct obj {
 		struct {
 			obj env; /* dict */
 		} environment;
+		struct {
+			str path;
+			bool is_system;
+		} include_directory;
 	} dat;
 };
 
