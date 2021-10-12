@@ -40,6 +40,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_install_target: return "install_target";
 	case obj_environment: return "environment";
 	case obj_include_directory: return "include_directory";
+	case obj_option: return "option";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:
@@ -961,6 +962,17 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			obj_to_s_buf_push(&ctx, ", path: ");
 			obj_to_s_str(wk, &ctx, prog->dat.external_program.full_path);
 		}
+
+		obj_to_s_buf_push(&ctx, ">");
+		break;
+	}
+	case obj_option: {
+		struct obj *opt = get_obj(wk, obj);
+		obj_to_s_buf_push(&ctx, "<option ");
+
+		uint32_t w;
+		_obj_to_s(wk, opt->dat.option.val, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
+		ctx.i += w;
 
 		obj_to_s_buf_push(&ctx, ">");
 		break;

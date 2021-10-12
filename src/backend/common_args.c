@@ -105,7 +105,7 @@ get_warning_args(struct workspace *wk, const struct project *proj, uint32_t args
 static bool
 get_std_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
 {
-	uint32_t std;
+	obj std;
 
 	if (!get_option(wk, proj, "c_std", &std)) {
 		return false;

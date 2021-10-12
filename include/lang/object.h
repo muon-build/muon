@@ -37,6 +37,7 @@ enum obj_type {
 	obj_install_target,
 	obj_environment,
 	obj_include_directory,
+	obj_option,
 
 	obj_type_count,
 
@@ -73,6 +74,16 @@ enum module {
 	module_python3,
 	module_pkgconfig,
 	module_count,
+};
+
+enum build_option_type {
+	op_string,
+	op_boolean,
+	op_combo,
+	op_integer,
+	op_array,
+	op_feature,
+	build_option_type_count,
 };
 
 struct obj {
@@ -173,6 +184,13 @@ struct obj {
 			str path;
 			bool is_system;
 		} include_directory;
+		struct {
+			obj val;
+			enum build_option_type type;
+			obj choices;
+			obj max;
+			obj min;
+		} option;
 	} dat;
 };
 

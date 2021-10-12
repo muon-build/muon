@@ -53,16 +53,6 @@ parse_config_string(struct workspace *wk, char *lhs, struct option_override *oo)
 	return true;
 }
 
-enum build_option_type {
-	op_string,
-	op_boolean,
-	op_combo,
-	op_integer,
-	op_array,
-	op_feature,
-	build_option_type_count,
-};
-
 static bool
 build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enum build_option_type *res)
 {
@@ -134,7 +124,7 @@ check_invalid_option_overrides(struct workspace *wk)
 		oo = darr_get(&wk->option_overrides, i);
 
 		if (subproj_name_matches(wk, get_cstr(wk, current_project(wk)->subproject_name), get_cstr(wk, oo->proj))) {
-			uint32_t res;
+			obj res;
 			const char *name = get_cstr(wk, oo->name);
 
 			if (!obj_dict_index_strn(wk, current_project(wk)->opts, name, strlen(name), &res)) {
@@ -267,7 +257,8 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 
 
 struct check_array_opt_ctx {
-	struct args_kw *choices;
+	obj choices;
+	uint32_t node;
 };
 
 static enum iteration_result
@@ -275,8 +266,8 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct check_array_opt_ctx *ctx = _ctx;
 
-	if (!obj_array_in(wk, ctx->choices->val, val)) {
-		interp_error(wk, ctx->choices->node, "array element '%s' is not a valid choice", get_cstr(wk, val));
+	if (!obj_array_in(wk, ctx->choices, val)) {
+		interp_error(wk, ctx->node, "array element %o is not one of %o", val, ctx->choices);
 		return ir_err;
 	}
 
@@ -284,21 +275,20 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static bool
-typecheck_opt(struct workspace *wk, uint32_t err_node, uint32_t val, enum build_option_type type, uint32_t *res)
+typecheck_opt(struct workspace *wk, uint32_t err_node, obj val, enum build_option_type type, obj *res)
 {
 	enum obj_type expected_type;
 
-	if (type == op_feature) {
-		if (!typecheck(wk, err_node, val, obj_string)) {
-			return false;
-		} else if (!coerce_feature_opt(wk, err_node, get_cstr(wk, val), res)) {
+	if (type == op_feature && get_obj(wk, val)->type == obj_string) {
+		if (!coerce_feature_opt(wk, err_node, get_cstr(wk, val), res)) {
 			return false;
 		}
 
-		return true;
+		val = *res;
 	}
 
 	switch (type) {
+	case op_feature: expected_type = obj_feature_opt; break;
 	case op_string: expected_type = obj_string; break;
 	case op_boolean: expected_type = obj_bool; break;
 	case op_combo: expected_type = obj_string; break;
@@ -318,14 +308,18 @@ typecheck_opt(struct workspace *wk, uint32_t err_node, uint32_t val, enum build_
 }
 
 static bool
-check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type type, uint32_t name, uint32_t *ret)
+check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type type, obj name, obj *ret)
 {
-	uint32_t val;
-	if (!get_option(wk, darr_get(&wk->projects, 0), get_cstr(wk, name), &val)) {
+	obj val;
+	obj opt;
+	if (!obj_dict_index(wk, current_project(wk)->opts, name, &opt)) {
 		return true;
 	}
 
-	if (!typecheck(wk, node, val, type)) {
+	struct obj *o = get_obj(wk, opt);
+	val = o->dat.option.type;
+
+	if (!typecheck_opt(wk, node, val, o->dat.option.type, ret)) {
 		return false;
 	}
 
@@ -333,8 +327,64 @@ check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type typ
 	return true;
 }
 
+static bool
+option_set(struct workspace *wk, uint32_t node, obj opt, obj new_val)
+{
+	struct obj *o = get_obj(wk, opt);
+
+	obj val;
+	if (!typecheck_opt(wk, node, new_val, o->dat.option.type, &val)) {
+		return false;
+	}
+
+	switch (o->dat.option.type) {
+	case op_combo: {
+		if (!obj_array_in(wk, o->dat.option.choices, val)) {
+			interp_error(wk, node, "'%o' is not one of %o", val, o->dat.option.choices);
+			return false;
+		}
+		break;
+	}
+	case op_integer: {
+		int64_t num = get_obj(wk, val)->dat.num;
+
+		if ((o->dat.option.max && num > get_obj(wk, o->dat.option.max)->dat.num)
+		    || (o->dat.option.min && num < get_obj(wk, o->dat.option.min)->dat.num) ) {
+			interp_error(wk, node, "value %ld is out of range (%ld..%ld)",
+				(intmax_t)get_obj(wk, val)->dat.num,
+				(intmax_t)(o->dat.option.min ? get_obj(wk, o->dat.option.min)->dat.num : INT64_MIN),
+				(intmax_t)(o->dat.option.max ? get_obj(wk, o->dat.option.max)->dat.num : INT64_MAX)
+				);
+			return false;
+		}
+		break;
+	}
+	case op_array: {
+		if (o->dat.option.choices) {
+			if (!obj_array_foreach(wk, val, &(struct check_array_opt_ctx) {
+					.choices = o->dat.option.choices,
+					.node = node,
+				}, check_array_opt_iter)) {
+				return false;
+			}
+		}
+		break;
+	}
+	case op_string:
+	case op_feature:
+	case op_boolean:
+		break;
+	default:
+		assert(false && "unreachable");
+		return false;
+	}
+
+	o->dat.option.val = val;
+	return true;
+}
+
 bool
-func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -410,11 +460,10 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		}
 	}
 
-	uint32_t val = 0;
+	obj val = 0;
+
 	if (akw[kw_value].set) {
-		if (!typecheck_opt(wk, akw[kw_value].node, akw[kw_value].val, type, &val)) {
-			return false;
-		}
+		val = akw[kw_value].val;
 	} else {
 		switch (type) {
 		case op_string: make_obj(wk, &val, obj_string)->dat.str = wk_str_push(wk, "");
@@ -423,7 +472,7 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 			break;
 		case op_combo:
 			if (!get_obj(wk, akw[kw_choices].val)->dat.arr.len) {
-				interp_error(wk, akw[kw_choices].node, "unable to set default for combo option with no choices");
+				interp_error(wk, akw[kw_choices].node, "combo option with no choices");
 				return false;
 			}
 
@@ -431,7 +480,8 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 				return false;
 			}
 			break;
-		case op_array: val = akw[kw_choices].val;
+		case op_array:
+			val = akw[kw_choices].val;
 			break;
 		case op_feature:
 			make_obj(wk, &val, obj_feature_opt)->dat.feature_opt.state = feature_opt_auto;
@@ -457,54 +507,43 @@ func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		}
 	}
 
-	switch (type) {
-	case op_combo: {
-		if (!obj_array_in(wk, akw[kw_choices].val, val)) {
-			interp_error(wk, akw[kw_choices].node, "'%s' is not valid for '%s'",
-				get_cstr(wk, val), get_cstr(wk, an[0].val));
-			return false;
-		}
-		break;
-	}
-	case op_integer: {
-		if (akw[kw_max].set && get_obj(wk, val)->dat.num > get_obj(wk, akw[kw_max].val)->dat.num) {
-			interp_error(wk, akw[kw_max].node, "value %ld is too large", (intmax_t)get_obj(wk, val)->dat.num);
-			return false;
-		}
-
-		if (akw[kw_min].set && get_obj(wk, val)->dat.num < get_obj(wk, akw[kw_min].val)->dat.num) {
-			interp_error(wk, akw[kw_min].node, "value %ld is too small", (intmax_t)get_obj(wk, val)->dat.num);
-			return false;
-		}
-		break;
-	}
-	case op_array: {
-		if (akw[kw_choices].set) {
-			obj_array_foreach(wk, val, &(struct check_array_opt_ctx) { &akw[kw_choices] },
-				check_array_opt_iter);
-		}
-		break;
-	}
-	case op_string:
-	case op_feature:
-	case op_boolean:
-		break;
-	default:
-		assert(false && "unreachable");
-		return false;
-	}
-
 	if (obj_dict_in(wk, current_project(wk)->opts, an[0].val)) {
 		interp_error(wk, an[0].node, "duplicate option name");
 		return false;
 	}
-	obj_dict_set(wk, current_project(wk)->opts, an[0].val, val);
+
+	obj opt;
+	struct obj *o = make_obj(wk, &opt, obj_option);
+	o->dat.option.type = type;
+	o->dat.option.min = akw[kw_min].val;
+	o->dat.option.max = akw[kw_max].val;
+	o->dat.option.choices = akw[kw_choices].val;
+
+	if (!option_set(wk, args_node, opt, val)) {
+		return false;
+	}
+
+	obj_dict_set(wk, current_project(wk)->opts, an[0].val, opt);
 
 	return true;
 }
 
 bool
-func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+get_option(struct workspace *wk, const struct project *proj, const char *name, obj *res)
+{
+	obj opt;
+	if (!obj_dict_index_strn(wk, proj->opts, name, strlen(name), &opt)) {
+		return false;
+	}
+
+	struct obj *o = get_obj(wk, opt);
+	assert(o->type == obj_option);
+	*res = o->dat.option.val;
+	return true;
+}
+
+bool
+func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -512,18 +551,16 @@ func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	if (!obj_dict_index(wk, current_project(wk)->opts, an[0].val, obj)) {
+	obj opt;
+	if (!obj_dict_index(wk, current_project(wk)->opts, an[0].val, &opt)) {
 		interp_error(wk, an[0].node, "undefined option");
 		return false;
 	}
 
+	struct obj *o = get_obj(wk, opt);
+	assert(o->type == obj_option);
+	*res = o->dat.option.val;
 	return true;
-}
-
-bool
-get_option(struct workspace *wk, const struct project *proj, const char *name, uint32_t *obj)
-{
-	return obj_dict_index_strn(wk, proj->opts, name, strlen(name), obj);
 }
 
 bool
@@ -600,12 +637,26 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	if (find_option_override(wk, get_cstr(wk, oo.proj), get_cstr(wk, oo.name), &other_oo)) {
 		/* ignore, already set */
-		LOG_I("ignoring default_options value %s as it was already set on the commandline", option_override_to_s(wk, &oo));
+		L("ignoring default_options value %s as it was already set on the commandline", option_override_to_s(wk, &oo));
 		return ir_cont;
 	}
-	LOG_I("setting default_option %s", option_override_to_s(wk, &oo));
+	L("setting default_option %s", option_override_to_s(wk, &oo));
 
-	darr_push(&wk->option_overrides, &oo);
+	obj opt;
+	if (obj_dict_index(wk, current_project(wk)->opts, oo.name, &opt)) {
+		struct obj *o = get_obj(wk, opt);
+
+		obj val;
+		if (!coerce_option_override(wk, ctx->node, o->dat.option.type, get_cstr(wk, oo.val), &val)) {
+			return ir_err;
+		}
+
+		if (!option_set(wk, ctx->node, opt, val)) {
+			return ir_err;
+		}
+	} else {
+		darr_push(&wk->option_overrides, &oo);
+	}
 	return ir_cont;
 }
 
@@ -617,5 +668,9 @@ parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, 
 		.project_name = project_name,
 	};
 
-	return obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter);
+	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter)) {
+		return false;
+	}
+
+	return true;
 }
