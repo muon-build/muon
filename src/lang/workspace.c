@@ -281,7 +281,7 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0,
 static enum iteration_result
 print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
-	obj_fprintf(wk, log_file(), "    %#o: %o\n", k, v);
+	obj_fprintf(wk, log_file(), "      %#o: %o\n", k, v);
 
 	return ir_cont;
 }
@@ -289,7 +289,7 @@ print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 static enum iteration_result
 print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
-	obj_fprintf(wk, log_file(), "  %#o\n", k);
+	obj_fprintf(wk, log_file(), "    %#o\n", k);
 
 	obj_dict_foreach(wk, v, NULL, print_summaries_line_iter);
 	return ir_cont;
@@ -298,6 +298,7 @@ print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 void
 workspace_print_summaries(struct workspace *wk)
 {
+	bool printed_summary_header = false;
 	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -308,7 +309,12 @@ workspace_print_summaries(struct workspace *wk)
 			continue;
 		}
 
-		LOG_I("%s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
+		if (!printed_summary_header) {
+			LOG_I("summary:");
+			printed_summary_header = true;
+		}
+
+		obj_fprintf(wk, log_file(), "- %s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
 		obj_dict_foreach(wk, proj->summary, NULL, print_summaries_section_iter);
 	}
 }
