@@ -4,3 +4,10 @@ def'''
 assert(single_line == 'test')
 assert(multi_line == '''abc
 def''')
+
+quote1 = ''' ' '''.strip()
+assert(quote1 == '\'')
+
+quote2 = ''' '' '' '''.strip()
+dbl = '\'\''
+assert(quote2 == ' '.join([dbl, dbl]))

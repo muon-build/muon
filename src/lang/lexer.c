@@ -547,6 +547,12 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 		++(*quotes);
 		got_quote = false;
 	} else {
+		uint32_t i;
+		for (i = 0; i < *quotes; ++i) {
+			str[token->n] = '\'';
+			++token->n;
+		}
+
 		*quotes = 0;
 	}
 
