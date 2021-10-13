@@ -177,7 +177,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		dep->dat.dep.flags |= dep_flag_found;
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		*handled = true;
-		ctx->name = wk_str_push(wk, "ncurses");
+		ctx->name = make_str(wk, "ncurses");
 		if (!get_dependency(wk, ctx)) {
 			return false;
 		}
