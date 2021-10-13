@@ -165,7 +165,6 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (!ctx->skip_depends) {
-			obj_fprintf(wk, log_file(), "%o | pushing: %o\n", val, ss);
 			obj_array_push(wk, ctx->depends, ss);
 		}
 		break;
@@ -376,13 +375,10 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	obj depends;
 	make_obj(wk, &depends, obj_array);
-	obj_fprintf(wk, log_file(), "command: %o\n", akw[kw_command].val);
 	if (!process_custom_target_commandline(wk, akw[kw_command].node,
 		akw[kw_command].val, input, output, akw[kw_depfile].val, depends, &args)) {
 		return false;
 	}
-
-	obj_fprintf(wk, log_file(), "depends: %o\n", depends);
 
 	if (akw[kw_capture].set && get_obj(wk, akw[kw_capture].val)->dat.boolean) {
 		flags |= custom_target_capture;
