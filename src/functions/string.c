@@ -45,12 +45,17 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	}
 
 	for (len = ss->len - 1; len >= 0; --len) {
+		if (len < (int64_t)i) {
+			break;
+		}
+
 		if (!chr_in_str(ss->s[len], strip)) {
 			break;
 		}
 	}
 	++len;
 
+	assert((int64_t)len >= (int64_t)i);
 	make_obj(wk, obj, obj_string)->dat.str = wk_str_pushn(wk, &ss->s[i], len - i);
 	return true;
 }

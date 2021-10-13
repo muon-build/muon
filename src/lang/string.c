@@ -166,7 +166,6 @@ _make_str(struct workspace *wk, const char *p, uint32_t len)
 	}
 
 	memcpy((void *)reserve_str(wk, &s, len)->s, p, len);
-
 	return s;
 }
 
