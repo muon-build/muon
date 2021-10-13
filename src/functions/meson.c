@@ -120,6 +120,17 @@ func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *r
 }
 
 static bool
+func_meson_backend(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, "ninja");
+	return true;
+}
+
+static bool
 func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	LOG_W("TODO: meson.override_dependency");
@@ -139,5 +150,6 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "global_build_root", func_meson_global_build_root },
 	{ "is_subproject", func_meson_is_subproject },
 	{ "override_dependency", func_meson_override_dependency },
+	{ "backend", func_meson_backend },
 	{ NULL, NULL },
 };
