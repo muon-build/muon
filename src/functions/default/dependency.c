@@ -29,6 +29,7 @@ struct dep_lookup_ctx {
 	obj not_found_message;
 	obj version;
 	bool is_static;
+	bool disabler;
 };
 
 static bool
@@ -153,8 +154,12 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			interp_error(wk, ctx->err_node, "required dependency not found");
 			return false;
 		} else {
-			struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
-			dep->dat.dep.name = ctx->name;
+			if (ctx->disabler) {
+				*ctx->res = disabler_id;
+			} else {
+				struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
+				dep->dat.dep.name = ctx->name;
+			}
 		}
 	} else {
 		struct obj *dep = get_obj(wk, *ctx->res);
@@ -201,6 +206,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_fallback,
 		kw_default_options,
 		kw_not_found_message,
+		kw_disabler,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
@@ -211,6 +217,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_fallback] = { "fallback", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_not_found_message] = { "not_found_message", obj_string },
+		[kw_disabler] = { "disabler", obj_bool },
 		0
 	};
 
@@ -244,6 +251,9 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.default_options = akw[kw_default_options].val,
 		.not_found_message = akw[kw_not_found_message].val,
 		.is_static = is_static,
+		.disabler = akw[kw_disabler].set
+			? get_obj(wk, akw[kw_disabler].val)->dat.boolean
+			: false,
 	};
 
 	bool handled;

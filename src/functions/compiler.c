@@ -278,10 +278,12 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 	enum kwargs {
 		kw_required,
 		kw_static,
+		kw_disabler,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", obj_any },
 		[kw_static] = { "static", obj_bool },
+		[kw_disabler] = { "disabler", obj_bool },
 		0
 	};
 
@@ -326,7 +328,11 @@ done:
 			return false;
 		}
 
-		make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
+		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
+			*obj = disabler_id;
+		} else {
+			make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
+		}
 	} else {
 		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), path);
 		struct obj *external_library = make_obj(wk, obj, obj_external_library);

@@ -13,6 +13,7 @@
 #include "functions/default.h"
 #include "functions/dependency.h"
 #include "functions/dict.h"
+#include "functions/disabler.h"
 #include "functions/environment.h"
 #include "functions/external_library.h"
 #include "functions/external_program.h"
@@ -27,6 +28,29 @@
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
+
+// HACK: this is pretty terrible, but the least intrusive way to handle
+// disablers in function arguments as they are currently implemented.  When
+// interp_args sees a disabler, it sets this flag, and "fails".  In the
+// function error handler we check this flag and don't raise an error if it is
+// set but instead return disabler.
+static bool disabler_among_args = false;
+// HACK: we also need this for the is_disabler() function :(
+bool disabler_among_args_immunity = false;
+
+static bool
+interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
+{
+	bool was_immune = disabler_among_args_immunity;
+	disabler_among_args_immunity = false;
+
+	if (!interp_node(wk, arg_node, res)) {
+		return false;
+	}
+
+	disabler_among_args_immunity = was_immune;
+	return true;
+}
 
 static bool
 next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char **kw, struct node **args)
@@ -124,9 +148,35 @@ typecheck_function_arg_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	return ir_cont;
 }
 
+static enum iteration_result
+typecheck_function_arg_check_disabler_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	bool *among = _ctx;
+
+	if (val == disabler_id) {
+		*among = true;
+		return ir_done;
+	}
+	return ir_cont;
+}
+
 static bool
 typecheck_function_arg(struct workspace *wk, uint32_t err_node, uint32_t *val, enum obj_type type)
 {
+	if (!disabler_among_args_immunity) {
+		if (*val == disabler_id) {
+			disabler_among_args = true;
+			return false;
+		} else if (get_obj(wk, *val)->type == obj_array) {
+			bool among = false;
+			obj_array_foreach_flat(wk, *val, &among, typecheck_function_arg_check_disabler_iter);
+			if (among) {
+				disabler_among_args = true;
+				return false;
+			}
+		}
+	}
+
 	bool array_of = false;
 	if (type & ARG_TYPE_ARRAY_OF) {
 		array_of = true;
@@ -247,7 +297,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					}
 
 					uint32_t val;
-					if (!interp_node(wk, arg_node, &val)) {
+					if (!interp_args_interp_node(wk, arg_node, &val)) {
 						return false;
 					}
 
@@ -278,7 +328,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				goto kwargs;
 			}
 
-			if (!interp_node(wk, arg_node, &an[stage][i].val)) {
+			if (!interp_args_interp_node(wk, arg_node, &an[stage][i].val)) {
 				return false;
 			}
 
@@ -306,7 +356,7 @@ process_kwarg:
 			}
 
 			obj val;
-			if (!interp_node(wk, arg_node, &val)) {
+			if (!interp_args_interp_node(wk, arg_node, &val)) {
 				return false;
 			}
 
@@ -383,6 +433,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_array] = { impl_tbl_array, impl_tbl_array },
 	[obj_build_target] = { impl_tbl_build_target },
 	[obj_environment] = { impl_tbl_environment, impl_tbl_environment },
+	[obj_disabler] = { impl_tbl_disabler, impl_tbl_disabler },
 };
 
 bool
@@ -446,18 +497,29 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 		}
 
 		if (!func_lookup(impl_tbl, name, &func)) {
+			if (recvr_type == obj_disabler) {
+				*obj = disabler_id;
+				return true;
+			}
+
 			interp_error(wk, name_node, "function %s not found", name);
 			return false;
 		}
 	}
 
 	if (!func(wk, rcvr_id, args_node, obj)) {
-		if (recvr_type == obj_default) {
-			interp_error(wk, name_node, "in function %s",  name);
+		if (disabler_among_args) {
+			*obj = disabler_id;
+			disabler_among_args = false;
+			return true;
 		} else {
-			interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(recvr_type), name);
+			if (recvr_type == obj_default) {
+				interp_error(wk, name_node, "in function %s",  name);
+			} else {
+				interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(recvr_type), name);
+			}
+			return false;
 		}
-		return false;
 	}
 	/* L("finished calling %s.%s", obj_type_to_s(recvr_type), name); */
 	return true;

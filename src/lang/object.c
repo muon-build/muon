@@ -41,6 +41,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_environment: return "environment";
 	case obj_include_directory: return "include_directory";
 	case obj_option: return "option";
+	case obj_disabler: return "disabler";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:

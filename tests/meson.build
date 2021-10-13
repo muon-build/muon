@@ -12,6 +12,7 @@ tests = [
 	['array.meson'],
 	['environment.meson', {'env': 'inherited=secret' }],
 	['strings.meson'],
+	['disabler.meson'],
 ]
 
 foreach t : tests

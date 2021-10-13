@@ -14,6 +14,8 @@ struct func_impl_name {
 struct args_norm { enum obj_type type; uint32_t val, node; bool set; };
 struct args_kw { const char *key; enum obj_type type; uint32_t val, node; bool set; bool required; };
 
+extern bool disabler_among_args_immunity;
+
 bool todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj);
 bool func_lookup(const struct func_impl_name *impl_tbl, const char *name, func_impl *res);
 

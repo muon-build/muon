@@ -313,10 +313,12 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_required,
 		kw_native,
+		kw_disabler,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
 		[kw_native] = { "native", obj_bool },
+		[kw_disabler] = { "disabler", obj_bool },
 		0
 	};
 
@@ -343,7 +345,11 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
+		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
+			*res = disabler_id;
+		} else {
+			make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
+		}
 	} else {
 		struct obj *external_program = make_obj(wk, res, obj_external_program);
 		external_program->dat.external_program.found = true;
@@ -989,35 +995,40 @@ func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 }
 
 static bool
-func_is_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_is_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+
+	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
+	disabler_among_args_immunity = false;
 
-	make_obj(wk, obj, obj_bool)->dat.boolean = false;
+	make_obj(wk, res, obj_bool)->dat.boolean = an[0].val == disabler_id;
 	return true;
 }
 
 static bool
-func_disabler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	interp_error(wk, args_node, "disablers are not supported");
-	return false;
+	*res = disabler_id;
+	return true;
 }
 
 static bool
 func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
+	disabler_among_args_immunity = false;
 
 	hash_set(&current_project(wk)->scope, get_cstr(wk, an[0].val), an[1].val);
 	return true;
@@ -1026,9 +1037,18 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+	disabler_among_args_immunity = false;
+
+	if (an[0].val == disabler_id) {
+		*res = disabler_id;
+		return true;
+	} else if (!typecheck(wk, an[0].node, an[0].val, obj_string)) {
 		return false;
 	}
 
@@ -1041,6 +1061,21 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
+	return true;
+}
+
+static bool
+func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	disabler_among_args_immunity = true;
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+	disabler_among_args_immunity = false;
+
+	obj dont_care;
+	make_obj(wk, res, obj_bool)->dat.boolean = get_obj_id(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project);
 	return true;
 }
 
@@ -1150,7 +1185,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "install_man", func_install_todo },
 	{ "install_subdir", func_install_todo },
 	{ "is_disabler", func_is_disabler },
-	{ "is_variable", todo },
+	{ "is_variable", func_is_variable },
 	{ "jar", todo },
 	{ "join_paths", func_join_paths },
 	{ "library", func_static_library },
@@ -1175,15 +1210,20 @@ const struct func_impl_name impl_tbl_default[] =
 
 const struct func_impl_name impl_tbl_default_external[] = {
 	{ "assert", func_assert },
+	{ "disabler", func_disabler },
 	{ "environment", func_environment },
 	{ "error", func_error },
 	{ "files", func_files },
 	{ "find_program", func_find_program },
+	{ "get_variable", func_get_variable },
 	{ "import", func_import },
+	{ "is_disabler", func_is_disabler },
+	{ "is_variable", func_is_variable },
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
 	{ "p", func_p },
 	{ "run_command", func_run_command },
+	{ "set_variable", func_set_variable },
 	{ "setup", func_setup },
 	{ "warning", func_warning },
 	{ NULL, NULL },

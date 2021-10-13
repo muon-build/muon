@@ -38,6 +38,7 @@ enum obj_type {
 	obj_environment,
 	obj_include_directory,
 	obj_option,
+	obj_disabler,
 
 	obj_type_count,
 

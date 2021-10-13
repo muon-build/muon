@@ -198,6 +198,9 @@ workspace_init(struct workspace *wk)
 	hash_init(&wk->scope, 32);
 
 	uint32_t id;
+	make_obj(wk, &id, obj_disabler);
+	assert(id == disabler_id);
+
 	make_obj(wk, &id, obj_meson);
 	hash_set(&wk->scope, "meson", id);
 

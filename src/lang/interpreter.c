@@ -123,9 +123,9 @@ typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type
 static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj);
 
 static bool
-interp_method(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj)
+interp_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 {
-	uint32_t result = 0;
+	obj result = 0;
 
 	struct node *n = get_node(wk->ast, node_id);
 
@@ -134,9 +134,9 @@ interp_method(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *o
 	}
 
 	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, result, obj);
+		return interp_chained(wk, n->d, result, res);
 	} else {
-		*obj = result;
+		*res = result;
 		return true;
 	}
 }
@@ -153,6 +153,9 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 
 	struct obj *l = get_obj(wk, l_id), *r = get_obj(wk, r_id);
 	switch (l->type) {
+	case obj_disabler:
+		*obj = disabler_id;
+		return true;
 	case obj_array: {
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
 			return false;
@@ -234,10 +237,12 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 
 	if (!interp_node(wk, n->l, &l_id)) {
 		return false;
+	} else if (l_id == disabler_id) {
+		*obj = disabler_id;
+		return true;
 	} else if (!typecheck(wk, n->l, l_id, obj_number)) {
 		return false;
 	}
-
 
 	struct obj *num = make_obj(wk, obj, obj_number);
 	num->dat.num = -get_obj(wk, l_id)->dat.num;
@@ -254,6 +259,11 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	if (!interp_node(wk, n->l, &l_id)
 	    || !interp_node(wk, n->r, &r_id)) {
 		return false;
+	}
+
+	if (l_id == disabler_id || r_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
 	}
 
 	switch (get_obj(wk, l_id)->type) {
@@ -540,6 +550,9 @@ interp_not(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
+	} else if (obj_l_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
 	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
@@ -557,6 +570,9 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
+	} else if (obj_l_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
 	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
@@ -573,6 +589,9 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	if (!interp_node(wk, n->r, &obj_r_id)) {
 		return false;
+	} else if (obj_r_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
 	} else if (!typecheck(wk, n->r, obj_r_id, obj_bool)) {
 		return false;
 	}
@@ -593,6 +612,11 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	} else if (!interp_node(wk, n->r, &obj_r_id)) {
 		return false;
+	}
+
+	if (obj_l_id == disabler_id || obj_r_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
 	}
 
 	switch ((enum comparison_type)n->subtype) {
@@ -672,6 +696,9 @@ interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		uint32_t cond_id;
 		if (!interp_node(wk, n->l, &cond_id)) {
 			return false;
+		} else if (cond_id == disabler_id) {
+			*obj_id = disabler_id;
+			return true;
 		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
 			return false;
 		}
@@ -697,6 +724,9 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 		uint32_t cond_id;
 		if (!interp_node(wk, n->l, &cond_id)) {
 			return false;
+		} else if (cond_id == disabler_id) {
+			*obj = disabler_id;
+			return true;
 		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
 			return false;
 		}

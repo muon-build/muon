@@ -45,6 +45,7 @@ cat \
 	src/functions/default/setup.c \
 	src/functions/dependency.c \
 	src/functions/dict.c \
+	src/functions/disabler.c \
 	src/functions/environment.c \
 	src/functions/external_library.c \
 	src/functions/external_program.c \

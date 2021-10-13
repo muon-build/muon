@@ -39,6 +39,10 @@ struct option_override {
 	bool obj_value;
 };
 
+enum {
+	disabler_id = 1 << 1
+};
+
 struct workspace {
 	char argv0[PATH_MAX],
 	     source_root[PATH_MAX],
