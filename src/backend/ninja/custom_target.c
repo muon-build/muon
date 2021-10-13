@@ -67,12 +67,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		return ir_err;
 	}
 
-	uint32_t cmd;
-	obj_array_index(wk, tgt->dat.custom_target.args, 0, &cmd);
-	char cmd_escaped[PATH_MAX];
-	if (!ninja_escape(cmd_escaped, PATH_MAX, get_cstr(wk, cmd))) {
-		return ir_err;
-	}
+	obj depends = join_args_ninja(wk, tgt->dat.custom_target.depends);
 
 	obj_array_extend(wk, cmdline, tgt_args);
 
@@ -85,7 +80,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		" DESCRIPTION = %s\n\n",
 		get_cstr(wk, outputs),
 		get_cstr(wk, inputs),
-		cmd_escaped,
+		get_cstr(wk, depends),
 		get_cstr(wk, cmdline),
 		get_cstr(wk, cmdline)
 		);

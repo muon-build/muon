@@ -128,6 +128,7 @@ struct obj {
 			obj args; // obj_array
 			obj input; // obj_array
 			obj output; // obj_array
+			obj depends; // obj_array
 			enum custom_target_flags flags;
 		} custom_target;
 		struct {

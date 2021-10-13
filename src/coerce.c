@@ -48,7 +48,7 @@ coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *r
 
 	switch ((obj = get_obj(wk, val))->type) {
 	case obj_file:
-		str = get_obj(wk, val)->dat.str;
+		str = get_obj(wk, val)->dat.file;
 		break;
 	case obj_build_target: {
 		char tmp1[PATH_MAX], dest[PATH_MAX];

@@ -265,7 +265,7 @@ generate_config(struct workspace *wk, uint32_t dict, uint32_t node, uint32_t out
 
 static bool
 configure_file_with_command(struct workspace *wk, uint32_t node,
-	uint32_t command, uint32_t input, uint32_t out_path, uint32_t depfile,
+	obj command, obj input, obj out_path, obj depfile,
 	bool capture)
 {
 	uint32_t args, output_arr;
@@ -277,8 +277,10 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		obj_array_push(wk, output_arr, f);
 	}
 
+	obj depends; // used only for the call below :(
+	make_obj(wk, &depends, obj_array);
 	if (!process_custom_target_commandline(wk, node, command, input,
-		output_arr, depfile, &args)) {
+		output_arr, depfile, depends, &args)) {
 		return false;
 	}
 
