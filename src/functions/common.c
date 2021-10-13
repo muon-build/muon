@@ -161,7 +161,7 @@ typecheck_function_arg_check_disabler_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-typecheck_function_arg(struct workspace *wk, uint32_t err_node, uint32_t *val, enum obj_type type)
+typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum obj_type type)
 {
 	if (!disabler_among_args_immunity) {
 		if (*val == disabler_id) {
@@ -301,6 +301,9 @@ interp_args(struct workspace *wk, uint32_t args_node,
 						return false;
 					}
 
+					if (!typecheck_function_arg(wk, arg_node, &val, obj_any)) {
+						return false;
+					}
 					obj_array_push(wk, an[stage][i].val, val);
 				}
 
