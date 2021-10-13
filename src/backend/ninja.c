@@ -90,8 +90,7 @@ ninja_write_setup(struct workspace *wk, void *_ctx, FILE *f)
 {
 	struct project *proj;
 	uint32_t i;
-	char buf[2048];
-	uint32_t opts;
+	obj opts;
 	proj = darr_get(&wk->projects, 0);
 
 	if (!obj_dict_dup(wk, proj->opts, &opts)) {
@@ -105,10 +104,7 @@ ninja_write_setup(struct workspace *wk, void *_ctx, FILE *f)
 		obj_dict_set(wk, opts, str, proj->opts);
 	}
 
-	// TODO: if this truncates, we generate something invalid here
-	obj_to_s(wk, opts, buf, 2048);
-
-	fprintf(f, "setup(\n\t'%s',\n\tsource: '%s',\n\toptions: %s\n)\n", wk->build_root, wk->source_root, buf);
+	fprintf(f, "error('build regeneration is broken :(')\n");
 	return true;
 }
 
