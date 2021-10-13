@@ -242,8 +242,7 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 		break;
 	}
 	case op_array: {
-		interp_error(wk, node, "TODO '%s'.split(',') :^)", val);
-		return false;
+		*obj_id = wk_str_split(wk, &WKSTR(val), &WKSTR(","));
 		break;
 	}
 	case op_feature:
