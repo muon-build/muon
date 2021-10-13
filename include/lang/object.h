@@ -2,13 +2,12 @@
 #define MUON_LANG_OBJECT_H
 
 #include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 
 #include "compilers.h"
 #include "iterator.h"
 #include "lang/string.h"
+#include "lang/types.h"
 
 enum obj_type {
 	obj_any, // used for argument type checking
@@ -46,8 +45,6 @@ enum obj_type {
 	ARG_TYPE_GLOB     = 1001,
 	ARG_TYPE_ARRAY_OF = 1 << 20,
 };
-
-typedef uint32_t obj;
 
 enum tgt_type {
 	tgt_executable,

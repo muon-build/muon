@@ -299,3 +299,32 @@ wk_str_to_i(const struct str *ss, int64_t *res)
 
 	return true;
 }
+
+obj
+wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split)
+{
+	obj res;
+	make_obj(wk, &res, obj_array);
+
+	uint32_t i, start = 0;
+	obj s;
+
+	for (i = 0; i < ss->len; ++i) {
+		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
+
+		if (wk_str_startswith(&slice, split)) {
+			make_obj(wk, &s, obj_string)->dat.str = wk_str_pushn(wk, &ss->s[start], i - start);
+
+			obj_array_push(wk, res, s);
+
+			start = i + split->len;
+			i += split->len - 1;
+		}
+	}
+
+	make_obj(wk, &s, obj_string)->dat.str =
+		wk_str_pushn(wk, &ss->s[start], i - start);
+
+	obj_array_push(wk, res, s);
+	return res;
+}

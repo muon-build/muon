@@ -238,32 +238,11 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	uint32_t i, start = 0, s_id;
+	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" "),
+			 *ss = get_str(wk, rcvr);
 
-	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" ");
 
-	make_obj(wk, obj, obj_array);
-
-	const struct str* ss = get_str(wk, rcvr);
-	for (i = 0; i < ss->len; ++i) {
-		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
-
-		if (wk_str_startswith(&slice, split)) {
-			make_obj(wk, &s_id, obj_string)->dat.str =
-				wk_str_pushn(wk, &ss->s[start], i - start);
-
-			obj_array_push(wk, *obj, s_id);
-
-			start = i + split->len;
-			i += split->len - 1;
-		}
-	}
-
-	make_obj(wk, &s_id, obj_string)->dat.str =
-		wk_str_pushn(wk, &ss->s[start], i - start);
-
-	obj_array_push(wk, *obj, s_id);
-
+	*obj = wk_str_split(wk, ss, split);
 	return true;
 }
 
