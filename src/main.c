@@ -25,6 +25,7 @@
 #include "platform/run_cmd.h"
 #include "tests.h"
 #include "version.h"
+#include "wrap.h"
 
 static bool
 cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
@@ -126,6 +127,34 @@ ret:
 	fs_source_destroy(&src);
 	ast_destroy(&ast);
 	source_data_destroy(&sdata);
+	return ret;
+}
+
+static bool
+cmd_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct {
+		const char *filename;
+	} opts = { 0 };
+
+	OPTSTART("") {
+	} OPTEND(argv[argi],
+		" <filename>",
+		"",
+		NULL, 1)
+
+	opts.filename = argv[argi];
+
+	bool ret = false;
+
+	struct wrap wrap = { 0 };
+	if (!wrap_parse(opts.filename, &wrap)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	wrap_destroy(&wrap);
 	return ret;
 }
 
@@ -364,6 +393,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		{ "auto", cmd_auto, "build the project with default options" },
 		{ "check", cmd_check, "check if a meson file parses" },
+		{ "check-wrap", cmd_check_wrap, "check if a meson wrap is valid" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "samu", cmd_samu, "run samurai" },
