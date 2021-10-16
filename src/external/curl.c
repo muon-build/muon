@@ -20,6 +20,8 @@ static struct {
 void
 muon_curl_init(void)
 {
+	assert(!fetch_ctx.init);
+
 	if (curl_global_init(CURL_GLOBAL_DEFAULT) == 0) {
 		fetch_ctx.init = true;
 	}
@@ -29,7 +31,6 @@ void
 muon_curl_deinit(void)
 {
 	if (!fetch_ctx.init) {
-		LOG_E("curl is not initialized");
 		return;
 	}
 
@@ -79,6 +80,10 @@ muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 	}
 
 	if ((err = curl_easy_setopt(curl_handle, CURLOPT_ERRORBUFFER, errbuf)) != CURLE_OK) {
+		goto err1;
+	}
+
+	if ((err = curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1) != CURLE_OK)) {
 		goto err1;
 	}
 
