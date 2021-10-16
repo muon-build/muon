@@ -110,11 +110,8 @@ done_with_line:
 }
 
 bool
-ini_parse(const char *path, char **buf, inihcb cb, void *octx)
+ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
 {
-	*buf = NULL;
-	bool ret = false;
-
 	struct each_line_ctx ctx = {
 		.octx = octx,
 		.cb = cb,
@@ -122,19 +119,14 @@ ini_parse(const char *path, char **buf, inihcb cb, void *octx)
 		.success = true,
 	};
 
-	uint64_t len;
 	if (!fs_read_entire_file(path, &ctx.src)) {
-		goto ret;
+		return false;
 	}
 
-	len = ctx.src.len;
-	*buf = z_malloc(len);
-	memcpy(*buf, ctx.src.src, len);
+	*src = ctx.src;
+	*buf = z_calloc(ctx.src.len, 1);
+	memcpy(*buf, ctx.src.src, ctx.src.len);
 
-	each_line(*buf, len, &ctx, each_line_cb);
-
-	ret = true;
-ret:
-	fs_source_destroy(&ctx.src);
-	return ret && ctx.success;
+	each_line(*buf, ctx.src.len, &ctx, each_line_cb);
+	return ctx.success;
 }

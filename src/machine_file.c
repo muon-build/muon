@@ -120,7 +120,6 @@ bool
 machine_file_parse(struct workspace *dest_wk, const char *path)
 {
 	bool ret = false;
-	char *ini_buf;
 
 	struct workspace wk;
 	workspace_init(&wk);
@@ -132,15 +131,18 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 
 	struct machine_file_parse_ctx ctx = { .wk = &wk, .dest_wk = dest_wk, };
 
-	if (!ini_parse(path, &ini_buf, machine_file_parse_cb, &ctx)) {
+	struct source src;
+	char *buf = NULL;
+	if (!ini_parse(path, &src, &buf, machine_file_parse_cb, &ctx)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	if (ini_buf) {
-		z_free(ini_buf);
+	if (buf) {
+		z_free(buf);
 	}
+	fs_source_destroy(&src);
 	workspace_destroy(&wk);
 	return ret;
 
