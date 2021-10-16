@@ -7,7 +7,6 @@
 #include <zlib.h>
 
 #include "external/zlib.h"
-#include "formats/tar.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -82,18 +81,7 @@ unzip(uint8_t *data, uint64_t len, uint8_t **out, uint64_t *out_len)
 }
 
 bool
-muon_zlib_extract(uint8_t *data, uint64_t len, const char *destdir)
+muon_zlib_extract(uint8_t *data, uint64_t len, uint8_t **unzipped, uint64_t *unzipped_len)
 {
-	uint8_t *unzipped;
-	uint64_t unzipped_len;
-
-	if (!unzip(data, len, &unzipped, &unzipped_len)) {
-		return false;
-	} else if (!untar(unzipped, unzipped_len, destdir)) {
-		z_free(unzipped);
-		return false;
-	}
-
-	z_free(unzipped);
-	return true;
+	return unzip(data, len, unzipped, unzipped_len);
 }
