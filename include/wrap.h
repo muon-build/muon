@@ -47,7 +47,7 @@ enum wrap_type {
 struct wrap {
 	struct source src;
 	enum wrap_type type;
-	char name[PATH_MAX];
+	char dest_dir[PATH_MAX];
 	const char *fields[wrap_fields_count];
 	char *buf;
 };

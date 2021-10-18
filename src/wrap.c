@@ -174,7 +174,6 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	enum req { invalid, required, optional };
 	enum req field_req[wrap_fields_count] = {
 		[wf_directory] = optional,
-		[wf_lead_directory_missing] = optional,
 		[wf_patch_directory] = optional
 	};
 
@@ -194,6 +193,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 		field_req[wf_source_url] = required;
 		field_req[wf_source_hash] = required;
 		field_req[wf_source_fallback_url] = optional;
+		field_req[wf_lead_directory_missing] = optional;
 		break;
 	case wrap_type_git:
 		field_req[wf_url] = required;
@@ -317,8 +317,22 @@ wrap_handle_git(struct wrap *wrap, const char *subprojects)
 static bool
 wrap_handle_file(struct wrap *wrap, const char *subprojects)
 {
+	const char *dest;
+
+	if (wrap->fields[wf_lead_directory_missing]) {
+		dest = wrap->dest_dir;
+	} else {
+		dest = subprojects;
+	}
+
+	if (!fs_dir_exists(dest)) {
+		if (!fs_mkdir(dest)) {
+			return false;
+		}
+	}
+
 	return fetch_checksum_extract(wrap->fields[wf_source_url],
-		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], subprojects);
+		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], dest);
 }
 
 bool
