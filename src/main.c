@@ -193,14 +193,13 @@ static bool
 cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", NULL, -1)
+	} OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
 	char path[PATH_MAX];
 	if (!path_make_absolute(path, PATH_MAX, "subprojects")) {
 		return false;
 	}
 
-	L("path: %s", path);
 	struct cmd_subprojects_download_ctx ctx = {
 		.subprojects = path,
 	};
