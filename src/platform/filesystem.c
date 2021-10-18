@@ -2,6 +2,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "buf_size.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -404,6 +406,127 @@ fs_redirect_restore(int fd, int old_fd)
 		return false;
 	} else if (close(old_fd) == -1) {
 		LOG_E("failed close(%d): %s", old_fd, strerror(errno));
+		return false;
+	}
+	return true;
+}
+
+bool
+fs_copy_file(const char *src, const char *dest)
+{
+	bool res = false;
+	FILE *f_src = NULL;
+	int f_dest = 0;
+
+	struct stat st;
+	if (!fs_stat(src, &st)) {
+		goto ret;
+	}
+
+	if (!(f_src = fs_fopen(src, "r"))) {
+		goto ret;
+	}
+
+	if ((f_dest = open(dest, O_CREAT | O_WRONLY | O_TRUNC, st.st_mode)) == -1) {
+		LOG_E("failed to create destination file %s: %s", dest, strerror(errno));
+		goto ret;
+	}
+
+	assert(f_dest != 0);
+
+	size_t r;
+	ssize_t w;
+	char buf[BUF_SIZE_32k];
+
+	while ((r = fread(buf, 1, BUF_SIZE_32k, f_src)) > 0) {
+		errno = 0; // to ensure that we get the error from write() only
+
+		if ((w = write(f_dest, buf, r)) == -1) {
+			LOG_E("failed write(): %s", strerror(errno));
+			goto ret;
+		} else {
+			assert(w >= 0);
+
+			if ((size_t)w < r) {
+				LOG_E("incomplete write: %s", strerror(errno));
+				goto ret;
+			}
+		}
+	}
+
+	if (!feof(f_src)) {
+		LOG_E("incomplete read: %s", strerror(errno));
+		goto ret;
+	}
+
+	res = true;
+ret:
+	if (f_src) {
+		if (!fs_fclose(f_src)) {
+			res = false;
+		}
+	}
+
+	if (f_dest) {
+		if (close(f_dest) == -1) {
+			LOG_E("failed close(): %s", strerror(errno));
+			res = false;
+		}
+	}
+
+	return res;
+}
+
+bool
+fs_copy_dir(const char *src_base, const char *dest_base)
+{
+	L("'%s' -> '%s'", src_base, dest_base);
+
+	DIR *d;
+	struct dirent *ent;
+	struct stat sb;
+	char src[PATH_MAX], dest[PATH_MAX];
+
+	if (!(d = opendir(src_base))) {
+		LOG_E("failed opendir(%s): %s", src_base, strerror(errno));
+	}
+
+	while ((ent = readdir(d))) {
+		if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+			continue;
+		}
+
+		L("%s", ent->d_name);
+
+		if (!fs_stat(ent->d_name, &sb)) {
+			return false;
+		}
+
+		if (!path_join(src, PATH_MAX, src_base, ent->d_name)) {
+			return false;
+		} else if (!path_join(dest, PATH_MAX, dest_base, ent->d_name)) {
+			return false;
+		}
+
+		if (S_ISDIR(sb.st_mode)) {
+			if (!fs_mkdir(dest)) {
+				return false;
+			}
+
+			if (!fs_copy_dir(src, dest)) {
+				return false;
+			}
+		} else if (S_ISREG(sb.st_mode)) {
+			if (!fs_copy_file(src, dest)) {
+				return false;
+			}
+		} else {
+			LOG_E("unhandled file type '%s'", ent->d_name);
+		}
+	}
+
+	if (closedir(d) != 0) {
+		LOG_E("failed closedir(): %s", strerror(errno));
 		return false;
 	}
 	return true;
