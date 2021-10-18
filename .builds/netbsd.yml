@@ -1,6 +1,7 @@
 image: netbsd/latest
 packages:
   - curl
+  - libarchive
   - pkgconf
   - samurai
 sources:

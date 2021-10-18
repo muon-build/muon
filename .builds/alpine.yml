@@ -1,9 +1,9 @@
 image: alpine/latest
 packages:
   - curl-dev
+  - libarchive-dev
   - pkgconf-dev
   - samurai
-  - zlib-dev
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
