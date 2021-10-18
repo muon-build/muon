@@ -1,9 +1,9 @@
 #include "posix.h"
 
-#include "external/curl.h"
+#include "external/libcurl.h"
 #include "log.h"
 
-const bool have_curl = false;
+const bool have_libcurl = false;
 
 void
 muon_curl_init(void)

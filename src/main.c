@@ -7,8 +7,8 @@
 
 #include "backend/ninja.h"
 #include "compilers.h"
-#include "external/curl.h"
-#include "external/pkgconf.h"
+#include "external/libcurl.h"
+#include "external/libpkgconf.h"
 #include "external/samu.h"
 #include "external/zlib.h"
 #include "formats/ini.h"
@@ -367,8 +367,8 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	printf("muon v%s-%s\nenabled features:",
 		muon_version.version, muon_version.vcs_tag);
-	if (have_curl) {
-		printf(" curl");
+	if (have_libcurl) {
+		printf(" libcurl");
 	}
 
 	if (have_libpkgconf) {

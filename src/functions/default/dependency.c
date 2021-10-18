@@ -4,7 +4,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "external/pkgconf.h"
+#include "external/libpkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
 #include "functions/string.h"

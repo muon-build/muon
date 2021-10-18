@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "external/pkgconf.h"
+#include "external/libpkgconf.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/dependency.h"

@@ -7,11 +7,11 @@
 
 #include <curl/curl.h>
 
-#include "external/curl.h"
+#include "external/libcurl.h"
 #include "log.h"
 #include "platform/mem.h"
 
-const bool have_curl = true;
+const bool have_libcurl = true;
 
 static struct {
 	bool init;

@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <string.h>
 
-#include "external/pkgconf.h"
+#include "external/libpkgconf.h"
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"

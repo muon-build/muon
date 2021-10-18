@@ -1,5 +1,5 @@
-#ifndef MUON_EXTERNAL_PKGCONF_H
-#define MUON_EXTERNAL_PKGCONF_H
+#ifndef MUON_EXTERNAL_LIBPKGCONF_H
+#define MUON_EXTERNAL_LIBPKGCONF_H
 
 #include "lang/workspace.h"
 
