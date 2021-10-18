@@ -245,11 +245,6 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 {
 	struct wrap_parse_ctx ctx = { 0 };
 
-	uint32_t len = strlen(wrap_file);
-	assert(len > 5 && "wrap file doesn't end in .wrap??");
-	assert(len - 5 < PATH_MAX);
-	memcpy(ctx.wrap.name, wrap_file, strlen(wrap_file) - 5);
-
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
 		wrap_destroy(&ctx.wrap);
 		return false;
@@ -261,25 +256,37 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 	}
 
 	*wrap = ctx.wrap;
+
+	char name[PATH_MAX];
+	if (!path_basename(name, PATH_MAX, wrap_file)) {
+		return false;
+	}
+
+	uint32_t len = strlen(name);
+	assert(len > 5 && "wrap file doesn't end in .wrap??");
+	assert(len - 5 < PATH_MAX);
+	name[len - 5] = 0;
+
+	const char *dir;
+	if (wrap->fields[wf_directory]) {
+		dir = wrap->fields[wf_directory];
+	} else {
+		dir = name;
+	}
+
+	char subprojects[PATH_MAX];
+	if (!path_dirname(subprojects, PATH_MAX, wrap_file)) {
+		return false;
+	} else if (!path_join(wrap->dest_dir, PATH_MAX, subprojects, dir)) {
+		return false;
+	}
+
 	return true;
 }
 
 static bool
 wrap_apply_patch(struct wrap *wrap, const char *subprojects)
 {
-	char dest_dir[PATH_MAX];
-
-	const char *dir;
-	if (wrap->fields[wf_directory]) {
-		dir = wrap->fields[wf_directory];
-	} else {
-		dir = wrap->name;
-	}
-
-	if (!path_join(dest_dir, PATH_MAX, subprojects, dir)) {
-		return false;
-	}
-
 	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wrap->fields[wf_patch_url],
 		wrap->fields[wf_patch_filename], wrap->fields[wf_patch_hash], subprojects)) {
 		return false;
@@ -292,7 +299,7 @@ wrap_apply_patch(struct wrap *wrap, const char *subprojects)
 			return false;
 		}
 
-		if (!fs_copy_dir(patch_dir, dest_dir)) {
+		if (!fs_copy_dir(patch_dir, wrap->dest_dir)) {
 			return false;
 		}
 	}
