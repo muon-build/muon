@@ -7,10 +7,10 @@
 
 #include "backend/ninja.h"
 #include "compilers.h"
+#include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samu.h"
-#include "external/zlib.h"
 #include "formats/ini.h"
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
@@ -375,8 +375,8 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 		printf(" libpkgconf");
 	}
 
-	if (have_zlib) {
-		printf(" zlib");
+	if (have_libarchive) {
+		printf(" libarchive");
 	}
 
 	if (have_samu) {

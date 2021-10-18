@@ -73,8 +73,8 @@ src = files([
 )]
 
 foreach d: [
-		['libcurl',    'curl',       'dependency'],
-		['zlib',       'zlib',       'dependency'],
+		['libcurl',    'libcurl',    'dependency'],
+		['libarchive', 'libarchive', 'dependency'],
 		['libpkgconf', 'libpkgconf', 'dependency'],
 		['samurai',    'samu',       'subproject', 'libsamu_dep'],
 	]

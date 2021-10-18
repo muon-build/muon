@@ -4,10 +4,9 @@
 #include <stdlib.h>
 
 #include "error.h"
-#include "external/curl.h"
-#include "external/zlib.h"
+#include "external/libarchive.h"
+#include "external/libcurl.h"
 #include "formats/ini.h"
-#include "formats/tar.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/workspace.h"
@@ -144,16 +143,14 @@ fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, 
 	const char *dest_dir)
 {
 	bool res = false;
-	uint8_t *dlbuf = NULL, *unzipped = NULL;
-	uint64_t dlbuf_len, unzipped_len;
+	uint8_t *dlbuf = NULL;
+	uint64_t dlbuf_len;
 
 	if (!muon_curl_fetch(src, &dlbuf, &dlbuf_len)) {
 		goto ret;
 	} else if (!checksum(dlbuf, dlbuf_len, sha256)) {
 		goto ret;
-	} else if (!muon_zlib_extract(dlbuf, dlbuf_len, &unzipped, &unzipped_len)) {
-		goto ret;
-	} else if (!untar(unzipped, unzipped_len, dest_dir)) {
+	} else if (!muon_archive_extract((const char *)dlbuf, dlbuf_len, dest_dir)) {
 		goto ret;
 	}
 
@@ -161,9 +158,6 @@ fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, 
 ret:
 	if (dlbuf) {
 		z_free(dlbuf);
-	}
-	if (unzipped) {
-		z_free(unzipped);
 	}
 	return res;
 }

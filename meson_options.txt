@@ -1,7 +1,7 @@
-option('zlib', type: 'feature', value: 'auto')
 option('libcurl', type: 'feature', value: 'auto')
+option('libarchive', type: 'feature', value: 'auto')
+option('libpkgconf', type: 'feature', value: 'auto')
 option('samu', type: 'feature', value: 'disabled',
 	description: 'embed samurai into the muon executable')
-option('libpkgconf', type: 'feature', value: 'auto')
 option('static', type: 'boolean', value: true,
 	description: 'try to link dependencies statically')
