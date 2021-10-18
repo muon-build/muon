@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "iterator.h"
+
 struct source {
 	const char *label;
 	const char *src;
@@ -30,4 +32,7 @@ bool fs_redirect(const char *path, const char *mode, int fd, int *old_fd);
 bool fs_redirect_restore(int fd, int old_fd);
 bool fs_copy_file(const char *src, const char *dest);
 bool fs_copy_dir(const char *src_base, const char *dest_base);
+
+typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
+bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
 #endif

@@ -414,6 +414,8 @@ fs_redirect_restore(int fd, int old_fd)
 bool
 fs_copy_file(const char *src, const char *dest)
 {
+	L("'%s' -> '%s'", src, dest);
+
 	bool res = false;
 	FILE *f_src = NULL;
 	int f_dest = 0;
@@ -477,51 +479,89 @@ ret:
 	return res;
 }
 
-bool
-fs_copy_dir(const char *src_base, const char *dest_base)
-{
-	L("'%s' -> '%s'", src_base, dest_base);
+struct fs_copy_dir_ctx {
+	const char *src_base, *dest_base;
+};
 
-	DIR *d;
-	struct dirent *ent;
+static enum iteration_result
+fs_copy_dir_iter(void *_ctx, const char *path)
+{
+	struct fs_copy_dir_ctx *ctx = _ctx;
 	struct stat sb;
 	char src[PATH_MAX], dest[PATH_MAX];
 
-	if (!(d = opendir(src_base))) {
-		LOG_E("failed opendir(%s): %s", src_base, strerror(errno));
+	if (!path_join(src, PATH_MAX, ctx->src_base, path)) {
+		return ir_err;
+	} else if (!path_join(dest, PATH_MAX, ctx->dest_base, path)) {
+		return ir_err;
 	}
 
-	while ((ent = readdir(d))) {
+	if (!fs_stat(src, &sb)) {
+		return ir_err;
+	}
+
+	if (S_ISDIR(sb.st_mode)) {
+		if (!fs_dir_exists(dest)) {
+			if (!fs_mkdir(dest)) {
+				return ir_err;
+			}
+		}
+
+		if (!fs_copy_dir(src, dest)) {
+			return ir_err;
+		}
+	} else if (S_ISREG(sb.st_mode)) {
+		if (!fs_copy_file(src, dest)) {
+			return ir_err;
+		}
+	} else {
+		LOG_E("unhandled file type '%s'", path);
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+bool
+fs_copy_dir(const char *src_base, const char *dest_base)
+{
+	struct fs_copy_dir_ctx ctx = {
+		.src_base = src_base,
+		.dest_base = dest_base,
+	};
+
+	L("'%s' -> '%s'", src_base, dest_base);
+
+	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);
+}
+
+bool
+fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
+{
+	DIR *d;
+	struct dirent *ent;
+
+	if (!(d = opendir(path))) {
+		LOG_E("failed opendir(%s): %s", path, strerror(errno));
+		return false;
+	}
+
+	bool loop = true, res = true;
+	while (loop && (ent = readdir(d))) {
 		if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
 			continue;
 		}
 
-		L("%s", ent->d_name);
-
-		if (!fs_stat(ent->d_name, &sb)) {
-			return false;
-		}
-
-		if (!path_join(src, PATH_MAX, src_base, ent->d_name)) {
-			return false;
-		} else if (!path_join(dest, PATH_MAX, dest_base, ent->d_name)) {
-			return false;
-		}
-
-		if (S_ISDIR(sb.st_mode)) {
-			if (!fs_mkdir(dest)) {
-				return false;
-			}
-
-			if (!fs_copy_dir(src, dest)) {
-				return false;
-			}
-		} else if (S_ISREG(sb.st_mode)) {
-			if (!fs_copy_file(src, dest)) {
-				return false;
-			}
-		} else {
-			LOG_E("unhandled file type '%s'", ent->d_name);
+		switch (cb(_ctx, ent->d_name)) {
+		case ir_cont:
+			break;
+		case ir_done:
+			loop = false;
+			break;
+		case ir_err:
+			loop = false;
+			res = false;
+			break;
 		}
 	}
 
@@ -529,5 +569,6 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 		LOG_E("failed closedir(): %s", strerror(errno));
 		return false;
 	}
-	return true;
+
+	return res;
 }
