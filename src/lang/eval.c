@@ -17,7 +17,8 @@ bool
 eval_project(struct workspace *wk, const char *subproject_name,
 	const char *cwd, const char *build_dir, uint32_t *proj_id)
 {
-	char src[PATH_MAX], meson_opts[PATH_MAX];
+	char src[PATH_MAX], meson_opts[PATH_MAX],
+	     new_cwd[PATH_MAX], new_build_dir[PATH_MAX];
 
 	if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
 		return false;
@@ -26,17 +27,41 @@ eval_project(struct workspace *wk, const char *subproject_name,
 	}
 
 	if (!fs_dir_exists(cwd)) {
-		char wrap[PATH_MAX], base[PATH_MAX];
-		snprintf(wrap, PATH_MAX, "%s.wrap", cwd);
+		char wrap_path[PATH_MAX], base_path[PATH_MAX];
+		snprintf(wrap_path, PATH_MAX, "%s.wrap", cwd);
 
-		if (fs_file_exists(wrap)) {
-			if (!path_dirname(base, PATH_MAX, cwd)) {
+		if (fs_file_exists(wrap_path)) {
+			if (!path_dirname(base_path, PATH_MAX, cwd)) {
 				return false;
 			}
 
-			if (!wrap_handle(wk, wrap, base)) {
+			struct wrap wrap = { 0 };
+			if (!wrap_handle(wk, wrap_path, base_path, &wrap)) {
 				return false;
 			}
+
+			if (wrap.fields[wf_directory]) {
+				if (!path_join(new_cwd, PATH_MAX, base_path, wrap.fields[wf_directory])) {
+					return false;
+				}
+
+				if (!path_dirname(base_path, PATH_MAX, build_dir)) {
+					return false;
+				} else if (!path_join(new_build_dir, PATH_MAX, base_path, wrap.fields[wf_directory])) {
+					return false;
+				}
+
+				cwd = new_cwd;
+				build_dir = new_build_dir;
+
+				if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
+					return false;
+				} else if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
+					return false;
+				}
+			}
+
+			wrap_destroy(&wrap);
 		} else {
 			LOG_E("project %s not found", cwd);
 			return false;

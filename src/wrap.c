@@ -13,6 +13,7 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 #include "sha_256.h"
 #include "wrap.h"
 
@@ -146,6 +147,8 @@ fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, 
 	uint8_t *dlbuf = NULL;
 	uint64_t dlbuf_len;
 
+	muon_curl_init();
+
 	if (!muon_curl_fetch(src, &dlbuf, &dlbuf_len)) {
 		goto ret;
 	} else if (!checksum(dlbuf, dlbuf_len, sha256)) {
@@ -159,6 +162,7 @@ ret:
 	if (dlbuf) {
 		z_free(dlbuf);
 	}
+	muon_curl_deinit();
 	return res;
 }
 
@@ -242,6 +246,11 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 {
 	struct wrap_parse_ctx ctx = { 0 };
 
+	uint32_t len = strlen(wrap_file);
+	assert(len > 5 && "wrap file doesn't end in .wrap??");
+	assert(len - 5 < PATH_MAX);
+	memcpy(ctx.wrap.name, wrap_file, strlen(wrap_file) - 5);
+
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
 		wrap_destroy(&ctx.wrap);
 		return false;
@@ -257,6 +266,42 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 }
 
 static bool
+wrap_apply_patch(struct workspace *wk, struct wrap *wrap, const char *subprojects)
+{
+	char dest_dir[PATH_MAX];
+
+	const char *dir;
+	if (wrap->fields[wf_directory]) {
+		dir = wrap->fields[wf_directory];
+	} else {
+		dir = wrap->name;
+	}
+
+	if (!path_join(dest_dir, PATH_MAX, subprojects, dir)) {
+		return false;
+	}
+
+	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wk, wrap->fields[wf_patch_url],
+		wrap->fields[wf_patch_filename], wrap->fields[wf_patch_hash], subprojects)) {
+		return false;
+	} else if (wrap->fields[wf_patch_directory]) {
+		char patch_dir[PATH_MAX], buf[PATH_MAX];
+
+		if (!path_join(buf, PATH_MAX, subprojects, "packagefiles")) {
+			return false;
+		} else if (!path_join(patch_dir, PATH_MAX, buf, wrap->fields[wf_patch_directory])) {
+			return false;
+		}
+
+		if (!fs_copy_dir(patch_dir, dest_dir)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
 wrap_handle_git(struct workspace *wk, struct wrap *wrap, const char *dest_path)
 {
 	LOG_E("TODO: wrap-git");
@@ -266,44 +311,26 @@ wrap_handle_git(struct workspace *wk, struct wrap *wrap, const char *dest_path)
 static bool
 wrap_handle_file(struct workspace *wk, struct wrap *wrap, const char *dest_path)
 {
-	bool res = false;
-
-	muon_curl_init();
-
-	if (!fetch_checksum_extract(wk, wrap->fields[wf_source_url],
-		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], dest_path)) {
-		goto ret;
-	}
-
-	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wk, wrap->fields[wf_patch_url],
-		wrap->fields[wf_patch_filename], wrap->fields[wf_patch_hash], dest_path)) {
-		goto ret;
-	}
-
-	res = true;
-ret:
-	muon_curl_deinit();
-	return res;
+	return fetch_checksum_extract(wk, wrap->fields[wf_source_url],
+		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], dest_path);
 }
 
 bool
-wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
+wrap_handle(struct workspace *wk, const char *wrap_file, const char *subprojects, struct wrap *wrap)
 {
-	bool res = false;
-	struct wrap wrap = { 0 };
-	if (!wrap_parse(wrap_file, &wrap)) {
+	if (!wrap_parse(wrap_file, wrap)) {
 		return false;
 	}
 
-	switch (wrap.type) {
+	switch (wrap->type) {
 	case wrap_type_file:
-		if (!wrap_handle_file(wk, &wrap, dest_path)) {
-			goto ret;
+		if (!wrap_handle_file(wk, wrap, subprojects)) {
+			return false;
 		}
 		break;
 	case wrap_type_git:
-		if (!wrap_handle_git(wk, &wrap, dest_path)) {
-			goto ret;
+		if (!wrap_handle_git(wk, wrap, subprojects)) {
+			return false;
 		}
 		break;
 	default:
@@ -311,8 +338,9 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path)
 		return false;
 	}
 
-	res = true;
-ret:
-	wrap_destroy(&wrap);
-	return res;
+	if (!wrap_apply_patch(wk, wrap, subprojects)) {
+		return false;
+	}
+
+	return true;
 }

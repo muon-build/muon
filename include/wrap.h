@@ -1,5 +1,9 @@
 #ifndef MUON_WRAP_H
 #define MUON_WRAP_H
+
+#include "posix.h"
+
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -43,11 +47,12 @@ enum wrap_type {
 struct wrap {
 	struct source src;
 	enum wrap_type type;
+	char name[PATH_MAX];
 	const char *fields[wrap_fields_count];
 	char *buf;
 };
 
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(const char *wrap_file, struct wrap *wrap);
-bool wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path);
+bool wrap_handle(struct workspace *wk, const char *wrap_file, const char *dest_path, struct wrap *wrap);
 #endif
