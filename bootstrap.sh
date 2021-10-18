@@ -24,10 +24,10 @@ cat \
 	src/data/darr.c \
 	src/data/hash.c \
 	src/error.c \
-	src/external/curl_null.c \
+	src/external/libarchive_null.c \
+	src/external/libcurl_null.c \
 	src/external/libpkgconf.c \
 	src/external/samu_null.c \
-	src/external/zlib_null.c \
 	src/formats/ini.c \
 	src/formats/tar.c \
 	src/functions/array.c \
