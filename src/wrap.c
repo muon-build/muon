@@ -140,7 +140,7 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 }
 
 static bool
-fetch_checksum_extract(struct workspace *wk, const char *src, const char *dest, const char *sha256,
+fetch_checksum_extract(const char *src, const char *dest, const char *sha256,
 	const char *dest_dir)
 {
 	bool res = false;
@@ -214,7 +214,6 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 			break;
 		case required:
 			if (!ctx->wrap.fields[i]) {
-				L("%p", (void *)ctx->wrap.src.src);
 				error_messagef(&ctx->wrap.src, 1, 1, "missing field '%s'", wrap_field_names[i]);
 				valid = false;
 			}
@@ -266,7 +265,7 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 }
 
 static bool
-wrap_apply_patch(struct workspace *wk, struct wrap *wrap, const char *subprojects)
+wrap_apply_patch(struct wrap *wrap, const char *subprojects)
 {
 	char dest_dir[PATH_MAX];
 
@@ -281,7 +280,7 @@ wrap_apply_patch(struct workspace *wk, struct wrap *wrap, const char *subproject
 		return false;
 	}
 
-	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wk, wrap->fields[wf_patch_url],
+	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wrap->fields[wf_patch_url],
 		wrap->fields[wf_patch_filename], wrap->fields[wf_patch_hash], subprojects)) {
 		return false;
 	} else if (wrap->fields[wf_patch_directory]) {
@@ -302,21 +301,21 @@ wrap_apply_patch(struct workspace *wk, struct wrap *wrap, const char *subproject
 }
 
 static bool
-wrap_handle_git(struct workspace *wk, struct wrap *wrap, const char *dest_path)
+wrap_handle_git(struct wrap *wrap, const char *subprojects)
 {
 	LOG_E("TODO: wrap-git");
 	return false;
 }
 
 static bool
-wrap_handle_file(struct workspace *wk, struct wrap *wrap, const char *dest_path)
+wrap_handle_file(struct wrap *wrap, const char *subprojects)
 {
-	return fetch_checksum_extract(wk, wrap->fields[wf_source_url],
-		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], dest_path);
+	return fetch_checksum_extract(wrap->fields[wf_source_url],
+		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], subprojects);
 }
 
 bool
-wrap_handle(struct workspace *wk, const char *wrap_file, const char *subprojects, struct wrap *wrap)
+wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap)
 {
 	if (!wrap_parse(wrap_file, wrap)) {
 		return false;
@@ -324,12 +323,12 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *subprojects
 
 	switch (wrap->type) {
 	case wrap_type_file:
-		if (!wrap_handle_file(wk, wrap, subprojects)) {
+		if (!wrap_handle_file(wrap, subprojects)) {
 			return false;
 		}
 		break;
 	case wrap_type_git:
-		if (!wrap_handle_git(wk, wrap, subprojects)) {
+		if (!wrap_handle_git(wrap, subprojects)) {
 			return false;
 		}
 		break;
@@ -338,7 +337,7 @@ wrap_handle(struct workspace *wk, const char *wrap_file, const char *subprojects
 		return false;
 	}
 
-	if (!wrap_apply_patch(wk, wrap, subprojects)) {
+	if (!wrap_apply_patch(wrap, subprojects)) {
 		return false;
 	}
 

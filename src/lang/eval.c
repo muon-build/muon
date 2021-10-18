@@ -36,7 +36,7 @@ eval_project(struct workspace *wk, const char *subproject_name,
 			}
 
 			struct wrap wrap = { 0 };
-			if (!wrap_handle(wk, wrap_path, base_path, &wrap)) {
+			if (!wrap_handle(wrap_path, base_path, &wrap)) {
 				return false;
 			}
 
