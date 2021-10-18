@@ -131,7 +131,7 @@ ret:
 }
 
 static bool
-cmd_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
@@ -156,6 +156,27 @@ cmd_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
 ret:
 	wrap_destroy(&wrap);
 	return ret;
+}
+
+static bool
+cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	static const struct command commands[] = {
+		{ "check-wrap", cmd_subprojects_check_wrap, "check if a wrap file is valid" },
+		{ 0 },
+	};
+
+	OPTSTART("") {
+	} OPTEND(argv[0], "",
+		"",
+		commands, -1)
+
+	cmd_func cmd;
+	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+		return false;
+	}
+
+	return cmd(argc, argi, argv);
 }
 
 static bool
@@ -393,7 +414,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		{ "auto", cmd_auto, "build the project with default options" },
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "check-wrap", cmd_check_wrap, "check if a meson wrap is valid" },
+		{ "subprojects", cmd_subprojects, "check if a meson wrap is valid" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "samu", cmd_samu, "run samurai" },
