@@ -342,6 +342,14 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap)
 		return false;
 	}
 
+	char meson_build[PATH_MAX];
+	if (!path_join(meson_build, PATH_MAX, wrap->dest_dir, "meson.build")) {
+		return false;
+	} else if (fs_file_exists(meson_build)) {
+		LOG_I("wrap already downloaded");
+		return true;
+	}
+
 	switch (wrap->type) {
 	case wrap_type_file:
 		if (!wrap_handle_file(wrap, subprojects)) {
