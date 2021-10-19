@@ -484,7 +484,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		{ "auto", cmd_auto, "build the project with default options" },
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "subprojects", cmd_subprojects, "check if a meson wrap is valid" },
+		{ "subprojects", cmd_subprojects, "manage subprojects" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "samu", cmd_samu, "run samurai" },
