@@ -482,7 +482,7 @@ static bool
 cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
-		{ "auto", cmd_auto, "build the project with default options" },
+		{ "auto", cmd_auto, "build the project with options from a .muon file" },
 		{ "check", cmd_check, "check if a meson file parses" },
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
 		{ "install", cmd_install, "install project" },
