@@ -357,6 +357,17 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	return true;
 }
 
+static bool
+func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_string)->dat.str = get_obj(wk, rcvr)->dat.compiler.version;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
@@ -364,5 +375,6 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_id", func_compiler_get_id },
 	{ "find_library", func_compiler_find_library },
 	{ "cmd_array", func_compiler_cmd_array },
+	{ "version", func_compiler_version },
 	{ NULL, NULL },
 };
