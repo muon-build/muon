@@ -163,7 +163,7 @@ is_valid_inside_of_identifier(const char c)
 static bool
 is_skipchar(const char c)
 {
-	return c == ' ' || c == '\t' || c == '#';
+	return c == '\r' || c == ' ' || c == '\t' || c == '#';
 }
 
 struct kw_table {
