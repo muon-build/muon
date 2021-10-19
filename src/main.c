@@ -507,20 +507,11 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		commands, -1)
 
 	cmd_func cmd;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, true)) {
+	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
 		return false;
 	}
 
-	if (cmd) {
-		return cmd(argc, argi, argv);
-	} else {
-		/* subtract one from argi here since it gets incremented by 1
-		 * implicitly during option parsing, but in this case there was
-		 * no subcommand arg */
-		return cmd_auto(argc, argi - 1, argv);
-	}
-
-	return true;
+	return cmd(argc, argi, argv);
 }
 
 int
