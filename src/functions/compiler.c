@@ -134,22 +134,41 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_dependencies,
+		kw_prefix,
 	};
 	struct args_kw akw[] = {
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
-		"char %s (void);\n"
-		"int main(void) { return %s(); }\n",
-		get_cstr(wk, an[0].val),
-		get_cstr(wk, an[0].val)
-		);
+	if (strstr(prefix, "#include")) {
+		snprintf(src, BUF_SIZE_4k,
+			"%s\n"
+			"int main(void) {\n"
+			"void *a = (void*) &%s;\n"
+			"long long b = (long long) a;\n"
+			"return (int) b;\n"
+			"}\n",
+			prefix,
+			get_cstr(wk, an[0].val)
+			);
+	} else {
+		snprintf(src, BUF_SIZE_4k,
+			"%s\n"
+			"char %s (void);\n"
+			"int main(void) { return %s(); }\n",
+			prefix,
+			get_cstr(wk, an[0].val),
+			get_cstr(wk, an[0].val)
+			);
+	}
 
 	bool links;
 	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
