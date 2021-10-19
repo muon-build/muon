@@ -1139,6 +1139,10 @@ parse_block(struct parser *p, uint32_t *id)
 				loop = false;
 			}
 		} else {
+			// just make a dummy node here since l_id may not have
+			// been initialized.  Set the type to something other
+			// than node_empty so we continue parsing.
+			make_node(p, &l_id, node_block);
 			p->valid = false;
 			loop = false;
 			consume_until(p, tok_eol);
