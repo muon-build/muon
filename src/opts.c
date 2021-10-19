@@ -55,7 +55,7 @@ print_usage(FILE *f, const struct command *commands,
 		fprintf(f, "commands:\n");
 
 		for (i = 0; commands[i].name; ++i) {
-			fprintf(f, "  %-10s", commands[i].name);
+			fprintf(f, "  %-12s", commands[i].name);
 
 			if (commands[i].desc) {
 				fprintf(f, "- %s", commands[i].desc);
