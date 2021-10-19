@@ -181,6 +181,52 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
+func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_dependencies,
+		kw_prefix,
+	};
+	struct args_kw akw[] = {
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"#include <%s>\n"
+		"int main(void) {\n"
+		"    /* If it's not defined as a macro, try to use as a symbol */\n"
+		"    #ifndef %s\n"
+		"        %s;\n"
+		"    #endif\n"
+		"    return 0;\n"
+		"}",
+		prefix,
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[1].val),
+		get_cstr(wk, an[1].val)
+		);
+
+	bool links;
+	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+		akw[kw_dependencies].val, &links)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	return true;
+}
+
+static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
 	struct obj *comp = get_obj(wk, comp_id);
@@ -391,6 +437,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
+	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "get_id", func_compiler_get_id },
 	{ "find_library", func_compiler_find_library },
 	{ "cmd_array", func_compiler_cmd_array },
