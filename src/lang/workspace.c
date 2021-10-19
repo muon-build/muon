@@ -162,6 +162,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	proj->cwd = wk_str_push(wk, cwd);
 	proj->source_root = proj->cwd;
 	proj->build_dir = wk_str_push(wk, build_dir);
+	proj->build_root = proj->build_dir;
 
 	return proj;
 }

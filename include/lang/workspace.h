@@ -16,7 +16,7 @@
 struct project {
 	struct hash scope;
 
-	str source_root, cwd, build_dir, subproject_name;
+	str source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
 
 	struct {

@@ -87,6 +87,28 @@ func_meson_current_build_dir(struct workspace *wk, uint32_t _, uint32_t args_nod
 }
 
 static bool
+func_meson_project_source_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->source_root;
+	return true;
+}
+
+static bool
+func_meson_project_build_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->build_root;
+	return true;
+}
+
+static bool
 func_meson_global_source_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
@@ -145,8 +167,10 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "current_source_dir", func_meson_current_source_dir },
 	{ "current_build_dir", func_meson_current_build_dir },
 	{ "source_root", func_meson_global_source_root },
+	{ "project_source_root", func_meson_project_source_root },
 	{ "global_source_root", func_meson_global_source_root },
 	{ "build_root", func_meson_global_build_root },
+	{ "project_build_root", func_meson_project_build_root },
 	{ "global_build_root", func_meson_global_build_root },
 	{ "is_subproject", func_meson_is_subproject },
 	{ "override_dependency", func_meson_override_dependency },
