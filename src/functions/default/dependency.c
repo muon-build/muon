@@ -272,6 +272,7 @@ bool
 func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
 {
 	enum kwargs {
+		kw_sources,
 		kw_link_with,
 		kw_link_whole, // TODO
 		kw_link_args,
@@ -281,6 +282,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		kw_variables,
 	};
 	struct args_kw akw[] = {
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
@@ -310,6 +312,15 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
 	dep->dat.dep.variables = akw[kw_variables].val;
+
+	if (akw[kw_sources].set) {
+		obj sources;
+		if (!coerce_files(wk, akw[kw_sources].node, akw[kw_sources].val, &sources)) {
+			return false;
+		}
+
+		dep->dat.dep.sources = sources;
+	}
 
 	make_obj(wk, &dep->dat.dep.link_with, obj_array);
 	if (akw[kw_link_with].set) {

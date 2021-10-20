@@ -137,6 +137,7 @@ struct obj {
 			obj link_args; // obj_array
 			obj include_directories; // obj_array
 			obj variables; // obj_dict
+			obj sources; // obj_array
 			enum dep_flags flags;
 		} dep;
 		struct {

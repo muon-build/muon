@@ -426,6 +426,37 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+struct add_dep_sources_ctx {
+	uint32_t node;
+	obj src;
+};
+
+static enum iteration_result
+add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct add_dep_sources_ctx *ctx = _ctx;
+
+	struct obj *dep = get_obj(wk, val);
+
+	switch (dep->type) {
+	case obj_external_library:
+		return ir_cont;
+	case obj_dependency:
+		break;
+	default:
+		interp_error(wk, ctx->node, "invalid dependency: %o", val);
+		return ir_err;
+	}
+
+	if (dep->dat.dep.sources) {
+		obj src;
+		obj_array_dup(wk, dep->dat.dep.sources, &src);
+		obj_array_extend(wk, ctx->src, src);
+	}
+
+	return ir_cont;
+}
+
 static bool
 tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, bool tgt_type_from_kw)
 {
@@ -567,6 +598,12 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	if (akw[kw_dependencies].set) {
 		tgt->dat.tgt.deps = akw[kw_dependencies].val;
+		struct add_dep_sources_ctx ctx = {
+			.node = akw[kw_dependencies].node,
+			.src = tgt->dat.tgt.src,
+		};
+
+		obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, add_dep_sources_iter);
 	}
 
 	static struct {
