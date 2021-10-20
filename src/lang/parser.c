@@ -718,13 +718,19 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 static bool
 parse_e5muldiv(struct parser *p, uint32_t *id)
 {
-	return parse_arith(p, id, parse_e6, arith_mod, arithmetic_type_count);
+	return parse_arith(p, id, parse_e6, arith_mul, arithmetic_type_count);
+}
+
+static bool
+parse_e5mod(struct parser *p, uint32_t *id)
+{
+	return parse_arith(p, id, parse_e5muldiv, arith_mod, arith_mod + 1);
 }
 
 static bool
 parse_e5addsub(struct parser *p, uint32_t *id)
 {
-	return parse_arith(p, id, parse_e5muldiv, 0, arith_mod);
+	return parse_arith(p, id, parse_e5mod, 0, arith_mod);
 }
 
 static bool
