@@ -290,6 +290,7 @@ find_program(struct workspace *wk, const char *prog, const char **res)
 
 struct find_program_iter_ctx {
 	bool found;
+	uint32_t node;
 	const char *res;
 };
 
@@ -298,7 +299,22 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_iter_ctx *ctx = _ctx;
 
-	if (find_program(wk, get_cstr(wk, val), &ctx->res)) {
+	const char *str;
+
+	struct obj *v = get_obj(wk, val);
+	switch (v->type) {
+	case obj_file:
+		str = get_cstr(wk, get_obj(wk, val)->dat.file);
+		break;
+	case obj_string:
+		str = get_cstr(wk, val);
+		break;
+	default:
+		interp_error(wk, ctx->node, "expected string or file, got %o", val);
+		return ir_err;
+	}
+
+	if (find_program(wk, str, &ctx->res)) {
 		ctx->found = true;
 		return ir_done;
 	}
@@ -336,8 +352,8 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return true;
 	}
 
-	struct find_program_iter_ctx ctx = { 0 };
-	obj_array_foreach(wk, an[0].val, &ctx, find_program_iter);
+	struct find_program_iter_ctx ctx = { .node = an[0].node };
+	obj_array_foreach_flat(wk, an[0].val, &ctx, find_program_iter);
 
 	if (!ctx.found) {
 		if (requirement == requirement_required) {
