@@ -23,6 +23,7 @@ struct dep_lookup_ctx {
 	enum dep_not_found_reason not_found_reason;
 	enum requirement_type requirement;
 	uint32_t err_node;
+	uint32_t fallback_node;
 	obj name;
 	obj fallback;
 	obj default_options;
@@ -83,6 +84,10 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	if (!subproject_get_variable(wk, ctx->err_node, subproj_dep, subproj, ctx->res)) {
+		return false;
+	}
+
+	if (!typecheck(wk, ctx->fallback_node, *ctx->res, obj_dependency)) {
 		return false;
 	}
 
@@ -163,6 +168,8 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		}
 	} else {
 		struct obj *dep = get_obj(wk, *ctx->res);
+
+		assert(get_obj(wk, *ctx->res)->type == obj_dependency);
 
 		LOG_I("dependency %s found: %s%s", get_cstr(wk, dep->dat.dep.name),
 			get_cstr(wk, dep->dat.dep.version),
@@ -246,6 +253,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.requirement = requirement,
 		.version = akw[kw_version].val,
 		.err_node = an[0].node,
+		.fallback_node = akw[kw_fallback].node,
 		.name = an[0].val,
 		.fallback = akw[kw_fallback].val,
 		.default_options = akw[kw_default_options].val,
