@@ -38,6 +38,7 @@ enum obj_type {
 	obj_include_directory,
 	obj_option,
 	obj_disabler,
+	obj_generator,
 
 	obj_type_count,
 
@@ -190,6 +191,12 @@ struct obj {
 			obj max;
 			obj min;
 		} option;
+		struct {
+			obj output;
+			obj raw_command;
+			obj depfile;
+			bool capture;
+		} generator;
 	} dat;
 };
 

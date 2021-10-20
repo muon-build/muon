@@ -51,6 +51,7 @@ cat \
 	src/functions/external_program.c \
 	src/functions/feature_opt.c \
 	src/functions/file.c \
+	src/functions/generator.c \
 	src/functions/machine.c \
 	src/functions/meson.c \
 	src/functions/modules.c \

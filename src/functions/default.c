@@ -386,6 +386,47 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 }
 
 static bool
+func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_output,
+		kw_arguments,
+		kw_capture,
+		kw_depfile,
+	};
+	struct args_kw akw[] = {
+		[kw_output]      = { "output", obj_any, .required = true },
+		[kw_arguments]   = { "arguments", obj_array, .required = true },
+		[kw_capture]     = { "capture", obj_bool },
+		[kw_depfile]     = { "depfile", obj_string },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	obj command, args;
+	make_obj(wk, &command, obj_array);
+
+	if (akw[kw_arguments].set) {
+		obj_array_dup(wk, akw[kw_arguments].val, &args);
+	} else {
+		make_obj(wk, &args, obj_array);
+	}
+
+	obj_array_push(wk, command, an[0].val);
+	obj_array_extend(wk, command, args);
+
+	struct obj *gen = make_obj(wk, res, obj_generator);
+	gen->dat.generator.output = akw[kw_output].val;
+	gen->dat.generator.raw_command = command;
+	gen->dat.generator.depfile = akw[kw_depfile].val;
+	return true;
+}
+
+static bool
 tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
@@ -1174,7 +1215,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "files", func_files },
 	{ "find_library", todo },
 	{ "find_program", func_find_program },
-	{ "generator", todo },
+	{ "generator", func_generator },
 	{ "get_option", func_get_option },
 	{ "get_variable", func_get_variable },
 	{ "gettext", todo },

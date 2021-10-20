@@ -19,6 +19,7 @@
 #include "functions/external_program.h"
 #include "functions/feature_opt.h"
 #include "functions/file.h"
+#include "functions/generator.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/modules.h"
@@ -437,6 +438,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_build_target] = { impl_tbl_build_target },
 	[obj_environment] = { impl_tbl_environment, impl_tbl_environment },
 	[obj_disabler] = { impl_tbl_disabler, impl_tbl_disabler },
+	[obj_generator] = { impl_tbl_generator, },
 };
 
 bool

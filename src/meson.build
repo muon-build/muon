@@ -35,6 +35,7 @@ src = files([
 	'functions/external_program.c',
 	'functions/feature_opt.c',
 	'functions/file.c',
+	'functions/generator.c',
 	'functions/machine.c',
 	'functions/meson.c',
 	'functions/modules.c',
