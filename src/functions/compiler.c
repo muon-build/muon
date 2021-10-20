@@ -30,6 +30,7 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 	const char *test_name = NULL, *test_source = NULL;
 
 	switch (l) {
+	case compiler_language_c_obj:
 	case compiler_language_c_hdr:
 	case compiler_language_cpp_hdr:
 	case compiler_language_count:

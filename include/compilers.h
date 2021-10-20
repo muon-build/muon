@@ -23,6 +23,7 @@ enum compiler_language {
 	compiler_language_c_hdr,
 	compiler_language_cpp,
 	compiler_language_cpp_hdr,
+	compiler_language_c_obj,
 	compiler_language_count,
 };
 
@@ -81,6 +82,7 @@ struct linker {
 
 struct language {
 	bool is_header;
+	bool is_linkable;
 };
 
 extern struct compiler compilers[];

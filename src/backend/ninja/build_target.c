@@ -52,10 +52,16 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
 			LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
 			return ir_err;
-
 		}
 
 		if (languages[fl].is_header) {
+			return ir_cont;
+		} else if (languages[fl].is_linkable) {
+			char path[PATH_MAX];
+			if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
+				return ir_err;
+			}
+			obj_array_push(wk, ctx->object_names, make_str(wk, path));
 			return ir_cont;
 		}
 
@@ -185,6 +191,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	case compiler_language_cpp_hdr:
 		return ir_cont;
 	case compiler_language_c:
+	case compiler_language_c_obj:
 		if (!ctx->have_link_language) {
 			ctx->link_language = compiler_language_c;
 		}

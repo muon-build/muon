@@ -26,6 +26,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_c_hdr] = "c_hdr",
 	[compiler_language_cpp] = "cpp",
 	[compiler_language_cpp_hdr] = "cpp_hdr",
+	[compiler_language_c_obj] = "c_obj",
 };
 
 const char *
@@ -57,6 +58,7 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 		[compiler_language_c_hdr] = { "h" },
 		[compiler_language_cpp] = { "cc", "cpp", },
 		[compiler_language_cpp_hdr] = { "hpp" },
+		[compiler_language_c_obj] = { "o" },
 	};
 	uint32_t i, j;
 	const char *ext;
@@ -397,6 +399,7 @@ const struct language languages[] = {
 	[compiler_language_c_hdr] = { .is_header = true },
 	[compiler_language_cpp] = { .is_header = false },
 	[compiler_language_cpp_hdr] = { .is_header = true },
+	[compiler_language_c_obj] = { .is_linkable = true },
 };
 
 static void
