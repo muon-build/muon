@@ -26,6 +26,11 @@ eval_project(struct workspace *wk, const char *subproject_name,
 		return false;
 	}
 
+	if (subproject_name) {
+		log_plain("\n");
+		LOG_I("subproject: %s", subproject_name);
+	}
+
 	if (!fs_dir_exists(cwd)) {
 		char wrap_path[PATH_MAX], base_path[PATH_MAX];
 		snprintf(wrap_path, PATH_MAX, "%s.wrap", cwd);
