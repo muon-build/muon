@@ -268,6 +268,16 @@ wk_str_startswith(const struct str *ss, const struct str *pre)
 }
 
 bool
+wk_str_endswith(const struct str *ss, const struct str *suf)
+{
+	if (ss->len < suf->len) {
+		return false;
+	}
+
+	return memcmp(&ss->s[ss->len - suf->len], suf->s, suf->len) == 0;
+}
+
+bool
 wk_cstreql(const struct str *ss, const char *cstring)
 {
 	return wk_streql(ss, &WKSTR(cstring));

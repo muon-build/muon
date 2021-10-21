@@ -484,11 +484,24 @@ func_string_startswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	return true;
 }
 
+static bool
+func_string_endswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = wk_str_endswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "format", func_format },
 	{ "join", func_join },
 	{ "split", func_split },
 	{ "startswith", func_string_startswith },
+	{ "endswith", func_string_endswith },
 	{ "strip", func_strip },
 	{ "to_int", func_string_to_int },
 	{ "to_upper", func_to_upper },
