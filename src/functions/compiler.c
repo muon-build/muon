@@ -310,7 +310,7 @@ func_compiler_has_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_no
 static bool
 func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -318,7 +318,7 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint3
 
 	make_obj(wk, obj, obj_array);
 
-	return obj_array_foreach(wk, an[0].val,
+	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
 		.compiler = rcvr,
 		.arr = *obj,
