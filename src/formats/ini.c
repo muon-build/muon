@@ -24,14 +24,18 @@ each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
 		*b = '\0';
 
 		if (cb(ctx, line, b - line) != ir_cont) {
-			break;
+			return;
 		}
 
 		line = b + 1;
 
 		if ((size_t)(line - buf) >= len) {
-			break;
+			return;
 		}
+	}
+
+	if (*line) {
+		cb(ctx, line, strlen(line));
 	}
 }
 
