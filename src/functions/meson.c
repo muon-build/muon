@@ -164,6 +164,17 @@ func_meson_is_cross_build(struct workspace *wk, obj _, uint32_t args_node, obj *
 }
 
 static bool
+func_meson_is_unity(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = false;
+	return true;
+}
+
+static bool
 func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	LOG_W("TODO: meson.override_dependency");
@@ -187,5 +198,6 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "override_dependency", func_meson_override_dependency },
 	{ "backend", func_meson_backend },
 	{ "is_cross_build", func_meson_is_cross_build },
+	{ "is_unity", func_meson_is_unity },
 	{ NULL, NULL },
 };
