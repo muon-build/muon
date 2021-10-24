@@ -55,15 +55,24 @@ test_path_relative_to(void)
 		{ "/path/to/build",
 		  "/path/to/build/include",
 		  "include" },
+		{ "/path/to/build",
+		  "/path/to/build",
+		  "." },
+		{ "/path/to/build/",
+		  "/path/to/build",
+		  "." },
+		{ "/path/to/build",
+		  "/path/to/build/",
+		  "." },
 		{ 0 },
 	};
-	char buf[PATH_MAX];
 	uint32_t i;
 
 	for (i = 0; tests[i][0]; ++i) {
+		char buf[PATH_MAX];
 		assert(path_relative_to(buf, PATH_MAX, tests[i][0], tests[i][1]));
 		if (strcmp(buf, tests[i][2]) != 0) {
-			LOG_E("%s != %s", buf, tests[i][2]);
+			LOG_E("'%s' != %s", buf, tests[i][2]);
 			assert(false);
 		}
 	}
@@ -148,6 +157,7 @@ int
 main(void)
 {
 	log_init();
+	log_set_lvl(log_debug);
 	assert(path_init());
 
 	test_path_is_absolute();
