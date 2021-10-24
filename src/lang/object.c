@@ -926,9 +926,9 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_file:
-		obj_to_s_buf_push(&ctx, "files(");
+		obj_to_s_buf_push(&ctx, "<file ");
 		obj_to_s_str(wk, &ctx, get_obj(wk, obj)->dat.file);
-		obj_to_s_buf_push(&ctx, ")");
+		obj_to_s_buf_push(&ctx, ">");
 		break;
 	case obj_string: {
 		obj_to_s_str(wk, &ctx, obj);
