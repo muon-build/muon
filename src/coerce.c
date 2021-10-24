@@ -139,6 +139,30 @@ coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	return ir_cont;
 }
 
+bool
+coerce_string_to_file(struct workspace *wk, obj string, obj *res)
+{
+	struct obj *s = get_obj(wk, string);
+	assert(s->type == obj_string);
+
+	const char *p = get_cstr(wk, s->dat.str);
+
+	str s2;
+	if (path_is_absolute(p)) {
+		s2 = s->dat.str;
+	} else {
+		char path[PATH_MAX];
+		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
+			return false;
+		}
+
+		s2 = wk_str_push(wk, path);
+	}
+
+	make_obj(wk, res, obj_file)->dat.str = s2;
+	return true;
+}
+
 static enum iteration_result
 coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
@@ -146,24 +170,12 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 
 	switch (get_obj(wk, val)->type) {
 	case obj_string: {
-		uint32_t path;
+		obj file;
 		char buf[PATH_MAX];
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (path_is_absolute(get_cstr(wk, val))) {
-				path = get_obj(wk, val)->dat.str;
-			} else {
-				if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, val))) {
-					return ir_err;
-				}
-
-				path = wk_str_push(wk, buf);
-			}
-
-			if (!ctx->exists(get_cstr(wk, path))) {
-				interp_error(wk, ctx->node, "%s '%s' does not exist",
-					ctx->type, get_cstr(wk, path));
+			if (!coerce_string_to_file(wk, val, &file)) {
 				return ir_err;
 			}
 			break;
@@ -177,15 +189,13 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 				return ir_err;
 			}
 
-			path = wk_str_push(wk, buf);
+			make_obj(wk, &file, obj_file)->dat.file = wk_str_push(wk, buf);
 			break;
 		default:
 			assert(false);
 			return ir_err;
 		}
 
-		uint32_t file;
-		make_obj(wk, &file, obj_file)->dat.file = path;
 		obj_array_push(wk, ctx->arr, file);
 		break;
 	}
