@@ -95,7 +95,7 @@ buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
 }
 
 static bool
-path_normalize(char *buf, uint32_t len)
+path_normalize(char *buf)
 {
 	uint32_t parents = 0;
 	char *part, *sep;
@@ -180,7 +180,7 @@ simple_copy(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, len);
+	return path_normalize(buf);
 }
 
 bool
@@ -225,7 +225,7 @@ path_join(char *buf, uint32_t len, const char *a, const char *b)
 		return false;
 	}
 
-	return path_normalize(buf, len);
+	return path_normalize(buf);
 }
 
 bool
@@ -239,7 +239,7 @@ path_make_absolute(char *buf, uint32_t len, const char *path)
 }
 
 bool
-path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
+path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path_raw)
 {
 	/*
 	 * input: base="/path/to/build/"
@@ -255,6 +255,15 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 	 * output: "../src/asd.c"
 	 */
 
+	char base[PATH_MAX] = { 0 }, path[PATH_MAX] = { 0 };
+
+	memcpy(base, base_raw, PATH_MAX - 1);
+	memcpy(path, path_raw, PATH_MAX - 1);
+
+	if (!path_normalize(base) || !path_normalize(path)) {
+		return false;
+	}
+
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
 		return false;
@@ -266,6 +275,14 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 	}
 
 	uint32_t i = 0, j = 0, common_end = 0;
+
+	if (strcmp(base, path) == 0) {
+		if (!(buf_push_s(buf, ".", &j, len))) {
+			return false;
+		}
+
+		return true;
+	}
 
 	while (base[i] && path[i] && base[i] == path[i]) {
 		if (base[i] == PATH_SEP) {
@@ -312,7 +329,7 @@ path_relative_to(char *buf, uint32_t len, const char *base, const char *path)
 		}
 	}
 
-	return path_normalize(buf, len);
+	return path_normalize(buf);
 }
 
 bool
@@ -345,7 +362,7 @@ path_without_ext(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, len);
+	return path_normalize(buf);
 }
 
 bool
@@ -373,7 +390,7 @@ path_basename(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, len);
+	return path_normalize(buf);
 }
 
 bool
@@ -392,7 +409,7 @@ path_dirname(char *buf, uint32_t len, const char *path)
 				return false;
 			}
 
-			return path_normalize(buf, len);
+			return path_normalize(buf);
 		}
 	}
 
