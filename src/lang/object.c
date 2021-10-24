@@ -94,7 +94,7 @@ obj_equal(struct workspace *wk, obj left, obj right)
 	case obj_string:
 		return wk_streql(get_str(wk, l->dat.str), get_str(wk, r->dat.str));
 	case obj_file:
-		return wk_streql(get_str(wk, l->dat.str), get_str(wk, r->dat.str));
+		return wk_streql(get_str(wk, l->dat.file), get_str(wk, r->dat.file));
 	case obj_number:
 		return l->dat.num == r->dat.num;
 	case obj_bool:
