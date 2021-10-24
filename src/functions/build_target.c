@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "coerce.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "lang/interpreter.h"
@@ -9,7 +10,7 @@
 #include "platform/path.h"
 
 bool
-tgt_build_path(struct workspace *wk, struct obj *tgt, bool relative, char res[PATH_MAX])
+tgt_build_path(struct workspace *wk, const struct obj *tgt, bool relative, char res[PATH_MAX])
 {
 	char tmp[PATH_MAX] = { 0 };
 	if (!path_join(tmp, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
@@ -22,6 +23,58 @@ tgt_build_path(struct workspace *wk, struct obj *tgt, bool relative, char res[PA
 		}
 	} else {
 		memcpy(res, tmp, PATH_MAX);
+	}
+
+	return true;
+}
+
+bool
+tgt_parts_dir(struct workspace *wk, const struct obj *tgt, bool relative, char res[PATH_MAX])
+{
+	char build_path[PATH_MAX];
+	if (!tgt_build_path(wk, tgt, relative, build_path)) {
+		return false;
+	}
+
+	memcpy(res, build_path, PATH_MAX);
+	if (!path_add_suffix(res, PATH_MAX, ".p")) {
+		return false;
+	}
+
+	return true;
+}
+
+bool
+tgt_src_to_object_path(struct workspace *wk, const struct obj *tgt, obj src_file, bool relative, char res[PATH_MAX])
+{
+	struct obj *src = get_obj(wk, src_file);
+	assert(get_obj(wk, src_file)->type == obj_file);
+
+	char rel[PATH_MAX], parts_dir[PATH_MAX];
+	const char *base;
+
+	if (!tgt_parts_dir(wk, tgt, relative, parts_dir)) {
+		return false;
+	}
+
+	if (path_is_subpath(get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, src->dat.file))) {
+		// file is a generated source
+		base = get_cstr(wk, tgt->dat.tgt.build_dir);
+	} else if (path_is_subpath(get_cstr(wk, tgt->dat.tgt.cwd),
+		// file is in target cwd
+		get_cstr(wk, src->dat.file))) {
+		base = get_cstr(wk, tgt->dat.tgt.cwd);
+	} else {
+		// file is in source root
+		base = wk->source_root;
+	}
+
+	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src->dat.file))) {
+		return false;
+	} else if (!path_join(res, PATH_MAX, parts_dir, rel)) {
+		return false;
+	} else if (!path_add_suffix(res, PATH_MAX, ".o")) {
+		return false;
 	}
 
 	return true;

@@ -13,7 +13,6 @@
 
 struct write_tgt_iter_ctx {
 	FILE *out;
-	char *tgt_parts_dir;
 	const struct obj *tgt;
 	const struct project *proj;
 	struct dep_args_ctx args;
@@ -24,6 +23,7 @@ struct write_tgt_iter_ctx {
 	enum compiler_language link_language;
 };
 
+// TODO: deprecate this function and use escape_ninja from args.c
 static void
 write_escaped(FILE *f, const char *s)
 {
@@ -74,30 +74,13 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	}
 
 	/* build paths */
+	char dest_path[PATH_MAX];
+	if (!tgt_src_to_object_path(wk, ctx->tgt, val_id, true, dest_path)) {
+		return ir_err;
+	}
 
 	char src_path[PATH_MAX];
 	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
-		return ir_err;
-	}
-
-	char rel[PATH_MAX], dest_path[PATH_MAX];
-	const char *base;
-
-	if (path_is_subpath(get_cstr(wk, ctx->tgt->dat.tgt.build_dir),
-		get_cstr(wk, src->dat.file))) {
-		base = get_cstr(wk, ctx->tgt->dat.tgt.build_dir);
-	} else if (path_is_subpath(get_cstr(wk, ctx->tgt->dat.tgt.cwd),
-		get_cstr(wk, src->dat.file))) {
-		base = get_cstr(wk, ctx->tgt->dat.tgt.cwd);
-	} else {
-		base = wk->source_root;
-	}
-
-	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src->dat.file))) {
-		return ir_err;
-	} else if (!path_join(dest_path, PATH_MAX, ctx->tgt_parts_dir, rel)) {
-		return ir_err;
-	} else if (!path_add_suffix(dest_path, PATH_MAX, ".o")) {
 		return ir_err;
 	}
 
@@ -242,20 +225,14 @@ tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_ctx *ctx)
 	return true;
 }
 
-
 bool
 ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
 {
 	struct obj *tgt = get_obj(wk, tgt_id);
 	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->dat.tgt.build_name));
 
-	char build_path[PATH_MAX], tgt_parts_dir[PATH_MAX];
+	char build_path[PATH_MAX];
 	if (!tgt_build_path(wk, tgt, true, build_path)) {
-		return ir_err;
-	}
-
-	memcpy(tgt_parts_dir, build_path, PATH_MAX);
-	if (!path_add_suffix(tgt_parts_dir, PATH_MAX, ".p")) {
 		return ir_err;
 	}
 
@@ -263,7 +240,6 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		.tgt = tgt,
 		.proj = proj,
 		.out = out,
-		.tgt_parts_dir = tgt_parts_dir,
 	};
 
 	enum linker_type linker;
