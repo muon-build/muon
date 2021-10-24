@@ -81,18 +81,18 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj *tgt, obj src_file
 }
 
 static bool
-func_build_target_name(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_build_target_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = get_obj(wk, rcvr)->dat.tgt.name;
+	make_obj(wk, res, obj_string)->dat.str = get_obj(wk, rcvr)->dat.tgt.name;
 	return true;
 }
 
 static bool
-func_build_target_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_build_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -105,12 +105,136 @@ func_build_target_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_n
 		return false;
 	}
 
-	*obj = make_str(wk, path);
+	*res = make_str(wk, path);
 	return true;
 }
 
+struct build_target_extract_objects_ctx {
+	uint32_t err_node;
+	struct obj *tgt;
+	obj *res;
+};
+
+static enum iteration_result
+build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct build_target_extract_objects_ctx *ctx = _ctx;
+
+	struct obj *v = get_obj(wk, val);
+
+	obj file;
+
+	switch (v->type) {
+	case obj_string: {
+		if (!coerce_string_to_file(wk, val, &file)) {
+			return ir_err;
+		}
+		break;
+	}
+	case obj_file:
+		file = val;
+		break;
+	default:
+		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(v->type));
+		return ir_err;
+	}
+
+	if (!obj_array_in(wk, ctx->tgt->dat.tgt.src, file)) {
+		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->dat.tgt.src);
+		return ir_err;
+	}
+
+	enum compiler_language l;
+	if (!filename_to_compiler_language(get_cstr(wk, get_obj(wk, val)->dat.file), &l)) {
+		return ir_err;
+	}
+
+	switch (l) {
+	case compiler_language_cpp_hdr:
+	case compiler_language_c_hdr:
+		return ir_cont;
+	case compiler_language_c:
+	case compiler_language_cpp:
+	case compiler_language_c_obj:
+		break;
+	case compiler_language_count:
+		assert(false && "unreachable");
+		break;
+	}
+
+	char dest_path[PATH_MAX];
+	if (!tgt_src_to_object_path(wk, ctx->tgt, file, false, dest_path)) {
+		return ir_err;
+	}
+
+	obj new_file;
+	make_obj(wk, &new_file, obj_file)->dat.file = wk_str_push(wk, dest_path);
+	obj_array_push(wk, *ctx->res, new_file);
+	return ir_cont;
+}
+
+static bool
+func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+
+	struct build_target_extract_objects_ctx ctx = {
+		.err_node = an[0].node,
+		.res = res,
+		.tgt = get_obj(wk, rcvr),
+	};
+
+	return obj_array_foreach_flat(wk, an[0].val, &ctx, build_target_extract_objects_iter);
+}
+
+static enum iteration_result
+build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct build_target_extract_objects_ctx *ctx = _ctx;
+	assert(get_obj(wk, val)->type == obj_file);
+
+	return build_target_extract_objects_iter(wk, ctx, val);
+}
+
+static bool
+func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	enum kwargs {
+		kw_recursive,
+	};
+	struct args_kw akw[] = {
+		[kw_recursive] = { "recursive", obj_bool },
+		0
+	};
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	if (akw[kw_recursive].set && !get_obj(wk, akw[kw_recursive].val)->dat.boolean) {
+		interp_error(wk, akw[kw_recursive].node, "non-recursive extract_all_objects not supported");
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+
+	struct build_target_extract_objects_ctx ctx = {
+		.err_node = args_node,
+		.res = res,
+		.tgt = get_obj(wk, rcvr),
+	};
+
+	return obj_array_foreach_flat(wk, ctx.tgt->dat.tgt.src, &ctx, build_target_extract_all_objects_iter);
+}
+
 const struct func_impl_name impl_tbl_build_target[] = {
-	{ "name", func_build_target_name },
+	{ "extract_objects", func_build_target_extract_objects },
+	{ "extract_all_objects", func_build_target_extract_all_objects },
 	{ "full_path", func_build_target_full_path },
+	{ "name", func_build_target_name },
 	{ NULL, NULL },
 };
