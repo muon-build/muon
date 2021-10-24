@@ -100,3 +100,6 @@ foreach d: [
 		src += [files(['external/' + d[1] + '_null.c'])]
 	endif
 endforeach
+
+src_platform_path = files(['platform/path.c'])
+src_log = files(['log.c'])
