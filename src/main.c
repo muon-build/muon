@@ -56,7 +56,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	struct run_cmd_ctx ctx = { 0 };
 
 	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd, NULL)) {
-		LOG_E("failed to run command: %s", ctx.err);
+		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}
 
