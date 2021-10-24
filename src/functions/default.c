@@ -493,6 +493,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		kw_name_prefix,
 		kw_soversion, // TODO
 		kw_link_depends, // TODO
+		kw_objects,
 
 		kw_c_args,
 		kw_cpp_args,
@@ -515,6 +516,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[kw_name_prefix] = { "name_prefix", obj_string },
 		[kw_soversion] = { "soversion", obj_any },
 		[kw_link_depends] = { "link_depends", obj_any },
+		[kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
 		/* lang args */
 		[kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
@@ -562,10 +564,18 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		}
 	}
 
-	uint32_t input;
+	obj input;
 
 	if (akw[kw_sources].set) {
-		obj_array_extend(wk, an[1].val, akw[kw_sources].val);
+		obj arr;
+		obj_array_dup(wk, akw[kw_sources].val, &arr);
+		obj_array_extend(wk, an[1].val, arr);
+	}
+
+	if (akw[kw_objects].set) {
+		obj arr;
+		obj_array_dup(wk, akw[kw_objects].val, &arr);
+		obj_array_extend(wk, an[1].val, arr);
 	}
 
 	if (!coerce_files(wk, an[1].node, an[1].val, &input)) {
