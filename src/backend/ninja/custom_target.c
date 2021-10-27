@@ -43,10 +43,11 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 	}
 
 	make_obj(wk, &cmdline, obj_array);
+	obj_array_push(wk, cmdline, make_str(wk, wk->argv0));
+	obj_array_push(wk, cmdline, make_str(wk, "internal"));
+	obj_array_push(wk, cmdline, make_str(wk, "exe"));
+
 	if (tgt->dat.custom_target.flags & custom_target_capture) {
-		obj_array_push(wk, cmdline, make_str(wk, wk->argv0));
-		obj_array_push(wk, cmdline, make_str(wk, "internal"));
-		obj_array_push(wk, cmdline, make_str(wk, "exe"));
 		obj_array_push(wk, cmdline, make_str(wk, "-c"));
 
 		uint32_t elem;
@@ -58,9 +59,9 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
 			return ir_err;
 		}
-
-		obj_array_push(wk, cmdline, make_str(wk, "--"));
 	}
+
+	obj_array_push(wk, cmdline, make_str(wk, "--"));
 
 	uint32_t tgt_args;
 	if (!arr_to_args(wk, tgt->dat.custom_target.args, &tgt_args)) {
