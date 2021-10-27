@@ -1023,10 +1023,31 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				}
 				++fmt;
 			}
-			// skip field width / precision
-			while (strchr("1234567890.", *fmt)) {
+
+			// skip field width
+			if (*fmt == '*') {
+				va_arg(ap, int);
 				++fmt;
+			} else {
+				while (strchr("1234567890", *fmt)) {
+					++fmt;
+				}
 			}
+
+			// skip precision
+			if (*fmt == '.') {
+				++fmt;
+
+				if (*fmt == '*') {
+					va_arg(ap, int);
+					++fmt;
+				} else {
+					while (strchr("1234567890", *fmt)) {
+						++fmt;
+					}
+				}
+			}
+
 			// skip field length modifier
 			while (strchr("hlLjzt", *fmt)) {
 				++fmt;
