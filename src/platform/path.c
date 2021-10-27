@@ -257,8 +257,8 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 
 	char base[PATH_MAX] = { 0 }, path[PATH_MAX] = { 0 };
 
-	memcpy(base, base_raw, PATH_MAX - 1);
-	memcpy(path, path_raw, PATH_MAX - 1);
+	strncpy(base, base_raw, PATH_MAX - 1);
+	strncpy(path, path_raw, PATH_MAX - 1);
 
 	if (!path_normalize(base) || !path_normalize(path)) {
 		return false;
