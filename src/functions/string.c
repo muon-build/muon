@@ -112,8 +112,7 @@ string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, voi
 
 				switch (cb(wk, err_node, ctx, &key, &elem)) {
 				case format_cb_not_found: {
-					// TODO!
-					interp_error(wk, err_node, "key '%s' not found", key.s);
+					interp_error(wk, err_node, "key '%.*s' not found", key.len, key.s);
 					return false;
 				}
 				case format_cb_error:
@@ -131,8 +130,8 @@ string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, voi
 				case format_cb_skip: {
 					wk_str_app(wk, s_out, "@");
 					wk_str_appn(wk, s_out, key.s, key.len);
-					wk_str_app(wk, s_out, "@");
-					break;
+					id_start = i + 1;
+					continue;
 				}
 				}
 
@@ -144,17 +143,18 @@ string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, voi
 
 				id_start = i + 1;
 				reading_id = true;
+				key.len = 0;
 			}
 		}
 	}
 
 	if (reading_id) {
-		interp_error(wk, err_node, "missing closing '@'");
-		return false;
-	}
-
-	if (i > id_end) {
-		wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
+		wk_str_app(wk, s_out, "@");
+		wk_str_appn(wk, s_out, key.s, key.len);
+	} else {
+		if (i > id_end) {
+			wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
+		}
 	}
 
 	return true;
