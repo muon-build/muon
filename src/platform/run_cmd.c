@@ -1,16 +1,19 @@
 #include "posix.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 #include "platform/run_cmd.h"
 
 extern char *const *environ;
@@ -52,11 +55,67 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 	pid_t pid;
 	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
 	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
+	struct source src = { 0 };
+	bool src_open = false;
 
 	const char *cmd;
-	if (!fs_find_cmd(_cmd, &cmd)) {
-		ctx->err_msg = "command not found";
-		return false;
+	if (!path_is_basename(_cmd)) {
+		static char cmd_path[PATH_MAX];
+		if (!path_make_absolute(cmd_path, PATH_MAX, _cmd)) {
+			return false;
+		}
+
+		if (fs_exe_exists(cmd_path)) {
+			cmd = cmd_path;
+		} else {
+			if (!fs_read_entire_file(cmd_path, &src)) {
+				ctx->err_msg = "error determining command interpreter";
+				return false;
+			}
+			src_open = true;
+
+			char *nl;
+			if (!(nl = strchr(src.src, '\n'))) {
+				ctx->err_msg = "error determining command interpreter: no newline in file";
+				goto err;
+			}
+
+			*nl = 0;
+
+			uint32_t line_len = strlen(src.src);
+			if (!(line_len > 2 && src.src[0] == '#' && src.src[1] == '!')) {
+				ctx->err_msg = "error determining command interpreter: missing #!";
+				goto err;
+			}
+
+			const char *p = &src.src[2];
+			char *s;
+
+			static const char *new_argv[MAX_ARGS + 1];
+			uint32_t argi = 0;
+
+			while ((s = strchr(p, ' '))) {
+				*s = 0;
+				push_argv_single(new_argv, &argi, MAX_ARGS, p);
+				p = s + 1;
+			}
+
+			push_argv_single(new_argv, &argi, MAX_ARGS, p);
+
+			uint32_t i;
+			for (i = 0; argv[i]; ++i) {
+				push_argv_single(new_argv, &argi, MAX_ARGS, argv[i]);
+			}
+
+			push_argv_single(new_argv, &argi, MAX_ARGS, NULL);
+			argv = new_argv;
+			cmd = argv[0];
+		}
+	} else {
+		if (!fs_find_cmd(_cmd, &cmd)) {
+			ctx->err_msg = "command not found";
+			return false;
+		}
 	}
 
 	if (log_should_print(log_debug)) {
@@ -174,6 +233,10 @@ err:
 	}
 	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
+	}
+
+	if (src_open) {
+		fs_source_destroy(&src);
 	}
 
 	return res;

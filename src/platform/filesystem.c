@@ -351,7 +351,6 @@ fs_find_cmd(const char *cmd, const char **ret)
 	return false;
 }
 
-
 static bool
 fs_dup2(int oldfd, int newfd)
 {
