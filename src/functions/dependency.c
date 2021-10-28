@@ -135,80 +135,126 @@ dep_args(struct workspace *wk, obj dep, struct dep_args_ctx *ctx)
 }
 
 static bool
-func_dependency_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_dependency_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	struct obj *res = make_obj(wk, obj, obj_bool);
-	res->dat.boolean = (get_obj(wk, rcvr)->dat.dep.flags & dep_flag_found)
-			   == dep_flag_found;
+	struct obj *r = make_obj(wk, res, obj_bool);
+	r->dat.boolean = (get_obj(wk, rcvr)->dat.dep.flags & dep_flag_found)
+			 == dep_flag_found;
 
 	return true;
 }
 
 static bool
-dep_get_pkgconfig_variable(struct workspace *wk, uint32_t dep, uint32_t node, uint32_t var, uint32_t *obj)
+dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var, obj *res)
 {
 	if (!(get_obj(wk, dep)->dat.dep.flags & dep_flag_pkg_config)) {
 		interp_error(wk, node, "this dependency is not from pkg_config");
 		return false;
 	}
 
-	uint32_t res;
-	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, get_obj(wk, dep)->dat.dep.name), get_cstr(wk, var), &res)) {
-		interp_error(wk, node, "undefined pkg_config variable");
+	obj r;
+	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, get_obj(wk, dep)->dat.dep.name), get_cstr(wk, var), &r)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = res;
+	make_obj(wk, res, obj_string)->dat.str = r;
 	return true;
 }
 
 static bool
-func_dependency_get_pkgconfig_variable(struct workspace *wk, uint32_t rcvr,
-	uint32_t args_node, uint32_t *obj)
+func_dependency_get_pkgconfig_variable(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	enum kwargs {
+		kw_default,
+	};
+	struct args_kw akw[] = {
+		[kw_default] = { "default", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	return dep_get_pkgconfig_variable(wk, rcvr, an[0].node, an[0].val, obj);
+	if (!dep_get_pkgconfig_variable(wk, rcvr, an[0].node, an[0].val, res)) {
+		if (akw[kw_default].set) {
+			*res = akw[kw_default].val;
+		} else {
+			interp_error(wk, an[0].node, "undefined pkg_config variable");
+			return false;
+		}
+	}
+
+	return true;
 }
 
 static bool
-func_dependency_get_variable(struct workspace *wk, uint32_t rcvr,
+func_dependency_get_variable(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_pkgconfig,
+		kw_internal,
+		kw_default_value,
 	};
 	struct args_kw akw[] = {
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
+		[kw_internal] = { "internal", obj_string },
+		[kw_default_value] = { "default_value", obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, NULL, ao, akw)) {
 		return false;
 	}
 
-	struct obj *dep = get_obj(wk, rcvr);
+	uint32_t node = args_node;
+
 	if (ao[0].set) {
-		if (dep->dat.dep.variables) {
-			if (!obj_dict_index(wk, dep->dat.dep.variables, ao[0].val, res)) {
-				interp_error(wk, ao[0].node, "undefined variable");
-				return false;
-			}
-			return true;
-		} else {
-			return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, ao[0].val, res);
+		node = ao[0].node;
+
+		if (!akw[kw_pkgconfig].set) {
+			akw[kw_pkgconfig].set = true;
+			akw[kw_pkgconfig].node = ao[0].node;
+			akw[kw_pkgconfig].val = ao[0].val;
 		}
-	} else if (akw[kw_pkgconfig].set) {
-		return dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res);
+
+		if (!akw[kw_internal].set) {
+			akw[kw_pkgconfig].set = true;
+			akw[kw_pkgconfig].node = ao[0].node;
+			akw[kw_pkgconfig].val = ao[0].val;
+		}
+	}
+
+	struct obj *dep = get_obj(wk, rcvr);
+	if (dep->dat.dep.flags & dep_flag_pkg_config) {
+		if (akw[kw_pkgconfig].set) {
+			node = akw[kw_pkgconfig].node;
+
+			if (dep_get_pkgconfig_variable(wk, rcvr, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res)) {
+				return true;
+			}
+		}
+	} else if (dep->dat.dep.variables) {
+		if (akw[kw_internal].set) {
+			node = akw[kw_internal].node;
+
+			if (obj_dict_index(wk, dep->dat.dep.variables, akw[kw_internal].val, res)) {
+				return true;
+			}
+		}
+	}
+
+	if (akw[kw_default_value].set) {
+		*res = akw[kw_default_value].val;
+		return true;
 	} else {
-		interp_error(wk, args_node, "I don't know how to get this type of variable");
+		interp_error(wk, node, "undefined variable");
 		return false;
 	}
 }
