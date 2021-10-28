@@ -132,14 +132,40 @@ write_mesondefine:
 				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 			}
 		} else if (src.src[i] == '\\') {
-			if (src.src[i + 1] == '@') {
-				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
-				++i;
-			} else if (src.src[i + 1]) {
-				buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 2);
-				++i;
+			/* cope with weird config file escaping rules :(
+			 *
+			 * - Backslashes not directly preceeding a format character are not modified.
+			 * - The number of backslashes preceding a @ in the
+			 *   output is equal to the number of backslashes in
+			 *   the input divided by two, rounding down.
+			 */
+
+			uint32_t j, output_backslashes;
+			bool output_format_char = false;
+
+			for (j = 1; src.src[i + j] && src.src[i + j] == '\\'; ++j) {
+			}
+
+			if (src.src[i + j] == '@') {
+				output_backslashes = j / 2;
+				if ((j & 1) != 0) {
+					output_format_char = true;
+					i += j;
+				} else {
+					i += j - 1;
+				}
 			} else {
-				buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
+				i += j - 1;
+
+				output_backslashes = j;
+			}
+
+			for (j = 0; j < output_backslashes; ++j) {
+				buf_push(&out_buf, &out_cap, &out_len, "\\", 1);
+			}
+
+			if (output_format_char) {
+				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
 			}
 		} else if (src.src[i] == '@') {
 			// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
