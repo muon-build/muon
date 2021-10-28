@@ -214,6 +214,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_default_options,
 		kw_not_found_message,
 		kw_disabler,
+		kw_method,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
@@ -225,11 +226,20 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_not_found_message] = { "not_found_message", obj_string },
 		[kw_disabler] = { "disabler", obj_bool },
+		[kw_method] = { "method", obj_string },
 		0
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	if (akw[kw_method].set) {
+		if (!(wk_streql(get_str(wk, akw[kw_method].val), &WKSTR("pkg-config"))
+		      || wk_streql(get_str(wk, akw[kw_method].val), &WKSTR("auto")))) {
+			interp_error(wk, akw[kw_method].node, "unsupported dependency method %o", akw[kw_method].val);
+			return false;
+		}
 	}
 
 	enum requirement_type requirement;
