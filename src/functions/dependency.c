@@ -59,6 +59,29 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		}
 		break;
 	}
+	case obj_custom_target: {
+		obj_fprintf(wk, log_file(), "%o\n", tgt->dat.custom_target.output);
+		obj_array_foreach(wk, tgt->dat.custom_target.output, ctx,
+			dep_args_link_with_iter);
+		break;
+	}
+	case obj_file: {
+		obj str;
+
+		if (ctx->relativize) {
+			char path[PATH_MAX];
+			if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, tgt->dat.file))) {
+				return ir_err;
+			}
+
+			str = make_str(wk, path);
+		} else {
+			make_obj(wk, &str, obj_string)->dat.str = tgt->dat.file;
+		}
+
+		obj_array_push(wk, ctx->link_with, str);
+		break;
+	}
 	case obj_string:
 		obj_array_push(wk, ctx->link_with, val_id);
 		break;
