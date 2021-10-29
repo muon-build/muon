@@ -665,37 +665,25 @@ parse_e6(struct parser *p, uint32_t *id)
 }
 
 static bool
-parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
-	uint32_t map_start, uint32_t map_end)
+parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper, enum token_type tok, enum arithmetic_type type)
 {
-	static const enum token_type map[] = {
-		[arith_add] = tok_plus,
-		[arith_sub] = tok_minus,
-		[arith_mod] = tok_modulo,
-		[arith_mul] = tok_star,
-		[arith_div] = tok_slash,
-	};
 	struct node *n;
 
-	uint32_t i, l_id, r_id;
+	uint32_t l_id, r_id;
+
 	if (!(parse_upper(p, &l_id))) {
 		return false;
 	}
 
 	struct token *op_tok = NULL;
 
-	for (i = map_start; i < map_end; ++i) {
-		if (accept(p, map[i])) {
-			op_tok = p->last_last;
+	if (accept(p, tok)) {
+		op_tok = p->last_last;
 
-			if (!(parse_arith(p, &r_id, parse_upper, map_start, map_end))) {
-				return false;
-			}
-			break;
+		if (!(parse_arith(p, &r_id, parse_upper, tok, type))) {
+			return false;
 		}
-	}
 
-	if (i != map_end) {
 		if (op_tok) {
 			p->last_last = op_tok;
 		}
@@ -705,7 +693,7 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 		}
 
 		n = make_node(p, id, node_arithmetic);
-		n->subtype = i;
+		n->subtype = type;
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, r_id);
 	} else {
@@ -716,21 +704,39 @@ parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper,
 }
 
 static bool
-parse_e5muldiv(struct parser *p, uint32_t *id)
+parse_e5div(struct parser *p, uint32_t *id)
 {
-	return parse_arith(p, id, parse_e6, arith_mul, arithmetic_type_count);
+	return parse_arith(p, id, parse_e6, tok_slash, arith_div);
+}
+
+static bool
+parse_e5mul(struct parser *p, uint32_t *id)
+{
+	return parse_arith(p, id, parse_e5div, tok_star, arith_mul);
 }
 
 static bool
 parse_e5mod(struct parser *p, uint32_t *id)
 {
-	return parse_arith(p, id, parse_e5muldiv, arith_mod, arith_mod + 1);
+	return parse_arith(p, id, parse_e5mul, tok_modulo, arith_mod);
 }
 
 static bool
-parse_e5addsub(struct parser *p, uint32_t *id)
+parse_e5sub(struct parser *p, uint32_t *id)
 {
-	return parse_arith(p, id, parse_e5mod, 0, arith_mod);
+	return parse_arith(p, id, parse_e5mod, tok_minus, arith_sub);
+}
+
+static bool
+parse_e5add(struct parser *p, uint32_t *id)
+{
+	return parse_arith(p, id, parse_e5sub, tok_plus, arith_add);
+}
+
+static bool
+parse_e5(struct parser *p, uint32_t *id)
+{
+	return parse_e5add(p, id);
 }
 
 static bool
@@ -742,7 +748,7 @@ make_comparison_node(struct parser *p, uint32_t *id, uint32_t l_id, enum compari
 
 	struct token *comp_op = p->last_last;
 
-	if (!(parse_e5addsub(p, &r_id))) {
+	if (!(parse_e5(p, &r_id))) {
 		return false;
 	}
 
@@ -770,7 +776,7 @@ parse_e4(struct parser *p, uint32_t *id)
 	};
 
 	uint32_t i, l_id;
-	if (!(parse_e5addsub(p, &l_id))) {
+	if (!(parse_e5(p, &l_id))) {
 		return false;
 	}
 
