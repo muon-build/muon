@@ -508,6 +508,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		kw_extra_files, // TODO
 		kw_target_type,
 		kw_name_prefix,
+		kw_name_suffix,
 		kw_soversion, // TODO
 		kw_link_depends, // TODO
 		kw_objects,
@@ -531,6 +532,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[kw_extra_files] = { "extra_files", obj_any }, // ignored
 		[kw_target_type] = { "target_type", obj_string },
 		[kw_name_prefix] = { "name_prefix", obj_string },
+		[kw_name_suffix] = { "name_suffix", obj_string },
 		[kw_soversion] = { "soversion", obj_any },
 		[kw_link_depends] = { "link_depends", obj_any },
 		[kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
@@ -617,6 +619,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	if (akw[kw_name_prefix].set) {
 		pref = get_cstr(wk, akw[kw_name_prefix].val);
+	}
+
+	if (akw[kw_name_suffix].set) {
+		suff = get_cstr(wk, akw[kw_name_suffix].val);
 	}
 
 	struct obj *tgt = make_obj(wk, res, obj_build_target);
