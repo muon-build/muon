@@ -145,7 +145,8 @@ struct obj {
 		} feature_opt;
 		struct {
 			bool found;
-			uint32_t full_path;
+			str full_path;
+			obj ver;
 		} external_program;
 		struct {
 			str full_path;

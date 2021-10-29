@@ -18,6 +18,7 @@
 #include "functions/environment.h"
 #include "functions/modules.h"
 #include "functions/string.h"
+#include "guess.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -276,47 +277,46 @@ func_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return coerce_files(wk, an[0].node, an[0].val, res);
 }
 
-static bool
-find_program(struct workspace *wk, const char *prog, const char **res)
-{
-	static char buf[PATH_MAX];
-
-	/* TODO: 1. Program overrides set via meson.override_find_program() */
-	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
-	/* TODO: 3. [binaries] section in your machine files */
-	/* TODO: 4. Directories provided using the dirs: kwarg (see below) */
-	/* 5. Project's source tree relative to the current subdir */
-	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	/* 6. PATH environment variable */
-	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
-
-	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), prog)) {
-		return false;
-	}
-
-	if (fs_file_exists(buf)) {
-		*res = buf;
-		return true;
-	} else if (fs_find_cmd(prog, res)) {
-		return true;
-	} else {
-		return false;
-	}
-
-}
-
 struct find_program_iter_ctx {
 	bool found;
-	uint32_t node;
-	const char *res;
+	uint32_t node, version_node;
+	obj version;
+	obj dirs;
+	obj *res;
 };
+
+struct find_program_custom_dir_ctx {
+	const char *prog;
+	char buf[PATH_MAX];
+	bool found;
+};
+
+static enum iteration_result
+find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct find_program_custom_dir_ctx *ctx = _ctx;
+
+	assert(get_obj(wk, val)->type == obj_file);
+
+	if (!path_join(ctx->buf, PATH_MAX, get_cstr(wk, get_obj(wk, val)->dat.file), ctx->prog)) {
+		return ir_err;
+	}
+
+	if (fs_file_exists(ctx->buf)) {
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
 
 static enum iteration_result
 find_program_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_iter_ctx *ctx = _ctx;
-
 	const char *str;
+	obj ver = 0;
+	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	struct obj *v = get_obj(wk, val);
 	switch (v->type) {
@@ -331,12 +331,72 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	if (find_program(wk, str, &ctx->res)) {
-		ctx->found = true;
-		return ir_done;
+	const char *path;
+
+	struct find_program_custom_dir_ctx dir_ctx = {
+		.prog = str,
+	};
+
+	/* TODO: 1. Program overrides set via meson.override_find_program() */
+	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
+	/* TODO: 3. [binaries] section in your machine files */
+
+	/* 4. Directories provided using the dirs: kwarg */
+	if (ctx->dirs) {
+		if (!obj_array_foreach(wk, ctx->dirs, &dir_ctx, find_program_custom_dir_iter)) {
+			return false;
+		} else if (dir_ctx.found) {
+			path = dir_ctx.buf;
+			goto found;
+		}
 	}
 
+	/* 5. Project's source tree relative to the current subdir */
+	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
+	if (!path_join(dir_ctx.buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), str)) {
+		return false;
+	} else if (fs_file_exists(dir_ctx.buf)) {
+		path = dir_ctx.buf;
+		goto found;
+	}
+
+	/* 6. PATH environment variable */
+	if (fs_find_cmd(str, &path)) {
+		goto found;
+	}
+
+	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
+
 	return ir_cont;
+found:
+	if (run_cmd(&cmd_ctx, path, (const char *[]){ (char *)path, "--version", 0 }, NULL)
+	    && cmd_ctx.status == 0) {
+		guess_version(wk, cmd_ctx.out, &ver);
+	}
+
+	if (ctx->version) {
+		if (!ver) {
+			return ir_cont; // no version to check against
+		}
+
+		struct version v = { 0 };
+		if (string_to_version(wk, &v, get_str(wk, ver))) {
+			bool comparison_result;
+			if (!version_compare(wk, ctx->version_node, &v, ctx->version, &comparison_result)) {
+				return ir_err;
+			} else if (!comparison_result) {
+				return ir_cont;
+			}
+		}
+	}
+
+	struct obj *external_program = make_obj(wk, ctx->res, obj_external_program);
+	external_program->dat.external_program.found = true;
+	external_program->dat.external_program.full_path = wk_str_push(wk, path);
+	external_program->dat.external_program.ver = ver;
+
+	ctx->found = true;
+	return ir_done;
 }
 
 static bool
@@ -347,16 +407,26 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_required,
 		kw_native,
 		kw_disabler,
+		kw_dirs,
+		kw_version,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
+		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_any  },
+		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
-
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	obj dirs = 0;
+	if (akw[kw_dirs].set) {
+		if (!coerce_dirs(wk, akw[kw_dirs].node, akw[kw_dirs].val, &dirs)) {
+			return false;
+		}
 	}
 
 	enum requirement_type requirement;
@@ -369,7 +439,12 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return true;
 	}
 
-	struct find_program_iter_ctx ctx = { .node = an[0].node };
+	struct find_program_iter_ctx ctx = {
+		.node = an[0].node,
+		.version = akw[kw_version].val,
+		.dirs = dirs,
+		.res = res,
+	};
 	obj_array_foreach_flat(wk, an[0].val, &ctx, find_program_iter);
 
 	if (!ctx.found) {
@@ -383,10 +458,6 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		} else {
 			make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
 		}
-	} else {
-		struct obj *external_program = make_obj(wk, res, obj_external_program);
-		external_program->dat.external_program.found = true;
-		external_program->dat.external_program.full_path = wk_str_push(wk, ctx.res);
 	}
 
 	return true;
