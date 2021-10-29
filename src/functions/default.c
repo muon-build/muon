@@ -27,7 +27,7 @@
 #include "wrap.h"
 
 static bool
-s_to_lang(struct workspace *wk, uint32_t err_node, uint32_t lang, enum compiler_language *l)
+s_to_lang(struct workspace *wk, uint32_t err_node, obj lang, enum compiler_language *l)
 {
 	if (!s_to_compiler_language(get_cstr(wk, lang), l)) {
 		interp_error(wk, err_node, "unknown language '%s'", get_cstr(wk, lang));
@@ -38,7 +38,7 @@ s_to_lang(struct workspace *wk, uint32_t err_node, uint32_t lang, enum compiler_
 }
 
 static bool
-project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
+project_add_language(struct workspace *wk, uint32_t err_node, obj str)
 {
 	uint32_t comp_id;
 	enum compiler_language l;
@@ -46,7 +46,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, uint32_t str)
 		return false;
 	}
 
-	uint32_t res;
+	obj res;
 	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
 		interp_error(wk, err_node, "language '%s' has already been added", get_cstr(wk, str));
 		return false;
@@ -66,7 +66,7 @@ struct project_add_language_iter_ctx {
 };
 
 static enum iteration_result
-project_add_language_iter(struct workspace *wk, void *_ctx, uint32_t val)
+project_add_language_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct project_add_language_iter_ctx *ctx = _ctx;
 
@@ -78,7 +78,7 @@ project_add_language_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static bool
-func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -120,7 +120,7 @@ func_project(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj
 				return false;
 			}
 
-			uint32_t e;
+			obj e;
 			obj_array_index(wk, akw[kw_version].val, 0, &e);
 			ver = get_obj(wk, e);
 		}
@@ -175,11 +175,11 @@ version_type_error:
 
 struct func_add_project_arguments_iter_ctx {
 	uint32_t node;
-	uint32_t args;
+	obj args;
 };
 
 static enum iteration_result
-func_add_project_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+func_add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct func_add_project_arguments_iter_ctx *ctx = _ctx;
 
@@ -208,7 +208,7 @@ add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 		return false;
 	}
 
-	uint32_t args;
+	obj args;
 	if (!obj_dict_geti(wk, current_project(wk)->cfg.args, l, &args)) {
 		make_obj(wk, &args, obj_array);
 		obj_dict_seti(wk, current_project(wk)->cfg.args, l, args);
@@ -225,7 +225,7 @@ add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_add_project_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs { kw_language, };
@@ -248,7 +248,7 @@ func_add_project_arguments(struct workspace *wk, uint32_t _, uint32_t args_node,
 }
 
 static bool
-func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -256,7 +256,7 @@ func_files(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 		return false;
 	}
 
-	return coerce_files(wk, an[0].node, an[0].val, obj);
+	return coerce_files(wk, an[0].node, an[0].val, res);
 }
 
 static bool
@@ -666,11 +666,11 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	}
 
 	if (akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean) {
-		uint32_t install_dir = 0;
+		obj install_dir = 0;
 		if (akw[kw_install_dir].set) {
 			install_dir = get_obj(wk, akw[kw_install_dir].val)->dat.str;
 		}
-		uint32_t install_mode_id = 0;
+		obj install_mode_id = 0;
 		if (akw[kw_install_mode].set) {
 			install_mode_id = akw[kw_install_mode].val;
 		}
@@ -685,25 +685,25 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 }
 
 static bool
-func_executable(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_executable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, obj, tgt_executable, false);
+	return tgt_common(wk, args_node, res, tgt_executable, false);
 }
 
 static bool
-func_static_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_static_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, obj, tgt_library, false);
+	return tgt_common(wk, args_node, res, tgt_library, false);
 }
 
 static bool
-func_build_target(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_build_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, obj, 0, true);
+	return tgt_common(wk, args_node, res, 0, true);
 }
 
 static bool
-func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_assert(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_bool }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
@@ -712,7 +712,7 @@ func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 		return false;
 	}
 
-	*obj = 0;
+	*res = 0;
 
 	if (!get_obj(wk, an[0].val)->dat.boolean) {
 		if (ao[0].set) {
@@ -725,7 +725,7 @@ func_assert(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 }
 
 static bool
-func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -734,13 +734,13 @@ func_error(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	}
 
 	LOG_E("%s", get_cstr(wk, an[0].val));
-	*obj = 0;
+	*res = 0;
 
 	return false;
 }
 
 static bool
-func_warning(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -749,13 +749,13 @@ func_warning(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 	}
 
 	LOG_E("%s", get_cstr(wk, an[0].val));
-	*obj = 0;
+	*res = 0;
 
 	return true;
 }
 
 static bool
-func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -764,7 +764,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 	}
 
 	LOG_I("%s", get_cstr(wk, an[0].val));
-	*obj = 0;
+	*res = 0;
 
 	return true;
 }
@@ -772,7 +772,7 @@ func_message(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *
 #define BASE_PATH_MAX (PATH_MAX / 2)
 
 static bool
-func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -788,7 +788,7 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 	}
 
 	// don't re-evaluate the same subproject
-	if (obj_dict_index(wk, wk->subprojects, an[0].val, obj)) {
+	if (obj_dict_index(wk, wk->subprojects, an[0].val, res)) {
 		return true;
 	}
 
@@ -818,9 +818,9 @@ func_subproject(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_
 		return false;
 	}
 
-	make_obj(wk, obj, obj_subproject)->dat.subproj = subproject_id;
+	make_obj(wk, res, obj_subproject)->dat.subproj = subproject_id;
 
-	obj_dict_set(wk, wk->subprojects, an[0].val, *obj);
+	obj_dict_set(wk, wk->subprojects, an[0].val, *res);
 
 	return true;
 }
@@ -894,7 +894,7 @@ ret:
 }
 
 static bool
-func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -904,8 +904,8 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 	char src[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
 
-	uint32_t old_cwd = current_project(wk)->cwd;
-	uint32_t old_build_dir = current_project(wk)->build_dir;
+	str old_cwd = current_project(wk)->cwd;
+	str old_build_dir = current_project(wk)->build_dir;
 
 	if (!path_join(cwd, PATH_MAX, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val))) {
 		return false;
@@ -926,28 +926,28 @@ func_subdir(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 }
 
 static bool
-func_configuration_data(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_configuration_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_configuration_data);
+	make_obj(wk, res, obj_configuration_data);
 
 	if (ao[0].set) {
-		get_obj(wk, *obj)->dat.configuration_data.dict = ao[0].val;
+		get_obj(wk, *res)->dat.configuration_data.dict = ao[0].val;
 	} else {
-		uint32_t dict;
+		obj dict;
 		make_obj(wk, &dict, obj_dict);
-		get_obj(wk, *obj)->dat.configuration_data.dict = dict;
+		get_obj(wk, *res)->dat.configuration_data.dict = dict;
 	}
 
 	return true;
 }
 
 static bool
-func_install_todo(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_install_todo(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	L("TODO: installation");
 	return true;
@@ -1018,7 +1018,7 @@ struct join_paths_ctx {
 };
 
 static enum iteration_result
-join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
+join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct join_paths_ctx *ctx = _ctx;
 
@@ -1037,7 +1037,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, uint32_t val)
 }
 
 static bool
-func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -1053,19 +1053,19 @@ func_join_paths(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, ctx.buf);
+	make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, ctx.buf);
 	return true;
 }
 
 static bool
-func_environment(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
 		return false;
 	}
 
-	struct obj *d = make_obj(wk, obj, obj_environment);
+	struct obj *d = make_obj(wk, res, obj_environment);
 
 	if (ao[0].set) {
 		if (!typecheck_environment_dict(wk, ao[0].node, ao[0].val)) {
@@ -1081,7 +1081,7 @@ func_environment(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t 
 
 
 static bool
-func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
@@ -1094,7 +1094,7 @@ func_import(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 		return false;
 	}
 
-	make_obj(wk, obj, obj_module)->dat.module = mod;
+	make_obj(wk, res, obj_module)->dat.module = mod;
 	return true;
 }
 

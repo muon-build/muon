@@ -50,13 +50,15 @@ struct workspace {
 	     muon_private[PATH_MAX];
 
 	/* obj_array that tracks each source file eval'd */
-	uint32_t sources;
+	obj sources;
 	/* TODO host machine dict */
-	uint32_t host_machine;
+	obj host_machine;
 	/* TODO binaries dict */
-	uint32_t binaries;
-	uint32_t install;
-	uint32_t subprojects;
+	obj binaries;
+	obj install;
+	obj subprojects;
+	/* args dict for add_global_arguments() */
+	obj global_args;
 
 	struct bucket_array chrs;
 	struct bucket_array strs;
