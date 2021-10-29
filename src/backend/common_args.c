@@ -197,8 +197,16 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id
 		return ir_err;
 	}
 
-	{ /* project default args */
-		uint32_t proj_args, proj_args_dup;
+	{ /* global args */
+		obj global_args, global_args_dup;
+		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
+			obj_array_dup(wk, global_args, &global_args_dup);
+			obj_array_extend(wk, args, global_args_dup);
+		}
+	}
+
+	{ /* project args */
+		obj proj_args, proj_args_dup;
 		if (obj_dict_geti(wk, ctx->proj->cfg.args, lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
 			obj_array_extend(wk, args, proj_args_dup);
@@ -206,7 +214,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id
 	}
 
 	{ /* target args */
-		uint32_t tgt_args, tgt_args_dup;
+		obj tgt_args, tgt_args_dup;
 		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, lang, &tgt_args) && tgt_args) {
 			obj_array_dup(wk, tgt_args, &tgt_args_dup);
 			obj_array_extend(wk, args, tgt_args_dup);

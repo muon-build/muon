@@ -215,6 +215,7 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->sources, obj_array);
 	make_obj(wk, &wk->install, obj_array);
 	make_obj(wk, &wk->subprojects, obj_dict);
+	make_obj(wk, &wk->global_args, obj_dict);
 }
 
 void

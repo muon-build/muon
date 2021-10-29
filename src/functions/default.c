@@ -173,51 +173,47 @@ version_type_error:
 	return true;
 }
 
-struct func_add_project_arguments_iter_ctx {
-	uint32_t node;
-	obj args;
+struct add_arguments_ctx {
+	uint32_t lang_node;
+	uint32_t args_node;
+	obj args_dict;
+	obj args_to_add;
+	obj arg_arr;
 };
 
 static enum iteration_result
-func_add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val_id)
+add_arguments_language_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
-	struct func_add_project_arguments_iter_ctx *ctx = _ctx;
+	struct add_arguments_ctx *ctx = _ctx;
 
-	if (!typecheck(wk, ctx->node, val_id, obj_string)) {
+	if (!typecheck(wk, ctx->args_node, val_id, obj_string)) {
 		return ir_err;
 	}
 
-	obj_array_push(wk, ctx->args, val_id);
+	obj_array_push(wk, ctx->arg_arr, val_id);
 
 	return ir_cont;
 }
 
-struct add_project_arguments_ctx {
-	uint32_t lang_node;
-	uint32_t args_node;
-	obj args;
-};
-
 static enum iteration_result
-add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
+add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct add_project_arguments_ctx *ctx = _ctx;
+	struct add_arguments_ctx *ctx = _ctx;
 	enum compiler_language l;
 
 	if (!s_to_lang(wk, ctx->lang_node, val, &l)) {
 		return false;
 	}
 
-	obj args;
-	if (!obj_dict_geti(wk, current_project(wk)->cfg.args, l, &args)) {
-		make_obj(wk, &args, obj_array);
-		obj_dict_seti(wk, current_project(wk)->cfg.args, l, args);
+	obj arg_arr;
+	if (!obj_dict_geti(wk, ctx->args_dict, l, &arg_arr)) {
+		make_obj(wk, &arg_arr, obj_array);
+		obj_dict_seti(wk, ctx->args_dict, l, arg_arr);
 	}
 
-	if (!obj_array_foreach_flat(wk, ctx->args, &(struct func_add_project_arguments_iter_ctx) {
-		.node = ctx->args_node,
-		.args = args,
-	}, func_add_project_arguments_iter)) {
+	ctx->arg_arr = arg_arr;
+
+	if (!obj_array_foreach_flat(wk, ctx->args_to_add, ctx, add_arguments_language_iter)) {
 		return ir_err;
 	}
 
@@ -225,12 +221,16 @@ add_project_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_add_project_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
-	enum kwargs { kw_language, };
+	enum kwargs {
+		kw_language,
+		kw_native, // ignored
+	};
 	struct args_kw akw[] = {
 		[kw_language] = { "language", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_native] = { "native", obj_bool },
 		0
 	};
 
@@ -238,13 +238,30 @@ func_add_project_arguments(struct workspace *wk, obj _, uint32_t args_node, obj 
 		return false;
 	}
 
-
-	struct add_project_arguments_ctx ctx = {
+	struct add_arguments_ctx ctx = {
 		.lang_node = akw[kw_language].node,
 		.args_node = an[0].node,
-		.args = an[0].val,
+		.args_dict = args_dict,
+		.args_to_add = an[0].val,
 	};
-	return obj_array_foreach(wk, akw[kw_language].val, &ctx, add_project_arguments_iter);
+	return obj_array_foreach(wk, akw[kw_language].val, &ctx, add_arguments_iter);
+}
+
+static bool
+func_add_project_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	return add_arguments_common(wk, args_node, current_project(wk)->cfg.args, res);
+}
+
+static bool
+func_add_global_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (wk->cur_project != 0) {
+		interp_error(wk, args_node, "add_global_arguments cannot be called from a subproject");
+		return false;
+	}
+
+	return add_arguments_common(wk, args_node, wk->global_args, res);
 }
 
 static bool
@@ -1255,7 +1272,7 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 const struct func_impl_name impl_tbl_default[] =
 {
-	{ "add_global_arguments", todo },
+	{ "add_global_arguments", func_add_global_arguments },
 	{ "add_global_link_arguments", todo },
 	{ "add_languages", todo },
 	{ "add_project_arguments", func_add_project_arguments },
