@@ -168,7 +168,7 @@ struct obj {
 		} test;
 		struct {
 			str name;
-			str version;
+			obj ver;
 			enum compiler_type type;
 			enum compiler_language lang;
 		} compiler;

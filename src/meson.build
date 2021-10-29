@@ -46,6 +46,7 @@ src = files([
 	'functions/run_result.c',
 	'functions/string.c',
 	'functions/subproject.c',
+	'guess.c',
 	'install.c',
 	'lang/eval.c',
 	'lang/interpreter.c',

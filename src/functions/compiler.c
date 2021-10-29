@@ -430,7 +430,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = get_obj(wk, rcvr)->dat.compiler.version;
+	*res = get_obj(wk, rcvr)->dat.compiler.ver;
 	return true;
 }
 

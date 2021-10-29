@@ -6,6 +6,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
+#include "guess.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/run_cmd.h"
@@ -104,6 +105,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 
 	enum compiler_type type;
 	bool unknown = true;
+	obj ver;
 
 	if (cmd_ctx.status != 0) {
 		goto detection_over;
@@ -122,33 +124,25 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 		*p = 0;
 	}
 
-	char *ver, *ver_end;
-	for (ver = cmd_ctx.out; *ver; ++ver) {
-		ver_end = ver;
-		while (('0' <= *ver_end && *ver_end <= '9') || *ver_end == '.') {
-			++ver_end;
-		}
-
-		if (ver != ver_end) {
-			*ver_end = 0;
-			break;
-		}
+	if (!guess_version(wk, cmd_ctx.out, &ver)) {
+		ver = make_str(wk, "unknown");
 	}
 
 	unknown = false;
-	LOG_I("detected compiler %s %s (%s)", compiler_type_to_s(type), ver, cc);
+	LOG_I("detected compiler %s %s (%s)", compiler_type_to_s(type),
+		get_cstr(wk, ver), cc);
 
 detection_over:
 	if (unknown) {
 		LOG_W("unable to detect compiler type, falling back on posix compiler");
 		type = compiler_posix;
-		ver = "unknown";
+		ver = make_str(wk, "unknown");
 	}
 
 	struct obj *comp = make_obj(wk, comp_id, obj_compiler);
 	comp->dat.compiler.name = wk_str_push(wk, cc);
 	comp->dat.compiler.type = type;
-	comp->dat.compiler.version = wk_str_push(wk, ver);
+	comp->dat.compiler.ver = ver;
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return true;
