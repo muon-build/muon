@@ -18,6 +18,12 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
+static const char *
+bool_to_yn(bool v)
+{
+	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
+}
+
 struct func_compiler_get_supported_arguments_iter_ctx {
 	uint32_t arr, node, compiler;
 };
@@ -234,9 +240,11 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_dependencies,
+		kw_name,
 	};
 	struct args_kw akw[] = {
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_name] = { "name", obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -275,6 +283,13 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	make_obj(wk, res, obj_bool)->dat.boolean = links;
 	ret = true;
 ret:
+	if (akw[kw_name].set) {
+		LOG_I("%s compiles: %s",
+			get_cstr(wk, akw[kw_name].val),
+			bool_to_yn(links)
+			);
+	}
+
 	if (allocated_source) {
 		fs_source_destroy(&file_source);
 	}
@@ -318,7 +333,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 
 	LOG_I("'%s' supported: %s",
 		get_cstr(wk, arg),
-		*has_argument ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m"
+		bool_to_yn(*has_argument)
 		);
 
 	ret = true;
