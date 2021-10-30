@@ -74,8 +74,15 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 	return fs_write(test_source_path, (uint8_t *)test_source, strlen(test_source));
 }
 
+enum compile_mode {
+	compile_mode_preprocess,
+	compile_mode_compile,
+	compile_mode_link,
+};
+
 static bool
-compiler_links(struct workspace *wk, obj comp_id, uint32_t err_node, const struct str *src, obj deps, bool *res)
+compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
+	uint32_t err_node, const struct str *src, obj deps, bool *res)
 {
 	char test_source_path[PATH_MAX];
 	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.c")) {
@@ -96,19 +103,29 @@ compiler_links(struct workspace *wk, obj comp_id, uint32_t err_node, const struc
 	obj_array_push(wk, compiler_args, /* make_string? */ comp->dat.compiler.name);
 	push_args(wk, compiler_args, compilers[t].args.werror());
 	push_args(wk, compiler_args, compilers[t].args.output("/dev/null"));
-	obj_array_push(wk, compiler_args, make_str(wk, test_source_path));
 
-	if (deps) {
-		struct dep_args_ctx da_ctx;
-		dep_args_ctx_init(wk, &da_ctx);
+	switch (mode) {
+	case compile_mode_preprocess:
+		// TODO
+		break;
+	case compile_mode_compile:
+		push_args(wk, compiler_args, compilers[t].args.compile_only());
+		break;
+	case compile_mode_link:
+		if (deps) {
+			struct dep_args_ctx da_ctx;
+			dep_args_ctx_init(wk, &da_ctx);
 
-		if (!deps_args(wk, deps, &da_ctx)) {
-			return false;
+			if (!deps_args(wk, deps, &da_ctx)) {
+				return false;
+			}
+
+			push_linker_args_link_with(wk, compilers[t].linker, da_ctx.link_args, da_ctx.link_with);
+			obj_array_extend(wk, compiler_args, da_ctx.link_args);
 		}
-
-		push_linker_args_link_with(wk, compilers[t].linker, da_ctx.link_args, da_ctx.link_with);
-		obj_array_extend(wk, compiler_args, da_ctx.link_args);
 	}
+
+	obj_array_push(wk, compiler_args, make_str(wk, test_source_path));
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -178,7 +195,7 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	}
 
 	bool links;
-	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, &WKSTR(src),
 		akw[kw_dependencies].val, &links)) {
 		return false;
 	}
@@ -224,7 +241,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		);
 
 	bool links;
-	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, &WKSTR(src),
 		akw[kw_dependencies].val, &links)) {
 		return false;
 	}
@@ -275,7 +292,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	}
 
 	bool links;
-	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_compile, rcvr, an[0].node, &WKSTR(src),
 		akw[kw_dependencies].val, &links)) {
 		goto ret;
 	}
