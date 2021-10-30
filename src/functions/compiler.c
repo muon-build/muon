@@ -273,6 +273,12 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	bool allocated_source = false;
 	struct source file_source = { 0 };
 
+	if (src_obj->type == obj_array && src_obj->dat.arr.len == 1) {
+		obj o;
+		obj_array_index(wk, an[0].val, 0, &o);
+		src_obj = get_obj(wk, o);
+	}
+
 	switch (src_obj->type) {
 	case obj_string:
 		src = get_cstr(wk, src_obj->dat.str);
