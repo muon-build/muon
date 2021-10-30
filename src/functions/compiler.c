@@ -228,6 +228,60 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
+func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	bool ret = false;
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_dependencies,
+	};
+	struct args_kw akw[] = {
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *src;
+	struct obj *src_obj = get_obj(wk, an[0].val);
+	bool allocated_source = false;
+	struct source file_source = { 0 };
+
+	switch (src_obj->type) {
+	case obj_string:
+		src = get_cstr(wk, src_obj->dat.str);
+		break;
+	case obj_file: {
+		if (!fs_read_entire_file(get_cstr(wk, src_obj->dat.file), &file_source)) {
+			return false;
+		}
+
+		allocated_source = true;
+		src = file_source.src;
+		break;
+	}
+	default:
+		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(src_obj->type));
+		return false;
+	}
+
+	bool links;
+	if (!compiler_links(wk, rcvr, an[0].node, &WKSTR(src),
+		akw[kw_dependencies].val, &links)) {
+		goto ret;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	ret = true;
+ret:
+	if (allocated_source) {
+		fs_source_destroy(&file_source);
+	}
+	return ret;
+}
+
+static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
 	struct obj *comp = get_obj(wk, comp_id);
@@ -435,13 +489,14 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 const struct func_impl_name impl_tbl_compiler[] = {
+	{ "cmd_array", func_compiler_cmd_array },
+	{ "compiles", func_compiler_compiles },
+	{ "find_library", func_compiler_find_library },
+	{ "get_id", func_compiler_get_id },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
-	{ "get_id", func_compiler_get_id },
-	{ "find_library", func_compiler_find_library },
-	{ "cmd_array", func_compiler_cmd_array },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
 };
