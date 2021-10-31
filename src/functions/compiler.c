@@ -74,6 +74,23 @@ output_test_source(struct workspace *wk, enum compiler_language l, const char **
 	return fs_write(test_source_path, (uint8_t *)test_source, strlen(test_source));
 }
 
+static bool
+write_test_source(struct workspace *wk, const struct str *src, const char **res)
+{
+	static char test_source_path[PATH_MAX];
+	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.c")) {
+		return false;
+	}
+
+	*res = test_source_path;
+
+	if (!fs_write(test_source_path, (const uint8_t *)src->s, src->len)) {
+		return false;
+	}
+
+	return true;
+}
+
 enum compile_mode {
 	compile_mode_preprocess,
 	compile_mode_compile,
@@ -82,17 +99,8 @@ enum compile_mode {
 
 static bool
 compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
-	uint32_t err_node, const struct str *src, obj deps, bool *res)
+	uint32_t err_node, const char *src, obj deps, bool *res)
 {
-	char test_source_path[PATH_MAX];
-	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.c")) {
-		return false;
-	}
-
-	if (!fs_write(test_source_path, (const uint8_t *)src->s, src->len)) {
-		return false;
-	}
-
 	struct obj *comp = get_obj(wk, comp_id);
 	const char *name = get_cstr(wk, comp->dat.compiler.name);
 	enum compiler_type t = comp->dat.compiler.type;
@@ -125,7 +133,7 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		}
 	}
 
-	obj_array_push(wk, compiler_args, make_str(wk, test_source_path));
+	obj_array_push(wk, compiler_args, make_str(wk, src));
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -135,7 +143,7 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		return false;
 	}
 
-	L("compiling: '%s'", src->s);
+	L("compiling: '%s'", src);
 
 	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
@@ -194,8 +202,13 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			);
 	}
 
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
 	bool links;
-	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, path,
 		akw[kw_dependencies].val, &links)) {
 		return false;
 	}
@@ -240,8 +253,13 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		get_cstr(wk, an[1].val)
 		);
 
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
 	bool links;
-	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, path,
 		akw[kw_dependencies].val, &links)) {
 		return false;
 	}
@@ -268,10 +286,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	const char *src;
 	struct obj *src_obj = get_obj(wk, an[0].val);
-	bool allocated_source = false;
-	struct source file_source = { 0 };
 
 	if (src_obj->type == obj_array && src_obj->dat.arr.len == 1) {
 		obj o;
@@ -279,17 +294,16 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		src_obj = get_obj(wk, o);
 	}
 
+	const char *path;
+
 	switch (src_obj->type) {
 	case obj_string:
-		src = get_cstr(wk, src_obj->dat.str);
-		break;
-	case obj_file: {
-		if (!fs_read_entire_file(get_cstr(wk, src_obj->dat.file), &file_source)) {
+		if (!write_test_source(wk, get_str(wk, src_obj->dat.str), &path)) {
 			return false;
 		}
-
-		allocated_source = true;
-		src = file_source.src;
+		break;
+	case obj_file: {
+		path = get_cstr(wk, src_obj->dat.file);
 		break;
 	}
 	default:
@@ -298,7 +312,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	}
 
 	bool links;
-	if (!compiler_links(wk, compile_mode_compile, rcvr, an[0].node, &WKSTR(src),
+	if (!compiler_links(wk, compile_mode_compile, rcvr, an[0].node, path,
 		akw[kw_dependencies].val, &links)) {
 		goto ret;
 	}
@@ -313,9 +327,6 @@ ret:
 			);
 	}
 
-	if (allocated_source) {
-		fs_source_destroy(&file_source);
-	}
 	return ret;
 }
 
