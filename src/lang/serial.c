@@ -29,15 +29,19 @@ static bool
 dump_bucket_array(const struct bucket_array *ba, FILE *f)
 {
 	uint32_t i;
-	void *e;
 
-	if (!dump_uint32(ba->len, f)) {
+	if (!dump_uint32(ba->buckets.len, f)) {
 		return false;
 	}
 
-	for (i = 0; i < ba->len; ++i) {
-		e = bucket_array_get(ba, i);
-		if (!fs_fwrite(e, ba->item_size, f)) {
+	for (i = 0; i < ba->buckets.len; ++i) {
+		struct bucket *b = darr_get(&ba->buckets, i);
+
+		if (!dump_uint32(b->len, f)) {
+			return false;
+		}
+
+		if (!fs_fwrite(b->mem, ba->item_size * b->len, f)) {
 			return false;
 		}
 	}
@@ -48,21 +52,29 @@ dump_bucket_array(const struct bucket_array *ba, FILE *f)
 static bool
 load_bucket_array(struct bucket_array *ba, FILE *f)
 {
-	uint32_t len;
-	if (!load_uint32(&len, f)) {
+	uint32_t buckets_len;
+	uint32_t i;
+	struct bucket b = { 0 };
+
+	if (!load_uint32(&buckets_len, f)) {
 		return false;
 	}
 
-	char buf[BUF_SIZE_4k];
-	assert(BUF_SIZE_4k > ba->item_size && "item size too big");
+	z_free(((struct bucket *)darr_get(&ba->buckets, 0))->mem);
+	darr_clear(&ba->buckets);
 
-	uint32_t i;
-	for (i = 0; i < len; ++i) {
-		if (!fs_fread(buf, ba->item_size, f)) {
+	for (i = 0; i < buckets_len; ++i) {
+		init_bucket(ba, &b);
+
+		if (!load_uint32(&b.len, f)) {
 			return false;
 		}
 
-		bucket_array_push(ba, buf);
+		if (!fs_fread(b.mem, ba->item_size * b.len, f)) {
+			return false;
+		}
+
+		darr_push(&ba->buckets, &b);
 	}
 
 	return true;

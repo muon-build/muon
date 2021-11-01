@@ -8,12 +8,7 @@
 #include "log.h"
 #include "platform/mem.h"
 
-struct bucket {
-	uint8_t *mem;
-	uint32_t len;
-};
-
-static void
+void
 init_bucket(struct bucket_array *ba, struct bucket *b)
 {
 	b->mem = z_calloc(ba->item_size, ba->bucket_size);
@@ -52,15 +47,16 @@ bucket_array_clear(struct bucket_array *ba)
 }
 
 void *
-bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len, uint32_t reserve)
+bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t data_len, uint32_t reserve)
 {
 	void *dest;
 	struct bucket *b;
 
-	assert(reserve >= len);
+	assert(reserve >= data_len);
 	assert(reserve < ba->bucket_size);
 
 	b = darr_get(&ba->buckets, ba->buckets.len - 1);
+
 	if (b->len + reserve > ba->bucket_size) {
 		darr_push(&ba->buckets, &(struct bucket) { 0 });
 		b = darr_get(&ba->buckets, ba->buckets.len - 1);
@@ -68,7 +64,7 @@ bucket_array_pushn(struct bucket_array *ba, const void *data, uint32_t len, uint
 	}
 
 	dest = b->mem + (b->len * ba->item_size);
-	memcpy(dest, data, ba->item_size * len);
+	memcpy(dest, data, ba->item_size * data_len);
 	b->len += reserve;
 	ba->len += reserve;
 
