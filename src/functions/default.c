@@ -369,12 +369,14 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 
 	return ir_cont;
 found:
-	if (run_cmd(&cmd_ctx, path, (const char *[]){ (char *)path, "--version", 0 }, NULL)
-	    && cmd_ctx.status == 0) {
-		guess_version(wk, cmd_ctx.out, &ver);
-	}
-
 	if (ctx->version) {
+		if (run_cmd(&cmd_ctx, path, (const char *[]){ (char *)path, "--version", 0 }, NULL)
+		    && cmd_ctx.status == 0) {
+			guess_version(wk, cmd_ctx.out, &ver);
+		}
+
+		run_cmd_ctx_destroy(&cmd_ctx);
+
 		if (!ver) {
 			return ir_cont; // no version to check against
 		}
