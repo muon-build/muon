@@ -494,16 +494,22 @@ cmd_main(uint32_t argc, uint32_t argi, char *const argv[])
 		{ 0 },
 	};
 
-	OPTSTART("vl") {
+	OPTSTART("vlC:") {
 	case 'v':
 		log_set_lvl(log_debug);
 		break;
 	case 'l':
 		log_set_opts(log_show_source);
 		break;
+	case 'C':
+		if (!path_chdir(optarg)) {
+			return false;
+		}
+		break;
 	} OPTEND(argv[0], "",
 		"  -v - turn on debug messages\n"
-		"  -l - show source locations for log messages\n",
+		"  -l - show source locations for log messages\n"
+		"  -C <path> - chdir to path\n",
 		commands, -1)
 
 	cmd_func cmd;
