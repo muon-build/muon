@@ -15,5 +15,5 @@ foreach t : tests
 		c_args: c_args,
 		kwargs: t[2]
 	)
-	test(t[0], exe)
+	test(t[0], exe, suite: 'unit')
 endforeach

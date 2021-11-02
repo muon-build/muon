@@ -246,6 +246,7 @@ foreach t : tests
 			'-C', meson.current_source_dir() / t,
 			'setup',
 			'/tmp/muon_test_build',
-		]
+		],
+		suite: 'project',
 	)
 endforeach

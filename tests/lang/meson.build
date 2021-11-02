@@ -20,5 +20,5 @@ foreach t : tests
 
 	args = ['internal', 'eval'] + files([t[0]])
 
-	test(t[0], muon, args: args, kwargs: kwargs)
+	test(t[0], muon, args: args, kwargs: kwargs, suite: 'lang')
 endforeach
