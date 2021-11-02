@@ -18,6 +18,7 @@ struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
 	uint32_t proj_i;
+	bool success;
 };
 
 struct test_in_suite_ctx {
@@ -128,11 +129,11 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_err;
 	}
 
-	enum iteration_result ret = ir_err;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	if (!run_cmd(&cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp)) {
 		LOG_E("test command failed: %s", cmd_ctx.err_msg);
+		ctx->success = false;
 		goto ret;
 	}
 
@@ -140,15 +141,14 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		LOG_E("%s - failed (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
 		LOG_E("stdout: '%s'", cmd_ctx.out);
 		LOG_E("stderr: '%s'", cmd_ctx.err);
-		goto ret;
+		ctx->success = false;
 	} else {
 		LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
 	}
 
-	ret = ir_cont;
 ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
-	return ret;
+	return ir_cont;
 }
 
 static enum iteration_result
@@ -211,7 +211,7 @@ tests_run(const char *build_dir, struct test_options *opts)
 		goto ret;
 	}
 
-	ret = true;
+	ret = ctx.success;
 ret:
 	workspace_destroy_bare(&wk);
 	return ret;
