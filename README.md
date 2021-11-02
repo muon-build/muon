@@ -51,7 +51,15 @@ ninja -C build
 
 ## Contributing
 
-Please refer to the contributing [guide](https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md) before sending patches.
+Please refer to the contributing
+[guide](https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md) before
+sending patches.
+
+## License
+
+`muon` is licensed under the GPL version 3 (see LICENSE).  Tests under
+`tests/project` were copied from the meson project and are licensed under
+[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt).
 
 ## Credits
 
