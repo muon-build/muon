@@ -49,12 +49,44 @@ copy_pipe(int pipe, char **dest, uint32_t *len)
 	return true;
 }
 
+enum run_cmd_state
+run_cmd_collect(struct run_cmd_ctx *ctx)
+{
+	int status;
+	int flags = 0;
+	int r;
+
+	if (ctx->async) {
+		flags |= WNOHANG;
+	}
+
+	if ((r = waitpid(ctx->pid, &status, flags)) == -1) {
+		return run_cmd_error;
+	} else if (r == 0) {
+		return run_cmd_running;
+	}
+
+	if (WIFEXITED(status)) {
+		ctx->status = WEXITSTATUS(status);
+
+		if (!copy_pipe(ctx->pipefd_out[0], &ctx->out, &ctx->out_len)) {
+			return run_cmd_error;
+		}
+
+		if (!copy_pipe(ctx->pipefd_err[0], &ctx->err, &ctx->err_len)) {
+			return run_cmd_error;
+		}
+	} else {
+		ctx->err_msg = "child exited abnormally";
+		return run_cmd_error;
+	}
+
+	return run_cmd_finished;
+}
+
 bool
 run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[])
 {
-	pid_t pid;
-	bool res = false, pipefd_out_open[2] = { 0 }, pipefd_err_open[2] = { 0 };
-	int pipefd_out[2] = { 0 }, pipefd_err[2] = { 0 };
 	struct source src = { 0 };
 	bool src_open = false;
 
@@ -138,26 +170,26 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 		}
 	}
 
-	if (pipe(pipefd_out) == -1) {
+	if (pipe(ctx->pipefd_out) == -1) {
 		goto err;
 	}
-	pipefd_out_open[0] = true;
-	pipefd_out_open[1] = true;
+	ctx->pipefd_out_open[0] = true;
+	ctx->pipefd_out_open[1] = true;
 
-	if (pipe(pipefd_err) == -1) {
+	if (pipe(ctx->pipefd_err) == -1) {
 		goto err;
 	}
-	pipefd_err_open[0] = true;
-	pipefd_err_open[1] = true;
+	ctx->pipefd_err_open[0] = true;
+	ctx->pipefd_err_open[1] = true;
 
-	if ((pid = fork()) == -1) {
+	if ((ctx->pid = fork()) == -1) {
 		goto err;
-	} else if (pid == 0 /* child */) {
-		if (dup2(pipefd_out[1], 1) == -1) {
+	} else if (ctx->pid == 0 /* child */) {
+		if (dup2(ctx->pipefd_out[1], 1) == -1) {
 			log_plain("failed to dup stdout: %s", strerror(errno));
 			exit(1);
 		}
-		if (dup2(pipefd_err[1], 2) == -1) {
+		if (dup2(ctx->pipefd_err[1], 2) == -1) {
 			log_plain("failed to dup stderr: %s", strerror(errno));
 			exit(1);
 		}
@@ -188,68 +220,63 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 	}
 
 	/* parent */
-	if (pipefd_err_open[1] && close(pipefd_err[1]) == -1) {
+	if (src_open) {
+		fs_source_destroy(&src);
+		src_open = false;
+	}
+
+	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
-	pipefd_err_open[1] = false;
+	ctx->pipefd_err_open[1] = false;
 
-	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
+	if (ctx->pipefd_out_open[1] && close(ctx->pipefd_out[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
-	pipefd_out_open[1] = false;
+	ctx->pipefd_out_open[1] = false;
 
-	int status;
-	if (waitpid(pid, &status, 0) != pid) {
-		goto err;
+	if (ctx->async) {
+		return true;
 	}
 
-	if (WIFEXITED(status)) {
-		ctx->status = WEXITSTATUS(status);
-
-		if (!copy_pipe(pipefd_out[0], &ctx->out, &ctx->out_len)) {
-			goto err;
-		}
-		if (!copy_pipe(pipefd_err[0], &ctx->err, &ctx->err_len)) {
-			goto err;
-		}
-
-		res = true;
-	} else {
-		ctx->err_msg = "child exited abnormally";
-	}
+	return run_cmd_collect(ctx) == run_cmd_finished;
 err:
-	if (!res && !ctx->err_msg) {
-		ctx->err_msg = errno ? strerror(errno) : "unknown";
-	}
-
-	if (pipefd_err_open[0] && close(pipefd_err[0]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	if (pipefd_err_open[1] && close(pipefd_err[1]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	if (pipefd_out_open[0] && close(pipefd_out[0]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	if (pipefd_out_open[1] && close(pipefd_out[1]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-
 	if (src_open) {
 		fs_source_destroy(&src);
 	}
-
-	return res;
+	return false;
 }
 
 void
 run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
+	if (ctx->pipefd_err_open[0] && close(ctx->pipefd_err[0]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_err_open[0]  = false;
+
+	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_err_open[1] = false;
+
+	if (ctx->pipefd_out_open[0] && close(ctx->pipefd_out[0]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_out_open[0] = false;
+
+	if (ctx->pipefd_out_open[1] && close(ctx->pipefd_out[1]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_out_open[1] = false;
+
 	if (ctx->out) {
 		z_free(ctx->out);
+		ctx->out = NULL;
 	}
 
 	if (ctx->err) {
 		z_free(ctx->err);
+		ctx->err = NULL;
 	}
 }
