@@ -231,7 +231,7 @@ tests = [
 	'common/237 fstrings',
 	#'common/238 dependency include_type inconsistency',
 	'common/239 includedir violation',
-	'common/240 dependency native host == build',
+	# 'common/240 dependency native host == build',
 	'common/241 set and get variable',
 	#'common/242 custom target feed',
 	'common/243 escape++',
@@ -239,7 +239,7 @@ tests = [
 
 foreach t : tests
 	test(
-		t,
+		'setup ' + t,
 		muon,
 		args: [
 			'-v',
