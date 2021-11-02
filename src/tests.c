@@ -14,10 +14,93 @@
 #include "platform/run_cmd.h"
 #include "tests.h"
 
+struct run_test_ctx {
+	struct test_options *opts;
+	obj proj_name;
+	uint32_t proj_i;
+};
+
+struct test_in_suite_ctx {
+	struct run_test_ctx *run_test_ctx;
+	bool found;
+};
+
+static enum iteration_result
+test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
+{
+	struct test_in_suite_ctx *ctx = _ctx;
+	uint32_t i;
+	const char *sep, *proj, *suite;
+
+	struct test_options *opts = ctx->run_test_ctx->opts;
+
+	for (i = 0; i < opts->suites_len; ++i) {
+		if ((sep = strchr(opts->suites[i], ':'))) {
+			proj = opts->suites[i];
+			suite = sep + 1;
+		} else {
+			proj = NULL;
+			suite = opts->suites[i];
+		}
+
+
+		if (proj) {
+			struct str proj_str = {
+				.s = proj,
+				.len = sep - proj,
+			};
+
+			if (!wk_streql(get_str(wk, ctx->run_test_ctx->proj_name), &proj_str)) {
+				continue;
+			}
+		} else {
+			if (ctx->run_test_ctx->proj_i) {
+				continue;
+			}
+		}
+
+		if (!wk_streql(get_str(wk, s), &WKSTR(suite))) {
+			continue;
+		}
+
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static bool
+test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ctx)
+{
+	if (!run_test_ctx->opts->suites_len) {
+		// no suites given on command line
+		return true;
+	} else if (!suites) {
+		// suites given on command line, but test has no suites
+		return false;
+	}
+
+	struct test_in_suite_ctx ctx = {
+		.run_test_ctx = run_test_ctx,
+	};
+
+	if (!obj_array_foreach(wk, suites, &ctx, test_in_suite_iter)) {
+		return false;
+	}
+
+	return ctx.found;
+}
+
 static enum iteration_result
 run_test(struct workspace *wk, void *_ctx, uint32_t t)
 {
+	struct run_test_ctx *ctx = _ctx;
 	struct obj *test = get_obj(wk, t);
+
+	if (!test_in_suite(wk, test->dat.test.suites, ctx)) {
+		return ir_cont;
+	}
 
 	uint32_t cmdline;
 	make_obj(wk, &cmdline, obj_array);
@@ -69,19 +152,29 @@ ret:
 }
 
 static enum iteration_result
-run_project_tests(struct workspace *wk, void *_ctx, uint32_t proj_name, uint32_t tests)
+run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 {
+	if (!get_obj(wk, tests)->dat.arr.len) {
+		return ir_cont;
+	}
+
 	LOG_I("running tests for project '%s'", get_cstr(wk, proj_name));
 
-	if (!obj_array_foreach(wk, tests, NULL, run_test)) {
+	struct run_test_ctx *ctx = _ctx;
+
+	ctx->proj_name = proj_name;
+
+	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
 		return ir_err;
 	}
+
+	++ctx->proj_i;
 
 	return ir_cont;
 }
 
 bool
-tests_run(const char *build_dir)
+tests_run(const char *build_dir, struct test_options *opts)
 {
 	bool ret = false;
 	char tests_src[PATH_MAX], private[PATH_MAX], build_root[PATH_MAX];
@@ -102,6 +195,10 @@ tests_run(const char *build_dir)
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
+	struct run_test_ctx ctx = {
+		.opts = opts,
+	};
+
 	uint32_t tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
 		LOG_E("invalid tests file");
@@ -110,7 +207,7 @@ tests_run(const char *build_dir)
 		goto ret;
 	} else if (!path_chdir(build_root)) {
 		goto ret;
-	} else if (!obj_dict_foreach(&wk, tests_dict, NULL, run_project_tests)) {
+	} else if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;
 	}
 

@@ -165,6 +165,7 @@ struct obj {
 			obj exe; // obj_string
 			obj args; // obj_array
 			obj env; // obj_array
+			obj suites; // obj_array
 			bool should_fail;
 		} test;
 		struct {

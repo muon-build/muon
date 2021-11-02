@@ -360,10 +360,22 @@ cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	OPTSTART("") {
-	} OPTEND(argv[argi], " <build dir>", "", NULL, 1)
+	struct test_options test_opts = { 0 };
 
-	return tests_run(argv[argi]);
+	OPTSTART("s:") {
+	case 's':
+		if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
+			LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
+			return false;
+		}
+		test_opts.suites[test_opts.suites_len] = optarg;
+		++test_opts.suites_len;
+		break;
+	} OPTEND(argv[argi], " <build dir>",
+		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n",
+		NULL, 1)
+
+	return tests_run(argv[argi], &test_opts);
 }
 
 static bool

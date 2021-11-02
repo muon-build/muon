@@ -64,7 +64,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 		struct project *proj = darr_get(&wk->projects, i);
 
 		if (proj->tests) {
-			uint32_t res, key;
+			obj res, key;
 			make_obj(wk, &key, obj_string)->dat.str = proj->cfg.name;
 
 			if (obj_dict_index(wk, tests, key, &res)) {

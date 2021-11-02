@@ -741,6 +741,10 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 			return false;
 		}
 
+		if (!obj_clone(wk_src, wk_dest, test->dat.test.suites, &o->dat.test.suites)) {
+			return false;
+		}
+
 		return true;
 	}
 	case obj_install_target: {

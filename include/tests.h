@@ -7,6 +7,12 @@ enum test_flag {
 	test_flag_should_fail = 1 << 0,
 };
 
-bool tests_run(const char *build_dir);
-#endif
+#define MAX_CMDLINE_TEST_SUITES 64
 
+struct test_options {
+	const char *suites[MAX_CMDLINE_TEST_SUITES];
+	uint32_t suites_len;
+};
+
+bool tests_run(const char *build_dir, struct test_options *opts);
+#endif
