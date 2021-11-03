@@ -66,6 +66,8 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 		return run_cmd_running;
 	}
 
+	assert(r == ctx->pid);
+
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
 
