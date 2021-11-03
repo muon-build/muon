@@ -286,13 +286,12 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	struct obj *src_obj = get_obj(wk, an[0].val);
-
-	if (src_obj->type == obj_array && src_obj->dat.arr.len == 1) {
-		obj o;
-		obj_array_index(wk, an[0].val, 0, &o);
-		src_obj = get_obj(wk, o);
+	obj o;
+	if (!obj_array_flatten_one(wk, an[0].val, &o)) {
+		interp_error(wk, an[0].node, "could not flatten argument");
 	}
+
+	struct obj *src_obj = get_obj(wk, o);
 
 	const char *path;
 

@@ -409,6 +409,24 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
 }
 
+bool
+obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
+{
+	struct obj *v = get_obj(wk, val);
+
+	if (v->type == obj_array) {
+		if (v->dat.arr.len == 1) {
+			obj_array_index(wk, val, 0, res);
+		} else {
+			return false;
+		}
+	} else {
+		*res = val;
+	}
+
+	return true;
+}
+
 /*
  * dictionaries
  */
