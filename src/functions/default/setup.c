@@ -11,6 +11,27 @@
 
 uint32_t func_setup_flags = 0;
 
+bool
+do_setup(struct workspace *wk)
+{
+	uint32_t project_id;
+
+	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
+		return false;
+	}
+
+	log_plain("\n");
+
+	if (!ninja_write_all(wk)) {
+		return false;
+	}
+
+	log_plain("\n");
+
+	workspace_print_summaries(wk);
+	return true;
+}
+
 struct set_options_ctx {
 	struct workspace *sub_wk;
 	uint32_t err_node, parent;
@@ -110,11 +131,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 	}
 
 	if ((func_setup_flags & func_setup_flag_force) || !fs_file_exists(build_ninja)) {
-		if (!eval_project(&sub_wk, NULL, sub_wk.source_root, sub_wk.build_root, &project_id)) {
-			goto ret;
-		}
-
-		if (!ninja_write_all(&sub_wk)) {
+		if (!do_setup(&sub_wk)) {
 			goto ret;
 		}
 	}

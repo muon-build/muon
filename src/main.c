@@ -416,16 +416,9 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		goto err;
 	}
 
-	uint32_t project_id;
-	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
+	if (!do_setup(&wk)) {
 		goto err;
 	}
-
-	if (!ninja_write_all(&wk)) {
-		goto err;
-	}
-
-	workspace_print_summaries(&wk);
 
 	workspace_destroy(&wk);
 	return true;
