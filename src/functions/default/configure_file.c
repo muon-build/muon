@@ -320,6 +320,10 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const *envp;
 
+	if (!path_chdir(get_cstr(wk, current_project(wk)->build_dir))) {
+		return false;
+	}
+
 	if (!env_to_envp(wk, 0, &envp, 0, env_to_envp_flag_subdir)) {
 		goto ret;
 	} else if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
@@ -338,6 +342,10 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		ret = true;
 	}
 ret:
+	if (!path_chdir(wk->source_root)) {
+		return false;
+	}
+
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return ret;
 }
