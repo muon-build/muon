@@ -195,7 +195,7 @@ path_chdir(const char *path)
 		return false;
 	}
 
-	return true;
+	return path_init();
 }
 
 bool
