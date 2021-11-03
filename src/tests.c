@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <time.h>
 #include <limits.h>
 #include <string.h>
 
@@ -14,11 +15,20 @@
 #include "platform/run_cmd.h"
 #include "tests.h"
 
+#define MAX_SIMUL_TEST 4
+_Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
+
 struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
 	uint32_t proj_i;
 	bool success;
+
+	struct {
+		struct run_cmd_ctx cmd_ctx;
+		struct obj *test;
+	} test_ctx[MAX_SIMUL_TEST];
+	uint32_t test_cmd_ctx_free;
 };
 
 struct test_in_suite_ctx {
@@ -43,7 +53,6 @@ test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
 			proj = NULL;
 			suite = opts->suites[i];
 		}
-
 
 		if (proj) {
 			struct str proj_str = {
@@ -93,6 +102,74 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 	return ctx.found;
 }
 
+static void
+collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
+{
+	uint32_t i;
+
+	for (i = 0; i < MAX_SIMUL_TEST; ++i) {
+		if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+			continue;
+		}
+
+		struct run_cmd_ctx *cmd_ctx = &ctx->test_ctx[i].cmd_ctx;
+		struct obj *test = ctx->test_ctx[i].test;
+
+		switch (run_cmd_collect(cmd_ctx)) {
+		case run_cmd_running:
+			continue;
+		case run_cmd_error:
+			LOG_E("test command failed: %s", cmd_ctx->err_msg);
+			LOG_E("stdout: '%s'", cmd_ctx->out);
+			LOG_E("stderr: '%s'", cmd_ctx->err);
+			ctx->success = false;
+			break;
+		case run_cmd_finished:
+			if (cmd_ctx->status && !test->dat.test.should_fail) {
+				LOG_E("%s - failed (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status);
+				LOG_E("stdout: '%s'", cmd_ctx->out);
+				LOG_E("stderr: '%s'", cmd_ctx->err);
+				ctx->success = false;
+			} else {
+				LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status);
+			}
+			break;
+		}
+
+		run_cmd_ctx_destroy(cmd_ctx);
+		ctx->test_cmd_ctx_free &= ~(1 << i);
+	}
+}
+
+static void
+push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj *test, const char **argv, char *const *envp)
+{
+	uint32_t i;
+	while (true) {
+		for (i = 0; i < MAX_SIMUL_TEST; ++i) {
+			if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+				goto found_slot;
+			}
+		}
+
+		struct timespec req = {
+			.tv_sec = 0, /* seconds */
+			.tv_nsec = 10000000, /* nanoseconds */
+		};
+		nanosleep(&req, NULL);
+		collect_tests(wk, ctx);
+	}
+found_slot:
+
+	ctx->test_cmd_ctx_free |= (1 << i);
+
+	struct run_cmd_ctx *cmd_ctx = &ctx->test_ctx[i].cmd_ctx;
+	ctx->test_ctx[i].test = test;
+	*cmd_ctx = (struct run_cmd_ctx){ .async = true };
+
+	run_cmd(cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp);
+}
+
 static enum iteration_result
 run_test(struct workspace *wk, void *_ctx, uint32_t t)
 {
@@ -129,25 +206,7 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_err;
 	}
 
-	struct run_cmd_ctx cmd_ctx = { 0 };
-
-	if (!run_cmd(&cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp)) {
-		LOG_E("test command failed: %s", cmd_ctx.err_msg);
-		ctx->success = false;
-		goto ret;
-	}
-
-	if (cmd_ctx.status && !test->dat.test.should_fail) {
-		LOG_E("%s - failed (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
-		LOG_E("stdout: '%s'", cmd_ctx.out);
-		LOG_E("stderr: '%s'", cmd_ctx.err);
-		ctx->success = false;
-	} else {
-		LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx.status);
-	}
-
-ret:
-	run_cmd_ctx_destroy(&cmd_ctx);
+	push_test(wk, ctx, test, argv, envp);
 	return ir_cont;
 }
 
@@ -197,6 +256,7 @@ tests_run(const char *build_dir, struct test_options *opts)
 
 	struct run_test_ctx ctx = {
 		.opts = opts,
+		.success = true,
 	};
 
 	uint32_t tests_dict;

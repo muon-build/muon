@@ -237,6 +237,7 @@ tests = [
 	'common/243 escape++',
 ]
 
+i = 1
 foreach t : tests
 	test(
 		'setup ' + t,
@@ -245,8 +246,11 @@ foreach t : tests
 			'-v',
 			'-C', meson.current_source_dir() / t,
 			'setup',
-			'/tmp/muon_test_build',
+			# TODO :(
+			'/tmp/muon_test_build_@0@'.format(i),
 		],
 		suite: 'project',
 	)
+
+	i += 1
 endforeach
