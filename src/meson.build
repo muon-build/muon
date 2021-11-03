@@ -94,6 +94,8 @@ foreach d: [
 		found = dep.found()
 	endif
 
+	summary(d[0], found)
+
 	if found
 		deps += [dep]
 		src += [files(['external/' + d[1] + '.c'])]
