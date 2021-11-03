@@ -792,6 +792,37 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		}
 		return true;
 	}
+	case obj_option: {
+		struct obj *opt = get_obj(wk_src, val);
+
+		o = make_obj(wk_dest, ret, t);
+		o->dat.option.type = opt->dat.option.type;
+
+		if (!obj_clone(wk_src, wk_dest, opt->dat.option.val, &o->dat.option.val)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, opt->dat.option.choices, &o->dat.option.choices)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, opt->dat.option.max, &o->dat.option.max)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, opt->dat.option.min, &o->dat.option.min)) {
+			return false;
+		}
+
+		return true;
+	}
+	case obj_feature_opt: {
+		struct obj *opt = get_obj(wk_src, val);
+
+		o = make_obj(wk_dest, ret, t);
+		o->dat.feature_opt.state = opt->dat.feature_opt.state;
+		return true;
+	}
 	default:
 		LOG_E("unable to clone '%s'", obj_type_to_s(t));
 		return false;
