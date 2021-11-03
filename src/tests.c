@@ -142,6 +142,15 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 }
 
 static void
+test_delay(void)
+{
+	struct timespec req = {
+		.tv_nsec = 10000000,
+	};
+	nanosleep(&req, NULL);
+}
+
+static void
 push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj *test, const char **argv, char *const *envp)
 {
 	uint32_t i;
@@ -152,11 +161,7 @@ push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj *test, cons
 			}
 		}
 
-		struct timespec req = {
-			.tv_sec = 0, /* seconds */
-			.tv_nsec = 10000000, /* nanoseconds */
-		};
-		nanosleep(&req, NULL);
+		test_delay();
 		collect_tests(wk, ctx);
 	}
 found_slot:
@@ -269,6 +274,11 @@ tests_run(const char *build_dir, struct test_options *opts)
 		goto ret;
 	} else if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;
+	}
+
+	while (ctx.test_cmd_ctx_free) {
+		test_delay();
+		collect_tests(&wk, &ctx);
 	}
 
 	ret = ctx.success;
