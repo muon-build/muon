@@ -86,7 +86,7 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 }
 
 static bool
-ninja_write_setup(struct workspace *wk, void *_ctx, FILE *f)
+ninja_write_opts(struct workspace *wk, void *_ctx, FILE *out)
 {
 	struct project *proj;
 	uint32_t i;
@@ -99,12 +99,34 @@ ninja_write_setup(struct workspace *wk, void *_ctx, FILE *f)
 
 	for (i = 1; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
-		uint32_t str;
-		make_obj(wk, &str, obj_string)->dat.str = proj->subproject_name;
-		obj_dict_set(wk, opts, str, proj->opts);
+
+		obj key;
+		if (proj->subproject_name) {
+			make_obj(wk, &key, obj_string)->dat.str = proj->subproject_name;
+		} else {
+			key = make_str(wk, "");
+		}
+
+		assert(!obj_dict_index(wk, opts, key, &(obj){ 0 }) && "project defined multiple times");
+
+		obj_dict_set(wk, opts, key, proj->opts);
 	}
 
-	fprintf(f, "error('build regeneration is broken :(')\n");
+	return serial_dump(wk, opts, out);
+}
+
+static bool
+ninja_write_setup(struct workspace *wk, void *_ctx, FILE *out)
+{
+	fprintf(out,
+		"setup(\n"
+		"\t'%s',\n"
+		"\tsource: '%s',\n"
+		"\toptions: files('muon-private/opts.dat'),\n"
+		")\n",
+		wk->build_root,
+		wk->source_root
+		);
 	return true;
 }
 
@@ -114,6 +136,7 @@ ninja_write_all(struct workspace *wk)
 	if (!(with_open(wk->build_root, "build.ninja", wk, NULL, ninja_write_build)
 	      && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
 	      && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
+	      && with_open(wk->muon_private, output_path.opts, wk, NULL, ninja_write_opts)
 	      && with_open(wk->muon_private, output_path.setup, wk, NULL, ninja_write_setup)
 	      )) {
 		return false;
