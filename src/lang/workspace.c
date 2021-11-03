@@ -315,6 +315,7 @@ workspace_print_summaries(struct workspace *wk)
 		}
 
 		if (!printed_summary_header) {
+			log_plain("\n");
 			LOG_I("summary:");
 			printed_summary_header = true;
 		}

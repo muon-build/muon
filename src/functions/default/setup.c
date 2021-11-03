@@ -27,8 +27,6 @@ do_setup(struct workspace *wk)
 		return false;
 	}
 
-	log_plain("\n");
-
 	workspace_print_summaries(wk);
 	return true;
 }
