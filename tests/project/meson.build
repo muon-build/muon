@@ -237,7 +237,12 @@ tests = [
 	'common/243 escape++',
 ]
 
-i = 1
+# this could probably be a better location
+test_dir = meson.global_build_root() /  'test-tmp'
+
+# HACK: mkdir before any tests run to avoid race
+test('setup project tests', find_program('mkdir'), args: ['-p', test_dir / 'common'])
+
 foreach t : tests
 	test(
 		'setup ' + t,
@@ -246,11 +251,8 @@ foreach t : tests
 			'-v',
 			'-C', meson.current_source_dir() / t,
 			'setup',
-			# TODO :(
-			'/tmp/muon_test_build_@0@'.format(i),
+			test_dir / t,
 		],
 		suite: 'project',
 	)
-
-	i += 1
 endforeach
