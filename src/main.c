@@ -381,10 +381,17 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	OPTSTART("") {
-	} OPTEND(argv[argi], " <build dir>", "", NULL, 1)
+	struct install_options opts = { 0 };
 
-	return install_run(argv[argi]);
+	OPTSTART("n") {
+	case 'n':
+		opts.dry_run = true;
+		break;
+	} OPTEND(argv[argi], " <build dir>",
+		"  -n - dry run\n",
+		NULL, 1)
+
+	return install_run(argv[argi], &opts);
 }
 
 static bool
