@@ -159,6 +159,10 @@ load_strs(struct workspace *wk, FILE *f)
 		return false;
 	}
 
+	if (!len) {
+		return true;
+	}
+
 	struct serial_str *strs = z_calloc(sizeof(struct serial_str), len);
 	if (!fs_fread(strs, sizeof(struct serial_str) * len, f)) {
 		z_free(strs);
