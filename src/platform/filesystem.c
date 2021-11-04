@@ -468,7 +468,7 @@ ret:
 		}
 	}
 
-	if (f_dest) {
+	if (f_dest > 0) {
 		if (close(f_dest) == -1) {
 			LOG_E("failed close(): %s", strerror(errno));
 			res = false;
