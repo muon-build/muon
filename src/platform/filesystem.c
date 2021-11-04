@@ -530,6 +530,11 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 	};
 
 	L("'%s' -> '%s'", src_base, dest_base);
+	if (!fs_dir_exists(dest_base)) {
+		if (!fs_mkdir(dest_base)) {
+			return ir_err;
+		}
+	}
 
 	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);
 }
