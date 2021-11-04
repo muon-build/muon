@@ -4,6 +4,7 @@
 
 #include "backend/output.h"
 #include "error.h"
+#include "functions/default/options.h"
 #include "lang/private.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -62,9 +63,20 @@ push_install_target(struct workspace *wk, uint32_t base_path, uint32_t filename,
 	struct obj *tgt = make_obj(wk, &id, obj_install_target);
 	tgt->dat.install_target.base_path = base_path;
 	tgt->dat.install_target.filename = filename;
-	tgt->dat.install_target.install_dir = install_dir;
 	// TODO this has a mode [, user, group]
 	tgt->dat.install_target.install_mode = install_mode;
+
+	obj prefix;
+	if (!get_option(wk, current_project(wk), "prefix", &prefix)) {
+		return;
+	}
+
+	char buf[PATH_MAX];
+	if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, install_dir))) {
+		return;
+	}
+
+	tgt->dat.install_target.install_dir = wk_str_push(wk, buf);
 
 	obj_array_push(wk, wk->install, id);
 }
