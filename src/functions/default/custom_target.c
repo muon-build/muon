@@ -408,57 +408,6 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-#if 0
-	obj input, raw_output, output, args;
-	enum custom_target_flags flags = 0;
-
-	if (akw[kw_input].set) {
-		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input)) {
-			return false;
-		} else if (!get_obj(wk, input)->dat.arr.len) {
-			interp_error(wk, akw[kw_input].node, "input cannot be empty");
-		}
-	} else {
-		make_obj(wk, &input, obj_array);
-	}
-
-	if (!coerce_output_files(wk, akw[kw_output].node, akw[kw_output].val, &raw_output)) {
-		return false;
-	} else if (!get_obj(wk, raw_output)->dat.arr.len) {
-		interp_error(wk, akw[kw_output].node, "output cannot be empty");
-	}
-
-	make_obj(wk, &output, obj_array);
-	struct custom_target_cmd_fmt_ctx ctx = {
-		.err_node = akw[kw_output].node,
-		.input = input,
-		.output = output,
-	};
-	if (!obj_array_foreach(wk, raw_output, &ctx, custom_command_output_format_iter)) {
-		return false;
-	}
-
-	obj depends;
-	make_obj(wk, &depends, obj_array);
-	if (!process_custom_target_commandline(wk, akw[kw_command].node,
-		akw[kw_command].val, input, output, akw[kw_depfile].val, depends, &args)) {
-		return false;
-	}
-
-	if (akw[kw_capture].set && get_obj(wk, akw[kw_capture].val)->dat.boolean) {
-		flags |= custom_target_capture;
-	}
-
-	struct obj *tgt = make_obj(wk, res, obj_custom_target);
-	tgt->dat.custom_target.name = get_obj(wk, an[0].val)->dat.str;
-	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->dat.custom_target.name));
-	tgt->dat.custom_target.args = args;
-	tgt->dat.custom_target.input = input;
-	tgt->dat.custom_target.output = output;
-	tgt->dat.custom_target.depends = depends;
-	tgt->dat.custom_target.flags = flags;
-#endif
-
 	if (!make_custom_target(
 		wk,
 		an[0].val,
