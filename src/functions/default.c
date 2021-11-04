@@ -764,8 +764,25 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	if (akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean) {
 		obj install_dir = 0;
 		if (akw[kw_install_dir].set) {
-			install_dir = get_obj(wk, akw[kw_install_dir].val)->dat.str;
+			install_dir = akw[kw_install_dir].val;
+		} else {
+			switch (type) {
+			case tgt_executable:
+				if (!get_option(wk, current_project(wk), "bindir", &install_dir)) {
+					return false;
+				}
+				break;
+			case tgt_library:
+				if (!get_option(wk, current_project(wk), "libdir", &install_dir)) {
+					return false;
+				}
+				break;
+			default:
+				assert(false && "unreachable");
+				break;
+			}
 		}
+
 		obj install_mode_id = 0;
 		if (akw[kw_install_mode].set) {
 			install_mode_id = akw[kw_install_mode].val;
@@ -1047,6 +1064,54 @@ func_install_todo(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	L("TODO: installation");
 	return true;
+}
+
+static bool
+func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_dir,
+		kw_install_mode,
+		kw_subdir,
+	};
+	struct args_kw akw[] = {
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_subdir] = { "subdir", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	obj install_dir_base;
+	if (akw[kw_install_dir].set) {
+		install_dir_base = akw[kw_install_dir].val;
+	} else {
+		if (!get_option(wk, current_project(wk), "includedir", &install_dir_base)) {
+			return false;
+		}
+	}
+
+	obj install_dir;
+	if (akw[kw_subdir].set) {
+		char buf[PATH_MAX];
+		if (!path_join(buf, PATH_MAX, get_cstr(wk, install_dir_base), get_cstr(wk, akw[kw_subdir].val))) {
+			return false;
+		}
+
+		install_dir = make_str(wk, buf);
+	} else {
+		install_dir = install_dir_base;
+	}
+
+	obj headers;
+	if (!coerce_files(wk, an[0].node, an[0].val, &headers)) {
+		return false;
+	}
+
+	return push_install_targets(wk, 0, headers, install_dir, akw[kw_install_mode].val);
 }
 
 static bool
@@ -1384,7 +1449,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "import", func_import },
 	{ "include_directories", func_include_directories },
 	{ "install_data", func_install_todo },
-	{ "install_headers", func_install_todo },
+	{ "install_headers", func_install_headers },
 	{ "install_man", func_install_todo },
 	{ "install_subdir", func_install_todo },
 	{ "is_disabler", func_is_disabler },
