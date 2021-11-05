@@ -496,6 +496,7 @@ done:
 			return false;
 		}
 
+		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
 		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
 			*obj = disabler_id;
 		} else {
