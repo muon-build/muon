@@ -237,8 +237,7 @@ tests = [
 	'common/243 escape++',
 ]
 
-# this could probably be a better location
-test_dir = meson.global_build_root() /  'test-tmp'
+test_dir = meson.current_build_dir()
 
 # HACK: mkdir before any tests run to avoid race
 test('setup project tests', find_program('mkdir'), args: ['-p', test_dir / 'common'])
