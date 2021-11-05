@@ -76,15 +76,6 @@ ret:
 	return ret;
 }
 
-static const char *
-get_filename_as_only_arg(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	OPTSTART("") {
-	} OPTEND(argv[argi], " <filename>", "", NULL, 1)
-
-	return argv[argi];
-}
-
 static bool
 cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -250,7 +241,7 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-eval_internal(const char *filename, const char *argv0)
+eval_internal(const char *filename, const char *argv0, char *const argv[], uint32_t argc)
 {
 	bool ret = false;
 
@@ -272,6 +263,17 @@ eval_internal(const char *filename, const char *argv0)
 	uint32_t id;
 	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
 
+	{ // populate argv array
+		obj argv_obj;
+		make_obj(&wk, &argv_obj, obj_array);
+		hash_set(&wk.scope, "argv", argv_obj);
+
+		uint32_t i;
+		for (i = 0; i < argc; ++i) {
+			obj_array_push(&wk, argv_obj, make_str(&wk, argv[i]));
+		}
+	}
+
 	uint32_t res;
 	if (!eval(&wk, &src, &res)) {
 		goto ret;
@@ -289,11 +291,19 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	const char *filename;
 
-	if (!(filename = get_filename_as_only_arg(argc, argi, argv))) {
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <filename> [args]", "", NULL, -1)
+
+	if (argi >= argc) {
+		LOG_E("missing required filename argument");
 		return false;
 	}
 
-	return eval_internal(filename, argv[0]);
+	filename = argv[argi];
+
+	/* ++argi; */
+
+	return eval_internal(filename, argv[0], &argv[argi], argc - argi);
 }
 
 static bool
@@ -462,7 +472,7 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -r - regenerate build file only\n",
 		NULL, 0)
 
-	return eval_internal(opts.cfg, argv[0]);
+	return eval_internal(opts.cfg, argv[0], NULL, 0);
 }
 
 static bool
