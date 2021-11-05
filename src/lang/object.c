@@ -935,7 +935,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			break;
 		}
 
-		obj_to_s_buf_push(&ctx, "<%s '", type);
+		obj_to_s_buf_push(&ctx, "<%s ", type);
 		obj_to_s_str(wk, &ctx, tgt->dat.tgt.name);
 		obj_to_s_buf_push(&ctx, ">");
 
