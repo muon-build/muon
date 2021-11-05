@@ -81,6 +81,27 @@ func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_to_lower(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
+
+	const struct str *ss = get_str(wk, *res);
+
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if ('A' <= ss->s[i] && ss->s[i] <= 'Z') {
+			((char *)ss->s)[i] += 32;
+		}
+	}
+
+	return true;
+}
+
 #define MAX_KEY_LEN 64
 
 bool
@@ -505,6 +526,7 @@ const struct func_impl_name impl_tbl_string[] = {
 	{ "strip", func_strip },
 	{ "to_int", func_string_to_int },
 	{ "to_upper", func_to_upper },
+	{ "to_lower", func_to_lower },
 	{ "underscorify", func_underscorify },
 	{ "version_compare", func_version_compare },
 	{ NULL, NULL },
