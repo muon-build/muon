@@ -85,10 +85,46 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
+static bool
+func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	struct source src = { 0 };
+	if (!fs_read_entire_file(get_cstr(wk, an[0].val), &src)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_string)->dat.str = wk_str_pushn(wk, src.src, src.len);
+
+	fs_source_destroy(&src);
+	return true;
+}
+
+static bool
+func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const struct str *ss = get_str(wk, an[1].val);
+	if (!fs_write(get_cstr(wk, an[0].val), (uint8_t *)ss->s, ss->len)) {
+		return false;
+	}
+	return true;
+}
+
 const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "exists", func_module_fs_exists },
 	{ "is_file", func_module_fs_is_file },
 	{ "is_dir", func_module_fs_is_dir },
 	{ "parent", func_module_fs_parent },
+	{ "read", func_module_fs_read },
+	{ "write", func_module_fs_write },
 	{ NULL, NULL },
 };
