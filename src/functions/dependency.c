@@ -101,6 +101,10 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (dep->type) {
 	case obj_dependency:
+		if (!(dep->dat.dep.flags & dep_flag_found)) {
+			return ir_cont;
+		}
+
 		if (dep->dat.dep.link_with) {
 			if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, dep_args_link_with_iter)) {
 				return ir_err;
@@ -121,8 +125,13 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	case obj_external_library: {
+		if (!dep->dat.external_library.found) {
+			return ir_cont;
+		}
+
 		obj val;
 		make_obj(wk, &val, obj_string)->dat.str = dep->dat.external_library.full_path;
+
 		obj_array_push(wk, ctx->link_with, val);
 		break;
 	}
