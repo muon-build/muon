@@ -20,11 +20,10 @@ struct project {
 	obj opts, compilers, targets, tests, summary;
 
 	struct {
-		uint32_t name;
-		uint32_t version;
-		uint32_t license;
-		uint32_t meson_version;
-		uint32_t args;
+		str name;
+		str version;
+		str license;
+		obj args;
 	} cfg;
 };
 
