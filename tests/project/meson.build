@@ -63,7 +63,7 @@ tests = [
 	'common/63 array arithmetic',
 	'common/64 arithmetic bidmas',
 	#'common/65 build always',
-	#'common/66 vcstag',
+	'common/66 vcstag',
 	#'common/67 modules',
 	'common/68 should fail',
 	'common/69 configure file in custom target',
