@@ -91,7 +91,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_license] = { "license" },
+		[kw_license] = { "license", obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
 		[kw_version] = { "version", obj_any },
@@ -1242,7 +1242,6 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	return true;
 }
-
 
 static bool
 func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
