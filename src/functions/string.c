@@ -122,8 +122,9 @@ string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, voi
 				id_end = i + 1;
 
 				if (i == id_start) {
-					interp_error(wk, err_node, "key of zero length not supported");
-					return false;
+					wk_str_app(wk, s_out, "@");
+					reading_id = false;
+					continue;
 				} else if (i - id_start >= MAX_KEY_LEN) {
 					interp_error(wk, err_node, "key is too long (max: %d)", MAX_KEY_LEN);
 					return false;
