@@ -7,6 +7,7 @@
 
 #include "backend/ninja.h"
 #include "compilers.h"
+#include "embedded.h"
 #include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
@@ -241,9 +242,12 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-eval_internal(const char *filename, const char *argv0, char *const argv[], uint32_t argc)
+eval_internal(const char *filename, bool embedded, const char *argv0, char *const argv[], uint32_t argc)
 {
 	bool ret = false;
+
+	struct source src = { 0 };
+	bool src_allocd = false;
 
 	struct workspace wk;
 	workspace_init(&wk);
@@ -254,10 +258,19 @@ eval_internal(const char *filename, const char *argv0, char *const argv[], uint3
 
 	wk.lang_mode = language_internal;
 
-	struct source src = { 0 };
+	if (embedded) {
+		if (!(src.src = embedded_get(filename))) {
+			LOG_E("failed to find '%s' in embedded sources", filename);
+			goto ret;
+		}
 
-	if (!fs_read_entire_file(filename, &src)) {
-		goto ret;
+		src.len = strlen(src.src);
+		src.label = filename;
+	} else {
+		if (!fs_read_entire_file(filename, &src)) {
+			goto ret;
+		}
+		src_allocd = true;
 	}
 
 	uint32_t id;
@@ -281,7 +294,9 @@ eval_internal(const char *filename, const char *argv0, char *const argv[], uint3
 
 	ret = true;
 ret:
-	fs_source_destroy(&src);
+	if (src_allocd) {
+		fs_source_destroy(&src);
+	}
 	workspace_destroy(&wk);
 	return ret;
 }
@@ -290,8 +305,12 @@ static bool
 cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	const char *filename;
+	bool embedded = false;
 
-	OPTSTART("") {
+	OPTSTART("e") {
+	case 'e':
+		embedded = true;
+		break;
 	} OPTEND(argv[argi], " <filename> [args]", "", NULL, -1)
 
 	if (argi >= argc) {
@@ -301,9 +320,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 
 	filename = argv[argi];
 
-	/* ++argi; */
-
-	return eval_internal(filename, argv[0], &argv[argi], argc - argi);
+	return eval_internal(filename, embedded, argv[0], &argv[argi], argc - argi);
 }
 
 static bool
@@ -472,7 +489,7 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -r - regenerate build file only\n",
 		NULL, 0)
 
-	return eval_internal(opts.cfg, argv[0], NULL, 0);
+	return eval_internal(opts.cfg, false, argv[0], NULL, 0);
 }
 
 static bool
