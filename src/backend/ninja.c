@@ -82,7 +82,12 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 static bool
 ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 {
-	return serial_dump(wk, wk->install, out);
+	obj o;
+	make_obj(wk, &o, obj_array);
+	obj_array_push(wk, o, wk->install);
+	obj_array_push(wk, o, wk->install_scripts);
+
+	return serial_dump(wk, o, out);
 }
 
 static bool

@@ -95,15 +95,19 @@ install_run(const char *build_root, struct install_options *opts)
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
-	uint32_t install_arr;
-	if (!serial_load(&wk, &install_arr, f)) {
+	obj install;
+	if (!serial_load(&wk, &install, f)) {
 		LOG_E("failed to load %s", output_path.install);
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
 	}
 
-	obj_array_foreach(&wk, install_arr, opts, install_iter);
+	obj install_targets, install_scripts;
+	obj_array_index(&wk, install, 0, &install_targets);
+	obj_array_index(&wk, install, 1, &install_scripts);
+
+	obj_array_foreach(&wk, install_targets, opts, install_iter);
 
 	ret = true;
 ret:

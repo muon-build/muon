@@ -55,6 +55,7 @@ struct workspace {
 	/* TODO binaries dict */
 	obj binaries;
 	obj install;
+	obj install_scripts;
 	obj subprojects;
 	/* args dict for add_global_arguments() */
 	obj global_args;
