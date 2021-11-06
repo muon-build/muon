@@ -23,6 +23,7 @@ cat \
 	src/data/bucket_array.c \
 	src/data/darr.c \
 	src/data/hash.c \
+	src/embedded.c \
 	src/error.c \
 	src/external/libarchive_null.c \
 	src/external/libcurl_null.c \

@@ -11,6 +11,7 @@ src = files([
 	'data/bucket_array.c',
 	'data/darr.c',
 	'data/hash.c',
+	'embedded.c',
 	'error.c',
 	'formats/ini.c',
 	'formats/tar.c',
@@ -74,6 +75,16 @@ src = files([
 	output: 'version.c'
 )]
 
+scripts = []
+
+src += [custom_target(
+	'embedded files',
+	input: scripts,
+	output: 'embedded_files.h',
+	capture: true,
+	command: [embedder, scripts]
+)]
+
 foreach d: [
 		['libcurl',    'libcurl',    'dependency'],
 		['libarchive', 'libarchive', 'dependency'],
@@ -90,7 +101,11 @@ foreach d: [
 			found = true
 		endif
 	else
-		dep = dependency(d[0], required: get_option(d[1]), static: get_option('static'))
+		dep = dependency(
+			d[0],
+			required: get_option(d[1]),
+			static: get_option('static')
+		)
 		found = dep.found()
 	endif
 

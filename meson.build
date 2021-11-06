@@ -45,6 +45,7 @@ add_project_arguments(cc.get_supported_arguments([
 	'-Wstrict-prototypes',
 	'-Wundef',
 	'-fstrict-aliasing',
+	'-DMUON_BOOTSTRAPPED',
 ]), language: 'c')
 
 deps = []
@@ -52,6 +53,7 @@ c_args = []
 
 include_dir = include_directories('include')
 
+subdir('tools')
 subdir('src')
 
 muon = executable(
