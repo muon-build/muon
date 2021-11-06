@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "args.h"
 #include "coerce.h"
 #include "functions/default/custom_target.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
 #include "log.h"
-#include "platform/path.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 
 struct custom_target_cmd_fmt_ctx {
 	uint32_t err_node;
@@ -442,6 +443,87 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!push_install_targets(wk, 0, tgt->dat.custom_target.output, akw[kw_install_dir].val, install_mode_id)) {
 			return false;
 		}
+	}
+
+	obj_array_push(wk, current_project(wk)->targets, *res);
+	return true;
+}
+
+bool
+func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	enum kwargs {
+		kw_input,
+		kw_output,
+		kw_command,
+		kw_fallback,
+		kw_replace_string,
+	};
+	struct args_kw akw[] = {
+		[kw_input]       = { "input", obj_string, .required = true },
+		[kw_output]      = { "output", obj_string, .required = true },
+		[kw_command]     = { "command", obj_array },
+		[kw_fallback]     = { "fallback", obj_string },
+		[kw_replace_string] = { "replace_string", obj_string },
+		0
+	};
+
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	obj replace_string = akw[kw_replace_string].set
+		? akw[kw_replace_string].val
+		: make_str(wk, "@@VCS_TAG@@");
+
+	obj fallback;
+	if (akw[kw_fallback].set) {
+		fallback = akw[kw_fallback].val;
+	} else {
+		make_obj(wk, &fallback, obj_string)->dat.str = current_project(wk)->cfg.version;
+	}
+
+	obj command;
+	make_obj(wk, &command, obj_array);
+
+	push_args_null_terminated(wk, command, (char *const []){
+		wk->argv0,
+		"internal",
+		"eval",
+		"-e",
+		"vcs_tagger.meson",
+		NULL,
+	});
+
+	obj input;
+	if (!coerce_string_to_file(wk, akw[kw_input].val, &input)) {
+	}
+
+	obj_array_push(wk, command, input);
+	obj_array_push(wk, command, akw[kw_output].val);
+	obj_array_push(wk, command, replace_string);
+	obj_array_push(wk, command, fallback);
+
+	if (akw[kw_command].set) {
+		obj cmd;
+		obj_array_dup(wk, akw[kw_command].val, &cmd);
+		obj_array_extend(wk, command, cmd);
+	}
+
+	if (!make_custom_target(
+		wk,
+		make_str(wk, "vcs_tag"),
+		akw[kw_input].node,
+		akw[kw_output].node,
+		args_node,
+		akw[kw_input].val,
+		akw[kw_output].val,
+		command,
+		0,
+		false,
+		res
+		)) {
+		return false;
 	}
 
 	obj_array_push(wk, current_project(wk)->targets, *res);

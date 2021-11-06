@@ -1,0 +1,60 @@
+fs = import('fs')
+
+if argv.length() < 5
+	error('usage: @0@ <src> <dest> <pat> <fallback> [cmd]'.format(
+		argv[0]
+	))
+endif
+
+src = argv[1]
+dest = argv[2]
+sep = argv[3]
+fallback = argv[4]
+
+i = -1
+cmd = []
+args = []
+foreach e : argv
+	i += 1
+
+	if i <= 4
+		continue
+	elif i == 5
+		cmd = [e]
+	else
+		args += [e]
+	endif
+endforeach
+
+found_tag = false
+
+if cmd.length() == 1
+	programs = [[cmd[0], args]]
+else
+	programs = [
+		['git', ['describe', '--dirty=+']]
+	]
+endif
+
+foreach p : programs
+	prog = find_program(p[0])
+
+	if not prog.found()
+		continue
+	endif
+
+	runres = run_command(prog, p[1])
+	if runres.returncode() != 0
+		continue
+	endif
+
+	found_tag = true
+	vcs_tag = runres.stdout().strip()
+endforeach
+
+if not found_tag
+	vcs_tag = fallback
+endif
+
+s = fs.read(src)
+fs.write(dest, vcs_tag.join(s.split(sep)))

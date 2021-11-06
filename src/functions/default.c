@@ -1470,7 +1470,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "subproject", func_subproject },
 	{ "summary", func_summary },
 	{ "test", func_test },
-	{ "vcs_tag", todo },
+	{ "vcs_tag", func_vcs_tag },
 	{ "warning", func_warning },
 	{ "p", func_p },
 	{ NULL, NULL },

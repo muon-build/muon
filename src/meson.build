@@ -75,7 +75,9 @@ src = files([
 	output: 'version.c'
 )]
 
-scripts = []
+scripts = files([
+	'script/vcs_tagger.meson',
+])
 
 src += [custom_target(
 	'embedded files',
