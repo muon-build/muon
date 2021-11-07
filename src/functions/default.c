@@ -1088,6 +1088,60 @@ func_install_todo(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 }
 
 static bool
+func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_dir,
+		kw_install_mode,
+		kw_rename,
+		kw_sources,
+	};
+
+	struct args_kw akw[] = {
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string }, // TODO
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	obj install_dir;
+	if (akw[kw_install_dir].set) {
+		install_dir = akw[kw_install_dir].val;
+	} else {
+		obj install_dir_base;
+		char buf[PATH_MAX];
+		if (!get_option(wk, current_project(wk), "datadir", &install_dir_base)) {
+			return false;
+		}
+		if (!path_join(buf, PATH_MAX, get_cstr(wk, install_dir_base), get_cstr(wk, current_project(wk)->cfg.name))) {
+			return false;
+		}
+
+		install_dir = make_str(wk, buf);
+
+	}
+
+	obj datafiles;
+	obj sources;
+	if (!coerce_files(wk, an[0].node, an[0].val, &datafiles)) {
+		return false;
+	}
+	if (akw[kw_sources].set) {
+		if (!coerce_files(wk, akw[kw_sources].node, akw[kw_sources].val, &sources)) {
+			return false;
+		}
+		obj_array_extend(wk, datafiles, sources);
+	}
+
+	return push_install_targets(wk, datafiles, install_dir, akw[kw_install_mode].val);
+}
+
+static bool
 func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
@@ -1468,7 +1522,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "gettext", todo },
 	{ "import", func_import },
 	{ "include_directories", func_include_directories },
-	{ "install_data", func_install_todo },
+	{ "install_data", func_install_data },
 	{ "install_headers", func_install_headers },
 	{ "install_man", func_install_todo },
 	{ "install_subdir", func_install_todo },
