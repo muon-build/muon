@@ -440,7 +440,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			install_mode_id = akw[kw_install_mode].val;
 		}
 
-		if (!push_install_targets(wk, 0, tgt->dat.custom_target.output, akw[kw_install_dir].val, install_mode_id)) {
+		if (!push_install_targets(wk, tgt->dat.custom_target.output, akw[kw_install_dir].val, install_mode_id)) {
 			return false;
 		}
 	}

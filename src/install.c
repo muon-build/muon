@@ -27,41 +27,46 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	struct obj *in = get_obj(wk, v_id);
 	assert(in->type == obj_install_target);
 
-	char src_buf[PATH_MAX], filename_buf[PATH_MAX], dest[PATH_MAX];
-	const char *dest_dir = get_cstr(wk, in->dat.install_target.install_dir),
-		   *src;
+	/* char src_buf[PATH_MAX], filename_buf[PATH_MAX], dest[PATH_MAX]; */
+	char dest_dirname[PATH_MAX];
+	const char *dest = get_cstr(wk, in->dat.install_target.dest),
+		   *src = get_cstr(wk, in->dat.install_target.src);
 
 	if (ctx->destdir) {
 		static char full_dest_dir[PATH_MAX];
-		if (!path_join_absolute(full_dest_dir, PATH_MAX, get_cstr(wk, ctx->destdir), dest_dir)) {
+		if (!path_join_absolute(full_dest_dir, PATH_MAX, get_cstr(wk, ctx->destdir), dest)) {
 			return ir_err;
 		}
 
-		L("'%s'", get_cstr(wk, ctx->destdir));
-		L("'%s'", full_dest_dir);
-		dest_dir = full_dest_dir;
+		dest = full_dest_dir;
 	}
 
-	if (in->dat.install_target.base_path) {
-		if (!path_join(src_buf, PATH_MAX, get_cstr(wk, in->dat.install_target.base_path),
-			get_cstr(wk, in->dat.install_target.filename))) {
-			return ir_err;
-		}
-
-		src = src_buf;
-	} else {
-		src = get_cstr(wk, in->dat.install_target.filename);
-
+	if (!path_dirname(dest_dirname, PATH_MAX, dest)) {
+		return ir_err;
 	}
+
+
+	/* if (in->dat.install_target.base_path) { */
+	/* 	if (!path_join(src_buf, PATH_MAX, get_cstr(wk, in->dat.install_target.base_path), */
+	/* 		get_cstr(wk, in->dat.install_target.filename))) { */
+	/* 		return ir_err; */
+	/* 	} */
+
+	/* 	src = src_buf; */
+	/* } else { */
+	/* 	src = get_cstr(wk, in->dat.install_target.filename); */
+
+	/* } */
+
+	/* if (!path_basename(filename_buf, PATH_MAX, src)) { */
+	/* 	return ir_err; */
+	/* } */
+
+	/* if (!path_join(dest, PATH_MAX, dest_dir, filename_buf)) { */
+	/* 	return ir_err; */
+	/* } */
 
 	assert(path_is_absolute(src));
-	if (!path_basename(filename_buf, PATH_MAX, src)) {
-		return ir_err;
-	}
-
-	if (!path_join(dest, PATH_MAX, dest_dir, filename_buf)) {
-		return ir_err;
-	}
 
 	LOG_I("install '%s' -> '%s'", src, dest);
 
@@ -83,12 +88,12 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 			return ir_err;
 		}
 	} else {
-		if (fs_exists(dest_dir) && !fs_dir_exists(dest_dir)) {
-			LOG_E("dest '%s' exists and is not a directory", dest_dir);
+		if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
+			LOG_E("dest '%s' exists and is not a directory", dest_dirname);
 			return ir_err;
 		}
 
-		if (!fs_mkdir_p(dest_dir)) {
+		if (!fs_mkdir_p(dest_dirname)) {
 			return ir_err;
 		}
 

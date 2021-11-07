@@ -769,18 +769,14 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		struct obj *in = get_obj(wk_src, val);
 
 		o = make_obj(wk_dest, ret, t);
-		o->dat.install_target.base_path =
-			str_clone(wk_src, wk_dest, in->dat.install_target.base_path);
-		o->dat.install_target.filename =
-			str_clone(wk_src, wk_dest, in->dat.install_target.filename);
+		o->dat.install_target.src =
+			str_clone(wk_src, wk_dest, in->dat.install_target.src);
+		o->dat.install_target.dest =
+			str_clone(wk_src, wk_dest, in->dat.install_target.dest);
 
-		if (in->dat.install_target.install_dir) {
-			o->dat.install_target.install_dir =
-				str_clone(wk_src, wk_dest, in->dat.install_target.install_dir);
+		if (!obj_clone(wk_src, wk_dest, in->dat.install_target.mode, &o->dat.install_target.mode)) {
+			return false;
 		}
-
-		// TODO
-		o->dat.install_target.install_mode = in->dat.install_target.install_mode;
 		return true;
 	}
 	case obj_environment: {

@@ -94,10 +94,13 @@ void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0, bool mkdir);
 
-void push_install_target(struct workspace *wk, uint32_t base_path, uint32_t filename,
-	uint32_t install_dir, uint32_t install_mode);
-bool push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t filenames,
-	uint32_t install_dirs, uint32_t install_mode);
+void push_install_target(struct workspace *wk, obj src, obj dest, obj mode);
+bool push_install_target_install_dir(struct workspace *wk, obj src,
+	obj install_dir, obj mode);
+void push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
+	obj install_dir, obj mode);
+bool push_install_targets(struct workspace *wk, obj filenames,
+	obj install_dirs, obj install_mode);
 
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);

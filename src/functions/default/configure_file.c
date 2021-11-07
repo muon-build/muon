@@ -439,7 +439,7 @@ exclusive_or(bool *vals, uint32_t len)
 }
 
 bool
-func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	uint32_t input_arr = 0, output_str;
 	enum kwargs {
@@ -509,7 +509,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 
 		LOG_I("configuring '%s", out_path);
 		output_str = wk_str_push(wk, out_path);
-		make_obj(wk, obj, obj_file)->dat.file = output_str;
+		make_obj(wk, res, obj_file)->dat.file = output_str;
 	}
 
 	if (!exclusive_or((bool []) { akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
@@ -591,12 +591,7 @@ func_configure_file(struct workspace *wk, uint32_t _, uint32_t args_node, uint32
 			return false;
 		}
 
-		uint32_t install_mode_id = 0;
-		if (akw[kw_install_mode].set) {
-			install_mode_id = akw[kw_install_mode].val;
-		}
-
-		push_install_target(wk, 0, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, install_mode_id);
+		push_install_target_install_dir(wk, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, akw[kw_install_mode].val);
 	}
 
 	return true;

@@ -809,7 +809,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			install_mode_id = akw[kw_install_mode].val;
 		}
 
-		push_install_target(wk, tgt->dat.tgt.build_dir,
+		push_install_target_basename(wk, tgt->dat.tgt.build_dir,
 			tgt->dat.tgt.build_name, install_dir, install_mode_id);
 	}
 
@@ -1132,7 +1132,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	return push_install_targets(wk, 0, headers, install_dir, akw[kw_install_mode].val);
+	return push_install_targets(wk, headers, install_dir, akw[kw_install_mode].val);
 }
 
 static bool

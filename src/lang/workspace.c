@@ -56,35 +56,82 @@ wk_file_path(struct workspace *wk, uint32_t id)
 }
 
 void
-push_install_target(struct workspace *wk, uint32_t base_path, uint32_t filename,
-	uint32_t install_dir, uint32_t install_mode)
+push_install_target(struct workspace *wk, str src, str dest, obj mode)
 {
 	uint32_t id;
 	struct obj *tgt = make_obj(wk, &id, obj_install_target);
-	tgt->dat.install_target.base_path = base_path;
-	tgt->dat.install_target.filename = filename;
+	tgt->dat.install_target.src = src;
 	// TODO this has a mode [, user, group]
-	tgt->dat.install_target.install_mode = install_mode;
+	tgt->dat.install_target.mode = mode;
 
-	obj prefix;
-	if (!get_option(wk, current_project(wk), "prefix", &prefix)) {
-		return;
+	assert((src & wk_id_tag) == wk_id_tag_str);
+	assert((dest & wk_id_tag) == wk_id_tag_str);
+
+	str sdest;
+	if (path_is_absolute(get_cstr(wk, dest))) {
+		sdest = dest;
+	} else {
+		obj prefix;
+		if (!get_option(wk, current_project(wk), "prefix", &prefix)) {
+			return;
+		}
+
+		char buf[PATH_MAX];
+		if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, dest))) {
+			return;
+		}
+
+		sdest = wk_str_push(wk, buf);
 	}
 
-	char buf[PATH_MAX];
-	if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, install_dir))) {
-		return;
-	}
-
-	tgt->dat.install_target.install_dir = wk_str_push(wk, buf);
+	assert((sdest & wk_id_tag) == wk_id_tag_str);
+	tgt->dat.install_target.dest = sdest;
 
 	obj_array_push(wk, wk->install, id);
 }
 
+bool
+push_install_target_install_dir(struct workspace *wk, str ssrc,
+	str install_dir, obj mode)
+{
+	assert((ssrc & wk_id_tag) == wk_id_tag_str);
+	assert((install_dir & wk_id_tag) == wk_id_tag_str);
+
+	char basename[PATH_MAX], dest[PATH_MAX];
+	if (!path_basename(basename, PATH_MAX, get_cstr(wk, ssrc))) {
+		return false;
+	} else if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), basename)) {
+		return false;
+	}
+
+	str sdest = wk_str_push(wk, dest);
+
+	push_install_target(wk, ssrc, sdest, mode);
+	return true;
+}
+
+void
+push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
+	obj install_dir, obj mode)
+{
+	assert(base_path);
+
+	char src[PATH_MAX];
+	if (!path_join(src, PATH_MAX, get_cstr(wk, base_path), get_cstr(wk, filename))) {
+		return;
+	}
+
+	char dest[PATH_MAX];
+	if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), get_cstr(wk, filename))) {
+		return;
+	}
+
+	push_install_target(wk, wk_str_push(wk, src), wk_str_push(wk, dest), mode);
+}
+
 struct push_install_targets_ctx {
-	uint32_t base_path;
-	uint32_t install_dirs;
-	uint32_t install_mode;
+	obj install_dirs;
+	obj install_mode;
 	bool install_dirs_is_arr;
 	uint32_t i;
 };
@@ -96,41 +143,38 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	assert(get_obj(wk, val_id)->type == obj_file);
 
-	uint32_t install_dir_id;
+	obj install_dir;
 
 	if (ctx->install_dirs_is_arr) {
-		obj_array_index(wk, ctx->install_dirs, ctx->i, &install_dir_id);
-		assert(install_dir_id);
+		obj_array_index(wk, ctx->install_dirs, ctx->i, &install_dir);
+		assert(install_dir);
 	} else {
-		install_dir_id = ctx->install_dirs;
+		install_dir = ctx->install_dirs;
 	}
 
 	++ctx->i;
 
-	struct obj *install_dir = get_obj(wk, install_dir_id);
+	struct obj *d = get_obj(wk, install_dir);
 
-	if (install_dir->type == obj_bool && !install_dir->dat.boolean) {
+	if (d->type == obj_bool && !d->dat.boolean) {
 		// skip if we get passed `false` for an install dir
 		return ir_cont;
-	}
-
-	if (install_dir->type != obj_string) {
-		LOG_E("install_dir values must be strings, got %s", obj_type_to_s(install_dir->type));
+	} else if (d->type != obj_string) {
+		LOG_E("install_dir values must be strings, got %s", obj_type_to_s(d->type));
 		return ir_err;
 	}
 
-	push_install_target(wk, ctx->base_path, get_obj(wk, val_id)->dat.file,
-		get_obj(wk, install_dir_id)->dat.str, ctx->install_mode);
-
+	if (!push_install_target_install_dir(wk, get_obj(wk, val_id)->dat.str, d->dat.str, ctx->install_mode)) {
+		return ir_err;
+	}
 	return ir_cont;
 }
 
 bool
-push_install_targets(struct workspace *wk, uint32_t base_path, uint32_t filenames,
-	uint32_t install_dirs, uint32_t install_mode)
+push_install_targets(struct workspace *wk, obj filenames,
+	obj install_dirs, obj install_mode)
 {
 	struct push_install_targets_ctx ctx = {
-		.base_path = base_path,
 		.install_dirs = install_dirs,
 		.install_mode = install_mode,
 		.install_dirs_is_arr = get_obj(wk, install_dirs)->type == obj_array,

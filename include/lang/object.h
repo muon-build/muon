@@ -175,10 +175,9 @@ struct obj {
 			enum compiler_language lang;
 		} compiler;
 		struct {
-			str base_path;
-			str filename;
-			str install_dir;
-			uint32_t install_mode;
+			str src;
+			str dest;
+			obj mode;
 		} install_target;
 		struct {
 			obj env; /* dict */
