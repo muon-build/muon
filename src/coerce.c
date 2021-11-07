@@ -41,20 +41,25 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 }
 
 bool
-coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	struct obj *obj;
+	struct obj *o;
 	uint32_t str;
 
-	switch ((obj = get_obj(wk, val))->type) {
+	switch ((o = get_obj(wk, val))->type) {
 	case obj_file:
 		str = get_obj(wk, val)->dat.file;
 		break;
 	case obj_build_target: {
+		if (o->dat.tgt.type != tgt_executable) {
+			interp_error(wk, node, "only exe build targets can be used here");
+			return ir_err;
+		}
+
 		char tmp1[PATH_MAX], dest[PATH_MAX];
 
-		if (!path_join(dest, PATH_MAX, get_cstr(wk, obj->dat.tgt.build_dir),
-			get_cstr(wk, obj->dat.tgt.build_name))) {
+		if (!path_join(dest, PATH_MAX, get_cstr(wk, o->dat.tgt.build_dir),
+			get_cstr(wk, o->dat.tgt.build_name))) {
 			return false;
 		} else if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest)) {
 			return false;
@@ -66,10 +71,15 @@ coerce_executable(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *r
 		break;
 	}
 	case obj_external_program:
-		str = obj->dat.external_program.full_path;
+		if (!o->dat.external_program.found) {
+			interp_error(wk, node, "a not found external_program cannot be used here");
+			return ir_err;
+		}
+
+		str = o->dat.external_program.full_path;
 		break;
 	default:
-		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(obj->type));
+		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(o->type));
 		return false;
 	}
 
