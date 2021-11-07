@@ -172,10 +172,6 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id
 	uint32_t args;
 	make_obj(wk, &args, obj_array);
 
-	uint32_t proj_cwd;
-	make_obj(wk, &proj_cwd, obj_string)->dat.str = ctx->proj->cwd;
-	obj_array_push(wk, ctx->include_dirs, proj_cwd);
-
 	obj inc_dirs;
 	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
 

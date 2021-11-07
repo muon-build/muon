@@ -267,8 +267,6 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	ctx.args.relativize = true;
 	ctx.args.recursive = true;
 
-	obj_array_push(wk, ctx.args.include_dirs, make_str(wk, wk->build_root));
-
 	if (!tgt_args(wk, tgt, &ctx.args)) {
 		return false;
 	}
