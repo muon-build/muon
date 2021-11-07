@@ -7,6 +7,7 @@
 #include "functions/meson.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/path.h"
 #include "version.h"
 
 static bool
@@ -186,6 +187,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 struct process_script_commandline_ctx {
 	uint32_t node;
 	obj arr;
+	uint32_t i;
 };
 
 static enum iteration_result
@@ -198,6 +200,21 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (o->type) {
 	case obj_string:
+		if (ctx->i) {
+			str = val;
+		} else {
+			const char *p = get_cstr(wk, o->dat.str);
+
+			if (path_is_absolute(p)) {
+				str = val;
+			} else {
+				char path[PATH_MAX];
+				if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
+					return false;
+				}
+
+				str = make_str(wk, path);
+			}
 		}
 		break;
 	case obj_custom_target:
@@ -220,6 +237,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 
 	obj_array_push(wk, ctx->arr, str);
 cont:
+	++ctx->i;
 	return ir_cont;
 }
 
