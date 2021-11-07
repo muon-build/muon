@@ -211,6 +211,22 @@ path_is_absolute(const char *path)
 }
 
 bool
+path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
+{
+	uint32_t i = 0;
+
+	if (!buf_push_s(buf, a, &i, len)) {
+		return false;
+	} else if (!buf_push_c(buf, PATH_SEP, &i, len)) {
+		return false;
+	} else if (!buf_push_s(buf, b, &i, len)) {
+		return false;
+	}
+
+	return path_normalize(buf);
+}
+
+bool
 path_join(char *buf, uint32_t len, const char *a, const char *b)
 {
 	uint32_t i = 0, a_len;
