@@ -1081,9 +1081,55 @@ func_configuration_data(struct workspace *wk, obj _, uint32_t args_node, obj *re
 }
 
 static bool
-func_install_todo(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_dir,
+		kw_install_mode,
+		kw_install_tag,
+		kw_exclude_directories,
+		kw_exclude_files,
+		kw_strip_directory,
+	};
+	struct args_kw akw[] = {
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_exclude_directories] = { "exclude_directories", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_exclude_files] = { "exclude_files", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_strip_directory] = { "strip_directory", obj_bool },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
 	L("TODO: installation");
+
+	return true;
+}
+
+static bool
+func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_dir,
+		kw_install_mode,
+		kw_locale,
+	};
+	struct args_kw akw[] = {
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_locale] = { "subdir", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	L("TODO: installation");
+
 	return true;
 }
 
@@ -1524,8 +1570,8 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "include_directories", func_include_directories },
 	{ "install_data", func_install_data },
 	{ "install_headers", func_install_headers },
-	{ "install_man", func_install_todo },
-	{ "install_subdir", func_install_todo },
+	{ "install_man", func_install_man },
+	{ "install_subdir", func_install_subdir },
 	{ "is_disabler", func_is_disabler },
 	{ "is_variable", func_is_variable },
 	{ "jar", todo },
