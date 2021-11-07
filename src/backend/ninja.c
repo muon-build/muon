@@ -5,6 +5,7 @@
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "external/samu.h"
+#include "functions/default/options.h"
 #include "lang/serial.h"
 #include "log.h"
 #include "platform/path.h"
@@ -86,6 +87,14 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 	make_obj(wk, &o, obj_array);
 	obj_array_push(wk, o, wk->install);
 	obj_array_push(wk, o, wk->install_scripts);
+	obj_array_push(wk, o, make_str(wk, wk->source_root));
+
+	struct project *proj = darr_get(&wk->projects, 0);
+	obj prefix;
+	if (!get_option(wk, proj, "prefix", &prefix)) {
+		return false;
+	}
+	obj_array_push(wk, o, prefix);
 
 	return serial_dump(wk, o, out);
 }
