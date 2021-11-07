@@ -488,6 +488,15 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	push_args_null_terminated(wk, command, (char *const []){
 		wk->argv0,
+		"-C",
+		NULL,
+	});
+
+	obj cwd;
+	make_obj(wk, &cwd, obj_string)->dat.str = current_project(wk)->build_dir;
+	obj_array_push(wk, command, cwd);
+
+	push_args_null_terminated(wk, command, (char *const []){
 		"internal",
 		"eval",
 		"-e",
@@ -497,6 +506,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	obj input;
 	if (!coerce_string_to_file(wk, akw[kw_input].val, &input)) {
+		return false;
 	}
 
 	obj_array_push(wk, command, input);
