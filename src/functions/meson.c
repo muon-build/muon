@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "coerce.h"
 #include "compilers.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
@@ -197,37 +198,20 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (o->type) {
 	case obj_string:
-		str = val;
-		break;
-	case obj_file:
-		make_obj(wk, &str, obj_string)->dat.str = o->dat.file;
-		break;
-	case obj_external_program:
-		if (!o->dat.external_program.found) {
-			interp_error(wk, ctx->node, "a not found external_program cannot be used here");
-			return ir_err;
 		}
-
-		make_obj(wk, &str, obj_string)->dat.str = o->dat.external_program.full_path;
-		break;
-	case obj_build_target:
-		if (o->dat.tgt.type != tgt_executable) {
-			interp_error(wk, ctx->node, "only exe build targets can be used here");
-			return ir_err;
-		}
-
-		char path[PATH_MAX];
-		if (!tgt_build_path(wk, o, false, path)) {
-			return ir_err;
-		}
-
-		str = make_str(wk, path);
 		break;
 	case obj_custom_target:
 		if (!obj_array_foreach(wk, o->dat.custom_target.output, ctx, process_script_commandline_iter)) {
 			return false;
 		}
-		return ir_cont;
+		goto cont;
+	case obj_build_target:
+	case obj_external_program:
+	case obj_file:
+		if (!coerce_executable(wk, ctx->node, val, &str)) {
+			return ir_err;
+		}
+		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for script commandline '%s'",
 			obj_type_to_s(o->type));
@@ -235,6 +219,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	obj_array_push(wk, ctx->arr, str);
+cont:
 	return ir_cont;
 }
 
