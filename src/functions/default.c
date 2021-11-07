@@ -1133,6 +1133,41 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	return true;
 }
 
+struct install_data_rename_ctx {
+	obj rename;
+	obj mode;
+	obj dest;
+	uint32_t i;
+	uint32_t node;
+};
+
+static enum iteration_result
+install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct install_data_rename_ctx *ctx = _ctx;
+
+	struct obj *v = get_obj(wk, val);
+	assert(v->type == obj_file);
+
+	str src = v->dat.file;
+	str dest;
+
+	obj rename;
+	obj_array_index(wk, ctx->rename, ctx->i, &rename);
+
+	char d[PATH_MAX];
+	if (!path_join(d, PATH_MAX, get_cstr(wk, ctx->dest), get_cstr(wk, rename))) {
+		return false;
+	}
+
+	dest = wk_str_push(wk, d);
+
+	push_install_target(wk, src, dest, ctx->mode);
+
+	++ctx->i;
+	return ir_cont;
+}
+
 static bool
 func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -1140,6 +1175,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
+		kw_install_tag,
 		kw_rename,
 		kw_sources,
 	};
@@ -1147,7 +1183,8 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string }, // TODO
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
+		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
@@ -1184,7 +1221,24 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		obj_array_extend(wk, datafiles, sources);
 	}
 
-	return push_install_targets(wk, datafiles, install_dir, akw[kw_install_mode].val);
+	if (akw[kw_rename].set) {
+		if (get_obj(wk, akw[kw_rename].val)->dat.arr.len !=
+		    get_obj(wk, datafiles)->dat.arr.len) {
+			interp_error(wk, akw[kw_rename].node, "number of elements in rename != number if sources");
+			return false;
+		}
+
+		struct install_data_rename_ctx ctx = {
+			.node = an[0].node,
+			.mode = akw[kw_install_mode].val,
+			.rename = akw[kw_rename].val,
+			.dest = install_dir,
+		};
+
+		return obj_array_foreach(wk, datafiles, &ctx, install_data_rename_iter);
+	} else {
+		return push_install_targets(wk, datafiles, install_dir, akw[kw_install_mode].val);
+	}
 }
 
 static bool
