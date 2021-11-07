@@ -14,7 +14,7 @@
 struct obj *
 get_obj(struct workspace *wk, uint32_t id)
 {
-	assert(((id & wk_id_tag_obj) == wk_id_tag_obj) && "wk_str passed to get_obj");
+	assert(((id & wk_id_tag) == wk_id_tag_obj) && "wk_str passed to get_obj");
 
 	return bucket_array_get(&wk->objs, id >> 1);
 }

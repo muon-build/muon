@@ -68,13 +68,13 @@ get_str(struct workspace *wk, str s)
 		return bucket_array_get(&wk->strs, 0);
 	}
 
-	if (!((s & wk_id_tag_str) == wk_id_tag_str)) {
+	if (!((s & wk_id_tag) == wk_id_tag_str)) {
 		struct obj *obj = bucket_array_get(&wk->objs, s >> 1);
 		assert(obj->type == obj_string);
 		s = obj->dat.str;
 	}
 
-	assert((s & wk_id_tag_str) == wk_id_tag_str);
+	assert((s & wk_id_tag) == wk_id_tag_str);
 	return bucket_array_get(&wk->strs, s >> 1);
 }
 
@@ -105,7 +105,7 @@ static struct str *
 grow_str(struct workspace *wk, str s, uint32_t grow_by)
 {
 	assert(s);
-	assert(((s & wk_id_tag_str) == wk_id_tag_str));
+	assert(((s & wk_id_tag) == wk_id_tag_str));
 
 	uint32_t i = s >> 1;
 
