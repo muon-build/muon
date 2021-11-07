@@ -1095,6 +1095,7 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_tag] = { "install_tag", obj_string },
 		[kw_exclude_directories] = { "exclude_directories", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_exclude_files] = { "exclude_files", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_strip_directory] = { "strip_directory", obj_bool },
@@ -1121,7 +1122,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_locale] = { "subdir", obj_string },
+		[kw_locale] = { "locale", obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
