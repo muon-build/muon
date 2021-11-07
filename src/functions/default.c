@@ -570,6 +570,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	enum kwargs {
 		kw_sources,
 		kw_include_directories,
+		kw_implicit_include_directories,
 		kw_dependencies,
 		kw_install,
 		kw_install_dir,
@@ -594,6 +595,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_implicit_include_directories] = { "implicit_include_directories", obj_bool },
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
@@ -709,13 +711,32 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
 
-	if (akw[kw_include_directories].set) {
+	{ // include directories
 		obj inc_dirs;
-		if (!coerce_include_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, false, &inc_dirs)) {
+		make_obj(wk, &inc_dirs, obj_array);
+		uint32_t node = args_node;
+
+		if (!(akw[kw_implicit_include_directories].set
+		      && !get_obj(wk, akw[kw_implicit_include_directories].val)->dat.boolean)) {
+			obj str;
+			make_obj(wk, &str, obj_string)->dat.str = current_project(wk)->cwd;
+			obj_array_push(wk, inc_dirs, str);
+		}
+
+		if (akw[kw_include_directories].set) {
+			node = akw[kw_include_directories].node;
+
+			obj inc;
+			obj_array_dup(wk, akw[kw_include_directories].val, &inc);
+			obj_array_extend(wk, inc_dirs, inc);
+		}
+
+		obj coerced;
+		if (!coerce_include_dirs(wk, node, inc_dirs, false, &coerced)) {
 			return false;
 		}
 
-		tgt->dat.tgt.include_directories = inc_dirs;
+		tgt->dat.tgt.include_directories = coerced;
 	}
 
 	if (akw[kw_dependencies].set) {
