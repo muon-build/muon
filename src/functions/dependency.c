@@ -60,7 +60,6 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		break;
 	}
 	case obj_custom_target: {
-		obj_fprintf(wk, log_file(), "%o\n", tgt->dat.custom_target.output);
 		obj_array_foreach(wk, tgt->dat.custom_target.output, ctx,
 			dep_args_link_with_iter);
 		break;
