@@ -48,8 +48,8 @@ enum obj_type {
 };
 
 enum tgt_type {
-	tgt_executable,
-	tgt_library
+	tgt_executable = 1 << 0,
+	tgt_static_library = 1 << 1,
 };
 
 enum feature_opt_state {

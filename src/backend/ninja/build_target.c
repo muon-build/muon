@@ -304,7 +304,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		linker_type = compiler_language_to_s(ctx.link_language);
 		link_args = get_cstr(wk, join_args_shell(wk, ctx.args.link_args));
 		break;
-	case tgt_library:
+	case tgt_static_library:
 		linker_type = "STATIC";
 		link_args = "csrD";
 		break;

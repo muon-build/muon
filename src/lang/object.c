@@ -926,8 +926,8 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		case tgt_executable:
 			type = "executable";
 			break;
-		case tgt_library:
-			type = "library";
+		case tgt_static_library:
+			type = "static_library";
 			break;
 		}
 

@@ -66,11 +66,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		kw_link_depends, // TODO
 		kw_objects,
 
+		/* lang args */
 		kw_c_args,
 		kw_cpp_args,
 		kw_objc_args,
 		kw_link_args,
 	};
+
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
@@ -111,10 +113,10 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		const char *tgt_type = get_cstr(wk, akw[kw_target_type].val);
 		static struct { char *name; enum tgt_type type; } tgt_tbl[] = {
 			{ "executable", tgt_executable, },
-			{ "shared_library", tgt_library, },
-			{ "static_library", tgt_library, },
-			{ "both_libraries", tgt_library, },
-			{ "library", tgt_library, },
+			{ "shared_library", tgt_static_library, },
+			{ "static_library", tgt_static_library, },
+			{ "both_libraries", tgt_static_library, },
+			{ "library", tgt_static_library, },
 			{ 0 },
 		};
 		uint32_t i;
@@ -162,7 +164,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		pref = "";
 		suff = "";
 		break;
-	case tgt_library:
+	case tgt_static_library:
 		pref = "lib";
 		suff = ".a";
 		break;
@@ -272,7 +274,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 					return false;
 				}
 				break;
-			case tgt_library:
+			case tgt_static_library:
 				if (!get_option(wk, current_project(wk), "libdir", &install_dir)) {
 					return false;
 				}
@@ -306,7 +308,7 @@ func_executable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 bool
 func_static_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_library, false);
+	return tgt_common(wk, args_node, res, tgt_static_library, false);
 }
 
 bool
