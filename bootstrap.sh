@@ -39,6 +39,7 @@ cat \
 	src/functions/configuration_data.c \
 	src/functions/custom_target.c \
 	src/functions/default.c \
+	src/functions/default/build_target.c \
 	src/functions/default/configure_file.c \
 	src/functions/default/custom_target.c \
 	src/functions/default/dependency.c \

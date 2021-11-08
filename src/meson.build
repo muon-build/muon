@@ -23,6 +23,7 @@ src = files([
 	'functions/configuration_data.c',
 	'functions/custom_target.c',
 	'functions/default.c',
+	'functions/default/build_target.c',
 	'functions/default/configure_file.c',
 	'functions/default/custom_target.c',
 	'functions/default/dependency.c',
