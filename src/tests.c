@@ -28,10 +28,13 @@ struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
 	uint32_t proj_i;
-	bool ran_tests;
-	uint32_t test_i, test_len;
-	uint32_t total_count, error_count;
-	uint32_t term_width;
+	struct {
+		uint32_t test_i, test_len, error_count;
+		uint32_t total_count, total_error_count;
+		uint32_t term_width;
+		bool term;
+		bool ran_tests;
+	} stats;
 
 	struct darr failed_tests;
 
@@ -113,21 +116,27 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 static void
 print_test_progress(struct run_test_ctx *ctx, bool success)
 {
-	++ctx->total_count;
-	++ctx->test_i;
+	++ctx->stats.total_count;
+	++ctx->stats.test_i;
 	if (!success) {
-		++ctx->error_count;
+		++ctx->stats.total_error_count;
+		++ctx->stats.error_count;
+	}
+
+	if (!ctx->stats.term) {
+		log_plain("%c", success ? '.' : 'E');
+		return;
 	}
 
 	uint32_t pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d e: %d ", ctx->test_i, ctx->test_len, ctx->error_count);
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d e: %d ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count);
 
 	log_plain("\r%s[", info);
 	uint32_t i,
-		 pct = (float)(ctx->test_i) * (float)(ctx->term_width - pad) / (float)ctx->test_len;
-	for (i = 0; i < ctx->term_width - pad; ++i) {
+		 pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
+	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
 		if (i < pct) {
 			log_plain("=");
 		} else if (i == pct) {
@@ -251,16 +260,17 @@ static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 {
 	struct run_test_ctx *ctx = _ctx;
-	ctx->test_i = 0;
-	ctx->test_len = get_obj(wk, tests)->dat.arr.len;
+	ctx->stats.test_i = 0;
+	ctx->stats.error_count = 0;
+	ctx->stats.test_len = get_obj(wk, tests)->dat.arr.len;
 
-	if (!ctx->test_len ) {
+	if (!ctx->stats.test_len ) {
 		return ir_cont;
 	}
 
 	LOG_I("running tests for project '%s'", get_cstr(wk, proj_name));
 
-	ctx->ran_tests = true;
+	ctx->stats.ran_tests = true;
 
 	ctx->proj_name = proj_name;
 
@@ -309,10 +319,15 @@ tests_run(const char *build_dir, struct test_options *opts)
 	{
 		uint32_t h;
 		int fd;
-		ctx.term_width = 80;
+		ctx.stats.term_width = 80;
+		ctx.stats.term = false;
 
 		if (fs_fileno(log_file(), &fd)) {
-			term_winsize(fd, &h, &ctx.term_width);
+			if (term_isterm(fd)) {
+				ctx.stats.term = true;
+
+				term_winsize(fd, &h, &ctx.stats.term_width);
+			}
 		}
 	}
 
@@ -331,10 +346,10 @@ tests_run(const char *build_dir, struct test_options *opts)
 	}
 
 
-	if (!ctx.ran_tests) {
+	if (!ctx.stats.ran_tests) {
 		LOG_I("no tests defined");
 	} else {
-		LOG_I("finished %d tests, %d errors", ctx.total_count, ctx.error_count);
+		LOG_I("finished %d tests, %d errors", ctx.stats.total_count, ctx.stats.error_count);
 	}
 
 	uint32_t i;

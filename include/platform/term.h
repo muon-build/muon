@@ -4,4 +4,5 @@
 #include <stdint.h>
 
 bool term_winsize(int fd, uint32_t *height, uint32_t *width);
+bool term_isterm(int fd);
 #endif
