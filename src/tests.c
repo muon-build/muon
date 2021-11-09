@@ -317,17 +317,27 @@ tests_run(const char *build_dir, struct test_options *opts)
 	};
 
 	{
-		uint32_t h;
 		int fd;
-		ctx.stats.term_width = 80;
-		ctx.stats.term = false;
+		if (!fs_fileno(log_file(), &fd)) {
+			return false;
+		}
 
-		if (fs_fileno(log_file(), &fd)) {
+		if (opts->display == test_display_auto) {
+			opts->display = test_display_dots;
 			if (term_isterm(fd)) {
-				ctx.stats.term = true;
-
-				term_winsize(fd, &h, &ctx.stats.term_width);
+				opts->display = test_display_bar;
 			}
+		}
+
+		if (opts->display == test_display_bar) {
+			uint32_t h;
+			ctx.stats.term_width = 80;
+			ctx.stats.term = true;
+			term_winsize(fd, &h, &ctx.stats.term_width);
+		} else if (opts->display == test_display_dots) {
+			ctx.stats.term = false;
+		} else {
+			assert(false && "unreachable");
 		}
 	}
 
@@ -344,7 +354,6 @@ tests_run(const char *build_dir, struct test_options *opts)
 	} else if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;
 	}
-
 
 	if (!ctx.stats.ran_tests) {
 		LOG_I("no tests defined");

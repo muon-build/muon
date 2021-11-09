@@ -9,9 +9,16 @@ enum test_flag {
 
 #define MAX_CMDLINE_TEST_SUITES 64
 
+enum test_display {
+	test_display_auto,
+	test_display_dots,
+	test_display_bar,
+};
+
 struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
 	uint32_t suites_len;
+	enum test_display display;
 };
 
 bool tests_run(const char *build_dir, struct test_options *opts);

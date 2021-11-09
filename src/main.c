@@ -389,7 +389,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
-	OPTSTART("s:") {
+	OPTSTART("s:d:") {
 	case 's':
 		if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 			LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -398,8 +398,21 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.suites[test_opts.suites_len] = optarg;
 		++test_opts.suites_len;
 		break;
+	case 'd':
+		if (strcmp(optarg, "auto") == 0) {
+			test_opts.display = test_display_auto;
+		} else if (strcmp(optarg, "dots") == 0) {
+			test_opts.display = test_display_dots;
+		} else if (strcmp(optarg, "bar") == 0) {
+			test_opts.display = test_display_bar;
+		} else {
+			LOG_E("invalid display option '%s'", optarg);
+			return false;
+		}
+		break;
 	} OPTEND(argv[argi], " <build dir>",
-		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n",
+		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n"
+		"  -d <display> - change how tests are displayed (auto|dots|bar)\n",
 		NULL, 1)
 
 	return tests_run(argv[argi], &test_opts);
