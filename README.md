@@ -18,7 +18,6 @@ dependencies.
 
 Contributions welcome:
 - language support for languages other than C and C++
-- dynamic library building
 
 ## Status
 
@@ -30,9 +29,12 @@ your favorite project.  Bug reports welcome!
 
 `muon` requires various POSIX interfaces and a compiler offering c11 support.
 
-Dependency discovery requires `libpkgconf`.
+In addition, dependency discovery requires `libpkgconf`, and wrap support
+requires `libcurl` and `libarchive`.
 
-Wrap support requires `libcurl` and `zlib`.
+A ninja-compatible build tool (e.g.
+[samurai](https://github.com/michaelforney/samurai)) is also required to
+bootstrap muon, but can be optionally embedded into muon after bootstrapping.
 
 ## Building
 
@@ -58,8 +60,9 @@ sending patches.
 ## License
 
 `muon` is licensed under the GPL version 3 (see LICENSE).  Tests under
-`tests/project` were copied from the meson project and are licensed under
-[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt).
+`tests/project` were copied from the [meson
+project](https://github.com/mesonbuild/meson/tree/master/test%20cases) and are
+licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt).
 
 ## Credits
 
