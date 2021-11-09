@@ -300,8 +300,14 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 	const char *linker_type, *link_args;
 	switch (tgt->dat.tgt.type) {
+	case tgt_dynamic_library:
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
+
+		if (tgt->dat.tgt.type == tgt_dynamic_library) {
+			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
+		}
+
 		link_args = get_cstr(wk, join_args_shell(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:

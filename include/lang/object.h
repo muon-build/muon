@@ -50,7 +50,9 @@ enum obj_type {
 enum tgt_type {
 	tgt_executable = 1 << 0,
 	tgt_static_library = 1 << 1,
+	tgt_dynamic_library = 1 << 2,
 };
+enum tgt_type_count { tgt_type_count = 3, }; // keep in sync
 
 enum feature_opt_state {
 	feature_opt_auto,

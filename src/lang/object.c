@@ -929,6 +929,9 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		case tgt_static_library:
 			type = "static_library";
 			break;
+		case tgt_dynamic_library:
+			type = "shared_library";
+			break;
 		}
 
 		obj_to_s_buf_push(&ctx, "<%s ", type);
