@@ -201,6 +201,20 @@ build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	return build_target_extract_objects_iter(wk, ctx, val);
 }
 
+bool
+build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rcvr, obj *res)
+{
+	make_obj(wk, res, obj_array);
+
+	struct build_target_extract_objects_ctx ctx = {
+		.err_node = err_node,
+		.res = res,
+		.tgt = get_obj(wk, rcvr),
+	};
+
+	return obj_array_foreach_flat(wk, ctx.tgt->dat.tgt.src, &ctx, build_target_extract_all_objects_iter);
+}
+
 static bool
 func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -220,15 +234,7 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
-
-	struct build_target_extract_objects_ctx ctx = {
-		.err_node = args_node,
-		.res = res,
-		.tgt = get_obj(wk, rcvr),
-	};
-
-	return obj_array_foreach_flat(wk, ctx.tgt->dat.tgt.src, &ctx, build_target_extract_all_objects_iter);
+	return build_target_extract_all_objects(wk, rcvr, args_node, res);
 }
 
 const struct func_impl_name impl_tbl_build_target[] = {
