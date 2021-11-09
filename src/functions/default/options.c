@@ -567,7 +567,8 @@ set_builtin_options(struct workspace *wk)
 {
 	uint32_t obj;
 	return eval_str(wk,
-		"option('default_library', yield: true, type: 'string', value: 'static')\n"
+		"option('default_library', yield: true, type: 'combo', value: 'static',\n"
+		"\tchoices: ['static', 'shared'])\n"
 		"option('debug', yield: true, type: 'boolean', value: true)\n"
 		"option('buildtype', yield: true, type: 'combo', value: 'debugoptimized',\n"
 		"\tchoices: ['plain', 'debug', 'debugoptimized', 'release', 'minsize', 'custom'])\n"
