@@ -18,16 +18,20 @@
 #define MAX_SIMUL_TEST 4
 _Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
 
+struct test_result {
+	struct run_cmd_ctx cmd_ctx;
+	struct obj *test;
+};
+
 struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
 	uint32_t proj_i;
 	bool success;
 
-	struct {
-		struct run_cmd_ctx cmd_ctx;
-		struct obj *test;
-	} test_ctx[MAX_SIMUL_TEST];
+	struct darr failed_tests;
+
+	struct test_result test_ctx[MAX_SIMUL_TEST];
 	uint32_t test_cmd_ctx_free;
 };
 
@@ -112,32 +116,27 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			continue;
 		}
 
-		struct run_cmd_ctx *cmd_ctx = &ctx->test_ctx[i].cmd_ctx;
-		struct obj *test = ctx->test_ctx[i].test;
+		struct test_result *res = &ctx->test_ctx[i];
 
-		switch (run_cmd_collect(cmd_ctx)) {
+		switch (run_cmd_collect(&res->cmd_ctx)) {
 		case run_cmd_running:
 			continue;
 		case run_cmd_error:
-			LOG_E("%s - failed", get_cstr(wk, test->dat.test.name));
-			LOG_E("test command failed: %s", cmd_ctx->err_msg);
-			LOG_E("stdout: '%s'", cmd_ctx->out);
-			LOG_E("stderr: '%s'", cmd_ctx->err);
-			ctx->success = false;
+			darr_push(&ctx->failed_tests, res);
+			log_plain("E");
 			break;
 		case run_cmd_finished:
-			if (cmd_ctx->status && !test->dat.test.should_fail) {
-				LOG_E("%s - failed (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status);
-				LOG_E("stdout: '%s'", cmd_ctx->out);
-				LOG_E("stderr: '%s'", cmd_ctx->err);
-				ctx->success = false;
+			if (res->cmd_ctx.status && !res->test->dat.test.should_fail) {
+				darr_push(&ctx->failed_tests, res);
+				log_plain("E");
 			} else {
-				LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status);
+				log_plain(".");
+				/* LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status); */
+				run_cmd_ctx_destroy(&res->cmd_ctx);
 			}
 			break;
 		}
 
-		run_cmd_ctx_destroy(cmd_ctx);
 		ctx->test_cmd_ctx_free &= ~(1 << i);
 	}
 }
@@ -264,6 +263,7 @@ tests_run(const char *build_dir, struct test_options *opts)
 		.opts = opts,
 		.success = true,
 	};
+	darr_init(&ctx.failed_tests, 32, sizeof(struct test_result));
 
 	uint32_t tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
@@ -282,8 +282,28 @@ tests_run(const char *build_dir, struct test_options *opts)
 		collect_tests(&wk, &ctx);
 	}
 
-	ret = ctx.success;
+	log_plain("\n");
+
+	uint32_t i;
+	for (i = 0; i < ctx.failed_tests.len; ++i) {
+		struct test_result *res = darr_get(&ctx.failed_tests, i);
+
+		LOG_E("%s - failed", get_cstr(&wk, res->test->dat.test.name));
+		if (res->cmd_ctx.err_msg) {
+			log_plain("%s\n", res->cmd_ctx.err_msg);
+		}
+		if (res->cmd_ctx.out_len) {
+			log_plain("stdout: '%s'\n", res->cmd_ctx.out);
+		}
+		if (res->cmd_ctx.err_len) {
+			log_plain("stderr: '%s'\n", res->cmd_ctx.err);
+		}
+		run_cmd_ctx_destroy(&res->cmd_ctx);
+	}
+
+	ret = ctx.failed_tests.len == 0;
 ret:
 	workspace_destroy_bare(&wk);
+	darr_destroy(&ctx.failed_tests);
 	return ret;
 }
