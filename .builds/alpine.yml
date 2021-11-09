@@ -12,4 +12,4 @@ tasks:
       .builds/fullbootstrap.sh
   - test: |
       cd muon
-      build/muon test build
+      build/muon test -d dots build
