@@ -119,6 +119,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_running:
 			continue;
 		case run_cmd_error:
+			LOG_E("%s - failed", get_cstr(wk, test->dat.test.name));
 			LOG_E("test command failed: %s", cmd_ctx->err_msg);
 			LOG_E("stdout: '%s'", cmd_ctx->out);
 			LOG_E("stderr: '%s'", cmd_ctx->err);
