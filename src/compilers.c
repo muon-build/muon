@@ -470,6 +470,13 @@ linker_gcc_args_end_group(void)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_shared(void)
+{
+	COMPILER_ARGS({ "-shared" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -480,6 +487,7 @@ build_linkers(void)
 			.no_undefined = compiler_arg_empty_0,
 			.start_group  = compiler_arg_empty_0,
 			.end_group    = compiler_arg_empty_0,
+			.shared       = compiler_arg_empty_0,
 		}
 	};
 
@@ -490,6 +498,7 @@ build_linkers(void)
 	gcc.args.no_undefined = linker_gcc_args_no_undefined;
 	gcc.args.start_group = linker_gcc_args_start_group;
 	gcc.args.end_group = linker_gcc_args_end_group;
+	gcc.args.shared = linker_gcc_args_shared,
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
