@@ -362,7 +362,7 @@ fs_dup2(int oldfd, int newfd)
 	return true;
 }
 
-static bool
+bool
 fs_fileno(FILE *f, int *ret)
 {
 	int v;
