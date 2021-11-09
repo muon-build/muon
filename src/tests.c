@@ -13,6 +13,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "platform/term.h"
 #include "tests.h"
 
 #define MAX_SIMUL_TEST 4
@@ -27,7 +28,10 @@ struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
 	uint32_t proj_i;
-	bool success;
+	bool ran_tests;
+	uint32_t test_i, test_len;
+	uint32_t total_count, error_count;
+	uint32_t term_width;
 
 	struct darr failed_tests;
 
@@ -107,6 +111,35 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 }
 
 static void
+print_test_progress(struct run_test_ctx *ctx, bool success)
+{
+	++ctx->total_count;
+	++ctx->test_i;
+	if (!success) {
+		++ctx->error_count;
+	}
+
+	uint32_t pad = 2;
+
+	char info[BUF_SIZE_4k];
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d e: %d ", ctx->test_i, ctx->test_len, ctx->error_count);
+
+	log_plain("\r%s[", info);
+	uint32_t i,
+		 pct = (float)(ctx->test_i) * (float)(ctx->term_width - pad) / (float)ctx->test_len;
+	for (i = 0; i < ctx->term_width - pad; ++i) {
+		if (i < pct) {
+			log_plain("=");
+		} else if (i == pct) {
+			log_plain(">");
+		} else {
+			log_plain(" ");
+		}
+	}
+	log_plain("]");
+}
+
+static void
 collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
@@ -123,15 +156,14 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			continue;
 		case run_cmd_error:
 			darr_push(&ctx->failed_tests, res);
-			log_plain("E");
+			print_test_progress(ctx, false);
 			break;
 		case run_cmd_finished:
 			if (res->cmd_ctx.status && !res->test->dat.test.should_fail) {
 				darr_push(&ctx->failed_tests, res);
-				log_plain("E");
+				print_test_progress(ctx, false);
 			} else {
-				log_plain(".");
-				/* LOG_I("%s - success (%d)", get_cstr(wk, test->dat.test.name), cmd_ctx->status); */
+				print_test_progress(ctx, true);
 				run_cmd_ctx_destroy(&res->cmd_ctx);
 			}
 			break;
@@ -218,19 +250,30 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 {
-	if (!get_obj(wk, tests)->dat.arr.len) {
+	struct run_test_ctx *ctx = _ctx;
+	ctx->test_i = 0;
+	ctx->test_len = get_obj(wk, tests)->dat.arr.len;
+
+	if (!ctx->test_len ) {
 		return ir_cont;
 	}
 
 	LOG_I("running tests for project '%s'", get_cstr(wk, proj_name));
 
-	struct run_test_ctx *ctx = _ctx;
+	ctx->ran_tests = true;
 
 	ctx->proj_name = proj_name;
 
 	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
 		return ir_err;
 	}
+
+	while (ctx->test_cmd_ctx_free) {
+		test_delay();
+		collect_tests(wk, ctx);
+	}
+
+	log_plain("\n");
 
 	++ctx->proj_i;
 
@@ -261,8 +304,18 @@ tests_run(const char *build_dir, struct test_options *opts)
 
 	struct run_test_ctx ctx = {
 		.opts = opts,
-		.success = true,
 	};
+
+	{
+		uint32_t h;
+		int fd;
+		ctx.term_width = 80;
+
+		if (fs_fileno(log_file(), &fd)) {
+			term_winsize(fd, &h, &ctx.term_width);
+		}
+	}
+
 	darr_init(&ctx.failed_tests, 32, sizeof(struct test_result));
 
 	uint32_t tests_dict;
@@ -277,12 +330,12 @@ tests_run(const char *build_dir, struct test_options *opts)
 		goto ret;
 	}
 
-	while (ctx.test_cmd_ctx_free) {
-		test_delay();
-		collect_tests(&wk, &ctx);
-	}
 
-	log_plain("\n");
+	if (!ctx.ran_tests) {
+		LOG_I("no tests defined");
+	} else {
+		LOG_I("finished %d tests, %d errors", ctx.total_count, ctx.error_count);
+	}
 
 	uint32_t i;
 	for (i = 0; i < ctx.failed_tests.len; ++i) {

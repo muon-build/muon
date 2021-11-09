@@ -83,6 +83,7 @@ cat \
 	src/platform/mem.c \
 	src/platform/path.c \
 	src/platform/run_cmd.c \
+	src/platform/term.c \
 	src/sha_256.c \
 	src/tests.c \
 	src/version.c.in \
