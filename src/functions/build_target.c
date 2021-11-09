@@ -234,7 +234,7 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 		return false;
 	}
 
-	return build_target_extract_all_objects(wk, rcvr, args_node, res);
+	return build_target_extract_all_objects(wk, args_node, rcvr, res);
 }
 
 const struct func_impl_name impl_tbl_build_target[] = {
