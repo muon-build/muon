@@ -14,7 +14,6 @@ src = files([
 	'embedded.c',
 	'error.c',
 	'formats/ini.c',
-	'formats/tar.c',
 	'functions/array.c',
 	'functions/boolean.c',
 	'functions/build_target.c',

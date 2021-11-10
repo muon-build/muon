@@ -30,7 +30,6 @@ cat \
 	src/external/libpkgconf.c \
 	src/external/samu_null.c \
 	src/formats/ini.c \
-	src/formats/tar.c \
 	src/functions/array.c \
 	src/functions/boolean.c \
 	src/functions/build_target.c \
