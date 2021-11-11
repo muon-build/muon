@@ -576,3 +576,31 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 
 	return res;
 }
+
+static bool
+fs_remove(const char *path)
+{
+	if (remove(path) != 0) {
+		LOG_E("failed remove(\"%s\"): %s", path, strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool
+fs_make_symlink(const char *target, const char *path, bool force)
+{
+	if (force && fs_exists(path)) {
+		if (!fs_remove(path)) {
+			return false;
+		}
+	}
+
+	if (symlink(target, path) != 0) {
+		LOG_E("failed symlink(\"%s\", \"%s\"): %s", target, path, strerror(errno));
+		return false;
+	}
+
+	return true;
+}

@@ -283,9 +283,7 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
 		return false;
-	}
-
-	if (!path_is_absolute(path)) {
+	} else if (!path_is_absolute(path)) {
 		LOG_E("path '%s' is not absolute", path);
 		return false;
 	}
