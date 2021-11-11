@@ -451,22 +451,12 @@ fs_copy_file(const char *src, const char *dest)
 		goto ret;
 	}
 
-	switch (st.st_mode & S_IFMT) {
-	case S_IFREG:
-		break;
-	case S_IFLNK:
+	if (S_ISLNK(st.st_mode)) {
 		return fs_copy_link(src, dest);
-	case S_IFBLK:
-	case S_IFCHR:
-	case S_IFDIR:
-	case S_IFIFO:
-	case S_IFSOCK:
-	default:
+	} else if (!S_ISREG(st.st_mode)) {
 		LOG_E("unhandled file type");
 		goto ret;
 	}
-
-
 
 	if (!(f_src = fs_fopen(src, "r"))) {
 		goto ret;
