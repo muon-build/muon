@@ -116,6 +116,7 @@ struct obj {
 			str build_name;
 			str cwd;
 			str build_dir;
+			str soname;
 			obj src; // obj_array
 			obj link_with; // obj_array
 			obj include_directories; // obj_array

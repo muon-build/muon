@@ -10,6 +10,8 @@
 #include "functions/default/options.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/filesystem.h"
+#include "platform/path.h"
 
 enum build_target_kwargs {
 	bt_kw_sources,
@@ -20,15 +22,15 @@ enum build_target_kwargs {
 	bt_kw_install_dir,
 	bt_kw_install_mode,
 	bt_kw_link_with,
-	bt_kw_link_whole,         // TODO
+	bt_kw_link_whole, // TODO
 	bt_kw_version,
-	bt_kw_build_by_default,         // TODO
-	bt_kw_extra_files,         // TODO
+	bt_kw_build_by_default, // TODO
+	bt_kw_extra_files, // TODO
 	bt_kw_target_type,
 	bt_kw_name_prefix,
 	bt_kw_name_suffix,
-	bt_kw_soversion,         // TODO
-	bt_kw_link_depends,         // TODO
+	bt_kw_soversion, // TODO
+	bt_kw_link_depends, // TODO
 	bt_kw_objects,
 
 	/* lang args */
@@ -138,7 +140,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		return false;
 	}
 
-	const char *pref, *suff;
+	const char *pref, *suff, *ver_suff = NULL;
 
 	switch (type) {
 	case tgt_executable:
@@ -152,6 +154,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	case tgt_dynamic_library:
 		pref = "lib";
 		suff = ".so";
+		if (akw[bt_kw_version].set) {
+			ver_suff = get_cstr(wk, akw[bt_kw_version].val);
+		} else if (akw[bt_kw_soversion].set) {
+			ver_suff = get_cstr(wk, akw[bt_kw_soversion].val);
+		}
 		break;
 	default:
 		assert(false && "unreachable");
@@ -170,12 +177,63 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
 	tgt->dat.tgt.src = input;
-	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
+	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff,
+		ver_suff ? "." : "",
+		ver_suff ? ver_suff : "");
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
 
 	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
+
+	if (type == tgt_dynamic_library) {
+		char soversion[BUF_SIZE_1k] = { "." };
+		bool have_soversion = false;
+
+		if (akw[bt_kw_soversion].set) {
+			have_soversion = true;
+			strncpy(&soversion[1], get_cstr(wk, akw[bt_kw_soversion].val), BUF_SIZE_1k - 2);
+		} else if (akw[bt_kw_version].set) {
+			have_soversion = true;
+			strncpy(&soversion[1], get_cstr(wk, akw[bt_kw_version].val), BUF_SIZE_1k - 2);
+			char *p;
+			if ((p = strchr(&soversion[1], '.'))) {
+				*p = 0;
+			}
+		}
+
+		char linker_name[BUF_SIZE_2k];
+		snprintf(linker_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
+
+		tgt->dat.tgt.soname = wk_str_pushf(wk, "%s%s", linker_name, have_soversion ? soversion : "");
+
+		char path[PATH_MAX];
+
+		if (!fs_mkdir_p(get_cstr(wk, tgt->dat.tgt.build_dir))) {
+			return false;
+		}
+
+		if (!wk_streql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
+			if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir),
+				get_cstr(wk, tgt->dat.tgt.soname))) {
+				return false;
+			}
+
+			if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.build_name), path, true)) {
+				return false;
+			}
+		}
+
+		if (!wk_cstreql(get_str(wk, tgt->dat.tgt.soname), linker_name)) {
+			if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), linker_name)) {
+				return false;
+			}
+
+			if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.soname), path, true)) {
+				return false;
+			}
+		}
+	}
 
 	{ // include directories
 		obj inc_dirs;
