@@ -120,29 +120,67 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 }
 
 static bool
-create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, enum tgt_type type, obj *res)
+setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *plain_name,
+	obj sover, obj ver, const char **plain_name_install, const char **soname_install)
 {
-	obj input;
+	char soversion[BUF_SIZE_1k] = { "." };
+	bool have_soversion = false;
 
-	if (akw[bt_kw_sources].set) {
-		obj arr;
-		obj_array_dup(wk, akw[bt_kw_sources].val, &arr);
-		obj_array_extend(wk, an[1].val, arr);
+	if (sover) {
+		have_soversion = true;
+		strncpy(&soversion[1], get_cstr(wk, sover), BUF_SIZE_1k - 2);
+	} else if (ver) {
+		have_soversion = true;
+		strncpy(&soversion[1], get_cstr(wk, ver), BUF_SIZE_1k - 2);
+		char *p;
+		if ((p = strchr(&soversion[1], '.'))) {
+			*p = 0;
+		}
 	}
 
-	if (akw[bt_kw_objects].set) {
-		obj arr;
-		obj_array_dup(wk, akw[bt_kw_objects].val, &arr);
-		obj_array_extend(wk, an[1].val, arr);
-	}
+	tgt->dat.tgt.soname = wk_str_pushf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
 
-	if (!coerce_files(wk, an[1].node, an[1].val, &input)) {
+	static char soname_symlink[PATH_MAX], plain_name_symlink[PATH_MAX];
+
+	if (!fs_mkdir_p(get_cstr(wk, tgt->dat.tgt.build_dir))) {
 		return false;
 	}
 
+	if (!wk_streql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
+		if (!path_join(soname_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir),
+			get_cstr(wk, tgt->dat.tgt.soname))) {
+			return false;
+		}
+
+		if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.build_name), soname_symlink, true)) {
+			return false;
+		}
+
+		*soname_install = soname_symlink;
+	}
+
+	if (!wk_cstreql(get_str(wk, tgt->dat.tgt.soname), plain_name)) {
+		if (!path_join(plain_name_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), plain_name)) {
+			return false;
+		}
+
+		if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.soname), plain_name_symlink, true)) {
+			return false;
+		}
+
+		*plain_name_install = plain_name_symlink;
+	}
+
+	return true;
+}
+
+static bool
+determine_target_build_name(struct workspace *wk, struct obj *tgt, obj sover, obj ver,
+	obj name_pre, obj name_suff, char plain_name[BUF_SIZE_2k])
+{
 	const char *pref, *suff, *ver_suff = NULL;
 
-	switch (type) {
+	switch (tgt->dat.tgt.type) {
 	case tgt_executable:
 		pref = "";
 		suff = "";
@@ -154,10 +192,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	case tgt_dynamic_library:
 		pref = "lib";
 		suff = ".so";
-		if (akw[bt_kw_version].set) {
-			ver_suff = get_cstr(wk, akw[bt_kw_version].val);
-		} else if (akw[bt_kw_soversion].set) {
-			ver_suff = get_cstr(wk, akw[bt_kw_soversion].val);
+		if (ver) {
+			ver_suff = get_cstr(wk, ver);
+		} else if (sover) {
+			ver_suff = get_cstr(wk, sover);
 		}
 		break;
 	default:
@@ -165,73 +203,51 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		return false;
 	}
 
-	if (akw[bt_kw_name_prefix].set) {
-		pref = get_cstr(wk, akw[bt_kw_name_prefix].val);
+	if (name_pre) {
+		pref = get_cstr(wk, name_pre);
 	}
 
-	if (akw[bt_kw_name_suffix].set) {
-		suff = get_cstr(wk, akw[bt_kw_name_suffix].val);
+	if (name_suff) {
+		suff = get_cstr(wk, name_suff);
 	}
 
+	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
+
+	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
+	return true;
+}
+
+static bool
+create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, enum tgt_type type, obj *res)
+{
+	char plain_name[BUF_SIZE_2k];
 	struct obj *tgt = make_obj(wk, res, obj_build_target);
 	tgt->dat.tgt.type = type;
 	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
-	tgt->dat.tgt.src = input;
-	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff,
-		ver_suff ? "." : "",
-		ver_suff ? ver_suff : "");
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
 
-	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
+	if (!determine_target_build_name(wk, tgt, akw[bt_kw_soversion].val, akw[bt_kw_version].val,
+		akw[bt_kw_name_prefix].val, akw[bt_kw_name_suffix].val, plain_name)) {
+		return false;
+	}
 
-	if (type == tgt_dynamic_library) {
-		char soversion[BUF_SIZE_1k] = { "." };
-		bool have_soversion = false;
-
-		if (akw[bt_kw_soversion].set) {
-			have_soversion = true;
-			strncpy(&soversion[1], get_cstr(wk, akw[bt_kw_soversion].val), BUF_SIZE_1k - 2);
-		} else if (akw[bt_kw_version].set) {
-			have_soversion = true;
-			strncpy(&soversion[1], get_cstr(wk, akw[bt_kw_version].val), BUF_SIZE_1k - 2);
-			char *p;
-			if ((p = strchr(&soversion[1], '.'))) {
-				*p = 0;
-			}
+	{ // sources
+		if (akw[bt_kw_sources].set) {
+			obj arr;
+			obj_array_dup(wk, akw[bt_kw_sources].val, &arr);
+			obj_array_extend(wk, an[1].val, arr);
 		}
 
-		char linker_name[BUF_SIZE_2k];
-		snprintf(linker_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
+		if (akw[bt_kw_objects].set) {
+			obj arr;
+			obj_array_dup(wk, akw[bt_kw_objects].val, &arr);
+			obj_array_extend(wk, an[1].val, arr);
+		}
 
-		tgt->dat.tgt.soname = wk_str_pushf(wk, "%s%s", linker_name, have_soversion ? soversion : "");
-
-		char path[PATH_MAX];
-
-		if (!fs_mkdir_p(get_cstr(wk, tgt->dat.tgt.build_dir))) {
+		if (!coerce_files(wk, an[1].node, an[1].val, &tgt->dat.tgt.src)) {
 			return false;
-		}
-
-		if (!wk_streql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
-			if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir),
-				get_cstr(wk, tgt->dat.tgt.soname))) {
-				return false;
-			}
-
-			if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.build_name), path, true)) {
-				return false;
-			}
-		}
-
-		if (!wk_cstreql(get_str(wk, tgt->dat.tgt.soname), linker_name)) {
-			if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), linker_name)) {
-				return false;
-			}
-
-			if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.soname), path, true)) {
-				return false;
-			}
 		}
 	}
 
@@ -263,47 +279,61 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		tgt->dat.tgt.include_directories = coerced;
 	}
 
-	if (akw[bt_kw_dependencies].set) {
-		tgt->dat.tgt.deps = akw[bt_kw_dependencies].val;
-		struct add_dep_sources_ctx ctx = {
-			.node = akw[bt_kw_dependencies].node,
-			.src = tgt->dat.tgt.src,
-		};
+	{ // dependencies
+		if (akw[bt_kw_dependencies].set) {
+			tgt->dat.tgt.deps = akw[bt_kw_dependencies].val;
+			struct add_dep_sources_ctx ctx = {
+				.node = akw[bt_kw_dependencies].node,
+				.src = tgt->dat.tgt.src,
+			};
 
-		obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, add_dep_sources_iter);
-	}
-
-	static struct {
-		enum build_target_kwargs kw;
-		enum compiler_language l;
-	} lang_args[] = {
-		{ bt_kw_c_args, compiler_language_c },
-		{ bt_kw_cpp_args, compiler_language_cpp },
-		/* { bt_kw_objc_args, compiler_language_objc }, */
-	};
-
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
-		if (akw[lang_args[i].kw].set) {
-			obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[bt_kw_c_args].val);
+			obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, add_dep_sources_iter);
 		}
 	}
 
-	if (akw[bt_kw_link_args].set) {
-		tgt->dat.tgt.link_args = akw[bt_kw_link_args].val;
+	{ // compiler args
+		static struct {
+			enum build_target_kwargs kw;
+			enum compiler_language l;
+		} lang_args[] = {
+			{ bt_kw_c_args, compiler_language_c },
+			{ bt_kw_cpp_args, compiler_language_cpp },
+			/* { bt_kw_objc_args, compiler_language_objc }, */
+		};
+
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
+			if (akw[lang_args[i].kw].set) {
+				obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[bt_kw_c_args].val);
+			}
+		}
 	}
 
-	make_obj(wk, &tgt->dat.tgt.link_with, obj_array);
-	if (akw[bt_kw_link_with].set) {
-		obj arr;
-		obj_array_dup(wk, akw[bt_kw_link_with].val, &arr);
-		obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+	{ // linker args
+		if (akw[bt_kw_link_args].set) {
+			tgt->dat.tgt.link_args = akw[bt_kw_link_args].val;
+		}
+
+		make_obj(wk, &tgt->dat.tgt.link_with, obj_array);
+		if (akw[bt_kw_link_with].set) {
+			obj arr;
+			obj_array_dup(wk, akw[bt_kw_link_with].val, &arr);
+			obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+		}
+
+		if (akw[bt_kw_link_whole].set) {
+			obj arr;
+			obj_array_dup(wk, akw[bt_kw_link_whole].val, &arr);
+			obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+		}
 	}
 
-	if (akw[bt_kw_link_whole].set) {
-		obj arr;
-		obj_array_dup(wk, akw[bt_kw_link_whole].val, &arr);
-		obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+	const char *soname_install = NULL, *plain_name_install = NULL;
+	if (type == tgt_dynamic_library) {
+		if (!setup_shared_object_symlinks(wk, tgt, plain_name, akw[bt_kw_soversion].val, akw[bt_kw_version].val,
+			&plain_name_install, &soname_install)) {
+			return false;
+		}
 	}
 
 	if (akw[bt_kw_install].set && get_obj(wk, akw[bt_kw_install].val)->dat.boolean) {
@@ -338,8 +368,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			tgt->dat.tgt.build_name, install_dir, install_mode_id);
 	}
 
+	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
 	obj_array_push(wk, current_project(wk)->targets, *res);
-
 	return true;
 }
 
