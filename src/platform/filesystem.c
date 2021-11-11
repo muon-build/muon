@@ -18,6 +18,17 @@
 #include "platform/path.h"
 
 static bool
+fs_lstat(const char *path, struct stat *sb)
+{
+	if (lstat(path, sb) != 0) {
+		LOG_E("failed stat(%s): %s", path, strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 fs_stat(const char *path, struct stat *sb)
 {
 	if (stat(path, sb) != 0) {
@@ -410,6 +421,22 @@ fs_redirect_restore(int fd, int old_fd)
 	return true;
 }
 
+static bool
+fs_copy_link(const char *src, const char *dest)
+{
+	char link[PATH_MAX + 1] = { 0 };
+	int n;
+	if ((n = readlink(src, link, PATH_MAX)) == -1) {
+		LOG_E("readlink('%s') failed: %s", src, strerror(errno));
+		return false;
+	} else if (n == PATH_MAX) {
+		LOG_E("readlink got truncated value");
+		return false;
+	}
+
+	return fs_make_symlink(link, dest, true);
+}
+
 bool
 fs_copy_file(const char *src, const char *dest)
 {
@@ -420,9 +447,27 @@ fs_copy_file(const char *src, const char *dest)
 	int f_dest = 0;
 
 	struct stat st;
-	if (!fs_stat(src, &st)) {
+	if (!fs_lstat(src, &st)) {
 		goto ret;
 	}
+
+	switch (st.st_mode & S_IFMT) {
+	case S_IFREG:
+		break;
+	case S_IFLNK:
+		LOG_I("symlink!");
+		return fs_copy_link(src, dest);
+	case S_IFBLK:
+	case S_IFCHR:
+	case S_IFDIR:
+	case S_IFIFO:
+	case S_IFSOCK:
+	default:
+		LOG_E("unhandled file type");
+		goto ret;
+	}
+
+
 
 	if (!(f_src = fs_fopen(src, "r"))) {
 		goto ret;
