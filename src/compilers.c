@@ -336,7 +336,6 @@ compiler_gcc_args_werror(void)
 	return &args;
 }
 
-
 static const struct args *
 compiler_gcc_args_set_std(const char *std)
 {
@@ -345,6 +344,13 @@ compiler_gcc_args_set_std(const char *std)
 
 	snprintf(buf, BUF_SIZE_S, "-std=%s", std);
 
+	return &args;
+}
+
+static const struct args *
+compiler_gcc_args_pic(void)
+{
+	COMPILER_ARGS({ "-fpic" });
 	return &args;
 }
 
@@ -401,16 +407,17 @@ build_compilers(void)
 {
 	struct compiler empty = {
 		.args = {
-			.deps         = compiler_arg_empty_2s,
-			.compile_only = compiler_arg_empty_0,
-			.output       = compiler_arg_empty_1s,
-			.optimization = compiler_arg_empty_1i,
-			.debug        = compiler_arg_empty_0,
-			.warning_lvl  = compiler_arg_empty_1i,
-			.werror       = compiler_arg_empty_0,
-			.set_std      = compiler_arg_empty_1s,
-			.include      = compiler_arg_empty_1s,
+			.deps           = compiler_arg_empty_2s,
+			.compile_only   = compiler_arg_empty_0,
+			.output         = compiler_arg_empty_1s,
+			.optimization   = compiler_arg_empty_1i,
+			.debug          = compiler_arg_empty_0,
+			.warning_lvl    = compiler_arg_empty_1i,
+			.werror         = compiler_arg_empty_0,
+			.set_std        = compiler_arg_empty_1s,
+			.include        = compiler_arg_empty_1s,
 			.include_system = compiler_arg_empty_1s,
+			.pic            = compiler_arg_empty_0,
 		}
 	};
 
@@ -430,6 +437,7 @@ build_compilers(void)
 	gcc.args.werror = compiler_gcc_args_werror;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
+	gcc.args.pic = compiler_gcc_args_pic;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 

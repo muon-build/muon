@@ -217,6 +217,10 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id
 		}
 	}
 
+	if (ctx->tgt->dat.tgt.type == tgt_dynamic_library) {
+		push_args(wk, args, compilers[t].args.pic());
+	}
+
 	obj_dict_seti(wk, ctx->args_dict, lang, join_args_shell(wk, args));
 	return ir_cont;
 }

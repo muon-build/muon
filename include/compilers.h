@@ -66,6 +66,7 @@ struct compiler {
 		compiler_get_arg_func_1s set_std;
 		compiler_get_arg_func_1s include;
 		compiler_get_arg_func_1s include_system;
+		compiler_get_arg_func_0 pic;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;
