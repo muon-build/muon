@@ -359,13 +359,18 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			}
 		}
 
-		obj install_mode_id = 0;
-		if (akw[bt_kw_install_mode].set) {
-			install_mode_id = akw[bt_kw_install_mode].val;
+		push_install_target_basename(wk, tgt->dat.tgt.build_dir,
+			tgt->dat.tgt.build_name, install_dir, akw[bt_kw_install_mode].val);
+
+		if (soname_install) {
+			push_install_target_install_dir(wk, wk_str_push(wk, soname_install),
+				get_obj(wk, install_dir)->dat.str, akw[bt_kw_install_mode].val);
 		}
 
-		push_install_target_basename(wk, tgt->dat.tgt.build_dir,
-			tgt->dat.tgt.build_name, install_dir, install_mode_id);
+		if (plain_name_install) {
+			push_install_target_install_dir(wk, wk_str_push(wk, plain_name_install),
+				get_obj(wk, install_dir)->dat.str, akw[bt_kw_install_mode].val);
+		}
 	}
 
 	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));

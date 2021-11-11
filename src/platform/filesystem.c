@@ -455,7 +455,6 @@ fs_copy_file(const char *src, const char *dest)
 	case S_IFREG:
 		break;
 	case S_IFLNK:
-		LOG_I("symlink!");
 		return fs_copy_link(src, dest);
 	case S_IFBLK:
 	case S_IFCHR:
