@@ -27,7 +27,6 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	struct obj *in = get_obj(wk, v_id);
 	assert(in->type == obj_install_target);
 
-	/* char src_buf[PATH_MAX], filename_buf[PATH_MAX], dest[PATH_MAX]; */
 	char dest_dirname[PATH_MAX];
 	const char *dest = get_cstr(wk, in->dat.install_target.dest),
 		   *src = get_cstr(wk, in->dat.install_target.src);
@@ -45,27 +44,6 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 		return ir_err;
 	}
 
-
-	/* if (in->dat.install_target.base_path) { */
-	/* 	if (!path_join(src_buf, PATH_MAX, get_cstr(wk, in->dat.install_target.base_path), */
-	/* 		get_cstr(wk, in->dat.install_target.filename))) { */
-	/* 		return ir_err; */
-	/* 	} */
-
-	/* 	src = src_buf; */
-	/* } else { */
-	/* 	src = get_cstr(wk, in->dat.install_target.filename); */
-
-	/* } */
-
-	/* if (!path_basename(filename_buf, PATH_MAX, src)) { */
-	/* 	return ir_err; */
-	/* } */
-
-	/* if (!path_join(dest, PATH_MAX, dest_dir, filename_buf)) { */
-	/* 	return ir_err; */
-	/* } */
-
 	assert(path_is_absolute(src));
 
 	LOG_I("install '%s' -> '%s'", src, dest);
@@ -74,32 +52,17 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 		return ir_cont;
 	}
 
-	if (fs_dir_exists(src)) {
-		char basedir[PATH_MAX];
-		if (!path_dirname(basedir, PATH_MAX, dest)) {
-			return ir_err;
-		}
+	if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
+		LOG_E("dest '%s' exists and is not a directory", dest_dirname);
+		return ir_err;
+	}
 
-		if (!fs_mkdir_p(basedir)) {
-			return ir_err;
-		}
+	if (!fs_mkdir_p(dest_dirname)) {
+		return ir_err;
+	}
 
-		if (!fs_copy_dir(src, dest)) {
-			return ir_err;
-		}
-	} else {
-		if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
-			LOG_E("dest '%s' exists and is not a directory", dest_dirname);
-			return ir_err;
-		}
-
-		if (!fs_mkdir_p(dest_dirname)) {
-			return ir_err;
-		}
-
-		if (!fs_copy_file(src, dest)) {
-			return ir_err;
-		}
+	if (!fs_copy_file(src, dest)) {
+		return ir_err;
 	}
 
 	return ir_cont;
