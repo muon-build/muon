@@ -78,6 +78,8 @@ struct linker {
 		compiler_get_arg_func_0 start_group;
 		compiler_get_arg_func_0 end_group;
 		compiler_get_arg_func_0 shared;
+		compiler_get_arg_func_1s soname;
+		compiler_get_arg_func_1s rpath;
 	} args;
 };
 

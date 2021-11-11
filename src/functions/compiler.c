@@ -128,7 +128,7 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 				return false;
 			}
 
-			push_linker_args_link_with(wk, compilers[t].linker, da_ctx.link_args, da_ctx.link_with);
+			setup_linker_args(wk, compilers[t].linker, da_ctx.rpath, da_ctx.link_args, da_ctx.link_with);
 			obj_array_extend(wk, compiler_args, da_ctx.link_args);
 		}
 	}

@@ -477,6 +477,28 @@ linker_gcc_args_shared(void)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_soname(const char *soname)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "-Wl,-soname,%s", soname);
+
+	return &args;
+}
+
+static const struct args *
+linker_gcc_args_rpath(const char *rpath)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "-Wl,-rpath,%s", rpath);
+
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -488,6 +510,8 @@ build_linkers(void)
 			.start_group  = compiler_arg_empty_0,
 			.end_group    = compiler_arg_empty_0,
 			.shared       = compiler_arg_empty_0,
+			.soname       = compiler_arg_empty_1s,
+			.rpath        = compiler_arg_empty_1s,
 		}
 	};
 
@@ -499,6 +523,8 @@ build_linkers(void)
 	gcc.args.start_group = linker_gcc_args_start_group;
 	gcc.args.end_group = linker_gcc_args_end_group;
 	gcc.args.shared = linker_gcc_args_shared,
+	gcc.args.soname = linker_gcc_args_soname,
+	gcc.args.rpath = linker_gcc_args_rpath,
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;

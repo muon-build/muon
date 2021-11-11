@@ -35,6 +35,32 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 		obj_array_push(wk, ctx->link_with, make_str(wk, path));
 
+		// calculate rpath for this target
+		// we always want an absolute path here, regardles of
+		// ctx->relativize
+		if (tgt->dat.tgt.type == tgt_dynamic_library) {
+			char dir[PATH_MAX], abs[PATH_MAX];
+			const char *p;
+			if (!path_dirname(dir, PATH_MAX, path)) {
+				return ir_err;
+			}
+
+			if (path_is_absolute(dir)) {
+				p = dir;
+			} else {
+				if (!path_join(abs, PATH_MAX, wk->build_root, dir)) {
+					return ir_err;
+				}
+				p = abs;
+			}
+
+			obj s = make_str(wk, p);
+
+			if (!obj_array_in(wk, ctx->rpath, s)) {
+				obj_array_push(wk, ctx->rpath, s);
+			}
+		}
+
 		/* TODO: meson adds -I path/to/build/target.p, but why? */
 		/* char tgt_parts_dir[PATH_MAX]; */
 		/* if (!path_dirname(tgt_parts_dir, PATH_MAX, path)) { */
@@ -151,6 +177,7 @@ dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
 	make_obj(wk, &ctx->link_with, obj_array);
 	make_obj(wk, &ctx->link_args, obj_array);
 	make_obj(wk, &ctx->args_dict, obj_dict);
+	make_obj(wk, &ctx->rpath, obj_array);
 }
 
 bool

@@ -295,7 +295,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
 
-		push_linker_args_link_with(wk, linker, ctx.args.link_args, link_with);
+		setup_linker_args(wk, linker, ctx.args.rpath, ctx.args.link_args, link_with);
 	}
 
 	const char *linker_type, *link_args;
@@ -306,6 +306,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 		if (tgt->dat.tgt.type == tgt_dynamic_library) {
 			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
+			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->dat.tgt.soname)));
 		}
 
 		link_args = get_cstr(wk, join_args_shell(wk, ctx.args.link_args));

@@ -239,10 +239,32 @@ setup_compiler_args(struct workspace *wk, const struct obj *tgt,
 	return true;
 }
 
-void
-push_linker_args_link_with(struct workspace *wk, enum linker_type linker,
-	obj link_args, obj link_with)
+struct setup_linker_args_ctx {
+	enum linker_type linker;
+	obj link_args;
+};
+
+static enum iteration_result
+process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 {
+	struct setup_linker_args_ctx *ctx = _ctx;
+
+	push_args(wk, ctx->link_args, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
+
+	return ir_cont;
+}
+
+void
+setup_linker_args(struct workspace *wk, enum linker_type linker,
+	obj rpaths, obj link_args, obj link_with)
+{
+	struct setup_linker_args_ctx ctx = {
+		.linker = linker,
+		.link_args = link_args,
+	};
+
+	obj_array_foreach(wk, rpaths, &ctx, process_rpath_iter);
+
 	push_args(wk, link_args, linkers[linker].args.as_needed());
 	push_args(wk, link_args, linkers[linker].args.no_undefined());
 	push_args(wk, link_args, linkers[linker].args.start_group());
