@@ -155,6 +155,16 @@ fs_fclose(FILE *file)
 }
 
 bool
+fs_fseek(FILE *file, size_t off)
+{
+	if (fseek(file, off, 0) == -1) {
+		LOG_E("failed fseek: %s", strerror(errno));
+		return false;
+	}
+	return true;
+}
+
+bool
 fs_fsize(FILE *file, uint64_t *ret)
 {
 	int64_t size = 0;

@@ -65,6 +65,7 @@ src = files([
 	'platform/filesystem.c',
 	'platform/mem.c',
 	'platform/path.c',
+	'platform/rpath_fixer.c',
 	'platform/run_cmd.c',
 	'platform/term.c',
 	'sha_256.c',

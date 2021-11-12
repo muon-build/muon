@@ -34,6 +34,7 @@ bool fs_copy_file(const char *src, const char *dest);
 bool fs_copy_dir(const char *src_base, const char *dest_base);
 bool fs_fileno(FILE *f, int *ret);
 bool fs_make_symlink(const char *target, const char *path, bool force);
+bool fs_fseek(FILE *file, size_t off);
 
 typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);

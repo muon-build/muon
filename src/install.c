@@ -11,6 +11,7 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "platform/rpath_fixer.h"
 #include "platform/run_cmd.h"
 
 struct install_ctx {
@@ -46,10 +47,6 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 
 	assert(path_is_absolute(src));
 
-	if (in->dat.install_target.build_target) {
-		// fix rpath
-	}
-
 	LOG_I("install '%s' -> '%s'", src, dest);
 
 	if (ctx->opts->dry_run) {
@@ -67,6 +64,12 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 
 	if (!fs_copy_file(src, dest)) {
 		return ir_err;
+	}
+
+	if (in->dat.install_target.build_target) {
+		if (!fix_rpaths(dest, wk->build_root)) {
+			return ir_err;
+		}
 	}
 
 	return ir_cont;

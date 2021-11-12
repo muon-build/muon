@@ -81,6 +81,7 @@ cat \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
 	src/platform/path.c \
+	src/platform/rpath_fixer.c \
 	src/platform/run_cmd.c \
 	src/platform/term.c \
 	src/sha_256.c \
