@@ -384,7 +384,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 }
 
 static bool
-tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, bool tgt_type_from_kw)
+tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, enum tgt_type argtype, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -444,7 +444,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	for (i = 0; i < bt_kwargs_count; ++i) {
 		if (keyword_validity[i]
 		    && akw[i].set
-		    && !(keyword_validity[i] & type)) {
+		    && !(keyword_validity[i] & argtype)) {
 			interp_error(wk, akw[i].node, "invalid kwarg");
 			return false;
 		}
@@ -505,35 +505,38 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 bool
 func_executable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_executable, false);
+	return tgt_common(wk, args_node, res, tgt_executable, tgt_executable, false);
 }
 
 bool
 func_static_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_static_library, false);
+	return tgt_common(wk, args_node, res, tgt_static_library, tgt_static_library, false);
 }
 
 bool
 func_shared_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_dynamic_library, false);
+	return tgt_common(wk, args_node, res, tgt_dynamic_library, tgt_dynamic_library, false);
 }
 
 bool
 func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_static_library | tgt_dynamic_library, false);
+	return tgt_common(wk, args_node, res, tgt_static_library | tgt_dynamic_library,
+		tgt_static_library | tgt_dynamic_library, false);
 }
 
 bool
 func_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, default_library_type(wk), false);
+	return tgt_common(wk, args_node, res, default_library_type(wk),
+		tgt_static_library | tgt_dynamic_library, false);
 }
 
 bool
 func_build_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, 0, true);
+	return tgt_common(wk, args_node, res, 0,
+		tgt_executable | tgt_static_library | tgt_dynamic_library, true);
 }
