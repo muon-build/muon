@@ -1,6 +1,6 @@
 #include "posix.h"
 
-#include "external/pkgconf.h"
+#include "external/libpkgconf.h"
 #include "log.h"
 
 const bool have_libpkgconf = false;
