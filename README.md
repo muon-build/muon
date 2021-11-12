@@ -23,7 +23,7 @@ Contributions welcome:
 
 `muon` is complete enough to build complicated projects, however, many things
 are still not implemented.  If you want to contribute, try using `muon` to build
-your favorite project.  Bug reports welcome!
+your favorite project.  Patches and bug reports welcome!
 
 ## Requirements
 
