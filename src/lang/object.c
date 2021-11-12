@@ -773,6 +773,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 			str_clone(wk_src, wk_dest, in->dat.install_target.src);
 		o->dat.install_target.dest =
 			str_clone(wk_src, wk_dest, in->dat.install_target.dest);
+		o->dat.install_target.build_target = in->dat.install_target.build_target;
 
 		if (!obj_clone(wk_src, wk_dest, in->dat.install_target.mode, &o->dat.install_target.mode)) {
 			return false;

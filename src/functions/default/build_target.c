@@ -359,8 +359,13 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			}
 		}
 
-		push_install_target_basename(wk, tgt->dat.tgt.build_dir,
-			tgt->dat.tgt.build_name, install_dir, akw[bt_kw_install_mode].val);
+		struct obj *install_tgt;
+		if (!(install_tgt = push_install_target_basename(wk, tgt->dat.tgt.build_dir,
+			tgt->dat.tgt.build_name, install_dir, akw[bt_kw_install_mode].val))) {
+			return false;
+		}
+
+		install_tgt->dat.install_target.build_target = true;
 
 		if (soname_install) {
 			push_install_target_install_dir(wk, wk_str_push(wk, soname_install),

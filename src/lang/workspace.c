@@ -55,7 +55,7 @@ wk_file_path(struct workspace *wk, uint32_t id)
 	return get_cstr(wk, obj->dat.file);
 }
 
-void
+struct obj *
 push_install_target(struct workspace *wk, str src, str dest, obj mode)
 {
 	uint32_t id;
@@ -73,12 +73,12 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 	} else {
 		obj prefix;
 		if (!get_option(wk, current_project(wk), "prefix", &prefix)) {
-			return;
+			return NULL;
 		}
 
 		char buf[PATH_MAX];
 		if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, dest))) {
-			return;
+			return NULL;
 		}
 
 		sdest = wk_str_push(wk, buf);
@@ -88,9 +88,10 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 	tgt->dat.install_target.dest = sdest;
 
 	obj_array_push(wk, wk->install, id);
+	return tgt;
 }
 
-bool
+struct obj *
 push_install_target_install_dir(struct workspace *wk, str ssrc,
 	str install_dir, obj mode)
 {
@@ -99,18 +100,17 @@ push_install_target_install_dir(struct workspace *wk, str ssrc,
 
 	char basename[PATH_MAX], dest[PATH_MAX];
 	if (!path_basename(basename, PATH_MAX, get_cstr(wk, ssrc))) {
-		return false;
+		return NULL;
 	} else if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), basename)) {
-		return false;
+		return NULL;
 	}
 
 	str sdest = wk_str_push(wk, dest);
 
-	push_install_target(wk, ssrc, sdest, mode);
-	return true;
+	return push_install_target(wk, ssrc, sdest, mode);
 }
 
-void
+struct obj *
 push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
 	obj install_dir, obj mode)
 {
@@ -118,15 +118,15 @@ push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
 
 	char src[PATH_MAX];
 	if (!path_join(src, PATH_MAX, get_cstr(wk, base_path), get_cstr(wk, filename))) {
-		return;
+		return NULL;
 	}
 
 	char dest[PATH_MAX];
 	if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), get_cstr(wk, filename))) {
-		return;
+		return NULL;
 	}
 
-	push_install_target(wk, wk_str_push(wk, src), wk_str_push(wk, dest), mode);
+	return push_install_target(wk, wk_str_push(wk, src), wk_str_push(wk, dest), mode);
 }
 
 struct push_install_targets_ctx {

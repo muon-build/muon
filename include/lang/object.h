@@ -181,6 +181,7 @@ struct obj {
 			str src;
 			str dest;
 			obj mode;
+			bool build_target;
 		} install_target;
 		struct {
 			obj env; /* dict */
