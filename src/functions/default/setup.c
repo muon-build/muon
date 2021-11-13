@@ -67,7 +67,7 @@ set_options_iter(struct workspace *wk, void *_ctx, obj key, obj v)
 	}
 
 	struct option_override oo = { .obj_value = true };
-	if (ctx->parent) {
+	if (ctx->parent && *get_cstr(wk, ctx->parent)) {
 		oo.proj = wk_str_push(ctx->sub_wk, get_cstr(wk, ctx->parent));
 	}
 
@@ -137,6 +137,8 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
 	if (!workspace_setup_dirs(&sub_wk, get_cstr(wk, an[0].val), wk->argv0, true)) {
 		goto ret;
 	}
+
+	LOG_I("setting up %s", sub_wk.build_root);
 
 	if (akw[kw_options].set) {
 		obj val;

@@ -105,13 +105,9 @@ ninja_write_opts(struct workspace *wk, void *_ctx, FILE *out)
 	struct project *proj;
 	uint32_t i;
 	obj opts;
-	proj = darr_get(&wk->projects, 0);
+	make_obj(wk, &opts, obj_dict);
 
-	if (!obj_dict_dup(wk, proj->opts, &opts)) {
-		return false;
-	}
-
-	for (i = 1; i < wk->projects.len; ++i) {
+	for (i = 0; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
 
 		obj key;
