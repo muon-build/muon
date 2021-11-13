@@ -90,36 +90,26 @@ src += [custom_target(
 )]
 
 foreach d: [
-		['libcurl',    'libcurl',    'dependency'],
-		['libarchive', 'libarchive', 'dependency'],
-		['libpkgconf', 'libpkgconf', 'dependency'],
-		['samurai',    'samurai',    'subproject', 'libsamu_dep'],
+		['libcurl',    {}],
+		['libarchive', {}],
+		['libpkgconf', {'fallback': ['pkgconf', 'dep_libpkgconf']}],
+		['samurai',    {'fallback': ['samurai', 'libsamu_dep']}],
 	]
 
-	found = false
+	dep = dependency(
+		d[0],
+		required: get_option(d[0]),
+		static: get_option('static'),
+		kwargs: d[1]
+	)
 
-	if d[2] == 'subproject'
-		if not get_option(d[1]).disabled()
-			sub = subproject(d[0])
-			dep = sub.get_variable(d[3])
-			found = true
-		endif
-	else
-		dep = dependency(
-			d[0],
-			required: get_option(d[1]),
-			static: get_option('static')
-		)
-		found = dep.found()
-	endif
+	summary(d[0], dep.found())
 
-	summary(d[0], found)
-
-	if found
+	if dep.found()
 		deps += [dep]
-		src += [files(['external/' + d[1] + '.c'])]
+		src += [files(['external' / (d[0] + '.c')])]
 	else
-		src += [files(['external/' + d[1] + '_null.c'])]
+		src += [files(['external' / (d[0] + '_null.c')])]
 	endif
 endforeach
 
