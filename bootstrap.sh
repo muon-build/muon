@@ -28,7 +28,7 @@ cat \
 	src/external/libarchive_null.c \
 	src/external/libcurl_null.c \
 	src/external/libpkgconf.c \
-	src/external/samu_null.c \
+	src/external/samurai_null.c \
 	src/formats/ini.c \
 	src/functions/array.c \
 	src/functions/boolean.c \
