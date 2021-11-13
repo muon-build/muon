@@ -93,7 +93,7 @@ foreach d: [
 		['libcurl',    'libcurl',    'dependency'],
 		['libarchive', 'libarchive', 'dependency'],
 		['libpkgconf', 'libpkgconf', 'dependency'],
-		['samurai',    'samu',       'subproject', 'libsamu_dep'],
+		['samurai',    'samurai',    'subproject', 'libsamu_dep'],
 	]
 
 	found = false

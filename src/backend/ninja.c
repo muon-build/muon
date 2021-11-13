@@ -4,7 +4,7 @@
 #include "backend/ninja/custom_target.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
-#include "external/samu.h"
+#include "external/samurai.h"
 #include "functions/default/options.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -157,7 +157,7 @@ ninja_write_all(struct workspace *wk)
 	}
 
 	/* compile_commands.json */
-	if (have_samu) {
+	if (have_samurai) {
 		char compile_commands[PATH_MAX];
 		if (!path_join(compile_commands, PATH_MAX, wk->build_root, "compile_commands.json")) {
 			return false;

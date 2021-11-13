@@ -10,5 +10,5 @@ build/muon setup "$@" build
 samu -C build
 
 # enable samurai wrap
-build/muon setup -Dsamu=enabled "$@" build
+build/muon setup -Dsamurai=enabled "$@" build
 samu -C build

@@ -1,7 +1,7 @@
 #include "posix.h"
 
 #include "backend/ninja.h"
-#include "external/samu.h"
+#include "external/samurai.h"
 #include "functions/default/setup.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
@@ -173,7 +173,7 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (!(func_setup_flags & func_setup_flag_no_build) && have_samu) {
+	if (!(func_setup_flags & func_setup_flag_no_build) && have_samurai) {
 		if (!path_chdir(sub_wk.build_root)) {
 			return false;
 		} else if (!muon_samu(0, (char *[]){ "<muon_samu>", NULL })) {

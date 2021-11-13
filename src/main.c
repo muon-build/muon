@@ -11,7 +11,7 @@
 #include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
-#include "external/samu.h"
+#include "external/samurai.h"
 #include "formats/ini.h"
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
@@ -522,8 +522,8 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 		printf(" libarchive");
 	}
 
-	if (have_samu) {
-		printf(" samu");
+	if (have_samurai) {
+		printf(" samurai");
 	}
 
 	printf("\n");

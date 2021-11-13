@@ -4,11 +4,11 @@
 #include <samu.h>
 #include <unistd.h>
 
-#include "external/samu.h"
+#include "external/samurai.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-const bool have_samu = true;
+const bool have_samurai = true;
 
 bool
 muon_samu(uint32_t argc, char *const argv[])

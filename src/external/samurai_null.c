@@ -1,9 +1,9 @@
 #include "posix.h"
 
-#include "external/samu.h"
+#include "external/samurai.h"
 #include "log.h"
 
-const bool have_samu = false;
+const bool have_samurai = false;
 
 bool
 muon_samu(uint32_t argc, char *const argv[])
