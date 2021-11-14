@@ -422,7 +422,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_subproject] = { impl_tbl_subproject },
 	[obj_number] = { impl_tbl_number, impl_tbl_number, },
 	[obj_dependency] = { impl_tbl_dependency },
-	[obj_machine] = { impl_tbl_machine },
+	[obj_machine] = { impl_tbl_machine, impl_tbl_machine },
 	[obj_compiler] = { impl_tbl_compiler },
 	[obj_feature_opt] = { impl_tbl_feature_opt },
 	[obj_run_result] = { impl_tbl_run_result, impl_tbl_run_result },

@@ -9,20 +9,16 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/rpath_fixer.h"
+#include "platform/uname.h"
 
 enum elf_class {
 	elf_class_32,
 	elf_class_64
 };
 
-enum elf_endian {
-	big_endian,
-	little_endian,
-};
-
 struct elf {
 	enum elf_class class;
-	enum elf_endian endian;
+	enum endianness endian;
 	uint64_t shoff;
 	uint16_t shentsize, shnum;
 };

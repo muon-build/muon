@@ -68,6 +68,7 @@ src = files([
 	'platform/rpath_fixer.c',
 	'platform/run_cmd.c',
 	'platform/term.c',
+	'platform/uname.c',
 	'sha_256.c',
 	'tests.c',
 	'wrap.c',

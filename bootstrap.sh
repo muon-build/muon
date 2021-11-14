@@ -84,6 +84,7 @@ cat \
 	src/platform/rpath_fixer.c \
 	src/platform/run_cmd.c \
 	src/platform/term.c \
+	src/platform/uname.c \
 	src/sha_256.c \
 	src/tests.c \
 	src/version.c.in \
