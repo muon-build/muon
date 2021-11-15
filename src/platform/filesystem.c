@@ -450,8 +450,6 @@ fs_copy_link(const char *src, const char *dest)
 bool
 fs_copy_file(const char *src, const char *dest)
 {
-	L("'%s' -> '%s'", src, dest);
-
 	bool res = false;
 	FILE *f_src = NULL;
 	int f_dest = 0;
@@ -573,7 +571,6 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 		.dest_base = dest_base,
 	};
 
-	L("'%s' -> '%s'", src_base, dest_base);
 	if (!fs_dir_exists(dest_base)) {
 		if (!fs_mkdir(dest_base)) {
 			return ir_err;
