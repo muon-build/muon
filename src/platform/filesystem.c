@@ -632,13 +632,15 @@ fs_remove(const char *path)
 bool
 fs_make_symlink(const char *target, const char *path, bool force)
 {
+	assert(path_is_absolute(path));
+
 	if (force && fs_exists(path)) {
 		if (!fs_remove(path)) {
 			return false;
 		}
 	}
 
-	if (symlink(target, path) != 0) {
+	if (symlinkat(target, 0, path) != 0) {
 		LOG_E("failed symlink(\"%s\", \"%s\"): %s", target, path, strerror(errno));
 		return false;
 	}
