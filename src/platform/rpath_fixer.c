@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/rpath_fixer.h"
@@ -34,6 +35,7 @@ struct elf_section {
 struct elf_dynstr {
 	uint64_t off;
 	uint32_t tag;
+	uint32_t index;
 	bool found;
 };
 
@@ -135,6 +137,8 @@ parse_elf_sections(FILE *f, struct elf *elf, struct elf_section *sections[])
 			break;
 		}
 
+		tmp.len = tmp.entsize ? tmp.size / tmp.entsize : 0;
+
 		for (j = 0; sections[j]; ++j) {
 			if (tmp.type != sections[j]->type) {
 				continue;
@@ -170,11 +174,10 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 		return false;
 	}
 
-	for (i = 0; i < s_dynamic->size;) {
+	for (i = 0; i < s_dynamic->len; ++i) {
 		if (!fs_fread(buf, s_dynamic->entsize, f)) {
 			return false;
 		}
-		i += s_dynamic->entsize;
 
 		switch (elf->class) {
 		case elf_class_32:
@@ -194,6 +197,7 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 
 			*strs[j] = tmp;
 			strs[j]->found = true;
+			strs[j]->index = i;
 			break;
 		}
 	}
@@ -202,13 +206,14 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 }
 
 static bool
-remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root)
+remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
 {
 	char rpath[PATH_MAX];
 	uint32_t rpath_len = 0,
 		 cur_off = s_dynstr->off + str->off,
 		 copy_to = cur_off;
 	bool modified = false, preserve_separator = false;
+	*cleared = true;
 
 	if (!fs_fseek(f, cur_off)) {
 		return false;
@@ -240,6 +245,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 				}
 				copy_to += rpath_len;
 				preserve_separator = c == ':';
+				*cleared = false;
 			}
 
 			rpath_len = 0;
@@ -259,6 +265,43 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 		return false;
 	} else if (!fs_fwrite((char []) { 0 }, 1, f)) {
 		return false;
+	}
+
+	return true;
+}
+
+static bool
+remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struct elf_dynstr *entry)
+{
+	char buf[BUF_SIZE_2k];
+	assert(s_dynamic->entsize <= BUF_SIZE_2k);
+
+	uint32_t i;
+	for (i = entry->index + 1; i < s_dynamic->len; ++i) {
+		if (!fs_fseek(f, s_dynamic->off + (s_dynamic->entsize * i))) {
+			return false;
+		}
+
+		if (!fs_fread(buf, s_dynamic->entsize, f)) {
+			return false;
+		}
+
+		if (!fs_fseek(f, s_dynamic->off + (s_dynamic->entsize * (i - 1)))) {
+			return false;
+		}
+
+		if (!fs_fwrite(buf, s_dynamic->entsize, f)) {
+			return false;
+		}
+	}
+
+	struct elf_dynstr mips_rld_map_rel = { .tag = DT_MIPS_RLD_MAP_REL };
+	if (!parse_elf_dynamic(f, elf, s_dynamic, (struct elf_dynstr *[]) { &mips_rld_map_rel, NULL })) {
+		return false;
+	}
+
+	if (mips_rld_map_rel.found) {
+		LOG_W("TODO: fix mips_rld_map_rel");
 	}
 
 	return true;
@@ -297,8 +340,15 @@ fix_rpaths(const char *elf_path, const char *build_root)
 			continue;
 		}
 
-		if (!remove_paths(f, &s_dynstr, &rpaths[i], build_root)) {
+		bool cleared;
+		if (!remove_paths(f, &s_dynstr, &rpaths[i], build_root, &cleared)) {
 			goto ret;
+		}
+
+		if (cleared) {
+			if (!remove_path_entry(f, &elf, &s_dynamic, &rpaths[i])) {
+				goto ret;
+			}
 		}
 	}
 
