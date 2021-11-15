@@ -12,6 +12,10 @@
 #include "platform/rpath_fixer.h"
 #include "platform/uname.h"
 
+#ifndef DT_MIPS_RLD_MAP_REL
+#define DT_MIPS_RLD_MAP_REL 1879048245
+#endif
+
 enum elf_class {
 	elf_class_32,
 	elf_class_64
