@@ -8,7 +8,7 @@ project(
 		'c_std=c11',
 		'warning_level=3',
 		'buildtype=debugoptimized',
-		'default_libary=static',
+		'default_library=static',
 	],
 )
 
