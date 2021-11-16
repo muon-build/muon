@@ -10,11 +10,6 @@ dependencies.
   uses the official meson documentation as its specification.
 - cli compatibility with meson.  `muon` has different flags, subcommands, etc.,
   and should _not_ be renamed/symlinked to meson.
-  - additionally, various meson subcommands are not on the roadmap at all,
-    including:
-    - introspect
-    - devenv
-- phony build target generation (e.g. test, clean, etc.)
 
 Contributions welcome:
 - language support for languages other than C and C++
