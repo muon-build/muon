@@ -17,7 +17,9 @@ struct str {
 	enum str_flags flags;
 };
 
+#if __STDC_VERSION__ >= 201112L
 _Static_assert(sizeof(struct str) == 16, "");
+#endif
 
 bool wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
 

@@ -5,7 +5,7 @@ project(
 	license: 'GPL3',
 	meson_version: '>=0.53.0',
 	default_options: [
-		'c_std=c11',
+		'c_std=c99',
 		'warning_level=3',
 		'buildtype=debugoptimized',
 		'default_library=static',

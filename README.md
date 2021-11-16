@@ -1,6 +1,6 @@
 # muon
 
-`muon` is an implementation of the meson build system in C with minimal
+`muon` is an implementation of the meson build system in c99 with minimal
 dependencies.
 
 ## Non-features
@@ -22,7 +22,7 @@ your favorite project.  Patches and bug reports welcome!
 
 ## Requirements
 
-`muon` requires various POSIX interfaces and a compiler offering c11 support.
+`muon` requires various POSIX interfaces and a compiler offering c99 support.
 
 In addition, dependency discovery requires `libpkgconf`, and wrap support
 requires `libcurl` and `libarchive`.

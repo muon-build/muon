@@ -17,7 +17,9 @@
 #include "tests.h"
 
 #define MAX_SIMUL_TEST 4
+#if __STDC_VERSION__ >= 201112L
 _Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
+#endif
 
 struct test_result {
 	struct run_cmd_ctx cmd_ctx;
