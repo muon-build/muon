@@ -654,10 +654,11 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 		if (!option_set(wk, ctx->node, opt, val)) {
 			return ir_err;
 		}
+		return ir_cont;
 	} else {
-		darr_push(&wk->option_overrides, &oo);
+		LOG_E("invalid option: '%s'", option_override_to_s(wk, &oo));
+		return ir_err;
 	}
-	return ir_cont;
 }
 
 bool
