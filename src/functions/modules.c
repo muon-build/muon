@@ -30,6 +30,17 @@ module_lookup(const char *name, enum module *res)
 	return false;
 }
 
+static bool
+func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = get_obj(wk, rcvr)->dat.module.found;
+	return true;
+}
+
 static const struct func_impl_name *module_func_tbl[module_count] = {
 	[module_fs] = impl_tbl_module_fs,
 	[module_python] = impl_tbl_module_python,
@@ -40,5 +51,10 @@ static const struct func_impl_name *module_func_tbl[module_count] = {
 bool
 module_lookup_func(const char *name, enum module mod, func_impl *res)
 {
+	if (strcmp(name, "found") == 0) {
+		*res = func_module_found;
+		return true;
+	}
+
 	return func_lookup(module_func_tbl[mod], name, res);
 }

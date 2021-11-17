@@ -1115,17 +1115,42 @@ static bool
 func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	enum kwargs {
+		kw_required,
+	};
+	struct args_kw akw[] = {
+		[kw_required] = { "required", obj_any },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	enum requirement_type requirement;
+	if (!coerce_requirement(wk, &akw[kw_required], &requirement)) {
+		return false;
+	}
+
+	struct obj *m = make_obj(wk, res, obj_module);
+	m->dat.module.found = false;
+
+	if (requirement == requirement_skip) {
+		return true;
 	}
 
 	enum module mod;
 	if (!module_lookup(get_cstr(wk, an[0].val), &mod)) {
-		interp_error(wk, an[0].node, "module not found");
-		return false;
+		if (requirement == requirement_required) {
+			interp_error(wk, an[0].node, "module not found");
+			return false;
+		} else {
+			return true;
+		}
 	}
 
-	make_obj(wk, res, obj_module)->dat.module = mod;
+	m->dat.module.module = mod;
+	m->dat.module.found = true;
 	return true;
 }
 

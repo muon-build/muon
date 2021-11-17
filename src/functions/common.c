@@ -487,9 +487,13 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 	name = get_node(wk->ast, name_node)->dat.s;
 
 	if (recvr_type == obj_module) {
-		enum module mod = get_obj(wk, rcvr_id)->dat.module;
+		struct obj *m = get_obj(wk, rcvr_id);
+		enum module mod = m->dat.module.module;
 
-		if (!module_lookup_func(name, mod, &func)) {
+		if (!m->dat.module.found && strcmp(name, "found") != 0) {
+			interp_error(wk, name_node, "invalid attempt to use missing module");
+			return false;
+		} else if (!module_lookup_func(name, mod, &func)) {
 			interp_error(wk, name_node, "function %s not found in module %s", name, module_names[mod]);
 			return false;
 		}

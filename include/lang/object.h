@@ -95,7 +95,10 @@ struct obj {
 		int64_t num;
 		bool boolean;
 		uint32_t subproj;
-		enum module module;
+		struct {
+			enum module module;
+			bool found;
+		} module;
 		struct {
 			obj val; // obj_any
 			obj next; // obj_array
