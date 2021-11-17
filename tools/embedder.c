@@ -6,6 +6,47 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
+static void
+embed_char_array(struct source *src)
+{
+	uint32_t i = 0;
+	fputs("(char []){\n", stdout);
+
+	for (i = 0; i < src->len; ++i) {
+		printf("0x%x", src->src[i]);
+
+		if (i < src->len - 1) {
+			fputs(", ", stdout);
+		}
+
+		if ((i % 14) == 0) {
+			fputs("\n", stdout);
+		}
+	}
+
+	fputs("\n}", stdout);
+}
+
+static void
+embed_string(struct source *src)
+{
+	uint32_t i = 0;
+	for (i = 0; i < src->len; ++i) {
+		if (i == 0) {
+			putc('"', stdout);
+		}
+
+		if (src->src[i] == '\n') {
+			printf("\\n\"\n");
+			if (i != src->len - 1) {
+				putc('"', stdout);
+			}
+		} else {
+			putc(src->src[i], stdout);
+		}
+	}
+}
+
 static bool
 embed(const char *path)
 {
@@ -21,21 +62,12 @@ embed(const char *path)
 	;
 	printf("{ .name = \"%s\", .src = ", name);
 
-	uint32_t i = 0;
-	for (i = 0; i < src.len; ++i) {
-		if (i == 0) {
-			putc('"', stdout);
-		}
-
-		if (src.src[i] == '\n') {
-			printf("\\n\"\n");
-			if (i != src.len - 1) {
-				putc('"', stdout);
-			}
-		} else {
-			putc(src.src[i], stdout);
-		}
+	if (src.len < 4096) {
+		embed_string(&src);
+	} else {
+		embed_char_array(&src);
 	}
+
 	printf("},\n");
 
 	fs_source_destroy(&src);
