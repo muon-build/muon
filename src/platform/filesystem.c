@@ -46,6 +46,14 @@ fs_exists(const char *path)
 }
 
 bool
+fs_lexists(const char *path)
+{
+	assert(path_is_absolute(path));
+
+	return faccessat(0, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
+}
+
+bool
 fs_file_exists(const char *path)
 {
 	struct stat sb;
@@ -632,9 +640,7 @@ fs_remove(const char *path)
 bool
 fs_make_symlink(const char *target, const char *path, bool force)
 {
-	assert(path_is_absolute(path));
-
-	if (force && fs_exists(path)) {
+	if (force && fs_lexists(path)) {
 		if (!fs_remove(path)) {
 			return false;
 		}
