@@ -579,6 +579,19 @@ set_builtin_options(struct workspace *wk)
 		"option('c_std', yield: true, type: 'combo', value: 'none',\n"
 		"\tchoices: ['none', 'c89', 'c99', 'c11', 'c17', 'c18', 'c2x', 'gnu89', 'gnu99',"
 		" 'gnu11', 'gnu17', 'gnu18', 'gnu2x'])\n"
+		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
+		"option('bindir', yield: true, type: 'string', value: 'bin')\n"
+		"option('datadir', yield: true, type: 'string', value: 'share')\n"
+		"option('includedir', yield: true, type: 'string', value: 'include')\n"
+		"option('infodir', yield: true, type: 'string', value: 'share/info')\n"
+		"option('libdir', yield: true, type: 'string', value: 'lib')\n"
+		"option('libexecdir', yield: true, type: 'string', value: 'libexec')\n"
+		"option('localedir', yield: true, type: 'string', value: 'share/locale')\n"
+		"option('localstatedir', yield: true, type: 'string', value: '/var')\n"
+		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
+		"option('sbindir', yield: true, type: 'string', value: 'sbin')\n"
+		"option('sharedstatedir', yield: true, type: 'string', value: 'com')\n"
+		"option('sysconfdir', yield: true, type: 'string', value: '/etc')\n"
 	;
 
 	const char *opts;
