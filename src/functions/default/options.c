@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "embedded.h"
 #include "functions/common.h"
 #include "functions/default/options.h"
 #include "lang/interpreter.h"
@@ -565,8 +566,7 @@ func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 bool
 set_builtin_options(struct workspace *wk)
 {
-	uint32_t obj;
-	return eval_str(wk,
+	const char *fallback_options =
 		"option('default_library', yield: true, type: 'combo', value: 'static',\n"
 		"\tchoices: ['static', 'shared'])\n"
 		"option('debug', yield: true, type: 'boolean', value: true)\n"
@@ -579,21 +579,15 @@ set_builtin_options(struct workspace *wk)
 		"option('c_std', yield: true, type: 'combo', value: 'none',\n"
 		"\tchoices: ['none', 'c89', 'c99', 'c11', 'c17', 'c18', 'c2x', 'gnu89', 'gnu99',"
 		" 'gnu11', 'gnu17', 'gnu18', 'gnu2x'])\n"
-		"option('auto_features', yield: true, type: 'feature', value: 'auto')\n"
-		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
-		"option('bindir', yield: true, type: 'string', value: 'bin')\n"
-		"option('datadir', yield: true, type: 'string', value: 'share')\n"
-		"option('includedir', yield: true, type: 'string', value: 'include')\n"
-		"option('infodir', yield: true, type: 'string', value: 'share/info')\n"
-		"option('libdir', yield: true, type: 'string', value: 'lib')\n"
-		"option('libexecdir', yield: true, type: 'string', value: 'libexec')\n"
-		"option('localedir', yield: true, type: 'string', value: 'share/locale')\n"
-		"option('localstatedir', yield: true, type: 'string', value: '/var')\n"
-		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
-		"option('sbindir', yield: true, type: 'string', value: 'sbin')\n"
-		"option('sysconfdir', yield: true, type: 'string', value: '/etc')\n"
+	;
 
-		, &obj);
+	const char *opts;
+	if (!(opts = embedded_get("builtin_options.meson"))) {
+		opts = fallback_options;
+	}
+
+	uint32_t obj;
+	return eval_str(wk, opts, &obj);
 }
 
 bool

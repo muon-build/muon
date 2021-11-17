@@ -80,6 +80,7 @@ src = files([
 
 scripts = files([
 	'script/vcs_tagger.meson',
+	'script/builtin_options.meson',
 ])
 
 src += [custom_target(
