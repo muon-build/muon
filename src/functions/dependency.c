@@ -335,10 +335,29 @@ func_dependency_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	return true;
 }
 
+static bool
+func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	struct obj *dep = get_obj(wk, rcvr);
+
+	if (dep->dat.dep.flags & dep_flag_pkg_config) {
+		*res = make_str(wk, "pkgconfig");
+	} else {
+		*res = make_str(wk, "internal");
+	}
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_dependency[] = {
 	{ "found", func_dependency_found },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
 	{ "get_variable", func_dependency_get_variable },
+	{ "type_name", func_dependency_type_name },
 	{ "version", func_dependency_version },
 	{ NULL, NULL },
 };
