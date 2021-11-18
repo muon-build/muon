@@ -29,52 +29,6 @@ struct func_compiler_get_supported_arguments_iter_ctx {
 };
 
 static bool
-output_test_source(struct workspace *wk, enum compiler_language l, const char **source_file, const char **out_file)
-{
-	static bool already_output[compiler_language_count];
-	static char test_source_path[PATH_MAX], test_out_path[PATH_MAX];
-	const char *test_name = NULL, *test_source = NULL;
-
-	switch (l) {
-	case compiler_language_c_obj:
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_count:
-		LOG_E("no test source for language: %s", compiler_language_to_s(l));
-		return false;
-	case compiler_language_c:
-		test_name = "test.c";
-		test_source = "int main(void){}\n";
-		break;
-	case compiler_language_cpp:
-		test_name = "test.cpp";
-		test_source = "int main(void){}\n";
-		break;
-	}
-
-	assert(test_name && test_source);
-
-	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, test_name)) {
-		return false;
-	}
-
-	strcpy(test_out_path, test_source_path);
-	if (!path_add_suffix(test_out_path, PATH_MAX, ".o")) {
-		return false;
-	}
-
-	*source_file = test_source_path;
-	*out_file = test_out_path;
-
-	if (already_output[l]) {
-		return true;
-	}
-	already_output[l] = true;
-
-	return fs_write(test_source_path, (uint8_t *)test_source, strlen(test_source));
-}
-
-static bool
 write_test_source(struct workspace *wk, const struct str *src, const char **res)
 {
 	static char test_source_path[PATH_MAX];
@@ -97,22 +51,39 @@ enum compile_mode {
 	compile_mode_link,
 };
 
+struct compiler_links_opts {
+	enum compile_mode mode;
+	obj comp_id;
+	uint32_t err_node;
+	const char *src;
+	obj deps;
+	obj args;
+};
+
 static bool
-compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
-	uint32_t err_node, const char *src, obj deps, bool *res)
+compiler_links(struct workspace *wk, const struct compiler_links_opts *opts, bool *res)
 {
-	struct obj *comp = get_obj(wk, comp_id);
+	struct obj *comp = get_obj(wk, opts->comp_id);
 	const char *name = get_cstr(wk, comp->dat.compiler.name);
 	enum compiler_type t = comp->dat.compiler.type;
 
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
-	obj_array_push(wk, compiler_args, /* make_string? */ comp->dat.compiler.name);
+	obj comp_name;
+	make_obj(wk, &comp_name, obj_string)->dat.str = comp->dat.compiler.name;
+	obj_array_push(wk, compiler_args, comp_name);
 	push_args(wk, compiler_args, compilers[t].args.werror());
+
+	if (opts->args) {
+		obj args_dup;
+		obj_array_dup(wk, opts->args, &args_dup);
+		obj_array_extend(wk, compiler_args, args_dup);
+	}
+
 	push_args(wk, compiler_args, compilers[t].args.output("/dev/null"));
 
-	switch (mode) {
+	switch (opts->mode) {
 	case compile_mode_preprocess:
 		// TODO
 		break;
@@ -120,11 +91,11 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		push_args(wk, compiler_args, compilers[t].args.compile_only());
 		break;
 	case compile_mode_link:
-		if (deps) {
+		if (opts->deps) {
 			struct dep_args_ctx da_ctx;
 			dep_args_ctx_init(wk, &da_ctx);
 
-			if (!deps_args(wk, deps, &da_ctx)) {
+			if (!deps_args(wk, opts->deps, &da_ctx)) {
 				return false;
 			}
 
@@ -134,7 +105,7 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		}
 	}
 
-	obj_array_push(wk, compiler_args, make_str(wk, src));
+	obj_array_push(wk, compiler_args, make_str(wk, opts->src));
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -144,10 +115,10 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		return false;
 	}
 
-	L("compiling: '%s'", src);
+	L("compiling: '%s'", opts->src);
 
 	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
-		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
+		interp_error(wk, opts->err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
@@ -208,9 +179,16 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
+	struct compiler_links_opts opts = {
+		.mode = compile_mode_link,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+	};
+
 	bool links;
-	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, path,
-		akw[kw_dependencies].val, &links)) {
+	if (!compiler_links(wk, &opts, &links)) {
 		return false;
 	}
 
@@ -259,9 +237,16 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		return false;
 	}
 
+	struct compiler_links_opts opts = {
+		.mode = compile_mode_link,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+	};
+
 	bool links;
-	if (!compiler_links(wk, compile_mode_link, rcvr, an[0].node, path,
-		akw[kw_dependencies].val, &links)) {
+	if (!compiler_links(wk, &opts, &links)) {
 		return false;
 	}
 
@@ -311,9 +296,16 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
+	struct compiler_links_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+	};
+
 	bool links;
-	if (!compiler_links(wk, compile_mode_compile, rcvr, an[0].node, path,
-		akw[kw_dependencies].val, &links)) {
+	if (!compiler_links(wk, &opts, &links)) {
 		goto ret;
 	}
 
@@ -333,47 +325,37 @@ ret:
 static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
-	struct obj *comp = get_obj(wk, comp_id);
-
-	const char *test_source, *test_out;
-	if (!output_test_source(wk, comp->dat.compiler.lang, &test_source, &test_out)) {
-		return ir_err;
-	}
-
 	if (!typecheck(wk, err_node, arg, obj_string)) {
 		return ir_err;
 	}
 
-	const char *name = get_cstr(wk, comp->dat.compiler.name);
-	enum compiler_type t = comp->dat.compiler.type;
-
-	const char *argv[MAX_ARGS + 1] = { name };
-	uint32_t len = 1;
-	push_argv(argv, &len, MAX_ARGS, compilers[t].args.werror());
-	push_argv_single(argv, &len, MAX_ARGS, get_cstr(wk, arg));
-	push_argv(argv, &len, MAX_ARGS, compilers[t].args.compile_only());
-	push_argv(argv, &len, MAX_ARGS, compilers[t].args.output(test_out));
-	push_argv_single(argv, &len, MAX_ARGS, test_source);
-
-	bool ret = false;
-	struct run_cmd_ctx cmd_ctx = { 0 };
-
-	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
-		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
-		goto ret;
+	const char *path;
+	if (!write_test_source(wk, &WKSTR("int main(void){}\n"), &path)) {
+		return false;
 	}
 
-	*has_argument = cmd_ctx.status == 0;
+	obj args;
+	make_obj(wk, &args, obj_array);
+	obj_array_push(wk, args, arg);
+
+	struct compiler_links_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = comp_id,
+		.err_node = err_node,
+		.src = path,
+		.args = args,
+	};
+
+	if (!compiler_links(wk, &opts, has_argument)) {
+		return false;
+	}
 
 	LOG_I("'%s' supported: %s",
 		get_cstr(wk, arg),
 		bool_to_yn(*has_argument)
 		);
 
-	ret = true;
-ret:
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return ret;
+	return true;
 }
 
 static enum iteration_result
