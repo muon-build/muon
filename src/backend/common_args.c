@@ -260,7 +260,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	push_args(wk, link_args, linkers[linker].args.as_needed());
 	push_args(wk, link_args, linkers[linker].args.no_undefined());
 
-	{ /* global args */
+	if (proj) { /* global args */
 		obj global_args, global_args_dup;
 		if (obj_dict_geti(wk, wk->global_link_args, link_lang, &global_args)) {
 			obj_array_dup(wk, global_args, &global_args_dup);
@@ -268,7 +268,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 		}
 	}
 
-	{ /* project args */
+	if (proj) { /* project args */
 		obj proj_args, proj_args_dup;
 		if (obj_dict_geti(wk, proj->link_args, link_lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);

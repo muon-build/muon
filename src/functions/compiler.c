@@ -128,7 +128,7 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 				return false;
 			}
 
-			setup_linker_args(wk, current_project(wk), compilers[t].linker,
+			setup_linker_args(wk, NULL, compilers[t].linker,
 				comp->dat.compiler.lang, da_ctx.rpath, da_ctx.link_args, da_ctx.link_with);
 			obj_array_extend(wk, compiler_args, da_ctx.link_args);
 		}
