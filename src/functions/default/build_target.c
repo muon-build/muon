@@ -77,8 +77,7 @@ static enum tgt_type
 default_library_type(struct workspace *wk)
 {
 	obj opt;
-	bool r = get_option(wk, current_project(wk), "default_library", &opt);
-	assert(r && "default_library option not set");
+	get_option(wk, current_project(wk), "default_library", &opt);
 
 	if (wk_streql(get_str(wk, opt), &WKSTR("static"))) {
 		return tgt_static_library;
@@ -343,15 +342,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		} else {
 			switch (type) {
 			case tgt_executable:
-				if (!get_option(wk, current_project(wk), "bindir", &install_dir)) {
-					return false;
-				}
+				get_option(wk, current_project(wk), "bindir", &install_dir);
 				break;
 			case tgt_dynamic_library:
 			case tgt_static_library:
-				if (!get_option(wk, current_project(wk), "libdir", &install_dir)) {
-					return false;
-				}
+				get_option(wk, current_project(wk), "libdir", &install_dir);
 				break;
 			default:
 				assert(false && "unreachable");

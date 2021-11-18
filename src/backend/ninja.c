@@ -91,9 +91,7 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 
 	struct project *proj = darr_get(&wk->projects, 0);
 	obj prefix;
-	if (!get_option(wk, proj, "prefix", &prefix)) {
-		return false;
-	}
+	get_option(wk, proj, "prefix", &prefix);
 	obj_array_push(wk, o, prefix);
 
 	return serial_dump(wk, o, out);

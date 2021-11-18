@@ -32,20 +32,15 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 
 	uint32_t buildtype;
 
-	if (!get_option(wk, proj, "buildtype", &buildtype)) {
-		return false;
-	}
+	get_option(wk, proj, "buildtype", &buildtype);
 
 	const char *str = get_cstr(wk, buildtype);
 
 	if (strcmp(str, "custom") == 0) {
 		uint32_t optimization_id, debug_id;
 
-		if (!get_option(wk, proj, "optimization", &optimization_id)) {
-			return false;
-		} else if (!get_option(wk, proj, "debug", &debug_id)) {
-			return false;
-		}
+		get_option(wk, proj, "optimization", &optimization_id);
+		get_option(wk, proj, "debug", &debug_id);
 
 		str = get_cstr(wk, optimization_id);
 		switch (*str) {
@@ -90,11 +85,8 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 static bool
 get_warning_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
 {
-	uint32_t lvl;
-
-	if (!get_option(wk, proj, "warning_level", &lvl)) {
-		return false;
-	}
+	obj lvl;
+	get_option(wk, proj, "warning_level", &lvl);
 
 	assert(get_obj(wk, lvl)->type == obj_number);
 
@@ -106,10 +98,7 @@ static bool
 get_std_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
 {
 	obj std;
-
-	if (!get_option(wk, proj, "c_std", &std)) {
-		return false;
-	}
+	get_option(wk, proj, "c_std", &std);
 
 	const char *s = get_cstr(wk, std);
 

@@ -72,9 +72,7 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 		sdest = dest;
 	} else {
 		obj prefix;
-		if (!get_option(wk, current_project(wk), "prefix", &prefix)) {
-			return NULL;
-		}
+		get_option(wk, current_project(wk), "prefix", &prefix);
 
 		char buf[PATH_MAX];
 		if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, dest))) {

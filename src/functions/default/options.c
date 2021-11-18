@@ -528,18 +528,18 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-bool
+void
 get_option(struct workspace *wk, const struct project *proj, const char *name, obj *res)
 {
 	obj opt;
 	if (!obj_dict_index_strn(wk, proj->opts, name, strlen(name), &opt)) {
-		return false;
+		LOG_E("attempted to get unknown option '%s'", name);
+		assert(false);
 	}
 
 	struct obj *o = get_obj(wk, opt);
 	assert(o->type == obj_option);
 	*res = o->dat.option.val;
-	return true;
 }
 
 bool
