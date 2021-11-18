@@ -567,31 +567,12 @@ bool
 set_builtin_options(struct workspace *wk)
 {
 	const char *fallback_options =
-		"option('default_library', yield: true, type: 'combo', value: 'static',\n"
-		"\tchoices: ['static', 'shared'])\n"
-		"option('debug', yield: true, type: 'boolean', value: true)\n"
-		"option('buildtype', yield: true, type: 'combo', value: 'debugoptimized',\n"
-		"\tchoices: ['plain', 'debug', 'debugoptimized', 'release', 'minsize', 'custom'])\n"
-		"option('optimization', yield: true, type: 'combo', value: 'g',\n"
-		"\tchoices: ['0', 'g', '1', '2', '3', 's'])\n"
-		"option('warning_level', yield: true, type: 'integer', value: 3,\n"
-		"\tmin: 0, max: 3)\n"
-		"option('c_std', yield: true, type: 'combo', value: 'none',\n"
-		"\tchoices: ['none', 'c89', 'c99', 'c11', 'c17', 'c18', 'c2x', 'gnu89', 'gnu99',"
-		" 'gnu11', 'gnu17', 'gnu18', 'gnu2x'])\n"
+		"option('default_library', yield: true, type: 'string', value: 'static')\n"
+		"option('buildtype', yield: true, type: 'string', value: 'debugoptimized')\n"
+		"option('warning_level', yield: true, type: 'integer', value: 3)\n"
+		"option('c_std', yield: true, type: 'string', value: 'c99')\n"
 		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
 		"option('bindir', yield: true, type: 'string', value: 'bin')\n"
-		"option('datadir', yield: true, type: 'string', value: 'share')\n"
-		"option('includedir', yield: true, type: 'string', value: 'include')\n"
-		"option('infodir', yield: true, type: 'string', value: 'share/info')\n"
-		"option('libdir', yield: true, type: 'string', value: 'lib')\n"
-		"option('libexecdir', yield: true, type: 'string', value: 'libexec')\n"
-		"option('localedir', yield: true, type: 'string', value: 'share/locale')\n"
-		"option('localstatedir', yield: true, type: 'string', value: '/var')\n"
-		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
-		"option('sbindir', yield: true, type: 'string', value: 'sbin')\n"
-		"option('sharedstatedir', yield: true, type: 'string', value: 'com')\n"
-		"option('sysconfdir', yield: true, type: 'string', value: '/etc')\n"
 	;
 
 	const char *opts;
