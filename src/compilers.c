@@ -200,6 +200,14 @@ compiler_posix_args_compile_only(void)
 }
 
 static const struct args *
+compiler_posix_args_preprocess_only(void)
+{
+	COMPILER_ARGS({ "-E" });
+
+	return &args;
+}
+
+static const struct args *
 compiler_posix_args_output(const char *f)
 {
 	COMPILER_ARGS({ "-o", NULL });
@@ -407,22 +415,24 @@ build_compilers(void)
 {
 	struct compiler empty = {
 		.args = {
-			.deps           = compiler_arg_empty_2s,
-			.compile_only   = compiler_arg_empty_0,
-			.output         = compiler_arg_empty_1s,
-			.optimization   = compiler_arg_empty_1i,
-			.debug          = compiler_arg_empty_0,
-			.warning_lvl    = compiler_arg_empty_1i,
-			.werror         = compiler_arg_empty_0,
-			.set_std        = compiler_arg_empty_1s,
-			.include        = compiler_arg_empty_1s,
-			.include_system = compiler_arg_empty_1s,
-			.pic            = compiler_arg_empty_0,
+			.deps            = compiler_arg_empty_2s,
+			.compile_only    = compiler_arg_empty_0,
+			.preprocess_only = compiler_arg_empty_0,
+			.output          = compiler_arg_empty_1s,
+			.optimization    = compiler_arg_empty_1i,
+			.debug           = compiler_arg_empty_0,
+			.warning_lvl     = compiler_arg_empty_1i,
+			.werror          = compiler_arg_empty_0,
+			.set_std         = compiler_arg_empty_1s,
+			.include         = compiler_arg_empty_1s,
+			.include_system  = compiler_arg_empty_1s,
+			.pic             = compiler_arg_empty_0,
 		}
 	};
 
 	struct compiler posix = empty;
 	posix.args.compile_only = compiler_posix_args_compile_only;
+	posix.args.preprocess_only = compiler_posix_args_preprocess_only;
 	posix.args.output = compiler_posix_args_output;
 	posix.args.optimization = compiler_posix_args_optimization;
 	posix.args.debug = compiler_posix_args_debug;

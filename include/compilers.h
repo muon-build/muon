@@ -58,6 +58,7 @@ struct compiler {
 	struct {
 		compiler_get_arg_func_2s deps;
 		compiler_get_arg_func_0 compile_only;
+		compiler_get_arg_func_0 preprocess_only;
 		compiler_get_arg_func_1s output;
 		compiler_get_arg_func_1i optimization;
 		compiler_get_arg_func_0 debug;

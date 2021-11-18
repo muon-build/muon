@@ -85,7 +85,7 @@ compiler_links(struct workspace *wk, const struct compiler_links_opts *opts, boo
 
 	switch (opts->mode) {
 	case compile_mode_preprocess:
-		// TODO
+		push_args(wk, compiler_args, compilers[t].args.preprocess_only());
 		break;
 	case compile_mode_compile:
 		push_args(wk, compiler_args, compilers[t].args.compile_only());
@@ -225,7 +225,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		"        %s;\n"
 		"    #endif\n"
 		"    return 0;\n"
-		"}",
+		"}\n",
 		prefix,
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
@@ -321,6 +321,86 @@ ret:
 
 	return ret;
 }
+
+static bool
+func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	bool ret = false;
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+		kw_dependencies,
+		kw_prefix,
+		kw_required,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
+		[kw_required] = { "required", obj_any },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	enum requirement_type req = requirement_auto;
+	if (akw[kw_required].set) {
+		if (!coerce_requirement(wk, &akw[kw_required], &req)) {
+			return false;
+		}
+	}
+
+	if (req == requirement_skip) {
+		make_obj(wk, res, obj_bool)->dat.boolean = false;
+		return true;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"#include <%s>\n"
+		"int main(void) {}\n",
+		prefix,
+		get_cstr(wk, an[0].val)
+		);
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+	struct compiler_links_opts opts = {
+		.mode = compile_mode_preprocess,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
+	};
+
+	bool links;
+	if (!compiler_links(wk, &opts, &links)) {
+		goto ret;
+	}
+
+	if (!links && req == requirement_required) {
+		interp_error(wk, an[0].node, "required header %s not found", get_cstr(wk, an[0].val));
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	ret = true;
+ret:
+	LOG_I("header %s found: %s",
+		get_cstr(wk, an[0].val),
+		bool_to_yn(links)
+		);
+
+	return ret;
+}
+
 
 static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
@@ -528,6 +608,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
+	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
