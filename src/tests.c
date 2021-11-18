@@ -371,11 +371,11 @@ tests_run(const char *build_dir, struct test_options *opts)
 		if (res->cmd_ctx.err_msg) {
 			log_plain("%s\n", res->cmd_ctx.err_msg);
 		}
-		if (res->cmd_ctx.out_len) {
-			log_plain("stdout: '%s'\n", res->cmd_ctx.out);
+		if (res->cmd_ctx.out.len) {
+			log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
 		}
-		if (res->cmd_ctx.err_len) {
-			log_plain("stderr: '%s'\n", res->cmd_ctx.err);
+		if (res->cmd_ctx.err.len) {
+			log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
 		}
 		run_cmd_ctx_destroy(&res->cmd_ctx);
 	}

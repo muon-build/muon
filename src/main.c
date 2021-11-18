@@ -62,14 +62,14 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	if (ctx.status != 0) {
-		fputs(ctx.err, stderr);
+		fputs(ctx.err.buf, stderr);
 		goto ret;
 	}
 
 	if (opts.capture) {
-		ret = fs_write(opts.capture, (uint8_t *)ctx.out, strlen(ctx.out));
+		ret = fs_write(opts.capture, (uint8_t *)ctx.out.buf, ctx.out.len);
 	} else {
-		fputs(ctx.out, stdout);
+		fputs(ctx.out.buf, stdout);
 		ret = true;
 	}
 ret:

@@ -112,8 +112,8 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 
 	if (cmd_ctx.status != 0) {
 		LOG_E("install script failed");
-		LOG_E("stdout: %s", cmd_ctx.out);
-		LOG_E("stderr: %s", cmd_ctx.err);
+		LOG_E("stdout: %s", cmd_ctx.out.buf);
+		LOG_E("stderr: %s", cmd_ctx.err.buf);
 		return ir_err;
 	}
 

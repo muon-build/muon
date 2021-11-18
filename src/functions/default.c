@@ -368,7 +368,7 @@ found:
 	if (ctx->version) {
 		if (run_cmd(&cmd_ctx, path, (const char *[]){ (char *)path, "--version", 0 }, NULL)
 		    && cmd_ctx.status == 0) {
-			guess_version(wk, cmd_ctx.out, &ver);
+			guess_version(wk, cmd_ctx.out.buf, &ver);
 		}
 
 		run_cmd_ctx_destroy(&cmd_ctx);
@@ -703,15 +703,15 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (akw[kw_check].set && get_obj(wk, akw[kw_check].val)->dat.boolean
 	    && cmd_ctx.status != 0) {
-		interp_error(wk, an[0].node, "command failed: '%s'", cmd_ctx.err);
+		interp_error(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
 		return false;
 
 	}
 
 	struct obj *run_result = make_obj(wk, res, obj_run_result);
 	run_result->dat.run_result.status = cmd_ctx.status;
-	run_result->dat.run_result.out = wk_str_pushn(wk, cmd_ctx.out, cmd_ctx.out_len);
-	run_result->dat.run_result.err = wk_str_pushn(wk, cmd_ctx.err, cmd_ctx.err_len);
+	run_result->dat.run_result.out = wk_str_pushn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
+	run_result->dat.run_result.err = wk_str_pushn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
 
 	ret = true;
 ret:

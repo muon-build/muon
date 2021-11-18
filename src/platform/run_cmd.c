@@ -1,11 +1,13 @@
 #include "posix.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "args.h"
@@ -18,72 +20,136 @@
 
 extern char *const *environ;
 
-static bool
-copy_pipe(int pipe, char **dest, uint32_t *len)
+#define COPY_PIPE_BLOCK_SIZE BUF_SIZE_1k
+
+enum copy_pipe_result {
+	copy_pipe_result_finished,
+	copy_pipe_result_waiting,
+	copy_pipe_result_failed,
+};
+
+static enum copy_pipe_result
+copy_pipe(int pipe, struct run_cmd_pipe_ctx *ctx)
 {
-	uint32_t block_size = 256;
-	uint32_t size = block_size + 1, i = 0;
 	ssize_t b;
-
-	char *buf = z_calloc(1, size);
-
-	while (true) {
-		b = read(pipe, &buf[i], block_size);
-
-		if (b == -1) {
-			return false;
-		} else if (b < block_size) {
-			i += b;
-			break;
-		}
-
-		i += block_size;
-		block_size *= 2;
-		size += block_size;
-		buf = z_realloc(buf, size);
-		memset(&buf[i], 0, size - i);
+	if (!ctx->size) {
+		ctx->size = COPY_PIPE_BLOCK_SIZE;
+		ctx->len = 0;
+		ctx->buf = z_calloc(1, ctx->size + 1);
 	}
 
-	*dest = buf;
-	*len = i;
-	return true;
+	while (true) {
+		b = read(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len);
+
+		if (b == -1) {
+			if (errno == EAGAIN) {
+				return copy_pipe_result_waiting;
+			} else {
+				return copy_pipe_result_failed;
+			}
+		} else if (b == 0) {
+			return copy_pipe_result_finished;
+		}
+
+		ctx->len += b;
+		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
+			ctx->size *= 2;
+			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
+			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
+		}
+	}
+}
+
+static enum copy_pipe_result
+copy_pipes(struct run_cmd_ctx *ctx)
+{
+	enum copy_pipe_result res;
+
+	if ((res = copy_pipe(ctx->pipefd_out[0], &ctx->out)) == copy_pipe_result_failed) {
+		return res;
+	}
+
+	switch (copy_pipe(ctx->pipefd_err[0], &ctx->err)) {
+	case copy_pipe_result_waiting:
+		return copy_pipe_result_waiting;
+	case copy_pipe_result_finished:
+		return res;
+	case copy_pipe_result_failed:
+		return copy_pipe_result_failed;
+	default:
+		assert(false && "unreachable");
+		return copy_pipe_result_failed;
+	}
 }
 
 enum run_cmd_state
 run_cmd_collect(struct run_cmd_ctx *ctx)
 {
 	int status;
-	int flags = 0;
 	int r;
+	enum copy_pipe_result pipe_res;
 
-	if (ctx->async) {
-		flags |= WNOHANG;
-	}
+	while (true) {
+		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+			return run_cmd_error;
+		}
 
-	if ((r = waitpid(ctx->pid, &status, flags)) == -1) {
-		return run_cmd_error;
-	} else if (r == 0) {
-		return run_cmd_running;
+		if ((r = waitpid(ctx->pid, &status, WNOHANG)) == -1) {
+			return run_cmd_error;
+		} else if (r == 0) {
+			if (ctx->async) {
+				return run_cmd_running;
+
+			} else {
+				// sleep here for 1ms to give the process some
+				// time to complete
+				struct timespec req = { .tv_nsec = 1000000, };
+				nanosleep(&req, NULL);
+			}
+		} else {
+			break;
+		}
 	}
 
 	assert(r == ctx->pid);
 
+	while (pipe_res != copy_pipe_result_finished) {
+		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+			return run_cmd_error;
+		}
+	}
+
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
-
-		if (!copy_pipe(ctx->pipefd_out[0], &ctx->out, &ctx->out_len)) {
-			return run_cmd_error;
-		}
-
-		if (!copy_pipe(ctx->pipefd_err[0], &ctx->err, &ctx->err_len)) {
-			return run_cmd_error;
-		}
 	} else {
 		ctx->err_msg = "child exited abnormally";
 		return run_cmd_error;
 	}
 
 	return run_cmd_finished;
+}
+
+static bool
+open_run_cmd_pipe(int fds[2], bool fds_open[2])
+{
+	if (pipe(fds) == -1) {
+		log_plain("failed to create pipe: %s", strerror(errno));
+		return false;
+	}
+
+	fds_open[0] = true;
+	fds_open[1] = true;
+
+	int flags;
+	if ((flags = fcntl(fds[0], F_GETFL)) == -1) {
+		log_plain("failed to get pipe flags: %s", strerror(errno));
+		return false;
+	} else if (fcntl(fds[0], F_SETFL, flags | O_NONBLOCK) == -1) {
+		log_plain("failed to set pipe flag O_NONBLOCK: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
 }
 
 bool
@@ -172,17 +238,11 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 		}
 	}
 
-	if (pipe(ctx->pipefd_out) == -1) {
+	if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
+		goto err;
+	} else if (!open_run_cmd_pipe(ctx->pipefd_err, ctx->pipefd_err_open)) {
 		goto err;
 	}
-	ctx->pipefd_out_open[0] = true;
-	ctx->pipefd_out_open[1] = true;
-
-	if (pipe(ctx->pipefd_err) == -1) {
-		goto err;
-	}
-	ctx->pipefd_err_open[0] = true;
-	ctx->pipefd_err_open[1] = true;
 
 	if ((ctx->pid = fork()) == -1) {
 		goto err;
@@ -272,13 +332,13 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 	}
 	ctx->pipefd_out_open[1] = false;
 
-	if (ctx->out) {
-		z_free(ctx->out);
-		ctx->out = NULL;
+	if (ctx->out.size) {
+		z_free(ctx->out.buf);
+		ctx->out.size = 0;
 	}
 
-	if (ctx->err) {
-		z_free(ctx->err);
-		ctx->err = NULL;
+	if (ctx->err.size) {
+		z_free(ctx->err.buf);
+		ctx->err.size = 0;
 	}
 }

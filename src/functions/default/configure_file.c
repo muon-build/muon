@@ -332,12 +332,12 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	}
 
 	if (cmd_ctx.status != 0) {
-		interp_error(wk, node, "error running command: %s", cmd_ctx.err);
+		interp_error(wk, node, "error running command: %s", cmd_ctx.err.buf);
 		goto ret;
 	}
 
 	if (capture) {
-		ret = fs_write(get_cstr(wk, out_path), (uint8_t *)cmd_ctx.out, strlen(cmd_ctx.out));
+		ret = fs_write(get_cstr(wk, out_path), (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len);
 	} else {
 		ret = true;
 	}

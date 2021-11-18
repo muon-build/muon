@@ -111,20 +111,20 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id
 		goto detection_over;
 	}
 
-	if (strstr(cmd_ctx.out, "clang") || strstr(cmd_ctx.out, "Clang")) {
+	if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
 		type = compiler_clang;
-	} else if (strstr(cmd_ctx.out, "Free Software Foundation")) {
+	} else if (strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
 		type = compiler_gcc;
 	} else {
 		goto detection_over;
 	}
 
 	char *p;
-	if ((p = strchr(cmd_ctx.out, '\n'))) {
+	if ((p = strchr(cmd_ctx.out.buf, '\n'))) {
 		*p = 0;
 	}
 
-	if (!guess_version(wk, cmd_ctx.out, &ver)) {
+	if (!guess_version(wk, cmd_ctx.out.buf, &ver)) {
 		ver = make_str(wk, "unknown");
 	}
 

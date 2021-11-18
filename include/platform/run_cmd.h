@@ -11,14 +11,19 @@ enum run_cmd_state {
 	run_cmd_finished,
 };
 
+struct run_cmd_pipe_ctx {
+	size_t size;
+	size_t len;
+	char *buf;
+};
+
 struct run_cmd_ctx {
 	bool async;
 	bool pipefd_out_open[2], pipefd_err_open[2];
 	int pipefd_out[2], pipefd_err[2];
 	pid_t pid;
 
-	char *err, *out;
-	uint32_t err_len, out_len;
+	struct run_cmd_pipe_ctx err, out;
 	int status;
 
 	/* error handling */

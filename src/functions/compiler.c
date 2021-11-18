@@ -150,8 +150,8 @@ compiler_links(struct workspace *wk, enum compile_mode mode, obj comp_id,
 		goto ret;
 	}
 
-	L("compiler stdout: '%s'", cmd_ctx.err);
-	L("compiler stderr: '%s'", cmd_ctx.out);
+	L("compiler stdout: '%s'", cmd_ctx.err.buf);
+	L("compiler stderr: '%s'", cmd_ctx.out.buf);
 
 	*res = cmd_ctx.status == 0;
 	ret = true;
