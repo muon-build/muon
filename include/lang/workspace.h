@@ -18,12 +18,12 @@ struct project {
 
 	str source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
+	obj args, link_args;
 
 	struct {
 		str name;
 		str version;
 		str license;
-		obj args;
 	} cfg;
 };
 
@@ -59,6 +59,8 @@ struct workspace {
 	obj subprojects;
 	/* args dict for add_global_arguments() */
 	obj global_args;
+	/* args dict for add_global_link_arguments() */
+	obj global_link_args;
 
 	struct bucket_array chrs;
 	struct bucket_array strs;

@@ -289,13 +289,16 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	}
 
 	obj implicit_deps = 0;
-	if (get_obj(wk, ctx.args.link_with)->dat.arr.len && tgt->dat.tgt.type == tgt_executable) {
+	if (tgt->dat.tgt.type == tgt_executable) {
 		obj link_with;
 		obj_array_dedup(wk, ctx.args.link_with, &link_with);
 
-		implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
+		if (get_obj(wk, ctx.args.link_with)->dat.arr.len) {
+			implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
+		}
 
-		setup_linker_args(wk, linker, ctx.args.rpath, ctx.args.link_args, link_with);
+		setup_linker_args(wk, ctx.proj, linker, ctx.link_language,
+			ctx.args.rpath, ctx.args.link_args, link_with);
 	}
 
 	const char *linker_type, *link_args;

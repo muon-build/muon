@@ -200,12 +200,13 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 
 	hash_init(&proj->scope, 128);
 
-	make_obj(wk, &proj->opts, obj_dict);
+	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
+	make_obj(wk, &proj->link_args, obj_dict);
+	make_obj(wk, &proj->opts, obj_dict);
+	make_obj(wk, &proj->summary, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->tests, obj_array);
-	make_obj(wk, &proj->cfg.args, obj_dict);
-	make_obj(wk, &proj->summary, obj_dict);
 
 	if (subproject_name) {
 		proj->subproject_name = wk_str_push(wk, subproject_name);
@@ -271,6 +272,7 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->install_scripts, obj_array);
 	make_obj(wk, &wk->subprojects, obj_dict);
 	make_obj(wk, &wk->global_args, obj_dict);
+	make_obj(wk, &wk->global_link_args, obj_dict);
 }
 
 void

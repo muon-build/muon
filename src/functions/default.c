@@ -247,7 +247,7 @@ add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, ob
 static bool
 func_add_project_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return add_arguments_common(wk, args_node, current_project(wk)->cfg.args, res);
+	return add_arguments_common(wk, args_node, current_project(wk)->args, res);
 }
 
 static bool
@@ -259,6 +259,23 @@ func_add_global_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *
 	}
 
 	return add_arguments_common(wk, args_node, wk->global_args, res);
+}
+
+static bool
+func_add_project_link_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	return add_arguments_common(wk, args_node, current_project(wk)->link_args, res);
+}
+
+static bool
+func_add_global_link_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (wk->cur_project != 0) {
+		interp_error(wk, args_node, "add_global_link_arguments cannot be called from a subproject");
+		return false;
+	}
+
+	return add_arguments_common(wk, args_node, wk->global_link_args, res);
 }
 
 static bool
@@ -1309,10 +1326,10 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
-	{ "add_global_link_arguments", todo },
+	{ "add_global_link_arguments", func_add_global_link_arguments },
 	{ "add_languages", todo },
 	{ "add_project_arguments", func_add_project_arguments },
-	{ "add_project_link_arguments", todo },
+	{ "add_project_link_arguments", func_add_project_link_arguments },
 	{ "add_test_setup", todo },
 	{ "alias_target", todo },
 	{ "assert", func_assert },

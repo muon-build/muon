@@ -150,7 +150,7 @@ struct setup_compiler_args_ctx {
 };
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
 {
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
@@ -192,7 +192,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj lang, obj comp_id
 
 	{ /* project args */
 		obj proj_args, proj_args_dup;
-		if (obj_dict_geti(wk, ctx->proj->cfg.args, lang, &proj_args)) {
+		if (obj_dict_geti(wk, ctx->proj->args, lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
 			obj_array_extend(wk, args, proj_args_dup);
 		}
@@ -248,7 +248,8 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 void
-setup_linker_args(struct workspace *wk, enum linker_type linker,
+setup_linker_args(struct workspace *wk, const struct project *proj,
+	enum linker_type linker, enum compiler_language link_lang,
 	obj rpaths, obj link_args, obj link_with)
 {
 	struct setup_linker_args_ctx ctx = {
@@ -256,15 +257,34 @@ setup_linker_args(struct workspace *wk, enum linker_type linker,
 		.link_args = link_args,
 	};
 
-	obj_array_foreach(wk, rpaths, &ctx, process_rpath_iter);
-
 	push_args(wk, link_args, linkers[linker].args.as_needed());
 	push_args(wk, link_args, linkers[linker].args.no_undefined());
-	push_args(wk, link_args, linkers[linker].args.start_group());
 
-	obj arr;
-	obj_array_dup(wk, link_with, &arr);
-	obj_array_extend(wk, link_args, arr);
+	{ /* global args */
+		obj global_args, global_args_dup;
+		if (obj_dict_geti(wk, wk->global_link_args, link_lang, &global_args)) {
+			obj_array_dup(wk, global_args, &global_args_dup);
+			obj_array_extend(wk, link_args, global_args_dup);
+		}
+	}
 
-	push_args(wk, link_args, linkers[linker].args.end_group());
+	{ /* project args */
+		obj proj_args, proj_args_dup;
+		if (obj_dict_geti(wk, proj->link_args, link_lang, &proj_args)) {
+			obj_array_dup(wk, proj_args, &proj_args_dup);
+			obj_array_extend(wk, link_args, proj_args_dup);
+		}
+	}
+
+	obj_array_foreach(wk, rpaths, &ctx, process_rpath_iter);
+
+	if (get_obj(wk, link_with)->dat.arr.len) {
+		push_args(wk, link_args, linkers[linker].args.start_group());
+
+		obj arr;
+		obj_array_dup(wk, link_with, &arr);
+		obj_array_extend(wk, link_args, arr);
+
+		push_args(wk, link_args, linkers[linker].args.end_group());
+	}
 }
