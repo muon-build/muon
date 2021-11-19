@@ -262,10 +262,12 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	enum kwargs {
 		kw_dependencies,
 		kw_name,
+		kw_args,
 	};
 	struct args_kw akw[] = {
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
 		[kw_name] = { "name", obj_string },
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -302,6 +304,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		.err_node = an[0].node,
 		.src = path,
 		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
 	};
 
 	bool ok;
