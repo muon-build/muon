@@ -404,6 +404,65 @@ ret:
 	return ret;
 }
 
+static bool
+func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	bool ret = false;
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+		kw_dependencies,
+		kw_prefix,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"void bar(void) { sizeof(%s); }\n",
+		prefix,
+		get_cstr(wk, an[0].val)
+		);
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
+	};
+
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
+		goto ret;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	ret = true;
+ret:
+	LOG_I("has type %s: %s",
+		get_cstr(wk, an[0].val),
+		bool_to_yn(ok)
+		);
+
+	return ret;
+}
 
 static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
@@ -613,6 +672,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_function", func_compiler_has_function },
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
+	{ "has_type", func_compiler_has_type },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
 };
