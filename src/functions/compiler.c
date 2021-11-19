@@ -51,7 +51,7 @@ enum compile_mode {
 	compile_mode_link,
 };
 
-struct compiler_links_opts {
+struct compiler_check_opts {
 	enum compile_mode mode;
 	obj comp_id;
 	uint32_t err_node;
@@ -61,7 +61,7 @@ struct compiler_links_opts {
 };
 
 static bool
-compiler_links(struct workspace *wk, const struct compiler_links_opts *opts, bool *res)
+compiler_check(struct workspace *wk, const struct compiler_check_opts *opts, bool *res)
 {
 	struct obj *comp = get_obj(wk, opts->comp_id);
 	const char *name = get_cstr(wk, comp->dat.compiler.name);
@@ -179,7 +179,7 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	struct compiler_links_opts opts = {
+	struct compiler_check_opts opts = {
 		.mode = compile_mode_link,
 		.comp_id = rcvr,
 		.err_node = an[0].node,
@@ -187,12 +187,12 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.deps = akw[kw_dependencies].val,
 	};
 
-	bool links;
-	if (!compiler_links(wk, &opts, &links)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
 	return true;
 }
 
@@ -237,7 +237,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		return false;
 	}
 
-	struct compiler_links_opts opts = {
+	struct compiler_check_opts opts = {
 		.mode = compile_mode_link,
 		.comp_id = rcvr,
 		.err_node = an[0].node,
@@ -245,12 +245,12 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		.deps = akw[kw_dependencies].val,
 	};
 
-	bool links;
-	if (!compiler_links(wk, &opts, &links)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
 	return true;
 }
 
@@ -296,7 +296,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	struct compiler_links_opts opts = {
+	struct compiler_check_opts opts = {
 		.mode = compile_mode_compile,
 		.comp_id = rcvr,
 		.err_node = an[0].node,
@@ -304,18 +304,18 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		.deps = akw[kw_dependencies].val,
 	};
 
-	bool links;
-	if (!compiler_links(wk, &opts, &links)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
 		goto ret;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
 	ret = true;
 ret:
 	if (akw[kw_name].set) {
 		LOG_I("%s compiles: %s",
 			get_cstr(wk, akw[kw_name].val),
-			bool_to_yn(links)
+			bool_to_yn(ok)
 			);
 	}
 
@@ -371,7 +371,7 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	if (!write_test_source(wk, &WKSTR(src), &path)) {
 		return false;
 	}
-	struct compiler_links_opts opts = {
+	struct compiler_check_opts opts = {
 		.mode = compile_mode_preprocess,
 		.comp_id = rcvr,
 		.err_node = an[0].node,
@@ -380,22 +380,22 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		.args = akw[kw_args].val,
 	};
 
-	bool links;
-	if (!compiler_links(wk, &opts, &links)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
 		goto ret;
 	}
 
-	if (!links && req == requirement_required) {
+	if (!ok && req == requirement_required) {
 		interp_error(wk, an[0].node, "required header %s not found", get_cstr(wk, an[0].val));
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = links;
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
 	ret = true;
 ret:
 	LOG_I("header %s found: %s",
 		get_cstr(wk, an[0].val),
-		bool_to_yn(links)
+		bool_to_yn(ok)
 		);
 
 	return ret;
@@ -418,7 +418,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 	make_obj(wk, &args, obj_array);
 	obj_array_push(wk, args, arg);
 
-	struct compiler_links_opts opts = {
+	struct compiler_check_opts opts = {
 		.mode = compile_mode_compile,
 		.comp_id = comp_id,
 		.err_node = err_node,
@@ -426,7 +426,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		.args = args,
 	};
 
-	if (!compiler_links(wk, &opts, has_argument)) {
+	if (!compiler_check(wk, &opts, has_argument)) {
 		return false;
 	}
 
