@@ -494,10 +494,12 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_dependencies,
+		kw_args,
 		kw_prefix,
 	};
 	struct args_kw akw[] = {
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_args] = { "args",  ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_prefix] = { "prefix", obj_string },
 		0
 	};
@@ -541,6 +543,7 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.err_node = an[0].node,
 		.src = path,
 		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
 	};
 
 	bool ok;
