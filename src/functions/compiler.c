@@ -54,13 +54,14 @@ enum compile_mode {
 };
 
 struct compiler_check_opts {
+	struct run_cmd_ctx cmd_ctx;
 	enum compile_mode mode;
 	obj comp_id;
 	uint32_t err_node;
 	const char *src;
-	const char *output;
 	obj deps;
 	obj args;
+	bool skip_run_check;
 };
 
 static bool
@@ -91,7 +92,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 			return false;
 		}
 		output = test_output_path;
-		opts->output = test_output_path;
 	}
 
 	push_args(wk, compiler_args, compilers[t].args.output(output));
@@ -139,7 +139,29 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 	L("compiler stdout: '%s'", cmd_ctx.err.buf);
 	L("compiler stderr: '%s'", cmd_ctx.out.buf);
 
-	*res = cmd_ctx.status == 0;
+	if (opts->mode == compile_mode_run) {
+		if (cmd_ctx.status != 0) {
+			LOG_W("failed to compile test, rerun with -v to see compiler invocation");
+			goto ret;
+		}
+
+		if (!run_cmd(&opts->cmd_ctx, output, (const char *const []){
+			output, NULL
+		}, NULL)) {
+			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
+			run_cmd_ctx_destroy(&opts->cmd_ctx);
+			goto ret;
+		} else if (!opts->skip_run_check && opts->cmd_ctx.status != 0) {
+			LOG_W("compiled binary returned an error (exit code %d)", opts->cmd_ctx.status);
+			run_cmd_ctx_destroy(&opts->cmd_ctx);
+			goto ret;
+		}
+
+		*res = true;
+	} else {
+		*res = cmd_ctx.status == 0;
+	}
+
 	ret = true;
 ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
@@ -198,29 +220,17 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		goto ret;
 	}
 
-	struct run_cmd_ctx ctx = { 0 };
-	if (!run_cmd(&ctx, opts.output, (const char *const []){
-		opts.output, NULL
-	}, NULL)) {
-		LOG_W("sizeof binary failed to run: %s", ctx.err_msg);
-		goto free_run_cmd_ctx;
-	} else if (ctx.status != 0) {
-		LOG_W("sizeof binary had a bad exit code");
-		goto free_run_cmd_ctx;
-	}
-
 	char *endptr;
-	size = strtol(ctx.out.buf, &endptr, 10);
+	size = strtol(opts.cmd_ctx.out.buf, &endptr, 10);
 	if (*endptr) {
-		LOG_W("sizeof binary had malformed output '%s'", ctx.out.buf);
+		LOG_W("sizeof binary had malformed output '%s'", opts.cmd_ctx.out.buf);
 		size = -1;
 	}
 
 	ret = true;
-free_run_cmd_ctx:
-	run_cmd_ctx_destroy(&ctx);
 ret:
 	make_obj(wk, res, obj_number)->dat.num = size;
+	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
 	LOG_I("sizeof %s: %ld",
 		get_cstr(wk, an[0].val),
