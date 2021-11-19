@@ -241,6 +241,80 @@ ret:
 }
 
 static bool
+func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+		kw_dependencies,
+		kw_prefix,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"#include <stdio.h>\n"
+		"#include <stddef.h>\n"
+		"%s\n"
+		"struct tmp { char c; %s target; };\n"
+		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); }\n",
+		prefix,
+		get_cstr(wk, an[0].val)
+		);
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
+	};
+
+	bool ret = false;
+
+	int64_t num = -1;
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok) || !ok) {
+		goto ret;
+	}
+
+	char *endptr;
+	num = strtol(opts.cmd_ctx.out.buf, &endptr, 10);
+	if (*endptr) {
+		LOG_W("alignment binary had malformed output '%s'", opts.cmd_ctx.out.buf);
+		num = -1;
+	}
+
+	ret = true;
+ret:
+	make_obj(wk, res, obj_number)->dat.num = num;
+	run_cmd_ctx_destroy(&opts.cmd_ctx);
+
+	LOG_I("alignment of %s: %ld",
+		get_cstr(wk, an[0].val),
+		(long)num
+		);
+
+	return ret;
+}
+
+static bool
 func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -771,6 +845,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 const struct func_impl_name impl_tbl_compiler[] = {
+	{ "alignment", func_compiler_alignment },
 	{ "cmd_array", func_compiler_cmd_array },
 	{ "compiles", func_compiler_compiles },
 	{ "find_library", func_compiler_find_library },
