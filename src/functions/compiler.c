@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "args.h"
@@ -49,6 +50,7 @@ enum compile_mode {
 	compile_mode_preprocess,
 	compile_mode_compile,
 	compile_mode_link,
+	compile_mode_run,
 };
 
 struct compiler_check_opts {
@@ -56,12 +58,13 @@ struct compiler_check_opts {
 	obj comp_id;
 	uint32_t err_node;
 	const char *src;
+	const char *output;
 	obj deps;
 	obj args;
 };
 
 static bool
-compiler_check(struct workspace *wk, const struct compiler_check_opts *opts, bool *res)
+compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res)
 {
 	struct obj *comp = get_obj(wk, opts->comp_id);
 	const char *name = get_cstr(wk, comp->dat.compiler.name);
@@ -81,7 +84,17 @@ compiler_check(struct workspace *wk, const struct compiler_check_opts *opts, boo
 		obj_array_extend(wk, compiler_args, args_dup);
 	}
 
-	push_args(wk, compiler_args, compilers[t].args.output("/dev/null"));
+	const char *output = "/dev/null";
+	if (opts->mode == compile_mode_run) {
+		static char test_output_path[PATH_MAX];
+		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test")) {
+			return false;
+		}
+		output = test_output_path;
+		opts->output = test_output_path;
+	}
+
+	push_args(wk, compiler_args, compilers[t].args.output(output));
 
 	switch (opts->mode) {
 	case compile_mode_preprocess:
@@ -90,6 +103,7 @@ compiler_check(struct workspace *wk, const struct compiler_check_opts *opts, boo
 	case compile_mode_compile:
 		push_args(wk, compiler_args, compilers[t].args.compile_only());
 		break;
+	case compile_mode_run:
 	case compile_mode_link:
 		if (opts->deps) {
 			struct dep_args_ctx da_ctx;
@@ -129,6 +143,90 @@ compiler_check(struct workspace *wk, const struct compiler_check_opts *opts, boo
 	ret = true;
 ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
+}
+
+static bool
+func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+		kw_dependencies,
+		kw_prefix,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
+		[kw_prefix] = { "prefix", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"#include <stdio.h>\n"
+		"%s\n"
+		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); }\n",
+		prefix,
+		get_cstr(wk, an[0].val)
+		);
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = akw[kw_dependencies].val,
+		.args = akw[kw_args].val,
+	};
+
+	bool ret = false;
+
+	int64_t size = -1;
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok) || !ok) {
+		goto ret;
+	}
+
+	struct run_cmd_ctx ctx = { 0 };
+	if (!run_cmd(&ctx, opts.output, (const char *const []){
+		opts.output, NULL
+	}, NULL)) {
+		LOG_W("sizeof binary failed to run: %s", ctx.err_msg);
+		goto free_run_cmd_ctx;
+	} else if (ctx.status != 0) {
+		LOG_W("sizeof binary had a bad exit code");
+		goto free_run_cmd_ctx;
+	}
+
+	char *endptr;
+	size = strtol(ctx.out.buf, &endptr, 10);
+	if (*endptr) {
+		LOG_W("sizeof binary had malformed output '%s'", ctx.out.buf);
+		size = -1;
+	}
+
+	ret = true;
+free_run_cmd_ctx:
+	run_cmd_ctx_destroy(&ctx);
+ret:
+	make_obj(wk, res, obj_number)->dat.num = size;
+
+	LOG_I("sizeof %s: %ld",
+		get_cstr(wk, an[0].val),
+		(long)size
+		);
+
 	return ret;
 }
 
@@ -673,6 +771,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "has_type", func_compiler_has_type },
+	{ "sizeof", func_compiler_sizeof },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
 };
