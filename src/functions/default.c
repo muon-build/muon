@@ -591,7 +591,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	LOG_E("%s", get_cstr(wk, an[0].val));
+	LOG_W("%s", get_cstr(wk, an[0].val));
 	*res = 0;
 
 	return true;
