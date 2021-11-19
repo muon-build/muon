@@ -614,7 +614,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
-func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	bool ret = false;
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
@@ -658,7 +658,7 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	}
 
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
+		.mode = mode,
 		.comp_id = rcvr,
 		.err_node = an[0].node,
 		.src = path,
@@ -675,13 +675,42 @@ func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 	ret = true;
 ret:
 	if (akw[kw_name].set) {
-		LOG_I("%s compiles: %s",
+		const char *mode_s = NULL;
+		switch (mode) {
+		case compile_mode_run:
+			mode_s = "runs";
+			break;
+		case compile_mode_link:
+			mode_s = "links";
+			break;
+		case compile_mode_compile:
+			mode_s = "compiles";
+			break;
+		case compile_mode_preprocess:
+			mode_s = "preprocesses";
+			break;
+		}
+
+		LOG_I("%s %s: %s",
 			get_cstr(wk, akw[kw_name].val),
+			mode_s,
 			bool_to_yn(ok)
 			);
 	}
 
 	return ret;
+}
+
+static bool
+func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return func_compiler_check_common(wk, rcvr, args_node, res, compile_mode_compile);
+}
+
+static bool
+func_compiler_links(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return func_compiler_check_common(wk, rcvr, args_node, res, compile_mode_link);
 }
 
 static bool
@@ -1034,6 +1063,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "has_type", func_compiler_has_type },
+	{ "links", func_compiler_links },
 	{ "sizeof", func_compiler_sizeof },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
