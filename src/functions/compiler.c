@@ -315,6 +315,180 @@ ret:
 }
 
 static bool
+get_has_function_attribute_test(const struct str *name, const char **res)
+{
+	/* These functions are based on the following code:
+	 * https://git.savannah.gnu.org/gitweb/?p=autoconf-archive.git;a=blob_plain;f=m4/ax_gcc_func_attribute.m4,
+	 * which is licensed under the following terms:
+	 *
+	 *   Copyright (c) 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
+	 *
+	 *   Copying and distribution of this file, with or without modification, are
+	 *   permitted in any medium without royalty provided the copyright notice
+	 *   and this notice are preserved.  This file is offered as-is, without any
+	 *   warranty.
+	 */
+	struct { const char *name, *src; } tests[] = {
+		{ "alias",
+		  "int foo(void) { return 0; }\n"
+		  "int bar(void) __attribute__((alias(\"foo\")));\n" },
+		{ "aligned",
+		  "int foo(void) __attribute__((aligned(32)));\n" },
+		{ "alloc_size",
+		  "void *foo(int a) __attribute__((alloc_size(1)));\n" },
+		{ "always_inline",
+		  "inline __attribute__((always_inline)) int foo(void) { return 0; }\n" },
+		{ "artificial",
+		  "inline __attribute__((artificial)) int foo(void) { return 0; }\n" },
+		{ "cold",
+		  "int foo(void) __attribute__((cold));\n" },
+		{ "const",
+		  "int foo(void) __attribute__((const));\n" },
+		{ "constructor",
+		  "int foo(void) __attribute__((constructor));\n" },
+		{ "constructor_priority",
+		  "int foo( void ) __attribute__((__constructor__(65535/2)));\n" },
+		{ "deprecated",
+		  "int foo(void) __attribute__((deprecated(\"\")));\n" },
+		{ "destructor",
+		  "int foo(void) __attribute__((destructor));\n" },
+		{ "dllexport",
+		  "__declspec(dllexport) int foo(void) { return 0; }\n" },
+		{ "dllimport",
+		  "__declspec(dllimport) int foo(void);\n" },
+		{ "error",
+		  "int foo(void) __attribute__((error(\"\")));\n" },
+		{ "externally_visible",
+		  "int foo(void) __attribute__((externally_visible));\n" },
+		{ "fallthrough",
+		  "int foo( void ) {\n"
+		  "  switch (0) {\n"
+		  "    case 1: __attribute__((fallthrough));\n"
+		  "    case 2: break;\n"
+		  "  }\n"
+		  "  return 0;\n"
+		  "};\n" },
+		{ "flatten",
+		  "int foo(void) __attribute__((flatten));\n" },
+		{ "format",
+		  "int foo(const char * p, ...) __attribute__((format(printf, 1, 2)));\n" },
+		{ "format_arg",
+		  "char * foo(const char * p) __attribute__((format_arg(1)));\n" },
+		{ "force_align_arg_pointer",
+		  "__attribute__((force_align_arg_pointer)) int foo(void) { return 0; }\n" },
+		{ "gnu_inline",
+		  "inline __attribute__((gnu_inline)) int foo(void) { return 0; }\n" },
+		{ "hot",
+		  "int foo(void) __attribute__((hot));\n" },
+		{ "ifunc",
+		  "('int my_foo(void) { return 0; }'\n"
+		  " static int (*resolve_foo(void))(void) { return my_foo; }'\n"
+		  " int foo(void) __attribute__((ifunc(\"resolve_foo\")));'),\n" },
+		{ "leaf",
+		  "__attribute__((leaf)) int foo(void) { return 0; }\n" },
+		{ "malloc",
+		  "int *foo(void) __attribute__((malloc));\n" },
+		{ "noclone",
+		  "int foo(void) __attribute__((noclone));\n" },
+		{ "noinline",
+		  "__attribute__((noinline)) int foo(void) { return 0; }\n" },
+		{ "nonnull",
+		  "int foo(char * p) __attribute__((nonnull(1)));\n" },
+		{ "noreturn",
+		  "int foo(void) __attribute__((noreturn));\n" },
+		{ "nothrow",
+		  "int foo(void) __attribute__((nothrow));\n" },
+		{ "optimize",
+		  "__attribute__((optimize(3))) int foo(void) { return 0; }\n" },
+		{ "packed",
+		  "struct __attribute__((packed)) foo { int bar; };\n" },
+		{ "pure",
+		  "int foo(void) __attribute__((pure));\n" },
+		{ "returns_nonnull",
+		  "int *foo(void) __attribute__((returns_nonnull));\n" },
+		{ "unused",
+		  "int foo(void) __attribute__((unused));\n" },
+		{ "used",
+		  "int foo(void) __attribute__((used));\n" },
+		{ "visibility",
+		  "int foo_def(void) __attribute__((visibility(\"default\")));\n"
+		  "int foo_hid(void) __attribute__((visibility(\"hidden\")));\n"
+		  "int foo_int(void) __attribute__((visibility(\"internal\")));\n" },
+		{ "visibility:default",
+		  "int foo(void) __attribute__((visibility(\"default\")));\n" },
+		{ "visibility:hidden",
+		  "int foo(void) __attribute__((visibility(\"hidden\")));\n" },
+		{ "visibility:internal",
+		  "int foo(void) __attribute__((visibility(\"internal\")));\n" },
+		{ "visibility:protected",
+		  "int foo(void) __attribute__((visibility(\"protected\")));\n" },
+		{ "warning",
+		  "int foo(void) __attribute__((warning(\"\")));\n" },
+		{ "warn_unused_result",
+		  "int foo(void) __attribute__((warn_unused_result));\n" },
+		{ "weak",
+		  "int foo(void) __attribute__((weak));\n" },
+		{ "weakref",
+		  "static int foo(void) { return 0; }\n"
+		  "static int var(void) __attribute__((weakref(\"foo\")));\n" },
+		{ 0 }
+	};
+
+	uint32_t i;
+	for (i = 0; tests[i].name; ++i) {
+		if (wk_cstreql(name, tests[i].name)) {
+			*res = tests[i].src;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const char *src;
+	if (!get_has_function_attribute_test(get_str(wk, an[0].val), &src)) {
+		interp_error(wk, an[0].node, "unknown attribute '%s'", get_cstr(wk, an[0].val));
+		return false;
+	}
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+	};
+
+	bool ret = false;
+	bool ok = false;
+	if (!compiler_check(wk, &opts, &ok) || !ok) {
+		goto ret;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	ret = true;
+ret:
+	LOG_I("have attribute %s: %s",
+		get_cstr(wk, an[0].val),
+		bool_to_yn(ok)
+		);
+
+	return ret;
+}
+
+static bool
 func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -853,6 +1027,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
+	{ "has_function_attribute", func_compiler_has_function_attribute },
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "has_type", func_compiler_has_type },
