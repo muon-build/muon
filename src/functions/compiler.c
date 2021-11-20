@@ -885,6 +885,74 @@ ret:
 }
 
 static bool
+func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	bool ret = false;
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_args,
+		kw_dependencies,
+		kw_prefix,
+		kw_include_directories,
+	};
+	struct args_kw akw[] = {
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_prefix] = { "prefix", obj_string },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"void bar(void) {\n"
+		"%s foo;\n"
+		"foo.%s;\n"
+		"}\n",
+		prefix,
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[1].val)
+		);
+
+	const char *path;
+	if (!write_test_source(wk, &WKSTR(src), &path)) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = rcvr,
+		.err_node = an[0].node,
+		.src = path,
+		.deps = &akw[kw_dependencies],
+		.args = akw[kw_args].val,
+		.inc = &akw[kw_include_directories],
+	};
+
+	bool ok;
+	if (!compiler_check(wk, &opts, &ok)) {
+		goto ret;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	ret = true;
+ret:
+	LOG_I("%s has member %s: %s",
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[1].val),
+		bool_to_yn(ok)
+		);
+
+	return ret;
+}
+
+static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
 	if (!typecheck(wk, err_node, arg, obj_string)) {
@@ -1094,6 +1162,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_function_attribute", func_compiler_has_function_attribute },
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
+	{ "has_member", func_compiler_has_member },
 	{ "has_type", func_compiler_has_type },
 	{ "links", func_compiler_links },
 	{ "sizeof", func_compiler_sizeof },
