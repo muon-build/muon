@@ -939,6 +939,44 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint3
 	}, func_compiler_get_supported_arguments_iter);
 }
 
+static enum iteration_result
+func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+{
+	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
+	bool has_argument;
+
+	if (!compiler_has_argument(wk, ctx->compiler, ctx->node, val_id, &has_argument)) {
+		return false;
+	}
+
+	if (has_argument) {
+		LOG_I("first supported argument: '%s'", get_cstr(wk, val_id));
+		obj_array_push(wk, ctx->arr, val_id);
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_compiler_first_supported_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, obj, obj_array);
+
+	return obj_array_foreach_flat(wk, an[0].val,
+		&(struct func_compiler_get_supported_arguments_iter_ctx) {
+		.compiler = rcvr,
+		.arr = *obj,
+		.node = an[0].node,
+	}, func_compiler_first_supported_argument_iter);
+}
+
 static bool
 func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
@@ -1053,6 +1091,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "cmd_array", func_compiler_cmd_array },
 	{ "compiles", func_compiler_compiles },
 	{ "find_library", func_compiler_find_library },
+	{ "first_supported_argument", func_compiler_first_supported_argument },
 	{ "get_id", func_compiler_get_id },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
