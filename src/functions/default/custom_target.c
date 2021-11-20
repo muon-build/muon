@@ -108,13 +108,17 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		*elem = ctx->depfile;
 		return format_cb_found;
 	case key_source_root:
-	/* @SOURCE_ROOT@: the path to the root of the source tree.
-	 * Depending on the backend, this may be an absolute or a
-	 * relative to current workdir path. */
+		/* @SOURCE_ROOT@: the path to the root of the source tree.
+		 * Depending on the backend, this may be an absolute or a
+		 * relative to current workdir path. */
+		*elem = make_str(wk, wk->source_root);
+		return format_cb_found;
 	case key_build_root:
-	/* @BUILD_ROOT@: the path to the root of the build tree.
-	 * Depending on the backend, this may be an absolute or a
-	 * relative to current workdir path. */
+		/* @BUILD_ROOT@: the path to the root of the build tree.
+		 * Depending on the backend, this may be an absolute or a
+		 * relative to current workdir path. */
+		*elem = make_str(wk, wk->build_root);
+		return format_cb_found;
 	case key_plainname:
 	/* @PLAINNAME@: the input filename, without a path */
 	case key_basename:
