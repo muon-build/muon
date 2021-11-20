@@ -202,7 +202,7 @@ write_mesondefine:
 
 			obj sub;
 			if (!coerce_string(wk, in_node, elem, &sub)) {
-				error_messagef(&src, id_start_line, id_start_col, "unable to substitue value");
+				error_messagef(&src, id_start_line, id_start_col, "unable to substitute value");
 				return false;
 			}
 

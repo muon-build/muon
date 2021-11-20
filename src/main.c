@@ -362,7 +362,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		{ "eval", cmd_eval, "evaluate a file" },
 		{ "exe", cmd_exe, "run an external command" },
-		{ "repl", cmd_repl, "start a meson langauge repl" },
+		{ "repl", cmd_repl, "start a meson language repl" },
 		0,
 	};
 

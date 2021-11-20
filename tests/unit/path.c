@@ -26,7 +26,7 @@ test_path_join(void)
 }
 
 static void
-test_path_make_absolue(void)
+test_path_make_absolute(void)
 {
 	char cwd[PATH_MAX], buf[PATH_MAX], buf2[PATH_MAX * 2];
 	assert(getcwd(cwd, PATH_MAX));
@@ -162,7 +162,7 @@ main(void)
 
 	test_path_is_absolute();
 	test_path_join();
-	test_path_make_absolue();
+	test_path_make_absolute();
 	test_path_relative_to();
 	test_path_is_basename();
 	test_path_without_ext();

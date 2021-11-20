@@ -456,7 +456,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			}
 			break;
 		default:
-			assert(false && "unreachble");
+			assert(false && "unreachable");
 		}
 	}
 
