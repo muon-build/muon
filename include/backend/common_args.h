@@ -8,4 +8,10 @@ bool setup_compiler_args(struct workspace *wk, const struct obj *tgt,
 void setup_linker_args(struct workspace *wk, const struct project *proj,
 	enum linker_type linker, enum compiler_language link_language,
 	obj rpaths, obj link_args, obj link_with);
+
+struct setup_compiler_args_includes_ctx {
+	obj args;
+	enum compiler_type t;
+};
+enum iteration_result setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v);
 #endif

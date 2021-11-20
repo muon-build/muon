@@ -61,6 +61,7 @@ struct compiler_check_opts {
 	const char *src;
 	obj deps;
 	obj args;
+	struct args_kw *inc;
 	bool skip_run_check;
 };
 
@@ -79,6 +80,21 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 	obj_array_push(wk, compiler_args, comp_name);
 	push_args(wk, compiler_args, compilers[t].args.werror());
 
+	if (opts->inc && opts->inc->set) {
+		obj include_dirs = 0;
+		if (!coerce_include_dirs(wk, opts->inc->node, opts->inc->val, false, &include_dirs)) {
+			return false;
+		}
+
+		struct setup_compiler_args_includes_ctx inc_ctx = {
+			.args = compiler_args,
+			.t = t,
+		};
+
+		if (!obj_array_foreach(wk, include_dirs, &inc_ctx, setup_compiler_args_includes)) {
+			return false;
+		}
+	}
 	if (opts->args) {
 		obj args_dup;
 		obj_array_dup(wk, opts->args, &args_dup);
@@ -562,10 +578,12 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 	enum kwargs {
 		kw_dependencies,
 		kw_prefix,
+		kw_include_directories,
 	};
 	struct args_kw akw[] = {
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
 		[kw_prefix] = { "prefix", obj_string },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -602,6 +620,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		.err_node = an[0].node,
 		.src = path,
 		.deps = akw[kw_dependencies].val,
+		.inc = &akw[kw_include_directories],
 	};
 
 	bool ok;
@@ -723,12 +742,14 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		kw_dependencies,
 		kw_prefix,
 		kw_required,
+		kw_include_directories,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
 		[kw_prefix] = { "prefix", obj_string },
 		[kw_required] = { "required", obj_any },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -769,6 +790,7 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		.src = path,
 		.deps = akw[kw_dependencies].val,
 		.args = akw[kw_args].val,
+		.inc = &akw[kw_include_directories],
 	};
 
 	bool ok;
@@ -801,11 +823,13 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		kw_args,
 		kw_dependencies,
 		kw_prefix,
+		kw_include_directories,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_dependency },
 		[kw_prefix] = { "prefix", obj_string },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -834,6 +858,7 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		.src = path,
 		.deps = akw[kw_dependencies].val,
 		.args = akw[kw_args].val,
+		.inc = &akw[kw_include_directories],
 	};
 
 	bool ok;

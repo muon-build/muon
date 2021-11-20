@@ -109,16 +109,12 @@ get_std_args(struct workspace *wk, const struct project *proj, uint32_t args_id,
 	return true;
 }
 
-struct setup_compiler_args_includes_ctx {
-	obj args;
-	enum compiler_type t;
-};
-
-static enum iteration_result
+enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_compiler_args_includes_ctx *ctx = _ctx;
 	struct obj *inc = get_obj(wk, v);
+	assert(inc->type == obj_include_directory);
 	const char *dir = get_cstr(wk, inc->dat.include_directory.path);
 
 	if (!fs_dir_exists(dir)) {
