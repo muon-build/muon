@@ -57,17 +57,28 @@ struct compiler_check_opts {
 	struct run_cmd_ctx cmd_ctx;
 	enum compile_mode mode;
 	obj comp_id;
-	uint32_t err_node;
-	const char *src;
-	struct args_kw *deps;
+	struct args_kw *deps, *inc, *required;
 	obj args;
-	struct args_kw *inc;
 	bool skip_run_check;
+	bool src_is_path;
 };
 
 static bool
-compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res)
+compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
+	const char *src, uint32_t err_node, bool *res)
 {
+	enum requirement_type req = requirement_auto;
+	if (opts->required && opts->required->set) {
+		if (!coerce_requirement(wk, opts->required, &req)) {
+			return false;
+		}
+	}
+
+	if (req == requirement_skip) {
+		*res = false;
+		return true;
+	}
+
 	struct obj *comp = get_obj(wk, opts->comp_id);
 	const char *name = get_cstr(wk, comp->dat.compiler.name);
 	enum compiler_type t = comp->dat.compiler.type;
@@ -139,7 +150,16 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 		break;
 	}
 
-	obj_array_push(wk, compiler_args, make_str(wk, opts->src));
+	const char *path;
+	if (opts->src_is_path) {
+		path = src;
+	} else {
+		if (!write_test_source(wk, &WKSTR(src), &path)) {
+			return false;
+		}
+	}
+
+	obj_array_push(wk, compiler_args, make_str(wk, path));
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -149,10 +169,10 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 		return false;
 	}
 
-	L("compiling: '%s'", opts->src);
+	L("compiling: '%s'", path);
 
 	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
-		interp_error(wk, opts->err_node, "error: %s", cmd_ctx.err_msg);
+		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
@@ -185,101 +205,168 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, bool *res
 	ret = true;
 ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
+	if (!*res && req == requirement_required) {
+		assert(opts->required);
+		interp_error(wk, opts->required->node, "a required compiler check failed");
+		return false;
+	}
 	return ret;
+}
+
+static int64_t
+compiler_check_parse_output_int(struct compiler_check_opts *opts)
+{
+	char *endptr;
+	int64_t size;
+	size = strtol(opts->cmd_ctx.out.buf, &endptr, 10);
+	if (*endptr) {
+		LOG_W("compiler check binary had malformed output '%s'", opts->cmd_ctx.out.buf);
+		return -1;
+	}
+
+	return size;
+}
+
+enum cc_kwargs {
+	cc_kw_args,
+	cc_kw_dependencies,
+	cc_kw_prefix,
+	cc_kw_required,
+	cc_kw_include_directories,
+	cc_kw_name,
+	cc_kwargs_count,
+
+	cm_kw_args = 1 << 0,
+	cm_kw_dependencies = 1 << 1,
+	cm_kw_prefix = 1 << 2,
+	cm_kw_required = 1 << 3,
+	cm_kw_include_directories = 1 << 4,
+	cm_kw_name = 1 << 5,
+};
+
+static bool
+func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_node,
+	struct args_norm *an, struct args_kw **kw_res, struct compiler_check_opts *opts,
+	enum cc_kwargs args_mask)
+{
+	static struct args_kw akw[cc_kwargs_count] = { 0 };
+	struct args_kw akw_base[] = {
+		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
+		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
+		[cc_kw_prefix] = { "prefix", obj_string },
+		[cc_kw_required] = { "required", obj_any },
+		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[cc_kw_name] = { "name", obj_string },
+		0
+	};
+
+	memcpy(akw, akw_base, sizeof(struct args_kw) * cc_kwargs_count);
+
+	struct args_kw *use_akw;
+	if (kw_res && args_mask) {
+		*kw_res = akw;
+		use_akw = akw;
+	} else {
+		use_akw = NULL;
+	}
+
+	if (!interp_args(wk, args_node, an, NULL, use_akw)) {
+		return false;
+	}
+
+	if (use_akw) {
+		uint32_t i;
+		for (i = 0; i < cc_kwargs_count; ++i) {
+			if ((args_mask & (1 << i))) {
+				continue;
+			} else if (akw[i].set) {
+				interp_error(wk, akw[i].node, "invalid keyword '%s'", akw[i].key);
+				return false;
+			}
+		}
+	}
+
+	opts->comp_id = rcvr;
+	if (akw[cc_kw_dependencies].set) {
+		opts->deps = &akw[cc_kw_dependencies];
+	}
+
+	if (akw[cc_kw_args].set) {
+		opts->args = akw[cc_kw_args].val;
+	}
+
+	if (akw[cc_kw_include_directories].set) {
+		opts->inc = &akw[cc_kw_include_directories];
+	}
+
+	if (akw[cc_kw_required].set) {
+		opts->required = &akw[cc_kw_required];
+	}
+	return true;
+}
+
+static const char *
+compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
+{
+	if (akw[cc_kw_prefix].set) {
+		return get_cstr(wk, akw[cc_kw_prefix].val);
+	} else {
+		return "";
+	}
 }
 
 static bool
 func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_args,
-		kw_dependencies,
-		kw_prefix,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
 	};
-	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
 		return false;
 	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
 		"#include <stdio.h>\n"
 		"%s\n"
 		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); }\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-	};
-
-	bool ret = false;
-
-	int64_t size = -1;
-	bool ok;
-	if (!compiler_check(wk, &opts, &ok) || !ok) {
-		goto ret;
-	}
-
-	char *endptr;
-	size = strtol(opts.cmd_ctx.out.buf, &endptr, 10);
-	if (*endptr) {
-		LOG_W("sizeof binary had malformed output '%s'", opts.cmd_ctx.out.buf);
-		size = -1;
-	}
-
-	ret = true;
-ret:
-	make_obj(wk, res, obj_number)->dat.num = size;
+	make_obj(wk, res, obj_number)->dat.num = compiler_check_parse_output_int(&opts);
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
 	LOG_I("sizeof %s: %ld",
 		get_cstr(wk, an[0].val),
-		(long)size
+		(long)get_obj(wk, *res)->dat.num
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
 func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_args,
-		kw_dependencies,
-		kw_prefix,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
 	};
-	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
 		return false;
 	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
@@ -288,50 +375,24 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		"%s\n"
 		"struct tmp { char c; %s target; };\n"
 		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); }\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-	};
-
-	bool ret = false;
-
-	int64_t num = -1;
-	bool ok;
-	if (!compiler_check(wk, &opts, &ok) || !ok) {
-		goto ret;
-	}
-
-	char *endptr;
-	num = strtol(opts.cmd_ctx.out.buf, &endptr, 10);
-	if (*endptr) {
-		LOG_W("alignment binary had malformed output '%s'", opts.cmd_ctx.out.buf);
-		num = -1;
-	}
-
-	ret = true;
-ret:
-	make_obj(wk, res, obj_number)->dat.num = num;
+	make_obj(wk, res, obj_number)->dat.num = compiler_check_parse_output_int(&opts);
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
 	LOG_I("alignment of %s: %ld",
 		get_cstr(wk, an[0].val),
-		(long)num
+		(long)get_obj(wk, *res)->dat.num
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
@@ -469,7 +530,10 @@ static bool
 func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+	};
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, NULL, &opts, 0)) {
 		return false;
 	}
 
@@ -479,55 +543,35 @@ func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t ar
 		return false;
 	}
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-	};
-
-	bool ret = false;
-	bool ok = false;
-	if (!compiler_check(wk, &opts, &ok) || !ok) {
-		goto ret;
-	}
-
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
-	ret = true;
-ret:
 	LOG_I("have attribute %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
 func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_dependencies,
-		kw_args,
-		kw_prefix,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_link,
 	};
-	struct args_kw akw[] = {
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_args] = { "args",  ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_prefix] = { "prefix", obj_string },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
 		return false;
 	}
 
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
+	const char *prefix = compiler_check_prefix(wk, akw);
 
 	char src[BUF_SIZE_4k];
 	if (strstr(prefix, "#include")) {
@@ -552,26 +596,17 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			);
 	}
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
-		return false;
-	}
-
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_link,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-	};
-
 	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	LOG_I("have function %s: %s",
+		get_cstr(wk, an[0].val),
+		bool_to_yn(ok)
+		);
+
 	return true;
 }
 
@@ -579,24 +614,16 @@ static bool
 func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_dependencies,
-		kw_prefix,
-		kw_args,
-		kw_include_directories,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_link,
 	};
-	struct args_kw akw[] = {
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
 		return false;
 	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
@@ -609,53 +636,37 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		"    #endif\n"
 		"    return 0;\n"
 		"}\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
 		get_cstr(wk, an[1].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
-		return false;
-	}
-
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_link,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-		.inc = &akw[kw_include_directories],
-	};
-
 	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	LOG_I("%s has header symbol %s: %s",
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[1].val),
+		bool_to_yn(ok)
+		);
+
 	return true;
 }
 
 static bool
 func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
-	bool ret = false;
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_dependencies,
-		kw_name,
-		kw_args,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = mode,
 	};
-	struct args_kw akw[] = {
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_name] = { "name", obj_string },
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
 		return false;
 	}
 
@@ -666,16 +677,15 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	struct obj *src_obj = get_obj(wk, o);
 
-	const char *path;
+	const char *src;
 
 	switch (src_obj->type) {
 	case obj_string:
-		if (!write_test_source(wk, get_str(wk, src_obj->dat.str), &path)) {
-			return false;
-		}
+		src = get_cstr(wk, src_obj->dat.str);
 		break;
 	case obj_file: {
-		path = get_cstr(wk, src_obj->dat.file);
+		src  = get_cstr(wk, src_obj->dat.file);
+		opts.src_is_path = true;
 		break;
 	}
 	default:
@@ -683,24 +693,14 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = mode,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-	};
-
 	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
-		goto ret;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+		return false;
 	}
 
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
-	ret = true;
-ret:
-	if (akw[kw_name].set) {
+
+	if (akw[cc_kw_name].set) {
 		const char *mode_s = NULL;
 		switch (mode) {
 		case compile_mode_run:
@@ -718,13 +718,13 @@ ret:
 		}
 
 		LOG_I("%s %s: %s",
-			get_cstr(wk, akw[kw_name].val),
+			get_cstr(wk, akw[cc_kw_name].val),
 			mode_s,
 			bool_to_yn(ok)
 			);
 	}
 
-	return ret;
+	return true;
 }
 
 static bool
@@ -742,171 +742,92 @@ func_compiler_links(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 static bool
 func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	bool ret = false;
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_args,
-		kw_dependencies,
-		kw_prefix,
-		kw_required,
-		kw_include_directories,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_preprocess,
 	};
-	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		[kw_required] = { "required", obj_any },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
+		| cm_kw_include_directories)) {
 		return false;
 	}
-
-	enum requirement_type req = requirement_auto;
-	if (akw[kw_required].set) {
-		if (!coerce_requirement(wk, &akw[kw_required], &req)) {
-			return false;
-		}
-	}
-
-	if (req == requirement_skip) {
-		make_obj(wk, res, obj_bool)->dat.boolean = false;
-		return true;
-	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
 		"%s\n"
 		"#include <%s>\n"
 		"int main(void) {}\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
-		return false;
-	}
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_preprocess,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-		.inc = &akw[kw_include_directories],
-	};
-
 	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
-		goto ret;
-	}
-
-	if (!ok && req == requirement_required) {
-		interp_error(wk, an[0].node, "required header %s not found", get_cstr(wk, an[0].val));
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
-	ret = true;
-ret:
 	LOG_I("header %s found: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
 func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	bool ret = false;
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_args,
-		kw_dependencies,
-		kw_prefix,
-		kw_include_directories,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
 	};
-	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
 		return false;
 	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
 		"%s\n"
 		"void bar(void) { sizeof(%s); }\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-		.inc = &akw[kw_include_directories],
-	};
-
-	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
-		goto ret;
-	}
-
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
-	ret = true;
-ret:
 	LOG_I("has type %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
 func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	bool ret = false;
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_args,
-		kw_dependencies,
-		kw_prefix,
-		kw_include_directories,
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_link,
 	};
-	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_prefix] = { "prefix", obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
-		0
-	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
 		return false;
 	}
-
-	const char *prefix = akw[kw_prefix].set ? get_cstr(wk, akw[kw_prefix].val) : "";
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
@@ -915,41 +836,24 @@ func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		"%s foo;\n"
 		"foo.%s;\n"
 		"}\n",
-		prefix,
+		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val)
 		);
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR(src), &path)) {
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
-		.comp_id = rcvr,
-		.err_node = an[0].node,
-		.src = path,
-		.deps = &akw[kw_dependencies],
-		.args = akw[kw_args].val,
-		.inc = &akw[kw_include_directories],
-	};
-
-	bool ok;
-	if (!compiler_check(wk, &opts, &ok)) {
-		goto ret;
-	}
-
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
-	ret = true;
-ret:
 	LOG_I("%s has member %s: %s",
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
 		bool_to_yn(ok)
 		);
 
-	return ret;
+	return true;
 }
 
 static bool
@@ -959,11 +863,6 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		return ir_err;
 	}
 
-	const char *path;
-	if (!write_test_source(wk, &WKSTR("int main(void){}\n"), &path)) {
-		return false;
-	}
-
 	obj args;
 	make_obj(wk, &args, obj_array);
 	obj_array_push(wk, args, arg);
@@ -971,12 +870,11 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 	struct compiler_check_opts opts = {
 		.mode = compile_mode_compile,
 		.comp_id = comp_id,
-		.err_node = err_node,
-		.src = path,
 		.args = args,
 	};
 
-	if (!compiler_check(wk, &opts, has_argument)) {
+	const char *src = "int main(void){}\n";
+	if (!compiler_check(wk, &opts, src, err_node, has_argument)) {
 		return false;
 	}
 
