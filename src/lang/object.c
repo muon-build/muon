@@ -820,6 +820,17 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		o->dat.feature_opt.state = opt->dat.feature_opt.state;
 		return true;
 	}
+	case obj_configuration_data: {
+		struct obj *conf = get_obj(wk_src, val);
+
+		o = make_obj(wk_dest, ret, t);
+
+		if (!obj_clone(wk_src, wk_dest, conf->dat.configuration_data.dict,
+			&o->dat.configuration_data.dict)) {
+			return false;
+		}
+		return true;
+	}
 	default:
 		LOG_E("unable to clone '%s'", obj_type_to_s(t));
 		return false;

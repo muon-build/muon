@@ -389,12 +389,26 @@ err1:
 }
 
 static bool
-interp_assign(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_assign(struct workspace *wk, struct node *n, uint32_t *_)
 {
-	uint32_t rhs;
+	obj rhs;
 
 	if (!interp_node(wk, n->r, &rhs)) {
 		return false;
+	}
+
+	switch (get_obj(wk, rhs)->type) {
+	case obj_configuration_data: {
+		obj cloned;
+		if (!obj_clone(wk, wk, rhs, &cloned)) {
+			return false;
+		}
+
+		rhs = cloned;
+		break;
+	}
+	default:
+		break;
 	}
 
 	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
