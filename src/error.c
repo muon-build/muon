@@ -38,7 +38,10 @@ error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
 		}
 	}
 
-	log_plain("%3d | ", line);
+	char line_pre[32] = { 0 };
+	uint32_t line_pre_len = snprintf(line_pre, 31, "%3d | ", line);
+
+	log_plain("%s", line_pre);
 	for (i = sol; src->src[i] && src->src[i] != '\n'; ++i) {
 		if (src->src[i] == '\t') {
 			log_plain("        ");
@@ -48,15 +51,20 @@ error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
 	}
 	log_plain("\n");
 
-	log_plain("      ");
-	for (i = 0; i < col; ++i) {
-		if (src->src[sol + i] == '\t') {
-			log_plain("        ");
-		} else {
-			log_plain(i == col - 1 ? "^" : " ");
-		}
+	for (i = 0; i < line_pre_len; ++i) {
+		log_plain(" ");
 	}
-	log_plain("\n");
+
+	for (i = 0; i < col; ++i) {
+		for (i = 0; i < col; ++i) {
+			if (src->src[sol + i] == '\t') {
+				log_plain("        ");
+			} else {
+				log_plain(i == col - 1 ? "^" : " ");
+			}
+		}
+		log_plain("\n");
+	}
 }
 
 void
