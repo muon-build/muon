@@ -113,9 +113,25 @@ enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_compiler_args_includes_ctx *ctx = _ctx;
-	struct obj *inc = get_obj(wk, v);
-	assert(inc->type == obj_include_directory);
-	const char *dir = get_cstr(wk, inc->dat.include_directory.path);
+	const char *dir;
+	bool is_system;
+	{
+		struct obj *inc = get_obj(wk, v);
+		switch (inc->type) {
+		case obj_include_directory:
+			dir = get_cstr(wk, inc->dat.include_directory.path);
+			is_system = inc->dat.include_directory.is_system;
+			break;
+		case obj_string:
+			dir = get_cstr(wk, inc->dat.str);
+			is_system = false;
+			break;
+		default:
+			LOG_E("invalid type for include directory '%s'", obj_type_to_s(inc->type));
+			return false;
+		}
+	}
+
 
 	if (!fs_dir_exists(dir)) {
 		return ir_cont;
@@ -129,7 +145,7 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 		dir = rel;
 	}
 
-	if (inc->dat.include_directory.is_system) {
+	if (is_system) {
 		push_args(wk, ctx->args, compilers[ctx->t].args.include_system(dir));
 	} else {
 		push_args(wk, ctx->args, compilers[ctx->t].args.include(dir));
