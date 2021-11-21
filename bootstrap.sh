@@ -1,14 +1,28 @@
 #!/bin/sh
 
-# requirements:
-# - cc
+# Requirements:
+# - c99
+# - cat
+# - mkdir
+# - sh
+# Optional requirements:
 # - pkgconf
 # - libpkgconf
 
-set -eu
+set -eux
 
 dir="$1"
 mkdir -p "$dir"
+
+if command -v pkgconf >/dev/null && pkgconf libpkgconf; then
+	pkgconf_src="libpkgconf.c"
+	pkgconf_cflags="$(pkgconf --cflags libpkgconf)"
+	pkgconf_libs="$(pkgconf --libs libpkgconf)"
+else
+	pkgconf_src="libpkgconf_null.c"
+	pkgconf_cflags=""
+	pkgconf_libs=""
+fi
 
 cat \
 	src/args.c \
@@ -25,9 +39,9 @@ cat \
 	src/data/hash.c \
 	src/embedded.c \
 	src/error.c \
+	src/external/$pkgconf_src \
 	src/external/libarchive_null.c \
 	src/external/libcurl_null.c \
-	src/external/libpkgconf.c \
 	src/external/samurai_null.c \
 	src/formats/ini.c \
 	src/functions/array.c \
@@ -91,6 +105,5 @@ cat \
 	src/wrap.c \
 	> "$dir/muon.c"
 
-${CC:-cc} ${CFLAGS:-} -g -Iinclude $(pkgconf --cflags libpkgconf) -o "$dir/muon.o" -c "$dir/muon.c"
-
-${CC:-cc} ${LDFLAGS:-} "$dir/muon.o" $(pkgconf --libs libpkgconf) -o "$dir/muon"
+${CC:-c99} -g -Iinclude $pkgconf_cflags -o "$dir/muon.o" -c "$dir/muon.c"
+${CC:-c99} -o "$dir/muon" "$dir/muon.o" $pkgconf_libs
