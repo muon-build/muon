@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -999,7 +1000,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_number:
-		obj_to_s_buf_push(&ctx, "%ld", (intmax_t)get_obj(wk, obj)->dat.num);
+		obj_to_s_buf_push(&ctx, "%" PRId64, get_obj(wk, obj)->dat.num);
 		break;
 	case obj_bool:
 		obj_to_s_buf_push(&ctx, get_obj(wk, obj)->dat.boolean ? "true" : "false");

@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <inttypes.h>
 #include <string.h>
 
 #include "args.h"
@@ -113,7 +114,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				break;
 			}
 			case obj_number:
-				snprintf(tmp_buf, BUF_SIZE_1k, "%ld", (intmax_t)get_obj(wk, elem)->dat.num);
+				snprintf(tmp_buf, BUF_SIZE_1k, "%" PRId64, get_obj(wk, elem)->dat.num);
 				sub = tmp_buf;
 				break;
 			default:
@@ -256,7 +257,7 @@ generate_config_iter(struct workspace *wk, void *_ctx, uint32_t key_id, uint32_t
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		fprintf(ctx->out, "#define %s %ld\n", get_cstr(wk, key_id), (intmax_t)val->dat.num);
+		fprintf(ctx->out, "#define %s %" PRId64 "\n", get_cstr(wk, key_id), val->dat.num);
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(val->type));

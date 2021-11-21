@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -236,7 +237,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	}
 
 	if (read != src->len) {
-		LOG_E("failed to read entire file, only read %ld/%ld bytes", read, (intmax_t)src->len);
+		LOG_E("failed to read entire file, only read %zu/%" PRId64 "bytes", read, src->len);
 		z_free(buf);
 		return false;
 	}

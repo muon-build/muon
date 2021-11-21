@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,7 @@ bool
 boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
 {
 	if (!bounds_adjust(wk, obj_id, i)) {
-		interp_error(wk, n_id, "index %ld out of bounds", (intmax_t)*i);
+		interp_error(wk, n_id, "index %" PRId64 " out of bounds", *i);
 		return false;
 	}
 

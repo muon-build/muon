@@ -87,7 +87,7 @@ void *
 darr_get(const struct darr *da, size_t i)
 {
 	if (i >= da->len) {
-		L("index %ld out of bounds (%ld)", i, da->len);
+		L("index %zu out of bounds (%zu)", i, da->len);
 	}
 	assert(i < da->len);
 

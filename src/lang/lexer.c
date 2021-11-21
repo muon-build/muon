@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -103,7 +104,7 @@ tok_to_s(struct token *token)
 	if (token->n) {
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", token->dat.s);
 	} else if (token->dat.n) {
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%ld", token->dat.n);
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRIi64, token->dat.n);
 	}
 
 	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->line, token->col);

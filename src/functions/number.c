@@ -1,5 +1,7 @@
 #include "posix.h"
 
+#include <inttypes.h>
+
 #include "functions/common.h"
 #include "functions/number.h"
 #include "lang/interpreter.h"
@@ -35,7 +37,7 @@ func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	}
 
 	struct obj *str = make_obj(wk, res, obj_string);
-	str->dat.str = wk_str_pushf(wk, "%ld", (intmax_t)get_obj(wk, rcvr)->dat.num);
+	str->dat.str = wk_str_pushf(wk, "%" PRId64, get_obj(wk, rcvr)->dat.num);
 
 	return true;
 }

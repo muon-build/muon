@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <string.h>
 
 #include "coerce.h"
@@ -25,7 +26,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		make_obj(wk, res, obj_string)->dat.str = v->dat.str;
 		break;
 	case obj_number: {
-		make_obj(wk, res, obj_string)->dat.str = wk_str_pushf(wk, "%ld", v->dat.num);
+		make_obj(wk, res, obj_string)->dat.str = wk_str_pushf(wk, "%" PRId64, v->dat.num);
 		break;
 	}
 	case obj_string: {

@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -350,10 +351,10 @@ option_set(struct workspace *wk, uint32_t node, obj opt, obj new_val)
 
 		if ((o->dat.option.max && num > get_obj(wk, o->dat.option.max)->dat.num)
 		    || (o->dat.option.min && num < get_obj(wk, o->dat.option.min)->dat.num) ) {
-			interp_error(wk, node, "value %ld is out of range (%ld..%ld)",
-				(intmax_t)get_obj(wk, val)->dat.num,
-				(intmax_t)(o->dat.option.min ? get_obj(wk, o->dat.option.min)->dat.num : INT64_MIN),
-				(intmax_t)(o->dat.option.max ? get_obj(wk, o->dat.option.max)->dat.num : INT64_MAX)
+			interp_error(wk, node, "value %" PRId64 " is out of range (%" PRId64 "..%" PRId64 ")",
+				get_obj(wk, val)->dat.num,
+				(o->dat.option.min ? get_obj(wk, o->dat.option.min)->dat.num : INT64_MIN),
+				(o->dat.option.max ? get_obj(wk, o->dat.option.max)->dat.num : INT64_MAX)
 				);
 			return false;
 		}
