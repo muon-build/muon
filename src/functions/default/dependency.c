@@ -72,15 +72,24 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 
 	char src[BUF_SIZE_2k];
 
+	// TODO: make a proper eval_subproject() function to avoid this hacky
+	// string evaluation
+	char *req = ctx->requirement == requirement_required ? "true" : "false";
+
 	if (ctx->default_options) {
-		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', default_options: %o)",
-			get_cstr(wk, subproj_name), ctx->default_options);
+		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', default_options: %o, required: %s)",
+			get_cstr(wk, subproj_name), ctx->default_options, req);
 	} else {
-		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s')", get_cstr(wk, subproj_name));
+		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', required: %s)", get_cstr(wk, subproj_name), req);
 	}
 
 	if (!eval_str(wk, src, &subproj)) {
 		return false;
+	}
+
+	if (!get_obj(wk, subproj)->dat.subproj.found) {
+		*found = false;
+		return true;
 	}
 
 	if (!subproject_get_variable(wk, ctx->err_node, subproj_dep, subproj, ctx->res)) {
