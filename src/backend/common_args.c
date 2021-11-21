@@ -137,8 +137,8 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 		return ir_cont;
 	}
 
+	char rel[PATH_MAX];
 	if (path_is_absolute(dir)) {
-		char rel[PATH_MAX];
 		if (!path_relative_to(rel, PATH_MAX, wk->build_root, dir)) {
 			return ir_err;
 		}
