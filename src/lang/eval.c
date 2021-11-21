@@ -14,8 +14,8 @@
 #include "wrap.h"
 
 bool
-eval_project(struct workspace *wk, const char *subproject_name,
-	const char *cwd, const char *build_dir, uint32_t *proj_id)
+eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
+	const char *build_dir, uint32_t *proj_id, bool required, bool *found)
 {
 	char src[PATH_MAX], meson_opts[PATH_MAX],
 	     new_cwd[PATH_MAX], new_build_dir[PATH_MAX];
@@ -24,11 +24,6 @@ eval_project(struct workspace *wk, const char *subproject_name,
 		return false;
 	} else if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
 		return false;
-	}
-
-	if (subproject_name) {
-		log_plain("\n");
-		LOG_I("subproject: %s", subproject_name);
 	}
 
 	if (!fs_dir_exists(cwd)) {
@@ -68,15 +63,32 @@ eval_project(struct workspace *wk, const char *subproject_name,
 
 			wrap_destroy(&wrap);
 		} else {
-			LOG_E("project %s not found", cwd);
-			return false;
+			if (required) {
+				LOG_E("project %s not found", cwd);
+				return false;
+			} else {
+				*found = false;
+				return true;
+			}
 		}
 	}
 
 	if (!fs_file_exists(src)) {
-		LOG_E("project %s does not contain a meson.build", cwd);
-		return false;
+		if (required) {
+			LOG_E("project %s does not contain a meson.build", cwd);
+			return false;
+		} else {
+			*found = false;
+			return true;
+		}
 	}
+
+	if (subproject_name) {
+		log_plain("\n");
+		LOG_I("subproject: %s", subproject_name);
+	}
+
+	*found = true;
 
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;

@@ -94,7 +94,10 @@ struct obj {
 		str file;
 		int64_t num;
 		bool boolean;
-		uint32_t subproj;
+		struct {
+			uint32_t id;
+			bool found;
+		} subproj;
 		struct {
 			enum module module;
 			bool found;

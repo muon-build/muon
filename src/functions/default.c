@@ -620,9 +620,11 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default_options,
+		kw_required,
 	};
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_required] = { "required", obj_any },
 		0
 	};
 
@@ -632,6 +634,14 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	// don't re-evaluate the same subproject
 	if (obj_dict_index(wk, wk->subprojects, an[0].val, res)) {
+		return true;
+	}
+
+	enum requirement_type req;
+	if (!coerce_requirement(wk, &akw[kw_required], &req)) {
+		return false;
+	} else if (req == requirement_skip) {
+		make_obj(wk, res, obj_subproject);
 		return true;
 	}
 
@@ -651,17 +661,27 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_default_options].set) {
-		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, an[0].val)) {
+		if (!parse_and_set_default_options(wk, akw[kw_default_options].node,
+			akw[kw_default_options].val, an[0].val)) {
 			return false;
 		}
 	}
 
 	uint32_t subproject_id;
-	if (!eval_project(wk, subproj_name, cwd, build_dir, &subproject_id)) {
+	bool found;
+	if (!eval_project(wk, subproj_name, cwd, build_dir, &subproject_id,
+		req == requirement_required, &found)) {
 		return false;
 	}
 
-	make_obj(wk, res, obj_subproject)->dat.subproj = subproject_id;
+	if (!found) {
+		make_obj(wk, res, obj_subproject);
+		return true;
+	}
+
+	struct obj *sub = make_obj(wk, res, obj_subproject);
+	sub->dat.subproj.id = subproject_id;
+	sub->dat.subproj.found = true;
 
 	obj_dict_set(wk, wk->subprojects, an[0].val, *res);
 
