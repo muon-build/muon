@@ -1,0 +1,16 @@
+image: debian/stable
+packages:
+  - ninja-build
+  - libasan6
+  - libubsan1
+sources:
+  - https://git.sr.ht/~lattis/muon
+tasks:
+  - build: |
+      cd muon
+      ./bootstrap.sh build
+      build/muon setup build
+      ninja -C build
+  - test: |
+      cd muon
+       build/muon test -d dots build
