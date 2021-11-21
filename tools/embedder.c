@@ -13,18 +13,14 @@ embed_char_array(struct source *src)
 	fputs("(char []){\n", stdout);
 
 	for (i = 0; i < src->len; ++i) {
-		printf("0x%x", src->src[i]);
-
-		if (i < src->len - 1) {
-			fputs(", ", stdout);
-		}
+		printf("0x%x, ", src->src[i]);
 
 		if ((i % 14) == 0) {
 			fputs("\n", stdout);
 		}
 	}
 
-	fputs("\n}", stdout);
+	fputs("0x0\n}", stdout);
 }
 
 static void
