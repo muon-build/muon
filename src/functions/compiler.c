@@ -249,7 +249,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 	struct args_norm *an, struct args_kw **kw_res, struct compiler_check_opts *opts,
 	enum cc_kwargs args_mask)
 {
-	static struct args_kw akw[cc_kwargs_count] = { 0 };
+	static struct args_kw akw[cc_kwargs_count + 1] = { 0 };
 	struct args_kw akw_base[] = {
 		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
 		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
