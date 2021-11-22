@@ -68,6 +68,7 @@ struct compiler {
 		compiler_get_arg_func_1s include;
 		compiler_get_arg_func_1s include_system;
 		compiler_get_arg_func_0 pic;
+		compiler_get_arg_func_1s sanitize;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;

@@ -61,8 +61,7 @@ option('b_ndebug', yield: true, type: 'combo', value: 'false',
 option('b_pch', yield: true, type: 'boolean', value: true) # TODO
 option('b_pgo', yield: true, type: 'combo', value: 'off',
 	choices: ['off', 'generate', 'use']) # TODO
-option('b_sanitize', yield: true, type: 'combo', value: 'none',
-	choices: ['none']) # TODO
+option('b_sanitize', yield: true, type: 'string', value: 'none')
 option('b_staticpic', yield: true, type: 'boolean', value: true) # TODO
 option('b_pie', yield: true, type: 'boolean', value: false) # TODO
 option('b_vscrt', yield: true, type: 'combo', value: 'from_buildtype',

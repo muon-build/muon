@@ -362,6 +362,17 @@ compiler_gcc_args_pic(void)
 	return &args;
 }
 
+static const struct args *
+compiler_gcc_args_sanitize(const char *sanitizers)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
+
+	return &args;
+}
+
 compiler_get_arg_func_0 as_needed;
 compiler_get_arg_func_0 no_undefined;
 compiler_get_arg_func_0 start_group;
@@ -427,6 +438,7 @@ build_compilers(void)
 			.include         = compiler_arg_empty_1s,
 			.include_system  = compiler_arg_empty_1s,
 			.pic             = compiler_arg_empty_0,
+			.sanitize        = compiler_arg_empty_1s,
 		}
 	};
 
@@ -448,6 +460,7 @@ build_compilers(void)
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
 	gcc.args.pic = compiler_gcc_args_pic;
+	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 

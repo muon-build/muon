@@ -30,8 +30,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 		{ NULL }
 	};
 
-	uint32_t buildtype;
-
+	obj buildtype;
 	get_option(wk, proj, "buildtype", &buildtype);
 
 	const char *str = get_cstr(wk, buildtype);
@@ -161,6 +160,24 @@ struct setup_compiler_args_ctx {
 	obj args_dict;
 };
 
+static bool
+setup_optional_b_args(struct workspace *wk, struct setup_compiler_args_ctx *ctx,
+	obj args, enum compiler_language lang, enum compiler_type t)
+{
+#ifndef MUON_BOOTSTRAPPED
+	// If we aren't bootstrapped, we don't yet have any b_ options defined
+	return true;
+#endif
+
+	obj b_sanitize;
+	get_option(wk, ctx->proj, "b_sanitize", &b_sanitize);
+	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
+		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, b_sanitize)));
+	}
+
+	return true;
+}
+
 static enum iteration_result
 setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
 {
@@ -193,6 +210,8 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		LOG_E("unable to get warning flags");
 		return ir_err;
 	}
+
+	setup_optional_b_args(wk, ctx, args, lang, t);
 
 	{ /* global args */
 		obj global_args, global_args_dup;
