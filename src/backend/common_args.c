@@ -161,8 +161,8 @@ struct setup_compiler_args_ctx {
 };
 
 static bool
-setup_optional_b_args(struct workspace *wk, struct setup_compiler_args_ctx *ctx,
-	obj args, enum compiler_language lang, enum compiler_type t)
+setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
+	obj args, enum compiler_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
@@ -170,7 +170,7 @@ setup_optional_b_args(struct workspace *wk, struct setup_compiler_args_ctx *ctx,
 #endif
 
 	obj b_sanitize;
-	get_option(wk, ctx->proj, "b_sanitize", &b_sanitize);
+	get_option(wk, proj, "b_sanitize", &b_sanitize);
 	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
 		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, b_sanitize)));
 	}
@@ -211,7 +211,9 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		return ir_err;
 	}
 
-	setup_optional_b_args(wk, ctx, args, lang, t);
+	if (!setup_optional_b_args_compiler(wk, ctx->proj, args, t)) {
+		return false;
+	}
 
 	{ /* global args */
 		obj global_args, global_args_dup;
@@ -278,6 +280,24 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 	return ir_cont;
 }
 
+static bool
+setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
+	obj args, enum linker_type t)
+{
+#ifndef MUON_BOOTSTRAPPED
+	// If we aren't bootstrapped, we don't yet have any b_ options defined
+	return true;
+#endif
+
+	obj b_sanitize;
+	get_option(wk, proj, "b_sanitize", &b_sanitize);
+	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
+		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, b_sanitize)));
+	}
+
+	return true;
+}
+
 void
 setup_linker_args(struct workspace *wk, const struct project *proj,
 	enum linker_type linker, enum compiler_language link_lang,
@@ -291,15 +311,17 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	push_args(wk, link_args, linkers[linker].args.as_needed());
 	push_args(wk, link_args, linkers[linker].args.no_undefined());
 
-	if (proj) { /* global args */
+	if (proj) {
+		setup_optional_b_args_linker(wk, proj, link_args, linker);
+
+		/* global args */
 		obj global_args, global_args_dup;
 		if (obj_dict_geti(wk, wk->global_link_args, link_lang, &global_args)) {
 			obj_array_dup(wk, global_args, &global_args_dup);
 			obj_array_extend(wk, link_args, global_args_dup);
 		}
-	}
 
-	if (proj) { /* project args */
+		/* project args */
 		obj proj_args, proj_args_dup;
 		if (obj_dict_geti(wk, proj->link_args, link_lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);

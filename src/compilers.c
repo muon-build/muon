@@ -543,6 +543,7 @@ build_linkers(void)
 			.shared       = compiler_arg_empty_0,
 			.soname       = compiler_arg_empty_1s,
 			.rpath        = compiler_arg_empty_1s,
+			.sanitize     = compiler_arg_empty_1s,
 		}
 	};
 
@@ -556,6 +557,7 @@ build_linkers(void)
 	gcc.args.shared = linker_gcc_args_shared,
 	gcc.args.soname = linker_gcc_args_soname,
 	gcc.args.rpath = linker_gcc_args_rpath,
+	gcc.args.sanitize = compiler_gcc_args_sanitize;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
