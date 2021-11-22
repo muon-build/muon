@@ -11,6 +11,8 @@ tasks:
       ./bootstrap.sh build
       build/muon setup build
       ninja -C build
+      build/muon setup -Db_sanitize=address,undefined build
+      ninja -C build
   - test: |
       cd muon
        build/muon test -d dots build
