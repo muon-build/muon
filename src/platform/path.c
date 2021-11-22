@@ -160,7 +160,6 @@ path_normalize(char *buf)
 		}
 
 		slen -= part_len + (*sep ? 1 : 0);
-		part[slen] = 0;
 	}
 
 	if (!blen) {
