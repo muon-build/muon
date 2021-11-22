@@ -279,8 +279,17 @@ void
 workspace_destroy_bare(struct workspace *wk)
 {
 	bucket_array_destroy(&wk->chrs);
-	bucket_array_destroy(&wk->strs);
 	bucket_array_destroy(&wk->objs);
+
+	uint32_t i;
+	for (i = 0; i < wk->strs.len; ++i) {
+		struct str *s = bucket_array_get(&wk->strs, i);
+
+		if (s->flags & str_flag_big) {
+			z_free((void *)s->s);
+		}
+	}
+	bucket_array_destroy(&wk->strs);
 }
 
 void
