@@ -41,6 +41,37 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 	return true;
 }
 
+struct coerce_string_array_ctx {
+	uint32_t node;
+	obj arr;
+};
+
+enum iteration_result
+coerce_string_array_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct coerce_string_array_ctx *ctx = _ctx;
+	obj res;
+
+	if (!coerce_string(wk, ctx->node, val, &res)) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, ctx->arr, res);
+	return ir_cont;
+}
+
+bool
+coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
+{
+	make_obj(wk, res, obj_array);
+	struct coerce_string_array_ctx ctx = {
+		.node = node,
+		.arr = *res,
+	};
+
+	return obj_array_foreach(wk, arr, &ctx, coerce_string_array_iter);
+}
+
 bool
 coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
