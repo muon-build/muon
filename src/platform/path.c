@@ -99,7 +99,7 @@ path_normalize(char *buf)
 {
 	uint32_t parents = 0;
 	char *part, *sep;
-	uint32_t part_len, i, slen = strlen(buf), blen = 0;
+	uint32_t part_len, i, slen = strlen(buf), blen = 0, sep_len;
 	bool loop = true, skip_part;
 
 	if (!*buf) {
@@ -121,6 +121,7 @@ path_normalize(char *buf)
 			loop = false;
 		}
 
+		sep_len = *sep ? 1 : 0;
 		part_len = sep - part;
 		skip_part = false;
 
@@ -146,20 +147,20 @@ path_normalize(char *buf)
 				blen -= (sep - &buf[i]) - part_len;
 				--parents;
 			} else {
-				part = sep + 1;
+				part = sep + sep_len;
 			}
 		} else {
 			++parents;
-			part = sep + 1;
+			part = sep + sep_len;
 		}
 
 		if (skip_part) {
-			memmove(part, sep + 1, slen);
+			memmove(part, sep + sep_len, slen);
 		} else {
-			blen += part_len + (*sep ? 1 : 0);
+			blen += part_len + sep_len;
 		}
 
-		slen -= part_len + (*sep ? 1 : 0);
+		slen -= part_len + sep_len;
 	}
 
 	if (!blen) {
