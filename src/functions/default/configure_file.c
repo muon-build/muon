@@ -380,7 +380,7 @@ static bool
 perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_t src, uint32_t input_arr, uint32_t *res)
 {
 	const char *s = get_cstr(wk, src);
-	uint32_t str = wk_str_push(wk, ""), e = 0, len;
+	uint32_t str = make_str(wk, ""), e = 0, len;
 
 	for (; *s; ++s) {
 		if (is_substr(s, "@BASENAME@", &len)) {
@@ -398,7 +398,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 				*c = 0;
 			}
 
-			wk_str_app(wk, &str, buf);
+			str_app(wk, str, buf);
 			s += len - 1;
 		} else if (is_substr(s, "@PLAINNAME@", &len)) {
 			if (!array_to_elem_or_err(wk, node, input_arr, &e)) {
@@ -410,10 +410,10 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 				return false;
 			}
 
-			wk_str_app(wk, &str, buf);
+			str_app(wk, str, buf);
 			s += len - 1;
 		} else {
-			wk_str_appn(wk, &str, s, 1);
+			str_appn(wk, str, s, 1);
 		}
 	}
 
@@ -509,7 +509,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		LOG_I("configuring '%s", out_path);
-		output_str = wk_str_push(wk, out_path);
+		output_str = make_str(wk, out_path);
 		make_obj(wk, res, obj_file)->dat.file = output_str;
 	}
 

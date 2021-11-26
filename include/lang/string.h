@@ -7,30 +7,28 @@ struct workspace;
 
 #define WKSTR(cstring) (struct str){ .s = cstring, .len = strlen(cstring) }
 
-bool wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
+bool str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
 
-bool wk_str_has_null(const struct str *ss);
+bool str_has_null(const struct str *ss);
 
 const struct str *get_str(struct workspace *wk, obj s);
 const char *get_cstr(struct workspace *wk, obj s);
-obj wk_str_push(struct workspace *wk, const char *str);
-obj wk_str_pushn(struct workspace *wk, const char *str, uint32_t n);
-obj wk_str_pushf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
+obj make_str(struct workspace *wk, const char *str);
+obj make_strn(struct workspace *wk, const char *str, uint32_t n);
+obj make_strf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
 
-void wk_str_appf(struct workspace *wk, obj *id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
-
-void wk_str_app(struct workspace *wk, obj *id, const char *str);
-void wk_str_appn(struct workspace *wk, obj *id, const char *str, uint32_t n);
+void str_app(struct workspace *wk, obj id, const char *str);
+void str_appf(struct workspace *wk, obj id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+void str_appn(struct workspace *wk, obj id, const char *str, uint32_t n);
 
 obj str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val);
 
-bool wk_streql(const struct str *ss1, const struct str *ss2);
-bool wk_cstreql(const struct str *ss, const char *cstring);
-bool wk_str_startswith(const struct str *ss, const struct str *pre);
-bool wk_str_endswith(const struct str *ss, const struct str *suf);
-obj wk_strcat(struct workspace *wk, obj s1, obj s2);
+bool str_eql(const struct str *ss1, const struct str *ss2);
+bool str_startswith(const struct str *ss, const struct str *pre);
+bool str_endswith(const struct str *ss, const struct str *suf);
+obj str_join(struct workspace *wk, obj s1, obj s2);
 
-bool wk_str_to_i(const struct str *ss, int64_t *res);
+bool str_to_i(const struct str *ss, int64_t *res);
 
-obj wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split);
+obj str_split(struct workspace *wk, const struct str *ss, const struct str *split);
 #endif

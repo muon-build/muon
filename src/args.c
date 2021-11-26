@@ -114,10 +114,10 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		s = buf;
 	}
 
-	wk_str_app(wk, ctx->obj, s);
+	str_app(wk, *ctx->obj, s);
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, ctx->obj, " ");
+		str_app(wk, *ctx->obj, " ");
 	}
 
 	++ctx->i;
@@ -223,7 +223,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 			return ir_err;
 		}
 
-		str = wk_str_push(wk, tmp);
+		str = make_str(wk, tmp);
 		break;
 	}
 	case obj_custom_target: {

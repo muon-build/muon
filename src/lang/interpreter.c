@@ -277,7 +277,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 		switch ((enum arithmetic_type)n->subtype) {
 		case arith_add:
-			res = wk_strcat(wk, l_id, r_id);
+			res = str_join(wk, l_id, r_id);
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];
@@ -285,12 +285,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			const struct str *ss1 = get_str(wk, l_id),
 					 *ss2 = get_str(wk, r_id);
 
-			if (wk_str_has_null(ss1)) {
+			if (str_has_null(ss1)) {
 				interp_error(wk, n->l, "%o is an invalid path", l_id);
 				return false;
 			}
 
-			if (wk_str_has_null(ss2)) {
+			if (str_has_null(ss2)) {
 				interp_error(wk, n->r, "%o is an invalid path", r_id);
 				return false;
 			}
@@ -299,7 +299,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 				return false;
 			}
 
-			res = wk_str_push(wk, buf);
+			res = make_str(wk, buf);
 			break;
 		}
 		default:
@@ -957,7 +957,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = true;
 		break;
 	case node_string:
-		*obj_id = wk_str_pushn(wk, n->dat.s, n->subtype);
+		*obj_id = make_strn(wk, n->dat.s, n->subtype);
 		ret = true;
 		break;
 	case node_array:

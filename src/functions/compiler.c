@@ -515,7 +515,7 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 
 	uint32_t i;
 	for (i = 0; tests[i].name; ++i) {
-		if (wk_cstreql(name, tests[i].name)) {
+		if (str_eql(name, &WKSTR(tests[i].name))) {
 			*res = tests[i].src;
 			return true;
 		}
@@ -1053,7 +1053,7 @@ done:
 		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), path);
 		struct obj *external_library = make_obj(wk, obj, obj_external_library);
 		external_library->dat.external_library.found = true;
-		external_library->dat.external_library.full_path = wk_str_push(wk, path);
+		external_library->dat.external_library.full_path = make_str(wk, path);
 	}
 
 	return true;

@@ -69,7 +69,7 @@ set_options_iter(struct workspace *wk, void *_ctx, obj key, obj v)
 
 	struct option_override oo = { .obj_value = true };
 	if (ctx->parent && *get_cstr(wk, ctx->parent)) {
-		oo.proj = wk_str_push(ctx->sub_wk, get_cstr(wk, ctx->parent));
+		oo.proj = make_str(ctx->sub_wk, get_cstr(wk, ctx->parent));
 	}
 
 	oo.name = str_clone(wk, ctx->sub_wk, key);

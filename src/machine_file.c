@@ -93,7 +93,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 			return false;
 		}
 
-		objkey = wk_str_push(ctx->dest_wk, k);
+		objkey = make_str(ctx->dest_wk, k);
 
 		switch (sect) {
 		case mfile_section_binaries:

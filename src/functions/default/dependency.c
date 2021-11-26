@@ -251,8 +251,8 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_method].set) {
-		if (!(wk_streql(get_str(wk, akw[kw_method].val), &WKSTR("pkg-config"))
-		      || wk_streql(get_str(wk, akw[kw_method].val), &WKSTR("auto")))) {
+		if (!(str_eql(get_str(wk, akw[kw_method].val), &WKSTR("pkg-config"))
+		      || str_eql(get_str(wk, akw[kw_method].val), &WKSTR("auto")))) {
 			interp_error(wk, akw[kw_method].node, "unsupported dependency method %o", akw[kw_method].val);
 			return false;
 		}
@@ -341,7 +341,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	}
 
 	struct obj *dep = make_obj(wk, res, obj_dependency);
-	dep->dat.dep.name = wk_str_pushf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name));
+	dep->dat.dep.name = make_strf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name));
 	dep->dat.dep.link_args = akw[kw_link_args].val;
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;

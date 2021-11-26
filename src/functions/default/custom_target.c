@@ -22,8 +22,8 @@ static bool
 prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 {
 	uint32_t len = strlen(prefix);
-	if (wk_str_startswith(ss, &WKSTR(prefix))) {
-		return wk_str_to_i(&(struct str) {
+	if (str_startswith(ss, &WKSTR(prefix))) {
+		return str_to_i(&(struct str) {
 			.s = &ss->s[len],
 			.len = ss->len - len
 		}, index);
@@ -66,7 +66,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	enum cmd_arg_fmt_key key;
 	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
-		if (wk_cstreql(strkey, key_names[key])) {
+		if (str_eql(strkey, &WKSTR(key_names[key]))) {
 			break;
 		}
 	}
@@ -252,7 +252,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 
 	enum cmd_output_fmt_key key;
 	for (key = 0; key < cmd_output_fmt_key_count; ++key) {
-		if (wk_cstreql(strkey, key_names[key])) {
+		if (str_eql(strkey, &WKSTR(key_names[key]))) {
 			break;
 		}
 	}

@@ -11,7 +11,7 @@
 #include "platform/mem.h"
 
 static bool
-wk_str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
+str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
 {
 	if (*i >= len) {
 		return false;
@@ -23,11 +23,11 @@ wk_str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
 }
 
 static bool
-wk_str_unescape_buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
+str_unescape_buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
 {
 	uint32_t j;
 	for (j = 0; j < n; ++j) {
-		if (!wk_str_unescape_buf_push(buf, len, i, s[j])) {
+		if (!str_unescape_buf_push(buf, len, i, s[j])) {
 			return false;
 		}
 	}
@@ -36,7 +36,7 @@ wk_str_unescape_buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_
 }
 
 bool
-wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
+str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 {
 	uint32_t i, j = 0;
 
@@ -45,11 +45,11 @@ wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 			char unescaped[32];
 			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
 
-			if (!wk_str_unescape_buf_pushn(buf, len, &j, unescaped, n)) {
+			if (!str_unescape_buf_pushn(buf, len, &j, unescaped, n)) {
 				return false;
 			}
 		} else {
-			if (!wk_str_unescape_buf_push(buf, len, &j, ss->s[i])) {
+			if (!str_unescape_buf_push(buf, len, &j, ss->s[i])) {
 				return false;
 			}
 		}
@@ -72,7 +72,7 @@ get_str(struct workspace *wk, obj s)
 }
 
 bool
-wk_str_has_null(const struct str *ss)
+str_has_null(const struct str *ss)
 {
 	uint32_t i;
 	for (i = 0; i < ss->len; ++i) {
@@ -93,7 +93,7 @@ get_cstr(struct workspace *wk, obj s)
 
 	const struct str *ss = get_str(wk, s);
 
-	assert(!wk_str_has_null(ss) && "cstr can not contain null bytes");
+	assert(!str_has_null(ss) && "cstr can not contain null bytes");
 
 	return ss->s;
 }
@@ -161,19 +161,19 @@ _make_str(struct workspace *wk, const char *p, uint32_t len)
 }
 
 obj
-wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
+make_strn(struct workspace *wk, const char *str, uint32_t n)
 {
 	return _make_str(wk, str, n);
 }
 
 obj
-wk_str_push(struct workspace *wk, const char *str)
+make_str(struct workspace *wk, const char *str)
 {
 	return _make_str(wk, str, strlen(str));
 }
 
 obj
-wk_str_pushf(struct workspace *wk, const char *fmt, ...)
+make_strf(struct workspace *wk, const char *fmt, ...)
 {
 	uint32_t len;
 	va_list args, args_copy;
@@ -193,24 +193,21 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 }
 
 void
-// TODO: remove *
-wk_str_appn(struct workspace *wk, obj *s, const char *str, uint32_t n)
+str_appn(struct workspace *wk, obj s, const char *str, uint32_t n)
 {
-	struct str *ss = grow_str(wk, *s, n);
+	struct str *ss = grow_str(wk, s, n);
 	memcpy((char *)&ss->s[ss->len], str, n);
 	ss->len += n;
 }
 
 void
-// TODO: remove *
-wk_str_app(struct workspace *wk, obj *s, const char *str)
+str_app(struct workspace *wk, obj s, const char *str)
 {
-	wk_str_appn(wk, s, str, strlen(str));
+	str_appn(wk, s, str, strlen(str));
 }
 
 void
-// TODO: remove *
-wk_str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
+str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 {
 	uint32_t len;
 	va_list args, args_copy;
@@ -219,7 +216,7 @@ wk_str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	struct str *ss = grow_str(wk, *s, len);
+	struct str *ss = grow_str(wk, s, len);
 
 	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
 
@@ -227,27 +224,21 @@ wk_str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
 	va_end(args);
 }
 
-uint32_t
-make_str(struct workspace *wk, const char *str)
-{
-	return wk_str_push(wk, str);
-}
-
 obj
 str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val)
 {
 	const struct str *ss = get_str(wk_src, val);
-	return wk_str_pushn(wk_dest, ss->s, ss->len);
+	return make_strn(wk_dest, ss->s, ss->len);
 }
 
 bool
-wk_streql(const struct str *ss1, const struct str *ss2)
+str_eql(const struct str *ss1, const struct str *ss2)
 {
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
 
 bool
-wk_str_startswith(const struct str *ss, const struct str *pre)
+str_startswith(const struct str *ss, const struct str *pre)
 {
 	if (ss->len < pre->len) {
 		return false;
@@ -257,7 +248,7 @@ wk_str_startswith(const struct str *ss, const struct str *pre)
 }
 
 bool
-wk_str_endswith(const struct str *ss, const struct str *suf)
+str_endswith(const struct str *ss, const struct str *suf)
 {
 	if (ss->len < suf->len) {
 		return false;
@@ -266,14 +257,8 @@ wk_str_endswith(const struct str *ss, const struct str *suf)
 	return memcmp(&ss->s[ss->len - suf->len], suf->s, suf->len) == 0;
 }
 
-bool
-wk_cstreql(const struct str *ss, const char *cstring)
-{
-	return wk_streql(ss, &WKSTR(cstring));
-}
-
 obj
-wk_strcat(struct workspace *wk, obj s1, obj s2)
+str_join(struct workspace *wk, obj s1, obj s2)
 {
 	obj res;
 	const struct str *ss1 = get_str(wk, s1),
@@ -288,7 +273,7 @@ wk_strcat(struct workspace *wk, obj s1, obj s2)
 }
 
 bool
-wk_str_to_i(const struct str *ss, int64_t *res)
+str_to_i(const struct str *ss, int64_t *res)
 {
 	char *endptr = NULL;
 	*res = strtol(ss->s, &endptr, 10);
@@ -300,7 +285,7 @@ wk_str_to_i(const struct str *ss, int64_t *res)
 }
 
 obj
-wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split)
+str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 {
 	obj res;
 	make_obj(wk, &res, obj_array);
@@ -311,8 +296,8 @@ wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split
 	for (i = 0; i < ss->len; ++i) {
 		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
 
-		if (wk_str_startswith(&slice, split)) {
-			s = wk_str_pushn(wk, &ss->s[start], i - start);
+		if (str_startswith(&slice, split)) {
+			s = make_strn(wk, &ss->s[start], i - start);
 
 			obj_array_push(wk, res, s);
 
@@ -321,7 +306,7 @@ wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split
 		}
 	}
 
-	s = wk_str_pushn(wk, &ss->s[start], i - start);
+	s = make_strn(wk, &ss->s[start], i - start);
 
 	obj_array_push(wk, res, s);
 	return res;

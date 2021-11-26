@@ -143,7 +143,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 				}
 			}
 
-			current_project(wk)->cfg.version = wk_str_pushn(wk, str_ver, i);
+			current_project(wk)->cfg.version = make_strn(wk, str_ver, i);
 
 			fs_source_destroy(&ver_src);
 		} else {
@@ -154,7 +154,7 @@ version_type_error:
 			return false;
 		}
 	} else {
-		current_project(wk)->cfg.version = wk_str_push(wk, "unknown");
+		current_project(wk)->cfg.version = make_str(wk, "unknown");
 	}
 
 	if (akw[kw_default_options].set) {
@@ -407,7 +407,7 @@ found:
 
 	struct obj *external_program = make_obj(wk, ctx->res, obj_external_program);
 	external_program->dat.external_program.found = true;
-	external_program->dat.external_program.full_path = wk_str_push(wk, path);
+	external_program->dat.external_program.full_path = make_str(wk, path);
 	external_program->dat.external_program.ver = ver;
 
 	ctx->found = true;
@@ -747,8 +747,8 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	struct obj *run_result = make_obj(wk, res, obj_run_result);
 	run_result->dat.run_result.status = cmd_ctx.status;
-	run_result->dat.run_result.out = wk_str_pushn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
-	run_result->dat.run_result.err = wk_str_pushn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
+	run_result->dat.run_result.out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
+	run_result->dat.run_result.err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
 
 	ret = true;
 ret:
@@ -778,8 +778,8 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	current_project(wk)->cwd = wk_str_push(wk, cwd);
-	current_project(wk)->build_dir = wk_str_push(wk, build_dir);
+	current_project(wk)->cwd = make_str(wk, cwd);
+	current_project(wk)->build_dir = make_str(wk, build_dir);
 
 	bool ret = eval_project_file(wk, src);
 	current_project(wk)->cwd = old_cwd;
@@ -890,7 +890,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 		return false;
 	}
 
-	dest = wk_str_push(wk, d);
+	dest = make_str(wk, d);
 
 	push_install_target(wk, src, dest, ctx->mode);
 

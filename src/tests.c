@@ -73,7 +73,7 @@ test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
 				.len = sep - proj,
 			};
 
-			if (!wk_streql(get_str(wk, ctx->run_test_ctx->proj_name), &proj_str)) {
+			if (!str_eql(get_str(wk, ctx->run_test_ctx->proj_name), &proj_str)) {
 				continue;
 			}
 		} else {
@@ -82,7 +82,7 @@ test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
 			}
 		}
 
-		if (!wk_streql(get_str(wk, s), &WKSTR(suite))) {
+		if (!str_eql(get_str(wk, s), &WKSTR(suite))) {
 			continue;
 		}
 

@@ -93,9 +93,9 @@ obj_equal(struct workspace *wk, obj left, obj right)
 
 	switch (l->type) {
 	case obj_string:
-		return wk_streql(get_str(wk, left), get_str(wk, right));
+		return str_eql(get_str(wk, left), get_str(wk, right));
 	case obj_file:
-		return wk_streql(get_str(wk, l->dat.file), get_str(wk, r->dat.file));
+		return str_eql(get_str(wk, l->dat.file), get_str(wk, r->dat.file));
 	case obj_number:
 		return l->dat.num == r->dat.num;
 	case obj_bool:
@@ -341,10 +341,10 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *ss = get_str(wk, val);
 
-	wk_str_appn(wk, ctx->res, ss->s, ss->len);
+	str_appn(wk, *ctx->res, ss->s, ss->len);
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_appn(wk, ctx->res, ctx->join->s, ctx->join->len);
+		str_appn(wk, *ctx->res, ctx->join->s, ctx->join->len);
 	}
 
 	++ctx->i;
@@ -523,13 +523,13 @@ static bool
 obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
 	const struct str *ss_a = get_str(wk, other);
-	return wk_streql(ss_a, &key->string);
+	return str_eql(ss_a, &key->string);
 }
 
 static bool
 obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
-	return wk_streql(get_str(wk, key->num), get_str(wk, other));
+	return str_eql(get_str(wk, key->num), get_str(wk, other));
 }
 
 static bool
@@ -908,7 +908,7 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 	obj_to_s_buf_push(ctx, "'");
 
 	uint32_t w = 0;
-	if (!wk_str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w)) {
+	if (!str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w)) {
 		return;
 	}
 	assert(ctx->i + w <= ctx->len);
@@ -1151,7 +1151,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			if (got_object) {
 				if (get_obj(wk, obj)->type == obj_string && !quote_string) {
 					uint32_t w;
-					wk_str_unescape(out_buf, buflen, get_str(wk, obj), &w);
+					str_unescape(out_buf, buflen, get_str(wk, obj), &w);
 					out_buf[w] = 0;
 				} else {
 					obj_to_s(wk, obj, out_buf, buflen);

@@ -140,7 +140,7 @@ detection_over:
 	}
 
 	struct obj *comp = make_obj(wk, comp_id, obj_compiler);
-	comp->dat.compiler.name = wk_str_push(wk, cc);
+	comp->dat.compiler.name = make_str(wk, cc);
 	comp->dat.compiler.type = type;
 	comp->dat.compiler.ver = ver;
 

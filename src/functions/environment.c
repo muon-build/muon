@@ -95,7 +95,7 @@ environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum 
 	}
 
 	obj new_val =
-		wk_str_pushf(wk, "%s%s%s", get_cstr(wk, head), get_cstr(wk, sep), get_cstr(wk, tail));
+		make_strf(wk, "%s%s%s", get_cstr(wk, head), get_cstr(wk, sep), get_cstr(wk, tail));
 
 	obj_dict_set(wk, dict, key, new_val);
 	return true;

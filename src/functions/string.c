@@ -56,7 +56,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	++len;
 
 	assert((int64_t)len >= (int64_t)i);
-	*obj = wk_str_pushn(wk, &ss->s[i], len - i);
+	*obj = make_strn(wk, &ss->s[i], len - i);
 	return true;
 }
 
@@ -113,7 +113,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 	uint32_t i, id_start, id_end = 0;
 	bool reading_id = false;
 
-	*s_out = wk_str_push(wk, "");
+	*s_out = make_str(wk, "");
 
 	for (i = 0; i < ss_in->len; ++i) {
 		if (ss_in->s[i] == '@') {
@@ -122,7 +122,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 				id_end = i + 1;
 
 				if (i == id_start) {
-					wk_str_app(wk, s_out, "@");
+					str_app(wk, *s_out, "@");
 					reading_id = false;
 					continue;
 				} else if (i - id_start >= MAX_KEY_LEN) {
@@ -146,12 +146,12 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 					}
 
 					const struct str *ss = get_str(wk, coerced);
-					wk_str_appn(wk, s_out, ss->s, ss->len);
+					str_appn(wk, *s_out, ss->s, ss->len);
 					break;
 				}
 				case format_cb_skip: {
-					wk_str_app(wk, s_out, "@");
-					wk_str_appn(wk, s_out, key.s, key.len);
+					str_app(wk, *s_out, "@");
+					str_appn(wk, *s_out, key.s, key.len);
 					id_start = i + 1;
 					continue;
 				}
@@ -160,7 +160,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 				reading_id = false;
 			} else {
 				if (i) {
-					wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
+					str_appn(wk, *s_out, &ss_in->s[id_end], i - id_end);
 				}
 
 				id_start = i + 1;
@@ -171,11 +171,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 	}
 
 	if (reading_id) {
-		wk_str_app(wk, s_out, "@");
-		wk_str_appn(wk, s_out, key.s, key.len);
+		str_app(wk, *s_out, "@");
+		str_appn(wk, *s_out, key.s, key.len);
 	} else {
 		if (i > id_end) {
-			wk_str_appn(wk, s_out, &ss_in->s[id_end], i - id_end);
+			str_appn(wk, *s_out, &ss_in->s[id_end], i - id_end);
 		}
 	}
 
@@ -192,7 +192,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 	struct func_format_ctx *ctx = _ctx;
 	int64_t i;
 
-	if (!wk_str_to_i(key, &i)) {
+	if (!str_to_i(key, &i)) {
 		return format_cb_skip;
 	}
 
@@ -264,7 +264,7 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 			 *ss = get_str(wk, rcvr);
 
 
-	*obj = wk_str_split(wk, ss, split);
+	*obj = str_split(wk, ss, split);
 	return true;
 }
 
@@ -299,7 +299,7 @@ string_to_version(struct workspace *wk, struct version *v, const struct str *ss)
 				++strnum.len;
 			}
 
-			if (!wk_str_to_i(&strnum, &res)) {
+			if (!str_to_i(&strnum, &res)) {
 				return false;
 			} else if (res < 0) {
 				return false;
@@ -394,7 +394,7 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 	uint32_t i;
 
 	for (i = 0; i < ARRAY_LEN(ops); ++i) {
-		if (wk_str_startswith(&ss2, &ops[i].name)) {
+		if (str_startswith(&ss2, &ops[i].name)) {
 			op = ops[i].op;
 			ss2.s += ops[i].name.len;
 			ss2.len -= ops[i].name.len;
@@ -502,7 +502,7 @@ func_string_startswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = wk_str_startswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	make_obj(wk, res, obj_bool)->dat.boolean = str_startswith(get_str(wk, rcvr), get_str(wk, an[0].val));
 	return true;
 }
 
@@ -514,7 +514,7 @@ func_string_endswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = wk_str_endswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	make_obj(wk, res, obj_bool)->dat.boolean = str_endswith(get_str(wk, rcvr), get_str(wk, an[0].val));
 	return true;
 }
 

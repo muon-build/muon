@@ -11,7 +11,7 @@ static bool
 fix_file_path(struct workspace *wk, uint32_t err_node, obj path, const char **res)
 {
 	const struct str *ss = get_str(wk, path);
-	if (wk_str_has_null(ss)) {
+	if (str_has_null(ss)) {
 		interp_error(wk, err_node, "path cannot contain null bytes");
 		return false;
 	}
@@ -98,7 +98,7 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	*res = wk_str_pushn(wk, src.src, src.len);
+	*res = make_strn(wk, src.src, src.len);
 
 	fs_source_destroy(&src);
 	return true;

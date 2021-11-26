@@ -294,7 +294,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		obj_array_dedup(wk, ctx.args.link_with, &link_with);
 
 		if (get_obj(wk, ctx.args.link_with)->dat.arr.len) {
-			implicit_deps = wk_strcat(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
+			implicit_deps = str_join(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
 		}
 
 		setup_linker_args(wk, ctx.proj, linker, ctx.link_language,

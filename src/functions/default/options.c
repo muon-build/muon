@@ -46,10 +46,10 @@ parse_config_string(struct workspace *wk, char *lhs, struct option_override *oo)
 		return false;
 	}
 
-	oo->name = wk_str_push(wk, lhs);
-	oo->val = wk_str_push(wk, rhs);
+	oo->name = make_str(wk, lhs);
+	oo->val = make_str(wk, rhs);
 	if (subproj) {
-		oo->proj = wk_str_push(wk, subproj);
+		oo->proj = make_str(wk, subproj);
 	}
 
 	return true;
@@ -244,7 +244,7 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 		break;
 	}
 	case op_array: {
-		*obj_id = wk_str_split(wk, &WKSTR(val), &WKSTR(","));
+		*obj_id = str_split(wk, &WKSTR(val), &WKSTR(","));
 		break;
 	}
 	case op_feature:
@@ -609,7 +609,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 	struct parse_and_set_default_options_ctx *ctx = _ctx;
 
 	const struct str *ss = get_str(wk, v);
-	if (wk_str_has_null(ss)) {
+	if (str_has_null(ss)) {
 		interp_error(wk, ctx->node, "invalid option string");
 		return ir_err;
 	}

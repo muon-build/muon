@@ -36,7 +36,7 @@ func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	*res = wk_str_pushf(wk, "%" PRId64, get_obj(wk, rcvr)->dat.num);
+	*res = make_strf(wk, "%" PRId64, get_obj(wk, rcvr)->dat.num);
 	return true;
 }
 

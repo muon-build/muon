@@ -26,7 +26,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		make_obj(wk, res, obj_string)->dat.str = v->dat.str;
 		break;
 	case obj_number: {
-		*res = wk_str_pushf(wk, "%" PRId64, v->dat.num);
+		*res = make_strf(wk, "%" PRId64, v->dat.num);
 		break;
 	}
 	case obj_string: {
@@ -99,7 +99,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 			return false;
 		}
 
-		str = wk_str_push(wk, dest);
+		str = make_str(wk, dest);
 		break;
 	}
 	case obj_external_program:
@@ -196,7 +196,7 @@ coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 			return false;
 		}
 
-		s2 = wk_str_push(wk, path);
+		s2 = make_str(wk, path);
 	}
 
 	make_obj(wk, res, obj_file)->dat.file = s2;
@@ -229,7 +229,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 				return ir_err;
 			}
 
-			make_obj(wk, &file, obj_file)->dat.file = wk_str_push(wk, buf);
+			make_obj(wk, &file, obj_file)->dat.file = make_str(wk, buf);
 			break;
 		default:
 			assert(false);
@@ -255,7 +255,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		}
 
 		uint32_t file;
-		make_obj(wk, &file, obj_file)->dat.file = wk_str_push(wk, path);
+		make_obj(wk, &file, obj_file)->dat.file = make_str(wk, path);
 		obj_array_push(wk, ctx->arr, file);
 		break;
 	}
@@ -349,7 +349,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 			return ir_err;
 		}
 
-		path = wk_str_push(wk, buf1);
+		path = make_str(wk, buf1);
 	}
 
 	p = get_cstr(wk, path);
@@ -373,7 +373,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 		}
 
 		d = make_obj(wk, &inc, obj_include_directory);
-		d->dat.include_directory.path = wk_str_push(wk, buf2);
+		d->dat.include_directory.path = make_str(wk, buf2);
 		d->dat.include_directory.is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}

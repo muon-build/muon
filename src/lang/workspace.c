@@ -69,7 +69,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 			return NULL;
 		}
 
-		sdest = wk_str_push(wk, buf);
+		sdest = make_str(wk, buf);
 	}
 
 	tgt->dat.install_target.dest = sdest;
@@ -89,7 +89,7 @@ push_install_target_install_dir(struct workspace *wk, obj ssrc,
 		return NULL;
 	}
 
-	obj sdest = wk_str_push(wk, dest);
+	obj sdest = make_str(wk, dest);
 
 	return push_install_target(wk, ssrc, sdest, mode);
 }
@@ -110,7 +110,7 @@ push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
 		return NULL;
 	}
 
-	return push_install_target(wk, wk_str_push(wk, src), wk_str_push(wk, dest), mode);
+	return push_install_target(wk, make_str(wk, src), make_str(wk, dest), mode);
 }
 
 struct push_install_targets_ctx {
@@ -195,14 +195,14 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	make_obj(wk, &proj->tests, obj_array);
 
 	if (subproject_name) {
-		proj->subproject_name = wk_str_push(wk, subproject_name);
+		proj->subproject_name = make_str(wk, subproject_name);
 	} else {
 		proj->subproject_name = 0;
 	}
 
-	proj->cwd = wk_str_push(wk, cwd);
+	proj->cwd = make_str(wk, cwd);
 	proj->source_root = proj->cwd;
-	proj->build_dir = wk_str_push(wk, build_dir);
+	proj->build_dir = make_str(wk, build_dir);
 	proj->build_root = proj->build_dir;
 
 	return proj;

@@ -79,9 +79,9 @@ default_library_type(struct workspace *wk)
 	obj opt;
 	get_option(wk, current_project(wk), "default_library", &opt);
 
-	if (wk_streql(get_str(wk, opt), &WKSTR("static"))) {
+	if (str_eql(get_str(wk, opt), &WKSTR("static"))) {
 		return tgt_static_library;
-	} else if (wk_streql(get_str(wk, opt), &WKSTR("shared"))) {
+	} else if (str_eql(get_str(wk, opt), &WKSTR("shared"))) {
 		return tgt_dynamic_library;
 	} else {
 		assert(false && "unreachable");
@@ -137,7 +137,7 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *
 		}
 	}
 
-	tgt->dat.tgt.soname = wk_str_pushf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
+	tgt->dat.tgt.soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
 
 	static char soname_symlink[PATH_MAX], plain_name_symlink[PATH_MAX];
 
@@ -145,7 +145,7 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *
 		return false;
 	}
 
-	if (!wk_streql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
+	if (!str_eql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
 		if (!path_join(soname_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir),
 			get_cstr(wk, tgt->dat.tgt.soname))) {
 			return false;
@@ -158,7 +158,7 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *
 		*soname_install = soname_symlink;
 	}
 
-	if (!wk_cstreql(get_str(wk, tgt->dat.tgt.soname), plain_name)) {
+	if (!str_eql(get_str(wk, tgt->dat.tgt.soname), &WKSTR(plain_name))) {
 		if (!path_join(plain_name_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), plain_name)) {
 			return false;
 		}
@@ -212,7 +212,7 @@ determine_target_build_name(struct workspace *wk, struct obj *tgt, obj sover, ob
 
 	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
 
-	tgt->dat.tgt.build_name = wk_str_pushf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
+	tgt->dat.tgt.build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
 	return true;
 }
 
@@ -361,12 +361,12 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		install_tgt->dat.install_target.build_target = true;
 
 		if (soname_install) {
-			push_install_target_install_dir(wk, wk_str_push(wk, soname_install),
+			push_install_target_install_dir(wk, make_str(wk, soname_install),
 				install_dir, akw[bt_kw_install_mode].val);
 		}
 
 		if (plain_name_install) {
-			push_install_target_install_dir(wk, wk_str_push(wk, plain_name_install),
+			push_install_target_install_dir(wk, make_str(wk, plain_name_install),
 				install_dir, akw[bt_kw_install_mode].val);
 		}
 	}
