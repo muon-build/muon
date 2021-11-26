@@ -84,25 +84,25 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		obj_array_index(wk, arr, 0, &e);
 
-		make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, e)->dat.file;
+		*elem = get_obj(wk, e)->dat.file;
 		return format_cb_found;
 	}
 	case key_outdir:
 		/* @OUTDIR@: the full path to the directory where the output(s)
 		 * must be written */
-		make_obj(wk, elem, obj_string)->dat.str = current_project(wk)->build_dir;
+		*elem = current_project(wk)->build_dir;
 		return format_cb_found;
 	case key_current_source_dir:
 		/* @CURRENT_SOURCE_DIR@: this is the directory where the
 		 * currently processed meson.build is located in. Depending on
 		 * the backend, this may be an absolute or a relative to
 		 * current workdir path. */
-		make_obj(wk, elem, obj_string)->dat.str = current_project(wk)->cwd;
+		*elem = current_project(wk)->cwd;
 		return format_cb_found;
 	case key_private_dir:
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
 		 * custom target must store all its intermediate files. */
-		make_obj(wk, elem, obj_string)->dat.str = wk_str_push(wk, "/tmp");
+		*elem = make_str(wk, "/tmp");
 		return format_cb_found;
 	case key_depfile:
 		*elem = ctx->depfile;
@@ -149,7 +149,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		return format_cb_error;
 	}
 
-	make_obj(wk, elem, obj_string)->dat.str = get_obj(wk, e)->dat.file;
+	*elem = get_obj(wk, e)->dat.file;
 	return format_cb_found;
 }
 
@@ -190,12 +190,11 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_cont;
 		}
 
-		str s;
-		if (!string_format(wk, ctx->err_node, get_obj(wk, val)->dat.str,
-			&s, ctx, format_cmd_arg_cb)) {
+		obj s;
+		if (!string_format(wk, ctx->err_node, val, &s, ctx, format_cmd_arg_cb)) {
 			return ir_err;
 		}
-		make_obj(wk, &ss, obj_string)->dat.str = s;
+		ss = s;
 		break;
 	}
 	default:
@@ -304,13 +303,16 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
-	str s;
-	if (!string_format(wk, ctx->err_node, get_obj(wk, v)->dat.str,
-		&s, ctx, format_cmd_output_cb)) {
+	struct obj *file = get_obj(wk, v);
+	assert(file->type == obj_file);
+
+	obj s;
+	if (!string_format(wk, ctx->err_node, file->dat.file, &s, ctx, format_cmd_output_cb)) {
 		return ir_err;
 	}
+
 	obj f;
-	make_obj(wk, &f, obj_file)->dat.str = s;
+	make_obj(wk, &f, obj_file)->dat.file = s;
 
 	obj_array_push(wk, ctx->output, f);
 
@@ -371,7 +373,7 @@ make_custom_target(struct workspace *wk,
 	}
 
 	struct obj *tgt = make_obj(wk, res, obj_custom_target);
-	tgt->dat.custom_target.name = get_obj(wk, name)->dat.str;
+	tgt->dat.custom_target.name = name;
 	tgt->dat.custom_target.args = args;
 	tgt->dat.custom_target.input = input;
 	tgt->dat.custom_target.output = output;
@@ -496,7 +498,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	if (akw[kw_fallback].set) {
 		fallback = akw[kw_fallback].val;
 	} else {
-		make_obj(wk, &fallback, obj_string)->dat.str = current_project(wk)->cfg.version;
+		fallback = current_project(wk)->cfg.version;
 	}
 
 	obj command;
@@ -508,9 +510,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		NULL,
 	});
 
-	obj cwd;
-	make_obj(wk, &cwd, obj_string)->dat.str = current_project(wk)->build_dir;
-	obj_array_push(wk, command, cwd);
+	obj_array_push(wk, command, current_project(wk)->build_dir);
 
 	push_args_null_terminated(wk, command, (char *const []){
 		"internal",

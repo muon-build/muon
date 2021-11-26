@@ -56,7 +56,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	++len;
 
 	assert((int64_t)len >= (int64_t)i);
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_pushn(wk, &ss->s[i], len - i);
+	*obj = wk_str_pushn(wk, &ss->s[i], len - i);
 	return true;
 }
 
@@ -67,7 +67,7 @@ func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
+	*res = str_clone(wk, wk, rcvr);
 
 	const struct str *ss = get_str(wk, *res);
 
@@ -88,7 +88,7 @@ func_to_lower(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
+	*res = str_clone(wk, wk, rcvr);
 
 	const struct str *ss = get_str(wk, *res);
 
@@ -105,7 +105,7 @@ func_to_lower(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 #define MAX_KEY_LEN 64
 
 bool
-string_format(struct workspace *wk, uint32_t err_node, str s_in, str *s_out, void *ctx, string_format_cb cb)
+string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, void *ctx, string_format_cb cb)
 {
 	struct str key;
 	const struct str *ss_in = get_str(wk, s_in);
@@ -220,11 +220,11 @@ func_format(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 
 
 	uint32_t str;
-	if (!string_format(wk, an[0].node, get_obj(wk, rcvr)->dat.str, &str, &ctx, func_format_cb)) {
+	if (!string_format(wk, an[0].node, rcvr, &str, &ctx, func_format_cb)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = str;
+	*obj = str;
 	return true;
 }
 
@@ -235,7 +235,7 @@ func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = str_clone(wk, wk, rcvr);
+	*res = str_clone(wk, wk, rcvr);
 
 	const struct str *ss = get_str(wk, *res);
 

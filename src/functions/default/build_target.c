@@ -222,7 +222,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	char plain_name[BUF_SIZE_2k];
 	struct obj *tgt = make_obj(wk, res, obj_build_target);
 	tgt->dat.tgt.type = type;
-	tgt->dat.tgt.name = get_obj(wk, an[0].val)->dat.str;
+	tgt->dat.tgt.name = an[0].val;
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
@@ -257,9 +257,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (!(akw[bt_kw_implicit_include_directories].set
 		      && !get_obj(wk, akw[bt_kw_implicit_include_directories].val)->dat.boolean)) {
-			obj str;
-			make_obj(wk, &str, obj_string)->dat.str = current_project(wk)->cwd;
-			obj_array_push(wk, inc_dirs, str);
+			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
 		}
 
 		if (akw[bt_kw_include_directories].set) {
@@ -364,12 +362,12 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (soname_install) {
 			push_install_target_install_dir(wk, wk_str_push(wk, soname_install),
-				get_obj(wk, install_dir)->dat.str, akw[bt_kw_install_mode].val);
+				install_dir, akw[bt_kw_install_mode].val);
 		}
 
 		if (plain_name_install) {
 			push_install_target_install_dir(wk, wk_str_push(wk, plain_name_install),
-				get_obj(wk, install_dir)->dat.str, akw[bt_kw_install_mode].val);
+				install_dir, akw[bt_kw_install_mode].val);
 		}
 	}
 

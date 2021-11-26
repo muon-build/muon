@@ -172,9 +172,7 @@ eval_project_file(struct workspace *wk, const char *path)
 	/* L("evaluating '%s'", src); */
 	bool ret = false;
 	{
-		uint32_t id;
-		make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, path);
-		obj_array_push(wk, wk->sources, id);
+		obj_array_push(wk, wk->sources, make_str(wk, path));
 	}
 
 	struct source src = { 0 };

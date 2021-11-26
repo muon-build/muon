@@ -86,9 +86,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
-	obj comp_name;
-	make_obj(wk, &comp_name, obj_string)->dat.str = comp->dat.compiler.name;
-	obj_array_push(wk, compiler_args, comp_name);
+	obj_array_push(wk, compiler_args, comp->dat.compiler.name);
 	push_args(wk, compiler_args, compilers[t].args.werror());
 
 	if (opts->inc && opts->inc->set) {
@@ -681,7 +679,7 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	switch (src_obj->type) {
 	case obj_string:
-		src = get_cstr(wk, src_obj->dat.str);
+		src = get_cstr(wk, o);
 		break;
 	case obj_file: {
 		src  = get_cstr(wk, src_obj->dat.file);
@@ -984,7 +982,7 @@ func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = wk_str_push(wk, compiler_type_to_s(get_obj(wk, rcvr)->dat.compiler.type));
+	*obj = make_str(wk, compiler_type_to_s(get_obj(wk, rcvr)->dat.compiler.type));
 	return true;
 }
 
@@ -1069,9 +1067,7 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	}
 
 	make_obj(wk, res, obj_array);
-	obj s;
-	make_obj(wk, &s, obj_string)->dat.str = get_obj(wk, rcvr)->dat.compiler.name;
-	obj_array_push(wk, *res, s);
+	obj_array_push(wk, *res, get_obj(wk, rcvr)->dat.compiler.name);
 	return true;
 }
 

@@ -26,7 +26,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		make_obj(wk, res, obj_string)->dat.str = v->dat.str;
 		break;
 	case obj_number: {
-		make_obj(wk, res, obj_string)->dat.str = wk_str_pushf(wk, "%" PRId64, v->dat.num);
+		*res = wk_str_pushf(wk, "%" PRId64, v->dat.num);
 		break;
 	}
 	case obj_string: {
@@ -115,7 +115,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = str;
+	*res = str;
 	return true;
 }
 
@@ -184,14 +184,12 @@ coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, uint32_t val)
 bool
 coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 {
-	struct obj *s = get_obj(wk, string);
-	assert(s->type == obj_string);
+	assert(get_obj(wk, string)->type == obj_string);
+	const char *p = get_cstr(wk, string);
 
-	const char *p = get_cstr(wk, s->dat.str);
-
-	str s2;
+	obj s2;
 	if (path_is_absolute(p)) {
-		s2 = s->dat.str;
+		s2 = string;
 	} else {
 		char path[PATH_MAX];
 		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
@@ -201,7 +199,7 @@ coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 		s2 = wk_str_push(wk, path);
 	}
 
-	make_obj(wk, res, obj_file)->dat.str = s2;
+	make_obj(wk, res, obj_file)->dat.file = s2;
 	return true;
 }
 
@@ -342,7 +340,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 		return ir_err;
 	}
 
-	str path = d->dat.str;
+	obj path = v;
 	char buf1[PATH_MAX], buf2[PATH_MAX];
 	const char *p = get_cstr(wk, path);
 

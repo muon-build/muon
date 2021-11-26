@@ -417,7 +417,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 		}
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = str;
+	*res = str;
 	return true;
 }
 
@@ -564,7 +564,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		if (akw[kw_input].set) {
-			uint32_t input;
+			obj input;
 
 			/* NOTE: when meson gets an empty array as the input argument
 			 * to configure file, it acts like the input keyword wasn't set.
@@ -574,8 +574,21 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 				return false;
 			}
 
+			const char *path;
+			switch (get_obj(wk, input)->type) {
+			case obj_file:
+				path = wk_file_path(wk, input);
+				break;
+			case obj_string:
+				path = get_cstr(wk, input);
+				break;
+			default:
+				interp_error(wk, akw[kw_input].node, "unable to coerce input to file");
+				return false;
+			}
+
 			if (!substitute_config(wk, dict, akw[kw_input].node,
-				wk_file_path(wk, input), output_str)) {
+				path, output_str)) {
 				return false;
 			}
 		} else {
@@ -592,7 +605,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		push_install_target_install_dir(wk, output_str, get_obj(wk, akw[kw_install_dir].val)->dat.str, akw[kw_install_mode].val);
+		push_install_target_install_dir(wk, output_str, akw[kw_install_dir].val, akw[kw_install_mode].val);
 	}
 
 	return true;

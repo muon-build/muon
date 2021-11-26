@@ -114,10 +114,10 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		s = buf;
 	}
 
-	wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, s);
+	wk_str_app(wk, ctx->obj, s);
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_app(wk, &get_obj(wk, *ctx->obj)->dat.str, " ");
+		wk_str_app(wk, ctx->obj, " ");
 	}
 
 	++ctx->i;
@@ -128,11 +128,10 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 static uint32_t
 join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 {
-	uint32_t obj;
-	make_obj(wk, &obj, obj_string)->dat.str = wk_str_push(wk, "");
+	obj o = make_str(wk, "");
 
 	struct join_args_iter_ctx ctx = {
-		.obj = &obj,
+		.obj = &o,
 		.len = get_obj(wk, arr)->dat.arr.len,
 		.escape = escape
 	};
@@ -142,7 +141,7 @@ join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 		return 0;
 	}
 
-	return obj;
+	return o;
 }
 
 uint32_t
@@ -204,14 +203,14 @@ join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t a
 static enum iteration_result
 arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 {
-	uint32_t *res = _ctx;
-	uint32_t str, str_obj;
+	obj *res = _ctx;
+	obj str;
 
 	struct obj *o = get_obj(wk, src);
 
 	switch (o->type) {
 	case obj_string:
-		str = o->dat.str;
+		str = src;
 		break;
 	case obj_file:
 		str = o->dat.file;
@@ -242,8 +241,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		return ir_err;
 	}
 
-	make_obj(wk, &str_obj, obj_string)->dat.str = str;
-	obj_array_push(wk, *res, str_obj);
+	obj_array_push(wk, *res, str);
 	return ir_cont;
 }
 
@@ -347,7 +345,7 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 	struct obj *v = get_obj(wk, val);
 	switch (v->type) {
 	case obj_string:
-		return push_envp_str(&ctx, get_cstr(wk, v->dat.str));
+		return push_envp_str(&ctx, get_cstr(wk, val));
 	case obj_array:
 		return obj_array_foreach_flat(wk, val, &ctx, env_to_envp_arr_iter);
 	case obj_dict:

@@ -87,7 +87,7 @@ func_build_target_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = get_obj(wk, rcvr)->dat.tgt.name;
+	*res = get_obj(wk, rcvr)->dat.tgt.name;
 	return true;
 }
 
@@ -144,8 +144,10 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
+	v = get_obj(wk, file);
+
 	enum compiler_language l;
-	if (!filename_to_compiler_language(get_cstr(wk, get_obj(wk, val)->dat.file), &l)) {
+	if (!filename_to_compiler_language(get_cstr(wk, v->dat.file), &l)) {
 		return ir_err;
 	}
 

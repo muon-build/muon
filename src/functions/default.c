@@ -98,7 +98,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	current_project(wk)->cfg.name = get_obj(wk, an[0].val)->dat.str;
+	current_project(wk)->cfg.name = an[0].val;
 
 	if (!obj_array_foreach_flat(wk, an[1].val,
 		&(struct project_add_language_iter_ctx) { an[1].node },
@@ -106,7 +106,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	current_project(wk)->cfg.license = get_obj(wk, akw[kw_license].val)->dat.str;
+	current_project(wk)->cfg.license = akw[kw_license].val;
 
 	if (akw[kw_version].set) {
 		struct obj *ver = get_obj(wk, akw[kw_version].val);
@@ -123,7 +123,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		if (ver->type == obj_string) {
-			current_project(wk)->cfg.version = ver->dat.str;
+			current_project(wk)->cfg.version = akw[kw_version].val;
 		} else if (ver->type == obj_file) {
 			struct source ver_src = { 0 };
 			if (!fs_read_entire_file(get_cstr(wk, ver->dat.file), &ver_src)) {
@@ -767,8 +767,8 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	char src[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
 
-	str old_cwd = current_project(wk)->cwd;
-	str old_build_dir = current_project(wk)->build_dir;
+	obj old_cwd = current_project(wk)->cwd;
+	obj old_build_dir = current_project(wk)->build_dir;
 
 	if (!path_join(cwd, PATH_MAX, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val))) {
 		return false;
@@ -879,8 +879,8 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	struct obj *v = get_obj(wk, val);
 	assert(v->type == obj_file);
 
-	str src = v->dat.file;
-	str dest;
+	obj src = v->dat.file;
+	obj dest;
 
 	obj rename;
 	obj_array_index(wk, ctx->rename, ctx->i, &rename);
@@ -1119,7 +1119,7 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, ctx.buf);
+	*res = make_str(wk, ctx.buf);
 	return true;
 }
 

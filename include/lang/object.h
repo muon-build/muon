@@ -6,7 +6,6 @@
 
 #include "compilers.h"
 #include "iterator.h"
-#include "lang/string.h"
 #include "lang/types.h"
 
 enum obj_type {
@@ -87,11 +86,21 @@ enum build_option_type {
 	build_option_type_count,
 };
 
+enum str_flags {
+	str_flag_big = 1 << 0,
+};
+
+struct str {
+	const char *s;
+	uint32_t len;
+	enum str_flags flags;
+};
+
 struct obj {
 	enum obj_type type;
 	union {
-		str str;
-		str file;
+		struct str str;
+		obj file;
 		int64_t num;
 		bool boolean;
 		struct {
@@ -118,11 +127,11 @@ struct obj {
 			bool have_next;
 		} dict;
 		struct {
-			str name;
-			str build_name;
-			str cwd;
-			str build_dir;
-			str soname;
+			obj name;
+			obj build_name;
+			obj cwd;
+			obj build_dir;
+			obj soname;
 			obj src; // obj_array
 			obj link_with; // obj_array
 			obj include_directories; // obj_array
@@ -132,7 +141,7 @@ struct obj {
 			enum tgt_type type;
 		} tgt;
 		struct {
-			str name;
+			obj name;
 			obj args; // obj_array
 			obj input; // obj_array
 			obj output; // obj_array
@@ -154,16 +163,16 @@ struct obj {
 		} feature_opt;
 		struct {
 			bool found;
-			str full_path;
+			obj full_path;
 			obj ver;
 		} external_program;
 		struct {
-			str full_path;
+			obj full_path;
 			bool found;
 		} external_library;
 		struct {
-			str out;
-			str err;
+			obj out;
+			obj err;
 			int32_t status;
 		} run_result;
 		struct {
@@ -178,14 +187,14 @@ struct obj {
 			bool should_fail;
 		} test;
 		struct {
-			str name;
+			obj name;
 			obj ver;
 			enum compiler_type type;
 			enum compiler_language lang;
 		} compiler;
 		struct {
-			str src;
-			str dest;
+			obj src;
+			obj dest;
 			obj mode;
 			bool build_target;
 		} install_target;
@@ -193,7 +202,7 @@ struct obj {
 			obj env; /* dict */
 		} environment;
 		struct {
-			str path;
+			obj path;
 			bool is_system;
 		} include_directory;
 		struct {

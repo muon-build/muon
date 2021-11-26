@@ -28,8 +28,8 @@ guess_version(struct workspace *wk, const char *src, obj *res)
 	uint32_t len = ver_end - ver;
 
 	if (len) {
-		str s = wk_str_pushn(wk, ver, len);
-		make_obj(wk, res, obj_string)->dat.str = s;
+		obj s = wk_str_pushn(wk, ver, len);
+		*res = s;
 		return true;
 	} else {
 		return false;

@@ -16,14 +16,14 @@
 struct project {
 	struct hash scope;
 
-	str source_root, build_root, cwd, build_dir, subproject_name;
+	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
 	obj args, link_args;
 
 	struct {
-		str name;
-		str version;
-		str license;
+		obj name;
+		obj version;
+		obj license;
 	} cfg;
 };
 
@@ -39,7 +39,7 @@ struct option_override {
 };
 
 enum {
-	disabler_id = 1 << 1
+	disabler_id = 1
 };
 
 struct workspace {
@@ -63,7 +63,6 @@ struct workspace {
 	obj global_link_args;
 
 	struct bucket_array chrs;
-	struct bucket_array strs;
 	struct bucket_array objs;
 
 	struct darr projects;

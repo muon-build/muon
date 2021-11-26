@@ -66,7 +66,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 
 		if (proj->tests) {
 			obj res, key;
-			make_obj(wk, &key, obj_string)->dat.str = proj->cfg.name;
+			key = proj->cfg.name;
 
 			if (obj_dict_index(wk, tests, key, &res)) {
 				LOG_E("project defined multiple times");
@@ -110,7 +110,7 @@ ninja_write_opts(struct workspace *wk, void *_ctx, FILE *out)
 
 		obj key;
 		if (proj->subproject_name) {
-			make_obj(wk, &key, obj_string)->dat.str = proj->subproject_name;
+			key = proj->subproject_name;
 		} else {
 			key = make_str(wk, "");
 		}

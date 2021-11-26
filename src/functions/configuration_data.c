@@ -39,9 +39,8 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	obj val;
 	const char *s = get_cstr(wk, an[1].val);
-	str str = wk_str_push(wk, "\"");
+	obj str = make_str(wk, "\"");
 
 	for (; *s; ++s) {
 		if (*s == '"') {
@@ -53,9 +52,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 
 	wk_str_app(wk, &str, "\"");
 
-	make_obj(wk, &val, obj_string)->dat.str = str;
-	obj_dict_set(wk, dict, an[0].val, val);
-
+	obj_dict_set(wk, dict, an[0].val, str);
 	return true;
 }
 
@@ -164,7 +161,7 @@ func_configuration_data_get_unquoted(struct workspace *wk, obj rcvr, uint32_t ar
 	uint32_t l = strlen(s);
 
 	if (l >= 2 && s[0] == '"' && s[l - 1] == '"') {
-		make_obj(wk, res, obj_string)->dat.str = wk_str_pushn(wk, &s[1], l - 2);
+		*res = wk_str_pushn(wk, &s[1], l - 2);
 	} else {
 		*res = v;
 	}

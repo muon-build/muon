@@ -41,7 +41,7 @@ func_meson_project_name(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->cfg.name;
+	*obj = current_project(wk)->cfg.name;
 	return true;
 }
 
@@ -52,7 +52,7 @@ func_meson_project_version(struct workspace *wk, uint32_t _, uint32_t args_node,
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->cfg.version;
+	*obj = current_project(wk)->cfg.version;
 	return true;
 }
 
@@ -74,7 +74,7 @@ func_meson_current_source_dir(struct workspace *wk, uint32_t _, uint32_t args_no
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->cwd;
+	*obj = current_project(wk)->cwd;
 	return true;
 }
 
@@ -85,7 +85,7 @@ func_meson_current_build_dir(struct workspace *wk, uint32_t _, uint32_t args_nod
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->build_dir;
+	*obj = current_project(wk)->build_dir;
 	return true;
 }
 
@@ -96,7 +96,7 @@ func_meson_project_source_root(struct workspace *wk, uint32_t _, uint32_t args_n
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->source_root;
+	*obj = current_project(wk)->source_root;
 	return true;
 }
 
@@ -107,7 +107,7 @@ func_meson_project_build_root(struct workspace *wk, uint32_t _, uint32_t args_no
 		return false;
 	}
 
-	make_obj(wk, obj, obj_string)->dat.str = current_project(wk)->build_root;
+	*obj = current_project(wk)->build_root;
 	return true;
 }
 
@@ -203,7 +203,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 		if (ctx->i) {
 			str = val;
 		} else {
-			const char *p = get_cstr(wk, o->dat.str);
+			const char *p = get_cstr(wk, val);
 
 			if (path_is_absolute(p)) {
 				str = val;

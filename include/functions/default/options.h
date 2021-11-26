@@ -11,5 +11,5 @@ bool check_invalid_subproject_option(struct workspace *wk);
 bool set_builtin_options(struct workspace *wk);
 
 bool parse_and_set_cmdline_option(struct workspace *wk, char *lhs);
-bool parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, str project_name);
+bool parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name);
 #endif

@@ -162,7 +162,7 @@ install_run(const char *build_root, struct install_options *opts)
 	if (!path_cwd(wk.build_root, PATH_MAX)) {
 		return false;
 	}
-	strncpy(wk.source_root, get_cstr(&wk, source_root), PATH_MAX);
+	strncpy(wk.source_root, get_cstr(&wk, source_root), PATH_MAX - 1);
 
 	const char *destdir;
 	if ((destdir = getenv("DESTDIR"))) {

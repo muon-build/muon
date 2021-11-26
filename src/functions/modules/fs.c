@@ -98,7 +98,7 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	make_obj(wk, res, obj_string)->dat.str = wk_str_pushn(wk, src.src, src.len);
+	*res = wk_str_pushn(wk, src.src, src.len);
 
 	fs_source_destroy(&src);
 	return true;

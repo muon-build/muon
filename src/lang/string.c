@@ -5,7 +5,6 @@
 
 #include "error.h"
 #include "lang/object.h"
-#include "lang/private.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -62,20 +61,14 @@ wk_str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 }
 
 const struct str *
-get_str(struct workspace *wk, str s)
+get_str(struct workspace *wk, obj s)
 {
-	if (!s) {
-		return bucket_array_get(&wk->strs, 0);
+	struct obj *obj = get_obj(wk, s);
+	if (obj->type != obj_string) {
+		obj_fprintf(wk, log_file(), "non-string: %o\n", s);
 	}
-
-	if (!((s & wk_id_tag) == wk_id_tag_str)) {
-		struct obj *obj = bucket_array_get(&wk->objs, s >> 1);
-		assert(obj->type == obj_string);
-		s = obj->dat.str;
-	}
-
-	assert((s & wk_id_tag) == wk_id_tag_str);
-	return bucket_array_get(&wk->strs, s >> 1);
+	assert(obj->type == obj_string);
+	return &obj->dat.str;
 }
 
 bool
@@ -92,8 +85,12 @@ wk_str_has_null(const struct str *ss)
 }
 
 const char *
-get_cstr(struct workspace *wk, str s)
+get_cstr(struct workspace *wk, obj s)
 {
+	if (!s) {
+		return NULL;
+	}
+
 	const struct str *ss = get_str(wk, s);
 
 	assert(!wk_str_has_null(ss) && "cstr can not contain null bytes");
@@ -102,14 +99,11 @@ get_cstr(struct workspace *wk, str s)
 }
 
 static struct str *
-grow_str(struct workspace *wk, str s, uint32_t grow_by)
+grow_str(struct workspace *wk, obj s, uint32_t grow_by)
 {
 	assert(s);
-	assert(((s & wk_id_tag) == wk_id_tag_str));
 
-	uint32_t i = s >> 1;
-
-	struct str *ss = bucket_array_get(&wk->strs, i);
+	struct str *ss = &get_obj(wk, s)->dat.str;
 	uint32_t new_len = ss->len + grow_by + 1;
 
 	if (ss->flags & str_flag_big) {
@@ -129,14 +123,8 @@ grow_str(struct workspace *wk, str s, uint32_t grow_by)
 }
 
 static struct str *
-reserve_str(struct workspace *wk, str *s, uint32_t len)
+reserve_str(struct workspace *wk, obj *s, uint32_t len)
 {
-	if (wk->strs.len >= UINT32_MAX >> 1) {
-		error_unrecoverable("string overflow");
-	}
-
-	*s = ((wk->strs.len) << 1) | wk_id_tag_str;
-
 	enum str_flags f = 0;
 	const char *p;
 
@@ -149,39 +137,42 @@ reserve_str(struct workspace *wk, str *s, uint32_t len)
 		p = bucket_array_pushn(&wk->chrs, NULL, 0, new_len);
 	}
 
-	return bucket_array_push(&wk->strs, &(struct str){
+	struct obj *str = make_obj(wk, s, obj_string);
+	str->dat.str = (struct str) {
 		.s = p,
 		.len = len,
 		.flags = f,
-	});
+	};
+
+	return &str->dat.str;
 }
 
-str
+obj
 _make_str(struct workspace *wk, const char *p, uint32_t len)
 {
-	str s;
+	obj s;
 
 	if (!p) {
-		return wk_id_tag_str;
+		return 0;
 	}
 
 	memcpy((void *)reserve_str(wk, &s, len)->s, p, len);
 	return s;
 }
 
-str
+obj
 wk_str_pushn(struct workspace *wk, const char *str, uint32_t n)
 {
 	return _make_str(wk, str, n);
 }
 
-str
+obj
 wk_str_push(struct workspace *wk, const char *str)
 {
 	return _make_str(wk, str, strlen(str));
 }
 
-str
+obj
 wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 {
 	uint32_t len;
@@ -191,7 +182,7 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	str s;
+	obj s;
 	struct str *ss = reserve_str(wk, &s, len);
 	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
 
@@ -203,7 +194,7 @@ wk_str_pushf(struct workspace *wk, const char *fmt, ...)
 
 void
 // TODO: remove *
-wk_str_appn(struct workspace *wk, str *s, const char *str, uint32_t n)
+wk_str_appn(struct workspace *wk, obj *s, const char *str, uint32_t n)
 {
 	struct str *ss = grow_str(wk, *s, n);
 	memcpy((char *)&ss->s[ss->len], str, n);
@@ -212,14 +203,14 @@ wk_str_appn(struct workspace *wk, str *s, const char *str, uint32_t n)
 
 void
 // TODO: remove *
-wk_str_app(struct workspace *wk, str *s, const char *str)
+wk_str_app(struct workspace *wk, obj *s, const char *str)
 {
 	wk_str_appn(wk, s, str, strlen(str));
 }
 
 void
 // TODO: remove *
-wk_str_appf(struct workspace *wk, str *s, const char *fmt, ...)
+wk_str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
 {
 	uint32_t len;
 	va_list args, args_copy;
@@ -239,13 +230,11 @@ wk_str_appf(struct workspace *wk, str *s, const char *fmt, ...)
 uint32_t
 make_str(struct workspace *wk, const char *str)
 {
-	uint32_t id;
-	make_obj(wk, &id, obj_string)->dat.str = wk_str_push(wk, str);
-	return id;
+	return wk_str_push(wk, str);
 }
 
-str
-str_clone(struct workspace *wk_src, struct workspace *wk_dest, str val)
+obj
+str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val)
 {
 	const struct str *ss = get_str(wk_src, val);
 	return wk_str_pushn(wk_dest, ss->s, ss->len);
@@ -283,10 +272,10 @@ wk_cstreql(const struct str *ss, const char *cstring)
 	return wk_streql(ss, &WKSTR(cstring));
 }
 
-str
-wk_strcat(struct workspace *wk, str s1, str s2)
+obj
+wk_strcat(struct workspace *wk, obj s1, obj s2)
 {
-	str res;
+	obj res;
 	const struct str *ss1 = get_str(wk, s1),
 			 *ss2 = get_str(wk, s2);
 
@@ -323,7 +312,7 @@ wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split
 		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
 
 		if (wk_str_startswith(&slice, split)) {
-			make_obj(wk, &s, obj_string)->dat.str = wk_str_pushn(wk, &ss->s[start], i - start);
+			s = wk_str_pushn(wk, &ss->s[start], i - start);
 
 			obj_array_push(wk, res, s);
 
@@ -332,8 +321,7 @@ wk_str_split(struct workspace *wk, const struct str *ss, const struct str *split
 		}
 	}
 
-	make_obj(wk, &s, obj_string)->dat.str =
-		wk_str_pushn(wk, &ss->s[start], i - start);
+	s = wk_str_pushn(wk, &ss->s[start], i - start);
 
 	obj_array_push(wk, res, s);
 	return res;

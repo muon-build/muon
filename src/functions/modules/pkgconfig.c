@@ -8,7 +8,7 @@
 #include "platform/path.h"
 
 static bool
-func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_node, obj *obj)
+func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_build_target }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -61,7 +61,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 			"or the name and description keywords");
 	}
 
-	str name = 0, desc = 0;
+	obj name = 0, desc = 0;
 	if (ao[0].set) {
 		name = get_obj(wk, ao[0].val)->dat.tgt.name;
 		if (!akw[kw_description].set) {
@@ -70,18 +70,18 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	}
 
 	if (akw[kw_name].set) {
-		name = get_obj(wk, akw[kw_name].val)->dat.str;
+		name = akw[kw_name].val;
 	}
 
 	if (akw[kw_description].set) {
-		desc = get_obj(wk, akw[kw_description].val)->dat.str;
+		desc = akw[kw_description].val;
 	}
 
 	assert(name && desc);
 
-	str filebase = name;
+	obj filebase = name;
 	if (akw[kw_filebase].set) {
-		filebase = get_obj(wk, akw[kw_filebase].val)->dat.str;
+		filebase = akw[kw_filebase].val;
 	}
 
 	char path[PATH_MAX];

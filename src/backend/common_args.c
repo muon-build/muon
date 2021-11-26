@@ -122,7 +122,7 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 			is_system = inc->dat.include_directory.is_system;
 			break;
 		case obj_string:
-			dir = get_cstr(wk, inc->dat.str);
+			dir = get_cstr(wk, v);
 			is_system = false;
 			break;
 		default:

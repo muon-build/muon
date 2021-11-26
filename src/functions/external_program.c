@@ -25,9 +25,7 @@ func_external_program_path(struct workspace *wk, uint32_t rcvr, uint32_t args_no
 		return false;
 	}
 
-	struct obj *res = make_obj(wk, obj, obj_string);
-	res->dat.str = get_obj(wk, rcvr)->dat.external_program.full_path;
-
+	*obj = get_obj(wk, rcvr)->dat.external_program.full_path;
 	return true;
 }
 

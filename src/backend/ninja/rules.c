@@ -30,10 +30,9 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		break;
 	}
 
-	uint32_t args, compiler_name;
+	obj args;
 	make_obj(wk, &args, obj_array);
-	make_obj(wk, &compiler_name, obj_string)->dat.str = comp->dat.compiler.name;
-	obj_array_push(wk, args, compiler_name);
+	obj_array_push(wk, args, comp->dat.compiler.name);
 	obj_array_push(wk, args, make_str(wk, "$ARGS"));
 	if (compilers[t].deps) {
 		push_args(wk, args, compilers[t].args.deps("$out", "$DEPFILE"));
@@ -61,7 +60,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
 		" description = linking $out\n\n",
 		compiler_language_to_s(l),
-		get_cstr(wk, compiler_name));
+		get_cstr(wk, comp->dat.compiler.name));
 
 	return ir_cont;
 }
@@ -106,7 +105,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj)
 		"auto", "-r", "-c", setup_file, NULL
 	});
 
-	str regen_cmd = join_args_shell(wk, regen_args);
+	obj regen_cmd = join_args_shell(wk, regen_args);
 
 	fprintf(out,
 		"rule REGENERATE_BUILD\n"

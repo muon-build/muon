@@ -34,7 +34,7 @@ struct dep_lookup_ctx {
 };
 
 static bool
-check_dependency_version(struct workspace *wk, str dep_ver_str, uint32_t err_node, obj ver, bool *res)
+check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_node, obj ver, bool *res)
 {
 	if (!ver) {
 		*res = true;
@@ -110,7 +110,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	struct pkgconf_info info = { 0 };
 	*found = false;
 
-	if (!muon_pkgconf_lookup(wk, get_obj(wk, ctx->name)->dat.str, ctx->is_static, &info)) {
+	if (!muon_pkgconf_lookup(wk, ctx->name, ctx->is_static, &info)) {
 		return true;
 	}
 
@@ -194,7 +194,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		*handled = true;
 		struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
-		dep->dat.dep.name = get_obj(wk, ctx->name)->dat.str;
+		dep->dat.dep.name = ctx->name;
 		dep->dat.dep.flags |= dep_flag_found;
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		*handled = true;

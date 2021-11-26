@@ -93,7 +93,7 @@ obj_equal(struct workspace *wk, obj left, obj right)
 
 	switch (l->type) {
 	case obj_string:
-		return wk_streql(get_str(wk, l->dat.str), get_str(wk, r->dat.str));
+		return wk_streql(get_str(wk, left), get_str(wk, right));
 	case obj_file:
 		return wk_streql(get_str(wk, l->dat.file), get_str(wk, r->dat.file));
 	case obj_number:
@@ -341,10 +341,10 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *ss = get_str(wk, val);
 
-	wk_str_appn(wk, &get_obj(wk, *ctx->res)->dat.str, ss->s, ss->len);
+	wk_str_appn(wk, ctx->res, ss->s, ss->len);
 
 	if (ctx->i < ctx->len - 1) {
-		wk_str_appn(wk, &get_obj(wk, *ctx->res)->dat.str, ctx->join->s, ctx->join->len);
+		wk_str_appn(wk, ctx->res, ctx->join->s, ctx->join->len);
 	}
 
 	++ctx->i;
@@ -355,7 +355,7 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 {
-	make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, "");
+	*res = make_str(wk, "");
 
 	if (!typecheck_simple_err(wk, join, obj_string)) {
 		return false;
@@ -725,9 +725,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_string: {
-		o = make_obj(wk_dest, ret, t);
-		o->dat.str = str_clone(wk_src, wk_dest, val);
-
+		*ret = str_clone(wk_src, wk_dest, val);
 		return true;
 	}
 	case obj_file:
@@ -905,7 +903,7 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	return ir_cont;
 }
 static void
-obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, str s)
+obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 {
 	obj_to_s_buf_push(ctx, "'");
 

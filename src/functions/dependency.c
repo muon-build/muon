@@ -101,7 +101,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 			str = make_str(wk, path);
 		} else {
-			make_obj(wk, &str, obj_string)->dat.str = tgt->dat.file;
+			str = tgt->dat.file;
 		}
 
 		obj_array_push(wk, ctx->link_with, str);
@@ -154,10 +154,7 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_cont;
 		}
 
-		obj val;
-		make_obj(wk, &val, obj_string)->dat.str = dep->dat.external_library.full_path;
-
-		obj_array_push(wk, ctx->link_with, val);
+		obj_array_push(wk, ctx->link_with, dep->dat.external_library.full_path);
 		break;
 	}
 	default:
@@ -214,12 +211,9 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 		return false;
 	}
 
-	obj r;
-	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, get_obj(wk, dep)->dat.dep.name), get_cstr(wk, var), &r)) {
+	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, get_obj(wk, dep)->dat.dep.name), get_cstr(wk, var), res)) {
 		return false;
 	}
-
-	make_obj(wk, res, obj_string)->dat.str = r;
 	return true;
 }
 
@@ -329,7 +323,7 @@ func_dependency_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	if (version) {
 		*res = version;
 	} else {
-		make_obj(wk, res, obj_string)->dat.str = wk_str_push(wk, "unknown");
+		*res = make_str(wk, "unknown");
 	}
 
 	return true;

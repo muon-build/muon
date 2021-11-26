@@ -306,7 +306,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			goto err1;
 		}
 
-		make_obj(wk, obj_id, obj_string)->dat.str = res;
+		*obj_id = res;
 		break;
 	}
 	case obj_number: {
@@ -957,8 +957,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = true;
 		break;
 	case node_string:
-		obj = make_obj(wk, obj_id, obj_string);
-		obj->dat.str = wk_str_pushn(wk, n->dat.s, n->subtype);
+		*obj_id = wk_str_pushn(wk, n->dat.s, n->subtype);
 		ret = true;
 		break;
 	case node_array:

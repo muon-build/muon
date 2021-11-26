@@ -214,7 +214,7 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 {
 	switch (type) {
 	case op_combo:
-	case op_string: make_obj(wk, obj_id, obj_string)->dat.str = wk_str_push(wk, val);
+	case op_string: *obj_id = make_str(wk, val);
 		break;
 	case op_boolean: {
 		bool b;
@@ -467,7 +467,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		val = akw[kw_value].val;
 	} else {
 		switch (type) {
-		case op_string: make_obj(wk, &val, obj_string)->dat.str = wk_str_push(wk, "");
+		case op_string: val = make_str(wk, "");
 			break;
 		case op_boolean: make_obj(wk, &val, obj_bool)->dat.boolean = true;
 			break;
@@ -494,6 +494,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	struct option_override *oo;
+
 	if (find_option_override(wk, get_cstr(wk, current_project(wk)->subproject_name), get_cstr(wk, an[0].val), &oo)) {
 		if (oo->obj_value) {
 			if (!typecheck_opt(wk, akw[kw_type].node, oo->val, type, &val)) {
@@ -599,7 +600,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 
 struct parse_and_set_default_options_ctx {
 	uint32_t node;
-	str project_name;
+	obj project_name;
 };
 
 static enum iteration_result
@@ -651,7 +652,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 bool
-parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, str project_name)
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name)
 {
 	struct parse_and_set_default_options_ctx ctx = {
 		.node = err_node,

@@ -5,7 +5,6 @@
 #include "backend/output.h"
 #include "error.h"
 #include "functions/default/options.h"
-#include "lang/private.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
@@ -14,9 +13,7 @@
 struct obj *
 get_obj(struct workspace *wk, uint32_t id)
 {
-	assert(((id & wk_id_tag) == wk_id_tag_obj) && "wk_str passed to get_obj");
-
-	return bucket_array_get(&wk->objs, id >> 1);
+	return bucket_array_get(&wk->objs, id);
 }
 
 bool
@@ -39,11 +36,7 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 struct obj *
 make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
 {
-	if (wk->objs.len >= UINT32_MAX >> 1) {
-		error_unrecoverable("object overflow");
-	}
-
-	*id = ((wk->objs.len) << 1) | wk_id_tag_obj;
+	*id = wk->objs.len;
 	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
 }
 
@@ -56,7 +49,7 @@ wk_file_path(struct workspace *wk, uint32_t id)
 }
 
 struct obj *
-push_install_target(struct workspace *wk, str src, str dest, obj mode)
+push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 {
 	uint32_t id;
 	struct obj *tgt = make_obj(wk, &id, obj_install_target);
@@ -64,10 +57,7 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 	// TODO this has a mode [, user, group]
 	tgt->dat.install_target.mode = mode;
 
-	assert((src & wk_id_tag) == wk_id_tag_str);
-	assert((dest & wk_id_tag) == wk_id_tag_str);
-
-	str sdest;
+	obj sdest;
 	if (path_is_absolute(get_cstr(wk, dest))) {
 		sdest = dest;
 	} else {
@@ -82,7 +72,6 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 		sdest = wk_str_push(wk, buf);
 	}
 
-	assert((sdest & wk_id_tag) == wk_id_tag_str);
 	tgt->dat.install_target.dest = sdest;
 
 	obj_array_push(wk, wk->install, id);
@@ -90,12 +79,9 @@ push_install_target(struct workspace *wk, str src, str dest, obj mode)
 }
 
 struct obj *
-push_install_target_install_dir(struct workspace *wk, str ssrc,
-	str install_dir, obj mode)
+push_install_target_install_dir(struct workspace *wk, obj ssrc,
+	obj install_dir, obj mode)
 {
-	assert((ssrc & wk_id_tag) == wk_id_tag_str);
-	assert((install_dir & wk_id_tag) == wk_id_tag_str);
-
 	char basename[PATH_MAX], dest[PATH_MAX];
 	if (!path_basename(basename, PATH_MAX, get_cstr(wk, ssrc))) {
 		return NULL;
@@ -103,7 +89,7 @@ push_install_target_install_dir(struct workspace *wk, str ssrc,
 		return NULL;
 	}
 
-	str sdest = wk_str_push(wk, dest);
+	obj sdest = wk_str_push(wk, dest);
 
 	return push_install_target(wk, ssrc, sdest, mode);
 }
@@ -162,7 +148,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	if (!push_install_target_install_dir(wk, get_obj(wk, val_id)->dat.str, d->dat.str, ctx->install_mode)) {
+	if (!push_install_target_install_dir(wk, get_obj(wk, val_id)->dat.file, install_dir, ctx->install_mode)) {
 		return ir_err;
 	}
 	return ir_cont;
@@ -234,13 +220,11 @@ workspace_init_bare(struct workspace *wk)
 	*wk = (struct workspace){ 0 };
 
 	bucket_array_init(&wk->chrs, 4096, 1);
-	bucket_array_init(&wk->strs, 128, sizeof(struct str));
-	bucket_array_push(&wk->strs, &(struct str) { 0 });
-
 	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
+
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
-	assert((id >> 1) == 0);
+	assert(id == 0);
 }
 
 void
@@ -279,17 +263,18 @@ void
 workspace_destroy_bare(struct workspace *wk)
 {
 	bucket_array_destroy(&wk->chrs);
-	bucket_array_destroy(&wk->objs);
 
 	uint32_t i;
-	for (i = 0; i < wk->strs.len; ++i) {
-		struct str *s = bucket_array_get(&wk->strs, i);
-
-		if (s->flags & str_flag_big) {
-			z_free((void *)s->s);
+	for (i = 0; i < wk->objs.len; ++i) {
+		struct obj *o = bucket_array_get(&wk->objs, i);
+		if (o->type == obj_string) {
+			struct str *s = &o->dat.str;
+			if (s->flags & str_flag_big) {
+				z_free((void *)s->s);
+			}
 		}
 	}
-	bucket_array_destroy(&wk->strs);
+	bucket_array_destroy(&wk->objs);
 }
 
 void

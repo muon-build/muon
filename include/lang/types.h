@@ -4,5 +4,4 @@
 #include <stdint.h>
 
 typedef uint32_t obj;
-typedef uint32_t str;
 #endif

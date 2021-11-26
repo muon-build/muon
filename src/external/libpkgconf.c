@@ -195,7 +195,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			}
 			break;
 		case 'L':
-			make_obj(ctx->wk, &str, obj_string)->dat.str = wk_str_push(ctx->wk, frag->data);
+			str = make_str(ctx->wk, frag->data);
 			obj_array_push(ctx->wk, ctx->libdirs, str);
 			break;
 		case 'l': {

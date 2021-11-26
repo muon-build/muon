@@ -11,7 +11,7 @@
 
 #define SERIAL_MAGIC_LEN 8
 static const char serial_magic[SERIAL_MAGIC_LEN] = "muondump";
-static const uint32_t serial_version = 1;
+static const uint32_t serial_version = 2;
 
 static bool
 dump_uint32(uint32_t v, FILE *f)
@@ -120,30 +120,52 @@ struct serial_str {
 };
 
 static bool
-dump_strs(struct workspace *wk, FILE *f)
+dump_objs(struct workspace *wk, FILE *f)
 {
-	if (!dump_uint32(wk->strs.len - 1, f)) {
+	if (!dump_uint32(wk->objs.len - 1, f)) {
 		return false;
 	}
 
+	struct serial_str ser_s;
+	void *data;
+	size_t len;
+	uint8_t type_tag;
+
+	assert(obj_type_count < UINT8_MAX && "increase size of type tag");
+
 	uint32_t i;
-	for (i = 1; i < wk->strs.len; ++i) {
-		struct str *ss = bucket_array_get(&wk->strs, i);
+	for (i = 1; i < wk->objs.len; ++i) {
+		struct obj *o = bucket_array_get(&wk->objs, i);
+		type_tag = o->type;
 
-		if (ss->flags & str_flag_big) {
-			assert(false && "TODO: serialize big strings");
+		if (!fs_fwrite(&type_tag, sizeof(uint8_t), f)) {
+			return false;
 		}
 
-		struct serial_str ser_s = {
-			.len = ss->len,
-			.flags = ss->flags,
-		};
+		if (o->type == obj_string) {
+			const struct str *ss = &o->dat.str;
 
-		if (!bucket_array_lookup_pointer(&wk->chrs, (uint8_t *)ss->s, &ser_s.s)) {
-			assert(false && "pointer not found");
+			if (ss->flags & str_flag_big) {
+				assert(false && "TODO: serialize big strings");
+			}
+
+			ser_s = (struct serial_str) {
+				.len = ss->len,
+				.flags = ss->flags,
+			};
+
+			if (!bucket_array_lookup_pointer(&wk->chrs, (uint8_t *)ss->s, &ser_s.s)) {
+				assert(false && "pointer not found");
+			}
+
+			data = &ser_s;
+			len = sizeof(struct serial_str);
+		} else {
+			data = &o->dat;
+			len = sizeof(o->dat);
 		}
 
-		if (!fs_fwrite(&ser_s, sizeof(struct serial_str), f)) {
+		if (!fs_fwrite(data, len, f)) {
 			return false;
 		}
 	}
@@ -152,7 +174,7 @@ dump_strs(struct workspace *wk, FILE *f)
 }
 
 static bool
-load_strs(struct workspace *wk, FILE *f)
+load_objs(struct workspace *wk, FILE *f)
 {
 	uint32_t len;
 	if (!load_uint32(&len, f)) {
@@ -163,30 +185,41 @@ load_strs(struct workspace *wk, FILE *f)
 		return true;
 	}
 
-	struct serial_str *strs = z_calloc(sizeof(struct serial_str), len);
-	if (!fs_fread(strs, sizeof(struct serial_str) * len, f)) {
-		z_free(strs);
-		return false;
-	}
+	uint8_t type_tag;
+	struct serial_str ser_s;
+	struct obj o;
 
 	uint32_t i;
 	for (i = 0; i < len; ++i) {
-		struct serial_str *ser_s = &strs[i];
-
-		if (ser_s->flags & str_flag_big) {
-			assert(false && "TODO: serialize big strings");
+		if (!fs_fread(&type_tag, sizeof(uint8_t), f)) {
+			return false;
 		}
 
-		struct str ss = {
-			.s = bucket_array_get(&wk->chrs, ser_s->s),
-			.len = ser_s->len,
-			.flags = ser_s->flags,
-		};
+		o = (struct obj) { .type = type_tag, };
 
-		bucket_array_push(&wk->strs, &ss);
+		if (type_tag == obj_string) {
+			if (!fs_fread(&ser_s, sizeof(struct serial_str), f)) {
+				return false;
+			}
+
+			if (ser_s.flags & str_flag_big) {
+				assert(false && "TODO: serialize big strings");
+			}
+
+			o.dat.str = (struct str){
+				.s = bucket_array_get(&wk->chrs, ser_s.s),
+				.len = ser_s.len,
+				.flags = ser_s.flags,
+			};
+		} else {
+			if (!fs_fread(&o.dat, sizeof(o.dat), f)) {
+				return false;
+			}
+		}
+
+		bucket_array_push(&wk->objs, &o);
 	}
 
-	z_free(strs);
 	return true;
 }
 
@@ -207,8 +240,7 @@ serial_dump(struct workspace *wk_src, uint32_t obj, FILE *f)
 	if (!(dump_serial_header(f)
 	      && dump_uint32(obj_dest, f)
 	      && dump_bucket_array(&wk_dest.chrs, f)
-	      && dump_strs(&wk_dest, f)
-	      && dump_bucket_array(&wk_dest.objs, f))) {
+	      && dump_objs(&wk_dest, f))) {
 		goto ret;
 	}
 
@@ -224,14 +256,12 @@ serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
 	bool ret = false;
 	struct workspace wk_src = { 0 };
 	workspace_init_bare(&wk_src);
-	bucket_array_clear(&wk_src.objs);
 
 	uint32_t obj_src;
 	if (!(load_serial_header(f)
 	      && load_uint32(&obj_src, f)
 	      && load_bucket_array(&wk_src.chrs, f)
-	      && load_strs(&wk_src, f)
-	      && load_bucket_array(&wk_src.objs, f))) {
+	      && load_objs(&wk_src, f))) {
 		goto ret;
 	}
 
