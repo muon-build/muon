@@ -86,17 +86,15 @@ The workspace is a structure that contains all the data for an entire build
 setup, including all subprojects, AST, options, objects, strings.  Most
 interpreter related functions take a workspace as one of their arguments.
 
-## Objects, strings, and `uint32_t`
+## `obj` and `uint32_t`
 
-All objects and strings are stored and passed by id, rather than pointer.  Until
-recently, all these ids were `uint32_t`s.  Since that hurts readability, and it
-is somewhat inconvenient to type, `obj` and `str` (both `uint32_t` typedefs)
-were introduced.  While these don't help with C type checking unfortunately,
-they do help document the code, and are also convenient to type.  Internally,
-these ids are tagged and a runtime assert should catch any mix-ups.
+Objects are almost always referred to and passed around by id, rather than by
+pointer.  Internally, object ids are 32-bit integers.  In order to improve
+readability, a typedef to `uint32_t` called `obj` was added.  This should be
+preferred over `uint32_t` in all new code.
 
-Currently, the migration from `uint32_t` is in progress, so be aware that some
-code still refers to strings and objects that way.
+Currently, the migration from `uint32_t` is still in progress, so be aware that
+some code still refers to objects that way.
 
 ## Objects
 
@@ -104,17 +102,6 @@ Meson objects are created with the `make_obj` function.  Currently all object
 data (except for strings) is stored directly in the object in a union.  See
 `object.h` for more information.  Conventionally, all objects are referred to by
 id rather than a pointer.
-
-## Workspace strings (wk\_str)
-
-Workspace strings are handled similarly to objects.  They are created via the
-`wk_str_push*` family of functions, and are generally referred to by id.  Their
-memory is managed by the workspace, and with the current implementation, pushing
-new strings can invalidate all string pointers.  This means you generally
-shouldn't hold on to a pointer to a wk\_str for very long.  I hope to improve
-this situation in the future, but for the time being you can uncomment the else
-branch in `darr_get_mem` (`data/darr.c`) and run muon under valgrind to check for
-errors.
 
 ## Memory
 
