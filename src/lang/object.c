@@ -1057,23 +1057,35 @@ obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len)
 }
 
 bool
-obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
+obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap)
 {
-#define CHECK_TRUNC(len) if (bufi + len > BUF_SIZE_32k) goto would_truncate
+#define CHECK_TRUNC(len) if (bufi + len > buflen) goto would_truncate
 
-	static char fmt_buf[BUF_SIZE_32k];
-
-	const char *fmt_start, *s;
+	const char *fmt_start;
 	uint32_t bufi = 0, len;
 	obj obj;
 	bool got_object, quote_string;
-	va_list ap, ap_copy;
 
-	va_copy(ap, ap_orig);
-	va_copy(ap_copy, ap);
+	union {
+		int _int;
+		long _lint;
+		unsigned int _uint;
+		unsigned long _luint;
+		double _double;
+		char *_charp;
+		void *_voidp;
+	} arg;
+
+	struct {
+		int val;
+		bool have;
+	} arg_width, arg_prec;
 
 	for (; *fmt; ++fmt) {
 		if (*fmt == '%') {
+			arg_width.have = false;
+			arg_prec.have = false;
+
 			got_object = false;
 			quote_string = true;
 			fmt_start = fmt;
@@ -1089,7 +1101,8 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 
 			// skip field width
 			if (*fmt == '*') {
-				va_arg(ap, int);
+				arg_width.val = va_arg(ap, int);
+				arg_width.have = true;
 				++fmt;
 			} else {
 				while (strchr("1234567890", *fmt)) {
@@ -1102,7 +1115,8 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				++fmt;
 
 				if (*fmt == '*') {
-					va_arg(ap, int);
+					arg_prec.val = va_arg(ap, int);
+					arg_prec.have = true;
 					++fmt;
 				} else {
 					while (strchr("1234567890", *fmt)) {
@@ -1111,37 +1125,61 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				}
 			}
 
-			// skip field length modifier
-			while (strchr("hlLjzt", *fmt)) {
+			enum {
+				il_norm,
+				il_long,
+			} int_len = il_norm;
+
+			switch (*fmt) {
+			case 'l':
+				int_len = il_long;
 				++fmt;
+				break;
+			case 'h': case 'L': case 'j': case 'z': case 't':
+				assert(false && "unimplemented length modifier");
+				break;
 			}
 
 			switch (*fmt) {
 			case 'c':
 			case 'd': case 'i':
-				va_arg(ap, int);
+				switch (int_len) {
+				case il_norm:
+					arg._int = va_arg(ap, int);
+					break;
+				case il_long:
+					arg._lint = va_arg(ap, long);
+					break;
+				}
 				break;
 			case 'u': case 'x': case 'X':
-				va_arg(ap, unsigned int);
+				switch (int_len) {
+				case il_norm:
+					arg._uint = va_arg(ap, unsigned int);
+					break;
+				case il_long:
+					arg._luint = va_arg(ap, unsigned long);
+					break;
+				}
 				break;
 			case 'e': case 'E':
 			case 'f': case 'F':
 			case 'g': case 'G':
 			case 'a': case 'A':
-				va_arg(ap, double);
+				arg._double = va_arg(ap, double);
 				break;
 			case 's':
-				va_arg(ap, char *);
+				arg._charp = va_arg(ap, char *);
 				break;
 			case 'p':
-				va_arg(ap, void *);
+				arg._voidp = va_arg(ap, void *);
 				break;
 			case 'n':
 			case '%':
 				break;
 			case 'o':
 				got_object = true;
-				obj = va_arg(ap, uint32_t);
+				obj = va_arg(ap, unsigned int);
 				break;
 			default:
 				assert(false && "unrecognized format");
@@ -1149,53 +1187,54 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			}
 
 			if (got_object) {
+				uint32_t w;
 				if (get_obj(wk, obj)->type == obj_string && !quote_string) {
-					uint32_t w;
-					str_unescape(out_buf, buflen, get_str(wk, obj), &w);
-					out_buf[w] = 0;
+					str_unescape(&out_buf[bufi], buflen - bufi, get_str(wk, obj), &w);
 				} else {
-					obj_to_s(wk, obj, out_buf, buflen);
+					_obj_to_s(wk, obj, &out_buf[bufi], buflen - bufi, &w);
 				}
 
-				// escape % and copy to fmt
-				for (s = out_buf; *s; ++s) {
-					if (*s == '%') {
-						CHECK_TRUNC(1);
-						fmt_buf[bufi] = '%';
-						++bufi;
-					}
+				bufi += w;
 
-					CHECK_TRUNC(1);
-					fmt_buf[bufi] = *s;
-					++bufi;
-				}
+				out_buf[bufi] = 0;
 			} else {
+				char fmt_buf[BUF_SIZE_1k + 1] = { 0 };
 				len = fmt - fmt_start + 1;
-				CHECK_TRUNC(len);
-				memcpy(&fmt_buf[bufi], fmt_start, len);
+				assert(len < BUF_SIZE_1k && "format specifier too long");
+				memcpy(fmt_buf, fmt_start, len);
+
+				// There is no portable way to create a
+				// va_list, so we have to enumerate all of the
+				// different possibilities
+				uint32_t len;
+				if (arg_width.have && arg_prec.have) {
+					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_width.val, arg_prec.val, arg);
+				} else if (arg_width.have) {
+					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_width.val, arg);
+				} else if (arg_prec.have) {
+					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_prec.val, arg);
+				} else {
+					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg);
+				}
+
 				bufi += len;
 			}
 		} else {
 			CHECK_TRUNC(1);
-			fmt_buf[bufi] = *fmt;
+			out_buf[bufi] = *fmt;
 			++bufi;
 		}
 	}
 
 	CHECK_TRUNC(1);
-	fmt_buf[bufi] = 0;
+	out_buf[bufi] = 0;
 	++bufi;
 
-	vsnprintf(out_buf, buflen, fmt_buf, ap_copy);
-
 	va_end(ap);
-	va_end(ap_copy);
 	return true;
 would_truncate:
 	va_end(ap);
-	va_end(ap_copy);
 	return false;
-
 #undef CHECK_TRUNC
 }
 
