@@ -166,8 +166,8 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_running:
 			continue;
 		case run_cmd_error:
-			darr_push(&ctx->failed_tests, res);
 			print_test_progress(ctx, false);
+			darr_push(&ctx->failed_tests, res);
 			break;
 		case run_cmd_finished: {
 			bool ok;
@@ -376,7 +376,7 @@ tests_run(const char *build_dir, struct test_options *opts)
 	if (!ctx.stats.ran_tests) {
 		LOG_I("no tests defined");
 	} else {
-		LOG_I("finished %d tests, %d expected fail, %d fail", ctx.stats.total_count, ctx.stats.total_expect_fail_count, ctx.stats.error_count);
+		LOG_I("finished %d tests, %d expected fail, %d fail", ctx.stats.total_count, ctx.stats.total_expect_fail_count, ctx.stats.total_error_count);
 	}
 
 	uint32_t i;
