@@ -32,7 +32,7 @@ struct run_test_ctx {
 	uint32_t proj_i;
 	struct {
 		uint32_t test_i, test_len, error_count;
-		uint32_t total_count, total_error_count;
+		uint32_t total_count, total_error_count, total_expect_fail_count;
 		uint32_t term_width;
 		bool term;
 		bool ran_tests;
@@ -133,7 +133,7 @@ print_test_progress(struct run_test_ctx *ctx, bool success)
 	uint32_t pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d e: %d ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count);
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count);
 
 	log_plain("\r%s[", info);
 	uint32_t i,
@@ -174,6 +174,10 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				darr_push(&ctx->failed_tests, res);
 				print_test_progress(ctx, false);
 			} else {
+				if (res->test->dat.test.should_fail) {
+					++ctx->stats.total_expect_fail_count;
+				}
+
 				print_test_progress(ctx, true);
 				run_cmd_ctx_destroy(&res->cmd_ctx);
 			}
@@ -360,7 +364,7 @@ tests_run(const char *build_dir, struct test_options *opts)
 	if (!ctx.stats.ran_tests) {
 		LOG_I("no tests defined");
 	} else {
-		LOG_I("finished %d tests, %d errors", ctx.stats.total_count, ctx.stats.error_count);
+		LOG_I("finished %d tests, %d expected fail, %d fail", ctx.stats.total_count, ctx.stats.total_expect_fail_count, ctx.stats.error_count);
 	}
 
 	uint32_t i;
