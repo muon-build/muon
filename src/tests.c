@@ -169,19 +169,28 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			darr_push(&ctx->failed_tests, res);
 			print_test_progress(ctx, false);
 			break;
-		case run_cmd_finished:
-			if (res->cmd_ctx.status && !res->test->dat.test.should_fail) {
-				darr_push(&ctx->failed_tests, res);
-				print_test_progress(ctx, false);
+		case run_cmd_finished: {
+			bool ok;
+
+			if (res->cmd_ctx.status == 0) {
+				ok = !res->test->dat.test.should_fail;
 			} else {
+				ok = res->test->dat.test.should_fail;
+			}
+
+			print_test_progress(ctx, ok);
+
+			if (ok) {
 				if (res->test->dat.test.should_fail) {
 					++ctx->stats.total_expect_fail_count;
 				}
 
-				print_test_progress(ctx, true);
 				run_cmd_ctx_destroy(&res->cmd_ctx);
+			} else {
+				darr_push(&ctx->failed_tests, res);
 			}
 			break;
+		}
 		}
 
 		ctx->test_cmd_ctx_free &= ~(1 << i);
@@ -215,7 +224,10 @@ found_slot:
 
 	ctx->test_cmd_ctx_free |= (1 << i);
 
-	struct run_cmd_ctx *cmd_ctx = &ctx->test_ctx[i].cmd_ctx;
+	struct test_result *res = &ctx->test_ctx[i];
+	*res = (struct test_result) { 0 };
+
+	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
 	*cmd_ctx = (struct run_cmd_ctx){ .async = true };
 
@@ -371,15 +383,19 @@ tests_run(const char *build_dir, struct test_options *opts)
 	for (i = 0; i < ctx.failed_tests.len; ++i) {
 		struct test_result *res = darr_get(&ctx.failed_tests, i);
 
-		LOG_E("%s - failed", get_cstr(&wk, res->test->dat.test.name));
-		if (res->cmd_ctx.err_msg) {
-			log_plain("%s\n", res->cmd_ctx.err_msg);
-		}
-		if (res->cmd_ctx.out.len) {
-			log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
-		}
-		if (res->cmd_ctx.err.len) {
-			log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
+		if (res->test->dat.test.should_fail) {
+			LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->dat.test.name));
+		} else {
+			LOG_E("%s - failed", get_cstr(&wk, res->test->dat.test.name));
+			if (res->cmd_ctx.err_msg) {
+				log_plain("%s\n", res->cmd_ctx.err_msg);
+			}
+			if (res->cmd_ctx.out.len) {
+				log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
+			}
+			if (res->cmd_ctx.err.len) {
+				log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
+			}
 		}
 		run_cmd_ctx_destroy(&res->cmd_ctx);
 	}
