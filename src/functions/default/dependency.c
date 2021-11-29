@@ -74,7 +74,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 
 	// TODO: make a proper eval_subproject() function to avoid this hacky
 	// string evaluation
-	char *req = ctx->requirement == requirement_required ? "true" : "false";
+	const char *req = ctx->requirement == requirement_required ? "true" : "false";
 
 	if (ctx->default_options) {
 		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', default_options: %o, required: %s)",
