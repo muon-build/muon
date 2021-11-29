@@ -240,6 +240,10 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		break;
 	}
 	case obj_custom_target: {
+		if (ctx->mode == mode_output) {
+			goto type_error;
+		}
+
 		if (!obj_array_foreach(wk, get_obj(wk, val)->dat.custom_target.output,
 			ctx, coerce_custom_target_output_iter)) {
 			return ir_err;
@@ -247,6 +251,10 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 		break;
 	}
 	case obj_build_target: {
+		if (ctx->mode == mode_output) {
+			goto type_error;
+		}
+
 		struct obj *tgt = get_obj(wk, val);
 
 		char path[PATH_MAX];

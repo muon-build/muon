@@ -504,6 +504,17 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 	return true;
 }
 
+static enum iteration_result
+mangle_generator_output(struct workspace *wk, void *_ctx, obj val)
+{
+	struct obj *s = get_obj(wk, val), *gen = _ctx;
+	assert(s->type == obj_string);
+
+	obj_array_push(wk, gen->dat.generator.output,
+		make_strf(wk, "muon-generated_%s", get_cstr(wk, val)));
+	return ir_cont;
+}
+
 static bool
 func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -515,7 +526,7 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depfile,
 	};
 	struct args_kw akw[] = {
-		[kw_output]      = { "output", obj_any, .required = true },
+		[kw_output]      = { "output", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
 		[kw_arguments]   = { "arguments", obj_array, .required = true },
 		[kw_capture]     = { "capture", obj_bool },
 		[kw_depfile]     = { "depfile", obj_string },
@@ -539,7 +550,10 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj_array_extend(wk, command, args);
 
 	struct obj *gen = make_obj(wk, res, obj_generator);
-	gen->dat.generator.output = akw[kw_output].val;
+
+	make_obj(wk, &gen->dat.generator.output, obj_array);
+	obj_array_foreach(wk, akw[kw_output].val, gen, mangle_generator_output);
+
 	gen->dat.generator.raw_command = command;
 	gen->dat.generator.depfile = akw[kw_depfile].val;
 	return true;
