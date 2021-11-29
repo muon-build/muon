@@ -312,7 +312,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->dat.tgt.soname)));
 		}
 
-		link_args = get_cstr(wk, join_args_shell(wk, ctx.args.link_args));
+		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:
 		linker_type = "STATIC";

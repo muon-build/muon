@@ -134,7 +134,20 @@ trunc:
 bool
 ninja_escape(char *buf, uint32_t len, const char *str)
 {
-	return escape_str(buf, len, str, '$', " :$");
+	return _ninja_escape(buf, len, str, " :$");
+}
+
+static bool
+shell_ninja_escape(char *buf, uint32_t len, const char *str)
+{
+	char tmp_buf[BUF_SIZE_4k];
+	if (!shell_escape(tmp_buf, BUF_SIZE_4k, str)) {
+		return false;
+	} else if (!_ninja_escape(buf, len, tmp_buf, "$")) {
+		return false;
+	}
+
+	return true;
 }
 
 typedef bool ((*escape_func)(char *buf, uint32_t len, const char *str));
@@ -210,6 +223,13 @@ join_args_ninja(struct workspace *wk, uint32_t arr)
 {
 	return join_args(wk, arr, ninja_escape);
 }
+
+uint32_t
+join_args_shell_ninja(struct workspace *wk, uint32_t arr)
+{
+	return join_args(wk, arr, shell_ninja_escape);
+}
+
 
 struct join_args_argv_iter_ctx {
 	const char **argv;

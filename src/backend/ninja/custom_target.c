@@ -74,7 +74,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 
 	outputs = join_args_ninja(wk, outputs);
 	inputs = join_args_ninja(wk, inputs);
-	cmdline = join_args_shell(wk, cmdline);
+	cmdline = join_args_shell_ninja(wk, cmdline);
 
 	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"

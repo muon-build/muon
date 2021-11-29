@@ -243,7 +243,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
-	obj_dict_seti(wk, ctx->args_dict, lang, join_args_shell(wk, args));
+	obj_dict_seti(wk, ctx->args_dict, lang, join_args_shell_ninja(wk, args));
 	return ir_cont;
 }
 
