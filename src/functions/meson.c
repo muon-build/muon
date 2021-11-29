@@ -180,7 +180,22 @@ func_meson_is_unity(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	LOG_W("TODO: meson.override_dependency");
+	struct args_norm an[] = { { obj_string }, { obj_dependency }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_static, // ignored
+		kw_native, // ignored
+	};
+	struct args_kw akw[] = {
+		[kw_static] = { "static", obj_bool },
+		[kw_native] = { "native", obj_bool },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	obj_dict_set(wk, wk->dep_overrides, an[0].val, an[1].val);
 	return true;
 }
 
@@ -273,23 +288,23 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 }
 
 const struct func_impl_name impl_tbl_meson[] = {
-	{ "get_compiler", func_meson_get_compiler },
-	{ "project_name", func_meson_project_name },
-	{ "project_version", func_meson_project_version },
-	{ "version", func_meson_version },
-	{ "current_source_dir", func_meson_current_source_dir },
-	{ "current_build_dir", func_meson_current_build_dir },
-	{ "source_root", func_meson_global_source_root },
-	{ "project_source_root", func_meson_project_source_root },
-	{ "global_source_root", func_meson_global_source_root },
-	{ "build_root", func_meson_global_build_root },
-	{ "project_build_root", func_meson_project_build_root },
-	{ "global_build_root", func_meson_global_build_root },
-	{ "is_subproject", func_meson_is_subproject },
-	{ "override_dependency", func_meson_override_dependency },
-	{ "backend", func_meson_backend },
-	{ "is_cross_build", func_meson_is_cross_build },
-	{ "is_unity", func_meson_is_unity },
 	{ "add_install_script", func_meson_add_install_script },
+	{ "backend", func_meson_backend },
+	{ "build_root", func_meson_global_build_root },
+	{ "current_build_dir", func_meson_current_build_dir },
+	{ "current_source_dir", func_meson_current_source_dir },
+	{ "get_compiler", func_meson_get_compiler },
+	{ "global_build_root", func_meson_global_build_root },
+	{ "global_source_root", func_meson_global_source_root },
+	{ "is_cross_build", func_meson_is_cross_build },
+	{ "is_subproject", func_meson_is_subproject },
+	{ "is_unity", func_meson_is_unity },
+	{ "override_dependency", func_meson_override_dependency },
+	{ "project_build_root", func_meson_project_build_root },
+	{ "project_name", func_meson_project_name },
+	{ "project_source_root", func_meson_project_source_root },
+	{ "project_version", func_meson_project_version },
+	{ "source_root", func_meson_global_source_root },
+	{ "version", func_meson_version },
 	{ NULL, NULL },
 };

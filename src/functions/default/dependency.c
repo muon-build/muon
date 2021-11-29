@@ -137,8 +137,17 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 static bool
 get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
-	bool found;
-	if (!get_dependency_pkgconfig(wk, ctx, &found)) {
+	bool found = false;
+
+	{
+		obj dep;
+		if (obj_dict_index(wk, wk->dep_overrides, ctx->name, &dep)) {
+			*ctx->res = dep;
+			found = true;
+		}
+	}
+
+	if (!found && !get_dependency_pkgconfig(wk, ctx, &found)) {
 		return false;
 	}
 

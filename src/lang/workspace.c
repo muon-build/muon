@@ -257,6 +257,7 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->subprojects, obj_dict);
 	make_obj(wk, &wk->global_args, obj_dict);
 	make_obj(wk, &wk->global_link_args, obj_dict);
+	make_obj(wk, &wk->dep_overrides, obj_dict);
 }
 
 void

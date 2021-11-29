@@ -61,6 +61,8 @@ struct workspace {
 	obj global_args;
 	/* args dict for add_global_link_arguments() */
 	obj global_link_args;
+	/* overridden dependencies dict */
+	obj dep_overrides;
 
 	struct bucket_array chrs;
 	struct bucket_array objs;
