@@ -18,7 +18,7 @@
 #include "platform/run_cmd.h"
 
 static void
-buf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
+abuf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 {
 	if (*i + len >= *cap) {
 		if (len > BUF_SIZE_2k) {
@@ -125,12 +125,12 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			}
 
 write_mesondefine:
-			buf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
-			buf_push(&out_buf, &out_cap, &out_len, " ", 1);
-			buf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], id_end - id_start);
+			abuf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
+			abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
+			abuf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], id_end - id_start);
 			if (sub) {
-				buf_push(&out_buf, &out_cap, &out_len, " ", 1);
-				buf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
+				abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 			}
 		} else if (src.src[i] == '\\') {
 			/* cope with weird config file escaping rules :(
@@ -162,11 +162,11 @@ write_mesondefine:
 			}
 
 			for (j = 0; j < output_backslashes; ++j) {
-				buf_push(&out_buf, &out_cap, &out_len, "\\", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, "\\", 1);
 			}
 
 			if (output_format_char) {
-				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, "@", 1);
 			}
 		} else if (src.src[i] == '@') {
 			// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
@@ -189,7 +189,7 @@ write_mesondefine:
 
 			if (src.src[i] != '@') {
 				i = id_start - 1;
-				buf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, "@", 1);
 				continue;
 			}
 
@@ -208,9 +208,9 @@ write_mesondefine:
 			}
 
 			const struct str *ss = get_str(wk, sub);
-			buf_push(&out_buf, &out_cap, &out_len, ss->s, ss->len);
+			abuf_push(&out_buf, &out_cap, &out_len, ss->s, ss->len);
 		} else {
-			buf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
+			abuf_push(&out_buf, &out_cap, &out_len, &src.src[i], 1);
 		}
 	}
 

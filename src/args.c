@@ -48,38 +48,87 @@ push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *arg
 }
 
 static bool
-escape_str(char *buf, uint32_t len, const char *str, char esc_char, const char *need_escaping)
+shell_escape(char *buf, uint32_t len, const char *str)
 {
-	const char *s = str;
+	const char *need_escaping = "\"'$ \\><&#\n";
+	const char *s;
 	uint32_t bufi = 0;
-	bool esc;
+	bool do_esc = false;
 
-	for (; *s; ++s) {
-		esc = strchr(need_escaping, *s) != NULL;
-
-		if (bufi + 1 + (esc ? 1 : 0) >= len - 1) {
-			LOG_E("truncation during escape");
-			return false;
+	for (s = str; *s; ++s) {
+		if (strchr(need_escaping, *s)) {
+			do_esc = true;
+			break;
 		}
-
-		if (esc) {
-			buf[bufi] = esc_char;
-			++bufi;
-		}
-
-		buf[bufi] = *s;
-		++bufi;
 	}
 
-	assert(bufi < len);
-	buf[bufi] = 0;
+	if (!do_esc) {
+		if (len <= strlen(str)) {
+			goto trunc;
+		}
+
+		strncpy(buf, str, len);
+		return true;
+	}
+
+	if (!buf_push(buf, len, &bufi, '\'')) {
+		goto trunc;
+	}
+
+	for (s = str; *s; ++s) {
+		if (*s == '\'') {
+			if (!buf_pushs(buf, len, &bufi, "'\\''")) {
+				goto trunc;
+			}
+		} else {
+			if (!buf_push(buf, len, &bufi, *s)) {
+				goto trunc;
+			}
+		}
+	}
+
+	if (!buf_push(buf, len, &bufi, '\'')) {
+		goto trunc;
+	} else if (!buf_push(buf, len, &bufi, 0)) {
+		goto trunc;
+	}
+
 	return true;
+trunc:
+	LOG_E("shell escape truncated");
+	return false;
 }
 
 static bool
-shell_escape(char *buf, uint32_t len, const char *str)
+_ninja_escape(char *buf, uint32_t len, const char *str, const char *need_escaping)
 {
-	return escape_str(buf, len, str, '\\', "\"'$ \\><&#");
+	char esc_char = '$';
+	const char *s = str;
+	uint32_t bufi = 0;
+
+	for (; *s; ++s) {
+		if (*s == '\n') {
+			assert(false && "newlines cannot be escaped" );
+		}
+
+		if (strchr(need_escaping, *s)) {
+			if (!buf_push(buf, len, &bufi, esc_char)) {
+				goto trunc;
+			}
+		}
+
+		if (!buf_push(buf, len, &bufi, *s)) {
+			goto trunc;
+		}
+	}
+
+	if (!buf_push(buf, len, &bufi, 0)) {
+		goto trunc;
+	}
+	return true;
+trunc:
+	LOG_E("ninja escape truncated");
+	return false;
 }
 
 bool

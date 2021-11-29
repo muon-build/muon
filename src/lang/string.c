@@ -10,8 +10,8 @@
 #include "log.h"
 #include "platform/mem.h"
 
-static bool
-str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
+bool
+buf_push(char *buf, uint32_t len, uint32_t *i, char s)
 {
 	if (*i >= len) {
 		return false;
@@ -22,12 +22,24 @@ str_unescape_buf_push(char *buf, uint32_t len, uint32_t *i, char s)
 	return true;
 }
 
-static bool
-str_unescape_buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
+bool
+buf_pushs(char *buf, uint32_t len, uint32_t *i, char *s)
+{
+	for (; *s; ++s) {
+		if (!buf_push(buf, len, i, *s)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
 {
 	uint32_t j;
 	for (j = 0; j < n; ++j) {
-		if (!str_unescape_buf_push(buf, len, i, s[j])) {
+		if (!buf_push(buf, len, i, s[j])) {
 			return false;
 		}
 	}
@@ -45,11 +57,11 @@ str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 			char unescaped[32];
 			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
 
-			if (!str_unescape_buf_pushn(buf, len, &j, unescaped, n)) {
+			if (!buf_pushn(buf, len, &j, unescaped, n)) {
 				return false;
 			}
 		} else {
-			if (!str_unescape_buf_push(buf, len, &j, ss->s[i])) {
+			if (!buf_push(buf, len, &j, ss->s[i])) {
 				return false;
 			}
 		}
