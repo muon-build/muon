@@ -557,11 +557,13 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 			// fig argv0 here since if it is a relative path it will be
 			// wrong after chdir
 			static char argv0[PATH_MAX];
-			if (!path_make_absolute(argv0, PATH_MAX, argv[0])) {
-				return false;
-			}
+			if (!path_is_basename(argv[0])) {
+				if (!path_make_absolute(argv0, PATH_MAX, argv[0])) {
+					return false;
+				}
 
-			argv[0] = argv0;
+				argv[0] = argv0;
+			}
 
 			if (!path_chdir(optarg)) {
 				return false;
