@@ -91,24 +91,35 @@ arity_to_s(struct args_norm positional_args[],
 
 	uint32_t i, bufi = 0;
 
-	if (!positional_args && !optional_positional_args && !keyword_args) {
-		return "no args";
-	}
-
 	bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "(signature: ");
 
 	if (positional_args) {
+		bool glob = false;
+
 		for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
+			if (positional_args[i].type == ARG_TYPE_GLOB) {
+				glob = true;
+				break;
+			}
 		}
 
-		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d positional", i);
+		if (i) {
+			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d positional", i);
+		}
+
+		if (glob) {
+			if (i) {
+				bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ", ");
+			}
+			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "varargs");
+		}
 	}
 
 	if (optional_positional_args) {
 		for (i = 0; optional_positional_args[i].type != ARG_TYPE_NULL; ++i) {
 		}
 
-		if (bufi) {
+		if (positional_args) {
 			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ", ");
 		}
 		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d optional", i);
@@ -118,10 +129,14 @@ arity_to_s(struct args_norm positional_args[],
 		for (i = 0; keyword_args[i].key; ++i) {
 		}
 
-		if (bufi) {
+		if (positional_args || optional_positional_args) {
 			bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ", ");
 		}
 		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "%d keyword", i);
+	}
+
+	if (!positional_args && !optional_positional_args && !keyword_args) {
+		bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, "0 arguments");
 	}
 
 	bufi += snprintf(&buf[bufi], BUF_SIZE_2k - bufi, ")");
