@@ -212,7 +212,7 @@ tests = [
 	['common/218 include_dir dot', {}],
 	['common/219 include_type dependency', {'should_fail': true}],
 	['common/220 fs module', {'should_fail': true}],
-	['common/221 zlib', {'should_fail': true}],
+	['common/221 zlib', {}],
 	['common/222 native prop', {'should_fail': true}],
 	['common/223 persubproject options', {'should_fail': true}],
 	['common/224 arithmetic operators', {'should_fail': true}],
@@ -239,18 +239,23 @@ tests = [
 
 test_dir = meson.current_build_dir()
 
-# HACK: mkdir before any tests run to avoid race
-test('setup project tests', find_program('mkdir'), args: ['-p', test_dir / 'common'])
+runner = find_program('runner.sh')
 
 foreach t : tests
+	# The exit code to use when a test is skipped
+	skip_exit_code = 0
+	if 'should_fail' in t[1]
+		skip_exit_code = 1
+	endif
+
 	test(
 		'setup ' + t[0],
-		muon,
+		runner,
 		args: [
-			'-v',
-			'-C', meson.current_source_dir() / t[0],
-			'setup',
+			muon,
+			meson.current_source_dir() / t[0],
 			test_dir / t[0],
+			skip_exit_code.to_string(),
 		],
 		suite: 'project',
 		kwargs: t[1]
