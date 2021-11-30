@@ -18,18 +18,18 @@
 	while ((opt = getopt(argc - argi, &argv[argi], optstring "h")) != -1) { \
 		switch (opt) {
 #define OPTEND(usage_pre, usage_post, usage_opts, commands, operands) \
-case 'h': \
-	print_usage(stdout, commands, usage_pre, usage_opts, usage_post); \
-	exit(0); \
-	break; \
-default: \
-	print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
-	return false; \
-} \
-} \
+	case 'h': \
+		print_usage(stdout, commands, usage_pre, usage_opts, usage_post); \
+		exit(0); \
+		break; \
+	default: \
+		print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
+		return false; \
+	} \
+	} \
 	if (!check_operands(argc, (argi + optind), operands)) { \
-	print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
-	return false; \
+		print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
+		return false; \
 	} \
 	argi += optind;
 

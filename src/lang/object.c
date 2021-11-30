@@ -844,8 +844,8 @@ struct obj_to_s_ctx {
 
 static void _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w);
 
-static void
 __attribute__ ((format(printf, 2, 3)))
+static void
 obj_to_s_buf_push(struct obj_to_s_ctx *ctx, const char *fmt, ...)
 {
 	if (ctx->i >= ctx->len) {

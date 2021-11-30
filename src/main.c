@@ -37,9 +37,9 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { 0 };
 
 	OPTSTART("c:") {
-	case 'c':
-		opts.capture = optarg;
-		break;
+		case 'c':
+			opts.capture = optarg;
+			break;
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -c <file> - capture output to file\n",
@@ -86,9 +86,9 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { 0 };
 
 	OPTSTART("p") {
-	case 'p':
-		opts.print_ast = true;
-		break;
+		case 'p':
+			opts.print_ast = true;
+			break;
 	} OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n",
@@ -308,9 +308,9 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	bool embedded = false;
 
 	OPTSTART("e") {
-	case 'e':
-		embedded = true;
-		break;
+		case 'e':
+			embedded = true;
+			break;
 	} OPTEND(argv[argi], " <filename> [args]", "", NULL, -1)
 
 	if (argi >= argc) {
@@ -390,26 +390,26 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	struct test_options test_opts = { 0 };
 
 	OPTSTART("s:d:") {
-	case 's':
-		if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
-			LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
-			return false;
-		}
-		test_opts.suites[test_opts.suites_len] = optarg;
-		++test_opts.suites_len;
-		break;
-	case 'd':
-		if (strcmp(optarg, "auto") == 0) {
-			test_opts.display = test_display_auto;
-		} else if (strcmp(optarg, "dots") == 0) {
-			test_opts.display = test_display_dots;
-		} else if (strcmp(optarg, "bar") == 0) {
-			test_opts.display = test_display_bar;
-		} else {
-			LOG_E("invalid display option '%s'", optarg);
-			return false;
-		}
-		break;
+		case 's':
+			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
+				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
+				return false;
+			}
+			test_opts.suites[test_opts.suites_len] = optarg;
+			++test_opts.suites_len;
+			break;
+		case 'd':
+			if (strcmp(optarg, "auto") == 0) {
+				test_opts.display = test_display_auto;
+			} else if (strcmp(optarg, "dots") == 0) {
+				test_opts.display = test_display_dots;
+			} else if (strcmp(optarg, "bar") == 0) {
+				test_opts.display = test_display_bar;
+			} else {
+				LOG_E("invalid display option '%s'", optarg);
+				return false;
+			}
+			break;
 	} OPTEND(argv[argi], " <build dir>",
 		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n"
 		"  -d <display> - change how tests are displayed (auto|dots|bar)\n",
@@ -424,9 +424,9 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 	struct install_options opts = { 0 };
 
 	OPTSTART("n") {
-	case 'n':
-		opts.dry_run = true;
-		break;
+		case 'n':
+			opts.dry_run = true;
+			break;
 	} OPTEND(argv[argi], " <build dir>",
 		"  -n - dry run\n",
 		NULL, 1)
@@ -441,16 +441,16 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	workspace_init(&wk);
 
 	OPTSTART("D:m:") {
-	case 'D':
-		if (!parse_and_set_cmdline_option(&wk, optarg)) {
-			return false;
-		}
-		break;
-	case 'm':
-		if (!machine_file_parse(&wk, optarg)) {
-			return false;
-		}
-		break;
+		case 'D':
+			if (!parse_and_set_cmdline_option(&wk, optarg)) {
+				return false;
+			}
+			break;
+		case 'm':
+			if (!machine_file_parse(&wk, optarg)) {
+				return false;
+			}
+			break;
 	} OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n",
@@ -482,20 +482,20 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { .cfg = ".muon" };
 
 	OPTSTART("c:rf") {
-	case 'r':
-		// HACK this should be redesigned as soon as more than one
-		// function has command-line controllable behaviour.
-		func_setup_flags |= func_setup_flag_force;
-		func_setup_flags |= func_setup_flag_no_build;
-		break;
-	case 'f':
-		// HACK this should be redesigned as soon as more than one
-		// function has command-line controllable behaviour.
-		func_setup_flags |= func_setup_flag_force;
-		break;
-	case 'c':
-		opts.cfg = optarg;
-		break;
+		case 'r':
+			// HACK this should be redesigned as soon as more than one
+			// function has command-line controllable behaviour.
+			func_setup_flags |= func_setup_flag_force;
+			func_setup_flags |= func_setup_flag_no_build;
+			break;
+		case 'f':
+			// HACK this should be redesigned as soon as more than one
+			// function has command-line controllable behaviour.
+			func_setup_flags |= func_setup_flag_force;
+			break;
+		case 'c':
+			opts.cfg = optarg;
+			break;
 	} OPTEND(argv[argi], "",
 		"  -c config - load config alternate file (default: .muon)\n"
 		"  -f - regenerate build file and rebuild\n"
@@ -547,27 +547,27 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	};
 
 	OPTSTART("vlC:") {
-	case 'v':
-		log_set_lvl(log_debug);
-		break;
-	case 'l':
-		log_set_opts(log_show_source);
-		break;
-	case 'C': {
-		// fig argv0 here since if it is a relative path it will be
-		// wrong after chdir
-		static char argv0[PATH_MAX];
-		if (!path_make_absolute(argv0, PATH_MAX, argv[0])) {
-			return false;
-		}
+		case 'v':
+			log_set_lvl(log_debug);
+			break;
+		case 'l':
+			log_set_opts(log_show_source);
+			break;
+		case 'C': {
+			// fig argv0 here since if it is a relative path it will be
+			// wrong after chdir
+			static char argv0[PATH_MAX];
+			if (!path_make_absolute(argv0, PATH_MAX, argv[0])) {
+				return false;
+			}
 
-		argv[0] = argv0;
+			argv[0] = argv0;
 
-		if (!path_chdir(optarg)) {
-			return false;
+			if (!path_chdir(optarg)) {
+				return false;
+			}
+			break;
 		}
-		break;
-	}
 	} OPTEND(argv[0], "",
 		"  -v - turn on debug messages\n"
 		"  -l - show source locations for log messages\n"
