@@ -518,6 +518,53 @@ func_string_endswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	return true;
 }
 
+static bool
+func_string_substring(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm ao[] = { { obj_number }, { obj_number }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	const struct str *s = get_str(wk, rcvr);
+	int64_t start = 0, end = s->len;
+
+	if (ao[0].set) {
+		start = get_obj(wk, ao[0].val)->dat.num;
+	}
+
+	if (ao[1].set) {
+		end = get_obj(wk, ao[1].val)->dat.num;
+	}
+
+	if (start < 0) {
+		start = s->len + start;
+	}
+
+	if (end < 0) {
+		end = s->len + end;
+	}
+
+	if (start > s->len || start < 0) {
+		assert(ao[0].set);
+		interp_error(wk, ao[0].node, "substring start out of bounds");
+		return false;
+	}
+
+	if (end > s->len || end < 0) {
+		assert(ao[1].set);
+		interp_error(wk, ao[1].node, "substring end out of bounds");
+		return false;
+	} else if (end < start) {
+		assert(ao[1].set);
+		interp_error(wk, ao[1].node, "substring end before start");
+		return false;
+	}
+
+	*res = make_strn(wk, &s->s[start], end - start);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
 	{ "format", func_format },
 	{ "join", func_join },
@@ -530,5 +577,6 @@ const struct func_impl_name impl_tbl_string[] = {
 	{ "to_lower", func_to_lower },
 	{ "underscorify", func_underscorify },
 	{ "version_compare", func_version_compare },
+	{ "substring", func_string_substring },
 	{ NULL, NULL },
 };
