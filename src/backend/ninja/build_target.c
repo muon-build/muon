@@ -303,11 +303,12 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 	const char *linker_type, *link_args;
 	switch (tgt->dat.tgt.type) {
+	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
 
-		if (tgt->dat.tgt.type == tgt_dynamic_library) {
+		if (tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
 			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
 			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->dat.tgt.soname)));
 		}

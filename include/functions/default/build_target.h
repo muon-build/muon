@@ -8,4 +8,5 @@ bool func_executable(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 bool func_library(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 bool func_shared_library(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 bool func_static_library(struct workspace *wk, obj _, uint32_t args_node, obj *res);
+bool func_shared_module(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 #endif

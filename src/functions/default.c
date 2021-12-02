@@ -1402,7 +1402,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "run_target", todo },
 	{ "set_variable", func_set_variable },
 	{ "shared_library", func_shared_library },
-	{ "shared_module", todo },
+	{ "shared_module", func_shared_module },
 	{ "static_library", func_static_library },
 	{ "subdir", func_subdir },
 	{ "subdir_done", func_subdir_done },

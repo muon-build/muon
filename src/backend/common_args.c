@@ -239,7 +239,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		}
 	}
 
-	if (ctx->tgt->dat.tgt.type == tgt_dynamic_library) {
+	if (ctx->tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
 		push_args(wk, args, compilers[t].args.pic());
 	}
 

@@ -118,9 +118,8 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 	return true;
 }
 
-static bool
-setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *plain_name,
-	obj sover, obj ver, const char **plain_name_install, const char **soname_install)
+static void
+setup_soname(struct workspace *wk, struct obj *tgt, const char *plain_name, obj sover, obj ver)
 {
 	char soversion[BUF_SIZE_1k] = { "." };
 	bool have_soversion = false;
@@ -138,7 +137,12 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *
 	}
 
 	tgt->dat.tgt.soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
+}
 
+static bool
+setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *plain_name,
+	const char **plain_name_install, const char **soname_install)
+{
 	static char soname_symlink[PATH_MAX], plain_name_symlink[PATH_MAX];
 
 	if (!fs_mkdir_p(get_cstr(wk, tgt->dat.tgt.build_dir))) {
@@ -188,6 +192,7 @@ determine_target_build_name(struct workspace *wk, struct obj *tgt, obj sover, ob
 		pref = "lib";
 		suff = ".a";
 		break;
+	case tgt_shared_module:
 	case tgt_dynamic_library:
 		pref = "lib";
 		suff = ".so";
@@ -326,10 +331,16 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	}
 
 	const char *soname_install = NULL, *plain_name_install = NULL;
-	if (type == tgt_dynamic_library) {
-		if (!setup_shared_object_symlinks(wk, tgt, plain_name, akw[bt_kw_soversion].val, akw[bt_kw_version].val,
-			&plain_name_install, &soname_install)) {
-			return false;
+
+	// soname handling
+	if (type & (tgt_dynamic_library | tgt_shared_module)) {
+		setup_soname(wk, tgt, plain_name, akw[bt_kw_soversion].val, akw[bt_kw_version].val);
+
+		if (type == tgt_dynamic_library) {
+			if (!setup_shared_object_symlinks(wk, tgt, plain_name,
+				&plain_name_install, &soname_install)) {
+				return false;
+			}
 		}
 	}
 
@@ -344,6 +355,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 				break;
 			case tgt_dynamic_library:
 			case tgt_static_library:
+			case tgt_shared_module:
 				get_option(wk, current_project(wk), "libdir", &install_dir);
 				break;
 			default:
@@ -525,6 +537,13 @@ func_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	return tgt_common(wk, args_node, res, default_library_type(wk),
 		tgt_static_library | tgt_dynamic_library, false);
+}
+
+bool
+func_shared_module(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	return tgt_common(wk, args_node, res, tgt_shared_module,
+		tgt_shared_module, false);
 }
 
 bool
