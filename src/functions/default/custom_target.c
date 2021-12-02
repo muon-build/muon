@@ -398,6 +398,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_build_by_default,
 		kw_depfile,
 		kw_depend_files,
+		kw_depends,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", obj_any, },
@@ -410,6 +411,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
 		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 
@@ -437,11 +439,20 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (akw[kw_depend_files].set) {
 		obj depend_files;
-		if (!coerce_string_array(wk, akw[kw_depend_files].node, akw[kw_depend_files].val, &depend_files)) {
+		if (!coerce_files(wk, akw[kw_depend_files].node, akw[kw_depend_files].val, &depend_files)) {
 			return false;
 		}
 
 		obj_array_extend(wk, tgt->dat.custom_target.depends, depend_files);
+	}
+
+	if (akw[kw_depends].set) {
+		obj depends;
+		if (!coerce_files(wk, akw[kw_depends].node, akw[kw_depends].val, &depends)) {
+			return false;
+		}
+
+		obj_array_extend(wk, tgt->dat.custom_target.depends, depends);
 	}
 
 	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->dat.custom_target.name));

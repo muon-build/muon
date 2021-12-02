@@ -7,11 +7,16 @@
 #include "platform/path.h"
 
 static enum iteration_result
-relativize_paths_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	uint32_t *dest = _ctx;
+	struct obj *file = get_obj(wk, val);
 
-	struct obj *file = get_obj(wk, val_id);
+	if (file->type == obj_string) {
+		obj_array_push(wk, *dest, val);
+		return ir_cont;
+	}
+
 	assert(file->type == obj_file);
 
 	char buf[PATH_MAX];
@@ -68,7 +73,13 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		return ir_err;
 	}
 
-	obj depends = join_args_ninja(wk, tgt->dat.custom_target.depends);
+	obj depends_rel;
+	make_obj(wk, &depends_rel, obj_array);
+	if (!obj_array_foreach(wk, tgt->dat.custom_target.depends, &depends_rel, relativize_paths_iter)) {
+		return ir_err;
+	}
+
+	obj depends = join_args_ninja(wk, depends_rel);
 
 	obj_array_extend(wk, cmdline, tgt_args);
 
