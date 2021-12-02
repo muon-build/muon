@@ -6,7 +6,7 @@
 #include "log.h"
 
 static bool
-func_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_file_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -17,6 +17,6 @@ func_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t
 }
 
 const struct func_impl_name impl_tbl_file[] = {
-	{ "full_path", func_full_path },
+	{ "full_path", func_file_full_path },
 	{ NULL, NULL },
 };
