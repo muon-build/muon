@@ -119,10 +119,23 @@ func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	return true;
 }
 
+static bool
+func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = path_is_absolute(get_cstr(wk, an[0].val));
+	return true;
+}
+
 const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "exists", func_module_fs_exists },
-	{ "is_file", func_module_fs_is_file },
+	{ "is_absolute", func_module_fs_is_absolute },
 	{ "is_dir", func_module_fs_is_dir },
+	{ "is_file", func_module_fs_is_file },
 	{ "parent", func_module_fs_parent },
 	{ "read", func_module_fs_read },
 	{ "write", func_module_fs_write },
