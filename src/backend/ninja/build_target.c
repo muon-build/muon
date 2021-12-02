@@ -23,18 +23,6 @@ struct write_tgt_iter_ctx {
 	enum compiler_language link_language;
 };
 
-// TODO: deprecate this function and use escape_ninja from args.c
-static void
-write_escaped(FILE *f, const char *s)
-{
-	for (; *s; ++s) {
-		if (*s == ' ' || *s == ':' || *s == '$') {
-			fputc('$', f);
-		}
-		fputc(*s, f);
-	}
-}
-
 static enum iteration_result
 write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
@@ -50,8 +38,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 		// TODO put these checks into tgt creation
 		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
-			LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
-			return ir_err;
+			/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+			return ir_cont;
 		}
 
 		if (languages[fl].is_header) {
@@ -94,10 +82,15 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	fputs("build ", ctx->out);
-	write_escaped(ctx->out, dest_path);
-	fprintf(ctx->out, ": %s_COMPILER ", compiler_language_to_s(fl));
-	write_escaped(ctx->out, src_path);
+
+	char esc_dest_path[PATH_MAX], esc_src_path[PATH_MAX];
+	if (!ninja_escape(esc_dest_path, PATH_MAX, dest_path)) {
+		return false;
+	} else if (!ninja_escape(esc_src_path, PATH_MAX, src_path)) {
+		return false;
+	}
+
+	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(fl), esc_src_path);
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
@@ -128,9 +121,8 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	enum compiler_language fl;
 
 	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
-		LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
-		return ir_err;
-
+		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		return ir_cont;
 	}
 
 	if (!languages[fl].is_header) {
@@ -165,8 +157,8 @@ determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 	enum compiler_language fl;
 
 	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
-		LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file));
-		return ir_err;
+		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		return ir_cont;
 	}
 
 	switch (fl) {
@@ -324,9 +316,12 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		return false;
 	}
 
-	fputs("build ", out);
-	write_escaped(out, build_path);
-	fprintf(out, ": %s_LINKER ", linker_type);
+	char esc_path[PATH_MAX];
+	if (!ninja_escape(esc_path, PATH_MAX, build_path)) {
+		return false;
+	}
+
+	fprintf(out, "build %s: %s_LINKER ", esc_path, linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), out);
 	if (implicit_deps) {
 		fputs(get_cstr(wk, implicit_deps), out);
