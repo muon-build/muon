@@ -818,7 +818,7 @@ func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_link,
+		.mode = compile_mode_compile,
 	};
 
 	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
