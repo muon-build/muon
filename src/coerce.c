@@ -23,7 +23,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		}
 		break;
 	case obj_file:
-		make_obj(wk, res, obj_string)->dat.str = v->dat.str;
+		*res = v->dat.file;
 		break;
 	case obj_number: {
 		*res = make_strf(wk, "%" PRId64, v->dat.num);
