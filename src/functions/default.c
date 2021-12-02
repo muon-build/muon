@@ -1041,6 +1041,9 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_should_fail,
 		kw_env,
 		kw_suite,
+		kw_priority, // TODO
+		kw_timeout, // TODO
+		kw_protocol, // TODO
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_any, },
@@ -1049,6 +1052,9 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", obj_any, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_priority] = { "priority", obj_number, }, // TODO
+		[kw_timeout] = { "timeout", obj_number, }, // TODO
+		[kw_protocol] = { "protocol", obj_string, }, // TODO
 		0
 	};
 

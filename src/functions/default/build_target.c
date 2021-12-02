@@ -32,8 +32,12 @@ enum build_target_kwargs {
 	bt_kw_soversion, // TODO
 	bt_kw_link_depends, // TODO
 	bt_kw_objects,
+	bt_kw_pic, // TODO
+	bt_kw_install_rpath, // TODO
+	bt_kw_export_dynamic, // TODO
 
 	/* lang args */
+	bt_kw_c_pch, // TODO
 	bt_kw_c_args,
 	bt_kw_cpp_args,
 	bt_kw_objc_args,
@@ -412,7 +416,11 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_soversion] = { "soversion", obj_any },
 		[bt_kw_link_depends] = { "link_depends", obj_any },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
+		[bt_kw_pic] = { "pic", obj_bool },
+		[bt_kw_install_rpath] = { "install_rpath", obj_string },
+		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
 		/* lang args */
+		[bt_kw_c_pch] = { "c_pch", obj_any, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_objc_args] = { "objc_args", ARG_TYPE_ARRAY_OF | obj_string },
