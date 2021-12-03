@@ -217,7 +217,7 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 	assert(src->s < bst->len && "invalid big_string");
 
 	char *buf = z_calloc(1, src->len + 1);
-	memcpy(buf, &bst[src->s], res->len);
+	memcpy(buf, &bst->data[src->s], src->len);
 
 	*res = (struct str) {
 		.flags = src->flags,
