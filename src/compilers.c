@@ -530,6 +530,13 @@ linker_gcc_args_rpath(const char *rpath)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_allow_shlib_undefined(void)
+{
+	COMPILER_ARGS({ "-Wl,--allow-shlib-undefined" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -544,6 +551,7 @@ build_linkers(void)
 			.soname       = compiler_arg_empty_1s,
 			.rpath        = compiler_arg_empty_1s,
 			.sanitize     = compiler_arg_empty_1s,
+			.allow_shlib_undefined = compiler_arg_empty_0,
 		}
 	};
 
@@ -558,6 +566,7 @@ build_linkers(void)
 	gcc.args.soname = linker_gcc_args_soname,
 	gcc.args.rpath = linker_gcc_args_rpath,
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
+	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;

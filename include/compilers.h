@@ -84,6 +84,7 @@ struct linker {
 		compiler_get_arg_func_1s soname;
 		compiler_get_arg_func_1s rpath;
 		compiler_get_arg_func_1s sanitize;
+		compiler_get_arg_func_0 allow_shlib_undefined;
 	} args;
 };
 

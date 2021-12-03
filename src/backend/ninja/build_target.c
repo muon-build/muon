@@ -303,6 +303,10 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		if (tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
 			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
 			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->dat.tgt.soname)));
+
+			if (tgt->dat.tgt.type == tgt_shared_module) {
+				push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
+			}
 		}
 
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
