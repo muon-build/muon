@@ -124,14 +124,15 @@ obj_equal(struct workspace *wk, obj left, obj right)
 bool
 obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb)
 {
-	assert(get_obj(wk, arr)->type == obj_array);
+	struct obj *a = get_obj(wk, arr);
+	assert(a->type == obj_array);
 
-	if (!get_obj(wk, arr)->dat.arr.len) {
+	if (!a->dat.arr.len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, arr)->dat.arr.val)) {
+		switch (cb(wk, ctx, a->dat.arr.val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -140,10 +141,11 @@ obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator c
 			return false;
 		}
 
-		if (!get_obj(wk, arr)->dat.arr.have_next) {
+		if (!a->dat.arr.have_next) {
 			break;
 		}
-		arr = get_obj(wk, arr)->dat.arr.next;
+
+		a = get_obj(wk, a->dat.arr.next);
 	}
 
 	return true;
@@ -193,6 +195,7 @@ obj_array_push(struct workspace *wk, obj arr, obj child)
 		a->dat.arr.tail = arr;
 		a->dat.arr.len = 1;
 		a->dat.arr.val = child;
+		a->dat.arr.have_next = false;
 		return;
 	}
 
