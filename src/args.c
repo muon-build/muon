@@ -323,7 +323,7 @@ arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res)
 }
 
 struct env_to_envp_ctx {
-	char *envp[MAX_ENV + 1], envd[MAX_ENV][BUF_SIZE_4k];
+	char *envp[MAX_ENV + 1];
 	uint32_t i;
 };
 
@@ -340,28 +340,16 @@ push_envp_str(struct env_to_envp_ctx *ctx, const char *s)
 		return false;
 	}
 
-	if (strlen(s) + 1 >= BUF_SIZE_4k) {
-		LOG_E("env element too long: '%s'", s);
-		return false;
-	}
-
-	strncpy(ctx->envd[ctx->i], s, BUF_SIZE_4k);
-	ctx->envp[ctx->i] = ctx->envd[ctx->i];
+	ctx->envp[ctx->i] = (char *)s;
 	++ctx->i;
 	return true;
 }
 
 static bool
-push_envp_key_val(struct env_to_envp_ctx *ctx, const char *k, const char *v)
+push_envp_key_val(struct workspace *wk, struct env_to_envp_ctx *ctx, const char *k, const char *v)
 {
-	if (strlen(k) + strlen(v) + 1 >= BUF_SIZE_4k) {
-		LOG_E("env element too long: '%s=%s'", k, v);
-		return false;
-	}
-
-	char buf[BUF_SIZE_4k];
-	sprintf(buf, "%s=%s", k, v);
-	return push_envp_str(ctx, buf);
+	obj s = make_strf(wk, "%s=%s", k, v);
+	return push_envp_str(ctx, get_cstr(wk, s));
 }
 
 static enum iteration_result
@@ -381,7 +369,7 @@ env_to_envp_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct env_to_envp_ctx *ctx = _ctx;
 
-	if (!push_envp_key_val(ctx, get_cstr(wk, key), get_cstr(wk, val))) {
+	if (!push_envp_key_val(wk, ctx, get_cstr(wk, key), get_cstr(wk, val))) {
 		return ir_err;
 	}
 
@@ -396,15 +384,15 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 
 	*ret = ctx.envp;
 
-	push_envp_key_val(&ctx, "MESON_BUILD_ROOT", wk->build_root);
-	push_envp_key_val(&ctx, "MESON_SOURCE_ROOT", wk->source_root);
+	push_envp_key_val(wk, &ctx, "MESON_BUILD_ROOT", wk->build_root);
+	push_envp_key_val(wk, &ctx, "MESON_SOURCE_ROOT", wk->source_root);
 
 	if (flags & env_to_envp_flag_dist_root) {
 		assert(false && "TODO");
 	}
 
 	if (flags & env_to_envp_flag_subdir) {
-		push_envp_key_val(&ctx, "MESON_SUBDIR", get_cstr(wk, current_project(wk)->cwd));
+		push_envp_key_val(wk, &ctx, "MESON_SUBDIR", get_cstr(wk, current_project(wk)->cwd));
 	}
 
 	if (!val) {
