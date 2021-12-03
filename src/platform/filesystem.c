@@ -174,22 +174,30 @@ fs_fseek(FILE *file, size_t off)
 }
 
 bool
-fs_fsize(FILE *file, uint64_t *ret)
+fs_ftell(FILE *file, uint64_t *res)
 {
-	int64_t size = 0;
-	if (fseek(file, 0, SEEK_END) == -1) {
-		LOG_E("failed fseek: %s", strerror(errno));
-		return false;
-	} else if ((size = ftell(file)) == -1) {
+	int64_t pos;
+	if ((pos = ftell(file)) == -1) {
 		LOG_E("failed ftell: %s", strerror(errno));
 		return false;
 	}
 
+	assert(pos >= 0);
+	*res = pos;
+	return true;
+}
+
+bool
+fs_fsize(FILE *file, uint64_t *ret)
+{
+	if (fseek(file, 0, SEEK_END) == -1) {
+		LOG_E("failed fseek: %s", strerror(errno));
+		return false;
+	} else if (!fs_ftell(file, ret)) {
+		return false;
+	}
+
 	rewind(file);
-
-	assert(size >= 0);
-
-	*ret = size;
 	return true;
 }
 
