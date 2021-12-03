@@ -11,6 +11,7 @@
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
 enum dep_not_found_reason {
@@ -350,7 +351,12 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	}
 
 	struct obj *dep = make_obj(wk, res, obj_dependency);
-	dep->dat.dep.name = make_strf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name));
+
+	dep->dat.dep.name = make_strf(wk, "%s:declared_dep@%s:%d",
+		get_cstr(wk, current_project(wk)->cfg.name),
+		wk->src->label,
+		get_node(wk->ast, args_node)->line);
+
 	dep->dat.dep.link_args = akw[kw_link_args].val;
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
