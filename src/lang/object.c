@@ -930,6 +930,19 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	enum obj_type t = get_obj(wk, obj)->type;
 
 	switch (t) {
+	case obj_dependency: {
+		struct obj *dep = get_obj(wk, obj);
+		obj_to_s_buf_push(&ctx, "<dependency ");
+		if (dep->dat.dep.name) {
+			obj_to_s_str(wk, &ctx, dep->dat.dep.name);
+		}
+
+		obj_to_s_buf_push(&ctx, " | found: %s, pkg_config: %s>",
+			dep->dat.dep.flags & dep_flag_found ? "yes" : "no",
+			dep->dat.dep.flags & dep_flag_pkg_config ? "yes" : "no"
+			);
+		break;
+	}
 	case obj_build_target: {
 		struct obj *tgt = get_obj(wk, obj);
 		const char *type = NULL;
