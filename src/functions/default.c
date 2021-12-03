@@ -771,6 +771,29 @@ ret:
 }
 
 static bool
+func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_command,
+		kw_depends,
+		kw_env,
+	};
+	struct args_kw akw[] = {
+		[kw_command] = { "command", obj_any },
+		[kw_depends] = { "depends", obj_any },
+		[kw_env] = { "env", obj_any },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	LOG_W("TODO: run_target()");
+	return true;
+}
+
+static bool
 func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -1405,7 +1428,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "message", func_message },
 	{ "project", func_project },
 	{ "run_command", func_run_command },
-	{ "run_target", todo },
+	{ "run_target", func_run_target },
 	{ "set_variable", func_set_variable },
 	{ "shared_library", func_shared_library },
 	{ "shared_module", func_shared_module },
