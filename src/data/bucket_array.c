@@ -108,7 +108,7 @@ bucket_array_destroy(struct bucket_array *ba)
 }
 
 bool
-bucket_array_lookup_pointer(struct bucket_array *ba, const uint8_t *p, uint32_t *ret)
+bucket_array_lookup_pointer(struct bucket_array *ba, const uint8_t *p, uint64_t *ret)
 {
 	uint32_t i;
 	for (i = 0; i < ba->buckets.len; ++i) {

@@ -93,7 +93,7 @@ enum str_flags {
 
 struct str {
 	const char *s;
-	uint32_t len;
+	uint32_t len, serialized_offset;
 	enum str_flags flags;
 };
 
