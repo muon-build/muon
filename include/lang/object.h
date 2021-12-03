@@ -157,6 +157,8 @@ struct obj {
 			obj include_directories; // obj_array
 			obj variables; // obj_dict
 			obj sources; // obj_array
+			obj deps; // obj_array
+			obj compile_args; // obj_array
 			enum dep_flags flags;
 		} dep;
 		struct {

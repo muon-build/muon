@@ -16,6 +16,7 @@ struct write_tgt_iter_ctx {
 	const struct obj *tgt;
 	const struct project *proj;
 	struct dep_args_ctx args;
+	obj joined_args;
 	obj object_names;
 	obj order_deps;
 	bool have_order_deps;
@@ -77,7 +78,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	/* build rules and args */
 
 	uint32_t args_id;
-	if (!obj_dict_geti(wk, ctx->args.args_dict, fl, &args_id)) {
+	if (!obj_dict_geti(wk, ctx->joined_args, fl, &args_id)) {
 		LOG_E("couldn't get args for language %s", compiler_language_to_s(fl));
 		return ir_err;
 	}
@@ -213,7 +214,6 @@ tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_ctx *ctx)
 		obj_array_dup(wk, tgt->dat.tgt.link_args, &arr);
 		obj_array_extend(wk, ctx->link_args, arr);
 	}
-
 	return true;
 }
 
@@ -268,7 +268,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		return false;
 	}
 
-	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.args_dict)) {
+	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.compile_args, &ctx.joined_args)) {
 		return false;
 	}
 

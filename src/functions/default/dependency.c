@@ -324,6 +324,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		kw_version,
 		kw_include_directories,
 		kw_variables,
+		kw_compile_args,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
@@ -334,6 +335,7 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_variables] = { "variables", obj_dict },
+		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
@@ -361,6 +363,8 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 	dep->dat.dep.version = akw[kw_version].val;
 	dep->dat.dep.flags |= dep_flag_found;
 	dep->dat.dep.variables = akw[kw_variables].val;
+	dep->dat.dep.deps = akw[kw_dependencies].val;
+	dep->dat.dep.compile_args = akw[kw_compile_args].val;
 
 	if (akw[kw_sources].set) {
 		obj sources;

@@ -157,7 +157,8 @@ struct setup_compiler_args_ctx {
 	const struct project *proj;
 
 	obj include_dirs;
-	obj args_dict;
+	obj dep_args;
+	obj joined_args;
 };
 
 static bool
@@ -187,7 +188,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	assert(comp->type == obj_compiler);
 	enum compiler_type t = comp->dat.compiler.type;
 
-	uint32_t args;
+	obj args;
 	make_obj(wk, &args, obj_array);
 
 	obj inc_dirs;
@@ -231,31 +232,43 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		}
 	}
 
+	{ /* dep args */
+		if (ctx->dep_args) {
+			obj_array_extend(wk, args, ctx->dep_args);
+		}
+	}
+
 	{ /* target args */
 		obj tgt_args, tgt_args_dup;
-		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, lang, &tgt_args) && tgt_args) {
+		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, lang, &tgt_args)
+		    && tgt_args && get_obj(wk, tgt_args)->dat.arr.len) {
 			obj_array_dup(wk, tgt_args, &tgt_args_dup);
 			obj_array_extend(wk, args, tgt_args_dup);
 		}
 	}
 
+
 	if (ctx->tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
-	obj_dict_seti(wk, ctx->args_dict, lang, join_args_shell_ninja(wk, args));
+	obj_dict_seti(wk, ctx->joined_args, lang, join_args_shell_ninja(wk, args));
 	return ir_cont;
 }
 
 bool
 setup_compiler_args(struct workspace *wk, const struct obj *tgt,
-	const struct project *proj, obj include_dirs, obj args_dict)
+	const struct project *proj, obj include_dirs, obj dep_args,
+	obj *joined_args)
 {
+	make_obj(wk, joined_args, obj_dict);
+
 	struct setup_compiler_args_ctx ctx = {
 		.tgt = tgt,
 		.proj = proj,
 		.include_dirs = include_dirs,
-		.args_dict = args_dict,
+		.dep_args = dep_args,
+		.joined_args = *joined_args,
 	};
 
 	if (!obj_dict_foreach(wk, proj->compilers, &ctx, setup_compiler_args_iter)) {

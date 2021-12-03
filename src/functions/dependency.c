@@ -61,7 +61,8 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			}
 		}
 
-		/* TODO: meson adds -I path/to/build/target.p, but why? */
+		/* TODO: meson adds -I path/to/build/target.p, but why?
+		 *	-- maybe for pch? */
 		/* char tgt_parts_dir[PATH_MAX]; */
 		/* if (!path_dirname(tgt_parts_dir, PATH_MAX, path)) { */
 		/* 	return ir_err; */
@@ -72,7 +73,15 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		/* obj_array_push(wk, ctx->include_dirs, make_str(wk, tgt_parts_dir)); */
 
 		if (ctx->recursive && tgt->dat.tgt.deps) {
+			ctx->recursive = false;
 			if (!obj_array_foreach(wk, tgt->dat.tgt.deps, ctx, dep_args_iter)) {
+				return ir_err;
+			}
+			ctx->recursive = true;
+		}
+
+		if (tgt->dat.tgt.link_with) {
+			if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, ctx, dep_args_link_with_iter)) {
 				return ir_err;
 			}
 		}
@@ -124,6 +133,8 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 	struct dep_args_ctx *ctx = _ctx;
 	struct obj *dep = get_obj(wk, val);
 
+	/* obj_fprintf(wk, log_file(), "%d|dep: %o\n", ctx->recursion_depth, val); */
+
 	switch (dep->type) {
 	case obj_dependency:
 		if (!(dep->dat.dep.flags & dep_flag_found)) {
@@ -131,8 +142,15 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->dat.dep.link_with) {
+			bool was_recursive = ctx->recursive;
+			if (was_recursive) {
+				ctx->recursive = false;
+			}
 			if (!obj_array_foreach(wk, dep->dat.dep.link_with, _ctx, dep_args_link_with_iter)) {
 				return ir_err;
+			}
+			if (was_recursive) {
+				ctx->recursive = true;
 			}
 		}
 
@@ -147,6 +165,18 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 			obj dup;
 			obj_array_dup(wk, dep->dat.dep.link_args, &dup);
 			obj_array_extend(wk, ctx->link_args, dup);
+		}
+
+		if (dep->dat.dep.compile_args) {
+			obj dup;
+			obj_array_dup(wk, dep->dat.dep.compile_args, &dup);
+			obj_array_extend(wk, ctx->compile_args, dup);
+		}
+
+		if (ctx->recursive && dep->dat.dep.deps) {
+			if (!obj_array_foreach(wk, dep->dat.dep.deps, ctx, dep_args_iter)) {
+				return ir_err;
+			}
 		}
 		break;
 	case obj_external_library: {
@@ -173,7 +203,7 @@ dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
 	make_obj(wk, &ctx->include_dirs, obj_array);
 	make_obj(wk, &ctx->link_with, obj_array);
 	make_obj(wk, &ctx->link_args, obj_array);
-	make_obj(wk, &ctx->args_dict, obj_dict);
+	make_obj(wk, &ctx->compile_args, obj_array);
 	make_obj(wk, &ctx->rpath, obj_array);
 }
 
