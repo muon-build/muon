@@ -313,7 +313,8 @@ obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 	}
 
 	if (!(a = get_obj(wk, arr))->dat.arr.len) {
-		*a = *b;
+		struct obj_array_dup_ctx ctx = { .arr = &arr };
+		obj_array_foreach(wk, arr2, &ctx, obj_array_dup_iter);
 		return;
 	}
 
