@@ -236,6 +236,11 @@ dump_objs(struct workspace *wk, FILE *f)
 	}
 
 	struct serial_str ser_s;
+	// memsan is upset about uninitialized padding bytes in this struct
+	// when we try to write it out.  A better solution would be to not
+	// write the padding bytes to disk, but that would complicate the code.
+	memset(&ser_s, 0, sizeof(struct serial_str));
+
 	void *data;
 	size_t len;
 	uint8_t type_tag;
