@@ -50,6 +50,7 @@ src = files([
 	'guess.c',
 	'install.c',
 	'lang/eval.c',
+	'lang/fmt.c',
 	'lang/interpreter.c',
 	'lang/lexer.c',
 	'lang/object.c',
@@ -97,7 +98,6 @@ foreach d: [
 		['libpkgconf', {'fallback': ['pkgconf', 'dep_libpkgconf']}],
 		['samurai',    {'fallback': ['samurai', 'libsamu_dep']}],
 	]
-
 	dep = dependency(
 		d[0],
 		required: get_option(d[0]),

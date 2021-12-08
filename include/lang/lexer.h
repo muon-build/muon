@@ -63,6 +63,9 @@ enum token_type {
 
 	/* special */
 	tok_stringify,
+
+	/* formatting only */
+	tok_comment,
 };
 
 union token_data {
@@ -80,7 +83,12 @@ struct tokens {
 	struct darr tok;
 };
 
-bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src);
+enum lexer_mode {
+	lexer_mode_format = 1 << 0,
+};
+
+bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
+	enum lexer_mode mode);
 void tokens_destroy(struct tokens *toks);
 
 const char *tok_type_to_s(enum token_type type);

@@ -64,6 +64,11 @@ enum node_type {
 	node_ternary,
 	node_block,
 	node_stringify,
+
+	/* formatting-only nodes */
+	node_empty_line,
+	node_paren,
+	node_plusassign,
 };
 
 enum node_child_flag {
@@ -79,6 +84,7 @@ struct node {
 	uint32_t subtype;
 	union token_data dat;
 	uint32_t l, r, c, d;
+	const char *comment;
 	uint8_t chflg;
 };
 
@@ -87,7 +93,13 @@ struct ast {
 	uint32_t root;
 };
 
-bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src);
+enum parse_mode {
+	pm_ignore_statement_with_no_effect = 1 << 0,
+	pm_keep_formatting = 1 << 1,
+};
+
+bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
+	enum parse_mode mode);
 void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);
 const char *node_to_s(struct node *n);

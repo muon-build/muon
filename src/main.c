@@ -17,6 +17,7 @@
 #include "functions/default/setup.h"
 #include "install.h"
 #include "lang/eval.h"
+#include "lang/fmt.h"
 #include "log.h"
 #include "machine_file.h"
 #include "opts.h"
@@ -106,7 +107,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
-	if (!parser_parse(&ast, &sdata, &src)) {
+	if (!parser_parse(&ast, &sdata, &src, 0)) {
 		goto ret;
 	}
 
@@ -506,6 +507,36 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <filename>", "", NULL, 1)
+
+	const char *filename = argv[argi];
+
+	bool ret = false;
+
+	struct source src = { 0 };
+	struct ast ast = { 0 };
+	struct source_data sdata = { 0 };
+
+	if (!fs_read_entire_file(filename, &src)) {
+		goto ret;
+	} else if (!parser_parse(&ast, &sdata, &src, pm_keep_formatting)) {
+		goto ret;
+	} else if (!fmt(&ast, stdout)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	fs_source_destroy(&src);
+	ast_destroy(&ast);
+	source_data_destroy(&sdata);
+	return ret;
+}
+
+static bool
 cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	printf("muon v%s-%s\nenabled features:",
@@ -536,11 +567,12 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	static const struct command commands[] = {
 		{ "auto", cmd_auto, "build the project with options from a .muon file" },
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "subprojects", cmd_subprojects, "manage subprojects" },
+		{ "fmt_unstable", cmd_format, "format meson source file" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "samu", cmd_samu, "run samurai" },
 		{ "setup", cmd_setup, "setup a build directory" },
+		{ "subprojects", cmd_subprojects, "manage subprojects" },
 		{ "test", cmd_test, "run tests" },
 		{ "version", cmd_version, "print version information" },
 		{ 0 },

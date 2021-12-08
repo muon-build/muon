@@ -80,6 +80,7 @@ cat \
 	src/guess.c \
 	src/install.c \
 	src/lang/eval.c \
+	src/lang/fmt.c \
 	src/lang/interpreter.c \
 	src/lang/lexer.c \
 	src/lang/object.c \

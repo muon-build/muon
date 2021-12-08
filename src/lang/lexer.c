@@ -28,6 +28,7 @@ struct lexer {
 	const char *src;
 	uint32_t i, data_i, line, line_start;
 	struct { uint32_t paren, bracket, curl; } enclosing;
+	enum lexer_mode mode;
 };
 
 const char *
@@ -77,6 +78,7 @@ tok_type_to_s(enum token_type type)
 	case tok_number: return "number";
 	case tok_question_mark: return "?";
 	case tok_stringify: return "stringify";
+	case tok_comment: return "comment";
 	}
 
 	assert(false && "unreachable");
@@ -167,6 +169,17 @@ is_skipchar(const char c)
 	return c == '\r' || c == ' ' || c == '\t' || c == '#';
 }
 
+static void
+copy_into_sdata(struct lexer *lexer, struct token *tok, uint32_t start, uint32_t end)
+{
+	tok->dat.s = &lexer->sdata->data[lexer->data_i];
+	tok->n = &lexer->src[end] - &lexer->src[start];
+	memcpy((char *)tok->dat.s, &lexer->src[start], tok->n);
+
+	lexer->sdata->data[lexer->data_i + tok->n] = 0;
+	lexer->data_i += tok->n + 1;
+}
+
 struct kw_table {
 	const char *name;
 	uint32_t val;
@@ -220,6 +233,7 @@ number(struct lexer *lexer, struct token *tok)
 	tok->type = tok_number;
 
 	uint32_t base = 10;
+	uint32_t start = lexer->i;
 
 	if (lexer->src[lexer->i] == '0') {
 		switch (lexer->src[lexer->i + 1]) {
@@ -239,8 +253,12 @@ number(struct lexer *lexer, struct token *tok)
 			lexer->i += 2;
 			break;
 		default:
-			tok->dat.n = 0;
 			advance(lexer);
+			if (lexer->mode & lexer_mode_format) {
+				copy_into_sdata(lexer, tok, start, lexer->i);
+			} else {
+				tok->dat.n = 0;
+			}
 			return lex_cont;
 		}
 	}
@@ -268,7 +286,11 @@ number(struct lexer *lexer, struct token *tok)
 
 	lexer->i += endptr - &lexer->src[lexer->i];
 
-	tok->dat.n = val;
+	if (lexer->mode & lexer_mode_format) {
+		copy_into_sdata(lexer, tok, start, lexer->i);
+	} else {
+		tok->dat.n = val;
+	}
 
 	return lex_cont;
 }
@@ -277,6 +299,7 @@ static enum lex_result
 lex_identifier(struct lexer *lexer, struct token *token)
 {
 	const char *start = &lexer->src[lexer->i];
+	uint32_t start_i = lexer->i;
 	uint32_t len = 0;
 
 	while (is_valid_inside_of_identifier(lexer->src[lexer->i])) {
@@ -287,14 +310,9 @@ lex_identifier(struct lexer *lexer, struct token *token)
 	assert(len);
 
 	if (!keyword(lexer, start, len, &token->type)) {
-		char *str = &lexer->sdata->data[lexer->data_i];
-		token->dat.s = str;
 		token->type = tok_identifier;
-		token->n = len;
 
-		strncpy(str, start, token->n);
-		str[token->n] = 0;
-		lexer->data_i += token->n + 1;
+		copy_into_sdata(lexer, token, start_i, start_i + len);
 	}
 
 	return lex_cont;
@@ -531,7 +549,6 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 
 		next_tok(lexer)->type = tok_plus;
 
-
 		*tok = next_tok(lexer);
 		*string = &lexer->sdata->data[lexer->data_i];
 		token = *tok;
@@ -576,6 +593,12 @@ lex_string(struct lexer *lexer, struct token *token, bool fstring)
 {
 	bool multiline;
 	uint32_t quotes = 0;
+	uint32_t start = lexer->i, data_start = lexer->data_i;
+
+	if (fstring && (lexer->mode & lexer_mode_format)) {
+		start = lexer->i - 1;
+		fstring = false;
+	}
 
 	if (strncmp(&lexer->src[lexer->i], "'''", 3) == 0) {
 		multiline = true;
@@ -627,6 +650,11 @@ lex_string(struct lexer *lexer, struct token *token, bool fstring)
 	}
 
 	lexer->data_i += token->n + 1;
+
+	if (lexer->mode & lexer_mode_format) {
+		lexer->data_i = data_start;
+		copy_into_sdata(lexer, token, start, lexer->i);
+	}
 	return ret;
 }
 
@@ -635,9 +663,17 @@ lexer_tokenize_one(struct lexer *lexer)
 {
 	while (is_skipchar(lexer->src[lexer->i])) {
 		if (lexer->src[lexer->i] == '#') {
+			advance(lexer);
+
+			struct token *comment = next_tok(lexer);
+			comment->type = tok_comment;
+			uint32_t start = lexer->i;
+
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
 				advance(lexer);
 			}
+
+			copy_into_sdata(lexer, comment, start, lexer->i);
 		} else {
 			advance(lexer);
 		}
@@ -837,7 +873,8 @@ tokenize(struct lexer *lexer)
 }
 
 bool
-lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src)
+lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
+	enum lexer_mode mode)
 {
 	*toks = (struct tokens) { 0 };
 
@@ -847,6 +884,7 @@ lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src)
 		.src = src->src,
 		.toks = toks,
 		.sdata = sdata,
+		.mode = mode,
 	};
 
 	darr_init(&toks->tok, 2048, sizeof(struct token));

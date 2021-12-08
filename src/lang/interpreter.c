@@ -1071,6 +1071,9 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 
 	/* never valid */
+	case node_paren:
+	case node_empty_line:
+	case node_plusassign:
 	case node_null:
 		LOG_E("bug in the interpreter: encountered null node");
 		ret = false;

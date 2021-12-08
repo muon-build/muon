@@ -22,6 +22,8 @@ struct parser {
 	struct ast *ast;
 	uint32_t token_i, loop_depth;
 	bool caused_effect, valid;
+
+	enum parse_mode mode;
 };
 
 const char *
@@ -55,6 +57,9 @@ node_type_to_s(enum node_type t)
 	case node_ternary: return "ternary";
 	case node_block: return "block";
 	case node_stringify: return "stringify";
+	case node_empty_line: return "empty_line";
+	case node_paren: return "paren";
+	case node_plusassign: return "plusassign";
 	}
 
 	assert(false && "unreachable");
@@ -88,9 +93,21 @@ get_next_tok(struct parser *p)
 	return darr_get(&p->toks->tok, p->token_i);
 }
 
+static void
+accept_comment(struct parser *p)
+{
+	if (p->last->type == tok_comment) {
+		struct node *n = darr_get(&p->ast->nodes, p->ast->nodes.len - 1);
+		n->comment = p->last->dat.s;
+		get_next_tok(p);
+	}
+}
+
 static bool
 accept(struct parser *p, enum token_type type)
 {
+	accept_comment(p);
+
 	if (p->last->type == type) {
 		get_next_tok(p);
 		return true;
@@ -102,6 +119,8 @@ accept(struct parser *p, enum token_type type)
 static bool
 expect(struct parser *p, enum token_type type)
 {
+	accept_comment(p);
+
 	if (!accept(p, type)) {
 		parse_error(p, NULL, "expected '%s', got '%s'", tok_type_to_s(type), tok_type_to_s(p->last->type));
 		return false;
@@ -117,6 +136,19 @@ consume_until(struct parser *p, enum token_type t)
 	       && p->last->type != tok_eof) {
 		get_next_tok(p);
 	}
+}
+
+static bool
+check_eol(struct parser *p)
+{
+	struct token *next = NULL;
+
+	if (p->token_i < p->toks->tok.len) {
+		next = darr_get(&p->toks->tok, p->token_i);
+	}
+
+	return p->last->type == tok_eol ||
+	       (next && p->last->type == tok_comment && next->type == tok_eol);
 }
 
 struct node *
@@ -136,6 +168,7 @@ make_node(struct parser *p, uint32_t *idx, enum node_type t)
 		n->col = p->last_last->col;
 		n->dat = p->last_last->dat;
 	}
+
 	return n;
 }
 
@@ -236,6 +269,10 @@ node_to_s(struct node *n)
 	}
 	default:
 		break;
+	}
+
+	if (n->comment) {
+		i += snprintf(&buf[i], BUF_SIZE_S - i, " #%s", n->comment);
 	}
 
 	return buf;
@@ -511,10 +548,24 @@ parse_e8(struct parser *p, uint32_t *id)
 	uint32_t v;
 
 	if (accept(p, tok_lparen)) {
-		if (!parse_stmt(p, id)) {
+		if (p->mode & pm_keep_formatting) {
+			make_node(p, id, node_paren);
+		}
+
+		if (!parse_stmt(p, &v)) {
 			return false;
 		} else if (!expect(p, tok_rparen)) {
 			return false;
+		}
+
+		if (p->mode & pm_keep_formatting) {
+			uint32_t rparen;
+			make_node(p, &rparen, node_paren);
+
+			add_child(p, *id, node_child_l, v);
+			add_child(p, *id, node_child_r, rparen);
+		} else {
+			*id = v;
 		}
 
 		return true;
@@ -874,14 +925,23 @@ parse_stmt(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		struct node *n = get_node(p->ast, arith);
-		n->subtype = arith_add;
-		add_child(p, arith, node_child_l, l_id);
-		add_child(p, arith, node_child_r, v);
 
-		make_node(p, id, node_assignment);
-		add_child(p, *id, node_child_l, l_id);
-		add_child(p, *id, node_child_r, arith);
+		struct node *n = get_node(p->ast, arith);
+
+		if (p->mode & pm_keep_formatting) {
+			n->type = node_plusassign;
+			add_child(p, arith, node_child_l, l_id);
+			add_child(p, arith, node_child_r, v);
+			*id = arith;
+		}  else {
+			n->subtype = arith_add;
+			add_child(p, arith, node_child_l, l_id);
+			add_child(p, arith, node_child_r, v);
+
+			make_node(p, id, node_assignment);
+			add_child(p, *id, node_child_l, l_id);
+			add_child(p, *id, node_child_r, arith);
+		}
 	} else if (accept(p, tok_assign)) {
 		p->caused_effect = true;
 
@@ -1043,6 +1103,10 @@ parse_foreach(struct parser *p, uint32_t *id)
 		return false;
 	}
 
+	if (!expect(p, tok_eol)) {
+		return false;
+	}
+
 	if (get_node(p->ast, r_id)->type == node_empty) {
 		parse_error(p, colon, "expected statement");
 		return false;
@@ -1069,7 +1133,14 @@ parse_foreach(struct parser *p, uint32_t *id)
 static bool
 parse_line(struct parser *p, uint32_t *id)
 {
-	while (accept(p, tok_eol)) {
+	if (p->mode & pm_keep_formatting) {
+		if (check_eol(p)) {
+			make_node(p, id, node_empty_line);
+			return true;
+		}
+	} else {
+		while (accept(p, tok_eol)) {
+		}
 	}
 
 	switch (p->last->type) {
@@ -1190,12 +1261,18 @@ parse_block(struct parser *p, uint32_t *id)
 }
 
 bool
-parser_parse(struct ast *ast, struct source_data *sdata, struct source *src)
+parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
+	enum parse_mode mode)
 {
 	bool ret = false;
 	struct tokens toks;
 
-	if (!lexer_lex(&toks, sdata, src)) {
+	enum lexer_mode lexer_mode = 0;
+	if (mode & pm_keep_formatting) {
+		lexer_mode |= lexer_mode_format;
+	}
+
+	if (!lexer_lex(&toks, sdata, src, lexer_mode)) {
 		goto ret;
 	}
 
@@ -1203,7 +1280,8 @@ parser_parse(struct ast *ast, struct source_data *sdata, struct source *src)
 		.src = src,
 		.ast = ast,
 		.toks = &toks,
-		.valid = true
+		.valid = true,
+		.mode = mode,
 	};
 
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
