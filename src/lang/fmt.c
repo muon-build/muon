@@ -658,7 +658,7 @@ fmt(struct ast *ast, FILE *out)
 		.ast = ast,
 		.out = out,
 		.max_line_len = 80,
-		.indent_by = "  ",
+		.indent_by = "    ",
 	};
 
 	struct fmt_stack fst = {
