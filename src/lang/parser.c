@@ -1201,7 +1201,8 @@ parse_line(struct parser *p, uint32_t *id)
 		}
 	}
 
-	if (ret && !p->caused_effect) {
+	if (!(p->mode & pm_ignore_statement_with_no_effect)
+	    && ret && !p->caused_effect) {
 		parse_error(p, stmt_start, "statement with no effect");
 		return false;
 	}

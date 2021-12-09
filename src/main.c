@@ -18,6 +18,7 @@
 #include "install.h"
 #include "lang/eval.h"
 #include "lang/fmt.h"
+#include "lang/interpreter.h"
 #include "log.h"
 #include "machine_file.h"
 #include "opts.h"
@@ -330,25 +331,38 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 	char buf[2048];
 	bool ret = false;
 	struct source src = { .label = "repl", .src = buf };
+	struct source_data sdata = { 0 };
+	struct ast ast = { 0 };
 
 	struct workspace wk;
 	workspace_init(&wk);
+	wk.src = &src;
+	wk.ast = &ast;
 
 	wk.lang_mode = language_internal;
 
-	uint32_t id;
+	obj id;
 	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
 
 	fputs("> ", stderr);
 	while (fgets(buf, 2048, stdin)) {
 		src.len = strlen(buf);
 
-		uint32_t res;
-		if (eval(&wk, &src, &res)) {
-			if (res) {
-				obj_fprintf(&wk, stderr, "%o\n", res);
-			}
+		if (!parser_parse(&ast, &sdata, &src,
+			pm_ignore_statement_with_no_effect)) {
+			goto cont;
 		}
+
+		if (!interp_node(&wk, wk.ast->root, &id)) {
+			goto cont;
+		}
+
+		if (id) {
+			obj_fprintf(&wk, stderr, "%o\n", id);
+			hash_set(&wk.scope, "_", id);
+		}
+cont:
+		ast_destroy(&ast);
 		fputs("> ", stderr);
 	}
 
