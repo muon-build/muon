@@ -323,6 +323,18 @@ fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	return len;
 }
 
+static uint32_t
+fmt_method(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
+{
+	struct fmt_stack fst = *fmt_setup_fst(pfst);
+
+	uint32_t len = 0;
+	struct node *f = get_node(ctx->ast, n_id);
+
+	len += fmt_function_common(ctx, &fst, f->r, f->c);
+
+	return len;
+}
 
 static uint32_t
 fmt_node_wrapped(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
@@ -425,21 +437,20 @@ static uint32_t
 fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 {
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
 	uint32_t len = 0;
 	struct node *n = get_node(ctx->ast, n_id);
 
 	switch (n->type) {
 	case node_method:
-		len += fmt_write(ctx, &fst, '.');
-		len += fmt_function_common(ctx, &fst, n->r, n->c);
+		len += fmt_write(ctx, pfst, '.');
+		len += fmt_check(ctx, &fst, fmt_method, n_id);
 		break;
 	case node_index:
-		len += fmt_write(ctx, &fst, '[');
+		len += fmt_write(ctx, pfst, '[');
 		++ctx->enclosed;
-		len += fmt_node(ctx, &fst, n->r);
+		len += fmt_check(ctx, &fst, fmt_node, n->r);
 		--ctx->enclosed;
-		len += fmt_write(ctx, &fst, ']');
+		len += fmt_write(ctx, pfst, ']');
 		break;
 	default:
 		assert(false && "unreachable");
@@ -447,8 +458,9 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	}
 
 	if (n->chflg & node_child_d) {
-		len += fmt_tail(ctx, &fst, n_id);
-		len += fmt_chain(ctx, &fst, n->d);
+		len += fmt_chain(ctx, pfst, n->d);
+	} else {
+		len += fmt_tail(ctx, pfst, n_id);
 	}
 	return len;
 }
@@ -540,13 +552,11 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	case node_method:
 		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_chain(ctx, &fst, n_id);
-		break;
+		return len + fmt_chain(ctx, pfst, n_id);
 	case node_index:
 		assert(n->chflg & node_child_l);
 		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_chain(ctx, &fst, n_id);
-		break;
+		return len + fmt_chain(ctx, pfst, n_id);
 
 	/* assignment */
 	case node_assignment:
