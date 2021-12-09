@@ -34,3 +34,8 @@ call ale#linter#Define('meson', {
 \   'callback': 'ale_linters#meson#muon#Handle',
 \   'output_stream': 'stderr',
 \})
+
+" usage:
+" mkdir -p /path/to/vim/config/ale_linters/meson
+" cp /path/to/muon/contrib/muon.vim
+" 	/path/to/vim/config/ale_linters/meson/muon.vim
