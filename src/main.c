@@ -523,27 +523,54 @@ cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	OPTSTART("") {
-	} OPTEND(argv[argi], " <filename>", "", NULL, 1)
+	struct {
+		const char *filename;
+		bool in_place;
+	} opts = { 0 };
 
-	const char *filename = argv[argi];
+	OPTSTART("i") {
+		case 'i':
+			opts.in_place = true;
+			break;
+	} OPTEND(argv[argi], " <filename>",
+		"  -i - modify file in-place\n",
+		NULL, 1)
 
+	opts.filename = argv[argi];
+
+	bool opened_out = false;
 	bool ret = false;
 
 	struct source src = { 0 };
 	struct ast ast = { 0 };
 	struct source_data sdata = { 0 };
 
-	if (!fs_read_entire_file(filename, &src)) {
+	if (!fs_read_entire_file(opts.filename, &src)) {
 		goto ret;
 	} else if (!parser_parse(&ast, &sdata, &src, pm_keep_formatting)) {
 		goto ret;
-	} else if (!fmt(&ast, stdout)) {
+	}
+
+	FILE *out;
+
+	if (opts.in_place) {
+		if (!(out = fs_fopen(opts.filename, "w"))) {
+			goto ret;
+		}
+		opened_out = true;
+	} else {
+		out = stdout;
+	}
+
+	if (!fmt(&ast, out)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
+	if (opened_out) {
+		fs_fclose(out);
+	}
 	fs_source_destroy(&src);
 	ast_destroy(&ast);
 	source_data_destroy(&sdata);
