@@ -22,8 +22,9 @@ struct fmt_ctx {
 };
 
 enum special_fmt {
-	special_fmt_sort_files = 1,
-	special_fmt_cmd_array,
+	special_fmt_sort_files = 1 << 0,
+	special_fmt_collapse_lone_array_arg = 1 << 1,
+	special_fmt_cmd_array  = 1 << 2,
 };
 
 struct fmt_stack {
@@ -304,6 +305,13 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	struct node *arg = get_node(ctx->ast, n_args);
 	bool last = false;
 
+	if (fst.special_fmt & special_fmt_collapse_lone_array_arg) {
+		assert(arg->type != node_empty);
+		struct node *arr = get_node(ctx->ast, arg->l);
+		assert(arr->type == node_array);
+		arg = get_node(ctx->ast, arr->l);
+	}
+
 	if (arg->type == node_empty) {
 		return 0;
 	}
@@ -335,24 +343,20 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		}
 	}
 
-	switch (fst.special_fmt) {
-	case special_fmt_sort_files:
+	if (fst.special_fmt & special_fmt_sort_files) {
 		darr_sort(&args, ctx, fmt_files_args_sort_cmp);
-		break;
-	default:
-		break;
 	}
 
 	uint32_t i;
 	for (i = 0; i < args.len; ++i) {
 		struct arg_elem *ae = darr_get(&args, i);
-		fst.special_fmt = pfst->special_fmt;
+		fst.special_fmt = 0;
 
 		last = i == args.len - 1;
 
 		if (ae->kw) {
 			if (fmt_id_eql(ctx, ae->kw, "command")) {
-				fst.special_fmt = special_fmt_cmd_array;
+				fst.special_fmt |= special_fmt_cmd_array;
 			}
 
 			fst.node_sep = ": ";
@@ -367,7 +371,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		len += fmt_check(ctx, &fst, fmt_node, ae->val);
 
 		if (!last) {
-			if (fst.special_fmt == special_fmt_cmd_array
+			if ((pfst->special_fmt & special_fmt_cmd_array)
 			    && fmt_str_startwith(ctx, ae->val, "-")
 			    && !fmt_str_startwith(ctx, ae->next, "-")) {
 				fmt_write(ctx, &fst, ' ');
@@ -425,6 +429,7 @@ static uint32_t
 fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 {
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
+	fst.special_fmt = 0;
 
 	uint32_t len = 0;
 	struct node *f = get_node(ctx->ast, n_id);
@@ -438,8 +443,10 @@ fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 			|| get_node(ctx->ast, arg->c)->type == node_empty)
 		    && get_node(ctx->ast, arg->l)->type == node_array
 		    ) {
-			fst.special_fmt = special_fmt_sort_files;
+			fst.special_fmt |= special_fmt_collapse_lone_array_arg;
 		}
+
+		fst.special_fmt |= special_fmt_sort_files;
 	}
 
 	len += fmt_function_common(ctx, &fst, f->l, f->r);
