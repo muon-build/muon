@@ -19,4 +19,7 @@ void *darr_get(const struct darr *da, size_t i);
 void darr_del(struct darr *da, size_t i);
 void darr_clear(struct darr *da);
 void darr_grow_by(struct darr *da, size_t size);
+
+typedef int32_t (*sort_func)(const void *a, const void *b, void *ctx);
+void darr_sort(struct darr *da, void *ctx, sort_func func);
 #endif

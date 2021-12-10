@@ -105,3 +105,23 @@ darr_del(struct darr *da, size_t i)
 		memmove(darr_point_at(da, i), darr_point_at(da, da->len), da->item_size);
 	}
 }
+
+static struct {
+	void *user_ctx;
+	sort_func func;
+} darr_sort_ctx;
+
+static int32_t
+darr_sort_compare(const void *a, const void *b)
+{
+	return darr_sort_ctx.func(a, b, darr_sort_ctx.user_ctx);
+}
+
+void
+darr_sort(struct darr *da, void *ctx, sort_func func)
+{
+	darr_sort_ctx.user_ctx = ctx;
+	darr_sort_ctx.func = func;
+
+	qsort(da->e, da->len, da->item_size, darr_sort_compare);
+}
