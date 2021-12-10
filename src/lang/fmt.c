@@ -1,10 +1,15 @@
 #include "posix.h"
 
 #include <inttypes.h>
+#include <string.h>
 
 #include "buf_size.h"
 #include "lang/fmt.h"
 #include "log.h"
+
+struct arg_elem {
+	uint32_t kw, val, next;
+};
 
 struct fmt_ctx {
 	struct ast *ast;
@@ -16,10 +21,15 @@ struct fmt_ctx {
 	const char *indent_by;
 };
 
+enum special_fmt {
+	special_fmt_sort_files = 1,
+};
+
 struct fmt_stack {
 	uint32_t parent;
 	const char *node_sep;
 	const char *arg_container;
+	enum special_fmt special_fmt;
 	bool write;
 	bool ml;
 };
@@ -27,6 +37,17 @@ struct fmt_stack {
 typedef uint32_t ((*fmt_func)(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id));
 static uint32_t fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
 static uint32_t fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
+
+static bool
+fmt_id_eql(struct fmt_ctx *ctx, uint32_t n_id, const char *id)
+{
+	struct node *n = get_node(ctx->ast, n_id);
+	if (n->type != node_id) {
+		return false;
+	}
+
+	return strcmp(n->dat.s, id) == 0;
+}
 
 static struct fmt_stack *
 fmt_setup_fst(const struct fmt_stack *pfst)
@@ -220,6 +241,36 @@ fmt_tail(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	return len;
 }
 
+static int32_t
+fmt_files_args_sort_cmp(const void *a, const void *b, void *_ctx)
+{
+	struct fmt_ctx *ctx = _ctx;
+	const struct arg_elem *ae1 = a, *ae2 = b;
+
+	struct node *v1 = get_node(ctx->ast, ae1->val),
+		    *v2 = get_node(ctx->ast, ae2->val);
+
+	if (v1->type == node_string && v2->type == node_string) {
+		const char *s1 = v1->dat.s, *s2 = v2->dat.s;
+		bool s1_hasdir = strchr(s1, '/') != NULL,
+		     s2_hasdir = strchr(s2, '/') != NULL;
+
+		if ((s1_hasdir && s2_hasdir) || (!s1_hasdir && !s2_hasdir)) {
+			return strcmp(v1->dat.s, v2->dat.s);
+		} else if (s1_hasdir) {
+			return -1;
+		} else {
+			return 1;
+		}
+	} else if (v1->type == node_string && v2->type != node_string) {
+		return -1;
+	} else if (v1->type != node_string && v2->type == node_string) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 static uint32_t
 fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 {
@@ -227,8 +278,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	fst.node_sep = pfst->node_sep;
 
 	uint32_t len = 0;
-	uint32_t arg_val;
-	struct node *arg = get_node(ctx->ast, n_args), *narg = NULL;
+	struct node *arg = get_node(ctx->ast, n_args);
 	bool last = false;
 
 	if (arg->type == node_empty) {
@@ -239,16 +289,47 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	fmt_begin_block(ctx);
 	fmt_newline(ctx, &fst, n_args);
 
+	struct darr args;
+	darr_init(&args, 64, sizeof(struct arg_elem));
+
 	while (arg->type != node_empty) {
-		last = !((arg->chflg & node_child_c)
-			 && (narg = get_node(ctx->ast, arg->c))->type != node_empty);
+		darr_push(&args, &(struct arg_elem) { 0 });
+		struct arg_elem *ae = darr_get(&args, args.len - 1);
 
 		if (arg->subtype == arg_kwarg) {
-			fst.node_sep = ": ";
-			len += fmt_node(ctx, &fst, arg->l);
-			arg_val = arg->r;
+			ae->kw = arg->l;
+			ae->val = arg->r;
 		} else {
-			arg_val = arg->l;
+			ae->kw = 0;
+			ae->val = arg->l;
+		}
+
+		if (arg->chflg & node_child_c) {
+			arg = get_node(ctx->ast, arg->c);
+			ae->next = arg->subtype == arg_kwarg ? arg->r : arg->l;
+		} else {
+			break;
+		}
+	}
+
+	switch (fst.special_fmt) {
+	case special_fmt_sort_files:
+		darr_sort(&args, ctx, fmt_files_args_sort_cmp);
+		break;
+	default:
+		break;
+	}
+
+	uint32_t i;
+	for (i = 0; i < args.len; ++i) {
+		struct arg_elem *ae = darr_get(&args, i);
+		fst.special_fmt = pfst->special_fmt;
+
+		last = i == args.len - 1;
+
+		if (ae->kw) {
+			fst.node_sep = ": ";
+			len += fmt_node(ctx, &fst, ae->kw);
 		}
 
 		if (last && !fst.ml) {
@@ -256,15 +337,16 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		} else {
 			fst.node_sep = ",";
 		}
-		len += fmt_check(ctx, &fst, fmt_node, arg_val);
+		len += fmt_check(ctx, &fst, fmt_node, ae->val);
 
 		if (!last) {
 			fmt_newline_or_space(ctx, &fst, arg->c);
-			arg = narg;
 		} else {
 			break;
 		}
 	}
+
+	darr_destroy(&args);
 
 	--ctx->enclosed;
 	fmt_end_block(ctx);
@@ -313,6 +395,19 @@ fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	uint32_t len = 0;
 	struct node *f = get_node(ctx->ast, n_id);
+
+	if (fmt_id_eql(ctx, f->l, "files")) {
+		// fire only if an array is the lone argument
+		struct node *arg = get_node(ctx->ast, f->r);
+		if (arg->type != node_empty
+		    && arg->subtype != arg_kwarg
+		    && (!(arg->chflg & node_child_c)
+			|| get_node(ctx->ast, arg->c)->type == node_empty)
+		    && get_node(ctx->ast, arg->l)->type == node_array
+		    ) {
+			fst.special_fmt = special_fmt_sort_files;
+		}
+	}
 
 	len += fmt_function_common(ctx, &fst, f->l, f->r);
 
