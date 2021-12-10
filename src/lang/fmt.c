@@ -23,6 +23,7 @@ struct fmt_ctx {
 
 enum special_fmt {
 	special_fmt_sort_files = 1,
+	special_fmt_cmd_array,
 };
 
 struct fmt_stack {
@@ -37,6 +38,28 @@ struct fmt_stack {
 typedef uint32_t ((*fmt_func)(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id));
 static uint32_t fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
 static uint32_t fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
+
+static bool
+fmt_str_startwith(struct fmt_ctx *ctx, uint32_t n_id, const char *pre)
+{
+	struct node *n = get_node(ctx->ast, n_id);
+	if (n->type != node_string) {
+		return false;
+	}
+
+	const char *s = n->dat.s;
+	if (*s == 'f') {
+		++s;
+	}
+
+	if (strncmp(s, "'''", 3) == 0) {
+		s += 3;
+	} else {
+		++s;
+	}
+
+	return strncmp(s, pre, strlen(pre)) == 0;
+}
 
 static bool
 fmt_id_eql(struct fmt_ctx *ctx, uint32_t n_id, const char *id)
@@ -328,6 +351,10 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		last = i == args.len - 1;
 
 		if (ae->kw) {
+			if (fmt_id_eql(ctx, ae->kw, "command")) {
+				fst.special_fmt = special_fmt_cmd_array;
+			}
+
 			fst.node_sep = ": ";
 			len += fmt_node(ctx, &fst, ae->kw);
 		}
@@ -340,7 +367,13 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		len += fmt_check(ctx, &fst, fmt_node, ae->val);
 
 		if (!last) {
-			fmt_newline_or_space(ctx, &fst, arg->c);
+			if (fst.special_fmt == special_fmt_cmd_array
+			    && fmt_str_startwith(ctx, ae->val, "-")
+			    && !fmt_str_startwith(ctx, ae->next, "-")) {
+				fmt_write(ctx, &fst, ' ');
+			} else {
+				fmt_newline_or_space(ctx, &fst, ae->next);
+			}
 		} else {
 			break;
 		}
