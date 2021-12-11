@@ -1,9 +1,10 @@
 genbin = find_program('compiler.py')
 
-gen = generator(genbin,
-  output : ['@BASENAME@.h', '@BASENAME@.c'],
-  arguments : ['@INPUT@', '@BUILD_DIR@']
-  )
+gen = generator(
+    genbin,
+    output: ['@BASENAME@.h', '@BASENAME@.c'],
+    arguments: ['@INPUT@', '@BUILD_DIR@'],
+)
 
 defs = ['foo1.def', 'foo2.def']
 generated = gen.process(defs)

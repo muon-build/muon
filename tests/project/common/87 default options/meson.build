@@ -1,18 +1,29 @@
-project('default options', 'cpp', 'c', default_options : [
-  'prefix=/absoluteprefix',
-  'buildtype=debugoptimized',
-  'cpp_std=c++11',
-  'cpp_eh=none',
-  'warning_level=3',
-  'sub1:test_option=false',
-  ])
+project(
+    'default options',
+    'cpp',
+    'c',
+    default_options: [
+        'prefix=/absoluteprefix',
+        'buildtype=debugoptimized',
+        'cpp_std=c++11',
+        'cpp_eh=none',
+        'warning_level=3',
+        'sub1:test_option=false',
+    ],
+)
 
-assert(get_option('buildtype') == 'debugoptimized', 'Build type default value wrong.')
+assert(
+    get_option('buildtype') == 'debugoptimized',
+    'Build type default value wrong.',
+)
 
 cpp_eh = get_option('cpp_eh')
 assert(cpp_eh == 'none', 'EH value is "' + cpp_eh + '" instead of "none"')
 cpp_std = get_option('cpp_std')
-assert(cpp_std == 'c++11', 'C++ std value is "' + cpp_std + '" instead of c++11.')
+assert(
+    cpp_std == 'c++11',
+    'C++ std value is "' + cpp_std + '" instead of c++11.',
+)
 
 w_level = get_option('warning_level')
 assert(w_level == '3', 'warning level "' + w_level + '" instead of "3"')

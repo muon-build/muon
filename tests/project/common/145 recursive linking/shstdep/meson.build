@@ -1,1 +1,1 @@
-shstdep = shared_library('shstdep', 'lib.c', link_with : stnodep)
+shstdep = shared_library('shstdep', 'lib.c', link_with: stnodep)

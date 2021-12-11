@@ -1,11 +1,11 @@
 name = 'stone'
 
 if name == 'katie'
-	hobby = 'birdwatching'
+    hobby = 'birdwatching'
 elif name == 'stone'
-	hobby = 'coding'
+    hobby = 'coding'
 else
-	hobby = 'unknown'
+    hobby = 'unknown'
 endif
 
 message('hello ' + name + ' your hobby is: ' + hobby)

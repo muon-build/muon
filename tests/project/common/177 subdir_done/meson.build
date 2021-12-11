@@ -4,7 +4,7 @@
 project('example exit', 'cpp')
 
 if true
-  subdir_done()
+    subdir_done()
 endif
 
 executable('main', 'main.cpp')

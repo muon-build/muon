@@ -1,6 +1,6 @@
 project('reserved target names', 'c')
-        # FIXME: Setting this causes it to leak to all other tests
-        #default_options : ['b_coverage=true']
+# FIXME: Setting this causes it to leak to all other tests
+#default_options : ['b_coverage=true']
 
 subdir('all')
 subdir('benchmark')
@@ -28,7 +28,10 @@ subdir('runtarget')
 
 py3 = import('python3').find_python()
 
-custom_target('ctlist-test', output : 'out.txt',
-              command : [py3, '-c', 'print("")'],
-              capture : true,
-              build_by_default : true)
+custom_target(
+    'ctlist-test',
+    output: 'out.txt',
+    command: [py3, '-c', 'print("")'],
+    capture: true,
+    build_by_default: true,
+)

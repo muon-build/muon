@@ -3,9 +3,9 @@ project('custom target object output', 'c')
 comp = find_program('obj_generator.py')
 
 if host_machine.system() == 'windows'
-  outputname = '@BASENAME@.obj'
+    outputname = '@BASENAME@.obj'
 else
-  outputname = '@BASENAME@.o'
+    outputname = '@BASENAME@.o'
 endif
 
 cc = meson.get_compiler('c').cmd_array().get(-1)

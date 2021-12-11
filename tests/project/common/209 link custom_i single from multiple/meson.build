@@ -4,17 +4,19 @@ project('linkcustom', 'c')
 # it detect it by itself. I'm too lazy to implement it now and it is not
 # really needed for testing that custom targets work. It is the responsibility
 # of the custom target to produce things in the correct format.
-assert(not meson.is_cross_build(),
-       'MESON_SKIP_TEST cross checking not implemented.')
+assert(
+    not meson.is_cross_build(),
+    'MESON_SKIP_TEST cross checking not implemented.',
+)
 
 cc = meson.get_compiler('c')
 genprog = find_program('generate_conflicting_stlibs.py')
 
-clib = custom_target('linkcustom',
-  output: ['libflob_1.a', 'libflob_2.a'],
-  command: [genprog,
-            '-o', '@OUTPUT@',
-            '--private-dir', '@PRIVATE_DIR@'] + cc.cmd_array())
+clib = custom_target(
+    'linkcustom',
+    output: ['libflob_1.a', 'libflob_2.a'],
+    command: [genprog, '-o', '@OUTPUT@', '--private-dir', '@PRIVATE_DIR@'] + cc.cmd_array(),
+)
 
 clib_2 = clib[1]
 

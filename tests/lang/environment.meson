@@ -6,9 +6,13 @@ env.append('key2', 'val', 'val2', separator: ';;')
 
 d = {}
 
-foreach line : run_command('env', env: env, check: true).stdout().strip().split('\n')
-	l = line.split('=')
-	d += { l[0]: l[1] }
+foreach line : run_command(
+    'env',
+    env: env,
+    check: true,
+).stdout().strip().split('\n')
+    l = line.split('=')
+    d += {l[0]: l[1]}
 endforeach
 
 assert(d['inherited'] == 'secret')
@@ -18,17 +22,25 @@ assert(d['key'] == 'val')
 assert(d['key2'] == 'val!!val2;;val;;val2')
 
 d = {}
-foreach line : run_command('env', env: 'test=1', check: true).stdout().strip().split('\n')
-	l = line.split('=')
-	d += { l[0]: l[1] }
+foreach line : run_command(
+    'env',
+    env: 'test=1',
+    check: true,
+).stdout().strip().split('\n')
+    l = line.split('=')
+    d += {l[0]: l[1]}
 endforeach
 
 assert(d['test'] == '1')
 
 d = {}
-foreach line : run_command('env', env: ['test=1', 'test2=2'], check: true).stdout().strip().split('\n')
-	l = line.split('=')
-	d += { l[0]: l[1] }
+foreach line : run_command(
+    'env',
+    env: ['test=1', 'test2=2'],
+    check: true,
+).stdout().strip().split('\n')
+    l = line.split('=')
+    d += {l[0]: l[1]}
 endforeach
 
 assert(d['test'] == '1')

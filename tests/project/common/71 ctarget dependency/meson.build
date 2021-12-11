@@ -9,12 +9,16 @@ project('custom target dependency', 'c')
 g1 = find_program('gen1.py')
 g2 = find_program('gen2.py')
 
-c1 = custom_target('medput',
-input : 'input.dat',
-output : 'medput.tmp',
-command : [g1, '@INPUT@', '@OUTPUT@'])
+c1 = custom_target(
+    'medput',
+    input: 'input.dat',
+    output: 'medput.tmp',
+    command: [g1, '@INPUT@', '@OUTPUT@'],
+)
 
-custom_target('output',
-output : 'output.dat',
-command : [g2, '@OUTDIR@', '@OUTPUT@'],
-depends : c1)
+custom_target(
+    'output',
+    output: 'output.dat',
+    command: [g2, '@OUTDIR@', '@OUTPUT@'],
+    depends: c1,
+)

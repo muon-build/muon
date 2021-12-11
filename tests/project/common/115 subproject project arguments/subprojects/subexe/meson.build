@@ -1,9 +1,12 @@
-project('subproject', 'c',
-  version : '1.0.0',
-  license : ['sublicense1', 'sublicense2'])
+project(
+    'subproject',
+    'c',
+    version: '1.0.0',
+    license: ['sublicense1', 'sublicense2'],
+)
 
 if not meson.is_subproject()
-  error('Claimed to be master project even though we are a subproject.')
+    error('Claimed to be master project even though we are a subproject.')
 endif
 
 assert(meson.project_name() == 'subproject', 'Incorrect subproject name')

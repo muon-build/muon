@@ -1,1 +1,6 @@
-option('source', type : 'combo', choices : ['libfile.c', 'libfile2.c'], value : 'libfile.c')
+option(
+    'source',
+    type: 'combo',
+    choices: ['libfile.c', 'libfile2.c'],
+    value: 'libfile.c',
+)

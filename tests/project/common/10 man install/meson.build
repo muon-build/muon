@@ -7,8 +7,6 @@ subdir('vanishing')
 
 cdata = configuration_data()
 cdata.set('TODAY', '$this_day')
-b1 = configure_file(input : 'baz.1.in',
-  output : 'baz.1',
-  configuration : cdata)
+b1 = configure_file(input: 'baz.1.in', output: 'baz.1', configuration: cdata)
 
 install_man(b1)

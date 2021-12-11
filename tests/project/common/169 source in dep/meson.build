@@ -1,8 +1,7 @@
 project('foo', 'c', 'cpp')
 
-dep = declare_dependency(sources : 'foo.c')
+dep = declare_dependency(sources: 'foo.c')
 
-executable('bar', 'bar.cpp',
-  dependencies : dep)
+executable('bar', 'bar.cpp', dependencies: dep)
 
 subdir('generated')

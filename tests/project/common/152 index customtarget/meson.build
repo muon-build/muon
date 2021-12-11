@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-project('custom_target_index', 'c', default_options : 'c_std=c89')
+project('custom_target_index', 'c', default_options: 'c_std=c89')
 
 py_mod = import('python3')
 prog_python = py_mod.find_python()
 
 gen = custom_target(
-  'gen.[ch]',
-  input : 'gen_sources.py',
-  output : ['gen.c', 'gen.h'],
-  command : [prog_python, '@INPUT@', '--header', '@OUTPUT1@', '--code', '@OUTPUT0@'],
+    'gen.[ch]',
+    input: 'gen_sources.py',
+    output: ['gen.c', 'gen.h'],
+    command: [prog_python, '@INPUT@', '--header', '@OUTPUT1@', '--code', '@OUTPUT0@'],
 )
 
 has_not_changed = false
@@ -35,10 +35,7 @@ assert(has_not_changed, 'Custom target has changed.')
 
 assert(not is_disabler(gen), 'Custom target is a disabler.')
 
-lib = static_library(
-  'libfoo',
-  ['lib.c', gen[1]],
-)
+lib = static_library('libfoo', ['lib.c', gen[1]])
 
 has_not_changed = false
 if is_disabler(lib)
@@ -52,10 +49,10 @@ assert(has_not_changed, 'Static library has changed.')
 assert(not is_disabler(lib), 'Static library is a disabler.')
 
 custom_target(
-  'foo',
-  input: gen[0],
-  output: 'foo',
-  command: [find_program('check_args.py'), '@INPUT@'],
+    'foo',
+    input: gen[0],
+    output: 'foo',
+    command: [find_program('check_args.py'), '@INPUT@'],
 )
 
 subdir('subdir')
@@ -64,17 +61,14 @@ gen = disabler()
 
 assert(is_disabler(gen), 'Generator is not a disabler.')
 
-lib = static_library(
-  'libfoo',
-  ['lib.c', gen[1]],
-)
+lib = static_library('libfoo', ['lib.c', gen[1]])
 
 assert(is_disabler(lib), 'Static library is not a disabler.')
 
 if lib.found()
-  lib_disabled = false
+    lib_disabled = false
 else
-  lib_disabled = true
+    lib_disabled = true
 endif
 
 assert(lib_disabled, 'Static library was not disabled.')

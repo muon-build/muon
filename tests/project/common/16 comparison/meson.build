@@ -6,27 +6,27 @@ var1 = 'foo'
 var2 = 'bar'
 
 if var1 == var2
-  exe1 = executable('broken', 'broken.c')
+    exe1 = executable('broken', 'broken.c')
 else
-  exe1 = executable('prog1', 'prog.c')
+    exe1 = executable('prog1', 'prog.c')
 endif
 
 if var1 == var1
-  exe2 = executable('prog2', 'prog.c')
+    exe2 = executable('prog2', 'prog.c')
 else
-  exe2 = executable('broken', 'broken.c')
+    exe2 = executable('broken', 'broken.c')
 endif
 
 if var1 != var2
-  exe3 = executable('prog3', 'prog.c')
+    exe3 = executable('prog3', 'prog.c')
 else
-  exe3 = executable('broken', 'broken.c')
+    exe3 = executable('broken', 'broken.c')
 endif
 
 if var1 != var1
-  exe4 = executable('broken', 'broken.c')
+    exe4 = executable('broken', 'broken.c')
 else
-  exe4 = executable('prog4', 'prog.c')
+    exe4 = executable('prog4', 'prog.c')
 endif
 
 test('equalfalse', exe1)
@@ -40,51 +40,51 @@ var3 = 3
 var4 = 4
 
 if var3 < var4
-  exe5 = executable('prog5', 'prog.c')
+    exe5 = executable('prog5', 'prog.c')
 else
-  exe5 = executable('broken', 'broken.c')
+    exe5 = executable('broken', 'broken.c')
 endif
 
 if var3 < var3
-  exe6 = executable('broken', 'broken.c')
+    exe6 = executable('broken', 'broken.c')
 else
-  exe6 = executable('prog6', 'prog.c')
+    exe6 = executable('prog6', 'prog.c')
 endif
 
 if var4 > var3
-  exe7 = executable('prog7', 'prog.c')
+    exe7 = executable('prog7', 'prog.c')
 else
-  exe7 = executable('broken', 'broken.c')
+    exe7 = executable('broken', 'broken.c')
 endif
 
 if var3 > var3
-  exe8 = executable('broken', 'broken.c')
+    exe8 = executable('broken', 'broken.c')
 else
-  exe8 = executable('prog8', 'prog.c')
+    exe8 = executable('prog8', 'prog.c')
 endif
 
 if var4 <= var3
-  exe9 = executable('broken', 'broken.c')
+    exe9 = executable('broken', 'broken.c')
 else
-  exe9 = executable('prog9', 'prog.c')
+    exe9 = executable('prog9', 'prog.c')
 endif
 
 if var3 <= var3
-  exe10 = executable('prog10', 'prog.c')
+    exe10 = executable('prog10', 'prog.c')
 else
-  exe10 = executable('broken', 'broken.c')
+    exe10 = executable('broken', 'broken.c')
 endif
 
 if var3 >= var4
-  exe11 = executable('broken', 'broken.c')
+    exe11 = executable('broken', 'broken.c')
 else
-  exe11 = executable('prog11', 'prog.c')
+    exe11 = executable('prog11', 'prog.c')
 endif
 
 if var3 >= var3
-  exe12 = executable('prog12', 'prog.c')
+    exe12 = executable('prog12', 'prog.c')
 else
-  exe12 = executable('broken', 'broken.c')
+    exe12 = executable('broken', 'broken.c')
 endif
 
 test('lttrue', exe5)
@@ -99,27 +99,27 @@ test('getrue', exe12)
 # Non-elementary type comparisons
 
 if exe1 == exe2
-  exe13 = executable('broken', 'broken.c')
+    exe13 = executable('broken', 'broken.c')
 else
-  exe13 = executable('prog13', 'prog.c')
+    exe13 = executable('prog13', 'prog.c')
 endif
 
 if exe1 == exe1
-  exe14 = executable('prog14', 'prog.c')
+    exe14 = executable('prog14', 'prog.c')
 else
-  exe14 = executable('broken', 'broken.c')
+    exe14 = executable('broken', 'broken.c')
 endif
 
 if exe1 != exe2
-  exe15 = executable('prog15', 'prog.c')
+    exe15 = executable('prog15', 'prog.c')
 else
-  exe15 = executable('broken', 'broken.c')
+    exe15 = executable('broken', 'broken.c')
 endif
 
 if exe1 != exe1
-  exe16 = executable('broken', 'broken.c')
+    exe16 = executable('broken', 'broken.c')
 else
-  exe16 = executable('prog16', 'prog.c')
+    exe16 = executable('prog16', 'prog.c')
 endif
 
 test('equalfalse', exe13)

@@ -15,17 +15,17 @@
 project('config tool variable', 'cpp')
 
 
-dep_llvm = dependency('llvm', method : 'config-tool', required : false)
+dep_llvm = dependency('llvm', method: 'config-tool', required: false)
 if not dep_llvm.found()
-  error('MESON_SKIP_TEST LLVM not installed.')
+    error('MESON_SKIP_TEST LLVM not installed.')
 endif
 
 includedir = dep_llvm.get_configtool_variable('includedir')
 includedir = join_paths(includedir, 'llvm')
 if host_machine.system() == 'windows'
-  cmd = run_command(['dir', includedir])
+    cmd = run_command(['dir', includedir])
 else
-  cmd = run_command(['ls', includedir])
+    cmd = run_command(['ls', includedir])
 endif
 
 assert(cmd.returncode() == 0, 'did not run successfully')

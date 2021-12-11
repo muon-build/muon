@@ -1,5 +1,4 @@
-project('feature user option', 'c',
-  default_options : ['auto_features=disabled'])
+project('feature user option', 'c', default_options: ['auto_features=disabled'])
 
 feature_opts = get_option('auto_features')
 required_opt = get_option('required')

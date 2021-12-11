@@ -14,9 +14,10 @@ subdir('stshdep')
 # - A static library with a static library dep
 subdir('ststdep')
 
-test('alldeps',
-     executable('alldeps', 'main.c',
-                link_with : [shshdep, shstdep, ststdep, stshdep]))
+test(
+    'alldeps',
+    executable('alldeps', 'main.c', link_with: [shshdep, shstdep, ststdep, stshdep]),
+)
 
 # More combinations of static and shared libraries
 subdir('3rdorderdeps')

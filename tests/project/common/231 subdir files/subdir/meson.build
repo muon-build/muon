@@ -1,1 +1,1 @@
-subdir_sources = files(['prog.c'])
+subdir_sources = files('prog.c')

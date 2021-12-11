@@ -20,7 +20,9 @@ c = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
 
 if c.get_id() == 'pgi'
-  error('MESON_SKIP_TEST: PGI supports its own set of features, will need a separate list for PGI to test it.')
+    error(
+        'MESON_SKIP_TEST: PGI supports its own set of features, will need a separate list for PGI to test it.',
+    )
 endif
 
 expected_result = not ['msvc', 'clang-cl', 'intel-cl'].contains(c.get_id())
@@ -30,82 +32,92 @@ expected_result = not ['msvc', 'clang-cl', 'intel-cl'].contains(c.get_id())
 #    requires both compiler and libc support, and there isn't a good way to
 #    figure that out except by running the code we're trying to test.
 attributes = [
-  'aligned',
-  'always_inline',
-  'cold',
-  'const',
-  'constructor',
-  'constructor_priority',
-  'deprecated',
-  'destructor',
-  'flatten',
-  'format',
-  'format_arg',
-  'gnu_inline',
-  'hot',
-  'malloc',
-  'noinline',
-  'nonnull',
-  'noreturn',
-  'nothrow',
-  'pure',
-  'unused',
-  'used',
-  'warn_unused_result',
-  'weak',
+    'aligned',
+    'always_inline',
+    'cold',
+    'const',
+    'constructor',
+    'constructor_priority',
+    'deprecated',
+    'destructor',
+    'flatten',
+    'format',
+    'format_arg',
+    'gnu_inline',
+    'hot',
+    'malloc',
+    'noinline',
+    'nonnull',
+    'noreturn',
+    'nothrow',
+    'pure',
+    'unused',
+    'used',
+    'warn_unused_result',
+    'weak',
 ]
 
 if c.get_id() != 'intel'
-  # not supported by icc as of 19.0.0
-  attributes += 'weakref'
+    # not supported by icc as of 19.0.0
+    attributes += 'weakref'
 endif
 
 # These are unsupported on darwin with apple clang 9.1.0
 if host_machine.system() != 'darwin'
-  attributes += 'alias'
-  attributes += 'visibility'
-  attributes += 'alloc_size'
+    attributes += 'alias'
+    attributes += 'visibility'
+    attributes += 'alloc_size'
 endif
 
 if ['gcc', 'intel'].contains(c.get_id())
-  # not supported by clang as of 5.0.0 (at least up to 6.0.1)
-  attributes += 'artificial'
-  attributes += 'error'
-  attributes += 'externally_visible'
-  attributes += 'leaf'
-  attributes += 'noclone'
-  attributes += 'optimize'
-  attributes += 'warning'
+    # not supported by clang as of 5.0.0 (at least up to 6.0.1)
+    attributes += 'artificial'
+    attributes += 'error'
+    attributes += 'externally_visible'
+    attributes += 'leaf'
+    attributes += 'noclone'
+    attributes += 'optimize'
+    attributes += 'warning'
 
-  if c.get_id() == 'gcc' and c.version().version_compare('>= 7.0.0')
-    attributes += 'fallthrough'
-  endif
+    if c.get_id() == 'gcc' and c.version().version_compare('>= 7.0.0')
+        attributes += 'fallthrough'
+    endif
 endif
 
 if get_option('mode') == 'single'
-  foreach a : attributes
-    x = c.has_function_attribute(a)
-    assert(x == expected_result, '@0@: @1@'.format(c.get_id(), a))
-    x = cpp.has_function_attribute(a)
-    assert(x == expected_result, '@0@: @1@'.format(cpp.get_id(), a))
-  endforeach
+    foreach a : attributes
+        x = c.has_function_attribute(a)
+        assert(x == expected_result, '@0@: @1@'.format(c.get_id(), a))
+        x = cpp.has_function_attribute(a)
+        assert(x == expected_result, '@0@: @1@'.format(cpp.get_id(), a))
+    endforeach
 
-  win_expect = ['windows', 'cygwin'].contains(host_machine.system())
-  foreach a : ['dllexport', 'dllimport']
-    assert(c.has_function_attribute(a) == win_expect,
-          '@0@: @1@'.format(c.get_id(), a))
-    assert(cpp.has_function_attribute(a) == win_expect,
-          '@0@: @1@'.format(cpp.get_id(), a))
-  endforeach
+    win_expect = ['windows', 'cygwin'].contains(host_machine.system())
+    foreach a : ['dllexport', 'dllimport']
+        assert(
+            c.has_function_attribute(a) == win_expect,
+            '@0@: @1@'.format(c.get_id(), a),
+        )
+        assert(
+            cpp.has_function_attribute(a) == win_expect,
+            '@0@: @1@'.format(cpp.get_id(), a),
+        )
+    endforeach
 else
-  if not ['msvc', 'clang-cl', 'intel-cl'].contains(c.get_id())
-    multi_expected = attributes
-  else
-    multi_expected = []
-  endif
+    if not ['msvc', 'clang-cl', 'intel-cl'].contains(c.get_id())
+        multi_expected = attributes
+    else
+        multi_expected = []
+    endif
 
-  multi_check = c.get_supported_function_attributes(attributes)
-  assert(multi_check == multi_expected, 'get_supported_function_arguments works (C)')
-  multi_check = cpp.get_supported_function_attributes(attributes)
-  assert(multi_check == multi_expected, 'get_supported_function_arguments works (C++)')
+    multi_check = c.get_supported_function_attributes(attributes)
+    assert(
+        multi_check == multi_expected,
+        'get_supported_function_arguments works (C)',
+    )
+    multi_check = cpp.get_supported_function_attributes(attributes)
+    assert(
+        multi_check == multi_expected,
+        'get_supported_function_arguments works (C++)',
+    )
 endif

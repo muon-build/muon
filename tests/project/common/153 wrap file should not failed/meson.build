@@ -1,6 +1,4 @@
-project('mainproj', 'c',
-  default_options : ['wrap_mode=nodownload'],
-)
+project('mainproj', 'c', default_options: ['wrap_mode=nodownload'])
 
 subproject('zlib')
 foo = subproject('foo')

@@ -1,5 +1,3 @@
-project('mysubproject', 'c',
-  version : '1.0.0',
-  license : 'sublicense')
+project('mysubproject', 'c', version: '1.0.0', license: 'sublicense')
 
-liba_dep = declare_dependency (version : '1.0.0')
+liba_dep = declare_dependency(version: '1.0.0')

@@ -1,1 +1,1 @@
-configure_file(output : 'blank.txt', configuration : configuration_data())
+configure_file(output: 'blank.txt', configuration: configuration_data())

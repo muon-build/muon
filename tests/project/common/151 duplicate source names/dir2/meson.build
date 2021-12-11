@@ -1,1 +1,1 @@
-sources += files('file.c', 'dir1/file.c')
+sources += files('dir1/file.c', 'file.c')

@@ -10,21 +10,23 @@ project('grabber', 'c')
 # file bugs when it fails. :)
 
 if build_machine.system() == 'windows'
-  c = run_command('grabber.bat')
-  grabber = find_program('grabber2.bat')
+    c = run_command('grabber.bat')
+    grabber = find_program('grabber2.bat')
 else
-  c = run_command('grabber.sh')
-  grabber = find_program('grabber.sh')
+    c = run_command('grabber.sh')
+    grabber = find_program('grabber.sh')
 endif
 
 
 # First test running command explicitly.
 if c.returncode() != 0
-  error('Executing script failed.')
+    error('Executing script failed.')
 endif
 
-newline = '''
+newline = (
+    '''
 '''
+)
 
 sources = c.stdout().strip().split(newline)
 

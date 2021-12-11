@@ -1,13 +1,14 @@
 project('whole archive', 'c')
 
-if meson.backend() == 'xcode' or \
-   meson.backend() == 'vs2010' or \
-   meson.backend() == 'vs2012' or \
-   meson.backend() == 'vs2013'
-    error('MESON_SKIP_TEST: whole-archive not supported in Xcode nor pre-VS2015 IDE. Patches welcome.')
+if (
+    meson.backend() == 'xcode' or meson.backend() == 'vs2010' or meson.backend() == 'vs2012' or meson.backend() == 'vs2013'
+)
+    error(
+        'MESON_SKIP_TEST: whole-archive not supported in Xcode nor pre-VS2015 IDE. Patches welcome.',
+    )
 endif
 
-add_project_arguments('-I' + meson.source_root(), language : 'c')
+add_project_arguments('-I' + meson.source_root(), language: 'c')
 
 # Test 1: link_whole keeps all symbols
 # Make static func1
@@ -31,7 +32,7 @@ subdir('exe2')
 test('prog2', exe2)
 
 # Test 3: link_whole can be used in declare_dependency()
-func1_dep = declare_dependency(link_whole : [st_func1])
+func1_dep = declare_dependency(link_whole: [st_func1])
 # Use dependency to link func1 into shared library
 subdir('sh_func2_dep_func1')
 # Link exe3 with shared library
@@ -40,7 +41,7 @@ subdir('exe3')
 test('prog3', exe3)
 
 # Test 4: link_whole can be used in transitive declare_dependency()
-func1_trans_dep = declare_dependency(dependencies : func1_dep)
+func1_trans_dep = declare_dependency(dependencies: func1_dep)
 # Use transitive dependency to link func1 into shared library
 subdir('sh_func2_transdep_func1')
 # Link exe4 with shared library

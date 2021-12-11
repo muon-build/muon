@@ -1,1 +1,1 @@
-shlib = shared_library('name', '../lib.c', c_args : '-DSHAR')
+shlib = shared_library('name', '../lib.c', c_args: '-DSHAR')

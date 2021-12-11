@@ -11,7 +11,9 @@ project('shared module resolving symbol in executable', 'c')
 
 cc = meson.get_compiler('c')
 if cc.get_id() == 'pgi'
-  error('MESON_SKIP_TEST PGI has its own unique set of macros that would need to be handled')
+    error(
+        'MESON_SKIP_TEST PGI has its own unique set of macros that would need to be handled',
+    )
 endif
 
 dl = meson.get_compiler('c').find_library('dl', required: false)

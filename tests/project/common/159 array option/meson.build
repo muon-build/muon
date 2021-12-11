@@ -14,4 +14,7 @@
 
 project('array default options')
 
-assert(get_option('array') == ['foo', 'bar'], 'Default value for array is not equal to choices')
+assert(
+    get_option('array') == ['foo', 'bar'],
+    'Default value for array is not equal to choices',
+)

@@ -1,8 +1,6 @@
 project('array test', 'c')
 
-arr = [
-  'func.c',
-  'prog.c']
+arr = ['func.c', 'prog.c']
 
-exe = executable('prog', sources : arr)
+exe = executable('prog', sources: arr)
 test('arr test', exe)

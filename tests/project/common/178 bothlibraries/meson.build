@@ -2,20 +2,24 @@ project('both libraries linking test', 'c')
 
 both_libs = both_libraries('mylib', 'libfile.c')
 dep = declare_dependency(link_with: both_libs)
-exe_shared = executable('prog-shared', 'main.c', link_with : both_libs.get_shared_lib())
-exe_static = executable('prog-static', 'main.c',
-                        c_args : ['-DSTATIC_COMPILATION'],
-                        link_with : both_libs.get_static_lib())
-exe_both = executable('prog-both', 'main.c', link_with : both_libs)
-exe_dep = executable('prog-dep', 'main.c', dependencies : [dep])
+exe_shared = executable(
+    'prog-shared',
+    'main.c',
+    link_with: both_libs.get_shared_lib(),
+)
+exe_static = executable(
+    'prog-static',
+    'main.c',
+    c_args: ['-DSTATIC_COMPILATION'],
+    link_with: both_libs.get_static_lib(),
+)
+exe_both = executable('prog-both', 'main.c', link_with: both_libs)
+exe_dep = executable('prog-dep', 'main.c', dependencies: [dep])
 
 # Try using it in a custom_target
-custom_target('tgt_a',
-    command: [
-        find_program('./dummy.py'),
-        '@OUTPUT@',
-        both_libs,
-    ],
+custom_target(
+    'tgt_a',
+    command: [find_program('./dummy.py'), '@OUTPUT@', both_libs],
     output: ['hello1.txt'],
     input: [both_libs],
 )
@@ -27,12 +31,18 @@ test('runtest-dep', exe_dep)
 
 # Same as above, but using build_target()
 both_libs2 = build_target('mylib2', 'libfile.c', target_type: 'both_libraries')
-exe_shared2 = executable('prog-shared2', 'main.c',
-                         link_with : both_libs2.get_shared_lib())
-exe_static2 = executable('prog-static2', 'main.c',
-                         c_args : ['-DSTATIC_COMPILATION'],
-                         link_with : both_libs2.get_static_lib())
-exe_both2 = executable('prog-both2', 'main.c', link_with : both_libs2)
+exe_shared2 = executable(
+    'prog-shared2',
+    'main.c',
+    link_with: both_libs2.get_shared_lib(),
+)
+exe_static2 = executable(
+    'prog-static2',
+    'main.c',
+    c_args: ['-DSTATIC_COMPILATION'],
+    link_with: both_libs2.get_static_lib(),
+)
+exe_both2 = executable('prog-both2', 'main.c', link_with: both_libs2)
 
 # Test {set,get}_variable
 set_variable('both_libs2', both_libs)

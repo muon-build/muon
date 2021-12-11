@@ -2,7 +2,10 @@ project('string formatting', 'c', meson_version: '>=0.59.0')
 
 templ = '@0@bar@1@'
 
-assert(templ.format('foo', 'baz') == 'foobarbaz', 'Basic string formatting is broken.')
+assert(
+    templ.format('foo', 'baz') == 'foobarbaz',
+    'Basic string formatting is broken.',
+)
 
 assert('@0@'.format(1) == '1', 'String number formatting is broken.')
 
@@ -11,7 +14,10 @@ assert('@0@'.format(true) == 'true', 'String boolean formatting is broken.')
 templ2 = '@0@'
 subs2 = '42'
 
-assert(templ2.format(subs2) == '42', 'String formatting with variables is broken.')
+assert(
+    templ2.format(subs2) == '42',
+    'String formatting with variables is broken.',
+)
 
 assert('@@0@@ @@1@@'.format(1, 2) == '@1@ @2@', 'String format is recursive.')
 
@@ -46,19 +52,34 @@ assert(long.to_upper() == 'ABCDE', 'Broken to_upper')
 
 assert(long.to_upper().to_lower() == long, 'Broken to_lower')
 
-assert('struct stat.st_foo'.underscorify() == 'struct_stat_st_foo', 'Broken underscorify')
+assert(
+    'struct stat.st_foo'.underscorify() == 'struct_stat_st_foo',
+    'Broken underscorify',
+)
 
-assert('#include <foo/bar.h>'.underscorify() == '_include__foo_bar_h_', 'Broken underscorify')
+assert(
+    '#include <foo/bar.h>'.underscorify() == '_include__foo_bar_h_',
+    'Broken underscorify',
+)
 
 # case should not change, space should be replaced, numbers are ok too
-assert('Do SomeThing 09'.underscorify() == 'Do_SomeThing_09', 'Broken underscorify')
+assert(
+    'Do SomeThing 09'.underscorify() == 'Do_SomeThing_09',
+    'Broken underscorify',
+)
 
 assert('3'.to_int() == 3, 'String int conversion does not work.')
 
 assert(true.to_string() == 'true', 'bool string conversion failed')
 assert(false.to_string() == 'false', 'bool string conversion failed')
-assert(true.to_string('yes', 'no') == 'yes', 'bool string conversion with args failed')
-assert(false.to_string('yes', 'no') == 'no', 'bool string conversion with args failed')
+assert(
+    true.to_string('yes', 'no') == 'yes',
+    'bool string conversion with args failed',
+)
+assert(
+    false.to_string('yes', 'no') == 'no',
+    'bool string conversion with args failed',
+)
 assert('@0@'.format(true) == 'true', 'bool string formatting failed')
 
 assert(' '.join(['a', 'b', 'c']) == 'a b c', 'join() array broken')
@@ -69,32 +90,59 @@ assert(' '.join(['a'], ['b', ['c']], 'd') == 'a b c d', 'varargs join broken')
 version_number = '1.2.8'
 
 assert(version_number.version_compare('>=1.2.8'), 'Version_compare gt broken')
-assert(not version_number.version_compare('>1.2.8'), 'Version_compare greater broken')
-assert(not version_number.version_compare('<1.2.8'), 'Version_compare less broken')
+assert(
+    not version_number.version_compare('>1.2.8'),
+    'Version_compare greater broken',
+)
+assert(
+    not version_number.version_compare('<1.2.8'),
+    'Version_compare less broken',
+)
 assert(version_number.version_compare('<=1.2.8'), 'Version_compare le broken')
 assert(version_number.version_compare('==1.2.8'), 'Version_compare eq broken')
-assert(not version_number.version_compare('!=1.2.8'), 'Version_compare neq broken')
+assert(
+    not version_number.version_compare('!=1.2.8'),
+    'Version_compare neq broken',
+)
 
-assert(version_number.version_compare('<2.0'), 'Version_compare major less broken')
-assert(version_number.version_compare('>0.9'), 'Version_compare major greater broken')
+assert(
+    version_number.version_compare('<2.0'),
+    'Version_compare major less broken',
+)
+assert(
+    version_number.version_compare('>0.9'),
+    'Version_compare major greater broken',
+)
 
-assert(' spaces	tabs	'.strip() == 'spaces	tabs', 'Spaces and tabs badly stripped')
-assert('''
-multiline string	'''.strip() == '''multiline string''', 'Newlines badly stripped')
+assert(
+    ' spaces	tabs	'.strip() == 'spaces	tabs',
+    'Spaces and tabs badly stripped',
+)
+assert(
+    '''
+multiline string	'''.strip() == '''multiline string''',
+    'Newlines badly stripped',
+)
 assert('"1.1.20"'.strip('"') == '1.1.20', '" badly stripped')
 assert('"1.1.20"'.strip('".') == '1.1.20', '". badly stripped')
 assert('"1.1.20"   '.strip('" ') == '1.1.20', '". badly stripped')
 
 bs_c = '''\c'''
 bs_bs_c = '''\\c'''
-nl = '''
+nl = (
+    '''
 '''
+)
 bs_n = '''\n'''
-bs_nl = '''\
+bs_nl = (
+    '''\
 '''
+)
 bs_bs_n = '''\\n'''
-bs_bs_nl = '''\\
+bs_bs_nl = (
+    '''\\
 '''
+)
 bs_bs = '''\\'''
 bs = '''\'''
 
@@ -110,13 +158,13 @@ assert('\\\\\n' == bs_bs_nl, 'Five backslash broken before n')
 assert('\\\\' == bs_bs, 'Double-backslash broken')
 assert('\\' == bs, 'Backslash broken')
 
-mysubstring='foobarbaz'
+mysubstring = 'foobarbaz'
 assert(mysubstring.substring() == 'foobarbaz', 'substring is broken')
 assert(mysubstring.substring(0) == 'foobarbaz', 'substring is broken')
 assert(mysubstring.substring(1) == 'oobarbaz', 'substring is broken')
 assert(mysubstring.substring(-5) == 'arbaz', 'substring is broken')
 assert(mysubstring.substring(1, 4) == 'oob', 'substring is broken')
-assert(mysubstring.substring(1,-5) == 'oob', 'substring is broken')
+assert(mysubstring.substring(1, -5) == 'oob', 'substring is broken')
 assert(mysubstring.substring(1, 0) == '', 'substring is broken')
 assert(mysubstring.substring(0, 100) == 'foobarbaz', 'substring is broken')
 assert(mysubstring.substring(-1, -5) == '', 'substring is broken')

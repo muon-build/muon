@@ -1,9 +1,13 @@
 single_line = '''test'''
-multi_line = '''abc
+multi_line = (
+    '''abc
 def'''
+)
 assert(single_line == 'test')
-assert(multi_line == '''abc
-def''')
+assert(
+    multi_line == '''abc
+def''',
+)
 
 quote1 = ''' ' '''.strip()
 assert(quote1 == '\'')

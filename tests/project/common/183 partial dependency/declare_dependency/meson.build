@@ -13,20 +13,20 @@
 # limitations under the License.
 
 dec_sub_dep = declare_dependency(
-  include_directories : include_directories('headers'),
+    include_directories: include_directories('headers'),
 )
 
 dec_dep = declare_dependency(
-  sources : files('headers/foo.c'),
-  dependencies : dec_sub_dep,
+    sources: files('headers/foo.c'),
+    dependencies: dec_sub_dep,
 )
 
-sub_dep = dec_dep.partial_dependency(includes : true)
+sub_dep = dec_dep.partial_dependency(includes: true)
 
 dec_exe = executable(
-  'declare_dep',
-  files('main.c', 'other.c'),
-  dependencies : sub_dep,
+    'declare_dep',
+    files('main.c', 'other.c'),
+    dependencies: sub_dep,
 )
 
 test('Declare Dependency', dec_exe)

@@ -7,8 +7,10 @@ meson.override_find_program('codegen', x)
 cdata = configuration_data()
 
 cdata.set('NUMBER', 100)
-numprog = configure_file(input : 'gencodegen.py.in',
-  output : 'gencodegen.py',
-  configuration : cdata)
+numprog = configure_file(
+    input: 'gencodegen.py.in',
+    output: 'gencodegen.py',
+    configuration: cdata,
+)
 
 meson.override_find_program('gencodegen', numprog)

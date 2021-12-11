@@ -1,10 +1,11 @@
 gen = find_program('codegen') # Should use overridden value set in "subdir".
 
-src = custom_target('arrival',
-  input : 'source.desc',
-  output : 'file.c',
-  command : [gen, '@INPUT@', '@OUTPUT@']
-  )
+src = custom_target(
+    'arrival',
+    input: 'source.desc',
+    output: 'file.c',
+    command: [gen, '@INPUT@', '@OUTPUT@'],
+)
 
 e = executable('six', 'main.c', src)
 
@@ -19,11 +20,12 @@ meson.override_find_program('six_meson_exe', e)
 
 gen = find_program('gencodegen')
 
-src = custom_target('hundred',
-  input : 'source2.desc',
-  output : 'file2.c',
-  command : [gen, '@INPUT@', '@OUTPUT@']
-  )
+src = custom_target(
+    'hundred',
+    input: 'source2.desc',
+    output: 'file2.c',
+    command: [gen, '@INPUT@', '@OUTPUT@'],
+)
 
 e = executable('hundred', 'main2.c', src)
 

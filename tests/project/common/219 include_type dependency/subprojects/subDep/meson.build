@@ -1,3 +1,3 @@
 project('subDep', ['cpp'])
 
-subDep_dep = declare_dependency(compile_args : [])
+subDep_dep = declare_dependency(compile_args: [])

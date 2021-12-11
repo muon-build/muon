@@ -9,5 +9,5 @@ c = C.get_variable('c')
 B = subproject('B')
 b = B.get_variable('b')
 
-a = executable('a', 'a.c', link_with : [b, c])
+a = executable('a', 'a.c', link_with: [b, c])
 test('a test', a)

@@ -4,17 +4,19 @@ project('linkcustom', 'c')
 # it detect it by itself. I'm too lazy to implement it now and it is not
 # really needed for testing that custom targets work. It is the responsibility
 # of the custom target to produce things in the correct format.
-assert(not meson.is_cross_build(),
-       'MESON_SKIP_TEST cross checking not implemented.')
+assert(
+    not meson.is_cross_build(),
+    'MESON_SKIP_TEST cross checking not implemented.',
+)
 
 cc = meson.get_compiler('c')
 genprog = find_program('custom_stlib.py')
 
-clib = custom_target('linkcustom',
-  output: 'libflob.a',
-  command: [genprog,
-            '-o', '@OUTPUT@',
-            '--private-dir', '@PRIVATE_DIR@'] + cc.cmd_array())
+clib = custom_target(
+    'linkcustom',
+    output: 'libflob.a',
+    command: [genprog, '-o', '@OUTPUT@', '--private-dir', '@PRIVATE_DIR@'] + cc.cmd_array(),
+)
 
 # custom_target tests
 
@@ -71,7 +73,12 @@ endif
 dummy = static_library('dummy', 'dummy.c')
 
 custom_prog = find_program('custom_target.py')
-t = custom_target('custom', input: dummy, output: 'libcustom.a', command: [custom_prog, '@INPUT@', '@OUTPUT@'])
+t = custom_target(
+    'custom',
+    input: dummy,
+    output: 'libcustom.a',
+    command: [custom_prog, '@INPUT@', '@OUTPUT@'],
+)
 
 dep1 = declare_dependency(link_with: t)
 dep2 = declare_dependency(link_with: t[0])
