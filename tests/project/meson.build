@@ -174,7 +174,7 @@ tests = [
     ['common/176 subproject version', {}],
     ['common/177 subdir_done', {}],
     ['common/178 bothlibraries', {'should_fail': true}],
-    ['common/179 escape and unicode', {'should_fail': true}],
+    ['common/179 escape and unicode', {}],
     ['common/180 has link arg', {'should_fail': true}],
     ['common/181 same target name flat layout', {}],
     ['common/182 find override', {'should_fail': true}],
