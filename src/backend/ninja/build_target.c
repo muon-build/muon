@@ -31,21 +31,21 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	struct obj *src = get_obj(wk, val_id);
 	assert(src->type == obj_file);
 
-	enum compiler_language fl;
+	enum compiler_language lang;
 	enum compiler_type ct;
 
 	{
 		uint32_t comp_id;
 
 		// TODO put these checks into tgt creation
-		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &lang)) {
 			/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 			return ir_cont;
 		}
 
-		if (languages[fl].is_header) {
+		if (languages[lang].is_header) {
 			return ir_cont;
-		} else if (languages[fl].is_linkable) {
+		} else if (languages[lang].is_linkable) {
 			char path[PATH_MAX];
 			if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
 				return ir_err;
@@ -54,8 +54,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			return ir_cont;
 		}
 
-		if (!obj_dict_geti(wk, ctx->proj->compilers, fl, &comp_id)) {
-			LOG_E("no compiler for '%s'", compiler_language_to_s(fl));
+		if (!obj_dict_geti(wk, ctx->proj->compilers, lang, &comp_id)) {
+			LOG_E("no compiler for '%s'", compiler_language_to_s(lang));
 			return ir_err;
 		}
 
@@ -78,11 +78,10 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 	/* build rules and args */
 
 	uint32_t args_id;
-	if (!obj_dict_geti(wk, ctx->joined_args, fl, &args_id)) {
-		LOG_E("couldn't get args for language %s", compiler_language_to_s(fl));
+	if (!obj_dict_geti(wk, ctx->joined_args, lang, &args_id)) {
+		LOG_E("couldn't get args for language %s", compiler_language_to_s(lang));
 		return ir_err;
 	}
-
 
 	char esc_dest_path[PATH_MAX], esc_src_path[PATH_MAX];
 	if (!ninja_escape(esc_dest_path, PATH_MAX, dest_path)) {
@@ -91,7 +90,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return false;
 	}
 
-	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(fl), esc_src_path);
+	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(lang), esc_src_path);
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}

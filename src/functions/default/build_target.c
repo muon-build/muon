@@ -310,7 +310,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
 			if (akw[lang_args[i].kw].set) {
-				obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[bt_kw_c_args].val);
+				obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[lang_args[i].kw].val);
 			}
 		}
 	}
