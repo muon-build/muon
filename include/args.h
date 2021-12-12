@@ -8,6 +8,7 @@ struct args {
 	uint32_t len;
 };
 
+bool shell_escape(char *buf, uint32_t len, const char *str);
 bool ninja_escape(char *buf, uint32_t len, const char *str);
 
 void push_args(struct workspace *wk, uint32_t arr, const struct args *args);

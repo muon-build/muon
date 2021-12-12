@@ -83,14 +83,14 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		return ir_err;
 	}
 
-	char esc_dest_path[PATH_MAX], esc_src_path[PATH_MAX];
+	char esc_dest_path[PATH_MAX], esc_path[PATH_MAX];
 	if (!ninja_escape(esc_dest_path, PATH_MAX, dest_path)) {
 		return false;
-	} else if (!ninja_escape(esc_src_path, PATH_MAX, src_path)) {
+	} else if (!ninja_escape(esc_path, PATH_MAX, src_path)) {
 		return false;
 	}
 
-	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(lang), esc_src_path);
+	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(lang), esc_path);
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
@@ -100,10 +100,17 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		" ARGS = %s\n", get_cstr(wk, args_id));
 
 	if (compilers[ct].deps) {
-		fprintf(ctx->out,
-			" DEPFILE = %s.d\n"
-			" DEPFILE_UNQUOTED = %s.d\n",
-			dest_path, dest_path);
+		if (!path_add_suffix(esc_dest_path, PATH_MAX, ".d")) {
+			return false;
+		}
+
+		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path);
+
+		if (!shell_escape(esc_path, PATH_MAX, esc_dest_path)) {
+			return false;
+		}
+
+		fprintf(ctx->out, " DEPFILE = %s\n", esc_path);
 	}
 
 	fputc('\n', ctx->out);

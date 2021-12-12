@@ -47,7 +47,7 @@ push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *arg
 	}
 }
 
-static bool
+bool
 shell_escape(char *buf, uint32_t len, const char *str)
 {
 	const char *need_escaping = "\"'$ \\><&#\n";
