@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from pathlib import PurePath
 import json
 import sys
 import os
@@ -14,6 +15,7 @@ if sys.argv[1] == 'ninja':
     output = set((x['output'] for x in cc))
 
 for obj in sys.argv[2:]:
+    obj = str(PurePath(obj).relative_to(os.getcwd()))
     if not os.path.exists(obj):
         sys.exit(f'File {obj} not found.')
     if sys.argv[1] == 'ninja' and obj not in output:
