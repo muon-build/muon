@@ -249,6 +249,13 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 	if ((ctx->pid = fork()) == -1) {
 		goto err;
 	} else if (ctx->pid == 0 /* child */) {
+		if (ctx->chdir) {
+			if (chdir(ctx->chdir) == -1) {
+				log_plain("failed to chdir to %s: %s", ctx->chdir, strerror(errno));
+				exit(1);
+			}
+		}
+
 		if (dup2(ctx->pipefd_out[1], 1) == -1) {
 			log_plain("failed to dup stdout: %s", strerror(errno));
 			exit(1);

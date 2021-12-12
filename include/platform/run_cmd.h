@@ -18,16 +18,15 @@ struct run_cmd_pipe_ctx {
 };
 
 struct run_cmd_ctx {
-	bool async;
-	bool pipefd_out_open[2], pipefd_err_open[2];
+	struct run_cmd_pipe_ctx err, out;
+	const char *err_msg; // set on error
+	const char *chdir; // set by caller
 	int pipefd_out[2], pipefd_err[2];
+	int status;
 	pid_t pid;
 
-	struct run_cmd_pipe_ctx err, out;
-	int status;
-
-	/* error handling */
-	const char *err_msg;
+	bool pipefd_out_open[2], pipefd_err_open[2];
+	bool async;
 };
 
 bool run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[]);
