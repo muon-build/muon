@@ -1,14 +1,18 @@
 #!python3
 
 import sys
-from pathlib import Path
+import os
+from pathlib import Path, PurePath
 
 def main():
     if len(sys.argv) != 2:
-        print(sys.argv)
+        print("wrong argv")
         return 1
-    if sys.argv[1] != 'gen.c':
-        print(sys.argv)
+
+    rel = str(PurePath(sys.argv[1]).relative_to(os.getcwd()))
+
+    if rel != 'gen.c':
+        print(f"{rel} != gen.c")
         return 2
     Path('foo').touch()
 
