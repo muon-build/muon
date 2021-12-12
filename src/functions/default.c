@@ -1070,7 +1070,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_any, },
-		[kw_workdir] = { "workdir", obj_string, }, // TODO
+		[kw_workdir] = { "workdir", obj_string, },
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", obj_any, },
@@ -1116,6 +1116,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		akw[kw_should_fail].set
 		&& get_obj(wk, akw[kw_should_fail].val)->dat.boolean;
 	t->dat.test.suites = akw[kw_suite].val;
+	t->dat.test.workdir = akw[kw_workdir].val;
 
 	obj_array_push(wk, current_project(wk)->tests, test);
 	return true;

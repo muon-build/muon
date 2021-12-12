@@ -753,6 +753,10 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		o->dat.test.name = str_clone(wk_src, wk_dest, test->dat.test.name);
 		o->dat.test.exe = str_clone(wk_src, wk_dest, test->dat.test.exe);
 		o->dat.test.should_fail = test->dat.test.should_fail;
+		if (test->dat.test.workdir) {
+			o->dat.test.workdir =
+				str_clone(wk_src, wk_dest, test->dat.test.workdir);
+		}
 
 		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &o->dat.test.args)) {
 			return false;

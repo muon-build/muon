@@ -187,6 +187,7 @@ struct obj {
 			obj args; // obj_array
 			obj env; // obj_array
 			obj suites; // obj_array
+			obj workdir; // obj_string
 			bool should_fail;
 		} test;
 		struct {

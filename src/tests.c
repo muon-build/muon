@@ -234,6 +234,9 @@ found_slot:
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
 	*cmd_ctx = (struct run_cmd_ctx){ .async = true };
+	if (test->dat.test.workdir) {
+		cmd_ctx->chdir = get_cstr(wk, test->dat.test.workdir);
+	}
 
 	run_cmd(cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp);
 }
