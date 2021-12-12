@@ -399,6 +399,7 @@ interp_assign(struct workspace *wk, struct node *n, uint32_t *_)
 	}
 
 	switch (get_obj(wk, rhs)->type) {
+	case obj_environment:
 	case obj_configuration_data: {
 		obj cloned;
 		if (!obj_clone(wk, wk, rhs, &cloned)) {
