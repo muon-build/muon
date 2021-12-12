@@ -196,7 +196,9 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 
 			while ((s = strchr(p, ' '))) {
 				*s = 0;
-				push_argv_single(new_argv, &argi, MAX_ARGS, p);
+				if (*p) {
+					push_argv_single(new_argv, &argi, MAX_ARGS, p);
+				}
 				p = s + 1;
 			}
 
