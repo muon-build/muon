@@ -211,13 +211,13 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 
 			push_argv_single(new_argv, &argi, MAX_ARGS, NULL);
 			argv = new_argv;
-			cmd = argv[0];
+			_cmd = argv[0];
 		}
-	} else {
-		if (!fs_find_cmd(_cmd, &cmd)) {
-			ctx->err_msg = "command not found";
-			return false;
-		}
+	}
+
+	if (!fs_find_cmd(_cmd, &cmd)) {
+		ctx->err_msg = "command not found";
+		return false;
 	}
 
 	if (log_should_print(log_debug)) {
