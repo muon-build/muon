@@ -155,9 +155,11 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_cpp_hdr:
 	case compiler_language_c_hdr:
 		return ir_cont;
+	case compiler_language_c_obj:
+		obj_array_push(wk, *ctx->res, file);
+		return ir_cont;
 	case compiler_language_c:
 	case compiler_language_cpp:
-	case compiler_language_c_obj:
 		break;
 	case compiler_language_count:
 		assert(false && "unreachable");
