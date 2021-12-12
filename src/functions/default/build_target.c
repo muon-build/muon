@@ -22,7 +22,7 @@ enum build_target_kwargs {
 	bt_kw_install_dir,
 	bt_kw_install_mode,
 	bt_kw_link_with,
-	bt_kw_link_whole, // TODO
+	bt_kw_link_whole,
 	bt_kw_version,
 	bt_kw_build_by_default, // TODO
 	bt_kw_extra_files, // TODO
@@ -32,7 +32,7 @@ enum build_target_kwargs {
 	bt_kw_soversion,
 	bt_kw_link_depends, // TODO
 	bt_kw_objects,
-	bt_kw_pic, // TODO
+	bt_kw_pic,
 	bt_kw_install_rpath, // TODO
 	bt_kw_export_dynamic,
 
@@ -237,6 +237,14 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
 
 	{ // build target flags
+		if (akw[bt_kw_link_whole].set) {
+			tgt->dat.tgt.flags |= build_tgt_flag_link_whole;
+		}
+
+		if (akw[bt_kw_pic].set) {
+			tgt->dat.tgt.flags |= build_tgt_flag_pic;
+		}
+
 		if (akw[bt_kw_export_dynamic].set) {
 			tgt->dat.tgt.flags |= build_tgt_flag_export_dynamic;
 		}

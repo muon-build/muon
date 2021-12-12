@@ -99,6 +99,8 @@ struct str {
 
 enum build_tgt_flags {
 	build_tgt_flag_export_dynamic = 1 << 0,
+	build_tgt_flag_link_whole = 1 << 1,
+	build_tgt_flag_pic = 1 << 2,
 };
 
 struct obj {
