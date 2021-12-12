@@ -33,6 +33,7 @@ struct run_test_ctx {
 	struct {
 		uint32_t test_i, test_len, error_count;
 		uint32_t total_count, total_error_count, total_expect_fail_count;
+		uint32_t total_skipped;
 		uint32_t term_width;
 		bool term;
 		bool ran_tests;
@@ -174,6 +175,11 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 
 			if (res->cmd_ctx.status == 0) {
 				ok = !res->test->dat.test.should_fail;
+			} else if (res->cmd_ctx.status == 77) {
+				++ctx->stats.total_skipped;
+				ok = true;
+			} else if (res->cmd_ctx.status == 99) {
+				ok = false;
 			} else {
 				ok = res->test->dat.test.should_fail;
 			}
@@ -392,7 +398,12 @@ tests_run(const char *build_dir, struct test_options *opts)
 	if (!ctx.stats.ran_tests) {
 		LOG_I("no tests defined");
 	} else {
-		LOG_I("finished %d tests, %d expected fail, %d fail", ctx.stats.total_count, ctx.stats.total_expect_fail_count, ctx.stats.total_error_count);
+		LOG_I("finished %d tests, %d expected fail, %d fail, %d skipped",
+			ctx.stats.total_count,
+			ctx.stats.total_expect_fail_count,
+			ctx.stats.total_error_count,
+			ctx.stats.total_skipped
+			);
 	}
 
 	uint32_t i;
