@@ -97,6 +97,10 @@ struct str {
 	enum str_flags flags;
 };
 
+enum build_tgt_flags {
+	build_tgt_flag_export_dynamic = 1 << 0,
+};
+
 struct obj {
 	enum obj_type type;
 	union {
@@ -128,21 +132,23 @@ struct obj {
 			bool have_next;
 		} dict;
 		struct {
-			obj name;
-			obj build_name;
-			obj cwd;
-			obj build_dir;
-			obj soname;
+			obj name; // obj_string
+			obj build_name; // obj_string
+			obj cwd; // obj_string
+			obj build_dir; // obj_string
+			obj soname; // obj_string
 			obj src; // obj_array
 			obj link_with; // obj_array
 			obj include_directories; // obj_array
 			obj deps; // obj_array
 			obj args; // obj_dict
 			obj link_args; // obj_array
+
+			enum build_tgt_flags flags;
 			enum tgt_type type;
 		} tgt;
 		struct {
-			obj name;
+			obj name; // obj_string
 			obj args; // obj_array
 			obj input; // obj_array
 			obj output; // obj_array

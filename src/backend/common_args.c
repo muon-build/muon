@@ -247,8 +247,8 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		}
 	}
 
-
-	if (ctx->tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
+	if ((ctx->tgt->dat.tgt.flags & build_tgt_flag_pic) ||
+	    (ctx->tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module))) {
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
@@ -313,7 +313,8 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 
 void
 setup_linker_args(struct workspace *wk, const struct project *proj,
-	enum linker_type linker, enum compiler_language link_lang,
+	const struct obj *tgt, enum linker_type linker,
+	enum compiler_language link_lang,
 	obj rpaths, obj link_args, obj link_with)
 {
 	struct setup_linker_args_ctx ctx = {
@@ -325,6 +326,10 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	push_args(wk, link_args, linkers[linker].args.no_undefined());
 
 	if (proj) {
+		if (tgt->dat.tgt.flags & build_tgt_flag_export_dynamic) {
+			push_args(wk, link_args, linkers[linker].args.export_dynamic());
+		}
+
 		setup_optional_b_args_linker(wk, proj, link_args, linker);
 
 		/* global args */

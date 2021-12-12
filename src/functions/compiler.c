@@ -114,7 +114,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			return false;
 		}
 
-		setup_linker_args(wk, NULL, compilers[t].linker,
+		setup_linker_args(wk, NULL, NULL, compilers[t].linker,
 			comp->dat.compiler.lang, da_ctx.rpath, da_ctx.link_args, da_ctx.link_with);
 		obj_array_extend(wk, compiler_args, da_ctx.link_args);
 	}

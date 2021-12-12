@@ -29,12 +29,12 @@ enum build_target_kwargs {
 	bt_kw_target_type,
 	bt_kw_name_prefix,
 	bt_kw_name_suffix,
-	bt_kw_soversion, // TODO
+	bt_kw_soversion,
 	bt_kw_link_depends, // TODO
 	bt_kw_objects,
 	bt_kw_pic, // TODO
 	bt_kw_install_rpath, // TODO
-	bt_kw_export_dynamic, // TODO
+	bt_kw_export_dynamic,
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
@@ -235,6 +235,12 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	tgt->dat.tgt.cwd = current_project(wk)->cwd;
 	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
+
+	{ // build target flags
+		if (akw[bt_kw_export_dynamic].set) {
+			tgt->dat.tgt.flags |= build_tgt_flag_export_dynamic;
+		}
+	}
 
 	if (!determine_target_build_name(wk, tgt, akw[bt_kw_soversion].val, akw[bt_kw_version].val,
 		akw[bt_kw_name_prefix].val, akw[bt_kw_name_suffix].val, plain_name)) {

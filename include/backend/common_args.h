@@ -7,7 +7,8 @@ bool setup_compiler_args(struct workspace *wk, const struct obj *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args,
 	obj *joined_args);
 void setup_linker_args(struct workspace *wk, const struct project *proj,
-	enum linker_type linker, enum compiler_language link_language,
+	const struct obj *tgt, enum linker_type linker,
+	enum compiler_language link_lang,
 	obj rpaths, obj link_args, obj link_with);
 
 struct setup_compiler_args_includes_ctx {

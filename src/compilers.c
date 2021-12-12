@@ -537,6 +537,13 @@ linker_gcc_args_allow_shlib_undefined(void)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_export_dynamic(void)
+{
+	COMPILER_ARGS({ "-Wl,-export-dynamic" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -552,6 +559,7 @@ build_linkers(void)
 			.rpath        = compiler_arg_empty_1s,
 			.sanitize     = compiler_arg_empty_1s,
 			.allow_shlib_undefined = compiler_arg_empty_0,
+			.export_dynamic = compiler_arg_empty_0,
 		}
 	};
 
@@ -567,6 +575,7 @@ build_linkers(void)
 	gcc.args.rpath = linker_gcc_args_rpath,
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
+	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;

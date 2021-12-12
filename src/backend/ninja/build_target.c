@@ -295,7 +295,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 			implicit_deps = str_join(wk, make_str(wk, " | "), join_args_ninja(wk, link_with));
 		}
 
-		setup_linker_args(wk, ctx.proj, linker, ctx.link_language,
+		setup_linker_args(wk, ctx.proj, tgt, linker, ctx.link_language,
 			ctx.args.rpath, ctx.args.link_args, link_with);
 	}
 
