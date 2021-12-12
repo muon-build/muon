@@ -368,10 +368,6 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	obj inc;
-	d = make_obj(wk, &inc, obj_include_directory);
-	d->dat.include_directory.path = path;
-	d->dat.include_directory.is_system = ctx->is_system;
-	obj_array_push(wk, ctx->res, inc);
 
 	if (path_is_subpath(wk->source_root, p)) {
 		if (!path_relative_to(buf1, PATH_MAX, wk->source_root, p)) {
@@ -385,6 +381,11 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 		d->dat.include_directory.is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}
+
+	d = make_obj(wk, &inc, obj_include_directory);
+	d->dat.include_directory.path = path;
+	d->dat.include_directory.is_system = ctx->is_system;
+	obj_array_push(wk, ctx->res, inc);
 
 	return ir_cont;
 }
