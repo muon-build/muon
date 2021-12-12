@@ -19,6 +19,7 @@ struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
 	uint32_t suites_len;
 	enum test_display display;
+	bool fail_fast;
 };
 
 bool tests_run(const char *build_dir, struct test_options *opts);

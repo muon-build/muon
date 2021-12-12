@@ -404,7 +404,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
-	OPTSTART("s:d:") {
+	OPTSTART("s:d:f") {
 		case 's':
 			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -425,9 +425,13 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 				return false;
 			}
 			break;
+		case 'f':
+			test_opts.fail_fast = true;
+			break;
 	} OPTEND(argv[argi], " <build dir>",
 		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n"
-		"  -d <display> - change how tests are displayed (auto|dots|bar)\n",
+		"  -d <display> - change how tests are displayed (auto|dots|bar)\n"
+		"  -f - fail fast; exit after first failure\n",
 		NULL, 1)
 
 	return tests_run(argv[argi], &test_opts);

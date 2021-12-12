@@ -194,6 +194,10 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 		ctx->test_cmd_ctx_free &= ~(1 << i);
+
+		if (ctx->opts->fail_fast && ctx->stats.total_error_count) {
+			break;
+		}
 	}
 }
 
@@ -238,6 +242,11 @@ static enum iteration_result
 run_test(struct workspace *wk, void *_ctx, uint32_t t)
 {
 	struct run_test_ctx *ctx = _ctx;
+
+	if (ctx->opts->fail_fast && ctx->stats.total_error_count) {
+		return ir_done;
+	}
+
 	struct obj *test = get_obj(wk, t);
 
 	if (!test_in_suite(wk, test->dat.test.suites, ctx)) {
@@ -294,6 +303,10 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 
 	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
 		return ir_err;
+	}
+
+	if (ctx->opts->fail_fast && ctx->stats.total_error_count) {
+		return ir_done;
 	}
 
 	while (ctx->test_cmd_ctx_free) {
