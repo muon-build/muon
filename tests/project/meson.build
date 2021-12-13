@@ -237,6 +237,8 @@ tests = [
     ['common/243 escape++', {}],
 ]
 
+ninja = find_program('ninja')
+
 test_dir = meson.current_build_dir()
 
 runner = find_program('runner.sh')
@@ -249,10 +251,11 @@ foreach t : tests
     endif
 
     test(
-        'setup ' + t[0],
+        t[0],
         runner,
         args: [
             muon,
+            ninja,
             meson.current_source_dir() / t[0],
             test_dir / t[0],
             skip_exit_code.to_string(),

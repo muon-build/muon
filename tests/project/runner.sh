@@ -3,9 +3,10 @@
 set -eux
 
 muon="$1"
-source="$2"
-build="$3"
-skip_exit_code="$4"
+ninja="$2"
+source="$3"
+build="$4"
+skip_exit_code="$5"
 
 mkdir -p "$build/muon-private"
 log="$build/muon-private/build_log.txt"
@@ -24,3 +25,7 @@ if [ $res -ne 0 ]; then
 		exit $res
 	fi
 fi
+
+"$ninja" -C "$build"
+
+"$muon" test "$build"
