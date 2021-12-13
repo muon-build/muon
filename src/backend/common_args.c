@@ -14,8 +14,8 @@ static bool
 get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
 {
 	uint32_t i;
-	enum compiler_optimization_lvl opt;
-	bool debug;
+	enum compiler_optimization_lvl opt = 0;
+	bool debug = false;
 
 	static struct {
 		const char *name;
