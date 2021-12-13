@@ -127,12 +127,9 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	enum compiler_language fl;
 
-	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+	if (filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)
+	    && !languages[fl].is_header) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
-		return ir_cont;
-	}
-
-	if (!languages[fl].is_header) {
 		return ir_cont;
 	}
 
