@@ -237,7 +237,10 @@ tests = [
     ['common/243 escape++', {}],
 ]
 
-ninja = find_program('ninja')
+ninja = find_program('ninja', required: false)
+if not ninja.found()
+    subdir_done()
+endif
 
 test_dir = meson.current_build_dir()
 
