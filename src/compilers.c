@@ -258,6 +258,16 @@ compiler_posix_args_include(const char *dir)
 	return &args;
 }
 
+static const struct args *
+compiler_posix_args_define(const char *define)
+{
+	COMPILER_ARGS({ "-D", NULL });
+
+	argv[1] = define;
+
+	return &args;
+}
+
 /* gcc compilers */
 
 static const struct args *
@@ -439,6 +449,7 @@ build_compilers(void)
 			.include_system  = compiler_arg_empty_1s,
 			.pic             = compiler_arg_empty_0,
 			.sanitize        = compiler_arg_empty_1s,
+			.define          = compiler_arg_empty_1s,
 		}
 	};
 
@@ -450,6 +461,7 @@ build_compilers(void)
 	posix.args.debug = compiler_posix_args_debug;
 	posix.args.include = compiler_posix_args_include;
 	posix.args.include_system = compiler_posix_args_include;
+	posix.args.define = compiler_posix_args_define;
 	posix.linker = linker_posix;
 
 	struct compiler gcc = posix;

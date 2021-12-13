@@ -170,10 +170,19 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 	return true;
 #endif
 
-	obj b_sanitize;
-	get_option(wk, proj, "b_sanitize", &b_sanitize);
-	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
-		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, b_sanitize)));
+	obj opt;
+	get_option(wk, proj, "b_sanitize", &opt);
+	if (!str_eql(get_str(wk, opt), &WKSTR("none"))) {
+		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, opt)));
+	}
+
+	obj buildtype;
+	get_option(wk, proj, "buildtype", &buildtype);
+	get_option(wk, proj, "b_ndebug", &opt);
+	if (str_eql(get_str(wk, opt), &WKSTR("true"))
+	    || (str_eql(get_str(wk, opt), &WKSTR("if-release"))
+		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
+		push_args(wk, args, compilers[t].args.define("NDEBUG"));
 	}
 
 	return true;
