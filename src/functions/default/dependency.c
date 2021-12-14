@@ -202,10 +202,18 @@ static bool
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
 {
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
+		LOG_I("dependency threads found");
+
 		*handled = true;
 		struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
 		dep->dat.dep.name = ctx->name;
 		dep->dat.dep.flags |= dep_flag_found;
+
+		make_obj(wk, &dep->dat.dep.compile_args, obj_array);
+		obj_array_push(wk, dep->dat.dep.compile_args, make_str(wk, "-pthread"));
+
+		make_obj(wk, &dep->dat.dep.link_args, obj_array);
+		obj_array_push(wk, dep->dat.dep.link_args, make_str(wk, "-pthread"));
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		*handled = true;
 		ctx->name = make_str(wk, "ncurses");
