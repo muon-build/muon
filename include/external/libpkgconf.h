@@ -7,7 +7,7 @@
 
 struct pkgconf_info {
 	char version[MAX_VERSION_LEN + 1];
-	uint32_t includes, libs;
+	obj includes, libs, not_found_libs, link_args, compile_args;
 };
 
 extern const bool have_libpkgconf;

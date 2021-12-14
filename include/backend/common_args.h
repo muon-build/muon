@@ -6,10 +6,16 @@
 bool setup_compiler_args(struct workspace *wk, const struct obj *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args,
 	obj *joined_args);
+
+struct setup_linker_args_ctx {
+	enum linker_type linker;
+	enum compiler_language link_lang;
+	struct dep_args_ctx *args;
+	obj implicit_deps;
+};
+
 void setup_linker_args(struct workspace *wk, const struct project *proj,
-	const struct obj *tgt, enum linker_type linker,
-	enum compiler_language link_lang,
-	obj rpaths, obj link_args, obj link_with);
+	const struct obj *tgt, struct setup_linker_args_ctx *ctx);
 
 struct setup_compiler_args_includes_ctx {
 	obj args;

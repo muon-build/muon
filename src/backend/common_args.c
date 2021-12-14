@@ -6,6 +6,7 @@
 #include "args.h"
 #include "backend/common_args.h"
 #include "functions/default/options.h"
+#include "functions/dependency.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -287,17 +288,12 @@ setup_compiler_args(struct workspace *wk, const struct obj *tgt,
 	return true;
 }
 
-struct setup_linker_args_ctx {
-	enum linker_type linker;
-	obj link_args;
-};
-
 static enum iteration_result
 process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_linker_args_ctx *ctx = _ctx;
 
-	push_args(wk, ctx->link_args, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
+	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
 
 	return ir_cont;
 }
@@ -320,51 +316,65 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 	return true;
 }
 
+static enum iteration_result
+push_not_found_lib_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct setup_linker_args_ctx *ctx = _ctx;
+
+	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.lib(get_cstr(wk, v)));
+	return ir_cont;
+}
+
 void
 setup_linker_args(struct workspace *wk, const struct project *proj,
-	const struct obj *tgt, enum linker_type linker,
-	enum compiler_language link_lang,
-	obj rpaths, obj link_args, obj link_with)
+	const struct obj *tgt, struct setup_linker_args_ctx *ctx)
 {
-	struct setup_linker_args_ctx ctx = {
-		.linker = linker,
-		.link_args = link_args,
-	};
+	obj link_with;
+	obj_array_dedup(wk, ctx->args->link_with, &link_with);
+	ctx->args->link_with = link_with;
 
-	push_args(wk, link_args, linkers[linker].args.as_needed());
-	push_args(wk, link_args, linkers[linker].args.no_undefined());
+	obj link_with_not_found;
+	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
+	ctx->args->link_with_not_found = link_with_not_found;
+
+	make_obj(wk, &ctx->implicit_deps, obj_array);
+
+	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.as_needed());
+	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_undefined());
 
 	if (proj) {
 		if (tgt->dat.tgt.flags & build_tgt_flag_export_dynamic) {
-			push_args(wk, link_args, linkers[linker].args.export_dynamic());
+			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.export_dynamic());
 		}
 
-		setup_optional_b_args_linker(wk, proj, link_args, linker);
+		setup_optional_b_args_linker(wk, proj, ctx->args->link_args, ctx->linker);
 
 		/* global args */
 		obj global_args, global_args_dup;
-		if (obj_dict_geti(wk, wk->global_link_args, link_lang, &global_args)) {
+		if (obj_dict_geti(wk, wk->global_link_args, ctx->link_lang, &global_args)) {
 			obj_array_dup(wk, global_args, &global_args_dup);
-			obj_array_extend(wk, link_args, global_args_dup);
+			obj_array_extend(wk, ctx->args->link_args, global_args_dup);
 		}
 
 		/* project args */
 		obj proj_args, proj_args_dup;
-		if (obj_dict_geti(wk, proj->link_args, link_lang, &proj_args)) {
+		if (obj_dict_geti(wk, proj->link_args, ctx->link_lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
-			obj_array_extend(wk, link_args, proj_args_dup);
+			obj_array_extend(wk, ctx->args->link_args, proj_args_dup);
 		}
 	}
 
-	obj_array_foreach(wk, rpaths, &ctx, process_rpath_iter);
+	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
 
-	if (get_obj(wk, link_with)->dat.arr.len) {
-		push_args(wk, link_args, linkers[linker].args.start_group());
+	if (get_obj(wk, ctx->args->link_with)->dat.arr.len) {
+		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.start_group());
 
-		obj arr;
-		obj_array_dup(wk, link_with, &arr);
-		obj_array_extend(wk, link_args, arr);
+		obj dup;
+		obj_array_dup(wk, ctx->args->link_with, &dup);
+		obj_array_extend(wk, ctx->args->link_args, dup);
 
-		push_args(wk, link_args, linkers[linker].args.end_group());
+		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, push_not_found_lib_iter);
+
+		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.end_group());
 	}
 }

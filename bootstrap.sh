@@ -92,7 +92,6 @@ cat \
 	src/machine_file.c \
 	src/main.c \
 	src/opts.c \
-	src/platform/dirs.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
 	src/platform/path.c \

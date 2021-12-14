@@ -3,7 +3,12 @@
 #include "functions/common.h"
 
 struct dep_args_ctx {
-	obj compile_args, include_dirs, link_with, link_args, rpath;
+	obj compile_args,
+	    include_dirs,
+	    link_with,
+	    link_with_not_found,
+	    link_args,
+	    rpath;
 	bool relativize, recursive;
 };
 

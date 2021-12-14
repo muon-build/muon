@@ -14,7 +14,6 @@
 #include "functions/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
-#include "platform/dirs.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -114,8 +113,13 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			return false;
 		}
 
-		setup_linker_args(wk, NULL, NULL, compilers[t].linker,
-			comp->dat.compiler.lang, da_ctx.rpath, da_ctx.link_args, da_ctx.link_with);
+		struct setup_linker_args_ctx sctx = {
+			.linker = compilers[t].linker,
+			.link_lang = comp->dat.compiler.lang,
+			.args = &da_ctx
+		};
+
+		setup_linker_args(wk, NULL, NULL, &sctx);
 		obj_array_extend(wk, compiler_args, da_ctx.link_args);
 	}
 
@@ -986,8 +990,38 @@ func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 	return true;
 }
 
+struct compiler_find_library_ctx {
+	char path[PATH_MAX];
+	obj lib_name;
+	bool found;
+};
+
+static enum iteration_result
+compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
+{
+	struct compiler_find_library_ctx *ctx = _ctx;
+	char lib[PATH_MAX];
+	static const char *suf[] = { "so", "a", NULL };
+
+	uint32_t i;
+	for (i = 0; suf[i]; ++i) {
+		snprintf(lib, PATH_MAX, "lib%s.%s", get_cstr(wk, ctx->lib_name), suf[i]);
+
+		if (!path_join(ctx->path, PATH_MAX, get_cstr(wk, libdir), lib)) {
+			return false;
+		}
+
+		if (fs_file_exists(ctx->path)) {
+			ctx->found = true;
+			return ir_done;
+		}
+	}
+
+	return ir_cont;
+}
+
 static bool
-func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1012,32 +1046,20 @@ func_compiler_find_library(struct workspace *wk, uint32_t _, uint32_t args_node,
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
+		make_obj(wk, res, obj_external_library)->dat.external_library.found = false;
 		return true;
 	}
 
-	bool found = false;
-	char lib[PATH_MAX], path[PATH_MAX];
-	const char *suf[] = { "so", "a", NULL };
+	struct compiler_find_library_ctx ctx = {
+		.lib_name = an[0].val
+	};
+	struct obj *comp = get_obj(wk, rcvr);
 
-	uint32_t i, j;
-	for (i = 0; libdirs[i]; ++i) {
-		for (j = 0; suf[j]; ++j) {
-			snprintf(lib, PATH_MAX, "lib%s.%s", get_cstr(wk, an[0].val), suf[j]);
-
-			if (!path_join(path, PATH_MAX, libdirs[i], lib)) {
-				return false;
-			}
-
-			if (fs_file_exists(path)) {
-				found = true;
-				goto done;
-			}
-		}
+	if (!obj_array_foreach(wk, comp->dat.compiler.libdirs, &ctx, compiler_find_library_iter)) {
+		return false;
 	}
 
-done:
-	if (!found) {
+	if (!ctx.found) {
 		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "library not found");
 			return false;
@@ -1045,15 +1067,15 @@ done:
 
 		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
 		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
-			*obj = disabler_id;
+			*res = disabler_id;
 		} else {
-			make_obj(wk, obj, obj_external_library)->dat.external_library.found = false;
+			make_obj(wk, res, obj_external_library)->dat.external_library.found = false;
 		}
 	} else {
-		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), path);
-		struct obj *external_library = make_obj(wk, obj, obj_external_library);
+		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
+		struct obj *external_library = make_obj(wk, res, obj_external_library);
 		external_library->dat.external_library.found = true;
-		external_library->dat.external_library.full_path = make_str(wk, path);
+		external_library->dat.external_library.full_path = make_str(wk, ctx.path);
 	}
 
 	return true;

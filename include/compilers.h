@@ -77,6 +77,7 @@ struct compiler {
 
 struct linker {
 	struct {
+		compiler_get_arg_func_1s lib;
 		compiler_get_arg_func_0 as_needed;
 		compiler_get_arg_func_0 no_undefined;
 		compiler_get_arg_func_0 start_group;

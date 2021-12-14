@@ -52,7 +52,6 @@ src = (
         'lang/serial.c',
         'lang/string.c',
         'lang/workspace.c',
-        'platform/dirs.c',
         'platform/filesystem.c',
         'platform/mem.c',
         'platform/path.c',

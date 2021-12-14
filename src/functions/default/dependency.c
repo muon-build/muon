@@ -129,7 +129,10 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	dep->dat.dep.version = ver_str;
 	dep->dat.dep.flags |= dep_flag_found | dep_flag_pkg_config;
 	dep->dat.dep.link_with = info.libs;
+	dep->dat.dep.link_with_not_found = info.not_found_libs;
 	dep->dat.dep.include_directories = info.includes;
+	dep->dat.dep.compile_args = info.compile_args;
+	dep->dat.dep.link_args = info.link_args;
 
 	*found = true;
 	return true;

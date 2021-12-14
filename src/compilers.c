@@ -148,6 +148,62 @@ detection_over:
 	return true;
 }
 
+static bool
+compiler_get_libdirs(struct workspace *wk, struct obj *comp)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd(&cmd_ctx, get_cstr(wk, comp->dat.compiler.name), (const char *[]){
+		get_cstr(wk, comp->dat.compiler.name), "--print-search-dirs", NULL,
+	}, NULL) || cmd_ctx.status) {
+		goto done;
+	}
+
+	const char *key = "libraries: ";
+	char *s, *e;
+	bool beginning_of_line = true;
+	for (s = cmd_ctx.out.buf; *s; ++s) {
+		if (beginning_of_line && strncmp(s, key, strlen(key)) == 0) {
+			s += strlen(key);
+			if (*s == '=') {
+				++s;
+			}
+
+			e = strchr(s, '\n');
+
+			struct str str = {
+				.s = s,
+				.len = e ? (uint32_t)(e - s) : strlen(s),
+			};
+
+			comp->dat.compiler.libdirs = str_split(wk, &str, &WKSTR(":"));
+			goto done;
+		}
+
+		beginning_of_line = *s == '\n';
+	}
+
+done:
+	run_cmd_ctx_destroy(&cmd_ctx);
+
+	if (!comp->dat.compiler.libdirs) {
+		const char *libdirs[] = {
+			"/usr/lib",
+			"/usr/local/lib",
+			"/lib",
+			NULL
+		};
+
+		make_obj(wk, &comp->dat.compiler.libdirs, obj_array);
+
+		uint32_t i;
+		for (i = 0; libdirs[i]; ++i) {
+			obj_array_push(wk, comp->dat.compiler.libdirs, make_str(wk, libdirs[i]));
+		}
+	}
+
+	return true;
+}
+
 bool
 compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lang)
 {
@@ -174,7 +230,9 @@ compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lan
 			return false;
 		}
 
-		get_obj(wk, *comp)->dat.compiler.lang = lang;
+		struct obj *compiler = get_obj(wk, *comp);
+		compiler_get_libdirs(wk, compiler);
+		compiler->dat.compiler.lang = lang;
 		return true;
 	default:
 		assert(false);
@@ -483,6 +541,15 @@ build_compilers(void)
 }
 
 static const struct args *
+linker_posix_args_lib(const char *s)
+{
+	COMPILER_ARGS({ "-l", NULL });
+	argv[1] = s;
+
+	return &args;
+}
+
+static const struct args *
 linker_gcc_args_as_needed(void)
 {
 	COMPILER_ARGS({ "-Wl,--as-needed" });
@@ -504,7 +571,6 @@ linker_gcc_args_start_group(void)
 	COMPILER_ARGS({ "-Wl,--start-group" });
 	return &args;
 }
-
 
 static const struct args *
 linker_gcc_args_end_group(void)
@@ -562,6 +628,7 @@ build_linkers(void)
 	/* linkers */
 	struct linker empty = {
 		.args = {
+			.lib          = compiler_arg_empty_1s,
 			.as_needed    = compiler_arg_empty_0,
 			.no_undefined = compiler_arg_empty_0,
 			.start_group  = compiler_arg_empty_0,
@@ -576,6 +643,7 @@ build_linkers(void)
 	};
 
 	struct linker posix = empty;
+	posix.args.lib = linker_posix_args_lib;
 
 	struct linker gcc = posix;
 	gcc.args.as_needed = linker_gcc_args_as_needed;

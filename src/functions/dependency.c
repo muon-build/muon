@@ -154,6 +154,12 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
+		if (dep->dat.dep.link_with_not_found) {
+			obj dup;
+			obj_array_dup(wk, dep->dat.dep.link_with_not_found, &dup);
+			obj_array_extend(wk, ctx->link_with_not_found, dup);
+		}
+
 		if (dep->dat.dep.include_directories) {
 			if (!obj_array_foreach_flat(wk, dep->dat.dep.include_directories,
 				_ctx, dep_args_includes_iter)) {
@@ -202,6 +208,7 @@ dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
 
 	make_obj(wk, &ctx->include_dirs, obj_array);
 	make_obj(wk, &ctx->link_with, obj_array);
+	make_obj(wk, &ctx->link_with_not_found, obj_array);
 	make_obj(wk, &ctx->link_args, obj_array);
 	make_obj(wk, &ctx->compile_args, obj_array);
 	make_obj(wk, &ctx->rpath, obj_array);

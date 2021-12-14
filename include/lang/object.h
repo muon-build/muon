@@ -161,6 +161,7 @@ struct obj {
 			obj name; // obj_string
 			obj version; // obj_string
 			obj link_with; // obj_array
+			obj link_with_not_found; // obj_array
 			obj link_args; // obj_array
 			obj include_directories; // obj_array
 			obj variables; // obj_dict
@@ -201,6 +202,7 @@ struct obj {
 		struct {
 			obj name;
 			obj ver;
+			obj libdirs;
 			enum compiler_type type;
 			enum compiler_language lang;
 		} compiler;

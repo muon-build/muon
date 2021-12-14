@@ -8,7 +8,6 @@
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "platform/dirs.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -23,7 +22,7 @@ static bool init = false;
 static bool
 error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 {
-	/* log_plain("%s", msg); */
+	L("libpkgconf: %s", msg);
 	return true;
 }
 
@@ -79,8 +78,8 @@ struct pkgconf_lookup_ctx {
 	apply_func apply_func;
 	struct workspace *wk;
 	struct pkgconf_info *info;
-	uint32_t libdirs;
-	uint32_t name;
+	obj libdirs;
+	obj name;
 	bool is_static;
 };
 
@@ -109,7 +108,6 @@ check_lib_path(struct find_lib_path_ctx *ctx, const char *lib_path)
 	uint32_t i;
 
 	char name[PATH_MAX];
-
 	for (i = 0; i < ext_count; ++i) {
 		snprintf(name, PATH_MAX - 1, "lib%s%s", ctx->name, ext[ext_order[i]]);
 
@@ -209,14 +207,15 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 					obj_array_push(ctx->wk, ctx->info->libs, str);
 				}
 			} else {
-				LOG_E("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));
-				return false;
+				LOG_W("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));
+				obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
 			}
 			break;
 		}
 		default:
 			if (frag->type) {
-				L("skipping unknown pkgconf fragment: -%c '%s'", frag->type, frag->data);
+				obj_array_push(ctx->wk, ctx->info->compile_args,
+					make_strf(ctx->wk, "-%c%s", frag->type, frag->data));
 			} else {
 				L("skipping null pkgconf fragment: '%s'", frag->data);
 			}
@@ -270,14 +269,17 @@ muon_pkgconf_lookup(struct workspace *wk, uint32_t name, bool is_static, struct 
 		goto ret;
 	}
 
+	make_obj(wk, &info->compile_args, obj_array);
+	make_obj(wk, &info->link_args, obj_array);
 	make_obj(wk, &info->includes, obj_array);
 	make_obj(wk, &info->libs, obj_array);
+	make_obj(wk, &info->not_found_libs, obj_array);
 	make_obj(wk, &ctx.libdirs, obj_array);
 
-	uint32_t i;
-	for (i = 0; libdirs[i]; ++i) {
-		obj_array_push(wk, ctx.libdirs, make_str(wk, libdirs[i]));
-	}
+	/* uint32_t i; */
+	/* for (i = 0; libdirs[i]; ++i) { */
+	/* 	obj_array_push(wk, ctx.libdirs, make_str(wk, libdirs[i])); */
+	/* } */
 
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&client, &pkgq, apply_and_collect, maxdepth, &ctx)) {
