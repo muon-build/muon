@@ -990,6 +990,17 @@ func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, ui
 	return true;
 }
 
+static bool
+func_compiler_get_linker_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*obj = make_str(wk, linker_type_to_s(compilers[get_obj(wk, rcvr)->dat.compiler.type].linker));
+	return true;
+}
+
 struct compiler_find_library_ctx {
 	char path[PATH_MAX];
 	obj lib_name;
@@ -1111,6 +1122,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "find_library", func_compiler_find_library },
 	{ "first_supported_argument", func_compiler_first_supported_argument },
 	{ "get_id", func_compiler_get_id },
+	{ "get_linker_id", func_compiler_get_linker_id },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },

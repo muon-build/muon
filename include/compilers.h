@@ -101,6 +101,7 @@ extern struct linker linkers[];
 extern const struct language languages[];
 
 const char *compiler_type_to_s(enum compiler_type t);
+const char *linker_type_to_s(enum linker_type t);
 const char *compiler_language_to_s(enum compiler_language l);
 bool s_to_compiler_language(const char *s, enum compiler_language *l);
 bool filename_to_compiler_language(const char *str, enum compiler_language *l);

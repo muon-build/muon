@@ -18,6 +18,18 @@ compiler_type_to_s(enum compiler_type t)
 	case compiler_posix: return "posix";
 	case compiler_gcc: return "gcc";
 	case compiler_clang: return "clang";
+	case compiler_type_count:
+	default: assert(false); return "";
+	}
+}
+
+const char *
+linker_type_to_s(enum linker_type t)
+{
+	switch (t) {
+	case linker_posix: return "ld";
+	case linker_gcc: return "ld.bfd";
+	case linker_type_count:
 	default: assert(false); return "";
 	}
 }
