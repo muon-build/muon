@@ -64,7 +64,7 @@ environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum 
 	}
 
 	obj joined;
-	if (!obj_array_join(wk, value, sep, &joined)) {
+	if (!obj_array_join(wk, false, value, sep, &joined)) {
 		return false;
 	}
 

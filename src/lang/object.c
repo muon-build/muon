@@ -356,8 +356,24 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+obj_array_flat_len_iter(struct workspace *wk, void *_ctx, obj _)
+{
+	uint32_t *len = _ctx;
+	++(*len);
+	return ir_cont;
+}
+
+static uint32_t
+obj_array_flat_len(struct workspace *wk, obj arr)
+{
+	uint32_t len = 0;
+	obj_array_foreach_flat(wk, arr, &len, obj_array_flat_len_iter);
+	return len;
+}
+
 bool
-obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
+obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 {
 	*res = make_str(wk, "");
 
@@ -368,10 +384,15 @@ obj_array_join(struct workspace *wk, obj arr, obj join, obj *res)
 	struct obj_array_join_ctx ctx = {
 		.join = get_str(wk, join),
 		.res = res,
-		.len = get_obj(wk, arr)->dat.arr.len
 	};
 
-	return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
+	if (flat) {
+		ctx.len = obj_array_flat_len(wk, arr);
+		return obj_array_foreach_flat(wk, arr, &ctx, obj_array_join_iter);
+	} else {
+		ctx.len = get_obj(wk, arr)->dat.arr.len;
+		return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
+	}
 }
 
 void

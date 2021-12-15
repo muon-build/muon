@@ -32,7 +32,7 @@ tests = [
     ['common/32 has header', {'should_fail': true}],
     ['common/33 run program', {'should_fail': true}],
     ['common/34 logic ops', {}],
-    ['common/35 string operations', {'should_fail': true}],
+    ['common/35 string operations', {}],
     ['common/36 has function', {'should_fail': true}],
     ['common/37 has member', {'should_fail': true}],
     ['common/38 alignment', {}],

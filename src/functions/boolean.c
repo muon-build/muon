@@ -1,5 +1,7 @@
 #include "posix.h"
 
+#include <string.h>
+
 #include "functions/common.h"
 #include "functions/boolean.h"
 #include "lang/interpreter.h"
@@ -8,12 +10,16 @@
 static bool
 func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	struct args_norm ao[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
 		return false;
 	}
 
-	const char *s = get_obj(wk, rcvr)->dat.boolean ? "true" : "false";
-	*res = make_str(wk, s);
+	if (get_obj(wk, rcvr)->dat.boolean) {
+		*res = ao[0].set ? ao[0].val : make_str(wk, "true");
+	} else {
+		*res = ao[1].set ? ao[1].val : make_str(wk, "false");
+	}
 
 	return true;
 }

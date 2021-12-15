@@ -32,7 +32,7 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	const struct str *strip = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" \n");
+	const struct str *strip = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" \n\t");
 
 	uint32_t i;
 	int32_t len;
@@ -271,13 +271,13 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 static bool
 func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
 {
-	struct args_norm an[] = { { obj_array }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	return obj_array_join(wk, an[0].val, rcvr, obj);
+	return obj_array_join(wk, true, an[0].val, rcvr, obj);
 }
 
 bool
@@ -549,9 +549,7 @@ func_string_substring(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		assert(ao[0].set);
 		interp_error(wk, ao[0].node, "substring start out of bounds");
 		return false;
-	}
-
-	if (end > s->len || end < 0) {
+	} else if (end > s->len || end < 0) {
 		assert(ao[1].set);
 		interp_error(wk, ao[1].node, "substring end out of bounds");
 		return false;
@@ -565,18 +563,93 @@ func_string_substring(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
+static bool
+func_string_replace(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const struct str *s = get_str(wk, rcvr);
+	const struct str *find = get_str(wk, an[0].val);
+	const struct str *replace = get_str(wk, an[1].val);
+	struct str tmp, pre = {
+		.s = s->s,
+		.len = 0,
+	};
+
+	*res = make_str(wk, "");
+
+	uint32_t i;
+	for (i = 0; i < s->len; ++i) {
+		tmp = (struct str) {
+			.s = &s->s[i],
+			.len = s->len - i,
+		};
+
+		if (str_startswith(&tmp, find)) {
+			str_appn(wk, *res, pre.s, pre.len);
+			str_appn(wk, *res, replace->s, replace->len);
+			i += find->len;
+			pre.s = &s->s[i];
+			pre.len = 0;
+
+			--i;
+		} else {
+			++pre.len;
+		}
+	}
+
+	str_appn(wk, *res, pre.s, pre.len);
+
+	return true;
+}
+
+static bool
+func_string_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const struct str *s = get_str(wk, rcvr);
+	const struct str *find = get_str(wk, an[0].val);
+	struct str tmp;
+
+	bool found = false;
+	uint32_t i;
+	for (i = 0; i < s->len; ++i) {
+		tmp = (struct str) {
+			.s = &s->s[i],
+			.len = s->len - i,
+		};
+
+		if (str_startswith(&tmp, find)) {
+			found = true;
+			break;
+		}
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = found;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_string[] = {
+	{ "contains", func_string_contains },
+	{ "endswith", func_string_endswith },
 	{ "format", func_format },
 	{ "join", func_join },
+	{ "replace", func_string_replace },
 	{ "split", func_split },
 	{ "startswith", func_string_startswith },
-	{ "endswith", func_string_endswith },
 	{ "strip", func_strip },
+	{ "substring", func_string_substring },
 	{ "to_int", func_string_to_int },
-	{ "to_upper", func_to_upper },
 	{ "to_lower", func_to_lower },
+	{ "to_upper", func_to_upper },
 	{ "underscorify", func_underscorify },
 	{ "version_compare", func_version_compare },
-	{ "substring", func_string_substring },
 	{ NULL, NULL },
 };
