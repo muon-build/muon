@@ -79,7 +79,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		obj arr = key == key_input ? ctx->input : ctx->output;
 
 		int64_t index = 0;
-		if (!boundscheck(wk, ctx->err_node, arr, &index)) {
+		if (!boundscheck(wk, ctx->err_node, get_obj(wk, arr)->dat.arr.len, &index)) {
 			return format_cb_error;
 		}
 		obj_array_index(wk, arr, 0, &e);
@@ -143,7 +143,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		return format_cb_not_found;
 	}
 
-	if (!boundscheck(wk, ctx->err_node, arr, &index)) {
+	if (!boundscheck(wk, ctx->err_node, get_obj(wk, arr)->dat.arr.len, &index)) {
 		return format_cb_error;
 	} else if (!obj_array_index(wk, arr, index, &e)) {
 		return format_cb_error;

@@ -782,7 +782,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		int64_t i = 0;
-		if (!boundscheck(wk, an[0].node, args, &i)) {
+		if (!boundscheck(wk, an[0].node, get_obj(wk, args)->dat.arr.len, &i)) {
 			return false;
 		}
 		obj_array_index(wk, args, 0, &cmd);

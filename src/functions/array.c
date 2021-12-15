@@ -27,7 +27,7 @@ func_array_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res
 
 	int64_t i = get_obj(wk, an[0].val)->dat.num;
 
-	if (!bounds_adjust(wk, rcvr, &i)) {
+	if (!bounds_adjust(wk, get_obj(wk, rcvr)->dat.arr.len, &i)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {

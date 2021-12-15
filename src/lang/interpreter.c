@@ -36,22 +36,19 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 }
 
 bool
-bounds_adjust(struct workspace *wk, obj arr, int64_t *i)
+bounds_adjust(struct workspace *wk, uint32_t len, int64_t *i)
 {
-	struct obj *a = get_obj(wk, arr);
-	assert(a->type == obj_array);
-
 	if (*i < 0) {
-		*i += a->dat.arr.len;
+		*i += len;
 	}
 
-	return *i < a->dat.arr.len;
+	return *i < len;
 }
 
 bool
-boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i)
+boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i)
 {
-	if (!bounds_adjust(wk, obj_id, i)) {
+	if (!bounds_adjust(wk, len, i)) {
 		interp_error(wk, n_id, "index %" PRId64 " out of bounds", *i);
 		return false;
 	}
@@ -164,7 +161,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 
 		int64_t i = r->dat.num;
 
-		if (!boundscheck(wk, n->r, l_id, &i)) {
+		if (!boundscheck(wk, n->r, l->dat.arr.len, &i)) {
 			return false;
 		}
 
@@ -191,13 +188,30 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 
 		int64_t i = r->dat.num;
 
-		if (!boundscheck(wk, n->r, l->dat.custom_target.output, &i)) {
+		struct obj *arr = get_obj(wk, l->dat.custom_target.output);
+		assert(arr->type = obj_array);
+
+		if (!boundscheck(wk, n->r, arr->dat.arr.len, &i)) {
 			return false;
 		}
 
 		if (!obj_array_index(wk, l->dat.custom_target.output, i, &result)) {
 			return false;
 		}
+		break;
+	}
+	case obj_string: {
+		if (!typecheck(wk, n->r, r_id, obj_number)) {
+			return false;
+		}
+
+		int64_t i = r->dat.num;
+
+		if (!boundscheck(wk, n->r, l->dat.str.len, &i)) {
+			return false;
+		}
+
+		result = make_strn(wk, &l->dat.str.s[i], 1);
 		break;
 	}
 	default:

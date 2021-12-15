@@ -15,6 +15,6 @@ __attribute__ ((format(printf, 3, 4)));
 bool typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type);
 bool typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type);
 bool typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type);
-bool boundscheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, int64_t *i);
-bool bounds_adjust(struct workspace *wk, obj arr, int64_t *i);
+bool boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i);
+bool bounds_adjust(struct workspace *wk, uint32_t len, int64_t *i);
 #endif
