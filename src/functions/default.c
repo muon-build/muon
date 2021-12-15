@@ -35,8 +35,12 @@ s_to_lang(struct workspace *wk, uint32_t err_node, obj lang, enum compiler_langu
 }
 
 static bool
-project_add_language(struct workspace *wk, uint32_t err_node, obj str)
+project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requirement_type req, bool *found)
 {
+	if (req == requirement_skip) {
+		return true;
+	}
+
 	uint32_t comp_id;
 	enum compiler_language l;
 	if (!s_to_lang(wk, err_node, str, &l)) {
@@ -50,16 +54,23 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str)
 	}
 
 	if (!compiler_detect(wk, &comp_id, l)) {
-		interp_error(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
-		return false;
+		if (req == requirement_required) {
+			interp_error(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
+			return false;
+		} else {
+			return true;
+		}
 	}
 
 	obj_dict_seti(wk, current_project(wk)->compilers, l, comp_id);
+	*found = true;
 	return true;
 }
 
 struct project_add_language_iter_ctx {
 	uint32_t err_node;
+	enum requirement_type req;
+	bool missing;
 };
 
 static enum iteration_result
@@ -67,11 +78,16 @@ project_add_language_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct project_add_language_iter_ctx *ctx = _ctx;
 
-	if (project_add_language(wk, ctx->err_node, val)) {
-		return ir_cont;
-	} else {
+	bool found = false;
+	if (!project_add_language(wk, ctx->err_node, val, ctx->req, &found)) {
 		return ir_err;
 	}
+
+	if (!found) {
+		ctx->missing = true;
+	}
+
+	return ir_cont;
 }
 
 static bool
@@ -101,8 +117,10 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->cfg.name = an[0].val;
 
 	if (!obj_array_foreach_flat(wk, an[1].val,
-		&(struct project_add_language_iter_ctx) { an[1].node },
-		project_add_language_iter) ) {
+		&(struct project_add_language_iter_ctx) {
+		.err_node = an[1].node,
+		.req = requirement_required,
+	}, project_add_language_iter)) {
 		return false;
 	}
 
@@ -276,6 +294,40 @@ func_add_global_link_arguments(struct workspace *wk, obj _, uint32_t args_node, 
 	}
 
 	return add_arguments_common(wk, args_node, wk->global_link_args, res);
+}
+
+static bool
+func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_required,
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_required] = { "required", obj_any },
+		[kw_native] = { "version", obj_bool },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	struct project_add_language_iter_ctx ctx = {
+		.err_node = an[0].node,
+	};
+
+	if (!coerce_requirement(wk, &akw[kw_required], &ctx.req)) {
+		return false;
+	}
+
+	if (!obj_array_foreach(wk, an[0].val, &ctx, project_add_language_iter)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = !ctx.missing;
+	return true;
 }
 
 static bool
@@ -1391,7 +1443,7 @@ const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
 	{ "add_global_link_arguments", func_add_global_link_arguments },
-	{ "add_languages", todo },
+	{ "add_languages", func_add_languages },
 	{ "add_project_arguments", func_add_project_arguments },
 	{ "add_project_link_arguments", func_add_project_link_arguments },
 	{ "add_test_setup", todo },
