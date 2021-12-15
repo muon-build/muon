@@ -258,7 +258,7 @@ foreach t : tests
         runner,
         args: [
             muon,
-            ninja.full_path(),
+            ninja.path(),
             meson.current_source_dir() / t[0],
             test_dir / t[0],
             skip_exit_code.to_string(),
