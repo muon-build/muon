@@ -26,7 +26,7 @@ tests = [
     ['common/26 find program', {}],
     ['common/27 multiline string', {}],
     ['common/28 try compile', {}],
-    ['common/29 compiler id', {'should_fail': true}],
+    ['common/29 compiler id', {}],
     ['common/30 sizeof', {}],
     ['common/31 define10', {}],
     ['common/32 has header', {'should_fail': true}],

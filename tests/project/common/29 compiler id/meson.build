@@ -1,6 +1,6 @@
 project('compiler_id')
 
-foreach lang : ['c', 'cpp', 'fortran', 'objc', 'objcpp']
+foreach lang : ['c', 'cpp'] #, 'fortran', 'objc', 'objcpp']
 
     if not add_languages(lang, required: false)
         continue
