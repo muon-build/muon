@@ -268,7 +268,9 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 
 	if (test->dat.test.args) {
 		uint32_t test_args;
-		if (!arr_to_args(wk, test->dat.test.args, &test_args)) {
+		if (!arr_to_args(wk,
+			arr_to_args_build_target | arr_to_args_custom_target,
+			test->dat.test.args, &test_args)) {
 			return ir_err;
 		}
 

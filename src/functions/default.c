@@ -777,7 +777,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	{
 		obj args;
-		if (!arr_to_args(wk, an[0].val, &args)) {
+		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
 			return false;
 		}
 
@@ -1144,7 +1144,9 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 
 	obj args = 0;
 	if (akw[kw_args].set) {
-		if (!arr_to_args(wk, akw[kw_args].val, &args)) {
+		if (!arr_to_args(wk,
+			arr_to_args_build_target | arr_to_args_custom_target,
+			akw[kw_args].val, &args)) {
 			return false;
 		}
 	}

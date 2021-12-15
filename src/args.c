@@ -269,10 +269,15 @@ join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t a
 	return true;
 }
 
+struct arr_to_args_ctx {
+	enum arr_to_args_mode mode;
+	obj res;
+};
+
 static enum iteration_result
 arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 {
-	obj *res = _ctx;
+	struct arr_to_args_ctx *ctx = _ctx;
 	obj str;
 
 	struct obj *o = get_obj(wk, src);
@@ -285,6 +290,10 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		str = o->dat.file;
 		break;
 	case obj_build_target: {
+		if (!(ctx->mode & arr_to_args_build_target)) {
+			goto type_err;
+		}
+
 		char tmp[PATH_MAX];
 
 		if (!path_join(tmp, PATH_MAX, get_cstr(wk, o->dat.tgt.build_dir),
@@ -296,30 +305,44 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		break;
 	}
 	case obj_custom_target: {
+		if (!(ctx->mode & arr_to_args_custom_target)) {
+			goto type_err;
+		}
+
 		obj output_arr = get_obj(wk, src)->dat.custom_target.output;
-		if (!obj_array_foreach(wk, output_arr, res, arr_to_args_iter)) {
+		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
 			return ir_err;
 		}
 		return ir_cont;
 	}
 	case obj_external_program:
+		if (!(ctx->mode & arr_to_args_external_program)) {
+			goto type_err;
+		}
+
 		str = o->dat.external_program.full_path;
 		break;
 	default:
+type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(o->type));
 		return ir_err;
 	}
 
-	obj_array_push(wk, *res, str);
+	obj_array_push(wk, ctx->res, str);
 	return ir_cont;
 }
 
 bool
-arr_to_args(struct workspace *wk, uint32_t arr, uint32_t *res)
+arr_to_args(struct workspace *wk, enum arr_to_args_mode mode, obj arr, obj *res)
 {
 	make_obj(wk, res, obj_array);
 
-	return obj_array_foreach_flat(wk, arr, res, arr_to_args_iter);
+	struct arr_to_args_ctx ctx = {
+		.mode = mode,
+		.res = *res
+	};
+
+	return obj_array_foreach_flat(wk, arr, &ctx, arr_to_args_iter);
 }
 
 struct env_to_envp_ctx {

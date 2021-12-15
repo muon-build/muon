@@ -69,7 +69,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 	obj_array_push(wk, cmdline, make_str(wk, "--"));
 
 	uint32_t tgt_args;
-	if (!arr_to_args(wk, tgt->dat.custom_target.args, &tgt_args)) {
+	if (!arr_to_args(wk, 0, tgt->dat.custom_target.args, &tgt_args)) {
 		return ir_err;
 	}
 
