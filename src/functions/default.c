@@ -375,25 +375,30 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static enum iteration_result
-find_program_iter(struct workspace *wk, void *_ctx, obj val)
+static bool
+find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 {
-	struct find_program_iter_ctx *ctx = _ctx;
 	const char *str;
 	obj ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	struct obj *v = get_obj(wk, val);
+	struct obj *v = get_obj(wk, prog);
 	switch (v->type) {
 	case obj_file:
-		str = get_cstr(wk, get_obj(wk, val)->dat.file);
+		str = get_cstr(wk, get_obj(wk, prog)->dat.file);
 		break;
 	case obj_string:
-		str = get_cstr(wk, val);
+		str = get_cstr(wk, prog);
 		break;
+	case obj_external_program:
+		if (v->dat.external_program.found) {
+			*ctx->res = prog;
+			ctx->found = true;
+		}
+		return true;
 	default:
-		interp_error(wk, ctx->node, "expected string or file, got %o", val);
-		return ir_err;
+		interp_error(wk, ctx->node, "expected string or file, got %o", prog);
+		return false;
 	}
 
 	const char *path;
@@ -432,7 +437,7 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
 
-	return ir_cont;
+	return true;
 found:
 	if (ctx->version) {
 		if (run_cmd(&cmd_ctx, path, (const char *[]){ (char *)path, "--version", 0 }, NULL)
@@ -443,16 +448,16 @@ found:
 		run_cmd_ctx_destroy(&cmd_ctx);
 
 		if (!ver) {
-			return ir_cont; // no version to check against
+			return true; // no version to check against
 		}
 
 		struct version v = { 0 };
 		if (string_to_version(wk, &v, get_str(wk, ver))) {
 			bool comparison_result;
 			if (!version_compare(wk, ctx->version_node, &v, ctx->version, &comparison_result)) {
-				return ir_err;
+				return false;
 			} else if (!comparison_result) {
-				return ir_cont;
+				return true;
 			}
 		}
 	}
@@ -463,7 +468,19 @@ found:
 	external_program->dat.external_program.ver = ver;
 
 	ctx->found = true;
-	return ir_done;
+	return true;
+}
+
+static enum iteration_result
+find_program_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct find_program_iter_ctx *ctx = _ctx;
+
+	if (!find_program(wk, ctx, val)) {
+		return ir_err;
+	}
+
+	return ctx->found ? ir_done : ir_cont;
 }
 
 static bool
@@ -757,14 +774,16 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_any }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
+		kw_capture,
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", obj_any },
+		[kw_capture] = { "capture", obj_bool },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -776,16 +795,33 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	char *const *envp = NULL;
 
 	{
-		obj args;
-		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
+		obj arg0;
+		obj cmd_file;
+		struct find_program_iter_ctx find_program_ctx = {
+			.node = an[0].node,
+			.res = &cmd_file,
+		};
+
+		if (!obj_array_flatten_one(wk, an[0].val, &arg0)) {
+			return false;
+		} else if (!find_program(wk, &find_program_ctx, arg0)) {
+			return false;
+		} else if (!find_program_ctx.found) {
+			interp_error(wk, an[0].node, "unable to find program %o", an[0].val);
+		}
+
+		assert(get_obj(wk, cmd_file)->type == obj_external_program);
+		cmd = get_obj(wk, cmd_file)->dat.external_program.full_path;
+
+		obj args_tail;
+		if (!arr_to_args(wk, arr_to_args_external_program, an[1].val, &args_tail)) {
 			return false;
 		}
 
-		int64_t i = 0;
-		if (!boundscheck(wk, an[0].node, get_obj(wk, args)->dat.arr.len, &i)) {
-			return false;
-		}
-		obj_array_index(wk, args, 0, &cmd);
+		obj args;
+		make_obj(wk, &args, obj_array);
+		obj_array_push(wk, args, cmd);
+		obj_array_extend(wk, args, args_tail);
 
 		if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
 			return false;
@@ -813,8 +849,13 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	struct obj *run_result = make_obj(wk, res, obj_run_result);
 	run_result->dat.run_result.status = cmd_ctx.status;
-	run_result->dat.run_result.out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
-	run_result->dat.run_result.err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
+	if (akw[kw_capture].set && !get_obj(wk, akw[kw_capture].val)->dat.boolean) {
+		run_result->dat.run_result.out = make_str(wk, "");
+		run_result->dat.run_result.err = make_str(wk, "");
+	} else {
+		run_result->dat.run_result.out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
+		run_result->dat.run_result.err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
+	}
 
 	ret = true;
 ret:

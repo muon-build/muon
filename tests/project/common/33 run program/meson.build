@@ -3,6 +3,8 @@ project(
     version: run_command('get-version.py', check: true).stdout().strip(),
 )
 
+assert(meson.project_version() == '1.2')
+
 if build_machine.system() == 'windows'
     c = run_command('cmd', '/c', 'echo', 'hello')
 else
