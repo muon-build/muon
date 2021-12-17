@@ -29,7 +29,7 @@ tests = [
     ['common/29 compiler id', {}],
     ['common/30 sizeof', {}],
     ['common/31 define10', {}],
-    ['common/32 has header', {'should_fail': true}],
+    ['common/32 has header', {}],
     ['common/33 run program', {}],
     ['common/34 logic ops', {}],
     ['common/35 string operations', {}],

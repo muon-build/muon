@@ -86,7 +86,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	make_obj(wk, &compiler_args, obj_array);
 
 	obj_array_push(wk, compiler_args, comp->dat.compiler.name);
-	push_args(wk, compiler_args, compilers[t].args.werror());
 
 	if (opts->inc && opts->inc->set) {
 		obj include_dirs = 0;
@@ -865,9 +864,13 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		return ir_err;
 	}
 
+	struct obj *comp = get_obj(wk, comp_id);
+	enum compiler_type t = comp->dat.compiler.type;
+
 	obj args;
 	make_obj(wk, &args, obj_array);
 	obj_array_push(wk, args, arg);
+	push_args(wk, args, compilers[t].args.werror());
 
 	struct compiler_check_opts opts = {
 		.mode = compile_mode_compile,
