@@ -6,5 +6,5 @@ struct install_options {
 	bool dry_run;
 };
 
-bool install_run(const char *build_root, struct install_options *opts);
+bool install_run(struct install_options *opts);
 #endif

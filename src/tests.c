@@ -333,16 +333,12 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 }
 
 bool
-tests_run(const char *build_dir, struct test_options *opts)
+tests_run(struct test_options *opts)
 {
 	bool ret = false;
-	char tests_src[PATH_MAX], private[PATH_MAX], build_root[PATH_MAX];
+	char tests_src[PATH_MAX];
 
-	if (!path_make_absolute(build_root, PATH_MAX, build_dir)) {
-		return false;
-	} else if (!path_join(private, PATH_MAX, build_root, output_path.private_dir)) {
-		return false;
-	} else if (!path_join(tests_src, PATH_MAX, private, output_path.tests)) {
+	if (!path_join(tests_src, PATH_MAX, output_path.private_dir, output_path.tests)) {
 		return false;
 	}
 
@@ -390,8 +386,6 @@ tests_run(const char *build_dir, struct test_options *opts)
 		LOG_E("invalid tests file");
 		goto ret;
 	} else if (!fs_fclose(f)) {
-		goto ret;
-	} else if (!path_chdir(build_root)) {
 		goto ret;
 	} else if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;

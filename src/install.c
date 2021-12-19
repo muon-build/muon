@@ -121,12 +121,8 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 bool
-install_run(const char *build_root, struct install_options *opts)
+install_run(struct install_options *opts)
 {
-	if (!path_chdir(build_root)) {
-		return false;
-	}
-
 	bool ret = true;
 	char install_src[PATH_MAX];
 	if (!path_join(install_src, PATH_MAX, output_path.private_dir, output_path.install)) {

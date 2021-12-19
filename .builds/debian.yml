@@ -12,11 +12,15 @@ tasks:
       ./bootstrap.sh build
       build/muon setup build
       ninja -C build
+
       build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
       ninja -C build_asan_ubsan
+
       CC=clang build/muon setup -Db_sanitize=memory build_memsan
       ninja -C build_memsan
   - test: |
-      cd muon
-      build_asan_ubsan/muon test -d dots build_asan_ubsan
-      build_memsan/muon test -d dots build_memsan
+      cd ~/muon/build_asan_ubsan
+      ./muon test -d dots
+
+      cd ~/muon/build_memsan
+      ./muon test -d dots

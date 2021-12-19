@@ -22,5 +22,5 @@ struct test_options {
 	bool fail_fast;
 };
 
-bool tests_run(const char *build_dir, struct test_options *opts);
+bool tests_run(struct test_options *opts);
 #endif

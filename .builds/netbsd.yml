@@ -13,7 +13,7 @@ tasks:
       export LD_LIBRARY_PATH=/usr/pkg/lib
       .builds/fullbootstrap.sh -Dstatic=false
   - test: |
-      cd muon
+      cd muon/build
       # TODO remove this when we implement rpaths
       export LD_LIBRARY_PATH=/usr/pkg/lib
-      build/muon test -d dots -s lang -s unit build
+      ./muon test -d dots -s lang -s unit

@@ -28,4 +28,4 @@ fi
 
 "$ninja" -C "$build"
 
-"$muon" test "$build"
+"$muon" -C "$build" test

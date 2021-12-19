@@ -428,13 +428,13 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'f':
 			test_opts.fail_fast = true;
 			break;
-	} OPTEND(argv[argi], " <build dir>",
+	} OPTEND(argv[argi], "",
 		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n"
 		"  -d <display> - change how tests are displayed (auto|dots|bar)\n"
 		"  -f - fail fast; exit after first failure\n",
-		NULL, 1)
+		NULL, 0)
 
-	return tests_run(argv[argi], &test_opts);
+	return tests_run(&test_opts);
 }
 
 static bool
@@ -446,11 +446,11 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'n':
 			opts.dry_run = true;
 			break;
-	} OPTEND(argv[argi], " <build dir>",
+	} OPTEND(argv[argi], "",
 		"  -n - dry run\n",
-		NULL, 1)
+		NULL, 0)
 
-	return install_run(argv[argi], &opts);
+	return install_run(&opts);
 }
 
 static bool
