@@ -197,6 +197,24 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		ss = s;
 		break;
 	}
+	case obj_custom_target: {
+		struct obj *out = get_obj(wk, o->dat.custom_target.output);
+		assert(out->type == obj_array);
+		if (out->dat.arr.len != 1) {
+			interp_error(wk, ctx->err_node, "unable to coerce custom target with multiple outputs to string");
+			return ir_err;
+		}
+
+		obj f;
+		if (!obj_array_index(wk, o->dat.custom_target.output, 0, &f)) {
+			return ir_err;
+		}
+
+		struct obj *file = get_obj(wk, f);
+		assert(file->type == obj_file);
+		ss = file->dat.file;
+		break;
+	}
 	default:
 		interp_error(wk, ctx->err_node, "unable to coerce %o to string", val);
 		return ir_err;
