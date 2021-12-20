@@ -110,7 +110,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 	struct str key;
 	const struct str *ss_in = get_str(wk, s_in);
 
-	uint32_t i, id_start, id_end = 0;
+	uint32_t i, id_start = 0, id_end = 0;
 	bool reading_id = false;
 
 	*s_out = make_str(wk, "");
@@ -151,8 +151,10 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 				}
 				case format_cb_skip: {
 					str_app(wk, *s_out, "@");
-					str_appn(wk, *s_out, key.s, key.len);
-					id_start = i + 1;
+					i = id_start - 1;
+					id_end = id_start;
+					id_start = 0;
+					reading_id = false;
 					continue;
 				}
 				}

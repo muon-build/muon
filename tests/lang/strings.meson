@@ -1,5 +1,3 @@
-# project('test')
-
 assert('asdf' == 'asdf')
 assert('as\0df' == '\0'.join(['as', 'df']))
 assert('a b c d e f g'.split().length() == 7)
@@ -24,3 +22,5 @@ str4096 = str2048 + str2048
 str8192 = str4096 + str4096
 
 assert(str8192.split().length() == 8192 / 2 + 1)
+
+assert('@0@ < @INPUT@'.format('a') == 'a < @INPUT@')
