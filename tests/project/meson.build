@@ -47,7 +47,7 @@ tests = [
     ['common/47 same file name', {}],
     ['common/48 file grabber', {'should_fail': true}],
     ['common/49 custom target', {'should_fail': true}],
-    ['common/50 custom target chain', {'should_fail': true}],
+    ['common/50 custom target chain', {}],
     ['common/51 run target', {'should_fail': true}],
     ['common/52 object generator', {}],
     ['common/53 install script', {'should_fail': true}],
