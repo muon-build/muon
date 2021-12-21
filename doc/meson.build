@@ -15,4 +15,6 @@ muon_1 = custom_target(
     install_dir: get_option('mandir') / 'man1',
 )
 
+subdir('website')
+
 summary('docs', true)

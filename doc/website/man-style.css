@@ -1,0 +1,60 @@
+body {
+	max-width: 100ex;
+
+	font-family: monospace;
+	font-size: 14px;
+}
+
+pre {
+	color: #434241;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #282A36;
+    color: #F8F8F2;
+  }
+  a {
+    color: #8BE9FD;
+  }
+
+  pre {
+    background-color: #191A21;
+    color: #F8F8F2;
+  }
+}
+
+.manual-text {
+	padding: 0 9ex 1ex 4ex;
+}
+
+.head, .foot {
+	width: 100%;
+	color: #999;
+}
+.head-vol {
+	text-align: center;
+}
+.head-rtitle {
+	text-align: right;
+}
+
+h1 {
+	font-size: 16px;
+}
+
+h2 {
+	font-size: 15px;
+}
+
+p {
+	text-align: justify;
+}
+
+.Bd-indent {
+	padding-left: 4ex;
+}
+
+section .Ss {
+	padding-left: 2ex;
+}
