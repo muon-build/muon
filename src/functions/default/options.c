@@ -575,6 +575,7 @@ set_builtin_options(struct workspace *wk)
 		"option('c_std', yield: true, type: 'string', value: 'c99')\n"
 		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
 		"option('bindir', yield: true, type: 'string', value: 'bin')\n"
+		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
 	;
 
 	const char *opts;
