@@ -31,6 +31,8 @@ A ninja-compatible build tool (e.g.
 [samurai](https://github.com/michaelforney/samurai)) is also required to
 bootstrap muon, but can be optionally embedded into muon after bootstrapping.
 
+Documentation requires `scdoc` in order to be built.
+
 ## Building
 
 You can bootstrap muon like this:

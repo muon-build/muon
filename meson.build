@@ -72,3 +72,4 @@ muon = executable(
 )
 
 subdir('tests')
+subdir('doc')

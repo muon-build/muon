@@ -13,3 +13,4 @@ option(
     value: false,
     description: 'try to link dependencies statically',
 )
+option('docs', type: 'feature', value: 'auto', description: 'build documentation')
