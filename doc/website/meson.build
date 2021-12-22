@@ -8,6 +8,6 @@ custom_target(
     command: [mandoc, '-T', 'html', '-O', 'style=man-style.css', muon_1],
 )
 
-foreach f : ['index.html', 'man-style.css']
+foreach f : ['index.html', 'man-style.css', 'muon_logo.svg']
     configure_file(input: files(f), output: f, copy: true)
 endforeach
