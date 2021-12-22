@@ -213,6 +213,10 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		struct obj *file = get_obj(wk, f);
 		assert(file->type == obj_file);
 		ss = file->dat.file;
+
+		if (!ctx->skip_depends) {
+			obj_array_push(wk, ctx->depends, ss);
+		}
 		break;
 	}
 	default:
