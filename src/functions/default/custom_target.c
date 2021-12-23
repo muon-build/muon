@@ -212,7 +212,13 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 
 		struct obj *file = get_obj(wk, f);
 		assert(file->type == obj_file);
-		ss = file->dat.file;
+
+		char path[PATH_MAX];
+		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, file->dat.file))) {
+			return ir_err;
+		}
+
+		ss = make_str(wk, path);
 
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->depends, ss);
