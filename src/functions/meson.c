@@ -46,6 +46,17 @@ func_meson_project_name(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 }
 
 static bool
+func_meson_project_license(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*obj = current_project(wk)->cfg.license;
+	return true;
+}
+
+static bool
 func_meson_project_version(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
@@ -301,6 +312,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "is_unity", func_meson_is_unity },
 	{ "override_dependency", func_meson_override_dependency },
 	{ "project_build_root", func_meson_project_build_root },
+	{ "project_license", func_meson_project_license },
 	{ "project_name", func_meson_project_name },
 	{ "project_source_root", func_meson_project_source_root },
 	{ "project_version", func_meson_project_version },

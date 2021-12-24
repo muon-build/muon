@@ -160,7 +160,7 @@ tests = [
     ['common/162 subdir if_found', {'should_fail': true}],
     ['common/163 default options prefix dependent defaults', {}],
     ['common/164 dependency factory', {'should_fail': true}],
-    ['common/165 get project license', {'should_fail': true}],
+    ['common/165 get project license', {}],
     ['common/166 yield', {'should_fail': true}],
     ['common/167 subproject nested subproject dirs', {'should_fail': true}],
     ['common/168 preserve gendir', {'should_fail': true}],
