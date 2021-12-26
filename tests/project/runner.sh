@@ -8,6 +8,10 @@ source="$3"
 build="$4"
 skip_exit_code="$5"
 
+if [ -d "$build" ]; then
+	rm -rf "$build"
+fi
+
 mkdir -p "$build/muon-private"
 log="$build/muon-private/build_log.txt"
 
