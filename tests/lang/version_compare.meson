@@ -14,3 +14,6 @@ assert(not version_number.version_compare('==1.2.9'))
 
 assert(version_number.version_compare('<2.0'))
 assert(version_number.version_compare('>0.9'))
+
+assert('foo v0.9.1m'.version_compare('==0.9.1'))
+assert('bar 77 v09.1xyz'.version_compare('==9.1'))

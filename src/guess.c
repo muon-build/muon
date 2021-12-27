@@ -7,14 +7,20 @@
 bool
 guess_version(struct workspace *wk, const char *src, obj *res)
 {
+	bool got_dot = false;
+
 	const char *ver, *ver_end = NULL;
 	for (ver = src; *ver; ++ver) {
 		ver_end = ver;
+		got_dot = false;
 		while (('0' <= *ver_end && *ver_end <= '9') || *ver_end == '.') {
+			if (*ver_end == '.') {
+				got_dot = true;
+			}
 			++ver_end;
 		}
 
-		if (ver != ver_end) {
+		if (ver != ver_end && got_dot) {
 			break;
 		}
 	}

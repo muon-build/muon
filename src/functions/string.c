@@ -7,6 +7,7 @@
 #include "coerce.h"
 #include "functions/common.h"
 #include "functions/string.h"
+#include "guess.h"
 #include "lang/interpreter.h"
 #include "log.h"
 
@@ -455,8 +456,10 @@ func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
+	obj ver_guessed;
 	struct version v;
-	if (!string_to_version(wk, &v, get_str(wk, rcvr))) {
+	if (!guess_version(wk, get_cstr(wk, rcvr), &ver_guessed)
+	    || !string_to_version(wk, &v, get_str(wk, ver_guessed))) {
 		interp_error(wk, args_node, "comparing against invalid version string: %o", rcvr);
 		return false;
 	}
