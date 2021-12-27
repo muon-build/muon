@@ -14,7 +14,7 @@
 
 struct custom_target_cmd_fmt_ctx {
 	uint32_t err_node;
-	obj arr, input, output, depfile, depends;
+	obj arr, input, output, depfile, depends, name;
 	bool skip_depends;
 };
 
@@ -51,22 +51,29 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		cmd_arg_fmt_key_count,
 	};
 
-	const char *key_names[cmd_arg_fmt_key_count] = {
-		[key_input             ] = "INPUT",
-		[key_output            ] = "OUTPUT",
-		[key_outdir            ] = "OUTDIR",
-		[key_depfile           ] = "DEPFILE",
-		[key_plainname         ] = "PLAINNAME",
-		[key_basename          ] = "BASENAME",
-		[key_private_dir       ] = "PRIVATE_DIR",
-		[key_source_root       ] = "SOURCE_ROOT",
-		[key_build_root        ] = "BUILD_ROOT",
-		[key_current_source_dir] = "CURRENT_SOURCE_DIR",
+	const struct {
+		char *key;
+		bool needs_name;
+	} key_names[cmd_arg_fmt_key_count] = {
+		[key_input             ] = { "INPUT", },
+		[key_output            ] = { "OUTPUT", },
+		[key_outdir            ] = { "OUTDIR", },
+		[key_depfile           ] = { "DEPFILE", },
+		[key_plainname         ] = { "PLAINNAME", },
+		[key_basename          ] = { "BASENAME", },
+		[key_private_dir       ] = { "PRIVATE_DIR", true, },
+		[key_source_root       ] = { "SOURCE_ROOT", },
+		[key_build_root        ] = { "BUILD_ROOT", },
+		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", },
 	};
 
 	enum cmd_arg_fmt_key key;
 	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
-		if (str_eql(strkey, &WKSTR(key_names[key]))) {
+		if (key_names[key].needs_name && !ctx->name) {
+			continue;
+		}
+
+		if (str_eql(strkey, &WKSTR(key_names[key].key))) {
 			break;
 		}
 	}
@@ -99,11 +106,19 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		 * current workdir path. */
 		*elem = current_project(wk)->cwd;
 		return format_cb_found;
-	case key_private_dir:
+	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
 		 * custom target must store all its intermediate files. */
-		*elem = make_str(wk, "/tmp");
+		char path[PATH_MAX];
+		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->name))) {
+			return format_cb_error;
+		} else if (!path_add_suffix(path, PATH_MAX, ".p")) {
+			return format_cb_error;
+		}
+
+		*elem = make_str(wk, path);
 		return format_cb_found;
+	}
 	case key_depfile:
 		*elem = ctx->depfile;
 		return format_cb_found;
@@ -238,7 +253,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 
 bool
 process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
-	obj arr, obj input, obj output, obj depfile, obj depends, obj *res)
+	obj name, obj arr, obj input, obj output, obj depfile, obj depends, obj *res)
 {
 	make_obj(wk, res, obj_array);
 	struct custom_target_cmd_fmt_ctx ctx = {
@@ -248,6 +263,7 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 		.output = output,
 		.depfile = depfile,
 		.depends = depends,
+		.name = name,
 	};
 
 	if (!obj_array_foreach_flat(wk, arr, &ctx, custom_target_cmd_fmt_iter)) {
@@ -384,6 +400,7 @@ make_custom_target(struct workspace *wk,
 		.err_node = output_node,
 		.input = input,
 		.output = output,
+		.name = name,
 	};
 	if (!obj_array_foreach(wk, raw_output, &ctx, custom_command_output_format_iter)) {
 		return false;
@@ -391,7 +408,7 @@ make_custom_target(struct workspace *wk,
 
 	obj depends;
 	make_obj(wk, &depends, obj_array);
-	if (!process_custom_target_commandline(wk, command_node,
+	if (!process_custom_target_commandline(wk, command_node, name,
 		command_orig, input, output, depfile_orig, depends, &args)) {
 		return false;
 	}
