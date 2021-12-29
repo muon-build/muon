@@ -83,7 +83,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 }
 
 static bool
-get_warning_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
+get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
 	obj lvl;
 	get_option(wk, proj, "warning_level", &lvl);
@@ -95,10 +95,20 @@ get_warning_args(struct workspace *wk, const struct project *proj, uint32_t args
 }
 
 static bool
-get_std_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
+get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang, enum compiler_type t)
 {
 	obj std;
-	get_option(wk, proj, "c_std", &std);
+
+	switch (lang) {
+	case compiler_language_c:
+		get_option(wk, proj, "c_std", &std);
+		break;
+	case compiler_language_cpp:
+		get_option(wk, proj, "cpp_std", &std);
+		break;
+	default:
+		return true;
+	}
 
 	const char *s = get_cstr(wk, std);
 
@@ -211,7 +221,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		return ir_err;
 	}
 
-	if (!get_std_args(wk, ctx->proj, args, t)) {
+	if (!get_std_args(wk, ctx->proj, args, lang, t)) {
 		LOG_E("unable to get std flag");
 		return ir_err;
 	} else if (!get_buildtype_args(wk, ctx->proj, args, t)) {
