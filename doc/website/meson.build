@@ -1,4 +1,8 @@
-mandoc = find_program('mandoc')
+mandoc = find_program('mandoc', required: get_option('docs'))
+
+if not mandoc.found()
+    subdir_done()
+endif
 
 custom_target(
     'muon.1.html',
