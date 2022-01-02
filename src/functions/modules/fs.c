@@ -68,6 +68,38 @@ func_module_fs_is_dir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 static bool
+func_module_fs_is_symlink(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	struct obj *arg1 = get_obj(wk, an[0].val);
+
+	obj pathobj;
+	switch (arg1->type) {
+	case obj_string:
+		pathobj = an[0].val;
+		break;
+	case obj_file:
+		pathobj = arg1->dat.file;
+		break;
+	default:
+		interp_error(wk, an[0].node, "expected string or file, got %s", obj_type_to_s(arg1->type));
+		return false;
+	}
+
+	const char *path;
+	if (!fix_file_path(wk, an[0].node, pathobj, &path)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool)->dat.boolean = fs_symlink_exists(path);
+	return true;
+}
+
+static bool
 func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -136,6 +168,7 @@ const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "is_absolute", func_module_fs_is_absolute },
 	{ "is_dir", func_module_fs_is_dir },
 	{ "is_file", func_module_fs_is_file },
+	{ "is_symlink", func_module_fs_is_symlink },
 	{ "parent", func_module_fs_parent },
 	{ "read", func_module_fs_read },
 	{ "write", func_module_fs_write },

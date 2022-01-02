@@ -54,6 +54,20 @@ fs_lexists(const char *path)
 	return faccessat(0, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
 }
 
+bool fs_symlink_exists(const char *path)
+{
+	struct stat sb;
+	if (!fs_lexists(path)) {
+		return false;
+	} else if (!fs_lstat(path, &sb)) {
+		return false;
+	} else if (!S_ISLNK(sb.st_mode)) {
+		return false;
+	}
+
+	return true;
+}
+
 bool
 fs_file_exists(const char *path)
 {
