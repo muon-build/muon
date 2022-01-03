@@ -451,14 +451,11 @@ found:
 			return true; // no version to check against
 		}
 
-		struct version v = { 0 };
-		if (string_to_version(wk, &v, get_str(wk, ver))) {
-			bool comparison_result;
-			if (!version_compare(wk, ctx->version_node, &v, ctx->version, &comparison_result)) {
-				return false;
-			} else if (!comparison_result) {
-				return true;
-			}
+		bool comparison_result;
+		if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
+			return false;
+		} else if (!comparison_result) {
+			return true;
 		}
 	}
 

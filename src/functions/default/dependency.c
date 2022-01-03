@@ -42,15 +42,7 @@ check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_nod
 		return true;
 	}
 
-	struct version dep_ver;
-	if (!string_to_version(wk, &dep_ver, get_str(wk, dep_ver_str))) {
-		interp_error(wk, err_node,
-			"dependency version %o not parseable",
-			dep_ver_str);
-		return false;
-	}
-
-	if (!version_compare(wk, err_node, &dep_ver, ver, res)) {
+	if (!version_compare(wk, err_node, get_str(wk, dep_ver_str), ver, res)) {
 		return false;
 	}
 

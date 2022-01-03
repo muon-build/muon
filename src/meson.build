@@ -70,6 +70,7 @@ src = (
         'machine_file.c',
         'main.c',
         'opts.c',
+        'rpmvercmp.c',
         'sha_256.c',
         'tests.c',
         'wrap.c',

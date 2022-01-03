@@ -99,6 +99,7 @@ cat \
 	src/platform/run_cmd.c \
 	src/platform/term.c \
 	src/platform/uname.c \
+	src/rpmvercmp.c \
 	src/sha_256.c \
 	src/tests.c \
 	src/version.c.in \
