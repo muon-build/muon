@@ -54,7 +54,8 @@ fs_lexists(const char *path)
 	return faccessat(0, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
 }
 
-bool fs_symlink_exists(const char *path)
+bool
+fs_symlink_exists(const char *path)
 {
 	struct stat sb;
 	if (!fs_lexists(path)) {
@@ -675,4 +676,10 @@ fs_make_symlink(const char *target, const char *path, bool force)
 	}
 
 	return true;
+}
+
+const char *
+fs_user_home(void)
+{
+	return getenv("HOME");
 }

@@ -37,6 +37,7 @@ bool fs_fileno(FILE *f, int *ret);
 bool fs_make_symlink(const char *target, const char *path, bool force);
 bool fs_fseek(FILE *file, size_t off);
 bool fs_ftell(FILE *file, uint64_t *res);
+const char *fs_user_home(void);
 
 typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
