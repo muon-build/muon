@@ -1,7 +1,6 @@
 #include "posix.h"
 
 #include <time.h>
-#include <limits.h>
 #include <string.h>
 
 #include "args.h"

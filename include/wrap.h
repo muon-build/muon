@@ -3,10 +3,10 @@
 
 #include "posix.h"
 
-#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "buf_size.h"
 #include "platform/filesystem.h"
 
 struct workspace;

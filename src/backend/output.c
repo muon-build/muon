@@ -1,7 +1,5 @@
 #include "posix.h"
 
-#include <limits.h>
-
 #include "backend/output.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"

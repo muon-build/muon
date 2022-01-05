@@ -1,9 +1,9 @@
 #include "posix.h"
 
-#include <limits.h>
 #include <samu.h>
 #include <unistd.h>
 
+#include "buf_size.h"
 #include "external/samurai.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"

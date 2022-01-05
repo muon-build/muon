@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <elf.h>
-#include <limits.h>
 #include <string.h>
 
 #include "buf_size.h"

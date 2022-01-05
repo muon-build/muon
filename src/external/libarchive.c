@@ -2,8 +2,8 @@
 
 #include <archive.h>
 #include <archive_entry.h>
-#include <limits.h>
 
+#include "buf_size.h"
 #include "external/libarchive.h"
 #include "log.h"
 #include "platform/path.h"

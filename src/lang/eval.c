@@ -1,6 +1,5 @@
 #include "posix.h"
 
-#include <limits.h>
 #include <string.h>
 
 #include "functions/default/options.h"

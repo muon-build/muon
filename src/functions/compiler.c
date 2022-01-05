@@ -1,12 +1,10 @@
 #include "posix.h"
 
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "args.h"
 #include "backend/common_args.h"
-#include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "functions/common.h"

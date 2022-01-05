@@ -1,9 +1,9 @@
 #include "posix.h"
 
 #include <libpkgconf/libpkgconf.h>
-#include <limits.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "external/libpkgconf.h"
 #include "lang/object.h"
 #include "lang/workspace.h"

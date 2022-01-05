@@ -3,8 +3,7 @@
 
 #include "posix.h"
 
-#include <limits.h>
-
+#include "buf_size.h"
 #include "data/bucket_array.h"
 #include "data/darr.h"
 #include "data/hash.h"

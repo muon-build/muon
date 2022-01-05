@@ -1,7 +1,6 @@
 #include "posix.h"
 
 #include <inttypes.h>
-#include <limits.h>
 #include <stdarg.h>
 
 #include "buf_size.h"

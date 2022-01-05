@@ -1,11 +1,11 @@
 #include "posix.h"
 
 #include <assert.h>
-#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "buf_size.h"
 #include "log.h"
 #include "platform/path.h"
 

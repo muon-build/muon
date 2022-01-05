@@ -1,7 +1,6 @@
 #include "posix.h"
 
-#include <limits.h>
-
+#include "buf_size.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"

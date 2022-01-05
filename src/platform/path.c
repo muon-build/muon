@@ -2,10 +2,10 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "buf_size.h"
 #include "log.h"
 #include "platform/path.h"
 
