@@ -299,6 +299,7 @@ str_to_i(const struct str *ss, int64_t *res)
 obj
 str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 {
+	static const char *whitespace = "\n\r\t ";
 	obj res;
 	make_obj(wk, &res, obj_array);
 
@@ -306,20 +307,40 @@ str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 	obj s;
 
 	for (i = 0; i < ss->len; ++i) {
-		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
+		if (split) {
+			struct str slice = { .s = &ss->s[i], .len = ss->len - i };
 
-		if (str_startswith(&slice, split)) {
-			s = make_strn(wk, &ss->s[start], i - start);
+			if (str_startswith(&slice, split)) {
+				s = make_strn(wk, &ss->s[start], i - start);
 
-			obj_array_push(wk, res, s);
+				obj_array_push(wk, res, s);
 
-			start = i + split->len;
-			i += split->len - 1;
+				start = i + split->len;
+				i += split->len - 1;
+			}
+		} else {
+			start = i;
+			while (start < ss->len && strchr(whitespace, ss->s[start])) {
+				++start;
+			}
+
+			uint32_t end = start;
+			while (end < ss->len && !strchr(whitespace, ss->s[end])) {
+				++end;
+			}
+
+			if (end > start) {
+				obj_array_push(wk, res, make_strn(wk, &ss->s[start], end - start));
+			}
+
+			i = end - 1;
 		}
 	}
 
-	s = make_strn(wk, &ss->s[start], i - start);
+	if (split) {
+		s = make_strn(wk, &ss->s[start], i - start);
 
-	obj_array_push(wk, res, s);
+		obj_array_push(wk, res, s);
+	}
 	return res;
 }

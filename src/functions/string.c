@@ -264,9 +264,8 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 		return false;
 	}
 
-	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" "),
+	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : NULL,
 			 *ss = get_str(wk, rcvr);
-
 
 	*obj = str_split(wk, ss, split);
 	return true;
