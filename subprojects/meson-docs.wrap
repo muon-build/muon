@@ -1,0 +1,7 @@
+[wrap-file]
+source_filename = meson-docs.tar.gz
+source_url = https://mochiro.moe/wrap/meson-docs.tar.gz
+source_hash = 9f891aba85f4afdfd26a61f59991a104978da0299c85914cfaf02b5c0ff9f62f
+patch_filename = meson-docs-patch.tar.gz
+patch_url = https://mochiro.moe/wrap/meson-docs-patch.tar.gz
+patch_hash = c128d44d7cd65b01d8465b737e830f824b662a987ccb7ddfee32177001753a80
