@@ -4,6 +4,9 @@ packages:
   - libarchive-dev
   - pkgconf-dev
   - samurai
+  - python3 # for project tests and meson docs
+  - py3-yaml # for meson docs
+  - scdoc # for docs of course
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
