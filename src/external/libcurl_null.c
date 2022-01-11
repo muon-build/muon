@@ -18,6 +18,6 @@ muon_curl_deinit(void)
 bool
 muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 {
-	LOG_E("curl not enabled");
+	LOG_W("libcurl not enabled");
 	return false;
 }
