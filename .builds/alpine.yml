@@ -17,5 +17,3 @@ tasks:
   - test: |
       cd muon
       build/muon -C build test -d dots
-artifacts:
-  - muon/build/doc/website/website.tar.gz
