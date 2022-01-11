@@ -7,6 +7,7 @@ packages:
   - python3 # for project tests and meson docs
   - py3-yaml # for meson docs
   - scdoc # for docs of course
+  - mandoc # for docs of course
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
@@ -17,4 +18,4 @@ tasks:
       cd muon
       build/muon -C build test -d dots
 artifacts:
-  - build/website/website.tar.gz
+  - muon/build/doc/website/website.tar.gz
