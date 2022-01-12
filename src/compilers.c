@@ -69,8 +69,8 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	static const char *exts[][10] = {
 		[compiler_language_c] = { "c" },
 		[compiler_language_c_hdr] = { "h" },
-		[compiler_language_cpp] = { "cc", "cpp", },
-		[compiler_language_cpp_hdr] = { "hpp" },
+		[compiler_language_cpp] = { "cc", "cpp", "cxx" },
+		[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
 		[compiler_language_c_obj] = { "o" },
 	};
 	uint32_t i, j;
