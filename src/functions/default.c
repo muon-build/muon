@@ -176,7 +176,7 @@ version_type_error:
 	}
 
 	if (akw[kw_default_options].set) {
-		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, 0)) {
+		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, 0, false)) {
 			return false;
 		}
 	}
@@ -742,7 +742,7 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (akw[kw_default_options].set) {
 		if (!parse_and_set_default_options(wk, akw[kw_default_options].node,
-			akw[kw_default_options].val, an[0].val)) {
+			akw[kw_default_options].val, an[0].val, true)) {
 			return false;
 		}
 	}

@@ -602,6 +602,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 struct parse_and_set_default_options_ctx {
 	uint32_t node;
 	obj project_name;
+	bool subproject;
 };
 
 static enum iteration_result
@@ -631,7 +632,13 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 		L("ignoring default_options value %s as it was already set on the commandline", option_override_to_s(wk, &oo));
 		return ir_cont;
 	}
+
 	L("setting default_option %s", option_override_to_s(wk, &oo));
+
+	if (ctx->subproject) {
+		darr_push(&wk->option_overrides, &oo);
+		return ir_cont;
+	}
 
 	obj opt;
 	if (obj_dict_index(wk, current_project(wk)->opts, oo.name, &opt)) {
@@ -653,11 +660,12 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 bool
-parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name)
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name, bool is_subproject)
 {
 	struct parse_and_set_default_options_ctx ctx = {
 		.node = err_node,
 		.project_name = project_name,
+		.subproject = is_subproject,
 	};
 
 	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter)) {
