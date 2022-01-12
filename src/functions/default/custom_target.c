@@ -120,6 +120,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		return format_cb_found;
 	}
 	case key_depfile:
+		/* @DEPFILE@: the full path to the dependency file passed to
+		 * depfile */
 		*elem = ctx->depfile;
 		return format_cb_found;
 	case key_source_root:
@@ -135,13 +137,39 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		*elem = make_str(wk, wk->build_root);
 		return format_cb_found;
 	case key_plainname:
-	/* @PLAINNAME@: the input filename, without a path */
-	case key_basename:
+		/* @PLAINNAME@: the input filename, without a path */
+	case key_basename: {
 		/* @BASENAME@: the input filename, with extension removed */
-		/* @DEPFILE@: the full path to the dependency file passed to
-		 * depfile */
-		LOG_E("TODO: handle @%s@", strkey->s);
-		return format_cb_error;
+		struct obj *in = get_obj(wk, ctx->input);
+		if (in->dat.arr.len != 1) {
+			interp_error(wk, ctx->err_node,
+				"to use @PLAINNAME@ and @BASENAME@ in a custom "
+				"target command, there must be exactly one input");
+			return format_cb_error;
+		}
+
+		obj in0;
+		obj_array_index(wk, ctx->input, 0, &in0);
+		const struct str *orig_str = get_str(wk, get_obj(wk, in0)->dat.file);
+		char plainname[PATH_MAX];
+
+		if (!path_basename(plainname, PATH_MAX, orig_str->s)) {
+			return format_cb_error;
+		}
+
+		if (key == key_basename) {
+			char basename[PATH_MAX];
+			if(!path_without_ext(basename, PATH_MAX, plainname)) {
+				return format_cb_error;
+			}
+			*elem = make_str(wk, basename);
+			return format_cb_found;
+		} else {
+			*elem = make_str(wk, plainname);
+			return format_cb_found;
+		}
+		assert(false && "unreachable");
+	}
 	default:
 		break;
 	}
