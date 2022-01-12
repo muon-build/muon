@@ -35,6 +35,7 @@ enum build_target_kwargs {
 	bt_kw_pic,
 	bt_kw_install_rpath, // TODO
 	bt_kw_export_dynamic,
+	bt_kw_vs_module_defs, // TODO
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
@@ -433,6 +434,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },
 		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
+		[bt_kw_vs_module_defs] = { "vs_module_defs", obj_any },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", obj_any, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
@@ -465,6 +467,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	static const enum tgt_type keyword_validity[bt_kwargs_count] = {
 		[bt_kw_version] = tgt_dynamic_library,
 		[bt_kw_soversion] = tgt_dynamic_library,
+		[bt_kw_vs_module_defs] = tgt_dynamic_library | tgt_static_library | tgt_shared_module,
 	};
 
 	uint32_t i;
