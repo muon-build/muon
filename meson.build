@@ -16,7 +16,7 @@ project(
 
 git = find_program('git', required: false)
 if git.found()
-    git_rev_parse = run_command(git, 'rev-parse', '--short', '@')
+    git_rev_parse = run_command(git, 'rev-parse', '--short', '@', check: true)
     git_sha = git_rev_parse.stdout().strip()
 else
     git_sha = 'unknown'
