@@ -16,7 +16,7 @@ website += custom_target(
 
 if not is_disabler(meson_reference_3)
     website += custom_target(
-        'meson-reference.3.html',
+        'meson_reference.3.html',
         input: meson_reference_3,
         output: 'meson-reference.3.html',
         capture: true,
