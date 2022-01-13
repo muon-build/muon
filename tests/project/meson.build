@@ -116,7 +116,7 @@ tests = [
     ['common/117 shared module', {'should_fail': true}],
     ['common/118 llvm ir and assembly', {'should_fail': true}],
     ['common/119 cpp and asm', {'should_fail': true}],
-    ['common/120 extract all shared library', {'should_fail': true}],
+    ['common/120 extract all shared library', {}],
     ['common/121 object only target', {'should_fail': true}],
     ['common/122 no buildincdir', {}],
     ['common/123 custom target directory install', {}],
