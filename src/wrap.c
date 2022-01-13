@@ -14,6 +14,7 @@
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
+#include "platform/run_cmd.h"
 #include "sha_256.h"
 #include "wrap.h"
 
@@ -308,10 +309,39 @@ wrap_apply_patch(struct wrap *wrap, const char *subprojects)
 }
 
 static bool
+run_git(const char *const argv[])
+{
+	struct run_cmd_ctx cmd_ctx = { .flags = run_cmd_ctx_flag_dont_capture };
+
+	if (!run_cmd(&cmd_ctx, "git", argv, NULL)) {
+		return false;
+	} else if (cmd_ctx.status != 0) {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return false;
+	} else {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return true;
+	}
+}
+
+static bool
 wrap_handle_git(struct wrap *wrap, const char *subprojects)
 {
-	LOG_E("TODO: wrap-git");
-	return false;
+	if (!run_git((const char *const[]) {
+		"git", "clone", wrap->fields[wf_url], wrap->dest_dir,
+		NULL
+	})) {
+		return false;
+	}
+
+	if (!run_git((const char *const[]) {
+		"git", "-C", wrap->dest_dir, "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--",
+		NULL
+	})) {
+		return false;
+	}
+
+	return true;
 }
 
 static bool
