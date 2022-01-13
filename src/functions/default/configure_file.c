@@ -35,14 +35,36 @@ abuf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 	(*buf)[*i] = 0;
 }
 
-static const char *mesondefine = "#mesondefine ";
+enum configure_file_syntax {
+	configure_file_syntax_mesondefine = 0 << 0,
+	configure_file_syntax_cmakedefine = 1 << 0,
+	configure_file_syntax_mesonvar = 0 << 1,
+	configure_file_syntax_cmakevar = 1 << 1,
+};
 
 static bool
-substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, uint32_t out)
+substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, uint32_t out, enum configure_file_syntax syntax)
 {
+	const char *define;
+	if (syntax & configure_file_syntax_cmakedefine) {
+		define = "#cmakedefine ";
+	} else {
+		define = "#mesondefine ";
+	}
+
+	const char *varstart;
+	char varend;
+	if (syntax & configure_file_syntax_cmakevar) {
+		varstart = "${";
+		varend = '}';
+	} else {
+		varstart = "@";
+		varend = '@';
+	}
 	/* L("in: %s", in); */
 	/* L("out: %s", out); */
-	const uint32_t mesondefine_len = strlen(mesondefine);
+	const uint32_t define_len = strlen(define),
+		       varstart_len = strlen(varstart);
 
 	bool ret = true;
 	char *out_buf = NULL;
@@ -70,10 +92,10 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			++line;
 		}
 
-		if (i == start_of_line && strncmp(&src.src[i], mesondefine, mesondefine_len) == 0) {
+		if (i == start_of_line && strncmp(&src.src[i], define, define_len) == 0) {
 			/* L("%s", out_buf); */
 
-			i += mesondefine_len;
+			i += define_len;
 			id_start = i;
 			id_start_line = line;
 			id_start_col = i - start_of_line;
@@ -136,7 +158,7 @@ write_mesondefine:
 			/* cope with weird config file escaping rules :(
 			 *
 			 * - Backslashes not directly preceeding a format character are not modified.
-			 * - The number of backslashes preceding a @ in the
+			 * - The number of backslashes preceding varstart in the
 			 *   output is equal to the number of backslashes in
 			 *   the input divided by two, rounding down.
 			 */
@@ -147,7 +169,7 @@ write_mesondefine:
 			for (j = 1; src.src[i + j] && src.src[i + j] == '\\'; ++j) {
 			}
 
-			if (src.src[i + j] == '@') {
+			if (strncmp(&src.src[i + j], varstart, varstart_len) == 0) {
 				output_backslashes = j / 2;
 				if ((j & 1) != 0) {
 					output_format_char = true;
@@ -166,12 +188,13 @@ write_mesondefine:
 			}
 
 			if (output_format_char) {
-				abuf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, varstart, varstart_len);
+				i += varstart_len - 1;
 			}
-		} else if (src.src[i] == '@') {
+		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
 			// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
 
-			++i;
+			i += varstart_len;
 			id_start_line = line;
 			id_start = i;
 			id_start_col = id_start - start_of_line + 1;
@@ -187,9 +210,9 @@ write_mesondefine:
 
 			id_end = i - 1;
 
-			if (src.src[i] != '@') {
+			if (src.src[i] != varend) {
 				i = id_start - 1;
-				abuf_push(&out_buf, &out_cap, &out_len, "@", 1);
+				abuf_push(&out_buf, &out_cap, &out_len, varstart, varstart_len);
 				continue;
 			}
 
@@ -453,6 +476,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_install_dir,
 		kw_install_mode,
 		kw_copy,
+		kw_format,
 		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
 	};
@@ -466,6 +490,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_copy] = { "copy", obj_bool },
+		[kw_format] = { "format", obj_string },
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
 		0
@@ -587,8 +612,29 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 				return false;
 			}
 
+			enum configure_file_syntax syntax =
+				configure_file_syntax_mesondefine
+				| configure_file_syntax_mesonvar;
+
+			if (akw[kw_format].set) {
+				const struct str *fmt = get_str(wk, akw[kw_format].val);
+				if (str_eql(fmt, &WKSTR("meson"))) {
+					syntax = configure_file_syntax_mesondefine
+						 | configure_file_syntax_mesonvar;
+				} else if (str_eql(fmt, &WKSTR("cmake"))) {
+					syntax = configure_file_syntax_cmakedefine
+						 | configure_file_syntax_cmakevar;
+				} else if (str_eql(fmt, &WKSTR("cmake@"))) {
+					syntax = configure_file_syntax_cmakedefine
+						 | configure_file_syntax_mesonvar;
+				} else {
+					interp_error(wk, akw[kw_format].node, "invalid format type %o", akw[kw_format].val);
+					return false;
+				}
+			}
+
 			if (!substitute_config(wk, dict, akw[kw_input].node,
-				path, output_str)) {
+				path, output_str, syntax)) {
 				return false;
 			}
 		} else {
