@@ -408,6 +408,26 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 }
 
 static bool
+typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
+{
+	if (!kw->set) {
+		return true;
+	}
+
+	struct obj *o = get_obj(wk, kw->val);
+	if (o->type == obj_string) {
+		return true;
+	} else if (o->type == obj_array && o->dat.arr.len == 0) {
+		kw->set = false;
+		kw->val = 0;
+		return true;
+	} else {
+		interp_error(wk, kw->node, "expected string or [], got %s", obj_type_to_s(o->type));
+		return false;
+	}
+}
+
+static bool
 tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, enum tgt_type argtype, bool tgt_type_from_kw)
 {
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
@@ -426,8 +446,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_build_by_default] = { "build_by_default", obj_bool },
 		[bt_kw_extra_files] = { "extra_files", obj_any }, // ignored
 		[bt_kw_target_type] = { "target_type", obj_string },
-		[bt_kw_name_prefix] = { "name_prefix", obj_string },
-		[bt_kw_name_suffix] = { "name_suffix", obj_string },
+		[bt_kw_name_prefix] = { "name_prefix", obj_any },
+		[bt_kw_name_suffix] = { "name_suffix", obj_any },
 		[bt_kw_soversion] = { "soversion", obj_any },
 		[bt_kw_link_depends] = { "link_depends", obj_any },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
@@ -478,6 +498,12 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			interp_error(wk, akw[i].node, "invalid kwarg");
 			return false;
 		}
+	}
+
+	if (!typecheck_string_or_empty_array(wk, &akw[bt_kw_name_suffix])) {
+		return false;
+	} else if (!typecheck_string_or_empty_array(wk, &akw[bt_kw_name_prefix])) {
+		return false;
 	}
 
 	bool multi_target = false;
