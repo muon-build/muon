@@ -195,7 +195,7 @@ tests = [
     ['common/197 function attributes', {'should_fail': true}],
     ['common/198 broken subproject', {'should_fail': true}],
     ['common/199 argument syntax', {'should_fail': true}],
-    ['common/200 install name_prefix name_suffix', {'should_fail': true}],
+    ['common/200 install name_prefix name_suffix', {}],
     ['common/201 kwarg entry', {}],
     ['common/202 custom target build by default', {}],
     ['common/203 find_library and headers', {'should_fail': true}],
