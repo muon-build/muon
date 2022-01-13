@@ -238,7 +238,7 @@ found_slot:
 
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
-	*cmd_ctx = (struct run_cmd_ctx){ .async = true };
+	*cmd_ctx = (struct run_cmd_ctx){ .flags = run_cmd_ctx_flag_async };
 	if (test->dat.test.workdir) {
 		cmd_ctx->chdir = get_cstr(wk, test->dat.test.workdir);
 	}

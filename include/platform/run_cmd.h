@@ -17,6 +17,11 @@ struct run_cmd_pipe_ctx {
 	char *buf;
 };
 
+enum run_cmd_ctx_flags {
+	run_cmd_ctx_flag_async = 1 << 0,
+	run_cmd_ctx_flag_dont_capture = 1 << 1,
+};
+
 struct run_cmd_ctx {
 	struct run_cmd_pipe_ctx err, out;
 	const char *err_msg; // set on error
@@ -26,7 +31,7 @@ struct run_cmd_ctx {
 	pid_t pid;
 
 	bool pipefd_out_open[2], pipefd_err_open[2];
-	bool async;
+	enum run_cmd_ctx_flags flags;
 };
 
 bool run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[]);

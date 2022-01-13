@@ -86,17 +86,20 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 {
 	int status;
 	int r;
+
 	enum copy_pipe_result pipe_res;
 
 	while (true) {
-		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
-			return run_cmd_error;
+		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+				return run_cmd_error;
+			}
 		}
 
 		if ((r = waitpid(ctx->pid, &status, WNOHANG)) == -1) {
 			return run_cmd_error;
 		} else if (r == 0) {
-			if (ctx->async) {
+			if (ctx->flags & run_cmd_ctx_flag_async) {
 				return run_cmd_running;
 
 			} else {
@@ -112,9 +115,11 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	assert(r == ctx->pid);
 
-	while (pipe_res != copy_pipe_result_finished) {
-		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
-			return run_cmd_error;
+	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		while (pipe_res != copy_pipe_result_finished) {
+			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+				return run_cmd_error;
+			}
 		}
 	}
 
@@ -239,10 +244,12 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 		}
 	}
 
-	if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
-		goto err;
-	} else if (!open_run_cmd_pipe(ctx->pipefd_err, ctx->pipefd_err_open)) {
-		goto err;
+	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
+			goto err;
+		} else if (!open_run_cmd_pipe(ctx->pipefd_err, ctx->pipefd_err_open)) {
+			goto err;
+		}
 	}
 
 	if ((ctx->pid = fork()) == -1) {
@@ -255,13 +262,15 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 			}
 		}
 
-		if (dup2(ctx->pipefd_out[1], 1) == -1) {
-			log_plain("failed to dup stdout: %s", strerror(errno));
-			exit(1);
-		}
-		if (dup2(ctx->pipefd_err[1], 2) == -1) {
-			log_plain("failed to dup stderr: %s", strerror(errno));
-			exit(1);
+		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+			if (dup2(ctx->pipefd_out[1], 1) == -1) {
+				log_plain("failed to dup stdout: %s", strerror(errno));
+				exit(1);
+			}
+			if (dup2(ctx->pipefd_err[1], 2) == -1) {
+				log_plain("failed to dup stderr: %s", strerror(errno));
+				exit(1);
+			}
 		}
 
 		if (envp) {
@@ -305,7 +314,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 	}
 	ctx->pipefd_out_open[1] = false;
 
-	if (ctx->async) {
+	if (ctx->flags & run_cmd_ctx_flag_async) {
 		return true;
 	}
 
