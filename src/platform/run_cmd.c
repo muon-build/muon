@@ -87,7 +87,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 	int status;
 	int r;
 
-	enum copy_pipe_result pipe_res;
+	enum copy_pipe_result pipe_res = 0;
 
 	while (true) {
 		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
