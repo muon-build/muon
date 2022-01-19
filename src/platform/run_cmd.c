@@ -17,7 +17,7 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
-extern char *const *environ;
+extern char **environ;
 
 #define COPY_PIPE_BLOCK_SIZE BUF_SIZE_1k
 
