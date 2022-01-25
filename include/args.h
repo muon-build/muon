@@ -22,7 +22,7 @@ uint32_t join_args_ninja(struct workspace *wk, uint32_t arr);
 uint32_t join_args_shell_ninja(struct workspace *wk, uint32_t arr);
 bool join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t arr);
 
-enum arr_to_args_mode {
+enum arr_to_args_flags {
 	arr_to_args_build_target = 1 << 0,
 	arr_to_args_custom_target = 1 << 1,
 	arr_to_args_external_program = 1 << 2,
@@ -30,7 +30,7 @@ enum arr_to_args_mode {
 	arr_to_args_relativize_paths = 1 << 4,
 };
 
-bool arr_to_args(struct workspace *wk, enum arr_to_args_mode mode, obj arr, obj *res);
+bool arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res);
 
 enum env_to_envp_flags {
 	env_to_envp_flag_subdir    = 1 << 0,

@@ -271,7 +271,7 @@ join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t a
 }
 
 struct arr_to_args_ctx {
-	enum arr_to_args_mode mode;
+	enum arr_to_args_flags mode;
 	obj res;
 };
 
@@ -343,7 +343,7 @@ type_err:
 }
 
 bool
-arr_to_args(struct workspace *wk, enum arr_to_args_mode mode, obj arr, obj *res)
+arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res)
 {
 	make_obj(wk, res, obj_array);
 
