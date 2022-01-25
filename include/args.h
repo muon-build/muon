@@ -26,6 +26,8 @@ enum arr_to_args_mode {
 	arr_to_args_build_target = 1 << 0,
 	arr_to_args_custom_target = 1 << 1,
 	arr_to_args_external_program = 1 << 2,
+	arr_to_args_alias_target = 1 << 3,
+	arr_to_args_relativize_paths = 1 << 4,
 };
 
 bool arr_to_args(struct workspace *wk, enum arr_to_args_mode mode, obj arr, obj *res);

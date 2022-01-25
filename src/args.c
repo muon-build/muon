@@ -6,6 +6,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
+#include "functions/build_target.h"
 #include "functions/environment.h"
 #include "lang/interpreter.h"
 #include "lang/workspace.h"
@@ -287,21 +288,30 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		str = src;
 		break;
 	case obj_file:
+		if (ctx->mode & arr_to_args_relativize_paths) {
+			char buf[PATH_MAX];
+			if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_cstr(wk, o->dat.file))) {
+				return ir_err;
+			}
+			str = make_str(wk, buf);
+			break;
+		}
 		str = o->dat.file;
+		break;
+	case obj_alias_target:
+		if (!(ctx->mode & arr_to_args_alias_target)) {
+			goto type_err;
+		}
+		str = o->dat.alias_target.name;
 		break;
 	case obj_build_target: {
 		if (!(ctx->mode & arr_to_args_build_target)) {
 			goto type_err;
 		}
 
-		char tmp[PATH_MAX];
-
-		if (!path_join(tmp, PATH_MAX, get_cstr(wk, o->dat.tgt.build_dir),
-			get_cstr(wk, o->dat.tgt.build_name))) {
-			return ir_err;
-		}
-
-		str = make_str(wk, tmp);
+		char name[PATH_MAX];
+		tgt_build_path(wk, o, (ctx->mode & arr_to_args_relativize_paths), name);
+		str = make_str(wk, name);
 		break;
 	}
 	case obj_custom_target: {

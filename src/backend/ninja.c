@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
 #include "backend/ninja/custom_target.h"
 #include "backend/ninja/rules.h"
@@ -21,6 +22,8 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	struct write_tgt_ctx *ctx = _ctx;
 
 	switch (get_obj(wk, tgt_id)->type) {
+	case obj_alias_target:
+		return ninja_write_alias_tgt(wk, tgt_id, ctx->out);
 	case obj_build_target:
 		return ninja_write_build_tgt(wk, ctx->proj, tgt_id, ctx->out);
 	case obj_custom_target:

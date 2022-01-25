@@ -2,6 +2,7 @@ src = (
     files(
         'backend/common_args.c',
         'backend/ninja.c',
+        'backend/ninja/alias_target.c',
         'backend/ninja/build_target.c',
         'backend/ninja/custom_target.c',
         'backend/ninja/rules.c',

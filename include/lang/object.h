@@ -38,6 +38,7 @@ enum obj_type {
 	obj_option,
 	obj_disabler,
 	obj_generator,
+	obj_alias_target,
 
 	obj_type_count,
 
@@ -157,6 +158,10 @@ struct obj {
 			obj depends; // obj_array
 			enum custom_target_flags flags;
 		} custom_target;
+		struct {
+			obj name; // obj_string
+			obj depends; // obj_array
+		} alias_target;
 		struct {
 			obj name; // obj_string
 			obj version; // obj_string

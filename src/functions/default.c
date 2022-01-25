@@ -863,6 +863,7 @@ ret:
 static bool
 func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
+	// NOTE: when run_targets are implemented alias_target_iter must be updated
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_command,
@@ -1479,6 +1480,75 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static obj
+make_alias_target(struct workspace *wk, obj name, obj deps)
+{
+	assert(get_obj(wk, name)->type == obj_string && "Alias target name must be a string.");
+	assert(get_obj(wk, deps)->type == obj_array && "Alias target list must be an array.");
+
+	obj id;
+	struct obj *alias_tgt = make_obj(wk, &id, obj_alias_target);
+
+	alias_tgt->dat.alias_target.name = name;
+	alias_tgt->dat.alias_target.depends = deps;
+
+	return id;
+}
+
+struct alias_target_iter_ctx {
+	obj deps;
+};
+
+static enum iteration_result
+push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct alias_target_iter_ctx *ctx = _ctx;
+	struct obj *tgt = get_obj(wk, val);
+	switch (tgt->type) {
+	case obj_alias_target:
+	case obj_build_target:
+	case obj_custom_target:
+	// FIXME: alias targets can also depend on run targets, but those are not
+	//        implemented yet
+	// case obj_run_target:
+		obj_array_push(wk, ctx->deps, val);
+		break;
+	default:
+		interp_error(wk, val, "expected target but got: %s"
+				, obj_type_to_s(tgt->type));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL};
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_I("adding alias target '%s'", get_cstr(wk, an[0].val));
+
+	obj deps_id;
+	make_obj(wk, &deps_id, obj_array);
+
+	struct alias_target_iter_ctx iter_ctx = {
+		.deps = deps_id,
+	};
+
+	if (!obj_array_foreach_flat(wk, an[1].val, &iter_ctx, push_alias_target_deps_iter)) {
+		return false;
+	}
+
+	*res = make_alias_target(wk, an[0].val, deps_id);
+	obj_array_push(wk, current_project(wk)->targets, *res);
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
@@ -1487,7 +1557,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "add_project_arguments", func_add_project_arguments },
 	{ "add_project_link_arguments", func_add_project_link_arguments },
 	{ "add_test_setup", todo },
-	{ "alias_target", todo },
+	{ "alias_target", func_alias_target },
 	{ "assert", func_assert },
 	{ "benchmark", todo },
 	{ "both_libraries", func_both_libraries },

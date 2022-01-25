@@ -44,6 +44,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_option: return "option";
 	case obj_disabler: return "disabler";
 	case obj_generator: return "generator";
+	case obj_alias_target: return "alias_target";
 
 	case obj_type_count:
 	case ARG_TYPE_NULL:
@@ -972,6 +973,11 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			);
 		break;
 	}
+	case obj_alias_target:
+		obj_to_s_buf_push(&ctx, "<alias_target ");
+		obj_to_s_str(wk, &ctx, get_obj(wk, obj)->dat.alias_target.name);
+		obj_to_s_buf_push(&ctx, ">");
+		break;
 	case obj_build_target: {
 		struct obj *tgt = get_obj(wk, obj);
 		const char *type = NULL;
