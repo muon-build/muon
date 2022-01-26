@@ -373,7 +373,9 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			}
 
 			if (get_obj(wk, r_id)->type == obj_array) {
-				obj_array_extend(wk, *obj_id, r_id);
+				obj dup;
+				obj_array_dup(wk, r_id, &dup);
+				obj_array_extend(wk, *obj_id, dup);
 			} else {
 				obj_array_push(wk, *obj_id, r_id);
 			}
