@@ -927,20 +927,10 @@ parse_stmt(struct parser *p, uint32_t *id)
 
 		struct node *n = get_node(p->ast, arith);
 
-		if (p->mode & pm_keep_formatting) {
-			n->type = node_plusassign;
-			add_child(p, arith, node_child_l, l_id);
-			add_child(p, arith, node_child_r, v);
-			*id = arith;
-		}  else {
-			n->subtype = arith_add;
-			add_child(p, arith, node_child_l, l_id);
-			add_child(p, arith, node_child_r, v);
-
-			make_node(p, id, node_assignment);
-			add_child(p, *id, node_child_l, l_id);
-			add_child(p, *id, node_child_r, arith);
-		}
+		n->type = node_plusassign;
+		add_child(p, arith, node_child_l, l_id);
+		add_child(p, arith, node_child_r, v);
+		*id = arith;
 	} else if (accept(p, tok_assign)) {
 		p->caused_effect = true;
 

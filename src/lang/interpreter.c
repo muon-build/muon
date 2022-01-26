@@ -266,13 +266,14 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 }
 
 static bool
-interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
+interp_arithmetic(struct workspace *wk, uint32_t err_node,
+	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
+	uint32_t *obj_id)
 {
 	uint32_t l_id, r_id;
-	struct node *n = get_node(wk->ast, n_id);
 
-	if (!interp_node(wk, n->l, &l_id)
-	    || !interp_node(wk, n->r, &r_id)) {
+	if (!interp_node(wk, nl, &l_id)
+	    || !interp_node(wk, nr, &r_id)) {
 		return false;
 	}
 
@@ -285,11 +286,11 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_string: {
 		uint32_t res;
 
-		if (!typecheck_custom(wk, n->r, r_id, obj_string, "unsupported operator for %s and %s")) {
+		if (!typecheck_custom(wk, nr, r_id, obj_string, "unsupported operator for %s and %s")) {
 			return false;
 		}
 
-		switch ((enum arithmetic_type)n->subtype) {
+		switch (type) {
 		case arith_add:
 			res = str_join(wk, l_id, r_id);
 			break;
@@ -300,12 +301,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 					 *ss2 = get_str(wk, r_id);
 
 			if (str_has_null(ss1)) {
-				interp_error(wk, n->l, "%o is an invalid path", l_id);
+				interp_error(wk, nl, "%o is an invalid path", l_id);
 				return false;
 			}
 
 			if (str_has_null(ss2)) {
-				interp_error(wk, n->r, "%o is an invalid path", r_id);
+				interp_error(wk, nr, "%o is an invalid path", r_id);
 				return false;
 			}
 
@@ -326,20 +327,20 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	case obj_number: {
 		int64_t res, l, r;
 
-		if (!typecheck_custom(wk, n->r, r_id, obj_number, "unsupported operator for %s and %s")) {
+		if (!typecheck_custom(wk, nr, r_id, obj_number, "unsupported operator for %s and %s")) {
 			return false;
 		}
 
 		l = get_obj(wk, l_id)->dat.num;
 		r = get_obj(wk, r_id)->dat.num;
 
-		switch ((enum arithmetic_type)n->subtype) {
+		switch (type) {
 		case arith_add:
 			res = l + r;
 			break;
 		case arith_div:
 			if (!r) {
-				interp_error(wk, n->r, "divide by 0");
+				interp_error(wk, nr, "divide by 0");
 				return false;
 			}
 			res = l / r;
@@ -349,7 +350,7 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			break;
 		case arith_mod:
 			if (!r) {
-				interp_error(wk, n->r, "divide by 0");
+				interp_error(wk, nr, "divide by 0");
 				return false;
 			}
 			res = l % r;
@@ -366,10 +367,12 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	}
 	case obj_array: {
-		switch ((enum arithmetic_type)n->subtype) {
+		switch (type) {
 		case arith_add:
-			if (!obj_array_dup(wk, l_id, obj_id)) {
-				return false;
+			if (plusassign) {
+				*obj_id = l_id;
+			} else {
+				obj_array_dup(wk, l_id, obj_id);
 			}
 
 			if (get_obj(wk, r_id)->type == obj_array) {
@@ -385,9 +388,9 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		}
 	}
 	case obj_dict: {
-		if (!typecheck_custom(wk, n->r, r_id, obj_dict, "unsupported operator for %s and %s")) {
+		if (!typecheck_custom(wk, nr, r_id, obj_dict, "unsupported operator for %s and %s")) {
 			return false;
-		} else if ((enum arithmetic_type)n->subtype != arith_add) {
+		} else if (type != arith_add) {
 			goto err1;
 		}
 
@@ -400,8 +403,8 @@ interp_arithmetic(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	return true;
 err1:
-	assert(n->subtype < 5);
-	interp_error(wk, n_id, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+-%*/"[n->subtype]);
+	assert(type < 5);
+	interp_error(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+-%*/"[type]);
 	return false;
 }
 
@@ -425,8 +428,27 @@ interp_assign(struct workspace *wk, struct node *n, uint32_t *_)
 		rhs = cloned;
 		break;
 	}
+	case obj_array: {
+		obj dup;
+		obj_array_dup(wk, rhs, &dup);
+		rhs = dup;
+	}
 	default:
 		break;
+	}
+
+	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
+	return true;
+}
+
+static bool
+interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
+{
+	struct node *n = get_node(wk->ast, n_id);
+
+	obj rhs;
+	if (!interp_arithmetic(wk, n_id, arith_add, true, n->l, n->r, &rhs)) {
+		return false;
 	}
 
 	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
@@ -1069,7 +1091,10 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = interp_u_minus(wk, n, obj_id);
 		break;
 	case node_arithmetic:
-		ret = interp_arithmetic(wk, n_id, obj_id);
+		ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, obj_id);
+		break;
+	case node_plusassign:
+		ret = interp_plusassign(wk, n_id, obj_id);
 		break;
 
 	/* special */
@@ -1090,9 +1115,8 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	/* never valid */
 	case node_paren:
 	case node_empty_line:
-	case node_plusassign:
 	case node_null:
-		LOG_E("bug in the interpreter: encountered null node");
+		LOG_E("bug in the interpreter: encountered invalide node: %s", node_type_to_s(n->type));
 		ret = false;
 		break;
 	}
