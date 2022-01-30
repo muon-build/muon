@@ -349,6 +349,11 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		if (arg->chflg & node_child_c) {
 			arg = get_node(ctx->ast, arg->c);
 			ae->next = arg->subtype == arg_kwarg ? arg->r : arg->l;
+
+			// this means there was a trailing comma
+			if (arg->type == node_empty) {
+				ctx->force_ml = true;
+			}
 		} else {
 			break;
 		}
