@@ -167,13 +167,15 @@ fmt_newline(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
 		ctx->col = 0;
 
 		if (next != 0) {
-			struct node *bnext = get_node(ctx->ast, next);
-			if (bnext->type != node_empty) {
-				struct node *next = get_node(ctx->ast, bnext->l);
-				if (next->type == node_empty_line && !next->comment) {
+			struct node *n = get_node(ctx->ast, next);
+			if (n->type == node_block) {
+				n = get_node(ctx->ast, n->l);
+
+				if (n->type == node_empty_line && !n->comment) {
 					return;
 				}
 			}
+
 		}
 
 		for (i = 0; i < ctx->indent; ++i) {
@@ -302,7 +304,8 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	fst.node_sep = pfst->node_sep;
 
 	uint32_t len = 0;
-	struct node *arg = get_node(ctx->ast, n_args);
+	struct node *arg = get_node(ctx->ast, n_args),
+		    *arg_val;
 	bool last = false;
 
 	if (fst.special_fmt & special_fmt_collapse_lone_array_arg) {
@@ -335,6 +338,14 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			ae->val = arg->l;
 		}
 
+		arg_val = get_node(ctx->ast, ae->val);
+
+		{ // deal with empty lines and comment lines
+			if (arg_val->type == node_empty_line) {
+				ctx->force_ml = true;
+			}
+		}
+
 		if (arg->chflg & node_child_c) {
 			arg = get_node(ctx->ast, arg->c);
 			ae->next = arg->subtype == arg_kwarg ? arg->r : arg->l;
@@ -354,6 +365,8 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 
 		last = i == args.len - 1;
 
+		struct node *n = get_node(ctx->ast, ae->val);
+
 		if (ae->kw) {
 			if (fmt_id_eql(ctx, ae->kw, "command")) {
 				fst.special_fmt |= special_fmt_cmd_array;
@@ -363,7 +376,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			len += fmt_node(ctx, &fst, ae->kw);
 		}
 
-		if (last && !fst.ml) {
+		if ((last && !fst.ml) || n->type == node_empty_line) {
 			fst.node_sep = NULL;
 		} else {
 			fst.node_sep = ",";
@@ -760,7 +773,7 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_node(ctx, &fst, n->r);
 		break;
 
-	/* fmtting */
+	/* formatting */
 	case node_paren:
 		len += fmt_check(ctx, &fst, fmt_parens, n_id);
 		break;

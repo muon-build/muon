@@ -303,88 +303,72 @@ ensure_in_loop(struct parser *p)
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_stmt(struct parser *p, uint32_t *id);
 
-static bool
-parse_array(struct parser *p, uint32_t *id)
-{
-	uint32_t s_id, c_id;
-	struct node *n;
-
-	if (!parse_stmt(p, &s_id)) {
-		return false;
-	}
-
-	if (get_node(p->ast, s_id)->type == node_empty) {
-		*id = s_id;
-		return true;
-	}
-
-	if (!accept(p, tok_comma)) {
-		n = make_node(p, id, node_argument);
-		n->subtype = arg_normal;
-
-		add_child(p, *id, node_child_l, s_id);
-		return true;
-	}
-
-	if (!parse_array(p, &c_id)) {
-		return false;
-	}
-
-	n = make_node(p, id, node_argument);
-	n->subtype = arg_normal;
-
-	add_child(p, *id, node_child_l, s_id);
-	add_child(p, *id, node_child_c, c_id);
-
-	return true;
-}
+enum parse_list_mode {
+	parse_list_mode_array,
+	parse_list_mode_dictionary,
+	parse_list_mode_arguments,
+	parse_list_mode_tail,
+};
 
 static bool
-parse_args(struct parser *p, uint32_t *id)
+parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 {
 	uint32_t s_id, c_id, v_id;
 	enum arg_type at = arg_normal;
 	struct node *n;
 
-	if (!parse_stmt(p, &s_id)) {
-		return false;
-	}
-
-	if (get_node(p->ast, s_id)->type == node_empty) {
-		*id = s_id;
+	if ((p->mode & pm_keep_formatting) && (p->last->type == tok_comment || p->last->type == tok_eol)) {
+		make_node(p, &s_id, node_empty_line);
+		accept(p, tok_eol);
+	} else if (mode == parse_list_mode_tail) {
+		*id = 0;
 		return true;
-	}
-
-	if (accept(p, tok_colon)) {
-		at = arg_kwarg;
-
-		if (get_node(p->ast, s_id)->type != node_id) {
-			parse_error(p, NULL, "keyword argument key must be a plain identifier (not a %s)",
-				node_type_to_s(get_node(p->ast, s_id)->type));
+	} else {
+		if (!parse_stmt(p, &s_id)) {
 			return false;
 		}
 
-		if (!parse_stmt(p, &v_id)) {
-			return false;
+		if (get_node(p->ast, s_id)->type == node_empty) {
+			*id = s_id;
+			return true;
+		}
+
+		bool have_colon = false;
+
+		if (mode == parse_list_mode_arguments) {
+			have_colon = accept(p, tok_colon);
+		} else if (mode == parse_list_mode_dictionary) {
+			if (!expect(p, tok_colon)) {
+				return false;
+			}
+			have_colon = true;
+		}
+
+		if (have_colon) {
+			at = arg_kwarg;
+
+			if (mode == parse_list_mode_arguments
+			    && get_node(p->ast, s_id)->type != node_id) {
+				parse_error(p, NULL, "keyword argument key must be a plain identifier (not a %s)",
+					node_type_to_s(get_node(p->ast, s_id)->type));
+				return false;
+			}
+
+			if (!parse_stmt(p, &v_id)) {
+				return false;
+			}
 		}
 
 		if (!accept(p, tok_comma)) {
-			n = make_node(p, id, node_argument);
-			n->subtype = at;
-
-			add_child(p, *id, node_child_l, s_id);
-			add_child(p, *id, node_child_r, v_id);
-			return true;
+			mode = parse_list_mode_tail;
 		}
-	} else if (!accept(p, tok_comma)) {
-		n = make_node(p, id, node_argument);
-		n->subtype = at;
 
-		add_child(p, *id, node_child_l, s_id);
-		return true;
+		if ((p->mode & pm_keep_formatting)) {
+			accept(p, tok_eol);
+		}
 	}
 
-	if (!parse_args(p, &c_id)) {
+	if (!parse_list_recurse(p, &c_id, mode)) {
 		return false;
 	}
 
@@ -395,53 +379,27 @@ parse_args(struct parser *p, uint32_t *id)
 	if (at == arg_kwarg) {
 		add_child(p, *id, node_child_r, v_id);
 	}
-	add_child(p, *id, node_child_c, c_id);
+	if (c_id) {
+		add_child(p, *id, node_child_c, c_id);
+	}
 
 	return true;
 }
 
 static bool
-parse_key_values(struct parser *p, uint32_t *id)
+parse_list(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 {
-	uint32_t s_id, v_id, c_id;
-	struct node *n;
+	if (p->mode & pm_keep_formatting) {
+		accept(p, tok_eol);
+	}
 
-	if (!parse_stmt(p, &s_id)) {
+	if (!parse_list_recurse(p, id, mode)) {
 		return false;
 	}
 
-	if (get_node(p->ast, s_id)->type == node_empty) {
-		*id = s_id;
-		return true;
+	if (p->mode & pm_keep_formatting) {
+		accept(p, tok_eol);
 	}
-
-	if (!expect(p, tok_colon)) {
-		return false;
-	}
-
-	if (!parse_stmt(p, &v_id)) {
-		return false;
-	}
-
-	if (!accept(p, tok_comma)) {
-		n = make_node(p, id, node_argument);
-		n->subtype = arg_kwarg;
-
-		add_child(p, *id, node_child_l, s_id);
-		add_child(p, *id, node_child_r, v_id);
-		return true;
-	}
-
-	if (!parse_key_values(p, &c_id)) {
-		return false;
-	}
-
-	n = make_node(p, id, node_argument);
-	n->subtype = arg_kwarg;
-
-	add_child(p, *id, node_child_l, s_id);
-	add_child(p, *id, node_child_r, v_id);
-	add_child(p, *id, node_child_c, c_id);
 
 	return true;
 }
@@ -512,7 +470,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 		return false;
 	} else if (!expect(p, tok_lparen)) {
 		return false;
-	} else if (!parse_args(p, &args)) {
+	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
 		return false;
 	} else if (!expect(p, tok_rparen)) {
 		return false;
@@ -548,12 +506,19 @@ parse_e8(struct parser *p, uint32_t *id)
 
 	if (accept(p, tok_lparen)) {
 		if (p->mode & pm_keep_formatting) {
+			accept(p, tok_eol);
 			make_node(p, id, node_paren);
 		}
 
 		if (!parse_stmt(p, &v)) {
 			return false;
-		} else if (!expect(p, tok_rparen)) {
+		}
+
+		if (p->mode & pm_keep_formatting) {
+			accept(p, tok_eol);
+		}
+
+		if (!expect(p, tok_rparen)) {
 			return false;
 		}
 
@@ -571,7 +536,7 @@ parse_e8(struct parser *p, uint32_t *id)
 	} else if (accept(p, tok_lbrack)) {
 		make_node(p, id, node_array);
 
-		if (!parse_array(p, &v)) {
+		if (!parse_list(p, &v, parse_list_mode_array)) {
 			return false;
 		}
 
@@ -583,7 +548,7 @@ parse_e8(struct parser *p, uint32_t *id)
 	} else if (accept(p, tok_lcurl)) {
 		make_node(p, id, node_dict);
 
-		if (!parse_key_values(p, &v)) {
+		if (!parse_list(p, &v, parse_list_mode_dictionary)) {
 			return false;
 		}
 
@@ -655,7 +620,7 @@ parse_e7(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		if (!parse_args(p, &args)) {
+		if (!parse_list(p, &args, parse_list_mode_arguments)) {
 			return false;
 		} else if (!expect(p, tok_rparen)) {
 			return false;
