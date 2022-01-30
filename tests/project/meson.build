@@ -235,9 +235,9 @@ tests = [
     ['common/241 set and get variable', {}],
     ['common/242 custom target feed', {'should_fail': true}],
     ['common/243 escape++', {}],
-
-# unit
-    ['unit/65 alias target', {}]
+    
+    # unit
+    ['unit/65 alias target', {}],
 ]
 
 ninja = find_program('ninja', required: false)

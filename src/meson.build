@@ -99,7 +99,13 @@ src += [
 foreach d : [
     ['libcurl', {}],
     ['libarchive', {}],
-    ['libpkgconf', {'fallback': ['pkgconf', 'dep_libpkgconf'], 'default_options': ['pkgconf:tests=false']}],
+    [
+        'libpkgconf',
+        {
+            'fallback': ['pkgconf', 'dep_libpkgconf'],
+            'default_options': ['pkgconf:tests=false'],
+        },
+    ],
     ['samurai', {'fallback': ['samurai', 'libsamu_dep']}],
 ]
     dep = dependency(

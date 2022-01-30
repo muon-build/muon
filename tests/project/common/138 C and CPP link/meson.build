@@ -80,10 +80,14 @@ libfooext = shared_library(
 # Test that linking C libs to internal static C++ libs uses the C++ linker
 libcpp = static_library('cppfoo', ['foo.cpp', 'foo.hpp'])
 
-libfoo = shared_library('foo', ['foobar.c', 'foobar.h'], link_with: [
+libfoo = shared_library(
+    'foo',
+    ['foobar.c', 'foobar.h'],
+    link_with: [
         libc,
         libcpp,
-    ])
+    ],
+)
 
 # Test that link_whole is also honored
 #

@@ -10,10 +10,14 @@ if build_machine.system() == 'windows'
     cp = find_program('xcopy')
 else
     cp = find_program('donotfindme', 'cp')
-    gen = generator(cp, output: '@BASENAME@.c', arguments: [
+    gen = generator(
+        cp,
+        output: '@BASENAME@.c',
+        arguments: [
             '@INPUT@',
             '@OUTPUT@',
-        ])
+        ],
+    )
 
     generated = gen.process('source.in')
     e = executable('prog', generated)

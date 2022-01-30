@@ -4,8 +4,7 @@
 # )
 
 # use this instead of run_target for now
-r = executable('prog2', '../main.c',
-  build_by_default : false)
+r = executable('prog2', '../main.c', build_by_default: false)
 
 ar = alias_target('aliased-run', r)
-aat = alias_target('aliased-aliased-target', [ r, ar ])
+aat = alias_target('aliased-aliased-target', [r, ar])
