@@ -13,6 +13,7 @@
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
+#include "functions/default/subproject.h"
 #include "functions/environment.h"
 #include "functions/modules.h"
 #include "functions/string.h"
@@ -688,82 +689,6 @@ func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	LOG_I("%s", get_cstr(wk, an[0].val));
 	*res = 0;
-
-	return true;
-}
-
-#define BASE_PATH_MAX (PATH_MAX / 2)
-
-static bool
-func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
-{
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs {
-		kw_default_options,
-		kw_required,
-	};
-	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_required] = { "required", obj_any },
-		0
-	};
-
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
-		return false;
-	}
-
-	// don't re-evaluate the same subproject
-	if (obj_dict_index(wk, wk->subprojects, an[0].val, res)) {
-		return true;
-	}
-
-	enum requirement_type req;
-	if (!coerce_requirement(wk, &akw[kw_required], &req)) {
-		return false;
-	} else if (req == requirement_skip) {
-		make_obj(wk, res, obj_subproject);
-		return true;
-	}
-
-	const char *subproj_name = get_cstr(wk, an[0].val);
-	char buf[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
-
-	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->source_root), "subprojects")) {
-		return false;
-	} else if (!path_join(cwd, PATH_MAX, buf, subproj_name)) {
-		return false;
-	}
-
-	if (!path_join(buf, PATH_MAX, wk->build_root, "subprojects")) {
-		return false;
-	} else if (!path_join(build_dir, PATH_MAX, buf, subproj_name)) {
-		return false;
-	}
-
-	if (akw[kw_default_options].set) {
-		if (!parse_and_set_default_options(wk, akw[kw_default_options].node,
-			akw[kw_default_options].val, an[0].val, true)) {
-			return false;
-		}
-	}
-
-	uint32_t subproject_id;
-	bool found;
-	if (!eval_project(wk, subproj_name, cwd, build_dir, &subproject_id,
-		req == requirement_required, &found)) {
-		return false;
-	}
-
-	if (!found) {
-		make_obj(wk, res, obj_subproject);
-		return true;
-	}
-
-	struct obj *sub = make_obj(wk, res, obj_subproject);
-	sub->dat.subproj.id = subproject_id;
-	sub->dat.subproj.found = true;
-
-	obj_dict_set(wk, wk->subprojects, an[0].val, *res);
 
 	return true;
 }
@@ -1508,14 +1433,14 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target:
-	// FIXME: alias targets can also depend on run targets, but those are not
-	//        implemented yet
-	// case obj_run_target:
+		// FIXME: alias targets can also depend on run targets, but those are not
+		//        implemented yet
+		// case obj_run_target:
 		obj_array_push(wk, ctx->deps, val);
 		break;
 	default:
 		interp_error(wk, val, "expected target but got: %s"
-				, obj_type_to_s(tgt->type));
+			, obj_type_to_s(tgt->type));
 		return ir_err;
 	}
 
@@ -1525,7 +1450,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL};
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

@@ -14,10 +14,9 @@
 
 bool
 eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
-	const char *build_dir, uint32_t *proj_id, bool required, bool *found)
+	const char *build_dir, uint32_t *proj_id)
 {
-	char src[PATH_MAX], meson_opts[PATH_MAX],
-	     new_cwd[PATH_MAX], new_build_dir[PATH_MAX];
+	char src[PATH_MAX], meson_opts[PATH_MAX];
 
 	if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
 		return false;
@@ -25,76 +24,15 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		return false;
 	}
 
-	if (!fs_dir_exists(cwd)) {
-		bool wrap_ok = false;
-		char wrap_path[PATH_MAX], base_path[PATH_MAX];
-		snprintf(wrap_path, PATH_MAX, "%s.wrap", cwd);
-
-		if (!fs_file_exists(wrap_path)) {
-			goto wrap_done;
-		}
-
-		if (!path_dirname(base_path, PATH_MAX, cwd)) {
-			return false;
-		}
-
-		struct wrap wrap = { 0 };
-		if (!wrap_handle(wrap_path, base_path, &wrap)) {
-			goto wrap_cleanup;
-		}
-
-		if (wrap.fields[wf_directory]) {
-			if (!path_join(new_cwd, PATH_MAX, base_path, wrap.fields[wf_directory])) {
-				return false;
-			}
-
-			if (!path_dirname(base_path, PATH_MAX, build_dir)) {
-				return false;
-			} else if (!path_join(new_build_dir, PATH_MAX, base_path, wrap.fields[wf_directory])) {
-				return false;
-			}
-
-			cwd = new_cwd;
-			build_dir = new_build_dir;
-
-			if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
-				return false;
-			} else if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
-				return false;
-			}
-		}
-
-		wrap_ok = true;
-wrap_cleanup:
-		wrap_destroy(&wrap);
-wrap_done:
-		if (!wrap_ok) {
-			if (required) {
-				LOG_E("project %s not found", cwd);
-				return false;
-			} else {
-				*found = false;
-				return true;
-			}
-		}
-	}
-
 	if (!fs_file_exists(src)) {
-		if (required) {
-			LOG_E("project %s does not contain a meson.build", cwd);
-			return false;
-		} else {
-			*found = false;
-			return true;
-		}
+		LOG_E("project %s does not contain a meson.build", cwd);
+		return false;
 	}
 
 	if (subproject_name) {
 		log_plain("\n");
 		LOG_I("subproject: %s", subproject_name);
 	}
-
-	*found = true;
 
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;

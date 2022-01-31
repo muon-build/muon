@@ -59,6 +59,7 @@ cat \
 	src/functions/default/dependency.c \
 	src/functions/default/options.c \
 	src/functions/default/setup.c \
+	src/functions/default/subproject.c \
 	src/functions/dependency.c \
 	src/functions/dict.c \
 	src/functions/disabler.c \

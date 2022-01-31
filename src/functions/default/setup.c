@@ -17,8 +17,7 @@ do_setup(struct workspace *wk)
 {
 	uint32_t project_id;
 
-	bool _found;
-	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id, true, &_found)) {
+	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
 		return false;
 	}
 
