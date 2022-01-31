@@ -7,6 +7,7 @@
 #include "external/libpkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
+#include "functions/default/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
@@ -21,13 +22,13 @@ enum dep_not_found_reason {
 
 struct dep_lookup_ctx {
 	obj *res;
+	struct args_kw *default_options;
 	enum dep_not_found_reason not_found_reason;
 	enum requirement_type requirement;
 	uint32_t err_node;
 	uint32_t fallback_node;
 	obj name;
 	obj fallback;
-	obj default_options;
 	obj not_found_message;
 	obj version;
 	bool is_static;
@@ -63,20 +64,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 	obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 
-	char src[BUF_SIZE_2k];
-
-	// TODO: make a proper eval_subproject() function to avoid this hacky
-	// string evaluation
-	const char *req = ctx->requirement == requirement_required ? "true" : "false";
-
-	if (ctx->default_options) {
-		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', default_options: %o, required: %s)",
-			get_cstr(wk, subproj_name), ctx->default_options, req);
-	} else {
-		obj_snprintf(wk, src, BUF_SIZE_2k, "subproject('%s', required: %s)", get_cstr(wk, subproj_name), req);
-	}
-
-	if (!eval_str(wk, src, &subproj)) {
+	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, &subproj)) {
 		return false;
 	}
 
@@ -295,7 +283,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.fallback_node = akw[kw_fallback].node,
 		.name = an[0].val,
 		.fallback = akw[kw_fallback].val,
-		.default_options = akw[kw_default_options].val,
+		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
 		.is_static = is_static,
 		.disabler = akw[kw_disabler].set

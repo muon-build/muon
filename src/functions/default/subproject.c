@@ -1,7 +1,5 @@
 #include "posix.h"
 
-#include "coerce.h"
-#include "functions/common.h"
 #include "log.h"
 #include "functions/default/options.h"
 #include "functions/default/subproject.h"
