@@ -101,6 +101,40 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		}
 	}
 
+	switch (opts->mode) {
+	case compile_mode_preprocess:
+		push_args(wk, compiler_args, compilers[t].args.preprocess_only());
+		break;
+	case compile_mode_compile:
+		push_args(wk, compiler_args, compilers[t].args.compile_only());
+		break;
+	case compile_mode_run:
+	case compile_mode_link:
+		break;
+	}
+
+	const char *path;
+	if (opts->src_is_path) {
+		path = src;
+	} else {
+		if (!write_test_source(wk, &WKSTR(src), &path)) {
+			return false;
+		}
+	}
+
+	obj_array_push(wk, compiler_args, make_str(wk, path));
+
+	const char *output = "/dev/null";
+	if (opts->mode == compile_mode_run) {
+		static char test_output_path[PATH_MAX];
+		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test")) {
+			return false;
+		}
+		output = test_output_path;
+	}
+
+	push_args(wk, compiler_args, compilers[t].args.output(output));
+
 	if (opts->deps && opts->deps->set) {
 		struct dep_args_ctx da_ctx;
 		dep_args_ctx_init(wk, &da_ctx);
@@ -125,40 +159,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		obj_array_dup(wk, opts->args, &args_dup);
 		obj_array_extend(wk, compiler_args, args_dup);
 	}
-
-	const char *output = "/dev/null";
-	if (opts->mode == compile_mode_run) {
-		static char test_output_path[PATH_MAX];
-		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test")) {
-			return false;
-		}
-		output = test_output_path;
-	}
-
-	push_args(wk, compiler_args, compilers[t].args.output(output));
-
-	switch (opts->mode) {
-	case compile_mode_preprocess:
-		push_args(wk, compiler_args, compilers[t].args.preprocess_only());
-		break;
-	case compile_mode_compile:
-		push_args(wk, compiler_args, compilers[t].args.compile_only());
-		break;
-	case compile_mode_run:
-	case compile_mode_link:
-		break;
-	}
-
-	const char *path;
-	if (opts->src_is_path) {
-		path = src;
-	} else {
-		if (!write_test_source(wk, &WKSTR(src), &path)) {
-			return false;
-		}
-	}
-
-	obj_array_push(wk, compiler_args, make_str(wk, path));
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
