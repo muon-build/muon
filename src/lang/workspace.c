@@ -330,6 +330,23 @@ workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0,
 		if (!fs_mkdir_p(wk->muon_private)) {
 			return false;
 		}
+
+		char gitignore_file[PATH_MAX];
+		char hgignore_file[PATH_MAX];
+		struct str *gitignore_src = &WKSTR("*\n");
+		struct str *hgignore_src = &WKSTR("syntax: glob\n**/*\n");
+		if (!path_join(gitignore_file, PATH_MAX, wk->build_root, ".gitignore")) {
+			return false;
+		}
+		if (!fs_write(gitignore_file, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
+			return false;
+		}
+		if (!path_join(hgignore_file, PATH_MAX, wk->build_root, ".hgignore")) {
+			return false;
+		}
+		if (!fs_write(hgignore_file, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
+			return false;
+		}
 	}
 
 	return true;
