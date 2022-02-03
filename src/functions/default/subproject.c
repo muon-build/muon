@@ -1,8 +1,10 @@
 #include "posix.h"
 
-#include "log.h"
 #include "functions/default/options.h"
 #include "functions/default/subproject.h"
+#include "functions/string.h"
+#include "lang/interpreter.h"
+#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "wrap.h"
@@ -80,7 +82,8 @@ wrap_done:
 }
 
 bool
-subproject(struct workspace *wk, obj name, enum requirement_type req, struct args_kw *default_options, obj *res)
+subproject(struct workspace *wk, obj name, enum requirement_type req, struct args_kw *default_options,
+	struct args_kw *versions, obj *res)
 {
 	// don't re-evaluate the same subproject
 	if (obj_dict_index(wk, wk->subprojects, name, res)) {
@@ -132,9 +135,29 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		return false;
 	}
 
+	if (versions->set) {
+		struct project *subp = darr_get(&wk->projects, subproject_id);
+
+		bool compare_result;
+		if (!version_compare(wk, versions->node, get_str(wk, subp->cfg.version),
+			versions->val, &compare_result)) {
+			return false;
+		}
+
+		if (!compare_result) {
+			if (req == requirement_required) {
+				interp_error(wk, versions->node,
+					"subproject version mismatch; wanted %o, got %o",
+					versions->val, subp->cfg.version);
+				return false;
+			}
+		}
+	}
+
 	struct obj *sub = make_obj(wk, res, obj_subproject);
 	sub->dat.subproj.id = subproject_id;
 	sub->dat.subproj.found = true;
+
 
 	obj_dict_set(wk, wk->subprojects, name, *res);
 	return true;
@@ -147,10 +170,13 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_default_options,
 		kw_required,
+		kw_version,
+
 	};
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_required] = { "required", obj_any },
+		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
@@ -163,5 +189,13 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	return subproject(wk, an[0].val, req, &akw[kw_default_options], res);
+	if (!subproject(wk, an[0].val, req, &akw[kw_default_options], &akw[kw_version], res)) {
+		return false;
+	}
+
+	struct obj *subp_obj = get_obj(wk, *res);
+	if (akw[kw_version].set && subp_obj->dat.subproj.found) {
+	}
+
+	return true;
 }

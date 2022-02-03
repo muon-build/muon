@@ -22,7 +22,7 @@ enum dep_not_found_reason {
 
 struct dep_lookup_ctx {
 	obj *res;
-	struct args_kw *default_options;
+	struct args_kw *default_options, *versions;
 	enum dep_not_found_reason not_found_reason;
 	enum requirement_type requirement;
 	uint32_t err_node;
@@ -30,7 +30,6 @@ struct dep_lookup_ctx {
 	obj name;
 	obj fallback;
 	obj not_found_message;
-	obj version;
 	bool is_static;
 	bool disabler;
 };
@@ -64,7 +63,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 	obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 
-	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, &subproj)) {
+	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, ctx->versions, &subproj)) {
 		return false;
 	}
 
@@ -97,7 +96,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 
 	obj ver_str = make_str(wk, info.version);
 	bool ver_match;
-	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->version, &ver_match)) {
+	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
 		ctx->not_found_reason = dep_not_found_reason_version;
@@ -148,7 +147,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			struct obj *dep = get_obj(wk, *ctx->res);
 
 			obj_fprintf(wk, log_file(), ": bad verson, have: %o, but need %o\n",
-				dep->dat.dep.version, ctx->version);
+				dep->dat.dep.version, ctx->versions->val);
 		}
 
 		if (ctx->not_found_message) {
@@ -278,7 +277,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	struct dep_lookup_ctx ctx = {
 		.res = res,
 		.requirement = requirement,
-		.version = akw[kw_version].val,
+		.versions = &akw[kw_version],
 		.err_node = an[0].node,
 		.fallback_node = akw[kw_fallback].node,
 		.name = an[0].val,
