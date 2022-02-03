@@ -341,6 +341,14 @@ compiler_posix_args_define(const char *define)
 /* gcc compilers */
 
 static const struct args *
+compiler_gcc_args_preprocess_only(void)
+{
+	COMPILER_ARGS({ "-E", "-P" });
+
+	return &args;
+}
+
+static const struct args *
 compiler_gcc_args_include_system(const char *dir)
 {
 	COMPILER_ARGS({ "-isystem", NULL });
@@ -535,6 +543,7 @@ build_compilers(void)
 	posix.linker = linker_posix;
 
 	struct compiler gcc = posix;
+	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
 	gcc.args.deps = compiler_gcc_args_deps;
 	gcc.args.optimization = compiler_gcc_args_optimization;
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;

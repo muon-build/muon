@@ -58,6 +58,7 @@ struct compiler_check_opts {
 	obj args;
 	bool skip_run_check;
 	bool src_is_path;
+	const char *output_path;
 };
 
 static bool
@@ -125,9 +126,11 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	obj_array_push(wk, compiler_args, make_str(wk, path));
 
 	const char *output = "/dev/null";
-	if (opts->mode == compile_mode_run) {
+	if (opts->output_path) {
+		output = opts->output_path;;
+	} else if (opts->mode == compile_mode_run) {
 		static char test_output_path[PATH_MAX];
-		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test")) {
+		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "compiler_check_exe")) {
 			return false;
 		}
 		output = test_output_path;
@@ -657,6 +660,119 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
+func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+
+	static char output_path[PATH_MAX];
+	if (!path_join(output_path, PATH_MAX, wk->muon_private, "get_define_output")) {
+		return false;
+	}
+
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_preprocess,
+		.output_path = output_path,
+	};
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
+	char src[BUF_SIZE_4k];
+	const char *delim = "MUON_GET_DEFINE_DELIMITER\n";
+	const uint32_t delim_len = strlen(delim);
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"#ifndef %s\n"
+		"#define %s\n"
+		"#endif \n"
+		"%s%s\n",
+		compiler_check_prefix(wk, akw),
+		get_cstr(wk, an[0].val),
+		get_cstr(wk, an[0].val),
+		delim,
+		get_cstr(wk, an[0].val)
+		);
+
+	struct source output = { 0 };
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+		return false;
+	} else if (!ok) {
+		goto failed;
+	}
+
+	if (!fs_read_entire_file(output_path, &output)) {
+		return false;
+	}
+
+	*res = make_str(wk, "");
+	bool started = false;
+	bool in_quotes = false;
+	bool esc = false;
+	bool joining = false;
+
+	uint32_t i;
+	for (i = 0; i < output.len; ++i) {
+		if (!started && strncmp(&output.src[i], delim, delim_len) == 0) {
+			i += delim_len;
+			started = true;
+		}
+
+		if (!started) {
+			continue;
+		}
+
+		switch (output.src[i]) {
+		case '"':
+			if (esc) {
+				esc = false;
+			} else {
+				in_quotes = !in_quotes;
+				if (!in_quotes || joining) {
+					uint32_t start = i;
+					++i;
+					for (; i < output.len; ++i) {
+						if (!strchr("\t ", output.src[i])) {
+							break;
+						}
+					}
+
+					if (output.src[i] == '"') {
+						joining = true;
+						++i;
+					} else {
+						i = start;
+					}
+				}
+			}
+			break;
+		case '\\':
+			esc = true;
+			break;
+		}
+
+		if (output.src[i] == '\n') {
+			break;
+		}
+
+		if (started) {
+			str_appn(wk, *res, &output.src[i], 1);
+		}
+	}
+
+	fs_source_destroy(&output);
+	return true;
+failed:
+	fs_source_destroy(&output);
+	interp_error(wk, an[0].node, "failed to get define: %o", an[0].val);
+	return false;
+}
+
+static bool
 func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
@@ -1122,6 +1238,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "compiles", func_compiler_compiles },
 	{ "find_library", func_compiler_find_library },
 	{ "first_supported_argument", func_compiler_first_supported_argument },
+	{ "get_define", func_compiler_get_define },
 	{ "get_id", func_compiler_get_id },
 	{ "get_linker_id", func_compiler_get_linker_id },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },

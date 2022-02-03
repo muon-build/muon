@@ -127,7 +127,7 @@ tests = [
     ['common/129 build by default', {'should_fail': true}],
     ['common/130 include order', {}],
     ['common/131 override options', {'should_fail': true}],
-    ['common/132 get define', {'should_fail': true}],
+    ['common/132 get define', {}],
     ['common/133 c cpp and asm', {'should_fail': true}],
     ['common/134 compute int', {'should_fail': true}],
     ['common/135 custom target object output', {}],
