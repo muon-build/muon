@@ -573,10 +573,13 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	const char *prefix = compiler_check_prefix(wk, akw);
+	const char *prefix = compiler_check_prefix(wk, akw),
+		   *func = get_cstr(wk, an[0].val);
+
+	bool prefix_contains_include = strstr(prefix, "#include") != NULL;
 
 	char src[BUF_SIZE_4k];
-	if (strstr(prefix, "#include")) {
+	if (prefix_contains_include) {
 		snprintf(src, BUF_SIZE_4k,
 			"%s\n"
 			"int main(void) {\n"
@@ -585,22 +588,70 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			"return (int) b;\n"
 			"}\n",
 			prefix,
-			get_cstr(wk, an[0].val)
+			func
 			);
 	} else {
 		snprintf(src, BUF_SIZE_4k,
+			"#define %s muon_disable_define_of_%s"
 			"%s\n"
+			"#include <limits.h>\n"
+			"#undef %s\n"
+			"#ifdef __cplusplus\n"
+			"extern \"C\"\n"
+			"#endif\n"
 			"char %s (void);\n"
 			"int main(void) { return %s(); }\n",
+			func, func,
 			prefix,
-			get_cstr(wk, an[0].val),
-			get_cstr(wk, an[0].val)
+			func,
+			func,
+			func
 			);
 	}
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
+	}
+
+	if (!ok) {
+		bool is_builtin = str_startswith(get_str(wk, an[0].val), &WKSTR("__builtin_"));
+		const char *__builtin_ = is_builtin ? "" : "__builtin_";
+
+		/* With some toolchains (MSYS2/mingw for example) the compiler
+		 * provides various builtins which are not really implemented and
+		 * fall back to the stdlib where they aren't provided and fail at
+		 * build/link time. In case the user provides a header, including
+		 * the header didn't lead to the function being defined, and the
+		 * function we are checking isn't a builtin itself we assume the
+		 * builtin is not functional and we just error out. */
+		snprintf(src, BUF_SIZE_4k,
+			"%s\n"
+			"int main(void) {\n"
+			"#if !%d && !defined(%s) && !%d\n"
+			"	#error \"No definition for %s%s found in the prefix\"\n"
+			"#endif\n"
+			"#ifdef __has_builtin\n"
+			"	#if !__has_builtin(%s%s)\n"
+			"		#error \"%s%s not found\"\n"
+			"	#endif\n"
+			"#elif ! defined(%s)\n"
+			"	%s%s;\n"
+			"#endif\n"
+			"return 0;\n"
+			"}\n",
+			prefix,
+			!prefix_contains_include, func, is_builtin,
+			__builtin_, func,
+			__builtin_, func,
+			__builtin_, func,
+			func,
+			__builtin_, func
+			);
+
+		if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+			return false;
+		}
 	}
 
 	make_obj(wk, res, obj_bool)->dat.boolean = ok;
