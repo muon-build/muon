@@ -28,6 +28,8 @@ do_setup(struct workspace *wk)
 	}
 
 	workspace_print_summaries(wk);
+
+	LOG_I("setup complete");
 	return true;
 }
 

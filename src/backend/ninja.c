@@ -58,7 +58,7 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 static bool
 ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 {
-	LOG_I("writing tests");
+	bool wrote_header = false;
 
 	obj tests;
 	make_obj(wk, &tests, obj_dict);
@@ -67,12 +67,17 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 
-		if (proj->tests) {
+		if (proj->tests && get_obj(wk, proj->tests)->dat.arr.len) {
+			if (!wrote_header) {
+				LOG_I("writing tests");
+				wrote_header = true;
+			}
+
 			obj res, key;
 			key = proj->cfg.name;
 
 			if (obj_dict_index(wk, tests, key, &res)) {
-				LOG_E("project defined multiple times");
+				assert("false" && "project defined multiple times");
 				return false;
 			}
 
