@@ -7,7 +7,7 @@
 
 bool
 subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
-	obj subproj, obj *res)
+	obj fallback, obj subproj, obj *res)
 {
 	const char *name = get_cstr(wk, name_id);
 	struct obj *sub = get_obj(wk, subproj);
@@ -19,8 +19,12 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 	}
 
 	if (!get_obj_id(wk, name, res, sub->dat.subproj.id)) {
-		interp_error(wk, node, "subproject does not define '%s'", name);
-		return false;
+		if (!fallback) {
+			interp_error(wk, node, "subproject does not define '%s'", name);
+			return false;
+		} else {
+			*res = fallback;
+		}
 	}
 
 	return true;
@@ -30,12 +34,13 @@ static bool
 func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
 		return false;
 	}
 
-	return subproject_get_variable(wk, an[0].node, an[0].val, rcvr, res);
+	return subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, rcvr, res);
 }
 
 static bool

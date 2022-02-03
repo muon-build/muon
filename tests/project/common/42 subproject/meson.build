@@ -24,7 +24,8 @@ e = executable(
 )
 test('subdirtest', e)
 
-meson.install_dependency_manifest('share/sublib/sublib.depmf')
+# I have a feeling this is a very little used feature
+# meson.install_dependency_manifest('share/sublib/sublib.depmf')
 
 unknown_var = sub.get_variable('does-not-exist', [])
 if unknown_var != []

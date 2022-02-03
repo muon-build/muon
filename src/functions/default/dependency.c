@@ -72,7 +72,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		return true;
 	}
 
-	if (!subproject_get_variable(wk, ctx->err_node, subproj_dep, subproj, ctx->res)) {
+	if (!subproject_get_variable(wk, ctx->err_node, subproj_dep, 0, subproj, ctx->res)) {
 		return false;
 	}
 
