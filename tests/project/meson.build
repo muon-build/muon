@@ -218,7 +218,8 @@ tests = [
     ['common/224 arithmetic operators', {'should_fail': true}],
     ['common/225 link language', {'should_fail': true}],
     ['common/226 link depends indexed custom target', {}],
-    ['common/227 very long commmand line', {}],
+    # skip this test for now because it takes too long
+    # ['common/227 very long commmand line', {}],
     ['common/228 custom_target source', {}],
     ['common/229 disabler array addition', {}],
     ['common/230 external project', {'should_fail': true}],
