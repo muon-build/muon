@@ -37,7 +37,7 @@ tests = [
     ['common/37 has member', {'should_fail': true}],
     ['common/38 alignment', {}],
     ['common/39 library chain', {}],
-    ['common/40 options', {'should_fail': true}],
+    ['common/40 options', {}],
     ['common/41 test args', {}],
     ['common/42 subproject', {'should_fail': true}],
     ['common/43 subproject options', {}],

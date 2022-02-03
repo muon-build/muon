@@ -482,7 +482,11 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			}
 			break;
 		case op_array:
-			val = akw[kw_choices].val;
+			if (akw[kw_choices].set) {
+				val = akw[kw_choices].val;
+			} else {
+				make_obj(wk, &val, obj_array);
+			}
 			break;
 		case op_feature:
 			make_obj(wk, &val, obj_feature_opt)->dat.feature_opt.state = feature_opt_auto;
