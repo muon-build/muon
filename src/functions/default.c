@@ -648,16 +648,42 @@ func_assert(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-static bool
-func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+static enum iteration_result
+message_print_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	obj_fprintf(wk, log_file(), "%#o ", val);
+	return ir_cont;
+}
+
+static bool
+func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	LOG_E("%s", get_cstr(wk, an[0].val));
+	log_plain("message: ");
+	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
+	log_plain("\n");
+	*res = 0;
+
+	return true;
+}
+
+static bool
+func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	log_plain(log_clr() ? "\033[31merror:\033[0m " : "error: ");
+	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
+	log_plain("\n");
 	*res = 0;
 
 	return false;
@@ -666,28 +692,15 @@ func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	LOG_W("%s", get_cstr(wk, an[0].val));
-	*res = 0;
-
-	return true;
-}
-
-static bool
-func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
-{
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	LOG_I("%s", get_cstr(wk, an[0].val));
+	log_plain(log_clr() ? "\033[33mwarn:\033[0m " : "warn: ");
+	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
+	log_plain("\n");
 	*res = 0;
 
 	return true;
