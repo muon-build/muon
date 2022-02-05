@@ -582,17 +582,22 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	if (prefix_contains_include) {
 		snprintf(src, BUF_SIZE_4k,
 			"%s\n"
+			"#include <limits.h>\n"
+			"#if defined __stub_%s || defined __stub___%s\n"
+			"fail fail fail this function is not going to work\n"
+			"#endif\n"
 			"int main(void) {\n"
 			"void *a = (void*) &%s;\n"
 			"long long b = (long long) a;\n"
 			"return (int) b;\n"
 			"}\n",
 			prefix,
+			func, func,
 			func
 			);
 	} else {
 		snprintf(src, BUF_SIZE_4k,
-			"#define %s muon_disable_define_of_%s"
+			"#define %s muon_disable_define_of_%s\n"
 			"%s\n"
 			"#include <limits.h>\n"
 			"#undef %s\n"
@@ -600,11 +605,15 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			"extern \"C\"\n"
 			"#endif\n"
 			"char %s (void);\n"
+			"#if defined __stub_%s || defined __stub___%s\n"
+			"fail fail fail this function is not going to work\n"
+			"#endif\n"
 			"int main(void) { return %s(); }\n",
 			func, func,
 			prefix,
 			func,
 			func,
+			func, func,
 			func
 			);
 	}
