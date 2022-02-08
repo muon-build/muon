@@ -11,6 +11,7 @@ tests = [
     ['common/10 man install', {}],
     ['common/11 subdir', {}],
     ['common/12 data', {}],
+    # missing: 'common/13 pch'
     ['common/14 configure file', {}],
     ['common/15 if', {}],
     ['common/16 comparison', {}],
@@ -111,6 +112,7 @@ tests = [
     ['common/111 pathjoin', {}],
     ['common/112 subdir subproject', {}],
     ['common/113 interpreter copy mutable var on assignment', {}],
+    # missing: 'common/14 skip'
     ['common/115 subproject project arguments', {}],
     ['common/116 test skip', {}],
     ['common/117 shared module', {'should_fail': true}],
@@ -207,6 +209,10 @@ tests = [
     ['common/209 link custom_i single from multiple', {}],
     ['common/210 link custom_i multiple from multiple', {}],
     ['common/211 dependency get_variable method', {}],
+    # missing: 212 source set configuration_data/
+    # missing: 213 source set dictionary/
+    # missing: 214 source set custom target/
+    # missing: 215 source set realistic example/
     ['common/216 custom target input extracted objects', {'should_fail': true}],
     ['common/217 test priorities', {}],
     ['common/218 include_dir dot', {}],
