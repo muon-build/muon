@@ -335,7 +335,7 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	snprintf(src, BUF_SIZE_4k,
 		"#include <stdio.h>\n"
 		"%s\n"
-		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); }\n",
+		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); return 0; }\n",
 		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
@@ -376,7 +376,7 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		"#include <stddef.h>\n"
 		"%s\n"
 		"struct tmp { char c; %s target; };\n"
-		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); }\n",
+		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); return 0; }\n",
 		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
 		);
