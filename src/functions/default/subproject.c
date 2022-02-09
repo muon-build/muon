@@ -131,7 +131,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		}
 	}
 
-	if (!eval_project(wk, subproj_name, cwd, build_dir, &subproject_id)) {
+	if (!eval_project(wk, subproj_name, sp_cwd, sp_build_dir, &subproject_id)) {
 		return false;
 	}
 
