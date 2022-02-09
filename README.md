@@ -14,6 +14,8 @@ dependencies.
 Contributions welcome:
 - language support for languages other than C and C++
 
+Other differences from meson are described in `doc/differences.md`
+
 ## Status
 
 `muon` is complete enough to build complicated projects, however, many things
