@@ -2,7 +2,7 @@
 
 This document describes functional differences between muon and Meson.  None of
 these is a set-in-stone design decision, just a reflection of the current state
-of affairs.
+of affairs.  This document is also not exhaustive, but is a best-effort list.
 
 ## nested subproject promotion
 
@@ -35,6 +35,8 @@ subproject('a')
 # This will now use subprojects/a/subprojects/b, instead of subprojects/b
 subproject('b')
 ```
+
+muon does not perform subproject promotion.
 
 ## malformed escape sequences
 
@@ -72,3 +74,9 @@ In Meson, all backslashes in `custom_target` command line arguments are blindly
 replaced to forward slashes.  This behavior is not present in muon.
 
 Reference: https://github.com/mesonbuild/meson/issues/1564
+
+## `build_target()` functions with empty sources
+
+Meson allows you to create build targets (`executable()`, `shared_library()`,
+`static_library()`, etc.) without specifying any sources.  In muon this is an
+error.
