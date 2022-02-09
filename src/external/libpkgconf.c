@@ -22,7 +22,7 @@ static bool init = false;
 static bool
 error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 {
-	L("libpkgconf: %s", msg);
+	log_plain("dbg libpkgconf: %s", msg);
 	return true;
 }
 
