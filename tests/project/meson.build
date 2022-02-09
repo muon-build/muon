@@ -44,7 +44,7 @@ tests = [
     ['common/43 subproject options', {}],
     ['common/44 pkgconfig-gen', {'should_fail': true}],
     ['common/45 custom install dirs', {}],
-    ['common/46 subproject subproject', {'should_fail': true}],
+    ['common/46 subproject subproject', {}],
     ['common/47 same file name', {}],
     ['common/48 file grabber', {'should_fail': true}],
     ['common/49 custom target', {'should_fail': true}],

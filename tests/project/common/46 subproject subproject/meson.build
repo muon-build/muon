@@ -1,5 +1,9 @@
 project('sub sub', 'c')
 
+# different from meson: force b to be evaulated first, so it is found when a
+# looks it up
+subproject('b')
+
 a = subproject('a')
 lib = a.get_variable('l')
 
