@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include "args.h"
+#include "backend/ninja/alias_target.h"
 #include "lang/object.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
@@ -21,8 +22,8 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, FILE *out)
 
 	obj depstrs;
 	if (!arr_to_args(wk, arr_to_args_alias_target | arr_to_args_build_target
-				| arr_to_args_custom_target | arr_to_args_relativize_paths
-				, tgt->dat.alias_target.depends, &depstrs)) {
+		| arr_to_args_custom_target | arr_to_args_relativize_paths,
+		tgt->dat.alias_target.depends, &depstrs)) {
 		return false;
 	}
 	obj depstr = join_args_ninja(wk, depstrs);
