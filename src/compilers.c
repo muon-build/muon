@@ -570,6 +570,17 @@ linker_posix_args_lib(const char *s)
 	return &args;
 }
 
+/* technically not a posix linker argument, but include it here since it is so
+ * common
+ */
+static const struct args *
+linker_posix_args_shared(void)
+{
+	COMPILER_ARGS({ "-shared" });
+	return &args;
+}
+
+
 static const struct args *
 linker_gcc_args_as_needed(void)
 {
@@ -597,13 +608,6 @@ static const struct args *
 linker_gcc_args_end_group(void)
 {
 	COMPILER_ARGS({ "-Wl,--end-group" });
-	return &args;
-}
-
-static const struct args *
-linker_gcc_args_shared(void)
-{
-	COMPILER_ARGS({ "-shared" });
 	return &args;
 }
 
@@ -665,15 +669,15 @@ build_linkers(void)
 
 	struct linker posix = empty;
 	posix.args.lib = linker_posix_args_lib;
+	posix.args.shared = linker_posix_args_shared;
 
 	struct linker gcc = posix;
 	gcc.args.as_needed = linker_gcc_args_as_needed;
 	gcc.args.no_undefined = linker_gcc_args_no_undefined;
 	gcc.args.start_group = linker_gcc_args_start_group;
 	gcc.args.end_group = linker_gcc_args_end_group;
-	gcc.args.shared = linker_gcc_args_shared,
-	gcc.args.soname = linker_gcc_args_soname,
-	gcc.args.rpath = linker_gcc_args_rpath,
+	gcc.args.soname = linker_gcc_args_soname;
+	gcc.args.rpath = linker_gcc_args_rpath;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
