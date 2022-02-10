@@ -425,7 +425,12 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 	}
 
 	if (flags & env_to_envp_flag_subdir) {
-		push_envp_key_val(wk, &ctx, "MESON_SUBDIR", get_cstr(wk, current_project(wk)->cwd));
+		static char subdir[PATH_MAX];
+		if (!path_relative_to(subdir, PATH_MAX, wk->source_root, get_cstr(wk, current_project(wk)->cwd))) {
+			return false;
+		}
+
+		push_envp_key_val(wk, &ctx, "MESON_SUBDIR", subdir);
 	}
 
 	if (!val) {
