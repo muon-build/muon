@@ -46,7 +46,7 @@ tests = [
     ['common/45 custom install dirs', {}],
     ['common/46 subproject subproject', {}],
     ['common/47 same file name', {}],
-    ['common/48 file grabber', {'should_fail': true}],
+    ['common/48 file grabber', {}],
     ['common/49 custom target', {'should_fail': true}],
     ['common/50 custom target chain', {}],
     ['common/51 run target', {'should_fail': true}],
