@@ -104,6 +104,152 @@ enum build_tgt_flags {
 	build_tgt_flag_pic = 1 << 2,
 };
 
+struct obj_subproject {
+	uint32_t id;
+	bool found;
+};
+
+struct obj_module {
+	enum module module;
+	bool found;
+};
+
+struct obj_array {
+	obj val;                 // obj_any
+	obj next;                 // obj_array
+	obj tail;                 // obj_array
+	uint32_t len;
+	bool have_next;
+};
+
+struct obj_dict {
+	obj key;                 // obj_string
+	obj val;                 // obj_any
+	obj next;                 // obj_array
+	obj tail;                 // obj_array
+	uint32_t len;
+	bool have_next;
+};
+
+struct obj_build_target {
+	obj name;                 // obj_string
+	obj build_name;                 // obj_string
+	obj cwd;                 // obj_string
+	obj build_dir;                 // obj_string
+	obj soname;                 // obj_string
+	obj src;                 // obj_array
+	obj link_with;                 // obj_array
+	obj include_directories;                 // obj_array
+	obj deps;                 // obj_array
+	obj args;                 // obj_dict
+	obj link_args;                 // obj_array
+
+	enum build_tgt_flags flags;
+	enum tgt_type type;
+};
+
+struct obj_custom_target {
+	obj name;                 // obj_string
+	obj args;                 // obj_array
+	obj input;                 // obj_array
+	obj output;                 // obj_array
+	obj depends;                 // obj_array
+	enum custom_target_flags flags;
+};
+
+struct  obj_alias_target {
+	obj name;                 // obj_string
+	obj depends;                 // obj_array
+};
+
+struct obj_dependency {
+	obj name;                 // obj_string
+	obj version;                 // obj_string
+	obj link_with;                 // obj_array
+	obj link_with_not_found;                 // obj_array
+	obj link_args;                 // obj_array
+	obj include_directories;                 // obj_array
+	obj variables;                 // obj_dict
+	obj sources;                 // obj_array
+	obj deps;                 // obj_array
+	obj compile_args;                 // obj_array
+	enum dep_flags flags;
+};
+
+struct obj_feature_opt {
+	enum feature_opt_state state;
+};
+
+struct obj_external_program {
+	bool found;
+	obj full_path;
+	obj ver;
+};
+
+struct obj_external_library {
+	obj full_path;
+	bool found;
+};
+
+struct obj_run_result {
+	obj out;
+	obj err;
+	int32_t status;
+};
+
+struct obj_configuration_data {
+	obj dict;                 // obj_dict
+};
+
+struct obj_test {
+	obj name;                 // obj_string
+	obj exe;                 // obj_string
+	obj args;                 // obj_array
+	obj env;                 // obj_array
+	obj suites;                 // obj_array
+	obj workdir;                 // obj_string
+	bool should_fail;
+};
+
+struct obj_compiler {
+	obj name;
+	obj ver;
+	obj libdirs;
+	enum compiler_type type;
+	enum compiler_language lang;
+};
+
+struct obj_install_target {
+	obj src;
+	obj dest;
+	obj mode;
+	bool build_target;
+};
+
+struct obj_environment {
+	obj env;                 /* dict */
+};
+
+struct obj_include_directory {
+	obj path;
+	bool is_system;
+};
+
+struct obj_option {
+	obj val;
+	enum build_option_type type;
+	obj choices;
+	obj max;
+	obj min;
+};
+
+struct obj_generator {
+	obj output;
+	obj raw_command;
+	obj depfile;
+	bool capture;
+};
+
 struct obj {
 	enum obj_type type;
 	union {
@@ -111,132 +257,26 @@ struct obj {
 		obj file;
 		int64_t num;
 		bool boolean;
-		struct {
-			uint32_t id;
-			bool found;
-		} subproj;
-		struct {
-			enum module module;
-			bool found;
-		} module;
-		struct {
-			obj val; // obj_any
-			obj next; // obj_array
-			obj tail; // obj_array
-			uint32_t len;
-			bool have_next;
-		} arr;
-		struct {
-			obj key; // obj_string
-			obj val; // obj_any
-			obj next; // obj_array
-			obj tail; // obj_array
-			uint32_t len;
-			bool have_next;
-		} dict;
-		struct {
-			obj name; // obj_string
-			obj build_name; // obj_string
-			obj cwd; // obj_string
-			obj build_dir; // obj_string
-			obj soname; // obj_string
-			obj src; // obj_array
-			obj link_with; // obj_array
-			obj include_directories; // obj_array
-			obj deps; // obj_array
-			obj args; // obj_dict
-			obj link_args; // obj_array
-
-			enum build_tgt_flags flags;
-			enum tgt_type type;
-		} tgt;
-		struct {
-			obj name; // obj_string
-			obj args; // obj_array
-			obj input; // obj_array
-			obj output; // obj_array
-			obj depends; // obj_array
-			enum custom_target_flags flags;
-		} custom_target;
-		struct {
-			obj name; // obj_string
-			obj depends; // obj_array
-		} alias_target;
-		struct {
-			obj name; // obj_string
-			obj version; // obj_string
-			obj link_with; // obj_array
-			obj link_with_not_found; // obj_array
-			obj link_args; // obj_array
-			obj include_directories; // obj_array
-			obj variables; // obj_dict
-			obj sources; // obj_array
-			obj deps; // obj_array
-			obj compile_args; // obj_array
-			enum dep_flags flags;
-		} dep;
-		struct {
-			enum feature_opt_state state;
-		} feature_opt;
-		struct {
-			bool found;
-			obj full_path;
-			obj ver;
-		} external_program;
-		struct {
-			obj full_path;
-			bool found;
-		} external_library;
-		struct {
-			obj out;
-			obj err;
-			int32_t status;
-		} run_result;
-		struct {
-			obj dict; // obj_dict
-		} configuration_data;
-		struct {
-			obj name; // obj_string
-			obj exe; // obj_string
-			obj args; // obj_array
-			obj env; // obj_array
-			obj suites; // obj_array
-			obj workdir; // obj_string
-			bool should_fail;
-		} test;
-		struct {
-			obj name;
-			obj ver;
-			obj libdirs;
-			enum compiler_type type;
-			enum compiler_language lang;
-		} compiler;
-		struct {
-			obj src;
-			obj dest;
-			obj mode;
-			bool build_target;
-		} install_target;
-		struct {
-			obj env; /* dict */
-		} environment;
-		struct {
-			obj path;
-			bool is_system;
-		} include_directory;
-		struct {
-			obj val;
-			enum build_option_type type;
-			obj choices;
-			obj max;
-			obj min;
-		} option;
-		struct {
-			obj output;
-			obj raw_command;
-			obj depfile;
-			bool capture;
-		} generator;
+		struct obj_subproject subproj;
+		struct obj_module module;
+		struct obj_array arr;
+		struct obj_dict dict;
+		struct obj_build_target tgt;
+		struct obj_custom_target custom_target;
+		struct obj_alias_target alias_target;
+		struct obj_dependency dep;
+		struct obj_feature_opt feature_opt;
+		struct obj_external_program external_program;
+		struct obj_external_library external_library;
+		struct obj_run_result run_result;
+		struct obj_configuration_data configuration_data;
+		struct obj_test test;
+		struct obj_compiler compiler;
+		struct obj_install_target install_target;
+		struct obj_environment environment;
+		struct obj_include_directory include_directory;
+		struct obj_option option;
+		struct obj_generator generator;
 	} dat;
 };
 
