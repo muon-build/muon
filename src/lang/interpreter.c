@@ -59,10 +59,10 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i)
 bool
 typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
 {
-	struct obj *obj = get_obj(wk, obj_id);
+	enum obj_type got = get_obj_type(wk, obj_id);
 
-	if (type != obj_any && obj->type != type) {
-		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(obj->type));
+	if (type != obj_any && got != type) {
+		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(got));
 		return false;
 	}
 
@@ -72,10 +72,10 @@ typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
 static bool
 typecheck_custom(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type, const char *fmt)
 {
-	struct obj *obj = get_obj(wk, obj_id);
+	enum obj_type got = get_obj_type(wk, obj_id);
 
-	if (type != obj_any && obj->type != type) {
-		interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(obj->type));
+	if (type != obj_any && got != type) {
+		interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(got));
 		return false;
 	}
 
@@ -149,8 +149,10 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 		return false;
 	}
 
-	struct obj *l = get_obj(wk, l_id), *r = get_obj(wk, r_id);
-	switch (l->type) {
+	enum obj_type t = get_obj_type(wk, l_id);
+	/* struct obj *l = get_obj(wk, l_id), *r = get_obj(wk, r_id); */
+
+	switch (t) {
 	case obj_disabler:
 		*obj = disabler_id;
 		return true;
@@ -159,9 +161,9 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = r->dat.num;
+		int64_t i = *get_obj_number(wk, r_id);
 
-		if (!boundscheck(wk, n->r, l->dat.arr.len, &i)) {
+		if (!boundscheck(wk, n->r, get_obj_array(wk, l_id)->len, &i)) {
 			return false;
 		}
 
@@ -186,16 +188,16 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = r->dat.num;
+		int64_t i = *get_obj_number(wk, r_id);
 
-		struct obj *arr = get_obj(wk, l->dat.custom_target.output);
-		assert(arr->type = obj_array);
+		struct obj_custom_target *tgt = get_obj_custom_target(wk, l_id);
+		struct obj_array *arr = get_obj_array(wk, tgt->output);
 
-		if (!boundscheck(wk, n->r, arr->dat.arr.len, &i)) {
+		if (!boundscheck(wk, n->r, arr->len, &i)) {
 			return false;
 		}
 
-		if (!obj_array_index(wk, l->dat.custom_target.output, i, &result)) {
+		if (!obj_array_index(wk, tgt->output, i, &result)) {
 			return false;
 		}
 		break;
@@ -205,17 +207,18 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = r->dat.num;
+		int64_t i = *get_obj_number(wk, r_id);
 
-		if (!boundscheck(wk, n->r, l->dat.str.len, &i)) {
+		const struct str *s = get_str(wk, l_id);
+		if (!boundscheck(wk, n->r, s->len, &i)) {
 			return false;
 		}
 
-		result = make_strn(wk, &l->dat.str.s[i], 1);
+		result = make_strn(wk, &s->s[i], 1);
 		break;
 	}
 	default:
-		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(l->type));
+		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(t));
 		return false;
 	}
 
@@ -259,9 +262,8 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 		return false;
 	}
 
-	struct obj *num = make_obj(wk, obj, obj_number);
-	num->dat.num = -get_obj(wk, l_id)->dat.num;
-
+	make_obj(wk, obj, obj_number);
+	*get_obj_number(wk, *obj) = -*get_obj_number(wk, l_id);
 	return true;
 }
 
@@ -282,7 +284,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 		return true;
 	}
 
-	switch (get_obj(wk, l_id)->type) {
+	switch (get_obj_type(wk, l_id)) {
 	case obj_string: {
 		uint32_t res;
 
@@ -331,8 +333,8 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			return false;
 		}
 
-		l = get_obj(wk, l_id)->dat.num;
-		r = get_obj(wk, r_id)->dat.num;
+		l = *get_obj_number(wk, l_id);
+		r = *get_obj_number(wk, r_id);
 
 		switch (type) {
 		case arith_add:
@@ -363,7 +365,8 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			return false;
 		}
 
-		make_obj(wk, obj_id, obj_number)->dat.num = res;
+		make_obj(wk, obj_id, obj_number);
+		*get_obj_number(wk, *obj_id) = res;
 		break;
 	}
 	case obj_array: {
@@ -375,7 +378,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 				obj_array_dup(wk, l_id, obj_id);
 			}
 
-			if (get_obj(wk, r_id)->type == obj_array) {
+			if (get_obj_type(wk, r_id) == obj_array) {
 				obj dup;
 				obj_array_dup(wk, r_id, &dup);
 				obj_array_extend(wk, *obj_id, dup);
@@ -404,7 +407,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	return true;
 err1:
 	assert(type < 5);
-	interp_error(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj(wk, l_id)->type), "+-%*/"[type]);
+	interp_error(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj_type(wk, l_id)), "+-%*/"[type]);
 	return false;
 }
 
@@ -417,7 +420,7 @@ interp_assign(struct workspace *wk, struct node *n, uint32_t *_)
 		return false;
 	}
 
-	switch (get_obj(wk, rhs)->type) {
+	switch (get_obj_type(wk, rhs)) {
 	case obj_environment:
 	case obj_configuration_data: {
 		obj cloned;
@@ -463,9 +466,10 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	struct node *n = get_node(wk->ast, n_id);
 
 	if (n->type == node_empty) {
-		struct obj *arr = make_obj(wk, obj, obj_array);
-		arr->dat.arr.len = 0;
-		arr->dat.arr.tail = *obj;
+		make_obj(wk, obj, obj_array);
+		struct obj_array *arr = get_obj_array(wk, *obj);
+		arr->len = 0;
+		arr->tail = *obj;
 		return true;
 	}
 
@@ -486,19 +490,19 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		}
 	}
 
-	struct obj *arr = make_obj(wk, obj, obj_array);
-	arr->dat.arr.val = l;
+	make_obj(wk, obj, obj_array);
+	struct obj_array *arr = get_obj_array(wk, *obj);
+	arr->val = l;
 
-	if ((arr->dat.arr.have_next = have_c)) {
-		struct obj *arr_r = get_obj(wk, r);
-		assert(arr_r->type == obj_array);
+	if ((arr->have_next = have_c)) {
+		struct obj_array *arr_r = get_obj_array(wk, r);
 
-		arr->dat.arr.len = arr_r->dat.arr.len + 1;
-		arr->dat.arr.tail = arr_r->dat.arr.tail;
-		arr->dat.arr.next = r;
+		arr->len = arr_r->len + 1;
+		arr->tail = arr_r->tail;
+		arr->next = r;
 	} else {
-		arr->dat.arr.len = 1;
-		arr->dat.arr.tail = *obj;
+		arr->len = 1;
+		arr->tail = *obj;
 	}
 
 	return true;
@@ -512,9 +516,10 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 	struct node *n = get_node(wk->ast, n_id);
 
 	if (n->type == node_empty) {
-		struct obj *dict = make_obj(wk, obj, obj_dict);
-		dict->dat.dict.len = 0;
-		dict->dat.dict.tail = *obj;
+		make_obj(wk, obj, obj_dict);
+		struct obj_dict *dict = get_obj_dict(wk, *obj);
+		dict->len = 0;
+		dict->tail = *obj;
 		return true;
 	}
 
@@ -545,25 +550,25 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		}
 	}
 
-	struct obj *dict = make_obj(wk, obj, obj_dict);
-	dict->dat.dict.key = key;
-	dict->dat.dict.val = value;
+	make_obj(wk, obj, obj_dict);
+	struct obj_dict *dict = get_obj_dict(wk, *obj);
+	dict->key = key;
+	dict->val = value;
 
-	if ((dict->dat.dict.have_next = have_c)) {
-		struct obj *dict_r = get_obj(wk, tail);
-		assert(dict_r->type == obj_dict);
+	if ((dict->have_next = have_c)) {
+		struct obj_dict *dict_r = get_obj_dict(wk, tail);
 
 		if (obj_dict_in(wk, tail, key)) {
 			interp_error(wk, n->l, "key %o is duplicated", key);
 			return false;
 		}
 
-		dict->dat.dict.len = dict_r->dat.dict.len + 1;
-		dict->dat.dict.tail = dict_r->dat.dict.tail;
-		dict->dat.dict.next = tail;
+		dict->len = dict_r->len + 1;
+		dict->tail = dict_r->tail;
+		dict->next = tail;
 	} else {
-		dict->dat.dict.len = 1;
-		dict->dat.dict.tail = *obj;
+		dict->len = 1;
+		dict->tail = *obj;
 	}
 
 	return true;
@@ -600,7 +605,6 @@ static bool
 interp_not(struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
 	uint32_t obj_l_id;
-	struct obj *obj;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
@@ -611,8 +615,8 @@ interp_not(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	obj = make_obj(wk, obj_id, obj_bool);
-	obj->dat.boolean = !get_obj(wk, obj_l_id)->dat.boolean;
+	make_obj(wk, obj_id, obj_bool);
+	*get_obj_bool(wk, *obj_id) = !*get_obj_bool(wk, obj_l_id);
 	return true;
 }
 
@@ -620,7 +624,6 @@ static bool
 interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
 	uint32_t obj_l_id, obj_r_id;
-	struct obj *obj;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
@@ -631,13 +634,13 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	if (n->type == node_and && !get_obj(wk, obj_l_id)->dat.boolean) {
-		obj = make_obj(wk, obj_id, obj_bool);
-		obj->dat.boolean = false;
+	if (n->type == node_and && !*get_obj_bool(wk, obj_l_id)) {
+		make_obj(wk, obj_id, obj_bool);
+		*get_obj_bool(wk, *obj_id) = false;
 		return true;
-	} else if (n->type == node_or && get_obj(wk, obj_l_id)->dat.boolean) {
-		obj = make_obj(wk, obj_id, obj_bool);
-		obj->dat.boolean = true;
+	} else if (n->type == node_or && *get_obj_bool(wk, obj_l_id)) {
+		make_obj(wk, obj_id, obj_bool);
+		*get_obj_bool(wk, *obj_id) = true;
 		return true;
 	}
 
@@ -650,8 +653,8 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	obj = make_obj(wk, obj_id, obj_bool);
-	obj->dat.boolean = get_obj(wk, obj_r_id)->dat.boolean;
+	make_obj(wk, obj_id, obj_bool);
+	*get_obj_bool(wk, *obj_id) = *get_obj_bool(wk, obj_r_id);
 	return true;
 }
 
@@ -660,7 +663,6 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
 	bool res;
 	uint32_t obj_l_id, obj_r_id;
-	struct obj *obj;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
@@ -683,7 +685,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	case comp_in:
 	case comp_not_in:
-		switch (get_obj(wk, obj_r_id)->type) {
+		switch (get_obj_type(wk, obj_r_id)) {
 		case obj_array:
 			res = obj_array_in(wk, obj_r_id, obj_l_id);
 			break;
@@ -695,7 +697,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 			res = obj_dict_in(wk, obj_r_id, obj_l_id);
 			break;
 		default:
-			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj(wk, obj_r_id)->type));
+			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));
 			return false;
 		}
 
@@ -713,8 +715,8 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 			return false;
 		}
 
-		int64_t a = get_obj(wk, obj_l_id)->dat.num,
-			b = get_obj(wk, obj_r_id)->dat.num;
+		int64_t a = *get_obj_number(wk, obj_l_id),
+			b = *get_obj_number(wk, obj_r_id);
 
 		switch (n->subtype) {
 		case comp_lt:
@@ -737,8 +739,8 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		break;
 	}
 
-	obj = make_obj(wk, obj_id, obj_bool);
-	obj->dat.boolean = res;
+	make_obj(wk, obj_id, obj_bool);
+	*get_obj_bool(wk, *obj_id) = res;
 	return true;
 }
 
@@ -746,21 +748,17 @@ static bool
 interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
 	bool cond;
-	{
-		uint32_t cond_id;
-		if (!interp_node(wk, n->l, &cond_id)) {
-			return false;
-		} else if (cond_id == disabler_id) {
-			*obj_id = disabler_id;
-			return true;
-		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
-			return false;
-		}
-
-		struct obj *cond_obj = get_obj(wk, cond_id);
-		cond = cond_obj->dat.boolean;
+	uint32_t cond_id;
+	if (!interp_node(wk, n->l, &cond_id)) {
+		return false;
+	} else if (cond_id == disabler_id) {
+		*obj_id = disabler_id;
+		return true;
+	} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
+		return false;
 	}
 
+	cond = *get_obj_bool(wk, cond_id);
 
 	uint32_t node = cond ? n->r : n->c;
 
@@ -785,8 +783,7 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 			return false;
 		}
 
-		struct obj *cond_obj = get_obj(wk, cond_id);
-		cond = cond_obj->dat.boolean;
+		cond = *get_obj_bool(wk, cond_id);
 		break;
 	}
 	case if_else:
@@ -878,7 +875,7 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 
 	struct node *args = get_node(wk->ast, n->l);
 
-	switch (get_obj(wk, iterable)->type) {
+	switch (get_obj_type(wk, iterable)) {
 	case obj_array: {
 		if (args->chflg & node_child_r) {
 			interp_error(wk, n->l, "array foreach needs exactly one variable to set");
@@ -919,7 +916,7 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 		break;
 	}
 	default:
-		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj(wk, iterable)->type));
+		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable)));
 		return false;
 	}
 
@@ -973,7 +970,6 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	}
 
 	bool ret = false;
-	struct obj *obj;
 	*obj_id = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
@@ -991,8 +987,8 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	switch (n->type) {
 	/* literals */
 	case node_bool:
-		obj = make_obj(wk, obj_id, obj_bool);
-		obj->dat.boolean = n->subtype;
+		make_obj(wk, obj_id, obj_bool);
+		*get_obj_bool(wk, *obj_id) = n->subtype;
 		ret = true;
 		break;
 	case node_string:
@@ -1014,8 +1010,8 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = true;
 		break;
 	case node_number:
-		obj = make_obj(wk, obj_id, obj_number);
-		obj->dat.num = n->dat.n;
+		make_obj(wk, obj_id, obj_number);
+		*get_obj_number(wk, *obj_id) = n->dat.n;
 		ret = true;
 		break;
 

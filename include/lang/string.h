@@ -15,7 +15,6 @@ bool str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
 
 bool str_has_null(const struct str *ss);
 
-const struct str *get_str(struct workspace *wk, obj s);
 const char *get_cstr(struct workspace *wk, obj s);
 obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);

@@ -9,23 +9,32 @@
 #include "lang/types.h"
 
 enum obj_type {
-	obj_any, // used for argument type checking
-	obj_default,
-	obj_null,
-	obj_string,
-	obj_number,
-	obj_compiler,
+	/* meta object types */
+	obj_any = 0, // used for argument type checking
+	obj_default, // used for function lookup
+
+	/* singleton object types */
 	obj_meson,
+	obj_disabler,
+	obj_machine, // this won't be a singleton object when cross compilaton is implemented
+
+	/* simple object types */
+	obj_null,
+	obj_bool,
+	obj_number,
+	obj_file,
+
+	/* complex object types */
+	_obj_aos_start,
+	obj_string = _obj_aos_start,
 	obj_array,
 	obj_dict,
-	obj_bool,
-	obj_file,
+	obj_compiler,
 	obj_build_target,
 	obj_custom_target,
 	obj_subproject,
 	obj_dependency,
 	obj_feature_opt,
-	obj_machine,
 	obj_external_program,
 	obj_external_library,
 	obj_run_result,
@@ -36,16 +45,19 @@ enum obj_type {
 	obj_environment,
 	obj_include_directory,
 	obj_option,
-	obj_disabler,
 	obj_generator,
 	obj_alias_target,
 
 	obj_type_count,
 
+	/* function argument typechecking object types. */
 	ARG_TYPE_NULL     = 1000,
 	ARG_TYPE_GLOB     = 1001,
 	ARG_TYPE_ARRAY_OF = 1 << 20,
 };
+
+/* _Static_assert(ARG_TYPE_NULL > obj_type_count, "increase value of ARG_TYPE_NULL"); */
+/* _Static_assert(!(ARG_TYPE_ARRAY_OF & ARG_TYPE_GLOB), "increase value of ARG_TYPE_GLOB"); */
 
 enum tgt_type {
 	tgt_executable = 1 << 0,
@@ -253,17 +265,16 @@ struct obj_generator {
 struct obj {
 	enum obj_type type;
 	union {
-		struct str str;
-		obj file;
-		int64_t num;
 		bool boolean;
-		struct obj_subproject subproj;
+		int64_t num;
+		obj file;
+		struct str str;
 		struct obj_module module;
 		struct obj_array arr;
 		struct obj_dict dict;
 		struct obj_build_target tgt;
 		struct obj_custom_target custom_target;
-		struct obj_alias_target alias_target;
+		struct obj_subproject subproj;
 		struct obj_dependency dep;
 		struct obj_feature_opt feature_opt;
 		struct obj_external_program external_program;
@@ -277,8 +288,46 @@ struct obj {
 		struct obj_include_directory include_directory;
 		struct obj_option option;
 		struct obj_generator generator;
+		struct obj_alias_target alias_target;
 	} dat;
 };
+
+struct obj *make_obj(struct workspace *wk, obj *id, enum obj_type type);
+enum obj_type get_obj_type(struct workspace *wk, obj id);
+
+bool *get_obj_bool(struct workspace *wk, obj o);
+int64_t *get_obj_number(struct workspace *wk, obj o);
+obj *get_obj_file(struct workspace *wk, obj o);
+const char *get_file_path(struct workspace *wk, obj o);
+const struct str *get_str(struct workspace *wk, obj s);
+
+// TODO: remove this
+struct obj * get_obj(struct workspace *wk, obj id);
+
+#define OBJ_GETTER(type) struct type *get_ ## type(struct workspace *wk, obj o)
+
+OBJ_GETTER(obj_array);
+OBJ_GETTER(obj_dict);
+OBJ_GETTER(obj_compiler);
+OBJ_GETTER(obj_build_target);
+OBJ_GETTER(obj_custom_target);
+OBJ_GETTER(obj_subproject);
+OBJ_GETTER(obj_dependency);
+OBJ_GETTER(obj_feature_opt);
+OBJ_GETTER(obj_external_program);
+OBJ_GETTER(obj_external_library);
+OBJ_GETTER(obj_run_result);
+OBJ_GETTER(obj_configuration_data);
+OBJ_GETTER(obj_test);
+OBJ_GETTER(obj_module);
+OBJ_GETTER(obj_install_target);
+OBJ_GETTER(obj_environment);
+OBJ_GETTER(obj_include_directory);
+OBJ_GETTER(obj_option);
+OBJ_GETTER(obj_generator);
+OBJ_GETTER(obj_alias_target);
+
+#undef OBJ_GETTER
 
 const char *obj_type_to_s(enum obj_type t);
 void obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len);

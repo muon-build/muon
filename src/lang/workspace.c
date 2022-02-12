@@ -10,12 +10,6 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 
-struct obj *
-get_obj(struct workspace *wk, uint32_t id)
-{
-	return bucket_array_get(&wk->objs, id);
-}
-
 bool
 get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_id)
 {
@@ -31,21 +25,6 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 	} else {
 		return false;
 	}
-}
-
-struct obj *
-make_obj(struct workspace *wk, uint32_t *id, enum obj_type type)
-{
-	*id = wk->objs.len;
-	return bucket_array_push(&wk->objs, &(struct obj){ .type = type });
-}
-
-const char *
-wk_file_path(struct workspace *wk, uint32_t id)
-{
-	struct obj *obj = get_obj(wk, id);
-	assert(obj->type == obj_file);
-	return get_cstr(wk, obj->dat.file);
 }
 
 struct obj *
@@ -125,8 +104,6 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 {
 	struct push_install_targets_ctx *ctx = _ctx;
 
-	assert(get_obj(wk, val_id)->type == obj_file);
-
 	obj install_dir;
 
 	if (ctx->install_dirs_is_arr) {
@@ -138,17 +115,17 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	++ctx->i;
 
-	struct obj *d = get_obj(wk, install_dir);
+	enum obj_type dt = get_obj_type(wk, install_dir);
 
-	if (d->type == obj_bool && !d->dat.boolean) {
+	if (dt == obj_bool && !*get_obj_bool(wk, install_dir)) {
 		// skip if we get passed `false` for an install dir
 		return ir_cont;
-	} else if (d->type != obj_string) {
-		LOG_E("install_dir values must be strings, got %s", obj_type_to_s(d->type));
+	} else if (dt != obj_string) {
+		LOG_E("install_dir values must be strings, got %s", obj_type_to_s(dt));
 		return ir_err;
 	}
 
-	if (!push_install_target_install_dir(wk, get_obj(wk, val_id)->dat.file, install_dir, ctx->install_mode)) {
+	if (!push_install_target_install_dir(wk, *get_obj_file(wk, val_id), install_dir, ctx->install_mode)) {
 		return ir_err;
 	}
 	return ir_cont;
@@ -161,17 +138,18 @@ push_install_targets(struct workspace *wk, obj filenames,
 	struct push_install_targets_ctx ctx = {
 		.install_dirs = install_dirs,
 		.install_mode = install_mode,
-		.install_dirs_is_arr = get_obj(wk, install_dirs)->type == obj_array,
+		.install_dirs_is_arr = get_obj_type(wk, install_dirs) == obj_array,
 	};
 
-	assert(get_obj(wk, filenames)->type == obj_array);
-	assert(ctx.install_dirs_is_arr || get_obj(wk, install_dirs)->type == obj_string);
+	assert(ctx.install_dirs_is_arr || get_obj_type(wk, install_dirs) == obj_string);
 
-	if (ctx.install_dirs_is_arr
-	    && get_obj(wk, install_dirs)->dat.arr.len != get_obj(wk, filenames)->dat.arr.len) {
-		LOG_E("missing/extra install_dirs");
-		return false;
-
+	if (ctx.install_dirs_is_arr) {
+		struct obj_array *a1 = get_obj_array(wk, filenames);
+		struct obj_array *a2 = get_obj_array(wk, install_dirs);
+		if (a1->len != a2->len) {
+			LOG_E("missing/extra install_dirs");
+			return false;
+		}
 	}
 
 	return obj_array_foreach(wk, filenames, &ctx, push_install_targets_iter);
@@ -378,8 +356,8 @@ workspace_print_summaries(struct workspace *wk)
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
 
-		struct obj *d = get_obj(wk, proj->summary);
-		if (!d->dat.dict.len) {
+		struct obj_dict *d = get_obj_dict(wk, proj->summary);
+		if (!d->len) {
 			continue;
 		}
 

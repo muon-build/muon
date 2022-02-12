@@ -413,7 +413,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 			assert(e);
 
 			char buf[PATH_MAX], *c;
-			if (!path_basename(buf, PATH_MAX, wk_file_path(wk, e))) {
+			if (!path_basename(buf, PATH_MAX, get_file_path(wk, e))) {
 				return false;
 			}
 
@@ -429,7 +429,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 			}
 
 			char buf[PATH_MAX];
-			if (!path_basename(buf, PATH_MAX, wk_file_path(wk, e))) {
+			if (!path_basename(buf, PATH_MAX, get_file_path(wk, e))) {
 				return false;
 			}
 
@@ -562,7 +562,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		struct source src = { 0 };
-		if (!fs_read_entire_file(wk_file_path(wk, input), &src)) {
+		if (!fs_read_entire_file(get_file_path(wk, input), &src)) {
 			return false;
 		}
 
@@ -602,7 +602,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			const char *path;
 			switch (get_obj(wk, input)->type) {
 			case obj_file:
-				path = wk_file_path(wk, input);
+				path = get_file_path(wk, input);
 				break;
 			case obj_string:
 				path = get_cstr(wk, input);

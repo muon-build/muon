@@ -72,17 +72,6 @@ str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 	return true;
 }
 
-const struct str *
-get_str(struct workspace *wk, obj s)
-{
-	struct obj *obj = get_obj(wk, s);
-	if (obj->type != obj_string) {
-		obj_fprintf(wk, log_file(), "non-string: %o\n", s);
-	}
-	assert(obj->type == obj_string);
-	return &obj->dat.str;
-}
-
 bool
 str_has_null(const struct str *ss)
 {
@@ -149,14 +138,17 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 		p = bucket_array_pushn(&wk->chrs, NULL, 0, new_len);
 	}
 
-	struct obj *str = make_obj(wk, s, obj_string);
-	str->dat.str = (struct str) {
+	make_obj(wk, s, obj_string);
+
+	struct str *str = (struct str*)get_str(wk, *s);
+
+	*str = (struct str) {
 		.s = p,
 		.len = len,
 		.flags = f,
 	};
 
-	return &str->dat.str;
+	return str;
 }
 
 obj

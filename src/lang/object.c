@@ -11,6 +11,98 @@
 #include "lang/parser.h"
 #include "log.h"
 
+struct obj *
+get_obj(struct workspace *wk, obj id)
+{
+	assert(false);
+	return NULL;
+}
+
+
+static void *
+get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
+{
+	struct obj *o = bucket_array_get(&wk->objs, id);
+	assert(o->type == type);
+	return &o->dat;
+}
+
+enum obj_type
+get_obj_type(struct workspace *wk, obj id)
+{
+	struct obj *o = bucket_array_get(&wk->objs, id);
+	return o->type;
+}
+
+bool *
+get_obj_bool(struct workspace *wk, obj o)
+{
+	return get_obj_internal(wk, o, obj_bool);
+}
+
+int64_t *
+get_obj_number(struct workspace *wk, obj o)
+{
+	return get_obj_internal(wk, o, obj_number);
+}
+
+obj *
+get_obj_file(struct workspace *wk, obj o)
+{
+	return get_obj_internal(wk, o, obj_number);
+}
+
+const char *
+get_file_path(struct workspace *wk, obj o)
+{
+	return get_cstr(wk, *get_obj_file(wk, o));
+}
+
+const struct str *
+get_str(struct workspace *wk, obj s)
+{
+	return get_obj_internal(wk, s, obj_string);
+}
+
+
+#define OBJ_GETTER(type) \
+	struct type * \
+	get_ ## type(struct workspace *wk, obj o) \
+	{ \
+		return get_obj_internal(wk, o, type); \
+	}
+
+OBJ_GETTER(obj_array)
+OBJ_GETTER(obj_dict)
+OBJ_GETTER(obj_compiler)
+OBJ_GETTER(obj_build_target)
+OBJ_GETTER(obj_custom_target)
+OBJ_GETTER(obj_subproject)
+OBJ_GETTER(obj_dependency)
+OBJ_GETTER(obj_feature_opt)
+OBJ_GETTER(obj_external_program)
+OBJ_GETTER(obj_external_library)
+OBJ_GETTER(obj_run_result)
+OBJ_GETTER(obj_configuration_data)
+OBJ_GETTER(obj_test)
+OBJ_GETTER(obj_module)
+OBJ_GETTER(obj_install_target)
+OBJ_GETTER(obj_environment)
+OBJ_GETTER(obj_include_directory)
+OBJ_GETTER(obj_option)
+OBJ_GETTER(obj_generator)
+OBJ_GETTER(obj_alias_target)
+
+#undef OBJ_GETTER
+
+struct obj *
+make_obj(struct workspace *wk, uint32_t * id, enum obj_type type)
+{
+	*id = wk->objs.len;
+	bucket_array_push(&wk->objs, &(struct obj){ .type = type });
+	return NULL;
+}
+
 const char *
 obj_type_to_s(enum obj_type t)
 {
@@ -85,33 +177,35 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		return true;
 	}
 
-	struct obj *l = get_obj(wk, left),
-		   *r = get_obj(wk, right);
-
-	if (l->type != r->type) {
+	enum obj_type t = get_obj_type(wk, left);
+	if (t != get_obj_type(wk, left)) {
 		return false;
 	}
 
-	switch (l->type) {
+	switch (t) {
 	case obj_string:
 		return str_eql(get_str(wk, left), get_str(wk, right));
 	case obj_file:
-		return str_eql(get_str(wk, l->dat.file), get_str(wk, r->dat.file));
+		return str_eql(get_str(wk, *get_obj_file(wk, left)),
+			get_str(wk, *get_obj_file(wk, right)));
 	case obj_number:
-		return l->dat.num == r->dat.num;
+		return get_obj_number(wk, left) == get_obj_number(wk, right);
 	case obj_bool:
-		return l->dat.boolean == r->dat.boolean;
+		return get_obj_bool(wk, left) == get_obj_bool(wk, right);
 	case obj_array: {
 		struct obj_equal_iter_ctx ctx = {
 			.other_container = right,
 		};
 
-		return l->dat.arr.len == r->dat.arr.len
+		struct obj_array *l = get_obj_array(wk, left),
+				 *r = get_obj_array(wk, right);
+
+		return l->len == r->len
 		       && obj_array_foreach(wk, left, &ctx, obj_equal_array_iter);
 	}
 	break;
 	case obj_dict:
-		LOG_W("TODO: compare %s", obj_type_to_s(l->type));
+		LOG_W("TODO: compare %s", obj_type_to_s(t));
 		return false;
 	default:
 		return false;
@@ -125,15 +219,14 @@ obj_equal(struct workspace *wk, obj left, obj right)
 bool
 obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb)
 {
-	struct obj *a = get_obj(wk, arr);
-	assert(a->type == obj_array);
+	struct obj_array *a = get_obj_array(wk, arr);
 
-	if (!a->dat.arr.len) {
+	if (!a->len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, a->dat.arr.val)) {
+		switch (cb(wk, ctx, a->val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -142,11 +235,11 @@ obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator c
 			return false;
 		}
 
-		if (!a->dat.arr.have_next) {
+		if (!a->have_next) {
 			break;
 		}
 
-		a = get_obj(wk, a->dat.arr.next);
+		a = get_obj_array(wk, a->next);
 	}
 
 	return true;
@@ -162,7 +255,7 @@ obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_array_foreach_flat_ctx *ctx = _ctx;
 
-	if (get_obj(wk, val)->type == obj_array) {
+	if (get_obj_type(wk, val) == obj_array) {
 		if (!obj_array_foreach(wk, val, ctx, obj_array_foreach_flat_iter)) {
 			return ir_err;
 		} else {
@@ -190,30 +283,29 @@ void
 obj_array_push(struct workspace *wk, obj arr, obj child)
 {
 	obj child_arr;
-	struct obj *a, *tail, *c;
+	struct obj_array *a, *tail, *c;
 
-	if (!(a = get_obj(wk, arr))->dat.arr.len) {
-		a->dat.arr.tail = arr;
-		a->dat.arr.len = 1;
-		a->dat.arr.val = child;
-		a->dat.arr.have_next = false;
+	if (!(a = get_obj_array(wk, arr))->len) {
+		a->tail = arr;
+		a->len = 1;
+		a->val = child;
+		a->have_next = false;
 		return;
 	}
 
-	c = make_obj(wk, &child_arr, obj_array);
-	c->dat.arr.val = child;
+	make_obj(wk, &child_arr, obj_array);
+	c = get_obj_array(wk, child_arr);
+	c->val = child;
 
-	a = get_obj(wk, arr);
-	assert(a->type == obj_array);
+	a = get_obj_array(wk, arr);
+	tail = get_obj_array(wk, a->tail);
+	assert(!tail->have_next);
 
-	tail = get_obj(wk, a->dat.arr.tail);
-	assert(tail->type == obj_array);
-	assert(!tail->dat.arr.have_next);
-	tail->dat.arr.have_next = true;
-	tail->dat.arr.next = child_arr;
+	tail->have_next = true;
+	tail->next = child_arr;
 
-	a->dat.arr.tail = child_arr;
-	++a->dat.arr.len;
+	a->tail = child_arr;
+	++a->len;
 }
 
 struct obj_array_in_iter_ctx {
@@ -264,7 +356,7 @@ obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 {
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
 
-	assert(i >= 0 && i < get_obj(wk, arr)->dat.arr.len);
+	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
 
 	if (!obj_array_foreach(wk, arr, &ctx, obj_array_index_iter)) {
 		LOG_E("obj_array_index failed");
@@ -304,29 +396,25 @@ obj_array_dup(struct workspace *wk, obj arr, obj *res)
 void
 obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 {
-	struct obj *a, *b, *tail;
+	struct obj_array *a, *b, *tail;
 
-	assert(get_obj(wk, arr)->type == obj_array
-		&& get_obj(wk, arr2)->type == obj_array);
-
-	if (!(b = get_obj(wk, arr2))->dat.arr.len) {
+	if (!(b = get_obj_array(wk, arr2))->len) {
 		return;
 	}
 
-	if (!(a = get_obj(wk, arr))->dat.arr.len) {
+	if (!(a = get_obj_array(wk, arr))->len) {
 		struct obj_array_dup_ctx ctx = { .arr = &arr };
 		obj_array_foreach(wk, arr2, &ctx, obj_array_dup_iter);
 		return;
 	}
 
-	tail = get_obj(wk, a->dat.arr.tail);
-	assert(tail->type == obj_array);
-	assert(!tail->dat.arr.have_next);
-	tail->dat.arr.have_next = true;
-	tail->dat.arr.next = arr2;
+	tail = get_obj_array(wk, a->tail);
+	assert(!tail->have_next);
+	tail->have_next = true;
+	tail->next = arr2;
 
-	a->dat.arr.tail = b->dat.arr.tail;
-	a->dat.arr.len += b->dat.arr.len;
+	a->tail = b->tail;
+	a->len += b->len;
 }
 
 struct obj_array_join_ctx {
@@ -391,7 +479,7 @@ obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 		ctx.len = obj_array_flat_len(wk, arr);
 		return obj_array_foreach_flat(wk, arr, &ctx, obj_array_join_iter);
 	} else {
-		ctx.len = get_obj(wk, arr)->dat.arr.len;
+		ctx.len = get_obj_array(wk, arr)->len;
 		return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
 	}
 }
@@ -399,19 +487,18 @@ obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 void
 obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 {
-	assert(get_obj(wk, arr)->type == obj_array);
-	assert(i >= 0 && i < get_obj(wk, arr)->dat.arr.len);
+	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
 
 	uint32_t j = 0;
 
 	while (true) {
 		if (j == i) {
-			get_obj(wk, arr)->dat.arr.val = v;
+			get_obj_array(wk, arr)->val = v;
 			return;
 		}
 
-		assert(get_obj(wk, arr)->dat.arr.have_next);
-		arr = get_obj(wk, arr)->dat.arr.next;
+		assert(get_obj_array(wk, arr)->have_next);
+		arr = get_obj_array(wk, arr)->next;
 		++j;
 	}
 
@@ -439,10 +526,12 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 bool
 obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 {
-	struct obj *v = get_obj(wk, val);
+	enum obj_type t = get_obj_type(wk, val);
 
-	if (v->type == obj_array) {
-		if (v->dat.arr.len == 1) {
+	if (t) {
+		struct obj_array *v = get_obj_array(wk, val);
+
+		if (v->len == 1) {
 			obj_array_index(wk, val, 0, res);
 		} else {
 			return false;
@@ -461,14 +550,12 @@ obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 bool
 obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb)
 {
-	assert(get_obj(wk, dict)->type == obj_dict);
-
-	if (!get_obj(wk, dict)->dat.dict.len) {
+	if (!get_obj_dict(wk, dict)->len) {
 		return true;
 	}
 
 	while (true) {
-		switch (cb(wk, ctx, get_obj(wk, dict)->dat.dict.key, get_obj(wk, dict)->dat.dict.val)) {
+		switch (cb(wk, ctx, get_obj_dict(wk, dict)->key, get_obj_dict(wk, dict)->val)) {
 		case ir_cont:
 			break;
 		case ir_done:
@@ -477,10 +564,10 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 			return false;
 		}
 
-		if (!get_obj(wk, dict)->dat.dict.have_next) {
+		if (!get_obj_dict(wk, dict)->have_next) {
 			break;
 		}
-		dict = get_obj(wk, dict)->dat.dict.next;
+		dict = get_obj_dict(wk, dict)->next;
 	}
 
 	return true;
@@ -571,20 +658,20 @@ _obj_dict_index(struct workspace *wk, obj dict,
 	obj **res)
 
 {
-	if (!get_obj(wk, dict)->dat.dict.len) {
+	if (!get_obj_dict(wk, dict)->len) {
 		return false;
 	}
 
 	while (true) {
-		if (comp(wk, key, get_obj(wk, dict)->dat.dict.key)) {
-			*res = &get_obj(wk, dict)->dat.dict.val;
+		if (comp(wk, key, get_obj_dict(wk, dict)->key)) {
+			*res = &get_obj_dict(wk, dict)->val;
 			return true;
 		}
 
-		if (!get_obj(wk, dict)->dat.dict.have_next) {
+		if (!get_obj_dict(wk, dict)->have_next) {
 			break;
 		}
-		dict = get_obj(wk, dict)->dat.dict.next;
+		dict = get_obj_dict(wk, dict)->next;
 	}
 
 	return false;
@@ -627,17 +714,15 @@ static void
 _obj_dict_set(struct workspace *wk, obj dict,
 	obj_dict_key_comparison_func comp, obj key, obj val)
 {
-	struct obj *d; //, *tail;
+	struct obj_dict *d; //, *tail;
 	obj tail;
 
-	assert(get_obj(wk, dict)->type == obj_dict);
-
 	/* empty dict */
-	if (!(d = get_obj(wk, dict))->dat.dict.len) {
-		d->dat.dict.key = key;
-		d->dat.dict.val = val;
-		d->dat.dict.tail = dict;
-		++d->dat.dict.len;
+	if (!(d = get_obj_dict(wk, dict))->len) {
+		d->key = key;
+		d->val = val;
+		d->tail = dict;
+		++d->len;
 		return;
 	}
 
@@ -649,20 +734,20 @@ _obj_dict_set(struct workspace *wk, obj dict,
 	}
 
 	/* set new value */
-	d = make_obj(wk, &tail, obj_dict);
-	d->dat.dict.key = key;
-	d->dat.dict.val = val;
+	make_obj(wk, &tail, obj_dict);
+	d = get_obj_dict(wk, tail);
+	d->key = key;
+	d->val = val;
 
-	d = get_obj(wk, get_obj(wk, dict)->dat.dict.tail);
-	assert(d->type == obj_dict);
-	assert(!d->dat.dict.have_next);
-	d->dat.dict.have_next = true;
-	d->dat.dict.next = tail;
+	d = get_obj_dict(wk, get_obj_dict(wk, dict)->tail);
+	assert(!d->have_next);
+	d->have_next = true;
+	d->next = tail;
 
-	d = get_obj(wk, dict);
+	d = get_obj_dict(wk, dict);
 
-	d->dat.dict.tail = tail;
-	++d->dat.dict.len;
+	d->tail = tail;
+	++d->len;
 }
 
 void
@@ -735,9 +820,7 @@ obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, obj key, obj val)
 bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
-	enum obj_type t = get_obj(wk_src, val)->type;
-	struct obj *o;
-
+	enum obj_type t = get_obj_type(wk_src, val);
 	/* L("cloning %s", obj_type_to_s(t)); */
 
 	switch (t) {
@@ -746,8 +829,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	case obj_number:
 	case obj_bool: {
-		o = make_obj(wk_dest, ret, t);
-		*o = *get_obj(wk_src, val);
+		make_obj(wk_dest, ret, t);
+		*get_obj_bool(wk_dest, *ret) = get_obj_bool(wk_src, val);
 		return true;
 	}
 	case obj_string: {
@@ -755,8 +838,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_file:
-		o = make_obj(wk_dest, ret, t);
-		o->dat.file = str_clone(wk_src, wk_dest, get_obj(wk_src, val)->dat.file);
+		make_obj(wk_dest, ret, t);
+		*get_obj_file(wk_dest, *ret) = str_clone(wk_src, wk_dest, *get_obj_file(wk_src, val));
 		return true;
 	case obj_array:
 		make_obj(wk_dest, ret, t);
@@ -769,93 +852,93 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 			.container = *ret, .wk_dest = wk_dest
 		}, obj_clone_dict_iter);
 	case obj_test: {
-		struct obj *test = get_obj(wk_src, val);
-
-		o = make_obj(wk_dest, ret, t);
-		o->dat.test.name = str_clone(wk_src, wk_dest, test->dat.test.name);
-		o->dat.test.exe = str_clone(wk_src, wk_dest, test->dat.test.exe);
-		o->dat.test.should_fail = test->dat.test.should_fail;
-		if (test->dat.test.workdir) {
-			o->dat.test.workdir =
-				str_clone(wk_src, wk_dest, test->dat.test.workdir);
+		make_obj(wk_dest, ret, t);
+		struct obj_test *test = get_obj_test(wk_src, val),
+				*o = get_obj_test(wk_dest, t);
+		o->name = str_clone(wk_src, wk_dest, test->name);
+		o->exe = str_clone(wk_src, wk_dest, test->exe);
+		o->should_fail = test->should_fail;
+		if (test->workdir) {
+			o->workdir = str_clone(wk_src, wk_dest, test->workdir);
 		}
 
-		if (!obj_clone(wk_src, wk_dest, test->dat.test.args, &o->dat.test.args)) {
+		if (!obj_clone(wk_src, wk_dest, test->args, &o->args)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, test->dat.test.env, &o->dat.test.env)) {
+		if (!obj_clone(wk_src, wk_dest, test->env, &o->env)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, test->dat.test.suites, &o->dat.test.suites)) {
+		if (!obj_clone(wk_src, wk_dest, test->suites, &o->suites)) {
 			return false;
 		}
 
 		return true;
 	}
 	case obj_install_target: {
-		struct obj *in = get_obj(wk_src, val);
+		make_obj(wk_dest, ret, t);
+		struct obj_install_target *in = get_obj_install_target(wk_src, val),
+					  *o = get_obj_install_target(wk_dest, *ret);
 
-		o = make_obj(wk_dest, ret, t);
-		o->dat.install_target.src =
-			str_clone(wk_src, wk_dest, in->dat.install_target.src);
-		o->dat.install_target.dest =
-			str_clone(wk_src, wk_dest, in->dat.install_target.dest);
-		o->dat.install_target.build_target = in->dat.install_target.build_target;
+		o->src = str_clone(wk_src, wk_dest, in->src);
+		o->dest = str_clone(wk_src, wk_dest, in->dest);
+		o->build_target = in->build_target;
 
-		if (!obj_clone(wk_src, wk_dest, in->dat.install_target.mode, &o->dat.install_target.mode)) {
+		if (!obj_clone(wk_src, wk_dest, in->mode, &o->mode)) {
 			return false;
 		}
 		return true;
 	}
 	case obj_environment: {
-		struct obj *env = get_obj(wk_src, val);
-		o = make_obj(wk_dest, ret, obj_environment);
+		make_obj(wk_dest, ret, obj_environment);
+		struct obj_environment *env = get_obj_environment(wk_src, val),
+				       *o = get_obj_environment(wk_dest, *ret);
 
-		if (!obj_clone(wk_src, wk_dest, env->dat.environment.env, &o->dat.environment.env)) {
+		if (!obj_clone(wk_src, wk_dest, env->env, &o->env)) {
 			return false;
 		}
 		return true;
 	}
 	case obj_option: {
-		struct obj *opt = get_obj(wk_src, val);
+		make_obj(wk_dest, ret, t);
+		struct obj_option *opt = get_obj_option(wk_src, val),
+				  *o = get_obj_option(wk_dest, *ret);
 
-		o = make_obj(wk_dest, ret, t);
-		o->dat.option.type = opt->dat.option.type;
+		o->type = opt->type;
 
-		if (!obj_clone(wk_src, wk_dest, opt->dat.option.val, &o->dat.option.val)) {
+		if (!obj_clone(wk_src, wk_dest, opt->val, &o->val)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, opt->dat.option.choices, &o->dat.option.choices)) {
+		if (!obj_clone(wk_src, wk_dest, opt->choices, &o->choices)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, opt->dat.option.max, &o->dat.option.max)) {
+		if (!obj_clone(wk_src, wk_dest, opt->max, &o->max)) {
 			return false;
 		}
 
-		if (!obj_clone(wk_src, wk_dest, opt->dat.option.min, &o->dat.option.min)) {
+		if (!obj_clone(wk_src, wk_dest, opt->min, &o->min)) {
 			return false;
 		}
 
 		return true;
 	}
 	case obj_feature_opt: {
-		struct obj *opt = get_obj(wk_src, val);
+		make_obj(wk_dest, ret, t);
+		struct obj_feature_opt *opt = get_obj_feature_opt(wk_src, val),
+				       *o = get_obj_feature_opt(wk_dest, *ret);
 
-		o = make_obj(wk_dest, ret, t);
-		o->dat.feature_opt.state = opt->dat.feature_opt.state;
+		o->state = opt->state;
 		return true;
 	}
 	case obj_configuration_data: {
-		struct obj *conf = get_obj(wk_src, val);
+		make_obj(wk_dest, ret, t);
+		struct obj_configuration_data *conf = get_obj_configuration_data(wk_src, val),
+					      *o = get_obj_configuration_data(wk_dest, *ret);
 
-		o = make_obj(wk_dest, ret, t);
-
-		if (!obj_clone(wk_src, wk_dest, conf->dat.configuration_data.dict,
-			&o->dat.configuration_data.dict)) {
+		if (!obj_clone(wk_src, wk_dest, conf->dict, &o->dict)) {
 			return false;
 		}
 		return true;
@@ -957,31 +1040,31 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	}
 
 	struct obj_to_s_ctx ctx = { .buf = buf, .len = len };
-	enum obj_type t = get_obj(wk, obj)->type;
+	enum obj_type t = get_obj_type(wk, obj);
 
 	switch (t) {
 	case obj_dependency: {
-		struct obj *dep = get_obj(wk, obj);
+		struct obj_dependency *dep = get_obj_dependency(wk, obj);
 		obj_to_s_buf_push(&ctx, "<dependency ");
-		if (dep->dat.dep.name) {
-			obj_to_s_str(wk, &ctx, dep->dat.dep.name);
+		if (dep->name) {
+			obj_to_s_str(wk, &ctx, dep->name);
 		}
 
 		obj_to_s_buf_push(&ctx, " | found: %s, pkg_config: %s>",
-			dep->dat.dep.flags & dep_flag_found ? "yes" : "no",
-			dep->dat.dep.flags & dep_flag_pkg_config ? "yes" : "no"
+			dep->flags & dep_flag_found ? "yes" : "no",
+			dep->flags & dep_flag_pkg_config ? "yes" : "no"
 			);
 		break;
 	}
 	case obj_alias_target:
 		obj_to_s_buf_push(&ctx, "<alias_target ");
-		obj_to_s_str(wk, &ctx, get_obj(wk, obj)->dat.alias_target.name);
+		obj_to_s_str(wk, &ctx, get_obj_alias_target(wk, obj)->name);
 		obj_to_s_buf_push(&ctx, ">");
 		break;
 	case obj_build_target: {
-		struct obj *tgt = get_obj(wk, obj);
+		struct obj_build_target *tgt = get_obj_build_target(wk, obj);
 		const char *type = NULL;
-		switch (tgt->dat.tgt.type) {
+		switch (tgt->type) {
 		case tgt_executable:
 			type = "executable";
 			break;
@@ -997,13 +1080,13 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		}
 
 		obj_to_s_buf_push(&ctx, "<%s ", type);
-		obj_to_s_str(wk, &ctx, tgt->dat.tgt.name);
+		obj_to_s_str(wk, &ctx, tgt->name);
 		obj_to_s_buf_push(&ctx, ">");
 
 		break;
 	}
 	case obj_feature_opt:
-		switch (get_obj(wk, obj)->dat.feature_opt.state) {
+		switch (get_obj_feature_opt(wk, obj)->state) {
 		case feature_opt_auto:
 			ctx.i += snprintf(buf, len, "'auto'");
 			break;
@@ -1017,21 +1100,21 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 
 		break;
 	case obj_test: {
-		struct obj *test = get_obj(wk, obj);
+		struct obj_test *test = get_obj_test(wk, obj);
 		obj_to_s_buf_push(&ctx, "test(");
-		obj_to_s_str(wk, &ctx, test->dat.test.name);
+		obj_to_s_str(wk, &ctx, test->name);
 		obj_to_s_buf_push(&ctx, ", ");
-		obj_to_s_str(wk, &ctx, test->dat.test.exe);
+		obj_to_s_str(wk, &ctx, test->exe);
 
-		if (test->dat.test.args) {
+		if (test->args) {
 			obj_to_s_buf_push(&ctx, ", args: ");
 
 			uint32_t w;
-			_obj_to_s(wk, test->dat.test.args, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
+			_obj_to_s(wk, test->args, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
 			ctx.i += w;
 		}
 
-		if (test->dat.test.should_fail) {
+		if (test->should_fail) {
 			obj_to_s_buf_push(&ctx, ", should_fail: true");
 
 		}
@@ -1041,7 +1124,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	}
 	case obj_file:
 		obj_to_s_buf_push(&ctx, "<file ");
-		obj_to_s_str(wk, &ctx, get_obj(wk, obj)->dat.file);
+		obj_to_s_str(wk, &ctx, *get_obj_file(wk, obj));
 		obj_to_s_buf_push(&ctx, ">");
 		break;
 	case obj_string: {
@@ -1049,45 +1132,44 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_number:
-		obj_to_s_buf_push(&ctx, "%" PRId64, get_obj(wk, obj)->dat.num);
+		obj_to_s_buf_push(&ctx, "%" PRId64, *get_obj_number(wk, obj));
 		break;
 	case obj_bool:
-		obj_to_s_buf_push(&ctx, get_obj(wk, obj)->dat.boolean ? "true" : "false");
+		obj_to_s_buf_push(&ctx, *get_obj_bool(wk, obj) ? "true" : "false");
 		break;
 	case obj_array:
-		ctx.cont_len = get_obj(wk, obj)->dat.arr.len;
+		ctx.cont_len = get_obj_array(wk, obj)->len;
 
 		obj_to_s_buf_push(&ctx, "[");
 		obj_array_foreach(wk, obj, &ctx, obj_to_s_array_iter);
 		obj_to_s_buf_push(&ctx, "]");
 		break;
 	case obj_dict:
-		ctx.cont_len = get_obj(wk, obj)->dat.dict.len;
+		ctx.cont_len = get_obj_dict(wk, obj)->len;
 
 		obj_to_s_buf_push(&ctx, "{");
 		obj_dict_foreach(wk, obj, &ctx, obj_to_s_dict_iter);
 		obj_to_s_buf_push(&ctx, "}");
 		break;
 	case obj_external_program: {
-		struct obj *prog = get_obj(wk, obj);
-		obj_to_s_buf_push(&ctx, "<%s found: %s", obj_type_to_s(t),
-			prog->dat.external_program.found ? "true" : "false"
-			);
+		struct obj_external_program *prog = get_obj_external_program(wk, obj);
+		obj_to_s_buf_push(&ctx, "<%s found: %s",
+			obj_type_to_s(t), prog->found ? "true" : "false");
 
-		if (prog->dat.external_program.found) {
+		if (prog->found) {
 			obj_to_s_buf_push(&ctx, ", path: ");
-			obj_to_s_str(wk, &ctx, prog->dat.external_program.full_path);
+			obj_to_s_str(wk, &ctx, prog->full_path);
 		}
 
 		obj_to_s_buf_push(&ctx, ">");
 		break;
 	}
 	case obj_option: {
-		struct obj *opt = get_obj(wk, obj);
+		struct obj_option *opt = get_obj_option(wk, obj);
 		obj_to_s_buf_push(&ctx, "<option ");
 
 		uint32_t w;
-		_obj_to_s(wk, opt->dat.option.val, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
+		_obj_to_s(wk, opt->val, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
 		ctx.i += w;
 
 		obj_to_s_buf_push(&ctx, ">");
@@ -1239,7 +1321,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 
 			if (got_object) {
 				uint32_t w;
-				if (get_obj(wk, obj)->type == obj_string && !quote_string) {
+				if (get_obj_type(wk, obj) == obj_string && !quote_string) {
 					str_unescape(&out_buf[bufi], buflen - bufi, get_str(wk, obj), &w);
 				} else {
 					_obj_to_s(wk, obj, &out_buf[bufi], buflen - bufi, &w);
