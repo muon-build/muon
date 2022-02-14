@@ -10,10 +10,10 @@
 #include "platform/path.h"
 
 bool
-tgt_build_path(struct workspace *wk, const struct obj *tgt, bool relative, char res[PATH_MAX])
+tgt_build_path(struct workspace *wk, const struct obj_build_target *tgt, bool relative, char res[PATH_MAX])
 {
 	char tmp[PATH_MAX] = { 0 };
-	if (!path_join(tmp, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
+	if (!path_join(tmp, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
 		return false;
 	}
 
@@ -29,7 +29,7 @@ tgt_build_path(struct workspace *wk, const struct obj *tgt, bool relative, char 
 }
 
 bool
-tgt_parts_dir(struct workspace *wk, const struct obj *tgt, bool relative, char res[PATH_MAX])
+tgt_parts_dir(struct workspace *wk, const struct obj_build_target *tgt, bool relative, char res[PATH_MAX])
 {
 	char build_path[PATH_MAX];
 	if (!tgt_build_path(wk, tgt, relative, build_path)) {
@@ -45,10 +45,9 @@ tgt_parts_dir(struct workspace *wk, const struct obj *tgt, bool relative, char r
 }
 
 bool
-tgt_src_to_object_path(struct workspace *wk, const struct obj *tgt, obj src_file, bool relative, char res[PATH_MAX])
+tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt, obj src_file, bool relative, char res[PATH_MAX])
 {
-	struct obj *src = get_obj(wk, src_file);
-	assert(get_obj(wk, src_file)->type == obj_file);
+	obj src = *get_obj_file(wk, src_file);
 
 	char rel[PATH_MAX], parts_dir[PATH_MAX];
 	const char *base;
@@ -57,19 +56,19 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj *tgt, obj src_file
 		return false;
 	}
 
-	if (path_is_subpath(get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, src->dat.file))) {
+	if (path_is_subpath(get_cstr(wk, tgt->build_dir), get_cstr(wk, src))) {
 		// file is a generated source
-		base = get_cstr(wk, tgt->dat.tgt.build_dir);
-	} else if (path_is_subpath(get_cstr(wk, tgt->dat.tgt.cwd),
+		base = get_cstr(wk, tgt->build_dir);
+	} else if (path_is_subpath(get_cstr(wk, tgt->cwd),
 		// file is in target cwd
-		get_cstr(wk, src->dat.file))) {
-		base = get_cstr(wk, tgt->dat.tgt.cwd);
+		get_cstr(wk, src))) {
+		base = get_cstr(wk, tgt->cwd);
 	} else {
 		// file is in source root
 		base = wk->source_root;
 	}
 
-	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src->dat.file))) {
+	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src))) {
 		return false;
 	} else if (!path_join(res, PATH_MAX, parts_dir, rel)) {
 		return false;
@@ -87,7 +86,7 @@ func_build_target_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	*res = get_obj(wk, rcvr)->dat.tgt.name;
+	*res = get_obj_build_target(wk, rcvr)->name;
 	return true;
 }
 
@@ -98,7 +97,7 @@ func_build_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	struct obj *tgt = get_obj(wk, rcvr);
+	struct obj_build_target *tgt = get_obj_build_target(wk, rcvr);
 
 	char path[PATH_MAX];
 	if (!tgt_build_path(wk, tgt, false, path)) {
@@ -111,7 +110,7 @@ func_build_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, 
 
 struct build_target_extract_objects_ctx {
 	uint32_t err_node;
-	struct obj *tgt;
+	struct obj_build_target *tgt;
 	obj *res;
 };
 
@@ -119,12 +118,11 @@ static enum iteration_result
 build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct build_target_extract_objects_ctx *ctx = _ctx;
-
-	struct obj *v = get_obj(wk, val);
-
 	obj file;
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (v->type) {
+
+	switch (t) {
 	case obj_string: {
 		if (!coerce_string_to_file(wk, val, &file)) {
 			return ir_err;
@@ -135,19 +133,17 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		file = val;
 		break;
 	default:
-		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(v->type));
+		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(t));
 		return ir_err;
 	}
 
-	if (!obj_array_in(wk, ctx->tgt->dat.tgt.src, file)) {
-		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->dat.tgt.src);
+	if (!obj_array_in(wk, ctx->tgt->src, file)) {
+		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
 		return ir_err;
 	}
-
-	v = get_obj(wk, file);
 
 	enum compiler_language l;
-	if (!filename_to_compiler_language(get_cstr(wk, v->dat.file), &l)) {
+	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
 		return ir_err;
 	}
 
@@ -172,7 +168,8 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	obj new_file;
-	make_obj(wk, &new_file, obj_file)->dat.file = make_str(wk, dest_path);
+	make_obj(wk, &new_file, obj_file);
+	*get_obj_file(wk, new_file) = make_str(wk, dest_path);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
 }
@@ -190,7 +187,7 @@ func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_
 	struct build_target_extract_objects_ctx ctx = {
 		.err_node = an[0].node,
 		.res = res,
-		.tgt = get_obj(wk, rcvr),
+		.tgt = get_obj_build_target(wk, rcvr),
 	};
 
 	return obj_array_foreach_flat(wk, an[0].val, &ctx, build_target_extract_objects_iter);
@@ -200,7 +197,6 @@ static enum iteration_result
 build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct build_target_extract_objects_ctx *ctx = _ctx;
-	assert(get_obj(wk, val)->type == obj_file);
 
 	return build_target_extract_objects_iter(wk, ctx, val);
 }
@@ -213,10 +209,10 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rc
 	struct build_target_extract_objects_ctx ctx = {
 		.err_node = err_node,
 		.res = res,
-		.tgt = get_obj(wk, rcvr),
+		.tgt = get_obj_build_target(wk, rcvr),
 	};
 
-	return obj_array_foreach_flat(wk, ctx.tgt->dat.tgt.src, &ctx, build_target_extract_all_objects_iter);
+	return obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter);
 }
 
 static bool
@@ -233,7 +229,7 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 		return false;
 	}
 
-	if (akw[kw_recursive].set && !get_obj(wk, akw[kw_recursive].val)->dat.boolean) {
+	if (akw[kw_recursive].set && !get_obj_bool(wk, akw[kw_recursive].val)) {
 		interp_error(wk, akw[kw_recursive].node, "non-recursive extract_all_objects not supported");
 		return false;
 	}

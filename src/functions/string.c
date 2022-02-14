@@ -200,7 +200,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 		return format_cb_skip;
 	}
 
-	if (!boundscheck(wk, node, get_obj(wk, ctx->arr)->dat.arr.len, &i)) {
+	if (!boundscheck(wk, node, get_obj_array(wk, ctx->arr)->len, &i)) {
 		return format_cb_error;
 	} else if (!obj_array_index(wk, ctx->arr, i, elem)) {
 		return format_cb_error;
@@ -381,8 +381,6 @@ func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	bool *comp_res = &make_obj(wk, res, obj_bool)->dat.boolean;
-
 	struct version_compare_ctx ctx = {
 		.err_node = an[0].node,
 		.ver1 = get_str(wk, rcvr),
@@ -392,7 +390,8 @@ func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	*comp_res = ctx.res;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ctx.res);
 	return true;
 }
 
@@ -412,7 +411,8 @@ func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number)->dat.num = n;
+	make_obj(wk, obj, obj_number);
+	set_obj_number(wk, *obj, n);
 	return true;
 }
 
@@ -424,7 +424,8 @@ func_string_startswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = str_startswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, str_startswith(get_str(wk, rcvr), get_str(wk, an[0].val)));
 	return true;
 }
 
@@ -436,7 +437,8 @@ func_string_endswith(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = str_endswith(get_str(wk, rcvr), get_str(wk, an[0].val));
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, str_endswith(get_str(wk, rcvr), get_str(wk, an[0].val)));
 	return true;
 }
 
@@ -452,11 +454,11 @@ func_string_substring(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	int64_t start = 0, end = s->len;
 
 	if (ao[0].set) {
-		start = get_obj(wk, ao[0].val)->dat.num;
+		start = get_obj_number(wk, ao[0].val);
 	}
 
 	if (ao[1].set) {
-		end = get_obj(wk, ao[1].val)->dat.num;
+		end = get_obj_number(wk, ao[1].val);
 	}
 
 	if (start < 0) {
@@ -554,7 +556,8 @@ func_string_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		}
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = found;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, found);
 	return true;
 }
 

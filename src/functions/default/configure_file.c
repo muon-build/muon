@@ -124,9 +124,9 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				goto write_mesondefine;
 			}
 
-			switch (get_obj(wk, elem)->type) {
+			switch (get_obj_type(wk, elem)) {
 			case obj_bool: {
-				if (!get_obj(wk, elem)->dat.boolean) {
+				if (!get_obj_bool(wk, elem)) {
 					deftype = "#undef";
 				}
 				break;
@@ -136,13 +136,13 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				break;
 			}
 			case obj_number:
-				snprintf(tmp_buf, BUF_SIZE_1k, "%" PRId64, get_obj(wk, elem)->dat.num);
+				snprintf(tmp_buf, BUF_SIZE_1k, "%" PRId64, get_obj_number(wk, elem));
 				sub = tmp_buf;
 				break;
 			default:
 				error_messagef(&src, id_start_line, id_start_col,
 					"invalid type for #mesondefine: '%s'",
-					obj_type_to_s(get_obj(wk, elem)->type));
+					obj_type_to_s(get_obj_type(wk, elem)));
 				return false;
 			}
 
@@ -257,33 +257,33 @@ struct generate_config_ctx {
 };
 
 static enum iteration_result
-generate_config_iter(struct workspace *wk, void *_ctx, uint32_t key_id, uint32_t val_id)
+generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct generate_config_ctx *ctx = _ctx;
-	struct obj *val = get_obj(wk, val_id);
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (val->type) {
+	switch (t) {
 	case obj_string:
 		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
 		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		fprintf(ctx->out, "#define %s %s\n", get_cstr(wk, key_id), get_cstr(wk, val_id));
+		fprintf(ctx->out, "#define %s %s\n", get_cstr(wk, key), get_cstr(wk, val));
 		break;
 	case obj_bool:
 		/* conf_data.set('FOO', true)       => #define FOO */
 		/* conf_data.set('FOO', false)      => #undef FOO */
-		if (val->dat.boolean) {
-			fprintf(ctx->out, "#define %s\n", get_cstr(wk, key_id));
+		if (get_obj_bool(wk, val)) {
+			fprintf(ctx->out, "#define %s\n", get_cstr(wk, key));
 		} else {
-			fprintf(ctx->out, "#undef %s\n", get_cstr(wk, key_id));
+			fprintf(ctx->out, "#undef %s\n", get_cstr(wk, key));
 		}
 		break;
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		fprintf(ctx->out, "#define %s %" PRId64 "\n", get_cstr(wk, key_id), val->dat.num);
+		fprintf(ctx->out, "#define %s %" PRId64 "\n", get_cstr(wk, key), get_obj_number(wk, val));
 		break;
 	default:
-		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(val->type));
+		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 
@@ -322,7 +322,8 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 
 	{
 		uint32_t f;
-		make_obj(wk, &f, obj_file)->dat.file = out_path;
+		make_obj(wk, &f, obj_file);
+		*get_obj_file(wk, f) = out_path;
 		make_obj(wk, &output_arr, obj_array);
 		obj_array_push(wk, output_arr, f);
 	}
@@ -381,9 +382,7 @@ array_to_elem_or_err(struct workspace *wk, uint32_t node, uint32_t arr, uint32_t
 		return false;
 	}
 
-	struct obj *a = get_obj(wk, arr);
-
-	if (a->dat.arr.len != 1) {
+	if (get_obj_array(wk, arr)->len != 1) {
 		interp_error(wk, node, "expected an array of length 1");
 		return false;
 	}
@@ -535,7 +534,8 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 		LOG_I("configuring '%s", out_path);
 		output_str = make_str(wk, out_path);
-		make_obj(wk, res, obj_file)->dat.file = output_str;
+		make_obj(wk, res, obj_file);
+		*get_obj_file(wk, *res) = output_str;
 	}
 
 	if (!exclusive_or((bool []) { akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
@@ -544,10 +544,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_command].set) {
-		bool capture = false;
-		if (akw[kw_capture].set) {
-			capture = get_obj(wk, akw[kw_capture].val)->dat.boolean;
-		}
+		bool capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val);
 
 		if (!configure_file_with_command(wk, akw[kw_command].node,
 			akw[kw_command].val, input_arr, output_str,
@@ -555,7 +552,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 	} else if (akw[kw_copy].set) {
-		uint32_t input;
+		obj input;
 
 		if (!array_to_elem_or_err(wk, akw[kw_input].node, input_arr, &input)) {
 			return false;
@@ -573,18 +570,19 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 		fs_source_destroy(&src);
 	} else {
-		uint32_t dict, conf = akw[kw_configuration].val;
+		obj dict, conf = akw[kw_configuration].val;
 
-		switch (get_obj(wk, conf)->type) {
+		enum obj_type t = get_obj_type(wk, conf);
+		switch (t) {
 		case obj_dict:
 			dict = conf;
 			break;
 		case obj_configuration_data:
-			dict = get_obj(wk, conf)->dat.configuration_data.dict;
+			dict = get_obj_configuration_data(wk, conf)->dict;
 			break;
 		default:
 			interp_error(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
-				obj_type_to_s(get_obj(wk, conf)->type));
+				obj_type_to_s(t));
 			return false;
 		}
 
@@ -600,7 +598,8 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			}
 
 			const char *path;
-			switch (get_obj(wk, input)->type) {
+			enum obj_type t = get_obj_type(wk, input);
+			switch (t) {
 			case obj_file:
 				path = get_file_path(wk, input);
 				break;
@@ -644,7 +643,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if ((akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean)
+	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
 			interp_error(wk, akw[kw_install].node, "configure_file installation requires install_dir");

@@ -25,12 +25,11 @@ static enum iteration_result
 install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 {
 	struct install_ctx *ctx = _ctx;
-	struct obj *in = get_obj(wk, v_id);
-	assert(in->type == obj_install_target);
+	struct obj_install_target *in = get_obj_install_target(wk, v_id);
 
 	char dest_dirname[PATH_MAX];
-	const char *dest = get_cstr(wk, in->dat.install_target.dest),
-		   *src = get_cstr(wk, in->dat.install_target.src);
+	const char *dest = get_cstr(wk, in->dest),
+		   *src = get_cstr(wk, in->src);
 
 	if (ctx->destdir) {
 		static char full_dest_dir[PATH_MAX];
@@ -66,7 +65,7 @@ install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 		return ir_err;
 	}
 
-	if (in->dat.install_target.build_target) {
+	if (in->build_target) {
 		if (!fix_rpaths(dest, wk->build_root)) {
 			return ir_err;
 		}

@@ -12,7 +12,8 @@ func_disabler_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = false;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, false);
 	return true;
 }
 

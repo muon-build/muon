@@ -3,9 +3,8 @@
 
 #include "lang/workspace.h"
 
-bool setup_compiler_args(struct workspace *wk, const struct obj *tgt,
-	const struct project *proj, obj include_dirs, obj dep_args,
-	obj *joined_args);
+bool setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
+	const struct project *proj, obj include_dirs, obj dep_args, obj *joined_args);
 
 struct setup_linker_args_ctx {
 	enum linker_type linker;
@@ -15,7 +14,7 @@ struct setup_linker_args_ctx {
 };
 
 void setup_linker_args(struct workspace *wk, const struct project *proj,
-	const struct obj *tgt, struct setup_linker_args_ctx *ctx);
+	const struct obj_build_target *tgt, struct setup_linker_args_ctx *ctx);
 
 struct setup_compiler_args_includes_ctx {
 	obj args;

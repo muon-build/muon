@@ -86,12 +86,12 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		obj arr = key == key_input ? ctx->input : ctx->output;
 
 		int64_t index = 0;
-		if (!boundscheck(wk, ctx->err_node, get_obj(wk, arr)->dat.arr.len, &index)) {
+		if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
 			return format_cb_error;
 		}
 		obj_array_index(wk, arr, 0, &e);
 
-		*elem = get_obj(wk, e)->dat.file;
+		*elem = *get_obj_file(wk, e);
 		return format_cb_found;
 	}
 	case key_outdir:
@@ -137,11 +137,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		*elem = make_str(wk, wk->build_root);
 		return format_cb_found;
 	case key_plainname:
-		/* @PLAINNAME@: the input filename, without a path */
+	/* @PLAINNAME@: the input filename, without a path */
 	case key_basename: {
 		/* @BASENAME@: the input filename, with extension removed */
-		struct obj *in = get_obj(wk, ctx->input);
-		if (in->dat.arr.len != 1) {
+		struct obj_array *in = get_obj_array(wk, ctx->input);
+		if (in->len != 1) {
 			interp_error(wk, ctx->err_node,
 				"to use @PLAINNAME@ and @BASENAME@ in a custom "
 				"target command, there must be exactly one input");
@@ -150,7 +150,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 		obj in0;
 		obj_array_index(wk, ctx->input, 0, &in0);
-		const struct str *orig_str = get_str(wk, get_obj(wk, in0)->dat.file);
+		const struct str *orig_str = get_str(wk, *get_obj_file(wk, in0));
 		char plainname[PATH_MAX];
 
 		if (!path_basename(plainname, PATH_MAX, orig_str->s)) {
@@ -159,7 +159,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 		if (key == key_basename) {
 			char basename[PATH_MAX];
-			if(!path_without_ext(basename, PATH_MAX, plainname)) {
+			if (!path_without_ext(basename, PATH_MAX, plainname)) {
 				return format_cb_error;
 			}
 			*elem = make_str(wk, basename);
@@ -186,13 +186,13 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		return format_cb_not_found;
 	}
 
-	if (!boundscheck(wk, ctx->err_node, get_obj(wk, arr)->dat.arr.len, &index)) {
+	if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
 		return format_cb_error;
 	} else if (!obj_array_index(wk, arr, index, &e)) {
 		return format_cb_error;
 	}
 
-	*elem = get_obj(wk, e)->dat.file;
+	*elem = *get_obj_file(wk, e);
 	return format_cb_found;
 }
 
@@ -202,9 +202,9 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
 	obj ss;
-	struct obj *o = get_obj(wk, val);
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (o->type) {
+	switch (t) {
 	case obj_build_target:
 	case obj_external_program:
 	case obj_file:
@@ -241,23 +241,22 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	case obj_custom_target: {
-		struct obj *out = get_obj(wk, o->dat.custom_target.output);
-		assert(out->type == obj_array);
-		if (out->dat.arr.len != 1) {
+		obj output = get_obj_custom_target(wk, val)->output;
+		struct obj_array *out = get_obj_array(wk, output);
+		if (out->len != 1) {
 			interp_error(wk, ctx->err_node, "unable to coerce custom target with multiple outputs to string");
 			return ir_err;
 		}
 
 		obj f;
-		if (!obj_array_index(wk, o->dat.custom_target.output, 0, &f)) {
+		if (!obj_array_index(wk, output, 0, &f)) {
 			return ir_err;
 		}
 
-		struct obj *file = get_obj(wk, f);
-		assert(file->type == obj_file);
+		/* struct obj *file = get_obj(wk, f); */
 
 		char path[PATH_MAX];
-		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, file->dat.file))) {
+		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, *get_obj_file(wk, f)))) {
 			return ir_err;
 		}
 
@@ -273,7 +272,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	assert(get_obj(wk, ss)->type == obj_string);
+	assert(get_obj_type(wk, ss) == obj_string);
 
 	obj_array_push(wk, ctx->arr, ss);
 	return ir_cont;
@@ -298,7 +297,7 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 		return false;
 	}
 
-	if (!get_obj(wk, *res)->dat.arr.len) {
+	if (!get_obj_array(wk, *res)->len) {
 		interp_error(wk, err_node, "cmd cannot be empty");
 		return false;
 	}
@@ -333,8 +332,8 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 		return format_cb_not_found;
 	}
 
-	struct obj *in = get_obj(wk, ctx->input);
-	if (in->dat.arr.len != 1) {
+	struct obj_array *in = get_obj_array(wk, ctx->input);
+	if (in->len != 1) {
 		interp_error(wk, ctx->err_node,
 			"to use @PLAINNAME@ and @BASENAME@ in a custom "
 			"target output, there must be exactly one input");
@@ -343,7 +342,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 
 	obj in0;
 	obj_array_index(wk, ctx->input, 0, &in0);
-	const struct str *ss = get_str(wk, get_obj(wk, in0)->dat.file);
+	const struct str *ss = get_str(wk, *get_obj_file(wk, in0));
 	char buf[PATH_MAX];
 
 	switch (key) {
@@ -375,16 +374,16 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
-	struct obj *file = get_obj(wk, v);
-	assert(file->type == obj_file);
+	obj file = *get_obj_file(wk, v);
 
 	obj s;
-	if (!string_format(wk, ctx->err_node, file->dat.file, &s, ctx, format_cmd_output_cb)) {
+	if (!string_format(wk, ctx->err_node, file, &s, ctx, format_cmd_output_cb)) {
 		return ir_err;
 	}
 
 	obj f;
-	make_obj(wk, &f, obj_file)->dat.file = s;
+	make_obj(wk, &f, obj_file);
+	*get_obj_file(wk, f) = s;
 
 	obj_array_push(wk, ctx->output, f);
 
@@ -410,7 +409,7 @@ make_custom_target(struct workspace *wk,
 	if (input_orig) {
 		if (!coerce_files(wk, input_node, input_orig, &input)) {
 			return false;
-		} else if (!get_obj(wk, input)->dat.arr.len) {
+		} else if (!get_obj_array(wk, input)->len) {
 			interp_error(wk, input_node, "input cannot be empty");
 		}
 	} else {
@@ -419,7 +418,7 @@ make_custom_target(struct workspace *wk,
 
 	if (!coerce_output_files(wk, output_node, output_orig, &raw_output)) {
 		return false;
-	} else if (!get_obj(wk, raw_output)->dat.arr.len) {
+	} else if (!get_obj_array(wk, raw_output)->len) {
 		interp_error(wk, output_node, "output cannot be empty");
 	}
 
@@ -445,13 +444,15 @@ make_custom_target(struct workspace *wk,
 		flags |= custom_target_capture;
 	}
 
-	struct obj *tgt = make_obj(wk, res, obj_custom_target);
-	tgt->dat.custom_target.name = name;
-	tgt->dat.custom_target.args = args;
-	tgt->dat.custom_target.input = input;
-	tgt->dat.custom_target.output = output;
-	tgt->dat.custom_target.depends = depends;
-	tgt->dat.custom_target.flags = flags;
+	make_obj(wk, res, obj_custom_target);
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+
+	tgt->name = name;
+	tgt->args = args;
+	tgt->input = input;
+	tgt->output = output;
+	tgt->depends = depends;
+	tgt->flags = flags;
 
 	return true;
 }
@@ -502,13 +503,13 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		akw[kw_output].val,
 		akw[kw_command].val,
 		akw[kw_depfile].val,
-		akw[kw_capture].set ? get_obj(wk, akw[kw_capture].val)->dat.boolean : false,
+		akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
 		res
 		)) {
 		return false;
 	}
 
-	struct obj *tgt = get_obj(wk, *res);
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 
 	if (akw[kw_depend_files].set) {
 		obj depend_files;
@@ -516,7 +517,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->dat.custom_target.depends, depend_files);
+		obj_array_extend(wk, tgt->depends, depend_files);
 	}
 
 	if (akw[kw_depends].set) {
@@ -525,12 +526,12 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->dat.custom_target.depends, depends);
+		obj_array_extend(wk, tgt->depends, depends);
 	}
 
-	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->dat.custom_target.name));
+	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));
 
-	if ((akw[kw_install].set && get_obj(wk, akw[kw_install].val)->dat.boolean)
+	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
 			interp_error(wk, akw[kw_install].node, "custom target installation requires install_dir");
@@ -542,7 +543,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			install_mode_id = akw[kw_install_mode].val;
 		}
 
-		if (!push_install_targets(wk, tgt->dat.custom_target.output, akw[kw_install_dir].val, install_mode_id)) {
+		if (!push_install_targets(wk, tgt->output, akw[kw_install_dir].val, install_mode_id)) {
 			return false;
 		}
 	}

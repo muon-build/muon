@@ -10,15 +10,14 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 	obj fallback, obj subproj, obj *res)
 {
 	const char *name = get_cstr(wk, name_id);
-	struct obj *sub = get_obj(wk, subproj);
-	assert(sub->type == obj_subproject);
+	struct obj_subproject *sub = get_obj_subproject(wk, subproj);
 
-	if (!sub->dat.subproj.found) {
+	if (!sub->found) {
 		interp_error(wk, node, "subproject was not found");
 		return false;
 	}
 
-	if (!get_obj_id(wk, name, res, sub->dat.subproj.id)) {
+	if (!get_obj_id(wk, name, res, sub->id)) {
 		if (!fallback) {
 			interp_error(wk, node, "subproject does not define '%s'", name);
 			return false;
@@ -50,7 +49,8 @@ func_subproject_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = get_obj(wk, rcvr)->dat.subproj.found;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, get_obj_subproject(wk, rcvr)->found);
 	return true;
 }
 

@@ -15,8 +15,8 @@ feature_opt_common(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 
 	// TODO auto_features
 
-	make_obj(wk, obj, obj_bool)->dat.boolean =
-		get_obj(wk, rcvr)->dat.feature_opt.state == state;
+	make_obj(wk, obj, obj_bool);
+	set_obj_bool(wk, *obj, get_obj_feature_opt(wk, rcvr)->state == state);
 	return true;
 }
 

@@ -37,7 +37,8 @@ func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = get_obj(wk, rcvr)->dat.module.found;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, get_obj_module(wk, rcvr)->found);
 	return true;
 }
 

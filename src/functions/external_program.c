@@ -12,9 +12,8 @@ func_external_program_found(struct workspace *wk, uint32_t rcvr, uint32_t args_n
 		return false;
 	}
 
-	struct obj *res = make_obj(wk, obj, obj_bool);
-	res->dat.boolean = get_obj(wk, rcvr)->dat.external_program.found;
-
+	make_obj(wk, obj, obj_bool);
+	set_obj_bool(wk, *obj, get_obj_external_program(wk, rcvr)->found);
 	return true;
 }
 
@@ -25,7 +24,7 @@ func_external_program_path(struct workspace *wk, uint32_t rcvr, uint32_t args_no
 		return false;
 	}
 
-	*obj = get_obj(wk, rcvr)->dat.external_program.full_path;
+	*obj = get_obj_external_program(wk, rcvr)->full_path;
 	return true;
 }
 

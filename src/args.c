@@ -164,8 +164,6 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct join_args_iter_ctx *ctx = _ctx;
 
-	assert(get_obj(wk, val)->type == obj_string);
-
 	const char *s = get_cstr(wk, val);
 	char buf[BUF_SIZE_4k];
 
@@ -195,7 +193,7 @@ join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 
 	struct join_args_iter_ctx ctx = {
 		.obj = &o,
-		.len = get_obj(wk, arr)->dat.arr.len,
+		.len = get_obj_array(wk, arr)->len,
 		.escape = escape
 	};
 
@@ -281,28 +279,28 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 	struct arr_to_args_ctx *ctx = _ctx;
 	obj str;
 
-	struct obj *o = get_obj(wk, src);
+	enum obj_type t = get_obj_type(wk, src);
 
-	switch (o->type) {
+	switch (t) {
 	case obj_string:
 		str = src;
 		break;
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			char buf[PATH_MAX];
-			if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_cstr(wk, o->dat.file))) {
+			if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_file_path(wk, src))) {
 				return ir_err;
 			}
 			str = make_str(wk, buf);
 			break;
 		}
-		str = o->dat.file;
+		str = *get_obj_file(wk, src);
 		break;
 	case obj_alias_target:
 		if (!(ctx->mode & arr_to_args_alias_target)) {
 			goto type_err;
 		}
-		str = o->dat.alias_target.name;
+		str = get_obj_alias_target(wk, src)->name;
 		break;
 	case obj_build_target: {
 		if (!(ctx->mode & arr_to_args_build_target)) {
@@ -310,7 +308,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 		}
 
 		char name[PATH_MAX];
-		tgt_build_path(wk, o, (ctx->mode & arr_to_args_relativize_paths), name);
+		tgt_build_path(wk, get_obj_build_target(wk, src), (ctx->mode & arr_to_args_relativize_paths), name);
 		str = make_str(wk, name);
 		break;
 	}
@@ -319,7 +317,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 			goto type_err;
 		}
 
-		obj output_arr = get_obj(wk, src)->dat.custom_target.output;
+		obj output_arr = get_obj_custom_target(wk, src)->output;
 		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
 			return ir_err;
 		}
@@ -330,11 +328,11 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
 			goto type_err;
 		}
 
-		str = o->dat.external_program.full_path;
+		str = get_obj_external_program(wk, src)->full_path;
 		break;
 	default:
 type_err:
-		LOG_E("cannot convert '%s' to argument", obj_type_to_s(o->type));
+		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));
 		return ir_err;
 	}
 
@@ -437,8 +435,8 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 		return true;
 	}
 
-	struct obj *v = get_obj(wk, val);
-	switch (v->type) {
+	enum obj_type t = get_obj_type(wk, val);
+	switch (t) {
 	case obj_string:
 		return push_envp_str(&ctx, get_cstr(wk, val));
 	case obj_array:
@@ -449,9 +447,9 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 		}
 		return obj_dict_foreach(wk, val, &ctx, env_to_envp_dict_iter);
 	case obj_environment:
-		return obj_dict_foreach(wk, v->dat.environment.env, &ctx, env_to_envp_dict_iter);
+		return obj_dict_foreach(wk, get_obj_environment(wk, val)->env, &ctx, env_to_envp_dict_iter);
 	default:
-		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(v->type));
+		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(t));
 		return false;
 	}
 }

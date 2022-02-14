@@ -12,7 +12,8 @@ func_array_length(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint3
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number)->dat.num = get_obj(wk, rcvr)->dat.arr.len;
+	make_obj(wk, obj, obj_number);
+	set_obj_number(wk, *obj, get_obj_array(wk, rcvr)->len);
 	return true;
 }
 
@@ -25,9 +26,9 @@ func_array_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	int64_t i = get_obj(wk, an[0].val)->dat.num;
+	int64_t i = get_obj_number(wk, an[0].val);
 
-	if (!bounds_adjust(wk, get_obj(wk, rcvr)->dat.arr.len, &i)) {
+	if (!bounds_adjust(wk, get_obj_array(wk, rcvr)->len, &i)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
@@ -49,7 +50,8 @@ func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.num = obj_array_in(wk, rcvr, an[0].val);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, obj_array_in(wk, rcvr, an[0].val));
 	return true;
 }
 

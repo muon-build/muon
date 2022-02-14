@@ -190,7 +190,7 @@ find_option_override(struct workspace *wk, const char *subproject_name, const ch
 }
 
 static bool
-coerce_feature_opt(struct workspace *wk, uint32_t node, const char *val, uint32_t *obj_id)
+coerce_feature_opt(struct workspace *wk, uint32_t node, const char *val, obj *res)
 {
 	enum feature_opt_state f;
 
@@ -205,16 +205,18 @@ coerce_feature_opt(struct workspace *wk, uint32_t node, const char *val, uint32_
 		return false;
 	}
 
-	make_obj(wk, obj_id, obj_feature_opt)->dat.feature_opt.state = f;
+	make_obj(wk, res, obj_feature_opt);
+	get_obj_feature_opt(wk, *res)->state = f;
 	return true;
 }
 
 static bool
-coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_type type, const char *val, uint32_t *obj_id)
+coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_type type, const char *val, obj *res)
 {
 	switch (type) {
 	case op_combo:
-	case op_string: *obj_id = make_str(wk, val);
+	case op_string:
+		*res = make_str(wk, val);
 		break;
 	case op_boolean: {
 		bool b;
@@ -227,7 +229,8 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 			return false;
 		}
 
-		make_obj(wk, obj_id, obj_bool)->dat.boolean = b;
+		make_obj(wk, res, obj_bool);
+		set_obj_bool(wk, *res, b);
 		break;
 	}
 	case op_integer: {
@@ -240,15 +243,16 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 			return false;
 		}
 
-		make_obj(wk, obj_id, obj_number)->dat.num = num;
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, num);
 		break;
 	}
 	case op_array: {
-		*obj_id = str_split(wk, &WKSTR(val), &WKSTR(","));
+		*res = str_split(wk, &WKSTR(val), &WKSTR(","));
 		break;
 	}
 	case op_feature:
-		return coerce_feature_opt(wk, node, val, obj_id);
+		return coerce_feature_opt(wk, node, val, res);
 	default:
 		assert(false && "unreachable");
 	}
@@ -280,7 +284,7 @@ typecheck_opt(struct workspace *wk, uint32_t err_node, obj val, enum build_optio
 {
 	enum obj_type expected_type;
 
-	if (type == op_feature && get_obj(wk, val)->type == obj_string) {
+	if (type == op_feature && get_obj_type(wk, val) == obj_string) {
 		if (!coerce_feature_opt(wk, err_node, get_cstr(wk, val), res)) {
 			return false;
 		}
@@ -317,10 +321,10 @@ check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type typ
 		return true;
 	}
 
-	struct obj *o = get_obj(wk, opt);
-	val = o->dat.option.type;
+	struct obj_option *o = get_obj_option(wk, opt);
+	val = o->type;
 
-	if (!typecheck_opt(wk, node, val, o->dat.option.type, ret)) {
+	if (!typecheck_opt(wk, node, val, o->type, ret)) {
 		return false;
 	}
 
@@ -331,39 +335,39 @@ check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type typ
 static bool
 option_set(struct workspace *wk, uint32_t node, obj opt, obj new_val)
 {
-	struct obj *o = get_obj(wk, opt);
+	struct obj_option *o = get_obj_option(wk, opt);
 
 	obj val;
-	if (!typecheck_opt(wk, node, new_val, o->dat.option.type, &val)) {
+	if (!typecheck_opt(wk, node, new_val, o->type, &val)) {
 		return false;
 	}
 
-	switch (o->dat.option.type) {
+	switch (o->type) {
 	case op_combo: {
-		if (!obj_array_in(wk, o->dat.option.choices, val)) {
-			interp_error(wk, node, "'%o' is not one of %o", val, o->dat.option.choices);
+		if (!obj_array_in(wk, o->choices, val)) {
+			interp_error(wk, node, "'%o' is not one of %o", val, o->choices);
 			return false;
 		}
 		break;
 	}
 	case op_integer: {
-		int64_t num = get_obj(wk, val)->dat.num;
+		int64_t num = get_obj_number(wk, val);
 
-		if ((o->dat.option.max && num > get_obj(wk, o->dat.option.max)->dat.num)
-		    || (o->dat.option.min && num < get_obj(wk, o->dat.option.min)->dat.num) ) {
+		if ((o->max && num > get_obj_number(wk, o->max))
+		    || (o->min && num < get_obj_number(wk, o->min)) ) {
 			interp_error(wk, node, "value %" PRId64 " is out of range (%" PRId64 "..%" PRId64 ")",
-				get_obj(wk, val)->dat.num,
-				(o->dat.option.min ? get_obj(wk, o->dat.option.min)->dat.num : INT64_MIN),
-				(o->dat.option.max ? get_obj(wk, o->dat.option.max)->dat.num : INT64_MAX)
+				get_obj_number(wk, val),
+				(o->min ? get_obj_number(wk, o->min) : INT64_MIN),
+				(o->max ? get_obj_number(wk, o->max) : INT64_MAX)
 				);
 			return false;
 		}
 		break;
 	}
 	case op_array: {
-		if (o->dat.option.choices) {
+		if (o->choices) {
 			if (!obj_array_foreach(wk, val, &(struct check_array_opt_ctx) {
-					.choices = o->dat.option.choices,
+					.choices = o->choices,
 					.node = node,
 				}, check_array_opt_iter)) {
 				return false;
@@ -380,7 +384,7 @@ option_set(struct workspace *wk, uint32_t node, obj opt, obj new_val)
 		return false;
 	}
 
-	o->dat.option.val = val;
+	o->val = val;
 	return true;
 }
 
@@ -467,12 +471,15 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		val = akw[kw_value].val;
 	} else {
 		switch (type) {
-		case op_string: val = make_str(wk, "");
+		case op_string:
+			val = make_str(wk, "");
 			break;
-		case op_boolean: make_obj(wk, &val, obj_bool)->dat.boolean = true;
+		case op_boolean:
+			make_obj(wk, &val, obj_bool);
+			set_obj_bool(wk, val, true);
 			break;
 		case op_combo:
-			if (!get_obj(wk, akw[kw_choices].val)->dat.arr.len) {
+			if (!get_obj_array(wk, akw[kw_choices].val)->len) {
 				interp_error(wk, akw[kw_choices].node, "combo option with no choices");
 				return false;
 			}
@@ -489,7 +496,8 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			}
 			break;
 		case op_feature:
-			make_obj(wk, &val, obj_feature_opt)->dat.feature_opt.state = feature_opt_auto;
+			make_obj(wk, &val, obj_feature_opt);
+			get_obj_feature_opt(wk, val)->state = feature_opt_auto;
 			break;
 		default:
 			assert(false && "unreachable");
@@ -507,8 +515,8 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		} else if (!coerce_option_override(wk, akw[kw_type].node, type, get_cstr(wk, oo->val), &val)) {
 			return false;
 		}
-	} else if (wk->cur_project != 0 && akw[kw_yield].set && get_obj(wk, akw[kw_yield].val)->dat.boolean) {
-		if (!check_superproject_option(wk, akw[kw_type].node, get_obj(wk, val)->type, an[0].val, &val)) {
+	} else if (wk->cur_project != 0 && akw[kw_yield].set && get_obj_bool(wk, akw[kw_yield].val)) {
+		if (!check_superproject_option(wk, akw[kw_type].node, get_obj_type(wk, val), an[0].val, &val)) {
 			return false;
 		}
 	}
@@ -519,11 +527,12 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	obj opt;
-	struct obj *o = make_obj(wk, &opt, obj_option);
-	o->dat.option.type = type;
-	o->dat.option.min = akw[kw_min].val;
-	o->dat.option.max = akw[kw_max].val;
-	o->dat.option.choices = akw[kw_choices].val;
+	make_obj(wk, &opt, obj_option);
+	struct obj_option *o = get_obj_option(wk, opt);
+	o->type = type;
+	o->min = akw[kw_min].val;
+	o->max = akw[kw_max].val;
+	o->choices = akw[kw_choices].val;
 
 	if (!option_set(wk, args_node, opt, val)) {
 		return false;
@@ -543,9 +552,8 @@ get_option(struct workspace *wk, const struct project *proj, const char *name, o
 		assert(false);
 	}
 
-	struct obj *o = get_obj(wk, opt);
-	assert(o->type == obj_option);
-	*res = o->dat.option.val;
+	struct obj_option *o = get_obj_option(wk, opt);
+	*res = o->val;
 }
 
 bool
@@ -563,9 +571,8 @@ func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	struct obj *o = get_obj(wk, opt);
-	assert(o->type == obj_option);
-	*res = o->dat.option.val;
+	struct obj_option *o = get_obj_option(wk, opt);
+	*res = o->val;
 	return true;
 }
 
@@ -646,10 +653,10 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	obj opt;
 	if (obj_dict_index(wk, current_project(wk)->opts, oo.name, &opt)) {
-		struct obj *o = get_obj(wk, opt);
+		struct obj_option *o = get_obj_option(wk, opt);
 
 		obj val;
-		if (!coerce_option_override(wk, ctx->node, o->dat.option.type, get_cstr(wk, oo.val), &val)) {
+		if (!coerce_option_override(wk, ctx->node, o->type, get_cstr(wk, oo.val), &val)) {
 			return ir_err;
 		}
 

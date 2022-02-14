@@ -23,8 +23,15 @@ static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
 	struct obj *o = bucket_array_get(&wk->objs, id);
-	assert(o->type == type);
-	return &o->dat;
+	if (o->type == type) {
+		return &o->dat;
+	}
+
+	LOG_E("internal type error, expected %s but got %s",
+		obj_type_to_s(type), obj_type_to_s(o->type));
+
+	assert(false);
+	return false;
 }
 
 enum obj_type
@@ -34,22 +41,34 @@ get_obj_type(struct workspace *wk, obj id)
 	return o->type;
 }
 
-bool *
+bool
 get_obj_bool(struct workspace *wk, obj o)
 {
-	return get_obj_internal(wk, o, obj_bool);
+	return *(bool *)get_obj_internal(wk, o, obj_bool);
 }
 
-int64_t *
+int64_t
 get_obj_number(struct workspace *wk, obj o)
 {
-	return get_obj_internal(wk, o, obj_number);
+	return *(int64_t *)get_obj_internal(wk, o, obj_number);
+}
+
+void
+set_obj_bool(struct workspace *wk, obj o, bool v)
+{
+	*(bool *)get_obj_internal(wk, o, obj_bool) = v;
+}
+
+void
+set_obj_number(struct workspace *wk, obj o, int64_t v)
+{
+	*(int64_t *)get_obj_internal(wk, o, obj_number) = v;
 }
 
 obj *
 get_obj_file(struct workspace *wk, obj o)
 {
-	return get_obj_internal(wk, o, obj_number);
+	return get_obj_internal(wk, o, obj_file);
 }
 
 const char *
@@ -95,12 +114,13 @@ OBJ_GETTER(obj_alias_target)
 
 #undef OBJ_GETTER
 
-struct obj *
+/* struct obj * */
+void
 make_obj(struct workspace *wk, uint32_t * id, enum obj_type type)
 {
 	*id = wk->objs.len;
 	bucket_array_push(&wk->objs, &(struct obj){ .type = type });
-	return NULL;
+	/* return NULL; */
 }
 
 const char *
@@ -178,7 +198,7 @@ obj_equal(struct workspace *wk, obj left, obj right)
 	}
 
 	enum obj_type t = get_obj_type(wk, left);
-	if (t != get_obj_type(wk, left)) {
+	if (t != get_obj_type(wk, right)) {
 		return false;
 	}
 
@@ -528,7 +548,7 @@ obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 {
 	enum obj_type t = get_obj_type(wk, val);
 
-	if (t) {
+	if (t == obj_array) {
 		struct obj_array *v = get_obj_array(wk, val);
 
 		if (v->len == 1) {
@@ -828,11 +848,13 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		*ret = 0;
 		return true;
 	case obj_number:
-	case obj_bool: {
 		make_obj(wk_dest, ret, t);
-		*get_obj_bool(wk_dest, *ret) = get_obj_bool(wk_src, val);
+		set_obj_number(wk_dest, *ret, get_obj_number(wk_src, val));
 		return true;
-	}
+	case obj_bool:
+		make_obj(wk_dest, ret, t);
+		set_obj_bool(wk_dest, *ret, get_obj_bool(wk_src, val));
+		return true;
 	case obj_string: {
 		*ret = str_clone(wk_src, wk_dest, val);
 		return true;
@@ -854,7 +876,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	case obj_test: {
 		make_obj(wk_dest, ret, t);
 		struct obj_test *test = get_obj_test(wk_src, val),
-				*o = get_obj_test(wk_dest, t);
+				*o = get_obj_test(wk_dest, *ret);
 		o->name = str_clone(wk_src, wk_dest, test->name);
 		o->exe = str_clone(wk_src, wk_dest, test->exe);
 		o->should_fail = test->should_fail;
@@ -1132,10 +1154,10 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_number:
-		obj_to_s_buf_push(&ctx, "%" PRId64, *get_obj_number(wk, obj));
+		obj_to_s_buf_push(&ctx, "%" PRId64, get_obj_number(wk, obj));
 		break;
 	case obj_bool:
-		obj_to_s_buf_push(&ctx, *get_obj_bool(wk, obj) ? "true" : "false");
+		obj_to_s_buf_push(&ctx, get_obj_bool(wk, obj) ? "true" : "false");
 		break;
 	case obj_array:
 		ctx.cont_len = get_obj_array(wk, obj)->len;

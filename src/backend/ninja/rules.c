@@ -13,10 +13,9 @@ static enum iteration_result
 write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
 {
 	FILE *out = _ctx;
-	struct obj *comp = get_obj(wk, comp_id);
-	assert(comp->type == obj_compiler);
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
-	enum compiler_type t = comp->dat.compiler.type;
+	enum compiler_type t = comp->type;
 
 	const char *deps = NULL;
 	switch (compilers[t].deps) {
@@ -32,7 +31,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 
 	obj args;
 	make_obj(wk, &args, obj_array);
-	obj_array_push(wk, args, comp->dat.compiler.name);
+	obj_array_push(wk, args, comp->name);
 	obj_array_push(wk, args, make_str(wk, "$ARGS"));
 	if (compilers[t].deps) {
 		push_args(wk, args, compilers[t].args.deps("$out", "$DEPFILE"));
@@ -60,7 +59,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
 		" description = linking $out\n\n",
 		compiler_language_to_s(l),
-		get_cstr(wk, comp->dat.compiler.name));
+		get_cstr(wk, comp->name));
 
 	return ir_cont;
 }

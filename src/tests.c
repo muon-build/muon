@@ -22,7 +22,7 @@ _Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
 
 struct test_result {
 	struct run_cmd_ctx cmd_ctx;
-	struct obj *test;
+	struct obj_test *test;
 };
 
 struct run_test_ctx {
@@ -173,20 +173,20 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			bool ok;
 
 			if (res->cmd_ctx.status == 0) {
-				ok = !res->test->dat.test.should_fail;
+				ok = !res->test->should_fail;
 			} else if (res->cmd_ctx.status == 77) {
 				++ctx->stats.total_skipped;
 				ok = true;
 			} else if (res->cmd_ctx.status == 99) {
 				ok = false;
 			} else {
-				ok = res->test->dat.test.should_fail;
+				ok = res->test->should_fail;
 			}
 
 			print_test_progress(ctx, ok);
 
 			if (ok) {
-				if (res->test->dat.test.should_fail) {
+				if (res->test->should_fail) {
 					++ctx->stats.total_expect_fail_count;
 				}
 
@@ -216,7 +216,7 @@ test_delay(void)
 }
 
 static void
-push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj *test, const char **argv, char *const *envp)
+push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test, const char **argv, char *const *envp)
 {
 	uint32_t i;
 	while (true) {
@@ -239,11 +239,11 @@ found_slot:
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
 	*cmd_ctx = (struct run_cmd_ctx){ .flags = run_cmd_ctx_flag_async };
-	if (test->dat.test.workdir) {
-		cmd_ctx->chdir = get_cstr(wk, test->dat.test.workdir);
+	if (test->workdir) {
+		cmd_ctx->chdir = get_cstr(wk, test->workdir);
 	}
 
-	run_cmd(cmd_ctx, get_cstr(wk, test->dat.test.exe), argv, envp);
+	run_cmd(cmd_ctx, get_cstr(wk, test->exe), argv, envp);
 }
 
 static enum iteration_result
@@ -255,21 +255,21 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_done;
 	}
 
-	struct obj *test = get_obj(wk, t);
+	struct obj_test *test = get_obj_test(wk, t);
 
-	if (!test_in_suite(wk, test->dat.test.suites, ctx)) {
+	if (!test_in_suite(wk, test->suites, ctx)) {
 		return ir_cont;
 	}
 
 	uint32_t cmdline;
 	make_obj(wk, &cmdline, obj_array);
-	obj_array_push(wk, cmdline, test->dat.test.exe);
+	obj_array_push(wk, cmdline, test->exe);
 
-	if (test->dat.test.args) {
+	if (test->args) {
 		uint32_t test_args;
 		if (!arr_to_args(wk,
 			arr_to_args_build_target | arr_to_args_custom_target,
-			test->dat.test.args, &test_args)) {
+			test->args, &test_args)) {
 			return ir_err;
 		}
 
@@ -284,7 +284,7 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_err;
 	}
 
-	if (!env_to_envp(wk, 0, &envp, test->dat.test.env, 0)) {
+	if (!env_to_envp(wk, 0, &envp, test->env, 0)) {
 		LOG_E("failed to prepare environment");
 		return ir_err;
 	}
@@ -299,7 +299,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 	struct run_test_ctx *ctx = _ctx;
 	ctx->stats.test_i = 0;
 	ctx->stats.error_count = 0;
-	ctx->stats.test_len = get_obj(wk, tests)->dat.arr.len;
+	ctx->stats.test_len = get_obj_array(wk, tests)->len;
 
 	if (!ctx->stats.test_len ) {
 		return ir_cont;
@@ -405,10 +405,10 @@ tests_run(struct test_options *opts)
 	for (i = 0; i < ctx.failed_tests.len; ++i) {
 		struct test_result *res = darr_get(&ctx.failed_tests, i);
 
-		if (res->test->dat.test.should_fail) {
-			LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->dat.test.name));
+		if (res->test->should_fail) {
+			LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->name));
 		} else {
-			LOG_E("%s - failed", get_cstr(&wk, res->test->dat.test.name));
+			LOG_E("%s - failed", get_cstr(&wk, res->test->name));
 			if (res->cmd_ctx.err_msg) {
 				log_plain("%s\n", res->cmd_ctx.err_msg);
 			}

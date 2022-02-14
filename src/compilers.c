@@ -151,21 +151,22 @@ detection_over:
 		ver = make_str(wk, "unknown");
 	}
 
-	struct obj *comp = make_obj(wk, comp_id, obj_compiler);
-	comp->dat.compiler.name = make_str(wk, cc);
-	comp->dat.compiler.type = type;
-	comp->dat.compiler.ver = ver;
+	make_obj(wk, comp_id, obj_compiler);
+	struct obj_compiler *comp = get_obj_compiler(wk, *comp_id);
+	comp->name = make_str(wk, cc);
+	comp->type = type;
+	comp->ver = ver;
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return true;
 }
 
 static bool
-compiler_get_libdirs(struct workspace *wk, struct obj *comp)
+compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, get_cstr(wk, comp->dat.compiler.name), (const char *[]){
-		get_cstr(wk, comp->dat.compiler.name), "--print-search-dirs", NULL,
+	if (!run_cmd(&cmd_ctx, get_cstr(wk, comp->name), (const char *[]){
+		get_cstr(wk, comp->name), "--print-search-dirs", NULL,
 	}, NULL) || cmd_ctx.status) {
 		goto done;
 	}
@@ -187,7 +188,7 @@ compiler_get_libdirs(struct workspace *wk, struct obj *comp)
 				.len = e ? (uint32_t)(e - s) : strlen(s),
 			};
 
-			comp->dat.compiler.libdirs = str_split(wk, &str, &WKSTR(":"));
+			comp->libdirs = str_split(wk, &str, &WKSTR(":"));
 			goto done;
 		}
 
@@ -197,7 +198,7 @@ compiler_get_libdirs(struct workspace *wk, struct obj *comp)
 done:
 	run_cmd_ctx_destroy(&cmd_ctx);
 
-	if (!comp->dat.compiler.libdirs) {
+	if (!comp->libdirs) {
 		const char *libdirs[] = {
 			"/usr/lib",
 			"/usr/local/lib",
@@ -205,11 +206,11 @@ done:
 			NULL
 		};
 
-		make_obj(wk, &comp->dat.compiler.libdirs, obj_array);
+		make_obj(wk, &comp->libdirs, obj_array);
 
 		uint32_t i;
 		for (i = 0; libdirs[i]; ++i) {
-			obj_array_push(wk, comp->dat.compiler.libdirs, make_str(wk, libdirs[i]));
+			obj_array_push(wk, comp->libdirs, make_str(wk, libdirs[i]));
 		}
 	}
 
@@ -242,9 +243,9 @@ compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lan
 			return false;
 		}
 
-		struct obj *compiler = get_obj(wk, *comp);
+		struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 		compiler_get_libdirs(wk, compiler);
-		compiler->dat.compiler.lang = lang;
+		compiler->lang = lang;
 		return true;
 	default:
 		assert(false);

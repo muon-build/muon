@@ -17,9 +17,10 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 		return false;
 	}
 
-	struct obj *external_program = make_obj(wk, obj, obj_external_program);
-	external_program->dat.external_program.found = true;
-	external_program->dat.external_program.full_path = make_str(wk, cmd_path);
+	make_obj(wk, obj, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, *obj);
+	ep->found = true;
+	ep->full_path = make_str(wk, cmd_path);
 	return true;
 }
 

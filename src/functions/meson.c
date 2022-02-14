@@ -151,7 +151,8 @@ func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *r
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = wk->cur_project != 0;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, wk->cur_project != 0);
 	return true;
 }
 
@@ -173,7 +174,8 @@ func_meson_is_cross_build(struct workspace *wk, obj _, uint32_t args_node, obj *
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = false;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, false);
 	return true;
 }
 
@@ -184,7 +186,8 @@ func_meson_is_unity(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = false;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, false);
 	return true;
 }
 
@@ -220,11 +223,10 @@ static enum iteration_result
 process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct process_script_commandline_ctx *ctx = _ctx;
-
-	struct obj *o = get_obj(wk, val);
 	obj str;
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (o->type) {
+	switch (t) {
 	case obj_string:
 		if (ctx->i) {
 			str = val;
@@ -244,7 +246,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	case obj_custom_target:
-		if (!obj_array_foreach(wk, o->dat.custom_target.output, ctx, process_script_commandline_iter)) {
+		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx, process_script_commandline_iter)) {
 			return false;
 		}
 		goto cont;
@@ -257,7 +259,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for script commandline '%s'",
-			obj_type_to_s(o->type));
+			obj_type_to_s(t));
 		return ir_err;
 	}
 

@@ -161,7 +161,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = *get_obj_number(wk, r_id);
+		int64_t i = get_obj_number(wk, r_id);
 
 		if (!boundscheck(wk, n->r, get_obj_array(wk, l_id)->len, &i)) {
 			return false;
@@ -188,7 +188,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = *get_obj_number(wk, r_id);
+		int64_t i = get_obj_number(wk, r_id);
 
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, l_id);
 		struct obj_array *arr = get_obj_array(wk, tgt->output);
@@ -207,7 +207,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		int64_t i = *get_obj_number(wk, r_id);
+		int64_t i = get_obj_number(wk, r_id);
 
 		const struct str *s = get_str(wk, l_id);
 		if (!boundscheck(wk, n->r, s->len, &i)) {
@@ -263,7 +263,7 @@ interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
 	}
 
 	make_obj(wk, obj, obj_number);
-	*get_obj_number(wk, *obj) = -*get_obj_number(wk, l_id);
+	set_obj_number(wk, *obj, -get_obj_number(wk, l_id));
 	return true;
 }
 
@@ -333,8 +333,8 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			return false;
 		}
 
-		l = *get_obj_number(wk, l_id);
-		r = *get_obj_number(wk, r_id);
+		l = get_obj_number(wk, l_id);
+		r = get_obj_number(wk, r_id);
 
 		switch (type) {
 		case arith_add:
@@ -366,7 +366,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 		}
 
 		make_obj(wk, obj_id, obj_number);
-		*get_obj_number(wk, *obj_id) = res;
+		set_obj_number(wk, *obj_id, res);
 		break;
 	}
 	case obj_array: {
@@ -616,7 +616,7 @@ interp_not(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	}
 
 	make_obj(wk, obj_id, obj_bool);
-	*get_obj_bool(wk, *obj_id) = !*get_obj_bool(wk, obj_l_id);
+	set_obj_bool(wk, *obj_id, !get_obj_bool(wk, obj_l_id));
 	return true;
 }
 
@@ -634,13 +634,13 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	if (n->type == node_and && !*get_obj_bool(wk, obj_l_id)) {
+	if (n->type == node_and && !get_obj_bool(wk, obj_l_id)) {
 		make_obj(wk, obj_id, obj_bool);
-		*get_obj_bool(wk, *obj_id) = false;
+		set_obj_bool(wk, *obj_id, false);
 		return true;
-	} else if (n->type == node_or && *get_obj_bool(wk, obj_l_id)) {
+	} else if (n->type == node_or && get_obj_bool(wk, obj_l_id)) {
 		make_obj(wk, obj_id, obj_bool);
-		*get_obj_bool(wk, *obj_id) = true;
+		set_obj_bool(wk, *obj_id, true);
 		return true;
 	}
 
@@ -654,7 +654,7 @@ interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	}
 
 	make_obj(wk, obj_id, obj_bool);
-	*get_obj_bool(wk, *obj_id) = *get_obj_bool(wk, obj_r_id);
+	set_obj_bool(wk, *obj_id, get_obj_bool(wk, obj_r_id));
 	return true;
 }
 
@@ -715,8 +715,8 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 			return false;
 		}
 
-		int64_t a = *get_obj_number(wk, obj_l_id),
-			b = *get_obj_number(wk, obj_r_id);
+		int64_t a = get_obj_number(wk, obj_l_id),
+			b = get_obj_number(wk, obj_r_id);
 
 		switch (n->subtype) {
 		case comp_lt:
@@ -740,14 +740,13 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	}
 
 	make_obj(wk, obj_id, obj_bool);
-	*get_obj_bool(wk, *obj_id) = res;
+	set_obj_bool(wk, *obj_id, res);
 	return true;
 }
 
 static bool
 interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
 {
-	bool cond;
 	uint32_t cond_id;
 	if (!interp_node(wk, n->l, &cond_id)) {
 		return false;
@@ -758,9 +757,7 @@ interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		return false;
 	}
 
-	cond = *get_obj_bool(wk, cond_id);
-
-	uint32_t node = cond ? n->r : n->c;
+	uint32_t node = get_obj_bool(wk, cond_id) ? n->r : n->c;
 
 	return interp_node(wk, node, obj_id);
 }
@@ -783,7 +780,7 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 			return false;
 		}
 
-		cond = *get_obj_bool(wk, cond_id);
+		cond = get_obj_bool(wk, cond_id);
 		break;
 	}
 	case if_else:
@@ -988,7 +985,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	/* literals */
 	case node_bool:
 		make_obj(wk, obj_id, obj_bool);
-		*get_obj_bool(wk, *obj_id) = n->subtype;
+		set_obj_bool(wk, *obj_id, n->subtype);
 		ret = true;
 		break;
 	case node_string:
@@ -1011,7 +1008,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		break;
 	case node_number:
 		make_obj(wk, obj_id, obj_number);
-		*get_obj_number(wk, *obj_id) = n->dat.n;
+		set_obj_number(wk, *obj_id, n->dat.n);
 		ret = true;
 		break;
 

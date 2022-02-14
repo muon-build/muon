@@ -42,9 +42,9 @@ static enum iteration_result
 set_options_iter(struct workspace *wk, void *_ctx, obj key, obj v)
 {
 	struct set_options_ctx *ctx = _ctx;
-	struct obj *val = get_obj(wk, v);
+	enum obj_type t = get_obj_type(wk, v);
 
-	if (val->type == obj_dict) {
+	if (t == obj_dict) {
 		if (ctx->parent) {
 			interp_error(wk, ctx->err_node, "options nested too deep");
 			return ir_err;
@@ -62,8 +62,8 @@ set_options_iter(struct workspace *wk, void *_ctx, obj key, obj v)
 
 	obj opt_val;
 
-	if (val->type == obj_option) {
-		opt_val = val->dat.option.val;
+	if (t == obj_option) {
+		opt_val = get_obj_option(wk, v)->val;
 	} else {
 		opt_val = v;
 	}
@@ -87,11 +87,8 @@ set_options_iter(struct workspace *wk, void *_ctx, obj key, obj v)
 static bool
 set_options_from_file(struct workspace *wk, struct set_options_ctx *ctx, obj file)
 {
-	struct obj *fname = get_obj(wk, file);
-	assert(fname->type == obj_file);
-
 	FILE *f;
-	if (!(f = fs_fopen(get_cstr(wk, fname->dat.file), "r"))) {
+	if (!(f = fs_fopen(get_file_path(wk, file), "r"))) {
 		return false;
 	}
 
@@ -148,21 +145,21 @@ func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
 			interp_error(wk, akw[kw_options].node, "could not flatten argument");
 		}
 
-		struct obj *opts = get_obj(wk, val);
 		struct set_options_ctx ctx = {
 			.sub_wk = &sub_wk,
 			.err_node = akw[kw_options].node
 		};
 
-		if (opts->type == obj_dict) {
+		enum obj_type t = get_obj_type(wk, val);
+		if (t == obj_dict) {
 			if (!obj_dict_foreach(wk, val, &ctx, set_options_iter)) {
 				goto ret;
 			}
-		} else if (opts->type == obj_file) {
+		} else if (t == obj_file) {
 			set_options_from_file(wk, &ctx, val);
 		} else {
 			interp_error(wk, akw[kw_options].node, "expected dict or file for options, got %s",
-				obj_type_to_s(opts->type));
+				obj_type_to_s(t));
 			goto ret;
 		}
 	}

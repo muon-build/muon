@@ -13,20 +13,19 @@
 bool
 coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	struct obj *v = get_obj(wk, val);
-	switch (v->type) {
+	switch (get_obj_type(wk, val)) {
 	case obj_bool:
-		if (v->dat.boolean) {
+		if (get_obj_bool(wk, val)) {
 			*res = make_str(wk, "true");
 		} else {
 			*res = make_str(wk, "false");
 		}
 		break;
 	case obj_file:
-		*res = v->dat.file;
+		*res = *get_obj_file(wk, val);
 		break;
 	case obj_number: {
-		*res = make_strf(wk, "%" PRId64, v->dat.num);
+		*res = make_strf(wk, "%" PRId64, get_obj_number(wk, val));
 		break;
 	}
 	case obj_string: {
@@ -75,23 +74,24 @@ coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 bool
 coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	struct obj *o;
 	uint32_t str;
 
-	switch ((o = get_obj(wk, val))->type) {
+	enum obj_type t = get_obj_type(wk, val);
+	switch (t) {
 	case obj_file:
-		str = get_obj(wk, val)->dat.file;
+		str = *get_obj_file(wk, val);
 		break;
 	case obj_build_target: {
-		if (o->dat.tgt.type != tgt_executable) {
+		struct obj_build_target *o = get_obj_build_target(wk, val);
+		if (o->type != tgt_executable) {
 			interp_error(wk, node, "only exe build targets can be used here");
 			return ir_err;
 		}
 
 		char tmp1[PATH_MAX], dest[PATH_MAX];
 
-		if (!path_join(dest, PATH_MAX, get_cstr(wk, o->dat.tgt.build_dir),
-			get_cstr(wk, o->dat.tgt.build_name))) {
+		if (!path_join(dest, PATH_MAX, get_cstr(wk, o->build_dir),
+			get_cstr(wk, o->build_name))) {
 			return false;
 		} else if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest)) {
 			return false;
@@ -102,16 +102,18 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 		str = make_str(wk, dest);
 		break;
 	}
-	case obj_external_program:
-		if (!o->dat.external_program.found) {
+	case obj_external_program: {
+		struct obj_external_program *o = get_obj_external_program(wk, val);
+		if (!o->found) {
 			interp_error(wk, node, "a not found external_program cannot be used here");
 			return ir_err;
 		}
 
-		str = o->dat.external_program.full_path;
+		str = o->full_path;
 		break;
+	}
 	default:
-		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(o->type));
+		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t));
 		return false;
 	}
 
@@ -123,14 +125,16 @@ bool
 coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requirement_type *requirement)
 {
 	if (kw_required->set) {
-		if (get_obj(wk, kw_required->val)->type == obj_bool) {
-			if (get_obj(wk, kw_required->val)->dat.boolean) {
+		enum obj_type t = get_obj_type(wk, kw_required->val);
+
+		if (t == obj_bool) {
+			if (get_obj_bool(wk, kw_required->val)) {
 				*requirement = requirement_required;
 			} else {
 				*requirement = requirement_auto;
 			}
-		} else if (get_obj(wk, kw_required->val)->type == obj_feature_opt) {
-			switch (get_obj(wk, kw_required->val)->dat.feature_opt.state) {
+		} else if (t == obj_feature_opt) {
+			switch (get_obj_feature_opt(wk, kw_required->val)->state) {
 			case feature_opt_disabled:
 				*requirement = requirement_skip;
 				break;
@@ -145,7 +149,7 @@ coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requi
 			interp_error(wk, kw_required->node, "expected type %s or %s, got %s",
 				obj_type_to_s(obj_bool),
 				obj_type_to_s(obj_feature_opt),
-				obj_type_to_s(get_obj(wk, kw_required->val)->type)
+				obj_type_to_s(t)
 				);
 			return false;
 		}
@@ -172,10 +176,9 @@ struct coerce_into_files_ctx {
 };
 
 static enum iteration_result
-coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, uint32_t val)
+coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct coerce_into_files_ctx *ctx = _ctx;
-	assert(get_obj(wk, val)->type == obj_file);
 
 	obj_array_push(wk, ctx->arr, val);
 	return ir_cont;
@@ -184,7 +187,6 @@ coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, uint32_t val)
 bool
 coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 {
-	assert(get_obj(wk, string)->type == obj_string);
 	const char *p = get_cstr(wk, string);
 
 	obj s2;
@@ -199,7 +201,8 @@ coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 		s2 = make_str(wk, path);
 	}
 
-	make_obj(wk, res, obj_file)->dat.file = s2;
+	make_obj(wk, res, obj_file);
+	*get_obj_file(wk, *res) = s2;
 	return true;
 }
 
@@ -207,8 +210,9 @@ static enum iteration_result
 coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 {
 	struct coerce_into_files_ctx *ctx = _ctx;
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (get_obj(wk, val)->type) {
+	switch (t) {
 	case obj_string: {
 		obj file;
 		char buf[PATH_MAX];
@@ -229,7 +233,8 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 				return ir_err;
 			}
 
-			make_obj(wk, &file, obj_file)->dat.file = make_str(wk, buf);
+			make_obj(wk, &file, obj_file);
+			*get_obj_file(wk, file) = make_str(wk, buf);
 			break;
 		default:
 			assert(false);
@@ -244,7 +249,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 			goto type_error;
 		}
 
-		if (!obj_array_foreach(wk, get_obj(wk, val)->dat.custom_target.output,
+		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output,
 			ctx, coerce_custom_target_output_iter)) {
 			return ir_err;
 		}
@@ -255,15 +260,16 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 			goto type_error;
 		}
 
-		struct obj *tgt = get_obj(wk, val);
+		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
 		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), get_cstr(wk, tgt->dat.tgt.build_name))) {
+		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
 			return ir_err;
 		}
 
 		uint32_t file;
-		make_obj(wk, &file, obj_file)->dat.file = make_str(wk, path);
+		make_obj(wk, &file, obj_file);
+		*get_obj_file(wk, file) = make_str(wk, path);
 		obj_array_push(wk, ctx->arr, file);
 		break;
 	}
@@ -276,7 +282,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	default:
 type_error:
 		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
-			obj_type_to_s(get_obj(wk, val)->type), ctx->type);
+			obj_type_to_s(t), ctx->type);
 		return ir_err;
 	}
 
@@ -297,7 +303,7 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
 		.mode = mode,
 	};
 
-	switch (get_obj(wk, val)->type) {
+	switch (get_obj_type(wk, val)) {
 	case obj_array:
 		return obj_array_foreach_flat(wk, val, &ctx, coerce_into_files_iter);
 	default:
@@ -338,12 +344,12 @@ static enum iteration_result
 include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct include_directories_iter_ctx *ctx = _ctx;
-	struct obj *d = get_obj(wk, v);
+	enum obj_type t = get_obj_type(wk, v);
 
-	if (d->type == obj_include_directory) {
+	if (t == obj_include_directory) {
 		obj_array_push(wk, ctx->res, v);
 		return ir_cont;
-	} else if (d->type != obj_string) {
+	} else if (t != obj_string) {
 		interp_error(wk, ctx->node, "unable to coerce %o to include_directory", v);
 		return ir_err;
 	}
@@ -368,6 +374,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	obj inc;
+	struct obj_include_directory *d;
 
 	if (path_is_subpath(wk->source_root, p)) {
 		if (!path_relative_to(buf1, PATH_MAX, wk->source_root, p)) {
@@ -376,15 +383,17 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 			return ir_err;
 		}
 
-		d = make_obj(wk, &inc, obj_include_directory);
-		d->dat.include_directory.path = make_str(wk, buf2);
-		d->dat.include_directory.is_system = ctx->is_system;
+		make_obj(wk, &inc, obj_include_directory);
+		d = get_obj_include_directory(wk, inc);
+		d->path = make_str(wk, buf2);
+		d->is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}
 
-	d = make_obj(wk, &inc, obj_include_directory);
-	d->dat.include_directory.path = path;
-	d->dat.include_directory.is_system = ctx->is_system;
+	make_obj(wk, &inc, obj_include_directory);
+	d = get_obj_include_directory(wk, inc);
+	d->path = path;
+	d->is_system = ctx->is_system;
 	obj_array_push(wk, ctx->res, inc);
 
 	return ir_cont;

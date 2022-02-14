@@ -58,9 +58,9 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct add_dep_sources_ctx *ctx = _ctx;
 
-	struct obj *dep = get_obj(wk, val);
+	enum obj_type t = get_obj_type(wk, val);
 
-	switch (dep->type) {
+	switch (t) {
 	case obj_external_library:
 		return ir_cont;
 	case obj_dependency:
@@ -70,9 +70,10 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	if (dep->dat.dep.sources) {
+	struct obj_dependency *dep = get_obj_dependency(wk, val);
+	if (dep->sources) {
 		obj src;
-		obj_array_dup(wk, dep->dat.dep.sources, &src);
+		obj_array_dup(wk, dep->sources, &src);
 		obj_array_extend(wk, ctx->src, src);
 	}
 
@@ -125,7 +126,7 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 }
 
 static void
-setup_soname(struct workspace *wk, struct obj *tgt, const char *plain_name, obj sover, obj ver)
+setup_soname(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, obj sover, obj ver)
 {
 	char soversion[BUF_SIZE_1k] = { "." };
 	bool have_soversion = false;
@@ -142,38 +143,39 @@ setup_soname(struct workspace *wk, struct obj *tgt, const char *plain_name, obj 
 		}
 	}
 
-	tgt->dat.tgt.soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
+	tgt->soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
 }
 
 static bool
-setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *plain_name,
-	const char **plain_name_install, const char **soname_install)
+setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
+	const char *plain_name, const char **plain_name_install,
+	const char **soname_install)
 {
 	static char soname_symlink[PATH_MAX], plain_name_symlink[PATH_MAX];
 
-	if (!fs_mkdir_p(get_cstr(wk, tgt->dat.tgt.build_dir))) {
+	if (!fs_mkdir_p(get_cstr(wk, tgt->build_dir))) {
 		return false;
 	}
 
-	if (!str_eql(get_str(wk, tgt->dat.tgt.build_name), get_str(wk, tgt->dat.tgt.soname))) {
-		if (!path_join(soname_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir),
-			get_cstr(wk, tgt->dat.tgt.soname))) {
+	if (!str_eql(get_str(wk, tgt->build_name), get_str(wk, tgt->soname))) {
+		if (!path_join(soname_symlink, PATH_MAX, get_cstr(wk, tgt->build_dir),
+			get_cstr(wk, tgt->soname))) {
 			return false;
 		}
 
-		if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.build_name), soname_symlink, true)) {
+		if (!fs_make_symlink(get_cstr(wk, tgt->build_name), soname_symlink, true)) {
 			return false;
 		}
 
 		*soname_install = soname_symlink;
 	}
 
-	if (!str_eql(get_str(wk, tgt->dat.tgt.soname), &WKSTR(plain_name))) {
-		if (!path_join(plain_name_symlink, PATH_MAX, get_cstr(wk, tgt->dat.tgt.build_dir), plain_name)) {
+	if (!str_eql(get_str(wk, tgt->soname), &WKSTR(plain_name))) {
+		if (!path_join(plain_name_symlink, PATH_MAX, get_cstr(wk, tgt->build_dir), plain_name)) {
 			return false;
 		}
 
-		if (!fs_make_symlink(get_cstr(wk, tgt->dat.tgt.soname), plain_name_symlink, true)) {
+		if (!fs_make_symlink(get_cstr(wk, tgt->soname), plain_name_symlink, true)) {
 			return false;
 		}
 
@@ -184,12 +186,12 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj *tgt, const char *
 }
 
 static bool
-determine_target_build_name(struct workspace *wk, struct obj *tgt, obj sover, obj ver,
+determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, obj sover, obj ver,
 	obj name_pre, obj name_suff, char plain_name[BUF_SIZE_2k])
 {
 	const char *pref, *suff, *ver_suff = NULL;
 
-	switch (tgt->dat.tgt.type) {
+	switch (tgt->type) {
 	case tgt_executable:
 		pref = "";
 		suff = "";
@@ -221,9 +223,9 @@ determine_target_build_name(struct workspace *wk, struct obj *tgt, obj sover, ob
 		suff = get_cstr(wk, name_suff);
 	}
 
-	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->dat.tgt.name), suff);
+	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->name), suff);
 
-	tgt->dat.tgt.build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
+	tgt->build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
 	return true;
 }
 
@@ -231,24 +233,25 @@ static bool
 create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, enum tgt_type type, obj *res)
 {
 	char plain_name[BUF_SIZE_2k];
-	struct obj *tgt = make_obj(wk, res, obj_build_target);
-	tgt->dat.tgt.type = type;
-	tgt->dat.tgt.name = an[0].val;
-	tgt->dat.tgt.cwd = current_project(wk)->cwd;
-	tgt->dat.tgt.build_dir = current_project(wk)->build_dir;
-	make_obj(wk, &tgt->dat.tgt.args, obj_dict);
+	make_obj(wk, res, obj_build_target);
+	struct obj_build_target *tgt = get_obj_build_target(wk, *res);
+	tgt->type = type;
+	tgt->name = an[0].val;
+	tgt->cwd = current_project(wk)->cwd;
+	tgt->build_dir = current_project(wk)->build_dir;
+	make_obj(wk, &tgt->args, obj_dict);
 
 	{ // build target flags
 		if (akw[bt_kw_link_whole].set) {
-			tgt->dat.tgt.flags |= build_tgt_flag_link_whole;
+			tgt->flags |= build_tgt_flag_link_whole;
 		}
 
 		if (akw[bt_kw_pic].set) {
-			tgt->dat.tgt.flags |= build_tgt_flag_pic;
+			tgt->flags |= build_tgt_flag_pic;
 		}
 
 		if (akw[bt_kw_export_dynamic].set) {
-			tgt->dat.tgt.flags |= build_tgt_flag_export_dynamic;
+			tgt->flags |= build_tgt_flag_export_dynamic;
 		}
 	}
 
@@ -270,11 +273,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			obj_array_extend(wk, an[1].val, arr);
 		}
 
-		if (!coerce_files(wk, an[1].node, an[1].val, &tgt->dat.tgt.src)) {
+		if (!coerce_files(wk, an[1].node, an[1].val, &tgt->src)) {
 			return false;
 		}
 
-		if (!get_obj(wk, tgt->dat.tgt.src)->dat.arr.len) {
+		if (!get_obj_array(wk, tgt->src)->len) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
 			interp_error(wk, node, "sources must not be empty");
@@ -288,7 +291,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		uint32_t node = an[0].node; // TODO: not a very informative error node
 
 		if (!(akw[bt_kw_implicit_include_directories].set
-		      && !get_obj(wk, akw[bt_kw_implicit_include_directories].val)->dat.boolean)) {
+		      && !get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val))) {
 			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
 		}
 
@@ -305,18 +308,18 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		tgt->dat.tgt.include_directories = coerced;
+		tgt->include_directories = coerced;
 	}
 
 	{ // dependencies
 		if (akw[bt_kw_dependencies].set) {
-			tgt->dat.tgt.deps = akw[bt_kw_dependencies].val;
+			tgt->deps = akw[bt_kw_dependencies].val;
 			struct add_dep_sources_ctx ctx = {
 				.node = akw[bt_kw_dependencies].node,
-				.src = tgt->dat.tgt.src,
+				.src = tgt->src,
 			};
 
-			obj_array_foreach(wk, tgt->dat.tgt.deps, &ctx, add_dep_sources_iter);
+			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
 		}
 	}
 
@@ -333,27 +336,27 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
 			if (akw[lang_args[i].kw].set) {
-				obj_dict_seti(wk, tgt->dat.tgt.args, lang_args[i].l, akw[lang_args[i].kw].val);
+				obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
 			}
 		}
 	}
 
 	{ // linker args
 		if (akw[bt_kw_link_args].set) {
-			tgt->dat.tgt.link_args = akw[bt_kw_link_args].val;
+			tgt->link_args = akw[bt_kw_link_args].val;
 		}
 
-		make_obj(wk, &tgt->dat.tgt.link_with, obj_array);
+		make_obj(wk, &tgt->link_with, obj_array);
 		if (akw[bt_kw_link_with].set) {
 			obj arr;
 			obj_array_dup(wk, akw[bt_kw_link_with].val, &arr);
-			obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+			obj_array_extend(wk, tgt->link_with, arr);
 		}
 
 		if (akw[bt_kw_link_whole].set) {
 			obj arr;
 			obj_array_dup(wk, akw[bt_kw_link_whole].val, &arr);
-			obj_array_extend(wk, tgt->dat.tgt.link_with, arr);
+			obj_array_extend(wk, tgt->link_with, arr);
 		}
 	}
 
@@ -371,7 +374,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		}
 	}
 
-	if (akw[bt_kw_install].set && get_obj(wk, akw[bt_kw_install].val)->dat.boolean) {
+	if (akw[bt_kw_install].set && get_obj_bool(wk, akw[bt_kw_install].val)) {
 		obj install_dir = 0;
 		if (akw[bt_kw_install_dir].set) {
 			install_dir = akw[bt_kw_install_dir].val;
@@ -391,13 +394,13 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			}
 		}
 
-		struct obj *install_tgt;
-		if (!(install_tgt = push_install_target_basename(wk, tgt->dat.tgt.build_dir,
-			tgt->dat.tgt.build_name, install_dir, akw[bt_kw_install_mode].val))) {
+		struct obj_install_target *install_tgt;
+		if (!(install_tgt = push_install_target_basename(wk, tgt->build_dir,
+			tgt->build_name, install_dir, akw[bt_kw_install_mode].val))) {
 			return false;
 		}
 
-		install_tgt->dat.install_target.build_target = true;
+		install_tgt->build_target = true;
 
 		if (soname_install) {
 			push_install_target_install_dir(wk, make_str(wk, soname_install),
@@ -410,7 +413,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		}
 	}
 
-	LOG_I("added target %s", get_cstr(wk, tgt->dat.tgt.build_name));
+	LOG_I("added target %s", get_cstr(wk, tgt->build_name));
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
 }
@@ -422,15 +425,15 @@ typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
 		return true;
 	}
 
-	struct obj *o = get_obj(wk, kw->val);
-	if (o->type == obj_string) {
+	enum obj_type t = get_obj_type(wk, kw->val);
+	if (t == obj_string) {
 		return true;
-	} else if (o->type == obj_array && o->dat.arr.len == 0) {
+	} else if (t == obj_array && get_obj_array(wk, kw->val)->len == 0) {
 		kw->set = false;
 		kw->val = 0;
 		return true;
 	} else {
-		interp_error(wk, kw->node, "expected string or [], got %s", obj_type_to_s(o->type));
+		interp_error(wk, kw->node, "expected string or [], got %s", obj_type_to_s(t));
 		return false;
 	}
 }
@@ -540,7 +543,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			}
 
 			akw[bt_kw_sources].set = false;
-			get_obj(wk, an[1].val)->dat.arr.len = 0;
+			get_obj_array(wk, an[1].val)->len = 0;
 
 			if (akw[bt_kw_objects].set) {
 				obj arr;

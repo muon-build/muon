@@ -9,7 +9,7 @@
 struct generator_process_ctx {
 	obj name;
 	uint32_t node;
-	struct obj *g;
+	struct obj_generator *g;
 	obj *res;
 };
 
@@ -26,10 +26,10 @@ generator_process_iter(struct workspace *wk, void *_ctx, obj val)
 		ctx->node,
 		ctx->node,
 		val,
-		ctx->g->dat.generator.output,
-		ctx->g->dat.generator.raw_command,
-		ctx->g->dat.generator.depfile,
-		ctx->g->dat.generator.capture,
+		ctx->g->output,
+		ctx->g->raw_command,
+		ctx->g->depfile,
+		ctx->g->capture,
 		&tgt
 		)) {
 		return ir_err;
@@ -61,7 +61,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 	struct generator_process_ctx ctx = {
 		.name = make_str(wk, "<generated source>"),
 		.node = an[0].node,
-		.g = get_obj(wk, gen),
+		.g = get_obj_generator(wk, gen),
 		.res = res,
 	};
 

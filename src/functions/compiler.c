@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -77,14 +78,14 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		return true;
 	}
 
-	struct obj *comp = get_obj(wk, opts->comp_id);
-	const char *name = get_cstr(wk, comp->dat.compiler.name);
-	enum compiler_type t = comp->dat.compiler.type;
+	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
+	const char *name = get_cstr(wk, comp->name);
+	enum compiler_type t = comp->type;
 
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
-	obj_array_push(wk, compiler_args, comp->dat.compiler.name);
+	obj_array_push(wk, compiler_args, comp->name);
 
 	if (opts->inc && opts->inc->set) {
 		obj include_dirs = 0;
@@ -149,7 +150,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 		struct setup_linker_args_ctx sctx = {
 			.linker = compilers[t].linker,
-			.link_lang = comp->dat.compiler.lang,
+			.link_lang = comp->lang,
 			.args = &da_ctx
 		};
 
@@ -345,12 +346,13 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	make_obj(wk, res, obj_number)->dat.num = compiler_check_parse_output_int(&opts);
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
-	LOG_I("sizeof %s: %ld",
+	LOG_I("sizeof %s: %" PRId64,
 		get_cstr(wk, an[0].val),
-		(long)get_obj(wk, *res)->dat.num
+		get_obj_number(wk, *res)
 		);
 
 	return true;
@@ -386,12 +388,13 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		return false;
 	}
 
-	make_obj(wk, res, obj_number)->dat.num = compiler_check_parse_output_int(&opts);
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
-	LOG_I("alignment of %s: %ld",
+	LOG_I("alignment of %s: %" PRId64,
 		get_cstr(wk, an[0].val),
-		(long)get_obj(wk, *res)->dat.num
+		get_obj_number(wk, *res)
 		);
 
 	return true;
@@ -550,7 +553,8 @@ func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t ar
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("have attribute %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
@@ -663,7 +667,8 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		}
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("have function %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
@@ -709,7 +714,8 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("%s has header symbol %s: %s",
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
@@ -850,21 +856,21 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		interp_error(wk, an[0].node, "could not flatten argument");
 	}
 
-	struct obj *src_obj = get_obj(wk, o);
+	enum obj_type t = get_obj_type(wk, o);
 
 	const char *src;
 
-	switch (src_obj->type) {
+	switch (t) {
 	case obj_string:
 		src = get_cstr(wk, o);
 		break;
 	case obj_file: {
-		src  = get_cstr(wk, src_obj->dat.file);
+		src  = get_file_path(wk, o);
 		opts.src_is_path = true;
 		break;
 	}
 	default:
-		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(src_obj->type));
+		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
 		return false;
 	}
 
@@ -873,7 +879,8 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 
 	if (akw[cc_kw_name].set) {
 		const char *mode_s = NULL;
@@ -943,7 +950,8 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("header %s found: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
@@ -980,7 +988,8 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("has type %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
@@ -1021,7 +1030,8 @@ func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = ok;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 	LOG_I("%s has member %s: %s",
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
@@ -1038,8 +1048,8 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		return ir_err;
 	}
 
-	struct obj *comp = get_obj(wk, comp_id);
-	enum compiler_type t = comp->dat.compiler.type;
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+	enum compiler_type t = comp->type;
 
 	obj args;
 	make_obj(wk, &args, obj_array);
@@ -1083,7 +1093,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uin
 }
 
 static bool
-func_compiler_has_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
@@ -1095,7 +1105,8 @@ func_compiler_has_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_no
 		return false;
 	}
 
-	make_obj(wk, obj, obj_bool)->dat.boolean = has_argument;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, has_argument);
 	return true;
 }
 
@@ -1157,13 +1168,13 @@ func_compiler_first_supported_argument(struct workspace *wk, uint32_t rcvr, uint
 }
 
 static bool
-func_compiler_get_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_compiler_get_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = make_str(wk, compiler_type_to_s(get_obj(wk, rcvr)->dat.compiler.type));
+	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, rcvr)->type));
 	return true;
 }
 
@@ -1174,7 +1185,8 @@ func_compiler_get_linker_id(struct workspace *wk, uint32_t rcvr, uint32_t args_n
 		return false;
 	}
 
-	*obj = make_str(wk, linker_type_to_s(compilers[get_obj(wk, rcvr)->dat.compiler.type].linker));
+	enum compiler_type t = get_obj_compiler(wk, rcvr)->type;
+	*obj = make_str(wk, linker_type_to_s(compilers[t].linker));
 	return true;
 }
 
@@ -1234,16 +1246,17 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_external_library)->dat.external_library.found = false;
+		make_obj(wk, res, obj_external_library);
+		get_obj_external_library(wk, *res)->found = false;
 		return true;
 	}
 
 	struct compiler_find_library_ctx ctx = {
 		.lib_name = an[0].val
 	};
-	struct obj *comp = get_obj(wk, rcvr);
+	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
 
-	if (!obj_array_foreach(wk, comp->dat.compiler.libdirs, &ctx, compiler_find_library_iter)) {
+	if (!obj_array_foreach(wk, comp->libdirs, &ctx, compiler_find_library_iter)) {
 		return false;
 	}
 
@@ -1254,16 +1267,19 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		}
 
 		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
-		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
+		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = disabler_id;
 		} else {
-			make_obj(wk, res, obj_external_library)->dat.external_library.found = false;
+			make_obj(wk, res, obj_external_library);
+			get_obj_external_library(wk, *res)->found = false;
 		}
 	} else {
 		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
-		struct obj *external_library = make_obj(wk, res, obj_external_library);
-		external_library->dat.external_library.found = true;
-		external_library->dat.external_library.full_path = make_str(wk, ctx.path);
+		make_obj(wk, res, obj_external_library);
+		struct obj_external_library *ep =
+			get_obj_external_library(wk, *res);
+		ep->found = true;
+		ep->full_path = make_str(wk, ctx.path);
 	}
 
 	return true;
@@ -1277,7 +1293,7 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	}
 
 	make_obj(wk, res, obj_array);
-	obj_array_push(wk, *res, get_obj(wk, rcvr)->dat.compiler.name);
+	obj_array_push(wk, *res, get_obj_compiler(wk, rcvr)->name);
 	return true;
 }
 
@@ -1288,7 +1304,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	*res = get_obj(wk, rcvr)->dat.compiler.ver;
+	*res = get_obj_compiler(wk, rcvr)->ver;
 	return true;
 }
 

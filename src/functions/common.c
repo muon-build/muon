@@ -183,7 +183,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum o
 		if (*val == disabler_id) {
 			disabler_among_args = true;
 			return false;
-		} else if (get_obj(wk, *val)->type == obj_array) {
+		} else if (get_obj_type(wk, *val) == obj_array) {
 			bool among = false;
 			obj_array_foreach_flat(wk, *val, &among, typecheck_function_arg_check_disabler_iter);
 			if (among) {
@@ -211,7 +211,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum o
 	};
 	make_obj(wk, &ctx.arr, obj_array);
 
-	if (get_obj(wk, *val)->type == obj_array) {
+	if (get_obj_type(wk, *val) == obj_array) {
 		if (!obj_array_foreach_flat(wk, *val, &ctx, typecheck_function_arg_iter)) {
 			return false;
 		}
@@ -423,8 +423,7 @@ bool
 todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
 {
 	if (rcvr_id) {
-		struct obj *rcvr = get_obj(wk, rcvr_id);
-		LOG_E("method on %s not implemented", obj_type_to_s(rcvr->type));
+		LOG_E("method on %s not implemented", obj_type_to_s(get_obj_type(wk, rcvr_id)));
 	} else {
 		LOG_E("function not implemented");
 	}
@@ -475,7 +474,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 {
 	const char *name;
 
-	enum obj_type recvr_type;
+	enum obj_type rcvr_type;
 	uint32_t args_node, name_node;
 	struct node *n = get_node(wk->ast, node_id);
 
@@ -485,15 +484,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 	}
 
 	if (have_rcvr) {
-		struct obj *rcvr = get_obj(wk, rcvr_id);
 		name_node = n->r;
 		args_node = n->c;
-		recvr_type = rcvr->type;
+		rcvr_type = get_obj_type(wk, rcvr_id);
 	} else {
 		assert(n->chflg & node_child_l);
 		name_node = n->l;
 		args_node = n->r;
-		recvr_type = obj_default;
+		rcvr_type = obj_default;
 	}
 
 	/* L("calling %s.%s", obj_type_to_s(recvr_type), name); */
@@ -501,11 +499,11 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 	func_impl func;
 	name = get_node(wk->ast, name_node)->dat.s;
 
-	if (recvr_type == obj_module) {
-		struct obj *m = get_obj(wk, rcvr_id);
-		enum module mod = m->dat.module.module;
+	if (rcvr_type == obj_module) {
+		struct obj_module *m = get_obj_module(wk, rcvr_id);
+		enum module mod = m->module;
 
-		if (!m->dat.module.found && strcmp(name, "found") != 0) {
+		if (!m->found && strcmp(name, "found") != 0) {
 			interp_error(wk, name_node, "invalid attempt to use missing module");
 			return false;
 		} else if (!module_lookup_func(name, mod, &func)) {
@@ -513,15 +511,15 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 			return false;
 		}
 	} else {
-		const struct func_impl_name *impl_tbl = func_tbl[recvr_type][wk->lang_mode];
+		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 
 		if (!impl_tbl) {
-			interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(recvr_type));
+			interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(rcvr_type));
 			return false;
 		}
 
 		if (!func_lookup(impl_tbl, name, &func)) {
-			if (recvr_type == obj_disabler) {
+			if (rcvr_type == obj_disabler) {
 				*obj = disabler_id;
 				return true;
 			}
@@ -537,10 +535,10 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 			disabler_among_args = false;
 			return true;
 		} else {
-			if (recvr_type == obj_default) {
+			if (rcvr_type == obj_default) {
 				interp_error(wk, name_node, "in function %s",  name);
 			} else {
-				interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(recvr_type), name);
+				interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(rcvr_type), name);
 			}
 			return false;
 		}

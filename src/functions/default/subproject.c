@@ -154,9 +154,10 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		}
 	}
 
-	struct obj *sub = make_obj(wk, res, obj_subproject);
-	sub->dat.subproj.id = subproject_id;
-	sub->dat.subproj.found = true;
+	make_obj(wk, res, obj_subproject);
+	struct obj_subproject *sub = get_obj_subproject(wk, *res);
+	sub->id = subproject_id;
+	sub->found = true;
 
 
 	obj_dict_set(wk, wk->subprojects, name, *res);
@@ -191,10 +192,6 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (!subproject(wk, an[0].val, req, &akw[kw_default_options], &akw[kw_version], res)) {
 		return false;
-	}
-
-	struct obj *subp_obj = get_obj(wk, *res);
-	if (akw[kw_version].set && subp_obj->dat.subproj.found) {
 	}
 
 	return true;

@@ -12,9 +12,8 @@ func_external_library_found(struct workspace *wk, uint32_t rcvr, uint32_t args_n
 		return false;
 	}
 
-	struct obj *res = make_obj(wk, obj, obj_bool);
-	res->dat.boolean = get_obj(wk, rcvr)->dat.external_library.found;
-
+	make_obj(wk, obj, obj_bool);
+	set_obj_bool(wk, *obj, get_obj_external_library(wk, rcvr)->found);
 	return true;
 }
 

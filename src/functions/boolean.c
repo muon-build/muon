@@ -15,7 +15,7 @@ func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
-	if (get_obj(wk, rcvr)->dat.boolean) {
+	if (get_obj_bool(wk, rcvr)) {
 		*res = ao[0].set ? ao[0].val : make_str(wk, "true");
 	} else {
 		*res = ao[1].set ? ao[1].val : make_str(wk, "false");
@@ -31,9 +31,9 @@ func_boolean_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	int32_t val = get_obj(wk, rcvr)->dat.boolean ? 1 : 0;
-	make_obj(wk, res, obj_number)->dat.num = val;
-
+	int32_t val = get_obj_bool(wk, rcvr) ? 1 : 0;
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, val);
 	return true;
 }
 

@@ -15,22 +15,22 @@ enum fix_file_path_opts {
 static bool
 fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_path_opts opts, const char **res)
 {
-	struct obj *pathobj = get_obj(wk, path);
+	enum obj_type t = get_obj_type(wk, path);
 	const struct str *ss;
-	switch (pathobj->type) {
+	switch (t) {
 	case obj_string:
-		ss = &pathobj->dat.str;
+		ss = get_str(wk, path);
 		break;
 	case obj_file:
 		if (opts & fix_file_path_allow_file) {
-			ss = get_str(wk, pathobj->dat.file);
+			ss = get_str(wk, *get_obj_file(wk, path));
 			break;
 		}
 	// FALLTHROUGH
 	default:
 		interp_error(wk, err_node, "expected string%s, got %s",
 			(opts & fix_file_path_allow_file) ? " or file" : "",
-			obj_type_to_s(pathobj->type));
+			obj_type_to_s(t));
 		return false;
 	}
 
@@ -84,7 +84,8 @@ func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res,
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = lookup(path);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, lookup(path));
 	return true;
 }
 
@@ -196,7 +197,8 @@ func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = path_is_absolute(path);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, path_is_absolute(path));
 	return true;
 }
 

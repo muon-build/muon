@@ -10,7 +10,7 @@ typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj v
 {
 	uint32_t *err_node = _ctx;
 
-	enum obj_type t = get_obj(wk, val)->type;
+	enum obj_type t = get_obj_type(wk, val);
 	if (t != obj_string) {
 		interp_error(wk, *err_node, "all values in environment dict must be strings, got: %s", obj_type_to_s(t));
 		return ir_err;
@@ -46,7 +46,7 @@ environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum 
 		return false;
 	}
 
-	obj dict = get_obj(wk, rcvr)->dat.environment.env,
+	obj dict = get_obj_environment(wk, rcvr)->env,
 	    key = an[0].val,
 	    value = an[1].val,
 	    sep;
@@ -57,8 +57,7 @@ environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum 
 		sep = make_str(wk, ":");
 	}
 
-	assert(get_obj(wk, value)->type == obj_array);
-	if (!get_obj(wk, value)->dat.arr.len) {
+	if (!get_obj_array(wk, value)->len) {
 		interp_error(wk, an[0].node, "you must pass at least one value");
 		return false;
 	}

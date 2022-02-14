@@ -27,14 +27,15 @@ get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_i
 	}
 }
 
-struct obj *
+struct obj_install_target *
 push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 {
-	uint32_t id;
-	struct obj *tgt = make_obj(wk, &id, obj_install_target);
-	tgt->dat.install_target.src = src;
+	obj id;
+	make_obj(wk, &id, obj_install_target);
+	struct obj_install_target *tgt = get_obj_install_target(wk, id);
+	tgt->src = src;
 	// TODO this has a mode [, user, group]
-	tgt->dat.install_target.mode = mode;
+	tgt->mode = mode;
 
 	obj sdest;
 	if (path_is_absolute(get_cstr(wk, dest))) {
@@ -51,13 +52,13 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		sdest = make_str(wk, buf);
 	}
 
-	tgt->dat.install_target.dest = sdest;
+	tgt->dest = sdest;
 
 	obj_array_push(wk, wk->install, id);
 	return tgt;
 }
 
-struct obj *
+struct obj_install_target *
 push_install_target_install_dir(struct workspace *wk, obj ssrc,
 	obj install_dir, obj mode)
 {
@@ -73,7 +74,7 @@ push_install_target_install_dir(struct workspace *wk, obj ssrc,
 	return push_install_target(wk, ssrc, sdest, mode);
 }
 
-struct obj *
+struct obj_install_target *
 push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
 	obj install_dir, obj mode)
 {
@@ -117,7 +118,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	enum obj_type dt = get_obj_type(wk, install_dir);
 
-	if (dt == obj_bool && !*get_obj_bool(wk, install_dir)) {
+	if (dt == obj_bool && !get_obj_bool(wk, install_dir)) {
 		// skip if we get passed `false` for an install dir
 		return ir_cont;
 	} else if (dt != obj_string) {

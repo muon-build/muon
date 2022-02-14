@@ -12,7 +12,7 @@ func_custom_target_to_list(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	*res = get_obj(wk, rcvr)->dat.custom_target.output;
+	*res = get_obj_custom_target(wk, rcvr)->output;
 	return true;
 }
 
@@ -24,13 +24,12 @@ func_custom_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node,
 	}
 
 	obj elem;
-	if (!obj_array_flatten_one(wk, get_obj(wk, rcvr)->dat.custom_target.output, &elem)) {
+	if (!obj_array_flatten_one(wk, get_obj_custom_target(wk, rcvr)->output, &elem)) {
 		interp_error(wk, args_node, "this custom_target has multiple outputs");
 		return false;
 	}
 
-	assert(get_obj(wk, elem)->type = obj_file);
-	*res = get_obj(wk, elem)->dat.file;
+	*res = *get_obj_file(wk, elem);
 	return true;
 }
 

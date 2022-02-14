@@ -14,7 +14,8 @@ func_number_is_odd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = (get_obj(wk, rcvr)->dat.num & 1) != 0;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, (get_obj_number(wk, rcvr) & 1) != 0);
 	return true;
 }
 
@@ -25,7 +26,7 @@ func_number_is_even(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = (get_obj(wk, rcvr)->dat.num & 1) == 0;
+	set_obj_bool(wk, *res, (get_obj_number(wk, rcvr) & 1) == 0);
 	return true;
 }
 
@@ -36,7 +37,7 @@ func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	*res = make_strf(wk, "%" PRId64, get_obj(wk, rcvr)->dat.num);
+	*res = make_strf(wk, "%" PRId64, get_obj_number(wk, rcvr));
 	return true;
 }
 

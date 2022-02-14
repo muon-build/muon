@@ -104,7 +104,7 @@ grow_str(struct workspace *wk, obj s, uint32_t grow_by)
 {
 	assert(s);
 
-	struct str *ss = &get_obj(wk, s)->dat.str;
+	struct str *ss = (struct str *)get_str(wk, s);
 	uint32_t new_len = ss->len + grow_by + 1;
 
 	if (ss->flags & str_flag_big) {

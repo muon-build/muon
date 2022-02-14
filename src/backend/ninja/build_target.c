@@ -13,7 +13,7 @@
 
 struct write_tgt_iter_ctx {
 	FILE *out;
-	const struct obj *tgt;
+	const struct obj_build_target *tgt;
 	const struct project *proj;
 	struct dep_args_ctx args;
 	obj joined_args;
@@ -25,11 +25,10 @@ struct write_tgt_iter_ctx {
 };
 
 static enum iteration_result
-write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
-	struct obj *src = get_obj(wk, val_id);
-	assert(src->type == obj_file);
+	const char *src = get_file_path(wk, val);
 
 	enum compiler_language lang;
 	enum compiler_type ct;
@@ -38,7 +37,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 		uint32_t comp_id;
 
 		// TODO put these checks into tgt creation
-		if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &lang)) {
+		if (!filename_to_compiler_language(src, &lang)) {
 			/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 			return ir_cont;
 		}
@@ -47,7 +46,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			return ir_cont;
 		} else if (languages[lang].is_linkable) {
 			char path[PATH_MAX];
-			if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
+			if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
 				return ir_err;
 			}
 			obj_array_push(wk, ctx->object_names, make_str(wk, path));
@@ -59,17 +58,17 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 			return ir_err;
 		}
 
-		ct = get_obj(wk, comp_id)->dat.compiler.type;
+		ct = get_obj_compiler(wk, comp_id)->type;
 	}
 
 	/* build paths */
 	char dest_path[PATH_MAX];
-	if (!tgt_src_to_object_path(wk, ctx->tgt, val_id, true, dest_path)) {
+	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, dest_path)) {
 		return ir_err;
 	}
 
 	char src_path[PATH_MAX];
-	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
+	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, src)) {
 		return ir_err;
 	}
 
@@ -119,15 +118,14 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 }
 
 static enum iteration_result
-process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
-	struct obj *src = get_obj(wk, val_id);
-	assert(src->type == obj_file);
+	const char *src = get_file_path(wk, val);
 
 	enum compiler_language fl;
 
-	if (filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)
+	if (filename_to_compiler_language(src, &fl)
 	    && !languages[fl].is_header) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 		return ir_cont;
@@ -135,7 +133,7 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 
 	char dir[PATH_MAX], path[PATH_MAX];
 
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, src->dat.file))) {
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
 		return ir_err;
 	}
 
@@ -152,15 +150,13 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
 }
 
 static enum iteration_result
-determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
-	struct obj *src = get_obj(wk, v_id);
-	assert(src->type == obj_file);
 
 	enum compiler_language fl;
 
-	if (!filename_to_compiler_language(get_cstr(wk, src->dat.file), &fl)) {
+	if (!filename_to_compiler_language(get_file_path(wk, val), &fl)) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 		return ir_cont;
 	}
@@ -191,30 +187,30 @@ determine_linker_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 static bool
-tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_ctx *ctx)
+tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
 {
-	if (tgt->dat.tgt.include_directories) {
-		if (!obj_array_foreach_flat(wk, tgt->dat.tgt.include_directories,
+	if (tgt->include_directories) {
+		if (!obj_array_foreach_flat(wk, tgt->include_directories,
 			ctx, dep_args_includes_iter)) {
 			return false;
 		}
 	}
 
-	if (tgt->dat.tgt.deps) {
-		if (!deps_args(wk, tgt->dat.tgt.deps, ctx)) {
+	if (tgt->deps) {
+		if (!deps_args(wk, tgt->deps, ctx)) {
 			return false;
 		}
 	}
 
-	if (tgt->dat.tgt.link_with) {
-		if (!obj_array_foreach(wk, tgt->dat.tgt.link_with, ctx, dep_args_link_with_iter)) {
+	if (tgt->link_with) {
+		if (!obj_array_foreach(wk, tgt->link_with, ctx, dep_args_link_with_iter)) {
 			return false;
 		}
 	}
 
-	if (tgt->dat.tgt.link_args) {
+	if (tgt->link_args) {
 		obj arr;
-		obj_array_dup(wk, tgt->dat.tgt.link_args, &arr);
+		obj_array_dup(wk, tgt->link_args, &arr);
 		obj_array_extend(wk, ctx->link_args, arr);
 	}
 	return true;
@@ -223,8 +219,8 @@ tgt_args(struct workspace *wk, const struct obj *tgt, struct dep_args_ctx *ctx)
 bool
 ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
 {
-	struct obj *tgt = get_obj(wk, tgt_id);
-	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->dat.tgt.build_name));
+	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
+	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
 	char build_path[PATH_MAX];
 	if (!tgt_build_path(wk, tgt, true, build_path)) {
@@ -239,7 +235,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 	enum linker_type linker;
 	{ /* determine linker */
-		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, determine_linker_iter)) {
+		if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
 			return ir_err;
 		} else if (!ctx.have_link_language) {
 			LOG_E("unable to determine linker for target");
@@ -252,7 +248,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 			return false;
 		}
 
-		linker = compilers[get_obj(wk, comp_id)->dat.compiler.type].linker;
+		linker = compilers[get_obj_compiler(wk, comp_id)->type].linker;
 	}
 
 	make_obj(wk, &ctx.object_names, obj_array);
@@ -267,7 +263,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	}
 
 	/* sources includes */
-	if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, process_source_includes_iter)) {
+	if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) {
 		return false;
 	}
 
@@ -278,13 +274,13 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	ctx.order_deps = join_args_ninja(wk, ctx.order_deps);
 
 	{ /* sources */
-		if (!obj_array_foreach(wk, tgt->dat.tgt.src, &ctx, write_tgt_sources_iter)) {
+		if (!obj_array_foreach(wk, tgt->src, &ctx, write_tgt_sources_iter)) {
 			return false;
 		}
 	}
 
 	obj implicit_deps = 0;
-	if (tgt->dat.tgt.type == tgt_executable) {
+	if (tgt->type == tgt_executable) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
 			.link_lang = ctx.link_language,
@@ -293,23 +289,23 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
 
-		if (get_obj(wk, ctx.args.link_with)->dat.arr.len) {
+		if (get_obj_array(wk, ctx.args.link_with)->len) {
 			implicit_deps = str_join(wk, make_str(wk, " | "), join_args_ninja(wk, ctx.args.link_with));
 		}
 	}
 
 	const char *linker_type, *link_args;
-	switch (tgt->dat.tgt.type) {
+	switch (tgt->type) {
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
 
-		if (tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module)) {
+		if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
 			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
-			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->dat.tgt.soname)));
+			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
 
-			if (tgt->dat.tgt.type == tgt_shared_module) {
+			if (tgt->type == tgt_shared_module) {
 				push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
 			}
 		}

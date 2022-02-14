@@ -54,7 +54,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 {
 	ctx->not_found_reason = 0;
 
-	if (get_obj(wk, ctx->fallback)->dat.arr.len != 2) {
+	if (get_obj_array(wk, ctx->fallback)->len != 2) {
 		interp_error(wk, ctx->err_node, "expected array of length 2 for fallback");
 		return false;
 	}
@@ -67,7 +67,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		return false;
 	}
 
-	if (!get_obj(wk, subproj)->dat.subproj.found) {
+	if (!get_obj_subproject(wk, subproj)->found) {
 		*found = false;
 		return true;
 	}
@@ -103,15 +103,16 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		return true;
 	}
 
-	struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
-	dep->dat.dep.name = ctx->name;
-	dep->dat.dep.version = ver_str;
-	dep->dat.dep.flags |= dep_flag_found | dep_flag_pkg_config;
-	dep->dat.dep.link_with = info.libs;
-	dep->dat.dep.link_with_not_found = info.not_found_libs;
-	dep->dat.dep.include_directories = info.includes;
-	dep->dat.dep.compile_args = info.compile_args;
-	dep->dat.dep.link_args = info.link_args;
+	make_obj(wk, ctx->res, obj_dependency);
+	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+	dep->name = ctx->name;
+	dep->version = ver_str;
+	dep->flags |= dep_flag_found | dep_flag_pkg_config;
+	dep->link_with = info.libs;
+	dep->link_with_not_found = info.not_found_libs;
+	dep->include_directories = info.includes;
+	dep->compile_args = info.compile_args;
+	dep->link_args = info.link_args;
 
 	*found = true;
 	return true;
@@ -144,10 +145,10 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		LLOG_W("dependency %s not found", get_cstr(wk, ctx->name));
 
 		if (ctx->not_found_reason == dep_not_found_reason_version) {
-			struct obj *dep = get_obj(wk, *ctx->res);
+			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 
 			obj_fprintf(wk, log_file(), ": bad verson, have: %o, but need %o\n",
-				dep->dat.dep.version, ctx->versions->val);
+				dep->version, ctx->versions->val);
 		}
 
 		if (ctx->not_found_message) {
@@ -163,17 +164,15 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			if (ctx->disabler) {
 				*ctx->res = disabler_id;
 			} else {
-				struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
-				dep->dat.dep.name = ctx->name;
+				make_obj(wk, ctx->res, obj_dependency);
+				get_obj_dependency(wk, *ctx->res)->name = ctx->name;
 			}
 		}
 	} else {
-		struct obj *dep = get_obj(wk, *ctx->res);
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 
-		assert(get_obj(wk, *ctx->res)->type == obj_dependency);
-
-		LOG_I("dependency %s found: %s%s", get_cstr(wk, dep->dat.dep.name),
-			get_cstr(wk, dep->dat.dep.version),
+		LOG_I("dependency %s found: %s%s", get_cstr(wk, dep->name),
+			get_cstr(wk, dep->version),
 			ctx->is_static ? ", static" : "");
 	}
 
@@ -187,15 +186,16 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		LOG_I("dependency threads found");
 
 		*handled = true;
-		struct obj *dep = make_obj(wk, ctx->res, obj_dependency);
-		dep->dat.dep.name = ctx->name;
-		dep->dat.dep.flags |= dep_flag_found;
+		make_obj(wk, ctx->res, obj_dependency);
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+		dep->name = ctx->name;
+		dep->flags |= dep_flag_found;
 
-		make_obj(wk, &dep->dat.dep.compile_args, obj_array);
-		obj_array_push(wk, dep->dat.dep.compile_args, make_str(wk, "-pthread"));
+		make_obj(wk, &dep->compile_args, obj_array);
+		obj_array_push(wk, dep->compile_args, make_str(wk, "-pthread"));
 
-		make_obj(wk, &dep->dat.dep.link_args, obj_array);
-		obj_array_push(wk, dep->dat.dep.link_args, make_str(wk, "-pthread"));
+		make_obj(wk, &dep->link_args, obj_array);
+		obj_array_push(wk, dep->link_args, make_str(wk, "-pthread"));
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		*handled = true;
 		ctx->name = make_str(wk, "ncurses");
@@ -264,13 +264,14 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	if (requirement == requirement_skip) {
-		struct obj *dep = make_obj(wk, res, obj_dependency);
-		dep->dat.dep.name = an[0].val;
+		make_obj(wk, res, obj_dependency);
+		struct obj_dependency *dep = get_obj_dependency(wk, *res);
+		dep->name = an[0].val;
 		return true;
 	}
 
 	bool is_static = false;
-	if (akw[kw_static].set && get_obj(wk, akw[kw_static].val)->dat.boolean) {
+	if (akw[kw_static].set && get_obj_bool(wk, akw[kw_static].val)) {
 		is_static = true;
 	}
 
@@ -285,9 +286,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
 		.is_static = is_static,
-		.disabler = akw[kw_disabler].set
-			? get_obj(wk, akw[kw_disabler].val)->dat.boolean
-			: false,
+		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 	};
 
 	bool handled;
@@ -342,19 +341,20 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 		akw[kw_include_directories].val = inc_dirs;
 	}
 
-	struct obj *dep = make_obj(wk, res, obj_dependency);
+	make_obj(wk, res, obj_dependency);
+	struct obj_dependency *dep = get_obj_dependency(wk, *res);
 
-	dep->dat.dep.name = make_strf(wk, "%s:declared_dep@%s:%d",
+	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
 		get_cstr(wk, current_project(wk)->cfg.name),
 		wk->src->label,
 		get_node(wk->ast, args_node)->line);
 
-	dep->dat.dep.link_args = akw[kw_link_args].val;
-	dep->dat.dep.version = akw[kw_version].val;
-	dep->dat.dep.flags |= dep_flag_found;
-	dep->dat.dep.variables = akw[kw_variables].val;
-	dep->dat.dep.deps = akw[kw_dependencies].val;
-	dep->dat.dep.compile_args = akw[kw_compile_args].val;
+	dep->link_args = akw[kw_link_args].val;
+	dep->version = akw[kw_version].val;
+	dep->flags |= dep_flag_found;
+	dep->variables = akw[kw_variables].val;
+	dep->deps = akw[kw_dependencies].val;
+	dep->compile_args = akw[kw_compile_args].val;
 
 	if (akw[kw_sources].set) {
 		obj sources;
@@ -362,24 +362,24 @@ func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, ob
 			return false;
 		}
 
-		dep->dat.dep.sources = sources;
+		dep->sources = sources;
 	}
 
-	make_obj(wk, &dep->dat.dep.link_with, obj_array);
+	make_obj(wk, &dep->link_with, obj_array);
 	if (akw[kw_link_with].set) {
 		obj arr;
 		obj_array_dup(wk, akw[kw_link_with].val, &arr);
-		obj_array_extend(wk, dep->dat.dep.link_with, arr);
+		obj_array_extend(wk, dep->link_with, arr);
 	}
 
 	if (akw[kw_link_whole].set) {
 		obj arr;
 		obj_array_dup(wk, akw[kw_link_whole].val, &arr);
-		obj_array_extend(wk, dep->dat.dep.link_with, arr);
+		obj_array_extend(wk, dep->link_with, arr);
 	}
 
 	if (akw[kw_include_directories].set) {
-		dep->dat.dep.include_directories = akw[kw_include_directories].val;
+		dep->include_directories = akw[kw_include_directories].val;
 	}
 
 	return true;

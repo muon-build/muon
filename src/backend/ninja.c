@@ -21,7 +21,8 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 {
 	struct write_tgt_ctx *ctx = _ctx;
 
-	switch (get_obj(wk, tgt_id)->type) {
+	enum obj_type t = get_obj_type(wk, tgt_id);
+	switch (t) {
 	case obj_alias_target:
 		return ninja_write_alias_tgt(wk, tgt_id, ctx->out);
 	case obj_build_target:
@@ -29,7 +30,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
 	case obj_custom_target:
 		return ninja_write_custom_tgt(wk, ctx->proj, tgt_id, ctx->out);
 	default:
-		LOG_E("invalid tgt type '%s'", obj_type_to_s(get_obj(wk, tgt_id)->type));
+		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 }
@@ -67,7 +68,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 
-		if (proj->tests && get_obj(wk, proj->tests)->dat.arr.len) {
+		if (proj->tests && get_obj_array(wk, proj->tests)->len) {
 			if (!wrote_header) {
 				LOG_I("writing tests");
 				wrote_header = true;

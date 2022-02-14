@@ -34,7 +34,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	obj dict = get_obj(wk, rcvr)->dat.configuration_data.dict;
+	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
 	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
 		return false;
 	}
@@ -71,7 +71,7 @@ func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	obj dict = get_obj(wk, rcvr)->dat.configuration_data.dict;
+	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
 
 	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
 		return false;
@@ -98,14 +98,15 @@ func_configuration_data_set10(struct workspace *wk, obj rcvr, uint32_t args_node
 		return false;
 	}
 
-	obj dict = get_obj(wk, rcvr)->dat.configuration_data.dict;
+	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
 
 	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
 		return false;
 	}
 
 	obj n;
-	make_obj(wk, &n, obj_number)->dat.num = get_obj(wk, an[1].val)->dat.boolean ? 1 : 0;
+	make_obj(wk, &n, obj_number);
+	set_obj_number(wk, n, get_obj_bool(wk, an[1].val) ? 1 : 0);
 	obj_dict_set(wk, dict, an[0].val, n);
 
 	return true;
@@ -115,7 +116,7 @@ static bool
 configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
 	obj key, obj def, obj *res)
 {
-	obj dict = get_obj(wk, conf)->dat.configuration_data.dict;
+	obj dict = get_obj_configuration_data(wk, conf)->dict;
 
 	if (!obj_dict_index(wk, dict, key, res)) {
 		if (def) {
@@ -186,7 +187,7 @@ func_configuration_data_keys(struct workspace *wk, obj rcvr, uint32_t args_node,
 		return false;
 	}
 
-	obj dict = get_obj(wk, rcvr)->dat.configuration_data.dict;
+	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
 
 	make_obj(wk, res, obj_array);
 	obj_dict_foreach(wk, dict, res, obj_dict_keys_iter);
@@ -202,8 +203,9 @@ func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	obj _, dict = get_obj(wk, rcvr)->dat.configuration_data.dict;
-	make_obj(wk, res, obj_bool)->dat.boolean = obj_dict_index(wk, dict, an[0].val, &_);
+	obj _, dict = get_obj_configuration_data(wk, rcvr)->dict;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, obj_dict_index(wk, dict, an[0].val, &_));
 	return true;
 }
 

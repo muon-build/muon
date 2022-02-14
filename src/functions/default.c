@@ -128,24 +128,21 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->cfg.license = akw[kw_license].val;
 
 	if (akw[kw_version].set) {
-		struct obj *ver = get_obj(wk, akw[kw_version].val);
-		if (ver->type == obj_array) {
-			if (ver->dat.arr.len != 1) {
+		enum obj_type t = get_obj_type(wk, akw[kw_version].val);
+		obj ver;
+		if (t == obj_array) {
+			if (!obj_array_flatten_one(wk, akw[kw_version].val, &ver)) {
 				goto version_type_error;
-				// type error
-				return false;
 			}
 
-			obj e;
-			obj_array_index(wk, akw[kw_version].val, 0, &e);
-			ver = get_obj(wk, e);
+			t = get_obj_type(wk, akw[kw_version].val);
 		}
 
-		if (ver->type == obj_string) {
+		if (t == obj_string) {
 			current_project(wk)->cfg.version = akw[kw_version].val;
-		} else if (ver->type == obj_file) {
+		} else if (t == obj_file) {
 			struct source ver_src = { 0 };
-			if (!fs_read_entire_file(get_cstr(wk, ver->dat.file), &ver_src)) {
+			if (!fs_read_entire_file(get_file_path(wk, ver), &ver_src)) {
 				interp_error(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
@@ -169,7 +166,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 version_type_error:
 			interp_error(wk, akw[kw_version].node,
 				"invalid type for version: '%s'",
-				obj_type_to_s(get_obj(wk, akw[kw_version].val)->type));
+				obj_type_to_s(get_obj_type(wk, akw[kw_version].val)));
 			return false;
 		}
 	} else {
@@ -327,7 +324,8 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool)->dat.boolean = !ctx.missing;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, !ctx.missing);
 	return true;
 }
 
@@ -362,9 +360,7 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_custom_dir_ctx *ctx = _ctx;
 
-	assert(get_obj(wk, val)->type == obj_file);
-
-	if (!path_join(ctx->buf, PATH_MAX, get_cstr(wk, get_obj(wk, val)->dat.file), ctx->prog)) {
+	if (!path_join(ctx->buf, PATH_MAX, get_file_path(wk, val), ctx->prog)) {
 		return ir_err;
 	}
 
@@ -383,16 +379,16 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	obj ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	struct obj *v = get_obj(wk, prog);
-	switch (v->type) {
+	enum obj_type t = get_obj_type(wk, prog);
+	switch (t) {
 	case obj_file:
-		str = get_cstr(wk, get_obj(wk, prog)->dat.file);
+		str = get_file_path(wk, prog);
 		break;
 	case obj_string:
 		str = get_cstr(wk, prog);
 		break;
 	case obj_external_program:
-		if (v->dat.external_program.found) {
+		if (get_obj_external_program(wk, prog)->found) {
 			*ctx->res = prog;
 			ctx->found = true;
 		}
@@ -460,10 +456,11 @@ found:
 		}
 	}
 
-	struct obj *external_program = make_obj(wk, ctx->res, obj_external_program);
-	external_program->dat.external_program.found = true;
-	external_program->dat.external_program.full_path = make_str(wk, path);
-	external_program->dat.external_program.ver = ver;
+	make_obj(wk, ctx->res, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+	ep->found = true;
+	ep->full_path = make_str(wk, path);
+	ep->ver = ver;
 
 	ctx->found = true;
 	return true;
@@ -517,7 +514,8 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
+		make_obj(wk, res, obj_external_program);
+		get_obj_external_program(wk, *res)->found = false;
 		return true;
 	}
 
@@ -535,10 +533,11 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		if (akw[kw_disabler].set && get_obj(wk, akw[kw_disabler].val)->dat.boolean) {
+		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = disabler_id;
 		} else {
-			make_obj(wk, res, obj_external_program)->dat.external_program.found = false;
+			make_obj(wk, res, obj_external_program);
+			get_obj_external_program(wk, *res)->found = false;
 		}
 	}
 
@@ -561,7 +560,7 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 	}
 
 	bool is_system = akw[kw_is_system].set
-		? get_obj(wk, akw[kw_is_system].val)->dat.boolean
+		? get_obj_bool(wk, akw[kw_is_system].val)
 		: false;
 
 	if (!coerce_include_dirs(wk, an[0].node, an[0].val, is_system, res)) {
@@ -574,10 +573,9 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 static enum iteration_result
 mangle_generator_output(struct workspace *wk, void *_ctx, obj val)
 {
-	struct obj *s = get_obj(wk, val), *gen = _ctx;
-	assert(s->type == obj_string);
+	struct obj_generator *gen = _ctx;
 
-	obj_array_push(wk, gen->dat.generator.output,
+	obj_array_push(wk, gen->output,
 		make_strf(wk, "muon-generated_%s", get_cstr(wk, val)));
 	return ir_cont;
 }
@@ -616,13 +614,14 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj_array_push(wk, command, an[0].val);
 	obj_array_extend(wk, command, args);
 
-	struct obj *gen = make_obj(wk, res, obj_generator);
+	make_obj(wk, res, obj_generator);
+	struct obj_generator *gen = get_obj_generator(wk, *res);
 
-	make_obj(wk, &gen->dat.generator.output, obj_array);
+	make_obj(wk, &gen->output, obj_array);
 	obj_array_foreach(wk, akw[kw_output].val, gen, mangle_generator_output);
 
-	gen->dat.generator.raw_command = command;
-	gen->dat.generator.depfile = akw[kw_depfile].val;
+	gen->raw_command = command;
+	gen->depfile = akw[kw_depfile].val;
 	return true;
 }
 
@@ -638,7 +637,7 @@ func_assert(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	*res = 0;
 
-	if (!get_obj(wk, an[0].val)->dat.boolean) {
+	if (!get_obj_bool(wk, an[0].val)) {
 		if (ao[0].set) {
 			LOG_E("%s", get_cstr(wk, ao[0].val));
 		}
@@ -745,8 +744,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			interp_error(wk, an[0].node, "unable to find program %o", an[0].val);
 		}
 
-		assert(get_obj(wk, cmd_file)->type == obj_external_program);
-		cmd = get_obj(wk, cmd_file)->dat.external_program.full_path;
+		cmd = get_obj_external_program(wk, cmd_file)->full_path;
 
 		obj args_tail;
 		if (!arr_to_args(wk, arr_to_args_external_program, an[1].val, &args_tail)) {
@@ -775,21 +773,22 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		goto ret;
 	}
 
-	if (akw[kw_check].set && get_obj(wk, akw[kw_check].val)->dat.boolean
+	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val)
 	    && cmd_ctx.status != 0) {
 		interp_error(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
 		return false;
 
 	}
 
-	struct obj *run_result = make_obj(wk, res, obj_run_result);
-	run_result->dat.run_result.status = cmd_ctx.status;
-	if (akw[kw_capture].set && !get_obj(wk, akw[kw_capture].val)->dat.boolean) {
-		run_result->dat.run_result.out = make_str(wk, "");
-		run_result->dat.run_result.err = make_str(wk, "");
+	make_obj(wk, res, obj_run_result);
+	struct obj_run_result *run_result = get_obj_run_result(wk, *res);
+	run_result->status = cmd_ctx.status;
+	if (akw[kw_capture].set && !get_obj_bool(wk, akw[kw_capture].val)) {
+		run_result->out = make_str(wk, "");
+		run_result->err = make_str(wk, "");
 	} else {
-		run_result->dat.run_result.out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
-		run_result->dat.run_result.err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
+		run_result->out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
+		run_result->err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
 	}
 
 	ret = true;
@@ -865,11 +864,11 @@ func_configuration_data(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	make_obj(wk, res, obj_configuration_data);
 
 	if (ao[0].set) {
-		get_obj(wk, *res)->dat.configuration_data.dict = ao[0].val;
+		get_obj_configuration_data(wk, *res)->dict = ao[0].val;
 	} else {
 		obj dict;
 		make_obj(wk, &dict, obj_dict);
-		get_obj(wk, *res)->dat.configuration_data.dict = dict;
+		get_obj_configuration_data(wk, *res)->dict = dict;
 	}
 
 	return true;
@@ -942,10 +941,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct install_data_rename_ctx *ctx = _ctx;
 
-	struct obj *v = get_obj(wk, val);
-	assert(v->type == obj_file);
-
-	obj src = v->dat.file;
+	obj src = *get_obj_file(wk, val);
 	obj dest;
 
 	obj rename;
@@ -1017,8 +1013,8 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_rename].set) {
-		if (get_obj(wk, akw[kw_rename].val)->dat.arr.len !=
-		    get_obj(wk, datafiles)->dat.arr.len) {
+		if (get_obj_array(wk, akw[kw_rename].val)->len !=
+		    get_obj_array(wk, datafiles)->len) {
 			interp_error(wk, akw[kw_rename].node, "number of elements in rename != number if sources");
 			return false;
 		}
@@ -1138,16 +1134,17 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	}
 
 	obj test;
-	struct obj *t = make_obj(wk, &test, obj_test);
-	t->dat.test.name = an[0].val;
-	t->dat.test.exe = exe;
-	t->dat.test.args = args;
-	t->dat.test.env = akw[kw_env].val;
-	t->dat.test.should_fail =
+	make_obj(wk, &test, obj_test);
+	struct obj_test *t = get_obj_test(wk, test);
+	t->name = an[0].val;
+	t->exe = exe;
+	t->args = args;
+	t->env = akw[kw_env].val;
+	t->should_fail =
 		akw[kw_should_fail].set
-		&& get_obj(wk, akw[kw_should_fail].val)->dat.boolean;
-	t->dat.test.suites = akw[kw_suite].val;
-	t->dat.test.workdir = akw[kw_workdir].val;
+		&& get_obj_bool(wk, akw[kw_should_fail].val);
+	t->suites = akw[kw_suite].val;
+	t->workdir = akw[kw_workdir].val;
 
 	obj_array_push(wk, current_project(wk)->tests, test);
 	return true;
@@ -1206,15 +1203,16 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	struct obj *d = make_obj(wk, res, obj_environment);
+	make_obj(wk, res, obj_environment);
+	struct obj_environment *d = get_obj_environment(wk, *res);
 
 	if (ao[0].set) {
 		if (!typecheck_environment_dict(wk, ao[0].node, ao[0].val)) {
 			return false;
 		}
-		d->dat.environment.env = ao[0].val;
+		d->env = ao[0].val;
 	} else {
-		make_obj(wk, &d->dat.environment.env, obj_dict);
+		make_obj(wk, &d->env, obj_dict);
 	}
 
 	return true;
@@ -1241,8 +1239,9 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	struct obj *m = make_obj(wk, res, obj_module);
-	m->dat.module.found = false;
+	make_obj(wk, res, obj_module);
+	struct obj_module *m = get_obj_module(wk, *res);
+	m->found = false;
 
 	if (requirement == requirement_skip) {
 		return true;
@@ -1258,8 +1257,8 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	m->dat.module.module = mod;
-	m->dat.module.found = true;
+	m->module = mod;
+	m->found = true;
 	return true;
 }
 
@@ -1274,7 +1273,8 @@ func_is_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 	disabler_among_args_immunity = false;
 
-	make_obj(wk, res, obj_bool)->dat.boolean = an[0].val == disabler_id;
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, an[0].val == disabler_id);
 	return true;
 }
 
@@ -1344,7 +1344,9 @@ func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	disabler_among_args_immunity = false;
 
 	obj dont_care;
-	make_obj(wk, res, obj_bool)->dat.boolean = get_obj_id(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project);
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, get_obj_id(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project));
 	return true;
 }
 
@@ -1421,14 +1423,15 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static obj
 make_alias_target(struct workspace *wk, obj name, obj deps)
 {
-	assert(get_obj(wk, name)->type == obj_string && "Alias target name must be a string.");
-	assert(get_obj(wk, deps)->type == obj_array && "Alias target list must be an array.");
+	assert(get_obj_type(wk, name) == obj_string && "Alias target name must be a string.");
+	assert(get_obj_type(wk, deps) == obj_array && "Alias target list must be an array.");
 
 	obj id;
-	struct obj *alias_tgt = make_obj(wk, &id, obj_alias_target);
+	make_obj(wk, &id, obj_alias_target);
+	struct obj_alias_target *alias_tgt = get_obj_alias_target(wk, id);
 
-	alias_tgt->dat.alias_target.name = name;
-	alias_tgt->dat.alias_target.depends = deps;
+	alias_tgt->name = name;
+	alias_tgt->depends = deps;
 
 	return id;
 }
@@ -1441,8 +1444,8 @@ static enum iteration_result
 push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct alias_target_iter_ctx *ctx = _ctx;
-	struct obj *tgt = get_obj(wk, val);
-	switch (tgt->type) {
+	enum obj_type t = get_obj_type(wk, val);
+	switch (t) {
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target:
@@ -1452,8 +1455,8 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->deps, val);
 		break;
 	default:
-		interp_error(wk, val, "expected target but got: %s"
-			, obj_type_to_s(tgt->type));
+		interp_error(wk, val, "expected target but got: %s",
+			obj_type_to_s(t));
 		return ir_err;
 	}
 

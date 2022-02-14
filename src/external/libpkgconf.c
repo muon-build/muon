@@ -188,9 +188,10 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		switch (frag->type) {
 		case 'I':
 			if (!pkgconf_fragment_has_system_dir(client, frag)) {
-				struct obj *o = make_obj(ctx->wk, &str, obj_include_directory);
-				o->dat.include_directory.path = make_str(ctx->wk, frag->data);
-				o->dat.include_directory.is_system = false;
+				make_obj(ctx->wk, &str, obj_include_directory);
+				struct obj_include_directory *o = get_obj_include_directory(ctx->wk, str);
+				o->path = make_str(ctx->wk, frag->data);
+				o->is_system = false;
 				obj_array_push(ctx->wk, ctx->info->includes, str);
 			}
 			break;

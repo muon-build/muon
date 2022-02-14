@@ -292,17 +292,17 @@ struct obj {
 	} dat;
 };
 
-struct obj *make_obj(struct workspace *wk, obj *id, enum obj_type type);
+void make_obj(struct workspace *wk, obj *id, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
 
-bool *get_obj_bool(struct workspace *wk, obj o);
-int64_t *get_obj_number(struct workspace *wk, obj o);
+bool get_obj_bool(struct workspace *wk, obj o);
+int64_t get_obj_number(struct workspace *wk, obj o);
+void set_obj_bool(struct workspace *wk, obj o, bool v);
+void set_obj_number(struct workspace *wk, obj o, int64_t v);
+
 obj *get_obj_file(struct workspace *wk, obj o);
 const char *get_file_path(struct workspace *wk, obj o);
 const struct str *get_str(struct workspace *wk, obj s);
-
-// TODO: remove this
-struct obj * get_obj(struct workspace *wk, obj id);
 
 #define OBJ_GETTER(type) struct type *get_ ## type(struct workspace *wk, obj o)
 

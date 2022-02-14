@@ -12,7 +12,8 @@ func_run_result_returncode(struct workspace *wk, uint32_t rcvr, uint32_t args_no
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number)->dat.num = get_obj(wk, rcvr)->dat.run_result.status;
+	make_obj(wk, obj, obj_number);
+	set_obj_number(wk, *obj, get_obj_run_result(wk, rcvr)->status);
 	return true;
 }
 
@@ -23,7 +24,7 @@ func_run_result_stdout(struct workspace *wk, uint32_t rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	*obj = get_obj(wk, rcvr)->dat.run_result.out;
+	*obj = get_obj_run_result(wk, rcvr)->out;
 	return true;
 }
 
@@ -34,7 +35,7 @@ func_run_result_stderr(struct workspace *wk, uint32_t rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	*obj = get_obj(wk, rcvr)->dat.run_result.err;
+	*obj = get_obj_run_result(wk, rcvr)->err;
 	return true;
 }
 

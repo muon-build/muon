@@ -58,7 +58,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 			return false;
 		}
 
-		debug = get_obj(wk, debug_id)->dat.boolean;
+		debug = get_obj_bool(wk, debug_id);
 	} else {
 		for (i = 0; tbl[i].name; ++i) {
 			if (strcmp(str, tbl[i].name) == 0) {
@@ -88,9 +88,7 @@ get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, 
 	obj lvl;
 	get_option(wk, proj, "warning_level", &lvl);
 
-	assert(get_obj(wk, lvl)->type == obj_number);
-
-	push_args(wk, args_id, compilers[t].args.warning_lvl(get_obj(wk, lvl)->dat.num));
+	push_args(wk, args_id, compilers[t].args.warning_lvl(get_obj_number(wk, lvl)));
 	return true;
 }
 
@@ -126,18 +124,20 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 	const char *dir;
 	bool is_system;
 	{
-		struct obj *inc = get_obj(wk, v);
-		switch (inc->type) {
-		case obj_include_directory:
-			dir = get_cstr(wk, inc->dat.include_directory.path);
-			is_system = inc->dat.include_directory.is_system;
+		enum obj_type t = get_obj_type(wk, v);
+		switch (t) {
+		case obj_include_directory: {
+			struct obj_include_directory *inc = get_obj_include_directory(wk, v);
+			dir = get_cstr(wk, inc->path);
+			is_system = inc->is_system;
 			break;
+		}
 		case obj_string:
 			dir = get_cstr(wk, v);
 			is_system = false;
 			break;
 		default:
-			LOG_E("invalid type for include directory '%s'", obj_type_to_s(inc->type));
+			LOG_E("invalid type for include directory '%s'", obj_type_to_s(t));
 			return false;
 		}
 	}
@@ -164,7 +164,7 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 }
 
 struct setup_compiler_args_ctx {
-	const struct obj *tgt;
+	const struct obj_build_target *tgt;
 	const struct project *proj;
 
 	obj include_dirs;
@@ -204,9 +204,8 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 {
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
-	struct obj *comp = get_obj(wk, comp_id);
-	assert(comp->type == obj_compiler);
-	enum compiler_type t = comp->dat.compiler.type;
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+	enum compiler_type t = comp->type;
 
 	obj args;
 	make_obj(wk, &args, obj_array);
@@ -260,15 +259,15 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 
 	{ /* target args */
 		obj tgt_args, tgt_args_dup;
-		if (obj_dict_geti(wk, ctx->tgt->dat.tgt.args, lang, &tgt_args)
-		    && tgt_args && get_obj(wk, tgt_args)->dat.arr.len) {
+		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args)
+		    && tgt_args && get_obj_array(wk, tgt_args)->len) {
 			obj_array_dup(wk, tgt_args, &tgt_args_dup);
 			obj_array_extend(wk, args, tgt_args_dup);
 		}
 	}
 
-	if ((ctx->tgt->dat.tgt.flags & build_tgt_flag_pic) ||
-	    (ctx->tgt->dat.tgt.type & (tgt_dynamic_library | tgt_shared_module))) {
+	if ((ctx->tgt->flags & build_tgt_flag_pic) ||
+	    (ctx->tgt->type & (tgt_dynamic_library | tgt_shared_module))) {
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
@@ -277,7 +276,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 }
 
 bool
-setup_compiler_args(struct workspace *wk, const struct obj *tgt,
+setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args,
 	obj *joined_args)
 {
@@ -337,7 +336,7 @@ push_not_found_lib_iter(struct workspace *wk, void *_ctx, obj v)
 
 void
 setup_linker_args(struct workspace *wk, const struct project *proj,
-	const struct obj *tgt, struct setup_linker_args_ctx *ctx)
+	const struct obj_build_target *tgt, struct setup_linker_args_ctx *ctx)
 {
 	obj link_with;
 	obj_array_dedup(wk, ctx->args->link_with, &link_with);
@@ -353,7 +352,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_undefined());
 
 	if (proj) {
-		if (tgt->dat.tgt.flags & build_tgt_flag_export_dynamic) {
+		if (tgt->flags & build_tgt_flag_export_dynamic) {
 			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.export_dynamic());
 		}
 
@@ -376,7 +375,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 
 	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
 
-	if (get_obj(wk, ctx->args->link_with)->dat.arr.len) {
+	if (get_obj_array(wk, ctx->args->link_with)->len) {
 		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.start_group());
 
 		obj dup;

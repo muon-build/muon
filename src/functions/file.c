@@ -12,7 +12,7 @@ func_file_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uin
 		return false;
 	}
 
-	*obj = get_obj(wk, rcvr)->dat.file;
+	*obj = *get_obj_file(wk, rcvr);
 	return true;
 }
 

@@ -63,7 +63,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 
 	obj name = 0, desc = 0;
 	if (ao[0].set) {
-		name = get_obj(wk, ao[0].val)->dat.tgt.name;
+		name = get_obj_build_target(wk, ao[0].val)->name;
 		if (!akw[kw_description].set) {
 			desc = make_strf(wk, "generated pc file for %s", get_cstr(wk, name));
 		}
