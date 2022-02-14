@@ -30,7 +30,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	LOG_E("internal type error, expected %s but got %s",
 		obj_type_to_s(type), obj_type_to_s(o->type));
 
-	assert(false);
+	abort();
 	return false;
 }
 
