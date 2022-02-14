@@ -127,64 +127,64 @@ struct obj_module {
 };
 
 struct obj_array {
-	obj val;                 // obj_any
-	obj next;                 // obj_array
-	obj tail;                 // obj_array
+	obj val; // obj_any
+	obj next; // obj_array
+	obj tail; // obj_array
 	uint32_t len;
 	bool have_next;
 };
 
 struct obj_dict {
-	obj key;                 // obj_string
-	obj val;                 // obj_any
-	obj next;                 // obj_array
-	obj tail;                 // obj_array
+	obj key; // obj_string
+	obj val; // obj_any
+	obj next; // obj_array
+	obj tail; // obj_array
 	uint32_t len;
 	bool have_next;
 };
 
 struct obj_build_target {
-	obj name;                 // obj_string
-	obj build_name;                 // obj_string
-	obj cwd;                 // obj_string
-	obj build_dir;                 // obj_string
-	obj soname;                 // obj_string
-	obj src;                 // obj_array
-	obj link_with;                 // obj_array
-	obj include_directories;                 // obj_array
-	obj deps;                 // obj_array
-	obj args;                 // obj_dict
-	obj link_args;                 // obj_array
+	obj name; // obj_string
+	obj build_name; // obj_string
+	obj cwd; // obj_string
+	obj build_dir; // obj_string
+	obj soname; // obj_string
+	obj src; // obj_array
+	obj link_with; // obj_array
+	obj include_directories; // obj_array
+	obj deps; // obj_array
+	obj args; // obj_dict
+	obj link_args; // obj_array
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;
 };
 
 struct obj_custom_target {
-	obj name;                 // obj_string
-	obj args;                 // obj_array
-	obj input;                 // obj_array
-	obj output;                 // obj_array
-	obj depends;                 // obj_array
+	obj name; // obj_string
+	obj args; // obj_array
+	obj input; // obj_array
+	obj output; // obj_array
+	obj depends; // obj_array
 	enum custom_target_flags flags;
 };
 
 struct  obj_alias_target {
-	obj name;                 // obj_string
-	obj depends;                 // obj_array
+	obj name; // obj_string
+	obj depends; // obj_array
 };
 
 struct obj_dependency {
-	obj name;                 // obj_string
-	obj version;                 // obj_string
-	obj link_with;                 // obj_array
-	obj link_with_not_found;                 // obj_array
-	obj link_args;                 // obj_array
-	obj include_directories;                 // obj_array
-	obj variables;                 // obj_dict
-	obj sources;                 // obj_array
-	obj deps;                 // obj_array
-	obj compile_args;                 // obj_array
+	obj name; // obj_string
+	obj version; // obj_string
+	obj link_with; // obj_array
+	obj link_with_not_found; // obj_array
+	obj link_args; // obj_array
+	obj include_directories; // obj_array
+	obj variables; // obj_dict
+	obj sources; // obj_array
+	obj deps; // obj_array
+	obj compile_args; // obj_array
 	enum dep_flags flags;
 };
 
@@ -210,16 +210,16 @@ struct obj_run_result {
 };
 
 struct obj_configuration_data {
-	obj dict;                 // obj_dict
+	obj dict; // obj_dict
 };
 
 struct obj_test {
-	obj name;                 // obj_string
-	obj exe;                 // obj_string
-	obj args;                 // obj_array
-	obj env;                 // obj_array
-	obj suites;                 // obj_array
-	obj workdir;                 // obj_string
+	obj name; // obj_string
+	obj exe; // obj_string
+	obj args; // obj_array
+	obj env; // obj_array
+	obj suites; // obj_array
+	obj workdir; // obj_string
 	bool should_fail;
 };
 
@@ -239,7 +239,7 @@ struct obj_install_target {
 };
 
 struct obj_environment {
-	obj env;                 /* dict */
+	obj env; // dict
 };
 
 struct obj_include_directory {
