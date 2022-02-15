@@ -280,8 +280,9 @@ workspace_destroy_bare(struct workspace *wk)
 	bucket_array_destroy(&wk->objs);
 
 	uint32_t i;
-	for (i = 0; i < wk->obj_aos[obj_string - _obj_aos_start].len; ++i) {
-		struct str *s = bucket_array_get(&wk->obj_aos[obj_string - _obj_aos_start], i);
+	struct bucket_array *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
+	for (i = 0; i < str_ba->len; ++i) {
+		struct str *s = bucket_array_get(str_ba, i);
 		if (s->flags & str_flag_big) {
 			z_free((void *)s->s);
 		}
