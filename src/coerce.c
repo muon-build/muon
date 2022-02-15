@@ -45,7 +45,7 @@ struct coerce_string_array_ctx {
 	obj arr;
 };
 
-enum iteration_result
+static enum iteration_result
 coerce_string_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct coerce_string_array_ctx *ctx = _ctx;
@@ -317,19 +317,19 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
 }
 
 bool
-coerce_output_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+coerce_output_files(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	return _coerce_files(wk, node, val, res, "output file", NULL, mode_output);
 }
 
 bool
-coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	return _coerce_files(wk, node, val, res, "file", fs_file_exists, mode_input);
 }
 
 bool
-coerce_dirs(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res)
+coerce_dirs(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists, mode_input);
 }

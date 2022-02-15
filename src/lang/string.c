@@ -151,7 +151,7 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 	return str;
 }
 
-obj
+static obj
 _make_str(struct workspace *wk, const char *p, uint32_t len)
 {
 	obj s;

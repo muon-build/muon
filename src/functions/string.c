@@ -107,15 +107,15 @@ func_to_lower(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 #define MAX_KEY_LEN 64
 
 bool
-string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, void *ctx, string_format_cb cb)
+string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb)
 {
 	struct str key;
-	const struct str *ss_in = get_str(wk, s_in);
+	const struct str *ss_in = get_str(wk, str);
 
 	uint32_t i, id_start = 0, id_end = 0;
 	bool reading_id = false;
 
-	*s_out = make_str(wk, "");
+	*res = make_str(wk, "");
 
 	for (i = 0; i < ss_in->len; ++i) {
 		if (ss_in->s[i] == '@') {
@@ -124,7 +124,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 				id_end = i + 1;
 
 				if (i == id_start) {
-					str_app(wk, *s_out, "@");
+					str_app(wk, *res, "@");
 					reading_id = false;
 					continue;
 				} else if (i - id_start >= MAX_KEY_LEN) {
@@ -148,11 +148,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 					}
 
 					const struct str *ss = get_str(wk, coerced);
-					str_appn(wk, *s_out, ss->s, ss->len);
+					str_appn(wk, *res, ss->s, ss->len);
 					break;
 				}
 				case format_cb_skip: {
-					str_app(wk, *s_out, "@");
+					str_app(wk, *res, "@");
 					i = id_start - 1;
 					id_end = id_start;
 					id_start = 0;
@@ -164,7 +164,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 				reading_id = false;
 			} else {
 				if (i) {
-					str_appn(wk, *s_out, &ss_in->s[id_end], i - id_end);
+					str_appn(wk, *res, &ss_in->s[id_end], i - id_end);
 				}
 
 				id_start = i + 1;
@@ -175,11 +175,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 	}
 
 	if (reading_id) {
-		str_app(wk, *s_out, "@");
-		str_appn(wk, *s_out, key.s, key.len);
+		str_app(wk, *res, "@");
+		str_appn(wk, *res, key.s, key.len);
 	} else {
 		if (i > id_end) {
-			str_appn(wk, *s_out, &ss_in->s[id_end], i - id_end);
+			str_appn(wk, *res, &ss_in->s[id_end], i - id_end);
 		}
 	}
 
@@ -355,14 +355,14 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 }
 
 bool
-version_compare(struct workspace *wk, uint32_t err_node, const struct str *ver1, obj arr, bool *res)
+version_compare(struct workspace *wk, uint32_t err_node, const struct str *ver, obj cmp_arr, bool *res)
 {
 	struct version_compare_ctx ctx = {
 		.err_node = err_node,
-		.ver1 = ver1,
+		.ver1 = ver,
 	};
 
-	if (!obj_array_foreach(wk, arr, &ctx, version_compare_iter)) {
+	if (!obj_array_foreach(wk, cmp_arr, &ctx, version_compare_iter)) {
 		return false;
 	}
 

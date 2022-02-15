@@ -13,7 +13,7 @@ bool version_compare(struct workspace *wk, uint32_t err_node, const struct str *
 
 typedef enum format_cb_result ((*string_format_cb)(struct workspace *wk, uint32_t node, void *ctx, const struct str *key, uint32_t *elem));
 
-bool string_format(struct workspace *wk, uint32_t node, uint32_t str, uint32_t *out, void *ctx, string_format_cb cb);
+bool string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb);
 
 extern const struct func_impl_name impl_tbl_string[];
 #endif

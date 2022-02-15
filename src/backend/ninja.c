@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
 #include "backend/ninja/custom_target.h"

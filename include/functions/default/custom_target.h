@@ -16,7 +16,7 @@ bool make_custom_target(struct workspace *wk,
 
 bool process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 	obj name, obj arr, obj input, obj output, obj depfile, obj depends, obj *res);
-bool func_custom_target(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res);
+bool func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 
 bool func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 #endif

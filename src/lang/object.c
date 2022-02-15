@@ -11,13 +11,6 @@
 #include "lang/parser.h"
 #include "log.h"
 
-struct obj *
-get_obj(struct workspace *wk, obj id)
-{
-	assert(false);
-	return NULL;
-}
-
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {

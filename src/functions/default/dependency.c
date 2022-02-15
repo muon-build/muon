@@ -302,7 +302,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 bool
-func_declare_dependency(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res)
+func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	enum kwargs {
 		kw_sources,

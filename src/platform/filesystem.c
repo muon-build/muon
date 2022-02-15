@@ -45,7 +45,7 @@ fs_exists(const char *path)
 	return access(path, F_OK) == 0;
 }
 
-bool
+static bool
 fs_lexists(const char *path)
 {
 	assert(path_is_absolute(path));

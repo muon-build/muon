@@ -306,11 +306,11 @@ OBJ_GETTER(obj_alias_target);
 #undef OBJ_GETTER
 
 const char *obj_type_to_s(enum obj_type t);
-void obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len);
+void obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 
-bool obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap_orig)
+bool obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap)
 __attribute__ ((format(printf, 4, 0)));
 bool obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, ...)
 __attribute__ ((format(printf, 4, 5)));

@@ -20,9 +20,9 @@ obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
 
-void str_app(struct workspace *wk, obj id, const char *str);
-void str_appf(struct workspace *wk, obj id, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
-void str_appn(struct workspace *wk, obj id, const char *str, uint32_t n);
+void str_app(struct workspace *wk, obj s, const char *str);
+void str_appf(struct workspace *wk, obj s, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+void str_appn(struct workspace *wk, obj s, const char *str, uint32_t n);
 
 obj str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val);
 

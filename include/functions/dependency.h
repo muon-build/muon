@@ -13,7 +13,7 @@ struct dep_args_ctx {
 };
 
 enum iteration_result dep_args_iter(struct workspace *wk, void *_ctx, obj val);
-enum iteration_result dep_args_link_with_iter(struct workspace *wk, void *_ctx, uint32_t val_id);
+enum iteration_result dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val);
 enum iteration_result dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id);
 
 void dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx);

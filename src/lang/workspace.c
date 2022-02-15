@@ -59,11 +59,11 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 }
 
 struct obj_install_target *
-push_install_target_install_dir(struct workspace *wk, obj ssrc,
+push_install_target_install_dir(struct workspace *wk, obj src,
 	obj install_dir, obj mode)
 {
 	char basename[PATH_MAX], dest[PATH_MAX];
-	if (!path_basename(basename, PATH_MAX, get_cstr(wk, ssrc))) {
+	if (!path_basename(basename, PATH_MAX, get_cstr(wk, src))) {
 		return NULL;
 	} else if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), basename)) {
 		return NULL;
@@ -71,7 +71,7 @@ push_install_target_install_dir(struct workspace *wk, obj ssrc,
 
 	obj sdest = make_str(wk, dest);
 
-	return push_install_target(wk, ssrc, sdest, mode);
+	return push_install_target(wk, src, sdest, mode);
 }
 
 struct obj_install_target *

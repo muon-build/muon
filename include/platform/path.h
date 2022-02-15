@@ -13,7 +13,7 @@ bool path_join(char *buf, uint32_t len, const char *a, const char *b);
 // like path_join but won't discard a if b is an absolute path
 bool path_join_absolute(char *buf, uint32_t len, const char *a, const char *b);
 bool path_make_absolute(char *buf, uint32_t len, const char *path);
-bool path_relative_to(char *buf, uint32_t len, const char *base, const char *path);
+bool path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path_raw);
 bool path_is_basename(const char *path);
 bool path_without_ext(char *buf, uint32_t len, const char *path);
 bool path_basename(char *buf, uint32_t len, const char *path);

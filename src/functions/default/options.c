@@ -14,7 +14,7 @@
 #include "lang/interpreter.h"
 #include "log.h"
 
-bool
+static bool
 parse_config_string(struct workspace *wk, char *lhs, struct option_override *oo)
 {
 	char *rhs = strchr(lhs, '=');

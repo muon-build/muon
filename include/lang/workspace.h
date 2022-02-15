@@ -86,7 +86,7 @@ struct workspace {
 	enum language_mode lang_mode;
 };
 
-bool get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_id);
+bool get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id);
 
 void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);
