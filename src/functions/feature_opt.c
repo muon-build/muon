@@ -6,7 +6,7 @@
 #include "log.h"
 
 static bool
-feature_opt_common(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
+feature_opt_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	uint32_t *obj, enum feature_opt_state state)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
@@ -21,21 +21,21 @@ feature_opt_common(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 }
 
 static bool
-func_feature_opt_auto(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_feature_opt_auto(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, obj, feature_opt_auto);
+	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_auto);
 }
 
 static bool
-func_feature_opt_disabled(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_feature_opt_disabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, obj, feature_opt_disabled);
+	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_disabled);
 }
 
 static bool
-func_feature_opt_enabled(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_feature_opt_enabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, obj, feature_opt_enabled);
+	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_enabled);
 }
 
 const struct func_impl_name impl_tbl_feature_opt[] = {

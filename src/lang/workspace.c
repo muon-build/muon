@@ -11,16 +11,16 @@
 #include "platform/path.h"
 
 bool
-get_obj_id(struct workspace *wk, const char *name, uint32_t *id, uint32_t proj_id)
+get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	uint64_t *idp;
 	struct project *proj = darr_get(&wk->projects, proj_id);
 
 	if ((idp = hash_get(&proj->scope, name))) {
-		*id = *idp;
+		*res = *idp;
 		return true;
 	} else if ((idp = hash_get(&wk->scope, name))) {
-		*id = *idp;
+		*res = *idp;
 		return true;
 	} else {
 		return false;
@@ -101,7 +101,7 @@ struct push_install_targets_ctx {
 };
 
 static enum iteration_result
-push_install_targets_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct push_install_targets_ctx *ctx = _ctx;
 
@@ -234,7 +234,7 @@ workspace_init_bare(struct workspace *wk)
 		bucket_array_init(&wk->obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
 	}
 
-	uint32_t id;
+	obj id;
 	make_obj(wk, &id, obj_null);
 	assert(id == 0);
 }
@@ -249,7 +249,7 @@ workspace_init(struct workspace *wk)
 	darr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init(&wk->scope, 32);
 
-	uint32_t id;
+	obj id;
 	make_obj(wk, &id, obj_disabler);
 	assert(id == disabler_id);
 

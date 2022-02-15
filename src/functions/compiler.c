@@ -24,7 +24,8 @@ bool_to_yn(bool v)
 }
 
 struct func_compiler_get_supported_arguments_iter_ctx {
-	uint32_t arr, node, compiler;
+	uint32_t node;
+	obj arr, compiler;
 };
 
 static bool
@@ -1076,7 +1077,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 }
 
 static enum iteration_result
-func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
 	bool has_argument;
@@ -1111,7 +1112,7 @@ func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -1119,18 +1120,18 @@ func_compiler_get_supported_arguments(struct workspace *wk, uint32_t rcvr, uint3
 		return false;
 	}
 
-	make_obj(wk, obj, obj_array);
+	make_obj(wk, res, obj_array);
 
 	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
 		.compiler = rcvr,
-		.arr = *obj,
+		.arr = *res,
 		.node = an[0].node,
 	}, func_compiler_get_supported_arguments_iter);
 }
 
 static enum iteration_result
-func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
 	bool has_argument;
@@ -1149,7 +1150,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ui
 }
 
 static bool
-func_compiler_first_supported_argument(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -1157,12 +1158,12 @@ func_compiler_first_supported_argument(struct workspace *wk, uint32_t rcvr, uint
 		return false;
 	}
 
-	make_obj(wk, obj, obj_array);
+	make_obj(wk, res, obj_array);
 
 	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
 		.compiler = rcvr,
-		.arr = *obj,
+		.arr = *res,
 		.node = an[0].node,
 	}, func_compiler_first_supported_argument_iter);
 }
@@ -1179,14 +1180,14 @@ func_compiler_get_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_compiler_get_linker_id(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
 	enum compiler_type t = get_obj_compiler(wk, rcvr)->type;
-	*obj = make_str(wk, linker_type_to_s(compilers[t].linker));
+	*res = make_str(wk, linker_type_to_s(compilers[t].linker));
 	return true;
 }
 

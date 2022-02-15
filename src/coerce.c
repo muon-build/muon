@@ -74,7 +74,7 @@ coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 bool
 coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	uint32_t str;
+	obj str;
 
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
@@ -169,7 +169,7 @@ enum coerce_into_files_mode {
 
 struct coerce_into_files_ctx {
 	uint32_t node;
-	uint32_t arr;
+	obj arr;
 	const char *type;
 	exists_func exists;
 	enum coerce_into_files_mode mode;
@@ -207,7 +207,7 @@ coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 }
 
 static enum iteration_result
-coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
+coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct coerce_into_files_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
@@ -267,7 +267,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, uint32_t val)
 			return ir_err;
 		}
 
-		uint32_t file;
+		obj file;
 		make_obj(wk, &file, obj_file);
 		*get_obj_file(wk, file) = make_str(wk, path);
 		obj_array_push(wk, ctx->arr, file);

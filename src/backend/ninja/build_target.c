@@ -34,7 +34,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	enum compiler_type ct;
 
 	{
-		uint32_t comp_id;
+		obj comp_id;
 
 		// TODO put these checks into tgt creation
 		if (!filename_to_compiler_language(src, &lang)) {
@@ -76,7 +76,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/* build rules and args */
 
-	uint32_t args_id;
+	obj args_id;
 	if (!obj_dict_geti(wk, ctx->joined_args, lang, &args_id)) {
 		LOG_E("couldn't get args for language %s", compiler_language_to_s(lang));
 		return ir_err;
@@ -242,7 +242,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 			return ir_err;
 		}
 
-		uint32_t comp_id;
+		obj comp_id;
 		if (!obj_dict_geti(wk, ctx.proj->compilers, ctx.link_language, &comp_id)) {
 			LOG_E("no compiler defined for language %s", compiler_language_to_s(ctx.link_language));
 			return false;

@@ -14,7 +14,7 @@
 #include "platform/path.h"
 
 void
-push_args(struct workspace *wk, uint32_t arr, const struct args *args)
+push_args(struct workspace *wk, obj arr, const struct args *args)
 {
 	uint32_t i;
 	for (i = 0; i < args->len; ++i) {
@@ -23,7 +23,7 @@ push_args(struct workspace *wk, uint32_t arr, const struct args *args)
 }
 
 void
-push_args_null_terminated(struct workspace *wk, uint32_t arr, char *const *argv)
+push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 {
 	char *const *arg;
 	for (arg = argv; *arg; ++arg) {
@@ -160,7 +160,7 @@ struct join_args_iter_ctx {
 };
 
 static enum iteration_result
-join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
+join_args_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct join_args_iter_ctx *ctx = _ctx;
 
@@ -186,8 +186,8 @@ join_args_iter(struct workspace *wk, void *_ctx, uint32_t val)
 	return ir_cont;
 }
 
-static uint32_t
-join_args(struct workspace *wk, uint32_t arr, escape_func escape)
+static obj
+join_args(struct workspace *wk, obj arr, escape_func escape)
 {
 	obj o = make_str(wk, "");
 
@@ -205,26 +205,26 @@ join_args(struct workspace *wk, uint32_t arr, escape_func escape)
 	return o;
 }
 
-uint32_t
-join_args_plain(struct workspace *wk, uint32_t arr)
+obj
+join_args_plain(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, NULL);
 }
 
-uint32_t
-join_args_shell(struct workspace *wk, uint32_t arr)
+obj
+join_args_shell(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, shell_escape);
 }
 
-uint32_t
-join_args_ninja(struct workspace *wk, uint32_t arr)
+obj
+join_args_ninja(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, ninja_escape);
 }
 
-uint32_t
-join_args_shell_ninja(struct workspace *wk, uint32_t arr)
+obj
+join_args_shell_ninja(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, shell_ninja_escape);
 }
@@ -237,7 +237,7 @@ struct join_args_argv_iter_ctx {
 };
 
 static enum iteration_result
-join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
+join_args_argv_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct join_args_argv_iter_ctx *ctx = _ctx;
 
@@ -251,7 +251,7 @@ join_args_argv_iter(struct workspace *wk, void *_ctx, uint32_t v)
 }
 
 bool
-join_args_argv(struct workspace *wk, const char **argv, uint32_t len, uint32_t arr)
+join_args_argv(struct workspace *wk, const char **argv, uint32_t len, obj arr)
 {
 	struct join_args_argv_iter_ctx ctx = {
 		.argv = argv,
@@ -274,7 +274,7 @@ struct arr_to_args_ctx {
 };
 
 static enum iteration_result
-arr_to_args_iter(struct workspace *wk, void *_ctx, uint32_t src)
+arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 {
 	struct arr_to_args_ctx *ctx = _ctx;
 	obj str;

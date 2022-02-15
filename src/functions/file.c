@@ -6,13 +6,13 @@
 #include "log.h"
 
 static bool
-func_file_full_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_file_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = *get_obj_file(wk, rcvr);
+	*res = *get_obj_file(wk, rcvr);
 	return true;
 }
 

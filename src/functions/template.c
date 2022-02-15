@@ -6,7 +6,7 @@
 #include "log.h"
 
 static bool
-func_(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 }
 

@@ -17,7 +17,7 @@ struct write_tgt_ctx {
 };
 
 static enum iteration_result
-write_tgt_iter(struct workspace *wk, void *_ctx, uint32_t tgt_id)
+write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
 	struct write_tgt_ctx *ctx = _ctx;
 

@@ -6,19 +6,19 @@
 #include "log.h"
 
 static bool
-func_array_length(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_array_length(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number);
-	set_obj_number(wk, *obj, get_obj_array(wk, rcvr)->len);
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, get_obj_array(wk, rcvr)->len);
 	return true;
 }
 
 static bool
-func_array_get(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
+func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };

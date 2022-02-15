@@ -57,7 +57,7 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i)
 }
 
 bool
-typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
+typecheck_simple_err(struct workspace *wk, obj obj_id, enum obj_type type)
 {
 	enum obj_type got = get_obj_type(wk, obj_id);
 
@@ -70,7 +70,7 @@ typecheck_simple_err(struct workspace *wk, uint32_t obj_id, enum obj_type type)
 }
 
 static bool
-typecheck_custom(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type, const char *fmt)
+typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type, const char *fmt)
 {
 	enum obj_type got = get_obj_type(wk, obj_id);
 
@@ -83,7 +83,7 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_
 }
 
 bool
-typecheck(struct workspace *wk, uint32_t n_id, uint32_t obj_id, enum obj_type type)
+typecheck(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type)
 {
 	return typecheck_custom(wk, n_id, obj_id, type, "expected type %s, got %s");
 }
@@ -118,32 +118,31 @@ typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type
 	}, typecheck_array_iter);
 }
 
-static bool interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj);
+static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
 
 static bool
 interp_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 {
-	obj result = 0;
-
+	obj tmp = 0;
 	struct node *n = get_node(wk->ast, node_id);
 
-	if (!builtin_run(wk, true, l_id, node_id, &result)) {
+	if (!builtin_run(wk, true, l_id, node_id, &tmp)) {
 		return false;
 	}
 
 	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, result, res);
+		return interp_chained(wk, n->d, tmp, res);
 	} else {
-		*res = result;
+		*res = tmp;
 		return true;
 	}
 }
 
 static bool
-interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
+interp_index(struct workspace *wk, struct node *n, obj l_id, obj *res)
 {
-	uint32_t r_id;
-	uint32_t result = 0;
+	obj r_id;
+	obj tmp = 0;
 
 	if (!interp_node(wk, n->r, &r_id)) {
 		return false;
@@ -154,7 +153,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 
 	switch (t) {
 	case obj_disabler:
-		*obj = disabler_id;
+		*res = disabler_id;
 		return true;
 	case obj_array: {
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
@@ -167,7 +166,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		obj_array_index(wk, l_id, i, &result);
+		obj_array_index(wk, l_id, i, &tmp);
 		break;
 	}
 	case obj_dict: {
@@ -175,7 +174,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		if (!obj_dict_index(wk, l_id, r_id, &result)) {
+		if (!obj_dict_index(wk, l_id, r_id, &tmp)) {
 			interp_error(wk, n->r, "key not in dictionary: %o", r_id);
 			return false;
 		}
@@ -195,7 +194,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		obj_array_index(wk, tgt->output, i, &result);
+		obj_array_index(wk, tgt->output, i, &tmp);
 		break;
 	}
 	case obj_string: {
@@ -210,7 +209,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		result = make_strn(wk, &s->s[i], 1);
+		tmp = make_strn(wk, &s->s[i], 1);
 		break;
 	}
 	default:
@@ -219,23 +218,23 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 	}
 
 	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, result, obj);
+		return interp_chained(wk, n->d, tmp, res);
 	} else {
-		*obj = result;
+		*res = tmp;
 		return true;
 	}
 }
 
 static bool
-interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *obj)
+interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 {
 	struct node *n = get_node(wk->ast, node_id);
 
 	switch (n->type) {
 	case node_method:
-		return interp_method(wk, node_id, l_id, obj);
+		return interp_method(wk, node_id, l_id, res);
 	case node_index:
-		return interp_index(wk, n, l_id, obj);
+		return interp_index(wk, n, l_id, res);
 	default:
 		assert(false && "unreachable");
 		break;
@@ -245,30 +244,30 @@ interp_chained(struct workspace *wk, uint32_t node_id, uint32_t l_id, uint32_t *
 }
 
 static bool
-interp_u_minus(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_u_minus(struct workspace *wk, struct node *n, obj *res)
 {
-	uint32_t l_id;
+	obj l_id;
 
 	if (!interp_node(wk, n->l, &l_id)) {
 		return false;
 	} else if (l_id == disabler_id) {
-		*obj = disabler_id;
+		*res = disabler_id;
 		return true;
 	} else if (!typecheck(wk, n->l, l_id, obj_number)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number);
-	set_obj_number(wk, *obj, -get_obj_number(wk, l_id));
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, -get_obj_number(wk, l_id));
 	return true;
 }
 
 static bool
 interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
-	uint32_t *obj_id)
+	obj *res)
 {
-	uint32_t l_id, r_id;
+	obj l_id, r_id;
 
 	if (!interp_node(wk, nl, &l_id)
 	    || !interp_node(wk, nr, &r_id)) {
@@ -276,13 +275,13 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	}
 
 	if (l_id == disabler_id || r_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	}
 
 	switch (get_obj_type(wk, l_id)) {
 	case obj_string: {
-		uint32_t res;
+		obj str;
 
 		if (!typecheck_custom(wk, nr, r_id, obj_string, "unsupported operator for %s and %s")) {
 			return false;
@@ -290,7 +289,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 
 		switch (type) {
 		case arith_add:
-			res = str_join(wk, l_id, r_id);
+			str = str_join(wk, l_id, r_id);
 			break;
 		case arith_div: {
 			char buf[PATH_MAX];
@@ -312,18 +311,18 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 				return false;
 			}
 
-			res = make_str(wk, buf);
+			str = make_str(wk, buf);
 			break;
 		}
 		default:
 			goto err1;
 		}
 
-		*obj_id = res;
+		*res = str;
 		break;
 	}
 	case obj_number: {
-		int64_t res, l, r;
+		int64_t num, l, r;
 
 		if (!typecheck_custom(wk, nr, r_id, obj_number, "unsupported operator for %s and %s")) {
 			return false;
@@ -334,52 +333,52 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 
 		switch (type) {
 		case arith_add:
-			res = l + r;
+			num = l + r;
 			break;
 		case arith_div:
 			if (!r) {
 				interp_error(wk, nr, "divide by 0");
 				return false;
 			}
-			res = l / r;
+			num = l / r;
 			break;
 		case arith_sub:
-			res = l - r;
+			num = l - r;
 			break;
 		case arith_mod:
 			if (!r) {
 				interp_error(wk, nr, "divide by 0");
 				return false;
 			}
-			res = l % r;
+			num = l % r;
 			break;
 		case arith_mul:
-			res = l * r;
+			num = l * r;
 			break;
 		default:
 			assert(false);
 			return false;
 		}
 
-		make_obj(wk, obj_id, obj_number);
-		set_obj_number(wk, *obj_id, res);
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, num);
 		break;
 	}
 	case obj_array: {
 		switch (type) {
 		case arith_add:
 			if (plusassign) {
-				*obj_id = l_id;
+				*res = l_id;
 			} else {
-				obj_array_dup(wk, l_id, obj_id);
+				obj_array_dup(wk, l_id, res);
 			}
 
 			if (get_obj_type(wk, r_id) == obj_array) {
 				obj dup;
 				obj_array_dup(wk, r_id, &dup);
-				obj_array_extend(wk, *obj_id, dup);
+				obj_array_extend(wk, *res, dup);
 			} else {
-				obj_array_push(wk, *obj_id, r_id);
+				obj_array_push(wk, *res, r_id);
 			}
 			return true;
 		default:
@@ -393,7 +392,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			goto err1;
 		}
 
-		obj_dict_merge(wk, l_id, r_id, obj_id);
+		obj_dict_merge(wk, l_id, r_id, res);
 		break;
 	}
 	default:
@@ -408,7 +407,7 @@ err1:
 }
 
 static bool
-interp_assign(struct workspace *wk, struct node *n, uint32_t *_)
+interp_assign(struct workspace *wk, struct node *n, obj *_)
 {
 	obj rhs;
 
@@ -455,17 +454,17 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 }
 
 static bool
-interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+interp_array(struct workspace *wk, uint32_t n_id, obj *res)
 {
-	uint32_t l, r;
+	obj l, r;
 
 	struct node *n = get_node(wk->ast, n_id);
 
 	if (n->type == node_empty) {
-		make_obj(wk, obj, obj_array);
-		struct obj_array *arr = get_obj_array(wk, *obj);
+		make_obj(wk, res, obj_array);
+		struct obj_array *arr = get_obj_array(wk, *res);
 		arr->len = 0;
-		arr->tail = *obj;
+		arr->tail = *res;
 		return true;
 	}
 
@@ -486,8 +485,8 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		}
 	}
 
-	make_obj(wk, obj, obj_array);
-	struct obj_array *arr = get_obj_array(wk, *obj);
+	make_obj(wk, res, obj_array);
+	struct obj_array *arr = get_obj_array(wk, *res);
 	arr->val = l;
 
 	if ((arr->have_next = have_c)) {
@@ -498,24 +497,24 @@ interp_array(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		arr->next = r;
 	} else {
 		arr->len = 1;
-		arr->tail = *obj;
+		arr->tail = *res;
 	}
 
 	return true;
 }
 
 static bool
-interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 {
-	uint32_t key, value, tail;
+	obj key, value, tail;
 
 	struct node *n = get_node(wk->ast, n_id);
 
 	if (n->type == node_empty) {
-		make_obj(wk, obj, obj_dict);
-		struct obj_dict *dict = get_obj_dict(wk, *obj);
+		make_obj(wk, res, obj_dict);
+		struct obj_dict *dict = get_obj_dict(wk, *res);
 		dict->len = 0;
-		dict->tail = *obj;
+		dict->tail = *res;
 		return true;
 	}
 
@@ -546,8 +545,8 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		}
 	}
 
-	make_obj(wk, obj, obj_dict);
-	struct obj_dict *dict = get_obj_dict(wk, *obj);
+	make_obj(wk, res, obj_dict);
+	struct obj_dict *dict = get_obj_dict(wk, *res);
 	dict->key = key;
 	dict->val = value;
 
@@ -564,21 +563,21 @@ interp_dict(struct workspace *wk, uint32_t n_id, uint32_t *obj)
 		dict->next = tail;
 	} else {
 		dict->len = 1;
-		dict->tail = *obj;
+		dict->tail = *res;
 	}
 
 	return true;
 }
 
 static bool
-interp_block(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_block(struct workspace *wk, struct node *n, obj *res)
 {
 	bool have_r = n->chflg & node_child_r
 		      && get_node(wk->ast, n->r)->type != node_empty;
 
 	assert(n->type == node_block);
 
-	uint32_t obj_l, obj_r; // these return values are disregarded
+	obj obj_l, obj_r; // these return values are disregarded
 
 	if (!interp_node(wk, n->l, &obj_l)) {
 		return false;
@@ -589,76 +588,76 @@ interp_block(struct workspace *wk, struct node *n, uint32_t *obj)
 			return false;
 		}
 
-		*obj = obj_r;
+		*res = obj_r;
 	} else {
-		*obj = obj_l;
+		*res = obj_l;
 	}
 
 	return true;
 }
 
 static bool
-interp_not(struct workspace *wk, struct node *n, uint32_t *obj_id)
+interp_not(struct workspace *wk, struct node *n, obj *res)
 {
-	uint32_t obj_l_id;
+	obj obj_l_id;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
 	} else if (obj_l_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
 
-	make_obj(wk, obj_id, obj_bool);
-	set_obj_bool(wk, *obj_id, !get_obj_bool(wk, obj_l_id));
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, !get_obj_bool(wk, obj_l_id));
 	return true;
 }
 
 static bool
-interp_andor(struct workspace *wk, struct node *n, uint32_t *obj_id)
+interp_andor(struct workspace *wk, struct node *n, obj *res)
 {
-	uint32_t obj_l_id, obj_r_id;
+	obj obj_l_id, obj_r_id;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
 	} else if (obj_l_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
 
 	if (n->type == node_and && !get_obj_bool(wk, obj_l_id)) {
-		make_obj(wk, obj_id, obj_bool);
-		set_obj_bool(wk, *obj_id, false);
+		make_obj(wk, res, obj_bool);
+		set_obj_bool(wk, *res, false);
 		return true;
 	} else if (n->type == node_or && get_obj_bool(wk, obj_l_id)) {
-		make_obj(wk, obj_id, obj_bool);
-		set_obj_bool(wk, *obj_id, true);
+		make_obj(wk, res, obj_bool);
+		set_obj_bool(wk, *res, true);
 		return true;
 	}
 
 	if (!interp_node(wk, n->r, &obj_r_id)) {
 		return false;
 	} else if (obj_r_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	} else if (!typecheck(wk, n->r, obj_r_id, obj_bool)) {
 		return false;
 	}
 
-	make_obj(wk, obj_id, obj_bool);
-	set_obj_bool(wk, *obj_id, get_obj_bool(wk, obj_r_id));
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, get_obj_bool(wk, obj_r_id));
 	return true;
 }
 
 static bool
-interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
+interp_comparison(struct workspace *wk, struct node *n, obj *res)
 {
-	bool res;
-	uint32_t obj_l_id, obj_r_id;
+	bool b;
+	obj obj_l_id, obj_r_id;
 
 	if (!interp_node(wk, n->l, &obj_l_id)) {
 		return false;
@@ -667,30 +666,30 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 	}
 
 	if (obj_l_id == disabler_id || obj_r_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	}
 
 	switch ((enum comparison_type)n->subtype) {
 	case comp_equal:
-		res = obj_equal(wk, obj_l_id, obj_r_id);
+		b = obj_equal(wk, obj_l_id, obj_r_id);
 		break;
 	case comp_nequal:
-		res = !obj_equal(wk, obj_l_id, obj_r_id);
+		b = !obj_equal(wk, obj_l_id, obj_r_id);
 		break;
 
 	case comp_in:
 	case comp_not_in:
 		switch (get_obj_type(wk, obj_r_id)) {
 		case obj_array:
-			res = obj_array_in(wk, obj_r_id, obj_l_id);
+			b = obj_array_in(wk, obj_r_id, obj_l_id);
 			break;
 		case obj_dict:
 			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
 				return false;
 			}
 
-			res = obj_dict_in(wk, obj_r_id, obj_l_id);
+			b = obj_dict_in(wk, obj_r_id, obj_l_id);
 			break;
 		default:
 			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));
@@ -698,7 +697,7 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		}
 
 		if (n->subtype == comp_not_in) {
-			res = !res;
+			b = !b;
 		}
 		break;
 
@@ -711,21 +710,21 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 			return false;
 		}
 
-		int64_t a = get_obj_number(wk, obj_l_id),
-			b = get_obj_number(wk, obj_r_id);
+		int64_t n_a = get_obj_number(wk, obj_l_id),
+			n_b = get_obj_number(wk, obj_r_id);
 
 		switch (n->subtype) {
 		case comp_lt:
-			res = a < b;
+			b = n_a < n_b;
 			break;
 		case comp_le:
-			res = a <= b;
+			b = n_a <= n_b;
 			break;
 		case comp_gt:
-			res = a > b;
+			b = n_a > n_b;
 			break;
 		case comp_ge:
-			res = a >= b;
+			b = n_a >= n_b;
 			break;
 		default: assert(false && "unreachable"); res = false;
 		}
@@ -735,19 +734,19 @@ interp_comparison(struct workspace *wk, struct node *n, uint32_t *obj_id)
 		break;
 	}
 
-	make_obj(wk, obj_id, obj_bool);
-	set_obj_bool(wk, *obj_id, res);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, b);
 	return true;
 }
 
 static bool
-interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
+interp_ternary(struct workspace *wk, struct node *n, obj *res)
 {
-	uint32_t cond_id;
+	obj cond_id;
 	if (!interp_node(wk, n->l, &cond_id)) {
 		return false;
 	} else if (cond_id == disabler_id) {
-		*obj_id = disabler_id;
+		*res = disabler_id;
 		return true;
 	} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
 		return false;
@@ -755,22 +754,21 @@ interp_ternary(struct workspace *wk, struct node *n, uint32_t *obj_id)
 
 	uint32_t node = get_obj_bool(wk, cond_id) ? n->r : n->c;
 
-	return interp_node(wk, node, obj_id);
+	return interp_node(wk, node, res);
 }
 
 static bool
-interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_if(struct workspace *wk, struct node *n, obj *res)
 {
 	bool cond;
-	uint32_t res_id;
 
 	switch ((enum if_type)n->subtype) {
 	case if_normal: {
-		uint32_t cond_id;
+		obj cond_id;
 		if (!interp_node(wk, n->l, &cond_id)) {
 			return false;
 		} else if (cond_id == disabler_id) {
-			*obj = disabler_id;
+			*res = disabler_id;
 			return true;
 		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
 			return false;
@@ -788,18 +786,17 @@ interp_if(struct workspace *wk, struct node *n, uint32_t *obj)
 	}
 
 	if (cond) {
-		if (!interp_node(wk, n->r, &res_id)) {
+		if (!interp_node(wk, n->r, res)) {
 			return false;
 		}
 	} else if (n->chflg & node_child_c) {
-		if (!interp_node(wk, n->c, &res_id)) {
+		if (!interp_node(wk, n->c, res)) {
 			return false;
 		}
 	} else {
-		res_id = 0;
+		*res = 0;
 	}
 
-	*obj = res_id;
 	return true;
 }
 
@@ -811,7 +808,7 @@ struct interp_foreach_ctx {
 static enum iteration_result
 interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 {
-	uint32_t block_result;
+	obj block_result;
 
 	if (get_node(wk->ast, ctx->block_node)->type == node_empty) {
 		return ir_done;
@@ -836,7 +833,7 @@ interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 }
 
 static enum iteration_result
-interp_foreach_dict_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32_t v_id)
+interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
@@ -847,7 +844,7 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, uint32_t k_id, uint32
 }
 
 static enum iteration_result
-interp_foreach_arr_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
@@ -857,9 +854,9 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
 }
 
 static bool
-interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
+interp_foreach(struct workspace *wk, struct node *n, obj *res)
 {
-	uint32_t iterable;
+	obj iterable;
 	bool ret;
 
 	if (!interp_node(wk, n->r, &iterable)) {
@@ -917,19 +914,19 @@ interp_foreach(struct workspace *wk, struct node *n, uint32_t *obj)
 }
 
 static bool
-interp_func(struct workspace *wk, uint32_t n_id, uint32_t *obj)
+interp_func(struct workspace *wk, uint32_t n_id, obj *res)
 {
+	obj tmp = 0;
 	struct node *n = get_node(wk->ast, n_id);
-	uint32_t res_id = 0;
 
-	if (!builtin_run(wk, false, 0, n_id, &res_id)) {
+	if (!builtin_run(wk, false, 0, n_id, &tmp)) {
 		return false;
 	}
 
 	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, res_id, obj);
+		return interp_chained(wk, n->d, tmp, res);
 	} else {
-		*obj = res_id;
+		*res = tmp;
 		return true;
 	}
 }
@@ -951,7 +948,7 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 }
 
 bool
-interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
+interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 {
 	static const uint32_t maximum_stack_depth = 1000;
 
@@ -963,7 +960,7 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	}
 
 	bool ret = false;
-	*obj_id = 0;
+	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
 
@@ -980,22 +977,22 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 	switch (n->type) {
 	/* literals */
 	case node_bool:
-		make_obj(wk, obj_id, obj_bool);
-		set_obj_bool(wk, *obj_id, n->subtype);
+		make_obj(wk, res, obj_bool);
+		set_obj_bool(wk, *res, n->subtype);
 		ret = true;
 		break;
 	case node_string:
-		*obj_id = make_strn(wk, n->dat.s, n->subtype);
+		*res = make_strn(wk, n->dat.s, n->subtype);
 		ret = true;
 		break;
 	case node_array:
-		ret = interp_array(wk, n->l, obj_id);
+		ret = interp_array(wk, n->l, res);
 		break;
 	case node_dict:
-		ret = interp_dict(wk, n->l, obj_id);
+		ret = interp_dict(wk, n->l, res);
 		break;
 	case node_id:
-		if (!get_obj_id(wk, n->dat.s, obj_id, wk->cur_project)) {
+		if (!get_obj_id(wk, n->dat.s, res, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
 			ret = false;
 			break;
@@ -1003,20 +1000,20 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 		ret = true;
 		break;
 	case node_number:
-		make_obj(wk, obj_id, obj_number);
-		set_obj_number(wk, *obj_id, n->dat.n);
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, n->dat.n);
 		ret = true;
 		break;
 
 	/* control flow */
 	case node_block:
-		ret = interp_block(wk, n, obj_id);
+		ret = interp_block(wk, n, res);
 		break;
 	case node_if:
-		ret = interp_if(wk, n, obj_id);
+		ret = interp_if(wk, n, res);
 		break;
 	case node_foreach:
-		ret = interp_foreach(wk, n, obj_id);
+		ret = interp_foreach(wk, n, res);
 		break;
 	case node_continue:
 		if (!wk->loop_depth) {
@@ -1039,11 +1036,11 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 
 	/* functions */
 	case node_function:
-		ret = interp_func(wk, n_id, obj_id);
+		ret = interp_func(wk, n_id, res);
 		break;
 	case node_method:
 	case node_index: {
-		uint32_t l_id;
+		obj l_id;
 		assert(n->chflg & node_child_l);
 
 		if (!interp_node(wk, n->l, &l_id)) {
@@ -1051,44 +1048,44 @@ interp_node(struct workspace *wk, uint32_t n_id, uint32_t *obj_id)
 			break;
 		}
 
-		ret = interp_chained(wk, n_id, l_id, obj_id);
+		ret = interp_chained(wk, n_id, l_id, res);
 		break;
 	}
 
 	/* assignment */
 	case node_assignment:
-		ret = interp_assign(wk, n, obj_id);
+		ret = interp_assign(wk, n, res);
 		break;
 
 	/* comparison stuff */
 	case node_not:
-		ret = interp_not(wk, n, obj_id);
+		ret = interp_not(wk, n, res);
 		break;
 	case node_and:
 	case node_or:
-		ret = interp_andor(wk, n, obj_id);
+		ret = interp_andor(wk, n, res);
 		break;
 	case node_comparison:
-		ret = interp_comparison(wk, n, obj_id);
+		ret = interp_comparison(wk, n, res);
 		break;
 	case node_ternary:
-		ret = interp_ternary(wk, n, obj_id);
+		ret = interp_ternary(wk, n, res);
 		break;
 
 	/* math */
 	case node_u_minus:
-		ret = interp_u_minus(wk, n, obj_id);
+		ret = interp_u_minus(wk, n, res);
 		break;
 	case node_arithmetic:
-		ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, obj_id);
+		ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res);
 		break;
 	case node_plusassign:
-		ret = interp_plusassign(wk, n_id, obj_id);
+		ret = interp_plusassign(wk, n_id, res);
 		break;
 
 	/* special */
 	case node_stringify:
-		ret = interp_stringify(wk, n, obj_id);
+		ret = interp_stringify(wk, n, res);
 		break;
 
 	/* handled in other places */

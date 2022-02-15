@@ -10,5 +10,5 @@ enum func_setup_flag {
 extern uint32_t func_setup_flags;
 
 bool do_setup(struct workspace *wk);
-bool func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj);
+bool func_setup(struct workspace *wk, uint32_t _, uint32_t args_node, obj *res);
 #endif

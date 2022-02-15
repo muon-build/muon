@@ -127,7 +127,7 @@ check_lib_path(struct find_lib_path_ctx *ctx, const char *lib_path)
 }
 
 static enum iteration_result
-find_lib_path_iter(struct workspace *wk, void *_ctx, uint32_t val_id)
+find_lib_path_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct find_lib_path_ctx *ctx = _ctx;
 
@@ -170,7 +170,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 	int err;
 	pkgconf_node_t *node;
 	pkgconf_list_t list = PKGCONF_LIST_INITIALIZER;
-	uint32_t str;
+	obj str;
 	bool ret = true;
 
 	err = ctx->apply_func(client, world, &list, maxdepth);
@@ -247,7 +247,7 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 bool
-muon_pkgconf_lookup(struct workspace *wk, uint32_t name, bool is_static, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
 {
 	if (!init) {
 		muon_pkgconf_init();
@@ -304,7 +304,7 @@ ret:
 struct pkgconf_get_variable_ctx {
 	struct workspace *wk;
 	const char *var;
-	uint32_t *res;
+	obj *res;
 };
 
 static bool
@@ -328,7 +328,7 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 }
 
 bool
-muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, uint32_t *res)
+muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, obj *res)
 {
 	if (!init) {
 		muon_pkgconf_init();

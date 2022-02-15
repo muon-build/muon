@@ -9,7 +9,7 @@
 static enum iteration_result
 relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	uint32_t *dest = _ctx;
+	obj *dest = _ctx;
 	if (get_obj_type(wk, val) == obj_string) {
 		obj_array_push(wk, *dest, val);
 		return ir_cont;
@@ -31,7 +31,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
 	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
 
-	uint32_t outputs, inputs, cmdline;
+	obj outputs, inputs, cmdline;
 
 	make_obj(wk, &inputs, obj_array);
 	if (!obj_array_foreach(wk, tgt->input, &inputs, relativize_paths_iter)) {
@@ -61,7 +61,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 
 	obj_array_push(wk, cmdline, make_str(wk, "--"));
 
-	uint32_t tgt_args;
+	obj tgt_args;
 	if (!arr_to_args(wk, 0, tgt->args, &tgt_args)) {
 		return ir_err;
 	}

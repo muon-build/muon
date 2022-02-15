@@ -56,8 +56,10 @@ enum obj_type {
 	ARG_TYPE_ARRAY_OF = 1 << 20,
 };
 
-/* _Static_assert(ARG_TYPE_NULL > obj_type_count, "increase value of ARG_TYPE_NULL"); */
-/* _Static_assert(!(ARG_TYPE_ARRAY_OF & ARG_TYPE_GLOB), "increase value of ARG_TYPE_GLOB"); */
+#if __STDC_VERSION__ >= 201112L
+_Static_assert(ARG_TYPE_NULL > obj_type_count, "increase value of ARG_TYPE_NULL");
+_Static_assert(!(ARG_TYPE_ARRAY_OF & ARG_TYPE_GLOB), "increase value of ARG_TYPE_GLOB");
+#endif
 
 enum tgt_type {
 	tgt_executable = 1 << 0,

@@ -33,7 +33,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 }
 
 static enum format_cb_result
-format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str *strkey, uint32_t *elem)
+format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str *strkey, obj *elem)
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
@@ -176,7 +176,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 
 	int64_t index;
-	uint32_t arr;
+	obj arr;
 
 	if (prefix_plus_index(strkey, "INPUT", &index)) {
 		arr = ctx->input;
@@ -534,7 +534,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		uint32_t install_mode_id = 0;
+		obj install_mode_id = 0;
 		if (akw[kw_install_mode].set) {
 			install_mode_id = akw[kw_install_mode].val;
 		}

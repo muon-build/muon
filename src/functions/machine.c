@@ -9,7 +9,7 @@
 #include "platform/uname.h"
 
 static bool
-func_machine_system(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -28,7 +28,7 @@ func_machine_system(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uin
 	uint32_t i;
 	for (i = 0; map[i][0]; ++i) {
 		if (strcmp(map[i][0], sysname) == 0) {
-			*obj = make_str(wk, map[i][1]);
+			*res = make_str(wk, map[i][1]);
 			return true;
 		}
 	}
@@ -38,7 +38,7 @@ func_machine_system(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uin
 }
 
 static bool
-func_machine_endian(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_machine_endian(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -59,12 +59,12 @@ func_machine_endian(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uin
 		break;
 	}
 
-	*obj = make_str(wk, s);
+	*res = make_str(wk, s);
 	return true;
 }
 
 static bool
-func_machine_cpu_family(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -83,7 +83,7 @@ func_machine_cpu_family(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 	uint32_t i;
 	for (i = 0; map[i][0]; ++i) {
 		if (strcmp(map[i][0], machine) == 0) {
-			*obj = make_str(wk, map[i][1]);
+			*res = make_str(wk, map[i][1]);
 			return true;
 		}
 	}
@@ -93,7 +93,7 @@ func_machine_cpu_family(struct workspace *wk, uint32_t rcvr, uint32_t args_node,
 }
 
 static bool
-func_machine_cpu(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -104,7 +104,7 @@ func_machine_cpu(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32
 		return false;
 	}
 
-	*obj = make_str(wk, machine);
+	*res = make_str(wk, machine);
 	return true;
 }
 

@@ -94,7 +94,7 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 }
 
 static bool
-compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, uint32_t *comp_id)
+compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 {
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -218,7 +218,7 @@ done:
 }
 
 bool
-compiler_detect(struct workspace *wk, uint32_t *comp, enum compiler_language lang)
+compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 {
 	const char *cmd;
 

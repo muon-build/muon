@@ -274,8 +274,8 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 		src_allocd = true;
 	}
 
-	uint32_t id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+	uint32_t proj_id;
+	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
 
 	{ // populate argv array
 		obj argv_obj;
@@ -288,7 +288,7 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 		}
 	}
 
-	uint32_t res;
+	obj res;
 	if (!eval(&wk, &src, &res)) {
 		goto ret;
 	}

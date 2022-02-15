@@ -42,7 +42,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 		return true;
 	}
 
-	uint32_t comp_id;
+	obj comp_id;
 	enum compiler_language l;
 	if (!s_to_lang(wk, err_node, str, &l)) {
 		return false;

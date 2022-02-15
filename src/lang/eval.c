@@ -72,7 +72,7 @@ cleanup:
 }
 
 bool
-eval(struct workspace *wk, struct source *src, uint32_t *obj)
+eval(struct workspace *wk, struct source *src, obj *res)
 {
 	bool ret = false;
 	struct ast ast = { 0 };
@@ -90,7 +90,7 @@ eval(struct workspace *wk, struct source *src, uint32_t *obj)
 	wk->src = src;
 	wk->ast = &ast;
 
-	ret = interp_node(wk, wk->ast->root, obj);
+	ret = interp_node(wk, wk->ast->root, res);
 
 	if (wk->subdir_done) {
 		wk->subdir_done = false;
@@ -104,10 +104,10 @@ ret:
 }
 
 bool
-eval_str(struct workspace *wk, const char *str, uint32_t *obj)
+eval_str(struct workspace *wk, const char *str, obj *res)
 {
 	struct source src = { .label = "<internal>", .src = str, .len = strlen(str) };
-	return eval(wk, &src, obj);
+	return eval(wk, &src, res);
 }
 
 bool

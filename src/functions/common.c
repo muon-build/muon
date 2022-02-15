@@ -151,7 +151,7 @@ struct typecheck_function_arg_ctx {
 };
 
 static enum iteration_result
-typecheck_function_arg_iter(struct workspace *wk, void *_ctx, uint32_t val)
+typecheck_function_arg_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct typecheck_function_arg_ctx *ctx = _ctx;
 
@@ -312,7 +312,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 						set_arg_node = true;
 					}
 
-					uint32_t val;
+					obj val;
 					if (!interp_args_interp_node(wk, arg_node, &val)) {
 						return false;
 					}
@@ -420,7 +420,7 @@ process_kwarg:
 }
 
 bool
-todo(struct workspace *wk, uint32_t rcvr_id, uint32_t args_node, uint32_t *obj)
+todo(struct workspace *wk, obj rcvr_id, uint32_t args_node, obj *res)
 {
 	if (rcvr_id) {
 		LOG_E("method on %s not implemented", obj_type_to_s(get_obj_type(wk, rcvr_id)));
@@ -470,7 +470,7 @@ func_lookup(const struct func_impl_name *impl_tbl, const char *name, func_impl *
 }
 
 bool
-builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t node_id, uint32_t *obj)
+builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res)
 {
 	const char *name;
 
@@ -520,7 +520,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 
 		if (!func_lookup(impl_tbl, name, &func)) {
 			if (rcvr_type == obj_disabler) {
-				*obj = disabler_id;
+				*res = disabler_id;
 				return true;
 			}
 
@@ -529,9 +529,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, uint32_t rcvr_id, uint32_t nod
 		}
 	}
 
-	if (!func(wk, rcvr_id, args_node, obj)) {
+	if (!func(wk, rcvr_id, args_node, res)) {
 		if (disabler_among_args) {
-			*obj = disabler_id;
+			*res = disabler_id;
 			disabler_among_args = false;
 			return true;
 		} else {

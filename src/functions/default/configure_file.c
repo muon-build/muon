@@ -82,7 +82,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 
 	uint32_t i, id_start, id_end = 0,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
-	uint32_t elem;
+	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
@@ -318,10 +318,10 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	obj command, obj input, obj out_path, obj depfile,
 	bool capture)
 {
-	uint32_t args, output_arr;
+	obj args, output_arr;
 
 	{
-		uint32_t f;
+		obj f;
 		make_obj(wk, &f, obj_file);
 		*get_obj_file(wk, f) = out_path;
 		make_obj(wk, &output_arr, obj_array);
@@ -402,7 +402,8 @@ static bool
 perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_t src, uint32_t input_arr, uint32_t *res)
 {
 	const char *s = get_cstr(wk, src);
-	uint32_t str = make_str(wk, ""), e = 0, len;
+	uint32_t len;
+	obj str = make_str(wk, ""), e = 0;
 
 	for (; *s; ++s) {
 		if (is_substr(s, "@BASENAME@", &len)) {
@@ -464,7 +465,7 @@ exclusive_or(bool *vals, uint32_t len)
 bool
 func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	uint32_t input_arr = 0, output_str;
+	obj input_arr = 0, output_str;
 	enum kwargs {
 		kw_configuration,
 		kw_input,
@@ -509,7 +510,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	{       /* setup out file */
-		uint32_t subd;
+		obj subd;
 		if (!perform_output_string_substitutions(wk, akw[kw_output].node,
 			akw[kw_output].val, input_arr, &subd)) {
 			return false;

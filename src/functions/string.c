@@ -26,7 +26,7 @@ chr_in_str(char c, const struct str *ss)
 }
 
 static bool
-func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_strip(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -58,12 +58,12 @@ func_strip(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	++len;
 
 	assert((int64_t)len >= (int64_t)i);
-	*obj = make_strn(wk, &ss->s[i], len - i);
+	*res = make_strn(wk, &ss->s[i], len - i);
 	return true;
 }
 
 static bool
-func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
+func_to_upper(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -84,7 +84,7 @@ func_to_upper(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
 }
 
 static bool
-func_to_lower(struct workspace *wk, uint32_t rcvr, uint32_t args_node, obj *res)
+func_to_lower(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -120,7 +120,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 	for (i = 0; i < ss_in->len; ++i) {
 		if (ss_in->s[i] == '@') {
 			if (reading_id) {
-				uint32_t elem;
+				obj elem;
 				id_end = i + 1;
 
 				if (i == id_start) {
@@ -187,7 +187,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj s_in, obj *s_out, voi
 }
 
 struct func_format_ctx {
-	uint32_t arr;
+	obj arr;
 };
 
 static enum format_cb_result
@@ -210,7 +210,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 }
 
 static bool
-func_format(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_format(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -223,12 +223,12 @@ func_format(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *o
 	};
 
 
-	uint32_t str;
+	obj str;
 	if (!string_format(wk, an[0].node, rcvr, &str, &ctx, func_format_cb)) {
 		return false;
 	}
 
-	*obj = str;
+	*res = str;
 	return true;
 }
 
@@ -256,7 +256,7 @@ func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 static bool
-func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_split(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -267,12 +267,12 @@ func_split(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *ob
 	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : NULL,
 			 *ss = get_str(wk, rcvr);
 
-	*obj = str_split(wk, ss, split);
+	*res = str_split(wk, ss, split);
 	return true;
 }
 
 static bool
-func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_join(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 
@@ -280,10 +280,8 @@ func_join(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj
 		return false;
 	}
 
-	return obj_array_join(wk, true, an[0].val, rcvr, obj);
+	return obj_array_join(wk, true, an[0].val, rcvr, res);
 }
-
-typedef bool ((*comparator)(uint32_t a, uint32_t b));
 
 struct version_compare_ctx {
 	bool res;
@@ -396,7 +394,7 @@ func_version_compare(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_string_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
@@ -411,8 +409,8 @@ func_string_to_int(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number);
-	set_obj_number(wk, *obj, n);
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, n);
 	return true;
 }
 

@@ -12,7 +12,7 @@
 #include "platform/path.h"
 
 static bool
-get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t args_id, enum compiler_type t)
+get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
 	uint32_t i;
 	enum compiler_optimization_lvl opt = 0;
@@ -37,7 +37,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, uint32_t ar
 	const char *str = get_cstr(wk, buildtype);
 
 	if (strcmp(str, "custom") == 0) {
-		uint32_t optimization_id, debug_id;
+		obj optimization_id, debug_id;
 
 		get_option(wk, proj, "optimization", &optimization_id);
 		get_option(wk, proj, "debug", &debug_id);

@@ -59,7 +59,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		return false;
 	}
 
-	uint32_t subproj_name, subproj_dep, subproj;
+	obj subproj_name, subproj_dep, subproj;
 	obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 	obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 

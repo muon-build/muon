@@ -22,7 +22,7 @@ struct install_ctx {
 };
 
 static enum iteration_result
-install_iter(struct workspace *wk, void *_ctx, uint32_t v_id)
+install_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct install_ctx *ctx = _ctx;
 	struct obj_install_target *in = get_obj_install_target(wk, v_id);

@@ -3,9 +3,9 @@
 
 #include "lang/workspace.h"
 
-bool func_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj);
-bool func_get_option(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj);
-void get_option(struct workspace *wk, const struct project *proj, const char *name, uint32_t *obj);
+bool func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res);
+bool func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res);
+void get_option(struct workspace *wk, const struct project *proj, const char *name, obj *res);
 bool check_invalid_option_overrides(struct workspace *wk);
 bool check_invalid_subproject_option(struct workspace *wk);
 bool set_builtin_options(struct workspace *wk);

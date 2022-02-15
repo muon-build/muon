@@ -10,7 +10,7 @@
 #include "platform/path.h"
 
 static enum iteration_result
-write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t comp_id)
+write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, obj comp_id)
 {
 	FILE *out = _ctx;
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
@@ -39,7 +39,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, uint32_t l, uint32_t 
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));
-	uint32_t command = join_args_plain(wk, args);
+	obj command = join_args_plain(wk, args);
 
 	fprintf(out, "rule %s_COMPILER\n"
 		" command = %s\n",

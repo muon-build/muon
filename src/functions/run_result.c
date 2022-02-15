@@ -6,36 +6,36 @@
 #include "log.h"
 
 static bool
-func_run_result_returncode(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_run_result_returncode(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_number);
-	set_obj_number(wk, *obj, get_obj_run_result(wk, rcvr)->status);
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, get_obj_run_result(wk, rcvr)->status);
 	return true;
 }
 
 static bool
-func_run_result_stdout(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_run_result_stdout(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = get_obj_run_result(wk, rcvr)->out;
+	*res = get_obj_run_result(wk, rcvr)->out;
 	return true;
 }
 
 static bool
-func_run_result_stderr(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_run_result_stderr(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = get_obj_run_result(wk, rcvr)->err;
+	*res = get_obj_run_result(wk, rcvr)->err;
 	return true;
 }
 

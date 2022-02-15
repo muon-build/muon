@@ -356,14 +356,14 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 }
 
 bool
-serial_dump(struct workspace *wk_src, uint32_t obj, FILE *f)
+serial_dump(struct workspace *wk_src, obj o, FILE *f)
 {
 	bool ret = false;
 	struct workspace wk_dest = { 0 };
 	workspace_init_bare(&wk_dest);
 
-	uint32_t obj_dest;
-	if (!obj_clone(wk_src, &wk_dest, obj, &obj_dest)) {
+	obj obj_dest;
+	if (!obj_clone(wk_src, &wk_dest, o, &obj_dest)) {
 		goto ret;
 	}
 
@@ -388,7 +388,7 @@ ret:
 }
 
 bool
-serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
+serial_load(struct workspace *wk, obj *res, FILE *f)
 {
 	bool ret = false;
 	struct workspace wk_src = { 0 };
@@ -396,7 +396,7 @@ serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
 
 	struct big_string_table bst;
 
-	uint32_t obj_src;
+	obj obj_src;
 	if (!(load_serial_header(f)
 	      && load_uint32(&obj_src, f)
 	      && load_bucket_array(&wk_src.chrs, f)
@@ -407,7 +407,7 @@ serial_load(struct workspace *wk, uint32_t *obj, FILE *f)
 
 	/* obj_fprintf(&wk_src, log_file(), "loaded %o\n", obj_src); */
 
-	if (!obj_clone(&wk_src, wk, obj_src, obj)) {
+	if (!obj_clone(&wk_src, wk, obj_src, res)) {
 		goto ret;
 	}
 

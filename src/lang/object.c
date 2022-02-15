@@ -154,7 +154,7 @@ OBJ_GETTER(obj_alias_target)
 #undef OBJ_GETTER
 
 void
-make_obj(struct workspace *wk, uint32_t * id, enum obj_type type)
+make_obj(struct workspace *wk, obj *id, enum obj_type type)
 {
 	uint32_t val;
 	*id = wk->objs.len;
@@ -706,19 +706,18 @@ union obj_dict_key_comparison_key {
 	uint32_t num;
 };
 
-/* other is marked uint32_t since it can be used to represent an obj or a
- * number */
+/* other is marked uint32_t since it can be used to represent an obj or a number */
 typedef bool ((*obj_dict_key_comparison_func)(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other));
 
 static bool
-obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
+obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_comparison_key *key, obj other)
 {
 	const struct str *ss_a = get_str(wk, other);
 	return str_eql(ss_a, &key->string);
 }
 
 static bool
-obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
+obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, obj other)
 {
 	return str_eql(get_str(wk, key->num), get_str(wk, other));
 }
@@ -759,7 +758,7 @@ bool
 obj_dict_index_strn(struct workspace *wk, obj dict, const char *str,
 	uint32_t len, obj *res)
 {
-	uint32_t *r;
+	obj *r;
 	union obj_dict_key_comparison_key key = {
 		.string = { .s = str, .len = len, }
 	};

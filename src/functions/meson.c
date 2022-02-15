@@ -11,7 +11,7 @@
 #include "version.h"
 
 static bool
-func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_get_compiler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_native, };
@@ -26,7 +26,7 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 
 	enum compiler_language l;
 	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
-	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, obj)) {
+	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, res)) {
 		interp_error(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
@@ -35,112 +35,112 @@ func_meson_get_compiler(struct workspace *wk, uint32_t _, uint32_t args_node, ui
 }
 
 static bool
-func_meson_project_name(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_project_name(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->cfg.name;
+	*res = current_project(wk)->cfg.name;
 	return true;
 }
 
 static bool
-func_meson_project_license(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_project_license(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->cfg.license;
+	*res = current_project(wk)->cfg.license;
 	return true;
 }
 
 static bool
-func_meson_project_version(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_project_version(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->cfg.version;
+	*res = current_project(wk)->cfg.version;
 	return true;
 }
 
 static bool
-func_meson_version(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_version(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = make_str(wk, muon_version.meson_compat);
+	*res = make_str(wk, muon_version.meson_compat);
 	return true;
 }
 
 static bool
-func_meson_current_source_dir(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_current_source_dir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->cwd;
+	*res = current_project(wk)->cwd;
 	return true;
 }
 
 static bool
-func_meson_current_build_dir(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_current_build_dir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->build_dir;
+	*res = current_project(wk)->build_dir;
 	return true;
 }
 
 static bool
-func_meson_project_source_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_project_source_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->source_root;
+	*res = current_project(wk)->source_root;
 	return true;
 }
 
 static bool
-func_meson_project_build_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_project_build_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = current_project(wk)->build_root;
+	*res = current_project(wk)->build_root;
 	return true;
 }
 
 static bool
-func_meson_global_source_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_global_source_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = make_str(wk, wk->source_root);
+	*res = make_str(wk, wk->source_root);
 	return true;
 }
 
 static bool
-func_meson_global_build_root(struct workspace *wk, uint32_t _, uint32_t args_node, uint32_t *obj)
+func_meson_global_build_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = make_str(wk, wk->build_root);
+	*res = make_str(wk, wk->build_root);
 	return true;
 }
 

@@ -247,7 +247,7 @@ found_slot:
 }
 
 static enum iteration_result
-run_test(struct workspace *wk, void *_ctx, uint32_t t)
+run_test(struct workspace *wk, void *_ctx, obj t)
 {
 	struct run_test_ctx *ctx = _ctx;
 
@@ -261,12 +261,12 @@ run_test(struct workspace *wk, void *_ctx, uint32_t t)
 		return ir_cont;
 	}
 
-	uint32_t cmdline;
+	obj cmdline;
 	make_obj(wk, &cmdline, obj_array);
 	obj_array_push(wk, cmdline, test->exe);
 
 	if (test->args) {
-		uint32_t test_args;
+		obj test_args;
 		if (!arr_to_args(wk,
 			arr_to_args_build_target | arr_to_args_custom_target,
 			test->args, &test_args)) {
@@ -380,7 +380,7 @@ tests_run(struct test_options *opts)
 
 	darr_init(&ctx.failed_tests, 32, sizeof(struct test_result));
 
-	uint32_t tests_dict;
+	obj tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
 		LOG_E("invalid tests file");
 		goto ret;

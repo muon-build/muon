@@ -267,7 +267,7 @@ struct check_array_opt_ctx {
 };
 
 static enum iteration_result
-check_array_opt_iter(struct workspace *wk, void *_ctx, uint32_t val)
+check_array_opt_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct check_array_opt_ctx *ctx = _ctx;
 

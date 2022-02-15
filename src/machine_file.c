@@ -10,9 +10,9 @@
 #include "platform/mem.h"
 
 struct machine_info {
-	uint32_t system, cpu_family, cpu, endian;
+	obj system, cpu_family, cpu, endian;
 	struct {
-		uint32_t c, ld, ar;
+		obj c, ld, ar;
 	} binaries;
 };
 
@@ -74,7 +74,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 
 	struct source val_src = { .label = k, .src = v, .len = strlen(v), };
 
-	uint32_t res;
+	obj res;
 	if (!eval(ctx->wk, &val_src, &res)) {
 		error_messagef(src, line, 1, "failed to parse value");
 		return false;
@@ -88,7 +88,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	} else {
 		hash_set(&current_project(ctx->wk)->scope, k, res);
 
-		uint32_t cloned, objkey, dest_dict;
+		obj cloned, objkey, dest_dict;
 		if (!obj_clone(ctx->wk, ctx->dest_wk, res, &cloned)) {
 			return false;
 		}
@@ -125,8 +125,8 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 
 	wk.lang_mode = language_internal;
 
-	uint32_t id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+	uint32_t proj_id;
+	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
 
 	struct machine_file_parse_ctx ctx = { .wk = &wk, .dest_wk = dest_wk, };
 

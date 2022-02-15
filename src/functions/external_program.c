@@ -6,25 +6,25 @@
 #include "log.h"
 
 static bool
-func_external_program_found(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_external_program_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	make_obj(wk, obj, obj_bool);
-	set_obj_bool(wk, *obj, get_obj_external_program(wk, rcvr)->found);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, get_obj_external_program(wk, rcvr)->found);
 	return true;
 }
 
 static bool
-func_external_program_path(struct workspace *wk, uint32_t rcvr, uint32_t args_node, uint32_t *obj)
+func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	*obj = get_obj_external_program(wk, rcvr)->full_path;
+	*res = get_obj_external_program(wk, rcvr)->full_path;
 	return true;
 }
 
