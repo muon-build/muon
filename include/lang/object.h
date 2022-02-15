@@ -14,19 +14,19 @@ enum obj_type {
 	obj_default, // used for function lookup
 
 	/* singleton object types */
+	obj_null,
 	obj_meson,
 	obj_disabler,
 	obj_machine, // this won't be a singleton object when cross compilaton is implemented
 
 	/* simple object types */
-	obj_null,
 	obj_bool,
-	obj_number,
 	obj_file,
 
 	/* complex object types */
 	_obj_aos_start,
-	obj_string = _obj_aos_start,
+	obj_number = _obj_aos_start,
+	obj_string,
 	obj_array,
 	obj_dict,
 	obj_compiler,
@@ -106,7 +106,7 @@ enum str_flags {
 
 struct str {
 	const char *s;
-	uint32_t len, serialized_offset;
+	uint32_t len; //, serialized_offset;
 	enum str_flags flags;
 };
 
@@ -114,6 +114,11 @@ enum build_tgt_flags {
 	build_tgt_flag_export_dynamic = 1 << 0,
 	build_tgt_flag_link_whole = 1 << 1,
 	build_tgt_flag_pic = 1 << 2,
+};
+
+struct obj_internal {
+	enum obj_type t;
+	uint32_t val;
 };
 
 struct obj_subproject {
@@ -262,44 +267,13 @@ struct obj_generator {
 	bool capture;
 };
 
-struct obj {
-	enum obj_type type;
-	union {
-		bool boolean;
-		int64_t num;
-		obj file;
-		struct str str;
-		struct obj_module module;
-		struct obj_array arr;
-		struct obj_dict dict;
-		struct obj_build_target tgt;
-		struct obj_custom_target custom_target;
-		struct obj_subproject subproj;
-		struct obj_dependency dep;
-		struct obj_feature_opt feature_opt;
-		struct obj_external_program external_program;
-		struct obj_external_library external_library;
-		struct obj_run_result run_result;
-		struct obj_configuration_data configuration_data;
-		struct obj_test test;
-		struct obj_compiler compiler;
-		struct obj_install_target install_target;
-		struct obj_environment environment;
-		struct obj_include_directory include_directory;
-		struct obj_option option;
-		struct obj_generator generator;
-		struct obj_alias_target alias_target;
-	} dat;
-};
-
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
 
 bool get_obj_bool(struct workspace *wk, obj o);
-int64_t get_obj_number(struct workspace *wk, obj o);
 void set_obj_bool(struct workspace *wk, obj o, bool v);
+int64_t get_obj_number(struct workspace *wk, obj o);
 void set_obj_number(struct workspace *wk, obj o, int64_t v);
-
 obj *get_obj_file(struct workspace *wk, obj o);
 const char *get_file_path(struct workspace *wk, obj o);
 const struct str *get_str(struct workspace *wk, obj s);

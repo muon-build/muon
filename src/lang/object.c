@@ -18,27 +18,66 @@ get_obj(struct workspace *wk, obj id)
 	return NULL;
 }
 
-
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
-	struct obj *o = bucket_array_get(&wk->objs, id);
-	if (o->type == type) {
-		return &o->dat;
+	struct obj_internal *o = bucket_array_get(&wk->objs, id);
+	if (o->t != type) {
+		LOG_E("internal type error, expected %s but got %s",
+			obj_type_to_s(type), obj_type_to_s(o->t));
+		abort();
+		return NULL;
 	}
 
-	LOG_E("internal type error, expected %s but got %s",
-		obj_type_to_s(type), obj_type_to_s(o->type));
+	switch (type) {
+	case obj_bool:
+	case obj_file:
+		return &o->val;
+		break;
 
-	abort();
-	return false;
+	case obj_number:
+	case obj_string:
+	case obj_array:
+	case obj_dict:
+	case obj_compiler:
+	case obj_build_target:
+	case obj_custom_target:
+	case obj_subproject:
+	case obj_dependency:
+	case obj_feature_opt:
+	case obj_external_program:
+	case obj_external_library:
+	case obj_run_result:
+	case obj_configuration_data:
+	case obj_test:
+	case obj_module:
+	case obj_install_target:
+	case obj_environment:
+	case obj_include_directory:
+	case obj_option:
+	case obj_generator:
+	case obj_alias_target:
+		return bucket_array_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
+
+	case obj_null:
+	case obj_meson:
+	case obj_disabler:
+	case obj_machine:
+		LOG_E("tried to get singleton object of type %s",
+			obj_type_to_s(type));
+		abort();
+
+	default:
+		assert(false && "tried to get invalid object type");
+		return NULL;
+	}
 }
 
 enum obj_type
 get_obj_type(struct workspace *wk, obj id)
 {
-	struct obj *o = bucket_array_get(&wk->objs, id);
-	return o->type;
+	struct obj_internal *o = bucket_array_get(&wk->objs, id);
+	return o->t;
 }
 
 bool
@@ -114,13 +153,54 @@ OBJ_GETTER(obj_alias_target)
 
 #undef OBJ_GETTER
 
-/* struct obj * */
 void
 make_obj(struct workspace *wk, uint32_t * id, enum obj_type type)
 {
+	uint32_t val;
 	*id = wk->objs.len;
-	bucket_array_push(&wk->objs, &(struct obj){ .type = type });
-	/* return NULL; */
+
+	switch (type) {
+	case obj_bool:
+	case obj_file:
+	case obj_null:
+	case obj_meson:
+	case obj_disabler:
+	case obj_machine:
+		val = 0;
+		break;
+
+	case obj_number:
+	case obj_string:
+	case obj_array:
+	case obj_dict:
+	case obj_compiler:
+	case obj_build_target:
+	case obj_custom_target:
+	case obj_subproject:
+	case obj_dependency:
+	case obj_feature_opt:
+	case obj_external_program:
+	case obj_external_library:
+	case obj_run_result:
+	case obj_configuration_data:
+	case obj_test:
+	case obj_module:
+	case obj_install_target:
+	case obj_environment:
+	case obj_include_directory:
+	case obj_option:
+	case obj_generator:
+	case obj_alias_target: {
+		struct bucket_array *ba = &wk->obj_aos[type - _obj_aos_start];
+		val = ba->len;
+		bucket_array_pushn(ba, NULL, 0, 1);
+		break;
+	}
+	default:
+		assert(false && "tried to make invalid object type");
+	}
+
+	bucket_array_push(&wk->objs, &(struct obj_internal){ .t = type, .val = val });
 }
 
 const char *

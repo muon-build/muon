@@ -19,11 +19,13 @@ dump_uint32(uint32_t v, FILE *f)
 	return fs_fwrite(&v, sizeof(uint32_t), f);
 }
 
+#if 0
 static bool
 dump_uint64(uint64_t v, FILE *f)
 {
 	return fs_fwrite(&v, sizeof(uint64_t), f);
 }
+#endif
 
 static bool
 load_uint32(uint32_t *v, FILE *f)
@@ -129,6 +131,7 @@ load_serial_header(FILE *f)
 static bool
 dump_big_strings(struct workspace *wk, FILE *f)
 {
+#if 0
 	uint64_t len = 0;
 	uint64_t start, end;
 
@@ -171,6 +174,7 @@ dump_big_strings(struct workspace *wk, FILE *f)
 		return false;
 	}
 
+#endif
 	return true;
 }
 
@@ -209,6 +213,7 @@ struct serial_str {
 	enum str_flags flags;
 };
 
+#if 0
 static bool
 get_big_string(struct workspace *wk, const struct big_string_table *bst, struct serial_str *src, struct str *res)
 {
@@ -227,10 +232,12 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 
 	return true;
 }
+#endif
 
 static bool
 dump_objs(struct workspace *wk, FILE *f)
 {
+#if 0
 	if (!dump_uint32(wk->objs.len - 1, f)) {
 		return false;
 	}
@@ -284,12 +291,14 @@ dump_objs(struct workspace *wk, FILE *f)
 		}
 	}
 
+#endif
 	return true;
 }
 
 static bool
 load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 {
+#if 0
 	uint32_t len;
 	if (!load_uint32(&len, f)) {
 		return false;
@@ -336,6 +345,7 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 		bucket_array_push(&wk->objs, &o);
 	}
 
+#endif
 	return true;
 }
 

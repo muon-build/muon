@@ -199,7 +199,40 @@ workspace_init_bare(struct workspace *wk)
 	*wk = (struct workspace){ 0 };
 
 	bucket_array_init(&wk->chrs, 4096, 1);
-	bucket_array_init(&wk->objs, 128, sizeof(struct obj));
+	bucket_array_init(&wk->objs, 1024, sizeof(struct obj_internal));
+
+	const struct {
+		uint32_t item_size;
+		uint32_t bucket_size;
+	} sizes[] = {
+		[obj_number] = { sizeof(int64_t), 1024 },
+		[obj_string] = { sizeof(struct str), 1024 },
+		[obj_compiler] = { sizeof(struct obj_compiler), 4 },
+		[obj_array] = { sizeof(struct obj_array), 2048 },
+		[obj_dict] = { sizeof(struct obj_dict), 512 },
+		[obj_build_target] = { sizeof(struct obj_build_target), 16 },
+		[obj_custom_target] = { sizeof(struct obj_custom_target), 16 },
+		[obj_subproject] = { sizeof(struct obj_subproject), 16 },
+		[obj_dependency] = { sizeof(struct obj_dependency), 16 },
+		[obj_feature_opt] = { sizeof(struct obj_feature_opt), 32 },
+		[obj_external_program] = { sizeof(struct obj_external_program), 32 },
+		[obj_external_library] = { sizeof(struct obj_external_library), 32 },
+		[obj_run_result] = { sizeof(struct obj_run_result), 32 },
+		[obj_configuration_data] = { sizeof(struct obj_configuration_data), 16 },
+		[obj_test] = { sizeof(struct obj_test), 64 },
+		[obj_module] = { sizeof(struct obj_module), 16 },
+		[obj_install_target] = { sizeof(struct obj_install_target), 128 },
+		[obj_environment] = { sizeof(struct obj_environment), 4 },
+		[obj_include_directory] = { sizeof(struct obj_include_directory), 16 },
+		[obj_option] = { sizeof(struct obj_option), 32 },
+		[obj_generator] = { sizeof(struct obj_generator), 16 },
+		[obj_alias_target] = { sizeof(struct obj_alias_target), 16 },
+	};
+
+	uint32_t i;
+	for (i = _obj_aos_start; i < obj_type_count; ++i) {
+		bucket_array_init(&wk->obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
+	}
 
 	uint32_t id;
 	make_obj(wk, &id, obj_null);
@@ -244,17 +277,19 @@ workspace_destroy_bare(struct workspace *wk)
 {
 	bucket_array_destroy(&wk->chrs);
 
+	bucket_array_destroy(&wk->objs);
+
 	uint32_t i;
-	for (i = 0; i < wk->objs.len; ++i) {
-		struct obj *o = bucket_array_get(&wk->objs, i);
-		if (o->type == obj_string) {
-			struct str *s = &o->dat.str;
-			if (s->flags & str_flag_big) {
-				z_free((void *)s->s);
-			}
+	for (i = 0; i < wk->obj_aos[obj_string - _obj_aos_start].len; ++i) {
+		struct str *s = bucket_array_get(&wk->obj_aos[obj_string - _obj_aos_start], i);
+		if (s->flags & str_flag_big) {
+			z_free((void *)s->s);
 		}
 	}
-	bucket_array_destroy(&wk->objs);
+
+	for (i = _obj_aos_start; i < obj_type_count; ++i) {
+		bucket_array_destroy(&wk->obj_aos[i - _obj_aos_start]);
+	}
 }
 
 void

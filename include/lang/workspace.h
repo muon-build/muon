@@ -65,6 +65,7 @@ struct workspace {
 
 	struct bucket_array chrs;
 	struct bucket_array objs;
+	struct bucket_array obj_aos[obj_type_count - _obj_aos_start];
 
 	struct darr projects;
 	struct darr option_overrides;
