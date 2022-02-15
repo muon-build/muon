@@ -11,7 +11,7 @@
 
 #define SERIAL_MAGIC_LEN 8
 static const char serial_magic[SERIAL_MAGIC_LEN] = "muondump";
-static const uint32_t serial_version = 4;
+static const uint32_t serial_version = 5;
 
 static bool
 dump_uint32(uint32_t v, FILE *f)
