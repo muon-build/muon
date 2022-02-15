@@ -26,6 +26,7 @@ func_number_is_even(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
+	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, (get_obj_number(wk, rcvr) & 1) == 0);
 	return true;
 }
