@@ -1,5 +1,5 @@
-#ifndef MUON_PLATFORM_RPATH_FIXER
-#define MUON_PLATFORM_RPATH_FIXER
+#ifndef MUON_PLATFORM_RPATH_FIXER_H
+#define MUON_PLATFORM_RPATH_FIXER_H
 
 #include <stdbool.h>
 #include <stdio.h>
