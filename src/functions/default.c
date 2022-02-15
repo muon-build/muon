@@ -708,7 +708,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
@@ -724,7 +724,6 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	obj cmd;
 	const char *argv[MAX_ARGS];
 	char *const *envp = NULL;
 
@@ -736,25 +735,25 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			.res = &cmd_file,
 		};
 
-		if (!obj_array_flatten_one(wk, an[0].val, &arg0)) {
+		if (!get_obj_array(wk, an[0].val)->len) {
+			interp_error(wk, an[0].node, "missing command");
 			return false;
-		} else if (!find_program(wk, &find_program_ctx, arg0)) {
+		}
+
+		obj_array_index(wk, an[0].val, 0, &arg0);
+
+		if (!find_program(wk, &find_program_ctx, arg0)) {
 			return false;
 		} else if (!find_program_ctx.found) {
 			interp_error(wk, an[0].node, "unable to find program %o", an[0].val);
 		}
 
-		cmd = get_obj_external_program(wk, cmd_file)->full_path;
-
-		obj args_tail;
-		if (!arr_to_args(wk, arr_to_args_external_program, an[1].val, &args_tail)) {
-			return false;
-		}
+		obj_array_set(wk, an[0].val, 0, arg0);
 
 		obj args;
-		make_obj(wk, &args, obj_array);
-		obj_array_push(wk, args, cmd);
-		obj_array_extend(wk, args, args_tail);
+		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
+			return false;
+		}
 
 		if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
 			return false;
@@ -768,7 +767,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, get_cstr(wk, cmd), argv, envp)) {
+	if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
 		interp_error(wk, an[0].node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
