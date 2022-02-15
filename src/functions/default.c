@@ -135,7 +135,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 				goto version_type_error;
 			}
 
-			t = get_obj_type(wk, akw[kw_version].val);
+			t = get_obj_type(wk, ver);
 		}
 
 		if (t == obj_string) {
