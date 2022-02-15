@@ -451,20 +451,13 @@ obj_array_index_iter(struct workspace *wk, void *_ctx, obj v)
 	return ir_cont;
 }
 
-bool
+void
 obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 {
 	struct obj_array_index_iter_ctx ctx = { .tgt = i };
-
 	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
-
-	if (!obj_array_foreach(wk, arr, &ctx, obj_array_index_iter)) {
-		LOG_E("obj_array_index failed");
-		return false;
-	}
-
+	obj_array_foreach(wk, arr, &ctx, obj_array_index_iter);
 	*res = ctx.res;
-	return true;
 }
 
 struct obj_array_dup_ctx { obj *arr; };
@@ -473,24 +466,16 @@ static enum iteration_result
 obj_array_dup_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct obj_array_dup_ctx *ctx = _ctx;
-
 	obj_array_push(wk, *ctx->arr, v);
-
 	return ir_cont;
 }
 
-bool
+void
 obj_array_dup(struct workspace *wk, obj arr, obj *res)
 {
 	struct obj_array_dup_ctx ctx = { .arr = res };
-
 	make_obj(wk, res, obj_array);
-
-	if (!obj_array_foreach(wk, arr, &ctx, obj_array_dup_iter)) {
-		return false;
-	}
-
-	return true;
+	obj_array_foreach(wk, arr, &ctx, obj_array_dup_iter);
 }
 
 void
@@ -687,24 +672,16 @@ static enum iteration_result
 obj_dict_dup_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct obj_dict_dup_ctx *ctx = _ctx;
-
 	obj_dict_set(wk, *ctx->dict, key, val);
-
 	return ir_cont;
 }
 
-bool
+void
 obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 {
 	struct obj_dict_dup_ctx ctx = { .dict = res };
-
 	make_obj(wk, res, obj_dict);
-
-	if (!obj_dict_foreach(wk, dict, &ctx, obj_dict_dup_iter)) {
-		return false;
-	}
-
-	return true;
+	obj_dict_foreach(wk, dict, &ctx, obj_dict_dup_iter);
 }
 
 static enum iteration_result
@@ -717,18 +694,11 @@ obj_dict_merge_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	return ir_cont;
 }
 
-bool
+void
 obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res)
 {
-	if (!obj_dict_dup(wk, dict, res)) {
-		return false;
-	}
-
-	if (!obj_dict_foreach(wk, dict2, res, obj_dict_merge_iter)) {
-		return false;
-	}
-
-	return true;
+	obj_dict_dup(wk, dict, res);
+	obj_dict_foreach(wk, dict2, res, obj_dict_merge_iter);
 }
 
 union obj_dict_key_comparison_key {

@@ -188,9 +188,9 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
 		return format_cb_error;
-	} else if (!obj_array_index(wk, arr, index, &e)) {
-		return format_cb_error;
 	}
+
+	obj_array_index(wk, arr, index, &e);
 
 	*elem = *get_obj_file(wk, e);
 	return format_cb_found;
@@ -249,11 +249,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		obj f;
-		if (!obj_array_index(wk, output, 0, &f)) {
-			return ir_err;
-		}
-
-		/* struct obj *file = get_obj(wk, f); */
+		obj_array_index(wk, output, 0, &f);
 
 		char path[PATH_MAX];
 		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, *get_obj_file(wk, f)))) {

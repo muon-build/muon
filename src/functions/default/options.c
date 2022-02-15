@@ -484,9 +484,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 				return false;
 			}
 
-			if (!obj_array_index(wk, akw[kw_choices].val, 0, &val)) {
-				return false;
-			}
+			obj_array_index(wk, akw[kw_choices].val, 0, &val);
 			break;
 		case op_array:
 			if (akw[kw_choices].set) {

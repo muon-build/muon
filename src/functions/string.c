@@ -202,9 +202,9 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 
 	if (!boundscheck(wk, node, get_obj_array(wk, ctx->arr)->len, &i)) {
 		return format_cb_error;
-	} else if (!obj_array_index(wk, ctx->arr, i, elem)) {
-		return format_cb_error;
 	}
+
+	obj_array_index(wk, ctx->arr, i, elem);
 
 	return format_cb_found;
 }

@@ -51,11 +51,8 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 	if (tgt->flags & custom_target_capture) {
 		obj_array_push(wk, cmdline, make_str(wk, "-c"));
 
-		uint32_t elem;
-		if (!obj_array_index(wk, tgt->output, 0, &elem)) {
-			assert(false && "custom target with no output");
-			return ir_err;
-		}
+		obj elem;
+		obj_array_index(wk, tgt->output, 0, &elem);
 
 		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
 			return ir_err;

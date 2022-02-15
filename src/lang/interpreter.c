@@ -167,9 +167,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		if (!obj_array_index(wk, l_id, i, &result)) {
-			return false;
-		}
+		obj_array_index(wk, l_id, i, &result);
 		break;
 	}
 	case obj_dict: {
@@ -197,9 +195,7 @@ interp_index(struct workspace *wk, struct node *n, uint32_t l_id, uint32_t *obj)
 			return false;
 		}
 
-		if (!obj_array_index(wk, tgt->output, i, &result)) {
-			return false;
-		}
+		obj_array_index(wk, tgt->output, i, &result);
 		break;
 	}
 	case obj_string: {
