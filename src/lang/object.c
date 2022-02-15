@@ -643,6 +643,14 @@ obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 	return true;
 }
 
+void
+obj_array_flatten(struct workspace *wk, obj arr, obj *res)
+{
+	struct obj_array_dup_ctx ctx = { .arr = res };
+	make_obj(wk, res, obj_array);
+	obj_array_foreach_flat(wk, arr, &ctx, obj_array_dup_iter);
+}
+
 /*
  * dictionaries
  */
