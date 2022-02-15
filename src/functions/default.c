@@ -728,6 +728,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	char *const *envp = NULL;
 
 	{
+		obj flat;
 		obj arg0;
 		obj cmd_file;
 		struct find_program_iter_ctx find_program_ctx = {
@@ -740,18 +741,19 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_index(wk, an[0].val, 0, &arg0);
+		obj_array_flatten(wk, an[0].val, &flat);
+		obj_array_index(wk, flat, 0, &arg0);
 
 		if (!find_program(wk, &find_program_ctx, arg0)) {
 			return false;
 		} else if (!find_program_ctx.found) {
-			interp_error(wk, an[0].node, "unable to find program %o", an[0].val);
+			interp_error(wk, an[0].node, "unable to find program %o", arg0);
 		}
 
-		obj_array_set(wk, an[0].val, 0, arg0);
+		obj_array_set(wk, flat, 0, cmd_file);
 
 		obj args;
-		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
+		if (!arr_to_args(wk, arr_to_args_external_program, flat, &args)) {
 			return false;
 		}
 
