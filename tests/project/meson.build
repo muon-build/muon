@@ -35,7 +35,7 @@ tests = [
     ['common/34 logic ops', {}],
     ['common/35 string operations', {}],
     ['common/36 has function', {}],
-    ['common/37 has member', {'should_fail': true}],
+    ['common/37 has member', {}],
     ['common/38 alignment', {}],
     ['common/39 library chain', {}],
     ['common/40 options', {}],

@@ -1000,19 +1000,10 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 }
 
 static bool
-func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+compiler_has_member(struct workspace *wk, struct compiler_check_opts *opts,
+	uint32_t err_node, const char *prefix, obj target, obj member, bool *res)
 {
-	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	struct args_kw *akw;
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
-	};
-
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
-		return false;
-	}
+	opts->mode = compile_mode_compile;
 
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
@@ -1021,25 +1012,113 @@ func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		"%s foo;\n"
 		"foo.%s;\n"
 		"}\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val),
-		get_cstr(wk, an[1].val)
+		prefix,
+		get_cstr(wk, target),
+		get_cstr(wk, member)
 		);
 
+	if (!compiler_check(wk, opts, src, err_node, res)) {
+		return false;
+	}
+
+	LOG_I("%s has member %s: %s",
+		get_cstr(wk, target),
+		get_cstr(wk, member),
+		bool_to_yn(*res)
+		);
+
+	return true;
+}
+
+static bool
+func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = { 0 };
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
 	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+	if (!compiler_has_member(wk, &opts, an[0].node,
+		compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("%s has member %s: %s",
-		get_cstr(wk, an[0].val),
-		get_cstr(wk, an[1].val),
-		bool_to_yn(ok)
-		);
-
 	return true;
+}
+
+struct compiler_has_members_ctx {
+	struct compiler_check_opts *opts;
+	uint32_t node;
+	const char *prefix;
+	obj target;
+	bool ok;
+};
+
+static enum iteration_result
+compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct compiler_has_members_ctx *ctx = _ctx;
+
+	if (!typecheck(wk, ctx->node, val, obj_string)) {
+		return ir_err;
+	}
+
+	bool ok;
+	if (!compiler_has_member(wk, ctx->opts, ctx->node,
+		ctx->prefix, ctx->target, val, &ok)) {
+		return ir_err;
+	}
+
+	if (!ok) {
+		ctx->ok = false;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = { 0 };
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
+	if (!get_obj_array(wk, an[1].val)->len) {
+		interp_error(wk, an[1].node, "missing member arguments");
+		return false;
+	}
+
+	struct compiler_has_members_ctx ctx = {
+		.opts = &opts,
+		.node = an[0].node,
+		.prefix = compiler_check_prefix(wk, akw),
+		.target = an[0].val,
+		.ok = true,
+	};
+
+	if (!obj_array_foreach_flat(wk, an[1].val, &ctx, compiler_has_members_iter)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ctx.ok);
+	return true;
+
 }
 
 static bool
@@ -1325,6 +1404,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_header", func_compiler_has_header },
 	{ "has_header_symbol", func_compiler_has_header_symbol },
 	{ "has_member", func_compiler_has_member },
+	{ "has_members", func_compiler_has_members },
 	{ "has_type", func_compiler_has_type },
 	{ "links", func_compiler_links },
 	{ "sizeof", func_compiler_sizeof },
