@@ -665,15 +665,17 @@ lexer_tokenize_one(struct lexer *lexer)
 		if (lexer->src[lexer->i] == '#') {
 			advance(lexer);
 
-			struct token *comment = next_tok(lexer);
-			comment->type = tok_comment;
 			uint32_t start = lexer->i;
 
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
 				advance(lexer);
 			}
 
-			copy_into_sdata(lexer, comment, start, lexer->i);
+			if (lexer->mode & lexer_mode_format) {
+				struct token *comment = next_tok(lexer);
+				comment->type = tok_comment;
+				copy_into_sdata(lexer, comment, start, lexer->i);
+			}
 		} else {
 			advance(lexer);
 		}
