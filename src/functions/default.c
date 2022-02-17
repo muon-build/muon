@@ -1370,10 +1370,12 @@ func_summary(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_section,
 		kw_bool_yn, // ignored
+		kw_list_sep, // ignored
 	};
 	struct args_kw akw[] = {
 		[kw_section] = { "section", obj_string, },
 		[kw_bool_yn] = { "bool_yn", obj_bool, },
+		[kw_list_sep] = { "list_sep", obj_string, },
 		0
 	};
 	if (!interp_args(wk, args_node, an, ao, akw)) {
