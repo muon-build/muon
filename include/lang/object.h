@@ -75,11 +75,6 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
-enum dep_flags {
-	dep_flag_found = 1 << 0,
-	dep_flag_pkg_config = 1 << 1,
-};
-
 enum custom_target_flags {
 	custom_target_capture = 1 << 0,
 };
@@ -179,6 +174,22 @@ struct obj_custom_target {
 struct  obj_alias_target {
 	obj name; // obj_string
 	obj depends; // obj_array
+};
+
+enum dep_flags {
+	dep_flag_found        = 1 << 0,
+	dep_flag_pkg_config   = 1 << 1,
+	// partial dependencies
+	dep_flag_no_compile_args = 1 << 2,
+	dep_flag_no_includes     = 1 << 3,
+	dep_flag_no_link_args    = 1 << 4,
+	dep_flag_no_links        = 1 << 5,
+	dep_flag_no_sources      = 1 << 6,
+	dep_flag_parts = dep_flag_no_compile_args
+			 | dep_flag_no_includes
+			 | dep_flag_no_link_args
+			 | dep_flag_no_links
+			 | dep_flag_no_sources,
 };
 
 struct obj_dependency {

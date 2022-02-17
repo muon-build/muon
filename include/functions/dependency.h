@@ -10,6 +10,7 @@ struct dep_args_ctx {
 	    link_args,
 	    rpath;
 	bool relativize, recursive;
+	enum dep_flags parts;
 };
 
 enum iteration_result dep_args_iter(struct workspace *wk, void *_ctx, obj val);

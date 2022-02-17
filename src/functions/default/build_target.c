@@ -71,10 +71,17 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	struct obj_dependency *dep = get_obj_dependency(wk, val);
-	if (dep->sources) {
-		obj src;
-		obj_array_dup(wk, dep->sources, &src);
-		obj_array_extend(wk, ctx->src, src);
+
+	if (!(dep->flags & dep_flag_no_sources)) {
+		if (dep->sources) {
+			obj src;
+			obj_array_dup(wk, dep->sources, &src);
+			obj_array_extend(wk, ctx->src, src);
+		}
+
+		if (dep->deps) {
+			obj_array_foreach(wk, dep->deps, ctx, add_dep_sources_iter);
+		}
 	}
 
 	return ir_cont;

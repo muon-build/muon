@@ -205,7 +205,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
 		if (ctx->requirement == requirement_required) {
-			interp_error(wk, ctx->err_node, "dependency '' is cannot be required");
+			interp_error(wk, ctx->err_node, "dependency '' cannot be required");
 			return false;
 		}
 		make_obj(wk, ctx->res, obj_dependency);

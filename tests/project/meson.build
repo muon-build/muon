@@ -180,7 +180,7 @@ tests = [
     ['common/180 has link arg', {'should_fail': true}],
     ['common/181 same target name flat layout', {}],
     ['common/182 find override', {'should_fail': true}],
-    ['common/183 partial dependency', {'should_fail': true}],
+    ['common/183 partial dependency', {}],
     ['common/184 openmp', {'should_fail': true}],
     ['common/185 same target name', {}],
     ['common/186 test depends', {}],

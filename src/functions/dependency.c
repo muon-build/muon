@@ -26,7 +26,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	enum obj_type t = get_obj_type(wk, val);
 
 	switch (t) {
-	case  obj_build_target: {
+	case obj_build_target: {
 		char path[PATH_MAX];
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (!tgt_build_path(wk, tgt, ctx->relativize, path)) {
@@ -73,11 +73,12 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		/* obj_array_push(wk, ctx->include_dirs, make_str(wk, tgt_parts_dir)); */
 
 		if (ctx->recursive && tgt->deps) {
+			bool was_recursive = ctx->recursive;
 			ctx->recursive = false;
 			if (!obj_array_foreach(wk, tgt->deps, ctx, dep_args_iter)) {
 				return ir_err;
 			}
-			ctx->recursive = true;
+			ctx->recursive = was_recursive = true;
 		}
 
 		if (tgt->link_with) {
@@ -138,44 +139,42 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (t) {
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, val);
+		enum dep_flags old_parts = ctx->parts;
+		ctx->parts = dep->flags & dep_flag_parts;
 
 		if (!(dep->flags & dep_flag_found)) {
 			return ir_cont;
 		}
 
-		if (dep->link_with) {
+		if (dep->link_with && !(ctx->parts & dep_flag_no_links)) {
 			bool was_recursive = ctx->recursive;
-			if (was_recursive) {
-				ctx->recursive = false;
-			}
+			ctx->recursive = false;
 			if (!obj_array_foreach(wk, dep->link_with, _ctx, dep_args_link_with_iter)) {
 				return ir_err;
 			}
-			if (was_recursive) {
-				ctx->recursive = true;
-			}
+			ctx->recursive = was_recursive;
 		}
 
-		if (dep->link_with_not_found) {
+		if (dep->link_with_not_found && !(ctx->parts & dep_flag_no_links)) {
 			obj dup;
 			obj_array_dup(wk, dep->link_with_not_found, &dup);
 			obj_array_extend(wk, ctx->link_with_not_found, dup);
 		}
 
-		if (dep->include_directories) {
+		if (dep->include_directories && !(ctx->parts & dep_flag_no_includes)) {
 			if (!obj_array_foreach_flat(wk, dep->include_directories,
 				_ctx, dep_args_includes_iter)) {
 				return ir_err;
 			}
 		}
 
-		if (dep->link_args) {
+		if (dep->link_args && !(ctx->parts & dep_flag_no_link_args)) {
 			obj dup;
 			obj_array_dup(wk, dep->link_args, &dup);
 			obj_array_extend(wk, ctx->link_args, dup);
 		}
 
-		if (dep->compile_args) {
+		if (dep->compile_args && !(ctx->parts & dep_flag_no_compile_args)) {
 			obj dup;
 			obj_array_dup(wk, dep->compile_args, &dup);
 			obj_array_extend(wk, ctx->compile_args, dup);
@@ -186,6 +185,8 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 		}
+
+		ctx->parts = old_parts;
 		break;
 	}
 	case obj_external_library: {
@@ -389,11 +390,60 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	return true;
 }
 
+static bool
+func_dependency_partial_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	enum kwargs {
+		kw_compile_args,
+		kw_includes,
+		kw_link_args,
+		kw_links,
+		kw_sources,
+	};
+	struct args_kw akw[] = {
+		[kw_compile_args] = { "compile_args", obj_bool },
+		[kw_includes] = { "includes", obj_bool },
+		[kw_link_args] = { "link_args", obj_bool },
+		[kw_links] = { "links", obj_bool },
+		[kw_sources] = { "sources", obj_bool },
+		0
+	};
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	const enum dep_flags part[] = {
+		[kw_compile_args] = dep_flag_no_compile_args,
+		[kw_includes] = dep_flag_no_includes,
+		[kw_link_args] = dep_flag_no_link_args,
+		[kw_links] = dep_flag_no_links,
+		[kw_sources] = dep_flag_no_sources,
+		0
+	};
+
+	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
+	enum dep_flags exclude = dep->flags & dep_flag_parts;
+	enum kwargs kw;
+	for (kw = 0; part[kw]; ++kw) {
+		if (!(akw[kw].set && get_obj_bool(wk, akw[kw].val))) {
+			exclude |= part[kw];
+		}
+	}
+
+	make_obj(wk, res, obj_dependency);
+	struct obj_dependency *partial = get_obj_dependency(wk, *res);
+
+	*partial = *dep;
+	partial->flags = (dep->flags & ~dep_flag_parts) | exclude;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_dependency[] = {
 	{ "found", func_dependency_found },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
 	{ "get_variable", func_dependency_get_variable },
 	{ "type_name", func_dependency_type_name },
 	{ "version", func_dependency_version },
+	{ "partial_dependency", func_dependency_partial_dependency },
 	{ NULL, NULL },
 };
