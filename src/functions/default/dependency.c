@@ -54,14 +54,23 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 {
 	ctx->not_found_reason = 0;
 
-	if (get_obj_array(wk, ctx->fallback)->len != 2) {
-		interp_error(wk, ctx->err_node, "expected array of length 2 for fallback");
+	obj subproj_name, subproj_dep = 0, subproj;
+
+	switch (get_obj_array(wk, ctx->fallback)->len) {
+	case 0:
+		assert(false && "this should not be!");
+		break;
+	case 2:
+		obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
+	/* FALLTHROUGH */
+	case 1:
+		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
+		break;
+	default:
+		interp_error(wk, ctx->err_node, "expected array of length 1-2 for fallback");
 		return false;
 	}
 
-	obj subproj_name, subproj_dep, subproj;
-	obj_array_index(wk, ctx->fallback, 0, &subproj_name);
-	obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 
 	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, ctx->versions, &subproj)) {
 		return false;
@@ -72,8 +81,15 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		return true;
 	}
 
-	if (!subproject_get_variable(wk, ctx->err_node, subproj_dep, 0, subproj, ctx->res)) {
-		return false;
+	if (subproj_dep) {
+		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
+			return false;
+		}
+	} else {
+		if (!obj_dict_index(wk, wk->dep_overrides, ctx->name, ctx->res)) {
+			interp_error(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
+			return false;
+		}
 	}
 
 	if (!typecheck(wk, ctx->fallback_node, *ctx->res, obj_dependency)) {
@@ -171,8 +187,10 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	} else {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 
-		LOG_I("dependency %s found: %s%s", get_cstr(wk, dep->name),
-			get_cstr(wk, dep->version),
+		LOG_I("found dependency %s%s%s%s",
+			get_cstr(wk, dep->name),
+			dep->version ? " version: " : "",
+			dep->version ? get_cstr(wk, dep->version) : "",
 			ctx->is_static ? ", static" : "");
 	}
 
@@ -227,6 +245,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_static,
 		kw_modules, // ignored
 		kw_fallback,
+		kw_allow_fallback,
 		kw_default_options,
 		kw_not_found_message,
 		kw_disabler,
@@ -239,6 +258,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_static] = { "static", obj_bool },
 		[kw_modules] = { "modules", obj_array },
 		[kw_fallback] = { "fallback", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_allow_fallback] = { "allow_fallback", obj_bool },
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_not_found_message] = { "not_found_message", obj_string },
 		[kw_disabler] = { "disabler", obj_bool },
@@ -275,14 +295,44 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		is_static = true;
 	}
 
+	/* A fallback is allowed if
+	 * - allow_fallback: true
+	 * - allow_fallback is not specified but the requirement is required
+	 * - allow_fallback is not specified, but the fallback keyword is
+	 *   specified with at least one value (i.e. not an empty array)
+	 */
+	bool fallback_allowed =
+		(akw[kw_allow_fallback].set && get_obj_bool(wk, akw[kw_allow_fallback].val))
+		|| (!akw[kw_allow_fallback].set &&
+		    ((requirement == requirement_required)
+		     || (akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len)));
+
+	uint32_t fallback_err_node = 0;
+	obj fallback = 0;
+	if (fallback_allowed) {
+		if (akw[kw_fallback].set) {
+			fallback_err_node = akw[kw_fallback].node;
+			fallback = akw[kw_fallback].val;
+		} else if (akw[kw_allow_fallback].set) {
+			fallback_err_node = akw[kw_allow_fallback].node;
+		} else {
+			fallback_err_node = an[0].node;
+		}
+
+		if (!fallback) {
+			make_obj(wk, &fallback, obj_array);
+			obj_array_push(wk, fallback, an[0].val);
+		}
+	}
+
 	struct dep_lookup_ctx ctx = {
 		.res = res,
 		.requirement = requirement,
 		.versions = &akw[kw_version],
 		.err_node = an[0].node,
-		.fallback_node = akw[kw_fallback].node,
+		.fallback_node = fallback_err_node,
 		.name = an[0].val,
-		.fallback = akw[kw_fallback].val,
+		.fallback = fallback,
 		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
 		.is_static = is_static,

@@ -230,7 +230,7 @@ tests = [
     ['common/229 disabler array addition', {}],
     ['common/230 external project', {'should_fail': true}],
     ['common/231 subdir files', {}],
-    ['common/232 dependency allow_fallback', {'should_fail': true}],
+    ['common/232 dependency allow_fallback', {}],
     ['common/233 wrap case', {'should_fail': true}],
     ['common/234 get_file_contents', {'should_fail': true}],
     ['common/235 invalid standard overriden to valid', {'should_fail': true}],
