@@ -15,8 +15,9 @@ struct fmt_ctx {
 	struct ast *ast;
 	FILE *out;
 	uint32_t indent, col, enclosed;
-	bool force_ml;
+	bool force_ml, force_comma;
 
+	bool space_array, kwa_ml, wide_colon, no_single_comma;
 	uint32_t max_line_len;
 	const char *indent_by;
 };
@@ -95,6 +96,9 @@ fmt_check(struct fmt_ctx *ctx, const struct fmt_stack *pfst, fmt_func func, uint
 	bool old_force_ml = ctx->force_ml;
 	ctx->force_ml = false;
 
+	bool old_force_comma = ctx->force_comma;
+	ctx->force_comma = false;
+
 	struct fmt_stack tmp = fst;
 	tmp.write = false;
 	tmp.ml = false;
@@ -105,6 +109,7 @@ fmt_check(struct fmt_ctx *ctx, const struct fmt_stack *pfst, fmt_func func, uint
 
 	len = func(ctx, &fst, n_id);
 
+	ctx->force_comma = old_force_comma;
 	ctx->force_ml = old_force_ml;
 	return len;
 }
@@ -303,7 +308,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
 	fst.node_sep = pfst->node_sep;
 
-	uint32_t len = 0;
+	uint32_t len = 0, kwa = 0;
 	struct node *arg = get_node(ctx->ast, n_args),
 		    *arg_val;
 	bool last = false;
@@ -321,7 +326,11 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 
 	++ctx->enclosed;
 	fmt_begin_block(ctx);
-	fmt_newline(ctx, &fst, n_args);
+	if (pfst->arg_container[0] == '[' && ctx->space_array) {
+		fmt_newline_or_space(ctx, &fst, n_args);
+	} else {
+		fmt_newline(ctx, &fst, n_args);
+	}
 
 	struct darr args;
 	darr_init(&args, 64, sizeof(struct arg_elem));
@@ -333,6 +342,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		if (arg->subtype == arg_kwarg) {
 			ae->kw = arg->l;
 			ae->val = arg->r;
+			++kwa;
 		} else {
 			ae->kw = 0;
 			ae->val = arg->l;
@@ -353,10 +363,14 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			// this means there was a trailing comma
 			if (arg->type == node_empty) {
 				ctx->force_ml = true;
+				ctx->force_comma = true;
 			}
 		} else {
 			break;
 		}
+	}
+	if (kwa > 1 && ctx->kwa_ml) {
+		ctx->force_ml = true;
 	}
 
 	if (fst.special_fmt & special_fmt_sort_files) {
@@ -377,11 +391,15 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 				fst.special_fmt |= special_fmt_cmd_array;
 			}
 
-			fst.node_sep = ": ";
+			fst.node_sep = ctx->wide_colon ? " : " : ": ";
 			len += fmt_node(ctx, &fst, ae->kw);
 		}
 
-		if ((last && !fst.ml) || n->type == node_empty_line) {
+		if ((!ctx->no_single_comma || !ctx->force_comma)
+		    && ((last && !fst.ml)
+			|| (args.len == 1 && !ae->kw && ctx->no_single_comma
+			    && pfst->arg_container[0] == '(')
+			|| n->type == node_empty_line)) {
 			fst.node_sep = NULL;
 		} else {
 			fst.node_sep = ",";
@@ -405,7 +423,11 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 
 	--ctx->enclosed;
 	fmt_end_block(ctx);
-	fmt_newline(ctx, &fst, 0);
+	if (pfst->arg_container[1] == ']' && ctx->space_array) {
+		fmt_newline_or_space(ctx, &fst, 0);
+	}else {
+		fmt_newline(ctx, &fst, 0);
+	}
 	return len;
 }
 
