@@ -134,7 +134,7 @@ tests = [
     ['common/134 compute int', {'should_fail': true}],
     ['common/135 custom target object output', {}],
     ['common/136 empty build file', {}],
-    ['common/137 whole archive', {'should_fail': true}],
+    ['common/137 whole archive', {}],
     ['common/138 C and CPP link', {'should_fail': true}],
     ['common/139 mesonintrospect from scripts', {'should_fail': true}],
     ['common/140 custom target multiple outputs', {}],
