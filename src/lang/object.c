@@ -848,6 +848,32 @@ obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 	return false;
 }
 
+struct obj_dict_index_values_ctx {
+	uint32_t tgt, i;
+	obj *res;
+};
+
+static enum iteration_result
+obj_dict_index_values_iter(struct workspace *wk_src, void *_ctx, obj _key, obj val)
+{
+	struct obj_dict_index_values_ctx *ctx = _ctx;
+	if (ctx->i == ctx->tgt) {
+		*ctx->res = val;
+		return ir_done;
+	}
+
+	ctx->i += 1;
+	return ir_cont;
+}
+
+void
+obj_dict_index_values(struct workspace *wk, obj dict, uint32_t i, obj *res)
+{
+	assert(i < get_obj_dict(wk, dict)->len);
+	struct obj_dict_index_values_ctx ctx = { .tgt = i, .res = res };
+	obj_dict_foreach(wk, dict, &ctx, obj_dict_index_values_iter);
+}
+
 /* */
 
 struct obj_clone_ctx {

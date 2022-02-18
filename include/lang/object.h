@@ -354,6 +354,7 @@ bool obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32
 void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);
 void obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);
+void obj_dict_index_values(struct workspace *wk, obj dict, uint32_t i, obj *res);
 void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);
 bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
 #endif
