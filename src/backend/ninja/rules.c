@@ -65,7 +65,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 }
 
 bool
-ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj)
+ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bool need_phony)
 {
 	fprintf(
 		out,
@@ -121,6 +121,11 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj)
 		"# targets\n\n",
 		get_cstr(wk, join_args_ninja(wk, wk->sources))
 		);
+
+
+	if (need_phony) {
+		fprintf(out, "build build_always_stale: phony\n\n");
+	}
 
 	return true;
 }

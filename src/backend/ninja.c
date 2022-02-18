@@ -12,6 +12,36 @@
 #include "log.h"
 #include "platform/path.h"
 
+struct check_tgt_ctx {
+	bool need_phony;
+};
+
+static enum iteration_result
+check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
+{
+	struct check_tgt_ctx *ctx = _ctx;
+
+	enum obj_type t = get_obj_type(wk, tgt_id);
+	switch (t) {
+	case obj_custom_target: {
+		struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
+
+		if (tgt->flags & custom_target_build_always_stale) {
+			ctx->need_phony = true;
+		}
+		break;
+	}
+	case obj_alias_target:
+	case obj_build_target:
+		break;
+	default:
+		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 struct write_tgt_ctx {
 	FILE *out;
 	const struct project *proj;
@@ -39,11 +69,19 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 static bool
 ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 {
-	if (!ninja_write_rules(out, wk, darr_get(&wk->projects, 0))) {
+	struct check_tgt_ctx check_ctx = { 0 };
+
+	uint32_t i;
+	for (i = 0; i < wk->projects.len; ++i) {
+		struct project *proj = darr_get(&wk->projects, i);
+
+		obj_array_foreach(wk, proj->targets, &check_ctx, check_tgt_iter);
+	}
+
+	if (!ninja_write_rules(out, wk, darr_get(&wk->projects, 0), check_ctx.need_phony)) {
 		return false;
 	}
 
-	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 

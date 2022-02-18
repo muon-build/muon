@@ -75,10 +75,6 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
-enum custom_target_flags {
-	custom_target_capture = 1 << 0,
-};
-
 enum module {
 	module_fs,
 	module_python,
@@ -160,6 +156,11 @@ struct obj_build_target {
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;
+};
+
+enum custom_target_flags {
+	custom_target_capture = 1 << 0,
+	custom_target_build_always_stale = 1 << 1,
 };
 
 struct obj_custom_target {

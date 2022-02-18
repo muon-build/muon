@@ -72,6 +72,10 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		return ir_err;
 	}
 
+	if (tgt->flags & custom_target_build_always_stale) {
+		obj_array_push(wk, depends_rel, make_str(wk, "build_always_stale"));
+	}
+
 	obj depends = join_args_ninja(wk, depends_rel);
 
 	obj_array_extend(wk, cmdline, tgt_args);

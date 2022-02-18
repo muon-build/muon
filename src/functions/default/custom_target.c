@@ -469,6 +469,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depfile,
 		kw_depend_files,
 		kw_depends,
+		kw_build_always_stale,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", obj_any, },
@@ -482,6 +483,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_depfile] = { "depfile", obj_string },
 		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_build_always_stale] = { "build_always_stale", obj_bool },
 		0
 	};
 
@@ -523,6 +525,10 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		obj_array_extend(wk, tgt->depends, depends);
+	}
+
+	if (akw[kw_build_always_stale].set && get_obj_bool(wk, akw[kw_build_always_stale].val)) {
+		tgt->flags |= custom_target_build_always_stale;
 	}
 
 	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));
