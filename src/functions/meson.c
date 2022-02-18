@@ -300,6 +300,26 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 	return true;
 }
 
+static bool
+func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	if (ao[0].set) {
+		*res = ao[0].val;
+	} else {
+		interp_error(wk, an[0].node, "TODO: get cross property");
+		return false;
+	}
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "add_install_script", func_meson_add_install_script },
 	{ "backend", func_meson_backend },
@@ -307,6 +327,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "current_build_dir", func_meson_current_build_dir },
 	{ "current_source_dir", func_meson_current_source_dir },
 	{ "get_compiler", func_meson_get_compiler },
+	{ "get_cross_property", func_meson_get_cross_property },
 	{ "global_build_root", func_meson_global_build_root },
 	{ "global_source_root", func_meson_global_source_root },
 	{ "is_cross_build", func_meson_is_cross_build },
