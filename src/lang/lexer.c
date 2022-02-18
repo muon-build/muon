@@ -79,6 +79,7 @@ tok_type_to_s(enum token_type type)
 	case tok_question_mark: return "?";
 	case tok_stringify: return "stringify";
 	case tok_comment: return "comment";
+	case tok_fmt_eol: return "fmt_eol";
 	}
 
 	assert(false && "unreachable");
@@ -701,13 +702,17 @@ lexer_tokenize_one(struct lexer *lexer)
 	} else {
 		switch (lexer->src[lexer->i]) {
 		case '\n':
-			if (!(lexer->mode & lexer_mode_format) &&
-			    (lexer->enclosing.paren || lexer->enclosing.bracket
-			     || lexer->enclosing.curl)) {
-				goto skip;
-			}
 
-			token->type = tok_eol;
+			if (lexer->enclosing.paren || lexer->enclosing.bracket
+			    || lexer->enclosing.curl) {
+				if (lexer->mode & lexer_mode_format) {
+					token->type = tok_fmt_eol;
+				} else {
+					goto skip;
+				}
+			} else {
+				token->type = tok_eol;
+			}
 			break;
 		case '(':
 			++lexer->enclosing.paren;

@@ -66,6 +66,7 @@ enum token_type {
 
 	/* formatting only */
 	tok_comment,
+	tok_fmt_eol,
 };
 
 union token_data {
