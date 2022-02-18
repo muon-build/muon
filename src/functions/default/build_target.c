@@ -284,10 +284,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		if (!get_obj_array(wk, tgt->src)->len) {
+		if (!get_obj_array(wk, tgt->src)->len && !akw[bt_kw_link_whole].set) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
-			interp_error(wk, node, "sources must not be empty");
+			interp_error(wk, node, "sources must not be empty unless link_whole is specified");
 			return false;
 		}
 	}
