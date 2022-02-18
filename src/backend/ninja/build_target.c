@@ -237,7 +237,26 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	{ /* determine linker */
 		if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
 			return ir_err;
-		} else if (!ctx.have_link_language) {
+		}
+
+		if (!ctx.have_link_language) {
+			enum compiler_language clink_langs[] = {
+				compiler_language_c,
+				compiler_language_cpp,
+			};
+
+			obj comp;
+			uint32_t i;
+			for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
+				if (obj_dict_geti(wk, ctx.proj->compilers, clink_langs[i], &comp)) {
+					ctx.link_language = clink_langs[i];
+					ctx.have_link_language  = true;
+					break;
+				}
+			}
+		}
+
+		if (!ctx.have_link_language) {
 			LOG_E("unable to determine linker for target");
 			return ir_err;
 		}
