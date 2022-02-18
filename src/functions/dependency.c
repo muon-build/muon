@@ -73,12 +73,9 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		/* obj_array_push(wk, ctx->include_dirs, make_str(wk, tgt_parts_dir)); */
 
 		if (ctx->recursive && tgt->deps) {
-			bool was_recursive = ctx->recursive;
-			ctx->recursive = false;
 			if (!obj_array_foreach(wk, tgt->deps, ctx, dep_args_iter)) {
 				return ir_err;
 			}
-			ctx->recursive = was_recursive = true;
 		}
 
 		if (tgt->link_with) {
@@ -147,12 +144,9 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->link_with && !(ctx->parts & dep_flag_no_links)) {
-			bool was_recursive = ctx->recursive;
-			ctx->recursive = false;
 			if (!obj_array_foreach(wk, dep->link_with, _ctx, dep_args_link_with_iter)) {
 				return ir_err;
 			}
-			ctx->recursive = was_recursive;
 		}
 
 		if (dep->link_with_not_found && !(ctx->parts & dep_flag_no_links)) {
