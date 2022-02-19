@@ -53,7 +53,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-p* - print the parsed ast
 
 ## fmt_unstable
-	*muon* *fmt_unstable* [*-i*] <filename>
+	*muon* *fmt_unstable* [*-i*] [*-c* <muon_fmt.ini>] <filename>
 
 	Format a _source file_.  The formatting is currently not configurable,
 	and is based on the official meson style guide
@@ -65,6 +65,39 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	*OPTIONS*:
 	- *-i* - format file in-place
+	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_.
+
+	*CONFIGURATION OPTIONS*
+[[ *key*
+:[ *type*
+:[ *default*
+:[ *description*
+|  max_line_len
+:  uint
+:  80
+:  The maximum length of lines before they are split
+|  indent_by
+:  str
+:  '    '
+:  A string that will be used to indent with
+|  space_array
+:  bool
+:  false
+:  Wether to include spaces around array elements (ex. [1] vs [ 1 ])
+|  kwa_ml
+:  bool
+:  false
+:  Make every dictionary literal and function call with kwargs expand into
+   multiple lines.
+|  wide_colon
+:  bool
+:  false
+:  Wether to put a space before the colon operator (ex. `key : val`)
+|  no_single_comma_function
+:  bool
+:  false
+:  Don't add a trailing comma to multi-line function calls with only one
+   argument.
 
 ## install
 	*muon* *install* [*-n*]

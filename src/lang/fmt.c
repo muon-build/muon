@@ -1,11 +1,15 @@
 #include "posix.h"
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
+#include "error.h"
+#include "formats/ini.h"
 #include "lang/fmt.h"
 #include "log.h"
+#include "platform/mem.h"
 
 struct arg_elem {
 	uint32_t kw, val, next;
@@ -15,9 +19,9 @@ struct fmt_ctx {
 	struct ast *ast;
 	FILE *out;
 	uint32_t indent, col, enclosed;
-	bool force_ml, force_comma;
+	bool force_ml;
 
-	bool space_array, kwa_ml, wide_colon, no_single_comma;
+	bool space_array, kwa_ml, wide_colon, no_single_comma_function;
 	uint32_t max_line_len;
 	const char *indent_by;
 };
@@ -96,9 +100,6 @@ fmt_check(struct fmt_ctx *ctx, const struct fmt_stack *pfst, fmt_func func, uint
 	bool old_force_ml = ctx->force_ml;
 	ctx->force_ml = false;
 
-	bool old_force_comma = ctx->force_comma;
-	ctx->force_comma = false;
-
 	struct fmt_stack tmp = fst;
 	tmp.write = false;
 	tmp.ml = false;
@@ -109,7 +110,6 @@ fmt_check(struct fmt_ctx *ctx, const struct fmt_stack *pfst, fmt_func func, uint
 
 	len = func(ctx, &fst, n_id);
 
-	ctx->force_comma = old_force_comma;
 	ctx->force_ml = old_force_ml;
 	return len;
 }
@@ -363,7 +363,6 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			// this means there was a trailing comma
 			if (arg->type == node_empty) {
 				ctx->force_ml = true;
-				ctx->force_comma = true;
 			}
 		} else {
 			break;
@@ -395,15 +394,22 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			len += fmt_node(ctx, &fst, ae->kw);
 		}
 
-		if ((!ctx->no_single_comma || !ctx->force_comma)
-		    && ((last && !fst.ml)
-			|| (args.len == 1 && !ae->kw && ctx->no_single_comma
-			    && pfst->arg_container[0] == '(')
-			|| n->type == node_empty_line)) {
-			fst.node_sep = NULL;
+		bool need_comma;
+		if (n->type == node_empty_line) {
+			// never put commas on empty lines
+			need_comma = false;
+		} else if (pfst->arg_container[0] == '('
+			   && ctx->no_single_comma_function
+			   && args.len == 1
+			   && !ae->kw) {
+			need_comma = false;
+		} else if (last && !fst.ml) {
+			need_comma = false;
 		} else {
-			fst.node_sep = ",";
+			need_comma = true;
 		}
+
+		fst.node_sep = need_comma ? "," : NULL;
 		len += fmt_check(ctx, &fst, fmt_node, ae->val);
 
 		if (!last) {
@@ -826,15 +832,122 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	return len;
 }
 
-bool
-fmt(struct ast *ast, FILE *out)
+static bool
+fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
+	const char *k, const char *v, uint32_t line)
 {
+	struct fmt_ctx *ctx = _ctx;
+
+	enum val_type {
+		type_uint,
+		type_str,
+		type_bool,
+	};
+
+	static const struct { const char *name; enum val_type type; uint32_t off; } keys[] = {
+		{ "max_line_len", type_uint, offsetof(struct fmt_ctx, max_line_len) },
+		{ "indent_by", type_str, offsetof(struct fmt_ctx, indent_by) },
+		{ "space_array", type_bool, offsetof(struct fmt_ctx, space_array) },
+		{ "kwa_ml", type_bool, offsetof(struct fmt_ctx, kwa_ml) },
+		{ "wide_colon", type_bool, offsetof(struct fmt_ctx, wide_colon) },
+		{ "no_single_comma_function", type_bool, offsetof(struct fmt_ctx, no_single_comma_function) },
+		0
+	};
+
+	if (!k || !*k) {
+		error_messagef(src, line, 1, "missing key");
+		return false;
+	} else if (!v || !*v) {
+		error_messagef(src, line, 1, "missing value");
+		return false;
+	} else if (sect) {
+		error_messagef(src, line, 1, "invalid section");
+		return false;
+	}
+
+	uint32_t i;
+	for (i = 0; keys[i].name; ++i) {
+		if (strcmp(k, keys[i].name) == 0) {
+			void *val_dest = ((uint8_t *)ctx + keys[i].off);
+
+			switch (keys[i].type) {
+			case type_uint: {
+				char *endptr = NULL;
+				long lval = strtol(v, &endptr, 10);
+				if (*endptr) {
+					error_messagef(src, line, 1, "unable to parse integer");
+					return false;
+				} else if (lval < 0 || lval > UINT32_MAX) {
+					error_messagef(src, line, 1, "integer outside of range 0-%u", UINT32_MAX);
+					return false;
+				}
+
+				uint32_t val = lval;
+				memcpy(val_dest, &val, sizeof(uint32_t));
+				break;
+			}
+			case type_str: {
+				char *start, *end;
+				start = strchr(v, '\'');
+				end = strrchr(v, '\'');
+
+				if (!start || !end || start == end) {
+					error_messagef(src, line, 1, "expected single-quoted string");
+					return false;
+				}
+
+				*end = 0;
+				++start;
+
+				memcpy(val_dest, &start, sizeof(char *));
+				break;
+			}
+			case type_bool: {
+				bool val;
+				if (strcmp(v, "true") == 0) {
+					val = true;
+				} else if (strcmp(v, "false") == 0) {
+					val = false;
+				} else {
+					error_messagef(src, line, 1, "invalid value for bool, expected true/false");
+					return false;
+				}
+
+				memcpy(val_dest, &val, sizeof(bool));
+				break;
+			}
+			}
+		}
+	}
+
+	return true;
+}
+
+
+bool
+fmt(struct ast *ast, FILE *out, const char *cfg_path)
+{
+	bool ret = false;
 	struct fmt_ctx ctx = {
 		.ast = ast,
 		.out = out,
 		.max_line_len = 80,
 		.indent_by = "    ",
+		.space_array = false,
+		.kwa_ml = false,
+		.wide_colon = false,
+		.no_single_comma_function = false,
 	};
+
+	char *buf = NULL;
+	struct source cfg_src = { 0 };
+	if (cfg_path) {
+		if (!fs_read_entire_file(cfg_path, &cfg_src)) {
+			goto ret;
+		} else if (!ini_parse(cfg_path, &cfg_src, &buf, fmt_cfg_parse_cb, &ctx)) {
+			goto ret;
+		}
+	}
 
 	struct fmt_stack fst = {
 		.write = true,
@@ -843,5 +956,12 @@ fmt(struct ast *ast, FILE *out)
 	fmt_node(&ctx, &fst, ast->root);
 	assert(!ctx.indent);
 	fmt_newline_force(&ctx, &fst, 0);
-	return true;
+
+	ret = true;
+ret:
+	if (buf) {
+		z_free(buf);
+	}
+	fs_source_destroy(&cfg_src);
+	return ret;
 }

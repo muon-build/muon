@@ -528,15 +528,20 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
+		const char *cfg_path;
 		bool in_place;
 	} opts = { 0 };
 
-	OPTSTART("i") {
+	OPTSTART("ic:") {
 		case 'i':
 			opts.in_place = true;
 			break;
+		case 'c':
+			opts.cfg_path = optarg;
+			break;
 	} OPTEND(argv[argi], " <filename>",
-		"  -i - modify file in-place\n",
+		"  -i - modify file in-place\n"
+		"  -c <cfg.ini> - read configuration from cfg\n",
 		NULL, 1)
 
 	opts.filename = argv[argi];
@@ -565,7 +570,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		out = stdout;
 	}
 
-	if (!fmt(&ast, out)) {
+	if (!fmt(&ast, out, opts.cfg_path)) {
 		goto ret;
 	}
 

@@ -5,5 +5,5 @@
 
 #include "lang/parser.h"
 
-bool fmt(struct ast *ast, FILE *out);
+bool fmt(struct ast *ast, FILE *out, const char *cfg_path);
 #endif
