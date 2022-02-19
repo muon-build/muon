@@ -6,19 +6,6 @@ assert(arr == ['bar', 'baz'], 'get_variable with array fallback is broken')
 set_variable('arr', ['bar', 'baz'])
 assert(arr == ['bar', 'baz'], 'set_variable(array) is broken')
 
-conf = configuration_data()
-conf.set('foo', ['bar', 'baz'])
-assert(
-    conf.get('foo') == ['bar', 'baz'],
-    'configuration_data.set(array) is broken',
-)
-
-arr = conf.get('does-not-exist', ['bar', 'baz'])
-assert(
-    arr == ['bar', 'baz'],
-    'configuration_data.get with array fallback is broken',
-)
-
 arr = meson.get_cross_property('does-not-exist', ['bar', 'baz'])
 assert(
     arr == ['bar', 'baz'],
@@ -45,5 +32,6 @@ assert(
 
 # Test deprecated behaviour
 
+conf = configuration_data()
 conf.set(['foo', 'bar'])
 message(conf.get('foo'))

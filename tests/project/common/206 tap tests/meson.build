@@ -7,7 +7,14 @@ test('fail', tester, args: ['not ok'], should_fail: true, protocol: 'tap')
 test('xfail', tester, args: ['not ok # todo'], protocol: 'tap')
 test('xpass', tester, args: ['ok # todo'], should_fail: true, protocol: 'tap')
 test('skip', tester, args: ['ok # skip'], protocol: 'tap')
-test('partially skipped', tester, args: ['ok 1\nok 2 # skip'], protocol: 'tap')
+test(
+    'partially skipped',
+    tester,
+    args: ['ok 1\nok 2 # skip'],
+    suite: ['verbose'],
+    protocol: 'tap',
+    verbose: true,
+)
 test(
     'partially skipped (real-world example)',
     cat,

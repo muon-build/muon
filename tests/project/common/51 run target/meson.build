@@ -15,7 +15,11 @@ hex = custom_target(
     'exe.hex',
     input: exe,
     output: 'exe.hex',
-    command: [converter, '@INPUT@', '@OUTPUT@'],
+    command: [
+        converter,
+        '@INPUT@',
+        '@OUTPUT@',
+    ],
 )
 
 fakeburner = find_program('fakeburner.py')

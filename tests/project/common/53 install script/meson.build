@@ -33,7 +33,12 @@ meson.add_install_script(installer, 'otherdir', afile, '--mode=copy')
 # This executable links on a library built in src/ directory. On Windows this
 # means meson must add src/ into $PATH to find the DLL when running it as
 # install script.
-myexe = executable('prog', 'prog.c', link_with: mylib, install: true)
+myexe = executable(
+    'prog',
+    'prog.c',
+    link_with: mylib,
+    install: true,
+)
 if meson.can_run_host_binaries()
     meson.add_install_script(myexe)
 endif

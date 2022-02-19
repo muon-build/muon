@@ -9,13 +9,20 @@ custom_dep = custom_target(
     command: [gen, '@OUTPUT@', 'custom_dep'],
 )
 
-exe_dep = executable('exe_dep', 'main.c', build_by_default: false)
+exe_dep = executable(
+    'exe_dep',
+    'main.c',
+    build_by_default: false,
+)
 
 test_prog = find_program('test.py')
 test(
     'string dependencies',
     test_prog,
-    args: [ # to find these dependencies, e.g. automatic plugin loading.
+    args: [
+        # This is declared for convenience,
+        # real use case might have some obscure method
+        # to find these dependencies, e.g. automatic plugin loading.
         'custom_dep.txt',
         exe_dep.full_path(),
     ],

@@ -34,6 +34,7 @@ seq = run_command(
     'name_gen.py',
     nfiles.to_string(),
     meson.build_root(),
+    check: true,
 ).stdout().strip().split('\n')
 
 sources = []

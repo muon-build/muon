@@ -19,7 +19,11 @@ exe_dep = executable('prog-dep', 'main.c', dependencies: [dep])
 # Try using it in a custom_target
 custom_target(
     'tgt_a',
-    command: [find_program('./dummy.py'), '@OUTPUT@', both_libs],
+    command: [
+        find_program('./dummy.py'),
+        '@OUTPUT@',
+        both_libs,
+    ],
     output: ['hello1.txt'],
     input: [both_libs],
 )

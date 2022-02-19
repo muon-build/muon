@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-foo = executable('foo', ['foo.c', gen[0], gen[1]], c_args: '-DWORKS')
+foo = executable(
+    'foo',
+    ['foo.c', gen[0], gen[1]],
+    c_args: '-DWORKS',
+)

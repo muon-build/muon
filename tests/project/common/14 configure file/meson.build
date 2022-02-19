@@ -1,11 +1,11 @@
-project('configure file test', 'c')
+project('configure file test', 'c', meson_version: '>=0.47.0')
 
 conf = configuration_data()
 
-conf.set('BE_TRUE', true)
+conf.set('var', 'mystring')
 conf.set('other', 'string 2')
 conf.set('second', ' bonus')
-conf.set('var', 'mystring')
+conf.set('BE_TRUE', true)
 
 assert(conf.get('var') == 'mystring', 'Get function is not working.')
 assert(conf.get('var', 'default') == 'mystring', 'Get function is not working.')
@@ -14,7 +14,8 @@ assert(
     'Default value getting is not working.',
 )
 assert(
-    conf.keys() == ['BE_TRUE', 'other', 'second', 'var'],
+    # different from meson: keys retain the order they are set
+    conf.keys() == ['var', 'other', 'second', 'BE_TRUE'],
     'Keys function is not working',
 )
 
@@ -26,7 +27,10 @@ cfile = configure_file(
 
 e = executable(
     'inctest',
-    'prog.c', # to their sources.
+    'prog.c',
+    # Note that you should NOT do this. Don't add generated headers here
+    # This tests that we do the right thing even if people add in conf files
+    # to their sources.
     cfile,
 )
 test('inctest', e)
@@ -52,7 +56,7 @@ outf = configure_file(
     command: [genprog, scriptfile, ifile, ofile],
     install_dir: 'share/appdir',
 )
-ret = run_command(check_file, outf)
+ret = run_command(check_file, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
@@ -68,7 +72,7 @@ outf = configure_file(
     command: [genprog, genscript2b, ofile2b],
     install_dir: 'share/appdir',
 )
-ret = run_command(check_file, outf)
+ret = run_command(check_file, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
@@ -80,7 +84,7 @@ outf = configure_file(
     depfile: 'depfile.d',
     command: [genprog, genscript2deps, ofile2deps, '@DEPFILE@'],
 )
-ret = run_command(check_file, outf)
+ret = run_command(check_file, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
@@ -135,13 +139,15 @@ basename_py = find_program('basename.py')
 file_contains_py = find_program('file_contains.py')
 test_string = 'hello world'
 test_input_file = join_paths(meson.current_build_dir(), test_string)
-run_command(find_program('touch.py'), test_input_file)
-configs = [ # no input
+run_command(find_program('touch.py'), test_input_file, check: true)
+configs = [
+    # no input
     configure_file(
         command: [basename_py, test_string],
         capture: true,
         output: 'capture test 1',
-    ), # with input
+    ),
+    # with input
     configure_file(
         input: test_input_file,
         command: [basename_py, '@INPUT@'],
@@ -175,6 +181,15 @@ cfile = configure_file(
     configuration: conf,
 )
 
+# different from meson: install_dir: false is unsupported
+# test install_dir : false (deprecated)
+# cfile = configure_file(
+#     input: 'config.h.in',
+#     output: 'do_not_get_installed_please.h',
+#     install_dir: false,
+#     configuration: conf,
+# )
+
 # test intsall_dir with install: false
 cfile = configure_file(
     input: 'config.h.in',
@@ -184,23 +199,35 @@ cfile = configure_file(
     configuration: conf,
 )
 
+# Test escaping with cmake format
+conf7 = configuration_data()
+conf7.set('var1', 'foo')
+conf7.set('var2', 'bar')
+configure_file(
+    input: 'config7.h.in',
+    output: '@BASENAME@',
+    format: 'cmake',
+    configuration: conf7,
+)
+test('test7', executable('prog7', 'prog7.c'))
+
 # Test copying of an empty configuration data object
 inf = 'invalid-utf8.bin.in'
 outf = configure_file(input: inf, output: 'invalid-utf8.bin', copy: true)
-ret = run_command(check_file, inf, outf)
+ret = run_command(check_file, inf, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
 # Now the same, but using a File object as an argument.
 inf2 = files('invalid-utf8.bin.in')[0]
-ret = run_command(check_file, inf2, outf)
+ret = run_command(check_file, inf2, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
 
 # Test copy of a binary file
 outf = configure_file(input: inf, output: 'somebinary.bin', copy: true)
-ret = run_command(check_file, inf, outf)
+ret = run_command(check_file, inf, outf, check: false)
 if ret.returncode() != 0
     error('Error running command: @0@\n@1@'.format(ret.stdout(), ret.stderr()))
 endif
@@ -214,6 +241,23 @@ configure_file(
     encoding: 'koi8-r',
     configuration: conf8,
 )
+
+# Test that passing an empty configuration_data() object to a file with
+# #mesondefine substitutions does not print the warning.
+configure_file(
+    input: 'nosubst-nocopy1.txt.in',
+    output: 'nosubst-nocopy1.txt',
+    configuration: configuration_data(),
+)
+
+# different from meson: invalid @ substitutions are errors
+# test that passing an empty configuration_data() object to a file with
+# @foo@ substitutions does not print the warning.
+# configure_file(
+#     input: 'nosubst-nocopy2.txt.in',
+#     output: 'nosubst-nocopy2.txt',
+#     configuration: configuration_data(),
+# )
 
 # test that passing a configured file object to test() works, and that passing
 # an empty configuration_data() object to a file that leads to no substitutions
@@ -269,16 +313,21 @@ configure_file(
 
 test('configure-file', test_file)
 
-cdata = configuration_data()
-cdata.set('invalid_value', ['array'])
-
 # Dictionaries
 
 cdata = configuration_data(
-    {'A_STRING': '"foo"', 'A_INT': 42, 'A_DEFINED': true, 'A_UNDEFINED': false},
+    {
+        'A_STRING': '"foo"',
+        'A_INT': 42,
+        'A_DEFINED': true,
+        'A_UNDEFINED': false,
+    },
 )
 
-configure_file(output: 'config9a.h', configuration: cdata)
+configure_file(
+    output: 'config9a.h',
+    configuration: cdata,
+)
 
 configure_file(
     output: 'config9b.h',

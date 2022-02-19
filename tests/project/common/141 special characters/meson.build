@@ -19,25 +19,29 @@ gen = custom_target(
     install_dir: get_option('datadir'),
 )
 
-# # With newlines, this should go through the exe wrapper.
-# gen2 = custom_target('gen2',
-#   command : [
-#     python,
-#     files('check_quoting.py'),
-#     '''newline=
+# different from meson: command does not support newlines in arguments
+# With newlines, this should go through the exe wrapper.
+# gen2 = custom_target(
+#     'gen2',
+#     command: [
+#         python,
+#         files('check_quoting.py'),
+#         '''newline=
 # ''',
-#     'dollar=$',
-#     'colon=:',
-#     'space= ',
-#     '''multi2=  ::$$
+#         'dollar=$',
+#         'colon=:',
+#         'space= ',
+#         '''multi2=  ::$$
 
 
 
 # ::$$''',
-#     '@OUTPUT@'],
-#   output : 'result2',
-#   install : true,
-#   install_dir : get_option('datadir'))
+#         '@OUTPUT@',
+#     ],
+#     output: 'result2',
+#     install: true,
+#     install_dir: get_option('datadir'),
+# )
 
 # Test that we can pass these special characters in compiler arguments
 #
@@ -51,7 +55,11 @@ gen = custom_target(
 
 special = [
     ['amp', '&'],
-    ['at', '@'], # reasonable to put into muon.  For now, just use a double backslash
+    ['at', '@'],
+    # different from meson: apparently meson automatically converts a single
+    # backslash into a double backslash.  Figure out what the mechanism is that
+    # does this and see if is reasonable to put into muon.  For now, just use a
+    # double backslash
     ['backslash', '\\\\'],
     ['dollar', '$'],
     ['gt', '>'],

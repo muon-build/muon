@@ -78,4 +78,8 @@ pkgg.generate(
 # Verify that if we promote internal_lib as public dependency, it comes after
 # the main library.
 main_lib2 = both_libraries('libmain2', link_with: internal_lib)
-pkgg.generate(main_lib2, libraries: internal_lib, filebase: 'pub-lib-order')
+pkgg.generate(
+    main_lib2,
+    libraries: internal_lib,
+    filebase: 'pub-lib-order',
+)

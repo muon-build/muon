@@ -35,7 +35,10 @@ assert(has_not_changed, 'Custom target has changed.')
 
 assert(not is_disabler(gen), 'Custom target is a disabler.')
 
-lib = static_library('libfoo', ['lib.c', gen[1]])
+lib = static_library(
+    'libfoo',
+    ['lib.c', gen[1]],
+)
 
 has_not_changed = false
 if is_disabler(lib)
@@ -61,7 +64,10 @@ gen = disabler()
 
 assert(is_disabler(gen), 'Generator is not a disabler.')
 
-lib = static_library('libfoo', ['lib.c', gen[1]])
+lib = static_library(
+    'libfoo',
+    ['lib.c', gen[1]],
+)
 
 assert(is_disabler(lib), 'Static library is not a disabler.')
 

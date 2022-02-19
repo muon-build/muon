@@ -83,10 +83,7 @@ libcpp = static_library('cppfoo', ['foo.cpp', 'foo.hpp'])
 libfoo = shared_library(
     'foo',
     ['foobar.c', 'foobar.h'],
-    link_with: [
-        libc,
-        libcpp,
-    ],
+    link_with: [libc, libcpp],
 )
 
 # Test that link_whole is also honored
@@ -108,7 +105,11 @@ libfoo_static = static_library(
     link_with: [libc, libcpp],
 )
 
-libsub = shared_library('sub', ['sub.c', 'sub.h'], link_with: libfoo_static)
+libsub = shared_library(
+    'sub',
+    ['sub.c', 'sub.h'],
+    link_with: libfoo_static,
+)
 
 if not (cxx.get_id() == 'msvc' and cxx.version().version_compare('<19'))
     libsubwhole = shared_library(
@@ -125,4 +126,8 @@ libsub_static = static_library(
     link_with: libfoo_static,
 )
 
-libsubsub = shared_library('subsub', ['dummy.c'], link_with: libsub_static)
+libsubsub = shared_library(
+    'subsub',
+    ['dummy.c'],
+    link_with: libsub_static,
+)

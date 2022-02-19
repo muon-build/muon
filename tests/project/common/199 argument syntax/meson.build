@@ -1,4 +1,7 @@
-project('argument syntax', ['c'])
+project(
+    'argument syntax',
+    ['c'],
+)
 
 cc = meson.get_compiler('c')
 

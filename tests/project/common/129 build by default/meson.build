@@ -3,9 +3,17 @@ project('build on all', 'c')
 py3_mod = import('python3')
 py3 = py3_mod.find_python()
 
-executable('fooprog', 'foo.c', build_by_default: false)
+executable(
+    'fooprog',
+    'foo.c',
+    build_by_default: false,
+)
 
-executable('barprog', 'foo.c', build_by_default: false)
+executable(
+    'barprog',
+    'foo.c',
+    build_by_default: false,
+)
 
 comp = files('mygen.py')
 checkexists = files('checkexists.py')

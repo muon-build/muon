@@ -1,4 +1,4 @@
-project('string formatting', 'c', meson_version: '>=0.59.0')
+project('string formatting', 'c')
 
 templ = '@0@bar@1@'
 
@@ -82,6 +82,11 @@ assert(
     'bool string conversion with args failed',
 )
 assert('@0@'.format(true) == 'true', 'bool string formatting failed')
+# different from meson: format does not accept list arguments
+# assert(
+#     '@0@'.format(['one', 'two']) == '[\'one\', \'two\']',
+#     'list string formatting failed',
+# )
 
 assert(' '.join(['a', 'b', 'c']) == 'a b c', 'join() array broken')
 assert(''.join(['a', 'b', 'c']) == 'abc', 'empty join() broken')
@@ -115,7 +120,6 @@ assert(
     'Version_compare major greater broken',
 )
 
-
 assert(
     ' spaces	tabs	'.strip() == 'spaces	tabs',
     'Spaces and tabs badly stripped',
@@ -146,7 +150,7 @@ bs_bs_nl = (
 '''
 )
 bs_bs = '''\\'''
-bs = '\\'
+bs = '''\'''
 
 assert('\c' == bs_c, 'Single backslash broken')
 assert('\\c' == bs_c, 'Double backslash broken')
@@ -167,6 +171,7 @@ assert(mysubstring.substring(1) == 'oobarbaz', 'substring is broken')
 assert(mysubstring.substring(-5) == 'arbaz', 'substring is broken')
 assert(mysubstring.substring(1, 4) == 'oob', 'substring is broken')
 assert(mysubstring.substring(1, -5) == 'oob', 'substring is broken')
+# different from meson: substring doesn't accept faulty arguments
 # end before start
 # assert(mysubstring.substring(1, 0) == '', 'substring is broken')
 # end out of bounds

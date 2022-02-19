@@ -9,6 +9,7 @@ else
     obj1 = lib1.extract_objects('src/lib.c')
     obj2 = lib2.extract_objects(['lib.c'])
     obj3 = lib2.extract_objects(files('lib.c'))
+    # different from meson: no deduplication in extract_objects
     obj4 = lib2.extract_objects(['lib.c']) #, 'lib.c'])
     obj5 = lib2.extract_objects(['lib.c', 'header.h'])
     obj6 = lib2.extract_all_objects(recursive: true)
@@ -19,6 +20,26 @@ else
     e4 = executable('main4', 'main.c', objects: obj4)
     e5 = executable('main5', 'main.c', objects: obj5)
     e6 = executable('main6', 'main.c', objects: obj6)
+
+    ct_src = custom_target(
+        'lib3.c',
+        output: 'lib3.c',
+        capture: true,
+        command: [find_program('create-source.py'), 'lib.c'],
+    )
+    lib3 = library('somelib3', ct_src)
+    e7 = executable('main7', 'main.c', objects: lib3.extract_objects(ct_src[0]))
+    e8 = executable('main8', 'main.c', objects: lib3.extract_objects(ct_src))
+
+    gen = generator(
+        find_program('create-source.py'),
+        arguments: ['@INPUT@'],
+        output: '@BASENAME@4.c',
+        capture: true,
+    )
+    gen_src = gen.process('lib.c')
+    lib4 = library('somelib4', gen_src)
+    e9 = executable('main9', 'main.c', objects: lib4.extract_objects(gen_src))
 
     custom_target(
         'custom_target with object inputs',
@@ -35,4 +56,7 @@ else
     test('extraction test 4', e4)
     test('extraction test 5', e5)
     test('extraction test 6', e6)
+    test('extraction test 7', e7)
+    test('extraction test 8', e8)
+    test('extraction test 9', e9)
 endif

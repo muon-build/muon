@@ -57,15 +57,15 @@ test('linkcustom2_i', exe2_i)
 if meson.backend() == 'xcode'
     message('Xcode does not support link whole so skipping.')
 else
-    # shared_library('lib1', 'lib.c', link_whole: clib)
+    shared_library('lib1', 'lib.c', link_whole: clib)
 
-    # exe3_i = executable('prog3_i', 'prog.c', link_whole: clib[0])
-    # test('linkwhole', exe)
+    exe3_i = executable('prog3_i', 'prog.c', link_whole: clib[0])
+    test('linkwhole', exe)
 
-    # d2_i = declare_dependency(link_whole: clib[0])
+    d2_i = declare_dependency(link_whole: clib[0])
 
-    # exe4_i = executable('prog4_i', 'prog.c', dependencies: d2_i)
-    # test('linkwhole2_i', exe2_i)
+    exe4_i = executable('prog4_i', 'prog.c', dependencies: d2_i)
+    test('linkwhole2_i', exe2_i)
 endif
 
 # Link with custom target

@@ -1,4 +1,7 @@
-project('dependency include_type', ['c', 'cpp'])
+project(
+    'dependency include_type',
+    ['c', 'cpp'],
+)
 
 dep = dependency('zlib', method: 'pkg-config', required: false)
 boost_dep = dependency(

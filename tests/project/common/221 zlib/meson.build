@@ -1,12 +1,12 @@
 project('zlib system dependency', 'c')
 
 if (
-    not ['darwin', 'freebsd', 'dragonfly', 'windows'].contains(
+    not ['darwin', 'freebsd', 'dragonfly', 'windows', 'android'].contains(
         host_machine.system(),
     )
 )
     error(
-        'MESON_SKIP_TEST only applicable on macOS, FreeBSD, DragonflyBSD, and Windows.',
+        'MESON_SKIP_TEST only applicable on macOS, FreeBSD, DragonflyBSD, Windows, and Android.',
     )
 endif
 
@@ -21,10 +21,16 @@ endif
 
 if (
     not (
-        cc.find_library('z', required: false).found() or cc.find_library(
+        cc.find_library(
+            'z',
+            required: false,
+        ).found() or cc.find_library(
             'zlib',
             required: false,
-        ).found() or cc.find_library('zlib1', required: false).found()
+        ).found() or cc.find_library(
+            'zlib1',
+            required: false,
+        ).found()
     )
 )
     error(

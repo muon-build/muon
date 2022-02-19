@@ -8,7 +8,7 @@ gen = generator(
 
 gen_file = gen.process('file.c.in')
 
-find_file_list = run_command(find_program('find.py'))
+find_file_list = run_command(find_program('find.py'), check: true)
 assert(find_file_list.returncode() == 0, 'Didn\'t find any files.')
 
 # Strings should support both octal \ooo and hex \xhh encodings
@@ -26,3 +26,17 @@ foreach l : find_file_list.stdout().strip('\x00').split('\x00')
 endforeach
 
 test('second', executable('second', found_files_hex + [gen_file]))
+
+# different from meson: unrecognized and malformed escape sequences are invalid
+
+# malformed = [
+#  [ '\c', 'c' ],
+#  [ '\Uabcdefghi', 'Uabcdefghi'],
+#  [ '\u123 ', 'u123 '],
+#  [ '\xqr', 'xqr'],
+# ]
+
+# foreach m : malformed
+#   assert(m[0].endswith(m[1]), 'bad escape sequence had unexpected end')
+#   assert(m[0].startswith('\\'), 'bad escape sequence had unexpected start')
+# endforeach
