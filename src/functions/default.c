@@ -622,6 +622,7 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	gen->raw_command = command;
 	gen->depfile = akw[kw_depfile].val;
+	gen->capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val);
 	return true;
 }
 
