@@ -52,7 +52,8 @@ foreach fallback : fallbacks
         # Test that the following GCC bug doesn't happen:
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80005
         # https://github.com/mesonbuild/meson/issues/1458
-        if host_system == 'linux'
+        fs = import('fs')
+        if host_system == 'linux' and fs.is_file('/usr/include/linux/if.h')
             assert(
                 comp.has_header('linux/if.h', prefix: fallback),
                 'Could not find <linux/if.h>',
