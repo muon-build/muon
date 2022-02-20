@@ -11,7 +11,7 @@ tests = [
     ['common/10 man install', {}],
     ['common/11 subdir', {}],
     ['common/12 data', {}],
-    # missing: 'common/13 pch'
+    ['common/13 pch', {'should_fail': true}],
     ['common/14 configure file', {}],
     ['common/15 if', {}],
     ['common/16 comparison', {}],
@@ -112,7 +112,7 @@ tests = [
     ['common/111 pathjoin', {}],
     ['common/112 subdir subproject', {}],
     ['common/113 interpreter copy mutable var on assignment', {}],
-    # missing: 'common/14 skip'
+    ['common/114 skip', {}],
     ['common/115 subproject project arguments', {}],
     ['common/116 test skip', {}],
     ['common/117 shared module', {'should_fail': true}],
@@ -124,6 +124,7 @@ tests = [
     ['common/123 custom target directory install', {}],
     ['common/124 dependency file generation', {}],
     ['common/125 configure file in generator', {'should_fail': true}],
+    ['common/126 generated llvm ir', {'should_fail': true}],
     ['common/127 generated assembly', {'should_fail': true}],
     ['common/128 build by default targets in tests', {}],
     ['common/129 build by default', {'should_fail': true}],
@@ -209,10 +210,10 @@ tests = [
     ['common/209 link custom_i single from multiple', {}],
     ['common/210 link custom_i multiple from multiple', {}],
     ['common/211 dependency get_variable method', {}],
-    # missing: 212 source set configuration_data/
-    # missing: 213 source set dictionary/
-    # missing: 214 source set custom target/
-    # missing: 215 source set realistic example/
+    ['common/212 source set configuration_data', {'should_fail': true}],
+    ['common/213 source set dictionary', {'should_fail': true}],
+    ['common/214 source set custom target', {'should_fail': true}],
+    ['common/215 source set realistic example', {'should_fail': true}],
     ['common/216 custom target input extracted objects', {'should_fail': true}],
     ['common/217 test priorities', {}],
     ['common/218 include_dir dot', {}],
@@ -242,6 +243,16 @@ tests = [
     ['common/241 set and get variable', {}],
     ['common/242 custom target feed', {'should_fail': true}],
     ['common/243 escape++', {}],
+    ['common/244 variable scope', {'should_fail': true}],
+    ['common/245 custom target index source', {}],
+    ['common/245 dependency fallbacks', {'should_fail': true}],
+    ['common/245 deprecated option', {'should_fail': true}],
+    ['common/246 dependency fallbacks', {'should_fail': true}],
+    ['common/246 install_emptydir', {'should_fail': true}],
+    ['common/247 deprecated option', {'should_fail': true}],
+    ['common/248 install_emptydir', {'should_fail': true}],
+    ['common/249 install_symlink', {'should_fail': true}],
+    ['common/250 system include dir', {}],
     
     # unit
     ['unit/65 alias target', {}],
