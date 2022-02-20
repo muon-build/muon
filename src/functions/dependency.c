@@ -314,9 +314,9 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 		}
 
 		if (!akw[kw_internal].set) {
-			akw[kw_pkgconfig].set = true;
-			akw[kw_pkgconfig].node = ao[0].node;
-			akw[kw_pkgconfig].val = ao[0].val;
+			akw[kw_internal].set = true;
+			akw[kw_internal].node = ao[0].node;
+			akw[kw_internal].val = ao[0].val;
 		}
 	}
 
