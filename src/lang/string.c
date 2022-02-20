@@ -110,7 +110,7 @@ grow_str(struct workspace *wk, obj s, uint32_t grow_by)
 	if (ss->flags & str_flag_big) {
 		ss->s = z_realloc((void *)ss->s, new_len);
 		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
-	} else if (new_len > wk->chrs.bucket_size) {
+	} else if (new_len >= wk->chrs.bucket_size) {
 		ss->flags |= str_flag_big;
 		char *np = z_calloc(new_len, 1);
 		memcpy(np, ss->s, ss->len);
