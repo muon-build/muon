@@ -132,6 +132,14 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_file:
 		file = val;
 		break;
+	case obj_custom_target: {
+		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
+		if (!obj_array_flatten_one(wk, tgt->output, &file)) {
+			interp_error(wk, ctx->err_node, "cannot coerce custom_target with multiple outputs to file");
+			return ir_err;
+		}
+		break;
+	}
 	default:
 		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(t));
 		return ir_err;
