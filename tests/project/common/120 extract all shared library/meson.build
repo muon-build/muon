@@ -6,10 +6,10 @@ if meson.backend() == 'xcode'
     )
 endif
 
-a = static_library('_a', 'one.c', 'two.c')
-b = static_library('_b', 'three.c', 'four.c')
+a = static_library('a', 'one.c', 'two.c')
+b = static_library('b', 'three.c', 'four.c')
 c = shared_library(
-    '_c',
+    'c',
     objects: [a.extract_all_objects(), b.extract_all_objects()],
     vs_module_defs: 'func1234.def',
 )
