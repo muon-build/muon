@@ -86,33 +86,14 @@ The workspace is a structure that contains all the data for an entire build
 setup, including all subprojects, AST, options, objects, strings.  Most
 interpreter related functions take a workspace as one of their arguments.
 
-## `obj` and `uint32_t`
-
-Objects are almost always referred to and passed around by id, rather than by
-pointer.  Internally, object ids are 32-bit integers.  In order to improve
-readability, a typedef to `uint32_t` called `obj` was added.  This should be
-preferred over `uint32_t` in all new code.
-
-Currently, the migration from `uint32_t` is still in progress, so be aware that
-some code still refers to objects that way.
-
 ## Objects
 
-Meson objects are created with the `make_obj` function.  Currently all object
-data (except for strings) is stored directly in the object in a union.  See
-`object.h` for more information.  Conventionally, all objects are referred to by
-id rather than a pointer.
+Meson objects are created with the `make_obj` function.  See `object.h` for more
+information.  Conventionally, all objects are referred to by id of type obj
+rather than a pointer.
 
 ## Memory
 
-You may be wondering, what about resource cleanup? Garbage collection?  Muon's
-current approach is to cleanup only once at the very end.  Why? Meson is not a
-Turing-complete language, so we don't need to worry about long running programs.
-Furthermore, comparing `meson setup` to `muon setup` on this project tells us
-that even with this naive approach, we are still doing far better than `meson`.
-
-meson setup build:
-total heap usage: 48,266 allocs, 47,764 frees, 57,225,893 bytes allocated
-
-muon setup build:
-total heap usage: 405 allocs, 260 frees, 934,135 bytes allocated
+You may be wondering, what about Garbage collection?  Muon's current approach is
+to cleanup only once at the very end.  Meson is not a Turing-complete language,
+so we don't need to worry about long running programs.
