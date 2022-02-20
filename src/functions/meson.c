@@ -301,6 +301,29 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 }
 
 static bool
+func_meson_add_dist_script(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	struct process_script_commandline_ctx ctx = {
+		.node = an[0].node,
+	};
+	make_obj(wk, &ctx.arr, obj_array);
+
+	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
+		return false;
+	}
+
+	// TODO: uncomment when muon dist is implemented
+	/* obj_array_push(wk, wk->dist_scripts, ctx.arr); */
+	return true;
+}
+
+static bool
 func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -321,6 +344,7 @@ func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, o
 }
 
 const struct func_impl_name impl_tbl_meson[] = {
+	{ "add_dist_script", func_meson_add_dist_script },
 	{ "add_install_script", func_meson_add_install_script },
 	{ "backend", func_meson_backend },
 	{ "build_root", func_meson_global_build_root },
