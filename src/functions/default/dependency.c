@@ -400,11 +400,16 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		get_node(wk->ast, args_node)->line);
 
 	dep->link_args = akw[kw_link_args].val;
-	dep->version = akw[kw_version].val;
 	dep->flags |= dep_flag_found;
 	dep->variables = akw[kw_variables].val;
 	dep->deps = akw[kw_dependencies].val;
 	dep->compile_args = akw[kw_compile_args].val;
+
+	if (akw[kw_version].set) {
+		dep->version = akw[kw_version].val;
+	} else {
+		dep->version = current_project(wk)->cfg.version;
+	}
 
 	if (akw[kw_sources].set) {
 		obj sources;
