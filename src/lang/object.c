@@ -1148,6 +1148,13 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 	enum obj_type t = get_obj_type(wk, obj);
 
 	switch (t) {
+	case obj_include_directory: {
+		struct obj_include_directory *inc = get_obj_include_directory(wk, obj);
+		obj_to_s_buf_push(&ctx, "<include_directory ");
+		obj_to_s_str(wk, &ctx, inc->path);
+		obj_to_s_buf_push(&ctx, ">");
+		break;
+	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, obj);
 		obj_to_s_buf_push(&ctx, "<dependency ");
