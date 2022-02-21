@@ -280,7 +280,7 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	{ // populate argv array
 		obj argv_obj;
 		make_obj(&wk, &argv_obj, obj_array);
-		hash_set(&wk.scope, "argv", argv_obj);
+		hash_set_str(&wk.scope, "argv", argv_obj);
 
 		uint32_t i;
 		for (i = 0; i < argc; ++i) {
@@ -358,7 +358,7 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 
 		if (id) {
 			obj_fprintf(&wk, stderr, "%o\n", id);
-			hash_set(&wk.scope, "_", id);
+			hash_set_str(&wk.scope, "_", id);
 		}
 cont:
 		ast_destroy(&ast);

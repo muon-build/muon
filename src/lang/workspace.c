@@ -16,10 +16,10 @@ get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 	uint64_t *idp;
 	struct project *proj = darr_get(&wk->projects, proj_id);
 
-	if ((idp = hash_get(&proj->scope, name))) {
+	if ((idp = hash_get_str(&proj->scope, name))) {
 		*res = *idp;
 		return true;
-	} else if ((idp = hash_get(&wk->scope, name))) {
+	} else if ((idp = hash_get_str(&wk->scope, name))) {
 		*res = *idp;
 		return true;
 	} else {
@@ -163,7 +163,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	*id = darr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = darr_get(&wk->projects, *id);
 
-	hash_init(&proj->scope, 128);
+	hash_init_str(&proj->scope, 128);
 
 	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
@@ -247,19 +247,19 @@ workspace_init(struct workspace *wk)
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	darr_init(&wk->source_data, 4, sizeof(struct source_data));
-	hash_init(&wk->scope, 32);
+	hash_init_str(&wk->scope, 32);
 
 	obj id;
 	make_obj(wk, &id, obj_disabler);
 	assert(id == disabler_id);
 
 	make_obj(wk, &id, obj_meson);
-	hash_set(&wk->scope, "meson", id);
+	hash_set_str(&wk->scope, "meson", id);
 
 	make_obj(wk, &id, obj_machine);
-	hash_set(&wk->scope, "host_machine", id);
-	hash_set(&wk->scope, "build_machine", id);
-	hash_set(&wk->scope, "target_machine", id);
+	hash_set_str(&wk->scope, "host_machine", id);
+	hash_set_str(&wk->scope, "build_machine", id);
+	hash_set_str(&wk->scope, "target_machine", id);
 
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);

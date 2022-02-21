@@ -7,19 +7,30 @@
 #include "darr.h"
 #include "iterator.h"
 
+struct hash;
+
+typedef bool ((*hash_keycmp)(const struct hash *h, const void *a, const void *b));
+typedef uint64_t ((*hash_func)(const struct hash *h, const void *k));
+
 struct hash {
 	struct darr meta, e, keys;
 	size_t cap, len, load, max_load, capm;
+	hash_keycmp keycmp;
+	hash_func hash_func;
 };
 
-typedef enum iteration_result ((*hash_with_keys_iterator_func)(void *ctx, const char *key, uint64_t val));
+typedef enum iteration_result ((*hash_with_keys_iterator_func)(void *ctx, const void *key, uint64_t val));
 
-void hash_init(struct hash *h, size_t cap);
+void hash_init(struct hash *h, size_t cap, uint32_t keysize);
+void hash_init_str(struct hash *h, size_t cap);
 void hash_destroy(struct hash *h);
 
-uint64_t *hash_get(const struct hash *h, const char *key);
-void hash_set(struct hash *h, const char *key, uint64_t val);
-void hash_unset(struct hash *h, const char *key);
+uint64_t *hash_get(const struct hash *h, const void *key);
+uint64_t *hash_get_str(const struct hash *h, const char *key);
+void hash_set(struct hash *h, const void *key, uint64_t val);
+void hash_set_str(struct hash *h, const char *key, uint64_t val);
+void hash_unset(struct hash *h, const void *key);
+void hash_unset_str(struct hash *h, const char *key);
 void hash_clear(struct hash *h);
 
 void hash_for_each(struct hash *h, void *ctx, iterator_func ifnc);

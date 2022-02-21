@@ -435,7 +435,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		break;
 	}
 
-	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
+	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
 	return true;
 }
 
@@ -449,7 +449,7 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	hash_set(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
+	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
 	return true;
 }
 
@@ -837,8 +837,8 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	hash_set(&current_project(wk)->scope, ctx->id1, k_id);
-	hash_set(&current_project(wk)->scope, ctx->id2, v_id);
+	hash_set_str(&current_project(wk)->scope, ctx->id1, k_id);
+	hash_set_str(&current_project(wk)->scope, ctx->id2, v_id);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -848,7 +848,7 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	hash_set(&current_project(wk)->scope, ctx->id1, v_id);
+	hash_set_str(&current_project(wk)->scope, ctx->id1, v_id);
 
 	return interp_foreach_common(wk, ctx);
 }

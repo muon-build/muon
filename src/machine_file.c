@@ -84,9 +84,9 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	obj_to_s(ctx->wk, res, buf, 2048);
 
 	if (sect == mfile_section_constants) {
-		hash_set(&ctx->wk->scope, k, res);
+		hash_set_str(&ctx->wk->scope, k, res);
 	} else {
-		hash_set(&current_project(ctx->wk)->scope, k, res);
+		hash_set_str(&current_project(ctx->wk)->scope, k, res);
 
 		obj cloned, objkey, dest_dict;
 		if (!obj_clone(ctx->wk, ctx->dest_wk, res, &cloned)) {
