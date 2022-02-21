@@ -4,6 +4,9 @@ This document describes functional differences between muon and Meson.  None of
 these is a set-in-stone design decision, just a reflection of the current state
 of affairs.  This document is also not exhaustive, but is a best-effort list.
 
+Some other small differences may be found by searching the tests/project for "#
+different than meson" comments.
+
 ## nested subproject promotion
 
 Meson performs nested subproject promotion.  This means that nested subprojects
@@ -80,3 +83,16 @@ Reference: https://github.com/mesonbuild/meson/issues/1564
 Meson allows you to create build targets (`executable()`, `shared_library()`,
 `static_library()`, etc.) without specifying any sources.  In muon this is an
 error.
+
+## global compiler cache
+
+Meson maintains a global compiler cache, which means that all languages added by
+subprojects are available to the main project and vice-versa.  This can hide
+bugs that will surface if the subproject is built by itself, or subproject calls
+are rearranged.
+
+## run\_command() cwd
+
+Meson executes run\_command() commands in the current subdirectory, while muon
+executes them in the project root.  Neither behaviour should be relied upon
+however, since the docs say that it runs commands from an unspecified directory.
