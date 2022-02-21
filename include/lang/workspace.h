@@ -72,6 +72,7 @@ struct workspace {
 	struct darr source_data;
 
 	struct hash scope;
+	struct hash obj_hash;
 
 	uint32_t stack_depth, loop_depth;
 	enum loop_ctl loop_ctl;

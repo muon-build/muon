@@ -203,7 +203,7 @@ tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_ar
 	}
 
 	if (tgt->link_with) {
-		if (!obj_array_foreach(wk, tgt->link_with, ctx, dep_args_link_with_iter)) {
+		if (!deps_args_link_with_only(wk, tgt->link_with, ctx)) {
 			return false;
 		}
 	}

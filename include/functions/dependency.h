@@ -13,11 +13,10 @@ struct dep_args_ctx {
 	enum dep_flags parts;
 };
 
-enum iteration_result dep_args_iter(struct workspace *wk, void *_ctx, obj val);
-enum iteration_result dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val);
 enum iteration_result dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id);
 
 void dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx);
+bool deps_args_link_with_only(struct workspace *wk, obj link_with, struct dep_args_ctx *ctx);
 bool deps_args(struct workspace *wk, obj deps, struct dep_args_ctx *ctx);
 bool dep_args(struct workspace *wk, obj dep, struct dep_args_ctx *ctx);
 
