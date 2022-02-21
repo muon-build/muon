@@ -586,6 +586,11 @@ obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 static enum iteration_result
 obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 {
+	if (hash_get(&wk->obj_hash, &val)) {
+		return ir_cont;
+	}
+	hash_set(&wk->obj_hash, &val, true);
+
 	obj *res = _ctx;
 	if (!obj_array_in(wk, *res, val)) {
 		obj_array_push(wk, *res, val);
@@ -597,6 +602,8 @@ obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 void
 obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
+	hash_clear(&wk->obj_hash);
+
 	make_obj(wk, res, obj_array);
 	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
 }
