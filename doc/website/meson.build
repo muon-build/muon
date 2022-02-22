@@ -6,13 +6,16 @@ endif
 
 website = []
 
-website += custom_target(
-    'muon.1.html',
-    input: muon_1,
-    output: 'muon.1.html',
-    capture: true,
-    command: [mandoc, '-T', 'html', '-O', 'style=man-style.css', '@INPUT@'],
-)
+foreach name, tgt : man_page_targets
+    name = f'@name@.html'
+    website += custom_target(
+        name,
+        input: tgt,
+        output: name,
+        capture: true,
+        command: [mandoc, '-T', 'html', '-O', 'style=man-style.css', '@INPUT@'],
+    )
+endforeach
 
 if not is_disabler(meson_reference_3)
     website += custom_target(

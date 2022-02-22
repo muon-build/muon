@@ -5,15 +5,28 @@ if not scdoc.found()
     subdir_done()
 endif
 
-muon_1 = custom_target(
-    'muon.1.scd',
-    input: files('muon.1.scd'),
-    output: 'muon.1',
-    capture: true,
-    command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc.path())],
-    install: true,
-    install_dir: get_option('mandir') / 'man1',
-)
+man_pages = {
+    'muon': 1,
+    'meson.build': 5,
+}
+
+man_page_targets = {}
+
+foreach page, section : man_pages
+    name = f'@page@.@section@'
+    input = f'@name@.scd'
+    tgt = custom_target(
+        input,
+        input: files(input),
+        output: name,
+        capture: true,
+        command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc.path())],
+        install: true,
+        install_dir: get_option('mandir') / 'man@0@'.format(section),
+    )
+
+    man_page_targets += {name: tgt}
+endforeach
 
 meson_proj = subproject('meson-docs', required: false)
 if meson_proj.found()
