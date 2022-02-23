@@ -1314,8 +1314,10 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 	union {
 		int _int;
 		long _lint;
+		long long _llint;
 		unsigned int _uint;
 		unsigned long _luint;
+		unsigned long long _lluint;
 		double _double;
 		char *_charp;
 		void *_voidp;
@@ -1373,6 +1375,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			enum {
 				il_norm,
 				il_long,
+				il_long_long,
 			} int_len = il_norm;
 
 			switch (*fmt) {
@@ -1385,6 +1388,11 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				break;
 			}
 
+			if (int_len == il_long && *fmt == 'l') {
+				int_len = il_long_long;
+				++fmt;
+			}
+
 			switch (*fmt) {
 			case 'c':
 			case 'd': case 'i':
@@ -1395,6 +1403,9 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 				case il_long:
 					arg._lint = va_arg(ap, long);
 					break;
+				case il_long_long:
+					arg._llint = va_arg(ap, long long);
+					break;
 				}
 				break;
 			case 'u': case 'x': case 'X':
@@ -1404,6 +1415,9 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 					break;
 				case il_long:
 					arg._luint = va_arg(ap, unsigned long);
+					break;
+				case il_long_long:
+					arg._lluint = va_arg(ap, unsigned long long);
 					break;
 				}
 				break;
