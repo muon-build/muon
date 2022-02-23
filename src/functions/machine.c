@@ -22,6 +22,7 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	const char *map[][2] = {
 		{ "Linux", "linux" },
+		{ "Darwin", "darwin" },
 		0
 	};
 
