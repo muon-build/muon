@@ -18,6 +18,7 @@ compiler_type_to_s(enum compiler_type t)
 	case compiler_posix: return "posix";
 	case compiler_gcc: return "gcc";
 	case compiler_clang: return "clang";
+	case compiler_apple_clang: return "clang";
 	case compiler_type_count:
 	default: assert(false); return "";
 	}
@@ -29,6 +30,7 @@ linker_type_to_s(enum linker_type t)
 	switch (t) {
 	case linker_posix: return "ld";
 	case linker_gcc: return "ld.bfd";
+	case linker_apple: return "ld64";
 	case linker_type_count:
 	default: assert(false); return "";
 	}
@@ -123,7 +125,9 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 		goto detection_over;
 	}
 
-	if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
+	if (strstr(cmd_ctx.out.buf, "Apple") && strstr(cmd_ctx.out.buf, "clang")) {
+		type = compiler_apple_clang;
+	} else if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
 		type = compiler_clang;
 	} else if (strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
 		type = compiler_gcc;
@@ -141,8 +145,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 	}
 
 	unknown = false;
-	LOG_I("detected compiler %s %s (%s)", compiler_type_to_s(type),
-		get_cstr(wk, ver), cc);
+	LOG_I("detected compiler %s %s (%s), linker %s", compiler_type_to_s(type),
+		get_cstr(wk, ver), cc, linker_type_to_s(compilers[type].linker));
 
 detection_over:
 	if (unknown) {
@@ -556,9 +560,13 @@ build_compilers(void)
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 
+	struct compiler apple_clang = gcc;
+	apple_clang.linker = linker_apple;
+
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
 	compilers[compiler_clang] = gcc;
+	compilers[compiler_apple_clang] = apple_clang;
 
 }
 
@@ -683,8 +691,11 @@ build_linkers(void)
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
 
+	struct linker apple = posix;
+
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
+	linkers[linker_apple] = apple;
 }
 
 void

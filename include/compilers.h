@@ -12,12 +12,14 @@ enum compiler_type {
 	compiler_posix,
 	compiler_gcc,
 	compiler_clang,
+	compiler_apple_clang,
 	compiler_type_count,
 };
 
 enum linker_type {
 	linker_posix,
 	linker_gcc,
+	linker_apple,
 	linker_type_count,
 };
 
