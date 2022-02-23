@@ -96,8 +96,8 @@ cat \
 	src/opts.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
+	src/platform/null/rpath_fixer.c \
 	src/platform/path.c \
-	src/platform/rpath_fixer.c \
 	src/platform/run_cmd.c \
 	src/platform/term.c \
 	src/platform/uname.c \

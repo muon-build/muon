@@ -57,7 +57,6 @@ src = (
         'platform/filesystem.c',
         'platform/mem.c',
         'platform/path.c',
-        'platform/rpath_fixer.c',
         'platform/run_cmd.c',
         'platform/term.c',
         'platform/uname.c',
@@ -124,6 +123,18 @@ foreach d : [
     else
         src += [files('external' / (d[0] + '_null.c'))]
     endif
+endforeach
+
+platform = host_machine.system()
+if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
+  platform = 'posix'
+else
+  warning('configuring muon for an unsupported platform "@0@".  some features may be missing.'.format(platform))
+  platform = 'null'
+endif
+
+foreach f : ['rpath_fixer.c']
+  src += files('platform' / platform / f)
 endforeach
 
 src_platform_path = files('platform/path.c')
