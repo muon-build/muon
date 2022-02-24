@@ -181,6 +181,10 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	Print out version information as well as enabled features.
 
+# SEE ALSO
+
+meson.build(5) meson-reference(3) meson(1)
+
 # AUTHORS
 
 Maintained by Stone Tickle <lattis@mochiro.moe>, who is assisted by other open
