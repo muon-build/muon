@@ -175,10 +175,10 @@ fmt_newline(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
 			struct node *n = get_node(ctx->ast, next);
 			if (n->type == node_block) {
 				n = get_node(ctx->ast, n->l);
+			}
 
-				if (n->type == node_empty_line && !n->comment) {
-					return;
-				}
+			if (n->type == node_empty_line && !n->comment) {
+				return;
 			}
 
 		}
