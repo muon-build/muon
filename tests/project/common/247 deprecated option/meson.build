@@ -1,11 +1,12 @@
-project('deprecated options',
-  default_options: [
-    'o1=false',
-    'o2=a,b',
-    'o3=a,b',
-    'o4=true',
-    'o5=auto',
-  ]
+project(
+    'deprecated options',
+    default_options: [
+        'o1=false',
+        'o2=a,b',
+        'o3=a,b',
+        'o4=true',
+        'o5=auto',
+    ],
 )
 
 assert(get_option('o1') == false)

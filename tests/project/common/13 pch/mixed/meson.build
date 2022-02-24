@@ -3,12 +3,12 @@ cc_id = cc.get_id()
 
 # PGI compiler only supports PCH for C++
 if cc_id == 'pgi'
-  subdir_done()
+    subdir_done()
 endif
 
 exe = executable(
-  'prog',
-  files('main.cc', 'func.c'),
-  c_pch : ['pch/func.h'],
-  cpp_pch : ['pch/main.h'],
+    'prog',
+    files('func.c', 'main.cc'),
+    c_pch: ['pch/func.h'],
+    cpp_pch: ['pch/main.h'],
 )

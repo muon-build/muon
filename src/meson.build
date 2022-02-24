@@ -127,14 +127,16 @@ endforeach
 
 platform = host_machine.system()
 if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
-  platform = 'posix'
+    platform = 'posix'
 else
-  warning('configuring muon for an unsupported platform "@0@".  some features may be missing.'.format(platform))
-  platform = 'null'
+    warning(
+        'configuring muon for an unsupported platform "@0@"'.format(platform),
+    )
+    platform = 'null'
 endif
 
 foreach f : ['rpath_fixer.c']
-  src += files('platform' / platform / f)
+    src += files('platform' / platform / f)
 endforeach
 
 src_platform_path = files('platform/path.c')

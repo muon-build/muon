@@ -6,5 +6,5 @@ cc_id = cc.get_id()
 # msvc and generally should not be used at all. Support for
 # them is only kept for backwards compatibility.
 if cc_id == 'msvc'
-  exe = executable('prog', 'prog.c', c_pch : ['pch/pch.h', 'pch/pch.c'])
+    exe = executable('prog', 'prog.c', c_pch: ['pch/pch.h', 'pch/pch.c'])
 endif

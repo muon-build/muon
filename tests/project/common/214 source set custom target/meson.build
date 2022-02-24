@@ -7,9 +7,12 @@ cp = find_program('cp.py')
 source_set = import('sourceset')
 sources = source_set.source_set()
 
-a_c = custom_target('gen-custom-target',
-                    input: 'a.c', output: 'out_a.c',
-                    command: [cp, '@INPUT@', '@OUTPUT@'])
+a_c = custom_target(
+    'gen-custom-target',
+    input: 'a.c',
+    output: 'out_a.c',
+    command: [cp, '@INPUT@', '@OUTPUT@'],
+)
 sources.add(when: 'YES', if_true: a_c)
 sources.add(when: 'YES', if_true: a_c[0])
 
@@ -22,7 +25,13 @@ g_c = gen.process(files('g.c'))
 sources.add(when: 'YES', if_true: g_c)
 sources.add(when: 'YES', if_true: g_c)
 
-conf1 = { 'YES': true, }
+conf1 = {
+    'YES': true,
+}
 result1 = sources.apply(conf1)
 
-executable('first', sources: result1.sources(), dependencies: result1.dependencies())
+executable(
+    'first',
+    sources: result1.sources(),
+    dependencies: result1.dependencies(),
+)
