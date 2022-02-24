@@ -253,12 +253,12 @@ tests = [
     ['common/248 install_emptydir', {'should_fail': true}],
     ['common/249 install_symlink', {'should_fail': true}],
     ['common/250 system include dir', {}],
-    
+
     # unit
     ['unit/65 alias target', {}],
 ]
 
-ninja = find_program('ninja', required: false)
+ninja = find_program('ninja', 'samu', required: false)
 if not ninja.found()
     subdir_done()
 endif
