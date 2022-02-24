@@ -17,6 +17,25 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
+static uint32_t
+configure_var_len(const char *p)
+{
+	uint32_t i = 0;
+
+	// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
+	while (p[i] &&
+	       (('a' <= p[i] && p[i] <= 'z')
+		|| ('A' <= p[i] && p[i] <= 'Z')
+		|| ('0' <= p[i] && p[i] <= '9')
+		|| '_' == p[i]
+		|| '-' == p[i]
+	       )) {
+		++i;
+	}
+
+	return i;
+}
+
 static void
 abuf_push(char **buf, uint64_t *cap, uint64_t *i, const char *str, uint32_t len)
 {
@@ -61,8 +80,6 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		varstart = "@";
 		varend = '@';
 	}
-	/* L("in: %s", in); */
-	/* L("out: %s", out); */
 	const uint32_t define_len = strlen(define),
 		       varstart_len = strlen(varstart);
 
@@ -80,45 +97,35 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	out_cap = src.len;
 	out_buf = z_calloc(out_cap, 1);
 
-	uint32_t i, id_start, id_end = 0,
+	uint32_t i, id_start, // id_end = 0,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
-		/* L("%c '%s'", src.src[i], out_buf); */
 		if (src.src[i] == '\n') {
 			start_of_line = i + 1;
 			++line;
 		}
 
 		if (i == start_of_line && strncmp(&src.src[i], define, define_len) == 0) {
-			/* L("%s", out_buf); */
-
 			i += define_len;
 			id_start = i;
 			id_start_line = line;
-			id_start_col = i - start_of_line;
+			id_start_col = i - start_of_line + 1;
+			i += configure_var_len(&src.src[id_start]);
 
-			char *end = strchr(&src.src[id_start], '\n');
 			const char *sub = NULL, *deftype = "#define";
 
-			if (!end) {
-				error_messagef(&src, id_start_line, id_start_col, "got EOF while scanning #mesondefine");
+			if (src.src[i] != '\n') {
+				error_messagef(&src, id_start_line, i - start_of_line + 1, "extraneous characters on %sline", define);
 				return false;
 			}
 
-			id_end = end - src.src;
-			i = id_end - 1;
-			++line;
-
-			strncpy(tmp_buf, &src.src[id_start], id_end - id_start);
-			tmp_buf[i - id_start + 1] = 0;
-
-			if (id_end - id_start == 0) {
+			if (i == id_start) {
 				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 				return false;
-			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_end - id_start, &elem)) {
+			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
 				deftype = "/* undef";
 				sub = "*/";
 				goto write_mesondefine;
@@ -141,7 +148,8 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				break;
 			default:
 				error_messagef(&src, id_start_line, id_start_col,
-					"invalid type for #mesondefine: '%s'",
+					"invalid type for %s: '%s'",
+					define,
 					obj_type_to_s(get_obj_type(wk, elem)));
 				return false;
 			}
@@ -149,11 +157,13 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 write_mesondefine:
 			abuf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
 			abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
-			abuf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], id_end - id_start);
+			abuf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], i - id_start);
 			if (sub) {
 				abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
 				abuf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
 			}
+
+			i -= 1; // so we catch the newline
 		} else if (src.src[i] == '\\') {
 			/* cope with weird config file escaping rules :(
 			 *
@@ -192,23 +202,12 @@ write_mesondefine:
 				i += varstart_len - 1;
 			}
 		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
-			// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
 
 			i += varstart_len;
 			id_start_line = line;
 			id_start = i;
 			id_start_col = id_start - start_of_line + 1;
-
-			while (('a' <= src.src[i] && src.src[i] <= 'z')
-			       || ('A' <= src.src[i] && src.src[i] <= 'Z')
-			       || ('0' <= src.src[i] && src.src[i] <= '9')
-			       || '_' == src.src[i]
-			       || '-' == src.src[i]
-			       ) {
-				++i;
-			}
-
-			id_end = i - 1;
+			i += configure_var_len(&src.src[id_start]);
 
 			if (src.src[i] != varend) {
 				i = id_start - 1;
@@ -216,7 +215,7 @@ write_mesondefine:
 				continue;
 			}
 
-			if (i == id_start) {
+			if (i <= id_start) {
 				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
 				return false;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
