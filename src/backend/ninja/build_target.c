@@ -186,12 +186,22 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
+{
+	struct dep_args_ctx *ctx = _ctx;
+
+	obj_array_push(wk, ctx->include_dirs, inc_id);
+	return ir_cont;
+}
+
+
 static bool
 tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
 {
 	if (tgt->include_directories) {
 		if (!obj_array_foreach_flat(wk, tgt->include_directories,
-			ctx, dep_args_includes_iter)) {
+			ctx, tgt_args_includes_iter)) {
 			return false;
 		}
 	}

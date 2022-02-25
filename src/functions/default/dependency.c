@@ -250,6 +250,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_not_found_message,
 		kw_disabler,
 		kw_method,
+		kw_include_type,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required" },
@@ -263,11 +264,20 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_not_found_message] = { "not_found_message", obj_string },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_method] = { "method", obj_string },
+		[kw_include_type] = { "include_type", obj_string },
 		0
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	enum include_type inc_type = include_type_preserve;
+	if (akw[kw_include_type].set) {
+		if (!coerce_include_type(wk, get_str(wk, akw[kw_include_type].val),
+			akw[kw_include_type].node, &inc_type)) {
+			return false;
+		}
 	}
 
 	if (akw[kw_method].set) {
@@ -346,6 +356,12 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		if (!get_dependency(wk, &ctx)) {
 			return false;
 		}
+	}
+
+	// set the include type if the return value is not a disabler
+	if (get_obj_type(wk, *res) == obj_dependency) {
+		struct obj_dependency *dep = get_obj_dependency(wk, *res);
+		dep->include_type = inc_type;
 	}
 
 	return true;

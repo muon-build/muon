@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "coerce.h"
 #include "external/libpkgconf.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
@@ -10,10 +11,33 @@
 #include "log.h"
 #include "platform/path.h"
 
-enum iteration_result
+static enum iteration_result
 dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 {
 	struct dep_args_ctx *ctx = _ctx;
+
+	struct obj_include_directory *inc = get_obj_include_directory(wk, inc_id);
+
+	bool new_is_system = inc->is_system;
+
+	switch (ctx->include_type) {
+	case include_type_preserve:
+		break;
+	case include_type_system:
+		new_is_system = true;
+		break;
+	case include_type_non_system:
+		new_is_system = false;
+		break;
+	}
+
+	if (inc->is_system != new_is_system) {
+		make_obj(wk, &inc_id, obj_include_directory);
+		struct obj_include_directory *new_inc =
+			get_obj_include_directory(wk, inc_id);
+		*new_inc = *inc;
+		new_inc->is_system = new_is_system;
+	}
 
 	obj_array_push(wk, ctx->include_dirs, inc_id);
 	return ir_cont;
@@ -89,6 +113,8 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (tgt->include_directories) {
+			ctx->include_type = include_type_preserve;
+
 			if (!obj_array_foreach_flat(wk, tgt->include_directories,
 				ctx, dep_args_includes_iter)) {
 				return ir_err;
@@ -165,8 +191,10 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->include_directories && !(ctx->parts & dep_flag_no_includes)) {
+			ctx->include_type = dep->include_type;
+
 			if (!obj_array_foreach_flat(wk, dep->include_directories,
-				_ctx, dep_args_includes_iter)) {
+				ctx, dep_args_includes_iter)) {
 				return ir_err;
 			}
 		}
@@ -453,12 +481,66 @@ func_dependency_partial_dependency(struct workspace *wk, obj rcvr, uint32_t args
 	return true;
 }
 
+static bool
+func_dependency_as_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	enum include_type inc_type = include_type_system;
+	if (ao[0].set) {
+		if (!coerce_include_type(wk, get_str(wk, ao[0].val), ao[0].node, &inc_type)) {
+			return false;
+		}
+	}
+
+	make_obj(wk, res, obj_dependency);
+
+	struct obj_dependency *dep = get_obj_dependency(wk, *res);
+
+	*dep = *get_obj_dependency(wk, rcvr);
+	dep->include_type = inc_type;
+
+	return true;
+}
+
+static bool
+func_dependency_include_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	const char *s = NULL;
+	switch (get_obj_dependency(wk, rcvr)->include_type) {
+	case include_type_preserve:
+		s = "preserve";
+		break;
+	case include_type_system:
+		s = "system";
+		break;
+	case include_type_non_system:
+		s = "non-system";
+		break;
+	default:
+		assert(false && "unreachable");
+		break;
+	}
+
+	*res = make_str(wk, s);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_dependency[] = {
+	{ "as_system", func_dependency_as_system },
 	{ "found", func_dependency_found },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
 	{ "get_variable", func_dependency_get_variable },
+	{ "include_type", func_dependency_include_type },
+	{ "partial_dependency", func_dependency_partial_dependency },
 	{ "type_name", func_dependency_type_name },
 	{ "version", func_dependency_version },
-	{ "partial_dependency", func_dependency_partial_dependency },
 	{ NULL, NULL },
 };

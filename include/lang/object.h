@@ -193,6 +193,12 @@ enum dep_flags {
 			 | dep_flag_no_sources,
 };
 
+enum include_type {
+	include_type_preserve,
+	include_type_system,
+	include_type_non_system,
+};
+
 struct obj_dependency {
 	obj name; // obj_string
 	obj version; // obj_string
@@ -205,6 +211,7 @@ struct obj_dependency {
 	obj deps; // obj_array
 	obj compile_args; // obj_array
 	enum dep_flags flags;
+	enum include_type include_type;
 };
 
 struct obj_feature_opt {

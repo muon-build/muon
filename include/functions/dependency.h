@@ -11,9 +11,8 @@ struct dep_args_ctx {
 	    rpath;
 	bool relativize, recursive;
 	enum dep_flags parts;
+	enum include_type include_type;
 };
-
-enum iteration_result dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id);
 
 void dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx);
 bool deps_args_link_with_only(struct workspace *wk, obj link_with, struct dep_args_ctx *ctx);

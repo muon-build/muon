@@ -11,6 +11,28 @@
 #include "platform/path.h"
 
 bool
+coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_node, enum include_type *res)
+{
+	static const char *include_type_strs[] = {
+		[include_type_preserve] = "preserve",
+		[include_type_system] = "system",
+		[include_type_non_system] = "non-system",
+		0,
+	};
+
+	uint32_t i;
+	for (i = 0; include_type_strs[i]; ++i) {
+		if (str_eql(str, &WKSTR(include_type_strs[i]))) {
+			*res = i;
+			return true;
+		}
+	}
+
+	interp_error(wk, err_node, "invalid value for include_type: %s", str->s);
+	return false;
+}
+
+bool
 coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	switch (get_obj_type(wk, val)) {
