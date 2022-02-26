@@ -259,10 +259,10 @@ tests = [
 
     # native
     ['native/1 trivial', {}],
-    ['native/2 global arg', {'should_fail': true}],
+    ['native/2 global arg', {}],
     ['native/3 pipeline', {'should_fail': true}],
     ['native/4 tryrun', {'should_fail': true}],
-    ['native/5 install script', {'should_fail': true}],
+    ['native/5 install script', {}],
     ['native/6 add language', {'should_fail': true}],
     ['native/7 selfbuilt custom', {'should_fail': true}],
     ['native/8 external program shebang parsing', {'should_fail': true}],
