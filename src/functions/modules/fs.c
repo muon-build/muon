@@ -219,15 +219,38 @@ func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	return true;
 }
 
+static bool
+func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const char *path;
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path)) {
+		return false;
+	}
+
+	char basename[PATH_MAX];
+	if (!path_basename(basename, PATH_MAX, path)) {
+		return false;
+	}
+
+	*res = make_str(wk, basename);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "exists", func_module_fs_exists },
+	{ "expanduser", func_module_fs_expanduser },
 	{ "is_absolute", func_module_fs_is_absolute },
 	{ "is_dir", func_module_fs_is_dir },
 	{ "is_file", func_module_fs_is_file },
 	{ "is_symlink", func_module_fs_is_symlink },
+	{ "name", func_module_fs_name },
 	{ "parent", func_module_fs_parent },
 	{ "read", func_module_fs_read },
 	{ "write", func_module_fs_write },
-	{ "expanduser", func_module_fs_expanduser },
 	{ NULL, NULL },
 };
