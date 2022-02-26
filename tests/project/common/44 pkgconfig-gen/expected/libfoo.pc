@@ -1,0 +1,13 @@
+prefix=/usr/local
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+foo=bar
+datadir=${prefix}/data
+
+Name: libfoo
+Description: A foo library.
+Version: 1.0
+Requires: libanswer
+Libs: -L${libdir} -lfoo
+Cflags: -I${includedir} -DLIBFOO

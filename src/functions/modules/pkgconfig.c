@@ -98,8 +98,8 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 
 	fprintf(f,
 		"prefix=/usr/local\n"
-		"libdir=${prefix}/lib\n"
 		"includedir=${prefix}/include\n"
+		"libdir=${prefix}/lib\n"
 		"\n"
 		"Name: %s\n"
 		"Description: %s\n"

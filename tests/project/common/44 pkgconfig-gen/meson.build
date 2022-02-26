@@ -184,6 +184,8 @@ pkgg.generate(
 )
 to_validate += 'libvartest2'
 
+cmp = find_program('diff')
+
 foreach pc : to_validate
     test(
         'validate' + pc,
@@ -191,8 +193,13 @@ foreach pc : to_validate
         args: ['--validate', pc],
         env: ['PKG_CONFIG_PATH=' + meson.current_build_dir() + '/muon-private'],
     )
-endforeach
 
-# this test doesn't fail, but it actually generates stub pc files.
-# TODO: add some tests that diff the meson generated pc files
-error()
+    test(
+        'diff ' + pc,
+        cmp,
+        args: [
+            files('expected' / pc + '.pc'),
+            meson.current_build_dir() + '/muon-private' / pc + '.pc',
+        ],
+    )
+endforeach

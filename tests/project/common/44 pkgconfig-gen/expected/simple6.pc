@@ -1,0 +1,9 @@
+prefix=/usr/local
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: simple6
+Description: pkgconfig-gen: simple6
+Version: undefined
+Libs: -L${libdir} -lsimple6
+Cflags: -I${includedir}

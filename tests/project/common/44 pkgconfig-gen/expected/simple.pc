@@ -1,0 +1,11 @@
+prefix=/usr/local
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: libsimple
+Description: A simple demo library.
+Version: 1.0
+Requires: glib-2.0
+Requires.private: gio-2.0, gobject-2.0
+Libs: -L${libdir} -lsimple -lz
+Cflags: -I${includedir}

@@ -1,0 +1,12 @@
+prefix=/usr/local
+bindir=${prefix}/bin
+includedir=${prefix}/include
+
+datadir=${prefix}/data
+foo=${datadir}/foo
+bar=${bindir}/bar
+
+Name: libvartest
+Description: Check that implicit vars are created
+Version: 1.0
+Cflags: -I${includedir}
