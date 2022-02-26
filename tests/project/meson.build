@@ -256,6 +256,17 @@ tests = [
 
     # unit
     ['unit/65 alias target', {}],
+
+    # native
+    ['native/1 trivial', {}],
+    ['native/2 global arg', {'should_fail': true}],
+    ['native/3 pipeline', {'should_fail': true}],
+    ['native/4 tryrun', {'should_fail': true}],
+    ['native/5 install script', {'should_fail': true}],
+    ['native/6 add language', {'should_fail': true}],
+    ['native/7 selfbuilt custom', {'should_fail': true}],
+    ['native/8 external program shebang parsing', {'should_fail': true}],
+    ['native/9 override with exe', {'should_fail': true}],
 ]
 
 ninja = find_program('ninja', 'samu', required: false)
@@ -284,7 +295,7 @@ foreach t : tests
             test_dir / t[0],
             skip_exit_code.to_string(),
         ],
-        suite: 'project',
+        suite: 'project/' + t[0].split('/')[0],
         kwargs: t[1],
     )
 endforeach
