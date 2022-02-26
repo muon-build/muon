@@ -51,7 +51,7 @@ tests = [
     ['common/50 custom target chain', {}],
     ['common/51 run target', {'should_fail': true}],
     ['common/52 object generator', {}],
-    ['common/53 install script', {'should_fail': true}],
+    ['common/53 install script', {}],
     ['common/54 custom target source output', {}],
     ['common/55 exe static shared', {}],
     ['common/56 array methods', {'should_fail': true}],
