@@ -192,3 +192,7 @@ foreach pc : to_validate
         env: ['PKG_CONFIG_PATH=' + meson.current_build_dir() + '/muon-private'],
     )
 endforeach
+
+# this test doesn't fail, but it actually generates stub pc files.
+# TODO: add some tests that diff the meson generated pc files
+error()
