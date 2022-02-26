@@ -1,1 +1,1 @@
-exe = executable('exe', 'exe.c', install : false, native : true)
+exe = executable('exe', 'exe.c', install: false, native: true)
