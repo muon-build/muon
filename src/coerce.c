@@ -105,11 +105,6 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 		break;
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
-		if (o->type != tgt_executable) {
-			interp_error(wk, node, "only exe build targets can be used here");
-			return ir_err;
-		}
-
 		char tmp1[PATH_MAX], dest[PATH_MAX];
 
 		if (!path_join(dest, PATH_MAX, get_cstr(wk, o->build_dir),

@@ -264,7 +264,7 @@ tests = [
     ['native/4 tryrun', {'should_fail': true}],
     ['native/5 install script', {}],
     ['native/6 add language', {}],
-    ['native/7 selfbuilt custom', {'should_fail': true}],
+    ['native/7 selfbuilt custom', {}],
     ['native/8 external program shebang parsing', {'should_fail': true}],
     ['native/9 override with exe', {'should_fail': true}],
 ]
