@@ -304,7 +304,7 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", obj_any },
-		[kw_native] = { "version", obj_bool },
+		[kw_native] = { "native", obj_bool },
 		0
 	};
 
