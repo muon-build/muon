@@ -5,6 +5,7 @@
 #include "coerce.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
+#include "functions/generator.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/path.h"
@@ -121,7 +122,6 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	obj file;
 	enum obj_type t = get_obj_type(wk, val);
 
-
 	switch (t) {
 	case obj_string: {
 		if (!coerce_string_to_file(wk, val, &file)) {
@@ -139,6 +139,17 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 		break;
+	}
+	case obj_generated_list: {
+		obj res;
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, false, &res)) {
+			return ir_err;
+		}
+
+		if (!obj_array_foreach(wk, res, ctx, build_target_extract_objects_iter)) {
+			return ir_err;
+		}
+		return ir_cont;
 	}
 	default:
 		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(t));

@@ -7,6 +7,7 @@
 #include "functions/generator.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/path.h"
 
 struct generated_list_process_for_target_ctx {
 	obj name;
@@ -15,6 +16,7 @@ struct generated_list_process_for_target_ctx {
 	struct obj_generated_list *gl;
 	struct obj_build_target *tgt;
 	const char *dir;
+	bool add_targets;
 	obj *res;
 };
 
@@ -26,7 +28,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 	obj tgt;
 	if (!make_custom_target(
 		wk,
-		make_str(wk, "<generated>"),
+		0,
 		ctx->node,
 		ctx->node,
 		ctx->node,
@@ -43,32 +45,38 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 
 	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
 
-	if (ctx->g->depends) {
-		obj_array_extend(wk, t->depends, ctx->g->depends);
-	}
-
-	obj_array_push(wk, current_project(wk)->targets, tgt);
-
 	obj file;
-	obj_array_flatten_one(wk, get_obj_custom_target(wk, tgt)->output, &file);
+	obj_array_flatten_one(wk, t->output, &file);
+	obj_array_push(wk, *ctx->res, file);
 
-	enum compiler_language l;
-	if (filename_to_compiler_language(get_cstr(wk, *get_obj_file(wk, file)), &l)
-	    && languages[l].is_header) {
-		ctx->tgt->flags |= build_tgt_generated_include;
+	if (ctx->add_targets) {
+		const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
+
+		enum compiler_language l;
+		if (filename_to_compiler_language(generated_path, &l)
+		    && languages[l].is_header) {
+			ctx->tgt->flags |= build_tgt_generated_include;
+		}
+
+		char rel[PATH_MAX];
+		if (!path_relative_to(rel, PATH_MAX, wk->build_root, generated_path)) {
+		}
+
+		t->name = make_strf(wk, "<generated %s>", rel);
+		if (ctx->g->depends) {
+			obj_array_extend(wk, t->depends, ctx->g->depends);
+		}
+		obj_array_push(wk, current_project(wk)->targets, tgt);
 	}
 
-	obj_array_push(wk, *ctx->res, file);
 	return ir_cont;
 }
 
 bool
 generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
-	obj gl, obj tgt_id, obj *res)
+	obj gl, struct obj_build_target *tgt, bool add_targets, obj *res)
 {
-
 	struct obj_generated_list *list = get_obj_generated_list(wk, gl);
-	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 
 	char tgt_parts[PATH_MAX];
 	if (!tgt_parts_dir(wk, tgt, false, tgt_parts)) {
@@ -84,6 +92,7 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 		.gl = list,
 		.tgt = tgt,
 		.dir = tgt_parts,
+		.add_targets = add_targets,
 		.res = res,
 	};
 

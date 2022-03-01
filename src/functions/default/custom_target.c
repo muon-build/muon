@@ -313,8 +313,8 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	};
 
 	const char *key_names[cmd_output_fmt_key_count] = {
-		[key_plainname         ] = "PLAINNAME",
-		[key_basename          ] = "BASENAME",
+		[key_plainname] = "PLAINNAME",
+		[key_basename] = "BASENAME",
 	};
 
 	enum cmd_output_fmt_key key;

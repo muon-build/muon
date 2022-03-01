@@ -91,7 +91,8 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
-	obj res, tgt;
+	struct obj_build_target *tgt;
+	obj res;
 };
 
 static enum iteration_result
@@ -102,7 +103,7 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (get_obj_type(wk, val)) {
 	case obj_generated_list:
-		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, &res)) {
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, true, &res)) {
 			return ir_err;
 		}
 		break;
@@ -316,7 +317,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		struct process_build_tgt_sources_ctx ctx = {
 			.err_node = an[1].node,
 			.res = tgt->src,
-			.tgt = *res,
+			.tgt = tgt,
 		};
 
 		if (!obj_array_foreach_flat(wk, an[1].val, &ctx, process_build_tgt_sources_iter)) {
