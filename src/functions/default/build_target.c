@@ -91,7 +91,7 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
-	struct obj_build_target *tgt;
+	obj tgt_id;
 	obj res;
 };
 
@@ -103,7 +103,7 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (get_obj_type(wk, val)) {
 	case obj_generated_list:
-		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, true, &res)) {
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt_id, true, &res)) {
 			return ir_err;
 		}
 		break;
@@ -299,6 +299,21 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		return false;
 	}
 
+	{ /* tgt_build_path */
+		char path[PATH_MAX] = { 0 };
+		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
+			return false;
+		}
+
+		tgt->build_path = make_str(wk, path);
+
+		if (!path_add_suffix(path, PATH_MAX, ".p")) {
+			return false;
+		}
+
+		tgt->private_path = make_str(wk, path);
+	}
+
 	{ // sources
 		if (akw[bt_kw_sources].set) {
 			obj arr;
@@ -317,7 +332,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		struct process_build_tgt_sources_ctx ctx = {
 			.err_node = an[1].node,
 			.res = tgt->src,
-			.tgt = tgt,
+			.tgt_id = *res,
 		};
 
 		if (!obj_array_foreach_flat(wk, an[1].val, &ctx, process_build_tgt_sources_iter)) {

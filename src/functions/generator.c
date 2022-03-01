@@ -10,13 +10,11 @@
 #include "platform/path.h"
 
 struct generated_list_process_for_target_ctx {
-	obj name;
 	uint32_t node;
 	struct obj_generator *g;
 	struct obj_generated_list *gl;
-	struct obj_build_target *tgt;
 	const char *dir;
-	bool add_targets;
+	bool add_targets, generated_include;
 	obj *res;
 };
 
@@ -53,9 +51,10 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
 
 		enum compiler_language l;
-		if (filename_to_compiler_language(generated_path, &l)
+		if (!ctx->generated_include
+		    && filename_to_compiler_language(generated_path, &l)
 		    && languages[l].is_header) {
-			ctx->tgt->flags |= build_tgt_generated_include;
+			ctx->generated_include = true;
 		}
 
 		char rel[PATH_MAX];
@@ -74,27 +73,41 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 
 bool
 generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
-	obj gl, struct obj_build_target *tgt, bool add_targets, obj *res)
+	obj gl, obj tgt, bool add_targets, obj *res)
 {
 	struct obj_generated_list *list = get_obj_generated_list(wk, gl);
 
-	char tgt_parts[PATH_MAX];
-	if (!tgt_parts_dir(wk, tgt, false, tgt_parts)) {
+	enum obj_type t = get_obj_type(wk, tgt);
+
+	const char *private_path;
+
+	switch (t) {
+	case obj_build_target:
+		private_path = get_cstr(wk, get_obj_build_target(wk, tgt)->private_path);
+		break;
+	case obj_custom_target: {
+		private_path = get_cstr(wk, get_obj_custom_target(wk, tgt)->private_path);
+		break;
+	}
+	default:
+		assert(false && "invalid tgt type");
 		return false;
 	}
 
 	make_obj(wk, res, obj_array);
 
 	struct generated_list_process_for_target_ctx ctx = {
-		.name = make_str(wk, "<generated source>"),
 		.node = err_node,
 		.g = get_obj_generator(wk, list->generator),
 		.gl = list,
-		.tgt = tgt,
-		.dir = tgt_parts,
+		.dir = private_path,
 		.add_targets = add_targets,
 		.res = res,
 	};
+
+	if (add_targets && t == obj_build_target) {
+		get_obj_build_target(wk, tgt)->flags |= build_tgt_generated_include;
+	}
 
 	if (!obj_array_foreach(wk, list->input, &ctx, generated_list_process_for_target_iter)) {
 		return false;

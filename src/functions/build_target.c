@@ -11,50 +11,19 @@
 #include "platform/path.h"
 
 bool
-tgt_build_path(struct workspace *wk, const struct obj_build_target *tgt, bool relative, char res[PATH_MAX])
-{
-	char tmp[PATH_MAX] = { 0 };
-	if (!path_join(tmp, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
-		return false;
-	}
-
-	if (relative) {
-		if (!path_relative_to(res, PATH_MAX, wk->build_root, tmp)) {
-			return false;
-		}
-	} else {
-		memcpy(res, tmp, PATH_MAX);
-	}
-
-	return true;
-}
-
-bool
-tgt_parts_dir(struct workspace *wk, const struct obj_build_target *tgt, bool relative, char res[PATH_MAX])
-{
-	char build_path[PATH_MAX];
-	if (!tgt_build_path(wk, tgt, relative, build_path)) {
-		return false;
-	}
-
-	memcpy(res, build_path, PATH_MAX);
-	if (!path_add_suffix(res, PATH_MAX, ".p")) {
-		return false;
-	}
-
-	return true;
-}
-
-bool
 tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt, obj src_file, bool relative, char res[PATH_MAX])
 {
 	obj src = *get_obj_file(wk, src_file);
 
-	char rel[PATH_MAX], parts_dir[PATH_MAX];
-	const char *base;
+	char private_path_rel[PATH_MAX], rel[PATH_MAX];
+	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
-	if (!tgt_parts_dir(wk, tgt, relative, parts_dir)) {
-		return false;
+	if (relative) {
+		if (!path_relative_to(private_path_rel, PATH_MAX, wk->build_root, private_path)) {
+			return false;
+		}
+
+		private_path = private_path_rel;
 	}
 
 	if (path_is_subpath(get_cstr(wk, tgt->build_dir), get_cstr(wk, src))) {
@@ -65,13 +34,14 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 		get_cstr(wk, src))) {
 		base = get_cstr(wk, tgt->cwd);
 	} else {
+		// TODO: what if the file comes from outside the source root!
 		// file is in source root
 		base = wk->source_root;
 	}
 
 	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src))) {
 		return false;
-	} else if (!path_join(res, PATH_MAX, parts_dir, rel)) {
+	} else if (!path_join(res, PATH_MAX, private_path, rel)) {
 		return false;
 	} else if (!path_add_suffix(res, PATH_MAX, ".o")) {
 		return false;
@@ -100,18 +70,14 @@ func_build_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, 
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, rcvr);
 
-	char path[PATH_MAX];
-	if (!tgt_build_path(wk, tgt, false, path)) {
-		return false;
-	}
-
-	*res = make_str(wk, path);
+	*res = tgt->build_path;
 	return true;
 }
 
 struct build_target_extract_objects_ctx {
 	uint32_t err_node;
 	struct obj_build_target *tgt;
+	obj tgt_id;
 	obj *res;
 };
 
@@ -142,7 +108,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_generated_list: {
 		obj res;
-		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, false, &res)) {
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt_id, false, &res)) {
 			return ir_err;
 		}
 
@@ -207,6 +173,7 @@ func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_
 		.err_node = an[0].node,
 		.res = res,
 		.tgt = get_obj_build_target(wk, rcvr),
+		.tgt_id = rcvr,
 	};
 
 	return obj_array_foreach_flat(wk, an[0].val, &ctx, build_target_extract_objects_iter);
@@ -229,6 +196,7 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rc
 		.err_node = err_node,
 		.res = res,
 		.tgt = get_obj_build_target(wk, rcvr),
+		.tgt_id = rcvr,
 	};
 
 	return obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter);

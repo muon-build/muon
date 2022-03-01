@@ -6,6 +6,7 @@
 #include "args.h"
 #include "coerce.h"
 #include "functions/default/custom_target.h"
+#include "functions/generator.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -386,6 +387,36 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 	return ir_cont;
 }
 
+struct process_custom_tgt_sources_ctx {
+	uint32_t err_node;
+	obj tgt_id;
+	obj res;
+};
+
+static enum iteration_result
+process_custom_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj res;
+	struct process_custom_tgt_sources_ctx *ctx = _ctx;
+
+	switch (get_obj_type(wk, val)) {
+	case obj_generated_list:
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt_id, true, &res)) {
+			return ir_err;
+		}
+		break;
+	default: {
+		if (!coerce_files(wk, ctx->err_node, val, &res)) {
+			return ir_err;
+		}
+		break;
+	}
+	}
+
+	obj_array_extend(wk, ctx->res, res);
+	return ir_cont;
+}
+
 bool
 make_custom_target(struct workspace *wk,
 	obj name,
@@ -401,10 +432,41 @@ make_custom_target(struct workspace *wk,
 	obj *res)
 {
 	obj input, raw_output, output, args;
-	enum custom_target_flags flags = 0;
+
+	make_obj(wk, res, obj_custom_target);
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+	tgt->name = name;
+
+	if (name) { /* private path */
+		char path[PATH_MAX] = { 0 };
+		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, name))) {
+			return false;
+		}
+
+		if (!path_add_suffix(path, PATH_MAX, ".p")) {
+			return false;
+		}
+
+		tgt->private_path = make_str(wk, path);
+	}
 
 	if (input_orig) {
-		if (!coerce_files(wk, input_node, input_orig, &input)) {
+		make_obj(wk, &input, obj_array);
+
+		struct process_custom_tgt_sources_ctx ctx = {
+			.err_node = input_node,
+			.res = input,
+			.tgt_id = *res,
+		};
+
+		if (get_obj_type(wk, input_orig) != obj_array) {
+			obj arr_input;
+			make_obj(wk, &arr_input, obj_array);
+			obj_array_push(wk, arr_input, input_orig);
+			input_orig = arr_input;
+		}
+
+		if (!obj_array_foreach_flat(wk, input_orig, &ctx, process_custom_tgt_sources_iter)) {
 			return false;
 		} else if (!get_obj_array(wk, input)->len) {
 			interp_error(wk, input_node, "input cannot be empty");
@@ -438,18 +500,13 @@ make_custom_target(struct workspace *wk,
 	}
 
 	if (capture) {
-		flags |= custom_target_capture;
+		tgt->flags |= custom_target_capture;
 	}
 
-	make_obj(wk, res, obj_custom_target);
-	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
-
-	tgt->name = name;
 	tgt->args = args;
 	tgt->input = input;
 	tgt->output = output;
 	tgt->depends = depends;
-	tgt->flags = flags;
 
 	return true;
 }

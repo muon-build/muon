@@ -2,10 +2,6 @@
 #define MUON_FUNCTIONS_BUILD_TARGET_H
 #include "functions/common.h"
 
-bool tgt_build_path(struct workspace *wk, const struct obj_build_target *tgt,
-	bool relative, char res[PATH_MAX]);
-bool tgt_parts_dir(struct workspace *wk, const struct obj_build_target *tgt,
-	bool relative, char res[PATH_MAX]);
 bool tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 	obj src_file, bool relative, char res[PATH_MAX]);
 

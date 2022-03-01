@@ -199,20 +199,17 @@ tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 static bool
 tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
 {
-	// If we generated a header file for this target, add the parts dir to
-	// the list of include directories.
+	// If we generated a header file for this target, add the private path
+	// to the list of include directories.
 	if (tgt->flags & build_tgt_generated_include) {
-		char parts_dir[PATH_MAX];
-		if (!tgt_parts_dir(wk, tgt, false, parts_dir)) {
-			return ir_err;
-		}
+		const char *private_path = get_cstr(wk, tgt->private_path);
 
 		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(parts_dir)) {
+		if (!fs_mkdir_p(private_path)) {
 			return false;
 		}
 
-		obj_array_push(wk, ctx->include_dirs, make_str(wk, parts_dir));
+		obj_array_push(wk, ctx->include_dirs, make_str(wk, private_path));
 	}
 
 	if (tgt->include_directories) {
@@ -247,11 +244,6 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 {
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
-
-	char build_path[PATH_MAX];
-	if (!tgt_build_path(wk, tgt, true, build_path)) {
-		return ir_err;
-	}
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
@@ -367,8 +359,15 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	}
 
 	char esc_path[PATH_MAX];
-	if (!ninja_escape(esc_path, PATH_MAX, build_path)) {
-		return false;
+	{
+		char rel_build_path[PATH_MAX];
+		if (!path_relative_to(rel_build_path, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
+			return false;
+		}
+
+		if (!ninja_escape(esc_path, PATH_MAX, rel_build_path)) {
+			return false;
+		}
 	}
 
 	fprintf(out, "build %s: %s_LINKER ", esc_path, linker_type);

@@ -55,10 +55,15 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (t) {
 	case obj_build_target: {
-		char path[PATH_MAX];
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
-		if (!tgt_build_path(wk, tgt, ctx->relativize, path)) {
-			return ir_err;
+		const char *path = get_cstr(wk, tgt->build_path);
+		char rel[PATH_MAX];
+		if (ctx->relativize) {
+			if (!path_relative_to(rel, PATH_MAX, wk->build_root, path)) {
+				return false;
+			}
+
+			path = rel;
 		}
 
 		obj_array_push(wk, ctx->link_with, make_str(wk, path));

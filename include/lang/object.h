@@ -146,6 +146,8 @@ struct obj_dict {
 struct obj_build_target {
 	obj name; // obj_string
 	obj build_name; // obj_string
+	obj build_path; // obj_string
+	obj private_path; // obj_string
 	obj cwd; // obj_string
 	obj build_dir; // obj_string
 	obj soname; // obj_string
@@ -171,6 +173,7 @@ struct obj_custom_target {
 	obj input; // obj_array
 	obj output; // obj_array
 	obj depends; // obj_array
+	obj private_path; // obj_string
 	enum custom_target_flags flags;
 };
 

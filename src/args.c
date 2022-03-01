@@ -307,9 +307,19 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 			goto type_err;
 		}
 
-		char name[PATH_MAX];
-		tgt_build_path(wk, get_obj_build_target(wk, src), (ctx->mode & arr_to_args_relativize_paths), name);
-		str = make_str(wk, name);
+		struct obj_build_target *tgt = get_obj_build_target(wk, src);
+
+		char rel[PATH_MAX];
+		if (ctx->mode & arr_to_args_relativize_paths) {
+			if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
+				return false;
+			}
+
+			str = make_str(wk, rel);
+		} else {
+			str = tgt->build_path;
+		}
+
 		break;
 	}
 	case obj_custom_target: {
