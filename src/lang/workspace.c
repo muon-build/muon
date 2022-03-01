@@ -226,6 +226,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_include_directory] = { sizeof(struct obj_include_directory), 16 },
 		[obj_option] = { sizeof(struct obj_option), 32 },
 		[obj_generator] = { sizeof(struct obj_generator), 16 },
+		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
 		[obj_alias_target] = { sizeof(struct obj_alias_target), 16 },
 	};
 

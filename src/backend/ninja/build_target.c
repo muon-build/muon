@@ -9,6 +9,7 @@
 #include "functions/dependency.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/filesystem.h"
 #include "platform/path.h"
 
 struct write_tgt_iter_ctx {
@@ -195,10 +196,25 @@ tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 	return ir_cont;
 }
 
-
 static bool
 tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
 {
+	// If we generated a header file for this target, add the parts dir to
+	// the list of include directories.
+	if (tgt->flags & build_tgt_generated_include) {
+		char parts_dir[PATH_MAX];
+		if (!tgt_parts_dir(wk, tgt, false, parts_dir)) {
+			return ir_err;
+		}
+
+		// mkdir so that the include dir doesn't get pruned later on
+		if (!fs_mkdir_p(parts_dir)) {
+			return false;
+		}
+
+		obj_array_push(wk, ctx->include_dirs, make_str(wk, parts_dir));
+	}
+
 	if (tgt->include_directories) {
 		if (!obj_array_foreach_flat(wk, tgt->include_directories,
 			ctx, tgt_args_includes_iter)) {

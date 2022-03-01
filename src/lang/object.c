@@ -49,6 +49,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_include_directory:
 	case obj_option:
 	case obj_generator:
+	case obj_generated_list:
 	case obj_alias_target:
 		return bucket_array_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
@@ -142,6 +143,7 @@ OBJ_GETTER(obj_environment)
 OBJ_GETTER(obj_include_directory)
 OBJ_GETTER(obj_option)
 OBJ_GETTER(obj_generator)
+OBJ_GETTER(obj_generated_list)
 OBJ_GETTER(obj_alias_target)
 
 #undef OBJ_GETTER
@@ -183,6 +185,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_include_directory:
 	case obj_option:
 	case obj_generator:
+	case obj_generated_list:
 	case obj_alias_target: {
 		struct bucket_array *ba = &wk->obj_aos[type - _obj_aos_start];
 		val = ba->len;
@@ -229,6 +232,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_option: return "option";
 	case obj_disabler: return "disabler";
 	case obj_generator: return "generator";
+	case obj_generated_list: return "generated_list";
 	case obj_alias_target: return "alias_target";
 
 	case obj_type_count:

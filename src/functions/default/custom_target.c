@@ -394,6 +394,7 @@ make_custom_target(struct workspace *wk,
 	uint32_t command_node,
 	obj input_orig,
 	obj output_orig,
+	const char *output_dir,
 	obj command_orig,
 	obj depfile_orig,
 	bool capture,
@@ -412,7 +413,7 @@ make_custom_target(struct workspace *wk,
 		make_obj(wk, &input, obj_array);
 	}
 
-	if (!coerce_output_files(wk, output_node, output_orig, &raw_output)) {
+	if (!coerce_output_files(wk, output_node, output_orig, output_dir, &raw_output)) {
 		return false;
 	} else if (!get_obj_array(wk, raw_output)->len) {
 		interp_error(wk, output_node, "output cannot be empty");
@@ -499,6 +500,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		akw[kw_command].node,
 		akw[kw_input].val,
 		akw[kw_output].val,
+		get_cstr(wk, current_project(wk)->build_dir),
 		akw[kw_command].val,
 		akw[kw_depfile].val,
 		akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
@@ -631,6 +633,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		args_node,
 		akw[kw_input].val,
 		akw[kw_output].val,
+		get_cstr(wk, current_project(wk)->build_dir),
 		command,
 		0,
 		false,

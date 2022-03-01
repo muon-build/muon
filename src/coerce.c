@@ -192,7 +192,7 @@ enum coerce_into_files_mode {
 struct coerce_into_files_ctx {
 	uint32_t node;
 	obj arr;
-	const char *type;
+	const char *type, *output_dir;
 	exists_func exists;
 	enum coerce_into_files_mode mode;
 };
@@ -251,7 +251,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 
-			if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, val))) {
+			if (!path_join(buf, PATH_MAX, ctx->output_dir, get_cstr(wk, val))) {
 				return ir_err;
 			}
 
@@ -312,8 +312,9 @@ type_error:
 }
 
 static bool
-_coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
-	const char *type_name, exists_func exists, enum coerce_into_files_mode mode)
+_coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res,
+	const char *type_name, exists_func exists, enum coerce_into_files_mode mode,
+	const char *output_dir)
 {
 	make_obj(wk, res, obj_array);
 
@@ -323,6 +324,7 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
 		.type = type_name,
 		.exists = exists,
 		.mode = mode,
+		.output_dir = output_dir,
 	};
 
 	switch (get_obj_type(wk, val)) {
@@ -339,21 +341,21 @@ _coerce_files(struct workspace *wk, uint32_t node, uint32_t val, uint32_t *res,
 }
 
 bool
-coerce_output_files(struct workspace *wk, uint32_t node, obj val, obj *res)
+coerce_output_files(struct workspace *wk, uint32_t node, obj val, const char *output_dir, obj *res)
 {
-	return _coerce_files(wk, node, val, res, "output file", NULL, mode_output);
+	return _coerce_files(wk, node, val, res, "output file", NULL, mode_output, output_dir);
 }
 
 bool
 coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	return _coerce_files(wk, node, val, res, "file", fs_file_exists, mode_input);
+	return _coerce_files(wk, node, val, res, "file", fs_file_exists, mode_input, 0);
 }
 
 bool
 coerce_dirs(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
-	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists, mode_input);
+	return _coerce_files(wk, node, val, res, "directory", fs_dir_exists, mode_input, 0);
 }
 
 struct include_directories_iter_ctx {

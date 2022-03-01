@@ -46,6 +46,7 @@ enum obj_type {
 	obj_include_directory,
 	obj_option,
 	obj_generator,
+	obj_generated_list,
 	obj_alias_target,
 
 	obj_type_count,
@@ -107,6 +108,7 @@ enum build_tgt_flags {
 	build_tgt_flag_export_dynamic = 1 << 0,
 	build_tgt_flag_link_whole = 1 << 1,
 	build_tgt_flag_pic = 1 << 2,
+	build_tgt_generated_include = 1 << 3,
 };
 
 struct obj_internal {
@@ -285,7 +287,15 @@ struct obj_generator {
 	obj output;
 	obj raw_command;
 	obj depfile;
+	obj depends;
 	bool capture;
+};
+
+struct obj_generated_list {
+	obj generator; // obj_generator
+	obj input; // obj_array of obj_file
+	obj extra_arguments; // obj_array of obj_string
+	obj preserve_path_from; // obj_string
 };
 
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);
@@ -320,6 +330,7 @@ OBJ_GETTER(obj_environment);
 OBJ_GETTER(obj_include_directory);
 OBJ_GETTER(obj_option);
 OBJ_GETTER(obj_generator);
+OBJ_GETTER(obj_generated_list);
 OBJ_GETTER(obj_alias_target);
 
 #undef OBJ_GETTER

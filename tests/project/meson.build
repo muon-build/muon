@@ -123,7 +123,7 @@ tests = [
     ['common/122 no buildincdir', {}],
     ['common/123 custom target directory install', {}],
     ['common/124 dependency file generation', {}],
-    ['common/125 configure file in generator', {'should_fail': true}],
+    ['common/125 configure file in generator', {}],
     ['common/126 generated llvm ir', {'should_fail': true}],
     ['common/127 generated assembly', {'should_fail': true}],
     ['common/128 build by default targets in tests', {}],
@@ -260,7 +260,7 @@ tests = [
     # native
     ['native/1 trivial', {}],
     ['native/2 global arg', {}],
-    ['native/3 pipeline', {'should_fail': true}],
+    ['native/3 pipeline', {}],
     ['native/4 tryrun', {'should_fail': true}],
     ['native/5 install script', {}],
     ['native/6 add language', {}],

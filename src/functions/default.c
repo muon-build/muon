@@ -570,16 +570,6 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 	return true;
 }
 
-static enum iteration_result
-mangle_generator_output(struct workspace *wk, void *_ctx, obj val)
-{
-	struct obj_generator *gen = _ctx;
-
-	obj_array_push(wk, gen->output,
-		make_strf(wk, "muon-generated_%s", get_cstr(wk, val)));
-	return ir_cont;
-}
-
 static bool
 func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -589,12 +579,14 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_arguments,
 		kw_capture,
 		kw_depfile,
+		kw_depends,
 	};
 	struct args_kw akw[] = {
-		[kw_output]      = { "output", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
-		[kw_arguments]   = { "arguments", obj_array, .required = true },
-		[kw_capture]     = { "capture", obj_bool },
-		[kw_depfile]     = { "depfile", obj_string },
+		[kw_output] = { "output", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_arguments] = { "arguments", obj_array, .required = true },
+		[kw_capture] = { "capture", obj_bool },
+		[kw_depfile] = { "depfile", obj_string },
+		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
 		0
 	};
 
@@ -602,27 +594,31 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	obj command, args;
-	make_obj(wk, &command, obj_array);
-
-	if (akw[kw_arguments].set) {
+	obj command;
+	{
+		obj args;
+		make_obj(wk, &command, obj_array);
+		obj_array_push(wk, command, an[0].val);
 		obj_array_dup(wk, akw[kw_arguments].val, &args);
-	} else {
-		make_obj(wk, &args, obj_array);
+		obj_array_extend(wk, command, args);
 	}
-
-	obj_array_push(wk, command, an[0].val);
-	obj_array_extend(wk, command, args);
 
 	make_obj(wk, res, obj_generator);
 	struct obj_generator *gen = get_obj_generator(wk, *res);
 
-	make_obj(wk, &gen->output, obj_array);
-	obj_array_foreach(wk, akw[kw_output].val, gen, mangle_generator_output);
-
+	gen->output = akw[kw_output].val;
 	gen->raw_command = command;
 	gen->depfile = akw[kw_depfile].val;
 	gen->capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val);
+
+	if (akw[kw_depends].set) {
+		obj depends;
+		if (!coerce_files(wk, akw[kw_depends].node, akw[kw_depends].val, &depends)) {
+			return false;
+		}
+
+		gen->depends = depends;
+	}
 	return true;
 }
 

@@ -8,6 +8,7 @@
 #include "functions/build_target.h"
 #include "functions/default/build_target.h"
 #include "functions/default/options.h"
+#include "functions/generator.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -85,6 +86,35 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 	}
 
+	return ir_cont;
+}
+
+struct process_build_tgt_sources_ctx {
+	uint32_t err_node;
+	obj res, tgt;
+};
+
+static enum iteration_result
+process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj res;
+	struct process_build_tgt_sources_ctx *ctx = _ctx;
+
+	switch (get_obj_type(wk, val)) {
+	case obj_generated_list:
+		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt, &res)) {
+			return ir_err;
+		}
+		break;
+	default: {
+		if (!coerce_files(wk, ctx->err_node, val, &res)) {
+			return ir_err;
+		}
+		break;
+	}
+	}
+
+	obj_array_extend(wk, ctx->res, res);
 	return ir_cont;
 }
 
@@ -281,7 +311,15 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			obj_array_extend(wk, an[1].val, arr);
 		}
 
-		if (!coerce_files(wk, an[1].node, an[1].val, &tgt->src)) {
+		make_obj(wk, &tgt->src, obj_array);
+
+		struct process_build_tgt_sources_ctx ctx = {
+			.err_node = an[1].node,
+			.res = tgt->src,
+			.tgt = *res,
+		};
+
+		if (!obj_array_foreach_flat(wk, an[1].val, &ctx, process_build_tgt_sources_iter)) {
 			return false;
 		}
 
