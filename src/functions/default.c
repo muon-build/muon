@@ -1490,6 +1490,57 @@ func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_number }, { obj_number }, { obj_number }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	uint32_t start, stop, step;
+
+	int64_t n = get_obj_number(wk, an[0].val);
+	if (!rangecheck(wk, an[0].node, 0, UINT32_MAX, n)) {
+		return false;
+	}
+	start = n;
+
+	if (ao[0].set) {
+		int64_t n = get_obj_number(wk, ao[0].val);
+		if (!rangecheck(wk, ao[0].node, start, UINT32_MAX, n)) {
+			return false;
+		}
+
+		stop = n;
+	} else {
+		stop = start;
+		start = 0;
+	}
+
+	if (ao[1].set) {
+		int64_t n = get_obj_number(wk, ao[1].val);
+		if (!rangecheck(wk, ao[1].node, 1, UINT32_MAX, n)) {
+			return false;
+		}
+		step = n;
+	} else {
+		step = 1;
+	}
+
+	make_obj(wk, res, obj_array);
+
+	uint32_t i;
+	for (i = start; i < stop; i += step) {
+		obj num;
+		make_obj(wk, &num, obj_number);
+		set_obj_number(wk, num, i);
+		obj_array_push(wk, *res, num);
+	}
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
@@ -1531,6 +1582,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "library", func_library },
 	{ "message", func_message },
 	{ "project", func_project },
+	{ "range", func_range },
 	{ "run_command", func_run_command },
 	{ "run_target", func_run_target },
 	{ "set_variable", func_set_variable },
@@ -1544,6 +1596,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "test", func_test },
 	{ "vcs_tag", func_vcs_tag },
 	{ "warning", func_warning },
+	// non-standard muon extensions
 	{ "p", func_p },
 	{ NULL, NULL },
 };
@@ -1562,6 +1615,7 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
 	{ "p", func_p },
+	{ "range", func_range },
 	{ "run_command", func_run_command },
 	{ "set_variable", func_set_variable },
 	{ "setup", func_setup },

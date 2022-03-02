@@ -57,6 +57,17 @@ boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i)
 }
 
 bool
+rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n)
+{
+	if (n < min || n > max) {
+		interp_error(wk, n_id, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
+		return false;
+	}
+
+	return true;
+}
+
+bool
 typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type)
 {
 	enum obj_type got = get_obj_type(wk, o);

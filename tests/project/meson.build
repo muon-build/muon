@@ -58,7 +58,7 @@ tests = [
     ['common/57 custom header generator', {}],
     ['common/58 multiple generators', {}],
     ['common/59 install subdir', {}],
-    ['common/60 foreach', {'should_fail': true}],
+    ['common/60 foreach', {}],
     ['common/61 number arithmetic', {}],
     ['common/62 string arithmetic', {}],
     ['common/63 array arithmetic', {}],
