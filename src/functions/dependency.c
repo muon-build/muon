@@ -10,6 +10,7 @@
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 static enum iteration_result
 dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
@@ -48,6 +49,7 @@ static enum iteration_result dep_args_iter(struct workspace *wk, void *_ctx, obj
 static enum iteration_result
 dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 {
+	TracyCZoneAutoS;
 	struct dep_args_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 
@@ -160,6 +162,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -171,6 +174,7 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	hash_set(&wk->obj_hash, &val, true);
 
+	TracyCZoneAutoS;
 	struct dep_args_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 
@@ -243,6 +247,7 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 

@@ -9,6 +9,7 @@
 #include "lang/lexer.h"
 #include "lang/parser.h"
 #include "log.h"
+#include "tracy.h"
 
 #define NODE_MAX_CHILDREN 4
 
@@ -1223,6 +1224,7 @@ bool
 parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
 	enum parse_mode mode)
 {
+	TracyCZoneAutoS;
 	bool ret = false;
 	struct tokens toks;
 
@@ -1259,6 +1261,7 @@ parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
 	ret = parser.valid;
 ret:
 	tokens_destroy(&toks);
+	TracyCZoneAutoE;
 	return ret;
 }
 

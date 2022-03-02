@@ -9,27 +9,38 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 uint32_t func_setup_flags = 0;
 
 bool
 do_setup(struct workspace *wk)
 {
+	TracyCZoneAutoS;
 	uint32_t project_id;
 
+	TracyCZoneN(tctx_eval_project, "eval project", true);
 	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
+		TracyCZoneEnd(tctx_eval_project);
+		TracyCZoneAutoE;
 		return false;
 	}
+	TracyCZoneEnd(tctx_eval_project);
 
 	log_plain("\n");
 
+	TracyCZoneN(tctx_write_backend, "write backend", true);
 	if (!ninja_write_all(wk)) {
+		TracyCZoneEnd(tctx_write_backend);
+		TracyCZoneAutoE;
 		return false;
 	}
+	TracyCZoneEnd(tctx_write_backend);
 
 	workspace_print_summaries(wk);
 
 	LOG_I("setup complete");
+	TracyCZoneAutoE;
 	return true;
 }
 

@@ -10,7 +10,7 @@ foreach t : tests
     exe = executable(
         t[0],
         t[1],
-        include_directories: include_dir,
+        include_directories: include,
         c_args: c_args,
         kwargs: t[2],
     )

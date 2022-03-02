@@ -58,18 +58,18 @@ add_project_arguments(
 
 deps = []
 c_args = []
-
-include_dir = include_directories('include')
+include = [include_directories('include')]
 
 subdir('tools')
 subdir('src')
 
 muon = executable(
     'muon',
-    src,
-    include_directories: include_dir,
+    muon_src,
+    include_directories: include,
     dependencies: deps,
     c_args: c_args,
+    cpp_args: c_args,
     install: true,
 )
 

@@ -7,6 +7,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 // appended to custom_target environment files to make them unique
 static uint32_t custom_tgt_env_sequence = 0;
@@ -33,6 +34,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
 {
+	TracyCZoneAutoS;
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
 	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
 
@@ -40,12 +42,12 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 
 	make_obj(wk, &inputs, obj_array);
 	if (!obj_array_foreach(wk, tgt->input, &inputs, relativize_paths_iter)) {
-		return ir_err;
+		goto err;
 	}
 
 	make_obj(wk, &outputs, obj_array);
 	if (!obj_array_foreach(wk, tgt->output, &outputs, relativize_paths_iter)) {
-		return ir_err;
+		goto err;
 	}
 
 	make_obj(wk, &cmdline, obj_array);
@@ -60,7 +62,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		obj_array_index(wk, tgt->output, 0, &elem);
 
 		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
-			return ir_err;
+			goto err;
 		}
 	}
 
@@ -98,13 +100,13 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 
 	obj tgt_args;
 	if (!arr_to_args(wk, 0, tgt->args, &tgt_args)) {
-		return ir_err;
+		goto err;
 	}
 
 	obj depends_rel;
 	make_obj(wk, &depends_rel, obj_array);
 	if (!obj_array_foreach(wk, tgt->depends, &depends_rel, relativize_paths_iter)) {
-		return ir_err;
+		goto err;
 	}
 
 	if (tgt->flags & custom_target_build_always_stale) {
@@ -129,5 +131,9 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		get_cstr(wk, cmdline)
 		);
 
+	TracyCZoneAutoE;
 	return ir_cont;
+err:
+	TracyCZoneAutoE;
+	return ir_err;
 }

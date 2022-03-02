@@ -11,6 +11,7 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 struct write_tgt_iter_ctx {
 	FILE *out;
@@ -28,6 +29,7 @@ struct write_tgt_iter_ctx {
 static enum iteration_result
 write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 {
+	TracyCZoneAutoS;
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
@@ -40,10 +42,13 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		// TODO put these checks into tgt creation
 		if (!filename_to_compiler_language(src, &lang)) {
 			/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+
+			TracyCZoneAutoE;
 			return ir_cont;
 		}
 
 		if (languages[lang].is_header) {
+			TracyCZoneAutoE;
 			return ir_cont;
 		} else if (languages[lang].is_linkable) {
 			char path[PATH_MAX];
@@ -51,6 +56,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 			obj_array_push(wk, ctx->object_names, make_str(wk, path));
+			TracyCZoneAutoE;
 			return ir_cont;
 		}
 
@@ -115,12 +121,14 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	fputc('\n', ctx->out);
 
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
 static enum iteration_result
 process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 {
+	TracyCZoneAutoS;
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
@@ -129,6 +137,7 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	if (filename_to_compiler_language(src, &fl)
 	    && !languages[fl].is_header) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		TracyCZoneAutoE;
 		return ir_cont;
 	}
 
@@ -147,24 +156,28 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 
 	obj_array_push(wk, ctx->args.include_dirs, make_str(wk, dir));
 
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
 static enum iteration_result
 determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 {
+	TracyCZoneAutoS;
 	struct write_tgt_iter_ctx *ctx = _ctx;
 
 	enum compiler_language fl;
 
 	if (!filename_to_compiler_language(get_file_path(wk, val), &fl)) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		TracyCZoneAutoE;
 		return ir_cont;
 	}
 
 	switch (fl) {
 	case compiler_language_c_hdr:
 	case compiler_language_cpp_hdr:
+		TracyCZoneAutoE;
 		return ir_cont;
 	case compiler_language_c:
 	case compiler_language_c_obj:
@@ -184,6 +197,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	ctx->have_link_language = true;
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -199,6 +213,8 @@ tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 static bool
 tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
 {
+	TracyCZoneAutoS;
+
 	// If we generated a header file for this target, add the private path
 	// to the list of include directories.
 	if (tgt->flags & build_tgt_generated_include) {
@@ -213,35 +229,49 @@ tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_ar
 	}
 
 	if (tgt->include_directories) {
+		TracyCZoneN(tctx, "include_directories", true);
 		if (!obj_array_foreach_flat(wk, tgt->include_directories,
 			ctx, tgt_args_includes_iter)) {
 			return false;
 		}
+		TracyCZoneEnd(tctx);
 	}
 
+	L("include_len after include_dirs iter: %d", get_obj_array(wk, ctx->include_dirs)->len);
+
 	if (tgt->deps) {
+		TracyCZoneN(tctx, "deps", true);
 		if (!deps_args(wk, tgt->deps, ctx)) {
 			return false;
 		}
+		TracyCZoneEnd(tctx);
 	}
 
+	L("include_len after deps iter: %d", get_obj_array(wk, ctx->include_dirs)->len);
+
 	if (tgt->link_with) {
+		TracyCZoneN(tctx, "link_with", true);
 		if (!deps_args_link_with_only(wk, tgt->link_with, ctx)) {
 			return false;
 		}
+		TracyCZoneEnd(tctx);
 	}
 
 	if (tgt->link_args) {
+		TracyCZoneN(tctx, "link_args", true);
 		obj arr;
 		obj_array_dup(wk, tgt->link_args, &arr);
 		obj_array_extend(wk, ctx->link_args, arr);
+		TracyCZoneEnd(tctx);
 	}
+	TracyCZoneAutoE;
 	return true;
 }
 
 bool
 ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
 {
+	TracyCZoneAutoS;
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
@@ -254,7 +284,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	enum linker_type linker;
 	{ /* determine linker */
 		if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
-			return ir_err;
+			goto err;
 		}
 
 		if (!ctx.have_link_language) {
@@ -276,13 +306,13 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 
 		if (!ctx.have_link_language) {
 			LOG_E("unable to determine linker for target");
-			return ir_err;
+			goto err;
 		}
 
 		obj comp_id;
 		if (!obj_dict_geti(wk, ctx.proj->compilers, ctx.link_language, &comp_id)) {
 			LOG_E("no compiler defined for language %s", compiler_language_to_s(ctx.link_language));
-			return false;
+			goto err;
 		}
 
 		linker = compilers[get_obj_compiler(wk, comp_id)->type].linker;
@@ -296,23 +326,23 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 	ctx.args.recursive = true;
 
 	if (!tgt_args(wk, tgt, &ctx.args)) {
-		return false;
+		goto err;
 	}
 
 	/* sources includes */
 	if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) {
-		return false;
+		goto err;
 	}
 
 	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.compile_args, &ctx.joined_args)) {
-		return false;
+		goto err;
 	}
 
 	ctx.order_deps = join_args_ninja(wk, ctx.order_deps);
 
 	{ /* sources */
 		if (!obj_array_foreach(wk, tgt->src, &ctx, write_tgt_sources_iter)) {
-			return false;
+			goto err;
 		}
 	}
 
@@ -355,7 +385,7 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		break;
 	default:
 		assert(false);
-		return false;
+		goto err;
 	}
 
 	char esc_path[PATH_MAX];
@@ -380,5 +410,10 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		fputs(get_cstr(wk, ctx.order_deps), out);
 	}
 	fprintf(out, "\n LINK_ARGS = %s\n\n", link_args);
+
+	TracyCZoneAutoE;
 	return true;
+err:
+	TracyCZoneAutoE;
+	return false;
 }

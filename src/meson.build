@@ -138,6 +138,16 @@ endif
 foreach f : ['rpath_fixer.c']
     src += files('platform' / platform / f)
 endforeach
+# tracy
+
+if get_option('tracy')
+    add_languages('cpp')
+    c_args += ['-DTRACY_ENABLE']
+    include += include_directories([get_option('tracy_dir')])
+    src += files(get_option('tracy_dir') + '/TracyClient.cpp')
+endif
+
+muon_src = src
 
 src_platform_path = files('platform/path.c')
 src_log = files('log.c')

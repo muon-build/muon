@@ -11,6 +11,7 @@
 #include "lang/serial.h"
 #include "log.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 struct check_tgt_ctx {
 	bool need_phony;
@@ -50,20 +51,29 @@ struct write_tgt_ctx {
 static enum iteration_result
 write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
+	TracyCZoneAutoS;
+	bool ret;
 	struct write_tgt_ctx *ctx = _ctx;
 
 	enum obj_type t = get_obj_type(wk, tgt_id);
 	switch (t) {
 	case obj_alias_target:
-		return ninja_write_alias_tgt(wk, tgt_id, ctx->out);
+		ret = ninja_write_alias_tgt(wk, tgt_id, ctx->out);
+		break;
 	case obj_build_target:
-		return ninja_write_build_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		ret = ninja_write_build_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		break;
 	case obj_custom_target:
-		return ninja_write_custom_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		ret = ninja_write_custom_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		break;
 	default:
 		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
-		return ir_err;
+		ret = ir_err;
+		break;
 	}
+
+	TracyCZoneAutoE;
+	return ret;
 }
 
 static bool

@@ -10,10 +10,12 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 static bool
 get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
+	TracyCZoneAutoS;
 	uint32_t i;
 	enum compiler_optimization_lvl opt = 0;
 	bool debug = false;
@@ -79,6 +81,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 	}
 
 	push_args(wk, args_id, compilers[t].args.optimization(opt));
+	TracyCZoneAutoE;
 	return true;
 }
 
@@ -120,6 +123,7 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 {
+	TracyCZoneAutoS;
 	struct setup_compiler_args_includes_ctx *ctx = _ctx;
 	const char *dir;
 	bool is_system;
@@ -144,6 +148,7 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 
 
 	if (!fs_dir_exists(dir)) {
+		TracyCZoneAutoE;
 		return ir_cont;
 	}
 
@@ -160,6 +165,8 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 	} else {
 		push_args(wk, ctx->args, compilers[ctx->t].args.include(dir));
 	}
+
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -202,6 +209,7 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 static enum iteration_result
 setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
 {
+	TracyCZoneAutoS;
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
@@ -211,7 +219,9 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	make_obj(wk, &args, obj_array);
 
 	obj inc_dirs;
+	TracyCZoneN(tctx_inc_dedup, "dedup include dirs", true);
 	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
+	TracyCZoneEnd(tctx_inc_dedup);
 
 	if (!obj_array_foreach(wk, inc_dirs, &(struct setup_compiler_args_includes_ctx) {
 		.args = args,
@@ -220,6 +230,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		return ir_err;
 	}
 
+	TracyCZoneN(tctx_buildtype, "setup buildtype", true);
 	if (!get_std_args(wk, ctx->proj, args, lang, t)) {
 		LOG_E("unable to get std flag");
 		return ir_err;
@@ -230,40 +241,49 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		LOG_E("unable to get warning flags");
 		return ir_err;
 	}
+	TracyCZoneEnd(tctx_buildtype);
 
 	if (!setup_optional_b_args_compiler(wk, ctx->proj, args, t)) {
 		return false;
 	}
 
 	{ /* global args */
+		TracyCZoneN(tctx, "setup global args", true);
 		obj global_args, global_args_dup;
 		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
 			obj_array_dup(wk, global_args, &global_args_dup);
 			obj_array_extend(wk, args, global_args_dup);
 		}
+		TracyCZoneEnd(tctx);
 	}
 
 	{ /* project args */
+		TracyCZoneN(tctx, "setup project args", true);
 		obj proj_args, proj_args_dup;
 		if (obj_dict_geti(wk, ctx->proj->args, lang, &proj_args)) {
 			obj_array_dup(wk, proj_args, &proj_args_dup);
 			obj_array_extend(wk, args, proj_args_dup);
 		}
+		TracyCZoneEnd(tctx);
 	}
 
 	{ /* dep args */
+		TracyCZoneN(tctx, "setup dep args", true);
 		if (ctx->dep_args) {
 			obj_array_extend(wk, args, ctx->dep_args);
 		}
+		TracyCZoneEnd(tctx);
 	}
 
 	{ /* target args */
+		TracyCZoneN(tctx, "setup tgt args", true);
 		obj tgt_args, tgt_args_dup;
 		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args)
 		    && tgt_args && get_obj_array(wk, tgt_args)->len) {
 			obj_array_dup(wk, tgt_args, &tgt_args_dup);
 			obj_array_extend(wk, args, tgt_args_dup);
 		}
+		TracyCZoneEnd(tctx);
 	}
 
 	if ((ctx->tgt->flags & build_tgt_flag_pic) ||
@@ -272,6 +292,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	}
 
 	obj_dict_seti(wk, ctx->joined_args, lang, join_args_shell_ninja(wk, args));
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -280,6 +301,7 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args,
 	obj *joined_args)
 {
+	TracyCZoneAutoS;
 	make_obj(wk, joined_args, obj_dict);
 
 	struct setup_compiler_args_ctx ctx = {
@@ -294,6 +316,7 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 		return false;
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }
 
@@ -338,6 +361,7 @@ void
 setup_linker_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, struct setup_linker_args_ctx *ctx)
 {
+	TracyCZoneAutoS;
 	obj link_with;
 	obj_array_dedup(wk, ctx->args->link_with, &link_with);
 	ctx->args->link_with = link_with;
@@ -386,4 +410,6 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 
 		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.end_group());
 	}
+
+	TracyCZoneAutoE;
 }

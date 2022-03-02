@@ -14,3 +14,16 @@ option(
     description: 'try to link dependencies statically',
 )
 option('docs', type: 'feature', value: 'auto', description: 'build documentation')
+
+option(
+    'tracy',
+    type: 'boolean',
+    value: false,
+    description: 'enable tracy profiler integration',
+)
+option(
+    'tracy_dir',
+    type: 'string',
+    value: '',
+    description: 'location of tracy profiler checkout',
+)
