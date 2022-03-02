@@ -54,7 +54,7 @@ tests = [
     ['common/53 install script', {}],
     ['common/54 custom target source output', {}],
     ['common/55 exe static shared', {}],
-    ['common/56 array methods', {'should_fail': true}],
+    ['common/56 array methods', {}],
     ['common/57 custom header generator', {}],
     ['common/58 multiple generators', {}],
     ['common/59 install subdir', {}],

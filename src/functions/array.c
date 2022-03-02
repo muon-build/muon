@@ -42,6 +42,31 @@ func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+struct array_contains_ctx {
+	obj item;
+	bool found;
+};
+
+static enum iteration_result
+array_contains_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct array_contains_ctx *ctx = _ctx;
+
+	if (get_obj_type(wk, val) == obj_array) {
+		obj_array_foreach(wk, val, ctx, array_contains_iter);
+		if (ctx->found) {
+			return ir_done;
+		}
+	}
+
+	if (obj_equal(wk, val, ctx->item)) {
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
 static bool
 func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -50,8 +75,11 @@ func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
+	struct array_contains_ctx ctx = { .item = an[0].val };
+	obj_array_foreach(wk, rcvr, &ctx, array_contains_iter);
+
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, obj_array_in(wk, rcvr, an[0].val));
+	set_obj_bool(wk, *res, ctx.found);
 	return true;
 }
 
