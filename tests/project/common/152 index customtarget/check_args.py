@@ -2,21 +2,21 @@
 
 import sys
 import os
-from pathlib import Path, PurePath
+from pathlib import Path
+
 
 def main():
     if len(sys.argv) != 2:
         print("wrong argv")
         return 1
 
-    rel = str(PurePath(sys.argv[1]).relative_to(os.getcwd()))
-
-    if rel != 'gen.c':
-        print(f"{rel} != gen.c")
+    if sys.argv[1] != "gen.c":
+        print(f"{sys.argv[1]} != gen.c")
         return 2
-    Path('foo').touch()
+    Path("foo").touch()
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

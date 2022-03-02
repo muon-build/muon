@@ -17,6 +17,7 @@ struct custom_target_cmd_fmt_ctx {
 	uint32_t err_node;
 	obj arr, input, output, depfile, depends, name;
 	bool skip_depends;
+	bool relativize;
 };
 
 static bool
@@ -31,6 +32,31 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 	}
 
 	return false;
+}
+
+static bool
+str_relative_to_build_root(struct workspace *wk,
+	struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
+{
+	char rel[PATH_MAX]; //, abs[PATH_MAX];
+	const char *path = path_orig;
+
+	if (!ctx->relativize) {
+		*res = make_str(wk, path);
+		return true;
+	}
+
+	if (!path_is_absolute(path)) {
+		*res = make_str(wk, path);
+		return true;
+	}
+
+	if (!path_relative_to(rel, PATH_MAX, wk->build_root, path)) {
+		return false;
+	}
+
+	*res = make_str(wk, rel);
+	return true;
 }
 
 static enum format_cb_result
@@ -92,20 +118,26 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		obj_array_index(wk, arr, 0, &e);
 
-		*elem = *get_obj_file(wk, e);
+		if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	}
 	case key_outdir:
 		/* @OUTDIR@: the full path to the directory where the output(s)
 		 * must be written */
-		*elem = current_project(wk)->build_dir;
+		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->build_dir), elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	case key_current_source_dir:
 		/* @CURRENT_SOURCE_DIR@: this is the directory where the
 		 * currently processed meson.build is located in. Depending on
 		 * the backend, this may be an absolute or a relative to
 		 * current workdir path. */
-		*elem = current_project(wk)->cwd;
+		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->cwd), elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
@@ -117,25 +149,33 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 			return format_cb_error;
 		}
 
-		*elem = make_str(wk, path);
+		if (!str_relative_to_build_root(wk, ctx, path, elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	}
 	case key_depfile:
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		*elem = ctx->depfile;
+		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->depfile), elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	case key_source_root:
 		/* @SOURCE_ROOT@: the path to the root of the source tree.
 		 * Depending on the backend, this may be an absolute or a
 		 * relative to current workdir path. */
-		*elem = make_str(wk, wk->source_root);
+		if (!str_relative_to_build_root(wk, ctx, wk->source_root, elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	case key_build_root:
 		/* @BUILD_ROOT@: the path to the root of the build tree.
 		 * Depending on the backend, this may be an absolute or a
 		 * relative to current workdir path. */
-		*elem = make_str(wk, wk->build_root);
+		if (!str_relative_to_build_root(wk, ctx, wk->build_root, elem)) {
+			return format_cb_error;
+		}
 		return format_cb_found;
 	case key_plainname:
 	/* @PLAINNAME@: the input filename, without a path */
@@ -163,12 +203,16 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 			if (!path_without_ext(basename, PATH_MAX, plainname)) {
 				return format_cb_error;
 			}
-			*elem = make_str(wk, basename);
-			return format_cb_found;
+
+			if (!str_relative_to_build_root(wk, ctx, basename, elem)) {
+				return format_cb_error;
+			}
 		} else {
-			*elem = make_str(wk, plainname);
-			return format_cb_found;
+			if (!str_relative_to_build_root(wk, ctx, plainname, elem)) {
+				return format_cb_error;
+			}
 		}
+		return format_cb_found;
 		assert(false && "unreachable");
 	}
 	default:
@@ -193,7 +237,9 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	obj_array_index(wk, arr, index, &e);
 
-	*elem = *get_obj_file(wk, e);
+	if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem)) {
+		return format_cb_error;
+	}
 	return format_cb_found;
 }
 
@@ -208,15 +254,21 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (t) {
 	case obj_build_target:
 	case obj_external_program:
-	case obj_file:
-		if (!coerce_executable(wk, ctx->err_node, val, &ss)) {
+	case obj_file: {
+		obj str;
+		if (!coerce_executable(wk, ctx->err_node, val, &str)) {
 			return ir_err;
+		}
+
+		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, str), &ss)) {
+			return false;
 		}
 
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->depends, ss);
 		}
 		break;
+	}
 	case obj_string: {
 		if (strcmp(get_cstr(wk, val), "@INPUT@") == 0) {
 			ctx->skip_depends = true;
@@ -252,12 +304,9 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		obj f;
 		obj_array_index(wk, output, 0, &f);
 
-		char path[PATH_MAX];
-		if (!path_relative_to(path, PATH_MAX, wk->build_root, get_cstr(wk, *get_obj_file(wk, f)))) {
-			return ir_err;
+		if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, f), &ss)) {
+			return false;
 		}
-
-		ss = make_str(wk, path);
 
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->depends, ss);
@@ -276,7 +325,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
+process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool relativize,
 	obj name, obj arr, obj input, obj output, obj depfile, obj depends, obj *res)
 {
 	make_obj(wk, res, obj_array);
@@ -288,6 +337,7 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node,
 		.depfile = depfile,
 		.depends = depends,
 		.name = name,
+		.relativize = relativize
 	};
 
 	if (!obj_array_foreach_flat(wk, arr, &ctx, custom_target_cmd_fmt_iter)) {
@@ -437,6 +487,7 @@ make_custom_target(struct workspace *wk,
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 	tgt->name = name;
 
+	// A custom_target won't have a name if it is from a generator
 	if (name) { /* private path */
 		char path[PATH_MAX] = { 0 };
 		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, name))) {
@@ -494,7 +545,7 @@ make_custom_target(struct workspace *wk,
 
 	obj depends;
 	make_obj(wk, &depends, obj_array);
-	if (!process_custom_target_commandline(wk, command_node, name,
+	if (!process_custom_target_commandline(wk, command_node, true, name,
 		command_orig, input, output, depfile_orig, depends, &args)) {
 		return false;
 	}
