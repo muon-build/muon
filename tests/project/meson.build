@@ -261,7 +261,7 @@ tests = [
     ['native/1 trivial', {}],
     ['native/2 global arg', {}],
     ['native/3 pipeline', {}],
-    ['native/4 tryrun', {'should_fail': true}],
+    ['native/4 tryrun', {}],
     ['native/5 install script', {}],
     ['native/6 add language', {}],
     ['native/7 selfbuilt custom', {}],

@@ -234,10 +234,16 @@ struct obj_external_library {
 	bool found;
 };
 
+enum run_result_flags {
+	run_result_flag_from_compile = 1 << 0,
+	run_result_flag_compile_ok = 1 << 1,
+};
+
 struct obj_run_result {
 	obj out;
 	obj err;
 	int32_t status;
+	enum run_result_flags flags;
 };
 
 struct obj_configuration_data {

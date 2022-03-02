@@ -6,9 +6,27 @@
 #include "log.h"
 
 static bool
+ensure_valid_run_result(struct workspace *wk, uint32_t node, obj rcvr)
+{
+	struct obj_run_result *rr = get_obj_run_result(wk, rcvr);
+
+	if ((rr->flags & run_result_flag_from_compile)
+	    && !(rr->flags & run_result_flag_compile_ok)) {
+		interp_error(wk, node, "this run_result was not run because its source could not be compiled");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_run_result_returncode(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	if (!ensure_valid_run_result(wk, args_node, rcvr)) {
 		return false;
 	}
 
@@ -24,6 +42,10 @@ func_run_result_stdout(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
+	if (!ensure_valid_run_result(wk, args_node, rcvr)) {
+		return false;
+	}
+
 	*res = get_obj_run_result(wk, rcvr)->out;
 	return true;
 }
@@ -35,11 +57,35 @@ func_run_result_stderr(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		return false;
 	}
 
+	if (!ensure_valid_run_result(wk, args_node, rcvr)) {
+		return false;
+	}
+
 	*res = get_obj_run_result(wk, rcvr)->err;
 	return true;
 }
 
+static bool
+func_run_result_compiled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	struct obj_run_result *rr = get_obj_run_result(wk, rcvr);
+
+	if (!(rr->flags & run_result_flag_from_compile)) {
+		interp_error(wk, args_node, "this run_result is not from a compiler.run() call");
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, rr->flags & run_result_flag_compile_ok);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_run_result[] = {
+	{ "compiled", func_run_result_compiled },
 	{ "returncode", func_run_result_returncode },
 	{ "stderr", func_run_result_stderr },
 	{ "stdout", func_run_result_stdout },

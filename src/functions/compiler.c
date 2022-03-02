@@ -185,8 +185,14 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	if (opts->mode == compile_mode_run) {
 		if (cmd_ctx.status != 0) {
-			LOG_W("failed to compile test, rerun with -v to see compiler invocation");
-			goto ret;
+			if (opts->skip_run_check) {
+				*res = false;
+				ret = true;
+				goto ret;
+			} else {
+				LOG_W("failed to compile test, rerun with -v to see compiler invocation");
+				goto ret;
+			}
 		}
 
 		if (!run_cmd(&opts->cmd_ctx, output, (const char *const []){
@@ -1122,6 +1128,70 @@ func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 }
 
 static bool
+func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
+		.skip_run_check = true,
+	};
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
+		return false;
+	}
+
+	obj o;
+	if (!obj_array_flatten_one(wk, an[0].val, &o)) {
+		interp_error(wk, an[0].node, "could not flatten argument");
+	}
+
+	enum obj_type t = get_obj_type(wk, o);
+
+	const char *src;
+
+	switch (t) {
+	case obj_string:
+		src = get_cstr(wk, o);
+		break;
+	case obj_file: {
+		src  = get_file_path(wk, o);
+		opts.src_is_path = true;
+		break;
+	}
+	default:
+		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
+		return false;
+	}
+
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+		return false;
+	}
+
+	if (akw[cc_kw_name].set) {
+		LOG_I("%s runs: %s",
+			get_cstr(wk, akw[cc_kw_name].val),
+			bool_to_yn(ok)
+			);
+	}
+
+	make_obj(wk, res, obj_run_result);
+	struct obj_run_result *rr = get_obj_run_result(wk, *res);
+	rr->flags |= run_result_flag_from_compile;
+
+	if (ok) {
+		rr->flags |= run_result_flag_compile_ok;
+		rr->out = make_strn(wk, opts.cmd_ctx.out.buf, opts.cmd_ctx.out.len);
+		rr->err = make_strn(wk, opts.cmd_ctx.err.buf, opts.cmd_ctx.err.len);
+		rr->status = opts.cmd_ctx.status;
+	}
+
+	run_cmd_ctx_destroy(&opts.cmd_ctx);
+	return true;
+}
+
+static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
 {
 	if (!typecheck(wk, err_node, arg, obj_string)) {
@@ -1306,7 +1376,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
-		kw_static,
+		kw_static, // TODO
 		kw_disabler,
 	};
 	struct args_kw akw[] = {
@@ -1407,6 +1477,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_members", func_compiler_has_members },
 	{ "has_type", func_compiler_has_type },
 	{ "links", func_compiler_links },
+	{ "run", func_compiler_run },
 	{ "sizeof", func_compiler_sizeof },
 	{ "version", func_compiler_version },
 	{ NULL, NULL },
