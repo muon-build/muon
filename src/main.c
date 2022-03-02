@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "args.h"
 #include "backend/ninja.h"
 #include "compilers.h"
 #include "embedded.h"
@@ -18,6 +19,7 @@
 #include "lang/eval.h"
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
+#include "lang/serial.h"
 #include "log.h"
 #include "machine_file.h"
 #include "opts.h"
@@ -30,20 +32,52 @@
 #include "wrap.h"
 
 static bool
+load_environment_from_serial_dump(struct workspace *wk, const char *path, char *const *envp[])
+{
+	bool ret = false;
+	FILE *f;
+	if (!(f = fs_fopen(path, "r"))) {
+		return false;
+	}
+
+	obj env;
+	if (!serial_load(wk, &env, f)) {
+		LOG_E("failed to load environment data");
+		goto ret;
+	}
+
+	if (!env_to_envp(wk, 0, envp, env, 0)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	if (!fs_fclose(f)) {
+		ret = false;
+	}
+	return ret;
+}
+
+static bool
 cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *capture;
+		const char *environment;
 		const char *const *cmd;
 	} opts = { 0 };
 
-	OPTSTART("c:") {
+	OPTSTART("c:e:") {
 		case 'c':
 			opts.capture = optarg;
 			break;
+		case 'e':
+			opts.environment = optarg;
+			break;
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
-		"  -c <file> - capture output to file\n",
+		"  -c <file> - capture output to file\n"
+		"  -e <file> - load environemnt from data file\n",
 		NULL, -1)
 
 	if (argi >= argc) {
@@ -57,7 +91,19 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	bool ret = false;
 	struct run_cmd_ctx ctx = { 0 };
 
-	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd, NULL)) {
+	struct workspace wk;
+	bool initialized_workspace = false;
+	char *const *envp = NULL;
+	if (opts.environment) {
+		initialized_workspace = true;
+		workspace_init_bare(&wk);
+
+		if (!load_environment_from_serial_dump(&wk, opts.environment, &envp)) {
+			goto ret;
+		}
+	}
+
+	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd, envp)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}
@@ -75,6 +121,9 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 ret:
 	run_cmd_ctx_destroy(&ctx);
+	if (initialized_workspace) {
+		workspace_destroy_bare(&wk);
+	}
 	return ret;
 }
 

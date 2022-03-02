@@ -1,10 +1,15 @@
 #include "posix.h"
 
 #include "args.h"
+#include "platform/filesystem.h"
 #include "backend/ninja/custom_target.h"
+#include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
+
+// appended to custom_target environment files to make them unique
+static uint32_t custom_tgt_env_sequence = 0;
 
 static enum iteration_result
 relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
@@ -57,6 +62,36 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
 			return ir_err;
 		}
+	}
+
+	if (tgt->env) {
+		assert(tgt->name && "unnamed targets cannot have a custom env");
+
+		char name[PATH_MAX] = { 0 };
+		snprintf(name, PATH_MAX - 1, "%s%d.dat", get_cstr(wk, tgt->name), custom_tgt_env_sequence);
+		++custom_tgt_env_sequence;
+
+		char env_dat_path[PATH_MAX], dir[PATH_MAX];
+		if (!(path_join(dir, PATH_MAX, wk->muon_private, "custom_tgt_env")
+		      && path_join(env_dat_path, PATH_MAX, dir, name)
+		      )) {
+			return false;
+		}
+
+		FILE *env_dat;
+
+		if (!fs_mkdir_p(dir)) {
+			return false;
+		} else if (!(env_dat = fs_fopen(env_dat_path, "w"))) {
+			return false;
+		} else if (!serial_dump(wk, tgt->env, env_dat)) {
+			return false;
+		} else if (!fs_fclose(env_dat)) {
+			return false;
+		}
+
+		obj_array_push(wk, cmdline, make_str(wk, "-e"));
+		obj_array_push(wk, cmdline, make_str(wk, env_dat_path));
 	}
 
 	obj_array_push(wk, cmdline, make_str(wk, "--"));

@@ -11,12 +11,14 @@ comp = '@0@/@1@'.format(meson.current_source_dir(), 'my_compiler.py')
 # Test that files() in command: works. The compiler just discards it.
 useless = files('test.json')
 
+env = {'MY_COMPILER_ENV': 'value'}
+
 mytarget = custom_target(
     'bindat',
     output: 'data.dat',
     input: 'data_source.txt',
     command: [python, comp, '--input=@INPUT@', '--output=@OUTPUT@', useless],
-    env: {'MY_COMPILER_ENV': 'value'},
+    env: env,
     install: true,
     install_dir: 'subdir',
 )
@@ -38,6 +40,7 @@ mytarget_disabler = custom_target(
     command: [disabler(), comp, '--input=@INPUT@', '--output=@OUTPUT@', useless],
     install: true,
     install_dir: 'subdir',
+    env: env,
 )
 
 if mytarget_disabler.found()
@@ -58,6 +61,7 @@ mytarget_ci = custom_target(
         '--input=@INPUT@',
         '--output=@OUTPUT@', mytarget.to_list(),
     ],
+    env: env,
 )
 
 mytarget_disabler = custom_target(
@@ -67,6 +71,7 @@ mytarget_disabler = custom_target(
     command: [python, comp, '--input=@INPUT@', '--output=@OUTPUT@', useless],
     install: true,
     install_dir: 'subdir',
+    env: env,
 )
 
 assert(

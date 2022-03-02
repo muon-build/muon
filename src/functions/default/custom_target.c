@@ -507,7 +507,6 @@ make_custom_target(struct workspace *wk,
 	tgt->input = input;
 	tgt->output = output;
 	tgt->depends = depends;
-
 	return true;
 }
 
@@ -528,6 +527,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depend_files,
 		kw_depends,
 		kw_build_always_stale,
+		kw_env,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", obj_any, },
@@ -542,6 +542,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
+		[kw_env] = { "env", obj_any },
 		0
 	};
 
@@ -590,8 +591,6 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		tgt->flags |= custom_target_build_always_stale;
 	}
 
-	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));
-
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
@@ -608,6 +607,19 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 	}
+
+	if (akw[kw_env].set) {
+		// coerce to envp for typechecking only, we don't use the
+		// result here
+		char *const *_ = NULL;
+		if (!env_to_envp(wk, akw[kw_env].node, &_, akw[kw_env].val, 0)) {
+			return false;
+		}
+
+		tgt->env = akw[kw_env].val;
+	}
+
+	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));
 
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
