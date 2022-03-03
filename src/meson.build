@@ -96,6 +96,8 @@ src += [
     ),
 ]
 
+dep_dict = {}
+
 foreach d : [
     ['libcurl', {}],
     ['libarchive', {}],
@@ -117,6 +119,8 @@ foreach d : [
 
     summary(d[0], dep.found())
 
+    dep_dict += {d[0]: dep.found()}
+
     if dep.found()
         deps += [dep]
         src += [files('external' / (d[0] + '.c'))]
@@ -124,6 +128,10 @@ foreach d : [
         src += [files('external' / (d[0] + '_null.c'))]
     endif
 endforeach
+
+if get_option('static') and dep_dict['libcurl']
+    deps += dependency('libbrotlidec', static: true)
+endif
 
 platform = host_machine.system()
 if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
