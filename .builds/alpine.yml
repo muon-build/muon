@@ -38,6 +38,7 @@ tasks:
       build/muon -C build test -d dots
   - release: |
       cd muon
+      strip build/muon
       md5sum build/muon > build/muon.md5
       sshopts="-o StrictHostKeyChecking=no -p 2975"
       rsync --rsh="ssh $sshopts" \
