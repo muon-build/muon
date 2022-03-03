@@ -11,6 +11,6 @@ option(
     'static',
     type: 'boolean',
     value: false,
-    description: 'try to link dependencies statically',
+    description: 'build a static muon executable',
 )
 option('docs', type: 'feature', value: 'auto', description: 'build documentation')

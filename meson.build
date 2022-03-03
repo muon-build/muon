@@ -64,12 +64,18 @@ include_dir = include_directories('include')
 subdir('tools')
 subdir('src')
 
+link_args = []
+if get_option('static')
+    link_args += '-static'
+endif
+
 muon = executable(
     'muon',
     src,
     include_directories: include_dir,
     dependencies: deps,
     c_args: c_args,
+    link_args: link_args,
     install: true,
 )
 
