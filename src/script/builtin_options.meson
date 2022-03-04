@@ -50,7 +50,7 @@ option(
     value: 'g',
     choices: ['0', 'g', '1', '2', '3', 's'],
 )
-option('pkg_config_path', yield: true, type: 'string', value: '') # TODO
+option('pkg_config_path', yield: true, type: 'string', value: '')
 option('stdsplit', yield: true, type: 'boolean', value: true) # TODO
 option('strip', yield: true, type: 'boolean', value: false) # TODO
 option(

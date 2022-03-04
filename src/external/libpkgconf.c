@@ -5,6 +5,7 @@
 
 #include "buf_size.h"
 #include "external/libpkgconf.h"
+#include "functions/default/options.h"
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -29,7 +30,7 @@ error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 }
 
 void
-muon_pkgconf_init(void)
+muon_pkgconf_init(struct workspace *wk)
 {
 	// HACK: TODO: libpkgconf breaks if you try use it after deiniting a
 	// client.  Also there are memory leaks abound.
@@ -39,7 +40,24 @@ muon_pkgconf_init(void)
 
 	personality = pkgconf_cross_personality_default();
 	pkgconf_client_init(&client, error_handler, NULL, personality);
-	pkgconf_client_dir_list_build(&client, personality);
+
+	obj opt;
+	get_option(wk, current_project(wk), "pkg_config_path", &opt);
+	const struct str *pkg_config_path = get_str(wk, opt);
+
+	if (pkg_config_path->len) {
+		pkgconf_path_split(pkg_config_path->s, &client.dir_list, true);
+	} else {
+		// pkgconf_client_dir_list_build uses PKG_CONFIG_PATH and
+		// PKG_CONFIG_LIBDIR from the environment, as well as the
+		// builtin path (personality->dir_list).
+		//
+		// Leaving this here just in case it ever looks like that is a
+		// bad idea.
+		// pkgconf_path_copy_list(&client.dir_list, &personality->dir_list);
+		pkgconf_client_dir_list_build(&client, personality);
+	}
+
 	init = true;
 }
 
@@ -250,7 +268,7 @@ bool
 muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
 {
 	if (!init) {
-		muon_pkgconf_init();
+		muon_pkgconf_init(wk);
 	}
 
 	int flags = 0;
@@ -331,7 +349,7 @@ bool
 muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, obj *res)
 {
 	if (!init) {
-		muon_pkgconf_init();
+		muon_pkgconf_init(wk);
 	}
 
 	pkgconf_client_set_flags(&client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);

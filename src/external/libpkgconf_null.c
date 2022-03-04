@@ -11,7 +11,7 @@ muon_pkgconf_deinit(void)
 }
 
 void
-muon_pkgconf_init(void)
+muon_pkgconf_init(struct workspace *wk)
 {
 }
 
