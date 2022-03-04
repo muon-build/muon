@@ -580,7 +580,7 @@ set_builtin_options(struct workspace *wk)
 	const char *fallback_options =
 		"option('default_library', yield: true, type: 'string', value: 'static')\n"
 		"option('buildtype', yield: true, type: 'string', value: 'debugoptimized')\n"
-		"option('warning_level', yield: true, type: 'integer', value: 3)\n"
+		"option('warning_level', yield: true, type: 'string', value: '3')\n"
 		"option('c_std', yield: true, type: 'string', value: 'c99')\n"
 		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
 		"option('bindir', yield: true, type: 'string', value: 'bin')\n"

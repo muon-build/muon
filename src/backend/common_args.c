@@ -85,10 +85,33 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 static bool
 get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
-	obj lvl;
-	get_option(wk, proj, "warning_level", &lvl);
+	obj lvl_id;
+	get_option(wk, proj, "warning_level", &lvl_id);
 
-	push_args(wk, args_id, compilers[t].args.warning_lvl(get_obj_number(wk, lvl)));
+	uint32_t lvl;
+	const struct str *sl = get_str(wk, lvl_id);
+	assert(sl->len == 1 && "invalid warning_level");
+	switch (sl->s[0]) {
+	case '0':
+		lvl = 0;
+		break;
+	case '1':
+		lvl = 1;
+		break;
+	case '2':
+		lvl = 2;
+		break;
+	case '3':
+		lvl = 3;
+		break;
+	default:
+		lvl = 0;
+		assert(false && "invalid warning_level");
+		break;
+	}
+
+
+	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
 	return true;
 }
 

@@ -34,9 +34,15 @@ option(
 )
 option('errorlogs', yield: true, type: 'boolean', value: true) # TODO
 option('install_umask', yield: true, type: 'string', value: '022') # TODO
-option('layout', yield: true, type: 'combo', value: 'mirror', choices: [
+option(
+    'layout',
+    yield: true,
+    type: 'combo',
+    value: 'mirror',
+    choices: [
         'mirror',
-    ])
+    ],
+)
 option(
     'optimization',
     yield: true,
@@ -55,7 +61,13 @@ option(
     choices: ['on', 'off', 'subprojects'],
 ) # TODO
 option('unity_size', yield: true, type: 'integer', value: 4, min: 2) # TODO
-option('warning_level', yield: true, type: 'integer', value: 3, min: 0, max: 3)
+option(
+    'warning_level',
+    yield: true,
+    type: 'combo',
+    value: '3',
+    choices: ['0', '1', '2', '3'],
+)
 option('werror', yield: true, type: 'boolean', value: false) # TODO
 option(
     'wrap_mode',
