@@ -7,6 +7,7 @@
 #include "external/libpkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
+#include "functions/default/options.h"
 #include "functions/default/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
@@ -70,7 +71,6 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		interp_error(wk, ctx->err_node, "expected array of length 1-2 for fallback");
 		return false;
 	}
-
 
 	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, ctx->versions, &subproj)) {
 		return false;
@@ -138,6 +138,8 @@ static bool
 get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	bool found = false;
+
+	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 
 	{
 		obj dep;

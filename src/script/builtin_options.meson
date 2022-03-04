@@ -73,9 +73,9 @@ option(
     'wrap_mode',
     yield: true,
     type: 'combo',
-    value: 'default',
-    choices: ['default', 'nofallback', 'nodownload', 'forcefallback', 'nopromote'],
-) # TODO
+    value: 'nopromote',
+    choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
+)
 option('force_fallback_for', yield: true, type: 'array', value: []) # TODO
 
 # Base options

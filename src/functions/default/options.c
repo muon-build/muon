@@ -554,6 +554,33 @@ get_option(struct workspace *wk, const struct project *proj, const char *name, o
 	*res = o->val;
 }
 
+enum wrap_mode
+get_option_wrap_mode(struct workspace *wk)
+{
+	obj opt;
+	get_option(wk, current_project(wk), "wrap_mode", &opt);
+
+	const char *s = get_cstr(wk, opt);
+
+	const char *names[] = {
+		[wrap_mode_nopromote] = "nopromote",
+		[wrap_mode_nodownload] = "nodownload",
+		[wrap_mode_nofallback] = "nofallback",
+		[wrap_mode_forcefallback] = "forcefallback",
+		NULL,
+	};
+
+	uint32_t i;
+	for (i = 0; names[i]; ++i) {
+		if (strcmp(names[i], s) == 0) {
+			return i;
+		}
+	}
+
+	assert(false && "invalid wrap_mode set");
+	return 0;
+}
+
 bool
 func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -578,13 +605,14 @@ bool
 set_builtin_options(struct workspace *wk)
 {
 	const char *fallback_options =
-		"option('default_library', yield: true, type: 'string', value: 'static')\n"
-		"option('buildtype', yield: true, type: 'string', value: 'debugoptimized')\n"
-		"option('warning_level', yield: true, type: 'string', value: '3')\n"
-		"option('c_std', yield: true, type: 'string', value: 'c99')\n"
-		"option('prefix', yield: true, type: 'string', value: '/usr/local')\n"
-		"option('bindir', yield: true, type: 'string', value: 'bin')\n"
-		"option('mandir', yield: true, type: 'string', value: 'share/man')\n"
+		"option('default_library', type: 'string', value: 'static')\n"
+		"option('buildtype', type: 'string', value: 'debugoptimized')\n"
+		"option('warning_level', type: 'string', value: '3')\n"
+		"option('c_std', type: 'string', value: 'c99')\n"
+		"option('prefix', type: 'string', value: '/usr/local')\n"
+		"option('bindir', type: 'string', value: 'bin')\n"
+		"option('mandir', type: 'string', value: 'share/man')\n"
+		"option('wrap_mode', type: 'string', value: 'nopromote')\n"
 	;
 
 	const char *opts;
