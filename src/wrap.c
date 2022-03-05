@@ -366,7 +366,7 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects)
 }
 
 bool
-wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap)
+wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download)
 {
 	if (!wrap_parse(wrap_file, wrap)) {
 		return false;
@@ -378,6 +378,9 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap)
 	} else if (fs_file_exists(meson_build)) {
 		LOG_I("wrap already downloaded");
 		return true;
+	} else if (!download) {
+		LOG_E("wrap downloading disabled");
+		return false;
 	}
 
 	switch (wrap->type) {

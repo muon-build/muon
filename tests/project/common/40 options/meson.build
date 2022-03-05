@@ -42,4 +42,5 @@ if get_option('CASESENSITIVE') != 'ALL CAPS'
     error('Incorrect value in all caps option.')
 endif
 
-assert(get_option('wrap_mode') == 'default', 'Wrap mode option is broken.')
+# different than meson: wrap_mode defaults to nopromote
+assert(get_option('wrap_mode') == 'nopromote', 'Wrap mode option is broken.')

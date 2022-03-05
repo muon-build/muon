@@ -54,5 +54,5 @@ struct wrap {
 
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(const char *wrap_file, struct wrap *wrap);
-bool wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap);
+bool wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download);
 #endif

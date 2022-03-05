@@ -139,8 +139,6 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	bool found = false;
 
-	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-
 	{
 		obj dep;
 		if (obj_dict_index(wk, wk->dep_overrides, ctx->name, &dep)) {
@@ -149,13 +147,20 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		}
 	}
 
-	if (!found && !get_dependency_pkgconfig(wk, ctx, &found)) {
-		return false;
-	}
-
-	if (!found && ctx->fallback) {
+	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
+	if (!found && ctx->fallback && wrap_mode == wrap_mode_forcefallback) {
 		if (!handle_dependency_fallback(wk, ctx, &found)) {
 			return false;
+		}
+	} else {
+		if (!found && !get_dependency_pkgconfig(wk, ctx, &found)) {
+			return false;
+		}
+
+		if (!found && ctx->fallback && wrap_mode != wrap_mode_nofallback) {
+			if (!handle_dependency_fallback(wk, ctx, &found)) {
+				return false;
+			}
 		}
 	}
 

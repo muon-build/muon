@@ -223,7 +223,7 @@ cmd_subprojects_download_iter(void *_ctx, const char *name)
 
 	LOG_I("fetching %s", name);
 	struct wrap wrap = { 0 };
-	if (!wrap_handle(path, ctx->subprojects, &wrap)) {
+	if (!wrap_handle(path, ctx->subprojects, &wrap, true)) {
 		return ir_err;
 	}
 

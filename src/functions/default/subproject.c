@@ -28,7 +28,8 @@ subproject_prepare(struct workspace *wk, const char **cwd, const char **build_di
 		}
 
 		struct wrap wrap = { 0 };
-		if (!wrap_handle(wrap_path, base_path, &wrap)) {
+		enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
+		if (!wrap_handle(wrap_path, base_path, &wrap, wrap_mode != wrap_mode_nodownload)) {
 			goto wrap_cleanup;
 		}
 
