@@ -20,9 +20,17 @@
         a {
           color: #8BE9FD;
         }
+
+        small {
+          color: #e8e8e2;
+        }
       }
 
-      nav div { padding: 10px; display: block; }
+      nav div {
+        padding: 10px;
+        padding-left: 20px;
+        display: block;
+      }
 
       .title {
         display: flex;
@@ -31,26 +39,27 @@
         font-size: 40px;
       }
 
-      .title span {
-        padding: 10px;
+      .title small {
+        font-size: 10px;
       }
 
-      p { padding: 10px; }
+      .title_text {
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+      }
     </style>
   </head>
   <body>
     <div class="title">
       <img src="muon_logo.svg" alt="muon logo" height=64></img>
-      <span>muon</span>
+      <div class="title_text">
+        <span>muon</span>
+        <small>v@version@-@vcs_tag@</small>
+      </div>
     </div>
     <p>A meson-compatible build system.</p>
     <nav>
-      <div>
-        docs:
-        <a href="muon.1.html">muon.1</a>
-        <a href="meson.build.5.html">meson.build.5</a>
-        <a href="meson-reference.3.html">meson-reference.3</a>
-      </div>
       <div>
         <a href="https://git.sr.ht/~lattis/muon/">source</a>
       </div>
@@ -59,6 +68,25 @@
       </div>
       <div>
         <a href="https://todo.sr.ht/~lattis/muon/">issue tracker</a>
+      </div>
+      <div>
+        docs
+        <div>
+          <a href="muon.1.html">muon.1</a>
+        </div>
+        <div>
+          <a href="meson.build.5.html">meson.build.5</a>
+        </div>
+        <div>
+          <a href="meson-reference.3.html">meson-reference.3</a>
+        </div>
+      </div>
+      <div>
+        downloads
+        <div>
+          <a href="/releases/muon-arm64-linux-static">muon-arm64-linux-static</a>
+          - <a href="/releases/muon-arm64-linux-static.md5">md5</a>
+        </div>
       </div>
     </nav>
   </body>

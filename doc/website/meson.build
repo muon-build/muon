@@ -28,5 +28,9 @@ if not is_disabler(meson_reference_3)
 endif
 
 foreach f : ['index.html', 'man-style.css', 'muon_logo.svg']
-    website += configure_file(input: files(f), output: f, copy: true)
+    website += configure_file(
+        configuration: version_info,
+        input: files(f),
+        output: f,
+    )
 endforeach

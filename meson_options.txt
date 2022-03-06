@@ -14,3 +14,9 @@ option(
     description: 'build a static muon executable',
 )
 option('docs', type: 'feature', value: 'auto', description: 'build documentation')
+option(
+    'website',
+    type: 'boolean',
+    value: false,
+    description: 'build website, requires docs to be enabled',
+)

@@ -36,6 +36,8 @@ else
     meson_reference_3 = disabler()
 endif
 
-subdir('website')
+if get_option('website')
+    subdir('website')
+endif
 
 summary('docs', true)
