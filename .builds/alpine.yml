@@ -38,13 +38,17 @@ tasks:
       build/muon -C build test -d dots
   - release: |
       cd muon
+
+      arch=arm64-linux-static
       strip build/muon
-      md5sum build/muon > build/muon.md5
+      md5sum build/muon > "build/muon-$arch.md5"
+      mv build/muon "build/muon-$arch"
+
       sshopts="-o StrictHostKeyChecking=no -p 2975"
       rsync --rsh="ssh $sshopts" \
-        build/muon \
-        build/muon.md5 \
+        "build/muon-$arch" \
+        "build/muon-$arch.md5" \
         deploy@mochiro.moe:muon/
 artifacts:
-  - muon/build/muon
-  - muon/build/muon.md5
+  - muon/build/muon-arm64-linux-static
+  - muon/build/muon-arm64-linux-static.md5
