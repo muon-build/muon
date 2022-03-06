@@ -39,7 +39,7 @@ tasks:
   - release: |
       cd muon/build
 
-      arch=arm64-linux-static
+      arch=amd64-linux-static
       strip muon
       mv muon "muon-$arch"
       md5sum "muon-$arch" > "muon-$arch.md5"
@@ -50,5 +50,5 @@ tasks:
         "muon-$arch.md5" \
         deploy@mochiro.moe:muon/
 artifacts:
-  - muon/build/muon-arm64-linux-static
-  - muon/build/muon-arm64-linux-static.md5
+  - muon/build/muon-amd64-linux-static
+  - muon/build/muon-amd64-linux-static.md5
