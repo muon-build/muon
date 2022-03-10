@@ -31,7 +31,7 @@ enum build_target_kwargs {
 	bt_kw_name_prefix,
 	bt_kw_name_suffix,
 	bt_kw_soversion,
-	bt_kw_link_depends, // TODO
+	bt_kw_link_depends,
 	bt_kw_objects,
 	bt_kw_pic,
 	bt_kw_install_rpath, // TODO
@@ -436,6 +436,16 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		}
 	}
 
+	// link depends
+	if (akw[bt_kw_link_depends].set) {
+		obj depends;
+		if (!coerce_files(wk, akw[bt_kw_link_depends].node, akw[bt_kw_link_depends].val, &depends)) {
+			return false;
+		}
+
+		tgt->link_depends = depends;
+	}
+
 	if (akw[bt_kw_install].set && get_obj_bool(wk, akw[bt_kw_install].val)) {
 		obj install_dir = 0;
 		if (akw[bt_kw_install_dir].set) {
@@ -522,7 +532,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_name_prefix] = { "name_prefix", obj_any },
 		[bt_kw_name_suffix] = { "name_suffix", obj_any },
 		[bt_kw_soversion] = { "soversion", obj_any },
-		[bt_kw_link_depends] = { "link_depends", obj_any },
+		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },

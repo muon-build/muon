@@ -104,13 +104,6 @@ struct str {
 	enum str_flags flags;
 };
 
-enum build_tgt_flags {
-	build_tgt_flag_export_dynamic = 1 << 0,
-	build_tgt_flag_link_whole = 1 << 1,
-	build_tgt_flag_pic = 1 << 2,
-	build_tgt_generated_include = 1 << 3,
-};
-
 struct obj_internal {
 	enum obj_type t;
 	uint32_t val;
@@ -157,6 +150,7 @@ struct obj_build_target {
 	obj deps; // obj_array
 	obj args; // obj_dict
 	obj link_args; // obj_array
+	obj link_depends; // obj_array
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;
