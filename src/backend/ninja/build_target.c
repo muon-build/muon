@@ -396,5 +396,10 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		fputs(get_cstr(wk, ctx.order_deps), wctx->out);
 	}
 	fprintf(wctx->out, "\n LINK_ARGS = %s\n", link_args);
+
+	if (tgt->flags & build_tgt_flag_build_by_default) {
+		fprintf(wctx->out, "default %s\n", esc_path);
+	}
+	fprintf(wctx->out, "\n");
 	return true;
 }

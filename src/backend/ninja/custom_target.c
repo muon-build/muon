@@ -122,7 +122,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 
 	fprintf(ctx->out, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"
-		" DESCRIPTION = %s\n\n",
+		" DESCRIPTION = %s\n",
 		get_cstr(wk, outputs),
 		get_cstr(wk, inputs),
 		get_cstr(wk, depends),
@@ -130,5 +130,9 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		get_cstr(wk, cmdline)
 		);
 
+	if (tgt->flags & custom_target_build_by_default) {
+		fprintf(ctx->out, "default %s", get_cstr(wk, outputs));
+	}
+	fprintf(ctx->out, "\n");
 	return ir_cont;
 }

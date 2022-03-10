@@ -136,6 +136,14 @@ struct obj_dict {
 	bool have_next;
 };
 
+enum build_tgt_flags {
+	build_tgt_flag_export_dynamic = 1 << 0,
+	build_tgt_flag_link_whole = 1 << 1,
+	build_tgt_flag_pic = 1 << 2,
+	build_tgt_generated_include = 1 << 3,
+	build_tgt_flag_build_by_default = 1 << 4,
+};
+
 struct obj_build_target {
 	obj name; // obj_string
 	obj build_name; // obj_string
@@ -159,6 +167,7 @@ struct obj_build_target {
 enum custom_target_flags {
 	custom_target_capture = 1 << 0,
 	custom_target_build_always_stale = 1 << 1,
+	custom_target_build_by_default = 1 << 2,
 };
 
 struct obj_custom_target {

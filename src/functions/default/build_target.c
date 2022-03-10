@@ -25,7 +25,7 @@ enum build_target_kwargs {
 	bt_kw_link_with,
 	bt_kw_link_whole,
 	bt_kw_version,
-	bt_kw_build_by_default, // TODO
+	bt_kw_build_by_default,
 	bt_kw_extra_files, // TODO
 	bt_kw_target_type,
 	bt_kw_name_prefix,
@@ -291,6 +291,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (akw[bt_kw_export_dynamic].set) {
 			tgt->flags |= build_tgt_flag_export_dynamic;
+		}
+
+		if (!akw[bt_kw_build_by_default].set || get_obj_bool(wk, akw[bt_kw_build_by_default].val)) {
+			tgt->flags |= build_tgt_flag_build_by_default;
 		}
 	}
 

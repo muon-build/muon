@@ -586,7 +586,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_command] = { "command", obj_array, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
-		[kw_install_dir] = { "install_dir", obj_any }, // TODO
+		[kw_install_dir] = { "install_dir", obj_any },
 		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
@@ -642,11 +642,21 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		tgt->flags |= custom_target_build_always_stale;
 	}
 
+	if (akw[kw_build_by_default].set) {
+		if (get_obj_bool(wk, akw[kw_build_by_default].val)) {
+			tgt->flags |= custom_target_build_by_default;
+		}
+	}
+
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
 			interp_error(wk, akw[kw_install].node, "custom target installation requires install_dir");
 			return false;
+		}
+
+		if (!akw[kw_build_by_default].set) {
+			tgt->flags |= custom_target_build_by_default;
 		}
 
 		obj install_mode_id = 0;
