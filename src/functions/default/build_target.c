@@ -285,11 +285,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			tgt->flags |= build_tgt_flag_link_whole;
 		}
 
-		if (akw[bt_kw_pic].set) {
+		if (akw[bt_kw_pic].set && get_obj_bool(wk, akw[bt_kw_pic].val)) {
 			tgt->flags |= build_tgt_flag_pic;
 		}
 
-		if (akw[bt_kw_export_dynamic].set) {
+		if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
 			tgt->flags |= build_tgt_flag_export_dynamic;
 		}
 
