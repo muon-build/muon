@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include "args.h"
+#include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
 #include "lang/object.h"
 #include "lang/string.h"
@@ -8,7 +9,7 @@
 #include "log.h"
 
 bool
-ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, FILE *out)
+ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ctx)
 {
 	struct obj_alias_target *tgt = get_obj_alias_target(wk, tgt_id);
 
@@ -28,7 +29,7 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, FILE *out)
 	}
 	obj depstr = join_args_ninja(wk, depstrs);
 
-	if (fprintf(out, "build %s: phony | %s\n\n", name_esc, get_cstr(wk, depstr)) < 0) {
+	if (fprintf(ctx->out, "build %s: phony | %s\n\n", name_esc, get_cstr(wk, depstr)) < 0) {
 		return false;
 	}
 

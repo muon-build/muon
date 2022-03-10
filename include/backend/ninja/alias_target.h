@@ -7,7 +7,8 @@
 
 struct workspace;
 struct project;
+struct write_tgt_ctx;
 
-bool ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, FILE *out);
+bool ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ctx);
 
 #endif

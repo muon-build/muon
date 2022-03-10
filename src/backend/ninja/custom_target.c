@@ -1,11 +1,12 @@
 #include "posix.h"
 
 #include "args.h"
-#include "platform/filesystem.h"
+#include "backend/ninja.h"
 #include "backend/ninja/custom_target.h"
 #include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/filesystem.h"
 #include "platform/path.h"
 
 // appended to custom_target environment files to make them unique
@@ -31,7 +32,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
+ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ctx)
 {
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
 	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
@@ -119,7 +120,7 @@ ninja_write_custom_tgt(struct workspace *wk, const struct project *proj, obj tgt
 	inputs = join_args_ninja(wk, inputs);
 	cmdline = join_args_shell_ninja(wk, cmdline);
 
-	fprintf(out, "build %s: CUSTOM_COMMAND %s | %s\n"
+	fprintf(ctx->out, "build %s: CUSTOM_COMMAND %s | %s\n"
 		" COMMAND = %s\n"
 		" DESCRIPTION = %s\n\n",
 		get_cstr(wk, outputs),

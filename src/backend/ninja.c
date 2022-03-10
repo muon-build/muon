@@ -42,11 +42,6 @@ check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	return ir_cont;
 }
 
-struct write_tgt_ctx {
-	FILE *out;
-	const struct project *proj;
-};
-
 static enum iteration_result
 write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
@@ -55,11 +50,11 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	enum obj_type t = get_obj_type(wk, tgt_id);
 	switch (t) {
 	case obj_alias_target:
-		return ninja_write_alias_tgt(wk, tgt_id, ctx->out);
+		return ninja_write_alias_tgt(wk, tgt_id, ctx);
 	case obj_build_target:
-		return ninja_write_build_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		return ninja_write_build_tgt(wk, tgt_id, ctx);
 	case obj_custom_target:
-		return ninja_write_custom_tgt(wk, ctx->proj, tgt_id, ctx->out);
+		return ninja_write_custom_tgt(wk, tgt_id, ctx);
 	default:
 		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
 		return ir_err;

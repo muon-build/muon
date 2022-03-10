@@ -4,6 +4,7 @@
 
 #include "args.h"
 #include "backend/common_args.h"
+#include "backend/ninja.h"
 #include "backend/ninja/build_target.h"
 #include "functions/build_target.h"
 #include "functions/dependency.h"
@@ -240,15 +241,15 @@ tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_ar
 }
 
 bool
-ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_id, FILE *out)
+ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wctx)
 {
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
-		.proj = proj,
-		.out = out,
+		.proj = wctx->proj,
+		.out = wctx->out,
 	};
 
 	enum linker_type linker;
@@ -370,15 +371,15 @@ ninja_write_build_tgt(struct workspace *wk, const struct project *proj, obj tgt_
 		}
 	}
 
-	fprintf(out, "build %s: %s_LINKER ", esc_path, linker_type);
-	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), out);
+	fprintf(wctx->out, "build %s: %s_LINKER ", esc_path, linker_type);
+	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (implicit_deps) {
-		fputs(get_cstr(wk, implicit_deps), out);
+		fputs(get_cstr(wk, implicit_deps), wctx->out);
 	}
 	if (ctx.have_order_deps) {
-		fputs(" || ", out);
-		fputs(get_cstr(wk, ctx.order_deps), out);
+		fputs(" || ", wctx->out);
+		fputs(get_cstr(wk, ctx.order_deps), wctx->out);
 	}
-	fprintf(out, "\n LINK_ARGS = %s\n\n", link_args);
+	fprintf(wctx->out, "\n LINK_ARGS = %s\n", link_args);
 	return true;
 }
