@@ -772,6 +772,9 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+	tgt->flags |= custom_target_build_always_stale;
+
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
 }
