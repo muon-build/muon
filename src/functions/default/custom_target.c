@@ -583,7 +583,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_input] = { "input", obj_any, },
 		[kw_output] = { "output", obj_any, .required = true },
-		[kw_command] = { "command", obj_array, .required = true },
+		[kw_command] = { "command", ARG_TYPE_ARRAY_OF | obj_any, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_any },
