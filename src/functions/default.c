@@ -1205,7 +1205,7 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct obj_environment *d = get_obj_environment(wk, *res);
 
 	if (ao[0].set) {
-		if (!typecheck_environment_dict(wk, ao[0].node, ao[0].val)) {
+		if (!typecheck_dict(wk, ao[0].node, ao[0].val, obj_string)) {
 			return false;
 		}
 		d->env = ao[0].val;

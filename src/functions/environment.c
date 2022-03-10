@@ -5,26 +5,6 @@
 #include "lang/interpreter.h"
 #include "log.h"
 
-static enum iteration_result
-typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	uint32_t *err_node = _ctx;
-
-	enum obj_type t = get_obj_type(wk, val);
-	if (t != obj_string) {
-		interp_error(wk, *err_node, "all values in environment dict must be strings, got: %s", obj_type_to_s(t));
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-bool
-typecheck_environment_dict(struct workspace *wk, uint32_t err_node, obj dict)
-{
-	return obj_dict_foreach(wk, dict, &err_node, typecheck_environment_dict_iter);
-}
-
 enum environment_set_mode {
 	environment_set_mode_set,
 	environment_set_mode_append,

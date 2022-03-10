@@ -452,7 +452,7 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 	case obj_array:
 		return obj_array_foreach_flat(wk, val, &ctx, env_to_envp_arr_iter);
 	case obj_dict:
-		if (!typecheck_environment_dict(wk, err_node, val)) {
+		if (!typecheck_dict(wk, err_node, val, obj_string)) {
 			return false;
 		}
 		return obj_dict_foreach(wk, val, &ctx, env_to_envp_dict_iter);
