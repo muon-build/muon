@@ -140,6 +140,31 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 	return true;
 }
 
+static void
+get_option_compile_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
+{
+#ifndef MUON_BOOTSTRAPPED
+	// If we aren't bootstrapped, we don't yet have any _args options defined
+	return;
+#endif
+
+	obj args;
+	switch (lang) {
+	case compiler_language_c:
+		get_option(wk, proj, "c_args", &args);
+		break;
+	case compiler_language_cpp:
+		get_option(wk, proj, "cpp_args", &args);
+		break;
+	default:
+		return;
+	}
+
+	obj dup;
+	obj_array_dup(wk, args, &dup);
+	obj_array_extend(wk, args_id, dup);
+}
+
 enum iteration_result
 setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 {
@@ -258,6 +283,10 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		return false;
 	}
 
+	{ /* option args (from option('x_args')) */
+		get_option_compile_args(wk, ctx->proj, args, lang);
+	}
+
 	{ /* global args */
 		obj global_args, global_args_dup;
 		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
@@ -320,6 +349,31 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	return true;
 }
 
+static void
+get_option_link_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
+{
+#ifndef MUON_BOOTSTRAPPED
+	// If we aren't bootstrapped, we don't yet have any _link_args options defined
+	return;
+#endif
+
+	obj args;
+	switch (lang) {
+	case compiler_language_c:
+		get_option(wk, proj, "c_link_args", &args);
+		break;
+	case compiler_language_cpp:
+		get_option(wk, proj, "cpp_args", &args);
+		break;
+	default:
+		return;
+	}
+
+	obj dup;
+	obj_array_dup(wk, args, &dup);
+	obj_array_extend(wk, args_id, dup);
+}
+
 static enum iteration_result
 process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 {
@@ -380,6 +434,10 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 		}
 
 		setup_optional_b_args_linker(wk, proj, ctx->args->link_args, ctx->linker);
+
+		{ /* option args (from option('x_link_args')) */
+			get_option_link_args(wk, proj, ctx->args->link_args, ctx->link_lang);
+		}
 
 		/* global args */
 		obj global_args, global_args_dup;

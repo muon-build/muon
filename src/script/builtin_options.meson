@@ -134,8 +134,8 @@ option(
 ) # TODO
 
 # Compiler options
-option('c_args', yield: true, type: 'array', value: []) # TODO
-option('c_link_args', yield: true, type: 'array', value: []) # TODO
+option('c_args', yield: true, type: 'array', value: [])
+option('c_link_args', yield: true, type: 'array', value: [])
 option(
     'c_std',
     yield: true,
@@ -159,8 +159,8 @@ option(
 )
 option('c_winlibs', yield: true, type: 'array', value: [])
 option('c_thread_count', yield: true, type: 'integer', value: 4, min: 0) # TODO
-option('cpp_args', yield: true, type: 'array', value: []) # TODO
-option('cpp_link_args', yield: true, type: 'array', value: []) # TODO
+option('cpp_args', yield: true, type: 'array', value: [])
+option('cpp_link_args', yield: true, type: 'array', value: [])
 option(
     'cpp_std',
     yield: true,

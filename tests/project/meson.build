@@ -169,7 +169,7 @@ tests = [
     ['common/168 preserve gendir', {'should_fail': true}],
     ['common/169 source in dep', {}],
     ['common/170 generator link whole', {'should_fail': true}],
-    ['common/171 initial c_args', {'should_fail': true}],
+    ['common/171 initial c_args', {}],
     ['common/172 identical target name in subproject flat layout', {}],
     ['common/173 as-needed', {}],
     ['common/174 ndebug if-release enabled', {}],
