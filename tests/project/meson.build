@@ -70,7 +70,7 @@ tests = [
     ['common/69 configure file in custom target', {}],
     ['common/70 external test program', {}],
     ['common/71 ctarget dependency', {}],
-    ['common/72 shared subproject', {'should_fail': true}],
+    ['common/72 shared subproject', {}],
     ['common/73 shared subproject 2', {}],
     ['common/74 file object', {}],
     ['common/75 custom subproject dir', {'should_fail': true}],
