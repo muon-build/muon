@@ -65,7 +65,7 @@ tests = [
     ['common/64 arithmetic bidmas', {}],
     ['common/65 build always', {}],
     ['common/66 vcstag', {}],
-    ['common/67 modules', {'should_fail': true}],
+    ['common/67 modules', {}],
     ['common/68 should fail', {}],
     ['common/69 configure file in custom target', {}],
     ['common/70 external test program', {}],

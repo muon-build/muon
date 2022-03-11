@@ -1253,9 +1253,11 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
+		kw_disabler,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", obj_any },
+		[kw_disabler] = { "disabler", obj_bool },
 		0
 	};
 
@@ -1268,26 +1270,27 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_module);
-	struct obj_module *m = get_obj_module(wk, *res);
-	m->found = false;
+	enum module mod = 0;
+	bool found = false;
 
-	if (requirement == requirement_skip) {
-		return true;
-	}
-
-	enum module mod;
-	if (!module_lookup(get_cstr(wk, an[0].val), &mod)) {
-		if (requirement == requirement_required) {
+	if (requirement != requirement_skip) {
+		if (module_lookup(get_cstr(wk, an[0].val), &mod)) {
+			found = true;
+		} else if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "module not found");
 			return false;
-		} else {
-			return true;
 		}
 	}
 
+	if (!found && akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
+		*res = disabler_id;
+		return true;
+	}
+
+	make_obj(wk, res, obj_module);
+	struct obj_module *m = get_obj_module(wk, *res);
 	m->module = mod;
-	m->found = true;
+	m->found = found;
 	return true;
 }
 

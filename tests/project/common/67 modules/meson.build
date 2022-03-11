@@ -1,10 +1,9 @@
 project('module test', 'c')
 
-modtest = import('modtest')
-modtest.print_hello()
+modtest = import('fs')
 assert(modtest.found())
 
-modtest = import('modtest', required: get_option('disabled'))
+modtest = import('fs', required: get_option('disabled'))
 assert(not modtest.found())
 
 notfound = import('not-found', required: false)
