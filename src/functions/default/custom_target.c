@@ -585,6 +585,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depend_files,
 		kw_depends,
 		kw_build_always_stale,
+		kw_build_always,
 		kw_env,
 	};
 	struct args_kw akw[] = {
@@ -600,6 +601,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
+		[kw_build_always] = { "build_always", obj_bool },
 		[kw_env] = { "env", obj_any },
 		0
 	};
@@ -649,10 +651,12 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		tgt->flags |= custom_target_build_always_stale;
 	}
 
-	if (akw[kw_build_by_default].set) {
-		if (get_obj_bool(wk, akw[kw_build_by_default].val)) {
-			tgt->flags |= custom_target_build_by_default;
-		}
+	if (akw[kw_build_by_default].set && get_obj_bool(wk, akw[kw_build_by_default].val)) {
+		tgt->flags |= custom_target_build_by_default;
+	}
+
+	if (akw[kw_build_always].set && get_obj_bool(wk, akw[kw_build_always].val)) {
+		tgt->flags |= custom_target_build_always_stale | custom_target_build_by_default;
 	}
 
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
