@@ -331,7 +331,7 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	obj depends; // used only for the call below :(
 	make_obj(wk, &depends, obj_array);
 	if (!process_custom_target_commandline(wk, node, false, 0, command, input,
-		output_arr, depfile, depends, &args)) {
+		output_arr, depfile, depends, NULL, &args)) {
 		return false;
 	}
 

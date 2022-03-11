@@ -18,6 +18,7 @@ struct custom_target_cmd_fmt_ctx {
 	obj arr, input, output, depfile, depends, name;
 	bool skip_depends;
 	bool relativize;
+	const char *output_dir;
 };
 
 static bool
@@ -38,7 +39,7 @@ static bool
 str_relative_to_build_root(struct workspace *wk,
 	struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
 {
-	char rel[PATH_MAX]; //, abs[PATH_MAX];
+	char rel[PATH_MAX];
 	const char *path = path_orig;
 
 	if (!ctx->relativize) {
@@ -74,6 +75,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		key_private_dir,
 		key_source_root,
 		key_build_root,
+		key_build_dir,
 		key_current_source_dir,
 		cmd_arg_fmt_key_count,
 	};
@@ -92,6 +94,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		[key_private_dir       ] = { "PRIVATE_DIR", ctx->output, true, },
 		[key_source_root       ] = { "SOURCE_ROOT", true },
 		[key_build_root        ] = { "BUILD_ROOT", true },
+		[key_build_dir         ] = { "BUILD_DIR", ctx->output_dir },
 		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", true },
 	};
 
@@ -178,6 +181,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		 * Depending on the backend, this may be an absolute or a
 		 * relative to current workdir path. */
 		if (!str_relative_to_build_root(wk, ctx, wk->build_root, elem)) {
+			return format_cb_error;
+		}
+		return format_cb_found;
+	case key_build_dir:
+		if (!str_relative_to_build_root(wk, ctx, ctx->output_dir, elem)) {
 			return format_cb_error;
 		}
 		return format_cb_found;
@@ -329,7 +337,8 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 
 bool
 process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool relativize,
-	obj name, obj arr, obj input, obj output, obj depfile, obj depends, obj *res)
+	obj name, obj arr, obj input, obj output, obj depfile, obj depends,
+	const char *output_dir, obj *res)
 {
 	make_obj(wk, res, obj_array);
 	struct custom_target_cmd_fmt_ctx ctx = {
@@ -340,7 +349,8 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool 
 		.depfile = depfile,
 		.depends = depends,
 		.name = name,
-		.relativize = relativize
+		.relativize = relativize,
+		.output_dir = output_dir,
 	};
 
 	if (!obj_array_foreach_flat(wk, arr, &ctx, custom_target_cmd_fmt_iter)) {
@@ -553,7 +563,7 @@ make_custom_target(struct workspace *wk,
 	obj depends;
 	make_obj(wk, &depends, obj_array);
 	if (!process_custom_target_commandline(wk, command_node, true, name,
-		command_orig, input, output, depfile_orig, depends, &args)) {
+		command_orig, input, output, depfile_orig, depends, output_dir, &args)) {
 		return false;
 	}
 
