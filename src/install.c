@@ -6,6 +6,7 @@
 #include "args.h"
 #include "backend/output.h"
 #include "buf_size.h"
+#include "functions/environment.h"
 #include "install.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -86,9 +87,10 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_PREFIX"), ctx->prefix);
 	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DESTDIR_PREFIX"), ctx->full_prefix);
+	set_default_environment_vars(wk, env, false);
 
 	char *const *envp;
-	if (!env_to_envp(wk, 0, &envp, env, 0)) {
+	if (!env_to_envp(wk, 0, &envp, env)) {
 		return ir_err;
 	}
 

@@ -284,7 +284,7 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 		return ir_err;
 	}
 
-	if (!env_to_envp(wk, 0, &envp, test->env, 0)) {
+	if (!env_to_envp(wk, 0, &envp, test->env)) {
 		LOG_E("failed to prepare environment");
 		return ir_err;
 	}

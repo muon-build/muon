@@ -4,6 +4,23 @@
 #include "functions/environment.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/path.h"
+
+void
+set_default_environment_vars(struct workspace *wk, obj env, bool set_subdir)
+{
+	obj_dict_set(wk, env, make_str(wk, "MESON_BUILD_ROOT"), make_str(wk, wk->build_root));
+	obj_dict_set(wk, env, make_str(wk, "MESON_SOURCE_ROOT"), make_str(wk, wk->source_root));
+
+	if (set_subdir) {
+		static char subdir[PATH_MAX];
+		if (!path_relative_to(subdir, PATH_MAX, wk->source_root, get_cstr(wk, current_project(wk)->cwd))) {
+			assert(false);
+		}
+
+		obj_dict_set(wk, env, make_str(wk, "MESON_SUBDIR"), make_str(wk, subdir));
+	}
+}
 
 enum environment_set_mode {
 	environment_set_mode_set,

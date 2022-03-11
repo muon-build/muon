@@ -5,10 +5,96 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "functions/environment.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+
+bool
+coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res)
+{
+	if (kw->set) {
+		if (!coerce_environment_dict(wk, kw->node, kw->val, res)) {
+			return false;
+		}
+	} else {
+		make_obj(wk, res, obj_dict);
+	}
+
+	set_default_environment_vars(wk, *res, set_subdir);
+	return true;
+}
+
+struct coerce_environment_ctx {
+	uint32_t err_node;
+	obj res;
+};
+
+static enum iteration_result
+coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct coerce_environment_ctx *ctx = _ctx;
+
+	if (!typecheck(wk, ctx->err_node, val, obj_string)) {
+		return false;
+	}
+
+	const struct str *ss = get_str(wk, val);
+	if (str_has_null(ss)) {
+		interp_error(wk, ctx->err_node, "environment string %o must not contain null bytes", val);
+		return ir_err;
+	}
+
+	const char *eql;
+	if (!(eql = strchr(ss->s, '='))) {
+		interp_error(wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
+		return ir_err;
+	}
+
+	uint32_t key_len = eql - ss->s;
+	obj key = make_strn(wk, ss->s, key_len);
+	val = make_strn(wk, ss->s + key_len + 1, ss->len - (key_len + 1));
+
+	obj_fprintf(wk, log_file(), "set env: %o = %o\n", key, val);
+
+	obj_dict_set(wk, ctx->res, key, val);
+	return ir_cont;
+}
+
+bool
+coerce_environment_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res)
+{
+	make_obj(wk, res, obj_dict);
+
+	struct coerce_environment_ctx ctx = {
+		.err_node = err_node,
+		.res = *res,
+	};
+
+	enum obj_type t = get_obj_type(wk, val);
+	switch (t) {
+	case obj_string:
+		return coerce_environment_iter(wk, &ctx, val) != ir_err;
+	case obj_array:
+		return obj_array_foreach_flat(wk, val, &ctx, coerce_environment_iter);
+	case obj_dict:
+		if (!typecheck_dict(wk, err_node, val, obj_string)) {
+			return false;
+		}
+
+		*res = val;
+		break;
+	case obj_environment:
+		*res = get_obj_environment(wk, val)->env;
+		break;
+	default:
+		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(t));
+		return false;
+	}
+
+	return true;
+}
 
 bool
 coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_node, enum include_type *res)

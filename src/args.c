@@ -369,12 +369,16 @@ struct env_to_envp_ctx {
 };
 
 static bool
-push_envp_str(struct env_to_envp_ctx *ctx, const char *s)
+push_envp_key_val(struct workspace *wk, struct env_to_envp_ctx *ctx, const char *k, const char *v)
 {
+	obj str = make_strf(wk, "%s=%s", k, v);
+
 	if (ctx->i >= MAX_ENV) {
 		LOG_E("too many environment elements (max: %d)", MAX_ENV);
 		return false;
 	}
+
+	const char *s = get_cstr(wk, str);
 
 	if (!strchr(s, '=')) {
 		LOG_E("env elements must be of the format key=value: '%s'", s);
@@ -384,25 +388,6 @@ push_envp_str(struct env_to_envp_ctx *ctx, const char *s)
 	ctx->envp[ctx->i] = (char *)s;
 	++ctx->i;
 	return true;
-}
-
-static bool
-push_envp_key_val(struct workspace *wk, struct env_to_envp_ctx *ctx, const char *k, const char *v)
-{
-	obj s = make_strf(wk, "%s=%s", k, v);
-	return push_envp_str(ctx, get_cstr(wk, s));
-}
-
-static enum iteration_result
-env_to_envp_arr_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct env_to_envp_ctx *ctx = _ctx;
-
-	if (!push_envp_str(ctx, get_cstr(wk, val))) {
-		return ir_err;
-	}
-
-	return ir_cont;
 }
 
 static enum iteration_result
@@ -418,48 +403,26 @@ env_to_envp_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 }
 
 bool
-env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val, enum env_to_envp_flags flags)
+env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val)
 {
 	static struct env_to_envp_ctx ctx = { 0 };
 	memset(&ctx, 0, sizeof(struct env_to_envp_ctx));
 
 	*ret = ctx.envp;
 
-	push_envp_key_val(wk, &ctx, "MESON_BUILD_ROOT", wk->build_root);
-	push_envp_key_val(wk, &ctx, "MESON_SOURCE_ROOT", wk->source_root);
+	obj dict;
 
-	if (flags & env_to_envp_flag_dist_root) {
-		assert(false && "TODO");
-	}
-
-	if (flags & env_to_envp_flag_subdir) {
-		static char subdir[PATH_MAX];
-		if (!path_relative_to(subdir, PATH_MAX, wk->source_root, get_cstr(wk, current_project(wk)->cwd))) {
-			return false;
-		}
-
-		push_envp_key_val(wk, &ctx, "MESON_SUBDIR", subdir);
-	}
-
-	if (!val) {
-		return true;
-	}
-
-	enum obj_type t = get_obj_type(wk, val);
-	switch (t) {
-	case obj_string:
-		return push_envp_str(&ctx, get_cstr(wk, val));
-	case obj_array:
-		return obj_array_foreach_flat(wk, val, &ctx, env_to_envp_arr_iter);
+	switch (get_obj_type(wk, val)) {
 	case obj_dict:
-		if (!typecheck_dict(wk, err_node, val, obj_string)) {
-			return false;
-		}
-		return obj_dict_foreach(wk, val, &ctx, env_to_envp_dict_iter);
+		dict = val;
+		break;
 	case obj_environment:
-		return obj_dict_foreach(wk, get_obj_environment(wk, val)->env, &ctx, env_to_envp_dict_iter);
+		dict = get_obj_environment(wk, val)->env;
+		break;
 	default:
-		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(t));
+		assert(false && "please call me with a dict or environment object");
 		return false;
 	}
+
+	return obj_dict_foreach(wk, dict, &ctx, env_to_envp_dict_iter);
 }

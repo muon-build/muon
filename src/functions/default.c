@@ -759,7 +759,12 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, env_to_envp_flag_subdir)) {
+	obj env;
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &env)) {
+		return false;
+	}
+
+	if (!env_to_envp(wk, akw[kw_env].node, &envp, env)) {
 		return false;
 	}
 
@@ -1122,22 +1127,17 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		}
 	}
 
-	if (akw[kw_env].set) {
-		char *const *envp;
-		/* even though we won't use the result, do this type-checking
-		 * here so you don't get type errors when running tests */
-		if (!env_to_envp(wk, akw[kw_env].node, &envp, akw[kw_env].val, 0)) {
-			return false;
-		}
-	}
-
 	obj test;
 	make_obj(wk, &test, obj_test);
 	struct obj_test *t = get_obj_test(wk, test);
+
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &t->env)) {
+		return false;
+	}
+
 	t->name = an[0].val;
 	t->exe = exe;
 	t->args = args;
-	t->env = akw[kw_env].val;
 	t->should_fail =
 		akw[kw_should_fail].set
 		&& get_obj_bool(wk, akw[kw_should_fail].val);

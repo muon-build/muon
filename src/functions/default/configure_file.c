@@ -10,6 +10,7 @@
 #include "functions/common.h"
 #include "functions/default/configure_file.h"
 #include "functions/default/custom_target.h"
+#include "functions/environment.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -348,7 +349,11 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		return false;
 	}
 
-	if (!env_to_envp(wk, 0, &envp, 0, env_to_envp_flag_subdir)) {
+	obj env;
+	make_obj(wk, &env, obj_dict);
+	set_default_environment_vars(wk, env, true);
+
+	if (!env_to_envp(wk, 0, &envp, env)) {
 		goto ret;
 	} else if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
 		interp_error(wk, node, "error running command: %s", cmd_ctx.err_msg);

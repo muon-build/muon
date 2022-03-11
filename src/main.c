@@ -46,7 +46,7 @@ load_environment_from_serial_dump(struct workspace *wk, const char *path, char *
 		goto ret;
 	}
 
-	if (!env_to_envp(wk, 0, envp, env, 0)) {
+	if (!env_to_envp(wk, 0, envp, env)) {
 		goto ret;
 	}
 

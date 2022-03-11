@@ -669,15 +669,8 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (akw[kw_env].set) {
-		// coerce to envp for typechecking only, we don't use the
-		// result here
-		char *const *_ = NULL;
-		if (!env_to_envp(wk, akw[kw_env].node, &_, akw[kw_env].val, 0)) {
-			return false;
-		}
-
-		tgt->env = akw[kw_env].val;
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &tgt->env)) {
+		return false;
 	}
 
 	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));

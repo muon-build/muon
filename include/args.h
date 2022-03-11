@@ -32,10 +32,5 @@ enum arr_to_args_flags {
 
 bool arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res);
 
-enum env_to_envp_flags {
-	env_to_envp_flag_subdir    = 1 << 0,
-	env_to_envp_flag_dist_root = 1 << 1,
-};
-
-bool env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val, enum env_to_envp_flags flags);
+bool env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val);
 #endif
