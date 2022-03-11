@@ -16,7 +16,43 @@ struct generated_list_process_for_target_ctx {
 	const char *dir;
 	bool add_targets, generated_include;
 	obj *res;
+
+	// for generated_list_process_for_target_result_iter only
+	obj name;
+	obj custom_target, tmp_arr;
+	struct obj_custom_target *t;
 };
+
+
+static enum iteration_result
+generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, obj file)
+{
+	struct generated_list_process_for_target_ctx *ctx = _ctx;
+
+	obj_array_push(wk, ctx->tmp_arr, file);
+
+	if (ctx->add_targets) {
+		const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
+
+		enum compiler_language l;
+		if (!ctx->generated_include
+		    && filename_to_compiler_language(generated_path, &l)
+		    && languages[l].is_header) {
+			L("setting to true");
+			ctx->generated_include = true;
+		}
+
+		char rel[PATH_MAX];
+		if (!path_relative_to(rel, PATH_MAX, wk->build_root, generated_path)) {
+			return ir_err;
+		}
+
+		str_app(wk, ctx->name, " ");
+		str_app(wk, ctx->name, rel);
+	}
+
+	return ir_cont;
+}
 
 static enum iteration_result
 generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val)
@@ -42,30 +78,26 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 	}
 
 	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
-
-	obj file;
-	obj_array_flatten_one(wk, t->output, &file);
-	obj_array_push(wk, *ctx->res, file);
+	ctx->custom_target = tgt;
+	ctx->t = t;
+	make_obj(wk, &ctx->tmp_arr, obj_array);
 
 	if (ctx->add_targets) {
-		const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
+		ctx->name = make_str(wk, "");
+	}
 
-		enum compiler_language l;
-		if (!ctx->generated_include
-		    && filename_to_compiler_language(generated_path, &l)
-		    && languages[l].is_header) {
-			ctx->generated_include = true;
-		}
+	if (!obj_array_foreach(wk, t->output, ctx, generated_list_process_for_target_result_iter)) {
+		return ir_err;
+	}
 
-		char rel[PATH_MAX];
-		if (!path_relative_to(rel, PATH_MAX, wk->build_root, generated_path)) {
-		}
+	obj_array_extend(wk, *ctx->res, ctx->tmp_arr);
 
-		t->name = make_strf(wk, "<generated %s>", rel);
+	if (ctx->add_targets) {
+		ctx->t->name = make_strf(wk, "<gen:%s>", get_cstr(wk, ctx->name));
 		if (ctx->g->depends) {
-			obj_array_extend(wk, t->depends, ctx->g->depends);
+			obj_array_extend(wk, ctx->t->depends, ctx->g->depends);
 		}
-		obj_array_push(wk, current_project(wk)->targets, tgt);
+		obj_array_push(wk, current_project(wk)->targets, ctx->custom_target);
 	}
 
 	return ir_cont;
@@ -105,12 +137,12 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 		.res = res,
 	};
 
-	if (add_targets && t == obj_build_target) {
-		get_obj_build_target(wk, tgt)->flags |= build_tgt_generated_include;
-	}
-
 	if (!obj_array_foreach(wk, list->input, &ctx, generated_list_process_for_target_iter)) {
 		return false;
+	}
+
+	if (add_targets && t == obj_build_target && ctx.generated_include) {
+		get_obj_build_target(wk, tgt)->flags |= build_tgt_generated_include;
 	}
 
 	return true;
