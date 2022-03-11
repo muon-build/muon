@@ -1,12 +1,14 @@
 project('run target', 'c')
 
+tests = []
+
 # Make it possible to run built programs.
 # In cross builds exe_wrapper should be added if it exists.
 
 exe = executable('helloprinter', 'helloprinter.c')
 
 if not meson.is_cross_build() or meson.can_run_host_binaries()
-    run_target('runhello', command: [exe, 'argument'])
+    p(run_target('runhello', command: [exe, 'argument']))
 endif
 
 converter = find_program('converter.py')
@@ -21,6 +23,7 @@ hex = custom_target(
         '@OUTPUT@',
     ],
 )
+p(hex)
 
 fakeburner = find_program('fakeburner.py')
 
@@ -31,12 +34,14 @@ run_target(
     command: [fakeburner, 'x:@0@:y'.format(exe.full_path())],
     depends: exe,
 )
+tests += 'upload'
 
 run_target(
     'upload2',
     command: [fakeburner, 'x:@0@:y'.format(hex.full_path())],
     depends: hex,
 )
+tests += 'upload2'
 
 python3 = find_program('python3', required: false)
 if not python3.found()
@@ -44,11 +49,13 @@ if not python3.found()
 endif
 
 run_target('py3hi', command: [python3, '-c', 'print("I am Python3.")'])
+tests += 'py3hi'
 
 run_target(
     'check_exists',
     command: [find_program('check_exists.py'), files('helloprinter.c')],
 )
+tests += 'check_exists'
 
 run_target(
     'check_exists',
@@ -71,6 +78,7 @@ conf = configure_file(
 )
 
 run_target('configure_script', command: conf)
+# tests += 'configure_script'
 
 custom_target(
     'configure_script_ct',
@@ -81,8 +89,10 @@ custom_target(
 
 # Target names that clash with potential builtin functionality.
 run_target('ctags', command: converter)
+# tests += 'ctags'
 
 run_target('clang-format', command: converter)
+# tests += 'clang-format'
 
 # Check we can pass env to the program. Also check some string substitutions
 # that were added in 0.57.0 but not documented. This is documented behaviour
@@ -97,6 +107,7 @@ run_target(
     ],
     env: {'MY_ENV': '1'},
 )
+tests += 'check-env'
 
 # Check some string substitutions that has always been done but never documented.
 # Some projects have been relying on this implementation detail. This is
@@ -119,4 +130,10 @@ custom_target(
     output: 'check-env-ct',
 )
 
-run_target('textprinter', command: ['subdir/textprinter.py'])
+run_target('textprinter', command: [find_program('subdir/textprinter.py')])
+tests += 'textprinter'
+
+ninja = find_program('ninja', 'samu')
+foreach test : tests
+    test(test, ninja, args: ['-C', meson.build_root(), test])
+endforeach
