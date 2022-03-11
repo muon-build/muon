@@ -803,7 +803,6 @@ ret:
 static bool
 func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	// NOTE: when run_targets are implemented alias_target_iter must be updated
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_command,
@@ -811,8 +810,8 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_env,
 	};
 	struct args_kw akw[] = {
-		[kw_command] = { "command", obj_any },
-		[kw_depends] = { "depends", obj_any },
+		[kw_command] = { "command", ARG_TYPE_ARRAY_OF | obj_any, .required = true },
+		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_env] = { "env", obj_any },
 		0
 	};
@@ -820,7 +819,39 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	LOG_W("TODO: run_target()");
+	if (!make_custom_target(wk,
+		an[0].val,
+		0,
+		0,
+		akw[kw_command].node,
+		0,
+		0,
+		NULL,
+		akw[kw_command].val,
+		0,
+		false,
+		res
+		)) {
+		return false;
+	}
+
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+
+	if (akw[kw_depends].set) {
+		obj depends;
+		if (!coerce_files(wk, akw[kw_depends].node, akw[kw_depends].val, &depends)) {
+			return false;
+		}
+
+		obj_array_extend(wk, tgt->depends, depends);
+	}
+
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &tgt->env)) {
+		return false;
+	}
+
+	LOG_I("adding run target '%s'", get_cstr(wk, tgt->name));
+	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
 }
 
@@ -1449,9 +1480,6 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target:
-		// FIXME: alias targets can also depend on run targets, but those are not
-		//        implemented yet
-		// case obj_run_target:
 		obj_array_push(wk, ctx->deps, val);
 		break;
 	default:

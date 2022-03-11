@@ -80,29 +80,33 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	const struct {
 		char *key;
+		bool valid;
 		bool needs_name;
 	} key_names[cmd_arg_fmt_key_count] = {
-		[key_input             ] = { "INPUT", },
-		[key_output            ] = { "OUTPUT", },
-		[key_outdir            ] = { "OUTDIR", },
-		[key_depfile           ] = { "DEPFILE", },
-		[key_plainname         ] = { "PLAINNAME", },
-		[key_basename          ] = { "BASENAME", },
-		[key_private_dir       ] = { "PRIVATE_DIR", true, },
-		[key_source_root       ] = { "SOURCE_ROOT", },
-		[key_build_root        ] = { "BUILD_ROOT", },
-		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", },
+		[key_input             ] = { "INPUT", ctx->input },
+		[key_output            ] = { "OUTPUT", ctx->output },
+		[key_outdir            ] = { "OUTDIR", ctx->output },
+		[key_depfile           ] = { "DEPFILE", ctx->depfile },
+		[key_plainname         ] = { "PLAINNAME", ctx->input },
+		[key_basename          ] = { "BASENAME", ctx->input },
+		[key_private_dir       ] = { "PRIVATE_DIR", ctx->output, true, },
+		[key_source_root       ] = { "SOURCE_ROOT", true },
+		[key_build_root        ] = { "BUILD_ROOT", true },
+		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", true },
 	};
 
 	enum cmd_arg_fmt_key key;
 	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
-		if (key_names[key].needs_name && !ctx->name) {
+		if (!str_eql(strkey, &WKSTR(key_names[key].key))) {
 			continue;
 		}
 
-		if (str_eql(strkey, &WKSTR(key_names[key].key))) {
-			break;
+		if (!key_names[key].valid
+		    || (key_names[key].needs_name && !ctx->name)) {
+			return format_cb_not_found;
 		}
+
+		break;
 	}
 
 	obj e;
@@ -219,7 +223,6 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		break;
 	}
 
-
 	int64_t index;
 	obj arr;
 
@@ -270,14 +273,14 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	case obj_string: {
-		if (strcmp(get_cstr(wk, val), "@INPUT@") == 0) {
+		if (ctx->input && str_eql(get_str(wk, val), &WKSTR("@INPUT@"))) {
 			ctx->skip_depends = true;
 			if (!obj_array_foreach(wk, ctx->input, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			ctx->skip_depends = false;
 			return ir_cont;
-		} else if (strcmp(get_cstr(wk, val), "@OUTPUT@") == 0) {
+		} else if (ctx->output && str_eql(get_str(wk, val), &WKSTR("@OUTPUT@"))) {
 			ctx->skip_depends = true;
 			if (!obj_array_foreach(wk, ctx->output, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
@@ -523,24 +526,28 @@ make_custom_target(struct workspace *wk,
 			interp_error(wk, input_node, "input cannot be empty");
 		}
 	} else {
-		make_obj(wk, &input, obj_array);
+		input = 0;
 	}
 
-	if (!coerce_output_files(wk, output_node, output_orig, output_dir, &raw_output)) {
-		return false;
-	} else if (!get_obj_array(wk, raw_output)->len) {
-		interp_error(wk, output_node, "output cannot be empty");
-	}
+	if (output_orig) {
+		if (!coerce_output_files(wk, output_node, output_orig, output_dir, &raw_output)) {
+			return false;
+		} else if (!get_obj_array(wk, raw_output)->len) {
+			interp_error(wk, output_node, "output cannot be empty");
+		}
 
-	make_obj(wk, &output, obj_array);
-	struct custom_target_cmd_fmt_ctx ctx = {
-		.err_node = output_node,
-		.input = input,
-		.output = output,
-		.name = name,
-	};
-	if (!obj_array_foreach(wk, raw_output, &ctx, custom_command_output_format_iter)) {
-		return false;
+		make_obj(wk, &output, obj_array);
+		struct custom_target_cmd_fmt_ctx ctx = {
+			.err_node = output_node,
+			.input = input,
+			.output = output,
+			.name = name,
+		};
+		if (!obj_array_foreach(wk, raw_output, &ctx, custom_command_output_format_iter)) {
+			return false;
+		}
+	} else {
+		output = 0;
 	}
 
 	obj depends;

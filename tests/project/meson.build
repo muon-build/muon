@@ -49,7 +49,7 @@ tests = [
     ['common/48 file grabber', {}],
     ['common/49 custom target', {}],
     ['common/50 custom target chain', {}],
-    ['common/51 run target', {'should_fail': true}],
+    ['common/51 run target', {}],
     ['common/52 object generator', {}],
     ['common/53 install script', {}],
     ['common/54 custom target source output', {}],

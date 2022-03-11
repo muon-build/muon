@@ -37,16 +37,30 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
 	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
 
-	obj outputs, inputs, cmdline;
+	obj outputs, inputs = 0, cmdline;
 
-	make_obj(wk, &inputs, obj_array);
-	if (!obj_array_foreach(wk, tgt->input, &inputs, relativize_paths_iter)) {
-		return ir_err;
+	if (tgt->input) {
+		make_obj(wk, &inputs, obj_array);
+		if (!obj_array_foreach(wk, tgt->input, &inputs, relativize_paths_iter)) {
+			return ir_err;
+		}
 	}
-
 	make_obj(wk, &outputs, obj_array);
-	if (!obj_array_foreach(wk, tgt->output, &outputs, relativize_paths_iter)) {
-		return ir_err;
+	if (tgt->output) {
+		if (!obj_array_foreach(wk, tgt->output, &outputs, relativize_paths_iter)) {
+			return ir_err;
+		}
+	} else {
+		assert(tgt->name && "unnamed targets cannot have no output");
+		obj name;
+
+		if (ctx->proj->subproject_name) {
+			name = make_strf(wk, "%s@@%s", get_cstr(wk, ctx->proj->subproject_name), get_cstr(wk, tgt->name));
+		} else {
+			name = tgt->name;
+		}
+
+		obj_array_push(wk, outputs, name);
 	}
 
 	make_obj(wk, &cmdline, obj_array);
@@ -117,7 +131,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	obj_array_extend(wk, cmdline, tgt_args);
 
 	outputs = join_args_ninja(wk, outputs);
-	inputs = join_args_ninja(wk, inputs);
+	inputs = inputs ? join_args_ninja(wk, inputs) : make_str(wk, "");
 	cmdline = join_args_shell_ninja(wk, cmdline);
 
 	fprintf(ctx->out, "build %s: CUSTOM_COMMAND %s | %s\n"
