@@ -12,6 +12,7 @@
 #include "lang/parser.h"
 #include "lang/string.h"
 
+// TODO: make obj_project and then that can be this.
 struct project {
 	struct hash scope;
 
@@ -47,6 +48,10 @@ struct workspace {
 	     build_root[PATH_MAX],
 	     muon_private[PATH_MAX];
 
+	/* Global objects
+	 * These should probably be cleaned up into a separate struct.
+	 */
+	/* ----------------- */
 	/* obj_array that tracks each source file eval'd */
 	obj sources;
 	/* TODO host machine dict */
@@ -62,6 +67,8 @@ struct workspace {
 	obj global_link_args;
 	/* overridden dependencies dict */
 	obj dep_overrides;
+	obj subprojects_dir;
+	/* ----------------- */
 
 	struct bucket_array chrs;
 	struct bucket_array objs;
@@ -79,6 +86,7 @@ struct workspace {
 	bool subdir_done;
 
 	uint32_t cur_project;
+
 	/* ast of current file */
 	struct ast *ast;
 	/* source of current file */

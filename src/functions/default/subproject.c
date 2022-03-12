@@ -99,13 +99,13 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	const char *subproj_name = get_cstr(wk, name);
 	char buf[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
 
-	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->source_root), "subprojects")) {
+	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, wk->subprojects_dir))) {
 		return false;
 	} else if (!path_join(cwd, PATH_MAX, buf, subproj_name)) {
 		return false;
 	}
 
-	if (!path_join(buf, PATH_MAX, wk->build_root, "subprojects")) {
+	if (!path_join(buf, PATH_MAX, wk->build_root, get_cstr(wk, wk->subprojects_dir))) {
 		return false;
 	} else if (!path_join(build_dir, PATH_MAX, buf, subproj_name)) {
 		return false;

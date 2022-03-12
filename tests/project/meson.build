@@ -73,7 +73,7 @@ tests = [
     ['common/72 shared subproject', {}],
     ['common/73 shared subproject 2', {}],
     ['common/74 file object', {}],
-    ['common/75 custom subproject dir', {'should_fail': true}],
+    ['common/75 custom subproject dir', {}],
     ['common/76 has type', {}],
     ['common/77 extract from nested subdir', {'should_fail': true}],
     ['common/78 internal dependency', {}],

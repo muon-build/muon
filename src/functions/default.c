@@ -100,7 +100,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_license,
 		kw_meson_version,
 		kw_subproject_dir,
-		kw_version
+		kw_version,
 	};
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
@@ -177,6 +177,10 @@ version_type_error:
 		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, 0, false)) {
 			return false;
 		}
+	}
+
+	if (wk->cur_project == 0 && akw[kw_subproject_dir].set) {
+		wk->subprojects_dir = akw[kw_subproject_dir].val;
 	}
 
 	LOG_I("configuring '%s', version: %s",

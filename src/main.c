@@ -172,6 +172,8 @@ ret:
 	return ret;
 }
 
+static const char *cmd_subprojects_subprojects_dir = "subprojects";
+
 static bool
 cmd_subprojects_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -238,7 +240,7 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
 	char path[PATH_MAX];
-	if (!path_make_absolute(path, PATH_MAX, "subprojects")) {
+	if (!path_make_absolute(path, PATH_MAX, cmd_subprojects_subprojects_dir)) {
 		return false;
 	}
 
@@ -278,9 +280,12 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 		{ 0 },
 	};
 
-	OPTSTART("") {
+	OPTSTART("d:") {
+		case 'd':
+			cmd_subprojects_subprojects_dir = optarg;
+			break;
 	} OPTEND(argv[0], "",
-		"",
+		"  -d <directory> - use an alternative subprojects directory\n",
 		commands, -1)
 
 	cmd_func cmd;
