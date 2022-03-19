@@ -72,6 +72,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		ctx->g->raw_command,
 		ctx->g->depfile,
 		ctx->g->capture,
+		ctx->g->feed,
 		&tgt
 		)) {
 		return ir_err;

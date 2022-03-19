@@ -13,6 +13,7 @@ bool make_custom_target(struct workspace *wk,
 	obj command_orig,
 	obj depfile_orig,
 	bool capture,
+	bool feed,
 	obj *res);
 
 bool process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool relativize,

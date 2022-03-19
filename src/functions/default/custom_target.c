@@ -492,6 +492,7 @@ make_custom_target(struct workspace *wk,
 	obj command_orig,
 	obj depfile_orig,
 	bool capture,
+	bool feed,
 	obj *res)
 {
 	obj input, raw_output, output, args;
@@ -597,6 +598,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_build_always_stale,
 		kw_build_always,
 		kw_env,
+		kw_feed,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", obj_any, },
@@ -613,6 +615,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
 		[kw_build_always] = { "build_always", obj_bool },
 		[kw_env] = { "env", obj_any },
+		[kw_feed] = { "feed", obj_bool },
 		0
 	};
 
@@ -632,6 +635,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		akw[kw_command].val,
 		akw[kw_depfile].val,
 		akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
+		akw[kw_feed].set && get_obj_bool(wk, akw[kw_feed].val),
 		res
 		)) {
 		return false;
@@ -780,6 +784,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		get_cstr(wk, current_project(wk)->build_dir),
 		command,
 		0,
+		false,
 		false,
 		res
 		)) {

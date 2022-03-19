@@ -834,6 +834,7 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		akw[kw_command].val,
 		0,
 		false,
+		false,
 		res
 		)) {
 		return false;

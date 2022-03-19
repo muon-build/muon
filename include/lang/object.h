@@ -302,6 +302,7 @@ struct obj_generator {
 	obj depfile;
 	obj depends;
 	bool capture;
+	bool feed;
 };
 
 struct obj_generated_list {
