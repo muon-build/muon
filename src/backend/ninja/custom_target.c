@@ -79,6 +79,17 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		}
 	}
 
+	if (tgt->flags & custom_target_feed) {
+		obj_array_push(wk, cmdline, make_str(wk, "-f"));
+
+		obj elem;
+		obj_array_index(wk, tgt->input, 0, &elem);
+
+		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
+			return ir_err;
+		}
+	}
+
 	if (tgt->env) {
 		assert(tgt->name && "unnamed targets cannot have a custom env");
 

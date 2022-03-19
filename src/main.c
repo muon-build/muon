@@ -62,12 +62,16 @@ static bool
 cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
+		const char *feed;
 		const char *capture;
 		const char *environment;
 		const char *const *cmd;
 	} opts = { 0 };
 
-	OPTSTART("c:e:") {
+	OPTSTART("f:c:e:") {
+		case 'f':
+			opts.feed = optarg;
+			break;
 		case 'c':
 			opts.capture = optarg;
 			break;
@@ -76,6 +80,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 			break;
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
+		"  -f <file> - feed file to input\n"
 		"  -c <file> - capture output to file\n"
 		"  -e <file> - load environemnt from data file\n",
 		NULL, -1)
@@ -90,6 +95,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 
 	bool ret = false;
 	struct run_cmd_ctx ctx = { 0 };
+	ctx.stdin_path = opts.feed;
 
 	struct workspace wk;
 	bool initialized_workspace = false;

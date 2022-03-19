@@ -244,6 +244,16 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 		}
 	}
 
+	if (ctx->stdin_path) {
+		ctx->input_fd = open(ctx->stdin_path, O_RDONLY);
+		if (ctx->input_fd == -1) {
+			log_plain("failed to open %s: %s", ctx->stdin_path, strerror(errno));
+			goto err;
+		}
+
+		ctx->input_fd_open = true;
+	}
+
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 		if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
 			goto err;
@@ -258,6 +268,13 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 		if (ctx->chdir) {
 			if (chdir(ctx->chdir) == -1) {
 				log_plain("failed to chdir to %s: %s", ctx->chdir, strerror(errno));
+				exit(1);
+			}
+		}
+
+		if (ctx->stdin_path) {
+			if (dup2(ctx->input_fd, 0) == -1) {
+				log_plain("failed to dup stdin: %s", strerror(errno));
 				exit(1);
 			}
 		}
@@ -348,6 +365,11 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 		LOG_E("failed to close: %s", strerror(errno));
 	}
 	ctx->pipefd_out_open[1] = false;
+
+	if (ctx->input_fd_open && close(ctx->input_fd) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->input_fd_open = false;
 
 	if (ctx->out.size) {
 		z_free(ctx->out.buf);

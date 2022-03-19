@@ -572,6 +572,10 @@ make_custom_target(struct workspace *wk,
 		tgt->flags |= custom_target_capture;
 	}
 
+	if (feed) {
+		tgt->flags |= custom_target_feed;
+	}
+
 	tgt->args = args;
 	tgt->input = input;
 	tgt->output = output;

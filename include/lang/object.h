@@ -168,6 +168,7 @@ enum custom_target_flags {
 	custom_target_capture = 1 << 0,
 	custom_target_build_always_stale = 1 << 1,
 	custom_target_build_by_default = 1 << 2,
+	custom_target_feed = 1 << 3,
 };
 
 struct obj_custom_target {
