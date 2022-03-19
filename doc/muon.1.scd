@@ -130,11 +130,12 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	defined as an array containing the commandline starting at <filename>.
 
 ## internal exe
-	*muon* *internal* *exe* [*-c* <output file>] <cmd> [<args>]
+	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] <cmd> [<args>]
 
 	Execute <cmd> with arguments <args>.
 
 	*OPTIONS*:
+	- *-f* <input file> - pass _input file_ as stdin to <cmd>
 	- *-c* <output file> - capture stdout of <cmd> and write it to _output
 	  file_
 
