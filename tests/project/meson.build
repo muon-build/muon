@@ -241,7 +241,7 @@ tests = [
     ['common/239 includedir violation', {}],
     ['common/240 dependency native host == build', {}],
     ['common/241 set and get variable', {}],
-    ['common/242 custom target feed', {'should_fail': true}],
+    ['common/242 custom target feed', {}],
     ['common/243 escape++', {}],
     ['common/244 variable scope', {'should_fail': true}],
     ['common/245 custom target index source', {}],
