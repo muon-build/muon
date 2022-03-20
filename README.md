@@ -1,4 +1,4 @@
-# muon
+# [muon]
 
 `muon` is an implementation of the meson build system in c99 with minimal
 dependencies.
@@ -29,9 +29,8 @@ your favorite project.  Patches and bug reports welcome!
 In addition, dependency discovery requires `libpkgconf`, and wrap support
 requires `libcurl` and `libarchive`.
 
-A ninja-compatible build tool (e.g.
-[samurai](https://github.com/michaelforney/samurai)) is also required to
-bootstrap muon, but can be optionally embedded into muon after bootstrapping.
+A ninja-compatible build tool (e.g.  [samurai]) is also required to bootstrap
+muon, but can be optionally embedded into muon after bootstrapping.
 
 Documentation requires `scdoc` in order to be built.
 
@@ -52,20 +51,26 @@ ninja -C build
 
 ## Contributing
 
-Please refer to the contributing
-[guide](https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md) before
-sending patches.
+Please refer to the [contributing guide] before sending patches.  Send patches
+on the [mailing list], report issues on the [issue tracker].
 
 ## License
 
 `muon` is licensed under the GPL version 3 (see LICENSE).  Tests under
-`tests/project` were copied from the [meson
-project](https://github.com/mesonbuild/meson/tree/master/test%20cases) and are
-licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt).
+`tests/project` were copied from the [meson project tests] and are licensed
+under [Apache 2.0].
 
 ## Credits
 
 Although I had already had the idea to re-implement meson in C, I was initially
-inspired to actually go out and do it when I saw
-[boson](https://sr.ht/~bl4ckb0ne/boson/).  `muon`'s code was originally based on
-`boson`, though has since been almost completely rewritten.
+inspired to actually go out and do it when I saw [boson].  `muon`'s code was
+originally based on `boson`, though has since been almost completely rewritten.
+
+[muon]: https://muon.build
+[samurai]: https://github.com/michaelforney/samurai
+[contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md
+[mailing list]: https://lists.sr.ht/~lattis/muon/
+[issue tracker]: https://todo.sr.ht/~lattis/muon/
+[meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
+[Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
+[boson]: https://sr.ht/~bl4ckb0ne/boson/
