@@ -20,7 +20,8 @@ foreach page, section : man_pages
         input: files(input),
         output: name,
         capture: true,
-        command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc.path())],
+        feed: true,
+        command: scdoc.path(),
         install: true,
         install_dir: get_option('mandir') / 'man@0@'.format(section),
     )
