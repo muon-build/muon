@@ -94,20 +94,6 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
-		/* TODO: meson adds -I path/to/build/target.p
-		 * probably to support header files generated with generator()
-		 * I'm not sure if this is needed for deps of said build
-		 * targets yet, so leaving this comment until I discover a real
-		 * use case.
-		 */
-		/* char tgt_parts_dir[PATH_MAX]; */
-		/* if (!path_dirname(tgt_parts_dir, PATH_MAX, path)) { */
-		/* 	return ir_err; */
-		/* } else if (!path_add_suffix(tgt_parts_dir, PATH_MAX, ".p")) { */
-		/* 	return ir_err; */
-		/* } */
-		/* obj_array_push(wk, ctx->include_dirs, make_str(wk, tgt_parts_dir)); */
-
 		if (ctx->recursive && tgt->deps) {
 			if (!obj_array_foreach(wk, tgt->deps, ctx, dep_args_iter)) {
 				return ir_err;
