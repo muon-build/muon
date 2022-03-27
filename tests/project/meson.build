@@ -80,7 +80,7 @@ tests = [
     ['common/79 same basename', {}],
     ['common/80 declare dep', {}],
     ['common/81 extract all', {}],
-    ['common/82 add language', {'should_fail': true}],
+    ['common/82 add language', {}],
     ['common/83 identical target name in subproject', {}],
     ['common/84 plusassign', {}],
     ['common/85 skip subdir', {}],
