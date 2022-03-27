@@ -25,17 +25,6 @@
 #include "platform/run_cmd.h"
 
 static bool
-s_to_lang(struct workspace *wk, uint32_t err_node, obj lang, enum compiler_language *l)
-{
-	if (!s_to_compiler_language(get_cstr(wk, lang), l)) {
-		interp_error(wk, err_node, "unknown language '%s'", get_cstr(wk, lang));
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requirement_type req, bool *found)
 {
 	if (req == requirement_skip) {
@@ -44,14 +33,19 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 
 	obj comp_id;
 	enum compiler_language l;
-	if (!s_to_lang(wk, err_node, str, &l)) {
-		return false;
+	if (!s_to_compiler_language(get_cstr(wk, str), &l)) {
+		if (req == requirement_required) {
+			interp_error(wk, err_node, "%o is not a valid language", str);
+			return false;
+		} else {
+			return true;
+		}
 	}
 
 	obj res;
 	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
-		interp_error(wk, err_node, "language '%s' has already been added", get_cstr(wk, str));
-		return false;
+		*found = true;
+		return true;
 	}
 
 	if (!compiler_detect(wk, &comp_id, l)) {
@@ -218,8 +212,9 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 	struct add_arguments_ctx *ctx = _ctx;
 	enum compiler_language l;
 
-	if (!s_to_lang(wk, ctx->lang_node, val, &l)) {
-		return false;
+	if (!s_to_compiler_language(get_cstr(wk, val), &l)) {
+		interp_error(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, val));
+		return ir_err;
 	}
 
 	obj arg_arr;
