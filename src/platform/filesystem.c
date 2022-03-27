@@ -215,6 +215,28 @@ fs_fsize(FILE *file, uint64_t *ret)
 	return true;
 }
 
+static bool
+fs_is_seekable(FILE *file, bool *res)
+{
+	int fd;
+	if (!fs_fileno(file, &fd)) {
+		return false;
+	}
+
+	errno = 0;
+	if (lseek(fd, 0, SEEK_CUR) == -1) {
+		if (errno == ESPIPE) {
+			*res = false;
+			return true;
+		}
+		LOG_E("lseek returned an unexpected error");
+		return false;
+	}
+
+	*res = true;
+	return true;
+}
+
 bool
 fs_read_entire_file(const char *path, struct source *src)
 {
@@ -230,42 +252,77 @@ fs_read_entire_file(const char *path, struct source *src)
 	} else {
 		if (!fs_file_exists(path)) {
 			LOG_E("'%s' is not a file", path);
-			return false;
+			goto err;
 		}
 
 		if (!(f = fs_fopen(path, "r"))) {
-			return false;
+			goto err;
 		}
 
 		opened = true;
 	}
 
-	if (!fs_fsize(f, &src->len)) {
-		if (opened) {
-			fs_fclose(f);
-		}
+	/* If the file is seekable (i.e. not a pipe), then we can get the size
+	 * and read it all at once.  Otherwise, read it in chunks.
+	 */
 
-		return false;
+	bool seekable;
+	if (!fs_is_seekable(f, &seekable)) {
+		goto err;
 	}
 
-	buf = z_calloc(src->len + 1, 1);
-	read = fread(buf, 1, src->len, f);
+	if (seekable) {
+		if (!fs_fsize(f, &src->len)) {
+			goto err;
+		}
+
+		buf = z_calloc(src->len + 1, 1);
+		read = fread(buf, 1, src->len, f);
+
+		if (read != src->len) {
+			LOG_E("failed to read entire file, only read %zu/%" PRId64 "bytes", read, src->len);
+			goto err;
+		}
+	} else {
+		uint32_t buf_size = BUF_SIZE_4k;
+		buf = z_calloc(buf_size + 1, 1);
+
+		while ((read = fread(&buf[src->len], 1, BUF_SIZE_4k, f))) {
+			src->len += read;
+
+			if (src->len >= buf_size) {
+				buf_size *= 2;
+				buf = z_realloc(buf, buf_size);
+				memset(&buf[src->len], 0, buf_size - src->len);
+			}
+
+		}
+
+		assert(src->len < buf_size && buf[src->len] == 0);
+
+		if (!feof(f)) {
+			LOG_E("failed to read entire file, only read %" PRId64 "bytes", src->len);
+			goto err;
+		}
+	}
 
 	if (opened) {
 		if (!fs_fclose(f)) {
-			z_free(buf);
-			return false;
+			goto err;
 		}
-	}
-
-	if (read != src->len) {
-		LOG_E("failed to read entire file, only read %zu/%" PRId64 "bytes", read, src->len);
-		z_free(buf);
-		return false;
 	}
 
 	src->src = buf;
 	return true;
+err:
+	if (opened) {
+		fs_fclose(f);
+	}
+
+	if (buf) {
+		z_free(buf);
+	}
+	return false;
 }
 
 void
