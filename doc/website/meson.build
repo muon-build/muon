@@ -14,6 +14,7 @@ foreach name, tgt : man_page_targets
         output: name,
         capture: true,
         command: [mandoc, '-T', 'html', '-O', 'style=man-style.css', '@INPUT@'],
+        build_by_default: true,
     )
 endforeach
 
@@ -24,6 +25,7 @@ if not is_disabler(meson_reference_3)
         output: 'meson-reference.3.html',
         capture: true,
         command: [mandoc, '-T', 'html', '-O', 'style=man-style.css', '@INPUT@'],
+        build_by_default: true,
     )
 endif
 
