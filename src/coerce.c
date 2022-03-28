@@ -56,8 +56,6 @@ coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
 	obj key = make_strn(wk, ss->s, key_len);
 	val = make_strn(wk, ss->s + key_len + 1, ss->len - (key_len + 1));
 
-	obj_fprintf(wk, log_file(), "set env: %o = %o\n", key, val);
-
 	obj_dict_set(wk, ctx->res, key, val);
 	return ir_cont;
 }
