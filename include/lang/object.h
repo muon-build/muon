@@ -159,6 +159,7 @@ struct obj_build_target {
 	obj args; // obj_dict
 	obj link_args; // obj_array
 	obj link_depends; // obj_array
+	obj order_deps; // obj_array
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;

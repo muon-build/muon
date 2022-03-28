@@ -225,8 +225,8 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 }
 
 const struct func_impl_name impl_tbl_build_target[] = {
-	{ "extract_objects", func_build_target_extract_objects },
 	{ "extract_all_objects", func_build_target_extract_all_objects },
+	{ "extract_objects", func_build_target_extract_objects },
 	{ "full_path", func_build_target_full_path },
 	{ "name", func_build_target_name },
 	{ NULL, NULL },

@@ -120,38 +120,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct write_tgt_iter_ctx *ctx = _ctx;
-	const char *src = get_file_path(wk, val);
-
-	enum compiler_language fl;
-
-	if (filename_to_compiler_language(src, &fl)
-	    && !languages[fl].is_header) {
-		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
-		return ir_cont;
-	}
-
-	char dir[PATH_MAX], path[PATH_MAX];
-
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->order_deps, make_str(wk, path));
-	ctx->have_order_deps = true;
-
-	if (!path_dirname(dir, PATH_MAX, path)) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->args.include_dirs, make_str(wk, dir));
-
-	return ir_cont;
-}
-
-static enum iteration_result
 determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
@@ -290,7 +258,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	make_obj(wk, &ctx.object_names, obj_array);
-	make_obj(wk, &ctx.order_deps, obj_array);
 
 	dep_args_ctx_init(wk, &ctx.args);
 	ctx.args.relativize = true;
@@ -300,16 +267,19 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	/* sources includes */
-	if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) {
-		return false;
+	{ /* order deps */
+		obj dup;
+		obj_array_dup(wk, tgt->order_deps, &dup);
+		obj_array_extend(wk, ctx.args.order_deps, dup);
+
+		if ((ctx.have_order_deps = get_obj_array(wk, ctx.args.order_deps)->len)) {
+			ctx.order_deps = join_args_ninja(wk, ctx.args.order_deps);
+		}
 	}
 
 	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.compile_args, &ctx.joined_args)) {
 		return false;
 	}
-
-	ctx.order_deps = join_args_ninja(wk, ctx.order_deps);
 
 	{ /* sources */
 		if (!obj_array_foreach(wk, tgt->src, &ctx, write_tgt_sources_iter)) {

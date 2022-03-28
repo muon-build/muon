@@ -8,6 +8,7 @@ struct dep_args_ctx {
 	    link_with,
 	    link_with_not_found,
 	    link_args,
+	    order_deps,
 	    rpath;
 	bool relativize, recursive;
 	enum dep_flags parts;

@@ -119,6 +119,38 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct obj_build_target *tgt = _ctx;
+	const char *src = get_file_path(wk, val);
+
+	enum compiler_language fl;
+
+	if (filename_to_compiler_language(src, &fl) && !languages[fl].is_header) {
+		return ir_cont;
+	}
+
+	char dir[PATH_MAX], path[PATH_MAX];
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+
+	if (!path_dirname(dir, PATH_MAX, path)) {
+		return ir_err;
+	}
+
+	obj inc;
+	make_obj(wk, &inc, obj_include_directory);
+	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
+	d->path = make_str(wk, dir);
+	obj_array_push(wk, tgt->include_directories, inc);
+
+	return ir_cont;
+}
+
 static enum tgt_type
 default_library_type(struct workspace *wk)
 {
@@ -279,6 +311,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->args, obj_dict);
+	make_obj(wk, &tgt->include_directories, obj_array);
+	make_obj(wk, &tgt->order_deps, obj_array);
 
 	{ // build target flags
 		if (akw[bt_kw_link_whole].set) {
@@ -343,10 +377,24 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
+		if (akw[bt_kw_dependencies].set) {
+			tgt->deps = akw[bt_kw_dependencies].val;
+			struct add_dep_sources_ctx ctx = {
+				.node = akw[bt_kw_dependencies].node,
+				.src = tgt->src,
+			};
+
+			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
+		}
+
 		if (!get_obj_array(wk, tgt->src)->len && !akw[bt_kw_link_whole].set) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
 			interp_error(wk, node, "sources must not be empty unless link_whole is specified");
+			return false;
+		}
+
+		if (!obj_array_foreach(wk, tgt->src, tgt, process_source_includes_iter)) {
 			return false;
 		}
 	}
@@ -374,19 +422,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		tgt->include_directories = coerced;
-	}
-
-	{ // dependencies
-		if (akw[bt_kw_dependencies].set) {
-			tgt->deps = akw[bt_kw_dependencies].val;
-			struct add_dep_sources_ctx ctx = {
-				.node = akw[bt_kw_dependencies].node,
-				.src = tgt->src,
-			};
-
-			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
-		}
+		obj_array_extend(wk, tgt->include_directories, coerced);
 	}
 
 	{ // compiler args

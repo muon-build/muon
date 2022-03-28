@@ -114,6 +114,12 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 		}
+
+		if (get_obj_array(wk, tgt->order_deps)->len) {
+			obj dup;
+			obj_array_dup(wk, tgt->order_deps, &dup);
+			obj_array_extend(wk, ctx->order_deps, dup);
+		}
 		break;
 	}
 	case obj_custom_target: {
@@ -242,6 +248,7 @@ dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
 	make_obj(wk, &ctx->link_with_not_found, obj_array);
 	make_obj(wk, &ctx->link_args, obj_array);
 	make_obj(wk, &ctx->compile_args, obj_array);
+	make_obj(wk, &ctx->order_deps, obj_array);
 	make_obj(wk, &ctx->rpath, obj_array);
 }
 
