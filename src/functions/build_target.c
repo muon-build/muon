@@ -238,11 +238,25 @@ func_build_target_private_dir_include(struct workspace *wk, obj rcvr, uint32_t a
 	return true;
 }
 
+static bool
+func_build_target_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, true);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_build_target[] = {
 	{ "extract_all_objects", func_build_target_extract_all_objects },
 	{ "extract_objects", func_build_target_extract_objects },
+	{ "found", func_build_target_found },
 	{ "full_path", func_build_target_full_path },
 	{ "name", func_build_target_name },
+	{ "path", func_build_target_full_path },
 	{ "private_dir_include", func_build_target_private_dir_include },
 	{ NULL, NULL },
 };
