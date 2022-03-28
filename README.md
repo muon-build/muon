@@ -52,7 +52,8 @@ ninja -C build
 ## Contributing
 
 Please refer to the [contributing guide] before sending patches.  Send patches
-on the [mailing list], report issues on the [issue tracker].
+on the [mailing list], report issues on the [issue tracker], and discuss in
+[#muon on libera.chat].
 
 ## License
 
@@ -71,6 +72,7 @@ originally based on `boson`, though has since been almost completely rewritten.
 [contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md
 [mailing list]: https://lists.sr.ht/~lattis/muon/
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
+[#muon on libera.chat]: ircs://irc.libera.chat/#muon
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
