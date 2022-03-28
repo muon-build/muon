@@ -248,7 +248,12 @@ coerce_option_override(struct workspace *wk, uint32_t node, enum build_option_ty
 		break;
 	}
 	case op_array: {
-		*res = str_split(wk, &WKSTR(val), &WKSTR(","));
+		if (!*val) {
+			// make -Doption= equivalent to an empty list
+			make_obj(wk, res, obj_array);
+		} else {
+			*res = str_split(wk, &WKSTR(val), &WKSTR(","));
+		}
 		break;
 	}
 	case op_feature:
