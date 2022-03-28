@@ -1340,6 +1340,32 @@ func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, 
 	return true;
 }
 
+static bool
+func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	const char *syntax;
+	enum compiler_type type = get_obj_compiler(wk, rcvr)->type;
+
+	switch (type) {
+	case compiler_posix:
+	case compiler_gcc:
+	case compiler_clang:
+	case compiler_apple_clang:
+		syntax = "gcc";
+		break;
+	default:
+		syntax = "unknown";
+		break;
+	};
+
+	*res = make_str(wk, syntax);
+	return true;
+}
+
 struct compiler_find_library_ctx {
 	char path[PATH_MAX];
 	obj lib_name;
@@ -1467,6 +1493,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_define", func_compiler_get_define },
 	{ "get_id", func_compiler_get_id },
 	{ "get_linker_id", func_compiler_get_linker_id },
+	{ "get_argument_syntax", func_compiler_get_argument_syntax },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
