@@ -29,19 +29,32 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 	if (path_is_subpath(get_cstr(wk, tgt->build_dir), get_cstr(wk, src))) {
 		// file is a generated source
 		base = get_cstr(wk, tgt->build_dir);
-	} else if (path_is_subpath(get_cstr(wk, tgt->cwd),
+	} else if (path_is_subpath(get_cstr(wk, tgt->cwd), get_cstr(wk, src))) {
 		// file is in target cwd
-		get_cstr(wk, src))) {
 		base = get_cstr(wk, tgt->cwd);
-	} else {
-		// TODO: what if the file comes from outside the source root!
+	} else if (path_is_subpath(wk->source_root, get_cstr(wk, src))) {
 		// file is in source root
 		base = wk->source_root;
+	} else {
+		// outside the source root
+		base = NULL;
 	}
 
-	if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src))) {
-		return false;
-	} else if (!path_join(res, PATH_MAX, private_path, rel)) {
+	if (base) {
+		if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src))) {
+			return false;
+		}
+	} else {
+		strncpy(rel, get_cstr(wk, src), PATH_MAX);
+		uint32_t i;
+		for (i = 0; rel[i]; ++i) {
+			if (rel[i] == '/') {
+				rel[i] = '_';
+			}
+		}
+	}
+
+	if (!path_join(res, PATH_MAX, private_path, rel)) {
 		return false;
 	} else if (!path_add_suffix(res, PATH_MAX, ".o")) {
 		return false;
