@@ -305,7 +305,9 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 
 	{ /* dep args */
 		if (ctx->dep_args) {
-			obj_array_extend(wk, args, ctx->dep_args);
+			obj dup;
+			obj_array_dup(wk, ctx->dep_args, &dup);
+			obj_array_extend(wk, args, dup);
 		}
 	}
 
