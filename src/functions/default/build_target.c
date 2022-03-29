@@ -39,6 +39,8 @@ enum build_target_kwargs {
 	bt_kw_vs_module_defs, // TODO
 	bt_kw_gnu_symbol_visibility, // TODO
 	bt_kw_native, // TODO
+	bt_kw_darwin_versions, // TODO
+	bt_kw_gui_app, // TODO
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
@@ -571,6 +573,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_vs_module_defs] = { "vs_module_defs", obj_any },
 		[bt_kw_gnu_symbol_visibility] = { "gnu_symbol_visibility", obj_string },
 		[bt_kw_native] = { "native", obj_bool },
+		[bt_kw_darwin_versions] = { "darwin_versions", obj_any },
+		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", obj_any, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
