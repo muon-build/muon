@@ -562,7 +562,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_target_type] = { "target_type", obj_string },
 		[bt_kw_name_prefix] = { "name_prefix", obj_any },
 		[bt_kw_name_suffix] = { "name_suffix", obj_any },
-		[bt_kw_soversion] = { "soversion", obj_any },
+		[bt_kw_soversion] = { "soversion", obj_string },
 		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
 		[bt_kw_pic] = { "pic", obj_bool },
