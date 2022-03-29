@@ -1126,6 +1126,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_priority, // TODO
 		kw_timeout, // TODO
 		kw_protocol, // TODO
+		kw_is_parallel, // TODO
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_any, },
@@ -1137,6 +1138,7 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_priority] = { "priority", obj_number, }, // TODO
 		[kw_timeout] = { "timeout", obj_number, }, // TODO
 		[kw_protocol] = { "protocol", obj_string, }, // TODO
+		[kw_is_parallel] = { "is_parallel", obj_bool, }, // TODO
 		0
 	};
 
