@@ -158,7 +158,7 @@ tests = [
     ['common/157 custom target subdir depend files', {}],
     ['common/158 disabler', {}],
     ['common/159 array option', {}],
-    ['common/160 custom target template substitution', {'should_fail': true}],
+    ['common/160 custom target template substitution', {}],
     ['common/161 not-found dependency', {'should_fail': true}],
     ['common/162 subdir if_found', {'should_fail': true}],
     ['common/163 default options prefix dependent defaults', {}],

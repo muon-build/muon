@@ -66,10 +66,9 @@ remove them in the output, `string.format()` will error on invalid
 substitutions, and `custom_target` command arguments will be silently treated as
 literals if they are invalid substitutions (e.g. `@BAZ@`).
 
-muon will error on invalid substitutions in all cases, and recognizes a double
-`@` (`@@`) as an escaped `@` in `string.format()` and `custom_target` command
-arguments, analogous to `%%` in `printf`-like format strings.  This is currently
-relied-upon internally, but is subject to change.
+Because some projects rely on the above custom target command argument
+behaviour, muon merely adds a warning for invalid substitutions.  In all other
+cases muon will raise error.
 
 ## `custom_target` replaces backslashes with slashes in the command arguments
 

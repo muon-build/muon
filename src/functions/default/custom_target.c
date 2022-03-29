@@ -239,7 +239,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	} else if (prefix_plus_index(strkey, "OUTPUT", &index)) {
 		arr = ctx->output;
 	} else {
-		return format_cb_not_found;
+		LOG_W("not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+		return format_cb_skip;
 	}
 
 	if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
@@ -733,7 +734,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	obj replace_string = akw[kw_replace_string].set
 		? akw[kw_replace_string].val
-		: make_str(wk, "@@VCS_TAG@@");
+		: make_str(wk, "@VCS_TAG@");
 
 	obj fallback;
 	if (akw[kw_fallback].set) {

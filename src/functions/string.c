@@ -125,7 +125,9 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 
 				if (i == id_start) {
 					str_app(wk, *res, "@");
-					reading_id = false;
+					id_start = i + 1;
+					reading_id = true;
+					key.len = 0;
 					continue;
 				} else if (i - id_start >= MAX_KEY_LEN) {
 					interp_error(wk, err_node, "key is too long (max: %d)", MAX_KEY_LEN);

@@ -19,8 +19,7 @@ assert(
     'String formatting with variables is broken.',
 )
 
-# different than meson
-assert('@@0@@ @@1@@'.format(1, 2) == '@0@ @1@', 'String format is recursive.')
+assert('@@0@@ @@1@@'.format(1, 2) == '@1@ @2@', 'String format is recursive.')
 
 long = 'abcde'
 prefix = 'abc'
