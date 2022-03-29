@@ -50,45 +50,6 @@ enum build_target_kwargs {
 	bt_kwargs_count,
 };
 
-struct add_dep_sources_ctx {
-	uint32_t node;
-	obj src;
-};
-
-static enum iteration_result
-add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct add_dep_sources_ctx *ctx = _ctx;
-
-	enum obj_type t = get_obj_type(wk, val);
-
-	switch (t) {
-	case obj_external_library:
-		return ir_cont;
-	case obj_dependency:
-		break;
-	default:
-		interp_error(wk, ctx->node, "invalid dependency: %o", val);
-		return ir_err;
-	}
-
-	struct obj_dependency *dep = get_obj_dependency(wk, val);
-
-	if (!(dep->flags & dep_flag_no_sources)) {
-		if (dep->sources) {
-			obj src;
-			obj_array_dup(wk, dep->sources, &src);
-			obj_array_extend(wk, ctx->src, src);
-		}
-
-		if (dep->deps) {
-			obj_array_foreach(wk, dep->deps, ctx, add_dep_sources_iter);
-		}
-	}
-
-	return ir_cont;
-}
-
 struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
 	obj tgt_id;
@@ -116,6 +77,40 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	obj_array_extend(wk, ctx->res, res);
+	return ir_cont;
+}
+
+static enum iteration_result
+add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct process_build_tgt_sources_ctx *ctx = _ctx;
+
+	enum obj_type t = get_obj_type(wk, val);
+
+	switch (t) {
+	case obj_external_library:
+		return ir_cont;
+	case obj_dependency:
+		break;
+	default:
+		interp_error(wk, ctx->err_node, "invalid dependency: %o", val);
+		return ir_err;
+	}
+
+	struct obj_dependency *dep = get_obj_dependency(wk, val);
+
+	if (!(dep->flags & dep_flag_no_sources)) {
+		if (dep->sources) {
+			if (!obj_array_foreach_flat(wk, dep->sources, ctx, process_build_tgt_sources_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (dep->deps) {
+			obj_array_foreach(wk, dep->deps, ctx, add_dep_sources_iter);
+		}
+	}
+
 	return ir_cont;
 }
 
@@ -379,11 +374,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (akw[bt_kw_dependencies].set) {
 			tgt->deps = akw[bt_kw_dependencies].val;
-			struct add_dep_sources_ctx ctx = {
-				.node = akw[bt_kw_dependencies].node,
-				.src = tgt->src,
-			};
-
+			ctx.err_node = akw[bt_kw_dependencies].node,
 			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
 		}
 

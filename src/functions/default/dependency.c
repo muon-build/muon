@@ -374,6 +374,33 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+struct process_dependency_sources_ctx {
+	uint32_t err_node;
+	obj res;
+};
+
+static enum iteration_result
+coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct process_dependency_sources_ctx *ctx = _ctx;
+
+	switch (get_obj_type(wk, val)) {
+	case obj_generated_list:
+		obj_array_push(wk, ctx->res, val);
+		break;
+	default: {
+		obj res;
+		if (!coerce_files(wk, ctx->err_node, val, &res)) {
+			return ir_err;
+		}
+
+		obj_array_extend(wk, ctx->res, res);
+	}
+	}
+
+	return ir_cont;
+}
+
 bool
 func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -435,12 +462,16 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	}
 
 	if (akw[kw_sources].set) {
-		obj sources;
-		if (!coerce_files(wk, akw[kw_sources].node, akw[kw_sources].val, &sources)) {
+		make_obj(wk, &dep->sources, obj_array);
+
+		struct process_dependency_sources_ctx ctx = {
+			.err_node = akw[kw_sources].node,
+			.res = dep->sources,
+		};
+
+		if (!obj_array_foreach_flat(wk, akw[kw_sources].val, &ctx, coerce_dependency_sources_iter)) {
 			return false;
 		}
-
-		dep->sources = sources;
 	}
 
 	make_obj(wk, &dep->link_with, obj_array);
