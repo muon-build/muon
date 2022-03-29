@@ -373,6 +373,18 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node
 	return true;
 }
 
+static bool
+func_meson_has_exe_wrapper(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, false);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "add_dist_script", func_meson_add_dist_script },
 	{ "add_install_script", func_meson_add_install_script },
@@ -385,6 +397,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "get_cross_property", func_meson_get_cross_property },
 	{ "global_build_root", func_meson_global_build_root },
 	{ "global_source_root", func_meson_global_source_root },
+	{ "has_exe_wrapper", func_meson_has_exe_wrapper },
 	{ "is_cross_build", func_meson_is_cross_build },
 	{ "is_subproject", func_meson_is_subproject },
 	{ "is_unity", func_meson_is_unity },
