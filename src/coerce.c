@@ -117,6 +117,26 @@ coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_no
 }
 
 bool
+coerce_num_to_string(struct workspace *wk, uint32_t node, obj val, obj *res)
+{
+	switch (get_obj_type(wk, val)) {
+	case obj_number: {
+		*res = make_strf(wk, "%" PRId64, get_obj_number(wk, val));
+		break;
+	}
+	case obj_string: {
+		*res = val;
+		break;
+	}
+	default:
+		interp_error(wk, node, "unable to coerce %o to string", val);
+		return false;
+	}
+
+	return true;
+}
+
+bool
 coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	switch (get_obj_type(wk, val)) {

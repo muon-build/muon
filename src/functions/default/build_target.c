@@ -329,7 +329,14 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		}
 	}
 
-	if (!determine_target_build_name(wk, tgt, akw[bt_kw_soversion].val, akw[bt_kw_version].val,
+	obj sover = 0;
+	if (akw[bt_kw_soversion].set) {
+		if (!coerce_num_to_string(wk, akw[bt_kw_soversion].node, akw[bt_kw_soversion].val, &sover)) {
+			return false;
+		}
+	}
+
+	if (!determine_target_build_name(wk, tgt, sover, akw[bt_kw_version].val,
 		akw[bt_kw_name_prefix].val, akw[bt_kw_name_suffix].val, plain_name)) {
 		return false;
 	}
@@ -459,7 +466,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 	// soname handling
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
-		setup_soname(wk, tgt, plain_name, akw[bt_kw_soversion].val, akw[bt_kw_version].val);
+		setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 
 		if (type == tgt_dynamic_library) {
 			if (!setup_shared_object_symlinks(wk, tgt, plain_name,
@@ -564,7 +571,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_target_type] = { "target_type", obj_string },
 		[bt_kw_name_prefix] = { "name_prefix", obj_any },
 		[bt_kw_name_suffix] = { "name_suffix", obj_any },
-		[bt_kw_soversion] = { "soversion", obj_string },
+		[bt_kw_soversion] = { "soversion", obj_any },
 		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | obj_any },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
 		[bt_kw_pic] = { "pic", obj_bool },
