@@ -8,17 +8,6 @@
 #include "log.h"
 
 static bool
-ensure_not_in(struct workspace *wk, uint32_t node, obj dict, obj key)
-{
-	if (obj_dict_in(wk, dict, key)) {
-		interp_error(wk, node, "duplicate key in configuration_data");
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
@@ -35,9 +24,6 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 	}
 
 	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
-	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
-		return false;
-	}
 
 	const char *s = get_cstr(wk, an[1].val);
 	obj str = make_str(wk, "\"");
@@ -73,10 +59,6 @@ func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, 
 
 	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
 
-	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
-		return false;
-	}
-
 	obj_dict_set(wk, dict, an[0].val, an[1].val);
 
 	return true;
@@ -99,10 +81,6 @@ func_configuration_data_set10(struct workspace *wk, obj rcvr, uint32_t args_node
 	}
 
 	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
-
-	if (!ensure_not_in(wk, an[0].node, dict, an[0].val)) {
-		return false;
-	}
 
 	obj n;
 	make_obj(wk, &n, obj_number);
