@@ -213,6 +213,24 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 	return true;
 }
 
+static bool
+func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj exe;
+	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
+		return false;
+	}
+
+	obj_dict_set(wk, wk->find_program_overrides, an[0].val, exe);
+	return true;
+}
+
 struct process_script_commandline_ctx {
 	uint32_t node;
 	obj arr;
@@ -371,6 +389,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "is_subproject", func_meson_is_subproject },
 	{ "is_unity", func_meson_is_unity },
 	{ "override_dependency", func_meson_override_dependency },
+	{ "override_find_program", func_meson_override_find_program },
 	{ "project_build_root", func_meson_project_build_root },
 	{ "project_license", func_meson_project_license },
 	{ "project_name", func_meson_project_name },

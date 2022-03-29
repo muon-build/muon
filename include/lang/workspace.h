@@ -67,6 +67,9 @@ struct workspace {
 	obj global_link_args;
 	/* overridden dependencies dict */
 	obj dep_overrides;
+	/* overridden find_program dict */
+	obj find_program_overrides;
+	/* custom subprojects_dir */
 	obj subprojects_dir;
 	/* ----------------- */
 
