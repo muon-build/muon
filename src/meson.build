@@ -13,6 +13,7 @@ src = (
         'formats/ini.c',
         'functions/array.c',
         'functions/boolean.c',
+        'functions/both_libs.c',
         'functions/build_target.c',
         'functions/common.c',
         'functions/compiler.c',

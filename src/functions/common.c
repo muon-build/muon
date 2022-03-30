@@ -5,6 +5,7 @@
 #include "buf_size.h"
 #include "functions/array.h"
 #include "functions/boolean.h"
+#include "functions/both_libs.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
@@ -453,6 +454,7 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_environment] = { impl_tbl_environment, impl_tbl_environment },
 	[obj_disabler] = { impl_tbl_disabler, impl_tbl_disabler },
 	[obj_generator] = { impl_tbl_generator, },
+	[obj_both_libs] = { impl_tbl_both_libs, },
 };
 
 bool

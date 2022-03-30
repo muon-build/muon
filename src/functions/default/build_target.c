@@ -694,8 +694,20 @@ func_shared_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 bool
 func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_static_library | tgt_dynamic_library,
-		tgt_static_library | tgt_dynamic_library, false);
+	obj arr;
+	if (!tgt_common(wk, args_node, &arr, tgt_static_library | tgt_dynamic_library,
+		tgt_static_library | tgt_dynamic_library, false)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_both_libs);
+	struct obj_both_libs *both = get_obj_both_libs(wk, *res);
+	obj_array_index(wk, arr, 0, &both->static_lib);
+	obj_array_index(wk, arr, 1, &both->dynamic_lib);
+
+	assert(get_obj_build_target(wk, both->static_lib)->type == tgt_static_library);
+	assert(get_obj_build_target(wk, both->dynamic_lib)->type == tgt_dynamic_library);
+	return true;
 }
 
 bool

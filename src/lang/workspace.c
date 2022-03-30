@@ -228,6 +228,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_generator] = { sizeof(struct obj_generator), 16 },
 		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
 		[obj_alias_target] = { sizeof(struct obj_alias_target), 16 },
+		[obj_both_libs] = { sizeof(struct obj_both_libs), 16 },
 	};
 
 	uint32_t i;

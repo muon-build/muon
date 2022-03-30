@@ -48,6 +48,7 @@ enum obj_type {
 	obj_generator,
 	obj_generated_list,
 	obj_alias_target,
+	obj_both_libs,
 
 	obj_type_count,
 
@@ -163,6 +164,11 @@ struct obj_build_target {
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;
+};
+
+struct obj_both_libs {
+	obj static_lib; // obj_build_target
+	obj dynamic_lib; // obj_build_target
 };
 
 enum custom_target_flags {
@@ -348,6 +354,7 @@ OBJ_GETTER(obj_option);
 OBJ_GETTER(obj_generator);
 OBJ_GETTER(obj_generated_list);
 OBJ_GETTER(obj_alias_target);
+OBJ_GETTER(obj_both_libs);
 
 #undef OBJ_GETTER
 

@@ -47,6 +47,7 @@ cat \
 	src/formats/ini.c \
 	src/functions/array.c \
 	src/functions/boolean.c \
+	src/functions/both_libs.c \
 	src/functions/build_target.c \
 	src/functions/common.c \
 	src/functions/compiler.c \
