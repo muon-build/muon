@@ -62,8 +62,14 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		return ir_err;
 	}
 
-	if (!fs_copy_file(src, dest)) {
-		return ir_err;
+	if (fs_dir_exists(src)) {
+		if (!fs_copy_dir(src, dest)) {
+			return ir_err;
+		}
+	} else {
+		if (!fs_copy_file(src, dest)) {
+			return ir_err;
+		}
 	}
 
 	if (in->build_target) {
