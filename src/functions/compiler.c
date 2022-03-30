@@ -242,6 +242,9 @@ enum cc_kwargs {
 	cc_kw_required,
 	cc_kw_include_directories,
 	cc_kw_name,
+	cc_kw_guess,
+	cc_kw_high,
+	cc_kw_low,
 	cc_kwargs_count,
 
 	cm_kw_args = 1 << 0,
@@ -250,6 +253,10 @@ enum cc_kwargs {
 	cm_kw_required = 1 << 3,
 	cm_kw_include_directories = 1 << 4,
 	cm_kw_name = 1 << 5,
+
+	cm_kw_guess = 1 << 6,
+	cm_kw_high = 1 << 7,
+	cm_kw_low = 1 << 8,
 };
 
 static bool
@@ -265,6 +272,9 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 		[cc_kw_required] = { "required", obj_any },
 		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
 		[cc_kw_name] = { "name", obj_string },
+		[cc_kw_guess] = { "guess", obj_number, },
+		[cc_kw_high] = { "high", obj_number, },
+		[cc_kw_low] = { "low", obj_number, },
 		0
 	};
 
@@ -402,6 +412,44 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		get_obj_number(wk, *res)
 		);
 
+	return true;
+}
+
+static bool
+func_compiler_compute_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_run,
+	};
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories
+		| cm_kw_guess | cm_kw_high | cm_kw_low)) {
+		return false;
+	}
+
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"#include <stdio.h>\n"
+		"%s\n"
+		"int main(void) {\n"
+		"int d = (%s);\n"
+		"printf(\"%%d\", d);\n"
+		"}\n",
+		compiler_check_prefix(wk, akw),
+		get_cstr(wk, an[0].val)
+		);
+
+	bool ok;
+	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_number);
+	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
+	run_cmd_ctx_destroy(&opts.cmd_ctx);
 	return true;
 }
 
@@ -1484,6 +1532,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "alignment", func_compiler_alignment },
+	{ "compute_int", func_compiler_compute_int },
 	{ "cmd_array", func_compiler_cmd_array },
 	{ "compiles", func_compiler_compiles },
 	{ "find_library", func_compiler_find_library },
