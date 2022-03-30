@@ -156,8 +156,9 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		);
 
 	if (tgt->flags & custom_target_build_by_default) {
-		fprintf(ctx->out, "default %s", get_cstr(wk, outputs));
+		fprintf(ctx->out, "default %s\n", get_cstr(wk, outputs));
 	}
+
 	fprintf(ctx->out, "\n");
 	return ir_cont;
 }
