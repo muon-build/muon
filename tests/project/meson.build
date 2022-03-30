@@ -132,7 +132,7 @@ tests = [
     ['common/131 override options', {'should_fail': true}],
     ['common/132 get define', {}],
     ['common/133 c cpp and asm', {'should_fail': true}],
-    ['common/134 compute int', {'should_fail': true}],
+    ['common/134 compute int', {}],
     ['common/135 custom target object output', {}],
     ['common/136 empty build file', {}],
     ['common/137 whole archive', {}],
