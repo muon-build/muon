@@ -164,7 +164,7 @@ version_type_error:
 			return false;
 		}
 	} else {
-		current_project(wk)->cfg.version = make_str(wk, "unknown");
+		current_project(wk)->cfg.version = make_str(wk, "undefined");
 	}
 
 	if (akw[kw_default_options].set) {
