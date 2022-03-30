@@ -106,15 +106,6 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
-		if (tgt->include_directories) {
-			ctx->include_type = include_type_preserve;
-
-			if (!obj_array_foreach_flat(wk, tgt->include_directories,
-				ctx, dep_args_includes_iter)) {
-				return ir_err;
-			}
-		}
-
 		if (get_obj_array(wk, tgt->order_deps)->len) {
 			obj_array_extend(wk, ctx->order_deps, tgt->order_deps);
 		}
