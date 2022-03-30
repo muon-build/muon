@@ -273,7 +273,7 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 			return ir_err;
 		}
 
-		obj_array_extend(wk, cmdline, test_args);
+		obj_array_extend_nodup(wk, cmdline, test_args);
 	}
 
 	const char *argv[MAX_ARGS];

@@ -201,9 +201,7 @@ tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_ar
 	}
 
 	if (tgt->link_args) {
-		obj arr;
-		obj_array_dup(wk, tgt->link_args, &arr);
-		obj_array_extend(wk, ctx->link_args, arr);
+		obj_array_extend(wk, ctx->link_args, tgt->link_args);
 	}
 	return true;
 }
@@ -268,9 +266,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	{ /* order deps */
-		obj dup;
-		obj_array_dup(wk, tgt->order_deps, &dup);
-		obj_array_extend(wk, ctx.args.order_deps, dup);
+		obj_array_extend(wk, ctx.args.order_deps, tgt->order_deps);
 
 		if ((ctx.have_order_deps = get_obj_array(wk, ctx.args.order_deps)->len)) {
 			ctx.order_deps = join_args_ninja(wk, ctx.args.order_deps);
@@ -300,9 +296,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
 
 		if (get_obj_array(wk, ctx.args.link_with)->len) {
-			obj dup;
-			obj_array_dup(wk, ctx.args.link_with, &dup);
-			obj_array_extend(wk, implicit_deps, dup);
+			obj_array_extend(wk, implicit_deps, ctx.args.link_with);
 		}
 	}
 
@@ -312,7 +306,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			return false;
 		}
 
-		obj_array_extend(wk, implicit_deps, arr);
+		obj_array_extend_nodup(wk, implicit_deps, arr);
 	}
 
 	const char *linker_type, *link_args;

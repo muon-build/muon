@@ -116,9 +116,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (get_obj_array(wk, tgt->order_deps)->len) {
-			obj dup;
-			obj_array_dup(wk, tgt->order_deps, &dup);
-			obj_array_extend(wk, ctx->order_deps, dup);
+			obj_array_extend(wk, ctx->order_deps, tgt->order_deps);
 		}
 		break;
 	}
@@ -185,9 +183,7 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->link_with_not_found && !(ctx->parts & dep_flag_no_links)) {
-			obj dup;
-			obj_array_dup(wk, dep->link_with_not_found, &dup);
-			obj_array_extend(wk, ctx->link_with_not_found, dup);
+			obj_array_extend(wk, ctx->link_with_not_found, dep->link_with_not_found);
 		}
 
 		if (dep->include_directories && !(ctx->parts & dep_flag_no_includes)) {
@@ -200,15 +196,11 @@ dep_args_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->link_args && !(ctx->parts & dep_flag_no_link_args)) {
-			obj dup;
-			obj_array_dup(wk, dep->link_args, &dup);
-			obj_array_extend(wk, ctx->link_args, dup);
+			obj_array_extend(wk, ctx->link_args, dep->link_args);
 		}
 
 		if (dep->compile_args && !(ctx->parts & dep_flag_no_compile_args)) {
-			obj dup;
-			obj_array_dup(wk, dep->compile_args, &dup);
-			obj_array_extend(wk, ctx->compile_args, dup);
+			obj_array_extend(wk, ctx->compile_args, dep->compile_args);
 		}
 
 		if (ctx->recursive && dep->deps) {

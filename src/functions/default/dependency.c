@@ -394,7 +394,7 @@ coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 
-		obj_array_extend(wk, ctx->res, res);
+		obj_array_extend_nodup(wk, ctx->res, res);
 	}
 	}
 
@@ -476,15 +476,11 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 
 	make_obj(wk, &dep->link_with, obj_array);
 	if (akw[kw_link_with].set) {
-		obj arr;
-		obj_array_dup(wk, akw[kw_link_with].val, &arr);
-		obj_array_extend(wk, dep->link_with, arr);
+		obj_array_extend(wk, dep->link_with, akw[kw_link_with].val);
 	}
 
 	if (akw[kw_link_whole].set) {
-		obj arr;
-		obj_array_dup(wk, akw[kw_link_whole].val, &arr);
-		obj_array_extend(wk, dep->link_with, arr);
+		obj_array_extend(wk, dep->link_with, akw[kw_link_whole].val);
 	}
 
 	if (akw[kw_include_directories].set) {

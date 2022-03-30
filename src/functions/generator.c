@@ -91,7 +91,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		return ir_err;
 	}
 
-	obj_array_extend(wk, *ctx->res, ctx->tmp_arr);
+	obj_array_extend_nodup(wk, *ctx->res, ctx->tmp_arr);
 
 	if (ctx->add_targets) {
 		ctx->t->name = make_strf(wk, "<gen:%s>", get_cstr(wk, ctx->name));

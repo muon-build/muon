@@ -477,7 +477,7 @@ process_custom_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	}
 
-	obj_array_extend(wk, ctx->res, res);
+	obj_array_extend_nodup(wk, ctx->res, res);
 	return ir_cont;
 }
 
@@ -654,7 +654,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->depends, depend_files);
+		obj_array_extend_nodup(wk, tgt->depends, depend_files);
 	}
 
 	if (akw[kw_depends].set) {
@@ -663,7 +663,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->depends, depends);
+		obj_array_extend_nodup(wk, tgt->depends, depends);
 	}
 
 	if (akw[kw_build_always_stale].set && get_obj_bool(wk, akw[kw_build_always_stale].val)) {
@@ -773,9 +773,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj_array_push(wk, command, fallback);
 
 	if (akw[kw_command].set) {
-		obj cmd;
-		obj_array_dup(wk, akw[kw_command].val, &cmd);
-		obj_array_extend(wk, command, cmd);
+		obj_array_extend(wk, command, akw[kw_command].val);
 	}
 
 	if (!make_custom_target(

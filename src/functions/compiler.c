@@ -156,13 +156,11 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		};
 
 		setup_linker_args(wk, NULL, NULL, &sctx);
-		obj_array_extend(wk, compiler_args, da_ctx.link_args);
+		obj_array_extend_nodup(wk, compiler_args, da_ctx.link_args);
 	}
 
 	if (opts->args) {
-		obj args_dup;
-		obj_array_dup(wk, opts->args, &args_dup);
-		obj_array_extend(wk, compiler_args, args_dup);
+		obj_array_extend(wk, compiler_args, opts->args);
 	}
 
 	bool ret = false;
@@ -1360,7 +1358,7 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_
 	default:
 		syntax = "unknown";
 		break;
-	};
+	}
 
 	*res = make_str(wk, syntax);
 	return true;
@@ -1494,6 +1492,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_id", func_compiler_get_id },
 	{ "get_linker_id", func_compiler_get_linker_id },
 	{ "get_argument_syntax", func_compiler_get_argument_syntax },
+	{ "get_supported_link_arguments", func_compiler_get_supported_arguments },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },

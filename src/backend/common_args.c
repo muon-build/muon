@@ -160,9 +160,7 @@ get_option_compile_args(struct workspace *wk, const struct project *proj, obj ar
 		return;
 	}
 
-	obj dup;
-	obj_array_dup(wk, args, &dup);
-	obj_array_extend(wk, args_id, dup);
+	obj_array_extend(wk, args_id, args);
 }
 
 enum iteration_result
@@ -288,35 +286,30 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	}
 
 	{ /* global args */
-		obj global_args, global_args_dup;
+		obj global_args;
 		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
-			obj_array_dup(wk, global_args, &global_args_dup);
-			obj_array_extend(wk, args, global_args_dup);
+			obj_array_extend(wk, args, global_args);
 		}
 	}
 
 	{ /* project args */
-		obj proj_args, proj_args_dup;
+		obj proj_args;
 		if (obj_dict_geti(wk, ctx->proj->args, lang, &proj_args)) {
-			obj_array_dup(wk, proj_args, &proj_args_dup);
-			obj_array_extend(wk, args, proj_args_dup);
+			obj_array_extend(wk, args, proj_args);
 		}
 	}
 
 	{ /* dep args */
 		if (ctx->dep_args) {
-			obj dup;
-			obj_array_dup(wk, ctx->dep_args, &dup);
-			obj_array_extend(wk, args, dup);
+			obj_array_extend(wk, args, ctx->dep_args);
 		}
 	}
 
 	{ /* target args */
-		obj tgt_args, tgt_args_dup;
+		obj tgt_args;
 		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args)
 		    && tgt_args && get_obj_array(wk, tgt_args)->len) {
-			obj_array_dup(wk, tgt_args, &tgt_args_dup);
-			obj_array_extend(wk, args, tgt_args_dup);
+			obj_array_extend(wk, args, tgt_args);
 		}
 	}
 
@@ -371,9 +364,7 @@ get_option_link_args(struct workspace *wk, const struct project *proj, obj args_
 		return;
 	}
 
-	obj dup;
-	obj_array_dup(wk, args, &dup);
-	obj_array_extend(wk, args_id, dup);
+	obj_array_extend(wk, args_id, args);
 }
 
 static enum iteration_result
@@ -442,17 +433,15 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 		}
 
 		/* global args */
-		obj global_args, global_args_dup;
+		obj global_args;
 		if (obj_dict_geti(wk, wk->global_link_args, ctx->link_lang, &global_args)) {
-			obj_array_dup(wk, global_args, &global_args_dup);
-			obj_array_extend(wk, ctx->args->link_args, global_args_dup);
+			obj_array_extend(wk, ctx->args->link_args, global_args);
 		}
 
 		/* project args */
-		obj proj_args, proj_args_dup;
+		obj proj_args;
 		if (obj_dict_geti(wk, proj->link_args, ctx->link_lang, &proj_args)) {
-			obj_array_dup(wk, proj_args, &proj_args_dup);
-			obj_array_extend(wk, ctx->args->link_args, proj_args_dup);
+			obj_array_extend(wk, ctx->args->link_args, proj_args);
 		}
 	}
 
@@ -461,9 +450,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	if (get_obj_array(wk, ctx->args->link_with)->len) {
 		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.start_group());
 
-		obj dup;
-		obj_array_dup(wk, ctx->args->link_with, &dup);
-		obj_array_extend(wk, ctx->args->link_args, dup);
+		obj_array_extend(wk, ctx->args->link_args, ctx->args->link_with);
 
 		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, push_not_found_lib_iter);
 

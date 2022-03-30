@@ -374,6 +374,7 @@ bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_ar
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
 void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
+void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
 void obj_array_dup(struct workspace *wk, obj arr, obj *res);
 bool obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res);
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);

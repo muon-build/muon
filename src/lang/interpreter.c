@@ -410,9 +410,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			}
 
 			if (get_obj_type(wk, r_id) == obj_array) {
-				obj dup;
-				obj_array_dup(wk, r_id, &dup);
-				obj_array_extend(wk, *res, dup);
+				obj_array_extend(wk, *res, r_id);
 			} else {
 				obj_array_push(wk, *res, r_id);
 			}

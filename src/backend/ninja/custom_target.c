@@ -139,7 +139,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 
 	obj depends = join_args_ninja(wk, depends_rel);
 
-	obj_array_extend(wk, cmdline, tgt_args);
+	obj_array_extend_nodup(wk, cmdline, tgt_args);
 
 	outputs = join_args_ninja(wk, outputs);
 	inputs = inputs ? join_args_ninja(wk, inputs) : make_str(wk, "");

@@ -594,13 +594,9 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	obj command;
-	{
-		obj args;
-		make_obj(wk, &command, obj_array);
-		obj_array_push(wk, command, an[0].val);
-		obj_array_dup(wk, akw[kw_arguments].val, &args);
-		obj_array_extend(wk, command, args);
-	}
+	make_obj(wk, &command, obj_array);
+	obj_array_push(wk, command, an[0].val);
+	obj_array_extend(wk, command, akw[kw_arguments].val);
 
 	make_obj(wk, res, obj_generator);
 	struct obj_generator *gen = get_obj_generator(wk, *res);
@@ -843,7 +839,7 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->depends, depends);
+		obj_array_extend_nodup(wk, tgt->depends, depends);
 	}
 
 	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &tgt->env)) {
@@ -1043,7 +1039,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!coerce_files(wk, akw[kw_sources].node, akw[kw_sources].val, &sources)) {
 			return false;
 		}
-		obj_array_extend(wk, datafiles, sources);
+		obj_array_extend_nodup(wk, datafiles, sources);
 	}
 
 	if (akw[kw_rename].set) {

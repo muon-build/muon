@@ -78,7 +78,7 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	}
 
-	obj_array_extend(wk, ctx->res, res);
+	obj_array_extend_nodup(wk, ctx->res, res);
 	return ir_cont;
 }
 
@@ -358,15 +358,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 	{ // sources
 		if (akw[bt_kw_sources].set) {
-			obj arr;
-			obj_array_dup(wk, akw[bt_kw_sources].val, &arr);
-			obj_array_extend(wk, an[1].val, arr);
+			obj_array_extend(wk, an[1].val, akw[bt_kw_sources].val);
 		}
 
 		if (akw[bt_kw_objects].set) {
-			obj arr;
-			obj_array_dup(wk, akw[bt_kw_objects].val, &arr);
-			obj_array_extend(wk, an[1].val, arr);
+			obj_array_extend(wk, an[1].val, akw[bt_kw_objects].val);
 		}
 
 		make_obj(wk, &tgt->src, obj_array);
@@ -412,9 +408,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		if (akw[bt_kw_include_directories].set) {
 			node = akw[bt_kw_include_directories].node;
 
-			obj inc;
-			obj_array_dup(wk, akw[bt_kw_include_directories].val, &inc);
-			obj_array_extend(wk, inc_dirs, inc);
+			obj_array_extend(wk, inc_dirs, akw[bt_kw_include_directories].val);
 		}
 
 		obj coerced;
@@ -422,7 +416,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		obj_array_extend(wk, tgt->include_directories, coerced);
+		obj_array_extend_nodup(wk, tgt->include_directories, coerced);
 	}
 
 	{ // compiler args
@@ -450,15 +444,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		make_obj(wk, &tgt->link_with, obj_array);
 		if (akw[bt_kw_link_with].set) {
-			obj arr;
-			obj_array_dup(wk, akw[bt_kw_link_with].val, &arr);
-			obj_array_extend(wk, tgt->link_with, arr);
+			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_with].val);
 		}
 
 		if (akw[bt_kw_link_whole].set) {
-			obj arr;
-			obj_array_dup(wk, akw[bt_kw_link_whole].val, &arr);
-			obj_array_extend(wk, tgt->link_with, arr);
+			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_whole].val);
 		}
 	}
 
@@ -661,9 +651,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			get_obj_array(wk, an[1].val)->len = 0;
 
 			if (akw[bt_kw_objects].set) {
-				obj arr;
-				obj_array_dup(wk, akw[bt_kw_objects].val, &arr);
-				obj_array_extend(wk, objects, arr);
+				obj_array_extend(wk, objects, akw[bt_kw_objects].val);
 			} else {
 				akw[bt_kw_objects].set = true;
 				akw[bt_kw_objects].val = objects;

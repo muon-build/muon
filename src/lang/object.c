@@ -476,7 +476,7 @@ obj_array_dup(struct workspace *wk, obj arr, obj *res)
 }
 
 void
-obj_array_extend(struct workspace *wk, obj arr, obj arr2)
+obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2)
 {
 	struct obj_array *a, *b, *tail;
 
@@ -497,6 +497,14 @@ obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 
 	a->tail = b->tail;
 	a->len += b->len;
+}
+
+void
+obj_array_extend(struct workspace *wk, obj arr, obj arr2)
+{
+	obj dup;
+	obj_array_dup(wk, arr2, &dup);
+	obj_array_extend_nodup(wk, arr, dup);
 }
 
 struct obj_array_join_ctx {
