@@ -1178,9 +1178,9 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			obj_to_s_str(wk, &ctx, dep->name);
 		}
 
-		obj_to_s_buf_push(&ctx, " | found: %s, pkg_config: %s>",
+		obj_to_s_buf_push(&ctx, " | found: %s, pkgconf: %s>",
 			dep->flags & dep_flag_found ? "yes" : "no",
-			dep->flags & dep_flag_pkg_config ? "yes" : "no"
+			dep->type == dependency_type_pkgconf ? "yes" : "no"
 			);
 		break;
 	}
