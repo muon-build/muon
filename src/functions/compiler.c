@@ -1541,7 +1541,6 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_id", func_compiler_get_id },
 	{ "get_linker_id", func_compiler_get_linker_id },
 	{ "get_argument_syntax", func_compiler_get_argument_syntax },
-	{ "get_supported_link_arguments", func_compiler_get_supported_arguments },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_function", func_compiler_has_function },
