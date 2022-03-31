@@ -123,7 +123,8 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 	dep->name = ctx->name;
 	dep->version = ver_str;
-	dep->flags |= dep_flag_found | dep_flag_pkg_config;
+	dep->flags |= dep_flag_found;
+	dep->type = dependency_type_pkgconf;
 	dep->link_with = info.libs;
 	dep->link_with_not_found = info.not_found_libs;
 	dep->include_directories = info.includes;
@@ -215,6 +216,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 		dep->name = ctx->name;
 		dep->flags |= dep_flag_found;
+		dep->type = dependency_type_threads;
 
 		make_obj(wk, &dep->compile_args, obj_array);
 		obj_array_push(wk, dep->compile_args, make_str(wk, "-pthread"));
@@ -451,6 +453,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 
 	dep->link_args = akw[kw_link_args].val;
 	dep->flags |= dep_flag_found;
+	dep->type = dependency_type_declared;
 	dep->variables = akw[kw_variables].val;
 	dep->deps = akw[kw_dependencies].val;
 	dep->compile_args = akw[kw_compile_args].val;

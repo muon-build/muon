@@ -276,8 +276,8 @@ static bool
 dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var, obj *res)
 {
 	struct obj_dependency *d = get_obj_dependency(wk, dep);
-	if (!(d->flags & dep_flag_pkg_config)) {
-		interp_error(wk, node, "this dependency is not from pkg_config");
+	if (d->type != dependency_type_pkgconf) {
+		interp_error(wk, node, "dependency not from pkgconf");
 		return false;
 	}
 
@@ -354,7 +354,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 	}
 
 	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
-	if (dep->flags & dep_flag_pkg_config) {
+	if (dep->type == dependency_type_pkgconf) {
 		if (akw[kw_pkgconfig].set) {
 			node = akw[kw_pkgconfig].node;
 
@@ -408,7 +408,7 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
 
-	if (dep->flags & dep_flag_pkg_config) {
+	if (dep->type == dependency_type_pkgconf) {
 		*res = make_str(wk, "pkgconfig");
 	} else {
 		*res = make_str(wk, "internal");
