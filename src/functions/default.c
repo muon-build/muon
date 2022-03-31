@@ -876,7 +876,13 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->cwd = make_str(wk, cwd);
 	current_project(wk)->build_dir = make_str(wk, build_dir);
 
-	bool ret = eval_project_file(wk, src);
+	bool ret;
+	if (!fs_mkdir_p(build_dir)) {
+		ret = false;
+	} else {
+		ret = eval_project_file(wk, src);
+	}
+
 	current_project(wk)->cwd = old_cwd;
 	current_project(wk)->build_dir = old_build_dir;
 
