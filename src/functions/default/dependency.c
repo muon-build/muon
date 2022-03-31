@@ -148,8 +148,11 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		}
 	}
 
+	obj force_fallback_for;
+	get_option(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-	if (!found && ctx->fallback && wrap_mode == wrap_mode_forcefallback) {
+	if (!found && ctx->fallback && (wrap_mode == wrap_mode_forcefallback
+			|| obj_array_in(wk, force_fallback_for, ctx->name))) {
 		if (!handle_dependency_fallback(wk, ctx, &found)) {
 			return false;
 		}

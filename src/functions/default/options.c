@@ -618,6 +618,7 @@ set_builtin_options(struct workspace *wk)
 		"option('bindir', type: 'string', value: 'bin')\n"
 		"option('mandir', type: 'string', value: 'share/man')\n"
 		"option('wrap_mode', type: 'string', value: 'nopromote')\n"
+		"option('force_fallback_for', type: 'array', value: [])\n"
 		"option('pkg_config_path', type: 'string', value: '')\n"
 	;
 

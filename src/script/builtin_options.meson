@@ -76,7 +76,7 @@ option(
     value: 'nopromote',
     choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
 )
-option('force_fallback_for', yield: true, type: 'array', value: []) # TODO
+option('force_fallback_for', yield: true, type: 'array', value: [])
 
 # Base options
 option('b_asneeded', yield: true, type: 'boolean', value: true) # TODO
