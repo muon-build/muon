@@ -258,20 +258,21 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 	obj name_pre, obj name_suff, char plain_name[BUF_SIZE_2k])
 {
 	const char *pref, *suff, *ver_suff = NULL;
+	uint32_t i;
 
 	switch (tgt->type) {
 	case tgt_executable:
 		pref = "";
-		suff = "";
+		suff = NULL;
 		break;
 	case tgt_static_library:
 		pref = "lib";
-		suff = ".a";
+		suff = "a";
 		break;
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 		pref = "lib";
-		suff = ".so";
+		suff = "so";
 		if (ver) {
 			ver_suff = get_cstr(wk, ver);
 		} else if (sover) {
@@ -291,7 +292,10 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 		suff = get_cstr(wk, name_suff);
 	}
 
-	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s", pref, get_cstr(wk, tgt->name), suff);
+	i = snprintf(plain_name, BUF_SIZE_2k, "%s%s", pref, get_cstr(wk, tgt->name));
+	if (suff) {
+		snprintf(&plain_name[i], BUF_SIZE_2k, ".%s", suff);
+	}
 
 	tgt->build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
 	return true;
