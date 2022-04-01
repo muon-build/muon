@@ -119,7 +119,4 @@ struct project *make_project(struct workspace *wk, uint32_t *id, const char *sub
 	const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
 void workspace_print_summaries(struct workspace *wk);
-
-//TODO: ?
-const char *wk_file_path(struct workspace *wk, uint32_t id);
 #endif
