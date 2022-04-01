@@ -2,8 +2,24 @@
 
 #include "functions/common.h"
 #include "functions/custom_target.h"
+#include "functions/file.h"
 #include "lang/interpreter.h"
 #include "log.h"
+
+bool
+custom_target_is_linkable(struct workspace *wk, obj ct)
+{
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, ct);
+
+	if (get_obj_array(wk, tgt->output)->len == 1) {
+		obj out;
+		obj_array_index(wk, tgt->output, 0, &out);
+
+		return file_is_linkable(wk, out);
+	}
+
+	return false;
+}
 
 static bool
 func_custom_target_to_list(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)

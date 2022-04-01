@@ -1,9 +1,27 @@
 #include "posix.h"
 
+#include <string.h>
+
 #include "functions/common.h"
 #include "functions/file.h"
 #include "lang/interpreter.h"
 #include "log.h"
+
+bool
+file_is_linkable(struct workspace *wk, obj file)
+{
+	const struct str *s = get_str(wk, *get_obj_file(wk, file));
+
+	const char *suffs[] = { ".a", ".dll", ".lib", ".so", ".dylib", NULL };
+	uint32_t i;
+	for (i = 0; suffs[i]; ++i) {
+		if (str_endswith(s, &WKSTR(suffs[i]))) {
+			return true;
+		}
+	}
+
+	return false;
+}
 
 static bool
 func_file_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
