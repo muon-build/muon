@@ -50,25 +50,23 @@ buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
 bool
 str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
 {
-	uint32_t i, j = 0;
+	uint32_t i;
+	*r = 0;
 
 	for (i = 0; i < ss->len; ++i) {
 		if (ss->s[i] < 32) {
 			char unescaped[32];
 			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
 
-			if (!buf_pushn(buf, len, &j, unescaped, n)) {
+			if (!buf_pushn(buf, len, r, unescaped, n)) {
 				return false;
 			}
 		} else {
-			if (!buf_push(buf, len, &j, ss->s[i])) {
+			if (!buf_push(buf, len, r, ss->s[i])) {
 				return false;
 			}
 		}
 	}
-
-	*r = j;
-
 	return true;
 }
 
@@ -188,6 +186,10 @@ make_strf(struct workspace *wk, const char *fmt, ...)
 
 	obj s;
 	struct str *ss = reserve_str(wk, &s, len);
+	// TODO: the buffer size is too small here because the object expansion
+	// isn't taken in to account by vsnprintf above.  Need to make it
+	// possible to pass NULL to obj_vsnprintf to get a reliable buffer
+	// length
 	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
 
 	va_end(args_copy);
