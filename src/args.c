@@ -101,9 +101,8 @@ trunc:
 }
 
 static bool
-_ninja_escape(char *buf, uint32_t len, const char *str, const char *need_escaping)
+simple_escape(char *buf, uint32_t len, const char *str, const char *need_escaping, char esc_char)
 {
-	char esc_char = '$';
 	const char *s = str;
 	uint32_t bufi = 0;
 
@@ -135,7 +134,7 @@ trunc:
 bool
 ninja_escape(char *buf, uint32_t len, const char *str)
 {
-	return _ninja_escape(buf, len, str, " :$");
+	return simple_escape(buf, len, str, " :$", '$');
 }
 
 static bool
@@ -144,11 +143,17 @@ shell_ninja_escape(char *buf, uint32_t len, const char *str)
 	char tmp_buf[BUF_SIZE_4k];
 	if (!shell_escape(tmp_buf, BUF_SIZE_4k, str)) {
 		return false;
-	} else if (!_ninja_escape(buf, len, tmp_buf, "$")) {
+	} else if (!simple_escape(buf, len, tmp_buf, "$", '$')) {
 		return false;
 	}
 
 	return true;
+}
+
+bool
+pkgconf_escape(char *buf, uint32_t len, const char *str)
+{
+	return simple_escape(buf, len, str, " ", '\\');
 }
 
 typedef bool ((*escape_func)(char *buf, uint32_t len, const char *str));
@@ -229,6 +234,11 @@ join_args_shell_ninja(struct workspace *wk, obj arr)
 	return join_args(wk, arr, shell_ninja_escape);
 }
 
+obj
+join_args_pkgconf(struct workspace *wk, obj arr)
+{
+	return join_args(wk, arr, pkgconf_escape);
+}
 
 struct join_args_argv_iter_ctx {
 	const char **argv;

@@ -10,6 +10,7 @@ struct args {
 
 bool shell_escape(char *buf, uint32_t len, const char *str);
 bool ninja_escape(char *buf, uint32_t len, const char *str);
+bool pkgconf_escape(char *buf, uint32_t len, const char *str);
 
 void push_args(struct workspace *wk, obj arr, const struct args *args);
 void push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv);
@@ -20,6 +21,7 @@ obj join_args_plain(struct workspace *wk, obj arr);
 obj join_args_shell(struct workspace *wk, obj arr);
 obj join_args_ninja(struct workspace *wk, obj arr);
 obj join_args_shell_ninja(struct workspace *wk, obj arr);
+obj join_args_pkgconf(struct workspace *wk, obj arr);
 bool join_args_argv(struct workspace *wk, const char **argv, uint32_t len, obj arr);
 
 enum arr_to_args_flags {
