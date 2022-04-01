@@ -159,7 +159,7 @@ ct = custom_target(
     output: fs.name(outfile),
     command: [python, '-c', script],
 )
-simple6 = library('simple6', 'foo.c', link_with: ct)
+simple6 = library('simple6', link_whole: ct)
 pkgg.generate(simple6)
 to_validate += 'simple6'
 
@@ -186,12 +186,17 @@ to_validate += 'libvartest2'
 
 cmp = find_program('diff')
 
+
+privder = 'muon-private'
+env = environment()
+env.prepend('PKG_CONFIG_PATH', meson.current_build_dir() / privder)
+
 foreach pc : to_validate
     test(
         'validate' + pc,
         pkgconfig,
         args: ['--validate', pc],
-        env: ['PKG_CONFIG_PATH=' + meson.current_build_dir() + '/muon-private'],
+        env: env,
     )
 
     test(
@@ -199,7 +204,7 @@ foreach pc : to_validate
         cmp,
         args: [
             files('expected' / pc + '.pc'),
-            meson.current_build_dir() + '/muon-private' / pc + '.pc',
+            meson.current_build_dir() / privder / pc + '.pc',
         ],
     )
 endforeach
