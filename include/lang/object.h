@@ -203,6 +203,7 @@ struct obj_build_target {
 	obj link_args; // obj_array
 	obj link_depends; // obj_array
 	obj order_deps; // obj_array
+	obj generated_pc; // obj_string
 
 	enum build_tgt_flags flags;
 	enum tgt_type type;

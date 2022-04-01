@@ -1,4 +1,9 @@
-project('pkgconfig-gen', 'c', meson_version: '>=0.60.0')
+project(
+    'pkgconfig-gen',
+    'c',
+    meson_version: '>=0.60.0',
+    default_options: ['default_library=shared'],
+)
 
 # Some CI runners does not have zlib, just skip them as we need some common
 # external dependency.
@@ -27,6 +32,9 @@ libver = '1.0'
 h = install_headers('simple.h')
 
 to_validate = []
+
+# generate for systems without a glib pc file
+pkgg.generate(name: 'glib-2.0', dataonly: true)
 
 pkgg.generate(
     libraries: [lib, '-lz'],
