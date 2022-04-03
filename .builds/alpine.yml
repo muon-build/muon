@@ -38,17 +38,11 @@ tasks:
       build/muon -C build test -d dots
   - release: |
       cd muon/build
-
       arch=amd64-linux-static
       strip muon
       mv muon "muon-$arch"
       md5sum "muon-$arch" > "muon-$arch.md5"
-
-      sshopts="-o StrictHostKeyChecking=no -p 2975"
-      rsync --rsh="ssh $sshopts" \
-        "muon-$arch" \
-        "muon-$arch.md5" \
-        deploy@mochiro.moe:muon/
+      ../.builds/deploy.sh "$arch"
 artifacts:
   - muon/build/muon-amd64-linux-static
   - muon/build/muon-amd64-linux-static.md5
