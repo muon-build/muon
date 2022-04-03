@@ -187,7 +187,7 @@ tests = [
     ['common/186 test depends', {}],
     ['common/187 args flattening', {'should_fail': true}],
     ['common/188 dict', {'should_fail': true}],
-    ['common/189 check header', {'should_fail': true}],
+    ['common/189 check header', {}],
     ['common/190 install_mode', {'should_fail': true}],
     ['common/191 subproject array version', {}],
     ['common/192 feature option', {'should_fail': true}],
