@@ -970,12 +970,12 @@ func_compiler_links(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_preprocess,
+		.mode = mode,
 	};
 
 	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
@@ -998,14 +998,39 @@ func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
+	const char *mode_s = NULL;
+	switch (mode) {
+	case compile_mode_compile:
+		mode_s = "usable";
+		break;
+	case compile_mode_preprocess:
+		mode_s = "found";
+		break;
+	default:
+		abort();
+	}
+
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("header %s found: %s",
+	LOG_I("header %s %s: %s",
 		get_cstr(wk, an[0].val),
-		bool_to_yn(ok)
+		bool_to_yn(ok),
+		mode_s
 		);
 
 	return true;
+}
+
+static bool
+func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_check_header(wk, rcvr, args_node, res, compile_mode_preprocess);
+}
+
+static bool
+func_compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_check_header(wk, rcvr, args_node, res, compile_mode_compile);
 }
 
 static bool
@@ -1527,6 +1552,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 
 const struct func_impl_name impl_tbl_compiler[] = {
 	{ "alignment", func_compiler_alignment },
+	{ "check_header", func_compiler_check_header },
 	{ "compute_int", func_compiler_compute_int },
 	{ "cmd_array", func_compiler_cmd_array },
 	{ "compiles", func_compiler_compiles },
