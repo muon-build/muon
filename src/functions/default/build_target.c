@@ -547,37 +547,37 @@ typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
 static bool
 tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, enum tgt_type argtype, bool tgt_type_from_kw)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
 
 	struct args_kw akw[] = {
-		[bt_kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
-		[bt_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[bt_kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[bt_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[bt_kw_implicit_include_directories] = { "implicit_include_directories", obj_bool },
-		[bt_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
+		[bt_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dep },
 		[bt_kw_install] = { "install", obj_bool },
 		[bt_kw_install_dir] = { "install_dir", obj_string },
-		[bt_kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
-		[bt_kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
-		[bt_kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
+		[bt_kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[bt_kw_link_with] = { "link_with", tc_link_with_kw },
+		[bt_kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[bt_kw_version] = { "version", obj_string },
 		[bt_kw_build_by_default] = { "build_by_default", obj_bool },
-		[bt_kw_extra_files] = { "extra_files", obj_any }, // ignored
+		[bt_kw_extra_files] = { "extra_files", ARG_TYPE_ARRAY_OF | tc_coercible_files }, // ignored
 		[bt_kw_target_type] = { "target_type", obj_string },
-		[bt_kw_name_prefix] = { "name_prefix", obj_any },
-		[bt_kw_name_suffix] = { "name_suffix", obj_any },
-		[bt_kw_soversion] = { "soversion", obj_any },
-		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | obj_any },
+		[bt_kw_name_prefix] = { "name_prefix", tc_string | tc_array },
+		[bt_kw_name_suffix] = { "name_suffix", tc_string | tc_array },
+		[bt_kw_soversion] = { "soversion", tc_number | tc_string },
+		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | tc_string | tc_file | tc_custom_target },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },
 		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
-		[bt_kw_vs_module_defs] = { "vs_module_defs", obj_any },
+		[bt_kw_vs_module_defs] = { "vs_module_defs", tc_string | tc_file | tc_custom_target },
 		[bt_kw_gnu_symbol_visibility] = { "gnu_symbol_visibility", obj_string },
 		[bt_kw_native] = { "native", obj_bool },
-		[bt_kw_darwin_versions] = { "darwin_versions", obj_any },
+		[bt_kw_darwin_versions] = { "darwin_versions", ARG_TYPE_ARRAY_OF | tc_string | tc_number },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		/* lang args */
-		[bt_kw_c_pch] = { "c_pch", obj_any, },
+		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_objc_args] = { "objc_args", ARG_TYPE_ARRAY_OF | obj_string },

@@ -85,9 +85,71 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 {
 	enum obj_type got = get_obj_type(wk, obj_id);
 
-	if (type != obj_any && got != type) {
-		interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(got));
+	static const struct {
+		enum obj_type type;
+		enum obj_typechecking_type tc;
+	} typemap[] = {
+		{ obj_bool, tc_bool },
+		{ obj_file, tc_file },
+		{ obj_number, tc_number },
+		{ obj_string, tc_string },
+		{ obj_array, tc_array },
+		{ obj_dict, tc_dict },
+		{ obj_compiler, tc_compiler },
+		{ obj_build_target, tc_build_target },
+		{ obj_custom_target, tc_custom_target },
+		{ obj_subproject, tc_subproject },
+		{ obj_dependency, tc_dependency },
+		{ obj_feature_opt, tc_feature_opt },
+		{ obj_external_program, tc_external_program },
+		{ obj_external_library, tc_external_library },
+		{ obj_run_result, tc_run_result },
+		{ obj_configuration_data, tc_configuration_data },
+		{ obj_test, tc_test },
+		{ obj_module, tc_module },
+		{ obj_install_target, tc_install_target },
+		{ obj_environment, tc_environment },
+		{ obj_include_directory, tc_include_directory },
+		{ obj_option, tc_option },
+		{ obj_generator, tc_generator },
+		{ obj_generated_list, tc_generated_list },
+		{ obj_alias_target, tc_alias_target },
+		{ obj_both_libs, tc_both_libs },
+	};
+
+	if (type & obj_typechecking_type_tag) {
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
+			if ((type & typemap[i].tc) != typemap[i].tc) {
+				continue;
+			}
+
+			if (typemap[i].type == got) {
+				return true;
+			}
+		}
+
+		// not found
+		obj expected_types;
+		make_obj(wk, &expected_types, obj_array);
+		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
+			if ((type & typemap[i].tc) != typemap[i].tc) {
+				continue;
+			}
+
+			obj_array_push(wk, expected_types, make_str(wk, obj_type_to_s(typemap[i].type)));
+		}
+
+		obj typestr;
+		obj_array_join(wk, false, expected_types, make_str(wk, "|"), &typestr);
+
+		interp_error(wk, n_id, fmt, get_cstr(wk, typestr), obj_type_to_s(got));
 		return false;
+	} else {
+		if (type != obj_any && got != type) {
+			interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(got));
+			return false;
+		}
 	}
 
 	return true;

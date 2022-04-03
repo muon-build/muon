@@ -267,10 +267,10 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 	static struct args_kw akw[cc_kwargs_count + 1] = { 0 };
 	struct args_kw akw_base[] = {
 		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
+		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dep },
 		[cc_kw_prefix] = { "prefix", obj_string },
-		[cc_kw_required] = { "required", obj_any },
-		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[cc_kw_required] = { "required", tc_required_kw },
+		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[cc_kw_name] = { "name", obj_string },
 		[cc_kw_guess] = { "guess", obj_number, },
 		[cc_kw_high] = { "high", obj_number, },
@@ -894,7 +894,7 @@ failed:
 static bool
 func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = mode,
@@ -904,21 +904,16 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	obj o;
-	if (!obj_array_flatten_one(wk, an[0].val, &o)) {
-		interp_error(wk, an[0].node, "could not flatten argument");
-	}
-
-	enum obj_type t = get_obj_type(wk, o);
+	enum obj_type t = get_obj_type(wk, an[0].val);
 
 	const char *src;
 
 	switch (t) {
 	case obj_string:
-		src = get_cstr(wk, o);
+		src = get_cstr(wk, an[0].val);
 		break;
 	case obj_file: {
-		src  = get_file_path(wk, o);
+		src  = get_file_path(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
@@ -1140,7 +1135,7 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
@@ -1176,7 +1171,7 @@ func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 static bool
 func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = compile_mode_run,
@@ -1192,16 +1187,16 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		interp_error(wk, an[0].node, "could not flatten argument");
 	}
 
-	enum obj_type t = get_obj_type(wk, o);
+	enum obj_type t = get_obj_type(wk, an[0].val);
 
 	const char *src;
 
 	switch (t) {
 	case obj_string:
-		src = get_cstr(wk, o);
+		src = get_cstr(wk, an[0].val);
 		break;
 	case obj_file: {
-		src  = get_file_path(wk, o);
+		src  = get_file_path(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
@@ -1309,7 +1304,7 @@ func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, o
 static bool
 func_compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1347,7 +1342,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 static bool
 func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1452,7 +1447,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		kw_disabler,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required", obj_any },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_static] = { "static", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
 		0

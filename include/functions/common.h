@@ -11,8 +11,8 @@ struct func_impl_name {
 	func_impl func;
 };
 
-struct args_norm { enum obj_type type; obj val, node; bool set; };
-struct args_kw { const char *key; enum obj_type type; obj val, node; bool set; bool required; };
+struct args_norm { uint32_t type; obj val, node; bool set; };
+struct args_kw { const char *key; uint32_t type; obj val, node; bool set; bool required; };
 
 extern bool disabler_among_args_immunity;
 

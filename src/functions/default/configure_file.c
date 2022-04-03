@@ -485,14 +485,14 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depfile, // TODO: ignored
 	};
 	struct args_kw akw[] = {
-		[kw_configuration] = { "configuration", obj_any },
-		[kw_input] = { "input", obj_any, },
+		[kw_configuration] = { "configuration", tc_configuration_data | tc_dict },
+		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files, },
 		[kw_output] = { "output", obj_string, .required = true },
 		[kw_command] = { "command", obj_array },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_copy] = { "copy", obj_bool },
 		[kw_format] = { "format", obj_string },
 		[kw_encoding] = { "encoding", obj_string },

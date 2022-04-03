@@ -88,7 +88,7 @@ project_add_language_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default_options,
 		kw_license,
@@ -101,7 +101,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_license] = { "license", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
-		[kw_version] = { "version", obj_any },
+		[kw_version] = { "version", tc_string | tc_file },
 		0
 	};
 
@@ -122,21 +122,11 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->cfg.license = akw[kw_license].val;
 
 	if (akw[kw_version].set) {
-		enum obj_type t = get_obj_type(wk, akw[kw_version].val);
-		obj ver;
-		if (t == obj_array) {
-			if (!obj_array_flatten_one(wk, akw[kw_version].val, &ver)) {
-				goto version_type_error;
-			}
-
-			t = get_obj_type(wk, ver);
-		}
-
-		if (t == obj_string) {
+		if (get_obj_type(wk, akw[kw_version].val) == obj_string) {
 			current_project(wk)->cfg.version = akw[kw_version].val;
-		} else if (t == obj_file) {
+		} else {
 			struct source ver_src = { 0 };
-			if (!fs_read_entire_file(get_file_path(wk, ver), &ver_src)) {
+			if (!fs_read_entire_file(get_file_path(wk, akw[kw_version].val), &ver_src)) {
 				interp_error(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
@@ -156,12 +146,6 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			current_project(wk)->cfg.version = make_strn(wk, str_ver, i);
 
 			fs_source_destroy(&ver_src);
-		} else {
-version_type_error:
-			interp_error(wk, akw[kw_version].node,
-				"invalid type for version: '%s'",
-				obj_type_to_s(get_obj_type(wk, akw[kw_version].val)));
-			return false;
 		}
 	} else {
 		current_project(wk)->cfg.version = make_str(wk, "undefined");
@@ -235,7 +219,7 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_language,
 		kw_native, // ignored
@@ -296,13 +280,13 @@ func_add_global_link_arguments(struct workspace *wk, obj _, uint32_t args_node, 
 static bool
 func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required", obj_any },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		0
 	};
@@ -331,7 +315,7 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -480,7 +464,7 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native,
@@ -492,7 +476,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_required] = { "required" },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_any  },
+		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | tc_coercible_files },
 		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
@@ -546,7 +530,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_inc }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_is_system,
 	};
@@ -572,7 +556,7 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 static bool
 func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_output,
 		kw_arguments,
@@ -585,7 +569,7 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_arguments] = { "arguments", obj_array, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
-		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_depends] = { "depends", tc_depends_kw },
 		0
 	};
 
@@ -649,7 +633,7 @@ message_print_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -666,7 +650,7 @@ func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -683,7 +667,7 @@ func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -700,7 +684,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
@@ -708,7 +692,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
-		[kw_env] = { "env", obj_any },
+		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
 		0
 	};
@@ -720,7 +704,6 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	char *const *envp = NULL;
 
 	{
-		obj flat;
 		obj arg0;
 		obj cmd_file;
 		struct find_program_iter_ctx find_program_ctx = {
@@ -733,8 +716,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		obj_array_flatten(wk, an[0].val, &flat);
-		obj_array_index(wk, flat, 0, &arg0);
+		obj_array_index(wk, an[0].val, 0, &arg0);
 
 		if (!find_program(wk, &find_program_ctx, arg0)) {
 			return false;
@@ -742,10 +724,10 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			interp_error(wk, an[0].node, "unable to find program %o", arg0);
 		}
 
-		obj_array_set(wk, flat, 0, cmd_file);
+		obj_array_set(wk, an[0].val, 0, cmd_file);
 
 		obj args;
-		if (!arr_to_args(wk, arr_to_args_external_program, flat, &args)) {
+		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
 			return false;
 		}
 
@@ -805,9 +787,9 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_env,
 	};
 	struct args_kw akw[] = {
-		[kw_command] = { "command", ARG_TYPE_ARRAY_OF | obj_any, .required = true },
-		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_env] = { "env", obj_any },
+		[kw_command] = { "command", tc_command_array, .required = true },
+		[kw_depends] = { "depends", tc_depends_kw },
+		[kw_env] = { "env", tc_coercible_env },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -924,7 +906,7 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", obj_string },
 		[kw_exclude_directories] = { "exclude_directories", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_exclude_files] = { "exclude_files", ARG_TYPE_ARRAY_OF | obj_string },
@@ -951,7 +933,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_locale] = { "locale", obj_string },
 		0
 	};
@@ -999,7 +981,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -1010,10 +992,10 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -1071,7 +1053,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -1079,7 +1061,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_subdir] = { "subdir", obj_string },
 		0
 	};
@@ -1117,7 +1099,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 static bool
 func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
 		kw_workdir,
@@ -1131,11 +1113,11 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_is_parallel, // TODO
 	};
 	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_any, },
+		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | tc_command_array, },
 		[kw_workdir] = { "workdir", obj_string, },
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
-		[kw_env] = { "env", obj_any, },
+		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_priority] = { "priority", obj_number, }, // TODO
 		[kw_timeout] = { "timeout", obj_number, }, // TODO
@@ -1210,7 +1192,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1260,7 +1242,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_disabler,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required", obj_any },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_disabler] = { "disabler", obj_bool },
 		0
 	};
@@ -1501,7 +1483,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_build_target | tc_custom_target | tc_alias_target }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

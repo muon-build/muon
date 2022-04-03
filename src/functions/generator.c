@@ -152,7 +152,7 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 static bool
 func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_extra_arguments, // ignored
 		kw_preserve_path_from, // ignored

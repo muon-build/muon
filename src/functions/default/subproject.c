@@ -177,7 +177,7 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_required] = { "required", obj_any },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};

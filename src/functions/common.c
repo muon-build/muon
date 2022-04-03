@@ -98,7 +98,7 @@ arity_to_s(struct args_norm positional_args[],
 		bool glob = false;
 
 		for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
-			if (positional_args[i].type == ARG_TYPE_GLOB) {
+			if (positional_args[i].type & ARG_TYPE_GLOB) {
 				glob = true;
 				break;
 			}
@@ -200,7 +200,20 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum o
 		type &= ~ARG_TYPE_ARRAY_OF;
 	}
 
-	assert(type < obj_type_count);
+	assert((type & obj_typechecking_type_tag) || type < obj_type_count);
+
+	// If obj_file or tc_file is requested, and the arugment is an array of
+	// length 1, try to unpack it.
+	if (!array_of
+	    && (type == obj_file || (type & tc_file) == tc_file)
+	    && get_obj_type(wk, *val) == obj_array
+	    && get_obj_array(wk, *val)->len == 1) {
+		obj i0;
+		obj_array_index(wk, *val, 0, &i0);
+		if (get_obj_type(wk, i0) == obj_file) {
+			*val = i0;
+		}
+	}
 
 	if (!array_of) {
 		return typecheck(wk, err_node, *val, type);
@@ -293,10 +306,13 @@ interp_args(struct workspace *wk, uint32_t args_node,
 		}
 
 		for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
-			if (an[stage][i].type == ARG_TYPE_GLOB) {
+			if (an[stage][i].type & ARG_TYPE_GLOB) {
 				assert(stage == 0 && "glob args must not be optional");
 				assert(!optional_positional_args && "glob args cannot be followed by optional args");
 				assert(an[stage][i + 1].type == ARG_TYPE_NULL && "glob args must come last");
+				assert(!(an[stage][i].type & ARG_TYPE_ARRAY_OF) && "glob args are implicitly ARG_TYPE_ARRAY_OF");
+
+				an[stage][i].type &= ~ARG_TYPE_GLOB;
 
 				bool set_arg_node = false;
 
@@ -318,10 +334,23 @@ interp_args(struct workspace *wk, uint32_t args_node,
 						return false;
 					}
 
-					if (!typecheck_function_arg(wk, arg_node, &val, obj_any)) {
-						return false;
+					// If we get an array, but that isn't a valid type here, flatten it.
+					if (get_obj_type(wk, val) == obj_array
+					    && !(an[stage][i].type == obj_any
+						 || an[stage][i].type == obj_array
+						 || (an[stage][i].type & tc_array) == tc_array)
+					    ) {
+						if (!typecheck_function_arg(wk, arg_node, &val, ARG_TYPE_ARRAY_OF | an[stage][i].type)) {
+							return false;
+						}
+
+						obj_array_extend_nodup(wk, an[stage][i].val, val);
+					} else {
+						if (!typecheck_function_arg(wk, arg_node, &val, an[stage][i].type)) {
+							return false;
+						}
+						obj_array_push(wk, an[stage][i].val, val);
 					}
-					obj_array_push(wk, an[stage][i].val, val);
 				}
 
 				if (!set_arg_node) {

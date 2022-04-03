@@ -31,7 +31,7 @@ enum environment_set_mode {
 static bool
 environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum environment_set_mode mode)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_separator,
 	};

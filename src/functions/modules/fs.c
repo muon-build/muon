@@ -74,7 +74,7 @@ typedef bool ((*fs_lookup_func)(const char *));
 static bool
 func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res, fs_lookup_func lookup, enum fix_file_path_opts opts)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -117,7 +117,7 @@ func_module_fs_is_symlink(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 static bool
 func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -141,7 +141,7 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 static bool
 func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -166,7 +166,7 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 static bool
 func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -187,7 +187,7 @@ func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 static bool
 func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -205,7 +205,7 @@ func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, o
 static bool
 func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -222,7 +222,7 @@ func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 static bool
 func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

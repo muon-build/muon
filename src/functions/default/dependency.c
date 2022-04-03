@@ -152,7 +152,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	get_option(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 	if (!found && ctx->fallback && (wrap_mode == wrap_mode_forcefallback
-			|| obj_array_in(wk, force_fallback_for, ctx->name))) {
+					|| obj_array_in(wk, force_fallback_for, ctx->name))) {
 		if (!handle_dependency_fallback(wk, ctx, &found)) {
 			return false;
 		}
@@ -421,13 +421,13 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		kw_compile_args,
 	};
 	struct args_kw akw[] = {
-		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_link_with] = { "link_with", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_link_whole] = { "link_whole", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[kw_link_with] = { "link_with", tc_link_with_kw },
+		[kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[kw_variables] = { "variables", obj_dict },
 		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0

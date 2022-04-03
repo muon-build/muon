@@ -216,7 +216,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 static bool
 func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -290,7 +290,7 @@ cont:
 static bool
 func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_tag, // ignored
 		kw_skip_if_destdir, // ignored
@@ -321,7 +321,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 static bool
 func_meson_add_dist_script(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_exe }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;

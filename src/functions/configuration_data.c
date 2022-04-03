@@ -45,7 +45,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 static bool
 func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_string | tc_number | tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_description, // ingnored
 	};

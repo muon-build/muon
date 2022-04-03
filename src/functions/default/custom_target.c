@@ -606,20 +606,20 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_feed,
 	};
 	struct args_kw akw[] = {
-		[kw_input] = { "input", obj_any, },
-		[kw_output] = { "output", obj_any, .required = true },
-		[kw_command] = { "command", ARG_TYPE_ARRAY_OF | obj_any, .required = true },
+		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list, },
+		[kw_output] = { "output", ARG_TYPE_ARRAY_OF | tc_string, .required = true },
+		[kw_command] = { "command", tc_command_array, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
-		[kw_install_dir] = { "install_dir", obj_any },
-		[kw_install_mode] = { "install_mode", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
-		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | obj_any },
-		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | obj_any },
+		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | tc_string | tc_file },
+		[kw_depends] = { "depends", tc_depends_kw },
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
 		[kw_build_always] = { "build_always", obj_bool },
-		[kw_env] = { "env", obj_any },
+		[kw_env] = { "env", tc_coercible_env },
 		[kw_feed] = { "feed", obj_bool },
 		0
 	};
@@ -680,7 +680,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
-		if (!akw[kw_install_dir].set) {
+		if (!akw[kw_install_dir].set || !get_obj_array(wk, akw[kw_install_dir].val)->len) {
 			interp_error(wk, akw[kw_install].node, "custom target installation requires install_dir");
 			return false;
 		}
@@ -694,7 +694,14 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			install_mode_id = akw[kw_install_mode].val;
 		}
 
-		if (!push_install_targets(wk, tgt->output, akw[kw_install_dir].val, install_mode_id)) {
+		obj install_dir = akw[kw_install_dir].val;
+		if (get_obj_array(wk, akw[kw_install_dir].val)->len == 1) {
+			obj i0;
+			obj_array_index(wk, akw[kw_install_dir].val, 0, &i0);
+			install_dir = i0;
+		}
+
+		if (!push_install_targets(wk, tgt->output, install_dir, install_mode_id)) {
 			return false;
 		}
 	}

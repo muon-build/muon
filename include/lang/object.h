@@ -51,16 +51,58 @@ enum obj_type {
 	obj_both_libs,
 
 	obj_type_count,
+};
 
-	/* function argument typechecking object types. */
-	ARG_TYPE_NULL     = 1000,
-	ARG_TYPE_GLOB     = 1001,
-	ARG_TYPE_ARRAY_OF = 1 << 20,
+enum obj_typechecking_type {
+	ARG_TYPE_NULL = obj_type_count + 1,
+
+	obj_typechecking_type_tag = 1 << 29,
+	ARG_TYPE_ARRAY_OF         = 1 << 30,
+	ARG_TYPE_GLOB             = 1 << 28,
+
+	tc_bool               = obj_typechecking_type_tag | (1 << 0),
+	tc_file               = obj_typechecking_type_tag | (1 << 1),
+	tc_number             = obj_typechecking_type_tag | (1 << 2),
+	tc_string             = obj_typechecking_type_tag | (1 << 3),
+	tc_array              = obj_typechecking_type_tag | (1 << 4),
+	tc_dict               = obj_typechecking_type_tag | (1 << 5),
+	tc_compiler           = obj_typechecking_type_tag | (1 << 6),
+	tc_build_target       = obj_typechecking_type_tag | (1 << 7),
+	tc_custom_target      = obj_typechecking_type_tag | (1 << 8),
+	tc_subproject         = obj_typechecking_type_tag | (1 << 9),
+	tc_dependency         = obj_typechecking_type_tag | (1 << 10),
+	tc_feature_opt        = obj_typechecking_type_tag | (1 << 11),
+	tc_external_program   = obj_typechecking_type_tag | (1 << 12),
+	tc_external_library   = obj_typechecking_type_tag | (1 << 13),
+	tc_run_result         = obj_typechecking_type_tag | (1 << 14),
+	tc_configuration_data = obj_typechecking_type_tag | (1 << 15),
+	tc_test               = obj_typechecking_type_tag | (1 << 16),
+	tc_module             = obj_typechecking_type_tag | (1 << 17),
+	tc_install_target     = obj_typechecking_type_tag | (1 << 18),
+	tc_environment        = obj_typechecking_type_tag | (1 << 19),
+	tc_include_directory  = obj_typechecking_type_tag | (1 << 20),
+	tc_option             = obj_typechecking_type_tag | (1 << 21),
+	tc_generator          = obj_typechecking_type_tag | (1 << 22),
+	tc_generated_list     = obj_typechecking_type_tag | (1 << 23),
+	tc_alias_target       = obj_typechecking_type_tag | (1 << 24),
+	tc_both_libs          = obj_typechecking_type_tag | (1 << 25),
+
+	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target,
+	tc_dep                = tc_dependency | tc_external_library,
+
+	tc_coercible_env      = tc_environment | tc_string | tc_array | tc_dict,
+	tc_coercible_files    = tc_string | tc_custom_target | tc_build_target | tc_file,
+	tc_coercible_inc      = tc_string | tc_include_directory,
+	tc_command_array      = ARG_TYPE_ARRAY_OF | tc_exe,
+	tc_depends_kw         = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target,
+	tc_install_mode_kw    = ARG_TYPE_ARRAY_OF | tc_string | tc_number | tc_bool,
+	tc_required_kw        = tc_bool | tc_feature_opt,
+	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_string,
+	tc_message            = ARG_TYPE_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict, // doesn't handle nested types
 };
 
 #if __STDC_VERSION__ >= 201112L
-_Static_assert(ARG_TYPE_NULL > obj_type_count, "increase value of ARG_TYPE_NULL");
-_Static_assert(!(ARG_TYPE_ARRAY_OF & ARG_TYPE_GLOB), "increase value of ARG_TYPE_GLOB");
+_Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
 #endif
 
 enum tgt_type {
