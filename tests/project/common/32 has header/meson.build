@@ -49,17 +49,6 @@ foreach fallback : fallbacks
             )
         endif
 
-        # Test that the following GCC bug doesn't happen:
-        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80005
-        # https://github.com/mesonbuild/meson/issues/1458
-        fs = import('fs')
-        if host_system == 'linux' and fs.is_file('/usr/include/linux/if.h')
-            assert(
-                comp.has_header('linux/if.h', prefix: fallback),
-                'Could not find <linux/if.h>',
-            )
-        endif
-
         # This header exists in the source and the builddir, but we still must not
         # find it since we are looking in the system directories.
         assert(

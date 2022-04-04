@@ -38,22 +38,6 @@ foreach comp : [meson.get_compiler('c'), meson.get_compiler('cpp')]
         assert(not comp.check_header('XInput.h'), 'XInput.h needs windows.h')
     endif
 
-    # Test that the following GCC bug doesn't happen:
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80005
-    # https://github.com/mesonbuild/meson/issues/1458
-    if host_system == 'linux'
-        assert(
-            comp.check_header('linux/socket.h', prefix: fallback),
-            'Could not find <linux/socket.h>',
-        )
-        if comp.has_header('intrin.h', prefix: fallback)
-            assert(
-                not comp.check_header('intrin.h'),
-                'intrin.h should not be usable on linux',
-            )
-        endif
-    endif
-
     # This header exists in the source and the builddir, but we still must not
     # find it since we are looking in the system directories.
     assert(
