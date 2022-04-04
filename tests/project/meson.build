@@ -42,7 +42,7 @@ tests = [
     ['common/41 test args', {}],
     ['common/42 subproject', {}],
     ['common/43 subproject options', {}],
-    ['common/44 pkgconfig-gen', {'should_fail': true}],
+    ['common/44 pkgconfig-gen', {}],
     ['common/45 custom install dirs', {}],
     ['common/46 subproject subproject', {}],
     ['common/47 same file name', {}],
