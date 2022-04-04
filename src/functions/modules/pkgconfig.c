@@ -329,6 +329,10 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_external_library: {
 		struct obj_external_library *ext = get_obj_external_library(wk, val);
 
+		if (!ext->found) {
+			return ir_cont;
+		}
+
 		obj file;
 		make_obj(wk, &file, obj_file);
 		*get_obj_file(wk, file) = ext->full_path;
