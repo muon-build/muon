@@ -879,6 +879,34 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	if (mainlib) {
 		get_obj_build_target(wk, mainlib)->generated_pc = filebase;
 	}
+
+	make_obj(wk, res, obj_file);
+	*get_obj_file(wk, *res) = make_str(wk, path);
+
+	{
+		const char *install_dir;
+		char path[PATH_MAX], dest[PATH_MAX];
+		if (akw[kw_install_dir].set) {
+			install_dir = get_cstr(wk, akw[kw_install_dir].val);
+		} else {
+			obj libdir;
+			get_option(wk, current_project(wk), "libdir", &libdir);
+			if (!path_join(path, PATH_MAX, get_cstr(wk, libdir), "pkgconfig")) {
+				return false;
+			}
+
+			install_dir = path;
+		}
+
+		if (!path_join(dest, PATH_MAX, install_dir, get_cstr(wk, filebase))) {
+			return false;
+		} else if (!path_add_suffix(dest, PATH_MAX, ".pc")) {
+			return false;
+		}
+
+		push_install_target(wk, *get_obj_file(wk, *res), make_str(wk, dest), 0);
+	}
+
 	return true;
 }
 
