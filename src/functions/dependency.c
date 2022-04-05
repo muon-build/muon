@@ -418,6 +418,24 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 }
 
 static bool
+func_dependency_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
+
+	if (dep->type == dependency_type_declared) {
+		*res = make_str(wk, "internal");
+	} else {
+		*res = dep->name;
+	}
+
+	return true;
+}
+
+static bool
 func_dependency_partial_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	enum kwargs {
@@ -525,6 +543,7 @@ const struct func_impl_name impl_tbl_dependency[] = {
 	{ "include_type", func_dependency_include_type },
 	{ "partial_dependency", func_dependency_partial_dependency },
 	{ "type_name", func_dependency_type_name },
+	{ "name", func_dependency_name },
 	{ "version", func_dependency_version },
 	{ NULL, NULL },
 };
