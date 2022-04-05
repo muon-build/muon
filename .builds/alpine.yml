@@ -32,7 +32,7 @@ sources:
 tasks:
   - build: |
       cd muon
-      .builds/fullbootstrap.sh -Dstatic=true
+      .builds/fullbootstrap.sh -Dstatic=true -Dwebsite=true
   - test: |
       cd muon
       build/muon -C build test -d dots
