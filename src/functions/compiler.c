@@ -1388,7 +1388,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 }
 
 static bool
-func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1403,8 +1403,20 @@ func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t 
 		.compiler = rcvr,
 		.arr = *res,
 		.node = an[0].node,
-		.mode = compile_mode_compile,
+		.mode = mode,
 	}, func_compiler_first_supported_argument_iter);
+}
+
+static bool
+func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_first_supported_argument(wk, rcvr, args_node, res, compile_mode_compile);
+}
+
+static bool
+func_compiler_first_supported_link_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_first_supported_argument(wk, rcvr, args_node, res, compile_mode_link);
 }
 
 static bool
@@ -1582,6 +1594,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "compiles", func_compiler_compiles },
 	{ "find_library", func_compiler_find_library },
 	{ "first_supported_argument", func_compiler_first_supported_argument },
+	{ "first_supported_link_argument", func_compiler_first_supported_link_argument },
 	{ "get_define", func_compiler_get_define },
 	{ "get_id", func_compiler_get_id },
 	{ "get_linker_id", func_compiler_get_linker_id },
