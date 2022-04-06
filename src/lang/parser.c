@@ -886,6 +886,10 @@ parse_stmt(struct parser *p, uint32_t *id)
 			return false;
 		}
 
+		if (get_node(p->ast, v)->type == node_empty) {
+			parse_error(p, NULL, "missing rhs");
+			return false;
+		}
 
 		struct node *n = get_node(p->ast, arith);
 
@@ -931,6 +935,12 @@ parse_stmt(struct parser *p, uint32_t *id)
 		 */
 		if (get_node(p->ast, l_id)->type == node_empty) {
 			parse_error(p, NULL, "missing condition expression");
+			return false;
+		} else if (get_node(p->ast, a)->type == node_empty) {
+			parse_error(p, NULL, "missing true expression");
+			return false;
+		} else if (get_node(p->ast, b)->type == node_empty) {
+			parse_error(p, NULL, "missing false expression");
 			return false;
 		}
 
