@@ -111,7 +111,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		push_args(wk, compiler_args, compilers[t].args.compile_only());
 		break;
 	case compile_mode_run:
+		break;
 	case compile_mode_link:
+		push_args(wk, compiler_args, linkers[compilers[t].linker].args.fatal_warnings());
 		break;
 	}
 

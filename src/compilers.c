@@ -656,6 +656,13 @@ linker_gcc_args_export_dynamic(void)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_fatal_warnings(void)
+{
+	COMPILER_ARGS({ "-Wl,--fatal-warnings" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -690,6 +697,7 @@ build_linkers(void)
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
+	gcc.args.fatal_warnings = linker_gcc_args_fatal_warnings;
 
 	struct linker apple = posix;
 

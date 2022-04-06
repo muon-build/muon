@@ -93,6 +93,7 @@ struct linker {
 		compiler_get_arg_func_1s sanitize;
 		compiler_get_arg_func_0 allow_shlib_undefined;
 		compiler_get_arg_func_0 export_dynamic;
+		compiler_get_arg_func_0 fatal_warnings;
 	} args;
 };
 
