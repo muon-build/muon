@@ -23,11 +23,6 @@ bool_to_yn(bool v)
 	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
 }
 
-struct func_compiler_get_supported_arguments_iter_ctx {
-	uint32_t node;
-	obj arr, compiler;
-};
-
 static bool
 write_test_source(struct workspace *wk, const struct str *src, const char **res)
 {
@@ -1255,7 +1250,7 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 static bool
-compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument)
+compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument, enum compile_mode mode)
 {
 	if (!typecheck(wk, err_node, arg, obj_string)) {
 		return ir_err;
@@ -1270,7 +1265,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 	push_args(wk, args, compilers[t].args.werror());
 
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
+		.mode = mode,
 		.comp_id = comp_id,
 		.args = args,
 	};
@@ -1288,13 +1283,19 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 	return true;
 }
 
+struct func_compiler_get_supported_arguments_iter_ctx {
+	uint32_t node;
+	obj arr, compiler;
+	enum compile_mode mode;
+};
+
 static enum iteration_result
 func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
 	bool has_argument;
 
-	if (!compiler_has_argument(wk, ctx->compiler, ctx->node, val_id, &has_argument)) {
+	if (!compiler_has_argument(wk, ctx->compiler, ctx->node, val_id, &has_argument, ctx->mode)) {
 		return false;
 	}
 
@@ -1314,7 +1315,7 @@ func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	}
 
 	bool has_argument;
-	if (!compiler_has_argument(wk, rcvr, an[0].node, an[0].val, &has_argument)) {
+	if (!compiler_has_argument(wk, rcvr, an[0].node, an[0].val, &has_argument, compile_mode_compile)) {
 		return false;
 	}
 
@@ -1339,6 +1340,7 @@ func_compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t a
 		.compiler = rcvr,
 		.arr = *res,
 		.node = an[0].node,
+		.mode = compile_mode_compile,
 	}, func_compiler_get_supported_arguments_iter);
 }
 
@@ -1348,7 +1350,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 	struct func_compiler_get_supported_arguments_iter_ctx *ctx = _ctx;
 	bool has_argument;
 
-	if (!compiler_has_argument(wk, ctx->compiler, ctx->node, val_id, &has_argument)) {
+	if (!compiler_has_argument(wk, ctx->compiler, ctx->node, val_id, &has_argument, ctx->mode)) {
 		return false;
 	}
 
@@ -1377,6 +1379,7 @@ func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t 
 		.compiler = rcvr,
 		.arr = *res,
 		.node = an[0].node,
+		.mode = compile_mode_compile,
 	}, func_compiler_first_supported_argument_iter);
 }
 
