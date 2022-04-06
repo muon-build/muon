@@ -74,6 +74,7 @@ cleanup:
 bool
 eval(struct workspace *wk, struct source *src, obj *res)
 {
+	L("evaluating '%s'", src->label);
 	bool ret = false;
 	struct ast ast = { 0 };
 
@@ -90,7 +91,7 @@ eval(struct workspace *wk, struct source *src, obj *res)
 	wk->src = src;
 	wk->ast = &ast;
 
-	ret = interp_node(wk, wk->ast->root, res);
+	ret = wk->interp_node(wk, wk->ast->root, res);
 
 	if (wk->subdir_done) {
 		wk->subdir_done = false;
@@ -113,7 +114,7 @@ eval_str(struct workspace *wk, const char *str, obj *res)
 bool
 eval_project_file(struct workspace *wk, const char *path)
 {
-	/* L("evaluating '%s'", src); */
+	/* L("evaluating '%s'", path); */
 	bool ret = false;
 	{
 		obj_array_push(wk, wk->sources, make_str(wk, path));

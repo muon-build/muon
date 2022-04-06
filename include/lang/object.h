@@ -49,6 +49,7 @@ enum obj_type {
 	obj_generated_list,
 	obj_alias_target,
 	obj_both_libs,
+	obj_typeinfo,
 
 	obj_type_count,
 };
@@ -100,6 +101,18 @@ enum obj_typechecking_type {
 	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_string | tc_both_libs,
 	tc_message            = ARG_TYPE_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict, // doesn't handle nested types
 };
+
+struct obj_typechecking_type_to_obj_type {
+	enum obj_type type;
+	enum obj_typechecking_type tc;
+};
+
+struct obj_typeinfo {
+	uint32_t type, subtype;
+};
+
+extern const struct obj_typechecking_type_to_obj_type typemap[26];
+
 
 #if __STDC_VERSION__ >= 201112L
 _Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
@@ -406,6 +419,7 @@ OBJ_GETTER(obj_generator);
 OBJ_GETTER(obj_generated_list);
 OBJ_GETTER(obj_alias_target);
 OBJ_GETTER(obj_both_libs);
+OBJ_GETTER(obj_typeinfo);
 
 #undef OBJ_GETTER
 

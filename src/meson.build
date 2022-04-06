@@ -46,6 +46,7 @@ src = (
         'functions/run_result.c',
         'functions/string.c',
         'functions/subproject.c',
+        'lang/analyze.c',
         'lang/eval.c',
         'lang/fmt.c',
         'lang/interpreter.c',

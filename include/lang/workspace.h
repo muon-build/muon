@@ -94,6 +94,8 @@ struct workspace {
 	struct ast *ast;
 	/* source of current file */
 	struct source *src;
+	/* interpreter base function */
+	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
 
 	enum language_mode lang_mode;
 };

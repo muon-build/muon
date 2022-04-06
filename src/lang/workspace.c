@@ -5,6 +5,7 @@
 #include "backend/output.h"
 #include "error.h"
 #include "functions/default/options.h"
+#include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
@@ -196,7 +197,9 @@ current_project(struct workspace *wk)
 void
 workspace_init_bare(struct workspace *wk)
 {
-	*wk = (struct workspace){ 0 };
+	*wk = (struct workspace){
+		.interp_node = interp_node,
+	};
 
 	bucket_array_init(&wk->chrs, 4096, 1);
 	bucket_array_init(&wk->objs, 1024, sizeof(struct obj_internal));
@@ -227,8 +230,9 @@ workspace_init_bare(struct workspace *wk)
 		[obj_option] = { sizeof(struct obj_option), 32 },
 		[obj_generator] = { sizeof(struct obj_generator), 16 },
 		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
-		[obj_alias_target] = { sizeof(struct obj_alias_target), 16 },
-		[obj_both_libs] = { sizeof(struct obj_both_libs), 16 },
+		[obj_alias_target] = { sizeof(struct obj_alias_target), 4 },
+		[obj_both_libs] = { sizeof(struct obj_both_libs), 4 },
+		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 4 },
 	};
 
 	uint32_t i;

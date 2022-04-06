@@ -16,6 +16,7 @@
 #include "functions/default/options.h"
 #include "functions/default/setup.h"
 #include "install.h"
+#include "lang/analyze.h"
 #include "lang/eval.h"
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
@@ -146,6 +147,9 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		" <filename>",
 		"  -p - print parsed ast\n",
 		NULL, 1)
+
+	// TODO
+	return do_analyze();
 
 	opts.filename = argv[argi];
 

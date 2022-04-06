@@ -82,6 +82,7 @@ cat \
 	src/functions/subproject.c \
 	src/guess.c \
 	src/install.c \
+	src/lang/analyze.c \
 	src/lang/eval.c \
 	src/lang/fmt.c \
 	src/lang/interpreter.c \

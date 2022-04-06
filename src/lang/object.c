@@ -11,6 +11,35 @@
 #include "lang/parser.h"
 #include "log.h"
 
+const struct obj_typechecking_type_to_obj_type typemap[] = {
+	{ obj_bool, tc_bool },
+	{ obj_file, tc_file },
+	{ obj_number, tc_number },
+	{ obj_string, tc_string },
+	{ obj_array, tc_array },
+	{ obj_dict, tc_dict },
+	{ obj_compiler, tc_compiler },
+	{ obj_build_target, tc_build_target },
+	{ obj_custom_target, tc_custom_target },
+	{ obj_subproject, tc_subproject },
+	{ obj_dependency, tc_dependency },
+	{ obj_feature_opt, tc_feature_opt },
+	{ obj_external_program, tc_external_program },
+	{ obj_external_library, tc_external_library },
+	{ obj_run_result, tc_run_result },
+	{ obj_configuration_data, tc_configuration_data },
+	{ obj_test, tc_test },
+	{ obj_module, tc_module },
+	{ obj_install_target, tc_install_target },
+	{ obj_environment, tc_environment },
+	{ obj_include_directory, tc_include_directory },
+	{ obj_option, tc_option },
+	{ obj_generator, tc_generator },
+	{ obj_generated_list, tc_generated_list },
+	{ obj_alias_target, tc_alias_target },
+	{ obj_both_libs, tc_both_libs },
+};
+
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
@@ -52,6 +81,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_generated_list:
 	case obj_alias_target:
 	case obj_both_libs:
+	case obj_typeinfo:
 		return bucket_array_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
 	case obj_null:
@@ -147,6 +177,7 @@ OBJ_GETTER(obj_generator)
 OBJ_GETTER(obj_generated_list)
 OBJ_GETTER(obj_alias_target)
 OBJ_GETTER(obj_both_libs)
+OBJ_GETTER(obj_typeinfo)
 
 #undef OBJ_GETTER
 
@@ -189,7 +220,9 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_generator:
 	case obj_generated_list:
 	case obj_alias_target:
-	case obj_both_libs: {
+	case obj_both_libs:
+	case obj_typeinfo:
+	{
 		struct bucket_array *ba = &wk->obj_aos[type - _obj_aos_start];
 		val = ba->len;
 		bucket_array_pushn(ba, NULL, 0, 1);
@@ -238,6 +271,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_generated_list: return "generated_list";
 	case obj_alias_target: return "alias_target";
 	case obj_both_libs: return "both_libs";
+	case obj_typeinfo: return "typeinfo";
 
 	case obj_type_count:
 		assert(false); return "uh oh";

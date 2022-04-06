@@ -46,7 +46,7 @@ interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
 	bool was_immune = disabler_among_args_immunity;
 	disabler_among_args_immunity = false;
 
-	if (!interp_node(wk, arg_node, res)) {
+	if (!wk->interp_node(wk, arg_node, res)) {
 		return false;
 	}
 
