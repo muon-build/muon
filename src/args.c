@@ -31,23 +31,6 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 	}
 }
 
-void
-push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg)
-{
-	assert(*len < max && "too many arguments");
-	argv[*len] = arg;
-	++(*len);
-}
-
-void
-push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *args)
-{
-	uint32_t i;
-	for (i = 0; i < args->len; ++i) {
-		push_argv_single(argv, len, max, args->args[i]);
-	}
-}
-
 bool
 shell_escape(char *buf, uint32_t len, const char *str)
 {
@@ -240,44 +223,6 @@ join_args_pkgconf(struct workspace *wk, obj arr)
 	return join_args(wk, arr, pkgconf_escape);
 }
 
-struct join_args_argv_iter_ctx {
-	const char **argv;
-	uint32_t len;
-	uint32_t i;
-};
-
-static enum iteration_result
-join_args_argv_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct join_args_argv_iter_ctx *ctx = _ctx;
-
-	if (ctx->i >= ctx->len - 1) {
-		return ir_err;
-	}
-
-	ctx->argv[ctx->i] = get_cstr(wk, v);
-	++ctx->i;
-	return ir_cont;
-}
-
-bool
-join_args_argv(struct workspace *wk, const char **argv, uint32_t len, obj arr)
-{
-	struct join_args_argv_iter_ctx ctx = {
-		.argv = argv,
-		.len = len,
-	};
-
-	if (!obj_array_foreach(wk, arr, &ctx, join_args_argv_iter)) {
-		return false;
-	}
-
-	assert(ctx.i < ctx.len);
-	ctx.argv[ctx.i] = NULL;
-
-	return true;
-}
-
 struct arr_to_args_ctx {
 	enum arr_to_args_flags mode;
 	obj res;
@@ -373,52 +318,59 @@ arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res
 	return obj_array_foreach_flat(wk, arr, &ctx, arr_to_args_iter);
 }
 
-struct env_to_envp_ctx {
-	char *envp[MAX_ENV + 1];
-	uint32_t i;
+struct join_args_argstr_ctx {
+	obj str;
 };
 
-static bool
-push_envp_key_val(struct workspace *wk, struct env_to_envp_ctx *ctx, const char *k, const char *v)
-{
-	obj str = make_strf(wk, "%s=%s", k, v);
-
-	if (ctx->i >= MAX_ENV) {
-		LOG_E("too many environment elements (max: %d)", MAX_ENV);
-		return false;
-	}
-
-	const char *s = get_cstr(wk, str);
-
-	if (!strchr(s, '=')) {
-		LOG_E("env elements must be of the format key=value: '%s'", s);
-		return false;
-	}
-
-	ctx->envp[ctx->i] = (char *)s;
-	++ctx->i;
-	return true;
-}
-
 static enum iteration_result
-env_to_envp_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+join_args_argstr_iter(struct workspace *wk, void *_ctx, obj v)
 {
-	struct env_to_envp_ctx *ctx = _ctx;
+	struct join_args_argstr_ctx *ctx = _ctx;
 
-	if (!push_envp_key_val(wk, ctx, get_cstr(wk, key), get_cstr(wk, val))) {
-		return ir_err;
-	}
+	const struct str *s = get_str(wk, v);
+
+	str_appn(wk, ctx->str, s->s, s->len + 1);
 
 	return ir_cont;
 }
 
-bool
-env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val)
+void
+join_args_argstr(struct workspace *wk, const char **res, obj arr)
 {
-	static struct env_to_envp_ctx ctx = { 0 };
-	memset(&ctx, 0, sizeof(struct env_to_envp_ctx));
+	struct join_args_argstr_ctx ctx = {
+		.str = make_str(wk, ""),
+	};
 
-	*ret = ctx.envp;
+	obj_array_foreach(wk, arr, &ctx, join_args_argstr_iter);
+
+	str_appn(wk, ctx.str, "\0", 1);
+	*res = get_str(wk, ctx.str)->s;
+}
+
+struct env_to_envstr_ctx {
+	obj str;
+};
+
+static enum iteration_result
+env_to_envstr_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	struct env_to_envstr_ctx *ctx = _ctx;
+
+	const struct str *k = get_str(wk, key),
+			 *v = get_str(wk, val);
+
+	str_appn(wk, ctx->str, k->s, k->len + 1);
+	str_appn(wk, ctx->str, v->s, v->len + 1);
+
+	return ir_cont;
+}
+
+void
+env_to_envstr(struct workspace *wk, const char **res, obj val)
+{
+	struct env_to_envstr_ctx ctx = {
+		.str = make_str(wk, ""),
+	};
 
 	obj dict;
 
@@ -431,8 +383,11 @@ env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val
 		break;
 	default:
 		assert(false && "please call me with a dict or environment object");
-		return false;
+		return;
 	}
 
-	return obj_dict_foreach(wk, dict, &ctx, env_to_envp_dict_iter);
+	obj_dict_foreach(wk, dict, &ctx, env_to_envstr_dict_iter);
+
+	str_appn(wk, ctx.str, "\0", 1);
+	*res = get_str(wk, ctx.str)->s;
 }

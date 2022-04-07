@@ -216,7 +216,7 @@ test_delay(void)
 }
 
 static void
-push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test, const char **argv, char *const *envp)
+push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test, const char *argstr, const char *envstr)
 {
 	uint32_t i;
 	while (true) {
@@ -243,7 +243,7 @@ found_slot:
 		cmd_ctx->chdir = get_cstr(wk, test->workdir);
 	}
 
-	run_cmd(cmd_ctx, get_cstr(wk, test->exe), argv, envp);
+	run_cmd(cmd_ctx, argstr, envstr);
 }
 
 static enum iteration_result
@@ -276,20 +276,11 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 		obj_array_extend_nodup(wk, cmdline, test_args);
 	}
 
-	const char *argv[MAX_ARGS];
-	char *const *envp = NULL;
+	const char *argstr, *envstr;
 
-	if (!join_args_argv(wk, argv, MAX_ARGS, cmdline)) {
-		LOG_E("failed to prepare arguments");
-		return ir_err;
-	}
-
-	if (!env_to_envp(wk, 0, &envp, test->env)) {
-		LOG_E("failed to prepare environment");
-		return ir_err;
-	}
-
-	push_test(wk, ctx, test, argv, envp);
+	join_args_argstr(wk, &argstr, cmdline);
+	env_to_envstr(wk, &envstr, test->env);
+	push_test(wk, ctx, test, argstr, envstr);
 	return ir_cont;
 }
 

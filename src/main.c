@@ -32,7 +32,7 @@
 #include "wrap.h"
 
 static bool
-load_environment_from_serial_dump(struct workspace *wk, const char *path, char *const *envp[])
+load_environment_from_serial_dump(struct workspace *wk, const char *path, const char **envstr)
 {
 	bool ret = false;
 	FILE *f;
@@ -46,10 +46,7 @@ load_environment_from_serial_dump(struct workspace *wk, const char *path, char *
 		goto ret;
 	}
 
-	if (!env_to_envp(wk, 0, envp, env)) {
-		goto ret;
-	}
-
+	env_to_envstr(wk, envstr, env);
 	ret = true;
 ret:
 	if (!fs_fclose(f)) {
@@ -99,17 +96,17 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct workspace wk;
 	bool initialized_workspace = false;
-	char *const *envp = NULL;
+	const char *envstr = NULL;
 	if (opts.environment) {
 		initialized_workspace = true;
 		workspace_init_bare(&wk);
 
-		if (!load_environment_from_serial_dump(&wk, opts.environment, &envp)) {
+		if (!load_environment_from_serial_dump(&wk, opts.environment, &envstr)) {
 			goto ret;
 		}
 	}
 
-	if (!run_cmd(&ctx, opts.cmd[0], opts.cmd, envp)) {
+	if (!run_cmd_argv(&ctx, opts.cmd[0], (char *const *)opts.cmd, envstr)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}

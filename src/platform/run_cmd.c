@@ -156,69 +156,12 @@ open_run_cmd_pipe(int fds[2], bool fds_open[2])
 	return true;
 }
 
-bool
-run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[])
+static bool
+run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr)
 {
-	struct source src = { 0 };
-	bool src_open = false;
+	const char *p, *cmd;
 
-	const char *cmd;
-	if (!path_is_basename(_cmd)) {
-		static char cmd_path[PATH_MAX];
-		if (!path_make_absolute(cmd_path, PATH_MAX, _cmd)) {
-			return false;
-		}
-
-		if (fs_exe_exists(cmd_path)) {
-			cmd = cmd_path;
-		} else {
-			if (!fs_read_entire_file(cmd_path, &src)) {
-				ctx->err_msg = "error determining command interpreter";
-				return false;
-			}
-			src_open = true;
-
-			char *nl;
-			if (!(nl = strchr(src.src, '\n'))) {
-				ctx->err_msg = "error determining command interpreter: no newline in file";
-				goto err;
-			}
-
-			*nl = 0;
-
-			uint32_t line_len = strlen(src.src);
-			if (!(line_len > 2 && src.src[0] == '#' && src.src[1] == '!')) {
-				ctx->err_msg = "error determining command interpreter: missing #!";
-				goto err;
-			}
-
-			const char *p = &src.src[2];
-			char *s;
-
-			static const char *new_argv[MAX_ARGS + 1];
-			uint32_t argi = 0;
-
-			while ((s = strchr(p, ' '))) {
-				*s = 0;
-				if (*p) {
-					push_argv_single(new_argv, &argi, MAX_ARGS, p);
-				}
-				p = s + 1;
-			}
-
-			push_argv_single(new_argv, &argi, MAX_ARGS, p);
-
-			uint32_t i;
-			for (i = 0; argv[i]; ++i) {
-				push_argv_single(new_argv, &argi, MAX_ARGS, argv[i]);
-			}
-
-			push_argv_single(new_argv, &argi, MAX_ARGS, NULL);
-			argv = new_argv;
-			_cmd = argv[0];
-		}
-	}
-
+	L("%s", _cmd);
 	if (!fs_find_cmd(_cmd, &cmd)) {
 		ctx->err_msg = "command not found";
 		return false;
@@ -226,20 +169,31 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 
 	if (log_should_print(log_debug)) {
 		LL("executing %s:", cmd);
-		const char *const *ap;
+		char *const *ap;
 
 		for (ap = argv; *ap; ++ap) {
 			log_plain(" '%s'", *ap);
 		}
 		log_plain("\n");
 
-		if (envp) {
-			char *const *ap;
-
+		if (envstr) {
+			const char *k;
 			LL("env:");
-			for (ap = envp; *ap; ++ap) {
-				log_plain(" '%s'", *ap);
+			p = k = envstr;
+			for (;; ++p) {
+				if (!*p) {
+					++p;
+					if (!*p) {
+						break;
+					} else if (!k) {
+						k = p;
+					} else {
+						log_plain(" %s='%s'", k, p);
+						k = NULL;
+					}
+				}
 			}
+
 			log_plain("\n");
 		}
 	}
@@ -290,19 +244,25 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 			}
 		}
 
-		if (envp) {
-			char *const *ap;
-			for (ap = envp; *ap; ++ap) {
-				char *const k = *ap;
-				char *v = strchr(k, '=');
-				assert(v);
-				*v = 0;
-				++v;
-
-				int err;
-				if ((err = setenv(k, v, 1)) != 0) {
-					log_plain("failed to set environment: %s", strerror(err));
-					exit(1);
+		if (envstr) {
+			const char *k;
+			p = k = envstr;
+			for (;; ++p) {
+				if (!*p) {
+					++p;
+					if (!*p) {
+						break;
+					} else if (!k) {
+						k = p;
+					} else {
+						int err;
+						if ((err = setenv(k, p, 1)) != 0) {
+							log_plain("failed to set environment var %s='%s': %s",
+								k, p, strerror(err));
+							exit(1);
+						}
+						k = NULL;
+					}
 				}
 			}
 		}
@@ -316,11 +276,6 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 	}
 
 	/* parent */
-	if (src_open) {
-		fs_source_destroy(&src);
-		src_open = false;
-	}
-
 	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
@@ -337,10 +292,176 @@ run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], cha
 
 	return run_cmd_collect(ctx) == run_cmd_finished;
 err:
-	if (src_open) {
-		fs_source_destroy(&src);
-	}
 	return false;
+}
+
+static void
+push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg)
+{
+	assert(*len < max && "too many arguments");
+	argv[*len] = arg;
+	++(*len);
+}
+
+static bool
+build_argv(struct run_cmd_ctx *ctx, struct source *src,
+	const char *argstr, char *const *old_argv,
+	const char **cmd, const char ***argv)
+{
+	const char *p, *argv0, *arg, *new_argv0 = NULL, *new_argv1 = NULL;
+	const char **new_argv;
+	uint32_t argc = 0, argi = 0;
+
+	if (argstr) {
+		argv0 = p = argstr;
+		for (;; ++p) {
+			if (!*p) {
+				++argc;
+				++p;
+				if (!*p) {
+					break;
+				}
+			}
+		}
+	} else {
+		argv0 = old_argv[0];
+		for (; old_argv[argc]; ++argc) {
+		}
+	}
+
+	assert(*argv0 && "argv0 cannot be empty");
+
+	if (!path_is_basename(argv0)) {
+		static char cmd_path[PATH_MAX];
+		if (!path_make_absolute(cmd_path, PATH_MAX, argv0)) {
+			return false;
+		}
+
+		if (fs_exe_exists(cmd_path)) {
+			*cmd = cmd_path;
+		} else {
+			if (!fs_read_entire_file(cmd_path, src)) {
+				ctx->err_msg = "error determining command interpreter";
+				return false;
+			}
+
+			char *nl;
+			if (!(nl = strchr(src->src, '\n'))) {
+				ctx->err_msg = "error determining command interpreter: no newline in file";
+				return false;
+			}
+
+			*nl = 0;
+
+			uint32_t line_len = strlen(src->src);
+			if (!(line_len > 2 && src->src[0] == '#' && src->src[1] == '!')) {
+				ctx->err_msg = "error determining command interpreter: missing #!";
+				return false;
+			}
+
+			const char *p = &src->src[2];
+			char *s;
+
+			while (strchr(" \t", *p)) {
+				++p;
+			}
+
+			*cmd = new_argv0 = p;
+
+			if ((s = strchr(p, ' '))) {
+				*s = 0;
+				while (strchr(" \t", *p)) {
+					++p;
+				}
+				p = (new_argv1 = s + 1);
+			}
+
+			argc += new_argv1 ? 2 : 1;
+		}
+	}
+
+	if (!new_argv0 && old_argv) {
+		*argv = NULL;
+		return true;
+	}
+
+	new_argv = z_calloc(argc + 1, sizeof(const char *));
+	argi = 0;
+	if (new_argv0) {
+		push_argv_single(new_argv, &argi, argc, new_argv0);
+		if (new_argv1) {
+			push_argv_single(new_argv, &argi, argc, new_argv1);
+		}
+	}
+
+	if (argstr) {
+		arg = p = argstr;
+		for (;; ++p) {
+			if (!*p) {
+				push_argv_single(new_argv, &argi, argc, arg);
+				arg = p + 1;
+				if (!*arg) {
+					break;
+				}
+			}
+		}
+	} else {
+		uint32_t i;
+		for (i = 0; old_argv[i]; ++i) {
+			push_argv_single(new_argv, &argi, argc, old_argv[i]);
+		}
+	}
+
+	*argv = new_argv;
+	return true;
+}
+
+bool
+run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr)
+{
+	bool ret = false;
+	struct source src = { 0 };
+	const char **new_argv = NULL;
+	const char *cmd = argv[0];
+
+	if (!build_argv(ctx, &src, NULL, argv, &cmd, &new_argv)) {
+		goto err;
+	}
+
+	if (new_argv) {
+		argv = (char **)new_argv;
+	}
+
+	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr);
+err:
+	fs_source_destroy(&src);
+	if (new_argv) {
+		z_free((void *)new_argv);
+	}
+
+	return ret;
+}
+
+bool
+run_cmd(struct run_cmd_ctx *ctx, const char *argstr, const char *envstr)
+{
+	bool ret = false;
+	struct source src = { 0 };
+	const char **argv = NULL;
+	const char *cmd = argstr;
+	if (!build_argv(ctx, &src, argstr, NULL, &cmd, &argv)) {
+		goto err;
+	}
+
+	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr);
+err:
+	fs_source_destroy(&src);
+
+	if (argv) {
+		z_free((void *)argv);
+	}
+
+	return ret;
 }
 
 void

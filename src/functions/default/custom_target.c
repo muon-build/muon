@@ -14,7 +14,7 @@
 #include "platform/path.h"
 
 struct custom_target_cmd_fmt_ctx {
-	uint32_t err_node;
+	uint32_t err_node, i;
 	obj arr, input, output, depfile, depends, name;
 	bool skip_depends;
 	bool relativize;
@@ -56,7 +56,17 @@ str_relative_to_build_root(struct workspace *wk,
 		return false;
 	}
 
-	*res = make_str(wk, rel);
+	if (ctx->i == 0 && path_is_basename(rel)) {
+		// prefix relative argv0 with ./ so that executables are looked
+		// up properly if they reside in the build root.  Without this,
+		// an executable in the build root will be called without any
+		// path elements, and will be assumed to be on PATH, which
+		// either results in the wrong executable being run, or a
+		// command not found error.
+		*res = make_strf(wk, "./%s", rel);
+	} else {
+		*res = make_str(wk, rel);
+	}
 	return true;
 }
 
@@ -273,7 +283,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, str), &ss)) {
-			return false;
+			return ir_err;
 		}
 
 		if (!ctx->skip_depends) {
@@ -295,7 +305,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 			ctx->skip_depends = false;
-			return ir_cont;
+			goto cont;
 		}
 
 		obj s;
@@ -317,7 +327,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_index(wk, output, 0, &f);
 
 		if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, f), &ss)) {
-			return false;
+			return ir_err;
 		}
 
 		if (!ctx->skip_depends) {
@@ -333,6 +343,8 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	assert(get_obj_type(wk, ss) == obj_string);
 
 	obj_array_push(wk, ctx->arr, ss);
+cont:
+	++ctx->i;
 	return ir_cont;
 }
 

@@ -1,18 +1,19 @@
 tests = [
-    ['unicode.meson'],
+    ['array.meson'],
     ['badnum.meson', {'should_fail': true}],
     ['dict.meson'],
+    ['disabler.meson'],
+    ['environment.meson', {'env': 'inherited=secret'}],
+    ['fstring.meson'],
+    ['join.meson'],
     ['join_paths.meson'],
     ['katie.meson'],
-    ['join.meson'],
-    ['version_compare.meson'],
     ['multiline.meson'],
-    ['ternary.meson'],
-    ['fstring.meson'],
-    ['array.meson'],
-    ['environment.meson', {'env': 'inherited=secret'}],
+    ['run_command.meson'],
     ['strings.meson'],
-    ['disabler.meson'],
+    ['ternary.meson'],
+    ['unicode.meson'],
+    ['version_compare.meson'],
 ]
 
 foreach t : tests

@@ -80,7 +80,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	const char *name = get_cstr(wk, comp->name);
 	enum compiler_type t = comp->type;
 
 	obj compiler_args;
@@ -166,14 +165,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	const char *argv[MAX_ARGS] = { name };
-	if (!join_args_argv(wk, argv, MAX_ARGS, compiler_args)) {
-		return false;
-	}
+	const char *argstr;
+	join_args_argstr(wk, &argstr, compiler_args);
 
 	L("compiling: '%s'", path);
 
-	if (!run_cmd(&cmd_ctx, name, argv, NULL)) {
+	if (!run_cmd(&cmd_ctx, argstr, NULL)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -193,9 +190,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			}
 		}
 
-		if (!run_cmd(&opts->cmd_ctx, output, (const char *const []){
-			output, NULL
-		}, NULL)) {
+		if (!run_cmd_argv(&opts->cmd_ctx, output, (char *const []){ (char *)output, NULL }, NULL)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;

@@ -37,7 +37,12 @@ struct run_cmd_ctx {
 	enum run_cmd_ctx_flags flags;
 };
 
-bool run_cmd(struct run_cmd_ctx *ctx, const char *_cmd, const char *const argv[], char *const envp[]);
+/*
+ * argstr is a NUL delimited array of strings, terminated by a double NUL
+ * envstr is like argstr, every two strings is considered a key/value pair
+ */
+bool run_cmd(struct run_cmd_ctx *ctx, const char *argstr, const char *envstr);
+bool run_cmd_argv(struct run_cmd_ctx *ctx, const char *cmd, char *const *argv, const char *envstr);
 enum run_cmd_state run_cmd_collect(struct run_cmd_ctx *ctx);
 void run_cmd_ctx_destroy(struct run_cmd_ctx *ctx);
 #endif

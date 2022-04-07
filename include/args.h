@@ -14,15 +14,12 @@ bool pkgconf_escape(char *buf, uint32_t len, const char *str);
 
 void push_args(struct workspace *wk, obj arr, const struct args *args);
 void push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv);
-void push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg);
-void push_argv(const char **argv, uint32_t *len, uint32_t max, const struct args *args);
 
 obj join_args_plain(struct workspace *wk, obj arr);
 obj join_args_shell(struct workspace *wk, obj arr);
 obj join_args_ninja(struct workspace *wk, obj arr);
 obj join_args_shell_ninja(struct workspace *wk, obj arr);
 obj join_args_pkgconf(struct workspace *wk, obj arr);
-bool join_args_argv(struct workspace *wk, const char **argv, uint32_t len, obj arr);
 
 enum arr_to_args_flags {
 	arr_to_args_build_target = 1 << 0,
@@ -34,5 +31,6 @@ enum arr_to_args_flags {
 
 bool arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res);
 
-bool env_to_envp(struct workspace *wk, uint32_t err_node, char *const *ret[], obj val);
+void join_args_argstr(struct workspace *wk, const char **res, obj arr);
+void env_to_envstr(struct workspace *wk, const char **res, obj val);
 #endif

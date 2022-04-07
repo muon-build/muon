@@ -335,15 +335,9 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		return false;
 	}
 
-	const char *argv[MAX_ARGS];
-	if (!join_args_argv(wk, argv, MAX_ARGS, args)) {
-		interp_error(wk, node, "failed to prepare arguments");
-		return false;
-	}
-
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const *envp;
+	const char *argstr, *envstr;
 
 	if (!path_chdir(get_cstr(wk, current_project(wk)->build_dir))) {
 		return false;
@@ -353,9 +347,9 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	make_obj(wk, &env, obj_dict);
 	set_default_environment_vars(wk, env, true);
 
-	if (!env_to_envp(wk, 0, &envp, env)) {
-		goto ret;
-	} else if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
+	join_args_argstr(wk, &argstr, args);
+	env_to_envstr(wk, &envstr, env);
+	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
 		interp_error(wk, node, "error running command: %s", cmd_ctx.err_msg);
 		goto ret;
 	}

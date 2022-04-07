@@ -95,24 +95,18 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DESTDIR_PREFIX"), ctx->full_prefix);
 	set_default_environment_vars(wk, env, false);
 
-	char *const *envp;
-	if (!env_to_envp(wk, 0, &envp, env)) {
-		return ir_err;
-	}
+	const char *argstr, *envstr;
+	env_to_envstr(wk, &envstr, env);
+	join_args_argstr(wk, &argstr, v);
 
-	const char *argv[MAX_ARGS];
-	if (!join_args_argv(wk, argv, MAX_ARGS, v)) {
-		return ir_err;
-	}
-
-	LOG_I("running install script '%s'", argv[0]);
+	LOG_I("running install script '%s'", argstr);
 
 	if (ctx->opts->dry_run) {
 		return ir_cont;
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, argv[0], argv, envp)) {
+	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
 		LOG_E("failed to run install script: %s", cmd_ctx.err_msg);
 		return ir_err;
 	}

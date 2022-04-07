@@ -1,0 +1,30 @@
+# test that we can pass a ton of arguments
+# cmd = []
+# foreach n : range(1000)
+#     cmd += f'str-@n@'
+# endforeach
+
+# stdout = run_command([find_program('echo')] + cmd, check: true).stdout().strip()
+
+# assert(stdout == ' '.join(cmd))
+
+env = {}
+cmd = []
+expect = []
+foreach n : range(1000)
+    env += {f'envvar@n@': f'val@n@'}
+    cmd += f'$envvar@n@'
+    expect += f'val@n@'
+endforeach
+
+cmd = ' '.join(cmd)
+
+# p(cmd)
+
+stdout = run_command(
+    [find_program('sh'), '-c', f'echo "@cmd@"'],
+    check: true,
+    env: env,
+).stdout().strip()
+
+assert(stdout == ' '.join(expect))
