@@ -223,7 +223,7 @@ tests = [
     ['common/222 native prop', {'should_fail': true}],
     ['common/223 persubproject options', {'should_fail': true}],
     ['common/224 arithmetic operators', {'should_fail': true}],
-    ['common/225 link language', {'should_fail': true}],
+    ['common/225 link language', {}],
     ['common/226 link depends indexed custom target', {}],
     # skip this test for now because it takes too long
     # ['common/227 very long commmand line', {}],

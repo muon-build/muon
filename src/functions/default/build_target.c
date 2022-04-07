@@ -41,6 +41,7 @@ enum build_target_kwargs {
 	bt_kw_native, // TODO
 	bt_kw_darwin_versions, // TODO
 	bt_kw_gui_app, // TODO
+	bt_kw_link_language, // TODO
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
@@ -576,6 +577,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_native] = { "native", obj_bool },
 		[bt_kw_darwin_versions] = { "darwin_versions", ARG_TYPE_ARRAY_OF | tc_string | tc_number },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
+		[bt_kw_link_language] = { "link_language", obj_string },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
