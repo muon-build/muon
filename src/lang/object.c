@@ -708,10 +708,16 @@ obj_dict_merge_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 }
 
 void
+obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2)
+{
+	obj_dict_foreach(wk, dict2, &dict, obj_dict_merge_iter);
+}
+
+void
 obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res)
 {
 	obj_dict_dup(wk, dict, res);
-	obj_dict_foreach(wk, dict2, res, obj_dict_merge_iter);
+	obj_dict_merge_nodup(wk, *res, dict2);
 }
 
 union obj_dict_key_comparison_key {

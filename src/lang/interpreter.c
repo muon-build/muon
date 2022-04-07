@@ -488,7 +488,13 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			goto err1;
 		}
 
-		obj_dict_merge(wk, l_id, r_id, res);
+		if (plusassign) {
+			obj_dict_merge_nodup(wk, l_id, r_id);
+			*res = l_id;
+		} else {
+			obj_dict_merge(wk, l_id, r_id, res);
+		}
+
 		break;
 	}
 	default:
