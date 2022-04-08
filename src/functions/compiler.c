@@ -577,35 +577,88 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 }
 
 static bool
+compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_fattr)
+{
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+		.comp_id = comp_id,
+	};
+
+	const char *src;
+	if (!get_has_function_attribute_test(get_str(wk, arg), &src)) {
+		interp_error(wk, err_node, "unknown attribute '%s'", get_cstr(wk, arg));
+		return false;
+	}
+
+	if (!compiler_check(wk, &opts, src, err_node, has_fattr)) {
+		return false;
+	}
+
+	LOG_I("have attribute %s: %s",
+		get_cstr(wk, arg),
+		bool_to_yn(*has_fattr)
+		);
+
+	return true;
+}
+
+static bool
 func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
-	};
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, NULL, &opts, 0)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	const char *src;
-	if (!get_has_function_attribute_test(get_str(wk, an[0].val), &src)) {
-		interp_error(wk, an[0].node, "unknown attribute '%s'", get_cstr(wk, an[0].val));
-		return false;
-	}
-
-	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+	bool has_fattr;
+	if (!compiler_has_function_attribute(wk, rcvr, an[0].node, an[0].val, &has_fattr)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
-	LOG_I("have attribute %s: %s",
-		get_cstr(wk, an[0].val),
-		bool_to_yn(ok)
-		);
-
+	set_obj_bool(wk, *res, has_fattr);
 	return true;
+}
+
+struct func_compiler_get_supported_function_attributes_iter_ctx {
+	uint32_t node;
+	obj arr, compiler;
+};
+
+static enum iteration_result
+func_compiler_get_supported_function_attributes_iter(struct workspace *wk, void *_ctx, obj val_id)
+{
+	struct func_compiler_get_supported_function_attributes_iter_ctx *ctx = _ctx;
+	bool has_fattr;
+
+	if (!compiler_has_function_attribute(wk, ctx->compiler, ctx->node, val_id, &has_fattr)) {
+		return ir_err;
+	}
+
+	if (has_fattr) {
+		obj_array_push(wk, ctx->arr, val_id);
+	}
+
+	return ir_cont;
+}
+
+static bool
+func_compiler_get_supported_function_attributes(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_array);
+
+	return obj_array_foreach_flat(wk, an[0].val,
+		&(struct func_compiler_get_supported_function_attributes_iter_ctx) {
+		.compiler = rcvr,
+		.arr = *res,
+		.node = an[0].node,
+	}, func_compiler_get_supported_function_attributes_iter);
 }
 
 static bool
@@ -1601,6 +1654,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_argument_syntax", func_compiler_get_argument_syntax },
 	{ "get_supported_arguments", func_compiler_get_supported_arguments },
 	{ "get_supported_link_arguments", func_compiler_get_supported_link_arguments },
+	{ "get_supported_function_attributes", func_compiler_get_supported_function_attributes },
 	{ "has_argument", func_compiler_has_argument },
 	{ "has_link_argument", func_compiler_has_link_argument },
 	{ "has_function", func_compiler_has_function },
