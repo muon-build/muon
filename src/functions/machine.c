@@ -24,6 +24,7 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		{ "Linux", "linux" },
 		{ "Darwin", "darwin" },
 		{ "NetBSD", "netbsd" },
+		{ "FreeBSD", "freebsd" },
 		0
 	};
 
