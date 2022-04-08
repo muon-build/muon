@@ -461,8 +461,14 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 	 */
 	struct { const char *name, *src; } tests[] = {
 		{ "alias",
+		  "#ifdef __cplusplus\n"
+		  "extern \"C\" {\n"
+		  "#endif\n"
 		  "int foo(void) { return 0; }\n"
-		  "int bar(void) __attribute__((alias(\"foo\")));\n" },
+		  "int bar(void) __attribute__((alias(\"foo\")));\n"
+		  "#ifdef __cplusplus\n"
+		  "}\n"
+		  "#endif\n" },
 		{ "aligned",
 		  "int foo(void) __attribute__((aligned(32)));\n" },
 		{ "alloc_size",

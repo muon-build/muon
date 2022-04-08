@@ -195,7 +195,7 @@ tests = [
     ['common/194 static threads', {}],
     ['common/195 generator in subdir', {}],
     ['common/196 subproject with features', {'should_fail': true}],
-    ['common/197 function attributes', {'should_fail': true}],
+    ['common/197 function attributes', {}],
     ['common/198 broken subproject', {'should_fail': true}],
     ['common/199 argument syntax', {}],
     ['common/200 install name_prefix name_suffix', {}],
