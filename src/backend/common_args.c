@@ -313,8 +313,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		}
 	}
 
-	if ((ctx->tgt->flags & build_tgt_flag_pic) ||
-	    (ctx->tgt->type & (tgt_dynamic_library | tgt_shared_module))) {
+	if (ctx->tgt->flags & build_tgt_flag_pic) {
 		push_args(wk, args, compilers[t].args.pic());
 	}
 

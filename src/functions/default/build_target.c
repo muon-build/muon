@@ -321,8 +321,22 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			tgt->flags |= build_tgt_flag_link_whole;
 		}
 
-		if (akw[bt_kw_pic].set && get_obj_bool(wk, akw[bt_kw_pic].val)) {
-			tgt->flags |= build_tgt_flag_pic;
+		{ // pic
+			bool pic = false;
+			if (akw[bt_kw_pic].set) {
+				pic = get_obj_bool(wk, akw[bt_kw_pic].val);
+
+				if (!pic && tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
+					interp_error(wk, akw[bt_kw_pic].node, "shared libraries must be compiled as pic");
+					return false;
+				}
+			} else {
+				pic = tgt->type & (tgt_static_library | tgt_dynamic_library | tgt_shared_module);
+			}
+
+			if (pic) {
+				tgt->flags |= build_tgt_flag_pic;
+			}
 		}
 
 		if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
