@@ -597,7 +597,7 @@ fmt_if(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id, bool fi
 
 	struct node *n = get_node(ctx->ast, n_id);
 
-	if (n->subtype == if_normal) {
+	if (n->subtype == if_if || n->subtype == if_elseif) {
 		fmt_writef(ctx, &fst, "%s ", first ? "if" : "elif");
 		fmt_check(ctx, &fst, fmt_node_wrapped, n->l);
 	} else {

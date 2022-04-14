@@ -560,7 +560,8 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 	bool ret = true;
 
 	switch ((enum if_type)n->subtype) {
-	case if_normal: {
+	case if_if:
+	case if_elseif: {
 		obj cond_id;
 		if (!wk->interp_node(wk, n->l, &cond_id)) {
 			ret = false;

@@ -231,7 +231,7 @@ node_to_s(struct node *n)
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");
 		break;
 	case node_if:
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == if_normal ? "normal" : "else");
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == (if_if || if_elseif) ? "normal" : "else");
 		break;
 	case node_arithmetic: {
 		const char *s;
@@ -984,7 +984,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	uint32_t cond_id, block_id, c_id;
 	bool have_c = false;
 
-	if (if_type == if_normal) {
+	if (if_type == if_if || if_type == if_elseif) {
 		struct token *if_ = p->last;
 		if (!parse_stmt(p, &cond_id)) {
 			return false;
@@ -1004,10 +1004,10 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 		return false;
 	}
 
-	if (if_type == if_normal) {
+	if (if_type == if_if || if_type == if_elseif) {
 		if (accept(p, tok_elif)) {
 			have_c = true;
-			child_type = if_normal;
+			child_type = if_elseif;
 		} else if (accept(p, tok_else)) {
 			have_c = true;
 			child_type = if_else;
@@ -1023,7 +1023,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	struct node *n = make_node(p, id, node_if);
 	n->subtype = if_type;
 
-	if (if_type == if_normal) {
+	if (if_type == if_if || if_elseif) {
 		add_child(p, *id, node_child_l, cond_id);
 	}
 
@@ -1150,7 +1150,7 @@ parse_line(struct parser *p, uint32_t *id)
 	struct token *stmt_start = p->last;
 
 	if (accept(p, tok_if)) {
-		if (!parse_if(p, id, if_normal)) {
+		if (!parse_if(p, id, if_if)) {
 			ret = false;
 			consume_until(p, tok_endif);
 		}

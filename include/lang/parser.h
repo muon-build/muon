@@ -32,7 +32,8 @@ enum arg_type {
 };
 
 enum if_type {
-	if_normal,
+	if_if,
+	if_elseif,
 	if_else,
 };
 
