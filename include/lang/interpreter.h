@@ -12,6 +12,8 @@ bool interp_node(struct workspace *wk, uint32_t n_id, obj *res);
 void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
 
+bool typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type, const char *fmt);
+const char *typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t);
 bool typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type);
 bool typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type);
 bool typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, enum obj_type type);
