@@ -74,7 +74,7 @@ cleanup:
 bool
 eval(struct workspace *wk, struct source *src, obj *res)
 {
-	L("evaluating '%s'", src->label);
+	/* L("evaluating '%s'", src->label); */
 	bool ret = false;
 	struct ast ast = { 0 };
 
