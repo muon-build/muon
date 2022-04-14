@@ -20,24 +20,18 @@
 #include "log.h"
 #include "platform/path.h"
 
+static bool analyze_error;
+
 static const char *
 inspect_typeinfo(struct workspace *wk, obj t)
 {
-	struct obj_typeinfo *ti = get_obj_typeinfo(wk, t);
-	obj expected_types;
-	make_obj(wk, &expected_types, obj_array);
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-		if ((ti->type & typemap[i].tc) != typemap[i].tc) {
-			continue;
-		}
+	if (get_obj_type(wk, t) == obj_typeinfo) {
+		struct obj_typeinfo *ti = get_obj_typeinfo(wk, t);
 
-		obj_array_push(wk, expected_types, make_str(wk, obj_type_to_s(typemap[i].type)));
+		return typechecking_type_to_s(wk, ti->type);
+	} else {
+		return obj_type_to_s(get_obj_type(wk, t));
 	}
-
-	obj typestr;
-	obj_array_join(wk, false, expected_types, make_str(wk, "|"), &typestr);
-	return get_cstr(wk, typestr);
 }
 
 static uint32_t
@@ -82,46 +76,86 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 	}
 }
 
+struct analyze_ctx {
+	uint32_t expected;
+	uint32_t found;
+	func_impl func;
+	enum comparison_type comparison_type;
+};
+
 static bool
-analyze_for_each_type(struct workspace *wk, void *ctx, uint32_t n_id,
-	uint32_t t, analyze_for_each_type_cb cb, obj *res)
+analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id,
+	obj o, uint32_t typemask, analyze_for_each_type_cb cb, obj *res)
 {
 	bool ok = false;
 	uint32_t i;
-	obj r;
+	obj r = 0;
+
+	uint32_t t;
+	if ((t = get_obj_type(wk, o)) == obj_typeinfo) {
+		t = get_obj_typeinfo(wk, o)->type;
+	}
 
 	if (t & obj_typechecking_type_tag) {
 		struct obj_typeinfo res_t = { 0 };
 
+		if (typemask) {
+			t &= typemask;
+		}
+
 		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
 			if ((t & typemap[i].tc) == typemap[i].tc) {
-				ok |= cb(wk, ctx, n_id, typemap[i].type, &r);
-				merge_types(wk, &res_t, r);
+				if (cb(wk, ctx, n_id, typemap[i].type, &r)) {
+					if (r) {
+						merge_types(wk, &res_t, r);
+					}
+					ok = true;
+				}
 			}
 		}
 
 		make_obj(wk, res, obj_typeinfo);
 		*get_obj_typeinfo(wk, *res) = res_t;
-		L("result: '%s'", inspect_typeinfo(wk, *res));
 	} else {
-		L("calling");
-		ok |= cb(wk, ctx, n_id, t, res);
-		L("result: %d|%s", *res, obj_type_to_s(get_obj_type(wk, *res)));
+		ok = cb(wk, ctx, n_id, t, res);
 	}
 
 	return ok;
 }
 
-static bool analyze_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
+static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
 static bool
-analyze_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
+analyze_method(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
 {
+	struct analyze_ctx *ctx = _ctx;
 	obj tmp = 0;
-	struct node *n = get_node(wk->ast, node_id);
+	struct node *n = get_node(wk->ast, n_id);
 
-	if (!builtin_run(wk, true, l_id, node_id, &tmp)) {
-		return false;
+	const char *name = get_node(wk->ast, n->r)->dat.s;
+
+	/* if (rcvr_type == obj_module) { */
+	/* 	struct obj_module *m = get_obj_module(wk, rcvr_id); */
+	/* 	enum module mod = m->module; */
+	/* } */
+
+	const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+
+	if (!impl_tbl) {
+		return true;
+	}
+
+	const struct func_impl_name *fi;
+	if (!(fi = func_lookup(impl_tbl, name))) {
+		return true;
+	}
+
+	++ctx->found;
+
+	analyze_function_args(wk, fi->func, n->c);
+
+	if (fi->return_type) {
+		tmp = make_typeinfo(wk, fi->return_type, 0);
 	}
 
 	if (n->chflg & node_child_d) {
@@ -132,14 +166,9 @@ analyze_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	}
 }
 
-struct analyze_ctx {
-	obj r;
-};
-
 static bool
 analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	L("calling analyze index for type %s", obj_type_to_s(lhs));
 	struct analyze_ctx *ctx = _ctx;
 	struct node *n = get_node(wk->ast, n_id);
 
@@ -150,39 +179,27 @@ analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs
 		*res = disabler_id;
 		return true;
 	case obj_array: {
-		if (!typecheck(wk, n->r, ctx->r, obj_number)) {
-			return false;
-		}
-
-		tmp = make_typeinfo(wk, tc_string, 0);
+		ctx->expected |= tc_number;
+		tmp = make_typeinfo(wk, tc_any, 0);
 		break;
 	}
 	case obj_dict: {
-		if (!typecheck(wk, n->r, ctx->r, obj_string)) {
-			return false;
-		}
-
-		tmp = make_typeinfo(wk, tc_string, 0);
+		ctx->expected |= tc_string;
+		tmp = make_typeinfo(wk, tc_any, 0);
 		break;
 	}
 	case obj_custom_target: {
-		if (!typecheck(wk, n->r, ctx->r, obj_number)) {
-			return false;
-		}
-
+		ctx->expected |= tc_number;
 		tmp = make_typeinfo(wk, tc_file, 0);
 		break;
 	}
 	case obj_string: {
-		if (!typecheck(wk, n->r, ctx->r, obj_number)) {
-			return false;
-		}
-
+		ctx->expected |= tc_number;
 		tmp = make_typeinfo(wk, tc_string, 0);
 		break;
 	}
 	default:
-		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(lhs));
+		assert(false && "unreachable");
 		return false;
 	}
 
@@ -194,38 +211,48 @@ analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs
 	}
 }
 
-#if 0
 static bool
-analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type t, obj *res)
+analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 {
-	struct analyze_ctx *ctx = _ctx;
-
-	ctx->lhs = t;
-	return analyze_for_each_type(wk, ctx, node_id, ctx->rhs, analyze_index_, res);
-}
-#endif
-
-static bool
-analyze_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
-{
-	struct node *n = get_node(wk->ast, node_id);
+	struct node *n = get_node(wk->ast, n_id);
 
 	switch (n->type) {
-	case node_method:
-		return analyze_method(wk, node_id, l_id, res);
+	case node_method: {
+		struct analyze_ctx ctx = { 0 };
+
+		if (!analyze_for_each_type(wk, &ctx, n_id, l_id, 0, analyze_method, res)) {
+			return false;
+		}
+
+		if (!ctx.found) {
+			interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
+			return false;
+		}
+		return true;
+	}
 	case node_index: {
 		obj r;
 		if (!wk->interp_node(wk, n->r, &r)) {
 			return false;
 		}
 
-		struct analyze_ctx ctx = {
-			.r = r,
-		};
+		struct analyze_ctx ctx = { 0 };
 
-		return analyze_for_each_type(wk, &ctx, node_id, get_obj_type(wk, l_id), analyze_index, res);
+		const uint32_t tc_lhs = tc_string | tc_custom_target | tc_dict | tc_array;
+
+		if (!typecheck(wk, n->l, l_id, tc_lhs)) {
+			return false;
+		}
+
+		if (!analyze_for_each_type(wk, &ctx, n_id, l_id, tc_lhs, analyze_index, res)) {
+			return false;
+		}
+
+		if (!typecheck(wk, n->r, r, ctx.expected)) {
+			return false;
+		}
+		return true;
 	}
-	/* return analyze_index(wk, n, l_id, res); */
 	default:
 		assert(false && "unreachable");
 		break;
@@ -234,13 +261,45 @@ analyze_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	return false;
 }
 
-#if 0
 static bool
-interp_u_minus(struct workspace *wk, struct node *n, obj *res)
+analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
+{
+	bool ret = true;
+
+	obj tmp = 0;
+	struct node *n = get_node(wk->ast, n_id);
+
+	const char *name = get_node(wk->ast, n->l)->dat.s;
+
+	const struct func_impl_name *impl_tbl = func_tbl[obj_default][wk->lang_mode];
+	const struct func_impl_name *fi;
+
+	if (!(fi = func_lookup(impl_tbl, name))) {
+		interp_error(wk, n_id, "function %s not found", name);
+		ret = false;
+
+		tmp = make_typeinfo(wk, tc_any, 0);
+	} else {
+		analyze_function_args(wk, fi->func, n->r);
+		if (fi->return_type) {
+			tmp = make_typeinfo(wk, fi->return_type, 0);
+		}
+	}
+
+	if (n->chflg & node_child_d) {
+		return analyze_chained(wk, n->d, tmp, res);
+	} else {
+		*res = tmp;
+		return ret;
+	}
+}
+
+static bool
+analyze_u_minus(struct workspace *wk, struct node *n, obj *res)
 {
 	obj l_id;
 
-	if (!interp_node(wk, n->l, &l_id)) {
+	if (!wk->interp_node(wk, n->l, &l_id)) {
 		return false;
 	} else if (l_id == disabler_id) {
 		*res = disabler_id;
@@ -249,349 +308,117 @@ interp_u_minus(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, -get_obj_number(wk, l_id));
+	if (get_obj_type(wk, l_id) == obj_number) {
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, -get_obj_number(wk, l_id));
+	} else {
+		make_typeinfo(wk, tc_number, 0);
+	}
 	return true;
 }
 
 static bool
-interp_arithmetic(struct workspace *wk, uint32_t err_node,
-	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
-	obj *res)
+analyze_arithmetic_cb(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	obj l_id, r_id;
+	struct analyze_ctx *ctx = _ctx;
 
-	if (!interp_node(wk, nl, &l_id)
-	    || !interp_node(wk, nr, &r_id)) {
-		return false;
-	}
-
-	if (l_id == disabler_id || r_id == disabler_id) {
-		*res = disabler_id;
-		return true;
-	}
-
-	switch (get_obj_type(wk, l_id)) {
+	switch (lhs) {
 	case obj_string: {
-		obj str;
-
-		if (!typecheck_custom(wk, nr, r_id, obj_string, "unsupported operator for %s and %s")) {
-			return false;
-		}
-
-		switch (type) {
-		case arith_add:
-			str = str_join(wk, l_id, r_id);
-			break;
-		case arith_div: {
-			char buf[PATH_MAX];
-
-			const struct str *ss1 = get_str(wk, l_id),
-					 *ss2 = get_str(wk, r_id);
-
-			if (str_has_null(ss1)) {
-				interp_error(wk, nl, "%o is an invalid path", l_id);
-				return false;
-			}
-
-			if (str_has_null(ss2)) {
-				interp_error(wk, nr, "%o is an invalid path", r_id);
-				return false;
-			}
-
-			if (!path_join(buf, PATH_MAX, ss1->s, ss2->s)) {
-				return false;
-			}
-
-			str = make_str(wk, buf);
-			break;
-		}
-		default:
-			goto err1;
-		}
-
-		*res = str;
+		ctx->expected |= tc_string;
+		*res = make_typeinfo(wk, tc_string, 0);
 		break;
 	}
 	case obj_number: {
-		int64_t num, l, r;
-
-		if (!typecheck_custom(wk, nr, r_id, obj_number, "unsupported operator for %s and %s")) {
-			return false;
-		}
-
-		l = get_obj_number(wk, l_id);
-		r = get_obj_number(wk, r_id);
-
-		switch (type) {
-		case arith_add:
-			num = l + r;
-			break;
-		case arith_div:
-			if (!r) {
-				interp_error(wk, nr, "divide by 0");
-				return false;
-			}
-			num = l / r;
-			break;
-		case arith_sub:
-			num = l - r;
-			break;
-		case arith_mod:
-			if (!r) {
-				interp_error(wk, nr, "divide by 0");
-				return false;
-			}
-			num = l % r;
-			break;
-		case arith_mul:
-			num = l * r;
-			break;
-		default:
-			assert(false);
-			return false;
-		}
-
-		make_obj(wk, res, obj_number);
-		set_obj_number(wk, *res, num);
+		ctx->expected |= tc_number;
+		*res = make_typeinfo(wk, tc_number, 0);
 		break;
 	}
 	case obj_array: {
-		switch (type) {
-		case arith_add:
-			if (plusassign) {
-				*res = l_id;
-			} else {
-				obj_array_dup(wk, l_id, res);
-			}
-
-			if (get_obj_type(wk, r_id) == obj_array) {
-				obj_array_extend(wk, *res, r_id);
-			} else {
-				obj_array_push(wk, *res, r_id);
-			}
-			return true;
-		default:
-			goto err1;
-		}
+		ctx->expected |= tc_any;
+		*res = make_typeinfo(wk, tc_array, 0);
+		break;
 	}
 	case obj_dict: {
-		if (!typecheck_custom(wk, nr, r_id, obj_dict, "unsupported operator for %s and %s")) {
-			return false;
-		} else if (type != arith_add) {
-			goto err1;
-		}
-
-		obj_dict_merge(wk, l_id, r_id, res);
+		ctx->expected |= tc_dict;
+		*res = make_typeinfo(wk, tc_dict, 0);
 		break;
 	}
 	default:
-		goto err1;
-	}
-
-	return true;
-err1:
-	assert(type < 5);
-	interp_error(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj_type(wk, l_id)), "+-%*/"[type]);
-	return false;
-}
-
-static bool
-interp_assign(struct workspace *wk, struct node *n, obj *_)
-{
-	obj rhs;
-
-	if (!interp_node(wk, n->r, &rhs)) {
-		return false;
-	}
-
-	switch (get_obj_type(wk, rhs)) {
-	case obj_environment:
-	case obj_configuration_data: {
-		obj cloned;
-		if (!obj_clone(wk, wk, rhs, &cloned)) {
-			return false;
-		}
-
-		rhs = cloned;
-		break;
-	}
-	case obj_array: {
-		obj dup;
-		obj_array_dup(wk, rhs, &dup);
-		rhs = dup;
-	}
-	default:
 		break;
 	}
 
-	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
 	return true;
 }
 
-static bool
-interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
-{
-	struct node *n = get_node(wk->ast, n_id);
-
-	obj rhs;
-	if (!interp_arithmetic(wk, n_id, arith_add, true, n->l, n->r, &rhs)) {
-		return false;
-	}
-
-	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
-	return true;
-}
 
 static bool
-interp_array(struct workspace *wk, uint32_t n_id, obj *res)
+analyze_arithmetic(struct workspace *wk, uint32_t err_node,
+	enum arithmetic_type type, uint32_t nl, uint32_t nr,
+	obj *res)
 {
 	obj l, r;
+	if (!wk->interp_node(wk, nl, &l)) {
+		return false;
+	}
+	if (!wk->interp_node(wk, nr, &r)) {
+		return false;
+	}
 
+	struct analyze_ctx ctx = { 0 };
+	uint32_t tc_lhs;
+
+	switch (type) {
+	case arith_add:
+		tc_lhs = tc_string | tc_number | tc_dict | tc_array;
+		break;
+	case arith_div:
+		tc_lhs = tc_string | tc_number;
+		break;
+	case arith_sub:
+	case arith_mod:
+	case arith_mul:
+		tc_lhs = tc_number;
+		break;
+	default:
+		assert(false);
+		return false;
+	}
+
+	if (!typecheck(wk, nl, l, tc_lhs)) {
+		return false;
+	}
+
+	if (!analyze_for_each_type(wk, &ctx, nl, l, tc_lhs, analyze_arithmetic_cb, res)) {
+		return false;
+	}
+
+	if (!typecheck(wk, nr, r, ctx.expected)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
+{
 	struct node *n = get_node(wk->ast, n_id);
 
-	if (n->type == node_empty) {
-		make_obj(wk, res, obj_array);
-		struct obj_array *arr = get_obj_array(wk, *res);
-		arr->len = 0;
-		arr->tail = *res;
-		return true;
-	}
-
-	if (n->subtype == arg_kwarg) {
-		interp_error(wk, n->l, "kwarg not valid in array constructor");
+	obj rhs;
+	if (!analyze_arithmetic(wk, n_id, arith_add, n->l, n->r, &rhs)) {
 		return false;
 	}
 
-	bool have_c = n->chflg & node_child_c && get_node(wk->ast, n->c)->type != node_empty;
-
-	if (!interp_node(wk, n->l, &l)) {
-		return false;
-	}
-
-	if (have_c) {
-		if (!interp_array(wk, n->c, &r)) {
-			return false;
-		}
-	}
-
-	make_obj(wk, res, obj_array);
-	struct obj_array *arr = get_obj_array(wk, *res);
-	arr->val = l;
-
-	if ((arr->have_next = have_c)) {
-		struct obj_array *arr_r = get_obj_array(wk, r);
-
-		arr->len = arr_r->len + 1;
-		arr->tail = arr_r->tail;
-		arr->next = r;
-	} else {
-		arr->len = 1;
-		arr->tail = *res;
-	}
-
+	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
 	return true;
 }
 
 static bool
-interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
-{
-	obj key, value, tail;
-
-	struct node *n = get_node(wk->ast, n_id);
-
-	if (n->type == node_empty) {
-		make_obj(wk, res, obj_dict);
-		struct obj_dict *dict = get_obj_dict(wk, *res);
-		dict->len = 0;
-		dict->tail = *res;
-		return true;
-	}
-
-	assert(n->type == node_argument);
-
-	if (n->subtype != arg_kwarg) {
-		interp_error(wk, n->l, "non-kwarg not valid in dict constructor");
-		return false;
-	}
-
-	bool have_c = n->chflg & node_child_c && get_node(wk->ast, n->c)->type != node_empty;
-
-	if (!interp_node(wk, n->l, &key)) {
-		return false;
-	}
-
-	if (!typecheck(wk, n->l, key, obj_string)) {
-		return false;
-	}
-
-	if (!interp_node(wk, n->r, &value)) {
-		return false;
-	}
-
-	if (have_c) {
-		if (!interp_dict(wk, n->c, &tail)) {
-			return false;
-		}
-	}
-
-	make_obj(wk, res, obj_dict);
-	struct obj_dict *dict = get_obj_dict(wk, *res);
-	dict->key = key;
-	dict->val = value;
-
-	if ((dict->have_next = have_c)) {
-		struct obj_dict *dict_r = get_obj_dict(wk, tail);
-
-		if (obj_dict_in(wk, tail, key)) {
-			interp_error(wk, n->l, "key %o is duplicated", key);
-			return false;
-		}
-
-		dict->len = dict_r->len + 1;
-		dict->tail = dict_r->tail;
-		dict->next = tail;
-	} else {
-		dict->len = 1;
-		dict->tail = *res;
-	}
-
-	return true;
-}
-
-static bool
-interp_block(struct workspace *wk, struct node *n, obj *res)
-{
-	bool have_r = n->chflg & node_child_r
-		      && get_node(wk->ast, n->r)->type != node_empty;
-
-	assert(n->type == node_block);
-
-	obj obj_l, obj_r; // these return values are disregarded
-
-	if (!interp_node(wk, n->l, &obj_l)) {
-		return false;
-	}
-
-	if (have_r && get_node(wk->ast, n->r)->type != node_empty) {
-		if (!interp_node(wk, n->r, &obj_r)) {
-			return false;
-		}
-
-		*res = obj_r;
-	} else {
-		*res = obj_l;
-	}
-
-	return true;
-}
-
-static bool
-interp_not(struct workspace *wk, struct node *n, obj *res)
+analyze_not(struct workspace *wk, struct node *n, obj *res)
 {
 	obj obj_l_id;
 
-	if (!interp_node(wk, n->l, &obj_l_id)) {
+	if (!wk->interp_node(wk, n->l, &obj_l_id)) {
 		return false;
 	} else if (obj_l_id == disabler_id) {
 		*res = disabler_id;
@@ -600,140 +427,113 @@ interp_not(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, !get_obj_bool(wk, obj_l_id));
+	*res = make_typeinfo(wk, tc_bool, 0);
 	return true;
 }
 
 static bool
-interp_andor(struct workspace *wk, struct node *n, obj *res)
+analyze_andor(struct workspace *wk, struct node *n, obj *res)
 {
 	obj obj_l_id, obj_r_id;
 
-	if (!interp_node(wk, n->l, &obj_l_id)) {
+	if (!wk->interp_node(wk, n->l, &obj_l_id)) {
 		return false;
-	} else if (obj_l_id == disabler_id) {
-		*res = disabler_id;
-		return true;
 	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
 
-	if (n->type == node_and && !get_obj_bool(wk, obj_l_id)) {
-		make_obj(wk, res, obj_bool);
-		set_obj_bool(wk, *res, false);
-		return true;
-	} else if (n->type == node_or && get_obj_bool(wk, obj_l_id)) {
-		make_obj(wk, res, obj_bool);
-		set_obj_bool(wk, *res, true);
-		return true;
-	}
-
-	if (!interp_node(wk, n->r, &obj_r_id)) {
+	if (!wk->interp_node(wk, n->r, &obj_r_id)) {
 		return false;
-	} else if (obj_r_id == disabler_id) {
-		*res = disabler_id;
-		return true;
 	} else if (!typecheck(wk, n->r, obj_r_id, obj_bool)) {
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_bool(wk, obj_r_id));
+	*res = make_typeinfo(wk, tc_bool, 0);
 	return true;
 }
 
 static bool
-interp_comparison(struct workspace *wk, struct node *n, obj *res)
+analyze_comparison_cb(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	bool b;
-	obj obj_l_id, obj_r_id;
+	struct analyze_ctx *ctx = _ctx;
 
-	if (!interp_node(wk, n->l, &obj_l_id)) {
-		return false;
-	} else if (!interp_node(wk, n->r, &obj_r_id)) {
-		return false;
-	}
-
-	if (obj_l_id == disabler_id || obj_r_id == disabler_id) {
-		*res = disabler_id;
-		return true;
-	}
-
-	switch ((enum comparison_type)n->subtype) {
+	switch (ctx->comparison_type) {
 	case comp_equal:
-		b = obj_equal(wk, obj_l_id, obj_r_id);
-		break;
 	case comp_nequal:
-		b = !obj_equal(wk, obj_l_id, obj_r_id);
+		ctx->expected |= obj_type_to_tc_type(lhs);
 		break;
-
 	case comp_in:
 	case comp_not_in:
-		switch (get_obj_type(wk, obj_r_id)) {
-		case obj_array:
-			b = obj_array_in(wk, obj_r_id, obj_l_id);
-			break;
-		case obj_dict:
-			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
-				return false;
-			}
-
-			b = obj_dict_in(wk, obj_r_id, obj_l_id);
-			break;
-		default:
-			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));
-			return false;
-		}
-
-		if (n->subtype == comp_not_in) {
-			b = !b;
-		}
+		ctx->expected |= tc_array | tc_dict;
 		break;
-
 	case comp_lt:
 	case comp_le:
 	case comp_gt:
-	case comp_ge: {
-		if (!typecheck(wk, n->l, obj_l_id, obj_number)
-		    || !typecheck(wk, n->r, obj_r_id, obj_number)) {
-			return false;
-		}
-
-		int64_t n_a = get_obj_number(wk, obj_l_id),
-			n_b = get_obj_number(wk, obj_r_id);
-
-		switch (n->subtype) {
-		case comp_lt:
-			b = n_a < n_b;
-			break;
-		case comp_le:
-			b = n_a <= n_b;
-			break;
-		case comp_gt:
-			b = n_a > n_b;
-			break;
-		case comp_ge:
-			b = n_a >= n_b;
-			break;
-		default: assert(false && "unreachable"); res = false;
-		}
+	case comp_ge:
+		ctx->expected |= tc_number;
 		break;
+	default: assert(false && "unreachable"); res = false;
+		break;
+
 	}
+
+	*res = make_typeinfo(wk, tc_bool, 0);
+	return true;
+}
+
+static bool
+analyze_comparison(struct workspace *wk, struct node *n, obj *res)
+{
+	obj l, r;
+
+	if (!wk->interp_node(wk, n->l, &l)) {
+		return false;
+	} else if (!wk->interp_node(wk, n->r, &r)) {
+		return false;
+	}
+
+	struct analyze_ctx ctx = { .comparison_type = n->subtype };
+	uint32_t tc_lhs;
+
+	switch ((enum comparison_type)n->subtype) {
+	case comp_equal:
+	case comp_nequal:
+		tc_lhs = tc_any;
+		break;
+	case comp_in:
+	case comp_not_in:
+		tc_lhs = tc_any;
+		break;
+	case comp_lt:
+	case comp_le:
+	case comp_gt:
+	case comp_ge:
+		tc_lhs = tc_number;
+		break;
 	default: assert(false && "unreachable"); res = false;
 		break;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, b);
+	if (!typecheck(wk, n->l, l, tc_lhs)) {
+		return false;
+	}
+
+	if (!analyze_for_each_type(wk, &ctx, n->l, l, tc_lhs, analyze_comparison_cb, res)) {
+		return false;
+	}
+
+	if (!typecheck(wk, n->r, r, ctx.expected)) {
+		return false;
+	}
+
 	return true;
 }
 
 static bool
-interp_ternary(struct workspace *wk, struct node *n, obj *res)
+analyze_ternary(struct workspace *wk, struct node *n, obj *res)
 {
 	obj cond_id;
-	if (!interp_node(wk, n->l, &cond_id)) {
+	if (!wk->interp_node(wk, n->l, &cond_id)) {
 		return false;
 	} else if (cond_id == disabler_id) {
 		*res = disabler_id;
@@ -742,54 +542,60 @@ interp_ternary(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
-	uint32_t node = get_obj_bool(wk, cond_id) ? n->r : n->c;
+	struct obj_typeinfo res_t = { 0 };
+	obj a, b;
+	wk->interp_node(wk, n->l, &a);
+	wk->interp_node(wk, n->r, &b);
 
-	return interp_node(wk, node, res);
+	merge_types(wk, &res_t, a);
+	merge_types(wk, &res_t, b);
+
+	*res = make_typeinfo(wk, res_t.type, res_t.subtype);
+	return true;
 }
 
 static bool
-interp_if(struct workspace *wk, struct node *n, obj *res)
+analyze_if(struct workspace *wk, struct node *n, obj *res)
 {
-	bool cond;
+	bool ret = true;
 
 	switch ((enum if_type)n->subtype) {
 	case if_normal: {
 		obj cond_id;
-		if (!interp_node(wk, n->l, &cond_id)) {
-			return false;
+		if (!wk->interp_node(wk, n->l, &cond_id)) {
+			ret = false;
 		} else if (cond_id == disabler_id) {
 			*res = disabler_id;
 			return true;
 		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
-			return false;
+			ret = false;
 		}
 
-		cond = get_obj_bool(wk, cond_id);
 		break;
 	}
 	case if_else:
-		cond = true;
 		break;
 	default:
-		assert(false);
+		assert(false && "unreachable");
 		return false;
 	}
 
-	if (cond) {
-		if (!interp_node(wk, n->r, res)) {
-			return false;
-		}
-	} else if (n->chflg & node_child_c) {
-		if (!interp_node(wk, n->c, res)) {
-			return false;
-		}
-	} else {
-		*res = 0;
+	// if block
+	if (!wk->interp_node(wk, n->r, res)) {
+		ret = false;
 	}
 
-	return true;
+	if (n->chflg & node_child_c) {
+		if (!wk->interp_node(wk, n->c, res)) {
+			ret = false;
+		}
+	}
+
+	*res = 0;
+	return ret;
 }
 
+#if 0
 struct interp_foreach_ctx {
 	const char *id1, *id2;
 	uint32_t block_node;
@@ -904,24 +710,6 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-interp_func(struct workspace *wk, uint32_t n_id, obj *res)
-{
-	obj tmp = 0;
-	struct node *n = get_node(wk->ast, n_id);
-
-	if (!builtin_run(wk, false, 0, n_id, &tmp)) {
-		return false;
-	}
-
-	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, tmp, res);
-	} else {
-		*res = tmp;
-		return true;
-	}
-}
-
-static bool
 interp_stringify(struct workspace *wk, struct node *n, obj *res)
 {
 	obj l_id;
@@ -938,15 +726,52 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 }
 #endif
 
+static bool
+analyze_block(struct workspace *wk, struct node *n, obj *res)
+{
+	bool have_r = n->chflg & node_child_r
+		      && get_node(wk->ast, n->r)->type != node_empty;
+
+	assert(n->type == node_block);
+
+	obj obj_l, obj_r;
+
+	struct node *nl = get_node(wk->ast, n->l);
+	switch (nl->type) {
+	case node_if: {
+		obj _;
+		wk->interp_node(wk, n->l, &_);
+		if (!wk->interp_node(wk, n->r, &obj_r)) {
+			return false;
+		}
+		break;
+	}
+	default:
+		if (!wk->interp_node(wk, n->l, &obj_l)) {
+			return false;
+		}
+	}
+
+	if (have_r) {
+		if (!wk->interp_node(wk, n->r, &obj_r)) {
+			return false;
+		}
+
+		*res = obj_r;
+	} else {
+		*res = obj_l;
+	}
+
+	return true;
+}
+
 bool
 analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 {
-	bool ret = false;
+	bool ret = true;
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
-
-	L("analyze '%s'", node_to_s(n));
 
 	wk->stack_depth = 0;
 
@@ -962,7 +787,6 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_string:
 	case node_number:
 	case node_bool:
-	case node_block:
 		ret = interp_node(wk, n_id, res);
 		break;
 	case node_id:
@@ -975,33 +799,25 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 
 	/* control flow */
+	case node_block:
+		ret = analyze_block(wk, n, res);
+		break;
 	case node_if:
-		/* ret = interp_if(wk, n, res); */
+		ret = analyze_if(wk, n, res);
 		break;
 	case node_foreach:
 		/* ret = interp_foreach(wk, n, res); */
 		break;
 	case node_continue:
-		if (!wk->loop_depth) {
-			LOG_E("continue outside loop");
-			ret = false;
-			break;
-		}
-		wk->loop_ctl = loop_continuing;
 		ret = true;
 		break;
 	case node_break:
-		if (!wk->loop_depth) {
-			LOG_E("break outside loop");
-			ret = false;
-			break;
-		}
-		wk->loop_ctl = loop_breaking;
 		ret = true;
 		break;
 
 	/* functions */
 	case node_function:
+		ret = analyze_func(wk, n_id, res);
 		break;
 	case node_method:
 	case node_index: {
@@ -1024,28 +840,28 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 
 	/* comparison stuff */
 	case node_not:
-		/* ret = interp_not(wk, n, res); */
+		ret = analyze_not(wk, n, res);
 		break;
 	case node_and:
 	case node_or:
-		/* ret = interp_andor(wk, n, res); */
+		ret = analyze_andor(wk, n, res);
 		break;
 	case node_comparison:
-		/* ret = interp_comparison(wk, n, res); */
+		ret = analyze_comparison(wk, n, res);
 		break;
 	case node_ternary:
-		/* ret = interp_ternary(wk, n, res); */
+		ret = analyze_ternary(wk, n, res);
 		break;
 
 	/* math */
 	case node_u_minus:
-		/* ret = interp_u_minus(wk, n, res); */
+		ret = analyze_u_minus(wk, n, res);
 		break;
 	case node_arithmetic:
-		/* ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res); */
+		ret = analyze_arithmetic(wk, n_id, n->subtype, n->l, n->r, res);
 		break;
 	case node_plusassign:
-		/* ret = interp_plusassign(wk, n_id, res); */
+		ret = analyze_plusassign(wk, n_id, res);
 		break;
 
 	/* special */
@@ -1067,7 +883,10 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	--wk->stack_depth;
-	return ret;
+	if (!ret) {
+		analyze_error = true;
+	}
+	return true;
 }
 
 bool
@@ -1085,6 +904,9 @@ do_analyze(void)
 
 	uint32_t project_id;
 	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
+	if (analyze_error) {
+		res = false;
+	}
 err:
 	workspace_destroy(&wk);
 	return res;

@@ -40,6 +40,9 @@ static bool disabler_among_args = false;
 // HACK: we also need this for the is_disabler() function :(
 bool disabler_among_args_immunity = false;
 
+// HACK: This works like disabler_among_args kind of.
+static bool analyze_args = false;
+
 static bool
 interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
 {
@@ -335,16 +338,22 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					}
 
 					// If we get an array, but that isn't a valid type here, flatten it.
-					if (get_obj_type(wk, val) == obj_array
+					if ((get_obj_type(wk, val) == obj_array
+					     || (get_obj_type(wk, val) == obj_typeinfo
+						 && (get_obj_typeinfo(wk, val)->type & tc_array) == tc_array))
 					    && !(an[stage][i].type == obj_any
 						 || an[stage][i].type == obj_array
 						 || (an[stage][i].type & tc_array) == tc_array)
 					    ) {
-						if (!typecheck_function_arg(wk, arg_node, &val, ARG_TYPE_ARRAY_OF | an[stage][i].type)) {
-							return false;
-						}
+						if (get_obj_type(wk, val) == obj_typeinfo) {
+							// TODO typecheck subtype
+						} else {
+							if (!typecheck_function_arg(wk, arg_node, &val, ARG_TYPE_ARRAY_OF | an[stage][i].type)) {
+								return false;
+							}
 
-						obj_array_extend_nodup(wk, an[stage][i].val, val);
+							obj_array_extend_nodup(wk, an[stage][i].val, val);
+						}
 					} else {
 						if (!typecheck_function_arg(wk, arg_node, &val, an[stage][i].type)) {
 							return false;
@@ -364,7 +373,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					interp_error(wk, args_node, "missing arguments %s", ARITY);
 					return false;
 				} else if (stage == 1) { // optional
-					return true;
+					goto end;
 				}
 			}
 
@@ -446,6 +455,12 @@ process_kwarg:
 		return false;
 	}
 
+end:
+	if (analyze_args) {
+		// if we are analyzing arguments only return false to halt the
+		// function
+		return false;
+	}
 	return true;
 }
 
@@ -460,7 +475,7 @@ todo(struct workspace *wk, obj rcvr_id, uint32_t args_node, obj *res)
 	return false;
 }
 
-static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
+const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_default] = { impl_tbl_default, impl_tbl_default_external, impl_tbl_default_opts },
 	[obj_meson] = { impl_tbl_meson, },
 	[obj_subproject] = { impl_tbl_subproject },
@@ -486,18 +501,17 @@ static const struct func_impl_name *func_tbl[obj_type_count][language_mode_count
 	[obj_both_libs] = { impl_tbl_both_libs, },
 };
 
-bool
-func_lookup(const struct func_impl_name *impl_tbl, const char *name, func_impl *res)
+const struct func_impl_name *
+func_lookup(const struct func_impl_name *impl_tbl, const char *name)
 {
 	uint32_t i;
 	for (i = 0; impl_tbl[i].name; ++i) {
 		if (strcmp(impl_tbl[i].name, name) == 0) {
-			*res = impl_tbl[i].func;
-			return true;
+			return &impl_tbl[i];
 		}
 	}
 
-	return false;
+	return NULL;
 }
 
 bool
@@ -525,8 +539,6 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		rcvr_type = obj_default;
 	}
 
-	/* L("calling %s.%s", obj_type_to_s(recvr_type), name); */
-
 	func_impl func;
 	name = get_node(wk->ast, name_node)->dat.s;
 
@@ -549,7 +561,8 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 
-		if (!func_lookup(impl_tbl, name, &func)) {
+		const struct func_impl_name *fi;
+		if (!(fi = func_lookup(impl_tbl, name))) {
 			if (rcvr_type == obj_disabler) {
 				*res = disabler_id;
 				return true;
@@ -558,6 +571,8 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			interp_error(wk, name_node, "function %s not found", name);
 			return false;
 		}
+
+		func = fi->func;
 	}
 
 	if (!func(wk, rcvr_id, args_node, res)) {
@@ -574,6 +589,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 	}
-	/* L("finished calling %s.%s", obj_type_to_s(recvr_type), name); */
+	return true;
+}
+
+bool
+analyze_function_args(struct workspace *wk, func_impl func, uint32_t args_node)
+{
+	obj _;
+	analyze_args = true;
+	func(wk, 0, args_node, &_);
 	return true;
 }
