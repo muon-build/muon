@@ -482,6 +482,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	}
 
 	struct node *args_n = get_node(p->ast, *id);
+	n = get_node(p->ast, *id);
 	args_n->line = n->line;
 	args_n->col = n->col;
 
