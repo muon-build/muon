@@ -465,10 +465,15 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	uint32_t meth_id, args, c_id = 0;
 	bool have_c = false;
 	struct token *start_tok = p->last;
+	struct node *n;
 
 	if (!parse_e9(p, &meth_id)) {
 		return false;
-	} else if (!expect(p, tok_lparen)) {
+	}
+
+	n = make_node(p, id, node_method);
+
+	if (!expect(p, tok_lparen)) {
 		return false;
 	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
 		return false;
@@ -476,8 +481,11 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 		return false;
 	}
 
-	struct node *n;
-	n = make_node(p, id, node_method);
+	struct node *args_n = get_node(p->ast, *id);
+	args_n->line = n->line;
+	args_n->col = n->col;
+
+	n = get_node(p->ast, *id);
 	n->subtype = have_c;
 
 	if (have_l) {
@@ -605,15 +613,19 @@ parse_e7(struct parser *p, uint32_t *id)
 		return false;
 	}
 
+	struct token *function_name = p->last_last;
+
 	if (accept(p, tok_lparen)) {
 		p->caused_effect = true;
 
 		uint32_t args, d_id;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, NULL, "Function call must be applied to plain id");
+			parse_error(p, NULL, "function call must be applied to plain id");
 			return false;
 		}
+
+		struct token *args_start = p->last;
 
 		if (!parse_list(p, &args, parse_list_mode_arguments)) {
 			return false;
@@ -624,6 +636,13 @@ parse_e7(struct parser *p, uint32_t *id)
 		make_node(p, &p_id, node_function);
 		add_child(p, p_id, node_child_l, l_id);
 		add_child(p, p_id, node_child_r, args);
+
+		struct node *n = get_node(p->ast, p_id);
+		n->line = function_name->line;
+		n->col = function_name->col;
+		n = get_node(p->ast, args);
+		n->line = args_start->line;
+		n->col = args_start->col;
 
 		if (!parse_chained(p, &d_id, 0, false)) {
 			return false;
