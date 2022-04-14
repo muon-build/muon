@@ -22,6 +22,22 @@
 
 static bool analyze_error;
 
+struct assignment {
+	const char *name;
+	obj o;
+	bool accessed, default_var;
+	uint32_t n_id;
+};
+
+struct scope_group {
+	struct darr scopes;
+};
+
+struct {
+	struct darr groups;
+	struct darr base;
+} assignment_scopes;
+
 static const char *
 inspect_typeinfo(struct workspace *wk, obj t)
 {
@@ -34,7 +50,7 @@ inspect_typeinfo(struct workspace *wk, obj t)
 	}
 }
 
-static uint32_t
+static obj
 make_typeinfo(struct workspace *wk, uint32_t t, uint32_t sub_t)
 {
 	assert(t & obj_typechecking_type_tag);
@@ -50,8 +66,6 @@ make_typeinfo(struct workspace *wk, uint32_t t, uint32_t sub_t)
 	return res;
 }
 
-typedef bool ((analyze_for_each_type_cb)(struct workspace *wk, void *ctx, uint32_t n_id, enum obj_type t, obj *res));
-
 static uint32_t
 obj_type_to_tc_type(enum obj_type t)
 {
@@ -62,7 +76,7 @@ obj_type_to_tc_type(enum obj_type t)
 		}
 	}
 
-	assert(false && "unreachable");
+	UNREACHABLE_RETURN;
 }
 
 static void
@@ -82,6 +96,9 @@ struct analyze_ctx {
 	func_impl func;
 	enum comparison_type comparison_type;
 };
+
+typedef bool ((analyze_for_each_type_cb)(struct workspace *wk,
+	struct analyze_ctx *ctx, uint32_t n_id, enum obj_type t, obj *res));
 
 static bool
 analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id,
@@ -123,12 +140,165 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 	return ok;
 }
 
+/*
+ * Variable assignment and retrieval is handled with the following functions.
+ * The additional complexity is required due to variables that are
+ * conditionally assigned, e.g. assigned in an if-block, or foreach loop.
+ *
+ * When a conditional block is started, a "scope group" is created, and then
+ * every branch of the if statement gets its own sub-scope.  At the end of the
+ * if statement, all the sub scopes are merged (conflicting object types get
+ * merged) into the parent scope, and the scope group is popped.
+ */
+
+static struct assignment *
+assign_lookup_scope(const char *name, struct darr *scope)
+{
+	uint32_t i;
+	for (i = 0; i < scope->len; ++i) {
+		struct assignment *a = darr_get(scope, i);
+		if (strcmp(a->name, name) == 0) {
+			return a;
+		}
+	}
+
+	return NULL;
+}
+
+static struct assignment *
+assign_lookup(struct workspace *wk, const char *name)
+{
+	uint32_t i;
+	uint32_t id;
+	struct assignment *found = NULL;
+
+	for (i = 0; i < assignment_scopes.groups.len; ++i) {
+		struct scope_group *g = darr_get(&assignment_scopes.groups, i);
+		if (!(g->scopes.len)) {
+			continue;
+		}
+
+		struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
+		if ((found = assign_lookup_scope(name, scope))) {
+			break;
+		}
+	}
+
+	if (!found && wk->projects.len && get_obj_id(wk, name, &id, wk->cur_project)) {
+		found = darr_get(&assignment_scopes.base, id);
+	}
+
+	return found;
+}
+
+static struct assignment *
+scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
+{
+	struct assignment *a;
+	if ((a = assign_lookup(wk, name))) {
+		a->o = o;
+		return a;
+	}
+
+	struct darr *s;
+	if (assignment_scopes.groups.len) {
+		struct scope_group *g = darr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
+
+		assert(g->scopes.len);
+		s = darr_get(&g->scopes, g->scopes.len - 1);
+	} else {
+		s = &assignment_scopes.base;
+	}
+
+	darr_push(s, &(struct assignment) {
+		.name = name,
+		.o = o,
+		.n_id = n_id,
+	});
+
+	if (!assignment_scopes.groups.len) {
+		struct hash *scope;
+		if (wk->projects.len) {
+			scope = &current_project(wk)->scope;
+		} else {
+			scope = &wk->scope;
+		}
+
+		hash_set_str(scope, name, s->len - 1);
+	}
+
+	return darr_get(s, s->len - 1);
+}
+
+static void
+push_scope_group_scope(void)
+{
+	assert(assignment_scopes.groups.len);
+	struct scope_group *g = darr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
+	darr_push(&g->scopes, &(struct darr) { 0 });
+	struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
+	darr_init(scope, 256, sizeof(struct assignment));
+}
+
+static void
+push_scope_group(void)
+{
+	struct scope_group g = { 0 };
+	darr_init(&g.scopes, 4, sizeof(struct darr));
+	darr_push(&assignment_scopes.groups, &g);
+}
+
+static void
+pop_scope_group(struct workspace *wk)
+{
+	assert(assignment_scopes.groups.len);
+	size_t idx = assignment_scopes.groups.len - 1;
+	struct scope_group *g = darr_get(&assignment_scopes.groups, idx);
+	darr_del(&assignment_scopes.groups, idx);
+
+	struct darr *base = darr_get(&g->scopes, 0);
+
+	uint32_t i, j;
+	for (i = 1; i < g->scopes.len; ++i) {
+		struct darr *scope = darr_get(&g->scopes, i);
+		for (j = 0; j < scope->len; ++j) {
+			struct assignment *old, *a = darr_get(scope, j);
+			if ((old = assign_lookup_scope(a->name, base))) {
+				if (get_obj_type(wk, old->o) != obj_typeinfo) {
+					obj old_tc = make_typeinfo(wk, obj_type_to_tc_type(get_obj_type(wk, old->o)), 0);
+					old->o = old_tc;
+				}
+
+				merge_types(wk, get_obj_typeinfo(wk, old->o), a->o);
+			} else {
+				darr_push(base, a);
+			}
+		}
+	}
+
+	for (i = 0; i < base->len; ++i) {
+		struct assignment *a = darr_get(base, i),
+				  *b = scope_assign(wk, a->name, a->o, a->n_id);
+
+		b->accessed = a->accessed;
+	}
+
+	for (i = 0; i < g->scopes.len; ++i) {
+		struct darr *scope = darr_get(&g->scopes, i);
+		darr_destroy(scope);
+	}
+	darr_destroy(&g->scopes);
+}
+
+/*
+ *-----------------------------------------------------------------------------
+ */
+
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
 static bool
-analyze_method(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
+analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
 {
-	struct analyze_ctx *ctx = _ctx;
 	obj tmp = 0;
 	struct node *n = get_node(wk->ast, n_id);
 
@@ -167,9 +337,8 @@ analyze_method(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type rc
 }
 
 static bool
-analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_index(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	struct analyze_ctx *ctx = _ctx;
 	struct node *n = get_node(wk->ast, n_id);
 
 	obj tmp = 0;
@@ -199,8 +368,7 @@ analyze_index(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs
 		break;
 	}
 	default:
-		assert(false && "unreachable");
-		return false;
+		UNREACHABLE_RETURN;
 	}
 
 	if (n->chflg & node_child_d) {
@@ -254,8 +422,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		return true;
 	}
 	default:
-		assert(false && "unreachable");
-		break;
+		UNREACHABLE_RETURN;
 	}
 
 	return false;
@@ -318,10 +485,8 @@ analyze_u_minus(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-analyze_arithmetic_cb(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	struct analyze_ctx *ctx = _ctx;
-
 	switch (lhs) {
 	case obj_string: {
 		ctx->expected |= tc_string;
@@ -400,20 +565,6 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 }
 
 static bool
-analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
-{
-	struct node *n = get_node(wk->ast, n_id);
-
-	obj rhs;
-	if (!analyze_arithmetic(wk, n_id, arith_add, n->l, n->r, &rhs)) {
-		return false;
-	}
-
-	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
-	return true;
-}
-
-static bool
 analyze_not(struct workspace *wk, struct node *n, obj *res)
 {
 	obj obj_l_id;
@@ -453,10 +604,8 @@ analyze_andor(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-analyze_comparison_cb(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	struct analyze_ctx *ctx = _ctx;
-
 	switch (ctx->comparison_type) {
 	case comp_equal:
 	case comp_nequal:
@@ -472,9 +621,8 @@ analyze_comparison_cb(struct workspace *wk, void *_ctx, uint32_t n_id, enum obj_
 	case comp_ge:
 		ctx->expected |= tc_number;
 		break;
-	default: assert(false && "unreachable"); res = false;
-		break;
-
+	default:
+		UNREACHABLE_RETURN;
 	}
 
 	*res = make_typeinfo(wk, tc_bool, 0);
@@ -510,8 +658,8 @@ analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 	case comp_ge:
 		tc_lhs = tc_number;
 		break;
-	default: assert(false && "unreachable"); res = false;
-		break;
+	default:
+		UNREACHABLE_RETURN;
 	}
 
 	if (!typecheck(wk, n->l, l, tc_lhs)) {
@@ -577,10 +725,10 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 	case if_else:
 		break;
 	default:
-		assert(false && "unreachable");
-		return false;
+		UNREACHABLE_RETURN;
 	}
 
+	push_scope_group_scope();
 	// if block
 	if (!wk->interp_node(wk, n->r, res)) {
 		ret = false;
@@ -725,7 +873,6 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 
 	return true;
 }
-#endif
 
 static bool
 analyze_block(struct workspace *wk, struct node *n, obj *res)
@@ -765,6 +912,33 @@ analyze_block(struct workspace *wk, struct node *n, obj *res)
 
 	return true;
 }
+#endif
+
+static bool
+analyze_assign(struct workspace *wk, struct node *n)
+{
+	obj rhs;
+	if (!wk->interp_node(wk, n->r, &rhs)) {
+		return false;
+	}
+
+	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l);
+	return true;
+}
+
+static bool
+analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
+{
+	struct node *n = get_node(wk->ast, n_id);
+
+	obj rhs;
+	if (!analyze_arithmetic(wk, n_id, arith_add, n->l, n->r, &rhs)) {
+		return false;
+	}
+
+	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l);
+	return true;
+}
 
 bool
 analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
@@ -774,8 +948,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 
 	struct node *n = get_node(wk->ast, n_id);
 
-	wk->stack_depth = 0;
-
+	++wk->stack_depth;
 	if (wk->loop_ctl) {
 		--wk->stack_depth;
 		return true;
@@ -790,21 +963,21 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_bool:
 		ret = interp_node(wk, n_id, res);
 		break;
-	case node_id:
-		if (!get_obj_id(wk, n->dat.s, res, wk->cur_project)) {
-			interp_error(wk, n_id, "undefined object");
-			ret = false;
-			break;
-		}
-		ret = true;
-		break;
 
 	/* control flow */
 	case node_block:
-		ret = analyze_block(wk, n, res);
+		ret = interp_node(wk, n_id, res);
 		break;
 	case node_if:
+		if (n->subtype == if_if) {
+			push_scope_group();
+		}
+
 		ret = analyze_if(wk, n, res);
+
+		if (n->subtype == if_if) {
+			pop_scope_group(wk);
+		}
 		break;
 	case node_foreach:
 		/* ret = interp_foreach(wk, n, res); */
@@ -836,8 +1009,19 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 
 	/* assignment */
 	case node_assignment:
-		ret = interp_node(wk, n_id, res);
+		ret = analyze_assign(wk, n);
 		break;
+	case node_id: {
+		struct assignment *a;
+		if (!(a = assign_lookup(wk, n->dat.s))) {
+			interp_error(wk, n_id, "undefined object");
+			ret = false;
+		} else {
+			*res = a->o;
+			a->accessed = true;
+		}
+		break;
+	}
 
 	/* comparison stuff */
 	case node_not:
@@ -879,8 +1063,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_paren:
 	case node_empty_line:
 	case node_null:
-		assert(false && "unreachable");
-		break;
+		UNREACHABLE_RETURN;
 	}
 
 	--wk->stack_depth;
@@ -897,6 +1080,31 @@ do_analyze(void)
 	struct workspace wk;
 	workspace_init(&wk);
 
+	darr_init(&assignment_scopes.groups, 16, sizeof(struct scope_group));
+	darr_init(&assignment_scopes.base, 256, sizeof(struct assignment));
+
+	{
+		/*
+		 * default variables have to be re-assigned with scope_assign
+		 * for them to be used in the analyzer
+		 */
+		const char *default_vars[] = {
+			"meson",
+			"host_machine",
+			"build_machine",
+			"target_machine",
+		};
+
+		uint32_t i;
+		uint64_t obj;
+		for (i = 0; i < ARRAY_LEN(default_vars); ++i) {
+			obj = *hash_get_str(&wk.scope, default_vars[i]);
+			hash_unset_str(&wk.scope, default_vars[i]);
+			struct assignment *a = scope_assign(&wk, default_vars[i], obj, 0);
+			a->default_var = true;
+		}
+	}
+
 	wk.interp_node = analyze_node;
 
 	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
@@ -905,10 +1113,27 @@ do_analyze(void)
 
 	uint32_t project_id;
 	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
+
+	{
+		assert(assignment_scopes.groups.len == 0);
+		uint32_t i;
+		for (i = 0; i < assignment_scopes.base.len; ++i) {
+			struct assignment *a = darr_get(&assignment_scopes.base, i);
+			if (!a->default_var && !a->accessed) {
+				// TODO: this requires ast information to be preserved after eval_project
+				/* interp_error(&wk, a->n_id, "unused variable %s", a->name); */
+				LOG_W("unused variable %s", a->name);
+				res = false;
+			}
+		}
+	}
+
 	if (analyze_error) {
 		res = false;
 	}
 err:
+	darr_destroy(&assignment_scopes.groups);
+	darr_destroy(&assignment_scopes.base);
 	workspace_destroy(&wk);
 	return res;
 }
