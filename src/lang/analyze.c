@@ -538,6 +538,28 @@ analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 	}
 }
 
+static enum iteration_result
+is_pure_arithmetic_object_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	if (get_obj_type(wk, k) == obj_typeinfo) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+is_pure_arithmetic_object(struct workspace *wk, obj o)
+{
+	switch (get_obj_type(wk, o)) {
+	case obj_typeinfo:
+		return false;
+	case obj_dict:
+		return !obj_dict_foreach(wk, o, NULL, is_pure_arithmetic_object_dict_iter);
+	default:
+		return true;
+	}
+}
 
 static bool
 analyze_arithmetic(struct workspace *wk, uint32_t err_node,
@@ -552,7 +574,7 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 		return false;
 	}
 
-	if (get_obj_type(wk, l) != obj_typeinfo && get_obj_type(wk, r) != obj_typeinfo) {
+	if (is_pure_arithmetic_object(wk, l) && is_pure_arithmetic_object(wk, r)) {
 		return interp_arithmetic(wk, err_node, type, plusassign, nl, nr, res);
 	}
 
