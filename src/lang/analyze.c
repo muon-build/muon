@@ -541,7 +541,7 @@ analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 
 static bool
 analyze_arithmetic(struct workspace *wk, uint32_t err_node,
-	enum arithmetic_type type, uint32_t nl, uint32_t nr,
+	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
 	obj *res)
 {
 	obj l, r;
@@ -550,6 +550,10 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 	}
 	if (!wk->interp_node(wk, nr, &r)) {
 		return false;
+	}
+
+	if (get_obj_type(wk, l) != obj_typeinfo && get_obj_type(wk, r) != obj_typeinfo) {
+		return interp_arithmetic(wk, err_node, type, plusassign, nl, nr, res);
 	}
 
 	struct analyze_ctx ctx = { 0 };
@@ -873,7 +877,7 @@ analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 	struct node *n = get_node(wk->ast, n_id);
 
 	obj rhs;
-	if (!analyze_arithmetic(wk, n_id, arith_add, n->l, n->r, &rhs)) {
+	if (!analyze_arithmetic(wk, n_id, arith_add, true, n->l, n->r, &rhs)) {
 		return false;
 	}
 
@@ -985,7 +989,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		ret = analyze_u_minus(wk, n, res);
 		break;
 	case node_arithmetic:
-		ret = analyze_arithmetic(wk, n_id, n->subtype, n->l, n->r, res);
+		ret = analyze_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res);
 		break;
 	case node_plusassign:
 		ret = analyze_plusassign(wk, n_id, res);

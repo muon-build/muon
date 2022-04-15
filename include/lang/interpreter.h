@@ -9,6 +9,10 @@
 #include "object.h"
 
 bool interp_node(struct workspace *wk, uint32_t n_id, obj *res);
+bool interp_arithmetic(struct workspace *wk, uint32_t err_node,
+	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
+	obj *res);
+
 void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
 
