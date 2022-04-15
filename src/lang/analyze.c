@@ -822,15 +822,16 @@ analyze_foreach(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-interp_stringify(struct workspace *wk, struct node *n, obj *res)
+analyze_stringify(struct workspace *wk, struct node *n, obj *res)
 {
 	obj l_id;
+	*res = make_typeinfo(wk, tc_string, 0);
 
-	if (!interp_node(wk, n->l, &l_id)) {
+	if (!wk->interp_node(wk, n->l, &l_id)) {
 		return false;
 	}
 
-	if (!coerce_string(wk, n->l, l_id, res)) {
+	if (!typecheck(wk, n->l, l_id, tc_bool | tc_file | tc_number | tc_string)) {
 		return false;
 	}
 
@@ -981,7 +982,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 
 	/* special */
 	case node_stringify:
-		/* ret = interp_stringify(wk, n, res); */
+		ret = analyze_stringify(wk, n, res);
 		break;
 	case node_empty:
 		ret = true;
