@@ -924,13 +924,19 @@ analyze_block(struct workspace *wk, struct node *n, obj *res)
 static bool
 analyze_assign(struct workspace *wk, struct node *n)
 {
+	bool ret = true;
 	obj rhs;
 	if (!wk->interp_node(wk, n->r, &rhs)) {
-		return false;
+		ret = false;
+		rhs = make_typeinfo(wk, tc_any, 0);
+	}
+
+	if (!rhs) {
+		interp_error(wk, n->l, "assigning variable to null");
 	}
 
 	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l);
-	return true;
+	return ret;
 }
 
 static bool
@@ -954,6 +960,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
+	/* L("analyzing node '%s'", node_to_s(n)); */
 
 	++wk->stack_depth;
 	if (wk->loop_ctl) {
