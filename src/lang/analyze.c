@@ -767,12 +767,14 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-analyze_foreach(struct workspace *wk, struct node *n, obj *res)
+analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 {
 	obj iterable;
-	bool ret = false;
+	bool ret = true;
+	struct node *n = get_node(wk->ast, n_id);
 
 	if (!wk->interp_node(wk, n->r, &iterable)) {
+		ret = false;
 		iterable = make_typeinfo(wk, tc_array | tc_dict, 0);
 	}
 
@@ -784,7 +786,7 @@ analyze_foreach(struct workspace *wk, struct node *n, obj *res)
 	struct node *args = get_node(wk->ast, n->l);
 	uint32_t t = get_obj_type(wk, iterable);
 	if (t == obj_typeinfo) {
-		t = get_obj_typeinfo(wk, iterable)->type;
+		t = get_obj_typeinfo(wk, iterable)->type & (tc_array | tc_dict);
 	} else {
 		t = obj_type_to_tc_type(t);
 	}
@@ -810,6 +812,24 @@ analyze_foreach(struct workspace *wk, struct node *n, obj *res)
 			break;
 		default:
 			UNREACHABLE;
+		}
+	}
+
+	if (get_obj_type(wk, iterable) != obj_typeinfo) {
+		uint32_t len;
+		switch (get_obj_type(wk, iterable)) {
+		case obj_dict:
+			len = get_obj_dict(wk, iterable)->len;
+			break;
+		case obj_array:
+			len = get_obj_array(wk, iterable)->len;
+			break;
+		default:
+			UNREACHABLE;
+		}
+
+		if (len) {
+			return interp_node(wk, n_id, res);
 		}
 	}
 
@@ -926,7 +946,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		}
 		break;
 	case node_foreach:
-		ret = analyze_foreach(wk, n, res);
+		ret = analyze_foreach(wk, n_id, res);
 		break;
 	case node_continue:
 		ret = true;
