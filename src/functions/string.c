@@ -570,7 +570,7 @@ const struct func_impl_name impl_tbl_string[] = {
 	{ "split", func_split, tc_string },
 	{ "startswith", func_string_startswith, tc_bool },
 	{ "strip", func_strip, tc_string },
-	{ "substring", func_string_substring, tc_bool },
+	{ "substring", func_string_substring, tc_string },
 	{ "to_int", func_string_to_int, tc_number },
 	{ "to_lower", func_to_lower, tc_string },
 	{ "to_upper", func_to_upper, tc_string },
