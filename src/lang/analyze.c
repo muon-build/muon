@@ -751,116 +751,72 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 	return ret;
 }
 
-#if 0
-struct interp_foreach_ctx {
-	const char *id1, *id2;
-	uint32_t block_node;
-};
-
-static enum iteration_result
-interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
-{
-	obj block_result;
-
-	if (get_node(wk->ast, ctx->block_node)->type == node_empty) {
-		return ir_done;
-	}
-
-	if (!interp_block(wk, get_node(wk->ast, ctx->block_node), &block_result)) {
-		return ir_err;
-	}
-
-	switch (wk->loop_ctl) {
-	case loop_continuing:
-		wk->loop_ctl = loop_norm;
-		break;
-	case loop_breaking:
-		wk->loop_ctl = loop_norm;
-		return ir_done;
-	case loop_norm:
-		break;
-	}
-
-	return ir_cont;
-}
-
-static enum iteration_result
-interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
-{
-	struct interp_foreach_ctx *ctx = _ctx;
-
-	hash_set_str(&current_project(wk)->scope, ctx->id1, k_id);
-	hash_set_str(&current_project(wk)->scope, ctx->id2, v_id);
-
-	return interp_foreach_common(wk, ctx);
-}
-
-static enum iteration_result
-interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
-{
-	struct interp_foreach_ctx *ctx = _ctx;
-
-	hash_set_str(&current_project(wk)->scope, ctx->id1, v_id);
-
-	return interp_foreach_common(wk, ctx);
-}
-
 static bool
-interp_foreach(struct workspace *wk, struct node *n, obj *res)
+analyze_foreach(struct workspace *wk, struct node *n, obj *res)
 {
 	obj iterable;
-	bool ret;
+	bool ret = false;
 
-	if (!interp_node(wk, n->r, &iterable)) {
-		return false;
+	if (!wk->interp_node(wk, n->r, &iterable)) {
+		iterable = make_typeinfo(wk, tc_array | tc_dict, 0);
+	}
+
+	if (!typecheck(wk, n->r, iterable, tc_array | tc_dict)) {
+		ret = false;
+		iterable = make_typeinfo(wk, tc_array | tc_dict, 0);
 	}
 
 	struct node *args = get_node(wk->ast, n->l);
+	uint32_t t = get_obj_type(wk, iterable);
+	if (t == obj_typeinfo) {
+		t = get_obj_typeinfo(wk, iterable)->type;
+	} else {
+		t = obj_type_to_tc_type(t);
+	}
 
-	switch (get_obj_type(wk, iterable)) {
-	case obj_array: {
-		if (args->chflg & node_child_r) {
-			interp_error(wk, n->l, "array foreach needs exactly one variable to set");
-			return false;
+	bool both = t == (tc_array | tc_dict);
+	assert(both || (t == tc_array) || (t == tc_dict));
+
+	if (!both) {
+		switch (t) {
+		case tc_array:
+			if (args->chflg & node_child_r) {
+				interp_error(wk, n->l, "array foreach needs exactly one variable to set");
+				ret = false;
+			}
+
+			break;
+		case tc_dict:
+			if (!(args->chflg & node_child_r)) {
+				interp_error(wk, n->l, "dict foreach needs exactly two variables to set");
+				ret = false;
+			}
+
+			break;
+		default:
+			UNREACHABLE;
 		}
-
-		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->dat.s,
-			.block_node = n->c,
-		};
-
-		++wk->loop_depth;
-		wk->loop_ctl = loop_norm;
-		ret = obj_array_foreach(wk, iterable, &ctx, interp_foreach_arr_iter);
-		--wk->loop_depth;
-
-		break;
 	}
-	case obj_dict: {
-		if (!(args->chflg & node_child_r)) {
-			interp_error(wk, n->l, "dict foreach needs exactly two variables to set");
-			return false;
-		}
 
-		assert(get_node(wk->ast, get_node(wk->ast, args->r)->type == node_foreach_args));
+	push_scope_group();
+	push_scope_group_scope();
 
-		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->dat.s,
-			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->dat.s,
-			.block_node = n->c,
-		};
+	uint32_t n_l = args->l, n_r;
 
-		++wk->loop_depth;
-		wk->loop_ctl = loop_norm;
-		ret = obj_dict_foreach(wk, iterable, &ctx, interp_foreach_dict_iter);
-		--wk->loop_depth;
-
-		break;
+	if (args->chflg & node_child_r) {
+		// two variables
+		n_r = get_node(wk->ast, args->r)->l;
+		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_string, 0), n_l);
+		scope_assign(wk, get_node(wk->ast, n_r)->dat.s, make_typeinfo(wk, tc_any, 0), n_r);
+	} else {
+		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l);
 	}
-	default:
-		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable)));
-		return false;
+
+	if (!wk->interp_node(wk, n->c, res)) {
+		ret = false;
 	}
+
+	pop_scope_group(wk);
 
 	return ret;
 }
@@ -880,46 +836,6 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 
 	return true;
 }
-
-static bool
-analyze_block(struct workspace *wk, struct node *n, obj *res)
-{
-	bool have_r = n->chflg & node_child_r
-		      && get_node(wk->ast, n->r)->type != node_empty;
-
-	assert(n->type == node_block);
-
-	obj obj_l, obj_r;
-
-	struct node *nl = get_node(wk->ast, n->l);
-	switch (nl->type) {
-	case node_if: {
-		obj _;
-		wk->interp_node(wk, n->l, &_);
-		if (!wk->interp_node(wk, n->r, &obj_r)) {
-			return false;
-		}
-		break;
-	}
-	default:
-		if (!wk->interp_node(wk, n->l, &obj_l)) {
-			return false;
-		}
-	}
-
-	if (have_r) {
-		if (!wk->interp_node(wk, n->r, &obj_r)) {
-			return false;
-		}
-
-		*res = obj_r;
-	} else {
-		*res = obj_l;
-	}
-
-	return true;
-}
-#endif
 
 static bool
 analyze_assign(struct workspace *wk, struct node *n)
@@ -994,7 +910,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		}
 		break;
 	case node_foreach:
-		/* ret = interp_foreach(wk, n, res); */
+		ret = analyze_foreach(wk, n, res);
 		break;
 	case node_continue:
 		ret = true;
