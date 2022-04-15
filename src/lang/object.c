@@ -393,6 +393,11 @@ obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, obj val)
 		} else {
 			return ir_cont;
 		}
+	} else if (get_obj_type(wk, val) == obj_typeinfo
+		   && get_obj_typeinfo(wk, val)->type == tc_array) {
+		// skip typeinfo arrays as they wouldn't be yielded if they
+		// were real arrays
+		return ir_cont;
 	} else {
 		return ctx->cb(wk, ctx->usr_ctx, val);
 	}
