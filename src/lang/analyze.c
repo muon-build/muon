@@ -961,6 +961,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		struct assignment *a;
 		if (!(a = assign_lookup(wk, n->dat.s))) {
 			interp_error(wk, n_id, "undefined object");
+			*res = make_typeinfo(wk, tc_any, 0);
 			ret = false;
 		} else {
 			*res = a->o;
