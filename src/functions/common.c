@@ -212,14 +212,17 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum o
 
 	// If obj_file or tc_file is requested, and the arugment is an array of
 	// length 1, try to unpack it.
-	if (!array_of
-	    && (type == obj_file || (type & tc_file) == tc_file)
-	    && get_obj_type(wk, *val) == obj_array
-	    && get_obj_array(wk, *val)->len == 1) {
-		obj i0;
-		obj_array_index(wk, *val, 0, &i0);
-		if (get_obj_type(wk, i0) == obj_file) {
-			*val = i0;
+	if (!array_of && (type == obj_file || (type & tc_file) == tc_file)) {
+		if (get_obj_type(wk, *val) == obj_array
+		    && get_obj_array(wk, *val)->len == 1) {
+			obj i0;
+			obj_array_index(wk, *val, 0, &i0);
+			if (get_obj_type(wk, i0) == obj_file) {
+				*val = i0;
+			}
+		} else if (get_obj_type(wk, *val) == obj_typeinfo
+			   && (get_obj_typeinfo(wk, *val)->type & tc_array) == tc_array) {
+			return true;
 		}
 	}
 
@@ -237,6 +240,9 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum o
 		if (!obj_array_foreach_flat(wk, *val, &ctx, typecheck_function_arg_iter)) {
 			return false;
 		}
+	} else if (get_obj_type(wk, *val) == obj_typeinfo
+		   && (get_obj_typeinfo(wk, *val)->type & tc_array) == tc_array) {
+		return true;
 	} else {
 		if (!typecheck_function_arg_iter(wk, &ctx, *val)) {
 			return false;
