@@ -49,12 +49,18 @@ static const struct func_impl_name *module_func_tbl[module_count] = {
 	[module_pkgconfig] = impl_tbl_module_pkgconfig,
 };
 
-bool
-module_lookup_func(const char *name, enum module mod, func_impl *res)
+const struct func_impl_name *
+module_func_lookup(const char *name, enum module mod)
 {
+	static const struct func_impl_name func_module_found_impl = {
+		.name = "found",
+		.func = func_module_found,
+		.return_type = tc_bool,
+		.pure = true,
+	};
+
 	if (strcmp(name, "found") == 0) {
-		*res = func_module_found;
-		return true;
+		return &func_module_found_impl;
 	}
 
 	const struct func_impl_name *fi;
@@ -62,6 +68,5 @@ module_lookup_func(const char *name, enum module mod, func_impl *res)
 		return false;
 	}
 
-	*res = fi->func;
-	return true;
+	return fi;
 }

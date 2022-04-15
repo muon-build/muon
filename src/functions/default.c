@@ -854,11 +854,15 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->build_dir = make_str(wk, build_dir);
 
 	bool ret;
-	if (!fs_mkdir_p(build_dir)) {
-		ret = false;
-	} else {
-		ret = eval_project_file(wk, src);
+	if (fs_dir_exists(wk->build_root)) {
+		// only mkdir if the build_root exists in case we are running
+		// the analyzer
+		if (!fs_mkdir_p(build_dir)) {
+			ret = false;
+		}
 	}
+
+	ret = eval_project_file(wk, src);
 
 	current_project(wk)->cwd = old_cwd;
 	current_project(wk)->build_dir = old_build_dir;
@@ -1582,27 +1586,27 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "find_program", func_find_program, tc_external_program },
 	{ "generator", func_generator, tc_generator },
 	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array },
-	{ "get_variable", func_get_variable, tc_any },
-	{ "import", func_import, tc_module },
+	{ "get_variable", func_get_variable, tc_any, true },
+	{ "import", func_import, tc_module, true },
 	{ "include_directories", func_include_directories, tc_array },
 	{ "install_data", func_install_data },
 	{ "install_headers", func_install_headers },
 	{ "install_man", func_install_man },
 	{ "install_subdir", func_install_subdir },
-	{ "is_disabler", func_is_disabler, tc_bool },
-	{ "is_variable", func_is_variable, tc_bool },
-	{ "join_paths", func_join_paths, tc_string },
+	{ "is_disabler", func_is_disabler, tc_bool, true },
+	{ "is_variable", func_is_variable, tc_bool, true },
+	{ "join_paths", func_join_paths, tc_string, true },
 	{ "library", func_library, tc_build_target },
 	{ "message", func_message },
 	{ "project", func_project },
-	{ "range", func_range, tc_array },
+	{ "range", func_range, tc_array, true },
 	{ "run_command", func_run_command, tc_run_result },
 	{ "run_target", func_run_target, tc_custom_target },
 	{ "set_variable", func_set_variable },
 	{ "shared_library", func_shared_library, tc_build_target },
 	{ "shared_module", func_shared_module, tc_build_target },
 	{ "static_library", func_static_library, tc_build_target },
-	{ "subdir", func_subdir },
+	{ "subdir", func_subdir, 0, true },
 	{ "subdir_done", func_subdir_done },
 	{ "subproject", func_subproject, tc_subproject },
 	{ "summary", func_summary },

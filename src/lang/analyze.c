@@ -12,6 +12,7 @@
 #include "data/hash.h"
 #include "error.h"
 #include "functions/common.h"
+#include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
@@ -93,18 +94,19 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 struct analyze_ctx {
 	uint32_t expected;
 	uint32_t found;
-	func_impl func;
+	const struct func_impl_name *found_func;
+	struct obj_typeinfo ti;
 	enum comparison_type comparison_type;
+	obj l;
 };
 
-typedef bool ((analyze_for_each_type_cb)(struct workspace *wk,
+typedef void ((analyze_for_each_type_cb)(struct workspace *wk,
 	struct analyze_ctx *ctx, uint32_t n_id, enum obj_type t, obj *res));
 
-static bool
+static void
 analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id,
 	obj o, uint32_t typemask, analyze_for_each_type_cb cb, obj *res)
 {
-	bool ok = false;
 	uint32_t i;
 	obj r = 0;
 
@@ -122,11 +124,10 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 
 		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
 			if ((t & typemap[i].tc) == typemap[i].tc) {
-				if (cb(wk, ctx, n_id, typemap[i].type, &r)) {
-					if (r) {
-						merge_types(wk, &res_t, r);
-					}
-					ok = true;
+				r = 0;
+				cb(wk, ctx, n_id, typemap[i].type, &r);
+				if (r) {
+					merge_types(wk, &res_t, r);
 				}
 			}
 		}
@@ -134,10 +135,8 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 		make_obj(wk, res, obj_typeinfo);
 		*get_obj_typeinfo(wk, *res) = res_t;
 	} else {
-		ok = cb(wk, ctx, n_id, t, res);
+		cb(wk, ctx, n_id, t, res);
 	}
-
-	return ok;
 }
 
 /*
@@ -269,7 +268,9 @@ pop_scope_group(struct workspace *wk)
 					old->o = old_tc;
 				}
 
-				merge_types(wk, get_obj_typeinfo(wk, old->o), a->o);
+				if (a->o) {
+					merge_types(wk, get_obj_typeinfo(wk, old->o), a->o);
+				}
 			} else {
 				darr_push(base, a);
 			}
@@ -296,136 +297,143 @@ pop_scope_group(struct workspace *wk)
 
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
-static bool
+static void
 analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
 {
-	obj tmp = 0;
 	struct node *n = get_node(wk->ast, n_id);
 
 	const char *name = get_node(wk->ast, n->r)->dat.s;
+	const struct func_impl_name *fi;
 
-	/* if (rcvr_type == obj_module) { */
-	/* 	struct obj_module *m = get_obj_module(wk, rcvr_id); */
-	/* 	enum module mod = m->module; */
-	/* } */
+	if (rcvr_type == obj_module && get_obj_type(wk, ctx->l) != obj_typeinfo) {
+		struct obj_module *m = get_obj_module(wk, ctx->l);
+		enum module mod = m->module;
+		if (!(fi = module_func_lookup(name, mod))) {
+			return;
+		}
+	} else {
+		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 
-	const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+		if (!impl_tbl) {
+			return;
+		}
 
-	if (!impl_tbl) {
-		return true;
+		if (!(fi = func_lookup(impl_tbl, name))) {
+			return;
+		}
 	}
 
-	const struct func_impl_name *fi;
-	if (!(fi = func_lookup(impl_tbl, name))) {
-		return true;
+	if (fi->return_type) {
+		*res = make_typeinfo(wk, fi->return_type, 0);
 	}
 
 	++ctx->found;
+	ctx->found_func = fi;
 
-	analyze_function_args(wk, fi->func, n->c);
-
-	if (fi->return_type) {
-		tmp = make_typeinfo(wk, fi->return_type, 0);
-	}
-
-	if (n->chflg & node_child_d) {
-		return analyze_chained(wk, n->d, tmp, res);
-	} else {
-		*res = tmp;
-		return true;
-	}
+	return;
 }
 
-static bool
+static void
 analyze_index(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
-	struct node *n = get_node(wk->ast, n_id);
-
-	obj tmp = 0;
-
 	switch (lhs) {
 	case obj_disabler:
 		*res = disabler_id;
-		return true;
+		return;
 	case obj_array: {
 		ctx->expected |= tc_number;
-		tmp = make_typeinfo(wk, tc_any, 0);
+		*res = make_typeinfo(wk, tc_any, 0);
 		break;
 	}
 	case obj_dict: {
 		ctx->expected |= tc_string;
-		tmp = make_typeinfo(wk, tc_any, 0);
+		*res = make_typeinfo(wk, tc_any, 0);
 		break;
 	}
 	case obj_custom_target: {
 		ctx->expected |= tc_number;
-		tmp = make_typeinfo(wk, tc_file, 0);
+		*res = make_typeinfo(wk, tc_file, 0);
 		break;
 	}
 	case obj_string: {
 		ctx->expected |= tc_number;
-		tmp = make_typeinfo(wk, tc_string, 0);
+		*res = make_typeinfo(wk, tc_string, 0);
 		break;
 	}
 	default:
-		UNREACHABLE_RETURN;
+		UNREACHABLE;
 	}
 
-	if (n->chflg & node_child_d) {
-		return analyze_chained(wk, n->d, tmp, res);
-	} else {
-		*res = tmp;
-		return true;
-	}
+	return;
 }
 
 static bool
 analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 {
+	bool ret = true;
 	struct node *n = get_node(wk->ast, n_id);
+	obj tmp = 0;
 
 	switch (n->type) {
 	case node_method: {
-		struct analyze_ctx ctx = { 0 };
+		struct analyze_ctx ctx = { .l = l_id };
 
-		if (!analyze_for_each_type(wk, &ctx, n_id, l_id, 0, analyze_method, res)) {
-			return false;
-		}
+		analyze_for_each_type(wk, &ctx, n_id, l_id, 0, analyze_method, &tmp);
 
-		if (!ctx.found) {
+		if (ctx.found == 1) {
+			obj func_res;
+			if (!analyze_function(wk, ctx.found_func->func, n->c, ctx.found_func->pure, &func_res)) {
+				interp_error(wk, n->r, "in method %s", ctx.found_func->name);
+				ret = false;
+			}
+
+			if (func_res) {
+				tmp = func_res;
+			} else if (ctx.found_func->return_type) {
+				tmp = make_typeinfo(wk, ctx.found_func->return_type, 0);
+			}
+		} else if (ctx.found) {
+			tmp = make_typeinfo(wk, ctx.expected, 0);
+		} else if (!ctx.found) {
+			tmp = make_typeinfo(wk, tc_any, 0);
 			interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
-			return false;
+			ret = false;
 		}
-		return true;
+		break;
 	}
 	case node_index: {
 		obj r;
+
 		if (!wk->interp_node(wk, n->r, &r)) {
-			return false;
+			r = make_typeinfo(wk, tc_any, 0);
+			ret = false;
 		}
 
 		struct analyze_ctx ctx = { 0 };
-
 		const uint32_t tc_lhs = tc_string | tc_custom_target | tc_dict | tc_array;
 
-		if (!typecheck(wk, n->l, l_id, tc_lhs)) {
-			return false;
-		}
+		if (typecheck(wk, n->l, l_id, tc_lhs)) {
+			analyze_for_each_type(wk, &ctx, n_id, l_id, tc_lhs, analyze_index, &tmp);
 
-		if (!analyze_for_each_type(wk, &ctx, n_id, l_id, tc_lhs, analyze_index, res)) {
-			return false;
+			if (typecheck(wk, n->r, r, ctx.expected)) {
+				ret &= true;
+			}
+		} else {
+			tmp = make_typeinfo(wk, tc_any, 0);
 		}
-
-		if (!typecheck(wk, n->r, r, ctx.expected)) {
-			return false;
-		}
-		return true;
+		break;
 	}
 	default:
 		UNREACHABLE_RETURN;
 	}
 
-	return false;
+	if (n->chflg & node_child_d) {
+		ret &= analyze_chained(wk, n->d, tmp, res);
+	} else {
+		*res = tmp;
+	}
+
+	return ret;
 }
 
 static bool
@@ -438,17 +446,23 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 
 	const char *name = get_node(wk->ast, n->l)->dat.s;
 
-	const struct func_impl_name *impl_tbl = func_tbl[obj_default][wk->lang_mode];
 	const struct func_impl_name *fi;
 
-	if (!(fi = func_lookup(impl_tbl, name))) {
+	if (!(fi = func_lookup(func_tbl[obj_default][wk->lang_mode], name))) {
 		interp_error(wk, n_id, "function %s not found", name);
 		ret = false;
 
 		tmp = make_typeinfo(wk, tc_any, 0);
 	} else {
-		analyze_function_args(wk, fi->func, n->r);
-		if (fi->return_type) {
+		obj func_res;
+		if (!analyze_function(wk, fi->func, n->r, fi->pure, &func_res)) {
+			interp_error(wk, n_id, "in function %s", fi->name);
+			ret = false;
+		}
+
+		if (func_res) {
+			tmp = func_res;
+		} else if (fi->return_type) {
 			tmp = make_typeinfo(wk, fi->return_type, 0);
 		}
 	}
@@ -484,7 +498,7 @@ analyze_u_minus(struct workspace *wk, struct node *n, obj *res)
 	return true;
 }
 
-static bool
+static void
 analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
 	switch (lhs) {
@@ -509,10 +523,8 @@ analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 		break;
 	}
 	default:
-		break;
+		UNREACHABLE;
 	}
-
-	return true;
 }
 
 
@@ -553,9 +565,7 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 		return false;
 	}
 
-	if (!analyze_for_each_type(wk, &ctx, nl, l, tc_lhs, analyze_arithmetic_cb, res)) {
-		return false;
-	}
+	analyze_for_each_type(wk, &ctx, nl, l, tc_lhs, analyze_arithmetic_cb, res);
 
 	if (!typecheck(wk, nr, r, ctx.expected)) {
 		return false;
@@ -603,7 +613,7 @@ analyze_andor(struct workspace *wk, struct node *n, obj *res)
 	return true;
 }
 
-static bool
+static void
 analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
 {
 	switch (ctx->comparison_type) {
@@ -622,11 +632,10 @@ analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 		ctx->expected |= tc_number;
 		break;
 	default:
-		UNREACHABLE_RETURN;
+		UNREACHABLE;
 	}
 
 	*res = make_typeinfo(wk, tc_bool, 0);
-	return true;
 }
 
 static bool
@@ -666,9 +675,7 @@ analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
-	if (!analyze_for_each_type(wk, &ctx, n->l, l, tc_lhs, analyze_comparison_cb, res)) {
-		return false;
-	}
+	analyze_for_each_type(wk, &ctx, n->l, l, tc_lhs, analyze_comparison_cb, res);
 
 	if (!typecheck(wk, n->r, r, ctx.expected)) {
 		return false;

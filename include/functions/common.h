@@ -10,6 +10,7 @@ struct func_impl_name {
 	const char *name;
 	func_impl func;
 	uint32_t return_type;
+	bool pure;
 };
 
 extern const struct func_impl_name *func_tbl[obj_type_count][language_mode_count];
@@ -26,6 +27,7 @@ bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[]);
-bool analyze_function_args(struct workspace *wk, func_impl func, uint32_t args_node);
 bool builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res);
+
+bool analyze_function(struct workspace *wk, func_impl func, uint32_t args_node, bool pure, obj *res);
 #endif

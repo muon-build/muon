@@ -40,8 +40,13 @@ static bool disabler_among_args = false;
 // HACK: we also need this for the is_disabler() function :(
 bool disabler_among_args_immunity = false;
 
-// HACK: This works like disabler_among_args kind of.
-static bool analyze_args = false;
+// HACK: This works like disabler_among_args kind of.  These opts should only
+// ever be set by analyze_function().
+static struct {
+	bool do_analyze;
+	bool pure_function;
+	bool encountered_error;
+} analyze_function_opts;
 
 static bool
 interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
@@ -456,11 +461,52 @@ process_kwarg:
 	}
 
 end:
-	if (analyze_args) {
+	if (analyze_function_opts.do_analyze) {
 		// if we are analyzing arguments only return false to halt the
 		// function
+		bool typeinfo_among_args = false;
+
+		for (stage = 0; stage < 2; ++stage) {
+			if (!an[stage]) {
+				continue;
+			}
+			for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
+				if (!an[stage][i].set) {
+					continue;
+				}
+
+				if (get_obj_type(wk, an[stage][i].val) == obj_typeinfo) {
+					typeinfo_among_args = true;
+					break;
+				}
+			}
+		}
+
+		if (!typeinfo_among_args && keyword_args) {
+			for (i = 0; keyword_args[i].key; ++i) {
+				if (!keyword_args[i].set) {
+					continue;
+				}
+
+				if (get_obj_type(wk, keyword_args[i].val) == obj_typeinfo) {
+					typeinfo_among_args = true;
+					break;
+				}
+			}
+		}
+
+		if (typeinfo_among_args) {
+			analyze_function_opts.pure_function = false;
+		}
+
+		if (analyze_function_opts.pure_function) {
+			return true;
+		}
+
+		analyze_function_opts.encountered_error = false;
 		return false;
 	}
+
 	return true;
 }
 
@@ -539,7 +585,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		rcvr_type = obj_default;
 	}
 
-	func_impl func;
+	const struct func_impl_name *fi;
 	name = get_node(wk->ast, name_node)->dat.s;
 
 	if (rcvr_type == obj_module) {
@@ -549,7 +595,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		if (!m->found && strcmp(name, "found") != 0) {
 			interp_error(wk, name_node, "invalid attempt to use missing module");
 			return false;
-		} else if (!module_lookup_func(name, mod, &func)) {
+		} else if (!(fi = module_func_lookup(name, mod))) {
 			interp_error(wk, name_node, "function %s not found in module %s", name, module_names[mod]);
 			return false;
 		}
@@ -561,7 +607,6 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 
-		const struct func_impl_name *fi;
 		if (!(fi = func_lookup(impl_tbl, name))) {
 			if (rcvr_type == obj_disabler) {
 				*res = disabler_id;
@@ -571,11 +616,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			interp_error(wk, name_node, "function %s not found", name);
 			return false;
 		}
-
-		func = fi->func;
 	}
 
-	if (!func(wk, rcvr_id, args_node, res)) {
+	if (!fi->func(wk, rcvr_id, args_node, res)) {
 		if (disabler_among_args) {
 			*res = disabler_id;
 			disabler_among_args = false;
@@ -593,10 +636,20 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 }
 
 bool
-analyze_function_args(struct workspace *wk, func_impl func, uint32_t args_node)
+analyze_function(struct workspace *wk, func_impl func, uint32_t args_node, bool pure, obj *res)
 {
-	obj _;
-	analyze_args = true;
-	func(wk, 0, args_node, &_);
-	return true;
+	*res = 0;
+	analyze_function_opts.do_analyze = true;
+	// pure_function can be set to false even if it was true in the case
+	// that any of its arguments are of type obj_typeinfo
+	analyze_function_opts.pure_function = pure;
+	analyze_function_opts.encountered_error = true;
+
+	bool func_ret = func(wk, 0, args_node, res);
+
+	if (analyze_function_opts.pure_function) {
+		return func_ret;
+	} else {
+		return !analyze_function_opts.encountered_error;
+	}
 }
