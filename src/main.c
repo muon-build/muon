@@ -148,9 +148,6 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -p - print parsed ast\n",
 		NULL, 1)
 
-	// TODO
-	return do_analyze();
-
 	opts.filename = argv[argi];
 
 	bool ret = false;
@@ -177,6 +174,15 @@ ret:
 	ast_destroy(&ast);
 	source_data_destroy(&sdata);
 	return ret;
+}
+
+static bool
+cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	} OPTEND(argv[argi], "", "", NULL, 0)
+
+	return do_analyze();
 }
 
 static const char *cmd_subprojects_subprojects_dir = "subprojects";
@@ -677,6 +683,7 @@ static bool
 cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
 	static const struct command commands[] = {
+		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
 		{ "auto", cmd_auto, "build the project with options from a .muon file" },
 		{ "check", cmd_check, "check if a meson file parses" },
 		{ "fmt_unstable", cmd_format, "format meson source file" },

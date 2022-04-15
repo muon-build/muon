@@ -44,6 +44,12 @@ finally install the project with the *install* command.
 
 All commands accept a *-h* option which prints a brief summary of their usage.
 
+## analyze
+	*muon* *analyze*
+
+	Run a static analyzer on the current project.
+
+
 ## check
 	*muon* *check* [*-p*] <filename>
 
