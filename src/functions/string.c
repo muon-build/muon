@@ -224,7 +224,6 @@ func_format(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.arr = an[0].val,
 	};
 
-
 	obj str;
 	if (!string_format(wk, an[0].node, rcvr, &str, &ctx, func_format_cb)) {
 		return false;
@@ -562,19 +561,19 @@ func_string_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 const struct func_impl_name impl_tbl_string[] = {
-	{ "contains", func_string_contains, tc_bool },
-	{ "endswith", func_string_endswith, tc_bool },
-	{ "format", func_format, tc_string },
-	{ "join", func_join, tc_string },
-	{ "replace", func_string_replace, tc_string },
-	{ "split", func_split, tc_string },
-	{ "startswith", func_string_startswith, tc_bool },
-	{ "strip", func_strip, tc_string },
-	{ "substring", func_string_substring, tc_string },
-	{ "to_int", func_string_to_int, tc_number },
-	{ "to_lower", func_to_lower, tc_string },
-	{ "to_upper", func_to_upper, tc_string },
-	{ "underscorify", func_underscorify, tc_string },
-	{ "version_compare", func_version_compare, tc_bool },
+	{ "contains", func_string_contains, tc_bool, true },
+	{ "endswith", func_string_endswith, tc_bool, true },
+	{ "format", func_format, tc_string, true },
+	{ "join", func_join, tc_string, true },
+	{ "replace", func_string_replace, tc_string, true },
+	{ "split", func_split, tc_array, true },
+	{ "startswith", func_string_startswith, tc_bool, true },
+	{ "strip", func_strip, tc_string, true },
+	{ "substring", func_string_substring, tc_string, true },
+	{ "to_int", func_string_to_int, tc_number, true },
+	{ "to_lower", func_to_lower, tc_string, true },
+	{ "to_upper", func_to_upper, tc_string, true },
+	{ "underscorify", func_underscorify, tc_string, true },
+	{ "version_compare", func_version_compare, tc_bool, true },
 	{ NULL, NULL },
 };

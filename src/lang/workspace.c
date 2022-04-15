@@ -199,6 +199,7 @@ workspace_init_bare(struct workspace *wk)
 {
 	*wk = (struct workspace){
 		.interp_node = interp_node,
+		.assign_variable = assign_variable,
 	};
 
 	bucket_array_init(&wk->chrs, 4096, 1);

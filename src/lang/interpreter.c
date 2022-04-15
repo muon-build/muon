@@ -235,6 +235,12 @@ typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, enum obj_type type
 	}, typecheck_dict_iter);
 }
 
+void
+assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id)
+{
+	hash_set_str(&current_project(wk)->scope, name, o);
+}
+
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
 
 static bool
@@ -378,7 +384,7 @@ interp_u_minus(struct workspace *wk, struct node *n, obj *res)
 	return true;
 }
 
-static bool
+bool
 interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
 	obj *res)
@@ -555,7 +561,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		break;
 	}
 
-	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0);
 	return true;
 }
 
@@ -569,7 +575,7 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	hash_set_str(&current_project(wk)->scope, get_node(wk->ast, n->l)->dat.s, rhs);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0);
 	return true;
 }
 
@@ -958,8 +964,8 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	hash_set_str(&current_project(wk)->scope, ctx->id1, k_id);
-	hash_set_str(&current_project(wk)->scope, ctx->id2, v_id);
+	wk->assign_variable(wk, ctx->id1, k_id, 0);
+	wk->assign_variable(wk, ctx->id2, v_id, 0);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -969,7 +975,7 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	hash_set_str(&current_project(wk)->scope, ctx->id1, v_id);
+	wk->assign_variable(wk, ctx->id1, v_id, 0);
 
 	return interp_foreach_common(wk, ctx);
 }

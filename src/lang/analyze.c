@@ -295,6 +295,31 @@ pop_scope_group(struct workspace *wk)
  *-----------------------------------------------------------------------------
  */
 
+static bool
+analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl_name *fi, obj rcvr, obj *res)
+{
+	bool ret = true;
+	obj func_res;
+	bool old_analyze_error = analyze_error;
+	analyze_error = false;
+
+	if (!analyze_function(wk, fi, args_node, rcvr, &func_res)
+	    || analyze_error) {
+		interp_error(wk, n_id, "in function %s", fi->name);
+		ret = false;
+	}
+
+	analyze_error = old_analyze_error;
+
+	if (func_res) {
+		*res = func_res;
+	} else if (fi->return_type) {
+		*res = make_typeinfo(wk, fi->return_type, 0);
+	}
+
+	return ret;
+}
+
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
 static void
@@ -381,19 +406,13 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		analyze_for_each_type(wk, &ctx, n_id, l_id, 0, analyze_method, &tmp);
 
 		if (ctx.found == 1) {
-			obj func_res;
-			if (!analyze_function(wk, ctx.found_func->func, n->c, ctx.found_func->pure, &func_res)) {
-				interp_error(wk, n->r, "in method %s", ctx.found_func->name);
+			if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
 				ret = false;
 			}
-
-			if (func_res) {
-				tmp = func_res;
-			} else if (ctx.found_func->return_type) {
-				tmp = make_typeinfo(wk, ctx.found_func->return_type, 0);
-			}
 		} else if (ctx.found) {
-			tmp = make_typeinfo(wk, ctx.expected, 0);
+			if (ctx.expected) {
+				tmp = make_typeinfo(wk, ctx.expected, 0);
+			}
 		} else if (!ctx.found) {
 			tmp = make_typeinfo(wk, tc_any, 0);
 			interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
@@ -454,16 +473,8 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 
 		tmp = make_typeinfo(wk, tc_any, 0);
 	} else {
-		obj func_res;
-		if (!analyze_function(wk, fi->func, n->r, fi->pure, &func_res)) {
-			interp_error(wk, n_id, "in function %s", fi->name);
+		if (!analyze_function_call(wk, n_id, n->r, fi, 0, &tmp)) {
 			ret = false;
-		}
-
-		if (func_res) {
-			tmp = func_res;
-		} else if (fi->return_type) {
-			tmp = make_typeinfo(wk, fi->return_type, 0);
 		}
 	}
 
@@ -1004,6 +1015,12 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	return true;
 }
 
+static void
+scope_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id)
+{
+	scope_assign(wk, name, o, n_id);
+}
+
 bool
 do_analyze(void)
 {
@@ -1037,6 +1054,7 @@ do_analyze(void)
 	}
 
 	wk.interp_node = analyze_node;
+	wk.assign_variable = scope_assign_wrapper;
 
 	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
 		goto err;

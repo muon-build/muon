@@ -42,10 +42,11 @@ bool disabler_among_args_immunity = false;
 
 // HACK: This works like disabler_among_args kind of.  These opts should only
 // ever be set by analyze_function().
-static struct {
+static struct analyze_function_opts {
 	bool do_analyze;
 	bool pure_function;
 	bool encountered_error;
+	bool set_variable_special; // set to true if the function is set_variable()
 } analyze_function_opts;
 
 static bool
@@ -302,6 +303,48 @@ process_kwarg_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	return ir_cont;
 }
 
+static bool obj_tainted_by_typeinfo(struct workspace *wk, obj o);
+
+static enum iteration_result
+obj_tainted_by_typeinfo_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	if (obj_tainted_by_typeinfo(wk, k)
+	    || obj_tainted_by_typeinfo(wk, v)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+obj_tainted_by_typeinfo_array_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	if (obj_tainted_by_typeinfo(wk, v)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+obj_tainted_by_typeinfo(struct workspace *wk, obj o)
+{
+	if (!o) {
+		return true;
+	}
+
+	switch (get_obj_type(wk, o)) {
+	case obj_typeinfo:
+		return true;
+	case obj_array:
+		return !obj_array_foreach(wk, o, NULL, obj_tainted_by_typeinfo_array_iter);
+	case obj_dict:
+		return !obj_dict_foreach(wk, o, NULL, obj_tainted_by_typeinfo_dict_iter);
+	default:
+		return false;
+	}
+}
+
 bool
 interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],
@@ -358,6 +401,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					    ) {
 						if (get_obj_type(wk, val) == obj_typeinfo) {
 							// TODO typecheck subtype
+							obj_array_push(wk, an[stage][i].val, val);
 						} else {
 							if (!typecheck_function_arg(wk, arg_node, &val, ARG_TYPE_ARRAY_OF | an[stage][i].type)) {
 								return false;
@@ -478,12 +522,20 @@ end:
 			if (!an[stage]) {
 				continue;
 			}
+
 			for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
 				if (!an[stage][i].set) {
 					continue;
 				}
 
-				if (get_obj_type(wk, an[stage][i].val) == obj_typeinfo) {
+				if (analyze_function_opts.set_variable_special && stage == 0 && i == 1) {
+					// allow set_variable() to be called
+					// even if its second argument is
+					// impure
+					continue;
+				}
+
+				if (obj_tainted_by_typeinfo(wk, an[stage][i].val)) {
 					typeinfo_among_args = true;
 					break;
 				}
@@ -496,7 +548,7 @@ end:
 					continue;
 				}
 
-				if (get_obj_type(wk, keyword_args[i].val) == obj_typeinfo) {
+				if (obj_tainted_by_typeinfo(wk, keyword_args[i].val)) {
 					typeinfo_among_args = true;
 					break;
 				}
@@ -644,20 +696,37 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 }
 
 bool
-analyze_function(struct workspace *wk, func_impl func, uint32_t args_node, bool pure, obj *res)
+analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t args_node, obj rcvr, obj *res)
 {
+	struct analyze_function_opts old_opts = analyze_function_opts;
 	*res = 0;
+
+	bool pure = fi->pure;
+
+	if (rcvr && obj_tainted_by_typeinfo(wk, rcvr)) {
+		pure = false;
+	}
+
+	if (!rcvr && strcmp(fi->name, "set_variable") == 0) {
+		analyze_function_opts.set_variable_special = true;
+	}
+
 	analyze_function_opts.do_analyze = true;
 	// pure_function can be set to false even if it was true in the case
 	// that any of its arguments are of type obj_typeinfo
 	analyze_function_opts.pure_function = pure;
 	analyze_function_opts.encountered_error = true;
 
-	bool func_ret = func(wk, 0, args_node, res);
+	bool func_ret = fi->func(wk, rcvr, args_node, res);
 
-	if (analyze_function_opts.pure_function) {
+	pure = analyze_function_opts.pure_function;
+	bool ok = !analyze_function_opts.encountered_error;
+
+	analyze_function_opts = old_opts;
+
+	if (pure) {
 		return func_ret;
 	} else {
-		return !analyze_function_opts.encountered_error;
+		return ok;
 	}
 }

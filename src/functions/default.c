@@ -1316,7 +1316,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 	disabler_among_args_immunity = false;
 
-	hash_set_str(&current_project(wk)->scope, get_cstr(wk, an[0].val), an[1].val);
+	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, 0);
 	return true;
 }
 
@@ -1585,7 +1585,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "files", func_files, tc_array },
 	{ "find_program", func_find_program, tc_external_program },
 	{ "generator", func_generator, tc_generator },
-	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array },
+	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, true },
 	{ "get_variable", func_get_variable, tc_any, true },
 	{ "import", func_import, tc_module, true },
 	{ "include_directories", func_include_directories, tc_array },
@@ -1602,7 +1602,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "range", func_range, tc_array, true },
 	{ "run_command", func_run_command, tc_run_result },
 	{ "run_target", func_run_target, tc_custom_target },
-	{ "set_variable", func_set_variable },
+	{ "set_variable", func_set_variable, 0, true },
 	{ "shared_library", func_shared_library, tc_build_target },
 	{ "shared_module", func_shared_module, tc_build_target },
 	{ "static_library", func_static_library, tc_build_target },
@@ -1634,14 +1634,14 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "p", func_p },
 	{ "range", func_range },
 	{ "run_command", func_run_command },
-	{ "set_variable", func_set_variable },
+	{ "set_variable", func_set_variable, 0, true },
 	{ "setup", func_setup },
 	{ "warning", func_warning },
 	{ NULL, NULL },
 };
 
 const struct func_impl_name impl_tbl_default_opts[] = {
-	{ "option", func_option  },
+	{ "option", func_option, 0, true  },
 	{ "p", func_p },
 	{ NULL, NULL },
 };

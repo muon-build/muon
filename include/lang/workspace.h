@@ -96,6 +96,8 @@ struct workspace {
 	struct source *src;
 	/* interpreter base function */
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
+	/* variable assignment function */
+	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id));
 
 	enum language_mode lang_mode;
 };
