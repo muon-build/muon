@@ -921,6 +921,6 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 }
 
 const struct func_impl_name impl_tbl_module_pkgconfig[] = {
-	{ "generate", func_module_pkgconfig_generate },
+	{ "generate", func_module_pkgconfig_generate, tc_file },
 	{ NULL, NULL },
 };

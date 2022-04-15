@@ -25,11 +25,11 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 }
 
 const struct func_impl_name impl_tbl_module_python[] = {
-	{ "find_installation", func_module_python_find_python },
+	{ "find_installation", func_module_python_find_python, tc_external_program },
 	{ NULL, NULL },
 };
 
 const struct func_impl_name impl_tbl_module_python3[] = {
-	{ "find_python", func_module_python_find_python },
+	{ "find_python", func_module_python_find_python, tc_external_program },
 	{ NULL, NULL },
 };
