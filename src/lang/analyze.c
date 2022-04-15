@@ -592,25 +592,24 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 static bool
 analyze_not(struct workspace *wk, struct node *n, obj *res)
 {
-	obj obj_l_id;
+	obj l;
 
-	L("analyzeing not");
+	if (!wk->interp_node(wk, n->l, &l)) {
+		*res = make_typeinfo(wk, tc_bool, 0);
+		return false;
+	}
+
+	if (get_obj_type(wk, l) == obj_bool) {
+		make_obj(wk, res, obj_bool);
+		set_obj_bool(wk, *res, !get_obj_bool(wk, l));
+		return true;
+	}
+
 	*res = make_typeinfo(wk, tc_bool, 0);
 
-	if (!wk->interp_node(wk, n->l, &obj_l_id)) {
-		return false;
-		/* } else if (obj_l_id == disabler_id) { */
-		/* 	*res = disabler_id; */
-		/* 	return true; */
-	}
-
-	L("typechecking %s|%s", obj_type_to_s(get_obj_type(wk, obj_l_id)), inspect_typeinfo(wk, obj_l_id));
-
-	if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
+	if (!typecheck(wk, n->l, l, obj_bool)) {
 		return false;
 	}
-
-	L("typechecked");
 
 	return true;
 }
