@@ -87,6 +87,7 @@ enum obj_typechecking_type {
 	tc_generated_list     = obj_typechecking_type_tag | (1 << 23),
 	tc_alias_target       = obj_typechecking_type_tag | (1 << 24),
 	tc_both_libs          = obj_typechecking_type_tag | (1 << 25),
+	tc_disabler           = obj_typechecking_type_tag | (1 << 26),
 
 	tc_any = tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict
 		 | tc_compiler | tc_build_target | tc_custom_target
@@ -120,7 +121,7 @@ struct obj_typeinfo {
 	uint32_t type, subtype;
 };
 
-extern const struct obj_typechecking_type_to_obj_type typemap[26];
+extern const struct obj_typechecking_type_to_obj_type typemap[27];
 
 
 #if __STDC_VERSION__ >= 201112L

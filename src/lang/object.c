@@ -38,6 +38,7 @@ const struct obj_typechecking_type_to_obj_type typemap[] = {
 	{ obj_generated_list, tc_generated_list },
 	{ obj_alias_target, tc_alias_target },
 	{ obj_both_libs, tc_both_libs },
+	{ obj_disabler, tc_disabler },
 };
 
 static void *

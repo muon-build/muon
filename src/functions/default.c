@@ -1578,7 +1578,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "custom_target", func_custom_target, tc_custom_target },
 	{ "declare_dependency", func_declare_dependency, tc_dependency },
 	{ "dependency", func_dependency, tc_dependency },
-	{ "disabler", func_disabler },
+	{ "disabler", func_disabler, tc_disabler },
 	{ "environment", func_environment, tc_environment },
 	{ "error", func_error },
 	{ "executable", func_executable, tc_build_target },
