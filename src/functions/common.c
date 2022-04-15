@@ -440,8 +440,10 @@ process_kwarg:
 					.keyword_args = keyword_args
 				};
 
-				if (!obj_dict_foreach(wk, val, &ctx, process_kwarg_dict_iter)) {
-					return false;
+				if (get_obj_type(wk, val) != obj_typeinfo) {
+					if (!obj_dict_foreach(wk, val, &ctx, process_kwarg_dict_iter)) {
+						return false;
+					}
 				}
 			} else {
 				if (!process_kwarg(wk, kwarg_node, arg_node, keyword_args, kw, val)) {
