@@ -1119,7 +1119,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		ret = interp_dict(wk, n->l, res);
 		break;
 	case node_id:
-		if (!get_obj_id(wk, n->dat.s, res, wk->cur_project)) {
+		if (!wk->get_variable(wk, n->dat.s, res, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
 			ret = false;
 			break;

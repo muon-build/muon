@@ -594,16 +594,24 @@ analyze_not(struct workspace *wk, struct node *n, obj *res)
 {
 	obj obj_l_id;
 
+	L("analyzeing not");
+	*res = make_typeinfo(wk, tc_bool, 0);
+
 	if (!wk->interp_node(wk, n->l, &obj_l_id)) {
 		return false;
-	} else if (obj_l_id == disabler_id) {
-		*res = disabler_id;
-		return true;
-	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
+		/* } else if (obj_l_id == disabler_id) { */
+		/* 	*res = disabler_id; */
+		/* 	return true; */
+	}
+
+	L("typechecking %s|%s", obj_type_to_s(get_obj_type(wk, obj_l_id)), inspect_typeinfo(wk, obj_l_id));
+
+	if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
 		return false;
 	}
 
-	*res = make_typeinfo(wk, tc_bool, 0);
+	L("typechecked");
+
 	return true;
 }
 
@@ -1046,6 +1054,19 @@ scope_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_i
 	scope_assign(wk, name, o, n_id);
 }
 
+static bool
+assign_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
+{
+	struct assignment *a = assign_lookup(wk, name);
+	if (a) {
+		*res = a->o;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
 bool
 do_analyze(void)
 {
@@ -1080,6 +1101,7 @@ do_analyze(void)
 
 	wk.interp_node = analyze_node;
 	wk.assign_variable = scope_assign_wrapper;
+	wk.get_variable = assign_lookup_wrapper;
 
 	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
 		goto err;
@@ -1097,7 +1119,7 @@ do_analyze(void)
 				// TODO: this requires ast information to be preserved after eval_project
 				/* interp_error(&wk, a->n_id, "unused variable %s", a->name); */
 				LOG_W("unused variable %s", a->name);
-				res = false;
+				/* res = false; */
 			}
 		}
 	}

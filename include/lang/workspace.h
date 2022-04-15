@@ -94,10 +94,10 @@ struct workspace {
 	struct ast *ast;
 	/* source of current file */
 	struct source *src;
-	/* interpreter base function */
+	/* interpreter base functions */
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
-	/* variable assignment function */
 	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id));
+	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
 
 	enum language_mode lang_mode;
 };

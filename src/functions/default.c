@@ -1338,7 +1338,7 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!get_obj_id(wk, get_cstr(wk, an[0].val), res, wk->cur_project)) {
+	if (!wk->get_variable(wk, get_cstr(wk, an[0].val), res, wk->cur_project)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
@@ -1363,7 +1363,7 @@ func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj dont_care;
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_id(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project));
+	set_obj_bool(wk, *res, wk->get_variable(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project));
 	return true;
 }
 

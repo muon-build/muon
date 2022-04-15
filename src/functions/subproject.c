@@ -17,7 +17,7 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 		return false;
 	}
 
-	if (!get_obj_id(wk, name, res, sub->id)) {
+	if (!wk->get_variable(wk, name, res, sub->id)) {
 		if (!fallback) {
 			interp_error(wk, node, "subproject does not define '%s'", name);
 			return false;
