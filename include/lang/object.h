@@ -96,7 +96,7 @@ enum obj_typechecking_type {
 		 | tc_configuration_data | tc_test | tc_module
 		 | tc_install_target | tc_environment | tc_include_directory
 		 | tc_option | tc_generator | tc_generated_list
-		 | tc_alias_target | tc_both_libs,
+		 | tc_alias_target | tc_both_libs | tc_disabler,
 
 	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs,
 	tc_dep                = tc_dependency | tc_external_library,
