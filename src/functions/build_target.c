@@ -172,6 +172,21 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+bool
+build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t err_node, obj *res, obj arr)
+{
+	make_obj(wk, res, obj_array);
+
+	struct build_target_extract_objects_ctx ctx = {
+		.err_node = err_node,
+		.res = res,
+		.tgt = get_obj_build_target(wk, rcvr),
+		.tgt_id = rcvr,
+	};
+
+	return obj_array_foreach_flat(wk, arr, &ctx, build_target_extract_objects_iter);
+}
+
 static bool
 func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -180,16 +195,7 @@ func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
-
-	struct build_target_extract_objects_ctx ctx = {
-		.err_node = an[0].node,
-		.res = res,
-		.tgt = get_obj_build_target(wk, rcvr),
-		.tgt_id = rcvr,
-	};
-
-	return obj_array_foreach_flat(wk, an[0].val, &ctx, build_target_extract_objects_iter);
+	return build_target_extract_objects(wk, rcvr, an[0].node, res, an[0].val);
 }
 
 static enum iteration_result
