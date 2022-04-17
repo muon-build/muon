@@ -176,7 +176,7 @@ tests = [
     ['common/175 ndebug if-release disabled', {}],
     ['common/176 subproject version', {}],
     ['common/177 subdir_done', {}],
-    ['common/178 bothlibraries', {'should_fail': true}],
+    ['common/178 bothlibraries', {}],
     ['common/179 escape and unicode', {}],
     ['common/180 has link arg', {}],
     ['common/181 same target name flat layout', {}],
