@@ -1316,7 +1316,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 	disabler_among_args_immunity = false;
 
-	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, 0);
+	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, args_node);
 	return true;
 }
 

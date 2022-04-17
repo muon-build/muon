@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "object.h"
 #include "parser.h"
 #include "workspace.h"
-#include "object.h"
 
 bool interp_node(struct workspace *wk, uint32_t n_id, obj *res);
 bool interp_arithmetic(struct workspace *wk, uint32_t err_node,

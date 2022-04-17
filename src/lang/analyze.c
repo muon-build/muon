@@ -27,7 +27,7 @@ struct assignment {
 	const char *name;
 	obj o;
 	bool accessed, default_var;
-	uint32_t n_id;
+	uint32_t line, col, src_idx;
 };
 
 struct scope_group {
@@ -205,10 +205,21 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		s = &assignment_scopes.base;
 	}
 
+	// builtin variables don't have a source location
+	struct node *n = NULL;
+	uint32_t src_idx = 0;
+	if (wk->src && n_id) {
+		n = get_node(wk->ast, n_id);
+
+		// push the source so that we have it later for error reporting
+		src_idx = error_diagnostic_store_push_src(wk->src);
+	}
 	darr_push(s, &(struct assignment) {
 		.name = name,
 		.o = o,
-		.n_id = n_id,
+		.line = n ? n->line : 0,
+		.col = n ? n->col : 0,
+		.src_idx = src_idx,
 	});
 
 	if (!assignment_scopes.groups.len) {
@@ -275,9 +286,12 @@ pop_scope_group(struct workspace *wk)
 
 	for (i = 0; i < base->len; ++i) {
 		struct assignment *a = darr_get(base, i),
-				  *b = scope_assign(wk, a->name, a->o, a->n_id);
+				  *b = scope_assign(wk, a->name, a->o, 0);
 
 		b->accessed = a->accessed;
+		b->line = a->line;
+		b->col = a->col;
+		b->src_idx = a->src_idx;
 	}
 
 	for (i = 0; i < g->scopes.len; ++i) {
@@ -1150,6 +1164,8 @@ do_analyze(void)
 		goto err;
 	}
 
+	error_diagnostic_store_init();
+
 	uint32_t project_id;
 	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
 
@@ -1159,13 +1175,14 @@ do_analyze(void)
 		for (i = 0; i < assignment_scopes.base.len; ++i) {
 			struct assignment *a = darr_get(&assignment_scopes.base, i);
 			if (!a->default_var && !a->accessed) {
-				// TODO: this requires ast information to be preserved after eval_project
-				/* interp_error(&wk, a->n_id, "unused variable %s", a->name); */
-				LOG_W("unused variable %s", a->name);
+				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
+				error_diagnostic_store_push(a->src_idx, a->line, a->col, log_warn, msg);
 				/* res = false; */
 			}
 		}
 	}
+
+	error_diagnostic_store_replay();
 
 	if (analyze_error) {
 		res = false;

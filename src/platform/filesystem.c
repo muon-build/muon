@@ -326,6 +326,19 @@ err:
 }
 
 void
+fs_source_dup(const struct source *src, struct source *dup)
+{
+	uint32_t label_len = strlen(src->label);
+	char *buf = z_calloc(src->len + label_len + 1, 1);
+	dup->label = &buf[src->len];
+	dup->src = buf;
+	dup->len = src->len;
+
+	memcpy(buf, src->src, src->len);
+	memcpy(&buf[src->len], src->label, label_len);
+}
+
+void
 fs_source_destroy(struct source *src)
 {
 	if (src->src) {

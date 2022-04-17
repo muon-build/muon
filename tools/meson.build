@@ -1,6 +1,7 @@
 embedder = executable(
     'embedder',
     files(
+        '../src/data/darr.c',
         '../src/error.c',
         '../src/log.c',
         '../src/platform/filesystem.c',

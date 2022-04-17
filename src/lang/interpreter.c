@@ -19,34 +19,33 @@
 #include "log.h"
 #include "platform/path.h"
 
+static void
+interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const char *fmt, va_list args)
+{
+	static char buf[BUF_SIZE_4k];
+	struct node *n = get_node(wk->ast, n_id);
+
+	obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, args);
+
+	error_message(wk->src, n->line, n->col, lvl, buf);
+}
+
 void
 interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 {
-	struct node *n = get_node(wk->ast, n_id);
-
 	va_list args;
 	va_start(args, fmt);
-
-	static char buf[BUF_SIZE_4k];
-	obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, args);
+	interp_diagnostic(wk, n_id, log_error, fmt, args);
 	va_end(args);
-
-	error_message(wk->src, n->line, n->col, log_error, buf);
 }
 
 void
 interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 {
-	struct node *n = get_node(wk->ast, n_id);
-
 	va_list args;
 	va_start(args, fmt);
-
-	static char buf[BUF_SIZE_4k];
-	obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, args);
+	interp_diagnostic(wk, n_id, log_warn, fmt, args);
 	va_end(args);
-
-	error_message(wk->src, n->line, n->col, log_warn, buf);
 }
 
 bool
