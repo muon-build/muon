@@ -606,6 +606,49 @@ func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+static void
+set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *ldflags)
+{
+#ifndef MUON_BOOTSTRAPPED
+	return;
+#endif
+
+	struct project *cur_proj = current_project(wk);
+
+	struct option_override *oo;
+	if (find_option_override(wk, get_cstr(wk, cur_proj->subproject_name), name, &oo)) {
+		return;
+	}
+
+	obj opt;
+	assert(obj_dict_index_strn(wk, cur_proj->opts, name, strlen(name), &opt));
+	struct obj_option *o = get_obj_option(wk, opt);
+
+	flags = getenv(flags);
+	ldflags = ldflags ? getenv(ldflags) : NULL;
+	if (flags && *flags) {
+		o->val = str_split(wk, &WKSTR(flags), NULL);
+
+		if (ldflags && *ldflags) {
+			obj_array_extend(wk, o->val, str_split(wk, &WKSTR(ldflags), NULL));
+		}
+	} else if (ldflags && *ldflags) {
+		o->val = str_split(wk, &WKSTR(ldflags), NULL);
+	}
+}
+
+static bool
+set_compile_opts(struct workspace *wk)
+{
+	set_compile_opt_from_env(wk, "c_args", "CFLAGS", NULL);
+	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
+
+	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", NULL);
+	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
+
+	return true;
+}
+
 bool
 set_builtin_options(struct workspace *wk)
 {
@@ -628,7 +671,11 @@ set_builtin_options(struct workspace *wk)
 	}
 
 	uint32_t obj;
-	return eval_str(wk, opts, &obj);
+	if (!eval_str(wk, opts, &obj)) {
+		return false;
+	}
+
+	return set_compile_opts(wk);
 }
 
 bool
