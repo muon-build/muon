@@ -292,7 +292,9 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 
 	if (!analyze_function(wk, fi, args_node, rcvr, &func_res)
 	    || analyze_error) {
-		interp_error(wk, n_id, "in function %s", fi->name);
+		if (!rcvr && strcmp(fi->name, "subdir") == 0) {
+			interp_error(wk, n_id, "in function %s", fi->name);
+		}
 		ret = false;
 	}
 
