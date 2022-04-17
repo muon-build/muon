@@ -87,6 +87,28 @@ func_both_libs_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_nod
 	return build_target_extract_objects(wk, get_obj_both_libs(wk, rcvr)->dynamic_lib, an[0].node, res, an[0].val);
 }
 
+static bool
+func_both_libs_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	enum kwargs {
+		kw_recursive,
+	};
+	struct args_kw akw[] = {
+		[kw_recursive] = { "recursive", obj_bool },
+		0
+	};
+	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+		return false;
+	}
+
+	if (akw[kw_recursive].set && !get_obj_bool(wk, akw[kw_recursive].val)) {
+		interp_error(wk, akw[kw_recursive].node, "non-recursive extract_all_objects not supported");
+		return false;
+	}
+
+	return build_target_extract_all_objects(wk, args_node, rcvr, res);
+}
+
 const struct func_impl_name impl_tbl_both_libs[] = {
 	{ "get_shared_lib", func_both_libs_get_shared_lib },
 	{ "get_static_lib", func_both_libs_get_static_lib },
@@ -96,5 +118,6 @@ const struct func_impl_name impl_tbl_both_libs[] = {
 	{ "name", func_both_libs_name },
 	{ "private_dir_include", func_both_libs_private_dir_include },
 	{ "extract_objects", func_both_libs_extract_objects },
+	{ "extract_all_objects", func_both_libs_extract_all_objects },
 	{ NULL, NULL },
 };
