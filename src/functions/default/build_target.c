@@ -159,6 +159,8 @@ default_library_type(struct workspace *wk)
 		return tgt_static_library;
 	} else if (str_eql(get_str(wk, opt), &WKSTR("shared"))) {
 		return tgt_dynamic_library;
+	} else if (str_eql(get_str(wk, opt), &WKSTR("both"))) {
+		return tgt_dynamic_library | tgt_static_library;
 	} else {
 		assert(false && "unreachable");
 		return 0;
@@ -690,6 +692,18 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		}
 	}
 
+	if (multi_target) {
+		obj val;
+		make_obj(wk, &val, obj_both_libs);
+		struct obj_both_libs *both = get_obj_both_libs(wk, val);
+		obj_array_index(wk, *res, 0, &both->static_lib);
+		obj_array_index(wk, *res, 1, &both->dynamic_lib);
+		*res = val;
+
+		assert(get_obj_build_target(wk, both->static_lib)->type == tgt_static_library);
+		assert(get_obj_build_target(wk, both->dynamic_lib)->type == tgt_dynamic_library);
+	}
+
 	return true;
 }
 
@@ -714,20 +728,8 @@ func_shared_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 bool
 func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	obj arr;
-	if (!tgt_common(wk, args_node, &arr, tgt_static_library | tgt_dynamic_library,
-		tgt_static_library | tgt_dynamic_library, false)) {
-		return false;
-	}
-
-	make_obj(wk, res, obj_both_libs);
-	struct obj_both_libs *both = get_obj_both_libs(wk, *res);
-	obj_array_index(wk, arr, 0, &both->static_lib);
-	obj_array_index(wk, arr, 1, &both->dynamic_lib);
-
-	assert(get_obj_build_target(wk, both->static_lib)->type == tgt_static_library);
-	assert(get_obj_build_target(wk, both->dynamic_lib)->type == tgt_dynamic_library);
-	return true;
+	return tgt_common(wk, args_node, res, tgt_static_library | tgt_dynamic_library,
+		tgt_static_library | tgt_dynamic_library, false);
 }
 
 bool

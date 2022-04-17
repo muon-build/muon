@@ -30,7 +30,7 @@ option(
     yield: true,
     type: 'combo',
     value: 'static',
-    choices: ['static', 'shared'],
+    choices: ['static', 'shared', 'both'],
 )
 option('errorlogs', yield: true, type: 'boolean', value: true) # TODO
 option('install_umask', yield: true, type: 'string', value: '022') # TODO
