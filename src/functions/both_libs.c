@@ -61,6 +61,20 @@ func_both_libs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	return true;
 }
 
+static bool
+func_both_libs_private_dir_include(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_include_directory);
+	struct obj_include_directory *inc = get_obj_include_directory(wk, *res);
+
+	inc->path = get_obj_build_target(wk, get_obj_both_libs(wk, rcvr)->dynamic_lib)->private_path;
+	return true;
+}
+
 const struct func_impl_name impl_tbl_both_libs[] = {
 	{ "get_shared_lib", func_both_libs_get_shared_lib },
 	{ "get_static_lib", func_both_libs_get_static_lib },
@@ -68,5 +82,6 @@ const struct func_impl_name impl_tbl_both_libs[] = {
 	{ "full_path", func_both_libs_full_path },
 	{ "path", func_both_libs_full_path },
 	{ "name", func_both_libs_name },
+	{ "private_dir_include", func_both_libs_private_dir_include },
 	{ NULL, NULL },
 };
