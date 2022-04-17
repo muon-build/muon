@@ -93,7 +93,7 @@ lex_error(struct lexer *l, const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	struct token *last_tok = darr_get(&l->toks->tok, l->toks->tok.len - 1);
-	error_messagev(l->source, last_tok->line, last_tok->col, fmt, args);
+	error_messagev(l->source, last_tok->line, last_tok->col, log_error, fmt, args);
 	va_end(args);
 }
 
@@ -460,7 +460,7 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 				for (i = 0; i < len; ++i) {
 					num[i] = lexer->src[lexer->i + 1];
 					if (!is_hex_digit(num[i])) {
-						error_message(lexer->source, esc_line, esc_col, "unterminated hex escape");
+						error_message(lexer->source, esc_line, esc_col, log_error, "unterminated hex escape");
 						return lex_fail;
 					}
 					advance(lexer);
@@ -500,7 +500,7 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 				++token->n;
 				break;
 			case 0:
-				error_message(lexer->source, esc_line, esc_col, "unterminated hex escape");
+				error_message(lexer->source, esc_line, esc_col, log_error, "unterminated hex escape");
 				return lex_fail;
 			}
 		}

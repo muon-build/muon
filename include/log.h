@@ -22,6 +22,10 @@ enum log_opts {
 	log_show_source = 1 << 0,
 };
 
+
+extern const char *log_level_clr[log_level_count];
+extern const char *log_level_name[log_level_count];
+
 #define L(...) log_print(__FILE__, __LINE__, __func__, true, log_debug, __VA_ARGS__)
 #define LOG_I(...) log_print(__FILE__, __LINE__, __func__, true, log_info, __VA_ARGS__)
 #define LOG_W(...) log_print(__FILE__, __LINE__, __func__, true, log_warn, __VA_ARGS__)

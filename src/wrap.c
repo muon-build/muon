@@ -72,11 +72,11 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 	struct wrap_parse_ctx *ctx = _ctx;
 
 	if (!sect) {
-		error_messagef(src, line, 1, "key not under wrap section");
+		error_messagef(src, line, 1, log_error, "key not under wrap section");
 		return false;
 	} else if (!k) {
 		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, &res)) {
-			error_messagef(src, line, 1, "invalid section '%s'", sect);
+			error_messagef(src, line, 1, log_error, "invalid section '%s'", sect);
 			return false;
 		}
 
@@ -87,7 +87,7 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 		}
 
 		if (ctx->have_type) {
-			error_messagef(src, line, 1, "conflicting wrap types");
+			error_messagef(src, line, 1, log_error, "conflicting wrap types");
 			return false;
 		}
 
@@ -102,10 +102,10 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 	assert(k && v);
 
 	if (!lookup_wrap_str(k, wrap_field_names, wrap_fields_count, &res)) {
-		error_messagef(src, line, 1, "invalid key \"%s\"", k);
+		error_messagef(src, line, 1, log_error, "invalid key \"%s\"", k);
 		return false;
 	} else if (ctx->wrap.fields[res]) {
-		error_messagef(src, line, 1, "duplicate key \"%s\"", k);
+		error_messagef(src, line, 1, log_error, "duplicate key \"%s\"", k);
 		return false;
 	}
 
@@ -215,13 +215,13 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 			break;
 		case required:
 			if (!ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, 1, 1, "missing field '%s'", wrap_field_names[i]);
+				error_messagef(&ctx->wrap.src, 1, 1, log_error, "missing field '%s'", wrap_field_names[i]);
 				valid = false;
 			}
 			break;
 		case invalid:
 			if (ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, ctx->field_lines[i], 1, "invalid field");
+				error_messagef(&ctx->wrap.src, ctx->field_lines[i], 1, log_error, "invalid field");
 				valid = false;
 			}
 			break;

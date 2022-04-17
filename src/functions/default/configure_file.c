@@ -119,12 +119,12 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			const char *sub = NULL, *deftype = "#define";
 
 			if (src.src[i] != '\n') {
-				error_messagef(&src, id_start_line, i - start_of_line + 1, "extraneous characters on %sline", define);
+				error_messagef(&src, id_start_line, i - start_of_line + 1, log_error, "extraneous characters on %sline", define);
 				return false;
 			}
 
 			if (i == id_start) {
-				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
+				error_messagef(&src, id_start_line, id_start_col, log_error, "key of zero length not supported");
 				return false;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
 				deftype = "/* undef";
@@ -148,7 +148,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 				sub = tmp_buf;
 				break;
 			default:
-				error_messagef(&src, id_start_line, id_start_col,
+				error_messagef(&src, id_start_line, id_start_col, log_error,
 					"invalid type for %s: '%s'",
 					define,
 					obj_type_to_s(get_obj_type(wk, elem)));
@@ -217,16 +217,16 @@ write_mesondefine:
 			}
 
 			if (i <= id_start) {
-				error_messagef(&src, id_start_line, id_start_col, "key of zero length not supported");
+				error_messagef(&src, id_start_line, id_start_col, log_error, "key of zero length not supported");
 				return false;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
-				error_messagef(&src, id_start_line, id_start_col, "key not found in configuration data");
+				error_messagef(&src, id_start_line, id_start_col, log_error, "key not found in configuration data");
 				return false;
 			}
 
 			obj sub;
 			if (!coerce_string(wk, in_node, elem, &sub)) {
-				error_messagef(&src, id_start_line, id_start_col, "unable to substitute value");
+				error_messagef(&src, id_start_line, id_start_col, log_error, "unable to substitute value");
 				return false;
 			}
 

@@ -20,11 +20,17 @@ error_unrecoverable(const char *fmt, ...)
 }
 
 void
-error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
+error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *msg)
 {
-	const char *label = log_clr() ? "\033[31merror:\033[0m" : "error:";
+	log_plain("%s:%d:%d: ", src->label, line, col);
 
-	log_plain("%s:%d:%d: %s %s\n", src->label, line, col, label, msg);
+	if (log_clr()) {
+		log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
+	} else {
+		log_plain("%s ", log_level_name[lvl]);
+	}
+
+	log_plain("%s\n", msg);
 
 	uint64_t i, cl = 1, sol = 0;
 	for (i = 0; i < src->len; ++i) {
@@ -68,18 +74,18 @@ error_message(struct source *src, uint32_t line, uint32_t col, const char *msg)
 }
 
 void
-error_messagev(struct source *src, uint32_t line, uint32_t col, const char *fmt, va_list args)
+error_messagev(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, va_list args)
 {
 	static char buf[BUF_SIZE_4k];
 	vsnprintf(buf, BUF_SIZE_4k, fmt, args);
-	error_message(src, line, col, buf);
+	error_message(src, line, col, lvl, buf);
 }
 
 void
-error_messagef(struct source *src, uint32_t line, uint32_t col, const char *fmt, ...)
+error_messagef(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	error_messagev(src, line, col, fmt, ap);
+	error_messagev(src, line, col, lvl, fmt, ap);
 	va_end(ap);
 }

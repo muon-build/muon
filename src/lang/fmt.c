@@ -855,13 +855,13 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 	};
 
 	if (!k || !*k) {
-		error_messagef(src, line, 1, "missing key");
+		error_messagef(src, line, 1, log_error, "missing key");
 		return false;
 	} else if (!v || !*v) {
-		error_messagef(src, line, 1, "missing value");
+		error_messagef(src, line, 1, log_error, "missing value");
 		return false;
 	} else if (sect) {
-		error_messagef(src, line, 1, "invalid section");
+		error_messagef(src, line, 1, log_error, "invalid section");
 		return false;
 	}
 
@@ -875,10 +875,10 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				char *endptr = NULL;
 				long lval = strtol(v, &endptr, 10);
 				if (*endptr) {
-					error_messagef(src, line, 1, "unable to parse integer");
+					error_messagef(src, line, 1, log_error, "unable to parse integer");
 					return false;
 				} else if (lval < 0 || lval > UINT32_MAX) {
-					error_messagef(src, line, 1, "integer outside of range 0-%u", UINT32_MAX);
+					error_messagef(src, line, 1, log_error, "integer outside of range 0-%u", UINT32_MAX);
 					return false;
 				}
 
@@ -892,7 +892,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				end = strrchr(v, '\'');
 
 				if (!start || !end || start == end) {
-					error_messagef(src, line, 1, "expected single-quoted string");
+					error_messagef(src, line, 1, log_error, "expected single-quoted string");
 					return false;
 				}
 
@@ -909,7 +909,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				} else if (strcmp(v, "false") == 0) {
 					val = false;
 				} else {
-					error_messagef(src, line, 1, "invalid value for bool, expected true/false");
+					error_messagef(src, line, 1, log_error, "invalid value for bool, expected true/false");
 					return false;
 				}
 

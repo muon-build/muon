@@ -15,6 +15,8 @@ bool interp_arithmetic(struct workspace *wk, uint32_t err_node,
 
 void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
+void interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
+__attribute__ ((format(printf, 3, 4)));
 
 bool typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type, const char *fmt);
 const char *typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t);

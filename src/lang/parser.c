@@ -75,7 +75,7 @@ parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(p->src, err_tok->line, err_tok->col, fmt, args);
+	error_messagev(p->src, err_tok->line, err_tok->col, log_error, fmt, args);
 	va_end(args);
 }
 

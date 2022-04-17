@@ -8,14 +8,14 @@
 #include "buf_size.h"
 #include "log.h"
 
-static char *log_level_clr[log_level_count] = {
+const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
 	[log_warn] = "33",
 	[log_info] = "34",
 	[log_debug] = "0",
 };
 
-static char *log_level_name[log_level_count] = {
+const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
 	[log_warn] = "warn",
 	[log_info] = "info",

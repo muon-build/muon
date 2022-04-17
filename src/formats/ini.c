@@ -64,7 +64,7 @@ each_line_cb(void *_ctx, char *line, size_t len)
 		goto done_with_line;
 	} else if (*line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, "expected ']'");
+			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected ']'");
 			ctx->success = false;
 			goto done_with_line;
 		}
@@ -80,7 +80,7 @@ each_line_cb(void *_ctx, char *line, size_t len)
 	}
 
 	if (!(ptr = strchr(line, '='))) {
-		error_messagef(&ctx->src, ctx->line, strlen(line) + 1, "expected '='");
+		error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected '='");
 		ctx->success = false;
 		goto done_with_line;
 	}
