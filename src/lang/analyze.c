@@ -476,24 +476,23 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 static bool
 analyze_u_minus(struct workspace *wk, struct node *n, obj *res)
 {
+	bool ret = true;
 	obj l_id;
 
 	if (!wk->interp_node(wk, n->l, &l_id)) {
-		return false;
-	} else if (l_id == disabler_id) {
-		*res = disabler_id;
-		return true;
-	} else if (!typecheck(wk, n->l, l_id, obj_number)) {
-		return false;
+		ret = false;
+	}
+	if (ret && !typecheck(wk, n->l, l_id, obj_number)) {
+		ret = false;
 	}
 
-	if (get_obj_type(wk, l_id) == obj_number) {
+	if (ret && get_obj_type(wk, l_id) == obj_number) {
 		make_obj(wk, res, obj_number);
 		set_obj_number(wk, *res, -get_obj_number(wk, l_id));
 	} else {
-		make_typeinfo(wk, tc_number, 0);
+		*res = make_typeinfo(wk, tc_number, 0);
 	}
-	return true;
+	return ret;
 }
 
 static void
@@ -553,12 +552,14 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
 	obj *res)
 {
+	bool ret = true;
 	obj l, r;
+
 	if (!wk->interp_node(wk, nl, &l)) {
-		return false;
+		ret = false;
 	}
 	if (!wk->interp_node(wk, nr, &r)) {
-		return false;
+		ret = false;
 	}
 
 	if (is_pure_arithmetic_object(wk, l) && is_pure_arithmetic_object(wk, r)) {
@@ -566,82 +567,86 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 	}
 
 	struct analyze_ctx ctx = { 0 };
-	uint32_t tc_lhs;
+	uint32_t tc_lhs = tc_disabler;
 
 	switch (type) {
 	case arith_add:
-		tc_lhs = tc_string | tc_number | tc_dict | tc_array;
+		tc_lhs |= tc_string | tc_number | tc_dict | tc_array;
 		break;
 	case arith_div:
-		tc_lhs = tc_string | tc_number;
+		tc_lhs |= tc_string | tc_number;
 		break;
 	case arith_sub:
 	case arith_mod:
 	case arith_mul:
-		tc_lhs = tc_number;
+		tc_lhs |= tc_number;
 		break;
 	default:
 		assert(false);
 		return false;
 	}
 
-	if (!typecheck(wk, nl, l, tc_lhs)) {
+	if (ret && !typecheck(wk, nl, l, tc_lhs)) {
 		return false;
 	}
 
-	analyze_for_each_type(wk, &ctx, nl, l, tc_lhs, analyze_arithmetic_cb, res);
-
-	if (!typecheck(wk, nr, r, ctx.expected)) {
-		return false;
+	if (ret) {
+		analyze_for_each_type(wk, &ctx, nl, l, tc_lhs, analyze_arithmetic_cb, res);
 	}
 
-	return true;
+	if (ret && !typecheck(wk, nr, r, ctx.expected)) {
+		ret = false;
+	}
+
+	if (!ret) {
+		*res = make_typeinfo(wk, tc_string | tc_number | tc_array | tc_dict, 0);
+	}
+
+	return ret;
 }
 
 static bool
 analyze_not(struct workspace *wk, struct node *n, obj *res)
 {
+	bool ret = true;
 	obj l;
 
 	if (!wk->interp_node(wk, n->l, &l)) {
-		*res = make_typeinfo(wk, tc_bool, 0);
-		return false;
+		ret = false;
+	}
+	if (ret && !typecheck(wk, n->l, l, obj_bool)) {
+		ret = false;
 	}
 
-	if (get_obj_type(wk, l) == obj_bool) {
+	if (ret && get_obj_type(wk, l) == obj_bool) {
 		make_obj(wk, res, obj_bool);
 		set_obj_bool(wk, *res, !get_obj_bool(wk, l));
-		return true;
+	} else {
+		*res = make_typeinfo(wk, tc_bool, 0);
 	}
-
-	*res = make_typeinfo(wk, tc_bool, 0);
-
-	if (!typecheck(wk, n->l, l, obj_bool)) {
-		return false;
-	}
-
-	return true;
+	return ret;
 }
 
 static bool
 analyze_andor(struct workspace *wk, struct node *n, obj *res)
 {
-	obj obj_l_id, obj_r_id;
+	bool ret = true;
+	obj l, r;
 
-	if (!wk->interp_node(wk, n->l, &obj_l_id)) {
-		return false;
-	} else if (!typecheck(wk, n->l, obj_l_id, obj_bool)) {
-		return false;
+	if (!wk->interp_node(wk, n->l, &l)) {
+		ret = false;
+	} else if (ret && !typecheck(wk, n->l, l, obj_bool)) {
+		ret = false;
 	}
 
-	if (!wk->interp_node(wk, n->r, &obj_r_id)) {
-		return false;
-	} else if (!typecheck(wk, n->r, obj_r_id, obj_bool)) {
-		return false;
+	if (!wk->interp_node(wk, n->r, &r)) {
+		ret = false;
+	} else if (ret && !typecheck(wk, n->r, r, obj_bool)) {
+		ret = false;
 	}
 
 	*res = make_typeinfo(wk, tc_bool, 0);
-	return true;
+	return ret;
 }
 
 static void
@@ -672,12 +677,14 @@ analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 static bool
 analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 {
+	bool ret = true;
 	obj l, r;
 
 	if (!wk->interp_node(wk, n->l, &l)) {
-		return false;
-	} else if (!wk->interp_node(wk, n->r, &r)) {
-		return false;
+		ret = false;
+	}
+	if (!wk->interp_node(wk, n->r, &r)) {
+		ret = false;
 	}
 
 	struct analyze_ctx ctx = { .comparison_type = n->subtype };
@@ -702,42 +709,62 @@ analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 		UNREACHABLE_RETURN;
 	}
 
-	if (!typecheck(wk, n->l, l, tc_lhs)) {
-		return false;
+	if (ret && !typecheck(wk, n->l, l, tc_lhs)) {
+		ret = false;
 	}
 
-	analyze_for_each_type(wk, &ctx, n->l, l, tc_lhs, analyze_comparison_cb, res);
-
-	if (!typecheck(wk, n->r, r, ctx.expected)) {
-		return false;
+	if (ret) {
+		analyze_for_each_type(wk, &ctx, n->l, l, tc_lhs, analyze_comparison_cb, res);
 	}
 
-	return true;
+	if (ret && !typecheck(wk, n->r, r, ctx.expected)) {
+		ret = false;
+	}
+
+	if (!ret) {
+		*res = make_typeinfo(wk, tc_bool, 0);
+	}
+
+	return ret;
 }
 
 static bool
 analyze_ternary(struct workspace *wk, struct node *n, obj *res)
 {
+	bool ret = true;
 	obj cond_id;
 	if (!wk->interp_node(wk, n->l, &cond_id)) {
-		return false;
-	} else if (cond_id == disabler_id) {
-		*res = disabler_id;
-		return true;
-	} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
-		return false;
+		ret = false;
+	} else if (ret && !typecheck(wk, n->l, cond_id, obj_bool)) {
+		ret = false;
 	}
 
 	struct obj_typeinfo res_t = { 0 };
-	obj a, b;
-	wk->interp_node(wk, n->l, &a);
-	wk->interp_node(wk, n->r, &b);
+	obj a = 0, b = 0;
 
-	merge_types(wk, &res_t, a);
-	merge_types(wk, &res_t, b);
+	if (!wk->interp_node(wk, n->r, &a)) {
+		ret = false;
+	}
+
+	if (!wk->interp_node(wk, n->c, &b)) {
+		ret = false;
+	}
+
+	if (!a && !b) {
+		*res = 0;
+		return ret;
+	}
+
+	if (a) {
+		merge_types(wk, &res_t, a);
+	}
+
+	if (b) {
+		merge_types(wk, &res_t, b);
+	}
 
 	*res = make_typeinfo(wk, res_t.type, res_t.subtype);
-	return true;
+	return ret;
 }
 
 static bool
@@ -751,9 +778,6 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 		obj cond_id;
 		if (!wk->interp_node(wk, n->l, &cond_id)) {
 			ret = false;
-		} else if (cond_id == disabler_id) {
-			*res = disabler_id;
-			return true;
 		} else if (!typecheck(wk, n->l, cond_id, obj_bool)) {
 			ret = false;
 		}
