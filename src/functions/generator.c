@@ -115,6 +115,9 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 	const char *private_path;
 
 	switch (t) {
+	case obj_both_libs:
+		tgt = get_obj_both_libs(wk, tgt)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target:
 		private_path = get_cstr(wk, get_obj_build_target(wk, tgt)->private_path);
 		break;

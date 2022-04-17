@@ -274,6 +274,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	enum obj_type t = get_obj_type(wk, val);
 
 	switch (t) {
+	case obj_both_libs:
 	case obj_build_target:
 	case obj_external_program:
 	case obj_file: {
@@ -620,7 +621,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list, },
 		[kw_output] = { "output", ARG_TYPE_ARRAY_OF | tc_string, .required = true },
-		[kw_command] = { "command", tc_command_array, .required = true },
+		[kw_command] = { "command", tc_command_array | tc_both_libs, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },

@@ -135,6 +135,9 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_string:
 		obj_array_push(wk, ctx->dest, val);
 		break;
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (!tgt->generated_pc) {
@@ -224,6 +227,9 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->pc->libs[ctx->vis], lib);
 		break;
 	}
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (tgt->generated_pc) {
@@ -680,8 +686,8 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		kw_conflicts,
 	};
 	const enum obj_typechecking_type
-		tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target,
-		tc_requires = tc_string | tc_build_target | tc_dependency;
+		tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target | tc_both_libs,
+		tc_requires = tc_string | tc_build_target | tc_dependency | tc_both_libs;
 
 	struct args_kw akw[] = {
 		[kw_name] = { "name", obj_string },

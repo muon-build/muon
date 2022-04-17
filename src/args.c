@@ -257,6 +257,9 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		}
 		str = get_obj_alias_target(wk, src)->name;
 		break;
+	case obj_both_libs:
+		src = get_obj_both_libs(wk, src)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		if (!(ctx->mode & arr_to_args_build_target)) {
 			goto type_err;

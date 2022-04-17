@@ -33,6 +33,7 @@ check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	}
 	case obj_alias_target:
 	case obj_build_target:
+	case obj_both_libs:
 		break;
 	default:
 		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
@@ -51,6 +52,9 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	switch (t) {
 	case obj_alias_target:
 		return ninja_write_alias_tgt(wk, tgt_id, ctx);
+	case obj_both_libs:
+		tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target:
 		return ninja_write_build_tgt(wk, tgt_id, ctx);
 	case obj_custom_target:

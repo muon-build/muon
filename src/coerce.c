@@ -207,6 +207,9 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 	case obj_file:
 		str = *get_obj_file(wk, val);
 		break;
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
 		char tmp1[PATH_MAX], dest[PATH_MAX];
@@ -376,6 +379,9 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	}
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		if (ctx->mode == mode_output) {
 			goto type_error;

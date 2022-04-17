@@ -87,17 +87,17 @@ enum obj_typechecking_type {
 	tc_alias_target       = obj_typechecking_type_tag | (1 << 24),
 	tc_both_libs          = obj_typechecking_type_tag | (1 << 25),
 
-	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target,
+	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs,
 	tc_dep                = tc_dependency | tc_external_library,
 
 	tc_coercible_env      = tc_environment | tc_string | tc_array | tc_dict,
-	tc_coercible_files    = tc_string | tc_custom_target | tc_build_target | tc_file,
+	tc_coercible_files    = tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs,
 	tc_coercible_inc      = tc_string | tc_include_directory,
 	tc_command_array      = ARG_TYPE_ARRAY_OF | tc_exe,
-	tc_depends_kw         = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target,
+	tc_depends_kw         = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_both_libs,
 	tc_install_mode_kw    = ARG_TYPE_ARRAY_OF | tc_string | tc_number | tc_bool,
 	tc_required_kw        = tc_bool | tc_feature_opt,
-	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_string,
+	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_string | tc_both_libs,
 	tc_message            = ARG_TYPE_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict, // doesn't handle nested types
 };
 

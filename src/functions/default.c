@@ -1461,6 +1461,9 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	struct alias_target_iter_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target:
@@ -1478,7 +1481,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_build_target | tc_custom_target | tc_alias_target }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

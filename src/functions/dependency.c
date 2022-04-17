@@ -54,6 +54,9 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	/* obj_fprintf(wk, log_file(), "%d|lw-dep: %o\n", ctx->recursion_depth, val); */
 
 	switch (t) {
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+		/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		const char *path = get_cstr(wk, tgt->build_path);
