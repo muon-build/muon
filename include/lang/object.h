@@ -396,6 +396,7 @@ struct obj_generated_list {
 
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
+uint32_t obj_type_to_tc_type(enum obj_type t);
 
 bool get_obj_bool(struct workspace *wk, obj o);
 void set_obj_bool(struct workspace *wk, obj o, bool v);

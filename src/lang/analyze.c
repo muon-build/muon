@@ -67,19 +67,6 @@ make_typeinfo(struct workspace *wk, uint32_t t, uint32_t sub_t)
 	return res;
 }
 
-static uint32_t
-obj_type_to_tc_type(enum obj_type t)
-{
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-		if (t == typemap[i].type) {
-			return typemap[i].tc;
-		}
-	}
-
-	UNREACHABLE_RETURN;
-}
-
 static void
 merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 {

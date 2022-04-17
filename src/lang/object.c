@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "lang/interpreter.h"
 #include "lang/object.h"
 #include "lang/parser.h"
@@ -40,6 +41,19 @@ const struct obj_typechecking_type_to_obj_type typemap[] = {
 	{ obj_both_libs, tc_both_libs },
 	{ obj_disabler, tc_disabler },
 };
+
+uint32_t
+obj_type_to_tc_type(enum obj_type t)
+{
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
+		if (t == typemap[i].type) {
+			return typemap[i].tc;
+		}
+	}
+
+	UNREACHABLE_RETURN;
+}
 
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
