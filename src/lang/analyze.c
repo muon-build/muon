@@ -103,6 +103,15 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 	}
 
 	if (t & obj_typechecking_type_tag) {
+		if (t == tc_disabler) {
+			interp_warning(wk, n_id, "this expression is always disabled");
+			*res = make_typeinfo(wk, tc_disabler, 0);
+			return;
+		} else if ((t & tc_disabler) == tc_disabler) {
+			t &= ~tc_disabler;
+			t |= obj_typechecking_type_tag;
+		}
+
 		struct obj_typeinfo res_t = { 0 };
 
 		if (typemask) {

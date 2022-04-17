@@ -118,6 +118,9 @@ typecheck_typechecking_type(struct workspace *wk, uint32_t n_id,
 	enum obj_type got, enum obj_typechecking_type type, const char *fmt)
 {
 	uint32_t i;
+
+	type |= tc_disabler; // always allow disabler type
+
 	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
 		if ((type & typemap[i].tc) != typemap[i].tc) {
 			continue;
@@ -137,7 +140,16 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 
 	if (got == obj_typeinfo) {
 		struct obj_typeinfo *ti = get_obj_typeinfo(wk, obj_id);
-		got = ti->type;
+		uint32_t got = ti->type;
+		uint32_t t = type;
+
+		if (!(t & obj_typechecking_type_tag)) {
+			if (type == obj_any) {
+				t = tc_any;
+			} else {
+				t = obj_type_to_tc_type(type);
+			}
+		}
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
@@ -145,26 +157,16 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 				continue;
 			}
 
-			if ((type & obj_typechecking_type_tag)) {
-				if (typecheck_typechecking_type(wk, n_id, typemap[i].type,
-					(enum obj_typechecking_type)type, fmt)) {
-					return true;
-				}
-			} else if (type == obj_any || typemap[i].type == type) {
+			if (typecheck_typechecking_type(wk, n_id, typemap[i].type,
+				t, fmt)) {
 				return true;
 			}
 		}
 
 		if (fmt) {
-			if ((type & obj_typechecking_type_tag)) {
-				interp_error(wk, n_id, fmt,
-					typechecking_type_to_s(wk, (enum obj_typechecking_type)type),
-					typechecking_type_to_s(wk, (enum obj_typechecking_type)got));
-			} else {
-				interp_error(wk, n_id, fmt,
-					obj_type_to_s(type),
-					typechecking_type_to_s(wk, (enum obj_typechecking_type)got));
-			}
+			interp_error(wk, n_id, fmt,
+				typechecking_type_to_s(wk, t),
+				typechecking_type_to_s(wk, got));
 		}
 		return false;
 	} else if ((type & obj_typechecking_type_tag)) {
