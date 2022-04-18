@@ -163,11 +163,11 @@ assign_lookup_scope(const char *name, struct darr *scope)
 static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
-	uint32_t i;
+	int32_t i;
 	uint32_t id;
 	struct assignment *found = NULL;
 
-	for (i = 0; i < assignment_scopes.groups.len; ++i) {
+	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
 		struct scope_group *g = darr_get(&assignment_scopes.groups, i);
 		if (!(g->scopes.len)) {
 			continue;
@@ -182,17 +182,14 @@ assign_lookup(struct workspace *wk, const char *name)
 	if (!found && wk->projects.len && get_obj_id(wk, name, &id, wk->cur_project)) {
 		found = darr_get(&assignment_scopes.base, id);
 	}
-
 	return found;
 }
 
 static struct assignment *
 scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
-	struct assignment *a;
-	if ((a = assign_lookup(wk, name))) {
-		a->o = o;
-		return a;
+	if (!o) {
+		interp_error(wk, n_id, "assigning variable to null");
 	}
 
 	struct darr *s;
@@ -203,6 +200,12 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		s = darr_get(&g->scopes, g->scopes.len - 1);
 	} else {
 		s = &assignment_scopes.base;
+	}
+
+	struct assignment *a;
+	if ((a = assign_lookup_scope(name, s))) {
+		a->o = o;
+		return a;
 	}
 
 	// builtin variables don't have a source location
@@ -284,14 +287,23 @@ pop_scope_group(struct workspace *wk)
 		}
 	}
 
-	for (i = 0; i < base->len; ++i) {
-		struct assignment *a = darr_get(base, i),
-				  *b = scope_assign(wk, a->name, a->o, 0);
 
-		b->accessed = a->accessed;
-		b->line = a->line;
-		b->col = a->col;
-		b->src_idx = a->src_idx;
+	for (i = 0; i < base->len; ++i) {
+		struct assignment *a = darr_get(base, i), *b;
+
+		if ((b = assign_lookup(wk, a->name))) {
+			if (get_obj_type(wk, b->o) != obj_typeinfo) {
+				b->o = make_typeinfo(wk, obj_type_to_tc_type(get_obj_type(wk, b->o)), 0);
+			}
+
+			merge_types(wk, get_obj_typeinfo(wk, b->o), a->o);
+		} else {
+			b = scope_assign(wk, a->name, a->o, 0);
+			b->accessed = a->accessed;
+			b->line = a->line;
+			b->col = a->col;
+			b->src_idx = a->src_idx;
+		}
 	}
 
 	for (i = 0; i < g->scopes.len; ++i) {
@@ -946,10 +958,6 @@ analyze_assign(struct workspace *wk, struct node *n)
 	if (!wk->interp_node(wk, n->r, &rhs)) {
 		ret = false;
 		rhs = make_typeinfo(wk, tc_any, 0);
-	}
-
-	if (!rhs) {
-		interp_error(wk, n->l, "assigning variable to null");
 	}
 
 	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l);
