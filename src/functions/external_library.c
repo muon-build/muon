@@ -18,6 +18,6 @@ func_external_library_found(struct workspace *wk, obj rcvr, uint32_t args_node, 
 }
 
 const struct func_impl_name impl_tbl_external_library[] = {
-	{ "found", func_external_library_found },
+	{ "found", func_external_library_found, tc_bool },
 	{ NULL, NULL },
 };

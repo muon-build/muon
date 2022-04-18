@@ -270,12 +270,12 @@ func_build_target_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 }
 
 const struct func_impl_name impl_tbl_build_target[] = {
-	{ "extract_all_objects", func_build_target_extract_all_objects },
-	{ "extract_objects", func_build_target_extract_objects },
-	{ "found", func_build_target_found },
-	{ "full_path", func_build_target_full_path },
-	{ "name", func_build_target_name },
-	{ "path", func_build_target_full_path },
-	{ "private_dir_include", func_build_target_private_dir_include },
+	{ "extract_all_objects", func_build_target_extract_all_objects, tc_array },
+	{ "extract_objects", func_build_target_extract_objects, tc_array },
+	{ "found", func_build_target_found, tc_bool },
+	{ "full_path", func_build_target_full_path, tc_string },
+	{ "name", func_build_target_name, tc_string },
+	{ "path", func_build_target_full_path, tc_string },
+	{ "private_dir_include", func_build_target_private_dir_include, tc_string },
 	{ NULL, NULL },
 };

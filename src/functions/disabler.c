@@ -18,6 +18,6 @@ func_disabler_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 const struct func_impl_name impl_tbl_disabler[] = {
-	{ "found", func_disabler_found },
+	{ "found", func_disabler_found, tc_bool },
 	{ NULL, NULL },
 };

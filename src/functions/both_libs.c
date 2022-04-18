@@ -110,14 +110,14 @@ func_both_libs_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args
 }
 
 const struct func_impl_name impl_tbl_both_libs[] = {
-	{ "get_shared_lib", func_both_libs_get_shared_lib },
-	{ "get_static_lib", func_both_libs_get_static_lib },
-	{ "found", func_both_libs_found },
-	{ "full_path", func_both_libs_full_path },
-	{ "path", func_both_libs_full_path },
-	{ "name", func_both_libs_name },
-	{ "private_dir_include", func_both_libs_private_dir_include },
-	{ "extract_objects", func_both_libs_extract_objects },
-	{ "extract_all_objects", func_both_libs_extract_all_objects },
+	{ "extract_all_objects", func_both_libs_extract_all_objects, tc_array },
+	{ "extract_objects", func_both_libs_extract_objects, tc_array },
+	{ "found", func_both_libs_found, tc_bool },
+	{ "full_path", func_both_libs_full_path, tc_string },
+	{ "get_shared_lib", func_both_libs_get_shared_lib, tc_build_target },
+	{ "get_static_lib", func_both_libs_get_static_lib, tc_build_target },
+	{ "name", func_both_libs_name, tc_string },
+	{ "path", func_both_libs_full_path, tc_string },
+	{ "private_dir_include", func_both_libs_private_dir_include, tc_string },
 	{ NULL, NULL },
 };

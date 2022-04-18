@@ -188,10 +188,10 @@ func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, 
 }
 
 const struct func_impl_name impl_tbl_configuration_data[] = {
-	{ "get", func_configuration_data_get },
-	{ "get_unquoted", func_configuration_data_get_unquoted },
-	{ "has", func_configuration_data_has },
-	{ "keys", func_configuration_data_keys },
+	{ "get", func_configuration_data_get, tc_any },
+	{ "get_unquoted", func_configuration_data_get_unquoted, tc_any },
+	{ "has", func_configuration_data_has, tc_bool },
+	{ "keys", func_configuration_data_keys, tc_array },
 	{ "set", func_configuration_data_set },
 	{ "set10", func_configuration_data_set10 },
 	{ "set_quoted", func_configuration_data_set_quoted },

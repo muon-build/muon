@@ -39,8 +39,8 @@ func_feature_opt_enabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 }
 
 const struct func_impl_name impl_tbl_feature_opt[] = {
-	{ "auto", func_feature_opt_auto },
-	{ "disabled", func_feature_opt_disabled },
-	{ "enabled", func_feature_opt_enabled },
+	{ "auto", func_feature_opt_auto, tc_bool },
+	{ "disabled", func_feature_opt_disabled, tc_bool },
+	{ "enabled", func_feature_opt_enabled, tc_bool },
 	{ NULL, NULL },
 };

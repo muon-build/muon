@@ -43,8 +43,8 @@ func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 const struct func_impl_name impl_tbl_number[] = {
-	{ "to_string", func_number_to_string },
-	{ "is_even", func_number_is_even },
-	{ "is_odd", func_number_is_odd },
+	{ "to_string", func_number_to_string, tc_string },
+	{ "is_even", func_number_is_even, tc_bool },
+	{ "is_odd", func_number_is_odd, tc_bool },
 	{ NULL, NULL },
 };

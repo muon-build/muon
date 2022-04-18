@@ -57,5 +57,11 @@ module_lookup_func(const char *name, enum module mod, func_impl *res)
 		return true;
 	}
 
-	return func_lookup(module_func_tbl[mod], name, res);
+	const struct func_impl_name *fi;
+	if (!(fi = func_lookup(module_func_tbl[mod], name))) {
+		return false;
+	}
+
+	*res = fi->func;
+	return true;
 }

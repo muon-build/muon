@@ -112,9 +112,9 @@ func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 const struct func_impl_name impl_tbl_machine[] = {
-	{ "cpu", func_machine_cpu },
-	{ "cpu_family", func_machine_cpu_family },
-	{ "endian", func_machine_endian },
-	{ "system", func_machine_system },
+	{ "cpu", func_machine_cpu, tc_string },
+	{ "cpu_family", func_machine_cpu_family, tc_string },
+	{ "endian", func_machine_endian, tc_string },
+	{ "system", func_machine_system, tc_string },
 	{ NULL, NULL },
 };

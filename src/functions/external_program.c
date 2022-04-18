@@ -29,8 +29,8 @@ func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 const struct func_impl_name impl_tbl_external_program[] = {
-	{ "found", func_external_program_found },
-	{ "path", func_external_program_path },
-	{ "full_path", func_external_program_path },
+	{ "found", func_external_program_found, tc_bool },
+	{ "path", func_external_program_path, tc_string },
+	{ "full_path", func_external_program_path, tc_string },
 	{ NULL, NULL },
 };

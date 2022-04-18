@@ -38,7 +38,7 @@ func_boolean_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 const struct func_impl_name impl_tbl_boolean[] = {
-	{ "to_int", func_boolean_to_int },
-	{ "to_string", func_boolean_to_string },
+	{ "to_int", func_boolean_to_int, tc_number },
+	{ "to_string", func_boolean_to_string, tc_string },
 	{ NULL, NULL },
 };

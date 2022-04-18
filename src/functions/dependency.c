@@ -539,14 +539,14 @@ func_dependency_include_type(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 const struct func_impl_name impl_tbl_dependency[] = {
-	{ "as_system", func_dependency_as_system },
-	{ "found", func_dependency_found },
-	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable },
-	{ "get_variable", func_dependency_get_variable },
-	{ "include_type", func_dependency_include_type },
-	{ "partial_dependency", func_dependency_partial_dependency },
-	{ "type_name", func_dependency_type_name },
-	{ "name", func_dependency_name },
-	{ "version", func_dependency_version },
+	{ "as_system", func_dependency_as_system, tc_dependency },
+	{ "found", func_dependency_found, tc_bool },
+	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable, tc_string },
+	{ "get_variable", func_dependency_get_variable, tc_string },
+	{ "include_type", func_dependency_include_type, tc_string },
+	{ "partial_dependency", func_dependency_partial_dependency, tc_dependency },
+	{ "type_name", func_dependency_type_name, tc_string },
+	{ "name", func_dependency_name, tc_string },
+	{ "version", func_dependency_version, tc_string },
 	{ NULL, NULL },
 };
