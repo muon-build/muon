@@ -54,6 +54,14 @@ enum compiler_warning_lvl {
 	compiler_warning_lvl_3,
 };
 
+enum compiler_visibility_type {
+	compiler_visibility_default,
+	compiler_visibility_hidden,
+	compiler_visibility_internal,
+	compiler_visibility_protected,
+	compiler_visibility_inlineshidden,
+};
+
 typedef const struct args *((*compiler_get_arg_func_0)(void));
 typedef const struct args *((*compiler_get_arg_func_1i)(uint32_t));
 typedef const struct args *((*compiler_get_arg_func_1s)(const char *));
@@ -75,6 +83,7 @@ struct compiler {
 		compiler_get_arg_func_0 pic;
 		compiler_get_arg_func_1s sanitize;
 		compiler_get_arg_func_1s define;
+		compiler_get_arg_func_1i visibility;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;

@@ -466,6 +466,37 @@ compiler_gcc_args_sanitize(const char *sanitizers)
 	return &args;
 }
 
+static const struct args *
+compiler_gcc_args_visibility(uint32_t type)
+{
+	COMPILER_ARGS({ NULL, NULL });
+
+	args.len = 1;
+
+	switch ((enum compiler_visibility_type)type) {
+	case compiler_visibility_default:
+		argv[0] = "-fvisibility=default";
+		break;
+	case compiler_visibility_internal:
+		argv[0] = "-fvisibility=internal";
+		break;
+	case compiler_visibility_protected:
+		argv[0] = "-fvisibility=protected";
+		break;
+	case compiler_visibility_inlineshidden:
+		argv[1] = "-fvisibility-inlines-hidden";
+		++args.len;
+		// fallthrough
+	case compiler_visibility_hidden:
+		argv[0] = "-fvisibility=hidden";
+		break;
+	default:
+		assert(false && "unreachable");
+	}
+
+	return &args;
+}
+
 compiler_get_arg_func_0 as_needed;
 compiler_get_arg_func_0 no_undefined;
 compiler_get_arg_func_0 start_group;
@@ -533,6 +564,7 @@ build_compilers(void)
 			.pic             = compiler_arg_empty_0,
 			.sanitize        = compiler_arg_empty_1s,
 			.define          = compiler_arg_empty_1s,
+			.visibility      = compiler_arg_empty_1i,
 		}
 	};
 
@@ -557,6 +589,7 @@ build_compilers(void)
 	gcc.args.include_system = compiler_gcc_args_include_system;
 	gcc.args.pic = compiler_gcc_args_pic;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
+	gcc.args.visibility = compiler_gcc_args_visibility;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 
@@ -567,7 +600,6 @@ build_compilers(void)
 	compilers[compiler_gcc] = gcc;
 	compilers[compiler_clang] = gcc;
 	compilers[compiler_apple_clang] = apple_clang;
-
 }
 
 static const struct args *

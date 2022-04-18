@@ -37,7 +37,7 @@ enum build_target_kwargs {
 	bt_kw_install_rpath, // TODO
 	bt_kw_export_dynamic,
 	bt_kw_vs_module_defs, // TODO
-	bt_kw_gnu_symbol_visibility, // TODO
+	bt_kw_gnu_symbol_visibility,
 	bt_kw_native, // TODO
 	bt_kw_darwin_versions, // TODO
 	bt_kw_gui_app, // TODO
@@ -347,6 +347,27 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (!akw[bt_kw_build_by_default].set || get_obj_bool(wk, akw[bt_kw_build_by_default].val)) {
 			tgt->flags |= build_tgt_flag_build_by_default;
+		}
+
+		struct args_kw *vis = &akw[bt_kw_gnu_symbol_visibility];
+		if (vis->set && get_str(wk, vis->val)->len) {
+			const struct str *str = get_str(wk, vis->val);
+			if (str_eql(str, &WKSTR("default"))) {
+				tgt->visibility = compiler_visibility_default;
+			} else if (str_eql(str, &WKSTR("hidden"))) {
+				tgt->visibility = compiler_visibility_hidden;
+			} else if (str_eql(str, &WKSTR("internal"))) {
+				tgt->visibility = compiler_visibility_internal;
+			} else if (str_eql(str, &WKSTR("protected"))) {
+				tgt->visibility = compiler_visibility_protected;
+			} else if (str_eql(str, &WKSTR("inlineshidden"))) {
+				tgt->visibility = compiler_visibility_inlineshidden;
+			} else {
+				interp_error(wk, vis->node, "unknown visibility '%s'", get_cstr(wk, vis->val));
+				return false;
+			}
+
+			tgt->flags |= build_tgt_flag_visibility;
 		}
 	}
 

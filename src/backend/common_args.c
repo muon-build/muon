@@ -317,6 +317,10 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
+	if (ctx->tgt->flags & build_tgt_flag_visibility) {
+		push_args(wk, args, compilers[t].args.visibility(ctx->tgt->visibility));
+	}
+
 	obj_dict_seti(wk, ctx->joined_args, lang, join_args_shell_ninja(wk, args));
 	return ir_cont;
 }

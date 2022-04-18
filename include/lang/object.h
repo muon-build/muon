@@ -185,6 +185,7 @@ enum build_tgt_flags {
 	build_tgt_flag_pic = 1 << 2,
 	build_tgt_generated_include = 1 << 3,
 	build_tgt_flag_build_by_default = 1 << 4,
+	build_tgt_flag_visibility = 1 << 5,
 };
 
 struct obj_build_target {
@@ -205,6 +206,7 @@ struct obj_build_target {
 	obj order_deps; // obj_array
 	obj generated_pc; // obj_string
 
+	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
 	enum tgt_type type;
 };
