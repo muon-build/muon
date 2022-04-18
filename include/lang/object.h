@@ -88,6 +88,15 @@ enum obj_typechecking_type {
 	tc_alias_target       = obj_typechecking_type_tag | (1 << 24),
 	tc_both_libs          = obj_typechecking_type_tag | (1 << 25),
 
+	tc_any = tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict
+		 | tc_compiler | tc_build_target | tc_custom_target
+		 | tc_subproject | tc_dependency | tc_feature_opt
+		 | tc_external_program | tc_external_library | tc_run_result
+		 | tc_configuration_data | tc_test | tc_module
+		 | tc_install_target | tc_environment | tc_include_directory
+		 | tc_option | tc_generator | tc_generated_list
+		 | tc_alias_target | tc_both_libs,
+
 	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs,
 	tc_dep                = tc_dependency | tc_external_library,
 
