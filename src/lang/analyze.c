@@ -1182,7 +1182,7 @@ do_analyze(void)
 		uint32_t i;
 		for (i = 0; i < assignment_scopes.base.len; ++i) {
 			struct assignment *a = darr_get(&assignment_scopes.base, i);
-			if (!a->default_var && !a->accessed) {
+			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				error_diagnostic_store_push(a->src_idx, a->line, a->col, log_warn, msg);
 				/* res = false; */
