@@ -987,9 +987,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	struct node *n = get_node(wk->ast, n_id);
 	/* L("analyzing node '%s'", node_to_s(n)); */
 
-	++wk->stack_depth;
 	if (wk->loop_ctl) {
-		--wk->stack_depth;
 		return true;
 	}
 
@@ -1106,7 +1104,6 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		UNREACHABLE_RETURN;
 	}
 
-	--wk->stack_depth;
 	if (!ret) {
 		analyze_error = true;
 	}

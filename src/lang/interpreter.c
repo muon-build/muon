@@ -1096,15 +1096,6 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 bool
 interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 {
-	static const uint32_t maximum_stack_depth = 1000;
-
-	++wk->stack_depth;
-	if (wk->stack_depth > maximum_stack_depth) {
-		interp_error(wk, n_id, "stack overflow");
-		--wk->stack_depth;
-		return false;
-	}
-
 	bool ret = false;
 	*res = 0;
 
@@ -1116,7 +1107,6 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	if (wk->loop_ctl) {
-		--wk->stack_depth;
 		return true;
 	}
 
@@ -1244,6 +1234,5 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	}
 
-	--wk->stack_depth;
 	return ret;
 }
