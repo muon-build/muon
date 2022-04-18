@@ -146,7 +146,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  file_
 
 ## internal repl
-	*muon* *internal* *exe*
+	*muon* *internal* *repl*
 
 	Start a _meson dsl_ repl.  The functions available are limited as with
 	*internal eval*.
