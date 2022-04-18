@@ -1467,7 +1467,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (t) {
 	case obj_both_libs:
 		val = get_obj_both_libs(wk, val)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target:
@@ -1572,7 +1572,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "assert", func_assert },
 	{ "benchmark", todo },
 	{ "both_libraries", func_both_libraries, tc_both_libs },
-	{ "build_target", func_build_target, tc_build_target },
+	{ "build_target", func_build_target, tc_build_target | tc_both_libs },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },
 	{ "configure_file", func_configure_file, tc_file },
 	{ "custom_target", func_custom_target, tc_custom_target },
@@ -1596,7 +1596,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "is_disabler", func_is_disabler, tc_bool, true },
 	{ "is_variable", func_is_variable, tc_bool, true },
 	{ "join_paths", func_join_paths, tc_string, true },
-	{ "library", func_library, tc_build_target },
+	{ "library", func_library, tc_build_target | tc_both_libs },
 	{ "message", func_message },
 	{ "project", func_project },
 	{ "range", func_range, tc_array, true },
