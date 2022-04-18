@@ -944,6 +944,7 @@ interp_if(struct workspace *wk, struct node *n, obj *res)
 
 struct interp_foreach_ctx {
 	const char *id1, *id2;
+	uint32_t n_l, n_r;
 	uint32_t block_node;
 };
 
@@ -979,8 +980,8 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, k_id, 0);
-	wk->assign_variable(wk, ctx->id2, v_id, 0);
+	wk->assign_variable(wk, ctx->id1, k_id, ctx->n_l);
+	wk->assign_variable(wk, ctx->id2, v_id, ctx->n_r);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -990,7 +991,7 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, v_id, 0);
+	wk->assign_variable(wk, ctx->id1, v_id, ctx->n_l);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -1016,6 +1017,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 
 		struct interp_foreach_ctx ctx = {
 			.id1 = get_node(wk->ast, args->l)->dat.s,
+			.n_l = args->l,
 			.block_node = n->c,
 		};
 
@@ -1037,6 +1039,8 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 		struct interp_foreach_ctx ctx = {
 			.id1 = get_node(wk->ast, args->l)->dat.s,
 			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->dat.s,
+			.n_l = args->l,
+			.n_r = get_node(wk->ast, args->r)->l,
 			.block_node = n->c,
 		};
 
