@@ -96,6 +96,10 @@ typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type)
 const char *
 typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t)
 {
+	if (t == tc_any) {
+		return "any";
+	}
+
 	obj expected_types;
 	make_obj(wk, &expected_types, obj_array);
 	uint32_t i;
