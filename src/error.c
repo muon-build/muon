@@ -86,7 +86,7 @@ error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col, enum 
 }
 
 static int32_t
-error_diagnostic_store_sort(const void *_a, const void *_b, void *ctx)
+error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 {
 	const struct error_diagnostic_message *a = _a, *b = _b;
 
@@ -99,7 +99,7 @@ error_diagnostic_store_sort(const void *_a, const void *_b, void *ctx)
 	} else if (a->lvl != b->lvl) {
 		return (int32_t)a->lvl - (int32_t)b->lvl;
 	} else {
-		return 0;
+		return strcmp(a->msg, b->msg);
 	}
 }
 
@@ -112,9 +112,32 @@ error_diagnostic_store_replay(void)
 	struct error_diagnostic_message *msg;
 	struct error_diagnostic_source *last_src = NULL, *cur_src;
 
-	darr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_sort);
+	darr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
 
-	for (i = 0; i < error_diagnostic_store.messages.len; ++i) {
+	size_t tail;
+	if (error_diagnostic_store.messages.len > 1) {
+		struct error_diagnostic_message *prev_msg, tmp;
+		tail = error_diagnostic_store.messages.len;
+
+		uint32_t initial_len = error_diagnostic_store.messages.len;
+		msg = darr_get(&error_diagnostic_store.messages, 0);
+		darr_push(&error_diagnostic_store.messages, msg);
+		for (i = 1; i < initial_len; ++i) {
+			prev_msg = darr_get(&error_diagnostic_store.messages, i - 1);
+			msg = darr_get(&error_diagnostic_store.messages, i);
+
+			if (error_diagnostic_store_compare(prev_msg, msg, NULL) == 0) {
+				continue;
+			}
+
+			tmp = *msg;
+			darr_push(&error_diagnostic_store.messages, &tmp);
+		}
+	} else {
+		tail = 0;
+	}
+
+	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = darr_get(&error_diagnostic_store.messages, i);
 
 		if ((cur_src = darr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
