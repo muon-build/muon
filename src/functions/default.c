@@ -1567,10 +1567,10 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "add_languages", func_add_languages, tc_bool },
 	{ "add_project_arguments", func_add_project_arguments },
 	{ "add_project_link_arguments", func_add_project_link_arguments },
-	{ "add_test_setup", todo },
+	/* { "add_test_setup", }, */
 	{ "alias_target", func_alias_target, tc_alias_target },
 	{ "assert", func_assert },
-	{ "benchmark", todo },
+	/* { "benchmark",  }, */
 	{ "both_libraries", func_both_libraries, tc_both_libs },
 	{ "build_target", func_build_target, tc_build_target | tc_both_libs },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },

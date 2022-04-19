@@ -570,17 +570,6 @@ end:
 	return true;
 }
 
-bool
-todo(struct workspace *wk, obj rcvr_id, uint32_t args_node, obj *res)
-{
-	if (rcvr_id) {
-		LOG_E("method on %s not implemented", obj_type_to_s(get_obj_type(wk, rcvr_id)));
-	} else {
-		LOG_E("function not implemented");
-	}
-	return false;
-}
-
 const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_default] = { impl_tbl_default, impl_tbl_default_external, impl_tbl_default_opts },
 	[obj_meson] = { impl_tbl_meson, },

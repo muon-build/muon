@@ -20,7 +20,6 @@ struct args_kw { const char *key; uint32_t type; obj val, node; bool set; bool r
 
 extern bool disabler_among_args_immunity;
 
-bool todo(struct workspace *wk, obj rcvr_id, uint32_t args_node, obj *res);
 const struct func_impl_name *func_lookup(const struct func_impl_name *impl_tbl, const char *name);
 
 bool interp_args(struct workspace *wk, uint32_t args_node,
