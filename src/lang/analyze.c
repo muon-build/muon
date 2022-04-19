@@ -318,6 +318,42 @@ pop_scope_group(struct workspace *wk)
  */
 
 static bool
+analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t args_node)
+{
+	bool ret = true;
+	struct node *args = get_node(wk->ast, args_node);
+	bool had_kwargs = false;
+	obj res;
+	uint32_t val_node;
+
+	while (args->type != node_empty) {
+		if (args->subtype == arg_kwarg) {
+			had_kwargs = true;
+			val_node = args->r;
+		} else {
+			if (had_kwargs) {
+				interp_error(wk, args_node, "non-kwarg after kwargs");
+				ret = false;
+			}
+			val_node = args->l;
+		}
+
+		if (!wk->interp_node(wk, val_node, &res)) {
+			ret = false;
+		}
+
+		if (args->chflg & node_child_c) {
+			args_node = args->c;
+			args = get_node(wk->ast, args->c);
+		} else {
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static bool
 analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl_name *fi, obj rcvr, obj *res)
 {
 	bool ret = true;
@@ -431,6 +467,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 
 		if (ctx.found == 1) {
 			if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
+				analyze_all_function_arguments(wk, n_id, n->r);
 				ret = false;
 			}
 		} else if (ctx.found) {
@@ -438,6 +475,8 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 				tmp = make_typeinfo(wk, ctx.expected, 0);
 			}
 		} else if (!ctx.found) {
+			analyze_all_function_arguments(wk, n_id, n->c);
+
 			tmp = make_typeinfo(wk, tc_any, 0);
 			interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
 			ret = false;
@@ -495,9 +534,12 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 		interp_error(wk, n_id, "function %s not found", name);
 		ret = false;
 
+		analyze_all_function_arguments(wk, n_id, n->r);
+
 		tmp = make_typeinfo(wk, tc_any, 0);
 	} else {
 		if (!analyze_function_call(wk, n_id, n->r, fi, 0, &tmp)) {
+			analyze_all_function_arguments(wk, n_id, n->r);
 			ret = false;
 		}
 	}
