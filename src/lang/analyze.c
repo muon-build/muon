@@ -344,7 +344,7 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 
 		if (args->chflg & node_child_c) {
 			args_node = args->c;
-			args = get_node(wk->ast, args->c);
+			args = get_node(wk->ast, args_node);
 		} else {
 			break;
 		}
@@ -467,7 +467,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 
 		if (ctx.found == 1) {
 			if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
-				analyze_all_function_arguments(wk, n_id, n->r);
+				analyze_all_function_arguments(wk, n_id, n->c);
 				ret = false;
 			}
 		} else if (ctx.found) {
