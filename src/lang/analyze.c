@@ -475,11 +475,15 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 				tmp = make_typeinfo(wk, ctx.expected, 0);
 			}
 		} else if (!ctx.found) {
+			if (!(get_obj_type(wk, l_id) == obj_typeinfo &&
+			      get_obj_typeinfo(wk, l_id)->type  == tc_module)) {
+				interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
+				ret = false;
+			}
+
 			analyze_all_function_arguments(wk, n_id, n->c);
 
 			tmp = make_typeinfo(wk, tc_any, 0);
-			interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
-			ret = false;
 		}
 		break;
 	}
