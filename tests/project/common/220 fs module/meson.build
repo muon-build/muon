@@ -4,7 +4,11 @@ is_windows = build_machine.system() == 'windows'
 
 fs = import('fs')
 
-f = files('meson.build')
+# different from meson: files() stores absolute paths, but it seems the fs
+# functions work on the original relative part of the file,
+# e.g. fs.replace_suffix(files('meson.build'), '') -> 'meson'
+# in muon, it results in '/abs/path/to/file/meson'.
+f = ['meson.build']
 
 assert(fs.exists('meson.build'), 'Existing file reported as missing.')
 assert(not fs.exists('nonexisting'), 'Nonexisting file was found.')
