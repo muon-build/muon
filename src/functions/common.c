@@ -514,8 +514,6 @@ process_kwarg:
 
 end:
 	if (analyze_function_opts.do_analyze) {
-		// if we are analyzing arguments only return false to halt the
-		// function
 		bool typeinfo_among_args = false;
 
 		for (stage = 0; stage < 2; ++stage) {
@@ -564,6 +562,9 @@ end:
 		}
 
 		analyze_function_opts.encountered_error = false;
+		//
+		// if we are analyzing arguments only return false to halt the
+		// function
 		return false;
 	}
 
