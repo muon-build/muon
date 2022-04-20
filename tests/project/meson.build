@@ -85,7 +85,7 @@ tests = [
     ['common/84 plusassign'],
     ['common/85 skip subdir'],
     ['common/86 private include'],
-    ['common/87 default options', ['failing']],
+    ['common/87 default options'],
     ['common/88 dep fallback', ['failing']],
     ['common/89 default library'],
     ['common/90 gen extra', ['failing']],

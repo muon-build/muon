@@ -714,7 +714,9 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 		return ir_err;
 	}
 
+	bool oo_for_subproject = true;
 	if (!oo.proj) {
+		oo_for_subproject = false;
 		oo.proj = ctx->project_name;
 	}
 
@@ -726,7 +728,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	L("setting default_option %s", option_override_to_s(wk, &oo));
 
-	if (ctx->subproject) {
+	if (ctx->subproject || oo_for_subproject) {
 		darr_push(&wk->option_overrides, &oo);
 		return ir_cont;
 	}
