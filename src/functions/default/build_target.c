@@ -432,6 +432,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
+		obj deduped;
+		obj_array_dedup(wk, tgt->src, &deduped);
+		tgt->src = deduped;
+
 		if (!obj_array_foreach(wk, tgt->src, tgt, process_source_includes_iter)) {
 			return false;
 		}
