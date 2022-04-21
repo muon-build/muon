@@ -382,6 +382,12 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
+static bool
+obj_is_found_module(struct workspace *wk, obj o)
+{
+	return get_obj_type(wk, o) == obj_module && get_obj_module(wk, o)->found;
+}
+
 static void
 analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
 {
@@ -390,7 +396,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enu
 	const char *name = get_node(wk->ast, n->r)->dat.s;
 	const struct func_impl_name *fi;
 
-	if (rcvr_type == obj_module && get_obj_type(wk, ctx->l) != obj_typeinfo) {
+	if (rcvr_type == obj_module && obj_is_found_module(wk, ctx->l)) {
 		struct obj_module *m = get_obj_module(wk, ctx->l);
 		enum module mod = m->module;
 		if (!(fi = module_func_lookup(name, mod))) {
@@ -475,15 +481,17 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 				tmp = make_typeinfo(wk, ctx.expected, 0);
 			}
 		} else if (!ctx.found) {
-			if (!(get_obj_type(wk, l_id) == obj_typeinfo &&
-			      get_obj_typeinfo(wk, l_id)->type  == tc_module)) {
-				interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
-				ret = false;
-			}
-
 			analyze_all_function_arguments(wk, n_id, n->c);
 
-			tmp = make_typeinfo(wk, tc_any, 0);
+			if (!obj_is_found_module(wk, l_id) ||
+			    (get_obj_type(wk, l_id) == obj_typeinfo
+			     && get_obj_typeinfo(wk, l_id)->subtype  == tc_module)) {
+				tmp = make_typeinfo(wk, tc_any, tc_module);
+			} else {
+				interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
+				ret = false;
+				tmp = make_typeinfo(wk, tc_any, 0);
+			}
 		}
 		break;
 	}
