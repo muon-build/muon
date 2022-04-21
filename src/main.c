@@ -179,10 +179,26 @@ ret:
 static bool
 cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", NULL, 0)
+	struct analyze_opts opts = { 0 };
 
-	return do_analyze();
+	OPTSTART("luq") {
+		case 'l':
+			opts.subdir_error = true;
+			break;
+		case 'u':
+			opts.unused_variable_error = true;
+			break;
+		case 'q':
+			opts.silence_warnings = true;
+			break;
+	} OPTEND(argv[argi], "",
+		"  -l - optimize output for editor linter plugins\n"
+		"  -q - only report errors\n"
+		"  -u - error on unused variables\n"
+		,
+		NULL, 0)
+
+	return do_analyze(&opts);
 }
 
 static const char *cmd_subprojects_subprojects_dir = "subprojects";

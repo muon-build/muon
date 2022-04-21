@@ -22,6 +22,7 @@
 #include "platform/path.h"
 
 static bool analyze_error;
+static const struct analyze_opts *analyze_opts;
 
 struct assignment {
 	const char *name;
@@ -361,10 +362,9 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	bool old_analyze_error = analyze_error;
 	analyze_error = false;
 
-	if (!analyze_function(wk, fi, args_node, rcvr, &func_res)
-	    || analyze_error) {
-		if (!rcvr && strcmp(fi->name, "subdir") == 0) {
-			interp_error(wk, n_id, "in function %s", fi->name);
+	if (!analyze_function(wk, fi, args_node, rcvr, &func_res) || analyze_error) {
+		if (!rcvr && analyze_opts->subdir_error && strcmp(fi->name, "subdir") == 0) {
+			interp_error(wk, n_id, "in subdir");
 		}
 		ret = false;
 	}
@@ -1176,9 +1176,10 @@ assign_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t
 
 
 bool
-do_analyze(void)
+do_analyze(struct analyze_opts *opts)
 {
-	bool res = false;;
+	bool res = false;
+	analyze_opts = opts;
 	struct workspace wk;
 	workspace_init(&wk);
 
@@ -1227,13 +1228,17 @@ do_analyze(void)
 			struct assignment *a = darr_get(&assignment_scopes.base, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
-				error_diagnostic_store_push(a->src_idx, a->line, a->col, log_warn, msg);
-				/* res = false; */
+				enum log_level lvl = log_warn;
+				if (analyze_opts->unused_variable_error) {
+					lvl = log_error;
+					res = false;
+				}
+				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
 			}
 		}
 	}
 
-	error_diagnostic_store_replay();
+	error_diagnostic_store_replay(analyze_opts->silence_warnings);
 
 	if (analyze_error) {
 		res = false;

@@ -49,6 +49,12 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	Run a static analyzer on the current project.
 
+	*OPTIONS*:
+	- *-l* - Optimize output for editor linter plugins.  For example, a
+	  diagnostic is added for the subdir() callsite, so that the editor can
+	  highlight subdirs with errors in them.
+	- *-q* - only report errors
+	- *-u* - Error on unused variables, the default is to warn only.
 
 ## check
 	*muon* *check* [*-p*] <filename>

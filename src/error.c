@@ -104,7 +104,7 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 }
 
 void
-error_diagnostic_store_replay(void)
+error_diagnostic_store_replay(bool errors_only)
 {
 	error_diagnostic_store.init = false;
 
@@ -139,6 +139,10 @@ error_diagnostic_store_replay(void)
 
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = darr_get(&error_diagnostic_store.messages, i);
+
+		if (errors_only && msg->lvl != log_error) {
+			continue;
+		}
 
 		if ((cur_src = darr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
 			if (last_src) {
