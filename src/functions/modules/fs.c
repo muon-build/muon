@@ -426,7 +426,6 @@ func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 const struct func_impl_name impl_tbl_module_fs[] = {
-	{ "is_samepath", func_module_fs_is_samepath, tc_bool },
 	{ "as_posix", func_module_as_posix, tc_string },
 	{ "exists", func_module_fs_exists, tc_bool },
 	{ "expanduser", func_module_fs_expanduser, tc_string },
@@ -434,6 +433,7 @@ const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "is_absolute", func_module_fs_is_absolute, tc_bool },
 	{ "is_dir", func_module_fs_is_dir, tc_bool },
 	{ "is_file", func_module_fs_is_file, tc_bool },
+	{ "is_samepath", func_module_fs_is_samepath, tc_bool },
 	{ "is_symlink", func_module_fs_is_symlink, tc_bool },
 	{ "name", func_module_fs_name, tc_string },
 	{ "parent", func_module_fs_parent, tc_string },
