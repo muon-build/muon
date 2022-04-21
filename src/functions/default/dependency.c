@@ -58,9 +58,6 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	obj subproj_name, subproj_dep = 0, subproj;
 
 	switch (get_obj_array(wk, ctx->fallback)->len) {
-	case 0:
-		assert(false && "this should not be!");
-		break;
 	case 2:
 		obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 	/* FALLTHROUGH */
@@ -73,30 +70,33 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, ctx->versions, &subproj)) {
-		return false;
+		goto not_found;
 	}
 
 	if (!get_obj_subproject(wk, subproj)->found) {
-		*found = false;
-		return true;
+		goto not_found;
 	}
 
 	if (subproj_dep) {
 		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
-			return false;
+			goto not_found;
 		}
 	} else {
 		if (!obj_dict_index(wk, wk->dep_overrides, ctx->name, ctx->res)) {
-			interp_error(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
-			return false;
+			interp_warning(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
+			goto not_found;
 		}
 	}
 
-	if (!typecheck(wk, ctx->fallback_node, *ctx->res, obj_dependency)) {
-		return false;
+	if (get_obj_type(wk, *ctx->res) != obj_dependency) {
+		goto not_found;
 	}
 
 	*found = true;
+	return true;
+not_found:
+	*ctx->res = 0;
+	*found = false;
 	return true;
 }
 
@@ -148,11 +148,22 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		}
 	}
 
-	obj force_fallback_for;
-	get_option(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
+	bool force_fallback = false;
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-	if (!found && ctx->fallback && (wrap_mode == wrap_mode_forcefallback
-					|| obj_array_in(wk, force_fallback_for, ctx->name))) {
+
+	if (ctx->fallback) {
+		obj force_fallback_for, subproj_name, _;
+
+		get_option(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
+		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
+
+		force_fallback =
+			wrap_mode == wrap_mode_forcefallback
+			|| obj_array_in(wk, force_fallback_for, ctx->name)
+			|| obj_dict_index(wk, wk->subprojects, subproj_name, &_);
+	}
+
+	if (!found && force_fallback) {
 		if (!handle_dependency_fallback(wk, ctx, &found)) {
 			return false;
 		}

@@ -19,7 +19,6 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 
 	if (!wk->get_variable(wk, name, res, sub->id)) {
 		if (!fallback) {
-			interp_error(wk, node, "subproject does not define '%s'", name);
 			return false;
 		} else {
 			*res = fallback;
@@ -39,7 +38,11 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 		return false;
 	}
 
-	return subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, rcvr, res);
+	if (!subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, rcvr, res)) {
+		interp_error(wk, an[0].node, "subproject does not define '%s'", get_cstr(wk, an[0].val));
+		return false;
+	}
+	return true;
 }
 
 static bool
