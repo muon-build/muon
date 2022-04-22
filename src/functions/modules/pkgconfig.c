@@ -549,8 +549,8 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 		const char *install_dir = get_cstr(wk, install_dir_opt->val),
 			   *prefix = get_cstr(wk, pre);
 
-		if (path_is_subpath(install_dir, prefix)) {
-			if (!path_relative_to(rel, PATH_MAX, install_dir, prefix)) {
+		if (path_is_subpath(prefix, install_dir)) {
+			if (!path_relative_to(rel, PATH_MAX, prefix, install_dir)) {
 				return false;
 			}
 			path = rel;
