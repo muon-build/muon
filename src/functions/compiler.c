@@ -1311,16 +1311,21 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 static bool
 compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument, enum compile_mode mode)
 {
-	if (!typecheck(wk, err_node, arg, obj_string)) {
-		return ir_err;
-	}
-
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
 
 	obj args;
 	make_obj(wk, &args, obj_array);
-	obj_array_push(wk, args, arg);
+	if (get_obj_type(wk, arg) == obj_string) {
+		obj_array_push(wk, args, arg);
+	} else {
+		obj_array_extend(wk, args, arg);
+
+		obj str;
+		obj_array_join(wk, true, arg, make_str(wk, " "), &str);
+		arg = str;
+	}
+
 	push_args(wk, args, compilers[t].args.werror());
 
 	struct compiler_check_opts opts = {
@@ -1366,9 +1371,9 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, uint32_t glob, obj *res, enum compile_mode mode)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -1386,13 +1391,25 @@ compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 static bool
 func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, rcvr, args_node, 0, res, compile_mode_compile);
 }
 
 static bool
 func_compiler_has_link_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, res, compile_mode_link);
+	return compiler_has_argument_common(wk, rcvr, args_node, 0, res, compile_mode_link);
+}
+
+static bool
+func_compiler_has_multi_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_has_argument_common(wk, rcvr, args_node, ARG_TYPE_GLOB, res, compile_mode_compile);
+}
+
+static bool
+func_compiler_has_multi_link_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	return compiler_has_argument_common(wk, rcvr, args_node, ARG_TYPE_GLOB, res, compile_mode_link);
 }
 
 static bool
@@ -1663,6 +1680,8 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "get_supported_function_attributes", func_compiler_get_supported_function_attributes, tc_array },
 	{ "has_argument", func_compiler_has_argument, tc_bool },
 	{ "has_link_argument", func_compiler_has_link_argument, tc_bool },
+	{ "has_multi_arguments", func_compiler_has_multi_arguments, tc_bool },
+	{ "has_multi_link_arguments", func_compiler_has_multi_link_arguments, tc_bool },
 	{ "has_function", func_compiler_has_function, tc_bool },
 	{ "has_function_attribute", func_compiler_has_function_attribute, tc_bool },
 	{ "has_header", func_compiler_has_header, tc_bool },
