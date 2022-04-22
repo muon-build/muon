@@ -1246,7 +1246,7 @@ do_analyze(struct analyze_opts *opts)
 		}
 	}
 
-	error_diagnostic_store_replay(analyze_opts->silence_warnings);
+	error_diagnostic_store_replay(analyze_opts->replay_opts);
 
 	if (analyze_error) {
 		res = false;

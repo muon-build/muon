@@ -179,17 +179,20 @@ ret:
 static bool
 cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct analyze_opts opts = { 0 };
+	struct analyze_opts opts = {
+		.replay_opts = error_diagnostic_store_replay_include_sources,
+	};
 
 	OPTSTART("luq") {
 		case 'l':
 			opts.subdir_error = true;
+			opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
 			break;
 		case 'u':
 			opts.unused_variable_error = true;
 			break;
 		case 'q':
-			opts.silence_warnings = true;
+			opts.replay_opts |= error_diagnostic_store_replay_errors_only;
 			break;
 	} OPTEND(argv[argi], "",
 		"  -l - optimize output for editor linter plugins\n"

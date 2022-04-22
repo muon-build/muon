@@ -104,7 +104,7 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 }
 
 void
-error_diagnostic_store_replay(bool errors_only)
+error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 {
 	error_diagnostic_store.init = false;
 
@@ -137,26 +137,36 @@ error_diagnostic_store_replay(bool errors_only)
 		tail = 0;
 	}
 
+	struct source src = { 0 };
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = darr_get(&error_diagnostic_store.messages, i);
 
-		if (errors_only && msg->lvl != log_error) {
+		if ((opts & error_diagnostic_store_replay_errors_only)
+		    && msg->lvl != log_error) {
 			continue;
 		}
 
 		if ((cur_src = darr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
-			if (last_src) {
-				log_plain("\n");
+			if (opts & error_diagnostic_store_replay_include_sources) {
+				if (last_src) {
+					log_plain("\n");
+				}
+
+				log_plain("%s%s%s\n",
+					log_clr() ? "\033[31;1m" : "",
+					cur_src->src.label,
+					log_clr() ? "\033[0m" : "");
 			}
 
-			log_plain("%s%s%s\n",
-				log_clr() ? "\033[31;1m" : "",
-				cur_src->src.label,
-				log_clr() ? "\033[0m" : "");
 			last_src = cur_src;
+			src = cur_src->src;
+
+			if (!(opts & error_diagnostic_store_replay_include_sources)) {
+				src.len = 0;
+			}
 		}
 
-		error_message(&cur_src->src, msg->line, msg->col, msg->lvl, msg->msg);
+		error_message(&src, msg->line, msg->col, msg->lvl, msg->msg);
 
 		z_free((char *)msg->msg);
 	}

@@ -1,12 +1,13 @@
 #ifndef MUON_LANG_ANALYZE_H
 #define MUON_LANG_ANALYZE_H
 
+#include "error.h"
 #include "workspace.h"
 
 struct analyze_opts {
 	bool subdir_error,
-	     unused_variable_error,
-	     silence_warnings;
+	     unused_variable_error;
+	enum error_diagnostic_store_replay_opts replay_opts;
 };
 
 bool do_analyze(struct analyze_opts *opts);
