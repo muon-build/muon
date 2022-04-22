@@ -102,7 +102,7 @@ tests = [
     ['common/101 testframework options', ['failing']],
     ['common/102 extract same name'],
     ['common/103 has header symbol', ['failing']],
-    ['common/104 has arg', ['failing']],
+    ['common/104 has arg'],
     ['common/105 generatorcustom'],
     ['common/106 multiple dir configure file'],
     ['common/107 spaces backslash', ['failing']],
