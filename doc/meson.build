@@ -1,4 +1,3 @@
-sh = find_program('sh')
 scdoc = find_program('scdoc', required: get_option('docs'))
 
 if not scdoc.found()
