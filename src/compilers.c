@@ -42,6 +42,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_cpp] = "cpp",
 	[compiler_language_cpp_hdr] = "cpp_hdr",
 	[compiler_language_c_obj] = "c_obj",
+	[compiler_language_objc] = "objc",
 };
 
 const char *
