@@ -25,6 +25,7 @@ struct pkgconf_file {
 	obj cflags, conflicts;
 	obj builtin_dir_variables, variables;
 	obj reqs[2], libs[2];
+	obj exclude;
 	bool libs_contains_internal[2];
 
 	bool dataonly;
@@ -137,7 +138,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	case obj_both_libs:
 		val = get_obj_both_libs(wk, val)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (!tgt->generated_pc) {
@@ -190,13 +191,18 @@ struct module_pkgconf_process_libs_iter_ctx {
 	uint32_t err_node;
 	struct pkgconf_file *pc;
 	enum pkgconf_visibility vis;
-	bool private;
+	bool link_whole;
 };
+
+static bool module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
+	struct pkgconf_file *pc, enum pkgconf_visibility vis, bool link_whole);
 
 static enum iteration_result
 module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct module_pkgconf_process_libs_iter_ctx *ctx = _ctx;
+
+	/* obj_fprintf(wk, log_file(), "%o\n", val); */
 
 	switch (get_obj_type(wk, val)) {
 	case obj_string: {
@@ -229,7 +235,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_both_libs:
 		val = get_obj_both_libs(wk, val)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (tgt->generated_pc) {
@@ -241,30 +247,41 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 
 			if (tgt->deps) {
-				enum pkgconf_visibility ovis = ctx->vis;
-				ctx->vis = pkgconf_visibility_priv;
-				if (!obj_array_foreach(wk, tgt->deps, ctx, module_pkgconf_process_libs_iter)) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					tgt->deps, ctx->pc, pkgconf_visibility_priv, false)) {
 					return ir_err;
 				}
-				ctx->vis = ovis;
 			}
+
+			const enum pkgconf_visibility link_vis =
+				tgt->type == tgt_static_library
+				? pkgconf_visibility_pub
+				: pkgconf_visibility_priv;
 
 			if (tgt->link_with) {
-				enum pkgconf_visibility ovis = ctx->vis;
-				ctx->vis = tgt->type == tgt_static_library ? pkgconf_visibility_pub : pkgconf_visibility_priv;
-				if (!obj_array_foreach(wk, tgt->link_with, ctx, module_pkgconf_process_libs_iter)) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					tgt->link_with, ctx->pc, link_vis, false)) {
 					return ir_err;
 				}
-				ctx->vis = ovis;
 			}
 
-			if (tgt->type == tgt_static_library) {
-				return ir_cont;
+			if (tgt->link_whole) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					tgt->link_whole, ctx->pc, link_vis, true)) {
+					return ir_err;
+				}
 			}
 
 			obj lib;
 			if (!module_pkgconf_lib_to_lname(wk, tgt->name, &lib)) {
 				return ir_err;
+			}
+
+			if (ctx->link_whole) {
+				obj_array_push(wk, ctx->pc->exclude, lib);
+				return ir_cont;
+			} else if ((tgt->type == tgt_static_library && !(tgt->flags & build_tgt_flag_installed))) {
+				return ir_cont;
 			}
 
 			ctx->pc->libs_contains_internal[ctx->vis] = true;
@@ -285,18 +302,17 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 
 			if (dep->link_with) {
-				if (!obj_array_foreach(wk, dep->link_with, ctx, module_pkgconf_process_libs_iter)) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					dep->link_with, ctx->pc, ctx->vis, false)) {
 					return ir_err;
 				}
 			}
 
 			if (dep->deps) {
-				enum pkgconf_visibility ovis = ctx->vis;
-				ctx->vis = pkgconf_visibility_priv;
-				if (!obj_array_foreach(wk, dep->deps, ctx, module_pkgconf_process_libs_iter)) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					dep->deps, ctx->pc, pkgconf_visibility_priv, false)) {
 					return ir_err;
 				}
-				ctx->vis = ovis;
 			}
 			break;
 		}
@@ -360,12 +376,14 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src, struct pkgconf_file *pc, enum pkgconf_visibility vis)
+module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
+	struct pkgconf_file *pc, enum pkgconf_visibility vis, bool link_whole)
 {
 	struct module_pkgconf_process_libs_iter_ctx ctx = {
 		.pc = pc,
 		.err_node = err_node,
 		.vis = vis,
+		.link_whole = link_whole,
 	};
 
 	if (get_obj_type(wk, src) == obj_array) {
@@ -734,6 +752,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	make_obj(wk, &pc.cflags, obj_array);
 	make_obj(wk, &pc.variables, obj_array);
 	make_obj(wk, &pc.builtin_dir_variables, obj_array);
+	make_obj(wk, &pc.exclude, obj_array);
 
 	obj mainlib = 0;
 	if (ao[0].set) {
@@ -781,31 +800,29 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 
 	if (mainlib) {
 		if (!module_pkgconf_process_libs(wk, ao[0].node, mainlib,
-			&pc, pkgconf_visibility_pub)) {
+			&pc, pkgconf_visibility_pub, false)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_libraries].set) {
 		if (!module_pkgconf_process_libs(wk, akw[kw_libraries].node,
-			akw[kw_libraries].val, &pc, pkgconf_visibility_pub)) {
+			akw[kw_libraries].val, &pc, pkgconf_visibility_pub, false)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_libraries_private].set) {
 		if (!module_pkgconf_process_libs(wk, akw[kw_libraries_private].node,
-			akw[kw_libraries_private].val, &pc, pkgconf_visibility_priv)) {
+			akw[kw_libraries_private].val, &pc, pkgconf_visibility_priv, false)) {
 			return false;
 		}
 	}
 
-	obj exclude;
-	make_obj(wk, &exclude, obj_array);
-	module_pkgconf_remove_dups(wk, &pc.reqs[pkgconf_visibility_pub], exclude);
-	module_pkgconf_remove_dups(wk, &pc.libs[pkgconf_visibility_pub], exclude);
-	module_pkgconf_remove_dups(wk, &pc.reqs[pkgconf_visibility_priv], exclude);
-	module_pkgconf_remove_dups(wk, &pc.libs[pkgconf_visibility_priv], exclude);
+	module_pkgconf_remove_dups(wk, &pc.reqs[pkgconf_visibility_pub], pc.exclude);
+	module_pkgconf_remove_dups(wk, &pc.libs[pkgconf_visibility_pub], pc.exclude);
+	module_pkgconf_remove_dups(wk, &pc.reqs[pkgconf_visibility_priv], pc.exclude);
+	module_pkgconf_remove_dups(wk, &pc.libs[pkgconf_visibility_priv], pc.exclude);
 
 	for (i = 0; i < 2; ++i) {
 		if (get_obj_array(wk, pc.libs[i])->len && pc.libs_contains_internal[i]) {
