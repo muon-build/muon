@@ -520,6 +520,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	}
 
 	if (akw[bt_kw_install].set && get_obj_bool(wk, akw[bt_kw_install].val)) {
+		tgt->flags |= build_tgt_flag_installed;
+
 		obj install_dir = 0;
 		if (akw[bt_kw_install_dir].set) {
 			install_dir = akw[bt_kw_install_dir].val;
