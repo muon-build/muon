@@ -200,6 +200,12 @@ tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_ar
 		}
 	}
 
+	if (tgt->link_whole) {
+		if (!deps_args_link_with_only(wk, tgt->link_whole, ctx)) {
+			return false;
+		}
+	}
+
 	if (tgt->link_args) {
 		obj_array_extend(wk, ctx->link_args, tgt->link_args);
 	}

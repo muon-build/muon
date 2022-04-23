@@ -51,12 +51,12 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	struct dep_args_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 
-	/* obj_fprintf(wk, log_file(), "%d|lw-dep: %o\n", ctx->recursion_depth, val); */
+	/* obj_fprintf(wk, log_file(), "lw-dep: %o\n", val); */
 
 	switch (t) {
 	case obj_both_libs:
 		val = get_obj_both_libs(wk, val)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		const char *path = get_cstr(wk, tgt->build_path);
@@ -105,6 +105,12 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 
 		if (tgt->link_with) {
 			if (!obj_array_foreach(wk, tgt->link_with, ctx, dep_args_link_with_iter)) {
+				return ir_err;
+			}
+		}
+
+		if (tgt->link_whole) {
+			if (!obj_array_foreach(wk, tgt->link_whole, ctx, dep_args_link_with_iter)) {
 				return ir_err;
 			}
 		}

@@ -319,10 +319,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	make_obj(wk, &tgt->order_deps, obj_array);
 
 	{ // build target flags
-		if (akw[bt_kw_link_whole].set) {
-			tgt->flags |= build_tgt_flag_link_whole;
-		}
-
 		{ // pic
 			bool pic = false;
 			if (akw[bt_kw_pic].set) {
@@ -493,8 +489,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_with].val);
 		}
 
+		make_obj(wk, &tgt->link_whole, obj_array);
 		if (akw[bt_kw_link_whole].set) {
-			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_whole].val);
+			obj_array_extend(wk, tgt->link_whole, akw[bt_kw_link_whole].val);
 		}
 	}
 

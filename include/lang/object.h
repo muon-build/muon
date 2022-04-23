@@ -204,11 +204,10 @@ struct obj_dict {
 
 enum build_tgt_flags {
 	build_tgt_flag_export_dynamic = 1 << 0,
-	build_tgt_flag_link_whole = 1 << 1,
-	build_tgt_flag_pic = 1 << 2,
-	build_tgt_generated_include = 1 << 3,
-	build_tgt_flag_build_by_default = 1 << 4,
-	build_tgt_flag_visibility = 1 << 5,
+	build_tgt_flag_pic = 1 << 1,
+	build_tgt_generated_include = 1 << 2,
+	build_tgt_flag_build_by_default = 1 << 3,
+	build_tgt_flag_visibility = 1 << 4,
 };
 
 struct obj_build_target {
@@ -221,6 +220,7 @@ struct obj_build_target {
 	obj soname; // obj_string
 	obj src; // obj_array
 	obj link_with; // obj_array
+	obj link_whole; // obj_array
 	obj include_directories; // obj_array
 	obj deps; // obj_array
 	obj args; // obj_dict
