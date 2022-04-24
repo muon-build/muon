@@ -82,6 +82,14 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	obj_array_push(wk, compiler_args, comp->name);
 
+	{ // base args
+		obj base_args;
+		if (!get_base_compiler_args(wk, current_project(wk), comp->lang, opts->comp_id, &base_args)) {
+			return ir_err;
+		}
+		obj_array_extend_nodup(wk, compiler_args, base_args);
+	}
+
 	if (opts->inc && opts->inc->set) {
 		obj include_dirs = 0;
 		if (!coerce_include_dirs(wk, opts->inc->node, opts->inc->val, false, &include_dirs)) {

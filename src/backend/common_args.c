@@ -5,6 +5,7 @@
 
 #include "args.h"
 #include "backend/common_args.h"
+#include "error.h"
 #include "functions/default/options.h"
 #include "functions/dependency.h"
 #include "log.h"
@@ -54,8 +55,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 			opt = compiler_optimization_lvl_s;
 			break;
 		default:
-			LOG_E("invalid optimization level '%s'", str);
-			return false;
+			UNREACHABLE;
 		}
 
 		debug = get_obj_bool(wk, debug_id);
@@ -82,7 +82,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 	return true;
 }
 
-static bool
+static void
 get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
 	obj lvl_id;
@@ -105,17 +105,15 @@ get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, 
 		lvl = 3;
 		break;
 	default:
-		lvl = 0;
-		assert(false && "invalid warning_level");
-		break;
+		UNREACHABLE;
+		return;
 	}
 
 
 	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
-	return true;
 }
 
-static bool
+static void
 get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang, enum compiler_type t)
 {
 	obj std;
@@ -128,7 +126,7 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 		get_option(wk, proj, "cpp_std", &std);
 		break;
 	default:
-		return true;
+		return;
 	}
 
 	const char *s = get_cstr(wk, std);
@@ -136,8 +134,6 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 	if (strcmp(s, "none") != 0) {
 		push_args(wk, args_id, compilers[t].args.set_std(s));
 	}
-
-	return true;
 }
 
 static void
@@ -218,13 +214,13 @@ struct setup_compiler_args_ctx {
 	obj joined_args;
 };
 
-static bool
+static void
 setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 	obj args, enum compiler_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
-	return true;
+	return;
 #endif
 
 	obj opt;
@@ -241,7 +237,44 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
 		push_args(wk, args, compilers[t].args.define("NDEBUG"));
 	}
+}
 
+bool
+get_base_compiler_args(struct workspace *wk, const struct project *proj, enum compiler_language lang, obj comp_id, obj *res)
+{
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+	enum compiler_type t = comp->type;
+
+	obj args;
+	make_obj(wk, &args, obj_array);
+
+	get_std_args(wk, proj, args, lang, t);
+	if (!get_buildtype_args(wk, proj, args, t)) {
+		return false;
+	}
+	get_warning_args(wk, proj, args, t);
+
+	setup_optional_b_args_compiler(wk, proj, args, t);
+
+	{ /* option args (from option('x_args')) */
+		get_option_compile_args(wk, proj, args, lang);
+	}
+
+	{ /* global args */
+		obj global_args;
+		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
+			obj_array_extend(wk, args, global_args);
+		}
+	}
+
+	{ /* project args */
+		obj proj_args;
+		if (obj_dict_geti(wk, proj->args, lang, &proj_args)) {
+			obj_array_extend(wk, args, proj_args);
+		}
+	}
+
+	*res = args;
 	return true;
 }
 
@@ -254,7 +287,9 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	enum compiler_type t = comp->type;
 
 	obj args;
-	make_obj(wk, &args, obj_array);
+	if (!get_base_compiler_args(wk, ctx->proj, lang, comp_id, &args)) {
+		return ir_err;
+	}
 
 	obj inc_dirs;
 	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
@@ -264,39 +299,6 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		.t = t,
 	}, setup_compiler_args_includes)) {
 		return ir_err;
-	}
-
-	if (!get_std_args(wk, ctx->proj, args, lang, t)) {
-		LOG_E("unable to get std flag");
-		return ir_err;
-	} else if (!get_buildtype_args(wk, ctx->proj, args, t)) {
-		LOG_E("unable to get optimization flags");
-		return ir_err;
-	} else if (!get_warning_args(wk, ctx->proj, args, t)) {
-		LOG_E("unable to get warning flags");
-		return ir_err;
-	}
-
-	if (!setup_optional_b_args_compiler(wk, ctx->proj, args, t)) {
-		return false;
-	}
-
-	{ /* option args (from option('x_args')) */
-		get_option_compile_args(wk, ctx->proj, args, lang);
-	}
-
-	{ /* global args */
-		obj global_args;
-		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
-			obj_array_extend(wk, args, global_args);
-		}
-	}
-
-	{ /* project args */
-		obj proj_args;
-		if (obj_dict_geti(wk, ctx->proj->args, lang, &proj_args)) {
-			obj_array_extend(wk, args, proj_args);
-		}
 	}
 
 	{ /* dep args */
