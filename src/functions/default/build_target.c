@@ -134,7 +134,9 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+	if (path_is_subpath(wk->build_root, src)) {
+		obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+	}
 
 	if (!path_dirname(dir, PATH_MAX, path)) {
 		return ir_err;
