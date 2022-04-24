@@ -67,13 +67,13 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 ## fmt_unstable
 	*muon* *fmt_unstable* [*-i*] [*-c* <muon_fmt.ini>] <filename>
 
-	Format a _source file_.  The formatting is currently not configurable,
-	and is based on the official meson style guide
+	Format a _source file_.  The formatting is currently minimally
+	configurable, and is based on the official meson style guide
 	<https://mesonbuild.com/Style-guide.html>.
 
 	Note: This command is suffixed by \_unstable because it is not ready
-	for production use.  There are still issues around comment
-	preservation, and the formatting style has not been fully decided.
+	for production use.  There are still issues around line breaking, and
+	the formatting style has not been fully decided.
 
 	*OPTIONS*:
 	- *-i* - format file in-place
