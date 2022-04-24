@@ -75,6 +75,7 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 		[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
 		[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
 		[compiler_language_c_obj] = { "o" },
+		[compiler_language_objc] = { "m", "mm", "M" },
 	};
 	uint32_t i, j;
 	const char *ext;
@@ -487,7 +488,7 @@ compiler_gcc_args_visibility(uint32_t type)
 	case compiler_visibility_inlineshidden:
 		argv[1] = "-fvisibility-inlines-hidden";
 		++args.len;
-		// fallthrough
+	// fallthrough
 	case compiler_visibility_hidden:
 		argv[0] = "-fvisibility=hidden";
 		break;

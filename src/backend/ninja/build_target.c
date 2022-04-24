@@ -147,6 +147,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 			ctx->link_language = compiler_language_cpp;
 		}
 		break;
+	case compiler_language_objc:
 	case compiler_language_count:
 		assert(false);
 		return ir_err;
