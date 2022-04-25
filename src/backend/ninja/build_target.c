@@ -91,7 +91,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return false;
 	}
 
-	fprintf(ctx->out, "build %s: %s_COMPILER %s", esc_dest_path, compiler_language_to_s(lang), esc_path);
+	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path,
+		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path);
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
@@ -317,11 +318,13 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	const char *linker_type, *link_args;
+	bool linker_rule_prefix = false;
 	switch (tgt->type) {
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
+		linker_rule_prefix = true;
 
 		if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
 			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
@@ -355,7 +358,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 	}
 
-	fprintf(wctx->out, "build %s: %s_LINKER ", esc_path, linker_type);
+	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path,
+		linker_rule_prefix ? get_cstr(wk, ctx.proj->rule_prefix) : "",
+		linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (get_obj_array(wk, implicit_deps)->len) {
 		implicit_deps = join_args_ninja(wk, implicit_deps);

@@ -12,13 +12,15 @@
 #include "lang/parser.h"
 #include "lang/string.h"
 
-// TODO: make obj_project and then that can be this.
 struct project {
 	struct hash scope;
 
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
 	obj args, link_args;
+
+	// string
+	obj rule_prefix;
 
 	struct {
 		obj name;
