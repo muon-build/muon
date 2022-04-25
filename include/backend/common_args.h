@@ -3,7 +3,9 @@
 
 #include "lang/workspace.h"
 
-bool get_base_compiler_args(struct workspace *wk, const struct project *proj, enum compiler_language lang, obj comp_id, obj *res);
+void get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang, enum compiler_type t);
+void get_option_compile_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang);
+void get_option_link_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang);
 
 bool setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args, obj *joined_args);

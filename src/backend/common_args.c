@@ -113,7 +113,7 @@ get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, 
 	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
 }
 
-static void
+void
 get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang, enum compiler_type t)
 {
 	obj std;
@@ -136,7 +136,7 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 	}
 }
 
-static void
+void
 get_option_compile_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
 {
 #ifndef MUON_BOOTSTRAPPED
@@ -239,7 +239,7 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 	}
 }
 
-bool
+static bool
 get_base_compiler_args(struct workspace *wk, const struct project *proj, enum compiler_language lang, obj comp_id, obj *res)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
@@ -349,7 +349,7 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	return true;
 }
 
-static void
+void
 get_option_link_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
 {
 #ifndef MUON_BOOTSTRAPPED

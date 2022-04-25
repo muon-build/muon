@@ -82,12 +82,18 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	obj_array_push(wk, compiler_args, comp->name);
 
-	{ // base args
-		obj base_args;
-		if (!get_base_compiler_args(wk, current_project(wk), comp->lang, opts->comp_id, &base_args)) {
-			return ir_err;
-		}
-		obj_array_extend_nodup(wk, compiler_args, base_args);
+	get_std_args(wk, current_project(wk), compiler_args, comp->lang, t);
+
+	switch (opts->mode) {
+	case compile_mode_run:
+	case compile_mode_link:
+		get_option_link_args(wk, current_project(wk), compiler_args, comp->lang);
+	/* fallthrough */
+	case compile_mode_compile:
+		get_option_compile_args(wk, current_project(wk), compiler_args, comp->lang);
+	/* fallthrough */
+	case compile_mode_preprocess:
+		break;
 	}
 
 	if (opts->inc && opts->inc->set) {
