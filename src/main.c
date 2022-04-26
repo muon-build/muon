@@ -489,7 +489,12 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
-	OPTSTART("s:d:f") {
+	if (strcmp(argv[argi], "benchmark") == 0) {
+		test_opts.cat = test_category_benchmark;
+		test_opts.print_summary = true;
+	}
+
+	OPTSTART("s:d:Sf") {
 		case 's':
 			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -506,16 +511,20 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 			} else if (strcmp(optarg, "bar") == 0) {
 				test_opts.display = test_display_bar;
 			} else {
-				LOG_E("invalid display option '%s'", optarg);
+				LOG_E("invalid progress display mode '%s'", optarg);
 				return false;
 			}
 			break;
 		case 'f':
 			test_opts.fail_fast = true;
 			break;
+		case 'S':
+			test_opts.print_summary = true;
+			break;
 	} OPTEND(argv[argi], "",
-		"  -s <suite> - only run tests in <suite>, may be passed multiple times\n"
-		"  -d <display> - change how tests are displayed (auto|dots|bar)\n"
+		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
+		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
+		"  -S - print a summary with elapsed time\n"
 		"  -f - fail fast; exit after first failure\n",
 		NULL, 0)
 
@@ -704,6 +713,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	static const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
 		{ "auto", cmd_auto, "build the project with options from a .muon file" },
+		{ "benchmark", cmd_test, "run benchmarks" },
 		{ "check", cmd_check, "check if a meson file parses" },
 		{ "fmt_unstable", cmd_format, "format meson source file" },
 		{ "install", cmd_install, "install project" },

@@ -337,6 +337,11 @@ struct obj_configuration_data {
 	obj dict; // obj_dict
 };
 
+enum test_category {
+	test_category_test,
+	test_category_benchmark,
+};
+
 struct obj_test {
 	obj name; // obj_string
 	obj exe; // obj_string
@@ -345,6 +350,7 @@ struct obj_test {
 	obj suites; // obj_array
 	obj workdir; // obj_string
 	bool should_fail;
+	enum test_category category;
 };
 
 struct obj_compiler {

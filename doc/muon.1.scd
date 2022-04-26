@@ -56,6 +56,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-q* - only report errors
 	- *-u* - Error on unused variables, the default is to warn only.
 
+## benchmark
+	See documentation for the *test* subcommand.
+
 ## check
 	*muon* *check* [*-p*] <filename>
 
@@ -180,7 +183,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Execute tests defined in _source files_.
 
 	*OPTIONS*:
-	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-s* <suite> - Only run tests in suite _suite_.  This option may be
 	  specified multiple times.
 	- *-d* <display mode> - Control test output.  _display mode_ can be one
@@ -188,6 +190,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  for error, *bar* prints a progress bar with an error count.  The
 	  default mode, *auto*, selects *bar* if the output device is a
 	  terminal or *dots* otherwise.
+	- *-S* - print a summary of test results, including the duration of
+	  each test
+	- *-f* - Fail fast. exit after first test failure is encountered.
 
 ## version
 	*muon* *version*

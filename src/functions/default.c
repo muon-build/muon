@@ -1096,7 +1096,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 }
 
 static bool
-func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
 	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1121,9 +1121,13 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_priority] = { "priority", obj_number, }, // TODO
 		[kw_timeout] = { "timeout", obj_number, }, // TODO
 		[kw_protocol] = { "protocol", obj_string, }, // TODO
-		[kw_is_parallel] = { "is_parallel", obj_bool, }, // TODO
+		[kw_is_parallel] = { 0 },
 		0
 	};
+
+	if (cat == test_category_test) {
+		akw[kw_is_parallel] = (struct args_kw){ "is_parallel", obj_bool, }; // TODO
+	}
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -1159,9 +1163,22 @@ func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		&& get_obj_bool(wk, akw[kw_should_fail].val);
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
+	t->category = cat;
 
 	obj_array_push(wk, current_project(wk)->tests, test);
 	return true;
+}
+
+static bool
+func_test(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	return add_test_common(wk, args_node, test_category_test);
+}
+
+static bool
+func_benchmark(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	return add_test_common(wk, args_node, test_category_benchmark);
 }
 
 struct join_paths_ctx {
@@ -1570,7 +1587,7 @@ const struct func_impl_name impl_tbl_default[] =
 	/* { "add_test_setup", }, */
 	{ "alias_target", func_alias_target, tc_alias_target },
 	{ "assert", func_assert },
-	/* { "benchmark",  }, */
+	{ "benchmark", func_benchmark },
 	{ "both_libraries", func_both_libraries, tc_both_libs },
 	{ "build_target", func_build_target, tc_build_target | tc_both_libs },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },

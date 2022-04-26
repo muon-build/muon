@@ -1,11 +1,13 @@
 #include "posix.h"
 
-#include <time.h>
+#include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include "args.h"
 #include "backend/output.h"
 #include "buf_size.h"
+#include "error.h"
 #include "lang/serial.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -20,9 +22,25 @@
 _Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
 #endif
 
+static const char *
+test_category_label(enum test_category cat)
+{
+	switch (cat) {
+	case test_category_test:
+		return "test";
+	case test_category_benchmark:
+		return "benchmark";
+	default:
+		UNREACHABLE_RETURN;
+	}
+}
+
 struct test_result {
 	struct run_cmd_ctx cmd_ctx;
 	struct obj_test *test;
+	struct timespec start;
+	float dur;
+	bool failed;
 };
 
 struct run_test_ctx {
@@ -38,7 +56,7 @@ struct run_test_ctx {
 		bool ran_tests;
 	} stats;
 
-	struct darr failed_tests;
+	struct darr test_results;
 
 	struct test_result test_ctx[MAX_SIMUL_TEST];
 	uint32_t test_cmd_ctx_free;
@@ -151,6 +169,21 @@ print_test_progress(struct run_test_ctx *ctx, bool success)
 }
 
 static void
+calculate_test_duration(struct test_result *res)
+{
+	struct timespec end;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &end)) {
+		LOG_E("error getting test end time: %s", strerror(errno));
+		return;
+	}
+
+	double secs = (double)end.tv_sec - (double)res->start.tv_sec;   //avoid overflow by subtracting first
+	double ns = ((secs * 1000000000.0) + end.tv_nsec) - res->start.tv_nsec;
+	res->dur = ns / 1000000000.0;
+}
+
+static void
 collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
@@ -166,12 +199,16 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_running:
 			continue;
 		case run_cmd_error:
+			calculate_test_duration(res);
+
 			print_test_progress(ctx, false);
-			darr_push(&ctx->failed_tests, res);
+			res->failed = true;
+			darr_push(&ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
-			bool ok;
+			calculate_test_duration(res);
 
+			bool ok;
 			if (res->cmd_ctx.status == 0) {
 				ok = !res->test->should_fail;
 			} else if (res->cmd_ctx.status == 77) {
@@ -189,11 +226,11 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				if (res->test->should_fail) {
 					++ctx->stats.total_expect_fail_count;
 				}
-
-				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {
-				darr_push(&ctx->failed_tests, res);
+				res->failed = true;
 			}
+
+			darr_push(&ctx->test_results, res);
 			break;
 		}
 		}
@@ -243,6 +280,10 @@ found_slot:
 		cmd_ctx->chdir = get_cstr(wk, test->workdir);
 	}
 
+	if (clock_gettime(CLOCK_MONOTONIC, &res->start)) {
+		LOG_E("error getting test start time: %s", strerror(errno));
+	}
+
 	run_cmd(cmd_ctx, argstr, envstr);
 }
 
@@ -257,7 +298,9 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 
 	struct obj_test *test = get_obj_test(wk, t);
 
-	if (!test_in_suite(wk, test->suites, ctx)) {
+	if (test->category != ctx->opts->cat) {
+		return ir_cont;
+	} else if (!test_in_suite(wk, test->suites, ctx)) {
 		return ir_cont;
 	}
 
@@ -285,18 +328,33 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 }
 
 static enum iteration_result
+count_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct run_test_ctx *ctx = _ctx;
+	struct obj_test *t = get_obj_test(wk, val);
+
+	if (t->category == ctx->opts->cat) {
+		++ctx->stats.test_len;
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 {
 	struct run_test_ctx *ctx = _ctx;
 	ctx->stats.test_i = 0;
 	ctx->stats.error_count = 0;
-	ctx->stats.test_len = get_obj_array(wk, tests)->len;
+	ctx->stats.test_len = 0;
 
-	if (!ctx->stats.test_len ) {
+	obj_array_foreach(wk, tests, ctx, count_project_tests_iter);
+
+	if (!ctx->stats.test_len) {
 		return ir_cont;
 	}
 
-	LOG_I("running tests for project '%s'", get_cstr(wk, proj_name));
+	LOG_I("running %ss for project '%s'", test_category_label(ctx->opts->cat), get_cstr(wk, proj_name));
 
 	ctx->stats.ran_tests = true;
 
@@ -369,11 +427,11 @@ tests_run(struct test_options *opts)
 		}
 	}
 
-	darr_init(&ctx.failed_tests, 32, sizeof(struct test_result));
+	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
 
 	obj tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
-		LOG_E("invalid tests file");
+		LOG_E("invalid data file");
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
@@ -382,40 +440,48 @@ tests_run(struct test_options *opts)
 	}
 
 	if (!ctx.stats.ran_tests) {
-		LOG_I("no tests defined");
+		LOG_I("no %ss defined", test_category_label(opts->cat));
 	} else {
-		LOG_I("finished %d tests, %d expected fail, %d fail, %d skipped",
+		LOG_I("finished %d %ss, %d expected fail, %d fail, %d skipped",
 			ctx.stats.total_count,
+			test_category_label(opts->cat),
 			ctx.stats.total_expect_fail_count,
 			ctx.stats.total_error_count,
 			ctx.stats.total_skipped
 			);
 	}
 
+	ret = true;
 	uint32_t i;
-	for (i = 0; i < ctx.failed_tests.len; ++i) {
-		struct test_result *res = darr_get(&ctx.failed_tests, i);
+	for (i = 0; i < ctx.test_results.len; ++i) {
+		struct test_result *res = darr_get(&ctx.test_results, i);
 
-		if (res->test->should_fail) {
-			LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->name));
-		} else {
-			LOG_E("%s - failed", get_cstr(&wk, res->test->name));
-			if (res->cmd_ctx.err_msg) {
-				log_plain("%s\n", res->cmd_ctx.err_msg);
+		if (res->failed) {
+			if (res->test->should_fail) {
+				ret = false;
+				LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->name));
+			} else {
+				ret = false;
+				LOG_E("failed: %s %f", get_cstr(&wk, res->test->name), res->dur);
+				if (res->cmd_ctx.err_msg) {
+					log_plain("%s\n", res->cmd_ctx.err_msg);
+				}
+				if (res->cmd_ctx.out.len) {
+					log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
+				}
+				if (res->cmd_ctx.err.len) {
+					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
+				}
 			}
-			if (res->cmd_ctx.out.len) {
-				log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
-			}
-			if (res->cmd_ctx.err.len) {
-				log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
-			}
+		} else if (opts->print_summary) {
+			LOG_I("ok: %s %f", get_cstr(&wk, res->test->name), res->dur);
 		}
+
 		run_cmd_ctx_destroy(&res->cmd_ctx);
 	}
 
-	ret = ctx.failed_tests.len == 0;
 ret:
 	workspace_destroy_bare(&wk);
-	darr_destroy(&ctx.failed_tests);
+	darr_destroy(&ctx.test_results);
 	return ret;
 }

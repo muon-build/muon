@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lang/object.h"
+
 enum test_flag {
 	test_flag_should_fail = 1 << 0,
 };
@@ -19,7 +21,9 @@ struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
 	uint32_t suites_len;
 	enum test_display display;
-	bool fail_fast;
+	bool fail_fast, print_summary;
+
+	enum test_category cat;
 };
 
 bool tests_run(struct test_options *opts);
