@@ -59,6 +59,7 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+
 		const char *path = get_cstr(wk, tgt->build_path);
 		char rel[PATH_MAX];
 		if (ctx->relativize) {
@@ -69,7 +70,9 @@ dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			path = rel;
 		}
 
-		obj_array_push(wk, ctx->link_with, make_str(wk, path));
+		if (tgt->type != tgt_executable) {
+			obj_array_push(wk, ctx->link_with, make_str(wk, path));
+		}
 
 		// calculate rpath for this target
 		// we always want an absolute path here, regardles of
