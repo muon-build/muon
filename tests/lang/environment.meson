@@ -5,14 +5,15 @@ env.set('key2', 'val', 'val2', separator: '!!')
 env.append('key2', 'val', 'val2', separator: ';;')
 
 d = {}
-
 foreach line : run_command(
     'env',
     env: env,
     check: true,
 ).stdout().strip().split('\n')
-    l = line.split('=')
-    d += {l[0]: l[1]}
+    if line.contains('=')
+        l = line.split('=')
+        d += {l[0]: l[1]}
+    endif
 endforeach
 
 assert(d['inherited'] == 'secret')
@@ -27,8 +28,10 @@ foreach line : run_command(
     env: 'test=1',
     check: true,
 ).stdout().strip().split('\n')
-    l = line.split('=')
-    d += {l[0]: l[1]}
+    if line.contains('=')
+        l = line.split('=')
+        d += {l[0]: l[1]}
+    endif
 endforeach
 
 assert(d['test'] == '1')
@@ -39,8 +42,10 @@ foreach line : run_command(
     env: ['test=1', 'test2=2'],
     check: true,
 ).stdout().strip().split('\n')
-    l = line.split('=')
-    d += {l[0]: l[1]}
+    if line.contains('=')
+        l = line.split('=')
+        d += {l[0]: l[1]}
+    endif
 endforeach
 
 assert(d['test'] == '1')
