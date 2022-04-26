@@ -421,12 +421,15 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
 	ctx->args->link_with_not_found = link_with_not_found;
 
-	make_obj(wk, &ctx->implicit_deps, obj_array);
-
 	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.as_needed());
-	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_undefined());
 
 	if (proj) {
+		assert(tgt);
+
+		if (!(tgt->type & tgt_shared_module)) {
+			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_undefined());
+		}
+
 		if (tgt->flags & build_tgt_flag_export_dynamic) {
 			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.export_dynamic());
 		}

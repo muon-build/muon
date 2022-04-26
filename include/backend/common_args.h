@@ -14,7 +14,6 @@ struct setup_linker_args_ctx {
 	enum linker_type linker;
 	enum compiler_language link_lang;
 	struct dep_args_ctx *args;
-	obj implicit_deps;
 };
 
 void setup_linker_args(struct workspace *wk, const struct project *proj,

@@ -291,10 +291,17 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 	}
 
+	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
+		push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
+		push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
+		if (tgt->type == tgt_shared_module) {
+			push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
+		}
+	}
+
 	obj implicit_deps;
 	make_obj(wk, &implicit_deps, obj_array);
-
-	if (tgt->type == tgt_executable) {
+	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
 			.link_lang = ctx.link_language,
@@ -325,16 +332,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	case tgt_executable:
 		linker_type = compiler_language_to_s(ctx.link_language);
 		linker_rule_prefix = true;
-
-		if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-			push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
-			push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
-
-			if (tgt->type == tgt_shared_module) {
-				push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
-			}
-		}
-
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:
