@@ -80,6 +80,7 @@ func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 
 	const char *map[][2] = {
 		{ "x86_64", "x86_64" },
+		{ "aarch64", "arm64" },
 		0
 	};
 
