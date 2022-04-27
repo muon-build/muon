@@ -791,6 +791,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj_array_push(wk, command, akw[kw_output].val);
 	obj_array_push(wk, command, replace_string);
 	obj_array_push(wk, command, fallback);
+	obj_array_push(wk, command, make_str(wk, wk->source_root));
 
 	if (akw[kw_command].set) {
 		obj_array_extend(wk, command, akw[kw_command].val);

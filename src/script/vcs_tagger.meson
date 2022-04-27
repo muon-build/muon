@@ -1,13 +1,20 @@
 fs = import('fs')
 
-if argv.length() < 5
-    error('usage: @0@ <src> <dest> <pat> <fallback> [cmd]'.format(argv[0]))
+posargc = 5
+
+if argv.length() < posargc + 1
+    error(
+        'usage: @0@ <src> <dest> <pat> <fallback> <source root> [cmd]'.format(
+            argv[0],
+        ),
+    )
 endif
 
 src = argv[1]
 dest = argv[2]
 sep = argv[3]
 fallback = argv[4]
+source_root = argv[5]
 
 i = -1
 cmd = []
@@ -15,9 +22,9 @@ args = []
 foreach e : argv
     i += 1
 
-    if i <= 4
+    if i <= posargc
         continue
-    elif i == 5
+    elif i == posargc + 1
         cmd = [e]
     else
         args += [e]
@@ -29,7 +36,7 @@ found_tag = false
 if cmd.length() == 1
     programs = [[cmd[0], args]]
 else
-    programs = [['git', ['describe', '--dirty=+']]]
+    programs = [['git', ['-C', source_root, 'describe', '--dirty=+']]]
 endif
 
 foreach p : programs
@@ -39,7 +46,7 @@ foreach p : programs
         continue
     endif
 
-    runres = run_command(prog, p[1])
+    runres = run_command(prog, p[1], check: false)
     if runres.returncode() != 0
         continue
     endif
