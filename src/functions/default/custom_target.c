@@ -5,6 +5,7 @@
 
 #include "args.h"
 #include "coerce.h"
+#include "error.h"
 #include "functions/default/custom_target.h"
 #include "functions/generator.h"
 #include "functions/string.h"
@@ -249,7 +250,9 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	} else if (prefix_plus_index(strkey, "OUTPUT", &index)) {
 		arr = ctx->output;
 	} else {
-		LOG_W("not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+		if (ctx->err_node) {
+			interp_warning(wk, ctx->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+		}
 		return format_cb_skip;
 	}
 
@@ -768,13 +771,6 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	push_args_null_terminated(wk, command, (char *const []){
 		wk->argv0,
-		"-C",
-		NULL,
-	});
-
-	obj_array_push(wk, command, current_project(wk)->build_dir);
-
-	push_args_null_terminated(wk, command, (char *const []){
 		"internal",
 		"eval",
 		"-e",
@@ -788,7 +784,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	obj_array_push(wk, command, input);
-	obj_array_push(wk, command, akw[kw_output].val);
+	obj_array_push(wk, command, make_str(wk, "@OUTPUT@"));
 	obj_array_push(wk, command, replace_string);
 	obj_array_push(wk, command, fallback);
 	obj_array_push(wk, command, make_str(wk, wk->source_root));
@@ -802,7 +798,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		make_str(wk, "vcs_tag"),
 		akw[kw_input].node,
 		akw[kw_output].node,
-		args_node,
+		0,
 		akw[kw_input].val,
 		akw[kw_output].val,
 		get_cstr(wk, current_project(wk)->build_dir),
