@@ -322,12 +322,14 @@ check_superproject_option(struct workspace *wk, uint32_t node, enum obj_type typ
 {
 	obj val;
 	obj opt;
-	if (!obj_dict_index(wk, current_project(wk)->opts, name, &opt)) {
+	struct project *superproj = darr_get(&wk->projects, 0);
+
+	if (!obj_dict_index(wk, superproj->opts, name, &opt)) {
 		return true;
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
-	val = o->type;
+	val = o->val;
 
 	if (!typecheck_opt(wk, node, val, o->type, ret)) {
 		return false;
