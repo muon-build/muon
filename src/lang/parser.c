@@ -354,6 +354,11 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 				return false;
 			}
 			p->preserve_fmt_eol = true;
+
+			if (get_node(p->ast, v_id)->type == node_empty) {
+				parse_error(p, p->last_last, "missing value");
+				return false;
+			}
 		}
 
 		if (!accept(p, tok_comma)) {
