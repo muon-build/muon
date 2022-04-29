@@ -989,8 +989,8 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	uint32_t cond_id, block_id, c_id;
 	bool have_c = false;
 
+	struct token *if_ = p->last;
 	if (if_type == if_if || if_type == if_elseif) {
-		struct token *if_ = p->last;
 		if (!parse_stmt(p, &cond_id)) {
 			return false;
 		}
@@ -1006,6 +1006,11 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	}
 
 	if (!parse_block(p, &block_id)) {
+		return false;
+	}
+
+	if (get_node(p->ast, block_id)->type == node_empty) {
+		parse_error(p, if_, "empty block");
 		return false;
 	}
 
