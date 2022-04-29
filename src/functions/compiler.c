@@ -844,26 +844,16 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
-func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+compiler_get_define(struct workspace *wk, uint32_t err_node,
+	struct compiler_check_opts *opts, const char *prefix, const char *def, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_kw *akw;
-
 	static char output_path[PATH_MAX];
 	if (!path_join(output_path, PATH_MAX, wk->muon_private, "get_define_output")) {
 		return false;
 	}
 
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_preprocess,
-		.output_path = output_path,
-	};
-
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
-		return false;
-	}
+	opts->output_path = output_path;
+	opts->mode = compile_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
 	const char *delim = "MUON_GET_DEFINE_DELIMITER\n";
@@ -874,16 +864,16 @@ func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		"#define %s\n"
 		"#endif \n"
 		"%s%s\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val),
-		get_cstr(wk, an[0].val),
+		prefix,
+		def,
+		def,
 		delim,
-		get_cstr(wk, an[0].val)
+		def
 		);
 
 	struct source output = { 0 };
 	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+	if (!compiler_check(wk, opts, src, err_node, &ok)) {
 		return false;
 	} else if (!ok) {
 		goto failed;
@@ -952,8 +942,28 @@ func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	return true;
 failed:
 	fs_source_destroy(&output);
-	interp_error(wk, an[0].node, "failed to get define: %o", an[0].val);
+	interp_error(wk, err_node, "failed to get define: '%s'", def);
 	return false;
+}
+
+static bool
+func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+
+	struct compiler_check_opts opts = { 0 };
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
+	if (!compiler_get_define(wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
+		return false;
+	}
+	return true;
 }
 
 static bool
