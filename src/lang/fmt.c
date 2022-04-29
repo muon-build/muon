@@ -39,6 +39,7 @@ struct fmt_stack {
 	enum special_fmt special_fmt;
 	bool write;
 	bool ml;
+	bool fmt_and_or_force_ml;
 };
 
 typedef uint32_t ((*fmt_func)(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id));
@@ -651,12 +652,38 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 }
 
 static uint32_t
+fmt_and_or(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
+{
+	struct fmt_stack fst = *fmt_setup_fst(pfst);
+	fst.fmt_and_or_force_ml = pfst->fmt_and_or_force_ml;
+
+	struct node *n = get_node(ctx->ast, n_id);
+	uint32_t len = 0;
+
+	len += fmt_check(ctx, &fst, fmt_node, n->l);
+
+	if ((ctx->enclosed && fst.ml) || fst.fmt_and_or_force_ml) {
+		fmt_newline_force(ctx, &fst, 0);
+		fst.fmt_and_or_force_ml = true;
+	} else {
+		len += fmt_writes(ctx, &fst, " ");
+	}
+
+	len += fmt_writes(ctx, &fst, n->type == node_or ? "or " : "and ");
+
+	len += fmt_check(ctx, &fst, fmt_node, n->r);
+	return len;
+}
+
+static uint32_t
 fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 {
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
 
 	uint32_t len = 0;
 	struct node *n = get_node(ctx->ast, n_id);
+
+	/* L("formatting %s", node_to_s(n)); */
 
 	switch (n->type) {
 	/* literals */
@@ -761,14 +788,8 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_node(ctx, &fst, n->l);
 		break;
 	case node_and:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_writes(ctx, &fst, " and ");
-		len += fmt_node(ctx, &fst, n->r);
-		break;
 	case node_or:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_writes(ctx, &fst, " or ");
-		len += fmt_node(ctx, &fst, n->r);
+		len += fmt_and_or(ctx, &fst, n_id);
 		break;
 	case node_comparison: {
 		assert(n->subtype <= comp_not_in);
