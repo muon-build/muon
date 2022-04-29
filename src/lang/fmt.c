@@ -266,7 +266,9 @@ fmt_tail(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_writef(ctx, pfst, "%s#%s",
 			n->type == node_empty_line ? "" : " ",
 			n->comment);
-		ctx->force_ml = true;
+		if (ctx->enclosed) {
+			ctx->force_ml = true;
+		}
 	}
 
 	return len;
