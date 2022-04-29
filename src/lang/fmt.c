@@ -619,13 +619,14 @@ static uint32_t
 fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 {
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	uint32_t len = 0;
+	uint32_t len = 0, tail_id;
 	struct node *n = get_node(ctx->ast, n_id);
 
 	switch (n->type) {
 	case node_method:
 		len += fmt_write(ctx, pfst, '.');
 		len += fmt_check(ctx, &fst, fmt_method, n_id);
+		tail_id = n->c;
 		break;
 	case node_index:
 		len += fmt_write(ctx, pfst, '[');
@@ -633,16 +634,16 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_check(ctx, &fst, fmt_node, n->r);
 		--ctx->enclosed;
 		len += fmt_write(ctx, pfst, ']');
+		tail_id = n_id;
 		break;
 	default:
-		assert(false && "unreachable");
-		break;
+		UNREACHABLE_RETURN;
 	}
 
 	if (n->chflg & node_child_d) {
 		len += fmt_chain(ctx, pfst, n->d);
 	} else {
-		len += fmt_tail(ctx, pfst, n_id);
+		len += fmt_tail(ctx, pfst, tail_id);
 	}
 	return len;
 }
