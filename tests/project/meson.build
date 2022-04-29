@@ -115,7 +115,7 @@ tests = [
     ['common/114 skip'],
     ['common/115 subproject project arguments'],
     ['common/116 test skip'],
-    ['common/117 shared module', ['failing']],
+    ['common/117 shared module'],
     ['common/118 llvm ir and assembly', ['failing']],
     ['common/119 cpp and asm', ['failing']],
     ['common/120 extract all shared library'],

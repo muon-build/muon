@@ -176,6 +176,7 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 	struct { char *name; enum tgt_type type; } tgt_tbl[] = {
 		{ "executable", tgt_executable, },
 		{ "shared_library", tgt_dynamic_library, },
+		{ "shared_module", tgt_shared_module, },
 		{ "static_library", tgt_static_library, },
 		{ "both_libraries", tgt_dynamic_library | tgt_static_library, },
 		{ "library", default_library_type(wk), },
