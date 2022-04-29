@@ -532,6 +532,8 @@ fmt_node_wrapped(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_i
 	case node_function:
 	case node_index:
 	case node_paren:
+	case node_string:
+	case node_number:
 		node_needs_paren = false;
 		break;
 	default:
