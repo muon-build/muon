@@ -967,6 +967,25 @@ func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 }
 
 static bool
+func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct compiler_check_opts opts = { .comp_id = rcvr };
+
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	obj pre;
+	if (!compiler_get_define(wk, args_node, &opts, "", "__USER_LABEL_PREFIX__", &pre)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, str_eql(get_str(wk, pre), &WKSTR("_")));
+	return true;
+}
+
+static bool
 func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
@@ -1716,6 +1735,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "links", func_compiler_links, tc_bool },
 	{ "run", func_compiler_run, tc_run_result },
 	{ "sizeof", func_compiler_sizeof, tc_number },
+	{ "symbols_have_underscore_prefix", func_compiler_symbols_have_underscore_prefix, tc_bool },
 	{ "version", func_compiler_version, tc_string },
 	{ NULL, NULL },
 };
