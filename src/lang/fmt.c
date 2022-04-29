@@ -418,9 +418,9 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			if ((pfst->special_fmt & special_fmt_cmd_array)
 			    && fmt_str_startwith(ctx, ae->val, "-")
 			    && !fmt_str_startwith(ctx, ae->next, "-")) {
-				fmt_write(ctx, &fst, ' ');
+				len += fmt_write(ctx, &fst, ' ');
 			} else {
-				fmt_newline_or_space(ctx, &fst, ae->next);
+				len += fmt_newline_or_space(ctx, &fst, ae->next);
 			}
 		} else {
 			break;
@@ -683,7 +683,7 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	/* control flow */
 	case node_block: {
-		fmt_check(ctx, &fst, fmt_node, n->l);
+		len = fmt_check(ctx, &fst, fmt_node, n->l);
 
 		if (n->chflg & node_child_r) {
 			struct node *bnext = get_node(ctx->ast, n->r);
