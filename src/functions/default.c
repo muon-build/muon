@@ -58,6 +58,12 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 	}
 
 	obj_dict_seti(wk, current_project(wk)->compilers, l, comp_id);
+
+	/* if we just added a c or cpp compiler, set the assembly compiler to that */
+	if (l == compiler_language_c || l == compiler_language_cpp) {
+		obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_assembly, comp_id);
+	}
+
 	*found = true;
 	return true;
 }

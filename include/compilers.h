@@ -30,6 +30,7 @@ enum compiler_language {
 	compiler_language_cpp_hdr,
 	compiler_language_c_obj,
 	compiler_language_objc,
+	compiler_language_assembly,
 	compiler_language_count,
 };
 

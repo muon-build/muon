@@ -43,6 +43,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_cpp_hdr] = "cpp_hdr",
 	[compiler_language_c_obj] = "c_obj",
 	[compiler_language_objc] = "objc",
+	[compiler_language_assembly] = "assembly",
 };
 
 const char *
@@ -70,12 +71,13 @@ bool
 filename_to_compiler_language(const char *str, enum compiler_language *l)
 {
 	static const char *exts[compiler_language_count][10] = {
-		[compiler_language_c] = { "c", "S" },
+		[compiler_language_c] = { "c" },
 		[compiler_language_c_hdr] = { "h" },
 		[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
 		[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
 		[compiler_language_c_obj] = { "o" },
 		[compiler_language_objc] = { "m", "mm", "M" },
+		[compiler_language_assembly] = { "S" },
 	};
 	uint32_t i, j;
 	const char *ext;
@@ -254,7 +256,7 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		compiler->lang = lang;
 		return true;
 	default:
-		assert(false);
+		LOG_E("tried to get a compiler for unsupported language '%s'", compiler_language_to_s(lang));
 		return false;
 	}
 }
@@ -545,6 +547,7 @@ const struct language languages[] = {
 	[compiler_language_cpp] = { .is_header = false },
 	[compiler_language_cpp_hdr] = { .is_header = true },
 	[compiler_language_c_obj] = { .is_linkable = true },
+	[compiler_language_assembly] = { 0 },
 };
 
 static void

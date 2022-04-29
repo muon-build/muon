@@ -136,6 +136,11 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_c_hdr:
 	case compiler_language_cpp_hdr:
 		return ir_cont;
+	case compiler_language_assembly:
+		if (!ctx->have_link_language) {
+			ctx->link_language = compiler_language_assembly;
+		}
+		break;
 	case compiler_language_c:
 	case compiler_language_c_obj:
 		if (!ctx->have_link_language) {

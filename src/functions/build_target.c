@@ -154,6 +154,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	case compiler_language_c:
 	case compiler_language_cpp:
+	case compiler_language_assembly:
 		break;
 	case compiler_language_objc:
 	case compiler_language_count:
