@@ -587,7 +587,6 @@ fmt_parens(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	--ctx->enclosed;
 	len += fmt_write(ctx, &fst, ')');
-	n = get_node(ctx->ast, n->r);
 
 	return len;
 }
@@ -811,6 +810,7 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	/* formatting */
 	case node_paren:
 		len += fmt_check(ctx, &fst, fmt_parens, n_id);
+		n_id = n->r;
 		break;
 	case node_empty_line:
 		break;
