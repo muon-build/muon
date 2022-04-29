@@ -25,10 +25,12 @@ if (
         cc.find_library(
             'z',
             required: false,
-        ).found() or cc.find_library(
+        ).found()
+        or cc.find_library(
             'zlib',
             required: false,
-        ).found() or cc.find_library(
+        ).found()
+        or cc.find_library(
             'zlib1',
             required: false,
         ).found()

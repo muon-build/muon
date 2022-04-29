@@ -163,14 +163,22 @@ endforeach
 conf5 = configuration_data()
 conf5.set('var', '@var2@')
 conf5.set('var2', 'error')
-configure_file(input: 'config5.h.in', output: '@BASENAME@', configuration: conf5)
+configure_file(
+    input: 'config5.h.in',
+    output: '@BASENAME@',
+    configuration: conf5,
+)
 test('test5', executable('prog5', 'prog5.c'))
 
 # Test escaping
 conf6 = configuration_data()
 conf6.set('var1', 'foo')
 conf6.set('var2', 'bar')
-configure_file(input: 'config6.h.in', output: '@BASENAME@', configuration: conf6)
+configure_file(
+    input: 'config6.h.in',
+    output: '@BASENAME@',
+    configuration: conf6,
+)
 test('test6', executable('prog6', 'prog6.c'))
 
 # test empty install dir string

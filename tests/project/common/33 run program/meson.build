@@ -64,7 +64,13 @@ ret = run_command(py3, '-c', 'print("some output")', check: false)
 assert(ret.returncode() == 0, 'failed to run python3: ' + ret.stderr())
 assert(ret.stdout() == 'some output\n', 'failed to run python3')
 
-ret = run_command(py3, '-c', 'print("some output")', check: false, capture: false)
+ret = run_command(
+    py3,
+    '-c',
+    'print("some output")',
+    check: false,
+    capture: false,
+)
 assert(ret.returncode() == 0, 'failed to run python3: ' + ret.stderr())
 assert(
     ret.stdout() == '',

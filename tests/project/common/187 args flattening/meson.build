@@ -18,13 +18,21 @@ assert(
     'meson.get_external_property with array fallback is broken',
 )
 
-arr = meson.get_external_property('does-not-exist', ['bar', 'baz'], native: true)
+arr = meson.get_external_property(
+    'does-not-exist',
+    ['bar', 'baz'],
+    native: true,
+)
 assert(
     arr == ['bar', 'baz'],
     'meson.get_external_property native:true with array fallback is broken',
 )
 
-arr = meson.get_external_property('does-not-exist', ['bar', 'baz'], native: false)
+arr = meson.get_external_property(
+    'does-not-exist',
+    ['bar', 'baz'],
+    native: false,
+)
 assert(
     arr == ['bar', 'baz'],
     'meson.get_external_property native:false with array fallback is broken',

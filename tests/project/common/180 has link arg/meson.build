@@ -55,7 +55,9 @@ if cc.get_id() != 'pgi'
     assert(l1.get(0) == is_arg, 'First supported returned wrong argument.')
     assert(l2.length() == 0, 'First supported did not return empty array.')
 
-    l1 = cpp.first_supported_link_argument([isnt_arg, is_arg, isnt_arg, useless])
+    l1 = cpp.first_supported_link_argument(
+        [isnt_arg, is_arg, isnt_arg, useless],
+    )
     l2 = cpp.first_supported_link_argument(isnt_arg, isnt_arg, isnt_arg)
 
     assert(l1.length() == 1, 'First supported returned wrong result.')

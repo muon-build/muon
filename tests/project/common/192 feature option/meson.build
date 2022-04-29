@@ -19,7 +19,10 @@ assert(
     'Should be enabled option',
 )
 assert(required_opt.disable_auto_if(true).enabled(), 'Should be enabled option')
-assert(required_opt.disable_auto_if(false).enabled(), 'Should be enabled option')
+assert(
+    required_opt.disable_auto_if(false).enabled(),
+    'Should be enabled option',
+)
 
 assert(not optional_opt.enabled(), 'Should be auto option')
 assert(not optional_opt.disabled(), 'Should be auto option')

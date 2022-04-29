@@ -12,7 +12,11 @@ endif
 
 copy = find_program('copyfile.py')
 
-copygen = generator(copy, arguments: ['@INPUT@', '@OUTPUT@'], output: '@BASENAME@')
+copygen = generator(
+    copy,
+    arguments: ['@INPUT@', '@OUTPUT@'],
+    output: '@BASENAME@',
+)
 
 l = library('square-gen', copygen.process('square.ll.in'))
 

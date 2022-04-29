@@ -16,7 +16,11 @@ install_data(
 )
 
 # confirm no regressions in install_subdir
-install_subdir('sub1', install_dir: 'share', install_mode: ['rwxr-x--t', 'root'])
+install_subdir(
+    'sub1',
+    install_dir: 'share',
+    install_mode: ['rwxr-x--t', 'root'],
+)
 
 install_subdir('sub2', install_dir: 'share')
 

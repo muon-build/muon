@@ -13,7 +13,12 @@ option(
     value: false,
     description: 'build a static muon executable',
 )
-option('docs', type: 'feature', value: 'auto', description: 'build documentation')
+option(
+    'docs',
+    type: 'feature',
+    value: 'auto',
+    description: 'build documentation',
+)
 option(
     'website',
     type: 'boolean',

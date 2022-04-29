@@ -24,7 +24,10 @@ assert(
     'Arg filtering returned different result.',
 )
 assert(
-    cpp.get_supported_arguments([is_arg, isnt_arg, useless]) == [is_arg, useless],
+    cpp.get_supported_arguments([is_arg, isnt_arg, useless]) == [
+        is_arg,
+        useless,
+    ],
     'Arg filtering returned different result.',
 )
 

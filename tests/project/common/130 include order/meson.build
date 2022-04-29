@@ -25,7 +25,11 @@ subdir('sub4')
 # preserved. This is needed especially when subprojects get involved and
 # multiple build-root config.h files exist, and we must be sure that the
 # correct one is found: https://github.com/mesonbuild/meson/issues/1495
-f = executable('somefxe', 'sub4/main.c', dependencies: [correctinc, dep, wronginc])
+f = executable(
+    'somefxe',
+    'sub4/main.c',
+    dependencies: [correctinc, dep, wronginc],
+)
 
 test('eh', e)
 test('oh', f)

@@ -38,7 +38,9 @@ if not supported_cpus.contains(cpu)
 endif
 
 if (
-    cc.get_id() == 'clang-cl' and cc.version().version_compare('< 12.0.0') and cpu == 'arm'
+    cc.get_id() == 'clang-cl'
+    and cc.version().version_compare('< 12.0.0')
+    and cpu == 'arm'
 )
     # https://reviews.llvm.org/D89622
     error(
@@ -54,7 +56,11 @@ copy = find_program('copyfile.py')
 output = 'square-@0@.S'.format(cpu)
 input = output + '.in'
 
-copygen = generator(copy, arguments: ['@INPUT@', '@OUTPUT@'], output: '@BASENAME@')
+copygen = generator(
+    copy,
+    arguments: ['@INPUT@', '@OUTPUT@'],
+    output: '@BASENAME@',
+)
 
 l = library(
     'square-gen',
@@ -71,6 +77,10 @@ copyct = custom_target(
     command: [copy, '@INPUT@', '@OUTPUT@'],
 )
 
-l = library('square-ct', crt_workaround + [copyct], vs_module_defs: 'square.def')
+l = library(
+    'square-ct',
+    crt_workaround + [copyct],
+    vs_module_defs: 'square.def',
+)
 
 test('square-ct-test', executable('square-ct-test', 'main.c', link_with: l))

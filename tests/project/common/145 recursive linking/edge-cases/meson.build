@@ -9,4 +9,7 @@ test(
 # Static library that needs a symbol defined in an object file. This already
 # works, but good to add a test case early.
 stodep = static_library('stodep', 'libsto.c')
-test('stodep', executable('stodep', 'stomain.c', 'stobuilt.c', link_with: stodep))
+test(
+    'stodep',
+    executable('stodep', 'stomain.c', 'stobuilt.c', link_with: stodep),
+)

@@ -1,4 +1,8 @@
-project('sub2', 'c', default_options: ['default_library=shared', 'werror=false'])
+project(
+    'sub2',
+    'c',
+    default_options: ['default_library=shared', 'werror=false'],
+)
 
 assert(
     get_option('default_library') == 'static',

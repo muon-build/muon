@@ -17,7 +17,10 @@ foreach comp : [cc, cpp]
         comp.has_header_symbol('stdio.h', 'printf'),
         'printf function not found',
     )
-    assert(comp.has_header_symbol('stdio.h', 'FILE'), 'FILE structure not found')
+    assert(
+        comp.has_header_symbol('stdio.h', 'FILE'),
+        'FILE structure not found',
+    )
     assert(
         comp.has_header_symbol('limits.h', 'INT_MAX'),
         'INT_MAX define not found',

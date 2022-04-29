@@ -16,7 +16,11 @@ subdir('ststdep')
 
 test(
     'alldeps',
-    executable('alldeps', 'main.c', link_with: [shshdep, shstdep, ststdep, stshdep]),
+    executable(
+        'alldeps',
+        'main.c',
+        link_with: [shshdep, shstdep, ststdep, stshdep],
+    ),
 )
 
 # More combinations of static and shared libraries

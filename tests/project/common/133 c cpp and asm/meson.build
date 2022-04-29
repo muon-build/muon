@@ -18,7 +18,10 @@ if cc.symbols_have_underscore_prefix()
 endif
 
 test('test-c-asm', executable('c-asm', ['main.c', 'retval-' + cpu + '.S']))
-test('test-cpp-asm', executable('cpp-asm', ['main.cpp', 'retval-' + cpu + '.S']))
+test(
+    'test-cpp-asm',
+    executable('cpp-asm', ['main.cpp', 'retval-' + cpu + '.S']),
+)
 test(
     'test-c-cpp-asm',
     executable('c-cpp-asm', ['somelib.c', 'main.cpp', 'retval-' + cpu + '.S']),

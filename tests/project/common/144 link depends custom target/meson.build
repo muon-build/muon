@@ -2,7 +2,11 @@ project('link_depends_custom_target', 'c')
 
 cmd = find_program('make_file.py')
 
-dep_file = custom_target('gen_dep', command: [cmd, '@OUTPUT@'], output: 'dep_file')
+dep_file = custom_target(
+    'gen_dep',
+    command: [cmd, '@OUTPUT@'],
+    output: 'dep_file',
+)
 
 exe = executable(
     'foo',

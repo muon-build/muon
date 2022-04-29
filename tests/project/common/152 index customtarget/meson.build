@@ -21,7 +21,12 @@ gen = custom_target(
     'gen.[ch]',
     input: 'gen_sources.py',
     output: ['gen.c', 'gen.h'],
-    command: [prog_python, '@INPUT@', '--header', '@OUTPUT1@', '--code', '@OUTPUT0@'],
+    command: [
+        prog_python,
+        '@INPUT@',
+        '--header', '@OUTPUT1@',
+        '--code', '@OUTPUT0@',
+    ],
 )
 
 has_not_changed = false

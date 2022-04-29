@@ -48,5 +48,12 @@ endif
 test(
     'check-build-by-default',
     py3,
-    args: [checkexists, ct1_output, ct2_output, '--not', exe1_output, exe2_output],
+    args: [
+        checkexists,
+        ct1_output,
+        ct2_output,
+        '--not',
+        exe1_output,
+        exe2_output,
+    ],
 )

@@ -7,7 +7,9 @@ cc = meson.get_compiler('c')
 cdata = configuration_data()
 
 if (
-    not meson.is_cross_build() and host_machine.cpu_family() == 'arm' and cc.get_id() == 'clang'
+    not meson.is_cross_build()
+    and host_machine.cpu_family() == 'arm'
+    and cc.get_id() == 'clang'
 )
     message(
         'Adding -march=armv7 because assuming that this build happens on Raspbian.',

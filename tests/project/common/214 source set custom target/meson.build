@@ -20,7 +20,11 @@ f_c = configure_file(input: 'f.c', output: 'out_f.c', copy: true)
 sources.add(when: 'YES', if_true: f_c)
 sources.add(when: 'YES', if_true: f_c)
 
-gen = generator(cp, output: 'out_@PLAINNAME@', arguments: ['@INPUT@', '@OUTPUT@'])
+gen = generator(
+    cp,
+    output: 'out_@PLAINNAME@',
+    arguments: ['@INPUT@', '@OUTPUT@'],
+)
 g_c = gen.process(files('g.c'))
 sources.add(when: 'YES', if_true: g_c)
 sources.add(when: 'YES', if_true: g_c)

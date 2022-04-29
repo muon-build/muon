@@ -59,7 +59,14 @@ subdir('objdir')
 e = executable(
     'prog',
     'prog.c',
-    link_with: [obj, shr, stc, subdirfilebuilt_obj, subdirfile_obj, subdirstr_obj],
+    link_with: [
+        obj,
+        shr,
+        stc,
+        subdirfilebuilt_obj,
+        subdirfile_obj,
+        subdirstr_obj,
+    ],
     install: true,
 )
 

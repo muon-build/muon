@@ -23,5 +23,10 @@ l = shared_library(
     install: false,
     c_args: '-DBUILDING_SUB=2',
 )
-t = executable('simpletest', 'simpletest.c', include_directories: i, link_with: l)
+t = executable(
+    'simpletest',
+    'simpletest.c',
+    include_directories: i,
+    link_with: l,
+)
 test('plain', t)

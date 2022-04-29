@@ -28,7 +28,10 @@ if not is_windows and build_machine.system() != 'cygwin'
         check: true,
     )
     assert(fs.is_symlink(symlink), 'Symlink not detected.')
-    assert(not fs.is_symlink('meson.build'), 'Regular file detected as symlink.')
+    assert(
+        not fs.is_symlink('meson.build'),
+        'Regular file detected as symlink.',
+    )
     assert(not fs.is_symlink(f[0]), 'Regular file detected as symlink.')
 endif
 

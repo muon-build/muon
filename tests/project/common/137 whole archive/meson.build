@@ -1,7 +1,10 @@
 project('whole archive', 'c')
 
 if (
-    meson.backend() == 'xcode' or meson.backend() == 'vs2010' or meson.backend() == 'vs2012' or meson.backend() == 'vs2013'
+    meson.backend() == 'xcode'
+    or meson.backend() == 'vs2010'
+    or meson.backend() == 'vs2012'
+    or meson.backend() == 'vs2013'
 )
     error(
         'MESON_SKIP_TEST: whole-archive not supported in Xcode nor pre-VS2015 IDE. Patches welcome.',

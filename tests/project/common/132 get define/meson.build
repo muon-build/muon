@@ -53,7 +53,8 @@ foreach lang : ['c', 'cpp']
         # between the delimiter and the define which causes a parsing error.
         # https://github.com/mesonbuild/meson/issues/1726
         if (
-            host_machine.system() == 'netbsd' or host_machine.system() == 'openbsd'
+            host_machine.system() == 'netbsd'
+            or host_machine.system() == 'openbsd'
         )
             # NetBSD and OpenBSD's zlib don't have a ZLIB_VER_MAJOR, but they do have
             # a ZLIB_VERSION (which is a string), so check the first non-quote
