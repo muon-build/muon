@@ -46,7 +46,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	}
 
 	if (fs_file_exists(meson_opts)) {
-		if (!eval_project_file(wk, meson_opts)) {
+		if (!wk->eval_project_file(wk, meson_opts)) {
 			goto cleanup;
 		}
 	}
@@ -57,7 +57,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 
 	wk->lang_mode = language_external;
 
-	if (!eval_project_file(wk, src)) {
+	if (!wk->eval_project_file(wk, src)) {
 		goto cleanup;
 	}
 
@@ -125,8 +125,8 @@ eval_project_file(struct workspace *wk, const char *path)
 		return false;
 	}
 
-	uint32_t obj;
-	if (!eval(wk, &src, &obj)) {
+	obj res;
+	if (!eval(wk, &src, &res)) {
 		goto ret;
 	}
 

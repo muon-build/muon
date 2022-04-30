@@ -100,6 +100,7 @@ struct workspace {
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
 	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id));
 	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
+	bool ((*eval_project_file)(struct workspace *wk, const char *path));
 
 	enum language_mode lang_mode;
 };

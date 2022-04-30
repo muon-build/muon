@@ -183,10 +183,13 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		.replay_opts = error_diagnostic_store_replay_include_sources,
 	};
 
-	OPTSTART("luq") {
+	OPTSTART("luqO:") {
 		case 'l':
 			opts.subdir_error = true;
 			opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
+			break;
+		case 'O':
+			opts.file_override = optarg;
 			break;
 		case 'u':
 			opts.unused_variable_error = true;
@@ -198,6 +201,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -l - optimize output for editor linter plugins\n"
 		"  -q - only report errors\n"
 		"  -u - error on unused variables\n"
+		"  -O <path> - read project file with matching path from stdin\n"
 		,
 		NULL, 0)
 

@@ -201,6 +201,7 @@ workspace_init_bare(struct workspace *wk)
 		.interp_node = interp_node,
 		.assign_variable = assign_variable,
 		.get_variable = get_obj_id,
+		.eval_project_file = eval_project_file,
 	};
 
 	bucket_array_init(&wk->chrs, 4096, 1);

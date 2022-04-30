@@ -868,7 +868,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	ret = eval_project_file(wk, src);
+	ret = wk->eval_project_file(wk, src);
 
 	current_project(wk)->cwd = old_cwd;
 	current_project(wk)->build_dir = old_build_dir;

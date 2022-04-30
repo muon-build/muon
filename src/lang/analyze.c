@@ -1179,6 +1179,31 @@ assign_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t
 	}
 }
 
+static bool
+assign_eval_project_file(struct workspace *wk, const char *path)
+{
+	const char *newpath = path;
+	if (analyze_opts->file_override && strcmp(analyze_opts->file_override, path) == 0) {
+		bool ret = false;
+		struct source src = { 0 };
+		if (!fs_read_entire_file("-", &src)) {
+			return false;
+		}
+		src.label = path;
+
+		obj res;
+		if (!eval(wk, &src, &res)) {
+			goto ret;
+		}
+
+		ret = true;
+ret:
+		fs_source_destroy(&src);
+		return ret;
+	}
+
+	return eval_project_file(wk, newpath);
+}
 
 bool
 do_analyze(struct analyze_opts *opts)
@@ -1216,6 +1241,7 @@ do_analyze(struct analyze_opts *opts)
 	wk.interp_node = analyze_node;
 	wk.assign_variable = scope_assign_wrapper;
 	wk.get_variable = assign_lookup_wrapper;
+	wk.eval_project_file = assign_eval_project_file;
 
 	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
 		goto err;
