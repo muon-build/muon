@@ -390,7 +390,9 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enu
 	const char *name = get_node(wk->ast, n->r)->dat.s;
 	const struct func_impl_name *fi;
 
-	if (rcvr_type == obj_module && get_obj_module(wk, ctx->l)->found) {
+	if (rcvr_type == obj_module
+	    && get_obj_type(wk, ctx->l) == obj_module
+	    && get_obj_module(wk, ctx->l)->found) {
 		struct obj_module *m = get_obj_module(wk, ctx->l);
 		enum module mod = m->module;
 		if (!(fi = module_func_lookup(name, mod))) {
