@@ -97,6 +97,11 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 			return false;
 		}
 
+		char *dot;
+		if ((dot = strrchr(basename, '.'))) {
+			*dot = '\0';
+		}
+
 		str = basename;
 		break;
 	}
@@ -104,12 +109,12 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 		assert(false);
 	}
 
-	struct str s = WKSTR(str);
-	char *dot;
-	if ((dot = strrchr(str, '.'))) {
-		s.len = dot - s.s;
+	if (str[0] == '-') {
+		*res = make_str(wk, str);
+		return true;
 	}
 
+	struct str s = WKSTR(str);
 	if (str_startswith(&s, &WKSTR("-l"))) {
 		s.len -= 2;
 		s.s += 2;
