@@ -65,17 +65,33 @@ node_type_to_s(enum node_type t)
 	return "";
 }
 
-__attribute__ ((format(printf, 3, 4)))
 static void
-parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
+parse_diagnostic(struct parser *p, struct token *err_tok, enum log_level lvl, const char *fmt, va_list args)
 {
 	if (!err_tok) {
 		err_tok = p->last;
 	}
 
+	error_messagev(p->src, err_tok->line, err_tok->col, lvl, fmt, args);
+}
+
+__attribute__ ((format(printf, 3, 4)))
+static void
+parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
+{
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(p->src, err_tok->line, err_tok->col, log_error, fmt, args);
+	parse_diagnostic(p, err_tok, log_error, fmt, args);
+	va_end(args);
+}
+
+__attribute__ ((format(printf, 3, 4)))
+static void
+parse_warning(struct parser *p, struct token *err_tok, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	parse_diagnostic(p, err_tok, log_warn, fmt, args);
 	va_end(args);
 }
 
@@ -1010,8 +1026,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	}
 
 	if (get_node(p->ast, block_id)->type == node_empty) {
-		parse_error(p, if_, "empty block");
-		return false;
+		parse_warning(p, if_, "empty if statement block");
 	}
 
 	if (if_type == if_if || if_type == if_elseif) {
