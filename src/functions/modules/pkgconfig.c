@@ -321,6 +321,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			// TODO: handle version req
 			break;
 		case dependency_type_threads:
+			obj_array_push(wk, ctx->pc->libs[pkgconf_visibility_priv], make_str(wk, "-pthread"));
 			break;
 		}
 		break;
