@@ -309,7 +309,7 @@ coerce_custom_target_output_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-coerce_string_to_file(struct workspace *wk, obj string, obj *res)
+coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res)
 {
 	const char *p = get_cstr(wk, string);
 
@@ -318,7 +318,7 @@ coerce_string_to_file(struct workspace *wk, obj string, obj *res)
 		s2 = string;
 	} else {
 		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
+		if (!path_join(path, PATH_MAX, dir, p)) {
 			return false;
 		}
 
@@ -343,7 +343,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (!coerce_string_to_file(wk, val, &file)) {
+			if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), val, &file)) {
 				return ir_err;
 			}
 			break;

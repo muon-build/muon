@@ -103,7 +103,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (t) {
 	case obj_string: {
-		if (!coerce_string_to_file(wk, val, &file)) {
+		if (!coerce_string_to_file(wk, get_cstr(wk, ctx->tgt->cwd), val, &file)) {
 			return ir_err;
 		}
 		break;

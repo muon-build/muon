@@ -75,7 +75,7 @@ tests = [
     ['common/74 file object'],
     ['common/75 custom subproject dir'],
     ['common/76 has type'],
-    ['common/77 extract from nested subdir', ['failing']],
+    ['common/77 extract from nested subdir'],
     ['common/78 internal dependency'],
     ['common/79 same basename'],
     ['common/80 declare dep'],

@@ -779,7 +779,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	});
 
 	obj input;
-	if (!coerce_string_to_file(wk, akw[kw_input].val, &input)) {
+	if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), akw[kw_input].val, &input)) {
 		return false;
 	}
 
