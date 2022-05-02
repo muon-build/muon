@@ -287,6 +287,13 @@ found_slot:
 	run_cmd(cmd_ctx, argstr, envstr);
 }
 
+static bool
+should_run_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test)
+{
+	return test->category == ctx->opts->cat
+	       && test_in_suite(wk, test->suites, ctx);
+}
+
 static enum iteration_result
 run_test(struct workspace *wk, void *_ctx, obj t)
 {
@@ -298,9 +305,7 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 
 	struct obj_test *test = get_obj_test(wk, t);
 
-	if (test->category != ctx->opts->cat) {
-		return ir_cont;
-	} else if (!test_in_suite(wk, test->suites, ctx)) {
+	if (!should_run_test(wk, ctx, test)) {
 		return ir_cont;
 	}
 
@@ -333,7 +338,7 @@ count_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 	struct run_test_ctx *ctx = _ctx;
 	struct obj_test *t = get_obj_test(wk, val);
 
-	if (t->category == ctx->opts->cat) {
+	if (should_run_test(wk, ctx, t)) {
 		++ctx->stats.test_len;
 	}
 
