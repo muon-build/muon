@@ -479,7 +479,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_version,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required" },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | tc_coercible_files },
