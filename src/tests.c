@@ -469,7 +469,7 @@ tests_run(struct test_options *opts)
 				LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->name));
 			} else {
 				ret = false;
-				LOG_E("failed: %s %f", get_cstr(&wk, res->test->name), res->dur);
+				LOG_E("failed: %s %.2fs", get_cstr(&wk, res->test->name), res->dur);
 				if (res->cmd_ctx.err_msg) {
 					log_plain("%s\n", res->cmd_ctx.err_msg);
 				}
@@ -484,7 +484,7 @@ tests_run(struct test_options *opts)
 
 			run_cmd_ctx_destroy(&res->cmd_ctx);
 		} else if (opts->print_summary) {
-			LOG_I("ok: %s %f", get_cstr(&wk, res->test->name), res->dur);
+			LOG_I("ok: %s %.2fs", get_cstr(&wk, res->test->name), res->dur);
 		}
 	}
 
