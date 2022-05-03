@@ -178,7 +178,7 @@ calculate_test_duration(struct test_result *res)
 		return;
 	}
 
-	double secs = (double)end.tv_sec - (double)res->start.tv_sec;   //avoid overflow by subtracting first
+	double secs = (double)end.tv_sec - (double)res->start.tv_sec;
 	double ns = ((secs * 1000000000.0) + end.tv_nsec) - res->start.tv_nsec;
 	res->dur = ns / 1000000000.0;
 }
@@ -226,6 +226,8 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				if (res->test->should_fail) {
 					++ctx->stats.total_expect_fail_count;
 				}
+
+				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {
 				res->failed = true;
 			}
@@ -477,12 +479,13 @@ tests_run(struct test_options *opts)
 				if (res->cmd_ctx.err.len) {
 					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
 				}
+
 			}
+
+			run_cmd_ctx_destroy(&res->cmd_ctx);
 		} else if (opts->print_summary) {
 			LOG_I("ok: %s %f", get_cstr(&wk, res->test->name), res->dur);
 		}
-
-		run_cmd_ctx_destroy(&res->cmd_ctx);
 	}
 
 ret:
