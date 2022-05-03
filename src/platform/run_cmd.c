@@ -137,7 +137,7 @@ static bool
 open_run_cmd_pipe(int fds[2], bool fds_open[2])
 {
 	if (pipe(fds) == -1) {
-		log_plain("failed to create pipe: %s", strerror(errno));
+		LOG_E("failed to create pipe: %s", strerror(errno));
 		return false;
 	}
 
@@ -146,10 +146,10 @@ open_run_cmd_pipe(int fds[2], bool fds_open[2])
 
 	int flags;
 	if ((flags = fcntl(fds[0], F_GETFL)) == -1) {
-		log_plain("failed to get pipe flags: %s", strerror(errno));
+		LOG_E("failed to get pipe flags: %s", strerror(errno));
 		return false;
 	} else if (fcntl(fds[0], F_SETFL, flags | O_NONBLOCK) == -1) {
-		log_plain("failed to set pipe flag O_NONBLOCK: %s", strerror(errno));
+		LOG_E("failed to set pipe flag O_NONBLOCK: %s", strerror(errno));
 		return false;
 	}
 
@@ -201,7 +201,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	if (ctx->stdin_path) {
 		ctx->input_fd = open(ctx->stdin_path, O_RDONLY);
 		if (ctx->input_fd == -1) {
-			log_plain("failed to open %s: %s", ctx->stdin_path, strerror(errno));
+			LOG_E("failed to open %s: %s", ctx->stdin_path, strerror(errno));
 			goto err;
 		}
 
@@ -221,25 +221,25 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	} else if (ctx->pid == 0 /* child */) {
 		if (ctx->chdir) {
 			if (chdir(ctx->chdir) == -1) {
-				log_plain("failed to chdir to %s: %s", ctx->chdir, strerror(errno));
+				LOG_E("failed to chdir to %s: %s", ctx->chdir, strerror(errno));
 				exit(1);
 			}
 		}
 
 		if (ctx->stdin_path) {
 			if (dup2(ctx->input_fd, 0) == -1) {
-				log_plain("failed to dup stdin: %s", strerror(errno));
+				LOG_E("failed to dup stdin: %s", strerror(errno));
 				exit(1);
 			}
 		}
 
 		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 			if (dup2(ctx->pipefd_out[1], 1) == -1) {
-				log_plain("failed to dup stdout: %s", strerror(errno));
+				LOG_E("failed to dup stdout: %s", strerror(errno));
 				exit(1);
 			}
 			if (dup2(ctx->pipefd_err[1], 2) == -1) {
-				log_plain("failed to dup stderr: %s", strerror(errno));
+				LOG_E("failed to dup stderr: %s", strerror(errno));
 				exit(1);
 			}
 		}
@@ -257,7 +257,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 					} else {
 						int err;
 						if ((err = setenv(k, p, 1)) != 0) {
-							log_plain("failed to set environment var %s='%s': %s",
+							LOG_E("failed to set environment var %s='%s': %s",
 								k, p, strerror(err));
 							exit(1);
 						}
@@ -268,7 +268,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 		}
 
 		if (execve(cmd, (char *const *)argv, environ) == -1) {
-			log_plain("%s: %s", cmd, strerror(errno));
+			LOG_E("%s: %s", cmd, strerror(errno));
 			exit(1);
 		}
 
