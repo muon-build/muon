@@ -132,7 +132,7 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 
 	const char *path;
 	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+		fix_file_path_allow_file | fix_file_path_expanduser | fix_file_path_noabs, &path)) {
 		return false;
 	}
 
