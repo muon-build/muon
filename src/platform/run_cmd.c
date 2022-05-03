@@ -81,6 +81,36 @@ copy_pipes(struct run_cmd_ctx *ctx)
 	}
 }
 
+static void
+run_cmd_ctx_close_fds(struct run_cmd_ctx *ctx)
+{
+	if (ctx->pipefd_err_open[0] && close(ctx->pipefd_err[0]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_err_open[0]  = false;
+
+	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_err_open[1] = false;
+
+	if (ctx->pipefd_out_open[0] && close(ctx->pipefd_out[0]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_out_open[0] = false;
+
+	if (ctx->pipefd_out_open[1] && close(ctx->pipefd_out[1]) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->pipefd_out_open[1] = false;
+
+	if (ctx->input_fd_open && close(ctx->input_fd) == -1) {
+		LOG_E("failed to close: %s", strerror(errno));
+	}
+	ctx->input_fd_open = false;
+
+}
+
 enum run_cmd_state
 run_cmd_collect(struct run_cmd_ctx *ctx)
 {
@@ -122,6 +152,8 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 			}
 		}
 	}
+
+	run_cmd_ctx_close_fds(ctx);
 
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
@@ -467,30 +499,7 @@ err:
 void
 run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
-	if (ctx->pipefd_err_open[0] && close(ctx->pipefd_err[0]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	ctx->pipefd_err_open[0]  = false;
-
-	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	ctx->pipefd_err_open[1] = false;
-
-	if (ctx->pipefd_out_open[0] && close(ctx->pipefd_out[0]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	ctx->pipefd_out_open[0] = false;
-
-	if (ctx->pipefd_out_open[1] && close(ctx->pipefd_out[1]) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	ctx->pipefd_out_open[1] = false;
-
-	if (ctx->input_fd_open && close(ctx->input_fd) == -1) {
-		LOG_E("failed to close: %s", strerror(errno));
-	}
-	ctx->input_fd_open = false;
+	run_cmd_ctx_close_fds(ctx);
 
 	if (ctx->out.size) {
 		z_free(ctx->out.buf);
