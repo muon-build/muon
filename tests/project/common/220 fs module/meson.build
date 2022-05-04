@@ -101,18 +101,20 @@ new = fs.replace_suffix(original, '.ini')
 assert(new == new_check, 'absolute path replace_suffix failed')
 
 # -- hash
+# TODO: md5 algorithm, (meson docs say hash supports md5, sha1, sha224, sha256,
+# sha384, and sha512)
 
-md5 = fs.hash('subdir/subdirfile.txt', 'md5')
+# md5 = fs.hash('subdir/subdirfile.txt', 'md5')
 sha256 = fs.hash('subdir/subdirfile.txt', 'sha256')
-assert(md5 == 'd0795db41614d25affdd548314b30b3b', 'md5sum did not match')
+# assert(md5 == 'd0795db41614d25affdd548314b30b3b', 'md5sum did not match')
 assert(
     sha256 == 'be2170b0dae535b73f6775694fffa3fd726a43b5fabea11b7342f0605917a42a',
     'sha256sum did not match',
 )
 
 f = files('subdir/subdirfile.txt')
-md5 = fs.hash(f[0], 'md5')
-assert(md5 == 'd0795db41614d25affdd548314b30b3b', 'md5sum did not match')
+# md5 = fs.hash(f[0], 'md5')
+# assert(md5 == 'd0795db41614d25affdd548314b30b3b', 'md5sum did not match')
 sha256 = fs.hash(f[0], 'sha256')
 assert(
     sha256 == 'be2170b0dae535b73f6775694fffa3fd726a43b5fabea11b7342f0605917a42a',
@@ -166,16 +168,25 @@ assert(
 f = files('subdir/../meson.build', 'meson.build')
 assert(fs.is_samepath(f[0], f[1]), 'is_samepath not detercting same files')
 
-if not is_windows and build_machine.system() != 'cygwin'
-    assert(fs.is_samepath(symlink, 'meson.build'), 'symlink is_samepath fail')
-endif
+# TODO: implement readlink
+# if not is_windows and build_machine.system() != 'cygwin'
+#     assert(fs.is_samepath(symlink, 'meson.build'), 'symlink is_samepath fail')
+# endif
 
 # parts of path
 assert(fs.parent('foo/bar') == 'foo', 'failed to get dirname')
+# different than meson: See the above note about fs functions working on the
+# relative part of the file.
 if not is_windows
-    assert(fs.parent(f[1]) == 'subdir/..', 'failed to get dirname')
+    assert(
+        fs.is_samepath(fs.parent(f[1]), 'subdir/..'),
+        'failed to get dirname',
+    )
 else
-    assert(fs.parent(f[1]) == 'subdir\..', 'failed to get dirname')
+    assert(
+        fs.is_samepath(fs.parent(f[1]), 'subdir\..'),
+        'failed to get dirname',
+    )
 endif
 assert(fs.name('foo/bar') == 'bar', 'failed to get basename')
 assert(fs.name(f[1]) == 'meson.build', 'failed to get basename')

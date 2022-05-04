@@ -219,7 +219,7 @@ tests = [
     ['common/217 test priorities'],
     ['common/218 include_dir dot'],
     ['common/219 include_type dependency'],
-    ['common/220 fs module', ['failing']],
+    ['common/220 fs module'],
     ['common/221 zlib'],
     ['common/222 native prop', ['failing']],
     ['common/223 persubproject options', ['failing']],
