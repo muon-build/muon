@@ -1102,6 +1102,35 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 }
 
 static bool
+func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_env,
+		kw_exclude_suites,
+		kw_exe_wrapper,
+		kw_gdb,
+		kw_is_default,
+		kw_timeout_multiplier,
+	};
+	struct args_kw akw[] = {
+		[kw_env] = { "env", tc_coercible_env, },
+		[kw_exclude_suites] = { "exclude_suites", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_exe_wrapper] = { "exe_wrapper", tc_command_array },
+		[kw_gdb] = { "gdb", obj_bool },
+		[kw_is_default] = { "is_default", obj_bool },
+		[kw_timeout_multiplier] = { "timeout_multiplier", obj_number },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
 	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
@@ -1118,7 +1147,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		kw_is_parallel, // TODO
 	};
 	struct args_kw akw[] = {
-		[kw_args] = { "args", ARG_TYPE_ARRAY_OF | tc_command_array, },
+		[kw_args] = { "args", tc_command_array, },
 		[kw_workdir] = { "workdir", obj_string, },
 		[kw_depends] = { "depends", obj_array, }, // TODO
 		[kw_should_fail] = { "should_fail", obj_bool, },
@@ -1590,7 +1619,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "add_languages", func_add_languages, tc_bool },
 	{ "add_project_arguments", func_add_project_arguments },
 	{ "add_project_link_arguments", func_add_project_link_arguments },
-	/* { "add_test_setup", }, */
+	{ "add_test_setup", func_add_test_setup },
 	{ "alias_target", func_alias_target, tc_alias_target },
 	{ "assert", func_assert },
 	{ "benchmark", func_benchmark },
