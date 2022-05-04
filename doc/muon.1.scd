@@ -181,7 +181,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  *option*.  This option may be specified multiple times.
 
 ## test
-	*muon* *test* [*-S*] [*-f*] [*-s* <suite>] [*-d* <display mode>]
+	*muon* *test* [*-S*] [*-f*] [*-w* <workers>] [*-s* <suite>] [*-d*
+	<display mode>]
 
 	Execute tests defined in _source files_.
 
@@ -196,6 +197,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-S* - print a summary of test results, including the duration of
 	  each test
 	- *-f* - Fail fast. exit after first test failure is encountered.
+	- *-w* - Set the number of workers used when running tests.
 
 ## version
 	*muon* *version*

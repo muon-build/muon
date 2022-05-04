@@ -17,10 +17,7 @@
 #include "platform/term.h"
 #include "tests.h"
 
-#define MAX_SIMUL_TEST 4
-#if __STDC_VERSION__ >= 201112L
-_Static_assert(MAX_SIMUL_TEST <= sizeof(uint32_t) * 8, "error");
-#endif
+#define MAX_TEST_WORKERS (uint32_t)(sizeof(uint32_t) * 8)
 
 static const char *
 test_category_label(enum test_category cat)
@@ -58,7 +55,7 @@ struct run_test_ctx {
 
 	struct darr test_results;
 
-	struct test_result test_ctx[MAX_SIMUL_TEST];
+	struct test_result *test_ctx;
 	uint32_t test_cmd_ctx_free;
 };
 
@@ -188,7 +185,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
 
-	for (i = 0; i < MAX_SIMUL_TEST; ++i) {
+	for (i = 0; i < ctx->opts->workers; ++i) {
 		if (!(ctx->test_cmd_ctx_free & (1 << i))) {
 			continue;
 		}
@@ -259,7 +256,7 @@ push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
 {
 	uint32_t i;
 	while (true) {
-		for (i = 0; i < MAX_SIMUL_TEST; ++i) {
+		for (i = 0; i < ctx->opts->workers; ++i) {
 			if (!(ctx->test_cmd_ctx_free & (1 << i))) {
 				goto found_slot;
 			}
@@ -393,6 +390,13 @@ tests_run(struct test_options *opts)
 	bool ret = false;
 	char tests_src[PATH_MAX];
 
+	if (opts->workers > MAX_TEST_WORKERS) {
+		LOG_E("the maximum number of test workers is %d", MAX_TEST_WORKERS);
+		return false;
+	} else if (!opts->workers) {
+		opts->workers = 4;
+	}
+
 	if (!path_join(tests_src, PATH_MAX, output_path.private_dir, output_path.tests)) {
 		return false;
 	}
@@ -435,6 +439,7 @@ tests_run(struct test_options *opts)
 	}
 
 	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
+	ctx.test_ctx = z_calloc(ctx.opts->workers, sizeof(struct test_result));
 
 	obj tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
@@ -491,5 +496,6 @@ tests_run(struct test_options *opts)
 ret:
 	workspace_destroy_bare(&wk);
 	darr_destroy(&ctx.test_results);
+	z_free(ctx.test_ctx);
 	return ret;
 }

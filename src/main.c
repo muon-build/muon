@@ -498,7 +498,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.print_summary = true;
 	}
 
-	OPTSTART("s:d:Sf") {
+	OPTSTART("s:d:Sfw:") {
 		case 's':
 			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -525,11 +525,24 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'S':
 			test_opts.print_summary = true;
 			break;
+		case 'w': {
+			char *endptr;
+			unsigned long n = strtoul(optarg, &endptr, 10);
+
+			if (n > UINT32_MAX || !*optarg || *endptr) {
+				LOG_E("invalid number of workers: %s", optarg);
+				return false;
+			}
+
+			test_opts.workers = n;
+			break;
+		}
 	} OPTEND(argv[argi], "",
 		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -S - print a summary with elapsed time\n"
-		"  -f - fail fast; exit after first failure\n",
+		"  -f - fail fast; exit after first failure\n"
+		"  -w <workers> - set the number of test workers\n",
 		NULL, 0)
 
 	return tests_run(&test_opts);
