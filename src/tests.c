@@ -131,17 +131,76 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 }
 
 static void
-print_test_progress(struct run_test_ctx *ctx, bool success)
+print_test_result(struct workspace *wk, const struct test_result *res)
+{
+	const char *name = get_cstr(wk, res->test->name);
+
+	enum {
+		status_failed,
+		status_should_have_failed,
+		status_ok,
+	} status;
+
+	const char *status_msg[] = {
+		[status_failed] = "err",
+		[status_should_have_failed] = "ok ",
+		[status_ok] = "ok ",
+	};
+
+	if (res->failed) {
+		if (res->test->should_fail) {
+			status = status_should_have_failed;
+		} else {
+			status = status_failed;
+		}
+	} else {
+		status = status_ok;
+	}
+
+	if (log_clr()) {
+		uint32_t clr[] = {
+			[status_failed] = 31,
+			[status_should_have_failed] = 31,
+			[status_ok] = 32,
+		};
+		log_plain("[\033[%dm%s\033[0m] %6.2fs, %s", clr[status], status_msg[status], res->dur, name);
+
+		if (status == status_should_have_failed) {
+			log_plain(" - passing test marked as should_fail");
+		}
+	} else {
+		log_plain("[%s] %6.2fs, %s", status_msg[status], res->dur, name);
+	}
+}
+
+static void
+print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct test_result *res)
 {
 	++ctx->stats.total_count;
 	++ctx->stats.test_i;
-	if (!success) {
+	if (res->failed) {
 		++ctx->stats.total_error_count;
 		++ctx->stats.error_count;
 	}
 
+	if (!ctx->stats.term && !ctx->opts->verbosity) {
+		log_plain("%c", res->failed ? 'E' : '.');
+		return;
+	} else if (ctx->stats.term) {
+		log_plain("\r");
+	}
+
+	if (ctx->opts->verbosity > 0) {
+		print_test_result(wk, res);
+
+		if (ctx->stats.term) {
+			log_plain("\033[K");
+		}
+
+		log_plain("\n");
+	}
+
 	if (!ctx->stats.term) {
-		log_plain("%c", success ? '.' : 'E');
 		return;
 	}
 
@@ -150,7 +209,7 @@ print_test_progress(struct run_test_ctx *ctx, bool success)
 	char info[BUF_SIZE_4k];
 	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count);
 
-	log_plain("\r%s[", info);
+	log_plain("%s[", info);
 	uint32_t i,
 		 pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
 	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
@@ -198,8 +257,8 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_error:
 			calculate_test_duration(res);
 
-			print_test_progress(ctx, false);
 			res->failed = true;
+			print_test_progress(wk, ctx, res);
 			darr_push(&ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
@@ -217,8 +276,6 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				ok = res->test->should_fail;
 			}
 
-			print_test_progress(ctx, ok);
-
 			if (ok) {
 				if (res->test->should_fail) {
 					++ctx->stats.total_expect_fail_count;
@@ -229,6 +286,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				res->failed = true;
 			}
 
+			print_test_progress(wk, ctx, res);
 			darr_push(&ctx->test_results, res);
 			break;
 		}
@@ -275,6 +333,11 @@ found_slot:
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
 	*cmd_ctx = (struct run_cmd_ctx){ .flags = run_cmd_ctx_flag_async };
+
+	if (ctx->opts->verbosity > 1) {
+		cmd_ctx->flags |= run_cmd_ctx_flag_dont_capture;
+	}
+
 	if (test->workdir) {
 		cmd_ctx->chdir = get_cstr(wk, test->workdir);
 	}
@@ -468,13 +531,16 @@ tests_run(struct test_options *opts)
 	for (i = 0; i < ctx.test_results.len; ++i) {
 		struct test_result *res = darr_get(&ctx.test_results, i);
 
+		if (opts->print_summary || res->failed) {
+			print_test_result(&wk, res);
+			log_plain("\n");
+		}
+
 		if (res->failed) {
 			if (res->test->should_fail) {
 				ret = false;
-				LOG_E("%s was marked as should_fail, but it did not", get_cstr(&wk, res->test->name));
 			} else {
 				ret = false;
-				LOG_E("failed: %s %.2fs", get_cstr(&wk, res->test->name), res->dur);
 				if (res->cmd_ctx.err_msg) {
 					log_plain("%s\n", res->cmd_ctx.err_msg);
 				}
@@ -488,8 +554,6 @@ tests_run(struct test_options *opts)
 			}
 
 			run_cmd_ctx_destroy(&res->cmd_ctx);
-		} else if (opts->print_summary) {
-			LOG_I("ok: %s %.2fs", get_cstr(&wk, res->test->name), res->dur);
 		}
 	}
 
