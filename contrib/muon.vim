@@ -8,7 +8,7 @@ endfunction
 function! ale_linters#meson#muon#GetCommand(buffer) abort
 	let l:executable = ale_linters#meson#muon#GetExecutable(a:buffer)
 
-	return ale#Escape(l:executable) . ' analyze -lO' . resolve(expand('%:p'))
+	return ale#Escape(l:executable) . ' analyze -lO"' . resolve(expand('%:p') . '"')
 endfunction
 
 function! ale_linters#meson#muon#Handle(buffer, lines) abort
