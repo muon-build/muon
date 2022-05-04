@@ -28,8 +28,8 @@ e.g.
 ninja -C <build dir>
 ```
 
-If the project defines tests, you may run them with the *test* command, and
-finally install the project with the *install* command.
+If the project defines tests, you may run them with the *test* subcommand, and
+finally install the project with the *install* subcommand.
 
 # OPTIONS
 
@@ -181,7 +181,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  *option*.  This option may be specified multiple times.
 
 ## test
-	*muon* *test* [*-f*] [*-s* <suite>] [*-d* <display mode>]
+	*muon* *test* [*-S*] [*-f*] [*-s* <suite>] [*-d* <display mode>]
 
 	Execute tests defined in _source files_.
 
