@@ -139,12 +139,14 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		status_failed,
 		status_should_have_failed,
 		status_ok,
+		status_failed_ok,
 	} status;
 
 	const char *status_msg[] = {
-		[status_failed] = "err",
-		[status_should_have_failed] = "ok ",
-		[status_ok] = "ok ",
+		[status_failed] = "fail ",
+		[status_should_have_failed] = "ok*  ",
+		[status_ok] = "ok   ",
+		[status_failed_ok] = "fail*",
 	};
 
 	if (res->failed) {
@@ -154,7 +156,26 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			status = status_failed;
 		}
 	} else {
-		status = status_ok;
+		if (res->test->should_fail) {
+			status = status_failed_ok;
+		} else {
+			status = status_ok;
+		}
+	}
+
+	const char *suite_str = NULL;
+	uint32_t suites_len = 0;
+	if (res->test->suites) {
+		suites_len = get_obj_array(wk, res->test->suites)->len;
+		if (suites_len == 1) {
+			obj s;
+			obj_array_index(wk, res->test->suites, 0, &s);
+			suite_str = get_cstr(wk, s);
+		} else if (suites_len > 1) {
+			obj s;
+			obj_array_join(wk, true, res->test->suites, make_str(wk, ", "), &s);
+			suite_str = get_cstr(wk, s);
+		}
 	}
 
 	if (log_clr()) {
@@ -162,15 +183,26 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_failed] = 31,
 			[status_should_have_failed] = 31,
 			[status_ok] = 32,
+			[status_failed_ok] = 33,
 		};
-		log_plain("[\033[%dm%s\033[0m] %6.2fs, %s", clr[status], status_msg[status], res->dur, name);
+		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
 
 		if (status == status_should_have_failed) {
 			log_plain(" - passing test marked as should_fail");
 		}
 	} else {
-		log_plain("[%s] %6.2fs, %s", status_msg[status], res->dur, name);
+		log_plain("[%s]", status_msg[status]);
 	}
+
+	log_plain(" %6.2fs, ", res->dur);
+	if (suite_str) {
+		if (suites_len > 1) {
+			log_plain("[%s]:", suite_str);
+		} else {
+			log_plain("%s:", suite_str);
+		}
+	}
+	log_plain("%s", name);
 }
 
 static void
