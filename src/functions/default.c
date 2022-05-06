@@ -637,6 +637,23 @@ message_print_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
+func_debug(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	log_plain("debug: ");
+	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
+	log_plain("\n");
+	*res = 0;
+
+	return true;
+}
+
+static bool
 func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
@@ -1628,6 +1645,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "configuration_data", func_configuration_data, tc_configuration_data },
 	{ "configure_file", func_configure_file, tc_file },
 	{ "custom_target", func_custom_target, tc_custom_target },
+	{ "debug", func_debug },
 	{ "declare_dependency", func_declare_dependency, tc_dependency },
 	{ "dependency", func_dependency, tc_dependency },
 	{ "disabler", func_disabler, tc_disabler },
