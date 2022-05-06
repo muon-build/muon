@@ -223,7 +223,7 @@ tests = [
     ['common/221 zlib'],
     ['common/222 native prop', ['failing']],
     ['common/223 persubproject options', ['failing']],
-    ['common/224 arithmetic operators', ['failing']],
+    ['common/224 arithmetic operators'],
     ['common/225 link language'],
     ['common/226 link depends indexed custom target'],
     # skip this test for now because it takes too long

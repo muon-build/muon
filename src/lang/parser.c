@@ -225,6 +225,33 @@ add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_
 	}
 }
 
+static void
+print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
+{
+	struct node *n = get_node(ast, id);
+	uint32_t i;
+
+	for (i = 0; i < d; ++i) {
+		putc(' ', stdout);
+	}
+
+	printf("%c:%s\n", label, node_to_s(n));
+
+	static const char *child_labels = "lrcd";
+
+	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
+		if ((1 << i) & n->chflg) {
+			print_tree(ast, get_child(ast, id, i), d + 1, child_labels[i]);
+		}
+	}
+}
+
+void
+print_ast(struct ast *ast)
+{
+	print_tree(ast, ast->root, 0, 'l');
+}
+
 const char *
 node_to_s(struct node *n)
 {
@@ -718,79 +745,74 @@ parse_e6(struct parser *p, uint32_t *id)
 	return true;
 }
 
+static bool parse_arith(struct parser *p, uint32_t *id, enum arithmetic_type type);
+
 static bool
-parse_arith(struct parser *p, uint32_t *id, parse_func parse_upper, enum token_type tok, enum arithmetic_type type)
+parse_arith_upper(struct parser *p, uint32_t *id, enum arithmetic_type type)
 {
+	if (type == arith_div) {
+		return parse_e6(p, id);
+	} else {
+		return parse_arith(p, id, type + 1);
+	}
+}
+
+static bool
+parse_arith(struct parser *p, uint32_t *id, enum arithmetic_type type)
+{
+	const struct {
+		enum token_type tok;
+	} op_map[] = {
+		[arith_add] = { tok_plus,   },
+		[arith_sub] = { tok_minus,  },
+		[arith_mod] = { tok_modulo, },
+		[arith_mul] = { tok_star,   },
+		[arith_div] = { tok_slash,  },
+	};
+
 	struct node *n;
 
 	uint32_t l_id, r_id;
 
-	if (!(parse_upper(p, &l_id))) {
+	if (!(parse_arith_upper(p, &l_id, type))) {
 		return false;
 	}
 
 	struct token *op_tok = NULL;
 
-	if (accept(p, tok)) {
+	enum token_type tok = op_map[type].tok;
+
+	while (accept(p, tok)) {
 		op_tok = p->last_last;
 
-		if (!(parse_arith(p, &r_id, parse_upper, tok, type))) {
+		if (!(parse_arith_upper(p, &r_id, type))) {
 			return false;
 		}
 
 		if (op_tok) {
 			p->last_last = op_tok;
 		}
-
 		if (!check_binary_operands(p, l_id, r_id, op_tok)) {
 			return false;
 		}
 
-		n = make_node(p, id, node_arithmetic);
+		uint32_t new_l;
+		n = make_node(p, &new_l, node_arithmetic);
 		n->subtype = type;
-		add_child(p, *id, node_child_l, l_id);
-		add_child(p, *id, node_child_r, r_id);
-	} else {
-		*id = l_id;
+		add_child(p, new_l, node_child_l, l_id);
+		add_child(p, new_l, node_child_r, r_id);
+
+		l_id = new_l;
 	}
 
+	*id = l_id;
 	return true;
-}
-
-static bool
-parse_e5div(struct parser *p, uint32_t *id)
-{
-	return parse_arith(p, id, parse_e6, tok_slash, arith_div);
-}
-
-static bool
-parse_e5mul(struct parser *p, uint32_t *id)
-{
-	return parse_arith(p, id, parse_e5div, tok_star, arith_mul);
-}
-
-static bool
-parse_e5mod(struct parser *p, uint32_t *id)
-{
-	return parse_arith(p, id, parse_e5mul, tok_modulo, arith_mod);
-}
-
-static bool
-parse_e5sub(struct parser *p, uint32_t *id)
-{
-	return parse_arith(p, id, parse_e5mod, tok_minus, arith_sub);
-}
-
-static bool
-parse_e5add(struct parser *p, uint32_t *id)
-{
-	return parse_arith(p, id, parse_e5sub, tok_plus, arith_add);
 }
 
 static bool
 parse_e5(struct parser *p, uint32_t *id)
 {
-	return parse_e5add(p, id);
+	return parse_arith(p, id, arith_add);
 }
 
 static bool
@@ -1316,34 +1338,6 @@ ret:
 	tokens_destroy(&toks);
 	return ret;
 }
-
-static void
-print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
-{
-	struct node *n = get_node(ast, id);
-	uint32_t i;
-
-	for (i = 0; i < d; ++i) {
-		putc(' ', stdout);
-	}
-
-	printf("%c:%s\n", label, node_to_s(n));
-
-	static const char *child_labels = "lrcd";
-
-	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
-		if ((1 << i) & n->chflg) {
-			print_tree(ast, get_child(ast, id, i), d + 1, child_labels[i]);
-		}
-	}
-}
-
-void
-print_ast(struct ast *ast)
-{
-	print_tree(ast, ast->root, 0, 'l');
-}
-
 void
 ast_destroy(struct ast *ast)
 {
