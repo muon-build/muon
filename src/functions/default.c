@@ -939,7 +939,7 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: installation");
+	L("TODO: install_subdir");
 
 	return true;
 }
@@ -963,7 +963,53 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: installation");
+	L("TODO: install_man");
+
+	return true;
+}
+
+static bool
+func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_dir,
+		kw_install_tag,
+		kw_pointing_to,
+	};
+	struct args_kw akw[] = {
+		[kw_install_dir] = { "install_dir", obj_string, .required = true },
+		[kw_install_tag] = { "install_tag", obj_string },
+		[kw_pointing_to] = { "pointing_to", obj_string, .required = true },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	L("TODO: install_symlink");
+
+	return true;
+}
+
+static bool
+func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_install_mode,
+		kw_install_tag,
+	};
+	struct args_kw akw[] = {
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[kw_install_tag] = { "install_tag", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	L("TODO: install_emptydir");
 
 	return true;
 }
@@ -1681,9 +1727,11 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "import", func_import, tc_module, true },
 	{ "include_directories", func_include_directories, tc_array },
 	{ "install_data", func_install_data },
+	{ "install_emptydir", func_install_emptydir },
 	{ "install_headers", func_install_headers },
 	{ "install_man", func_install_man },
 	{ "install_subdir", func_install_subdir },
+	{ "install_symlink", func_install_symlink },
 	{ "is_disabler", func_is_disabler, tc_bool, true },
 	{ "is_variable", func_is_variable, tc_bool, true },
 	{ "join_paths", func_join_paths, tc_string, true },

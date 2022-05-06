@@ -186,10 +186,6 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_failed_ok] = 33,
 		};
 		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
-
-		if (status == status_should_have_failed) {
-			log_plain(" - passing test marked as should_fail");
-		}
 	} else {
 		log_plain("[%s]", status_msg[status]);
 	}
@@ -203,6 +199,10 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		}
 	}
 	log_plain("%s", name);
+
+	if (status == status_should_have_failed) {
+		log_plain(" - passing test marked as should_fail");
+	}
 }
 
 static void

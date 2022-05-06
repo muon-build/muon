@@ -248,8 +248,8 @@ tests = [
     ['common/245 custom target index source'],
     ['common/246 dependency fallbacks', ['failing']],
     ['common/247 deprecated option', ['failing']],
-    ['common/248 install_emptydir', ['failing']],
-    ['common/249 install_symlink', ['failing']],
+    ['common/248 install_emptydir'],
+    ['common/249 install_symlink'],
     ['common/250 system include dir'],
 
     # unit
