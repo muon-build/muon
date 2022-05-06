@@ -260,6 +260,12 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 	hash_set_str(&current_project(wk)->scope, name, o);
 }
 
+void
+unassign_variable(struct workspace *wk, const char *name)
+{
+	hash_unset_str(&current_project(wk)->scope, name);
+}
+
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
 
 static bool

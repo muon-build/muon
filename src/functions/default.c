@@ -1390,6 +1390,27 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 }
 
 static bool
+func_unset_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const char *varname = get_cstr(wk, an[0].val);
+	obj _val;
+
+	if (wk->get_variable(wk, varname, &_val, wk->cur_project)) {
+		wk->unassign_variable(wk, varname);
+	} else {
+		interp_error(wk, an[0].node, "cannot unset undefined variable: %o", an[0].val);
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
@@ -1681,6 +1702,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "subproject", func_subproject, tc_subproject },
 	{ "summary", func_summary },
 	{ "test", func_test },
+	{ "unset_variable", func_unset_variable, 0, true },
 	{ "vcs_tag", func_vcs_tag, tc_custom_target },
 	{ "warning", func_warning },
 	// non-standard muon extensions

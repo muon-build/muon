@@ -147,18 +147,75 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
  * merged) into the parent scope, and the scope group is popped.
  */
 
-static struct assignment *
-assign_lookup_scope(const char *name, struct darr *scope)
+static bool
+assign_lookup_scope_i(const char *name, struct darr *scope, uint32_t *res)
 {
 	uint32_t i;
 	for (i = 0; i < scope->len; ++i) {
 		struct assignment *a = darr_get(scope, i);
 		if (strcmp(a->name, name) == 0) {
-			return a;
+			*res = i;
+			return true;
 		}
 	}
 
-	return NULL;
+	return false;
+}
+
+static struct assignment *
+assign_lookup_scope(const char *name, struct darr *scope)
+{
+	uint32_t i;
+	if (assign_lookup_scope_i(name, scope, &i)) {
+		return darr_get(scope, i);
+	} else {
+		return NULL;
+	}
+}
+
+static void
+analyze_unassign(struct workspace *wk, const char *name)
+{
+	int32_t i;
+	uint32_t idx = 0;
+	struct darr *containing_scope = NULL;
+	bool is_base = false;
+
+	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
+		struct scope_group *g = darr_get(&assignment_scopes.groups, i);
+		if (!(g->scopes.len)) {
+			continue;
+		}
+
+		struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
+
+		if (assign_lookup_scope_i(name, scope, &idx)) {
+			containing_scope = scope;
+			break;
+		}
+	}
+
+	obj _;
+	if (!containing_scope
+	    && wk->projects.len
+	    && get_obj_id(wk, name, &_, wk->cur_project)) {
+		if (!assign_lookup_scope_i(name, &assignment_scopes.base, &idx)) {
+			UNREACHABLE;
+		}
+
+		containing_scope = &assignment_scopes.base;
+		is_base = true;
+	}
+
+	if (!containing_scope) {
+		// variable not found...
+		return;
+	}
+
+	darr_del(containing_scope, idx);
+	if (is_base) {
+		hash_unset_str(&current_project(wk)->scope, name);
+	}
 }
 
 static struct assignment *
@@ -1164,13 +1221,13 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 }
 
 static void
-scope_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id)
+analyze_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
 	scope_assign(wk, name, o, n_id);
 }
 
 static bool
-assign_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
+analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	struct assignment *a = assign_lookup(wk, name);
 	if (a) {
@@ -1182,7 +1239,7 @@ assign_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_t
 }
 
 static bool
-assign_eval_project_file(struct workspace *wk, const char *path)
+analyze_eval_project_file(struct workspace *wk, const char *path)
 {
 	const char *newpath = path;
 	if (analyze_opts->file_override && strcmp(analyze_opts->file_override, path) == 0) {
@@ -1241,9 +1298,10 @@ do_analyze(struct analyze_opts *opts)
 	}
 
 	wk.interp_node = analyze_node;
-	wk.assign_variable = scope_assign_wrapper;
-	wk.get_variable = assign_lookup_wrapper;
-	wk.eval_project_file = assign_eval_project_file;
+	wk.assign_variable = analyze_assign_wrapper;
+	wk.unassign_variable = analyze_unassign;
+	wk.get_variable = analyze_lookup_wrapper;
+	wk.eval_project_file = analyze_eval_project_file;
 
 	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
 		goto err;

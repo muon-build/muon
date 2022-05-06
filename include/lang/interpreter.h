@@ -29,4 +29,5 @@ bool bounds_adjust(struct workspace *wk, uint32_t len, int64_t *i);
 bool rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n);
 
 void assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id);
+void unassign_variable(struct workspace *wk, const char *name);
 #endif

@@ -200,6 +200,7 @@ workspace_init_bare(struct workspace *wk)
 	*wk = (struct workspace){
 		.interp_node = interp_node,
 		.assign_variable = assign_variable,
+		.unassign_variable = unassign_variable,
 		.get_variable = get_obj_id,
 		.eval_project_file = eval_project_file,
 	};

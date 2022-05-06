@@ -244,7 +244,7 @@ tests = [
     ['common/241 set and get variable'],
     ['common/242 custom target feed'],
     ['common/243 escape++'],
-    ['common/244 variable scope', ['failing']],
+    ['common/244 variable scope'],
     ['common/245 custom target index source'],
     ['common/245 dependency fallbacks', ['failing']],
     ['common/245 deprecated option', ['failing']],
