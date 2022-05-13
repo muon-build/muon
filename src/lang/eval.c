@@ -2,11 +2,11 @@
 
 #include <string.h>
 
-#include "functions/default/options.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/parser.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -16,11 +16,9 @@ bool
 eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	const char *build_dir, uint32_t *proj_id)
 {
-	char src[PATH_MAX], meson_opts[PATH_MAX];
+	char src[PATH_MAX];
 
 	if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
-		return false;
-	} else if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
 		return false;
 	}
 
@@ -40,22 +38,9 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
-	wk->lang_mode = language_opts;
-	if (!set_builtin_options(wk)) {
+	if (!setup_project_options(wk, cwd)) {
 		goto cleanup;
 	}
-
-	if (fs_file_exists(meson_opts)) {
-		if (!wk->eval_project_file(wk, meson_opts)) {
-			goto cleanup;
-		}
-	}
-
-	if (!check_invalid_option_overrides(wk)) {
-		goto cleanup;
-	}
-
-	wk->lang_mode = language_external;
 
 	if (!wk->eval_project_file(wk, src)) {
 		goto cleanup;

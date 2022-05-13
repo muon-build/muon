@@ -6,9 +6,9 @@
 #include "args.h"
 #include "backend/common_args.h"
 #include "error.h"
-#include "functions/default/options.h"
 #include "functions/dependency.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -33,15 +33,15 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 	};
 
 	obj buildtype;
-	get_option(wk, proj, "buildtype", &buildtype);
+	get_option_value(wk, proj, "buildtype", &buildtype);
 
 	const char *str = get_cstr(wk, buildtype);
 
 	if (strcmp(str, "custom") == 0) {
 		obj optimization_id, debug_id;
 
-		get_option(wk, proj, "optimization", &optimization_id);
-		get_option(wk, proj, "debug", &debug_id);
+		get_option_value(wk, proj, "optimization", &optimization_id);
+		get_option_value(wk, proj, "debug", &debug_id);
 
 		str = get_cstr(wk, optimization_id);
 		switch (*str) {
@@ -86,7 +86,7 @@ static void
 get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
 {
 	obj lvl_id;
-	get_option(wk, proj, "warning_level", &lvl_id);
+	get_option_value(wk, proj, "warning_level", &lvl_id);
 
 	uint32_t lvl;
 	const struct str *sl = get_str(wk, lvl_id);
@@ -120,10 +120,10 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 
 	switch (lang) {
 	case compiler_language_c:
-		get_option(wk, proj, "c_std", &std);
+		get_option_value(wk, proj, "c_std", &std);
 		break;
 	case compiler_language_cpp:
-		get_option(wk, proj, "cpp_std", &std);
+		get_option_value(wk, proj, "cpp_std", &std);
 		break;
 	default:
 		return;
@@ -147,10 +147,10 @@ get_option_compile_args(struct workspace *wk, const struct project *proj, obj ar
 	obj args;
 	switch (lang) {
 	case compiler_language_c:
-		get_option(wk, proj, "c_args", &args);
+		get_option_value(wk, proj, "c_args", &args);
 		break;
 	case compiler_language_cpp:
-		get_option(wk, proj, "cpp_args", &args);
+		get_option_value(wk, proj, "cpp_args", &args);
 		break;
 	default:
 		return;
@@ -224,14 +224,14 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 #endif
 
 	obj opt;
-	get_option(wk, proj, "b_sanitize", &opt);
+	get_option_value(wk, proj, "b_sanitize", &opt);
 	if (!str_eql(get_str(wk, opt), &WKSTR("none"))) {
 		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, opt)));
 	}
 
 	obj buildtype;
-	get_option(wk, proj, "buildtype", &buildtype);
-	get_option(wk, proj, "b_ndebug", &opt);
+	get_option_value(wk, proj, "buildtype", &buildtype);
+	get_option_value(wk, proj, "b_ndebug", &opt);
 	if (str_eql(get_str(wk, opt), &WKSTR("true"))
 	    || (str_eql(get_str(wk, opt), &WKSTR("if-release"))
 		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
@@ -360,10 +360,10 @@ get_option_link_args(struct workspace *wk, const struct project *proj, obj args_
 	obj args;
 	switch (lang) {
 	case compiler_language_c:
-		get_option(wk, proj, "c_link_args", &args);
+		get_option_value(wk, proj, "c_link_args", &args);
 		break;
 	case compiler_language_cpp:
-		get_option(wk, proj, "cpp_args", &args);
+		get_option_value(wk, proj, "cpp_args", &args);
 		break;
 	default:
 		return;
@@ -392,7 +392,7 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 #endif
 
 	obj b_sanitize;
-	get_option(wk, proj, "b_sanitize", &b_sanitize);
+	get_option_value(wk, proj, "b_sanitize", &b_sanitize);
 	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
 		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, b_sanitize)));
 	}

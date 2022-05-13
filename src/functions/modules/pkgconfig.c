@@ -5,10 +5,10 @@
 
 #include "args.h"
 #include "functions/custom_target.h"
-#include "functions/default/options.h"
 #include "functions/file.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -454,7 +454,7 @@ static void
 module_pkgconf_declare_builtin_dir_var(struct workspace *wk, const char *opt, obj dest)
 {
 	obj val, valstr;
-	get_option(wk, current_project(wk), opt, &val);
+	get_option_value(wk, current_project(wk), opt, &val);
 	if (strcmp(opt, "prefix") == 0) {
 		valstr = val;
 	} else {
@@ -550,7 +550,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 	if (install_dir_opt->set) {
 		char rel[PATH_MAX];
 		obj pre;
-		get_option(wk, current_project(wk), "prefix", &pre);
+		get_option_value(wk, current_project(wk), "prefix", &pre);
 
 		const char *install_dir = get_cstr(wk, install_dir_opt->val),
 			   *prefix = get_cstr(wk, pre);
@@ -923,7 +923,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
 		} else {
 			obj libdir;
-			get_option(wk, current_project(wk), "libdir", &libdir);
+			get_option_value(wk, current_project(wk), "libdir", &libdir);
 			if (!path_join(path, PATH_MAX, get_cstr(wk, libdir), "pkgconfig")) {
 				return false;
 			}

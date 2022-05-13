@@ -35,11 +35,6 @@ enum loop_ctl {
 	loop_continuing,
 };
 
-struct option_override {
-	uint32_t proj, name, val;
-	bool obj_value;
-};
-
 enum {
 	disabler_id = 1
 };
@@ -73,6 +68,8 @@ struct workspace {
 	obj find_program_overrides;
 	/* custom subprojects_dir */
 	obj subprojects_dir;
+	/* global options */
+	obj global_opts;
 	/* ----------------- */
 
 	struct bucket_array chrs;

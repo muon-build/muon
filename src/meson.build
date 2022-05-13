@@ -72,6 +72,7 @@ src = (
         'log.c',
         'machine_file.c',
         'main.c',
+        'options.c',
         'opts.c',
         'rpmvercmp.c',
         'sha_256.c',
@@ -86,7 +87,11 @@ src = (
     ]
 )
 
-scripts = files('script/builtin_options.meson', 'script/vcs_tagger.meson')
+scripts = files(
+    'script/global_options.meson',
+    'script/per_project_options.meson',
+    'script/vcs_tagger.meson',
+)
 
 src += [
     custom_target(

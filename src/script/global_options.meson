@@ -1,0 +1,151 @@
+# Directories
+option('prefix', type: 'string', value: '/usr/local')
+option('bindir', type: 'string', value: 'bin')
+option('datadir', type: 'string', value: 'share')
+option('includedir', type: 'string', value: 'include')
+option('infodir', type: 'string', value: 'share/info')
+option('libdir', type: 'string', value: 'lib')
+option('libexecdir', type: 'string', value: 'libexec')
+option('localedir', type: 'string', value: 'share/locale')
+option('localstatedir', type: 'string', value: '/var')
+option('mandir', type: 'string', value: 'share/man')
+option('sbindir', type: 'string', value: 'sbin')
+option('sharedstatedir', type: 'string', value: 'com')
+option('sysconfdir', type: 'string', value: '/etc')
+
+# Core options
+option('auto_features', type: 'feature', value: 'auto')
+option(
+    'backend',
+    yield: true,
+    type: 'combo',
+    value: 'ninja',
+    choices: ['ninja'],
+)
+option(
+    'buildtype',
+    yield: true,
+    type: 'combo',
+    value: 'debugoptimized',
+    choices: [
+        'plain',
+        'debug',
+        'debugoptimized',
+        'release',
+        'minsize',
+        'custom',
+    ],
+)
+option('cmake_prefix_path', type: 'array', value: []) # TODO
+option('debug', type: 'boolean', value: true)
+option('errorlogs', type: 'boolean', value: true) # TODO
+option('install_umask', type: 'string', value: '022') # TODO
+option(
+    'layout',
+    yield: true,
+    type: 'combo',
+    value: 'mirror',
+    choices: [
+        'mirror',
+    ],
+)
+option(
+    'optimization',
+    yield: true,
+    type: 'combo',
+    value: 'g',
+    choices: ['0', 'g', '1', '2', '3', 's'],
+)
+option('pkg_config_path', type: 'string', value: '')
+option('stdsplit', type: 'boolean', value: true) # TODO
+option('strip', type: 'boolean', value: false) # TODO
+option(
+    'unity',
+    yield: true,
+    type: 'combo',
+    value: 'off',
+    choices: ['on', 'off', 'subprojects'],
+) # TODO
+option('unity_size', type: 'integer', value: 4, min: 2) # TODO
+option(
+    'wrap_mode',
+    yield: true,
+    type: 'combo',
+    value: 'nopromote',
+    choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
+)
+option('force_fallback_for', type: 'array', value: [])
+
+# Base options
+option('b_asneeded', type: 'boolean', value: true) # TODO
+option('b_bitcode', type: 'boolean', value: false) # TODO
+option(
+    'b_colorout',
+    yield: true,
+    type: 'combo',
+    value: 'always',
+    choices: ['auto', 'always', 'never'],
+) # TODO
+option('b_coverage', type: 'boolean', value: false) # TODO
+option('b_lundef', type: 'boolean', value: true) # TODO
+option('b_lto', type: 'boolean', value: false) # TODO
+option('b_lto_threads', type: 'integer', value: 0, min: 0) # TODO
+option(
+    'b_lto_mode',
+    yield: true,
+    type: 'combo',
+    value: 'default',
+    choices: ['default', 'thin'],
+) # TODO
+option(
+    'b_ndebug',
+    yield: true,
+    type: 'combo',
+    value: 'false',
+    choices: ['true', 'false', 'if-release'],
+)
+option('b_pch', type: 'boolean', value: true) # TODO
+option(
+    'b_pgo',
+    yield: true,
+    type: 'combo',
+    value: 'off',
+    choices: ['off', 'generate', 'use'],
+) # TODO
+option('b_sanitize', type: 'string', value: 'none')
+option('b_staticpic', type: 'boolean', value: true) # TODO
+option('b_pie', type: 'boolean', value: false) # TODO
+option(
+    'b_vscrt',
+    yield: true,
+    type: 'combo',
+    value: 'from_buildtype',
+    choices: [
+        'none',
+        'md',
+        'mdd',
+        'mt',
+        'mtd',
+        'from_buildtype',
+        'static_from_buildtype',
+    ],
+) # TODO
+
+# Compiler options
+option('c_args', type: 'array', value: [])
+option('c_link_args', type: 'array', value: [])
+option('c_winlibs', type: 'array', value: [])
+option('c_thread_count', type: 'integer', value: 4, min: 0) # TODO
+option('cpp_args', type: 'array', value: [])
+option('cpp_link_args', type: 'array', value: [])
+option('cpp_debugstl', type: 'boolean', value: false) # TODO
+option(
+    'cpp_eh',
+    yield: true,
+    type: 'combo',
+    value: 'default',
+    choices: ['none', 'default', 'a', 's', 'sc'],
+) # TODO
+option('cpp_rtti', type: 'boolean', value: true) # TODO
+option('cpp_thread_count', type: 'integer', value: 4, min: 0) # TODO
+option('cpp_winlibs', type: 'array', value: []) # TODO

@@ -23,11 +23,14 @@ static void
 interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const char *fmt, va_list args)
 {
 	static char buf[BUF_SIZE_4k];
-	struct node *n = get_node(wk->ast, n_id);
-
 	obj_vsnprintf(wk, buf, BUF_SIZE_4k, fmt, args);
 
-	error_message(wk->src, n->line, n->col, lvl, buf);
+	if (n_id) {
+		struct node *n = get_node(wk->ast, n_id);
+		error_message(wk->src, n->line, n->col, lvl, buf);
+	} else {
+		log_print(__FILE__, __LINE__, __func__, true, lvl, "%s", buf);
+	}
 }
 
 void

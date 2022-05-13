@@ -7,6 +7,7 @@
 #include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

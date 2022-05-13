@@ -4,10 +4,10 @@
 
 #include "backend/output.h"
 #include "error.h"
-#include "functions/default/options.h"
 #include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/mem.h"
 #include "platform/path.h"
 
@@ -43,7 +43,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		sdest = dest;
 	} else {
 		obj prefix;
-		get_option(wk, current_project(wk), "prefix", &prefix);
+		get_option_value(wk, current_project(wk), "prefix", &prefix);
 
 		char buf[PATH_MAX];
 		if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, dest))) {
@@ -283,6 +283,11 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->dep_overrides, obj_dict);
 	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	wk->subprojects_dir = make_str(wk, "subprojects");
+	make_obj(wk, &wk->global_opts, obj_dict);
+
+	if (!init_global_options(wk)) {
+		UNREACHABLE;
+	}
 }
 
 void

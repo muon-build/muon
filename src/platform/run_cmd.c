@@ -193,7 +193,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 {
 	const char *p, *cmd;
 
-	L("%s", _cmd);
 	if (!fs_find_cmd(_cmd, &cmd)) {
 		ctx->err_msg = "command not found";
 		return false;

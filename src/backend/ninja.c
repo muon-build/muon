@@ -7,9 +7,9 @@
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "external/samurai.h"
-#include "functions/default/options.h"
 #include "lang/serial.h"
 #include "log.h"
+#include "options.h"
 #include "platform/path.h"
 
 struct check_tgt_ctx {
@@ -54,7 +54,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 		return ninja_write_alias_tgt(wk, tgt_id, ctx);
 	case obj_both_libs:
 		tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_build_target:
 		return ninja_write_build_tgt(wk, tgt_id, ctx);
 	case obj_custom_target:
@@ -138,7 +138,7 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 
 	struct project *proj = darr_get(&wk->projects, 0);
 	obj prefix;
-	get_option(wk, proj, "prefix", &prefix);
+	get_option_value(wk, proj, "prefix", &prefix);
 	obj_array_push(wk, o, prefix);
 
 	return serial_dump(wk, o, out);

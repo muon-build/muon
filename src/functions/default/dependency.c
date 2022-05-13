@@ -7,12 +7,12 @@
 #include "external/libpkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
-#include "functions/default/options.h"
 #include "functions/default/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
@@ -154,7 +154,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	if (ctx->fallback) {
 		obj force_fallback_for, subproj_name, _;
 
-		get_option(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
+		get_option_value(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
 		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 
 		force_fallback =

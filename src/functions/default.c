@@ -20,6 +20,7 @@
 #include "guess.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -1075,7 +1076,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		install_dir = akw[kw_install_dir].val;
 	} else {
 		obj install_dir_base;
-		get_option(wk, current_project(wk), "datadir", &install_dir_base);
+		get_option_value(wk, current_project(wk), "datadir", &install_dir_base);
 
 		char buf[PATH_MAX];
 		if (!path_join(buf, PATH_MAX, get_cstr(wk, install_dir_base), get_cstr(wk, current_project(wk)->cfg.name))) {
@@ -1141,7 +1142,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	if (akw[kw_install_dir].set) {
 		install_dir_base = akw[kw_install_dir].val;
 	} else {
-		get_option(wk, current_project(wk), "includedir", &install_dir_base);
+		get_option_value(wk, current_project(wk), "includedir", &install_dir_base);
 	}
 
 	obj install_dir;

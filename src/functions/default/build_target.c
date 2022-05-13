@@ -7,10 +7,10 @@
 #include "coerce.h"
 #include "functions/build_target.h"
 #include "functions/default/build_target.h"
-#include "functions/default/options.h"
 #include "functions/generator.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -155,7 +155,7 @@ static enum tgt_type
 default_library_type(struct workspace *wk)
 {
 	obj opt;
-	get_option(wk, current_project(wk), "default_library", &opt);
+	get_option_value(wk, current_project(wk), "default_library", &opt);
 
 	if (str_eql(get_str(wk, opt), &WKSTR("static"))) {
 		return tgt_static_library;
@@ -531,12 +531,12 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		} else {
 			switch (type) {
 			case tgt_executable:
-				get_option(wk, current_project(wk), "bindir", &install_dir);
+				get_option_value(wk, current_project(wk), "bindir", &install_dir);
 				break;
 			case tgt_dynamic_library:
 			case tgt_static_library:
 			case tgt_shared_module:
-				get_option(wk, current_project(wk), "libdir", &install_dir);
+				get_option_value(wk, current_project(wk), "libdir", &install_dir);
 				break;
 			default:
 				assert(false && "unreachable");

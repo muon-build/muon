@@ -5,10 +5,10 @@
 
 #include "buf_size.h"
 #include "external/libpkgconf.h"
-#include "functions/default/options.h"
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -42,7 +42,7 @@ muon_pkgconf_init(struct workspace *wk)
 	pkgconf_client_init(&client, error_handler, NULL, personality);
 
 	obj opt;
-	get_option(wk, current_project(wk), "pkg_config_path", &opt);
+	get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
 	const struct str *pkg_config_path = get_str(wk, opt);
 
 	if (pkg_config_path->len) {

@@ -150,16 +150,6 @@ enum module {
 	module_count,
 };
 
-enum build_option_type {
-	op_string,
-	op_boolean,
-	op_combo,
-	op_integer,
-	op_array,
-	op_feature,
-	build_option_type_count,
-};
-
 enum str_flags {
 	str_flag_big = 1 << 0,
 };
@@ -377,12 +367,35 @@ struct obj_include_directory {
 	bool is_system;
 };
 
+enum build_option_type {
+	op_string,
+	op_boolean,
+	op_combo,
+	op_integer,
+	op_array,
+	op_feature,
+	build_option_type_count,
+};
+
+enum option_value_source {
+	option_value_source_unset,
+	option_value_source_default,
+	option_value_source_default_options,
+	option_value_source_yield,
+	option_value_source_deprecated_rename,
+	option_value_source_commandline,
+};
+
 struct obj_option {
+	obj name;
 	obj val;
-	enum build_option_type type;
 	obj choices;
 	obj max;
 	obj min;
+	obj deprecated;
+	enum option_value_source source;
+	enum build_option_type type;
+	bool yield;
 };
 
 struct obj_generator {
@@ -462,6 +475,7 @@ void obj_array_push(struct workspace *wk, obj arr, obj child);
 bool obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb);
 bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb);
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
+bool obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx);
 void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
@@ -484,4 +498,6 @@ void obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2);
 void obj_dict_index_values(struct workspace *wk, obj dict, uint32_t i, obj *res);
 void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);
 bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
+
+bool obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dict_iterator cb);
 #endif

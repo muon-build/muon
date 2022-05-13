@@ -350,11 +350,20 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		return l->len == r->len
 		       && obj_array_foreach(wk, left, &ctx, obj_equal_array_iter);
 	}
-	break;
-	case obj_dict:
-		LOG_W("TODO: compare %s", obj_type_to_s(t));
-		return false;
+	case obj_feature_opt: {
+		return get_obj_feature_opt(wk, left)->state
+		       == get_obj_feature_opt(wk, right)->state;
+	}
+	case obj_include_directory: {
+		struct obj_include_directory *l, *r;
+		l = get_obj_include_directory(wk, left);
+		r = get_obj_include_directory(wk, right);
+
+		return l->is_system == r->is_system
+		       && obj_equal(wk, l->path, r->path);
+	}
 	default:
+		/* LOG_W("TODO: compare %s", obj_type_to_s(t)); */
 		return false;
 	}
 }
@@ -460,31 +469,41 @@ obj_array_push(struct workspace *wk, obj arr, obj child)
 	++a->len;
 }
 
-struct obj_array_in_iter_ctx {
+struct obj_array_index_of_iter_ctx {
 	obj l;
 	bool res;
+	uint32_t i;
 };
 
 static enum iteration_result
-obj_array_in_iter(struct workspace *wk, void *_ctx, obj v)
+obj_array_index_of_iter(struct workspace *wk, void *_ctx, obj v)
 {
-	struct obj_array_in_iter_ctx *ctx = _ctx;
+	struct obj_array_index_of_iter_ctx *ctx = _ctx;
 
 	if (obj_equal(wk, ctx->l, v)) {
 		ctx->res = true;
 		return ir_done;
 	}
 
+	++ctx->i;
 	return ir_cont;
+}
+
+bool
+obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx)
+{
+	struct obj_array_index_of_iter_ctx ctx = { .l = val };
+	obj_array_foreach(wk, arr, &ctx, obj_array_index_of_iter);
+
+	*idx = ctx.i;
+	return ctx.res;
 }
 
 bool
 obj_array_in(struct workspace *wk, obj arr, obj val)
 {
-	struct obj_array_in_iter_ctx ctx = { .l = val };
-	obj_array_foreach(wk, arr, &ctx, obj_array_in_iter);
-
-	return ctx.res;
+	uint32_t _;
+	return obj_array_index_of(wk, arr, val, &_);
 }
 
 struct obj_array_index_iter_ctx { obj res, i, tgt; };
@@ -952,6 +971,38 @@ obj_dict_index_values(struct workspace *wk, obj dict, uint32_t i, obj *res)
 	assert(i < get_obj_dict(wk, dict)->len);
 	struct obj_dict_index_values_ctx ctx = { .tgt = i, .res = res };
 	obj_dict_foreach(wk, dict, &ctx, obj_dict_index_values_iter);
+}
+
+/* */
+
+struct obj_iterable_foreach_ctx {
+	void *ctx;
+	obj_dict_iterator cb;
+};
+
+static enum iteration_result
+obj_iterable_foreach_array_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct obj_iterable_foreach_ctx *ctx = _ctx;
+	return ctx->cb(wk, ctx->ctx, val, 0);
+}
+
+bool
+obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dict_iterator cb)
+{
+	switch (get_obj_type(wk, dict_or_array)) {
+	case obj_dict: {
+		return obj_dict_foreach(wk, dict_or_array, ctx, cb);
+	}
+	case obj_array: {
+		return obj_array_foreach(wk, dict_or_array, &(struct obj_iterable_foreach_ctx){
+				.ctx = ctx,
+				.cb = cb,
+			}, obj_iterable_foreach_array_iter);
+	}
+	default:
+		UNREACHABLE;
+	}
 }
 
 /* */

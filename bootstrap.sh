@@ -95,6 +95,7 @@ cat \
 	src/log.c \
 	src/machine_file.c \
 	src/main.c \
+	src/options.c \
 	src/opts.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \

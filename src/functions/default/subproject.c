@@ -1,10 +1,10 @@
 #include "posix.h"
 
-#include "functions/default/options.h"
 #include "functions/default/subproject.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "wrap.h"
