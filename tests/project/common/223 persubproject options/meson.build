@@ -1,7 +1,7 @@
 project(
     'persubproject options',
     'c',
-    default_options: ['werror=true', 'warning_level=3'],
+    default_options: ['default_library=both', 'werror=true', 'warning_level=3'],
 )
 
 assert(

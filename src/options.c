@@ -725,6 +725,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	if (ctx->subproject || oo_for_subproject) {
+		oo.source = option_value_source_subproject_default_options;
 		darr_push(&wk->option_overrides, &oo);
 		return ir_cont;
 	}
