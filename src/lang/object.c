@@ -11,6 +11,7 @@
 #include "lang/object.h"
 #include "lang/parser.h"
 #include "log.h"
+#include "options.h"
 
 const struct obj_typechecking_type_to_obj_type typemap[] = {
 	{ obj_bool, tc_bool },
@@ -168,7 +169,17 @@ get_obj_feature_opt(struct workspace *wk, obj fo)
 	enum feature_opt_state state;
 	state = *(enum feature_opt_state *)get_obj_internal(wk, fo, obj_feature_opt);
 
+	if (state == feature_opt_auto) {
+		obj auto_features_opt;
+		if (get_option(wk, current_project(wk), &WKSTR("auto_features"), &auto_features_opt)) {
+			struct obj_option *opt = get_obj_option(wk, auto_features_opt);
+			return *(enum feature_opt_state *)get_obj_internal(wk, opt->val, obj_feature_opt);
+		} else {
+			return state;
+		}
+	} else {
 		return state;
+	}
 }
 
 void

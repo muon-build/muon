@@ -191,7 +191,7 @@ tests = [
     ['common/190 install_mode', ['failing']],
     ['common/191 subproject array version'],
     ['common/192 feature option'],
-    ['common/193 feature option disabled', ['failing']],
+    ['common/193 feature option disabled'],
     ['common/194 static threads'],
     ['common/195 generator in subdir'],
     ['common/196 subproject with features', ['failing']],
