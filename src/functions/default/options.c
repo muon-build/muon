@@ -142,7 +142,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			break;
 		case op_feature:
 			make_obj(wk, &val, obj_feature_opt);
-			get_obj_feature_opt(wk, val)->state = feature_opt_auto;
+			set_obj_feature_opt(wk, val, feature_opt_auto);
 			break;
 		default:
 			UNREACHABLE_RETURN;

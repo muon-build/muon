@@ -16,7 +16,7 @@ feature_opt_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	// TODO auto_features
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_feature_opt(wk, rcvr)->state == state);
+	set_obj_bool(wk, *res, get_obj_feature_opt(wk, rcvr) == state);
 	return true;
 }
 
@@ -45,7 +45,7 @@ func_feature_opt_allowed(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr)->state;
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, state == feature_opt_auto || state == feature_opt_enabled);
@@ -60,7 +60,7 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_n
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr)->state;
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
 
 	if (!get_obj_bool(wk, an[0].val)) {
 		*res = rcvr;
@@ -70,7 +70,7 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_n
 		return true;
 	} else {
 		make_obj(wk, res, obj_feature_opt);
-		get_obj_feature_opt(wk, *res)->state = feature_opt_disabled;
+		set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		return true;
 	}
 }
@@ -91,7 +91,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr)->state;
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (state == feature_opt_enabled) {
 			interp_error(wk, an[0].node, "%s",
@@ -101,7 +101,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 			return false;
 		} else {
 			make_obj(wk, res, obj_feature_opt);
-			get_obj_feature_opt(wk, *res)->state = feature_opt_disabled;
+			set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		}
 	} else {
 		*res = rcvr;

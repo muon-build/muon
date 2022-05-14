@@ -69,6 +69,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	switch (type) {
 	case obj_bool:
 	case obj_file:
+	case obj_feature_opt:
 		return &o->val;
 		break;
 
@@ -81,7 +82,6 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_custom_target:
 	case obj_subproject:
 	case obj_dependency:
-	case obj_feature_opt:
 	case obj_external_program:
 	case obj_external_library:
 	case obj_run_result:
@@ -162,6 +162,21 @@ get_str(struct workspace *wk, obj s)
 	return get_obj_internal(wk, s, obj_string);
 }
 
+enum feature_opt_state
+get_obj_feature_opt(struct workspace *wk, obj fo)
+{
+	enum feature_opt_state state;
+	state = *(enum feature_opt_state *)get_obj_internal(wk, fo, obj_feature_opt);
+
+		return state;
+}
+
+void
+set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state)
+{
+	*(enum feature_opt_state *)get_obj_internal(wk, fo, obj_feature_opt)
+		= state;
+}
 
 #define OBJ_GETTER(type) \
 	struct type * \
@@ -177,7 +192,6 @@ OBJ_GETTER(obj_build_target)
 OBJ_GETTER(obj_custom_target)
 OBJ_GETTER(obj_subproject)
 OBJ_GETTER(obj_dependency)
-OBJ_GETTER(obj_feature_opt)
 OBJ_GETTER(obj_external_program)
 OBJ_GETTER(obj_external_library)
 OBJ_GETTER(obj_run_result)
@@ -209,6 +223,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_meson:
 	case obj_disabler:
 	case obj_machine:
+	case obj_feature_opt:
 		val = 0;
 		break;
 
@@ -221,7 +236,6 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_custom_target:
 	case obj_subproject:
 	case obj_dependency:
-	case obj_feature_opt:
 	case obj_external_program:
 	case obj_external_library:
 	case obj_run_result:
@@ -351,8 +365,8 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		       && obj_array_foreach(wk, left, &ctx, obj_equal_array_iter);
 	}
 	case obj_feature_opt: {
-		return get_obj_feature_opt(wk, left)->state
-		       == get_obj_feature_opt(wk, right)->state;
+		return get_obj_feature_opt(wk, left)
+		       == get_obj_feature_opt(wk, right);
 	}
 	case obj_include_directory: {
 		struct obj_include_directory *l, *r;
@@ -1157,10 +1171,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	}
 	case obj_feature_opt: {
 		make_obj(wk_dest, ret, t);
-		struct obj_feature_opt *opt = get_obj_feature_opt(wk_src, val),
-				       *o = get_obj_feature_opt(wk_dest, *ret);
 
-		o->state = opt->state;
+		set_obj_feature_opt(wk_dest, *ret, get_obj_feature_opt(wk_src, val));
 		return true;
 	}
 	case obj_configuration_data: {
@@ -1323,7 +1335,7 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 		break;
 	}
 	case obj_feature_opt:
-		switch (get_obj_feature_opt(wk, obj)->state) {
+		switch (get_obj_feature_opt(wk, obj)) {
 		case feature_opt_auto:
 			ctx.i += snprintf(buf, len, "'auto'");
 			break;

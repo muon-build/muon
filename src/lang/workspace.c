@@ -221,7 +221,6 @@ workspace_init_bare(struct workspace *wk)
 		[obj_custom_target] = { sizeof(struct obj_custom_target), 16 },
 		[obj_subproject] = { sizeof(struct obj_subproject), 16 },
 		[obj_dependency] = { sizeof(struct obj_dependency), 16 },
-		[obj_feature_opt] = { sizeof(struct obj_feature_opt), 32 },
 		[obj_external_program] = { sizeof(struct obj_external_program), 32 },
 		[obj_external_library] = { sizeof(struct obj_external_library), 32 },
 		[obj_run_result] = { sizeof(struct obj_run_result), 32 },

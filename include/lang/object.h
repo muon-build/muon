@@ -22,6 +22,7 @@ enum obj_type {
 	/* simple object types */
 	obj_bool,
 	obj_file,
+	obj_feature_opt,
 
 	/* complex object types */
 	_obj_aos_start,
@@ -34,7 +35,6 @@ enum obj_type {
 	obj_custom_target,
 	obj_subproject,
 	obj_dependency,
-	obj_feature_opt,
 	obj_external_program,
 	obj_external_library,
 	obj_run_result,
@@ -296,10 +296,6 @@ struct obj_dependency {
 	enum include_type include_type;
 };
 
-struct obj_feature_opt {
-	enum feature_opt_state state;
-};
-
 struct obj_external_program {
 	bool found;
 	obj full_path;
@@ -425,6 +421,8 @@ void set_obj_number(struct workspace *wk, obj o, int64_t v);
 obj *get_obj_file(struct workspace *wk, obj o);
 const char *get_file_path(struct workspace *wk, obj o);
 const struct str *get_str(struct workspace *wk, obj s);
+enum feature_opt_state get_obj_feature_opt(struct workspace *wk, obj fo);
+void set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state);
 
 #define OBJ_GETTER(type) struct type *get_ ## type(struct workspace *wk, obj o)
 
@@ -435,7 +433,6 @@ OBJ_GETTER(obj_build_target);
 OBJ_GETTER(obj_custom_target);
 OBJ_GETTER(obj_subproject);
 OBJ_GETTER(obj_dependency);
-OBJ_GETTER(obj_feature_opt);
 OBJ_GETTER(obj_external_program);
 OBJ_GETTER(obj_external_library);
 OBJ_GETTER(obj_run_result);

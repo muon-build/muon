@@ -258,7 +258,7 @@ coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requi
 				*requirement = requirement_auto;
 			}
 		} else if (t == obj_feature_opt) {
-			switch (get_obj_feature_opt(wk, kw_required->val)->state) {
+			switch (get_obj_feature_opt(wk, kw_required->val)) {
 			case feature_opt_disabled:
 				*requirement = requirement_skip;
 				break;

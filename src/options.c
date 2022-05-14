@@ -169,7 +169,7 @@ coerce_feature_opt(struct workspace *wk, uint32_t node, const struct str *val, o
 	}
 
 	make_obj(wk, res, obj_feature_opt);
-	get_obj_feature_opt(wk, *res)->state = f;
+	set_obj_feature_opt(wk, *res, f);
 	return true;
 }
 
