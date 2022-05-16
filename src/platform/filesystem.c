@@ -752,3 +752,21 @@ fs_user_home(void)
 {
 	return getenv("HOME");
 }
+
+bool
+fs_is_a_tty(FILE *f)
+{
+	int fd;
+	if (!fs_fileno(f, &fd)) {
+		return false;
+	}
+	errno = 0;
+	if (isatty(fd) == 1) {
+		return true;
+	} else {
+		if (errno != ENOTTY) {
+			LOG_W("isatty() failed: %s", strerror(errno));
+		}
+		return false;
+	}
+}

@@ -7,6 +7,7 @@
 
 #include "buf_size.h"
 #include "log.h"
+#include "platform/filesystem.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
@@ -117,22 +118,15 @@ log_init(void)
 	}
 
 	log_cfg.file = stderr;
-	log_cfg.clr = log_file_is_a_tty();
+	log_cfg.clr = fs_is_a_tty(log_cfg.file);
 	log_cfg.initialized = true;
-}
-
-bool
-log_file_is_a_tty(void)
-{
-	int fd;
-	return (fd = fileno(log_cfg.file)) != -1 && isatty(fd) == 1;
 }
 
 void
 log_set_file(FILE *log_file)
 {
 	log_cfg.file = log_file;
-	log_cfg.clr = log_file_is_a_tty();
+	log_cfg.clr = fs_is_a_tty(log_file);
 }
 
 void

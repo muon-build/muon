@@ -154,5 +154,11 @@ foreach f : ['rpath_fixer.c']
     src += files('platform' / platform / f)
 endforeach
 
-src_platform_path = files('platform/path.c')
-src_log = files('log.c')
+core_sources = files(
+    'data/darr.c',
+    'platform/filesystem.c',
+    'platform/mem.c',
+    'platform/path.c',
+    'error.c',
+    'log.c',
+)

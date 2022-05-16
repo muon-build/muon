@@ -41,8 +41,6 @@ void log_set_file(FILE *log_file);
 void log_set_lvl(enum log_level lvl);
 void log_set_opts(enum log_opts opts);
 
-bool log_file_is_a_tty(void);
-
 void log_print(const char *file, uint32_t line, const char *func, bool nl,
 	enum log_level lvl, const char *fmt, ...) __attribute__ ((format(printf, 6, 7)));
 bool log_clr(void);

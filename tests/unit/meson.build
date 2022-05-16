@@ -1,9 +1,5 @@
 tests = [
-    [
-        'path',
-        [files('path.c')],
-        {'objects': muon.extract_objects(src_platform_path, src_log)},
-    ],
+    ['path', [files('path.c')], {'objects': muon.extract_objects(core_sources)}],
 ]
 
 foreach t : tests
