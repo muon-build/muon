@@ -25,41 +25,62 @@ static bool set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val
 	enum option_value_source source, bool coerce);
 
 static bool
-parse_config_string(struct workspace *wk, char *lhs, struct option_override *oo)
+parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo)
 {
-	char *rhs = strchr(lhs, '=');
-	if (!rhs) {
-		LOG_E("expected '=' in config opt '%s'", lhs);
-		return false;
-	}
-	*rhs = 0;
-	++rhs;
-
-	char *subproj;
-
-	subproj = lhs;
-	if ((lhs = strchr(lhs, ':'))) {
-		*lhs = 0;
-		++lhs;
-	} else {
-		lhs = subproj;
-		subproj = NULL;
-	}
-
-	if (!*lhs) {
-		LOG_E("'%s%s=%s' missing option name",
-			subproj ? subproj : "", subproj ? ":" : "", rhs);
-		return false;
-	} else if (subproj && !*subproj) {
-		LOG_E("':%s=%s' there is a colon in the option name,"
-			"but no subproject was specified", lhs, rhs);
+	if (str_has_null(ss)) {
+		LOG_E("option cannot contain NUL");
 		return false;
 	}
 
-	oo->name = make_str(wk, lhs);
-	oo->val = make_str(wk, rhs);
-	if (subproj) {
-		oo->proj = make_str(wk, subproj);
+	struct str subproject = { 0 }, key = { 0 }, val = { 0 }, cur = { 0 };
+
+	cur.s = ss->s;
+	bool reading_key = true, have_subproject = false;
+
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (reading_key) {
+			if (ss->s[i] == ':') {
+				if (have_subproject) {
+					LOG_E("multiple ':' in option '%s'", ss->s);
+					return false;
+				}
+
+				have_subproject = true;
+				subproject = cur;
+				cur.s = &ss->s[i + 1];
+				cur.len = 0;
+				continue;
+			} else if (ss->s[i] == '=') {
+				key = cur;
+				cur.s = &ss->s[i + 1];
+				cur.len = 0;
+				reading_key = false;
+				continue;
+			}
+		}
+
+		++cur.len;
+	}
+
+	val = cur;
+
+	if (!val.len) {
+		LOG_E("expected '=' in option '%s'", ss->s);
+		return false;
+	} else if (!key.len) {
+		LOG_E("missing option name in option '%s'", ss->s);
+		return false;
+	} else if (have_subproject && !subproject.len) {
+		LOG_E("missing subproject in option '%s'", ss->s);
+		return false;
+	}
+
+	oo->name = make_strn(wk, key.s, key.len);
+	oo->val = make_strn(wk, val.s, val.len);
+	if (have_subproject) {
+		oo->proj = make_strn(wk, subproject.s, subproject.len);
+		obj_fprintf(wk, log_file(), "subproject option override: %o:%o=%o\n", oo->proj, oo->name, oo->val);
 	}
 
 	return true;
@@ -686,7 +707,7 @@ bool
 parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 {
 	struct option_override oo = { .source = option_value_source_commandline };
-	if (!parse_config_string(wk, lhs, &oo)) {
+	if (!parse_config_string(wk, &WKSTR(lhs), &oo)) {
 		return false;
 	}
 
@@ -705,15 +726,8 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct parse_and_set_default_options_ctx *ctx = _ctx;
 
-	const struct str *ss = get_str(wk, v);
-	if (str_has_null(ss)) {
-		interp_error(wk, ctx->node, "invalid option string");
-		return ir_err;
-	}
-
-	char *s = (char *)ss->s;
 	struct option_override oo = { .source = option_value_source_default_options };
-	if (!parse_config_string(wk, s, &oo)) {
+	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
 		interp_error(wk, ctx->node, "invalid option string");
 		return ir_err;
 	}
