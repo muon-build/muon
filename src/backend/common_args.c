@@ -8,12 +8,22 @@
 #include "error.h"
 #include "functions/dependency.h"
 #include "log.h"
-#include "options.h"
+/* #include "options.h" */
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
+void get_option_value_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, obj *res);
+
+static void
+get_option_value_for_tgt(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, const char *name, obj *res)
+{
+	get_option_value_overridable(wk, proj, tgt ? tgt->override_options : 0, name, res);
+}
+
 static bool
-get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
+get_buildtype_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
 {
 	uint32_t i;
 	enum compiler_optimization_lvl opt = 0;
@@ -33,15 +43,15 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 	};
 
 	obj buildtype;
-	get_option_value(wk, proj, "buildtype", &buildtype);
+	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype);
 
 	const char *str = get_cstr(wk, buildtype);
 
 	if (strcmp(str, "custom") == 0) {
 		obj optimization_id, debug_id;
 
-		get_option_value(wk, proj, "optimization", &optimization_id);
-		get_option_value(wk, proj, "debug", &debug_id);
+		get_option_value_for_tgt(wk, proj, tgt, "optimization", &optimization_id);
+		get_option_value_for_tgt(wk, proj, tgt, "debug", &debug_id);
 
 		str = get_cstr(wk, optimization_id);
 		switch (*str) {
@@ -83,10 +93,11 @@ get_buildtype_args(struct workspace *wk, const struct project *proj, obj args_id
 }
 
 static void
-get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_type t)
+get_warning_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
 {
 	obj lvl_id;
-	get_option_value(wk, proj, "warning_level", &lvl_id);
+	get_option_value_for_tgt(wk, proj, tgt, "warning_level", &lvl_id);
 
 	uint32_t lvl;
 	const struct str *sl = get_str(wk, lvl_id);
@@ -109,21 +120,22 @@ get_warning_args(struct workspace *wk, const struct project *proj, obj args_id, 
 		return;
 	}
 
-
 	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
 }
 
 void
-get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang, enum compiler_type t)
+get_std_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id,
+	enum compiler_language lang, enum compiler_type t)
 {
 	obj std;
 
 	switch (lang) {
 	case compiler_language_c:
-		get_option_value(wk, proj, "c_std", &std);
+		get_option_value_for_tgt(wk, proj, tgt, "c_std", &std);
 		break;
 	case compiler_language_cpp:
-		get_option_value(wk, proj, "cpp_std", &std);
+		get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std);
 		break;
 	default:
 		return;
@@ -137,7 +149,8 @@ get_std_args(struct workspace *wk, const struct project *proj, obj args_id, enum
 }
 
 void
-get_option_compile_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
+get_option_compile_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any _args options defined
@@ -147,10 +160,10 @@ get_option_compile_args(struct workspace *wk, const struct project *proj, obj ar
 	obj args;
 	switch (lang) {
 	case compiler_language_c:
-		get_option_value(wk, proj, "c_args", &args);
+		get_option_value_for_tgt(wk, proj, tgt, "c_args", &args);
 		break;
 	case compiler_language_cpp:
-		get_option_value(wk, proj, "cpp_args", &args);
+		get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args);
 		break;
 	default:
 		return;
@@ -216,7 +229,7 @@ struct setup_compiler_args_ctx {
 
 static void
 setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
-	obj args, enum compiler_type t)
+	const struct obj_build_target *tgt, obj args, enum compiler_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
@@ -224,14 +237,14 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 #endif
 
 	obj opt;
-	get_option_value(wk, proj, "b_sanitize", &opt);
+	get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
 	if (!str_eql(get_str(wk, opt), &WKSTR("none"))) {
 		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, opt)));
 	}
 
 	obj buildtype;
-	get_option_value(wk, proj, "buildtype", &buildtype);
-	get_option_value(wk, proj, "b_ndebug", &opt);
+	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype);
+	get_option_value_for_tgt(wk, proj, tgt, "b_ndebug", &opt);
 	if (str_eql(get_str(wk, opt), &WKSTR("true"))
 	    || (str_eql(get_str(wk, opt), &WKSTR("if-release"))
 		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
@@ -240,7 +253,9 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 }
 
 static bool
-get_base_compiler_args(struct workspace *wk, const struct project *proj, enum compiler_language lang, obj comp_id, obj *res)
+get_base_compiler_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, enum compiler_language lang,
+	obj comp_id, obj *res)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
@@ -248,16 +263,16 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj, enum co
 	obj args;
 	make_obj(wk, &args, obj_array);
 
-	get_std_args(wk, proj, args, lang, t);
-	if (!get_buildtype_args(wk, proj, args, t)) {
+	get_std_args(wk, proj, tgt, args, lang, t);
+	if (!get_buildtype_args(wk, proj, tgt, args, t)) {
 		return false;
 	}
-	get_warning_args(wk, proj, args, t);
+	get_warning_args(wk, proj, tgt, args, t);
 
-	setup_optional_b_args_compiler(wk, proj, args, t);
+	setup_optional_b_args_compiler(wk, proj, tgt, args, t);
 
 	{ /* option args (from option('x_args')) */
-		get_option_compile_args(wk, proj, args, lang);
+		get_option_compile_args(wk, proj, tgt, args, lang);
 	}
 
 	{ /* global args */
@@ -279,7 +294,8 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj, enum co
 }
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx,
+	enum compiler_language lang, obj comp_id)
 {
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
@@ -287,7 +303,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	enum compiler_type t = comp->type;
 
 	obj args;
-	if (!get_base_compiler_args(wk, ctx->proj, lang, comp_id, &args)) {
+	if (!get_base_compiler_args(wk, ctx->proj, ctx->tgt, lang, comp_id, &args)) {
 		return ir_err;
 	}
 
@@ -350,7 +366,8 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 }
 
 void
-get_option_link_args(struct workspace *wk, const struct project *proj, obj args_id, enum compiler_language lang)
+get_option_link_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any _link_args options defined
@@ -360,10 +377,10 @@ get_option_link_args(struct workspace *wk, const struct project *proj, obj args_
 	obj args;
 	switch (lang) {
 	case compiler_language_c:
-		get_option_value(wk, proj, "c_link_args", &args);
+		get_option_value_for_tgt(wk, proj, tgt, "c_link_args", &args);
 		break;
 	case compiler_language_cpp:
-		get_option_value(wk, proj, "cpp_args", &args);
+		get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args);
 		break;
 	default:
 		return;
@@ -384,7 +401,7 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 
 static bool
 setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
-	obj args, enum linker_type t)
+	const struct obj_build_target *tgt, obj args, enum linker_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
@@ -392,7 +409,7 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 #endif
 
 	obj b_sanitize;
-	get_option_value(wk, proj, "b_sanitize", &b_sanitize);
+	get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &b_sanitize);
 	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
 		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, b_sanitize)));
 	}
@@ -434,10 +451,10 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.export_dynamic());
 		}
 
-		setup_optional_b_args_linker(wk, proj, ctx->args->link_args, ctx->linker);
+		setup_optional_b_args_linker(wk, proj, tgt, ctx->args->link_args, ctx->linker);
 
 		{ /* option args (from option('x_link_args')) */
-			get_option_link_args(wk, proj, ctx->args->link_args, ctx->link_lang);
+			get_option_link_args(wk, proj, tgt, ctx->args->link_args, ctx->link_lang);
 		}
 
 		/* global args */

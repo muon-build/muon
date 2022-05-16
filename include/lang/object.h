@@ -219,6 +219,7 @@ struct obj_build_target {
 	obj link_depends; // obj_array
 	obj order_deps; // obj_array
 	obj generated_pc; // obj_string
+	obj override_options; // obj_array
 
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
@@ -379,6 +380,7 @@ enum option_value_source {
 	option_value_source_yield,
 	option_value_source_default_options,
 	option_value_source_subproject_default_options,
+	option_value_source_override_options,
 	option_value_source_deprecated_rename,
 	option_value_source_commandline,
 };

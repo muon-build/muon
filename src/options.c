@@ -409,9 +409,11 @@ set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 	/* 		[option_value_source_unset] = "unset", */
 	/* 		[option_value_source_default] = "default", */
 	/* 		[option_value_source_default_options] = "default_options", */
+	/* 		[option_value_source_subproject_default_options] = "subproject_default_options", */
 	/* 		[option_value_source_yield] = "yield", */
 	/* 		[option_value_source_commandline] = "commandline", */
 	/* 		[option_value_source_deprecated_rename] = "deprecated rename", */
+	/* 		[option_value_source_override_options] = "override_options", */
 	/* 	}; */
 	/* 	obj_fprintf(wk, log_file(), */
 	/* 		"%s option %o to %o from %s, last set by %s\n", */
@@ -516,9 +518,12 @@ create_option(struct workspace *wk, uint32_t node, obj opts, obj opt, obj val)
 }
 
 bool
-get_option(struct workspace *wk, const struct project *proj, const struct str *name, obj *res)
+get_option_overridable(struct workspace *wk, const struct project *proj, obj overrides,
+	const struct str *name, obj *res)
 {
-	if (proj && obj_dict_index_strn(wk, proj->opts, name->s, name->len, res)) {
+	if (overrides && obj_dict_index_strn(wk, overrides, name->s, name->len, res)) {
+		return true;
+	} else if (proj && obj_dict_index_strn(wk, proj->opts, name->s, name->len, res)) {
 		return true;
 	} else if (obj_dict_index_strn(wk, wk->global_opts, name->s, name->len, res)) {
 		return true;
@@ -527,17 +532,30 @@ get_option(struct workspace *wk, const struct project *proj, const struct str *n
 	}
 }
 
+bool
+get_option(struct workspace *wk, const struct project *proj,
+	const struct str *name, obj *res)
+{
+	return get_option_overridable(wk, proj, 0, name, res);
+}
+
 void
-get_option_value(struct workspace *wk, const struct project *proj, const char *name, obj *res)
+get_option_value_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, obj *res)
 {
 	obj opt;
-	if (!get_option(wk, proj, &WKSTR(name), &opt)) {
+	if (!get_option_overridable(wk, proj, overrides, &WKSTR(name), &opt)) {
 		LOG_E("attempted to get unknown option '%s'", name);
 		UNREACHABLE;
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
 	*res = o->val;
+}
+
+void
+get_option_value(struct workspace *wk, const struct project *proj, const char *name, obj *res)
+{
+	get_option_value_overridable(wk, proj, 0, name, res);
 }
 
 static void
@@ -718,7 +736,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 struct parse_and_set_default_options_ctx {
 	uint32_t node;
 	obj project_name;
-	bool subproject;
+	bool for_subproject;
 };
 
 static enum iteration_result
@@ -738,7 +756,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 		oo.proj = ctx->project_name;
 	}
 
-	if (ctx->subproject || oo_for_subproject) {
+	if (ctx->for_subproject || oo_for_subproject) {
 		oo.source = option_value_source_subproject_default_options;
 		darr_push(&wk->option_overrides, &oo);
 		return ir_cont;
@@ -758,18 +776,82 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 bool
-parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name, bool is_subproject)
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node,
+	obj arr, obj project_name, bool for_subproject)
 {
 	struct parse_and_set_default_options_ctx ctx = {
 		.node = err_node,
 		.project_name = project_name,
-		.subproject = is_subproject,
+		.for_subproject = for_subproject,
 	};
 
 	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter)) {
 		return false;
 	}
 
+	return true;
+}
+
+struct parse_and_set_override_options_ctx {
+	uint32_t node;
+	obj opts;
+};
+
+static enum iteration_result
+parse_and_set_override_options_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct parse_and_set_override_options_ctx *ctx = _ctx;
+
+	struct option_override oo = { .source = option_value_source_default_options };
+	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
+		interp_error(wk, ctx->node, "invalid option string");
+		return ir_err;
+	}
+
+	if (oo.proj) {
+		interp_error(wk, ctx->node, "subproject options may not be set in override_options");
+		return ir_err;
+	}
+
+	obj opt;
+	if (!get_option(wk, current_project(wk), get_str(wk, oo.name), &opt)) {
+		interp_error(wk, ctx->node, "invalid option %o in override_options", oo.name);
+		return ir_err;
+	}
+
+	obj newopt;
+	make_obj(wk, &newopt, obj_option);
+	struct obj_option *o = get_obj_option(wk, newopt);
+	*o = *get_obj_option(wk, opt);
+
+	if (!set_option(wk, ctx->node, newopt, oo.val, option_value_source_override_options, true)) {
+		return ir_err;
+	}
+
+	if (obj_dict_in(wk, ctx->opts, o->name)) {
+		interp_error(wk, ctx->node, "duplicate option %o in override_options", oo.name);
+		return ir_err;
+	}
+
+	obj_dict_set(wk, ctx->opts, o->name, newopt);
+	return ir_cont;
+}
+
+bool
+parse_and_set_override_options(struct workspace *wk, uint32_t err_node,
+	obj arr, obj *res)
+{
+	struct parse_and_set_override_options_ctx ctx = {
+		.node = err_node,
+	};
+
+	make_obj(wk, &ctx.opts, obj_dict);
+
+	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_override_options_iter)) {
+		return false;
+	}
+
+	*res = ctx.opts;
 	return true;
 }
 
@@ -798,6 +880,5 @@ get_option_wrap_mode(struct workspace *wk)
 		}
 	}
 
-	assert(false && "invalid wrap_mode set");
-	return 0;
+	UNREACHABLE_RETURN;
 }

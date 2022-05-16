@@ -42,6 +42,7 @@ enum build_target_kwargs {
 	bt_kw_darwin_versions, // TODO
 	bt_kw_gui_app, // TODO
 	bt_kw_link_language, // TODO
+	bt_kw_override_options,
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
@@ -320,6 +321,15 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->include_directories, obj_array);
 	make_obj(wk, &tgt->order_deps, obj_array);
+
+	if (akw[bt_kw_override_options].set) { // override options
+		if (!parse_and_set_override_options(wk,
+			akw[bt_kw_override_options].node,
+			akw[bt_kw_override_options].val,
+			&tgt->override_options)) {
+			return false;
+		}
+	}
 
 	{ // build target flags
 		{ // pic
@@ -621,6 +631,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_darwin_versions] = { "darwin_versions", ARG_TYPE_ARRAY_OF | tc_string | tc_number },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
+		[bt_kw_override_options] = { "override_options", ARG_TYPE_ARRAY_OF | obj_string },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },

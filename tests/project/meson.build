@@ -215,7 +215,7 @@ tests = [
     # ['common/213 source set dictionary', ['failing']],
     # ['common/214 source set custom target', ['failing']],
     # ['common/215 source set realistic example', ['failing']],
-    ['common/216 custom target input extracted objects', ['failing']],
+    ['common/216 custom target input extracted objects'],
     ['common/217 test priorities'],
     ['common/218 include_dir dot'],
     ['common/219 include_type dependency'],
