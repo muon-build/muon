@@ -104,8 +104,6 @@ func_to_lower(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-#define MAX_KEY_LEN 64
-
 bool
 string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb)
 {
@@ -129,9 +127,6 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 					reading_id = true;
 					key.len = 0;
 					continue;
-				} else if (i - id_start >= MAX_KEY_LEN) {
-					interp_error(wk, err_node, "key is too long (max: %d)", MAX_KEY_LEN);
-					return false;
 				}
 
 				key = (struct str){ .s = &ss_in->s[id_start], .len = i - id_start };
@@ -178,7 +173,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 
 	if (reading_id) {
 		str_app(wk, *res, "@");
-		str_appn(wk, *res, key.s, key.len);
+		str_appn(wk, *res, &ss_in->s[id_start], i - id_start);
 	} else {
 		if (i > id_end) {
 			str_appn(wk, *res, &ss_in->s[id_end], i - id_end);
