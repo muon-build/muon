@@ -1,6 +1,21 @@
-option('libcurl', type: 'feature', value: 'auto')
-option('libarchive', type: 'feature', value: 'auto')
-option('libpkgconf', type: 'feature', value: 'auto')
+option(
+    'libcurl',
+    type: 'feature',
+    value: 'auto',
+    description: 'required for fetching wraps',
+)
+option(
+    'libarchive',
+    type: 'feature',
+    value: 'auto',
+    description: 'required for extracting wrap archives',
+)
+option(
+    'libpkgconf',
+    type: 'feature',
+    value: 'auto',
+    description: 'required for dependency discovery with pkg-config files',
+)
 option(
     'samurai',
     type: 'feature',
