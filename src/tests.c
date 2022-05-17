@@ -524,9 +524,7 @@ tests_run(struct test_options *opts)
 		if (opts->display == test_display_bar) {
 			uint32_t h;
 			ctx.stats.term = true;
-			if (!term_winsize(fd, &h, &ctx.stats.term_width)) {
-				ctx.stats.term_width = 80;
-			}
+			term_winsize(fd, &h, &ctx.stats.term_width);
 		} else if (opts->display == test_display_dots) {
 			ctx.stats.term = false;
 		} else {
