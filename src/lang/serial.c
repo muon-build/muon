@@ -394,7 +394,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	struct workspace wk_src = { 0 };
 	workspace_init_bare(&wk_src);
 
-	struct big_string_table bst;
+	struct big_string_table bst = { 0 };
 
 	obj obj_src;
 	if (!(load_serial_header(f)
