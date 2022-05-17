@@ -119,7 +119,7 @@ load_serial_header(FILE *f)
 	}
 
 	if (v != serial_version) {
-		LOG_E("version mismatch: %d != %d", v, serial_version);
+		LOG_E("unable to load data file created by a different version of muon (%d != %d)", v, serial_version);
 		return false;
 	}
 
