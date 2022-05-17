@@ -10,6 +10,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
+#include "platform/filesystem.h"
 #include "platform/path.h"
 
 static const char *build_option_type_to_s[build_option_type_count] = {
@@ -881,4 +882,214 @@ get_option_wrap_mode(struct workspace *wk)
 	}
 
 	UNREACHABLE_RETURN;
+}
+
+struct make_option_choices_ctx {
+	obj selected;
+	const char *val_clr, *sel_clr, *no_clr;
+	uint32_t i, len;
+	obj res;
+};
+
+static enum iteration_result
+make_option_choices_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct make_option_choices_ctx *ctx = _ctx;
+
+	const struct str *ss = get_str(wk, val);
+
+	const char *clr = ctx->val_clr;
+	if (ctx->selected && obj_array_in(wk, ctx->selected, val)) {
+		clr = ctx->sel_clr;
+	}
+
+	str_app(wk, ctx->res, clr);
+	str_appn(wk, ctx->res, ss->s, ss->len);
+	str_app(wk, ctx->res, ctx->no_clr);
+
+	if (ctx->i < ctx->len - 1) {
+		str_app(wk, ctx->res, "|");
+	}
+
+	++ctx->i;
+	return ir_cont;
+}
+
+static enum iteration_result
+list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	struct obj_option *opt = get_obj_option(wk, val);
+	/* const char *option_type_names[] = { */
+	/* 	[op_string] = "string", */
+	/* 	[op_boolean] = "boolean", */
+	/* 	[op_combo] = "combo", */
+	/* 	[op_integer] = "integer", */
+	/* 	[op_array] = "array", */
+	/* 	[op_feature] = "feature", */
+	/* }; */
+
+	const char *key_clr = "", *val_clr = "", *sel_clr = "", *no_clr = "";
+
+	if (fs_is_a_tty(stdout)) {
+		key_clr = "\033[1;34m";
+		val_clr = "\033[1;37m";
+		sel_clr = "\033[1;32m";
+		no_clr = "\033[0m";
+	}
+
+	obj_printf(wk, "  %s%#o%s=", key_clr, key, no_clr);
+
+	obj choices = 0;
+	obj selected = 0;
+
+	if (opt->type == op_combo) {
+		choices = opt->choices;
+		make_obj(wk, &selected, obj_array);
+		obj_array_push(wk, selected, opt->val);
+	} else if (opt->type == op_array && opt->choices) {
+		choices = opt->choices;
+		selected = opt->val;
+	} else {
+		make_obj(wk, &choices, obj_array);
+		switch (opt->type) {
+		case op_string:
+			obj_array_push(wk, choices, make_str(wk, "string"));
+			break;
+		case op_boolean:
+			obj_array_push(wk, choices, make_str(wk, "true"));
+			obj_array_push(wk, choices, make_str(wk, "false"));
+			make_obj(wk, &selected, obj_array);
+			obj_array_push(wk, selected, make_str(wk, get_obj_bool(wk, opt->val) ? "true" : "false"));
+			break;
+		case op_feature:
+			obj_array_push(wk, choices, make_str(wk, "enabled"));
+			obj_array_push(wk, choices, make_str(wk, "disabled"));
+			obj_array_push(wk, choices, make_str(wk, "auto"));
+			make_obj(wk, &selected, obj_array);
+			obj_array_push(wk, selected, make_str(wk, (char *[]){
+				[feature_opt_enabled] = "enabled",
+				[feature_opt_disabled] = "disabled",
+				[feature_opt_auto] = "auto",
+			}[get_obj_feature_opt(wk, opt->val)]));
+			break;
+		case op_combo:
+		case op_array:
+		case op_integer:
+			break;
+		default:
+			UNREACHABLE;
+		}
+	}
+
+	if (choices) {
+		struct make_option_choices_ctx ctx = {
+			.len = get_obj_array(wk, choices)->len,
+			.val_clr = val_clr,
+			.no_clr = no_clr,
+			.sel_clr = sel_clr,
+			.selected = selected,
+			.res = make_str(wk, ""),
+		};
+
+		obj_array_foreach(wk, choices, &ctx, make_option_choices_iter);
+		choices = ctx.res;
+	}
+
+	switch (opt->type) {
+	case op_boolean:
+	case op_combo:
+	case op_feature:
+		obj_printf(wk, "<%s>", get_cstr(wk, choices));
+		break;
+	case op_string: {
+		const struct str *def = get_str(wk, opt->val);
+		obj_printf(wk, "<%s>, default: %s%s%s", get_cstr(wk, choices),
+			sel_clr, def->len ? def->s : "''", no_clr);
+		break;
+	}
+	case op_integer:
+		printf("<%sN%s>", val_clr, no_clr);
+		if (opt->min || opt->max) {
+			printf(" where ");
+			if (opt->min) {
+				obj_printf(wk, "%o < ", opt->min);
+			}
+			printf("%sN%s", val_clr, no_clr);
+			if (opt->max) {
+				obj_printf(wk, " < %o", opt->max);
+			}
+		}
+		obj_printf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
+
+		break;
+	case op_array:
+		printf("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
+		if (opt->choices) {
+			obj_printf(wk, " where value in %s", get_cstr(wk, choices));
+		}
+		break;
+	default:
+		UNREACHABLE;
+	}
+
+	if (opt->description) {
+		obj_printf(wk, "\n    %#o", opt->description);
+	}
+
+	printf("\n");
+	return ir_cont;
+}
+
+bool
+list_options(const struct list_options_opts *list_opts)
+{
+	bool ret = false;
+	struct workspace wk = { 0 };
+	workspace_init(&wk);
+	wk.lang_mode = language_opts;
+	if (!workspace_setup_dirs(&wk, "dummy", "muon", false)) {
+		goto ret;
+	}
+
+	darr_push(&wk.projects, &(struct project){ 0 });
+	struct project *proj = darr_get(&wk.projects, 0);
+	make_obj(&wk, &proj->opts, obj_dict);
+
+	char meson_opts[PATH_MAX];
+	if (!path_make_absolute(meson_opts, PATH_MAX, "meson_options.txt")) {
+		goto ret;
+	}
+
+	if (fs_file_exists(meson_opts)) {
+		if (!wk.eval_project_file(&wk, meson_opts)) {
+			goto ret;
+		}
+	}
+
+	if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
+		printf("project options:\n");
+		obj_dict_foreach(&wk, current_project(&wk)->opts, NULL, list_options_iter);
+	}
+
+	if (list_opts->list_all) {
+		if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
+			printf("\n");
+		}
+
+		make_obj(&wk, &current_project(&wk)->opts, obj_dict);
+		if (!init_per_project_options(&wk)) {
+			goto ret;
+		}
+		printf("project builtin-options:\n");
+		obj_dict_foreach(&wk, current_project(&wk)->opts, NULL, list_options_iter);
+		printf("\n");
+
+		printf("global options:\n");
+		obj_dict_foreach(&wk, wk.global_opts, NULL, list_options_iter);
+	}
+
+	ret = true;
+ret:
+	workspace_destroy(&wk);
+	return ret;
 }

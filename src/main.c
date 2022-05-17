@@ -208,6 +208,22 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 	return do_analyze(&opts);
 }
 
+static bool
+cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct list_options_opts opts = { 0 };
+	OPTSTART("a") {
+		case 'a':
+			opts.list_all = true;
+			break;
+	} OPTEND(argv[argi], "",
+		"  -a - list all options"
+		,
+		NULL, 0)
+
+	return list_options(&opts);
+}
+
 static const char *cmd_subprojects_subprojects_dir = "subprojects";
 
 static bool
@@ -739,6 +755,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "fmt_unstable", cmd_format, "format meson source file" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
+		{ "options", cmd_options, "list project options" },
 		{ "samu", cmd_samu, "run samurai" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "subprojects", cmd_subprojects, "manage subprojects" },

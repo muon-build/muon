@@ -163,6 +163,14 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Start a _meson dsl_ repl.  The functions available are limited as with
 	*internal eval*.
 
+## options
+	*muon* *options* [*-a*]
+
+	Lists project options
+
+	*OPTIONS*:
+	- *-a* - Include builtin global and per-project options in the output.
+
 ## samu
 	*muon* *samu* [<args>]
 

@@ -158,6 +158,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	o->max = akw[kw_max].val;
 	o->choices = akw[kw_choices].val;
 	o->yield = akw[kw_yield].set && get_obj_bool(wk, akw[kw_yield].val);
+	o->description = akw[kw_description].val;
 
 	if (akw[kw_deprecated].set) {
 		switch (get_obj_type(wk, akw[kw_deprecated].val)) {

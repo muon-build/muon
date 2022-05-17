@@ -34,4 +34,9 @@ enum wrap_mode {
 	wrap_mode_forcefallback,
 };
 enum wrap_mode get_option_wrap_mode(struct workspace *wk);
+
+struct list_options_opts {
+	bool list_all;
+};
+bool list_options(const struct list_options_opts *list_opts);
 #endif

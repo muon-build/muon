@@ -392,6 +392,7 @@ struct obj_option {
 	obj max;
 	obj min;
 	obj deprecated;
+	obj description;
 	enum option_value_source source;
 	enum build_option_type type;
 	bool yield;
