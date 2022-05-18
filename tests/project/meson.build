@@ -186,7 +186,7 @@ tests = [
     ['common/185 same target name'],
     ['common/186 test depends'],
     ['common/187 args flattening'],
-    ['common/188 dict', ['failing']],
+    ['common/188 dict'],
     ['common/189 check header'],
     ['common/190 install_mode', ['failing']],
     ['common/191 subproject array version'],
