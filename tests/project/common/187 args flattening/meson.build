@@ -40,6 +40,6 @@ assert(
 
 # Test deprecated behaviour
 
-conf = configuration_data()
-conf.set(['foo', 'bar'])
-message(conf.get('foo'))
+# conf = configuration_data()
+# conf.set(['foo', 'bar'])
+# message(conf.get('foo'))
