@@ -337,7 +337,7 @@ ensure_in_loop(struct parser *p)
 }
 
 typedef bool (*parse_func)(struct parser *, uint32_t *);
-static bool parse_stmt(struct parser *p, uint32_t *id);
+static bool parse_expr(struct parser *p, uint32_t *id);
 
 enum parse_list_mode {
 	parse_list_mode_array,
@@ -361,7 +361,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 		return true;
 	} else {
 		p->preserve_fmt_eol = false;
-		if (!parse_stmt(p, &s_id)) {
+		if (!parse_expr(p, &s_id)) {
 			return false;
 		}
 		p->preserve_fmt_eol = true;
@@ -393,7 +393,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 			}
 
 			p->preserve_fmt_eol = false;
-			if (!parse_stmt(p, &v_id)) {
+			if (!parse_expr(p, &v_id)) {
 				return false;
 			}
 			p->preserve_fmt_eol = true;
@@ -457,7 +457,7 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
 	uint32_t r_id;
 
-	if (!parse_stmt(p, &r_id)) {
+	if (!parse_expr(p, &r_id)) {
 		return false;
 	}
 
@@ -566,7 +566,7 @@ parse_e8(struct parser *p, uint32_t *id)
 			make_node(p, id, node_paren);
 		}
 
-		if (!parse_stmt(p, &v)) {
+		if (!parse_expr(p, &v)) {
 			return false;
 		}
 
@@ -929,10 +929,56 @@ parse_e2(struct parser *p, uint32_t *id)
 }
 
 static bool
-parse_stmt(struct parser *p, uint32_t *id)
+parse_expr(struct parser *p, uint32_t *id)
 {
 	uint32_t l_id = 0; // compiler thinks this won't get initialized...
 	if (!(parse_e2(p, &l_id))) {
+		return false;
+	}
+
+	if (accept(p, tok_question_mark)) {
+		uint32_t a, b;
+
+		if (!(parse_expr(p, &a))) {
+			return false;
+		} else if (!expect(p, tok_colon)) {
+			return false;
+		} else if (!(parse_expr(p, &b))) {
+			return false;
+		}
+
+		/* NOTE: a bare ?: is actually valid in meson, none of the
+		 * fields have to be filled. I'm making it an error here though,
+		 * because missing fields in ternary expressions is probably an
+		 * error
+		 */
+		if (get_node(p->ast, l_id)->type == node_empty) {
+			parse_error(p, NULL, "missing condition expression");
+			return false;
+		} else if (get_node(p->ast, a)->type == node_empty) {
+			parse_error(p, NULL, "missing true expression");
+			return false;
+		} else if (get_node(p->ast, b)->type == node_empty) {
+			parse_error(p, NULL, "missing false expression");
+			return false;
+		}
+
+		make_node(p, id, node_ternary);
+		add_child(p, *id, node_child_l, l_id);
+		add_child(p, *id, node_child_r, a);
+		add_child(p, *id, node_child_c, b);
+	} else {
+		*id = l_id;
+	}
+
+	return true;
+}
+
+static bool
+parse_stmt(struct parser *p, uint32_t *id)
+{
+	uint32_t l_id = 0; // compiler thinks this won't get initialized...
+	if (!(parse_expr(p, &l_id))) {
 		return false;
 	}
 
@@ -980,37 +1026,6 @@ parse_stmt(struct parser *p, uint32_t *id)
 		make_node(p, id, node_assignment);
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, v);
-	} else if (accept(p, tok_question_mark)) {
-		uint32_t a, b;
-
-		if (!(parse_stmt(p, &a))) {
-			return false;
-		} else if (!expect(p, tok_colon)) {
-			return false;
-		} else if (!(parse_stmt(p, &b))) {
-			return false;
-		}
-
-		/* NOTE: a bare ?: is actually valid in meson, none of the
-		 * fields have to be filled. I'm making it an error here though,
-		 * because missing fields in ternary expressions is probably an
-		 * error
-		 */
-		if (get_node(p->ast, l_id)->type == node_empty) {
-			parse_error(p, NULL, "missing condition expression");
-			return false;
-		} else if (get_node(p->ast, a)->type == node_empty) {
-			parse_error(p, NULL, "missing true expression");
-			return false;
-		} else if (get_node(p->ast, b)->type == node_empty) {
-			parse_error(p, NULL, "missing false expression");
-			return false;
-		}
-
-		make_node(p, id, node_ternary);
-		add_child(p, *id, node_child_l, l_id);
-		add_child(p, *id, node_child_r, a);
-		add_child(p, *id, node_child_c, b);
 	} else {
 		*id = l_id;
 	}
