@@ -362,6 +362,31 @@ func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, o
 }
 
 static bool
+func_meson_get_external_property(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	enum kwargs { kw_native, };
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, ao, akw)) {
+		return false;
+	}
+
+	if (ao[0].set) {
+		*res = ao[0].val;
+	} else {
+		interp_error(wk, an[0].node, "TODO: get external property");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
@@ -383,6 +408,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "current_source_dir", func_meson_current_source_dir, tc_string },
 	{ "get_compiler", func_meson_get_compiler, tc_compiler },
 	{ "get_cross_property", func_meson_get_cross_property, tc_any },
+	{ "get_external_property", func_meson_get_external_property, tc_any },
 	{ "global_build_root", func_meson_global_build_root, tc_string },
 	{ "global_source_root", func_meson_global_source_root, tc_string },
 	{ "has_exe_wrapper", func_meson_can_run_host_binaries, tc_bool },
