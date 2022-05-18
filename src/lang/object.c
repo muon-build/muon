@@ -345,6 +345,21 @@ obj_equal_array_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+obj_equal_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	struct obj_equal_iter_ctx *ctx = _ctx;
+	obj r;
+
+	if (!obj_dict_index(wk, ctx->other_container, key, &r)) {
+		return ir_err;
+	} else if (!obj_equal(wk, val, r)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 bool
 obj_equal(struct workspace *wk, obj left, obj right)
 {
@@ -389,6 +404,17 @@ obj_equal(struct workspace *wk, obj left, obj right)
 
 		return l->is_system == r->is_system
 		       && obj_equal(wk, l->path, r->path);
+	}
+	case obj_dict: {
+		struct obj_equal_iter_ctx ctx = {
+			.other_container = right,
+		};
+
+		struct obj_dict *l = get_obj_dict(wk, left),
+				*r = get_obj_dict(wk, right);
+
+		return l->len == r->len
+		       && obj_dict_foreach(wk, left, &ctx, obj_equal_dict_iter);
 	}
 	default:
 		/* LOG_W("TODO: compare %s", obj_type_to_s(t)); */
