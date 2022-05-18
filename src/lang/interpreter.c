@@ -580,6 +580,12 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		rhs = cloned;
 		break;
 	}
+	case obj_dict: {
+		obj dup;
+		obj_dict_dup(wk, rhs, &dup);
+		rhs = dup;
+		break;
+	}
 	case obj_array: {
 		obj dup;
 		obj_array_dup(wk, rhs, &dup);
