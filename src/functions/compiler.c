@@ -8,6 +8,7 @@
 #include "backend/common_args.h"
 #include "coerce.h"
 #include "compilers.h"
+#include "error.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
 #include "functions/dependency.h"
@@ -58,6 +59,18 @@ struct compiler_check_opts {
 	const char *output_path;
 };
 
+static void
+add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, obj args)
+{
+	if (comp->lang == compiler_language_cpp) {
+		// From meson:
+		// -fpermissive allows non-conforming code to compile which is necessary
+		// for many C++ checks. Particularly, the has_header_symbol check is
+		// too strict without this and always fails.
+		obj_array_push(wk, args, make_str(wk, "-fpermissive"));
+	}
+}
+
 static bool
 compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	const char *src, uint32_t err_node, bool *res)
@@ -83,6 +96,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	obj_array_push(wk, compiler_args, comp->name);
 
 	get_std_args(wk, current_project(wk), NULL, compiler_args, comp->lang, t);
+
+	add_extra_compiler_check_args(wk, comp, compiler_args);
 
 	switch (opts->mode) {
 	case compile_mode_run:
@@ -796,20 +811,10 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+compiler_has_header_symbol_c(struct workspace *wk, uint32_t node,
+	struct compiler_check_opts *opts, const char *prefix,
+	obj header, obj symbol, bool *res)
 {
-	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	struct args_kw *akw;
-	struct compiler_check_opts opts = {
-		.mode = compile_mode_link,
-	};
-
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
-		| cm_kw_include_directories)) {
-		return false;
-	}
-
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
 		"%s\n"
@@ -821,15 +826,82 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		"    #endif\n"
 		"    return 0;\n"
 		"}\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val),
-		get_cstr(wk, an[1].val),
-		get_cstr(wk, an[1].val)
+		prefix,
+		get_cstr(wk, header),
+		get_cstr(wk, symbol),
+		get_cstr(wk, symbol)
 		);
 
-	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+	if (!compiler_check(wk, opts, src, node, res)) {
 		return false;
+	}
+
+	return true;
+}
+
+static bool
+compiler_has_header_symbol_cpp(struct workspace *wk, uint32_t node,
+	struct compiler_check_opts *opts, const char *prefix,
+	obj header, obj symbol, bool *res)
+{
+	char src[BUF_SIZE_4k];
+	snprintf(src, BUF_SIZE_4k,
+		"%s\n"
+		"#include <%s>\n"
+		"using %s;\n"
+		"int main(void) {\n"
+		"    return 0;\n"
+		"}\n",
+		prefix,
+		get_cstr(wk, header),
+		get_cstr(wk, symbol)
+		);
+
+	if (!compiler_check(wk, opts, src, node, res)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = compile_mode_compile,
+	};
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
+	bool ok;
+	switch (get_obj_compiler(wk, rcvr)->lang) {
+	case compiler_language_c:
+		if (!compiler_has_header_symbol_c(wk, an[0].node, &opts,
+			compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+			return false;
+		}
+		break;
+	case compiler_language_cpp:
+		if (!compiler_has_header_symbol_c(wk, an[0].node, &opts,
+			compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+			return false;
+		}
+
+		if (!ok) {
+			if (!compiler_has_header_symbol_cpp(wk, an[0].node, &opts,
+				compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+				return false;
+			}
+		}
+		break;
+	default:
+		UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_bool);
