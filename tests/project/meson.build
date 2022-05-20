@@ -145,7 +145,8 @@ tests = [
     ['common/144 link depends custom target'],
     ['common/145 recursive linking'],
     ['common/146 library at root'],
-    ['common/147 simd', ['failing']],
+    # relies on unstable-simd module
+    # ['common/147 simd', ['failing']],
     ['common/148 shared module resolving symbol in executable'],
     ['common/149 dotinclude'],
     ['common/150 reserved targets'],
