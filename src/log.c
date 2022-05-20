@@ -18,9 +18,16 @@ const char *log_level_clr[log_level_count] = {
 
 const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
-	[log_warn] = "warn",
-	[log_info] = "info",
-	[log_debug] = "dbg",
+	[log_warn]  = "warning",
+	[log_info]  = "info",
+	[log_debug] = "debug",
+};
+
+static const char *log_level_shortname[log_level_count] = {
+	[log_error] = "err ",
+	[log_warn]  = "warn",
+	[log_info]  = "info",
+	[log_debug] = "dbg ",
 };
 
 static struct {
@@ -29,12 +36,19 @@ static struct {
 	uint32_t filter;
 	bool initialized, clr;
 	uint32_t opts;
+	const char *prefix;
 } log_cfg = { .level = log_info, };
 
 bool
 log_should_print(enum log_level lvl)
 {
 	return lvl <= log_cfg.level;
+}
+
+void
+log_set_prefix(const char *prefix)
+{
+	log_cfg.prefix = prefix;
 }
 
 void
@@ -50,10 +64,14 @@ log_print(const char *file, uint32_t line, const char *func, bool nl,
 
 		if (log_cfg.clr) {
 			len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
-				log_level_clr[lvl], log_level_name[lvl]);
+				log_level_clr[lvl], log_level_shortname[lvl]);
 		} else {
-			len = strlen(log_level_name[lvl]);
-			strncpy(buf, log_level_name[lvl], BUF_SIZE_4k);
+			len = strlen(log_level_shortname[lvl]);
+			strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
+		}
+
+		if (log_cfg.prefix) {
+			len += snprintf(&buf[len], BUF_SIZE_4k - len, "%s", log_cfg.prefix);
 		}
 
 		buf[len] = ' ';

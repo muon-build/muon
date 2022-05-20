@@ -27,16 +27,25 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		return false;
 	}
 
-	if (subproject_name) {
-		log_plain("\n");
-		LOG_I("subproject: %s", subproject_name);
-	}
-
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;
 
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
+
+	if (wk->cur_project > 0) {
+		static char log_prefix[256] = { 0 };
+		const char *clr = log_clr() ? "\033[35m" : "",
+			   *no_clr = log_clr() ? "\033[0m" : "";
+		snprintf(log_prefix, 255, " [%s%s%s]",
+			clr,
+			subproject_name,
+			no_clr);
+		log_set_prefix(log_prefix);
+	}
+	if (subproject_name) {
+		LOG_I("entering subproject '%s'", subproject_name);
+	}
 
 	if (!setup_project_options(wk, cwd)) {
 		goto cleanup;
@@ -53,6 +62,10 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	ret = true;
 cleanup:
 	wk->cur_project = parent_project;
+
+	if (wk->cur_project == 0) {
+		log_set_prefix(NULL);
+	}
 	return ret;
 }
 
