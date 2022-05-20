@@ -151,7 +151,7 @@ tests = [
     ['common/150 reserved targets'],
     ['common/151 duplicate source names'],
     ['common/152 index customtarget'],
-    ['common/153 wrap file should not failed', ['failing']],
+    ['common/153 wrap file should not failed', ['git_clean']],
     ['common/154 includedir subproj', ['failing']],
     ['common/155 subproject dir name collision', ['failing']],
     ['common/156 config tool variable', ['failing']],
@@ -275,6 +275,7 @@ endif
 test_dir = meson.current_build_dir()
 
 runner = find_program('runner.sh')
+is_git_repo = fs.is_dir(meson.global_source_root() / '.git')
 
 foreach t : tests
     # The exit code to use when a test is skipped
@@ -289,6 +290,7 @@ foreach t : tests
     endif
 
     skip_analyze = 'skip_analyze' in extra ? 1 : 0
+    git_clean = (is_git_repo and 'git_clean' in extra) ? 1 : 0
 
     test(
         test,
@@ -300,6 +302,7 @@ foreach t : tests
             test_dir / test,
             skip_exit_code.to_string(),
             skip_analyze.to_string(),
+            git_clean.to_string(),
         ],
         suite: 'project/' + test.split('/')[0],
         kwargs: kwargs,

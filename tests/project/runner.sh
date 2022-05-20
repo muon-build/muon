@@ -8,9 +8,14 @@ source="$3"
 build="$4"
 skip_exit_code="$5"
 skip_analyze="$6"
+git_clean="$7"
 
 if [ -d "$build" ]; then
 	rm -rf "$build"
+fi
+
+if [ $git_clean -eq 1 ]; then
+	git clean -xdf -- "$source"
 fi
 
 mkdir -p "$build/muon-private"
