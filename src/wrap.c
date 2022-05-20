@@ -141,6 +141,19 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 }
 
 static bool
+checksum_extract(const char *buf, size_t len, const char *sha256,
+	const char *dest_dir)
+{
+	if (sha256 && !checksum((const uint8_t *)buf, len, sha256)) {
+		return false;
+	} else if (!muon_archive_extract(buf, len, dest_dir)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 fetch_checksum_extract(const char *src, const char *dest, const char *sha256,
 	const char *dest_dir)
 {
@@ -152,9 +165,7 @@ fetch_checksum_extract(const char *src, const char *dest, const char *sha256,
 
 	if (!muon_curl_fetch(src, &dlbuf, &dlbuf_len)) {
 		goto ret;
-	} else if (!checksum(dlbuf, dlbuf_len, sha256)) {
-		goto ret;
-	} else if (!muon_archive_extract((const char *)dlbuf, dlbuf_len, dest_dir)) {
+	} else if (!checksum_extract((const char *)dlbuf, dlbuf_len, sha256, dest_dir)) {
 		goto ret;
 	}
 
@@ -165,6 +176,65 @@ ret:
 	}
 	muon_curl_deinit();
 	return res;
+}
+
+static bool
+wrap_download_or_check_packagefiles(const char *filename, const char *url,
+	const char *hash, const char *subprojects, const char *dest_dir,
+	bool download)
+{
+	char buf[PATH_MAX], source_path[PATH_MAX];
+	if (!path_join(buf, PATH_MAX, subprojects, "packagefiles")) {
+		return false;
+	}
+	L("buf: %s", buf);
+	L("filename: %s", filename);
+	if (!path_join(source_path, PATH_MAX, buf, filename)) {
+		return false;
+	}
+
+	if (fs_file_exists(source_path)) {
+		if (!hash) {
+			LOG_W("local file '%s' specified without a hash", source_path);
+		}
+
+		if (url) {
+			LOG_W("url specified, but local file '%s' is being used", source_path);
+		}
+
+		struct source src = { 0 };
+		if (!fs_read_entire_file(source_path, &src)) {
+			return false;
+		}
+
+		if (!checksum_extract(src.src, src.len, hash, dest_dir)) {
+			fs_source_destroy(&src);
+			return false;
+		}
+
+		fs_source_destroy(&src);
+
+		return true;
+	} else if (fs_dir_exists(source_path)) {
+		if (url) {
+			LOG_W("url specified, but local directory '%s' is being used", source_path);
+		}
+
+		if (!fs_copy_dir(source_path, dest_dir)) {
+			return false;
+		}
+
+		return true;
+	} else if (url) {
+		if (!download) {
+			LOG_E("wrap downloading is disabled");
+			return false;
+		}
+		return fetch_checksum_extract(url, filename, hash, dest_dir);
+	} else {
+		LOG_E("no url specified, but '%s' is not a file or directory", source_path);
+		return false;
+	}
 }
 
 static bool
@@ -181,9 +251,9 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	if (ctx->wrap.fields[wf_patch_url]
 	    || ctx->wrap.fields[wf_patch_filename]
 	    || ctx->wrap.fields[wf_patch_hash]) {
-		field_req[wf_patch_url] = required;
+		field_req[wf_patch_url] = optional;
 		field_req[wf_patch_filename] = required;
-		field_req[wf_patch_hash] = required;
+		field_req[wf_patch_hash] = optional;
 		field_req[wf_patch_fallback_url] = optional;
 		field_req[wf_patch_directory] = invalid;
 	}
@@ -191,7 +261,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	switch (ctx->wrap.type) {
 	case wrap_type_file:
 		field_req[wf_source_filename] = required;
-		field_req[wf_source_url] = required;
+		field_req[wf_source_url] = optional;
 		field_req[wf_source_hash] = required;
 		field_req[wf_source_fallback_url] = optional;
 		field_req[wf_lead_directory_missing] = optional;
@@ -286,26 +356,25 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 }
 
 static bool
-wrap_apply_patch(struct wrap *wrap, const char *subprojects)
+wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
 {
-	if (wrap->fields[wf_patch_url] && !fetch_checksum_extract(wrap->fields[wf_patch_url],
-		wrap->fields[wf_patch_filename], wrap->fields[wf_patch_hash], subprojects)) {
-		return false;
-	} else if (wrap->fields[wf_patch_directory]) {
-		char patch_dir[PATH_MAX], buf[PATH_MAX];
-
-		if (!path_join(buf, PATH_MAX, subprojects, "packagefiles")) {
-			return false;
-		} else if (!path_join(patch_dir, PATH_MAX, buf, wrap->fields[wf_patch_directory])) {
-			return false;
-		}
-
-		if (!fs_copy_dir(patch_dir, wrap->dest_dir)) {
-			return false;
-		}
+	const char *dest_dir, *filename;
+	if (wrap->fields[wf_patch_directory]) {
+		dest_dir = wrap->dest_dir;
+		filename = wrap->fields[wf_patch_directory];
+	} else {
+		dest_dir = subprojects;
+		filename = wrap->fields[wf_patch_filename];
 	}
 
-	return true;
+	return wrap_download_or_check_packagefiles(
+		filename,
+		wrap->fields[wf_patch_url],
+		wrap->fields[wf_patch_hash],
+		subprojects,
+		dest_dir,
+		download
+		);
 }
 
 static bool
@@ -345,7 +414,7 @@ wrap_handle_git(struct wrap *wrap, const char *subprojects)
 }
 
 static bool
-wrap_handle_file(struct wrap *wrap, const char *subprojects)
+wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 {
 	const char *dest;
 
@@ -361,8 +430,14 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects)
 		}
 	}
 
-	return fetch_checksum_extract(wrap->fields[wf_source_url],
-		wrap->fields[wf_source_filename], wrap->fields[wf_source_hash], dest);
+	return wrap_download_or_check_packagefiles(
+		wrap->fields[wf_source_filename],
+		wrap->fields[wf_source_url],
+		wrap->fields[wf_source_hash],
+		subprojects,
+		wrap->dest_dir,
+		download
+		);
 }
 
 bool
@@ -376,20 +451,27 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 	if (!path_join(meson_build, PATH_MAX, wrap->dest_dir, "meson.build")) {
 		return false;
 	} else if (fs_file_exists(meson_build)) {
-		LOG_I("wrap already downloaded");
+		char basename[PATH_MAX];
+		if (!path_basename(basename, PATH_MAX, wrap_file)) {
+			return false;
+		}
+
+		L("wrap '%s' already downloaded", basename);
 		return true;
-	} else if (!download) {
-		LOG_E("wrap downloading disabled");
-		return false;
 	}
 
 	switch (wrap->type) {
 	case wrap_type_file:
-		if (!wrap_handle_file(wrap, subprojects)) {
+		if (!wrap_handle_file(wrap, subprojects, download)) {
 			return false;
 		}
 		break;
 	case wrap_type_git:
+		if (!download) {
+			LOG_E("wrap downloading disabled");
+			return false;
+		}
+
 		if (!wrap_handle_git(wrap, subprojects)) {
 			return false;
 		}
@@ -399,7 +481,7 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 		return false;
 	}
 
-	if (!wrap_apply_patch(wrap, subprojects)) {
+	if (!wrap_apply_patch(wrap, subprojects, download)) {
 		return false;
 	}
 
