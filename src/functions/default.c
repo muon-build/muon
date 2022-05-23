@@ -376,6 +376,46 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
+find_program_check_fallback(struct workspace *wk, obj prog, obj *res, bool *found)
+{
+
+	obj fallback_arr, subproj_name;
+	if (obj_dict_index(wk, current_project(wk)->wrap_provides_exes, prog, &fallback_arr)) {
+		obj_array_flatten_one(wk, fallback_arr, &subproj_name);
+
+		obj subproj;
+		if (!subproject(wk, subproj_name, requirement_auto, NULL, NULL, &subproj)
+		    && get_obj_subproject(wk, subproj)->found) {
+			return true;
+		}
+
+		if (obj_dict_index(wk, wk->find_program_overrides, prog, res)) {
+			*found = true;
+		} else {
+			interp_warning(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
+		}
+	}
+
+	if (*found) {
+		switch (get_obj_type(wk, *res)) {
+		case obj_file: {
+			obj newres;
+			make_obj(wk, &newres, obj_external_program);
+			struct obj_external_program *ep = get_obj_external_program(wk, newres);
+			ep->found = true;
+			ep->full_path = *get_obj_file(wk, *res);
+			*res = newres;
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	return true;
+}
+
+static bool
 find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 {
 	const char *str;
@@ -410,8 +450,24 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		.prog = str,
 	};
 
-	/* TODO: 1. Program overrides set via meson.override_find_program() */
-	/* TODO: 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
+	/* 1. Program overrides set via meson.override_find_program() */
+	if (t == obj_string && obj_dict_index(wk, wk->find_program_overrides, prog, ctx->res)) {
+		ctx->found = true;
+		return true;
+	}
+
+	/* 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
+	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
+	if (t == obj_string && wrap_mode == wrap_mode_forcefallback) {
+		if (!find_program_check_fallback(wk, prog, ctx->res, &ctx->found)) {
+			return false;
+		}
+
+		if (ctx->found) {
+			return true;
+		}
+	}
+
 	/* TODO: 3. [binaries] section in your machine files */
 
 	/* 4. Directories provided using the dirs: kwarg */
@@ -438,7 +494,12 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		goto found;
 	}
 
-	/* TODO: 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
+	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
+	if (t == obj_string && wrap_mode != wrap_mode_nofallback) {
+		if (!find_program_check_fallback(wk, prog, ctx->res, &ctx->found)) {
+			return false;
+		}
+	}
 
 	return true;
 found:
