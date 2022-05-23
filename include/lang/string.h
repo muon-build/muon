@@ -34,4 +34,6 @@ obj str_join(struct workspace *wk, obj s1, obj s2);
 bool str_to_i(const struct str *ss, int64_t *res);
 
 obj str_split(struct workspace *wk, const struct str *ss, const struct str *split);
+obj str_strip(struct workspace *wk, const struct str *ss, const struct str *strip);
+obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip);
 #endif

@@ -13,52 +13,16 @@
 #include "rpmvercmp.h"
 
 static bool
-chr_in_str(char c, const struct str *ss)
-{
-	uint32_t i;
-	for (i = 0; i < ss->len; ++i) {
-		if (ss->s[i] == c) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool
 func_strip(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-
 	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
 		return false;
 	}
 
-	const struct str *strip = ao[0].set ? get_str(wk, ao[0].val) : &WKSTR(" \n\t");
-
-	uint32_t i;
-	int32_t len;
-	const struct str *ss = get_str(wk, rcvr);
-
-	for (i = 0; i < ss->len; ++i) {
-		if (!chr_in_str(ss->s[i], strip)) {
-			break;
-		}
-	}
-
-	for (len = ss->len - 1; len >= 0; --len) {
-		if (len < (int64_t)i) {
-			break;
-		}
-
-		if (!chr_in_str(ss->s[len], strip)) {
-			break;
-		}
-	}
-	++len;
-
-	assert((int64_t)len >= (int64_t)i);
-	*res = make_strn(wk, &ss->s[i], len - i);
+	*res = str_strip(wk,
+		get_str(wk, rcvr),
+		ao[0].set ? get_str(wk, ao[0].val) : NULL);
 	return true;
 }
 

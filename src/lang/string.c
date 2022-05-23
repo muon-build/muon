@@ -338,3 +338,76 @@ str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 	}
 	return res;
 }
+
+static bool
+str_has_chr(char c, const struct str *ss)
+{
+	uint32_t i;
+	for (i = 0; i < ss->len; ++i) {
+		if (ss->s[i] == c) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+obj
+str_strip(struct workspace *wk, const struct str *ss, const struct str *strip)
+{
+	if (!strip) {
+		strip = &WKSTR(" \n\t");
+	}
+
+	uint32_t i;
+	int32_t len;
+
+	for (i = 0; i < ss->len; ++i) {
+		if (!str_has_chr(ss->s[i], strip)) {
+			break;
+		}
+	}
+
+	for (len = ss->len - 1; len >= 0; --len) {
+		if (len < (int64_t)i) {
+			break;
+		}
+
+		if (!str_has_chr(ss->s[len], strip)) {
+			break;
+		}
+	}
+	++len;
+
+	assert((int64_t)len >= (int64_t)i);
+	return make_strn(wk, &ss->s[i], len - i);
+}
+
+struct str_split_strip_ctx {
+	const struct str *strip;
+	obj res;
+};
+
+static enum iteration_result
+str_split_strip_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct str_split_strip_ctx *ctx = _ctx;
+
+	obj_array_push(wk, ctx->res, str_strip(wk, get_str(wk, v), ctx->strip));
+	return ir_cont;
+}
+
+obj
+str_split_strip(struct workspace *wk,
+	const struct str *ss,
+	const struct str *split,
+	const struct str *strip)
+{
+	struct str_split_strip_ctx ctx = {
+		.strip = strip,
+	};
+
+	make_obj(wk, &ctx.res, obj_array);
+	obj_array_foreach(wk, str_split(wk, ss, split), &ctx, str_split_strip_iter);
+	return ctx.res;
+}
