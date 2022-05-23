@@ -125,7 +125,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		return true;
 	}
 
-	if (default_options->set) {
+	if (default_options && default_options->set) {
 		if (!parse_and_set_default_options(wk, default_options->node,
 			default_options->val, name, true)) {
 			return false;
@@ -136,7 +136,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		return false;
 	}
 
-	if (versions->set) {
+	if (versions && versions->set) {
 		struct project *subp = darr_get(&wk->projects, subproject_id);
 
 		bool compare_result;
