@@ -884,6 +884,25 @@ get_option_wrap_mode(struct workspace *wk)
 	UNREACHABLE_RETURN;
 }
 
+enum tgt_type
+get_option_default_library(struct workspace *wk)
+{
+	obj opt;
+	get_option_value(wk, current_project(wk), "default_library", &opt);
+
+	if (str_eql(get_str(wk, opt), &WKSTR("static"))) {
+		return tgt_static_library;
+	} else if (str_eql(get_str(wk, opt), &WKSTR("shared"))) {
+		return tgt_dynamic_library;
+	} else if (str_eql(get_str(wk, opt), &WKSTR("both"))) {
+		return tgt_dynamic_library | tgt_static_library;
+	} else {
+		UNREACHABLE_RETURN;
+	}
+}
+
+/* options listing subcommand */
+
 struct make_option_choices_ctx {
 	obj selected;
 	const char *val_clr, *sel_clr, *no_clr;

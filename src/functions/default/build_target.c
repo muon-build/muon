@@ -152,24 +152,6 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static enum tgt_type
-default_library_type(struct workspace *wk)
-{
-	obj opt;
-	get_option_value(wk, current_project(wk), "default_library", &opt);
-
-	if (str_eql(get_str(wk, opt), &WKSTR("static"))) {
-		return tgt_static_library;
-	} else if (str_eql(get_str(wk, opt), &WKSTR("shared"))) {
-		return tgt_dynamic_library;
-	} else if (str_eql(get_str(wk, opt), &WKSTR("both"))) {
-		return tgt_dynamic_library | tgt_static_library;
-	} else {
-		assert(false && "unreachable");
-		return 0;
-	}
-}
-
 static bool
 type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 {
@@ -180,7 +162,7 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 		{ "shared_module", tgt_shared_module, },
 		{ "static_library", tgt_static_library, },
 		{ "both_libraries", tgt_dynamic_library | tgt_static_library, },
-		{ "library", default_library_type(wk), },
+		{ "library", get_option_default_library(wk), },
 		{ 0 },
 	};
 	uint32_t i;
@@ -773,7 +755,7 @@ func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 bool
 func_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	return tgt_common(wk, args_node, res, default_library_type(wk),
+	return tgt_common(wk, args_node, res, get_option_default_library(wk),
 		tgt_static_library | tgt_dynamic_library, false);
 }
 
