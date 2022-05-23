@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/generator.h"
@@ -101,6 +102,11 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	obj file;
 	enum obj_type t = get_obj_type(wk, val);
 
+	if (!typecheck(wk, ctx->err_node, val,
+		tc_file | tc_string | tc_custom_target | tc_generated_list)) {
+		return false;
+	}
+
 	switch (t) {
 	case obj_string: {
 		if (!coerce_string_to_file(wk, get_cstr(wk, ctx->tgt->cwd), val, &file)) {
@@ -131,8 +137,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 	default:
-		interp_error(wk, ctx->err_node, "expected string or file, got %s", obj_type_to_s(t));
-		return ir_err;
+		UNREACHABLE_RETURN;
 	}
 
 	if (!obj_array_in(wk, ctx->tgt->src, file)) {

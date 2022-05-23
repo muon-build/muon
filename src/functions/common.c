@@ -646,14 +646,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			interp_error(wk, name_node, "invalid attempt to use missing module");
 			return false;
 		} else if (!(fi = module_func_lookup(name, mod))) {
-			interp_error(wk, name_node, "function %s not found in module %s", name, module_names[mod]);
+			interp_error(wk, name_node, "function %s() not found in module %s", name, module_names[mod]);
 			return false;
 		}
 	} else {
 		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 
 		if (!impl_tbl) {
-			interp_error(wk, name_node,  "method on %s not found", obj_type_to_s(rcvr_type));
+			interp_error(wk, name_node,  "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
 			return false;
 		}
 
@@ -663,7 +663,11 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 				return true;
 			}
 
-			interp_error(wk, name_node, "function %s not found", name);
+			if (rcvr_type == obj_default) {
+				interp_error(wk, name_node, "function %s() not found", name);
+			} else {
+				interp_error(wk, name_node, "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
+			}
 			return false;
 		}
 	}
@@ -675,9 +679,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return true;
 		} else {
 			if (rcvr_type == obj_default) {
-				interp_error(wk, name_node, "in function %s",  name);
+				interp_error(wk, name_node, "in function %s()",  name);
 			} else {
-				interp_error(wk, name_node, "in method %s.%s", obj_type_to_s(rcvr_type), name);
+				interp_error(wk, name_node, "in method %s.%s()", obj_type_to_s(rcvr_type), name);
 			}
 			return false;
 		}

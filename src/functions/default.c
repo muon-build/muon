@@ -5,6 +5,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "functions/common.h"
 #include "functions/default.h"
 #include "functions/default/build_target.h"
@@ -381,6 +382,10 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	obj ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
+	if (!typecheck(wk, ctx->node, prog, tc_file | tc_string | tc_external_program)) {
+		return false;
+	}
+
 	enum obj_type t = get_obj_type(wk, prog);
 	switch (t) {
 	case obj_file:
@@ -396,8 +401,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		}
 		return true;
 	default:
-		interp_error(wk, ctx->node, "expected string or file, got %o", prog);
-		return false;
+		UNREACHABLE_RETURN;
 	}
 
 	const char *path;
