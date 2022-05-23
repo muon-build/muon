@@ -355,8 +355,10 @@ str_has_chr(char c, const struct str *ss)
 obj
 str_strip(struct workspace *wk, const struct str *ss, const struct str *strip)
 {
+	const struct str *defstrip = &WKSTR(" \n\t");
+
 	if (!strip) {
-		strip = &WKSTR(" \n\t");
+		strip = defstrip;
 	}
 
 	uint32_t i;
