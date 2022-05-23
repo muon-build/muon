@@ -11,4 +11,5 @@
 typedef bool ((*inihcb)(void *ctx, struct source *src, const char *sect, const char *k, const char *v, uint32_t line));
 
 bool ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
+bool ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx);
 #endif

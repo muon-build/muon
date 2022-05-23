@@ -114,23 +114,30 @@ done_with_line:
 }
 
 bool
-ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
+ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx)
 {
 	struct each_line_ctx ctx = {
 		.octx = octx,
 		.cb = cb,
 		.line = 1,
 		.success = true,
+		.src = *src,
 	};
 
-	if (!fs_read_entire_file(path, &ctx.src)) {
+	memcpy(buf, ctx.src.src, ctx.src.len);
+
+	each_line(buf, ctx.src.len, &ctx, each_line_cb);
+	return ctx.success;
+}
+
+bool
+ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
+{
+	if (!fs_read_entire_file(path, src)) {
 		return false;
 	}
 
-	*src = ctx.src;
-	*buf = z_calloc(ctx.src.len, 1);
-	memcpy(*buf, ctx.src.src, ctx.src.len);
+	*buf = z_calloc(src->len, 1);
 
-	each_line(*buf, ctx.src.len, &ctx, each_line_cb);
-	return ctx.success;
+	return ini_reparse(path, src, *buf, cb, octx);
 }
