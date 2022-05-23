@@ -785,7 +785,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_exe }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_external_program }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
