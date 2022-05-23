@@ -538,7 +538,7 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 		wrap->fields[wf_source_url],
 		wrap->fields[wf_source_hash],
 		subprojects,
-		wrap->dest_dir,
+		dest,
 		download
 		);
 }
