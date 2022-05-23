@@ -5,7 +5,11 @@ project(
 )
 
 subproject('zlib')
-foo = subproject('foo')
+foo = subproject('foo', required: false)
+if not foo.found()
+    error('MESON_SKIP_TEST: libarchive support is not enabled')
+endif
+
 bar = subproject('bar')
 
 libfoo = foo.get_variable('libfoo')
