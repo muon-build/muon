@@ -16,6 +16,12 @@
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
+enum dep_lib_mode {
+	dep_lib_mode_default,
+	dep_lib_mode_static,
+	dep_lib_mode_shared,
+};
+
 enum dep_not_found_reason {
 	dep_not_found_reason_not_found,
 	dep_not_found_reason_version,
@@ -31,9 +37,51 @@ struct dep_lookup_ctx {
 	obj name;
 	obj fallback;
 	obj not_found_message;
-	bool is_static;
+	enum dep_lib_mode lib_mode;
 	bool disabler;
+	bool fallback_allowed;
+	bool from_cache;
 };
+
+static bool
+check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
+{
+	if (ctx->lib_mode != dep_lib_mode_shared) {
+		if (obj_dict_index(wk, wk->dep_overrides_static, ctx->name, res)) {
+			ctx->lib_mode = dep_lib_mode_static;
+			return true;
+		}
+	}
+
+	if (ctx->lib_mode != dep_lib_mode_static) {
+		if (obj_dict_index(wk, wk->dep_overrides_dynamic, ctx->name, res)) {
+			ctx->lib_mode = dep_lib_mode_shared;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+check_dependency_cache(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
+{
+	if (ctx->lib_mode != dep_lib_mode_shared) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps, ctx->name, res)) {
+			ctx->lib_mode = dep_lib_mode_static;
+			return true;
+		}
+	}
+
+	if (ctx->lib_mode != dep_lib_mode_static) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps, ctx->name, res)) {
+			ctx->lib_mode = dep_lib_mode_shared;
+			return true;
+		}
+	}
+
+	return false;
+}
 
 static bool
 check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_node, obj ver, bool *res)
@@ -69,6 +117,29 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		return false;
 	}
 
+	if (ctx->lib_mode != dep_lib_mode_default) {
+		obj libopt;
+		if (ctx->lib_mode == dep_lib_mode_static) {
+			libopt = make_str(wk, "default_library=static");
+		} else {
+			libopt = make_str(wk, "default_library=shared");
+		}
+
+		if (ctx->default_options->set) {
+			if (!obj_array_in(wk, ctx->default_options->val, libopt)) {
+				obj newopts;
+				obj_array_dup(wk, ctx->default_options->val, &newopts);
+				obj_array_push(wk, newopts, libopt);
+
+				ctx->default_options->val = newopts;
+			}
+		} else {
+			make_obj(wk, &ctx->default_options->val, obj_array);
+			obj_array_push(wk, ctx->default_options->val, libopt);
+			ctx->default_options->set = true;
+		}
+	}
+
 	if (!subproject(wk, subproj_name, ctx->requirement, ctx->default_options, ctx->versions, &subproj)) {
 		goto not_found;
 	}
@@ -82,7 +153,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 			goto not_found;
 		}
 	} else {
-		if (!obj_dict_index(wk, wk->dep_overrides, ctx->name, ctx->res)) {
+		if (!check_dependency_override(wk, ctx, ctx->res)) {
 			interp_warning(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
 			goto not_found;
 		}
@@ -106,7 +177,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	struct pkgconf_info info = { 0 };
 	*found = false;
 
-	if (!muon_pkgconf_lookup(wk, ctx->name, ctx->is_static, &info)) {
+	if (!muon_pkgconf_lookup(wk, ctx->name, ctx->lib_mode == dep_lib_mode_static, &info)) {
 		return true;
 	}
 
@@ -141,18 +212,50 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	bool found = false;
 
 	{
-		obj dep;
-		if (obj_dict_index(wk, wk->dep_overrides, ctx->name, &dep)) {
-			*ctx->res = dep;
+		obj cached_dep;
+		if (check_dependency_cache(wk, ctx, &cached_dep)) {
+			bool ver_match;
+			struct obj_dependency *dep = get_obj_dependency(wk, cached_dep);
+			if (!check_dependency_version(wk, dep->version, ctx->versions->node,
+				ctx->versions->val, &ver_match)) {
+				return false;
+			}
+
+			if (!ver_match) {
+				goto lookup_finished;
+			}
+
+			*ctx->res = cached_dep;
 			found = true;
+			ctx->from_cache = true;
+			goto lookup_finished;
 		}
+	}
+
+	if (check_dependency_override(wk, ctx, ctx->res)) {
+		found = true;
+		goto lookup_finished;
 	}
 
 	bool force_fallback = false;
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 
+	if (!ctx->fallback) {
+		obj provided_fallback;
+		if (obj_dict_index(wk, current_project(wk)->wrap_provides_deps,
+			ctx->name, &provided_fallback)) {
+			ctx->fallback = provided_fallback;
+		}
+	}
+
+	// implicitly fallback on a subproject named the same as this dependency
+	if (!ctx->fallback && ctx->fallback_allowed) {
+		make_obj(wk, &ctx->fallback, obj_array);
+		obj_array_push(wk, ctx->fallback, ctx->name);
+	}
+
 	if (ctx->fallback) {
-		obj force_fallback_for, subproj_name, _;
+		obj force_fallback_for, subproj_name;
 
 		get_option_value(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
 		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
@@ -160,25 +263,29 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		force_fallback =
 			wrap_mode == wrap_mode_forcefallback
 			|| obj_array_in(wk, force_fallback_for, ctx->name)
-			|| obj_dict_index(wk, wk->subprojects, subproj_name, &_);
+			|| obj_dict_in(wk, wk->subprojects, subproj_name);
 	}
 
-	if (!found && force_fallback) {
-		if (!handle_dependency_fallback(wk, ctx, &found)) {
-			return false;
-		}
-	} else {
-		if (!found && !get_dependency_pkgconfig(wk, ctx, &found)) {
-			return false;
-		}
 
-		if (!found && ctx->fallback && wrap_mode != wrap_mode_nofallback) {
+	if (!found) {
+		if (force_fallback) {
 			if (!handle_dependency_fallback(wk, ctx, &found)) {
 				return false;
+			}
+		} else {
+			if (!get_dependency_pkgconfig(wk, ctx, &found)) {
+				return false;
+			}
+
+			if (!found && ctx->fallback && wrap_mode != wrap_mode_nofallback) {
+				if (!handle_dependency_fallback(wk, ctx, &found)) {
+					return false;
+				}
 			}
 		}
 	}
 
+lookup_finished:
 	if (!found) {
 		LLOG_W("dependency %s not found", get_cstr(wk, ctx->name));
 
@@ -213,7 +320,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			get_cstr(wk, dep->name),
 			dep->version ? " version: " : "",
 			dep->version ? get_cstr(wk, dep->version) : "",
-			ctx->is_static ? ", static" : "");
+			ctx->lib_mode == dep_lib_mode_static ? ", static" : "");
 	}
 
 	return true;
@@ -325,9 +432,13 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return true;
 	}
 
-	bool is_static = false;
-	if (akw[kw_static].set && get_obj_bool(wk, akw[kw_static].val)) {
-		is_static = true;
+	enum dep_lib_mode lib_mode = dep_lib_mode_default;
+	if (akw[kw_static].set) {
+		if (get_obj_bool(wk, akw[kw_static].val)) {
+			lib_mode = dep_lib_mode_static;
+		} else {
+			lib_mode = dep_lib_mode_shared;
+		}
 	}
 
 	/* A fallback is allowed if
@@ -353,11 +464,6 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		} else {
 			fallback_err_node = an[0].node;
 		}
-
-		if (!fallback) {
-			make_obj(wk, &fallback, obj_array);
-			obj_array_push(wk, fallback, an[0].val);
-		}
 	}
 
 	struct dep_lookup_ctx ctx = {
@@ -368,9 +474,10 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.fallback_node = fallback_err_node,
 		.name = an[0].val,
 		.fallback = fallback,
+		.fallback_allowed = fallback_allowed,
 		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
-		.is_static = is_static,
+		.lib_mode = lib_mode,
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 	};
 
@@ -383,10 +490,30 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 	}
 
-	// set the include type if the return value is not a disabler
 	if (get_obj_type(wk, *res) == obj_dependency) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *res);
+
+		if (ctx.from_cache) {
+			obj dup;
+			make_obj(wk, &dup, obj_dependency);
+			struct obj_dependency *newdep = get_obj_dependency(wk, dup);
+			*newdep = *dep;
+			dep = newdep;
+			*res = dup;
+		}
+
+		// set the include type if the return value is not a disabler
 		dep->include_type = inc_type;
+
+		if (dep->flags & dep_flag_found) {
+			if (ctx.lib_mode != dep_lib_mode_shared) {
+				obj_dict_set(wk, current_project(wk)->dep_cache.static_deps, ctx.name, *res);
+			}
+
+			if (ctx.lib_mode != dep_lib_mode_static) {
+				obj_dict_set(wk, current_project(wk)->dep_cache.shared_deps, ctx.name, *res);
+			}
+		}
 	}
 
 	return true;

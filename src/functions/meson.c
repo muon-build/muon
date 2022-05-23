@@ -7,6 +7,7 @@
 #include "functions/meson.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "options.h"
 #include "platform/path.h"
 #include "version.h"
 
@@ -196,7 +197,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 {
 	struct args_norm an[] = { { obj_string }, { obj_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
-		kw_static, // ignored
+		kw_static,
 		kw_native, // ignored
 	};
 	struct args_kw akw[] = {
@@ -209,25 +210,43 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 		return false;
 	}
 
-	obj_dict_set(wk, wk->dep_overrides, an[0].val, an[1].val);
+	obj override_dict;
+
+	if (akw[kw_static].set) {
+		if (get_obj_bool(wk, akw[kw_static].val)) {
+			override_dict = wk->dep_overrides_static;
+		} else {
+			override_dict = wk->dep_overrides_dynamic;
+		}
+	} else {
+		switch (get_option_default_library(wk)) {
+		case tgt_static_library:
+			override_dict = wk->dep_overrides_static;
+			break;
+		default:
+			override_dict = wk->dep_overrides_dynamic;
+			break;
+		}
+	}
+
+	obj_dict_set(wk, override_dict, an[0].val, an[1].val);
 	return true;
 }
 
 static bool
 func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
+	struct args_norm an[] = {
+		{ obj_string },
+		{ tc_file | tc_external_program | tc_build_target | tc_custom_target },
+		ARG_TYPE_NULL
+	};
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	obj exe;
-	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
-		return false;
-	}
-
-	obj_dict_set(wk, wk->find_program_overrides, an[0].val, exe);
+	obj_dict_set(wk, wk->find_program_overrides, an[0].val, an[1].val);
 	return true;
 }
 

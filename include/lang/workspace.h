@@ -18,6 +18,7 @@ struct project {
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
 	obj args, link_args;
+	struct { obj static_deps, shared_deps; } dep_cache;
 	obj wrap_provides_deps, wrap_provides_exes;
 
 	// string
@@ -65,7 +66,7 @@ struct workspace {
 	/* args dict for add_global_link_arguments() */
 	obj global_link_args;
 	/* overridden dependencies dict */
-	obj dep_overrides;
+	obj dep_overrides_static, dep_overrides_dynamic;
 	/* overridden find_program dict */
 	obj find_program_overrides;
 	/* global options */

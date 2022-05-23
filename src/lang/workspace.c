@@ -173,6 +173,8 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	make_obj(wk, &proj->summary, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);
 	make_obj(wk, &proj->tests, obj_array);
+	make_obj(wk, &proj->dep_cache.static_deps, obj_dict);
+	make_obj(wk, &proj->dep_cache.shared_deps, obj_dict);
 	make_obj(wk, &proj->wrap_provides_deps, obj_dict);
 	make_obj(wk, &proj->wrap_provides_exes, obj_dict);
 	proj->subprojects_dir = make_str(wk, "subprojects");
@@ -282,7 +284,8 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->subprojects, obj_dict);
 	make_obj(wk, &wk->global_args, obj_dict);
 	make_obj(wk, &wk->global_link_args, obj_dict);
-	make_obj(wk, &wk->dep_overrides, obj_dict);
+	make_obj(wk, &wk->dep_overrides_static, obj_dict);
+	make_obj(wk, &wk->dep_overrides_dynamic, obj_dict);
 	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	make_obj(wk, &wk->global_opts, obj_dict);
 
