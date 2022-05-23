@@ -21,6 +21,7 @@ struct project {
 
 	// string
 	obj rule_prefix;
+	obj subprojects_dir;
 
 	struct {
 		obj name;
@@ -66,8 +67,6 @@ struct workspace {
 	obj dep_overrides;
 	/* overridden find_program dict */
 	obj find_program_overrides;
-	/* custom subprojects_dir */
-	obj subprojects_dir;
 	/* global options */
 	obj global_opts;
 	/* ----------------- */
