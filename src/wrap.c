@@ -285,8 +285,6 @@ wrap_download_or_check_packagefiles(const char *filename, const char *url,
 	if (!path_join(buf, PATH_MAX, subprojects, "packagefiles")) {
 		return false;
 	}
-	L("buf: %s", buf);
-	L("filename: %s", filename);
 	if (!path_join(source_path, PATH_MAX, buf, filename)) {
 		return false;
 	}
@@ -459,13 +457,17 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 static bool
 wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
 {
-	const char *dest_dir, *filename;
+	const char *dest_dir, *filename = NULL;
 	if (wrap->fields[wf_patch_directory]) {
 		dest_dir = wrap->dest_dir;
 		filename = wrap->fields[wf_patch_directory];
 	} else {
 		dest_dir = subprojects;
 		filename = wrap->fields[wf_patch_filename];
+	}
+
+	if (!filename) {
+		return true;
 	}
 
 	return wrap_download_or_check_packagefiles(
@@ -557,7 +559,6 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 			return false;
 		}
 
-		L("wrap '%s' already downloaded", basename);
 		return true;
 	}
 
