@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "buf_size.h"
+#include "lang/types.h"
 #include "platform/filesystem.h"
 
 struct workspace;
@@ -47,12 +48,20 @@ enum wrap_type {
 struct wrap {
 	struct source src;
 	enum wrap_type type;
-	char dest_dir[PATH_MAX];
+	bool has_provides;
+	char dest_dir[PATH_MAX], name[PATH_MAX];
 	const char *fields[wrap_fields_count];
 	char *buf;
+};
+
+enum wrap_provides_key {
+	wrap_provides_key_override_dependencies,
+	wrap_provides_key_override_executables,
+	wrap_provides_key_dependency_variables,
 };
 
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(const char *wrap_file, struct wrap *wrap);
 bool wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download);
+bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
 #endif

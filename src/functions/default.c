@@ -24,6 +24,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "wrap.h"
 
 static bool
 project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requirement_type req, bool *found)
@@ -166,6 +167,17 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (wk->cur_project == 0 && akw[kw_subproject_dir].set) {
 		current_project(wk)->subprojects_dir = akw[kw_subproject_dir].val;
+	}
+
+	{ // subprojects
+		char subprojects_path[PATH_MAX];
+		if (!path_join(subprojects_path, PATH_MAX,
+			get_cstr(wk, current_project(wk)->source_root),
+			get_cstr(wk, current_project(wk)->subprojects_dir))) {
+			return false;
+		}
+
+		wrap_load_all_provides(wk, subprojects_path);
 	}
 
 	LOG_I("configuring '%s', version: %s",

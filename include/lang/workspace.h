@@ -18,6 +18,7 @@ struct project {
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, summary;
 	obj args, link_args;
+	obj wrap_provides_deps, wrap_provides_exes;
 
 	// string
 	obj rule_prefix;

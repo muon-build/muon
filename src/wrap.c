@@ -43,13 +43,6 @@ static const char *wrap_type_section_header[wrap_type_count] = {
 	[wrap_provide] = "provide",
 };
 
-struct wrap_parse_ctx {
-	struct wrap wrap;
-	uint32_t field_lines[wrap_fields_count];
-	enum wrap_type section;
-	bool have_type;
-};
-
 static bool
 lookup_wrap_str(const char *s, const char *strs[], uint32_t len, uint32_t *res)
 {
@@ -63,6 +56,13 @@ lookup_wrap_str(const char *s, const char *strs[], uint32_t len, uint32_t *res)
 
 	return false;
 }
+
+struct wrap_parse_ctx {
+	struct wrap wrap;
+	uint32_t field_lines[wrap_fields_count];
+	enum wrap_type section;
+	bool have_type;
+};
 
 static bool
 wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
@@ -83,6 +83,7 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 		ctx->section = res;
 
 		if (res == wrap_provide) {
+			ctx->wrap.has_provides = true;
 			return true;
 		}
 
@@ -95,7 +96,6 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 		ctx->have_type = true;
 		return true;
 	} else if (ctx->section == wrap_provide) {
-		L("TODO: handle provide %s = '%s'", k, v);
 		return true;
 	}
 
@@ -111,6 +111,104 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 
 	ctx->wrap.fields[res] = v;
 	ctx->field_lines[res] = line;
+	return true;
+}
+
+struct wrap_parse_provides_ctx {
+	struct workspace *wk;
+	const struct wrap *wrap;
+	obj wrap_name; // string
+	obj wrap_name_arr; // [string]
+
+	enum wrap_type section;
+	obj add_provides_tgt;
+	struct source *src;
+	uint32_t line;
+};
+
+static void
+wrap_check_provide_duplication(struct workspace *wk,
+	struct wrap_parse_provides_ctx *ctx,
+	obj provides, obj key, obj val)
+{
+	obj oldval;
+	if (obj_dict_index(wk, provides, key, &oldval)) {
+		error_messagef(ctx->src, ctx->line, 1, log_warn,
+			"previous provide for %o from %o, is being overriden by %o", key, oldval, val);
+	}
+}
+
+enum iteration_result
+wrap_parse_provides_cb_add_provides_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct wrap_parse_provides_ctx *ctx = _ctx;
+
+	wrap_check_provide_duplication(wk, ctx, ctx->add_provides_tgt, v, ctx->wrap_name_arr);
+
+	obj_dict_set(wk, ctx->add_provides_tgt, v, ctx->wrap_name_arr);
+	return ir_cont;
+}
+
+static bool
+wrap_parse_provides_cb(void *_ctx, struct source *src, const char *sect,
+	const char *k, const char *v, uint32_t line)
+{
+	struct wrap_parse_provides_ctx *ctx = _ctx;
+	ctx->src = src;
+	ctx->line = line;
+
+	if (!sect) {
+		UNREACHABLE_RETURN;
+	}
+
+	if (!k) {
+		enum wrap_type res;
+		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, &res)) {
+			UNREACHABLE_RETURN;
+		}
+
+		ctx->section = res;
+		return true;
+	}
+
+	if (ctx->section != wrap_provide) {
+		return true;
+	}
+
+	if (!*k) {
+		error_messagef(src, line, 1, log_error, "empty provides key \"%s\"", k);
+		return false;
+	} else if (!*v) {
+		error_messagef(src, line, 1, log_error, "empty provides value \"%s\"", v);
+		return false;
+	}
+
+	ctx->add_provides_tgt = 0;
+	if (strcmp(k, "dependency_names") == 0) {
+		ctx->add_provides_tgt = current_project(ctx->wk)->wrap_provides_deps;
+	} else if (strcmp(k, "program_names") == 0) {
+		ctx->add_provides_tgt = current_project(ctx->wk)->wrap_provides_exes;
+	}
+
+	if (ctx->add_provides_tgt) {
+		if (!obj_array_foreach(ctx->wk,
+			str_split_strip(ctx->wk, &WKSTR(v), &WKSTR(","), NULL),
+			ctx, wrap_parse_provides_cb_add_provides_iter)) {
+			return false;
+		}
+	} else {
+		obj arr;
+		make_obj(ctx->wk, &arr, obj_array);
+		obj_array_push(ctx->wk, arr, ctx->wrap_name);
+		obj_array_push(ctx->wk, arr, make_str(ctx->wk, v));
+
+		ctx->add_provides_tgt = current_project(ctx->wk)->wrap_provides_deps;
+		obj key = make_str(ctx->wk, k);
+
+		wrap_check_provide_duplication(ctx->wk, ctx, ctx->add_provides_tgt, key, arr);
+		obj_dict_set(ctx->wk, ctx->add_provides_tgt, key, arr);
+	}
+
 	return true;
 }
 
@@ -260,9 +358,13 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 
 	switch (ctx->wrap.type) {
 	case wrap_type_file:
-		field_req[wf_source_filename] = required;
+		field_req[wf_source_filename] = optional;
 		field_req[wf_source_url] = optional;
-		field_req[wf_source_hash] = required;
+		field_req[wf_source_hash] = optional;
+		if (ctx->wrap.fields[wf_source_url]) {
+			field_req[wf_source_filename] = required;
+			field_req[wf_source_hash] = required;
+		}
 		field_req[wf_source_fallback_url] = optional;
 		field_req[wf_lead_directory_missing] = optional;
 		break;
@@ -328,21 +430,20 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	*wrap = ctx.wrap;
 
-	char name[PATH_MAX];
-	if (!path_basename(name, PATH_MAX, wrap_file)) {
+	if (!path_basename(wrap->name, PATH_MAX, wrap_file)) {
 		return false;
 	}
 
-	uint32_t len = strlen(name);
-	assert(len > 5 && "wrap file doesn't end in .wrap??");
-	assert(len - 5 < PATH_MAX);
-	name[len - 5] = 0;
+	const struct str *name = &WKSTR(wrap->name);
+	assert(str_endswith(name, &WKSTR(".wrap")));
+
+	wrap->name[name->len - 5] = 0;
 
 	const char *dir;
 	if (wrap->fields[wf_directory]) {
 		dir = wrap->fields[wf_directory];
 	} else {
-		dir = name;
+		dir = wrap->name;
 	}
 
 	char subprojects[PATH_MAX];
@@ -482,6 +583,73 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 	}
 
 	if (!wrap_apply_patch(wrap, subprojects, download)) {
+		return false;
+	}
+
+	return true;
+}
+
+struct wrap_load_all_ctx {
+	struct workspace *wk;
+	const char *subprojects;
+};
+
+static enum iteration_result
+wrap_load_all_iter(void *_ctx, const char *file)
+{
+	struct wrap_load_all_ctx *ctx = _ctx;
+	char path[PATH_MAX];
+
+	if (!str_endswith(&WKSTR(file), &WKSTR(".wrap"))) {
+		return ir_cont;
+	} else if (!path_join(path, PATH_MAX, ctx->subprojects, file)) {
+		return ir_err;
+	} else if (!fs_file_exists(path)) {
+		return ir_cont;
+	}
+
+	struct wrap wrap = { 0 };
+	if (!wrap_parse(path, &wrap)) {
+		return ir_err;
+	}
+
+	if (!wrap.has_provides) {
+		return ir_cont;
+	}
+
+	struct wrap_parse_provides_ctx wp_ctx = {
+		.wk = ctx->wk,
+		.wrap = &wrap,
+		.wrap_name = make_str(ctx->wk, wrap.name),
+	};
+
+	make_obj(ctx->wk, &wp_ctx.wrap_name_arr, obj_array);
+	obj_array_push(ctx->wk, wp_ctx.wrap_name_arr, wp_ctx.wrap_name);
+
+	enum iteration_result ret = ir_err;
+	if (!ini_reparse(path, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
+		goto ret;
+	}
+
+	ret = ir_cont;
+ret:
+	wrap_destroy(&wrap);
+	return ret;
+}
+
+bool
+wrap_load_all_provides(struct workspace *wk, const char *subprojects)
+{
+	struct wrap_load_all_ctx ctx = {
+		.wk = wk,
+		.subprojects = subprojects,
+	};
+
+	if (!fs_dir_exists(subprojects)) {
+		return true;
+	}
+
+	if (!fs_dir_foreach(subprojects, &ctx, wrap_load_all_iter)) {
 		return false;
 	}
 
