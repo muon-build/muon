@@ -1,4 +1,4 @@
-project('proj', 'c')
+project('proj', 'c', default_options: ['default_library=shared'])
 subproject('sub')
 libSub = dependency('sub', fallback: ['sub', 'libSub'])
 
