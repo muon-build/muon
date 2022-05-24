@@ -81,6 +81,8 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		return false;
 	}
 
+	bool wrote_default = false;
+
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 
@@ -89,6 +91,15 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
 			return false;
 		}
+
+		wrote_default |= ctx.wrote_default;
+	}
+
+	if (!wrote_default) {
+		fprintf(out,
+			"build muon_do_nothing: phony\n"
+			"default muon_do_nothing\n"
+			);
 	}
 
 	return true;

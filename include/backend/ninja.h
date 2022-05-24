@@ -6,7 +6,9 @@
 struct write_tgt_ctx {
 	FILE *out;
 	const struct project *proj;
+	bool wrote_default;
 };
 
 bool ninja_write_all(struct workspace *wk);
+int ninja_run(const char *argstr);
 #endif
