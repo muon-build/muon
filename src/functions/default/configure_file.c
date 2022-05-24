@@ -328,10 +328,15 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		obj_array_push(wk, output_arr, f);
 	}
 
-	obj depends; // used only for the call below :(
-	make_obj(wk, &depends, obj_array);
-	if (!process_custom_target_commandline(wk, node, false, 0, command, input,
-		output_arr, depfile, depends, NULL, &args)) {
+	struct process_custom_target_commandline_opts opts = {
+		.err_node   = node,
+		.input      = input,
+		.output     = output_arr,
+		.depfile    = depfile,
+	};
+	make_obj(wk, &opts.depends, obj_array);
+
+	if (!process_custom_target_commandline(wk, &opts, command, &args)) {
 		return false;
 	}
 

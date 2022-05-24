@@ -892,20 +892,13 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!make_custom_target(wk,
-		an[0].val,
-		0,
-		0,
-		akw[kw_command].node,
-		0,
-		0,
-		NULL,
-		akw[kw_command].val,
-		0,
-		false,
-		false,
-		res
-		)) {
+	struct make_custom_target_opts opts = {
+		.name         = an[0].val,
+		.command_node = akw[kw_command].node,
+		.command_orig = akw[kw_command].val,
+	};
+
+	if (!make_custom_target(wk, &opts, res)) {
 		return false;
 	}
 

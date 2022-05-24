@@ -15,11 +15,10 @@
 #include "platform/path.h"
 
 struct custom_target_cmd_fmt_ctx {
-	uint32_t err_node, i;
-	obj arr, input, output, depfile, depends, name;
+	struct process_custom_target_commandline_opts *opts;
+	uint32_t i;
+	obj *res;
 	bool skip_depends;
-	bool relativize;
-	const char *output_dir;
 };
 
 static bool
@@ -43,7 +42,7 @@ str_relative_to_build_root(struct workspace *wk,
 	char rel[PATH_MAX];
 	const char *path = path_orig;
 
-	if (!ctx->relativize) {
+	if (!ctx->opts->relativize) {
 		*res = make_str(wk, path);
 		return true;
 	}
@@ -96,16 +95,16 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		bool valid;
 		bool needs_name;
 	} key_names[cmd_arg_fmt_key_count] = {
-		[key_input             ] = { "INPUT", ctx->input },
-		[key_output            ] = { "OUTPUT", ctx->output },
-		[key_outdir            ] = { "OUTDIR", ctx->output },
-		[key_depfile           ] = { "DEPFILE", ctx->depfile },
-		[key_plainname         ] = { "PLAINNAME", ctx->input },
-		[key_basename          ] = { "BASENAME", ctx->input },
-		[key_private_dir       ] = { "PRIVATE_DIR", ctx->output, true, },
+		[key_input             ] = { "INPUT", ctx->opts->input },
+		[key_output            ] = { "OUTPUT", ctx->opts->output },
+		[key_outdir            ] = { "OUTDIR", ctx->opts->output },
+		[key_depfile           ] = { "DEPFILE", ctx->opts->depfile },
+		[key_plainname         ] = { "PLAINNAME", ctx->opts->input },
+		[key_basename          ] = { "BASENAME", ctx->opts->input },
+		[key_private_dir       ] = { "PRIVATE_DIR", ctx->opts->output, true, },
 		[key_source_root       ] = { "SOURCE_ROOT", true },
 		[key_build_root        ] = { "BUILD_ROOT", true },
-		[key_build_dir         ] = { "BUILD_DIR", ctx->output_dir },
+		[key_build_dir         ] = { "BUILD_DIR", ctx->opts->output_dir },
 		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", true },
 	};
 
@@ -116,7 +115,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 
 		if (!key_names[key].valid
-		    || (key_names[key].needs_name && !ctx->name)) {
+		    || (key_names[key].needs_name && !ctx->opts->name)) {
 			return format_cb_not_found;
 		}
 
@@ -128,10 +127,10 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	switch (key) {
 	case key_input:
 	case key_output: {
-		obj arr = key == key_input ? ctx->input : ctx->output;
+		obj arr = key == key_input ? ctx->opts->input : ctx->opts->output;
 
 		int64_t index = 0;
-		if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
+		if (!boundscheck(wk, ctx->opts->err_node, get_obj_array(wk, arr)->len, &index)) {
 			return format_cb_error;
 		}
 		obj_array_index(wk, arr, 0, &e);
@@ -161,7 +160,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
 		 * custom target must store all its intermediate files. */
 		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->name))) {
+		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name))) {
 			return format_cb_error;
 		} else if (!path_add_suffix(path, PATH_MAX, ".p")) {
 			return format_cb_error;
@@ -175,7 +174,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	case key_depfile:
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->depfile), elem)) {
+		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->opts->depfile), elem)) {
 			return format_cb_error;
 		}
 		return format_cb_found;
@@ -196,7 +195,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		return format_cb_found;
 	case key_build_dir:
-		if (!str_relative_to_build_root(wk, ctx, ctx->output_dir, elem)) {
+		if (!str_relative_to_build_root(wk, ctx, ctx->opts->output_dir, elem)) {
 			return format_cb_error;
 		}
 		return format_cb_found;
@@ -204,16 +203,16 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	/* @PLAINNAME@: the input filename, without a path */
 	case key_basename: {
 		/* @BASENAME@: the input filename, with extension removed */
-		struct obj_array *in = get_obj_array(wk, ctx->input);
+		struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 		if (in->len != 1) {
-			interp_error(wk, ctx->err_node,
+			interp_error(wk, ctx->opts->err_node,
 				"to use @PLAINNAME@ and @BASENAME@ in a custom "
 				"target command, there must be exactly one input");
 			return format_cb_error;
 		}
 
 		obj in0;
-		obj_array_index(wk, ctx->input, 0, &in0);
+		obj_array_index(wk, ctx->opts->input, 0, &in0);
 		const struct str *orig_str = get_str(wk, *get_obj_file(wk, in0));
 		char plainname[PATH_MAX];
 
@@ -236,7 +235,6 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 			}
 		}
 		return format_cb_found;
-		assert(false && "unreachable");
 	}
 	default:
 		break;
@@ -246,17 +244,17 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	obj arr;
 
 	if (prefix_plus_index(strkey, "INPUT", &index)) {
-		arr = ctx->input;
+		arr = ctx->opts->input;
 	} else if (prefix_plus_index(strkey, "OUTPUT", &index)) {
-		arr = ctx->output;
+		arr = ctx->opts->output;
 	} else {
-		if (ctx->err_node) {
-			interp_warning(wk, ctx->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+		if (ctx->opts->err_node) {
+			interp_warning(wk, ctx->opts->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
 		}
 		return format_cb_skip;
 	}
 
-	if (!boundscheck(wk, ctx->err_node, get_obj_array(wk, arr)->len, &index)) {
+	if (!boundscheck(wk, ctx->opts->err_node, get_obj_array(wk, arr)->len, &index)) {
 		return format_cb_error;
 	}
 
@@ -282,7 +280,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_external_program:
 	case obj_file: {
 		obj str;
-		if (!coerce_executable(wk, ctx->err_node, val, &str)) {
+		if (!coerce_executable(wk, ctx->opts->err_node, val, &str)) {
 			return ir_err;
 		}
 
@@ -291,21 +289,21 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (!ctx->skip_depends) {
-			obj_array_push(wk, ctx->depends, ss);
+			obj_array_push(wk, ctx->opts->depends, ss);
 		}
 		break;
 	}
 	case obj_string: {
-		if (ctx->input && str_eql(get_str(wk, val), &WKSTR("@INPUT@"))) {
+		if (ctx->opts->input && str_eql(get_str(wk, val), &WKSTR("@INPUT@"))) {
 			ctx->skip_depends = true;
-			if (!obj_array_foreach(wk, ctx->input, ctx, custom_target_cmd_fmt_iter)) {
+			if (!obj_array_foreach(wk, ctx->opts->input, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			ctx->skip_depends = false;
 			return ir_cont;
-		} else if (ctx->output && str_eql(get_str(wk, val), &WKSTR("@OUTPUT@"))) {
+		} else if (ctx->opts->output && str_eql(get_str(wk, val), &WKSTR("@OUTPUT@"))) {
 			ctx->skip_depends = true;
-			if (!obj_array_foreach(wk, ctx->output, ctx, custom_target_cmd_fmt_iter)) {
+			if (!obj_array_foreach(wk, ctx->opts->output, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			ctx->skip_depends = false;
@@ -313,7 +311,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		obj s;
-		if (!string_format(wk, ctx->err_node, val, &s, ctx, format_cmd_arg_cb)) {
+		if (!string_format(wk, ctx->opts->err_node, val, &s, ctx, format_cmd_arg_cb)) {
 			return ir_err;
 		}
 		ss = s;
@@ -323,7 +321,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		obj output = get_obj_custom_target(wk, val)->output;
 		struct obj_array *out = get_obj_array(wk, output);
 		if (out->len != 1) {
-			interp_error(wk, ctx->err_node, "unable to coerce custom target with multiple outputs to string");
+			interp_error(wk, ctx->opts->err_node, "unable to coerce custom target with multiple outputs to string");
 			return ir_err;
 		}
 
@@ -335,39 +333,33 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (!ctx->skip_depends) {
-			obj_array_push(wk, ctx->depends, ss);
+			obj_array_push(wk, ctx->opts->depends, ss);
 		}
 		break;
 	}
 	default:
-		interp_error(wk, ctx->err_node, "unable to coerce %o to string", val);
+		interp_error(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
 		return ir_err;
 	}
 
 	assert(get_obj_type(wk, ss) == obj_string);
 
-	obj_array_push(wk, ctx->arr, ss);
+	obj_array_push(wk, *ctx->res, ss);
 cont:
 	++ctx->i;
 	return ir_cont;
 }
 
 bool
-process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool relativize,
-	obj name, obj arr, obj input, obj output, obj depfile, obj depends,
-	const char *output_dir, obj *res)
+process_custom_target_commandline(struct workspace *wk,
+	struct process_custom_target_commandline_opts *opts,
+	obj arr, obj *res)
 {
 	make_obj(wk, res, obj_array);
+
 	struct custom_target_cmd_fmt_ctx ctx = {
-		.arr = *res,
-		.err_node = err_node,
-		.input = input,
-		.output = output,
-		.depfile = depfile,
-		.depends = depends,
-		.name = name,
-		.relativize = relativize,
-		.output_dir = output_dir,
+		.opts = opts,
+		.res = res,
 	};
 
 	if (!obj_array_foreach_flat(wk, arr, &ctx, custom_target_cmd_fmt_iter)) {
@@ -375,10 +367,9 @@ process_custom_target_commandline(struct workspace *wk, uint32_t err_node, bool 
 	}
 
 	if (!get_obj_array(wk, *res)->len) {
-		interp_error(wk, err_node, "cmd cannot be empty");
+		interp_error(wk, opts->err_node, "cmd cannot be empty");
 		return false;
 	}
-
 	return true;
 }
 
@@ -409,16 +400,16 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 		return format_cb_not_found;
 	}
 
-	struct obj_array *in = get_obj_array(wk, ctx->input);
+	struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 	if (in->len != 1) {
-		interp_error(wk, ctx->err_node,
+		interp_error(wk, ctx->opts->err_node,
 			"to use @PLAINNAME@ and @BASENAME@ in a custom "
 			"target output, there must be exactly one input");
 		return format_cb_error;
 	}
 
 	obj in0;
-	obj_array_index(wk, ctx->input, 0, &in0);
+	obj_array_index(wk, ctx->opts->input, 0, &in0);
 	const struct str *ss = get_str(wk, *get_obj_file(wk, in0));
 	char buf[PATH_MAX];
 
@@ -454,7 +445,7 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 	obj file = *get_obj_file(wk, v);
 
 	obj s;
-	if (!string_format(wk, ctx->err_node, file, &s, ctx, format_cmd_output_cb)) {
+	if (!string_format(wk, ctx->opts->err_node, file, &s, ctx, format_cmd_output_cb)) {
 		return ir_err;
 	}
 
@@ -462,7 +453,7 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 	make_obj(wk, &f, obj_file);
 	*get_obj_file(wk, f) = s;
 
-	obj_array_push(wk, ctx->output, f);
+	obj_array_push(wk, ctx->opts->output, f);
 
 	return ir_cont;
 }
@@ -499,29 +490,18 @@ process_custom_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 bool
 make_custom_target(struct workspace *wk,
-	obj name,
-	uint32_t input_node,
-	uint32_t output_node,
-	uint32_t command_node,
-	obj input_orig,
-	obj output_orig,
-	const char *output_dir,
-	obj command_orig,
-	obj depfile_orig,
-	bool capture,
-	bool feed,
-	obj *res)
+	struct make_custom_target_opts *opts, obj *res)
 {
 	obj input, raw_output, output, args;
 
 	make_obj(wk, res, obj_custom_target);
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
-	tgt->name = name;
+	tgt->name = opts->name;
 
 	// A custom_target won't have a name if it is from a generator
-	if (name) { /* private path */
+	if (opts->name) { /* private path */
 		char path[PATH_MAX] = { 0 };
-		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, name))) {
+		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, opts->name))) {
 			return false;
 		}
 
@@ -532,44 +512,46 @@ make_custom_target(struct workspace *wk,
 		tgt->private_path = make_str(wk, path);
 	}
 
-	if (input_orig) {
+	if (opts->input_orig) {
 		make_obj(wk, &input, obj_array);
 
 		struct process_custom_tgt_sources_ctx ctx = {
-			.err_node = input_node,
+			.err_node = opts->input_node,
 			.res = input,
 			.tgt_id = *res,
 		};
 
-		if (get_obj_type(wk, input_orig) != obj_array) {
+		if (get_obj_type(wk, opts->input_orig) != obj_array) {
 			obj arr_input;
 			make_obj(wk, &arr_input, obj_array);
-			obj_array_push(wk, arr_input, input_orig);
-			input_orig = arr_input;
+			obj_array_push(wk, arr_input, opts->input_orig);
+			opts->input_orig = arr_input;
 		}
 
-		if (!obj_array_foreach_flat(wk, input_orig, &ctx, process_custom_tgt_sources_iter)) {
+		if (!obj_array_foreach_flat(wk, opts->input_orig, &ctx, process_custom_tgt_sources_iter)) {
 			return false;
 		} else if (!get_obj_array(wk, input)->len) {
-			interp_error(wk, input_node, "input cannot be empty");
+			interp_error(wk, opts->input_node, "input cannot be empty");
 		}
 	} else {
 		input = 0;
 	}
 
-	if (output_orig) {
-		if (!coerce_output_files(wk, output_node, output_orig, output_dir, &raw_output)) {
+	if (opts->output_orig) {
+		if (!coerce_output_files(wk, opts->output_node, opts->output_orig, opts->output_dir, &raw_output)) {
 			return false;
 		} else if (!get_obj_array(wk, raw_output)->len) {
-			interp_error(wk, output_node, "output cannot be empty");
+			interp_error(wk, opts->output_node, "output cannot be empty");
 		}
 
 		make_obj(wk, &output, obj_array);
 		struct custom_target_cmd_fmt_ctx ctx = {
-			.err_node = output_node,
-			.input = input,
-			.output = output,
-			.name = name,
+			.opts = &(struct process_custom_target_commandline_opts) {
+				.err_node = opts->output_node,
+				.input = input,
+				.output = output,
+				.name = opts->name,
+			},
 		};
 		if (!obj_array_foreach(wk, raw_output, &ctx, custom_command_output_format_iter)) {
 			return false;
@@ -578,25 +560,32 @@ make_custom_target(struct workspace *wk,
 		output = 0;
 	}
 
-	obj depends;
-	make_obj(wk, &depends, obj_array);
-	if (!process_custom_target_commandline(wk, command_node, true, name,
-		command_orig, input, output, depfile_orig, depends, output_dir, &args)) {
+	struct process_custom_target_commandline_opts cmdline_opts = {
+		.err_node   = opts->command_node,
+		.relativize = true,
+		.name       = opts->name,
+		.input      = input,
+		.output     = output,
+		.depfile    = opts->depfile_orig,
+		.output_dir = opts->output_dir,
+	};
+	make_obj(wk, &cmdline_opts.depends, obj_array);
+	if (!process_custom_target_commandline(wk, &cmdline_opts, opts->command_orig, &args)) {
 		return false;
 	}
 
-	if (capture) {
+	if (opts->capture) {
 		tgt->flags |= custom_target_capture;
 	}
 
-	if (feed) {
+	if (opts->feed) {
 		tgt->flags |= custom_target_feed;
 	}
 
 	tgt->args = args;
 	tgt->input = input;
 	tgt->output = output;
-	tgt->depends = depends;
+	tgt->depends = cmdline_opts.depends;
 	return true;
 }
 
@@ -644,21 +633,21 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!make_custom_target(
-		wk,
-		an[0].val,
-		akw[kw_input].node,
-		akw[kw_output].node,
-		akw[kw_command].node,
-		akw[kw_input].val,
-		akw[kw_output].val,
-		get_cstr(wk, current_project(wk)->build_dir),
-		akw[kw_command].val,
-		akw[kw_depfile].val,
-		akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
-		akw[kw_feed].set && get_obj_bool(wk, akw[kw_feed].val),
-		res
-		)) {
+	struct make_custom_target_opts opts = {
+		.name         = an[0].val,
+		.input_node   = akw[kw_input].node,
+		.output_node  = akw[kw_output].node,
+		.command_node = akw[kw_command].node,
+		.input_orig   = akw[kw_input].val,
+		.output_orig  = akw[kw_output].val,
+		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.command_orig = akw[kw_command].val,
+		.depfile_orig = akw[kw_depfile].val,
+		.capture      = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
+		.feed         = akw[kw_feed].set && get_obj_bool(wk, akw[kw_feed].val),
+	};
+
+	if (!make_custom_target(wk, &opts, res)) {
 		return false;
 	}
 
@@ -793,21 +782,17 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		obj_array_extend(wk, command, akw[kw_command].val);
 	}
 
-	if (!make_custom_target(
-		wk,
-		make_str(wk, "vcs_tag"),
-		akw[kw_input].node,
-		akw[kw_output].node,
-		0,
-		akw[kw_input].val,
-		akw[kw_output].val,
-		get_cstr(wk, current_project(wk)->build_dir),
-		command,
-		0,
-		false,
-		false,
-		res
-		)) {
+	struct make_custom_target_opts opts = {
+		.name         = make_str(wk, "vcs_tag"),
+		.input_node   = akw[kw_input].node,
+		.output_node  = akw[kw_output].node,
+		.input_orig   = akw[kw_input].val,
+		.output_orig  = akw[kw_output].val,
+		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.command_orig = command,
+	};
+
+	if (!make_custom_target(wk, &opts, res)) {
 		return false;
 	}
 

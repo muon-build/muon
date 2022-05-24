@@ -59,22 +59,21 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 {
 	struct generated_list_process_for_target_ctx *ctx = _ctx;
 
+	struct make_custom_target_opts opts = {
+		.input_node   = ctx->node,
+		.output_node  = ctx->node,
+		.command_node = ctx->node,
+		.input_orig   = val,
+		.output_orig  = ctx->g->output,
+		.output_dir   = ctx->dir,
+		.command_orig = ctx->g->raw_command,
+		.depfile_orig = ctx->g->depfile,
+		.capture      = ctx->g->capture,
+		.feed         = ctx->g->feed,
+	};
+
 	obj tgt;
-	if (!make_custom_target(
-		wk,
-		0,
-		ctx->node,
-		ctx->node,
-		ctx->node,
-		val,
-		ctx->g->output,
-		ctx->dir,
-		ctx->g->raw_command,
-		ctx->g->depfile,
-		ctx->g->capture,
-		ctx->g->feed,
-		&tgt
-		)) {
+	if (!make_custom_target(wk, &opts, &tgt)) {
 		return ir_err;
 	}
 
@@ -117,7 +116,7 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 	switch (t) {
 	case obj_both_libs:
 		tgt = get_obj_both_libs(wk, tgt)->dynamic_lib;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_build_target:
 		private_path = get_cstr(wk, get_obj_build_target(wk, tgt)->private_path);
 		break;
