@@ -18,6 +18,11 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
+enum configure_file_output_format {
+	configure_file_output_format_c,
+	configure_file_output_format_nasm,
+};
+
 static uint32_t
 configure_var_len(const char *p)
 {
@@ -254,6 +259,7 @@ cleanup:
 struct generate_config_ctx {
 	FILE *out;
 	uint32_t node;
+	enum configure_file_output_format output_format;
 };
 
 static enum iteration_result
@@ -262,25 +268,30 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	struct generate_config_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 
+	char define_prefix = (char[]){
+		[configure_file_output_format_c] = '#',
+		[configure_file_output_format_nasm] = '%',
+	}[ctx->output_format];
+
 	switch (t) {
 	case obj_string:
 		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
 		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		fprintf(ctx->out, "#define %s %s\n", get_cstr(wk, key), get_cstr(wk, val));
+		fprintf(ctx->out, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
 		break;
 	case obj_bool:
 		/* conf_data.set('FOO', true)       => #define FOO */
 		/* conf_data.set('FOO', false)      => #undef FOO */
 		if (get_obj_bool(wk, val)) {
-			fprintf(ctx->out, "#define %s\n", get_cstr(wk, key));
+			fprintf(ctx->out, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
 		} else {
-			fprintf(ctx->out, "#undef %s\n", get_cstr(wk, key));
+			fprintf(ctx->out, "%cundef %s\n", define_prefix, get_cstr(wk, key));
 		}
 		break;
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		fprintf(ctx->out, "#define %s %" PRId64 "\n", get_cstr(wk, key), get_obj_number(wk, val));
+		fprintf(ctx->out, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
@@ -291,7 +302,8 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 }
 
 static bool
-generate_config(struct workspace *wk, uint32_t dict, uint32_t node, uint32_t out_path)
+generate_config(struct workspace *wk, enum configure_file_output_format format,
+	obj dict, uint32_t node, obj out_path)
 {
 	FILE *out;
 	if (!(out = fs_fopen(get_cstr(wk, out_path), "wb"))) {
@@ -301,6 +313,7 @@ generate_config(struct workspace *wk, uint32_t dict, uint32_t node, uint32_t out
 	struct generate_config_ctx ctx = {
 		.out = out,
 		.node = node,
+		.output_format = format,
 	};
 
 	bool ret;
@@ -480,6 +493,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_install_mode,
 		kw_copy,
 		kw_format,
+		kw_output_format,
 		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
 	};
@@ -494,6 +508,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_copy] = { "copy", obj_bool },
 		[kw_format] = { "format", obj_string },
+		[kw_output_format] = { "output_format", obj_string },
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
 		0
@@ -501,6 +516,19 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
 		return false;
+	}
+
+	enum configure_file_output_format output_format = configure_file_output_format_c;
+	if (akw[kw_output_format].set) {
+		const struct str *output_format_str = get_str(wk, akw[kw_output_format].val);
+		if (str_eql(output_format_str, &WKSTR("c"))) {
+			output_format = configure_file_output_format_c;
+		} else if (str_eql(output_format_str, &WKSTR("nasm"))) {
+			output_format = configure_file_output_format_nasm;
+		} else {
+			interp_error(wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
+			return false;
+		}
 	}
 
 	if (akw[kw_input].set) {
@@ -641,7 +669,8 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 				return false;
 			}
 		} else {
-			if (!generate_config(wk, dict, akw[kw_configuration].node, output_str)) {
+			if (!generate_config(wk, output_format, dict,
+				akw[kw_configuration].node, output_str)) {
 				return false;
 			}
 		}
