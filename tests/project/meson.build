@@ -266,6 +266,9 @@ tests = [
     ['native/7 selfbuilt custom'],
     ['native/8 external program shebang parsing'],
     ['native/9 override with exe', ['failing']],
+
+    # nasm
+    ['nasm/1 configure file'],
 ]
 
 ninja = find_program('ninja', 'samu', required: false)
