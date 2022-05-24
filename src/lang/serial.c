@@ -362,15 +362,15 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 	struct workspace wk_dest = { 0 };
 	workspace_init_bare(&wk_dest);
 
+	struct darr big_string_offsets;
+	darr_init(&big_string_offsets, 32, sizeof(uint64_t));
+
 	obj obj_dest;
 	if (!obj_clone(wk_src, &wk_dest, o, &obj_dest)) {
 		goto ret;
 	}
 
 	/* obj_fprintf(&wk_dest, log_file(), "saving %o\n", obj_dest); */
-
-	struct darr big_string_offsets;
-	darr_init(&big_string_offsets, 32, sizeof(uint64_t));
 
 	if (!(dump_serial_header(f)
 	      && dump_uint32(obj_dest, f)
