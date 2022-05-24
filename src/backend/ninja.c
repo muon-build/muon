@@ -10,7 +10,10 @@
 #include "lang/serial.h"
 #include "log.h"
 #include "options.h"
+#include "platform/filesystem.h"
+#include "platform/mem.h"
 #include "platform/path.h"
+#include "platform/run_cmd.h"
 
 struct check_tgt_ctx {
 	bool need_phony;
@@ -221,4 +224,42 @@ ninja_write_all(struct workspace *wk)
 	}
 
 	return true;
+}
+
+int
+ninja_run(const char *argstr)
+{
+	char *const *argv;
+	uint32_t argc;
+
+	if (have_samurai) {
+		argc = argstr_to_argv(argstr, "samu", &argv);
+		bool res = muon_samu(argc, argv);
+		z_free((void *)argv);
+		return res ? 0 : 1;
+	}
+
+	const char *cmd = NULL;
+	if (!(fs_find_cmd("samu", &cmd)
+	      || fs_find_cmd("ninja", &cmd))) {
+		LOG_E("unable to find a ninja implementation");
+		return 1;
+	}
+
+	argc = argstr_to_argv(argstr, cmd, &argv);
+
+	struct run_cmd_ctx cmd_ctx = { .flags = run_cmd_ctx_flag_dont_capture };
+	if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL)) {
+		LOG_E("%s", cmd_ctx.err_msg);
+
+		run_cmd_ctx_destroy(&cmd_ctx);
+		z_free((void *)argv);
+
+		return 1;
+	}
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+	z_free((void *)argv);
+
+	return cmd_ctx.status;
 }
