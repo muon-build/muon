@@ -378,7 +378,13 @@ found_slot:
 		LOG_E("error getting test start time: %s", strerror(errno));
 	}
 
-	run_cmd(cmd_ctx, argstr, envstr);
+	if (!run_cmd(cmd_ctx, argstr, envstr)) {
+		ctx->test_cmd_ctx_free &= ~(1 << i);
+		calculate_test_duration(res);
+		res->failed = true;
+		print_test_progress(wk, ctx, res);
+		darr_push(&ctx->test_results, res);
+	}
 }
 
 static bool
@@ -564,6 +570,9 @@ tests_run(struct test_options *opts)
 
 		if (opts->print_summary || res->failed) {
 			print_test_result(&wk, res);
+			if (res->failed && res->cmd_ctx.err_msg) {
+				log_plain(": %s", res->cmd_ctx.err_msg);
+			}
 			log_plain("\n");
 		}
 
@@ -572,9 +581,6 @@ tests_run(struct test_options *opts)
 				ret = false;
 			} else {
 				ret = false;
-				if (res->cmd_ctx.err_msg) {
-					log_plain("%s\n", res->cmd_ctx.err_msg);
-				}
 				if (res->cmd_ctx.out.len) {
 					log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
 				}
