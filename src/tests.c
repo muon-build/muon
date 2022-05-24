@@ -414,14 +414,7 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 	obj_array_push(wk, cmdline, test->exe);
 
 	if (test->args) {
-		obj test_args;
-		if (!arr_to_args(wk,
-			arr_to_args_build_target | arr_to_args_custom_target,
-			test->args, &test_args)) {
-			return ir_err;
-		}
-
-		obj_array_extend_nodup(wk, cmdline, test_args);
+		obj_array_extend_nodup(wk, cmdline, test->args);
 	}
 
 	const char *argstr, *envstr;
