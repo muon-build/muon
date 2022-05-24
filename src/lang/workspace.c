@@ -251,6 +251,8 @@ workspace_init_bare(struct workspace *wk)
 	obj id;
 	make_obj(wk, &id, obj_null);
 	assert(id == 0);
+
+	hash_init(&wk->obj_hash, 128, sizeof(obj));
 }
 
 void
@@ -262,7 +264,6 @@ workspace_init(struct workspace *wk)
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	darr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init_str(&wk->scope, 32);
-	hash_init(&wk->obj_hash, 128, sizeof(obj));
 
 	obj id;
 	make_obj(wk, &id, obj_disabler);
@@ -313,6 +314,8 @@ workspace_destroy_bare(struct workspace *wk)
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
 		bucket_array_destroy(&wk->obj_aos[i - _obj_aos_start]);
 	}
+
+	hash_destroy(&wk->obj_hash);
 }
 
 void
@@ -336,7 +339,6 @@ workspace_destroy(struct workspace *wk)
 	darr_destroy(&wk->option_overrides);
 	darr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
-	hash_destroy(&wk->obj_hash);
 
 	workspace_destroy_bare(wk);
 }
