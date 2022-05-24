@@ -334,6 +334,48 @@ push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg
 	++(*len);
 }
 
+uint32_t
+argstr_to_argv(const char *argstr, const char *prepend, char *const **res)
+{
+	const char *arg, *p;
+	uint32_t argc = 0, argi = 0;
+
+	p = argstr;
+	for (;; ++p) {
+		if (!*p) {
+			++argc;
+			++p;
+			if (!*p) {
+				break;
+			}
+		}
+	}
+
+	if (prepend) {
+		argc += 1;
+	}
+
+	const char **new_argv = z_calloc(argc + 1, sizeof(const char *));
+
+	if (prepend) {
+		push_argv_single(new_argv, &argi, argc, prepend);
+	}
+
+	arg = p = argstr;
+	for (;; ++p) {
+		if (!*p) {
+			push_argv_single(new_argv, &argi, argc, arg);
+			arg = p + 1;
+			if (!*arg) {
+				break;
+			}
+		}
+	}
+
+	*res = (char *const *)new_argv;
+	return argc;
+}
+
 static bool
 build_argv(struct run_cmd_ctx *ctx, struct source *src,
 	const char *argstr, char *const *old_argv,
