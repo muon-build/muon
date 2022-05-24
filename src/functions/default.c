@@ -1264,10 +1264,67 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	return true;
 }
 
+struct add_test_depends_ctx {
+	struct obj_test *t;
+	bool from_custom_tgt;
+};
+
+static enum iteration_result
+add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	char rel[PATH_MAX];
+	struct add_test_depends_ctx *ctx = _ctx;
+
+	switch (get_obj_type(wk, val)) {
+	case obj_string:
+	case obj_external_program:
+		break;
+
+	case obj_file:
+		if (!ctx->from_custom_tgt) {
+			break;
+		}
+
+		if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_file_path(wk, val))) {
+			return ir_err;
+		}
+
+		obj_array_push(wk, ctx->t->depends, make_str(wk, rel));
+		break;
+
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	/* fallthrough */
+	case obj_build_target: {
+		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+
+		if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
+			return ir_err;
+		}
+
+		obj_array_push(wk, ctx->t->depends, make_str(wk, rel));
+		break;
+	}
+	case obj_custom_target:
+		ctx->from_custom_tgt = true;
+		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx, add_test_depends_iter)) {
+			return ir_err;
+		}
+		ctx->from_custom_tgt = false;
+		break;
+	default:
+		UNREACHABLE;
+	}
+
+	return ir_cont;
+}
+
 static bool
 add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
-	struct args_norm an[] = { { obj_string }, { tc_exe }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string },
+				  { tc_build_target | tc_external_program | tc_file },
+				  ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
 		kw_workdir,
@@ -1283,7 +1340,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	struct args_kw akw[] = {
 		[kw_args] = { "args", tc_command_array, },
 		[kw_workdir] = { "workdir", obj_string, },
-		[kw_depends] = { "depends", obj_array, }, // TODO
+		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | tc_custom_target | tc_build_target, },
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
@@ -1333,6 +1390,16 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
 	t->category = cat;
+
+	struct add_test_depends_ctx deps_ctx = { .t = t };
+	make_obj(wk, &t->depends, obj_array);
+	add_test_depends_iter(wk, &deps_ctx, an[1].val);
+	if (akw[kw_depends].set) {
+		obj_array_foreach(wk, akw[kw_depends].val, &deps_ctx, add_test_depends_iter);
+	}
+	if (akw[kw_args].set) {
+		obj_array_foreach(wk, akw[kw_args].val, &deps_ctx, add_test_depends_iter);
+	}
 
 	obj_array_push(wk, current_project(wk)->tests, test);
 	return true;

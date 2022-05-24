@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "args.h"
+#include "backend/ninja.h"
 #include "backend/output.h"
 #include "buf_size.h"
 #include "error.h"
@@ -43,6 +44,7 @@ struct test_result {
 struct run_test_ctx {
 	struct test_options *opts;
 	obj proj_name;
+	obj deps;
 	uint32_t proj_i;
 	struct {
 		uint32_t test_i, test_len, error_count;
@@ -431,10 +433,14 @@ count_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 	struct run_test_ctx *ctx = _ctx;
 	struct obj_test *t = get_obj_test(wk, val);
 
-	if (should_run_test(wk, ctx, t)) {
-		++ctx->stats.test_len;
+	if (!should_run_test(wk, ctx, t)) {
+		return ir_cont;
 	}
 
+	++ctx->stats.test_len;
+	if (t->depends) {
+		obj_array_extend_nodup(wk, ctx->deps, t->depends);
+	}
 	return ir_cont;
 }
 
@@ -442,6 +448,8 @@ static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 {
 	struct run_test_ctx *ctx = _ctx;
+	make_obj(wk, &ctx->deps, obj_array);
+
 	ctx->stats.test_i = 0;
 	ctx->stats.error_count = 0;
 	ctx->stats.test_len = 0;
@@ -450,6 +458,16 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 
 	if (!ctx->stats.test_len) {
 		return ir_cont;
+	}
+
+	if (get_obj_array(wk, ctx->deps)->len) {
+		obj ninja_cmd;
+		obj_array_dedup(wk, ctx->deps, &ninja_cmd);
+		const char *argstr;
+		join_args_argstr(wk, &argstr, ninja_cmd);
+		if (ninja_run(argstr) != 0) {
+			LOG_W("failed to run ninja");
+		}
 	}
 
 	LOG_I("running %ss for project '%s'", test_category_label(ctx->opts->cat), get_cstr(wk, proj_name));

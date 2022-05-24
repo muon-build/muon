@@ -336,6 +336,7 @@ struct obj_test {
 	obj env; // obj_array
 	obj suites; // obj_array
 	obj workdir; // obj_string
+	obj depends; // obj_array of obj_string
 	bool should_fail;
 	enum test_category category;
 };
