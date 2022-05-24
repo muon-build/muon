@@ -75,7 +75,7 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 		[compiler_language_c_hdr] = { "h" },
 		[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
 		[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-		[compiler_language_c_obj] = { "o" },
+		[compiler_language_c_obj] = { "o", "obj" },
 		[compiler_language_objc] = { "m", "mm", "M" },
 		[compiler_language_assembly] = { "S" },
 	};
