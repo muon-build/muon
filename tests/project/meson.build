@@ -88,7 +88,7 @@ tests = [
     ['common/87 default options'],
     ['common/88 dep fallback'],
     ['common/89 default library'],
-    ['common/90 gen extra', ['failing']],
+    ['common/90 gen extra'],
     ['common/91 benchmark'],
     ['common/92 test workdir'],
     ['common/93 suites'],

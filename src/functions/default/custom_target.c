@@ -308,6 +308,12 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 			ctx->skip_depends = false;
 			goto cont;
+		} else if (ctx->opts->extra_args_valid && str_eql(get_str(wk, val), &WKSTR("@EXTRA_ARGS@"))) {
+			if (ctx->opts->extra_args) {
+				obj_array_extend(wk, *ctx->res, ctx->opts->extra_args);
+				ctx->opts->extra_args_used = true;
+			}
+			goto cont;
 		}
 
 		obj s;
@@ -568,10 +574,16 @@ make_custom_target(struct workspace *wk,
 		.output     = output,
 		.depfile    = opts->depfile_orig,
 		.output_dir = opts->output_dir,
+		.extra_args = opts->extra_args,
+		.extra_args_valid = opts->extra_args_valid,
 	};
 	make_obj(wk, &cmdline_opts.depends, obj_array);
 	if (!process_custom_target_commandline(wk, &cmdline_opts, opts->command_orig, &args)) {
 		return false;
+	}
+
+	if (opts->extra_args && !cmdline_opts.extra_args_used) {
+		interp_warning(wk, opts->command_node, "extra args passed, but no @EXTRA_ARGS@ key found to substitute");
 	}
 
 	if (opts->capture) {

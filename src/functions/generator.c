@@ -70,6 +70,8 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		.depfile_orig = ctx->g->depfile,
 		.capture      = ctx->g->capture,
 		.feed         = ctx->g->feed,
+		.extra_args   = ctx->gl->extra_arguments,
+		.extra_args_valid = true,
 	};
 
 	obj tgt;
@@ -156,11 +158,11 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
-		kw_extra_arguments, // ignored
+		kw_extra_args,
 		kw_preserve_path_from, // ignored
 	};
 	struct args_kw akw[] = {
-		[kw_extra_arguments] = { "extra_arguments", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_extra_args] = { "extra_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
 		0
 	};
@@ -172,7 +174,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 	make_obj(wk, res, obj_generated_list);
 	struct obj_generated_list *gl = get_obj_generated_list(wk, *res);
 	gl->generator = gen;
-	gl->extra_arguments = akw[kw_extra_arguments].val;
+	gl->extra_arguments = akw[kw_extra_args].val;
 	gl->preserve_path_from = akw[kw_preserve_path_from].val;
 
 	if (!coerce_files(wk, an[0].node, an[0].val, &gl->input)) {
