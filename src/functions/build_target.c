@@ -147,7 +147,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	enum compiler_language l;
 	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
-		return ir_err;
+		return ir_cont;
 	}
 
 	switch (l) {
