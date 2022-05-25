@@ -130,16 +130,18 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
+	if (!path_is_subpath(wk->build_root, src)) {
+		return ir_cont;
+	}
+
 	char dir[PATH_MAX], path[PATH_MAX];
 	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
 		return ir_err;
 	}
 
-	if (path_is_subpath(wk->build_root, src)) {
-		obj_array_push(wk, tgt->order_deps, make_str(wk, path));
-	}
+	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
 
-	if (!path_dirname(dir, PATH_MAX, path)) {
+	if (!path_dirname(dir, PATH_MAX, src)) {
 		return ir_err;
 	}
 
@@ -426,10 +428,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		obj deduped;
 		obj_array_dedup(wk, tgt->src, &deduped);
 		tgt->src = deduped;
-
-		if (!obj_array_foreach(wk, tgt->src, tgt, process_source_includes_iter)) {
-			return false;
-		}
 	}
 
 	{ // include directories
@@ -439,6 +437,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 		if (!(akw[bt_kw_implicit_include_directories].set
 		      && !get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val))) {
+			if (!obj_array_foreach(wk, tgt->src, tgt, process_source_includes_iter)) {
+				return false;
+			}
 			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
 		}
 
