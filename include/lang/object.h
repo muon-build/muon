@@ -337,7 +337,7 @@ struct obj_test {
 	obj suites; // obj_array
 	obj workdir; // obj_string
 	obj depends; // obj_array of obj_string
-	bool should_fail;
+	bool should_fail, is_parallel;
 	enum test_category category;
 };
 

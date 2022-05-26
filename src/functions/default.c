@@ -1335,7 +1335,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		kw_priority, // TODO
 		kw_timeout, // TODO
 		kw_protocol, // TODO
-		kw_is_parallel, // TODO
+		kw_is_parallel,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", tc_command_array, },
@@ -1352,7 +1352,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	};
 
 	if (cat == test_category_test) {
-		akw[kw_is_parallel] = (struct args_kw){ "is_parallel", obj_bool, }; // TODO
+		akw[kw_is_parallel] = (struct args_kw){ "is_parallel", obj_bool, };
 	}
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -1390,6 +1390,12 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
 	t->category = cat;
+
+	if (akw[kw_is_parallel].key) {
+		t->is_parallel = akw[kw_is_parallel].set
+			? get_obj_bool(wk, akw[kw_is_parallel].val)
+			: true;
+	}
 
 	struct add_test_depends_ctx deps_ctx = { .t = t };
 	make_obj(wk, &t->depends, obj_array);

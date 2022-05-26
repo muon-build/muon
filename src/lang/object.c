@@ -1138,10 +1138,10 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		make_obj(wk_dest, ret, t);
 		struct obj_test *test = get_obj_test(wk_src, val),
 				*o = get_obj_test(wk_dest, *ret);
+		*o = *test;
+
 		o->name = str_clone(wk_src, wk_dest, test->name);
 		o->exe = str_clone(wk_src, wk_dest, test->exe);
-		o->should_fail = test->should_fail;
-		o->category = test->category;
 		if (test->workdir) {
 			o->workdir = str_clone(wk_src, wk_dest, test->workdir);
 		}

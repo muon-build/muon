@@ -33,12 +33,18 @@ test_category_label(enum test_category cat)
 	}
 }
 
+enum test_result_status {
+	test_result_status_running,
+	test_result_status_ok,
+	test_result_status_failed,
+};
+
 struct test_result {
 	struct run_cmd_ctx cmd_ctx;
 	struct obj_test *test;
 	struct timespec start;
 	float dur;
-	bool failed;
+	enum test_result_status status;
 };
 
 struct run_test_ctx {
@@ -59,6 +65,7 @@ struct run_test_ctx {
 
 	struct test_result *test_ctx;
 	uint32_t test_cmd_ctx_free;
+	bool serial;
 };
 
 struct test_in_suite_ctx {
@@ -142,6 +149,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		status_should_have_failed,
 		status_ok,
 		status_failed_ok,
+		status_running,
 	} status;
 
 	const char *status_msg[] = {
@@ -149,9 +157,12 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		[status_should_have_failed] = "ok*  ",
 		[status_ok] = "ok   ",
 		[status_failed_ok] = "fail*",
+		[status_running] = "start",
 	};
 
-	if (res->failed) {
+	if (res->status == test_result_status_running) {
+		status = status_running;
+	} else if (res->status == test_result_status_failed) {
 		if (res->test->should_fail) {
 			status = status_should_have_failed;
 		} else {
@@ -186,13 +197,19 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_should_have_failed] = 31,
 			[status_ok] = 32,
 			[status_failed_ok] = 33,
+			[status_running] = 0,
 		};
 		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
 	} else {
 		log_plain("[%s]", status_msg[status]);
 	}
 
-	log_plain(" %6.2fs, ", res->dur);
+	if (res->status == test_result_status_running) {
+		log_plain("          ");
+	} else {
+		log_plain(" %6.2fs, ", res->dur);
+	}
+
 	if (suite_str) {
 		if (suites_len > 1) {
 			log_plain("[%s]:", suite_str);
@@ -210,15 +227,19 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 static void
 print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct test_result *res)
 {
-	++ctx->stats.total_count;
-	++ctx->stats.test_i;
-	if (res->failed) {
-		++ctx->stats.total_error_count;
-		++ctx->stats.error_count;
+	if (res->status != test_result_status_running) {
+		++ctx->stats.total_count;
+		++ctx->stats.test_i;
+		if (res->status == test_result_status_failed) {
+			++ctx->stats.total_error_count;
+			++ctx->stats.error_count;
+		}
 	}
 
 	if (!ctx->stats.term && !ctx->opts->verbosity) {
-		log_plain("%c", res->failed ? 'E' : '.');
+		if (res->status != test_result_status_running) {
+			log_plain("%c", res->status == test_result_status_failed ? 'E' : '.');
+		}
 		return;
 	} else if (ctx->stats.term) {
 		log_plain("\r");
@@ -238,14 +259,20 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		return;
 	}
 
+	uint32_t i, running = 0;
+	for (i = 0; i < ctx->opts->workers; ++i) {
+		if ((ctx->test_cmd_ctx_free & (1 << i))) {
+			++running;
+		}
+	}
+
 	uint32_t pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count);
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d (%d) ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count, running);
 
 	log_plain("%s[", info);
-	uint32_t i,
-		 pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
+	uint32_t pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
 	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
 		if (i < pct) {
 			log_plain("=");
@@ -291,7 +318,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_error:
 			calculate_test_duration(res);
 
-			res->failed = true;
+			res->status = test_result_status_failed;
 			print_test_progress(wk, ctx, res);
 			darr_push(&ctx->test_results, res);
 			break;
@@ -315,9 +342,11 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 					++ctx->stats.total_expect_fail_count;
 				}
 
+
+				res->status = test_result_status_ok;
 				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {
-				res->failed = true;
+				res->status = test_result_status_failed;
 			}
 
 			print_test_progress(wk, ctx, res);
@@ -327,6 +356,10 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 		ctx->test_cmd_ctx_free &= ~(1 << i);
+
+		if (!res->test->is_parallel) {
+			ctx->serial = false;
+		}
 
 		if (ctx->opts->fail_fast && ctx->stats.total_error_count) {
 			break;
@@ -348,17 +381,29 @@ push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
 {
 	uint32_t i;
 	while (true) {
-		for (i = 0; i < ctx->opts->workers; ++i) {
-			if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+		if (ctx->serial && ctx->test_cmd_ctx_free) {
+			goto cont;
+		}
+
+		if (test->is_parallel) {
+			for (i = 0; i < ctx->opts->workers; ++i) {
+				if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+					goto found_slot;
+				}
+			}
+		} else {
+			if (!ctx->test_cmd_ctx_free) {
+				ctx->serial = true;
+				i = 0;
 				goto found_slot;
 			}
 		}
 
+cont:
 		test_delay();
 		collect_tests(wk, ctx);
 	}
 found_slot:
-
 	ctx->test_cmd_ctx_free |= (1 << i);
 
 	struct test_result *res = &ctx->test_ctx[i];
@@ -380,10 +425,14 @@ found_slot:
 		LOG_E("error getting test start time: %s", strerror(errno));
 	}
 
+	if (ctx->serial) {
+		print_test_progress(wk, ctx, res);
+	}
+
 	if (!run_cmd(cmd_ctx, argstr, envstr)) {
 		ctx->test_cmd_ctx_free &= ~(1 << i);
 		calculate_test_duration(res);
-		res->failed = true;
+		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res);
 		darr_push(&ctx->test_results, res);
 	}
@@ -579,15 +628,15 @@ tests_run(struct test_options *opts)
 	for (i = 0; i < ctx.test_results.len; ++i) {
 		struct test_result *res = darr_get(&ctx.test_results, i);
 
-		if (opts->print_summary || res->failed) {
+		if (opts->print_summary || res->status == test_result_status_failed) {
 			print_test_result(&wk, res);
-			if (res->failed && res->cmd_ctx.err_msg) {
+			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
 				log_plain(": %s", res->cmd_ctx.err_msg);
 			}
 			log_plain("\n");
 		}
 
-		if (res->failed) {
+		if (res->status == test_result_status_failed) {
 			if (res->test->should_fail) {
 				ret = false;
 			} else {
