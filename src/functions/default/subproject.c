@@ -159,9 +159,14 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	struct obj_subproject *sub = get_obj_subproject(wk, *res);
 	sub->id = subproject_id;
 	sub->found = true;
-
-
 	obj_dict_set(wk, wk->subprojects, name, *res);
+
+	if (fs_dir_exists(wk->build_root)) {
+		if (!fs_mkdir_p(build_dir)) {
+			return false;
+		}
+	}
+
 	return true;
 }
 
