@@ -1031,11 +1031,11 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		if (opt->min || opt->max) {
 			printf(" where ");
 			if (opt->min) {
-				obj_printf(wk, "%o < ", opt->min);
+				obj_printf(wk, "%o <= ", opt->min);
 			}
 			printf("%sN%s", val_clr, no_clr);
 			if (opt->max) {
-				obj_printf(wk, " < %o", opt->max);
+				obj_printf(wk, " <= %o", opt->max);
 			}
 		}
 		obj_printf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
