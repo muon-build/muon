@@ -613,6 +613,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_install,
 		kw_install_dir,
 		kw_install_mode,
+		kw_install_tag,
 		kw_build_by_default,
 		kw_depfile,
 		kw_depend_files,
@@ -630,6 +631,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
 		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | tc_string | tc_file },

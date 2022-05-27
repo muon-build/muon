@@ -491,6 +491,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_install,
 		kw_install_dir,
 		kw_install_mode,
+		kw_install_tag,
 		kw_copy,
 		kw_format,
 		kw_output_format,
@@ -506,6 +507,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install] = { "install", obj_bool },
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_copy] = { "copy", obj_bool },
 		[kw_format] = { "format", obj_string },
 		[kw_output_format] = { "output_format", obj_string },

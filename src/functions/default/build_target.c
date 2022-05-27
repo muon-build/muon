@@ -22,6 +22,7 @@ enum build_target_kwargs {
 	bt_kw_install,
 	bt_kw_install_dir,
 	bt_kw_install_mode,
+	bt_kw_install_tag,
 	bt_kw_link_with,
 	bt_kw_link_whole,
 	bt_kw_version,
@@ -612,6 +613,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_install] = { "install", obj_bool },
 		[bt_kw_install_dir] = { "install_dir", obj_string },
 		[bt_kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[bt_kw_install_tag] = { "install_tag", tc_string }, // TODO
 		[bt_kw_link_with] = { "link_with", tc_link_with_kw },
 		[bt_kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[bt_kw_version] = { "version", obj_string },
