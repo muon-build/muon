@@ -190,7 +190,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## test
 	*muon* *test* [*-S*] [*-f*] [*-w* <workers>] [*-s* <suite>] [*-d*
-	<display mode>] [*-v [*-v*]*]
+	<display mode>] [*-v [*-v*]*] [*-R*]
 
 	Execute tests defined in _source files_.
 
@@ -209,6 +209,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-v* - Increase verbosity.  When passed once, print test results as
 	  they are completed.  When passed twice, the stdout/stderr of tests is
 	  not captured.
+	- *-R* - No rebuild. Disable automatic build system invocation prior to
+	  running tests.
 
 ## version
 	*muon* *version*

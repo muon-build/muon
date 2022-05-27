@@ -21,7 +21,7 @@ struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
 	uint32_t suites_len, workers, verbosity;
 	enum test_display display;
-	bool fail_fast, print_summary;
+	bool fail_fast, print_summary, no_rebuild;
 
 	enum test_category cat;
 };
