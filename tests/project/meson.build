@@ -231,7 +231,8 @@ tests = [
     # ['common/227 very long commmand line'],
     ['common/228 custom_target source'],
     ['common/229 disabler array addition'],
-    ['common/230 external project', ['failing']],
+    # requires unstable_external_project module
+    # ['common/230 external project', ['failing']],
     ['common/231 subdir files'],
     ['common/232 dependency allow_fallback'],
     ['common/233 wrap case'],
