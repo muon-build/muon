@@ -1341,7 +1341,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	struct args_kw akw[] = {
 		[kw_args] = { "args", tc_command_array, },
 		[kw_workdir] = { "workdir", obj_string, },
-		[kw_depends] = { "depends", ARG_TYPE_ARRAY_OF | tc_custom_target | tc_build_target, },
+		[kw_depends] = { "depends", tc_depends_kw, },
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
