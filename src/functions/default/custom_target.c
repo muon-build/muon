@@ -744,10 +744,10 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_replace_string,
 	};
 	struct args_kw akw[] = {
-		[kw_input]       = { "input", obj_string, .required = true },
-		[kw_output]      = { "output", obj_string, .required = true },
-		[kw_command]     = { "command", obj_array },
-		[kw_fallback]     = { "fallback", obj_string },
+		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files, .required = true },
+		[kw_output] = { "output", obj_string, .required = true },
+		[kw_command] = { "command", tc_command_array | tc_both_libs },
+		[kw_fallback] = { "fallback", obj_string },
 		[kw_replace_string] = { "replace_string", obj_string },
 		0
 	};
@@ -780,8 +780,16 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	});
 
 	obj input;
-	if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), akw[kw_input].val, &input)) {
-		return false;
+	{
+		obj input_arr;
+		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
+			return false;
+		}
+
+		if (!obj_array_flatten_one(wk, input_arr, &input)) {
+			interp_error(wk, akw[kw_input].node, "expected exactly one input");
+			return false;
+		}
 	}
 
 	obj_array_push(wk, command, input);
