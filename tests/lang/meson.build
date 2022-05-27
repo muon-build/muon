@@ -1,6 +1,7 @@
 tests = [
     ['array.meson'],
     ['badnum.meson', {'should_fail': true}],
+    ['configuration_data.meson'],
     ['dict.meson'],
     ['disabler.meson'],
     ['environment.meson', {'env': 'inherited=secret'}],

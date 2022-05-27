@@ -1905,6 +1905,7 @@ const struct func_impl_name impl_tbl_default[] =
 
 const struct func_impl_name impl_tbl_default_external[] = {
 	{ "assert", func_assert },
+	{ "configuration_data", func_configuration_data },
 	{ "disabler", func_disabler },
 	{ "environment", func_environment },
 	{ "error", func_error },
@@ -1919,7 +1920,7 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "p", func_p },
 	{ "range", func_range },
 	{ "run_command", func_run_command },
-	{ "set_variable", func_set_variable, 0, true },
+	{ "set_variable", func_set_variable },
 	{ "setup", func_setup },
 	{ "warning", func_warning },
 	{ NULL, NULL },

@@ -187,11 +187,27 @@ func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, 
 	return true;
 }
 
+static bool
+func_configuration_data_merge_from(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_configuration_data }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj_dict_merge_nodup(wk, get_obj_configuration_data(wk, rcvr)->dict,
+		get_obj_configuration_data(wk, an[0].val)->dict
+		);
+	return true;
+}
+
 const struct func_impl_name impl_tbl_configuration_data[] = {
 	{ "get", func_configuration_data_get, tc_any },
 	{ "get_unquoted", func_configuration_data_get_unquoted, tc_any },
 	{ "has", func_configuration_data_has, tc_bool },
 	{ "keys", func_configuration_data_keys, tc_array },
+	{ "merge_from", func_configuration_data_merge_from },
 	{ "set", func_configuration_data_set },
 	{ "set10", func_configuration_data_set10 },
 	{ "set_quoted", func_configuration_data_set_quoted },

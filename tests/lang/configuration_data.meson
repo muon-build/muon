@@ -1,0 +1,22 @@
+a = configuration_data()
+
+a.set('a', 1)
+assert(a.get('a') == 1)
+
+b = a
+a.set('a', 2)
+assert(b.get('a') == 1)
+b.set('b', 2)
+
+c = configuration_data()
+c.set('a', 3)
+c.set('c', 4)
+
+d = configuration_data()
+d.merge_from(a)
+d.merge_from(b)
+d.merge_from(c)
+
+assert(d.get('a') == 3)
+assert(d.get('b') == 2)
+assert(d.get('c') == 4)
