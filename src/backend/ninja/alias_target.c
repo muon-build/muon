@@ -15,7 +15,6 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ct
 
 	LOG_I("writing rules for alias target '%s'", get_cstr(wk, tgt->name));
 
-
 	char name_esc[BUF_SIZE_1k];
 	if (!ninja_escape(name_esc, BUF_SIZE_1k, get_cstr(wk, tgt->name))) {
 		return false;
@@ -32,7 +31,6 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ct
 	if (fprintf(ctx->out, "build %s: phony | %s\n\n", name_esc, get_cstr(wk, depstr)) < 0) {
 		return false;
 	}
-
 
 	return true;
 }

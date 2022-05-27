@@ -33,7 +33,6 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 	return false;
 }
 
-
 bool
 func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {

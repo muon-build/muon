@@ -90,7 +90,6 @@ pkgconf_strerr(int err)
 	return "unknown";
 }
 
-
 typedef unsigned int (*apply_func)(pkgconf_client_t *client,
 	pkgconf_pkg_t *world, pkgconf_list_t *list, int maxdepth);
 

@@ -356,7 +356,6 @@ write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
 		return false;
 	}
 
-
 	str[tok->n] = pre | (val >> (b - pre_len));
 	++tok->n;
 
@@ -842,7 +841,6 @@ skip:
 	--lexer->toks->tok.len;
 	return lex_cont;
 }
-
 
 static bool
 tokenize(struct lexer *lexer)

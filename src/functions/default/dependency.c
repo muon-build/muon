@@ -266,7 +266,6 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			|| obj_dict_in(wk, wk->subprojects, subproj_name);
 	}
 
-
 	if (!found) {
 		if (force_fallback) {
 			if (!handle_dependency_fallback(wk, ctx, &found)) {

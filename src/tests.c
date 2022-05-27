@@ -342,7 +342,6 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 					++ctx->stats.total_expect_fail_count;
 				}
 
-
 				res->status = test_result_status_ok;
 				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {

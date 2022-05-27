@@ -345,7 +345,6 @@ pop_scope_group(struct workspace *wk)
 		}
 	}
 
-
 	for (i = 0; i < base->len; ++i) {
 		struct assignment *a = darr_get(base, i), *b;
 

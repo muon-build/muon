@@ -123,7 +123,6 @@ struct obj_typeinfo {
 
 extern const struct obj_typechecking_type_to_obj_type typemap[27];
 
-
 #if __STDC_VERSION__ >= 201112L
 _Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
 #endif

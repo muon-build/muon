@@ -197,7 +197,6 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 		}
 	}
 
-
 	if (!fs_dir_exists(dir)) {
 		return ir_cont;
 	}

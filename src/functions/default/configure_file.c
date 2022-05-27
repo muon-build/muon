@@ -550,7 +550,6 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		const char *out = get_cstr(wk, subd);
 		char out_path[PATH_MAX];
 
-
 		if (!path_is_basename(out)) {
 			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path seperator", out);
 			return false;

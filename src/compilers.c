@@ -626,7 +626,6 @@ linker_posix_args_shared(void)
 	return &args;
 }
 
-
 static const struct args *
 linker_gcc_args_as_needed(void)
 {
@@ -634,14 +633,12 @@ linker_gcc_args_as_needed(void)
 	return &args;
 }
 
-
 static const struct args *
 linker_gcc_args_no_undefined(void)
 {
 	COMPILER_ARGS({ "-Wl,--no-undefined" });
 	return &args;
 }
-
 
 static const struct args *
 linker_gcc_args_start_group(void)

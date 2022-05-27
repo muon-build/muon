@@ -949,7 +949,6 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 	return true;
 }
 
-
 bool
 fmt(struct ast *ast, FILE *out, const char *cfg_path)
 {

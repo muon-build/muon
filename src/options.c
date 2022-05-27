@@ -357,7 +357,6 @@ coerce_option_override(struct workspace *wk, uint32_t node, struct obj_option *o
 	return true;
 }
 
-
 static bool
 typecheck_opt(struct workspace *wk, uint32_t err_node, obj val, enum build_option_type type, obj *res)
 {

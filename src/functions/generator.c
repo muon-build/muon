@@ -23,7 +23,6 @@ struct generated_list_process_for_target_ctx {
 	struct obj_custom_target *t;
 };
 
-
 static enum iteration_result
 generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, obj file)
 {

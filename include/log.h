@@ -22,7 +22,6 @@ enum log_opts {
 	log_show_source = 1 << 0,
 };
 
-
 extern const char *log_level_clr[log_level_count];
 extern const char *log_level_name[log_level_count];
 
