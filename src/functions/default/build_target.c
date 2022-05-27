@@ -118,10 +118,15 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+struct process_source_includes_ctx {
+	struct obj_build_target *tgt;
+	bool implicit_include_directories;
+};
+
 static enum iteration_result
 process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct obj_build_target *tgt = _ctx;
+	struct process_source_includes_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
 	enum compiler_language fl;
@@ -139,7 +144,11 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+	obj_array_push(wk, ctx->tgt->order_deps, make_str(wk, path));
+
+	if (!ctx->implicit_include_directories) {
+		return ir_cont;
+	}
 
 	if (!path_dirname(dir, PATH_MAX, src)) {
 		return ir_err;
@@ -149,7 +158,7 @@ process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
 	d->path = make_str(wk, dir);
-	obj_array_push(wk, tgt->include_directories, inc);
+	obj_array_push(wk, ctx->tgt->include_directories, inc);
 
 	return ir_cont;
 }
@@ -435,12 +444,21 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		make_obj(wk, &inc_dirs, obj_array);
 		uint32_t node = an[0].node; // TODO: not a very informative error node
 
-		if (!(akw[bt_kw_implicit_include_directories].set
-		      && !get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val))) {
-			if (!obj_array_foreach(wk, tgt->src, tgt, process_source_includes_iter)) {
-				return false;
-			}
+		bool implicit_include_directories =
+			akw[bt_kw_implicit_include_directories].set
+				? get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val)
+				: true;
+
+		if (implicit_include_directories) {
 			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
+		}
+
+		struct process_source_includes_ctx ctx = {
+			.tgt = tgt,
+			.implicit_include_directories = implicit_include_directories,
+		};
+		if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) {
+			return false;
 		}
 
 		if (akw[bt_kw_include_directories].set) {
