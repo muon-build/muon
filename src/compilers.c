@@ -714,6 +714,7 @@ build_linkers(void)
 			.sanitize     = compiler_arg_empty_1s,
 			.allow_shlib_undefined = compiler_arg_empty_0,
 			.export_dynamic = compiler_arg_empty_0,
+			.fatal_warnings = compiler_arg_empty_0,
 		}
 	};
 
