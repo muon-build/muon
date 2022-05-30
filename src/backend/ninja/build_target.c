@@ -341,7 +341,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		break;
 	case tgt_static_library:
 		linker_type = "STATIC";
-		link_args = "csrD";
+		link_args = linker != linker_apple ? "csrD" : "csr";
 		break;
 	default:
 		assert(false);
