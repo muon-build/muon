@@ -90,14 +90,12 @@ simple_escape(char *buf, uint32_t len, const char *str, const char *need_escapin
 	uint32_t bufi = 0;
 
 	for (; *s; ++s) {
-		if (*s == '\n') {
-			assert(false && "newlines cannot be escaped" );
-		}
-
 		if (strchr(need_escaping, *s)) {
 			if (!buf_push(buf, len, &bufi, esc_char)) {
 				goto trunc;
 			}
+		} else if (*s == '\n') {
+			assert(false && "newlines cannot be escaped");
 		}
 
 		if (!buf_push(buf, len, &bufi, *s)) {
@@ -126,7 +124,7 @@ shell_ninja_escape(char *buf, uint32_t len, const char *str)
 	char tmp_buf[BUF_SIZE_4k];
 	if (!shell_escape(tmp_buf, BUF_SIZE_4k, str)) {
 		return false;
-	} else if (!simple_escape(buf, len, tmp_buf, "$", '$')) {
+	} else if (!simple_escape(buf, len, tmp_buf, "$\n", '$')) {
 		return false;
 	}
 
