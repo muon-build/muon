@@ -21,10 +21,21 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	}
 
 	const char *map[][2] = {
+		{ "Darwin", "darwin" }, // Either OSX or iOS
+		{ "DragonFly", "dragonfly" }, // DragonFly BSD
+		{ "FreeBSD", "freebsd" }, // FreeBSD and its derivatives
+		{ "GNU", "gnu" }, // GNU Hurd
+		{ "Haiku", "haiku" },
 		{ "Linux", "linux" },
-		{ "Darwin", "darwin" },
 		{ "NetBSD", "netbsd" },
-		{ "FreeBSD", "freebsd" },
+		{ "OpenBSD", "openbsd" },
+		{ "SunOS", "sunos" }, // illumos and Solaris
+
+		// TODO: These probably need more than just a simple mapping
+		{ "android", "android" }, // By convention only, subject to change
+		{ "cygwin", "cygwin" }, // The Cygwin environment for Windows
+		{ "emscripten", "emscripten" }, // Emscripten's Javascript environment
+		{ "windows", "windows" }, // Any version of Windows
 		0
 	};
 
@@ -79,8 +90,40 @@ func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	}
 
 	const char *map[][2] = {
-		{ "x86_64", "x86_64" },
-		{ "aarch64", "arm64" },
+		{ "aarch64", "aarch64" }, // 64 bit ARM processor
+		{ "alpha", "alpha" }, // DEC Alpha processor
+		{ "arc", "arc" }, // 32 bit ARC processor
+		{ "arm", "arm" }, // 32 bit ARM processor
+		{ "avr", "avr" }, // Atmel AVR processor
+		{ "c2000", "c2000" }, // 32 bit C2000 processor
+		{ "csky", "csky" }, // 32 bit CSky processor
+		{ "dspic", "dspic" }, // 16 bit Microchip dsPIC
+		{ "e2k", "e2k" }, // MCST Elbrus processor
+		{ "ft32", "ft32" }, // 32 bit Bridgetek MCU
+		{ "ia64", "ia64" }, // Itanium processor
+		{ "loongarch64", "loongarch64" }, // 64 bit Loongson processor
+		{ "m68k", "m68k" }, // Motorola 68000 processor
+		{ "microblaze", "microblaze" }, // MicroBlaze processor
+		{ "mips", "mips" }, // 32 bit MIPS processor
+		{ "mips64", "mips64" }, // 64 bit MIPS processor
+		{ "msp430", "msp430" }, // 16 bit MSP430 processor
+		{ "parisc", "parisc" }, // HP PA-RISC processor
+		{ "pic24", "pic24" }, // 16 bit Microchip PIC24
+		{ "ppc", "ppc" }, // 32 bit PPC processors
+		{ "ppc64", "ppc64" }, // 64 bit PPC processors
+		{ "riscv32", "riscv32" }, // 32 bit RISC-V Open ISA
+		{ "riscv64", "riscv64" }, // 64 bit RISC-V Open ISA
+		{ "rl78", "rl78" }, // Renesas RL78
+		{ "rx", "rx" }, // Renesas RX 32 bit MCU
+		{ "s390", "s390" }, // IBM zSystem s390
+		{ "s390x", "s390x" }, // IBM zSystem s390x
+		{ "sh4", "sh4" }, // SuperH SH-4
+		{ "sparc", "sparc" }, // 32 bit SPARC
+		{ "sparc64", "sparc64" }, // SPARC v9 processor
+		{ "wasm32", "wasm32" }, // 32 bit Webassembly
+		{ "wasm64", "wasm64" }, // 64 bit Webassembly
+		{ "i686", "x86" }, // 32 bit x86 processor
+		{ "x86_64", "x86_64" }, // 64 bit x86 processor
 		0
 	};
 
