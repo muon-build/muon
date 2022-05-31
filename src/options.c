@@ -1065,9 +1065,6 @@ list_options(const struct list_options_opts *list_opts)
 	struct workspace wk = { 0 };
 	workspace_init(&wk);
 	wk.lang_mode = language_opts;
-	if (!workspace_setup_dirs(&wk, "dummy", "muon", false)) {
-		goto ret;
-	}
 
 	darr_push(&wk.projects, &(struct project){ 0 });
 	struct project *proj = darr_get(&wk.projects, 0);

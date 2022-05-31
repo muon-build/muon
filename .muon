@@ -1,6 +1,0 @@
-setup(
-    'build',
-    options: {
-        '': {'c_std': 'c11', 'buildtype': 'debugoptimized', 'samurai': 'enabled'},
-    },
-)

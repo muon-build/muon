@@ -1302,10 +1302,6 @@ do_analyze(struct analyze_opts *opts)
 	wk.get_variable = analyze_lookup_wrapper;
 	wk.eval_project_file = analyze_eval_project_file;
 
-	if (!workspace_setup_dirs(&wk, "dummy", "argv0", false)) {
-		goto err;
-	}
-
 	error_diagnostic_store_init();
 
 	uint32_t project_id;
@@ -1333,7 +1329,7 @@ do_analyze(struct analyze_opts *opts)
 	if (analyze_error) {
 		res = false;
 	}
-err:
+
 	darr_destroy(&assignment_scopes.groups);
 	darr_destroy(&assignment_scopes.base);
 	workspace_destroy(&wk);

@@ -48,10 +48,14 @@ struct workspace {
 	     build_root[PATH_MAX],
 	     muon_private[PATH_MAX];
 
+	struct {
+		uint32_t argc;
+		char *const *argv;
+	} original_commandline;
+
 	/* Global objects
 	 * These should probably be cleaned up into a separate struct.
-	 */
-	/* ----------------- */
+	 * ----------------- */
 	/* obj_array that tracks each source file eval'd */
 	obj sources;
 	/* TODO host machine dict */
@@ -110,7 +114,8 @@ void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);
 void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
-bool workspace_setup_dirs(struct workspace *wk, const char *build, const char *argv0, bool mkdir);
+bool workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
+	uint32_t argc, char *const argv[]);
 
 struct obj_install_target *push_install_target(struct workspace *wk, obj src,
 	obj dest, obj mode);

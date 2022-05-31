@@ -13,7 +13,6 @@
 #include "functions/default/custom_target.h"
 #include "functions/default/dependency.h"
 #include "functions/default/options.h"
-#include "functions/default/setup.h"
 #include "functions/default/subproject.h"
 #include "functions/environment.h"
 #include "functions/modules.h"
@@ -1921,7 +1920,6 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "range", func_range },
 	{ "run_command", func_run_command },
 	{ "set_variable", func_set_variable },
-	{ "setup", func_setup },
 	{ "warning", func_warning },
 	{ NULL, NULL },
 };

@@ -110,19 +110,19 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		"\n"
 		);
 
-	char setup_file[PATH_MAX];
-
-	if (!path_join(setup_file, PATH_MAX, output_path.private_dir, output_path.setup)) {
-		return false;
-	}
-
 	obj regen_args;
 	make_obj(wk, &regen_args, obj_array);
 
 	obj_array_push(wk, regen_args, make_str(wk, wk->argv0));
-	push_args_null_terminated(wk, regen_args, (char *[]) {
-		"auto", "-r", "-c", setup_file, NULL
-	});
+	obj_array_push(wk, regen_args, make_str(wk, "-C"));
+	obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
+	obj_array_push(wk, regen_args, make_str(wk, "setup"));
+
+	uint32_t i;
+	for (i = 0; i < wk->original_commandline.argc; ++i) {
+		obj_array_push(wk, regen_args,
+			make_str(wk, wk->original_commandline.argv[i]));
+	}
 
 	obj regen_cmd = join_args_shell(wk, regen_args);
 
@@ -144,7 +144,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		fprintf(out, "build build_always_stale: phony\n\n");
 	}
 
-	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 		struct write_compiler_rule_ctx ctx = {

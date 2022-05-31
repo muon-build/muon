@@ -1,31 +1,23 @@
 #include "posix.h"
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "args.h"
 #include "backend/ninja.h"
-#include "compilers.h"
 #include "embedded.h"
 #include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
-#include "formats/ini.h"
-#include "functions/default/setup.h"
 #include "install.h"
 #include "lang/analyze.h"
-#include "lang/eval.h"
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
 #include "lang/serial.h"
-#include "log.h"
 #include "machine_file.h"
 #include "options.h"
 #include "opts.h"
-#include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "tests.h"
@@ -359,10 +351,6 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	struct workspace wk;
 	workspace_init(&wk);
 
-	if (!workspace_setup_dirs(&wk, "dummy", argv0, false)) {
-		goto ret;
-	}
-
 	wk.lang_mode = language_internal;
 
 	if (embedded) {
@@ -594,6 +582,8 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init(&wk);
 
+	uint32_t original_argi = argi + 1;
+
 	OPTSTART("D:m:") {
 		case 'D':
 			if (!parse_and_set_cmdline_option(&wk, optarg)) {
@@ -613,50 +603,32 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	if (!workspace_setup_dirs(&wk, build, argv[0], true)) {
+	if (!workspace_setup_paths(&wk, build, argv[0],
+		argc - original_argi,
+		&argv[original_argi])) {
 		goto err;
 	}
 
-	if (!do_setup(&wk)) {
+	uint32_t project_id;
+	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
 		goto err;
 	}
+
+	log_plain("\n");
+
+	if (!ninja_write_all(&wk)) {
+		goto err;
+	}
+
+	workspace_print_summaries(&wk);
+
+	LOG_I("setup complete");
 
 	workspace_destroy(&wk);
 	return true;
 err:
 	workspace_destroy(&wk);
 	return false;
-}
-
-static bool
-cmd_auto(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	struct {
-		const char *cfg;
-	} opts = { .cfg = ".muon" };
-
-	OPTSTART("c:rf") {
-		case 'r':
-			// HACK this should be redesigned as soon as more than one
-			// function has command-line controllable behaviour.
-			func_setup_flags |= func_setup_flag_force;
-			func_setup_flags |= func_setup_flag_no_build;
-			break;
-		case 'f':
-			// HACK this should be redesigned as soon as more than one
-			// function has command-line controllable behaviour.
-			func_setup_flags |= func_setup_flag_force;
-			break;
-		case 'c':
-			opts.cfg = optarg;
-			break;
-	} OPTEND(argv[argi], "",
-		"  -c config - load config alternate file (default: .muon)\n"
-		"  -f - regenerate build file and rebuild\n"
-		"  -r - regenerate build file only\n",
-		NULL, 0)
-
-	return eval_internal(opts.cfg, false, argv[0], NULL, 0);
 }
 
 static bool
@@ -753,7 +725,6 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
 	static const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
-		{ "auto", cmd_auto, "build the project with options from a .muon file" },
 		{ "benchmark", cmd_test, "run benchmarks" },
 		{ "check", cmd_check, "check if a meson file parses" },
 		{ "fmt_unstable", cmd_format, "format meson source file" },

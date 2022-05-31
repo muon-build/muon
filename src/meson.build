@@ -24,7 +24,6 @@ src = files(
     'functions/default/custom_target.c',
     'functions/default/dependency.c',
     'functions/default/options.c',
-    'functions/default/setup.c',
     'functions/default/subproject.c',
     'functions/dependency.c',
     'functions/dict.c',
