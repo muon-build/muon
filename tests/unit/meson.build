@@ -1,5 +1,5 @@
 tests = [
-    ['path', [files('path.c')], {'objects': muon.extract_objects(core_sources)}],
+    ['path', [files('path.c')], {'dependencies': muon_dep}],
 ]
 
 foreach t : tests
