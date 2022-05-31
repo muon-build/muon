@@ -1,164 +1,104 @@
-src = (
-    files(
-        'backend/common_args.c',
-        'backend/ninja.c',
-        'backend/ninja/alias_target.c',
-        'backend/ninja/build_target.c',
-        'backend/ninja/custom_target.c',
-        'backend/ninja/rules.c',
-        'backend/output.c',
-        'data/bucket_array.c',
-        'data/darr.c',
-        'data/hash.c',
-        'formats/ini.c',
-        'functions/array.c',
-        'functions/boolean.c',
-        'functions/both_libs.c',
-        'functions/build_target.c',
-        'functions/common.c',
-        'functions/compiler.c',
-        'functions/configuration_data.c',
-        'functions/custom_target.c',
-        'functions/default.c',
-        'functions/default/build_target.c',
-        'functions/default/configure_file.c',
-        'functions/default/custom_target.c',
-        'functions/default/dependency.c',
-        'functions/default/options.c',
-        'functions/default/setup.c',
-        'functions/default/subproject.c',
-        'functions/dependency.c',
-        'functions/dict.c',
-        'functions/disabler.c',
-        'functions/environment.c',
-        'functions/external_library.c',
-        'functions/external_program.c',
-        'functions/feature_opt.c',
-        'functions/file.c',
-        'functions/generator.c',
-        'functions/machine.c',
-        'functions/meson.c',
-        'functions/modules.c',
-        'functions/modules/fs.c',
-        'functions/modules/pkgconfig.c',
-        'functions/modules/python.c',
-        'functions/number.c',
-        'functions/run_result.c',
-        'functions/string.c',
-        'functions/subproject.c',
-        'lang/analyze.c',
-        'lang/eval.c',
-        'lang/fmt.c',
-        'lang/interpreter.c',
-        'lang/lexer.c',
-        'lang/object.c',
-        'lang/parser.c',
-        'lang/serial.c',
-        'lang/string.c',
-        'lang/workspace.c',
-        'platform/filesystem.c',
-        'platform/mem.c',
-        'platform/path.c',
-        'platform/run_cmd.c',
-        'platform/term.c',
-        'platform/uname.c',
-        'args.c',
-        'coerce.c',
-        'compilers.c',
-        'embedded.c',
-        'error.c',
-        'guess.c',
-        'install.c',
-        'log.c',
-        'machine_file.c',
-        'main.c',
-        'options.c',
-        'opts.c',
-        'rpmvercmp.c',
-        'sha_256.c',
-        'tests.c',
-        'wrap.c',
-    ) + [
-        configure_file(
-            configuration: version_info,
-            input: 'version.c.in',
-            output: 'version.c',
-        ),
-    ]
-)
-
-scripts = files(
-    'script/global_options.meson',
-    'script/per_project_options.meson',
-    'script/vcs_tagger.meson',
-)
-
-src += [
-    custom_target(
-        'embedded files',
-        input: scripts,
-        output: 'embedded_files.h',
-        capture: true,
-        command: [embedder, scripts],
-    ),
-]
-
-dep_dict = {}
-
-foreach d : [
-    ['libcurl', {}],
-    ['libarchive', {}],
-    [
-        'libpkgconf',
-        {
-            'fallback': ['pkgconf', 'dep_libpkgconf'],
-            'default_options': ['pkgconf:tests=false'],
-        },
-    ],
-    ['samurai', {'fallback': ['samurai', 'libsamu_dep']}],
-]
-    dep = dependency(
-        d[0],
-        required: get_option(d[0]),
-        static: get_option('static'),
-        kwargs: d[1],
-    )
-
-    summary(d[0], dep.found())
-
-    dep_dict += {d[0]: dep.found()}
-
-    if dep.found()
-        deps += [dep]
-        src += [files('external' / (d[0] + '.c'))]
-    else
-        src += [files('external' / (d[0] + '_null.c'))]
-    endif
-endforeach
-
-if get_option('static') and dep_dict['libcurl']
-    deps += dependency('libbrotlidec', static: true)
-endif
-
-platform = host_machine.system()
-if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
-    platform = 'posix'
-else
-    warning(
-        'configuring muon for an unsupported platform "@0@"'.format(platform),
-    )
-    platform = 'null'
-endif
-
-foreach f : ['rpath_fixer.c']
-    src += files('platform' / platform / f)
-endforeach
-
-core_sources = files(
+src = files(
+    'backend/common_args.c',
+    'backend/ninja.c',
+    'backend/ninja/alias_target.c',
+    'backend/ninja/build_target.c',
+    'backend/ninja/custom_target.c',
+    'backend/ninja/rules.c',
+    'backend/output.c',
+    'data/bucket_array.c',
     'data/darr.c',
-    'platform/filesystem.c',
-    'platform/mem.c',
-    'platform/path.c',
+    'data/hash.c',
+    'formats/ini.c',
+    'functions/array.c',
+    'functions/boolean.c',
+    'functions/both_libs.c',
+    'functions/build_target.c',
+    'functions/common.c',
+    'functions/compiler.c',
+    'functions/configuration_data.c',
+    'functions/custom_target.c',
+    'functions/default.c',
+    'functions/default/build_target.c',
+    'functions/default/configure_file.c',
+    'functions/default/custom_target.c',
+    'functions/default/dependency.c',
+    'functions/default/options.c',
+    'functions/default/setup.c',
+    'functions/default/subproject.c',
+    'functions/dependency.c',
+    'functions/dict.c',
+    'functions/disabler.c',
+    'functions/environment.c',
+    'functions/external_library.c',
+    'functions/external_program.c',
+    'functions/feature_opt.c',
+    'functions/file.c',
+    'functions/generator.c',
+    'functions/machine.c',
+    'functions/meson.c',
+    'functions/modules.c',
+    'functions/modules/fs.c',
+    'functions/modules/pkgconfig.c',
+    'functions/modules/python.c',
+    'functions/number.c',
+    'functions/run_result.c',
+    'functions/string.c',
+    'functions/subproject.c',
+    'lang/analyze.c',
+    'lang/eval.c',
+    'lang/fmt.c',
+    'lang/interpreter.c',
+    'lang/lexer.c',
+    'lang/object.c',
+    'lang/parser.c',
+    'lang/serial.c',
+    'lang/string.c',
+    'lang/workspace.c',
+    'args.c',
+    'coerce.c',
+    'compilers.c',
+    'embedded.c',
     'error.c',
+    'guess.c',
+    'install.c',
     'log.c',
+    'machine_file.c',
+    'options.c',
+    'opts.c',
+    'rpmvercmp.c',
+    'sha_256.c',
+    'tests.c',
+    'wrap.c',
+)
+
+deps = [platform_dep]
+
+# version information
+src += configure_file(
+    configuration: version_info,
+    input: 'version.c.in',
+    output: 'version.c',
+)
+
+# embedded scripts
+subdir('script')
+src += script_sources
+
+# dependencies
+subdir('external')
+src += dep_sources
+deps += external_deps
+
+muon_lib = static_library(
+    'muon',
+    src,
+    dependencies: deps,
+    include_directories: [include_dir],
+)
+
+muon_dep = declare_dependency(
+    link_with: muon_lib,
+    dependencies: deps,
+    include_directories: [include_dir],
 )

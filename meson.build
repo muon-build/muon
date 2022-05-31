@@ -28,7 +28,26 @@ version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
 
+# platform
+
+platform = host_machine.system()
+if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
+    platform = 'posix'
+else
+    warning(
+        'configuring muon for an unsupported platform "@0@"'.format(platform),
+    )
+    platform = 'null'
+endif
+
 # compiler setup
+
+c_args = ['-DMUON_PLATFORM_' + platform]
+link_args = []
+
+if get_option('static')
+    link_args += '-static'
+endif
 
 cc = meson.get_compiler('c')
 add_project_arguments(
@@ -56,24 +75,18 @@ add_project_arguments(
     language: 'c',
 )
 
-deps = []
-c_args = []
-
 include_dir = include_directories('include')
+
+# platform dep required for tools
+subdir('src/platform')
 
 subdir('tools')
 subdir('src')
 
-link_args = []
-if get_option('static')
-    link_args += '-static'
-endif
-
 muon = executable(
     'muon',
-    src,
-    include_directories: include_dir,
-    dependencies: deps,
+    ['src/main.c'],
+    dependencies: [muon_dep],
     c_args: c_args,
     link_args: link_args,
     install: true,
