@@ -8,7 +8,7 @@ platform_sources = files(
     'uname.c',
 )
 
-foreach f : ['rpath_fixer.c']
+foreach f : ['rpath_fixer.c', 'filesystem.c']
     platform_sources += files(platform / f)
 endforeach
 

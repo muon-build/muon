@@ -33,7 +33,7 @@ version_info.set('vcs_tag', git_sha)
 platform = host_machine.system()
 if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
     platform = 'posix'
-else
+elif platform not in ['windows']
     warning(
         'configuring muon for an unsupported platform "@0@"'.format(platform),
     )

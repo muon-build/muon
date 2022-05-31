@@ -12,6 +12,7 @@
 set -eux
 
 dir="$1"
+platform="${2:-posix}"
 mkdir -p "$dir"
 
 if command -v pkgconf >/dev/null && pkgconf libpkgconf; then
@@ -99,6 +100,7 @@ cat \
 	src/opts.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
+	src/platform/$platform/filesystem.c \
 	src/platform/null/rpath_fixer.c \
 	src/platform/path.c \
 	src/platform/run_cmd.c \

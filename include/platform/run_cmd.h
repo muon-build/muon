@@ -27,14 +27,18 @@ struct run_cmd_ctx {
 	const char *err_msg; // set on error
 	const char *chdir; // set by caller
 	const char *stdin_path; // set by caller
-	int pipefd_out[2], pipefd_err[2];
-	int input_fd;
 	int status;
 	pid_t pid;
 
+#ifdef MUON_PLATFORM_windows
+	// windows stuff
+#else
+	int pipefd_out[2], pipefd_err[2];
+	int input_fd;
 	bool input_fd_open;
 	bool pipefd_out_open[2], pipefd_err_open[2];
 	enum run_cmd_ctx_flags flags;
+#endif
 };
 
 /*
