@@ -261,7 +261,10 @@ workspace_init(struct workspace *wk)
 	workspace_init_bare(wk);
 
 	strcpy(wk->argv0, "dummy");
-	strcpy(wk->build_root, "dummy");
+	strcpy(wk->build_root, "/dummy");
+	if (!path_cwd(wk->source_root, PATH_MAX)) {
+		assert(false);
+	}
 
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -350,9 +353,7 @@ bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[])
 {
-	if (!path_cwd(wk->source_root, PATH_MAX)) {
-		return false;
-	} else if (!path_make_absolute(wk->build_root, PATH_MAX, build)) {
+	if (!path_make_absolute(wk->build_root, PATH_MAX, build)) {
 		return false;
 	}
 
