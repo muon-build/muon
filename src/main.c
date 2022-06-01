@@ -25,6 +25,17 @@
 #include "wrap.h"
 
 static bool
+ensure_in_build_dir(void)
+{
+	if (!fs_dir_exists("muon-private")) {
+		LOG_E("this subcommand must be run from a build directory");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 load_environment_from_serial_dump(struct workspace *wk, const char *path, const char **envstr)
 {
 	bool ret = false;
@@ -221,6 +232,10 @@ cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	} OPTEND(argv[argi], "", "", NULL, 0)
+
+	if (!ensure_in_build_dir()) {
+		return false;
+	}
 
 	bool ret = false;
 	struct source src = { 0 };
@@ -598,6 +613,10 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -R - disable automatic rebuild\n",
 		NULL, 0)
 
+	if (!ensure_in_build_dir()) {
+		return false;
+	}
+
 	return tests_run(&test_opts);
 }
 
@@ -613,6 +632,10 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi], "",
 		"  -n - dry run\n",
 		NULL, 0)
+
+	if (!ensure_in_build_dir()) {
+		return false;
+	}
 
 	return install_run(&opts);
 }
