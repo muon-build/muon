@@ -216,6 +216,27 @@ cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 	return list_options(&opts);
 }
 
+
+static bool
+cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	static const struct command commands[] = {
+		{ "options", cmd_options, "list project options" },
+		0,
+	};
+
+	OPTSTART("") {
+	} OPTEND(argv[argi], "", "", commands, -1);
+
+	cmd_func cmd = NULL;;
+	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+		return false;
+	}
+
+	assert(cmd);
+	return cmd(argc, argi, argv);
+}
+
 static const char *cmd_subprojects_subprojects_dir = "subprojects";
 
 static bool
@@ -728,9 +749,9 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "benchmark", cmd_test, "run benchmarks" },
 		{ "check", cmd_check, "check if a meson file parses" },
 		{ "fmt_unstable", cmd_format, "format meson source file" },
+		{ "info", cmd_info, "display project information" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
-		{ "options", cmd_options, "list project options" },
 		{ "samu", cmd_samu, "run samurai" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
@@ -747,7 +768,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 			log_set_opts(log_show_source);
 			break;
 		case 'C': {
-			// fig argv0 here since if it is a relative path it will be
+			// fix argv0 here since if it is a relative path it will be
 			// wrong after chdir
 			static char argv0[PATH_MAX];
 			if (!path_is_basename(argv[0])) {
