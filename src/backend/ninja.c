@@ -158,12 +158,20 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 	return serial_dump(wk, o, out);
 }
 
+static bool
+ninja_write_summary_file(struct workspace *wk, void *_ctx, FILE *out)
+{
+	workspace_print_summaries(wk, out);
+	return true;
+}
+
 bool
 ninja_write_all(struct workspace *wk)
 {
 	if (!(with_open(wk->build_root, "build.ninja", wk, NULL, ninja_write_build)
 	      && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
 	      && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
+	      && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
 	      )) {
 		return false;
 	}

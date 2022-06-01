@@ -216,12 +216,32 @@ cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 	return list_options(&opts);
 }
 
+static bool
+cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	} OPTEND(argv[argi], "", "", NULL, 0)
+
+	bool ret = false;
+	struct source src = { 0 };
+	if (!fs_read_entire_file("muon-private/summary.txt", &src)) {
+		goto ret;
+	}
+
+	fwrite(src.src, 1, src.len, stdout);
+
+	ret = true;
+ret:
+	fs_source_destroy(&src);
+	return ret;
+}
 
 static bool
 cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "options", cmd_options, "list project options" },
+		{ "summary", cmd_summary, "print a configured project's summary" },
 		0,
 	};
 
@@ -641,7 +661,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		goto err;
 	}
 
-	workspace_print_summaries(&wk);
+	workspace_print_summaries(&wk, log_file());
 
 	LOG_I("setup complete");
 

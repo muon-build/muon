@@ -6,8 +6,7 @@
 
 const struct output_path output_path = {
 	.private_dir = "muon-private",
-	.setup = "setup.meson",
-	.opts = "opts.dat",
+	.summary = "summary.txt",
 	.tests = "tests.dat",
 	.install = "install.dat",
 };

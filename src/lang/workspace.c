@@ -401,7 +401,9 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 static enum iteration_result
 print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
-	obj_fprintf(wk, log_file(), "      %#o: %o\n", k, v);
+	FILE *out = _ctx;
+
+	obj_fprintf(wk, out, "      %#o: %o\n", k, v);
 
 	return ir_cont;
 }
@@ -409,14 +411,16 @@ print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 static enum iteration_result
 print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
-	obj_fprintf(wk, log_file(), "    %#o\n", k);
+	FILE *out = _ctx;
 
-	obj_dict_foreach(wk, v, NULL, print_summaries_line_iter);
+	obj_fprintf(wk, out, "    %#o\n", k);
+
+	obj_dict_foreach(wk, v, out, print_summaries_line_iter);
 	return ir_cont;
 }
 
 void
-workspace_print_summaries(struct workspace *wk)
+workspace_print_summaries(struct workspace *wk, FILE *out)
 {
 	bool printed_summary_header = false;
 	uint32_t i;
@@ -430,12 +434,11 @@ workspace_print_summaries(struct workspace *wk)
 		}
 
 		if (!printed_summary_header) {
-			log_plain("\n");
-			LOG_I("summary:");
+			fprintf(out, "summary:\n");
 			printed_summary_header = true;
 		}
 
-		obj_fprintf(wk, log_file(), "- %s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
-		obj_dict_foreach(wk, proj->summary, NULL, print_summaries_section_iter);
+		obj_fprintf(wk, out, "- %s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
+		obj_dict_foreach(wk, proj->summary, out, print_summaries_section_iter);
 	}
 }
