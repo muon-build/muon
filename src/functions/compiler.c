@@ -361,6 +361,7 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = compile_mode_run,
+		.skip_run_check = true,
 	};
 
 	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
@@ -378,12 +379,15 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		);
 
 	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
-		return false;
+	int64_t size;
+	if (compiler_check(wk, &opts, src, an[0].node, &ok) && ok) {
+		size = compiler_check_parse_output_int(&opts);
+	} else {
+		size  = -1;
 	}
 
 	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
+	set_obj_number(wk, *res, size);
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
 	LOG_I("sizeof %s: %" PRId64,
