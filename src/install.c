@@ -108,17 +108,21 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
 		LOG_E("failed to run install script: %s", cmd_ctx.err_msg);
-		return ir_err;
+		goto err;
 	}
 
 	if (cmd_ctx.status != 0) {
 		LOG_E("install script failed");
 		LOG_E("stdout: %s", cmd_ctx.out.buf);
 		LOG_E("stderr: %s", cmd_ctx.err.buf);
-		return ir_err;
+		goto err;
 	}
 
+	run_cmd_ctx_destroy(&cmd_ctx);
 	return ir_cont;
+err:
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ir_err;
 }
 
 bool
