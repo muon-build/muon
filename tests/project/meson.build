@@ -119,7 +119,7 @@ tests = [
     ['common/118 llvm ir and assembly'],
     ['common/119 cpp and asm'],
     ['common/120 extract all shared library'],
-    ['common/121 object only target', ['failing']],
+    ['common/121 object only target'],
     ['common/122 no buildincdir'],
     ['common/123 custom target directory install'],
     ['common/124 dependency file generation'],

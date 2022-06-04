@@ -640,7 +640,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_name_suffix] = { "name_suffix", tc_string | tc_array },
 		[bt_kw_soversion] = { "soversion", tc_number | tc_string },
 		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | tc_string | tc_file | tc_custom_target },
-		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | obj_file },
+		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },
 		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
