@@ -7,6 +7,7 @@
 #include "coerce.h"
 #include "functions/build_target.h"
 #include "functions/default/build_target.h"
+#include "functions/file.h"
 #include "functions/generator.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -62,6 +63,21 @@ struct process_build_tgt_sources_ctx {
 };
 
 static enum iteration_result
+build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct process_build_tgt_sources_ctx *ctx = _ctx;
+
+	if (file_is_linkable(wk, val)) {
+		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
+		obj_array_push(wk, tgt->link_with, val);
+		return ir_cont;
+	}
+
+	obj_array_push(wk, ctx->res, val);
+	return ir_cont;
+}
+
+static enum iteration_result
 process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	obj res;
@@ -81,7 +97,7 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	}
 
-	obj_array_extend_nodup(wk, ctx->res, res);
+	obj_array_foreach(wk, res, ctx, build_tgt_push_source_files_iter);
 	return ir_cont;
 }
 
@@ -315,6 +331,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->include_directories, obj_array);
 	make_obj(wk, &tgt->order_deps, obj_array);
+	make_obj(wk, &tgt->link_with, obj_array);
 
 	if (akw[bt_kw_override_options].set) { // override options
 		if (!parse_and_set_override_options(wk,
@@ -499,7 +516,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			tgt->link_args = akw[bt_kw_link_args].val;
 		}
 
-		make_obj(wk, &tgt->link_with, obj_array);
 		if (akw[bt_kw_link_with].set) {
 			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_with].val);
 		}

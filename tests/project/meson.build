@@ -93,7 +93,7 @@ tests = [
     ['common/92 test workdir'],
     ['common/93 suites'],
     ['common/94 threads'],
-    ['common/95 manygen', ['failing']],
+    ['common/95 manygen'],
     ['common/96 stringdef'],
     ['common/97 find program path'],
     ['common/98 subproject subdir'],
