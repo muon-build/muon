@@ -254,6 +254,7 @@ struct process_script_commandline_ctx {
 	uint32_t node;
 	obj arr;
 	uint32_t i;
+	bool allow_not_built;
 };
 
 static enum iteration_result
@@ -283,11 +284,19 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	case obj_custom_target:
+		if (!ctx->allow_not_built) {
+			goto type_error;
+		}
+
 		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx, process_script_commandline_iter)) {
 			return false;
 		}
 		goto cont;
 	case obj_build_target:
+		if (!ctx->allow_not_built) {
+			goto type_error;
+		}
+	// fallthrough
 	case obj_external_program:
 	case obj_file:
 		if (!coerce_executable(wk, ctx->node, val, &str)) {
@@ -295,6 +304,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	default:
+type_error:
 		interp_error(wk, ctx->node, "invalid type for script commandline '%s'",
 			obj_type_to_s(t));
 		return ir_err;
@@ -326,6 +336,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 
 	struct process_script_commandline_ctx ctx = {
 		.node = an[0].node,
+		.allow_not_built = true,
 	};
 	make_obj(wk, &ctx.arr, obj_array);
 
@@ -334,6 +345,27 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 	}
 
 	obj_array_push(wk, wk->install_scripts, ctx.arr);
+	return true;
+}
+
+static bool
+func_meson_add_postconf_script(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_exe }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	struct process_script_commandline_ctx ctx = {
+		.node = an[0].node,
+	};
+	make_obj(wk, &ctx.arr, obj_array);
+
+	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
+		return false;
+	}
+
+	obj_array_push(wk, wk->postconf_scripts, ctx.arr);
 	return true;
 }
 
@@ -348,6 +380,7 @@ func_meson_add_dist_script(struct workspace *wk, obj _, uint32_t args_node, obj 
 
 	struct process_script_commandline_ctx ctx = {
 		.node = an[0].node,
+		.allow_not_built = true,
 	};
 	make_obj(wk, &ctx.arr, obj_array);
 
@@ -420,6 +453,7 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node
 const struct func_impl_name impl_tbl_meson[] = {
 	{ "add_dist_script", func_meson_add_dist_script },
 	{ "add_install_script", func_meson_add_install_script },
+	{ "add_postconf_script", func_meson_add_postconf_script },
 	{ "backend", func_meson_backend, tc_string },
 	{ "build_root", func_meson_global_build_root, tc_string },
 	{ "can_run_host_binaries", func_meson_can_run_host_binaries, tc_bool },

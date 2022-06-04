@@ -1,4 +1,5 @@
 src = files(
+    'backend/backend.c',
     'backend/common_args.c',
     'backend/ninja.c',
     'backend/ninja/alias_target.c',

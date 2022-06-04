@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "args.h"
-#include "backend/ninja.h"
+#include "backend/backend.h"
 #include "embedded.h"
 #include "external/libarchive.h"
 #include "external/libcurl.h"
@@ -680,7 +680,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	log_plain("\n");
 
-	if (!ninja_write_all(&wk)) {
+	if (!backend_output(&wk)) {
 		goto err;
 	}
 

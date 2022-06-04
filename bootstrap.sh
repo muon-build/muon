@@ -26,6 +26,7 @@ fi
 
 cat \
 	src/args.c \
+	src/backend/backend.c \
 	src/backend/common_args.c \
 	src/backend/ninja.c \
 	src/backend/ninja/alias_target.c \

@@ -64,6 +64,7 @@ struct workspace {
 	obj binaries;
 	obj install;
 	obj install_scripts;
+	obj postconf_scripts;
 	obj subprojects;
 	/* args dict for add_global_arguments() */
 	obj global_args;
