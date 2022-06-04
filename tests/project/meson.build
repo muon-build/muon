@@ -238,7 +238,7 @@ tests = [
     ['common/233 wrap case'],
     ['common/234 get_file_contents', ['failing']],
     ['common/235 invalid standard overriden to valid', ['failing']],
-    ['common/236 proper args splitting', ['failing']],
+    ['common/236 proper args splitting', [], {'env': {'CFLAGS': '-DFOO -DBAR'}}],
     ['common/237 fstrings'],
     ['common/238 dependency include_type inconsistency'],
     ['common/239 includedir violation'],
@@ -285,8 +285,8 @@ is_git_repo = fs.is_dir(meson.global_source_root() / '.git')
 foreach t : tests
     # The exit code to use when a test is skipped
     test = t[0]
-    extra = t.get(1, {})
-    kwargs = {}
+    extra = t.get(1, [])
+    kwargs = t.get(2, {})
 
     skip_exit_code = 0
     if 'failing' in extra
