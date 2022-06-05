@@ -1,4 +1,10 @@
-project('option override', 'c', default_options: 'unity=on')
+project(
+    'option override',
+    'c',
+    default_options: ['b_ndebug=false', 'debug=true'],
+)
 
-executable('mustunity', 'one.c', 'two.c')
-executable('notunity', 'three.c', 'four.c', override_options: ['unity=off'])
+a = executable('a', 'needs_no_b_ndebug.c')
+b = executable('b', 'needs_b_ndebug.c', override_options: ['b_ndebug=true'])
+test('a', a)
+test('b', b)

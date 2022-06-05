@@ -129,7 +129,7 @@ tests = [
     ['common/128 build by default targets in tests'],
     ['common/129 build by default'],
     ['common/130 include order'],
-    ['common/131 override options', ['failing']],
+    ['common/131 override options'],
     ['common/132 get define'],
     ['common/133 c cpp and asm'],
     ['common/134 compute int'],
