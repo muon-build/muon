@@ -17,14 +17,12 @@ option('sysconfdir', type: 'string', value: '/etc')
 option('auto_features', type: 'feature', value: 'auto')
 option(
     'backend',
-    yield: true,
     type: 'combo',
     value: 'ninja',
     choices: ['ninja'],
 )
 option(
     'buildtype',
-    yield: true,
     type: 'combo',
     value: 'debugoptimized',
     choices: [
@@ -42,7 +40,6 @@ option('errorlogs', type: 'boolean', value: true) # TODO
 option('install_umask', type: 'string', value: '022') # TODO
 option(
     'layout',
-    yield: true,
     type: 'combo',
     value: 'mirror',
     choices: [
@@ -51,7 +48,6 @@ option(
 )
 option(
     'optimization',
-    yield: true,
     type: 'combo',
     value: 'g',
     choices: ['0', 'g', '1', '2', '3', 's'],
@@ -61,7 +57,6 @@ option('stdsplit', type: 'boolean', value: true) # TODO
 option('strip', type: 'boolean', value: false) # TODO
 option(
     'unity',
-    yield: true,
     type: 'combo',
     value: 'off',
     choices: ['on', 'off', 'subprojects'],
@@ -69,7 +64,6 @@ option(
 option('unity_size', type: 'integer', value: 4, min: 2) # TODO
 option(
     'wrap_mode',
-    yield: true,
     type: 'combo',
     value: 'nopromote',
     choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
@@ -81,7 +75,6 @@ option('b_asneeded', type: 'boolean', value: true) # TODO
 option('b_bitcode', type: 'boolean', value: false) # TODO
 option(
     'b_colorout',
-    yield: true,
     type: 'combo',
     value: 'always',
     choices: ['auto', 'always', 'never'],
@@ -92,14 +85,12 @@ option('b_lto', type: 'boolean', value: false) # TODO
 option('b_lto_threads', type: 'integer', value: 0, min: 0) # TODO
 option(
     'b_lto_mode',
-    yield: true,
     type: 'combo',
     value: 'default',
     choices: ['default', 'thin'],
 ) # TODO
 option(
     'b_ndebug',
-    yield: true,
     type: 'combo',
     value: 'false',
     choices: ['true', 'false', 'if-release'],
@@ -107,7 +98,6 @@ option(
 option('b_pch', type: 'boolean', value: true) # TODO
 option(
     'b_pgo',
-    yield: true,
     type: 'combo',
     value: 'off',
     choices: ['off', 'generate', 'use'],
@@ -117,7 +107,6 @@ option('b_staticpic', type: 'boolean', value: true) # TODO
 option('b_pie', type: 'boolean', value: false) # TODO
 option(
     'b_vscrt',
-    yield: true,
     type: 'combo',
     value: 'from_buildtype',
     choices: [
@@ -141,7 +130,6 @@ option('cpp_link_args', type: 'array', value: [])
 option('cpp_debugstl', type: 'boolean', value: false) # TODO
 option(
     'cpp_eh',
-    yield: true,
     type: 'combo',
     value: 'default',
     choices: ['none', 'default', 'a', 's', 'sc'],
