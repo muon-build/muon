@@ -6,6 +6,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
+#include "error.h"
 #include "guess.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -19,9 +20,11 @@ compiler_type_to_s(enum compiler_type t)
 	case compiler_gcc: return "gcc";
 	case compiler_clang: return "clang";
 	case compiler_apple_clang: return "clang";
-	case compiler_type_count:
-	default: assert(false); return "";
+	case compiler_clang_llvm_ir: return "clang";
+	case compiler_type_count: UNREACHABLE;
 	}
+
+	UNREACHABLE_RETURN;
 }
 
 const char *
@@ -31,9 +34,10 @@ linker_type_to_s(enum linker_type t)
 	case linker_posix: return "ld";
 	case linker_gcc: return "ld.bfd";
 	case linker_apple: return "ld64";
-	case linker_type_count:
-	default: assert(false); return "";
+	case linker_type_count: UNREACHABLE;
 	}
+
+	UNREACHABLE_RETURN;
 }
 
 static const char *compiler_language_names[compiler_language_count] = {
@@ -44,6 +48,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_c_obj] = "c_obj",
 	[compiler_language_objc] = "objc",
 	[compiler_language_assembly] = "assembly",
+	[compiler_language_llvm_ir] = "llvm_ir",
 };
 
 const char *
@@ -78,6 +83,7 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 		[compiler_language_c_obj] = { "o", "obj" },
 		[compiler_language_objc] = { "m", "mm", "M" },
 		[compiler_language_assembly] = { "S" },
+		[compiler_language_llvm_ir] = { "ll" },
 	};
 	uint32_t i, j;
 	const char *ext;
@@ -548,6 +554,7 @@ const struct language languages[] = {
 	[compiler_language_cpp_hdr] = { .is_header = true },
 	[compiler_language_c_obj] = { .is_linkable = true },
 	[compiler_language_assembly] = { 0 },
+	[compiler_language_llvm_ir] = { 0 },
 };
 
 static void
@@ -572,6 +579,10 @@ build_compilers(void)
 			.visibility      = compiler_arg_empty_1i,
 		}
 	};
+
+	struct compiler clang_llvm_ir = empty;
+	clang_llvm_ir.args.compile_only = compiler_posix_args_compile_only;
+	clang_llvm_ir.args.output = compiler_posix_args_output;
 
 	struct compiler posix = empty;
 	posix.args.compile_only = compiler_posix_args_compile_only;
@@ -605,6 +616,7 @@ build_compilers(void)
 	compilers[compiler_gcc] = gcc;
 	compilers[compiler_clang] = gcc;
 	compilers[compiler_apple_clang] = apple_clang;
+	compilers[compiler_clang_llvm_ir] = clang_llvm_ir;
 }
 
 static const struct args *

@@ -13,6 +13,7 @@ enum compiler_type {
 	compiler_gcc,
 	compiler_clang,
 	compiler_apple_clang,
+	compiler_clang_llvm_ir,
 	compiler_type_count,
 };
 
@@ -31,6 +32,7 @@ enum compiler_language {
 	compiler_language_c_obj,
 	compiler_language_objc,
 	compiler_language_assembly,
+	compiler_language_llvm_ir,
 	compiler_language_count,
 };
 

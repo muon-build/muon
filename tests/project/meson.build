@@ -124,7 +124,7 @@ tests = [
     ['common/123 custom target directory install'],
     ['common/124 dependency file generation'],
     ['common/125 configure file in generator'],
-    ['common/126 generated llvm ir', ['failing']],
+    ['common/126 generated llvm ir'],
     ['common/127 generated assembly'],
     ['common/128 build by default targets in tests'],
     ['common/129 build by default'],

@@ -64,6 +64,17 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 	/* if we just added a c or cpp compiler, set the assembly compiler to that */
 	if (l == compiler_language_c || l == compiler_language_cpp) {
 		obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_assembly, comp_id);
+
+		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+		if (comp->type == compiler_clang) {
+			obj llvm_ir_compiler;
+			make_obj(wk, &llvm_ir_compiler, obj_compiler);
+			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
+			*c = *comp;
+			c->type = compiler_clang_llvm_ir;
+			c->lang = compiler_language_llvm_ir;
+			obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_llvm_ir, llvm_ir_compiler);
+		}
 	}
 
 	*found = true;

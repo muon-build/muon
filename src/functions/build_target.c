@@ -160,6 +160,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_c:
 	case compiler_language_cpp:
 	case compiler_language_assembly:
+	case compiler_language_llvm_ir:
 		break;
 	case compiler_language_objc:
 	case compiler_language_count:
