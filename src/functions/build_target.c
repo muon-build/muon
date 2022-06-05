@@ -140,10 +140,6 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		UNREACHABLE_RETURN;
 	}
 
-	if (!obj_array_in(wk, ctx->tgt->src, file)) {
-		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
-		return ir_err;
-	}
 
 	enum compiler_language l;
 	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
@@ -153,19 +149,22 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (l) {
 	case compiler_language_cpp_hdr:
 	case compiler_language_c_hdr:
-		return ir_cont;
 	case compiler_language_c_obj:
-		obj_array_push(wk, *ctx->res, file);
+		// skip non-compileable sources
 		return ir_cont;
+	case compiler_language_assembly:
 	case compiler_language_c:
 	case compiler_language_cpp:
-	case compiler_language_assembly:
 	case compiler_language_llvm_ir:
-		break;
 	case compiler_language_objc:
-	case compiler_language_count:
-		assert(false && "unreachable");
 		break;
+	case compiler_language_count:
+		UNREACHABLE;
+	}
+
+	if (!obj_array_in(wk, ctx->tgt->src, file)) {
+		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
+		return ir_err;
 	}
 
 	char dest_path[PATH_MAX];
@@ -215,7 +214,7 @@ build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rcvr, obj *res)
+build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rcvr, obj *res, bool recursive)
 {
 	make_obj(wk, res, obj_array);
 
@@ -226,7 +225,15 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rc
 		.tgt_id = rcvr,
 	};
 
-	return obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter);
+	if (!obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter)) {
+		return false;
+	}
+
+	if (recursive) {
+		obj_array_extend(wk, *res, ctx.tgt->objects);
+	}
+
+	return true;
 }
 
 static bool
@@ -243,12 +250,11 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 		return false;
 	}
 
-	if (akw[kw_recursive].set && !get_obj_bool(wk, akw[kw_recursive].val)) {
-		interp_error(wk, akw[kw_recursive].node, "non-recursive extract_all_objects not supported");
-		return false;
-	}
+	bool recursive = akw[kw_recursive].set
+		? get_obj_bool(wk, akw[kw_recursive].val)
+		: false;
 
-	return build_target_extract_all_objects(wk, args_node, rcvr, res);
+	return build_target_extract_all_objects(wk, args_node, rcvr, res, recursive);
 }
 
 static bool

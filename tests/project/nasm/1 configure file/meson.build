@@ -63,7 +63,9 @@ test('test-nasm-configure-file', exe)
 
 exe2 = executable(
     'hello2',
-    objects: exe.extract_all_objects(),
+    # different than meson: objects in target sources are added to the target's
+    # objects, and not kept in its sources.
+    objects: exe.extract_all_objects(recursive: true),
     link_args: link_args,
 )
 

@@ -209,6 +209,7 @@ struct obj_build_target {
 	obj build_dir; // obj_string
 	obj soname; // obj_string
 	obj src; // obj_array
+	obj objects; // obj_array
 	obj link_with; // obj_array
 	obj link_whole; // obj_array
 	obj include_directories; // obj_array

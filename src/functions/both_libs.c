@@ -101,12 +101,11 @@ func_both_libs_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	if (akw[kw_recursive].set && !get_obj_bool(wk, akw[kw_recursive].val)) {
-		interp_error(wk, akw[kw_recursive].node, "non-recursive extract_all_objects not supported");
-		return false;
-	}
+	bool recursive = akw[kw_recursive].set
+		? get_obj_bool(wk, akw[kw_recursive].val)
+		: false;
 
-	return build_target_extract_all_objects(wk, args_node, rcvr, res);
+	return build_target_extract_all_objects(wk, args_node, rcvr, res, recursive);
 }
 
 const struct func_impl_name impl_tbl_both_libs[] = {

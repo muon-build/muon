@@ -6,6 +6,7 @@
 #include "backend/common_args.h"
 #include "backend/ninja.h"
 #include "backend/ninja/build_target.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/dependency.h"
 #include "lang/workspace.h"
@@ -27,6 +28,21 @@ struct write_tgt_iter_ctx {
 };
 
 static enum iteration_result
+add_tgt_objects_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct write_tgt_iter_ctx *ctx = _ctx;
+	const char *src = get_file_path(wk, val);
+
+	char path[PATH_MAX];
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, ctx->object_names, make_str(wk, path));
+	return ir_cont;
+}
+
+static enum iteration_result
 write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct write_tgt_iter_ctx *ctx = _ctx;
@@ -38,21 +54,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	{
 		obj comp_id;
 
-		// TODO put these checks into tgt creation
 		if (!filename_to_compiler_language(src, &lang)) {
-			/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
-			return ir_cont;
-		}
-
-		if (languages[lang].is_header) {
-			return ir_cont;
-		} else if (languages[lang].is_linkable) {
-			char path[PATH_MAX];
-			if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
-				return ir_err;
-			}
-			obj_array_push(wk, ctx->object_names, make_str(wk, path));
-			return ir_cont;
+			UNREACHABLE;
 		}
 
 		if (!obj_dict_geti(wk, ctx->proj->compilers, lang, &comp_id)) {
@@ -292,6 +295,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	{ /* sources */
+		obj_array_foreach(wk, tgt->objects, &ctx, add_tgt_objects_iter);
+
 		if (!obj_array_foreach(wk, tgt->src, &ctx, write_tgt_sources_iter)) {
 			return false;
 		}

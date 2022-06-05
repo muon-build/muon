@@ -60,7 +60,42 @@ struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
 	obj tgt_id;
 	obj res;
+	bool implicit_include_directories;
 };
+
+static bool
+process_source_include(struct workspace *wk, struct process_build_tgt_sources_ctx *ctx, obj val)
+{
+	const char *src = get_file_path(wk, val);
+
+	if (!path_is_subpath(wk->build_root, src)) {
+		return true;
+	}
+
+	char dir[PATH_MAX], path[PATH_MAX];
+	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
+		return false;
+	}
+
+	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
+	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+
+	if (!ctx->implicit_include_directories) {
+		return true;
+	}
+
+	if (!path_dirname(dir, PATH_MAX, src)) {
+		return false;
+	}
+
+	obj inc;
+	make_obj(wk, &inc, obj_include_directory);
+	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
+	d->path = make_str(wk, dir);
+	obj_array_push(wk, tgt->include_directories, inc);
+
+	return true;
+}
 
 static enum iteration_result
 build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
@@ -70,6 +105,21 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 	if (file_is_linkable(wk, val)) {
 		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 		obj_array_push(wk, tgt->link_with, val);
+		return ir_cont;
+	}
+
+	enum compiler_language lang;
+	if (!filename_to_compiler_language(get_file_path(wk, val), &lang)
+	    || languages[lang].is_header) {
+		// process every file that is either a header, or isn't
+		// recognized, as a header
+		if (!process_source_include(wk, ctx, val)) {
+			return ir_err;
+		}
+		return ir_cont;
+	} else if (languages[lang].is_linkable) {
+		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
+		obj_array_push(wk, tgt->objects, val);
 		return ir_cont;
 	}
 
@@ -131,51 +181,6 @@ add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
 			obj_array_foreach(wk, dep->deps, ctx, add_dep_sources_iter);
 		}
 	}
-
-	return ir_cont;
-}
-
-struct process_source_includes_ctx {
-	struct obj_build_target *tgt;
-	bool implicit_include_directories;
-};
-
-static enum iteration_result
-process_source_includes_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct process_source_includes_ctx *ctx = _ctx;
-	const char *src = get_file_path(wk, val);
-
-	enum compiler_language fl;
-
-	if (filename_to_compiler_language(src, &fl) && !languages[fl].is_header) {
-		return ir_cont;
-	}
-
-	if (!path_is_subpath(wk->build_root, src)) {
-		return ir_cont;
-	}
-
-	char dir[PATH_MAX], path[PATH_MAX];
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->tgt->order_deps, make_str(wk, path));
-
-	if (!ctx->implicit_include_directories) {
-		return ir_cont;
-	}
-
-	if (!path_dirname(dir, PATH_MAX, src)) {
-		return ir_err;
-	}
-
-	obj inc;
-	make_obj(wk, &inc, obj_include_directory);
-	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
-	d->path = make_str(wk, dir);
-	obj_array_push(wk, ctx->tgt->include_directories, inc);
 
 	return ir_cont;
 }
@@ -418,13 +423,30 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		tgt->private_path = make_str(wk, path);
 	}
 
+	bool implicit_include_directories =
+		akw[bt_kw_implicit_include_directories].set
+				? get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val)
+				: true;
+
+	/* struct process_source_includes_ctx ctx = { */
+	/* 	.tgt = tgt, */
+	/* 	.implicit_include_directories = implicit_include_directories, */
+	/* }; */
+	/* if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) { */
+	/* 	return false; */
+	/* } */
+
 	{ // sources
-		if (akw[bt_kw_sources].set) {
-			obj_array_extend(wk, an[1].val, akw[bt_kw_sources].val);
+		if (akw[bt_kw_objects].set) {
+			if (!coerce_files(wk, akw[bt_kw_objects].node, akw[bt_kw_objects].val, &tgt->objects)) {
+				return false;
+			}
+		} else {
+			make_obj(wk, &tgt->objects, obj_array);
 		}
 
-		if (akw[bt_kw_objects].set) {
-			obj_array_extend(wk, an[1].val, akw[bt_kw_objects].val);
+		if (akw[bt_kw_sources].set) {
+			obj_array_extend(wk, an[1].val, akw[bt_kw_sources].val);
 		}
 
 		make_obj(wk, &tgt->src, obj_array);
@@ -433,6 +455,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			.err_node = an[1].node,
 			.res = tgt->src,
 			.tgt_id = *res,
+			.implicit_include_directories = implicit_include_directories,
 		};
 
 		if (!obj_array_foreach_flat(wk, an[1].val, &ctx, process_build_tgt_sources_iter)) {
@@ -445,7 +468,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
 		}
 
-		if (!get_obj_array(wk, tgt->src)->len && !akw[bt_kw_link_whole].set) {
+		if (!get_obj_array(wk, tgt->src)->len &&
+		    !get_obj_array(wk, tgt->objects)->len &&
+		    !akw[bt_kw_link_whole].set) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
 			interp_error(wk, node, "sources must not be empty unless link_whole is specified");
@@ -462,21 +487,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		make_obj(wk, &inc_dirs, obj_array);
 		uint32_t node = an[0].node; // TODO: not a very informative error node
 
-		bool implicit_include_directories =
-			akw[bt_kw_implicit_include_directories].set
-				? get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val)
-				: true;
-
 		if (implicit_include_directories) {
 			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
-		}
-
-		struct process_source_includes_ctx ctx = {
-			.tgt = tgt,
-			.implicit_include_directories = implicit_include_directories,
-		};
-		if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) {
-			return false;
 		}
 
 		if (akw[bt_kw_include_directories].set) {
@@ -722,7 +734,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			// argument with objects from the previous target
 
 			obj objects;
-			if (!build_target_extract_all_objects(wk, an[0].node, tgt, &objects)) {
+			if (!build_target_extract_all_objects(wk, an[0].node, tgt, &objects, true)) {
 				return false;
 			}
 
