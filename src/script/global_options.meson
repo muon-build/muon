@@ -59,8 +59,8 @@ option(
     'unity',
     type: 'combo',
     value: 'off',
-    choices: ['on', 'off', 'subprojects'],
-) # TODO
+    choices: ['off'],
+)
 option('unity_size', type: 'integer', value: 4, min: 2) # TODO
 option(
     'wrap_mode',
