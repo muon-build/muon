@@ -130,7 +130,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 
 	darr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
 
-	size_t tail;
+	size_t tail, initial_len = error_diagnostic_store.messages.len;
 	if (error_diagnostic_store.messages.len > 1) {
 		struct error_diagnostic_message *prev_msg, tmp;
 		tail = error_diagnostic_store.messages.len;
@@ -185,7 +185,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 		error_message(&src, msg->line, msg->col, msg->lvl, msg->msg);
 	}
 
-	for (i = 0; i < tail; ++i) {
+	for (i = 0; i < initial_len; ++i) {
 		msg = darr_get(&error_diagnostic_store.messages, i);
 		z_free((char *)msg->msg);
 	}
