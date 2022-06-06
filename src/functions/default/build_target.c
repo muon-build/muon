@@ -5,6 +5,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/default/build_target.h"
 #include "functions/file.h"
@@ -55,6 +56,88 @@ enum build_target_kwargs {
 
 	bt_kwargs_count,
 };
+
+struct determine_linker_ctx {
+	struct obj_build_target *tgt;
+	bool have_link_language;
+};
+
+static enum iteration_result
+determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct determine_linker_ctx *ctx = _ctx;
+
+	enum compiler_language fl;
+
+	if (!filename_to_compiler_language(get_file_path(wk, val), &fl)) {
+		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		return ir_cont;
+	}
+
+	switch (fl) {
+	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr:
+	case compiler_language_llvm_ir:
+		return ir_cont;
+	case compiler_language_assembly:
+		if (!ctx->have_link_language) {
+			ctx->tgt->link_language = compiler_language_assembly;
+		}
+		break;
+	case compiler_language_c:
+	case compiler_language_c_obj:
+		if (!ctx->have_link_language) {
+			ctx->tgt->link_language = compiler_language_c;
+		}
+		break;
+	case compiler_language_cpp:
+		if (!ctx->have_link_language
+		    || ctx->tgt->link_language == compiler_language_c) {
+			ctx->tgt->link_language = compiler_language_cpp;
+		}
+		break;
+	case compiler_language_objc:
+	case compiler_language_count:
+		UNREACHABLE;
+	}
+
+	ctx->have_link_language = true;
+	return ir_cont;
+}
+
+static bool
+build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_build_target *tgt)
+{
+	struct determine_linker_ctx ctx = { .tgt = tgt };
+
+	if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
+		return ir_err;
+	}
+
+	if (!ctx.have_link_language) {
+		enum compiler_language clink_langs[] = {
+			compiler_language_c,
+			compiler_language_cpp,
+		};
+
+		obj comp;
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
+			if (obj_dict_geti(wk, current_project(wk)->compilers, clink_langs[i], &comp)) {
+				tgt->link_language = clink_langs[i];
+				ctx.have_link_language  = true;
+				break;
+			}
+		}
+	}
+
+	if (!ctx.have_link_language) {
+		interp_error(wk, err_node, "unable to determine linker for target");
+		return false;
+	}
+
+	return true;
+}
 
 struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
@@ -601,6 +684,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			push_install_target_install_dir(wk, make_str(wk, plain_name_install),
 				install_dir, akw[bt_kw_install_mode].val);
 		}
+	}
+
+	if (!build_tgt_determine_linker(wk, an[0].node, tgt)) {
+		return false;
 	}
 
 	LOG_I("added target %s", get_cstr(wk, tgt->build_name));

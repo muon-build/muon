@@ -24,7 +24,6 @@ struct write_tgt_iter_ctx {
 	obj order_deps;
 	bool have_order_deps;
 	bool have_link_language;
-	enum compiler_language link_language;
 };
 
 static enum iteration_result
@@ -124,50 +123,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct write_tgt_iter_ctx *ctx = _ctx;
-
-	enum compiler_language fl;
-
-	if (!filename_to_compiler_language(get_file_path(wk, val), &fl)) {
-		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
-		return ir_cont;
-	}
-
-	switch (fl) {
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_llvm_ir:
-		return ir_cont;
-	case compiler_language_assembly:
-		if (!ctx->have_link_language) {
-			ctx->link_language = compiler_language_assembly;
-		}
-		break;
-	case compiler_language_c:
-	case compiler_language_c_obj:
-		if (!ctx->have_link_language) {
-			ctx->link_language = compiler_language_c;
-		}
-		break;
-	case compiler_language_cpp:
-		if (!ctx->have_link_language
-		    || ctx->link_language == compiler_language_c) {
-			ctx->link_language = compiler_language_cpp;
-		}
-		break;
-	case compiler_language_objc:
-	case compiler_language_count:
-		assert(false);
-		return ir_err;
-	}
-
-	ctx->have_link_language = true;
-	return ir_cont;
-}
-
-static enum iteration_result
 tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 {
 	struct dep_args_ctx *ctx = _ctx;
@@ -237,35 +192,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	enum linker_type linker;
 	{ /* determine linker */
-		if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
-			return ir_err;
-		}
-
-		if (!ctx.have_link_language) {
-			enum compiler_language clink_langs[] = {
-				compiler_language_c,
-				compiler_language_cpp,
-			};
-
-			obj comp;
-			uint32_t i;
-			for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
-				if (obj_dict_geti(wk, ctx.proj->compilers, clink_langs[i], &comp)) {
-					ctx.link_language = clink_langs[i];
-					ctx.have_link_language  = true;
-					break;
-				}
-			}
-		}
-
-		if (!ctx.have_link_language) {
-			LOG_E("unable to determine linker for target");
-			return ir_err;
-		}
-
 		obj comp_id;
-		if (!obj_dict_geti(wk, ctx.proj->compilers, ctx.link_language, &comp_id)) {
-			LOG_E("no compiler defined for language %s", compiler_language_to_s(ctx.link_language));
+		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->link_language, &comp_id)) {
+			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->link_language));
 			return false;
 		}
 
@@ -315,7 +244,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
-			.link_lang = ctx.link_language,
+			.link_lang = tgt->link_language,
 			.args = &ctx.args
 		};
 
@@ -341,7 +270,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
-		linker_type = compiler_language_to_s(ctx.link_language);
+		linker_type = compiler_language_to_s(tgt->link_language);
 		linker_rule_prefix = true;
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
