@@ -185,6 +185,8 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 		error_message(&src, msg->line, msg->col, msg->lvl, msg->msg);
 	}
 
+	for (i = 0; i < tail; ++i) {
+		msg = darr_get(&error_diagnostic_store.messages, i);
 		z_free((char *)msg->msg);
 	}
 
