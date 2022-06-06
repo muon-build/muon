@@ -1021,7 +1021,7 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: install_subdir");
+	LOG_W("TODO: install_subdir");
 
 	return true;
 }
@@ -1045,7 +1045,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: install_man");
+	LOG_W("TODO: install_man");
 
 	return true;
 }
@@ -1069,7 +1069,7 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: install_symlink");
+	LOG_W("TODO: install_symlink");
 
 	return true;
 }
@@ -1091,7 +1091,7 @@ func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	L("TODO: install_emptydir");
+	LOG_W("TODO: install_emptydir");
 
 	return true;
 }
