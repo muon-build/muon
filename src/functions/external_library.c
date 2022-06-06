@@ -17,7 +17,19 @@ func_external_library_found(struct workspace *wk, obj rcvr, uint32_t args_node, 
 	return true;
 }
 
+static bool
+func_external_library_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, "library");
+	return true;
+}
+
 const struct func_impl_name impl_tbl_external_library[] = {
 	{ "found", func_external_library_found, tc_bool },
+	{ "type_name", func_external_library_type_name, tc_string },
 	{ NULL, NULL },
 };
