@@ -24,11 +24,22 @@
 static bool analyze_error;
 static const struct analyze_opts *analyze_opts;
 
+struct analyze_file_entrypoint {
+	bool is_root;
+	uint32_t line, col, src_idx;
+};
+
+static struct darr analyze_entrypoint_stack,
+		   analyze_entrypoint_stacks;
+
 struct assignment {
 	const char *name;
 	obj o;
 	bool accessed, default_var;
 	uint32_t line, col, src_idx;
+
+	uint32_t ep_stacks_i;
+	uint32_t ep_stack_len;
 };
 
 struct scope_group {
@@ -268,12 +279,22 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 
 	// builtin variables don't have a source location
 	struct node *n = NULL;
-	uint32_t src_idx = 0;
+	uint32_t src_idx = 0, ep_stack_len = 0, ep_stacks_i = 0;
 	if (wk->src && n_id) {
 		n = get_node(wk->ast, n_id);
 
 		// push the source so that we have it later for error reporting
 		src_idx = error_diagnostic_store_push_src(wk->src);
+
+		if (analyze_entrypoint_stack.len) {
+			ep_stacks_i  = analyze_entrypoint_stacks.len;
+			darr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
+			ep_stack_len = analyze_entrypoint_stack.len;
+
+			memcpy(darr_get(&analyze_entrypoint_stacks, ep_stacks_i),
+				analyze_entrypoint_stack.e,
+				sizeof(struct analyze_file_entrypoint) * analyze_entrypoint_stack.len);
+		}
 	}
 	darr_push(s, &(struct assignment) {
 		.name = name,
@@ -281,6 +302,8 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		.line = n ? n->line : 0,
 		.col = n ? n->col : 0,
 		.src_idx = src_idx,
+		.ep_stacks_i = ep_stacks_i,
+		.ep_stack_len = ep_stack_len,
 	});
 
 	if (!assignment_scopes.groups.len) {
@@ -418,11 +441,27 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	bool old_analyze_error = analyze_error;
 	analyze_error = false;
 
+	bool subdir_func = !rcvr && strcmp(fi->name, "subdir") == 0;
+
+	if (subdir_func) {
+		struct node *n = get_node(wk->ast, n_id);
+
+		darr_push(&analyze_entrypoint_stack, &(struct analyze_file_entrypoint) {
+			.src_idx = error_diagnostic_store_push_src(wk->src),
+			.line = n->line,
+			.col = n->col,
+		});
+	}
+
 	if (!analyze_function(wk, fi, args_node, rcvr, &func_res) || analyze_error) {
-		if (!rcvr && analyze_opts->subdir_error && strcmp(fi->name, "subdir") == 0) {
+		if (subdir_func && analyze_opts->subdir_error) {
 			interp_error(wk, n_id, "in subdir");
 		}
 		ret = false;
+	}
+
+	if (subdir_func) {
+		darr_del(&analyze_entrypoint_stack, analyze_entrypoint_stack.len - 1);
 	}
 
 	analyze_error = old_analyze_error;
@@ -1304,6 +1343,9 @@ do_analyze(struct analyze_opts *opts)
 
 	error_diagnostic_store_init();
 
+	darr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
+	darr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
+
 	uint32_t project_id;
 	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
 
@@ -1320,6 +1362,22 @@ do_analyze(struct analyze_opts *opts)
 					res = false;
 				}
 				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
+
+				if (analyze_opts->subdir_error && a->ep_stack_len) {
+					uint32_t j;
+					struct analyze_file_entrypoint *ep_stack
+						= darr_get(&analyze_entrypoint_stacks, a->ep_stacks_i);
+
+					for (j = 0; j < a->ep_stack_len; ++j) {
+						error_diagnostic_store_push(
+							ep_stack[j].src_idx,
+							ep_stack[j].line,
+							ep_stack[j].col,
+							lvl,
+							"in subdir"
+							);
+					}
+				}
 			}
 		}
 	}
@@ -1330,6 +1388,8 @@ do_analyze(struct analyze_opts *opts)
 		res = false;
 	}
 
+	darr_destroy(&analyze_entrypoint_stack);
+	darr_destroy(&analyze_entrypoint_stacks);
 	darr_destroy(&assignment_scopes.groups);
 	darr_destroy(&assignment_scopes.base);
 	workspace_destroy(&wk);
