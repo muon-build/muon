@@ -269,7 +269,7 @@ fs_read_entire_file(const char *path, struct source *src)
 		read = fread(buf, 1, src->len, f);
 
 		if (read != src->len) {
-			LOG_E("failed to read entire file, only read %zu/%" PRId64 "bytes", read, src->len);
+			LOG_E("failed to read entire file, only read %" PRIu64 "/%" PRId64 "bytes", (uint64_t)read, src->len);
 			goto err;
 		}
 	} else {
