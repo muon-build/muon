@@ -1340,6 +1340,7 @@ do_analyze(struct analyze_opts *opts)
 	wk.unassign_variable = analyze_unassign;
 	wk.get_variable = analyze_lookup_wrapper;
 	wk.eval_project_file = analyze_eval_project_file;
+	wk.in_analyzer = true;
 
 	error_diagnostic_store_init();
 

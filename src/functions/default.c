@@ -958,9 +958,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->build_dir = make_str(wk, build_dir);
 
 	bool ret = false;
-	if (fs_dir_exists(wk->build_root)) {
-		// only mkdir if the build_root exists in case we are running
-		// the analyzer
+	if (!wk->in_analyzer) {
 		if (!fs_mkdir_p(build_dir)) {
 			goto ret;
 		}
@@ -1518,6 +1516,12 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	if (wk->in_analyzer) {
+		// If we are in the analyzer, don't create a disabler here so
+		// that the custom not found module logic can be used
+		akw[kw_disabler].set = false;
 	}
 
 	enum requirement_type requirement;
