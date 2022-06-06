@@ -86,9 +86,10 @@ error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col, enum 
 }
 
 static int32_t
-error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
+error_diagnostic_store_compare_except_lvl(const void *_a, const void *_b, void *ctx)
 {
 	const struct error_diagnostic_message *a = _a, *b = _b;
+	int32_t v;
 
 	if (a->src_idx != b->src_idx) {
 		return (int32_t)a->src_idx - (int32_t)b->src_idx;
@@ -96,10 +97,25 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 		return (int32_t)a->line - (int32_t)b->line;
 	} else if (a->col != b->col) {
 		return (int32_t)a->col - (int32_t)b->col;
-	} else if (a->lvl != b->lvl) {
-		return (int32_t)a->lvl - (int32_t)b->lvl;
+	} else if ((v = strcmp(a->msg, b->msg)) != 0) {
+		return v;
 	} else {
-		return strcmp(a->msg, b->msg);
+		return 0;
+	}
+}
+
+static int32_t
+error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
+{
+	const struct error_diagnostic_message *a = _a, *b = _b;
+	int32_t v;
+
+	if ((v = error_diagnostic_store_compare_except_lvl(a, b, ctx)) != 0) {
+		return v;
+	} else if (a->lvl != b->lvl) {
+		return a->lvl > b->lvl ? 1 : -1;
+	} else {
+		return 0;
 	}
 }
 
@@ -126,7 +142,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 			prev_msg = darr_get(&error_diagnostic_store.messages, i - 1);
 			msg = darr_get(&error_diagnostic_store.messages, i);
 
-			if (error_diagnostic_store_compare(prev_msg, msg, NULL) == 0) {
+			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, NULL) == 0) {
 				continue;
 			}
 
@@ -167,6 +183,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 		}
 
 		error_message(&src, msg->line, msg->col, msg->lvl, msg->msg);
+	}
 
 		z_free((char *)msg->msg);
 	}
