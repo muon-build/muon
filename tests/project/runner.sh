@@ -34,7 +34,7 @@ if [ $skip_analyze -eq 0 ]; then
 fi
 
 set +e
-"$muon" -v -C "$source" setup "$build" 2>"$log"
+"$muon" -v -C "$source" setup -Dprefix=/usr "$build" 2>"$log"
 res=$?
 set -e
 
@@ -51,3 +51,5 @@ fi
 "$ninja" -C "$build"
 
 "$muon" -C "$build" test
+
+DESTDIR=destdir "$muon" -C "$build" install

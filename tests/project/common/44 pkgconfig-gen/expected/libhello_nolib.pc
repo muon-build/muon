@@ -1,6 +1,6 @@
 
 foo=bar
-prefix=/usr/local
+prefix=/usr
 escaped_var=hello\ world
 unescaped_var=hello world
 

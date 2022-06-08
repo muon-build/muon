@@ -1,4 +1,4 @@
-prefix=/usr/local
+prefix=/usr
 bindir=${prefix}/bin
 includedir=${prefix}/include
 
