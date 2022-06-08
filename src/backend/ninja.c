@@ -130,7 +130,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 			key = proj->cfg.name;
 
 			if (obj_dict_index(wk, tests, key, &res)) {
-				assert("false" && "project defined multiple times");
+				assert(false && "project defined multiple times");
 				return false;
 			}
 
