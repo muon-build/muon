@@ -388,7 +388,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 		*res = akw[kw_default_value].val;
 		return true;
 	} else {
-		interp_error(wk, node, "undefined variable");
+		interp_error(wk, node, "pkgconfig file has no such variable");
 		return false;
 	}
 }
