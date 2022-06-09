@@ -99,6 +99,7 @@ cat \
 	src/options.c \
 	src/opts.c \
 	src/platform/$platform/filesystem.c \
+	src/platform/$platform/path.c \
 	src/platform/$platform/uname.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \

@@ -205,12 +205,6 @@ path_cwd(char *buf, uint32_t len)
 }
 
 bool
-path_is_absolute(const char *path)
-{
-	return *path == PATH_SEP;
-}
-
-bool
 path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
 {
 	uint32_t i = 0;
