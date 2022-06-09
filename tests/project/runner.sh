@@ -53,3 +53,22 @@ fi
 "$muon" -C "$build" test
 
 DESTDIR=destdir "$muon" -C "$build" install
+
+if [ -x "$source/check.sh" ]; then
+	set +e
+	DESTDIR="$build/destdir" "$source/check.sh"
+	res=$?
+	set -e
+
+	if [ $res -ne 0 ]; then
+		set +x
+		exec >&2
+		if [ -d "$build/destdir" ]; then
+			echo "failing destdir contains:"
+			find "$build/destdir"
+		else
+			echo "failing destdir $build/destdir does not exist"
+		fi
+		exit $res
+	fi
+fi
