@@ -1038,10 +1038,66 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		akw[kw_exclude_directories].val, akw[kw_exclude_files].val);
 }
 
+struct install_man_ctx {
+	obj mode;
+	obj install_dir;
+	obj locale;
+	uint32_t err_node;
+	bool default_install_dir;
+};
+
+static enum iteration_result
+install_man_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct install_man_ctx *ctx = _ctx;
+
+	obj src = *get_obj_file(wk, val);
+	char man[PATH_MAX];
+	if (!path_basename(man, PATH_MAX, get_cstr(wk, src))) {
+		return ir_err;
+	}
+	size_t len = strlen(man);
+	assert(len > 0);
+	--len;
+
+	if (len <= 1 || man[len - 1] != '.' || man[len] < '0' || man[len] > '9') {
+		interp_error(wk, ctx->err_node, "invalid path to man page");
+		return ir_err;
+	}
+
+	obj install_dir;
+	if (ctx->default_install_dir) {
+		install_dir = make_strf(wk, "%s/man%c", get_cstr(wk, ctx->install_dir), man[len]);
+	} else {
+		install_dir = ctx->install_dir;
+	}
+
+	const char *basename = man;
+	if (ctx->locale) {
+		char *dot = strchr(man, '.');
+		assert(dot);
+		if (str_startswith(&WKSTR(dot + 1), get_str(wk, ctx->locale))) {
+			*dot = '\0';
+			obj new_man = make_strf(wk, "%s.%c", man, man[len]);
+			basename = get_cstr(wk, new_man);
+		}
+	}
+
+	char path[PATH_MAX];
+	if (!path_join(path, PATH_MAX, get_cstr(wk, install_dir), basename)) {
+		return ir_err;
+	}
+
+	if (!push_install_target(wk, src, make_str(wk, path), ctx->mode)) {
+		return ir_err;
+	}
+	return ir_cont;
+}
+
 static bool
 func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -1057,9 +1113,36 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	LOG_W("TODO: install_man");
+	struct install_man_ctx ctx = {
+		.err_node = an[0].node,
+		.mode = akw[kw_install_mode].val,
+		.install_dir = akw[kw_install_dir].val,
+		.default_install_dir = false,
+	};
 
-	return true;
+	if (!akw[kw_install_dir].set) {
+		obj mandir;
+		get_option_value(wk, current_project(wk), "mandir", &mandir);
+
+		if (akw[kw_locale].set) {
+			char path[PATH_MAX];
+			if (!path_join(path, PATH_MAX, get_cstr(wk, mandir), get_cstr(wk, akw[kw_locale].val))) {
+				return false;
+			}
+			ctx.install_dir = make_str(wk, path);
+			ctx.locale = akw[kw_locale].val;
+		} else {
+			ctx.install_dir = mandir;
+		}
+
+		ctx.default_install_dir = true;
+	}
+
+	obj manpages;
+	if (!coerce_files(wk, an[0].node, an[0].val, &manpages)) {
+		return false;
+	}
+	return obj_array_foreach(wk, manpages, &ctx, install_man_iter);
 }
 
 static bool
