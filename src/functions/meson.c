@@ -464,7 +464,19 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node
 	return true;
 }
 
+static bool
+func_meson_add_devenv(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_meson[] = {
+	{ "add_devenv", func_meson_add_devenv },
 	{ "add_dist_script", func_meson_add_dist_script },
 	{ "add_install_script", func_meson_add_install_script },
 	{ "add_postconf_script", func_meson_add_postconf_script },
