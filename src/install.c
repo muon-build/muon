@@ -104,7 +104,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	const char *dest = get_cstr(wk, in->dest),
 		   *src = get_cstr(wk, in->src);
 
-	assert(in->type == install_target_symlink || path_is_absolute(src));
+	assert(in->type == install_target_symlink || in->type == install_target_emptydir || path_is_absolute(src));
 
 	if (ctx->destdir) {
 		static char full_dest_dir[PATH_MAX];
@@ -124,6 +124,9 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		break;
 	case install_target_symlink:
 		LOG_I("install symlink '%s' -> '%s'", dest, src);
+		break;
+	case install_target_emptydir:
+		LOG_I("install emptydir '%s'", dest);
 		break;
 	default:
 		abort();
@@ -186,6 +189,11 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		};
 
 		if (!fs_dir_foreach(src, &ctx, copy_subdir_iter)) {
+			return ir_err;
+		}
+		break;
+	case install_target_emptydir:
+		if (!fs_mkdir_p(dest)) {
 			return ir_err;
 		}
 		break;

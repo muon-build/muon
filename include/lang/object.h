@@ -353,6 +353,7 @@ enum install_target_type {
 	install_target_default,
 	install_target_subdir,
 	install_target_symlink,
+	install_target_emptydir,
 };
 
 struct obj_install_target {

@@ -1088,6 +1088,21 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	return !!push_install_target_type(wk, akw[kw_pointing_to].val, make_str(wk, path), 0, install_target_symlink);
 }
 
+struct install_emptydir_ctx {
+	obj mode;
+};
+
+static enum iteration_result
+install_emptydir_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct install_emptydir_ctx *ctx = _ctx;
+
+	if (!push_install_target_type(wk, make_str(wk, ""), val, ctx->mode, install_target_emptydir)) {
+		return ir_err;
+	}
+	return ir_cont;
+}
+
 static bool
 func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
@@ -1098,16 +1113,17 @@ func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
-		[kw_install_tag] = { "install_tag", obj_string },
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	LOG_W("TODO: install_emptydir");
-
-	return true;
+	struct install_emptydir_ctx ctx = {
+		.mode = akw[kw_install_mode].val,
+	};
+	return obj_array_foreach(wk, an[0].val, &ctx, install_emptydir_iter);
 }
 
 struct install_data_rename_ctx {
