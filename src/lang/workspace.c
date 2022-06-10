@@ -110,6 +110,19 @@ push_install_target_subdir(struct workspace *wk, obj src, obj dest, obj mode,
 	return tgt;
 }
 
+struct obj_install_target *
+push_install_target_type(struct workspace *wk, obj src, obj dest, obj mode,
+	enum install_target_type type)
+{
+	struct obj_install_target *tgt = push_install_target(wk, src, dest, mode);
+	if (!tgt) {
+		return NULL;
+	}
+
+	tgt->type = type;
+	return tgt;
+}
+
 struct push_install_targets_ctx {
 	obj install_dirs;
 	obj install_mode;

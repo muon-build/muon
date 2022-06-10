@@ -352,6 +352,7 @@ struct obj_compiler {
 enum install_target_type {
 	install_target_default,
 	install_target_subdir,
+	install_target_symlink,
 };
 
 struct obj_install_target {

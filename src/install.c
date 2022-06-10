@@ -104,7 +104,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	const char *dest = get_cstr(wk, in->dest),
 		   *src = get_cstr(wk, in->src);
 
-	assert(path_is_absolute(src));
+	assert(in->type == install_target_symlink || path_is_absolute(src));
 
 	if (ctx->destdir) {
 		static char full_dest_dir[PATH_MAX];
@@ -122,6 +122,9 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	case install_target_subdir:
 		LOG_I("install subdir '%s' -> '%s'", src, dest);
 		break;
+	case install_target_symlink:
+		LOG_I("install symlink '%s' -> '%s'", dest, src);
+		break;
 	default:
 		abort();
 	}
@@ -132,6 +135,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 
 	switch (in->type) {
 	case install_target_default:
+	case install_target_symlink:
 		if (!path_dirname(dest_dirname, PATH_MAX, dest)) {
 			return ir_err;
 		}
@@ -145,18 +149,24 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 
-		if (fs_dir_exists(src)) {
-			if (!fs_copy_dir(src, dest)) {
-				return ir_err;
+		if (in->type == install_target_default) {
+			if (fs_dir_exists(src)) {
+				if (!fs_copy_dir(src, dest)) {
+					return ir_err;
+				}
+			} else {
+				if (!fs_copy_file(src, dest)) {
+					return ir_err;
+				}
+			}
+
+			if (in->build_target) {
+				if (!fix_rpaths(dest, wk->build_root)) {
+					return ir_err;
+				}
 			}
 		} else {
-			if (!fs_copy_file(src, dest)) {
-				return ir_err;
-			}
-		}
-
-		if (in->build_target) {
-			if (!fix_rpaths(dest, wk->build_root)) {
+			if (!fs_make_symlink(src, dest, true)) {
 				return ir_err;
 			}
 		}

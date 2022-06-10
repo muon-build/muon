@@ -1073,7 +1073,7 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string, .required = true },
-		[kw_install_tag] = { "install_tag", obj_string },
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_pointing_to] = { "pointing_to", obj_string, .required = true },
 		0
 	};
@@ -1081,9 +1081,11 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	LOG_W("TODO: install_symlink");
-
-	return true;
+	char path[PATH_MAX];
+	if (!path_join(path, PATH_MAX, get_cstr(wk, akw[kw_install_dir].val), get_cstr(wk, an[0].val))) {
+		return false;
+	}
+	return !!push_install_target_type(wk, akw[kw_pointing_to].val, make_str(wk, path), 0, install_target_symlink);
 }
 
 static bool

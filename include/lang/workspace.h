@@ -127,6 +127,8 @@ struct obj_install_target *push_install_target_basename(struct workspace *wk,
 	obj base_path, obj filename, obj install_dir, obj mode);
 struct obj_install_target *push_install_target_subdir(struct workspace *wk,
 	obj src, obj dest, obj mode, obj exclude_directories, obj exclude_files);
+struct obj_install_target *push_install_target_type(struct workspace *wk,
+	obj src, obj dest, obj mode, enum install_target_type type);
 bool push_install_targets(struct workspace *wk, obj filenames,
 	obj install_dirs, obj install_mode);
 
