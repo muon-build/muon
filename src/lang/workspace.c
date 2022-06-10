@@ -54,6 +54,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 	}
 
 	tgt->dest = sdest;
+	tgt->type = install_target_default;
 
 	obj_array_push(wk, wk->install, id);
 	return tgt;
@@ -92,6 +93,21 @@ push_install_target_basename(struct workspace *wk, obj base_path, obj filename,
 	}
 
 	return push_install_target(wk, make_str(wk, src), make_str(wk, dest), mode);
+}
+
+struct obj_install_target *
+push_install_target_subdir(struct workspace *wk, obj src, obj dest, obj mode,
+	obj exclude_directories, obj exclude_files)
+{
+	struct obj_install_target *tgt = push_install_target(wk, src, dest, mode);
+	if (!tgt) {
+		return NULL;
+	}
+
+	tgt->exclude_directories = exclude_directories;
+	tgt->exclude_files = exclude_files;
+	tgt->type = install_target_subdir;
+	return tgt;
 }
 
 struct push_install_targets_ctx {

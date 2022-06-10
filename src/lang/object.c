@@ -1166,8 +1166,15 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		o->src = str_clone(wk_src, wk_dest, in->src);
 		o->dest = str_clone(wk_src, wk_dest, in->dest);
 		o->build_target = in->build_target;
+		o->type = in->type;
 
 		if (!obj_clone(wk_src, wk_dest, in->mode, &o->mode)) {
+			return false;
+		}
+		if (!obj_clone(wk_src, wk_dest, in->exclude_directories, &o->exclude_directories)) {
+			return false;
+		}
+		if (!obj_clone(wk_src, wk_dest, in->exclude_files, &o->exclude_files)) {
 			return false;
 		}
 		return true;

@@ -997,7 +997,7 @@ func_configuration_data(struct workspace *wk, obj _, uint32_t args_node, obj *re
 static bool
 func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -1007,9 +1007,9 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		kw_strip_directory,
 	};
 	struct args_kw akw[] = {
-		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_dir] = { "install_dir", obj_string, .required = true },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
-		[kw_install_tag] = { "install_tag", obj_string },
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_exclude_directories] = { "exclude_directories", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_exclude_files] = { "exclude_files", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_strip_directory] = { "strip_directory", obj_bool },
@@ -1019,9 +1019,23 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	LOG_W("TODO: install_subdir");
+	obj dest = akw[kw_install_dir].val;
+	if (!akw[kw_strip_directory].set || !get_obj_bool(wk, akw[kw_strip_directory].val)) {
+		char path[PATH_MAX];
+		if (!path_join(path, PATH_MAX, get_cstr(wk, dest), get_cstr(wk, an[0].val))) {
+			return false;
+		}
+		dest = make_str(wk, path);
+	}
 
-	return true;
+	char path[PATH_MAX];
+	if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, an[0].val))) {
+		return false;
+	}
+	obj src = make_str(wk, path);
+
+	return !!push_install_target_subdir(wk, src, dest, akw[kw_install_mode].val,
+		akw[kw_exclude_directories].val, akw[kw_exclude_files].val);
 }
 
 static bool

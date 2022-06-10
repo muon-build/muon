@@ -15,6 +15,78 @@
 #include "platform/rpath_fixer.h"
 #include "platform/run_cmd.h"
 
+struct copy_subdir_ctx {
+	obj exclude_directories;
+	obj exclude_files;
+	const char *src_base, *dest_base;
+	const char *src_root;
+	struct workspace *wk;
+};
+
+static enum iteration_result
+copy_subdir_iter(void *_ctx, const char *path)
+{
+	struct copy_subdir_ctx *ctx = _ctx;
+	char src[PATH_MAX], dest[PATH_MAX];
+
+	if (!path_join(src, PATH_MAX, ctx->src_base, path)) {
+		return ir_err;
+	} else if (!path_join(dest, PATH_MAX, ctx->dest_base, path)) {
+		return ir_err;
+	}
+
+	char rel[PATH_MAX];
+	if (!path_relative_to(rel, PATH_MAX, ctx->src_root, src)) {
+		return ir_err;
+	}
+
+	if (fs_dir_exists(src)) {
+		if (ctx->exclude_directories &&
+		    obj_array_in(ctx->wk, ctx->exclude_directories, make_str(ctx->wk, rel))) {
+			LOG_I("skipping dir '%s'", src);
+			return ir_cont;
+		}
+
+		LOG_I("make dir '%s'", dest);
+
+		if (!fs_dir_exists(dest)) {
+			if (!fs_mkdir(dest)) {
+				return ir_err;
+			}
+		}
+
+		struct copy_subdir_ctx new_ctx = {
+			.exclude_directories = ctx->exclude_directories,
+			.exclude_files = ctx->exclude_files,
+			.src_root = ctx->src_root,
+			.src_base = src,
+			.dest_base = dest,
+			.wk = ctx->wk,
+		};
+
+		if (!fs_dir_foreach(src, &new_ctx, copy_subdir_iter)) {
+			return ir_err;
+		}
+	} else if (fs_symlink_exists(src) || fs_file_exists(src)) {
+		if (ctx->exclude_files &&
+		    obj_array_in(ctx->wk, ctx->exclude_files, make_str(ctx->wk, rel))) {
+			LOG_I("skipping file '%s'", src);
+			return ir_cont;
+		}
+
+		LOG_I("install '%s' -> '%s'", src, dest);
+
+		if (!fs_copy_file(src, dest)) {
+			return ir_err;
+		}
+	} else {
+		LOG_E("unhandled file type '%s'", path);
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 struct install_ctx {
 	struct install_options *opts;
 	obj prefix;
@@ -32,6 +104,8 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	const char *dest = get_cstr(wk, in->dest),
 		   *src = get_cstr(wk, in->src);
 
+	assert(path_is_absolute(src));
+
 	if (ctx->destdir) {
 		static char full_dest_dir[PATH_MAX];
 		if (!path_join_absolute(full_dest_dir, PATH_MAX, get_cstr(wk, ctx->destdir), dest)) {
@@ -41,41 +115,72 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		dest = full_dest_dir;
 	}
 
-	if (!path_dirname(dest_dirname, PATH_MAX, dest)) {
-		return ir_err;
+	switch (in->type) {
+	case install_target_default:
+		LOG_I("install '%s' -> '%s'", src, dest);
+		break;
+	case install_target_subdir:
+		LOG_I("install subdir '%s' -> '%s'", src, dest);
+		break;
+	default:
+		abort();
 	}
-
-	assert(path_is_absolute(src));
-
-	LOG_I("install '%s' -> '%s'", src, dest);
 
 	if (ctx->opts->dry_run) {
 		return ir_cont;
 	}
 
-	if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
-		LOG_E("dest '%s' exists and is not a directory", dest_dirname);
-		return ir_err;
-	}
-
-	if (!fs_mkdir_p(dest_dirname)) {
-		return ir_err;
-	}
-
-	if (fs_dir_exists(src)) {
-		if (!fs_copy_dir(src, dest)) {
+	switch (in->type) {
+	case install_target_default:
+		if (!path_dirname(dest_dirname, PATH_MAX, dest)) {
 			return ir_err;
 		}
-	} else {
-		if (!fs_copy_file(src, dest)) {
-			return ir_err;
-		}
-	}
 
-	if (in->build_target) {
-		if (!fix_rpaths(dest, wk->build_root)) {
+		if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
+			LOG_E("dest '%s' exists and is not a directory", dest_dirname);
 			return ir_err;
 		}
+
+		if (!fs_mkdir_p(dest_dirname)) {
+			return ir_err;
+		}
+
+		if (fs_dir_exists(src)) {
+			if (!fs_copy_dir(src, dest)) {
+				return ir_err;
+			}
+		} else {
+			if (!fs_copy_file(src, dest)) {
+				return ir_err;
+			}
+		}
+
+		if (in->build_target) {
+			if (!fix_rpaths(dest, wk->build_root)) {
+				return ir_err;
+			}
+		}
+		break;
+	case install_target_subdir:
+		if (!fs_mkdir_p(dest)) {
+			return ir_err;
+		}
+
+		struct copy_subdir_ctx ctx = {
+			.exclude_directories = in->exclude_directories,
+			.exclude_files = in->exclude_files,
+			.src_root = src,
+			.src_base = src,
+			.dest_base = dest,
+			.wk = wk,
+		};
+
+		if (!fs_dir_foreach(src, &ctx, copy_subdir_iter)) {
+			return ir_err;
+		}
+		break;
+	default:
+		abort();
 	}
 
 	return ir_cont;

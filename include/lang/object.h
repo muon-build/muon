@@ -349,10 +349,18 @@ struct obj_compiler {
 	enum compiler_language lang;
 };
 
+enum install_target_type {
+	install_target_default,
+	install_target_subdir,
+};
+
 struct obj_install_target {
 	obj src;
 	obj dest;
 	obj mode;
+	obj exclude_directories; // obj_array of obj_string
+	obj exclude_files; // obj_array of obj_string
+	enum install_target_type type;
 	bool build_target;
 };
 
