@@ -1697,12 +1697,14 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		kw_static, // TODO
 		kw_disabler,
 		kw_has_headers, // TODO
+		kw_dirs,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_static] = { "static", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_has_headers] = { "has_headers", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
@@ -1725,6 +1727,18 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.lib_name = an[0].val
 	};
 	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
+
+	bool found_from_dirs_kw = false;
+
+	if (akw[kw_dirs].set) {
+		if (!obj_array_foreach(wk, akw[kw_dirs].val, &ctx, compiler_find_library_iter)) {
+			return false;
+		}
+
+		if (ctx.found) {
+			found_from_dirs_kw = true;
+		}
+	}
 
 	if (!ctx.found) {
 		if (!obj_array_foreach(wk, comp->libdirs, &ctx, compiler_find_library_iter)) {
@@ -1752,6 +1766,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			get_obj_external_library(wk, *res);
 		ep->found = true;
 		ep->full_path = make_str(wk, ctx.path);
+		ep->custom_dir = found_from_dirs_kw;
 	}
 
 	return true;

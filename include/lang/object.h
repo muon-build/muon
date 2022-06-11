@@ -311,6 +311,7 @@ struct obj_external_program {
 struct obj_external_library {
 	obj full_path;
 	bool found;
+	bool custom_dir;
 };
 
 enum run_result_flags {
