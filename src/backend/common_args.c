@@ -8,7 +8,6 @@
 #include "error.h"
 #include "functions/dependency.h"
 #include "log.h"
-/* #include "options.h" */
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -480,4 +479,64 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 
 		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.end_group());
 	}
+}
+
+/* */
+
+struct relativize_paths_ctx {
+	bool relativize_strings;
+	obj dest;
+};
+
+static enum iteration_result
+relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct relativize_paths_ctx *ctx = _ctx;
+
+	const char *str;
+
+	if (get_obj_type(wk, val) == obj_string) {
+		if (ctx->relativize_strings) {
+			str = get_cstr(wk, val);
+		} else {
+			obj_array_push(wk, ctx->dest, val);
+			return ir_cont;
+		}
+	} else {
+		str = get_file_path(wk, val);
+	}
+
+	char buf[PATH_MAX];
+	if (!path_relative_to(buf, PATH_MAX, wk->build_root, str)) {
+		return ir_err;
+	}
+
+	obj_array_push(wk, ctx->dest, make_str(wk, buf));
+	return ir_cont;
+}
+
+bool
+relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res)
+{
+	make_obj(wk, res, obj_array);
+	struct relativize_paths_ctx ctx = {
+		.relativize_strings = relativize_strings,
+		.dest = *res,
+	};
+
+	return obj_array_foreach(wk, arr, &ctx, relativize_paths_iter);
+}
+
+bool
+relativize_path_push(struct workspace *wk, obj path, obj arr)
+{
+	struct relativize_paths_ctx ctx = {
+		.dest = arr,
+	};
+
+	if (relativize_paths_iter(wk, &ctx, path) == ir_err) {
+		return false;
+	}
+
+	return true;
 }

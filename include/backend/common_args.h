@@ -27,4 +27,7 @@ struct setup_compiler_args_includes_ctx {
 	enum compiler_type t;
 };
 enum iteration_result setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v);
+
+bool relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res);
+bool relativize_path_push(struct workspace *wk, obj path, obj arr);
 #endif

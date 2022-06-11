@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include "args.h"
+#include "backend/common_args.h"
 #include "backend/ninja.h"
 #include "backend/ninja/custom_target.h"
 #include "lang/serial.h"
@@ -12,25 +13,6 @@
 // appended to custom_target environment files to make them unique
 static uint32_t custom_tgt_env_sequence = 0;
 
-static enum iteration_result
-relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	obj *dest = _ctx;
-	if (get_obj_type(wk, val) == obj_string) {
-		obj_array_push(wk, *dest, val);
-		return ir_cont;
-	}
-
-	char buf[PATH_MAX];
-
-	if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_file_path(wk, val))) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, *dest, make_str(wk, buf));
-	return ir_cont;
-}
-
 bool
 ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ctx)
 {
@@ -40,14 +22,14 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	obj outputs, inputs = 0, cmdline;
 
 	if (tgt->input) {
-		make_obj(wk, &inputs, obj_array);
-		if (!obj_array_foreach(wk, tgt->input, &inputs, relativize_paths_iter)) {
+		if (!relativize_paths(wk, tgt->input, false, &inputs)) {
 			return ir_err;
 		}
 	}
+
 	make_obj(wk, &outputs, obj_array);
 	if (tgt->output) {
-		if (!obj_array_foreach(wk, tgt->output, &outputs, relativize_paths_iter)) {
+		if (!relativize_paths(wk, tgt->output, false, &outputs)) {
 			return ir_err;
 		}
 	} else {
@@ -74,7 +56,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj elem;
 		obj_array_index(wk, tgt->output, 0, &elem);
 
-		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
+		if (!relativize_path_push(wk, elem, cmdline)) {
 			return ir_err;
 		}
 	}
@@ -85,7 +67,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj elem;
 		obj_array_index(wk, tgt->input, 0, &elem);
 
-		if (relativize_paths_iter(wk, &cmdline, elem) == ir_err) {
+		if (!relativize_path_push(wk, elem, cmdline)) {
 			return ir_err;
 		}
 	}
@@ -128,8 +110,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	}
 
 	obj depends_rel;
-	make_obj(wk, &depends_rel, obj_array);
-	if (!obj_array_foreach(wk, tgt->depends, &depends_rel, relativize_paths_iter)) {
+	if (!relativize_paths(wk, tgt->depends, false, &depends_rel)) {
 		return ir_err;
 	}
 
