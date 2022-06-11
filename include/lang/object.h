@@ -200,6 +200,29 @@ enum build_tgt_flags {
 	build_tgt_flag_installed = 1 << 5,
 };
 
+struct build_dep {
+	obj link_whole; // obj_array
+
+	obj link_with; // obj_array
+	obj link_with_not_found; // obj_array
+
+	obj link_args; // obj_array
+	obj compile_args; // obj_array
+
+	obj include_directories; // obj_array
+
+	obj sources; // obj_array
+
+	obj order_deps; // obj_array
+	obj rpath; // obj_array
+
+	struct {
+		obj deps;
+		obj link_with;
+		obj link_whole;
+	} raw;
+};
+
 struct obj_build_target {
 	obj name; // obj_string
 	obj build_name; // obj_string
@@ -210,16 +233,12 @@ struct obj_build_target {
 	obj soname; // obj_string
 	obj src; // obj_array
 	obj objects; // obj_array
-	obj link_with; // obj_array
-	obj link_whole; // obj_array
-	obj include_directories; // obj_array
-	obj deps; // obj_array
 	obj args; // obj_dict
-	obj link_args; // obj_array
 	obj link_depends; // obj_array
-	obj order_deps; // obj_array
 	obj generated_pc; // obj_string
 	obj override_options; // obj_array
+
+	struct build_dep dep;
 
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
@@ -262,18 +281,7 @@ enum dependency_type {
 };
 
 enum dep_flags {
-	dep_flag_found        = 1 << 0,
-	// partial dependencies
-	dep_flag_no_compile_args = 1 << 2,
-	dep_flag_no_includes     = 1 << 3,
-	dep_flag_no_link_args    = 1 << 4,
-	dep_flag_no_links        = 1 << 5,
-	dep_flag_no_sources      = 1 << 6,
-	dep_flag_parts = dep_flag_no_compile_args
-			 | dep_flag_no_includes
-			 | dep_flag_no_link_args
-			 | dep_flag_no_links
-			 | dep_flag_no_sources,
+	dep_flag_found = 1 << 0,
 };
 
 enum include_type {
@@ -285,14 +293,10 @@ enum include_type {
 struct obj_dependency {
 	obj name; // obj_string
 	obj version; // obj_string
-	obj link_with; // obj_array
-	obj link_with_not_found; // obj_array
-	obj link_args; // obj_array
-	obj include_directories; // obj_array
 	obj variables; // obj_dict
-	obj sources; // obj_array
-	obj deps; // obj_array
-	obj compile_args; // obj_array
+
+	struct build_dep dep;
+
 	enum dep_flags flags;
 	enum dependency_type type;
 	enum include_type include_type;

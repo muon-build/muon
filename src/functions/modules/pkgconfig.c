@@ -251,9 +251,9 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 
-			if (tgt->deps) {
+			if (tgt->dep.raw.deps) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->deps, ctx->pc, pkgconf_visibility_priv, false)) {
+					tgt->dep.raw.deps, ctx->pc, pkgconf_visibility_priv, false)) {
 					return ir_err;
 				}
 			}
@@ -263,16 +263,16 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 				? pkgconf_visibility_pub
 				: pkgconf_visibility_priv;
 
-			if (tgt->link_with) {
+			if (tgt->dep.raw.link_with) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->link_with, ctx->pc, link_vis, false)) {
+					tgt->dep.raw.link_with, ctx->pc, link_vis, false)) {
 					return ir_err;
 				}
 			}
 
-			if (tgt->link_whole) {
+			if (tgt->dep.raw.link_whole) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->link_whole, ctx->pc, link_vis, true)) {
+					tgt->dep.raw.link_whole, ctx->pc, link_vis, true)) {
 					return ir_err;
 				}
 			}
@@ -302,20 +302,23 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 
 		switch (dep->type) {
 		case dependency_type_declared: {
-			if (dep->compile_args && !(dep->flags & dep_flag_no_compile_args)) {
-				obj_array_extend(wk, ctx->pc->cflags, dep->compile_args);
+			// TODO: I'm pretty sure this doesn't obey partial
+			// dependency semantics if this is a sub dependency of
+			// a partial dep with compile_args: false
+			if (dep->dep.compile_args) {
+				obj_array_extend(wk, ctx->pc->cflags, dep->dep.compile_args);
 			}
 
-			if (dep->link_with) {
+			if (dep->dep.raw.link_with) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					dep->link_with, ctx->pc, ctx->vis, false)) {
+					dep->dep.raw.link_with, ctx->pc, ctx->vis, false)) {
 					return ir_err;
 				}
 			}
 
-			if (dep->deps) {
+			if (dep->dep.raw.deps) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					dep->deps, ctx->pc, pkgconf_visibility_priv, false)) {
+					dep->dep.raw.deps, ctx->pc, pkgconf_visibility_priv, false)) {
 					return ir_err;
 				}
 			}

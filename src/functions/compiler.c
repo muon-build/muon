@@ -11,7 +11,7 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
-#include "functions/dependency.h"
+#include "functions/default/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -166,22 +166,17 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	push_args(wk, compiler_args, compilers[t].args.output(output));
 
 	if (opts->deps && opts->deps->set) {
-		struct dep_args_ctx da_ctx;
-		dep_args_ctx_init(wk, &da_ctx);
-
-		if (!deps_args(wk, opts->deps->val, &da_ctx)) {
-			interp_error(wk, opts->deps->node, "unable to get dependency arguments");
-			return false;
-		}
+		struct build_dep dep = { 0 };
+		dep_process_deps(wk, opts->deps->val, &dep);
 
 		struct setup_linker_args_ctx sctx = {
 			.linker = compilers[t].linker,
 			.link_lang = comp->lang,
-			.args = &da_ctx
+			.args = &dep
 		};
 
 		setup_linker_args(wk, NULL, NULL, &sctx);
-		obj_array_extend_nodup(wk, compiler_args, da_ctx.link_args);
+		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 
 	if (opts->args) {
@@ -1731,8 +1726,10 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	};
 	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
 
-	if (!obj_array_foreach(wk, comp->libdirs, &ctx, compiler_find_library_iter)) {
-		return false;
+	if (!ctx.found) {
+		if (!obj_array_foreach(wk, comp->libdirs, &ctx, compiler_find_library_iter)) {
+			return false;
+		}
 	}
 
 	if (!ctx.found) {

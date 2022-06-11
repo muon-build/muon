@@ -4,6 +4,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "external/libpkgconf.h"
 #include "functions/common.h"
 #include "functions/default/dependency.h"
@@ -14,6 +15,7 @@
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 #include "platform/run_cmd.h"
 
 enum dep_lib_mode {
@@ -192,11 +194,11 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	dep->version = ver_str;
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_pkgconf;
-	dep->link_with = info.libs;
-	dep->link_with_not_found = info.not_found_libs;
-	dep->include_directories = info.includes;
-	dep->compile_args = info.compile_args;
-	dep->link_args = info.link_args;
+	dep->dep.link_with = info.libs;
+	dep->dep.link_with_not_found = info.not_found_libs;
+	dep->dep.include_directories = info.includes;
+	dep->dep.compile_args = info.compile_args;
+	dep->dep.link_args = info.link_args;
 
 	*found = true;
 	return true;
@@ -333,11 +335,11 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		dep->flags |= dep_flag_found;
 		dep->type = dependency_type_threads;
 
-		make_obj(wk, &dep->compile_args, obj_array);
-		obj_array_push(wk, dep->compile_args, make_str(wk, "-pthread"));
+		make_obj(wk, &dep->dep.compile_args, obj_array);
+		obj_array_push(wk, dep->dep.compile_args, make_str(wk, "-pthread"));
 
-		make_obj(wk, &dep->link_args, obj_array);
-		obj_array_push(wk, dep->link_args, make_str(wk, "-pthread"));
+		make_obj(wk, &dep->dep.link_args, obj_array);
+		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		*handled = true;
 		ctx->name = make_str(wk, "ncurses");
@@ -539,7 +541,6 @@ coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	return ir_cont;
 }
-
 bool
 func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -580,20 +581,31 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		akw[kw_include_directories].val = inc_dirs;
 	}
 
+	struct obj_dependency *dep;
 	make_obj(wk, res, obj_dependency);
-	struct obj_dependency *dep = get_obj_dependency(wk, *res);
+	dep = get_obj_dependency(wk, *res);
+	build_dep_init(wk, &dep->dep);
+
+	if (akw[kw_dependencies].set) {
+		dep->dep.raw.deps = akw[kw_dependencies].val;
+		dep_process_deps(wk, akw[kw_dependencies].val, &dep->dep);
+	}
 
 	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
 		get_cstr(wk, current_project(wk)->cfg.name),
 		wk->src->label,
 		get_node(wk->ast, args_node)->line);
-
-	dep->link_args = akw[kw_link_args].val;
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
 	dep->variables = akw[kw_variables].val;
-	dep->deps = akw[kw_dependencies].val;
-	dep->compile_args = akw[kw_compile_args].val;
+
+	if (akw[kw_link_args].set) {
+		obj_array_extend_nodup(wk, dep->dep.link_args, akw[kw_link_args].val);
+	}
+
+	if (akw[kw_compile_args].set) {
+		obj_array_extend_nodup(wk, dep->dep.compile_args, akw[kw_compile_args].val);
+	}
 
 	if (akw[kw_version].set) {
 		dep->version = akw[kw_version].val;
@@ -602,11 +614,9 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	}
 
 	if (akw[kw_sources].set) {
-		make_obj(wk, &dep->sources, obj_array);
-
 		struct process_dependency_sources_ctx ctx = {
 			.err_node = akw[kw_sources].node,
-			.res = dep->sources,
+			.res = dep->dep.sources,
 		};
 
 		if (!obj_array_foreach_flat(wk, akw[kw_sources].val, &ctx, coerce_dependency_sources_iter)) {
@@ -614,18 +624,300 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		}
 	}
 
-	make_obj(wk, &dep->link_with, obj_array);
 	if (akw[kw_link_with].set) {
-		obj_array_extend(wk, dep->link_with, akw[kw_link_with].val);
+		dep->dep.raw.link_with = akw[kw_link_with].val;
+		dep_process_link_with(wk, akw[kw_link_with].val, &dep->dep);
 	}
 
 	if (akw[kw_link_whole].set) {
-		obj_array_extend(wk, dep->link_with, akw[kw_link_whole].val);
+		dep->dep.raw.link_whole = akw[kw_link_whole].val;
+		dep_process_link_with(wk, akw[kw_link_whole].val, &dep->dep);
 	}
 
 	if (akw[kw_include_directories].set) {
-		dep->include_directories = akw[kw_include_directories].val;
+		dep_process_includes(wk, akw[kw_include_directories].val, include_type_preserve, dep->dep.include_directories);
 	}
 
 	return true;
+}
+
+/*
+ */
+
+struct dep_process_includes_ctx {
+	obj dest;
+	enum include_type include_type;
+};
+
+static enum iteration_result
+dep_process_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
+{
+	struct dep_process_includes_ctx *ctx = _ctx;
+
+	struct obj_include_directory *inc = get_obj_include_directory(wk, inc_id);
+
+	bool new_is_system = inc->is_system;
+
+	switch (ctx->include_type) {
+	case include_type_preserve:
+		break;
+	case include_type_system:
+		new_is_system = true;
+		break;
+	case include_type_non_system:
+		new_is_system = false;
+		break;
+	}
+
+	if (inc->is_system != new_is_system) {
+		make_obj(wk, &inc_id, obj_include_directory);
+		struct obj_include_directory *new_inc =
+			get_obj_include_directory(wk, inc_id);
+		*new_inc = *inc;
+		new_inc->is_system = new_is_system;
+	}
+
+	obj_array_push(wk, ctx->dest, inc_id);
+	return ir_cont;
+}
+
+void
+dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, obj dest)
+{
+	obj_array_foreach_flat(wk, arr, &(struct dep_process_includes_ctx) {
+		.include_type = include_type,
+		.dest = dest,
+	}, dep_process_includes_iter);
+}
+
+void
+build_dep_init(struct workspace *wk, struct build_dep *dep)
+{
+	if (!dep->raw.deps) {
+		make_obj(wk, &dep->raw.deps, obj_array);
+	}
+
+	if (!dep->raw.link_with) {
+		make_obj(wk, &dep->raw.link_with, obj_array);
+	}
+
+	if (!dep->raw.link_whole) {
+		make_obj(wk, &dep->raw.link_whole, obj_array);
+	}
+
+	if (!dep->include_directories) {
+		make_obj(wk, &dep->include_directories, obj_array);
+	}
+
+	if (!dep->link_with) {
+		make_obj(wk, &dep->link_with, obj_array);
+	}
+
+	if (!dep->link_whole) {
+		make_obj(wk, &dep->link_whole, obj_array);
+	}
+
+	if (!dep->link_with_not_found) {
+		make_obj(wk, &dep->link_with_not_found, obj_array);
+	}
+
+	if (!dep->link_args) {
+		make_obj(wk, &dep->link_args, obj_array);
+	}
+
+	if (!dep->compile_args) {
+		make_obj(wk, &dep->compile_args, obj_array);
+	}
+
+	if (!dep->order_deps) {
+		make_obj(wk, &dep->order_deps, obj_array);
+	}
+
+	if (!dep->rpath) {
+		make_obj(wk, &dep->rpath, obj_array);
+	}
+
+	if (!dep->sources) {
+		make_obj(wk, &dep->sources, obj_array);
+	}
+}
+
+static void
+merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *dest)
+{
+	build_dep_init(wk, dest);
+
+	if (src->link_with) {
+		obj_array_extend(wk, dest->link_with, src->link_with);
+	}
+
+	if (src->link_with_not_found) {
+		obj_array_extend(wk, dest->link_with_not_found, src->link_with_not_found);
+	}
+
+	if (src->link_whole) {
+		obj_array_extend(wk, dest->link_whole, src->link_whole);
+	}
+
+	if (src->raw.deps) {
+		obj_array_extend(wk, dest->raw.deps, src->raw.deps);
+	}
+
+	if (src->raw.link_with) {
+		obj_array_extend(wk, dest->raw.link_with, src->raw.link_with);
+	}
+
+	if (src->raw.link_whole) {
+		obj_array_extend(wk, dest->raw.link_whole, src->raw.link_whole);
+	}
+
+	if (src->include_directories) {
+		obj_array_extend(wk, dest->include_directories, src->include_directories);
+	}
+
+	if (src->link_args) {
+		obj_array_extend(wk, dest->link_args, src->link_args);
+	}
+
+	if (src->compile_args) {
+		obj_array_extend(wk, dest->compile_args, src->compile_args);
+	}
+
+	if (src->rpath) {
+		obj_array_extend(wk, dest->rpath, src->rpath);
+	}
+
+	if (src->order_deps) {
+		obj_array_extend(wk, dest->order_deps, src->order_deps);
+	}
+
+	if (src->sources) {
+		obj_array_extend(wk, dest->sources, src->sources);
+	}
+}
+
+
+static enum iteration_result
+dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct build_dep *dest = _ctx;
+	enum obj_type t = get_obj_type(wk, val);
+
+	/* obj_fprintf(wk, log_file(), "lw-dep: %o\n", val); */
+
+	switch (t) {
+	case obj_both_libs:
+		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	/* fallthrough */
+	case obj_build_target: {
+		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+		const char *path = get_cstr(wk, tgt->build_path);
+
+		if (tgt->type != tgt_executable) {
+			obj_array_push(wk, dest->link_with, make_str(wk, path));
+		}
+
+		// calculate rpath for this target
+		// we always want an absolute path here, regardles of
+		// ctx->relativize
+		if (tgt->type == tgt_dynamic_library) {
+			char dir[PATH_MAX], abs[PATH_MAX];
+			const char *p;
+			if (!path_dirname(dir, PATH_MAX, path)) {
+				return ir_err;
+			}
+
+			if (path_is_absolute(dir)) {
+				p = dir;
+			} else {
+				if (!path_join(abs, PATH_MAX, wk->build_root, dir)) {
+					return ir_err;
+				}
+				p = abs;
+			}
+
+			obj s = make_str(wk, p);
+
+			if (!obj_array_in(wk, dest->rpath, s)) {
+				obj_array_push(wk, dest->rpath, s);
+			}
+		}
+
+		merge_build_deps(wk, &tgt->dep, dest);
+		break;
+	}
+	case obj_custom_target: {
+		obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, dest, dep_process_link_with_iter);
+		break;
+	}
+	case obj_file: {
+		obj_array_push(wk, dest->link_with, *get_obj_file(wk, val));
+		break;
+	}
+	case obj_string:
+		obj_array_push(wk, dest->link_with, val);
+		break;
+	default:
+		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(t));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+void
+dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest)
+{
+	build_dep_init(wk, dest);
+	obj_array_foreach_flat(wk, arr, dest, dep_process_link_with_iter);
+}
+
+static enum iteration_result
+dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	if (hash_get(&wk->obj_hash, &val)) {
+		return ir_cont;
+	}
+	hash_set(&wk->obj_hash, &val, true);
+
+	struct build_dep *dest = _ctx;
+	enum obj_type t = get_obj_type(wk, val);
+
+	/* obj_fprintf(wk, log_file(), "%d|dep: %o\n", ctx->recursion_depth, val); */
+
+	switch (t) {
+	case obj_dependency: {
+		struct obj_dependency *dep = get_obj_dependency(wk, val);
+		if (!(dep->flags & dep_flag_found)) {
+			return ir_cont;
+		}
+
+		merge_build_deps(wk, &dep->dep, dest);
+		break;
+	}
+	case obj_external_library: {
+		struct obj_external_library *lib = get_obj_external_library(wk, val);
+
+		if (!lib->found) {
+			return ir_cont;
+		}
+
+		obj_array_push(wk, dest->link_with, lib->full_path);
+		break;
+	}
+	default:
+		LOG_E("invalid type for dependency: %s", obj_type_to_s(t));
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+void
+dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
+{
+	build_dep_init(wk, dest);
+
+	hash_clear(&wk->obj_hash);
+	obj_array_foreach(wk, deps, dest, dep_process_deps_iter);
 }

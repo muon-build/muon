@@ -8,7 +8,7 @@
 #include "backend/ninja/build_target.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "functions/dependency.h"
+#include "functions/default/dependency.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -18,7 +18,7 @@ struct write_tgt_iter_ctx {
 	FILE *out;
 	const struct obj_build_target *tgt;
 	const struct project *proj;
-	struct dep_args_ctx args;
+	struct build_dep args;
 	obj joined_args;
 	obj object_names;
 	obj order_deps;
@@ -122,62 +122,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static enum iteration_result
-tgt_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
-{
-	struct dep_args_ctx *ctx = _ctx;
-
-	obj_array_push(wk, ctx->include_dirs, inc_id);
-	return ir_cont;
-}
-
-static bool
-tgt_args(struct workspace *wk, const struct obj_build_target *tgt, struct dep_args_ctx *ctx)
-{
-	// If we generated a header file for this target, add the private path
-	// to the list of include directories.
-	if (tgt->flags & build_tgt_generated_include) {
-		const char *private_path = get_cstr(wk, tgt->private_path);
-
-		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(private_path)) {
-			return false;
-		}
-
-		obj_array_push(wk, ctx->include_dirs, make_str(wk, private_path));
-	}
-
-	if (tgt->include_directories) {
-		if (!obj_array_foreach_flat(wk, tgt->include_directories,
-			ctx, tgt_args_includes_iter)) {
-			return false;
-		}
-	}
-
-	if (tgt->deps) {
-		if (!deps_args(wk, tgt->deps, ctx)) {
-			return false;
-		}
-	}
-
-	if (tgt->link_with) {
-		if (!deps_args_link_with_only(wk, tgt->link_with, ctx)) {
-			return false;
-		}
-	}
-
-	if (tgt->link_whole) {
-		if (!deps_args_link_with_only(wk, tgt->link_whole, ctx)) {
-			return false;
-		}
-	}
-
-	if (tgt->link_args) {
-		obj_array_extend(wk, ctx->link_args, tgt->link_args);
-	}
-	return true;
-}
-
 bool
 ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wctx)
 {
@@ -203,23 +147,34 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	make_obj(wk, &ctx.object_names, obj_array);
 
-	dep_args_ctx_init(wk, &ctx.args);
-	ctx.args.relativize = true;
-	ctx.args.recursive = true;
+	ctx.args = tgt->dep;
 
-	if (!tgt_args(wk, tgt, &ctx.args)) {
+	if (!relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with)) {
 		return false;
 	}
 
-	{ /* order deps */
-		obj_array_extend(wk, ctx.args.order_deps, tgt->order_deps);
+	if (tgt->flags & build_tgt_generated_include) {
+		const char *private_path = get_cstr(wk, tgt->private_path);
 
+		// mkdir so that the include dir doesn't get pruned later on
+		if (!fs_mkdir_p(private_path)) {
+			return false;
+		}
+
+		obj inc;
+		make_obj(wk, &inc, obj_array);
+		obj_array_push(wk, inc, make_str(wk, private_path));
+		obj_array_extend_nodup(wk, inc, ctx.args.include_directories);
+		ctx.args.include_directories = inc;
+	}
+
+	{ /* order deps */
 		if ((ctx.have_order_deps = get_obj_array(wk, ctx.args.order_deps)->len)) {
 			ctx.order_deps = join_args_ninja(wk, ctx.args.order_deps);
 		}
 	}
 
-	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_dirs, ctx.args.compile_args, &ctx.joined_args)) {
+	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_directories, ctx.args.compile_args, &ctx.joined_args)) {
 		return false;
 	}
 

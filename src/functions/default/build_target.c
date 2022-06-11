@@ -8,6 +8,7 @@
 #include "error.h"
 #include "functions/build_target.h"
 #include "functions/default/build_target.h"
+#include "functions/default/dependency.h"
 #include "functions/file.h"
 #include "functions/generator.h"
 #include "lang/interpreter.h"
@@ -161,7 +162,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	}
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-	obj_array_push(wk, tgt->order_deps, make_str(wk, path));
+	obj_array_push(wk, tgt->dep.order_deps, make_str(wk, path));
 
 	if (!ctx->implicit_include_directories) {
 		return true;
@@ -175,7 +176,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
 	d->path = make_str(wk, dir);
-	obj_array_push(wk, tgt->include_directories, inc);
+	obj_array_push(wk, tgt->dep.include_directories, inc);
 
 	return true;
 }
@@ -187,7 +188,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 	if (file_is_linkable(wk, val)) {
 		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-		obj_array_push(wk, tgt->link_with, val);
+		obj_array_push(wk, tgt->dep.link_with, val);
 		return ir_cont;
 	}
 
@@ -231,40 +232,6 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	obj_array_foreach(wk, res, ctx, build_tgt_push_source_files_iter);
-	return ir_cont;
-}
-
-static enum iteration_result
-add_dep_sources_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct process_build_tgt_sources_ctx *ctx = _ctx;
-
-	enum obj_type t = get_obj_type(wk, val);
-
-	switch (t) {
-	case obj_external_library:
-		return ir_cont;
-	case obj_dependency:
-		break;
-	default:
-		interp_error(wk, ctx->err_node, "invalid dependency: %o", val);
-		return ir_err;
-	}
-
-	struct obj_dependency *dep = get_obj_dependency(wk, val);
-
-	if (!(dep->flags & dep_flag_no_sources)) {
-		if (dep->sources) {
-			if (!obj_array_foreach_flat(wk, dep->sources, ctx, process_build_tgt_sources_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (dep->deps) {
-			obj_array_foreach(wk, dep->deps, ctx, add_dep_sources_iter);
-		}
-	}
-
 	return ir_cont;
 }
 
@@ -417,9 +384,12 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->args, obj_dict);
-	make_obj(wk, &tgt->include_directories, obj_array);
-	make_obj(wk, &tgt->order_deps, obj_array);
-	make_obj(wk, &tgt->link_with, obj_array);
+	build_dep_init(wk, &tgt->dep);
+
+	if (akw[bt_kw_dependencies].set) {
+		tgt->dep.raw.deps = akw[bt_kw_dependencies].val;
+		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep);
+	}
 
 	if (akw[bt_kw_override_options].set) { // override options
 		if (!parse_and_set_override_options(wk,
@@ -511,14 +481,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 				? get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val)
 				: true;
 
-	/* struct process_source_includes_ctx ctx = { */
-	/* 	.tgt = tgt, */
-	/* 	.implicit_include_directories = implicit_include_directories, */
-	/* }; */
-	/* if (!obj_array_foreach(wk, tgt->src, &ctx, process_source_includes_iter)) { */
-	/* 	return false; */
-	/* } */
-
 	{ // sources
 		if (akw[bt_kw_objects].set) {
 			if (!coerce_files(wk, akw[bt_kw_objects].node, akw[bt_kw_objects].val, &tgt->objects)) {
@@ -531,6 +493,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		if (akw[bt_kw_sources].set) {
 			obj_array_extend(wk, an[1].val, akw[bt_kw_sources].val);
 		}
+
+		obj_array_extend(wk, an[1].val, tgt->dep.sources);
 
 		make_obj(wk, &tgt->src, obj_array);
 
@@ -545,18 +509,13 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		if (akw[bt_kw_dependencies].set) {
-			tgt->deps = akw[bt_kw_dependencies].val;
-			ctx.err_node = akw[bt_kw_dependencies].node,
-			obj_array_foreach(wk, tgt->deps, &ctx, add_dep_sources_iter);
-		}
-
 		if (!get_obj_array(wk, tgt->src)->len &&
 		    !get_obj_array(wk, tgt->objects)->len &&
-		    !akw[bt_kw_link_whole].set) {
+		    !akw[bt_kw_link_whole].set
+		    && tgt->type != tgt_static_library) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
-			interp_error(wk, node, "sources must not be empty unless link_whole is specified");
+			interp_error(wk, node, "target declared with no linkable sources");
 			return false;
 		}
 
@@ -585,7 +544,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			return false;
 		}
 
-		obj_array_extend_nodup(wk, tgt->include_directories, coerced);
+		obj_array_extend_nodup(wk, coerced, tgt->dep.include_directories);
+		tgt->dep.include_directories = coerced;
 	}
 
 	{ // compiler args
@@ -608,16 +568,17 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 	{ // linker args
 		if (akw[bt_kw_link_args].set) {
-			tgt->link_args = akw[bt_kw_link_args].val;
+			obj_array_extend(wk, tgt->dep.link_args, akw[bt_kw_link_args].val);
 		}
 
 		if (akw[bt_kw_link_with].set) {
-			obj_array_extend(wk, tgt->link_with, akw[bt_kw_link_with].val);
+			tgt->dep.raw.link_with = akw[bt_kw_link_with].val;
+			dep_process_link_with(wk, akw[bt_kw_link_with].val, &tgt->dep);
 		}
 
-		make_obj(wk, &tgt->link_whole, obj_array);
 		if (akw[bt_kw_link_whole].set) {
-			obj_array_extend(wk, tgt->link_whole, akw[bt_kw_link_whole].val);
+			tgt->dep.raw.link_whole = akw[bt_kw_link_whole].val;
+			dep_process_link_with(wk, akw[bt_kw_link_whole].val, &tgt->dep);
 		}
 	}
 

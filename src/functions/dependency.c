@@ -6,270 +6,11 @@
 #include "external/libpkgconf.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
+#include "functions/default/dependency.h"
 #include "functions/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/path.h"
-
-static enum iteration_result
-dep_args_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
-{
-	struct dep_args_ctx *ctx = _ctx;
-
-	struct obj_include_directory *inc = get_obj_include_directory(wk, inc_id);
-
-	bool new_is_system = inc->is_system;
-
-	switch (ctx->include_type) {
-	case include_type_preserve:
-		break;
-	case include_type_system:
-		new_is_system = true;
-		break;
-	case include_type_non_system:
-		new_is_system = false;
-		break;
-	}
-
-	if (inc->is_system != new_is_system) {
-		make_obj(wk, &inc_id, obj_include_directory);
-		struct obj_include_directory *new_inc =
-			get_obj_include_directory(wk, inc_id);
-		*new_inc = *inc;
-		new_inc->is_system = new_is_system;
-	}
-
-	obj_array_push(wk, ctx->include_dirs, inc_id);
-	return ir_cont;
-}
-
-static enum iteration_result dep_args_iter(struct workspace *wk, void *_ctx, obj val);
-
-static enum iteration_result
-dep_args_link_with_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct dep_args_ctx *ctx = _ctx;
-	enum obj_type t = get_obj_type(wk, val);
-
-	/* obj_fprintf(wk, log_file(), "lw-dep: %o\n", val); */
-
-	switch (t) {
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
-	/* fallthrough */
-	case obj_build_target: {
-		struct obj_build_target *tgt = get_obj_build_target(wk, val);
-
-		const char *path = get_cstr(wk, tgt->build_path);
-		char rel[PATH_MAX];
-		if (ctx->relativize) {
-			if (!path_relative_to(rel, PATH_MAX, wk->build_root, path)) {
-				return false;
-			}
-
-			path = rel;
-		}
-
-		if (tgt->type != tgt_executable) {
-			obj_array_push(wk, ctx->link_with, make_str(wk, path));
-		}
-
-		// calculate rpath for this target
-		// we always want an absolute path here, regardles of
-		// ctx->relativize
-		if (tgt->type == tgt_dynamic_library) {
-			char dir[PATH_MAX], abs[PATH_MAX];
-			const char *p;
-			if (!path_dirname(dir, PATH_MAX, path)) {
-				return ir_err;
-			}
-
-			if (path_is_absolute(dir)) {
-				p = dir;
-			} else {
-				if (!path_join(abs, PATH_MAX, wk->build_root, dir)) {
-					return ir_err;
-				}
-				p = abs;
-			}
-
-			obj s = make_str(wk, p);
-
-			if (!obj_array_in(wk, ctx->rpath, s)) {
-				obj_array_push(wk, ctx->rpath, s);
-			}
-		}
-
-		if (ctx->recursive && tgt->deps) {
-			if (!obj_array_foreach(wk, tgt->deps, ctx, dep_args_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (tgt->link_with) {
-			if (!obj_array_foreach(wk, tgt->link_with, ctx, dep_args_link_with_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (tgt->link_whole) {
-			if (!obj_array_foreach(wk, tgt->link_whole, ctx, dep_args_link_with_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (get_obj_array(wk, tgt->order_deps)->len) {
-			obj_array_extend(wk, ctx->order_deps, tgt->order_deps);
-		}
-		break;
-	}
-	case obj_custom_target: {
-		obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx,
-			dep_args_link_with_iter);
-		break;
-	}
-	case obj_file: {
-		obj str;
-
-		if (ctx->relativize) {
-			char path[PATH_MAX];
-			if (!path_relative_to(path, PATH_MAX, wk->build_root, get_file_path(wk, val))) {
-				return ir_err;
-			}
-
-			str = make_str(wk, path);
-		} else {
-			str = *get_obj_file(wk, val);
-		}
-
-		obj_array_push(wk, ctx->link_with, str);
-		break;
-	}
-	case obj_string:
-		obj_array_push(wk, ctx->link_with, val);
-		break;
-	default:
-		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(t));
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static enum iteration_result
-dep_args_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	if (hash_get(&wk->obj_hash, &val)) {
-		return ir_cont;
-	}
-	hash_set(&wk->obj_hash, &val, true);
-
-	struct dep_args_ctx *ctx = _ctx;
-	enum obj_type t = get_obj_type(wk, val);
-
-	/* obj_fprintf(wk, log_file(), "%d|dep: %o\n", ctx->recursion_depth, val); */
-
-	switch (t) {
-	case obj_dependency: {
-		struct obj_dependency *dep = get_obj_dependency(wk, val);
-		enum dep_flags old_parts = ctx->parts;
-		ctx->parts = dep->flags & dep_flag_parts;
-
-		if (!(dep->flags & dep_flag_found)) {
-			return ir_cont;
-		}
-
-		if (dep->link_with && !(ctx->parts & dep_flag_no_links)) {
-			if (!obj_array_foreach(wk, dep->link_with, _ctx, dep_args_link_with_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (dep->link_with_not_found && !(ctx->parts & dep_flag_no_links)) {
-			obj_array_extend(wk, ctx->link_with_not_found, dep->link_with_not_found);
-		}
-
-		if (dep->include_directories && !(ctx->parts & dep_flag_no_includes)) {
-			ctx->include_type = dep->include_type;
-
-			if (!obj_array_foreach_flat(wk, dep->include_directories,
-				ctx, dep_args_includes_iter)) {
-				return ir_err;
-			}
-		}
-
-		if (dep->link_args && !(ctx->parts & dep_flag_no_link_args)) {
-			obj_array_extend(wk, ctx->link_args, dep->link_args);
-		}
-
-		if (dep->compile_args && !(ctx->parts & dep_flag_no_compile_args)) {
-			obj_array_extend(wk, ctx->compile_args, dep->compile_args);
-		}
-
-		if (ctx->recursive && dep->deps) {
-			if (!obj_array_foreach(wk, dep->deps, ctx, dep_args_iter)) {
-				return ir_err;
-			}
-		}
-
-		ctx->parts = old_parts;
-		break;
-	}
-	case obj_external_library: {
-		struct obj_external_library *lib = get_obj_external_library(wk, val);
-
-		if (!lib->found) {
-			return ir_cont;
-		}
-
-		obj_array_push(wk, ctx->link_with, lib->full_path);
-		break;
-	}
-	default:
-		LOG_E("invalid type for dependency: %s", obj_type_to_s(t));
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-void
-dep_args_ctx_init(struct workspace *wk, struct dep_args_ctx *ctx)
-{
-	*ctx = (struct dep_args_ctx) { 0 };
-
-	make_obj(wk, &ctx->include_dirs, obj_array);
-	make_obj(wk, &ctx->link_with, obj_array);
-	make_obj(wk, &ctx->link_with_not_found, obj_array);
-	make_obj(wk, &ctx->link_args, obj_array);
-	make_obj(wk, &ctx->compile_args, obj_array);
-	make_obj(wk, &ctx->order_deps, obj_array);
-	make_obj(wk, &ctx->rpath, obj_array);
-}
-
-bool
-deps_args_link_with_only(struct workspace *wk, obj link_with, struct dep_args_ctx *ctx)
-{
-	hash_clear(&wk->obj_hash);
-
-	return obj_array_foreach(wk, link_with, ctx, dep_args_link_with_iter);
-}
-
-bool
-deps_args(struct workspace *wk, obj deps, struct dep_args_ctx *ctx)
-{
-	hash_clear(&wk->obj_hash);
-
-	return obj_array_foreach(wk, deps, ctx, dep_args_iter);
-}
-
-bool
-dep_args(struct workspace *wk, obj dep, struct dep_args_ctx *ctx)
-{
-	hash_clear(&wk->obj_hash);
-
-	return dep_args_iter(wk, ctx, dep) != ir_err;
-}
 
 static bool
 func_dependency_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
@@ -469,29 +210,37 @@ func_dependency_partial_dependency(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	const enum dep_flags part[] = {
-		[kw_compile_args] = dep_flag_no_compile_args,
-		[kw_includes] = dep_flag_no_includes,
-		[kw_link_args] = dep_flag_no_link_args,
-		[kw_links] = dep_flag_no_links,
-		[kw_sources] = dep_flag_no_sources,
-		0
-	};
-
-	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
-	enum dep_flags exclude = dep->flags & dep_flag_parts;
-	enum kwargs kw;
-	for (kw = 0; part[kw]; ++kw) {
-		if (!(akw[kw].set && get_obj_bool(wk, akw[kw].val))) {
-			exclude |= part[kw];
-		}
-	}
-
 	make_obj(wk, res, obj_dependency);
-	struct obj_dependency *partial = get_obj_dependency(wk, *res);
+	struct obj_dependency *dep = get_obj_dependency(wk, rcvr),
+			      *partial = get_obj_dependency(wk, *res);
 
 	*partial = *dep;
-	partial->flags = (dep->flags & ~dep_flag_parts) | exclude;
+	partial->dep = (struct build_dep){ 0 };
+
+	if (akw[kw_compile_args].set && get_obj_bool(wk, akw[kw_compile_args].val)) {
+		partial->dep.compile_args = dep->dep.compile_args;
+	}
+
+	if (akw[kw_includes].set && get_obj_bool(wk, akw[kw_includes].val)) {
+		partial->dep.include_directories = dep->dep.include_directories;
+	}
+
+	if (akw[kw_link_args].set && get_obj_bool(wk, akw[kw_link_args].val)) {
+		partial->dep.link_args = dep->dep.link_args;
+	}
+
+	if (akw[kw_links].set && get_obj_bool(wk, akw[kw_links].val)) {
+		partial->dep.link_with = dep->dep.link_with;
+		partial->dep.link_whole = dep->dep.link_whole;
+		partial->dep.link_with_not_found = dep->dep.link_with_not_found;
+
+		partial->dep.raw.link_with = dep->dep.raw.link_with;
+		partial->dep.raw.link_whole = dep->dep.raw.link_whole;
+	}
+
+	if (akw[kw_sources].set && get_obj_bool(wk, akw[kw_sources].val)) {
+		partial->dep.sources = dep->dep.sources;
+	}
 	return true;
 }
 
@@ -513,8 +262,13 @@ func_dependency_as_system(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	make_obj(wk, res, obj_dependency);
 
 	struct obj_dependency *dep = get_obj_dependency(wk, *res);
-
 	*dep = *get_obj_dependency(wk, rcvr);
+
+	obj old_includes = dep->dep.include_directories;
+	make_obj(wk, &dep->dep.include_directories, obj_array);
+
+	dep_process_includes(wk, old_includes, inc_type,
+		dep->dep.include_directories);
 	dep->include_type = inc_type;
 
 	return true;

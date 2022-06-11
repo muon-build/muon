@@ -2,6 +2,12 @@
 #define MUON_FUNCTIONS_DEFAULT_DEPENDENCY_H
 #include "functions/common.h"
 
+void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
+void dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest);
+void dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, obj dest);
+
+void build_dep_init(struct workspace *wk, struct build_dep *dep);
+
 bool func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res);
 bool func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res);
 #endif

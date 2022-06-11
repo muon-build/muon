@@ -16,7 +16,7 @@ bool setup_compiler_args(struct workspace *wk, const struct obj_build_target *tg
 struct setup_linker_args_ctx {
 	enum linker_type linker;
 	enum compiler_language link_lang;
-	struct dep_args_ctx *args;
+	struct build_dep *args;
 };
 
 void setup_linker_args(struct workspace *wk, const struct project *proj,
