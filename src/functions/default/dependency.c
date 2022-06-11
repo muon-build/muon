@@ -22,15 +22,9 @@ enum dep_lib_mode {
 	dep_lib_mode_shared,
 };
 
-enum dep_not_found_reason {
-	dep_not_found_reason_not_found,
-	dep_not_found_reason_version,
-};
-
 struct dep_lookup_ctx {
 	obj *res;
 	struct args_kw *default_options, *versions;
-	enum dep_not_found_reason not_found_reason;
 	enum requirement_type requirement;
 	uint32_t err_node;
 	uint32_t fallback_node;
@@ -101,8 +95,6 @@ check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_nod
 static bool
 handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
-	ctx->not_found_reason = 0;
-
 	obj subproj_name, subproj_dep = 0, subproj;
 
 	switch (get_obj_array(wk, ctx->fallback)->len) {
@@ -166,6 +158,8 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	*found = true;
 	return true;
 not_found:
+	LLOG_I("%s", "");
+	obj_fprintf(wk, log_file(), "fallback %o failed for %o\n", ctx->fallback, ctx->name);
 	*ctx->res = 0;
 	*found = false;
 	return true;
@@ -186,7 +180,9 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
-		ctx->not_found_reason = dep_not_found_reason_version;
+		LLOG_I("%s", ""); // hack to print info before the next line
+		obj_fprintf(wk, log_file(), "pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
+			ctx->name, ver_str, ctx->versions->val);
 		return true;
 	}
 
@@ -286,14 +282,13 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 
 lookup_finished:
 	if (!found) {
-		LLOG_W("dependency %s not found", get_cstr(wk, ctx->name));
-
-		if (ctx->not_found_reason == dep_not_found_reason_version) {
-			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-
-			obj_fprintf(wk, log_file(), ": bad verson, have: %o, but need %o\n",
-				dep->version, ctx->versions->val);
+		if (ctx->requirement == requirement_required) {
+			LLOG_E("required ");
+		} else {
+			LLOG_W("%s", "");
 		}
+
+		obj_fprintf(wk, log_file(), "dependency %o not found", ctx->name);
 
 		if (ctx->not_found_message) {
 			obj_fprintf(wk, log_file(), ", %#o", ctx->not_found_message);
@@ -383,7 +378,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_include_type,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required" },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_static] = { "static", obj_bool },
