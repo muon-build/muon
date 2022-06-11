@@ -1701,11 +1701,13 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		kw_required,
 		kw_static, // TODO
 		kw_disabler,
+		kw_has_headers, // TODO
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_static] = { "static", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
+		[kw_has_headers] = { "has_headers", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 
