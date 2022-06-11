@@ -33,8 +33,8 @@ static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_url] = "url",
 	[wf_revision] = "revision",
 	[wf_depth] = "depth",
-	[wf_push_url] = "push_url",
-	[wf_clone_recursive] = "clone_recursive",
+	[wf_push_url] = "push-url",
+	[wf_clone_recursive] = "clone-recursive",
 };
 
 static const char *wrap_type_section_header[wrap_type_count] = {
@@ -371,6 +371,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 		field_req[wf_revision] = required;
 		field_req[wf_depth] = optional;
 		field_req[wf_clone_recursive] = optional;
+		field_req[wf_push_url] = optional;
 		break;
 	default:
 		assert(false && "unreachable");
