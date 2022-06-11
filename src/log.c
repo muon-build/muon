@@ -45,6 +45,12 @@ log_should_print(enum log_level lvl)
 	return lvl <= log_cfg.level;
 }
 
+const char *
+log_get_prefix(void)
+{
+	return log_cfg.prefix;
+}
+
 void
 log_set_prefix(const char *prefix)
 {

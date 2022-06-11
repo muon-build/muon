@@ -33,8 +33,9 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
+	const char *parent_prefix = log_get_prefix();
+	char log_prefix[256] = { 0 };
 	if (wk->cur_project > 0) {
-		static char log_prefix[256] = { 0 };
 		const char *clr = log_clr() ? "\033[35m" : "",
 			   *no_clr = log_clr() ? "\033[0m" : "";
 		snprintf(log_prefix, 255, " [%s%s%s]",
@@ -63,9 +64,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 cleanup:
 	wk->cur_project = parent_project;
 
-	if (wk->cur_project == 0) {
-		log_set_prefix(NULL);
-	}
+	log_set_prefix(parent_prefix);
 	return ret;
 }
 

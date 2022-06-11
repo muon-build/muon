@@ -40,6 +40,7 @@ void log_set_file(FILE *log_file);
 void log_set_lvl(enum log_level lvl);
 void log_set_opts(enum log_opts opts);
 void log_set_prefix(const char *prefix);
+const char *log_get_prefix(void);
 
 void log_print(const char *file, uint32_t line, const char *func, bool nl,
 	enum log_level lvl, const char *fmt, ...) __attribute__ ((format(printf, 6, 7)));
