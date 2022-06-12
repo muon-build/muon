@@ -41,6 +41,7 @@ linker_type_to_s(enum linker_type t)
 }
 
 static const char *compiler_language_names[compiler_language_count] = {
+	[compiler_language_null] = "null",
 	[compiler_language_c] = "c",
 	[compiler_language_c_hdr] = "c_hdr",
 	[compiler_language_cpp] = "cpp",
@@ -103,6 +104,41 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	}
 
 	return false;
+}
+
+enum compiler_language
+coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
+{
+	switch (new) {
+	case compiler_language_null:
+	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr:
+	case compiler_language_llvm_ir:
+		break;
+	case compiler_language_assembly:
+		if (!cur) {
+			return compiler_language_assembly;
+		}
+		break;
+	case compiler_language_c:
+	case compiler_language_c_obj:
+		if (!cur) {
+			return compiler_language_c;
+		}
+		break;
+	case compiler_language_cpp:
+		if (!cur
+		    || cur == compiler_language_c
+		    || cur == compiler_language_assembly) {
+			return compiler_language_cpp;
+		}
+		break;
+	case compiler_language_objc:
+	case compiler_language_count:
+		UNREACHABLE;
+	}
+
+	return cur;
 }
 
 static bool
@@ -547,7 +583,8 @@ compiler_arg_empty_2s(const char *_, const char *__)
 struct compiler compilers[compiler_type_count];
 struct linker linkers[linker_type_count];
 
-const struct language languages[] = {
+const struct language languages[compiler_language_count] = {
+	[compiler_language_null] = { 0 },
 	[compiler_language_c] = { .is_header = false },
 	[compiler_language_c_hdr] = { .is_header = true },
 	[compiler_language_cpp] = { .is_header = false },

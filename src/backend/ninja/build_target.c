@@ -137,8 +137,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	enum linker_type linker;
 	{ /* determine linker */
 		obj comp_id;
-		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->link_language, &comp_id)) {
-			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->link_language));
+		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep.link_language, &comp_id)) {
+			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->dep.link_language));
 			return false;
 		}
 
@@ -199,7 +199,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
-			.link_lang = tgt->link_language,
+			.link_lang = tgt->dep.link_language,
 			.args = &ctx.args
 		};
 
@@ -225,7 +225,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
-		linker_type = compiler_language_to_s(tgt->link_language);
+		linker_type = compiler_language_to_s(tgt->dep.link_language);
 		linker_rule_prefix = true;
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;

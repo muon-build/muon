@@ -58,15 +58,10 @@ enum build_target_kwargs {
 	bt_kwargs_count,
 };
 
-struct determine_linker_ctx {
-	struct obj_build_target *tgt;
-	bool have_link_language;
-};
-
 static enum iteration_result
 determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct determine_linker_ctx *ctx = _ctx;
+	struct obj_build_target *tgt = _ctx;
 
 	enum compiler_language fl;
 
@@ -75,47 +70,20 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	switch (fl) {
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_llvm_ir:
-		return ir_cont;
-	case compiler_language_assembly:
-		if (!ctx->have_link_language) {
-			ctx->tgt->link_language = compiler_language_assembly;
-		}
-		break;
-	case compiler_language_c:
-	case compiler_language_c_obj:
-		if (!ctx->have_link_language) {
-			ctx->tgt->link_language = compiler_language_c;
-		}
-		break;
-	case compiler_language_cpp:
-		if (!ctx->have_link_language
-		    || ctx->tgt->link_language == compiler_language_c) {
-			ctx->tgt->link_language = compiler_language_cpp;
-		}
-		break;
-	case compiler_language_objc:
-	case compiler_language_count:
-		UNREACHABLE;
-	}
+	tgt->dep.link_language = coalesce_link_languages(tgt->dep.link_language, fl);
 
-	ctx->have_link_language = true;
 	return ir_cont;
 }
 
 static bool
 build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_build_target *tgt)
 {
-	struct determine_linker_ctx ctx = { .tgt = tgt };
 
-	if (!obj_array_foreach(wk, tgt->src, &ctx, determine_linker_iter)) {
+	if (!obj_array_foreach(wk, tgt->src, tgt, determine_linker_iter)) {
 		return ir_err;
 	}
 
-	if (!ctx.have_link_language) {
+	if (!tgt->dep.link_language) {
 		enum compiler_language clink_langs[] = {
 			compiler_language_c,
 			compiler_language_cpp,
@@ -125,14 +93,13 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
 			if (obj_dict_geti(wk, current_project(wk)->compilers, clink_langs[i], &comp)) {
-				tgt->link_language = clink_langs[i];
-				ctx.have_link_language  = true;
+				tgt->dep.link_language = clink_langs[i];
 				break;
 			}
 		}
 	}
 
-	if (!ctx.have_link_language) {
+	if (!tgt->dep.link_language) {
 		interp_error(wk, err_node, "unable to determine linker for target");
 		return false;
 	}

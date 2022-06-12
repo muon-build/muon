@@ -1765,6 +1765,13 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		dep->flags |= dep_flag_found;
 		make_obj(wk, &dep->dep.link_with, obj_array);
 		obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
+
+		if (found_from_dirs_kw) {
+			make_obj(wk, &dep->dep.rpath, obj_array);
+			obj_array_push(wk, dep->dep.rpath, make_str(wk, ctx.path));
+		}
+
+		dep->dep.link_language = comp->lang;
 	}
 
 	return true;

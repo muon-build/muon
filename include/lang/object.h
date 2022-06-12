@@ -199,6 +199,8 @@ enum build_tgt_flags {
 };
 
 struct build_dep {
+	enum compiler_language link_language;
+
 	obj link_whole; // obj_array
 
 	obj link_with; // obj_array
@@ -241,7 +243,6 @@ struct obj_build_target {
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
 	enum tgt_type type;
-	enum compiler_language link_language;
 };
 
 struct obj_both_libs {

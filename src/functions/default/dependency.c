@@ -747,6 +747,8 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 {
 	build_dep_init(wk, dest);
 
+	dest->link_language = coalesce_link_languages(src->link_language, dest->link_language);
+
 	if (src->link_with) {
 		obj_array_extend(wk, dest->link_with, src->link_with);
 	}
