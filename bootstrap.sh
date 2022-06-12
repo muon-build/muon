@@ -65,7 +65,6 @@ cat \
 	src/functions/dict.c \
 	src/functions/disabler.c \
 	src/functions/environment.c \
-	src/functions/external_library.c \
 	src/functions/external_program.c \
 	src/functions/feature_opt.c \
 	src/functions/file.c \

@@ -27,7 +27,6 @@ const struct obj_typechecking_type_to_obj_type typemap[] = {
 	{ obj_dependency, tc_dependency },
 	{ obj_feature_opt, tc_feature_opt },
 	{ obj_external_program, tc_external_program },
-	{ obj_external_library, tc_external_library },
 	{ obj_run_result, tc_run_result },
 	{ obj_configuration_data, tc_configuration_data },
 	{ obj_test, tc_test },
@@ -84,7 +83,6 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_subproject:
 	case obj_dependency:
 	case obj_external_program:
-	case obj_external_library:
 	case obj_run_result:
 	case obj_configuration_data:
 	case obj_test:
@@ -207,7 +205,6 @@ OBJ_GETTER(obj_custom_target)
 OBJ_GETTER(obj_subproject)
 OBJ_GETTER(obj_dependency)
 OBJ_GETTER(obj_external_program)
-OBJ_GETTER(obj_external_library)
 OBJ_GETTER(obj_run_result)
 OBJ_GETTER(obj_configuration_data)
 OBJ_GETTER(obj_test)
@@ -251,7 +248,6 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_subproject:
 	case obj_dependency:
 	case obj_external_program:
-	case obj_external_library:
 	case obj_run_result:
 	case obj_configuration_data:
 	case obj_test:
@@ -299,7 +295,6 @@ obj_type_to_s(enum obj_type t)
 	case obj_machine: return "machine";
 	case obj_feature_opt: return "feature_opt";
 	case obj_external_program: return "external_program";
-	case obj_external_library: return "external_library";
 	case obj_run_result: return "run_result";
 	case obj_configuration_data: return "configuration_data";
 	case obj_custom_target: return "custom_target";

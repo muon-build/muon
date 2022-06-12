@@ -881,34 +881,15 @@ dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	hash_set(&wk->obj_hash, &val, true);
 
 	struct build_dep *dest = _ctx;
-	enum obj_type t = get_obj_type(wk, val);
 
 	/* obj_fprintf(wk, log_file(), "%d|dep: %o\n", ctx->recursion_depth, val); */
 
-	switch (t) {
-	case obj_dependency: {
-		struct obj_dependency *dep = get_obj_dependency(wk, val);
-		if (!(dep->flags & dep_flag_found)) {
-			return ir_cont;
-		}
-
-		merge_build_deps(wk, &dep->dep, dest);
-		break;
+	struct obj_dependency *dep = get_obj_dependency(wk, val);
+	if (!(dep->flags & dep_flag_found)) {
+		return ir_cont;
 	}
-	case obj_external_library: {
-		struct obj_external_library *lib = get_obj_external_library(wk, val);
 
-		if (!lib->found) {
-			return ir_cont;
-		}
-
-		obj_array_push(wk, dest->link_with, lib->full_path);
-		break;
-	}
-	default:
-		LOG_E("invalid type for dependency: %s", obj_type_to_s(t));
-		return ir_err;
-	}
+	merge_build_deps(wk, &dep->dep, dest);
 
 	return ir_cont;
 }

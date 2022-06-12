@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "args.h"
+#include "error.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "lang/interpreter.h"
@@ -106,7 +107,7 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 		break;
 	}
 	default:
-		assert(false);
+		UNREACHABLE;
 	}
 
 	if (str[0] == '-') {
@@ -201,6 +202,18 @@ struct module_pkgconf_process_libs_iter_ctx {
 
 static bool module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
 	struct pkgconf_file *pc, enum pkgconf_visibility vis, bool link_whole);
+
+static enum iteration_result
+str_to_file_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	obj *arr = _ctx;
+
+	obj f;
+	make_obj(wk, &f, obj_file);
+	*get_obj_file(wk, f) = v;
+	obj_array_push(wk, *arr, f);
+	return ir_cont;
+}
 
 static enum iteration_result
 module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
@@ -331,6 +344,17 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		case dependency_type_threads:
 			obj_array_push(wk, ctx->pc->libs[pkgconf_visibility_priv], make_str(wk, "-pthread"));
 			break;
+		case dependency_type_external_library: {
+			obj link_with_files;
+			make_obj(wk, &link_with_files, obj_array);
+			obj_array_foreach(wk, dep->dep.link_with, &link_with_files, str_to_file_iter);
+
+			if (!module_pkgconf_process_libs(wk, ctx->err_node,
+				link_with_files, ctx->pc, ctx->vis, false)) {
+				return ir_err;
+			}
+			break;
+		}
 		}
 		break;
 	}
@@ -354,25 +378,6 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		ctx->pc->libs_contains_internal[ctx->vis] = true;
-		obj_array_push(wk, ctx->pc->libs[ctx->vis], lib);
-		break;
-	}
-	case obj_external_library: {
-		struct obj_external_library *ext = get_obj_external_library(wk, val);
-
-		if (!ext->found) {
-			return ir_cont;
-		}
-
-		obj file;
-		make_obj(wk, &file, obj_file);
-		*get_obj_file(wk, file) = ext->full_path;
-
-		obj lib;
-		if (!module_pkgconf_lib_to_lname(wk, file, &lib)) {
-			return ir_err;
-		}
-
 		obj_array_push(wk, ctx->pc->libs[ctx->vis], lib);
 		break;
 	}

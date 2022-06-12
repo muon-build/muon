@@ -36,7 +36,6 @@ enum obj_type {
 	obj_subproject,
 	obj_dependency,
 	obj_external_program,
-	obj_external_library,
 	obj_run_result,
 	obj_configuration_data,
 	obj_test,
@@ -74,32 +73,31 @@ enum obj_typechecking_type {
 	tc_dependency         = obj_typechecking_type_tag | (1 << 10),
 	tc_feature_opt        = obj_typechecking_type_tag | (1 << 11),
 	tc_external_program   = obj_typechecking_type_tag | (1 << 12),
-	tc_external_library   = obj_typechecking_type_tag | (1 << 13),
-	tc_run_result         = obj_typechecking_type_tag | (1 << 14),
-	tc_configuration_data = obj_typechecking_type_tag | (1 << 15),
-	tc_test               = obj_typechecking_type_tag | (1 << 16),
-	tc_module             = obj_typechecking_type_tag | (1 << 17),
-	tc_install_target     = obj_typechecking_type_tag | (1 << 18),
-	tc_environment        = obj_typechecking_type_tag | (1 << 19),
-	tc_include_directory  = obj_typechecking_type_tag | (1 << 20),
-	tc_option             = obj_typechecking_type_tag | (1 << 21),
-	tc_generator          = obj_typechecking_type_tag | (1 << 22),
-	tc_generated_list     = obj_typechecking_type_tag | (1 << 23),
-	tc_alias_target       = obj_typechecking_type_tag | (1 << 24),
-	tc_both_libs          = obj_typechecking_type_tag | (1 << 25),
-	tc_disabler           = obj_typechecking_type_tag | (1 << 26),
+	tc_run_result         = obj_typechecking_type_tag | (1 << 13),
+	tc_configuration_data = obj_typechecking_type_tag | (1 << 14),
+	tc_test               = obj_typechecking_type_tag | (1 << 15),
+	tc_module             = obj_typechecking_type_tag | (1 << 16),
+	tc_install_target     = obj_typechecking_type_tag | (1 << 17),
+	tc_environment        = obj_typechecking_type_tag | (1 << 18),
+	tc_include_directory  = obj_typechecking_type_tag | (1 << 19),
+	tc_option             = obj_typechecking_type_tag | (1 << 20),
+	tc_generator          = obj_typechecking_type_tag | (1 << 21),
+	tc_generated_list     = obj_typechecking_type_tag | (1 << 22),
+	tc_alias_target       = obj_typechecking_type_tag | (1 << 23),
+	tc_both_libs          = obj_typechecking_type_tag | (1 << 24),
+	tc_disabler           = obj_typechecking_type_tag | (1 << 25),
+	tc_typemap_count      =                                   26,
 
 	tc_any = tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict
 		 | tc_compiler | tc_build_target | tc_custom_target
 		 | tc_subproject | tc_dependency | tc_feature_opt
-		 | tc_external_program | tc_external_library | tc_run_result
+		 | tc_external_program | tc_run_result
 		 | tc_configuration_data | tc_test | tc_module
 		 | tc_install_target | tc_environment | tc_include_directory
 		 | tc_option | tc_generator | tc_generated_list
 		 | tc_alias_target | tc_both_libs | tc_disabler,
 
 	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs,
-	tc_dep                = tc_dependency | tc_external_library,
 
 	tc_coercible_env      = tc_environment | tc_string | tc_array | tc_dict,
 	tc_coercible_files    = tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs,
@@ -121,7 +119,7 @@ struct obj_typeinfo {
 	uint32_t type, subtype;
 };
 
-extern const struct obj_typechecking_type_to_obj_type typemap[27];
+extern const struct obj_typechecking_type_to_obj_type typemap[tc_typemap_count];
 
 #if __STDC_VERSION__ >= 201112L
 _Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
@@ -278,6 +276,7 @@ enum dependency_type {
 	dependency_type_declared,
 	dependency_type_pkgconf,
 	dependency_type_threads,
+	dependency_type_external_library,
 };
 
 enum dep_flags {
@@ -306,12 +305,6 @@ struct obj_external_program {
 	bool found;
 	obj full_path;
 	obj ver;
-};
-
-struct obj_external_library {
-	obj full_path;
-	bool found;
-	bool custom_dir;
 };
 
 enum run_result_flags {
@@ -445,7 +438,6 @@ OBJ_GETTER(obj_custom_target);
 OBJ_GETTER(obj_subproject);
 OBJ_GETTER(obj_dependency);
 OBJ_GETTER(obj_external_program);
-OBJ_GETTER(obj_external_library);
 OBJ_GETTER(obj_run_result);
 OBJ_GETTER(obj_configuration_data);
 OBJ_GETTER(obj_test);

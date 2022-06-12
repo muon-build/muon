@@ -161,12 +161,23 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
 
-	if (dep->type == dependency_type_pkgconf) {
-		*res = make_str(wk, "pkgconfig");
-	} else {
-		*res = make_str(wk, "internal");
+	const char *n = NULL;
+	switch (dep->type) {
+	case dependency_type_pkgconf:
+		n = "pkgconfig";
+		break;
+	case dependency_type_declared:
+		n = "internal";
+		break;
+	case dependency_type_threads:
+		n = "system";
+		break;
+	case dependency_type_external_library:
+		n = "library";
+		break;
 	}
 
+	*res = make_str(wk, n);
 	return true;
 }
 

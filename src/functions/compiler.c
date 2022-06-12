@@ -283,7 +283,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 	static struct args_kw akw[cc_kwargs_count + 1] = { 0 };
 	struct args_kw akw_base[] = {
 		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dep },
+		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
 		[cc_kw_prefix] = { "prefix", obj_string },
 		[cc_kw_required] = { "required", tc_required_kw },
 		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
@@ -1717,9 +1717,11 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
+	make_obj(wk, res, obj_dependency);
+	struct obj_dependency *dep = get_obj_dependency(wk, *res);
+	dep->type = dependency_type_external_library;
+
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_external_library);
-		get_obj_external_library(wk, *res)->found = false;
 		return true;
 	}
 
@@ -1756,17 +1758,13 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = disabler_id;
 		} else {
-			make_obj(wk, res, obj_external_library);
-			get_obj_external_library(wk, *res)->found = false;
+			return true;
 		}
 	} else {
 		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
-		make_obj(wk, res, obj_external_library);
-		struct obj_external_library *ep =
-			get_obj_external_library(wk, *res);
-		ep->found = true;
-		ep->full_path = make_str(wk, ctx.path);
-		ep->custom_dir = found_from_dirs_kw;
+		dep->flags |= dep_flag_found;
+		make_obj(wk, &dep->dep.link_with, obj_array);
+		obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
 	}
 
 	return true;
@@ -1801,7 +1799,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "cmd_array", func_compiler_cmd_array, tc_array },
 	{ "compiles", func_compiler_compiles, tc_bool },
 	{ "compute_int", func_compiler_compute_int, tc_number },
-	{ "find_library", func_compiler_find_library, tc_external_library },
+	{ "find_library", func_compiler_find_library, tc_dependency },
 	{ "first_supported_argument", func_compiler_first_supported_argument, tc_array },
 	{ "first_supported_link_argument", func_compiler_first_supported_link_argument, tc_array },
 	{ "get_argument_syntax", func_compiler_get_argument_syntax, tc_string },
