@@ -255,6 +255,7 @@ struct process_script_commandline_ctx {
 	obj arr;
 	uint32_t i;
 	bool allow_not_built;
+	bool make_deps_default;
 };
 
 static enum iteration_result
@@ -288,15 +289,27 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 			goto type_error;
 		}
 
-		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx, process_script_commandline_iter)) {
+		struct obj_custom_target *o = get_obj_custom_target(wk, val);
+		if (ctx->make_deps_default) {
+			o->flags |= custom_target_build_by_default;
+		}
+
+		if (!obj_array_foreach(wk, o->output, ctx, process_script_commandline_iter)) {
 			return false;
 		}
 		goto cont;
-	case obj_build_target:
+	case obj_build_target: {
 		if (!ctx->allow_not_built) {
 			goto type_error;
 		}
-	// fallthrough
+
+		struct obj_build_target *o = get_obj_build_target(wk, val);
+
+		if (ctx->make_deps_default) {
+			o->flags |= build_tgt_flag_build_by_default;
+		}
+	}
+	//fallthrough
 	case obj_external_program:
 	case obj_file:
 		if (!coerce_executable(wk, ctx->node, val, &str)) {
@@ -337,6 +350,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 	struct process_script_commandline_ctx ctx = {
 		.node = an[0].node,
 		.allow_not_built = true,
+		.make_deps_default = true,
 	};
 	make_obj(wk, &ctx.arr, obj_array);
 
