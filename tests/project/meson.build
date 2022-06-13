@@ -137,7 +137,8 @@ tests = [
     ['common/136 empty build file'],
     ['common/137 whole archive'],
     ['common/138 C and CPP link'],
-    ['common/139 mesonintrospect from scripts', ['failing']],
+    # requires meson instrospect
+    # ['common/139 mesonintrospect from scripts', ['failing']],
     ['common/140 custom target multiple outputs'],
     ['common/141 special characters'],
     ['common/142 nested links'],
