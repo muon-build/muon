@@ -1019,10 +1019,25 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
+	bool strip_directory = akw[kw_strip_directory].set
+		? get_obj_bool(wk, akw[kw_strip_directory].val)
+		: false;
+
 	obj dest = akw[kw_install_dir].val;
-	if (!akw[kw_strip_directory].set || !get_obj_bool(wk, akw[kw_strip_directory].val)) {
-		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, dest), get_cstr(wk, an[0].val))) {
+	if (!strip_directory) {
+		char path[PATH_MAX], name[PATH_MAX] = { 0 }, *sep;
+		const char *name_tail;
+
+		strncpy(name, get_cstr(wk, an[0].val), PATH_MAX - 1);
+		name_tail = name;
+
+		// strip the first part of the name
+		if ((sep = strchr(name, PATH_SEP))) {
+			*sep = 0;
+			name_tail = sep + 1;
+		}
+
+		if (!path_join(path, PATH_MAX, get_cstr(wk, dest), name_tail)) {
 			return false;
 		}
 		dest = make_str(wk, path);
