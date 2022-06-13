@@ -154,7 +154,7 @@ tests = [
     ['common/151 duplicate source names'],
     ['common/152 index customtarget'],
     ['common/153 wrap file should not failed', ['git_clean']],
-    ['common/154 includedir subproj', ['failing']],
+    ['common/154 includedir subproj'],
     ['common/155 subproject dir name collision', ['failing']],
     ['common/156 config tool variable', ['failing']],
     ['common/157 custom target subdir depend files'],

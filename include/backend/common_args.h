@@ -25,6 +25,7 @@ void setup_linker_args(struct workspace *wk, const struct project *proj,
 struct setup_compiler_args_includes_ctx {
 	obj args;
 	enum compiler_type t;
+	bool dont_relativize;
 };
 enum iteration_result setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v);
 

@@ -196,16 +196,18 @@ setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
 		}
 	}
 
-	if (!fs_dir_exists(dir)) {
-		return ir_cont;
-	}
-
-	char rel[PATH_MAX];
-	if (path_is_absolute(dir)) {
-		if (!path_relative_to(rel, PATH_MAX, wk->build_root, dir)) {
-			return ir_err;
+	if (!ctx->dont_relativize) {
+		if (!fs_dir_exists(dir)) {
+			return ir_cont;
 		}
-		dir = rel;
+
+		char rel[PATH_MAX];
+		if (path_is_absolute(dir)) {
+			if (!path_relative_to(rel, PATH_MAX, wk->build_root, dir)) {
+				return ir_err;
+			}
+			dir = rel;
+		}
 	}
 
 	if (is_system) {

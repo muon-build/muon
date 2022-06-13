@@ -120,6 +120,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		struct setup_compiler_args_includes_ctx inc_ctx = {
 			.args = compiler_args,
 			.t = t,
+			.dont_relativize = true
 		};
 
 		if (!obj_array_foreach(wk, include_dirs, &inc_ctx, setup_compiler_args_includes)) {
@@ -1065,7 +1066,8 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.mode = mode,
 	};
 	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
+		cm_kw_args | cm_kw_dependencies | cm_kw_name
+		| cm_kw_include_directories)) {
 		return false;
 	}
 
