@@ -156,7 +156,8 @@ tests = [
     ['common/153 wrap file should not failed', ['git_clean']],
     ['common/154 includedir subproj'],
     ['common/155 subproject dir name collision'],
-    ['common/156 config tool variable', ['failing']],
+    # relies on config-tool
+    # ['common/156 config tool variable', ['failing']],
     ['common/157 custom target subdir depend files'],
     ['common/158 disabler', ['skip_analyze']],
     ['common/159 array option'],
@@ -164,7 +165,7 @@ tests = [
     ['common/161 not-found dependency', ['failing']],
     ['common/162 subdir if_found', ['failing']],
     ['common/163 default options prefix dependent defaults'],
-    ['common/164 dependency factory', ['failing']],
+    ['common/164 dependency factory'],
     ['common/165 get project license'],
     ['common/166 yield'],
     ['common/167 subproject nested subproject dirs', ['failing']],
