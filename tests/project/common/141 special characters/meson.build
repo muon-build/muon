@@ -19,29 +19,28 @@ gen = custom_target(
     install_dir: get_option('datadir'),
 )
 
-# different from meson: command does not support newlines in arguments
 # With newlines, this should go through the exe wrapper.
-# gen2 = custom_target(
-#     'gen2',
-#     command: [
-#         python,
-#         files('check_quoting.py'),
-#         '''newline=
-# ''',
-#         'dollar=$',
-#         'colon=:',
-#         'space= ',
-#         '''multi2=  ::$$
+gen2 = custom_target(
+    'gen2',
+    command: [
+        python,
+        files('check_quoting.py'),
+        '''newline=
+''',
+        'dollar=$',
+        'colon=:',
+        'space= ',
+        '''multi2=  ::$$
 
 
 
-# ::$$''',
-#         '@OUTPUT@',
-#     ],
-#     output: 'result2',
-#     install: true,
-#     install_dir: get_option('datadir'),
-# )
+::$$''',
+        '@OUTPUT@',
+    ],
+    output: 'result2',
+    install: true,
+    install_dir: get_option('datadir'),
+)
 
 # Test that we can pass these special characters in compiler arguments
 #

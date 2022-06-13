@@ -18,6 +18,7 @@
 #include "machine_file.h"
 #include "options.h"
 #include "opts.h"
+#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "tests.h"
@@ -36,7 +37,7 @@ ensure_in_build_dir(void)
 }
 
 static bool
-load_environment_from_serial_dump(struct workspace *wk, const char *path, const char **envstr)
+load_obj_from_serial_dump(struct workspace *wk, const char *path, obj *res)
 {
 	bool ret = false;
 	FILE *f;
@@ -44,13 +45,11 @@ load_environment_from_serial_dump(struct workspace *wk, const char *path, const 
 		return false;
 	}
 
-	obj env;
-	if (!serial_load(wk, &env, f)) {
+	if (!serial_load(wk, res, f)) {
 		LOG_E("failed to load environment data");
 		goto ret;
 	}
 
-	env_to_envstr(wk, envstr, env);
 	ret = true;
 ret:
 	if (!fs_fclose(f)) {
@@ -66,10 +65,11 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		const char *feed;
 		const char *capture;
 		const char *environment;
+		const char *args;
 		const char *const *cmd;
 	} opts = { 0 };
 
-	OPTSTART("f:c:e:") {
+	OPTSTART("f:c:e:a:") {
 		case 'f':
 			opts.feed = optarg;
 			break;
@@ -79,15 +79,22 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'e':
 			opts.environment = optarg;
 			break;
+		case 'a':
+			opts.args = optarg;
+			break;
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -f <file> - feed file to input\n"
 		"  -c <file> - capture output to file\n"
-		"  -e <file> - load environemnt from data file\n",
+		"  -e <file> - load environemnt from data file\n"
+		"  -a <file> - load arguments from data file\n",
 		NULL, -1)
 
-	if (argi >= argc) {
+	if (argi >= argc && !opts.args) {
 		LOG_E("missing command");
+		return false;
+	} else if (argi < argc && opts.args) {
+		LOG_E("command specified by trailing arguments and -a");
 		return false;
 	}
 
@@ -99,15 +106,38 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	ctx.stdin_path = opts.feed;
 
 	struct workspace wk;
-	bool initialized_workspace = false;
+	bool initialized_workspace = false,
+	     allocated_argv = false;
+
 	const char *envstr = NULL;
 	if (opts.environment) {
 		initialized_workspace = true;
 		workspace_init_bare(&wk);
 
-		if (!load_environment_from_serial_dump(&wk, opts.environment, &envstr)) {
+		obj env;
+		if (!load_obj_from_serial_dump(&wk, opts.environment, &env)) {
 			goto ret;
 		}
+
+		env_to_envstr(&wk, &envstr, env);
+	}
+
+	if (opts.args) {
+		if (!initialized_workspace) {
+			initialized_workspace = true;
+			workspace_init_bare(&wk);
+		}
+
+		obj args;
+		if (!load_obj_from_serial_dump(&wk, opts.args, &args)) {
+			goto ret;
+		}
+
+		const char *argstr;
+		join_args_argstr(&wk, &argstr, args);
+
+		argstr_to_argv(argstr, NULL, (char *const **)&opts.cmd);
+		allocated_argv = true;
 	}
 
 	if (!run_cmd_argv(&ctx, opts.cmd[0], (char *const *)opts.cmd, envstr)) {
@@ -130,6 +160,9 @@ ret:
 	run_cmd_ctx_destroy(&ctx);
 	if (initialized_workspace) {
 		workspace_destroy_bare(&wk);
+	}
+	if (allocated_argv) {
+		z_free((void *)opts.cmd);
 	}
 	return ret;
 }

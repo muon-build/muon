@@ -148,7 +148,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	defined as an array containing the commandline starting at <filename>.
 
 ## internal exe
-	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] <cmd> [<args>]
+	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] [*-e*
+	<env.dat>] [*-a* <args.dat>] [-- <cmd> [<args>]]
 
 	Execute <cmd> with arguments <args>.
 
@@ -156,6 +157,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-f* <input file> - pass _input file_ as stdin to <cmd>
 	- *-c* <output file> - capture stdout of <cmd> and write it to _output
 	  file_
+	- *-e* <env.dat> - read and set environment variables from _env.dat_
+	- *-a* <args.dat> - read and set command from _args.dat_
 
 ## internal repl
 	*muon* *internal* *repl*
