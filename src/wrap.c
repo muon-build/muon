@@ -615,8 +615,10 @@ wrap_load_all_iter(void *_ctx, const char *file)
 		return ir_err;
 	}
 
+	enum iteration_result ret = ir_err;
+
 	if (!wrap.has_provides) {
-		return ir_cont;
+		goto ret;
 	}
 
 	struct wrap_parse_provides_ctx wp_ctx = {
@@ -628,7 +630,6 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	make_obj(ctx->wk, &wp_ctx.wrap_name_arr, obj_array);
 	obj_array_push(ctx->wk, wp_ctx.wrap_name_arr, wp_ctx.wrap_name);
 
-	enum iteration_result ret = ir_err;
 	if (!ini_reparse(path, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
 		goto ret;
 	}
