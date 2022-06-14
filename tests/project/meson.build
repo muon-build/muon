@@ -162,7 +162,7 @@ tests = [
     ['common/158 disabler', ['skip_analyze']],
     ['common/159 array option'],
     ['common/160 custom target template substitution'],
-    ['common/161 not-found dependency', ['failing']],
+    ['common/161 not-found dependency'],
     ['common/162 subdir if_found'],
     ['common/163 default options prefix dependent defaults'],
     ['common/164 dependency factory'],

@@ -161,6 +161,11 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
 
+	if (!(dep->flags & dep_flag_found)) {
+		*res = make_str(wk, "not-found");
+		return true;
+	}
+
 	const char *n = NULL;
 	switch (dep->type) {
 	case dependency_type_pkgconf:
