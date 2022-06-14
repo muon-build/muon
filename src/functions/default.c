@@ -932,13 +932,43 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static enum iteration_result
+subdir_if_found_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct obj_dependency *dep = get_obj_dependency(wk, v);
+
+	bool *all_found = _ctx;
+
+	if (!(dep->flags & dep_flag_found)) {
+		*all_found = false;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
 static bool
 func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	enum kwargs {
+		kw_if_found,
+	};
+	struct args_kw akw[] = {
+		[kw_if_found] = { "if_found", ARG_TYPE_ARRAY_OF | tc_dependency },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	if (akw[kw_if_found].set) {
+		bool all_found = true;
+		obj_array_foreach(wk, akw[kw_if_found].val, &all_found, subdir_if_found_iter);
+
+		if (!all_found) {
+			return true;
+		}
 	}
 
 	char src[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];

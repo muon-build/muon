@@ -163,7 +163,7 @@ tests = [
     ['common/159 array option'],
     ['common/160 custom target template substitution'],
     ['common/161 not-found dependency', ['failing']],
-    ['common/162 subdir if_found', ['failing']],
+    ['common/162 subdir if_found'],
     ['common/163 default options prefix dependent defaults'],
     ['common/164 dependency factory'],
     ['common/165 get project license'],
