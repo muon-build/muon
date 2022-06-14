@@ -595,6 +595,11 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		break;
 	}
 
+	if (!rhs) {
+		interp_error(wk, n->l, "cannot assign variable to null");
+		return false;
+	}
+
 	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0);
 	return true;
 }
