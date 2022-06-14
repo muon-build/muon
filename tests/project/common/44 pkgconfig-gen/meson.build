@@ -29,7 +29,7 @@ pkgg = import('pkgconfig')
 
 lib = shared_library('simple', 'simple.c')
 libver = '1.0'
-h = install_headers('simple.h')
+install_headers('simple.h')
 
 to_validate = []
 

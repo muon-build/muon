@@ -259,6 +259,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
 	if (!o) {
 		interp_error(wk, n_id, "assigning variable to null");
+		analyze_error = true;
 	}
 
 	struct darr *s;
