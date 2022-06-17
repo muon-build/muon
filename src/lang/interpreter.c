@@ -735,33 +735,6 @@ interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 }
 
 static bool
-interp_block(struct workspace *wk, struct node *n, obj *res)
-{
-	bool have_r = n->chflg & node_child_r
-		      && get_node(wk->ast, n->r)->type != node_empty;
-
-	assert(n->type == node_block);
-
-	obj obj_l, obj_r; // these return values are disregarded
-
-	if (!wk->interp_node(wk, n->l, &obj_l)) {
-		return false;
-	}
-
-	if (have_r && get_node(wk->ast, n->r)->type != node_empty) {
-		if (!wk->interp_node(wk, n->r, &obj_r)) {
-			return false;
-		}
-
-		*res = obj_r;
-	} else {
-		*res = obj_l;
-	}
-
-	return true;
-}
-
-static bool
 interp_not(struct workspace *wk, struct node *n, obj *res)
 {
 	obj obj_l_id;
@@ -981,7 +954,7 @@ interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 		return ir_done;
 	}
 
-	if (!interp_block(wk, get_node(wk->ast, ctx->block_node), &block_result)) {
+	if (!wk->interp_node(wk, ctx->block_node, &block_result)) {
 		return ir_err;
 	}
 
@@ -1166,9 +1139,44 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 
 	/* control flow */
-	case node_block:
-		ret = interp_block(wk, n, res);
-		break;
+	case node_block: {
+		bool have_r;
+interp_block:
+		have_r = n->chflg & node_child_r
+			 && get_node(wk->ast, n->r)->type != node_empty;
+
+		assert(n->type == node_block);
+
+		obj obj_l, obj_r; // these return values are disregarded
+
+		if (!wk->interp_node(wk, n->l, &obj_l)) {
+			return false;
+		}
+
+		if (have_r) {
+			struct node *r = get_node(wk->ast, n->r);
+			switch (r->type) {
+			case node_empty:
+				*res = obj_l;
+				break;
+			case node_block:
+				n_id = n->r;
+				n = r;
+				goto interp_block;
+			default:
+				if (!wk->interp_node(wk, n->r, &obj_r)) {
+					return false;
+				}
+
+				*res = obj_r;
+				break;
+			}
+		} else {
+			*res = obj_l;
+		}
+
+		return true;
+	}
 	case node_if:
 		ret = interp_if(wk, n, res);
 		break;
