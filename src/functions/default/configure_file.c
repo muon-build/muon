@@ -23,6 +23,14 @@ enum configure_file_output_format {
 	configure_file_output_format_nasm,
 };
 
+static void
+configure_file_skip_whitespace(const struct source *src, uint32_t *i)
+{
+	while (src->src[*i] && strchr(" \t", src->src[*i])) {
+		++(*i);
+	}
+}
+
 static uint32_t
 configure_var_len(const char *p)
 {
@@ -103,7 +111,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 	out_cap = src.len;
 	out_buf = z_calloc(out_cap, 1);
 
-	uint32_t i, id_start, // id_end = 0,
+	uint32_t i, id_start, id_len,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
@@ -116,22 +124,55 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 
 		if (i == start_of_line && strncmp(&src.src[i], define, define_len) == 0) {
 			i += define_len;
+
+			configure_file_skip_whitespace(&src, &i);
+
 			id_start = i;
 			id_start_line = line;
 			id_start_col = i - start_of_line + 1;
-			i += configure_var_len(&src.src[id_start]);
+			id_len = configure_var_len(&src.src[id_start]);
+			i += id_len;
 
 			const char *sub = NULL, *deftype = "#define";
 
-			if (src.src[i] != '\n') {
-				error_messagef(&src, id_start_line, i - start_of_line + 1, log_error, "extraneous characters on %sline", define);
-				return false;
+			configure_file_skip_whitespace(&src, &i);
+
+			if (!(src.src[i] == '\n' || src.src[i] == 0)) {
+				if (syntax & configure_file_syntax_cmakedefine) {
+					if (src.src[i] == '@'
+					    && strncmp(&src.src[i + 1], &src.src[id_start], id_len) == 0
+					    && src.src[i + 1 + id_len] == '@') {
+						i += 2 + id_len;
+						configure_file_skip_whitespace(&src, &i);
+
+						if (!(src.src[i] == '\n' || src.src[i] == 0)) {
+							goto extraneous_cmake_chars;
+						}
+					} else {
+extraneous_cmake_chars:
+						error_messagef(&src, id_start_line, i - start_of_line + 1, log_error,
+							"cmakedefine only supports two modes:\n"
+							"\t--> #cmakedefine %.*s\n "
+							"\t--> #cmakedefine %.*s @%.*s@\n"
+							"In particular, no value other than \"%.*s\" will be substituted and\n"
+							"no extra characters (comments, etc.) are allowed on the line.",
+							id_len, &src.src[id_start],
+							id_len, &src.src[id_start],
+							id_len, &src.src[id_start],
+							id_len, &src.src[id_start]
+							);
+						return false;
+					}
+				} else {
+					error_messagef(&src, id_start_line, i - start_of_line + 1, log_error, "expected exactly one token on mesondefine line");
+					return false;
+				}
 			}
 
 			if (i == id_start) {
 				error_messagef(&src, id_start_line, id_start_col, log_error, "key of zero length not supported");
 				return false;
-			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
+			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_len, &elem)) {
 				deftype = "/* undef";
 				sub = "*/";
 				goto write_mesondefine;
@@ -163,7 +204,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 write_mesondefine:
 			abuf_push(&out_buf, &out_cap, &out_len, deftype, strlen(deftype));
 			abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
-			abuf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], i - id_start);
+			abuf_push(&out_buf, &out_cap, &out_len, &src.src[id_start], id_len);
 			if (sub) {
 				abuf_push(&out_buf, &out_cap, &out_len, " ", 1);
 				abuf_push(&out_buf, &out_cap, &out_len, sub, strlen(sub));
@@ -208,7 +249,6 @@ write_mesondefine:
 				i += varstart_len - 1;
 			}
 		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
-
 			i += varstart_len;
 			id_start_line = line;
 			id_start = i;
