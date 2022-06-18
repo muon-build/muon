@@ -774,6 +774,19 @@ fs_is_a_tty(FILE *f)
 bool
 fs_chmod(const char *path, uint32_t mode)
 {
+#ifdef S_ISVTX
+	if (mode & S_ISVTX) {
+		struct stat sb;
+		if (!fs_stat(path, &sb)) {
+			return false;
+		}
+		if (!S_ISDIR(sb.st_mode)) {
+			LOG_E("attempt to set sticky bit on regular file: %s", path);
+			return false;
+		}
+	}
+#endif
+
 	if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
 		LOG_E("failed lchmod(%s, %o): %s", path, mode, strerror(errno));
 		return false;

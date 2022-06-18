@@ -18,7 +18,7 @@ subdir('subdir')
 install_subdir(
     'sub1',
     install_dir: 'share',
-    install_mode: ['rwxr-x--t', 'root'],
+    install_mode: ['rwxr-x--x', 'root'],
 )
 install_subdir('sub/sub1', install_dir: 'share')
 

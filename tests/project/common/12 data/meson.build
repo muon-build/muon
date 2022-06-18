@@ -4,7 +4,7 @@ install_data(sources: 'datafile.dat', install_dir: 'share/progname')
 install_data(
     sources: 'etcfile.dat',
     install_dir: '/etc',
-    install_mode: 'rw------T',
+    install_mode: 'rw-------',
 )
 # Some script that needs to be executable by the group
 install_data(

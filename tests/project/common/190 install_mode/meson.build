@@ -19,7 +19,7 @@ install_data(
 install_subdir(
     'sub1',
     install_dir: 'share',
-    install_mode: ['rwxr-x--t', 'root'],
+    install_mode: ['rwxr-x--x', 'root'],
 )
 
 install_subdir('sub2', install_dir: 'share')
@@ -50,10 +50,10 @@ custom_target(
 )
 
 # test install_mode in install_headers
-install_headers('rootdir.h', install_mode: 'r--r--r-T')
+install_headers('rootdir.h', install_mode: 'r--r--r--')
 
 # test install_mode in install_man
-install_man('foo.1', install_mode: 'r--r--r-T')
+install_man('foo.1', install_mode: 'r--r--r--')
 
 # test install_mode in executable
 executable(
