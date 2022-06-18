@@ -1168,9 +1168,9 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		o->build_target = in->build_target;
 		o->type = in->type;
 
-		if (!obj_clone(wk_src, wk_dest, in->mode, &o->mode)) {
-			return false;
-		}
+		o->has_perm = in->has_perm;
+		o->perm = in->perm;
+
 		if (!obj_clone(wk_src, wk_dest, in->exclude_directories, &o->exclude_directories)) {
 			return false;
 		}

@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <string.h>
+#include <sys/stat.h>
 
 #include "backend/output.h"
 #include "error.h"
@@ -28,6 +29,56 @@ get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 	}
 }
 
+static bool
+rwx_to_perm(const char *rwx, uint32_t *perm)
+{
+	assert(rwx && perm);
+	if (strlen(rwx) != 9) {
+		return false;
+	}
+
+	uint32_t bit = S_IRUSR; // 400
+	uint32_t i;
+	for (i = 0; i < 9; ++i) {
+		switch (rwx[i]) {
+		case '-':
+			break;
+		case 't':
+		case 'T':
+			if (i != 8) return false;
+#ifdef S_ISVTX
+			*perm |= S_ISVTX;
+#else
+			LOG_W("sticky bit requested, but support is not compiled in");
+#endif
+			break;
+		case 's':
+		case 'S':
+			if (i != 2 && i != 5) return false;
+			*perm |= i == 2 ? S_ISUID : S_ISGID;
+			break;
+		case 'r':
+			if (i != 0 && i != 3 && i != 6) return false;
+			break;
+		case 'w':
+			if (i != 1 && i != 4 && i != 7) return false;
+			break;
+		case 'x':
+			if (i != 2 && i != 5 && i != 8) return false;
+			break;
+		default:
+			return false;
+		}
+		if (rwx[i] != '-' && rwx[i] != 'S' && rwx[i] != 'T') {
+			*perm |= bit;
+		}
+		bit >>= 1; // 400 200 100 40 20 10 4 2 1
+	}
+
+	// printf("%o\n", *perm);
+	return true;
+}
+
 struct obj_install_target *
 push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 {
@@ -35,8 +86,36 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 	make_obj(wk, &id, obj_install_target);
 	struct obj_install_target *tgt = get_obj_install_target(wk, id);
 	tgt->src = src;
-	// TODO this has a mode [, user, group]
-	tgt->mode = mode;
+
+	tgt->has_perm = false;
+	if (mode) {
+		uint32_t len = get_obj_array(wk, mode)->len;
+		if (len > 3) {
+			LOG_E("install_mode must have 3 or less elements");
+			return NULL;
+		}
+
+		if (len > 1) {
+			LOG_W("TODO: install user/group mode");
+		}
+
+		obj perm;
+		obj_array_index(wk, mode, 0, &perm);
+		switch (get_obj_type(wk, perm)) {
+		case obj_bool:
+			tgt->has_perm = false;
+			break;
+		case obj_string:
+			if (!rwx_to_perm(get_cstr(wk, perm), &tgt->perm)) {
+				LOG_E("install_mode has malformed permission string: %s", get_cstr(wk, perm));
+				return NULL;
+			}
+			tgt->has_perm = true;
+			break;
+		default:
+			return NULL;
+		}
+	}
 
 	obj sdest;
 	if (path_is_absolute(get_cstr(wk, dest))) {

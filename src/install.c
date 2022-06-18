@@ -18,6 +18,8 @@
 struct copy_subdir_ctx {
 	obj exclude_directories;
 	obj exclude_files;
+	bool has_perm;
+	uint32_t perm;
 	const char *src_base, *dest_base;
 	const char *src_root;
 	struct workspace *wk;
@@ -58,6 +60,8 @@ copy_subdir_iter(void *_ctx, const char *path)
 		struct copy_subdir_ctx new_ctx = {
 			.exclude_directories = ctx->exclude_directories,
 			.exclude_files = ctx->exclude_files,
+			.has_perm = ctx->has_perm,
+			.perm = ctx->perm,
 			.src_root = ctx->src_root,
 			.src_base = src,
 			.dest_base = dest,
@@ -81,6 +85,10 @@ copy_subdir_iter(void *_ctx, const char *path)
 		}
 	} else {
 		LOG_E("unhandled file type '%s'", path);
+		return ir_err;
+	}
+
+	if (ctx->has_perm && !fs_chmod(dest, ctx->perm)) {
 		return ir_err;
 	}
 
@@ -182,6 +190,8 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		struct copy_subdir_ctx ctx = {
 			.exclude_directories = in->exclude_directories,
 			.exclude_files = in->exclude_files,
+			.has_perm = in->has_perm,
+			.perm = in->perm,
 			.src_root = src,
 			.src_base = src,
 			.dest_base = dest,
@@ -199,6 +209,10 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		break;
 	default:
 		abort();
+	}
+
+	if (in->has_perm && !fs_chmod(dest, in->perm)) {
+		return ir_err;
 	}
 
 	return ir_cont;

@@ -359,7 +359,8 @@ enum install_target_type {
 struct obj_install_target {
 	obj src;
 	obj dest;
-	obj mode;
+	bool has_perm;
+	uint32_t perm;
 	obj exclude_directories; // obj_array of obj_string
 	obj exclude_files; // obj_array of obj_string
 	enum install_target_type type;

@@ -50,7 +50,7 @@ fs_lexists(const char *path)
 {
 	assert(path_is_absolute(path));
 
-	return faccessat(0, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
+	return faccessat(-1, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
 }
 
 bool
@@ -769,4 +769,15 @@ fs_is_a_tty(FILE *f)
 		}
 		return false;
 	}
+}
+
+bool
+fs_chmod(const char *path, uint32_t mode)
+{
+	if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
+		LOG_E("failed lchmod(%s, %o): %s", path, mode, strerror(errno));
+		return false;
+	}
+
+	return true;
 }
