@@ -191,7 +191,7 @@ tests = [
     ['common/187 args flattening'],
     ['common/188 dict'],
     ['common/189 check header'],
-    ['common/190 install_mode', ['failing']],
+    ['common/190 install_mode'],
     ['common/191 subproject array version'],
     ['common/192 feature option'],
     ['common/193 feature option disabled'],
