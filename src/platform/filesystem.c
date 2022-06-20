@@ -786,9 +786,18 @@ fs_chmod(const char *path, uint32_t mode)
 		}
 	}
 #endif
+	if (fs_symlink_exists(path)) {
+		if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
+			if (errno == EOPNOTSUPP) {
+				LOG_W("changing permissions of symlinks not supported");
+				return true;
+			}
 
-	if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
-		LOG_E("failed lchmod(%s, %o): %s", path, mode, strerror(errno));
+			LOG_E("failed fchmodat(AT_FCWD, %s, %o, AT_SYMLINK_NOFOLLOW): %s", path, mode, strerror(errno));
+			return false;
+		}
+	} else if (chmod(path, (mode_t)mode) == -1) {
+		LOG_E("failed chmod(%s, %o): %s", path, mode, strerror(errno));
 		return false;
 	}
 
