@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/stat.h>
 
 #include "iterator.h"
 
@@ -40,6 +41,7 @@ bool fs_fseek(FILE *file, size_t off);
 bool fs_ftell(FILE *file, uint64_t *res);
 const char *fs_user_home(void);
 bool fs_is_a_tty(FILE *f);
+bool fs_stat(const char *path, struct stat *sb);
 
 typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
