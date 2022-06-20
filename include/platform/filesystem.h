@@ -44,4 +44,9 @@ bool fs_chmod(const char *path, uint32_t mode);
 
 typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
+
+#ifndef S_ISVTX
+#define S_ISVTX 0
+#endif
+
 #endif

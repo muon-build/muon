@@ -45,14 +45,15 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 			break;
 		case 't':
 		case 'T':
-#ifdef S_ISVTX
 			if (i != 8) {
 				return false;
 			}
+
+			if (!S_ISVTX) {
+				LOG_W("sticky bit requested, but support is not compiled in");
+			}
+
 			*perm |= S_ISVTX;
-#else
-			LOG_W("sticky bit requested, but support is not compiled in");
-#endif
 			break;
 		case 's':
 		case 'S':

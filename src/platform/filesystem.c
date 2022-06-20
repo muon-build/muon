@@ -774,7 +774,6 @@ fs_is_a_tty(FILE *f)
 bool
 fs_chmod(const char *path, uint32_t mode)
 {
-#ifdef S_ISVTX
 	if (mode & S_ISVTX) {
 		struct stat sb;
 		if (!fs_stat(path, &sb)) {
@@ -785,7 +784,7 @@ fs_chmod(const char *path, uint32_t mode)
 			return false;
 		}
 	}
-#endif
+
 	if (fs_symlink_exists(path)) {
 		if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
 			if (errno == EOPNOTSUPP) {
