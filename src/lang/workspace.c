@@ -45,8 +45,10 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 			break;
 		case 't':
 		case 'T':
-			if (i != 8) return false;
 #ifdef S_ISVTX
+			if (i != 8) {
+				return false;
+			}
 			*perm |= S_ISVTX;
 #else
 			LOG_W("sticky bit requested, but support is not compiled in");
@@ -54,17 +56,25 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 			break;
 		case 's':
 		case 'S':
-			if (i != 2 && i != 5) return false;
+			if (i != 2 && i != 5) {
+				return false;
+			}
 			*perm |= i == 2 ? S_ISUID : S_ISGID;
 			break;
 		case 'r':
-			if (i != 0 && i != 3 && i != 6) return false;
+			if (i != 0 && i != 3 && i != 6) {
+				return false;
+			}
 			break;
 		case 'w':
-			if (i != 1 && i != 4 && i != 7) return false;
+			if (i != 1 && i != 4 && i != 7) {
+				return false;
+			}
 			break;
 		case 'x':
-			if (i != 2 && i != 5 && i != 8) return false;
+			if (i != 2 && i != 5 && i != 8) {
+				return false;
+			}
 			break;
 		default:
 			return false;
