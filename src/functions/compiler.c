@@ -1181,8 +1181,8 @@ compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	set_obj_bool(wk, *res, ok);
 	LOG_I("header %s %s: %s",
 		get_cstr(wk, an[0].val),
-		bool_to_yn(ok),
-		mode_s
+		mode_s,
+		bool_to_yn(ok)
 		);
 
 	return true;
