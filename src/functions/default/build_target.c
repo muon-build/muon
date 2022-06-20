@@ -354,7 +354,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	build_dep_init(wk, &tgt->dep);
 
 	if (akw[bt_kw_dependencies].set) {
-		tgt->dep.raw.deps = akw[bt_kw_dependencies].val;
 		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep);
 	}
 
@@ -539,13 +538,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 		}
 
 		if (akw[bt_kw_link_with].set) {
-			tgt->dep.raw.link_with = akw[bt_kw_link_with].val;
 			dep_process_link_with(wk, akw[bt_kw_link_with].val, &tgt->dep);
 		}
 
 		if (akw[bt_kw_link_whole].set) {
-			tgt->dep.raw.link_whole = akw[bt_kw_link_whole].val;
-			dep_process_link_with(wk, akw[bt_kw_link_whole].val, &tgt->dep);
+			dep_process_link_whole(wk, akw[bt_kw_link_whole].val, &tgt->dep);
 		}
 	}
 

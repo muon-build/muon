@@ -587,7 +587,6 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	build_dep_init(wk, &dep->dep);
 
 	if (akw[kw_dependencies].set) {
-		dep->dep.raw.deps = akw[kw_dependencies].val;
 		dep_process_deps(wk, akw[kw_dependencies].val, &dep->dep);
 	}
 
@@ -625,13 +624,11 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	}
 
 	if (akw[kw_link_with].set) {
-		dep->dep.raw.link_with = akw[kw_link_with].val;
 		dep_process_link_with(wk, akw[kw_link_with].val, &dep->dep);
 	}
 
 	if (akw[kw_link_whole].set) {
-		dep->dep.raw.link_whole = akw[kw_link_whole].val;
-		dep_process_link_with(wk, akw[kw_link_whole].val, &dep->dep);
+		dep_process_link_whole(wk, akw[kw_link_whole].val, &dep->dep);
 	}
 
 	if (akw[kw_include_directories].set) {
@@ -643,6 +640,18 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 
 /*
  */
+
+static bool
+skip_if_present(struct workspace *wk, obj arr, obj val)
+{
+	if (hash_get(&wk->obj_hash, &val)) {
+		return true;
+	}
+
+	hash_set(&wk->obj_hash, &val, true);
+
+	return false;
+}
 
 struct dep_process_includes_ctx {
 	obj dest;
@@ -693,18 +702,6 @@ dep_process_includes(struct workspace *wk, obj arr, enum include_type include_ty
 void
 build_dep_init(struct workspace *wk, struct build_dep *dep)
 {
-	if (!dep->raw.deps) {
-		make_obj(wk, &dep->raw.deps, obj_array);
-	}
-
-	if (!dep->raw.link_with) {
-		make_obj(wk, &dep->raw.link_with, obj_array);
-	}
-
-	if (!dep->raw.link_whole) {
-		make_obj(wk, &dep->raw.link_whole, obj_array);
-	}
-
 	if (!dep->include_directories) {
 		make_obj(wk, &dep->include_directories, obj_array);
 	}
@@ -761,18 +758,6 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->link_whole, src->link_whole);
 	}
 
-	if (src->raw.deps) {
-		obj_array_extend(wk, dest->raw.deps, src->raw.deps);
-	}
-
-	if (src->raw.link_with) {
-		obj_array_extend(wk, dest->raw.link_with, src->raw.link_with);
-	}
-
-	if (src->raw.link_whole) {
-		obj_array_extend(wk, dest->raw.link_whole, src->raw.link_whole);
-	}
-
 	if (src->include_directories) {
 		obj_array_extend(wk, dest->include_directories, src->include_directories);
 	}
@@ -798,14 +783,60 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 	}
 }
 
+static void
+obj_array_dedup_in_place(struct workspace *wk, obj *arr)
+{
+	if (!*arr) {
+		return;
+	}
+
+	obj dedupd;
+	obj_array_dedup(wk, *arr, &dedupd);
+	*arr = dedupd;
+}
+
+static void
+dedup_build_dep(struct workspace *wk, struct build_dep *dep)
+{
+	obj_array_dedup_in_place(wk, &dep->link_with);
+	obj_array_dedup_in_place(wk, &dep->link_with_not_found);
+	obj_array_dedup_in_place(wk, &dep->link_whole);
+	obj_array_dedup_in_place(wk, &dep->raw.deps);
+	obj_array_dedup_in_place(wk, &dep->raw.link_with);
+	obj_array_dedup_in_place(wk, &dep->raw.link_whole);
+	obj_array_dedup_in_place(wk, &dep->include_directories);
+	/* obj_array_dedup_in_place(wk, &dep->link_args); */
+	/* obj_array_dedup_in_place(wk, &dep->compile_args); */
+	obj_array_dedup_in_place(wk, &dep->rpath);
+	obj_array_dedup_in_place(wk, &dep->order_deps);
+	obj_array_dedup_in_place(wk, &dep->sources);
+}
+
+struct dep_process_link_with_ctx {
+	struct build_dep *dest;
+	bool link_whole;
+};
 
 static enum iteration_result
 dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	struct build_dep *dest = _ctx;
+	struct dep_process_link_with_ctx *ctx = _ctx;
+
+	if (skip_if_present(wk, ctx->dest->raw.link_with, val)) {
+		return ir_cont;
+	}
+
 	enum obj_type t = get_obj_type(wk, val);
 
-	/* obj_fprintf(wk, log_file(), "lw-dep: %o\n", val); */
+	/* obj_fprintf(wk, log_file(), "link_with: %o\n", val); */
+
+	obj dest_link_with;
+
+	if (ctx->link_whole) {
+		dest_link_with = ctx->dest->link_whole;
+	} else {
+		dest_link_with = ctx->dest->link_with;
+	}
 
 	switch (t) {
 	case obj_both_libs:
@@ -816,7 +847,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		const char *path = get_cstr(wk, tgt->build_path);
 
 		if (tgt->type != tgt_executable) {
-			obj_array_push(wk, dest->link_with, make_str(wk, path));
+			obj_array_push(wk, dest_link_with, make_str(wk, path));
 		}
 
 		// calculate rpath for this target
@@ -840,24 +871,24 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 
 			obj s = make_str(wk, p);
 
-			if (!obj_array_in(wk, dest->rpath, s)) {
-				obj_array_push(wk, dest->rpath, s);
+			if (!obj_array_in(wk, ctx->dest->rpath, s)) {
+				obj_array_push(wk, ctx->dest->rpath, s);
 			}
 		}
 
-		merge_build_deps(wk, &tgt->dep, dest);
+		merge_build_deps(wk, &tgt->dep, ctx->dest);
 		break;
 	}
 	case obj_custom_target: {
-		obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, dest, dep_process_link_with_iter);
+		obj_array_foreach(wk, get_obj_custom_target(wk, val)->output, ctx, dep_process_link_with_iter);
 		break;
 	}
 	case obj_file: {
-		obj_array_push(wk, dest->link_with, *get_obj_file(wk, val));
+		obj_array_push(wk, dest_link_with, *get_obj_file(wk, val));
 		break;
 	}
 	case obj_string:
-		obj_array_push(wk, dest->link_with, val);
+		obj_array_push(wk, dest_link_with, val);
 		break;
 	default:
 		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(t));
@@ -871,20 +902,43 @@ void
 dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest)
 {
 	build_dep_init(wk, dest);
-	obj_array_foreach_flat(wk, arr, dest, dep_process_link_with_iter);
+	dest->raw.link_with = arr;
+
+	hash_clear(&wk->obj_hash);
+
+	obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
+		.dest = dest,
+	}, dep_process_link_with_iter);
+
+	dedup_build_dep(wk, dest);
+}
+
+void
+dep_process_link_whole(struct workspace *wk, obj arr, struct build_dep *dest)
+{
+	build_dep_init(wk, dest);
+	dest->raw.link_whole = arr;
+
+	hash_clear(&wk->obj_hash);
+
+	obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
+		.dest = dest,
+		.link_whole = true,
+	}, dep_process_link_with_iter);
+
+	dedup_build_dep(wk, dest);
 }
 
 static enum iteration_result
 dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	if (hash_get(&wk->obj_hash, &val)) {
-		return ir_cont;
-	}
-	hash_set(&wk->obj_hash, &val, true);
-
 	struct build_dep *dest = _ctx;
 
-	/* obj_fprintf(wk, log_file(), "%d|dep: %o\n", ctx->recursion_depth, val); */
+	/* obj_fprintf(wk, log_file(), "dep: %o\n", val); */
+
+	if (skip_if_present(wk, dest->raw.deps, val)) {
+		return ir_cont;
+	}
 
 	struct obj_dependency *dep = get_obj_dependency(wk, val);
 	if (!(dep->flags & dep_flag_found)) {
@@ -900,7 +954,11 @@ void
 dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 {
 	build_dep_init(wk, dest);
+	dest->raw.deps = deps;
 
 	hash_clear(&wk->obj_hash);
+
 	obj_array_foreach(wk, deps, dest, dep_process_deps_iter);
+
+	dedup_build_dep(wk, dest);
 }
