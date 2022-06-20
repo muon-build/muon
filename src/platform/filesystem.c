@@ -351,7 +351,7 @@ fs_find_cmd(const char *cmd, const char **ret)
 
 	base_start = env_path;
 	while (true) {
-		if (!*env_path || *env_path == ':') {
+		if (!*env_path || *env_path == ENV_PATH_SEP) {
 			len = env_path - base_start;
 			assert(len + 1 < PATH_MAX);
 
