@@ -740,7 +740,7 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 }
 
 static void
-merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *dest)
+merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *dest, bool dep)
 {
 	build_dep_init(wk, dest);
 
@@ -758,15 +758,15 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->link_whole, src->link_whole);
 	}
 
-	if (src->include_directories) {
+	if (dep && src->include_directories) {
 		obj_array_extend(wk, dest->include_directories, src->include_directories);
 	}
 
-	if (src->link_args) {
+	if (dep && src->link_args) {
 		obj_array_extend(wk, dest->link_args, src->link_args);
 	}
 
-	if (src->compile_args) {
+	if (dep && src->compile_args) {
 		obj_array_extend(wk, dest->compile_args, src->compile_args);
 	}
 
@@ -778,7 +778,7 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->order_deps, src->order_deps);
 	}
 
-	if (src->sources) {
+	if (dep && src->sources) {
 		obj_array_extend(wk, dest->sources, src->sources);
 	}
 }
@@ -876,7 +876,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
-		merge_build_deps(wk, &tgt->dep, ctx->dest);
+		merge_build_deps(wk, &tgt->dep, ctx->dest, false);
 		break;
 	}
 	case obj_custom_target: {
@@ -945,7 +945,7 @@ dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	merge_build_deps(wk, &dep->dep, dest);
+	merge_build_deps(wk, &dep->dep, dest, true);
 
 	return ir_cont;
 }
