@@ -746,6 +746,20 @@ linker_gcc_args_fatal_warnings(void)
 	return &args;
 }
 
+static const struct args *
+linker_gcc_args_whole_archive(void)
+{
+	COMPILER_ARGS({ "-Wl,--whole-archive" });
+	return &args;
+}
+
+static const struct args *
+linker_gcc_args_no_whole_archive(void)
+{
+	COMPILER_ARGS({ "-Wl,--no-whole-archive" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -764,6 +778,8 @@ build_linkers(void)
 			.allow_shlib_undefined = compiler_arg_empty_0,
 			.export_dynamic = compiler_arg_empty_0,
 			.fatal_warnings = compiler_arg_empty_0,
+			.whole_archive = compiler_arg_empty_0,
+			.no_whole_archive = compiler_arg_empty_0,
 		}
 	};
 
@@ -782,6 +798,8 @@ build_linkers(void)
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
 	gcc.args.fatal_warnings = linker_gcc_args_fatal_warnings;
+	gcc.args.whole_archive = linker_gcc_args_whole_archive;
+	gcc.args.no_whole_archive = linker_gcc_args_no_whole_archive;
 
 	struct linker apple = posix;
 

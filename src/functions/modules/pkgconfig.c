@@ -329,6 +329,13 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 				}
 			}
 
+			if (dep->dep.raw.link_whole) {
+				if (!module_pkgconf_process_libs(wk, ctx->err_node,
+					dep->dep.raw.link_whole, ctx->pc, ctx->vis, true)) {
+					return ir_err;
+				}
+			}
+
 			if (dep->dep.raw.deps) {
 				if (!module_pkgconf_process_libs(wk, ctx->err_node,
 					dep->dep.raw.deps, ctx->pc, pkgconf_visibility_priv, false)) {

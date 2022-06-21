@@ -434,6 +434,10 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	obj_array_dedup(wk, ctx->args->link_with, &link_with);
 	ctx->args->link_with = link_with;
 
+	obj link_whole;
+	obj_array_dedup(wk, ctx->args->link_whole, &link_whole);
+	ctx->args->link_whole = link_whole;
+
 	obj link_with_not_found;
 	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
 	ctx->args->link_with_not_found = link_with_not_found;
@@ -472,8 +476,21 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 
 	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
 
-	if (get_obj_array(wk, ctx->args->link_with)->len) {
+	bool have_link_whole = get_obj_array(wk, ctx->args->link_whole)->len,
+	     have_link_with = have_link_whole
+			      || get_obj_array(wk, ctx->args->link_with)->len
+			      || get_obj_array(wk, ctx->args->link_with_not_found)->len;
+
+	if (have_link_with) {
 		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.start_group());
+
+		if (have_link_whole) {
+			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.whole_archive());
+
+			obj_array_extend(wk, ctx->args->link_args, ctx->args->link_whole);
+
+			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_whole_archive());
+		}
 
 		obj_array_extend(wk, ctx->args->link_args, ctx->args->link_with);
 

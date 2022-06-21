@@ -153,6 +153,10 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
+	if (!relativize_paths(wk, ctx.args.link_whole, true, &ctx.args.link_whole)) {
+		return false;
+	}
+
 	if (tgt->flags & build_tgt_generated_include) {
 		const char *private_path = get_cstr(wk, tgt->private_path);
 
@@ -207,6 +211,10 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 		if (get_obj_array(wk, ctx.args.link_with)->len) {
 			obj_array_extend(wk, implicit_deps, ctx.args.link_with);
+		}
+
+		if (get_obj_array(wk, ctx.args.link_whole)->len) {
+			obj_array_extend(wk, implicit_deps, ctx.args.link_whole);
 		}
 	}
 
