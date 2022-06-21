@@ -112,15 +112,10 @@ is_wprefix(const WCHAR *s, const WCHAR *prefix)
 }
 
 bool
-fs_is_a_tty(FILE *f)
+fs_is_a_tty_from_fd(int fd)
 {
 	HANDLE h;
-	int fd;
 	DWORD mode;
-
-	if (!fs_fileno(f, &fd)) {
-		return false;
-	}
 
 	h = (HANDLE *)_get_osfhandle(fd);
 	if (h == INVALID_HANDLE_VALUE) {

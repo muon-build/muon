@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "platform/filesystem.h"
 #include "platform/term.h"
 #include "log.h"
 
@@ -13,7 +14,7 @@ term_winsize(int fd, uint32_t *height, uint32_t *width)
 	*height = 24;
 	*width = 80;
 
-	if (!term_isterm(fd)) {
+	if (!fs_is_a_tty_from_fd(fd)) {
 		return true;
 	}
 
@@ -29,10 +30,4 @@ term_winsize(int fd, uint32_t *height, uint32_t *width)
 		*width = w.ws_col;
 	}
 	return true;
-}
-
-bool
-term_isterm(int fd)
-{
-	return isatty(fd) == 1;
 }

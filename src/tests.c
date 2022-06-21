@@ -581,7 +581,7 @@ tests_run(struct test_options *opts)
 
 		if (opts->display == test_display_auto) {
 			opts->display = test_display_dots;
-			if (term_isterm(fd)) {
+			if (fs_is_a_tty_from_fd(fd)) {
 				opts->display = test_display_bar;
 			}
 		}

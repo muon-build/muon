@@ -40,6 +40,7 @@ bool fs_make_symlink(const char *target, const char *path, bool force);
 bool fs_fseek(FILE *file, size_t off);
 bool fs_ftell(FILE *file, uint64_t *res);
 const char *fs_user_home(void);
+bool fs_is_a_tty_from_fd(int fd);
 bool fs_is_a_tty(FILE *f);
 bool fs_stat(const char *path, struct stat *sb);
 

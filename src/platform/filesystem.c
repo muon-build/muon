@@ -497,3 +497,13 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 
 	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);
 }
+
+bool
+fs_is_a_tty(FILE *f)
+{
+	int fd;
+	if (!fs_fileno(f, &fd)) {
+		return false;
+	}
+	return fs_is_a_tty_from_fd(fd);
+}
