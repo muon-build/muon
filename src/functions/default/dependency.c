@@ -762,7 +762,7 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->include_directories, src->include_directories);
 	}
 
-	if (dep && src->link_args) {
+	if (src->link_args) {
 		obj_array_extend(wk, dest->link_args, src->link_args);
 	}
 

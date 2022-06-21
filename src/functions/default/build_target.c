@@ -534,7 +534,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 
 	{ // linker args
 		if (akw[bt_kw_link_args].set) {
-			obj_array_extend(wk, tgt->dep.link_args, akw[bt_kw_link_args].val);
+			tgt->tgt_dep.link_args = akw[bt_kw_link_args].val;
 		}
 
 		if (akw[bt_kw_link_with].set) {
