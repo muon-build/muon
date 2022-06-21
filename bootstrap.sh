@@ -100,13 +100,13 @@ cat \
 	src/opts.c \
 	src/platform/$platform/filesystem.c \
 	src/platform/$platform/path.c \
+	src/platform/$platform/term.c \
 	src/platform/$platform/uname.c \
 	src/platform/filesystem.c \
 	src/platform/mem.c \
 	src/platform/null/rpath_fixer.c \
 	src/platform/path.c \
 	src/platform/run_cmd.c \
-	src/platform/term.c \
 	src/platform/uname.c \
 	src/rpmvercmp.c \
 	src/sha_256.c \
