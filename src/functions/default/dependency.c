@@ -563,7 +563,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | obj_any },
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
-		[kw_variables] = { "variables", obj_dict },
+		[kw_variables] = { "variables", tc_array | tc_dict },
 		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
@@ -596,7 +596,10 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		get_node(wk->ast, args_node)->line);
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
-	dep->variables = akw[kw_variables].val;
+
+	if (akw[kw_variables].set && !coerce_environment_dict(wk, akw[kw_variables].node, akw[kw_variables].val, &dep->variables)) {
+		return false;
+	}
 
 	if (akw[kw_link_args].set) {
 		obj_array_extend_nodup(wk, dep->dep.link_args, akw[kw_link_args].val);
