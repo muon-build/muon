@@ -211,6 +211,64 @@ error_unrecoverable(const char *fmt, ...)
 	exit(1);
 }
 
+static bool
+list_line_internal(struct source *src, uint32_t lno, uint32_t *start_of_line, uint32_t *line_pre_len)
+{
+	*start_of_line = 0;
+
+	uint64_t i, cl = 1;
+	for (i = 0; i < src->len; ++i) {
+		if (src->src[i] == '\n') {
+			++cl;
+			*start_of_line = i + 1;
+		}
+
+		if (cl == lno) {
+			break;
+		}
+	}
+
+	if (i == src->len) {
+		return false;
+	}
+
+	char line_pre[32] = { 0 };
+	*line_pre_len = snprintf(line_pre, 31, "%3d | ", lno);
+
+	log_plain("%s", line_pre);
+	for (i = *start_of_line; src->src[i] && src->src[i] != '\n'; ++i) {
+		if (src->src[i] == '\t') {
+			log_plain("        ");
+		} else {
+			putc(src->src[i], stderr);
+		}
+	}
+	log_plain("\n");
+	return true;
+}
+
+void
+list_line_range(struct source *src, uint32_t lno, uint32_t list_amt)
+{
+	uint32_t _, __;
+	uint32_t lstart = 0, lend, i;
+
+	if (lno > list_amt / 2) {
+		lstart = lno - list_amt / 2;
+	}
+	lend = lstart + list_amt;
+
+	log_plain("-> %s%s%s\n",
+		log_clr() ? "\033[32m" : "",
+		src->label,
+		log_clr() ? "\033[0m" : ""
+		);
+
+	for (i = lstart; i < lend; ++i) {
+		list_line_internal(src, i, &_, &__);
+	}
+}
+
 void
 error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *msg)
 {
@@ -233,30 +291,8 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 		return;
 	}
 
-	uint64_t i, cl = 1, sol = 0;
-	for (i = 0; i < src->len; ++i) {
-		if (src->src[i] == '\n') {
-			++cl;
-			sol = i + 1;
-		}
-
-		if (cl == line) {
-			break;
-		}
-	}
-
-	char line_pre[32] = { 0 };
-	uint32_t line_pre_len = snprintf(line_pre, 31, "%3d | ", line);
-
-	log_plain("%s", line_pre);
-	for (i = sol; src->src[i] && src->src[i] != '\n'; ++i) {
-		if (src->src[i] == '\t') {
-			log_plain("        ");
-		} else {
-			putc(src->src[i], stderr);
-		}
-	}
-	log_plain("\n");
+	uint32_t line_pre_len, i, sol;
+	list_line_internal(src, line, &sol, &line_pre_len);
 
 	for (i = 0; i < line_pre_len; ++i) {
 		log_plain(" ");

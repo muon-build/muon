@@ -75,7 +75,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	struct source val_src = { .label = k, .src = v, .len = strlen(v), };
 
 	obj res;
-	if (!eval(ctx->wk, &val_src, &res)) {
+	if (!eval(ctx->wk, &val_src, eval_mode_default, &res)) {
 		error_messagef(src, line, 1, log_error, "failed to parse value");
 		return false;
 	}

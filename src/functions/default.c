@@ -22,6 +22,7 @@
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
+#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "wrap.h"
@@ -1882,18 +1883,6 @@ func_summary(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-static bool
-func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
-{
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	obj_printf(wk, "%o\n", an[0].val);
-	return true;
-}
-
 static obj
 make_alias_target(struct workspace *wk, obj name, obj deps)
 {
@@ -2015,6 +2004,35 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+/*
+ * muon extension funcitons
+ */
+
+static bool
+func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj_printf(wk, "%o\n", an[0].val);
+	return true;
+}
+
+static bool
+func_dbg(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_I("entering debugger, type \\help for help");
+	repl(wk, true);
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_default[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
@@ -2073,6 +2091,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ "vcs_tag", func_vcs_tag, tc_custom_target },
 	{ "warning", func_warning },
 	// non-standard muon extensions
+	{ "dbg", func_dbg },
 	{ "p", func_p },
 	{ NULL, NULL },
 };
@@ -2091,16 +2110,20 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ "is_variable", func_is_variable },
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
-	{ "p", func_p },
 	{ "range", func_range },
 	{ "run_command", func_run_command },
 	{ "set_variable", func_set_variable },
 	{ "warning", func_warning },
+	// non-standard muon extensions
+	{ "dbg", func_dbg },
+	{ "p", func_p },
 	{ NULL, NULL },
 };
 
 const struct func_impl_name impl_tbl_default_opts[] = {
 	{ "option", func_option, 0, true  },
+	// non-standard muon extensions
+	{ "dbg", func_dbg },
 	{ "p", func_p },
 	{ NULL, NULL },
 };

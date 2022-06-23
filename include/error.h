@@ -26,4 +26,5 @@ void error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 void error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col,
 	enum log_level lvl, const char *msg);
 uint32_t error_diagnostic_store_push_src(struct source *src);
+void list_line_range(struct source *src, uint32_t lno, uint32_t list_amt);
 #endif

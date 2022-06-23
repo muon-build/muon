@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "error.h"
+#include "external/bestline.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/parser.h"
@@ -69,7 +71,7 @@ cleanup:
 }
 
 bool
-eval(struct workspace *wk, struct source *src, obj *res)
+eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 {
 	/* L("evaluating '%s'", src->label); */
 	bool ret = false;
@@ -78,7 +80,12 @@ eval(struct workspace *wk, struct source *src, obj *res)
 	struct source_data *sdata =
 		darr_get(&wk->source_data, darr_push(&wk->source_data, &(struct source_data) { 0 }));
 
-	if (!parser_parse(&ast, sdata, src, 0)) {
+	enum parse_mode parse_mode = 0;
+	if (mode == eval_mode_repl) {
+		parse_mode |= pm_ignore_statement_with_no_effect;
+	}
+
+	if (!parser_parse(&ast, sdata, src, parse_mode)) {
 		goto ret;
 	}
 
@@ -102,10 +109,10 @@ ret:
 }
 
 bool
-eval_str(struct workspace *wk, const char *str, obj *res)
+eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 {
 	struct source src = { .label = "<internal>", .src = str, .len = strlen(str) };
-	return eval(wk, &src, res);
+	return eval(wk, &src, mode, res);
 }
 
 bool
@@ -123,7 +130,7 @@ eval_project_file(struct workspace *wk, const char *path)
 	}
 
 	obj res;
-	if (!eval(wk, &src, &res)) {
+	if (!eval(wk, &src, eval_mode_default, &res)) {
 		goto ret;
 	}
 
@@ -138,5 +145,123 @@ source_data_destroy(struct source_data *sdata)
 {
 	if (sdata->data) {
 		z_free(sdata->data);
+	}
+}
+
+void
+repl(struct workspace *wk, bool dbg)
+{
+	bool loop = true;
+	obj repl_res;
+	char *line;
+	FILE *out = stderr;
+	enum repl_cmd {
+		repl_cmd_noop,
+		repl_cmd_exit,
+		repl_cmd_step,
+		repl_cmd_list,
+		repl_cmd_help,
+	};
+	enum repl_cmd cmd = repl_cmd_noop;
+	const struct {
+		const char *name[4];
+		enum repl_cmd cmd;
+		bool valid;
+	} repl_cmds[] = {
+		{ { "exit" }, repl_cmd_exit, !dbg },
+		{ { "c", "continue" }, repl_cmd_exit, dbg },
+		{ { "s", "step" }, repl_cmd_step, dbg },
+		{ { "l", "list" }, repl_cmd_list, dbg },
+		{ { "h", "help" }, repl_cmd_help, true },
+		0
+	};
+
+	if (dbg) {
+		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 1);
+
+		if (wk->dbg.stepping) {
+			cmd = repl_cmd_step;
+		}
+	}
+
+	const char *prompt = log_clr() ? "\033[36;1m>\033[0m " : "> ",
+		   cmd_char = '\\';
+
+	while (loop && (line = muon_bestline(prompt))) {
+		muon_bestline_history_add(line);
+
+		if (!*line || *line == cmd_char) {
+			if (!*line || !line[1]) {
+				goto cmd_found;
+			}
+
+			uint32_t i, j;
+			for (i = 0; *repl_cmds[i].name; ++i) {
+				if (repl_cmds[i].valid) {
+					for (j = 0; repl_cmds[i].name[j]; ++j) {
+						if (strcmp(&line[1], repl_cmds[i].name[j]) == 0) {
+							cmd = repl_cmds[i].cmd;
+							goto cmd_found;
+						}
+					}
+				}
+			}
+
+			fprintf(out, "unknown repl command '%s'\n", &line[1]);
+			goto cont;
+cmd_found:
+			switch (cmd) {
+			case repl_cmd_exit:
+				wk->dbg.stepping = false;
+				loop = false;
+				break;
+			case repl_cmd_help:
+				fprintf(out, "repl commands:\n");
+				for (i = 0; *repl_cmds[i].name; ++i) {
+					if (!repl_cmds[i].valid) {
+						continue;
+					}
+
+					fprintf(out, "  - ");
+					for (j = 0; repl_cmds[i].name[j]; ++j) {
+						fprintf(out, "%c%s", cmd_char, repl_cmds[i].name[j]);
+						if (repl_cmds[i].name[j + 1]) {
+							fprintf(out, ", ");
+						}
+					}
+					fprintf(out, "\n");
+				}
+				break;
+			case repl_cmd_list: {
+				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 11);
+				break;
+			}
+			case repl_cmd_step:
+				wk->dbg.stepping = true;
+				loop = false;
+				break;
+			case repl_cmd_noop:
+				break;
+			}
+		} else {
+			cmd = repl_cmd_noop;
+
+			if (!eval_str(wk, line, eval_mode_repl, &repl_res)) {
+				goto cont;
+			}
+
+			if (repl_res) {
+				obj_fprintf(wk, out, "%o\n", repl_res);
+				hash_set_str(&wk->scope, "_", repl_res);
+			}
+		}
+cont:
+		muon_bestline_free(line);
+	}
+
+	muon_bestline_history_free();
+
+	if (!line) {
+		wk->dbg.stepping = false;
 	}
 }

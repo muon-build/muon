@@ -472,7 +472,7 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	}
 
 	obj res;
-	if (!eval(&wk, &src, &res)) {
+	if (!eval(&wk, &src, eval_mode_default, &res)) {
 		goto ret;
 	}
 
@@ -510,47 +510,17 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	char buf[2048];
-	bool ret = false;
-	struct source src = { .label = "repl", .src = buf };
-	struct source_data sdata = { 0 };
-	struct ast ast = { 0 };
-
 	struct workspace wk;
 	workspace_init(&wk);
-	wk.src = &src;
-	wk.ast = &ast;
-
 	wk.lang_mode = language_internal;
 
 	obj id;
 	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
 
-	fputs("> ", stderr);
-	while (fgets(buf, 2048, stdin)) {
-		src.len = strlen(buf);
+	repl(&wk, false);
 
-		if (!parser_parse(&ast, &sdata, &src,
-			pm_ignore_statement_with_no_effect)) {
-			goto cont;
-		}
-
-		if (!interp_node(&wk, wk.ast->root, &id)) {
-			goto cont;
-		}
-
-		if (id) {
-			obj_fprintf(&wk, stderr, "%o\n", id);
-			hash_set_str(&wk.scope, "_", id);
-		}
-cont:
-		ast_destroy(&ast);
-		fputs("> ", stderr);
-	}
-
-	ret = true;
 	workspace_destroy(&wk);
-	return ret;
+	return true;
 }
 
 static bool

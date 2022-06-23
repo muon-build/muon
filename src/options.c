@@ -595,7 +595,7 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 	enum language_mode old_mode = wk->lang_mode;
 	wk->lang_mode = language_opts;
 	obj _;
-	bool ret = eval_str(wk, opts, &_);
+	bool ret = eval_str(wk, opts, eval_mode_default, &_);
 	wk->lang_mode = old_mode;
 	return ret;
 }

@@ -950,6 +950,10 @@ interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 {
 	obj block_result;
 
+	if (wk->dbg.stepping) {
+		wk->dbg.last_line = 0;
+	}
+
 	if (get_node(wk->ast, ctx->block_node)->type == node_empty) {
 		return ir_done;
 	}
@@ -1148,6 +1152,14 @@ interp_block:
 		assert(n->type == node_block);
 
 		obj obj_l, obj_r; // these return values are disregarded
+
+		wk->dbg.node = n->l;
+		if (wk->dbg.stepping
+		    && strcmp(wk->src->label, "<internal>") != 0
+		    && wk->dbg.last_line != get_node(wk->ast, n->l)->line) {
+			wk->dbg.last_line = get_node(wk->ast, n->l)->line;
+			repl(wk, true);
+		}
 
 		if (!wk->interp_node(wk, n->l, &obj_l)) {
 			return false;

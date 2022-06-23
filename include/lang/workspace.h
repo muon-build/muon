@@ -108,6 +108,10 @@ struct workspace {
 	bool in_analyzer;
 
 	enum language_mode lang_mode;
+	struct {
+		uint32_t node, last_line;
+		bool stepping;
+	} dbg;
 };
 
 bool get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id);

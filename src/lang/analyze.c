@@ -1290,7 +1290,7 @@ analyze_eval_project_file(struct workspace *wk, const char *path)
 		src.label = path;
 
 		obj res;
-		if (!eval(wk, &src, &res)) {
+		if (!eval(wk, &src, eval_mode_default, &res)) {
 			goto ret;
 		}
 
