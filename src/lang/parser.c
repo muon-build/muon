@@ -1134,6 +1134,9 @@ static bool
 parse_foreach(struct parser *p, uint32_t *id)
 {
 	uint32_t args_id, r_id, c_id;
+
+	make_node(p, id, node_foreach);
+
 	if (!parse_foreach_args(p, &args_id, 0)) {
 		return false;
 	}
@@ -1165,7 +1168,6 @@ parse_foreach(struct parser *p, uint32_t *id)
 		p->caused_effect = true;
 	}
 
-	make_node(p, id, node_foreach);
 	add_child(p, *id, node_child_l, args_id);
 	add_child(p, *id, node_child_r, r_id);
 	add_child(p, *id, node_child_c, c_id);
