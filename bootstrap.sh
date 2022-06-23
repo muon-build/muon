@@ -42,6 +42,7 @@ cat \
 	src/embedded.c \
 	src/error.c \
 	src/external/$pkgconf_src \
+	src/external/bestline_null.c \
 	src/external/libarchive_null.c \
 	src/external/libcurl_null.c \
 	src/external/samurai_null.c \

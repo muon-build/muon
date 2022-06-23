@@ -1,0 +1,8 @@
+*
+!*.wrap
+!.gitignore
+!bestline
+!bestline/README.md
+!bestline/bestline.c
+!bestline/bestline.h
+!bestline/meson.build

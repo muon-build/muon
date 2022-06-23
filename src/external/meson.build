@@ -4,8 +4,8 @@ dep_sources = []
 dep_dict = {}
 
 foreach d : [
-    ['libcurl', {}],
-    ['libarchive', {}],
+    ['libcurl'],
+    ['libarchive'],
     [
         'libpkgconf',
         {
@@ -14,24 +14,25 @@ foreach d : [
         },
     ],
     ['samurai', {'fallback': ['samurai', 'libsamu_dep']}],
+    ['bestline'],
 ]
-
-    kwargs = d[1]
+    name = d[0]
+    kwargs = d.get(1, {})
     if get_option('static')
         kwargs += {'static': true}
     endif
 
-    dep = dependency(d[0], required: get_option(d[0]), kwargs: kwargs)
+    dep = dependency(name, required: get_option(name), kwargs: kwargs)
 
-    summary(d[0], dep.found())
+    summary(name, dep.found())
 
-    dep_dict += {d[0]: dep.found()}
+    dep_dict += {name: dep.found()}
 
     if dep.found()
         external_deps += [dep]
-        dep_sources += [files((d[0] + '.c'))]
+        dep_sources += [files((name + '.c'))]
     else
-        dep_sources += [files((d[0] + '_null.c'))]
+        dep_sources += [files((name + '_null.c'))]
     endif
 endforeach
 

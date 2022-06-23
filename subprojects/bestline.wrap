@@ -1,0 +1,5 @@
+[wrap-file]
+source_filename = bestline
+
+[provide]
+dependencies = bestline
