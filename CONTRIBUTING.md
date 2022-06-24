@@ -46,7 +46,7 @@ common other type of error returning function has the return type
 
 All meson functions are defined in `functions` with a separate file for each
 object type on which the function is defined.  Functions not defined on an
-object are in `default.c`.  If the function implementation is sufficiently large,
+object are in `kernel.c`.  If the function implementation is sufficiently large,
 it may be broken up into a separate file under `functions/<object
 type>/<function name>.c`.
 

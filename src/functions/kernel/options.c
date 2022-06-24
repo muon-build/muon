@@ -4,7 +4,7 @@
 
 #include "error.h"
 #include "functions/common.h"
-#include "functions/default/options.h"
+#include "functions/kernel/options.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "options.h"

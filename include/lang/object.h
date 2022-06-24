@@ -9,9 +9,8 @@
 #include "lang/types.h"
 
 enum obj_type {
-	/* meta object types */
-	obj_any = 0, // used for argument type checking
-	obj_default, // used for function lookup
+	//
+	obj_any = 0,
 
 	/* singleton object types */
 	obj_null,

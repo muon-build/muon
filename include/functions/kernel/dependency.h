@@ -1,5 +1,5 @@
-#ifndef MUON_FUNCTIONS_DEFAULT_DEPENDENCY_H
-#define MUON_FUNCTIONS_DEFAULT_DEPENDENCY_H
+#ifndef MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
+#define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #include "functions/common.h"
 
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);

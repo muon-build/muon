@@ -1,5 +1,5 @@
-#ifndef MUON_FUNCTIONS_DEFAULT_BUILD_TARGET_H
-#define MUON_FUNCTIONS_DEFAULT_BUILD_TARGET_H
+#ifndef MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
+#define MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
 #include "functions/common.h"
 
 bool func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res);

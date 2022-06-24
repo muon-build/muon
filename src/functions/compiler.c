@@ -11,7 +11,7 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
-#include "functions/default/dependency.h"
+#include "functions/kernel/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"

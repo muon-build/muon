@@ -279,7 +279,6 @@ obj_type_to_s(enum obj_type t)
 {
 	switch (t) {
 	case obj_any: return "any";
-	case obj_default: return "default";
 	case obj_null: return "null";
 	case obj_compiler: return "compiler";
 	case obj_dependency: return "dependency";

@@ -11,7 +11,6 @@
 #include "functions/compiler.h"
 #include "functions/configuration_data.h"
 #include "functions/custom_target.h"
-#include "functions/default.h"
 #include "functions/dependency.h"
 #include "functions/dict.h"
 #include "functions/disabler.h"
@@ -20,6 +19,7 @@
 #include "functions/feature_opt.h"
 #include "functions/file.h"
 #include "functions/generator.h"
+#include "functions/kernel.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/modules.h"
@@ -570,8 +570,13 @@ end:
 	return true;
 }
 
+const struct func_impl_name *kernel_func_tbl[language_mode_count] = {
+	impl_tbl_kernel,
+	impl_tbl_kernel_external,
+	impl_tbl_kernel_opts,
+};
+
 const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
-	[obj_default] = { impl_tbl_default, impl_tbl_default_external, impl_tbl_default_opts },
 	[obj_meson] = { impl_tbl_meson, },
 	[obj_subproject] = { impl_tbl_subproject },
 	[obj_number] = { impl_tbl_number, impl_tbl_number, },
@@ -613,9 +618,10 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 {
 	const char *name;
 
-	enum obj_type rcvr_type;
+	enum obj_type rcvr_type = 0;
 	uint32_t args_node, name_node;
 	struct node *n = get_node(wk->ast, node_id);
+	const struct func_impl_name *impl_tbl;
 
 	if (have_rcvr && !rcvr_id) {
 		interp_error(wk, n->r, "tried to call function on null");
@@ -626,17 +632,18 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		name_node = n->r;
 		args_node = n->c;
 		rcvr_type = get_obj_type(wk, rcvr_id);
+		impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 	} else {
 		assert(n->chflg & node_child_l);
 		name_node = n->l;
 		args_node = n->r;
-		rcvr_type = obj_default;
+		impl_tbl = kernel_func_tbl[wk->lang_mode];
 	}
 
 	const struct func_impl_name *fi;
 	name = get_node(wk->ast, name_node)->dat.s;
 
-	if (rcvr_type == obj_module) {
+	if (have_rcvr && rcvr_type == obj_module) {
 		struct obj_module *m = get_obj_module(wk, rcvr_id);
 		enum module mod = m->module;
 
@@ -648,7 +655,6 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 	} else {
-		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 
 		if (!impl_tbl) {
 			interp_error(wk, name_node,  "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
@@ -661,7 +667,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 				return true;
 			}
 
-			if (rcvr_type == obj_default) {
+			if (have_rcvr) {
 				interp_error(wk, name_node, "function %s() not found", name);
 			} else {
 				interp_error(wk, name_node, "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
@@ -676,7 +682,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			disabler_among_args = false;
 			return true;
 		} else {
-			if (rcvr_type == obj_default) {
+			if (have_rcvr) {
 				interp_error(wk, name_node, "in function %s()",  name);
 			} else {
 				interp_error(wk, name_node, "in method %s.%s()", obj_type_to_s(rcvr_type), name);

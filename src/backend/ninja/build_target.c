@@ -8,7 +8,7 @@
 #include "backend/ninja/build_target.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "functions/default/dependency.h"
+#include "functions/kernel/dependency.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/filesystem.h"

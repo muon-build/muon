@@ -1,6 +1,6 @@
 #include "posix.h"
 
-#include "functions/default/subproject.h"
+#include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
 #include "log.h"

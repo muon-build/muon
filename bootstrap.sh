@@ -55,13 +55,6 @@ cat \
 	src/functions/compiler.c \
 	src/functions/configuration_data.c \
 	src/functions/custom_target.c \
-	src/functions/default.c \
-	src/functions/default/build_target.c \
-	src/functions/default/configure_file.c \
-	src/functions/default/custom_target.c \
-	src/functions/default/dependency.c \
-	src/functions/default/options.c \
-	src/functions/default/subproject.c \
 	src/functions/dependency.c \
 	src/functions/dict.c \
 	src/functions/disabler.c \
@@ -70,6 +63,13 @@ cat \
 	src/functions/feature_opt.c \
 	src/functions/file.c \
 	src/functions/generator.c \
+	src/functions/kernel.c \
+	src/functions/kernel/build_target.c \
+	src/functions/kernel/configure_file.c \
+	src/functions/kernel/custom_target.c \
+	src/functions/kernel/dependency.c \
+	src/functions/kernel/options.c \
+	src/functions/kernel/subproject.c \
 	src/functions/machine.c \
 	src/functions/meson.c \
 	src/functions/modules.c \

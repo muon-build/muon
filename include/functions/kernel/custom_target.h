@@ -1,5 +1,5 @@
-#ifndef MUON_FUNCTIONS_DEFAULT_CUSTOM_TARGET_H
-#define MUON_FUNCTIONS_DEFAULT_CUSTOM_TARGET_H
+#ifndef MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
+#define MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
 #include "functions/common.h"
 
 struct make_custom_target_opts {

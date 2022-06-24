@@ -13,6 +13,7 @@ struct func_impl_name {
 	bool pure;
 };
 
+extern const struct func_impl_name *kernel_func_tbl[language_mode_count];
 extern const struct func_impl_name *func_tbl[obj_type_count][language_mode_count];
 
 struct args_norm { uint32_t type; obj val, node; bool set; };

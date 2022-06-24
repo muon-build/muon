@@ -637,7 +637,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 
 	const struct func_impl_name *fi;
 
-	if (!(fi = func_lookup(func_tbl[obj_default][wk->lang_mode], name))) {
+	if (!(fi = func_lookup(kernel_func_tbl[wk->lang_mode], name))) {
 		interp_error(wk, n_id, "function %s not found", name);
 		ret = false;
 

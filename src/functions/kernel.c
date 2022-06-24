@@ -7,14 +7,14 @@
 #include "coerce.h"
 #include "error.h"
 #include "functions/common.h"
-#include "functions/default.h"
-#include "functions/default/build_target.h"
-#include "functions/default/configure_file.h"
-#include "functions/default/custom_target.h"
-#include "functions/default/dependency.h"
-#include "functions/default/options.h"
-#include "functions/default/subproject.h"
 #include "functions/environment.h"
+#include "functions/kernel.h"
+#include "functions/kernel/build_target.h"
+#include "functions/kernel/configure_file.h"
+#include "functions/kernel/custom_target.h"
+#include "functions/kernel/dependency.h"
+#include "functions/kernel/options.h"
+#include "functions/kernel/subproject.h"
 #include "functions/modules.h"
 #include "functions/string.h"
 #include "guess.h"
@@ -2033,7 +2033,7 @@ func_dbg(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-const struct func_impl_name impl_tbl_default[] =
+const struct func_impl_name impl_tbl_kernel[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
 	{ "add_global_link_arguments", func_add_global_link_arguments },
@@ -2096,7 +2096,7 @@ const struct func_impl_name impl_tbl_default[] =
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_default_external[] = {
+const struct func_impl_name impl_tbl_kernel_external[] = {
 	{ "assert", func_assert },
 	{ "configuration_data", func_configuration_data },
 	{ "disabler", func_disabler },
@@ -2120,7 +2120,7 @@ const struct func_impl_name impl_tbl_default_external[] = {
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_default_opts[] = {
+const struct func_impl_name impl_tbl_kernel_opts[] = {
 	{ "option", func_option, 0, true  },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
