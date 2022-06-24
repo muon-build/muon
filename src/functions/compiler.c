@@ -1671,19 +1671,22 @@ compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 {
 	struct compiler_find_library_ctx *ctx = _ctx;
 	char lib[PATH_MAX];
-	static const char *suf[] = { "so", "a", NULL };
+	static const char *pref[] = { "", "lib", NULL };
+	static const char *suf[] = { ".a", ".so", NULL };
 
-	uint32_t i;
+	uint32_t i, j;
 	for (i = 0; suf[i]; ++i) {
-		snprintf(lib, PATH_MAX, "lib%s.%s", get_cstr(wk, ctx->lib_name), suf[i]);
+		for (j = 0; pref[j]; ++j) {
+			snprintf(lib, PATH_MAX, "%s%s%s", pref[j], get_cstr(wk, ctx->lib_name), suf[i]);
 
-		if (!path_join(ctx->path, PATH_MAX, get_cstr(wk, libdir), lib)) {
-			return false;
-		}
+			if (!path_join(ctx->path, PATH_MAX, get_cstr(wk, libdir), lib)) {
+				return false;
+			}
 
-		if (fs_file_exists(ctx->path)) {
-			ctx->found = true;
-			return ir_done;
+			if (fs_file_exists(ctx->path)) {
+				ctx->found = true;
+				return ir_done;
+			}
 		}
 	}
 
