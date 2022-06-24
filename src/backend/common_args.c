@@ -8,10 +8,9 @@
 #include "error.h"
 #include "functions/dependency.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
-
-void get_option_value_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, obj *res);
 
 static void
 get_option_value_for_tgt(struct workspace *wk, const struct project *proj,

@@ -65,7 +65,7 @@ module_func_lookup(const char *name, enum module mod)
 
 	const struct func_impl_name *fi;
 	if (!(fi = func_lookup(module_func_tbl[mod], name))) {
-		return false;
+		return NULL;
 	}
 
 	return fi;

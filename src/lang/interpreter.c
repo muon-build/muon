@@ -864,12 +864,13 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 		case comp_ge:
 			b = n_a >= n_b;
 			break;
-		default: assert(false && "unreachable"); res = false;
+		default:
+			UNREACHABLE;
 		}
 		break;
 	}
-	default: assert(false && "unreachable"); res = false;
-		break;
+	default:
+		UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_bool);
