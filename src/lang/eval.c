@@ -163,7 +163,7 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_help,
 	};
 	enum repl_cmd cmd = repl_cmd_noop;
-	const struct {
+	struct {
 		const char *name[4];
 		enum repl_cmd cmd;
 		bool valid;
