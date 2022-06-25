@@ -1663,6 +1663,7 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_
 struct compiler_find_library_ctx {
 	char path[PATH_MAX];
 	obj lib_name;
+	bool only_static;
 	bool found;
 };
 
@@ -1672,7 +1673,12 @@ compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 	struct compiler_find_library_ctx *ctx = _ctx;
 	char lib[PATH_MAX];
 	static const char *pref[] = { "", "lib", NULL };
-	static const char *suf[] = { ".a", ".so", NULL };
+	const char *suf[] = { ".so", ".a", NULL };
+
+	if (ctx->only_static) {
+		suf[0] = ".a";
+		suf[1] = NULL;
+	}
 
 	uint32_t i, j;
 	for (i = 0; suf[i]; ++i) {
@@ -1699,7 +1705,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
-		kw_static, // TODO
+		kw_static,
 		kw_disabler,
 		kw_has_headers, // TODO
 		kw_dirs,
@@ -1731,7 +1737,8 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	}
 
 	struct compiler_find_library_ctx ctx = {
-		.lib_name = an[0].val
+		.lib_name = an[0].val,
+		.only_static = akw[kw_static].set ? get_obj_bool(wk, akw[kw_static].val) : false,
 	};
 	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
 
