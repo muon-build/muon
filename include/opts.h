@@ -1,7 +1,7 @@
 #ifndef MUON_OPTS_H
 #define MUON_OPTS_H
 
-#include <getopt.h>
+#include <unistd.h>
 
 #include "lang/workspace.h"
 
