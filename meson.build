@@ -85,8 +85,9 @@ subdir('src')
 
 muon = executable(
     'muon',
-    ['src/main.c'],
-    dependencies: [muon_dep],
+    src,
+    dependencies: deps,
+    include_directories: include_dir,
     c_args: c_args,
     link_args: link_args,
     install: true,

@@ -7,10 +7,6 @@ src = files(
     'backend/ninja/custom_target.c',
     'backend/ninja/rules.c',
     'backend/output.c',
-    'data/bucket_array.c',
-    'data/darr.c',
-    'data/hash.c',
-    'formats/ini.c',
     'functions/array.c',
     'functions/boolean.c',
     'functions/both_libs.c',
@@ -58,11 +54,10 @@ src = files(
     'coerce.c',
     'compilers.c',
     'embedded.c',
-    'error.c',
     'guess.c',
     'install.c',
-    'log.c',
     'machine_file.c',
+    'main.c',
     'options.c',
     'opts.c',
     'rpmvercmp.c',
@@ -88,16 +83,3 @@ src += script_sources
 subdir('external')
 src += dep_sources
 deps += external_deps
-
-muon_lib = static_library(
-    'muon',
-    src,
-    dependencies: deps,
-    include_directories: [include_dir],
-)
-
-muon_dep = declare_dependency(
-    link_with: muon_lib,
-    dependencies: deps,
-    include_directories: [include_dir],
-)

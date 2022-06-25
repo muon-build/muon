@@ -1,5 +1,11 @@
 # common platform sources
 platform_sources = files(
+    '../data/bucket_array.c',
+    '../data/darr.c',
+    '../data/hash.c',
+    '../error.c',
+    '../formats/ini.c',
+    '../log.c',
     'filesystem.c',
     'mem.c',
     'path.c',

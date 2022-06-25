@@ -1,5 +1,5 @@
 tests = [
-    ['path', [files('path.c')], {'dependencies': muon_dep}],
+    ['path', [files('path.c')], {'dependencies': platform_dep}],
 ]
 
 foreach t : tests
