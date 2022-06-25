@@ -394,7 +394,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 					if ((get_obj_type(wk, val) == obj_array
 					     || (get_obj_type(wk, val) == obj_typeinfo
 						 && (get_obj_typeinfo(wk, val)->type & tc_array) == tc_array))
-					    && !(an[stage][i].type == obj_any
+					    && !(an[stage][i].type == tc_any
 						 || an[stage][i].type == obj_array
 						 || (an[stage][i].type & tc_array) == tc_array)
 					    ) {

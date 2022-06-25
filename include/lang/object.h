@@ -9,9 +9,6 @@
 #include "lang/types.h"
 
 enum obj_type {
-	//
-	obj_any = 0,
-
 	/* singleton object types */
 	obj_null,
 	obj_meson,
@@ -59,33 +56,35 @@ enum obj_typechecking_type {
 	ARG_TYPE_ARRAY_OF         = 1 << 30,
 	ARG_TYPE_GLOB             = 1 << 28,
 
-	tc_bool               = obj_typechecking_type_tag | (1 << 0),
-	tc_file               = obj_typechecking_type_tag | (1 << 1),
-	tc_number             = obj_typechecking_type_tag | (1 << 2),
-	tc_string             = obj_typechecking_type_tag | (1 << 3),
-	tc_array              = obj_typechecking_type_tag | (1 << 4),
-	tc_dict               = obj_typechecking_type_tag | (1 << 5),
-	tc_compiler           = obj_typechecking_type_tag | (1 << 6),
-	tc_build_target       = obj_typechecking_type_tag | (1 << 7),
-	tc_custom_target      = obj_typechecking_type_tag | (1 << 8),
-	tc_subproject         = obj_typechecking_type_tag | (1 << 9),
-	tc_dependency         = obj_typechecking_type_tag | (1 << 10),
-	tc_feature_opt        = obj_typechecking_type_tag | (1 << 11),
-	tc_external_program   = obj_typechecking_type_tag | (1 << 12),
-	tc_run_result         = obj_typechecking_type_tag | (1 << 13),
-	tc_configuration_data = obj_typechecking_type_tag | (1 << 14),
-	tc_test               = obj_typechecking_type_tag | (1 << 15),
-	tc_module             = obj_typechecking_type_tag | (1 << 16),
-	tc_install_target     = obj_typechecking_type_tag | (1 << 17),
-	tc_environment        = obj_typechecking_type_tag | (1 << 18),
-	tc_include_directory  = obj_typechecking_type_tag | (1 << 19),
-	tc_option             = obj_typechecking_type_tag | (1 << 20),
-	tc_generator          = obj_typechecking_type_tag | (1 << 21),
-	tc_generated_list     = obj_typechecking_type_tag | (1 << 22),
-	tc_alias_target       = obj_typechecking_type_tag | (1 << 23),
-	tc_both_libs          = obj_typechecking_type_tag | (1 << 24),
-	tc_disabler           = obj_typechecking_type_tag | (1 << 25),
-	tc_typemap_count      =                                   26,
+	tc_meson              = obj_typechecking_type_tag | (1 << 0),
+	tc_disabler           = obj_typechecking_type_tag | (1 << 1),
+	tc_machine            = obj_typechecking_type_tag | (1 << 2),
+	tc_bool               = obj_typechecking_type_tag | (1 << 3),
+	tc_file               = obj_typechecking_type_tag | (1 << 4),
+	tc_feature_opt        = obj_typechecking_type_tag | (1 << 5),
+	tc_number             = obj_typechecking_type_tag | (1 << 6),
+	tc_string             = obj_typechecking_type_tag | (1 << 7),
+	tc_array              = obj_typechecking_type_tag | (1 << 8),
+	tc_dict               = obj_typechecking_type_tag | (1 << 9),
+	tc_compiler           = obj_typechecking_type_tag | (1 << 10),
+	tc_build_target       = obj_typechecking_type_tag | (1 << 11),
+	tc_custom_target      = obj_typechecking_type_tag | (1 << 12),
+	tc_subproject         = obj_typechecking_type_tag | (1 << 13),
+	tc_dependency         = obj_typechecking_type_tag | (1 << 14),
+	tc_external_program   = obj_typechecking_type_tag | (1 << 15),
+	tc_run_result         = obj_typechecking_type_tag | (1 << 16),
+	tc_configuration_data = obj_typechecking_type_tag | (1 << 17),
+	tc_test               = obj_typechecking_type_tag | (1 << 18),
+	tc_module             = obj_typechecking_type_tag | (1 << 19),
+	tc_install_target     = obj_typechecking_type_tag | (1 << 20),
+	tc_environment        = obj_typechecking_type_tag | (1 << 21),
+	tc_include_directory  = obj_typechecking_type_tag | (1 << 22),
+	tc_option             = obj_typechecking_type_tag | (1 << 23),
+	tc_generator          = obj_typechecking_type_tag | (1 << 24),
+	tc_generated_list     = obj_typechecking_type_tag | (1 << 25),
+	tc_alias_target       = obj_typechecking_type_tag | (1 << 26),
+	tc_both_libs          = obj_typechecking_type_tag | (1 << 27),
+	tc_type_count         =                                   28,
 
 	tc_any = tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict
 		 | tc_compiler | tc_build_target | tc_custom_target
@@ -94,7 +93,8 @@ enum obj_typechecking_type {
 		 | tc_configuration_data | tc_test | tc_module
 		 | tc_install_target | tc_environment | tc_include_directory
 		 | tc_option | tc_generator | tc_generated_list
-		 | tc_alias_target | tc_both_libs | tc_disabler,
+		 | tc_alias_target | tc_both_libs | tc_disabler
+		 | tc_meson | tc_machine,
 
 	tc_exe                = tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs,
 
@@ -117,8 +117,6 @@ struct obj_typechecking_type_to_obj_type {
 struct obj_typeinfo {
 	uint32_t type, subtype;
 };
-
-extern const struct obj_typechecking_type_to_obj_type typemap[tc_typemap_count];
 
 #if __STDC_VERSION__ >= 201112L
 _Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
@@ -172,7 +170,7 @@ struct obj_module {
 };
 
 struct obj_array {
-	obj val; // obj_any
+	obj val; // any
 	obj next; // obj_array
 	obj tail; // obj_array
 	uint32_t len;
@@ -181,7 +179,7 @@ struct obj_array {
 
 struct obj_dict {
 	obj key; // obj_string
-	obj val; // obj_any
+	obj val; // any
 	obj next; // obj_array
 	obj tail; // obj_array
 	uint32_t len;

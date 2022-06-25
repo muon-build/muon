@@ -411,7 +411,7 @@ static bool
 func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, ao, NULL)) {
 		return false;
@@ -431,7 +431,7 @@ static bool
 func_meson_get_external_property(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 	enum kwargs { kw_native, };
 	struct args_kw akw[] = {
 		[kw_native] = { "native", obj_bool },
@@ -467,7 +467,7 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node
 static bool
 func_meson_add_devenv(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

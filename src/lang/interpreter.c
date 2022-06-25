@@ -88,7 +88,7 @@ typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type)
 {
 	enum obj_type got = get_obj_type(wk, o);
 
-	if (type != obj_any && got != type) {
+	if (got != type) {
 		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(got));
 		return false;
 	}
@@ -105,13 +105,14 @@ typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t)
 
 	obj expected_types;
 	make_obj(wk, &expected_types, obj_array);
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-		if ((t & typemap[i].tc) != typemap[i].tc) {
+	uint32_t ot;
+	for (ot = 1; ot <= tc_type_count; ++ot) {
+		uint32_t tc = obj_type_to_tc_type(ot);
+		if ((t & tc) != tc) {
 			continue;
 		}
 
-		obj_array_push(wk, expected_types, make_str(wk, obj_type_to_s(typemap[i].type)));
+		obj_array_push(wk, expected_types, make_str(wk, obj_type_to_s(ot)));
 	}
 
 	obj typestr;
@@ -123,16 +124,16 @@ static bool
 typecheck_typechecking_type(struct workspace *wk, uint32_t n_id,
 	enum obj_type got, enum obj_typechecking_type type, const char *fmt)
 {
-	uint32_t i;
-
 	type |= tc_disabler; // always allow disabler type
 
-	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-		if ((type & typemap[i].tc) != typemap[i].tc) {
+	uint32_t ot;
+	for (ot = 1; ot <= tc_type_count; ++ot) {
+		uint32_t tc = obj_type_to_tc_type(ot);
+		if ((type & tc) != tc) {
 			continue;
 		}
 
-		if (typemap[i].type == got) {
+		if (ot == got) {
 			return true;
 		}
 	}
@@ -150,21 +151,18 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 		uint32_t t = type;
 
 		if (!(t & obj_typechecking_type_tag)) {
-			if (type == obj_any) {
-				t = tc_any;
-			} else {
-				t = obj_type_to_tc_type(type);
-			}
+			t = obj_type_to_tc_type(type);
 		}
 
-		uint32_t i;
-		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-			if ((got & typemap[i].tc) != typemap[i].tc) {
+		uint32_t ot;
+		for (ot = 1; ot <= tc_type_count; ++ot) {
+			uint32_t tc = obj_type_to_tc_type(ot);
+
+			if ((got & tc) != tc) {
 				continue;
 			}
 
-			if (typecheck_typechecking_type(wk, n_id, typemap[i].type,
-				t, fmt)) {
+			if (typecheck_typechecking_type(wk, n_id, ot, t, fmt)) {
 				return true;
 			}
 		}
@@ -185,7 +183,7 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 			return false;
 		}
 	} else {
-		if (type != obj_any && got != type) {
+		if (got != type) {
 			if (fmt) {
 				interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(got));
 			}

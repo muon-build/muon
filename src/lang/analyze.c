@@ -106,7 +106,6 @@ static void
 analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id,
 	obj o, uint32_t typemask, analyze_for_each_type_cb cb, obj *res)
 {
-	uint32_t i;
 	obj r = 0;
 
 	uint32_t t;
@@ -130,10 +129,13 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 			t &= typemask;
 		}
 
-		for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-			if ((t & typemap[i].tc) == typemap[i].tc) {
+		uint32_t ot;
+		for (ot = 1; ot <= tc_type_count; ++ot) {
+			uint32_t tc = obj_type_to_tc_type(ot);
+
+			if ((t & tc) == tc) {
 				r = 0;
-				cb(wk, ctx, n_id, typemap[i].type, &r);
+				cb(wk, ctx, n_id, ot, &r);
 				if (r) {
 					merge_types(wk, &res_t, r);
 				}

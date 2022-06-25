@@ -13,46 +13,11 @@
 #include "log.h"
 #include "options.h"
 
-const struct obj_typechecking_type_to_obj_type typemap[] = {
-	{ obj_bool, tc_bool },
-	{ obj_file, tc_file },
-	{ obj_number, tc_number },
-	{ obj_string, tc_string },
-	{ obj_array, tc_array },
-	{ obj_dict, tc_dict },
-	{ obj_compiler, tc_compiler },
-	{ obj_build_target, tc_build_target },
-	{ obj_custom_target, tc_custom_target },
-	{ obj_subproject, tc_subproject },
-	{ obj_dependency, tc_dependency },
-	{ obj_feature_opt, tc_feature_opt },
-	{ obj_external_program, tc_external_program },
-	{ obj_run_result, tc_run_result },
-	{ obj_configuration_data, tc_configuration_data },
-	{ obj_test, tc_test },
-	{ obj_module, tc_module },
-	{ obj_install_target, tc_install_target },
-	{ obj_environment, tc_environment },
-	{ obj_include_directory, tc_include_directory },
-	{ obj_option, tc_option },
-	{ obj_generator, tc_generator },
-	{ obj_generated_list, tc_generated_list },
-	{ obj_alias_target, tc_alias_target },
-	{ obj_both_libs, tc_both_libs },
-	{ obj_disabler, tc_disabler },
-};
-
 uint32_t
 obj_type_to_tc_type(enum obj_type t)
 {
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(typemap); ++i) {
-		if (t == typemap[i].type) {
-			return typemap[i].tc;
-		}
-	}
-
-	UNREACHABLE_RETURN;
+	assert(t && t - 1 < tc_type_count);
+	return (1 << (t - 1)) | obj_typechecking_type_tag;
 }
 
 static void *
@@ -278,7 +243,6 @@ const char *
 obj_type_to_s(enum obj_type t)
 {
 	switch (t) {
-	case obj_any: return "any";
 	case obj_null: return "null";
 	case obj_compiler: return "compiler";
 	case obj_dependency: return "dependency";

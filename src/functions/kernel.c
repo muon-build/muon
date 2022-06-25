@@ -1717,7 +1717,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_is_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 
 	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
@@ -1744,7 +1744,7 @@ func_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1779,8 +1779,8 @@ func_unset_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
 	if (!interp_args(wk, args_node, an, ao, NULL)) {
 		return false;
@@ -1837,8 +1837,8 @@ func_subdir_done(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_summary(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_section,
 		kw_bool_yn, // ignored
@@ -2011,7 +2011,7 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

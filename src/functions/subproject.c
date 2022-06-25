@@ -32,7 +32,7 @@ static bool
 func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_any }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, ao, NULL)) {
 		return false;

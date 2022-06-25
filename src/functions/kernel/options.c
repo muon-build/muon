@@ -50,7 +50,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_type] = { "type", obj_string },
-		[kw_value] = { "value", },
+		[kw_value] = { "value", tc_any },
 		[kw_description] = { "description", obj_string },
 		[kw_choices] = { "choices", obj_array },
 		[kw_max] = { "max", obj_number },
