@@ -353,6 +353,20 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	make_obj(wk, &tgt->args, obj_dict);
 	build_dep_init(wk, &tgt->dep);
 
+	{ // linker args (process before dependencies so link_with libs come first on link line
+		if (akw[bt_kw_link_args].set) {
+			tgt->tgt_dep.link_args = akw[bt_kw_link_args].val;
+		}
+
+		if (akw[bt_kw_link_with].set) {
+			dep_process_link_with(wk, akw[bt_kw_link_with].val, &tgt->dep);
+		}
+
+		if (akw[bt_kw_link_whole].set) {
+			dep_process_link_whole(wk, akw[bt_kw_link_whole].val, &tgt->dep);
+		}
+	}
+
 	if (akw[bt_kw_dependencies].set) {
 		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep);
 	}
@@ -529,20 +543,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			if (akw[lang_args[i].kw].set) {
 				obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
 			}
-		}
-	}
-
-	{ // linker args
-		if (akw[bt_kw_link_args].set) {
-			tgt->tgt_dep.link_args = akw[bt_kw_link_args].val;
-		}
-
-		if (akw[bt_kw_link_with].set) {
-			dep_process_link_with(wk, akw[bt_kw_link_with].val, &tgt->dep);
-		}
-
-		if (akw[bt_kw_link_whole].set) {
-			dep_process_link_whole(wk, akw[bt_kw_link_whole].val, &tgt->dep);
 		}
 	}
 

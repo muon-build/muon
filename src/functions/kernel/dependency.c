@@ -586,10 +586,6 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	dep = get_obj_dependency(wk, *res);
 	build_dep_init(wk, &dep->dep);
 
-	if (akw[kw_dependencies].set) {
-		dep_process_deps(wk, akw[kw_dependencies].val, &dep->dep);
-	}
-
 	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
 		get_cstr(wk, current_project(wk)->cfg.name),
 		wk->src->label,
@@ -636,6 +632,10 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 
 	if (akw[kw_include_directories].set) {
 		dep_process_includes(wk, akw[kw_include_directories].val, include_type_preserve, dep->dep.include_directories);
+	}
+
+	if (akw[kw_dependencies].set) {
+		dep_process_deps(wk, akw[kw_dependencies].val, &dep->dep);
 	}
 
 	return true;
