@@ -10,6 +10,7 @@ packages:
   - py3-yaml # for meson docs
   - scdoc # for docs of course
   - mandoc # for docs of course
+  - clang # for testing
 
   # for static builds
   - acl-static
@@ -30,12 +31,25 @@ packages:
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
-  - build: |
+  - install_tcc: |
+      sudo sh -c "echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories"
+      sudo apk update
+      sudo apk add tcc
+  - build_gcc: |
       cd muon
-      .builds/fullbootstrap.sh -Dstatic=true -Dwebsite=true
-  - test: |
+      CC=gcc .builds/fullbootstrap.sh -Dstatic=true -Dwebsite=true -Dbuildtype=release
+  - build_clang: |
       cd muon
-      build/muon -C build test -d dots
+      CC=clang .builds/bootstrap.sh build-clang
+  - build_tcc: |
+      cd muon
+      CC=tcc .builds/bootstrap.sh build-tcc
+  - test_gcc: |
+      cd muon/build
+      CC=gcc ./muon test -d dots
+  - test_clang: |
+      cd muon/build
+      CC=clang ./muon test -d dots
   - release: |
       cd muon/build
       arch=amd64-linux-static

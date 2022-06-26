@@ -2,12 +2,7 @@
 
 set -eux
 
-# initial build
-./bootstrap.sh build
-
-# get curl and zlib
-build/muon setup build
-samu -C build
+.builds/bootstrap.sh build
 
 # enable samurai wrap
 build/muon setup -Dsamurai=enabled "$@" build
