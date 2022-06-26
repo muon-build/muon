@@ -655,7 +655,6 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 	} else {
-
 		if (!impl_tbl) {
 			interp_error(wk, name_node,  "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
 			return false;
@@ -668,9 +667,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			}
 
 			if (have_rcvr) {
-				interp_error(wk, name_node, "function %s() not found", name);
-			} else {
 				interp_error(wk, name_node, "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
+			} else {
+				interp_error(wk, name_node, "function %s() not found", name);
 			}
 			return false;
 		}
@@ -683,9 +682,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return true;
 		} else {
 			if (have_rcvr) {
-				interp_error(wk, name_node, "in function %s()",  name);
-			} else {
 				interp_error(wk, name_node, "in method %s.%s()", obj_type_to_s(rcvr_type), name);
+			} else {
+				interp_error(wk, name_node, "in function %s()",  name);
 			}
 			return false;
 		}
