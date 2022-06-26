@@ -1652,7 +1652,7 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_
 		syntax = "gcc";
 		break;
 	default:
-		syntax = "unknown";
+		syntax = "other";
 		break;
 	}
 
