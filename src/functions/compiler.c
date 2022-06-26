@@ -966,6 +966,10 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		if (!started && strncmp(&output.src[i], delim, delim_len) == 0) {
 			i += delim_len;
 			started = true;
+
+			if (i >= output.len) {
+				break;
+			}
 		}
 
 		if (!started) {
@@ -1009,6 +1013,8 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 			str_appn(wk, *res, &output.src[i], 1);
 		}
 	}
+
+	LOG_I("got define %s", def);
 
 	fs_source_destroy(&output);
 	return true;
