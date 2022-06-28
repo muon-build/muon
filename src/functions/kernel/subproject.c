@@ -91,8 +91,8 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		return true;
 	}
 
+	make_obj(wk, res, obj_subproject);
 	if (req == requirement_skip) {
-		make_obj(wk, res, obj_subproject);
 		return true;
 	}
 
@@ -121,7 +121,6 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	if (!found) {
-		make_obj(wk, res, obj_subproject);
 		return true;
 	}
 
@@ -133,7 +132,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	if (!eval_project(wk, subproj_name, sp_cwd, sp_build_dir, &subproject_id)) {
-		return false;
+		goto not_found;
 	}
 
 	if (versions && versions->set) {
@@ -142,7 +141,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		bool compare_result;
 		if (!version_compare(wk, versions->node, get_str(wk, subp->cfg.version),
 			versions->val, &compare_result)) {
-			return false;
+			goto not_found;
 		}
 
 		if (!compare_result) {
@@ -150,7 +149,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 				interp_error(wk, versions->node,
 					"subproject version mismatch; wanted %o, got %o",
 					versions->val, subp->cfg.version);
-				return false;
+				goto not_found;
 			}
 		}
 	}
@@ -168,6 +167,8 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	return true;
+not_found:
+	return req != requirement_required;
 }
 
 bool

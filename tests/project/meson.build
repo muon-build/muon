@@ -199,7 +199,7 @@ tests = [
     ['common/193 feature option disabled'],
     ['common/194 static threads'],
     ['common/195 generator in subdir'],
-    ['common/196 subproject with features', ['failing']],
+    ['common/196 subproject with features'],
     ['common/197 function attributes'],
     ['common/198 broken subproject', ['failing']],
     ['common/199 argument syntax'],

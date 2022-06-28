@@ -6,7 +6,8 @@ assert(
     'Subproject should always be buildable and thus found',
 )
 
-auto_dep = dependency('', fallback: ['sub', 'libSub'], required: true)
+# different than meson: dependency('') cannot be required
+auto_dep = dependency('!', fallback: ['sub', 'libSub'], required: true)
 assert(
     auto_dep.found() == true,
     'Subproject is required and foundable, dependency should be found.',
