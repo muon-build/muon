@@ -241,7 +241,7 @@ tests = [
     ['common/231 subdir files'],
     ['common/232 dependency allow_fallback'],
     ['common/233 wrap case'],
-    ['common/234 get_file_contents', ['failing']],
+    ['common/234 get_file_contents'],
     ['common/235 invalid standard overriden to valid', ['failing']],
     ['common/236 proper args splitting', [], {'env': {'CFLAGS': '-DFOO -DBAR'}}],
     ['common/237 fstrings'],

@@ -150,8 +150,21 @@ static bool
 func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	enum {
+		kw_encoding,
+	};
+	struct args_kw akw[] = {
+		[kw_encoding] = { "encoding", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	if (akw[kw_encoding].set) {
+		if (!str_eql(get_str(wk, akw[kw_encoding].val), &WKSTR("utf-8"))) {
+			interp_error(wk, akw[kw_encoding].node, "only 'utf-8' supported");
+		}
 	}
 
 	const char *path;
