@@ -186,7 +186,8 @@ tests = [
     ['common/181 same target name flat layout'],
     ['common/182 find override'],
     ['common/183 partial dependency'],
-    ['common/184 openmp', ['failing']],
+    # requires dependency 'openmp'
+    # ['common/184 openmp', ['failing']],
     ['common/185 same target name'],
     ['common/186 test depends'],
     ['common/187 args flattening'],
