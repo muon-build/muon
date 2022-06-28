@@ -209,7 +209,8 @@ tests = [
     ['common/203 find_library and headers', ['failing']],
     ['common/204 line continuation'],
     ['common/205 native file path override'],
-    ['common/206 tap tests', ['failing']],
+    # requires tap protocol support
+    # ['common/206 tap tests', ['failing']],
     ['common/207 warning level 0'],
     ['common/208 link custom'],
     ['common/209 link custom_i single from multiple'],
