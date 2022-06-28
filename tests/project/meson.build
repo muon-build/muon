@@ -11,7 +11,8 @@ tests = [
     ['common/10 man install'],
     ['common/11 subdir'],
     ['common/12 data'],
-    ['common/13 pch', ['failing']],
+    # requires pch :)
+    # ['common/13 pch', ['failing']],
     ['common/14 configure file'],
     ['common/15 if'],
     ['common/16 comparison'],
