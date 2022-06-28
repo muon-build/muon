@@ -106,7 +106,7 @@ tests = [
     ['common/104 has arg'],
     ['common/105 generatorcustom'],
     ['common/106 multiple dir configure file'],
-    ['common/107 spaces backslash', ['failing']],
+    ['common/107 spaces backslash'],
     ['common/108 ternary'],
     ['common/109 custom target capture'],
     ['common/110 allgenerate'],

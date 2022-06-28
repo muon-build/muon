@@ -13,13 +13,15 @@ if meson.get_compiler('c').get_argument_syntax() == 'msvc'
     subdir('asm output')
 endif
 
+# different than meson: \ is not auto-escaped in C defines
+
 # Path can contain \. Here we're sending `"foo\bar"`.
 test(
     'backslash quoting',
     executable(
         'comparer',
         'comparer.c',
-        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH="foo\\bar"'],
+        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH="foo\\\\bar"'],
     ),
 )
 # Path can end in \ without any special quoting. Here we send `"foo\bar\"`.
@@ -28,7 +30,7 @@ test(
     executable(
         'comparer-end',
         'comparer-end.c',
-        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH="foo\\bar\\"'],
+        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH="foo\\\\bar\\\\"'],
     ),
 )
 # Path can (really) end in \ if we're not passing a string literal without any
@@ -38,6 +40,6 @@ test(
     executable(
         'comparer-end-notstring',
         'comparer-end-notstring.c',
-        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH=foo\\bar\\'],
+        c_args: default_c_args + ['-DDEF_WITH_BACKSLASH=foo\\\\bar\\\\'],
     ),
 )
