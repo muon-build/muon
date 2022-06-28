@@ -1,5 +1,7 @@
 project('gamma project', 'c', subproject_dir: 'contrib/subprojects')
 
+# different than meson: nested subproject promotion
+subproject('beta')
 a = subproject('alpha')
 lib = a.get_variable('l')
 
