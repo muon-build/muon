@@ -646,7 +646,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
 
 	struct args_kw akw[] = {
-		[bt_kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[bt_kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list },
 		[bt_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[bt_kw_implicit_include_directories] = { "implicit_include_directories", obj_bool },
 		[bt_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
