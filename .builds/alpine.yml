@@ -30,6 +30,8 @@ packages:
   - rsync
 sources:
   - https://git.sr.ht/~lattis/muon
+environment:
+  PKG_CONFIG_PATH: /usr/lib/pkgconfig
 tasks:
   - install_tcc: |
       sudo sh -c "echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories"

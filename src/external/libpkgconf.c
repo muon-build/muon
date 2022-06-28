@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include <libpkgconf/libpkgconf.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
@@ -47,6 +48,14 @@ muon_pkgconf_init(struct workspace *wk)
 	obj opt;
 	get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
 	const struct str *pkg_config_path = get_str(wk, opt);
+
+#ifdef MUON_STATIC
+	if (!pkg_config_path->len && !getenv("PKG_CONFIG_PATH")) {
+		LOG_E("Unable to determine pkgconf search path.  Please set "
+			"PKG_CONFIG_PATH or -Dpkg_config_path to an appropriate value.");
+		return false;
+	}
+#endif
 
 	if (pkg_config_path->len) {
 		pkgconf_path_split(pkg_config_path->s, &pkgconf_ctx.client.dir_list, true);
