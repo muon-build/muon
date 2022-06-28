@@ -5,16 +5,6 @@
 
 const bool have_libpkgconf = false;
 
-void
-muon_pkgconf_deinit(void)
-{
-}
-
-void
-muon_pkgconf_init(struct workspace *wk)
-{
-}
-
 bool
 muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
 {
