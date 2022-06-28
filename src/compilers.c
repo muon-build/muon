@@ -73,19 +73,20 @@ s_to_compiler_language(const char *s, enum compiler_language *l)
 	return false;
 }
 
+static const char *compiler_language_exts[compiler_language_count][10] = {
+	[compiler_language_c] = { "c" },
+	[compiler_language_c_hdr] = { "h" },
+	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
+	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
+	[compiler_language_c_obj] = { "o", "obj" },
+	[compiler_language_objc] = { "m", "mm", "M" },
+	[compiler_language_assembly] = { "S" },
+	[compiler_language_llvm_ir] = { "ll" },
+};
+
 bool
 filename_to_compiler_language(const char *str, enum compiler_language *l)
 {
-	static const char *exts[compiler_language_count][10] = {
-		[compiler_language_c] = { "c" },
-		[compiler_language_c_hdr] = { "h" },
-		[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
-		[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-		[compiler_language_c_obj] = { "o", "obj" },
-		[compiler_language_objc] = { "m", "mm", "M" },
-		[compiler_language_assembly] = { "S" },
-		[compiler_language_llvm_ir] = { "ll" },
-	};
 	uint32_t i, j;
 	const char *ext;
 
@@ -95,8 +96,8 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	++ext;
 
 	for (i = 0; i < compiler_language_count; ++i) {
-		for (j = 0; exts[i][j]; ++j) {
-			if (strcmp(ext, exts[i][j]) == 0) {
+		for (j = 0; compiler_language_exts[i][j]; ++j) {
+			if (strcmp(ext, compiler_language_exts[i][j]) == 0) {
 				*l = i;
 				return true;
 			}
@@ -104,6 +105,12 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	}
 
 	return false;
+}
+
+const char *
+compiler_language_extension(enum compiler_language l)
+{
+	return compiler_language_exts[l][0];
 }
 
 enum compiler_language

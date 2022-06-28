@@ -25,10 +25,12 @@ bool_to_yn(bool v)
 }
 
 static bool
-write_test_source(struct workspace *wk, const struct str *src, const char **res)
+write_test_source(struct workspace *wk, const struct str *src, enum compiler_language l, const char **res)
 {
 	static char test_source_path[PATH_MAX];
-	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.c")) {
+	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.")) {
+		return false;
+	} else if (!path_add_suffix(test_source_path, PATH_MAX, compiler_language_extension(l))) {
 		return false;
 	}
 
@@ -146,7 +148,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	if (opts->src_is_path) {
 		path = src;
 	} else {
-		if (!write_test_source(wk, &WKSTR(src), &path)) {
+		if (!write_test_source(wk, &WKSTR(src), comp->lang, &path)) {
 			return false;
 		}
 	}
