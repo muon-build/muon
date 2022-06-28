@@ -76,6 +76,9 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
 
 		obj_array_foreach(wk, proj->targets, &check_ctx, check_tgt_iter);
 	}
@@ -88,6 +91,9 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
 
 		struct write_tgt_ctx ctx = { .out = out, .proj = proj };
 
@@ -119,6 +125,9 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
 
 		if (proj->tests && get_obj_array(wk, proj->tests)->len) {
 			if (!wrote_header) {

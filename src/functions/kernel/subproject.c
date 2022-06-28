@@ -111,7 +111,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		return false;
 	}
 
-	uint32_t subproject_id;
+	uint32_t subproject_id = 0;
 	bool found;
 
 	const char *sp_cwd = cwd, *sp_build_dir = build_dir;
@@ -168,6 +168,11 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 
 	return true;
 not_found:
+	if (subproject_id) {
+		struct project *proj = darr_get(&wk->projects, subproject_id);
+		proj->not_ok = true;
+	}
+
 	return req != requirement_required;
 }
 

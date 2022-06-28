@@ -30,6 +30,8 @@ struct project {
 		obj version;
 		obj license;
 	} cfg;
+
+	bool not_ok; // set by failed subprojects
 };
 
 enum loop_ctl {

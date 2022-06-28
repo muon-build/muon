@@ -140,6 +140,9 @@ check_invalid_subproject_option(struct workspace *wk)
 
 		for (j = 1; j < wk->projects.len; ++j) {
 			proj = darr_get(&wk->projects, j);
+			if (proj->not_ok) {
+				continue;
+			}
 
 			if (strcmp(get_cstr(wk, proj->subproject_name), get_cstr(wk, oo->proj)) == 0) {
 				found = true;

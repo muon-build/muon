@@ -546,6 +546,9 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = darr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
 
 		struct obj_dict *d = get_obj_dict(wk, proj->summary);
 		if (!d->len) {

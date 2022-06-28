@@ -201,7 +201,7 @@ tests = [
     ['common/195 generator in subdir'],
     ['common/196 subproject with features'],
     ['common/197 function attributes'],
-    ['common/198 broken subproject', ['failing']],
+    ['common/198 broken subproject'],
     ['common/199 argument syntax'],
     ['common/200 install name_prefix name_suffix'],
     ['common/201 kwarg entry'],

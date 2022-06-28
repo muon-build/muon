@@ -133,6 +133,10 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 	make_obj(wk, &rule_prefix_arr, obj_array);
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
+
 		struct write_compiler_rule_ctx ctx = {
 			.proj = proj,
 			.out = out,
