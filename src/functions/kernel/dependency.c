@@ -556,7 +556,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		kw_compile_args,
 	};
 	struct args_kw akw[] = {
-		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list },
 		[kw_link_with] = { "link_with", tc_link_with_kw },
 		[kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
