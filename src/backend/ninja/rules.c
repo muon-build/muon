@@ -12,6 +12,7 @@
 struct write_compiler_rule_ctx {
 	FILE *out;
 	struct project *proj;
+	obj rule_prefix_arr;
 };
 
 static enum iteration_result
@@ -45,22 +46,6 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));
 	obj command = join_args_plain(wk, args);
-
-	const char *proj_name = get_cstr(wk, ctx->proj->cfg.name);
-	char buf[PATH_MAX] = { 0 }, *p;
-	strncpy(buf, proj_name, PATH_MAX - 1);
-	for (p = buf; *p; ++p) {
-		if (*p == '_'
-		    || ('a' <= *p && *p <= 'z')
-		    || ('A' <= *p && *p <= 'Z')
-		    || ('0' <= *p && *p <= '9')) {
-			continue;
-		}
-
-		*p = '_';
-	}
-
-	ctx->proj->rule_prefix = make_strf(wk, "%s_", buf);
 
 	fprintf(ctx->out, "rule %s%s_COMPILER\n"
 		" command = %s\n",
@@ -144,12 +129,40 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		fprintf(out, "build build_always_stale: phony\n\n");
 	}
 
+	obj rule_prefix_arr;
+	make_obj(wk, &rule_prefix_arr, obj_array);
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = darr_get(&wk->projects, i);
 		struct write_compiler_rule_ctx ctx = {
 			.proj = proj,
 			.out = out,
+			.rule_prefix_arr = rule_prefix_arr,
 		};
+
+
+		{ // determine project rule prefix
+			const char *proj_name = get_cstr(wk, proj->cfg.name);
+			char buf[PATH_MAX] = { 0 }, *p;
+			strncpy(buf, proj_name, PATH_MAX - 1);
+			for (p = buf; *p; ++p) {
+				if (*p == '_'
+				    || ('a' <= *p && *p <= 'z')
+				    || ('A' <= *p && *p <= 'Z')
+				    || ('0' <= *p && *p <= '9')) {
+					continue;
+				}
+
+				*p = '_';
+			}
+
+			proj->rule_prefix = make_strf(wk, "%s_", buf);
+			uint32_t x = 1;
+			while (obj_array_in(wk, rule_prefix_arr, proj->rule_prefix)) {
+				proj->rule_prefix = make_strf(wk, "%s%d_", buf, x);
+				++x;
+			}
+			obj_array_push(wk, rule_prefix_arr, proj->rule_prefix);
+		}
 
 		if (!obj_dict_foreach(wk, proj->compilers, &ctx, write_compiler_rule_iter)) {
 			return false;
