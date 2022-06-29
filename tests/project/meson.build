@@ -206,7 +206,7 @@ tests = [
     ['common/200 install name_prefix name_suffix'],
     ['common/201 kwarg entry'],
     ['common/202 custom target build by default'],
-    ['common/203 find_library and headers', ['failing']],
+    ['common/203 find_library and headers'],
     ['common/204 line continuation'],
     ['common/205 native file path override'],
     # requires tap protocol support

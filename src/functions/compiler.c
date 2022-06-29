@@ -278,6 +278,27 @@ enum cc_kwargs {
 	cm_kw_low = 1 << 8,
 };
 
+static void
+compiler_opts_init(obj rcvr, struct args_kw *akw, struct compiler_check_opts *opts)
+{
+	opts->comp_id = rcvr;
+	if (akw[cc_kw_dependencies].set) {
+		opts->deps = &akw[cc_kw_dependencies];
+	}
+
+	if (akw[cc_kw_args].set) {
+		opts->args = akw[cc_kw_args].val;
+	}
+
+	if (akw[cc_kw_include_directories].set) {
+		opts->inc = &akw[cc_kw_include_directories];
+	}
+
+	if (akw[cc_kw_required].set) {
+		opts->required = &akw[cc_kw_required];
+	}
+}
+
 static bool
 func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	struct args_norm *an, struct args_kw **kw_res, struct compiler_check_opts *opts,
@@ -323,22 +344,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 		}
 	}
 
-	opts->comp_id = rcvr;
-	if (akw[cc_kw_dependencies].set) {
-		opts->deps = &akw[cc_kw_dependencies];
-	}
-
-	if (akw[cc_kw_args].set) {
-		opts->args = akw[cc_kw_args].val;
-	}
-
-	if (akw[cc_kw_include_directories].set) {
-		opts->inc = &akw[cc_kw_include_directories];
-	}
-
-	if (akw[cc_kw_required].set) {
-		opts->required = &akw[cc_kw_required];
-	}
+	compiler_opts_init(rcvr, akw, opts);
 	return true;
 }
 
@@ -1145,36 +1151,24 @@ func_compiler_links(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_check_opts *opts, const char *prefix, const char *hdr, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_kw *akw;
-	struct compiler_check_opts opts = {
-		.mode = mode,
-	};
-
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
-		| cm_kw_include_directories)) {
-		return false;
-	}
-
 	char src[BUF_SIZE_4k];
 	snprintf(src, BUF_SIZE_4k,
 		"%s\n"
 		"#include <%s>\n"
 		"int main(void) {}\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val)
+		prefix,
+		hdr
 		);
 
 	bool ok;
-	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
+	if (!compiler_check(wk, opts, src, err_node, &ok)) {
 		return false;
 	}
 
 	const char *mode_s = NULL;
-	switch (mode) {
+	switch (opts->mode) {
 	case compile_mode_compile:
 		mode_s = "usable";
 		break;
@@ -1188,7 +1182,7 @@ compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 	LOG_I("header %s %s: %s",
-		get_cstr(wk, an[0].val),
+		hdr,
 		mode_s,
 		bool_to_yn(ok)
 		);
@@ -1197,15 +1191,34 @@ compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 static bool
+compiler_check_header_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+	struct compiler_check_opts opts = {
+		.mode = mode,
+	};
+
+	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
+		| cm_kw_include_directories)) {
+		return false;
+	}
+
+	return compiler_check_header(wk, an[0].node, &opts,
+		compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res);
+}
+
+static bool
 func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_check_header(wk, rcvr, args_node, res, compile_mode_preprocess);
+	return compiler_check_header_common(wk, rcvr, args_node, res, compile_mode_preprocess);
 }
 
 static bool
 func_compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_check_header(wk, rcvr, args_node, res, compile_mode_compile);
+	return compiler_check_header_common(wk, rcvr, args_node, res, compile_mode_compile);
 }
 
 static bool
@@ -1707,6 +1720,27 @@ compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 	return ir_cont;
 }
 
+struct compiler_find_library_check_headers_ctx {
+	uint32_t err_node;
+	struct compiler_check_opts *opts;
+	const char *prefix;
+	bool ok;
+};
+
+static enum iteration_result
+compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj hdr)
+{
+	struct compiler_find_library_check_headers_ctx *ctx = _ctx;
+
+	obj res;
+	if (!compiler_check_header(wk, ctx->err_node, ctx->opts, ctx->prefix, get_cstr(wk, hdr), &res)) {
+		return ir_err;
+	}
+
+	ctx->ok &= get_obj_bool(wk, res);
+	return ir_cont;
+}
+
 static bool
 func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -1715,20 +1749,47 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		kw_required,
 		kw_static,
 		kw_disabler,
-		kw_has_headers, // TODO
 		kw_dirs,
+
+		// has_headers
+		kw_has_headers,
+		kw_header_required,
+		kw_header_args,
+		kw_header_dependencies,
+		kw_header_include_directories,
+		kw_header_no_builtin_args, // TODO
+		kw_header_prefix,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_static] = { "static", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_has_headers] = { "has_headers", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_string },
+		// has_headers
+		[kw_has_headers] = { "has_headers", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_header_required] = { "header_required", },
+		[kw_header_args] = { "header_args", },
+		[kw_header_dependencies] = { "header_dependencies", },
+		[kw_header_include_directories] = { "header_include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[kw_header_no_builtin_args] = { "header_no_builtin_args", },
+		[kw_header_prefix] = { "header_prefix", },
 		0
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
+	}
+
+	if (!akw[kw_has_headers].set) {
+		uint32_t i;
+		for (i = kw_header_required; i <= kw_header_prefix; ++i) {
+			if (akw[i].set) {
+				interp_error(wk, akw[i].node,
+					"header_ keywords are invalid without "
+					"also specifying the has_headers keyword");
+				return false;
+			}
+		}
 	}
 
 	enum requirement_type requirement;
@@ -1768,6 +1829,31 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		}
 	}
 
+	if (ctx.found && akw[kw_has_headers].set) {
+		struct args_kw header_kwargs[cc_kwargs_count + 1] = {
+			[cc_kw_args] = akw[kw_header_args],
+			[cc_kw_dependencies] = akw[kw_header_dependencies],
+			[cc_kw_prefix] = akw[kw_header_prefix],
+			[cc_kw_required] = akw[kw_header_required],
+			[cc_kw_include_directories] = akw[kw_header_include_directories],
+		};
+
+		struct compiler_check_opts header_check_opts = { 0 };
+		compiler_opts_init(rcvr, header_kwargs, &header_check_opts);
+
+		struct compiler_find_library_check_headers_ctx check_headers_ctx = {
+			.ok = true,
+			.err_node = akw[kw_has_headers].node,
+			.opts = &header_check_opts,
+			.prefix = compiler_check_prefix(wk, header_kwargs),
+		};
+		obj_array_foreach(wk, akw[kw_has_headers].val, &check_headers_ctx, compiler_find_library_check_headers_iter);
+
+		if (!check_headers_ctx.ok) {
+			ctx.found = false;
+		}
+	}
+
 	if (!ctx.found) {
 		if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "library not found");
@@ -1777,23 +1863,21 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = disabler_id;
-		} else {
-			return true;
 		}
-	} else {
-		LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
-		dep->flags |= dep_flag_found;
-		make_obj(wk, &dep->dep.link_with, obj_array);
-		obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
-
-		if (found_from_dirs_kw) {
-			make_obj(wk, &dep->dep.rpath, obj_array);
-			obj_array_push(wk, dep->dep.rpath, make_str(wk, ctx.path));
-		}
-
-		dep->dep.link_language = comp->lang;
+		return true;
 	}
 
+	LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
+	dep->flags |= dep_flag_found;
+	make_obj(wk, &dep->dep.link_with, obj_array);
+	obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
+
+	if (found_from_dirs_kw) {
+		make_obj(wk, &dep->dep.rpath, obj_array);
+		obj_array_push(wk, dep->dep.rpath, make_str(wk, ctx.path));
+	}
+
+	dep->dep.link_language = comp->lang;
 	return true;
 }
 
