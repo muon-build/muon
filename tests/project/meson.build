@@ -253,7 +253,7 @@ tests = [
     ['common/243 escape++'],
     ['common/244 variable scope'],
     ['common/245 custom target index source'],
-    ['common/246 dependency fallbacks', ['failing']],
+    ['common/246 dependency fallbacks'],
     ['common/247 deprecated option'],
     ['common/248 install_emptydir'],
     ['common/249 install_symlink'],

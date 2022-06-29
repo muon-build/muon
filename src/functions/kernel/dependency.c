@@ -31,32 +31,47 @@ struct dep_lookup_ctx {
 	uint32_t err_node;
 	uint32_t fallback_node;
 	obj name;
+	obj names;
 	obj fallback;
 	obj not_found_message;
 	enum dep_lib_mode lib_mode;
 	bool disabler;
 	bool fallback_allowed;
+	bool fallback_only;
 	bool from_cache;
+	bool found;
 };
 
-static bool
-check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
+static enum iteration_result
+check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
 {
+	struct dep_lookup_ctx *ctx = _ctx;
+
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, wk->dep_overrides_static, ctx->name, res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_static, n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_static;
-			return true;
+			ctx->found = true;
+			return ir_done;
 		}
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, wk->dep_overrides_dynamic, ctx->name, res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_dynamic, n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_shared;
-			return true;
+			ctx->found = true;
+			return ir_done;
 		}
 	}
 
-	return false;
+	return ir_cont;
+}
+
+static bool
+check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
+{
+	obj_array_foreach(wk, ctx->names, ctx, check_dependency_override_iter);
+
+	return ctx->found;
 }
 
 static bool
@@ -97,6 +112,10 @@ check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_nod
 static bool
 handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
+	if (get_option_wrap_mode(wk) == wrap_mode_nofallback) {
+		return true;
+	}
+
 	obj subproj_name, subproj_dep = 0, subproj;
 
 	switch (get_obj_array(wk, ctx->fallback)->len) {
@@ -147,7 +166,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 			goto not_found;
 		}
 	} else {
-		if (!check_dependency_override(wk, ctx, ctx->res)) {
+		if (!check_dependency_override(wk, ctx)) {
 			interp_warning(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
 			goto not_found;
 		}
@@ -207,8 +226,6 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 static bool
 get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
-	bool found = false;
-
 	{
 		obj cached_dep;
 		if (check_dependency_cache(wk, ctx, &cached_dep)) {
@@ -220,19 +237,18 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			}
 
 			if (!ver_match) {
-				goto lookup_finished;
+				return true;
 			}
 
 			*ctx->res = cached_dep;
-			found = true;
+			ctx->found = true;
 			ctx->from_cache = true;
-			goto lookup_finished;
+			return true;
 		}
 	}
 
-	if (check_dependency_override(wk, ctx, ctx->res)) {
-		found = true;
-		goto lookup_finished;
+	if (check_dependency_override(wk, ctx)) {
+		return true;
 	}
 
 	bool force_fallback = false;
@@ -264,59 +280,22 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			|| obj_dict_in(wk, wk->subprojects, subproj_name);
 	}
 
-	if (!found) {
-		if (force_fallback) {
-			if (!handle_dependency_fallback(wk, ctx, &found)) {
+	if (!ctx->found) {
+		if (force_fallback || ctx->fallback_only) {
+			if (!handle_dependency_fallback(wk, ctx, &ctx->found)) {
 				return false;
 			}
 		} else {
-			if (!get_dependency_pkgconfig(wk, ctx, &found)) {
+			if (!get_dependency_pkgconfig(wk, ctx, &ctx->found)) {
 				return false;
 			}
 
-			if (!found && ctx->fallback && wrap_mode != wrap_mode_nofallback) {
-				if (!handle_dependency_fallback(wk, ctx, &found)) {
+			if (!ctx->found && ctx->fallback) {
+				if (!handle_dependency_fallback(wk, ctx, &ctx->found)) {
 					return false;
 				}
 			}
 		}
-	}
-
-lookup_finished:
-	if (!found) {
-		if (ctx->requirement == requirement_required) {
-			LLOG_E("required ");
-		} else {
-			LLOG_W("%s", "");
-		}
-
-		obj_fprintf(wk, log_file(), "dependency %o not found", ctx->name);
-
-		if (ctx->not_found_message) {
-			obj_fprintf(wk, log_file(), ", %#o", ctx->not_found_message);
-		}
-
-		log_plain("\n");
-
-		if (ctx->requirement == requirement_required) {
-			interp_error(wk, ctx->err_node, "required dependency not found");
-			return false;
-		} else {
-			if (ctx->disabler) {
-				*ctx->res = disabler_id;
-			} else {
-				make_obj(wk, ctx->res, obj_dependency);
-				get_obj_dependency(wk, *ctx->res)->name = ctx->name;
-			}
-		}
-	} else {
-		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-
-		LOG_I("found dependency %s%s%s%s",
-			get_cstr(wk, dep->name),
-			dep->version ? " version: " : "",
-			dep->version ? get_cstr(wk, dep->version) : "",
-			ctx->lib_mode == dep_lib_mode_static ? ", static" : "");
 	}
 
 	return true;
@@ -360,10 +339,55 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 	return true;
 }
 
+static enum iteration_result
+dependency_iter(struct workspace *wk, void *_ctx, obj name)
+{
+	bool handled;
+	struct dep_lookup_ctx *parent_ctx = _ctx;
+	struct dep_lookup_ctx ctx = *parent_ctx;
+	ctx.name = name;
+
+	if (!handle_special_dependency(wk, &ctx, &handled)) {
+		return ir_err;
+	} else if (handled) {
+		ctx.found = true;
+	} else {
+		if (!get_dependency(wk, &ctx)) {
+			return ir_err;
+		}
+	}
+
+	if (ctx.found) {
+		parent_ctx->name = name;
+		parent_ctx->lib_mode = ctx.lib_mode;
+		parent_ctx->from_cache = ctx.from_cache;
+		parent_ctx->found = true;
+		return ir_done;
+	} else {
+		return ir_cont;
+	}
+}
+
+static enum iteration_result
+set_dependency_cache_iter(struct workspace *wk, void *_ctx, obj name)
+{
+	struct dep_lookup_ctx *ctx = _ctx;
+
+	if (ctx->lib_mode != dep_lib_mode_shared) {
+		obj_dict_set(wk, current_project(wk)->dep_cache.static_deps, name, *ctx->res);
+	}
+
+	if (ctx->lib_mode != dep_lib_mode_static) {
+		obj_dict_set(wk, current_project(wk)->dep_cache.shared_deps, name, *ctx->res);
+	}
+
+	return ir_cont;
+}
+
 bool
 func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native, // ignored
@@ -400,6 +424,11 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
+	if (!get_obj_array(wk, an[0].val)->len) {
+		interp_error(wk, an[0].node, "no dependency names specified");
+		return false;
+	}
+
 	enum include_type inc_type = include_type_preserve;
 	if (akw[kw_include_type].set) {
 		if (!coerce_include_type(wk, get_str(wk, akw[kw_include_type].val),
@@ -424,7 +453,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	if (requirement == requirement_skip) {
 		make_obj(wk, res, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *res);
-		dep->name = an[0].val;
+		obj_array_index(wk, an[0].val, 0, &dep->name);
 		return true;
 	}
 
@@ -464,25 +493,66 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	struct dep_lookup_ctx ctx = {
 		.res = res,
+		.names = an[0].val,
 		.requirement = requirement,
 		.versions = &akw[kw_version],
 		.err_node = an[0].node,
 		.fallback_node = fallback_err_node,
-		.name = an[0].val,
 		.fallback = fallback,
-		.fallback_allowed = fallback_allowed,
 		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
 		.lib_mode = lib_mode,
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 	};
 
-	bool handled;
-	if (!handle_special_dependency(wk, &ctx, &handled)) {
+	ctx.fallback_allowed = false;
+	if (!obj_array_foreach(wk, an[0].val, &ctx, dependency_iter)) {
 		return false;
-	} else if (!handled) {
-		if (!get_dependency(wk, &ctx)) {
+	}
+	if (!ctx.found) {
+		ctx.fallback_allowed = true;
+		ctx.fallback_only = true;
+		if (!obj_array_foreach(wk, an[0].val, &ctx, dependency_iter)) {
 			return false;
+		}
+	}
+
+	if (!ctx.found) {
+		if (ctx.requirement == requirement_required) {
+			LLOG_E("required ");
+		} else {
+			LLOG_W("%s", "");
+		}
+
+		obj_fprintf(wk, log_file(), "dependency %o not found", an[0].val);
+
+		if (ctx.not_found_message) {
+			obj_fprintf(wk, log_file(), ", %#o", ctx.not_found_message);
+		}
+
+		log_plain("\n");
+
+		if (ctx.requirement == requirement_required) {
+			interp_error(wk, ctx.err_node, "required dependency not found");
+			return false;
+		} else {
+			if (ctx.disabler) {
+				*ctx.res = disabler_id;
+			} else {
+				make_obj(wk, ctx.res, obj_dependency);
+				get_obj_dependency(wk, *ctx.res)->name = ctx.name;
+			}
+		}
+	} else {
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
+
+		LOG_I("found dependency %s%s%s%s",
+			dep->type == dependency_type_declared ? "(declared dependency)" : get_cstr(wk, dep->name),
+			dep->version ? " version: " : "",
+			dep->version ? get_cstr(wk, dep->version) : "",
+			ctx.lib_mode == dep_lib_mode_static ? ", static" : "");
+		if (dep->type == dependency_type_declared) {
+			L("(%s)", get_cstr(wk, dep->name));
 		}
 	}
 
@@ -501,14 +571,8 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		// set the include type if the return value is not a disabler
 		dep->include_type = inc_type;
 
-		if (dep->flags & dep_flag_found) {
-			if (ctx.lib_mode != dep_lib_mode_shared) {
-				obj_dict_set(wk, current_project(wk)->dep_cache.static_deps, ctx.name, *res);
-			}
-
-			if (ctx.lib_mode != dep_lib_mode_static) {
-				obj_dict_set(wk, current_project(wk)->dep_cache.shared_deps, ctx.name, *res);
-			}
+		if (dep->flags & dep_flag_found && !ctx.from_cache) {
+			obj_array_foreach(wk, ctx.names, &ctx, set_dependency_cache_iter);
 		}
 	}
 
