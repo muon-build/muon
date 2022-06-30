@@ -324,11 +324,17 @@ muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgco
 		goto ret;
 	}
 
+	// meson runs pkg-config to look for cflags,
+	// which honors Requires.private if any cflags are requested.
+	pkgconf_client_set_flags(&pkgconf_ctx.client, flags | PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
+
 	ctx.apply_func = pkgconf_pkg_cflags;
 	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_and_collect, pkgconf_ctx.maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
+
+	pkgconf_client_set_flags(&pkgconf_ctx.client, flags);
 
 ret:
 	pkgconf_queue_free(&pkgq);
