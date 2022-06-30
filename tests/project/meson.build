@@ -227,7 +227,8 @@ tests = [
     ['common/219 include_type dependency'],
     ['common/220 fs module'],
     ['common/221 zlib'],
-    ['common/222 native prop', ['failing']],
+    # requires machine files
+    # ['common/222 native prop', ['failing']],
     ['common/223 persubproject options'],
     ['common/224 arithmetic operators'],
     ['common/225 link language'],
