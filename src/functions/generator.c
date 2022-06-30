@@ -1,6 +1,7 @@
 #include "posix.h"
 
 #include "coerce.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/generator.h"
@@ -37,7 +38,6 @@ generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, 
 		if (!ctx->generated_include
 		    && filename_to_compiler_language(generated_path, &l)
 		    && languages[l].is_header) {
-			L("setting to true");
 			ctx->generated_include = true;
 		}
 
@@ -58,13 +58,34 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 {
 	struct generated_list_process_for_target_ctx *ctx = _ctx;
 
+	char path[PATH_MAX];
+	const char *output_dir = ctx->dir;
+
+	if (ctx->gl->preserve_path_from) {
+		const char *src = get_file_path(wk, val),
+			   *base = get_cstr(wk, ctx->gl->preserve_path_from);
+		assert(path_is_subpath(base, src));
+
+		char dir[PATH_MAX];
+		if (!path_relative_to(path, PATH_MAX, base, src)) {
+			return ir_err;
+		} else if (!path_dirname(dir, PATH_MAX, path)) {
+			return ir_err;
+		} else if (!path_join(path, PATH_MAX, ctx->dir, dir)) {
+			return ir_err;
+		}
+
+		output_dir = path;
+	}
+
 	struct make_custom_target_opts opts = {
 		.input_node   = ctx->node,
 		.output_node  = ctx->node,
 		.command_node = ctx->node,
 		.input_orig   = val,
 		.output_orig  = ctx->g->output,
-		.output_dir   = ctx->dir,
+		.output_dir   = output_dir,
+		.build_dir    = ctx->dir,
 		.command_orig = ctx->g->raw_command,
 		.depfile_orig = ctx->g->depfile,
 		.capture      = ctx->g->capture,
@@ -126,8 +147,7 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 		break;
 	}
 	default:
-		assert(false && "invalid tgt type");
-		return false;
+		UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_array);
@@ -152,13 +172,36 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 	return true;
 }
 
+struct check_preserve_path_from_ctx {
+	const struct obj_generated_list *gl;
+	uint32_t err_node;
+};
+
+static enum iteration_result
+check_preserve_path_from_iter(struct workspace *wk, void *_ctx, obj f)
+{
+	const struct check_preserve_path_from_ctx *ctx = _ctx;
+
+	const char *src = get_file_path(wk, f),
+		   *base = get_cstr(wk, ctx->gl->preserve_path_from);
+
+	if (!path_is_subpath(base, src)) {
+		interp_error(wk, ctx->err_node,
+			"source file '%s' is not a subdir of preserve_path_from path '%s'",
+			src, base);
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 static bool
 func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_extra_args,
-		kw_preserve_path_from, // ignored
+		kw_preserve_path_from,
 	};
 	struct args_kw akw[] = {
 		[kw_extra_args] = { "extra_args", ARG_TYPE_ARRAY_OF | obj_string },
@@ -178,6 +221,22 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 
 	if (!coerce_files(wk, an[0].node, an[0].val, &gl->input)) {
 		return false;
+	}
+
+	if (gl->preserve_path_from) {
+		if (!path_is_absolute(get_cstr(wk, gl->preserve_path_from))) {
+			interp_error(wk, akw[kw_preserve_path_from].node, "preserve_path_from must be an absolute path");
+			return false;
+		}
+
+		struct check_preserve_path_from_ctx ctx = {
+			.gl = gl,
+			.err_node = akw[kw_preserve_path_from].node
+		};
+
+		if (!obj_array_foreach(wk, gl->input, &ctx, check_preserve_path_from_iter)) {
+			return false;
+		}
 	}
 
 	return true;

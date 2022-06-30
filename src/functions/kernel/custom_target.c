@@ -104,7 +104,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		[key_private_dir       ] = { "PRIVATE_DIR", ctx->opts->output, true, },
 		[key_source_root       ] = { "SOURCE_ROOT", true },
 		[key_build_root        ] = { "BUILD_ROOT", true },
-		[key_build_dir         ] = { "BUILD_DIR", ctx->opts->output_dir },
+		[key_build_dir         ] = { "BUILD_DIR", ctx->opts->build_dir },
 		[key_current_source_dir] = { "CURRENT_SOURCE_DIR", true },
 	};
 
@@ -195,7 +195,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		return format_cb_found;
 	case key_build_dir:
-		if (!str_relative_to_build_root(wk, ctx, ctx->opts->output_dir, elem)) {
+		// only for generators
+		if (!str_relative_to_build_root(wk, ctx, ctx->opts->build_dir, elem)) {
 			return format_cb_error;
 		}
 		return format_cb_found;
@@ -573,7 +574,7 @@ make_custom_target(struct workspace *wk,
 		.input      = input,
 		.output     = output,
 		.depfile    = opts->depfile_orig,
-		.output_dir = opts->output_dir,
+		.build_dir  = opts->build_dir,
 		.extra_args = opts->extra_args,
 		.extra_args_valid = opts->extra_args_valid,
 	};

@@ -9,7 +9,7 @@ struct make_custom_target_opts {
 	uint32_t command_node;
 	obj input_orig;
 	obj output_orig;
-	const char *output_dir;
+	const char *output_dir, *build_dir;
 	obj command_orig;
 	obj depfile_orig;
 	obj extra_args;
@@ -30,7 +30,7 @@ struct process_custom_target_commandline_opts {
 	obj depfile;
 	obj depends;
 	obj extra_args;
-	const char *output_dir;
+	const char *build_dir;
 	bool extra_args_valid, extra_args_used;
 };
 

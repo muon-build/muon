@@ -170,7 +170,7 @@ tests = [
     ['common/165 get project license'],
     ['common/166 yield'],
     ['common/167 subproject nested subproject dirs'],
-    ['common/168 preserve gendir', ['failing']],
+    ['common/168 preserve gendir'],
     ['common/169 source in dep'],
     ['common/170 generator link whole'],
     ['common/171 initial c_args'],
