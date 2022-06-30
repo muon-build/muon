@@ -40,7 +40,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	if (wk->cur_project > 0) {
 		const char *clr = log_clr() ? "\033[35m" : "",
 			   *no_clr = log_clr() ? "\033[0m" : "";
-		snprintf(log_prefix, 255, " [%s%s%s]",
+		snprintf(log_prefix, 255, "[%s%s%s]",
 			clr,
 			subproject_name,
 			no_clr);

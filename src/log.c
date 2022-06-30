@@ -12,8 +12,8 @@
 const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
 	[log_warn] = "33",
-	[log_info] = "34",
-	[log_debug] = "0",
+	[log_info] = "0",
+	[log_debug] = "36",
 };
 
 const char *log_level_name[log_level_count] = {
@@ -25,8 +25,8 @@ const char *log_level_name[log_level_count] = {
 
 static const char *log_level_shortname[log_level_count] = {
 	[log_error] = "err ",
-	[log_warn]  = "warn",
-	[log_info]  = "info",
+	[log_warn]  = "warn ",
+	[log_info]  = "",
 	[log_debug] = "dbg ",
 };
 
@@ -77,11 +77,8 @@ log_print(const char *file, uint32_t line, const char *func, bool nl,
 		}
 
 		if (log_cfg.prefix) {
-			len += snprintf(&buf[len], BUF_SIZE_4k - len, "%s", log_cfg.prefix);
+			len += snprintf(&buf[len], BUF_SIZE_4k - len, "%s ", log_cfg.prefix);
 		}
-
-		buf[len] = ' ';
-		++len;
 
 		if (log_cfg.opts & log_show_source) {
 			if (log_cfg.clr) {
