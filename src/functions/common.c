@@ -278,7 +278,7 @@ process_kwarg(struct workspace *wk, uint32_t kwarg_node, uint32_t arg_node, stru
 	}
 
 	keyword_args[i].val = val;
-	keyword_args[i].node = arg_node;
+	keyword_args[i].node = kwarg_node;
 	keyword_args[i].set = true;
 
 	return true;
