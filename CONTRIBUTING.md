@@ -58,20 +58,16 @@ conventionally named `an` (args, normal), `ao` (args, optional), and `akw`
 then the function takes no arguments, and `interp_args` will ensure this is the
 case.
 
-Arguments that are always supposed to be a specific type should be marked as
-such in the argument array, otherwise you should use the type `obj_any`.  In
-addition to the object types in the `enum object_type` definition, two
-additional object types are recognized by `interp_args`: `ARG_TYPE_NULL` and
-`ARG_TYPE_GLOB`.
+Arguments should specify what types they accept by bitwise or-ing `tc_`-prefixed
+types together.  `an` and `ao` argument arrays *must* be terminated by an
+argument of type `ARG_TYPE_NULL`.
 
-`ARG_TYPE_NULL` is only used as a sentinel, all the argument arrays *must* be
-terminated with an element of type `ARG_TYPE_NULL`.  `ARG_TYPE_GLOB` can only be
-used as the last element of `an`, and will store the remaining arguments in an
-`obj_array`.  This is similar to e.g. `def func(a, b, *c):` in python, where `c`
-is the "glob" argument.
+`ARG_TYPE_GLOB` can be or-d with the type of the last element of `an`, and will
+store the remaining arguments in an `obj_array`.  This is similar to e.g. `def
+func(a, b, *c):` in python, where `c` is the "glob" argument.
 
-You may also bitwise or any obj\_ type with `ARG_TYPE_ARRAY_OF`.  This "type"
-will cause `interp_args` to do the following things:
+You may also bitwise or any type with `ARG_TYPE_ARRAY_OF`.  This "type" will
+cause `interp_args` to do the following things:
   1. coerce single elements to arrays
     - `'hello' #=> ['hello']`
   2. flatten arrays
