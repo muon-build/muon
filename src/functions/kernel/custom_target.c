@@ -537,8 +537,6 @@ make_custom_target(struct workspace *wk,
 
 		if (!obj_array_foreach_flat(wk, opts->input_orig, &ctx, process_custom_tgt_sources_iter)) {
 			return false;
-		} else if (!get_obj_array(wk, input)->len) {
-			interp_error(wk, opts->input_node, "input cannot be empty");
 		}
 	} else {
 		input = 0;
@@ -549,6 +547,7 @@ make_custom_target(struct workspace *wk,
 			return false;
 		} else if (!get_obj_array(wk, raw_output)->len) {
 			interp_error(wk, opts->output_node, "output cannot be empty");
+			return false;
 		}
 
 		make_obj(wk, &output, obj_array);
