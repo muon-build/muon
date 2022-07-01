@@ -11,16 +11,30 @@ dependencies.
 - cli compatibility with meson.  `muon` has different flags, subcommands, etc.,
   and should _not_ be renamed/symlinked to meson.
 
-Contributions welcome:
-- language support for languages other than C and C++
-
 Other differences from meson are described in `doc/differences.md`
+
+## Features
+
+- `muon analyze` - a static analyzer for meson.build files.  Capable of doing
+  type inference, checking unused variables, undeclared variables, etc.
+- `muon fmt_unstable` - a meson.build code formatter
+- An interactive stepping debugger with the `dbg()` function.
+- Fast
 
 ## Status
 
-`muon` is complete enough to build complicated projects, however, many things
-are still not implemented.  If you want to contribute, try using `muon` to build
-your favorite project.  Patches and bug reports welcome!
+`muon` is close to feature-complete (bugs notwithstanding!) with the core of
+meson for `c` and `c++`.
+
+Things missing include:
+
+- cross-compilation support
+- build optimizations like pch and unity
+- dependencies with a custom configuration tool
+- all modules except for `fs`. (a small `python` module shim is also available)
+
+If you want to contribute, try using `muon` to build your favorite project.
+Patches and bug reports welcome!
 
 ## Requirements
 
@@ -48,6 +62,18 @@ You can then use the bootstrapped muon to build itself:
 build/muon setup build
 ninja -C build
 ```
+
+Note that the initial muon created by `bootstrap.sh` is missing some features
+and is not guaranteed to be usable, except to setup muon itself.
+
+## Testing
+
+```
+build/muon -C build test
+```
+
+`muon` has a few of its own tests for core language features, but the majority
+of the tests are copied from the meson project.
 
 ## Contributing
 
