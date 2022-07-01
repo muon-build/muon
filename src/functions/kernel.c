@@ -169,6 +169,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	} else {
 		current_project(wk)->cfg.version = make_str(wk, "undefined");
+		current_project(wk)->cfg.no_version = true;
 	}
 
 	if (akw[kw_default_options].set) {
@@ -386,10 +387,75 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-find_program_check_fallback(struct workspace *wk, obj prog, obj *res, bool *found)
+static void
+find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
 {
+	*ver = 0;
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL)
+	    && cmd_ctx.status == 0) {
+		guess_version(wk, cmd_ctx.out.buf, ver);
+	}
 
+	run_cmd_ctx_destroy(&cmd_ctx);
+}
+
+static bool
+find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
+{
+	obj override;
+	if (!obj_dict_index(wk, wk->find_program_overrides, prog, &override)) {
+		return true;
+	}
+
+	obj over = 0, op;
+	switch (get_obj_type(wk, override)) {
+	case obj_array:
+		obj_array_index(wk, override, 0, &op);
+		obj_array_index(wk, override, 1, &over);
+		break;
+	case obj_external_program:
+		op = override;
+		struct obj_external_program *ep = get_obj_external_program(wk, op);
+
+		if (!ep->found) {
+			return true;
+		}
+
+		if (ctx->version) {
+			find_program_guess_version(wk, get_cstr(wk, ep->full_path), &over);
+		}
+		break;
+	default:
+		UNREACHABLE;
+	}
+
+	if (ctx->version && over) {
+		bool comparison_result;
+		if (!version_compare(wk, ctx->version_node, get_str(wk, over), ctx->version, &comparison_result)) {
+			return false;
+		} else if (!comparison_result) {
+			return true;
+		}
+	}
+
+	if (get_obj_type(wk, op) == obj_file) {
+		obj newres;
+		make_obj(wk, &newres, obj_external_program);
+		struct obj_external_program *ep = get_obj_external_program(wk, newres);
+		ep->found = true;
+		ep->full_path = *get_obj_file(wk, op);
+		op = newres;
+	}
+
+	ctx->found = true;
+	*ctx->res = op;
+	return true;
+}
+
+static bool
+find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
+{
 	obj fallback_arr, subproj_name;
 	if (obj_dict_index(wk, current_project(wk)->wrap_provides_exes, prog, &fallback_arr)) {
 		obj_array_flatten_one(wk, fallback_arr, &subproj_name);
@@ -400,26 +466,13 @@ find_program_check_fallback(struct workspace *wk, obj prog, obj *res, bool *foun
 			return true;
 		}
 
-		if (obj_dict_index(wk, wk->find_program_overrides, prog, res)) {
-			*found = true;
-		} else {
-			interp_warning(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
-		}
-	}
-
-	if (*found) {
-		switch (get_obj_type(wk, *res)) {
-		case obj_file: {
-			obj newres;
-			make_obj(wk, &newres, obj_external_program);
-			struct obj_external_program *ep = get_obj_external_program(wk, newres);
-			ep->found = true;
-			ep->full_path = *get_obj_file(wk, *res);
-			*res = newres;
-			break;
-		}
-		default:
-			break;
+		if (!find_program_check_override(wk, ctx, prog)) {
+			return false;
+		} else if (!ctx->found) {
+			obj _;
+			if (!obj_dict_index(wk, wk->find_program_overrides, prog, &_)) {
+				interp_warning(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
+			}
 		}
 	}
 
@@ -462,15 +515,20 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	};
 
 	/* 1. Program overrides set via meson.override_find_program() */
-	if (t == obj_string && obj_dict_index(wk, wk->find_program_overrides, prog, ctx->res)) {
-		ctx->found = true;
-		return true;
+	if (t == obj_string) {
+		if (!find_program_check_override(wk, ctx, prog)) {
+			return false;
+		}
+
+		if (ctx->found) {
+			return true;
+		}
 	}
 
 	/* 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 	if (t == obj_string && wrap_mode == wrap_mode_forcefallback) {
-		if (!find_program_check_fallback(wk, prog, ctx->res, &ctx->found)) {
+		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
 		}
 
@@ -507,8 +565,12 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
 	if (t == obj_string && wrap_mode != wrap_mode_nofallback) {
-		if (!find_program_check_fallback(wk, prog, ctx->res, &ctx->found)) {
+		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
+		}
+
+		if (ctx->found) {
+			return true;
 		}
 	}
 

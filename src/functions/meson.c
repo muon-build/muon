@@ -2,6 +2,7 @@
 
 #include "coerce.h"
 #include "compilers.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/meson.h"
@@ -246,7 +247,29 @@ func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node
 		return false;
 	}
 
-	obj_dict_set(wk, wk->find_program_overrides, an[0].val, an[1].val);
+	obj override;
+
+	switch (get_obj_type(wk, an[1].val)) {
+	case obj_build_target:
+	case obj_custom_target:
+	case obj_file:
+		make_obj(wk, &override, obj_array);
+		obj_array_push(wk, override, an[1].val);
+
+		obj ver = 0;
+		if (!current_project(wk)->cfg.no_version) {
+			ver = current_project(wk)->cfg.version;
+		}
+		obj_array_push(wk, override, ver);
+		break;
+	case obj_external_program:
+		override = an[1].val;
+		break;
+	default:
+		UNREACHABLE;
+	}
+
+	obj_dict_set(wk, wk->find_program_overrides, an[0].val, override);
 	return true;
 }
 

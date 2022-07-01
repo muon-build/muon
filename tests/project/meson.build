@@ -272,7 +272,7 @@ tests = [
     ['native/6 add language'],
     ['native/7 selfbuilt custom'],
     ['native/8 external program shebang parsing'],
-    ['native/9 override with exe', ['failing']],
+    ['native/9 override with exe'],
 
     # nasm
     ['nasm/1 configure file'],

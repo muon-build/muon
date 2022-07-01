@@ -29,6 +29,7 @@ struct project {
 		obj name;
 		obj version;
 		obj license;
+		bool no_version;
 	} cfg;
 
 	bool not_ok; // set by failed subprojects
