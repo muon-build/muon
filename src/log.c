@@ -68,16 +68,18 @@ log_print(const char *file, uint32_t line, const char *func, bool nl,
 
 		assert(log_cfg.initialized);
 
-		if (log_cfg.clr) {
-			len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
-				log_level_clr[lvl], log_level_shortname[lvl]);
-		} else {
-			len = strlen(log_level_shortname[lvl]);
-			strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
-		}
-
 		if (log_cfg.prefix) {
 			len += snprintf(&buf[len], BUF_SIZE_4k - len, "%s ", log_cfg.prefix);
+		}
+
+		if (*log_level_shortname[lvl]) {
+			if (log_cfg.clr) {
+				len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
+					log_level_clr[lvl], log_level_shortname[lvl]);
+			} else {
+				len = strlen(log_level_shortname[lvl]);
+				strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
+			}
 		}
 
 		if (log_cfg.opts & log_show_source) {
