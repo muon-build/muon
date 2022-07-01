@@ -1261,6 +1261,10 @@ parse_line(struct parser *p, uint32_t *id)
 
 	p->caused_effect = caused_effect_old;
 
+	struct node *res = get_node(p->ast, *id);
+	res->line = stmt_start->line;
+	res->col = 0;
+
 	return ret;
 }
 

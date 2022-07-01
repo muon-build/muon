@@ -1152,16 +1152,20 @@ interp_block:
 
 		obj obj_l, obj_r; // these return values are disregarded
 
-		wk->dbg.node = n->l;
-		if (wk->dbg.stepping
-		    && strcmp(wk->src->label, "<internal>") != 0
-		    && wk->dbg.last_line != get_node(wk->ast, n->l)->line) {
-			wk->dbg.last_line = get_node(wk->ast, n->l)->line;
-			repl(wk, true);
+		bool was_stepping = wk->dbg.stepping;
+		if (!wk->dbg.stepping) {
+			wk->dbg.node = n->l;
 		}
-
 		if (!wk->interp_node(wk, n->l, &obj_l)) {
 			return false;
+		}
+
+		if (was_stepping && wk->dbg.stepping
+		    && strcmp(wk->src->label, "<internal>") != 0
+		    && wk->dbg.last_line != get_node(wk->ast, n->l)->line) {
+			wk->dbg.node = n->l;
+			wk->dbg.last_line = get_node(wk->ast, n->l)->line;
+			repl(wk, true);
 		}
 
 		if (have_r) {
