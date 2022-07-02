@@ -68,11 +68,12 @@ add_project_arguments(
             '-Wstrict-prototypes',
             '-Wundef',
             '-fstrict-aliasing',
-            '-DMUON_BOOTSTRAPPED',
         ],
     ),
     language: 'c',
 )
+
+add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
 
 include_dir = include_directories('include')
 
