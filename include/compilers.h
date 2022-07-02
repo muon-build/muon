@@ -86,6 +86,7 @@ struct compiler {
 		compiler_get_arg_func_1s include;
 		compiler_get_arg_func_1s include_system;
 		compiler_get_arg_func_0 pic;
+		compiler_get_arg_func_0 pie;
 		compiler_get_arg_func_1s sanitize;
 		compiler_get_arg_func_1s define;
 		compiler_get_arg_func_1i visibility;

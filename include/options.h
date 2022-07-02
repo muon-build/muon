@@ -35,6 +35,7 @@ enum wrap_mode {
 };
 enum wrap_mode get_option_wrap_mode(struct workspace *wk);
 enum tgt_type get_option_default_library(struct workspace *wk);
+bool get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback);
 
 struct list_options_opts {
 	bool list_all;

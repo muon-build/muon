@@ -334,6 +334,10 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 		push_args(wk, args, compilers[t].args.pic());
 	}
 
+	if (ctx->tgt->flags & build_tgt_flag_pie) {
+		push_args(wk, args, compilers[t].args.pie());
+	}
+
 	if (ctx->tgt->flags & build_tgt_flag_visibility) {
 		push_args(wk, args, compilers[t].args.visibility(ctx->tgt->visibility));
 	}

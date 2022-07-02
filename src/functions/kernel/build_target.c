@@ -38,6 +38,7 @@ enum build_target_kwargs {
 	bt_kw_link_depends,
 	bt_kw_objects,
 	bt_kw_pic,
+	bt_kw_pie,
 	bt_kw_install_rpath, // TODO
 	bt_kw_export_dynamic,
 	bt_kw_vs_module_defs, // TODO
@@ -391,11 +392,34 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 					return false;
 				}
 			} else {
-				pic = tgt->type & (tgt_static_library | tgt_dynamic_library | tgt_shared_module);
+				bool staticpic = get_option_bool(wk, tgt->override_options, "b_staticpic", true);
+
+				if (staticpic && (tgt->type & tgt_static_library)) {
+					pic = true;
+				}
 			}
 
 			if (pic) {
 				tgt->flags |= build_tgt_flag_pic;
+			}
+		}
+
+		{ // pie
+			bool pie = false;
+
+			if (akw[bt_kw_pie].set) {
+				pie = get_obj_bool(wk, akw[bt_kw_pie].set);
+
+				if (pie && (tgt->type & tgt_executable) != tgt_executable) {
+					interp_error(wk, akw[bt_kw_pic].node, "pie cannot be set for non-executables");
+					return false;
+				}
+			} else if ((tgt->type & tgt_executable) == tgt_executable) {
+				pie = get_option_bool(wk, tgt->override_options, "b_pie", false);
+			}
+
+			if (pie) {
+				tgt->flags |= build_tgt_flag_pie;
 			}
 		}
 
@@ -666,6 +690,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_link_depends] = { "link_depends", ARG_TYPE_ARRAY_OF | tc_string | tc_file | tc_custom_target },
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
 		[bt_kw_pic] = { "pic", obj_bool },
+		[bt_kw_pie] = { "pie", obj_bool },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },
 		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
 		[bt_kw_vs_module_defs] = { "vs_module_defs", tc_string | tc_file | tc_custom_target },

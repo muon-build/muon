@@ -509,6 +509,13 @@ compiler_gcc_args_pic(void)
 }
 
 static const struct args *
+compiler_gcc_args_pie(void)
+{
+	COMPILER_ARGS({ "-fpie" });
+	return &args;
+}
+
+static const struct args *
 compiler_gcc_args_sanitize(const char *sanitizers)
 {
 	static char buf[BUF_SIZE_S];
@@ -618,6 +625,7 @@ build_compilers(void)
 			.include         = compiler_arg_empty_1s,
 			.include_system  = compiler_arg_empty_1s,
 			.pic             = compiler_arg_empty_0,
+			.pie             = compiler_arg_empty_0,
 			.sanitize        = compiler_arg_empty_1s,
 			.define          = compiler_arg_empty_1s,
 			.visibility      = compiler_arg_empty_1i,
@@ -648,6 +656,7 @@ build_compilers(void)
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
 	gcc.args.pic = compiler_gcc_args_pic;
+	gcc.args.pie = compiler_gcc_args_pie;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.visibility = compiler_gcc_args_visibility;
 	gcc.deps = compiler_deps_gcc;

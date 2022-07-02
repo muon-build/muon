@@ -193,6 +193,7 @@ enum build_tgt_flags {
 	build_tgt_flag_build_by_default = 1 << 3,
 	build_tgt_flag_visibility = 1 << 4,
 	build_tgt_flag_installed = 1 << 5,
+	build_tgt_flag_pie = 1 << 6,
 };
 
 struct build_dep {

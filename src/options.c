@@ -903,6 +903,17 @@ get_option_default_library(struct workspace *wk)
 	}
 }
 
+bool
+get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback)
+{
+	obj opt;
+	if (get_option_overridable(wk, current_project(wk), overrides, &WKSTR(name), &opt)) {
+		return get_obj_bool(wk, get_obj_option(wk, opt)->val);
+	} else {
+		return fallback;
+	}
+}
+
 /* options listing subcommand */
 
 struct make_option_choices_ctx {
