@@ -346,6 +346,11 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 			if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), val, &file)) {
 				return ir_err;
 			}
+
+			if (!ctx->exists(get_file_path(wk, file))) {
+				interp_error(wk, ctx->node, "%s %o does not exist", ctx->type, val);
+				return ir_err;
+			}
 			break;
 		case mode_output:
 			if (!path_is_basename(get_cstr(wk, val))) {

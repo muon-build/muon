@@ -375,7 +375,7 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_custom_dir_ctx *ctx = _ctx;
 
-	if (!path_join(ctx->buf, PATH_MAX, get_file_path(wk, val), ctx->prog)) {
+	if (!path_join(ctx->buf, PATH_MAX, get_cstr(wk, val), ctx->prog)) {
 		return ir_err;
 	}
 
@@ -633,19 +633,12 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
-	}
-
-	obj dirs = 0;
-	if (akw[kw_dirs].set) {
-		if (!coerce_dirs(wk, akw[kw_dirs].node, akw[kw_dirs].val, &dirs)) {
-			return false;
-		}
 	}
 
 	enum requirement_type requirement;
@@ -662,7 +655,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct find_program_iter_ctx ctx = {
 		.node = an[0].node,
 		.version = akw[kw_version].val,
-		.dirs = dirs,
+		.dirs = akw[kw_dirs].val,
 		.res = res,
 	};
 	obj_array_foreach_flat(wk, an[0].val, &ctx, find_program_iter);
