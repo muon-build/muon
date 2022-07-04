@@ -2,5 +2,6 @@
 #define MUON_BACKEND_NINJA_RULES_H
 #include "lang/workspace.h"
 
-bool ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bool need_phony);
+bool ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
+	bool need_phony, obj compiler_rule_arr);
 #endif

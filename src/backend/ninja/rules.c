@@ -13,6 +13,7 @@ struct write_compiler_rule_ctx {
 	FILE *out;
 	struct project *proj;
 	obj rule_prefix_arr;
+	obj compiler_rule_arr;
 };
 
 static enum iteration_result
@@ -47,10 +48,14 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	obj_array_push(wk, args, make_str(wk, "$in"));
 	obj command = join_args_plain(wk, args);
 
-	fprintf(ctx->out, "rule %s%s_COMPILER\n"
-		" command = %s\n",
+	obj compiler_rule = make_strf(wk, "%s%s_COMPILER",
 		get_cstr(wk, ctx->proj->rule_prefix),
-		compiler_language_to_s(l),
+		compiler_language_to_s(l));
+	obj_array_push(wk, ctx->compiler_rule_arr, compiler_rule);
+
+	fprintf(ctx->out, "rule %s\n"
+		" command = %s\n",
+		get_cstr(wk, compiler_rule),
 		get_cstr(wk, command));
 	if (compilers[t].deps) {
 		fprintf(ctx->out,
@@ -73,7 +78,9 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 }
 
 bool
-ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bool need_phony)
+ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
+	bool need_phony,
+	obj compiler_rule_arr)
 {
 	fprintf(
 		out,
@@ -141,8 +148,8 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			.proj = proj,
 			.out = out,
 			.rule_prefix_arr = rule_prefix_arr,
+			.compiler_rule_arr = compiler_rule_arr,
 		};
-
 
 		{ // determine project rule prefix
 			const char *proj_name = get_cstr(wk, proj->cfg.name);

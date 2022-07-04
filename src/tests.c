@@ -513,7 +513,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 		obj_array_dedup(wk, ctx->deps, &ninja_cmd);
 		const char *argstr;
 		join_args_argstr(wk, &argstr, ninja_cmd);
-		if (ninja_run(argstr) != 0) {
+		if (ninja_run(argstr, NULL, NULL) != 0) {
 			LOG_W("failed to run ninja");
 		}
 	}

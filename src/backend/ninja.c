@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include "args.h"
 #include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
@@ -68,9 +69,14 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	}
 }
 
+struct write_build_ctx {
+	obj compiler_rule_arr;
+};
+
 static bool
 ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 {
+	struct write_build_ctx *ctx = _ctx;
 	struct check_tgt_ctx check_ctx = { 0 };
 
 	uint32_t i;
@@ -83,7 +89,7 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		obj_array_foreach(wk, proj->targets, &check_ctx, check_tgt_iter);
 	}
 
-	if (!ninja_write_rules(out, wk, darr_get(&wk->projects, 0), check_ctx.need_phony)) {
+	if (!ninja_write_rules(out, wk, darr_get(&wk->projects, 0), check_ctx.need_phony, ctx->compiler_rule_arr)) {
 		return false;
 	}
 
@@ -177,7 +183,10 @@ ninja_write_summary_file(struct workspace *wk, void *_ctx, FILE *out)
 bool
 ninja_write_all(struct workspace *wk)
 {
-	if (!(with_open(wk->build_root, "build.ninja", wk, NULL, ninja_write_build)
+	struct write_build_ctx ctx = { 0 };
+	make_obj(wk, &ctx.compiler_rule_arr, obj_array);
+
+	if (!(with_open(wk->build_root, "build.ninja", wk, &ctx, ninja_write_build)
 	      && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
 	      && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
 	      && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
@@ -185,15 +194,20 @@ ninja_write_all(struct workspace *wk)
 		return false;
 	}
 
-	/* compile_commands.json */
-	if (have_samurai) {
-		char compile_commands[PATH_MAX];
-		if (!path_join(compile_commands, PATH_MAX, wk->build_root, "compile_commands.json")) {
-			return false;
-		}
 
-		if (!muon_samu_compdb(wk->build_root, compile_commands)) {
-			return false;
+	{/* compile_commands.json */
+		obj compdb_args;
+		make_obj(wk, &compdb_args, obj_array);
+		obj_array_push(wk, compdb_args, make_str(wk, "-C"));
+		obj_array_push(wk, compdb_args, make_str(wk, wk->build_root));
+		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
+		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
+		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
+		const char *argstr;
+		join_args_argstr(wk, &argstr, compdb_args);
+
+		if (ninja_run(argstr, wk->build_root, "compile_commands.json") != 0) {
+			LOG_E("error writing compile_commands.json");
 		}
 	}
 
@@ -201,39 +215,74 @@ ninja_write_all(struct workspace *wk)
 }
 
 int
-ninja_run(const char *argstr)
+ninja_run(const char *argstr, const char *chdir, const char *capture)
 {
-	char *const *argv;
+	int ret = 1;
+	char *const *argv = NULL;
 	uint32_t argc;
+	char cwd[PATH_MAX];
+	if (chdir) {
+		if (!path_cwd(cwd, PATH_MAX)) {
+			return false;
+		}
+
+		if (!path_chdir(chdir)) {
+			goto ret;
+		}
+	}
 
 	if (have_samurai) {
 		argc = argstr_to_argv(argstr, "samu", &argv);
+
+		int old_stdout;
+		if (capture) {
+			if (!fs_redirect(capture, "w", STDOUT_FILENO, &old_stdout)) {
+				goto ret;
+			}
+		}
+
 		bool res = muon_samu(argc, argv);
-		z_free((void *)argv);
-		return res ? 0 : 1;
-	}
 
-	const char *cmd = NULL;
-	if (!(fs_find_cmd("samu", &cmd)
-	      || fs_find_cmd("ninja", &cmd))) {
-		LOG_E("unable to find a ninja implementation");
-		return 1;
-	}
+		if (capture) {
+			if (!fs_redirect_restore(STDOUT_FILENO, old_stdout)) {
+				goto ret;
+			}
+		}
 
-	argc = argstr_to_argv(argstr, cmd, &argv);
+		ret = res ? 0 : 1;
+	} else {
+		const char *cmd = NULL;
+		if (!(fs_find_cmd("samu", &cmd)
+		      || fs_find_cmd("ninja", &cmd))) {
+			LOG_E("unable to find a ninja implementation");
+			goto ret;
+		}
 
-	struct run_cmd_ctx cmd_ctx = { .flags = run_cmd_ctx_flag_dont_capture };
-	if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL)) {
-		LOG_E("%s", cmd_ctx.err_msg);
+		argc = argstr_to_argv(argstr, cmd, &argv);
+
+		struct run_cmd_ctx cmd_ctx = { 0 };
+		if (!capture) {
+			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
+		}
+
+		if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL)) {
+			LOG_E("%s", cmd_ctx.err_msg);
+
+			run_cmd_ctx_destroy(&cmd_ctx);
+			goto ret;
+		}
 
 		run_cmd_ctx_destroy(&cmd_ctx);
-		z_free((void *)argv);
-
-		return 1;
+		ret = cmd_ctx.status;
 	}
 
-	run_cmd_ctx_destroy(&cmd_ctx);
-	z_free((void *)argv);
+ret:
+	if (argv) {
+		z_free((void *)argv);
+	}
 
-	return cmd_ctx.status;
+	if (chdir) {
+		path_chdir(cwd);
+	}
+	return ret;
 }
