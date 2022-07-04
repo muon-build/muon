@@ -622,6 +622,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_build_always,
 		kw_env,
 		kw_feed,
+		kw_console,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list, },
@@ -640,6 +641,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_build_always] = { "build_always", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_feed] = { "feed", obj_bool },
+		[kw_console] = { "console", obj_bool },
 		0
 	};
 
@@ -695,6 +697,15 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (akw[kw_build_always].set && get_obj_bool(wk, akw[kw_build_always].val)) {
 		tgt->flags |= custom_target_build_always_stale | custom_target_build_by_default;
+	}
+
+	if (akw[kw_console].set && get_obj_bool(wk, akw[kw_console].val)) {
+		if (opts.capture) {
+			interp_error(wk, akw[kw_console].node, "console and capture cannot both be set to true");
+			return false;
+		}
+
+		tgt->flags |= custom_target_console;
 	}
 
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))

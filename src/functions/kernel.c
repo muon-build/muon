@@ -969,6 +969,7 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+	tgt->flags |= custom_target_console;
 
 	if (akw[kw_depends].set) {
 		obj depends;
