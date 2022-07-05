@@ -163,6 +163,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 
 	if (subproj_dep) {
 		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
+			interp_warning(wk, ctx->fallback_node, "subproject dependency variable %o is not defined", subproj_dep);
 			goto not_found;
 		}
 	} else {
@@ -173,6 +174,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	if (get_obj_type(wk, *ctx->res) != obj_dependency) {
+		interp_warning(wk, ctx->fallback_node, "overrided dependency is not a dependency object");
 		goto not_found;
 	}
 
