@@ -618,6 +618,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	enum iteration_result ret = ir_err;
 
 	if (!wrap.has_provides) {
+		ret = ir_cont;
 		goto ret;
 	}
 

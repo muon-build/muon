@@ -190,7 +190,10 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		wrap_load_all_provides(wk, subprojects_path);
+		if (!wrap_load_all_provides(wk, subprojects_path)) {
+			LOG_E("failed loading wrap provides");
+			return false;
+		}
 	}
 
 	LOG_I("configuring '%s', version: %s",
