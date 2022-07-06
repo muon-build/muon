@@ -562,7 +562,7 @@ get_option_value(struct workspace *wk, const struct project *proj, const char *n
 }
 
 static void
-set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *ldflags)
+set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *extra)
 {
 #ifndef MUON_BOOTSTRAPPED
 	return;
@@ -575,15 +575,15 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 	struct obj_option *o = get_obj_option(wk, opt);
 
 	flags = getenv(flags);
-	ldflags = ldflags ? getenv(ldflags) : NULL;
+	extra = getenv(extra);
 	if (flags && *flags) {
 		o->val = str_split(wk, &WKSTR(flags), NULL);
 
-		if (ldflags && *ldflags) {
-			obj_array_extend(wk, o->val, str_split(wk, &WKSTR(ldflags), NULL));
+		if (extra && *extra) {
+			obj_array_extend(wk, o->val, str_split(wk, &WKSTR(extra), NULL));
 		}
-	} else if (ldflags && *ldflags) {
-		o->val = str_split(wk, &WKSTR(ldflags), NULL);
+	} else if (extra && *extra) {
+		o->val = str_split(wk, &WKSTR(extra), NULL);
 	}
 }
 
@@ -717,9 +717,9 @@ init_global_options(struct workspace *wk)
 		return false;
 	}
 
-	set_compile_opt_from_env(wk, "c_args", "CFLAGS", NULL);
+	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
-	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", NULL);
+	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 	return true;
 }
