@@ -394,7 +394,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			} else {
 				bool staticpic = get_option_bool(wk, tgt->override_options, "b_staticpic", true);
 
-				if (staticpic && (tgt->type & tgt_static_library)) {
+				if (tgt->type & tgt_static_library) {
+					pic = staticpic;
+				} else if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
 					pic = true;
 				}
 			}
