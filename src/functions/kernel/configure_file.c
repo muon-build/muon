@@ -605,7 +605,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		LOG_I("configuring '%s", out_path);
+		LOG_I("configuring '%s'", out_path);
 		output_str = make_str(wk, out_path);
 		make_obj(wk, res, obj_file);
 		*get_obj_file(wk, *res) = output_str;
