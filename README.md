@@ -30,41 +30,63 @@ Things missing include:
 
 - cross-compilation support
 - build optimizations like pch and unity
+- several `b_` options
 - dependencies with a custom configuration tool
 - all modules except for `fs`. (a small `python` module shim is also available)
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
 
-## Requirements
+## Dependencies
 
-`muon` requires various POSIX interfaces and a compiler offering c99 support.
+Bootstrap:
+- `c99`
+- ninja-compatible build tool
 
-In addition, dependency discovery requires `libpkgconf`, and wrap support
-requires `libcurl` and `libarchive`.
+Bootstrap with `libpkgconf` support:
+- `libpkgconf`
+- `pkgconf` or `pkg-config`
+- `sh`
 
-A ninja-compatible build tool (e.g.  [samurai]) is also required to bootstrap
-muon, but can be optionally embedded into muon after bootstrapping.
+`[wrap-file]` support:
+- `libcurl`
+- `libarchive`
 
-Documentation requires `scdoc` in order to be built.
+Documentation:
+- `scdoc` for muon.1 and meson.build.5
+- `python3`
+- `py3-yaml`
+
+Tests:
+- `python3`
 
 ## Building
 
-You can bootstrap muon like this:
+The bootstrapping process has two stages.  The first stage produces a `muon`
+binary capable of building itself (but not necessarily anything else). The
+second stage produces the final binary.
 
-```sh
+Stage 1:
+
+```
+mkdir build
+c99 -Iinclude src/amalgam.c -o build/muon
+```
+
+However, this version of muon will never be able to look up any dependencies.
+If are going to need `dependency()` to work, use the provided bootstrapping
+script, which links in `libpkgconf` if it is available.
+
+```
 ./bootstrap.sh build
 ```
 
-You can then use the bootstrapped muon to build itself:
+Stage 2:
 
 ```
 build/muon setup build
 ninja -C build
 ```
-
-Note that the initial muon created by `bootstrap.sh` is missing some features
-and is not guaranteed to be usable, except to setup muon itself.
 
 ## Testing
 
@@ -74,6 +96,12 @@ build/muon -C build test
 
 `muon` has a few of its own tests for core language features, but the majority
 of the tests are copied from the meson project.
+
+## Installation
+
+```
+build/muon -C build install
+```
 
 ## Contributing
 
