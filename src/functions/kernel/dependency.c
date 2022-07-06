@@ -181,7 +181,6 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	*found = true;
 	return true;
 not_found:
-	LLOG_I("%s", "");
 	obj_fprintf(wk, log_file(), "fallback %o failed for %o\n", ctx->fallback, ctx->name);
 	*ctx->res = 0;
 	*found = false;
@@ -203,7 +202,6 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
-		LLOG_I("%s", ""); // hack to print info before the next line
 		obj_fprintf(wk, log_file(), "pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
 			ctx->name, ver_str, ctx->versions->val);
 		return true;
@@ -283,7 +281,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	}
 
 	if (!ctx->found) {
-		if (force_fallback || ctx->fallback_only) {
+		if (ctx->fallback && (force_fallback || ctx->fallback_only)) {
 			if (!handle_dependency_fallback(wk, ctx, &ctx->found)) {
 				return false;
 			}
@@ -468,17 +466,15 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 	}
 
-	/* A fallback is allowed if
-	 * - allow_fallback: true
-	 * - allow_fallback is not specified but the requirement is required
-	 * - allow_fallback is not specified, but the fallback keyword is
-	 *   specified with at least one value (i.e. not an empty array)
-	 */
+	/* A fallback is allowed if */
 	bool fallback_allowed =
+		/* - allow_fallback: true */
 		(akw[kw_allow_fallback].set && get_obj_bool(wk, akw[kw_allow_fallback].val))
-		|| (!akw[kw_allow_fallback].set &&
-		    ((requirement == requirement_required)
-		     || (akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len)));
+		/* - allow_fallback is not specified and the requirement is required */
+		|| (!akw[kw_allow_fallback].set && requirement == requirement_required)
+		/* - allow_fallback is not specified and the fallback keyword is
+		 *   specified with at least one value (i.e. not an empty array) */
+		|| (!akw[kw_allow_fallback].set && akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len);
 
 	uint32_t fallback_err_node = 0;
 	obj fallback = 0;
@@ -507,12 +503,11 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 	};
 
-	ctx.fallback_allowed = false;
 	if (!obj_array_foreach(wk, an[0].val, &ctx, dependency_iter)) {
 		return false;
 	}
-	if (!ctx.found) {
-		ctx.fallback_allowed = true;
+	if (!ctx.found && fallback_allowed) {
+		ctx.fallback_allowed = fallback_allowed;
 		ctx.fallback_only = true;
 		if (!obj_array_foreach(wk, an[0].val, &ctx, dependency_iter)) {
 			return false;
