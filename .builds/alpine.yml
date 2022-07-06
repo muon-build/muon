@@ -40,9 +40,6 @@ tasks:
   - build_gcc: |
       cd muon
       CC=gcc .builds/fullbootstrap.sh -Dstatic=true -Dwebsite=true -Dbuildtype=release
-  - build_clang: |
-      cd muon
-      CC=clang .builds/bootstrap.sh build-clang
   - build_tcc: |
       cd muon
       CC=tcc .builds/bootstrap.sh build-tcc
