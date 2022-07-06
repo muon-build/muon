@@ -361,7 +361,6 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 		field_req[wf_source_hash] = optional;
 		if (ctx->wrap.fields[wf_source_url]) {
 			field_req[wf_source_filename] = required;
-			field_req[wf_source_hash] = required;
 		}
 		field_req[wf_source_fallback_url] = optional;
 		field_req[wf_lead_directory_missing] = optional;
