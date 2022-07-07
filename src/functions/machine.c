@@ -111,6 +111,7 @@ func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		{ "pic24", "pic24" }, // 16 bit Microchip PIC24
 		{ "ppc", "ppc" }, // 32 bit PPC processors
 		{ "ppc64", "ppc64" }, // 64 bit PPC processors
+		{ "ppc64le", "ppc64" },
 		{ "riscv32", "riscv32" }, // 32 bit RISC-V Open ISA
 		{ "riscv64", "riscv64" }, // 64 bit RISC-V Open ISA
 		{ "rl78", "rl78" }, // Renesas RL78
