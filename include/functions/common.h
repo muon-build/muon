@@ -4,13 +4,15 @@
 #include "lang/parser.h"
 #include "lang/workspace.h"
 
-typedef bool (*func_impl)(struct workspace *wk, uint32_t recvr, uint32_t args_node, obj *res);
+typedef bool (*func_impl)(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res);
+typedef obj (*func_impl_rcvr_transform)(struct workspace *wk, obj rcvr);
 
 struct func_impl_name {
 	const char *name;
 	func_impl func;
 	uint32_t return_type;
 	bool pure;
+	func_impl_rcvr_transform rcvr_transform;
 };
 
 extern const struct func_impl_name *kernel_func_tbl[language_mode_count];
@@ -20,6 +22,8 @@ struct args_norm { uint32_t type; obj val, node; bool set; };
 struct args_kw { const char *key; uint32_t type; obj val, node; bool set; bool required; };
 
 extern bool disabler_among_args_immunity;
+
+void build_func_impl_tables(void);
 
 const struct func_impl_name *func_lookup(const struct func_impl_name *impl_tbl, const char *name);
 

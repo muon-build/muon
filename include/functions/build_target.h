@@ -9,5 +9,5 @@ bool build_target_extract_objects(struct workspace *wk, uint32_t err_node,
 	obj rcvr, obj *res, obj arr);
 bool build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rcvr, obj *res, bool recursive);
 
-extern const struct func_impl_name impl_tbl_build_target[];
+extern const struct func_impl_name impl_tbl_build_target[8];
 #endif

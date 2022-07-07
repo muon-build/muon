@@ -600,6 +600,12 @@ const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_both_libs] = { impl_tbl_both_libs, },
 };
 
+void
+build_func_impl_tables(void)
+{
+	both_libs_build_impl_tbl();
+}
+
 const struct func_impl_name *
 func_lookup(const struct func_impl_name *impl_tbl, const char *name)
 {
@@ -673,6 +679,10 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			}
 			return false;
 		}
+	}
+
+	if (have_rcvr && fi->rcvr_transform) {
+		rcvr_id = fi->rcvr_transform(wk, rcvr_id);
 	}
 
 	if (!fi->func(wk, rcvr_id, args_node, res)) {

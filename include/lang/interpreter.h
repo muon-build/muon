@@ -30,4 +30,6 @@ bool rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, i
 
 void assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id);
 void unassign_variable(struct workspace *wk, const char *name);
+
+void interpreter_init(void);
 #endif

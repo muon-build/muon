@@ -2,5 +2,6 @@
 #define FUNCTIONS_BOTH_LIBS_H
 #include "functions/common.h"
 
-extern const struct func_impl_name impl_tbl_both_libs[];
+void both_libs_build_impl_tbl(void);
+extern struct func_impl_name impl_tbl_both_libs[];
 #endif

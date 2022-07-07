@@ -74,6 +74,8 @@ bool
 eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 {
 	/* L("evaluating '%s'", src->label); */
+	interpreter_init();
+
 	bool ret = false;
 	struct ast ast = { 0 };
 

@@ -1283,3 +1283,16 @@ interp_block:
 
 	return ret;
 }
+
+void
+interpreter_init(void)
+{
+	static bool init = false;
+
+	if (init) {
+		return;
+	}
+
+	build_func_impl_tables();
+	init = true;
+}
