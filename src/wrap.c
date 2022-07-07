@@ -35,6 +35,7 @@ static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_depth] = "depth",
 	[wf_push_url] = "push-url",
 	[wf_clone_recursive] = "clone-recursive",
+	[wf_wrapdb_version] = "wrapdb_version",
 };
 
 static const char *wrap_type_section_header[wrap_type_count] = {
@@ -341,7 +342,8 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	enum req { invalid, required, optional };
 	enum req field_req[wrap_fields_count] = {
 		[wf_directory] = optional,
-		[wf_patch_directory] = optional
+		[wf_patch_directory] = optional,
+		[wf_wrapdb_version] = optional
 	};
 
 	if (ctx->wrap.fields[wf_patch_url]

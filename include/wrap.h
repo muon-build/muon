@@ -14,26 +14,28 @@ struct workspace;
 
 enum wrap_fields {
 	// wrap
-	wf_directory, // ignored
+	wf_directory,
 	wf_patch_url,
-	wf_patch_fallback_url, // ignored
+	wf_patch_fallback_url,
 	wf_patch_filename,
 	wf_patch_hash,
-	wf_patch_directory, // ignored
+	wf_patch_directory,
 
 	// wrap-file
 	wf_source_url,
-	wf_source_fallback_url, // ignored
+	wf_source_fallback_url,
 	wf_source_filename,
 	wf_source_hash,
-	wf_lead_directory_missing, // ignored
+	wf_lead_directory_missing,
 
 	// wrap-git
-	wf_url, // ignored
-	wf_revision, // ignored
-	wf_depth, // ignored
-	wf_push_url, // ignored
-	wf_clone_recursive, // ignored
+	wf_url,
+	wf_revision,
+	wf_depth,
+	wf_push_url,
+	wf_clone_recursive,
+
+	wf_wrapdb_version, // ?? undocumented
 
 	wrap_fields_count,
 };
