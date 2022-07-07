@@ -342,7 +342,8 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 }
 
 static bool
-create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, enum tgt_type type, obj *res)
+create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
+	enum tgt_type type, bool ignore_sources, obj *res)
 {
 	char plain_name[BUF_SIZE_2k];
 	make_obj(wk, res, obj_build_target);
@@ -352,6 +353,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->args, obj_dict);
+	make_obj(wk, &tgt->src, obj_array);
 	build_dep_init(wk, &tgt->dep);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
@@ -496,23 +498,29 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			make_obj(wk, &tgt->objects, obj_array);
 		}
 
-		if (akw[bt_kw_sources].set) {
-			obj_array_extend(wk, an[1].val, akw[bt_kw_sources].val);
-		}
+		if (!ignore_sources) {
+			obj sources = an[1].val;
 
-		obj_array_extend(wk, an[1].val, tgt->dep.sources);
+			if (akw[bt_kw_sources].set) {
+				obj_array_extend(wk, sources, akw[bt_kw_sources].val);
+			}
 
-		make_obj(wk, &tgt->src, obj_array);
+			obj_array_extend(wk, sources, tgt->dep.sources);
 
-		struct process_build_tgt_sources_ctx ctx = {
-			.err_node = an[1].node,
-			.res = tgt->src,
-			.tgt_id = *res,
-			.implicit_include_directories = implicit_include_directories,
-		};
+			struct process_build_tgt_sources_ctx ctx = {
+				.err_node = an[1].node,
+				.res = tgt->src,
+				.tgt_id = *res,
+				.implicit_include_directories = implicit_include_directories,
+			};
 
-		if (!obj_array_foreach_flat(wk, an[1].val, &ctx, process_build_tgt_sources_iter)) {
-			return false;
+			if (!obj_array_foreach_flat(wk, sources, &ctx, process_build_tgt_sources_iter)) {
+				return false;
+			}
+
+			obj deduped;
+			obj_array_dedup(wk, tgt->src, &deduped);
+			tgt->src = deduped;
 		}
 
 		if (!get_obj_array(wk, tgt->src)->len &&
@@ -524,10 +532,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw, e
 			interp_error(wk, node, "target declared with no linkable sources");
 			return false;
 		}
-
-		obj deduped;
-		obj_array_dedup(wk, tgt->src, &deduped);
-		tgt->src = deduped;
 	}
 
 	{ // include directories
@@ -769,16 +773,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			obj_array_push(wk, *res, tgt);
 
 			// If this target is a multi-target (both_libraries),
-			// clear out all sources arguments and set the objects
-			// argument with objects from the previous target
+			// set the objects argument with objects from the
+			// previous target
 
 			obj objects;
 			if (!build_target_extract_all_objects(wk, an[0].node, tgt, &objects, true)) {
 				return false;
 			}
-
-			akw[bt_kw_sources].set = false;
-			get_obj_array(wk, an[1].val)->len = 0;
 
 			if (akw[bt_kw_objects].set) {
 				obj_array_extend(wk, objects, akw[bt_kw_objects].val);
@@ -789,7 +790,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			}
 		}
 
-		if (!create_target(wk, an, akw, t, &tgt)) {
+		if (!create_target(wk, an, akw, t, multi_target, &tgt)) {
 			return false;
 		}
 
