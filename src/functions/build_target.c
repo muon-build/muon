@@ -183,7 +183,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-bool
+static bool
 build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t err_node, obj *res, obj arr)
 {
 	make_obj(wk, res, obj_array);
