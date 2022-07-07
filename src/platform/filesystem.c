@@ -802,3 +802,18 @@ fs_chmod(const char *path, uint32_t mode)
 
 	return true;
 }
+
+bool
+fs_copy_metadata(const char *src, const char *dest)
+{
+	struct stat sb;
+	if (!fs_stat(src, &sb)) {
+		return false;
+	}
+
+	if (fs_chmod(dest, sb.st_mode) == -1) {
+		return false;
+	}
+
+	return true;
+}

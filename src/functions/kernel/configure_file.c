@@ -287,6 +287,11 @@ write_mesondefine:
 		goto cleanup;
 	}
 
+	if (!fs_copy_metadata(in, get_cstr(wk, out))) {
+		ret = false;
+		goto cleanup;
+	}
+
 cleanup:
 	fs_source_destroy(&src);
 
