@@ -811,7 +811,7 @@ fs_copy_metadata(const char *src, const char *dest)
 		return false;
 	}
 
-	if (fs_chmod(dest, sb.st_mode) == -1) {
+	if (!fs_chmod(dest, sb.st_mode)) {
 		return false;
 	}
 
