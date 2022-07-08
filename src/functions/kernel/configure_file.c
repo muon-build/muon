@@ -647,6 +647,10 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		fs_source_destroy(&src);
+
+		if (!fs_copy_metadata(get_file_path(wk, input), get_cstr(wk, output_str))) {
+			return false;
+		}
 	} else {
 		obj dict, conf = akw[kw_configuration].val;
 
