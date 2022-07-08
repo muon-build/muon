@@ -8,6 +8,44 @@
 #include "log.h"
 #include "platform/uname.h"
 
+static const char *known_cpu_families[] = {
+	"aarch64",
+	"alpha",
+	"arc",
+	"arm",
+	"avr",
+	"c2000",
+	"csky",
+	"dspic",
+	"e2k",
+	"ft32",
+	"ia64",
+	"loongarch64",
+	"m68k",
+	"microblaze",
+	"mips",
+	"mips64",
+	"msp430",
+	"parisc",
+	"pic24",
+	"ppc",
+	"ppc64",
+	"riscv32",
+	"riscv64",
+	"rl78",
+	"rx",
+	"s390",
+	"s390x",
+	"sh4",
+	"sparc",
+	"sparc64",
+	"wasm32",
+	"wasm64",
+	"x86",
+	"x86_64",
+};
+
+
 static bool
 func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -21,15 +59,15 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	}
 
 	const char *map[][2] = {
-		{ "Darwin", "darwin" }, // Either OSX or iOS
-		{ "DragonFly", "dragonfly" }, // DragonFly BSD
-		{ "FreeBSD", "freebsd" }, // FreeBSD and its derivatives
-		{ "GNU", "gnu" }, // GNU Hurd
-		{ "Haiku", "haiku" },
-		{ "Linux", "linux" },
-		{ "NetBSD", "netbsd" },
-		{ "OpenBSD", "openbsd" },
-		{ "SunOS", "sunos" }, // illumos and Solaris
+		{ "darwin", "darwin" }, // Either OSX or iOS
+		{ "dragonfly", "dragonfly" }, // DragonFly BSD
+		{ "freebsd", "freebsd" }, // FreeBSD and its derivatives
+		{ "gnu", "gnu" }, // GNU Hurd
+		{ "haiku", "haiku" },
+		{ "linux", "linux" },
+		{ "netbsd", "netbsd" },
+		{ "openbsd", "openbsd" },
+		{ "sunos", "sunos" }, // illumos and Solaris
 
 		// TODO: These probably need more than just a simple mapping
 		{ "android", "android" }, // By convention only, subject to change
@@ -77,82 +115,134 @@ func_machine_endian(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	return true;
 }
 
+static void
+machine_cpu_normalize_base(const char **machine_cstr, const char **norm)
+{
+	const struct str *machine;
+
+	*norm = NULL;
+
+	if (!uname_machine(machine_cstr)) {
+		LOG_E("unable to determine cpu information");
+		*machine_cstr = "unknown";
+		return;
+	}
+
+	machine = &WKSTR(*machine_cstr);
+
+	if (str_startswith(machine, &WKSTR("aarch64"))) {
+		*norm = "aarch64";
+	} else if (str_startswith(machine, &WKSTR("earm"))) {
+		*norm = "arm";
+	} else if (str_startswith(machine, &WKSTR("mips"))) {
+		if (strstr(machine->s, "64")) {
+			*norm = "mips64";
+		} else {
+			*norm = "mips";
+		}
+	} else {
+		const char *map[][2] = {
+			{ "amd64", "x86_64" },
+			{ "x64", "x86_64" },
+			{ "i86pc", "x86_64" },
+			0
+		};
+
+		uint32_t i;
+		for (i = 0; map[i][0]; ++i) {
+			if (str_eql(&WKSTR(map[i][0]), machine)) {
+				*norm = map[i][1];
+				break;
+			}
+		}
+	}
+}
+
 static bool
 func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
+	const char *machine_cstr, *norm;
+	const struct str *machine;
+
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	const char *machine;
-	if (!uname_machine(&machine)) {
-		return false;
+	machine_cpu_normalize_base(&machine_cstr, &norm);
+	machine = &WKSTR(machine_cstr);
+
+	if (norm) {
+		goto done;
 	}
 
-	const char *map[][2] = {
-		{ "aarch64", "aarch64" }, // 64 bit ARM processor
-		{ "alpha", "alpha" }, // DEC Alpha processor
-		{ "arc", "arc" }, // 32 bit ARC processor
-		{ "arm", "arm" }, // 32 bit ARM processor
-		{ "avr", "avr" }, // Atmel AVR processor
-		{ "c2000", "c2000" }, // 32 bit C2000 processor
-		{ "csky", "csky" }, // 32 bit CSky processor
-		{ "dspic", "dspic" }, // 16 bit Microchip dsPIC
-		{ "e2k", "e2k" }, // MCST Elbrus processor
-		{ "ft32", "ft32" }, // 32 bit Bridgetek MCU
-		{ "ia64", "ia64" }, // Itanium processor
-		{ "loongarch64", "loongarch64" }, // 64 bit Loongson processor
-		{ "m68k", "m68k" }, // Motorola 68000 processor
-		{ "microblaze", "microblaze" }, // MicroBlaze processor
-		{ "mips", "mips" }, // 32 bit MIPS processor
-		{ "mips64", "mips64" }, // 64 bit MIPS processor
-		{ "msp430", "msp430" }, // 16 bit MSP430 processor
-		{ "parisc", "parisc" }, // HP PA-RISC processor
-		{ "pic24", "pic24" }, // 16 bit Microchip PIC24
-		{ "ppc", "ppc" }, // 32 bit PPC processors
-		{ "ppc64", "ppc64" }, // 64 bit PPC processors
-		{ "ppc64le", "ppc64" },
-		{ "riscv32", "riscv32" }, // 32 bit RISC-V Open ISA
-		{ "riscv64", "riscv64" }, // 64 bit RISC-V Open ISA
-		{ "rl78", "rl78" }, // Renesas RL78
-		{ "rx", "rx" }, // Renesas RX 32 bit MCU
-		{ "s390", "s390" }, // IBM zSystem s390
-		{ "s390x", "s390x" }, // IBM zSystem s390x
-		{ "sh4", "sh4" }, // SuperH SH-4
-		{ "sparc", "sparc" }, // 32 bit SPARC
-		{ "sparc64", "sparc64" }, // SPARC v9 processor
-		{ "wasm32", "wasm32" }, // 32 bit Webassembly
-		{ "wasm64", "wasm64" }, // 64 bit Webassembly
-		{ "i686", "x86" }, // 32 bit x86 processor
-		{ "x86_64", "x86_64" }, // 64 bit x86 processor
-		0
-	};
+	if (machine->s[0] == 'i' && str_endswith(machine, &WKSTR("86"))) {
+		norm = "x86";
+	} else if (str_startswith(machine, &WKSTR("arm"))) {
+		norm = "arm";
+	} else if (str_startswith(machine, &WKSTR("powerpc64"))
+		   || str_startswith(machine, &WKSTR("ppc64"))) {
+		norm = "ppc64";
+	} else if (str_startswith(machine, &WKSTR("powerpc"))
+		   || str_startswith(machine, &WKSTR("ppc"))) {
+		norm = "ppc";
+	} else {
+		const char *map[][2] = {
+			{ "bepc", "x86" },
+			{ "arm64", "aarch64" },
+			{ "macppc", "ppc" },
+			{ "power macintosh", "ppc" },
+			{ "amd64", "x86_64" },
+			{ "x64", "x86_64" },
+			{ "i86pc", "x86_64" },
+			{ "sun4u", "sparc64" },
+			{ "sun4v", "sparc64" },
+			{ "ip30", "mpis64" },
+			{ "ip35", "mpis64" },
+			0
+		};
+
+		uint32_t i;
+		for (i = 0; map[i][0]; ++i) {
+			if (str_eql(&WKSTR(map[i][0]), machine)) {
+				norm = map[i][1];
+				break;
+			}
+		}
+	}
+
+done:
+	if (!norm) {
+		norm = machine->s;
+	}
+
+	*res = make_str(wk, norm);
 
 	uint32_t i;
-	for (i = 0; map[i][0]; ++i) {
-		if (strcmp(map[i][0], machine) == 0) {
-			*res = make_str(wk, map[i][1]);
+	for (i = 0; i < ARRAY_LEN(known_cpu_families); ++i) {
+		if (strcmp(norm, known_cpu_families[i]) == 0) {
 			return true;
 		}
 	}
 
-	LOG_E("unknown cpu '%s'", machine);
-	return false;
+	LOG_W("returning unknown cpu family '%s'", machine->s);
+	return true;
 }
 
 static bool
 func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
+	const char *machine_cstr, *norm;
+
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
 		return false;
 	}
 
-	const char *machine;
-	if (!uname_machine(&machine)) {
-		return false;
+	machine_cpu_normalize_base(&machine_cstr, &norm);
+	if (!norm) {
+		norm = machine_cstr;
 	}
 
-	*res = make_str(wk, machine);
+	*res = make_str(wk, norm);
 	return true;
 }
 
