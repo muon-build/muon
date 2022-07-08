@@ -190,7 +190,8 @@ make_strf(struct workspace *wk, const char *fmt, ...)
 	// isn't taken in to account by vsnprintf above.  Need to make it
 	// possible to pass NULL to obj_vsnprintf to get a reliable buffer
 	// length
-	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
+	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
+	vsnprintf((char *)ss->s, len + 1, fmt, args);
 
 	va_end(args_copy);
 	va_end(args);
@@ -224,7 +225,8 @@ str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 
 	struct str *ss = grow_str(wk, s, len);
 
-	obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args);
+	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
+	vsnprintf((char *)ss->s, len + 1, fmt, args);
 
 	va_end(args_copy);
 	va_end(args);
