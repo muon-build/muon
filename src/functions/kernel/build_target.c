@@ -345,7 +345,7 @@ static bool
 create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	enum tgt_type type, bool ignore_sources, obj *res)
 {
-	char plain_name[BUF_SIZE_2k];
+	char plain_name[BUF_SIZE_2k + 1] = { 0 };
 	make_obj(wk, res, obj_build_target);
 	struct obj_build_target *tgt = get_obj_build_target(wk, *res);
 	tgt->type = type;
