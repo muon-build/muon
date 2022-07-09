@@ -362,9 +362,8 @@ func_string_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	const struct str *ss = get_str(wk, rcvr);
 
-	char *endptr = NULL;
-	int64_t n = strtol(ss->s, &endptr, 10);
-	if (endptr - ss->s != ss->len) {
+	int64_t n;
+	if (!str_to_i(ss, &n)) {
 		interp_error(wk, args_node, "unable to parse %o", rcvr);
 		return false;
 	}

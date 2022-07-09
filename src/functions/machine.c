@@ -45,7 +45,6 @@ static const char *known_cpu_families[] = {
 	"x86_64",
 };
 
-
 static bool
 func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {

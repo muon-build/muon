@@ -285,7 +285,7 @@ str_to_i(const struct str *ss, int64_t *res)
 {
 	char *endptr = NULL;
 	*res = strtol(ss->s, &endptr, 10);
-	if (endptr - ss->s != ss->len) {
+	if ((uint32_t)(endptr - ss->s) != ss->len) {
 		return false;
 	}
 

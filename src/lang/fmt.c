@@ -903,7 +903,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				if (*endptr) {
 					error_messagef(src, line, 1, log_error, "unable to parse integer");
 					return false;
-				} else if (lval < 0 || lval > UINT32_MAX) {
+				} else if (lval < 0 || lval > (long)UINT32_MAX) {
 					error_messagef(src, line, 1, log_error, "integer outside of range 0-%u", UINT32_MAX);
 					return false;
 				}
