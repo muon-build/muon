@@ -2075,7 +2075,7 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	obj_printf(wk, "%o\n", an[0].val);
+	obj_fprintf(wk, log_file(), "%o\n", an[0].val);
 	return true;
 }
 
