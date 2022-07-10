@@ -1466,7 +1466,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 		double _double;
 		char *_charp;
 		void *_voidp;
-	} arg;
+	} arg = { 0 };
 
 	struct {
 		int val;
