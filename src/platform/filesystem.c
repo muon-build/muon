@@ -21,7 +21,7 @@ static bool
 fs_lstat(const char *path, struct stat *sb)
 {
 	if (lstat(path, sb) != 0) {
-		LOG_E("failed stat(%s): %s", path, strerror(errno));
+		LOG_E("failed lstat(%s): %s", path, strerror(errno));
 		return false;
 	}
 
@@ -45,27 +45,19 @@ fs_exists(const char *path)
 	return access(path, F_OK) == 0;
 }
 
-static bool
-fs_lexists(const char *path)
-{
-	assert(path_is_absolute(path));
-
-	return faccessat(-1, path, F_OK, AT_SYMLINK_NOFOLLOW) == 0;
-}
-
 bool
 fs_symlink_exists(const char *path)
 {
 	struct stat sb;
-	if (!fs_lexists(path)) {
-		return false;
-	} else if (!fs_lstat(path, &sb)) {
-		return false;
-	} else if (!S_ISLNK(sb.st_mode)) {
-		return false;
-	}
 
-	return true;
+	// use lstat here instead of fs_lstat because we want to ignore errors
+	return lstat(path, &sb) == 0 && S_ISLNK(sb.st_mode);
+}
+
+static bool
+fs_lexists(const char *path)
+{
+	return fs_exists(path) || fs_symlink_exists(path);
 }
 
 bool
