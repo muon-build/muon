@@ -92,11 +92,6 @@ muon_curl_fetch(const char *url, uint8_t **buf, uint64_t *len)
 		goto err1;
 	}
 
-	/* set URL to get here */
-	if ((err = curl_easy_setopt(curl_handle, CURLOPT_URL, url)) != CURLE_OK) {
-		goto err1;
-	}
-
 	/* Switch on full protocol/debug output while testing */
 	if ((err = curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 0L)) != CURLE_OK) {
 		goto err1;
