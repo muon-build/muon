@@ -54,13 +54,25 @@ is_whitespace(char c)
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
+static bool
+line_is_whitespace(const char *c)
+{
+	for (; *c; ++c) {
+		if (!is_whitespace(*c)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static enum iteration_result
 each_line_cb(void *_ctx, char *line, size_t len)
 {
 	struct each_line_ctx *ctx = _ctx;
 	char *ptr, *key, *val;
 
-	if (*line == '\0' || *line == ';' || *line == '#') {
+	if (!*line || *line == ';' || *line == '#' || line_is_whitespace(line)) {
 		goto done_with_line;
 	} else if (*line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
