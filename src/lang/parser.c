@@ -669,7 +669,7 @@ parse_e7(struct parser *p, uint32_t *id)
 		uint32_t args, d_id;
 
 		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, NULL, "function call must be applied to plain id");
+			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lparen));
 			return false;
 		}
 
