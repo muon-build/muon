@@ -515,9 +515,10 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	struct token *start_tok = p->last;
 	struct node *n;
 
-	if (!parse_e9(p, &meth_id)) {
+	if (!expect(p, tok_identifier)) {
 		return false;
 	}
+	make_node(p, &meth_id, node_id);
 
 	n = make_node(p, id, node_method);
 
