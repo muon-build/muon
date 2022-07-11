@@ -654,11 +654,22 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		enum module mod = m->module;
 
 		if (!m->found && strcmp(name, "found") != 0) {
-			interp_error(wk, name_node, "invalid attempt to use missing module");
+			interp_error(wk, name_node, "invalid attempt to use not-found module");
 			return false;
 		} else if (!(fi = module_func_lookup(name, mod))) {
-			interp_error(wk, name_node, "function %s() not found in module %s", name, module_names[mod]);
-			return false;
+			if (!m->has_impl) {
+				interp_error(wk, name_node, "module '%s' is unimplemented,\n"
+					"  If you would like to make your build files portable to muon, use"
+					" `import('%s', required: false)`, and then check"
+					" the .found() method before use."
+					, module_names[mod]
+					, module_names[mod]
+					);
+				return false;
+			} else {
+				interp_error(wk, name_node, "function %s() not found in module %s", name, module_names[mod]);
+				return false;
+			}
 		}
 	} else {
 		if (!impl_tbl) {

@@ -141,6 +141,30 @@ enum module {
 	module_python,
 	module_python3,
 	module_pkgconfig,
+
+	// unimplemented
+	module_unimplemented_separator,
+	module_cmake = module_unimplemented_separator,
+	module_dlang,
+	module_gnome,
+	module_hotdoc,
+	module_i18n,
+	module_java,
+	module_keyval,
+	module_modtest,
+	module_qt,
+	module_qt4,
+	module_qt5,
+	module_qt6,
+	module_sourceset,
+	module_unstable_cuda,
+	module_unstable_external_project,
+	module_unstable_icestorm,
+	module_unstable_rust,
+	module_unstable_simd,
+	module_unstable_wayland,
+	module_windows,
+
 	module_count,
 };
 
@@ -166,7 +190,7 @@ struct obj_subproject {
 
 struct obj_module {
 	enum module module;
-	bool found;
+	bool found, has_impl;
 };
 
 struct obj_array {

@@ -1750,14 +1750,23 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	enum module mod = 0;
-	bool found = false;
+	bool found = false, has_impl = false;
 
 	if (requirement != requirement_skip) {
-		if (module_lookup(get_cstr(wk, an[0].val), &mod)) {
+		if (module_lookup(get_cstr(wk, an[0].val), &mod, &has_impl)) {
 			found = true;
 		} else if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "module not found");
 			return false;
+		}
+	}
+
+	if (!has_impl) {
+		if (requirement != requirement_required || wk->in_analyzer) {
+			found = false;
+			has_impl = false;
+		} else {
+			LOG_W("importing unimplemented module '%s'", get_cstr(wk, an[0].val));
 		}
 	}
 
@@ -1770,6 +1779,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct obj_module *m = get_obj_module(wk, *res);
 	m->module = mod;
 	m->found = found;
+	m->has_impl = has_impl;
 	return true;
 }
 
