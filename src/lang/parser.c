@@ -663,8 +663,6 @@ parse_e7(struct parser *p, uint32_t *id)
 		return false;
 	}
 
-	struct token *function_name = p->last_last;
-
 	if (accept(p, tok_lparen)) {
 		p->caused_effect = true;
 
@@ -687,9 +685,12 @@ parse_e7(struct parser *p, uint32_t *id)
 		add_child(p, p_id, node_child_l, l_id);
 		add_child(p, p_id, node_child_r, args);
 
-		struct node *n = get_node(p->ast, p_id);
-		n->line = function_name->line;
-		n->col = function_name->col;
+		struct node *n = get_node(p->ast, p_id),
+			    *func_name = get_node(p->ast, l_id);
+
+		n->line = func_name->line;
+		n->col = func_name->col;
+
 		n = get_node(p->ast, args);
 		n->line = args_start->line;
 		n->col = args_start->col;
@@ -1264,7 +1265,7 @@ parse_line(struct parser *p, uint32_t *id)
 
 	struct node *res = get_node(p->ast, *id);
 	res->line = stmt_start->line;
-	res->col = 0;
+	res->col = stmt_start->col;
 
 	return ret;
 }
