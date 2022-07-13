@@ -137,8 +137,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	enum linker_type linker;
 	{ /* determine linker */
 		obj comp_id;
-		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep.link_language, &comp_id)) {
-			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->dep.link_language));
+		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep_internal.link_language, &comp_id)) {
+			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->dep_internal.link_language));
 			return false;
 		}
 
@@ -147,7 +147,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	make_obj(wk, &ctx.object_names, obj_array);
 
-	ctx.args = tgt->dep;
+	ctx.args = tgt->dep_internal;
 
 	if (!relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with)) {
 		return false;
@@ -203,12 +203,12 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
-			.link_lang = tgt->dep.link_language,
+			.link_lang = tgt->dep_internal.link_language,
 			.args = &ctx.args
 		};
 
-		if (tgt->tgt_dep.link_args) {
-			obj_array_extend(wk, ctx.args.link_args, tgt->tgt_dep.link_args);
+		if (tgt->dep_internal.link_args) {
+			obj_array_extend(wk, ctx.args.link_args, tgt->dep_internal.link_args);
 		}
 
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
@@ -237,7 +237,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
-		linker_type = compiler_language_to_s(tgt->dep.link_language);
+		linker_type = compiler_language_to_s(tgt->dep_internal.link_language);
 		linker_rule_prefix = true;
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;

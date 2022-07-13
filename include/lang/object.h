@@ -261,9 +261,7 @@ struct obj_build_target {
 	obj override_options; // obj_array
 
 	struct build_dep dep;
-	struct {
-		obj link_args;
-	} tgt_dep;
+	struct build_dep dep_internal;
 
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;

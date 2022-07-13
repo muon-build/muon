@@ -71,7 +71,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	tgt->dep.link_language = coalesce_link_languages(tgt->dep.link_language, fl);
+	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
 
 	return ir_cont;
 }
@@ -84,7 +84,7 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 		return ir_err;
 	}
 
-	if (!tgt->dep.link_language) {
+	if (!tgt->dep_internal.link_language) {
 		enum compiler_language clink_langs[] = {
 			compiler_language_c,
 			compiler_language_cpp,
@@ -94,13 +94,13 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
 			if (obj_dict_geti(wk, current_project(wk)->compilers, clink_langs[i], &comp)) {
-				tgt->dep.link_language = clink_langs[i];
+				tgt->dep_internal.link_language = clink_langs[i];
 				break;
 			}
 		}
 	}
 
-	if (!tgt->dep.link_language) {
+	if (!tgt->dep_internal.link_language) {
 		interp_error(wk, err_node, "unable to determine linker for target");
 		return false;
 	}
@@ -130,7 +130,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	}
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-	obj_array_push(wk, tgt->dep.order_deps, make_str(wk, path));
+	obj_array_push(wk, tgt->dep_internal.order_deps, make_str(wk, path));
 
 	if (!ctx->implicit_include_directories) {
 		return true;
@@ -144,7 +144,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
 	d->path = make_str(wk, dir);
-	obj_array_push(wk, tgt->dep.include_directories, inc);
+	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
 
 	return true;
 }
@@ -156,7 +156,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 	if (file_is_linkable(wk, val)) {
 		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-		obj_array_push(wk, tgt->dep.link_with, val);
+		obj_array_push(wk, tgt->dep_internal.link_with, val);
 		return ir_cont;
 	}
 
@@ -354,11 +354,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	tgt->build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->src, obj_array);
-	build_dep_init(wk, &tgt->dep);
+	build_dep_init(wk, &tgt->dep_internal);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
 		if (akw[bt_kw_link_args].set) {
-			tgt->tgt_dep.link_args = akw[bt_kw_link_args].val;
+			tgt->dep_internal.link_args = akw[bt_kw_link_args].val;
 		}
 
 		if (akw[bt_kw_link_with].set) {
@@ -377,7 +377,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	}
 
 	if (akw[bt_kw_dependencies].set) {
-		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep);
+		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep_internal);
 	}
 
 	if (akw[bt_kw_override_options].set) { // override options
@@ -511,7 +511,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				obj_array_extend(wk, sources, akw[bt_kw_sources].val);
 			}
 
-			obj_array_extend(wk, sources, tgt->dep.sources);
+			obj_array_extend(wk, sources, tgt->dep_internal.sources);
 
 			struct process_build_tgt_sources_ctx ctx = {
 				.err_node = an[1].node,
@@ -560,8 +560,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			return false;
 		}
 
-		obj_array_extend_nodup(wk, coerced, tgt->dep.include_directories);
-		tgt->dep.include_directories = coerced;
+		obj_array_extend_nodup(wk, coerced, tgt->dep_internal.include_directories);
+		tgt->dep_internal.include_directories = coerced;
 	}
 
 	{ // compiler args
@@ -649,6 +649,19 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 
 	if (!build_tgt_determine_linker(wk, an[0].node, tgt)) {
 		return false;
+	}
+
+	tgt->dep = (struct build_dep) {
+		.link_language = tgt->dep_internal.link_language,
+		.include_directories = tgt->dep_internal.include_directories,
+		.order_deps = tgt->dep_internal.order_deps,
+		.rpath = tgt->dep_internal.rpath,
+		.raw = tgt->dep_internal.raw,
+	};
+
+	if (tgt->type == tgt_static_library) {
+		tgt->dep.link_with = tgt->dep_internal.link_with;
+		tgt->dep.link_with_not_found = tgt->dep_internal.link_with_not_found;
 	}
 
 	LOG_I("added target %s", get_cstr(wk, tgt->build_name));
