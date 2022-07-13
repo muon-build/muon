@@ -929,7 +929,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		// calculate rpath for this target
 		// we always want an absolute path here, regardles of
 		// ctx->relativize
-		if (tgt->type == tgt_dynamic_library) {
+		if (tgt->type != tgt_static_library) {
 			char dir[PATH_MAX], abs[PATH_MAX];
 			const char *p;
 			if (!path_dirname(dir, PATH_MAX, path)) {
