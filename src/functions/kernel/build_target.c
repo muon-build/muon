@@ -362,11 +362,17 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		}
 
 		if (akw[bt_kw_link_with].set) {
-			dep_process_link_with(wk, akw[bt_kw_link_with].val, &tgt->dep);
+			if (!dep_process_link_with(wk, akw[bt_kw_link_with].node,
+				akw[bt_kw_link_with].val, &tgt->dep_internal)) {
+				return false;
+			}
 		}
 
 		if (akw[bt_kw_link_whole].set) {
-			dep_process_link_whole(wk, akw[bt_kw_link_whole].val, &tgt->dep);
+			if (!dep_process_link_whole(wk, akw[bt_kw_link_whole].node,
+				akw[bt_kw_link_whole].val, &tgt->dep_internal)) {
+				return false;
+			}
 		}
 	}
 

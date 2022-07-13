@@ -608,9 +608,9 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	enum kwargs {
 		kw_sources,
 		kw_link_with,
-		kw_link_whole, // TODO
+		kw_link_whole,
 		kw_link_args,
-		kw_dependencies, // TODO
+		kw_dependencies,
 		kw_version,
 		kw_include_directories,
 		kw_variables,
@@ -684,11 +684,17 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	}
 
 	if (akw[kw_link_with].set) {
-		dep_process_link_with(wk, akw[kw_link_with].val, &dep->dep);
+		if (!dep_process_link_with(wk, akw[kw_link_with].node,
+			akw[kw_link_with].val, &dep->dep)) {
+			return false;
+		}
 	}
 
 	if (akw[kw_link_whole].set) {
-		dep_process_link_whole(wk, akw[kw_link_whole].val, &dep->dep);
+		if (!dep_process_link_whole(wk, akw[kw_link_whole].node,
+			akw[kw_link_whole].val, &dep->dep)) {
+			return false;
+		}
 	}
 
 	if (akw[kw_include_directories].set) {
@@ -879,6 +885,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 struct dep_process_link_with_ctx {
 	struct build_dep *dest;
 	bool link_whole;
+	uint32_t err_node;
 };
 
 static enum iteration_result
@@ -955,42 +962,50 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, dest_link_with, val);
 		break;
 	default:
-		LOG_E("invalid type for link_with: '%s'", obj_type_to_s(t));
+		interp_error(wk, ctx->err_node, "invalid type for link_with: '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 
 	return ir_cont;
 }
 
-void
-dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest)
+bool
+dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest)
 {
 	build_dep_init(wk, dest);
 	dest->raw.link_with = arr;
 
 	hash_clear(&wk->obj_hash);
 
-	obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
+	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
 		.dest = dest,
-	}, dep_process_link_with_iter);
+		.err_node = err_node,
+	}, dep_process_link_with_iter)) {
+		return false;
+	}
 
 	dedup_build_dep(wk, dest);
+	return true;
 }
 
-void
-dep_process_link_whole(struct workspace *wk, obj arr, struct build_dep *dest)
+bool
+dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest)
 {
 	build_dep_init(wk, dest);
 	dest->raw.link_whole = arr;
 
 	hash_clear(&wk->obj_hash);
 
-	obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
+	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
 		.dest = dest,
 		.link_whole = true,
-	}, dep_process_link_with_iter);
+		.err_node = err_node,
+	}, dep_process_link_with_iter)) {
+		return false;
+	}
 
 	dedup_build_dep(wk, dest);
+	return true;
 }
 
 static enum iteration_result

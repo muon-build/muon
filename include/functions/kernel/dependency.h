@@ -3,8 +3,8 @@
 #include "functions/common.h"
 
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
-void dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest);
-void dep_process_link_whole(struct workspace *wk, obj arr, struct build_dep *dest);
+bool dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);
+bool dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);
 void dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, obj dest);
 
 void build_dep_init(struct workspace *wk, struct build_dep *dep);
