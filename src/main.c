@@ -768,7 +768,7 @@ ret:
 static bool
 cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	printf("muon %s%s%s, meson compatability version %s\nenabled features:",
+	printf("muon v%s%s%s\nmeson compatability version %s\nenabled features:",
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
