@@ -357,10 +357,6 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	build_dep_init(wk, &tgt->dep_internal);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
-		if (akw[bt_kw_link_args].set) {
-			tgt->dep_internal.link_args = akw[bt_kw_link_args].val;
-		}
-
 		if (akw[bt_kw_link_with].set) {
 			if (!dep_process_link_with(wk, akw[bt_kw_link_with].node,
 				akw[bt_kw_link_with].val, &tgt->dep_internal)) {
@@ -660,8 +656,14 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	};
 
 	if (tgt->type == tgt_static_library) {
+		tgt->dep.link_whole = tgt->dep_internal.link_whole;
 		tgt->dep.link_with = tgt->dep_internal.link_with;
 		tgt->dep.link_with_not_found = tgt->dep_internal.link_with_not_found;
+		obj_array_dup(wk, tgt->dep_internal.link_args, &tgt->dep.link_args);
+	}
+
+	if (akw[bt_kw_link_args].set) {
+		obj_array_extend(wk, tgt->dep_internal.link_args, akw[bt_kw_link_args].val);
 	}
 
 	LOG_I("added target %s", get_cstr(wk, tgt->build_name));
