@@ -917,6 +917,11 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		const char *path = get_cstr(wk, tgt->build_path);
 
+		if (ctx->link_whole && tgt->type != tgt_static_library) {
+			interp_error(wk, ctx->err_node, "link whole only accepts static libraries");
+			return ir_err;
+		}
+
 		if (tgt->type != tgt_executable) {
 			obj_array_push(wk, dest_link_with, make_str(wk, path));
 		}
