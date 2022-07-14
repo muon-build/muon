@@ -865,6 +865,32 @@ obj_array_dedup_in_place(struct workspace *wk, obj *arr)
 	*arr = dedupd;
 }
 
+static enum iteration_result
+dedup_link_args_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj new_args = *(obj *)_ctx;
+
+	static const char *known[] = {
+		"-pthread",
+	};
+
+	const char *s = get_cstr(wk, val);
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(known); ++i) {
+		if (strcmp(known[i], s) == 0) {
+			if (obj_array_in(wk, new_args, val)) {
+				return ir_cont;
+			} else {
+				break;
+			}
+		}
+	}
+
+	obj_array_push(wk, new_args, val);
+	return ir_cont;
+}
+
 static void
 dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 {
@@ -875,11 +901,19 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->raw.link_with);
 	obj_array_dedup_in_place(wk, &dep->raw.link_whole);
 	obj_array_dedup_in_place(wk, &dep->include_directories);
-	/* obj_array_dedup_in_place(wk, &dep->link_args); */
-	/* obj_array_dedup_in_place(wk, &dep->compile_args); */
 	obj_array_dedup_in_place(wk, &dep->rpath);
 	obj_array_dedup_in_place(wk, &dep->order_deps);
 	obj_array_dedup_in_place(wk, &dep->sources);
+
+	obj new_link_args;
+	make_obj(wk, &new_link_args, obj_array);
+	obj_array_foreach(wk, dep->link_args, &new_link_args, dedup_link_args_iter);
+	dep->link_args = new_link_args;
+
+	obj new_compile_args;
+	make_obj(wk, &new_compile_args, obj_array);
+	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_link_args_iter);
+	dep->compile_args = new_compile_args;
 }
 
 struct dep_process_link_with_ctx {
