@@ -207,10 +207,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			.args = &ctx.args
 		};
 
-		if (tgt->dep_internal.link_args) {
-			obj_array_extend(wk, ctx.args.link_args, tgt->dep_internal.link_args);
-		}
-
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
 
 		if (get_obj_array(wk, ctx.args.link_with)->len) {
