@@ -20,7 +20,7 @@ foreach page, section : man_pages
         output: name,
         capture: true,
         feed: true,
-        command: scdoc.path(),
+        command: scdoc,
         install: true,
         install_dir: get_option('mandir') / 'man@0@'.format(section),
     )
@@ -30,10 +30,11 @@ endforeach
 
 meson_proj = subproject('meson-docs', required: false)
 if meson_proj.found()
-    meson_reference_3 = meson_proj.get_variable('meson_reference_3')
+    man_page_targets += {
+        'meson-reference.3': meson_proj.get_variable('meson_reference_3'),
+    }
 else
     warning('meson-docs not found, meson-reference.3 will not be build')
-    meson_reference_3 = disabler()
 endif
 
 if get_option('website')
