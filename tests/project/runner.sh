@@ -48,7 +48,7 @@ if [ $res -ne 0 ]; then
 	fi
 fi
 
-"$ninja" -C "$build"
+$ninja -C "$build"
 
 "$muon" -C "$build" test
 

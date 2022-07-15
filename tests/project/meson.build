@@ -278,9 +278,16 @@ tests = [
     ['nasm/1 configure file'],
 ]
 
-ninja = find_program('ninja', 'samu', required: false)
-if not ninja.found()
-    subdir_done()
+if dep_dict['samurai']
+    ninja = '@0@ samu'.format(muon.full_path())
+else
+    ninja = find_program('ninja', 'samu', required: false)
+    if ninja.found()
+        ninja = ninja.full_path()
+    else
+        warning('ninja/samu not found, skipping project tests')
+        subdir_done()
+    endif
 endif
 
 test_dir = meson.current_build_dir()
@@ -308,7 +315,7 @@ foreach t : tests
         runner,
         args: [
             muon,
-            ninja.path(),
+            ninja,
             meson.current_source_dir() / test,
             test_dir / test,
             skip_exit_code.to_string(),
