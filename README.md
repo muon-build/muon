@@ -32,7 +32,8 @@ Things missing include:
 - build optimizations like pch and unity
 - several `b_` options
 - dependencies with a custom configuration tool
-- all modules except for `fs`. (a small `python` module shim is also available)
+- all modules except for `fs` and `pkgconfig`. (a small `python` module shim is
+  also available)
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
