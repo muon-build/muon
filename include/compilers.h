@@ -52,6 +52,11 @@ enum compiler_optimization_lvl {
 	compiler_optimization_lvl_s,
 };
 
+enum compiler_pgo_stage {
+	compiler_pgo_generate,
+	compiler_pgo_use,
+};
+
 enum compiler_warning_lvl {
 	compiler_warning_lvl_0,
 	compiler_warning_lvl_1,
@@ -85,6 +90,7 @@ struct compiler {
 		compiler_get_arg_func_1s set_std;
 		compiler_get_arg_func_1s include;
 		compiler_get_arg_func_1s include_system;
+		compiler_get_arg_func_1i pgo;
 		compiler_get_arg_func_0 pic;
 		compiler_get_arg_func_0 pie;
 		compiler_get_arg_func_1s sanitize;
@@ -105,6 +111,7 @@ struct linker {
 		compiler_get_arg_func_0 shared;
 		compiler_get_arg_func_1s soname;
 		compiler_get_arg_func_1s rpath;
+		compiler_get_arg_func_1i pgo;
 		compiler_get_arg_func_1s sanitize;
 		compiler_get_arg_func_0 allow_shlib_undefined;
 		compiler_get_arg_func_0 export_dynamic;

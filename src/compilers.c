@@ -502,6 +502,27 @@ compiler_gcc_args_set_std(const char *std)
 }
 
 static const struct args *
+compiler_gcc_args_pgo(uint32_t stage)
+{
+	COMPILER_ARGS({ NULL, NULL });
+
+	args.len = 1;
+
+	switch ((enum compiler_pgo_stage)stage) {
+	case compiler_pgo_generate:
+		argv[0] = "-fprofile-generate";
+		break;
+	case compiler_pgo_use:
+		argv[1] = "-fprofile-correction";
+		++args.len;
+		argv[0] = "-fprofile-use";
+		break;
+	}
+
+	return &args;
+}
+
+static const struct args *
 compiler_gcc_args_pic(void)
 {
 	COMPILER_ARGS({ "-fpic" });
@@ -624,6 +645,7 @@ build_compilers(void)
 			.set_std         = compiler_arg_empty_1s,
 			.include         = compiler_arg_empty_1s,
 			.include_system  = compiler_arg_empty_1s,
+			.pgo             = compiler_arg_empty_1i,
 			.pic             = compiler_arg_empty_0,
 			.pie             = compiler_arg_empty_0,
 			.sanitize        = compiler_arg_empty_1s,
@@ -655,6 +677,7 @@ build_compilers(void)
 	gcc.args.werror = compiler_gcc_args_werror;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
+	gcc.args.pgo = compiler_gcc_args_pgo;
 	gcc.args.pic = compiler_gcc_args_pic;
 	gcc.args.pie = compiler_gcc_args_pie;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
@@ -790,6 +813,7 @@ build_linkers(void)
 			.shared       = compiler_arg_empty_0,
 			.soname       = compiler_arg_empty_1s,
 			.rpath        = compiler_arg_empty_1s,
+			.pgo          = compiler_arg_empty_1i,
 			.sanitize     = compiler_arg_empty_1s,
 			.allow_shlib_undefined = compiler_arg_empty_0,
 			.export_dynamic = compiler_arg_empty_0,
@@ -810,6 +834,7 @@ build_linkers(void)
 	gcc.args.end_group = linker_gcc_args_end_group;
 	gcc.args.soname = linker_gcc_args_soname;
 	gcc.args.rpath = linker_gcc_args_rpath;
+	gcc.args.pgo = compiler_gcc_args_pgo;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
 	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;

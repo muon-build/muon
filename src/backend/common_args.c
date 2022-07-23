@@ -236,6 +236,21 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 #endif
 
 	obj opt;
+	get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
+	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {
+		uint32_t stage;
+		const struct str *sl = get_str(wk, opt);
+		if (str_eql(sl, &WKSTR("generate"))) {
+			stage = 0;
+		} else if (str_eql(sl, &WKSTR("use"))) {
+			stage = 1;
+		} else {
+			UNREACHABLE;
+			return;
+		}
+		push_args(wk, args, compilers[t].args.pgo(stage));
+	}
+
 	get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
 	if (!str_eql(get_str(wk, opt), &WKSTR("none"))) {
 		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, opt)));
@@ -411,10 +426,25 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 	return true;
 #endif
 
-	obj b_sanitize;
-	get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &b_sanitize);
-	if (strcmp(get_cstr(wk, b_sanitize), "none") != 0) {
-		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, b_sanitize)));
+	obj opt;
+	get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
+	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {
+		uint32_t stage;
+		const struct str *sl = get_str(wk, opt);
+		if (str_eql(sl, &WKSTR("generate"))) {
+			stage = 0;
+		} else if (str_eql(sl, &WKSTR("use"))) {
+			stage = 1;
+		} else {
+			UNREACHABLE;
+			return false;
+		}
+		push_args(wk, args, linkers[t].args.pgo(stage));
+	}
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
+	if (strcmp(get_cstr(wk, opt), "none") != 0) {
+		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, opt)));
 	}
 
 	return true;
