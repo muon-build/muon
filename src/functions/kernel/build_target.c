@@ -39,7 +39,8 @@ enum build_target_kwargs {
 	bt_kw_objects,
 	bt_kw_pic,
 	bt_kw_pie,
-	bt_kw_install_rpath, // TODO
+	bt_kw_build_rpath,
+	bt_kw_install_rpath,
 	bt_kw_export_dynamic,
 	bt_kw_vs_module_defs, // TODO
 	bt_kw_gnu_symbol_visibility,
@@ -647,6 +648,16 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		return false;
 	}
 
+	{ // rpaths
+		if (akw[bt_kw_build_rpath].set) {
+			obj_array_push(wk, tgt->dep_internal.rpath, akw[bt_kw_build_rpath].val);
+		}
+
+		if (akw[bt_kw_install_rpath].set) {
+			obj_array_push(wk, tgt->dep_internal.rpath, akw[bt_kw_install_rpath].val);
+		}
+	}
+
 	tgt->dep = (struct build_dep) {
 		.link_language = tgt->dep_internal.link_language,
 		.include_directories = tgt->dep_internal.include_directories,
@@ -718,6 +729,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_pie] = { "pie", obj_bool },
+		[bt_kw_build_rpath] = { "build_rpath", obj_string },
 		[bt_kw_install_rpath] = { "install_rpath", obj_string },
 		[bt_kw_export_dynamic] = { "export_dynamic", obj_bool },
 		[bt_kw_vs_module_defs] = { "vs_module_defs", tc_string | tc_file | tc_custom_target },
