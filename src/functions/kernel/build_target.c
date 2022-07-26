@@ -417,7 +417,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				pie = get_obj_bool(wk, akw[bt_kw_pie].set);
 
 				if (pie && (tgt->type & tgt_executable) != tgt_executable) {
-					interp_error(wk, akw[bt_kw_pic].node, "pie cannot be set for non-executables");
+					interp_error(wk, akw[bt_kw_pie].node, "pie cannot be set for non-executables");
 					return false;
 				}
 			} else if ((tgt->type & tgt_executable) == tgt_executable) {
