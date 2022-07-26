@@ -778,6 +778,13 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		return false;
 	}
 
+	if (type == (tgt_static_library | tgt_dynamic_library)
+	    && !akw[bt_kw_pic].set) {
+		make_obj(wk, &akw[bt_kw_pic].val, obj_bool);
+		set_obj_bool(wk, akw[bt_kw_pic].val, true);
+		akw[bt_kw_pic].set = true;
+	}
+
 	bool multi_target = false;
 	obj tgt = 0;
 
