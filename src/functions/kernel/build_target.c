@@ -46,6 +46,7 @@ enum build_target_kwargs {
 	bt_kw_gnu_symbol_visibility,
 	bt_kw_native, // TODO
 	bt_kw_darwin_versions, // TODO
+	bt_kw_implib, // TODO
 	bt_kw_gui_app, // TODO
 	bt_kw_link_language, // TODO
 	bt_kw_override_options,
@@ -736,6 +737,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_gnu_symbol_visibility] = { "gnu_symbol_visibility", obj_string },
 		[bt_kw_native] = { "native", obj_bool },
 		[bt_kw_darwin_versions] = { "darwin_versions", ARG_TYPE_ARRAY_OF | tc_string | tc_number },
+		[bt_kw_implib] = { "implib", obj_bool },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
 		[bt_kw_override_options] = { "override_options", ARG_TYPE_ARRAY_OF | obj_string },
