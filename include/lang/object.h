@@ -520,7 +520,6 @@ bool obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);
 void obj_array_del(struct workspace *wk, obj arr, int64_t i);
 void obj_array_dedup(struct workspace *wk, obj arr, obj *res);
-void obj_array_flatten(struct workspace *wk, obj arr, obj *res);
 bool obj_array_flatten_one(struct workspace *wk, obj val, obj *res);
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, obj key, obj val);
@@ -532,7 +531,6 @@ void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);
 void obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);
 void obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2);
-void obj_dict_index_values(struct workspace *wk, obj dict, uint32_t i, obj *res);
 void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);
 bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
 
