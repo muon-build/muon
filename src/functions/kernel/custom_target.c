@@ -326,23 +326,11 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_custom_target: {
 		obj output = get_obj_custom_target(wk, val)->output;
-		struct obj_array *out = get_obj_array(wk, output);
-		if (out->len != 1) {
-			interp_error(wk, ctx->opts->err_node, "unable to coerce custom target with multiple outputs to string");
+
+		if (!obj_array_foreach(wk, output, ctx, custom_target_cmd_fmt_iter)) {
 			return ir_err;
 		}
-
-		obj f;
-		obj_array_index(wk, output, 0, &f);
-
-		if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, f), &ss)) {
-			return ir_err;
-		}
-
-		if (!ctx->skip_depends) {
-			obj_array_push(wk, ctx->opts->depends, ss);
-		}
-		break;
+		goto cont;
 	}
 	default:
 		interp_error(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
