@@ -572,7 +572,7 @@ end:
 
 const struct func_impl_name *kernel_func_tbl[language_mode_count] = {
 	impl_tbl_kernel,
-	impl_tbl_kernel_external,
+	impl_tbl_kernel_internal,
 	impl_tbl_kernel_opts,
 };
 

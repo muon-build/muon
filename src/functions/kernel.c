@@ -2165,7 +2165,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_kernel_external[] = {
+const struct func_impl_name impl_tbl_kernel_internal[] = {
 	{ "assert", func_assert },
 	{ "configuration_data", func_configuration_data },
 	{ "disabler", func_disabler },
