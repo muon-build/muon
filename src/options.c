@@ -392,6 +392,20 @@ typecheck_opt(struct workspace *wk, uint32_t err_node, obj val, enum build_optio
 	return true;
 }
 
+static void
+extend_array_option(struct workspace *wk, obj opt, obj new_val,
+	enum option_value_source source)
+{
+	struct obj_option *o = get_obj_option(wk, opt);
+
+	if (o->source > source) {
+		return;
+	}
+	o->source = source;
+
+	obj_array_extend_nodup(wk, o->val, new_val);
+}
+
 static bool
 set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 	enum option_value_source source, bool coerce)
@@ -411,6 +425,7 @@ set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 	/* 	const char *sourcenames[] = { */
 	/* 		[option_value_source_unset] = "unset", */
 	/* 		[option_value_source_default] = "default", */
+	/* 		[option_value_source_environment] = "environment", */
 	/* 		[option_value_source_default_options] = "default_options", */
 	/* 		[option_value_source_subproject_default_options] = "subproject_default_options", */
 	/* 		[option_value_source_yield] = "yield", */
@@ -568,7 +583,6 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, 
 	if (!get_option(wk, NULL, &WKSTR(dest), &opt)) {
 		UNREACHABLE;
 	}
-	struct obj_option *o = get_obj_option(wk, opt);
 
 	const char *v;
 	if (!(v = getenv(envvar)) || !*v) {
@@ -581,17 +595,17 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, 
 		return;
 	}
 
-	obj_array_index(wk, split, 0, &o->val);
-	o->source = option_value_source_environment;
+	obj cmd;
+	obj_array_index(wk, split, 0, &cmd);
+	set_option(wk, 0, opt, cmd, option_value_source_environment, false);
 
 	if (len > 1) {
 		obj_array_del(wk, split, 0);
 		if (!get_option(wk, NULL, &WKSTR(overflow), &opt)) {
 			UNREACHABLE;
 		}
-		o = get_obj_option(wk, opt);
-		obj_array_extend_nodup(wk, o->val, split);
-		o->source = option_value_source_environment;
+
+		extend_array_option(wk, opt, split, option_value_source_environment);
 	}
 }
 
@@ -607,20 +621,15 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 		UNREACHABLE;
 	}
 
-	struct obj_option *o = get_obj_option(wk, opt);
 
-	flags = getenv(flags);
-	extra = getenv(extra);
-	if (flags && *flags) {
-		o->val = str_split(wk, &WKSTR(flags), NULL);
-		o->source = option_value_source_environment;
+	if ((flags = getenv(flags)) && *flags) {
+		extend_array_option(wk, opt, str_split(wk, &WKSTR(flags), NULL),
+			option_value_source_environment);
+	}
 
-		if (extra && *extra) {
-			obj_array_extend(wk, o->val, str_split(wk, &WKSTR(extra), NULL));
-		}
-	} else if (extra && *extra) {
-		o->val = str_split(wk, &WKSTR(extra), NULL);
-		o->source = option_value_source_environment;
+	if ((extra = getenv(extra)) && *extra) {
+		extend_array_option(wk, opt, str_split(wk, &WKSTR(extra), NULL),
+			option_value_source_environment);
 	}
 }
 

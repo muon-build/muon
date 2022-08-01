@@ -5,6 +5,7 @@
 #include "args.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
+#include "error.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
@@ -77,6 +78,42 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	return ir_cont;
 }
 
+static enum iteration_result
+add_global_opts_set_from_env_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	obj regen_args = *(obj *)_ctx;
+
+	struct obj_option *o = get_obj_option(wk, val);
+	if (o->source != option_value_source_environment) {
+		return ir_cont;
+	}
+
+
+	// NOTE: This only handles options of type str or [str], which is okay since
+	// the only options that can be set from the environment are of this
+	// type.
+	// TODO: The current implementation of array stringification would
+	// choke on spaces, etc.
+
+	const char *sval;
+	switch (get_obj_type(wk, o->val)) {
+	case obj_string:
+		sval = get_cstr(wk, o->val);
+		break;
+	case obj_array: {
+		obj joined;
+		obj_array_join(wk, true, o->val, make_str(wk, ","), &joined);
+		sval = get_cstr(wk, joined);
+		break;
+	}
+	default:
+		UNREACHABLE;
+	}
+
+	obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), sval));
+	return ir_cont;
+}
+
 bool
 ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	bool need_phony,
@@ -109,6 +146,8 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	obj_array_push(wk, regen_args, make_str(wk, "-C"));
 	obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
 	obj_array_push(wk, regen_args, make_str(wk, "setup"));
+
+	obj_dict_foreach(wk, wk->global_opts, &regen_args, add_global_opts_set_from_env_iter);
 
 	uint32_t i;
 	for (i = 0; i < wk->original_commandline.argc; ++i) {
