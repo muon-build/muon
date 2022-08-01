@@ -223,10 +223,12 @@ str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
+	uint32_t olen = get_str(wk, s)->len;
 	struct str *ss = grow_str(wk, s, len);
 
 	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
-	vsnprintf((char *)ss->s, len + 1, fmt, args);
+	vsnprintf((char *)&ss->s[olen], len + 1, fmt, args);
+	ss->len += len;
 
 	va_end(args_copy);
 	va_end(args);
