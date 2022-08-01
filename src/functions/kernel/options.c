@@ -33,6 +33,28 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 	return false;
 }
 
+static bool
+validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
+{
+	uint32_t i;
+	const struct str *s = get_str(wk, name);
+	for (i = 0; i < s->len; ++i) {
+		if (('a' <= s->s[i] && s->s[i] <= 'z')
+		    || ('A' <= s->s[i] && s->s[i] <= 'Z')
+		    || ('0' <= s->s[i] && s->s[i] <= '9')
+		    || (s->s[i] == '-')
+		    || (s->s[i] == '_')
+		    ) {
+			continue;
+		}
+
+		interp_error(wk, err_node, "option name may not contain '%c'", s->s[i]);
+		return false;
+	}
+
+	return true;
+}
+
 bool
 func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -177,12 +199,12 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		o->deprecated = akw[kw_deprecated].val;
 	}
 
-	/* if (!check_superproject_option(wk, akw[kw_type].node, get_obj_type(wk, val), an[0].val, &val)) { */
-	/* 	return false; */
-	/* } */
-
 	obj opts;
 	if (wk->projects.len) {
+		if (!validate_option_name(wk, an[0].node, an[0].val)) {
+			return false;
+		}
+
 		opts = current_project(wk)->opts;
 	} else {
 		opts = wk->global_opts;
