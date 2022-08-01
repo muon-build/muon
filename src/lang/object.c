@@ -681,6 +681,53 @@ obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 	assert(false && "unreachable");
 }
 
+void
+obj_array_del(struct workspace *wk, obj arr, int64_t i)
+{
+	uint32_t j = 0;
+	obj p = arr;
+	struct obj_array *head = get_obj_array(wk, arr),
+			 *prev, *next,
+			 *del;
+
+	assert(i >= 0 && i < head->len);
+
+	if (i == 0) {
+		if (head->have_next) {
+			next = get_obj_array(wk, head->next);
+			next->len = head->len - 1;
+			next->tail = head->tail;
+			*head = *next;
+		} else {
+			*head = (struct obj_array) { 0 };
+		}
+
+		return;
+	}
+
+	while (true) {
+		if (j == i) {
+			del = get_obj_array(wk, arr);
+			break;
+		}
+
+		p = arr;
+		assert(get_obj_array(wk, arr)->have_next);
+		arr = get_obj_array(wk, arr)->next;
+		++j;
+	}
+
+	prev = get_obj_array(wk, p);
+
+	if (del->have_next) {
+		prev->next = del->next;
+	} else {
+		prev->have_next = false;
+	}
+
+	--head->len;
+}
+
 static enum iteration_result
 obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 {

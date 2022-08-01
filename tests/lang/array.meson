@@ -33,3 +33,26 @@ arr_with_comments = [
 ]
 
 assert(arr_with_comments.length() == 2)
+
+a = [1, 2, 3, 4, 5]
+a.delete(0)
+assert(a == [2, 3, 4, 5])
+a.delete(3)
+assert(a == [2, 3, 4])
+a.delete(1)
+assert(a == [2, 4])
+a.delete(1)
+assert(a == [2])
+a.delete(0)
+assert(a == [])
+# a.delete(0) # ??? error
+a += [1, 2, 3, 4, 5]
+assert(a == [1, 2, 3, 4, 5])
+a.delete(2)
+assert(a == [1, 2, 4, 5])
+a += 2
+assert(a == [1, 2, 4, 5, 2])
+a.delete(4)
+assert(a == [1, 2, 4, 5])
+a += a
+assert(a == [1, 2, 4, 5, 1, 2, 4, 5])

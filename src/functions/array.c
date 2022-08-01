@@ -83,9 +83,29 @@ func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	return true;
 }
 
+static bool
+func_array_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj_array_del(wk, rcvr, get_obj_number(wk, an[0].val));
+	return true;
+}
+
 const struct func_impl_name impl_tbl_array[] = {
 	{ "length", func_array_length, tc_number },
 	{ "get", func_array_get, tc_any },
 	{ "contains", func_array_contains, tc_bool },
+	{ NULL, NULL },
+};
+
+const struct func_impl_name impl_tbl_array_internal[] = {
+	{ "length", func_array_length, tc_number },
+	{ "get", func_array_get, tc_any },
+	{ "contains", func_array_contains, tc_bool },
+	{ "delete", func_array_delete, },
 	{ NULL, NULL },
 };
