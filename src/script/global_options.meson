@@ -137,3 +137,9 @@ option(
 option('cpp_rtti', type: 'boolean', value: true) # TODO
 option('cpp_thread_count', type: 'integer', value: 4, min: 0) # TODO
 option('cpp_winlibs', type: 'array', value: []) # TODO
+
+# muon-specific options.  These are safe from being overriden because meson
+# forbids . in an opiton name
+
+option('env.CC', type: 'string', value: 'cc')
+option('env.CXX', type: 'string', value: 'c++')

@@ -413,6 +413,7 @@ enum build_option_type {
 enum option_value_source {
 	option_value_source_unset,
 	option_value_source_default,
+	option_value_source_environment,
 	option_value_source_yield,
 	option_value_source_default_options,
 	option_value_source_subproject_default_options,

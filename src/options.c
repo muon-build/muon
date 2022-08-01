@@ -562,11 +562,46 @@ get_option_value(struct workspace *wk, const struct project *proj, const char *n
 }
 
 static void
+set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, const char *overflow)
+{
+	obj opt;
+	if (!get_option(wk, NULL, &WKSTR(dest), &opt)) {
+		UNREACHABLE;
+	}
+	struct obj_option *o = get_obj_option(wk, opt);
+
+	const char *v;
+	if (!(v = getenv(envvar)) || !*v) {
+		return;
+	}
+
+	obj split = str_split(wk, &WKSTR(v), NULL);
+	uint32_t len = get_obj_array(wk, split)->len;
+	if (!len) {
+		return;
+	}
+
+	obj_array_index(wk, split, 0, &o->val);
+	o->source = option_value_source_environment;
+
+	if (len > 1) {
+		obj_array_del(wk, split, 0);
+		if (!get_option(wk, NULL, &WKSTR(overflow), &opt)) {
+			UNREACHABLE;
+		}
+		o = get_obj_option(wk, opt);
+		obj_array_extend_nodup(wk, o->val, split);
+		o->source = option_value_source_environment;
+	}
+}
+
+static void
 set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *extra)
 {
 #ifndef MUON_BOOTSTRAPPED
 	return;
 #endif
+
 	obj opt;
 	if (!get_option(wk, NULL, &WKSTR(name), &opt)) {
 		UNREACHABLE;
@@ -578,12 +613,14 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 	extra = getenv(extra);
 	if (flags && *flags) {
 		o->val = str_split(wk, &WKSTR(flags), NULL);
+		o->source = option_value_source_environment;
 
 		if (extra && *extra) {
 			obj_array_extend(wk, o->val, str_split(wk, &WKSTR(extra), NULL));
 		}
 	} else if (extra && *extra) {
 		o->val = str_split(wk, &WKSTR(extra), NULL);
+		o->source = option_value_source_environment;
 	}
 }
 
@@ -713,6 +750,9 @@ init_global_options(struct workspace *wk)
 		"option('wrap_mode', type: 'string', value: 'nopromote')\n"
 		"option('force_fallback_for', type: 'array', value: [])\n"
 		"option('pkg_config_path', type: 'string', value: '')\n"
+
+		"option('env.CC', type: 'string', value: 'cc')\n"
+		"option('env.CXX', type: 'string', value: 'c++')\n"
 		)) {
 		return false;
 	}
@@ -721,6 +761,9 @@ init_global_options(struct workspace *wk)
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
+
+	set_binary_from_env(wk, "CC", "env.CC", "c_args");
+	set_binary_from_env(wk, "CXX", "env.CXX", "cpp_args");
 	return true;
 }
 

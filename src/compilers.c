@@ -10,6 +10,7 @@
 #include "guess.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/run_cmd.h"
 
 const char *
@@ -279,19 +280,14 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 {
 	const char *cmd;
 
-	static const char *compiler_env_override[] = {
-		[compiler_language_c] = "CC",
-		[compiler_language_cpp] = "CXX",
+	static const char *compiler_option[] = {
+		[compiler_language_c] = "env.CC",
+		[compiler_language_cpp] = "env.CXX",
 	};
 
-	static const char *compiler_default[] = {
-		[compiler_language_c] = "cc",
-		[compiler_language_cpp] = "c++",
-	};
-
-	if (!(cmd = getenv(compiler_env_override[lang]))) {
-		cmd = compiler_default[lang];
-	}
+	obj cmdstr;
+	get_option_value(wk, NULL, compiler_option[lang], &cmdstr);
+	cmd = get_cstr(wk, cmdstr);
 
 	switch (lang) {
 	case compiler_language_c:
