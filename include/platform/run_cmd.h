@@ -38,7 +38,7 @@ struct run_cmd_ctx {
 };
 
 /*
- * argstr is a NUL delimited array of strings, terminated by a double NUL
+ * argstr is a NUL delimited array of strings, terminated by a triple NUL
  * envstr is like argstr, every two strings is considered a key/value pair
  */
 uint32_t argstr_to_argv(const char *argstr, const char *prepend, char *const **res);

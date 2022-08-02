@@ -1,4 +1,5 @@
 env = environment({'other_key': 'val', 'other_key2': 'val1'})
+env.set('noval', '')
 env.set('key', 'val')
 env.prepend('other_key2', 'hello')
 env.set('key2', 'val', 'val2', separator: '!!')
@@ -21,6 +22,7 @@ assert(d['other_key'] == 'val')
 assert(d['other_key2'] == 'hello:val1')
 assert(d['key'] == 'val')
 assert(d['key2'] == 'val!!val2;;val;;val2')
+assert(d['noval'] == '')
 
 d = {}
 foreach line : run_command(

@@ -344,7 +344,7 @@ join_args_argstr(struct workspace *wk, const char **res, obj arr)
 
 	obj_array_foreach(wk, arr, &ctx, join_args_argstr_iter);
 
-	str_appn(wk, ctx.str, "\0", 1);
+	str_appn(wk, ctx.str, "\0\0", 2);
 	*res = get_str(wk, ctx.str)->s;
 }
 
@@ -389,6 +389,6 @@ env_to_envstr(struct workspace *wk, const char **res, obj val)
 
 	obj_dict_foreach(wk, dict, &ctx, env_to_envstr_dict_iter);
 
-	str_appn(wk, ctx.str, "\0", 1);
+	str_appn(wk, ctx.str, "\0\0", 2);
 	*res = get_str(wk, ctx.str)->s;
 }

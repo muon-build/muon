@@ -42,7 +42,7 @@ coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *ss = get_str(wk, val);
 	if (str_has_null(ss)) {
-		interp_error(wk, ctx->err_node, "environment string %o must not contain null bytes", val);
+		interp_error(wk, ctx->err_node, "environment string %o must not contain NUL", val);
 		return ir_err;
 	}
 
@@ -57,6 +57,30 @@ coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
 	val = make_strn(wk, ss->s + key_len + 1, ss->len - (key_len + 1));
 
 	obj_dict_set(wk, ctx->res, key, val);
+	return ir_cont;
+}
+
+static enum iteration_result
+typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	uint32_t err_node = *(uint32_t *)_ctx;
+	const struct str *k = get_str(wk, key),
+			 *v = get_str(wk, val);
+
+	if (!k->len) {
+		interp_error(wk, err_node, "environment key may not be an empty string (value is '%s')", v->s);
+		return ir_err;
+	} else if (str_has_null(k)) {
+		interp_error(wk, err_node, "environment key may not contain NUL");
+		return ir_err;
+	} else if (str_has_null(v)) {
+		interp_error(wk, err_node, "environment value may not contain NUL");
+		return ir_err;
+	} else if (strchr(k->s, '=')) {
+		interp_error(wk, err_node, "environment key '%s' contains '='", k->s);
+		return ir_err;
+	}
+
 	return ir_cont;
 }
 
@@ -88,6 +112,10 @@ coerce_environment_dict(struct workspace *wk, uint32_t err_node, obj val, obj *r
 		break;
 	default:
 		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(t));
+		return false;
+	}
+
+	if (!obj_dict_foreach(wk, *res, &err_node, typecheck_environment_dict_iter)) {
 		return false;
 	}
 
