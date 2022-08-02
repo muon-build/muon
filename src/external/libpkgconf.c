@@ -175,16 +175,6 @@ find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const ch
 {
 	static char buf[PATH_MAX + 1];
 	struct find_lib_path_ctx find_lib_path_ctx = { .buf = buf, .name = name, .is_static = ctx->is_static };
-	pkgconf_node_t *node;
-	pkgconf_path_t *path;
-
-	PKGCONF_FOREACH_LIST_ENTRY(client->filter_libdirs.head, node) {
-		path = node->data;
-
-		if (check_lib_path(&find_lib_path_ctx, path->path)) {
-			return buf;
-		}
-	}
 
 	if (!obj_array_foreach(ctx->wk, ctx->libdirs, &find_lib_path_ctx, find_lib_path_iter)) {
 		return NULL;
@@ -312,11 +302,6 @@ muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgco
 	make_obj(wk, &info->libs, obj_array);
 	make_obj(wk, &info->not_found_libs, obj_array);
 	make_obj(wk, &ctx.libdirs, obj_array);
-
-	/* uint32_t i; */
-	/* for (i = 0; libdirs[i]; ++i) { */
-	/* 	obj_array_push(wk, ctx.libdirs, make_str(wk, libdirs[i])); */
-	/* } */
 
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_and_collect, pkgconf_ctx.maxdepth, &ctx)) {
