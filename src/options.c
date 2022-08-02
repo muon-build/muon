@@ -759,9 +759,9 @@ init_global_options(struct workspace *wk)
 		"option('wrap_mode', type: 'string', value: 'nopromote')\n"
 		"option('force_fallback_for', type: 'array', value: [])\n"
 		"option('pkg_config_path', type: 'string', value: '')\n"
+		"option('c_args', type: 'array', value: [])\n"
 
 		"option('env.CC', type: 'string', value: 'cc')\n"
-		"option('env.CXX', type: 'string', value: 'c++')\n"
 		)) {
 		return false;
 	}
@@ -772,7 +772,11 @@ init_global_options(struct workspace *wk)
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 
 	set_binary_from_env(wk, "CC", "env.CC", "c_args");
+
+#ifdef MUON_BOOTSTRAPPED
 	set_binary_from_env(wk, "CXX", "env.CXX", "cpp_args");
+#endif
+
 	return true;
 }
 
