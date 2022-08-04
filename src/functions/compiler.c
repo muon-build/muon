@@ -714,7 +714,8 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	};
 
 	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
+		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
+		| cm_kw_include_directories)) {
 		return false;
 	}
 
