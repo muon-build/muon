@@ -80,6 +80,7 @@ environment_or_dict_set(struct workspace *wk, obj env, const char *key, const ch
 void
 set_default_environment_vars(struct workspace *wk, obj env, bool set_subdir)
 {
+	environment_or_dict_set(wk, env, "MUON_PATH", wk->argv0);
 	environment_or_dict_set(wk, env, "MESON_BUILD_ROOT", wk->build_root);
 	environment_or_dict_set(wk, env, "MESON_SOURCE_ROOT", wk->source_root);
 

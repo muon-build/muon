@@ -111,3 +111,11 @@ aca93df184a32ed7faf3636c0fbe90d05cb67857 for more information:
 > C escaped: This means that Windows-style paths including backslashes can
 > be safely used, but makes it impossible to have a define containing a C
 > escape.
+
+## MESONINTROSPECT
+
+Since muon does not offer an introspection subcommand, `MESONINTROSPECT` is not
+set in the environment of run\_command, test, custom\_target, etc.  `MUON_PATH`
+is provided for users who are waiting for
+https://github.com/mesonbuild/meson/pull/9855 and are (ab)using
+`MESONINTROSPECT` for this purpose.
