@@ -114,6 +114,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	     allocated_argv = false;
 
 	const char *envstr = NULL;
+	uint32_t envc = 0;
 	if (opts.environment) {
 		initialized_workspace = true;
 		workspace_init_bare(&wk);
@@ -123,7 +124,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 			goto ret;
 		}
 
-		env_to_envstr(&wk, &envstr, env);
+		env_to_envstr(&wk, &envstr, &envc, env);
 	}
 
 	if (opts.args) {
@@ -138,13 +139,14 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		}
 
 		const char *argstr;
-		join_args_argstr(&wk, &argstr, args);
+		uint32_t argc;
+		join_args_argstr(&wk, &argstr, &argc, args);
 
-		argstr_to_argv(argstr, NULL, (char *const **)&opts.cmd);
+		argstr_to_argv(argstr, argc, NULL, (char *const **)&opts.cmd);
 		allocated_argv = true;
 	}
 
-	if (!run_cmd_argv(&ctx, opts.cmd[0], (char *const *)opts.cmd, envstr)) {
+	if (!run_cmd_argv(&ctx, opts.cmd[0], (char *const *)opts.cmd, envstr, envc)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}

@@ -28,3 +28,11 @@ stdout = run_command(
 ).stdout().strip()
 
 assert(stdout == ' '.join(expect))
+
+stdout = run_command(
+    [find_program('sh'), '-c', 'echo $#', '--', '', 'a', '', 'b', ''],
+    check: true,
+    env: env,
+).stdout().strip()
+
+assert(stdout == '5')

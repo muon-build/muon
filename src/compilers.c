@@ -156,7 +156,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_argv(&cmd_ctx, cc, (char *const []){
 		(char *)cc, "--version", NULL,
-	}, NULL)) {
+	}, NULL, 0)) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
@@ -165,7 +165,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 		cmd_ctx = (struct run_cmd_ctx) { 0 };
 		if (!run_cmd_argv(&cmd_ctx, cc, (char *const []){
 			(char *)cc, "-v", NULL,
-		}, NULL)) {
+		}, NULL, 0)) {
 			run_cmd_ctx_destroy(&cmd_ctx);
 			return false;
 		}
@@ -225,7 +225,7 @@ compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_argv(&cmd_ctx, get_cstr(wk, comp->name), (char *const []){
 		(char *)get_cstr(wk, comp->name), "--print-search-dirs", NULL,
-	}, NULL) || cmd_ctx.status) {
+	}, NULL, 0) || cmd_ctx.status) {
 		goto done;
 	}
 

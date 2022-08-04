@@ -487,7 +487,7 @@ run_git(const char *const argv[])
 {
 	struct run_cmd_ctx cmd_ctx = { .flags = run_cmd_ctx_flag_dont_capture };
 
-	if (!run_cmd_argv(&cmd_ctx, "git", (char *const *)argv, NULL)) {
+	if (!run_cmd_argv(&cmd_ctx, "git", (char *const *)argv, NULL, 0)) {
 		return false;
 	} else if (cmd_ctx.status != 0) {
 		run_cmd_ctx_destroy(&cmd_ctx);

@@ -401,6 +401,7 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	const char *argstr, *envstr;
+	uint32_t argc, envc;
 
 	if (!path_chdir(get_cstr(wk, current_project(wk)->build_dir))) {
 		return false;
@@ -410,9 +411,9 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	make_obj(wk, &env, obj_dict);
 	set_default_environment_vars(wk, env, true);
 
-	join_args_argstr(wk, &argstr, args);
-	env_to_envstr(wk, &envstr, env);
-	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
+	join_args_argstr(wk, &argstr, &argc, args);
+	env_to_envstr(wk, &envstr, &envc, env);
+	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		interp_error(wk, node, "error running command: %s", cmd_ctx.err_msg);
 		goto ret;
 	}

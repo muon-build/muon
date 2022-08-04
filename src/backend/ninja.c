@@ -204,9 +204,10 @@ ninja_write_all(struct workspace *wk)
 		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
 		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
 		const char *argstr;
-		join_args_argstr(wk, &argstr, compdb_args);
+		uint32_t argc;
+		join_args_argstr(wk, &argstr, &argc, compdb_args);
 
-		if (ninja_run(argstr, wk->build_root, "compile_commands.json") != 0) {
+		if (ninja_run(argstr, argc, wk->build_root, "compile_commands.json") != 0) {
 			LOG_E("error writing compile_commands.json");
 		}
 	}
@@ -215,7 +216,7 @@ ninja_write_all(struct workspace *wk)
 }
 
 int
-ninja_run(const char *argstr, const char *chdir, const char *capture)
+ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const char *capture)
 {
 	int ret = 1;
 	char *const *argv = NULL;
@@ -232,7 +233,7 @@ ninja_run(const char *argstr, const char *chdir, const char *capture)
 	}
 
 	if (have_samurai) {
-		argc = argstr_to_argv(argstr, "samu", &argv);
+		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
 		int old_stdout;
 		if (capture) {
@@ -258,14 +259,14 @@ ninja_run(const char *argstr, const char *chdir, const char *capture)
 			goto ret;
 		}
 
-		argc = argstr_to_argv(argstr, cmd, &argv);
+		argc = argstr_to_argv(argstr, argstr_argc, cmd, &argv);
 
 		struct run_cmd_ctx cmd_ctx = { 0 };
 		if (!capture) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
 
-		if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL)) {
+		if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL, 0)) {
 			LOG_E("%s", cmd_ctx.err_msg);
 
 			run_cmd_ctx_destroy(&cmd_ctx);

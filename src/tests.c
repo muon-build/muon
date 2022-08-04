@@ -376,7 +376,8 @@ test_delay(void)
 }
 
 static void
-push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test, const char *argstr, const char *envstr)
+push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
+	const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
 {
 	uint32_t i;
 	while (true) {
@@ -428,7 +429,7 @@ found_slot:
 		print_test_progress(wk, ctx, res);
 	}
 
-	if (!run_cmd(cmd_ctx, argstr, envstr)) {
+	if (!run_cmd(cmd_ctx, argstr, argc, envstr, envc)) {
 		ctx->test_cmd_ctx_free &= ~(1 << i);
 		calculate_test_duration(res);
 		res->status = test_result_status_failed;
@@ -468,10 +469,11 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 	}
 
 	const char *argstr, *envstr;
+	uint32_t argc, envc;
 
-	join_args_argstr(wk, &argstr, cmdline);
-	env_to_envstr(wk, &envstr, test->env);
-	push_test(wk, ctx, test, argstr, envstr);
+	join_args_argstr(wk, &argstr, &argc, cmdline);
+	env_to_envstr(wk, &envstr, &envc, test->env);
+	push_test(wk, ctx, test, argstr, argc, envstr, envc);
 	return ir_cont;
 }
 
@@ -512,8 +514,9 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 		obj ninja_cmd;
 		obj_array_dedup(wk, ctx->deps, &ninja_cmd);
 		const char *argstr;
-		join_args_argstr(wk, &argstr, ninja_cmd);
-		if (ninja_run(argstr, NULL, NULL) != 0) {
+		uint32_t argc;
+		join_args_argstr(wk, &argstr, &argc, ninja_cmd);
+		if (ninja_run(argstr, argc, NULL, NULL) != 0) {
 			LOG_W("failed to run ninja");
 		}
 	}

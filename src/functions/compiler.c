@@ -190,11 +190,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	const char *argstr;
-	join_args_argstr(wk, &argstr, compiler_args);
+	uint32_t argc;
+	join_args_argstr(wk, &argstr, &argc, compiler_args);
 
 	L("compiling: '%s'", path);
 
-	if (!run_cmd(&cmd_ctx, argstr, NULL)) {
+	if (!run_cmd(&cmd_ctx, argstr, argc, NULL, 0)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -214,7 +215,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			}
 		}
 
-		if (!run_cmd_argv(&opts->cmd_ctx, output, (char *const []){ (char *)output, NULL }, NULL)) {
+		if (!run_cmd_argv(&opts->cmd_ctx, output, (char *const []){ (char *)output, NULL }, NULL, 0)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;

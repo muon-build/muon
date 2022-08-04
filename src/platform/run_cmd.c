@@ -189,7 +189,7 @@ open_run_cmd_pipe(int fds[2], bool fds_open[2])
 }
 
 static bool
-run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr)
+run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
 {
 	const char *p, *cmd;
 
@@ -209,17 +209,20 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 
 		if (envstr) {
 			const char *k;
+			uint32_t i = 0;
 			LL("env:");
 			p = k = envstr;
 			for (;; ++p) {
 				if (!p[0]) {
-					if (!p[1] && !p[2]) {
-						break;
-					} else if (!k) {
+					if (!k) {
 						k = p + 1;
 					} else {
 						log_plain(" %s='%s'", k, p + 1);
 						k = NULL;
+
+						if (++i >= envc) {
+							break;
+						}
 					}
 				}
 			}
@@ -276,12 +279,11 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 
 		if (envstr) {
 			const char *k;
+			uint32_t i = 0;
 			p = k = envstr;
 			for (;; ++p) {
 				if (!p[0]) {
-					if (!p[1] && !p[2]) {
-						break;
-					} else if (!k) {
+					if (!k) {
 						k = p + 1;
 					} else {
 						int err;
@@ -291,6 +293,10 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 							exit(1);
 						}
 						k = NULL;
+
+						if (++i >= envc) {
+							break;
+						}
 					}
 				}
 			}
@@ -332,34 +338,18 @@ push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg
 	++(*len);
 }
 
-static uint32_t
-argstr_argc(const char *argstr)
-{
-	uint32_t argc = 0;
-	const char *p = argstr;
-
-	for (;; ++p) {
-		if (!p[0]) {
-			++argc;
-			if (!p[1] && !p[2]) {
-				break;
-			}
-		}
-	}
-
-	return argc;
-}
-
 static void
-argstr_pushall(const char *argstr, const char **argv, uint32_t *argi, uint32_t argc)
+argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32_t *argi, uint32_t max)
 {
 	const char *p, *arg;
+	uint32_t i = 0;
+
 	arg = p = argstr;
 	for (;; ++p) {
 		if (!p[0]) {
-			push_argv_single(argv, argi, argc, arg);
+			push_argv_single(argv, argi, max, arg);
 
-			if (!p[1] && !p[2]) {
+			if (++i >= argc) {
 				break;
 			}
 
@@ -369,23 +359,21 @@ argstr_pushall(const char *argstr, const char **argv, uint32_t *argi, uint32_t a
 }
 
 uint32_t
-argstr_to_argv(const char *argstr, const char *prepend, char *const **res)
+argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res)
 {
-	uint32_t argc = 0, argi = 0;
-
-	argc = argstr_argc(argstr);
+	uint32_t argi = 0, max = argc;
 
 	if (prepend) {
-		argc += 1;
+		max += 1;
 	}
 
-	const char **new_argv = z_calloc(argc + 1, sizeof(const char *));
+	const char **new_argv = z_calloc(max + 1, sizeof(const char *));
 
 	if (prepend) {
-		push_argv_single(new_argv, &argi, argc, prepend);
+		push_argv_single(new_argv, &argi, max, prepend);
 	}
 
-	argstr_pushall(argstr, new_argv, &argi, argc);
+	argstr_pushall(argstr, argc, new_argv, &argi, max);
 
 	*res = (char *const *)new_argv;
 	return argc;
@@ -393,7 +381,7 @@ argstr_to_argv(const char *argstr, const char *prepend, char *const **res)
 
 static bool
 build_argv(struct run_cmd_ctx *ctx, struct source *src,
-	const char *argstr, char *const *old_argv,
+	const char *argstr, uint32_t argstr_argc, char *const *old_argv,
 	const char **cmd, const char ***argv)
 {
 	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
@@ -402,7 +390,7 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 
 	if (argstr) {
 		argv0 = argstr;
-		argc = argstr_argc(argstr);
+		argc = argstr_argc;
 	} else {
 		argv0 = old_argv[0];
 		for (; old_argv[argc]; ++argc) {
@@ -475,7 +463,7 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 	}
 
 	if (argstr) {
-		argstr_pushall(argstr, new_argv, &argi, argc);
+		argstr_pushall(argstr, argstr_argc, new_argv, &argi, argc);
 	} else {
 		uint32_t i;
 		for (i = 0; old_argv[i]; ++i) {
@@ -488,14 +476,14 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 }
 
 bool
-run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr)
+run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
 {
 	bool ret = false;
 	struct source src = { 0 };
 	const char **new_argv = NULL;
 	const char *cmd = argv[0];
 
-	if (!build_argv(ctx, &src, NULL, argv, &cmd, &new_argv)) {
+	if (!build_argv(ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
 		goto err;
 	}
 
@@ -503,7 +491,7 @@ run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const
 		argv = (char **)new_argv;
 	}
 
-	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr);
+	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
 	if (new_argv) {
@@ -514,17 +502,17 @@ err:
 }
 
 bool
-run_cmd(struct run_cmd_ctx *ctx, const char *argstr, const char *envstr)
+run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
 {
 	bool ret = false;
 	struct source src = { 0 };
 	const char **argv = NULL;
 	const char *cmd = argstr;
-	if (!build_argv(ctx, &src, argstr, NULL, &cmd, &argv)) {
+	if (!build_argv(ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr);
+	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
 

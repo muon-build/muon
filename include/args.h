@@ -31,6 +31,6 @@ enum arr_to_args_flags {
 
 bool arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res);
 
-void join_args_argstr(struct workspace *wk, const char **res, obj arr);
-void env_to_envstr(struct workspace *wk, const char **res, obj val);
+void join_args_argstr(struct workspace *wk, const char **res, uint32_t *argc, obj arr);
+void env_to_envstr(struct workspace *wk, const char **res, uint32_t *envc, obj val);
 #endif

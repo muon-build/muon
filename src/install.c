@@ -233,8 +233,9 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	set_default_environment_vars(wk, env, false);
 
 	const char *argstr, *envstr;
-	env_to_envstr(wk, &envstr, env);
-	join_args_argstr(wk, &argstr, v);
+	uint32_t argc, envc;
+	env_to_envstr(wk, &envstr, &envc, env);
+	join_args_argstr(wk, &argstr, &argc, v);
 
 	LOG_I("running install script '%s'", argstr);
 
@@ -243,7 +244,7 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
+	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run install script: %s", cmd_ctx.err_msg);
 		goto err;
 	}

@@ -395,7 +395,7 @@ find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
 {
 	*ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL)
+	if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
 	    && cmd_ctx.status == 0) {
 		guess_version(wk, cmd_ctx.out.buf, ver);
 	}
@@ -580,7 +580,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	return true;
 found:
 	if (ctx->version) {
-		if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL)
+		if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
 		    && cmd_ctx.status == 0) {
 			guess_version(wk, cmd_ctx.out.buf, &ver);
 		}
@@ -871,6 +871,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	const char *argstr, *envstr;
+	uint32_t argc, envc;
 
 	{
 		obj arg0;
@@ -899,7 +900,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
 			return false;
 		}
-		join_args_argstr(wk, &argstr, args);
+		join_args_argstr(wk, &argstr, &argc, args);
 	}
 
 	{
@@ -907,13 +908,13 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &env)) {
 			return false;
 		}
-		env_to_envstr(wk, &envstr, env);
+		env_to_envstr(wk, &envstr, &envc, env);
 	}
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	if (!run_cmd(&cmd_ctx, argstr, envstr)) {
+	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		interp_error(wk, an[0].node, "%s", cmd_ctx.err_msg);
 		goto ret;
 	}
