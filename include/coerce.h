@@ -9,7 +9,7 @@ enum requirement_type {
 };
 
 bool coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res);
-bool coerce_environment_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res);
+bool coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res);
 bool coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_node, enum include_type *res);
 bool coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res);
 bool coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res);

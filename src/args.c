@@ -12,6 +12,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
+#include "error.h"
 
 void
 push_args(struct workspace *wk, obj arr, const struct args *args)
@@ -379,9 +380,12 @@ env_to_envstr(struct workspace *wk, const char **res, obj val)
 	case obj_dict:
 		dict = val;
 		break;
-	case obj_environment:
-		dict = get_obj_environment(wk, val)->env;
+	case obj_environment: {
+		if (!environment_to_dict(wk, val, &dict)) {
+			UNREACHABLE;
+		}
 		break;
+	}
 	default:
 		assert(false && "please call me with a dict or environment object");
 		return;

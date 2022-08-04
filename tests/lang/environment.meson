@@ -4,6 +4,7 @@ env.set('key', 'val')
 env.prepend('other_key2', 'hello')
 env.set('key2', 'val', 'val2', separator: '!!')
 env.append('key2', 'val', 'val2', separator: ';;')
+env.append('inherited', 'new!')
 
 d = {}
 foreach line : run_command(
@@ -17,7 +18,7 @@ foreach line : run_command(
     endif
 endforeach
 
-assert(d['inherited'] == 'secret')
+assert(d['inherited'] == 'secret:new!')
 assert(d['other_key'] == 'val')
 assert(d['other_key2'] == 'hello:val1')
 assert(d['key'] == 'val')

@@ -15,7 +15,9 @@ bool
 coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res)
 {
 	if (kw->set) {
-		if (!coerce_environment_dict(wk, kw->node, kw->val, res)) {
+		if (get_obj_type(wk, kw->val) == obj_environment) {
+			*res = kw->val;
+		} else if (!coerce_key_value_dict(wk, kw->node, kw->val, res)) {
 			return false;
 		}
 	} else {
@@ -85,7 +87,7 @@ typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj v
 }
 
 bool
-coerce_environment_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res)
+coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res)
 {
 	make_obj(wk, res, obj_dict);
 
@@ -107,11 +109,8 @@ coerce_environment_dict(struct workspace *wk, uint32_t err_node, obj val, obj *r
 
 		*res = val;
 		break;
-	case obj_environment:
-		*res = get_obj_environment(wk, val)->env;
-		break;
 	default:
-		interp_error(wk, err_node, "unable to coerce type '%s' into environment", obj_type_to_s(t));
+		interp_error(wk, err_node, "unable to coerce type '%s' into key=value dict", obj_type_to_s(t));
 		return false;
 	}
 

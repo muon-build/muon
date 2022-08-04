@@ -1697,6 +1697,19 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+
+static enum iteration_result
+environment_set_initial_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	obj env = *(obj *)_ctx;
+
+	if (!environment_set(wk, env, environment_set_mode_set, key, val, 0)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
 static bool
 func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
@@ -1707,14 +1720,14 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	make_obj(wk, res, obj_environment);
 	struct obj_environment *d = get_obj_environment(wk, *res);
+	make_obj(wk, &d->actions, obj_array);
 
 	if (ao[0].set) {
 		if (!typecheck_dict(wk, ao[0].node, ao[0].val, obj_string)) {
 			return false;
 		}
-		d->env = ao[0].val;
-	} else {
-		make_obj(wk, &d->env, obj_dict);
+
+		obj_dict_foreach(wk, ao[0].val, res, environment_set_initial_iter);
 	}
 
 	return true;

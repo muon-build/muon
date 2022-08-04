@@ -392,7 +392,7 @@ struct obj_install_target {
 };
 
 struct obj_environment {
-	obj env; // dict
+	obj actions; // array
 };
 
 struct obj_include_directory {

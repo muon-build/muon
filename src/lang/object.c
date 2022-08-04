@@ -1160,7 +1160,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		struct obj_environment *env = get_obj_environment(wk_src, val),
 				       *o = get_obj_environment(wk_dest, *ret);
 
-		if (!obj_clone(wk_src, wk_dest, env->env, &o->env)) {
+		if (!obj_clone(wk_src, wk_dest, env->actions, &o->actions)) {
 			return false;
 		}
 		return true;
