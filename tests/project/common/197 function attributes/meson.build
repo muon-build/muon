@@ -51,6 +51,8 @@ attributes = [
     'noreturn',
     'nothrow',
     'pure',
+    'section',
+    'sentinel',
     'unused',
     'used',
     'warn_unused_result',

@@ -17,6 +17,7 @@ p = mod.add_project(
         '--includedir=@PREFIX@/@INCLUDEDIR@',
         '--libext=' + libext,
     ],
+    depends: somelib,
 )
 
 libfoo_dep = declare_dependency(
