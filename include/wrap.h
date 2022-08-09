@@ -20,6 +20,7 @@ enum wrap_fields {
 	wf_patch_filename,
 	wf_patch_hash,
 	wf_patch_directory,
+	wf_diff_files,
 
 	// wrap-file
 	wf_source_url,

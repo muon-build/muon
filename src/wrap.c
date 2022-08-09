@@ -25,6 +25,7 @@ static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_patch_filename] = "patch_filename",
 	[wf_patch_hash] = "patch_hash",
 	[wf_patch_directory] = "patch_directory",
+	[wf_diff_files] = "diff_files",
 	[wf_source_url] = "source_url",
 	[wf_source_fallback_url] = "source_fallback_url",
 	[wf_source_filename] = "source_filename",
@@ -343,6 +344,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	enum req field_req[wrap_fields_count] = {
 		[wf_directory] = optional,
 		[wf_patch_directory] = optional,
+		[wf_diff_files] = optional,
 		[wf_wrapdb_version] = optional
 	};
 
@@ -457,37 +459,15 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 }
 
 static bool
-wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
+wrap_run_cmd(const char *cmd, const char *const argv[], const char *chdir, const char *feed)
 {
-	const char *dest_dir, *filename = NULL;
-	if (wrap->fields[wf_patch_directory]) {
-		dest_dir = wrap->dest_dir;
-		filename = wrap->fields[wf_patch_directory];
-	} else {
-		dest_dir = subprojects;
-		filename = wrap->fields[wf_patch_filename];
-	}
+	struct run_cmd_ctx cmd_ctx = {
+		.flags = run_cmd_ctx_flag_dont_capture,
+		.chdir = chdir,
+		.stdin_path = feed,
+	};
 
-	if (!filename) {
-		return true;
-	}
-
-	return wrap_download_or_check_packagefiles(
-		filename,
-		wrap->fields[wf_patch_url],
-		wrap->fields[wf_patch_hash],
-		subprojects,
-		dest_dir,
-		download
-		);
-}
-
-static bool
-run_git(const char *const argv[])
-{
-	struct run_cmd_ctx cmd_ctx = { .flags = run_cmd_ctx_flag_dont_capture };
-
-	if (!run_cmd_argv(&cmd_ctx, "git", (char *const *)argv, NULL, 0)) {
+	if (!run_cmd_argv(&cmd_ctx, cmd, (char *const *)argv, NULL, 0)) {
 		return false;
 	} else if (cmd_ctx.status != 0) {
 		run_cmd_ctx_destroy(&cmd_ctx);
@@ -499,19 +479,119 @@ run_git(const char *const argv[])
 }
 
 static bool
-wrap_handle_git(struct wrap *wrap, const char *subprojects)
+wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *dest_dir)
 {
-	if (!run_git((const char *const[]) {
-		"git", "clone", wrap->fields[wf_url], wrap->dest_dir,
-		NULL
-	})) {
+	char packagefiles[PATH_MAX], diff_path[PATH_MAX];
+	if (!path_join(packagefiles, PATH_MAX, subprojects, "packagefiles")) {
 		return false;
 	}
 
-	if (!run_git((const char *const[]) {
+	char *p = (char *)wrap->fields[wf_diff_files];
+	const char *diff_file = p;
+
+	bool patch_cmd_found;
+	{
+		const char *_;
+		patch_cmd_found = fs_find_cmd("patch", &_);
+	}
+
+	while (true) {
+		if (p[1] == ',' || !p[1]) {
+			bool done = !p[1];
+			p[1] = 0;
+
+			if (!path_join(diff_path, PATH_MAX, packagefiles, diff_file)) {
+				return false;
+			}
+
+			L("applying diff_file '%s'", diff_path);
+
+			if (patch_cmd_found) {
+				if (!wrap_run_cmd("patch", (const char *const[]) {
+					"patch", "-p1",
+					NULL
+				}, wrap->dest_dir, diff_path)) {
+					return false;
+				}
+			} else {
+				if (!wrap_run_cmd("git", (const char *const[]) {
+					"git", "--work-tree", ".", "apply", "-p1", diff_path,
+					NULL
+				}, wrap->dest_dir, NULL)) {
+					return false;
+				}
+			}
+
+			if (done) {
+				break;
+			}
+
+			p += 2;
+			while (*p && strchr(" \r\t", *p)) {
+				++p;
+			}
+
+			if (!*p) {
+				break;
+			}
+
+			diff_file = p;
+		}
+
+		++p;
+	}
+
+	return true;
+}
+
+static bool
+wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
+{
+	const char *dest_dir, *filename = NULL;
+	if (wrap->fields[wf_patch_directory]) {
+		dest_dir = wrap->dest_dir;
+		filename = wrap->fields[wf_patch_directory];
+	} else {
+		dest_dir = subprojects;
+		filename = wrap->fields[wf_patch_filename];
+	}
+
+	if (filename) {
+		if (!wrap_download_or_check_packagefiles(
+			filename,
+			wrap->fields[wf_patch_url],
+			wrap->fields[wf_patch_hash],
+			subprojects,
+			dest_dir,
+			download
+			)) {
+			return false;
+		}
+	}
+
+	if (wrap->fields[wf_diff_files]) {
+		if (!wrap_apply_diff_files(wrap, subprojects, dest_dir)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+wrap_handle_git(struct wrap *wrap, const char *subprojects)
+{
+	if (!wrap_run_cmd("git", (const char *const[]) {
+		"git", "clone", wrap->fields[wf_url], wrap->dest_dir,
+		NULL
+	}, NULL, NULL)) {
+		return false;
+	}
+
+	if (!wrap_run_cmd("git", (const char *const[]) {
 		"git", "-C", wrap->dest_dir, "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--",
 		NULL
-	})) {
+	}, NULL, NULL)) {
 		return false;
 	}
 
