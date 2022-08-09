@@ -937,9 +937,14 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		if (akw[kw_install_dir].set) {
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
 		} else {
-			obj libdir;
-			get_option_value(wk, current_project(wk), "libdir", &libdir);
-			if (!path_join(path, PATH_MAX, get_cstr(wk, libdir), "pkgconfig")) {
+			obj install_base;
+			if (pc.dataonly) {
+				get_option_value(wk, current_project(wk), "datadir", &install_base);
+			} else {
+				get_option_value(wk, current_project(wk), "libdir", &install_base);
+			}
+
+			if (!path_join(path, PATH_MAX, get_cstr(wk, install_base), "pkgconfig")) {
 				return false;
 			}
 
