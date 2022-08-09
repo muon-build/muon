@@ -41,24 +41,29 @@ Patches and bug reports welcome!
 ## Dependencies
 
 Bootstrap:
+
 - `c99`
 - ninja-compatible build tool
 
 Bootstrap with `libpkgconf` support:
+
 - `libpkgconf`
 - `pkgconf` or `pkg-config`
 - `sh`
 
 `[wrap-file]` support:
+
 - `libcurl`
 - `libarchive`
 
 Documentation:
+
 - `scdoc` for muon.1 and meson.build.5
 - `python3`
 - `py3-yaml`
 
 Tests:
+
 - `python3`
 
 ## Building

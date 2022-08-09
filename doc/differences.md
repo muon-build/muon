@@ -75,7 +75,7 @@ cases muon will raise error.
 In Meson, all backslashes in `custom_target` command line arguments are blindly
 replaced to forward slashes.  This behavior is not present in muon.
 
-Reference: https://github.com/mesonbuild/meson/issues/1564
+Reference: <https://github.com/mesonbuild/meson/issues/1564>
 
 ## `build_target()` functions with empty sources
 
@@ -117,5 +117,5 @@ aca93df184a32ed7faf3636c0fbe90d05cb67857 for more information:
 Since muon does not offer an introspection subcommand, `MESONINTROSPECT` is not
 set in the environment of run\_command, test, custom\_target, etc.  `MUON_PATH`
 is provided for users who are waiting for
-https://github.com/mesonbuild/meson/pull/9855 and are (ab)using
+<https://github.com/mesonbuild/meson/pull/9855> and are (ab)using
 `MESONINTROSPECT` for this purpose.

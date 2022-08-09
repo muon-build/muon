@@ -1,7 +1,7 @@
 # Contributions
 
 Hello, thanks for considering contributing to muon.  Please send patches and
-questions to [~lattis/muon@lists.sr.ht](mailto:~lattis/muon@lists.sr.ht).
+questions to <~lattis/muon@lists.sr.ht>.
 Before making any big changes, please send a proposal to the mailing list so I
 can give you some pointers, and make sure you don't waste your time.
 
@@ -11,6 +11,7 @@ Muon uses a style similar to the linux kernel.  A few differences are:
 
 - the return type of a function goes on the line above its declaration.
   e.g.
+
   ```c
   int
   main(void)
@@ -18,11 +19,14 @@ Muon uses a style similar to the linux kernel.  A few differences are:
           return 0;
   }
   ```
+
 - it still goes on the same line in a function prototype
   e.g.
+
   ```c
   int main(void);
   ```
+
 - never omit braces for single statement if, else, for, while,  etc.
 - avoid function-like macros except in exceptional cases
 - it is OK (but not great) if your line is more than 80 characters
@@ -68,11 +72,12 @@ func(a, b, *c):` in python, where `c` is the "glob" argument.
 
 You may also bitwise or any type with `ARG_TYPE_ARRAY_OF`.  This "type" will
 cause `interp_args` to do the following things:
-  1. coerce single elements to arrays
+
+1. coerce single elements to arrays
     - `'hello' #=> ['hello']`
-  2. flatten arrays
+2. flatten arrays
     - `['hello', [], [['world']]] #=> ['hello', 'world']`
-  3. typecheck all elements of the array
+3. typecheck all elements of the array
     - given the "type" `ARG_TYPE_ARRAY_OF | obj_string`, the above examples
       would pass, but `['a', false]` would not.
 
