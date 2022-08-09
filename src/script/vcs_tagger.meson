@@ -40,7 +40,7 @@ else
 endif
 
 foreach p : programs
-    prog = find_program(p[0])
+    prog = find_program(p[0], required: false)
 
     if not prog.found()
         continue
