@@ -581,6 +581,14 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 		  "int foo(void) __attribute__((pure));\n" },
 		{ "returns_nonnull",
 		  "int *foo(void) __attribute__((returns_nonnull));\n" },
+		{ "section",
+		  "#if defined(__APPLE__) && defined(__MACH__)\n"
+		  "    extern int foo __attribute__((section(\"__BAR,__bar\")));\n"
+		  "#else\n"
+		  "    extern int foo __attribute__((section(\".bar\")));\n"
+		  "#endif\n" },
+		{ "sentinel",
+		  "int foo(const char *bar, ...) __attribute__((sentinel));" },
 		{ "unused",
 		  "int foo(void) __attribute__((unused));\n" },
 		{ "used",
