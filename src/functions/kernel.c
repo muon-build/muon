@@ -1419,22 +1419,69 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 }
 
+struct install_headers_preserve_path_ctx {
+	uint32_t err_node;
+	obj install_mode;
+	obj install_dir;
+};
+
+static enum iteration_result
+install_headers_preserve_path_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct install_headers_preserve_path_ctx *ctx = _ctx;
+
+	if (get_obj_type(wk, val) != obj_string) {
+		interp_error(wk, ctx->err_node, "file arguments are ambiguous with preserve_path: true");
+		return ir_err;
+	}
+
+	obj src;
+	{
+		obj src_arr;
+		if (!coerce_files(wk, ctx->err_node, val, &src_arr)) {
+			return ir_err;
+		}
+
+		if (!obj_array_flatten_one(wk, src_arr, &src)) {
+			UNREACHABLE;
+		}
+	}
+
+	char dest[PATH_MAX];
+	if (!path_join(dest, PATH_MAX, get_cstr(wk, ctx->install_dir), get_cstr(wk, val))) {
+		return ir_err;
+	}
+
+	if (!push_install_target(wk, *get_obj_file(wk, src), make_str(wk, dest),
+		ctx->install_mode)) {
+		return ir_err;
+	}
+	return ir_cont;
+}
+
 static bool
 func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
 		kw_subdir,
+		kw_preserve_path,
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_subdir] = { "subdir", obj_string },
+		[kw_preserve_path] = { "preserve_path", obj_bool },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	if (akw[kw_install_dir].set && akw[kw_subdir].set) {
+		interp_error(wk, akw[kw_subdir].node, "subdir may not be set if install_dir is set");
 		return false;
 	}
 
@@ -1457,12 +1504,22 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		install_dir = install_dir_base;
 	}
 
-	obj headers;
-	if (!coerce_files(wk, an[0].node, an[0].val, &headers)) {
-		return false;
-	}
+	if (akw[kw_preserve_path].set && get_obj_bool(wk, akw[kw_preserve_path].val)) {
+		struct install_headers_preserve_path_ctx ctx = {
+			.err_node = an[0].node,
+			.install_dir = install_dir,
+			.install_mode = akw[kw_install_mode].val,
+		};
 
-	return push_install_targets(wk, headers, install_dir, akw[kw_install_mode].val);
+		return obj_array_foreach(wk, an[0].val, &ctx, install_headers_preserve_path_iter);
+	} else {
+		obj headers;
+		if (!coerce_files(wk, an[0].node, an[0].val, &headers)) {
+			return false;
+		}
+
+		return push_install_targets(wk, headers, install_dir, akw[kw_install_mode].val);
+	}
 }
 
 static bool
