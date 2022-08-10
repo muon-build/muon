@@ -1357,6 +1357,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_install_tag,
 		kw_rename,
 		kw_sources,
+		kw_preserve_path,
 	};
 
 	struct args_kw akw[] = {
@@ -1365,9 +1366,16 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files },
+		[kw_preserve_path] = { "preserve_path", obj_bool },
 		0
 	};
+
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	if (akw[kw_rename].set && akw[kw_preserve_path].set) {
+		interp_error(wk, akw[kw_preserve_path].node, "rename keyword conflicts with preserve_path");
 		return false;
 	}
 
