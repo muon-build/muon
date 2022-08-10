@@ -229,9 +229,9 @@ path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
 bool
 path_join(char *buf, uint32_t len, const char *a, const char *b)
 {
-	uint32_t i = 0, a_len;
+	uint32_t i = 0;
 
-	if (path_is_absolute(b) || (a_len = strlen(a)) == 0) {
+	if (path_is_absolute(b) || strlen(a) == 0) {
 		return simple_copy(buf, len, b);
 	} else if (!buf_push_s(buf, a, &i, len)) {
 		return false;
@@ -469,7 +469,7 @@ path_add_suffix(char *path, uint32_t len, const char *suff)
 		return false;
 	}
 
-	strcpy(&path[l], suff);
+	strncpy(&path[l], suff, sl + 1);
 	return true;
 }
 

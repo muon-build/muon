@@ -33,7 +33,7 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 		return false;
 	}
 
-	struct str subproject = { 0 }, key = { 0 }, val = { 0 }, cur = { 0 };
+	struct str subproject = { 0 }, key = { 0 }, val, cur = { 0 };
 
 	cur.s = ss->s;
 	bool reading_key = true, have_subproject = false;

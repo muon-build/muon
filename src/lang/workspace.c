@@ -479,7 +479,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	if (path_is_basename(argv0)) {
 		uint32_t len = strlen(argv0);
 		assert(len < PATH_MAX);
-		strcpy(wk->argv0, argv0);
+		strncpy(wk->argv0, argv0, len + 1);
 	} else {
 		if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
 			return false;

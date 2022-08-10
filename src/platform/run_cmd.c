@@ -392,6 +392,8 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 		argv0 = argstr;
 		argc = argstr_argc;
 	} else {
+		assert(old_argv);
+
 		argv0 = old_argv[0];
 		for (; old_argv[argc]; ++argc) {
 		}
@@ -441,7 +443,7 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 				while (strchr(" \t", *p)) {
 					++p;
 				}
-				p = (new_argv1 = s + 1);
+				new_argv1 = s + 1;
 			}
 
 			argc += new_argv1 ? 2 : 1;

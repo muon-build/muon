@@ -875,7 +875,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	{
 		obj arg0;
-		obj cmd_file;
+		obj cmd_file = 0;
 		struct find_program_iter_ctx find_program_ctx = {
 			.node = an[0].node,
 			.res = &cmd_file,
@@ -1667,7 +1667,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	char buf[PATH_MAX];
+	char buf[PATH_MAX] = { 0 };
 	strcpy(buf, ctx->buf);
 
 	if (!path_join(ctx->buf, PATH_MAX, buf, get_cstr(wk, val))) {

@@ -492,9 +492,9 @@ parse_e9(struct parser *p, uint32_t *id)
 		n = make_node(p, id, node_bool);
 		n->subtype = 0;
 	} else if (accept(p, tok_identifier)) {
-		n = make_node(p, id, node_id);
+		make_node(p, id, node_id);
 	} else if (accept(p, tok_number)) {
-		n = make_node(p, id, node_number);
+		make_node(p, id, node_number);
 	} else if (accept(p, tok_string)) {
 		n = make_node(p, id, node_string);
 		n->subtype = p->last_last->n;
@@ -520,7 +520,7 @@ parse_method_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	}
 	make_node(p, &meth_id, node_id);
 
-	n = make_node(p, id, node_method);
+	make_node(p, id, node_method);
 
 	if (!expect(p, tok_lparen)) {
 		return false;
