@@ -612,10 +612,6 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, 
 static void
 set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *extra)
 {
-#ifndef MUON_BOOTSTRAPPED
-	return;
-#endif
-
 	obj opt;
 	if (!get_option(wk, NULL, &WKSTR(name), &opt)) {
 		UNREACHABLE;
@@ -760,21 +756,21 @@ init_global_options(struct workspace *wk)
 		"option('force_fallback_for', type: 'array', value: [])\n"
 		"option('pkg_config_path', type: 'string', value: '')\n"
 		"option('c_args', type: 'array', value: [])\n"
+		"option('c_link_args', type: 'array', value: [])\n"
 
 		"option('env.CC', type: 'string', value: 'cc')\n"
 		)) {
 		return false;
 	}
 
+	set_binary_from_env(wk, "CC", "env.CC", "c_args");
 	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
-	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
-	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
-
-	set_binary_from_env(wk, "CC", "env.CC", "c_args");
 
 #ifdef MUON_BOOTSTRAPPED
 	set_binary_from_env(wk, "CXX", "env.CXX", "cpp_args");
+	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
+	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 #endif
 
 	return true;
