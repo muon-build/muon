@@ -8,6 +8,7 @@
 #include "backend/ninja.h"
 #include "backend/output.h"
 #include "buf_size.h"
+#include "cmd_test.h"
 #include "error.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -16,7 +17,6 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "platform/term.h"
-#include "tests.h"
 
 #define MAX_TEST_WORKERS (uint32_t)(sizeof(uint32_t) * 8)
 

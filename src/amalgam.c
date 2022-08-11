@@ -7,6 +7,8 @@
 #include "backend/ninja/custom_target.c"
 #include "backend/ninja/rules.c"
 #include "backend/output.c"
+#include "cmd_install.c"
+#include "cmd_test.c"
 #include "coerce.c"
 #include "compilers.c"
 #include "data/bucket_array.c"
@@ -14,11 +16,6 @@
 #include "data/hash.c"
 #include "embedded.c"
 #include "error.c"
-#ifdef BOOTSTRAP_HAVE_LIBPKGCONF
-#include "external/libpkgconf.c"
-#else
-#include "external/libpkgconf_null.c"
-#endif
 #include "external/bestline_null.c"
 #include "external/libarchive_null.c"
 #include "external/libcurl_null.c"
@@ -58,7 +55,6 @@
 #include "functions/string.c"
 #include "functions/subproject.c"
 #include "guess.c"
-#include "install.c"
 #include "lang/analyze.c"
 #include "lang/eval.c"
 #include "lang/fmt.c"
@@ -83,6 +79,11 @@
 #include "platform/uname.c"
 #include "rpmvercmp.c"
 #include "sha_256.c"
-#include "tests.c"
 #include "version.c.in"
 #include "wrap.c"
+
+#ifdef BOOTSTRAP_HAVE_LIBPKGCONF
+#include "external/libpkgconf.c"
+#else
+#include "external/libpkgconf_null.c"
+#endif

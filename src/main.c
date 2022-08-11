@@ -5,12 +5,13 @@
 
 #include "args.h"
 #include "backend/backend.h"
+#include "cmd_install.h"
+#include "cmd_test.h"
 #include "embedded.h"
 #include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
-#include "install.h"
 #include "lang/analyze.h"
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
@@ -21,7 +22,6 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
-#include "tests.h"
 #include "version.h"
 #include "wrap.h"
 

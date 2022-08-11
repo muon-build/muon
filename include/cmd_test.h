@@ -1,5 +1,5 @@
-#ifndef MUON_TESTS_H
-#define MUON_TESTS_H
+#ifndef MUON_CMD_TEST_H
+#define MUON_CMD_TEST_H
 #include <stdbool.h>
 #include <stdint.h>
 
