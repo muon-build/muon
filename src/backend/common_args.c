@@ -324,6 +324,16 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 	obj inc_dirs;
 	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
 
+	{ /* project includes */
+		obj proj_incs;
+		if (obj_dict_geti(wk, ctx->proj->include_dirs, lang, &proj_incs)) {
+			obj_array_extend(wk, inc_dirs, proj_incs);
+			obj dedupd;
+			obj_array_dedup(wk, inc_dirs, &dedupd);
+			inc_dirs = dedupd;
+		}
+	}
+
 	if (!obj_array_foreach(wk, inc_dirs, &(struct setup_compiler_args_includes_ctx) {
 		.args = args,
 		.t = t,

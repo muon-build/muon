@@ -40,6 +40,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
 	make_obj(wk, &proj->link_args, obj_dict);
+	make_obj(wk, &proj->include_dirs, obj_dict);
 	make_obj(wk, &proj->opts, obj_dict);
 	make_obj(wk, &proj->summary, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);

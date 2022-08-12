@@ -204,6 +204,18 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static obj
+get_project_argument_array(struct workspace *wk, obj dict, enum compiler_language l)
+{
+	obj arg_arr;
+	if (!obj_dict_geti(wk, dict, l, &arg_arr)) {
+		make_obj(wk, &arg_arr, obj_array);
+		obj_dict_seti(wk, dict, l, arg_arr);
+	}
+
+	return arg_arr;
+}
+
 struct add_arguments_ctx {
 	uint32_t lang_node;
 	uint32_t args_node;
@@ -237,13 +249,7 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	obj arg_arr;
-	if (!obj_dict_geti(wk, ctx->args_dict, l, &arg_arr)) {
-		make_obj(wk, &arg_arr, obj_array);
-		obj_dict_seti(wk, ctx->args_dict, l, arg_arr);
-	}
-
-	ctx->arg_arr = arg_arr;
+	ctx->arg_arr = get_project_argument_array(wk, ctx->args_dict, l);
 
 	if (!obj_array_foreach_flat(wk, ctx->args_to_add, ctx, add_arguments_language_iter)) {
 		return ir_err;
@@ -311,6 +317,73 @@ func_add_global_link_arguments(struct workspace *wk, obj _, uint32_t args_node, 
 	}
 
 	return add_arguments_common(wk, args_node, wk->global_link_args, res);
+}
+
+struct add_project_dependencies_ctx {
+	uint32_t lang_node;
+	struct build_dep *d;
+};
+
+static enum iteration_result
+add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
+{
+	struct add_project_dependencies_ctx *ctx = _ctx;
+	enum compiler_language l;
+
+	if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
+		interp_error(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, lang));
+		return ir_err;
+	}
+
+	obj res;
+	if (!obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
+		// NOTE: Its a little weird that the other add_project_xxx
+		// functions don't check this and this function does, but that
+		// is how meson does it.
+		interp_error(wk, ctx->lang_node, "undeclared language '%s'", get_cstr(wk, lang));
+		return ir_err;
+	}
+
+	obj_array_extend(wk,
+		get_project_argument_array(wk, current_project(wk)->args, l),
+		ctx->d->compile_args);
+	obj_array_extend(wk,
+		get_project_argument_array(wk, current_project(wk)->link_args, l),
+		ctx->d->link_args);
+	obj_array_extend(wk,
+		get_project_argument_array(wk, current_project(wk)->include_dirs, l),
+		ctx->d->include_directories);
+	return ir_cont;
+}
+
+static bool
+func_add_project_dependencies(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_dependency }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_language,
+		kw_native, // ignored
+	};
+	struct args_kw akw[] = {
+		[kw_language] = { "language", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_native] = { "native", obj_bool },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	struct build_dep d = { 0 };
+	dep_process_deps(wk, an[0].val, &d);
+
+	struct add_project_dependencies_ctx ctx = {
+		.lang_node = akw[kw_language].node,
+		.d = &d,
+	};
+
+	obj_array_foreach(wk, akw[kw_language].val, &ctx, add_project_dependencies_iter);
+	return true;
 }
 
 static bool
@@ -1743,6 +1816,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ "add_global_link_arguments", func_add_global_link_arguments },
 	{ "add_languages", func_add_languages, tc_bool },
 	{ "add_project_arguments", func_add_project_arguments },
+	{ "add_project_dependencies", func_add_project_dependencies },
 	{ "add_project_link_arguments", func_add_project_link_arguments },
 	{ "add_test_setup", func_add_test_setup },
 	{ "alias_target", func_alias_target, tc_alias_target },

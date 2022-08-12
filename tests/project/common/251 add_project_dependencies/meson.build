@@ -5,7 +5,7 @@ cc = meson.get_compiler('c')
 m = cc.find_library('m', required: false)
 add_project_dependencies(m, language: ['c'])
 
-z = dependency('zlib', method: 'system', required: false)
+z = dependency('zlib', required: false)
 if not z.found()
     error('MESON_SKIP_TEST zlib not present')
 endif
