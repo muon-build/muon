@@ -357,24 +357,22 @@ coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *re
 	return true;
 }
 
-static enum iteration_result
-coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
+static bool
+coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj val, obj *file)
 {
-	struct coerce_into_files_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 
 	switch (t) {
 	case obj_string: {
-		obj file;
 		char buf[PATH_MAX];
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), val, &file)) {
+			if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), val, file)) {
 				return ir_err;
 			}
 
-			if (!ctx->exists(get_file_path(wk, file))) {
+			if (!ctx->exists(get_file_path(wk, *file))) {
 				interp_error(wk, ctx->node, "%s %o does not exist", ctx->type, val);
 				return ir_err;
 			}
@@ -389,24 +387,11 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 				return ir_err;
 			}
 
-			make_obj(wk, &file, obj_file);
-			*get_obj_file(wk, file) = make_str(wk, buf);
+			make_obj(wk, file, obj_file);
+			*get_obj_file(wk, *file) = make_str(wk, buf);
 			break;
 		default:
 			assert(false);
-			return ir_err;
-		}
-
-		obj_array_push(wk, ctx->arr, file);
-		break;
-	}
-	case obj_custom_target: {
-		if (ctx->mode == mode_output) {
-			goto type_error;
-		}
-
-		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output,
-			ctx, coerce_custom_target_output_iter)) {
 			return ir_err;
 		}
 		break;
@@ -423,21 +408,60 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 		char path[PATH_MAX];
 		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
-			return ir_err;
+			return false;
 		}
 
-		obj file;
-		make_obj(wk, &file, obj_file);
-		*get_obj_file(wk, file) = make_str(wk, path);
-		obj_array_push(wk, ctx->arr, file);
+		make_obj(wk, file, obj_file);
+		*get_obj_file(wk, *file) = make_str(wk, path);
 		break;
 	}
 	case obj_file:
 		if (ctx->mode == mode_output) {
 			goto type_error;
 		}
-		obj_array_push(wk, ctx->arr, val);
+
+		*file = val;
 		break;
+	default:
+type_error:
+		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
+			obj_type_to_s(t), ctx->type);
+		return false;
+	}
+
+	return true;
+}
+
+static enum iteration_result
+coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct coerce_into_files_ctx *ctx = _ctx;
+	enum obj_type t = get_obj_type(wk, val);
+
+	switch (t) {
+	case obj_custom_target: {
+		if (ctx->mode == mode_output) {
+			goto type_error;
+		}
+
+		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output,
+			ctx, coerce_custom_target_output_iter)) {
+			return ir_err;
+		}
+		break;
+	}
+	case obj_string:
+	case obj_file:
+	case obj_both_libs:
+	case obj_build_target: {
+		obj file;
+		if (!coerce_into_file(wk, ctx, val, &file)) {
+			return ir_err;
+		}
+
+		obj_array_push(wk, ctx->arr, file);
+		break;
+	}
 	default:
 type_error:
 		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
@@ -487,6 +511,20 @@ bool
 coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res)
 {
 	return _coerce_files(wk, node, val, res, "file", fs_file_exists, mode_input, 0);
+}
+
+bool
+coerce_file(struct workspace *wk, uint32_t node, obj val, obj *res)
+{
+	struct coerce_into_files_ctx ctx = {
+		.node = node,
+		.arr = *res,
+		.type = "file",
+		.exists = fs_file_exists,
+		.mode = mode_input,
+	};
+
+	return coerce_into_file(wk, &ctx, val, res);
 }
 
 bool
