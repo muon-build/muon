@@ -260,7 +260,7 @@ tests = [
     ['common/249 install_symlink'],
     ['common/250 system include dir'],
     ['common/251 add_project_dependencies', ['failing']],
-    ['common/252 install data structured', ['failing']],
+    ['common/252 install data structured'],
     ['common/252 subproject dependency variables'],
 
     # unit

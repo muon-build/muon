@@ -11,6 +11,7 @@
 #include "functions/generator.h"
 #include "functions/kernel/build_target.h"
 #include "functions/kernel/dependency.h"
+#include "install.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "options.h"
@@ -626,9 +627,19 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			}
 		}
 
+		char install_src[PATH_MAX];
+		if (!path_join(install_src, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
+			return NULL;
+		}
+
+		char install_dest[PATH_MAX];
+		if (!path_join(install_dest, PATH_MAX, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name))) {
+			return NULL;
+		}
+
 		struct obj_install_target *install_tgt;
-		if (!(install_tgt = push_install_target_basename(wk, tgt->build_dir,
-			tgt->build_name, install_dir, akw[bt_kw_install_mode].val))) {
+		if (!(install_tgt = push_install_target(wk, make_str(wk, install_src),
+			make_str(wk, install_dest), akw[bt_kw_install_mode].val))) {
 			return false;
 		}
 

@@ -7,6 +7,7 @@
 #include "error.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
+#include "install.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "options.h"

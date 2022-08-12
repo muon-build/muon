@@ -9,6 +9,7 @@
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/string.h"
+#include "install.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -719,7 +720,8 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			install_dir = i0;
 		}
 
-		if (!push_install_targets(wk, tgt->output, install_dir, install_mode_id)) {
+		if (!push_install_targets(wk, akw[kw_install_dir].node, tgt->output,
+			install_dir, install_mode_id, false)) {
 			return false;
 		}
 	}
