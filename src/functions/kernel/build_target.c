@@ -689,7 +689,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		obj_array_extend(wk, tgt->dep_internal.link_args, akw[bt_kw_link_args].val);
 	}
 
-	LOG_I("added target %s", get_cstr(wk, tgt->build_name));
+	L("adding build target %s", get_cstr(wk, tgt->build_name));
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
 }

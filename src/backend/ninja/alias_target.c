@@ -13,7 +13,7 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ct
 {
 	struct obj_alias_target *tgt = get_obj_alias_target(wk, tgt_id);
 
-	LOG_I("writing rules for alias target '%s'", get_cstr(wk, tgt->name));
+	L("writing rules for alias target '%s'", get_cstr(wk, tgt->name));
 
 	char name_esc[BUF_SIZE_1k];
 	if (!ninja_escape(name_esc, BUF_SIZE_1k, get_cstr(wk, tgt->name))) {

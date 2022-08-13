@@ -1062,7 +1062,7 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	LOG_I("adding run target '%s'", get_cstr(wk, tgt->name));
+	L("adding run target '%s'", get_cstr(wk, tgt->name));
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
 }
@@ -1711,7 +1711,7 @@ func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	LOG_I("adding alias target '%s'", get_cstr(wk, an[0].val));
+	L("adding alias target '%s'", get_cstr(wk, an[0].val));
 
 	obj deps_id;
 	make_obj(wk, &deps_id, obj_array);

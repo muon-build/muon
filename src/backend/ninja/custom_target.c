@@ -71,7 +71,7 @@ bool
 ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ctx)
 {
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, tgt_id);
-	LOG_I("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
+	L("writing rules for custom target '%s'", get_cstr(wk, tgt->name));
 
 	obj outputs, inputs = 0, cmdline;
 

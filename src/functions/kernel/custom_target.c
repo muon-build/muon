@@ -730,7 +730,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	LOG_I("adding custom target '%s'", get_cstr(wk, tgt->name));
+	L("adding custom target '%s'", get_cstr(wk, tgt->name));
 
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;

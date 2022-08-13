@@ -126,7 +126,7 @@ bool
 ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wctx)
 {
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
-	LOG_I("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
+	L("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
