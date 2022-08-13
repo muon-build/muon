@@ -11,7 +11,8 @@ bool buf_push(char *buf, uint32_t len, uint32_t *i, char s);
 bool buf_pushs(char *buf, uint32_t len, uint32_t *i, char *s);
 bool buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n);
 
-bool str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r);
+bool str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r,
+	bool escape_whitespace);
 
 bool str_has_null(const struct str *ss);
 

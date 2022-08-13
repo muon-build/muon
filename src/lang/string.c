@@ -48,13 +48,20 @@ buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
 }
 
 bool
-str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r)
+str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r,
+	bool escape_whitespace)
 {
+	bool esc;
 	uint32_t i;
 	*r = 0;
 
 	for (i = 0; i < ss->len; ++i) {
-		if (ss->s[i] < 32) {
+		esc = ss->s[i] < 32;
+		if (!escape_whitespace && strchr("\t\n\r", ss->s[i])) {
+			esc = false;
+		}
+
+		if (esc) {
 			char unescaped[32];
 			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
 

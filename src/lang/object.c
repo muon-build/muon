@@ -1284,7 +1284,7 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 	obj_to_s_buf_push(ctx, "'");
 
 	uint32_t w = 0;
-	if (!str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w)) {
+	if (!str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w, true)) {
 		return;
 	}
 	assert(ctx->i + w <= ctx->len);
@@ -1606,7 +1606,7 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			if (got_object) {
 				uint32_t w;
 				if (get_obj_type(wk, obj) == obj_string && !quote_string) {
-					str_unescape(&out_buf[bufi], buflen - bufi, get_str(wk, obj), &w);
+					str_unescape(&out_buf[bufi], buflen - bufi, get_str(wk, obj), &w, false);
 				} else {
 					_obj_to_s(wk, obj, &out_buf[bufi], buflen - bufi, &w);
 				}
