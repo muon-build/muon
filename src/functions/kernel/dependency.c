@@ -540,14 +540,26 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 				get_obj_dependency(wk, *ctx.res)->name = ctx.name;
 			}
 		}
-	} else {
+	} else if (!str_eql(get_str(wk, ctx.name), &WKSTR(""))) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 
-		LOG_I("found dependency %s%s%s%s",
-			dep->type == dependency_type_declared ? "(declared dependency)" : get_cstr(wk, dep->name),
-			dep->version ? " version: " : "",
-			dep->version ? get_cstr(wk, dep->version) : "",
-			ctx.lib_mode == dep_lib_mode_static ? ", static" : "");
+		LLOG_I("found dependency ");
+		if (dep->type == dependency_type_declared) {
+			obj_fprintf(wk, log_file(), "%o (declared dependency)", ctx.name);
+		} else {
+			log_plain("%s", get_cstr(wk, dep->name));
+		}
+
+		if (dep->version) {
+			log_plain(" version %s", get_cstr(wk, dep->version));
+		}
+
+		if (ctx.lib_mode == dep_lib_mode_static) {
+			log_plain(" static");
+		}
+
+		log_plain("\n");
+
 		if (dep->type == dependency_type_declared) {
 			L("(%s)", get_cstr(wk, dep->name));
 		}
