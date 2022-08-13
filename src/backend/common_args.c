@@ -422,6 +422,10 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_linker_args_ctx *ctx = _ctx;
 
+	if (!get_str(wk, v)->len) {
+		return ir_cont;
+	}
+
 	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
 
 	return ir_cont;
