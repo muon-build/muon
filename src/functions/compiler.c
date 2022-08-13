@@ -18,10 +18,57 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
+enum compile_mode {
+	compile_mode_preprocess,
+	compile_mode_compile,
+	compile_mode_link,
+	compile_mode_run,
+};
+
+struct compiler_check_opts {
+	struct run_cmd_ctx cmd_ctx;
+	enum compile_mode mode;
+	obj comp_id;
+	struct args_kw *deps, *inc, *required;
+	obj args;
+	bool skip_run_check;
+	bool src_is_path;
+	const char *output_path;
+};
+
 static const char *
 bool_to_yn(bool v)
 {
 	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
+}
+
+static void
+compiler_logv(struct workspace *wk, obj compiler, const char *fmt, va_list args)
+{
+	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
+	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
+	log_plainv(fmt, args);
+	log_plain("\n");
+}
+
+__attribute__ ((format(printf, 3, 4)))
+static void
+compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	compiler_logv(wk, compiler, fmt, args);
+	va_end(args);
+}
+
+__attribute__ ((format(printf, 3, 4)))
+static void
+compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	compiler_logv(wk, opts->comp_id, fmt, args);
+	va_end(args);
 }
 
 static bool
@@ -42,24 +89,6 @@ write_test_source(struct workspace *wk, const struct str *src, enum compiler_lan
 
 	return true;
 }
-
-enum compile_mode {
-	compile_mode_preprocess,
-	compile_mode_compile,
-	compile_mode_link,
-	compile_mode_run,
-};
-
-struct compiler_check_opts {
-	struct run_cmd_ctx cmd_ctx;
-	enum compile_mode mode;
-	obj comp_id;
-	struct args_kw *deps, *inc, *required;
-	obj args;
-	bool skip_run_check;
-	bool src_is_path;
-	const char *output_path;
-};
 
 static void
 add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, obj args)
@@ -395,7 +424,8 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	set_obj_number(wk, *res, size);
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
-	LOG_I("sizeof %s: %" PRId64,
+	compiler_check_log(wk, &opts,
+		"sizeof %s: %" PRId64,
 		get_cstr(wk, an[0].val),
 		get_obj_number(wk, *res)
 		);
@@ -437,7 +467,8 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 	run_cmd_ctx_destroy(&opts.cmd_ctx);
 
-	LOG_I("alignment of %s: %" PRId64,
+	compiler_check_log(wk, &opts,
+		"alignment of %s: %" PRId64,
 		get_cstr(wk, an[0].val),
 		get_obj_number(wk, *res)
 		);
@@ -646,7 +677,8 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 		return false;
 	}
 
-	LOG_I("have attribute %s: %s",
+	compiler_check_log(wk, &opts,
+		"has attribute %s: %s",
 		get_cstr(wk, arg),
 		bool_to_yn(*has_fattr)
 		);
@@ -820,7 +852,9 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("have function %s: %s",
+
+	compiler_check_log(wk, &opts,
+		"has function %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
 		);
@@ -924,7 +958,9 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("%s has header symbol %s: %s",
+
+	compiler_check_log(wk, &opts,
+		"header %s has symbol %s: %s",
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
 		bool_to_yn(ok)
@@ -1032,7 +1068,7 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		}
 	}
 
-	LOG_I("got define %s", def);
+	compiler_check_log(wk, opts, "defines %s", def);
 
 	fs_source_destroy(&output);
 	return true;
@@ -1138,7 +1174,8 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			break;
 		}
 
-		LOG_I("%s %s: %s",
+		compiler_check_log(wk, &opts,
+			"%s %s: %s",
 			get_cstr(wk, akw[cc_kw_name].val),
 			mode_s,
 			bool_to_yn(ok)
@@ -1180,7 +1217,7 @@ compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_c
 	const char *mode_s = NULL;
 	switch (opts->mode) {
 	case compile_mode_compile:
-		mode_s = "usable";
+		mode_s = "is usable";
 		break;
 	case compile_mode_preprocess:
 		mode_s = "found";
@@ -1191,7 +1228,9 @@ compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_c
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("header %s %s: %s",
+
+	compiler_check_log(wk, opts,
+		"header %s %s: %s",
 		hdr,
 		mode_s,
 		bool_to_yn(ok)
@@ -1261,7 +1300,9 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
-	LOG_I("has type %s: %s",
+
+	compiler_check_log(wk, &opts,
+		"has type %s: %s",
 		get_cstr(wk, an[0].val),
 		bool_to_yn(ok)
 		);
@@ -1291,7 +1332,8 @@ compiler_has_member(struct workspace *wk, struct compiler_check_opts *opts,
 		return false;
 	}
 
-	LOG_I("%s has member %s: %s",
+	compiler_check_log(wk, opts,
+		"struct %s has member %s: %s",
 		get_cstr(wk, target),
 		get_cstr(wk, member),
 		bool_to_yn(*res)
@@ -1434,7 +1476,8 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	if (akw[cc_kw_name].set) {
-		LOG_I("%s runs: %s",
+		compiler_check_log(wk, &opts,
+			"runs %s: %s",
 			get_cstr(wk, akw[cc_kw_name].val),
 			bool_to_yn(ok)
 			);
@@ -1486,7 +1529,8 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		return false;
 	}
 
-	LOG_I("'%s' supported: %s",
+	compiler_check_log(wk, &opts,
+		"supports argument '%s': %s",
 		get_cstr(wk, arg),
 		bool_to_yn(*has_argument)
 		);
@@ -1602,7 +1646,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 	}
 
 	if (has_argument) {
-		LOG_I("first supported argument: '%s'", get_cstr(wk, val_id));
+		compiler_log(wk, ctx->compiler, "first supported argument: '%s'", get_cstr(wk, val_id));
 		obj_array_push(wk, ctx->arr, val_id);
 		return ir_done;
 	}
@@ -1877,7 +1921,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return true;
 	}
 
-	LOG_I("found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
+	compiler_log(wk, rcvr, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
 	dep->flags |= dep_flag_found;
 	make_obj(wk, &dep->dep.link_with, obj_array);
 	obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
