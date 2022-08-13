@@ -232,7 +232,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 			assert(rpath_len <= PATH_MAX);
 			rpath[rpath_len] = 0;
 
-			if (path_is_subpath(build_root, rpath)) {
+			if (path_is_subpath(build_root, rpath) || rpath_len == 0) {
 				modified = true;
 			} else {
 				if (modified) {
