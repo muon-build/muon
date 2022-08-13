@@ -866,7 +866,7 @@ func_debug(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	log_plain("debug: ");
+	log_plain(log_clr() ? "\033[35mdebug\033[0m: " : "debug: ");
 	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
 	log_plain("\n");
 	*res = 0;
@@ -883,7 +883,7 @@ func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	log_plain("message: ");
+	log_plain(log_clr() ? "\033[34mmessage\033[0m: " : "message: ");
 	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
 	log_plain("\n");
 	*res = 0;
@@ -900,7 +900,7 @@ func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	log_plain(log_clr() ? "\033[31merror:\033[0m " : "error: ");
+	log_plain(log_clr() ? "\033[31merror\033[0m: " : "error: ");
 	obj_array_foreach(wk, an[0].val, NULL, message_print_iter);
 	log_plain("\n");
 	*res = 0;
