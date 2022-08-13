@@ -233,6 +233,14 @@ path_join(char *buf, uint32_t len, const char *a, const char *b)
 
 	if (path_is_absolute(b) || strlen(a) == 0) {
 		return simple_copy(buf, len, b);
+	} else if (!*b) {
+		/* Special-case path_1 / '' to mean "append a / to the current
+		 * path".
+		 */
+		if (!simple_copy(buf, len, a)) {
+			return false;
+		}
+		return path_add_suffix(buf, len, "/");
 	} else if (!buf_push_s(buf, a, &i, len)) {
 		return false;
 	} else if (!buf_push_c(buf, PATH_SEP, &i, len)) {
