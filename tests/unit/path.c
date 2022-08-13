@@ -23,6 +23,9 @@ test_path_join(void)
 
 	assert(path_join(buf, PATH_MAX, "a/b", "c/d"));
 	assert(strcmp(buf, "a/b/c/d") == 0);
+
+	assert(path_join(buf, PATH_MAX, "a/b", "/"));
+	assert(strcmp(buf, "/") == 0);
 }
 
 static void

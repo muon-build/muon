@@ -165,7 +165,7 @@ path_normalize(char *buf)
 
 	if (!blen) {
 		buf[0] = '.';
-	} else if (buf[blen - 1] == PATH_SEP) {
+	} else if (blen > 1 && buf[blen - 1] == PATH_SEP) {
 		buf[blen - 1] = 0;
 	}
 
