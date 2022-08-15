@@ -10,4 +10,4 @@ p = join_paths(root, a, b, c, d, e, f)
 message(p)
 assert(p == '/abs/path2/no_slashes/trailing/rel/path')
 
-assert(join_paths('./a/b/.././///../c', '.') == 'c')
+assert(join_paths('./a/b/.././///../c', '.') == 'a/b/../../c')

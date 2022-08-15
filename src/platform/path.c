@@ -94,8 +94,8 @@ buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
 	return false;
 }
 
-static bool
-path_normalize(char *buf)
+bool
+path_normalize(char *buf, bool optimize)
 {
 	uint32_t parents = 0;
 	char *part, *sep;
@@ -129,7 +129,7 @@ path_normalize(char *buf)
 			// eliminate empty elements (a//b -> a/b) and
 			// current-dir elements (a/./b -> a/b)
 			skip_part = true;
-		} else if (part_len == 2 && part[0] == '.' && part[1] == '.') {
+		} else if (optimize && part_len == 2 && part[0] == '.' && part[1] == '.') {
 			// convert something like a/../b into b
 			if (parents) {
 				for (i = (part - 2) - buf; i > 0; --i) {
@@ -180,7 +180,7 @@ simple_copy(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -223,7 +223,7 @@ path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
 		return false;
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -249,7 +249,7 @@ path_join(char *buf, uint32_t len, const char *a, const char *b)
 		return false;
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -284,7 +284,7 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	strncpy(base, base_raw, PATH_MAX - 1);
 	strncpy(path, path_raw, PATH_MAX - 1);
 
-	if (!path_normalize(base) || !path_normalize(path)) {
+	if (!path_normalize(base, false) || !path_normalize(path, false)) {
 		return false;
 	}
 
@@ -351,7 +351,7 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 		}
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -384,7 +384,7 @@ path_without_ext(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -412,7 +412,7 @@ path_basename(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf);
+	return path_normalize(buf, false);
 }
 
 bool
@@ -431,7 +431,7 @@ path_dirname(char *buf, uint32_t len, const char *path)
 				return false;
 			}
 
-			return path_normalize(buf);
+			return path_normalize(buf, false);
 		}
 	}
 
