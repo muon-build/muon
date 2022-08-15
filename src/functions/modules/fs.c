@@ -46,11 +46,12 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		return false;
 	}
 
-	if (path_is_absolute(ss->s)) {
-		*res = ss->s;
-	} else {
-		static char buf[PATH_MAX];
+	static char buf[PATH_MAX] = { 0 };
+	memset(buf, 0, PATH_MAX);
 
+	if (path_is_absolute(ss->s)) {
+		memcpy(buf, ss->s, ss->len + 1);
+	} else {
 		if ((opts & fix_file_path_expanduser) && ss->s[0] == '~') {
 			const char *home;
 			if (!(home = fs_user_home())) {
@@ -61,19 +62,21 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 			if (!path_join(buf, PATH_MAX, home, &ss->s[1])) {
 				return false;
 			}
-
-			*res = buf;
 		} else if (opts & fix_file_path_noabs) {
-			*res = ss->s;
+			memcpy(buf, ss->s, ss->len + 1);
 		} else {
 			if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), ss->s)) {
 				return false;
 			}
-
-			*res = buf;
 		}
+
 	}
 
+	if (!path_normalize(buf, true)) {
+		return false;
+	}
+
+	*res = buf;
 	return true;
 }
 
