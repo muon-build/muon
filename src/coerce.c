@@ -339,21 +339,23 @@ bool
 coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res)
 {
 	const char *p = get_cstr(wk, string);
+	char path[PATH_MAX] = { 0 };
 
-	obj s2;
 	if (path_is_absolute(p)) {
-		s2 = string;
+		const struct str *ss = get_str(wk, string);
+		memcpy(path, ss->s, ss->len + 1);
 	} else {
-		char path[PATH_MAX];
 		if (!path_join(path, PATH_MAX, dir, p)) {
 			return false;
 		}
+	}
 
-		s2 = make_str(wk, path);
+	if (!path_normalize(path, true)) {
+		return false;
 	}
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = s2;
+	*get_obj_file(wk, *res) = make_str(wk, path);
 	return true;
 }
 
