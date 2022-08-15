@@ -154,7 +154,7 @@ void
 repl(struct workspace *wk, bool dbg)
 {
 	bool loop = true;
-	obj repl_res;
+	obj repl_res = 0;
 	char *line;
 	FILE *out = stderr;
 	enum repl_cmd {
@@ -162,19 +162,22 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_exit,
 		repl_cmd_step,
 		repl_cmd_list,
+		repl_cmd_inspect,
 		repl_cmd_help,
 	};
 	enum repl_cmd cmd = repl_cmd_noop;
 	struct {
-		const char *name[4];
+		const char *name[3];
 		enum repl_cmd cmd;
-		bool valid;
+		bool valid, has_arg;
+		const char *help_text;
 	} repl_cmds[] = {
-		{ { "exit" }, repl_cmd_exit, !dbg },
-		{ { "c", "continue" }, repl_cmd_exit, dbg },
-		{ { "s", "step" }, repl_cmd_step, dbg },
-		{ { "l", "list" }, repl_cmd_list, dbg },
-		{ { "h", "help" }, repl_cmd_help, true },
+		{ { "c", "continue", 0 }, repl_cmd_exit, dbg },
+		{ { "exit", 0 }, repl_cmd_exit, !dbg },
+		{ { "h", "help", 0 }, repl_cmd_help, true },
+		{ { "i", "inspect", 0 }, repl_cmd_inspect, dbg, true, .help_text = "\\inspect <expr>" },
+		{ { "l", "list", 0 }, repl_cmd_list, dbg },
+		{ { "s", "step", 0 }, repl_cmd_step, dbg },
 		0
 	};
 
@@ -193,8 +196,15 @@ repl(struct workspace *wk, bool dbg)
 		muon_bestline_history_add(line);
 
 		if (!*line || *line == cmd_char) {
+			char *arg = NULL;
+
 			if (!*line || !line[1]) {
 				goto cmd_found;
+			}
+
+			if ((arg = strchr(line, ' '))) {
+				*arg = 0;
+				++arg;
 			}
 
 			uint32_t i, j;
@@ -202,6 +212,18 @@ repl(struct workspace *wk, bool dbg)
 				if (repl_cmds[i].valid) {
 					for (j = 0; repl_cmds[i].name[j]; ++j) {
 						if (strcmp(&line[1], repl_cmds[i].name[j]) == 0) {
+							if (repl_cmds[i].has_arg) {
+								if (!arg) {
+									fprintf(out, "missing argument\n");
+									goto cont;
+								}
+							} else {
+								if (arg) {
+									fprintf(out, "this command does not take an argument\n");
+									goto cont;
+								}
+							}
+
 							cmd = repl_cmds[i].cmd;
 							goto cmd_found;
 						}
@@ -231,6 +253,10 @@ cmd_found:
 							fprintf(out, ", ");
 						}
 					}
+
+					if (repl_cmds[i].help_text) {
+						fprintf(out, " - %s", repl_cmds[i].help_text);
+					}
 					fprintf(out, "\n");
 				}
 				break;
@@ -241,6 +267,13 @@ cmd_found:
 			case repl_cmd_step:
 				wk->dbg.stepping = true;
 				loop = false;
+				break;
+			case repl_cmd_inspect:
+				if (!eval_str(wk, arg, eval_mode_repl, &repl_res)) {
+					break;
+				}
+
+				obj_inspect(wk, out, repl_res);
 				break;
 			case repl_cmd_noop:
 				break;

@@ -1693,3 +1693,65 @@ obj_printf(struct workspace *wk, const char *fmt, ...)
 	va_end(ap);
 	return ret;
 }
+
+/*
+ * inspect - obj_to_s + more detail for some objects
+ */
+
+static void
+obj_inspect_dep(struct workspace *wk, FILE *out, const char *pre, struct build_dep *dep)
+{
+	obj_fprintf(wk, out, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
+	obj_fprintf(wk, out, "%slink_whole: %o\n", pre, dep->link_whole);
+	obj_fprintf(wk, out, "%slink_with: %o\n", pre, dep->link_with);
+	obj_fprintf(wk, out, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
+	obj_fprintf(wk, out, "%slink_args: %o\n", pre, dep->link_args);
+	obj_fprintf(wk, out, "%scompile_args: %o\n", pre, dep->compile_args);
+	obj_fprintf(wk, out, "%sinclude_directories: %o\n", pre, dep->include_directories);
+	obj_fprintf(wk, out, "%ssources: %o\n", pre, dep->sources);
+	obj_fprintf(wk, out, "%sorder_deps: %o\n", pre, dep->order_deps);
+	obj_fprintf(wk, out, "%srpath: %o\n", pre, dep->rpath);
+}
+
+void
+obj_inspect(struct workspace *wk, FILE *out, obj val)
+{
+	switch (get_obj_type(wk, val)) {
+	case obj_build_target: {
+		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+
+		fprintf(out, "build_target:\n");
+		if (tgt->name) {
+			obj_fprintf(wk, out, "    name: %o,\n", tgt->name);
+		}
+		obj_fprintf(wk, out, "    dep:\n");
+		obj_inspect_dep(wk, out, "        ", &tgt->dep);
+		obj_fprintf(wk, out, "    dep_internal:\n");
+		obj_inspect_dep(wk, out, "        ", &tgt->dep_internal);
+		break;
+	}
+	case obj_dependency: {
+		struct obj_dependency *dep = get_obj_dependency(wk, val);
+
+		fprintf(out, "dependency:\n");
+
+		if (dep->name) {
+			obj_fprintf(wk, out, "    name: %o\n", dep->name);
+		}
+		if (dep->version) {
+			obj_fprintf(wk, out, "    version: %o\n", dep->version);
+		}
+		if (dep->variables) {
+			obj_fprintf(wk, out, "    variables: '%o'\n", dep->variables);
+		}
+
+		obj_fprintf(wk, out, "    type: %d\n", dep->type);
+		obj_fprintf(wk, out, "    dep:\n");
+
+		obj_inspect_dep(wk, out, "        ", &dep->dep);
+		break;
+	}
+	default:
+		obj_fprintf(wk, out, "%o\n", val);
+	}
+}

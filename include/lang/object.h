@@ -506,6 +506,7 @@ bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
 bool obj_printf(struct workspace *wk, const char *fmt, ...)
 __attribute__ ((format(printf, 2, 3)));
+void obj_inspect(struct workspace *wk, FILE *out, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
 void obj_array_push(struct workspace *wk, obj arr, obj child);
