@@ -142,19 +142,33 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		break;
 	}
 
-	if (opts->inc && opts->inc->set) {
-		obj include_dirs = 0;
-		if (!coerce_include_dirs(wk, opts->inc->node, opts->inc->val, false, &include_dirs)) {
-			return false;
+	bool have_dep = false;
+	struct build_dep dep = { 0 };
+	if (opts->deps && opts->deps->set) {
+		have_dep = true;
+		dep_process_deps(wk, opts->deps->val, &dep);
+
+		obj_array_extend_nodup(wk, compiler_args, dep.compile_args);
+	}
+
+	{
+		obj include_dirs;
+		make_obj(wk, &include_dirs, obj_array);
+
+		if (opts->inc && opts->inc->set) {
+			obj inc;
+			if (!coerce_include_dirs(wk, opts->inc->node, opts->inc->val, false, &inc)) {
+				return false;
+			}
+			obj_array_extend_nodup(wk, include_dirs, inc);
 		}
 
-		struct setup_compiler_args_includes_ctx inc_ctx = {
-			.args = compiler_args,
-			.t = t,
-			.dont_relativize = true
-		};
+		if (have_dep) {
+			obj_array_extend_nodup(wk, include_dirs, dep.include_directories);
+		}
 
-		if (!obj_array_foreach(wk, include_dirs, &inc_ctx, setup_compiler_args_includes)) {
+		if (!setup_compiler_args_includes(wk, opts->comp_id,
+			include_dirs, compiler_args, false)) {
 			return false;
 		}
 	}
@@ -197,10 +211,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	push_args(wk, compiler_args, compilers[t].args.output(output));
 
-	if (opts->deps && opts->deps->set) {
-		struct build_dep dep = { 0 };
-		dep_process_deps(wk, opts->deps->val, &dep);
-
+	if (have_dep) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = compilers[t].linker,
 			.link_lang = comp->lang,

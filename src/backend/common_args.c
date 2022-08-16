@@ -170,8 +170,14 @@ get_option_compile_args(struct workspace *wk, const struct project *proj,
 	obj_array_extend(wk, args_id, args);
 }
 
-enum iteration_result
-setup_compiler_args_includes(struct workspace *wk, void *_ctx, obj v)
+struct setup_compiler_args_includes_ctx {
+	obj args;
+	enum compiler_type t;
+	bool dont_relativize;
+};
+
+static enum iteration_result
+setup_compiler_args_includes_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_compiler_args_includes_ctx *ctx = _ctx;
 	const char *dir;
@@ -307,6 +313,16 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj,
 	return true;
 }
 
+bool
+setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dirs, obj args, bool relativize)
+{
+	return obj_array_foreach(wk, include_dirs, &(struct setup_compiler_args_includes_ctx) {
+		.args = args,
+		.t = get_obj_compiler(wk, compiler)->type,
+		.dont_relativize = !relativize,
+	}, setup_compiler_args_includes_iter);
+}
+
 static enum iteration_result
 setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 	enum compiler_language lang, obj comp_id)
@@ -334,10 +350,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 		}
 	}
 
-	if (!obj_array_foreach(wk, inc_dirs, &(struct setup_compiler_args_includes_ctx) {
-		.args = args,
-		.t = t,
-	}, setup_compiler_args_includes)) {
+	if (!setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true)) {
 		return ir_err;
 	}
 
