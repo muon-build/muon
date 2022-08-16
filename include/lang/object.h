@@ -105,7 +105,11 @@ enum obj_typechecking_type {
 	tc_depends_kw         = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_both_libs,
 	tc_install_mode_kw    = ARG_TYPE_ARRAY_OF | tc_string | tc_number | tc_bool,
 	tc_required_kw        = tc_bool | tc_feature_opt,
-	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_string | tc_both_libs,
+	/*XXX: tc_file should not really be in tc_link_with_kw, however this is
+	 * how muon represents custom_target outputs, which are valid link_with
+	 * arguments...
+	 */
+	tc_link_with_kw       = ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_both_libs,
 	tc_message            = ARG_TYPE_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict, // doesn't handle nested types
 };
 
