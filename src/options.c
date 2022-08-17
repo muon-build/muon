@@ -577,7 +577,7 @@ get_option_value(struct workspace *wk, const struct project *proj, const char *n
 }
 
 static void
-set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, const char *overflow)
+set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 {
 	obj opt;
 	if (!get_option(wk, NULL, &WKSTR(dest), &opt)) {
@@ -589,24 +589,9 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest, 
 		return;
 	}
 
-	obj split = str_split(wk, &WKSTR(v), NULL);
-	uint32_t len = get_obj_array(wk, split)->len;
-	if (!len) {
-		return;
-	}
-
-	obj cmd;
-	obj_array_index(wk, split, 0, &cmd);
+	// TODO: implement something like shlex.split()
+	obj cmd = str_split(wk, &WKSTR(v), NULL);
 	set_option(wk, 0, opt, cmd, option_value_source_environment, false);
-
-	if (len > 1) {
-		obj_array_del(wk, split, 0);
-		if (!get_option(wk, NULL, &WKSTR(overflow), &opt)) {
-			UNREACHABLE;
-		}
-
-		extend_array_option(wk, opt, split, option_value_source_environment);
-	}
 }
 
 static void
@@ -758,17 +743,17 @@ init_global_options(struct workspace *wk)
 		"option('c_args', type: 'array', value: [])\n"
 		"option('c_link_args', type: 'array', value: [])\n"
 
-		"option('env.CC', type: 'string', value: 'cc')\n"
+		"option('env.CC', type: 'array', value: ['cc'])\n"
 		)) {
 		return false;
 	}
 
-	set_binary_from_env(wk, "CC", "env.CC", "c_args");
+	set_binary_from_env(wk, "CC", "env.CC");
 	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 
 #ifdef MUON_BOOTSTRAPPED
-	set_binary_from_env(wk, "CXX", "env.CXX", "cpp_args");
+	set_binary_from_env(wk, "CXX", "env.CXX");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 #endif

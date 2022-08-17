@@ -370,7 +370,7 @@ struct obj_test {
 };
 
 struct obj_compiler {
-	obj name;
+	obj cmd_arr;
 	obj ver;
 	obj libdirs;
 	enum compiler_type type;

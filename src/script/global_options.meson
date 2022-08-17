@@ -141,5 +141,5 @@ option('cpp_winlibs', type: 'array', value: []) # TODO
 # muon-specific options.  These are safe from being overridden because meson
 # forbids . in an opiton name
 
-option('env.CC', type: 'string', value: 'cc')
-option('env.CXX', type: 'string', value: 'c++')
+option('env.CC', type: 'array', value: ['cc'])
+option('env.CXX', type: 'array', value: ['c++'])

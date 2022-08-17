@@ -150,22 +150,37 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 }
 
 static bool
-compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
+run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, const char *arg)
+{
+	obj args;
+	obj_array_dup(wk, cmd_arr, &args);
+	obj_array_push(wk, args, make_str(wk, arg));
+
+	const char *argstr;
+	uint32_t argc;
+	join_args_argstr(wk, &argstr, &argc, args);
+
+	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+		run_cmd_ctx_destroy(cmd_ctx);
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
 {
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_argv(&cmd_ctx, cc, (char *const []){
-		(char *)cc, "--version", NULL,
-	}, NULL, 0)) {
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
 
 	if (cmd_ctx.status != 0) {
 		cmd_ctx = (struct run_cmd_ctx) { 0 };
-		if (!run_cmd_argv(&cmd_ctx, cc, (char *const []){
-			(char *)cc, "-v", NULL,
-		}, NULL, 0)) {
+		if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "-v")) {
 			run_cmd_ctx_destroy(&cmd_ctx);
 			return false;
 		}
@@ -199,8 +214,9 @@ compiler_detect_c_or_cpp(struct workspace *wk, const char *cc, obj *comp_id)
 	}
 
 	unknown = false;
-	LOG_I("detected compiler %s %s (%s), linker %s", compiler_type_to_s(type),
-		get_cstr(wk, ver), cc, linker_type_to_s(compilers[type].linker));
+	LLOG_I("detected compiler %s ", compiler_type_to_s(type));
+	obj_fprintf(wk, log_file(), "%o (%o), ", ver, cmd_arr);
+	log_plain("linker %s\n", linker_type_to_s(compilers[type].linker));
 
 detection_over:
 	if (unknown) {
@@ -211,7 +227,7 @@ detection_over:
 
 	make_obj(wk, comp_id, obj_compiler);
 	struct obj_compiler *comp = get_obj_compiler(wk, *comp_id);
-	comp->name = make_str(wk, cc);
+	comp->cmd_arr = cmd_arr;
 	comp->type = type;
 	comp->ver = ver;
 
@@ -223,9 +239,8 @@ static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_argv(&cmd_ctx, get_cstr(wk, comp->name), (char *const []){
-		(char *)get_cstr(wk, comp->name), "--print-search-dirs", NULL,
-	}, NULL, 0) || cmd_ctx.status) {
+	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "--print-search-dirs")
+	    || cmd_ctx.status) {
 		goto done;
 	}
 
@@ -278,21 +293,18 @@ done:
 bool
 compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 {
-	const char *cmd;
-
 	static const char *compiler_option[] = {
 		[compiler_language_c] = "env.CC",
 		[compiler_language_cpp] = "env.CXX",
 	};
 
-	obj cmdstr;
-	get_option_value(wk, NULL, compiler_option[lang], &cmdstr);
-	cmd = get_cstr(wk, cmdstr);
+	obj cmd_arr;
+	get_option_value(wk, NULL, compiler_option[lang], &cmd_arr);
 
 	switch (lang) {
 	case compiler_language_c:
 	case compiler_language_cpp:
-		if (!compiler_detect_c_or_cpp(wk, cmd, comp)) {
+		if (!compiler_detect_c_or_cpp(wk, cmd_arr, comp)) {
 			return false;
 		}
 

@@ -37,17 +37,21 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		break;
 	}
 
-	obj args;
+	obj args, link_args;
 	make_obj(wk, &args, obj_array);
-	obj_array_push(wk, args, comp->name);
+	obj_array_extend(wk, args, comp->cmd_arr);
 	obj_array_push(wk, args, make_str(wk, "$ARGS"));
+
+	obj_array_dup(wk, args, &link_args);
+
 	if (compilers[t].deps) {
 		push_args(wk, args, compilers[t].args.deps("$out", "$DEPFILE"));
 	}
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));
-	obj command = join_args_plain(wk, args);
+
+	obj compile_command = join_args_plain(wk, args);
 
 	obj compiler_rule = make_strf(wk, "%s%s_COMPILER",
 		get_cstr(wk, ctx->proj->rule_prefix),
@@ -57,7 +61,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 	fprintf(ctx->out, "rule %s\n"
 		" command = %s\n",
 		get_cstr(wk, compiler_rule),
-		get_cstr(wk, command));
+		get_cstr(wk, compile_command));
 	if (compilers[t].deps) {
 		fprintf(ctx->out,
 			" deps = %s\n"
@@ -68,12 +72,18 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_languag
 		" description = compiling %s $out\n\n",
 		compiler_language_to_s(l));
 
+	push_args(wk, link_args, compilers[t].args.output("$out"));
+	obj_array_push(wk, link_args, make_str(wk, "$in"));
+	obj_array_push(wk, link_args, make_str(wk, "$LINK_ARGS"));
+
+	obj link_command = join_args_plain(wk, link_args);
+
 	fprintf(ctx->out, "rule %s%s_LINKER\n"
-		" command = %s $ARGS -o $out $in $LINK_ARGS\n"
+		" command = %s\n"
 		" description = linking $out\n\n",
 		get_cstr(wk, ctx->proj->rule_prefix),
 		compiler_language_to_s(l),
-		get_cstr(wk, comp->name));
+		get_cstr(wk, link_command));
 
 	return ir_cont;
 }

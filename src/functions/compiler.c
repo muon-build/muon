@@ -124,7 +124,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
-	obj_array_push(wk, compiler_args, comp->name);
+	obj_array_extend(wk, compiler_args, comp->cmd_arr);
 
 	get_std_args(wk, current_project(wk), NULL, compiler_args, comp->lang, t);
 
@@ -1953,8 +1953,7 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
-	obj_array_push(wk, *res, get_obj_compiler(wk, rcvr)->name);
+	*res = get_obj_compiler(wk, rcvr)->cmd_arr;
 	return true;
 }
 
