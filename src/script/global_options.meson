@@ -101,10 +101,10 @@ option(
     type: 'combo',
     value: 'off',
     choices: ['off', 'generate', 'use'],
-) # TODO
+)
 option('b_sanitize', type: 'string', value: 'none')
-option('b_staticpic', type: 'boolean', value: true) # TODO
-option('b_pie', type: 'boolean', value: false) # TODO
+option('b_staticpic', type: 'boolean', value: true)
+option('b_pie', type: 'boolean', value: false)
 option(
     'b_vscrt',
     type: 'combo',
