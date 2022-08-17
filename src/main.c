@@ -94,7 +94,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		LOG_E("missing command");
 		return false;
 	} else if (argi < argc && opts.args) {
-		LOG_E("command specified by trailing arguments and -a");
+		LOG_E("command cannot be specified by trailing arguments *and* -a");
 		return false;
 	}
 
