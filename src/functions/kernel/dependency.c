@@ -174,7 +174,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	if (get_obj_type(wk, *ctx->res) != obj_dependency) {
-		interp_warning(wk, ctx->fallback_node, "overrided dependency is not a dependency object");
+		interp_warning(wk, ctx->fallback_node, "overridden dependency is not a dependency object");
 		goto not_found;
 	}
 

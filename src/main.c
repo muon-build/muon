@@ -86,7 +86,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -f <file> - feed file to input\n"
 		"  -c <file> - capture output to file\n"
-		"  -e <file> - load environemnt from data file\n"
+		"  -e <file> - load environment from data file\n"
 		"  -a <file> - load arguments from data file\n",
 		NULL, -1)
 
@@ -770,7 +770,7 @@ ret:
 static bool
 cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	printf("muon v%s%s%s\nmeson compatability version %s\nenabled features:",
+	printf("muon v%s%s%s\nmeson compatibility version %s\nenabled features:",
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,

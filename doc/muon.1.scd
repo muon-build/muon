@@ -101,7 +101,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 |  space_array
 :  bool
 :  false
-:  Wether to include spaces around array elements (ex. [1] vs [ 1 ])
+:  Whether to include spaces around array elements (ex. [1] vs [ 1 ])
 |  kwa_ml
 :  bool
 :  false
@@ -110,7 +110,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 |  wide_colon
 :  bool
 :  false
-:  Wether to put a space before the colon operator (ex. `key : val`)
+:  Whether to put a space before the colon operator (ex. `key : val`)
 |  no_single_comma_function
 :  bool
 :  false
