@@ -167,6 +167,7 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->dep_overrides_dynamic, obj_dict);
 	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	make_obj(wk, &wk->global_opts, obj_dict);
+	make_obj(wk, &wk->compiler_check_cache, obj_dict);
 
 	if (!init_global_options(wk)) {
 		UNREACHABLE;

@@ -658,15 +658,27 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:m:") {
+	OPTSTART("D:m:C:") {
 		case 'D':
 			if (!parse_and_set_cmdline_option(&wk, optarg)) {
-				return false;
+				goto err;
 			}
 			break;
+		case 'C': {
+			FILE *f;
+			if (!(f = fs_fopen(optarg, "r"))) {
+				goto err;
+			} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
+				LOG_E("failed to load compiler check cache");
+				goto err;
+			} else if (!fs_fclose(f)) {
+				goto err;
+			}
+			break;
+		}
 		case 'm':
 			if (!machine_file_parse(&wk, optarg)) {
-				return false;
+				goto err;
 			}
 			break;
 	} OPTEND(argv[argi],

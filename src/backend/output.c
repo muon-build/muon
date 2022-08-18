@@ -9,6 +9,7 @@ const struct output_path output_path = {
 	.summary = "summary.txt",
 	.tests = "tests.dat",
 	.install = "install.dat",
+	.compiler_check_cache = "compiler_check_cache.dat",
 };
 
 FILE *

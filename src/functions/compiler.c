@@ -17,6 +17,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "sha_256.h"
 
 enum compile_mode {
 	compile_mode_preprocess,
@@ -34,6 +35,9 @@ struct compiler_check_opts {
 	bool skip_run_check;
 	bool src_is_path;
 	const char *output_path;
+
+	bool from_cache;
+	obj cache_key, cache_val;
 };
 
 static const char *
@@ -42,22 +46,18 @@ bool_to_yn(bool v)
 	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
 }
 
-static void
-compiler_logv(struct workspace *wk, obj compiler, const char *fmt, va_list args)
-{
-	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
-	log_plainv(fmt, args);
-	log_plain("\n");
-}
-
 __attribute__ ((format(printf, 3, 4)))
 static void
 compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	compiler_logv(wk, compiler, fmt, args);
+
+	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
+	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
+	log_plainv(fmt, args);
+	log_plain("\n");
+
 	va_end(args);
 }
 
@@ -67,14 +67,25 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 {
 	va_list args;
 	va_start(args, fmt);
-	compiler_logv(wk, opts->comp_id, fmt, args);
+
+	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
+	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
+	log_plainv(fmt, args);
+
+	if (opts->from_cache) {
+		log_plain(" \033[36mcached\033[0m");
+	}
+
+	log_plain("\n");
+
 	va_end(args);
 }
 
 static bool
-write_test_source(struct workspace *wk, const struct str *src, enum compiler_language l, const char **res)
+test_source_path(struct workspace *wk, enum compiler_language l, const char **res)
 {
 	static char test_source_path[PATH_MAX];
+
 	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.")) {
 		return false;
 	} else if (!path_add_suffix(test_source_path, PATH_MAX, compiler_language_extension(l))) {
@@ -82,10 +93,6 @@ write_test_source(struct workspace *wk, const struct str *src, enum compiler_lan
 	}
 
 	*res = test_source_path;
-
-	if (!fs_write(test_source_path, (const uint8_t *)src->s, src->len)) {
-		return false;
-	}
 
 	return true;
 }
@@ -99,6 +106,87 @@ add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, o
 		// for many C++ checks. Particularly, the has_header_symbol check is
 		// too strict without this and always fails.
 		obj_array_push(wk, args, make_str(wk, "-fpermissive"));
+	}
+}
+
+static bool
+compiler_check_cache(struct workspace *wk, struct obj_compiler *comp,
+	const char *argstr, uint32_t argc, const char *src,
+	uint8_t sha_res[32], bool *res, obj *res_val)
+{
+	uint32_t argstr_len;
+	{
+		uint32_t i = 0;
+		const char *p = argstr;
+		for (;; ++p) {
+			if (!p[0]) {
+				if (++i >= argc) {
+					break;
+				}
+			}
+		}
+
+		argstr_len = p - argstr;
+	}
+
+	enum {
+		sha_idx_argstr = 0,
+		sha_idx_ver = sha_idx_argstr + 32,
+		sha_idx_src = sha_idx_ver + 32,
+		sha_len = sha_idx_src + 32
+	};
+
+	uint8_t sha[sha_len] = { 0 };
+
+	calc_sha_256(&sha[sha_idx_argstr], argstr, argstr_len);
+
+	if (comp->ver) {
+		const struct str *ver = get_str(wk, comp->ver);
+		calc_sha_256(&sha[sha_idx_ver], ver->s, ver->len);
+	}
+
+	calc_sha_256(&sha[sha_idx_src], src, strlen(src));
+
+	calc_sha_256(sha_res, sha, sha_len);
+
+	/* LLOG_I("sha: "); */
+	/* uint32_t i; */
+	/* for (i = 0; i < 32; ++i) { */
+	/* 	log_plain("%02x", sha_res[i]); */
+	/* } */
+	/* log_plain("\n"); */
+
+	obj arr;
+	if (obj_dict_index_strn(wk, wk->compiler_check_cache,
+		(const char *)sha_res, 32, &arr)) {
+		obj cache_res;
+		obj_array_index(wk, arr, 0, &cache_res);
+		*res = get_obj_bool(wk, cache_res);
+		obj_array_index(wk, arr, 1, res_val);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void
+set_compiler_cache(struct workspace *wk, obj key, bool res, obj val)
+{
+	obj arr, cache_res;
+	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
+		obj_array_index(wk, arr, 0, &cache_res);
+		set_obj_bool(wk, cache_res, res);
+		obj_array_set(wk, arr, 1, val);
+	} else {
+		make_obj(wk, &arr, obj_array);
+
+		make_obj(wk, &cache_res, obj_bool);
+		set_obj_bool(wk, cache_res, res);
+
+		obj_array_push(wk, arr, cache_res);
+		obj_array_push(wk, arr, val);
+
+		obj_dict_set(wk, wk->compiler_check_cache, key, arr);
 	}
 }
 
@@ -191,19 +279,25 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	if (opts->src_is_path) {
 		path = src;
 	} else {
-		if (!write_test_source(wk, &WKSTR(src), comp->lang, &path)) {
+		if (!test_source_path(wk, comp->lang, &path)) {
 			return false;
 		}
 	}
 
 	obj_array_push(wk, compiler_args, make_str(wk, path));
 
-	const char *output = "/dev/null";
+	const char *output;
 	if (opts->output_path) {
 		output = opts->output_path;;
 	} else if (opts->mode == compile_mode_run) {
 		static char test_output_path[PATH_MAX];
 		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "compiler_check_exe")) {
+			return false;
+		}
+		output = test_output_path;
+	} else {
+		static char test_output_path[PATH_MAX];
+		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test.o")) {
 			return false;
 		}
 		output = test_output_path;
@@ -232,6 +326,18 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	const char *argstr;
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, compiler_args);
+
+	uint8_t sha[32];
+	if (compiler_check_cache(wk, comp, argstr, argc, src, sha, res, &opts->cache_val)) {
+		opts->from_cache = true;
+		return true;
+	}
+
+	if (!opts->src_is_path) {
+		if (!fs_write(path, (const uint8_t *)src, strlen(src))) {
+			return false;
+		}
+	}
 
 	L("compiling: '%s'", path);
 
@@ -269,6 +375,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	} else {
 		*res = cmd_ctx.status == 0;
 	}
+
+	opts->cache_key = make_strn(wk, (const char *)sha, 32);
+	set_compiler_cache(wk, opts->cache_key, *res, 0);
 
 	ret = true;
 ret:
@@ -424,16 +533,24 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		);
 
 	bool ok;
-	int64_t size;
 	if (compiler_check(wk, &opts, src, an[0].node, &ok) && ok) {
-		size = compiler_check_parse_output_int(&opts);
+		if (!opts.from_cache) {
+			make_obj(wk, res, obj_number);
+			set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
+		}
 	} else {
-		size  = -1;
+		if (!opts.from_cache) {
+			make_obj(wk, res, obj_number);
+			set_obj_number(wk, *res, -1);
+		}
 	}
 
-	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, size);
-	run_cmd_ctx_destroy(&opts.cmd_ctx);
+	if (opts.from_cache) {
+		*res = opts.cache_val;
+	} else {
+		run_cmd_ctx_destroy(&opts.cmd_ctx);
+		set_compiler_cache(wk, opts.cache_key, true, *res);
+	}
 
 	compiler_check_log(wk, &opts,
 		"sizeof %s: %" PRId64,
@@ -474,9 +591,14 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		return false;
 	}
 
-	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
-	run_cmd_ctx_destroy(&opts.cmd_ctx);
+	if (opts.from_cache) {
+		*res = opts.cache_val;
+	} else {
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
+		run_cmd_ctx_destroy(&opts.cmd_ctx);
+		set_compiler_cache(wk, opts.cache_key, true, *res);
+	}
 
 	compiler_check_log(wk, &opts,
 		"alignment of %s: %" PRId64,
@@ -519,9 +641,20 @@ func_compiler_compute_int(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		return false;
 	}
 
-	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
-	run_cmd_ctx_destroy(&opts.cmd_ctx);
+	if (opts.from_cache) {
+		*res = opts.cache_val;
+	} else {
+		make_obj(wk, res, obj_number);
+		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
+		run_cmd_ctx_destroy(&opts.cmd_ctx);
+		set_compiler_cache(wk, opts.cache_key, true, *res);
+	}
+
+	compiler_check_log(wk, &opts,
+		"%s computed to %" PRId64,
+		get_cstr(wk, an[0].val),
+		get_obj_number(wk, *res)
+		);
 	return true;
 }
 
@@ -1016,6 +1149,11 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		goto failed;
 	}
 
+	if (opts->from_cache) {
+		*res = opts->cache_val;
+		goto done;
+	}
+
 	if (!fs_read_entire_file(output_path, &output)) {
 		return false;
 	}
@@ -1079,9 +1217,11 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		}
 	}
 
-	compiler_check_log(wk, opts, "defines %s", def);
-
 	fs_source_destroy(&output);
+
+	set_compiler_cache(wk, opts->cache_key, true, *res);
+done:
+	compiler_check_log(wk, opts, "defines %s as '%s'", def, get_cstr(wk, *res));
 	return true;
 failed:
 	fs_source_destroy(&output);

@@ -79,6 +79,8 @@ struct workspace {
 	obj find_program_overrides;
 	/* global options */
 	obj global_opts;
+	/* dict[sha_512 -> [bool, any]] */
+	obj compiler_check_cache;
 	/* ----------------- */
 
 	struct bucket_array chrs;
