@@ -150,11 +150,6 @@ void
 get_option_compile_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
 {
-#ifndef MUON_BOOTSTRAPPED
-	// If we aren't bootstrapped, we don't yet have any _args options defined
-	return;
-#endif
-
 	obj args;
 	switch (lang) {
 	case compiler_language_c:
@@ -410,11 +405,6 @@ void
 get_option_link_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
 {
-#ifndef MUON_BOOTSTRAPPED
-	// If we aren't bootstrapped, we don't yet have any _link_args options defined
-	return;
-#endif
-
 	obj args;
 	switch (lang) {
 	case compiler_language_c:

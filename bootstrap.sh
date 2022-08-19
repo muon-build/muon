@@ -34,4 +34,4 @@ else
 	pkgconf_libs=""
 fi
 
-${CC:-c99} ${CFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$output"
+${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$output"
