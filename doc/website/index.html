@@ -32,18 +32,18 @@
         display: block;
       }
 
-      .title {
+      .logo {
         display: flex;
         flex-direction: row;
         align-items: center;
         font-size: 40px;
       }
 
-      .title small {
+      .logo small {
         font-size: 10px;
       }
 
-      .title_text {
+      .logo_text {
         display: flex;
         flex-direction: column;
         padding: 10px;
@@ -51,14 +51,21 @@
     </style>
   </head>
   <body>
-    <div class="title">
-      <img src="muon_logo.svg" alt="muon logo" height=64></img>
-      <div class="title_text">
-        <span>muon</span>
-        <small>v@version@-@vcs_tag@</small>
+    <div>
+      <div class="logo">
+        <img src="muon_logo.svg" alt="muon logo" height=64></img>
+        <div class="logo_text">
+          <span>muon</span>
+          <small>v@version@-@vcs_tag@</small>
+        </div>
       </div>
+      <a href="https://builds.sr.ht/~lattis/muon/commits/master">
+        <img src="https://builds.sr.ht/~lattis/muon/commits/master.svg" alt="master branch ci status">
+      </a>
     </div>
-    <p>A meson-compatible build system.</p>
+    <div>
+      <p>A meson-compatible build system.</p>
+    </div>
     <nav>
       <div>
         <a href="https://git.sr.ht/~lattis/muon">source</a>
@@ -91,6 +98,14 @@
           - <a href="/releases/muon-amd64-linux-static.md5">md5</a>
           <br>
           <a href="https://git.sr.ht/~lattis/muon/archive/@vcs_tag@.tar.gz">muon-@vcs_tag@.tar.gz</a>
+        </div>
+      </div>
+      <div>
+        repology
+        <div>
+          <a href="https://repology.org/project/muon-meson/versions">
+            <img src="https://repology.org/badge/vertical-allrepos/muon-meson.svg" alt="Packaging status">
+          </a>
         </div>
       </div>
     </nav>
