@@ -5,5 +5,5 @@
 const struct muon_version muon_version = {
 	.version = "@version@",
 	.vcs_tag = "@vcs_tag@",
-	.meson_compat = "0.62.99",
+	.meson_compat = "0.63.99",
 };
