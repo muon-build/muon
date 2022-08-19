@@ -3,7 +3,7 @@
 "
 function! FormatMeson(buffer) abort
   return {
-  \   'command': 'muon fmt_unstable -'
+  \   'command': 'muon fmt -'
   \}
 endfunction
 

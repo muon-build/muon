@@ -17,7 +17,7 @@ Other differences from meson are described in `doc/differences.md`
 
 - `muon analyze` - a static analyzer for meson.build files.  Capable of doing
   type inference, checking unused variables, undeclared variables, etc.
-- `muon fmt_unstable` - a meson.build code formatter
+- `muon fmt` - a meson.build code formatter
 - An interactive stepping debugger with the `dbg()` function.
 - Fast
 

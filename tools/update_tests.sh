@@ -28,13 +28,13 @@ copy_tests_() {
 			fi
 		else
 			if [ "$basename" = "meson.build" ] || [ "$basename" = "meson_options.txt" ]; then
-				if $muon fmt_unstable "$src_file" | cmp_ "$dest"; then
+				if $muon fmt "$src_file" | cmp_ "$dest"; then
 					:
 				else
 					if [ "$dryrun" ]; then
 						printf "\033[35mmodified\033[0m %s\n" "$common"
 					else
-						$muon fmt_unstable "$src_file" > "$dest"
+						$muon fmt "$src_file" > "$dest"
 					fi
 				fi
 			else

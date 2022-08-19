@@ -55,13 +55,11 @@ print_usage(FILE *f, const struct command *commands,
 		fprintf(f, "commands:\n");
 
 		for (i = 0; commands[i].name; ++i) {
-			fprintf(f, "  %-12s", commands[i].name);
-
 			if (commands[i].desc) {
+				fprintf(f, "  %-12s", commands[i].name);
 				fprintf(f, "- %s", commands[i].desc);
+				fputc('\n', f);
 			}
-
-			fputc('\n', f);
 		}
 	}
 }

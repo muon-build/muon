@@ -720,6 +720,10 @@ err:
 static bool
 cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	if (strcmp(argv[argi], "fmt_unstable") == 0) {
+		LOG_W("the subcommand name fmt_unstable is deprecated, please use fmt instead");
+	}
+
 	struct {
 		const char *filename;
 		const char *cfg_path;
@@ -815,7 +819,8 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
 		{ "benchmark", cmd_test, "run benchmarks" },
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "fmt_unstable", cmd_format, "format meson source file" },
+		{ "fmt_unstable", cmd_format, NULL },
+		{ "fmt", cmd_format, "format meson source file" },
 		{ "info", cmd_info, "display project information" },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
