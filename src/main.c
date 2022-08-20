@@ -679,6 +679,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	} OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n",
+		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
 		NULL, 1)
 
 	const char *build = argv[argi];
