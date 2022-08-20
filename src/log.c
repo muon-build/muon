@@ -134,15 +134,15 @@ log_init(void)
 	uint64_t ll;
 
 	assert(!log_cfg.initialized);
+	log_cfg.file = stderr;
+	log_cfg.initialized = true;
 
 	if ((sll = getenv("MUON_LOG_LVL"))) {
 		ll = strtoul(sll, NULL, 10);
 		log_set_lvl(ll);
 	}
 
-	log_cfg.file = stderr;
 	log_cfg.clr = fs_is_a_tty(log_cfg.file);
-	log_cfg.initialized = true;
 }
 
 void
