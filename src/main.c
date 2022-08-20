@@ -658,7 +658,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:m:C:") {
+	OPTSTART("D:C:") {
 		case 'D':
 			if (!parse_and_set_cmdline_option(&wk, optarg)) {
 				goto err;
@@ -676,11 +676,6 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 			}
 			break;
 		}
-		case 'm':
-			if (!machine_file_parse(&wk, optarg)) {
-				goto err;
-			}
-			break;
 	} OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n",
