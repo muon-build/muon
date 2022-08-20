@@ -1150,7 +1150,7 @@ interp_block:
 
 		assert(n->type == node_block);
 
-		obj obj_l, obj_r; // these return values are disregarded
+		obj obj_l; // this return value is disregarded
 
 		// XXX: this is a hacky way to avoid messing up the debug node
 		// for eval'd strings
@@ -1183,12 +1183,7 @@ interp_block:
 				n = r;
 				goto interp_block;
 			default:
-				if (!wk->interp_node(wk, n->r, &obj_r)) {
-					return false;
-				}
-
-				*res = obj_r;
-				break;
+				UNREACHABLE;
 			}
 		} else {
 			*res = obj_l;
