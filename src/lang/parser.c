@@ -1087,7 +1087,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 	struct node *n = make_node(p, id, node_if);
 	n->subtype = if_type;
 
-	if (if_type == if_if || if_elseif) {
+	if (if_type == if_if || if_type == if_elseif) {
 		add_child(p, *id, node_child_l, cond_id);
 	}
 
