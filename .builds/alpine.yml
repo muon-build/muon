@@ -1,6 +1,7 @@
 image: alpine/latest
 secrets:
   - 2fe5fef6-db89-4410-8147-07e314589d18
+  - 18083346-dfba-4050-bc05-413561f99228
 packages:
   - curl-dev
   - libarchive-dev
@@ -33,6 +34,9 @@ sources:
 environment:
   PKG_CONFIG_PATH: /usr/lib/pkgconfig
 tasks:
+  - push_to_gh_mirror: |
+      cd muon
+      .builds/push_to_gh_mirror.sh
   - install_tcc: |
       sudo sh -c "echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories"
       sudo apk update
