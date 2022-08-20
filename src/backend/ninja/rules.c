@@ -163,7 +163,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		return false;
 	}
 
-	obj_array_push(wk, regen_args, make_str(wk, "-C"));
+	obj_array_push(wk, regen_args, make_str(wk, "-c"));
 	obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path));
 
 	obj_dict_foreach(wk, wk->global_opts, &regen_args, add_global_opts_set_from_env_iter);
