@@ -1,5 +1,6 @@
 #include "posix.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "error.h"
@@ -160,6 +161,7 @@ repl(struct workspace *wk, bool dbg)
 	enum repl_cmd {
 		repl_cmd_noop,
 		repl_cmd_exit,
+		repl_cmd_abort,
 		repl_cmd_step,
 		repl_cmd_list,
 		repl_cmd_inspect,
@@ -172,6 +174,7 @@ repl(struct workspace *wk, bool dbg)
 		bool valid, has_arg;
 		const char *help_text;
 	} repl_cmds[] = {
+		{ { "abort", 0 }, repl_cmd_abort, dbg },
 		{ { "c", "continue", 0 }, repl_cmd_exit, dbg },
 		{ { "exit", 0 }, repl_cmd_exit, !dbg },
 		{ { "h", "help", 0 }, repl_cmd_help, true },
@@ -235,6 +238,9 @@ repl(struct workspace *wk, bool dbg)
 			goto cont;
 cmd_found:
 			switch (cmd) {
+			case repl_cmd_abort:
+				exit(1);
+				break;
 			case repl_cmd_exit:
 				wk->dbg.stepping = false;
 				loop = false;
