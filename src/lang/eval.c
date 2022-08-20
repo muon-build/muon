@@ -151,6 +151,16 @@ source_data_destroy(struct source_data *sdata)
 	}
 }
 
+static bool
+repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
+{
+	bool ret, o_break_on_err = wk->dbg.break_on_err;
+	wk->dbg.break_on_err = false;
+	ret = eval_str(wk, str, eval_mode_repl, repl_res);
+	wk->dbg.break_on_err = o_break_on_err;
+	return ret;
+}
+
 void
 repl(struct workspace *wk, bool dbg)
 {
@@ -275,7 +285,7 @@ cmd_found:
 				loop = false;
 				break;
 			case repl_cmd_inspect:
-				if (!eval_str(wk, arg, eval_mode_repl, &repl_res)) {
+				if (!repl_eval_str(wk, arg, &repl_res)) {
 					break;
 				}
 
@@ -287,7 +297,7 @@ cmd_found:
 		} else {
 			cmd = repl_cmd_noop;
 
-			if (!eval_str(wk, line, eval_mode_repl, &repl_res)) {
+			if (!repl_eval_str(wk, line, &repl_res)) {
 				goto cont;
 			}
 

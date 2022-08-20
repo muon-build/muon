@@ -1159,8 +1159,13 @@ interp_block:
 		if (!is_internal && !wk->dbg.stepping) {
 			wk->dbg.node = n->l;
 		}
+
 		if (!wk->interp_node(wk, n->l, &obj_l)) {
-			return false;
+			if (wk->dbg.break_on_err) {
+				repl(wk, true);
+			} else {
+				return false;
+			}
 		}
 
 		if (!is_internal

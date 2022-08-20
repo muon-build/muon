@@ -115,7 +115,7 @@ struct workspace {
 	enum language_mode lang_mode;
 	struct {
 		uint32_t node, last_line;
-		bool stepping;
+		bool stepping, break_on_err;
 	} dbg;
 };
 

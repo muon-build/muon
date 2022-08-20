@@ -658,7 +658,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:c:") {
+	OPTSTART("D:c:b") {
 		case 'D':
 			if (!parse_and_set_cmdline_option(&wk, optarg)) {
 				goto err;
@@ -676,10 +676,14 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 			}
 			break;
 		}
+		case 'b':
+			wk.dbg.break_on_err = true;
+			break;
 	} OPTEND(argv[argi],
 		" <build dir>",
-		"  -D <option>=<value> - set project options\n",
+		"  -D <option>=<value> - set project options\n"
 		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
+		"  -b - break on errors\n",
 		NULL, 1)
 
 	const char *build = argv[argi];
