@@ -12,4 +12,4 @@ EOF
 chmod 600 ~/.ssh/config
 
 git remote add github git@github.com:annacrombie/muon.git
-git push --force --all github
+git push --force --all --follow-tags github
