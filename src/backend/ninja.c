@@ -186,6 +186,19 @@ ninja_write_summary_file(struct workspace *wk, void *_ctx, FILE *out)
 	return true;
 }
 
+static bool
+ninja_write_option_info(struct workspace *wk, void *_ctx, FILE *out)
+{
+	obj arr;
+	make_obj(wk, &arr, obj_array);
+	obj_array_push(wk, arr, wk->global_opts);
+
+	struct project *main_proj = darr_get(&wk->projects, 0);
+	obj_array_push(wk, arr, main_proj->opts);
+
+	return serial_dump(wk, arr, out);
+}
+
 bool
 ninja_write_all(struct workspace *wk)
 {
@@ -197,10 +210,10 @@ ninja_write_all(struct workspace *wk)
 	      && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
 	      && with_open(wk->muon_private, output_path.compiler_check_cache, wk, NULL, ninja_write_compiler_check_cache)
 	      && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
+	      && with_open(wk->muon_private, output_path.option_info, wk, NULL, ninja_write_option_info)
 	      )) {
 		return false;
 	}
-
 
 	{/* compile_commands.json */
 		obj compdb_args;

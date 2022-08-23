@@ -2,6 +2,8 @@
 #define MUON_OPTIONS_H
 #include "lang/workspace.h"
 
+extern bool created_options_are_builtin;
+
 struct option_override {
 	// strings
 	obj proj, name, val;
@@ -38,7 +40,7 @@ enum tgt_type get_option_default_library(struct workspace *wk);
 bool get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback);
 
 struct list_options_opts {
-	bool list_all;
+	bool list_all, only_modified;
 };
 bool list_options(const struct list_options_opts *list_opts);
 #endif

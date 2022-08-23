@@ -163,12 +163,17 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*internal eval*.
 
 ## info options
-	*muon* *info* *options* [*-a*]
+	*muon* *info* *options* [*-a*] [*-m*]
 
-	Lists available project options and defaults
+	Lists available project options and defaults.  This command may either
+	be run from the project root or from a build directory.  Running this
+	command from a build directory highlights configured option values in
+	the output, whereas running it from the project root causes the default
+	value for each option to be highlighted.
 
 	*OPTIONS*:
 	- *-a* - Include builtin global and per-project options in the output.
+	- *-m* - Only display option values that have been modified.
 
 ## info summary
 	*muon* *info* *summary*

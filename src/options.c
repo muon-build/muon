@@ -4,14 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "backend/output.h"
 #include "embedded.h"
 #include "error.h"
 #include "lang/interpreter.h"
+#include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+
+bool created_options_are_builtin = false;
 
 static const char *build_option_type_to_s[build_option_type_count] = {
 	[op_string] = "string",
@@ -515,6 +519,11 @@ create_option(struct workspace *wk, uint32_t node, obj opts, obj opt, obj val)
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
+
+	if (created_options_are_builtin) {
+		o->builtin = true;
+	}
+
 	obj _;
 	struct project *proj = NULL;
 	if (wk->projects.len) {
@@ -625,7 +634,9 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 	enum language_mode old_mode = wk->lang_mode;
 	wk->lang_mode = language_opts;
 	obj _;
+	created_options_are_builtin = true;
 	bool ret = eval_str(wk, opts, eval_mode_default, &_);
+	created_options_are_builtin = false;
 	wk->lang_mode = old_mode;
 	return ret;
 }
@@ -984,10 +995,23 @@ make_option_choices_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+struct list_options_ctx {
+	bool show_builtin;
+	const struct list_options_opts *list_opts;
+};
+
 static enum iteration_result
 list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
+	struct list_options_ctx *ctx = _ctx;
 	struct obj_option *opt = get_obj_option(wk, val);
+
+	if (opt->builtin != ctx->show_builtin) {
+		return ir_cont;
+	} else if (ctx->list_opts->only_modified && opt->source == option_value_source_default) {
+		return ir_cont;
+	}
+
 	/* const char *option_type_names[] = { */
 	/* 	[op_string] = "string", */
 	/* 	[op_boolean] = "boolean", */
@@ -1101,6 +1125,10 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		UNREACHABLE;
 	}
 
+	if (opt->source != option_value_source_default) {
+		obj_printf(wk, "*");
+	}
+
 	if (opt->description) {
 		obj_printf(wk, "\n    %#o", opt->description);
 	}
@@ -1121,20 +1149,60 @@ list_options(const struct list_options_opts *list_opts)
 	struct project *proj = darr_get(&wk.projects, 0);
 	make_obj(&wk, &proj->opts, obj_dict);
 
-	char meson_opts[PATH_MAX];
-	if (!path_make_absolute(meson_opts, PATH_MAX, "meson_options.txt")) {
-		goto ret;
-	}
-
-	if (fs_file_exists(meson_opts)) {
-		if (!wk.eval_project_file(&wk, meson_opts)) {
+	if (fs_file_exists("meson.build")) {
+		char meson_opts[PATH_MAX];
+		if (!path_make_absolute(meson_opts, PATH_MAX, "meson_options.txt")) {
 			goto ret;
 		}
+
+		if (fs_file_exists(meson_opts)) {
+			if (!wk.eval_project_file(&wk, meson_opts)) {
+				goto ret;
+			}
+		}
+
+		if (list_opts->list_all) {
+			make_obj(&wk, &current_project(&wk)->opts, obj_dict);
+			if (!init_per_project_options(&wk)) {
+				goto ret;
+			}
+		}
+	} else {
+		char option_info[PATH_MAX];
+		if (!path_join(option_info, PATH_MAX, output_path.private_dir, output_path.option_info)) {
+			goto ret;
+		}
+
+		if (!fs_file_exists(option_info)) {
+			LOG_I("run this command must be run from a build directory or the project root");
+			goto ret;
+		}
+
+		FILE *f;
+		if (!(f = fs_fopen(option_info, "rb"))) {
+			goto ret;
+		}
+
+		obj arr;
+		if (!serial_load(&wk, &arr, f)) {
+			goto ret;
+		}
+
+		if (!fs_fclose(f)) {
+			goto ret;
+		}
+
+		obj_array_index(&wk, arr, 0, &wk.global_opts);
+		obj_array_index(&wk, arr, 1, &current_project(&wk)->opts);
 	}
+
+	struct list_options_ctx ctx = { .list_opts = list_opts };
 
 	if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
 		printf("project options:\n");
-		obj_dict_foreach(&wk, current_project(&wk)->opts, NULL, list_options_iter);
+		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
+	} else if (!list_opts->list_all) {
+		printf("no project options defined\n");
 	}
 
 	if (list_opts->list_all) {
@@ -1142,16 +1210,14 @@ list_options(const struct list_options_opts *list_opts)
 			printf("\n");
 		}
 
-		make_obj(&wk, &current_project(&wk)->opts, obj_dict);
-		if (!init_per_project_options(&wk)) {
-			goto ret;
-		}
+		ctx.show_builtin = true;
+
 		printf("project builtin-options:\n");
-		obj_dict_foreach(&wk, current_project(&wk)->opts, NULL, list_options_iter);
+		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
 		printf("\n");
 
 		printf("global options:\n");
-		obj_dict_foreach(&wk, wk.global_opts, NULL, list_options_iter);
+		obj_dict_foreach(&wk, wk.global_opts, &ctx, list_options_iter);
 	}
 
 	ret = true;

@@ -436,7 +436,7 @@ struct obj_option {
 	obj description;
 	enum option_value_source source;
 	enum build_option_type type;
-	bool yield;
+	bool yield, builtin;
 };
 
 struct obj_generator {

@@ -255,12 +255,16 @@ static bool
 cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct list_options_opts opts = { 0 };
-	OPTSTART("a") {
+	OPTSTART("am") {
 		case 'a':
 			opts.list_all = true;
 			break;
+		case 'm':
+			opts.only_modified = true;
+			break;
 	} OPTEND(argv[argi], "",
 		"  -a - list all options"
+		"  -m - list only modified options"
 		,
 		NULL, 0)
 

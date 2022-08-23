@@ -1170,7 +1170,14 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		struct obj_option *opt = get_obj_option(wk_src, val),
 				  *o = get_obj_option(wk_dest, *ret);
 
+		o->source = opt->source;
 		o->type = opt->type;
+		o->builtin = opt->builtin;
+		o->yield = opt->yield;
+
+		if (!obj_clone(wk_src, wk_dest, opt->name, &o->name)) {
+			return false;
+		}
 
 		if (!obj_clone(wk_src, wk_dest, opt->val, &o->val)) {
 			return false;
@@ -1188,6 +1195,13 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 			return false;
 		}
 
+		if (!obj_clone(wk_src, wk_dest, opt->deprecated, &o->deprecated)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, opt->description, &o->description)) {
+			return false;
+		}
 		return true;
 	}
 	case obj_feature_opt: {

@@ -10,6 +10,7 @@ const struct output_path output_path = {
 	.tests = "tests.dat",
 	.install = "install.dat",
 	.compiler_check_cache = "compiler_check_cache.dat",
+	.option_info = "option_info.dat",
 };
 
 FILE *
