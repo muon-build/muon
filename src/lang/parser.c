@@ -85,16 +85,6 @@ parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
 	va_end(args);
 }
 
-__attribute__ ((format(printf, 3, 4)))
-static void
-parse_warning(struct parser *p, struct token *err_tok, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	parse_diagnostic(p, err_tok, log_warn, fmt, args);
-	va_end(args);
-}
-
 static struct token *
 get_next_tok(struct parser *p)
 {
@@ -1062,10 +1052,6 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 
 	if (!parse_block(p, &block_id)) {
 		return false;
-	}
-
-	if (get_node(p->ast, block_id)->type == node_empty) {
-		parse_warning(p, if_, "empty if statement block");
 	}
 
 	if (if_type == if_if || if_type == if_elseif) {
