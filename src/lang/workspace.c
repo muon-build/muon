@@ -286,7 +286,9 @@ print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
 	FILE *out = _ctx;
 
-	obj_fprintf(wk, out, "    %#o\n", k);
+	if (get_str(wk, k)->len) {
+		obj_fprintf(wk, out, "    %#o\n", k);
+	}
 
 	obj_dict_foreach(wk, v, out, print_summaries_line_iter);
 	return ir_cont;
