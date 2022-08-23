@@ -314,7 +314,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 			printed_summary_header = true;
 		}
 
-		fprintf(out, "- %s %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
+		fprintf(out, "- %s %s\n", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
 		obj_dict_foreach(wk, proj->summary, out, print_summaries_section_iter);
 	}
 }
