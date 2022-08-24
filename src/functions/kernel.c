@@ -20,6 +20,7 @@
 #include "functions/string.h"
 #include "guess.h"
 #include "lang/interpreter.h"
+#include "lang/serial.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
@@ -1810,6 +1811,66 @@ func_dbg(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_serial_load(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj str;
+	coerce_string(wk, an[0].node, an[0].val, &str);
+
+	FILE *f;
+	if (!(f = fs_fopen(get_cstr(wk, str), "rb"))) {
+		return false;
+	}
+
+	bool ret = false;
+	if (!serial_load(wk, res, f)) {
+		goto ret;
+	}
+
+	if (!fs_fclose(f)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	return ret;
+}
+
+static bool
+func_serial_dump(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string | tc_file }, { tc_any }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj str;
+	coerce_string(wk, an[0].node, an[0].val, &str);
+
+	FILE *f;
+	if (!(f = fs_fopen(get_cstr(wk, str), "wb"))) {
+		return false;
+	}
+
+	bool ret = false;
+	if (!serial_dump(wk, an[1].val, f)) {
+		goto ret;
+	}
+
+	if (!fs_fclose(f)) {
+		goto ret;
+	}
+
+	ret = true;
+ret:
+	return ret;
+}
+
 const struct func_impl_name impl_tbl_kernel[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
@@ -1895,6 +1956,8 @@ const struct func_impl_name impl_tbl_kernel_internal[] = {
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
 	{ "p", func_p },
+	{ "serial_load", func_serial_load },
+	{ "serial_dump", func_serial_dump },
 	{ NULL, NULL },
 };
 
