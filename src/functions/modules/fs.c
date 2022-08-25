@@ -188,27 +188,6 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
-{
-	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	const char *path;
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
-		return false;
-	}
-
-	const struct str *ss = get_str(wk, an[1].val);
-	if (!fs_write(path, (uint8_t *)ss->s, ss->len)) {
-		return false;
-	}
-	return true;
-}
-
-static bool
 func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
@@ -457,6 +436,166 @@ const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "replace_suffix", func_module_replace_suffix, tc_string },
 	{ "size", func_module_fs_size, tc_number },
 	{ "stem", func_module_fs_stem, tc_string, },
-	{ "write", func_module_fs_write }, // muon extension
+	{ NULL, NULL },
+};
+
+static bool
+func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	const char *path;
+	if (!fix_file_path(wk, an[0].node, an[0].val,
+		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+		return false;
+	}
+
+	const struct str *ss = get_str(wk, an[1].val);
+	if (!fs_write(path, (uint8_t *)ss->s, ss->len)) {
+		return false;
+	}
+	return true;
+}
+
+static bool
+func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	path_cwd(path, PATH_MAX);
+	*res = make_str(wk, path);
+	return true;
+}
+
+static bool
+func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	path_make_absolute(path, PATH_MAX, get_cstr(wk, an[0].val));
+	*res = make_str(wk, path);
+	return true;
+}
+
+static bool
+func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	path_relative_to(path, PATH_MAX, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val));
+	*res = make_str(wk, path);
+	return true;
+}
+
+static bool
+func_module_fs_is_basename(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, path_is_basename(get_cstr(wk, an[0].val)));
+	return true;
+}
+
+static bool
+func_module_fs_without_ext(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	path_without_ext(path, PATH_MAX, get_cstr(wk, an[0].val));
+	*res = make_str(wk, path);
+	return true;
+}
+
+static bool
+func_module_fs_is_subpath(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, path_is_subpath(get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
+	return true;
+}
+
+
+static bool
+func_module_fs_add_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	strcpy(path, get_cstr(wk, an[0].val));
+	path_add_suffix(path, PATH_MAX, get_cstr(wk, an[1].val));
+	*res = make_str(wk, path);
+	return true;
+}
+
+static bool
+func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	char path[PATH_MAX];
+	path_executable(path, PATH_MAX, get_cstr(wk, an[0].val));
+	*res = make_str(wk, path);
+	return true;
+}
+
+const struct func_impl_name impl_tbl_module_fs_internal[] = {
+	{ "as_posix", func_module_as_posix, tc_string },
+	{ "exists", func_module_fs_exists, tc_bool },
+	{ "expanduser", func_module_fs_expanduser, tc_string },
+	{ "hash", func_module_fs_hash, tc_string },
+	{ "is_absolute", func_module_fs_is_absolute, tc_bool },
+	{ "is_dir", func_module_fs_is_dir, tc_bool },
+	{ "is_file", func_module_fs_is_file, tc_bool },
+	{ "is_samepath", func_module_fs_is_samepath, tc_bool },
+	{ "is_symlink", func_module_fs_is_symlink, tc_bool },
+	{ "name", func_module_fs_name, tc_string },
+	{ "parent", func_module_fs_parent, tc_string },
+	{ "read", func_module_fs_read, tc_string },
+	{ "replace_suffix", func_module_replace_suffix, tc_string },
+	{ "size", func_module_fs_size, tc_number },
+	{ "stem", func_module_fs_stem, tc_string, },
+	// non-standard muon extensions
+	{ "add_suffix", func_module_fs_add_suffix },
+	{ "cwd", func_module_fs_cwd },
+	{ "executable", func_module_fs_executable },
+	{ "is_basename", func_module_fs_is_basename },
+	{ "is_subpath", func_module_fs_is_subpath },
+	{ "make_absolute", func_module_fs_make_absolute },
+	{ "relative_to", func_module_fs_relative_to },
+	{ "without_ext", func_module_fs_without_ext },
+	{ "write", func_module_fs_write },
 	{ NULL, NULL },
 };

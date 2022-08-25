@@ -656,7 +656,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		if (!m->found && strcmp(name, "found") != 0) {
 			interp_error(wk, name_node, "invalid attempt to use not-found module");
 			return false;
-		} else if (!(fi = module_func_lookup(name, mod))) {
+		} else if (!(fi = module_func_lookup(wk, name, mod))) {
 			if (!m->has_impl) {
 				interp_error(wk, name_node, "module '%s' is unimplemented,\n"
 					"  If you would like to make your build files portable to muon, use"

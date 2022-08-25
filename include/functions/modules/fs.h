@@ -3,4 +3,5 @@
 #include "functions/common.h"
 
 extern const struct func_impl_name impl_tbl_module_fs[];
+extern const struct func_impl_name impl_tbl_module_fs_internal[];
 #endif

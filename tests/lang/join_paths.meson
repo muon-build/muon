@@ -7,7 +7,46 @@ e = ''
 f = 'rel/path'
 
 p = join_paths(root, a, b, c, d, e, f)
-message(p)
 assert(p == '/abs/path2/no_slashes/trailing/rel/path')
 
 assert(join_paths('./a/b/.././///../c', '.') == 'a/b/../../c')
+
+assert('a/b' / 'c/d' == 'a/b/c/d')
+assert('a/b' / '/' == '/')
+assert('a/b' / '' == 'a/b/')
+
+
+fs = import('fs')
+assert(not fs.is_absolute('not/absolute'))
+assert(fs.is_absolute('/absolute/path'))
+
+assert(fs.make_absolute('rel/path') == fs.cwd() / 'rel/path')
+
+assert(
+    fs.relative_to('/path/to/build/', '/path/to/build/tgt/dir/libfoo.a') == 'tgt/dir/libfoo.a',
+)
+assert(
+    fs.relative_to('/path/to/build', '/path/to/build/libfoo.a') == 'libfoo.a',
+)
+assert(fs.relative_to('/path/to/build', '/path/to/src/asd.c') == '../src/asd.c')
+assert(fs.relative_to('/path/to/build', '/path/to/build/include') == 'include')
+assert(fs.relative_to('/path/to/build', '/path/to/build') == '.')
+assert(fs.relative_to('/path/to/build/', '/path/to/build') == '.')
+assert(fs.relative_to('/path/to/build', '/path/to/build/') == '.')
+
+assert(not fs.is_basename('a/b/c'))
+assert(fs.is_basename('basename'))
+
+assert(fs.without_ext('a/b/file.txt') == 'a/b/file')
+
+assert(fs.name('a/b/file.txt') == 'file.txt')
+assert(fs.parent('a/b/file.txt') == 'a/b')
+
+assert(fs.is_subpath('/a/b/c/d', '/a/b/c/d/e'))
+assert(not fs.is_subpath('/a/b/c/d', '/f/b/c/d/e'))
+
+assert(fs.add_suffix('a/b/file', '.txt') == 'a/b/file.txt')
+
+assert(fs.executable('/abs/path') == '/abs/path')
+assert(fs.executable('a/b') == 'a/b')
+assert(fs.executable('file') == './file')

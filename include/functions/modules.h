@@ -6,5 +6,5 @@
 extern const char *module_names[module_count];
 
 bool module_lookup(const char *name, enum module *res, bool *has_impl);
-const struct func_impl_name *module_func_lookup(const char *name, enum module mod);
+const struct func_impl_name *module_func_lookup(struct workspace *wk, const char *name, enum module mod);
 #endif
