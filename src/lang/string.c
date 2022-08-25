@@ -10,50 +10,12 @@
 #include "log.h"
 #include "platform/mem.h"
 
-bool
-buf_push(char *buf, uint32_t len, uint32_t *i, char s)
-{
-	if (*i >= len) {
-		return false;
-	}
-
-	buf[*i] = s;
-	++(*i);
-	return true;
-}
-
-bool
-buf_pushs(char *buf, uint32_t len, uint32_t *i, char *s)
-{
-	for (; *s; ++s) {
-		if (!buf_push(buf, len, i, *s)) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool
-buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n)
-{
-	uint32_t j;
-	for (j = 0; j < n; ++j) {
-		if (!buf_push(buf, len, i, s[j])) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool
-str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r,
+void
+str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
 	bool escape_whitespace)
 {
 	bool esc;
 	uint32_t i;
-	*r = 0;
 
 	for (i = 0; i < ss->len; ++i) {
 		esc = ss->s[i] < 32;
@@ -62,19 +24,11 @@ str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r,
 		}
 
 		if (esc) {
-			char unescaped[32];
-			uint32_t n = snprintf(unescaped, 32, "\\%d", ss->s[i]);
-
-			if (!buf_pushn(buf, len, r, unescaped, n)) {
-				return false;
-			}
+			sbuf_pushf(wk, sb, "\\%d", ss->s[i]);
 		} else {
-			if (!buf_push(buf, len, r, ss->s[i])) {
-				return false;
-			}
+			sbuf_push(wk, sb, ss->s[i]);
 		}
 	}
-	return true;
 }
 
 bool
@@ -423,4 +377,171 @@ str_split_strip(struct workspace *wk,
 	make_obj(wk, &ctx.res, obj_array);
 	obj_array_foreach(wk, str_split(wk, ss, split), &ctx, str_split_strip_iter);
 	return ctx.res;
+}
+
+/* sbuf */
+
+void
+sbuf_init(struct sbuf *sb, enum sbuf_flags flags)
+{
+	*sb = (struct sbuf) {
+		.flags = flags,
+	};
+
+	sb->buf = sb->static_buf;
+	sb->cap = SBUF_STATIC_LEN;
+	sb->len = &sb->buflen;
+}
+
+void
+sbuf_destroy(struct sbuf *sb)
+{
+	if ((sb->flags & sbuf_flag_overflown)
+	    && (sb->flags & sbuf_flag_overflow_alloc)) {
+		z_free(sb->buf);
+	}
+}
+
+void
+sbuf_clear(struct sbuf *sb)
+{
+	if ((sb->flags & sbuf_flag_write)) {
+		return;
+	}
+
+	memset(sb->buf, 0, *sb->len);
+	*sb->len = 0;
+}
+
+static void
+sbuf_check_overflow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
+{
+	uint32_t newcap, newlen = *sb->len + inc;
+
+	if (newlen < sb->cap) {
+		return;
+	}
+
+	newcap = sb->cap;
+	do {
+		newcap *= 2;
+	} while (newcap < newlen);
+
+	if (sb->flags & sbuf_flag_overflown) {
+		if (sb->flags & sbuf_flag_overflow_alloc) {
+			sb->buf = z_realloc(sb->buf, newcap);
+			memset((void *)&sb->buf[*sb->len], 0, newcap - sb->cap);
+		} else {
+			grow_str(wk, sb->s, newcap - sb->cap);
+			sb->buf = (char *)get_str(wk, sb->s)->s;
+		}
+	} else {
+		if (sb->flags & sbuf_flag_overflow_error) {
+			error_unrecoverable("unhandled sbuf overflow: capacity: %d, length: %d, trying to push %d bytes",
+				sb->cap, *sb->len, inc);
+		}
+
+		sb->flags |= sbuf_flag_overflown;
+
+		if (sb->flags & sbuf_flag_overflow_alloc) {
+			sb->buf = z_calloc(newcap, 1);
+		} else {
+			reserve_str(wk, &sb->s, newcap);
+			const struct str *ss = get_str(wk, sb->s);
+			sb->buf = (char *)ss->s;
+			sb->len = (uint32_t *)&ss->len;
+			*sb->len = sb->buflen;
+		}
+
+		memcpy(sb->buf, sb->static_buf, sb->buflen);
+	}
+
+	sb->cap = newcap;
+}
+
+void
+sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
+{
+	if (sb->flags & sbuf_flag_write) {
+		if (fputc(s, sb->file) == EOF) {
+			error_unrecoverable("failed to write output to file");
+		}
+		return;
+	}
+
+	sbuf_check_overflow(wk, sb, 1);
+
+	sb->buf[*sb->len] = s;
+	++(*sb->len);
+}
+
+void
+sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
+{
+	if (sb->flags & sbuf_flag_write) {
+		if (!fs_fwrite(s, n, sb->file)) {
+			error_unrecoverable("failed to write output to file");
+		}
+		return;
+	}
+
+	if (!n) {
+		return;
+	}
+
+	sbuf_check_overflow(wk, sb, n);
+
+	memcpy(&sb->buf[*sb->len], s, n);
+	*sb->len += n;
+}
+
+void
+sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
+{
+	if (sb->flags & sbuf_flag_write) {
+		if (fputs(s, sb->file) == EOF) {
+			error_unrecoverable("failed to write output to file");
+		}
+		return;
+	}
+
+	uint32_t n = strlen(s) + 1;
+
+	if (n < 2) {
+		return;
+	}
+
+	sbuf_check_overflow(wk, sb, n);
+
+	memcpy(&sb->buf[*sb->len], s, n);
+	*sb->len += n - 1;
+}
+
+void
+sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+{
+	uint32_t len;
+	va_list args, args_copy;
+	va_start(args, fmt);
+
+	if (sb->flags & sbuf_flag_write) {
+		if (vfprintf(sb->file, fmt, args) < 0) {
+			error_unrecoverable("failed to write output to file");
+		}
+		goto done;
+	}
+
+	va_copy(args_copy, args);
+
+	len = vsnprintf(NULL, 0, fmt, args_copy);
+
+	sbuf_check_overflow(wk, sb, len);
+
+	vsnprintf(&sb->buf[*sb->len], len + 1, fmt, args);
+	*sb->len += len;
+
+	va_end(args_copy);
+
+done:
+	va_end(args);
 }

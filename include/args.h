@@ -8,9 +8,9 @@ struct args {
 	uint32_t len;
 };
 
-bool shell_escape(char *buf, uint32_t len, const char *str);
-bool ninja_escape(char *buf, uint32_t len, const char *str);
-bool pkgconf_escape(char *buf, uint32_t len, const char *str);
+void shell_escape(struct workspace *wk, struct sbuf *sb, const char *str);
+void ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str);
+void pkgconf_escape(struct workspace *wk, struct sbuf *sb, const char *str);
 
 void push_args(struct workspace *wk, obj arr, const struct args *args);
 void push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv);

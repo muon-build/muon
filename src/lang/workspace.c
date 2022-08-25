@@ -124,6 +124,8 @@ workspace_init_bare(struct workspace *wk)
 	assert(id == 0);
 
 	hash_init(&wk->obj_hash, 128, sizeof(obj));
+
+	sbuf_init(&wk->sb_tmp, 0);
 }
 
 void

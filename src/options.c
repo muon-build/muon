@@ -101,29 +101,16 @@ subproj_name_matches(struct workspace *wk, const char *name, const char *test)
 	}
 }
 
-static const char *
-option_override_to_s(struct workspace *wk, struct option_override *oo)
+static void
+log_option_override(struct workspace *wk, struct option_override *oo)
 {
-	static char buf[BUF_SIZE_2k + 1] = { 0 };
-	char buf1[BUF_SIZE_2k / 2];
-
-	const char *val;
-
-	if (oo->obj_value) {
-		obj_to_s(wk, oo->val, buf1, BUF_SIZE_2k / 2);
-		val = buf1;
-	} else {
-		val = get_cstr(wk, oo->val);
+	log_plain("'");
+	if (oo->proj) {
+		log_plain("%s:", get_cstr(wk, oo->proj));
 	}
 
-	snprintf(buf, BUF_SIZE_2k, "%s%s%s=%s",
-		oo->proj ? get_cstr(wk, oo->proj) : "",
-		oo->proj ? ":" : "",
-		get_cstr(wk, oo->name),
-		val
-		);
-
-	return buf;
+	obj_fprintf(wk, log_file(), "%s=%#o", get_cstr(wk, oo->name), oo->val);
+	log_plain("'");
 }
 
 bool
@@ -155,7 +142,9 @@ check_invalid_subproject_option(struct workspace *wk)
 		}
 
 		if (!found) {
-			LOG_E("invalid option: '%s' (no such subproject)", option_override_to_s(wk, oo));
+			LLOG_E("invalid option: ");
+			log_option_override(wk, oo);
+			log_plain(" (no such subproject)\n");
 			ret = false;
 		}
 	}
@@ -732,7 +721,9 @@ setup_project_options(struct workspace *wk, const char *cwd)
 				ret = false;
 			}
 		} else {
-			LOG_E("invalid option: '%s'", option_override_to_s(wk, oo));
+			LLOG_E("invalid option: ");
+			log_option_override(wk, oo);
+			log_plain("\n");
 			ret = false;
 		}
 	}
@@ -819,7 +810,9 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 			return ir_err;
 		}
 	} else {
-		LOG_E("invalid option: '%s'", option_override_to_s(wk, &oo));
+		LLOG_E("invalid option: ");
+		log_option_override(wk, &oo);
+		log_plain("\n");
 		return ir_err;
 	}
 

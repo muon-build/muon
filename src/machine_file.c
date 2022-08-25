@@ -80,8 +80,8 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 		return false;
 	}
 
-	char buf[2048];
-	obj_to_s(ctx->wk, res, buf, 2048);
+	/* char buf[2048]; */
+	/* obj_to_s(ctx->wk, res, buf, 2048); */
 
 	if (sect == mfile_section_constants) {
 		hash_set_str(&ctx->wk->scope, k, res);
@@ -97,7 +97,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 
 		switch (sect) {
 		case mfile_section_binaries:
-			printf("setting binaries.%s=%s\n", k, buf);
+			/* printf("setting binaries.%s=%s\n", k, buf); */
 
 			dest_dict = ctx->dest_wk->binaries;
 			break;

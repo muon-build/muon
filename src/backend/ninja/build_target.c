@@ -86,15 +86,15 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	char esc_dest_path[PATH_MAX], esc_path[PATH_MAX];
-	if (!ninja_escape(esc_dest_path, PATH_MAX, dest_path)) {
-		return false;
-	} else if (!ninja_escape(esc_path, PATH_MAX, src_path)) {
-		return false;
-	}
+	struct sbuf esc_dest_path, esc_path;
+	sbuf_init(&esc_dest_path, 0);
+	sbuf_init(&esc_path, 0);
 
-	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path,
-		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path);
+	ninja_escape(wk, &esc_dest_path, dest_path);
+	ninja_escape(wk, &esc_path, src_path);
+
+	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path.buf,
+		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path.buf);
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
@@ -104,17 +104,16 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		" ARGS = %s\n", get_cstr(wk, args_id));
 
 	if (compilers[ct].deps) {
-		if (!path_add_suffix(esc_dest_path, PATH_MAX, ".d")) {
+		if (!path_add_suffix(esc_dest_path.buf, PATH_MAX, ".d")) {
 			return false;
 		}
 
-		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path);
+		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path.buf);
 
-		if (!shell_escape(esc_path, PATH_MAX, esc_dest_path)) {
-			return false;
-		}
+		sbuf_clear(&esc_path);
+		shell_escape(wk, &esc_path, esc_dest_path.buf);
 
-		fprintf(ctx->out, " DEPFILE = %s\n", esc_path);
+		fprintf(ctx->out, " DEPFILE = %s\n", esc_path.buf);
 	}
 
 	fputc('\n', ctx->out);
@@ -246,19 +245,18 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	char esc_path[PATH_MAX];
+	struct sbuf esc_path;
+	sbuf_init(&esc_path, 0);
 	{
 		char rel_build_path[PATH_MAX];
 		if (!path_relative_to(rel_build_path, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
 			return false;
 		}
 
-		if (!ninja_escape(esc_path, PATH_MAX, rel_build_path)) {
-			return false;
-		}
+		ninja_escape(wk, &esc_path, rel_build_path);
 	}
 
-	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path,
+	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path.buf,
 		linker_rule_prefix ? get_cstr(wk, ctx.proj->rule_prefix) : "",
 		linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
@@ -275,7 +273,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	if (tgt->flags & build_tgt_flag_build_by_default) {
 		wctx->wrote_default = true;
-		fprintf(wctx->out, "default %s\n", esc_path);
+		fprintf(wctx->out, "default %s\n", esc_path.buf);
 	}
 	fprintf(wctx->out, "\n");
 	return true;

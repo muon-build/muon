@@ -68,45 +68,6 @@ configure_var_len(const char *p)
 	return i;
 }
 
-struct abuf {
-	char *buf;
-	uint64_t cap, i;
-};
-
-static void
-abuf_push(struct abuf *buf, const char *str, uint32_t len)
-{
-	if (buf->i + len >= buf->cap) {
-		if (len > BUF_SIZE_2k) {
-			buf->cap += len;
-		} else {
-			buf->cap += BUF_SIZE_2k;
-		}
-
-		buf->buf = z_realloc(buf->buf, buf->cap);
-	}
-
-	strncpy(&(buf->buf)[buf->i], str, len);
-	buf->i += len;
-	(buf->buf)[buf->i] = 0;
-}
-
-__attribute__ ((format(printf, 2, 3)))
-static void
-abuf_pushf(struct abuf *buf, const char *fmt, ...)
-{
-	uint32_t len;
-	static char str[BUF_SIZE_4k];
-	va_list args;
-	va_start(args, fmt);
-	len = vsnprintf(str, BUF_SIZE_4k, fmt, args);
-	va_end(args);
-
-	assert(len < BUF_SIZE_4k);
-
-	abuf_push(buf, str, len);
-}
-
 enum configure_file_syntax {
 	configure_file_syntax_mesondefine = 0 << 0,
 	configure_file_syntax_cmakedefine = 1 << 0,
@@ -144,7 +105,8 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		goto cleanup;
 	}
 
-	struct abuf out_buf = { .cap = src.len, .buf = z_calloc(src.len, 1) };
+	struct sbuf out_buf;
+	sbuf_init(&out_buf, sbuf_flag_overflow_alloc);
 
 	uint32_t i, id_start, id_len,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
@@ -237,12 +199,12 @@ extraneous_cmake_chars:
 			}
 
 write_mesondefine:
-			abuf_push(&out_buf, deftype, strlen(deftype));
-			abuf_push(&out_buf, " ", 1);
-			abuf_push(&out_buf, &src.src[id_start], id_len);
+			sbuf_pushn(wk, &out_buf, deftype, strlen(deftype));
+			sbuf_pushn(wk, &out_buf, " ", 1);
+			sbuf_pushn(wk, &out_buf, &src.src[id_start], id_len);
 			if (sub) {
-				abuf_push(&out_buf, " ", 1);
-				abuf_push(&out_buf, sub, strlen(sub));
+				sbuf_pushn(wk, &out_buf, " ", 1);
+				sbuf_pushn(wk, &out_buf, sub, strlen(sub));
 			}
 
 			i -= 1; // so we catch the newline
@@ -276,11 +238,11 @@ write_mesondefine:
 			}
 
 			for (j = 0; j < output_backslashes; ++j) {
-				abuf_push(&out_buf, "\\", 1);
+				sbuf_pushn(wk, &out_buf, "\\", 1);
 			}
 
 			if (output_format_char) {
-				abuf_push(&out_buf, varstart, varstart_len);
+				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
 				i += varstart_len - 1;
 			}
 		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
@@ -292,7 +254,7 @@ write_mesondefine:
 
 			if (src.src[i] != varend) {
 				i = id_start - 1;
-				abuf_push(&out_buf, varstart, varstart_len);
+				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
 				continue;
 			}
 
@@ -311,17 +273,17 @@ write_mesondefine:
 			}
 
 			const struct str *ss = get_str(wk, sub);
-			abuf_push(&out_buf, ss->s, ss->len);
+			sbuf_pushn(wk, &out_buf, ss->s, ss->len);
 		} else {
-			abuf_push(&out_buf, &src.src[i], 1);
+			sbuf_pushn(wk, &out_buf, &src.src[i], 1);
 		}
 	}
 
-	if (file_exists_with_content(wk, get_cstr(wk, out), out_buf.buf, out_buf.i)) {
+	if (file_exists_with_content(wk, get_cstr(wk, out), out_buf.buf, *out_buf.len)) {
 		goto cleanup;
 	}
 
-	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf.buf, out_buf.i)) {
+	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf.buf, *out_buf.len)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -333,15 +295,12 @@ write_mesondefine:
 
 cleanup:
 	fs_source_destroy(&src);
-
-	if (out_buf.buf) {
-		z_free(out_buf.buf);
-	}
+	sbuf_destroy(&out_buf);
 	return ret;
 }
 
 struct generate_config_ctx {
-	struct abuf out_buf;
+	struct sbuf out_buf;
 	uint32_t node;
 	enum configure_file_output_format output_format;
 };
@@ -361,21 +320,21 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case obj_string:
 		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
 		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		abuf_pushf(&ctx->out_buf, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
+		sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
 		break;
 	case obj_bool:
 		/* conf_data.set('FOO', true)       => #define FOO */
 		/* conf_data.set('FOO', false)      => #undef FOO */
 		if (get_obj_bool(wk, val)) {
-			abuf_pushf(&ctx->out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
+			sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
 		} else {
-			abuf_pushf(&ctx->out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
+			sbuf_pushf(wk, &ctx->out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
 		}
 		break;
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		abuf_pushf(&ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
+		sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
@@ -390,24 +349,22 @@ generate_config(struct workspace *wk, enum configure_file_output_format format,
 	obj dict, uint32_t node, obj out_path)
 {
 	struct generate_config_ctx ctx = {
-		.out_buf = {
-			.cap = BUF_SIZE_1k,
-			.buf = z_calloc(BUF_SIZE_1k, 1),
-		},
 		.node = node,
 		.output_format = format,
 	};
 
+	sbuf_init(&ctx.out_buf, sbuf_flag_overflow_alloc);
+
 	bool ret;
 	ret = obj_dict_foreach(wk, dict, &ctx, generate_config_iter);
 
-	if (!file_exists_with_content(wk, get_cstr(wk, out_path), ctx.out_buf.buf, ctx.out_buf.i)) {
-		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)ctx.out_buf.buf, ctx.out_buf.i)) {
+	if (!file_exists_with_content(wk, get_cstr(wk, out_path), ctx.out_buf.buf, *ctx.out_buf.len)) {
+		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)ctx.out_buf.buf, *ctx.out_buf.len)) {
 			ret = false;
 		}
 	}
 
-	z_free(ctx.out_buf.buf);
+	sbuf_destroy(&ctx.out_buf);
 	return ret;
 }
 

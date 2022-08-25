@@ -1227,44 +1227,19 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 }
 
 struct obj_to_s_ctx {
-	char *buf;
-	uint32_t i, len;
+	struct sbuf *sb;
 	uint32_t cont_i, cont_len;
 };
-
-static void _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w);
-
-__attribute__ ((format(printf, 2, 3)))
-static void
-obj_to_s_buf_push(struct obj_to_s_ctx *ctx, const char *fmt, ...)
-{
-	if (ctx->i >= ctx->len) {
-		return;
-	}
-
-	va_list ap;
-	va_start(ap, fmt);
-
-	ctx->i += vsnprintf(&ctx->buf[ctx->i], ctx->len - ctx->i, fmt, ap);
-	if (ctx->i > ctx->len) {
-		ctx->i = ctx->len;
-	}
-
-	va_end(ap);
-}
 
 static enum iteration_result
 obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
-	uint32_t w;
 
-	_obj_to_s(wk, val, &ctx->buf[ctx->i], ctx->len - ctx->i, &w);
-
-	ctx->i += w;
+	obj_to_s(wk, val, ctx->sb);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		obj_to_s_buf_push(ctx, ", ");
+		sbuf_pushs(wk, ctx->sb, ", ");
 	}
 
 	++ctx->cont_i;
@@ -1275,78 +1250,63 @@ static enum iteration_result
 obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
-	uint32_t w;
 
-	_obj_to_s(wk, key, &ctx->buf[ctx->i], ctx->len - ctx->i, &w);
-	ctx->i += w;
+	obj_to_s(wk, key, ctx->sb);
 
-	obj_to_s_buf_push(ctx, ": ");
+	sbuf_pushs(wk, ctx->sb, ": ");
 
-	_obj_to_s(wk, val, &ctx->buf[ctx->i], ctx->len - ctx->i, &w);
-	ctx->i += w;
+	obj_to_s(wk, val, ctx->sb);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		obj_to_s_buf_push(ctx, ", ");
+		sbuf_pushs(wk, ctx->sb, ", ");
 	}
 
 	++ctx->cont_i;
 	return ir_cont;
 }
+
 static void
 obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 {
-	obj_to_s_buf_push(ctx, "'");
-
-	uint32_t w = 0;
-	if (!str_unescape(&ctx->buf[ctx->i], ctx->len - ctx->i, get_str(wk, s), &w, true)) {
-		return;
-	}
-	assert(ctx->i + w <= ctx->len);
-	ctx->i += w;
-
-	obj_to_s_buf_push(ctx, "'");
-	return;
+	sbuf_push(wk, ctx->sb, '\'');
+	str_unescape(wk, ctx->sb, get_str(wk, s), true);
+	sbuf_push(wk, ctx->sb, '\'');
 }
 
-static void
-_obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
+void
+obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 {
-	if (!len) {
-		*w = 0;
-		return;
-	}
-
-	struct obj_to_s_ctx ctx = { .buf = buf, .len = len };
-	enum obj_type t = get_obj_type(wk, obj);
+	struct obj_to_s_ctx ctx = { .sb = sb };
+	enum obj_type t = get_obj_type(wk, o);
 
 	switch (t) {
 	case obj_include_directory: {
-		struct obj_include_directory *inc = get_obj_include_directory(wk, obj);
-		obj_to_s_buf_push(&ctx, "<include_directory ");
+		struct obj_include_directory *inc = get_obj_include_directory(wk, o);
+		sbuf_pushs(wk, sb, "<include_directory ");
 		obj_to_s_str(wk, &ctx, inc->path);
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_dependency: {
-		struct obj_dependency *dep = get_obj_dependency(wk, obj);
-		obj_to_s_buf_push(&ctx, "<dependency ");
+		struct obj_dependency *dep = get_obj_dependency(wk, o);
+		sbuf_pushs(wk, sb, "<dependency ");
 		if (dep->name) {
 			obj_to_s_str(wk, &ctx, dep->name);
 		}
 
-		obj_to_s_buf_push(&ctx, " | found: %s, pkgconf: %s>",
+		sbuf_pushf(wk, sb, " | found: %s, pkgconf: %s>",
 			dep->flags & dep_flag_found ? "yes" : "no",
 			dep->type == dependency_type_pkgconf ? "yes" : "no"
 			);
 		break;
 	}
 	case obj_alias_target:
-		obj_to_s_buf_push(&ctx, "<alias_target ");
-		obj_to_s_str(wk, &ctx, get_obj_alias_target(wk, obj)->name);
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, "<alias_target ");
+		obj_to_s_str(wk, &ctx, get_obj_alias_target(wk, o)->name);
+		sbuf_pushs(wk, sb, ">");
 		break;
 	case obj_build_target: {
-		struct obj_build_target *tgt = get_obj_build_target(wk, obj);
+		struct obj_build_target *tgt = get_obj_build_target(wk, o);
 		const char *type = NULL;
 		switch (tgt->type) {
 		case tgt_executable:
@@ -1363,123 +1323,106 @@ _obj_to_s(struct workspace *wk, obj obj, char *buf, uint32_t len, uint32_t *w)
 			break;
 		}
 
-		obj_to_s_buf_push(&ctx, "<%s ", type);
+		sbuf_pushf(wk, sb, "<%s ", type);
 		obj_to_s_str(wk, &ctx, tgt->name);
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, ">");
 
 		break;
 	}
 	case obj_feature_opt:
-		switch (get_obj_feature_opt(wk, obj)) {
+		switch (get_obj_feature_opt(wk, o)) {
 		case feature_opt_auto:
-			ctx.i += snprintf(buf, len, "'auto'");
+			sbuf_pushs(wk, sb, "'auto'");
 			break;
 		case feature_opt_enabled:
-			ctx.i += snprintf(buf, len, "'enabled'");
+			sbuf_pushs(wk, sb, "'enabled'");
 			break;
 		case feature_opt_disabled:
-			ctx.i += snprintf(buf, len, "'disabled'");
+			sbuf_pushs(wk, sb, "'disabled'");
 			break;
 		}
 
 		break;
 	case obj_test: {
-		struct obj_test *test = get_obj_test(wk, obj);
-		obj_to_s_buf_push(&ctx, "test(");
+		struct obj_test *test = get_obj_test(wk, o);
+		sbuf_pushs(wk, sb, "test(");
 		obj_to_s_str(wk, &ctx, test->name);
-		obj_to_s_buf_push(&ctx, ", ");
+		sbuf_pushs(wk, sb, ", ");
 		obj_to_s_str(wk, &ctx, test->exe);
 
 		if (test->args) {
-			obj_to_s_buf_push(&ctx, ", args: ");
-
-			uint32_t w;
-			_obj_to_s(wk, test->args, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
-			ctx.i += w;
+			sbuf_pushs(wk, sb, ", args: ");
+			obj_to_s(wk, test->args, sb);
 		}
 
 		if (test->should_fail) {
-			obj_to_s_buf_push(&ctx, ", should_fail: true");
+			sbuf_pushs(wk, sb, ", should_fail: true");
 
 		}
 
-		obj_to_s_buf_push(&ctx, ")");
+		sbuf_pushs(wk, sb, ")");
 		break;
 	}
 	case obj_file:
-		obj_to_s_buf_push(&ctx, "<file ");
-		obj_to_s_str(wk, &ctx, *get_obj_file(wk, obj));
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, "<file ");
+		obj_to_s_str(wk, &ctx, *get_obj_file(wk, o));
+		sbuf_pushs(wk, sb, ">");
 		break;
 	case obj_string: {
-		obj_to_s_str(wk, &ctx, obj);
+		obj_to_s_str(wk, &ctx, o);
 		break;
 	}
 	case obj_number:
-		obj_to_s_buf_push(&ctx, "%" PRId64, get_obj_number(wk, obj));
+		sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o));
 		break;
 	case obj_bool:
-		obj_to_s_buf_push(&ctx, get_obj_bool(wk, obj) ? "true" : "false");
+		sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false");
 		break;
 	case obj_array:
-		ctx.cont_len = get_obj_array(wk, obj)->len;
+		ctx.cont_len = get_obj_array(wk, o)->len;
 
-		obj_to_s_buf_push(&ctx, "[");
-		obj_array_foreach(wk, obj, &ctx, obj_to_s_array_iter);
-		obj_to_s_buf_push(&ctx, "]");
+		sbuf_pushs(wk, sb, "[");
+		obj_array_foreach(wk, o, &ctx, obj_to_s_array_iter);
+		sbuf_pushs(wk, sb, "]");
 		break;
 	case obj_dict:
-		ctx.cont_len = get_obj_dict(wk, obj)->len;
+		ctx.cont_len = get_obj_dict(wk, o)->len;
 
-		obj_to_s_buf_push(&ctx, "{");
-		obj_dict_foreach(wk, obj, &ctx, obj_to_s_dict_iter);
-		obj_to_s_buf_push(&ctx, "}");
+		sbuf_pushs(wk, sb, "{");
+		obj_dict_foreach(wk, o, &ctx, obj_to_s_dict_iter);
+		sbuf_pushs(wk, sb, "}");
 		break;
 	case obj_external_program: {
-		struct obj_external_program *prog = get_obj_external_program(wk, obj);
-		obj_to_s_buf_push(&ctx, "<%s found: %s",
+		struct obj_external_program *prog = get_obj_external_program(wk, o);
+		sbuf_pushf(wk, sb, "<%s found: %s",
 			obj_type_to_s(t), prog->found ? "true" : "false");
 
 		if (prog->found) {
-			obj_to_s_buf_push(&ctx, ", path: ");
+			sbuf_pushs(wk, sb, ", path: ");
 			obj_to_s_str(wk, &ctx, prog->full_path);
 		}
 
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_option: {
-		struct obj_option *opt = get_obj_option(wk, obj);
-		obj_to_s_buf_push(&ctx, "<option ");
+		struct obj_option *opt = get_obj_option(wk, o);
+		sbuf_pushs(wk, sb, "<option ");
 
-		uint32_t w;
-		_obj_to_s(wk, opt->val, &ctx.buf[ctx.i], ctx.len - ctx.i, &w);
-		ctx.i += w;
+		obj_to_s(wk, opt->val, sb);
 
-		obj_to_s_buf_push(&ctx, ">");
+		sbuf_pushs(wk, sb, ">");
 		break;
 	}
 	default:
-		obj_to_s_buf_push(&ctx, "<obj %s>", obj_type_to_s(t));
+		sbuf_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
-
-	*w = ctx.i;
-}
-
-void
-obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len)
-{
-	uint32_t w;
-	_obj_to_s(wk, o, buf, len, &w);
 }
 
 bool
-obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap)
+obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap)
 {
-#define CHECK_TRUNC(len) if (bufi + len > buflen) goto would_truncate
-
 	const char *fmt_start;
-	uint32_t bufi = 0, len;
 	obj obj;
 	bool got_object, quote_string;
 
@@ -1618,63 +1561,45 @@ obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *
 			}
 
 			if (got_object) {
-				uint32_t w;
 				if (get_obj_type(wk, obj) == obj_string && !quote_string) {
-					str_unescape(&out_buf[bufi], buflen - bufi, get_str(wk, obj), &w, false);
+					str_unescape(wk, sb, get_str(wk, obj), false);
 				} else {
-					_obj_to_s(wk, obj, &out_buf[bufi], buflen - bufi, &w);
+					obj_to_s(wk, obj, sb);
 				}
-
-				bufi += w;
-
-				out_buf[bufi] = 0;
 			} else {
 				char fmt_buf[BUF_SIZE_1k + 1] = { 0 };
-				len = fmt - fmt_start + 1;
+				uint32_t len = fmt - fmt_start + 1;
 				assert(len < BUF_SIZE_1k && "format specifier too long");
 				memcpy(fmt_buf, fmt_start, len);
 
 				// There is no portable way to create a
 				// va_list, so we have to enumerate all of the
 				// different possibilities
-				uint32_t len;
 				if (arg_width.have && arg_prec.have) {
-					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_width.val, arg_prec.val, arg);
+					sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg_prec.val, arg);
 				} else if (arg_width.have) {
-					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_width.val, arg);
+					sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg);
 				} else if (arg_prec.have) {
-					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg_prec.val, arg);
+					sbuf_pushf(wk, sb, fmt_buf, arg_prec.val, arg);
 				} else {
-					len = snprintf(&out_buf[bufi], buflen - bufi, fmt_buf, arg);
+					sbuf_pushf(wk, sb, fmt_buf, arg);
 				}
-
-				bufi += len;
 			}
 		} else {
-			CHECK_TRUNC(1);
-			out_buf[bufi] = *fmt;
-			++bufi;
+			sbuf_push(wk, sb, *fmt);
 		}
 	}
 
-	CHECK_TRUNC(1);
-	out_buf[bufi] = 0;
-	++bufi;
-
 	va_end(ap);
 	return true;
-would_truncate:
-	va_end(ap);
-	return false;
-#undef CHECK_TRUNC
 }
 
 bool
-obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, ...)
+obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	bool ret = obj_vsnprintf(wk, out_buf, buflen, fmt, ap);
+	bool ret = obj_vasprintf(wk, sb, fmt, ap);
 	va_end(ap);
 	return ret;
 }
@@ -1682,10 +1607,9 @@ obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *f
 bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
-	static char buf[BUF_SIZE_32k];
-	bool ret = obj_vsnprintf(wk, buf, BUF_SIZE_32k, fmt, ap);
-	fputs(buf, f);
-	return ret;
+	struct sbuf sb = { .flags = sbuf_flag_write, .file = f };
+
+	return obj_vasprintf(wk, &sb, fmt, ap);
 }
 
 bool

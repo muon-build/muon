@@ -495,15 +495,16 @@ OBJ_GETTER(obj_typeinfo);
 
 #undef OBJ_GETTER
 
+struct sbuf;
+
 const char *obj_type_to_s(enum obj_type t);
-void obj_to_s(struct workspace *wk, obj o, char *buf, uint32_t len);
+void obj_to_s(struct workspace *wk, obj o, struct sbuf *sb);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 
-bool obj_vsnprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, va_list ap)
-__attribute__ ((format(printf, 4, 0)));
-bool obj_snprintf(struct workspace *wk, char *out_buf, uint32_t buflen, const char *fmt, ...)
-__attribute__ ((format(printf, 4, 5)));
+bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
+bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+__attribute__ ((format(printf, 3, 4)));
 bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 __attribute__ ((format(printf, 3, 0)));
 bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...)

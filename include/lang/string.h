@@ -7,11 +7,37 @@ struct workspace;
 
 #define WKSTR(cstring) (struct str){ .s = cstring, .len = strlen(cstring) }
 
-bool buf_push(char *buf, uint32_t len, uint32_t *i, char s);
-bool buf_pushs(char *buf, uint32_t len, uint32_t *i, char *s);
-bool buf_pushn(char *buf, uint32_t len, uint32_t *i, char *s, uint32_t n);
 
-bool str_unescape(char *buf, uint32_t len, const struct str *ss, uint32_t *r,
+/* sbuf */
+
+enum sbuf_flags {
+	sbuf_flag_overflown        = 1 << 0,
+	sbuf_flag_overflow_obj_str = 0 << 1, // the default
+	sbuf_flag_overflow_alloc   = 1 << 1,
+	sbuf_flag_overflow_error   = 1 << 2,
+	sbuf_flag_write            = 1 << 3,
+};
+
+#define SBUF_STATIC_LEN 1024
+
+struct sbuf {
+	char *buf;
+	uint32_t *len, cap, buflen;
+	char static_buf[SBUF_STATIC_LEN];
+	enum sbuf_flags flags;
+	obj s;
+	FILE *file;
+};
+
+void sbuf_init(struct sbuf *sb, enum sbuf_flags flags);
+void sbuf_destroy(struct sbuf *sb);
+void sbuf_clear(struct sbuf *sb);
+void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
+void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
+void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
+void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
+
+void str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
 	bool escape_whitespace);
 
 bool str_has_null(const struct str *ss);

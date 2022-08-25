@@ -32,12 +32,11 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 	}
 }
 
-bool
-shell_escape(char *buf, uint32_t len, const char *str)
+void
+shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
 	const char *need_escaping = "\"'$ \\><&#\n";
 	const char *s;
-	uint32_t bufi = 0;
 	bool do_esc = false;
 
 	for (s = str; *s; ++s) {
@@ -48,97 +47,67 @@ shell_escape(char *buf, uint32_t len, const char *str)
 	}
 
 	if (!do_esc) {
-		if (len <= strlen(str)) {
-			goto trunc;
-		}
-
-		strncpy(buf, str, len);
-		return true;
+		sbuf_pushs(wk, sb, str);
+		return;
 	}
 
-	if (!buf_push(buf, len, &bufi, '\'')) {
-		goto trunc;
-	}
+	sbuf_push(wk, sb, '\'');
 
 	for (s = str; *s; ++s) {
 		if (*s == '\'') {
-			if (!buf_pushs(buf, len, &bufi, "'\\''")) {
-				goto trunc;
-			}
+			sbuf_pushs(wk, sb, "'\\''");
 		} else {
-			if (!buf_push(buf, len, &bufi, *s)) {
-				goto trunc;
-			}
+			sbuf_push(wk, sb, *s);
 		}
 	}
 
-	if (!buf_push(buf, len, &bufi, '\'')) {
-		goto trunc;
-	} else if (!buf_push(buf, len, &bufi, 0)) {
-		goto trunc;
-	}
-
-	return true;
-trunc:
-	LOG_E("shell escape truncated");
-	return false;
+	sbuf_push(wk, sb, '\'');
+	sbuf_push(wk, sb, 0);
 }
 
-static bool
-simple_escape(char *buf, uint32_t len, const char *str, const char *need_escaping, char esc_char)
+static void
+simple_escape(struct workspace *wk, struct sbuf *sb, const char *str, const char *need_escaping, char esc_char)
 {
 	const char *s = str;
-	uint32_t bufi = 0;
 
 	for (; *s; ++s) {
 		if (strchr(need_escaping, *s)) {
-			if (!buf_push(buf, len, &bufi, esc_char)) {
-				goto trunc;
-			}
+			sbuf_push(wk, sb, esc_char);
 		} else if (*s == '\n') {
 			assert(false && "newlines cannot be escaped");
 		}
 
-		if (!buf_push(buf, len, &bufi, *s)) {
-			goto trunc;
-		}
+		sbuf_push(wk, sb, *s);
 	}
 
-	if (!buf_push(buf, len, &bufi, 0)) {
-		goto trunc;
-	}
-	return true;
-trunc:
-	LOG_E("ninja escape truncated");
-	return false;
+	sbuf_push(wk, sb, 0);
 }
 
-bool
-ninja_escape(char *buf, uint32_t len, const char *str)
+void
+ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	return simple_escape(buf, len, str, " :$", '$');
+	simple_escape(wk, sb, str, " :$", '$');
 }
 
-static bool
-shell_ninja_escape(char *buf, uint32_t len, const char *str)
+static void
+shell_ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	char tmp_buf[BUF_SIZE_4k];
-	if (!shell_escape(tmp_buf, BUF_SIZE_4k, str)) {
-		return false;
-	} else if (!simple_escape(buf, len, tmp_buf, "$\n", '$')) {
-		return false;
-	}
+	struct sbuf tmp;
+	sbuf_init(&tmp, sbuf_flag_overflow_alloc);
 
-	return true;
+	shell_escape(wk, &tmp, str);
+	simple_escape(wk, sb, tmp.buf, "$\n", '$');
+
+	sbuf_destroy(&tmp);
 }
 
-bool
-pkgconf_escape(char *buf, uint32_t len, const char *str)
+void
+pkgconf_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	return simple_escape(buf, len, str, " ", '\\');
+	simple_escape(wk, sb, str, " ", '\\');
 }
 
-typedef bool ((*escape_func)(char *buf, uint32_t len, const char *str));
+typedef void ((*escape_func)(struct workspace *wk, struct sbuf *sb, const char *str));
 
 struct join_args_iter_ctx {
 	uint32_t i, len;
@@ -152,14 +121,13 @@ join_args_iter(struct workspace *wk, void *_ctx, obj val)
 	struct join_args_iter_ctx *ctx = _ctx;
 
 	const char *s = get_cstr(wk, val);
-	char buf[BUF_SIZE_4k];
+
+	sbuf_clear(&wk->sb_tmp);
 
 	if (ctx->escape) {
-		if (!ctx->escape(buf, BUF_SIZE_4k, s)) {
-			return ir_err;
-		}
+		ctx->escape(wk, &wk->sb_tmp, s);
 
-		s = buf;
+		s = wk->sb_tmp.buf;
 	}
 
 	str_app(wk, *ctx->obj, s);
@@ -184,11 +152,7 @@ join_args(struct workspace *wk, obj arr, escape_func escape)
 		.escape = escape
 	};
 
-	if (!obj_array_foreach(wk, arr, &ctx, join_args_iter)) {
-		assert(false);
-		return 0;
-	}
-
+	obj_array_foreach(wk, arr, &ctx, join_args_iter);
 	return o;
 }
 

@@ -452,12 +452,10 @@ module_pkgconf_declare_var(struct workspace *wk, uint32_t err_node, bool escape,
 	}
 
 	const char *esc_val;
-	char buf[BUF_SIZE_2k] = { 0 };
 	if (escape) {
-		if (!pkgconf_escape(buf, BUF_SIZE_2k, val->s)) {
-			return false;
-		}
-		esc_val = buf;
+		sbuf_clear(&wk->sb_tmp);
+		pkgconf_escape(wk, &wk->sb_tmp, val->s);
+		esc_val = wk->sb_tmp.buf;
 	} else {
 		esc_val = val->s;
 	}
