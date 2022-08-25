@@ -7,6 +7,10 @@ src = files(
     'backend/ninja/custom_target.c',
     'backend/ninja/rules.c',
     'backend/output.c',
+    'data/bucket_array.c',
+    'data/darr.c',
+    'data/hash.c',
+    'formats/ini.c',
     'functions/array.c',
     'functions/boolean.c',
     'functions/both_libs.c',
@@ -57,8 +61,10 @@ src = files(
     'coerce.c',
     'compilers.c',
     'embedded.c',
+    'error.c',
     'guess.c',
     'install.c',
+    'log.c',
     'machine_file.c',
     'main.c',
     'options.c',
@@ -68,7 +74,10 @@ src = files(
     'wrap.c',
 )
 
-deps = [platform_dep]
+deps = []
+
+subdir('platform')
+src += platform_sources
 
 # version information
 src += configure_file(

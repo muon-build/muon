@@ -77,9 +77,6 @@ add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
 
 include_dir = include_directories('include')
 
-# platform dep required for tools
-subdir('src/platform')
-
 subdir('tools')
 subdir('src')
 
