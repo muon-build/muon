@@ -341,12 +341,6 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 }
 
 bool
-path_is_basename(const char *path)
-{
-	return strchr(path, PATH_SEP) == NULL;
-}
-
-bool
 path_without_ext(char *buf, uint32_t len, const char *path)
 {
 	int32_t i;

@@ -30,3 +30,19 @@ path_is_absolute(const char *path)
 		(path[1] == ':') &&
 		((path[2] == '/') || (path[2] == '\\'));
 }
+
+bool
+path_is_basename(const char *path)
+{
+	const char *iter = path;
+
+	while (*iter) {
+		if ((*iter == '/') || (*iter == '\\')) {
+			return false;
+		}
+		iter++;
+	}
+
+	return true;
+}
+
