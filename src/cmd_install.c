@@ -298,10 +298,10 @@ install_run(struct install_options *opts)
 	obj_array_index(&wk, install, 2, &source_root);
 	obj_array_index(&wk, install, 3, &ctx.prefix);
 
-	if (!path_cwd(wk.build_root, PATH_MAX)) {
-		return false;
-	}
-	strncpy(wk.source_root, get_cstr(&wk, source_root), PATH_MAX - 1);
+	SBUF_1k(build_root, 0);
+	path_cwd(&wk, &build_root);
+	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root));
+	wk.source_root = get_cstr(&wk, source_root);
 
 	const char *destdir;
 	if ((destdir = getenv("DESTDIR"))) {

@@ -86,9 +86,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	struct sbuf esc_dest_path, esc_path;
-	sbuf_init(&esc_dest_path, 0);
-	sbuf_init(&esc_path, 0);
+	SBUF_1k(esc_dest_path, 0);
+	SBUF_1k(esc_path, 0);
 
 	ninja_escape(wk, &esc_dest_path, dest_path);
 	ninja_escape(wk, &esc_path, src_path);
@@ -245,8 +244,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	struct sbuf esc_path;
-	sbuf_init(&esc_path, 0);
+	SBUF_1k(esc_path, 0);
 	{
 		char rel_build_path[PATH_MAX];
 		if (!path_relative_to(rel_build_path, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {

@@ -92,8 +92,7 @@ ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 static void
 shell_ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	struct sbuf tmp;
-	sbuf_init(&tmp, sbuf_flag_overflow_alloc);
+	SBUF_1k(tmp, sbuf_flag_overflow_alloc);
 
 	shell_escape(wk, &tmp, str);
 	simple_escape(wk, sb, tmp.buf, "$\n", '$');

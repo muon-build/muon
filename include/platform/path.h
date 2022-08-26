@@ -5,8 +5,13 @@
 
 #define PATH_SEP '/'
 
-bool path_init(void);
-bool path_cwd(char *buf, uint32_t len);
+struct workspace;
+struct sbuf;
+
+void path_init(void);
+void path_deinit(void);
+void path_copy(struct workspace *wk, struct sbuf *sb, const char *path);
+void path_cwd(struct workspace *wk, struct sbuf *sb);
 bool path_chdir(const char *path);
 bool path_is_absolute(const char *path);
 bool path_join(char *buf, uint32_t len, const char *a, const char *b);
@@ -21,5 +26,5 @@ bool path_dirname(char *buf, uint32_t len, const char *path);
 bool path_is_subpath(const char *base, const char *sub);
 bool path_add_suffix(char *path, uint32_t len, const char *suff);
 bool path_executable(char *buf, uint32_t len, const char *path);
-bool path_normalize(char *buf, bool optimize);
+void path_normalize(char *buf, bool optimize);
 #endif

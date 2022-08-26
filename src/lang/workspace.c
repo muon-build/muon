@@ -133,20 +133,21 @@ workspace_init(struct workspace *wk)
 {
 	workspace_init_bare(wk);
 
-	strcpy(wk->argv0, "dummy");
-	strcpy(wk->build_root, "/dummy");
-	if (!path_cwd(wk->source_root, PATH_MAX)) {
-		assert(false);
-	}
+	wk->argv0 = "dummy";
+	wk->build_root = "dummy";
+
+	obj id;
+	make_obj(wk, &id, obj_disabler);
+	assert(id == disabler_id);
+
+	sbuf_clear(&wk->sb_tmp);
+	path_cwd(wk, &wk->sb_tmp);
+	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &wk->sb_tmp));
 
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	darr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init_str(&wk->scope, 32);
-
-	obj id;
-	make_obj(wk, &id, obj_disabler);
-	assert(id == disabler_id);
 
 	make_obj(wk, &id, obj_meson);
 	hash_set_str(&wk->scope, "meson", id);
@@ -228,26 +229,31 @@ bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[])
 {
-	if (!path_make_absolute(wk->build_root, PATH_MAX, build)) {
+	char path[PATH_MAX];
+	if (!path_make_absolute(path, PATH_MAX, build)) {
 		return false;
 	}
+	wk->build_root = get_cstr(wk, make_str(wk, path));
 
 	if (path_is_basename(argv0)) {
 		uint32_t len = strlen(argv0);
 		assert(len < PATH_MAX);
-		strncpy(wk->argv0, argv0, len + 1);
+		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	} else {
-		if (!path_make_absolute(wk->argv0, PATH_MAX, argv0)) {
+		if (!path_make_absolute(path, PATH_MAX, argv0)) {
 			return false;
 		}
+
+		wk->argv0 = get_cstr(wk, make_str(wk, path));
 	}
 
 	wk->original_commandline.argc = argc;
 	wk->original_commandline.argv = argv;
 
-	if (!path_join(wk->muon_private, PATH_MAX, wk->build_root, output_path.private_dir)) {
+	if (!path_join(path, PATH_MAX, wk->build_root, output_path.private_dir)) {
 		return false;
 	}
+	wk->muon_private = get_cstr(wk, make_str(wk, path));
 
 	if (!fs_mkdir_p(wk->muon_private)) {
 		return false;

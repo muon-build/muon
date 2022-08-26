@@ -72,9 +72,7 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 
 	}
 
-	if (!path_normalize(buf, true)) {
-		return false;
-	}
+	path_normalize(buf, true);
 
 	*res = buf;
 	return true;
@@ -467,9 +465,9 @@ func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	char path[PATH_MAX];
-	path_cwd(path, PATH_MAX);
-	*res = make_str(wk, path);
+	SBUF_1k(cwd, 0);
+	path_cwd(wk, &cwd);
+	*res = sbuf_into_str(wk, &cwd);
 	return true;
 }
 

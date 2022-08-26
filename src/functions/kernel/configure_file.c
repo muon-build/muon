@@ -105,8 +105,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		goto cleanup;
 	}
 
-	struct sbuf out_buf;
-	sbuf_init(&out_buf, sbuf_flag_overflow_alloc);
+	SBUF_1k(out_buf, sbuf_flag_overflow_alloc);
 
 	uint32_t i, id_start, id_len,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
@@ -279,11 +278,11 @@ write_mesondefine:
 		}
 	}
 
-	if (file_exists_with_content(wk, get_cstr(wk, out), out_buf.buf, *out_buf.len)) {
+	if (file_exists_with_content(wk, get_cstr(wk, out), out_buf.buf, out_buf.len)) {
 		goto cleanup;
 	}
 
-	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf.buf, *out_buf.len)) {
+	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf.buf, out_buf.len)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -300,7 +299,7 @@ cleanup:
 }
 
 struct generate_config_ctx {
-	struct sbuf out_buf;
+	struct sbuf *out_buf;
 	uint32_t node;
 	enum configure_file_output_format output_format;
 };
@@ -320,21 +319,21 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case obj_string:
 		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
 		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
+		sbuf_pushf(wk, ctx->out_buf, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
 		break;
 	case obj_bool:
 		/* conf_data.set('FOO', true)       => #define FOO */
 		/* conf_data.set('FOO', false)      => #undef FOO */
 		if (get_obj_bool(wk, val)) {
-			sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
+			sbuf_pushf(wk, ctx->out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
 		} else {
-			sbuf_pushf(wk, &ctx->out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
+			sbuf_pushf(wk, ctx->out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
 		}
 		break;
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		sbuf_pushf(wk, &ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
+		sbuf_pushf(wk, ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
 		break;
 	default:
 		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
@@ -348,23 +347,24 @@ static bool
 generate_config(struct workspace *wk, enum configure_file_output_format format,
 	obj dict, uint32_t node, obj out_path)
 {
+	SBUF_1k(out_buf, sbuf_flag_overflow_alloc);
+
 	struct generate_config_ctx ctx = {
+		.out_buf = &out_buf,
 		.node = node,
 		.output_format = format,
 	};
 
-	sbuf_init(&ctx.out_buf, sbuf_flag_overflow_alloc);
-
 	bool ret;
 	ret = obj_dict_foreach(wk, dict, &ctx, generate_config_iter);
 
-	if (!file_exists_with_content(wk, get_cstr(wk, out_path), ctx.out_buf.buf, *ctx.out_buf.len)) {
-		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)ctx.out_buf.buf, *ctx.out_buf.len)) {
+	if (!file_exists_with_content(wk, get_cstr(wk, out_path), ctx.out_buf->buf, ctx.out_buf->len)) {
+		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)ctx.out_buf->buf, ctx.out_buf->len)) {
 			ret = false;
 		}
 	}
 
-	sbuf_destroy(&ctx.out_buf);
+	sbuf_destroy(&out_buf);
 	return ret;
 }
 

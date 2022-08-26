@@ -350,9 +350,7 @@ coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *re
 		}
 	}
 
-	if (!path_normalize(path, true)) {
-		return false;
-	}
+	path_normalize(path, true);
 
 	make_obj(wk, res, obj_file);
 	*get_obj_file(wk, *res) = make_str(wk, path);

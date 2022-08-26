@@ -241,11 +241,10 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 	int ret = 1;
 	char *const *argv = NULL;
 	uint32_t argc;
-	char cwd[PATH_MAX];
+	SBUF_1k(cwd, sbuf_flag_overflow_alloc);
+
 	if (chdir) {
-		if (!path_cwd(cwd, PATH_MAX)) {
-			return false;
-		}
+		path_cwd(NULL, &cwd);
 
 		if (!path_chdir(chdir)) {
 			goto ret;
@@ -303,7 +302,9 @@ ret:
 	}
 
 	if (chdir) {
-		path_chdir(cwd);
+		path_chdir(cwd.buf);
 	}
+
+	sbuf_destroy(&cwd);
 	return ret;
 }

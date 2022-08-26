@@ -880,11 +880,12 @@ main(int argc, char *argv[])
 	log_init();
 	log_set_lvl(log_info);
 
-	if (!path_init()) {
-		return 1;
-	}
+	path_init();
 
 	compilers_init();
 
-	return cmd_main(argc, 0, argv) ? 0 : 1;
+	int ret = cmd_main(argc, 0, argv) ? 0 : 1;
+
+	path_deinit();
+	return ret;
 }

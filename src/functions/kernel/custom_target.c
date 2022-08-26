@@ -774,7 +774,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	make_obj(wk, &command, obj_array);
 
 	push_args_null_terminated(wk, command, (char *const []){
-		wk->argv0,
+		(char *)wk->argv0,
 		"internal",
 		"eval",
 		"-e",

@@ -46,10 +46,7 @@ enum {
 };
 
 struct workspace {
-	char argv0[PATH_MAX],
-	     source_root[PATH_MAX],
-	     build_root[PATH_MAX],
-	     muon_private[PATH_MAX];
+	const char *argv0, *source_root, *build_root, *muon_private;
 
 	struct {
 		uint32_t argc;

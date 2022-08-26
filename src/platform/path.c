@@ -6,20 +6,38 @@
 #include <unistd.h>
 
 #include "buf_size.h"
+#include "lang/string.h"
 #include "log.h"
 #include "platform/path.h"
 
-static char cwd[PATH_MAX + 1];
+static struct {
+	char cwd_buf[BUF_SIZE_2k];
+	struct sbuf cwd;
+} path_ctx;
 
-bool
+static void
+path_getcwd(void)
+{
+	sbuf_clear(&path_ctx.cwd);
+	while (!getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
+		sbuf_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
+	}
+}
+
+void
 path_init(void)
 {
-	if (getcwd(cwd, PATH_MAX) == NULL) {
-		LOG_E("getcwd failed: %s", strerror(errno));
-		return false;
-	}
+	sbuf_init(&path_ctx.cwd, sbuf_flag_overflow_alloc);
+	path_ctx.cwd.buf = path_ctx.cwd_buf;
+	path_ctx.cwd.cap = BUF_SIZE_2k;
 
-	return true;
+	path_getcwd();
+}
+
+void
+path_deinit(void)
+{
+	sbuf_destroy(&path_ctx.cwd);
 }
 
 static bool
@@ -94,7 +112,7 @@ buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
 	return false;
 }
 
-bool
+void
 path_normalize(char *buf, bool optimize)
 {
 	uint32_t parents = 0;
@@ -102,10 +120,7 @@ path_normalize(char *buf, bool optimize)
 	uint32_t part_len, i, slen = strlen(buf), blen = 0, sep_len;
 	bool loop = true, skip_part;
 
-	if (!*buf) {
-		LOG_E("path is empty");
-		return false;
-	}
+	assert(*buf && "path is empty");
 
 	part = buf;
 
@@ -168,8 +183,14 @@ path_normalize(char *buf, bool optimize)
 	} else if (blen > 1 && buf[blen - 1] == PATH_SEP) {
 		buf[blen - 1] = 0;
 	}
+}
 
-	return true;
+void
+path_copy(struct workspace *wk, struct sbuf *sb, const char *path)
+{
+	sbuf_clear(sb);
+	sbuf_pushs(wk, sb, path);
+	path_normalize(sb->buf, false);
 }
 
 static bool
@@ -180,28 +201,26 @@ simple_copy(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
 path_chdir(const char *path)
 {
-	if (!simple_copy(cwd, PATH_MAX, path)) {
+	if (chdir(path) < 0) {
+		LOG_E("failed chdir(%s): %s", path, strerror(errno));
 		return false;
 	}
 
-	if (chdir(cwd) < 0) {
-		LOG_E("failed chdir(%s): %s", cwd, strerror(errno));
-		return false;
-	}
-
-	return path_init();
+	path_getcwd();
+	return true;
 }
 
-bool
-path_cwd(char *buf, uint32_t len)
+void
+path_cwd(struct workspace *wk, struct sbuf *sb)
 {
-	return simple_copy(buf, len, cwd);
+	path_copy(wk, sb, path_ctx.cwd.buf);
 }
 
 bool
@@ -223,7 +242,8 @@ path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
 		return false;
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
@@ -249,7 +269,8 @@ path_join(char *buf, uint32_t len, const char *a, const char *b)
 		return false;
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
@@ -258,7 +279,7 @@ path_make_absolute(char *buf, uint32_t len, const char *path)
 	if (path_is_absolute(path)) {
 		return simple_copy(buf, len, path);
 	} else {
-		return path_join(buf, len, cwd, path);
+		return path_join(buf, len, path_ctx.cwd.buf, path);
 	}
 }
 
@@ -284,9 +305,8 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	strncpy(base, base_raw, PATH_MAX - 1);
 	strncpy(path, path_raw, PATH_MAX - 1);
 
-	if (!path_normalize(base, false) || !path_normalize(path, false)) {
-		return false;
-	}
+	path_normalize(base, false);
+	path_normalize(path, false);
 
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
@@ -351,7 +371,8 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 		}
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
@@ -384,7 +405,8 @@ path_without_ext(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
@@ -412,7 +434,8 @@ path_basename(char *buf, uint32_t len, const char *path)
 		return false;
 	}
 
-	return path_normalize(buf, false);
+	path_normalize(buf, false);
+	return true;
 }
 
 bool
@@ -431,7 +454,8 @@ path_dirname(char *buf, uint32_t len, const char *path)
 				return false;
 			}
 
-			return path_normalize(buf, false);
+			path_normalize(buf, false);
+			return true;
 		}
 	}
 

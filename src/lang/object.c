@@ -1607,7 +1607,7 @@ obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
-	struct sbuf sb = { .flags = sbuf_flag_write, .file = f };
+	struct sbuf sb = { .flags = sbuf_flag_write, .buf = (void *)f };
 
 	return obj_vasprintf(wk, &sb, fmt, ap);
 }

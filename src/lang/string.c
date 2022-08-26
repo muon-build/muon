@@ -387,10 +387,6 @@ sbuf_init(struct sbuf *sb, enum sbuf_flags flags)
 	*sb = (struct sbuf) {
 		.flags = flags,
 	};
-
-	sb->buf = sb->static_buf;
-	sb->cap = SBUF_STATIC_LEN;
-	sb->len = &sb->buflen;
 }
 
 void
@@ -409,20 +405,25 @@ sbuf_clear(struct sbuf *sb)
 		return;
 	}
 
-	memset(sb->buf, 0, *sb->len);
-	*sb->len = 0;
+	memset(sb->buf, 0, sb->len);
+	sb->len = 0;
 }
 
-static void
-sbuf_check_overflow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
+void
+sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 {
-	uint32_t newcap, newlen = *sb->len + inc;
+	uint32_t newcap, newlen = sb->len + inc;
 
 	if (newlen < sb->cap) {
 		return;
 	}
 
 	newcap = sb->cap;
+
+	if (!newcap) {
+		newcap = 1024;
+	}
+
 	do {
 		newcap *= 2;
 	} while (newcap < newlen);
@@ -430,7 +431,7 @@ sbuf_check_overflow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 	if (sb->flags & sbuf_flag_overflown) {
 		if (sb->flags & sbuf_flag_overflow_alloc) {
 			sb->buf = z_realloc(sb->buf, newcap);
-			memset((void *)&sb->buf[*sb->len], 0, newcap - sb->cap);
+			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
 		} else {
 			grow_str(wk, sb->s, newcap - sb->cap);
 			sb->buf = (char *)get_str(wk, sb->s)->s;
@@ -438,10 +439,12 @@ sbuf_check_overflow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 	} else {
 		if (sb->flags & sbuf_flag_overflow_error) {
 			error_unrecoverable("unhandled sbuf overflow: capacity: %d, length: %d, trying to push %d bytes",
-				sb->cap, *sb->len, inc);
+				sb->cap, sb->len, inc);
 		}
 
 		sb->flags |= sbuf_flag_overflown;
+
+		char *obuf = sb->buf;
 
 		if (sb->flags & sbuf_flag_overflow_alloc) {
 			sb->buf = z_calloc(newcap, 1);
@@ -449,11 +452,11 @@ sbuf_check_overflow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			reserve_str(wk, &sb->s, newcap);
 			const struct str *ss = get_str(wk, sb->s);
 			sb->buf = (char *)ss->s;
-			sb->len = (uint32_t *)&ss->len;
-			*sb->len = sb->buflen;
 		}
 
-		memcpy(sb->buf, sb->static_buf, sb->buflen);
+		if (obuf) {
+			memcpy(sb->buf, obuf, sb->len);
+		}
 	}
 
 	sb->cap = newcap;
@@ -463,23 +466,23 @@ void
 sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (fputc(s, sb->file) == EOF) {
+		if (fputc(s, (FILE *)sb->buf) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
 	}
 
-	sbuf_check_overflow(wk, sb, 1);
+	sbuf_grow(wk, sb, 1);
 
-	sb->buf[*sb->len] = s;
-	++(*sb->len);
+	sb->buf[sb->len] = s;
+	++(sb->len);
 }
 
 void
 sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (!fs_fwrite(s, n, sb->file)) {
+		if (!fs_fwrite(s, n, (FILE *)sb->buf)) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -489,17 +492,17 @@ sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 		return;
 	}
 
-	sbuf_check_overflow(wk, sb, n);
+	sbuf_grow(wk, sb, n);
 
-	memcpy(&sb->buf[*sb->len], s, n);
-	*sb->len += n;
+	memcpy(&sb->buf[sb->len], s, n);
+	sb->len += n;
 }
 
 void
 sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (fputs(s, sb->file) == EOF) {
+		if (fputs(s, (FILE *)sb->buf) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -511,10 +514,10 @@ sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 		return;
 	}
 
-	sbuf_check_overflow(wk, sb, n);
+	sbuf_grow(wk, sb, n);
 
-	memcpy(&sb->buf[*sb->len], s, n);
-	*sb->len += n - 1;
+	memcpy(&sb->buf[sb->len], s, n);
+	sb->len += n - 1;
 }
 
 void
@@ -525,7 +528,7 @@ sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 	va_start(args, fmt);
 
 	if (sb->flags & sbuf_flag_write) {
-		if (vfprintf(sb->file, fmt, args) < 0) {
+		if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
 			error_unrecoverable("failed to write output to file");
 		}
 		goto done;
@@ -535,13 +538,19 @@ sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	sbuf_check_overflow(wk, sb, len);
+	sbuf_grow(wk, sb, len);
 
-	vsnprintf(&sb->buf[*sb->len], len + 1, fmt, args);
-	*sb->len += len;
+	vsnprintf(&sb->buf[sb->len], len + 1, fmt, args);
+	sb->len += len;
 
 	va_end(args_copy);
 
 done:
 	va_end(args);
+}
+
+obj
+sbuf_into_str(struct workspace *wk, struct sbuf *sb)
+{
+	return make_strn(wk, sb->buf, sb->len);
 }
