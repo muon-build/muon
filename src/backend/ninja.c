@@ -292,6 +292,13 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 			goto ret;
 		}
 
+		if (capture) {
+			if (!fs_write(capture, (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len)) {
+				run_cmd_ctx_destroy(&cmd_ctx);
+				goto ret;
+			}
+		}
+
 		run_cmd_ctx_destroy(&cmd_ctx);
 		ret = cmd_ctx.status;
 	}
