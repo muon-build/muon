@@ -137,7 +137,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 
 		if (proj->tests && get_obj_array(wk, proj->tests)->len) {
 			if (!wrote_header) {
-				LOG_I("writing tests");
+				L("writing tests");
 				wrote_header = true;
 			}
 
