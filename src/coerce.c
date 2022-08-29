@@ -239,18 +239,19 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
-		char tmp1[PATH_MAX], dest[PATH_MAX];
+		char tmp1[PATH_MAX];
+		SBUF_1k(dest, 0);
 
-		if (!path_join(dest, PATH_MAX, get_cstr(wk, o->build_dir),
-			get_cstr(wk, o->build_name))) {
+		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
+
+		if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest.buf)) {
 			return false;
-		} else if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest)) {
-			return false;
-		} else if (!path_executable(dest, PATH_MAX, tmp1)) {
+		} else if (!path_executable(dest.buf, dest.cap, tmp1)) {
 			return false;
 		}
+		dest.len = strlen(dest.buf); // XXX
 
-		str = make_str(wk, dest);
+		str = sbuf_into_str(wk, &dest, false);
 		break;
 	}
 	case obj_external_program: {
@@ -339,21 +340,19 @@ bool
 coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res)
 {
 	const char *p = get_cstr(wk, string);
-	char path[PATH_MAX] = { 0 };
+	SBUF_1k(path, 0);
 
 	if (path_is_absolute(p)) {
 		const struct str *ss = get_str(wk, string);
-		memcpy(path, ss->s, ss->len + 1);
+		path_copy(wk, &path, ss->s);
 	} else {
-		if (!path_join(path, PATH_MAX, dir, p)) {
-			return false;
-		}
+		path_join(wk, &path, dir, p);
 	}
 
-	path_normalize(path, true);
+	_path_normalize(wk, &path, true);
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = make_str(wk, path);
+	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -364,7 +363,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 	switch (t) {
 	case obj_string: {
-		char buf[PATH_MAX];
+		SBUF_1k(buf, 0);
 
 		switch (ctx->mode) {
 		case mode_input:
@@ -383,12 +382,9 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 				return ir_err;
 			}
 
-			if (!path_join(buf, PATH_MAX, ctx->output_dir, get_cstr(wk, val))) {
-				return ir_err;
-			}
-
+			path_join(wk, &buf, ctx->output_dir, get_cstr(wk, val));
 			make_obj(wk, file, obj_file);
-			*get_obj_file(wk, *file) = make_str(wk, buf);
+			*get_obj_file(wk, *file) = sbuf_into_str(wk, &buf, false);
 			break;
 		default:
 			assert(false);
@@ -406,13 +402,10 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
-			return false;
-		}
-
+		SBUF_1k(path, 0);
+		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 		make_obj(wk, file, obj_file);
-		*get_obj_file(wk, *file) = make_str(wk, path);
+		*get_obj_file(wk, *file) = sbuf_into_str(wk, &path, false);
 		break;
 	}
 	case obj_file:
@@ -554,15 +547,13 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	obj path = v;
-	char buf1[PATH_MAX], buf2[PATH_MAX];
+	SBUF_1k(buf1, 0);
+	SBUF_1k(buf2, 0);
 	const char *p = get_cstr(wk, path);
 
 	if (!path_is_absolute(p)) {
-		if (!path_join(buf1, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
-			return ir_err;
-		}
-
-		path = make_str(wk, buf1);
+		path_join(wk, &buf1, get_cstr(wk, current_project(wk)->cwd), p);
+		path = sbuf_into_str(wk, &buf1, true);
 	}
 
 	p = get_cstr(wk, path);
@@ -576,15 +567,15 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	struct obj_include_directory *d;
 
 	if (path_is_subpath(wk->source_root, p)) {
-		if (!path_relative_to(buf1, PATH_MAX, wk->source_root, p)) {
-			return ir_err;
-		} else if (!path_join(buf2, PATH_MAX, wk->build_root, buf1)) {
+		if (!path_relative_to(buf1.buf, buf1.cap, wk->source_root, p)) {
 			return ir_err;
 		}
+		buf1.len = strlen(buf1.buf); // XXX
+		path_join(wk, &buf2, wk->build_root, buf1.buf);
 
 		make_obj(wk, &inc, obj_include_directory);
 		d = get_obj_include_directory(wk, inc);
-		d->path = make_str(wk, buf2);
+		d->path = sbuf_into_str(wk, &buf2, false);
 		d->is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}

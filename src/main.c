@@ -355,25 +355,27 @@ cmd_subprojects_download_iter(void *_ctx, const char *name)
 {
 	struct cmd_subprojects_download_ctx *ctx = _ctx;
 	uint32_t len = strlen(name);
-	char path[PATH_MAX];
+	SBUF_1k(path, sbuf_flag_overflow_alloc);
 
 	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
-		return ir_cont;
+		goto cont;
 	}
 
-	if (!path_join(path, PATH_MAX, ctx->subprojects, name)) {
-		return ir_err;
-	} else if (!fs_file_exists(path)) {
-		return ir_cont;
+	path_join(NULL, &path, ctx->subprojects, name);
+
+	if (!fs_file_exists(path.buf)) {
+		goto cont;
 	}
 
 	LOG_I("fetching %s", name);
 	struct wrap wrap = { 0 };
-	if (!wrap_handle(path, ctx->subprojects, &wrap, true)) {
-		return ir_err;
+	if (!wrap_handle(path.buf, ctx->subprojects, &wrap, true)) {
+		goto cont;
 	}
 
 	wrap_destroy(&wrap);
+cont:
+	sbuf_destroy(&path);
 	return ir_cont;
 }
 
@@ -393,22 +395,24 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	if (argc > argi) {
-		char wrap_file[PATH_MAX];
+		SBUF_1k(wrap_file, sbuf_flag_overflow_alloc);
 
 		for (; argc > argi; ++argi) {
-			if (!path_join(wrap_file, PATH_MAX, ctx.subprojects, argv[argi])) {
-				return false;
-			} else if (!path_add_suffix(wrap_file, PATH_MAX, ".wrap")) {
-				return false;
-			} else if (!fs_file_exists(wrap_file)) {
+			path_join(NULL, &wrap_file, ctx.subprojects, argv[argi]);
+
+			sbuf_pushs(NULL, &wrap_file, ".wrap");
+
+			if (!fs_file_exists(wrap_file.buf)) {
 				LOG_E("wrap file for '%s' not found", argv[argi]);
 				return false;
 			}
 
-			if (cmd_subprojects_download_iter(&ctx, wrap_file) == ir_err) {
+			if (cmd_subprojects_download_iter(&ctx, wrap_file.buf) == ir_err) {
 				return false;
 			}
 		}
+
+		sbuf_destroy(&wrap_file);
 		return true;
 	} else {
 		return fs_dir_foreach(path, &ctx, cmd_subprojects_download_iter);

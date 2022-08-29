@@ -121,11 +121,11 @@ struct find_lib_path_ctx {
 	bool is_static;
 	bool found;
 	const char *name;
-	char *buf;
+	struct sbuf *buf, *name_buf;
 };
 
 static bool
-check_lib_path(struct find_lib_path_ctx *ctx, const char *lib_path)
+check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *lib_path)
 {
 	enum ext { ext_a, ext_so, ext_count };
 	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so" };
@@ -141,15 +141,13 @@ check_lib_path(struct find_lib_path_ctx *ctx, const char *lib_path)
 
 	uint32_t i;
 
-	char name[PATH_MAX];
 	for (i = 0; i < ext_count; ++i) {
-		snprintf(name, PATH_MAX - 1, "lib%s%s", ctx->name, ext[ext_order[i]]);
+		sbuf_clear(ctx->name_buf);
+		sbuf_pushf(wk, ctx->name_buf, "lib%s%s", ctx->name, ext[ext_order[i]]);
 
-		if (!path_join(ctx->buf, PATH_MAX, lib_path, name)) {
-			return false;
-		}
+		path_join(wk, ctx->buf, lib_path, ctx->name_buf->buf);
 
-		if (fs_file_exists(ctx->buf)) {
+		if (fs_file_exists(ctx->buf->buf)) {
 			ctx->found = true;
 			return true;
 		}
@@ -163,26 +161,33 @@ find_lib_path_iter(struct workspace *wk, void *_ctx, obj val_id)
 {
 	struct find_lib_path_ctx *ctx = _ctx;
 
-	if (check_lib_path(ctx, get_cstr(wk, val_id))) {
+	if (check_lib_path(wk, ctx, get_cstr(wk, val_id))) {
 		return ir_done;
 	}
 
 	return ir_cont;
 }
 
-static const char *
+static obj
 find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const char *name)
 {
-	static char buf[PATH_MAX + 1];
-	struct find_lib_path_ctx find_lib_path_ctx = { .buf = buf, .name = name, .is_static = ctx->is_static };
+	SBUF_1k(buf, 0);
+	SBUF_1k(name_buf, 0);
+
+	struct find_lib_path_ctx find_lib_path_ctx = {
+		.buf = &buf,
+		.name_buf = &name_buf,
+		.name = name,
+		.is_static = ctx->is_static
+	};
 
 	if (!obj_array_foreach(ctx->wk, ctx->libdirs, &find_lib_path_ctx, find_lib_path_iter)) {
-		return NULL;
+		return 0;
 	} else if (!find_lib_path_ctx.found) {
-		return NULL;
+		return 0;
 	}
 
-	return buf;
+	return sbuf_into_str(ctx->wk, &buf, false);
 }
 
 static bool
@@ -222,14 +227,13 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			obj_array_push(ctx->wk, ctx->libdirs, str);
 			break;
 		case 'l': {
-			const char *path;
+			obj path;
 			if ((path = find_lib_path(client, ctx, frag->data))) {
-				str = make_str(ctx->wk, path);
-
 				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
-					L("library '%s' found for dependency '%s'", path, get_cstr(ctx->wk, ctx->name));
+					L("library '%s' found for dependency '%s'",
+						get_cstr(ctx->wk, path), get_cstr(ctx->wk, ctx->name));
 
-					obj_array_push(ctx->wk, ctx->info->libs, str);
+					obj_array_push(ctx->wk, ctx->info->libs, path);
 				}
 			} else {
 				LOG_W("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));

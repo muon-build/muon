@@ -45,17 +45,16 @@ write_custom_target_dat(struct workspace *wk, struct obj_custom_target *tgt, obj
 	snprintf(name, PATH_MAX - 1, "%s%d.dat", get_cstr(wk, tgt->name), custom_tgt_dat_sequence);
 	++custom_tgt_dat_sequence;
 
-	char dat_path[PATH_MAX], dirpath[PATH_MAX];
-	if (!(path_join(dirpath, PATH_MAX, wk->muon_private, dir)
-	      && path_join(dat_path, PATH_MAX, dirpath, name))) {
-		return false;
-	}
+	SBUF_1k(dirpath, 0);
+	SBUF_1k(dat_path, 0);
+	path_join(wk, &dirpath, wk->muon_private, dir);
+	path_join(wk, &dat_path, dirpath.buf, name);
 
 	FILE *dat;
 
-	if (!fs_mkdir_p(dirpath)) {
+	if (!fs_mkdir_p(dirpath.buf)) {
 		return false;
-	} else if (!(dat = fs_fopen(dat_path, "w"))) {
+	} else if (!(dat = fs_fopen(dat_path.buf, "w"))) {
 		return false;
 	} else if (!serial_dump(wk, data_obj, dat)) {
 		return false;
@@ -63,7 +62,7 @@ write_custom_target_dat(struct workspace *wk, struct obj_custom_target *tgt, obj
 		return false;
 	}
 
-	*res = make_str(wk, dat_path);
+	*res = make_str(wk, dat_path.buf);
 	return true;
 }
 

@@ -440,8 +440,6 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			str = str_join(wk, l_id, r_id);
 			break;
 		case arith_div: {
-			char buf[PATH_MAX];
-
 			const struct str *ss1 = get_str(wk, l_id),
 					 *ss2 = get_str(wk, r_id);
 
@@ -455,11 +453,9 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 				return false;
 			}
 
-			if (!path_join(buf, PATH_MAX, ss1->s, ss2->s)) {
-				return false;
-			}
-
-			str = make_str(wk, buf);
+			SBUF_1k(buf, 0);
+			path_join(wk, &buf, ss1->s, ss2->s);
+			str = sbuf_into_str(wk, &buf, false);
 			break;
 		}
 		default:

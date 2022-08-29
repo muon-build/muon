@@ -113,16 +113,19 @@ buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
 }
 
 void
-path_normalize(char *buf, bool optimize)
+_path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 {
 	uint32_t parents = 0;
 	char *part, *sep;
-	uint32_t part_len, i, slen = strlen(buf), blen = 0, sep_len;
+	uint32_t part_len, i, slen = buf->len, blen = 0, sep_len;
 	bool loop = true, skip_part;
 
-	assert(*buf && "path is empty");
+	/* assert(slen && "path is empty"); */
+	if (!buf->len) {
+		return;
+	}
 
-	part = buf;
+	part = buf->buf;
 
 	if (*part == PATH_SEP) {
 		++part;
@@ -147,19 +150,19 @@ path_normalize(char *buf, bool optimize)
 		} else if (optimize && part_len == 2 && part[0] == '.' && part[1] == '.') {
 			// convert something like a/../b into b
 			if (parents) {
-				for (i = (part - 2) - buf; i > 0; --i) {
-					if (buf[i] == PATH_SEP) {
+				for (i = (part - 2) - buf->buf; i > 0; --i) {
+					if (buf->buf[i] == PATH_SEP) {
 						break;
 					}
 				}
 
-				if (buf[i] == PATH_SEP) {
+				if (buf->buf[i] == PATH_SEP) {
 					++i;
 				}
 
-				part = &buf[i];
+				part = &buf->buf[i];
 				skip_part = true;
-				blen -= (sep - &buf[i]) - part_len;
+				blen -= (sep - &buf->buf[i]) - part_len;
 				--parents;
 			} else {
 				part = sep + sep_len;
@@ -179,10 +182,23 @@ path_normalize(char *buf, bool optimize)
 	}
 
 	if (!blen) {
-		buf[0] = '.';
-	} else if (blen > 1 && buf[blen - 1] == PATH_SEP) {
-		buf[blen - 1] = 0;
+		buf->buf[0] = '.';
+		buf->len = 1;
+	} else if (blen > 1 && buf->buf[blen - 1] == PATH_SEP) {
+		buf->buf[blen - 1] = 0;
+		buf->len = blen - 1;
+	} else {
+		buf->len = blen;
 	}
+}
+
+void
+path_normalize(char *buf, bool optimize)
+{
+	struct sbuf sb = { .buf = buf, .flags = sbuf_flag_overflow_error };
+	sb.cap = sb.len = strlen(buf);
+
+	_path_normalize(NULL, &sb, optimize);
 }
 
 void
@@ -190,7 +206,7 @@ path_copy(struct workspace *wk, struct sbuf *sb, const char *path)
 {
 	sbuf_clear(sb);
 	sbuf_pushs(wk, sb, path);
-	path_normalize(sb->buf, false);
+	_path_normalize(wk, sb, false);
 }
 
 static bool
@@ -229,48 +245,39 @@ path_is_absolute(const char *path)
 	return *path == PATH_SEP;
 }
 
-bool
-path_join_absolute(char *buf, uint32_t len, const char *a, const char *b)
+void
+path_join_absolute(struct workspace *wk, struct sbuf *sb, const char *a, const char *b)
 {
-	uint32_t i = 0;
-
-	if (!buf_push_s(buf, a, &i, len)) {
-		return false;
-	} else if (!buf_push_c(buf, PATH_SEP, &i, len)) {
-		return false;
-	} else if (!buf_push_s(buf, b, &i, len)) {
-		return false;
-	}
-
-	path_normalize(buf, false);
-	return true;
+	path_copy(wk, sb, a);
+	sbuf_push(wk, sb, PATH_SEP);
+	sbuf_pushs(wk, sb, b);
+	_path_normalize(wk, sb, false);
 }
 
-bool
-path_join(char *buf, uint32_t len, const char *a, const char *b)
+void
+path_push(struct workspace *wk, struct sbuf *sb, const char *b)
 {
-	uint32_t i = 0;
-
-	if (path_is_absolute(b) || strlen(a) == 0) {
-		return simple_copy(buf, len, b);
+	if (path_is_absolute(b) || !sb->len) {
+		path_copy(wk, sb, b);
 	} else if (!*b) {
 		/* Special-case path_1 / '' to mean "append a / to the current
 		 * path".
 		 */
-		if (!simple_copy(buf, len, a)) {
-			return false;
-		}
-		return path_add_suffix(buf, len, "/");
-	} else if (!buf_push_s(buf, a, &i, len)) {
-		return false;
-	} else if (!buf_push_c(buf, PATH_SEP, &i, len)) {
-		return false;
-	} else if (!buf_push_s(buf, b, &i, len)) {
-		return false;
+		path_normalize(sb->buf, false);
+		sbuf_push(wk, sb, PATH_SEP);
+	} else {
+		sbuf_push(wk, sb, PATH_SEP);
+		sbuf_pushs(wk, sb, b);
+		_path_normalize(wk, sb, false);
 	}
+}
 
-	path_normalize(buf, false);
-	return true;
+void
+path_join(struct workspace *wk, struct sbuf *sb, const char *a, const char *b)
+{
+	sbuf_clear(sb);
+	path_push(wk, sb, a);
+	path_push(wk, sb, b);
 }
 
 bool
@@ -279,7 +286,9 @@ path_make_absolute(char *buf, uint32_t len, const char *path)
 	if (path_is_absolute(path)) {
 		return simple_copy(buf, len, path);
 	} else {
-		return path_join(buf, len, path_ctx.cwd.buf, path);
+		struct sbuf sb = { .buf = buf, .cap = len, .flags = sbuf_flag_overflow_error };
+		path_join(NULL, &sb, path_ctx.cwd.buf, path);
+		return true;
 	}
 }
 

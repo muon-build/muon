@@ -73,12 +73,9 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	if (str_eql(get_str(wk, val), &WKSTR("."))) {
 		obj_array_push(wk, *cflags, make_str(wk, "-I${includedir}"));
 	} else {
-		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, "-I${includedir}", get_cstr(wk, val))) {
-			return ir_err;
-		}
-
-		obj_array_push(wk, *cflags, make_str(wk, path));
+		SBUF_1k(path, 0);
+		path_join(wk, &path, "-I${includedir}", get_cstr(wk, val));
+		obj_array_push(wk, *cflags, sbuf_into_str(wk, &path, false));
 	}
 
 	return ir_cont;
@@ -912,14 +909,11 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		filebase = akw[kw_filebase].val;
 	}
 
-	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, wk->muon_private, get_cstr(wk, filebase))) {
-		return false;
-	} else if (!path_add_suffix(path, PATH_MAX, ".pc")) {
-		return false;
-	}
+	SBUF_1k(path, 0);
+	path_join(wk, &path, wk->muon_private, get_cstr(wk, filebase));
+	sbuf_pushs(wk, &path, ".pc");
 
-	if (!module_pkgconf_write(wk, path, &pc)) {
+	if (!module_pkgconf_write(wk, path.buf, &pc)) {
 		return false;
 	}
 
@@ -928,11 +922,10 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	}
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = make_str(wk, path);
+	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path, true);
 
 	{
 		const char *install_dir;
-		char path[PATH_MAX], dest[PATH_MAX];
 		if (akw[kw_install_dir].set) {
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
 		} else {
@@ -943,20 +936,15 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 				get_option_value(wk, current_project(wk), "libdir", &install_base);
 			}
 
-			if (!path_join(path, PATH_MAX, get_cstr(wk, install_base), "pkgconfig")) {
-				return false;
-			}
-
-			install_dir = path;
+			path_join(wk, &path, get_cstr(wk, install_base), "pkgconfig");
+			install_dir = path.buf;
 		}
 
-		if (!path_join(dest, PATH_MAX, install_dir, get_cstr(wk, filebase))) {
-			return false;
-		} else if (!path_add_suffix(dest, PATH_MAX, ".pc")) {
-			return false;
-		}
+		SBUF_1k(dest, 0);
+		path_join(wk, &dest, install_dir, get_cstr(wk, filebase));
+		sbuf_pushs(wk, &dest, ".pc");
 
-		push_install_target(wk, *get_obj_file(wk, *res), make_str(wk, dest), 0);
+		push_install_target(wk, *get_obj_file(wk, *res), sbuf_into_str(wk, &dest, false), 0);
 	}
 
 	return true;

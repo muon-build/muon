@@ -62,7 +62,6 @@ shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 	}
 
 	sbuf_push(wk, sb, '\'');
-	sbuf_push(wk, sb, 0);
 }
 
 static void
@@ -79,8 +78,6 @@ simple_escape(struct workspace *wk, struct sbuf *sb, const char *str, const char
 
 		sbuf_push(wk, sb, *s);
 	}
-
-	sbuf_push(wk, sb, 0);
 }
 
 void

@@ -551,7 +551,7 @@ bool
 tests_run(struct test_options *opts)
 {
 	bool ret = false;
-	char tests_src[PATH_MAX];
+	SBUF_1k(tests_src, sbuf_flag_overflow_alloc);
 
 	if (opts->workers > MAX_TEST_WORKERS) {
 		LOG_E("the maximum number of test workers is %d", MAX_TEST_WORKERS);
@@ -560,12 +560,14 @@ tests_run(struct test_options *opts)
 		opts->workers = 4;
 	}
 
-	if (!path_join(tests_src, PATH_MAX, output_path.private_dir, output_path.tests)) {
-		return false;
-	}
+	path_join(NULL, &tests_src, output_path.private_dir, output_path.tests);
 
 	FILE *f;
-	if (!(f = fs_fopen(tests_src, "r"))) {
+	f = fs_fopen(tests_src.buf, "r");
+
+	sbuf_destroy(&tests_src);
+
+	if (!f) {
 		return false;
 	}
 

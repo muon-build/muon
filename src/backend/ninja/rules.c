@@ -157,14 +157,12 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
 	obj_array_push(wk, regen_args, make_str(wk, "setup"));
 
-	char compiler_check_cache_path[PATH_MAX];
-	if (!path_join(compiler_check_cache_path, PATH_MAX,
-		wk->muon_private, output_path.compiler_check_cache)) {
-		return false;
-	}
+	SBUF_1k(compiler_check_cache_path, 0);
+	path_join(wk, &compiler_check_cache_path,
+		wk->muon_private, output_path.compiler_check_cache);
 
 	obj_array_push(wk, regen_args, make_str(wk, "-c"));
-	obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path));
+	obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path.buf));
 
 	obj_dict_foreach(wk, wk->global_opts, &regen_args, add_global_opts_set_from_env_iter);
 

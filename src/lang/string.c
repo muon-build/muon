@@ -472,10 +472,11 @@ sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 		return;
 	}
 
-	sbuf_grow(wk, sb, 1);
+	sbuf_grow(wk, sb, 2);
 
 	sb->buf[sb->len] = s;
-	++(sb->len);
+	sb->buf[sb->len + 1] = 0;
+	++sb->len;
 }
 
 void
@@ -492,9 +493,10 @@ sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 		return;
 	}
 
-	sbuf_grow(wk, sb, n);
+	sbuf_grow(wk, sb, n + 1);
 
 	memcpy(&sb->buf[sb->len], s, n);
+	sb->buf[sb->len + n] = 0;
 	sb->len += n;
 }
 
@@ -550,7 +552,16 @@ done:
 }
 
 obj
-sbuf_into_str(struct workspace *wk, struct sbuf *sb)
+sbuf_into_str(struct workspace *wk, struct sbuf *sb, bool copy)
 {
-	return make_strn(wk, sb->buf, sb->len);
+	if (!copy && (sb->flags & sbuf_flag_overflown) && !(sb->flags & sbuf_flag_overflow_alloc)) {
+		struct str *ss = (struct str *)get_str(wk, sb->s);
+		assert(strlen(ss->s) == sb->len);
+		ss->len = sb->len;
+
+		return sb->s;
+	} else {
+		assert(strlen(sb->buf) == sb->len);
+		return make_strn(wk, sb->buf, sb->len);
+	}
 }

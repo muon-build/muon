@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "buf_size.h"
+#include "lang/string.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -445,9 +446,8 @@ fs_find_cmd(const char *cmd, const char **ret)
 			path_elem[len] = 0;
 			base_start = env_path + 1;
 
-			if (!path_join(cmd_path, PATH_MAX, path_elem, cmd)) {
-				return false;
-			}
+			struct sbuf buf = { .buf = cmd_path, .cap = PATH_MAX, .flags = sbuf_flag_overflow_error };
+			path_join(NULL, &buf, path_elem, cmd);
 
 			if (fs_exe_exists(cmd_path)) {
 				*ret = cmd_path;
@@ -620,40 +620,43 @@ struct fs_copy_dir_ctx {
 static enum iteration_result
 fs_copy_dir_iter(void *_ctx, const char *path)
 {
+	enum iteration_result res = ir_err;
 	struct fs_copy_dir_ctx *ctx = _ctx;
 	struct stat sb;
-	char src[PATH_MAX], dest[PATH_MAX];
+	SBUF_1k(src, sbuf_flag_overflow_alloc);
+	SBUF_1k(dest, sbuf_flag_overflow_alloc);
 
-	if (!path_join(src, PATH_MAX, ctx->src_base, path)) {
-		return ir_err;
-	} else if (!path_join(dest, PATH_MAX, ctx->dest_base, path)) {
-		return ir_err;
-	}
+	path_join(NULL, &src, ctx->src_base, path);
+	path_join(NULL, &dest, ctx->dest_base, path);
 
-	if (!fs_stat(src, &sb)) {
-		return ir_err;
+	if (!fs_stat(src.buf, &sb)) {
+		goto ret;
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-		if (!fs_dir_exists(dest)) {
-			if (!fs_mkdir(dest)) {
-				return ir_err;
+		if (!fs_dir_exists(dest.buf)) {
+			if (!fs_mkdir(dest.buf)) {
+				goto ret;
 			}
 		}
 
-		if (!fs_copy_dir(src, dest)) {
-			return ir_err;
+		if (!fs_copy_dir(src.buf, dest.buf)) {
+			goto ret;
 		}
 	} else if (S_ISREG(sb.st_mode)) {
-		if (!fs_copy_file(src, dest)) {
-			return ir_err;
+		if (!fs_copy_file(src.buf, dest.buf)) {
+			goto ret;
 		}
 	} else {
 		LOG_E("unhandled file type '%s'", path);
-		return ir_err;
+		goto ret;
 	}
 
-	return ir_cont;
+	res = ir_cont;
+ret:
+	sbuf_destroy(&src);
+	sbuf_destroy(&dest);
+	return res;
 }
 
 bool

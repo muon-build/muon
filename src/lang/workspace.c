@@ -142,7 +142,7 @@ workspace_init(struct workspace *wk)
 
 	sbuf_clear(&wk->sb_tmp);
 	path_cwd(wk, &wk->sb_tmp);
-	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &wk->sb_tmp));
+	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &wk->sb_tmp, true));
 
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -229,51 +229,49 @@ bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[])
 {
-	char path[PATH_MAX];
-	if (!path_make_absolute(path, PATH_MAX, build)) {
+	SBUF_1k(path, 0);
+
+	if (!path_make_absolute(path.buf, path.cap, build)) {
 		return false;
 	}
-	wk->build_root = get_cstr(wk, make_str(wk, path));
+	path.len = strlen(path.buf); // XXX
+	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &path, true));
 
 	if (path_is_basename(argv0)) {
-		uint32_t len = strlen(argv0);
-		assert(len < PATH_MAX);
 		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	} else {
-		if (!path_make_absolute(path, PATH_MAX, argv0)) {
+		if (!path_make_absolute(path.buf, path.cap, argv0)) {
 			return false;
 		}
+		path.len = strlen(path.buf); // XXX
 
-		wk->argv0 = get_cstr(wk, make_str(wk, path));
+		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &path, true));
 	}
 
 	wk->original_commandline.argc = argc;
 	wk->original_commandline.argv = argv;
 
-	if (!path_join(path, PATH_MAX, wk->build_root, output_path.private_dir)) {
-		return false;
-	}
-	wk->muon_private = get_cstr(wk, make_str(wk, path));
+	path_join(wk, &path, wk->build_root, output_path.private_dir);
+	wk->muon_private = get_cstr(wk, sbuf_into_str(wk, &path, true));
 
 	if (!fs_mkdir_p(wk->muon_private)) {
 		return false;
 	}
 
-	char gitignore_file[PATH_MAX];
-	char hgignore_file[PATH_MAX];
-	struct str *gitignore_src = &WKSTR("*\n");
-	struct str *hgignore_src = &WKSTR("syntax: glob\n**/*\n");
-	if (!path_join(gitignore_file, PATH_MAX, wk->build_root, ".gitignore")) {
-		return false;
+	{
+		const struct str *gitignore_src = &WKSTR("*\n");
+		path_join(wk, &path, wk->build_root, ".gitignore");
+		if (!fs_write(path.buf, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
+			return false;
+		}
 	}
-	if (!fs_write(gitignore_file, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
-		return false;
-	}
-	if (!path_join(hgignore_file, PATH_MAX, wk->build_root, ".hgignore")) {
-		return false;
-	}
-	if (!fs_write(hgignore_file, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
-		return false;
+
+	{
+		const struct str *hgignore_src = &WKSTR("syntax: glob\n**/*\n");
+		path_join(wk, &path, wk->build_root, ".hgignore");
+		if (!fs_write(path.buf, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
+			return false;
+		}
 	}
 
 	return true;

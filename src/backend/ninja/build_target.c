@@ -66,8 +66,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	/* build paths */
-	char dest_path[PATH_MAX];
-	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, dest_path)) {
+	SBUF_1k(dest_path, 0);
+	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
 		return ir_err;
 	}
 
@@ -76,7 +76,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	obj_array_push(wk, ctx->object_names, make_str(wk, dest_path));
+	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path, false));
 
 	/* build rules and args */
 
@@ -89,7 +89,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	SBUF_1k(esc_dest_path, 0);
 	SBUF_1k(esc_path, 0);
 
-	ninja_escape(wk, &esc_dest_path, dest_path);
+	ninja_escape(wk, &esc_dest_path, dest_path.buf);
 	ninja_escape(wk, &esc_path, src_path);
 
 	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path.buf,
@@ -103,9 +103,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		" ARGS = %s\n", get_cstr(wk, args_id));
 
 	if (compilers[ct].deps) {
-		if (!path_add_suffix(esc_dest_path.buf, PATH_MAX, ".d")) {
-			return false;
-		}
+		sbuf_pushs(wk, &esc_dest_path, ".d");
+		L("%s", esc_dest_path.buf);
 
 		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path.buf);
 

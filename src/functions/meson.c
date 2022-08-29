@@ -298,12 +298,9 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 			if (path_is_absolute(p)) {
 				str = val;
 			} else {
-				char path[PATH_MAX];
-				if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), p)) {
-					return false;
-				}
-
-				str = make_str(wk, path);
+				SBUF_1k(path, 0);
+				path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), p);
+				str = sbuf_into_str(wk, &path, false);
 			}
 		}
 		break;

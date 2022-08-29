@@ -19,13 +19,10 @@ bool
 eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	const char *build_dir, uint32_t *proj_id)
 {
-	char src[PATH_MAX];
+	SBUF_1k(src, 0);
+	path_join(wk, &src, cwd, "meson.build");
 
-	if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
-		return false;
-	}
-
-	if (!fs_file_exists(src)) {
+	if (!fs_file_exists(src.buf)) {
 		LOG_E("project %s does not contain a meson.build", cwd);
 		return false;
 	}
@@ -55,7 +52,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		goto cleanup;
 	}
 
-	if (!wk->eval_project_file(wk, src)) {
+	if (!wk->eval_project_file(wk, src.buf)) {
 		goto cleanup;
 	}
 

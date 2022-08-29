@@ -29,30 +29,28 @@ static enum iteration_result
 copy_subdir_iter(void *_ctx, const char *path)
 {
 	struct copy_subdir_ctx *ctx = _ctx;
-	char src[PATH_MAX], dest[PATH_MAX];
+	SBUF_1k(src, 0);
+	SBUF_1k(dest, 0);
 
-	if (!path_join(src, PATH_MAX, ctx->src_base, path)) {
-		return ir_err;
-	} else if (!path_join(dest, PATH_MAX, ctx->dest_base, path)) {
-		return ir_err;
-	}
+	path_join(ctx->wk, &src, ctx->src_base, path);
+	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
 	char rel[PATH_MAX];
-	if (!path_relative_to(rel, PATH_MAX, ctx->src_root, src)) {
+	if (!path_relative_to(rel, PATH_MAX, ctx->src_root, src.buf)) {
 		return ir_err;
 	}
 
-	if (fs_dir_exists(src)) {
+	if (fs_dir_exists(src.buf)) {
 		if (ctx->exclude_directories &&
 		    obj_array_in(ctx->wk, ctx->exclude_directories, make_str(ctx->wk, rel))) {
-			LOG_I("skipping dir '%s'", src);
+			LOG_I("skipping dir '%s'", src.buf);
 			return ir_cont;
 		}
 
-		LOG_I("make dir '%s'", dest);
+		LOG_I("make dir '%s'", dest.buf);
 
-		if (!fs_dir_exists(dest)) {
-			if (!fs_mkdir(dest)) {
+		if (!fs_dir_exists(dest.buf)) {
+			if (!fs_mkdir(dest.buf)) {
 				return ir_err;
 			}
 		}
@@ -63,24 +61,24 @@ copy_subdir_iter(void *_ctx, const char *path)
 			.has_perm = ctx->has_perm,
 			.perm = ctx->perm,
 			.src_root = ctx->src_root,
-			.src_base = src,
-			.dest_base = dest,
+			.src_base = src.buf,
+			.dest_base = dest.buf,
 			.wk = ctx->wk,
 		};
 
-		if (!fs_dir_foreach(src, &new_ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(src.buf, &new_ctx, copy_subdir_iter)) {
 			return ir_err;
 		}
-	} else if (fs_symlink_exists(src) || fs_file_exists(src)) {
+	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
 		if (ctx->exclude_files &&
 		    obj_array_in(ctx->wk, ctx->exclude_files, make_str(ctx->wk, rel))) {
-			LOG_I("skipping file '%s'", src);
+			LOG_I("skipping file '%s'", src.buf);
 			return ir_cont;
 		}
 
-		LOG_I("install '%s' -> '%s'", src, dest);
+		LOG_I("install '%s' -> '%s'", src.buf, dest.buf);
 
-		if (!fs_copy_file(src, dest)) {
+		if (!fs_copy_file(src.buf, dest.buf)) {
 			return ir_err;
 		}
 	} else {
@@ -88,7 +86,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 		return ir_err;
 	}
 
-	if (ctx->has_perm && !fs_chmod(dest, ctx->perm)) {
+	if (ctx->has_perm && !fs_chmod(dest.buf, ctx->perm)) {
 		return ir_err;
 	}
 
@@ -114,13 +112,10 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 
 	assert(in->type == install_target_symlink || in->type == install_target_emptydir || path_is_absolute(src));
 
+	SBUF_1k(full_dest_dir, 0);
 	if (ctx->destdir) {
-		static char full_dest_dir[PATH_MAX];
-		if (!path_join_absolute(full_dest_dir, PATH_MAX, get_cstr(wk, ctx->destdir), dest)) {
-			return ir_err;
-		}
-
-		dest = full_dest_dir;
+		path_join_absolute(wk, &full_dest_dir, get_cstr(wk, ctx->destdir), dest);
+		dest = full_dest_dir.buf;
 	}
 
 	switch (in->type) {
@@ -267,13 +262,14 @@ bool
 install_run(struct install_options *opts)
 {
 	bool ret = true;
-	char install_src[PATH_MAX];
-	if (!path_join(install_src, PATH_MAX, output_path.private_dir, output_path.install)) {
-		return false;
-	}
+	SBUF_1k(install_src, sbuf_flag_overflow_alloc);
+	path_join(NULL, &install_src, output_path.private_dir, output_path.install);
 
 	FILE *f;
-	if (!(f = fs_fopen(install_src, "r"))) {
+	f = fs_fopen(install_src.buf, "r");
+	sbuf_destroy(&install_src);
+
+	if (!f) {
 		return false;
 	}
 
@@ -300,20 +296,20 @@ install_run(struct install_options *opts)
 
 	SBUF_1k(build_root, 0);
 	path_cwd(&wk, &build_root);
-	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root));
+	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root, false));
 	wk.source_root = get_cstr(&wk, source_root);
 
 	const char *destdir;
 	if ((destdir = getenv("DESTDIR"))) {
-		char abs_destdir[PATH_MAX], full_prefix[PATH_MAX];
+		SBUF_1k(full_prefix, 0);
+		char abs_destdir[PATH_MAX];
 		if (!path_make_absolute(abs_destdir, PATH_MAX, destdir)) {
-			return false;
-		} else if (!path_join_absolute(full_prefix, PATH_MAX, abs_destdir,
-			get_cstr(&wk, ctx.prefix))) {
 			return false;
 		}
 
-		ctx.full_prefix = make_str(&wk, full_prefix);
+		path_join_absolute(&wk, &full_prefix, abs_destdir, get_cstr(&wk, ctx.prefix));
+
+		ctx.full_prefix = make_str(&wk, full_prefix.buf);
 		ctx.destdir = make_str(&wk, abs_destdir);
 	} else {
 		ctx.full_prefix = ctx.prefix;

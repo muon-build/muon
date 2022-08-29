@@ -37,8 +37,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 }
 
 static bool
-str_relative_to_build_root(struct workspace *wk,
-	struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
+str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
 {
 	char rel[PATH_MAX];
 	const char *path = path_orig;
@@ -160,14 +159,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
 		 * custom target must store all its intermediate files. */
-		char path[PATH_MAX];
-		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name))) {
-			return format_cb_error;
-		} else if (!path_add_suffix(path, PATH_MAX, ".p")) {
-			return format_cb_error;
-		}
+		SBUF_1k(path, 0);
+		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name));
+		sbuf_pushs(wk, &path, ".p");
 
-		if (!str_relative_to_build_root(wk, ctx, path, elem)) {
+		if (!str_relative_to_build_root(wk, ctx, path.buf, elem)) {
 			return format_cb_error;
 		}
 		return format_cb_found;
@@ -496,16 +492,10 @@ make_custom_target(struct workspace *wk,
 
 	// A custom_target won't have a name if it is from a generator
 	if (opts->name) { /* private path */
-		char path[PATH_MAX] = { 0 };
-		if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, opts->name))) {
-			return false;
-		}
-
-		if (!path_add_suffix(path, PATH_MAX, ".p")) {
-			return false;
-		}
-
-		tgt->private_path = make_str(wk, path);
+		SBUF_1k(path, 0);
+		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, opts->name));
+		sbuf_pushs(wk, &path, ".p");
+		tgt->private_path = sbuf_into_str(wk, &path, false);
 	}
 
 	if (opts->input_orig) {

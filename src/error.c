@@ -208,7 +208,7 @@ error_unrecoverable(const char *fmt, ...)
 	log_plain("\n");
 	va_end(ap);
 
-	exit(1);
+	abort();
 }
 
 static bool

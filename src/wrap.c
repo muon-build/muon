@@ -283,56 +283,57 @@ wrap_download_or_check_packagefiles(const char *filename, const char *url,
 	const char *hash, const char *subprojects, const char *dest_dir,
 	bool download)
 {
-	char buf[PATH_MAX], source_path[PATH_MAX];
-	if (!path_join(buf, PATH_MAX, subprojects, "packagefiles")) {
-		return false;
-	}
-	if (!path_join(source_path, PATH_MAX, buf, filename)) {
-		return false;
-	}
+	bool res = false;
+	SBUF_1k(source_path, sbuf_flag_overflow_alloc);
 
-	if (fs_file_exists(source_path)) {
+	path_join(NULL, &source_path, subprojects, "packagefiles");
+	path_push(NULL, &source_path, filename);
+
+	if (fs_file_exists(source_path.buf)) {
 		if (!hash) {
-			LOG_W("local file '%s' specified without a hash", source_path);
+			LOG_W("local file '%s' specified without a hash", source_path.buf);
 		}
 
 		if (url) {
-			LOG_W("url specified, but local file '%s' is being used", source_path);
+			LOG_W("url specified, but local file '%s' is being used", source_path.buf);
 		}
 
 		struct source src = { 0 };
-		if (!fs_read_entire_file(source_path, &src)) {
-			return false;
+		if (!fs_read_entire_file(source_path.buf, &src)) {
+			goto ret;
 		}
 
 		if (!checksum_extract(src.src, src.len, hash, dest_dir)) {
 			fs_source_destroy(&src);
-			return false;
+			goto ret;
 		}
 
 		fs_source_destroy(&src);
 
-		return true;
-	} else if (fs_dir_exists(source_path)) {
+		res = true;
+	} else if (fs_dir_exists(source_path.buf)) {
 		if (url) {
-			LOG_W("url specified, but local directory '%s' is being used", source_path);
+			LOG_W("url specified, but local directory '%s' is being used", source_path.buf);
 		}
 
-		if (!fs_copy_dir(source_path, dest_dir)) {
-			return false;
+		if (!fs_copy_dir(source_path.buf, dest_dir)) {
+			goto ret;
 		}
 
-		return true;
+		res = true;
 	} else if (url) {
 		if (!download) {
 			LOG_E("wrap downloading is disabled");
-			return false;
+			goto ret;
 		}
-		return fetch_checksum_extract(url, filename, hash, dest_dir);
+		res = fetch_checksum_extract(url, filename, hash, dest_dir);
 	} else {
-		LOG_E("no url specified, but '%s' is not a file or directory", source_path);
-		return false;
+		LOG_E("no url specified, but '%s' is not a file or directory", source_path.buf);
 	}
+
+ret:
+	sbuf_destroy(&source_path);
+	return res;
 }
 
 static bool
@@ -413,6 +414,9 @@ wrap_destroy(struct wrap *wrap)
 		z_free(wrap->buf);
 		wrap->buf = NULL;
 	}
+
+	sbuf_destroy(&wrap->dest_dir);
+	sbuf_destroy(&wrap->name);
 }
 
 bool
@@ -421,41 +425,53 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
-		wrap_destroy(&ctx.wrap);
-		return false;
+		goto err;
 	}
 
 	if (!validate_wrap(&ctx, wrap_file)) {
-		wrap_destroy(&ctx.wrap);
-		return false;
+		goto err;
 	}
 
 	*wrap = ctx.wrap;
 
-	if (!path_basename(wrap->name, PATH_MAX, wrap_file)) {
-		return false;
+	sbuf_init(&wrap->dest_dir, sbuf_flag_overflow_alloc);
+	wrap->dest_dir.buf = wrap->dest_dir_buf;
+	wrap->dest_dir.cap = ARRAY_LEN(wrap->dest_dir_buf);
+
+	sbuf_init(&wrap->name, sbuf_flag_overflow_alloc);
+	wrap->name.buf = wrap->name_buf;
+	wrap->name.cap = ARRAY_LEN(wrap->name_buf);
+
+	if (!path_basename(wrap->name.buf, wrap->name.cap, wrap_file)) {
+		goto err;
 	}
+	wrap->name.len = strlen(wrap->name.buf); // XXX
 
-	const struct str *name = &WKSTR(wrap->name);
-	assert(str_endswith(name, &WKSTR(".wrap")));
+	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len },
+			 ext = WKSTR(".wrap");
 
-	wrap->name[name->len - 5] = 0;
+	assert(str_endswith(&name, &ext));
+
+	wrap->name.buf[wrap->name.len - ext.len] = 0;
 
 	const char *dir;
 	if (wrap->fields[wf_directory]) {
 		dir = wrap->fields[wf_directory];
 	} else {
-		dir = wrap->name;
+		dir = wrap->name.buf;
 	}
 
 	char subprojects[PATH_MAX];
 	if (!path_dirname(subprojects, PATH_MAX, wrap_file)) {
-		return false;
-	} else if (!path_join(wrap->dest_dir, PATH_MAX, subprojects, dir)) {
-		return false;
+		goto err;
 	}
 
+	path_join(NULL, &wrap->dest_dir, subprojects, dir);
+
 	return true;
+err:
+	wrap_destroy(&ctx.wrap);
+	return false;
 }
 
 static bool
@@ -481,10 +497,11 @@ wrap_run_cmd(const char *cmd, const char *const argv[], const char *chdir, const
 static bool
 wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *dest_dir)
 {
-	char packagefiles[PATH_MAX], diff_path[PATH_MAX];
-	if (!path_join(packagefiles, PATH_MAX, subprojects, "packagefiles")) {
-		return false;
-	}
+	bool res = false;
+	SBUF_1k(packagefiles, sbuf_flag_overflow_alloc);
+	SBUF_1k(diff_path, sbuf_flag_overflow_alloc);
+
+	path_join(NULL, &packagefiles, subprojects, "packagefiles");
 
 	char *p = (char *)wrap->fields[wf_diff_files];
 	const char *diff_file = p;
@@ -500,25 +517,23 @@ wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *de
 			bool done = !p[1];
 			p[1] = 0;
 
-			if (!path_join(diff_path, PATH_MAX, packagefiles, diff_file)) {
-				return false;
-			}
+			path_join(NULL, &diff_path, packagefiles.buf, diff_file);
 
-			L("applying diff_file '%s'", diff_path);
+			L("applying diff_file '%s'", diff_path.buf);
 
 			if (patch_cmd_found) {
 				if (!wrap_run_cmd("patch", (const char *const[]) {
 					"patch", "-p1",
 					NULL
-				}, wrap->dest_dir, diff_path)) {
-					return false;
+				}, wrap->dest_dir.buf, diff_path.buf)) {
+					goto ret;
 				}
 			} else {
 				if (!wrap_run_cmd("git", (const char *const[]) {
-					"git", "--work-tree", ".", "apply", "-p1", diff_path,
+					"git", "--work-tree", ".", "apply", "-p1", diff_path.buf,
 					NULL
-				}, wrap->dest_dir, NULL)) {
-					return false;
+				}, wrap->dest_dir.buf, NULL)) {
+					goto ret;
 				}
 			}
 
@@ -541,7 +556,11 @@ wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *de
 		++p;
 	}
 
-	return true;
+	res = true;
+ret:
+	sbuf_destroy(&packagefiles);
+	sbuf_destroy(&diff_path);
+	return res;
 }
 
 static bool
@@ -549,7 +568,7 @@ wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
 {
 	const char *dest_dir, *filename = NULL;
 	if (wrap->fields[wf_patch_directory]) {
-		dest_dir = wrap->dest_dir;
+		dest_dir = wrap->dest_dir.buf;
 		filename = wrap->fields[wf_patch_directory];
 	} else {
 		dest_dir = subprojects;
@@ -582,16 +601,16 @@ static bool
 wrap_handle_git(struct wrap *wrap, const char *subprojects)
 {
 	if (!wrap_run_cmd("git", (const char *const[]) {
-		"git", "clone", wrap->fields[wf_url], wrap->dest_dir,
+		"git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf,
 		NULL
 	}, NULL, NULL)) {
 		return false;
 	}
 
 	if (!wrap_run_cmd("git", (const char *const[]) {
-		"git", "-C", wrap->dest_dir, "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--",
+		"git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--",
 		NULL
-	}, NULL, NULL)) {
+	}, wrap->dest_dir.buf, NULL)) {
 		return false;
 	}
 
@@ -604,7 +623,7 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 	const char *dest;
 
 	if (wrap->fields[wf_lead_directory_missing]) {
-		dest = wrap->dest_dir;
+		dest = wrap->dest_dir.buf;
 	} else {
 		dest = subprojects;
 	}
@@ -628,71 +647,79 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 bool
 wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download)
 {
+	bool res = false;
+	SBUF_1k(meson_build, sbuf_flag_overflow_alloc);
+
 	if (!wrap_parse(wrap_file, wrap)) {
-		return false;
+		goto ret;
 	}
 
-	char meson_build[PATH_MAX];
-	if (!path_join(meson_build, PATH_MAX, wrap->dest_dir, "meson.build")) {
-		return false;
-	} else if (fs_file_exists(meson_build)) {
+	path_join(NULL, &meson_build, wrap->dest_dir.buf, "meson.build");
+
+	if (fs_file_exists(meson_build.buf)) {
 		char basename[PATH_MAX];
 		if (!path_basename(basename, PATH_MAX, wrap_file)) {
-			return false;
+			goto ret;
 		}
 
-		return true;
+		res = true;
+		goto ret;
 	}
 
 	switch (wrap->type) {
 	case wrap_type_file:
 		if (!wrap_handle_file(wrap, subprojects, download)) {
-			return false;
+			goto ret;
 		}
 		break;
 	case wrap_type_git:
 		if (!download) {
 			LOG_E("wrap downloading disabled");
-			return false;
+			goto ret;
 		}
 
 		if (!wrap_handle_git(wrap, subprojects)) {
-			return false;
+			goto ret;
 		}
 		break;
 	default:
 		assert(false && "unreachable");
-		return false;
+		goto ret;
 	}
 
 	if (!wrap_apply_patch(wrap, subprojects, download)) {
-		return false;
+		goto ret;
 	}
 
-	return true;
+	res = true;
+ret:
+	sbuf_destroy(&meson_build);
+	return res;
 }
 
 struct wrap_load_all_ctx {
 	struct workspace *wk;
 	const char *subprojects;
+	struct sbuf *path;
 };
 
 static enum iteration_result
 wrap_load_all_iter(void *_ctx, const char *file)
 {
 	struct wrap_load_all_ctx *ctx = _ctx;
-	char path[PATH_MAX];
 
 	if (!str_endswith(&WKSTR(file), &WKSTR(".wrap"))) {
 		return ir_cont;
-	} else if (!path_join(path, PATH_MAX, ctx->subprojects, file)) {
-		return ir_err;
-	} else if (!fs_file_exists(path)) {
+	}
+
+	path_join(ctx->wk, ctx->path, ctx->subprojects, file);
+
+	if (!fs_file_exists(ctx->path->buf)) {
 		return ir_cont;
 	}
 
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(path, &wrap)) {
+	if (!wrap_parse(ctx->path->buf, &wrap)) {
 		return ir_err;
 	}
 
@@ -706,13 +733,13 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	struct wrap_parse_provides_ctx wp_ctx = {
 		.wk = ctx->wk,
 		.wrap = &wrap,
-		.wrap_name = make_str(ctx->wk, wrap.name),
+		.wrap_name = make_str(ctx->wk, wrap.name.buf),
 	};
 
 	make_obj(ctx->wk, &wp_ctx.wrap_name_arr, obj_array);
 	obj_array_push(ctx->wk, wp_ctx.wrap_name_arr, wp_ctx.wrap_name);
 
-	if (!ini_reparse(path, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
+	if (!ini_reparse(ctx->path->buf, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
 		goto ret;
 	}
 
@@ -725,9 +752,12 @@ ret:
 bool
 wrap_load_all_provides(struct workspace *wk, const char *subprojects)
 {
+	SBUF_1k(wrap_path_buf, 0);
+
 	struct wrap_load_all_ctx ctx = {
 		.wk = wk,
 		.subprojects = subprojects,
+		.path = &wrap_path_buf,
 	};
 
 	if (!fs_dir_exists(subprojects)) {

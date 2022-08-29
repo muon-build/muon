@@ -259,38 +259,33 @@ setup_soname(struct workspace *wk, struct obj_build_target *tgt, const char *pla
 
 static bool
 setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
-	const char *plain_name, const char **plain_name_install,
-	const char **soname_install)
+	const char *plain_name, obj *plain_name_install, obj *soname_install)
 {
-	static char soname_symlink[PATH_MAX], plain_name_symlink[PATH_MAX];
+	SBUF_1k(soname_symlink, 0);
+	SBUF_1k(plain_name_symlink, 0);
 
 	if (!fs_mkdir_p(get_cstr(wk, tgt->build_dir))) {
 		return false;
 	}
 
 	if (!str_eql(get_str(wk, tgt->build_name), get_str(wk, tgt->soname))) {
-		if (!path_join(soname_symlink, PATH_MAX, get_cstr(wk, tgt->build_dir),
-			get_cstr(wk, tgt->soname))) {
+		path_join(wk, &soname_symlink, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->soname));
+
+		if (!fs_make_symlink(get_cstr(wk, tgt->build_name), soname_symlink.buf, true)) {
 			return false;
 		}
 
-		if (!fs_make_symlink(get_cstr(wk, tgt->build_name), soname_symlink, true)) {
-			return false;
-		}
-
-		*soname_install = soname_symlink;
+		*soname_install = sbuf_into_str(wk, &soname_symlink, false);
 	}
 
 	if (!str_eql(get_str(wk, tgt->soname), &WKSTR(plain_name))) {
-		if (!path_join(plain_name_symlink, PATH_MAX, get_cstr(wk, tgt->build_dir), plain_name)) {
+		path_join(wk, &plain_name_symlink, get_cstr(wk, tgt->build_dir), plain_name);
+
+		if (!fs_make_symlink(get_cstr(wk, tgt->soname), plain_name_symlink.buf, true)) {
 			return false;
 		}
 
-		if (!fs_make_symlink(get_cstr(wk, tgt->soname), plain_name_symlink, true)) {
-			return false;
-		}
-
-		*plain_name_install = plain_name_symlink;
+		*plain_name_install = sbuf_into_str(wk, &plain_name_symlink, false);
 	}
 
 	return true;
@@ -475,18 +470,14 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	}
 
 	{ /* tgt_build_path */
-		char path[PATH_MAX] = { 0 };
-		if (!path_join(path, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
-			return false;
-		}
+		SBUF_1k(path, 0);
+		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
-		tgt->build_path = make_str(wk, path);
+		tgt->build_path = sbuf_into_str(wk, &path, true);
 
-		if (!path_add_suffix(path, PATH_MAX, ".p")) {
-			return false;
-		}
+		sbuf_pushs(wk, &path, ".p");
 
-		tgt->private_path = make_str(wk, path);
+		tgt->private_path = sbuf_into_str(wk, &path, false);
 	}
 
 	bool implicit_include_directories =
@@ -581,10 +572,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		}
 	}
 
-	const char *soname_install = NULL, *plain_name_install = NULL;
+	obj soname_install = 0, plain_name_install = 0;
 
 	// soname handling
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
+
 		setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 
 		if (type == tgt_dynamic_library) {
@@ -627,31 +619,27 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			}
 		}
 
-		char install_src[PATH_MAX];
-		if (!path_join(install_src, PATH_MAX, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name))) {
-			return NULL;
-		}
+		SBUF_1k(install_src, 0);
+		path_join(wk, &install_src, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
-		char install_dest[PATH_MAX];
-		if (!path_join(install_dest, PATH_MAX, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name))) {
-			return NULL;
-		}
+		SBUF_1k(install_dest, 0);
+		path_join(wk, &install_dest, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name));
 
 		struct obj_install_target *install_tgt;
-		if (!(install_tgt = push_install_target(wk, make_str(wk, install_src),
-			make_str(wk, install_dest), akw[bt_kw_install_mode].val))) {
+		if (!(install_tgt = push_install_target(wk, sbuf_into_str(wk, &install_src, false),
+			sbuf_into_str(wk, &install_dest, false), akw[bt_kw_install_mode].val))) {
 			return false;
 		}
 
 		install_tgt->build_target = true;
 
 		if (soname_install) {
-			push_install_target_install_dir(wk, make_str(wk, soname_install),
+			push_install_target_install_dir(wk, soname_install,
 				install_dir, akw[bt_kw_install_mode].val);
 		}
 
 		if (plain_name_install) {
-			push_install_target_install_dir(wk, make_str(wk, plain_name_install),
+			push_install_target_install_dir(wk, plain_name_install,
 				install_dir, akw[bt_kw_install_mode].val);
 		}
 	}

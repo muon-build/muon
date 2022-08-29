@@ -678,15 +678,13 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return false;
 	}
 
-	char meson_opts[PATH_MAX];
-	if (!path_join(meson_opts, PATH_MAX, cwd, "meson_options.txt")) {
-		return false;
-	}
+	SBUF_1k(meson_opts, 0);
+	path_join(wk, &meson_opts, cwd, "meson_options.txt");
 
-	if (fs_file_exists(meson_opts)) {
+	if (fs_file_exists(meson_opts.buf)) {
 		enum language_mode old_mode = wk->lang_mode;
 		wk->lang_mode = language_opts;
-		if (!wk->eval_project_file(wk, meson_opts)) {
+		if (!wk->eval_project_file(wk, meson_opts.buf)) {
 			return false;
 		}
 		wk->lang_mode = old_mode;
@@ -1161,18 +1159,16 @@ list_options(const struct list_options_opts *list_opts)
 			}
 		}
 	} else {
-		char option_info[PATH_MAX];
-		if (!path_join(option_info, PATH_MAX, output_path.private_dir, output_path.option_info)) {
-			goto ret;
-		}
+		SBUF_1k(option_info, 0);
+		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
 
-		if (!fs_file_exists(option_info)) {
+		if (!fs_file_exists(option_info.buf)) {
 			LOG_I("run this command must be run from a build directory or the project root");
 			goto ret;
 		}
 
 		FILE *f;
-		if (!(f = fs_fopen(option_info, "rb"))) {
+		if (!(f = fs_fopen(option_info.buf, "rb"))) {
 			goto ret;
 		}
 

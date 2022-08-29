@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "buf_size.h"
+#include "lang/string.h"
 #include "lang/types.h"
 #include "platform/filesystem.h"
 
@@ -52,9 +53,10 @@ struct wrap {
 	struct source src;
 	enum wrap_type type;
 	bool has_provides;
-	char dest_dir[PATH_MAX], name[PATH_MAX];
 	const char *fields[wrap_fields_count];
 	char *buf;
+	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
+	struct sbuf dest_dir, name;
 };
 
 enum wrap_provides_key {

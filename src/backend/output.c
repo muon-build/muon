@@ -16,12 +16,12 @@ const struct output_path output_path = {
 FILE *
 output_open(const char *dir, const char *name)
 {
-	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, dir, name)) {
-		return NULL;
-	}
+	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	path_join(NULL, &path, dir, name);
 
-	return fs_fopen(path, "w");
+	FILE *f = fs_fopen(path.buf, "w");
+	sbuf_destroy(&path);
+	return f;
 }
 
 bool

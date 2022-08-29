@@ -81,22 +81,6 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_end(args);
 }
 
-static bool
-test_source_path(struct workspace *wk, enum compiler_language l, const char **res)
-{
-	static char test_source_path[PATH_MAX];
-
-	if (!path_join(test_source_path, PATH_MAX, wk->muon_private, "test.")) {
-		return false;
-	} else if (!path_add_suffix(test_source_path, PATH_MAX, compiler_language_extension(l))) {
-		return false;
-	}
-
-	*res = test_source_path;
-
-	return true;
-}
-
 static void
 add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, obj args)
 {
@@ -275,35 +259,31 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		break;
 	}
 
-	const char *path;
+	obj source_path;
 	if (opts->src_is_path) {
-		path = src;
+		source_path = make_str(wk, src);
 	} else {
-		if (!test_source_path(wk, comp->lang, &path)) {
-			return false;
-		}
+		SBUF_1k(test_source_path, 0);
+		path_join(wk, &test_source_path, wk->muon_private, "test.");
+		sbuf_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
+		source_path = sbuf_into_str(wk, &test_source_path, false);
 	}
 
-	obj_array_push(wk, compiler_args, make_str(wk, path));
+	obj_array_push(wk, compiler_args, source_path);
 
-	const char *output;
+	SBUF_1k(test_output_path, 0);
+	const char *output_path;
 	if (opts->output_path) {
-		output = opts->output_path;;
+		output_path = opts->output_path;
 	} else if (opts->mode == compile_mode_run) {
-		static char test_output_path[PATH_MAX];
-		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "compiler_check_exe")) {
-			return false;
-		}
-		output = test_output_path;
+		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
+		output_path = test_output_path.buf;
 	} else {
-		static char test_output_path[PATH_MAX];
-		if (!path_join(test_output_path, PATH_MAX, wk->muon_private, "test.o")) {
-			return false;
-		}
-		output = test_output_path;
+		path_join(wk, &test_output_path, wk->muon_private, "test.o");
+		output_path = test_output_path.buf;
 	}
 
-	push_args(wk, compiler_args, compilers[t].args.output(output));
+	push_args(wk, compiler_args, compilers[t].args.output(output_path));
 
 	if (have_dep) {
 		struct setup_linker_args_ctx sctx = {
@@ -334,12 +314,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	}
 
 	if (!opts->src_is_path) {
-		if (!fs_write(path, (const uint8_t *)src, strlen(src))) {
+		if (!fs_write(get_cstr(wk, source_path), (const uint8_t *)src, strlen(src))) {
 			return false;
 		}
 	}
 
-	L("compiling: '%s'", path);
+	L("compiling: '%s'", get_cstr(wk, source_path));
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, NULL, 0)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
@@ -361,7 +341,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			}
 		}
 
-		if (!run_cmd_argv(&opts->cmd_ctx, output, (char *const []){ (char *)output, NULL }, NULL, 0)) {
+		if (!run_cmd_argv(&opts->cmd_ctx, output_path, (char *const []){ (char *)output_path, NULL }, NULL, 0)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;
@@ -1117,12 +1097,10 @@ static bool
 compiler_get_define(struct workspace *wk, uint32_t err_node,
 	struct compiler_check_opts *opts, const char *prefix, const char *def, obj *res)
 {
-	static char output_path[PATH_MAX];
-	if (!path_join(output_path, PATH_MAX, wk->muon_private, "get_define_output")) {
-		return false;
-	}
+	SBUF_1k(output_path, 0);
+	path_join(wk, &output_path, wk->muon_private, "get_define_output");
 
-	opts->output_path = output_path;
+	opts->output_path = output_path.buf;
 	opts->mode = compile_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
@@ -1154,7 +1132,7 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		goto done;
 	}
 
-	if (!fs_read_entire_file(output_path, &output)) {
+	if (!fs_read_entire_file(output_path.buf, &output)) {
 		return false;
 	}
 
@@ -1887,7 +1865,7 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_
 }
 
 struct compiler_find_library_ctx {
-	char path[PATH_MAX];
+	struct sbuf *path;
 	obj lib_name;
 	bool only_static;
 	bool found;
@@ -1911,11 +1889,9 @@ compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 		for (j = 0; pref[j]; ++j) {
 			snprintf(lib, PATH_MAX, "%s%s%s", pref[j], get_cstr(wk, ctx->lib_name), suf[i]);
 
-			if (!path_join(ctx->path, PATH_MAX, get_cstr(wk, libdir), lib)) {
-				return false;
-			}
+			path_join(wk, ctx->path, get_cstr(wk, libdir), lib);
 
-			if (fs_file_exists(ctx->path)) {
+			if (fs_file_exists(ctx->path->buf)) {
 				ctx->found = true;
 				return ir_done;
 			}
@@ -2010,7 +1986,10 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return true;
 	}
 
+	SBUF_1k(library_path, 0);
+
 	struct compiler_find_library_ctx ctx = {
+		.path = &library_path,
 		.lib_name = an[0].val,
 		.only_static = akw[kw_static].set ? get_obj_bool(wk, akw[kw_static].val) : false,
 	};
@@ -2072,14 +2051,15 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return true;
 	}
 
-	compiler_log(wk, rcvr, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path);
+	compiler_log(wk, rcvr, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path->buf);
 	dep->flags |= dep_flag_found;
 	make_obj(wk, &dep->dep.link_with, obj_array);
-	obj_array_push(wk, dep->dep.link_with, make_str(wk, ctx.path));
+	obj path_str = sbuf_into_str(wk, ctx.path, true);
+	obj_array_push(wk, dep->dep.link_with, path_str);
 
 	if (found_from_dirs_kw) {
 		make_obj(wk, &dep->dep.rpath, obj_array);
-		obj_array_push(wk, dep->dep.rpath, make_str(wk, ctx.path));
+		obj_array_push(wk, dep->dep.rpath, path_str);
 	}
 
 	dep->dep.link_language = comp->lang;

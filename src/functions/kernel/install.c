@@ -42,7 +42,8 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 
 	obj dest = akw[kw_install_dir].val;
 	if (!strip_directory) {
-		char path[PATH_MAX], name[PATH_MAX] = { 0 }, *sep;
+		SBUF_1k(path, 0);
+		char name[PATH_MAX] = { 0 }, *sep;
 		const char *name_tail;
 
 		strncpy(name, get_cstr(wk, an[0].val), PATH_MAX - 1);
@@ -54,17 +55,13 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 			name_tail = sep + 1;
 		}
 
-		if (!path_join(path, PATH_MAX, get_cstr(wk, dest), name_tail)) {
-			return false;
-		}
-		dest = make_str(wk, path);
+		path_join(wk, &path, get_cstr(wk, dest), name_tail);
+		dest = sbuf_into_str(wk, &path, false);
 	}
 
-	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, an[0].val))) {
-		return false;
-	}
-	obj src = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, an[0].val));
+	obj src = sbuf_into_str(wk, &path, false);
 
 	struct obj_install_target *tgt;
 
@@ -123,12 +120,11 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 	}
 
-	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, get_cstr(wk, install_dir), basename)) {
-		return ir_err;
-	}
+	SBUF_1k(path, 0);
+	path_join(wk, &path, get_cstr(wk, install_dir), basename);
+	obj dest = sbuf_into_str(wk, &path, false);
 
-	if (!push_install_target(wk, src, make_str(wk, path), ctx->mode)) {
+	if (!push_install_target(wk, src, dest, ctx->mode)) {
 		return ir_err;
 	}
 	return ir_cont;
@@ -165,11 +161,9 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		get_option_value(wk, current_project(wk), "mandir", &mandir);
 
 		if (akw[kw_locale].set) {
-			char path[PATH_MAX];
-			if (!path_join(path, PATH_MAX, get_cstr(wk, mandir), get_cstr(wk, akw[kw_locale].val))) {
-				return false;
-			}
-			ctx.install_dir = make_str(wk, path);
+			SBUF_1k(path, 0);
+			path_join(wk, &path, get_cstr(wk, mandir), get_cstr(wk, akw[kw_locale].val));
+			ctx.install_dir = sbuf_into_str(wk, &path, false);
 			ctx.locale = akw[kw_locale].val;
 		} else {
 			ctx.install_dir = mandir;
@@ -204,13 +198,11 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
-	char path[PATH_MAX];
-	if (!path_join(path, PATH_MAX, get_cstr(wk, akw[kw_install_dir].val), get_cstr(wk, an[0].val))) {
-		return false;
-	}
+	SBUF_1k(path, 0);
+	path_join(wk, &path, get_cstr(wk, akw[kw_install_dir].val), get_cstr(wk, an[0].val));
 
 	struct obj_install_target *tgt;
-	if (!(tgt = push_install_target(wk, akw[kw_pointing_to].val, make_str(wk, path), 0))) {
+	if (!(tgt = push_install_target(wk, akw[kw_pointing_to].val, sbuf_into_str(wk, &path, false), 0))) {
 		return false;
 	}
 
@@ -278,12 +270,10 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	obj rename;
 	obj_array_index(wk, ctx->rename, ctx->i, &rename);
 
-	char d[PATH_MAX];
-	if (!path_join(d, PATH_MAX, get_cstr(wk, ctx->dest), get_cstr(wk, rename))) {
-		return false;
-	}
+	SBUF_1k(d, 0);
+	path_join(wk, &d, get_cstr(wk, ctx->dest), get_cstr(wk, rename));
 
-	dest = make_str(wk, d);
+	dest = sbuf_into_str(wk, &d, false);
 
 	push_install_target(wk, src, dest, ctx->mode);
 
@@ -330,12 +320,10 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		obj install_dir_base;
 		get_option_value(wk, current_project(wk), "datadir", &install_dir_base);
 
-		char buf[PATH_MAX];
-		if (!path_join(buf, PATH_MAX, get_cstr(wk, install_dir_base), get_cstr(wk, current_project(wk)->cfg.name))) {
-			return false;
-		}
+		SBUF_1k(buf, 0);
+		path_join(wk, &buf, get_cstr(wk, install_dir_base), get_cstr(wk, current_project(wk)->cfg.name));
 
-		install_dir = make_str(wk, buf);
+		install_dir = sbuf_into_str(wk, &buf, false);
 
 	}
 
@@ -412,12 +400,9 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 
 	obj install_dir;
 	if (akw[kw_subdir].set) {
-		char buf[PATH_MAX];
-		if (!path_join(buf, PATH_MAX, get_cstr(wk, install_dir_base), get_cstr(wk, akw[kw_subdir].val))) {
-			return false;
-		}
-
-		install_dir = make_str(wk, buf);
+		SBUF_1k(buf, 0);
+		path_join(wk, &buf, get_cstr(wk, install_dir_base), get_cstr(wk, akw[kw_subdir].val));
+		install_dir = sbuf_into_str(wk, &buf, false);
 	} else {
 		install_dir = install_dir_base;
 	}

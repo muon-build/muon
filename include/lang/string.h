@@ -18,17 +18,32 @@ enum sbuf_flags {
 	sbuf_flag_write            = 1 << 3,
 };
 
-#define SBUF_CUSTOM(name, static_len, flags) struct sbuf name; \
+#define SBUF_CUSTOM(name, static_len, flags) \
+	struct sbuf name; \
 	char sbuf_static_buf_ ## name[static_len]; \
 	sbuf_init(&name, flags); \
 	name.buf = sbuf_static_buf_ ## name; \
 	name.cap = static_len
-
 #define SBUF_1k(name, flags) SBUF_CUSTOM(name, 1024, flags)
 #define SBUF_2k(name, flags) SBUF_CUSTOM(name, 2048, flags)
 #define SBUF_4k(name, flags) SBUF_CUSTOM(name, 4096, flags)
-#define SBUF_heap(name, flags) struct sbuf name; \
+
+#define SBUF_heap(name, flags) \
+	struct sbuf name; \
 	sbuf_init(&name, flags);
+
+#define static_SBUF(name, static_len, flags) \
+	static struct sbuf name; \
+	static bool sbuf_ ## name ## _is_initialized = false; \
+	if (sbuf_ ## name ## _is_initialized) { \
+		sbuf_clear(&name); \
+	} else { \
+		static char sbuf_static_buf_ ## name[static_len] = { 0 }; \
+		sbuf_init(&name, 0); \
+		name.buf = sbuf_static_buf_ ## name; \
+		name.cap = static_len; \
+		sbuf_ ## name ## _is_initialized = true; \
+	}
 
 struct sbuf {
 	char *buf;
@@ -45,7 +60,7 @@ void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
 void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
 void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
 void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
-obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);
+obj sbuf_into_str(struct workspace *wk, struct sbuf *sb, bool copy);
 
 void str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
 	bool escape_whitespace);

@@ -12,7 +12,7 @@
 #include "platform/path.h"
 
 bool
-tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt, obj src_file, bool relative, char res[PATH_MAX])
+tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt, obj src_file, bool relative, struct sbuf *res)
 {
 	obj src = *get_obj_file(wk, src_file);
 
@@ -58,12 +58,8 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 		}
 	}
 
-	if (!path_join(res, PATH_MAX, private_path, rel)) {
-		return false;
-	} else if (!path_add_suffix(res, PATH_MAX, ".o")) {
-		return false;
-	}
-
+	path_join(wk, res, private_path, rel);
+	sbuf_pushs(wk, res, ".o");
 	return true;
 }
 
@@ -171,14 +167,14 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	char dest_path[PATH_MAX];
-	if (!tgt_src_to_object_path(wk, ctx->tgt, file, false, dest_path)) {
+	SBUF_1k(dest_path, 0);
+	if (!tgt_src_to_object_path(wk, ctx->tgt, file, false, &dest_path)) {
 		return ir_err;
 	}
 
 	obj new_file;
 	make_obj(wk, &new_file, obj_file);
-	*get_obj_file(wk, new_file) = make_str(wk, dest_path);
+	*get_obj_file(wk, new_file) = sbuf_into_str(wk, &dest_path, false);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
 }

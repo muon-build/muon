@@ -1,5 +1,7 @@
 #include "posix.h"
 
+#include <string.h> // XXX
+
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
@@ -58,7 +60,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 {
 	struct generated_list_process_for_target_ctx *ctx = _ctx;
 
-	char path[PATH_MAX];
+	SBUF_1k(path, 0);
 	const char *output_dir = ctx->dir;
 
 	if (ctx->gl->preserve_path_from) {
@@ -66,16 +68,17 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 			   *base = get_cstr(wk, ctx->gl->preserve_path_from);
 		assert(path_is_subpath(base, src));
 
-		char dir[PATH_MAX];
-		if (!path_relative_to(path, PATH_MAX, base, src)) {
+		SBUF_1k(dir, 0);
+		if (!path_relative_to(path.buf, path.cap, base, src)) {
 			return ir_err;
-		} else if (!path_dirname(dir, PATH_MAX, path)) {
-			return ir_err;
-		} else if (!path_join(path, PATH_MAX, ctx->dir, dir)) {
+		} else if (!path_dirname(dir.buf, dir.cap, path.buf)) {
 			return ir_err;
 		}
 
-		output_dir = path;
+		dir.len = strlen(dir.buf); // XXX
+
+		path_join(wk, &path, ctx->dir, dir.buf);
+		output_dir = path.buf;
 	}
 
 	struct make_custom_target_opts opts = {

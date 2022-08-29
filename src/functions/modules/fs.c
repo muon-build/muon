@@ -46,11 +46,10 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		return false;
 	}
 
-	static char buf[PATH_MAX] = { 0 };
-	memset(buf, 0, PATH_MAX);
+	static_SBUF(buf, BUF_SIZE_1k, 0);
 
 	if (path_is_absolute(ss->s)) {
-		memcpy(buf, ss->s, ss->len + 1);
+		path_copy(wk, &buf, ss->s);
 	} else {
 		if ((opts & fix_file_path_expanduser) && ss->s[0] == '~') {
 			const char *home;
@@ -59,22 +58,16 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 				return false;
 			}
 
-			if (!path_join(buf, PATH_MAX, home, &ss->s[1])) {
-				return false;
-			}
+			path_join(wk, &buf, home, &ss->s[1]);
 		} else if (opts & fix_file_path_noabs) {
-			memcpy(buf, ss->s, ss->len + 1);
+			path_copy(wk, &buf, ss->s);
 		} else {
-			if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), ss->s)) {
-				return false;
-			}
+			path_join(wk, &buf, get_cstr(wk, current_project(wk)->cwd), ss->s);
 		}
-
 	}
 
-	path_normalize(buf, true);
-
-	*res = buf;
+	_path_normalize(wk, &buf, true);
+	*res = buf.buf;
 	return true;
 }
 
@@ -467,7 +460,7 @@ func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	SBUF_1k(cwd, 0);
 	path_cwd(wk, &cwd);
-	*res = sbuf_into_str(wk, &cwd);
+	*res = sbuf_into_str(wk, &cwd, false);
 	return true;
 }
 

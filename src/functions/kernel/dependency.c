@@ -976,7 +976,8 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		// we always want an absolute path here, regardles of
 		// ctx->relativize
 		if (tgt->type != tgt_static_library) {
-			char dir[PATH_MAX], abs[PATH_MAX];
+			SBUF_1k(abs, 0);
+			char dir[PATH_MAX];
 			const char *p;
 			if (!path_dirname(dir, PATH_MAX, path)) {
 				return ir_err;
@@ -985,10 +986,8 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			if (path_is_absolute(dir)) {
 				p = dir;
 			} else {
-				if (!path_join(abs, PATH_MAX, wk->build_root, dir)) {
-					return ir_err;
-				}
-				p = abs;
+				path_join(wk, &abs, wk->build_root, dir);
+				p = abs.buf;
 			}
 
 			obj s = make_str(wk, p);

@@ -597,7 +597,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		const char *out = get_cstr(wk, subd);
-		char out_path[PATH_MAX];
+		SBUF_1k(out_path, 0);
 
 		if (!path_is_basename(out)) {
 			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
@@ -608,12 +608,10 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
-		if (!path_join(out_path, PATH_MAX, get_cstr(wk, current_project(wk)->build_dir), out)) {
-			return false;
-		}
+		path_join(wk, &out_path, get_cstr(wk, current_project(wk)->build_dir), out);
 
-		LOG_I("configuring '%s'", out_path);
-		output_str = make_str(wk, out_path);
+		LOG_I("configuring '%s'", out_path.buf);
+		output_str = sbuf_into_str(wk, &out_path, false);
 		make_obj(wk, res, obj_file);
 		*get_obj_file(wk, *res) = output_str;
 	}

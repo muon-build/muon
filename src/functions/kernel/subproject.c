@@ -10,10 +10,10 @@
 #include "wrap.h"
 
 static bool
-subproject_prepare(struct workspace *wk, const char **cwd, const char **build_dir, bool required, bool *found)
+subproject_prepare(struct workspace *wk, struct sbuf *cwd_buf, const char **cwd,
+	struct sbuf *build_dir_buf, const char **build_dir, bool required,
+	bool *found)
 {
-	static char new_cwd[PATH_MAX], new_build_dir[PATH_MAX];
-
 	if (!fs_dir_exists(*cwd)) {
 		bool wrap_ok = false;
 		char wrap_path[PATH_MAX], base_path[PATH_MAX];
@@ -34,18 +34,16 @@ subproject_prepare(struct workspace *wk, const char **cwd, const char **build_di
 		}
 
 		if (wrap.fields[wf_directory]) {
-			if (!path_join(new_cwd, PATH_MAX, base_path, wrap.fields[wf_directory])) {
-				return false;
-			}
+			path_join(wk, cwd_buf, base_path, wrap.fields[wf_directory]);
 
 			if (!path_dirname(base_path, PATH_MAX, *build_dir)) {
 				return false;
-			} else if (!path_join(new_build_dir, PATH_MAX, base_path, wrap.fields[wf_directory])) {
-				return false;
 			}
 
-			*cwd = new_cwd;
-			*build_dir = new_build_dir;
+			path_join(wk, build_dir_buf, base_path, wrap.fields[wf_directory]);
+
+			*cwd = cwd_buf->buf;
+			*build_dir = build_dir_buf->buf;
 		}
 
 		wrap_ok = true;
@@ -63,12 +61,10 @@ wrap_done:
 		}
 	}
 
-	char src[PATH_MAX];
-	if (!path_join(src, PATH_MAX, *cwd, "meson.build")) {
-		return false;
-	}
+	SBUF_1k(src, 0);
+	path_join(wk, &src, *cwd, "meson.build");
 
-	if (!fs_file_exists(src)) {
+	if (!fs_file_exists(src.buf)) {
 		if (required) {
 			LOG_E("project %s does not contain a meson.build", *cwd);
 			return false;
@@ -97,26 +93,24 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	const char *subproj_name = get_cstr(wk, name);
-	char buf[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
+	SBUF_1k(cwd, 0);
+	SBUF_1k(build_dir, 0);
 
-	if (!path_join(buf, PATH_MAX, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, current_project(wk)->subprojects_dir))) {
-		return false;
-	} else if (!path_join(cwd, PATH_MAX, buf, subproj_name)) {
-		return false;
-	}
+	path_join(wk, &cwd, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, current_project(wk)->subprojects_dir));
+	path_push(wk, &cwd, subproj_name);
 
-	if (!path_join(buf, PATH_MAX, wk->build_root, get_cstr(wk, current_project(wk)->subprojects_dir))) {
-		return false;
-	} else if (!path_join(build_dir, PATH_MAX, buf, subproj_name)) {
-		return false;
-	}
+	path_join(wk, &build_dir, wk->build_root, get_cstr(wk, current_project(wk)->subprojects_dir));
+	path_push(wk, &build_dir, subproj_name);
 
 	uint32_t subproject_id = 0;
 	bool found;
 
-	const char *sp_cwd = cwd, *sp_build_dir = build_dir;
+	const char *sp_cwd = cwd.buf, *sp_build_dir = build_dir.buf;
+	SBUF_1k(sp_cwd_buf, 0);
+	SBUF_1k(sp_build_dir_buf, 0);
 
-	if (!subproject_prepare(wk, &sp_cwd, &sp_build_dir, req == requirement_required, &found)) {
+	if (!subproject_prepare(wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf,
+		&sp_build_dir, req == requirement_required, &found)) {
 		return false;
 	}
 
@@ -161,7 +155,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	obj_dict_set(wk, wk->subprojects, name, *res);
 
 	if (fs_dir_exists(wk->build_root)) {
-		if (!fs_mkdir_p(build_dir)) {
+		if (!fs_mkdir_p(build_dir.buf)) {
 			return false;
 		}
 	}

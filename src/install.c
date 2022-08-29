@@ -118,12 +118,9 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		obj prefix;
 		get_option_value(wk, current_project(wk), "prefix", &prefix);
 
-		char buf[PATH_MAX];
-		if (!path_join(buf, PATH_MAX, get_cstr(wk, prefix), get_cstr(wk, dest))) {
-			return NULL;
-		}
-
-		sdest = make_str(wk, buf);
+		SBUF_1k(buf, 0);
+		path_join(wk, &buf, get_cstr(wk, prefix), get_cstr(wk, dest));
+		sdest = sbuf_into_str(wk, &buf, false);
 	}
 
 	tgt->dest = sdest;
@@ -137,14 +134,14 @@ bool
 push_install_target_install_dir(struct workspace *wk, obj src,
 	obj install_dir, obj mode)
 {
-	char basename[PATH_MAX], dest[PATH_MAX];
+	char basename[PATH_MAX];
 	if (!path_basename(basename, PATH_MAX, get_cstr(wk, src))) {
-		return NULL;
-	} else if (!path_join(dest, PATH_MAX, get_cstr(wk, install_dir), basename)) {
 		return NULL;
 	}
 
-	obj sdest = make_str(wk, dest);
+	SBUF_1k(dest, 0);
+	path_join(wk, &dest, get_cstr(wk, install_dir), basename);
+	obj sdest = sbuf_into_str(wk, &dest, false);
 
 	return !!push_install_target(wk, src, sdest, mode);
 }
@@ -194,13 +191,11 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 			goto handle_file;
 		}
 
-		char dest_path[PATH_MAX];
-		if (!path_join(dest_path, PATH_MAX, get_cstr(wk, install_dir), get_cstr(wk, val_id))) {
-			return ir_err;
-		}
+		SBUF_1k(dest_path, 0);
+		path_join(wk, &dest_path, get_cstr(wk, install_dir), get_cstr(wk, val_id));
 
 		src = *get_obj_file(wk, f);
-		dest = make_str(wk, dest_path);
+		dest = sbuf_into_str(wk, &dest_path, false);
 		break;
 	}
 	case obj_file:
@@ -212,15 +207,16 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 		f = val_id;
 
 handle_file:    {
-			char basename[PATH_MAX], dest_path[PATH_MAX];
+			char basename[PATH_MAX];
 			if (!path_basename(basename, PATH_MAX, get_file_path(wk, f))) {
-				return ir_err;
-			} else if (!path_join(dest_path, PATH_MAX, get_cstr(wk, install_dir), basename)) {
 				return ir_err;
 			}
 
+			SBUF_1k(dest_path, 0);
+			path_join(wk, &dest_path, get_cstr(wk, install_dir), basename);
+
 			src = *get_obj_file(wk, f);
-			dest = make_str(wk, dest_path);
+			dest = sbuf_into_str(wk, &dest_path, false);
 		}
 		break;
 	default:

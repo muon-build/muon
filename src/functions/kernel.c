@@ -185,14 +185,12 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	{ // subprojects
-		char subprojects_path[PATH_MAX];
-		if (!path_join(subprojects_path, PATH_MAX,
+		SBUF_1k(subprojects_path, 0);
+		path_join(wk, &subprojects_path,
 			get_cstr(wk, current_project(wk)->source_root),
-			get_cstr(wk, current_project(wk)->subprojects_dir))) {
-			return false;
-		}
+			get_cstr(wk, current_project(wk)->subprojects_dir));
 
-		if (!wrap_load_all_provides(wk, subprojects_path)) {
+		if (!wrap_load_all_provides(wk, subprojects_path.buf)) {
 			LOG_E("failed loading wrap provides");
 			return false;
 		}
@@ -444,7 +442,7 @@ struct find_program_iter_ctx {
 
 struct find_program_custom_dir_ctx {
 	const char *prog;
-	char buf[PATH_MAX];
+	struct sbuf *buf;
 	bool found;
 };
 
@@ -453,11 +451,9 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct find_program_custom_dir_ctx *ctx = _ctx;
 
-	if (!path_join(ctx->buf, PATH_MAX, get_cstr(wk, val), ctx->prog)) {
-		return ir_err;
-	}
+	path_join(wk, ctx->buf, get_cstr(wk, val), ctx->prog);
 
-	if (fs_file_exists(ctx->buf)) {
+	if (fs_file_exists(ctx->buf->buf)) {
 		ctx->found = true;
 		return ir_done;
 	}
@@ -588,7 +584,9 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	const char *path;
 
+	SBUF_1k(dir_ctx_buf, 0);
 	struct find_program_custom_dir_ctx dir_ctx = {
+		.buf = &dir_ctx_buf,
 		.prog = str,
 	};
 
@@ -619,20 +617,18 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* 4. Directories provided using the dirs: kwarg */
 	if (ctx->dirs) {
-		if (!obj_array_foreach(wk, ctx->dirs, &dir_ctx, find_program_custom_dir_iter)) {
-			return false;
-		} else if (dir_ctx.found) {
-			path = dir_ctx.buf;
+		obj_array_foreach(wk, ctx->dirs, &dir_ctx, find_program_custom_dir_iter);
+		if (dir_ctx.found) {
+			path = dir_ctx.buf->buf;
 			goto found;
 		}
 	}
 
 	/* 5. Project's source tree relative to the current subdir */
 	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	if (!path_join(dir_ctx.buf, PATH_MAX, get_cstr(wk, current_project(wk)->cwd), str)) {
-		return false;
-	} else if (fs_file_exists(dir_ctx.buf)) {
-		path = dir_ctx.buf;
+	path_join(wk, dir_ctx.buf, get_cstr(wk, current_project(wk)->cwd), str);
+	if (fs_file_exists(dir_ctx.buf->buf)) {
+		path = dir_ctx.buf->buf;
 		goto found;
 	}
 
@@ -1107,30 +1103,27 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	char src[PATH_MAX], cwd[PATH_MAX], build_dir[PATH_MAX];
+	SBUF_1k(path, 0);
+	SBUF_1k(build_dir, 0);
 
 	obj old_cwd = current_project(wk)->cwd;
 	obj old_build_dir = current_project(wk)->build_dir;
 
-	if (!path_join(cwd, PATH_MAX, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val))) {
-		return false;
-	} else if (!path_join(build_dir, PATH_MAX, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val))) {
-		return false;
-	} else if (!path_join(src, PATH_MAX, cwd, "meson.build")) {
-		return false;
-	}
+	path_join(wk, &path, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val));
+	current_project(wk)->cwd = sbuf_into_str(wk, &path, true);
 
-	current_project(wk)->cwd = make_str(wk, cwd);
-	current_project(wk)->build_dir = make_str(wk, build_dir);
+	path_join(wk, &build_dir, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val));
+	current_project(wk)->build_dir = sbuf_into_str(wk, &build_dir, false);
 
 	bool ret = false;
 	if (!wk->in_analyzer) {
-		if (!fs_mkdir_p(build_dir)) {
+		if (!fs_mkdir_p(build_dir.buf)) {
 			goto ret;
 		}
 	}
 
-	ret = wk->eval_project_file(wk, src);
+	path_push(wk, &path, "meson.build");
+	ret = wk->eval_project_file(wk, path.buf);
 
 ret:
 	current_project(wk)->cwd = old_cwd;
@@ -1350,7 +1343,7 @@ func_benchmark(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 
 struct join_paths_ctx {
 	uint32_t node;
-	char buf[PATH_MAX];
+	struct sbuf *buf;
 };
 
 static enum iteration_result
@@ -1362,13 +1355,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	char buf[PATH_MAX] = { 0 };
-	strcpy(buf, ctx->buf);
-
-	if (!path_join(ctx->buf, PATH_MAX, buf, get_cstr(wk, val))) {
-		return ir_err;
-	}
-
+	path_push(wk, ctx->buf, get_cstr(wk, val));
 	return ir_cont;
 }
 
@@ -1381,7 +1368,9 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
+	SBUF_1k(join_paths_buf, 0);
 	struct join_paths_ctx ctx = {
+		.buf = &join_paths_buf,
 		.node = args_node,
 	};
 
@@ -1389,7 +1378,7 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	*res = make_str(wk, ctx.buf);
+	*res = sbuf_into_str(wk, ctx.buf, false);
 	return true;
 }
 

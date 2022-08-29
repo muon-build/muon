@@ -5,6 +5,7 @@
 
 #include "buf_size.h"
 #include "external/libarchive.h"
+#include "lang/string.h"
 #include "log.h"
 #include "platform/path.h"
 
@@ -35,6 +36,7 @@ copy_data(struct archive *ar, struct archive *aw)
 bool
 muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 {
+	bool res = false;
 	struct archive *a;
 	struct archive *ext;
 	struct archive_entry *entry;
@@ -57,10 +59,10 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 	if ((r = archive_read_open_memory(a, buf, size))) {
 		// may not work, a might not be initialized ??
 		LOG_E("error opening archive: %s\n", archive_error_string(a));
-		return false;
+		goto ret;
 	}
 
-	char path_buf[PATH_MAX];
+	SBUF_1k(path, sbuf_flag_overflow_alloc);
 
 	while (true) {
 		if ((r = archive_read_next_header(a, &entry)) == ARCHIVE_EOF) {
@@ -69,14 +71,12 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 			LOG_W("%s\n", archive_error_string(a));
 		} else if (r < ARCHIVE_WARN) {
 			LOG_E("%s\n", archive_error_string(a));
-			return false;
+			goto ret;
 		}
 
-		if (!path_join(path_buf, PATH_MAX, dest_path, archive_entry_pathname(entry))) {
-			return false;
-		}
+		path_join(NULL, &path, dest_path, archive_entry_pathname(entry));
 
-		archive_entry_copy_pathname(entry, path_buf);
+		archive_entry_copy_pathname(entry, path.buf);
 
 		if ((r = archive_write_header(ext, entry)) < ARCHIVE_OK) {
 			LOG_W("%s\n", archive_error_string(ext));
@@ -85,7 +85,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 				LOG_W("%s\n", archive_error_string(ext));
 			} else if (r < ARCHIVE_WARN) {
 				LOG_E("%s\n", archive_error_string(ext));
-				return false;
+				goto ret;
 			}
 		}
 
@@ -93,13 +93,22 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 			LOG_W("%s\n", archive_error_string(ext));
 		} else if (r < ARCHIVE_WARN) {
 			LOG_E("%s\n", archive_error_string(ext));
-			return false;
+			goto ret;
 		}
 	}
 
-	archive_read_close(a);
-	archive_read_free(a);
-	archive_write_close(ext);
-	archive_write_free(ext);
-	return true;
+	res = true;
+ret:
+	sbuf_destroy(&path);
+
+	if (a) {
+		archive_read_close(a);
+		archive_read_free(a);
+	}
+
+	if (ext) {
+		archive_write_close(ext);
+		archive_write_free(ext);
+	}
+	return res;
 }
