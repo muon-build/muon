@@ -192,21 +192,19 @@ setup_compiler_args_includes_iter(struct workspace *wk, void *_ctx, obj v)
 			break;
 		default:
 			LOG_E("invalid type for include directory '%s'", obj_type_to_s(t));
-			return false;
+			UNREACHABLE;
 		}
 	}
 
-	char rel[PATH_MAX];
+	SBUF_1k(rel, 0);
 	if (!ctx->dont_relativize) {
 		if (!fs_dir_exists(dir)) {
 			return ir_cont;
 		}
 
 		if (path_is_absolute(dir)) {
-			if (!path_relative_to(rel, PATH_MAX, wk->build_root, dir)) {
-				return ir_err;
-			}
-			dir = rel;
+			path_relative_to(wk, &rel, wk->build_root, dir);
+			dir = rel.buf;
 		}
 	}
 
@@ -308,10 +306,10 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj,
 	return true;
 }
 
-bool
+void
 setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dirs, obj args, bool relativize)
 {
-	return obj_array_foreach(wk, include_dirs, &(struct setup_compiler_args_includes_ctx) {
+	obj_array_foreach(wk, include_dirs, &(struct setup_compiler_args_includes_ctx) {
 		.args = args,
 		.t = get_obj_compiler(wk, compiler)->type,
 		.dont_relativize = !relativize,
@@ -345,9 +343,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 		}
 	}
 
-	if (!setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true)) {
-		return ir_err;
-	}
+	setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true);
 
 	{ /* dep args */
 		if (ctx->dep_args) {
@@ -575,12 +571,9 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		str = get_file_path(wk, val);
 	}
 
-	char buf[PATH_MAX];
-	if (!path_relative_to(buf, PATH_MAX, wk->build_root, str)) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->dest, make_str(wk, buf));
+	SBUF_1k(buf, 0);
+	path_relative_to(wk, &buf, wk->build_root, str);
+	obj_array_push(wk, ctx->dest, sbuf_into_str(wk, &buf, false));
 	return ir_cont;
 }
 

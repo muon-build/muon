@@ -239,18 +239,11 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
-		char tmp1[PATH_MAX];
 		SBUF_1k(dest, 0);
-
+		SBUF_1k(rel, 0);
 		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
-
-		if (!path_relative_to(tmp1, PATH_MAX, wk->build_root, dest.buf)) {
-			return false;
-		} else if (!path_executable(dest.buf, dest.cap, tmp1)) {
-			return false;
-		}
-		dest.len = strlen(dest.buf); // XXX
-
+		path_relative_to(wk, &rel, wk->build_root, dest.buf);
+		path_executable(wk, &dest, rel.buf);
 		str = sbuf_into_str(wk, &dest, false);
 		break;
 	}
@@ -567,10 +560,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	struct obj_include_directory *d;
 
 	if (path_is_subpath(wk->source_root, p)) {
-		if (!path_relative_to(buf1.buf, buf1.cap, wk->source_root, p)) {
-			return ir_err;
-		}
-		buf1.len = strlen(buf1.buf); // XXX
+		path_relative_to(wk, &buf1, wk->source_root, p);
 		path_join(wk, &buf2, wk->build_root, buf1.buf);
 
 		make_obj(wk, &inc, obj_include_directory);

@@ -201,11 +201,9 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		break;
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
-			char buf[PATH_MAX];
-			if (!path_relative_to(buf, PATH_MAX, wk->build_root, get_file_path(wk, src))) {
-				return ir_err;
-			}
-			str = make_str(wk, buf);
+			SBUF_1k(rel, 0);
+			path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, src));
+			str = sbuf_into_str(wk, &rel, false);
 			break;
 		}
 		str = *get_obj_file(wk, src);
@@ -226,13 +224,10 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, src);
 
-		char rel[PATH_MAX];
+		SBUF_1k(rel, 0);
 		if (ctx->mode & arr_to_args_relativize_paths) {
-			if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
-				return false;
-			}
-
-			str = make_str(wk, rel);
+			path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
+			str = sbuf_into_str(wk, &rel, false);
 		} else {
 			str = tgt->build_path;
 		}

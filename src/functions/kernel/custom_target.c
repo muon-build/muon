@@ -39,7 +39,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 static bool
 str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
 {
-	char rel[PATH_MAX];
+	SBUF_1k(rel, 0);
 	const char *path = path_orig;
 
 	if (!ctx->opts->relativize) {
@@ -52,20 +52,20 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 		return true;
 	}
 
-	if (!path_relative_to(rel, PATH_MAX, wk->build_root, path)) {
-		return false;
-	}
+	path_relative_to(wk, &rel, wk->build_root, path);
 
-	if (ctx->i == 0 && path_is_basename(rel)) {
+	if (ctx->i == 0) {
 		// prefix relative argv0 with ./ so that executables are looked
 		// up properly if they reside in the build root.  Without this,
 		// an executable in the build root will be called without any
 		// path elements, and will be assumed to be on PATH, which
 		// either results in the wrong executable being run, or a
 		// command not found error.
-		*res = make_strf(wk, "./%s", rel);
+		SBUF_1k(exe, 0);
+		path_executable(wk, &exe, rel.buf);
+		*res = sbuf_into_str(wk, &exe, false);
 	} else {
-		*res = make_str(wk, rel);
+		*res = sbuf_into_str(wk, &rel, false);
 	}
 	return true;
 }

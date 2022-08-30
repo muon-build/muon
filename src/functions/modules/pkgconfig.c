@@ -559,7 +559,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 	obj libdir;
 	const char *path;
 	if (install_dir_opt->set) {
-		char rel[PATH_MAX];
+		SBUF_1k(rel, 0);
 		obj pre;
 		get_option_value(wk, current_project(wk), "prefix", &pre);
 
@@ -567,10 +567,8 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 			   *prefix = get_cstr(wk, pre);
 
 		if (path_is_subpath(prefix, install_dir)) {
-			if (!path_relative_to(rel, PATH_MAX, prefix, install_dir)) {
-				return false;
-			}
-			path = rel;
+			path_relative_to(wk, &rel, prefix, install_dir);
+			path = rel.buf;
 		} else if (path_is_absolute(install_dir)) {
 			interp_error(wk, install_dir_opt->val, "absolute install dir path not a subdir of prefix");
 			return false;

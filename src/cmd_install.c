@@ -35,14 +35,13 @@ copy_subdir_iter(void *_ctx, const char *path)
 	path_join(ctx->wk, &src, ctx->src_base, path);
 	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
-	char rel[PATH_MAX];
-	if (!path_relative_to(rel, PATH_MAX, ctx->src_root, src.buf)) {
-		return ir_err;
-	}
+	SBUF_1k(rel, 0);
+	path_relative_to(ctx->wk, &rel, ctx->src_root, src.buf);
+	obj rel_str = sbuf_into_str(ctx->wk, &rel, false);
 
 	if (fs_dir_exists(src.buf)) {
 		if (ctx->exclude_directories &&
-		    obj_array_in(ctx->wk, ctx->exclude_directories, make_str(ctx->wk, rel))) {
+		    obj_array_in(ctx->wk, ctx->exclude_directories, rel_str)) {
 			LOG_I("skipping dir '%s'", src.buf);
 			return ir_cont;
 		}
@@ -71,7 +70,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 		}
 	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
 		if (ctx->exclude_files &&
-		    obj_array_in(ctx->wk, ctx->exclude_files, make_str(ctx->wk, rel))) {
+		    obj_array_in(ctx->wk, ctx->exclude_files, rel_str)) {
 			LOG_I("skipping file '%s'", src.buf);
 			return ir_cont;
 		}

@@ -16,15 +16,13 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 {
 	obj src = *get_obj_file(wk, src_file);
 
-	char private_path_rel[PATH_MAX], rel[PATH_MAX];
+	SBUF_1k(private_path_rel, 0);
+	SBUF_1k(rel, 0);
 	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
 	if (relative) {
-		if (!path_relative_to(private_path_rel, PATH_MAX, wk->build_root, private_path)) {
-			return false;
-		}
-
-		private_path = private_path_rel;
+		path_relative_to(wk, &private_path_rel, wk->build_root, private_path);
+		private_path = private_path_rel.buf;
 	}
 
 	if (path_is_subpath(get_cstr(wk, tgt->private_path), get_cstr(wk, src))) {
@@ -45,20 +43,19 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 	}
 
 	if (base) {
-		if (!path_relative_to(rel, PATH_MAX, base, get_cstr(wk, src))) {
-			return false;
-		}
+		path_relative_to(wk, &rel, base, get_cstr(wk, src));
 	} else {
-		strncpy(rel, get_cstr(wk, src), PATH_MAX);
+		path_copy(wk, &rel, get_cstr(wk, src));
+
 		uint32_t i;
-		for (i = 0; rel[i]; ++i) {
-			if (rel[i] == '/') {
-				rel[i] = '_';
+		for (i = 0; i < rel.len; ++i) {
+			if (rel.buf[i] == PATH_SEP) {
+				rel.buf[i] = '_';
 			}
 		}
 	}
 
-	path_join(wk, res, private_path, rel);
+	path_join(wk, res, private_path, rel.buf);
 	sbuf_pushs(wk, res, ".o");
 	return true;
 }

@@ -88,12 +88,9 @@ set_default_environment_vars(struct workspace *wk, obj env, bool set_subdir)
 	environment_or_dict_set(wk, env, "MESON_SOURCE_ROOT", wk->source_root);
 
 	if (set_subdir) {
-		static char subdir[PATH_MAX];
-		if (!path_relative_to(subdir, PATH_MAX, wk->source_root, get_cstr(wk, current_project(wk)->cwd))) {
-			assert(false);
-		}
-
-		environment_or_dict_set(wk, env, "MESON_SUBDIR", subdir);
+		SBUF_1k(subdir, 0);
+		path_relative_to(wk, &subdir, wk->source_root, get_cstr(wk, current_project(wk)->cwd));
+		environment_or_dict_set(wk, env, "MESON_SUBDIR", subdir.buf);
 	}
 }
 

@@ -43,13 +43,11 @@ generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, 
 			ctx->generated_include = true;
 		}
 
-		char rel[PATH_MAX];
-		if (!path_relative_to(rel, PATH_MAX, wk->build_root, generated_path)) {
-			return ir_err;
-		}
+		SBUF_1k(rel, 0);
+		path_relative_to(wk, &rel, wk->build_root, generated_path);
 
 		str_app(wk, ctx->name, " ");
-		str_app(wk, ctx->name, rel);
+		str_app(wk, ctx->name, rel.buf);
 	}
 
 	return ir_cont;
@@ -69,12 +67,12 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		assert(path_is_subpath(base, src));
 
 		SBUF_1k(dir, 0);
-		if (!path_relative_to(path.buf, path.cap, base, src)) {
-			return ir_err;
-		} else if (!path_dirname(dir.buf, dir.cap, path.buf)) {
+
+		path_relative_to(wk, &path, base, src);
+
+		if (!path_dirname(dir.buf, dir.cap, path.buf)) {
 			return ir_err;
 		}
-
 		dir.len = strlen(dir.buf); // XXX
 
 		path_join(wk, &path, ctx->dir, dir.buf);

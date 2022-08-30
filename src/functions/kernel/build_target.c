@@ -127,13 +127,12 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 		return true;
 	}
 
-	char dir[PATH_MAX], path[PATH_MAX];
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
-		return false;
-	}
+	char dir[PATH_MAX];
+	SBUF_1k(path, 0);
+	path_relative_to(wk, &path, wk->build_root, src);
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-	obj_array_push(wk, tgt->dep_internal.order_deps, make_str(wk, path));
+	obj_array_push(wk, tgt->dep_internal.order_deps, sbuf_into_str(wk, &path, false));
 
 	if (!ctx->implicit_include_directories) {
 		return true;

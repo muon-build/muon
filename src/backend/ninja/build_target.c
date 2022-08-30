@@ -32,12 +32,9 @@ add_tgt_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
-	char path[PATH_MAX];
-	if (!path_relative_to(path, PATH_MAX, wk->build_root, src)) {
-		return ir_err;
-	}
-
-	obj_array_push(wk, ctx->object_names, make_str(wk, path));
+	SBUF_1k(path, 0);
+	path_relative_to(wk, &path, wk->build_root, src);
+	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &path, false));
 	return ir_cont;
 }
 
@@ -71,10 +68,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	char src_path[PATH_MAX];
-	if (!path_relative_to(src_path, PATH_MAX, wk->build_root, src)) {
-		return ir_err;
-	}
+	SBUF_1k(src_path, 0);
+	path_relative_to(wk, &src_path, wk->build_root, src);
 
 	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path, false));
 
@@ -90,7 +85,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	SBUF_1k(esc_path, 0);
 
 	ninja_escape(wk, &esc_dest_path, dest_path.buf);
-	ninja_escape(wk, &esc_path, src_path);
+	ninja_escape(wk, &esc_path, src_path.buf);
 
 	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path.buf,
 		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path.buf);
@@ -245,12 +240,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	SBUF_1k(esc_path, 0);
 	{
-		char rel_build_path[PATH_MAX];
-		if (!path_relative_to(rel_build_path, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
-			return false;
-		}
-
-		ninja_escape(wk, &esc_path, rel_build_path);
+		SBUF_1k(rel_build_path, 0);
+		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
+		ninja_escape(wk, &esc_path, rel_build_path.buf);
 	}
 
 	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path.buf,

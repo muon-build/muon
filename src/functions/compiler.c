@@ -239,10 +239,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			obj_array_extend_nodup(wk, include_dirs, dep.include_directories);
 		}
 
-		if (!setup_compiler_args_includes(wk, opts->comp_id,
-			include_dirs, compiler_args, false)) {
-			return false;
-		}
+		setup_compiler_args_includes(wk, opts->comp_id,
+			include_dirs, compiler_args, false);
 	}
 
 	switch (opts->mode) {

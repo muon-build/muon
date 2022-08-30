@@ -11,8 +11,10 @@
 #include "platform/path.h"
 
 static struct {
-	char cwd_buf[BUF_SIZE_2k];
-	struct sbuf cwd;
+	char cwd_buf[BUF_SIZE_2k],
+	     tmp1_buf[BUF_SIZE_2k],
+	     tmp2_buf[BUF_SIZE_2k];
+	struct sbuf cwd, tmp1, tmp2;
 } path_ctx;
 
 static void
@@ -30,6 +32,12 @@ path_init(void)
 	sbuf_init(&path_ctx.cwd, sbuf_flag_overflow_alloc);
 	path_ctx.cwd.buf = path_ctx.cwd_buf;
 	path_ctx.cwd.cap = BUF_SIZE_2k;
+	sbuf_init(&path_ctx.tmp1, sbuf_flag_overflow_alloc);
+	path_ctx.tmp1.buf = path_ctx.tmp1_buf;
+	path_ctx.tmp1.cap = BUF_SIZE_2k;
+	sbuf_init(&path_ctx.tmp2, sbuf_flag_overflow_alloc);
+	path_ctx.tmp2.buf = path_ctx.tmp2_buf;
+	path_ctx.tmp2.cap = BUF_SIZE_2k;
 
 	path_getcwd();
 }
@@ -38,6 +46,8 @@ void
 path_deinit(void)
 {
 	sbuf_destroy(&path_ctx.cwd);
+	sbuf_destroy(&path_ctx.tmp1);
+	sbuf_destroy(&path_ctx.tmp2);
 }
 
 static bool
@@ -92,24 +102,6 @@ buf_push_sn(char *buf, const char *s, uint32_t m, uint32_t *i, uint32_t n)
 		buf[*i] = 0;
 		return true;
 	}
-}
-
-static bool
-buf_push_c(char *buf, char c, uint32_t *i, uint32_t n)
-{
-	if (*i < n) {
-		if (*i && buf[*i - 1] == PATH_SEP && c == PATH_SEP) {
-			return true;
-		}
-
-		buf[*i] = c;
-		++(*i);
-		buf[*i] = 0;
-		return true;
-	}
-
-	LOG_E("path would be truncated");
-	return false;
 }
 
 void
@@ -192,7 +184,7 @@ _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 	}
 }
 
-void
+static void
 path_normalize(char *buf, bool optimize)
 {
 	struct sbuf sb = { .buf = buf, .flags = sbuf_flag_overflow_error };
@@ -292,8 +284,8 @@ path_make_absolute(char *buf, uint32_t len, const char *path)
 	}
 }
 
-bool
-path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path_raw)
+void
+path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, const char *path_raw)
 {
 	/*
 	 * input: base="/path/to/build/"
@@ -309,30 +301,25 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	 * output: "../src/asd.c"
 	 */
 
-	char base[PATH_MAX] = { 0 }, path[PATH_MAX] = { 0 };
+	sbuf_clear(buf);
+	path_copy(wk, &path_ctx.tmp1, base_raw);
+	path_copy(wk, &path_ctx.tmp2, path_raw);
 
-	strncpy(base, base_raw, PATH_MAX - 1);
-	strncpy(path, path_raw, PATH_MAX - 1);
-
-	path_normalize(base, false);
-	path_normalize(path, false);
+	const char *base = path_ctx.tmp1.buf, *path = path_ctx.tmp2.buf;
 
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
-		return false;
+		assert(false);
 	} else if (!path_is_absolute(path)) {
 		LOG_E("path '%s' is not absolute", path);
-		return false;
+		assert(false);
 	}
 
-	uint32_t i = 0, j = 0, common_end = 0;
+	uint32_t i = 0, common_end = 0;
 
 	if (strcmp(base, path) == 0) {
-		if (!(buf_push_s(buf, ".", &j, len))) {
-			return false;
-		}
-
-		return true;
+		sbuf_push(wk, buf, '.');
+		return;
 	}
 
 	while (base[i] && path[i] && base[i] == path[i]) {
@@ -352,7 +339,8 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	assert(i);
 	if (i == 1) {
 		/* -> base and path match only at root */
-		return simple_copy(buf, len, path);
+		path_copy(wk, buf, path);
+		return;
 	}
 
 	if (base[common_end] && base[common_end + 1]) {
@@ -360,10 +348,8 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 		i = common_end + 1;
 		do {
 			if (have_part) {
-				if (!(buf_push_s(buf, "..", &j, len)
-				      && buf_push_c(buf, PATH_SEP, &j, len))) {
-					return false;
-				}
+				sbuf_pushs(wk, buf, "..");
+				sbuf_push(wk, buf, PATH_SEP);
 				have_part = false;
 			}
 
@@ -375,13 +361,10 @@ path_relative_to(char *buf, uint32_t len, const char *base_raw, const char *path
 	}
 
 	if (path[common_end]) {
-		if (!buf_push_s(buf, &path[common_end + 1], &j, len)) {
-			return false;
-		}
+		sbuf_pushs(wk, buf, &path[common_end + 1]);
 	}
 
-	path_normalize(buf, false);
-	return true;
+	_path_normalize(wk, buf, false);
 }
 
 bool
@@ -514,15 +497,15 @@ path_add_suffix(char *path, uint32_t len, const char *suff)
 	return true;
 }
 
-bool
-path_executable(char *buf, uint32_t len, const char *path)
+void
+path_executable(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	if (path_is_basename(path)) {
-		uint32_t i = 0;
-		return buf_push_c(buf, '.', &i, len)
-		       && buf_push_c(buf, PATH_SEP, &i, len)
-		       && buf_push_s(buf, path, &i, len);
+		sbuf_clear(buf);
+		sbuf_push(wk, buf, '.');
+		sbuf_push(wk, buf, PATH_SEP);
+		sbuf_pushs(wk, buf, path);
 	} else {
-		return simple_copy(buf, len, path);
+		path_copy(wk, buf, path);
 	}
 }

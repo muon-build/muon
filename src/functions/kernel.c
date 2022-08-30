@@ -1190,7 +1190,7 @@ struct add_test_depends_ctx {
 static enum iteration_result
 add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	char rel[PATH_MAX];
+	SBUF_1k(rel, 0);
 	struct add_test_depends_ctx *ctx = _ctx;
 
 	switch (get_obj_type(wk, val)) {
@@ -1203,11 +1203,8 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 			break;
 		}
 
-		if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_file_path(wk, val))) {
-			return ir_err;
-		}
-
-		obj_array_push(wk, ctx->t->depends, make_str(wk, rel));
+		path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, val));
+		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel, false));
 		break;
 
 	case obj_both_libs:
@@ -1216,11 +1213,8 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		if (!path_relative_to(rel, PATH_MAX, wk->build_root, get_cstr(wk, tgt->build_path))) {
-			return ir_err;
-		}
-
-		obj_array_push(wk, ctx->t->depends, make_str(wk, rel));
+		path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
+		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel, false));
 		break;
 	}
 	case obj_custom_target:

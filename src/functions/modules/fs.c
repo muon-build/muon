@@ -486,9 +486,9 @@ func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	char path[PATH_MAX];
-	path_relative_to(path, PATH_MAX, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val));
-	*res = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_relative_to(wk, &path, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -556,9 +556,9 @@ func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		return false;
 	}
 
-	char path[PATH_MAX];
-	path_executable(path, PATH_MAX, get_cstr(wk, an[0].val));
-	*res = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_executable(wk, &path, get_cstr(wk, an[0].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
