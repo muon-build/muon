@@ -127,7 +127,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 		return true;
 	}
 
-	char dir[PATH_MAX];
+	SBUF_1k(dir, 0);
 	SBUF_1k(path, 0);
 	path_relative_to(wk, &path, wk->build_root, src);
 
@@ -138,14 +138,12 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 		return true;
 	}
 
-	if (!path_dirname(dir, PATH_MAX, src)) {
-		return false;
-	}
+	path_dirname(wk, &dir, src);
 
 	obj inc;
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
-	d->path = make_str(wk, dir);
+	d->path = sbuf_into_str(wk, &dir, false);
 	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
 
 	return true;

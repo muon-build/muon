@@ -50,60 +50,6 @@ path_deinit(void)
 	sbuf_destroy(&path_ctx.tmp2);
 }
 
-static bool
-buf_push_s(char *buf, const char *s, uint32_t *i, uint32_t n)
-{
-	uint32_t si = 0;
-	while (*i < n) {
-		if (*i && buf[*i - 1] == PATH_SEP && s[si] == PATH_SEP) {
-			++si;
-			continue;
-		}
-
-		buf[*i] = s[si];
-
-		if (!s[si]) {
-			return true;
-		}
-
-		++(*i);
-		++si;
-	}
-
-	LOG_E("path '%s' would be truncated", s);
-	return false;
-}
-
-static bool
-buf_push_sn(char *buf, const char *s, uint32_t m, uint32_t *i, uint32_t n)
-{
-	uint32_t si = 0;
-
-	while (*i < n && si < m) {
-		if (*i && buf[*i - 1] == PATH_SEP && s[si] == PATH_SEP) {
-			++si;
-			continue;
-		}
-
-		buf[*i] = s[si];
-
-		if (!s[si]) {
-			return true;
-		}
-
-		++(*i);
-		++si;
-	}
-
-	if (*i + 1 >= n) {
-		LOG_E("'%s', path '%s' would be truncated", buf, s);
-		return false;
-	} else {
-		buf[*i] = 0;
-		return true;
-	}
-}
-
 void
 _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 {
@@ -184,33 +130,12 @@ _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 	}
 }
 
-static void
-path_normalize(char *buf, bool optimize)
-{
-	struct sbuf sb = { .buf = buf, .flags = sbuf_flag_overflow_error };
-	sb.cap = sb.len = strlen(buf);
-
-	_path_normalize(NULL, &sb, optimize);
-}
-
 void
 path_copy(struct workspace *wk, struct sbuf *sb, const char *path)
 {
 	sbuf_clear(sb);
 	sbuf_pushs(wk, sb, path);
 	_path_normalize(wk, sb, false);
-}
-
-static bool
-simple_copy(char *buf, uint32_t len, const char *path)
-{
-	uint32_t i = 0;
-	if (!buf_push_s(buf, path, &i, len)) {
-		return false;
-	}
-
-	path_normalize(buf, false);
-	return true;
 }
 
 bool
@@ -255,7 +180,7 @@ path_push(struct workspace *wk, struct sbuf *sb, const char *b)
 		/* Special-case path_1 / '' to mean "append a / to the current
 		 * path".
 		 */
-		path_normalize(sb->buf, false);
+		_path_normalize(wk, sb, false);
 		sbuf_push(wk, sb, PATH_SEP);
 	} else {
 		sbuf_push(wk, sb, PATH_SEP);
@@ -272,15 +197,13 @@ path_join(struct workspace *wk, struct sbuf *sb, const char *a, const char *b)
 	path_push(wk, sb, b);
 }
 
-bool
-path_make_absolute(char *buf, uint32_t len, const char *path)
+void
+path_make_absolute(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	if (path_is_absolute(path)) {
-		return simple_copy(buf, len, path);
+		path_copy(wk, buf, path);
 	} else {
-		struct sbuf sb = { .buf = buf, .cap = len, .flags = sbuf_flag_overflow_error };
-		path_join(NULL, &sb, path_ctx.cwd.buf, path);
-		return true;
+		path_join(wk, buf, path_ctx.cwd.buf, path);
 	}
 }
 
@@ -373,46 +296,45 @@ path_is_basename(const char *path)
 	return strchr(path, PATH_SEP) == NULL;
 }
 
-bool
-path_without_ext(char *buf, uint32_t len, const char *path)
+void
+path_without_ext(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	int32_t i;
-	uint32_t j = 0;
 
-	assert(len);
-
-	buf[0] = 0;
+	sbuf_clear(buf);
 
 	if (!*path) {
-		return true;
+		return;
 	}
+
+	bool have_ext = false;
 
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == '.') {
+			have_ext = true;
+			break;
+		} else if (path[i] == PATH_SEP) {
 			break;
 		}
 	}
 
-	if (!buf_push_sn(buf, path, i, &j, len)) {
-		return false;
+	if (have_ext) {
+		sbuf_pushn(wk, buf, path, i);
+	} else {
+		path_copy(wk, buf, path);
 	}
-
-	path_normalize(buf, false);
-	return true;
+	_path_normalize(wk, buf, false);
 }
 
-bool
-path_basename(char *buf, uint32_t len, const char *path)
+void
+path_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	int32_t i;
-	uint32_t j = 0;
 
-	assert(len);
-
-	buf[0] = 0;
+	sbuf_clear(buf);
 
 	if (!*path) {
-		return true;
+		return;
 	}
 
 	for (i = strlen(path) - 1; i >= 0; --i) {
@@ -422,19 +344,16 @@ path_basename(char *buf, uint32_t len, const char *path)
 		}
 	}
 
-	if (!buf_push_s(buf, &path[i], &j, len)) {
-		return false;
-	}
-
-	path_normalize(buf, false);
-	return true;
+	sbuf_pushs(wk, buf, &path[i]);
+	_path_normalize(wk, buf, false);
 }
 
-bool
-path_dirname(char *buf, uint32_t len, const char *path)
+void
+path_dirname(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	int32_t i;
-	uint32_t j = 0;
+
+	sbuf_clear(buf);
 
 	if (!*path) {
 		goto return_dot;
@@ -442,17 +361,14 @@ path_dirname(char *buf, uint32_t len, const char *path)
 
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
-			if (!buf_push_sn(buf, path, i, &j, len)) {
-				return false;
-			}
-
-			path_normalize(buf, false);
-			return true;
+			sbuf_pushn(wk, buf, path, i);
+			_path_normalize(wk, buf, false);
+			return;
 		}
 	}
 
 return_dot:
-	return buf_push_s(buf, ".", &j, len);
+	sbuf_pushs(wk, buf, ".");
 }
 
 bool
@@ -482,19 +398,6 @@ path_is_subpath(const char *base, const char *sub)
 		assert(base[i] && sub[i]);
 		++i;
 	}
-}
-
-bool
-path_add_suffix(char *path, uint32_t len, const char *suff)
-{
-	uint32_t l = strlen(path), sl = strlen(suff);
-
-	if (l + sl + 1 >= len) {
-		return false;
-	}
-
-	strncpy(&path[l], suff, sl + 1);
-	return true;
 }
 
 void

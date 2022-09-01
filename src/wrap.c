@@ -422,14 +422,16 @@ wrap_destroy(struct wrap *wrap)
 bool
 wrap_parse(const char *wrap_file, struct wrap *wrap)
 {
+	bool res = false;
+	SBUF_1k(subprojects, sbuf_flag_overflow_alloc);
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
-		goto err;
+		goto ret;
 	}
 
 	if (!validate_wrap(&ctx, wrap_file)) {
-		goto err;
+		goto ret;
 	}
 
 	*wrap = ctx.wrap;
@@ -442,10 +444,7 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 	wrap->name.buf = wrap->name_buf;
 	wrap->name.cap = ARRAY_LEN(wrap->name_buf);
 
-	if (!path_basename(wrap->name.buf, wrap->name.cap, wrap_file)) {
-		goto err;
-	}
-	wrap->name.len = strlen(wrap->name.buf); // XXX
+	path_basename(NULL, &wrap->name, wrap_file);
 
 	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len },
 			 ext = WKSTR(".wrap");
@@ -461,17 +460,16 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 		dir = wrap->name.buf;
 	}
 
-	char subprojects[PATH_MAX];
-	if (!path_dirname(subprojects, PATH_MAX, wrap_file)) {
-		goto err;
+	path_dirname(NULL, &subprojects, wrap_file);
+	path_join(NULL, &wrap->dest_dir, subprojects.buf, dir);
+
+	res = true;
+ret:
+	if (!res) {
+		wrap_destroy(&ctx.wrap);
 	}
-
-	path_join(NULL, &wrap->dest_dir, subprojects, dir);
-
-	return true;
-err:
-	wrap_destroy(&ctx.wrap);
-	return false;
+	sbuf_destroy(&subprojects);
+	return res;
 }
 
 static bool
@@ -506,11 +504,7 @@ wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *de
 	char *p = (char *)wrap->fields[wf_diff_files];
 	const char *diff_file = p;
 
-	bool patch_cmd_found;
-	{
-		const char *_;
-		patch_cmd_found = fs_find_cmd("patch", &_);
-	}
+	bool patch_cmd_found = fs_has_cmd("patch");
 
 	while (true) {
 		if (p[1] == ',' || !p[1]) {
@@ -657,11 +651,6 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 	path_join(NULL, &meson_build, wrap->dest_dir.buf, "meson.build");
 
 	if (fs_file_exists(meson_build.buf)) {
-		char basename[PATH_MAX];
-		if (!path_basename(basename, PATH_MAX, wrap_file)) {
-			goto ret;
-		}
-
 		res = true;
 		goto ret;
 	}

@@ -411,20 +411,18 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 }
 
 bool
-fs_find_cmd(const char *cmd, const char **ret)
+fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 {
+	assert(*cmd);
 	uint32_t len;
-	static char cmd_path[PATH_MAX];
-	char path_elem[PATH_MAX];
 	const char *env_path, *base_start;
 
-	if (!path_is_basename(cmd)) {
-		if (!path_make_absolute(cmd_path, PATH_MAX, cmd)) {
-			return false;
-		}
+	sbuf_clear(buf);
 
-		if (fs_exe_exists(cmd_path)) {
-			*ret = cmd_path;
+	if (!path_is_basename(cmd)) {
+		path_make_absolute(wk, buf, cmd);
+
+		if (fs_exe_exists(buf->buf)) {
 			return true;
 		} else {
 			return false;
@@ -440,17 +438,15 @@ fs_find_cmd(const char *cmd, const char **ret)
 	while (true) {
 		if (!*env_path || *env_path == ':') {
 			len = env_path - base_start;
-			assert(len + 1 < PATH_MAX);
 
-			strncpy(path_elem, base_start, len);
-			path_elem[len] = 0;
+			sbuf_clear(buf);
+			sbuf_pushn(wk, buf, base_start, len);
+
 			base_start = env_path + 1;
 
-			struct sbuf buf = { .buf = cmd_path, .cap = PATH_MAX, .flags = sbuf_flag_overflow_error };
-			path_join(NULL, &buf, path_elem, cmd);
+			path_push(wk, buf, cmd);
 
-			if (fs_exe_exists(cmd_path)) {
-				*ret = cmd_path;
+			if (fs_exe_exists(buf->buf)) {
 				return true;
 			}
 
@@ -463,6 +459,15 @@ fs_find_cmd(const char *cmd, const char **ret)
 	}
 
 	return false;
+}
+
+bool
+fs_has_cmd(const char *cmd)
+{
+	SBUF_1k(buf, sbuf_flag_overflow_alloc);
+	bool res = fs_find_cmd(NULL, &buf, cmd);
+	sbuf_destroy(&buf);
+	return res;
 }
 
 static bool

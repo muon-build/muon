@@ -21,6 +21,7 @@ enum sbuf_flags {
 #define SBUF_CUSTOM(name, static_len, flags) \
 	struct sbuf name; \
 	char sbuf_static_buf_ ## name[static_len]; \
+	sbuf_static_buf_ ## name[0] = 0; \
 	sbuf_init(&name, flags); \
 	name.buf = sbuf_static_buf_ ## name; \
 	name.cap = static_len

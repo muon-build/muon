@@ -89,33 +89,31 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 	struct install_man_ctx *ctx = _ctx;
 
 	obj src = *get_obj_file(wk, val);
-	char man[PATH_MAX];
-	if (!path_basename(man, PATH_MAX, get_cstr(wk, src))) {
-		return ir_err;
-	}
-	size_t len = strlen(man);
+	SBUF_1k(man, 0);
+	path_basename(wk, &man, get_cstr(wk, src));
+	size_t len = man.len;
 	assert(len > 0);
 	--len;
 
-	if (len <= 1 || man[len - 1] != '.' || man[len] < '0' || man[len] > '9') {
+	if (len <= 1 || man.buf[len - 1] != '.' || man.buf[len] < '0' || man.buf[len] > '9') {
 		interp_error(wk, ctx->err_node, "invalid path to man page");
 		return ir_err;
 	}
 
 	obj install_dir;
 	if (ctx->default_install_dir) {
-		install_dir = make_strf(wk, "%s/man%c", get_cstr(wk, ctx->install_dir), man[len]);
+		install_dir = make_strf(wk, "%s/man%c", get_cstr(wk, ctx->install_dir), man.buf[len]);
 	} else {
 		install_dir = ctx->install_dir;
 	}
 
-	const char *basename = man;
+	const char *basename = man.buf;
 	if (ctx->locale) {
-		char *dot = strchr(man, '.');
+		char *dot = strchr(man.buf, '.');
 		assert(dot);
 		if (str_startswith(&WKSTR(dot + 1), get_str(wk, ctx->locale))) {
 			*dot = '\0';
-			obj new_man = make_strf(wk, "%s.%c", man, man[len]);
+			obj new_man = make_strf(wk, "%s.%c", man.buf, man.buf[len]);
 			basename = get_cstr(wk, new_man);
 		}
 	}

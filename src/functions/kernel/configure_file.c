@@ -475,28 +475,25 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 			}
 			assert(e);
 
-			char buf[PATH_MAX], *c;
-			if (!path_basename(buf, PATH_MAX, get_file_path(wk, e))) {
-				return false;
-			}
+			SBUF_1k(buf, 0);
+			char *c;
+			path_basename(wk, &buf, get_file_path(wk, e));
 
-			if ((c = strrchr(buf, '.'))) {
+			if ((c = strrchr(buf.buf, '.'))) {
 				*c = 0;
+				buf.len = strlen(buf.buf);
 			}
 
-			str_app(wk, str, buf);
+			str_app(wk, str, buf.buf);
 			s += len - 1;
 		} else if (is_substr(s, "@PLAINNAME@", &len)) {
 			if (!array_to_elem_or_err(wk, node, input_arr, &e)) {
 				return false;
 			}
 
-			char buf[PATH_MAX];
-			if (!path_basename(buf, PATH_MAX, get_file_path(wk, e))) {
-				return false;
-			}
-
-			str_app(wk, str, buf);
+			SBUF_1k(buf, 0);
+			path_basename(wk, &buf, get_file_path(wk, e));
+			str_app(wk, str, buf.buf);
 			s += len - 1;
 		} else {
 			str_appn(wk, str, s, 1);

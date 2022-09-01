@@ -25,12 +25,11 @@ void path_join(struct workspace *wk, struct sbuf *sb, const char *a, const char 
 // like path_join but won't discard a if b is an absolute path
 void path_join_absolute(struct workspace *wk, struct sbuf *sb, const char *a, const char *b);
 
-bool path_make_absolute(char *buf, uint32_t len, const char *path);
+void path_make_absolute(struct workspace *wk, struct sbuf *buf, const char *path);
 void path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, const char *path_raw);
-bool path_without_ext(char *buf, uint32_t len, const char *path);
-bool path_basename(char *buf, uint32_t len, const char *path);
-bool path_dirname(char *buf, uint32_t len, const char *path);
-bool path_add_suffix(char *path, uint32_t len, const char *suff);
+void path_without_ext(struct workspace *wk, struct sbuf *buf, const char *path);
+void path_basename(struct workspace *wk, struct sbuf *buf, const char *path);
+void path_dirname(struct workspace *wk, struct sbuf *buf, const char *path);
 void path_executable(struct workspace *wk, struct sbuf *buf, const char *path);
 void _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize);
 #endif

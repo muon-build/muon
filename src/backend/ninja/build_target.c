@@ -99,7 +99,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	if (compilers[ct].deps) {
 		sbuf_pushs(wk, &esc_dest_path, ".d");
-		L("%s", esc_dest_path.buf);
 
 		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path.buf);
 

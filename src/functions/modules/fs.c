@@ -130,13 +130,9 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	char buf[PATH_MAX];
-	if (!path_dirname(buf, PATH_MAX, path)) {
-		return false;
-	}
-
-	*res = make_str(wk, buf);
-
+	SBUF_1k(buf, 0);
+	path_dirname(wk, &buf, path);
+	*res = sbuf_into_str(wk, &buf, false);
 	return true;
 }
 
@@ -221,12 +217,9 @@ func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	char basename[PATH_MAX];
-	if (!path_basename(basename, PATH_MAX, path)) {
-		return false;
-	}
-
-	*res = make_str(wk, basename);
+	SBUF_1k(basename, 0);
+	path_basename(wk, &basename, path);
+	*res = sbuf_into_str(wk, &basename, false);
 	return true;
 }
 
@@ -243,17 +236,16 @@ func_module_fs_stem(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	char basename[PATH_MAX];
-	if (!path_basename(basename, PATH_MAX, path)) {
-		return false;
-	}
+	SBUF_1k(basename, 0);
+	path_basename(wk, &basename, path);
 
 	char *dot;
-	if ((dot = strrchr(basename, '.'))) {
+	if ((dot = strrchr(basename.buf, '.'))) {
 		*dot = 0;
+		basename.len = strlen(basename.buf);
 	}
 
-	*res = make_str(wk, basename);
+	*res = sbuf_into_str(wk, &basename, false);
 	return true;
 }
 
@@ -267,23 +259,22 @@ func_module_as_posix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 
 	const char *path = get_cstr(wk, an[0].val), *p;
 
-	char buf[PATH_MAX] = { 0 };
-	assert(strlen(path) < PATH_MAX);
+	SBUF_1k(buf, 0);
 	uint32_t bufi = 0;
 	for (p = path; *p; ++p) {
 		if (*p == '\\') {
-			buf[bufi] = '/';
+			sbuf_push(wk, &buf, '/');
 			++bufi;
 			if (*(p + 1) == '\\') {
 				++p;
 			}
 		} else {
-			buf[bufi] = *p;
+			sbuf_push(wk, &buf, *p);
 			++bufi;
 		}
 	}
 
-	*res = make_str(wk, buf);
+	*res = sbuf_into_str(wk, &buf, false);
 	return true;
 }
 
@@ -300,19 +291,17 @@ func_module_replace_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	char buf[PATH_MAX] = { 0 };
-	strncpy(buf, path, PATH_MAX - 1);
+	SBUF_1k(buf, 0);
+	path_copy(wk, &buf, path);
 
 	char *dot;
-	if ((dot = strrchr(buf, '.'))) {
+	if ((dot = strrchr(buf.buf, '.'))) {
 		*dot = 0;
+		buf.len = strlen(buf.buf);
 	}
 
-	if (!path_add_suffix(buf, PATH_MAX, get_cstr(wk, an[1].val))) {
-		return false;
-	}
-
-	*res = make_str(wk, buf);
+	sbuf_pushs(wk, &buf, get_cstr(wk, an[1].val));
+	*res = sbuf_into_str(wk, &buf, false);
 	return true;
 }
 
@@ -472,9 +461,9 @@ func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node,
 		return false;
 	}
 
-	char path[PATH_MAX];
-	path_make_absolute(path, PATH_MAX, get_cstr(wk, an[0].val));
-	*res = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_make_absolute(wk, &path, get_cstr(wk, an[0].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -513,9 +502,9 @@ func_module_fs_without_ext(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	char path[PATH_MAX];
-	path_without_ext(path, PATH_MAX, get_cstr(wk, an[0].val));
-	*res = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_without_ext(wk, &path, get_cstr(wk, an[0].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -541,10 +530,10 @@ func_module_fs_add_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		return false;
 	}
 
-	char path[PATH_MAX];
-	strcpy(path, get_cstr(wk, an[0].val));
-	path_add_suffix(path, PATH_MAX, get_cstr(wk, an[1].val));
-	*res = make_str(wk, path);
+	SBUF_1k(path, 0);
+	path_copy(wk, &path, get_cstr(wk, an[0].val));
+	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 

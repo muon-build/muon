@@ -382,16 +382,16 @@ cont:
 static bool
 cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	bool res = false;
+
 	OPTSTART("") {
 	} OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	char path[PATH_MAX];
-	if (!path_make_absolute(path, PATH_MAX, cmd_subprojects_subprojects_dir)) {
-		return false;
-	}
+	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	path_make_absolute(NULL, &path, cmd_subprojects_subprojects_dir);
 
 	struct cmd_subprojects_download_ctx ctx = {
-		.subprojects = path,
+		.subprojects = path.buf,
 	};
 
 	if (argc > argi) {
@@ -404,19 +404,23 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 
 			if (!fs_file_exists(wrap_file.buf)) {
 				LOG_E("wrap file for '%s' not found", argv[argi]);
-				return false;
+				goto ret;
 			}
 
 			if (cmd_subprojects_download_iter(&ctx, wrap_file.buf) == ir_err) {
-				return false;
+				goto ret;
 			}
 		}
 
 		sbuf_destroy(&wrap_file);
-		return true;
+		res = true;
 	} else {
-		return fs_dir_foreach(path, &ctx, cmd_subprojects_download_iter);
+		res = fs_dir_foreach(path.buf, &ctx, cmd_subprojects_download_iter);
 	}
+
+ret:
+	sbuf_destroy(&path);
+	return res;
 }
 
 static bool
@@ -840,6 +844,9 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ 0 },
 	};
 
+	bool res = false;
+	SBUF_1k(argv0, sbuf_flag_overflow_alloc);
+
 	OPTSTART("vlC:") {
 		case 'v':
 			log_set_lvl(log_debug);
@@ -850,13 +857,9 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		case 'C': {
 			// fix argv0 here since if it is a relative path it will be
 			// wrong after chdir
-			static char argv0[PATH_MAX];
 			if (!path_is_basename(argv[0])) {
-				if (!path_make_absolute(argv0, PATH_MAX, argv[0])) {
-					return false;
-				}
-
-				argv[0] = argv0;
+				path_make_absolute(NULL, &argv0, argv[0]);
+				argv[0] = argv0.buf;
 			}
 
 			if (!path_chdir(optarg)) {
@@ -872,10 +875,14 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 
 	cmd_func cmd;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
-		return false;
+		goto ret;
 	}
 
-	return cmd(argc, argi, argv);
+	res = cmd(argc, argi, argv);
+
+ret:
+	sbuf_destroy(&argv0);
+	return res;
 }
 
 int

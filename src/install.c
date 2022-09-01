@@ -134,13 +134,11 @@ bool
 push_install_target_install_dir(struct workspace *wk, obj src,
 	obj install_dir, obj mode)
 {
-	char basename[PATH_MAX];
-	if (!path_basename(basename, PATH_MAX, get_cstr(wk, src))) {
-		return NULL;
-	}
+	SBUF_1k(basename, 0);
+	path_basename(wk, &basename, get_cstr(wk, src));
 
 	SBUF_1k(dest, 0);
-	path_join(wk, &dest, get_cstr(wk, install_dir), basename);
+	path_join(wk, &dest, get_cstr(wk, install_dir), basename.buf);
 	obj sdest = sbuf_into_str(wk, &dest, false);
 
 	return !!push_install_target(wk, src, sdest, mode);
@@ -207,13 +205,11 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 		f = val_id;
 
 handle_file:    {
-			char basename[PATH_MAX];
-			if (!path_basename(basename, PATH_MAX, get_file_path(wk, f))) {
-				return ir_err;
-			}
+			SBUF_1k(basename, 0);
+			path_basename(wk, &basename, get_file_path(wk, f));
 
 			SBUF_1k(dest_path, 0);
-			path_join(wk, &dest_path, get_cstr(wk, install_dir), basename);
+			path_join(wk, &dest_path, get_cstr(wk, install_dir), basename.buf);
 
 			src = *get_obj_file(wk, f);
 			dest = sbuf_into_str(wk, &dest_path, false);

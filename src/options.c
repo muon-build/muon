@@ -1141,13 +1141,11 @@ list_options(const struct list_options_opts *list_opts)
 	make_obj(&wk, &proj->opts, obj_dict);
 
 	if (fs_file_exists("meson.build")) {
-		char meson_opts[PATH_MAX];
-		if (!path_make_absolute(meson_opts, PATH_MAX, "meson_options.txt")) {
-			goto ret;
-		}
+		SBUF_1k(meson_opts, 0);
+		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
 
-		if (fs_file_exists(meson_opts)) {
-			if (!wk.eval_project_file(&wk, meson_opts)) {
+		if (fs_file_exists(meson_opts.buf)) {
+			if (!wk.eval_project_file(&wk, meson_opts.buf)) {
 				goto ret;
 			}
 		}

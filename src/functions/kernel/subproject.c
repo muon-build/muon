@@ -16,31 +16,28 @@ subproject_prepare(struct workspace *wk, struct sbuf *cwd_buf, const char **cwd,
 {
 	if (!fs_dir_exists(*cwd)) {
 		bool wrap_ok = false;
-		char wrap_path[PATH_MAX], base_path[PATH_MAX];
-		snprintf(wrap_path, PATH_MAX, "%s.wrap", *cwd);
 
-		if (!fs_file_exists(wrap_path)) {
+		SBUF_1k(wrap_path, 0);
+		SBUF_1k(base_path, 0);
+		sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
+
+		if (!fs_file_exists(wrap_path.buf)) {
 			goto wrap_done;
 		}
 
-		if (!path_dirname(base_path, PATH_MAX, *cwd)) {
-			return false;
-		}
+		path_dirname(wk, &base_path, *cwd);
 
 		struct wrap wrap = { 0 };
 		enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-		if (!wrap_handle(wrap_path, base_path, &wrap, wrap_mode != wrap_mode_nodownload)) {
+		if (!wrap_handle(wrap_path.buf, base_path.buf, &wrap, wrap_mode != wrap_mode_nodownload)) {
 			goto wrap_cleanup;
 		}
 
 		if (wrap.fields[wf_directory]) {
-			path_join(wk, cwd_buf, base_path, wrap.fields[wf_directory]);
+			path_join(wk, cwd_buf, base_path.buf, wrap.fields[wf_directory]);
 
-			if (!path_dirname(base_path, PATH_MAX, *build_dir)) {
-				return false;
-			}
-
-			path_join(wk, build_dir_buf, base_path, wrap.fields[wf_directory]);
+			path_dirname(wk, &base_path, *build_dir);
+			path_join(wk, build_dir_buf, base_path.buf, wrap.fields[wf_directory]);
 
 			*cwd = cwd_buf->buf;
 			*build_dir = build_dir_buf->buf;

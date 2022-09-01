@@ -17,8 +17,8 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 		cmd = get_cstr(wk, ao[0].val);
 	}
 
-	const char *cmd_path;
-	if (!fs_find_cmd(cmd, &cmd_path)) {
+	SBUF_1k(cmd_path, 0);
+	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
 		interp_error(wk, args_node, "python3 not found");
 		return false;
 	}
@@ -26,7 +26,7 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 	make_obj(wk, res, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = true;
-	ep->full_path = make_str(wk, cmd_path);
+	ep->full_path = make_str(wk, cmd_path.buf);
 	return true;
 }
 

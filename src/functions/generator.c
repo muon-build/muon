@@ -69,12 +69,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 		SBUF_1k(dir, 0);
 
 		path_relative_to(wk, &path, base, src);
-
-		if (!path_dirname(dir.buf, dir.cap, path.buf)) {
-			return ir_err;
-		}
-		dir.len = strlen(dir.buf); // XXX
-
+		path_dirname(wk, &dir, path.buf);
 		path_join(wk, &path, ctx->dir, dir.buf);
 		output_dir = path.buf;
 	}

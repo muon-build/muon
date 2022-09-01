@@ -271,36 +271,35 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 
 		ret = res ? 0 : 1;
 	} else {
-		const char *cmd = NULL;
-		if (!(fs_find_cmd("samu", &cmd)
-		      || fs_find_cmd("ninja", &cmd))) {
+		SBUF_1k(cmd, sbuf_flag_overflow_alloc);
+		if (!(fs_find_cmd(NULL, &cmd, "samu")
+		      || fs_find_cmd(NULL, &cmd, "ninja"))) {
 			LOG_E("unable to find a ninja implementation");
-			goto ret;
+			goto run_cmd_done;
 		}
 
-		argc = argstr_to_argv(argstr, argstr_argc, cmd, &argv);
+		argc = argstr_to_argv(argstr, argstr_argc, cmd.buf, &argv);
 
 		struct run_cmd_ctx cmd_ctx = { 0 };
 		if (!capture) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
 
-		if (!run_cmd_argv(&cmd_ctx, cmd, argv, NULL, 0)) {
+		if (!run_cmd_argv(&cmd_ctx, cmd.buf, argv, NULL, 0)) {
 			LOG_E("%s", cmd_ctx.err_msg);
-
-			run_cmd_ctx_destroy(&cmd_ctx);
-			goto ret;
+			goto run_cmd_done;
 		}
 
 		if (capture) {
 			if (!fs_write(capture, (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len)) {
-				run_cmd_ctx_destroy(&cmd_ctx);
-				goto ret;
+				goto run_cmd_done;
 			}
 		}
 
-		run_cmd_ctx_destroy(&cmd_ctx);
 		ret = cmd_ctx.status;
+run_cmd_done:
+		sbuf_destroy(&cmd);
+		run_cmd_ctx_destroy(&cmd_ctx);
 	}
 
 ret:

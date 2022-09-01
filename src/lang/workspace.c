@@ -230,21 +230,13 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	uint32_t argc, char *const argv[])
 {
 	SBUF_1k(path, 0);
-
-	if (!path_make_absolute(path.buf, path.cap, build)) {
-		return false;
-	}
-	path.len = strlen(path.buf); // XXX
+	path_make_absolute(wk, &path, build);
 	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &path, true));
 
 	if (path_is_basename(argv0)) {
 		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	} else {
-		if (!path_make_absolute(path.buf, path.cap, argv0)) {
-			return false;
-		}
-		path.len = strlen(path.buf); // XXX
-
+		path_make_absolute(wk, &path, argv0);
 		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &path, true));
 	}
 

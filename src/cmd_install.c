@@ -105,7 +105,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	struct install_ctx *ctx = _ctx;
 	struct obj_install_target *in = get_obj_install_target(wk, v_id);
 
-	char dest_dirname[PATH_MAX];
+	SBUF_1k(dest_dirname, 0);
 	const char *dest = get_cstr(wk, in->dest),
 		   *src = get_cstr(wk, in->src);
 
@@ -141,16 +141,14 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	switch (in->type) {
 	case install_target_default:
 	case install_target_symlink:
-		if (!path_dirname(dest_dirname, PATH_MAX, dest)) {
+		path_dirname(wk, &dest_dirname, dest);
+
+		if (fs_exists(dest_dirname.buf) && !fs_dir_exists(dest_dirname.buf)) {
+			LOG_E("dest '%s' exists and is not a directory", dest_dirname.buf);
 			return ir_err;
 		}
 
-		if (fs_exists(dest_dirname) && !fs_dir_exists(dest_dirname)) {
-			LOG_E("dest '%s' exists and is not a directory", dest_dirname);
-			return ir_err;
-		}
-
-		if (!fs_mkdir_p(dest_dirname)) {
+		if (!fs_mkdir_p(dest_dirname.buf)) {
 			return ir_err;
 		}
 
@@ -301,15 +299,12 @@ install_run(struct install_options *opts)
 	const char *destdir;
 	if ((destdir = getenv("DESTDIR"))) {
 		SBUF_1k(full_prefix, 0);
-		char abs_destdir[PATH_MAX];
-		if (!path_make_absolute(abs_destdir, PATH_MAX, destdir)) {
-			return false;
-		}
+		SBUF_1k(abs_destdir, 0);
+		path_make_absolute(&wk, &abs_destdir, destdir);
+		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
 
-		path_join_absolute(&wk, &full_prefix, abs_destdir, get_cstr(&wk, ctx.prefix));
-
-		ctx.full_prefix = make_str(&wk, full_prefix.buf);
-		ctx.destdir = make_str(&wk, abs_destdir);
+		ctx.full_prefix = sbuf_into_str(&wk, &full_prefix, false);
+		ctx.destdir = sbuf_into_str(&wk, &abs_destdir, false);
 	} else {
 		ctx.full_prefix = ctx.prefix;
 	}

@@ -584,9 +584,9 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	const char *path;
 
-	SBUF_1k(dir_ctx_buf, 0);
+	SBUF_1k(buf, 0);
 	struct find_program_custom_dir_ctx dir_ctx = {
-		.buf = &dir_ctx_buf,
+		.buf = &buf,
 		.prog = str,
 	};
 
@@ -619,21 +619,22 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	if (ctx->dirs) {
 		obj_array_foreach(wk, ctx->dirs, &dir_ctx, find_program_custom_dir_iter);
 		if (dir_ctx.found) {
-			path = dir_ctx.buf->buf;
+			path = buf.buf;
 			goto found;
 		}
 	}
 
 	/* 5. Project's source tree relative to the current subdir */
 	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	path_join(wk, dir_ctx.buf, get_cstr(wk, current_project(wk)->cwd), str);
-	if (fs_file_exists(dir_ctx.buf->buf)) {
-		path = dir_ctx.buf->buf;
+	path_join(wk, &buf, get_cstr(wk, current_project(wk)->cwd), str);
+	if (fs_file_exists(buf.buf)) {
+		path = buf.buf;
 		goto found;
 	}
 
 	/* 6. PATH environment variable */
-	if (fs_find_cmd(str, &path)) {
+	if (fs_find_cmd(wk, &buf, str)) {
+		path = buf.buf;
 		goto found;
 	}
 

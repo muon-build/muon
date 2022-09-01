@@ -191,15 +191,16 @@ open_run_cmd_pipe(int fds[2], bool fds_open[2])
 static bool
 run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
 {
-	const char *p, *cmd;
+	const char *p;
+	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
 
-	if (!fs_find_cmd(_cmd, &cmd)) {
+	if (!fs_find_cmd(NULL, &cmd, _cmd)) {
 		ctx->err_msg = "command not found";
 		return false;
 	}
 
 	if (log_should_print(log_debug)) {
-		LL("executing %s:", cmd);
+		LL("executing %s:", cmd.buf);
 		char *const *ap;
 
 		for (ap = argv; *ap; ++ap) {
@@ -302,8 +303,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 			}
 		}
 
-		if (execve(cmd, (char *const *)argv, environ) == -1) {
-			LOG_E("%s: %s", cmd, strerror(errno));
+		if (execve(cmd.buf, (char *const *)argv, environ) == -1) {
+			LOG_E("%s: %s", cmd.buf, strerror(errno));
 			exit(1);
 		}
 
@@ -311,6 +312,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	}
 
 	/* parent */
+	sbuf_destroy(&cmd);
+
 	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
@@ -382,7 +385,7 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 static bool
 build_argv(struct run_cmd_ctx *ctx, struct source *src,
 	const char *argstr, uint32_t argstr_argc, char *const *old_argv,
-	const char **cmd, const char ***argv)
+	struct sbuf *cmd, const char ***argv)
 {
 	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
 	const char **new_argv;
@@ -401,16 +404,14 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 
 	assert(*argv0 && "argv0 cannot be empty");
 
-	if (!path_is_basename(argv0)) {
-		static char cmd_path[PATH_MAX];
-		if (!path_make_absolute(cmd_path, PATH_MAX, argv0)) {
-			return false;
-		}
+	sbuf_clear(cmd);
+	sbuf_pushs(NULL, cmd, argv0);
 
-		if (fs_exe_exists(cmd_path)) {
-			*cmd = cmd_path;
-		} else {
-			if (!fs_read_entire_file(cmd_path, src)) {
+	if (!path_is_basename(cmd->buf)) {
+		path_make_absolute(NULL, cmd, argv0);
+
+		if (!fs_exe_exists(cmd->buf)) {
+			if (!fs_read_entire_file(cmd->buf, src)) {
 				ctx->err_msg = "error determining command interpreter";
 				return false;
 			}
@@ -436,7 +437,7 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 				++p;
 			}
 
-			*cmd = new_argv0 = p;
+			new_argv0 = p;
 
 			if ((s = strchr(p, ' '))) {
 				*s = 0;
@@ -447,8 +448,12 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 			}
 
 			argc += new_argv1 ? 2 : 1;
+
+			path_copy(NULL, cmd, new_argv0);
 		}
 	}
+
+	assert(cmd->len);
 
 	if (!new_argv0 && old_argv) {
 		*argv = NULL;
@@ -483,8 +488,8 @@ run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const
 	bool ret = false;
 	struct source src = { 0 };
 	const char **new_argv = NULL;
-	const char *cmd = argv[0];
 
+	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
 	if (!build_argv(ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
 		goto err;
 	}
@@ -493,13 +498,13 @@ run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const
 		argv = (char **)new_argv;
 	}
 
-	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
 	if (new_argv) {
 		z_free((void *)new_argv);
 	}
-
+	sbuf_destroy(&cmd);
 	return ret;
 }
 
@@ -509,19 +514,19 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 	bool ret = false;
 	struct source src = { 0 };
 	const char **argv = NULL;
-	const char *cmd = argstr;
+
+	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
 	if (!build_argv(ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd, (char *const *)argv, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
-
 	if (argv) {
 		z_free((void *)argv);
 	}
-
+	sbuf_destroy(&cmd);
 	return ret;
 }
 

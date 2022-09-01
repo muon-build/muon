@@ -36,7 +36,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 	return false;
 }
 
-static bool
+static void
 str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
 {
 	SBUF_1k(rel, 0);
@@ -44,12 +44,12 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 
 	if (!ctx->opts->relativize) {
 		*res = make_str(wk, path);
-		return true;
+		return;
 	}
 
 	if (!path_is_absolute(path)) {
 		*res = make_str(wk, path);
-		return true;
+		return;
 	}
 
 	path_relative_to(wk, &rel, wk->build_root, path);
@@ -67,7 +67,6 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 	} else {
 		*res = sbuf_into_str(wk, &rel, false);
 	}
-	return true;
 }
 
 static enum format_cb_result
@@ -135,26 +134,20 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		obj_array_index(wk, arr, 0, &e);
 
-		if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem);
 		return format_cb_found;
 	}
 	case key_outdir:
 		/* @OUTDIR@: the full path to the directory where the output(s)
 		 * must be written */
-		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->build_dir), elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->build_dir), elem);
 		return format_cb_found;
 	case key_current_source_dir:
 		/* @CURRENT_SOURCE_DIR@: this is the directory where the
 		 * currently processed meson.build is located in. Depending on
 		 * the backend, this may be an absolute or a relative to
 		 * current workdir path. */
-		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->cwd), elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->cwd), elem);
 		return format_cb_found;
 	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
@@ -163,39 +156,29 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name));
 		sbuf_pushs(wk, &path, ".p");
 
-		if (!str_relative_to_build_root(wk, ctx, path.buf, elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, path.buf, elem);
 		return format_cb_found;
 	}
 	case key_depfile:
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->opts->depfile), elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->opts->depfile), elem);
 		return format_cb_found;
 	case key_source_root:
 		/* @SOURCE_ROOT@: the path to the root of the source tree.
 		 * Depending on the backend, this may be an absolute or a
 		 * relative to current workdir path. */
-		if (!str_relative_to_build_root(wk, ctx, wk->source_root, elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, wk->source_root, elem);
 		return format_cb_found;
 	case key_build_root:
 		/* @BUILD_ROOT@: the path to the root of the build tree.
 		 * Depending on the backend, this may be an absolute or a
 		 * relative to current workdir path. */
-		if (!str_relative_to_build_root(wk, ctx, wk->build_root, elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, wk->build_root, elem);
 		return format_cb_found;
 	case key_build_dir:
 		// only for generators
-		if (!str_relative_to_build_root(wk, ctx, ctx->opts->build_dir, elem)) {
-			return format_cb_error;
-		}
+		str_relative_to_build_root(wk, ctx, ctx->opts->build_dir, elem);
 		return format_cb_found;
 	case key_plainname:
 	/* @PLAINNAME@: the input filename, without a path */
@@ -212,25 +195,17 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		obj in0;
 		obj_array_index(wk, ctx->opts->input, 0, &in0);
 		const struct str *orig_str = get_str(wk, *get_obj_file(wk, in0));
-		char plainname[PATH_MAX];
 
-		if (!path_basename(plainname, PATH_MAX, orig_str->s)) {
-			return format_cb_error;
-		}
+		SBUF_1k(plainname, 0);
+		path_basename(wk, &plainname, orig_str->s);
 
 		if (key == key_basename) {
-			char basename[PATH_MAX];
-			if (!path_without_ext(basename, PATH_MAX, plainname)) {
-				return format_cb_error;
-			}
+			SBUF_1k(basename, 0);
+			path_without_ext(wk, &basename, plainname.buf);
 
-			if (!str_relative_to_build_root(wk, ctx, basename, elem)) {
-				return format_cb_error;
-			}
+			str_relative_to_build_root(wk, ctx, basename.buf, elem);
 		} else {
-			if (!str_relative_to_build_root(wk, ctx, plainname, elem)) {
-				return format_cb_error;
-			}
+			str_relative_to_build_root(wk, ctx, plainname.buf, elem);
 		}
 		return format_cb_found;
 	}
@@ -258,9 +233,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	obj_array_index(wk, arr, index, &e);
 
-	if (!str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem)) {
-		return format_cb_error;
-	}
+	str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem);
 	return format_cb_found;
 }
 
@@ -282,9 +255,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 
-		if (!str_relative_to_build_root(wk, ctx, get_cstr(wk, str), &ss)) {
-			return ir_err;
-		}
+		str_relative_to_build_root(wk, ctx, get_cstr(wk, str), &ss);
 
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->opts->depends, ss);
@@ -403,21 +374,16 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	obj in0;
 	obj_array_index(wk, ctx->opts->input, 0, &in0);
 	const struct str *ss = get_str(wk, *get_obj_file(wk, in0));
-	char buf[PATH_MAX];
+	SBUF_1k(buf, 0);
 
 	switch (key) {
 	case key_plainname:
-		if (!path_basename(buf, PATH_MAX, ss->s)) {
-			return format_cb_error;
-		}
+		path_basename(wk, &buf, ss->s);
 		break;
 	case key_basename: {
-		char basename[PATH_MAX];
-		if (!path_basename(basename, PATH_MAX, ss->s)) {
-			return format_cb_error;
-		} else if (!path_without_ext(buf, PATH_MAX, basename)) {
-			return format_cb_error;
-		}
+		SBUF_1k(basename, 0);
+		path_basename(wk, &basename, ss->s);
+		path_without_ext(wk, &buf, basename.buf);
 		break;
 	}
 	default:
@@ -425,7 +391,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 		return format_cb_error;
 	}
 
-	*elem = make_str(wk, buf);
+	*elem = sbuf_into_str(wk, &buf, false);
 	return format_cb_found;
 }
 

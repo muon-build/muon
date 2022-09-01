@@ -977,16 +977,14 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		// ctx->relativize
 		if (tgt->type != tgt_static_library) {
 			SBUF_1k(abs, 0);
-			char dir[PATH_MAX];
+			SBUF_1k(dir, 0);
 			const char *p;
-			if (!path_dirname(dir, PATH_MAX, path)) {
-				return ir_err;
-			}
+			path_dirname(wk, &dir, path);
 
-			if (path_is_absolute(dir)) {
-				p = dir;
+			if (path_is_absolute(dir.buf)) {
+				p = dir.buf;
 			} else {
-				path_join(wk, &abs, wk->build_root, dir);
+				path_join(wk, &abs, wk->build_root, dir.buf);
 				p = abs.buf;
 			}
 

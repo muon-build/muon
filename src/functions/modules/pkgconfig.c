@@ -84,7 +84,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 {
-	char basename[PATH_MAX] = { 0 };
+	SBUF_1k(basename, 0);
 	const char *str;
 
 	switch (get_obj_type(wk, lib)) {
@@ -92,16 +92,14 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 		str = get_cstr(wk, lib);
 		break;
 	case obj_file: {
-		if (!path_basename(basename, PATH_MAX, get_file_path(wk, lib))) {
-			return false;
-		}
+		path_basename(wk, &basename, get_file_path(wk, lib));
 
 		char *dot;
-		if ((dot = strrchr(basename, '.'))) {
+		if ((dot = strrchr(basename.buf, '.'))) {
 			*dot = '\0';
 		}
 
-		str = basename;
+		str = basename.buf;
 		break;
 	}
 	default:
