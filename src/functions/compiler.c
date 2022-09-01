@@ -1873,7 +1873,7 @@ static enum iteration_result
 compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 {
 	struct compiler_find_library_ctx *ctx = _ctx;
-	char lib[PATH_MAX];
+	SBUF_1k(lib, 0);
 	static const char *pref[] = { "", "lib", NULL };
 	const char *suf[] = { ".so", ".a", NULL };
 
@@ -1885,9 +1885,10 @@ compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 	uint32_t i, j;
 	for (i = 0; suf[i]; ++i) {
 		for (j = 0; pref[j]; ++j) {
-			snprintf(lib, PATH_MAX, "%s%s%s", pref[j], get_cstr(wk, ctx->lib_name), suf[i]);
+			sbuf_clear(&lib);
+			sbuf_pushf(wk, &lib, "%s%s%s", pref[j], get_cstr(wk, ctx->lib_name), suf[i]);
 
-			path_join(wk, ctx->path, get_cstr(wk, libdir), lib);
+			path_join(wk, ctx->path, get_cstr(wk, libdir), lib.buf);
 
 			if (fs_file_exists(ctx->path->buf)) {
 				ctx->found = true;

@@ -120,31 +120,35 @@ fs_mkdir(const char *path)
 bool
 fs_mkdir_p(const char *path)
 {
+	bool res = false;
 	uint32_t i, len = strlen(path);
-	char buf[PATH_MAX + 1] = { 0 };
-	strncpy(buf, path, PATH_MAX);
+	SBUF_1k(buf, sbuf_flag_overflow_alloc);
+	path_copy(NULL, &buf, path);
 
 	assert(len > 1);
 
 	for (i = 1; i < len; ++i) {
-		if (buf[i] == PATH_SEP) {
-			buf[i] = 0;
-			if (!fs_dir_exists(buf)) {
-				if (!fs_mkdir(buf)) {
-					return false;
+		if (buf.buf[i] == PATH_SEP) {
+			buf.buf[i] = 0;
+			if (!fs_dir_exists(buf.buf)) {
+				if (!fs_mkdir(buf.buf)) {
+					goto ret;
 				}
 			}
-			buf[i] = PATH_SEP;
+			buf.buf[i] = PATH_SEP;
 		}
 	}
 
 	if (!fs_dir_exists(path)) {
 		if (!fs_mkdir(path)) {
-			return false;
+			goto ret;
 		}
 	}
 
-	return true;
+	res = true;
+ret:
+	sbuf_destroy(&buf);
+	return res;
 }
 
 FILE *
@@ -532,17 +536,23 @@ fs_redirect_restore(int fd, int old_fd)
 static bool
 fs_copy_link(const char *src, const char *dest)
 {
-	char link[PATH_MAX + 1] = { 0 };
+	bool res = false;
+	SBUF_1k(buf, sbuf_flag_overflow_alloc);
 	int n;
-	if ((n = readlink(src, link, PATH_MAX)) == -1) {
-		LOG_E("readlink('%s') failed: %s", src, strerror(errno));
-		return false;
-	} else if (n == PATH_MAX) {
-		LOG_E("readlink got truncated value");
-		return false;
+	while ((n = readlink(src, buf.buf, buf.cap)) != -1 && (uint32_t)n >= buf.cap) {
+		sbuf_grow(NULL, &buf, buf.cap);
 	}
 
-	return fs_make_symlink(link, dest, true);
+	if (n == -1) {
+		LOG_E("readlink('%s') failed: %s", src, strerror(errno));
+		goto ret;
+	}
+
+
+	res = fs_make_symlink(buf.buf, dest, true);
+ret:
+	sbuf_destroy(&buf);
+	return res;
 }
 
 bool

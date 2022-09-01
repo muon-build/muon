@@ -43,14 +43,15 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	obj dest = akw[kw_install_dir].val;
 	if (!strip_directory) {
 		SBUF_1k(path, 0);
-		char name[PATH_MAX] = { 0 }, *sep;
+		SBUF_1k(name, 0);
+		char *sep;
 		const char *name_tail;
 
-		strncpy(name, get_cstr(wk, an[0].val), PATH_MAX - 1);
-		name_tail = name;
+		sbuf_pushs(wk, &name, get_cstr(wk, an[0].val));
+		name_tail = name.buf;
 
 		// strip the first part of the name
-		if ((sep = strchr(name, PATH_SEP))) {
+		if ((sep = strchr(name.buf, PATH_SEP))) {
 			*sep = 0;
 			name_tail = sep + 1;
 		}

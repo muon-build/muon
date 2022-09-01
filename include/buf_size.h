@@ -9,10 +9,4 @@
 #define BUF_SIZE_1m 1048576ul
 
 #define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
-
-#ifdef PATH_MAX
-#undef PATH_MAX
-#endif
-
-#define PATH_MAX BUF_SIZE_1k
 #endif

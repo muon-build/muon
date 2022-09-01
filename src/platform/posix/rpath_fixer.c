@@ -211,7 +211,7 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 static bool
 remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
 {
-	char rpath[PATH_MAX];
+	char rpath[BUF_SIZE_4k];
 	uint32_t rpath_len = 0,
 		 cur_off = s_dynstr->off + str->off,
 		 copy_to = cur_off;
@@ -229,7 +229,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 		}
 
 		if (!c || c == ':') {
-			assert(rpath_len <= PATH_MAX);
+			assert(rpath_len <= ARRAY_LEN(rpath));
 			rpath[rpath_len] = 0;
 
 			if (path_is_subpath(build_root, rpath) || rpath_len == 0) {
@@ -259,7 +259,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 			}
 		}
 
-		assert(rpath_len < PATH_MAX);
+		assert(rpath_len < ARRAY_LEN(rpath));
 		rpath[rpath_len] = c;
 		++rpath_len;
 	}
@@ -277,7 +277,7 @@ static bool
 remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struct elf_dynstr *entry)
 {
 	char buf[BUF_SIZE_2k];
-	assert(s_dynamic->entsize <= BUF_SIZE_2k);
+	assert(s_dynamic->entsize <= ARRAY_LEN(buf));
 
 	uint32_t i;
 	for (i = entry->index + 1; i < s_dynamic->len; ++i) {

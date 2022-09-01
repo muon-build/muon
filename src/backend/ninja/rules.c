@@ -209,8 +209,8 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 
 		{ // determine project rule prefix
 			const char *proj_name = get_cstr(wk, proj->cfg.name);
-			char buf[PATH_MAX] = { 0 }, *p;
-			strncpy(buf, proj_name, PATH_MAX - 1);
+			char buf[BUF_SIZE_1k] = { 0 }, *p;
+			strncpy(buf, proj_name, BUF_SIZE_1k - 1);
 			for (p = buf; *p; ++p) {
 				if (*p == '_'
 				    || ('a' <= *p && *p <= 'z')

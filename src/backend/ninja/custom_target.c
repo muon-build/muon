@@ -41,14 +41,14 @@ write_custom_target_dat(struct workspace *wk, struct obj_custom_target *tgt, obj
 {
 	assert(tgt->name && "unnamed targets cannot have a custom data");
 
-	char name[PATH_MAX] = { 0 };
-	snprintf(name, PATH_MAX - 1, "%s%d.dat", get_cstr(wk, tgt->name), custom_tgt_dat_sequence);
+	SBUF_1k(name, 0);
+	sbuf_pushf(wk, &name, "%s%d.dat", get_cstr(wk, tgt->name), custom_tgt_dat_sequence);
 	++custom_tgt_dat_sequence;
 
 	SBUF_1k(dirpath, 0);
 	SBUF_1k(dat_path, 0);
 	path_join(wk, &dirpath, wk->muon_private, dir);
-	path_join(wk, &dat_path, dirpath.buf, name);
+	path_join(wk, &dat_path, dirpath.buf, name.buf);
 
 	FILE *dat;
 

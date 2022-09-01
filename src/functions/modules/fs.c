@@ -17,7 +17,7 @@ enum fix_file_path_opts {
 };
 
 static bool
-fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_path_opts opts, const char **res)
+fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_path_opts opts, struct sbuf *buf)
 {
 	enum obj_type t = get_obj_type(wk, path);
 	const struct str *ss;
@@ -46,10 +46,8 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		return false;
 	}
 
-	static_SBUF(buf, BUF_SIZE_1k, 0);
-
 	if (path_is_absolute(ss->s)) {
-		path_copy(wk, &buf, ss->s);
+		path_copy(wk, buf, ss->s);
 	} else {
 		if ((opts & fix_file_path_expanduser) && ss->s[0] == '~') {
 			const char *home;
@@ -58,16 +56,15 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 				return false;
 			}
 
-			path_join(wk, &buf, home, &ss->s[1]);
+			path_join(wk, buf, home, &ss->s[1]);
 		} else if (opts & fix_file_path_noabs) {
-			path_copy(wk, &buf, ss->s);
+			path_copy(wk, buf, ss->s);
 		} else {
-			path_join(wk, &buf, get_cstr(wk, current_project(wk)->cwd), ss->s);
+			path_join(wk, buf, get_cstr(wk, current_project(wk)->cwd), ss->s);
 		}
 	}
 
-	_path_normalize(wk, &buf, true);
-	*res = buf.buf;
+	_path_normalize(wk, buf, true);
 	return true;
 }
 
@@ -81,13 +78,13 @@ func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res,
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, opts, &path)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, lookup(path));
+	set_obj_bool(wk, *res, lookup(path.buf));
 	return true;
 }
 
@@ -124,14 +121,14 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val,
 		fix_file_path_allow_file | fix_file_path_expanduser | fix_file_path_noabs, &path)) {
 		return false;
 	}
 
 	SBUF_1k(buf, 0);
-	path_dirname(wk, &buf, path);
+	path_dirname(wk, &buf, path.buf);
 	*res = sbuf_into_str(wk, &buf, false);
 	return true;
 }
@@ -157,14 +154,14 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		}
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val,
 		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path, &src)) {
+	if (!fs_read_entire_file(path.buf, &src)) {
 		return false;
 	}
 
@@ -195,12 +192,12 @@ func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
-	*res = make_str(wk, path);
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -212,13 +209,13 @@ func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path)) {
 		return false;
 	}
 
 	SBUF_1k(basename, 0);
-	path_basename(wk, &basename, path);
+	path_basename(wk, &basename, path.buf);
 	*res = sbuf_into_str(wk, &basename, false);
 	return true;
 }
@@ -231,13 +228,13 @@ func_module_fs_stem(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path)) {
 		return false;
 	}
 
 	SBUF_1k(basename, 0);
-	path_basename(wk, &basename, path);
+	path_basename(wk, &basename, path.buf);
 
 	char *dot;
 	if ((dot = strrchr(basename.buf, '.'))) {
@@ -286,22 +283,19 @@ func_module_replace_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file | fix_file_path_noabs, &path)) {
 		return false;
 	}
 
-	SBUF_1k(buf, 0);
-	path_copy(wk, &buf, path);
-
 	char *dot;
-	if ((dot = strrchr(buf.buf, '.'))) {
+	if ((dot = strrchr(path.buf, '.'))) {
 		*dot = 0;
-		buf.len = strlen(buf.buf);
+		path.len = strlen(path.buf);
 	}
 
-	sbuf_pushs(wk, &buf, get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &buf, false);
+	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
+	*res = sbuf_into_str(wk, &path, false);
 	return true;
 }
 
@@ -318,13 +312,13 @@ func_module_fs_hash(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path)) {
 		return false;
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path, &src)) {
+	if (!fs_read_entire_file(path.buf, &src)) {
 		return false;
 	}
 
@@ -352,14 +346,14 @@ func_module_fs_size(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path)) {
 		return false;
 	}
 
 	uint64_t size;
 	FILE *f;
-	if (!(f = fs_fopen(path, "r"))) {
+	if (!(f = fs_fopen(path.buf, "r"))) {
 		return false;
 	} else if (!fs_fsize(f, &size)) {
 		return false;
@@ -381,14 +375,12 @@ func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	const char *path1, *path2;
-	char buf[PATH_MAX] = { 0 };
+	SBUF_1k(path1, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file, &path1)) {
 		return false;
 	}
-	strncpy(buf, path1, PATH_MAX - 1); // because fix_file_path returns a static buffer
-	path1 = buf;
 
+	SBUF_1k(path2, 0);
 	if (!fix_file_path(wk, an[1].node, an[1].val, fix_file_path_allow_file, &path2)) {
 		return false;
 	}
@@ -396,7 +388,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	// TODO: handle symlinks
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, strcmp(path1, path2) == 0);
+	set_obj_bool(wk, *res, strcmp(path1.buf, path2.buf) == 0);
 	return true;
 }
 
@@ -427,14 +419,14 @@ func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		return false;
 	}
 
-	const char *path;
+	SBUF_1k(path, 0);
 	if (!fix_file_path(wk, an[0].node, an[0].val,
 		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
 	const struct str *ss = get_str(wk, an[1].val);
-	if (!fs_write(path, (uint8_t *)ss->s, ss->len)) {
+	if (!fs_write(path.buf, (uint8_t *)ss->s, ss->len)) {
 		return false;
 	}
 	return true;
