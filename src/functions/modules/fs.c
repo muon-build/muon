@@ -129,7 +129,7 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 
 	SBUF(buf);
 	path_dirname(wk, &buf, path.buf);
-	*res = sbuf_into_str(wk, &buf, false);
+	*res = sbuf_into_str(wk, &buf);
 	return true;
 }
 
@@ -197,7 +197,7 @@ func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		return false;
 	}
 
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -216,7 +216,7 @@ func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	SBUF(basename);
 	path_basename(wk, &basename, path.buf);
-	*res = sbuf_into_str(wk, &basename, false);
+	*res = sbuf_into_str(wk, &basename);
 	return true;
 }
 
@@ -242,7 +242,7 @@ func_module_fs_stem(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		basename.len = strlen(basename.buf);
 	}
 
-	*res = sbuf_into_str(wk, &basename, false);
+	*res = sbuf_into_str(wk, &basename);
 	return true;
 }
 
@@ -271,7 +271,7 @@ func_module_as_posix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		}
 	}
 
-	*res = sbuf_into_str(wk, &buf, false);
+	*res = sbuf_into_str(wk, &buf);
 	return true;
 }
 
@@ -295,7 +295,7 @@ func_module_replace_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	}
 
 	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -441,7 +441,7 @@ func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	SBUF(cwd);
 	path_cwd(wk, &cwd);
-	*res = sbuf_into_str(wk, &cwd, false);
+	*res = sbuf_into_str(wk, &cwd);
 	return true;
 }
 
@@ -455,7 +455,7 @@ func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node,
 
 	SBUF(path);
 	path_make_absolute(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -469,7 +469,7 @@ func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	SBUF(path);
 	path_relative_to(wk, &path, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -496,7 +496,7 @@ func_module_fs_without_ext(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	SBUF(path);
 	path_without_ext(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -525,7 +525,7 @@ func_module_fs_add_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	SBUF(path);
 	path_copy(wk, &path, get_cstr(wk, an[0].val));
 	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -539,7 +539,7 @@ func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 	SBUF(path);
 	path_executable(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path, false);
+	*res = sbuf_into_str(wk, &path);
 	return true;
 }
 

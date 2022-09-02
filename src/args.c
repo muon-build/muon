@@ -202,7 +202,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			SBUF(rel);
 			path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, src));
-			str = sbuf_into_str(wk, &rel, false);
+			str = sbuf_into_str(wk, &rel);
 			break;
 		}
 		str = *get_obj_file(wk, src);
@@ -226,7 +226,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		SBUF(rel);
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
-			str = sbuf_into_str(wk, &rel, false);
+			str = sbuf_into_str(wk, &rel);
 		} else {
 			str = tgt->build_path;
 		}

@@ -244,7 +244,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
 		path_relative_to(wk, &rel, wk->build_root, dest.buf);
 		path_executable(wk, &dest, rel.buf);
-		str = sbuf_into_str(wk, &dest, false);
+		str = sbuf_into_str(wk, &dest);
 		break;
 	}
 	case obj_external_program: {
@@ -345,7 +345,7 @@ coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *re
 	_path_normalize(wk, &path, true);
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path, false);
+	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path);
 	return true;
 }
 
@@ -377,7 +377,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 			path_join(wk, &buf, ctx->output_dir, get_cstr(wk, val));
 			make_obj(wk, file, obj_file);
-			*get_obj_file(wk, *file) = sbuf_into_str(wk, &buf, false);
+			*get_obj_file(wk, *file) = sbuf_into_str(wk, &buf);
 			break;
 		default:
 			assert(false);
@@ -398,7 +398,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 		SBUF(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 		make_obj(wk, file, obj_file);
-		*get_obj_file(wk, *file) = sbuf_into_str(wk, &path, false);
+		*get_obj_file(wk, *file) = sbuf_into_str(wk, &path);
 		break;
 	}
 	case obj_file:
@@ -545,8 +545,9 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	const char *p = get_cstr(wk, path);
 
 	if (!path_is_absolute(p)) {
-		path_join(wk, &buf1, get_cstr(wk, current_project(wk)->cwd), p);
-		path = sbuf_into_str(wk, &buf1, true);
+		SBUF(abs);
+		path_join(wk, &abs, get_cstr(wk, current_project(wk)->cwd), p);
+		path = sbuf_into_str(wk, &abs);
 	}
 
 	p = get_cstr(wk, path);
@@ -565,7 +566,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 
 		make_obj(wk, &inc, obj_include_directory);
 		d = get_obj_include_directory(wk, inc);
-		d->path = sbuf_into_str(wk, &buf2, false);
+		d->path = sbuf_into_str(wk, &buf2);
 		d->is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}

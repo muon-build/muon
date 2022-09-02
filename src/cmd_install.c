@@ -37,7 +37,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 
 	SBUF(rel);
 	path_relative_to(ctx->wk, &rel, ctx->src_root, src.buf);
-	obj rel_str = sbuf_into_str(ctx->wk, &rel, false);
+	obj rel_str = sbuf_into_str(ctx->wk, &rel);
 
 	if (fs_dir_exists(src.buf)) {
 		if (ctx->exclude_directories &&
@@ -293,7 +293,7 @@ install_run(struct install_options *opts)
 
 	SBUF(build_root);
 	path_cwd(&wk, &build_root);
-	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root, false));
+	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root));
 	wk.source_root = get_cstr(&wk, source_root);
 
 	const char *destdir;
@@ -303,8 +303,8 @@ install_run(struct install_options *opts)
 		path_make_absolute(&wk, &abs_destdir, destdir);
 		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
 
-		ctx.full_prefix = sbuf_into_str(&wk, &full_prefix, false);
-		ctx.destdir = sbuf_into_str(&wk, &abs_destdir, false);
+		ctx.full_prefix = sbuf_into_str(&wk, &full_prefix);
+		ctx.destdir = sbuf_into_str(&wk, &abs_destdir);
 	} else {
 		ctx.full_prefix = ctx.prefix;
 	}

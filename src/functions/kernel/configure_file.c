@@ -608,7 +608,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		path_join(wk, &out_path, get_cstr(wk, current_project(wk)->build_dir), out);
 
 		LOG_I("configuring '%s'", out_path.buf);
-		output_str = sbuf_into_str(wk, &out_path, false);
+		output_str = sbuf_into_str(wk, &out_path);
 		make_obj(wk, res, obj_file);
 		*get_obj_file(wk, *res) = output_str;
 	}

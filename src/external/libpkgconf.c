@@ -187,7 +187,7 @@ find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const ch
 		return 0;
 	}
 
-	return sbuf_into_str(ctx->wk, &buf, false);
+	return sbuf_into_str(ctx->wk, &buf);
 }
 
 static bool

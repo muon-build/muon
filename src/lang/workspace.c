@@ -140,7 +140,7 @@ workspace_init(struct workspace *wk)
 
 	SBUF(source_root);
 	path_cwd(wk, &source_root);
-	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root, false));
+	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));
 
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -227,27 +227,30 @@ bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[])
 {
-	SBUF(path);
-	path_make_absolute(wk, &path, build);
-	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &path, true));
+	SBUF(build_root);
+	path_make_absolute(wk, &build_root, build);
+	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &build_root));
 
 	if (path_is_basename(argv0)) {
 		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	} else {
-		path_make_absolute(wk, &path, argv0);
-		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &path, true));
+		SBUF(argv0_abs);
+		path_make_absolute(wk, &argv0_abs, argv0);
+		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &argv0_abs));
 	}
 
 	wk->original_commandline.argc = argc;
 	wk->original_commandline.argv = argv;
 
-	path_join(wk, &path, wk->build_root, output_path.private_dir);
-	wk->muon_private = get_cstr(wk, sbuf_into_str(wk, &path, true));
+	SBUF(muon_private);
+	path_join(wk, &muon_private, wk->build_root, output_path.private_dir);
+	wk->muon_private = get_cstr(wk, sbuf_into_str(wk, &muon_private));
 
 	if (!fs_mkdir_p(wk->muon_private)) {
 		return false;
 	}
 
+	SBUF(path);
 	{
 		const struct str *gitignore_src = &WKSTR("*\n");
 		path_join(wk, &path, wk->build_root, ".gitignore");

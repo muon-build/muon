@@ -16,6 +16,7 @@ enum sbuf_flags {
 	sbuf_flag_overflow_alloc   = 1 << 1,
 	sbuf_flag_overflow_error   = 1 << 2,
 	sbuf_flag_write            = 1 << 3,
+	sbuf_flag_string_exposed   = 1 << 4,
 };
 
 #define SBUF_CUSTOM(name, static_len, flags) \
@@ -41,7 +42,7 @@ void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
 void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
 void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
 void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
-obj sbuf_into_str(struct workspace *wk, struct sbuf *sb, bool copy);
+obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);
 
 void str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
 	bool escape_whitespace);

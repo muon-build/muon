@@ -455,7 +455,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 
 			SBUF(buf);
 			path_join(wk, &buf, ss1->s, ss2->s);
-			str = sbuf_into_str(wk, &buf, false);
+			str = sbuf_into_str(wk, &buf);
 			break;
 		}
 		default:

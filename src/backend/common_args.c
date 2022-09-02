@@ -573,7 +573,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 
 	SBUF(buf);
 	path_relative_to(wk, &buf, wk->build_root, str);
-	obj_array_push(wk, ctx->dest, sbuf_into_str(wk, &buf, false));
+	obj_array_push(wk, ctx->dest, sbuf_into_str(wk, &buf));
 	return ir_cont;
 }
 

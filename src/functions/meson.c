@@ -300,7 +300,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 			} else {
 				SBUF(path);
 				path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), p);
-				str = sbuf_into_str(wk, &path, false);
+				str = sbuf_into_str(wk, &path);
 			}
 		}
 		break;

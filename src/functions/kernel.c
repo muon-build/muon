@@ -1104,17 +1104,17 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	SBUF(path);
 	SBUF(build_dir);
 
 	obj old_cwd = current_project(wk)->cwd;
 	obj old_build_dir = current_project(wk)->build_dir;
 
-	path_join(wk, &path, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val));
-	current_project(wk)->cwd = sbuf_into_str(wk, &path, true);
+	SBUF(new_cwd);
+	path_join(wk, &new_cwd, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val));
+	current_project(wk)->cwd = make_str(wk, new_cwd.buf);
 
 	path_join(wk, &build_dir, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val));
-	current_project(wk)->build_dir = sbuf_into_str(wk, &build_dir, false);
+	current_project(wk)->build_dir = sbuf_into_str(wk, &build_dir);
 
 	bool ret = false;
 	if (!wk->in_analyzer) {
@@ -1123,8 +1123,8 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	path_push(wk, &path, "meson.build");
-	ret = wk->eval_project_file(wk, path.buf);
+	path_push(wk, &new_cwd, "meson.build");
+	ret = wk->eval_project_file(wk, new_cwd.buf);
 
 ret:
 	current_project(wk)->cwd = old_cwd;
@@ -1205,7 +1205,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, val));
-		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel, false));
+		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel));
 		break;
 
 	case obj_both_libs:
@@ -1215,7 +1215,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
 		path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
-		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel, false));
+		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel));
 		break;
 	}
 	case obj_custom_target:
@@ -1373,7 +1373,7 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	*res = sbuf_into_str(wk, ctx.buf, false);
+	*res = sbuf_into_str(wk, ctx.buf);
 	return true;
 }
 

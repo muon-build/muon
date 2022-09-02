@@ -132,7 +132,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	path_relative_to(wk, &path, wk->build_root, src);
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-	obj_array_push(wk, tgt->dep_internal.order_deps, sbuf_into_str(wk, &path, false));
+	obj_array_push(wk, tgt->dep_internal.order_deps, sbuf_into_str(wk, &path));
 
 	if (!ctx->implicit_include_directories) {
 		return true;
@@ -143,7 +143,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	obj inc;
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
-	d->path = sbuf_into_str(wk, &dir, false);
+	d->path = sbuf_into_str(wk, &dir);
 	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
 
 	return true;
@@ -272,7 +272,7 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
 			return false;
 		}
 
-		*soname_install = sbuf_into_str(wk, &soname_symlink, false);
+		*soname_install = sbuf_into_str(wk, &soname_symlink);
 	}
 
 	if (!str_eql(get_str(wk, tgt->soname), &WKSTR(plain_name))) {
@@ -282,7 +282,7 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
 			return false;
 		}
 
-		*plain_name_install = sbuf_into_str(wk, &plain_name_symlink, false);
+		*plain_name_install = sbuf_into_str(wk, &plain_name_symlink);
 	}
 
 	return true;
@@ -470,11 +470,11 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		SBUF(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
-		tgt->build_path = sbuf_into_str(wk, &path, true);
+		tgt->build_path = make_str(wk, path.buf);
 
 		sbuf_pushs(wk, &path, ".p");
 
-		tgt->private_path = sbuf_into_str(wk, &path, false);
+		tgt->private_path = sbuf_into_str(wk, &path);
 	}
 
 	bool implicit_include_directories =
@@ -623,8 +623,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		path_join(wk, &install_dest, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name));
 
 		struct obj_install_target *install_tgt;
-		if (!(install_tgt = push_install_target(wk, sbuf_into_str(wk, &install_src, false),
-			sbuf_into_str(wk, &install_dest, false), akw[bt_kw_install_mode].val))) {
+		if (!(install_tgt = push_install_target(wk, sbuf_into_str(wk, &install_src),
+			sbuf_into_str(wk, &install_dest), akw[bt_kw_install_mode].val))) {
 			return false;
 		}
 

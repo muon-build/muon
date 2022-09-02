@@ -264,7 +264,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		SBUF(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
 		sbuf_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
-		source_path = sbuf_into_str(wk, &test_source_path, false);
+		source_path = sbuf_into_str(wk, &test_source_path);
 	}
 
 	obj_array_push(wk, compiler_args, source_path);
@@ -2053,7 +2053,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	compiler_log(wk, rcvr, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path->buf);
 	dep->flags |= dep_flag_found;
 	make_obj(wk, &dep->dep.link_with, obj_array);
-	obj path_str = sbuf_into_str(wk, ctx.path, true);
+	obj path_str = make_str(wk, ctx.path->buf);
 	obj_array_push(wk, dep->dep.link_with, path_str);
 
 	if (found_from_dirs_kw) {

@@ -34,7 +34,7 @@ add_tgt_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	SBUF(path);
 	path_relative_to(wk, &path, wk->build_root, src);
-	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &path, false));
+	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &path));
 	return ir_cont;
 }
 
@@ -71,7 +71,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	SBUF(src_path);
 	path_relative_to(wk, &src_path, wk->build_root, src);
 
-	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path, false));
+	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path));
 
 	/* build rules and args */
 

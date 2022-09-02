@@ -75,7 +75,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	} else {
 		SBUF(path);
 		path_join(wk, &path, "-I${includedir}", get_cstr(wk, val));
-		obj_array_push(wk, *cflags, sbuf_into_str(wk, &path, false));
+		obj_array_push(wk, *cflags, sbuf_into_str(wk, &path));
 	}
 
 	return ir_cont;
@@ -918,9 +918,10 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	}
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path, true);
+	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path);
 
 	{
+		SBUF(install_dir_buf);
 		const char *install_dir;
 		if (akw[kw_install_dir].set) {
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
@@ -932,15 +933,15 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 				get_option_value(wk, current_project(wk), "libdir", &install_base);
 			}
 
-			path_join(wk, &path, get_cstr(wk, install_base), "pkgconfig");
-			install_dir = path.buf;
+			path_join(wk, &install_dir_buf, get_cstr(wk, install_base), "pkgconfig");
+			install_dir = install_dir_buf.buf;
 		}
 
 		SBUF(dest);
 		path_join(wk, &dest, install_dir, get_cstr(wk, filebase));
 		sbuf_pushs(wk, &dest, ".pc");
 
-		push_install_target(wk, *get_obj_file(wk, *res), sbuf_into_str(wk, &dest, false), 0);
+		push_install_target(wk, *get_obj_file(wk, *res), sbuf_into_str(wk, &dest), 0);
 	}
 
 	return true;

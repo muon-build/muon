@@ -559,16 +559,17 @@ done:
 }
 
 obj
-sbuf_into_str(struct workspace *wk, struct sbuf *sb, bool copy)
+sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 {
-	if (!copy && (sb->flags & sbuf_flag_overflown) && !(sb->flags & sbuf_flag_overflow_alloc)) {
-		struct str *ss = (struct str *)get_str(wk, sb->s);
-		assert(strlen(ss->s) == sb->len);
-		ss->len = sb->len;
+	assert(!(sb->flags & sbuf_flag_string_exposed)
+		&& !(sb->flags & sbuf_flag_overflow_alloc));
 
+	if (sb->flags & sbuf_flag_overflown) {
+		sb->flags |= sbuf_flag_string_exposed;
+		struct str *ss = (struct str *)get_str(wk, sb->s);
+		ss->len = sb->len;
 		return sb->s;
 	} else {
-		assert(strlen(sb->buf) == sb->len);
 		return make_strn(wk, sb->buf, sb->len);
 	}
 }

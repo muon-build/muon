@@ -63,9 +63,9 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 		// command not found error.
 		SBUF(exe);
 		path_executable(wk, &exe, rel.buf);
-		*res = sbuf_into_str(wk, &exe, false);
+		*res = sbuf_into_str(wk, &exe);
 	} else {
-		*res = sbuf_into_str(wk, &rel, false);
+		*res = sbuf_into_str(wk, &rel);
 	}
 }
 
@@ -391,7 +391,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 		return format_cb_error;
 	}
 
-	*elem = sbuf_into_str(wk, &buf, false);
+	*elem = sbuf_into_str(wk, &buf);
 	return format_cb_found;
 }
 
@@ -461,7 +461,7 @@ make_custom_target(struct workspace *wk,
 		SBUF(path);
 		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, opts->name));
 		sbuf_pushs(wk, &path, ".p");
-		tgt->private_path = sbuf_into_str(wk, &path, false);
+		tgt->private_path = sbuf_into_str(wk, &path);
 	}
 
 	if (opts->input_orig) {

@@ -171,7 +171,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	obj new_file;
 	make_obj(wk, &new_file, obj_file);
-	*get_obj_file(wk, new_file) = sbuf_into_str(wk, &dest_path, false);
+	*get_obj_file(wk, new_file) = sbuf_into_str(wk, &dest_path);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
 }

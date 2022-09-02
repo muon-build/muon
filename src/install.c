@@ -120,7 +120,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 
 		SBUF(buf);
 		path_join(wk, &buf, get_cstr(wk, prefix), get_cstr(wk, dest));
-		sdest = sbuf_into_str(wk, &buf, false);
+		sdest = sbuf_into_str(wk, &buf);
 	}
 
 	tgt->dest = sdest;
@@ -139,7 +139,7 @@ push_install_target_install_dir(struct workspace *wk, obj src,
 
 	SBUF(dest);
 	path_join(wk, &dest, get_cstr(wk, install_dir), basename.buf);
-	obj sdest = sbuf_into_str(wk, &dest, false);
+	obj sdest = sbuf_into_str(wk, &dest);
 
 	return !!push_install_target(wk, src, sdest, mode);
 }
@@ -193,7 +193,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 		path_join(wk, &dest_path, get_cstr(wk, install_dir), get_cstr(wk, val_id));
 
 		src = *get_obj_file(wk, f);
-		dest = sbuf_into_str(wk, &dest_path, false);
+		dest = sbuf_into_str(wk, &dest_path);
 		break;
 	}
 	case obj_file:
@@ -212,7 +212,7 @@ handle_file:    {
 			path_join(wk, &dest_path, get_cstr(wk, install_dir), basename.buf);
 
 			src = *get_obj_file(wk, f);
-			dest = sbuf_into_str(wk, &dest_path, false);
+			dest = sbuf_into_str(wk, &dest_path);
 		}
 		break;
 	default:
