@@ -29,16 +29,12 @@ path_getcwd(void)
 void
 path_init(void)
 {
-	sbuf_init(&path_ctx.cwd, sbuf_flag_overflow_alloc);
-	path_ctx.cwd.buf = path_ctx.cwd_buf;
-	path_ctx.cwd.cap = BUF_SIZE_2k;
-	sbuf_init(&path_ctx.tmp1, sbuf_flag_overflow_alloc);
-	path_ctx.tmp1.buf = path_ctx.tmp1_buf;
-	path_ctx.tmp1.cap = BUF_SIZE_2k;
-	sbuf_init(&path_ctx.tmp2, sbuf_flag_overflow_alloc);
-	path_ctx.tmp2.buf = path_ctx.tmp2_buf;
-	path_ctx.tmp2.cap = BUF_SIZE_2k;
-
+	sbuf_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf),
+		sbuf_flag_overflow_alloc);
+	sbuf_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf),
+		sbuf_flag_overflow_alloc);
+	sbuf_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf),
+		sbuf_flag_overflow_alloc);
 	path_getcwd();
 }
 

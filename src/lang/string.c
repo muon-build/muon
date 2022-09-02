@@ -382,10 +382,17 @@ str_split_strip(struct workspace *wk,
 /* sbuf */
 
 void
-sbuf_init(struct sbuf *sb, enum sbuf_flags flags)
+sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap,
+	enum sbuf_flags flags)
 {
+	if (initial_buffer_cap) {
+		initial_buffer[0] = 0;
+	}
+
 	*sb = (struct sbuf) {
 		.flags = flags,
+		.buf = initial_buffer,
+		.cap = initial_buffer_cap,
 	};
 }
 

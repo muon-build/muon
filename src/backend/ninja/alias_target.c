@@ -15,7 +15,7 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ct
 
 	L("writing rules for alias target '%s'", get_cstr(wk, tgt->name));
 
-	SBUF_1k(name_esc, 0);
+	SBUF(name_esc);
 	ninja_escape(wk, &name_esc, get_cstr(wk, tgt->name));
 
 	obj depstrs;

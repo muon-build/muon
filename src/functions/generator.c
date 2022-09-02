@@ -43,7 +43,7 @@ generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, 
 			ctx->generated_include = true;
 		}
 
-		SBUF_1k(rel, 0);
+		SBUF(rel);
 		path_relative_to(wk, &rel, wk->build_root, generated_path);
 
 		str_app(wk, ctx->name, " ");
@@ -58,7 +58,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 {
 	struct generated_list_process_for_target_ctx *ctx = _ctx;
 
-	SBUF_1k(path, 0);
+	SBUF(path);
 	const char *output_dir = ctx->dir;
 
 	if (ctx->gl->preserve_path_from) {
@@ -66,7 +66,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 			   *base = get_cstr(wk, ctx->gl->preserve_path_from);
 		assert(path_is_subpath(base, src));
 
-		SBUF_1k(dir, 0);
+		SBUF(dir);
 
 		path_relative_to(wk, &path, base, src);
 		path_dirname(wk, &dir, path.buf);

@@ -157,7 +157,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
 	obj_array_push(wk, regen_args, make_str(wk, "setup"));
 
-	SBUF_1k(compiler_check_cache_path, 0);
+	SBUF(compiler_check_cache_path);
 	path_join(wk, &compiler_check_cache_path,
 		wk->muon_private, output_path.compiler_check_cache);
 

@@ -127,8 +127,8 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 		return true;
 	}
 
-	SBUF_1k(dir, 0);
-	SBUF_1k(path, 0);
+	SBUF(dir);
+	SBUF(path);
 	path_relative_to(wk, &path, wk->build_root, src);
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
@@ -258,8 +258,8 @@ static bool
 setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
 	const char *plain_name, obj *plain_name_install, obj *soname_install)
 {
-	SBUF_1k(soname_symlink, 0);
-	SBUF_1k(plain_name_symlink, 0);
+	SBUF(soname_symlink);
+	SBUF(plain_name_symlink);
 
 	if (!fs_mkdir_p(get_cstr(wk, tgt->build_dir))) {
 		return false;
@@ -467,7 +467,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	}
 
 	{ /* tgt_build_path */
-		SBUF_1k(path, 0);
+		SBUF(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
 		tgt->build_path = sbuf_into_str(wk, &path, true);
@@ -616,10 +616,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			}
 		}
 
-		SBUF_1k(install_src, 0);
+		SBUF(install_src);
 		path_join(wk, &install_src, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
-		SBUF_1k(install_dest, 0);
+		SBUF(install_dest);
 		path_join(wk, &install_dest, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name));
 
 		struct obj_install_target *install_tgt;

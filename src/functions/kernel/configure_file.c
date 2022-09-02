@@ -105,7 +105,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		goto cleanup;
 	}
 
-	SBUF_1k(out_buf, sbuf_flag_overflow_alloc);
+	SBUF_manual(out_buf);
 
 	uint32_t i, id_start, id_len,
 		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
@@ -347,7 +347,7 @@ static bool
 generate_config(struct workspace *wk, enum configure_file_output_format format,
 	obj dict, uint32_t node, obj out_path)
 {
-	SBUF_1k(out_buf, sbuf_flag_overflow_alloc);
+	SBUF_manual(out_buf);
 
 	struct generate_config_ctx ctx = {
 		.out_buf = &out_buf,
@@ -475,7 +475,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 			}
 			assert(e);
 
-			SBUF_1k(buf, 0);
+			SBUF(buf);
 			char *c;
 			path_basename(wk, &buf, get_file_path(wk, e));
 
@@ -491,7 +491,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 				return false;
 			}
 
-			SBUF_1k(buf, 0);
+			SBUF(buf);
 			path_basename(wk, &buf, get_file_path(wk, e));
 			str_app(wk, str, buf.buf);
 			s += len - 1;
@@ -594,7 +594,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		const char *out = get_cstr(wk, subd);
-		SBUF_1k(out_path, 0);
+		SBUF(out_path);
 
 		if (!path_is_basename(out)) {
 			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);

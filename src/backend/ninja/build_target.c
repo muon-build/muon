@@ -32,7 +32,7 @@ add_tgt_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	struct write_tgt_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
-	SBUF_1k(path, 0);
+	SBUF(path);
 	path_relative_to(wk, &path, wk->build_root, src);
 	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &path, false));
 	return ir_cont;
@@ -63,12 +63,12 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	/* build paths */
-	SBUF_1k(dest_path, 0);
+	SBUF(dest_path);
 	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
 		return ir_err;
 	}
 
-	SBUF_1k(src_path, 0);
+	SBUF(src_path);
 	path_relative_to(wk, &src_path, wk->build_root, src);
 
 	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path, false));
@@ -81,8 +81,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	SBUF_1k(esc_dest_path, 0);
-	SBUF_1k(esc_path, 0);
+	SBUF(esc_dest_path);
+	SBUF(esc_path);
 
 	ninja_escape(wk, &esc_dest_path, dest_path.buf);
 	ninja_escape(wk, &esc_path, src_path.buf);
@@ -237,9 +237,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	SBUF_1k(esc_path, 0);
+	SBUF(esc_path);
 	{
-		SBUF_1k(rel_build_path, 0);
+		SBUF(rel_build_path);
 		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
 		ninja_escape(wk, &esc_path, rel_build_path.buf);
 	}

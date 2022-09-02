@@ -22,14 +22,14 @@
 static void
 interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const char *fmt, va_list args)
 {
-	sbuf_clear(&wk->sb_tmp);
-	obj_vasprintf(wk, &wk->sb_tmp, fmt, args);
+	SBUF(buf);
+	obj_vasprintf(wk, &buf, fmt, args);
 
 	if (n_id) {
 		struct node *n = get_node(wk->ast, n_id);
-		error_message(wk->src, n->line, n->col, lvl, wk->sb_tmp.buf);
+		error_message(wk->src, n->line, n->col, lvl, buf.buf);
 	} else {
-		log_print(__FILE__, __LINE__, __func__, true, lvl, "%s", wk->sb_tmp.buf);
+		log_print(__FILE__, __LINE__, __func__, true, lvl, "%s", buf.buf);
 	}
 }
 
@@ -453,7 +453,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 				return false;
 			}
 
-			SBUF_1k(buf, 0);
+			SBUF(buf);
 			path_join(wk, &buf, ss1->s, ss2->s);
 			str = sbuf_into_str(wk, &buf, false);
 			break;

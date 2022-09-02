@@ -261,7 +261,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	if (opts->src_is_path) {
 		source_path = make_str(wk, src);
 	} else {
-		SBUF_1k(test_source_path, 0);
+		SBUF(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
 		sbuf_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
 		source_path = sbuf_into_str(wk, &test_source_path, false);
@@ -269,7 +269,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	obj_array_push(wk, compiler_args, source_path);
 
-	SBUF_1k(test_output_path, 0);
+	SBUF(test_output_path);
 	const char *output_path;
 	if (opts->output_path) {
 		output_path = opts->output_path;
@@ -1095,7 +1095,7 @@ static bool
 compiler_get_define(struct workspace *wk, uint32_t err_node,
 	struct compiler_check_opts *opts, const char *prefix, const char *def, obj *res)
 {
-	SBUF_1k(output_path, 0);
+	SBUF(output_path);
 	path_join(wk, &output_path, wk->muon_private, "get_define_output");
 
 	opts->output_path = output_path.buf;
@@ -1873,7 +1873,7 @@ static enum iteration_result
 compiler_find_library_iter(struct workspace *wk, void *_ctx, obj libdir)
 {
 	struct compiler_find_library_ctx *ctx = _ctx;
-	SBUF_1k(lib, 0);
+	SBUF(lib);
 	static const char *pref[] = { "", "lib", NULL };
 	const char *suf[] = { ".so", ".a", NULL };
 
@@ -1985,7 +1985,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return true;
 	}
 
-	SBUF_1k(library_path, 0);
+	SBUF(library_path);
 
 	struct compiler_find_library_ctx ctx = {
 		.path = &library_path,

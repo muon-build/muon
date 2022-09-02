@@ -355,7 +355,7 @@ cmd_subprojects_download_iter(void *_ctx, const char *name)
 {
 	struct cmd_subprojects_download_ctx *ctx = _ctx;
 	uint32_t len = strlen(name);
-	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	SBUF_manual(path);
 
 	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
 		goto cont;
@@ -387,7 +387,7 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("") {
 	} OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	SBUF_manual(path);
 	path_make_absolute(NULL, &path, cmd_subprojects_subprojects_dir);
 
 	struct cmd_subprojects_download_ctx ctx = {
@@ -395,7 +395,7 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	if (argc > argi) {
-		SBUF_1k(wrap_file, sbuf_flag_overflow_alloc);
+		SBUF_manual(wrap_file);
 
 		for (; argc > argi; ++argi) {
 			path_join(NULL, &wrap_file, ctx.subprojects, argv[argi]);
@@ -845,7 +845,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	};
 
 	bool res = false;
-	SBUF_1k(argv0, sbuf_flag_overflow_alloc);
+	SBUF_manual(argv0);
 
 	OPTSTART("vlC:") {
 		case 'v':

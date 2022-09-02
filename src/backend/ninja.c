@@ -241,7 +241,7 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 	int ret = 1;
 	char *const *argv = NULL;
 	uint32_t argc;
-	SBUF_1k(cwd, sbuf_flag_overflow_alloc);
+	SBUF_manual(cwd);
 
 	if (chdir) {
 		path_cwd(NULL, &cwd);
@@ -271,7 +271,7 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 
 		ret = res ? 0 : 1;
 	} else {
-		SBUF_1k(cmd, sbuf_flag_overflow_alloc);
+		SBUF_manual(cmd);
 		if (!(fs_find_cmd(NULL, &cmd, "samu")
 		      || fs_find_cmd(NULL, &cmd, "ninja"))) {
 			LOG_E("unable to find a ninja implementation");

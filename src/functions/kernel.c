@@ -185,7 +185,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	{ // subprojects
-		SBUF_1k(subprojects_path, 0);
+		SBUF(subprojects_path);
 		path_join(wk, &subprojects_path,
 			get_cstr(wk, current_project(wk)->source_root),
 			get_cstr(wk, current_project(wk)->subprojects_dir));
@@ -584,7 +584,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	const char *path;
 
-	SBUF_1k(buf, 0);
+	SBUF(buf);
 	struct find_program_custom_dir_ctx dir_ctx = {
 		.buf = &buf,
 		.prog = str,
@@ -1104,8 +1104,8 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	SBUF_1k(path, 0);
-	SBUF_1k(build_dir, 0);
+	SBUF(path);
+	SBUF(build_dir);
 
 	obj old_cwd = current_project(wk)->cwd;
 	obj old_build_dir = current_project(wk)->build_dir;
@@ -1191,7 +1191,7 @@ struct add_test_depends_ctx {
 static enum iteration_result
 add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	SBUF_1k(rel, 0);
+	SBUF(rel);
 	struct add_test_depends_ctx *ctx = _ctx;
 
 	switch (get_obj_type(wk, val)) {
@@ -1363,7 +1363,7 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	SBUF_1k(join_paths_buf, 0);
+	SBUF(join_paths_buf);
 	struct join_paths_ctx ctx = {
 		.buf = &join_paths_buf,
 		.node = args_node,

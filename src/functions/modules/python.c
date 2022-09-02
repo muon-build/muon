@@ -17,7 +17,7 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 		cmd = get_cstr(wk, ao[0].val);
 	}
 
-	SBUF_1k(cmd_path, 0);
+	SBUF(cmd_path);
 	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
 		interp_error(wk, args_node, "python3 not found");
 		return false;

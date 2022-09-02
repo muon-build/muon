@@ -192,7 +192,7 @@ static bool
 run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
 {
 	const char *p;
-	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
+	SBUF_manual(cmd);
 
 	if (!fs_find_cmd(NULL, &cmd, _cmd)) {
 		ctx->err_msg = "command not found";
@@ -489,7 +489,7 @@ run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const
 	struct source src = { 0 };
 	const char **new_argv = NULL;
 
-	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
+	SBUF_manual(cmd);
 	if (!build_argv(ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
 		goto err;
 	}
@@ -515,7 +515,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 	struct source src = { 0 };
 	const char **argv = NULL;
 
-	SBUF_1k(cmd, sbuf_flag_overflow_alloc);
+	SBUF_manual(cmd);
 	if (!build_argv(ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
 		goto err;
 	}

@@ -551,7 +551,7 @@ bool
 tests_run(struct test_options *opts)
 {
 	bool ret = false;
-	SBUF_1k(tests_src, sbuf_flag_overflow_alloc);
+	SBUF_manual(tests_src);
 
 	if (opts->workers > MAX_TEST_WORKERS) {
 		LOG_E("the maximum number of test workers is %d", MAX_TEST_WORKERS);

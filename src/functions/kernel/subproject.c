@@ -17,8 +17,8 @@ subproject_prepare(struct workspace *wk, struct sbuf *cwd_buf, const char **cwd,
 	if (!fs_dir_exists(*cwd)) {
 		bool wrap_ok = false;
 
-		SBUF_1k(wrap_path, 0);
-		SBUF_1k(base_path, 0);
+		SBUF(wrap_path);
+		SBUF(base_path);
 		sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
 
 		if (!fs_file_exists(wrap_path.buf)) {
@@ -58,7 +58,7 @@ wrap_done:
 		}
 	}
 
-	SBUF_1k(src, 0);
+	SBUF(src);
 	path_join(wk, &src, *cwd, "meson.build");
 
 	if (!fs_file_exists(src.buf)) {
@@ -90,8 +90,8 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	const char *subproj_name = get_cstr(wk, name);
-	SBUF_1k(cwd, 0);
-	SBUF_1k(build_dir, 0);
+	SBUF(cwd);
+	SBUF(build_dir);
 
 	path_join(wk, &cwd, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, current_project(wk)->subprojects_dir));
 	path_push(wk, &cwd, subproj_name);
@@ -103,8 +103,8 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	bool found;
 
 	const char *sp_cwd = cwd.buf, *sp_build_dir = build_dir.buf;
-	SBUF_1k(sp_cwd_buf, 0);
-	SBUF_1k(sp_build_dir_buf, 0);
+	SBUF(sp_cwd_buf);
+	SBUF(sp_build_dir_buf);
 
 	if (!subproject_prepare(wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf,
 		&sp_build_dir, req == requirement_required, &found)) {

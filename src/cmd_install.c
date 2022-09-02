@@ -29,13 +29,13 @@ static enum iteration_result
 copy_subdir_iter(void *_ctx, const char *path)
 {
 	struct copy_subdir_ctx *ctx = _ctx;
-	SBUF_1k(src, 0);
-	SBUF_1k(dest, 0);
+	SBUF(src);
+	SBUF(dest);
 
 	path_join(ctx->wk, &src, ctx->src_base, path);
 	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
-	SBUF_1k(rel, 0);
+	SBUF(rel);
 	path_relative_to(ctx->wk, &rel, ctx->src_root, src.buf);
 	obj rel_str = sbuf_into_str(ctx->wk, &rel, false);
 
@@ -105,13 +105,13 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	struct install_ctx *ctx = _ctx;
 	struct obj_install_target *in = get_obj_install_target(wk, v_id);
 
-	SBUF_1k(dest_dirname, 0);
+	SBUF(dest_dirname);
 	const char *dest = get_cstr(wk, in->dest),
 		   *src = get_cstr(wk, in->src);
 
 	assert(in->type == install_target_symlink || in->type == install_target_emptydir || path_is_absolute(src));
 
-	SBUF_1k(full_dest_dir, 0);
+	SBUF(full_dest_dir);
 	if (ctx->destdir) {
 		path_join_absolute(wk, &full_dest_dir, get_cstr(wk, ctx->destdir), dest);
 		dest = full_dest_dir.buf;
@@ -259,7 +259,7 @@ bool
 install_run(struct install_options *opts)
 {
 	bool ret = true;
-	SBUF_1k(install_src, sbuf_flag_overflow_alloc);
+	SBUF_manual(install_src);
 	path_join(NULL, &install_src, output_path.private_dir, output_path.install);
 
 	FILE *f;
@@ -291,15 +291,15 @@ install_run(struct install_options *opts)
 	obj_array_index(&wk, install, 2, &source_root);
 	obj_array_index(&wk, install, 3, &ctx.prefix);
 
-	SBUF_1k(build_root, 0);
+	SBUF(build_root);
 	path_cwd(&wk, &build_root);
 	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root, false));
 	wk.source_root = get_cstr(&wk, source_root);
 
 	const char *destdir;
 	if ((destdir = getenv("DESTDIR"))) {
-		SBUF_1k(full_prefix, 0);
-		SBUF_1k(abs_destdir, 0);
+		SBUF(full_prefix);
+		SBUF(abs_destdir);
 		path_make_absolute(&wk, &abs_destdir, destdir);
 		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
 

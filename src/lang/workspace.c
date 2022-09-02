@@ -124,8 +124,6 @@ workspace_init_bare(struct workspace *wk)
 	assert(id == 0);
 
 	hash_init(&wk->obj_hash, 128, sizeof(obj));
-
-	sbuf_init(&wk->sb_tmp, 0);
 }
 
 void
@@ -140,9 +138,9 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &id, obj_disabler);
 	assert(id == disabler_id);
 
-	sbuf_clear(&wk->sb_tmp);
-	path_cwd(wk, &wk->sb_tmp);
-	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &wk->sb_tmp, true));
+	SBUF(source_root);
+	path_cwd(wk, &source_root);
+	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root, false));
 
 	darr_init(&wk->projects, 16, sizeof(struct project));
 	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -229,7 +227,7 @@ bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[])
 {
-	SBUF_1k(path, 0);
+	SBUF(path);
 	path_make_absolute(wk, &path, build);
 	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &path, true));
 

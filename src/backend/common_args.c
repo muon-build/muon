@@ -196,7 +196,7 @@ setup_compiler_args_includes_iter(struct workspace *wk, void *_ctx, obj v)
 		}
 	}
 
-	SBUF_1k(rel, 0);
+	SBUF(rel);
 	if (!ctx->dont_relativize) {
 		if (!fs_dir_exists(dir)) {
 			return ir_cont;
@@ -571,7 +571,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		str = get_file_path(wk, val);
 	}
 
-	SBUF_1k(buf, 0);
+	SBUF(buf);
 	path_relative_to(wk, &buf, wk->build_root, str);
 	obj_array_push(wk, ctx->dest, sbuf_into_str(wk, &buf, false));
 	return ir_cont;

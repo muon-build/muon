@@ -19,7 +19,7 @@ bool
 eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	const char *build_dir, uint32_t *proj_id)
 {
-	SBUF_1k(src, 0);
+	SBUF(src);
 	path_join(wk, &src, cwd, "meson.build");
 
 	if (!fs_file_exists(src.buf)) {

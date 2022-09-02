@@ -73,7 +73,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	if (str_eql(get_str(wk, val), &WKSTR("."))) {
 		obj_array_push(wk, *cflags, make_str(wk, "-I${includedir}"));
 	} else {
-		SBUF_1k(path, 0);
+		SBUF(path);
 		path_join(wk, &path, "-I${includedir}", get_cstr(wk, val));
 		obj_array_push(wk, *cflags, sbuf_into_str(wk, &path, false));
 	}
@@ -84,7 +84,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 {
-	SBUF_1k(basename, 0);
+	SBUF(basename);
 	const char *str;
 
 	switch (get_obj_type(wk, lib)) {
@@ -446,11 +446,11 @@ module_pkgconf_declare_var(struct workspace *wk, uint32_t err_node, bool escape,
 		}
 	}
 
+	SBUF(esc);
 	const char *esc_val;
 	if (escape) {
-		sbuf_clear(&wk->sb_tmp);
-		pkgconf_escape(wk, &wk->sb_tmp, val->s);
-		esc_val = wk->sb_tmp.buf;
+		pkgconf_escape(wk, &esc, val->s);
+		esc_val = esc.buf;
 	} else {
 		esc_val = val->s;
 	}
@@ -557,7 +557,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 	obj libdir;
 	const char *path;
 	if (install_dir_opt->set) {
-		SBUF_1k(rel, 0);
+		SBUF(rel);
 		obj pre;
 		get_option_value(wk, current_project(wk), "prefix", &pre);
 
@@ -905,7 +905,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		filebase = akw[kw_filebase].val;
 	}
 
-	SBUF_1k(path, 0);
+	SBUF(path);
 	path_join(wk, &path, wk->muon_private, get_cstr(wk, filebase));
 	sbuf_pushs(wk, &path, ".pc");
 
@@ -936,7 +936,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 			install_dir = path.buf;
 		}
 
-		SBUF_1k(dest, 0);
+		SBUF(dest);
 		path_join(wk, &dest, install_dir, get_cstr(wk, filebase));
 		sbuf_pushs(wk, &dest, ".pc");
 

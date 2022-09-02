@@ -21,30 +21,9 @@ enum sbuf_flags {
 #define SBUF_CUSTOM(name, static_len, flags) \
 	struct sbuf name; \
 	char sbuf_static_buf_ ## name[static_len]; \
-	sbuf_static_buf_ ## name[0] = 0; \
-	sbuf_init(&name, flags); \
-	name.buf = sbuf_static_buf_ ## name; \
-	name.cap = static_len
-#define SBUF_1k(name, flags) SBUF_CUSTOM(name, 1024, flags)
-#define SBUF_2k(name, flags) SBUF_CUSTOM(name, 2048, flags)
-#define SBUF_4k(name, flags) SBUF_CUSTOM(name, 4096, flags)
-
-#define SBUF_heap(name, flags) \
-	struct sbuf name; \
-	sbuf_init(&name, flags);
-
-#define static_SBUF(name, static_len, flags) \
-	static struct sbuf name; \
-	static bool sbuf_ ## name ## _is_initialized = false; \
-	if (sbuf_ ## name ## _is_initialized) { \
-		sbuf_clear(&name); \
-	} else { \
-		static char sbuf_static_buf_ ## name[static_len] = { 0 }; \
-		sbuf_init(&name, 0); \
-		name.buf = sbuf_static_buf_ ## name; \
-		name.cap = static_len; \
-		sbuf_ ## name ## _is_initialized = true; \
-	}
+	sbuf_init(&name, sbuf_static_buf_ ## name, static_len, flags);
+#define SBUF(name) SBUF_CUSTOM(name, 1024, 0)
+#define SBUF_manual(name) SBUF_CUSTOM(name, 1024, sbuf_flag_overflow_alloc)
 
 struct sbuf {
 	char *buf;
@@ -53,7 +32,8 @@ struct sbuf {
 	obj s;
 };
 
-void sbuf_init(struct sbuf *sb, enum sbuf_flags flags);
+void sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap,
+	enum sbuf_flags flags);
 void sbuf_destroy(struct sbuf *sb);
 void sbuf_clear(struct sbuf *sb);
 void sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc);

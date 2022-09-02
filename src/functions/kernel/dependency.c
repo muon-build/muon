@@ -976,8 +976,8 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		// we always want an absolute path here, regardles of
 		// ctx->relativize
 		if (tgt->type != tgt_static_library) {
-			SBUF_1k(abs, 0);
-			SBUF_1k(dir, 0);
+			SBUF(abs);
+			SBUF(dir);
 			const char *p;
 			path_dirname(wk, &dir, path);
 

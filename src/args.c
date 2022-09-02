@@ -89,7 +89,7 @@ ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 static void
 shell_ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	SBUF_1k(tmp, sbuf_flag_overflow_alloc);
+	SBUF_manual(tmp);
 
 	shell_escape(wk, &tmp, str);
 	simple_escape(wk, sb, tmp.buf, "$\n", '$');
@@ -118,12 +118,11 @@ join_args_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const char *s = get_cstr(wk, val);
 
-	sbuf_clear(&wk->sb_tmp);
-
+	SBUF(esc);
 	if (ctx->escape) {
-		ctx->escape(wk, &wk->sb_tmp, s);
+		ctx->escape(wk, &esc, s);
 
-		s = wk->sb_tmp.buf;
+		s = esc.buf;
 	}
 
 	str_app(wk, *ctx->obj, s);
@@ -201,7 +200,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		break;
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
-			SBUF_1k(rel, 0);
+			SBUF(rel);
 			path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, src));
 			str = sbuf_into_str(wk, &rel, false);
 			break;
@@ -224,7 +223,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, src);
 
-		SBUF_1k(rel, 0);
+		SBUF(rel);
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
 			str = sbuf_into_str(wk, &rel, false);

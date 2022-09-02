@@ -678,7 +678,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return false;
 	}
 
-	SBUF_1k(meson_opts, 0);
+	SBUF(meson_opts);
 	path_join(wk, &meson_opts, cwd, "meson_options.txt");
 
 	if (fs_file_exists(meson_opts.buf)) {
@@ -1141,7 +1141,7 @@ list_options(const struct list_options_opts *list_opts)
 	make_obj(&wk, &proj->opts, obj_dict);
 
 	if (fs_file_exists("meson.build")) {
-		SBUF_1k(meson_opts, 0);
+		SBUF(meson_opts);
 		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
 
 		if (fs_file_exists(meson_opts.buf)) {
@@ -1157,7 +1157,7 @@ list_options(const struct list_options_opts *list_opts)
 			}
 		}
 	} else {
-		SBUF_1k(option_info, 0);
+		SBUF(option_info);
 		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
 
 		if (!fs_file_exists(option_info.buf)) {

@@ -122,7 +122,7 @@ fs_mkdir_p(const char *path)
 {
 	bool res = false;
 	uint32_t i, len = strlen(path);
-	SBUF_1k(buf, sbuf_flag_overflow_alloc);
+	SBUF_manual(buf);
 	path_copy(NULL, &buf, path);
 
 	assert(len > 1);
@@ -468,7 +468,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 bool
 fs_has_cmd(const char *cmd)
 {
-	SBUF_1k(buf, sbuf_flag_overflow_alloc);
+	SBUF_manual(buf);
 	bool res = fs_find_cmd(NULL, &buf, cmd);
 	sbuf_destroy(&buf);
 	return res;
@@ -537,7 +537,7 @@ static bool
 fs_copy_link(const char *src, const char *dest)
 {
 	bool res = false;
-	SBUF_1k(buf, sbuf_flag_overflow_alloc);
+	SBUF_manual(buf);
 	int n;
 	while ((n = readlink(src, buf.buf, buf.cap)) != -1 && (uint32_t)n >= buf.cap) {
 		sbuf_grow(NULL, &buf, buf.cap);
@@ -638,8 +638,8 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 	enum iteration_result res = ir_err;
 	struct fs_copy_dir_ctx *ctx = _ctx;
 	struct stat sb;
-	SBUF_1k(src, sbuf_flag_overflow_alloc);
-	SBUF_1k(dest, sbuf_flag_overflow_alloc);
+	SBUF_manual(src);
+	SBUF_manual(dest);
 
 	path_join(NULL, &src, ctx->src_base, path);
 	path_join(NULL, &dest, ctx->dest_base, path);

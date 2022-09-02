@@ -62,7 +62,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 		goto ret;
 	}
 
-	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	SBUF_manual(path);
 
 	while (true) {
 		if ((r = archive_read_next_header(a, &entry)) == ARCHIVE_EOF) {

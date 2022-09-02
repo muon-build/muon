@@ -16,8 +16,8 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 {
 	obj src = *get_obj_file(wk, src_file);
 
-	SBUF_1k(private_path_rel, 0);
-	SBUF_1k(rel, 0);
+	SBUF(private_path_rel);
+	SBUF(rel);
 	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
 	if (relative) {
@@ -164,7 +164,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	SBUF_1k(dest_path, 0);
+	SBUF(dest_path);
 	if (!tgt_src_to_object_path(wk, ctx->tgt, file, false, &dest_path)) {
 		return ir_err;
 	}

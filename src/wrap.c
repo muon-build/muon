@@ -284,7 +284,7 @@ wrap_download_or_check_packagefiles(const char *filename, const char *url,
 	bool download)
 {
 	bool res = false;
-	SBUF_1k(source_path, sbuf_flag_overflow_alloc);
+	SBUF_manual(source_path);
 
 	path_join(NULL, &source_path, subprojects, "packagefiles");
 	path_push(NULL, &source_path, filename);
@@ -423,7 +423,7 @@ bool
 wrap_parse(const char *wrap_file, struct wrap *wrap)
 {
 	bool res = false;
-	SBUF_1k(subprojects, sbuf_flag_overflow_alloc);
+	SBUF_manual(subprojects);
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
@@ -436,13 +436,10 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	*wrap = ctx.wrap;
 
-	sbuf_init(&wrap->dest_dir, sbuf_flag_overflow_alloc);
-	wrap->dest_dir.buf = wrap->dest_dir_buf;
-	wrap->dest_dir.cap = ARRAY_LEN(wrap->dest_dir_buf);
-
-	sbuf_init(&wrap->name, sbuf_flag_overflow_alloc);
-	wrap->name.buf = wrap->name_buf;
-	wrap->name.cap = ARRAY_LEN(wrap->name_buf);
+	sbuf_init(&wrap->dest_dir, wrap->dest_dir_buf,
+		ARRAY_LEN(wrap->dest_dir_buf), sbuf_flag_overflow_alloc);
+	sbuf_init(&wrap->name, wrap->name_buf,
+		ARRAY_LEN(wrap->name_buf), sbuf_flag_overflow_alloc);
 
 	path_basename(NULL, &wrap->name, wrap_file);
 
@@ -496,8 +493,8 @@ static bool
 wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *dest_dir)
 {
 	bool res = false;
-	SBUF_1k(packagefiles, sbuf_flag_overflow_alloc);
-	SBUF_1k(diff_path, sbuf_flag_overflow_alloc);
+	SBUF_manual(packagefiles);
+	SBUF_manual(diff_path);
 
 	path_join(NULL, &packagefiles, subprojects, "packagefiles");
 
@@ -642,7 +639,7 @@ bool
 wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download)
 {
 	bool res = false;
-	SBUF_1k(meson_build, sbuf_flag_overflow_alloc);
+	SBUF_manual(meson_build);
 
 	if (!wrap_parse(wrap_file, wrap)) {
 		goto ret;
@@ -741,7 +738,7 @@ ret:
 bool
 wrap_load_all_provides(struct workspace *wk, const char *subprojects)
 {
-	SBUF_1k(wrap_path_buf, 0);
+	SBUF(wrap_path_buf);
 
 	struct wrap_load_all_ctx ctx = {
 		.wk = wk,

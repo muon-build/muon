@@ -16,7 +16,7 @@ const struct output_path output_path = {
 FILE *
 output_open(const char *dir, const char *name)
 {
-	SBUF_1k(path, sbuf_flag_overflow_alloc);
+	SBUF_manual(path);
 	path_join(NULL, &path, dir, name);
 
 	FILE *f = fs_fopen(path.buf, "w");

@@ -171,8 +171,8 @@ find_lib_path_iter(struct workspace *wk, void *_ctx, obj val_id)
 static obj
 find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const char *name)
 {
-	SBUF_1k(buf, 0);
-	SBUF_1k(name_buf, 0);
+	SBUF(buf);
+	SBUF(name_buf);
 
 	struct find_lib_path_ctx find_lib_path_ctx = {
 		.buf = &buf,
