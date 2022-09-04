@@ -59,12 +59,16 @@ get_cstr(struct workspace *wk, obj s)
 }
 
 static struct str *
-grow_str(struct workspace *wk, obj s, uint32_t grow_by)
+grow_str(struct workspace *wk, obj s, uint32_t grow_by, bool alloc_nul)
 {
 	assert(s);
 
 	struct str *ss = (struct str *)get_str(wk, s);
-	uint32_t new_len = ss->len + grow_by + 1;
+	uint32_t new_len = ss->len + grow_by;
+
+	if (alloc_nul) {
+		new_len += 1;
+	}
 
 	if (ss->flags & str_flag_big) {
 		ss->s = z_realloc((void *)ss->s, new_len);
@@ -163,7 +167,7 @@ make_strf(struct workspace *wk, const char *fmt, ...)
 void
 str_appn(struct workspace *wk, obj s, const char *str, uint32_t n)
 {
-	struct str *ss = grow_str(wk, s, n);
+	struct str *ss = grow_str(wk, s, n, true);
 	memcpy((char *)&ss->s[ss->len], str, n);
 	ss->len += n;
 }
@@ -185,7 +189,7 @@ str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
 	uint32_t olen = get_str(wk, s)->len;
-	struct str *ss = grow_str(wk, s, len);
+	struct str *ss = grow_str(wk, s, len, true);
 
 	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
 	vsnprintf((char *)&ss->s[olen], len + 1, fmt, args);
@@ -440,12 +444,17 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			sb->buf = z_realloc(sb->buf, newcap);
 			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
 		} else {
-			grow_str(wk, sb->s, newcap - sb->cap);
-			sb->buf = (char *)get_str(wk, sb->s)->s;
+			grow_str(wk, sb->s, newcap - sb->cap, false);
+			struct str *ss = (struct str *)get_str(wk, sb->s);
+			sb->buf = (char *)ss->s;
+			ss->len = newcap;
 		}
 	} else {
 		if (sb->flags & sbuf_flag_overflow_error) {
-			error_unrecoverable("unhandled sbuf overflow: capacity: %d, length: %d, trying to push %d bytes",
+			error_unrecoverable(
+				"unhandled sbuf overflow: "
+				"capacity: %d, length: %d, "
+				"trying to push %d bytes",
 				sb->cap, sb->len, inc);
 		}
 
@@ -459,6 +468,7 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			reserve_str(wk, &sb->s, newcap);
 			const struct str *ss = get_str(wk, sb->s);
 			sb->buf = (char *)ss->s;
+			assert(ss->len == newcap);
 		}
 
 		if (obuf) {
@@ -567,6 +577,7 @@ sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 	if (sb->flags & sbuf_flag_overflown) {
 		sb->flags |= sbuf_flag_string_exposed;
 		struct str *ss = (struct str *)get_str(wk, sb->s);
+		assert(strlen(sb->buf) == sb->len);
 		ss->len = sb->len;
 		return sb->s;
 	} else {
