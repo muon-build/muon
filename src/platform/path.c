@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "lang/string.h"
 #include "log.h"
 #include "platform/path.h"
@@ -22,7 +23,11 @@ path_getcwd(void)
 {
 	sbuf_clear(&path_ctx.cwd);
 	while (!getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
-		sbuf_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
+		if (errno == ERANGE) {
+			sbuf_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
+		} else {
+			error_unrecoverable("getcwd failed: %s", strerror(errno));
+		}
 	}
 }
 
