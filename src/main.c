@@ -22,6 +22,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "tracy.h"
 #include "version.h"
 #include "wrap.h"
 
@@ -665,6 +666,8 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	TracyCZoneAutoS;
+	bool res = false;
 	struct workspace wk;
 	workspace_init(&wk);
 
@@ -673,18 +676,18 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("D:c:b") {
 		case 'D':
 			if (!parse_and_set_cmdline_option(&wk, optarg)) {
-				goto err;
+				goto ret;
 			}
 			break;
 		case 'c': {
 			FILE *f;
 			if (!(f = fs_fopen(optarg, "r"))) {
-				goto err;
+				goto ret;
 			} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
 				LOG_E("failed to load compiler check cache");
-				goto err;
+				goto ret;
 			} else if (!fs_fclose(f)) {
-				goto err;
+				goto ret;
 			}
 			break;
 		}
@@ -704,29 +707,29 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	if (!workspace_setup_paths(&wk, build, argv[0],
 		argc - original_argi,
 		&argv[original_argi])) {
-		goto err;
+		goto ret;
 	}
 
 	uint32_t project_id;
 	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
-		goto err;
+		goto ret;
 	}
 
 	log_plain("\n");
 
 	if (!backend_output(&wk)) {
-		goto err;
+		goto ret;
 	}
 
 	workspace_print_summaries(&wk, log_file());
 
 	LOG_I("setup complete");
 
+	res = true;
+ret:
 	workspace_destroy(&wk);
-	return true;
-err:
-	workspace_destroy(&wk);
-	return false;
+	TracyCZoneAutoE;
+	return res;
 }
 
 static bool

@@ -1,8 +1,11 @@
 #include "posix.h"
 
+#include <string.h>
+
 #include "backend/output.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 const struct output_path output_path = {
 	.private_dir = "muon-private",
@@ -28,14 +31,25 @@ bool
 with_open(const char *dir, const char *name, struct workspace *wk,
 	void *ctx, with_open_callback cb)
 {
+	TracyCZone(tctx_func, true);
+#ifdef TRACY_ENABLE
+	char buf[4096] = { 0 };
+	snprintf(buf, 4096, "with_open('%s')", name);
+	TracyCZoneName(tctx_func, buf, strlen(buf));
+#endif
+
+	bool ret = false;
 	FILE *out;
 	if (!(out = output_open(dir, name))) {
-		return false;
+		goto ret;
 	} else if (!cb(wk, ctx, out)) {
-		return false;
+		goto ret;
 	} else if (!fs_fclose(out)) {
-		return false;
+		goto ret;
 	}
 
-	return true;
+	ret = true;
+ret:
+	TracyCZoneEnd(tctx_func);
+	return ret;
 }

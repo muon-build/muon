@@ -114,6 +114,12 @@ struct workspace {
 		uint32_t node, last_line;
 		bool stepping, break_on_err;
 	} dbg;
+
+#ifdef TRACY_ENABLE
+	struct {
+		bool is_master_workspace;
+	} tracy;
+#endif
 };
 
 bool get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id);

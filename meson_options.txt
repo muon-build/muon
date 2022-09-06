@@ -46,3 +46,9 @@ option(
     value: false,
     description: 'build website, requires docs to be enabled',
 )
+option(
+    'tracy',
+    type: 'string',
+    value: '',
+    description: 'location of tracy profiler checkout',
+)

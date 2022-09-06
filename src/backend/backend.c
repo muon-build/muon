@@ -6,10 +6,13 @@
 #include "functions/environment.h"
 #include "log.h"
 #include "platform/run_cmd.h"
+#include "tracy.h"
 
 static enum iteration_result
 run_postconf_script_iter(struct workspace *wk, void *_ctx, obj arr)
 {
+	TracyCZoneAutoS;
+	enum iteration_result ret = ir_err;
 	obj env;
 	make_obj(wk, &env, obj_dict);
 	set_default_environment_vars(wk, env, false);
@@ -24,33 +27,37 @@ run_postconf_script_iter(struct workspace *wk, void *_ctx, obj arr)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run postconf script: %s", cmd_ctx.err_msg);
-		goto err;
+		goto ret;
 	}
 
 	if (cmd_ctx.status != 0) {
 		LOG_E("postconf script failed");
 		LOG_E("stdout: %s", cmd_ctx.out.buf);
 		LOG_E("stderr: %s", cmd_ctx.err.buf);
-		goto err;
+		goto ret;
 	}
 
+	ret = ir_cont;
+ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
-	return ir_cont;
-err:
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return ir_err;
+	TracyCZoneAutoE;
+	return ret;
 }
 
 bool
 backend_output(struct workspace *wk)
 {
+	TracyCZoneAutoS;
 	if (!ninja_write_all(wk)) {
+		TracyCZoneAutoE;
 		return false;
 	}
 
 	if (!obj_array_foreach(wk, wk->postconf_scripts, NULL, run_postconf_script_iter)) {
+		TracyCZoneAutoE;
 		return false;
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }

@@ -15,6 +15,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "tracy.h"
 
 struct check_tgt_ctx {
 	bool need_phony;
@@ -50,23 +51,31 @@ check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 static enum iteration_result
 write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
+	TracyCZoneAutoS;
+	enum iteration_result ret;
 	struct write_tgt_ctx *ctx = _ctx;
 
 	enum obj_type t = get_obj_type(wk, tgt_id);
 	switch (t) {
 	case obj_alias_target:
-		return ninja_write_alias_tgt(wk, tgt_id, ctx);
+		ret = ninja_write_alias_tgt(wk, tgt_id, ctx);
+		break;
 	case obj_both_libs:
 		tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target:
-		return ninja_write_build_tgt(wk, tgt_id, ctx);
+		ret = ninja_write_build_tgt(wk, tgt_id, ctx);
+		break;
 	case obj_custom_target:
-		return ninja_write_custom_tgt(wk, tgt_id, ctx);
+		ret = ninja_write_custom_tgt(wk, tgt_id, ctx);
+		break;
 	default:
 		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
-		return ir_err;
+		ret = ir_err;
+		break;
 	}
+	TracyCZoneAutoE;
+	return ret;
 }
 
 struct write_build_ctx {
@@ -146,7 +155,6 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 
 			if (obj_dict_index(wk, tests, key, &res)) {
 				assert(false && "project defined multiple times");
-				return false;
 			}
 
 			obj_dict_set(wk, tests, key, proj->tests);
@@ -216,6 +224,8 @@ ninja_write_all(struct workspace *wk)
 	}
 
 	{/* compile_commands.json */
+		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);
+
 		obj compdb_args;
 		make_obj(wk, &compdb_args, obj_array);
 		obj_array_push(wk, compdb_args, make_str(wk, "-C"));
@@ -230,6 +240,8 @@ ninja_write_all(struct workspace *wk)
 		if (ninja_run(argstr, argc, wk->build_root, "compile_commands.json") != 0) {
 			LOG_E("error writing compile_commands.json");
 		}
+
+		TracyCZoneEnd(tctx_compdb);
 	}
 
 	return true;

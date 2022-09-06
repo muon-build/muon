@@ -13,6 +13,7 @@
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
+#include "tracy.h"
 #include "wrap.h"
 
 bool
@@ -71,6 +72,7 @@ cleanup:
 bool
 eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 {
+	TracyCZoneAutoS;
 	/* L("evaluating '%s'", src->label); */
 	interpreter_init();
 
@@ -105,6 +107,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	wk->ast = old_ast;
 ret:
 	ast_destroy(&ast);
+	TracyCZoneAutoE;
 	return ret;
 }
 

@@ -82,6 +82,18 @@ workspace_init_bare(struct workspace *wk)
 		.eval_project_file = eval_project_file,
 	};
 
+#ifdef TRACY_ENABLE
+	{
+		static bool first = true;
+
+		if (first) {
+			wk->tracy.is_master_workspace = true;
+		}
+
+		first = false;
+	}
+#endif
+
 	bucket_array_init(&wk->chrs, 4096, 1);
 	bucket_array_init(&wk->objs, 1024, sizeof(struct obj_internal));
 

@@ -14,6 +14,7 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "tracy.h"
 
 enum lex_result {
 	lex_cont,
@@ -882,6 +883,7 @@ bool
 lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
 	enum lexer_mode mode)
 {
+	TracyCZoneAutoS;
 	*toks = (struct tokens) { 0 };
 
 	struct lexer lexer = {
@@ -899,7 +901,9 @@ lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
 	sdata->data_len = src->len + 1;
 	sdata->data = z_malloc(sdata->data_len);
 
-	return tokenize(&lexer);
+	bool ret = tokenize(&lexer);
+	TracyCZoneAutoE;
+	return ret;
 }
 
 void

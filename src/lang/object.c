@@ -12,6 +12,7 @@
 #include "lang/parser.h"
 #include "log.h"
 #include "options.h"
+#include "tracy.h"
 
 uint32_t
 obj_type_to_tc_type(enum obj_type t)
@@ -237,6 +238,22 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	}
 
 	bucket_array_push(&wk->objs, &(struct obj_internal){ .t = type, .val = val });
+#ifdef TRACY_ENABLE
+	if (wk->tracy.is_master_workspace) {
+		uint64_t mem = 0;
+		mem += bucket_array_size(&wk->objs);
+		uint32_t i;
+		for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
+			mem += bucket_array_size(&wk->obj_aos[i]);
+		}
+#define MB(b) ((double)b / 1048576.0)
+		TracyCPlot("object memory (mb)", MB(mem));
+		TracyCPlot("string memory (mb)", MB(bucket_array_size(&wk->chrs)));
+#undef MB
+	}
+#endif
+}
+
 }
 
 const char *

@@ -29,6 +29,7 @@
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "tracy.h"
 
 // HACK: this is pretty terrible, but the least intrusive way to handle
 // disablers in function arguments as they are currently implemented.  When
@@ -696,7 +697,12 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		rcvr_id = fi->rcvr_transform(wk, rcvr_id);
 	}
 
-	if (!fi->func(wk, rcvr_id, args_node, res)) {
+	TracyCZoneC(tctx_func, 0xff5000, true);
+	TracyCZoneName(tctx_func, fi->name, strlen(fi->name));
+	bool func_res = fi->func(wk, rcvr_id, args_node, res);
+	TracyCZoneEnd(tctx_func);
+
+	if (!func_res) {
 		if (disabler_among_args) {
 			*res = disabler_id;
 			disabler_among_args = false;
