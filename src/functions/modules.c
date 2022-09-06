@@ -86,7 +86,7 @@ module_func_lookup(struct workspace *wk, const char *name, enum module mod)
 		return &func_module_found_impl;
 	}
 
-	if (!module_func_tbl[mod]) {
+	if (!module_func_tbl[mod][0]) {
 		return NULL;
 	}
 
