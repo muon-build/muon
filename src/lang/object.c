@@ -1496,7 +1496,7 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 	struct {
 		int val;
 		bool have;
-	} arg_width, arg_prec;
+	} arg_width = { 0 }, arg_prec = { 0 };
 
 	for (; *fmt; ++fmt) {
 		if (*fmt == '%') {
