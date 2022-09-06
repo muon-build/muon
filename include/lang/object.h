@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "compilers.h"
+#include "data/bucket_array.h"
 #include "iterator.h"
 #include "lang/types.h"
 
@@ -455,9 +456,18 @@ struct obj_generated_list {
 	obj preserve_path_from; // obj_string
 };
 
+struct obj_clear_mark {
+	uint32_t obji;
+	struct bucket_array_save objs, chrs;
+	struct bucket_array_save obj_aos[obj_type_count - _obj_aos_start];
+};
+
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
 uint32_t obj_type_to_tc_type(enum obj_type t);
+
+void obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk);
+void obj_clear(struct workspace *wk, const struct obj_clear_mark *mk);
 
 bool get_obj_bool(struct workspace *wk, obj o);
 void set_obj_bool(struct workspace *wk, obj o, bool v);

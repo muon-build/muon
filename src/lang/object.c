@@ -12,6 +12,7 @@
 #include "lang/parser.h"
 #include "log.h"
 #include "options.h"
+#include "platform/mem.h"
 #include "tracy.h"
 
 uint32_t
@@ -254,6 +255,43 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 #endif
 }
 
+void
+obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
+{
+	mk->obji = wk->objs.len;
+
+	bucket_array_save(&wk->chrs, &mk->chrs);
+	bucket_array_save(&wk->objs, &mk->objs);
+	uint32_t i;
+	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
+		bucket_array_save(&wk->obj_aos[i], &mk->obj_aos[i]);
+	}
+}
+
+void
+obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
+{
+	struct obj_internal *o;
+	struct str *ss;
+	uint32_t i;
+	for (i = mk->obji; i < wk->objs.len; ++i) {
+		o = bucket_array_get(&wk->objs, i);
+		if (o->t == obj_string) {
+			ss = bucket_array_get(
+				&wk->obj_aos[obj_string - _obj_aos_start], o->val);
+
+			if (ss->flags & str_flag_big) {
+				z_free((void *)ss->s);
+			}
+		}
+	}
+
+	bucket_array_restore(&wk->objs, &mk->objs);
+	bucket_array_restore(&wk->chrs, &mk->chrs);
+
+	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
+		bucket_array_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
+	}
 }
 
 const char *
