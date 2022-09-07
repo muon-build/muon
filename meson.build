@@ -81,11 +81,11 @@ subdir('tools')
 subdir('src')
 
 # tracy
-if get_option('tracy') != ''
+tracy_dep = dependency('tracy', required: get_option('tracy'))
+if tracy_dep.found()
     add_languages('cpp')
     c_args += ['-DTRACY_ENABLE']
-    include_dir += include_directories([get_option('tracy')])
-    src += files(get_option('tracy') + '/TracyClient.cpp')
+    deps += tracy_dep
 endif
 
 muon = executable(

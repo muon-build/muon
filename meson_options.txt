@@ -48,7 +48,7 @@ option(
 )
 option(
     'tracy',
-    type: 'string',
-    value: '',
-    description: 'location of tracy profiler checkout',
+    type: 'feature',
+    value: 'auto',
+    description: 'wether to enable tracy',
 )
