@@ -698,7 +698,15 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	}
 
 	TracyCZoneC(tctx_func, 0xff5000, true);
-	TracyCZoneName(tctx_func, fi->name, strlen(fi->name));
+#ifdef TRACY_ENABLE
+	char buf[256] = { 0 };
+	if (have_rcvr) {
+		snprintf(buf, 256, "%s.%s()", obj_type_to_s(rcvr_type), name);
+	} else {
+		snprintf(buf, 256, "%s()", name);
+	}
+	TracyCZoneName(tctx_func, buf, strlen(buf));
+#endif
 	bool func_res = fi->func(wk, rcvr_id, args_node, res);
 	TracyCZoneEnd(tctx_func);
 
