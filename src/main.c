@@ -299,6 +299,8 @@ ret:
 static bool
 cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	LOG_W("the info subcommand has been deprecated, please use options / summary directly");
+
 	static const struct command commands[] = {
 		{ "options", cmd_options, "list project options" },
 		{ "summary", cmd_summary, "print a configured project's summary" },
@@ -834,18 +836,20 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
-	static const struct command commands[] = {
+	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
 		{ "benchmark", cmd_test, "run benchmarks" },
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "fmt_unstable", cmd_format, NULL },
 		{ "fmt", cmd_format, "format meson source file" },
-		{ "info", cmd_info, "display project information" },
+		{ "fmt_unstable", cmd_format, NULL },
+		{ "info", cmd_info, NULL },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "samu", cmd_samu, "run samurai" },
+		{ "options", cmd_options, "list project options" },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
+		{ "summary", cmd_summary, "print a configured project's summary" },
 		{ "test", cmd_test, "run tests" },
 		{ "version", cmd_version, "print version information" },
 		{ 0 },
