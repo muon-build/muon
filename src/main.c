@@ -858,12 +858,9 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	bool res = false;
 	SBUF_manual(argv0);
 
-	OPTSTART("vlC:") {
+	OPTSTART("vC:") {
 		case 'v':
 			log_set_lvl(log_debug);
-			break;
-		case 'l':
-			log_set_opts(log_show_source);
 			break;
 		case 'C': {
 			// fix argv0 here since if it is a relative path it will be
@@ -880,7 +877,6 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		}
 	} OPTEND(argv[0], "",
 		"  -v - turn on debug messages\n"
-		"  -l - show source locations for log messages\n"
 		"  -C <path> - chdir to path\n",
 		commands, -1)
 

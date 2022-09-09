@@ -35,7 +35,6 @@ static struct {
 	enum log_level level;
 	uint32_t filter;
 	bool initialized, clr;
-	uint32_t opts;
 	const char *prefix;
 } log_cfg = { .level = log_info, };
 
@@ -58,8 +57,7 @@ log_set_prefix(const char *prefix)
 }
 
 void
-log_print(const char *file, uint32_t line, const char *func, bool nl,
-	enum log_level lvl, const char *fmt, ...)
+log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {
 	static char buf[BUF_SIZE_4k + 3];
 
@@ -79,16 +77,6 @@ log_print(const char *file, uint32_t line, const char *func, bool nl,
 			} else {
 				len = strlen(log_level_shortname[lvl]);
 				strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
-			}
-		}
-
-		if (log_cfg.opts & log_show_source) {
-			if (log_cfg.clr) {
-				len += snprintf(&buf[len], BUF_SIZE_4k - len,
-					"%s:%d [\033[35m%s\033[0m] ", file, line, func);
-			} else {
-				len += snprintf(&buf[len], BUF_SIZE_4k - len,
-					"%s:%d [%s] ", file, line, func);
 			}
 		}
 
@@ -161,12 +149,6 @@ log_set_lvl(enum log_level lvl)
 	}
 
 	log_cfg.level = lvl;
-}
-
-void
-log_set_opts(enum log_opts opts)
-{
-	log_cfg.opts = opts;
 }
 
 FILE *

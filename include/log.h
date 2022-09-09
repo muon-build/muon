@@ -18,32 +18,26 @@ enum log_level {
 	log_level_count,
 };
 
-enum log_opts {
-	log_show_source = 1 << 0,
-};
-
 extern const char *log_level_clr[log_level_count];
 extern const char *log_level_name[log_level_count];
 
-#define L(...) log_print(__FILE__, __LINE__, __func__, true, log_debug, __VA_ARGS__)
-#define LOG_I(...) log_print(__FILE__, __LINE__, __func__, true, log_info, __VA_ARGS__)
-#define LOG_W(...) log_print(__FILE__, __LINE__, __func__, true, log_warn, __VA_ARGS__)
-#define LOG_E(...) log_print(__FILE__, __LINE__, __func__, true, log_error, __VA_ARGS__)
+#define L(...) log_print(true, log_debug, __VA_ARGS__)
+#define LOG_I(...) log_print(true, log_info, __VA_ARGS__)
+#define LOG_W(...) log_print(true, log_warn, __VA_ARGS__)
+#define LOG_E(...) log_print(true, log_error, __VA_ARGS__)
 
-#define LL(...) log_print(__FILE__, __LINE__, __func__, false, log_debug, __VA_ARGS__)
-#define LLOG_I(...) log_print(__FILE__, __LINE__, __func__, false, log_info, __VA_ARGS__)
-#define LLOG_W(...) log_print(__FILE__, __LINE__, __func__, false, log_warn, __VA_ARGS__)
-#define LLOG_E(...) log_print(__FILE__, __LINE__, __func__, false, log_error, __VA_ARGS__)
+#define LL(...) log_print(false, log_debug, __VA_ARGS__)
+#define LLOG_I(...) log_print(false, log_info, __VA_ARGS__)
+#define LLOG_W(...) log_print(false, log_warn, __VA_ARGS__)
+#define LLOG_E(...) log_print(false, log_error, __VA_ARGS__)
 
 void log_init(void);
 void log_set_file(FILE *log_file);
 void log_set_lvl(enum log_level lvl);
-void log_set_opts(enum log_opts opts);
 void log_set_prefix(const char *prefix);
 const char *log_get_prefix(void);
 
-void log_print(const char *file, uint32_t line, const char *func, bool nl,
-	enum log_level lvl, const char *fmt, ...) __attribute__ ((format(printf, 6, 7)));
+void log_print(bool nl, enum log_level lvl, const char *fmt, ...);
 bool log_clr(void);
 void log_plain(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
 void log_plainv(const char *fmt, va_list ap);
