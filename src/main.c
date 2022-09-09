@@ -801,29 +801,33 @@ ret:
 static bool
 cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	printf("muon v%s%s%s\nmeson compatibility version %s\nenabled features:",
+	printf("muon v%s%s%s\nmeson compatibility version %s\nenabled features:\n",
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
 		muon_version.meson_compat
 		);
-	if (have_libcurl) {
-		printf(" libcurl");
+
+	const struct {
+		const char *name;
+		bool enabled;
+	} feature_names[] = {
+		{ "libcurl", have_libcurl },
+		{ "libpkgconf", have_libpkgconf },
+		{ "libarchive", have_libarchive },
+		{ "samurai", have_samurai },
+#ifdef TRACY_ENABLE
+		{ "tracy", true },
+#endif
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(feature_names); ++i) {
+		if (feature_names[i].enabled) {
+			printf("  %s\n", feature_names[i].name);
+		}
 	}
 
-	if (have_libpkgconf) {
-		printf(" libpkgconf");
-	}
-
-	if (have_libarchive) {
-		printf(" libarchive");
-	}
-
-	if (have_samurai) {
-		printf(" samurai");
-	}
-
-	printf("\n");
 	return true;
 }
 
