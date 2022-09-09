@@ -6,7 +6,7 @@ muon - a meson-compatible build system
 
 # SYNOPSIS
 
-*muon* [*-vlh*] [*-C* <chdir>] <command> [<args>]
+*muon* [*-vh*] [*-C* <chdir>] <command> [<args>]
 
 *muon* *setup* [*-D*[subproject*:*]option*=*value...] build ++
 *cd* build++
@@ -34,7 +34,6 @@ finally install the project with the *install* subcommand.
 # OPTIONS
 
 - *-v* - enable verbose output
-- *-l* - show source locations in log
 - *-C* <path> - chdir to _path_ before executing a command
 - *-h* - print a help message
 
@@ -162,8 +161,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Start a _meson dsl_ repl.  The functions available are limited as with
 	*internal eval*.
 
-## info options
-	*muon* *info* *options* [*-a*] [*-m*]
+## options
+	*muon* *options* [*-a*] [*-m*]
 
 	Lists available project options and defaults.  This command may either
 	be run from the project root or from a build directory.  Running this
@@ -174,11 +173,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*OPTIONS*:
 	- *-a* - Include builtin global and per-project options in the output.
 	- *-m* - Only display option values that have been modified.
-
-## info summary
-	*muon* *info* *summary*
-
-	Print a previously configured project's summary.
 
 ## samu
 	*muon* *samu* [<args>]
@@ -202,6 +196,11 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-b* - Break on error.  When this option is passed, muon will enter a
 	  debugging repl when a fatal error is encountered.  From there you can
 	  inspect and modify state, and optionally continue setup.
+
+## summary
+	*muon* *summary*
+
+	Print a previously configured project's summary.
 
 ## test
 	*muon* *test* [*-S*] [*-f*] [*-w* <workers>] [*-s* <suite>] [*-d*
