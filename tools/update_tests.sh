@@ -97,3 +97,4 @@ meson_root="$1"
 copy_tests_ "test cases/common" "tests/project/common" 3fbcff1c2722988d05c5248f7ab54c53001b1ee1
 copy_tests_ "test cases/nasm"   "tests/project/nasm"   3fbcff1c2722988d05c5248f7ab54c53001b1ee1
 copy_tests_ "test cases/native" "tests/project/native" 3fbcff1c2722988d05c5248f7ab54c53001b1ee1
+copy_tests_ "test cases/keyval" "tests/project/keyval" 37663da83ee578da2383bdd06402e91bdec97094

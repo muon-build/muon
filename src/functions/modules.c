@@ -5,15 +5,17 @@
 #include "functions/common.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
+#include "functions/modules/keyval.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "log.h"
 
 const char *module_names[module_count] = {
 	[module_fs] = "fs",
-	[module_python] = "python",
-	[module_python3] = "python3",
+	[module_keyval] = "keyval",
 	[module_pkgconfig] = "pkgconfig",
+	[module_python3] = "python3",
+	[module_python] = "python",
 
 	// unimplemented
 	[module_cmake] = "cmake",
@@ -22,7 +24,6 @@ const char *module_names[module_count] = {
 	[module_hotdoc] = "hotdoc",
 	[module_i18n] = "i18n",
 	[module_java] = "java",
-	[module_keyval] = "keyval",
 	[module_modtest] = "modtest",
 	[module_qt] = "qt",
 	[module_qt4] = "qt4",
@@ -67,9 +68,10 @@ func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 static const struct func_impl_name *module_func_tbl[module_count][language_mode_count] = {
 	[module_fs] = { impl_tbl_module_fs, impl_tbl_module_fs_internal },
-	[module_python] = { impl_tbl_module_python },
-	[module_python3] = { impl_tbl_module_python3 },
+	[module_keyval] = { impl_tbl_module_keyval },
 	[module_pkgconfig] = { impl_tbl_module_pkgconfig },
+	[module_python3] = { impl_tbl_module_python3 },
+	[module_python] = { impl_tbl_module_python },
 };
 
 const struct func_impl_name *

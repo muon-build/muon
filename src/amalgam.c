@@ -49,6 +49,7 @@
 #include "functions/meson.c"
 #include "functions/modules.c"
 #include "functions/modules/fs.c"
+#include "functions/modules/keyval.c"
 #include "functions/modules/pkgconfig.c"
 #include "functions/modules/python.c"
 #include "functions/number.c"

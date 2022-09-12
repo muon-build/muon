@@ -39,6 +39,7 @@ src = files(
     'functions/meson.c',
     'functions/modules.c',
     'functions/modules/fs.c',
+    'functions/modules/keyval.c',
     'functions/modules/pkgconfig.c',
     'functions/modules/python.c',
     'functions/number.c',

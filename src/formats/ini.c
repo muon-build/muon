@@ -41,6 +41,8 @@ each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
 
 struct each_line_ctx {
 	struct source src;
+	const char *comment_chars;
+	bool keyval;
 	void *octx;
 	char *sect;
 	inihcb cb;
@@ -72,9 +74,9 @@ each_line_cb(void *_ctx, char *line, size_t len)
 	struct each_line_ctx *ctx = _ctx;
 	char *ptr, *key, *val;
 
-	if (!*line || *line == ';' || *line == '#' || line_is_whitespace(line)) {
+	if (!*line || strchr(ctx->comment_chars, *line) || line_is_whitespace(line)) {
 		goto done_with_line;
-	} else if (*line == '[') {
+	} else if (!ctx->keyval && *line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
 			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected ']'");
 			ctx->success = false;
@@ -92,8 +94,10 @@ each_line_cb(void *_ctx, char *line, size_t len)
 	}
 
 	if (!(ptr = strchr(line, '='))) {
-		error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected '='");
-		ctx->success = false;
+		if (!ctx->keyval) {
+			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected '='");
+			ctx->success = false;
+		}
 		goto done_with_line;
 	}
 
@@ -129,6 +133,7 @@ bool
 ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx)
 {
 	struct each_line_ctx ctx = {
+		.comment_chars = ";#",
 		.octx = octx,
 		.cb = cb,
 		.line = 1,
@@ -152,4 +157,29 @@ ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *oct
 	*buf = z_calloc(src->len, 1);
 
 	return ini_reparse(path, src, *buf, cb, octx);
+}
+
+bool
+keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
+{
+	if (!fs_read_entire_file(path, src)) {
+		return false;
+	}
+
+	*buf = z_calloc(src->len, 1);
+
+	struct each_line_ctx ctx = {
+		.comment_chars = "#",
+		.keyval = true,
+		.octx = octx,
+		.cb = cb,
+		.line = 1,
+		.success = true,
+		.src = *src,
+	};
+
+	memcpy(*buf, ctx.src.src, ctx.src.len);
+
+	each_line(*buf, ctx.src.len, &ctx, each_line_cb);
+	return ctx.success;
 }

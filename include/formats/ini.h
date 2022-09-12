@@ -12,4 +12,5 @@ typedef bool ((*inihcb)(void *ctx, struct source *src, const char *sect, const c
 
 bool ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
 bool ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx);
+bool keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
 #endif

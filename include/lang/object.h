@@ -143,9 +143,10 @@ enum feature_opt_state {
 
 enum module {
 	module_fs,
+	module_keyval,
+	module_pkgconfig,
 	module_python,
 	module_python3,
-	module_pkgconfig,
 
 	// unimplemented
 	module_unimplemented_separator,
@@ -155,7 +156,6 @@ enum module {
 	module_hotdoc,
 	module_i18n,
 	module_java,
-	module_keyval,
 	module_modtest,
 	module_qt,
 	module_qt4,

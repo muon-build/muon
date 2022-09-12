@@ -279,6 +279,12 @@ tests = [
 
     # nasm
     ['nasm/1 configure file'],
+
+    # keyval
+    ['keyval/1 basic'],
+    ['keyval/2 subdir'],
+    ['keyval/3 load_config files'],
+    ['keyval/4 load_config builddir'],
 ]
 
 if dep_dict['samurai']
