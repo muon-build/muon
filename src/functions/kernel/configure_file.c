@@ -628,6 +628,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	} else if (akw[kw_copy].set) {
 		obj input;
+		bool copy_res = false;
 
 		if (!array_to_elem_or_err(wk, akw[kw_input].node, input_arr, &input)) {
 			return false;
@@ -640,15 +641,19 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 		if (!file_exists_with_content(wk, get_cstr(wk, output_str), src.src, src.len)) {
 			if (!fs_write(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
-				fs_source_destroy(&src);
-				return false;
+				goto copy_err;
 			}
-
-			fs_source_destroy(&src);
 
 			if (!fs_copy_metadata(get_file_path(wk, input), get_cstr(wk, output_str))) {
-				return false;
+				goto copy_err;
 			}
+		}
+
+		copy_res = true;
+copy_err:
+		fs_source_destroy(&src);
+		if (!copy_res) {
+			return false;
 		}
 	} else {
 		obj dict, conf = akw[kw_configuration].val;
