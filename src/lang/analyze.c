@@ -375,8 +375,9 @@ pop_scope_group(struct workspace *wk)
 		struct assignment *a = darr_get(base, i), *b;
 
 		if ((b = assign_lookup(wk, a->name))) {
-			if (get_obj_type(wk, b->o) != obj_typeinfo) {
-				b->o = make_typeinfo(wk, obj_type_to_tc_type(get_obj_type(wk, b->o)), 0);
+			type_tag new_type = get_obj_type(wk, b->o);
+			if (new_type != obj_typeinfo) {
+				b->o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
 			}
 
 			merge_types(wk, get_obj_typeinfo(wk, b->o), a->o);

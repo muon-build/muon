@@ -101,6 +101,8 @@ typechecking_type_to_s(struct workspace *wk, type_tag t)
 {
 	if (t == tc_any) {
 		return "any";
+	} else if (t == obj_typechecking_type_tag) {
+		return "null";
 	}
 
 	obj expected_types;

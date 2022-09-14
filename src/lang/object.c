@@ -18,7 +18,11 @@
 type_tag
 obj_type_to_tc_type(enum obj_type t)
 {
-	assert(t && t - 1 < tc_type_count);
+	if (!t) {
+		return obj_typechecking_type_tag;
+	}
+
+	assert(t - 1 < tc_type_count);
 	return (((type_tag)1) << (t - 1)) | obj_typechecking_type_tag;
 }
 
