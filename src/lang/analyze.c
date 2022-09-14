@@ -583,8 +583,6 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 							|| (t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->type == tc_module);
 			bool rcvr_is_module_object = t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->subtype == tc_module;
 
-			L("not found method %d, %d", rcvr_is_not_found_module, rcvr_is_module_object);
-
 			if (rcvr_is_not_found_module || rcvr_is_module_object) {
 				tmp = make_typeinfo(wk, tc_any, tc_module);
 			} else {
@@ -592,8 +590,6 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 				ret = false;
 				tmp = make_typeinfo(wk, tc_any, 0);
 			}
-
-			L("tmp: %d", tmp);
 		}
 		break;
 	}
@@ -627,10 +623,6 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		ret &= analyze_chained(wk, n->d, tmp, res);
 	} else {
 		*res = tmp;
-	}
-
-	if (*res == 2538) {
-		L("returning res!");
 	}
 
 	return ret;
@@ -1145,7 +1137,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
-	L("analyzing node '%s'@%d", node_to_s(n));
+	/* L("analyzing node '%s'@%d", node_to_s(n)); */
 
 	if (wk->loop_ctl) {
 		return true;
