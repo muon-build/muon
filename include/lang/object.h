@@ -147,6 +147,7 @@ enum module {
 	module_pkgconfig,
 	module_python,
 	module_python3,
+	module_sourceset,
 
 	// unimplemented
 	module_unimplemented_separator,
@@ -161,7 +162,6 @@ enum module {
 	module_qt4,
 	module_qt5,
 	module_qt6,
-	module_sourceset,
 	module_unstable_cuda,
 	module_unstable_external_project,
 	module_unstable_icestorm,

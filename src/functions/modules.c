@@ -6,6 +6,7 @@
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/keyval.h"
+#include "functions/modules/sourceset.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "log.h"
@@ -16,6 +17,7 @@ const char *module_names[module_count] = {
 	[module_pkgconfig] = "pkgconfig",
 	[module_python3] = "python3",
 	[module_python] = "python",
+	[module_sourceset] = "sourceset",
 
 	// unimplemented
 	[module_cmake] = "cmake",
@@ -29,7 +31,6 @@ const char *module_names[module_count] = {
 	[module_qt4] = "qt4",
 	[module_qt5] = "qt5",
 	[module_qt6] = "qt6",
-	[module_sourceset] = "sourceset",
 	[module_unstable_cuda] = "unstable-cuda",
 	[module_unstable_external_project] = "unstable-external_project",
 	[module_unstable_icestorm] = "unstable-icestorm",
@@ -72,6 +73,7 @@ static const struct func_impl_name *module_func_tbl[module_count][language_mode_
 	[module_pkgconfig] = { impl_tbl_module_pkgconfig },
 	[module_python3] = { impl_tbl_module_python3 },
 	[module_python] = { impl_tbl_module_python },
+	[module_sourceset] = { impl_tbl_module_sourceset },
 };
 
 const struct func_impl_name *

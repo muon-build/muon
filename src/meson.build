@@ -42,6 +42,7 @@ src = files(
     'functions/modules/keyval.c',
     'functions/modules/pkgconfig.c',
     'functions/modules/python.c',
+    'functions/modules/sourceset.c',
     'functions/number.c',
     'functions/run_result.c',
     'functions/string.c',

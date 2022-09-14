@@ -52,6 +52,7 @@
 #include "functions/modules/keyval.c"
 #include "functions/modules/pkgconfig.c"
 #include "functions/modules/python.c"
+#include "functions/modules/sourceset.c"
 #include "functions/number.c"
 #include "functions/run_result.c"
 #include "functions/string.c"
