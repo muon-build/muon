@@ -716,7 +716,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		kw_dataonly,
 		kw_conflicts,
 	};
-	const enum obj_typechecking_type
+	const type_tag
 		tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target | tc_both_libs,
 		tc_requires = tc_string | tc_build_target | tc_dependency | tc_both_libs;
 

@@ -1689,7 +1689,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, uint32_t glob, obj *res, enum compile_mode mode)
+compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, type_tag glob, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {

@@ -157,7 +157,7 @@ arity_to_s(struct args_norm positional_args[],
 struct typecheck_function_arg_ctx {
 	uint32_t err_node;
 	obj arr;
-	enum obj_type type;
+	type_tag type;
 };
 
 static enum iteration_result
@@ -187,7 +187,7 @@ typecheck_function_arg_check_disabler_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, enum obj_type type)
+typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, type_tag type)
 {
 	if (!disabler_among_args_immunity) {
 		if (*val == disabler_id) {

@@ -10,7 +10,7 @@ typedef obj (*func_impl_rcvr_transform)(struct workspace *wk, obj rcvr);
 struct func_impl_name {
 	const char *name;
 	func_impl func;
-	uint32_t return_type;
+	type_tag return_type;
 	bool pure;
 	func_impl_rcvr_transform rcvr_transform;
 };
@@ -18,8 +18,8 @@ struct func_impl_name {
 extern const struct func_impl_name *kernel_func_tbl[language_mode_count];
 extern const struct func_impl_name *func_tbl[obj_type_count][language_mode_count];
 
-struct args_norm { uint32_t type; obj val, node; bool set; };
-struct args_kw { const char *key; uint32_t type; obj val, node; bool set; bool required; };
+struct args_norm { type_tag type; obj val, node; bool set; };
+struct args_kw { const char *key; type_tag type; obj val, node; bool set; bool required; };
 
 extern bool disabler_among_args_immunity;
 

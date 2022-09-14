@@ -84,9 +84,9 @@ rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_
 }
 
 bool
-typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type)
+typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 {
-	enum obj_type got = get_obj_type(wk, o);
+	type_tag got = get_obj_type(wk, o);
 
 	if (got != type) {
 		LOG_E("expected type %s, got %s", obj_type_to_s(type), obj_type_to_s(got));
@@ -97,7 +97,7 @@ typecheck_simple_err(struct workspace *wk, obj o, enum obj_type type)
 }
 
 const char *
-typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t)
+typechecking_type_to_s(struct workspace *wk, type_tag t)
 {
 	if (t == tc_any) {
 		return "any";
@@ -122,13 +122,13 @@ typechecking_type_to_s(struct workspace *wk, enum obj_typechecking_type t)
 
 static bool
 typecheck_typechecking_type(struct workspace *wk, uint32_t n_id,
-	enum obj_type got, enum obj_typechecking_type type, const char *fmt)
+	type_tag got, type_tag type, const char *fmt)
 {
 	type |= tc_disabler; // always allow disabler type
 
-	uint32_t ot;
+	type_tag ot;
 	for (ot = 1; ot <= tc_type_count; ++ot) {
-		uint32_t tc = obj_type_to_tc_type(ot);
+		type_tag tc = obj_type_to_tc_type(ot);
 		if ((type & tc) != tc) {
 			continue;
 		}
@@ -141,22 +141,22 @@ typecheck_typechecking_type(struct workspace *wk, uint32_t n_id,
 }
 
 bool
-typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type, const char *fmt)
+typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type, const char *fmt)
 {
-	enum obj_type got = get_obj_type(wk, obj_id);
+	type_tag got = get_obj_type(wk, obj_id);
 
 	if (got == obj_typeinfo) {
 		struct obj_typeinfo *ti = get_obj_typeinfo(wk, obj_id);
-		uint32_t got = ti->type;
-		uint32_t t = type;
+		type_tag got = ti->type;
+		type_tag t = type;
 
 		if (!(t & obj_typechecking_type_tag)) {
 			t = obj_type_to_tc_type(type);
 		}
 
-		uint32_t ot;
+		type_tag ot;
 		for (ot = 1; ot <= tc_type_count; ++ot) {
-			uint32_t tc = obj_type_to_tc_type(ot);
+			type_tag tc = obj_type_to_tc_type(ot);
 
 			if ((got & tc) != tc) {
 				continue;
@@ -174,10 +174,10 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 		}
 		return false;
 	} else if ((type & obj_typechecking_type_tag)) {
-		if (!typecheck_typechecking_type(wk, n_id, got, (enum obj_typechecking_type)type, fmt)) {
+		if (!typecheck_typechecking_type(wk, n_id, got, type, fmt)) {
 			if (fmt) {
 				interp_error(wk, n_id, fmt,
-					typechecking_type_to_s(wk, (enum obj_typechecking_type)type),
+					typechecking_type_to_s(wk, type),
 					obj_type_to_s(got));
 			}
 			return false;
@@ -195,14 +195,14 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type 
 }
 
 bool
-typecheck(struct workspace *wk, uint32_t n_id, obj obj_id, enum obj_type type)
+typecheck(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type)
 {
 	return typecheck_custom(wk, n_id, obj_id, type, "expected type %s, got %s");
 }
 
 struct typecheck_iter_ctx {
 	uint32_t err_node;
-	enum obj_type t;
+	type_tag t;
 };
 
 static enum iteration_result
@@ -218,7 +218,7 @@ typecheck_array_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, enum obj_type type)
+typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, type_tag type)
 {
 	if (!typecheck(wk, n_id, arr, obj_array)) {
 		return false;
@@ -243,7 +243,7 @@ typecheck_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 }
 
 bool
-typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, enum obj_type type)
+typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, type_tag type)
 {
 	if (!typecheck(wk, n_id, dict, obj_dict)) {
 		return false;
@@ -256,7 +256,7 @@ typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, enum obj_type type
 }
 
 void
-assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id)
+assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id)
 {
 	hash_set_str(&current_project(wk)->scope, name, o);
 }
@@ -297,7 +297,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, obj *res)
 		return false;
 	}
 
-	enum obj_type t = get_obj_type(wk, l_id);
+	type_tag t = get_obj_type(wk, l_id);
 
 	switch (t) {
 	case obj_disabler:

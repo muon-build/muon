@@ -15,11 +15,11 @@
 #include "platform/mem.h"
 #include "tracy.h"
 
-uint32_t
+type_tag
 obj_type_to_tc_type(enum obj_type t)
 {
 	assert(t && t - 1 < tc_type_count);
-	return (1 << (t - 1)) | obj_typechecking_type_tag;
+	return (((type_tag)1) << (t - 1)) | obj_typechecking_type_tag;
 }
 
 static void *

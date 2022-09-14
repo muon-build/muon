@@ -64,7 +64,7 @@ inspect_typeinfo(struct workspace *wk, obj t)
 }
 
 static obj
-make_typeinfo(struct workspace *wk, uint32_t t, uint32_t sub_t)
+make_typeinfo(struct workspace *wk, type_tag t, type_tag sub_t)
 {
 	assert(t & obj_typechecking_type_tag);
 	if (sub_t) {
@@ -82,7 +82,7 @@ make_typeinfo(struct workspace *wk, uint32_t t, uint32_t sub_t)
 static void
 merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 {
-	enum obj_type t = get_obj_type(wk, r);
+	type_tag t = get_obj_type(wk, r);
 	if (t == obj_typeinfo) {
 		a->type |= get_obj_typeinfo(wk, r)->type;
 	} else {
@@ -91,8 +91,8 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 }
 
 struct analyze_ctx {
-	uint32_t expected;
-	uint32_t found;
+	type_tag expected;
+	type_tag found;
 	const struct func_impl_name *found_func;
 	struct obj_typeinfo ti;
 	enum comparison_type comparison_type;
@@ -100,15 +100,15 @@ struct analyze_ctx {
 };
 
 typedef void ((analyze_for_each_type_cb)(struct workspace *wk,
-	struct analyze_ctx *ctx, uint32_t n_id, enum obj_type t, obj *res));
+	struct analyze_ctx *ctx, uint32_t n_id, type_tag t, obj *res));
 
 static void
 analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id,
-	obj o, uint32_t typemask, analyze_for_each_type_cb cb, obj *res)
+	obj o, type_tag typemask, analyze_for_each_type_cb cb, obj *res)
 {
 	obj r = 0;
 
-	uint32_t t;
+	type_tag t;
 	if ((t = get_obj_type(wk, o)) == obj_typeinfo) {
 		t = get_obj_typeinfo(wk, o)->type;
 	}
@@ -129,9 +129,9 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 			t &= typemask;
 		}
 
-		uint32_t ot;
+		type_tag ot;
 		for (ot = 1; ot <= tc_type_count; ++ot) {
-			uint32_t tc = obj_type_to_tc_type(ot);
+			type_tag tc = obj_type_to_tc_type(ot);
 
 			if ((t & tc) == tc) {
 				r = 0;
@@ -481,7 +481,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
 static void
-analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type rcvr_type, obj *res)
+analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag rcvr_type, obj *res)
 {
 	struct node *n = get_node(wk->ast, n_id);
 
@@ -519,7 +519,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enu
 }
 
 static void
-analyze_index(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_index(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag lhs, obj *res)
 {
 	switch (lhs) {
 	case obj_disabler:
@@ -577,10 +577,12 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		} else if (!ctx.found) {
 			analyze_all_function_arguments(wk, n_id, n->c);
 
-			enum obj_type t = get_obj_type(wk, l_id);
+			type_tag t = get_obj_type(wk, l_id);
 			bool rcvr_is_not_found_module = (t == obj_module && !get_obj_module(wk, l_id)->found)
 							|| (t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->type == tc_module);
 			bool rcvr_is_module_object = t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->subtype == tc_module;
+
+			L("not found method %d, %d", rcvr_is_not_found_module, rcvr_is_module_object);
 
 			if (rcvr_is_not_found_module || rcvr_is_module_object) {
 				tmp = make_typeinfo(wk, tc_any, tc_module);
@@ -589,6 +591,8 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 				ret = false;
 				tmp = make_typeinfo(wk, tc_any, 0);
 			}
+
+			L("tmp: %d", tmp);
 		}
 		break;
 	}
@@ -601,7 +605,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		}
 
 		struct analyze_ctx ctx = { 0 };
-		const uint32_t tc_lhs = tc_string | tc_custom_target | tc_dict | tc_array;
+		const type_tag tc_lhs = tc_string | tc_custom_target | tc_dict | tc_array;
 
 		if (typecheck(wk, n->l, l_id, tc_lhs)) {
 			analyze_for_each_type(wk, &ctx, n_id, l_id, tc_lhs, analyze_index, &tmp);
@@ -622,6 +626,10 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		ret &= analyze_chained(wk, n->d, tmp, res);
 	} else {
 		*res = tmp;
+	}
+
+	if (*res == 2538) {
+		L("returning res!");
 	}
 
 	return ret;
@@ -684,7 +692,7 @@ analyze_u_minus(struct workspace *wk, struct node *n, obj *res)
 }
 
 static void
-analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag lhs, obj *res)
 {
 	switch (lhs) {
 	case obj_string: {
@@ -755,7 +763,7 @@ analyze_arithmetic(struct workspace *wk, uint32_t err_node,
 	}
 
 	struct analyze_ctx ctx = { 0 };
-	uint32_t tc_lhs = tc_disabler;
+	type_tag tc_lhs = tc_disabler;
 
 	switch (type) {
 	case arith_add:
@@ -838,7 +846,7 @@ analyze_andor(struct workspace *wk, struct node *n, obj *res)
 }
 
 static void
-analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, enum obj_type lhs, obj *res)
+analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag lhs, obj *res)
 {
 	switch (ctx->comparison_type) {
 	case comp_equal:
@@ -876,7 +884,7 @@ analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 	}
 
 	struct analyze_ctx ctx = { .comparison_type = n->subtype };
-	uint32_t tc_lhs;
+	type_tag tc_lhs;
 
 	switch ((enum comparison_type)n->subtype) {
 	case comp_equal:
@@ -1012,7 +1020,7 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	struct node *args = get_node(wk->ast, n->l);
-	uint32_t t = get_obj_type(wk, iterable);
+	type_tag t = get_obj_type(wk, iterable);
 	if (t == obj_typeinfo) {
 		t = get_obj_typeinfo(wk, iterable)->type & (tc_array | tc_dict);
 	} else {
@@ -1136,7 +1144,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
-	/* L("analyzing node '%s'", node_to_s(n)); */
+	L("analyzing node '%s'@%d", node_to_s(n));
 
 	if (wk->loop_ctl) {
 		return true;
