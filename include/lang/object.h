@@ -123,10 +123,6 @@ struct obj_typeinfo {
 	type_tag type, subtype;
 };
 
-#if __STDC_VERSION__ >= 201112L
-_Static_assert(!(ARG_TYPE_NULL & ARG_TYPE_GLOB), "ARG_TYPE_NULL to big");
-#endif
-
 enum tgt_type {
 	tgt_executable = 1 << 0,
 	tgt_static_library = 1 << 1,
