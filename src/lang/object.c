@@ -67,6 +67,8 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_alias_target:
 	case obj_both_libs:
 	case obj_typeinfo:
+	case obj_source_set:
+	case obj_source_configuration:
 		return bucket_array_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
 	case obj_null:
@@ -332,6 +334,8 @@ obj_type_to_s(enum obj_type t)
 	case obj_alias_target: return "alias_target";
 	case obj_both_libs: return "both_libs";
 	case obj_typeinfo: return "typeinfo";
+	case obj_source_set: return "source_set";
+	case obj_source_configuration: return "source_configuration";
 
 	case obj_type_count:
 		assert(false); return "uh oh";

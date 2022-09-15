@@ -55,6 +55,8 @@
 #include "functions/modules/sourceset.c"
 #include "functions/number.c"
 #include "functions/run_result.c"
+#include "functions/source_configuration.c"
+#include "functions/source_set.c"
 #include "functions/string.c"
 #include "functions/subproject.c"
 #include "guess.c"

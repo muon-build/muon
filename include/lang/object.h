@@ -45,6 +45,8 @@ enum obj_type {
 	obj_generated_list,
 	obj_alias_target,
 	obj_both_libs,
+	obj_source_set,
+	obj_source_configuration,
 	obj_typeinfo,
 
 	obj_type_count,
@@ -86,7 +88,9 @@ typedef uint64_t type_tag;
 #define tc_generated_list     (obj_typechecking_type_tag | (((type_tag)1) << 25))
 #define tc_alias_target       (obj_typechecking_type_tag | (((type_tag)1) << 26))
 #define tc_both_libs          (obj_typechecking_type_tag | (((type_tag)1) << 27))
-#define tc_type_count         28
+#define tc_source_set         (obj_typechecking_type_tag | (((type_tag)1) << 28))
+#define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 29))
+#define tc_type_count         30
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
@@ -96,7 +100,7 @@ typedef uint64_t type_tag;
 			       | tc_install_target | tc_environment | tc_include_directory \
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
-			       | tc_meson | tc_machine)
+			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration)
 
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs)
 
@@ -118,6 +122,8 @@ struct obj_typechecking_type_to_obj_type {
 	enum obj_type type;
 	type_tag tc;
 };
+
+/* start of object structs */
 
 struct obj_typeinfo {
 	type_tag type, subtype;
@@ -452,6 +458,16 @@ struct obj_generated_list {
 	obj preserve_path_from; // obj_string
 };
 
+struct obj_source_set {
+	obj v;
+};
+
+struct obj_source_configuration {
+	obj v;
+};
+
+/* end of object structs */
+
 struct obj_clear_mark {
 	uint32_t obji;
 	struct bucket_array_save objs, chrs;
@@ -498,6 +514,8 @@ OBJ_GETTER(obj_generated_list);
 OBJ_GETTER(obj_alias_target);
 OBJ_GETTER(obj_both_libs);
 OBJ_GETTER(obj_typeinfo);
+OBJ_GETTER(obj_source_set);
+OBJ_GETTER(obj_source_configuration);
 
 #undef OBJ_GETTER
 

@@ -25,6 +25,8 @@
 #include "functions/modules.h"
 #include "functions/number.h"
 #include "functions/run_result.h"
+#include "functions/source_configuration.h"
+#include "functions/source_set.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
@@ -599,6 +601,8 @@ const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_disabler] = { impl_tbl_disabler, impl_tbl_disabler },
 	[obj_generator] = { impl_tbl_generator, },
 	[obj_both_libs] = { impl_tbl_both_libs, },
+	[obj_source_set] = { impl_tbl_source_set, },
+	[obj_source_configuration] = { impl_tbl_source_configuration, },
 };
 
 void
