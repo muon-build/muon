@@ -459,11 +459,12 @@ struct obj_generated_list {
 };
 
 struct obj_source_set {
-	obj v;
+	obj rules;
+	bool frozen;
 };
 
 struct obj_source_configuration {
-	obj v;
+	obj sources, dependencies;
 };
 
 /* end of object structs */

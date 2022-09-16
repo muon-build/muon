@@ -12,7 +12,7 @@ func_source_configuration_sources(struct workspace *wk, obj rcvr, uint32_t args_
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = get_obj_source_configuration(wk, rcvr)->sources;
 	return true;
 }
 
@@ -23,7 +23,7 @@ func_source_configuration_dependencies(struct workspace *wk, obj rcvr, uint32_t 
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = get_obj_source_configuration(wk, rcvr)->dependencies;
 	return true;
 }
 

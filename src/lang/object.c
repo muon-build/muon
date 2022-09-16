@@ -191,6 +191,8 @@ OBJ_GETTER(obj_generated_list)
 OBJ_GETTER(obj_alias_target)
 OBJ_GETTER(obj_both_libs)
 OBJ_GETTER(obj_typeinfo)
+OBJ_GETTER(obj_source_set)
+OBJ_GETTER(obj_source_configuration)
 
 #undef OBJ_GETTER
 
@@ -233,6 +235,8 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_generated_list:
 	case obj_alias_target:
 	case obj_both_libs:
+	case obj_source_set:
+	case obj_source_configuration:
 	case obj_typeinfo:
 	{
 		struct bucket_array *ba = &wk->obj_aos[type - _obj_aos_start];
