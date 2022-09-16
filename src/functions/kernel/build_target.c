@@ -50,6 +50,7 @@ enum build_target_kwargs {
 	bt_kw_implib, // TODO
 	bt_kw_gui_app, // TODO
 	bt_kw_link_language, // TODO
+	bt_kw_win_subsystem, // TODO
 	bt_kw_override_options,
 
 	/* lang args */
@@ -736,6 +737,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_implib] = { "implib", obj_bool },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
+		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
 		[bt_kw_override_options] = { "override_options", ARG_TYPE_ARRAY_OF | obj_string },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
