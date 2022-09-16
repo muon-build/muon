@@ -39,6 +39,11 @@ shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 	const char *s;
 	bool do_esc = false;
 
+	if (!*str) {
+		sbuf_pushs(wk, sb, "''");
+		return;
+	}
+
 	for (s = str; *s; ++s) {
 		if (strchr(need_escaping, *s)) {
 			do_esc = true;
