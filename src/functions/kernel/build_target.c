@@ -488,6 +488,10 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			if (!coerce_files(wk, akw[bt_kw_objects].node, akw[bt_kw_objects].val, &tgt->objects)) {
 				return false;
 			}
+
+			obj deduped;
+			obj_array_dedup(wk, tgt->objects, &deduped);
+			tgt->objects = deduped;
 		} else {
 			make_obj(wk, &tgt->objects, obj_array);
 		}
