@@ -40,12 +40,17 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 		{ NULL }
 	};
 
-	obj buildtype;
-	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype);
+	obj buildtype_opt_id, buildtype;
+	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &WKSTR("buildtype"), &buildtype_opt_id);
+	struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
+	buildtype = buildtype_opt->val;
 
 	const char *str = get_cstr(wk, buildtype);
 
-	if (strcmp(str, "custom") == 0) {
+	bool use_custom = (strcmp(str, "custom") == 0)
+			  || (buildtype_opt->source <= option_value_source_default);
+
+	if (use_custom) {
 		obj optimization_id, debug_id;
 
 		get_option_value_for_tgt(wk, proj, tgt, "optimization", &optimization_id);
