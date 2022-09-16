@@ -260,7 +260,7 @@ source_set_collect_rules_iter(struct workspace *wk, void *_ctx, obj v)
 		obj_array_foreach_flat(wk, if_true, ctx, source_set_collect_iter);
 	}
 
-	if (!ctx->match && if_false) {
+	if ((!ctx->conf || !ctx->match) && if_false) {
 		obj_array_foreach_flat(wk, if_false, ctx, source_set_collect_iter);
 	}
 	return ir_cont;
