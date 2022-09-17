@@ -1934,14 +1934,14 @@ const struct func_impl_name impl_tbl_kernel_internal[] = {
 	{ "join_paths", func_join_paths },
 	{ "message", func_message },
 	{ "range", func_range },
-	{ "run_command", func_run_command },
+	{ "run_command", func_run_command, .fuzz_unsafe = true },
 	{ "set_variable", func_set_variable },
 	{ "warning", func_warning },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
 	{ "p", func_p },
 	{ "serial_load", func_serial_load },
-	{ "serial_dump", func_serial_dump },
+	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
 	{ NULL, NULL },
 };
 

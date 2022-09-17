@@ -33,6 +33,12 @@
 #include "log.h"
 #include "tracy.h"
 
+// When true, disable functions with the .fuzz_unsafe attribute set to true.
+// This is useful when running `muon internal eval` on randomly generated
+// files, where you don't want to accidentally execute `run_command('rm',
+// '-rf', '/')` for example
+bool disable_fuzz_unsafe_functions = false;
+
 // HACK: this is pretty terrible, but the least intrusive way to handle
 // disablers in function arguments as they are currently implemented.  When
 // interp_args sees a disabler, it sets this flag, and "fails".  In the
@@ -624,6 +630,19 @@ func_lookup(const struct func_impl_name *impl_tbl, const char *name)
 	return NULL;
 }
 
+const char *
+func_name_str(bool have_rcvr, enum obj_type rcvr_type, const char *name)
+{
+	static char buf[256];
+	if (have_rcvr) {
+		snprintf(buf, 256, "method %s.%s()", obj_type_to_s(rcvr_type), name);
+	} else {
+		snprintf(buf, 256, "function %s()", name);
+	}
+
+	return buf;
+}
+
 bool
 builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res)
 {
@@ -672,13 +691,13 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 					);
 				return false;
 			} else {
-				interp_error(wk, name_node, "function %s() not found in module %s", name, module_names[mod]);
+				interp_error(wk, name_node, "%s not found in module %s", func_name_str(false, 0, name), module_names[mod]);
 				return false;
 			}
 		}
 	} else {
 		if (!impl_tbl) {
-			interp_error(wk, name_node,  "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
+			interp_error(wk, name_node, "%s not found", func_name_str(true, rcvr_type, name));
 			return false;
 		}
 
@@ -688,13 +707,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 				return true;
 			}
 
-			if (have_rcvr) {
-				interp_error(wk, name_node, "method %s.%s() not found", obj_type_to_s(rcvr_type), name);
-			} else {
-				interp_error(wk, name_node, "function %s() not found", name);
-			}
+			interp_error(wk, name_node, "%s not found", func_name_str(have_rcvr, rcvr_type, name));
 			return false;
 		}
+	}
+
+	if (fi->fuzz_unsafe && disable_fuzz_unsafe_functions) {
+		interp_error(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name));
+		return false;
 	}
 
 	if (have_rcvr && fi->rcvr_transform) {
@@ -703,14 +723,10 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 
 	TracyCZoneC(tctx_func, 0xff5000, true);
 #ifdef TRACY_ENABLE
-	char buf[256] = { 0 };
-	if (have_rcvr) {
-		snprintf(buf, 256, "%s.%s()", obj_type_to_s(rcvr_type), name);
-	} else {
-		snprintf(buf, 256, "%s()", name);
-	}
-	TracyCZoneName(tctx_func, buf, strlen(buf));
+	const char *func_name = func_name_str(have_rcvr, rcvr_type, name);
+	TracyCZoneName(tctx_func, func_name, strlen(func_name));
 #endif
+
 	bool func_res = fi->func(wk, rcvr_id, args_node, res);
 	TracyCZoneEnd(tctx_func);
 
@@ -720,11 +736,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			disabler_among_args = false;
 			return true;
 		} else {
-			if (have_rcvr) {
-				interp_error(wk, name_node, "in method %s.%s()", obj_type_to_s(rcvr_type), name);
-			} else {
-				interp_error(wk, name_node, "in function %s()",  name);
-			}
+			interp_error(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name));
 			return false;
 		}
 	}

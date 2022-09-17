@@ -568,6 +568,6 @@ const struct func_impl_name impl_tbl_module_fs_internal[] = {
 	{ "make_absolute", func_module_fs_make_absolute },
 	{ "relative_to", func_module_fs_relative_to },
 	{ "without_ext", func_module_fs_without_ext },
-	{ "write", func_module_fs_write },
+	{ "write", func_module_fs_write, .fuzz_unsafe = true },
 	{ NULL, NULL },
 };

@@ -12,6 +12,7 @@
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
+#include "functions/common.h"
 #include "lang/analyze.h"
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
@@ -513,11 +514,13 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *filename;
 	bool embedded = false;
 
-	OPTSTART("e") {
+	OPTSTART("es") {
 		case 'e':
 			embedded = true;
 			break;
-	} OPTEND(argv[argi], " <filename> [args]", "", NULL, -1)
+		case 's':
+			disable_fuzz_unsafe_functions = true;
+			break;
 
 	if (argi >= argc) {
 		LOG_E("missing required filename argument");
