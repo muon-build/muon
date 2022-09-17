@@ -91,7 +91,12 @@ func_array_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	obj_array_del(wk, rcvr, get_obj_number(wk, an[0].val));
+	int64_t idx = get_obj_number(wk, an[0].val);
+	if (!boundscheck(wk, an[0].node, get_obj_array(wk, rcvr)->len, &idx)) {
+		return false;
+	}
+
+	obj_array_del(wk, rcvr, idx);
 	return true;
 }
 
