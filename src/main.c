@@ -521,6 +521,11 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 		case 's':
 			disable_fuzz_unsafe_functions = true;
 			break;
+	} OPTEND(argv[argi], " <filename> [args]",
+		"  -e - lookup <filename> as an embedded script\n"
+		"  -s - disable functions that are unsafe to be called at random\n",
+		NULL, -1)
+
 
 	if (argi >= argc) {
 		LOG_E("missing required filename argument");

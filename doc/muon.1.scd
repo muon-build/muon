@@ -134,13 +134,20 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *repl* - start a _meson dsl_ repl
 
 ## internal eval
-	*muon* *internal* *eval* <filename> [<args>]
+	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]
 
 	Interpret a _source file_.  The interpreter environment is
 	substantially different from the typical environment during *setup*.
 	Build related functions are unavailable, as well as many other
 	functions including *subdir*.  Additionally, the variable *argv* is
 	defined as an array containing the commandline starting at <filename>.
+
+	*OPTIONS*:
+	- *-e* - lookup <filename> as an embedded script
+	- *-s* - disable functions that are unsafe to be called at random,
+	particularly `run_command()`.  The motivation for this flag is so that
+	automated fuzz testing can be used without accidentally executing
+	something like `run_command('rm', '-rf', '/')`.
 
 ## internal exe
 	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] [*-e*
