@@ -20,7 +20,7 @@ struct parser {
 	struct tokens *toks;
 	struct token *last_last, *last;
 	struct ast *ast;
-	uint32_t token_i, loop_depth;
+	uint32_t token_i, loop_depth, parse_depth;
 	bool caused_effect, valid, preserve_fmt_eol;
 
 	enum parse_mode mode;
@@ -924,20 +924,27 @@ parse_e2(struct parser *p, uint32_t *id)
 static bool
 parse_expr(struct parser *p, uint32_t *id)
 {
+	bool ret = false;
 	uint32_t l_id = 0; // compiler thinks this won't get initialized...
+
+	if (++p->parse_depth > 4096) {
+		parse_error(p, NULL, "stack overflow while parsing nested expression");
+		goto ret;
+	}
+
 	if (!(parse_e2(p, &l_id))) {
-		return false;
+		goto ret;
 	}
 
 	if (accept(p, tok_question_mark)) {
 		uint32_t a, b;
 
 		if (!(parse_expr(p, &a))) {
-			return false;
+			goto ret;
 		} else if (!expect(p, tok_colon)) {
-			return false;
+			goto ret;
 		} else if (!(parse_expr(p, &b))) {
-			return false;
+			goto ret;
 		}
 
 		/* NOTE: a bare ?: is actually valid in meson, none of the
@@ -947,13 +954,13 @@ parse_expr(struct parser *p, uint32_t *id)
 		 */
 		if (get_node(p->ast, l_id)->type == node_empty) {
 			parse_error(p, NULL, "missing condition expression");
-			return false;
+			goto ret;
 		} else if (get_node(p->ast, a)->type == node_empty) {
 			parse_error(p, NULL, "missing true expression");
-			return false;
+			goto ret;
 		} else if (get_node(p->ast, b)->type == node_empty) {
 			parse_error(p, NULL, "missing false expression");
-			return false;
+			goto ret;
 		}
 
 		make_node(p, id, node_ternary);
@@ -964,7 +971,10 @@ parse_expr(struct parser *p, uint32_t *id)
 		*id = l_id;
 	}
 
-	return true;
+	ret = true;
+ret:
+	--p->parse_depth;
+	return ret;
 }
 
 static bool
