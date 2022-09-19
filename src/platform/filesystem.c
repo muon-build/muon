@@ -537,21 +537,32 @@ static bool
 fs_copy_link(const char *src, const char *dest)
 {
 	bool res = false;
-	SBUF_manual(buf);
 	ssize_t n;
-	while ((n = readlink(src, buf.buf, buf.cap)) != -1 && (uint32_t)n >= buf.cap) {
-		sbuf_grow(NULL, &buf, buf.cap);
+	char *buf;
+
+	struct stat st;
+	if (!fs_lstat(src, &st)) {
+		return false;
 	}
 
+	if (!S_ISLNK(st.st_mode)) {
+		return false;
+	}
+
+	// TODO: allow pseudo-files?
+	assert(st.st_size > 0);
+
+	buf = z_malloc(st.st_size + 1);
+	n = readlink(src, buf, st.st_size);
 	if (n == -1) {
 		LOG_E("readlink('%s') failed: %s", src, strerror(errno));
 		goto ret;
 	}
 
-	buf.buf[n] = '\0';
-	res = fs_make_symlink(buf.buf, dest, true);
+	buf[n] = '\0';
+	res = fs_make_symlink(buf, dest, true);
 ret:
-	sbuf_destroy(&buf);
+	z_free(buf);
 	return res;
 }
 
