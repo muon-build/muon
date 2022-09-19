@@ -94,6 +94,7 @@ lex_error(struct lexer *l, const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	struct token *last_tok = darr_get(&l->toks->tok, l->toks->tok.len - 1);
+
 	error_messagev(l->source, last_tok->line, last_tok->col, log_error, fmt, args);
 	va_end(args);
 }
@@ -119,6 +120,10 @@ tok_to_s(struct token *token)
 static void
 advance(struct lexer *l)
 {
+	if (l->i >= l->source->len) {
+		return;
+	}
+
 	if (l->src[l->i] == '\n') {
 		++l->line;
 		l->line_start = l->i + 1;
@@ -377,6 +382,10 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 	struct token *token = *tok;
 	char *str = *string;
 
+	if (lexer->i >= lexer->source->len) {
+		return lex_fail;
+	}
+
 	switch (lexer->src[lexer->i]) {
 	case '\n':
 		if (multiline) {
@@ -626,8 +635,9 @@ lex_string(struct lexer *lexer, struct token *token, bool fstring)
 			break;
 		case lex_fail: {
 			bool terminated = false;
-			while (lexer->src[lexer->i] &&
-			       (multiline || (!multiline && lexer->src[lexer->i] != '\n'))) {
+			while (lexer->i < lexer->source->len
+			       && lexer->src[lexer->i]
+			       && (multiline || (!multiline && lexer->src[lexer->i] != '\n'))) {
 				if (lexer->src[lexer->i] == '\'') {
 					++quotes;
 					if ((multiline && quotes == 3) || (!multiline && quotes)) {

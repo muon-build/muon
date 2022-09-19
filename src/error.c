@@ -298,16 +298,19 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 		log_plain(" ");
 	}
 
-	for (i = 0; i < col; ++i) {
-		for (i = 0; i < col; ++i) {
-			if (src->src[sol + i] == '\t') {
-				log_plain("        ");
-			} else {
-				log_plain(i == col - 1 ? "^" : " ");
-			}
-		}
-		log_plain("\n");
+	if (sol + col >= src->len) {
+		log_plain("^\n");
+		return;
 	}
+
+	for (i = 0; i < col; ++i) {
+		if (src->src[sol + i] == '\t') {
+			log_plain("        ");
+		} else {
+			log_plain(i == col - 1 ? "^" : " ");
+		}
+	}
+	log_plain("\n");
 }
 
 void

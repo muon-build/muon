@@ -467,8 +467,19 @@ func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
+	const char *p1 = get_cstr(wk, an[0].val),
+		   *p2 = get_cstr(wk, an[1].val);
+
+	if (!path_is_absolute(p1)) {
+		interp_error(wk, an[0].node, "base path '%s' is not absolute", p1);
+		return false;
+	} else if (!path_is_absolute(p2)) {
+		interp_error(wk, an[1].node, "path '%s' is not absolute", p2);
+		return false;
+	}
+
 	SBUF(path);
-	path_relative_to(wk, &path, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val));
+	path_relative_to(wk, &path, p1, p2);
 	*res = sbuf_into_str(wk, &path);
 	return true;
 }
