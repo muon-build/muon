@@ -53,7 +53,9 @@ get_cstr(struct workspace *wk, obj s)
 
 	const struct str *ss = get_str(wk, s);
 
-	assert(!str_has_null(ss) && "cstr can not contain null bytes");
+	if (str_has_null(ss)) {
+		error_unrecoverable("cstr can not contain null bytes");
+	}
 
 	return ss->s;
 }

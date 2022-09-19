@@ -1139,6 +1139,11 @@ obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, obj key, obj val)
 bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
+	if (val >= wk_src->objs.len) {
+		LOG_E("invalid object");
+		return false;
+	}
+
 	enum obj_type t = get_obj_type(wk_src, val);
 	/* L("cloning %s", obj_type_to_s(t)); */
 

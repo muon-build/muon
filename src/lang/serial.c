@@ -14,6 +14,14 @@ static const char serial_magic[SERIAL_MAGIC_LEN] = "muondump";
 static const uint32_t serial_version = 7;
 
 static bool
+corrupted_dump(void)
+{
+	LOG_E("unable to load corrupted serial dump");
+	return false;
+}
+
+
+static bool
 dump_uint32(uint32_t v, FILE *f)
 {
 	return fs_fwrite(&v, sizeof(uint32_t), f);
@@ -68,6 +76,8 @@ load_bucket_array(struct bucket_array *ba, FILE *f)
 	uint32_t i;
 	struct bucket b = { 0 };
 
+	assert(ba->len == 0);
+
 	if (!load_uint32(&buckets_len, f)) {
 		return false;
 	}
@@ -79,14 +89,25 @@ load_bucket_array(struct bucket_array *ba, FILE *f)
 		init_bucket(ba, &b);
 
 		if (!load_uint32(&b.len, f)) {
-			return false;
+			goto done;
 		}
 
+		if (b.len > ba->bucket_size) {
+			corrupted_dump();
+			goto done;
+		}
+
+		ba->len += b.len;
+
 		if (!fs_fread(b.mem, ba->item_size * b.len, f)) {
-			return false;
+			goto done;
 		}
 
 		darr_push(&ba->buckets, &b);
+		continue;
+done:
+		z_free(b.mem);
+		return corrupted_dump();
 	}
 
 	return true;
@@ -185,7 +206,10 @@ load_big_strings(struct workspace *wk, struct big_string_table *bst, FILE *f)
 	}
 
 	if (len) {
-		assert(len < UINT32_MAX);
+		if (len > UINT32_MAX) {
+			return corrupted_dump();
+		}
+
 		buf = z_calloc(1, len);
 		if (!fs_fread(buf, len, f)) {
 			return false;
@@ -210,7 +234,9 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 {
 	assert(src->flags & str_flag_big);
 
-	assert(src->s < bst->len && "invalid big_string");
+	if (src->s >= bst->len) {
+		return corrupted_dump();
+	}
 
 	char *buf = z_calloc(1, src->len + 1);
 	memcpy(buf, &bst->data[src->s], src->len);
@@ -323,6 +349,10 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 			continue;
 		}
 
+		if (type_tag >= obj_type_count) {
+			return corrupted_dump();
+		}
+
 		ba = &wk->obj_aos[type_tag - _obj_aos_start];
 		o->val = ba->len;
 		bucket_array_pushn(ba, NULL, 0, 1);
@@ -339,6 +369,13 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 					return false;
 				}
 			} else {
+				uint32_t bucket_i = ser_s.s % wk->chrs.bucket_size,
+					 buckets_i = ser_s.s / wk->chrs.bucket_size;
+				if (buckets_i > wk->chrs.buckets.len
+				    || bucket_i > ((struct bucket *)(darr_get(&wk->chrs.buckets, buckets_i)))->len) {
+					return corrupted_dump();
+				}
+
 				*ss = (struct str){
 					.s = bucket_array_get(&wk->chrs, ser_s.s),
 					.len = ser_s.len,
@@ -408,6 +445,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	/* obj_fprintf(&wk_src, log_file(), "loaded %o\n", obj_src); */
 
 	if (!obj_clone(&wk_src, wk, obj_src, res)) {
+		corrupted_dump();
 		goto ret;
 	}
 
