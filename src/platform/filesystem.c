@@ -548,7 +548,7 @@ fs_copy_link(const char *src, const char *dest)
 		goto ret;
 	}
 
-
+	buf.buf[n] = '\0';
 	res = fs_make_symlink(buf.buf, dest, true);
 ret:
 	sbuf_destroy(&buf);
