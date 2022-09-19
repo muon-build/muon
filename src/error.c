@@ -203,12 +203,24 @@ void
 error_unrecoverable(const char *fmt, ...)
 {
 	va_list ap;
+
+	if (log_clr()) {
+		log_plain("\033[31m");
+	}
+
+	log_plain("fatal error");
+
+	if (log_clr()) {
+		log_plain("\033[0m");
+	}
+
+	log_plain(": ");
 	va_start(ap, fmt);
 	log_plainv(fmt, ap);
 	log_plain("\n");
 	va_end(ap);
 
-	abort();
+	exit(1);
 }
 
 static bool
