@@ -1807,7 +1807,9 @@ func_serial_load(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	coerce_string(wk, an[0].node, an[0].val, &str);
 
 	FILE *f;
-	if (!(f = fs_fopen(get_cstr(wk, str), "rb"))) {
+	if (str_eql(get_str(wk, str), &WKSTR("-"))) {
+		f = stdin;
+	} else if (!(f = fs_fopen(get_cstr(wk, str), "rb"))) {
 		return false;
 	}
 
