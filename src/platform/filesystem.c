@@ -538,7 +538,7 @@ fs_copy_link(const char *src, const char *dest)
 {
 	bool res = false;
 	SBUF_manual(buf);
-	int n;
+	ssize_t n;
 	while ((n = readlink(src, buf.buf, buf.cap)) != -1 && (uint32_t)n >= buf.cap) {
 		sbuf_grow(NULL, &buf, buf.cap);
 	}
