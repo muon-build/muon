@@ -7,7 +7,7 @@ foreach s : [
     'vcs_tagger.meson',
 ]
     scripts_input += s
-    scripts_cmdline += files(s) + s
+    scripts_cmdline += files(s) + [s]
 endforeach
 
 script_sources = custom_target(
