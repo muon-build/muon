@@ -1,0 +1,23 @@
+s = 'asfdghijkl'
+n = 1099511628211
+
+alpha = 'abcdefghijklmnopqrstuvwxyz123456789'
+
+dict = {}
+arr = []
+foreach x : range(100)
+    s = ''
+    foreach _ : range(16)
+        n = n * 1099511628211
+        v = n % 35
+        r = v < 0 ? -v : v
+        s += alpha[v]
+    endforeach
+    if r % 2 == 0
+        arr += s
+    else
+        arr += {s: n}
+    endif
+endforeach
+
+serial_dump(argv[1], arr)

@@ -1,0 +1,2 @@
+obj = serial_load('-')
+serial_dump('/dev/null', obj)
