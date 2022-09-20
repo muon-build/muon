@@ -204,11 +204,6 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
 		goto detection_over;
 	}
 
-	char *p;
-	if ((p = strchr(cmd_ctx.out.buf, '\n'))) {
-		*p = 0;
-	}
-
 	if (!guess_version(wk, cmd_ctx.out.buf, &ver)) {
 		ver = make_str(wk, "unknown");
 	}

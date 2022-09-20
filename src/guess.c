@@ -3,41 +3,40 @@
 #include <assert.h>
 
 #include "guess.h"
+#include "log.h"
 
 bool
 guess_version(struct workspace *wk, const char *src, obj *res)
 {
-	bool got_dot = false;
+	uint32_t dots = 0, ver_len = 0, new_len, new_dots;
+	const char *p, *ver = NULL;
 
-	const char *ver, *ver_end = NULL;
-	for (ver = src; *ver; ++ver) {
-		ver_end = ver;
-		got_dot = false;
-		while (('0' <= *ver_end && *ver_end <= '9') || *ver_end == '.') {
-			if (*ver_end == '.') {
-				got_dot = true;
+	for (p = src; *p; ++p) {
+		new_len = 0;
+		new_dots = 0;
+		while (('0' <= p[new_len] && p[new_len] <= '9') || p[new_len] == '.') {
+			if (p[new_len] == '.') {
+				++new_dots;
 			}
-			++ver_end;
+			++new_len;
 		}
 
-		if (ver != ver_end && got_dot) {
-			break;
+		if (new_dots > dots) {
+			ver = p;
+			dots = new_dots;
+			ver_len = new_len;
+		}
+
+		if (new_len) {
+			p += new_len - 1;
 		}
 	}
 
-	if (!ver_end) {
+	if (!ver) {
 		return false;
 	}
 
-	assert(ver_end >= ver);
-
-	uint32_t len = ver_end - ver;
-
-	if (len) {
-		obj s = make_strn(wk, ver, len);
-		*res = s;
-		return true;
-	} else {
-		return false;
-	}
+	obj s = make_strn(wk, ver, ver_len);
+	*res = s;
+	return true;
 }
