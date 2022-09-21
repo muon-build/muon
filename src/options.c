@@ -70,11 +70,8 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 
 	val = cur;
 
-	if (!val.len) {
+	if (!key.len) {
 		LOG_E("expected '=' in option '%s'", ss->s);
-		return false;
-	} else if (!key.len) {
-		LOG_E("missing option name in option '%s'", ss->s);
 		return false;
 	} else if (have_subproject && !subproject.len) {
 		LOG_E("missing subproject in option '%s'", ss->s);
