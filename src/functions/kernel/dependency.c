@@ -395,6 +395,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_static,
 		kw_modules, // ignored
 		kw_optional_modules, // ignored
+		kw_components, // ignored
 		kw_fallback,
 		kw_allow_fallback,
 		kw_default_options,
@@ -410,6 +411,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_static] = { "static", obj_bool },
 		[kw_modules] = { "modules", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_optional_modules] = { "optional_modules", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_components] = { "components", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_fallback] = { "fallback", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_allow_fallback] = { "allow_fallback", obj_bool },
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
