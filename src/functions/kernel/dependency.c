@@ -18,6 +18,25 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
+enum dependency_lookup_method {
+	// Auto means to use whatever dependency checking mechanisms in whatever order meson thinks is best.
+	dependency_lookup_method_auto,
+	dependency_lookup_method_pkgconfig,
+	dependency_lookup_method_cmake,
+	// The dependency is provided by the standard library and does not need to be linked
+	dependency_lookup_method_builtin,
+	// Just specify the standard link arguments, assuming the operating system provides the library.
+	dependency_lookup_method_system,
+	// This is only supported on OSX - search the frameworks directory by name.
+	dependency_lookup_method_extraframework,
+	// Detect using the sysconfig module.
+	dependency_lookup_method_sysconfig,
+	// Specify using a "program"-config style tool
+	dependency_lookup_method_config_tool,
+	// Misc
+	dependency_lookup_method_dub,
+};
+
 enum dep_lib_mode {
 	dep_lib_mode_default,
 	dep_lib_mode_static,
@@ -439,11 +458,50 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 	}
 
+	enum dependency_lookup_method lookup_method = dependency_lookup_method_auto;
 	if (akw[kw_method].set) {
-		if (!(str_eql(get_str(wk, akw[kw_method].val), &WKSTR("pkg-config"))
-		      || str_eql(get_str(wk, akw[kw_method].val), &WKSTR("auto")))) {
-			interp_error(wk, akw[kw_method].node, "unsupported dependency method %o", akw[kw_method].val);
+		struct {
+			const char *name;
+			enum dependency_lookup_method method;
+		} lookup_method_names[] = {
+			{ "auto", dependency_lookup_method_auto },
+			{ "builtin", dependency_lookup_method_builtin },
+			{ "cmake", dependency_lookup_method_cmake },
+			{ "config-tool", dependency_lookup_method_config_tool },
+			{ "dub", dependency_lookup_method_dub },
+			{ "extraframework", dependency_lookup_method_extraframework },
+			{ "pkg-config", dependency_lookup_method_pkgconfig },
+			{ "sysconfig", dependency_lookup_method_sysconfig },
+			{ "system", dependency_lookup_method_system },
+
+			// For backwards compatibility
+			{ "sdlconfig", dependency_lookup_method_config_tool },
+			{ "cups-config", dependency_lookup_method_config_tool },
+			{ "pcap-config", dependency_lookup_method_config_tool },
+			{ "libwmf-config", dependency_lookup_method_config_tool },
+			{ "qmake", dependency_lookup_method_config_tool },
+		};
+
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(lookup_method_names); ++i) {
+			if (str_eql(get_str(wk, akw[kw_method].val), &WKSTR(lookup_method_names[i].name))) {
+				lookup_method = lookup_method_names[i].method;
+				break;
+			}
+		}
+
+		if (i == ARRAY_LEN(lookup_method_names)) {
+			interp_error(wk, akw[kw_method].node, "invalid dependency method %o", akw[kw_method].val);
 			return false;
+		}
+
+		if (!(lookup_method == dependency_lookup_method_auto
+		      || lookup_method == dependency_lookup_method_pkgconfig
+		      || lookup_method == dependency_lookup_method_builtin
+		      || lookup_method == dependency_lookup_method_system
+		      )) {
+			interp_warning(wk, akw[kw_method].node, "unsupported dependency method %o, falling back to 'auto'", akw[kw_method].val);
+			lookup_method = dependency_lookup_method_auto;
 		}
 	}
 
