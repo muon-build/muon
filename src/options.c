@@ -283,6 +283,11 @@ coerce_option_override(struct workspace *wk, uint32_t node, struct obj_option *o
 		if (!val->len) {
 			// make -Doption= equivalent to an empty list
 			make_obj(wk, res, obj_array);
+		} else if (val->s[0] == '[') {
+			if (!eval_str(wk, val->s, eval_mode_repl, res)) {
+				LOG_E("malformed array option value '%s'", val->s);
+				return false;
+			}
 		} else {
 			*res = str_split(wk, val, &WKSTR(","));
 		}
