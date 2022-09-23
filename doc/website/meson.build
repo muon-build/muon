@@ -12,7 +12,32 @@ foreach name, tgt : man_page_targets
     )
 endforeach
 
-foreach f : ['index.html', 'man-style.css', 'muon_logo.svg']
+python3 = find_program('python3', required: false)
+if meson_proj.found() and python3.found()
+    muon_signatures = custom_target(
+        'muon_signatures.txt',
+        output: 'muon_signatures.txt',
+        command: [muon, 'internal', 'dump_signatures'],
+        capture: true,
+    )
+
+    meson_signatures = meson_proj.get_variable('signatures')
+
+    custom_target(
+        'status.html',
+        output: 'status.html',
+        command: [
+            'python3',
+            files('signatures_to_html.py'),
+            muon_signatures,
+            meson_signatures,
+        ],
+        capture: true,
+        build_by_default: true,
+    )
+endif
+
+foreach f : ['index.html', 'man-style.css', 'muon_logo.svg', 'status.css']
     configure_file(
         configuration: version_info,
         input: files(f),
@@ -21,3 +46,4 @@ foreach f : ['index.html', 'man-style.css', 'muon_logo.svg']
 endforeach
 
 summary('website', true)
+
