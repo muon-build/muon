@@ -394,6 +394,8 @@ print(
     """<!DOCTYPE html>
 <html><head>
 <link rel="stylesheet" href="status.css" />
+<title>muon implementation status</title>
+<link rel="icon" type="image/svg+xml" href="muon_logo.svg">
 </head><body><div class="wrapper">
 """
 )
