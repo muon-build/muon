@@ -26,14 +26,15 @@ Other differences from meson are described in `doc/differences.md`
 `muon` is close to feature-complete (bugs notwithstanding!) with the core of
 meson for `c` and `c++`.
 
+See the [status page] for more detailed information.
+
 Things missing include:
 
 - cross-compilation support
 - build optimizations like pch and unity
 - several `b_` options
 - dependencies with a custom configuration tool
-- all modules except for `fs` and `pkgconfig`. (a small `python` module shim is
-  also available)
+- many modules
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
@@ -136,3 +137,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
+[status page]: https://muon.build/status.html
