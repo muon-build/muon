@@ -76,10 +76,22 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/* build rules and args */
 
-	obj args_id;
-	if (!obj_dict_geti(wk, ctx->joined_args, lang, &args_id)) {
-		LOG_E("couldn't get args for language %s", compiler_language_to_s(lang));
-		return ir_err;
+	obj rule_name;
+	{
+		obj rule_name_arr;
+		if (!obj_dict_geti(wk, ctx->tgt->required_compilers, lang, &rule_name_arr)) {
+			UNREACHABLE;
+		}
+
+		obj specialized_rule;
+		obj_array_index(wk, rule_name_arr, 0, &rule_name);
+		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
+
+		if (!specialized_rule) {
+			if (!ctx->joined_args && !build_target_args(wk, ctx->proj, ctx->tgt, &ctx->joined_args)) {
+				return ir_err;
+			}
+		}
 	}
 
 	SBUF(esc_dest_path);
@@ -88,8 +100,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	ninja_escape(wk, &esc_dest_path, dest_path.buf);
 	ninja_escape(wk, &esc_path, src_path.buf);
 
-	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path.buf,
-		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path.buf);
+	fprintf(ctx->out, "build %s: %s %s", esc_dest_path.buf, get_cstr(wk, rule_name), esc_path.buf);
 	if (ctx->implicit_deps) {
 		fputs(" | ", ctx->out);
 		fputs(get_cstr(wk, ctx->implicit_deps), ctx->out);
@@ -99,8 +110,15 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	fputc('\n', ctx->out);
 
-	fprintf(ctx->out,
-		" ARGS = %s\n", get_cstr(wk, args_id));
+	if (ctx->joined_args) {
+		obj args;
+		if (!obj_dict_geti(wk, ctx->joined_args, lang, &args)) {
+			UNREACHABLE;
+		}
+
+		fprintf(ctx->out,
+			" ARGS = %s\n", get_cstr(wk, args));
+	}
 
 	if (compilers[ct].deps) {
 		sbuf_pushs(wk, &esc_dest_path, ".d");
@@ -160,21 +178,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	if (tgt->flags & build_tgt_generated_include) {
-		const char *private_path = get_cstr(wk, tgt->private_path);
-
-		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(private_path)) {
-			return false;
-		}
-
-		obj inc;
-		make_obj(wk, &inc, obj_array);
-		obj_array_push(wk, inc, make_str(wk, private_path));
-		obj_array_extend_nodup(wk, inc, ctx.args.include_directories);
-		ctx.args.include_directories = inc;
-	}
-
 	{ /* order deps */
 		if ((ctx.have_order_deps = (get_obj_array(wk, ctx.args.order_deps)->len > 0))) {
 			obj deduped;
@@ -189,10 +192,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 				ctx.order_deps = order_deps;
 			}
 		}
-	}
-
-	if (!setup_compiler_args(wk, ctx.tgt, ctx.proj, ctx.args.include_directories, ctx.args.compile_args, &ctx.joined_args)) {
-		return false;
 	}
 
 	{ /* sources */
@@ -255,7 +254,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:
-		linker_type = "STATIC";
+		linker_type = "static";
 		link_args = linker != linker_apple ? "csrD" : "csr";
 		break;
 	default:
@@ -263,8 +262,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path.buf,
+	fprintf(wctx->out, "build %s: %s%s%s_linker ", esc_path.buf,
 		linker_rule_prefix ? get_cstr(wk, ctx.proj->rule_prefix) : "",
+		linker_rule_prefix ? "_" : "",
 		linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (get_obj_array(wk, implicit_link_deps)->len) {

@@ -266,6 +266,7 @@ struct obj_build_target {
 	obj link_depends; // obj_array
 	obj generated_pc; // obj_string
 	obj override_options; // obj_array
+	obj required_compilers; // obj_dict
 
 	struct build_dep dep;
 	struct build_dep dep_internal;

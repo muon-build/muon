@@ -154,9 +154,9 @@ static enum iteration_result
 build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct process_build_tgt_sources_ctx *ctx = _ctx;
+	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 
 	if (file_is_linkable(wk, val)) {
-		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 		obj_array_push(wk, tgt->dep_internal.link_with, val);
 		return ir_cont;
 	}
@@ -171,9 +171,15 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		return ir_cont;
 	} else if (languages[lang].is_linkable) {
-		struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 		obj_array_push(wk, tgt->objects, val);
 		return ir_cont;
+	}
+
+	obj n;
+	if (obj_dict_geti(wk, tgt->required_compilers, lang, &n)) {
+		obj_dict_seti(wk, tgt->required_compilers, lang, n + 1);
+	} else {
+		obj_dict_seti(wk, tgt->required_compilers, lang, 1);
 	}
 
 	obj_array_push(wk, ctx->res, val);
@@ -350,6 +356,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 	tgt->build_dir = current_project(wk)->build_dir;
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->src, obj_array);
+	make_obj(wk, &tgt->required_compilers, obj_dict);
 	build_dep_init(wk, &tgt->dep_internal);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line

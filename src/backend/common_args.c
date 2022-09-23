@@ -402,6 +402,35 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	return true;
 }
 
+bool
+build_target_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj *joined_args)
+{
+	struct build_dep args = tgt->dep_internal;
+
+	if (tgt->flags & build_tgt_generated_include) {
+		const char *private_path = get_cstr(wk, tgt->private_path);
+
+		// mkdir so that the include dir doesn't get pruned later on
+		if (!fs_mkdir_p(private_path)) {
+			return false;
+		}
+
+		obj inc;
+		make_obj(wk, &inc, obj_array);
+		obj_array_push(wk, inc, make_str(wk, private_path));
+		obj_array_extend_nodup(wk, inc, args.include_directories);
+		args.include_directories = inc;
+	}
+
+	if (!setup_compiler_args(wk, tgt, proj, args.include_directories,
+		args.compile_args, joined_args)) {
+		return false;
+	}
+
+	return true;
+}
+
 void
 get_option_link_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)

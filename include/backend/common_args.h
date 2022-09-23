@@ -13,6 +13,9 @@ void get_option_link_args(struct workspace *wk, const struct project *proj,
 bool setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 	const struct project *proj, obj include_dirs, obj dep_args, obj *joined_args);
 
+bool build_target_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj *joined_args);
+
 struct setup_linker_args_ctx {
 	enum linker_type linker;
 	enum compiler_language link_lang;
