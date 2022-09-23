@@ -553,12 +553,34 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	} OPTEND(argv[argi], "", "", NULL, 0)
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	obj id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+	if (!setup_project_options(&wk, NULL)) {
+		UNREACHABLE;
+	}
+
+	dump_function_signatures(&wk);
+
+	workspace_destroy(&wk);
+	return true;
+}
+
+static bool
 cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "eval", cmd_eval, "evaluate a file" },
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
+		{ "dump_signatures", cmd_dump_signatures, "output all supported functions and arguments" },
 		0,
 	};
 

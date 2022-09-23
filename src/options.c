@@ -680,6 +680,10 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return false;
 	}
 
+	if (!cwd) {
+		return true;
+	}
+
 	SBUF(meson_opts);
 	path_join(wk, &meson_opts, cwd, "meson_options.txt");
 

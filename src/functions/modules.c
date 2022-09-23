@@ -67,7 +67,7 @@ func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-static const struct func_impl_name *module_func_tbl[module_count][language_mode_count] = {
+const struct func_impl_name *module_func_tbl[module_count][language_mode_count] = {
 	[module_fs] = { impl_tbl_module_fs, impl_tbl_module_fs_internal },
 	[module_keyval] = { impl_tbl_module_keyval },
 	[module_pkgconfig] = { impl_tbl_module_pkgconfig },
@@ -76,18 +76,16 @@ static const struct func_impl_name *module_func_tbl[module_count][language_mode_
 	[module_sourceset] = { impl_tbl_module_sourceset },
 };
 
+const struct func_impl_name impl_tbl_module[] = {
+	{ "found", func_module_found, tc_bool, true },
+	{ NULL, NULL },
+};
+
 const struct func_impl_name *
 module_func_lookup(struct workspace *wk, const char *name, enum module mod)
 {
-	static const struct func_impl_name func_module_found_impl = {
-		.name = "found",
-		.func = func_module_found,
-		.return_type = tc_bool,
-		.pure = true,
-	};
-
 	if (strcmp(name, "found") == 0) {
-		return &func_module_found_impl;
+		return &impl_tbl_module[0];
 	}
 
 	if (!module_func_tbl[mod][wk->lang_mode]) {

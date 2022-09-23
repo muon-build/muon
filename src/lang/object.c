@@ -308,34 +308,34 @@ const char *
 obj_type_to_s(enum obj_type t)
 {
 	switch (t) {
-	case obj_null: return "null";
+	case obj_null: return "void";
 	case obj_compiler: return "compiler";
-	case obj_dependency: return "dependency";
+	case obj_dependency: return "dep";
 	case obj_meson: return "meson";
-	case obj_string: return "string";
-	case obj_number: return "number";
-	case obj_array: return "array";
+	case obj_string: return "str";
+	case obj_number: return "int";
+	case obj_array: return "list";
 	case obj_dict: return "dict";
 	case obj_bool: return "bool";
 	case obj_file: return "file";
-	case obj_build_target: return "build_target";
+	case obj_build_target: return "build_tgt";
 	case obj_subproject: return "subproject";
-	case obj_machine: return "machine";
-	case obj_feature_opt: return "feature_opt";
+	case obj_machine: return "build_machine";
+	case obj_feature_opt: return "feature";
 	case obj_external_program: return "external_program";
-	case obj_run_result: return "run_result";
-	case obj_configuration_data: return "configuration_data";
-	case obj_custom_target: return "custom_target";
+	case obj_run_result: return "runresult";
+	case obj_configuration_data: return "cfg_data";
+	case obj_custom_target: return "custom_tgt";
 	case obj_test: return "test";
 	case obj_module: return "module";
-	case obj_install_target: return "install_target";
-	case obj_environment: return "environment";
-	case obj_include_directory: return "include_directory";
+	case obj_install_target: return "install_tgt";
+	case obj_environment: return "env";
+	case obj_include_directory: return "inc";
 	case obj_option: return "option";
 	case obj_disabler: return "disabler";
 	case obj_generator: return "generator";
 	case obj_generated_list: return "generated_list";
-	case obj_alias_target: return "alias_target";
+	case obj_alias_target: return "alias_tgt";
 	case obj_both_libs: return "both_libs";
 	case obj_typeinfo: return "typeinfo";
 	case obj_source_set: return "source_set";
@@ -838,6 +838,60 @@ obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 	}
 
 	return true;
+}
+
+int32_t
+obj_array_sort_by_str(struct workspace *wk, void *_ctx, obj a, obj b)
+{
+	const struct str *sa = get_str(wk, a),
+			 *sb = get_str(wk, b);
+
+	uint32_t min = sa->len > sb->len ? sb->len : sa->len;
+
+	return memcmp(sa->s, sb->s, min);
+}
+
+static enum iteration_result
+obj_array_sort_push_to_da_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct darr *da = _ctx;
+	darr_push(da, &v);
+	return ir_cont;
+}
+
+struct obj_array_sort_ctx {
+	struct workspace *wk;
+	void *usr_ctx;
+	obj_array_sort_func func;
+};
+
+static int32_t
+obj_array_sort_wrapper(const void *a, const void *b, void *_ctx)
+{
+	struct obj_array_sort_ctx *ctx = _ctx;
+
+	return ctx->func(ctx->wk, ctx->usr_ctx, *(obj *)a, *(obj *)b);
+}
+
+void
+obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res)
+{
+	struct darr da;
+	darr_init(&da, get_obj_array(wk, arr)->len, sizeof(obj));
+	obj_array_foreach(wk, arr, &da, obj_array_sort_push_to_da_iter);
+
+	struct obj_array_sort_ctx ctx = { .wk = wk, .usr_ctx = usr_ctx, .func = func, };
+
+	darr_sort(&da, &ctx, obj_array_sort_wrapper);
+
+	make_obj(wk, res, obj_array);
+
+	uint32_t i;
+	for (i = 0; i < da.len; ++i) {
+		obj_array_push(wk, *res, *(obj *)darr_get(&da, i));
+	}
+
+	darr_destroy(&da);
 }
 
 /*

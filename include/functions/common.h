@@ -11,15 +11,26 @@ struct func_impl_name {
 	const char *name;
 	func_impl func;
 	type_tag return_type;
-	bool pure, fuzz_unsafe;
+	bool pure, fuzz_unsafe, extension;
 	func_impl_rcvr_transform rcvr_transform;
 };
 
 extern const struct func_impl_name *kernel_func_tbl[language_mode_count];
 extern const struct func_impl_name *func_tbl[obj_type_count][language_mode_count];
 
-struct args_norm { type_tag type; obj val, node; bool set; };
-struct args_kw { const char *key; type_tag type; obj val, node; bool set; bool required; };
+struct args_norm {
+	type_tag type;
+	obj val, node;
+	bool set;
+};
+
+struct args_kw {
+	const char *key;
+	type_tag type;
+	obj val, node;
+	bool set;
+	bool required;
+};
 
 extern bool disabler_among_args_immunity, disable_fuzz_unsafe_functions;
 
@@ -34,4 +45,6 @@ bool interp_args(struct workspace *wk, uint32_t args_node,
 bool builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res);
 
 bool analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t args_node, obj rcvr, obj *res);
+
+void dump_function_signatures(struct workspace *wk);
 #endif

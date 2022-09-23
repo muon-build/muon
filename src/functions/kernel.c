@@ -1916,8 +1916,8 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ "vcs_tag", func_vcs_tag, tc_custom_target },
 	{ "warning", func_warning },
 	// non-standard muon extensions
-	{ "dbg", func_dbg },
-	{ "p", func_p },
+	{ "dbg", func_dbg, .extension = true },
+	{ "p", func_p, .extension = true },
 	{ NULL, NULL },
 };
 

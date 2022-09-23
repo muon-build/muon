@@ -633,7 +633,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		[kw_link_with] = { "link_with", tc_link_with_kw },
 		[kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_any },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[kw_variables] = { "variables", tc_array | tc_dict },

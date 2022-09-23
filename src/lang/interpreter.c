@@ -96,17 +96,26 @@ typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 	return true;
 }
 
-const char *
-typechecking_type_to_s(struct workspace *wk, type_tag t)
+obj
+typechecking_type_to_arr(struct workspace *wk, type_tag t)
 {
-	if (t == tc_any) {
-		return "any";
-	} else if (t == obj_typechecking_type_tag) {
-		return "null";
-	}
-
 	obj expected_types;
 	make_obj(wk, &expected_types, obj_array);
+
+	const char *single = NULL;
+	if (!(t & obj_typechecking_type_tag)) {
+		single = obj_type_to_s(t);
+	} else if (t == tc_any) {
+		single = "any";
+	} else if (t == obj_typechecking_type_tag) {
+		single = "null";
+	}
+
+	if (single) {
+		obj_array_push(wk, expected_types, make_str(wk, single));
+		return expected_types;
+	}
+
 	uint32_t ot;
 	for (ot = 1; ot <= tc_type_count; ++ot) {
 		uint32_t tc = obj_type_to_tc_type(ot);
@@ -117,8 +126,17 @@ typechecking_type_to_s(struct workspace *wk, type_tag t)
 		obj_array_push(wk, expected_types, make_str(wk, obj_type_to_s(ot)));
 	}
 
+	obj sorted;
+	obj_array_sort(wk, NULL, expected_types, obj_array_sort_by_str, &sorted);
+
+	return sorted;
+}
+
+const char *
+typechecking_type_to_s(struct workspace *wk, type_tag t)
+{
 	obj typestr;
-	obj_array_join(wk, false, expected_types, make_str(wk, "|"), &typestr);
+	obj_array_join(wk, false, typechecking_type_to_arr(wk, t), make_str(wk, "|"), &typestr);
 	return get_cstr(wk, typestr);
 }
 

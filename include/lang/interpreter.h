@@ -19,6 +19,7 @@ void interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));
 
 bool typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type, const char *fmt);
+obj typechecking_type_to_arr(struct workspace *wk, type_tag t);
 const char *typechecking_type_to_s(struct workspace *wk, type_tag t);
 bool typecheck_simple_err(struct workspace *wk, obj o, type_tag type);
 bool typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, type_tag type);
