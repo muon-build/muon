@@ -1,18 +1,3 @@
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #282A36;
-    color: #F8F8F2;
-  }
-  a {
-    color: #8BE9FD;
-  }
-
-  pre {
-    background-color: #191A21;
-    color: #F8F8F2;
-  }
-}
-
 .positive {
     background-color: #50FA7B;
     color: #21222C;
@@ -24,7 +9,21 @@
 }
 
 tr:nth-child(odd) {
-  background-color: #424450;
+  background-color: #F8F8F2;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #282A36;
+    color: #F8F8F2;
+  }
+  a {
+    color: #8BE9FD;
+  }
+
+  tr:nth-child(odd) {
+    background-color: #424450;
+  }
 }
 
 body {
