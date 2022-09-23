@@ -75,7 +75,7 @@ add_project_arguments(
     language: 'c',
 )
 
-include_dir = include_directories('include')
+include_dir = [include_directories('include')]
 
 # platform dep required for tools
 subdir('src/platform')

@@ -9,10 +9,11 @@ platform_sources = files(
 
 foreach f : ['filesystem.c', 'path.c', 'rpath_fixer.c', 'term.c', 'uname.c']
     platform_sources += files(platform / f)
+    include_dir += include_directories('../../include/platform' / platform)
 endforeach
 
 if host_machine.system() == 'windows'
-    platform_sources += files('windows/win32_error.c')
+    platform_sources += files('windows/getopt.c', 'windows/win32_error.c')
 endif
 
 platform_lib = static_library(
