@@ -826,7 +826,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 			}
 
 			if (akw[bt_kw_objects].set) {
-				obj_array_extend(wk, objects, akw[bt_kw_objects].val);
+				obj_array_extend(wk, akw[bt_kw_objects].val, objects);
 			} else {
 				akw[bt_kw_objects].set = true;
 				akw[bt_kw_objects].val = objects;
