@@ -22,6 +22,7 @@ struct write_tgt_iter_ctx {
 	obj joined_args;
 	obj object_names;
 	obj order_deps;
+	obj implicit_deps;
 	bool have_order_deps;
 	bool have_link_language;
 };
@@ -89,6 +90,10 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	fprintf(ctx->out, "build %s: %s%s_COMPILER %s", esc_dest_path.buf,
 		get_cstr(wk, ctx->proj->rule_prefix), compiler_language_to_s(lang), esc_path.buf);
+	if (ctx->implicit_deps) {
+		fputs(" | ", ctx->out);
+		fputs(get_cstr(wk, ctx->implicit_deps), ctx->out);
+	}
 	if (ctx->have_order_deps) {
 		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
 	}
@@ -118,6 +123,13 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 {
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	L("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
+
+	SBUF(esc_path);
+	{
+		SBUF(rel_build_path);
+		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
+		ninja_escape(wk, &esc_path, rel_build_path.buf);
+	}
 
 	struct write_tgt_iter_ctx ctx = {
 		.tgt = tgt,
@@ -164,8 +176,18 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	{ /* order deps */
-		if ((ctx.have_order_deps = get_obj_array(wk, ctx.args.order_deps)->len)) {
-			ctx.order_deps = join_args_ninja(wk, ctx.args.order_deps);
+		if ((ctx.have_order_deps = (get_obj_array(wk, ctx.args.order_deps)->len > 0))) {
+			obj deduped;
+			obj_array_dedup(wk, ctx.args.order_deps, &deduped);
+			obj order_deps = join_args_ninja(wk, deduped);
+
+			if (get_obj_array(wk, deduped)->len > 1) {
+				fprintf(wctx->out, "build %s-order_deps: phony || %s\n\n", esc_path.buf, get_cstr(wk, order_deps));
+				ctx.have_order_deps = false;
+				ctx.implicit_deps = make_strf(wk, "%s-order_deps", esc_path.buf);
+			} else {
+				ctx.order_deps = order_deps;
+			}
 		}
 	}
 
@@ -181,16 +203,12 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 	}
 
-	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-		push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
-		push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
-		if (tgt->type == tgt_shared_module) {
-			push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
-		}
+	obj implicit_link_deps;
+	make_obj(wk, &implicit_link_deps, obj_array);
+	if (ctx.implicit_deps) {
+		obj_array_push(wk, implicit_link_deps, ctx.implicit_deps);
 	}
 
-	obj implicit_deps;
-	make_obj(wk, &implicit_deps, obj_array);
 	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
 			.linker = linker,
@@ -201,11 +219,11 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
 
 		if (get_obj_array(wk, ctx.args.link_with)->len) {
-			obj_array_extend(wk, implicit_deps, ctx.args.link_with);
+			obj_array_extend(wk, implicit_link_deps, ctx.args.link_with);
 		}
 
 		if (get_obj_array(wk, ctx.args.link_whole)->len) {
-			obj_array_extend(wk, implicit_deps, ctx.args.link_whole);
+			obj_array_extend(wk, implicit_link_deps, ctx.args.link_whole);
 		}
 	}
 
@@ -215,7 +233,15 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			return false;
 		}
 
-		obj_array_extend_nodup(wk, implicit_deps, arr);
+		obj_array_extend_nodup(wk, implicit_link_deps, arr);
+	}
+
+	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
+		push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
+		push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
+		if (tgt->type == tgt_shared_module) {
+			push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
+		}
 	}
 
 	const char *linker_type, *link_args;
@@ -237,21 +263,14 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		return false;
 	}
 
-	SBUF(esc_path);
-	{
-		SBUF(rel_build_path);
-		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
-		ninja_escape(wk, &esc_path, rel_build_path.buf);
-	}
-
 	fprintf(wctx->out, "build %s: %s%s_LINKER ", esc_path.buf,
 		linker_rule_prefix ? get_cstr(wk, ctx.proj->rule_prefix) : "",
 		linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
-	if (get_obj_array(wk, implicit_deps)->len) {
-		implicit_deps = join_args_ninja(wk, implicit_deps);
+	if (get_obj_array(wk, implicit_link_deps)->len) {
+		implicit_link_deps = join_args_ninja(wk, implicit_link_deps);
 		fputs(" | ", wctx->out);
-		fputs(get_cstr(wk, implicit_deps), wctx->out);
+		fputs(get_cstr(wk, implicit_link_deps), wctx->out);
 	}
 	if (ctx.have_order_deps) {
 		fputs(" || ", wctx->out);
