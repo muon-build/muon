@@ -46,21 +46,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	const char *src = get_file_path(wk, val);
 
 	enum compiler_language lang;
-	enum compiler_type ct;
-
-	{
-		obj comp_id;
-
-		if (!filename_to_compiler_language(src, &lang)) {
-			UNREACHABLE;
-		}
-
-		if (!obj_dict_geti(wk, ctx->proj->compilers, lang, &comp_id)) {
-			LOG_E("no compiler for '%s'", compiler_language_to_s(lang));
-			return ir_err;
-		}
-
-		ct = get_obj_compiler(wk, comp_id)->type;
+	if (!filename_to_compiler_language(src, &lang)) {
+		UNREACHABLE;
 	}
 
 	/* build paths */
@@ -120,19 +107,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 			" ARGS = %s\n", get_cstr(wk, args));
 	}
 
-	if (compilers[ct].deps) {
-		sbuf_pushs(wk, &esc_dest_path, ".d");
-
-		fprintf(ctx->out, " DEPFILE_UNQUOTED = %s\n", esc_dest_path.buf);
-
-		sbuf_clear(&esc_path);
-		shell_escape(wk, &esc_path, esc_dest_path.buf);
-
-		fprintf(ctx->out, " DEPFILE = %s\n", esc_path.buf);
-	}
-
-	fputc('\n', ctx->out);
-
 	return ir_cont;
 }
 
@@ -185,7 +159,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			obj order_deps = join_args_ninja(wk, deduped);
 
 			if (get_obj_array(wk, deduped)->len > 1) {
-				fprintf(wctx->out, "build %s-order_deps: phony || %s\n\n", esc_path.buf, get_cstr(wk, order_deps));
+				fprintf(wctx->out, "build %s-order_deps: phony || %s\n", esc_path.buf, get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
 				ctx.implicit_deps = make_strf(wk, "%s-order_deps", esc_path.buf);
 			} else {

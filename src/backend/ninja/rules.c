@@ -84,7 +84,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	obj_array_push(wk, args, rule_args);
 
 	if (compilers[t].deps) {
-		push_args(wk, args, compilers[t].args.deps("$out", "$DEPFILE"));
+		push_args(wk, args, compilers[t].args.deps("$out", "${out}.d"));
 	}
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
@@ -99,7 +99,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	if (compilers[t].deps) {
 		fprintf(out,
 			" deps = %s\n"
-			" depfile = $DEPFILE_UNQUOTED\n",
+			" depfile = ${out}.d\n",
 			deps);
 	}
 	fprintf(out,
