@@ -29,7 +29,7 @@ interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const
 		struct node *n = get_node(wk->ast, n_id);
 		error_message(wk->src, n->line, n->col, lvl, buf.buf);
 	} else {
-		log_print(__FILE__, __LINE__, __func__, true, lvl, "%s", buf.buf);
+		log_print(true, lvl, "%s", buf.buf);
 	}
 }
 
