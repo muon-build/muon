@@ -40,7 +40,7 @@ endif
 foreach f : ['index.html', 'man-style.css', 'muon_logo.svg', 'status.css']
     configure_file(
         configuration: version_info,
-        input: files(f),
+        input: f,
         output: f,
     )
 endforeach

@@ -634,6 +634,8 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			return false;
 		}
 
+		workspace_add_regenerate_deps(wk, *get_obj_file(wk, input));
+
 		struct source src = { 0 };
 		if (!fs_read_entire_file(get_file_path(wk, input), &src)) {
 			return false;
@@ -683,19 +685,8 @@ copy_err:
 				return false;
 			}
 
-			const char *path;
-			enum obj_type t = get_obj_type(wk, input);
-			switch (t) {
-			case obj_file:
-				path = get_file_path(wk, input);
-				break;
-			case obj_string:
-				path = get_cstr(wk, input);
-				break;
-			default:
-				interp_error(wk, akw[kw_input].node, "unable to coerce input to file");
-				return false;
-			}
+			workspace_add_regenerate_deps(wk, *get_obj_file(wk, input));
+			const char *path = get_file_path(wk, input);
 
 			enum configure_file_syntax syntax =
 				configure_file_syntax_mesondefine

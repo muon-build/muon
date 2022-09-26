@@ -123,9 +123,7 @@ eval_project_file(struct workspace *wk, const char *path)
 {
 	/* L("evaluating '%s'", path); */
 	bool ret = false;
-	{
-		obj_array_push(wk, wk->sources, make_str(wk, path));
-	}
+	workspace_add_regenerate_deps(wk, make_str(wk, path));
 
 	struct source src = { 0 };
 	if (!fs_read_entire_file(path, &src)) {

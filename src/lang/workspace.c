@@ -171,7 +171,7 @@ workspace_init(struct workspace *wk)
 
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);
-	make_obj(wk, &wk->sources, obj_array);
+	make_obj(wk, &wk->regenerate_deps, obj_array);
 	make_obj(wk, &wk->install, obj_array);
 	make_obj(wk, &wk->install_scripts, obj_array);
 	make_obj(wk, &wk->postconf_scripts, obj_array);
@@ -331,5 +331,39 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 
 		fprintf(out, "- %s %s\n", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
 		obj_dict_foreach(wk, proj->summary, out, print_summaries_section_iter);
+	}
+}
+
+static enum iteration_result
+workspace_add_regenerate_deps_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	SBUF(path);
+	const char *s = get_cstr(wk, v);
+	if (!path_is_absolute(s)) {
+		path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), s);
+		v = sbuf_into_str(wk, &path);
+		s = get_cstr(wk, v);
+	}
+
+	if (path_is_subpath(wk->build_root, s)) {
+		return ir_cont;
+	}
+
+	if (!fs_file_exists(s)) {
+		return ir_cont;
+	}
+
+	obj_array_push(wk, wk->regenerate_deps, v);
+	return ir_cont;
+}
+
+void
+workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr)
+{
+	if (get_obj_type(wk, obj_or_arr) == obj_array) {
+		obj_array_foreach(wk, obj_or_arr, NULL,
+			workspace_add_regenerate_deps_iter);
+	} else {
+		workspace_add_regenerate_deps_iter(wk, NULL, obj_or_arr);
 	}
 }

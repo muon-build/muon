@@ -338,10 +338,17 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		" generator = 1\n"
 		"\n", out);
 
+	obj regenerate_deps_rel;
+	{
+		obj deduped;
+		obj_array_dedup(wk, wk->regenerate_deps, &deduped);
+		relativize_paths(wk, deduped, true, &regenerate_deps_rel);
+	}
+
 	fprintf(out,
 		"build build.ninja: REGENERATE_BUILD %s\n"
 		" pool = console\n\n",
-		get_cstr(wk, join_args_ninja(wk, wk->sources))
+		get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel))
 		);
 
 	if (need_phony) {

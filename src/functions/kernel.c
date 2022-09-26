@@ -972,6 +972,9 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
 			return false;
 		}
+
+		workspace_add_regenerate_deps(wk, args);
+
 		join_args_argstr(wk, &argstr, &argc, args);
 	}
 

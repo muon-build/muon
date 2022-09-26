@@ -56,8 +56,8 @@ struct workspace {
 	/* Global objects
 	 * These should probably be cleaned up into a separate struct.
 	 * ----------------- */
-	/* obj_array that tracks each source file eval'd */
-	obj sources;
+	/* obj_array that tracks files for build regeneration */
+	obj regenerate_deps;
 	/* TODO host machine dict */
 	obj host_machine;
 	/* TODO binaries dict */
@@ -130,6 +130,7 @@ void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 bool workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
 	uint32_t argc, char *const argv[]);
+void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
 
 struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir);
