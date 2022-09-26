@@ -144,13 +144,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	ctx.args = tgt->dep_internal;
 
-	if (!relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with)) {
-		return false;
-	}
-
-	if (!relativize_paths(wk, ctx.args.link_whole, true, &ctx.args.link_whole)) {
-		return false;
-	}
+	relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with);
+	relativize_paths(wk, ctx.args.link_whole, true, &ctx.args.link_whole);
 
 	{ /* order deps */
 		if ((ctx.have_order_deps = (get_obj_array(wk, ctx.args.order_deps)->len > 0))) {

@@ -75,16 +75,12 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	obj outputs, inputs = 0, cmdline;
 
 	if (tgt->input) {
-		if (!relativize_paths(wk, tgt->input, false, &inputs)) {
-			return ir_err;
-		}
+		relativize_paths(wk, tgt->input, false, &inputs);
 	}
 
 	make_obj(wk, &outputs, obj_array);
 	if (tgt->output) {
-		if (!relativize_paths(wk, tgt->output, false, &outputs)) {
-			return ir_err;
-		}
+		relativize_paths(wk, tgt->output, false, &outputs);
 	} else {
 		assert(tgt->name && "unnamed targets cannot have no output");
 		obj name;
@@ -109,9 +105,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj elem;
 		obj_array_index(wk, tgt->output, 0, &elem);
 
-		if (!relativize_path_push(wk, elem, cmdline)) {
-			return ir_err;
-		}
+		relativize_path_push(wk, elem, cmdline);
 	}
 
 	if (tgt->flags & custom_target_feed) {
@@ -120,9 +114,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj elem;
 		obj_array_index(wk, tgt->input, 0, &elem);
 
-		if (!relativize_path_push(wk, elem, cmdline)) {
-			return ir_err;
-		}
+		relativize_path_push(wk, elem, cmdline);
 	}
 
 	if (tgt->env) {
@@ -154,9 +146,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	}
 
 	obj depends_rel;
-	if (!relativize_paths(wk, tgt->depends, false, &depends_rel)) {
-		return ir_err;
-	}
+	relativize_paths(wk, tgt->depends, false, &depends_rel);
 
 	if (tgt->flags & custom_target_build_always_stale) {
 		obj_array_push(wk, depends_rel, make_str(wk, "build_always_stale"));

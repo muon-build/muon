@@ -611,7 +611,7 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-bool
+void
 relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res)
 {
 	make_obj(wk, res, obj_array);
@@ -620,19 +620,15 @@ relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *re
 		.dest = *res,
 	};
 
-	return obj_array_foreach(wk, arr, &ctx, relativize_paths_iter);
+	obj_array_foreach(wk, arr, &ctx, relativize_paths_iter);
 }
 
-bool
+void
 relativize_path_push(struct workspace *wk, obj path, obj arr)
 {
 	struct relativize_paths_ctx ctx = {
 		.dest = arr,
 	};
 
-	if (relativize_paths_iter(wk, &ctx, path) == ir_err) {
-		return false;
-	}
-
-	return true;
+	relativize_paths_iter(wk, &ctx, path);
 }

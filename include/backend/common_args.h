@@ -26,6 +26,6 @@ void setup_linker_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, struct setup_linker_args_ctx *ctx);
 void setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dirs, obj args, bool relativize);
 
-bool relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res);
-bool relativize_path_push(struct workspace *wk, obj path, obj arr);
+void relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res);
+void relativize_path_push(struct workspace *wk, obj path, obj arr);
 #endif
