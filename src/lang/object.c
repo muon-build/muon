@@ -1147,7 +1147,7 @@ obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dic
 			}, obj_iterable_foreach_array_iter);
 	}
 	default:
-		UNREACHABLE;
+		UNREACHABLE_RETURN;
 	}
 }
 
