@@ -210,8 +210,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Print a previously configured project's summary.
 
 ## test
-	*muon* *test* [*-S*] [*-f*] [*-w* <workers>] [*-s* <suite>] [*-d*
-	<display mode>] [*-v [*-v*]*] [*-R*]
+	*muon* *test* [*-S*] [*-f*] [*-j* <jobs>] [*-s* <suite>] [*-d* <display
+	mode>] [*-v [*-v*]*] [*-R*]
 
 	Execute tests defined in _source files_.
 
@@ -226,7 +226,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-S* - print a summary of test results, including the duration of
 	  each test
 	- *-f* - Fail fast. exit after first test failure is encountered.
-	- *-w* - Set the number of workers used when running tests.
+	- *-j* - Set the number of jobs used when running tests.  The maximum is
+	  32.
 	- *-v* - Increase verbosity.  When passed once, print test results as
 	  they are completed.  When passed twice, the stdout/stderr of tests is
 	  not captured.

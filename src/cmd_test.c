@@ -554,7 +554,7 @@ tests_run(struct test_options *opts)
 	SBUF_manual(tests_src);
 
 	if (opts->workers > MAX_TEST_WORKERS) {
-		LOG_E("the maximum number of test workers is %d", MAX_TEST_WORKERS);
+		LOG_E("the maximum number of test jobs is %d", MAX_TEST_WORKERS);
 		return false;
 	} else if (!opts->workers) {
 		opts->workers = 4;

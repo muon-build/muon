@@ -612,7 +612,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.print_summary = true;
 	}
 
-	OPTSTART("s:d:Sfw:vR") {
+	OPTSTART("s:d:Sfj:vR") {
 		case 's':
 			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -639,12 +639,12 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'S':
 			test_opts.print_summary = true;
 			break;
-		case 'w': {
+		case 'j': {
 			char *endptr;
 			unsigned long n = strtoul(optarg, &endptr, 10);
 
 			if (n > UINT32_MAX || !*optarg || *endptr) {
-				LOG_E("invalid number of workers: %s", optarg);
+				LOG_E("invalid number of jobs: %s", optarg);
 				return false;
 			}
 
@@ -662,9 +662,9 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -S - print a summary with elapsed time\n"
 		"  -f - fail fast; exit after first failure\n"
-		"  -w <workers> - set the number of test workers\n"
 		"  -v - increase verbosity, may be passed twice\n"
 		"  -R - disable automatic rebuild\n",
+		"  -j <jobs> - set the number of test workers\n"
 		NULL, 0)
 
 	if (!ensure_in_build_dir()) {
