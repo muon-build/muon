@@ -131,7 +131,6 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 		} else if (r == 0) {
 			if (ctx->flags & run_cmd_ctx_flag_async) {
 				return run_cmd_running;
-
 			} else {
 				// sleep here for 1ms to give the process some
 				// time to complete
@@ -544,4 +543,22 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 		z_free(ctx->err.buf);
 		ctx->err.size = 0;
 	}
+}
+
+bool
+run_cmd_kill(struct run_cmd_ctx *ctx, bool force)
+{
+	int r;
+	if (force) {
+		r = kill(ctx->pid, SIGKILL);
+	} else {
+		r = kill(ctx->pid, SIGTERM);
+	}
+
+	if (r != 0) {
+		LOG_E("error killing process %d: %s", ctx->pid, strerror(errno));
+		return false;
+	}
+
+	return true;
 }
