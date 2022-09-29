@@ -334,7 +334,7 @@ foreach t : tests
             skip_analyze.to_string(),
             git_clean.to_string(),
         ],
-        suite: 'project/' + test.split('/')[0],
+        suite: ['project', test.split('/')[0]],
         kwargs: kwargs,
     )
 endforeach
