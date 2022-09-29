@@ -17,7 +17,7 @@ if meson_proj.found() and python3.found()
     muon_signatures = custom_target(
         'muon_signatures.txt',
         output: 'muon_signatures.txt',
-        command: [muon, 'internal', 'dump_signatures'],
+        command: [muon, 'internal', 'dump_funcs'],
         capture: true,
     )
 

@@ -132,6 +132,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *eval* - evaluate a _source file_
 	- *exe* - execute a command
 	- *repl* - start a _meson dsl_ repl
+	- *dump_funcs* - output all supported functions and arguments
 
 ## internal eval
 	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]
@@ -167,6 +168,13 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	Start a _meson dsl_ repl.  The functions available are limited as with
 	*internal eval*.
+
+## internal dump_funcs
+	*muon* *internal* *dump_funcs*
+
+	Print all supported functions, methods, and module functions with their
+	arguments, argument types, and return types to stdout.  This subcommand
+	is mainly useful for generating https://muon.build/status.html.
 
 ## options
 	*muon* *options* [*-a*] [*-m*]

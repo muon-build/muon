@@ -580,7 +580,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "eval", cmd_eval, "evaluate a file" },
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
-		{ "dump_signatures", cmd_dump_signatures, "output all supported functions and arguments" },
+		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
 		0,
 	};
 
