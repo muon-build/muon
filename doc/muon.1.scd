@@ -219,7 +219,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## test
 	*muon* *test* [*-d* <display mode>] [*-e* <setup>] [*-f*] [*-j* <jobs>]
-	[*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
+	\[*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
 
 	Execute tests defined in _source files_.
 
