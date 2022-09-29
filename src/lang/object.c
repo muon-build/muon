@@ -1258,6 +1258,14 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		if (!obj_clone(wk_src, wk_dest, test->depends, &o->depends)) {
 			return false;
 		}
+
+		if (!obj_clone(wk_src, wk_dest, test->timeout, &o->timeout)) {
+			return false;
+		}
+
+		if (!obj_clone(wk_src, wk_dest, test->priority, &o->priority)) {
+			return false;
+		}
 		return true;
 	}
 	case obj_install_target: {

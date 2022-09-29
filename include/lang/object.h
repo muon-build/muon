@@ -369,6 +369,8 @@ struct obj_test {
 	obj suites; // obj_array
 	obj workdir; // obj_string
 	obj depends; // obj_array of obj_string
+	obj timeout; // obj_number
+	obj priority; // obj_number
 	bool should_fail, is_parallel;
 	enum test_category category;
 };

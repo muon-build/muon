@@ -1249,8 +1249,8 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		kw_env,
 		kw_suite,
 		kw_priority, // TODO
-		kw_timeout, // TODO
-		kw_protocol, // TODO
+		kw_timeout,
+		kw_protocol,
 		kw_is_parallel,
 	};
 	struct args_kw akw[] = {
@@ -1261,8 +1261,8 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_priority] = { "priority", obj_number, }, // TODO
-		[kw_timeout] = { "timeout", obj_number, }, // TODO
-		[kw_protocol] = { "protocol", obj_string, }, // TODO
+		[kw_timeout] = { "timeout", obj_number, },
+		[kw_protocol] = { "protocol", obj_string, },
 		[kw_is_parallel] = { 0 },
 		0
 	};
@@ -1305,6 +1305,8 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		&& get_obj_bool(wk, akw[kw_should_fail].val);
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
+	t->timeout = akw[kw_timeout].val;
+	t->priority = akw[kw_priority].val;
 	t->category = cat;
 
 	if (akw[kw_is_parallel].key) {
