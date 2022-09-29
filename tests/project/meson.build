@@ -1,4 +1,8 @@
 tests = [
+    # project tests created for muon
+    ['muon/timeout', ['failing']],
+
+    # project tests imported from meson
     ['common/1 trivial'],
     ['common/2 cpp'],
     ['common/3 static'],

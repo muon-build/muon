@@ -19,6 +19,7 @@ enum test_display {
 
 struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
+	const char *setup;
 	uint32_t suites_len, workers, verbosity;
 	enum test_display display;
 	bool fail_fast, print_summary, no_rebuild;

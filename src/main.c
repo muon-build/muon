@@ -612,7 +612,10 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.print_summary = true;
 	}
 
-	OPTSTART("s:d:Sfj:vR") {
+	OPTSTART("s:d:Sfj:vRe:") {
+		case 'e':
+			test_opts.setup = optarg;
+			break;
 		case 's':
 			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
 				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
@@ -659,6 +662,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 			break;
 	} OPTEND(argv[argi], "",
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
+		"  -e <setup> - use test setup <setup>\n"
 		"  -f - fail fast; exit after first failure\n"
 		"  -j <jobs> - set the number of test workers\n"
 		"  -R - disable automatic rebuild\n"

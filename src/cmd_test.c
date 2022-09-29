@@ -7,9 +7,9 @@
 #include "args.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
-#include "buf_size.h"
 #include "cmd_test.h"
 #include "error.h"
+#include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -19,6 +19,54 @@
 #include "platform/term.h"
 
 #define MAX_TEST_WORKERS (uint32_t)(sizeof(uint32_t) * 8)
+
+enum test_result_status {
+	test_result_status_running,
+	test_result_status_ok,
+	test_result_status_failed,
+	test_result_status_timedout,
+};
+
+struct test_result {
+	struct run_cmd_ctx cmd_ctx;
+	struct obj_test *test;
+	struct timespec start;
+	float dur, timeout;
+	enum test_result_status status;
+};
+
+struct run_test_ctx {
+	struct test_options *opts;
+	obj proj_name;
+	obj collected_tests;
+	obj deps;
+	uint32_t proj_i;
+	struct {
+		uint32_t test_i, test_len, error_count;
+		uint32_t total_count, total_error_count, total_expect_fail_count;
+		uint32_t total_skipped;
+		uint32_t term_width;
+		bool term;
+		bool ran_tests;
+	} stats;
+
+	struct {
+		obj env;
+		obj exclude_suites;
+		obj wrapper;
+		float timeout_multiplier;
+	} setup;
+
+	struct darr test_results;
+
+	struct test_result *test_ctx;
+	uint32_t test_cmd_ctx_free;
+	bool serial;
+};
+
+/*
+ * Test labeling and output
+ */
 
 static const char *
 test_category_label(enum test_category cat)
@@ -33,112 +81,6 @@ test_category_label(enum test_category cat)
 	}
 }
 
-enum test_result_status {
-	test_result_status_running,
-	test_result_status_ok,
-	test_result_status_failed,
-};
-
-struct test_result {
-	struct run_cmd_ctx cmd_ctx;
-	struct obj_test *test;
-	struct timespec start;
-	float dur;
-	enum test_result_status status;
-};
-
-struct run_test_ctx {
-	struct test_options *opts;
-	obj proj_name;
-	obj deps;
-	uint32_t proj_i;
-	struct {
-		uint32_t test_i, test_len, error_count;
-		uint32_t total_count, total_error_count, total_expect_fail_count;
-		uint32_t total_skipped;
-		uint32_t term_width;
-		bool term;
-		bool ran_tests;
-	} stats;
-
-	struct darr test_results;
-
-	struct test_result *test_ctx;
-	uint32_t test_cmd_ctx_free;
-	bool serial;
-};
-
-struct test_in_suite_ctx {
-	struct run_test_ctx *run_test_ctx;
-	bool found;
-};
-
-static enum iteration_result
-test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
-{
-	struct test_in_suite_ctx *ctx = _ctx;
-	uint32_t i;
-	const char *sep, *proj, *suite;
-
-	struct test_options *opts = ctx->run_test_ctx->opts;
-
-	for (i = 0; i < opts->suites_len; ++i) {
-		if ((sep = strchr(opts->suites[i], ':'))) {
-			proj = opts->suites[i];
-			suite = sep + 1;
-		} else {
-			proj = NULL;
-			suite = opts->suites[i];
-		}
-
-		if (proj) {
-			struct str proj_str = {
-				.s = proj,
-				.len = sep - proj,
-			};
-
-			if (!str_eql(get_str(wk, ctx->run_test_ctx->proj_name), &proj_str)) {
-				continue;
-			}
-		} else {
-			if (ctx->run_test_ctx->proj_i) {
-				continue;
-			}
-		}
-
-		if (!str_eql(get_str(wk, s), &WKSTR(suite))) {
-			continue;
-		}
-
-		ctx->found = true;
-		return ir_done;
-	}
-
-	return ir_cont;
-}
-
-static bool
-test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ctx)
-{
-	if (!run_test_ctx->opts->suites_len) {
-		// no suites given on command line
-		return true;
-	} else if (!suites) {
-		// suites given on command line, but test has no suites
-		return false;
-	}
-
-	struct test_in_suite_ctx ctx = {
-		.run_test_ctx = run_test_ctx,
-	};
-
-	if (!obj_array_foreach(wk, suites, &ctx, test_in_suite_iter)) {
-		return false;
-	}
-
-	return ctx.found;
-}
-
 static void
 print_test_result(struct workspace *wk, const struct test_result *res)
 {
@@ -150,30 +92,39 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		status_ok,
 		status_failed_ok,
 		status_running,
-	} status;
+		status_timedout,
+	} status = status_ok;
 
 	const char *status_msg[] = {
-		[status_failed] = "fail ",
+		[status_failed]             = "fail ",
 		[status_should_have_failed] = "ok*  ",
-		[status_ok] = "ok   ",
-		[status_failed_ok] = "fail*",
-		[status_running] = "start",
+		[status_ok]                 = "ok   ",
+		[status_failed_ok]          = "fail*",
+		[status_running]            = "start",
+		[status_timedout]           = "timeout",
 	};
 
-	if (res->status == test_result_status_running) {
+	switch (res->status) {
+	case test_result_status_running:
 		status = status_running;
-	} else if (res->status == test_result_status_failed) {
+		break;
+	case test_result_status_timedout:
+		status = status_timedout;
+		break;
+	case test_result_status_failed:
 		if (res->test->should_fail) {
 			status = status_should_have_failed;
 		} else {
 			status = status_failed;
 		}
-	} else {
+		break;
+	case test_result_status_ok:
 		if (res->test->should_fail) {
 			status = status_failed_ok;
 		} else {
 			status = status_ok;
 		}
+		break;
 	}
 
 	const char *suite_str = NULL;
@@ -198,6 +149,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_ok] = 32,
 			[status_failed_ok] = 33,
 			[status_running] = 0,
+			[status_timedout] = 31,
 		};
 		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
 	} else {
@@ -225,12 +177,12 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 }
 
 static void
-print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct test_result *res)
+print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct test_result *res, bool write_line)
 {
 	if (res->status != test_result_status_running) {
 		++ctx->stats.total_count;
 		++ctx->stats.test_i;
-		if (res->status == test_result_status_failed) {
+		if (res->status != test_result_status_ok) {
 			++ctx->stats.total_error_count;
 			++ctx->stats.error_count;
 		}
@@ -238,14 +190,27 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 
 	if (!ctx->stats.term && !ctx->opts->verbosity) {
 		if (res->status != test_result_status_running) {
-			log_plain("%c", res->status == test_result_status_failed ? 'E' : '.');
+			char c;
+			switch (test_result_status_failed) {
+			case test_result_status_failed:
+				c = 'E';
+				break;
+			case test_result_status_timedout:
+				c = 'T';
+				break;
+			default:
+				c = '.';
+				break;
+			}
+
+			log_plain("%c", c);
 		}
 		return;
 	} else if (ctx->stats.term) {
 		log_plain("\r");
 	}
 
-	if (ctx->opts->verbosity > 0) {
+	if (write_line && ctx->opts->verbosity > 0) {
 		print_test_result(wk, res);
 
 		if (ctx->stats.term) {
@@ -285,6 +250,184 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	log_plain("]");
 }
 
+/*
+ * test setup / suites
+ */
+
+static bool
+project_namespaced_name_matches(const char *name1, bool proj2_is_main,
+	const struct str *proj2, const struct str *name2)
+{
+	struct str proj1 = { 0 };
+	const char *sep;
+	if ((sep = strchr(name1, ':'))) {
+		proj1 = (struct str){ .s = name1, .len = sep - name1 };
+		name1 = sep + 1;
+	}
+
+	if (proj1.len) {
+		if (!str_eql(&proj1, proj2)) {
+			return false;
+		}
+	} else {
+		if (!proj2_is_main) {
+			return false;
+		}
+	}
+
+	return str_eql(&WKSTR(name1), name2);
+}
+
+struct test_in_suite_ctx {
+	struct run_test_ctx *run_test_ctx;
+	bool found;
+};
+
+static enum iteration_result
+test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
+{
+	struct test_in_suite_ctx *ctx = _ctx;
+	uint32_t i;
+
+	struct test_options *opts = ctx->run_test_ctx->opts;
+
+	for (i = 0; i < opts->suites_len; ++i) {
+		if (!project_namespaced_name_matches(opts->suites[i],
+			ctx->run_test_ctx->proj_i == 0,
+			get_str(wk, ctx->run_test_ctx->proj_name), get_str(wk, s))) {
+			continue;
+		}
+
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static bool
+test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ctx)
+{
+	obj exclude = run_test_ctx->setup.exclude_suites;
+
+	struct test_in_suite_ctx ctx = {
+		.run_test_ctx = run_test_ctx,
+	};
+
+	if (!run_test_ctx->opts->suites_len) {
+		// no suites given on command line
+
+		if (exclude) {
+			obj_array_foreach(wk, exclude, &ctx, test_in_suite_iter);
+			return !ctx.found;
+		} else {
+			return true;
+		}
+	} else if (!suites) {
+		// suites given on command line, but test has no suites
+		return false;
+	}
+
+	obj_array_foreach(wk, suites, &ctx, test_in_suite_iter);
+	return ctx.found;
+}
+
+struct find_test_setup_ctx {
+	struct run_test_ctx *rtctx;
+	bool found;
+};
+
+static enum iteration_result
+find_test_setup_iter(struct workspace *wk, void *_ctx, obj arr)
+{
+	struct find_test_setup_ctx *ctx = _ctx;
+
+	/* [name, env, exclude_suites, exe_wrapper, is_default, timeout_multiplier] */
+	obj name, env, exclude_suites, exe_wrapper, is_default, timeout_multiplier;
+
+	obj_array_index(wk, arr, 0, &name);
+	obj_array_index(wk, arr, 1, &env);
+	obj_array_index(wk, arr, 2, &exclude_suites);
+	obj_array_index(wk, arr, 3, &exe_wrapper);
+	obj_array_index(wk, arr, 4, &is_default);
+	obj_array_index(wk, arr, 5, &timeout_multiplier);
+
+	if (ctx->rtctx->opts->setup) {
+		if (!project_namespaced_name_matches(ctx->rtctx->opts->setup,
+			ctx->rtctx->proj_i == 0,
+			get_str(wk, ctx->rtctx->proj_name), get_str(wk, name))) {
+			return ir_cont;
+		}
+	} else if (!is_default || !get_obj_bool(wk, is_default)) {
+		return ir_cont;
+	}
+
+	if (ctx->rtctx->opts->setup) {
+		L("using test setup '%s'", ctx->rtctx->opts->setup);
+	} else {
+		L("using default test setup '%s'", get_cstr(wk, name));
+	}
+
+	ctx->rtctx->setup.env = env;
+	ctx->rtctx->setup.exclude_suites = exclude_suites;
+	ctx->rtctx->setup.wrapper = exe_wrapper;
+	ctx->rtctx->setup.timeout_multiplier =
+		timeout_multiplier ? get_obj_number(wk, timeout_multiplier)
+			: 1.0f;
+	ctx->found = true;
+	return ir_done;
+}
+
+static enum iteration_result
+find_test_setup_project_iter(struct workspace *wk, void *_ctx, obj project_name, obj arr)
+{
+	struct find_test_setup_ctx *ctx = _ctx;
+	ctx->rtctx->proj_name = project_name;
+
+	obj setups;
+	obj_array_index(wk, arr, 1, &setups);
+
+	if (!setups) {
+		return ir_cont;
+	}
+
+	obj_array_foreach(wk, setups, ctx, find_test_setup_iter);
+
+	if (ctx->found) {
+		return ir_done;
+	}
+
+	++ctx->rtctx->proj_i;
+	return ir_cont;
+}
+
+static bool
+load_test_setup(struct workspace *wk, struct run_test_ctx *rtctx, obj tests_dict)
+{
+	bool res = false;
+	struct find_test_setup_ctx ctx = {
+		.rtctx = rtctx,
+	};
+
+	obj_dict_foreach(wk, tests_dict, &ctx, find_test_setup_project_iter);
+
+	if (!ctx.found) {
+		if (rtctx->opts->setup) {
+			LOG_E("invalid test setup: '%s'", rtctx->opts->setup);
+			goto ret;
+		}
+	}
+
+	res = true;
+ret:
+	rtctx->proj_i = 0;
+	return res;
+}
+
+/*
+ * Test runner
+ */
+
 static void
 calculate_test_duration(struct test_result *res)
 {
@@ -301,6 +444,15 @@ calculate_test_duration(struct test_result *res)
 }
 
 static void
+test_delay(void)
+{
+	struct timespec req = {
+		.tv_nsec = 10000000,
+	};
+	nanosleep(&req, NULL);
+}
+
+static void
 collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
@@ -311,20 +463,39 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 		struct test_result *res = &ctx->test_ctx[i];
+		calculate_test_duration(res);
 
-		switch (run_cmd_collect(&res->cmd_ctx)) {
-		case run_cmd_running:
+		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
+
+		if (state != run_cmd_running
+		    && res->status == test_result_status_timedout) {
+			run_cmd_ctx_destroy(&res->cmd_ctx);
+			print_test_progress(wk, ctx, res, true);
+			darr_push(&ctx->test_results, res);
+			goto free_slot;
+		}
+
+		switch (state) {
+		case run_cmd_running: {
+			if (res->timeout > 0.0f && res->dur >= res->timeout) {
+				bool force_kill = res->status == test_result_status_timedout
+						  && (res->dur - res->timeout) > 0.5f;
+
+				run_cmd_kill(&res->cmd_ctx, force_kill);
+
+				if (!res->status) {
+					res->status = test_result_status_timedout;
+				}
+			}
+
 			continue;
+		}
 		case run_cmd_error:
-			calculate_test_duration(res);
-
 			res->status = test_result_status_failed;
-			print_test_progress(wk, ctx, res);
+			print_test_progress(wk, ctx, res, true);
 			darr_push(&ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
-			calculate_test_duration(res);
-
 			bool ok;
 			if (res->cmd_ctx.status == 0) {
 				ok = !res->test->should_fail;
@@ -348,12 +519,13 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				res->status = test_result_status_failed;
 			}
 
-			print_test_progress(wk, ctx, res);
+			print_test_progress(wk, ctx, res, true);
 			darr_push(&ctx->test_results, res);
 			break;
 		}
 		}
 
+free_slot:
 		ctx->test_cmd_ctx_free &= ~(1 << i);
 
 		if (!res->test->is_parallel) {
@@ -364,15 +536,6 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			break;
 		}
 	}
-}
-
-static void
-test_delay(void)
-{
-	struct timespec req = {
-		.tv_nsec = 10000000,
-	};
-	nanosleep(&req, NULL);
 }
 
 static void
@@ -411,6 +574,10 @@ found_slot:
 
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
 	ctx->test_ctx[i].test = test;
+	ctx->test_ctx[i].timeout =
+		(test->timeout ? get_obj_number(wk, test->timeout) : 30.0f)
+		* ctx->setup.timeout_multiplier;
+
 	*cmd_ctx = (struct run_cmd_ctx){ .flags = run_cmd_ctx_flag_async };
 
 	if (ctx->opts->verbosity > 1) {
@@ -425,24 +592,15 @@ found_slot:
 		LOG_E("error getting test start time: %s", strerror(errno));
 	}
 
-	if (ctx->serial) {
-		print_test_progress(wk, ctx, res);
-	}
+	print_test_progress(wk, ctx, res, ctx->serial);
 
 	if (!run_cmd(cmd_ctx, argstr, argc, envstr, envc)) {
 		ctx->test_cmd_ctx_free &= ~(1 << i);
 		calculate_test_duration(res);
 		res->status = test_result_status_failed;
-		print_test_progress(wk, ctx, res);
+		print_test_progress(wk, ctx, res, true);
 		darr_push(&ctx->test_results, res);
 	}
-}
-
-static bool
-should_run_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test)
-{
-	return test->category == ctx->opts->cat
-	       && test_in_suite(wk, test->suites, ctx);
 }
 
 static enum iteration_result
@@ -456,12 +614,13 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 
 	struct obj_test *test = get_obj_test(wk, t);
 
-	if (!should_run_test(wk, ctx, test)) {
-		return ir_cont;
-	}
-
 	obj cmdline;
 	make_obj(wk, &cmdline, obj_array);
+
+	if (ctx->setup.wrapper) {
+		obj_array_extend(wk, cmdline, ctx->setup.wrapper);
+	}
+
 	obj_array_push(wk, cmdline, test->exe);
 
 	if (test->args) {
@@ -471,21 +630,44 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 
+	obj env;
+	if (!environment_to_dict(wk, test->env, &env)) {
+		UNREACHABLE;
+	}
+
+	if (ctx->setup.env) {
+		obj setup_env;
+		if (!environment_to_dict(wk, ctx->setup.env, &setup_env)) {
+			UNREACHABLE;
+		}
+
+		obj merged;
+		obj_dict_merge(wk, env, setup_env, &merged);
+		env = merged;
+	}
+
 	join_args_argstr(wk, &argstr, &argc, cmdline);
-	env_to_envstr(wk, &envstr, &envc, test->env);
+	env_to_envstr(wk, &envstr, &envc, env);
 	push_test(wk, ctx, test, argstr, argc, envstr, envc);
 	return ir_cont;
 }
 
+/*
+ * Test filtering and dispatch
+ */
+
 static enum iteration_result
-count_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
+gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct run_test_ctx *ctx = _ctx;
 	struct obj_test *t = get_obj_test(wk, val);
 
-	if (!should_run_test(wk, ctx, t)) {
+	if (!(t->category == ctx->opts->cat
+	      && test_in_suite(wk, t->suites, ctx))) {
 		return ir_cont;
 	}
+
+	obj_array_push(wk, ctx->collected_tests, val);
 
 	++ctx->stats.test_len;
 	if (t->depends) {
@@ -495,8 +677,11 @@ count_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
+run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 {
+	obj tests;
+	obj_array_index(wk, arr, 0, &tests);
+
 	struct run_test_ctx *ctx = _ctx;
 	make_obj(wk, &ctx->deps, obj_array);
 
@@ -504,7 +689,8 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 	ctx->stats.error_count = 0;
 	ctx->stats.test_len = 0;
 
-	obj_array_foreach(wk, tests, ctx, count_project_tests_iter);
+	make_obj(wk, &ctx->collected_tests, obj_array);
+	obj_array_foreach(wk, tests, ctx, gather_project_tests_iter);
 
 	if (!ctx->stats.test_len) {
 		return ir_cont;
@@ -527,7 +713,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj tests)
 
 	ctx->proj_name = proj_name;
 
-	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
+	if (!obj_array_foreach(wk, ctx->collected_tests, ctx, run_test)) {
 		return ir_err;
 	}
 
@@ -576,6 +762,7 @@ tests_run(struct test_options *opts)
 
 	struct run_test_ctx ctx = {
 		.opts = opts,
+		.setup = { .timeout_multiplier = 1.0f, },
 	};
 
 	{
@@ -611,7 +798,13 @@ tests_run(struct test_options *opts)
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
-	} else if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
+	}
+
+	if (!load_test_setup(&wk, &ctx, tests_dict)) {
+		goto ret;
+	}
+
+	if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;
 	}
 
@@ -632,7 +825,9 @@ tests_run(struct test_options *opts)
 	for (i = 0; i < ctx.test_results.len; ++i) {
 		struct test_result *res = darr_get(&ctx.test_results, i);
 
-		if (opts->print_summary || res->status == test_result_status_failed) {
+		if (opts->print_summary ||
+		    (res->status == test_result_status_failed
+		     || res->status == test_result_status_timedout)) {
 			print_test_result(&wk, res);
 			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
 				log_plain(": %s", res->cmd_ctx.err_msg);
@@ -655,6 +850,8 @@ tests_run(struct test_options *opts)
 			}
 
 			run_cmd_ctx_destroy(&res->cmd_ctx);
+		} else if (res->status == test_result_status_timedout) {
+			ret = false;
 		}
 	}
 

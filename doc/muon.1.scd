@@ -218,8 +218,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Print a previously configured project's summary.
 
 ## test
-	*muon* *test* [*-d* <display mode>] [*-f*] [*-j* <jobs>] [*-R*] [*-s*
-	<suite>] [*-S*] [*-v [*-v*]*]
+	*muon* *test* [*-d* <display mode>] [*-e* <setup>] [*-f*] [*-j* <jobs>]
+	[*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
 
 	Execute tests defined in _source files_.
 
@@ -229,6 +229,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  for error, *bar* prints a progress bar with an error count.  The
 	  default mode, *auto*, selects *bar* if the output device is a
 	  terminal or *dots* otherwise.
+	- *-e* <setup> - Use test setup _setup_.
 	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-j* - Set the number of jobs used when running tests.  The maximum is
 	  32.
