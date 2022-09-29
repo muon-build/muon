@@ -218,29 +218,29 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Print a previously configured project's summary.
 
 ## test
-	*muon* *test* [*-S*] [*-f*] [*-j* <jobs>] [*-s* <suite>] [*-d* <display
-	mode>] [*-v [*-v*]*] [*-R*]
+	*muon* *test* [*-d* <display mode>] [*-f*] [*-j* <jobs>] [*-R*] [*-s*
+	<suite>] [*-S*] [*-v [*-v*]*]
 
 	Execute tests defined in _source files_.
 
 	*OPTIONS*:
-	- *-s* <suite> - Only run tests in suite _suite_.  This option may be
-	  specified multiple times.
 	- *-d* <display mode> - Control test output.  _display mode_ can be one
 	  of *auto*, *dots*, or *bar*.  *dots* prints a '.' for success and 'E'
 	  for error, *bar* prints a progress bar with an error count.  The
 	  default mode, *auto*, selects *bar* if the output device is a
 	  terminal or *dots* otherwise.
-	- *-S* - print a summary of test results, including the duration of
-	  each test
 	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-j* - Set the number of jobs used when running tests.  The maximum is
 	  32.
+	- *-R* - No rebuild. Disable automatic build system invocation prior to
+	  running tests.
+	- *-s* <suite> - Only run tests in suite _suite_.  This option may be
+	  specified multiple times.
+	- *-S* - print a summary of test results, including the duration of
+	  each test
 	- *-v* - Increase verbosity.  When passed once, print test results as
 	  they are completed.  When passed twice, the stdout/stderr of tests is
 	  not captured.
-	- *-R* - No rebuild. Disable automatic build system invocation prior to
-	  running tests.
 
 ## version
 	*muon* *version*

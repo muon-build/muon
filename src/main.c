@@ -658,13 +658,13 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 			test_opts.no_rebuild = true;
 			break;
 	} OPTEND(argv[argi], "",
-		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
-		"  -S - print a summary with elapsed time\n"
 		"  -f - fail fast; exit after first failure\n"
-		"  -v - increase verbosity, may be passed twice\n"
-		"  -R - disable automatic rebuild\n",
 		"  -j <jobs> - set the number of test workers\n"
+		"  -R - disable automatic rebuild\n"
+		"  -S - print a summary with elapsed time\n"
+		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
+		"  -v - increase verbosity, may be passed twice\n",
 		NULL, 0)
 
 	if (!ensure_in_build_dir()) {
