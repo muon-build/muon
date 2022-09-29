@@ -191,7 +191,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	if (!ctx->stats.term && !ctx->opts->verbosity) {
 		if (res->status != test_result_status_running) {
 			char c;
-			switch (test_result_status_failed) {
+			switch (res->status) {
 			case test_result_status_failed:
 				c = 'E';
 				break;
