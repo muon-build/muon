@@ -334,20 +334,8 @@ env_to_envstr(struct workspace *wk, const char **res, uint32_t *envc, obj val)
 	};
 
 	obj dict;
-
-	switch (get_obj_type(wk, val)) {
-	case obj_dict:
-		dict = val;
-		break;
-	case obj_environment: {
-		if (!environment_to_dict(wk, val, &dict)) {
-			UNREACHABLE;
-		}
-		break;
-	}
-	default:
-		assert(false && "please call me with a dict or environment object");
-		return;
+	if (!environment_to_dict(wk, val, &dict)) {
+		UNREACHABLE;
 	}
 
 	obj_dict_foreach(wk, dict, &ctx, env_to_envstr_dict_iter);

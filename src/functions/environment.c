@@ -57,6 +57,11 @@ evironment_to_dict_iter(struct workspace *wk, void *_ctx, obj action)
 bool
 environment_to_dict(struct workspace *wk, obj env, obj *res)
 {
+	if (get_obj_type(wk, env) == obj_dict) {
+		*res = env;
+		return true;
+	}
+
 	make_obj(wk, res, obj_dict);
 
 	return obj_array_foreach(wk, get_obj_environment(wk, env)->actions, res, evironment_to_dict_iter);
