@@ -16,4 +16,4 @@ tasks:
       cd muon/build
       # TODO remove this when we implement rpaths
       export LD_LIBRARY_PATH=/usr/pkg/lib
-      ./muon test -d dots -s lang -s unit
+      ./muon test -d dots -s lang
