@@ -1183,6 +1183,35 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		return false;
 	}
 
+	obj test_setup;
+	make_obj(wk, &test_setup, obj_array);
+
+	obj env = 0;
+	if (akw[kw_env].set && !coerce_environment_from_kwarg(wk, &akw[kw_env], false, &env)) {
+		return false;
+	}
+
+	obj exe_wrapper = 0;
+	if (akw[kw_exe_wrapper].set && !arr_to_args(wk,
+		arr_to_args_build_target | arr_to_args_custom_target,
+		akw[kw_exe_wrapper].val, &exe_wrapper)) {
+		return false;
+	}
+
+	/* [name, env, exclude_suites, exe_wrapper, is_default, timeout_multiplier] */
+
+	obj_array_push(wk, test_setup, an[0].val);
+	obj_array_push(wk, test_setup, env);
+	obj_array_push(wk, test_setup, akw[kw_exclude_suites].val);
+	obj_array_push(wk, test_setup, exe_wrapper);
+	obj_array_push(wk, test_setup, akw[kw_is_default].val);
+	obj_array_push(wk, test_setup, akw[kw_timeout_multiplier].val);
+
+	if (!current_project(wk)->test_setups) {
+		make_obj(wk, &current_project(wk)->test_setups, obj_array);
+	}
+
+	obj_array_push(wk, current_project(wk)->test_setups, test_setup);
 	return true;
 }
 

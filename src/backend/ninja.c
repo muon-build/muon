@@ -163,7 +163,12 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 				assert(false && "project defined multiple times");
 			}
 
-			obj_dict_set(wk, tests, key, proj->tests);
+			obj arr;
+			make_obj(wk, &arr, obj_array);
+
+			obj_array_push(wk, arr, proj->tests);
+			obj_array_push(wk, arr, proj->test_setups);
+			obj_dict_set(wk, tests, key, arr);
 		}
 	}
 
