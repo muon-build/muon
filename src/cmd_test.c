@@ -281,6 +281,8 @@ project_namespaced_name_matches(const char *name1, bool proj2_is_main,
 struct test_in_suite_ctx {
 	struct run_test_ctx *run_test_ctx;
 	bool found;
+
+	obj suite;
 };
 
 static enum iteration_result
@@ -305,11 +307,40 @@ test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
 	return ir_cont;
 }
 
+static enum iteration_result
+test_in_exclude_suites_exclude_suites_iter(struct workspace *wk, void *_ctx, obj exclude)
+{
+	struct test_in_suite_ctx *ctx = _ctx;
+
+	if (project_namespaced_name_matches(get_cstr(wk, exclude),
+		ctx->run_test_ctx->proj_i == 0,
+		get_str(wk, ctx->run_test_ctx->proj_name), get_str(wk, ctx->suite))) {
+
+		ctx->found = true;
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+test_in_exclude_suites_iter(struct workspace *wk, void *_ctx, obj suite)
+{
+	struct test_in_suite_ctx *ctx = _ctx;
+	ctx->suite = suite;
+
+	obj_array_foreach(wk, ctx->run_test_ctx->setup.exclude_suites,
+		ctx, test_in_exclude_suites_exclude_suites_iter);
+
+	if (ctx->found) {
+		return ir_done;
+	}
+	return ir_cont;
+}
+
 static bool
 test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ctx)
 {
-	obj exclude = run_test_ctx->setup.exclude_suites;
-
 	struct test_in_suite_ctx ctx = {
 		.run_test_ctx = run_test_ctx,
 	};
@@ -317,8 +348,8 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 	if (!run_test_ctx->opts->suites_len) {
 		// no suites given on command line
 
-		if (exclude) {
-			obj_array_foreach(wk, exclude, &ctx, test_in_suite_iter);
+		if (run_test_ctx->setup.exclude_suites) {
+			obj_array_foreach(wk, suites, &ctx, test_in_exclude_suites_iter);
 			return !ctx.found;
 		} else {
 			return true;
