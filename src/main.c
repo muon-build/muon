@@ -654,7 +654,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 				return false;
 			}
 
-			test_opts.workers = n;
+			test_opts.jobs = n;
 			break;
 		}
 		case 'v':

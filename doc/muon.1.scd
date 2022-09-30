@@ -231,8 +231,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  terminal or *dots* otherwise.
 	- *-e* <setup> - Use test setup _setup_.
 	- *-f* - Fail fast. exit after first test failure is encountered.
-	- *-j* - Set the number of jobs used when running tests.  The maximum is
-	  32.
+	- *-j* - Set the number of jobs used when running tests.
 	- *-l* - List tests that would be run with the current setup, suites,
 	etc.  The format of the output is <project name>:<list of suites> -
 	<test_name>.

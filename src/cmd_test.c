@@ -18,8 +18,6 @@
 #include "platform/run_cmd.h"
 #include "platform/term.h"
 
-#define MAX_TEST_WORKERS (uint32_t)(sizeof(uint32_t) * 8)
-
 enum test_result_status {
 	test_result_status_running,
 	test_result_status_ok,
@@ -33,6 +31,7 @@ struct test_result {
 	struct timespec start;
 	float dur, timeout;
 	enum test_result_status status;
+	bool busy;
 };
 
 struct run_test_ctx {
@@ -59,8 +58,8 @@ struct run_test_ctx {
 
 	struct darr test_results;
 
-	struct test_result *test_ctx;
-	uint32_t test_cmd_ctx_free;
+	struct test_result *jobs;
+	uint32_t busy_jobs;
 	bool serial;
 };
 
@@ -224,17 +223,10 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		return;
 	}
 
-	uint32_t i, running = 0;
-	for (i = 0; i < ctx->opts->workers; ++i) {
-		if ((ctx->test_cmd_ctx_free & (1 << i))) {
-			++running;
-		}
-	}
-
-	uint32_t pad = 2;
+	uint32_t i, pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d (%d) ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count, running);
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d (%d) ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count, ctx->busy_jobs);
 
 	log_plain("%s[", info);
 	uint32_t pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
@@ -488,12 +480,12 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
 
-	for (i = 0; i < ctx->opts->workers; ++i) {
-		if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+	for (i = 0; i < ctx->opts->jobs; ++i) {
+		if (!ctx->jobs[i].busy) {
 			continue;
 		}
 
-		struct test_result *res = &ctx->test_ctx[i];
+		struct test_result *res = &ctx->jobs[i];
 		calculate_test_duration(res);
 
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
@@ -557,7 +549,8 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 free_slot:
-		ctx->test_cmd_ctx_free &= ~(1 << i);
+		res->busy = false;
+		--ctx->busy_jobs;
 
 		if (!res->test->is_parallel) {
 			ctx->serial = false;
@@ -575,18 +568,18 @@ push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
 {
 	uint32_t i;
 	while (true) {
-		if (ctx->serial && ctx->test_cmd_ctx_free) {
+		if (ctx->serial && ctx->busy_jobs) {
 			goto cont;
 		}
 
 		if (test->is_parallel) {
-			for (i = 0; i < ctx->opts->workers; ++i) {
-				if (!(ctx->test_cmd_ctx_free & (1 << i))) {
+			for (i = 0; i < ctx->opts->jobs; ++i) {
+				if (!ctx->jobs[i].busy) {
 					goto found_slot;
 				}
 			}
 		} else {
-			if (!ctx->test_cmd_ctx_free) {
+			if (!ctx->busy_jobs) {
 				ctx->serial = true;
 				i = 0;
 				goto found_slot;
@@ -598,18 +591,21 @@ cont:
 		collect_tests(wk, ctx);
 	}
 found_slot:
-	ctx->test_cmd_ctx_free |= (1 << i);
+	++ctx->busy_jobs;
 
-	struct test_result *res = &ctx->test_ctx[i];
-	*res = (struct test_result) { 0 };
-
+	struct test_result *res = &ctx->jobs[i];
 	struct run_cmd_ctx *cmd_ctx = &res->cmd_ctx;
-	ctx->test_ctx[i].test = test;
-	ctx->test_ctx[i].timeout =
-		(test->timeout ? get_obj_number(wk, test->timeout) : 30.0f)
-		* ctx->setup.timeout_multiplier;
 
-	*cmd_ctx = (struct run_cmd_ctx){ .flags = run_cmd_ctx_flag_async };
+	*res = (struct test_result) {
+		.busy = true,
+		.test = test,
+		.timeout = (test->timeout ? get_obj_number(wk, test->timeout) : 30.0f)
+			   * ctx->setup.timeout_multiplier,
+
+		.cmd_ctx = {
+			.flags = run_cmd_ctx_flag_async,
+		},
+	};
 
 	if (ctx->opts->verbosity > 1) {
 		cmd_ctx->flags |= run_cmd_ctx_flag_dont_capture;
@@ -626,7 +622,9 @@ found_slot:
 	print_test_progress(wk, ctx, res, ctx->serial);
 
 	if (!run_cmd(cmd_ctx, argstr, argc, envstr, envc)) {
-		ctx->test_cmd_ctx_free &= ~(1 << i);
+		res->busy = false;
+		--ctx->busy_jobs;
+
 		calculate_test_duration(res);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
@@ -757,7 +755,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 		return ir_done;
 	}
 
-	while (ctx->test_cmd_ctx_free) {
+	while (ctx->busy_jobs) {
 		test_delay();
 		collect_tests(wk, ctx);
 	}
@@ -775,11 +773,8 @@ tests_run(struct test_options *opts)
 	bool ret = false;
 	SBUF_manual(tests_src);
 
-	if (opts->workers > MAX_TEST_WORKERS) {
-		LOG_E("the maximum number of test jobs is %d", MAX_TEST_WORKERS);
-		return false;
-	} else if (!opts->workers) {
-		opts->workers = 4;
+	if (!opts->jobs) {
+		opts->jobs = 4;
 	}
 
 	path_join(NULL, &tests_src, output_path.private_dir, output_path.tests);
@@ -826,7 +821,7 @@ tests_run(struct test_options *opts)
 	}
 
 	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
-	ctx.test_ctx = z_calloc(ctx.opts->workers, sizeof(struct test_result));
+	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
 	obj tests_dict;
 	if (!serial_load(&wk, &tests_dict, f)) {
@@ -899,6 +894,6 @@ tests_run(struct test_options *opts)
 ret:
 	workspace_destroy_bare(&wk);
 	darr_destroy(&ctx.test_results);
-	z_free(ctx.test_ctx);
+	z_free(ctx.jobs);
 	return ret;
 }
