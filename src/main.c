@@ -612,7 +612,10 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.print_summary = true;
 	}
 
-	OPTSTART("s:d:Sfj:vRe:") {
+	OPTSTART("s:d:Sfj:lvRe:") {
+		case 'l':
+			test_opts.list = true;
+			break;
 		case 'e':
 			test_opts.setup = optarg;
 			break;
@@ -665,6 +668,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -e <setup> - use test setup <setup>\n"
 		"  -f - fail fast; exit after first failure\n"
 		"  -j <jobs> - set the number of test workers\n"
+		"  -l - list tests that would be run\n"
 		"  -R - disable automatic rebuild\n"
 		"  -S - print a summary with elapsed time\n"
 		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"

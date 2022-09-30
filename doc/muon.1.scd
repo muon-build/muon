@@ -219,7 +219,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## test
 	*muon* *test* [*-d* <display mode>] [*-e* <setup>] [*-f*] [*-j* <jobs>]
-	\[*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
+	\[*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
 
 	Execute tests defined in _source files_.
 
@@ -233,6 +233,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-j* - Set the number of jobs used when running tests.  The maximum is
 	  32.
+	- *-l* - List tests that would be run with the current setup, suites,
+	etc.  The format of the output is <project name>:<list of suites> -
+	<test_name>.
 	- *-R* - No rebuild. Disable automatic build system invocation prior to
 	  running tests.
 	- *-s* <suite> - Only run tests in suite _suite_.  This option may be

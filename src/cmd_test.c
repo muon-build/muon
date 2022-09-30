@@ -698,6 +698,11 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
+	if (ctx->opts->list) {
+		obj_printf(wk, "%#o:%o - %#o\n", ctx->proj_name, t->suites, t->name);
+		return ir_cont;
+	}
+
 	obj_array_push(wk, ctx->collected_tests, val);
 
 	++ctx->stats.test_len;
@@ -723,7 +728,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	make_obj(wk, &ctx->collected_tests, obj_array);
 	obj_array_foreach(wk, tests, ctx, gather_project_tests_iter);
 
-	if (!ctx->stats.test_len) {
+	if (ctx->opts->list || !ctx->stats.test_len) {
 		return ir_cont;
 	}
 
@@ -836,6 +841,11 @@ tests_run(struct test_options *opts)
 	}
 
 	if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
+		goto ret;
+	}
+
+	if (opts->list) {
+		ret = true;
 		goto ret;
 	}
 

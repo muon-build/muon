@@ -22,7 +22,7 @@ struct test_options {
 	const char *setup;
 	uint32_t suites_len, workers, verbosity;
 	enum test_display display;
-	bool fail_fast, print_summary, no_rebuild;
+	bool fail_fast, print_summary, no_rebuild, list;
 
 	enum test_category cat;
 };
