@@ -20,7 +20,7 @@ tasks:
       ninja -C build_memsan
   - test: |
       cd ~/muon/build_asan_ubsan
-      ./muon test -d dots
+      ./muon test -j$(nproc) -d dots
 
       cd ~/muon/build_memsan
-      ./muon test -d dots
+      ./muon test -j$(nproc) -d dots

@@ -49,10 +49,10 @@ tasks:
       CC=tcc .builds/bootstrap.sh build-tcc
   - test_gcc: |
       cd muon/build
-      CC=gcc ./muon test -d dots
+      CC=gcc ./muon test -j$(nproc) -d dots
   - test_clang: |
       cd muon/build
-      CC=clang ./muon test -d dots
+      CC=clang ./muon test -j$(nproc) -d dots
   - release: |
       cd muon/build
       arch=amd64-linux-static
