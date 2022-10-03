@@ -710,11 +710,33 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static int32_t
+test_compare(struct workspace *wk, void *_ctx, obj t1_id, obj t2_id)
+{
+	struct obj_test *t1 = get_obj_test(wk, t1_id),
+			*t2 = get_obj_test(wk, t2_id);
+
+	int64_t p1 = t1->priority ? get_obj_number(wk, t1->priority) : 0,
+		p2 = t2->priority ? get_obj_number(wk, t2->priority) : 0;
+
+	if (p1 > p2) {
+		return -1;
+	} else if (p1 < p2) {
+		return 1;
+	} else if (t1->is_parallel && t2->is_parallel) {
+		return 0;
+	} else if (t1->is_parallel) {
+		return 1;
+	} else {
+		return -1;
+	}
+}
+
 static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 {
-	obj tests;
-	obj_array_index(wk, arr, 0, &tests);
+	obj unfiltered_tests, tests;
+	obj_array_index(wk, arr, 0, &unfiltered_tests);
 
 	struct run_test_ctx *ctx = _ctx;
 	make_obj(wk, &ctx->deps, obj_array);
@@ -724,7 +746,8 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	ctx->stats.test_len = 0;
 
 	make_obj(wk, &ctx->collected_tests, obj_array);
-	obj_array_foreach(wk, tests, ctx, gather_project_tests_iter);
+	obj_array_foreach(wk, unfiltered_tests, ctx, gather_project_tests_iter);
+	obj_array_sort(wk, NULL, ctx->collected_tests, test_compare, &tests);
 
 	if (ctx->opts->list || !ctx->stats.test_len) {
 		return ir_cont;
@@ -747,7 +770,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 
 	ctx->proj_name = proj_name;
 
-	if (!obj_array_foreach(wk, ctx->collected_tests, ctx, run_test)) {
+	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
 		return ir_err;
 	}
 
