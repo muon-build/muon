@@ -876,8 +876,15 @@ obj_array_sort_wrapper(const void *a, const void *b, void *_ctx)
 void
 obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res)
 {
+	uint32_t len = get_obj_array(wk, arr)->len;
+
+	if (!len) {
+		*res = arr;
+		return;
+	}
+
 	struct darr da;
-	darr_init(&da, get_obj_array(wk, arr)->len, sizeof(obj));
+	darr_init(&da, len, sizeof(obj));
 	obj_array_foreach(wk, arr, &da, obj_array_sort_push_to_da_iter);
 
 	struct obj_array_sort_ctx ctx = { .wk = wk, .usr_ctx = usr_ctx, .func = func, };
