@@ -1277,7 +1277,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		kw_should_fail,
 		kw_env,
 		kw_suite,
-		kw_priority, // TODO
+		kw_priority,
 		kw_timeout,
 		kw_protocol,
 		kw_is_parallel,
@@ -1289,7 +1289,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_priority] = { "priority", obj_number, }, // TODO
+		[kw_priority] = { "priority", obj_number, },
 		[kw_timeout] = { "timeout", obj_number, },
 		[kw_protocol] = { "protocol", obj_string, },
 		[kw_is_parallel] = { 0 },
