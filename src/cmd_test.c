@@ -732,7 +732,11 @@ list_tests_iter(struct workspace *wk, void *_ctx, obj test)
 {
 	struct run_test_ctx *ctx = _ctx;
 	struct obj_test *t = get_obj_test(wk, test);
-	obj_printf(wk, "%#o:%o - %#o\n", ctx->proj_name, t->suites, t->name);
+	obj_printf(wk, "%#o", ctx->proj_name);
+	if (t->suites) {
+		obj_printf(wk, ":%o", t->suites);
+	}
+	obj_printf(wk, " - %#o\n", t->name);
 	return ir_cont;
 }
 
