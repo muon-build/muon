@@ -290,12 +290,6 @@ path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, c
 	_path_normalize(wk, buf, false);
 }
 
-bool
-path_is_basename(const char *path)
-{
-	return strchr(path, PATH_SEP) == NULL;
-}
-
 void
 path_without_ext(struct workspace *wk, struct sbuf *buf, const char *path)
 {
