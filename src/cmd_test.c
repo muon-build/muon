@@ -803,8 +803,21 @@ tests_run(struct test_options *opts)
 	bool ret = false;
 	SBUF_manual(tests_src);
 
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
 	if (!opts->jobs) {
 		opts->jobs = 4;
+	}
+
+	{
+		obj ninja_cmd;
+		make_obj(&wk, &ninja_cmd, obj_array);
+		obj_array_push(&wk, ninja_cmd, make_str(&wk, "build.ninja"));
+		const char *argstr;
+		uint32_t argc;
+		join_args_argstr(&wk, &argstr, &argc, ninja_cmd);
+		ninja_run(argstr, argc, NULL, NULL);
 	}
 
 	path_join(NULL, &tests_src, output_path.private_dir, output_path.tests);
@@ -815,11 +828,8 @@ tests_run(struct test_options *opts)
 	sbuf_destroy(&tests_src);
 
 	if (!f) {
-		return false;
+		goto ret;
 	}
-
-	struct workspace wk;
-	workspace_init_bare(&wk);
 
 	struct run_test_ctx ctx = {
 		.opts = opts,
