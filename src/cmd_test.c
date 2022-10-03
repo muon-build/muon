@@ -696,11 +696,6 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	if (ctx->opts->list) {
-		obj_printf(wk, "%#o:%o - %#o\n", ctx->proj_name, t->suites, t->name);
-		return ir_cont;
-	}
-
 	obj_array_push(wk, ctx->collected_tests, val);
 
 	++ctx->stats.test_len;
@@ -733,6 +728,15 @@ test_compare(struct workspace *wk, void *_ctx, obj t1_id, obj t2_id)
 }
 
 static enum iteration_result
+list_tests_iter(struct workspace *wk, void *_ctx, obj test)
+{
+	struct run_test_ctx *ctx = _ctx;
+	struct obj_test *t = get_obj_test(wk, test);
+	obj_printf(wk, "%#o:%o - %#o\n", ctx->proj_name, t->suites, t->name);
+	return ir_cont;
+}
+
+static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 {
 	obj unfiltered_tests, tests;
@@ -749,7 +753,10 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	obj_array_foreach(wk, unfiltered_tests, ctx, gather_project_tests_iter);
 	obj_array_sort(wk, NULL, ctx->collected_tests, test_compare, &tests);
 
-	if (ctx->opts->list || !ctx->stats.test_len) {
+	if (ctx->opts->list) {
+		obj_array_foreach(wk, tests, ctx, list_tests_iter);
+		return ir_cont;
+	} else if (!ctx->stats.test_len) {
 		return ir_cont;
 	}
 
