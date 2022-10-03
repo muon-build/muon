@@ -1,7 +1,5 @@
 afl_fuzz = find_program('afl-fuzz', required: false)
 
-message(cc.cmd_array())
-
 if not (cc.cmd_array()[0].startswith('afl-clang') and afl_fuzz.found())
     subdir_done()
 endif
