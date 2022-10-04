@@ -63,14 +63,13 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/* build rules and args */
 
-	obj rule_name;
+	obj rule_name, specialized_rule;
 	{
 		obj rule_name_arr;
 		if (!obj_dict_geti(wk, ctx->tgt->required_compilers, lang, &rule_name_arr)) {
 			UNREACHABLE;
 		}
 
-		obj specialized_rule;
 		obj_array_index(wk, rule_name_arr, 0, &rule_name);
 		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
 
@@ -97,7 +96,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	fputc('\n', ctx->out);
 
-	if (ctx->joined_args) {
+	if (!specialized_rule) {
 		obj args;
 		if (!obj_dict_geti(wk, ctx->joined_args, lang, &args)) {
 			UNREACHABLE;
