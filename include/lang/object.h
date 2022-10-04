@@ -361,6 +361,13 @@ enum test_category {
 	test_category_benchmark,
 };
 
+enum test_protocol {
+	test_protocol_exitcode,
+	test_protocol_tap,
+	test_protocol_gtest,
+	test_protocol_rust,
+};
+
 struct obj_test {
 	obj name; // obj_string
 	obj exe; // obj_string
@@ -373,6 +380,7 @@ struct obj_test {
 	obj priority; // obj_number
 	bool should_fail, is_parallel;
 	enum test_category category;
+	enum test_protocol protocol;
 };
 
 struct obj_compiler {

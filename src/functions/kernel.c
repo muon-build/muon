@@ -1304,6 +1304,37 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		return false;
 	}
 
+	enum test_protocol protocol = test_protocol_exitcode;
+	if (akw[kw_protocol].set) {
+		const char *protocol_names[] = {
+			[test_protocol_exitcode] = "exitcode",
+			[test_protocol_tap] = "tap",
+			[test_protocol_gtest] = "gtest",
+			[test_protocol_rust] = "rust",
+		};
+
+		for (protocol = 0; protocol < ARRAY_LEN(protocol_names); ++protocol) {
+			if (str_eql(get_str(wk, akw[kw_protocol].val),
+				&WKSTR(protocol_names[protocol]))) {
+				break;
+			}
+		}
+
+		if (protocol == ARRAY_LEN(protocol_names)) {
+			interp_error(wk, akw[kw_protocol].node,
+				"invalid protocol %o", akw[kw_protocol].val);
+			return false;
+		}
+
+		if (protocol == test_protocol_gtest
+		    || protocol == test_protocol_rust) {
+			interp_warning(wk, akw[kw_protocol].node,
+				"unsupported protocol %o, falling back to 'exitcode'",
+				akw[kw_protocol].val);
+			protocol = test_protocol_exitcode;
+		}
+	}
+
 	obj exe;
 	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
 		return false;
@@ -1337,6 +1368,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	t->timeout = akw[kw_timeout].val;
 	t->priority = akw[kw_priority].val;
 	t->category = cat;
+	t->protocol = protocol;
 
 	if (akw[kw_is_parallel].key) {
 		t->is_parallel = akw[kw_is_parallel].set

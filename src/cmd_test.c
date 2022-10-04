@@ -9,6 +9,7 @@
 #include "backend/output.h"
 #include "cmd_test.h"
 #include "error.h"
+#include "formats/tap.h"
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -32,6 +33,10 @@ struct test_result {
 	float dur, timeout;
 	enum test_result_status status;
 	bool busy;
+	struct {
+		bool have;
+		uint32_t pass, total;
+	} subtests;
 };
 
 struct run_test_ctx {
@@ -161,6 +166,10 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		log_plain(" %6.2fs, ", res->dur);
 	}
 
+	if (res->subtests.have) {
+		log_plain("%3d/%3d subtests, ", res->subtests.pass, res->subtests.total);
+	}
+
 	if (suite_str) {
 		if (suites_len > 1) {
 			log_plain("[%s]:", suite_str);
@@ -168,6 +177,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			log_plain("%s:", suite_str);
 		}
 	}
+
 	log_plain("%s", name);
 
 	if (status == status_should_have_failed) {
@@ -475,6 +485,36 @@ test_delay(void)
 	nanosleep(&req, NULL);
 }
 
+static bool
+check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
+{
+	struct tap_parse_result tap_result = { 0 };
+	tap_parse(res->cmd_ctx.out.buf, res->cmd_ctx.out.len, &tap_result);
+
+	res->subtests.have = true;
+	res->subtests.pass = tap_result.pass + tap_result.skip;
+	res->subtests.total = tap_result.have_plan
+		? tap_result.plan_count
+		: tap_result.pass + tap_result.skip + tap_result.fail;
+
+	return tap_result.all_ok && res->status == 0;
+}
+
+static bool
+check_test_result_exitcode(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
+{
+	if (res->cmd_ctx.status == 0) {
+		return !res->test->should_fail;
+	} else if (res->cmd_ctx.status == 77) {
+		++ctx->stats.total_skipped;
+		return true;
+	} else if (res->cmd_ctx.status == 99) {
+		return false;
+	} else {
+		return res->test->should_fail;
+	}
+}
+
 static void
 collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
@@ -520,15 +560,14 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			break;
 		case run_cmd_finished: {
 			bool ok;
-			if (res->cmd_ctx.status == 0) {
-				ok = !res->test->should_fail;
-			} else if (res->cmd_ctx.status == 77) {
-				++ctx->stats.total_skipped;
-				ok = true;
-			} else if (res->cmd_ctx.status == 99) {
-				ok = false;
-			} else {
-				ok = res->test->should_fail;
+
+			switch (res->test->protocol) {
+			case test_protocol_tap:
+				ok = check_test_result_tap(wk, ctx, res);
+				break;
+			default:
+				ok = check_test_result_exitcode(wk, ctx, res);
+				break;
 			}
 
 			if (ok) {

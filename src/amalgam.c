@@ -21,6 +21,8 @@
 #include "external/libcurl_null.c"
 #include "external/samurai_null.c"
 #include "formats/ini.c"
+#include "formats/lines.c"
+#include "formats/tap.c"
 #include "functions/array.c"
 #include "functions/boolean.c"
 #include "functions/both_libs.c"

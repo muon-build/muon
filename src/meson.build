@@ -1,5 +1,7 @@
 src = files(
     'backend/backend.c',
+    'formats/tap.c',
+    'formats/lines.c',
     'backend/common_args.c',
     'backend/ninja.c',
     'backend/ninja/alias_target.c',

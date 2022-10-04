@@ -1,45 +1,17 @@
 #include "posix.h"
 
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "error.h"
+#include "formats/lines.h"
 #include "formats/ini.h"
 #include "iterator.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 
-typedef enum iteration_result ((*each_line_callback)(void *ctx, char *line, size_t len));
-
-static void
-each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
-{
-	char *line, *b;
-
-	line = buf;
-
-	while ((b = strchr(line, '\n'))) {
-		*b = '\0';
-
-		if (cb(ctx, line, b - line) != ir_cont) {
-			return;
-		}
-
-		line = b + 1;
-
-		if ((size_t)(line - buf) >= len) {
-			return;
-		}
-	}
-
-	if (*line) {
-		cb(ctx, line, strlen(line));
-	}
-}
-
-struct each_line_ctx {
+struct ini_parse_ctx {
 	struct source src;
 	const char *comment_chars;
 	bool keyval;
@@ -69,9 +41,9 @@ line_is_whitespace(const char *c)
 }
 
 static enum iteration_result
-each_line_cb(void *_ctx, char *line, size_t len)
+ini_parse_line_cb(void *_ctx, char *line, size_t len)
 {
-	struct each_line_ctx *ctx = _ctx;
+	struct ini_parse_ctx *ctx = _ctx;
 	char *ptr, *key, *val;
 
 	if (!*line || strchr(ctx->comment_chars, *line) || line_is_whitespace(line)) {
@@ -132,7 +104,7 @@ done_with_line:
 bool
 ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx)
 {
-	struct each_line_ctx ctx = {
+	struct ini_parse_ctx ctx = {
 		.comment_chars = ";#",
 		.octx = octx,
 		.cb = cb,
@@ -143,7 +115,7 @@ ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, vo
 
 	memcpy(buf, ctx.src.src, ctx.src.len);
 
-	each_line(buf, ctx.src.len, &ctx, each_line_cb);
+	each_line(buf, ctx.src.len, &ctx, ini_parse_line_cb);
 	return ctx.success;
 }
 
@@ -168,7 +140,7 @@ keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *
 
 	*buf = z_calloc(src->len, 1);
 
-	struct each_line_ctx ctx = {
+	struct ini_parse_ctx ctx = {
 		.comment_chars = "#",
 		.keyval = true,
 		.octx = octx,
@@ -180,6 +152,6 @@ keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *
 
 	memcpy(*buf, ctx.src.src, ctx.src.len);
 
-	each_line(*buf, ctx.src.len, &ctx, each_line_cb);
+	each_line(*buf, ctx.src.len, &ctx, ini_parse_line_cb);
 	return ctx.success;
 }
