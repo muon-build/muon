@@ -261,6 +261,17 @@ ninja_write_all(struct workspace *wk)
 int
 ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const char *capture)
 {
+	// XXX since samu was designed to be an executable and not a library,
+	// lots of the resource management is left to the OS.  For instance,
+	// there are several important globals that are assumed to be
+	// zero-initialized.  Not to mention memory "leaks".  This is all fine
+	// since almost zero effort has been put in to making samu into a true
+	// libsamu, however it means that calling the internal samu more than
+	// once is riddled with UB.  Prevent that with this hacky static
+	// variable by  falling back to executing an external ninja-compatible
+	// tool if the internal samu has already been invoked.
+	static bool internal_samu_has_been_called = false;
+
 	int ret = 1;
 	char *const *argv = NULL;
 	uint32_t argc;
@@ -274,7 +285,9 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 		}
 	}
 
-	if (have_samurai) {
+	if (have_samurai && !internal_samu_has_been_called) {
+		internal_samu_has_been_called = true;
+
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
 		int old_stdout;
