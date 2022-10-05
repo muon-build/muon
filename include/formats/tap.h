@@ -5,9 +5,7 @@
 #include <stdint.h>
 
 struct tap_parse_result {
-	uint32_t plan_count, pass, fail, skip;
-	bool have_plan;
-	bool bail_out;
+	uint32_t total, pass, fail, skip;
 	bool all_ok;
 };
 

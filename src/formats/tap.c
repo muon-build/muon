@@ -6,9 +6,12 @@
 #include "formats/lines.h"
 #include "formats/tap.h"
 #include "lang/string.h"
+#include "log.h"
 
 struct tap_parse_ctx {
 	struct tap_parse_result *res;
+	bool have_plan;
+	bool bail_out;
 };
 
 static enum iteration_result
@@ -22,13 +25,13 @@ tap_parse_line_cb(void *_ctx, char *line, size_t _)
 		struct str i = { .s = &l.s[3], l.len - 3 };
 		int64_t plan_count;
 		if (str_to_i(&i, &plan_count) && plan_count > 0) {
-			ctx->res->have_plan = true;
-			ctx->res->plan_count = plan_count;
+			ctx->have_plan = true;
+			ctx->res->total = plan_count;
 		}
 
 		return ir_cont;
 	} else if (str_startswith(&l, &WKSTR("Bail out!"))) {
-		ctx->res->bail_out = true;
+		ctx->bail_out = true;
 		return ir_cont;
 	} else if (str_startswith(&l, &WKSTR("ok"))) {
 		ok = true;
@@ -78,9 +81,9 @@ tap_parse(char *buf, uint64_t buf_len, struct tap_parse_result *res)
 
 	each_line(buf, buf_len, &ctx, tap_parse_line_cb);
 
-	if (res->have_plan) {
-		res->all_ok = res->pass + res->skip == res->plan_count;
-	} else {
-		res->all_ok = res->fail == 0;
+	if (!ctx.have_plan) {
+		res->total = res->pass + res->skip + res->fail;
 	}
+
+	res->all_ok = res->total == res->pass + res->skip;
 }

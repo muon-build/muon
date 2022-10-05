@@ -493,9 +493,7 @@ check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct tes
 
 	res->subtests.have = true;
 	res->subtests.pass = tap_result.pass + tap_result.skip;
-	res->subtests.total = tap_result.have_plan
-		? tap_result.plan_count
-		: tap_result.pass + tap_result.skip + tap_result.fail;
+	res->subtests.total = tap_result.total;
 
 	return tap_result.all_ok && res->status == 0;
 }
@@ -504,14 +502,14 @@ static bool
 check_test_result_exitcode(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
 {
 	if (res->cmd_ctx.status == 0) {
-		return !res->test->should_fail;
+		return true;
 	} else if (res->cmd_ctx.status == 77) {
 		++ctx->stats.total_skipped;
 		return true;
 	} else if (res->cmd_ctx.status == 99) {
 		return false;
 	} else {
-		return res->test->should_fail;
+		return false;
 	}
 }
 
@@ -568,6 +566,10 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			default:
 				ok = check_test_result_exitcode(wk, ctx, res);
 				break;
+			}
+
+			if (!ok && res->test->should_fail) {
+				ok = true;
 			}
 
 			if (ok) {
@@ -944,9 +946,9 @@ tests_run(struct test_options *opts)
 	for (i = 0; i < ctx.test_results.len; ++i) {
 		struct test_result *res = darr_get(&ctx.test_results, i);
 
-		if (opts->print_summary ||
-		    (res->status == test_result_status_failed
-		     || res->status == test_result_status_timedout)) {
+		if (opts->print_summary
+		    || (res->status == test_result_status_failed
+			|| res->status == test_result_status_timedout)) {
 			print_test_result(&wk, res);
 			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
 				log_plain(": %s", res->cmd_ctx.err_msg);
