@@ -219,7 +219,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		log_plain("\r");
 	}
 
-	if (write_line && ctx->opts->verbosity > 0) {
+	if (write_line && (ctx->opts->verbosity > 0 || res->test->verbose)) {
 		print_test_result(wk, res);
 
 		if (ctx->stats.term) {

@@ -1281,6 +1281,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		kw_timeout,
 		kw_protocol,
 		kw_is_parallel,
+		kw_verbose,
 	};
 	struct args_kw akw[] = {
 		[kw_args] = { "args", tc_command_array, },
@@ -1293,6 +1294,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		[kw_timeout] = { "timeout", obj_number, },
 		[kw_protocol] = { "protocol", obj_string, },
 		[kw_is_parallel] = { 0 },
+		[kw_verbose] = { "verbose", obj_bool },
 		0
 	};
 
@@ -1369,6 +1371,8 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	t->priority = akw[kw_priority].val;
 	t->category = cat;
 	t->protocol = protocol;
+	t->verbose = akw[kw_verbose].set
+		     && get_obj_bool(wk, akw[kw_verbose].val);
 
 	if (akw[kw_is_parallel].key) {
 		t->is_parallel = akw[kw_is_parallel].set
