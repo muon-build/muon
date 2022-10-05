@@ -37,7 +37,8 @@ void log_set_lvl(enum log_level lvl);
 void log_set_prefix(const char *prefix);
 const char *log_get_prefix(void);
 
-void log_print(bool nl, enum log_level lvl, const char *fmt, ...);
+void log_print(bool nl, enum log_level lvl, const char *fmt, ...)
+__attribute__ ((format(printf, 3, 4)));
 bool log_clr(void);
 void log_plain(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
 void log_plainv(const char *fmt, va_list ap);
