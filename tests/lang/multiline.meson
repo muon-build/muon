@@ -15,3 +15,5 @@ assert(quote1 == '\'')
 quote2 = ''' '' '' '''.strip()
 dbl = '\'\''
 assert(quote2 == ' '.join([dbl, dbl]))
+assert(''''/''' == '\'/')
+assert(''''a''' == '\'a')

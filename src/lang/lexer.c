@@ -373,12 +373,10 @@ write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
 	return true;
 }
 
-static enum lex_result lexer_tokenize_one(struct lexer *lexer);
-
 static enum lex_result
 lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fstring, char **string, uint32_t *quotes)
 {
-	bool got_quote = false;
+	bool done = false;
 	struct token *token = *tok;
 	char *str = *string;
 
@@ -519,7 +517,18 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 		// unterminated string
 		return lex_fail;
 	case '\'':
-		got_quote = true;
+		if (multiline) {
+			if (lexer->src[lexer->i + 1] == '\'' && lexer->src[lexer->i + 2] == '\'') {
+				advance(lexer);
+				advance(lexer);
+				done = true;
+			} else {
+				str[token->n] = lexer->src[lexer->i];
+				++token->n;
+			}
+		} else {
+			done = true;
+		}
 		break;
 	case '@': {
 		if (!fstring) {
@@ -576,21 +585,7 @@ lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fs
 
 	advance(lexer);
 
-	if (got_quote) {
-		++(*quotes);
-		got_quote = false;
-	} else {
-		uint32_t i;
-		for (i = 0; i < *quotes; ++i) {
-			str[token->n] = '\'';
-			++token->n;
-		}
-
-		*quotes = 0;
-	}
-
-	assert(*quotes <= 3);
-	if ((multiline && *quotes == 3) || (!multiline && *quotes == 1)) {
+	if (done) {
 		str[token->n] = 0;
 		return lex_done;
 	}
