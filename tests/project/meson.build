@@ -1,6 +1,7 @@
 tests = [
     # project tests created for muon
     ['muon/timeout', ['failing']],
+    ['muon/sizeof_invalid'],
 
     # project tests imported from meson
     ['common/1 trivial'],

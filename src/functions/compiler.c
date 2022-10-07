@@ -156,6 +156,10 @@ compiler_check_cache(struct workspace *wk, struct obj_compiler *comp,
 static void
 set_compiler_cache(struct workspace *wk, obj key, bool res, obj val)
 {
+	if (!key) {
+		return;
+	}
+
 	obj arr, cache_res;
 	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
 		obj_array_index(wk, arr, 0, &cache_res);
@@ -311,6 +315,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		return true;
 	}
 
+	opts->cache_key = make_strn(wk, (const char *)sha, 32);
+
 	if (!opts->src_is_path) {
 		if (!fs_write(get_cstr(wk, source_path), (const uint8_t *)src, strlen(src))) {
 			return false;
@@ -354,7 +360,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		*res = cmd_ctx.status == 0;
 	}
 
-	opts->cache_key = make_strn(wk, (const char *)sha, 32);
 	set_compiler_cache(wk, opts->cache_key, *res, 0);
 
 	ret = true;
