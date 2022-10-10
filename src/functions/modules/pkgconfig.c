@@ -533,6 +533,11 @@ module_pkgconf_process_vars(struct workspace *wk, uint32_t err_node, bool escape
 	};
 
 	switch (get_obj_type(wk, vars)) {
+	case obj_string:
+		if (module_pkgconf_process_vars_array_iter(wk, &ctx, vars) == ir_err) {
+			return false;
+		}
+		break;
 	case obj_array:
 		if (!obj_array_foreach(wk, vars, &ctx, module_pkgconf_process_vars_array_iter)) {
 			return false;
@@ -710,8 +715,8 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		kw_url,
 		kw_variables,
 		kw_unescaped_variables,
-		kw_uninstalled_variables,
-		kw_unescaped_uninstalled_variables,
+		kw_uninstalled_variables, // TODO
+		kw_unescaped_uninstalled_variables, // TODO
 		kw_version,
 		kw_dataonly,
 		kw_conflicts,
@@ -732,10 +737,10 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		[kw_requires] = { "requires", ARG_TYPE_ARRAY_OF | tc_requires },
 		[kw_requires_private] = { "requires_private", ARG_TYPE_ARRAY_OF | tc_requires },
 		[kw_url] = { "url", obj_string },
-		[kw_variables] = { "variables", tc_array | tc_dict },
-		[kw_unescaped_variables] = { "unescaped_variables", tc_array | tc_dict },
-		[kw_uninstalled_variables] = { "uninstalled_variables", tc_array | tc_dict },
-		[kw_unescaped_uninstalled_variables] = { "unescaped_uninstalled_variables", tc_array | tc_dict },
+		[kw_variables] = { "variables", tc_string | tc_array | tc_dict },
+		[kw_unescaped_variables] = { "unescaped_variables", tc_string | tc_array | tc_dict },
+		[kw_uninstalled_variables] = { "uninstalled_variables", tc_string |  tc_array | tc_dict },
+		[kw_unescaped_uninstalled_variables] = { "unescaped_uninstalled_variables", tc_string | tc_array | tc_dict },
 		[kw_version] = { "version", obj_string },
 		[kw_dataonly] = { "dataonly", obj_bool },
 		[kw_conflicts] = { "conflicts", ARG_TYPE_ARRAY_OF | obj_string },
