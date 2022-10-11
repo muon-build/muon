@@ -50,5 +50,5 @@ option(
     'tracy',
     type: 'feature',
     value: 'auto',
-    description: 'wether to enable tracy',
+    description: 'whether to enable tracy',
 )
