@@ -1,7 +1,7 @@
 project(
     'muon',
     'c',
-    version: '0.0.1',
+    version: '0.1.0',
     license: 'GPL-3.0-only',
     meson_version: '>=0.59.0',
     default_options: [
