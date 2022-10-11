@@ -34,7 +34,7 @@ if meson_proj.found()
         'meson-reference.3': meson_proj.get_variable('meson_reference_3'),
     }
 else
-    warning('meson-docs not found, meson-reference.3 will not be build')
+    warning('meson-docs not found, meson-reference.3 will not be built')
 endif
 
 if get_option('website')
