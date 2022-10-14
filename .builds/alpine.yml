@@ -43,7 +43,7 @@ tasks:
       sudo apk add tcc
   - build_gcc: |
       cd muon
-      CC=gcc .builds/fullbootstrap.sh -Dstatic=true -Dwebsite=true -Dbuildtype=release
+      CC=gcc .builds/fullbootstrap.sh -Dbuildtype=release -Dstatic=true -Dwebsite=true
   - build_tcc: |
       cd muon
       CC=tcc .builds/bootstrap.sh build-tcc
@@ -53,13 +53,31 @@ tasks:
   - test_clang: |
       cd muon/build
       CC=clang ./muon test -j$(nproc) -d dots
+  - build_small: |
+      cd muon
+      CC=gcc build/muon setup \
+        -Dbuildtype=minsize \
+        -Dstatic=true \
+        -Dsamurai=enabled \
+        -Dlibcurl=disabled \
+        -Dlibarchive=disabled \
+        build-small
+      samu -C build-small
   - release: |
-      cd muon/build
-      arch=amd64-linux-static
-      strip muon
-      mv muon "muon-$arch"
-      md5sum "muon-$arch" > "muon-$arch.md5"
-      ../.builds/deploy.sh "$arch"
+      cd muon
+      .builds/prepare_release_docs.sh build
+      .builds/prepare_binary.sh build edge-amd64-linux-static
+      .builds/prepare_binary.sh build-small edge-amd64-linux-static-small
+      .builds/deploy.sh / -r --delete build/doc/website
+      .builds/deploy.sh /releases/edge -r --delete build/doc/docs
+      .builds/deploy.sh /releases/edge \
+        build/muon-edge-amd64-linux-static \
+        build/muon-edge-amd64-linux-static.md5 \
+        build-small/muon-edge-amd64-linux-static-small \
+        build-small/muon-edge-amd64-linux-static-small.md5
 artifacts:
-  - muon/build/muon-amd64-linux-static
-  - muon/build/muon-amd64-linux-static.md5
+  - muon/build/muon-edge-amd64-linux-static
+  - muon/build/muon-edge-amd64-linux-static.md5
+  - muon/build-small/muon-edge-amd64-linux-static-small
+  - muon/build-small/muon-edge-amd64-linux-static-small.md5
+  - muon/build/doc/docs/man.tar.gz
