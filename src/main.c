@@ -148,7 +148,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		allocated_argv = true;
 	}
 
-	if (!run_cmd_argv(&ctx, opts.cmd[0], (char *const *)opts.cmd, envstr, envc)) {
+	if (!run_cmd_argv(&ctx, (char *const *)opts.cmd, envstr, envc)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}

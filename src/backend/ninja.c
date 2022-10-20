@@ -321,7 +321,7 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
 
-		if (!run_cmd_argv(&cmd_ctx, cmd.buf, argv, NULL, 0)) {
+		if (!run_cmd_argv(&cmd_ctx, argv, NULL, 0)) {
 			LOG_E("%s", cmd_ctx.err_msg);
 			goto run_cmd_done;
 		}

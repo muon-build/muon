@@ -478,7 +478,7 @@ wrap_run_cmd(const char *cmd, const char *const argv[], const char *chdir, const
 		.stdin_path = feed,
 	};
 
-	if (!run_cmd_argv(&cmd_ctx, cmd, (char *const *)argv, NULL, 0)) {
+	if (!run_cmd_argv(&cmd_ctx, (char *const *)argv, NULL, 0)) {
 		return false;
 	} else if (cmd_ctx.status != 0) {
 		run_cmd_ctx_destroy(&cmd_ctx);

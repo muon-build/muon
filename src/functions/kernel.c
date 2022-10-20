@@ -466,7 +466,7 @@ find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
 {
 	*ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
+	if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
 	    && cmd_ctx.status == 0) {
 		guess_version(wk, cmd_ctx.out.buf, ver);
 	}
@@ -652,7 +652,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	return true;
 found:
 	if (ctx->version) {
-		if (run_cmd_argv(&cmd_ctx, path, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
+		if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
 		    && cmd_ctx.status == 0) {
 			guess_version(wk, cmd_ctx.out.buf, &ver);
 		}

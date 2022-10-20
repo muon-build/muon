@@ -483,7 +483,7 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 }
 
 bool
-run_cmd_argv(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
 	bool ret = false;
 	struct source src = { 0 };

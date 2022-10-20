@@ -345,7 +345,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			}
 		}
 
-		if (!run_cmd_argv(&opts->cmd_ctx, output_path, (char *const []){ (char *)output_path, NULL }, NULL, 0)) {
+		if (!run_cmd_argv(&opts->cmd_ctx, (char *const []){ (char *)output_path, NULL }, NULL, 0)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;
