@@ -1,0 +1,29 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: muon
+Upstream-Contact: Stone Tickle <lattis@mochiro.moe>
+Source: https://muon.build
+
+Files: tests/project/common/*
+Copyright: The Meson development team
+           Stone Tickle <lattis@mochiro.moe>
+License: Apache-2.0
+
+Files: tests/project/keyval/*
+Copyright: The Meson development team
+           Stone Tickle <lattis@mochiro.moe>
+License: Apache-2.0
+
+Files: tests/project/nasm/*
+Copyright: The Meson development team
+           Stone Tickle <lattis@mochiro.moe>
+License: Apache-2.0
+
+Files: tests/project/native/*
+Copyright: The Meson development team
+           Stone Tickle <lattis@mochiro.moe>
+License: Apache-2.0
+
+Files: tests/project/unit/*
+Copyright: The Meson development team
+           Stone Tickle <lattis@mochiro.moe>
+License: Apache-2.0

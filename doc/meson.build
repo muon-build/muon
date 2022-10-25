@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 scdoc = find_program('scdoc', required: get_option('docs'))
 
 if not scdoc.found()

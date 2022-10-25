@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: dffdff2423 <dffdff2423@gmail.com>
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "posix.h"
 
 #include "args.h"

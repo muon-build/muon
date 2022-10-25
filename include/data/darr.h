@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_DATA_DARR_H
 #define MUON_DATA_DARR_H
 

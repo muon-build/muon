@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 a = {'a': 'b', 'c': 'd', 'e': {'f': {'g': {'h': [1, 2, {'3': 'secret!'}]}}}}
 count = 0
 foreach x, y : a

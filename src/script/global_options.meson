@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 # Directories
 option('prefix', type: 'string', value: '/usr/local')
 option('bindir', type: 'string', value: 'bin')

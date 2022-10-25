@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_FUNCTIONS_MODULES_PYTHON_H
 #define MUON_FUNCTIONS_MODULES_PYTHON_H
 #include "functions/common.h"

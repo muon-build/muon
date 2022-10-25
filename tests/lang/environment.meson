@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 env = environment({'other_key': 'val', 'other_key2': 'val1'})
 env.set('noval', '')
 env.set('key', 'val')

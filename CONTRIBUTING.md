@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-FileCopyrightText: Andrea Pappacoda <andrea@pappacoda.it>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 # Contributions
 
 Hello, thanks for considering contributing to muon.  Please send patches and

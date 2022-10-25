@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
+ * SPDX-FileCopyrightText: Owen Rafferty <owen@owenrafferty.com>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_COMPILERS_H
 #define MUON_COMPILERS_H
 

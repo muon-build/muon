@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: dffdff2423 <dffdff2423@gmail.com>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_BACKEND_NINJA_ALIAS_TARGET_H
 #define MUON_BACKEND_NINJA_ALIAS_TARGET_H
 

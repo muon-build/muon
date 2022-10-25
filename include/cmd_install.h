@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_CMD_INSTALL_H
 #define MUON_CMD_INSTALL_H
 #include <stdbool.h>

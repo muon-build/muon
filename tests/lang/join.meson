@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 arr = ['a', 'b', 'c']
 assert(' '.join(arr) == 'a b c')
 assert(''.join(arr) == 'abc')

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 # Differences between muon and Meson
 
 This document describes functional differences between muon and Meson.  None of

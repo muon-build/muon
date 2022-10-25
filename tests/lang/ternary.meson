@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 assert((true ? 1 : 2) == 1)
 assert((false ? 1 : 2) == 2)
 t = true

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_LANG_OBJECT_H
 #define MUON_LANG_OBJECT_H
 

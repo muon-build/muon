@@ -1,3 +1,6 @@
+; SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+; SPDX-License-Identifier: GPL-3.0-only
+
 [wrap-file]
 source_filename = samurai-1.2-28-g4e3a595.tar.gz
 source_url = https://mochiro.moe/wrap/samurai-1.2-28-g4e3a595.tar.gz

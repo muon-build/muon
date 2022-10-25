@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 Configuration data escaping rules:
 
 1. You can escape the format character (@) by preceding it with a backslash.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 assert(1 not in [2, 3, 4])
 
 assert([1, 2, 3, 4, 5].contains(3))

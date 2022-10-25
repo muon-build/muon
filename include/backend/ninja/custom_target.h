@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef MUON_BACKEND_NINJA_CUSTOM_TARGET_H
 #define MUON_BACKEND_NINJA_CUSTOM_TARGET_H
 #include "lang/workspace.h"

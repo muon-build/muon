@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 afl_fuzz = find_program('afl-fuzz', required: false)
 
 if not (cc.cmd_array()[0].startswith('afl-clang') and afl_fuzz.found())

@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
+ * SPDX-FileCopyrightText: Eli Schwartz <eschwartz@archlinux.org>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "posix.h"
 
 #include <dirent.h>

@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Ariadne Conill <ariadne@dereferenced.org>
+ * SPDX-FileCopyrightText: Masayuki Yamamoto <ma3yuki.8mamo10@gmail.com>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include "posix.h"
 
 #include <libpkgconf/libpkgconf.h>
