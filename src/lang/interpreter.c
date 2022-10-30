@@ -1071,7 +1071,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 			}
 			--wk->loop_depth;
 
-			return true;
+			return ret;
 		}
 	}
 
