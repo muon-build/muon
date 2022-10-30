@@ -265,6 +265,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 			mem += bucket_array_size(&wk->obj_aos[i]);
 		}
 #define MB(b) ((double)b / 1048576.0)
+		TracyCPlot("objects", wk->objs.len);
 		TracyCPlot("object memory (mb)", MB(mem));
 		TracyCPlot("string memory (mb)", MB(bucket_array_size(&wk->chrs)));
 #undef MB
