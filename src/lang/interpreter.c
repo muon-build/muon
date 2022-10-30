@@ -1024,11 +1024,60 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	obj iterable;
 	bool ret;
 
+	struct node *args = get_node(wk->ast, n->l);
+
+	struct node *stmt_node = get_node(wk->ast, n->r);
+	if (stmt_node->type == node_function) {
+		if (strcmp(get_node(wk->ast, stmt_node->l)->dat.s, "range") == 0
+		    && !(stmt_node->chflg & node_child_d)) {
+			struct range_params range_params;
+			if (!func_range_common(wk, stmt_node->r, &range_params)) {
+				return false;
+			}
+
+			struct interp_foreach_ctx ctx = {
+				.id1 = get_node(wk->ast, args->l)->dat.s,
+				.n_l = args->l,
+				.block_node = n->c,
+			};
+
+
+			++wk->loop_depth;
+			wk->loop_ctl = loop_norm;
+			uint32_t i;
+			bool break_out_of_loop = false;
+			ret = true;
+			for (i = range_params.start; i < range_params.stop; i += range_params.step) {
+				obj num;
+				make_obj(wk, &num, obj_number);
+				set_obj_number(wk, num, i);
+
+				switch (interp_foreach_arr_iter(wk, &ctx, num)) {
+				case ir_err:
+					ret = false;
+					break_out_of_loop = true;
+					break;
+				case ir_cont:
+					break;
+				case ir_done:
+					break_out_of_loop = true;
+					break;
+				}
+
+				if (break_out_of_loop) {
+					break;
+				}
+			}
+			--wk->loop_depth;
+
+			return true;
+		}
+	}
+
 	if (!wk->interp_node(wk, n->r, &iterable)) {
 		return false;
 	}
 
-	struct node *args = get_node(wk->ast, n->l);
 
 	switch (get_obj_type(wk, iterable)) {
 	case obj_array: {

@@ -1791,8 +1791,8 @@ func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-static bool
-func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+bool
+func_range_common(struct workspace *wk, uint32_t args_node, struct range_params *res)
 {
 	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_number }, { obj_number }, { obj_number }, ARG_TYPE_NULL };
@@ -1800,24 +1800,22 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	uint32_t start, stop, step;
-
 	int64_t n = get_obj_number(wk, an[0].val);
 	if (!rangecheck(wk, an[0].node, 0, UINT32_MAX, n)) {
 		return false;
 	}
-	start = n;
+	res->start = n;
 
 	if (ao[0].set) {
 		int64_t n = get_obj_number(wk, ao[0].val);
-		if (!rangecheck(wk, ao[0].node, start, UINT32_MAX, n)) {
+		if (!rangecheck(wk, ao[0].node, res->start, UINT32_MAX, n)) {
 			return false;
 		}
 
-		stop = n;
+		res->stop = n;
 	} else {
-		stop = start;
-		start = 0;
+		res->stop = res->start;
+		res->start = 0;
 	}
 
 	if (ao[1].set) {
@@ -1825,15 +1823,26 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!rangecheck(wk, ao[1].node, 1, UINT32_MAX, n)) {
 			return false;
 		}
-		step = n;
+		res->step = n;
 	} else {
-		step = 1;
+		res->step = 1;
+	}
+
+	return true;
+}
+
+static bool
+func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct range_params params = { 0 };
+	if (!func_range_common(wk, args_node, &params)) {
+		return false;
 	}
 
 	make_obj(wk, res, obj_array);
 
 	uint32_t i;
-	for (i = start; i < stop; i += step) {
+	for (i = params.start; i < params.stop; i += params.step) {
 		obj num;
 		make_obj(wk, &num, obj_number);
 		set_obj_number(wk, num, i);
@@ -1976,7 +1985,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ "library", func_library, tc_build_target | tc_both_libs },
 	{ "message", func_message },
 	{ "project", func_project },
-	{ "range", func_range, tc_array, true },
+	{ "range", func_range, tc_array, },
 	{ "run_command", func_run_command, tc_run_result },
 	{ "run_target", func_run_target, tc_custom_target },
 	{ "set_variable", func_set_variable, 0, true },
