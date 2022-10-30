@@ -18,6 +18,7 @@
 #include "data/hash.h"
 #include "error.h"
 #include "functions/common.h"
+#include "functions/kernel.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/parser.h"
@@ -1184,12 +1185,9 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	switch (n->type) {
 	/* literals */
 	case node_bool:
-		make_obj(wk, res, obj_bool);
-		set_obj_bool(wk, *res, n->subtype);
-		ret = true;
-		break;
 	case node_string:
-		*res = make_strn(wk, n->dat.s, n->subtype);
+	case node_number:
+		*res = n->l;
 		ret = true;
 		break;
 	case node_array:
@@ -1204,11 +1202,6 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 			ret = false;
 			break;
 		}
-		ret = true;
-		break;
-	case node_number:
-		make_obj(wk, res, obj_number);
-		set_obj_number(wk, *res, n->dat.n);
 		ret = true;
 		break;
 

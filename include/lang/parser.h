@@ -104,7 +104,7 @@ enum parse_mode {
 	pm_keep_formatting = 1 << 1,
 };
 
-bool parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
+bool parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, struct source *src,
 	enum parse_mode mode);
 void print_ast(struct ast *ast);
 struct node *get_node(struct ast *ast, uint32_t i);

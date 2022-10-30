@@ -212,7 +212,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
-	if (!parser_parse(&ast, &sdata, &src, 0)) {
+	if (!parser_parse(NULL, &ast, &sdata, &src, 0)) {
 		goto ret;
 	}
 
@@ -814,7 +814,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 
 	if (!fs_read_entire_file(opts.filename, &src)) {
 		goto ret;
-	} else if (!parser_parse(&ast, &sdata, &src, pm_keep_formatting)) {
+	} else if (!parser_parse(NULL, &ast, &sdata, &src, pm_keep_formatting)) {
 		goto ret;
 	}
 

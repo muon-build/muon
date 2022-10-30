@@ -14,6 +14,7 @@
 #include "lang/eval.h"
 #include "lang/lexer.h"
 #include "lang/parser.h"
+#include "lang/string.h"
 #include "log.h"
 #include "tracy.h"
 
@@ -26,6 +27,7 @@ struct parser {
 	struct tokens *toks;
 	struct token *last_last, *last;
 	struct ast *ast;
+	struct workspace *wk;
 	uint32_t token_i, loop_depth, parse_depth;
 	bool caused_effect, valid, preserve_fmt_eol;
 
@@ -485,16 +487,31 @@ parse_e9(struct parser *p, uint32_t *id)
 	if (accept(p, tok_true)) {
 		n = make_node(p, id, node_bool);
 		n->subtype = 1;
+		if (p->wk) {
+			make_obj(p->wk, &n->l, obj_bool);
+			set_obj_bool(p->wk, n->l, n->subtype);
+		}
 	} else if (accept(p, tok_false)) {
 		n = make_node(p, id, node_bool);
 		n->subtype = 0;
+		if (p->wk) {
+			make_obj(p->wk, &n->l, obj_bool);
+			set_obj_bool(p->wk, n->l, n->subtype);
+		}
 	} else if (accept(p, tok_identifier)) {
 		make_node(p, id, node_id);
 	} else if (accept(p, tok_number)) {
-		make_node(p, id, node_number);
+		n = make_node(p, id, node_number);
+		if (p->wk) {
+			make_obj(p->wk, &n->l, obj_number);
+			set_obj_number(p->wk, n->l, n->dat.n);
+		}
 	} else if (accept(p, tok_string)) {
 		n = make_node(p, id, node_string);
 		n->subtype = p->last_last->n;
+		if (p->wk) {
+			n->l = make_strn(p->wk, n->dat.s, n->subtype);
+		}
 	} else {
 		make_node(p, id, node_empty);
 	}
@@ -1325,7 +1342,7 @@ parse_block(struct parser *p, uint32_t *id)
 }
 
 bool
-parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
+parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, struct source *src,
 	enum parse_mode mode)
 {
 	TracyCZoneAutoS;
@@ -1347,6 +1364,7 @@ parser_parse(struct ast *ast, struct source_data *sdata, struct source *src,
 		.toks = &toks,
 		.valid = true,
 		.mode = mode,
+		.wk = wk,
 	};
 
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
@@ -1368,6 +1386,7 @@ ret:
 	TracyCZoneAutoE;
 	return ret;
 }
+
 void
 ast_destroy(struct ast *ast)
 {

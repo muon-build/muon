@@ -92,7 +92,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		parse_mode |= pm_ignore_statement_with_no_effect;
 	}
 
-	if (!parser_parse(&ast, sdata, src, parse_mode)) {
+	if (!parser_parse(wk, &ast, sdata, src, parse_mode)) {
 		goto ret;
 	}
 
