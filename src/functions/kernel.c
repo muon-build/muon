@@ -1636,7 +1636,7 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
-			interp_error(wk, an[0].node, "undefined object");
+			interp_error(wk, an[0].node, "undefined object %o", an[0].val);
 			return false;
 		}
 	}
