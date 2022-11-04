@@ -312,6 +312,7 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 
 		ret = res ? 0 : 1;
 	} else {
+		struct run_cmd_ctx cmd_ctx = { 0 };
 		SBUF_manual(cmd);
 		if (!(fs_find_cmd(NULL, &cmd, "samu")
 		      || fs_find_cmd(NULL, &cmd, "ninja"))) {
@@ -321,7 +322,6 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 
 		argc = argstr_to_argv(argstr, argstr_argc, cmd.buf, &argv);
 
-		struct run_cmd_ctx cmd_ctx = { 0 };
 		if (!capture) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
