@@ -5,6 +5,13 @@
 
 #include "posix.h"
 
+#ifdef __sun
+/* for struct winsize on Solaris */
+#define __EXTENSIONS__
+#include <stropts.h>
+#include <termios.h>
+#endif
+
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>

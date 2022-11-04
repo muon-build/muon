@@ -7,6 +7,13 @@
 
 #include "posix.h"
 
+#ifdef __sun
+/* for symlinkat() and fchmodat(), as _POSIX_C_SOURCE does not enable them
+ * (yet)
+ */
+#define __EXTENSIONS__
+#endif
+
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>

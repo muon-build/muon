@@ -135,6 +135,9 @@
 #define _POSIX_C_SOURCE  1 /* so GCC builds in ANSI mode */
 #define _XOPEN_SOURCE  700 /* so GCC builds in ANSI mode */
 #define _DARWIN_C_SOURCE 1 /* so SIGWINCH / IUTF8 on XNU */
+#ifdef __sun
+#define __EXTENSIONS__ /* for struct winsize on Solaris */
+#endif
 #include <termios.h>
 #include <unistd.h>
 #include <stdlib.h>

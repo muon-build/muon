@@ -6,6 +6,11 @@
 
 #include "posix.h"
 
+#ifdef __sun
+/* for signals */
+#define __EXTENSIONS__
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

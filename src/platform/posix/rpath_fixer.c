@@ -5,6 +5,10 @@
 
 #include "posix.h"
 
+#ifdef __sun
+#include <gelf.h> /* Elf32_Dyn and similar on Solaris */
+#endif
+
 #include <assert.h>
 #include <elf.h>
 #include <string.h>

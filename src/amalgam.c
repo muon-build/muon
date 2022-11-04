@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "posix.h"
+
+#ifdef __sun
+#define __EXTENSIONS__
+#endif
+
 #include "args.c"
 #include "backend/backend.c"
 #include "backend/common_args.c"
