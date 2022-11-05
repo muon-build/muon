@@ -68,6 +68,7 @@ tasks:
       samu -C build-small
   - release: |
       cd muon
+      .builds/git_archive_with_samurai.sh muon-edge+samurai
       .builds/prepare_release_docs.sh build
       .builds/prepare_binary.sh build edge-amd64-linux-static
       .builds/prepare_binary.sh build-small edge-amd64-linux-static-small
@@ -77,10 +78,12 @@ tasks:
         build/muon-edge-amd64-linux-static \
         build/muon-edge-amd64-linux-static.md5 \
         build-small/muon-edge-amd64-linux-static-small \
-        build-small/muon-edge-amd64-linux-static-small.md5
+        build-small/muon-edge-amd64-linux-static-small.md5 \
+        muon-edge+samurai.tar.gz
 artifacts:
   - muon/build/muon-edge-amd64-linux-static
   - muon/build/muon-edge-amd64-linux-static.md5
   - muon/build-small/muon-edge-amd64-linux-static-small
   - muon/build-small/muon-edge-amd64-linux-static-small.md5
   - muon/build/doc/docs/man.tar.gz
+  - muon/muon-edge+samurai.tar.gz
