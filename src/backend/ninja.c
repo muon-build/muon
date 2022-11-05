@@ -5,6 +5,8 @@
 
 #include "posix.h"
 
+#include <string.h>
+
 #include "args.h"
 #include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
@@ -12,6 +14,7 @@
 #include "backend/ninja/custom_target.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
+#include "error.h"
 #include "external/samurai.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -249,11 +252,7 @@ ninja_write_all(struct workspace *wk)
 		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
 		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
 		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
-		const char *argstr;
-		uint32_t argc;
-		join_args_argstr(wk, &argstr, &argc, compdb_args);
-
-		if (ninja_run(argstr, argc, wk->build_root, "compile_commands.json") != 0) {
+		if (ninja_run(wk, compdb_args, wk->build_root, "compile_commands.json") != 0) {
 			LOG_E("error writing compile_commands.json");
 		}
 
@@ -264,7 +263,7 @@ ninja_write_all(struct workspace *wk)
 }
 
 int
-ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const char *capture)
+ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture)
 {
 	// XXX since samu was designed to be an executable and not a library,
 	// lots of the resource management is left to the OS.  For instance,
@@ -276,6 +275,9 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 	// variable by  falling back to executing an external ninja-compatible
 	// tool if the internal samu has already been invoked.
 	static bool internal_samu_has_been_called = false;
+
+	const char *argstr;
+	uint32_t argstr_argc;
 
 	int ret = 1;
 	char *const *argv = NULL;
@@ -293,6 +295,7 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 	if (have_samurai && !internal_samu_has_been_called) {
 		internal_samu_has_been_called = true;
 
+		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
 		int old_stdout;
@@ -313,14 +316,35 @@ ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const cha
 		ret = res ? 0 : 1;
 	} else {
 		struct run_cmd_ctx cmd_ctx = { 0 };
+
 		SBUF_manual(cmd);
-		if (!(fs_find_cmd(NULL, &cmd, "samu")
-		      || fs_find_cmd(NULL, &cmd, "ninja"))) {
-			LOG_E("unable to find a ninja implementation");
-			goto run_cmd_done;
+		const char *prepend = NULL;
+
+		obj ninja_opt_id;
+		if (!get_option(wk, NULL, &WKSTR("env.NINJA"), &ninja_opt_id)) {
+			UNREACHABLE;
+		}
+		const struct obj_option *ninja_opt = get_obj_option(wk, ninja_opt_id);
+
+		if (ninja_opt->source == option_value_source_default && have_samurai) {
+			obj cmd_arr;
+			make_obj(wk, &cmd_arr, obj_array);
+			obj_array_push(wk, cmd_arr, make_str(wk, wk->argv0));
+			obj_array_push(wk, cmd_arr, make_str(wk, "samu"));
+			obj_array_extend_nodup(wk, cmd_arr, args);
+			args = cmd_arr;
+		} else if (ninja_opt->source == option_value_source_default &&
+			   (fs_find_cmd(NULL, &cmd, "samu") || fs_find_cmd(NULL, &cmd, "ninja"))) {
+			prepend = cmd.buf;
+		} else {
+			obj cmd_arr;
+			obj_array_dup(wk, ninja_opt->val, &cmd_arr);
+			obj_array_extend_nodup(wk, cmd_arr, args);
+			args = cmd_arr;
 		}
 
-		argc = argstr_to_argv(argstr, argstr_argc, cmd.buf, &argv);
+		join_args_argstr(wk, &argstr, &argstr_argc, args);
+		argc = argstr_to_argv(argstr, argstr_argc, prepend, &argv);
 
 		if (!capture) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;

@@ -15,5 +15,5 @@ struct write_tgt_ctx {
 };
 
 bool ninja_write_all(struct workspace *wk);
-int ninja_run(const char *argstr, uint32_t argstr_argc, const char *chdir, const char *capture);
+int ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture);
 #endif
