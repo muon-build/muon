@@ -866,3 +866,48 @@ compilers_init(void)
 	build_compilers();
 	build_linkers();
 }
+
+enum ar_type {
+	ar_posix,
+	ar_gcc,
+};
+
+static enum ar_type
+compiler_detect_ar_type(void)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd_argv(&cmd_ctx, (char *[]){ "ar", "--version", NULL }, NULL, 0)) {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return ar_posix;
+	}
+
+	enum ar_type ret = ar_posix;
+
+	if (cmd_ctx.status == 0 && strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
+		ret = ar_gcc;
+	}
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return ret;
+}
+
+const char *
+ar_arguments(void)
+{
+	static enum ar_type ar_type;
+	static bool ar_type_initialized = false;
+
+	if (!ar_type_initialized) {
+		ar_type = compiler_detect_ar_type();
+		ar_type_initialized = true;
+	}
+
+	switch (ar_type) {
+	case ar_gcc:
+		return "csrD";
+	case ar_posix:
+		return "csr";
+	default:
+		UNREACHABLE_RETURN;
+	}
+}

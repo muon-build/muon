@@ -147,4 +147,6 @@ enum compiler_language coalesce_link_languages(enum compiler_language cur, enum 
 
 bool compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang);
 void compilers_init(void);
+
+const char *ar_arguments(void);
 #endif
