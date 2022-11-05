@@ -11,13 +11,8 @@
 
 set -eux
 
-output="muon"
-
-dir="${1:-}"
-if [ -n "$dir" ]; then
-	mkdir -p "$dir"
-	output="$dir/$output"
-fi
+dir="$1"
+mkdir -p "$dir"
 
 pkgconf_cmd=""
 if command -v pkgconf >/dev/null; then
@@ -36,4 +31,4 @@ else
 	pkgconf_libs=""
 fi
 
-${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$output"
+${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$dir/muon"
