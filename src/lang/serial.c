@@ -7,12 +7,14 @@
 
 #include <string.h>
 
+#include "backend/output.h"
 #include "buf_size.h"
 #include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 
 #define SERIAL_MAGIC_LEN 8
 static const char serial_magic[SERIAL_MAGIC_LEN] = "muondump";
@@ -460,5 +462,29 @@ ret:
 		z_free(bst.data);
 	}
 	workspace_destroy_bare(&wk_src);
+	return ret;
+}
+
+bool
+serial_load_from_private_dir(struct workspace *wk, obj *res, const char *file)
+{
+	SBUF(path);
+	path_join(wk, &path, output_path.private_dir, file);
+
+	if (!fs_file_exists(path.buf)) {
+		return false;
+	}
+
+	FILE *f;
+	if (!(f = fs_fopen(path.buf, "rb"))) {
+		return false;
+	}
+
+	bool ret = serial_load(wk, res, f);
+
+	if (!fs_fclose(f)) {
+		ret = false;
+	}
+
 	return ret;
 }

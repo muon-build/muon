@@ -1172,23 +1172,13 @@ list_options(const struct list_options_opts *list_opts)
 	} else {
 		SBUF(option_info);
 		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
-
 		if (!fs_file_exists(option_info.buf)) {
 			LOG_I("run this command must be run from a build directory or the project root");
 			goto ret;
 		}
 
-		FILE *f;
-		if (!(f = fs_fopen(option_info.buf, "rb"))) {
-			goto ret;
-		}
-
 		obj arr;
-		if (!serial_load(&wk, &arr, f)) {
-			goto ret;
-		}
-
-		if (!fs_fclose(f)) {
+		if (!serial_load_from_private_dir(&wk, &arr, output_path.option_info)) {
 			goto ret;
 		}
 

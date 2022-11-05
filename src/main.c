@@ -686,7 +686,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	return tests_run(&test_opts);
+	return tests_run(&test_opts, argv[0]);
 }
 
 static bool

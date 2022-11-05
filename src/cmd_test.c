@@ -845,16 +845,33 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 }
 
 bool
-tests_run(struct test_options *opts)
+tests_run(struct test_options *opts, const char *argv0)
 {
 	bool ret = false;
 	SBUF_manual(tests_src);
 
 	struct workspace wk;
 	workspace_init_bare(&wk);
+	wk.argv0 = argv0;
 
 	if (!opts->jobs) {
 		opts->jobs = 4;
+	}
+
+	struct run_test_ctx ctx = {
+		.opts = opts,
+		.setup = { .timeout_multiplier = 1.0f, },
+	};
+
+	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
+	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
+
+	{ // load global opts
+		obj option_info;
+		if (!serial_load_from_private_dir(&wk, &option_info, output_path.option_info)) {
+			goto ret;
+		}
+		obj_array_index(&wk, option_info, 0, &wk.global_opts);
 	}
 
 	{
@@ -863,22 +880,6 @@ tests_run(struct test_options *opts)
 		obj_array_push(&wk, ninja_cmd, make_str(&wk, "build.ninja"));
 		ninja_run(&wk, ninja_cmd, NULL, NULL);
 	}
-
-	path_join(NULL, &tests_src, output_path.private_dir, output_path.tests);
-
-	FILE *f;
-	f = fs_fopen(tests_src.buf, "r");
-
-	sbuf_destroy(&tests_src);
-
-	if (!f) {
-		goto ret;
-	}
-
-	struct run_test_ctx ctx = {
-		.opts = opts,
-		.setup = { .timeout_multiplier = 1.0f, },
-	};
 
 	{
 		int fd;
@@ -904,14 +905,8 @@ tests_run(struct test_options *opts)
 		}
 	}
 
-	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
-	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
-
 	obj tests_dict;
-	if (!serial_load(&wk, &tests_dict, f)) {
-		LOG_E("invalid data file");
-		goto ret;
-	} else if (!fs_fclose(f)) {
+	if (!serial_load_from_private_dir(&wk, &tests_dict, output_path.tests)) {
 		goto ret;
 	}
 
