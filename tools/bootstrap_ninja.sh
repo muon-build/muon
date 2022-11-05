@@ -21,9 +21,9 @@ source_url="https://mochiro.moe/wrap/samurai-1.2-32-g81cef5d.tar.gz"
 
 if [ ! -d subprojects/samurai ]; then
 	if command -v curl >/dev/null; then
-		curl -o "$dir/$source_filename" "$source_url"
+		curl -o "$dir/$source_filename" $CURLOPTS "$source_url"
 	elif command -v wget >/dev/null; then
-		wget -O "$dir/$source_filename" "$source_url"
+		wget -O "$dir/$source_filename" $WGETOPTS "$source_url"
 	else
 		set +x
 		echo "Failed to automatically fetch samurai sources."
