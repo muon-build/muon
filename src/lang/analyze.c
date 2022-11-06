@@ -1286,7 +1286,7 @@ analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_
 }
 
 static bool
-analyze_eval_project_file(struct workspace *wk, const char *path)
+analyze_eval_project_file(struct workspace *wk, const char *path, bool first)
 {
 	const char *newpath = path;
 	if (analyze_opts->file_override && strcmp(analyze_opts->file_override, path) == 0) {
@@ -1308,7 +1308,7 @@ ret:
 		return ret;
 	}
 
-	return eval_project_file(wk, newpath);
+	return eval_project_file(wk, newpath, first);
 }
 
 bool

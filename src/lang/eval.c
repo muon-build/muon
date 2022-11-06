@@ -58,7 +58,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		goto cleanup;
 	}
 
-	if (!wk->eval_project_file(wk, src.buf)) {
+	if (!wk->eval_project_file(wk, src.buf, true)) {
 		goto cleanup;
 	}
 
@@ -72,6 +72,40 @@ cleanup:
 
 	log_set_prefix(parent_prefix);
 	return ret;
+}
+
+static bool
+ensure_project_is_first_statement(struct workspace *wk, struct ast *ast)
+{
+	uint32_t err_node;
+	bool first_statement_is_a_call_to_project = false;
+	struct node *n;
+
+	err_node = ast->root;
+	n = get_node(ast, ast->root);
+	if (!(n->type == node_block && n->chflg & node_child_l)) {
+		goto err;
+	}
+
+	err_node = n->l;
+	n = get_node(ast, n->l);
+	if (!(n->type == node_function)) {
+		goto err;
+	}
+
+	err_node = n->l;
+	n = get_node(ast, n->l);
+	if (!(n->type == node_id && strcmp(n->dat.s, "project") == 0)) {
+		goto err;
+	}
+
+	first_statement_is_a_call_to_project = true;
+err:
+	if (!first_statement_is_a_call_to_project) {
+		interp_error(wk, err_node, "first statement is not a call to project()");
+		return false;
+	}
+	return true;
 }
 
 bool
@@ -102,6 +136,12 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	wk->src = src;
 	wk->ast = &ast;
 
+	if (mode == eval_mode_first) {
+		if (!ensure_project_is_first_statement(wk, &ast)) {
+			goto ret;
+		}
+	}
+
 	ret = wk->interp_node(wk, wk->ast->root, res);
 
 	if (wk->subdir_done) {
@@ -124,7 +164,7 @@ eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 }
 
 bool
-eval_project_file(struct workspace *wk, const char *path)
+eval_project_file(struct workspace *wk, const char *path, bool first)
 {
 	/* L("evaluating '%s'", path); */
 	bool ret = false;
@@ -136,7 +176,7 @@ eval_project_file(struct workspace *wk, const char *path)
 	}
 
 	obj res;
-	if (!eval(wk, &src, eval_mode_default, &res)) {
+	if (!eval(wk, &src, first ? eval_mode_first : eval_mode_default, &res)) {
 		goto ret;
 	}
 

@@ -111,7 +111,7 @@ struct workspace {
 	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id));
 	void ((*unassign_variable)(struct workspace *wk, const char *name));
 	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
-	bool ((*eval_project_file)(struct workspace *wk, const char *path));
+	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
 	bool in_analyzer;
 
 	enum language_mode lang_mode;

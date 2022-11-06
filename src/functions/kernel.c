@@ -1133,7 +1133,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	path_push(wk, &new_cwd, "meson.build");
-	ret = wk->eval_project_file(wk, new_cwd.buf);
+	ret = wk->eval_project_file(wk, new_cwd.buf, false);
 
 ret:
 	current_project(wk)->cwd = old_cwd;

@@ -309,7 +309,9 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 	}
 
 	uint32_t line_pre_len, i, sol;
-	list_line_internal(src, line, &sol, &line_pre_len);
+	if (!list_line_internal(src, line, &sol, &line_pre_len)) {
+		return;
+	}
 
 	for (i = 0; i < line_pre_len; ++i) {
 		log_plain(" ");
