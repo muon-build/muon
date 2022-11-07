@@ -40,7 +40,14 @@ if meson_proj.found() and python3.found()
     )
 endif
 
-foreach f : ['index.html', 'man-style.css', 'muon_logo.svg', 'status.css']
+foreach f : [
+    'index.html',
+    'ci.html',
+    'man-style.css',
+    'status.css',
+    'main.css',
+    'muon_logo.svg',
+]
     configure_file(
         configuration: version_info,
         input: f,

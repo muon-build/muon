@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>muon ci</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="muon_logo.svg" />
+    <!-- <link rel="stylesheet" href="main.css" /> -->
+    <link rel="stylesheet" href="status.css" />
+  </head>
+  <body>
+    <div class="wrapper">
+      <h1>muon ci</h1>
+      <table>
+        <thead>
+          <tr>
+            <td>os</td>
+            <td>arch</td>
+            <td>status</td>
+            <td>flags</td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alpine</td>
+            <td>x86_64</td>
+            <td>
+              <a href="https://builds.sr.ht/~lattis/muon?search=image:alpine">
+                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:alpine"></img>
+              </a>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>NetBSD</td>
+            <td>amd64</td>
+            <td>
+              <a href="https://builds.sr.ht/~lattis/muon?search=image:netbsd">
+                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:netbsd"></img>
+              </a>
+            </td>
+            <td>🧪</td>
+          </tr>
+          <tr>
+            <td>Debian Stable</td>
+            <td>amd64</td>
+            <td>
+              <a href="https://builds.sr.ht/~lattis/muon?search=image:debian">
+                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:debian"></img>
+              </a>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Solaris 11</td>
+            <td>sun4u</td>
+            <td>
+              <a href="https://muon.build/ci/solaris11/build_log.txt">
+                <span id="solaris11Status">...</span>
+              </a>
+            </td>
+            <td>🧪</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>flags</h3>
+      <ul>
+        <li>🧪 - project tests are disabled</li>
+      </ul>
+    </div>
+
+    <script>
+      async function getStuff() {
+        response = await fetch('https://muon.build/ci/solaris11/status');
+        text = await response.text(); // read response body as text
+        document.getElementById("solaris11Status").innerHTML = text;
+      }
+
+      getStuff();
+    </script>
+  </body>
+</html>
