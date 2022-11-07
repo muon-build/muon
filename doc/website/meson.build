@@ -42,7 +42,7 @@ endif
 
 foreach f : [
     'index.html',
-    'ci.html',
+    'muon_ci.html',
     'man-style.css',
     'status.css',
     'main.css',
