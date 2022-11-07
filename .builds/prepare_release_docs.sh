@@ -13,4 +13,5 @@ tar cvf man.tar man/*
 gzip man.tar
 
 mkdir docs
-mv website/status.css website/status.html man.tar.gz docs
+cp website/status.css docs
+mv website/status.html man.tar.gz docs
