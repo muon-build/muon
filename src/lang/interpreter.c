@@ -1028,7 +1028,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	struct node *args = get_node(wk->ast, n->l);
 
 	struct node *stmt_node = get_node(wk->ast, n->r);
-	if (stmt_node->type == node_function) {
+	if (!(args->chflg & node_child_r) && stmt_node->type == node_function) {
 		if (strcmp(get_node(wk->ast, stmt_node->l)->dat.s, "range") == 0
 		    && !(stmt_node->chflg & node_child_d)) {
 			struct range_params range_params;
