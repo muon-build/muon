@@ -118,6 +118,7 @@ struct workspace {
 	struct {
 		uint32_t node, last_line;
 		bool stepping, break_on_err;
+		obj watched;
 	} dbg;
 
 #ifdef TRACY_ENABLE

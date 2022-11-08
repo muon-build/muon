@@ -286,6 +286,10 @@ void
 assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id)
 {
 	hash_set_str(&current_project(wk)->scope, name, o);
+	if (wk->dbg.watched && obj_array_in(wk, wk->dbg.watched, make_str(wk, name))) {
+		LOG_I("watched variable \"%s\" changed", name);
+		repl(wk, true);
+	}
 }
 
 void

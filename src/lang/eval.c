@@ -218,6 +218,8 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_step,
 		repl_cmd_list,
 		repl_cmd_inspect,
+		repl_cmd_watch,
+		repl_cmd_unwatch,
 		repl_cmd_help,
 	};
 	enum repl_cmd cmd = repl_cmd_noop;
@@ -234,6 +236,8 @@ repl(struct workspace *wk, bool dbg)
 		{ { "i", "inspect", 0 }, repl_cmd_inspect, dbg, true, .help_text = "\\inspect <expr>" },
 		{ { "l", "list", 0 }, repl_cmd_list, dbg },
 		{ { "s", "step", 0 }, repl_cmd_step, dbg },
+		{ { "w", "watch", 0 }, repl_cmd_watch, dbg, true },
+		{ { "uw", "unwatch", 0 }, repl_cmd_unwatch, dbg, true },
 		0
 	};
 
@@ -333,6 +337,21 @@ cmd_found:
 				}
 
 				obj_inspect(wk, out, repl_res);
+				break;
+			case repl_cmd_watch:
+				if (!wk->dbg.watched) {
+					make_obj(wk, &wk->dbg.watched, obj_array);
+				}
+
+				obj_array_push(wk, wk->dbg.watched, make_str(wk, arg));
+				break;
+			case repl_cmd_unwatch:
+				if (wk->dbg.watched) {
+					uint32_t idx;
+					if (obj_array_index_of(wk, wk->dbg.watched, make_str(wk, arg), &idx)) {
+						obj_array_del(wk, wk->dbg.watched, idx);
+					}
+				}
 				break;
 			case repl_cmd_noop:
 				break;
