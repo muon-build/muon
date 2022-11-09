@@ -301,3 +301,16 @@ fs_copy_metadata(const char *src, const char *dest)
 	(void)src;
 	(void)dest;
 }
+
+bool
+fs_has_extension(const char *path, const char *ext)
+{
+	char *s;
+
+	s = strrchr(path, '.');
+	if (!s) {
+		return false;
+	}
+
+	return lstrcmpi(s, ext) == 0;
+}
