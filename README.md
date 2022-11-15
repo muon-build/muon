@@ -30,8 +30,7 @@ Other differences from meson are described in `doc/differences.md`
 
 ## Status
 
-`muon` is close to feature-complete (bugs notwithstanding!) with the core of
-meson for `c` and `c++`.
+`muon` is close to feature-complete with the core of meson for `c` and `c++`.
 
 See the [status page] for more detailed information.
 
@@ -48,33 +47,45 @@ Patches and bug reports welcome!
 
 ## Dependencies
 
-Bootstrap:
+Essential:
 
 - `c99`
-- ninja-compatible build tool
+- a ninja-compatible build tool (`samu` can be optionally bootstrapped with
+  `tools/bootstrap_ninja.sh`)
 
-Bootstrap with `libpkgconf` support:
+For `pkgconf` support:
 
 - `libpkgconf`
 - `pkgconf` or `pkg-config`
-- `sh`
 
-`[wrap-file]` support:
+For `[wrap-file]` support:
 
 - `libcurl`
 - `libarchive`
 
-Documentation:
+To build documentation:
 
 - `scdoc` for muon.1 and meson.build.5
+- `python3` and `py3-yaml` for meson-reference.3
+
+To run most project tests:
+
 - `python3`
-- `py3-yaml`
 
-Tests:
+## Install
 
-- `python3`
+If you already have meson or muon and are not interested in bootstrapping, you
+can just do a typical meson configure, build, install:
 
-## Building
+```
+$meson setup build
+cd build
+ninja build
+$meson test
+$meson install
+```
+
+Otherwise, you must bootstrap muon.
 
 The bootstrapping process has two stages.  The first stage produces a `muon`
 binary capable of building itself (but not necessarily anything else). The
@@ -83,41 +94,27 @@ second stage produces the final binary.
 Stage 1:
 
 ```
-mkdir build
-c99 -Iinclude src/amalgam.c -o build/muon
-```
-
-However, this version of muon will never be able to look up any dependencies.
-If are going to need `dependency()` to work, use the provided bootstrapping
-script, which links in `libpkgconf` if it is available.
-
-```
 ./bootstrap.sh build
+```
+
+Optionally, if your system does not provide a ninja-compatible build tool, you
+may use the provided ninja bootstrapping script.
+
+```
+./tools/bootstrap_ninja.sh build
+ninja=build/samu
 ```
 
 Stage 2:
 
 ```
 build/muon setup build
-ninja -C build
-```
-
-## Testing
-
-```
+$ninja -C build
 build/muon -C build test
-```
-
-`muon` has a few of its own tests for core language features, but the majority
-of the tests are copied from the meson project.
-
-## Installation
-
-```
 build/muon -C build install
 ```
 
-## Contributing
+## Contribute
 
 Please refer to the [contributing guide] before sending patches.  Send patches
 on the [mailing list], report issues on the [issue tracker], and discuss in
@@ -144,4 +141,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
-[status page]: https://muon.build/status.html
+[status page]: https://muon.build/releases/edge/docs/status.html
