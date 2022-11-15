@@ -189,15 +189,21 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		const char *filename;
 		bool print_ast;
+		uint32_t parse_mode;
 	} opts = { 0 };
 
-	OPTSTART("p") {
+	OPTSTART("pP") {
 		case 'p':
 			opts.print_ast = true;
 			break;
+		case 'P':
+			opts.print_ast = true;
+			opts.parse_mode = pm_keep_formatting;
+			break;
 	} OPTEND(argv[argi],
 		" <filename>",
-		"  -p - print parsed ast\n",
+		"  -p - print parsed ast\n"
+		"  -P - print parsed formatting ast\n",
 		NULL, 1)
 
 	opts.filename = argv[argi];
@@ -212,7 +218,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
-	if (!parser_parse(NULL, &ast, &sdata, &src, 0)) {
+	if (!parser_parse(NULL, &ast, &sdata, &src, opts.parse_mode)) {
 		goto ret;
 	}
 

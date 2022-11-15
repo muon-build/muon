@@ -65,12 +65,13 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	See documentation for the *test* subcommand.
 
 ## check
-	*muon* *check* [*-p*] <filename>
+	*muon* *check* [*-p*|*-P*] <filename>
 
 	Check if _filename_ parses.
 
 	*OPTIONS*:
 	- *-p* - print the parsed ast
+	- *-P* - print the parsed formatting ast
 
 ## fmt
 	*muon* *fmt* [*-i*] [*-c* <muon_fmt.ini>] <filename>

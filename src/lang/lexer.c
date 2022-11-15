@@ -713,7 +713,6 @@ lexer_tokenize_one(struct lexer *lexer)
 	} else {
 		switch (lexer->src[lexer->i]) {
 		case '\n':
-
 			if (lexer->enclosing.paren || lexer->enclosing.bracket
 			    || lexer->enclosing.curl) {
 				if (lexer->mode & lexer_mode_format) {
