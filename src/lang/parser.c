@@ -337,6 +337,7 @@ ensure_in_loop(struct parser *p)
 
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_expr(struct parser *p, uint32_t *id);
+static bool parse_stmt(struct parser *p, uint32_t *id);
 
 enum parse_list_mode {
 	parse_list_mode_array,
@@ -581,7 +582,7 @@ parse_e8(struct parser *p, uint32_t *id)
 			make_node(p, id, node_paren);
 		}
 
-		if (!parse_expr(p, &v)) {
+		if (!parse_stmt(p, &v)) {
 			return false;
 		}
 
@@ -1003,7 +1004,7 @@ ret:
 static bool
 parse_stmt(struct parser *p, uint32_t *id)
 {
-	uint32_t l_id = 0; // compiler thinks this won't get initialized...
+	uint32_t l_id = 0;
 	if (!(parse_expr(p, &l_id))) {
 		return false;
 	}
