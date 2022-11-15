@@ -5,10 +5,13 @@ SPDX-FileCopyrightText: Andrea Pappacoda <andrea@pappacoda.it>
 SPDX-License-Identifier: GPL-3.0-only
 -->
 
+<img src="https://muon.build/muon_logo.svg" alt="muon logo" height=64 />
+
 # [muon]
 
-`muon` is an implementation of the meson build system in c99 with minimal
+muon is an implementation of the meson build system in c99 with minimal
 dependencies.
+
 
 ## Non-features
 
