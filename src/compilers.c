@@ -296,10 +296,14 @@ done:
 bool
 compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 {
-	static const char *compiler_option[] = {
+	static const char *compiler_option[compiler_language_count] = {
 		[compiler_language_c] = "env.CC",
 		[compiler_language_cpp] = "env.CXX",
 	};
+
+	if (!compiler_option[lang]) {
+		return false;
+	}
 
 	obj cmd_arr;
 	get_option_value(wk, NULL, compiler_option[lang], &cmd_arr);
