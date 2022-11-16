@@ -953,7 +953,8 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 		{ "max_line_len", type_uint, offsetof(struct fmt_ctx, max_line_len) },
 		{ "indent_by", type_str, offsetof(struct fmt_ctx, indent_by) },
 		{ "space_array", type_bool, offsetof(struct fmt_ctx, space_array) },
-		{ "kwa_ml", type_bool, offsetof(struct fmt_ctx, kwa_ml) },
+		{ "kwargs_force_multiline", type_bool, offsetof(struct fmt_ctx, kwa_ml) },
+		{ "kwa_ml", type_bool, offsetof(struct fmt_ctx, kwa_ml) }, // kept for backwards compat
 		{ "wide_colon", type_bool, offsetof(struct fmt_ctx, wide_colon) },
 		{ "no_single_comma_function", type_bool, offsetof(struct fmt_ctx, no_single_comma_function) },
 		0

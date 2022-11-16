@@ -102,7 +102,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 :  bool
 :  false
 :  Whether to include spaces around array elements (ex. [1] vs [ 1 ])
-|  kwa_ml
+|  kwargs_force_multiline
 :  bool
 :  false
 :  Make every dictionary literal and function call with kwargs expand into
