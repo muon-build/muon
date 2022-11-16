@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+muon="$1"
+error=""
+
+git -C "$MESON_SOURCE_ROOT" ls-files | grep '\(meson.build\|meson_options.txt|*.meson\)$' | while read file; do
+	path="$MESON_SOURCE_ROOT/$file"
+	if ! "$muon" fmt -q "$path"; then
+		echo "$file"
+		exit 1
+	fi
+done
