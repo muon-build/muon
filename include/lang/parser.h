@@ -90,12 +90,12 @@ struct node {
 	uint32_t subtype;
 	union token_data dat;
 	uint32_t l, r, c, d;
-	const char *comment;
+	struct { uint32_t start, len; } comments;
 	uint8_t chflg;
 };
 
 struct ast {
-	struct darr nodes;
+	struct darr nodes, comments;
 	uint32_t root;
 };
 

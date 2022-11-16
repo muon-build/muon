@@ -112,7 +112,14 @@ accept_comment(struct parser *p)
 {
 	if (p->last->type == tok_comment) {
 		struct node *n = darr_get(&p->ast->nodes, p->ast->nodes.len - 1);
-		n->comment = p->last->dat.s;
+		L("got comment '%s', assigned to %s", p->last->dat.s, node_to_s(n));
+
+		if (!n->comments.len) {
+			n->comments.start = p->ast->comments.len;
+		}
+
+		darr_push(&p->ast->comments, &p->last->dat.s);
+		++n->comments.len;
 		get_next_tok(p);
 	}
 }
@@ -303,10 +310,6 @@ node_to_s(struct node *n)
 	}
 	default:
 		break;
-	}
-
-	if (n->comment) {
-		i += snprintf(&buf[i], BUF_SIZE_S - i, " #%s", n->comment);
 	}
 
 	return buf;
@@ -1369,6 +1372,11 @@ parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, s
 	};
 
 	darr_init(&ast->nodes, 2048, sizeof(struct node));
+
+	if (mode & pm_keep_formatting) {
+		darr_init(&ast->comments, 2048, sizeof(char *));
+	}
+
 	uint32_t id;
 	make_node(&parser, &id, node_null);
 	assert(id == 0);
@@ -1392,4 +1400,5 @@ void
 ast_destroy(struct ast *ast)
 {
 	darr_destroy(&ast->nodes);
+	darr_destroy(&ast->comments);
 }
