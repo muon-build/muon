@@ -14,6 +14,7 @@
 #include "error.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
+#include "lang/string.h"
 #include "log.h"
 #include "platform/mem.h"
 
@@ -23,10 +24,11 @@ struct arg_elem {
 
 struct fmt_ctx {
 	struct ast *ast;
-	FILE *out;
+	struct sbuf *out_buf;
 	uint32_t indent, col, enclosed;
 	bool force_ml;
 
+	/* options */
 	bool space_array, kwa_ml, wide_colon, no_single_comma_function;
 	uint32_t max_line_len;
 	const char *indent_by;
@@ -134,7 +136,7 @@ fmt_write(struct fmt_ctx *ctx, const struct fmt_stack *pfst, char c)
 	}
 
 	if (pfst->write) {
-		fputc(c, ctx->out);
+		sbuf_push(NULL, ctx->out_buf, c);
 		ctx->col += len;
 	}
 	return len;
@@ -147,7 +149,7 @@ fmt_writeml(struct fmt_ctx *ctx, const struct fmt_stack *pfst, const char *s)
 	for (; *s; ++s) {
 		if (*s == '\n') {
 			if (pfst->write) {
-				fputc('\n', ctx->out);
+				sbuf_push(NULL, ctx->out_buf, '\n');
 				ctx->col = 0;
 			}
 
@@ -175,7 +177,7 @@ fmt_newline(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
 {
 	uint32_t i;
 	if (pfst->write && pfst->ml) {
-		fputc('\n', ctx->out);
+		sbuf_push(NULL, ctx->out_buf, '\n');
 		ctx->col = 0;
 
 		if (next != 0) {
@@ -956,12 +958,15 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 }
 
 bool
-fmt(struct ast *ast, FILE *out, const char *cfg_path)
+fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only)
 {
 	bool ret = false;
+	struct ast ast = { 0 };
+	struct source_data sdata = { 0 };
+	struct sbuf out_buf;
 	struct fmt_ctx ctx = {
-		.ast = ast,
-		.out = out,
+		.ast = &ast,
+		.out_buf = &out_buf,
 		.max_line_len = 80,
 		.indent_by = "    ",
 		.space_array = false,
@@ -969,30 +974,51 @@ fmt(struct ast *ast, FILE *out, const char *cfg_path)
 		.wide_colon = false,
 		.no_single_comma_function = false,
 	};
-
-	char *buf = NULL;
-	struct source cfg_src = { 0 };
-	if (cfg_path) {
-		if (!fs_read_entire_file(cfg_path, &cfg_src)) {
-			goto ret;
-		} else if (!ini_parse(cfg_path, &cfg_src, &buf, fmt_cfg_parse_cb, &ctx)) {
-			goto ret;
-		}
-	}
-
 	struct fmt_stack fst = {
 		.write = true,
 	};
 
-	fmt_node(&ctx, &fst, ast->root);
+	if (check_only) {
+		sbuf_init(&out_buf, NULL, 0, sbuf_flag_overflow_alloc);
+	} else {
+		out_buf.flags = sbuf_flag_write;
+		out_buf.buf = (void *)out;
+	}
+
+	char *cfg_buf = NULL;
+	struct source cfg_src = { 0 };
+	if (cfg_path) {
+		if (!fs_read_entire_file(cfg_path, &cfg_src)) {
+			goto ret;
+		} else if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &ctx)) {
+			goto ret;
+		}
+	}
+
+	if (!parser_parse(NULL, &ast, &sdata, src, pm_keep_formatting | pm_ignore_statement_with_no_effect)) {
+		goto ret;
+	}
+
+	fmt_node(&ctx, &fst, ast.root);
 	assert(!ctx.indent);
 	fmt_newline_force(&ctx, &fst, 0);
 
+	if (check_only) {
+		if (src->len != out_buf.len) {
+			goto ret;
+		} else if (memcmp(src->src, out_buf.buf, src->len)) {
+			goto ret;
+		}
+	}
+
 	ret = true;
 ret:
-	if (buf) {
-		z_free(buf);
+	if (cfg_buf) {
+		z_free(cfg_buf);
 	}
+	sbuf_destroy(&out_buf);
 	fs_source_destroy(&cfg_src);
+	ast_destroy(&ast);
+	source_data_destroy(&sdata);
 	return ret;
 }

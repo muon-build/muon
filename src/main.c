@@ -794,17 +794,21 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		const char *filename;
 		const char *cfg_path;
-		bool in_place;
+		bool in_place, check_only;
 	} opts = { 0 };
 
-	OPTSTART("ic:") {
+	OPTSTART("ic:q") {
 		case 'i':
 			opts.in_place = true;
 			break;
 		case 'c':
 			opts.cfg_path = optarg;
 			break;
+		case 'q':
+			opts.check_only = true;
+			break;
 	} OPTEND(argv[argi], " <filename>",
+		"  -q - exit with 1 if the file would be changed by muon fmt\n"
 		"  -i - modify file in-place\n"
 		"  -c <cfg.ini> - read configuration from cfg\n",
 		NULL, 1)
@@ -815,12 +819,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	bool ret = false;
 
 	struct source src = { 0 };
-	struct ast ast = { 0 };
-	struct source_data sdata = { 0 };
-
 	if (!fs_read_entire_file(opts.filename, &src)) {
-		goto ret;
-	} else if (!parser_parse(NULL, &ast, &sdata, &src, pm_keep_formatting)) {
 		goto ret;
 	}
 
@@ -831,11 +830,13 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 			goto ret;
 		}
 		opened_out = true;
+	} else if (opts.check_only) {
+		out = NULL;
 	} else {
 		out = stdout;
 	}
 
-	if (!fmt(&ast, out, opts.cfg_path)) {
+	if (!fmt(&src, out, opts.cfg_path, opts.check_only)) {
 		goto ret;
 	}
 
@@ -845,8 +846,6 @@ ret:
 		fs_fclose(out);
 	}
 	fs_source_destroy(&src);
-	ast_destroy(&ast);
-	source_data_destroy(&sdata);
 	return ret;
 }
 
