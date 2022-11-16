@@ -15,8 +15,7 @@ foreach name, tgt : man_page_targets
     )
 endforeach
 
-python3 = find_program('python3', required: false)
-if meson_proj.found() and python3.found()
+if meson_proj.found()
     muon_signatures = custom_target(
         'muon_signatures.txt',
         output: 'muon_signatures.txt',

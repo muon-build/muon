@@ -31,7 +31,10 @@ foreach page, section : man_pages
     man_page_targets += {name: tgt}
 endforeach
 
-meson_proj = subproject('meson-docs', required: false)
+meson_proj = dependency('', required: false)
+if python3.found()
+    meson_proj = subproject('meson-docs', required: false)
+endif
 if meson_proj.found()
     man_page_targets += {
         'meson-reference.3': meson_proj.get_variable('meson_reference_3'),

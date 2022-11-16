@@ -103,5 +103,7 @@ muon = executable(
     install: true,
 )
 
+python3 = find_program('python3', required: false)
+
 subdir('tests')
 subdir('doc')
