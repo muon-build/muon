@@ -3,8 +3,6 @@
 
 src = files(
     'backend/backend.c',
-    'formats/tap.c',
-    'formats/lines.c',
     'backend/common_args.c',
     'backend/ninja.c',
     'backend/ninja/alias_target.c',
@@ -16,6 +14,8 @@ src = files(
     'data/darr.c',
     'data/hash.c',
     'formats/ini.c',
+    'formats/lines.c',
+    'formats/tap.c',
     'functions/array.c',
     'functions/boolean.c',
     'functions/both_libs.c',
