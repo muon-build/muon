@@ -54,6 +54,7 @@ backend_output(struct workspace *wk)
 {
 	TracyCZoneAutoS;
 	if (!ninja_write_all(wk)) {
+		LOG_E("backend output failed");
 		TracyCZoneAutoE;
 		return false;
 	}

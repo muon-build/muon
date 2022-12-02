@@ -66,24 +66,33 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	struct obj_clear_mark mk;
 	obj_set_clear_mark(wk, &mk);
 
+	const char *name = NULL;
+
 	enum obj_type t = get_obj_type(wk, tgt_id);
 	switch (t) {
 	case obj_alias_target:
 		ret = ninja_write_alias_tgt(wk, tgt_id, ctx);
+		name = get_cstr(wk, get_obj_alias_target(wk, tgt_id)->name);
 		break;
 	case obj_both_libs:
 		tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target:
 		ret = ninja_write_build_tgt(wk, tgt_id, ctx);
+		name = get_cstr(wk, get_obj_build_target(wk, tgt_id)->build_name);
 		break;
 	case obj_custom_target:
 		ret = ninja_write_custom_tgt(wk, tgt_id, ctx);
+		name = get_cstr(wk, get_obj_custom_target(wk, tgt_id)->name);
 		break;
 	default:
 		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
 		ret = ir_err;
 		break;
+	}
+
+	if (!ret) {
+		LOG_E("failed to write %s '%s'", obj_type_to_s(t), name);
 	}
 
 	obj_clear(wk, &mk);
@@ -127,6 +136,7 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		struct write_tgt_ctx ctx = { .out = out, .proj = proj };
 
 		if (!obj_array_foreach(wk, proj->targets, &ctx, write_tgt_iter)) {
+			LOG_E("failed to write rules for project %s", get_cstr(wk, proj->cfg.name));
 			return false;
 		}
 
