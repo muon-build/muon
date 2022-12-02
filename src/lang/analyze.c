@@ -56,6 +56,12 @@ struct {
 	struct darr base;
 } assignment_scopes;
 
+static bool
+analyze_diagnostic_enabled(enum analyze_diagnostic d)
+{
+	return analyze_opts->enabled_diagnostics & d;
+}
+
 static const char *
 inspect_typeinfo(struct workspace *wk, obj t)
 {
@@ -84,15 +90,22 @@ make_typeinfo(struct workspace *wk, type_tag t, type_tag sub_t)
 	return res;
 }
 
+static type_tag
+coerce_type_tag(struct workspace *wk, obj r)
+{
+	type_tag t = get_obj_type(wk, r);
+
+	if (t == obj_typeinfo) {
+		return get_obj_typeinfo(wk, r)->type;
+	} else {
+		return obj_type_to_tc_type(t);
+	}
+}
+
 static void
 merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 {
-	type_tag t = get_obj_type(wk, r);
-	if (t == obj_typeinfo) {
-		a->type |= get_obj_typeinfo(wk, r)->type;
-	} else {
-		a->type |= obj_type_to_tc_type(t);
-	}
+	a->type |= coerce_type_tag(wk, r);
 }
 
 struct analyze_ctx {
@@ -261,6 +274,36 @@ assign_lookup(struct workspace *wk, const char *name)
 	return found;
 }
 
+static void
+check_reassign_to_different_type(struct workspace *wk, struct assignment *a, obj new_val, struct assignment *new_a, uint32_t n_id)
+{
+	if (!analyze_diagnostic_enabled(analyze_diagnostic_reassign_to_conflicting_type)) {
+		return;
+	}
+
+	type_tag t1 = coerce_type_tag(wk, a->o), t2 = coerce_type_tag(wk, new_val);
+
+	if ((t1 & t2) != t2) {
+		char buf[BUF_SIZE_2k] = { 0 };
+		snprintf(buf, BUF_SIZE_2k, "reassignment of variable %s with type %s to conflicting type %s",
+			a->name,
+			typechecking_type_to_s(wk, t1),
+			typechecking_type_to_s(wk, t2));
+
+		if (new_a) {
+			error_diagnostic_store_push(
+				new_a->src_idx,
+				new_a->line,
+				new_a->col,
+				log_warn,
+				buf
+				);
+		} else {
+			interp_warning(wk, n_id, "%s", buf);
+		}
+	}
+}
+
 static struct assignment *
 scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
@@ -281,6 +324,8 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 
 	struct assignment *a;
 	if ((a = assign_lookup_scope(name, s))) {
+		// re-assign
+		check_reassign_to_different_type(wk, a, o, NULL, n_id);
 		a->o = o;
 		return a;
 	}
@@ -368,6 +413,8 @@ pop_scope_group(struct workspace *wk)
 				}
 
 				if (a->o) {
+					// re-assign
+					check_reassign_to_different_type(wk, old, a->o, a, 0);
 					merge_types(wk, get_obj_typeinfo(wk, old->o), a->o);
 				}
 			} else {
@@ -385,6 +432,7 @@ pop_scope_group(struct workspace *wk)
 				b->o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
 			}
 
+			check_reassign_to_different_type(wk, b, a->o, a, 0);
 			merge_types(wk, get_obj_typeinfo(wk, b->o), a->o);
 		} else {
 			b = scope_assign(wk, a->name, a->o, 0);
@@ -1311,6 +1359,37 @@ ret:
 	return eval_project_file(wk, newpath, first);
 }
 
+static const struct {
+	const char *name;
+	enum analyze_diagnostic d;
+} analyze_diagnostic_names[] = {
+	{ "unused-variable", analyze_diagnostic_unused_variable },
+	{ "reassign-to-conflicting-type", analyze_diagnostic_reassign_to_conflicting_type },
+};
+
+bool
+analyze_diagnostic_name_to_enum(const char *name, enum analyze_diagnostic *ret)
+{
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(analyze_diagnostic_names); ++i) {
+		if (strcmp(analyze_diagnostic_names[i].name, name) == 0) {
+			*ret = analyze_diagnostic_names[i].d;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void
+analyze_print_diagnostic_names(void)
+{
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(analyze_diagnostic_names); ++i) {
+		printf("%s\n", analyze_diagnostic_names[i].name);
+	}
+}
+
 bool
 do_analyze(struct analyze_opts *opts)
 {
@@ -1359,7 +1438,7 @@ do_analyze(struct analyze_opts *opts)
 	uint32_t project_id;
 	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
 
-	{
+	if (analyze_diagnostic_enabled(analyze_diagnostic_unused_variable)) {
 		assert(assignment_scopes.groups.len == 0);
 		uint32_t i;
 		for (i = 0; i < assignment_scopes.base.len; ++i) {

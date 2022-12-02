@@ -239,9 +239,10 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct analyze_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_include_sources,
+		.enabled_diagnostics = analyze_diagnostic_unused_variable,
 	};
 
-	OPTSTART("luqO:") {
+	OPTSTART("luqO:W:") {
 		case 'l':
 			opts.subdir_error = true;
 			opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
@@ -255,11 +256,40 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'q':
 			opts.replay_opts |= error_diagnostic_store_replay_errors_only;
 			break;
+		case 'W': {
+			bool enable = true;
+			const char *name = optarg;
+			if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) {
+				enable = false;
+				name += 3;
+			}
+
+			if (strcmp(name, "list") == 0) {
+				analyze_print_diagnostic_names();
+				return true;
+			}
+
+			enum analyze_diagnostic d;
+			if (!analyze_diagnostic_name_to_enum(name, &d)) {
+				LOG_E("invalid diagnostic name '%s'", name);
+				return false;
+			}
+
+			if (enable) {
+				opts.enabled_diagnostics |= d;
+			} else {
+				opts.enabled_diagnostics &= ~d;
+			}
+
+			break;
+		}
 	} OPTEND(argv[argi], "",
 		"  -l - optimize output for editor linter plugins\n"
 		"  -q - only report errors\n"
 		"  -u - error on unused variables\n"
 		"  -O <path> - read project file with matching path from stdin\n"
+		"  -W [no-]<diagnostic> - enable or disable warnings\n"
+		"  -W list - list avaliable diagnostics\n"
 		,
 		NULL, 0)
 
