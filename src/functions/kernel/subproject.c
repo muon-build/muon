@@ -101,7 +101,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	path_join(wk, &cwd, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, current_project(wk)->subprojects_dir));
 	path_push(wk, &cwd, subproj_name);
 
-	path_join(wk, &build_dir, wk->build_root, get_cstr(wk, current_project(wk)->subprojects_dir));
+	path_join(wk, &build_dir, get_cstr(wk, current_project(wk)->build_root), get_cstr(wk, current_project(wk)->subprojects_dir));
 	path_push(wk, &build_dir, subproj_name);
 
 	uint32_t subproject_id = 0;
