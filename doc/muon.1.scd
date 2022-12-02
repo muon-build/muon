@@ -60,6 +60,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-O* <path> - read project file with matching path from stdin.  This
 	  is useful for editor linter plugins that run as you type on files
 	  that aren't saved to disk.
+	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
+	e.g. unused-variable.
+	- *-W* list - list available diagnostics.
 
 ## benchmark
 	See documentation for the *test* subcommand.

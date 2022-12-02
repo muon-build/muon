@@ -288,8 +288,8 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -q - only report errors\n"
 		"  -u - error on unused variables\n"
 		"  -O <path> - read project file with matching path from stdin\n"
-		"  -W [no-]<diagnostic> - enable or disable warnings\n"
-		"  -W list - list avaliable diagnostics\n"
+		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
+		"  -W list - list available diagnostics\n"
 		,
 		NULL, 0)
 
