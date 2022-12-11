@@ -5,8 +5,10 @@
 #include <io.h>
 
 #include "log.h"
+#include "lang/string.h"
 #include "platform/mem.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 #include "platform/windows/win32_error.h"
 
 bool
@@ -54,13 +56,99 @@ fs_file_exists(const char *path)
 bool
 fs_exe_exists(const char *path)
 {
-	DWORD type;
+	HANDLE h;
+	HANDLE fm;
+	unsigned char *base;
+	unsigned char *iter;
+	unsigned __int64 size;
+	DWORD size_high;
+	DWORD size_low;
+	DWORD offset;
+	bool ret = false;
 
-	if (!GetBinaryType(path, &type)) {
-		return false;
+	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		return ret;
 	}
 
-	return (type == SCS_64BIT_BINARY) || (type == SCS_32BIT_BINARY);
+	size_low = GetFileSize(h, &size_high);
+	if ((size_low == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR))
+	{
+		LOG_I("can not get the size of file %s", path);
+		goto close_file;
+	}
+
+	size = size_low | ((__int64)size_high << 32);
+
+	/*
+	 * PE file is organized as followed:
+	 *  1) MS-DOS header (60 bytes) (beginning with bytes 'M' then 'Z')
+	 *  2) offset of PE signature (4 bytes)"
+	 *  2) PE signature (4 bytes) : "PE\0\0"
+	 *  3) COFF File Header (20 bytes)
+	 * the rest is useless for us.
+	 */
+	if (size < 64)
+	{
+		LOG_I("file %s is too small", path);
+		goto close_file;
+	}
+
+	fm = CreateFileMapping(h, NULL, PAGE_READONLY, 0UL, 0UL, NULL);
+	if (!fm)
+	{
+		LOG_I("Can not map file: %s", win32_error());
+		goto close_file;
+	}
+
+	base =  MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0);
+	if (!base)
+	{
+		LOG_I("Can not view map: %s", win32_error());
+		goto close_fm;
+	}
+
+	iter = base;
+
+	if (*((WORD *)iter) != 0x5a4d)
+	{
+		LOG_I("file %s is not a MS-DOS file", path);
+		goto unmap;
+	}
+
+	offset = *((DWORD *)(iter + 0x3c));
+	if (size < offset + 24)
+	{
+		LOG_I("file %s is too small", path);
+		goto unmap;
+	}
+
+	iter += offset;
+	if ((iter[0] != 'P') && (iter[1] != 'E') &&
+		(iter[2] != '\0') && (iter[3] != '\0'))
+	{
+		LOG_I("file %s is not a PE file", path);
+		goto unmap;
+	}
+
+	iter += 22;
+	if ((!((*((WORD *)iter)) & 0x0002)) || ((*((WORD *)iter)) & 0x2000))
+	{
+		LOG_I("file %s is not a binary file", path);
+		goto unmap;
+	}
+
+	ret = true;
+
+unmap:
+	UnmapViewOfFile(base);
+close_fm:
+	CloseHandle(fm);
+close_file:
+	CloseHandle(h);
+
+	return ret;
 }
 
 bool
@@ -300,4 +388,80 @@ fs_copy_metadata(const char *src, const char *dest)
 	return false;
 	(void)src;
 	(void)dest;
+}
+
+bool
+fs_has_extension(const char *path, const char *ext)
+{
+	char *s;
+
+	s = strrchr(path, '.');
+	if (!s) {
+		return false;
+	}
+
+	return lstrcmpi(s, ext) == 0;
+}
+
+bool
+fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
+{
+	assert(*cmd);
+	uint32_t len;
+	const char *env_path, *base_start;
+
+	sbuf_clear(buf);
+
+	if (!path_is_basename(cmd)) {
+		path_make_absolute(wk, buf, cmd);
+
+		if (fs_exe_exists(buf->buf)) {
+			return true;
+		} else {
+			if (!fs_has_extension(buf->buf, ".exe")) {
+				sbuf_pushs(wk, buf, ".exe");
+				if (fs_exe_exists(buf->buf)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	if (!(env_path = getenv("PATH"))) {
+		LOG_E("failed to get the value of PATH");
+		return false;
+	}
+
+	base_start = env_path;
+	while (true) {
+		if (!*env_path || *env_path == ';') {
+			len = env_path - base_start;
+
+			sbuf_clear(buf);
+			sbuf_pushn(wk, buf, base_start, len);
+
+			base_start = env_path + 1;
+
+			path_push(wk, buf, cmd);
+
+			if (fs_exe_exists(buf->buf)) {
+				return true;
+			}
+			else if (!fs_has_extension(buf->buf, ".exe")) {
+				sbuf_pushs(wk, buf, ".exe");
+				if (fs_exe_exists(buf->buf)) {
+					return true;
+				}
+			}
+
+			if (!*env_path) {
+				break;
+			}
+		}
+
+		++env_path;
+	}
+
+	return false;
 }

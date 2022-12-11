@@ -108,7 +108,7 @@ bool
 environment_set(struct workspace *wk, obj env, enum environment_set_mode mode, obj key, obj vals, obj sep)
 {
 	if (!sep) {
-		sep = make_str(wk, ":");
+		sep = make_str(wk, ENV_PATH_SEP_STR);
 	}
 
 	obj joined;
