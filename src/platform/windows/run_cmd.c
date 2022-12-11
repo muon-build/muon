@@ -16,7 +16,7 @@
 
 #define KEY_PATH "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall"
 
-#define CLOSE_PIPE(p_) do {                               \
+#define CLOSE_PIPE(p_) do { \
 	if ((p_) != INVALID_HANDLE_VALUE && !CloseHandle(p_)) { \
 		LOG_E("failed to close pipe: %s", win32_error()); \
 	} \
@@ -45,49 +45,44 @@ enum copy_pipe_result {
  */
 
 static enum copy_pipe_result
-copy_pipe(HANDLE pipe, OVERLAPPED *overlap, struct run_cmd_pipe_ctx *ctx)
+copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 {
-	BOOL connected;
-	BOOL pending;
-
 	if (!ctx->size) {
 		ctx->size = COPY_PIPE_BLOCK_SIZE;
 		ctx->len = 0;
 		ctx->buf = z_calloc(1, ctx->size + 1);
 	}
 
-	connected = ConnectNamedPipe(pipe, overlap);
-	if (connected) {
-		LOG_E("failed to connect to pipe: %s", win32_error());
-		return copy_pipe_result_failed;
-	}
-
-	pending = FALSE;
-	switch (GetLastError()) {
-	case ERROR_IO_PENDING:
-		pending = TRUE;
-		break;
-	case ERROR_PIPE_CONNECTED:
-		if (SetEvent(overlap->hEvent))
-			break;
-	default:
-		LOG_E("ConnectNamedPipe() failed: %s.", win32_error());
-		pending = FALSE; /* already set above */
-		break;
-	}
-
 	while (true) {
 		DWORD bytes_read;
 		BOOL res;
 
-		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, overlap);
+		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
 
-		if (!res || !bytes_read) {
-			if (GetLastError() == ERROR_BROKEN_PIPE) {
-				return copy_pipe_result_finished;
-			} else {
-				return copy_pipe_result_failed;
+		if (!res || bytes_read == 0UL) {
+			char *buf;
+			char *it1;
+			char *it2;
+			size_t len;
+
+			buf = z_calloc(1, ctx->len + 1);
+			it1 = ctx->buf;
+			it2 = buf;
+			len = 0;
+			for (it1 = ctx->buf; *it1; it1++) {
+				if (*it1 == '\r' && *(it1 + 1) == '\n') {
+					continue;
+				}
+
+				*it2 = *it1;
+				it2++;
+				len++;
 			}
+			z_free(ctx->buf);
+			ctx->buf = buf;
+			ctx->len = len;
+			LOG_E(" ** resultat : '%s'", ctx->buf);
+			return copy_pipe_result_finished;
 		}
 
 		ctx->len += bytes_read;
@@ -104,11 +99,11 @@ copy_pipes(struct run_cmd_ctx *ctx)
 {
 	enum copy_pipe_result res;
 
-	if ((res = copy_pipe(ctx->pipe_out.pipe[0], &ctx->pipe_out.overlap, &ctx->out)) == copy_pipe_result_failed) {
+	if ((res = copy_pipe(ctx->pipe_out.pipe[0], &ctx->out)) == copy_pipe_result_failed) {
 		return res;
 	}
 
-	switch (copy_pipe(ctx->pipe_err.pipe[0], &ctx->pipe_err.overlap, &ctx->err)) {
+	switch (copy_pipe(ctx->pipe_err.pipe[0], &ctx->err)) {
 	case copy_pipe_result_waiting:
 		return copy_pipe_result_waiting;
 	case copy_pipe_result_finished:
@@ -192,38 +187,41 @@ static bool
 open_pipes(HANDLE *pipe, const char *name)
 {
 	SECURITY_ATTRIBUTES sa;
-	HANDLE pipe_tmp;
-	HANDLE pipe_read;
-	BOOL res;
+	BOOL connected;
+	SBUF_manual(sbuf);
+	int i;
 
 	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
 	sa.lpSecurityDescriptor = NULL;
 	sa.bInheritHandle = TRUE;
 
-	pipe_tmp = CreateNamedPipe(name, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
-	if (pipe_tmp == INVALID_HANDLE_VALUE) {
-		LOG_E("failed to create temporary read end of the pipe");
+	i = 0;
+	do {
+		sbuf_clear(&sbuf);
+		sbuf_pushf(NULL, &sbuf, "%s%d", name, i);
+		pipe[0] = CreateNamedPipe(sbuf.buf, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
+		i++;
+	} while (pipe[0] == INVALID_HANDLE_VALUE);
+
+	if (pipe[0] == INVALID_HANDLE_VALUE) {
+		LOG_E("failed to create read end of the pipe: %ld %s", GetLastError(), win32_error());
 		return false;
 	}
 
-	pipe[1] = CreateFile(name, FILE_WRITE_DATA | SYNCHRONIZE, 0UL, &sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0UL);
+	pipe[1] = CreateFile(sbuf.buf, FILE_WRITE_DATA | SYNCHRONIZE, 0UL, &sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0UL);
 	if (pipe[1] == INVALID_HANDLE_VALUE) {
-		LOG_E("failed to create write end of the pipe");
-		CloseHandle(pipe_tmp);
+		LOG_E("failed to create write end of the pipe: %s", win32_error());
+		CloseHandle(pipe[0]);
 		return false;
 	}
 
-	res = DuplicateHandle(GetCurrentProcess(), pipe_tmp, GetCurrentProcess(), &pipe_read, 0UL, FALSE, DUPLICATE_SAME_ACCESS);
-	if (!res) {
-		LOG_E("failed to create read end of the pipe");
+	connected = ConnectNamedPipe(pipe[0], NULL);
+	if (connected == 0 && GetLastError() != ERROR_PIPE_CONNECTED) {
+		LOG_E("failed to connect to pipe: %s", win32_error());
 		CloseHandle(pipe[1]);
-		pipe[1] = INVALID_HANDLE_VALUE;
-		CloseHandle(pipe_tmp);
+		CloseHandle(pipe[0]);
 		return false;
 	}
-
-	pipe[0] = pipe_read;
-	CloseHandle(pipe_tmp);
 
 	return true;
 }
@@ -238,19 +236,6 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 
 	if (ctx->flags & run_cmd_ctx_flag_dont_capture) {
 		return true;
-	}
-
-	ctx->pipe_out.overlap.hEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
-	if (!ctx->pipe_out.overlap.hEvent) {
-		LOG_E("failed to create output event: %s", win32_error());
-		return false;
-	}
-
-	ctx->pipe_err.overlap.hEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
-	if (!ctx->pipe_err.overlap.hEvent) {
-		CloseHandle(ctx->pipe_err.overlap.hEvent);
-		LOG_E("failed to create error event: %s", win32_error());
-		return false;
 	}
 
 	if (!open_pipes(ctx->pipe_out.pipe, "\\\\.\\pipe\\run_cmd_pipe_out")) {
@@ -276,8 +261,30 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 		return false;
 	}
 
+	LOG_E(" * %s : app name: %s", __func__, cmd.buf);
+	LOG_E(" * %s : cmd line: %s", __func__, command_line);
+	if (envstr) {
+		const char *k;
+		uint32_t i = 0;
+
+		p = k = envstr;
+		for (;; ++p) {
+			if (!p[0]) {
+				if (!k) {
+					k = p + 1;
+				} else {
+					SetEnvironmentVariable(k, p + 1);
+					k = NULL;
+					if (++i >= envc) {
+						break;
+					}
+				}
+			}
+		}
+	}
+
 	if (log_should_print(log_debug)) {
-		LL("executing %s: %s\n", application_name, command_line);
+		LL("executing %s: %s\n", cmd.buf, command_line);
 
 		if (envstr) {
 			const char *k;
@@ -320,13 +327,17 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 		goto err;
 	}
 
-	ZeroMemory(&si,sizeof(STARTUPINFO));
+	ZeroMemory(&si, sizeof(STARTUPINFO));
 	si.cb = sizeof(STARTUPINFO);
-	si.dwFlags = (ctx->flags & run_cmd_ctx_flag_dont_capture) ? 0UL : STARTF_USESTDHANDLES;
-	si.hStdOutput = ctx->pipe_out.pipe[1];
-	// FIXME stdin
-	si.hStdInput  = NULL;
-	si.hStdError  = ctx->pipe_err.pipe[1];
+	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		si.dwFlags = STARTF_USESTDHANDLES;
+		si.hStdOutput = ctx->pipe_out.pipe[1];
+		// FIXME stdin
+		si.hStdInput  = NULL;
+		si.hStdError  = ctx->pipe_err.pipe[1];
+	}
+
+	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 
 	if (ctx->chdir) {
 		if (!fs_dir_exists(ctx->chdir)) {
@@ -335,9 +346,10 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 		}
 	}
 
-	res = CreateProcess(application_name, command_line, NULL, NULL, TRUE, CREATE_SUSPENDED, (LPVOID)envstr, ctx->chdir, &si, &pi);
+	LOG_E(" * %s: $%s$ $%s$", __func__, cmd.buf, command_line);
+	res = CreateProcess(cmd.buf, command_line, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ctx->chdir, &si, &pi);
 	if (!res) {
-		LOG_E("CreateProcess() failed");
+		LOG_E("CreateProcess() failed: %s", win32_error());
 		goto err;
 	}
 
@@ -345,7 +357,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
 
 	ctx->process = pi.hProcess;
-	CloseHandle(pi.hThread);
+	//CloseHandle(pi.hThread);
 	ResumeThread(pi.hThread);
 
 	sbuf_destroy(&cmd);
@@ -433,46 +445,31 @@ msys2_path(void)
 	return path;
 }
 
-/* ext must have a dot, like ".bat" or ".sh" */
 static bool
-file_has_extension(const char *file, const char *ext)
+file_is_exe(const char *path)
 {
-	char *s;
+	char buf[32767];
 
-	s = strrchr(file, '.');
-	if (!s) {
+	if (fs_exe_exists(path)) {
+		return true;
+	}
+
+	if (FAILED(StringCchCopy(buf, sizeof(buf), path))) {
 		return false;
 	}
 
-	return lstrcmpi(s, ext) == 0;
-}
-
-static bool
-argv_cat(char *cmd_line, size_t cmd_line_len, const char *arg)
-{
-	HRESULT res;
-
-	res = StringCchCat(cmd_line, sizeof(cmd_line), " ");
-	if (SUCCEEDED(res)) {
-		res = StringCchCat(cmd_line, sizeof(cmd_line), arg);
-		if (SUCCEEDED(res)) {
-			return true;
-		}
+	if (FAILED(StringCchCat(buf, sizeof(buf), ".exe"))) {
+		return false;
 	}
 
-	return false;
+	return fs_exe_exists(buf);
 }
 
 static bool
-argv_to_command_line(struct run_cmd_ctx *ctx, const char *argstr, char *const *argtab, struct sbuf *cmd, char **application_name, char **command_line)
+argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *argstr, char *const *argtab, struct sbuf *cmd, struct sbuf *cmd_argv)
 {
-	char cmd_line[32767];
-	const char *argv0;
+	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
 	char *msys2_bindir = NULL;
-
-	sbuf_clear(cmd);
-	*command_line = NULL;
-	*cmd_line = '\0';
 
 	if (argstr) {
 		argv0 = argstr;
@@ -483,64 +480,84 @@ argv_to_command_line(struct run_cmd_ctx *ctx, const char *argstr, char *const *a
 	if (!argv0 || !*argv0) {
 		return false;
 	}
+
+	sbuf_clear(cmd);
+	sbuf_clear(cmd_argv);
 	sbuf_pushs(NULL, cmd, argv0);
 
-	/*
-	* Reference:
-	* https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessa
-	* Rationale:
-	* - get the absolute path for argv0
-	* - if it's a binary, we surround it with ", and we append the arguments
-	* - if not:
-	*   - if it's a .bat, then application name must be cmd.exe and command line must begin with /c follow with the .bat and its arguments
-	*   - if it's a .sh, we must have a tty and the application name must be bash.exe and command line must begin with -c
-	*/
-
 	LOG_E("******* argv0 %s", argv0);
-	path_make_absolute(NULL, cmd, argv0);
-	LOG_E("******* argv0 path %s", cmd->buf);
+	LOG_E("******* cmd   %s", cmd->buf);
 
-	/* 1st: binary */
-	if (fs_exe_exists(cmd->buf)) {
-		*application_name = NULL;
-		if (FAILED(StringCchPrintf(cmd_line, sizeof(cmd_line), "\"%s\"", cmd->buf))) {
-			return false;
-		}
-	/* 2nd: batch file */
-	} else if (file_has_extension(cmd->buf, ".bat")) {
-		*application_name = _strdup("c:\\windows\\system32\\cmd.exe");
-		if (!*application_name) {
-			return false;
-		}
-		if (FAILED(StringCchPrintf(cmd_line, sizeof(cmd_line), "/c \"%s\"", cmd->buf))) {
-			z_free(*application_name);
-			*application_name = NULL;
-			return false;
+	if (!path_is_basename(cmd->buf)) {
+		path_make_absolute(NULL, cmd, argv0);
+
+		if (!file_is_exe(cmd->buf)) {
+			if (fs_has_extension(cmd->buf, ".bat")) {
+				path_copy(NULL, cmd, "c:\\windows\\system32\\cmd.exe");
+				sbuf_pushf(NULL, cmd_argv, "/c %s", argv0);
+			}
+			else {
+				if (!fs_read_entire_file(cmd->buf, src)) {
+					ctx->err_msg = "error determining command interpreter";
+					return false;
+				}
+
+				char *nl;
+				if (!(nl = strchr(src->src, '\n'))) {
+					ctx->err_msg = "error determining command interpreter: no newline in file";
+					return false;
+				}
+
+				*nl = 0;
+
+				uint32_t line_len = strlen(src->src);
+				if (!(line_len > 2 && src->src[0] == '#' && src->src[1] == '!')) {
+					ctx->err_msg = "error determining command interpreter: missing #!";
+					return false;
+				}
+
+				const char *p = &src->src[2];
+				char *s;
+
+				while (strchr(" \t", *p)) {
+					++p;
+				}
+
+				new_argv0 = p;
+
+				if ((s = strchr(p, ' '))) {
+					*s = 0;
+					while (strchr(" \t", *p)) {
+						++p;
+					}
+					new_argv1 = s + 1;
+				}
+
+				/*
+				 * ignore "/usr/bin/env on Windows, see
+				 * https://github.com/mesonbuild/meson/blob/5a1d294b5e27cd77b1ca4ae5d403abd005e20ea9/mesonbuild/dependencies/base.py#L604
+				 */
+				if (strcmp(new_argv0, "/usr/bin/env") == 0) {
+					path_copy(NULL, cmd, new_argv1);
+				} else {
+					path_copy(NULL, cmd, new_argv0);
+				}
+			}
 		}
 	}
-	/* 3rd: UNIX shell script */
-	else if ((msys2_bindir = msys2_path()) != NULL) {
-		char bash[MAX_PATH];
+	LOG_E("$*$*$* : 0x%p '%s' '%s'", argstr, new_argv0 ? new_argv0 : "NULL", new_argv1 ? new_argv1:"NULL");
 
-		if (FAILED(StringCchPrintf(bash, sizeof(bash), "\"%s\\bash.exe\"", msys2_bindir))) {
-			z_free(*application_name);
-			return false;
+	if (new_argv0) {
+		if (new_argv1) {
+			sbuf_pushs(NULL, cmd_argv, "\"-c\" ");
 		}
-		*application_name = _strdup(bash);
-		if (!*application_name) {
-			return false;
-		}
-		if (FAILED(StringCchPrintf(cmd_line, sizeof(cmd_line), "-c \"%s\"", cmd->buf))) {
-			z_free(*application_name);
-			*application_name = NULL;
-			return false;
-		}
+		sbuf_push(NULL, cmd_argv, '\"');
+		sbuf_pushs(NULL, cmd_argv, argv0);
+		sbuf_push(NULL, cmd_argv, '\"');
 	}
-	LOG_E("******* 1  :  %s", *application_name);
-	LOG_E(" * 1");
 
 	if (argstr) {
-          LOG_E(" * 1.1");
+		LOG_E(" ** argstr !");
 		const char *p = argstr;
 		for (;; ++p) {
 			if (!*p) {
@@ -548,33 +565,26 @@ argv_to_command_line(struct run_cmd_ctx *ctx, const char *argstr, char *const *a
 				if (!*p) {
 					break;
 				}
-				if (!argv_cat(cmd_line, sizeof(cmd_line), p)) {
-					z_free(*application_name);
-					*application_name = NULL;
-					return false;
+				LOG_E(" ** p : %s", p);
+				sbuf_push(NULL, cmd_argv, ' ');
+				sbuf_push(NULL, cmd_argv, '\"');
+				const char *it;
+				for (it = p; *it; it++) {
+					if (*it == '\"') {
+						sbuf_push(NULL, cmd_argv, '\\');
+					}
+					sbuf_push(NULL, cmd_argv, *it);
 				}
+				sbuf_push(NULL, cmd_argv, '\"');
 			}
 		}
 	} else {
-	LOG_E(" * 1.2");
 		char *const *p = argtab;
 		for (p = argtab + 1; *p; p++) {
-			if (!argv_cat(cmd_line, sizeof(cmd_line), *p)) {
-				z_free(*application_name);
-				*application_name = NULL;
-				return false;
-			}
+			sbuf_pushf(NULL, cmd_argv, " %s", *p);
 		}
 	}
-	LOG_E(" * 2");
-
-	*command_line = strdup(cmd_line);
-	if (!*command_line) {
-		z_free(*application_name);
-		*application_name = NULL;
-		return false;
-	}
-	LOG_E("******* %s -- %s", *application_name, *command_line);
+	LOG_E("last quote : '%s'", cmd_argv->buf);
 
 	return true;
 }
@@ -582,16 +592,20 @@ argv_to_command_line(struct run_cmd_ctx *ctx, const char *argstr, char *const *a
 bool
 run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argtab, const char *envstr, uint32_t envc)
 {
-	char *command_line;
-	char *application_name;
 	bool ret = false;
+	struct source src = { 0 };
 
 	SBUF_manual(cmd);
-	if (!argv_to_command_line(ctx, NULL, argtab, &cmd, &application_name, &command_line)) {
-		return ret;
+	SBUF_manual(cmd_argv);
+	if (!argv_to_command_line(ctx, &src, NULL, argtab, &cmd, &cmd_argv)) {
+		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, application_name, command_line, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, cmd_argv.buf, envstr, envc);
+
+err:
+	fs_source_destroy(&src);
+	sbuf_destroy(&cmd_argv);
 	sbuf_destroy(&cmd);
 
 	return ret;
@@ -600,16 +614,20 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argtab, const char *envstr, u
 bool
 run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
 {
-	char *application_name;
-	char *command_line;
 	bool ret = false;
+	struct source src = { 0 };
 
 	SBUF_manual(cmd);
-	if (!argv_to_command_line(ctx, argstr, NULL, &cmd, &application_name, &command_line)) {
-		return ret;
+	SBUF_manual(cmd_argv);
+	if (!argv_to_command_line(ctx, &src, argstr, NULL, &cmd, &cmd_argv)) {
+		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, application_name, command_line, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, cmd_argv.buf, envstr, envc);
+
+err:
+	fs_source_destroy(&src);
+	sbuf_destroy(&cmd_argv);
 	sbuf_destroy(&cmd);
 
 	return ret;

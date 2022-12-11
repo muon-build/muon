@@ -342,57 +342,6 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 }
 
 bool
-fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
-{
-	assert(*cmd);
-	uint32_t len;
-	const char *env_path, *base_start;
-
-	sbuf_clear(buf);
-
-	if (!path_is_basename(cmd)) {
-		path_make_absolute(wk, buf, cmd);
-
-		if (fs_exe_exists(buf->buf)) {
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	if (!(env_path = getenv("PATH"))) {
-		LOG_E("failed to get the value of PATH");
-		return false;
-	}
-
-	base_start = env_path;
-	while (true) {
-		if (!*env_path || *env_path == ENV_PATH_SEP) {
-			len = env_path - base_start;
-
-			sbuf_clear(buf);
-			sbuf_pushn(wk, buf, base_start, len);
-
-			base_start = env_path + 1;
-
-			path_push(wk, buf, cmd);
-
-			if (fs_exe_exists(buf->buf)) {
-				return true;
-			}
-
-			if (!*env_path) {
-				break;
-			}
-		}
-
-		++env_path;
-	}
-
-	return false;
-}
-
-bool
 fs_has_cmd(const char *cmd)
 {
 	SBUF_manual(buf);
