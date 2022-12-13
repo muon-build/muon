@@ -5,6 +5,8 @@
 #define STRSAFE_NO_CB_FUNCTIONS
 #include <strsafe.h>
 
+#include "platform/windows/win32_error.h"
+
 static char _msg[4096];
 
 const char *win32_error(void)

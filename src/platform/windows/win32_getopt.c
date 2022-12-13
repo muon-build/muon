@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-#include "win32_getopt.h"
+#include "platform/windows/win32_getopt.h"
 
 char *optarg;
 int optind = 1, opterr = 1, optopt, __optpos, __optreset = 0;
