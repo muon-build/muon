@@ -249,7 +249,16 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 			goto type_err;
 		}
 
-		obj output_arr = get_obj_custom_target(wk, src)->output;
+		struct obj_custom_target* custom_tgt = get_obj_custom_target(wk, src);
+		obj output_arr = custom_tgt->output;
+
+		// run_target is a custom_target without an output, so we yield
+		// the target's name and continue.
+		if (!get_obj_type(wk, output_arr)) {
+			obj_array_push(wk, ctx->res, custom_tgt->name);
+			return ir_cont;
+		}
+
 		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
 			return ir_err;
 		}
