@@ -10,7 +10,9 @@
 
 #include "buf_size.h"
 #include "log.h"
+#include "lang/string.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 #include "platform/filesystem.h"
 
 static bool

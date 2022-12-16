@@ -62,6 +62,18 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
+	// The Cygwin environment for Windows
+	if (str_startswith(&WKSTR(sysname), &WKSTR("cygwin_nt"))) {
+		*res = make_str(wk, "cygwin");
+		return true;
+	}
+
+	// The MSYS2 environment for Windows
+	if (str_startswith(&WKSTR(sysname), &WKSTR("msys_nt"))) {
+		*res = make_str(wk, "msys2");
+		return true;
+	}
+
 	const char *map[][2] = {
 		{ "darwin", "darwin" }, // Either OSX or iOS
 		{ "dragonfly", "dragonfly" }, // DragonFly BSD
@@ -75,7 +87,6 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 		// TODO: These probably need more than just a simple mapping
 		{ "android", "android" }, // By convention only, subject to change
-		{ "cygwin", "cygwin" }, // The Cygwin environment for Windows
 		{ "emscripten", "emscripten" }, // Emscripten's Javascript environment
 		{ "windows", "windows" }, // Any version of Windows
 		0
@@ -83,7 +94,7 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	uint32_t i;
 	for (i = 0; map[i][0]; ++i) {
-		if (strcmp(map[i][0], sysname) == 0) {
+		if (strcmp(map[i][0], sysname]) == 0) {
 			*res = make_str(wk, map[i][1]);
 			return true;
 		}
