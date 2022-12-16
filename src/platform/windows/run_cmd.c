@@ -38,8 +38,8 @@ enum copy_pipe_result {
  * [X] run_cmd_collect()
  * [X] open_run_cmd_pipe()
  * [ ] run_cmd_internal()
- * [ ] run_cmd_argv()
- * [ ] run_cmd()
+ * [X] run_cmd_argv()
+ * [X] run_cmd()
  * [X] run_cmd_ctx_destroy()
  * [ ] run_cmd_kill()
  */
@@ -248,7 +248,7 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 }
 
 static bool
-run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *command_line, const char *envstr, uint32_t envc)
+run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr, uint32_t envc)
 {
 	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
@@ -256,12 +256,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 	SBUF_manual(cmd);
 	BOOL res;
 
-	if (!fs_find_cmd(NULL, &cmd, application_name)) {
-		ctx->err_msg = "command not found";
-		return false;
-	}
-
-	LOG_E(" * %s : app name: %s", __func__, cmd.buf);
 	LOG_E(" * %s : cmd line: %s", __func__, command_line);
 	if (envstr) {
 		const char *k;
@@ -284,7 +278,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 	}
 
 	if (log_should_print(log_debug)) {
-		LL("executing %s: %s\n", cmd.buf, command_line);
+		LL("executing '%s': '%s'\n", cmd.buf, command_line);
 
 		if (envstr) {
 			const char *k;
@@ -347,7 +341,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *application_name, char *co
 	}
 
 	LOG_E(" * %s: $%s$ $%s$", __func__, cmd.buf, command_line);
-	res = CreateProcess(cmd.buf, command_line, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ctx->chdir, &si, &pi);
+	res = CreateProcess(NULL, command_line, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ctx->chdir, &si, &pi);
 	if (!res) {
 		LOG_E("CreateProcess() failed: %s", win32_error());
 		goto err;
@@ -466,10 +460,9 @@ file_is_exe(const char *path)
 }
 
 static bool
-argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *argstr, char *const *argtab, struct sbuf *cmd, struct sbuf *cmd_argv)
+argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *argstr, char *const *argtab, struct sbuf *cmd, struct sbuf *cmd_argv0)
 {
 	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
-	char *msys2_bindir = NULL;
 
 	if (argstr) {
 		argv0 = argstr;
@@ -482,78 +475,106 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 	}
 
 	sbuf_clear(cmd);
-	sbuf_clear(cmd_argv);
-	sbuf_pushs(NULL, cmd, argv0);
+	sbuf_clear(cmd_argv0);
+	sbuf_pushs(NULL, cmd_argv0, argv0);
 
 	LOG_E("******* argv0 %s", argv0);
-	LOG_E("******* cmd   %s", cmd->buf);
+	LOG_E("******* cmd   %s", cmd_argv0->buf);
 
-	if (!path_is_basename(cmd->buf)) {
-		path_make_absolute(NULL, cmd, argv0);
+	if (!path_is_basename(cmd_argv0->buf)) {
+		path_make_absolute(NULL, cmd_argv0, argv0);
 
-		if (!file_is_exe(cmd->buf)) {
-			if (fs_has_extension(cmd->buf, ".bat")) {
-				path_copy(NULL, cmd, "c:\\windows\\system32\\cmd.exe");
-				sbuf_pushf(NULL, cmd_argv, "/c %s", argv0);
+		if (file_is_exe(cmd_argv0->buf)) {
+			/*
+			 * surround the application with quotes,
+			 * as it can contain spaces
+			 */
+			sbuf_push(NULL, cmd, '\"');
+			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
+			sbuf_push(NULL, cmd, '\"');
+		}
+		else if (fs_has_extension(cmd_argv0->buf, ".bat")) {
+			/*
+			 * to run .bat file, run it with cmd.exe /c
+			 */
+			sbuf_pushs(NULL, cmd, "\"c:\\windows\\system32\\cmd.exe\" \"/c\" \"");
+			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
+			sbuf_push(NULL, cmd, '\"');
+		}
+		else {
+			if (!fs_read_entire_file(cmd_argv0->buf, src)) {
+				ctx->err_msg = "error determining command interpreter";
+				return false;
 			}
-			else {
-				if (!fs_read_entire_file(cmd->buf, src)) {
-					ctx->err_msg = "error determining command interpreter";
-					return false;
-				}
 
-				char *nl;
-				if (!(nl = strchr(src->src, '\n'))) {
-					ctx->err_msg = "error determining command interpreter: no newline in file";
-					return false;
-				}
+			char *nl;
+			if (!(nl = strchr(src->src, '\n'))) {
+				ctx->err_msg = "error determining command interpreter: no newline in file";
+				return false;
+			}
 
-				*nl = 0;
+			*nl = 0;
 
-				uint32_t line_len = strlen(src->src);
-				if (!(line_len > 2 && src->src[0] == '#' && src->src[1] == '!')) {
-					ctx->err_msg = "error determining command interpreter: missing #!";
-					return false;
-				}
+			uint32_t line_len = strlen(src->src);
+			if (!(line_len > 2 && src->src[0] == '#' && src->src[1] == '!')) {
+				ctx->err_msg = "error determining command interpreter: missing #!";
+				return false;
+			}
 
-				const char *p = &src->src[2];
-				char *s;
+			const char *p = &src->src[2];
+			char *s;
 
+			while (strchr(" \t", *p)) {
+				++p;
+			}
+
+			new_argv0 = p;
+
+			if ((s = strchr(p, ' '))) {
+				*s = 0;
 				while (strchr(" \t", *p)) {
 					++p;
 				}
+				new_argv1 = s + 1;
+			}
 
-				new_argv0 = p;
-
-				if ((s = strchr(p, ' '))) {
-					*s = 0;
-					while (strchr(" \t", *p)) {
-						++p;
-					}
-					new_argv1 = s + 1;
-				}
-
-				/*
-				 * ignore "/usr/bin/env on Windows, see
-				 * https://github.com/mesonbuild/meson/blob/5a1d294b5e27cd77b1ca4ae5d403abd005e20ea9/mesonbuild/dependencies/base.py#L604
-				 */
-				if (strcmp(new_argv0, "/usr/bin/env") == 0) {
-					path_copy(NULL, cmd, new_argv1);
-				} else {
-					path_copy(NULL, cmd, new_argv0);
-				}
+			/*
+			 * ignore "/usr/bin/env on Windows, see
+			 * https://github.com/mesonbuild/meson/blob/5a1d294b5e27cd77b1ca4ae5d403abd005e20ea9/mesonbuild/dependencies/base.py#L604
+			 */
+			if (strcmp(new_argv0, "/usr/bin/env") == 0) {
+				path_copy(NULL, cmd_argv0, new_argv1);
+			} else {
+				path_copy(NULL, cmd_argv0, new_argv0);
 			}
 		}
+	} else {
+
+		if (!fs_find_cmd(NULL, cmd_argv0, argv0)) {
+			ctx->err_msg = "command not found";
+			return false;
+		}
+		/*
+		 * surround the application with quotes,
+		 * as it can contain spaces
+		 */
+		sbuf_push(NULL, cmd, '\"');
+		sbuf_pushs(NULL, cmd, cmd_argv0->buf);
+		sbuf_push(NULL, cmd, '\"');
 	}
+
 	LOG_E("$*$*$* : 0x%p '%s' '%s'", argstr, new_argv0 ? new_argv0 : "NULL", new_argv1 ? new_argv1:"NULL");
 
 	if (new_argv0) {
 		if (new_argv1) {
-			sbuf_pushs(NULL, cmd_argv, "\"-c\" ");
+			sbuf_push(NULL, cmd, '\"');
+			sbuf_pushs(NULL, cmd, new_argv1);
+			sbuf_push(NULL, cmd, '\"');
+			sbuf_push(NULL, cmd, ' ');
 		}
-		sbuf_push(NULL, cmd_argv, '\"');
-		sbuf_pushs(NULL, cmd_argv, argv0);
-		sbuf_push(NULL, cmd_argv, '\"');
+		sbuf_push(NULL, cmd, '\"');
+		sbuf_pushs(NULL, cmd, argv0);
+		sbuf_push(NULL, cmd, '\"');
 	}
 
 	if (argstr) {
@@ -566,25 +587,28 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 					break;
 				}
 				LOG_E(" ** p : %s", p);
-				sbuf_push(NULL, cmd_argv, ' ');
-				sbuf_push(NULL, cmd_argv, '\"');
+				sbuf_push(NULL, cmd, ' ');
+				sbuf_push(NULL, cmd, '\"');
 				const char *it;
 				for (it = p; *it; it++) {
 					if (*it == '\"') {
-						sbuf_push(NULL, cmd_argv, '\\');
+						sbuf_push(NULL, cmd, '\\');
 					}
-					sbuf_push(NULL, cmd_argv, *it);
+					sbuf_push(NULL, cmd, *it);
 				}
-				sbuf_push(NULL, cmd_argv, '\"');
+				sbuf_push(NULL, cmd, '\"');
 			}
 		}
 	} else {
 		char *const *p = argtab;
 		for (p = argtab + 1; *p; p++) {
-			sbuf_pushf(NULL, cmd_argv, " %s", *p);
+			sbuf_push(NULL, cmd, ' ');
+			sbuf_push(NULL, cmd, '\"');
+			sbuf_pushs(NULL, cmd, *p);
+			sbuf_push(NULL, cmd, '\"');
 		}
 	}
-	LOG_E("last quote : '%s'", cmd_argv->buf);
+	LOG_E("last quote : '%s'", cmd->buf);
 
 	return true;
 }
@@ -596,16 +620,16 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argtab, const char *envstr, u
 	struct source src = { 0 };
 
 	SBUF_manual(cmd);
-	SBUF_manual(cmd_argv);
-	if (!argv_to_command_line(ctx, &src, NULL, argtab, &cmd, &cmd_argv)) {
+	SBUF_manual(cmd_argv0);
+	if (!argv_to_command_line(ctx, &src, NULL, argtab, &cmd, &cmd_argv0)) {
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, cmd_argv.buf, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, envstr, envc);
 
 err:
 	fs_source_destroy(&src);
-	sbuf_destroy(&cmd_argv);
+	sbuf_destroy(&cmd_argv0);
 	sbuf_destroy(&cmd);
 
 	return ret;
@@ -618,16 +642,16 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 	struct source src = { 0 };
 
 	SBUF_manual(cmd);
-	SBUF_manual(cmd_argv);
-	if (!argv_to_command_line(ctx, &src, argstr, NULL, &cmd, &cmd_argv)) {
+	SBUF_manual(cmd_argv0);
+	if (!argv_to_command_line(ctx, &src, argstr, NULL, &cmd, &cmd_argv0)) {
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, cmd_argv.buf, envstr, envc);
+	ret = run_cmd_internal(ctx, cmd.buf, envstr, envc);
 
 err:
 	fs_source_destroy(&src);
-	sbuf_destroy(&cmd_argv);
+	sbuf_destroy(&cmd_argv0);
 	sbuf_destroy(&cmd);
 
 	return ret;
