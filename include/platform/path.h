@@ -8,7 +8,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef _WIN32
+#define PATH_SEP '\\'
+#else
 #define PATH_SEP '/'
+#endif
 
 #ifdef _WIN32
 #define ENV_PATH_SEP ';'
