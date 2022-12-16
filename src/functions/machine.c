@@ -94,7 +94,7 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	uint32_t i;
 	for (i = 0; map[i][0]; ++i) {
-		if (strcmp(map[i][0], sysname]) == 0) {
+		if (strcmp(map[i][0], sysname) == 0) {
 			*res = make_str(wk, map[i][1]);
 			return true;
 		}
