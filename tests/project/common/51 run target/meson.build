@@ -8,7 +8,7 @@ tests = []
 exe = executable('helloprinter', 'helloprinter.c')
 
 if not meson.is_cross_build() or meson.can_run_host_binaries()
-    p(run_target('runhello', command: [exe, 'argument']))
+    run_target('runhello', command: [exe, 'argument'])
 endif
 
 converter = find_program('converter.py')
@@ -23,7 +23,6 @@ hex = custom_target(
         '@OUTPUT@',
     ],
 )
-p(hex)
 
 fakeburner = find_program('fakeburner.py')
 
