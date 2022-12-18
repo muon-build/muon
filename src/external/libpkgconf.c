@@ -32,7 +32,7 @@ static struct {
 };
 
 static bool
-error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
+error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 {
 	if (log_should_print(log_debug)) {
 		log_plain("dbg libpkgconf: %s", msg);

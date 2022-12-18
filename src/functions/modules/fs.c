@@ -263,17 +263,14 @@ func_module_as_posix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	const char *path = get_cstr(wk, an[0].val), *p;
 
 	SBUF(buf);
-	uint32_t bufi = 0;
 	for (p = path; *p; ++p) {
 		if (*p == '\\') {
 			sbuf_push(wk, &buf, '/');
-			++bufi;
 			if (*(p + 1) == '\\') {
 				++p;
 			}
 		} else {
 			sbuf_push(wk, &buf, *p);
-			++bufi;
 		}
 	}
 
