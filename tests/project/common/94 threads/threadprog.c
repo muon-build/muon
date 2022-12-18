@@ -22,7 +22,7 @@ int main(void) {
 #include<pthread.h>
 #include<stdio.h>
 
-void* main_func(void) {
+void *main_func(void *_) {
     printf("Printing from a thread.\n");
     return NULL;
 }
