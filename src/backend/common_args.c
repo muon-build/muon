@@ -132,6 +132,18 @@ get_warning_args(struct workspace *wk, const struct project *proj,
 	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
 }
 
+static void
+get_werror_args(struct workspace *wk, const struct project *proj,
+	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
+{
+	obj active;
+	get_option_value_for_tgt(wk, proj, tgt, "werror", &active);
+
+	if (get_obj_bool(wk, active)) {
+		push_args(wk, args_id, compilers[t].args.werror());
+	}
+}
+
 void
 get_std_args(struct workspace *wk, const struct project *proj,
 	const struct obj_build_target *tgt, obj args_id,
@@ -292,6 +304,7 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj,
 		return false;
 	}
 	get_warning_args(wk, proj, tgt, args, t);
+	get_werror_args(wk, proj, tgt, args, t);
 
 	setup_optional_b_args_compiler(wk, proj, tgt, args, t);
 
