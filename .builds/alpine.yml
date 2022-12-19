@@ -10,11 +10,13 @@ packages:
   - libarchive-dev
   - pkgconf-dev
   - samurai
-  - python3 # for project tests and meson docs
-  - py3-yaml # for meson docs
-  - scdoc # for docs of course
-  - mandoc # for docs of course
+
+  - python3 # for project tests, meson-reference.3, and parts of the website
+  - py3-yaml # for meson-reference.3
+  - scdoc # for meson.build.5 and muon.1
+  - mandoc # for html man pages
   - clang # for testing
+  - reuse # for licensing compliance
 
   # for static builds
   - acl-static
@@ -37,6 +39,9 @@ sources:
 environment:
   PKG_CONFIG_PATH: /usr/lib/pkgconfig
 tasks:
+  - reuse: |
+      cd muon
+      reuse lint
   - push_to_gh_mirror: |
       cd muon
       .builds/push_to_gh_mirror.sh
