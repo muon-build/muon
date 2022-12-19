@@ -753,6 +753,7 @@ init_global_options(struct workspace *wk)
 		"option('pkg_config_path', type: 'string', value: '')\n"
 		"option('c_args', type: 'array', value: [])\n"
 		"option('c_link_args', type: 'array', value: [])\n"
+		"option('werror', type: 'boolean', value: false)\n"
 
 		"option('env.CC', type: 'array', value: ['cc'])\n"
 		"option('env.NINJA', type: 'array', value: ['ninja'])\n"
