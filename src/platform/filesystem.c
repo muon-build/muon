@@ -481,3 +481,18 @@ fs_is_a_tty(FILE *f)
 	}
 	return fs_is_a_tty_from_fd(fd);
 }
+
+bool
+fs_copy_metadata(const char *src, const char *dest)
+{
+	struct stat sb;
+	if (!fs_stat(src, &sb)) {
+		return false;
+	}
+
+	if (!fs_chmod(dest, sb.st_mode)) {
+		return false;
+	}
+
+	return true;
+}

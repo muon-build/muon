@@ -3,6 +3,7 @@
 #endif
 #include <windows.h>
 #include <io.h>
+#include <errno.h>
 
 #include "log.h"
 #include "lang/string.h"
@@ -377,17 +378,18 @@ fs_is_a_tty_from_fd(int fd)
 bool
 fs_chmod(const char *path, uint32_t mode)
 {
-	return false;
-	(void)path;
-	(void)mode;
-}
+	int mask = _S_IREAD;
 
-bool
-fs_copy_metadata(const char *src, const char *dest)
-{
-	return false;
-	(void)src;
-	(void)dest;
+	if (mode & _S_IWRITE) {
+		mask |= _S_IWRITE;
+	}
+
+	if (_chmod(path, mask) == -1) {
+		LOG_E("failed chmod(%s, %o): %s", path, mode, strerror(errno));
+		return false;
+	}
+
+	return true;
 }
 
 bool
