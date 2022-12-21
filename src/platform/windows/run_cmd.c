@@ -47,6 +47,75 @@ enum copy_pipe_result {
 static enum copy_pipe_result
 copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 {
+#if 1
+	char *buf;
+	char *it1;
+	char *it2;
+	size_t len;
+	DWORD bytes_read;
+	BOOL res;
+
+        printf(" ** %p\n", pipe);
+        fflush(stdout);
+
+	if (!ctx->size) {
+		ctx->size = COPY_PIPE_BLOCK_SIZE;
+		ctx->len = 0;
+		ctx->buf = z_calloc(1, ctx->size + 1);
+	}
+
+	do {
+		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
+
+                printf(" ** bytes read: %lu %d %d\n", bytes_read, res, GetLastError() != ERROR_MORE_DATA);
+                fflush(stdout);
+		if (!res && GetLastError() != ERROR_MORE_DATA) {
+                  LOG_E(" * ERROR pipe %ld %s", GetLastError(), win32_error());
+			break;
+		}
+
+		ctx->len += bytes_read;
+		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
+			ctx->size *= 2;
+			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
+			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
+		}
+	} while (!res);
+
+	if (!res) {
+          if (GetLastError() != ERROR_BROKEN_PIPE)
+		return copy_pipe_result_failed;
+	}
+
+	LOG_E(" ** resultat 1 : '%s' '%u' '%u' '%u' '%u' '%u'", ctx->buf, ctx->buf[ctx->len - 3], ctx->buf[ctx->len - 2], ctx->buf[ctx->len - 1], ctx->buf[ctx->len], ctx->buf[ctx->len + 1]);
+	/* remove remaining \r */
+	buf = z_calloc(1, ctx->size + 1);
+	if (!buf) {
+		return copy_pipe_result_failed;
+	}
+
+	it1 = ctx->buf;
+	it2 = buf;
+	len = 0;
+	for (it1 = ctx->buf; *it1; it1++) {
+		if (*it1 == '\r' && *(it1 + 1) == '\n') {
+			continue;
+		}
+
+		*it2 = *it1;
+		it2++;
+		len++;
+	}
+
+	z_free(ctx->buf);
+	ctx->buf = buf;
+	ctx->len = len;
+	LOG_E(" ** resultat 2 : '%s' '%u' '%u' '%u' '%u' '%u'", ctx->buf, ctx->buf[ctx->len - 3], ctx->buf[ctx->len - 2], ctx->buf[ctx->len - 1], ctx->buf[ctx->len], ctx->buf[ctx->len + 1]);
+
+	return copy_pipe_result_finished;
+
+#else
+
 	if (!ctx->size) {
 		ctx->size = COPY_PIPE_BLOCK_SIZE;
 		ctx->len = 0;
@@ -56,10 +125,11 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	while (true) {
 		DWORD bytes_read;
 		BOOL res;
+		DWORD d1, d2, d3;
 
 		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
 
-		if (!res || bytes_read == 0UL) {
+		if (res || bytes_read == 0UL) {
 			char *buf;
 			char *it1;
 			char *it2;
@@ -92,6 +162,7 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
 		}
 	}
+#endif
 }
 
 static enum copy_pipe_result
@@ -243,6 +314,9 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 	} else if (!open_pipes(ctx->pipe_err.pipe, "\\\\.\\pipe\\run_cmd_pipe_err")) {
 	      return false;
 	}
+
+        printf(" ** pipes : %p %p\n", ctx->pipe_out.pipe[0], ctx->pipe_err.pipe[0]);
+        fflush(stdout);
 
 	return true;
 }
