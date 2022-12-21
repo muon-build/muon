@@ -356,7 +356,7 @@ func_module_fs_size(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	uint64_t size;
 	FILE *f;
-	if (!(f = fs_fopen(path.buf, "r"))) {
+	if (!(f = fs_fopen(path.buf, "rb"))) {
 		return false;
 	} else if (!fs_fsize(f, &size)) {
 		return false;

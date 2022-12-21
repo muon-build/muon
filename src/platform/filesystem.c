@@ -266,7 +266,7 @@ fs_read_entire_file(const char *path, struct source *src)
 			goto err;
 		}
 
-		if (!(f = fs_fopen(path, "r"))) {
+		if (!(f = fs_fopen(path, "rb"))) {
 			goto err;
 		}
 
@@ -411,7 +411,7 @@ bool
 fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 {
 	FILE *f;
-	if (!(f = fs_fopen(path, "w"))) {
+	if (!(f = fs_fopen(path, "wb"))) {
 		return false;
 	}
 
@@ -599,7 +599,7 @@ fs_copy_file(const char *src, const char *dest)
 		goto ret;
 	}
 
-	if (!(f_src = fs_fopen(src, "r"))) {
+	if (!(f_src = fs_fopen(src, "rb"))) {
 		goto ret;
 	}
 

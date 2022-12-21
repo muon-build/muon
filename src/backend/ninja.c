@@ -310,7 +310,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 
 		int old_stdout;
 		if (capture) {
-			if (!fs_redirect(capture, "w", STDOUT_FILENO, &old_stdout)) {
+			if (!fs_redirect(capture, "wb", STDOUT_FILENO, &old_stdout)) {
 				goto ret;
 			}
 		}

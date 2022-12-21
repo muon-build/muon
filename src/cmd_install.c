@@ -113,7 +113,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 
 	SBUF(dest_dirname);
 	const char *dest = get_cstr(wk, in->dest),
-		   *src = get_cstr(wk, in->src);
+	*src = get_cstr(wk, in->src);
 
 	assert(in->type == install_target_symlink || in->type == install_target_emptydir || path_is_absolute(src));
 
@@ -269,7 +269,7 @@ install_run(struct install_options *opts)
 	path_join(NULL, &install_src, output_path.private_dir, output_path.install);
 
 	FILE *f;
-	f = fs_fopen(install_src.buf, "r");
+	f = fs_fopen(install_src.buf, "rb");
 	sbuf_destroy(&install_src);
 
 	if (!f) {

@@ -27,7 +27,7 @@ output_open(const char *dir, const char *name)
 	SBUF_manual(path);
 	path_join(NULL, &path, dir, name);
 
-	FILE *f = fs_fopen(path.buf, "w");
+	FILE *f = fs_fopen(path.buf, "wb");
 	sbuf_destroy(&path);
 	return f;
 }

@@ -50,7 +50,7 @@ load_obj_from_serial_dump(struct workspace *wk, const char *path, obj *res)
 {
 	bool ret = false;
 	FILE *f;
-	if (!(f = fs_fopen(path, "r"))) {
+	if (!(f = fs_fopen(path, "rb"))) {
 		return false;
 	}
 
@@ -763,7 +763,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 			break;
 		case 'c': {
 			FILE *f;
-			if (!(f = fs_fopen(optarg, "r"))) {
+			if (!(f = fs_fopen(optarg, "rb"))) {
 				goto ret;
 			} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
 				LOG_E("failed to load compiler check cache");
@@ -856,7 +856,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	FILE *out;
 
 	if (opts.in_place) {
-		if (!(out = fs_fopen(opts.filename, "w"))) {
+		if (!(out = fs_fopen(opts.filename, "wb"))) {
 			goto ret;
 		}
 		opened_out = true;
