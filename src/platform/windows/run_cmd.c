@@ -55,9 +55,6 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	DWORD bytes_read;
 	BOOL res;
 
-        printf(" ** %p\n", pipe);
-        fflush(stdout);
-
 	if (!ctx->size) {
 		ctx->size = COPY_PIPE_BLOCK_SIZE;
 		ctx->len = 0;
@@ -67,10 +64,9 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	do {
 		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
 
-                printf(" ** bytes read: %lu %d %d\n", bytes_read, res, GetLastError() != ERROR_MORE_DATA);
-                fflush(stdout);
+		printf(" ** bytes read: %lu %d %d\n", bytes_read, res, GetLastError() != ERROR_MORE_DATA);
+		fflush(stdout);
 		if (!res && GetLastError() != ERROR_MORE_DATA) {
-                  LOG_E(" * ERROR pipe %ld %s", GetLastError(), win32_error());
 			break;
 		}
 
@@ -83,11 +79,12 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	} while (!res);
 
 	if (!res) {
-          if (GetLastError() != ERROR_BROKEN_PIPE)
-		return copy_pipe_result_failed;
+		if (GetLastError() != ERROR_BROKEN_PIPE) {
+			return copy_pipe_result_failed;
+		}
 	}
 
-	LOG_E(" ** resultat 1 : '%s' '%u' '%u' '%u' '%u' '%u'", ctx->buf, ctx->buf[ctx->len - 3], ctx->buf[ctx->len - 2], ctx->buf[ctx->len - 1], ctx->buf[ctx->len], ctx->buf[ctx->len + 1]);
+	LOG_E(" ** resultat 1 : '%s'", ctx->buf);
 	/* remove remaining \r */
 	buf = z_calloc(1, ctx->size + 1);
 	if (!buf) {
@@ -110,7 +107,7 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	z_free(ctx->buf);
 	ctx->buf = buf;
 	ctx->len = len;
-	LOG_E(" ** resultat 2 : '%s' '%u' '%u' '%u' '%u' '%u'", ctx->buf, ctx->buf[ctx->len - 3], ctx->buf[ctx->len - 2], ctx->buf[ctx->len - 1], ctx->buf[ctx->len], ctx->buf[ctx->len + 1]);
+	LOG_E(" ** resultat 2 : '%s'", ctx->buf);
 
 	return copy_pipe_result_finished;
 
@@ -257,9 +254,9 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 static bool
 open_pipes(HANDLE *pipe, const char *name)
 {
+	char buf[512];
 	SECURITY_ATTRIBUTES sa;
 	BOOL connected;
-	SBUF_manual(sbuf);
 	int i;
 
 	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -268,9 +265,12 @@ open_pipes(HANDLE *pipe, const char *name)
 
 	i = 0;
 	do {
-		sbuf_clear(&sbuf);
-		sbuf_pushf(NULL, &sbuf, "%s%d", name, i);
-		pipe[0] = CreateNamedPipe(sbuf.buf, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
+		HRESULT res;
+
+		if (FAILED(StringCchPrintf(buf, sizeof(buf), "%s%d", name, i))) {
+		return false;
+		}
+		pipe[0] = CreateNamedPipe(buf, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
 		i++;
 	} while (pipe[0] == INVALID_HANDLE_VALUE);
 
@@ -279,7 +279,7 @@ open_pipes(HANDLE *pipe, const char *name)
 		return false;
 	}
 
-	pipe[1] = CreateFile(sbuf.buf, FILE_WRITE_DATA | SYNCHRONIZE, 0UL, &sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0UL);
+	pipe[1] = CreateFile(buf, GENERIC_WRITE, 0UL, &sa, OPEN_EXISTING, 0UL, NULL);
 	if (pipe[1] == INVALID_HANDLE_VALUE) {
 		LOG_E("failed to create write end of the pipe: %s", win32_error());
 		CloseHandle(pipe[0]);
@@ -314,9 +314,6 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 	} else if (!open_pipes(ctx->pipe_err.pipe, "\\\\.\\pipe\\run_cmd_pipe_err")) {
 	      return false;
 	}
-
-        printf(" ** pipes : %p %p\n", ctx->pipe_out.pipe[0], ctx->pipe_err.pipe[0]);
-        fflush(stdout);
 
 	return true;
 }
