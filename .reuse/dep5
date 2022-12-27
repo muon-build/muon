@@ -4,26 +4,10 @@ Upstream-Contact: Stone Tickle <lattis@mochiro.moe>
 Source: https://muon.build
 
 Files: tests/project/common/*
-Copyright: The Meson development team
-           Stone Tickle <lattis@mochiro.moe>
-License: Apache-2.0
-
-Files: tests/project/keyval/*
-Copyright: The Meson development team
-           Stone Tickle <lattis@mochiro.moe>
-License: Apache-2.0
-
-Files: tests/project/nasm/*
-Copyright: The Meson development team
-           Stone Tickle <lattis@mochiro.moe>
-License: Apache-2.0
-
-Files: tests/project/native/*
-Copyright: The Meson development team
-           Stone Tickle <lattis@mochiro.moe>
-License: Apache-2.0
-
-Files: tests/project/unit/*
+       tests/project/keyval/*
+       tests/project/nasm/*
+       tests/project/native/*
+       tests/project/unit/*
 Copyright: The Meson development team
            Stone Tickle <lattis@mochiro.moe>
 License: Apache-2.0
