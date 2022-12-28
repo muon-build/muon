@@ -162,12 +162,6 @@ path_cwd(struct workspace *wk, struct sbuf *sb)
 	path_copy(wk, sb, path_ctx.cwd.buf);
 }
 
-bool
-path_is_absolute(const char *path)
-{
-	return *path == PATH_SEP;
-}
-
 void
 path_join_absolute(struct workspace *wk, struct sbuf *sb, const char *a, const char *b)
 {

@@ -37,7 +37,7 @@ version_info.set('vcs_tag', git_sha)
 platform = host_machine.system()
 if platform in ['freebsd', 'linux', 'netbsd', 'openbsd', 'sunos']
     platform = 'posix'
-else
+elif platform not in ['windows']
     warning(
         'configuring muon for an unsupported platform "@0@"'.format(platform),
     )
@@ -79,7 +79,7 @@ add_project_arguments(
 
 add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
 
-include_dir = include_directories('include')
+include_dir = [include_directories('include')]
 
 subdir('tools')
 subdir('src')
