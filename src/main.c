@@ -308,8 +308,8 @@ cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 			opts.only_modified = true;
 			break;
 	} OPTEND(argv[argi], "",
-		"  -a - list all options"
-		"  -m - list only modified options"
+		"  -a - list all options\n"
+		"  -m - list only modified options\n"
 		,
 		NULL, 0)
 
