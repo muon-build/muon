@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/stat.h>
 
 #include "iterator.h"
 
@@ -21,6 +22,7 @@ struct source {
 struct workspace;
 struct sbuf;
 
+bool fs_stat(const char *path, struct stat *sb);
 bool fs_exists(const char *path);
 bool fs_file_exists(const char *path);
 bool fs_symlink_exists(const char *path);
@@ -48,6 +50,7 @@ bool fs_make_symlink(const char *target, const char *path, bool force);
 bool fs_fseek(FILE *file, size_t off);
 bool fs_ftell(FILE *file, uint64_t *res);
 const char *fs_user_home(void);
+bool fs_is_a_tty_from_fd(int fd);
 bool fs_is_a_tty(FILE *f);
 bool fs_chmod(const char *path, uint32_t mode);
 bool fs_copy_metadata(const char *src, const char *dest);

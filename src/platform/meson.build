@@ -7,10 +7,14 @@ platform_sources = files(
     'mem.c',
     'path.c',
     'run_cmd.c',
-    'term.c',
     'uname.c',
 )
 
-foreach f : ['rpath_fixer.c']
+foreach f : ['filesystem.c', 'path.c', 'rpath_fixer.c', 'term.c', 'uname.c']
     platform_sources += files(platform / f)
 endforeach
+
+if host_machine.system() == 'windows'
+    include_dir += include_directories('../../include/platform/windows')
+    platform_sources += files('windows/win32_error.c', 'windows/win32_getopt.c')
+endif

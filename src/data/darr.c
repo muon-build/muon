@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "data/darr.h"
 #include "log.h"
@@ -92,7 +93,7 @@ void *
 darr_get(const struct darr *da, size_t i)
 {
 	if (i >= da->len) {
-		L("index %zu out of bounds (%zu)", i, da->len);
+		L("index %" PRIu64 " out of bounds (%" PRIu64 ")", (uint64_t)i, (uint64_t)da->len);
 	}
 	assert(i < da->len);
 

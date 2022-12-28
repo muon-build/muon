@@ -10,6 +10,12 @@
 
 #define PATH_SEP '/'
 
+#ifdef _WIN32
+#define ENV_PATH_SEP ';'
+#else
+#define ENV_PATH_SEP ':'
+#endif
+
 struct workspace;
 struct sbuf;
 
