@@ -87,7 +87,6 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 	oo->val = make_strn(wk, val.s, val.len);
 	if (have_subproject) {
 		oo->proj = make_strn(wk, subproject.s, subproject.len);
-		obj_fprintf(wk, log_file(), "subproject option override: %o:%o=%o\n", oo->proj, oo->name, oo->val);
 	}
 
 	return true;
