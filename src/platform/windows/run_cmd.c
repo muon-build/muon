@@ -14,8 +14,6 @@
 #include "platform/run_cmd.h"
 #include "platform/windows/win32_error.h"
 
-#define KEY_PATH "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall"
-
 #define CLOSE_PIPE(p_) do { \
 	if ((p_) != INVALID_HANDLE_VALUE && !CloseHandle(p_)) { \
 		LOG_E("failed to close pipe: %s", win32_error()); \
