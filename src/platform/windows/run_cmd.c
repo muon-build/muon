@@ -47,7 +47,6 @@ enum copy_pipe_result {
 static enum copy_pipe_result
 copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 {
-#if 1
 	char *buf;
 	char *it1;
 	char *it2;
@@ -84,7 +83,6 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 		}
 	}
 
-	LOG_E(" ** resultat 1 : '%s'", ctx->buf);
 	/* remove remaining \r */
 	buf = z_calloc(1, ctx->size + 1);
 	if (!buf) {
@@ -110,56 +108,6 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	LOG_E(" ** resultat 2 : '%s'", ctx->buf);
 
 	return copy_pipe_result_finished;
-
-#else
-
-	if (!ctx->size) {
-		ctx->size = COPY_PIPE_BLOCK_SIZE;
-		ctx->len = 0;
-		ctx->buf = z_calloc(1, ctx->size + 1);
-	}
-
-	while (true) {
-		DWORD bytes_read;
-		BOOL res;
-		DWORD d1, d2, d3;
-
-		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
-
-		if (res || bytes_read == 0UL) {
-			char *buf;
-			char *it1;
-			char *it2;
-			size_t len;
-
-			buf = z_calloc(1, ctx->len + 1);
-			it1 = ctx->buf;
-			it2 = buf;
-			len = 0;
-			for (it1 = ctx->buf; *it1; it1++) {
-				if (*it1 == '\r' && *(it1 + 1) == '\n') {
-					continue;
-				}
-
-				*it2 = *it1;
-				it2++;
-				len++;
-			}
-			z_free(ctx->buf);
-			ctx->buf = buf;
-			ctx->len = len;
-			LOG_E(" ** resultat : '%s'", ctx->buf);
-			return copy_pipe_result_finished;
-		}
-
-		ctx->len += bytes_read;
-		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
-			ctx->size *= 2;
-			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
-			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
-		}
-	}
-#endif
 }
 
 static enum copy_pipe_result
@@ -434,80 +382,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	return run_cmd_collect(ctx) == run_cmd_finished;
 err:
 	return false;
-}
-
-static char *
-msys2_path(void)
-{
-	char *path = NULL;
-	char *sub_key_name;
-	LSTATUS s;
-	HKEY key;
-	DWORD sub_keys_count;
-	DWORD sub_keys_length_max;
-	DWORD i;
-
-	s = RegOpenKeyEx(HKEY_CURRENT_USER, KEY_PATH, 0UL, KEY_READ, &key);
-	if (s != ERROR_SUCCESS) {
-		return NULL;
-	}
-
-	s = RegQueryInfoKey(key, NULL, NULL, NULL, &sub_keys_count, &sub_keys_length_max, NULL, NULL, NULL, NULL, NULL, NULL);
-	if (s != ERROR_SUCCESS || sub_keys_count == 0) {
-		goto close_key;
-	}
-
-	sub_key_name = malloc(sub_keys_length_max + 1);
-	if (!sub_key_name) {
-		goto close_key;
-	}
-
-	for (i = 0UL; i < sub_keys_count; i++) {
-		DWORD sub_key_length = sub_keys_length_max + 1;
-
-		s = RegEnumKeyEx(key, i, sub_key_name, &sub_key_length, NULL, NULL, NULL, NULL);
-		if (s == ERROR_SUCCESS) {
-			char sub_key_path[MAX_PATH];
-			HKEY sub_key;
-
-			printf("subkey: %s %d %d\n", sub_key_name, (int)sub_key_length, lstrlen(sub_key_name));
-			memcpy(sub_key_path, KEY_PATH, sizeof(KEY_PATH) - 1);
-			sub_key_path[sizeof(KEY_PATH) - 1] = '\\';
-			memcpy(sub_key_path + sizeof(KEY_PATH), sub_key_name, sub_key_length + 1);
-			printf("subpath: \"%s\"\n", sub_key_path);
-
-			s = RegOpenKeyEx(HKEY_CURRENT_USER, sub_key_path, 0UL, KEY_READ, &sub_key);
-			if (s == ERROR_SUCCESS) {
-				char data_location[MAX_PATH];
-				char data_name[MAX_PATH];
-				DWORD type;
-				DWORD length;
-				LSTATUS s2;
-
-				type = REG_SZ;
-				length = sizeof(data_location);
-				s = RegQueryValueEx(sub_key, "DisplayName", NULL, &type, (LPBYTE)data_name, &length);
-
-				type = REG_SZ;
-				length = sizeof(data_location);
-				s2 = RegQueryValueEx(sub_key, "InstallLocation", NULL, &type, (LPBYTE)data_location, &length);
-
-				RegCloseKey(sub_key);
-
-				if (s == ERROR_SUCCESS && s2 == ERROR_SUCCESS && lstrcmp(data_name, "MSYS2 64bit") == 0) {
-					if (SUCCEEDED(StringCchCat(data_location, sizeof(data_location), "\\usr\\bin"))) {
-						path = strdup(data_location);
-						break;
-					}
-				}
-			}
-		}
-	}
-	free(sub_key_name);
-
-  close_key:
-	RegCloseKey(key);
-	return path;
 }
 
 static bool
