@@ -91,7 +91,6 @@
 #include "opts.c"
 #include "platform/filesystem.c"
 #include "platform/mem.c"
-//#include "platform/null/rpath_fixer.c"
 #include "platform/path.c"
 #include "platform/run_cmd.c"
 #include "platform/uname.c"
@@ -107,7 +106,7 @@
 #else
 #include "platform/posix/filesystem.c"
 #include "platform/posix/path.c"
-#include "platform/posix/rpath_fixer.c"
+#include "platform/null/rpath_fixer.c"
 #include "platform/posix/run_cmd.c"
 #include "platform/posix/term.c"
 #include "platform/posix/uname.c"
