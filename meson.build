@@ -35,7 +35,17 @@ version_info.set('vcs_tag', git_sha)
 # platform
 
 platform = host_machine.system()
-if platform in ['cygwin', 'freebsd', 'linux', 'msys2', 'netbsd', 'openbsd', 'sunos']
+if (
+    platform in [
+        'cygwin',
+        'freebsd',
+        'linux',
+        'msys2',
+        'netbsd',
+        'openbsd',
+        'sunos',
+    ]
+)
     platform = 'posix'
 elif platform not in ['windows']
     warning(
