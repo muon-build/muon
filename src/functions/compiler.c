@@ -20,6 +20,7 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/compiler.h"
+#include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -100,6 +101,28 @@ add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, o
 		// too strict without this and always fails.
 		obj_array_push(wk, args, make_str(wk, "-fpermissive"));
 	}
+}
+
+static bool
+add_include_directory_args(struct workspace *wk, struct args_kw *inc, struct build_dep *dep, uint32_t comp_id, obj compiler_args)
+{
+	obj include_dirs;
+	make_obj(wk, &include_dirs, obj_array);
+
+	if (inc && inc->set) {
+		obj includes;
+		if (!coerce_include_dirs(wk, inc->node, inc->val, false, &includes)) {
+			return false;
+		}
+		obj_array_extend_nodup(wk, include_dirs, includes);
+	}
+
+	if (dep) {
+		obj_array_extend_nodup(wk, include_dirs, dep->include_directories);
+	}
+
+	setup_compiler_args_includes(wk, comp_id, include_dirs, compiler_args, false);
+	return true;
 }
 
 static bool
@@ -236,24 +259,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		obj_array_extend_nodup(wk, compiler_args, dep.compile_args);
 	}
 
-	{
-		obj include_dirs;
-		make_obj(wk, &include_dirs, obj_array);
-
-		if (opts->inc && opts->inc->set) {
-			obj inc;
-			if (!coerce_include_dirs(wk, opts->inc->node, opts->inc->val, false, &inc)) {
-				return false;
-			}
-			obj_array_extend_nodup(wk, include_dirs, inc);
-		}
-
-		if (have_dep) {
-			obj_array_extend_nodup(wk, include_dirs, dep.include_directories);
-		}
-
-		setup_compiler_args_includes(wk, opts->comp_id,
-			include_dirs, compiler_args, false);
+	if (!add_include_directory_args(wk, opts->inc, have_dep ? &dep : NULL,
+		opts->comp_id, compiler_args)) {
+		return false;
 	}
 
 	switch (opts->mode) {
@@ -2079,6 +2087,107 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	return true;
 }
 
+struct compiler_preprocess_create_tgt_ctx {
+	obj output;
+	obj cmd;
+	obj res;
+	uint32_t input_node, output_node;
+	enum compiler_type t;
+};
+
+static enum iteration_result
+compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct compiler_preprocess_create_tgt_ctx *ctx = _ctx;
+
+	obj cmd;
+	obj_array_dup(wk, ctx->cmd, &cmd);
+
+	push_args(wk, cmd, compilers[ctx->t].args.output("@OUTPUT@"));
+	obj_array_push(wk, cmd, val);
+
+	struct make_custom_target_opts opts = {
+		.input_node   = ctx->input_node,
+		.output_node  = ctx->output_node,
+		.command_node = 0,
+		.input_orig   = val,
+		.output_orig  = ctx->output,
+		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.command_orig = cmd,
+		.extra_args_valid = true,
+	};
+
+	obj tgt;
+	if (!make_custom_target(wk, &opts, &tgt)) {
+		return ir_err;
+	}
+
+	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
+
+	obj output;
+	if (!obj_array_flatten_one(wk, t->output, &output)) {
+		UNREACHABLE;
+	}
+
+	t->name = make_strf(wk, "<preprocess:%s>", get_file_path(wk, output));
+	obj_array_push(wk, current_project(wk)->targets, tgt);
+
+	obj_array_push(wk, ctx->res, output);
+	return ir_cont;
+}
+
+static bool
+func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { ARG_TYPE_ARRAY_OF | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_compile_args,
+		kw_include_directories,
+		kw_output,
+	};
+	struct args_kw akw[] = {
+		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | tc_string },
+		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[kw_output] = { "output", tc_string, .required = true },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
+
+	obj cmd;
+	obj_array_dup(wk, comp->cmd_arr, &cmd);
+
+	push_args(wk, cmd, compilers[comp->type].args.preprocess_only());
+	push_args(wk, cmd, compilers[comp->type].args.specify_lang("assembler-with-cpp"));
+
+	if (!add_include_directory_args(wk, &akw[kw_include_directories], NULL, rcvr, cmd)) {
+		return false;
+	}
+
+	if (akw[kw_compile_args].set) {
+		obj_array_extend(wk, cmd, akw[kw_compile_args].val);
+	}
+
+	make_obj(wk, res, obj_array);
+
+	struct compiler_preprocess_create_tgt_ctx ctx = {
+		.output = akw[kw_output].val,
+		.cmd = cmd,
+		.res = *res,
+		.input_node = an[0].node,
+		.output_node = akw[kw_output].node,
+		.t = comp->type
+	};
+
+	obj_array_foreach(wk, an[0].val, &ctx, compiler_preprocess_create_tgt_iter);
+
+	return true;
+}
+
 static bool
 func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -2129,6 +2238,7 @@ const struct func_impl_name impl_tbl_compiler[] = {
 	{ "has_multi_link_arguments", func_compiler_has_multi_link_arguments, tc_bool },
 	{ "has_type", func_compiler_has_type, tc_bool },
 	{ "links", func_compiler_links, tc_bool },
+	{ "preprocess", func_compiler_preprocess, tc_array },
 	{ "run", func_compiler_run, tc_run_result },
 	{ "sizeof", func_compiler_sizeof, tc_number },
 	{ "symbols_have_underscore_prefix", func_compiler_symbols_have_underscore_prefix, tc_bool },

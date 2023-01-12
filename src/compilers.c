@@ -597,6 +597,16 @@ compiler_gcc_args_visibility(uint32_t type)
 	return &args;
 }
 
+static const struct args *
+compiler_gcc_args_specify_lang(const char *language)
+{
+	COMPILER_ARGS({ "-x", NULL, });
+
+	argv[1] = language;
+
+	return &args;
+}
+
 compiler_get_arg_func_0 as_needed;
 compiler_get_arg_func_0 no_undefined;
 compiler_get_arg_func_0 start_group;
@@ -670,6 +680,7 @@ build_compilers(void)
 			.sanitize        = compiler_arg_empty_1s,
 			.define          = compiler_arg_empty_1s,
 			.visibility      = compiler_arg_empty_1i,
+			.specify_lang    = compiler_arg_empty_1s,
 		}
 	};
 
@@ -701,6 +712,7 @@ build_compilers(void)
 	gcc.args.pie = compiler_gcc_args_pie;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.visibility = compiler_gcc_args_visibility;
+	gcc.args.specify_lang = compiler_gcc_args_specify_lang;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 
