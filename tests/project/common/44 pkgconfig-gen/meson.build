@@ -167,7 +167,7 @@ ct = custom_target(
     output: fs.name(outfile),
     command: [python, '-c', script],
 )
-simple6 = library('simple6', link_whole: ct)
+simple6 = library('simple6', 'dependencies/dummy.c', link_with: ct)
 pkgg.generate(simple6)
 to_validate += 'simple6'
 
@@ -216,3 +216,9 @@ foreach pc : to_validate
         ],
     )
 endforeach
+# Regression test: variables kwarg should listify single string value
+pkgg.generate(
+    name: 'libvartest3',
+    description: 'Check that variables can be single string',
+    variables: 'foo=bar',
+)

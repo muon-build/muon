@@ -1,4 +1,4 @@
-project('subproject version', 'c', version: '2.3.4', license: 'mylicense')
+project('subproject version', version: '2.3.4', license: 'mylicense')
 
 subproject('a')
 

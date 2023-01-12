@@ -1,4 +1,4 @@
-project('subbie', 'c')
+project('subbie')
 
 assert(
     get_option('unshared_option') == 'three',

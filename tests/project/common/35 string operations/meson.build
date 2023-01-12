@@ -1,4 +1,4 @@
-project('string formatting', 'c')
+project('string formatting')
 
 templ = '@0@bar@1@'
 
@@ -134,20 +134,14 @@ assert('"1.1.20"   '.strip('" ') == '1.1.20', '". badly stripped')
 
 bs_c = '''\c'''
 bs_bs_c = '''\\c'''
-nl = (
-    '''
+nl = '''
 '''
-)
 bs_n = '''\n'''
-bs_nl = (
-    '''\
+bs_nl = '''\
 '''
-)
 bs_bs_n = '''\\n'''
-bs_bs_nl = (
-    '''\\
+bs_bs_nl = '''\\
 '''
-)
 bs_bs = '''\\'''
 bs = '''\'''
 

@@ -60,6 +60,7 @@ executable(
     'trivialprog',
     sources: 'trivial.c',
     install: true,
+    build_rpath: meson.current_build_dir(),
     install_mode: ['rwxr-sr-x', 'root', 'root'],
 )
 

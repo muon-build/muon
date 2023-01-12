@@ -267,7 +267,7 @@ tests = [
     ['common/250 system include dir'],
     ['common/251 add_project_dependencies'],
     ['common/252 install data structured', ['python']],
-    ['common/252 subproject dependency variables'],
+    ['common/253 subproject dependency variables'],
 
     # unit
     ['unit/65 alias target', ['python']],

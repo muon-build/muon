@@ -1,4 +1,4 @@
-project('custom target feed', 'c')
+project('custom target feed')
 
 python3 = import('python3').find_python()
 
@@ -16,12 +16,10 @@ mytarget = custom_target(
     install_dir: 'subdir',
 )
 
-ct_output_exists = (
-    '''import os, sys
+ct_output_exists = '''import os, sys
 if not os.path.exists(sys.argv[1]):
   print("could not find {!r} in {!r}".format(sys.argv[1], os.getcwd()))
   sys.exit(1)
 '''
-)
 
 test('capture-wrote', python3, args: ['-c', ct_output_exists, mytarget])

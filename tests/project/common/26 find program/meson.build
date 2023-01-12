@@ -1,4 +1,4 @@
-project('find program', 'c')
+project('find program')
 
 if build_machine.system() == 'windows'
     # Things Windows does not provide:
@@ -13,13 +13,11 @@ else
     gen = generator(
         cp,
         output: '@BASENAME@.c',
-        arguments: [
-            '@INPUT@',
-            '@OUTPUT@',
-        ],
+        arguments: ['@INPUT@', '@OUTPUT@'],
     )
 
     generated = gen.process('source.in')
+    add_languages('c', required: true)
     e = executable('prog', generated)
     test('external exe', e)
 endif
@@ -29,6 +27,9 @@ assert(not prog.found(), 'Version should be too old')
 
 prog = find_program('print-version.py', version: '>=1.0')
 assert(prog.found(), 'Program version should match')
+
+prog = find_program('print-version.py')
+assert(prog.version() == '1.0', 'Program version should be detectable')
 
 prog = find_program('print-version-with-prefix.py', version: '>=1.0')
 assert(prog.found(), 'Program version should match')

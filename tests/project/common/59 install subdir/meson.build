@@ -1,8 +1,4 @@
-project(
-    'install a whole subdir',
-    'c',
-    default_options: ['install_umask=preserve'],
-)
+project('install a whole subdir', default_options: ['install_umask=preserve'])
 
 # A subdir with an exclusion:
 install_subdir(
