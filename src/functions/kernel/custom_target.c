@@ -308,6 +308,14 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		goto cont;
 	}
+	case obj_compiler: {
+		obj cmd_array = get_obj_compiler(wk, val)->cmd_arr;
+
+		if (!obj_array_foreach(wk, cmd_array, ctx, custom_target_cmd_fmt_iter)) {
+			return ir_err;
+		}
+		goto cont;
+	}
 	default:
 		interp_error(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
 		return ir_err;

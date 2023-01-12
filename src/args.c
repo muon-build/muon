@@ -271,6 +271,9 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		str = get_obj_external_program(wk, src)->full_path;
 		break;
+	case obj_compiler:
+		obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr);
+		return ir_cont;
 	default:
 type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));

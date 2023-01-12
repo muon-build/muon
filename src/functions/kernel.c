@@ -932,7 +932,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_external_program }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_external_program | tc_compiler }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
@@ -966,13 +966,22 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 		obj_array_index(wk, an[0].val, 0, &arg0);
 
-		if (!find_program(wk, &find_program_ctx, arg0)) {
-			return false;
-		} else if (!find_program_ctx.found) {
-			interp_error(wk, an[0].node, "unable to find program %o", arg0);
-		}
+		if (get_obj_type(wk, arg0) == obj_compiler) {
+			obj cmd_arr = get_obj_compiler(wk, arg0)->cmd_arr;
 
-		obj_array_set(wk, an[0].val, 0, cmd_file);
+			obj tail;
+			obj_array_tail(wk, an[0].val, &tail);
+			obj_array_dup(wk, cmd_arr, &an[0].val);
+			obj_array_extend_nodup(wk, an[0].val, tail);
+		} else {
+			if (!find_program(wk, &find_program_ctx, arg0)) {
+				return false;
+			} else if (!find_program_ctx.found) {
+				interp_error(wk, an[0].node, "unable to find program %o", arg0);
+				return false;
+			}
+			obj_array_set(wk, an[0].val, 0, cmd_file);
+		}
 
 		obj args;
 		if (!arr_to_args(wk, arr_to_args_external_program, an[0].val, &args)) {
