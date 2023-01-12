@@ -565,7 +565,7 @@ make_custom_target(struct workspace *wk,
 bool
 func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_input,
 		kw_output,
@@ -606,12 +606,26 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!interp_args(wk, args_node, NULL, ao, akw)) {
 		return false;
 	}
 
+	obj name;
+	if (ao[0].set) {
+		name = ao[0].val;
+	} else {
+		if (!get_obj_array(wk, akw[kw_output].val)->len) {
+			interp_error(wk, akw[kw_output].node, "output cannot be empty");
+			return false;
+		}
+
+		obj v;
+		obj_array_index(wk, akw[kw_output].val, 0, &v);
+		name = v;
+	}
+
 	struct make_custom_target_opts opts = {
-		.name         = an[0].val,
+		.name         = name,
 		.input_node   = akw[kw_input].node,
 		.output_node  = akw[kw_output].node,
 		.command_node = akw[kw_command].node,
