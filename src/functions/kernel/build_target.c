@@ -65,6 +65,8 @@ enum build_target_kwargs {
 	bt_kw_c_args,
 	bt_kw_cpp_args,
 	bt_kw_objc_args,
+	bt_kw_masm_args, // TODO
+	bt_kw_nasm_args, // TODO
 	bt_kw_link_args,
 
 	bt_kwargs_count,
@@ -758,6 +760,8 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_objc_args] = { "objc_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[bt_kw_nasm_args] = { "nasm_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[bt_kw_masm_args] = { "masm_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
 		0
 	};
