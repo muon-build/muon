@@ -51,6 +51,7 @@ enum compiler_deps_type {
 };
 
 enum compiler_optimization_lvl {
+	compiler_optimization_lvl_none,
 	compiler_optimization_lvl_0,
 	compiler_optimization_lvl_1,
 	compiler_optimization_lvl_2,

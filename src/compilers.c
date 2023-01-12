@@ -374,6 +374,7 @@ compiler_posix_args_optimization(uint32_t lvl)
 	case compiler_optimization_lvl_3:
 		argv[0] = "-O1";
 		break;
+	case compiler_optimization_lvl_none:
 	case compiler_optimization_lvl_g:
 	case compiler_optimization_lvl_s:
 		args.len = 0;
@@ -448,6 +449,9 @@ compiler_gcc_args_optimization(uint32_t lvl)
 	COMPILER_ARGS({ NULL });
 
 	switch ((enum compiler_optimization_lvl)lvl) {
+	case compiler_optimization_lvl_none:
+		args.len = 0;
+		break;
 	case compiler_optimization_lvl_0:
 		argv[0] = "-O0";
 		break;

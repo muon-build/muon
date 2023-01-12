@@ -38,11 +38,11 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 		enum compiler_optimization_lvl opt;
 		bool debug;
 	} tbl[] = {
-		{ "plain",          compiler_optimization_lvl_0, false },
-		{ "debug",          compiler_optimization_lvl_0, true  },
-		{ "debugoptimized", compiler_optimization_lvl_g, true  },
-		{ "release",        compiler_optimization_lvl_3, false },
-		{ "minsize",        compiler_optimization_lvl_s, false },
+		{ "plain",          compiler_optimization_lvl_none, false },
+		{ "debug",          compiler_optimization_lvl_0,    true  },
+		{ "debugoptimized", compiler_optimization_lvl_g,    true  },
+		{ "release",        compiler_optimization_lvl_3,    false },
+		{ "minsize",        compiler_optimization_lvl_s,    false },
 		{ NULL }
 	};
 
@@ -62,10 +62,16 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 		get_option_value_for_tgt(wk, proj, tgt, "optimization", &optimization_id);
 		get_option_value_for_tgt(wk, proj, tgt, "debug", &debug_id);
 
-		str = get_cstr(wk, optimization_id);
-		switch (*str) {
+		const struct str *str = get_str(wk, optimization_id);
+		if (str_eql(str, &WKSTR("plain"))) {
+			opt = compiler_optimization_lvl_none;
+		} else if (str->len != 1) {
+			UNREACHABLE;
+		}
+
+		switch (*str->s) {
 		case '0': case '1': case '2': case '3':
-			opt = compiler_optimization_lvl_0 + (*str - '0');
+			opt = compiler_optimization_lvl_0 + (*str->s - '0');
 			break;
 		case 'g':
 			opt = compiler_optimization_lvl_g;

@@ -53,7 +53,7 @@ option(
     'optimization',
     type: 'combo',
     value: 'g',
-    choices: ['0', 'g', '1', '2', '3', 's'],
+    choices: ['plain', '0', 'g', '1', '2', '3', 's'],
 )
 option('pkg_config_path', type: 'string', value: '')
 option('stdsplit', type: 'boolean', value: true) # TODO
@@ -92,6 +92,8 @@ option(
     value: 'default',
     choices: ['default', 'thin'],
 ) # TODO
+option('b_thinlto_cache', type: 'boolean', value: false) # TODO
+option('b_thinlto_cache_dir', type: 'string', value: '') # TODO
 option(
     'b_ndebug',
     type: 'combo',
