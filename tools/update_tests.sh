@@ -14,43 +14,88 @@ copy_tests_() {
 	last_commit="$3"
 	test_json_changed=""
 
-	git -C "$meson_root" diff --name-only HEAD "$last_commit" -- "$src_dir" | while read file; do
-		src_file="$meson_root/$file"
-		basename="${file##*/}"
-		common="${file##$src_dir/}"
-		dest="$dest_dir/$common"
+	git -C "$meson_root" diff --name-status HEAD "$last_commit" -- "$src_dir" | while read d; do
+		status="${d%%	*}"
+		rename_dest=""
+		file="${d#*	}"
 
-		if [ ! -f "$dest" ]; then
+		if [ "${status##R}" != "$status" ]; then
+			status="R"
+			a="${file%	*}"
+			b="${d##*	}"
+
+			file="$b"
+			rename_dest="$a"
+
+			src_file="$meson_root/$rename_dest"
+			basename="${rename_dest##*/}"
+
+			old_relative="${file##$src_dir/}"
+			old_file="$dest_dir/$old_relative"
+
+			relative="${rename_dest##$src_dir/}"
+			dest="$dest_dir/$relative"
+		else
+			src_file="$meson_root/$file"
+			basename="${file##*/}"
+
+			relative="${file##$src_dir/}"
+			dest="$dest_dir/$relative"
+
+			old_relative="$relative"
+			old_file="$dest_dir/$old_relative"
+		fi
+
+		if [ ! -f "$dest" ] && [ "$status" != "R" ]; then
 			if [ "$dryrun" ]; then
-				printf "\033[32mnew\033[0m %s\n" "$common"
+				printf "\033[32mnew\033[0m %s\n" "$relative"
 			else
-				dirname="${common%/*}"
+				dirname="${relative%/*}"
 				mkdir -p "$dest_dir/$dirname"
 				cp "$src_file" "$dest"
 			fi
 		else
+			changed=1
+			meson_source=""
 			if [ "$basename" = "meson.build" ] || [ "$basename" = "meson_options.txt" ]; then
-				if $muon fmt "$src_file" | cmp_ "$dest"; then
-					:
-				else
-					if [ "$dryrun" ]; then
-						printf "\033[35mmodified\033[0m %s\n" "$common"
-					else
-						$muon fmt "$src_file" > "$dest"
-					fi
+				meson_source=1
+				if $muon fmt "$src_file" | cmp_ "$old_file"; then
+					changed=""
 				fi
 			else
-				if cmp_ "$src_file" "$dest"; then
-					:
+				if cmp_ "$src_file" "$old_file"; then
+					changed=""
+				fi
+			fi
+
+			if [ "$changed" ] || [ "$status" = "R" ]; then
+				if [ "$changed" ] && [ "$basename" = "test.json" ]; then
+					test_json_changed=1
+				fi
+
+				if [ "$dryrun" ]; then
+					msg=""
+					if [ "$changed" ]; then
+						msg="\033[35mmodified\033[0m "
+					fi
+
+					if [ "$status" = "R" ]; then
+						msg="$msg\033[36mrenamed\033[0m "
+						printf "${msg}%s -> %s\n" "$old_relative" "$relative"
+					else
+						printf "${msg}%s\n" "$relative"
+					fi
 				else
-					if [ "$dryrun" ]; then
-						printf "\033[35mmodified\033[0m %s\n" "$common"
+					if [ "$status" = "R" ]; then
+						rm "$old_file"
+						dirname="${relative%/*}"
+						mkdir -p "$dest_dir/$dirname"
+					fi
+
+					if [ "$meson_source" ]; then
+						$muon fmt "$src_file" > "$dest"
 					else
 						cp "$src_file" "$dest"
-
-						if [ "$basename" = "test.json" ]; then
-							test_json_changed=1
-						fi
 					fi
 				fi
 			fi
