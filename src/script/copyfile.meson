@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+posargc = 2
+
+if argv.length() < posargc + 1
+    error('usage: @0@ <src> <dest>'.format(argv[0]))
+endif
+
+src = argv[1]
+dest = argv[2]
+
+fs.copy(src, dest)

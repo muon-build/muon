@@ -8,13 +8,15 @@
 
 #include <string.h>
 
-#include "sha_256.h"
+#include "args.h"
 #include "functions/common.h"
+#include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
 #include "lang/interpreter.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "sha_256.h"
 
 enum fix_file_path_opts {
 	fix_file_path_allow_file = 1 << 0,
@@ -395,8 +397,79 @@ func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, o
 	return true;
 }
 
+static bool
+func_module_fs_copyfile(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { tc_string }, ARG_TYPE_NULL };
+	enum {
+		kw_install,
+		kw_install_dir,
+		kw_install_tag,
+		kw_install_mode,
+	};
+	struct args_kw akw[] = {
+		[kw_install] = { "install", obj_bool },
+		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },
+		[kw_install_tag] = { "install_tag", tc_string }, // TODO
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		0
+	};
+
+	if (!interp_args(wk, args_node, an, ao, akw)) {
+		return false;
+	}
+
+	SBUF(path);
+	if (!fix_file_path(wk, an[0].node, an[0].val,
+		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+		return false;
+	}
+
+	obj output;
+	if (ao[0].set) {
+		output = ao[0].val;
+	} else {
+		SBUF(dest);
+		path_basename(wk, &dest, path.buf);
+		output = sbuf_into_str(wk, &dest);
+	}
+
+	obj command;
+	make_obj(wk, &command, obj_array);
+	push_args_null_terminated(wk, command, (char *const []){
+		(char *)wk->argv0,
+		"internal",
+		"eval",
+		"-e",
+		"copyfile.meson",
+		"@INPUT@",
+		"@OUTPUT@",
+		NULL,
+	});
+
+	struct make_custom_target_opts opts = {
+		.name         = make_str(wk, "copyfile"),
+		.input_node   = an[0].node,
+		.output_node  = ao[1].node,
+		.input_orig   = an[0].val,
+		.output_orig  = output,
+		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.command_orig = command,
+	};
+
+	if (!make_custom_target(wk, &opts, res)) {
+		return false;
+	}
+
+	obj_array_push(wk, current_project(wk)->targets, *res);
+
+	return true;
+}
+
 const struct func_impl_name impl_tbl_module_fs[] = {
 	{ "as_posix", func_module_as_posix, tc_string },
+	{ "copyfile", func_module_fs_copyfile, tc_custom_target },
 	{ "exists", func_module_fs_exists, tc_bool },
 	{ "expanduser", func_module_fs_expanduser, tc_string },
 	{ "hash", func_module_fs_hash, tc_string },
@@ -430,6 +503,26 @@ func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 
 	const struct str *ss = get_str(wk, an[1].val);
 	if (!fs_write(path.buf, (uint8_t *)ss->s, ss->len)) {
+		return false;
+	}
+	return true;
+}
+
+static bool
+func_module_fs_copy(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	SBUF(path);
+	if (!fix_file_path(wk, an[0].node, an[0].val,
+		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+		return false;
+	}
+
+	if (!fs_copy_file(path.buf, get_cstr(wk, an[1].val))) {
 		return false;
 	}
 	return true;
@@ -559,6 +652,7 @@ func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 const struct func_impl_name impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_as_posix, tc_string },
+	{ "copyfile", func_module_fs_copyfile, },
 	{ "exists", func_module_fs_exists, tc_bool },
 	{ "expanduser", func_module_fs_expanduser, tc_string },
 	{ "hash", func_module_fs_hash, tc_string },
@@ -575,6 +669,7 @@ const struct func_impl_name impl_tbl_module_fs_internal[] = {
 	{ "stem", func_module_fs_stem, tc_string, },
 	// non-standard muon extensions
 	{ "add_suffix", func_module_fs_add_suffix },
+	{ "copy", func_module_fs_copy, .fuzz_unsafe = true },
 	{ "cwd", func_module_fs_cwd },
 	{ "executable", func_module_fs_executable },
 	{ "is_basename", func_module_fs_is_basename },

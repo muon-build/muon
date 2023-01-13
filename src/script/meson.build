@@ -5,6 +5,7 @@ scripts_input = []
 scripts_cmdline = []
 
 foreach s : [
+    'copyfile.meson',
     'global_options.meson',
     'per_project_options.meson',
     'vcs_tagger.meson',
