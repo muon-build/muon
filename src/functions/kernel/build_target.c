@@ -89,11 +89,41 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct obj_build_target *tgt = _ctx;
+
+	enum compiler_language fl;
+
+	const struct str *o = get_str(wk, *get_obj_file(wk, val));
+	if (!str_endswith(o, &WKSTR(".o"))) {
+		return ir_cont;
+	}
+
+	SBUF(path);
+	sbuf_pushs(wk, &path, o->s);
+	path.len -= 2;
+	path.buf[path.len] = 0;
+
+	if (!filename_to_compiler_language(path.buf, &fl)) {
+		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		return ir_cont;
+	}
+
+	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
+
+	return ir_cont;
+}
+
 static bool
 build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_build_target *tgt)
 {
-
 	if (!obj_array_foreach(wk, tgt->src, tgt, determine_linker_iter)) {
+		return ir_err;
+	}
+
+	if (!obj_array_foreach(wk, tgt->objects, tgt, determine_linker_from_objects_iter)) {
 		return ir_err;
 	}
 
