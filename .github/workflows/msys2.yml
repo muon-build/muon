@@ -6,12 +6,9 @@ name: CI msys2
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches:
-    - master
-    - 'vtorri*'
-    types: [opened, synchronize, reopened]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   mingw32:
