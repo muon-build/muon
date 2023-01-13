@@ -6,10 +6,11 @@ name: CI msys2
 
 on:
   push:
+    branches: [ master ]
+  pull_request:
     branches:
     - master
     - 'vtorri*'
-  pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
