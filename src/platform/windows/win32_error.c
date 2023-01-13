@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -9,7 +15,8 @@
 
 static char _msg[4096];
 
-const char *win32_error(void)
+const char *
+win32_error(void)
 {
 	LPTSTR msg;
 	DWORD err;

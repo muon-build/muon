@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <string.h>
 #include <assert.h>
 
@@ -15,11 +21,11 @@
 #include "platform/windows/win32_error.h"
 
 #define CLOSE_PIPE(p_) do { \
-	if ((p_) != INVALID_HANDLE_VALUE && !CloseHandle(p_)) { \
-		LOG_E("failed to close pipe: %s", win32_error()); \
-	} \
-	p_ = INVALID_HANDLE_VALUE; \
-  } while (0)
+		if ((p_) != INVALID_HANDLE_VALUE && !CloseHandle(p_)) { \
+			LOG_E("failed to close pipe: %s", win32_error()); \
+		} \
+		p_ = INVALID_HANDLE_VALUE; \
+} while (0)
 
 #define COPY_PIPE_BLOCK_SIZE BUF_SIZE_1k
 
@@ -214,7 +220,7 @@ open_pipes(HANDLE *pipe, const char *name)
 		HRESULT res;
 
 		if (FAILED(StringCchPrintf(buf, sizeof(buf), "%s%d", name, i))) {
-		return false;
+			return false;
 		}
 		pipe[0] = CreateNamedPipe(buf, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
 		i++;
@@ -256,9 +262,9 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 	}
 
 	if (!open_pipes(ctx->pipe_out.pipe, "\\\\.\\pipe\\run_cmd_pipe_out")) {
-	      return false;
+		return false;
 	} else if (!open_pipes(ctx->pipe_err.pipe, "\\\\.\\pipe\\run_cmd_pipe_err")) {
-	      return false;
+		return false;
 	}
 
 	return true;
@@ -435,16 +441,14 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 			sbuf_push(NULL, cmd, '\"');
 			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
 			sbuf_push(NULL, cmd, '\"');
-		}
-		else if (fs_has_extension(cmd_argv0->buf, ".bat")) {
+		}else if (fs_has_extension(cmd_argv0->buf, ".bat")) {
 			/*
 			 * to run .bat file, run it with cmd.exe /c
 			 */
 			sbuf_pushs(NULL, cmd, "\"c:\\windows\\system32\\cmd.exe\" \"/c\" \"");
 			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
 			sbuf_push(NULL, cmd, '\"');
-		}
-		else {
+		}else {
 			if (!fs_read_entire_file(cmd_argv0->buf, src)) {
 				ctx->err_msg = "error determining command interpreter";
 				return false;

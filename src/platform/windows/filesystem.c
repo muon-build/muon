@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -24,7 +30,7 @@ fs_exists(const char *path)
 
 	CloseHandle(h);
 
- 	return true;
+	return true;
 }
 
 bool
@@ -68,14 +74,12 @@ fs_exe_exists(const char *path)
 	bool ret = false;
 
 	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (h == INVALID_HANDLE_VALUE)
-	{
+	if (h == INVALID_HANDLE_VALUE) {
 		return ret;
 	}
 
 	size_low = GetFileSize(h, &size_high);
-	if ((size_low == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR))
-	{
+	if ((size_low == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR)) {
 		LOG_I("can not get the size of file %s", path);
 		goto close_file;
 	}
@@ -90,52 +94,45 @@ fs_exe_exists(const char *path)
 	 *  3) COFF File Header (20 bytes)
 	 * the rest is useless for us.
 	 */
-	if (size < 64)
-	{
+	if (size < 64) {
 		LOG_I("file %s is too small", path);
 		goto close_file;
 	}
 
 	fm = CreateFileMapping(h, NULL, PAGE_READONLY, 0UL, 0UL, NULL);
-	if (!fm)
-	{
+	if (!fm) {
 		LOG_I("Can not map file: %s", win32_error());
 		goto close_file;
 	}
 
 	base =  MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0);
-	if (!base)
-	{
+	if (!base) {
 		LOG_I("Can not view map: %s", win32_error());
 		goto close_fm;
 	}
 
 	iter = base;
 
-	if (*((WORD *)iter) != 0x5a4d)
-	{
+	if (*((WORD *)iter) != 0x5a4d) {
 		LOG_I("file %s is not a MS-DOS file", path);
 		goto unmap;
 	}
 
 	offset = *((DWORD *)(iter + 0x3c));
-	if (size < offset + 24)
-	{
+	if (size < offset + 24) {
 		LOG_I("file %s is too small", path);
 		goto unmap;
 	}
 
 	iter += offset;
 	if ((iter[0] != 'P') && (iter[1] != 'E') &&
-		(iter[2] != '\0') && (iter[3] != '\0'))
-	{
+	    (iter[2] != '\0') && (iter[3] != '\0')) {
 		LOG_I("file %s is not a PE file", path);
 		goto unmap;
 	}
 
 	iter += 22;
-	if ((!((*((WORD *)iter)) & 0x0002)) || ((*((WORD *)iter)) & 0x2000))
-	{
+	if ((!((*((WORD *)iter)) & 0x0002)) || ((*((WORD *)iter)) & 0x2000)) {
 		LOG_I("file %s is not a binary file", path);
 		goto unmap;
 	}
@@ -279,7 +276,7 @@ fs_user_home(void)
 static inline bool
 is_wprefix(const WCHAR *s, const WCHAR *prefix)
 {
-	return (wcsncmp(s, prefix, sizeof(prefix) / sizeof(WCHAR) - 1) == 0);
+	return wcsncmp(s, prefix, sizeof(prefix) / sizeof(WCHAR) - 1) == 0;
 }
 
 bool
@@ -319,9 +316,9 @@ fs_is_a_tty_from_fd(int fd)
 		if (GetFileInformationByHandleEx(h, FileNameInfo, fni, size)) {
 			fni->FileName[fni->FileNameLength / sizeof(WCHAR)] = L'\0';
 			/*
-			Check the name of the pipe:
-			'\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
-			*/
+			   Check the name of the pipe:
+			   '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
+			 */
 			p = fni->FileName;
 			if (is_wprefix(p, L"\\cygwin-")) {
 				p += 8;
@@ -333,7 +330,7 @@ fs_is_a_tty_from_fd(int fd)
 			if (p) {
 				/* Skip 16-digit hexadecimal. */
 				if (wcsspn(p, L"0123456789abcdefABCDEF") == 16) {
-					p+= 16;
+					p += 16;
 
 				} else {
 					p = NULL;
@@ -342,8 +339,7 @@ fs_is_a_tty_from_fd(int fd)
 			if (p) {
 				if (is_wprefix(p, L"-pty")) {
 					p += 4;
-				}
-				else {
+				}else  {
 					p = NULL;
 				}
 			}
@@ -360,9 +356,8 @@ fs_is_a_tty_from_fd(int fd)
 					if (is_wprefix(p, L"-from-master")) {
 						//p += 12;
 					} else if (is_wprefix(p, L"-to-master")) {
-						 //p += 10;
-					}
-					else {
+						//p += 10;
+					}else  {
 						p = NULL;
 					}
 				}
@@ -449,8 +444,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 
 			if (fs_exe_exists(buf->buf)) {
 				return true;
-			}
-			else if (!fs_has_extension(buf->buf, ".exe")) {
+			}else if (!fs_has_extension(buf->buf, ".exe")) {
 				sbuf_pushs(wk, buf, ".exe");
 				if (fs_exe_exists(buf->buf)) {
 					return true;

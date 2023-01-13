@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

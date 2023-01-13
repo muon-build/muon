@@ -1,6 +1,9 @@
 /*
  * Ported from musl libc
- * Copyright © 2005-2020 Rich Felker, et al.
+ * SPDX-FileCopyrightText: Copyright © 2005-2020 Rich Felker, et al.
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+ * SPDX-License-Identifier: MIT
  */
 
 #include <stdio.h>
