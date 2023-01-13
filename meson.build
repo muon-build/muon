@@ -38,6 +38,7 @@ platform = host_machine.system()
 if (
     platform in [
         'cygwin',
+        'darwin',
         'freebsd',
         'linux',
         'msys2',
