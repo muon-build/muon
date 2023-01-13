@@ -7,8 +7,24 @@
 
 #include "functions/common.h"
 #include "functions/external_program.h"
+#include "guess.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/run_cmd.h"
+
+void
+find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
+{
+	*ver = 0;
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
+	    && cmd_ctx.status == 0) {
+		guess_version(wk, cmd_ctx.out.buf, ver);
+	}
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+}
+
 
 static bool
 func_external_program_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
@@ -40,7 +56,13 @@ func_external_program_version(struct workspace *wk, obj rcvr, uint32_t args_node
 		return false;
 	}
 
-	*res = get_obj_external_program(wk, rcvr)->ver;
+	struct obj_external_program *prog = get_obj_external_program(wk, rcvr);
+	if (!prog->guessed_ver) {
+		find_program_guess_version(wk, get_cstr(wk, prog->full_path), &prog->ver);
+		prog->guessed_ver = true;
+	}
+
+	*res = prog->ver;
 	return true;
 }
 

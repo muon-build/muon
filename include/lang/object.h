@@ -341,7 +341,7 @@ struct obj_dependency {
 };
 
 struct obj_external_program {
-	bool found;
+	bool found, guessed_ver;
 	obj full_path;
 	obj ver;
 };

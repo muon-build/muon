@@ -14,6 +14,7 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/environment.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "functions/kernel/build_target.h"
 #include "functions/kernel/configure_file.h"
@@ -24,7 +25,6 @@
 #include "functions/kernel/subproject.h"
 #include "functions/modules.h"
 #include "functions/string.h"
-#include "guess.h"
 #include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -467,19 +467,6 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static void
-find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
-{
-	*ver = 0;
-	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
-	    && cmd_ctx.status == 0) {
-		guess_version(wk, cmd_ctx.out.buf, ver);
-	}
-
-	run_cmd_ctx_destroy(&cmd_ctx);
-}
-
 static bool
 find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 {
@@ -564,7 +551,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 {
 	const char *str;
 	obj ver = 0;
-	struct run_cmd_ctx cmd_ctx = { 0 };
+	bool guessed_ver = false;
 
 	if (!typecheck(wk, ctx->node, prog, tc_file | tc_string | tc_external_program)) {
 		return false;
@@ -658,12 +645,8 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	return true;
 found:
 	if (ctx->version) {
-		if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
-		    && cmd_ctx.status == 0) {
-			guess_version(wk, cmd_ctx.out.buf, &ver);
-		}
-
-		run_cmd_ctx_destroy(&cmd_ctx);
+		find_program_guess_version(wk, path, &ver);
+		guessed_ver = true;
 
 		if (!ver) {
 			return true; // no version to check against
@@ -681,6 +664,7 @@ found:
 	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 	ep->found = true;
 	ep->full_path = make_str(wk, path);
+	ep->guessed_ver = guessed_ver;
 	ep->ver = ver;
 
 	ctx->found = true;
