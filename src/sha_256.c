@@ -1,6 +1,7 @@
 /*
- * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
- * SPDX-License-Identifier: GPL-3.0-only
+ * From https://github.com/amosnier/sha-2
+ * SPDX-FileCopyrightText: Unlicense.org
+ * SPDX-License-Identifier: Unlicense
  */
 
 #include "posix.h"
