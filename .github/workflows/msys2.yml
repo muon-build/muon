@@ -23,7 +23,7 @@ jobs:
       with:
         msystem: mingw32
         update: true
-        install: base-devel git mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
+        install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
     - name: bootstrap
       run: |
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
@@ -43,7 +43,7 @@ jobs:
       with:
         msystem: mingw64
         update: true
-        install: base-devel git mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
+        install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
     - name: bootstrap
       run: |
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
@@ -63,7 +63,7 @@ jobs:
       with:
         msystem: msys
         update: true
-        install: base-devel git gcc pkgconf libcurl-devel libarchive-devel
+        install: base-devel git ninja gcc pkgconf libcurl-devel libarchive-devel
     - name: Bootstrap for msys
       run: |
         ./bootstrap.sh build
