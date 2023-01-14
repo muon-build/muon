@@ -104,7 +104,7 @@ add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, o
 }
 
 static bool
-add_include_directory_args(struct workspace *wk, struct args_kw *inc, struct build_dep *dep, uint32_t comp_id, obj compiler_args)
+add_include_directory_args(struct workspace *wk, struct args_kw *inc, struct build_dep *dep, obj comp_id, obj compiler_args)
 {
 	obj include_dirs;
 	make_obj(wk, &include_dirs, obj_array);
@@ -2093,6 +2093,7 @@ struct compiler_preprocess_create_tgt_ctx {
 	obj res;
 	uint32_t input_node, output_node;
 	enum compiler_type t;
+	const char *output_dir;
 };
 
 static enum iteration_result
@@ -2104,7 +2105,7 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 	obj_array_dup(wk, ctx->cmd, &cmd);
 
 	push_args(wk, cmd, compilers[ctx->t].args.output("@OUTPUT@"));
-	obj_array_push(wk, cmd, val);
+	obj_array_push(wk, cmd, make_str(wk, "@INPUT@"));
 
 	struct make_custom_target_opts opts = {
 		.input_node   = ctx->input_node,
@@ -2112,7 +2113,7 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 		.command_node = 0,
 		.input_orig   = val,
 		.output_orig  = ctx->output,
-		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.output_dir   = ctx->output_dir,
 		.command_orig = cmd,
 		.extra_args_valid = true,
 	};
@@ -2139,7 +2140,7 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_ARRAY_OF | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_compile_args,
 		kw_include_directories,
@@ -2164,6 +2165,13 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	push_args(wk, cmd, compilers[comp->type].args.preprocess_only());
 	push_args(wk, cmd, compilers[comp->type].args.specify_lang("assembler-with-cpp"));
 
+	get_std_args(wk, current_project(wk), NULL, cmd, comp->lang, comp->type);
+
+	get_option_compile_args(wk, current_project(wk), NULL, cmd, comp->lang);
+
+	push_args(wk, cmd, compilers[comp->type].args.include("@OUTDIR@"));
+	push_args(wk, cmd, compilers[comp->type].args.include("@CURRENT_SOURCE_DIR@"));
+
 	if (!add_include_directory_args(wk, &akw[kw_include_directories], NULL, rcvr, cmd)) {
 		return false;
 	}
@@ -2174,12 +2182,21 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 
 	make_obj(wk, res, obj_array);
 
+	SBUF(output_dir);
+	sbuf_pushs(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));
+	path_push(wk, &output_dir, "preprocess.p");
+
+	if (!fs_mkdir_p(output_dir.buf)) {
+		return false;
+	}
+
 	struct compiler_preprocess_create_tgt_ctx ctx = {
 		.output = akw[kw_output].val,
 		.cmd = cmd,
 		.res = *res,
 		.input_node = an[0].node,
 		.output_node = akw[kw_output].node,
+		.output_dir = output_dir.buf,
 		.t = comp->type
 	};
 
