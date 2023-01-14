@@ -268,6 +268,13 @@ tests = [
     ['common/251 add_project_dependencies'],
     ['common/252 install data structured', ['python']],
     ['common/253 subproject dependency variables'],
+    ['common/254 long output'],
+    # not relevant to muon
+    # ['common/255 module warnings'],
+    ['common/256 subproject extracted objects'],
+    ['common/257 generated header dep'],
+    ['common/258 subsubproject inplace'],
+    ['common/259 preprocess'],
 
     # unit
     ['unit/65 alias target', ['python']],
