@@ -134,10 +134,10 @@ struct find_lib_path_ctx {
 static bool
 check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *lib_path)
 {
-	enum ext { ext_a, ext_so, ext_count };
-	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so" };
-	static const uint8_t ext_order_static[] = { ext_a, ext_so },
-			     ext_order_dynamic[] = { ext_so, ext_a },
+	enum ext { ext_a, ext_so, ext_dll_a, ext_count };
+	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so", [ext_dll_a] = ".dll.a" };
+	static const uint8_t ext_order_static[] = { ext_a, ext_so, ext_dll_a },
+			     ext_order_dynamic[] = { ext_so, ext_dll_a, ext_a },
 			     *ext_order;
 
 	if (ctx->is_static) {
@@ -148,6 +148,14 @@ check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *
 
 	uint32_t i;
 
+	/*
+	 * TODO
+	 * on Windows, ld is searching for several library names when direct
+	 * linking to a DLL, not necessarly 'lib***.dll.a".
+	 * Also, ld is searching for '*.dll' in $prefix/bin, not $prefix/lib
+	 * See https://sourceware.org/binutils/docs/ld/WIN32.html
+	 * section "direct linking to a dll"
+	 */
 	for (i = 0; i < ext_count; ++i) {
 		sbuf_clear(ctx->name_buf);
 		sbuf_pushf(wk, ctx->name_buf, "lib%s%s", ctx->name, ext[ext_order[i]]);
