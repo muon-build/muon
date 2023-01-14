@@ -292,6 +292,7 @@ tests = [
 
     # nasm
     ['nasm/1 configure file'],
+    ['nasm/2 asm language'],
 
     # keyval
     ['keyval/1 basic'],

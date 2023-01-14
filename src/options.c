@@ -767,6 +767,7 @@ init_global_options(struct workspace *wk)
 
 #ifdef MUON_BOOTSTRAPPED
 	set_binary_from_env(wk, "CXX", "env.CXX");
+	set_binary_from_env(wk, "NASM", "env.NASM");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 #endif

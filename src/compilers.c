@@ -15,6 +15,7 @@
 #include "buf_size.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/machine.h"
 #include "guess.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -30,6 +31,8 @@ compiler_type_to_s(enum compiler_type t)
 	case compiler_clang: return "clang";
 	case compiler_apple_clang: return "clang";
 	case compiler_clang_llvm_ir: return "clang";
+	case compiler_nasm: return "nasm";
+	case compiler_yasm: return "yasm";
 	case compiler_type_count: UNREACHABLE;
 	}
 
@@ -59,6 +62,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_objc] = "objc",
 	[compiler_language_assembly] = "assembly",
 	[compiler_language_llvm_ir] = "llvm_ir",
+	[compiler_language_nasm] = "nasm",
 };
 
 const char *
@@ -91,6 +95,7 @@ static const char *compiler_language_exts[compiler_language_count][10] = {
 	[compiler_language_objc] = { "m", "mm", "M" },
 	[compiler_language_assembly] = { "S" },
 	[compiler_language_llvm_ir] = { "ll" },
+	[compiler_language_nasm] = { "asm" },
 };
 
 bool
@@ -136,6 +141,7 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 			return compiler_language_assembly;
 		}
 		break;
+	case compiler_language_nasm:
 	case compiler_language_c:
 	case compiler_language_c_obj:
 		if (!cur) {
@@ -239,6 +245,70 @@ detection_over:
 }
 
 static bool
+compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj *comp_id)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")) {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return false;
+	}
+
+	enum compiler_type type;
+	obj ver;
+
+	if (strstr(cmd_ctx.out.buf, "NASM")) {
+		type = compiler_nasm;
+	} else if (strstr(cmd_ctx.out.buf, "yasm")) {
+		type = compiler_yasm;
+	} else {
+		// Just assume it is nasm
+		type = compiler_nasm;
+	}
+
+	if (!guess_version(wk, cmd_ctx.out.buf, &ver)) {
+		ver = make_str(wk, "unknown");
+	}
+
+	obj new_cmd;
+	obj_array_dup(wk, cmd_arr, &new_cmd);
+
+	{
+		uint32_t addr_bits = machine_cpu_address_bits();
+		enum machine_system sys = machine_system();
+
+		const char *plat;
+		SBUF(define);
+
+		if (sys == machine_system_windows || sys == machine_system_cgywin) {
+			plat = "win";
+			sbuf_pushf(wk, &define, "WIN%d", addr_bits);
+		} else if (sys == machine_system_darwin) {
+			plat = "macho";
+			sbuf_pushs(wk, &define, "MACHO");
+		} else {
+			plat = "elf";
+			sbuf_pushs(wk, &define, "ELF");
+		}
+
+		obj_array_push(wk, new_cmd, make_strf(wk, "-f%s%d", plat, addr_bits));
+		obj_array_push(wk, new_cmd, make_strf(wk, "-D%s", define.buf));
+		if (addr_bits == 64) {
+			obj_array_push(wk, new_cmd, make_str(wk, "-D__x86_64__"));
+		}
+	}
+
+	make_obj(wk, comp_id, obj_compiler);
+	struct obj_compiler *comp = get_obj_compiler(wk, *comp_id);
+	comp->cmd_arr = new_cmd;
+	comp->type = type;
+	comp->ver = ver;
+	comp->lang = compiler_language_nasm;
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return true;
+}
+
+static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
@@ -299,6 +369,7 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	static const char *compiler_option[compiler_language_count] = {
 		[compiler_language_c] = "env.CC",
 		[compiler_language_cpp] = "env.CXX",
+		[compiler_language_nasm] = "env.NASM",
 	};
 
 	if (!compiler_option[lang]) {
@@ -318,6 +389,11 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 		compiler_get_libdirs(wk, compiler);
 		compiler->lang = lang;
+		return true;
+	case compiler_language_nasm:
+		if (!compiler_detect_nasm(wk, cmd_arr, comp)) {
+			return false;
+		}
 		return true;
 	default:
 		LOG_E("tried to get a compiler for unsupported language '%s'", compiler_language_to_s(lang));
@@ -607,11 +683,6 @@ compiler_gcc_args_specify_lang(const char *language)
 	return &args;
 }
 
-compiler_get_arg_func_0 as_needed;
-compiler_get_arg_func_0 no_undefined;
-compiler_get_arg_func_0 start_group;
-compiler_get_arg_func_0 end_group;
-
 static const struct args *
 compiler_arg_empty_0(void)
 {
@@ -724,6 +795,18 @@ build_compilers(void)
 	compilers[compiler_clang] = gcc;
 	compilers[compiler_apple_clang] = apple_clang;
 	compilers[compiler_clang_llvm_ir] = clang_llvm_ir;
+
+	struct compiler nasm = empty;
+	nasm.args.output = compiler_posix_args_output;
+	nasm.args.optimization = compiler_posix_args_optimization;
+	nasm.args.debug = compiler_posix_args_debug;
+	nasm.args.include = compiler_posix_args_include;
+	nasm.args.include_system = compiler_posix_args_include;
+	nasm.args.define = compiler_posix_args_define;
+	nasm.linker = linker_posix;
+
+	compilers[compiler_nasm] = nasm;
+	compilers[compiler_yasm] = nasm;
 }
 
 static const struct args *
