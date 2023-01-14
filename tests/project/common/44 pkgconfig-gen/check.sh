@@ -8,6 +8,7 @@ test -f "$DESTDIR"/usr/lib/pkgconfig/libfoo.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/libhello.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/libvartest.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/libvartest2.pc
+test -f "$DESTDIR"/usr/lib/pkgconfig/libvartest3.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/simple2.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/simple3.pc
 test -f "$DESTDIR"/usr/lib/pkgconfig/simple5.pc
