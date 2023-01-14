@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "error.h"
 #include "functions/common.h"
 #include "functions/machine.h"
 #include "lang/interpreter.h"
@@ -50,6 +51,93 @@ static const char *known_cpu_families[] = {
 	"x86_64",
 };
 
+static const char *
+machine_system_to_s(enum machine_system sys)
+{
+	switch (sys) {
+	case machine_system_dragonfly:
+		return "dragonfly";
+	case machine_system_freebsd:
+		return "freebsd";
+	case machine_system_gnu:
+		return "gnu";
+	case machine_system_haiku:
+		return "haiku";
+	case machine_system_linux:
+		return "linux";
+	case machine_system_netbsd:
+		return "netbsd";
+	case machine_system_openbsd:
+		return "openbsd";
+	case machine_system_sunos:
+		return "sunos";
+	case machine_system_android:
+		return "android";
+	case machine_system_emscripten:
+		return "emscripten";
+	case machine_system_windows:
+		return "windows";
+	case machine_system_cgywin:
+		return "cgywin";
+	case machine_system_msys2:
+		return "msys2";
+	case machine_system_darwin:
+		return "darwin";
+	case machine_system_unknown:
+		return "unknown";
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+enum machine_system
+machine_system(void)
+{
+	const char *sysname;
+	if (!uname_sysname(&sysname)) {
+		return machine_system_unknown;
+	}
+
+	// The Cygwin environment for Windows
+	if (str_startswith(&WKSTR(sysname), &WKSTR("cygwin_nt"))) {
+		return machine_system_cgywin;
+	}
+
+	// The MSYS2 environment for Windows
+	if (str_startswith(&WKSTR(sysname), &WKSTR("msys_nt"))) {
+		return machine_system_msys2;
+	}
+
+	const struct {
+		const char *name;
+		enum machine_system sys;
+	} map[] = {
+		{ "darwin", machine_system_darwin }, // Either OSX or iOS
+		{ "dragonfly", machine_system_dragonfly }, // DragonFly BSD
+		{ "freebsd", machine_system_freebsd }, // FreeBSD and its derivatives
+		{ "gnu", machine_system_gnu }, // GNU Hurd
+		{ "haiku", machine_system_haiku },
+		{ "linux", machine_system_linux },
+		{ "netbsd", machine_system_netbsd },
+		{ "openbsd", machine_system_openbsd },
+		{ "sunos", machine_system_sunos }, // illumos and Solaris
+
+		// TODO: These probably need more than just a simple mapping
+		{ "android", machine_system_android }, // By convention only, subject to change
+		{ "emscripten", machine_system_emscripten }, // Emscripten's Javascript environment
+		{ "windows", machine_system_windows }, // Any version of Windows
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(map); ++i) {
+		if (strcmp(map[i].name, sysname) == 0) {
+			return map[i].sys;
+		}
+	}
+
+	return machine_system_unknown;
+}
+
 static bool
 func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -57,51 +145,8 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	const char *sysname;
-	if (!uname_sysname(&sysname)) {
-		return false;
-	}
-
-	// The Cygwin environment for Windows
-	if (str_startswith(&WKSTR(sysname), &WKSTR("cygwin_nt"))) {
-		*res = make_str(wk, "cygwin");
-		return true;
-	}
-
-	// The MSYS2 environment for Windows
-	if (str_startswith(&WKSTR(sysname), &WKSTR("msys_nt"))) {
-		*res = make_str(wk, "msys2");
-		return true;
-	}
-
-	const char *map[][2] = {
-		{ "darwin", "darwin" }, // Either OSX or iOS
-		{ "dragonfly", "dragonfly" }, // DragonFly BSD
-		{ "freebsd", "freebsd" }, // FreeBSD and its derivatives
-		{ "gnu", "gnu" }, // GNU Hurd
-		{ "haiku", "haiku" },
-		{ "linux", "linux" },
-		{ "netbsd", "netbsd" },
-		{ "openbsd", "openbsd" },
-		{ "sunos", "sunos" }, // illumos and Solaris
-
-		// TODO: These probably need more than just a simple mapping
-		{ "android", "android" }, // By convention only, subject to change
-		{ "emscripten", "emscripten" }, // Emscripten's Javascript environment
-		{ "windows", "windows" }, // Any version of Windows
-		0
-	};
-
-	uint32_t i;
-	for (i = 0; map[i][0]; ++i) {
-		if (strcmp(map[i][0], sysname) == 0) {
-			*res = make_str(wk, map[i][1]);
-			return true;
-		}
-	}
-
-	LOG_E("unknown sysname '%s'", sysname);
-	return false;
+	*res = make_str(wk, machine_system_to_s(machine_system()));
+	return true;
 }
 
 static bool
@@ -173,15 +218,11 @@ machine_cpu_normalize_base(const char **machine_cstr, const char **norm)
 	}
 }
 
-static bool
-func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+static const char *
+machine_cpu_family(void)
 {
 	const char *machine_cstr, *norm;
 	const struct str *machine;
-
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
-		return false;
-	}
 
 	machine_cpu_normalize_base(&machine_cstr, &norm);
 	machine = &WKSTR(machine_cstr);
@@ -230,18 +271,57 @@ done:
 		norm = machine->s;
 	}
 
-	*res = make_str(wk, norm);
-
 	uint32_t i;
 	for (i = 0; i < ARRAY_LEN(known_cpu_families); ++i) {
 		if (strcmp(norm, known_cpu_families[i]) == 0) {
-			return true;
+			return norm;
 		}
 	}
 
 	LOG_W("returning unknown cpu family '%s'", machine->s);
+	return norm;
+}
+
+static bool
+func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, machine_cpu_family());
 	return true;
 }
+
+uint32_t
+machine_cpu_address_bits(void)
+{
+	const char *is_64_bit[] = {
+		"aarch64",
+		"alpha",
+		"ia64",
+		"loongarch64",
+		"mips64",
+		"ppc64",
+		"riscv64",
+		"s390x",
+		"sparc64",
+		"wasm64",
+		"x86_64",
+	};
+
+	const char *fam = machine_cpu_family();
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(is_64_bit); ++i) {
+		if (strcmp(fam, is_64_bit[i]) == 0) {
+			return 64;
+		}
+	}
+
+	return 32;
+}
+
 
 static bool
 func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
