@@ -134,10 +134,10 @@ struct find_lib_path_ctx {
 static bool
 check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *lib_path)
 {
-	enum ext { ext_a, ext_so, ext_count };
-	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so" };
-	static const uint8_t ext_order_static[] = { ext_a, ext_so },
-			     ext_order_dynamic[] = { ext_so, ext_a },
+	enum ext { ext_a, ext_so, ext_dll_a, ext_count };
+	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so", [ext_dll_a] = ".dll.a" };
+	static const uint8_t ext_order_static[] = { ext_a, ext_so, ext_dll_a },
+			     ext_order_dynamic[] = { ext_dll_a, ext_so, ext_a },
 			     *ext_order;
 
 	if (ctx->is_static) {

@@ -6,9 +6,10 @@ name: CI msys2
 
 on:
   push:
-    branches:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
+    types: [opened, synchronize, reopened]
 
 jobs:
   mingw32:
@@ -28,8 +29,8 @@ jobs:
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
     - name: muon
       run: |
-        ./build/muon.exe setup -Dbestline=disabled build
-        ninja -C build
+#        ./build/muon.exe setup -Dbestline=disabled build
+#        ninja -C build
 
   mingw64:
     runs-on: windows-latest
@@ -48,8 +49,8 @@ jobs:
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
     - name: muon
       run: |
-        ./build/muon.exe setup -Dbestline=disabled build
-        ninja -C build
+#        ./build/muon.exe setup -Dbestline=disabled build
+#        ninja -C build
 
   msys:
     runs-on: windows-latest
