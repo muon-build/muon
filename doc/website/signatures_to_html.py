@@ -4,6 +4,7 @@
 import sys
 import itertools
 
+from version_info import MuonVersion
 
 def parse(file):
     sigs = {}
@@ -402,6 +403,12 @@ print(
 </head><body><div class="wrapper">
 """
 )
+
+print('<div class="item">')
+print("<h1>Version</h1>")
+print(f"<p>muon version {MuonVersion.version}-{MuonVersion.vcs_tag}</p>")
+print(f"<p>meson compat version {MuonVersion.meson_compat}</p>")
+print("</div>")
 
 print('<div class="item">')
 print(f"<h1>Modules</h1>")

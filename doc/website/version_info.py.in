@@ -1,0 +1,4 @@
+class MuonVersion:
+	version = "@version@"
+	vcs_tag = "@vcs_tag@"
+	meson_compat = "@meson_compat@"

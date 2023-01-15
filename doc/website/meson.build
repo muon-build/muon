@@ -25,17 +25,27 @@ if meson_proj.found()
 
     meson_signatures = meson_proj.get_variable('signatures')
 
+    configure_file(
+        configuration: version_info,
+        input: 'version_info.py.in',
+        output: 'version_info.py',
+    )
+
+    env = environment()
+    env.append('PYTHONPATH', meson.current_build_dir())
+
     custom_target(
         'status.html',
         output: 'status.html',
         command: [
-            'python3',
+            python3,
             files('signatures_to_html.py'),
             muon_signatures,
             meson_signatures,
         ],
         capture: true,
         build_by_default: true,
+        env: env,
     )
 endif
 

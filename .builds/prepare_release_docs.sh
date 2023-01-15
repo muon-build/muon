@@ -15,3 +15,5 @@ gzip man.tar
 mkdir docs
 cp website/status.css docs
 mv website/status.html man.tar.gz docs
+
+rm -r website/version_info.py website/__pycache__
