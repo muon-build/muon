@@ -566,6 +566,7 @@ void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
 void obj_array_dup(struct workspace *wk, obj arr, obj *res);
 bool obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res);
+void obj_array_tail(struct workspace *wk, obj arr, obj *res);
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);
 void obj_array_del(struct workspace *wk, obj arr, int64_t i);
 void obj_array_dedup(struct workspace *wk, obj arr, obj *res);

@@ -736,6 +736,22 @@ obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 }
 
 void
+obj_array_tail(struct workspace *wk, obj arr, obj *res)
+{
+	const struct obj_array *a = get_obj_array(wk, arr);
+
+	if (a->have_next) {
+		struct obj_array *n = get_obj_array(wk, a->next);
+		n->tail = a->tail;
+		n->len = a->len;
+		*res = a->next;
+	} else {
+		// the tail of a zero or single element array is an empty array
+		make_obj(wk, res, obj_array);
+	}
+}
+
+void
 obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 {
 	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
