@@ -15,6 +15,7 @@
 #include "functions/common.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
+#include "functions/machine.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
@@ -59,6 +60,7 @@ struct dep_lookup_ctx {
 	obj names;
 	obj fallback;
 	obj not_found_message;
+	obj modules;
 	enum dep_lib_mode lib_mode;
 	bool disabler;
 	bool fallback_allowed;
@@ -326,6 +328,17 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return true;
 }
 
+static enum iteration_result
+handle_appleframeworks_modules_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct dep_lookup_ctx *ctx = _ctx;
+	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+
+	obj_array_push(wk, dep->dep.link_args, make_str(wk, "-framework"));
+	obj_array_push(wk, dep->dep.link_args, val);
+	return ir_cont;
+}
+
 static bool
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
 {
@@ -349,6 +362,22 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		ctx->name = make_str(wk, "ncurses");
 		if (!get_dependency(wk, ctx)) {
 			return false;
+		}
+	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
+		*handled = true;
+		if (!ctx->modules) {
+			interp_error(wk, ctx->err_node, "'appleframeworks' dependency requires the modules keyword");
+			return false;
+		}
+
+		make_obj(wk, ctx->res, obj_dependency);
+		if (machine_system() == machine_system_darwin) {
+			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+			dep->name = make_str(wk, "appleframeworks");
+			dep->flags |= dep_flag_found;
+			dep->type = dependency_type_appleframeworks;
+			make_obj(wk, &dep->dep.link_args, obj_array);
+			obj_array_foreach(wk, ctx->modules, ctx, handle_appleframeworks_modules_iter);
 		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
@@ -567,6 +596,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.not_found_message = akw[kw_not_found_message].val,
 		.lib_mode = lib_mode,
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
+		.modules = akw[kw_modules].val,
 	};
 
 	if (!obj_array_foreach(wk, an[0].val, &ctx, dependency_iter)) {

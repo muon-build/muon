@@ -316,6 +316,7 @@ enum dependency_type {
 	dependency_type_pkgconf,
 	dependency_type_threads,
 	dependency_type_external_library,
+	dependency_type_appleframeworks,
 };
 
 enum dep_flags {

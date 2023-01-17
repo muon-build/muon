@@ -364,6 +364,9 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 			break;
 		}
+		case dependency_type_appleframeworks:
+		       // TODO: actually add correct -framework arguments
+		       break;
 		}
 		break;
 	}

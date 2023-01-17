@@ -181,6 +181,7 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	case dependency_type_declared:
 		n = "internal";
 		break;
+	case dependency_type_appleframeworks:
 	case dependency_type_threads:
 		n = "system";
 		break;
