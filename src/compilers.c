@@ -144,6 +144,7 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 	case compiler_language_nasm:
 	case compiler_language_c:
 	case compiler_language_c_obj:
+	case compiler_language_objc:
 		if (!cur) {
 			return compiler_language_c;
 		}
@@ -155,7 +156,6 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 			return compiler_language_cpp;
 		}
 		break;
-	case compiler_language_objc:
 	case compiler_language_count:
 		UNREACHABLE;
 	}
@@ -369,6 +369,7 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	static const char *compiler_option[compiler_language_count] = {
 		[compiler_language_c] = "env.CC",
 		[compiler_language_cpp] = "env.CXX",
+		[compiler_language_objc] = "env.OBJC",
 		[compiler_language_nasm] = "env.NASM",
 	};
 
@@ -382,6 +383,7 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	switch (lang) {
 	case compiler_language_c:
 	case compiler_language_cpp:
+	case compiler_language_objc:
 		if (!compiler_detect_c_or_cpp(wk, cmd_arr, comp)) {
 			return false;
 		}

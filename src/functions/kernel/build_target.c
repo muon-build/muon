@@ -605,8 +605,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		} lang_args[] = {
 			{ bt_kw_c_args, compiler_language_c },
 			{ bt_kw_cpp_args, compiler_language_cpp },
+			{ bt_kw_objc_args, compiler_language_objc },
 			{ bt_kw_nasm_args, compiler_language_nasm },
-			/* { bt_kw_objc_args, compiler_language_objc }, */
 		};
 
 		uint32_t i;

@@ -148,5 +148,6 @@ option('cpp_winlibs', type: 'array', value: []) # TODO
 
 option('env.CC', type: 'array', value: ['cc'])
 option('env.CXX', type: 'array', value: ['c++'])
+option('env.OBJC', type: 'array', value: ['cc'])
 option('env.NINJA', type: 'array', value: ['ninja'])
 option('env.NASM', type: 'array', value: ['nasm'])
