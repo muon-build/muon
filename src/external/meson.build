@@ -13,7 +13,7 @@ foreach d : [
         'libpkgconf',
         {
             'fallback': ['pkgconf', 'dep_libpkgconf'],
-            'default_options': ['pkgconf:tests=false'],
+            'default_options': ['pkgconf:tests=false', 'warning_level=1'],
         },
     ],
     ['samurai', {'fallback': ['samurai', 'libsamu_dep']}],
