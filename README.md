@@ -29,7 +29,7 @@ Other differences from meson are described in `doc/differences.md`
   type inference, checking unused variables, undeclared variables, etc.
 - `muon fmt` - a meson.build code formatter
 - An interactive stepping debugger with the `dbg()` function.
-- Fast
+- [Fast]
 
 ## Status
 
@@ -145,3 +145,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
 [status page]: https://muon.build/releases/edge/docs/status.html
+[Fast]: https://github.com/annacrombie/meson-raytracer#performance
