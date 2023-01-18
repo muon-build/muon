@@ -292,6 +292,11 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
 		push_args(wk, args, compilers[t].args.define("NDEBUG"));
 	}
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_colorout", &opt);
+	if (!str_eql(get_str(wk, opt), &WKSTR("never"))) {
+		push_args(wk, args, compilers[t].args.color_output(get_cstr(wk, opt)));
+	}
 }
 
 static bool

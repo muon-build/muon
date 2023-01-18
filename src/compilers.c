@@ -686,6 +686,17 @@ compiler_gcc_args_specify_lang(const char *language)
 }
 
 static const struct args *
+compiler_gcc_args_color_output(const char *when)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "-fdiagnostics-color=%s", when);
+
+	return &args;
+}
+
+static const struct args *
 compiler_arg_empty_0(void)
 {
 	COMPILER_ARGS({ NULL });
@@ -754,6 +765,7 @@ build_compilers(void)
 			.define          = compiler_arg_empty_1s,
 			.visibility      = compiler_arg_empty_1i,
 			.specify_lang    = compiler_arg_empty_1s,
+			.color_output    = compiler_arg_empty_1s,
 		}
 	};
 
@@ -786,6 +798,7 @@ build_compilers(void)
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
 	gcc.args.visibility = compiler_gcc_args_visibility;
 	gcc.args.specify_lang = compiler_gcc_args_specify_lang;
+	gcc.args.color_output = compiler_gcc_args_color_output;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 

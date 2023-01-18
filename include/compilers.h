@@ -108,6 +108,7 @@ struct compiler {
 		compiler_get_arg_func_1s define;
 		compiler_get_arg_func_1i visibility;
 		compiler_get_arg_func_1s specify_lang;
+		compiler_get_arg_func_1s color_output;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;

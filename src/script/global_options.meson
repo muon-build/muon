@@ -81,7 +81,7 @@ option(
     type: 'combo',
     value: 'always',
     choices: ['auto', 'always', 'never'],
-) # TODO
+)
 option('b_coverage', type: 'boolean', value: false) # TODO
 option('b_lundef', type: 'boolean', value: true) # TODO
 option('b_lto', type: 'boolean', value: false) # TODO
