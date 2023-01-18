@@ -124,7 +124,7 @@ check_invalid_subproject_option(struct workspace *wk)
 
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		oo = darr_get(&wk->option_overrides, i);
-		if (!oo->proj) {
+		if (!oo->proj || oo->source < option_value_source_commandline) {
 			continue;
 		}
 
