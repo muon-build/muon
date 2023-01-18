@@ -697,6 +697,14 @@ compiler_gcc_args_color_output(const char *when)
 }
 
 static const struct args *
+compiler_gcc_args_lto(void)
+{
+	COMPILER_ARGS({ "-flto" });
+
+	return &args;
+}
+
+static const struct args *
 compiler_arg_empty_0(void)
 {
 	COMPILER_ARGS({ NULL });
@@ -766,6 +774,7 @@ build_compilers(void)
 			.visibility      = compiler_arg_empty_1i,
 			.specify_lang    = compiler_arg_empty_1s,
 			.color_output    = compiler_arg_empty_1s,
+			.enable_lto      = compiler_arg_empty_0,
 		}
 	};
 
@@ -799,6 +808,7 @@ build_compilers(void)
 	gcc.args.visibility = compiler_gcc_args_visibility;
 	gcc.args.specify_lang = compiler_gcc_args_specify_lang;
 	gcc.args.color_output = compiler_gcc_args_color_output;
+	gcc.args.enable_lto = compiler_gcc_args_lto;
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 
@@ -970,6 +980,7 @@ build_linkers(void)
 	gcc.args.fatal_warnings = linker_gcc_args_fatal_warnings;
 	gcc.args.whole_archive = linker_gcc_args_whole_archive;
 	gcc.args.no_whole_archive = linker_gcc_args_no_whole_archive;
+	gcc.args.enable_lto = compiler_gcc_args_lto;
 
 	struct linker apple = posix;
 

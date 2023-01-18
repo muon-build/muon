@@ -41,7 +41,7 @@ Things missing include:
 
 - cross-compilation support
 - build optimizations like pch and unity
-- several `b_` options
+- some `b_` options
 - dependencies with a custom configuration tool
 - many modules
 

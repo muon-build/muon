@@ -109,6 +109,7 @@ struct compiler {
 		compiler_get_arg_func_1i visibility;
 		compiler_get_arg_func_1s specify_lang;
 		compiler_get_arg_func_1s color_output;
+		compiler_get_arg_func_0 enable_lto;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;
@@ -131,6 +132,7 @@ struct linker {
 		compiler_get_arg_func_0 fatal_warnings;
 		compiler_get_arg_func_0 whole_archive;
 		compiler_get_arg_func_0 no_whole_archive;
+		compiler_get_arg_func_0 enable_lto;
 	} args;
 };
 

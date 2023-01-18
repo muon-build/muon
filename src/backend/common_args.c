@@ -297,6 +297,11 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 	if (!str_eql(get_str(wk, opt), &WKSTR("never"))) {
 		push_args(wk, args, compilers[t].args.color_output(get_cstr(wk, opt)));
 	}
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
+	if (get_obj_bool(wk, opt)) {
+		push_args(wk, args, compilers[t].args.enable_lto());
+	}
 }
 
 static bool
@@ -524,6 +529,10 @@ setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
 		push_args(wk, args, linkers[t].args.sanitize(get_cstr(wk, opt)));
 	}
 
+	get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
+	if (get_obj_bool(wk, opt)) {
+		push_args(wk, args, linkers[t].args.enable_lto());
+	}
 	return true;
 }
 
