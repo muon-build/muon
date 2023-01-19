@@ -32,7 +32,11 @@ static struct {
 };
 
 static bool
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 10900
 error_handler(const char *msg, const pkgconf_client_t *client, void *data)
+#else
+error_handler(const char *msg, const pkgconf_client_t * client, const void *data)
+#endif
 {
 	if (log_should_print(log_debug)) {
 		log_plain("dbg libpkgconf: %s", msg);
