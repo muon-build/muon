@@ -822,7 +822,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	struct {
-		const char *filename;
+		char *const *filenames;
 		const char *cfg_path;
 		bool in_place, check_only;
 	} opts = { 0 };
@@ -837,45 +837,48 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'q':
 			opts.check_only = true;
 			break;
-	} OPTEND(argv[argi], " <filename>",
-		"  -q - exit with 1 if the file would be changed by muon fmt\n"
-		"  -i - modify file in-place\n"
-		"  -c <cfg.ini> - read configuration from cfg\n",
-		NULL, 1)
+	} OPTEND(argv[argi], " <file>[ <file>[...]]",
+		"  -q - exit with 1 if files would be modified by muon fmt\n"
+		"  -i - format files in-place\n"
+		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n",
+		NULL, -1)
 
-	opts.filename = argv[argi];
+	opts.filenames = &argv[argi];
+	const uint32_t num_files = argc - argi;
 
-	bool opened_out = false;
-	bool ret = false;
-
-	struct source src = { 0 };
-	if (!fs_read_entire_file(opts.filename, &src)) {
-		goto ret;
-	}
-
+	bool ret = true;
+	bool opened_out;
 	FILE *out;
+	uint32_t i;
+	for (i = 0; i < num_files; ++i) {
+		opened_out = false;
 
-	if (opts.in_place) {
-		if (!(out = fs_fopen(opts.filename, "wb"))) {
-			goto ret;
+		struct source src = { 0 };
+		if (!fs_read_entire_file(opts.filenames[i], &src)) {
+			ret = false;
+			goto cont;
 		}
-		opened_out = true;
-	} else if (opts.check_only) {
-		out = NULL;
-	} else {
-		out = stdout;
+
+		if (opts.in_place) {
+			if (!(out = fs_fopen(opts.filenames[i], "wb"))) {
+				ret = false;
+				goto cont;
+			}
+			opened_out = true;
+		} else if (opts.check_only) {
+			out = NULL;
+		} else {
+			out = stdout;
+		}
+
+		ret &= fmt(&src, out, opts.cfg_path, opts.check_only);
+cont:
+		if (opened_out) {
+			fs_fclose(out);
+		}
+		fs_source_destroy(&src);
 	}
 
-	if (!fmt(&src, out, opts.cfg_path, opts.check_only)) {
-		goto ret;
-	}
-
-	ret = true;
-ret:
-	if (opened_out) {
-		fs_fclose(out);
-	}
-	fs_source_destroy(&src);
 	return ret;
 }
 

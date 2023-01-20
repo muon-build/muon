@@ -77,16 +77,16 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-P* - print the parsed formatting ast
 
 ## fmt
-	*muon* *fmt* [*-i*] [*-q*] [*-c* <muon_fmt.ini>] <filename>
+	*muon* *fmt* [*-i*] [*-q*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
 
 	Format a _source file_.  The formatting is currently minimally
 	configurable, and is based on the official meson style guide
 	<https://mesonbuild.com/Style-guide.html>.
 
 	*OPTIONS*:
-	- *-q* - exit with 1 if the file would be changed by muon fmt
-	- *-i* - format file in-place
-	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_.
+	- *-q* - exit with 1 if files would be modified by muon fmt
+	- *-i* - format files in-place
+	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_
 
 	*CONFIGURATION OPTIONS*
 [[ *key*
