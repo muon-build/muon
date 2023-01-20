@@ -241,8 +241,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-j* - Set the number of jobs used when running tests.
 	- *-l* - List tests that would be run with the current setup, suites,
-	etc.  The format of the output is <project name>:<list of suites> -
-	<test_name>.
+	  etc.  The format of the output is <project name>:<list of suites> -
+	  <test_name>.
 	- *-R* - No rebuild. Disable automatic build system invocation prior to
 	  running tests.
 	- *-s* <suite> - Only run tests in suite _suite_.  This option may be
@@ -257,6 +257,15 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*muon* *version*
 
 	Print out version information as well as enabled features.
+
+# EXTENSIONS
+
+*muon* provides some extra functions that may be called within _source files_.
+They are documented below.
+
+- *dbg()* - Begin an interactive debugger.
+- *p(value)* - Print any value's internal representation.  For example,
+  `p('hello')` prints `'hello'`.
 
 # SEE ALSO
 
