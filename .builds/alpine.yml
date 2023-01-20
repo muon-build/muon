@@ -40,7 +40,7 @@ packages:
   - lz4-static
   - nghttp2-static
   - openssl-libs-static
-  - xz-dev
+  - xz-static
   - zlib-static
   - zstd-dev
 
