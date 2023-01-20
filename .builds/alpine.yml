@@ -42,7 +42,7 @@ packages:
   - openssl-libs-static
   - xz-dev
   - zlib-static
-  - zstd-static
+  - zstd-dev
 
   # for releases
   - rsync
