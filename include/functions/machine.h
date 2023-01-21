@@ -19,7 +19,7 @@ enum machine_system {
 	machine_system_android,
 	machine_system_emscripten,
 	machine_system_windows,
-	machine_system_cgywin,
+	machine_system_cygwin,
 	machine_system_msys2,
 	machine_system_darwin,
 	machine_system_unknown,

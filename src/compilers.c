@@ -279,7 +279,7 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj *comp_id)
 		const char *plat;
 		SBUF(define);
 
-		if (sys == machine_system_windows || sys == machine_system_cgywin) {
+		if (sys == machine_system_windows || sys == machine_system_cygwin) {
 			plat = "win";
 			sbuf_pushf(wk, &define, "WIN%d", addr_bits);
 		} else if (sys == machine_system_darwin) {

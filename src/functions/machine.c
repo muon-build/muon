@@ -77,8 +77,8 @@ machine_system_to_s(enum machine_system sys)
 		return "emscripten";
 	case machine_system_windows:
 		return "windows";
-	case machine_system_cgywin:
-		return "cgywin";
+	case machine_system_cygwin:
+		return "cygwin";
 	case machine_system_msys2:
 		return "msys2";
 	case machine_system_darwin:
@@ -100,7 +100,7 @@ machine_system(void)
 
 	// The Cygwin environment for Windows
 	if (str_startswith(&WKSTR(sysname), &WKSTR("cygwin_nt"))) {
-		return machine_system_cgywin;
+		return machine_system_cygwin;
 	}
 
 	// The MSYS2 environment for Windows
