@@ -302,6 +302,10 @@ muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgco
 
 	int flags = 0;
 
+#ifdef _WIN32
+	flags |= PKGCONF_PKG_PKGF_REDEFINE_PREFIX;
+#endif
+
 	if (is_static) {
 		flags |= (PKGCONF_PKG_PKGF_SEARCH_PRIVATE | PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS);
 	}
