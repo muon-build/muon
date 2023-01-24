@@ -12,17 +12,6 @@ SPDX-License-Identifier: GPL-3.0-only
 muon is an implementation of the meson build system in c99 with minimal
 dependencies.
 
-
-## Non-features
-
-- bug-for-bug compatibility with meson.  In fact, `muon` aspires to be stricter
-  than meson in cases where meson's implementation seems error prone.  `muon`
-  uses the official meson documentation as its specification.
-- cli compatibility with meson.  `muon` has different flags, subcommands, etc.,
-  and should _not_ be renamed/symlinked to meson.
-
-Other differences from meson are described in `doc/differences.md`
-
 ## Features
 
 - `muon analyze` - a static analyzer for meson.build files.  Capable of doing
@@ -44,6 +33,8 @@ Things missing include:
 - some `b_` options
 - dependencies with a custom configuration tool
 - many modules
+
+Other differences from meson are described in `doc/differences.md`
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
