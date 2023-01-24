@@ -338,6 +338,10 @@ path_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 		}
 	}
 
+	if (i < 0) {
+		i = 0;
+	}
+
 	sbuf_pushs(wk, buf, &path[i]);
 	_path_normalize(wk, buf, false);
 }
