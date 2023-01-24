@@ -556,6 +556,16 @@ obj_array_push(struct workspace *wk, obj arr, obj child)
 	++a->len;
 }
 
+void
+obj_array_prepend(struct workspace *wk, obj *arr, obj val)
+{
+	obj prepend;
+	make_obj(wk, &prepend, obj_array);
+	obj_array_push(wk, prepend, val);
+	obj_array_extend_nodup(wk, prepend, *arr);
+	*arr = prepend;
+}
+
 struct obj_array_index_of_iter_ctx {
 	obj l;
 	bool res;

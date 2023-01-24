@@ -25,6 +25,7 @@
 #include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "machine_file.h"
+#include "meson_opts.h"
 #include "options.h"
 #include "opts.h"
 #include "platform/mem.h"
@@ -915,6 +916,33 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
+static bool cmd_main(uint32_t argc, uint32_t argi, char *argv[]);
+
+static bool
+cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	++argi;
+
+	struct workspace wk;
+	char **new_argv;
+	uint32_t new_argc, new_argi;
+	workspace_init_bare(&wk);
+	if (!translate_meson_opts(&wk, argc, argi, (char **)argv, &new_argc, &new_argi, &new_argv)) {
+		return false;
+	}
+
+	argi = new_argi;
+	argc = new_argc;
+	argv = new_argv;
+
+	bool res = cmd_main(argc, argi, (char **)argv);
+
+	workspace_destroy(&wk);
+	z_free(new_argv);
+
+	return res;
+}
+
 static bool
 cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
@@ -927,6 +955,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "info", cmd_info, NULL },
 		{ "install", cmd_install, "install project" },
 		{ "internal", cmd_internal, "internal subcommands" },
+		{ "meson", cmd_meson, "meson compatible cli proxy" },
 		{ "options", cmd_options, "list project options" },
 		{ "samu", cmd_samu, have_samurai ? "run samurai" : NULL },
 		{ "setup", cmd_setup, "setup a build directory" },
@@ -984,7 +1013,23 @@ main(int argc, char *argv[])
 
 	compilers_init();
 
-	int ret = cmd_main(argc, 0, argv) ? 0 : 1;
+	bool res;
+	bool meson_compat = false;
+
+	{
+		SBUF(basename);
+		path_basename(NULL, &basename, argv[0]);
+		meson_compat = strcmp(basename.buf, "meson") == 0 && strcmp(argv[1], "internal") != 0;
+		sbuf_destroy(&basename);
+	}
+
+	if (meson_compat) {
+		res = cmd_meson(argc, 0, argv);
+	} else {
+		res = cmd_main(argc, 0, argv);
+	}
+
+	int ret = res ? 0 : 1;
 
 	path_deinit();
 	return ret;

@@ -184,6 +184,32 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	arguments, argument types, and return types to stdout.  This subcommand
 	is mainly useful for generating https://muon.build/status.html.
 
+## meson
+	*meson* ...
+
+	A compatibility layer that attempts to translate all flags and
+	operands from meson cli syntax to muon cli syntax.  For example, the
+	following two commands:
+
+	```
+	muon meson setup build --werror --prefix=/
+	muon meson test -C build --list
+	```
+
+	Would be translated into the following two muon versions respectively:
+
+	```
+	muon setup -Dwerror=true -Dprefix=/ build
+	muon -C build test -l
+	```
+
+	This compatibility layer is also enabled when muon's executable is named
+	_meson_.
+
+	NOTE: This is a best-effort translation and does not guarantee or imply
+	full cli compatibility.  Many unimplemented flags are ignored and
+	attempting to use an unsupported subcommands will result in an error.
+
 ## options
 	*muon* *options* [*-a*] [*-m*]
 

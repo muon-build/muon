@@ -558,6 +558,7 @@ void obj_inspect(struct workspace *wk, FILE *out, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
 void obj_array_push(struct workspace *wk, obj arr, obj child);
+void obj_array_prepend(struct workspace *wk, obj *arr, obj val);
 bool obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb);
 bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb);
 bool obj_array_in(struct workspace *wk, obj arr, obj val);

@@ -87,6 +87,7 @@
 #include "log.c"
 #include "machine_file.c"
 #include "main.c"
+#include "meson_opts.c"
 #include "options.c"
 #include "opts.c"
 #include "platform/filesystem.c"
@@ -94,6 +95,11 @@
 #include "platform/path.c"
 #include "platform/run_cmd.c"
 #include "platform/uname.c"
+#include "rpmvercmp.c"
+#include "sha_256.c"
+#include "version.c.in"
+#include "wrap.c"
+
 #ifdef _WIN32
 #include "platform/windows/filesystem.c"
 #include "platform/windows/path.c"
@@ -104,17 +110,13 @@
 #include "platform/windows/win32_error.c"
 #include "platform/windows/win32_getopt.c"
 #else
+#include "platform/null/rpath_fixer.c"
 #include "platform/posix/filesystem.c"
 #include "platform/posix/path.c"
-#include "platform/null/rpath_fixer.c"
 #include "platform/posix/run_cmd.c"
 #include "platform/posix/term.c"
 #include "platform/posix/uname.c"
 #endif
-#include "rpmvercmp.c"
-#include "sha_256.c"
-#include "version.c.in"
-#include "wrap.c"
 
 #ifdef BOOTSTRAP_HAVE_LIBPKGCONF
 #include "external/libpkgconf.c"
