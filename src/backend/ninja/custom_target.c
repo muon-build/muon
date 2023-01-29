@@ -164,12 +164,10 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	cmdline = join_args_shell_ninja(wk, cmdline);
 
 	fprintf(ctx->out, "build %s: CUSTOM_COMMAND %s | %s\n"
-		" COMMAND = %s\n"
-		" DESCRIPTION = %s\n",
+		" COMMAND = %s\n",
 		get_cstr(wk, outputs),
 		get_cstr(wk, inputs),
 		get_cstr(wk, depends),
-		get_cstr(wk, cmdline),
 		get_cstr(wk, cmdline)
 		);
 

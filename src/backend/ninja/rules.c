@@ -305,7 +305,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		"\n"
 		"rule CUSTOM_COMMAND\n"
 		" command = $COMMAND\n"
-		" description = $DESCRIPTION\n"
+		" description = $COMMAND\n"
 		" restat = 1\n"
 		"\n"
 		);
