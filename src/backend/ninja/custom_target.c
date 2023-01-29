@@ -163,13 +163,27 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	inputs = inputs ? join_args_ninja(wk, inputs) : make_str(wk, "");
 	cmdline = join_args_shell_ninja(wk, cmdline);
 
-	fprintf(ctx->out, "build %s: CUSTOM_COMMAND %s | %s\n"
+	const char *rule;
+	if (tgt->depfile) {
+		rule = "CUSTOM_COMMAND_DEP";
+	} else {
+		rule = "CUSTOM_COMMAND";
+	}
+
+	fprintf(ctx->out, "build %s: %s %s | %s\n"
 		" COMMAND = %s\n",
 		get_cstr(wk, outputs),
+		rule,
 		get_cstr(wk, inputs),
 		get_cstr(wk, depends),
 		get_cstr(wk, cmdline)
 		);
+
+	if (tgt->depfile) {
+		obj depfile_rel;
+		relativize_path(wk, tgt->depfile, false, &depfile_rel);
+		fprintf(ctx->out, " DEPFILE = %s\n", get_cstr(wk, depfile_rel));
+	}
 
 	if (tgt->flags & custom_target_console) {
 		fprintf(ctx->out, " pool = console\n");

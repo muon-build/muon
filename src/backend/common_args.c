@@ -623,6 +623,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 
 struct relativize_paths_ctx {
 	bool relativize_strings;
+	obj *oneshot;
 	obj dest;
 };
 
@@ -637,7 +638,11 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		if (ctx->relativize_strings) {
 			str = get_cstr(wk, val);
 		} else {
-			obj_array_push(wk, ctx->dest, val);
+			if (ctx->oneshot) {
+				*ctx->oneshot = val;
+			} else {
+				obj_array_push(wk, ctx->dest, val);
+			}
 			return ir_cont;
 		}
 	} else {
@@ -646,7 +651,13 @@ relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 
 	SBUF(buf);
 	path_relative_to(wk, &buf, wk->build_root, str);
-	obj_array_push(wk, ctx->dest, sbuf_into_str(wk, &buf));
+	obj s = sbuf_into_str(wk, &buf);
+
+	if (ctx->oneshot) {
+		*ctx->oneshot = s;
+	} else {
+		obj_array_push(wk, ctx->dest, s);
+	}
 	return ir_cont;
 }
 
@@ -660,6 +671,18 @@ relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *re
 	};
 
 	obj_array_foreach(wk, arr, &ctx, relativize_paths_iter);
+}
+
+void
+relativize_path(struct workspace *wk, obj path, bool relativize_strings, obj *res)
+{
+	make_obj(wk, res, obj_array);
+	struct relativize_paths_ctx ctx = {
+		.relativize_strings = relativize_strings,
+		.oneshot = res,
+	};
+
+	relativize_paths_iter(wk, &ctx, path);
 }
 
 void

@@ -308,6 +308,13 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		" description = $COMMAND\n"
 		" restat = 1\n"
 		"\n"
+		"rule CUSTOM_COMMAND_DEP\n"
+		" command = $COMMAND\n"
+		" description = $COMMAND\n"
+		" deps = gcc\n"
+		" depfile = $DEPFILE\n"
+		" restat = 1\n"
+		"\n"
 		);
 
 	obj regen_args;

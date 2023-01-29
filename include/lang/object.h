@@ -303,6 +303,7 @@ struct obj_custom_target {
 	obj depends; // obj_array
 	obj private_path; // obj_string
 	obj env; // str | list[str] | dict[str] | env
+	obj depfile; // str
 	enum custom_target_flags flags;
 };
 

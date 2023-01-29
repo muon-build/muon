@@ -389,6 +389,15 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 		obj_array_push(wk, output_arr, f);
 	}
 
+	{
+		// XXX: depfile for configure_file is not supported, this is
+		// only here to make the types align
+		obj f;
+		make_obj(wk, &f, obj_file);
+		*get_obj_file(wk, f) = depfile;
+		depfile = f;
+	}
+
 	struct process_custom_target_commandline_opts opts = {
 		.err_node   = node,
 		.input      = input,

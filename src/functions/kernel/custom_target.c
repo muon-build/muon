@@ -170,7 +170,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	case key_depfile:
 		/* @DEPFILE@: the full path to the dependency file passed to
 		 * depfile */
-		str_relative_to_build_root(wk, ctx, get_cstr(wk, ctx->opts->depfile), elem);
+		str_relative_to_build_root(wk, ctx, get_file_path(wk, ctx->opts->depfile), elem);
 		return format_cb_found;
 	case key_source_root:
 		/* @SOURCE_ROOT@: the path to the root of the source tree.
@@ -527,13 +527,38 @@ make_custom_target(struct workspace *wk,
 		output = 0;
 	}
 
+	obj depfile = 0;
+	if (opts->depfile_orig) {
+		obj raw_depfiles;
+		if (!coerce_output_files(wk, 0, opts->depfile_orig, opts->output_dir, &raw_depfiles)) {
+			return false;
+		}
+
+		if (!obj_array_flatten_one(wk, raw_depfiles, &depfile)) {
+			UNREACHABLE;
+		}
+
+		struct custom_target_cmd_fmt_ctx ctx = {
+			.opts = &(struct process_custom_target_commandline_opts) {
+				.input = input,
+			},
+		};
+
+		obj depfile_formatted;
+		if (!string_format(wk, 0, *get_obj_file(wk, depfile), &depfile_formatted, &ctx, format_cmd_output_cb)) {
+			return ir_err;
+		}
+
+		*get_obj_file(wk, depfile) = depfile_formatted;
+	}
+
 	struct process_custom_target_commandline_opts cmdline_opts = {
 		.err_node   = opts->command_node,
 		.relativize = true,
 		.name       = opts->name,
 		.input      = input,
 		.output     = output,
-		.depfile    = opts->depfile_orig,
+		.depfile    = depfile,
 		.build_dir  = opts->build_dir,
 		.extra_args = opts->extra_args,
 		.extra_args_valid = opts->extra_args_valid,
@@ -558,6 +583,7 @@ make_custom_target(struct workspace *wk,
 	tgt->args = args;
 	tgt->input = input;
 	tgt->output = output;
+	tgt->depfile = depfile;
 	tgt->depends = cmdline_opts.depends;
 	return true;
 }
