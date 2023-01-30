@@ -372,9 +372,8 @@ translate_meson_opts(struct workspace *wk, uint32_t argc, uint32_t argi, char *a
 	uint32_t *new_argc, uint32_t *new_argi, char **new_argv[])
 {
 	if (argc - argi < 1) {
-		*new_argc = argc;
-		*new_argv = argv;
-		return true;
+		LOG_E("missing subcommand");
+		return false;
 	}
 
 	translate_meson_opts_func translate_func;
@@ -388,6 +387,9 @@ translate_meson_opts(struct workspace *wk, uint32_t argc, uint32_t argi, char *a
 	} else if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--version") == 0) {
 		printf("%s\n", muon_version.meson_compat);
 		exit(0);
+	} else if (strcmp(argv[argi], "-h") == 0) {
+		printf("This is the muon meson cli compatibility layer.  Help not available.\n");
+		exit(1);
 	} else {
 		LOG_E("unknown subcommand '%s'", argv[argi]);
 		return false;
