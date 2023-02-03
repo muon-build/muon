@@ -363,6 +363,10 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		if (!get_dependency(wk, ctx)) {
 			return false;
 		}
+
+		if (!ctx->found) {
+			*handled = false;
+		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
 		*handled = true;
 		if (!ctx->modules) {
