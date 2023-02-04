@@ -20,6 +20,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
+#include "platform/path.h"
 #include "platform/run_cmd.h"
 
 const char *
@@ -334,7 +335,7 @@ compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 				.len = e ? (uint32_t)(e - s) : strlen(s),
 			};
 
-			comp->libdirs = str_split(wk, &str, &WKSTR(":"));
+			comp->libdirs = str_split(wk, &str, &WKSTR(ENV_PATH_SEP_STR));
 			goto done;
 		}
 
