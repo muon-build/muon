@@ -41,7 +41,7 @@ enum copy_pipe_result {
  * [X] run_cmd_ctx_close_pipes()
  * [X] run_cmd_collect()
  * [X] open_run_cmd_pipe()
- * [ ] run_cmd_internal()
+ * [X] run_cmd_internal()
  * [X] run_cmd_argv()
  * [X] run_cmd()
  * [X] run_cmd_ctx_destroy()
@@ -64,22 +64,20 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 		ctx->buf = z_calloc(1, ctx->size + 1);
 	}
 
-	do {
+	while (1) {
 		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
 
-		printf(" ** bytes read: %lu %d %d\n", bytes_read, res, GetLastError() != ERROR_MORE_DATA);
-		fflush(stdout);
 		if (!res && GetLastError() != ERROR_MORE_DATA) {
 			break;
 		}
 
 		ctx->len += bytes_read;
 		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
-			ctx->size *= 2;
+			ctx->size += COPY_PIPE_BLOCK_SIZE;
 			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
-			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
+			memset(ctx->buf + ctx->len, 0, (ctx->size + 1) - ctx->len);
 		}
-	} while (!res);
+	}
 
 	if (!res) {
 		if (GetLastError() != ERROR_BROKEN_PIPE) {
@@ -109,7 +107,6 @@ copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
 	z_free(ctx->buf);
 	ctx->buf = buf;
 	ctx->len = len;
-	LOG_E(" ** resultat 2 : '%s'", ctx->buf);
 
 	return copy_pipe_result_finished;
 }
@@ -158,36 +155,32 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 {
 	enum copy_pipe_result pipe_res = 0;
 
-	while (true) {
+	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+			return run_cmd_error;
+		}
+	}
+
+	if (ctx->flags & run_cmd_ctx_flag_async) {
+	} else {
 		DWORD res;
 		DWORD status;
 
-		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
-				return run_cmd_error;
-			}
+		res = WaitForSingleObject(ctx->process, INFINITE);
+		switch (res) {
+		case WAIT_OBJECT_0:
+			 break;
+		default:
+			 ctx->err_msg = "child exited abnormally";
+			 return run_cmd_error;
 		}
 
-		if (ctx->flags & run_cmd_ctx_flag_async) {
-		} else {
-			res = WaitForSingleObject(ctx->process, INFINITE);
-			switch (res) {
-			case WAIT_OBJECT_0:
-				break;
-			default:
-				ctx->err_msg = "child exited abnormally";
-				return run_cmd_error;
-			}
-
-			if (!GetExitCodeProcess(ctx->process, &status)) {
-				ctx->err_msg = "can not get process exit code";
-				return run_cmd_error;
-			}
-
-			ctx->status = (int)status;
-
-			break;
+		if (!GetExitCodeProcess(ctx->process, &status)) {
+			 ctx->err_msg = "can not get process exit code";
+			 return run_cmd_error;
 		}
+
+		ctx->status = (int)status;
 	}
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
@@ -234,15 +227,15 @@ open_pipes(HANDLE *pipe, const char *name)
 	pipe[1] = CreateFile(buf, GENERIC_WRITE, 0UL, &sa, OPEN_EXISTING, 0UL, NULL);
 	if (pipe[1] == INVALID_HANDLE_VALUE) {
 		LOG_E("failed to create write end of the pipe: %s", win32_error());
-		CloseHandle(pipe[0]);
+		CLOSE_PIPE(pipe[0]);
 		return false;
 	}
 
 	connected = ConnectNamedPipe(pipe[0], NULL);
 	if (connected == 0 && GetLastError() != ERROR_PIPE_CONNECTED) {
 		LOG_E("failed to connect to pipe: %s", win32_error());
-		CloseHandle(pipe[1]);
-		CloseHandle(pipe[0]);
+		CLOSE_PIPE(pipe[1]);
+		CLOSE_PIPE(pipe[0]);
 		return false;
 	}
 
@@ -276,10 +269,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
 	const char *p;
-	SBUF_manual(cmd);
 	BOOL res;
 
-	LOG_E(" * %s : cmd line: %s", __func__, command_line);
 	if (envstr) {
 		const char *k;
 		uint32_t i = 0;
@@ -301,7 +292,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	}
 
 	if (log_should_print(log_debug)) {
-		LL("executing '%s': '%s'\n", cmd.buf, command_line);
+		LL("executing : '%s'\n", command_line);
 
 		if (envstr) {
 			const char *k;
@@ -363,8 +354,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		}
 	}
 
-	LOG_E(" * %s: $%s$ $%s$", __func__, cmd.buf, command_line);
-	res = CreateProcess(NULL, command_line, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ctx->chdir, &si, &pi);
+	res = CreateProcess(NULL, command_line, NULL, NULL, TRUE, 0UL, NULL, ctx->chdir, &si, &pi);
 	if (!res) {
 		LOG_E("CreateProcess() failed: %s", win32_error());
 		goto err;
@@ -374,10 +364,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
 
 	ctx->process = pi.hProcess;
-	//CloseHandle(pi.hThread);
-	ResumeThread(pi.hThread);
-
-	sbuf_destroy(&cmd);
+	//CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 
 	if (ctx->flags & run_cmd_ctx_flag_async) {
 		return true;
@@ -426,9 +414,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 	sbuf_clear(cmd);
 	sbuf_clear(cmd_argv0);
 	sbuf_pushs(NULL, cmd_argv0, argv0);
-
-	LOG_E("******* argv0 %s", argv0);
-	LOG_E("******* cmd   %s", cmd_argv0->buf);
 
 	if (!path_is_basename(cmd_argv0->buf)) {
 		path_make_absolute(NULL, cmd_argv0, argv0);
@@ -510,8 +495,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 		sbuf_push(NULL, cmd, '\"');
 	}
 
-	LOG_E("$*$*$* : 0x%p '%s' '%s'", argstr, new_argv0 ? new_argv0 : "NULL", new_argv1 ? new_argv1:"NULL");
-
 	if (new_argv0) {
 		if (new_argv1) {
 			sbuf_push(NULL, cmd, '\"');
@@ -525,7 +508,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 	}
 
 	if (argstr) {
-		LOG_E(" ** argstr !");
 		const char *p = argstr;
 		for (;; ++p) {
 			if (!*p) {
@@ -533,7 +515,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 				if (!*p) {
 					break;
 				}
-				LOG_E(" ** p : %s", p);
 				sbuf_push(NULL, cmd, ' ');
 				sbuf_push(NULL, cmd, '\"');
 				const char *it;
@@ -555,7 +536,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 			sbuf_push(NULL, cmd, '\"');
 		}
 	}
-	LOG_E("last quote : '%s'", cmd->buf);
 
 	return true;
 }
@@ -607,6 +587,7 @@ err:
 void
 run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
+	CloseHandle(ctx->process);
 	run_cmd_ctx_close_pipes(ctx);
 
 	if (ctx->out.size) {
