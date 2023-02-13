@@ -61,7 +61,7 @@ muon_pkgconf_init(struct workspace *wk)
 	const struct str *pkg_config_path = get_str(wk, opt);
 
 #ifdef MUON_STATIC
-	if (!pkg_config_path->len && !getenv("PKG_CONFIG_PATH")) {
+	if (!pkg_config_path->len) {
 		LOG_E("Unable to determine pkgconf search path.  Please set "
 			"PKG_CONFIG_PATH or -Dpkg_config_path to an appropriate value.");
 		return false;
@@ -73,11 +73,10 @@ muon_pkgconf_init(struct workspace *wk)
 	} else {
 		// pkgconf_client_dir_list_build uses PKG_CONFIG_PATH and
 		// PKG_CONFIG_LIBDIR from the environment, as well as the
-		// builtin path (personality->dir_list).
-		//
-		// Leaving this here just in case it ever looks like that is a
-		// bad idea.
-		// pkgconf_path_copy_list(&client.dir_list, &personality->dir_list);
+		// builtin path (personality->dir_list).  We currently
+		// intercept PKG_CONFIG_PATH and turn it into an option, so the
+		// above branch should always be taken if PKG_CONFIG_PATH is
+		// set.
 		pkgconf_client_dir_list_build(&pkgconf_ctx.client, pkgconf_ctx.personality);
 	}
 

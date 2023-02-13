@@ -606,7 +606,6 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 		UNREACHABLE;
 	}
 
-
 	if ((flags = getenv(flags)) && *flags) {
 		extend_array_option(wk, opt, str_split(wk, &WKSTR(flags), NULL),
 			option_value_source_environment);
@@ -615,6 +614,20 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 	if ((extra = getenv(extra)) && *extra) {
 		extend_array_option(wk, opt, str_split(wk, &WKSTR(extra), NULL),
 			option_value_source_environment);
+	}
+}
+
+static void
+set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt_name)
+{
+	obj opt;
+	if (!get_option(wk, NULL, &WKSTR(opt_name), &opt)) {
+		UNREACHABLE;
+	}
+
+	const char *env_val;
+	if ((env_val = getenv(env_name)) && *env_val) {
+		set_option(wk, 0, opt, make_str(wk, env_val), option_value_source_environment, false);
 	}
 }
 
@@ -774,6 +787,7 @@ init_global_options(struct workspace *wk)
 	set_binary_from_env(wk, "NASM", "env.NASM");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
+	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path");
 #endif
 
 	return true;
