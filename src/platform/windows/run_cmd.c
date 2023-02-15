@@ -136,6 +136,10 @@ copy_pipes(struct run_cmd_ctx *ctx)
 static void
 run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 {
+	if (!ctx->close_pipes) {
+		return;
+	}
+
 	CLOSE_PIPE(ctx->pipe_err.pipe[0]);
 	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
 	CLOSE_PIPE(ctx->pipe_out.pipe[0]);
@@ -260,6 +264,8 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 		return false;
 	}
 
+	ctx->close_pipes = true;
+
 	return true;
 }
 
@@ -364,7 +370,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
 
 	ctx->process = pi.hProcess;
-	//CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
 	if (ctx->flags & run_cmd_ctx_flag_async) {

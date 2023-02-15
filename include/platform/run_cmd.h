@@ -43,6 +43,7 @@ struct run_cmd_ctx {
 	enum run_cmd_ctx_flags flags;
 #ifdef _WIN32
 	HANDLE process;
+	bool close_pipes;
 	struct {
 		OVERLAPPED overlap;
 		HANDLE pipe[2];
