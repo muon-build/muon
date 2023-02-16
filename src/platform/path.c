@@ -69,6 +69,7 @@ _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 		return;
 	}
 
+	path_to_posix(buf->buf);
 	part = buf->buf;
 
 	if (*part == PATH_SEP) {
@@ -303,6 +304,9 @@ path_without_ext(struct workspace *wk, struct sbuf *buf, const char *path)
 
 	bool have_ext = false;
 
+	SBUF_manual(tmp);
+	path_copy(NULL, &tmp, path);
+	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == '.') {
 			have_ext = true;
@@ -318,6 +322,7 @@ path_without_ext(struct workspace *wk, struct sbuf *buf, const char *path)
 		path_copy(wk, buf, path);
 	}
 	_path_normalize(wk, buf, false);
+	sbuf_destroy(&tmp);
 }
 
 void
@@ -331,6 +336,9 @@ path_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 		return;
 	}
 
+	SBUF_manual(tmp);
+	path_copy(NULL, &tmp, path);
+	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
 			++i;
@@ -344,6 +352,7 @@ path_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 
 	sbuf_pushs(wk, buf, &path[i]);
 	_path_normalize(wk, buf, false);
+	sbuf_destroy(&tmp);
 }
 
 void
@@ -357,13 +366,18 @@ path_dirname(struct workspace *wk, struct sbuf *buf, const char *path)
 		goto return_dot;
 	}
 
+	SBUF_manual(tmp);
+	path_copy(NULL, &tmp, path);
+	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
 			sbuf_pushn(wk, buf, path, i);
 			_path_normalize(wk, buf, false);
+			sbuf_destroy(&tmp);
 			return;
 		}
 	}
+	sbuf_destroy(&tmp);
 
 return_dot:
 	sbuf_pushs(wk, buf, ".");
@@ -376,20 +390,33 @@ path_is_subpath(const char *base, const char *sub)
 		return false;
 	}
 
+	SBUF_manual(base_tmp);
+	SBUF_manual(sub_tmp);
+	path_copy(NULL, &base_tmp, base);
+	base = base_tmp.buf;
+	path_copy(NULL, &sub_tmp, sub);
+	sub = sub_tmp.buf;
+
 	uint32_t i = 0;
 	while (true) {
 		if (!base[i]) {
 			assert(i);
 			if (sub[i] == PATH_SEP || sub[i - 1] == PATH_SEP) {
+				sbuf_destroy(&sub_tmp);
+				sbuf_destroy(&base_tmp);
 				return true;
 			}
 		}
 
 		if (base[i] == sub[i]) {
 			if (!base[i]) {
+				sbuf_destroy(&sub_tmp);
+				sbuf_destroy(&base_tmp);
 				return true;
 			}
 		} else {
+			sbuf_destroy(&sub_tmp);
+			sbuf_destroy(&base_tmp);
 			return false;
 		}
 

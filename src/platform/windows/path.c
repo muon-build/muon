@@ -51,3 +51,15 @@ path_is_basename(const char *path)
 
 	return true;
 }
+
+void
+path_to_posix(char *path)
+{
+	char *iter = path;
+	while (*iter) {
+		if (*iter == '\\') {
+			*iter = '/';
+		}
+		iter++;
+	}
+}

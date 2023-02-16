@@ -20,3 +20,8 @@ path_is_basename(const char *path)
 {
 	return strchr(path, PATH_SEP) == NULL;
 }
+
+void path_to_posix(char *path)
+{
+	(void)path;
+}

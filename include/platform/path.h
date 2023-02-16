@@ -8,11 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifdef _WIN32
-#define PATH_SEP '\\'
-#else
 #define PATH_SEP '/'
-#endif
 
 #ifdef _WIN32
 #define ENV_PATH_SEP ';'
@@ -53,4 +49,5 @@ void path_basename(struct workspace *wk, struct sbuf *buf, const char *path);
 void path_dirname(struct workspace *wk, struct sbuf *buf, const char *path);
 void path_executable(struct workspace *wk, struct sbuf *buf, const char *path);
 void _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize);
+void path_to_posix(char *path);
 #endif
