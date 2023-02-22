@@ -13,7 +13,6 @@ struct args {
 	uint32_t len;
 };
 
-void shell_escape(struct workspace *wk, struct sbuf *sb, const char *str);
 void ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str);
 void pkgconf_escape(struct workspace *wk, struct sbuf *sb, const char *str);
 
