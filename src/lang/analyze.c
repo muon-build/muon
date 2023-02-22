@@ -510,7 +510,8 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 		});
 	}
 
-	if (!analyze_function(wk, fi, args_node, rcvr, &func_res) || analyze_error) {
+	bool was_pure;
+	if (!analyze_function(wk, fi, args_node, rcvr, &func_res, &was_pure) || analyze_error) {
 		if (subdir_func && analyze_opts->subdir_error) {
 			interp_error(wk, n_id, "in subdir");
 		}
@@ -518,6 +519,10 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	}
 
 	if (subdir_func) {
+		if (!was_pure) {
+			interp_warning(wk, n_id, "unable to analyze subdir call");
+		}
+
 		darr_del(&analyze_entrypoint_stack, analyze_entrypoint_stack.len - 1);
 	}
 

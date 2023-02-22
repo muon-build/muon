@@ -854,7 +854,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 }
 
 bool
-analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t args_node, obj rcvr, obj *res)
+analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure)
 {
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	*res = 0;
@@ -881,6 +881,8 @@ analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t
 	bool ok = !analyze_function_opts.encountered_error;
 
 	analyze_function_opts = old_opts;
+
+	*was_pure = pure;
 
 	if (pure) {
 		return func_ret;
