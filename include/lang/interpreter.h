@@ -18,6 +18,9 @@ bool interp_node(struct workspace *wk, uint32_t n_id, obj *res);
 bool interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
 	obj *res);
+bool interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj *res);
+bool interp_stringify(struct workspace *wk, struct node *n, obj *res);
+bool interp_comparison(struct workspace *wk, struct node *n, obj *res);
 
 void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 __attribute__ ((format(printf, 3, 4)));

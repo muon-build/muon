@@ -318,8 +318,8 @@ interp_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	}
 }
 
-static bool
-interp_index(struct workspace *wk, struct node *n, obj l_id, obj *res)
+bool
+interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj *res)
 {
 	obj r_id;
 	obj tmp = 0;
@@ -396,7 +396,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, obj *res)
 		return false;
 	}
 
-	if (n->chflg & node_child_d) {
+	if (do_chain && (n->chflg & node_child_d)) {
 		return interp_chained(wk, n->d, tmp, res);
 	} else {
 		*res = tmp;
@@ -413,7 +413,7 @@ interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	case node_method:
 		return interp_method(wk, node_id, l_id, res);
 	case node_index:
-		return interp_index(wk, n, l_id, res);
+		return interp_index(wk, n, l_id, true, res);
 	default:
 		assert(false && "unreachable");
 		break;
@@ -649,6 +649,7 @@ interp_array(struct workspace *wk, uint32_t n_id, obj *res)
 	obj l, r;
 
 	struct node *n = get_node(wk->ast, n_id);
+	n->chflg |= node_visited;
 
 	if (n->type == node_empty) {
 		make_obj(wk, res, obj_array);
@@ -699,6 +700,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 	obj key, value, tail;
 
 	struct node *n = get_node(wk->ast, n_id);
+	n->chflg |= node_visited;
 
 	if (n->type == node_empty) {
 		make_obj(wk, res, obj_dict);
@@ -792,11 +794,12 @@ interp_andor(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
-	if (n->type == node_and && !get_obj_bool(wk, obj_l_id)) {
+	bool cond = get_obj_bool(wk, obj_l_id);
+	if (n->type == node_and && !cond) {
 		make_obj(wk, res, obj_bool);
 		set_obj_bool(wk, *res, false);
 		return true;
-	} else if (n->type == node_or && get_obj_bool(wk, obj_l_id)) {
+	} else if (n->type == node_or && cond) {
 		make_obj(wk, res, obj_bool);
 		set_obj_bool(wk, *res, true);
 		return true;
@@ -816,7 +819,7 @@ interp_andor(struct workspace *wk, struct node *n, obj *res)
 	return true;
 }
 
-static bool
+bool
 interp_comparison(struct workspace *wk, struct node *n, obj *res)
 {
 	bool b;
@@ -1153,7 +1156,7 @@ interp_func(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 }
 
-static bool
+bool
 interp_stringify(struct workspace *wk, struct node *n, obj *res)
 {
 	obj l_id;
@@ -1176,6 +1179,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
+	n->chflg |= node_visited; // for analyzer
 
 	/* L("%s", node_to_s(n)); */
 	if (wk->subdir_done) {

@@ -96,7 +96,7 @@ struct workspace {
 	struct hash scope;
 	struct hash obj_hash;
 
-	uint32_t loop_depth;
+	uint32_t loop_depth, impure_loop_depth;
 	enum loop_ctl loop_ctl;
 	bool subdir_done;
 

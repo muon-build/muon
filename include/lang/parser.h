@@ -84,6 +84,10 @@ enum node_child_flag {
 	node_child_d = 1 << 3,
 };
 
+enum {
+	node_visited = 1 << 4, // for analyzer
+};
+
 struct node {
 	enum node_type type;
 	uint32_t line, col;

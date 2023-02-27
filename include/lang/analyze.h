@@ -24,6 +24,7 @@ struct analyze_opts {
 
 bool analyze_diagnostic_name_to_enum(const char *name, enum analyze_diagnostic *ret);
 void analyze_print_diagnostic_names(void);
+bool analyze_check_dead_code(struct workspace *wk, struct ast *ast);
 
 bool do_analyze(struct analyze_opts *opts);
 #endif

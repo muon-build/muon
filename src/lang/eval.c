@@ -10,6 +10,7 @@
 
 #include "error.h"
 #include "external/bestline.h"
+#include "lang/analyze.h"
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/parser.h"
@@ -146,6 +147,10 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	if (wk->subdir_done) {
 		wk->subdir_done = false;
+	}
+
+	if (wk->in_analyzer) {
+		ret &= analyze_check_dead_code(wk, &ast);
 	}
 
 	wk->src = old_src;

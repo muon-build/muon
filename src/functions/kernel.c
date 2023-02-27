@@ -1962,7 +1962,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ "files", func_files, tc_array },
 	{ "find_program", func_find_program, tc_external_program },
 	{ "generator", func_generator, tc_generator },
-	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, true },
+	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, },
 	{ "get_variable", func_get_variable, tc_any, true },
 	{ "import", func_import, tc_module, true },
 	{ "include_directories", func_include_directories, tc_array },
@@ -1995,7 +1995,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ "warning", func_warning },
 	// non-standard muon extensions
 	{ "dbg", func_dbg, .extension = true },
-	{ "p", func_p, .extension = true },
+	{ "p", func_p, 0, true, .extension = true },
 	{ NULL, NULL },
 };
 

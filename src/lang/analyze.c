@@ -323,9 +323,18 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 	}
 
 	struct assignment *a;
+	if (wk->impure_loop_depth && (a = assign_lookup(wk, name))) {
+		/* L("%s reassigned / shadowed variable in impure loop", name); */
+		enum obj_type new_type = get_obj_type(wk, o);
+		if (new_type != obj_typeinfo && !obj_equal(wk, a->o, o)) {
+			o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
+		}
+	}
+
 	if ((a = assign_lookup_scope(name, s))) {
 		// re-assign
 		check_reassign_to_different_type(wk, a, o, NULL, n_id);
+
 		a->o = o;
 		return a;
 	}
@@ -392,6 +401,27 @@ push_scope_group(void)
 }
 
 static void
+merge_objects(struct workspace *wk, struct assignment *new, struct assignment *old)
+{
+	type_tag new_type = get_obj_type(wk, new->o);
+	type_tag old_type = get_obj_type(wk, old->o);
+
+	if (new_type != obj_typeinfo) {
+		new->o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
+	}
+
+	if (old_type != obj_typeinfo) {
+		old->o = make_typeinfo(wk, obj_type_to_tc_type(old_type), 0);
+	}
+
+	check_reassign_to_different_type(wk, new, old->o, old, 0);
+	merge_types(wk, get_obj_typeinfo(wk, new->o), old->o);
+
+	assert(get_obj_type(wk, new->o) == obj_typeinfo);
+	assert(get_obj_type(wk, old->o) == obj_typeinfo);
+}
+
+static void
 pop_scope_group(struct workspace *wk)
 {
 	assert(assignment_scopes.groups.len);
@@ -399,24 +429,20 @@ pop_scope_group(struct workspace *wk)
 	struct scope_group *g = darr_get(&assignment_scopes.groups, idx);
 	darr_del(&assignment_scopes.groups, idx);
 
+	if (!g->scopes.len) {
+		// empty scope group
+		return;
+	}
+
 	struct darr *base = darr_get(&g->scopes, 0);
 
 	uint32_t i, j;
 	for (i = 1; i < g->scopes.len; ++i) {
 		struct darr *scope = darr_get(&g->scopes, i);
 		for (j = 0; j < scope->len; ++j) {
-			struct assignment *old, *a = darr_get(scope, j);
-			if ((old = assign_lookup_scope(a->name, base))) {
-				if (get_obj_type(wk, old->o) != obj_typeinfo) {
-					obj old_tc = make_typeinfo(wk, obj_type_to_tc_type(get_obj_type(wk, old->o)), 0);
-					old->o = old_tc;
-				}
-
-				if (a->o) {
-					// re-assign
-					check_reassign_to_different_type(wk, old, a->o, a, 0);
-					merge_types(wk, get_obj_typeinfo(wk, old->o), a->o);
-				}
+			struct assignment *b, *a = darr_get(scope, j);
+			if ((b = assign_lookup_scope(a->name, base))) {
+				merge_objects(wk, b, a);
 			} else {
 				darr_push(base, a);
 			}
@@ -425,16 +451,14 @@ pop_scope_group(struct workspace *wk)
 
 	for (i = 0; i < base->len; ++i) {
 		struct assignment *a = darr_get(base, i), *b;
-
 		if ((b = assign_lookup(wk, a->name))) {
-			type_tag new_type = get_obj_type(wk, b->o);
-			if (new_type != obj_typeinfo) {
-				b->o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
+			merge_objects(wk, b, a);
+		} else {
+			type_tag type = get_obj_type(wk, a->o);
+			if (type != obj_typeinfo) {
+				a->o = make_typeinfo(wk, obj_type_to_tc_type(type), 0);
 			}
 
-			check_reassign_to_different_type(wk, b, a->o, a, 0);
-			merge_types(wk, get_obj_typeinfo(wk, b->o), a->o);
-		} else {
 			b = scope_assign(wk, a->name, a->o, 0);
 			b->accessed = a->accessed;
 			b->line = a->line;
@@ -454,6 +478,45 @@ pop_scope_group(struct workspace *wk)
  *-----------------------------------------------------------------------------
  */
 
+static enum iteration_result
+is_dict_with_pure_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	if (get_obj_type(wk, k) == obj_typeinfo) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+is_dict_with_pure_keys(struct workspace *wk, obj o)
+{
+	return obj_dict_foreach(wk, o, NULL, is_dict_with_pure_keys_iter);
+}
+
+static bool
+is_pure_arithmetic_object(struct workspace *wk, obj o)
+{
+	switch (get_obj_type(wk, o)) {
+	case obj_typeinfo:
+		return false;
+	case obj_dict:
+		return is_dict_with_pure_keys(wk, o);
+	default:
+		return true;
+	}
+}
+
+static void
+mark_node_visited(struct node *n)
+{
+	n->chflg |= node_visited;
+}
+
+/*
+ *-----------------------------------------------------------------------------
+ */
+
 static bool
 analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t args_node)
 {
@@ -464,9 +527,13 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 	uint32_t val_node;
 
 	while (args->type != node_empty) {
+		mark_node_visited(args);
+
 		if (args->subtype == arg_kwarg) {
 			had_kwargs = true;
 			val_node = args->r;
+
+			mark_node_visited(get_node(wk->ast, args->l));
 		} else {
 			if (had_kwargs) {
 				interp_error(wk, args_node, "non-kwarg after kwargs");
@@ -499,6 +566,8 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	analyze_error = false;
 
 	bool subdir_func = !rcvr && strcmp(fi->name, "subdir") == 0;
+
+	analyze_all_function_arguments(wk, n_id, args_node);
 
 	if (subdir_func) {
 		struct node *n = get_node(wk->ast, n_id);
@@ -545,6 +614,8 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 	struct node *n = get_node(wk->ast, n_id);
 
 	const char *name = get_node(wk->ast, n->r)->dat.s;
+	mark_node_visited(get_node(wk->ast, n->r));
+
 	const struct func_impl_name *fi;
 
 	if (rcvr_type == obj_module
@@ -616,6 +687,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 {
 	bool ret = true;
 	struct node *n = get_node(wk->ast, n_id);
+	mark_node_visited(n);
 	obj tmp = 0;
 
 	switch (n->type) {
@@ -626,10 +698,11 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 
 		if (ctx.found == 1) {
 			if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
-				analyze_all_function_arguments(wk, n_id, n->c);
 				ret = false;
 			}
 		} else if (ctx.found) {
+			analyze_all_function_arguments(wk, n_id, n->c);
+
 			if (ctx.expected) {
 				tmp = make_typeinfo(wk, ctx.expected, 0);
 			}
@@ -668,6 +741,10 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 			if (typecheck(wk, n->r, r, ctx.expected)) {
 				ret &= true;
 			}
+
+			if (is_pure_arithmetic_object(wk, l_id) && is_pure_arithmetic_object(wk, r)) {
+				ret &= interp_index(wk, n, l_id, false, &tmp);
+			}
 		} else {
 			tmp = make_typeinfo(wk, tc_any, 0);
 		}
@@ -695,6 +772,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 	struct node *n = get_node(wk->ast, n_id);
 
 	const char *name = get_node(wk->ast, n->l)->dat.s;
+	mark_node_visited(get_node(wk->ast, n->l));
 
 	const struct func_impl_name *fi;
 
@@ -707,7 +785,6 @@ analyze_func(struct workspace *wk, uint32_t n_id, obj *res)
 		tmp = make_typeinfo(wk, tc_any, 0);
 	} else {
 		if (!analyze_function_call(wk, n_id, n->r, fi, 0, &tmp)) {
-			analyze_all_function_arguments(wk, n_id, n->r);
 			ret = false;
 		}
 	}
@@ -768,29 +845,6 @@ analyze_arithmetic_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 	}
 	default:
 		UNREACHABLE;
-	}
-}
-
-static enum iteration_result
-is_pure_arithmetic_object_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
-{
-	if (get_obj_type(wk, k) == obj_typeinfo) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static bool
-is_pure_arithmetic_object(struct workspace *wk, obj o)
-{
-	switch (get_obj_type(wk, o)) {
-	case obj_typeinfo:
-		return false;
-	case obj_dict:
-		return !obj_dict_foreach(wk, o, NULL, is_pure_arithmetic_object_dict_iter);
-	default:
-		return true;
 	}
 }
 
@@ -886,6 +940,20 @@ analyze_andor(struct workspace *wk, struct node *n, obj *res)
 		ret = false;
 	}
 
+	if (is_pure_arithmetic_object(wk, l)) {
+		bool cond = get_obj_bool(wk, l);
+
+		if (n->type == node_and && !cond) {
+			make_obj(wk, res, obj_bool);
+			set_obj_bool(wk, *res, false);
+			return true;
+		} else if (n->type == node_or && cond) {
+			make_obj(wk, res, obj_bool);
+			set_obj_bool(wk, *res, true);
+			return true;
+		}
+	}
+
 	if (!wk->interp_node(wk, n->r, &r)) {
 		ret = false;
 	} else if (ret && !typecheck(wk, n->r, r, obj_bool)) {
@@ -968,6 +1036,10 @@ analyze_comparison(struct workspace *wk, struct node *n, obj *res)
 		ret = false;
 	}
 
+	if (is_pure_arithmetic_object(wk, l) && is_pure_arithmetic_object(wk, r)) {
+		ret = interp_comparison(wk, n, res);
+	}
+
 	if (!ret) {
 		*res = make_typeinfo(wk, tc_bool, 0);
 	}
@@ -986,15 +1058,35 @@ analyze_ternary(struct workspace *wk, struct node *n, obj *res)
 		ret = false;
 	}
 
+	bool pure_cond = false, cond = false;
+	if (ret && is_pure_arithmetic_object(wk, cond_id)) {
+		pure_cond = true;
+		cond = get_obj_bool(wk, cond_id);
+	}
+
 	struct obj_typeinfo res_t = { 0 };
 	obj a = 0, b = 0;
 
-	if (!wk->interp_node(wk, n->r, &a)) {
-		ret = false;
+	if (!pure_cond || (pure_cond && cond)) {
+		if (!wk->interp_node(wk, n->r, &a)) {
+			ret = false;
+		}
+
+		if (ret && pure_cond) {
+			*res = a;
+			return true;
+		}
 	}
 
-	if (!wk->interp_node(wk, n->c, &b)) {
-		ret = false;
+	if (!pure_cond || (pure_cond && !cond)) {
+		if (!wk->interp_node(wk, n->c, &b)) {
+			ret = false;
+		}
+
+		if (ret && pure_cond) {
+			*res = b;
+			return true;
+		}
 	}
 
 	if (!a && !b) {
@@ -1017,7 +1109,21 @@ analyze_ternary(struct workspace *wk, struct node *n, obj *res)
 static bool
 analyze_if(struct workspace *wk, struct node *n, obj *res)
 {
+	// Push the scope group before evaluating the condition, because the
+	// condition may involve variables that were set in the block of the
+	// previous branch, e.g.
+	//
+	// if a == 1 a = 2 elseif a == 3 a = 3 endif
+	//
+	// If push_scope_group_scope() happened _after_ evaulating the
+	// condition, then inside the expression `elseif a == 2`, `a` would be
+	// looked up in the previous branches scope, leading the analyzer to
+	// wrongly conclude the value `a` is constant 2 in the current scope,
+	// and marking the elsif branch as dead code.
+	push_scope_group_scope();
+
 	bool ret = true;
+	bool pure_cond = false, cond = false;
 
 	switch ((enum if_type)n->subtype) {
 	case if_if:
@@ -1029,18 +1135,31 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 			ret = false;
 		}
 
+		if (ret && is_pure_arithmetic_object(wk, cond_id)) {
+			cond = get_obj_bool(wk, cond_id);
+			pure_cond = true;
+		}
 		break;
 	}
 	case if_else:
+		cond = true;
+		pure_cond = true;
 		break;
 	default:
 		UNREACHABLE_RETURN;
 	}
 
-	push_scope_group_scope();
-	// if block
-	if (!wk->interp_node(wk, n->r, res)) {
-		ret = false;
+	if (pure_cond && !cond) {
+		// don't evaluate this block
+	} else {
+		// if block
+		if (!wk->interp_node(wk, n->r, res)) {
+			ret = false;
+		}
+	}
+
+	if (pure_cond && cond) {
+		return true;
 	}
 
 	if (n->chflg & node_child_c) {
@@ -1102,41 +1221,60 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		}
 	}
 
-	if (get_obj_type(wk, iterable) != obj_typeinfo) {
-		uint32_t len;
-		switch (get_obj_type(wk, iterable)) {
-		case obj_dict:
-			len = get_obj_dict(wk, iterable)->len;
-			break;
-		case obj_array:
-			len = get_obj_array(wk, iterable)->len;
-			break;
-		default:
-			UNREACHABLE;
-		}
 
-		if (len) {
-			return interp_node(wk, n_id, res);
-		}
+	uint32_t n_l = args->l, n_r;
+	if (args->chflg & node_child_r) {
+		// two variables
+		n_r = get_node(wk->ast, args->r)->l;
+		mark_node_visited(get_node(wk->ast, n_l));
+		mark_node_visited(get_node(wk->ast, n_r));
+	} else {
+		mark_node_visited(get_node(wk->ast, n_l));
+	}
+
+	if (get_obj_type(wk, iterable) != obj_typeinfo) {
+		/* uint32_t len; */
+		/* switch (get_obj_type(wk, iterable)) { */
+		/* case obj_dict: */
+		/* 	len = get_obj_dict(wk, iterable)->len; */
+		/* 	break; */
+		/* case obj_array: */
+		/* 	len = get_obj_array(wk, iterable)->len; */
+		/* 	break; */
+		/* default: */
+		/* 	UNREACHABLE; */
+		/* } */
+
+		/* if (len) { */
+		return interp_node(wk, n_id, res);
+		/* } */
 	}
 
 	push_scope_group();
 	push_scope_group_scope();
 
-	uint32_t n_l = args->l, n_r;
-
 	if (args->chflg & node_child_r) {
 		// two variables
 		n_r = get_node(wk->ast, args->r)->l;
+
 		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_string, 0), n_l);
 		scope_assign(wk, get_node(wk->ast, n_r)->dat.s, make_typeinfo(wk, tc_any, 0), n_r);
 	} else {
 		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l);
 	}
 
+	++wk->impure_loop_depth;
 	if (!wk->interp_node(wk, n->c, res)) {
 		ret = false;
 	}
+
+	// interpret a second time to catch variables whose constness are
+	// invalidated by the first iteration, e.g.
+	// i += 1
+	if (!wk->interp_node(wk, n->c, res)) {
+		ret = false;
+	}
+	--wk->impure_loop_depth;
 
 	pop_scope_group(wk);
 
@@ -1157,6 +1295,10 @@ analyze_stringify(struct workspace *wk, struct node *n, obj *res)
 		return false;
 	}
 
+	if (is_pure_arithmetic_object(wk, l_id)) {
+		return interp_stringify(wk, n, res);
+	}
+
 	return true;
 }
 
@@ -1169,6 +1311,8 @@ analyze_assign(struct workspace *wk, struct node *n)
 		ret = false;
 		rhs = make_typeinfo(wk, tc_any, 0);
 	}
+
+	mark_node_visited(get_node(wk->ast, n->l));
 
 	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l);
 	return ret;
@@ -1195,6 +1339,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	*res = 0;
 
 	struct node *n = get_node(wk->ast, n_id);
+	mark_node_visited(n);
 	/* L("analyzing node '%s'@%d", node_to_s(n)); */
 
 	if (wk->loop_ctl) {
@@ -1318,6 +1463,37 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		analyze_error = true;
 	}
 	return true;
+}
+
+bool
+analyze_check_dead_code(struct workspace *wk, struct ast *ast)
+{
+	bool ret = true;
+	uint32_t i;
+	for (i = 0; i < ast->nodes.len; ++i) {
+		struct node *n = darr_get(&ast->nodes, i);
+		switch (n->type) {
+		case node_foreach_args:
+		case node_paren:
+		case node_empty_line:
+		case node_null:
+		case node_empty:
+		case node_block:
+		case node_argument:
+		case node_id:
+			continue;
+		/* continue; */
+		default:
+			break;
+		}
+
+		if (!(n->chflg & node_visited)) {
+			interp_warning(wk, i, "%s, dead code", node_to_s(n));
+			ret = false;
+		}
+	}
+
+	return ret;
 }
 
 static void

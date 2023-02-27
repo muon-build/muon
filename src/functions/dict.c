@@ -68,8 +68,8 @@ func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 const struct func_impl_name impl_tbl_dict[] = {
-	{ "keys", func_dict_keys, tc_array },
-	{ "has_key", func_dict_has_key, tc_bool },
-	{ "get", func_dict_get, tc_any },
+	{ "keys", func_dict_keys, tc_array, true },
+	{ "has_key", func_dict_has_key, tc_bool, true },
+	{ "get", func_dict_get, tc_any, true },
 	{ NULL, NULL },
 };

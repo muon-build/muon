@@ -279,9 +279,19 @@ node_to_s(struct node *n)
 	case node_argument:
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == arg_kwarg ? "kwarg" : "normal");
 		break;
-	case node_if:
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", n->subtype == (if_if || if_elseif) ? "normal" : "else");
+	case node_if: {
+		const char *l = NULL;
+		if (n->subtype == if_if) {
+			l = "if";
+		} else if (n->subtype == if_elseif) {
+			l = "elseif";
+		} else if (n->subtype == if_else) {
+			l = "else";
+		}
+
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", l);
 		break;
+	}
 	case node_arithmetic: {
 		const char *s;
 		switch ((enum arithmetic_type)n->subtype) {
