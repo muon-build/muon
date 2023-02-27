@@ -162,6 +162,7 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 	if (t & obj_typechecking_type_tag) {
 		if (t == tc_disabler) {
 			interp_warning(wk, n_id, "this expression is always disabled");
+			ctx->expected = tc_any;
 			*res = make_typeinfo(wk, tc_disabler, 0);
 			return;
 		} else if ((t & tc_disabler) == tc_disabler) {
@@ -519,6 +520,7 @@ is_pure_arithmetic_object(struct workspace *wk, obj o)
 {
 	switch (get_obj_type(wk, o)) {
 	case obj_typeinfo:
+	case obj_disabler:
 		return false;
 	case obj_dict:
 		return is_dict_with_pure_keys(wk, o);
@@ -674,6 +676,7 @@ analyze_index(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type
 {
 	switch (lhs) {
 	case obj_disabler:
+		ctx->expected |= tc_any;
 		*res = disabler_id;
 		return;
 	case obj_array: {
