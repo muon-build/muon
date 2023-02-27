@@ -1655,10 +1655,6 @@ do_analyze(struct analyze_opts *opts)
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
-				if (analyze_opts->unused_variable_error) {
-					lvl = log_error;
-					res = false;
-				}
 				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
 
 				if (analyze_opts->subdir_error && a->ep_stack_len) {
@@ -1696,9 +1692,10 @@ do_analyze(struct analyze_opts *opts)
 		i += len;
 	}
 
-	error_diagnostic_store_replay(analyze_opts->replay_opts);
+	bool saw_error;
+	error_diagnostic_store_replay(analyze_opts->replay_opts, &saw_error);
 
-	if (analyze_error) {
+	if (saw_error || analyze_error) {
 		res = false;
 	}
 

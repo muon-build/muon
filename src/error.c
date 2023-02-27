@@ -125,7 +125,7 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 }
 
 void
-error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
+error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool *saw_error)
 {
 	error_diagnostic_store.init = false;
 
@@ -158,13 +158,22 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts)
 		tail = 0;
 	}
 
+	*saw_error = false;
 	struct source src = { 0 };
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = darr_get(&error_diagnostic_store.messages, i);
 
+		if (opts & error_diagnostic_store_replay_werror) {
+			msg->lvl = log_error;
+		}
+
 		if ((opts & error_diagnostic_store_replay_errors_only)
 		    && msg->lvl != log_error) {
 			continue;
+		}
+
+		if (msg->lvl == log_error) {
+			*saw_error = true;
 		}
 
 		if ((cur_src = darr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
