@@ -82,7 +82,7 @@ const struct func_impl_name *module_func_tbl[module_count][language_mode_count] 
 };
 
 const struct func_impl_name impl_tbl_module[] = {
-	{ "found", func_module_found, tc_bool, true },
+	{ "found", func_module_found, tc_bool, },
 	{ NULL, NULL },
 };
 
