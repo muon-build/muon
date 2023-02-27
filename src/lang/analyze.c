@@ -1516,9 +1516,11 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 		if (!(n->chflg & node_visited)) {
 			interp_warning(wk, i, "%s, dead code", node_to_s(n));
 
-			uint32_t ep_stacks_i, ep_stack_len;
-			copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
-			mark_analyze_entrypoint_as_containing_diagnostic(ep_stacks_i, log_warn);
+			if (analyze_entrypoint_stack.len) {
+				uint32_t ep_stacks_i, ep_stack_len;
+				copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
+				mark_analyze_entrypoint_as_containing_diagnostic(ep_stacks_i, log_warn);
+			}
 		}
 	}
 }
