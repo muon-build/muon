@@ -150,7 +150,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	}
 
 	if (wk->in_analyzer) {
-		ret &= analyze_check_dead_code(wk, &ast);
+		analyze_check_dead_code(wk, &ast);
 	}
 
 	wk->src = old_src;

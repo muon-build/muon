@@ -30,7 +30,8 @@ static bool analyze_error;
 static const struct analyze_opts *analyze_opts;
 
 struct analyze_file_entrypoint {
-	bool is_root;
+	bool is_root, has_diagnostic;
+	enum log_level lvl;
 	uint32_t line, col, src_idx;
 };
 
@@ -55,6 +56,33 @@ struct {
 	struct darr groups;
 	struct darr base;
 } assignment_scopes;
+
+static void
+copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
+{
+	if (analyze_entrypoint_stack.len) {
+		*ep_stacks_i = analyze_entrypoint_stacks.len;
+		darr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
+		*ep_stack_len = analyze_entrypoint_stack.len;
+
+		memcpy(darr_get(&analyze_entrypoint_stacks, *ep_stacks_i),
+			analyze_entrypoint_stack.e,
+			sizeof(struct analyze_file_entrypoint) * analyze_entrypoint_stack.len);
+	} else {
+		*ep_stacks_i = 0;
+		*ep_stack_len = 0;
+	}
+}
+
+static void
+mark_analyze_entrypoint_as_containing_diagnostic(uint32_t ep_stacks_i, enum log_level lvl)
+{
+	struct analyze_file_entrypoint *ep
+		= darr_get(&analyze_entrypoint_stacks, ep_stacks_i);
+
+	ep->has_diagnostic = true;
+	ep->lvl = lvl;
+}
 
 static bool
 analyze_diagnostic_enabled(enum analyze_diagnostic d)
@@ -347,17 +375,9 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 
 		// push the source so that we have it later for error reporting
 		src_idx = error_diagnostic_store_push_src(wk->src);
-
-		if (analyze_entrypoint_stack.len) {
-			ep_stacks_i  = analyze_entrypoint_stacks.len;
-			darr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
-			ep_stack_len = analyze_entrypoint_stack.len;
-
-			memcpy(darr_get(&analyze_entrypoint_stacks, ep_stacks_i),
-				analyze_entrypoint_stack.e,
-				sizeof(struct analyze_file_entrypoint) * analyze_entrypoint_stack.len);
-		}
+		copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
 	}
+
 	darr_push(s, &(struct assignment) {
 		.name = name,
 		.o = o,
@@ -576,6 +596,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 			.src_idx = error_diagnostic_store_push_src(wk->src),
 			.line = n->line,
 			.col = n->col,
+			.is_root = analyze_entrypoint_stack.len == 0,
 		});
 	}
 
@@ -1465,10 +1486,13 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	return true;
 }
 
-bool
+void
 analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 {
-	bool ret = true;
+	if (!analyze_diagnostic_enabled(analyze_diagnostic_dead_code)) {
+		return;
+	}
+
 	uint32_t i;
 	for (i = 0; i < ast->nodes.len; ++i) {
 		struct node *n = darr_get(&ast->nodes, i);
@@ -1481,6 +1505,8 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 		case node_block:
 		case node_argument:
 		case node_id:
+		case node_string:
+		case node_number:
 			continue;
 		/* continue; */
 		default:
@@ -1489,11 +1515,12 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 
 		if (!(n->chflg & node_visited)) {
 			interp_warning(wk, i, "%s, dead code", node_to_s(n));
-			ret = false;
+
+			uint32_t ep_stacks_i, ep_stack_len;
+			copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
+			mark_analyze_entrypoint_as_containing_diagnostic(ep_stacks_i, log_warn);
 		}
 	}
-
-	return ret;
 }
 
 static void
@@ -1546,6 +1573,7 @@ static const struct {
 } analyze_diagnostic_names[] = {
 	{ "unused-variable", analyze_diagnostic_unused_variable },
 	{ "reassign-to-conflicting-type", analyze_diagnostic_reassign_to_conflicting_type },
+	{ "dead-code", analyze_diagnostic_dead_code },
 };
 
 bool
@@ -1634,22 +1662,38 @@ do_analyze(struct analyze_opts *opts)
 				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
 
 				if (analyze_opts->subdir_error && a->ep_stack_len) {
-					uint32_t j;
-					struct analyze_file_entrypoint *ep_stack
-						= darr_get(&analyze_entrypoint_stacks, a->ep_stacks_i);
-
-					for (j = 0; j < a->ep_stack_len; ++j) {
-						error_diagnostic_store_push(
-							ep_stack[j].src_idx,
-							ep_stack[j].line,
-							ep_stack[j].col,
-							lvl,
-							"in subdir"
-							);
-					}
+					mark_analyze_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
 				}
 			}
 		}
+	}
+
+	uint32_t i;
+	for (i = 0; i < analyze_entrypoint_stacks.len;) {
+		uint32_t j;
+		struct analyze_file_entrypoint *ep_stack = darr_get(&analyze_entrypoint_stacks, i);
+		assert(ep_stack->is_root);
+
+		uint32_t len = 1;
+		for (j = 1; j + i < analyze_entrypoint_stacks.len && !ep_stack[j].is_root; ++j) {
+			++len;
+		}
+
+		if (ep_stack->has_diagnostic) {
+			enum log_level lvl = ep_stack->lvl;
+
+			for (j = 0; j < len; ++j) {
+				error_diagnostic_store_push(
+					ep_stack[j].src_idx,
+					ep_stack[j].line,
+					ep_stack[j].col,
+					lvl,
+					"in subdir"
+					);
+			}
+		}
+
+		i += len;
 	}
 
 	error_diagnostic_store_replay(analyze_opts->replay_opts);
