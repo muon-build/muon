@@ -15,7 +15,7 @@ function! ale_linters#meson#muon#GetCommand(buffer) abort
 endfunction
 
 function! ale_linters#meson#muon#Handle(buffer, lines) abort
-	let l:pattern = '\v(^.*):(\d+):(\d+): (.*)$'
+	let l:pattern = '\v(^.*):(\d+):(\d+): (warning|error) (.*)$'
 	let l:output = []
 
 	for l:match in ale#util#GetMatches(a:lines, l:pattern)
@@ -23,8 +23,8 @@ function! ale_linters#meson#muon#Handle(buffer, lines) abort
 		\ 'filename': l:match[1],
 		\ 'lnum': l:match[2] + 0,
 		\ 'col': l:match[3] + 0,
-		\ 'type': 'W',
-		\ 'text': l:match[4],
+		\ 'type': l:match[4] == 'warning' ? 'W' : 'E',
+		\ 'text': l:match[5],
 		\})
 	endfor
 
