@@ -18,6 +18,7 @@
 #include "functions/generator.h"
 #include "functions/kernel/build_target.h"
 #include "functions/kernel/dependency.h"
+#include "functions/machine.h"
 #include "install.h"
 #include "lang/interpreter.h"
 #include "log.h"
@@ -300,6 +301,27 @@ setup_soname(struct workspace *wk, struct obj_build_target *tgt, const char *pla
 	tgt->soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
 }
 
+static void
+setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, obj dllver, obj ver)
+{
+	if (dllver) {
+		tgt->soname = make_strf(wk, "%s-%s.dll", plain_name, get_cstr(wk, dllver));
+		return;
+	} else if (ver) {
+		char buf[BUF_SIZE_1k];
+
+		strncpy(buf, get_cstr(wk, ver), sizeof(buf) - 1);
+		char *tmp = strchr(buf, '.');
+		if (tmp) {
+			*tmp = '\0';
+			tgt->soname = make_strf(wk, "%s-%s.dll", plain_name, buf);
+			return;
+		}
+	}
+
+	tgt->soname = make_strf(wk, "%s.dll", plain_name);
+}
+
 static bool
 setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
 	const char *plain_name, obj *plain_name_install, obj *soname_install)
@@ -338,25 +360,58 @@ static bool
 determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, obj sover, obj ver,
 	obj name_pre, obj name_suff, char plain_name[BUF_SIZE_2k])
 {
+	char ver_dll[BUF_SIZE_1k];
 	const char *pref, *suff, *ver_suff = NULL;
+	enum machine_system sys = machine_system();
+
+	*ver_dll = '\0';
 
 	switch (tgt->type) {
 	case tgt_executable:
 		pref = "";
-		suff = NULL;
+		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+			suff = "exe";
+		} else {
+			suff = NULL;
+		}
 		break;
 	case tgt_static_library:
-		pref = "lib";
+		if (sys == machine_system_cygwin) {
+			pref = "cyg";
+		} else {
+			pref = "lib";
+		}
 		suff = "a";
 		break;
 	case tgt_shared_module:
 	case tgt_dynamic_library:
-		pref = "lib";
-		suff = "so";
-		if (ver) {
-			ver_suff = get_cstr(wk, ver);
-		} else if (sover) {
-			ver_suff = get_cstr(wk, sover);
+		if (sys == machine_system_cygwin) {
+			pref = "cyg";
+		} else {
+			pref = "lib";
+		}
+		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+			suff = "dll";
+			if (sover) {
+				strncpy(ver_dll, get_cstr(wk, sover), sizeof(ver_dll) - 1);
+			} else if (ver) {
+				strncpy(ver_dll, get_cstr(wk, ver), sizeof(ver_dll) - 1);
+				char *ver_tmp = strchr(ver_dll, '.');
+				if (ver_tmp) {
+					*ver_tmp = '\0';
+				} else {
+					*ver_dll = '\0';
+				}
+			}
+		} else if (sys == machine_system_darwin) {
+			suff = "dylib";
+		} else {
+			suff = "so";
+			if (ver) {
+				ver_suff = get_cstr(wk, ver);
+			} else if (sover) {
+				ver_suff = get_cstr(wk, sover);
+			}
 		}
 		break;
 	default:
@@ -372,9 +427,14 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 		suff = get_cstr(wk, name_suff);
 	}
 
-	snprintf(plain_name, BUF_SIZE_2k, "%s%s%s%s", pref, get_cstr(wk, tgt->name), suff ? "." : "", suff ? suff : "");
+	if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		snprintf(plain_name, BUF_SIZE_2k, "%s%s", pref, get_cstr(wk, tgt->name));
+		tgt->build_name = make_strf(wk, "%s%s%s%s%s", plain_name, *ver_dll ? "-" : "", *ver_dll ? ver_dll : "", suff ? "." : "", suff ? suff : "");
+	} else {
+		snprintf(plain_name, BUF_SIZE_2k, "%s%s%s%s", pref, get_cstr(wk, tgt->name), suff ? "." : "", suff ? suff : "");
+		tgt->build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
+	}
 
-	tgt->build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
 	return true;
 }
 
@@ -621,13 +681,18 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 
 	// soname handling
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
+		enum machine_system sys = machine_system();
 
-		setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
+		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+			setup_dllname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
+		} else {
+			setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 
-		if (type == tgt_dynamic_library) {
-			if (!setup_shared_object_symlinks(wk, tgt, plain_name,
-				&plain_name_install, &soname_install)) {
-				return false;
+			if (type == tgt_dynamic_library) {
+				if (!setup_shared_object_symlinks(wk, tgt, plain_name,
+					&plain_name_install, &soname_install)) {
+					return false;
+				}
 			}
 		}
 	}
