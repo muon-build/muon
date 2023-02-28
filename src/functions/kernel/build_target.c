@@ -719,11 +719,20 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			case tgt_executable:
 				get_option_value(wk, current_project(wk), "bindir", &install_dir);
 				break;
-			case tgt_dynamic_library:
 			case tgt_static_library:
-			case tgt_shared_module:
 				get_option_value(wk, current_project(wk), "libdir", &install_dir);
 				break;
+			case tgt_dynamic_library:
+			case tgt_shared_module: {
+				enum machine_system sys = machine_system();
+
+				if (sys == machine_system_windows || sys == machine_system_cygwin) {
+					get_option_value(wk, current_project(wk), "bindir", &install_dir);
+				} else {
+					get_option_value(wk, current_project(wk), "libdir", &install_dir);
+				}
+				break;
+			}
 			default:
 				assert(false && "unreachable");
 				break;
