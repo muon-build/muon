@@ -63,6 +63,7 @@ enum build_target_kwargs {
 
 	/* lang args */
 	bt_kw_c_pch, // TODO
+	bt_kw_cpp_pch, // TODO
 	bt_kw_c_args,
 	bt_kw_cpp_args,
 	bt_kw_objc_args,
@@ -853,6 +854,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		[bt_kw_override_options] = { "override_options", ARG_TYPE_ARRAY_OF | obj_string },
 		/* lang args */
 		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
+		[bt_kw_cpp_pch] = { "cpp_pch", tc_string | tc_file, },
 		[bt_kw_c_args] = { "c_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_cpp_args] = { "cpp_args", ARG_TYPE_ARRAY_OF | obj_string },
 		[bt_kw_objc_args] = { "objc_args", ARG_TYPE_ARRAY_OF | obj_string },
