@@ -7,6 +7,7 @@ body {
   max-width: 700px;
   margin: auto;
   padding: 10px;
+  font-family: sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {

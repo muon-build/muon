@@ -33,6 +33,7 @@ tr:nth-child(odd) {
 
 body {
     margin: 0;
+    font-family: sans-serif;
 }
 
 .wrapper {
