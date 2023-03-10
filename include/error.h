@@ -6,6 +6,8 @@
 #ifndef MUON_ERROR_H
 #define MUON_ERROR_H
 
+#include "compat.h"
+
 #include <assert.h>
 #include <stdarg.h>
 
@@ -21,11 +23,11 @@ enum error_diagnostic_store_replay_opts {
 	error_diagnostic_store_replay_werror = 1 << 2,
 };
 
-void error_unrecoverable(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
+void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 void error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *msg);
 void error_messagev(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, va_list args);
 void error_messagef(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, ...)
-__attribute__ ((format(printf, 5, 6)));
+MUON_ATTR_FORMAT(printf, 5, 6);
 
 void error_diagnostic_store_init(void);
 void error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool *saw_error);

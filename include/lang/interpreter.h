@@ -7,6 +7,8 @@
 #ifndef MUON_LANG_INTERPRETER_H
 #define MUON_LANG_INTERPRETER_H
 
+#include "compat.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -23,9 +25,9 @@ bool interp_stringify(struct workspace *wk, struct node *n, obj *res);
 bool interp_comparison(struct workspace *wk, struct node *n, obj *res);
 
 void interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
-__attribute__ ((format(printf, 3, 4)));
+MUON_ATTR_FORMAT(printf, 3, 4);
 void interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
-__attribute__ ((format(printf, 3, 4)));
+MUON_ATTR_FORMAT(printf, 3, 4);
 
 bool typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type, const char *fmt);
 obj typechecking_type_to_arr(struct workspace *wk, type_tag t);

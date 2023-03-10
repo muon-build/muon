@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #ifdef __sun
 /* for symlinkat() and fchmodat(), as _POSIX_C_SOURCE does not enable them

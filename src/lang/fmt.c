@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -252,7 +252,7 @@ fmt_end_block(struct fmt_ctx *ctx)
 	--ctx->indent;
 }
 
-__attribute__ ((format(printf, 3, 4)))
+MUON_ATTR_FORMAT(printf, 3, 4)
 static uint32_t
 fmt_writef(struct fmt_ctx *ctx, const struct fmt_stack *pfst, const char *fmt, ...)
 {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #ifdef __sun
 #include <gelf.h> /* Elf32_Dyn and similar on Solaris */

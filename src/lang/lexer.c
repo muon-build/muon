@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -93,7 +93,7 @@ tok_type_to_s(enum token_type type)
 	return "";
 }
 
-__attribute__ ((format(printf, 2, 3)))
+MUON_ATTR_FORMAT(printf, 2, 3)
 static void
 lex_error(struct lexer *l, const char *fmt, ...)
 {

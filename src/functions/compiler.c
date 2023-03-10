@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -56,7 +56,7 @@ bool_to_yn(bool v)
 	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
 }
 
-__attribute__ ((format(printf, 3, 4)))
+MUON_ATTR_FORMAT(printf, 3, 4)
 static void
 compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 {
@@ -71,7 +71,7 @@ compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 	va_end(args);
 }
 
-__attribute__ ((format(printf, 3, 4)))
+MUON_ATTR_FORMAT(printf, 3, 4)
 static void
 compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const char *fmt, ...)
 {

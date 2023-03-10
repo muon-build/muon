@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include <inttypes.h>
 #include <stdarg.h>
@@ -84,7 +84,7 @@ parse_diagnostic(struct parser *p, struct token *err_tok, enum log_level lvl, co
 	error_messagev(p->src, err_tok->line, err_tok->col, lvl, fmt, args);
 }
 
-__attribute__ ((format(printf, 3, 4)))
+MUON_ATTR_FORMAT(printf, 3, 4)
 static void
 parse_error(struct parser *p, struct token *err_tok, const char *fmt, ...)
 {

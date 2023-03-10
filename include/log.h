@@ -6,7 +6,7 @@
 #ifndef MUON_LOG_H
 #define MUON_LOG_H
 
-#include "posix.h"
+#include "compat.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -43,9 +43,10 @@ void log_set_prefix(const char *prefix);
 const char *log_get_prefix(void);
 
 void log_print(bool nl, enum log_level lvl, const char *fmt, ...)
-__attribute__ ((format(printf, 3, 4)));
+MUON_ATTR_FORMAT(printf, 3, 4);
 bool log_clr(void);
-void log_plain(const char *fmt, ...) __attribute__ ((format(printf, 1, 2)));
+void log_plain(const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 1, 2);
 void log_plainv(const char *fmt, va_list ap);
 FILE *log_file(void);
 bool log_should_print(enum log_level lvl);

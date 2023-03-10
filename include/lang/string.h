@@ -6,6 +6,8 @@
 #ifndef MUON_LANG_STRING_H
 #define MUON_LANG_STRING_H
 
+#include "compat.h"
+
 #include "lang/object.h"
 
 struct workspace;
@@ -46,7 +48,8 @@ void sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc);
 void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
 void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
 void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
-void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) __attribute__ ((format(printf, 3, 4)));
+void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 3, 4);
 obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);
 
 void str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
@@ -57,10 +60,12 @@ bool str_has_null(const struct str *ss);
 const char *get_cstr(struct workspace *wk, obj s);
 obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
-obj make_strf(struct workspace *wk, const char *fmt, ...)  __attribute__ ((format(printf, 2, 3)));
+obj make_strf(struct workspace *wk, const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 2, 3);
 
 void str_app(struct workspace *wk, obj s, const char *str);
-void str_appf(struct workspace *wk, obj s, const char *fmt, ...)  __attribute__ ((format(printf, 3, 4)));
+void str_appf(struct workspace *wk, obj s, const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 3, 4);
 void str_appn(struct workspace *wk, obj s, const char *str, uint32_t n);
 
 obj str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val);

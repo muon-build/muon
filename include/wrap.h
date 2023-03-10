@@ -6,7 +6,7 @@
 #ifndef MUON_WRAP_H
 #define MUON_WRAP_H
 
-#include "posix.h"
+#include "compat.h"
 
 #include <stdbool.h>
 #include <stdint.h>

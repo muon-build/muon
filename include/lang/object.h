@@ -7,6 +7,8 @@
 #ifndef MUON_LANG_OBJECT_H
 #define MUON_LANG_OBJECT_H
 
+#include "compat.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -548,13 +550,13 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 
 bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
 bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
-__attribute__ ((format(printf, 3, 4)));
+MUON_ATTR_FORMAT(printf, 3, 4);
 bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
-__attribute__ ((format(printf, 3, 0)));
+MUON_ATTR_FORMAT(printf, 3, 0);
 bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...)
-__attribute__ ((format(printf, 3, 4)));
+MUON_ATTR_FORMAT(printf, 3, 4);
 bool obj_printf(struct workspace *wk, const char *fmt, ...)
-__attribute__ ((format(printf, 2, 3)));
+MUON_ATTR_FORMAT(printf, 2, 3);
 void obj_inspect(struct workspace *wk, FILE *out, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);

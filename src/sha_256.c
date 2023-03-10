@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Unlicense
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include <string.h>
 

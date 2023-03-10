@@ -6,8 +6,6 @@
 #ifndef MUON_LANG_WORKSPACE_H
 #define MUON_LANG_WORKSPACE_H
 
-#include "posix.h"
-
 #include "buf_size.h"
 #include "data/bucket_array.h"
 #include "data/darr.h"

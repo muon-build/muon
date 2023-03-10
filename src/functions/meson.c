@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "posix.h"
+#include "compat.h"
 
 #include "coerce.h"
 #include "compilers.h"
