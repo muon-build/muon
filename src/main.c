@@ -843,6 +843,11 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n",
 		NULL, -1)
 
+	if (opts.in_place && opts.check_only) {
+		LOG_E("-q and -i are mutually exclusive");
+		return false;
+	}
+
 	opts.filenames = &argv[argi];
 	const uint32_t num_files = argc - argi;
 
@@ -851,6 +856,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	FILE *out;
 	uint32_t i;
 	for (i = 0; i < num_files; ++i) {
+		bool fmt_ret = true;
 		opened_out = false;
 
 		struct source src = { 0 };
@@ -871,12 +877,17 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 			out = stdout;
 		}
 
-		ret &= fmt(&src, out, opts.cfg_path, opts.check_only);
+		fmt_ret = fmt(&src, out, opts.cfg_path, opts.check_only);
 cont:
 		if (opened_out) {
 			fs_fclose(out);
+
+			if (!fmt_ret) {
+				fs_write(opts.filenames[i], (const uint8_t *)src.src, src.len);
+			}
 		}
 		fs_source_destroy(&src);
+		ret &= fmt_ret;
 	}
 
 	return ret;
