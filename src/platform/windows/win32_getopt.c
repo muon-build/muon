@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "compat.h"
+
 #include <stdio.h>
 
 #include "platform/windows/win32_getopt.h"

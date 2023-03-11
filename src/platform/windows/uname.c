@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "compat.h"
+
 #include <inttypes.h>
 
 #ifndef WIN32_LEAN_AND_MEAN

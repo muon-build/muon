@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "compat.h"
+
 #include "platform/rpath_fixer.h"
 
 bool
