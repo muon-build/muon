@@ -556,6 +556,17 @@ func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
+func_module_fs_mkdir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	return fs_mkdir(get_cstr(wk, an[0].val));
+}
+
+static bool
 func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
@@ -675,6 +686,7 @@ const struct func_impl_name impl_tbl_module_fs_internal[] = {
 	{ "is_basename", func_module_fs_is_basename },
 	{ "is_subpath", func_module_fs_is_subpath },
 	{ "make_absolute", func_module_fs_make_absolute },
+	{ "mkdir", func_module_fs_mkdir },
 	{ "relative_to", func_module_fs_relative_to },
 	{ "without_ext", func_module_fs_without_ext },
 	{ "write", func_module_fs_write, .fuzz_unsafe = true },
