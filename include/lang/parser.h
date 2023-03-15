@@ -106,6 +106,7 @@ struct ast {
 enum parse_mode {
 	pm_ignore_statement_with_no_effect = 1 << 0,
 	pm_keep_formatting = 1 << 1,
+	pm_quiet = 1 << 2,
 };
 
 bool parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, struct source *src,

@@ -77,6 +77,10 @@ node_type_to_s(enum node_type t)
 static void
 parse_diagnostic(struct parser *p, struct token *err_tok, enum log_level lvl, const char *fmt, va_list args)
 {
+	if (p->mode & pm_quiet) {
+		return;
+	}
+
 	if (!err_tok) {
 		err_tok = p->last;
 	}
@@ -112,7 +116,6 @@ accept_comment(struct parser *p)
 {
 	if (p->last->type == tok_comment) {
 		struct node *n = darr_get(&p->ast->nodes, p->ast->nodes.len - 1);
-		L("got comment '%s', assigned to %s", p->last->dat.s, node_to_s(n));
 
 		if (!n->comments.len) {
 			n->comments.start = p->ast->comments.len;
