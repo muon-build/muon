@@ -113,9 +113,9 @@ const struct func_impl_name impl_tbl_array[] = {
 };
 
 const struct func_impl_name impl_tbl_array_internal[] = {
-	{ "length", func_array_length, tc_number },
-	{ "get", func_array_get, tc_any },
-	{ "contains", func_array_contains, tc_bool },
+	{ "length", func_array_length, tc_number, true },
+	{ "get", func_array_get, tc_any, true },
+	{ "contains", func_array_contains, tc_bool, true },
 	{ "delete", func_array_delete, },
 	{ NULL, NULL },
 };
