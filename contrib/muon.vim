@@ -10,17 +10,33 @@ endfunction
 
 function! ale_linters#meson#muon#GetCommand(buffer) abort
 	let l:executable = ale_linters#meson#muon#GetExecutable(a:buffer)
+	let l:file = resolve(expand('%:p'))
+	let l:cmd = ale#Escape(l:executable)
+	let l:args = 'analyze -l'
 
-	return ale#Escape(l:executable) . ' analyze -lO"' . resolve(expand('%:p') . '"')
+
+	if match(l:file, '\.meson$') != -1
+		let l:args = l:args . 'i-'
+	else
+		let l:args = l:args . 'O' . ale#Escape(l:file)
+	endif
+
+	return l:cmd . ' ' . l:args
 endfunction
 
 function! ale_linters#meson#muon#Handle(buffer, lines) abort
 	let l:pattern = '\v(^.*):(\d+):(\d+): (warning|error) (.*)$'
 	let l:output = []
+	let l:cur_file = resolve(expand('%:p'))
 
 	for l:match in ale#util#GetMatches(a:lines, l:pattern)
+		let l:filename = l:match[1]
+		if l:filename == '-'
+			let l:filename = l:cur_file
+		endif
+
 		call add(l:output, {
-		\ 'filename': l:match[1],
+		\ 'filename': l:filename,
 		\ 'lnum': l:match[2] + 0,
 		\ 'col': l:match[3] + 0,
 		\ 'type': l:match[4] == 'warning' ? 'W' : 'E',
