@@ -164,6 +164,9 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 			interp_warning(wk, n_id, "this expression is always disabled");
 			ctx->expected = tc_any;
 			*res = make_typeinfo(wk, tc_disabler, 0);
+			ctx->found = 2; // set found to > 1 to indicate the
+			                // method exists but it is unknown
+			                // which one it is.
 			return;
 		} else if ((t & tc_disabler) == tc_disabler) {
 			t &= ~tc_disabler;
