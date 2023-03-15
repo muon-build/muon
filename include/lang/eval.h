@@ -41,4 +41,6 @@ bool eval_project_file(struct workspace *wk, const char *path, bool first);
 bool eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res);
 bool eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res);
 void repl(struct workspace *wk, bool dbg);
+
+const char *determine_project_root(struct workspace *wk, const char *path);
 #endif

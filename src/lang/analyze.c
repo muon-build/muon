@@ -1649,6 +1649,19 @@ do_analyze(struct analyze_opts *opts)
 	darr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
 	darr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
 
+	if (analyze_opts->file_override) {
+		const char *root = determine_project_root(&wk, analyze_opts->file_override);
+		if (root) {
+			SBUF(cwd);
+			path_cwd(&wk, &cwd);
+
+			if (strcmp(cwd.buf, root) != 0) {
+				path_chdir(root);
+				wk.source_root = root;
+			}
+		}
+	}
+
 	if (opts->internal_file) {
 		uint32_t proj_id;
 		make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);

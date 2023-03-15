@@ -297,7 +297,24 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		,
 		NULL, 0)
 
-	return do_analyze(&opts);
+	if (opts.internal_file && opts.file_override) {
+		LOG_E("-i and -O are mutually exclusive");
+		return false;
+	}
+
+	SBUF_manual(abs);
+	if (opts.file_override) {
+		path_make_absolute(NULL, &abs, opts.file_override);
+		opts.file_override = abs.buf;
+	}
+
+	bool res;
+	res = do_analyze(&opts);
+
+	if (opts.file_override) {
+		sbuf_destroy(&abs);
+	}
+	return res;
 }
 
 static bool

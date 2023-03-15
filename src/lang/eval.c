@@ -76,7 +76,7 @@ cleanup:
 }
 
 static bool
-ensure_project_is_first_statement(struct workspace *wk, struct ast *ast)
+ensure_project_is_first_statement(struct workspace *wk, struct ast *ast, bool check_only)
 {
 	uint32_t err_node;
 	bool first_statement_is_a_call_to_project = false;
@@ -103,7 +103,9 @@ ensure_project_is_first_statement(struct workspace *wk, struct ast *ast)
 	first_statement_is_a_call_to_project = true;
 err:
 	if (!first_statement_is_a_call_to_project) {
-		interp_error(wk, err_node, "first statement is not a call to project()");
+		if (!check_only) {
+			interp_error(wk, err_node, "first statement is not a call to project()");
+		}
 		return false;
 	}
 	return true;
@@ -138,7 +140,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	wk->ast = &ast;
 
 	if (mode == eval_mode_first) {
-		if (!ensure_project_is_first_statement(wk, &ast)) {
+		if (!ensure_project_is_first_statement(wk, &ast, false)) {
 			goto ret;
 		}
 	}
@@ -381,5 +383,50 @@ cont:
 
 	if (!line) {
 		wk->dbg.stepping = false;
+	}
+}
+
+const char *
+determine_project_root(struct workspace *wk, const char *path)
+{
+	SBUF(tmp);
+	SBUF(new_path);
+
+	path_make_absolute(wk, &new_path, path);
+	path = new_path.buf;
+
+	while (true) {
+		if (!fs_file_exists(path)) {
+			goto cont;
+		}
+
+		struct ast ast = { 0 };
+		struct source src = { 0 };
+		struct source_data sdata = { 0 };
+
+		if (!fs_read_entire_file(path, &src)) {
+			return NULL;
+		} else if (!parser_parse(wk, &ast, &sdata, &src, pm_quiet)) {
+			return NULL;
+		}
+
+		wk->src = &src;
+		wk->ast = &ast;
+		if (ensure_project_is_first_statement(wk, &ast, true)) {
+			// found
+			path_dirname(wk, &tmp, path);
+			obj s = sbuf_into_str(wk, &tmp);
+			return get_cstr(wk, s);
+		}
+
+cont:
+		path_dirname(wk, &tmp, path);
+		path_dirname(wk, &new_path, tmp.buf);
+		if (!new_path.len) {
+			// reached root dir
+			return NULL;
+		}
+		path_push(wk, &new_path, "meson.build");
+		path = new_path.buf;
 	}
 }
