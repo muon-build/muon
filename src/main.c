@@ -244,7 +244,10 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 				       | analyze_diagnostic_dead_code,
 	};
 
-	OPTSTART("luqO:W:") {
+	OPTSTART("luqO:W:i:") {
+		case 'i':
+			opts.internal_file = optarg;
+			break;
 		case 'l':
 			opts.subdir_error = true;
 			opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
@@ -287,6 +290,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -l - optimize output for editor linter plugins\n"
 		"  -q - only report errors\n"
 		"  -O <path> - read project file with matching path from stdin\n"
+		"  -i <path> - analyze the single file <path> in internal mode\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n"

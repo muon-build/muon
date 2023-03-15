@@ -1649,8 +1649,28 @@ do_analyze(struct analyze_opts *opts)
 	darr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
 	darr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
 
-	uint32_t project_id;
-	res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
+	if (opts->internal_file) {
+		uint32_t proj_id;
+		make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
+
+		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0);
+		a->default_var = true;
+
+		wk.lang_mode = language_internal;
+
+		struct source src;
+		if (!fs_read_entire_file(opts->internal_file, &src)) {
+			res = false;
+		} else {
+			obj _v;
+			res = eval(&wk, &src, eval_mode_default, &_v);
+		}
+
+		fs_source_destroy(&src);
+	} else {
+		uint32_t project_id;
+		res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
+	}
 
 	if (analyze_diagnostic_enabled(analyze_diagnostic_unused_variable)) {
 		assert(assignment_scopes.groups.len == 0);
