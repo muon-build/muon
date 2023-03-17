@@ -29,11 +29,6 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	SBUF(src);
 	path_join(wk, &src, cwd, "meson.build");
 
-	if (!fs_file_exists(src.buf)) {
-		LOG_E("project %s does not contain a meson.build", cwd);
-		return false;
-	}
-
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;
 
