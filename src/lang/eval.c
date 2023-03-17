@@ -421,11 +421,12 @@ determine_project_root(struct workspace *wk, const char *path)
 
 cont:
 		path_dirname(wk, &tmp, path);
-		path_dirname(wk, &new_path, tmp.buf);
-		if (!new_path.len) {
+		if (!tmp.len) {
 			// reached root dir
 			return NULL;
 		}
+
+		path_dirname(wk, &new_path, tmp.buf);
 		path_push(wk, &new_path, "meson.build");
 		path = new_path.buf;
 	}
