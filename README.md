@@ -14,8 +14,7 @@ dependencies.
 
 ## Features
 
-- `muon analyze` - a static analyzer for meson.build files.  Capable of doing
-  type inference, checking unused variables, undeclared variables, etc.
+- `muon analyze` - a static analyzer for meson.build files.  Demo [here].
 - `muon fmt` - a meson.build code formatter
 - An interactive stepping debugger with the `dbg()` function.
 - [Fast]
@@ -137,3 +136,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
 [status page]: https://muon.build/releases/edge/docs/status.html
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
+[here]: https://play.muon.build
