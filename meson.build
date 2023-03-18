@@ -106,17 +106,12 @@ if tracy_dep.found()
     deps += tracy_dep
 endif
 
-muon_link_args = link_args
-if host_machine.system() == 'emscripten'
-    muon_link_args += ['-s', 'EXIT_RUNTIME=1', '-s', 'MODULARIZE=1']
-endif
-
 muon = executable(
     'muon',
     src,
     dependencies: deps,
     include_directories: include_dir,
-    link_args: muon_link_args,
+    link_args: link_args,
     c_args: c_args,
     cpp_args: c_args,
     install: true,
