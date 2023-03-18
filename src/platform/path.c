@@ -371,7 +371,13 @@ path_dirname(struct workspace *wk, struct sbuf *buf, const char *path)
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
-			sbuf_pushn(wk, buf, path, i);
+			if (i == 0) {
+				/* make dirname of '/path' be '/', not '' */
+				sbuf_pushn(wk, buf, path, 1);
+			} else {
+				sbuf_pushn(wk, buf, path, i);
+			}
+
 			_path_normalize(wk, buf, false);
 			sbuf_destroy(&tmp);
 			return;
