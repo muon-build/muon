@@ -1594,24 +1594,22 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 	}
 }
 
+#define FMT_PARTIAL(arg) \
+	if (arg_width.have && arg_prec.have) { \
+		sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg_prec.val, arg); \
+	} else if (arg_width.have) { \
+		sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg); \
+	} else if (arg_prec.have) { \
+		sbuf_pushf(wk, sb, fmt_buf, arg_prec.val, arg); \
+	} else { \
+		sbuf_pushf(wk, sb, fmt_buf, arg); \
+	}
+
 bool
 obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap)
 {
 	const char *fmt_start;
-	obj obj;
-	bool got_object, quote_string;
-
-	union {
-		int _int;
-		long _lint;
-		long long _llint;
-		unsigned int _uint;
-		unsigned long _luint;
-		unsigned long long _lluint;
-		double _double;
-		char *_charp;
-		void *_voidp;
-	} arg = { 0 };
+	bool quote_string;
 
 	struct {
 		int val;
@@ -1623,7 +1621,6 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 			arg_width.have = false;
 			arg_prec.have = false;
 
-			got_object = false;
 			quote_string = true;
 			fmt_start = fmt;
 			++fmt;
@@ -1683,82 +1680,78 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 				++fmt;
 			}
 
+			if (*fmt == 'o') {
+				obj o = va_arg(ap, unsigned int);
+				if (get_obj_type(wk, o) == obj_string && !quote_string) {
+					str_unescape(wk, sb, get_str(wk, o), false);
+				} else {
+					obj_to_s(wk, o, sb);
+				}
+
+				continue;
+			}
+
+			char fmt_buf[BUF_SIZE_1k + 1] = { 0 }; \
+			uint32_t len = fmt - fmt_start + 1; \
+			assert(len < BUF_SIZE_1k && "format specifier too long"); \
+			memcpy(fmt_buf, fmt_start, len);
+
 			switch (*fmt) {
 			case 'c':
 			case 'd': case 'i':
 				switch (int_len) {
-				case il_norm:
-					arg._int = va_arg(ap, int);
+				case il_norm: {
+					FMT_PARTIAL(va_arg(ap, int));
 					break;
-				case il_long:
-					arg._lint = va_arg(ap, long);
+				}
+				case il_long: {
+					FMT_PARTIAL(va_arg(ap, long));
 					break;
-				case il_long_long:
-					arg._llint = va_arg(ap, long long);
+				}
+				case il_long_long: {
+					FMT_PARTIAL(va_arg(ap, long long));
 					break;
+				}
 				}
 				break;
 			case 'u': case 'x': case 'X':
 				switch (int_len) {
-				case il_norm:
-					arg._uint = va_arg(ap, unsigned int);
+				case il_norm: {
+					FMT_PARTIAL(va_arg(ap, unsigned int));
+
 					break;
-				case il_long:
-					arg._luint = va_arg(ap, unsigned long);
+				}
+				case il_long: {
+					FMT_PARTIAL(va_arg(ap, unsigned long));
 					break;
-				case il_long_long:
-					arg._lluint = va_arg(ap, unsigned long long);
+				}
+				case il_long_long: {
+					FMT_PARTIAL(va_arg(ap, unsigned long long));
 					break;
+				}
 				}
 				break;
 			case 'e': case 'E':
 			case 'f': case 'F':
 			case 'g': case 'G':
-			case 'a': case 'A':
-				arg._double = va_arg(ap, double);
+			case 'a': case 'A': {
+				FMT_PARTIAL(va_arg(ap, double));
 				break;
-			case 's':
-				arg._charp = va_arg(ap, char *);
+			}
+			case 's': {
+				FMT_PARTIAL(va_arg(ap, char *));
 				break;
-			case 'p':
-				arg._voidp = va_arg(ap, void *);
+			}
+			case 'p': {
+				FMT_PARTIAL(va_arg(ap, void *));
 				break;
+			}
 			case 'n':
 			case '%':
-				break;
-			case 'o':
-				got_object = true;
-				obj = va_arg(ap, unsigned int);
 				break;
 			default:
 				assert(false && "unrecognized format");
 				break;
-			}
-
-			if (got_object) {
-				if (get_obj_type(wk, obj) == obj_string && !quote_string) {
-					str_unescape(wk, sb, get_str(wk, obj), false);
-				} else {
-					obj_to_s(wk, obj, sb);
-				}
-			} else {
-				char fmt_buf[BUF_SIZE_1k + 1] = { 0 };
-				uint32_t len = fmt - fmt_start + 1;
-				assert(len < BUF_SIZE_1k && "format specifier too long");
-				memcpy(fmt_buf, fmt_start, len);
-
-				// There is no portable way to create a
-				// va_list, so we have to enumerate all of the
-				// different possibilities
-				if (arg_width.have && arg_prec.have) {
-					sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg_prec.val, arg);
-				} else if (arg_width.have) {
-					sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg);
-				} else if (arg_prec.have) {
-					sbuf_pushf(wk, sb, fmt_buf, arg_prec.val, arg);
-				} else {
-					sbuf_pushf(wk, sb, fmt_buf, arg);
-				}
 			}
 		} else {
 			sbuf_push(wk, sb, *fmt);
