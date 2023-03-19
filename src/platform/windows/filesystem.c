@@ -286,90 +286,115 @@ fs_is_a_tty_from_fd(int fd)
 {
 	HANDLE h;
 	DWORD mode;
+	bool ret = false;
 
 	h = (HANDLE *)_get_osfhandle(fd);
 	if (h == INVALID_HANDLE_VALUE) {
-		return false;
+		return ret;
 	}
 
-	/* first, test if the stream is associated to a Windows console */
-	if (GetConsoleMode(h, &mode)) {
-		return true;
-	}
-	/*
-	 * if not, test if the stream is associated to a mintty-based terminal
-	 * based on:
-	 * https://fossies.org/linux/vim/src/iscygpty.c
-	 * https://sourceforge.net/p/mingw-w64/mailman/message/35589741/
-	 */
-	else {
-		FILE_NAME_INFO *fni;
-		WCHAR *p = NULL;
-		size_t size;
-		size_t l;
+	/* first, check if the handle is assocoated with a conpty-based terminal */
+	{
+		HMODULE mod;
 
-		if (GetFileType(h) != FILE_TYPE_PIPE) {
-			return false;
-		}
+		mod = LoadLibrary("kernel32.dll");
+		if (mod) {
+			typedef void (*ClosePseudoConsole_t)(void *);
+			ClosePseudoConsole_t ClosePseudoConsole_f;
 
-		size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * (MAX_PATH - 1);
-		fni = z_malloc(size + sizeof(WCHAR));
-
-		if (GetFileInformationByHandleEx(h, FileNameInfo, fni, size)) {
-			fni->FileName[fni->FileNameLength / sizeof(WCHAR)] = L'\0';
-			/*
-			   Check the name of the pipe:
-			   '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
-			 */
-			p = fni->FileName;
-			if (is_wprefix(p, L"\\cygwin-")) {
-				p += 8;
-			} else if (is_wprefix(p, L"\\msys-")) {
-				p += 6;
-			} else {
-				p = NULL;
-			}
-			if (p) {
-				/* Skip 16-digit hexadecimal. */
-				if (wcsspn(p, L"0123456789abcdefABCDEF") == 16) {
-					p += 16;
-
-				} else {
-					p = NULL;
-				}
-			}
-			if (p) {
-				if (is_wprefix(p, L"-pty")) {
-					p += 4;
-				}else  {
-					p = NULL;
-				}
-			}
-			if (p) {
-				/* Skip pty number. */
-				l = wcsspn(p, L"0123456789");
-				if (l >= 1 && l <= 4) {
-					p += l;
-				} else {
-					p = NULL;
-
-				}
-				if (p) {
-					if (is_wprefix(p, L"-from-master")) {
-						//p += 12;
-					} else if (is_wprefix(p, L"-to-master")) {
-						//p += 10;
-					}else  {
-						p = NULL;
+			ClosePseudoConsole_f = GetProcAddress(mod, "ClosePseudoConsole");
+			if (ClosePseudoConsole_f) {
+				if (GetConsoleMode(h, &mode)) {
+					// ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT
+					mode |= 0x4 | 0x1;
+					if (SetConsoleMode(h, mode)) {
+						FreeLibrary(mod);
+						return true;
 					}
 				}
 			}
+			FreeLibrary(mod);
 		}
-
-		z_free(fni);
-
-		return p != NULL;
 	}
+
+	/*
+	 * test if the stream is associated to a mintty-based terminal
+	 * based on:
+	 * https://fossies.org/linux/vim/src/iscygpty.c
+	 * https://sourceforge.net/p/mingw-w64/mailman/message/35589741/
+	 * it means mintty without conpty
+	 */
+	{
+		if (GetFileType(h) == FILE_TYPE_PIPE) {
+			FILE_NAME_INFO *fni;
+			WCHAR *p = NULL;
+			size_t size;
+			size_t l;
+
+			size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * (MAX_PATH - 1);
+			fni = z_malloc(size + sizeof(WCHAR));
+
+			if (GetFileInformationByHandleEx(h, FileNameInfo, fni, size)) {
+				fni->FileName[fni->FileNameLength / sizeof(WCHAR)] = L'\0';
+				/*
+				 * Check the name of the pipe:
+				 * '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
+				*/
+				p = fni->FileName;
+				if (is_wprefix(p, L"\\cygwin-")) {
+					p += 8;
+				} else if (is_wprefix(p, L"\\msys-")) {
+					p += 6;
+				} else {
+					p = NULL;
+				}
+				if (p) {
+					/* Skip 16-digit hexadecimal. */
+					if (wcsspn(p, L"0123456789abcdefABCDEF") == 16) {
+						p+= 16;
+					} else {
+						p = NULL;
+					}
+				}
+				if (p) {
+					if (is_wprefix(p, L"-pty")) {
+						p += 4;
+					}
+					else {
+						p = NULL;
+					}
+				}
+				if (p) {
+					/* Skip pty number. */
+					l = wcsspn(p, L"0123456789");
+					if (l >= 1 && l <= 4) {
+						p += l;
+					} else {
+						p = NULL;
+					}
+					if (p) {
+						if (is_wprefix(p, L"-from-master")) {
+							//p += 12;
+						} else if (is_wprefix(p, L"-to-master")) {
+							//p += 10;
+						}
+						else {
+							p = NULL;
+						}
+					}
+				}
+			}
+			z_free(fni);
+			if (p) {
+				return true;
+			}
+		}
+	}
+
+	/*
+	 * last case: cmd without conpty
+	 */
+	return GetConsoleMode(h, &mode);
 }
 
 bool
