@@ -62,6 +62,13 @@ log_set_prefix(const char *prefix)
 	log_cfg.prefix = prefix;
 }
 
+// TODO move this function into platform/
+void
+print_colorized(FILE *out, const char *s)
+{
+	fwrite(s, 1, strlen(s), out);
+}
+
 void
 log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {
@@ -96,14 +103,25 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 			buf[len + 1] = 0;
 		}
 
-		fputs(buf, log_cfg.file);
+		if (log_cfg.clr) {
+			print_colorized(log_cfg.file, buf);
+		} else {
+			fputs(buf, log_cfg.file);
+		}
 	}
 }
 
 void
 log_plainv(const char *fmt, va_list ap)
 {
-	vfprintf(log_cfg.file, fmt, ap);
+	static char buf[BUF_SIZE_32k];
+
+	if (log_cfg.clr) {
+		vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
+		print_colorized(log_cfg.file, buf);
+	} else {
+		vfprintf(log_cfg.file, fmt, ap);
+	}
 }
 
 void

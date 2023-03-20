@@ -251,7 +251,7 @@ repl(struct workspace *wk, bool dbg)
 		}
 	}
 
-	const char *prompt = log_clr() ? "\033[36;1m>\033[0m " : "> ",
+	const char *prompt = "> ",
 		   cmd_char = '\\';
 
 	while (loop && (line = muon_bestline(prompt))) {

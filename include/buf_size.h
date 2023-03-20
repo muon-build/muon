@@ -10,7 +10,8 @@
 #define BUF_SIZE_1k 1024
 #define BUF_SIZE_2k 2048
 #define BUF_SIZE_4k 4096
-#define BUF_SIZE_32k (BUF_SIZE_4k * 8)
+#define BUF_SIZE_16k (BUF_SIZE_1k * 16)
+#define BUF_SIZE_32k (BUF_SIZE_1k * 32)
 #define BUF_SIZE_1m 1048576ul
 
 #define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))

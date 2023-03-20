@@ -490,7 +490,10 @@ void
 sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (fputc(s, (FILE *)sb->buf) == EOF) {
+		FILE *out = (FILE *)sb->buf;
+		if (out == log_file()) {
+			log_plain("%c", s);
+		} else if (fputc(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -507,7 +510,10 @@ void
 sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (!fs_fwrite(s, n, (FILE *)sb->buf)) {
+		FILE *out = (FILE *)sb->buf;
+		if (out == log_file()) {
+			log_plain("%.*s", n, s);
+		} else if (!fs_fwrite(s, n, out)) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -528,7 +534,10 @@ void
 sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 {
 	if (sb->flags & sbuf_flag_write) {
-		if (fputs(s, (FILE *)sb->buf) == EOF) {
+		FILE *out = (FILE *)sb->buf;
+		if (out == log_file()) {
+			log_plain("%s", s);
+		} else if (fputs(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -554,7 +563,10 @@ sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 	va_start(args, fmt);
 
 	if (sb->flags & sbuf_flag_write) {
-		if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
+		FILE *out = (FILE *)sb->buf;
+		if (out == log_file()) {
+			log_plainv(fmt, args);
+		} else if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
 			error_unrecoverable("failed to write output to file");
 		}
 		goto done;

@@ -1053,7 +1053,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		no_clr = "\033[0m";
 	}
 
-	obj_printf(wk, "  %s%#o%s=", key_clr, key, no_clr);
+	obj_fprintf(wk, log_file(), "  %s%#o%s=", key_clr, key, no_clr);
 
 	obj choices = 0;
 	obj selected = 0;
@@ -1115,33 +1115,33 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case op_boolean:
 	case op_combo:
 	case op_feature:
-		obj_printf(wk, "<%s>", get_cstr(wk, choices));
+		obj_fprintf(wk, log_file(), "<%s>", get_cstr(wk, choices));
 		break;
 	case op_string: {
 		const struct str *def = get_str(wk, opt->val);
-		obj_printf(wk, "<%s>, default: %s%s%s", get_cstr(wk, choices),
+		obj_fprintf(wk, log_file(), "<%s>, default: %s%s%s", get_cstr(wk, choices),
 			sel_clr, def->len ? def->s : "''", no_clr);
 		break;
 	}
 	case op_integer:
-		printf("<%sN%s>", val_clr, no_clr);
+		log_plain("<%sN%s>", val_clr, no_clr);
 		if (opt->min || opt->max) {
-			printf(" where ");
+			log_plain(" where ");
 			if (opt->min) {
-				obj_printf(wk, "%o <= ", opt->min);
+				obj_fprintf(wk, log_file(), "%o <= ", opt->min);
 			}
-			printf("%sN%s", val_clr, no_clr);
+			log_plain("%sN%s", val_clr, no_clr);
 			if (opt->max) {
-				obj_printf(wk, " <= %o", opt->max);
+				obj_fprintf(wk, log_file(), " <= %o", opt->max);
 			}
 		}
-		obj_printf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
+		obj_fprintf(wk, log_file(), ", default: %s%o%s", sel_clr, opt->val, no_clr);
 
 		break;
 	case op_array:
-		printf("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
+		log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
 		if (opt->choices) {
-			obj_printf(wk, " where value in %s", get_cstr(wk, choices));
+			obj_fprintf(wk, log_file(), " where value in %s", get_cstr(wk, choices));
 		}
 		break;
 	default:
@@ -1149,14 +1149,14 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	}
 
 	if (opt->source != option_value_source_default) {
-		obj_printf(wk, "*");
+		obj_fprintf(wk, log_file(), "*");
 	}
 
 	if (opt->description) {
-		obj_printf(wk, "\n    %#o", opt->description);
+		obj_fprintf(wk, log_file(), "\n    %#o", opt->description);
 	}
 
-	printf("\n");
+	log_plain("\n");
 	return ir_cont;
 }
 
@@ -1208,24 +1208,24 @@ list_options(const struct list_options_opts *list_opts)
 	struct list_options_ctx ctx = { .list_opts = list_opts };
 
 	if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
-		printf("project options:\n");
+		log_plain("project options:\n");
 		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
 	} else if (!list_opts->list_all) {
-		printf("no project options defined\n");
+		log_plain("no project options defined\n");
 	}
 
 	if (list_opts->list_all) {
 		if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
-			printf("\n");
+			log_plain("\n");
 		}
 
 		ctx.show_builtin = true;
 
-		printf("project builtin-options:\n");
+		log_plain("project builtin-options:\n");
 		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
-		printf("\n");
+		log_plain("\n");
 
-		printf("global options:\n");
+		log_plain("global options:\n");
 		obj_dict_foreach(&wk, wk.global_opts, &ctx, list_options_iter);
 	}
 
