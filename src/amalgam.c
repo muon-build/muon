@@ -102,6 +102,7 @@
 
 #ifdef _WIN32
 #include "platform/windows/filesystem.c"
+#include "platform/windows/log.c"
 #include "platform/windows/path.c"
 #include "platform/windows/rpath_fixer.c"
 #include "platform/windows/run_cmd.c"
@@ -112,6 +113,7 @@
 #else
 #include "platform/null/rpath_fixer.c"
 #include "platform/posix/filesystem.c"
+#include "platform/posix/log.c"
 #include "platform/posix/path.c"
 #include "platform/posix/run_cmd.c"
 #include "platform/posix/term.c"

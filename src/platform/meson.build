@@ -12,6 +12,7 @@ platform_sources = files(
 
 foreach f : [
     'filesystem.c',
+    'log.c',
     'path.c',
     'run_cmd.c',
     'term.c',

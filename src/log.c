@@ -62,13 +62,6 @@ log_set_prefix(const char *prefix)
 	log_cfg.prefix = prefix;
 }
 
-// TODO move this function into platform/
-void
-print_colorized(FILE *out, const char *s)
-{
-	fwrite(s, 1, strlen(s), out);
-}
-
 void
 log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {

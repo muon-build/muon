@@ -18,7 +18,10 @@
 #include "platform/mem.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "platform/windows/log.h"
 #include "platform/windows/win32_error.h"
+
+bool tty_is_pty = true;
 
 bool
 fs_exists(const char *path)
@@ -309,6 +312,7 @@ fs_is_a_tty_from_fd(int fd)
 					mode |= 0x4 | 0x1;
 					if (SetConsoleMode(h, mode)) {
 						FreeLibrary(mod);
+						tty_is_pty = true;
 						return true;
 					}
 				}
@@ -386,6 +390,7 @@ fs_is_a_tty_from_fd(int fd)
 			}
 			z_free(fni);
 			if (p) {
+				tty_is_pty = true;
 				return true;
 			}
 		}
@@ -394,7 +399,12 @@ fs_is_a_tty_from_fd(int fd)
 	/*
 	 * last case: cmd without conpty
 	 */
-	return GetConsoleMode(h, &mode);
+	if (GetConsoleMode(h, &mode)) {
+		tty_is_pty = false;
+		return true;
+	}
+
+	return false;
 }
 
 bool
