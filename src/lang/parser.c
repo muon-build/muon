@@ -353,7 +353,6 @@ ensure_in_loop(struct parser *p)
 
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_expr(struct parser *p, uint32_t *id);
-static bool parse_stmt(struct parser *p, uint32_t *id);
 
 enum parse_list_mode {
 	parse_list_mode_array,
@@ -598,7 +597,7 @@ parse_e8(struct parser *p, uint32_t *id)
 			make_node(p, id, node_paren);
 		}
 
-		if (!parse_stmt(p, &v)) {
+		if (!parse_expr(p, &v)) {
 			return false;
 		}
 
@@ -1018,7 +1017,7 @@ ret:
 }
 
 static bool
-parse_stmt(struct parser *p, uint32_t *id)
+parse_assignment(struct parser *p, uint32_t *id)
 {
 	uint32_t l_id = 0;
 	if (!(parse_expr(p, &l_id))) {
@@ -1034,7 +1033,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 		if (get_node(p->ast, l_id)->type != node_id) {
 			parse_error(p, NULL, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
-		} else if (!parse_stmt(p, &v)) {
+		} else if (!parse_expr(p, &v)) {
 			return false;
 		}
 
@@ -1057,7 +1056,7 @@ parse_stmt(struct parser *p, uint32_t *id)
 		if (get_node(p->ast, l_id)->type != node_id) {
 			parse_error(p, NULL, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
 			return false;
-		} else if (!parse_stmt(p, &v)) {
+		} else if (!parse_expr(p, &v)) {
 			return false;
 		}
 
@@ -1087,7 +1086,7 @@ parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
 
 	struct token *if_ = p->last;
 	if (if_type == if_if || if_type == if_elseif) {
-		if (!parse_stmt(p, &cond_id)) {
+		if (!parse_expr(p, &cond_id)) {
 			return false;
 		}
 
@@ -1184,7 +1183,7 @@ parse_foreach(struct parser *p, uint32_t *id)
 
 	if (!expect(p, tok_colon)) {
 		return false;
-	} else if (!parse_stmt(p, &r_id)) {
+	} else if (!parse_expr(p, &r_id)) {
 		return false;
 	}
 
@@ -1287,7 +1286,7 @@ parse_line(struct parser *p, uint32_t *id)
 
 		make_node(p, id, node_break);
 	} else {
-		if (!parse_stmt(p, id)) {
+		if (!parse_assignment(p, id)) {
 			return false;
 		}
 	}
