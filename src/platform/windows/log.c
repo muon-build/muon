@@ -16,9 +16,9 @@
 #endif
 #include <windows.h>
 
+#include "buf_size.h"
+#include "platform/log.h"
 #include "platform/windows/log.h"
-
-#define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
 
 static const WORD color_map[] = {
 	[1]  = FOREGROUND_INTENSITY,

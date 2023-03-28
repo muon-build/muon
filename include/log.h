@@ -50,5 +50,4 @@ MUON_ATTR_FORMAT(printf, 1, 2);
 void log_plainv(const char *fmt, va_list ap);
 FILE *log_file(void);
 bool log_should_print(enum log_level lvl);
-void print_colorized(FILE *out, const char *s);
 #endif
