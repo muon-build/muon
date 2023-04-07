@@ -14,6 +14,7 @@
 #include "buf_size.h"
 #include "log.h"
 #include "platform/filesystem.h"
+#include "platform/log.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
