@@ -73,8 +73,10 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_min,
 		kw_yield,
 		kw_deprecated,
-		kwargs_count
+		kwargs_count,
+		kw_kind = kwargs_count,
 	};
+
 	struct args_kw akw[] = {
 		[kw_type] = { "type", obj_string },
 		[kw_value] = { "value", tc_any },
@@ -84,8 +86,13 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_min] = { "min", obj_number },
 		[kw_yield] = { "yield", obj_bool },
 		[kw_deprecated] = { "deprecated", tc_string | tc_bool | tc_array | tc_dict },
+		[kw_kind] = { 0 },
 		0
 	};
+
+	if (initializing_builtin_options) {
+		akw[kw_kind] = (struct args_kw) { "kind", tc_string };
+	}
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -202,6 +209,17 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 
 		o->deprecated = akw[kw_deprecated].val;
+	}
+
+	if (akw[kw_kind].set) {
+		if (str_eql(&WKSTR("default"), get_str(wk, akw[kw_kind].val))) {
+			o->kind = build_option_kind_default;
+		} else if (str_eql(&WKSTR("prefixed_dir"), get_str(wk, akw[kw_kind].val))) {
+			o->kind = build_option_kind_prefixed_dir;
+		} else {
+			interp_error(wk, akw[kw_kind].node, "invalid kind: %o", akw[kw_kind].val);
+			return false;
+		}
 	}
 
 	obj opts;

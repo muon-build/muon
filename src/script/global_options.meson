@@ -3,17 +3,17 @@
 
 # Directories
 option('prefix', type: 'string', value: '/usr/local')
-option('bindir', type: 'string', value: 'bin')
-option('datadir', type: 'string', value: 'share')
-option('includedir', type: 'string', value: 'include')
-option('infodir', type: 'string', value: 'share/info')
-option('libdir', type: 'string', value: 'lib')
-option('libexecdir', type: 'string', value: 'libexec')
-option('localedir', type: 'string', value: 'share/locale')
+option('bindir', type: 'string', value: 'bin', kind: 'prefixed_dir')
+option('datadir', type: 'string', value: 'share', kind: 'prefixed_dir')
+option('includedir', type: 'string', value: 'include', kind: 'prefixed_dir')
+option('infodir', type: 'string', value: 'share/info', kind: 'prefixed_dir')
+option('libdir', type: 'string', value: 'lib', kind: 'prefixed_dir')
+option('libexecdir', type: 'string', value: 'libexec', kind: 'prefixed_dir')
+option('localedir', type: 'string', value: 'share/locale', kind: 'prefixed_dir')
 option('localstatedir', type: 'string', value: '/var')
-option('mandir', type: 'string', value: 'share/man')
-option('sbindir', type: 'string', value: 'sbin')
-option('sharedstatedir', type: 'string', value: 'com')
+option('mandir', type: 'string', value: 'share/man', kind: 'prefixed_dir')
+option('sbindir', type: 'string', value: 'sbin', kind: 'prefixed_dir')
+option('sharedstatedir', type: 'string', value: 'com', kind: 'prefixed_dir')
 option('sysconfdir', type: 'string', value: '/etc')
 
 # Core options

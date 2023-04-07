@@ -20,7 +20,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-bool created_options_are_builtin = false;
+bool initializing_builtin_options = false;
 
 static const char *build_option_type_to_s[build_option_type_count] = {
 	[op_string] = "string",
@@ -391,6 +391,48 @@ typecheck_opt(struct workspace *wk, uint32_t err_node, obj val, enum build_optio
 	return true;
 }
 
+struct prefix_dir_opts_ctx {
+	const struct str *prefix;
+};
+
+static enum iteration_result
+prefix_dir_opts_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
+{
+	struct prefix_dir_opts_ctx *ctx = _ctx;
+
+	struct obj_option *opt = get_obj_option(wk, v);
+
+	if (opt->kind != build_option_kind_prefixed_dir) {
+		return ir_cont;
+	}
+
+	const char *path = get_cstr(wk, opt->val);
+	if (!path_is_absolute(path)) {
+		return ir_cont;
+	}
+
+	SBUF(new_path);
+	if (path_is_subpath(ctx->prefix->s, path)) {
+		path_relative_to(wk, &new_path, ctx->prefix->s, path);
+	} else {
+		path_join(wk, &new_path, ctx->prefix->s, path);
+	}
+
+	opt->val = sbuf_into_str(wk, &new_path);
+	return ir_cont;
+}
+
+bool
+prefix_dir_opts(struct workspace *wk)
+{
+	obj prefix;
+	get_option_value(wk, NULL, "prefix", &prefix);
+
+	return obj_dict_foreach(wk, wk->global_opts, &(struct prefix_dir_opts_ctx) {
+		.prefix = get_str(wk, prefix),
+	}, prefix_dir_opts_iter);
+}
+
 static void
 extend_array_option(struct workspace *wk, obj opt, obj new_val,
 	enum option_value_source source)
@@ -515,7 +557,7 @@ create_option(struct workspace *wk, uint32_t node, obj opts, obj opt, obj val)
 
 	struct obj_option *o = get_obj_option(wk, opt);
 
-	if (created_options_are_builtin) {
+	if (initializing_builtin_options) {
 		o->builtin = true;
 	}
 
@@ -642,9 +684,9 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 	enum language_mode old_mode = wk->lang_mode;
 	wk->lang_mode = language_opts;
 	obj _;
-	created_options_are_builtin = true;
+	initializing_builtin_options = true;
 	bool ret = eval_str(wk, opts, eval_mode_default, &_);
-	created_options_are_builtin = false;
+	initializing_builtin_options = false;
 	wk->lang_mode = old_mode;
 	return ret;
 }

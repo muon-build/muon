@@ -438,6 +438,11 @@ enum build_option_type {
 	build_option_type_count,
 };
 
+enum build_option_kind {
+	build_option_kind_default,
+	build_option_kind_prefixed_dir,
+};
+
 enum option_value_source {
 	option_value_source_unset,
 	option_value_source_default,
@@ -460,6 +465,7 @@ struct obj_option {
 	obj description;
 	enum option_value_source source;
 	enum build_option_type type;
+	enum build_option_kind kind;
 	bool yield, builtin;
 };
 

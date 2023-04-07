@@ -7,7 +7,7 @@
 #define MUON_OPTIONS_H
 #include "lang/workspace.h"
 
-extern bool created_options_are_builtin;
+extern bool initializing_builtin_options;
 
 struct option_override {
 	// strings
@@ -26,6 +26,7 @@ void get_option_value_overridable(struct workspace *wk, const struct project *pr
 
 bool check_invalid_option_overrides(struct workspace *wk);
 bool check_invalid_subproject_option(struct workspace *wk);
+bool prefix_dir_opts(struct workspace *wk);
 
 bool setup_project_options(struct workspace *wk, const char *cwd);
 bool init_global_options(struct workspace *wk);
