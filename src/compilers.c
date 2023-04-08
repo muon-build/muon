@@ -960,6 +960,7 @@ build_linkers(void)
 			.fatal_warnings = compiler_arg_empty_0,
 			.whole_archive = compiler_arg_empty_0,
 			.no_whole_archive = compiler_arg_empty_0,
+			.enable_lto = compiler_arg_empty_0,
 		}
 	};
 
@@ -984,6 +985,8 @@ build_linkers(void)
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 
 	struct linker apple = posix;
+	apple.args.sanitize = compiler_gcc_args_sanitize;
+	apple.args.enable_lto = compiler_gcc_args_lto;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
