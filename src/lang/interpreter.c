@@ -24,6 +24,7 @@
 #include "lang/parser.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "memmem.h"
 #include "platform/path.h"
 
 static void
@@ -856,6 +857,19 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 			}
 
 			b = obj_dict_in(wk, obj_r_id, obj_l_id);
+			break;
+		case obj_string:
+			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
+				return false;
+			}
+
+			const struct str *r = get_str(wk, obj_r_id),
+					 *l = get_str(wk, obj_l_id);
+			if (memmem(r->s, r->len, l->s, l->len)) {
+				b = true;
+			} else {
+				b = false;
+			}
 			break;
 		default:
 			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));

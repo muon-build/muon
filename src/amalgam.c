@@ -87,6 +87,7 @@
 #include "log.c"
 #include "machine_file.c"
 #include "main.c"
+#include "memmem.c"
 #include "meson_opts.c"
 #include "options.c"
 #include "opts.c"

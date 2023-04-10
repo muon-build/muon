@@ -1002,7 +1002,7 @@ analyze_comparison_cb(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 		break;
 	case comp_in:
 	case comp_not_in:
-		ctx->expected |= tc_array | tc_dict;
+		ctx->expected |= tc_array | tc_dict | tc_string;
 		break;
 	case comp_lt:
 	case comp_le:

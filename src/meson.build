@@ -76,6 +76,7 @@ src = files(
     'log.c',
     'machine_file.c',
     'main.c',
+    'memmem.c',
     'meson_opts.c',
     'options.c',
     'opts.c',
