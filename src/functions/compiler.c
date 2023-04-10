@@ -458,7 +458,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 	struct args_kw akw_base[] = {
 		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
 		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
-		[cc_kw_prefix] = { "prefix", obj_string },
+		[cc_kw_prefix] = { "prefix", ARG_TYPE_ARRAY_OF | obj_string },
 		[cc_kw_required] = { "required", tc_required_kw },
 		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[cc_kw_name] = { "name", obj_string },
@@ -502,6 +502,12 @@ static const char *
 compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 {
 	if (akw[cc_kw_prefix].set) {
+		if (get_obj_type(wk, akw[cc_kw_prefix].val) == obj_array) {
+			obj joined;
+			obj_array_join(wk, true, akw[cc_kw_prefix].val, make_str(wk, "\n"), &joined);
+			akw[cc_kw_prefix].val = joined;
+		}
+
 		return get_cstr(wk, akw[cc_kw_prefix].val);
 	} else {
 		return "";
