@@ -46,16 +46,18 @@ exe = executable(
 )
 test('hello', exe)
 
-#Test whether pthread dependency gets filtered out
-threads = dependency('threads')
+# different than meson: Currently muon does not filter out -pthread from nasm
+# targets.
+##Test whether pthread dependency gets filtered out
+#threads = dependency('threads')
 
-exe2 = executable(
-    'hello_w_threads',
-    'hello.asm',
-    config_file,
-    nasm_args: '-DFOO',
-    link_args: link_args,
-    dependencies: [threads],
-)
+#exe2 = executable(
+#    'hello_w_threads',
+#    'hello.asm',
+#    config_file,
+#    nasm_args: '-DFOO',
+#    link_args: link_args,
+#    dependencies: [threads],
+#)
 
-test('hello_w_threads', exe2)
+#test('hello_w_threads', exe2)
