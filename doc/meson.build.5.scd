@@ -100,7 +100,8 @@ strings that do not support the escape sequences listed above.
 
 Format strings are expressed by a placing leading `f` before the first opening
 quote.  Inside of a format string, sequences of the form `@[a-z_]+@` will be
-substituted with the value of the matching variable.
+substituted with the value of the matching variable.  This variable can be of
+type bool, int, or str.
 
 ```
 name = 'Alice'
@@ -112,7 +113,9 @@ message(f'Hello @name@')
 *OPERATORS*
 - `+` - concatenate two strings
 - `/` - concatenate two strings as if `join_paths()` was called
-- `[n]` -  access the character at index `n`
+- `[int]` -  access the character at index
+- `<str> in <str>` - check if str is a substring
+- `<str> not in <str>` - check if str is not a substring
 - `==` - equal to
 - `!=` - not equal to
 
@@ -123,9 +126,9 @@ Arrays are delimited by brackets. An array can contain an arbitrary number of ob
 *OPERATORS*
 - `+` -  If the rhs operand is an array, it will be joined to the lhs
   array. If it is a scalar, it will be appended to the lhs array.
-- `[n]` - access the object at index `n`
-- `<obj> in <array>` - check if object `obj` is in `array`
-- `<obj> in <array>` - check if object `obj` is not in `array`
+- `[int]` - access the object at index
+- `<any> in <array>` - check if object is in `array`
+- `<any> not in <array>` - check if object is not in `array`
 - `==` - equal to
 - `!=` - not equal to
 
@@ -139,9 +142,9 @@ a guaranteed order.
 *OPERATORS*
 - `+` - merge two dictionaries.  In case of a conflicting key, the value from
   the rhs dictionary will be taken.
-- `[key]` - access the object with key `key`
-- `<key> in <dict>` - check if key `key` is in `dict`
-- `<key> not in <dict>` - check if key `key` is not in `dict`
+- `[str]` - access the object with key `key`
+- `<str> in <dict>` - check if key is in `dict`
+- `<str> not in <dict>` - check if key is not in `dict`
 - `==` - equal to
 - `!=` - not equal to
 
@@ -209,8 +212,11 @@ keyword.
 
 ```
 if conditon1
+	...
 elif condition2
+	...
 else condition3
+	...
 endif
 ```
 
