@@ -141,7 +141,7 @@ fi
 
 meson_root="$1"
 
-copy_tests_ "test cases/common" "tests/project/common" 0.64.1
-copy_tests_ "test cases/nasm"   "tests/project/nasm"   0.64.1
-copy_tests_ "test cases/native" "tests/project/native" 0.64.1
-copy_tests_ "test cases/keyval" "tests/project/keyval" 0.64.1
+copy_tests_ "test cases/common" "tests/project/common" 1.0.1
+copy_tests_ "test cases/nasm"   "tests/project/nasm"   1.0.1
+copy_tests_ "test cases/native" "tests/project/native" 1.0.1
+copy_tests_ "test cases/keyval" "tests/project/keyval" 1.0.1

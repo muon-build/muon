@@ -45,3 +45,17 @@ exe = executable(
     link_args: link_args,
 )
 test('hello', exe)
+
+#Test whether pthread dependency gets filtered out
+threads = dependency('threads')
+
+exe2 = executable(
+    'hello_w_threads',
+    'hello.asm',
+    config_file,
+    nasm_args: '-DFOO',
+    link_args: link_args,
+    dependencies: [threads],
+)
+
+test('hello_w_threads', exe2)
