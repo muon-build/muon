@@ -73,6 +73,7 @@ enum compiler_warning_lvl {
 	compiler_warning_lvl_1,
 	compiler_warning_lvl_2,
 	compiler_warning_lvl_3,
+	compiler_warning_lvl_everything,
 };
 
 enum compiler_visibility_type {
@@ -97,6 +98,7 @@ struct compiler {
 		compiler_get_arg_func_1i optimization;
 		compiler_get_arg_func_0 debug;
 		compiler_get_arg_func_1i warning_lvl;
+		compiler_get_arg_func_0 warn_everything;
 		compiler_get_arg_func_0 werror;
 		compiler_get_arg_func_1s set_std;
 		compiler_get_arg_func_1s include;

@@ -562,6 +562,9 @@ compiler_gcc_args_warning_lvl(uint32_t lvl)
 	args.len = 0;
 
 	switch ((enum compiler_warning_lvl)lvl) {
+	case compiler_warning_lvl_everything:
+		UNREACHABLE;
+		break;
 	case compiler_warning_lvl_3:
 		argv[args.len] = "-Wpedantic";
 		++args.len;
@@ -585,6 +588,50 @@ static const struct args *
 compiler_gcc_args_werror(void)
 {
 	COMPILER_ARGS({ "-Werror" });
+	return &args;
+}
+
+static const struct args *
+compiler_gcc_args_warn_everything(void)
+{
+	COMPILER_ARGS({ "-Wall", "-Winvalid-pch", "-Wextra", "-Wpedantic",
+			"-Wcast-qual", "-Wconversion", "-Wfloat-equal",
+			"-Wformat=2", "-Winline", "-Wmissing-declarations",
+			"-Wredundant-decls", "-Wshadow", "-Wundef",
+			"-Wuninitialized", "-Wwrite-strings",
+			"-Wdisabled-optimization", "-Wpacked", "-Wpadded",
+			"-Wmultichar", "-Wswitch-default", "-Wswitch-enum",
+			"-Wunused-macros", "-Wmissing-include-dirs",
+			"-Wunsafe-loop-optimizations", "-Wstack-protector",
+			"-Wstrict-overflow=5", "-Warray-bounds=2",
+			"-Wlogical-op", "-Wstrict-aliasing=3", "-Wvla",
+			"-Wdouble-promotion", "-Wsuggest-attribute=const",
+			"-Wsuggest-attribute=noreturn",
+			"-Wsuggest-attribute=pure", "-Wtrampolines",
+			"-Wvector-operation-performance",
+			"-Wsuggest-attribute=format", "-Wdate-time",
+			"-Wformat-signedness", "-Wnormalized=nfc",
+			"-Wduplicated-cond", "-Wnull-dereference",
+			"-Wshift-negative-value", "-Wshift-overflow=2",
+			"-Wunused-const-variable=2", "-Walloca",
+			"-Walloc-zero", "-Wformat-overflow=2",
+			"-Wformat-truncation=2", "-Wstringop-overflow=3",
+			"-Wduplicated-branches", "-Wattribute-alias=2",
+			"-Wcast-align=strict", "-Wsuggest-attribute=cold",
+			"-Wsuggest-attribute=malloc", "-Wanalyzer-too-complex",
+			"-Warith-conversion", "-Wbidi-chars=ucn",
+			"-Wopenacc-parallelism", "-Wtrivial-auto-var-init",
+			"-Wbad-function-cast", "-Wmissing-prototypes",
+			"-Wnested-externs", "-Wstrict-prototypes",
+			"-Wold-style-definition", "-Winit-self",
+			"-Wc++-compat", "-Wunsuffixed-float-constants" });
+	return &args;
+}
+
+static const struct args *
+compiler_clang_args_warn_everything(void)
+{
+	COMPILER_ARGS({ "-Weverything" });
 	return &args;
 }
 
@@ -763,6 +810,7 @@ build_compilers(void)
 			.optimization    = compiler_arg_empty_1i,
 			.debug           = compiler_arg_empty_0,
 			.warning_lvl     = compiler_arg_empty_1i,
+			.warn_everything = compiler_arg_empty_0,
 			.werror          = compiler_arg_empty_0,
 			.set_std         = compiler_arg_empty_1s,
 			.include         = compiler_arg_empty_1s,
@@ -799,6 +847,7 @@ build_compilers(void)
 	gcc.args.deps = compiler_gcc_args_deps;
 	gcc.args.optimization = compiler_gcc_args_optimization;
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
+	gcc.args.warn_everything = compiler_gcc_args_warn_everything;
 	gcc.args.werror = compiler_gcc_args_werror;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
@@ -813,12 +862,15 @@ build_compilers(void)
 	gcc.deps = compiler_deps_gcc;
 	gcc.linker = linker_gcc;
 
-	struct compiler apple_clang = gcc;
+	struct compiler clang = gcc;
+	clang.args.warn_everything = compiler_clang_args_warn_everything;
+
+	struct compiler apple_clang = clang;
 	apple_clang.linker = linker_apple;
 
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
-	compilers[compiler_clang] = gcc;
+	compilers[compiler_clang] = clang;
 	compilers[compiler_apple_clang] = apple_clang;
 	compilers[compiler_clang_llvm_ir] = clang_llvm_ir;
 

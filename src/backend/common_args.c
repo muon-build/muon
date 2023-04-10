@@ -113,9 +113,14 @@ get_warning_args(struct workspace *wk, const struct project *proj,
 {
 	obj lvl_id;
 	get_option_value_for_tgt(wk, proj, tgt, "warning_level", &lvl_id);
+	const struct str *sl = get_str(wk, lvl_id);
+
+	if (str_eql(sl, &WKSTR("everything"))) {
+		push_args(wk, args_id, compilers[t].args.warn_everything());
+		return;
+	}
 
 	uint32_t lvl;
-	const struct str *sl = get_str(wk, lvl_id);
 	assert(sl->len == 1 && "invalid warning_level");
 	switch (sl->s[0]) {
 	case '0':
