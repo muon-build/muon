@@ -1,6 +1,12 @@
+#!/bin/sh
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-test('fmt', find_program('test.sh'), args: muon, suite: 'fmt')
+set -eux
 
-subdir('editorconfig')
+muon="$1"
+path="$2"
+
+if ! "$muon" -v fmt -eq "$path"; then
+	exit 1
+fi

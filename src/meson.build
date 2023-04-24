@@ -13,6 +13,7 @@ src = files(
     'data/bucket_array.c',
     'data/darr.c',
     'data/hash.c',
+    'formats/editorconfig.c',
     'formats/ini.c',
     'formats/lines.c',
     'formats/tap.c',

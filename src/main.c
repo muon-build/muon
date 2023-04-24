@@ -845,10 +845,10 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		char *const *filenames;
 		const char *cfg_path;
-		bool in_place, check_only;
+		bool in_place, check_only, editorconfig;
 	} opts = { 0 };
 
-	OPTSTART("ic:q") {
+	OPTSTART("ic:qe") {
 		case 'i':
 			opts.in_place = true;
 			break;
@@ -858,10 +858,14 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'q':
 			opts.check_only = true;
 			break;
+		case 'e':
+			opts.editorconfig = true;
+			break;
 	} OPTEND(argv[argi], " <file>[ <file>[...]]",
 		"  -q - exit with 1 if files would be modified by muon fmt\n"
 		"  -i - format files in-place\n"
-		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n",
+		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n"
+		"  -e - try to read configuration from\n",
 		NULL, -1)
 
 	if (opts.in_place && opts.check_only) {
@@ -898,7 +902,7 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 			out = stdout;
 		}
 
-		fmt_ret = fmt(&src, out, opts.cfg_path, opts.check_only);
+		fmt_ret = fmt(&src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
 cont:
 		if (opened_out) {
 			fs_fclose(out);

@@ -12,11 +12,13 @@
 
 #include "buf_size.h"
 #include "error.h"
+#include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
 #include "lang/string.h"
 #include "log.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 
 struct arg_elem {
 	uint32_t kw, val, next;
@@ -937,6 +939,10 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	return len;
 }
 
+/*
+ * config parsing
+ */
+
 static bool
 fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 	const char *k, const char *v, uint32_t line)
@@ -1030,7 +1036,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 }
 
 bool
-fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only)
+fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
 {
 	bool ret = false;
 	struct ast ast = { 0 };
@@ -1055,6 +1061,14 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only)
 	} else {
 		out_buf.flags = sbuf_flag_write;
 		out_buf.buf = (void *)out;
+	}
+
+	if (editorconfig) {
+		struct editorconfig_opts editorconfig_opts;
+		try_parse_editorconfig(src, &editorconfig_opts);
+		if (editorconfig_opts.indent_by) {
+			ctx.indent_by = editorconfig_opts.indent_by;
+		}
 	}
 
 	char *cfg_buf = NULL;

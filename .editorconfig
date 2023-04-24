@@ -12,3 +12,7 @@ insert_final_newline = true
 
 [{*.c,*.h,*.sh}]
 indent_style = tab
+
+[{meson.build,meson_options.txt}]
+indent_style = space
+indent_size = 4

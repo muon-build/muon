@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+root = true
+
+[*]
+indent_style = tab
+
+[geson.build]
+indent_style = tab
+
+[*.uild]
+indent_style = tab
+
+[*/**/me*n.?ui{ld}]
+indent_style = space
+indent_size = 6

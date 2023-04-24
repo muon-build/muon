@@ -10,5 +10,5 @@
 
 #include "lang/parser.h"
 
-bool fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only);
+bool fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig);
 #endif

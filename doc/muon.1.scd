@@ -90,6 +90,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-q* - exit with 1 if files would be modified by muon fmt
 	- *-i* - format files in-place
 	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_
+	- *-e* - try to read configuration from .editorconfig.  Only indentation
+	related settings are recognized.
 
 	*CONFIGURATION OPTIONS*
 [[ *key*

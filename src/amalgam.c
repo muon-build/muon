@@ -31,6 +31,7 @@
 #include "external/libarchive_null.c"
 #include "external/libcurl_null.c"
 #include "external/samurai_null.c"
+#include "formats/editorconfig.c"
 #include "formats/ini.c"
 #include "formats/lines.c"
 #include "formats/tap.c"
