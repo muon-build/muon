@@ -13,6 +13,11 @@
     color: #21222C;
 }
 
+.warning {
+    background-color: #FFFD8C;
+    color: #21222C;
+}
+
 tr:nth-child(odd) {
   background-color: #F8F8F2;
 }
@@ -53,4 +58,10 @@ table {
 
 .item {
     width: 100%;
+}
+
+.support_cell {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }

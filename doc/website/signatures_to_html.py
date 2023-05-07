@@ -6,6 +6,14 @@ import itertools
 
 from version_info import MuonVersion
 
+function_support_notes = {
+        "subproject": """
+            <a href=\"https://git.sr.ht/~lattis/muon/tree/master/item/doc/differences.md#nested-subproject-promotion\">
+                muon does not perform subproject promotion
+            </a>
+        """,
+}
+
 def parse(file):
     sigs = {}
 
@@ -244,6 +252,9 @@ def positive(text):
 def negative(text):
     return f'<span class="negative">{text}</span>'
 
+def warning(text):
+    return f'<span class="warning">{text}</span>'
+
 
 def tdiff(a, b):
     s = []
@@ -306,9 +317,17 @@ def typecomp(mu, me):
     b = normalize_listify(normalize_types(parse_type(me)))
     return (tdiff(a, b), tdiff(b, a))
 
+def footnote(footnotes, footnote):
+    if footnote not in footnotes:
+        footnotes.append(footnote)
+
+    index = footnotes.index(footnote) + 1
+    return f"<sup><a href=\"#footnote{index}\">{index}</a></sup>"
+
 
 func_tbl = Table(Row("function", "status", "muon return", "meson return"))
 arg_tbls = []
+footnotes = []
 
 all_funcs = set(muon.keys()) | set(meson.keys())
 methods = set([f for f in all_funcs if "." in f])
@@ -329,6 +348,7 @@ for f in sorted(kernel) + sorted(methods):
         r.me = meson[f]
 
     support = positive("supported")
+    notes = ""
 
     if f not in muon:
         r.mu = Sig.empty(f)
@@ -338,7 +358,17 @@ for f in sorted(kernel) + sorted(methods):
         if muon[f].extension:
             support = "muon extension"
         else:
-            support = positive("supported*")
+            support = warning("supported")
+            notes = footnote(footnotes, "There is no type information for this function in the meson yaml documentation, therefore a comparison cannot be made.")
+
+    if f in function_support_notes:
+        support = warning("supported")
+        notes += footnote(footnotes, function_support_notes[f])
+
+    if notes:
+        support += '<div class="footnotes">' + notes + '</div>'
+
+    support = f'<div class="support_cell">{support}</div>'
 
     func_tbl += Row(flink, support, *typecomp(r.mu.returns, r.me.returns))
 
@@ -425,4 +455,14 @@ for r, at in arg_tbls:
     else:
         print("no arguments")
     print("</div>")
+
+print("<hr>")
+print('<div class="item">')
+print('<h1 id="footnotes">Footnotes</h1>')
+print("<ol>")
+for index in range(len(footnotes)):
+    print(f'<li id="footnote{index + 1}">{footnotes[index]}</li>')
+print("</ol>")
+print('</div>')
+
 print("</div></body>")
