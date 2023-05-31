@@ -670,6 +670,14 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			{ bt_kw_nasm_args, compiler_language_nasm },
 		};
 
+		{ // copy c or cpp args to assembly args
+			if (akw[bt_kw_c_args].set) {
+				obj_dict_seti(wk, tgt->args, compiler_language_assembly, akw[bt_kw_c_args].val);
+			} else if (akw[bt_kw_cpp_args].set) {
+				obj_dict_seti(wk, tgt->args, compiler_language_assembly, akw[bt_kw_cpp_args].val);
+			}
+		}
+
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
 			if (akw[lang_args[i].kw].set) {
