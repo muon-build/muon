@@ -124,3 +124,10 @@ set in the environment of run\_command, test, custom\_target, etc.  `MUON_PATH`
 is provided for users who are waiting for
 <https://github.com/mesonbuild/meson/pull/9855> and are (ab)using
 `MESONINTROSPECT` for this purpose.
+
+## default option values
+
+A number of builtin options have different default values:
+
+- `default_library` is `'static'`
+- `warning_level` is `'3'`
