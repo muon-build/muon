@@ -298,7 +298,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
 		output_path = test_output_path.buf;
 	} else {
-		path_join(wk, &test_output_path, wk->muon_private, "test.o");
+		path_join(wk, &test_output_path, wk->muon_private, "test.");
+		sbuf_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
+		sbuf_pushs(wk, &test_output_path, compilers[t].object_ext);
 		output_path = test_output_path.buf;
 	}
 

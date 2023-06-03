@@ -98,15 +98,25 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	enum compiler_language fl;
 
+	/*
+	 * Try to see if the file looks like
+	 * path/to/object.language.object_extension
+	 *
+	 * This means we expect two extensions, the first one will be stripped,
+	 * and then the second will be used to determine the language of the
+	 * file.
+	 */
+
 	const struct str *o = get_str(wk, *get_obj_file(wk, val));
-	if (!str_endswith(o, &WKSTR(".o"))) {
+	SBUF(path);
+	path_basename(wk, &path, o->s);
+	const char *first_dot = strrchr(path.buf, '.');
+	path.len = first_dot - path.buf;
+	path.buf[path.len] = 0;
+
+	if (!strrchr(path.buf, '.')) {
 		return ir_cont;
 	}
-
-	SBUF(path);
-	sbuf_pushs(wk, &path, o->s);
-	path.len -= 2;
-	path.buf[path.len] = 0;
 
 	if (!filename_to_compiler_language(path.buf, &fl)) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
