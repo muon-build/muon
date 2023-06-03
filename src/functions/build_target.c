@@ -62,7 +62,19 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 	}
 
 	path_join(wk, res, private_path, rel.buf);
-	sbuf_pushs(wk, res, ".o");
+
+	const char *ext = ".o";
+
+	{
+		enum compiler_language lang;
+		obj comp_id;
+		if (filename_to_compiler_language(res->buf, &lang)
+		    && obj_dict_geti(wk, current_project(wk)->compilers, lang, &comp_id)) {
+			ext = compilers[get_obj_compiler(wk, comp_id)->type].object_ext;
+		}
+	}
+
+	sbuf_pushs(wk, res, ext);
 	return true;
 }
 

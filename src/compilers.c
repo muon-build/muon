@@ -824,7 +824,8 @@ build_compilers(void)
 			.specify_lang    = compiler_arg_empty_1s,
 			.color_output    = compiler_arg_empty_1s,
 			.enable_lto      = compiler_arg_empty_0,
-		}
+		},
+		.object_ext = ".o",
 	};
 
 	struct compiler clang_llvm_ir = empty;

@@ -115,6 +115,7 @@ struct compiler {
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type linker;
+	const char *object_ext;
 };
 
 struct linker {
