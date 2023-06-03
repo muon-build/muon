@@ -718,8 +718,12 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_external_program);
-		get_obj_external_program(wk, *res)->found = false;
+		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
+			*res = disabler_id;
+		} else {
+			make_obj(wk, res, obj_external_program);
+			get_obj_external_program(wk, *res)->found = false;
+		}
 		return true;
 	}
 
