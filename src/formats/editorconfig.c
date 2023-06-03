@@ -15,6 +15,7 @@
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/string.h"
+#include "platform/mem.h"
 #include "platform/path.h"
 
 struct parse_editorconfig_ctx {
@@ -290,6 +291,9 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 	const char *indent_style = NULL, *indent_size = NULL, *tab_width = NULL;
 	struct source cfg_src = { 0 };
 
+	struct darr garbage;
+	darr_init(&garbage, 16, sizeof(void *));
+
 	while (true) {
 		path_join(0, &path, wd.buf, ".editorconfig");
 		if (fs_file_exists(path.buf)) {
@@ -298,12 +302,11 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 			};
 
 			char *cfg_buf = NULL;
-			if (!fs_read_entire_file(path.buf, &cfg_src)) {
+			if (!ini_parse(path.buf, &cfg_src, &cfg_buf, editorconfig_cfg_parse_cb, &editorconfig_ctx)) {
 				goto ret;
-			} else if (!ini_parse(path.buf, &cfg_src, &cfg_buf, editorconfig_cfg_parse_cb, &editorconfig_ctx)) {
-				goto ret;
-
 			}
+
+			darr_push(&garbage, &cfg_buf);
 
 			fs_source_destroy(&cfg_src);
 			cfg_src = (struct source){ 0 };
@@ -370,6 +373,11 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 	opts->indent_by = buf;
 
 ret:
+	for (i = 0; i < garbage.len; ++i) {
+		z_free(*(void **)darr_get(&garbage, i));
+	}
+	darr_destroy(&garbage);
+
 	fs_source_destroy(&cfg_src);
 	sbuf_destroy(&wd);
 	sbuf_destroy(&path);
