@@ -481,7 +481,7 @@ get_option_link_args(struct workspace *wk, const struct project *proj,
 		get_option_value_for_tgt(wk, proj, tgt, "c_link_args", &args);
 		break;
 	case compiler_language_cpp:
-		get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args);
+		get_option_value_for_tgt(wk, proj, tgt, "cpp_link_args", &args);
 		break;
 	default:
 		return;
