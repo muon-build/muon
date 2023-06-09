@@ -226,8 +226,14 @@ path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, c
 	 */
 
 	sbuf_clear(buf);
-	path_copy(wk, &path_ctx.tmp1, base_raw);
-	path_copy(wk, &path_ctx.tmp2, path_raw);
+
+	sbuf_clear(&path_ctx.tmp1);
+	sbuf_pushs(wk, &path_ctx.tmp1, base_raw);
+	_path_normalize(wk, &path_ctx.tmp1, true);
+
+	sbuf_clear(&path_ctx.tmp2);
+	sbuf_pushs(wk, &path_ctx.tmp2, path_raw);
+	_path_normalize(wk, &path_ctx.tmp2, true);
 
 	const char *base = path_ctx.tmp1.buf, *path = path_ctx.tmp2.buf;
 
