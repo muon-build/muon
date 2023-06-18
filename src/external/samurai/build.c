@@ -392,7 +392,7 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 	struct samu_pool *p;
 
 	if (j->failed) {
-		samu_warn("job failed: %s", j->cmd->s);
+		samu_warn("job failed with status %d: %s", j->cmd_ctx.status, j->cmd->s);
 	}
 
 	++ctx->build.nfinished;
