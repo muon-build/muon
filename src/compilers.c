@@ -313,7 +313,7 @@ static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "--print-search-dirs")
+	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-print-search-dirs")
 	    || cmd_ctx.status) {
 		goto done;
 	}
