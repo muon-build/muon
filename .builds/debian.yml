@@ -11,20 +11,24 @@ packages:
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
-  - build: |
+  - bootstrap: |
       cd muon
       ./bootstrap.sh build
       build/muon setup build
       ninja -C build
 
+  - build_asan_ubsan: |
       build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
       ninja -C build_asan_ubsan
 
+  - build_memsan: |
       CC=clang build/muon setup -Db_sanitize=memory build_memsan
       ninja -C build_memsan
-  - test: |
+
+  - test_asan_ubsan: |
       cd ~/muon/build_asan_ubsan
       ./muon test -j$(nproc) -d dots
 
+  - test_memsan: |
       cd ~/muon/build_memsan
       ./muon test -j$(nproc) -d dots
