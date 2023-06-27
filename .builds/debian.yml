@@ -5,6 +5,7 @@ image: debian/stable
 packages:
   - ninja-build
   - clang
+  - libclang-rt-dev
   - llvm
 
 sources:
