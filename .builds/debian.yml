@@ -18,25 +18,28 @@ tasks:
       ninja -C build
 
   - build_asan_ubsan: |
+      cd muon
       build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
       ninja -C build_asan_ubsan
 
   - build_memsan: |
+      cd muon
       CC=clang build/muon setup -Db_sanitize=memory build_memsan
       ninja -C build_memsan
 
   - build_fortify_source: |
+      cd muon
       CFLAGS=-D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
       ninja -C build_fortify_source
 
   - test_asan_ubsan: |
-      cd ~/muon/build_asan_ubsan
+      cd muon/build_asan_ubsan
       ./muon test -j$(nproc) -d dots
 
   - test_memsan: |
-      cd ~/muon/build_memsan
+      cd muon/build_memsan
       ./muon test -j$(nproc) -d dots
 
   - test_fortify_source: |
-      cd ~/muon/build_fortify_source
+      cd muon/build_fortify_source
       ./muon test -j$(nproc) -d dots
