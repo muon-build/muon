@@ -211,7 +211,7 @@ fs_read_entire_file(const char *path, struct source *src)
 		uint32_t buf_size = BUF_SIZE_4k;
 		buf = z_calloc(buf_size + 1, 1);
 
-		while ((read = fread(&buf[src->len], 1, BUF_SIZE_4k, f))) {
+		while ((read = fread(&buf[src->len], 1, buf_size - src->len, f))) {
 			src->len += read;
 
 			if (src->len >= buf_size) {
@@ -219,7 +219,6 @@ fs_read_entire_file(const char *path, struct source *src)
 				buf = z_realloc(buf, buf_size);
 				memset(&buf[src->len], 0, buf_size - src->len);
 			}
-
 		}
 
 		assert(src->len < buf_size && buf[src->len] == 0);
