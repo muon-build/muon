@@ -29,7 +29,7 @@ tasks:
 
   - build_fortify_source: |
       cd muon
-      CFLAGS=-D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
+      CC=clang CFLAGS=-D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
       ninja -C build_fortify_source
 
   - test_asan_ubsan: |
