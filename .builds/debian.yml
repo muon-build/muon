@@ -25,10 +25,18 @@ tasks:
       CC=clang build/muon setup -Db_sanitize=memory build_memsan
       ninja -C build_memsan
 
+  - build_fortify_source: |
+      CFLAGS=-D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
+      ninja -C build_fortify_source
+
   - test_asan_ubsan: |
       cd ~/muon/build_asan_ubsan
       ./muon test -j$(nproc) -d dots
 
   - test_memsan: |
       cd ~/muon/build_memsan
+      ./muon test -j$(nproc) -d dots
+
+  - test_fortify_source: |
+      cd ~/muon/build_fortify_source
       ./muon test -j$(nproc) -d dots
