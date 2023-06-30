@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
  * SPDX-FileCopyrightText: Owen Rafferty <owen@owenrafferty.com>
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
@@ -32,6 +33,8 @@ compiler_type_to_s(enum compiler_type t)
 	case compiler_clang: return "clang";
 	case compiler_apple_clang: return "clang";
 	case compiler_clang_llvm_ir: return "clang";
+	case compiler_clang_cl: return "clang-cl";
+	case compiler_msvc: return "msvc";
 	case compiler_nasm: return "nasm";
 	case compiler_yasm: return "yasm";
 	case compiler_type_count: UNREACHABLE;
@@ -46,7 +49,10 @@ linker_type_to_s(enum linker_type t)
 	switch (t) {
 	case linker_posix: return "ld";
 	case linker_gcc: return "ld.bfd";
+	case linker_clang: return "lld";
 	case linker_apple: return "ld64";
+	case linker_lld_link: return "lld-link";
+	case linker_msvc: return "link";
 	case linker_type_count: UNREACHABLE;
 	}
 
@@ -183,22 +189,24 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 	return true;
 }
 
+static const char *
+compiler_get_c_version_arg(struct workspace *wk, obj cmd_arr)
+{
+	if (obj_array_in(wk, cmd_arr, make_str(wk, "cl"))) {
+		return "/?";
+	} else {
+		return "--version";
+	}
+}
+
 static bool
 compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
 {
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")) {
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, compiler_get_c_version_arg(wk, cmd_arr))) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
-	}
-
-	if (cmd_ctx.status != 0) {
-		cmd_ctx = (struct run_cmd_ctx) { 0 };
-		if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "-v")) {
-			run_cmd_ctx_destroy(&cmd_ctx);
-			return false;
-		}
 	}
 
 	enum compiler_type type;
@@ -212,14 +220,20 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
 	if (strstr(cmd_ctx.out.buf, "Apple") && strstr(cmd_ctx.out.buf, "clang")) {
 		type = compiler_apple_clang;
 	} else if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
-		type = compiler_clang;
+		if (strstr(cmd_ctx.out.buf, "msvc")) {
+			type = compiler_clang_cl;
+		} else {
+			type = compiler_clang;
+		}
 	} else if (strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
 		type = compiler_gcc;
+	} else if (strstr(cmd_ctx.out.buf, "Microsoft")) {
+		type = compiler_msvc;
 	} else {
 		goto detection_over;
 	}
 
-	if (!guess_version(wk, cmd_ctx.out.buf, &ver)) {
+	if (!guess_version(wk, (type == compiler_msvc) ? cmd_ctx.err.buf : cmd_ctx.out.buf, &ver)) {
 		ver = make_str(wk, "unknown");
 	}
 
@@ -364,22 +378,12 @@ done:
 	return true;
 }
 
-bool
-compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+static bool
+compiler_detect_cmd_arr(struct workspace *wk, obj *comp, enum compiler_language lang, obj cmd_arr)
 {
-	static const char *compiler_option[compiler_language_count] = {
-		[compiler_language_c] = "env.CC",
-		[compiler_language_cpp] = "env.CXX",
-		[compiler_language_objc] = "env.OBJC",
-		[compiler_language_nasm] = "env.NASM",
-	};
-
-	if (!compiler_option[lang]) {
-		return false;
+	if (log_should_print(log_debug)) {
+		obj_fprintf(wk, log_file(), "checking compiler %o\n", cmd_arr);
 	}
-
-	obj cmd_arr;
-	get_option_value(wk, NULL, compiler_option[lang], &cmd_arr);
 
 	switch (lang) {
 	case compiler_language_c:
@@ -401,6 +405,64 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	default:
 		LOG_E("tried to get a compiler for unsupported language '%s'", compiler_language_to_s(lang));
 		return false;
+	}
+}
+
+bool
+compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+{
+	static const char *compiler_option[compiler_language_count] = {
+		[compiler_language_c] = "env.CC",
+		[compiler_language_cpp] = "env.CXX",
+		[compiler_language_objc] = "env.OBJC",
+		[compiler_language_nasm] = "env.NASM",
+	};
+
+	if (!compiler_option[lang]) {
+		return false;
+	}
+
+	obj cmd_arr_opt;
+	get_option(wk, NULL, &WKSTR(compiler_option[lang]), &cmd_arr_opt);
+	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
+
+	if (cmd_arr->source <= option_value_source_default) {
+		const char **exe_list = NULL;
+
+		if (machine_system() == machine_system_windows) {
+			static const char *default_executables[][compiler_language_count] = {
+				[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
+				[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
+				[compiler_language_objc] = { "cc", "gcc", NULL },
+				[compiler_language_nasm] = { "nasm", "yasm", NULL },
+			};
+
+			exe_list = default_executables[lang];
+		} else {
+			static const char *default_executables[][compiler_language_count] = {
+				[compiler_language_c] = { "cc", "gcc", "clang", NULL },
+				[compiler_language_cpp] = { "c++", "g++", "clang++", NULL },
+				[compiler_language_objc] = { "cc", "gcc", "clang", NULL },
+				[compiler_language_nasm] = { "nasm", "yasm", NULL },
+			};
+
+			exe_list = default_executables[lang];
+		}
+
+		uint32_t i;
+		for (i = 0; exe_list[i]; ++i) {
+			obj cmd_arr;
+			make_obj(wk, &cmd_arr, obj_array);
+			obj_array_push(wk, cmd_arr, make_str(wk, exe_list[i]));
+
+			if (compiler_detect_cmd_arr(wk, comp, lang, cmd_arr)) {
+				return true;
+			}
+		}
+
+		return false;
+	} else {
+		return compiler_detect_cmd_arr(wk, comp, lang, cmd_arr->val);
 	}
 }
 
@@ -752,6 +814,192 @@ compiler_gcc_args_lto(void)
 	return &args;
 }
 
+/* cl compilers */
+
+static const struct args *
+compiler_cl_args_compile_only(void)
+{
+	COMPILER_ARGS({ "/c" });
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_preprocess_only(void)
+{
+	COMPILER_ARGS({ "/EP" });
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_output(const char *f)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "/Fo\"%s\"", f);
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_optimization(uint32_t lvl)
+{
+	COMPILER_ARGS({ NULL, NULL });
+
+	switch ((enum compiler_optimization_lvl)lvl) {
+	case compiler_optimization_lvl_none:
+	case compiler_optimization_lvl_g:
+		args.len = 0;
+		break;
+	case compiler_optimization_lvl_0:
+		args.len = 1;
+		argv[0] = "/Od";
+		break;
+	case compiler_optimization_lvl_1:
+		args.len = 1;
+		argv[0] = "/O1";
+		break;
+	case compiler_optimization_lvl_2:
+		args.len = 1;
+		argv[0] = "/O2";
+		break;
+	case compiler_optimization_lvl_3:
+		args.len = 2;
+		argv[0] = "/O2";
+		argv[1] = "/Gw";
+		break;
+	case compiler_optimization_lvl_s:
+		args.len = 2;
+		argv[0] = "/O1";
+		argv[1] = "/Gw";
+		break;
+	}
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_debug(void)
+{
+	COMPILER_ARGS({ "/Zi" });
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_warning_lvl(uint32_t lvl)
+{
+	/*
+	 * meson uses nothing instead of /W0, but it's the same warning level
+	 * see:
+	 * https://mesonbuild.com/Builtin-options.html#details-for-warning_level
+	 */
+	COMPILER_ARGS({ NULL });
+
+	switch ((enum compiler_warning_lvl)lvl) {
+	case compiler_warning_lvl_0:
+		args.len = 0;
+		break;
+	case compiler_warning_lvl_1:
+		argv[0] = "/W2";
+		break;
+	case compiler_warning_lvl_2:
+		argv[0] = "/W3";
+		break;
+	case compiler_warning_lvl_everything:
+	case compiler_warning_lvl_3:
+		argv[0] = "/W4";
+		break;
+	}
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_warn_everything(void)
+{
+	COMPILER_ARGS({ "/Wall" });
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_werror(void)
+{
+	COMPILER_ARGS({ "/WX" });
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_set_std(const char *std)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	// FIXME: add also c++ standards (c++14|17|20|latest) ?
+	if (!strcmp(std, "c11") || !strcmp(std, "c17")) {
+		snprintf(buf, BUF_SIZE_S, "/std:%s", std);
+	} else {
+		args.len = 0;
+	}
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_include(const char *dir)
+{
+	COMPILER_ARGS({ "/I", NULL });
+
+	argv[1] = dir;
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_sanitize(const char *sanitizers)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	if (strcmp(sanitizers, "address") != 0) {
+		LOG_W("msvc compiler ignoring sanitizer '%s', only 'address' is supported", sanitizers);
+	}
+
+	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_define(const char *define)
+{
+	COMPILER_ARGS({ "/D", NULL });
+
+	argv[1] = define;
+
+	return &args;
+}
+
+static const struct args *
+compiler_clang_cl_args_color_output(const char *when)
+{
+	COMPILER_ARGS({ "-fcolor-diagnostics" });
+
+	return &args;
+	(void)when;
+}
+
+static const struct args *
+compiler_clang_cl_args_lto(void)
+{
+	COMPILER_ARGS({ "-flto" });
+
+	return &args;
+}
+
+
 static const struct args *
 compiler_arg_empty_0(void)
 {
@@ -865,15 +1113,40 @@ build_compilers(void)
 
 	struct compiler clang = gcc;
 	clang.args.warn_everything = compiler_clang_args_warn_everything;
+	clang.linker = linker_clang;
 
 	struct compiler apple_clang = clang;
 	apple_clang.linker = linker_apple;
+
+	struct compiler msvc = empty;
+	/* msvc.args.deps = compiler_cl_args_deps; */
+	msvc.args.compile_only = compiler_cl_args_compile_only;
+	msvc.args.preprocess_only = compiler_cl_args_preprocess_only;
+	msvc.args.output = compiler_cl_args_output;
+	msvc.args.optimization = compiler_cl_args_optimization;
+	msvc.args.debug = compiler_cl_args_debug;
+	msvc.args.warning_lvl = compiler_cl_args_warning_lvl;
+	msvc.args.warn_everything = compiler_cl_args_warn_everything;
+	msvc.args.werror = compiler_cl_args_werror;
+	msvc.args.set_std = compiler_cl_args_set_std;
+	msvc.args.include = compiler_cl_args_include;
+	msvc.args.sanitize = compiler_cl_args_sanitize;
+	msvc.args.define = compiler_cl_args_define;
+	msvc.linker = linker_msvc;
+	msvc.object_ext = ".obj";
+
+	struct compiler clang_cl = msvc;
+	clang_cl.args.color_output = compiler_clang_cl_args_color_output;
+	clang_cl.args.enable_lto = compiler_clang_cl_args_lto;
+	clang_cl.linker = linker_lld_link;
 
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
 	compilers[compiler_clang] = clang;
 	compilers[compiler_apple_clang] = apple_clang;
 	compilers[compiler_clang_llvm_ir] = clang_llvm_ir;
+	compilers[compiler_clang_cl] = clang_cl;
+	compilers[compiler_msvc] = msvc;
 
 	struct compiler nasm = empty;
 	nasm.args.output = compiler_posix_args_output;
@@ -992,6 +1265,41 @@ linker_gcc_args_no_whole_archive(void)
 	return &args;
 }
 
+/* cl linkers */
+
+static const struct args *
+linker_link_args_lib(const char *s)
+{
+	COMPILER_ARGS({ NULL });
+	argv[0] = s;
+
+	return &args;
+}
+static const struct args *
+linker_link_args_shared(void)
+{
+	COMPILER_ARGS({ "/DYNAMICBASE" });
+	return &args;
+}
+
+static const struct args *
+linker_link_args_soname(const char *soname)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "/OUT:%s", soname);
+
+	return &args;
+}
+
+static const struct args *
+linker_lld_link_args_whole_archive(void)
+{
+	COMPILER_ARGS({ "/whole-archive" });
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -1037,13 +1345,26 @@ build_linkers(void)
 	gcc.args.no_whole_archive = linker_gcc_args_no_whole_archive;
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 
+	struct linker lld = gcc;
+
 	struct linker apple = posix;
 	apple.args.sanitize = compiler_gcc_args_sanitize;
 	apple.args.enable_lto = compiler_gcc_args_lto;
 
+	struct linker link = empty;
+	link.args.lib = linker_link_args_lib;
+	link.args.shared = linker_link_args_shared;
+	link.args.soname = linker_link_args_soname;
+
+	struct linker lld_link = link;
+	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
+
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
+	linkers[linker_clang] = lld;
 	linkers[linker_apple] = apple;
+	linkers[linker_lld_link] = lld_link;
+	linkers[linker_msvc] = link;
 }
 
 void

@@ -21,6 +21,8 @@ enum compiler_type {
 	compiler_clang,
 	compiler_apple_clang,
 	compiler_clang_llvm_ir,
+	compiler_clang_cl,
+	compiler_msvc,
 	compiler_nasm,
 	compiler_yasm,
 	compiler_type_count,
@@ -29,7 +31,10 @@ enum compiler_type {
 enum linker_type {
 	linker_posix,
 	linker_gcc,
+	linker_clang,
 	linker_apple,
+	linker_lld_link,
+	linker_msvc,
 	linker_type_count,
 };
 
