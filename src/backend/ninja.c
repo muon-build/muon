@@ -302,15 +302,24 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 	}
 
-	if (have_samurai && !internal_samu_has_been_called) {
+	bool have_stdout_fileno;
+	int stdout_fileno;
+	if (capture) {
+		have_stdout_fileno = fs_fileno(stdout, &stdout_fileno);
+	} else {
+		have_stdout_fileno = true;
+	}
+
+	if (have_samurai && !internal_samu_has_been_called && have_stdout_fileno) {
 		internal_samu_has_been_called = true;
 
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
 		int old_stdout;
+
 		if (capture) {
-			if (!fs_redirect(capture, "wb", STDOUT_FILENO, &old_stdout)) {
+			if (!fs_redirect(capture, "wb", stdout_fileno, &old_stdout)) {
 				goto ret;
 			}
 		}
@@ -318,7 +327,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		bool res = muon_samu(argc, argv);
 
 		if (capture) {
-			if (!fs_redirect_restore(STDOUT_FILENO, old_stdout)) {
+			if (!fs_redirect_restore(stdout_fileno, old_stdout)) {
 				goto ret;
 			}
 		}
