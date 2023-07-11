@@ -12,6 +12,7 @@
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "error.h"
+#include "functions/machine.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
@@ -298,11 +299,23 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		get_cstr(wk, main_proj->cfg.name)
 		);
 
+	if (machine_system() == machine_system_windows) {
+		fprintf(out,
+			"rule static_linker\n"
+			" command = sh -c \"rm -f $out && ar $LINK_ARGS $out $in\"\n"
+			" description = linking static $out\n"
+			"\n"
+			);
+	} else {
+		fprintf(out,
+			"rule static_linker\n"
+			" command = rm -f $out && ar $LINK_ARGS $out $in\n"
+			" description = linking static $out\n"
+			"\n"
+			);
+	}
+
 	fprintf(out,
-		"rule static_linker\n"
-		" command = rm -f $out && ar $LINK_ARGS $out $in\n"
-		" description = linking static $out\n"
-		"\n"
 		"rule CUSTOM_COMMAND\n"
 		" command = $COMMAND\n"
 		" description = $COMMAND\n"
