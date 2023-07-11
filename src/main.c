@@ -28,6 +28,7 @@
 #include "meson_opts.h"
 #include "options.h"
 #include "opts.h"
+#include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -1041,6 +1042,8 @@ ret:
 int
 main(int argc, char *argv[])
 {
+	platform_init();
+
 	log_init();
 	log_set_lvl(log_info);
 
