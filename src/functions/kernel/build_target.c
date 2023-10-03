@@ -609,6 +609,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			make_obj(wk, &tgt->objects, obj_array);
 		}
 
+		obj_array_extend(wk, tgt->objects, tgt->dep_internal.objects);
+		obj_array_dedup_in_place(wk, &tgt->objects);
+
 		if (!ignore_sources) {
 			obj sources = an[1].val;
 

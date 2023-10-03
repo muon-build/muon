@@ -854,6 +854,18 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
 }
 
+void
+obj_array_dedup_in_place(struct workspace *wk, obj *arr)
+{
+	if (!*arr) {
+		return;
+	}
+
+	obj dedupd;
+	obj_array_dedup(wk, *arr, &dedupd);
+	*arr = dedupd;
+}
+
 bool
 obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 {
@@ -1815,6 +1827,7 @@ obj_inspect_dep(struct workspace *wk, FILE *out, const char *pre, struct build_d
 	obj_fprintf(wk, out, "%scompile_args: %o\n", pre, dep->compile_args);
 	obj_fprintf(wk, out, "%sinclude_directories: %o\n", pre, dep->include_directories);
 	obj_fprintf(wk, out, "%ssources: %o\n", pre, dep->sources);
+	obj_fprintf(wk, out, "%sobjects: %o\n", pre, dep->objects);
 	obj_fprintf(wk, out, "%sorder_deps: %o\n", pre, dep->order_deps);
 	obj_fprintf(wk, out, "%srpath: %o\n", pre, dep->rpath);
 }

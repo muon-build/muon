@@ -727,6 +727,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		kw_include_directories,
 		kw_variables,
 		kw_compile_args,
+		kw_objects,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list },
@@ -738,6 +739,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[kw_variables] = { "variables", tc_array | tc_dict },
 		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
 		0
 	};
 
@@ -757,6 +759,11 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	struct obj_dependency *dep;
 	make_obj(wk, res, obj_dependency);
 	dep = get_obj_dependency(wk, *res);
+
+	if (akw[kw_objects].set) {
+		dep->dep.objects = akw[kw_objects].val;
+	}
+
 	build_dep_init(wk, &dep->dep);
 
 	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
@@ -919,6 +926,10 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 	if (!dep->sources) {
 		make_obj(wk, &dep->sources, obj_array);
 	}
+
+	if (!dep->objects) {
+		make_obj(wk, &dep->objects, obj_array);
+	}
 }
 
 static void
@@ -963,18 +974,10 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 	if (dep && src->sources) {
 		obj_array_extend(wk, dest->sources, src->sources);
 	}
-}
 
-static void
-obj_array_dedup_in_place(struct workspace *wk, obj *arr)
-{
-	if (!*arr) {
-		return;
+	if (dep && src->objects) {
+		obj_array_extend(wk, dest->objects, src->objects);
 	}
-
-	obj dedupd;
-	obj_array_dedup(wk, *arr, &dedupd);
-	*arr = dedupd;
 }
 
 static enum iteration_result
@@ -1016,6 +1019,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->rpath);
 	obj_array_dedup_in_place(wk, &dep->order_deps);
 	obj_array_dedup_in_place(wk, &dep->sources);
+	obj_array_dedup_in_place(wk, &dep->objects);
 
 	obj new_link_args;
 	make_obj(wk, &new_link_args, obj_array);

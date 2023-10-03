@@ -18,6 +18,9 @@ foo = declare_dependency(objects: libfoo.extract_all_objects(recursive: true))
 libbar = static_library('bar', 'bar.c', dependencies: foo)
 
 #bar = declare_dependency(link_whole: libbar, dependencies: foo)
-bar = declare_dependency(objects: libbar.extract_all_objects(recursive: true), dependencies: foo)
+bar = declare_dependency(
+    objects: libbar.extract_all_objects(recursive: true),
+    dependencies: foo,
+)
 
 executable('prog', sources: files('prog.c'), dependencies: [foo, bar])

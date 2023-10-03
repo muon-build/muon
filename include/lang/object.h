@@ -249,6 +249,7 @@ struct build_dep {
 	obj include_directories; // obj_array
 
 	obj sources; // obj_array
+	obj objects; // obj_array
 
 	obj order_deps; // obj_array
 	obj rpath; // obj_array
@@ -581,6 +582,7 @@ void obj_array_tail(struct workspace *wk, obj arr, obj *res);
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);
 void obj_array_del(struct workspace *wk, obj arr, int64_t i);
 void obj_array_dedup(struct workspace *wk, obj arr, obj *res);
+void obj_array_dedup_in_place(struct workspace *wk, obj *arr);
 bool obj_array_flatten_one(struct workspace *wk, obj val, obj *res);
 typedef int32_t (*obj_array_sort_func)(struct workspace *wk, void *_ctx, obj a, obj b);
 int32_t obj_array_sort_by_str(struct workspace *wk, void *_ctx, obj a, obj b);
