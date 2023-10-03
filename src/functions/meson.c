@@ -62,6 +62,23 @@ func_meson_project_license(struct workspace *wk, obj _, uint32_t args_node, obj 
 	}
 
 	*res = current_project(wk)->cfg.license;
+	if (!*res) {
+		make_obj(wk, res, obj_array);
+	}
+	return true;
+}
+
+static bool
+func_meson_project_license_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*res = current_project(wk)->cfg.license_files;
+	if (!*res) {
+		make_obj(wk, res, obj_array);
+	}
 	return true;
 }
 
@@ -525,6 +542,7 @@ const struct func_impl_name impl_tbl_meson[] = {
 	{ "override_find_program", func_meson_override_find_program },
 	{ "project_build_root", func_meson_project_build_root, tc_string },
 	{ "project_license", func_meson_project_license, tc_string },
+	{ "project_license_files", func_meson_project_license_files, tc_string },
 	{ "project_name", func_meson_project_name, tc_string },
 	{ "project_source_root", func_meson_project_source_root, tc_string },
 	{ "project_version", func_meson_project_version, tc_string },

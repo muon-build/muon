@@ -32,6 +32,7 @@ struct project {
 		obj name;
 		obj version;
 		obj license;
+		obj license_files;
 		bool no_version;
 	} cfg;
 

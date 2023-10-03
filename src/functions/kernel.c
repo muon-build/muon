@@ -120,6 +120,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_default_options,
 		kw_license,
+		kw_license_files,
 		kw_meson_version,
 		kw_subproject_dir,
 		kw_version,
@@ -127,6 +128,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_license] = { "license", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_license_files] = { "license_files", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
 		[kw_version] = { "version", tc_string | tc_file },
@@ -148,6 +150,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	current_project(wk)->cfg.license = akw[kw_license].val;
+	current_project(wk)->cfg.license_files = akw[kw_license_files].val;
 
 	if (akw[kw_version].set) {
 		if (get_obj_type(wk, akw[kw_version].val) == obj_string) {
