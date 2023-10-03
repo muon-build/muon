@@ -31,7 +31,7 @@ endif
 version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
-version_info.set('meson_compat', '1.0')
+version_info.set('meson_compat', '1.1')
 
 # platform
 
