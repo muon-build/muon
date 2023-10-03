@@ -3,6 +3,7 @@ project(
     'c',
     version: '1.0.0',
     license: ['sublicense1', 'sublicense2'],
+    license_files: ['sublicense1.txt', 'sublicense2.txt'],
 )
 
 if not meson.is_subproject()

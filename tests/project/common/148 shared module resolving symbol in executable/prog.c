@@ -22,46 +22,40 @@ typedef int (*fptr) (void);
 int DLL_PUBLIC
 func_from_executable(void)
 {
-	return 42;
+  return 42;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
-	int expected, actual;
-	fptr importedfunc;
+  int expected, actual;
+  fptr importedfunc;
 
-	// noop
-	if ((argc = 0)) {
-	}
+  (void)argc;  // noop
 
 #ifdef _WIN32
-	HMODULE h = LoadLibraryA(argv[1]);
+  HMODULE h = LoadLibraryA(argv[1]);
 #else
-	void *h = dlopen(argv[1], RTLD_NOW);
-	if (!h) {
-		fprintf(stderr, "failed to load '%s': %s\n", argv[1], dlerror());
-	}
+  void *h = dlopen(argv[1], RTLD_NOW);
 #endif
-	assert(h != NULL);
+  assert(h != NULL);
 
 #ifdef _WIN32
-	importedfunc = (fptr)GetProcAddress(h, "func");
+  importedfunc = (fptr) GetProcAddress (h, "func");
 #else
-	*(void **)(&importedfunc) = dlsym(h, "func");
+  importedfunc = (fptr) dlsym(h, "func");
 #endif
-	assert(importedfunc != NULL);
-	assert(importedfunc != func_from_executable);
+  assert(importedfunc != NULL);
+  assert(importedfunc != func_from_executable);
 
-	actual = (*importedfunc)();
-	expected = func_from_executable();
-	assert(actual == expected);
+  actual = (*importedfunc)();
+  expected = func_from_executable();
+  assert(actual == expected);
 
 #ifdef _WIN32
-	FreeLibrary(h);
+  FreeLibrary(h);
 #else
-	dlclose(h);
+  dlclose(h);
 #endif
 
-	return 0;
+  return 0;
 }

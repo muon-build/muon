@@ -29,7 +29,7 @@ disabled_dep = dependency(
 )
 assert(
     disabled_dep.found() == false,
-    'Subprojetc was disabled, it should never be built.',
+    'Subproject was disabled, it should never be built.',
 )
 nothing = executable('nothing', 'nothing.c', dependencies: [disabled_dep])
 

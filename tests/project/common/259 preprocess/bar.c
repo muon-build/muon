@@ -1,3 +1,3 @@
-int bar(void) {
-    return BAR;
+int @BAR@(void) {
+    return BAR + PLOP;
 }

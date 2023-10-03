@@ -4,12 +4,10 @@ host_system = host_machine.system()
 
 # This is used in the `test_compiler_check_flags_order` unit test
 unit_test_args = '-I/tmp'
-defines_has_builtin = (
-    '''#ifndef __has_builtin
+defines_has_builtin = '''#ifndef __has_builtin
 #error "no __has_builtin"
 #endif
 '''
-)
 compilers = [meson.get_compiler('c'), meson.get_compiler('cpp')]
 
 foreach cc : compilers
@@ -58,11 +56,11 @@ foreach cc : compilers
         prefix: '#include<stdio.h>',
         args: unit_test_args,
     )
-        error('Found non-existent function "hfkerhisadf".')
+        error('Found nonexistent function "hfkerhisadf".')
     endif
 
     if cc.has_function('hfkerhisadf', args: unit_test_args)
-        error('Found non-existent function "hfkerhisadf".')
+        error('Found nonexistent function "hfkerhisadf".')
     endif
 
     # With glibc (before 2.32, see below) on Linux, lchmod is a stub that will

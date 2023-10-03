@@ -55,6 +55,7 @@ attributes = [
     'sentinel',
     'unused',
     'used',
+    'vector_size',
     'warn_unused_result',
     'weak',
 ]

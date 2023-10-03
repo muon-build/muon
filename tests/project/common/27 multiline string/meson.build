@@ -1,19 +1,15 @@
 project('multiline string', 'c')
 
 x = '''hello again'''
-y = (
-    '''hello
+y = '''hello
 again'''
-)
 
 if x == y
     error('Things are wrong.')
 endif
 
-multieol = (
-    '''
+multieol = '''
 '''
-)
 singleeol = '\n'
 
 if multieol != singleeol
@@ -29,8 +25,7 @@ if quote1 != quote2
 endif
 
 cc = meson.get_compiler('c')
-prog = (
-    '''
+prog = '''
 #include <stdio.h>
 
 int main(void) {
@@ -38,6 +33,5 @@ int main(void) {
   printf("%d\n", num);
   return 0;
 }'''
-)
 
-assert(cc.compiles(prog), 'multline test compile failed')
+assert(cc.compiles(prog), 'multiline test compile failed')

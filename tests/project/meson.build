@@ -240,7 +240,7 @@ tests = [
     ['common/225 link language'],
     ['common/226 link depends indexed custom target', ['python']],
     # skip this test for now because it takes too long
-    # ['common/227 very long commmand line', ['python']],
+    # ['common/227 very long command line', ['python']],
     ['common/228 custom_target source', ['python']],
     ['common/229 disabler array addition'],
     # requires unstable_external_project module
@@ -249,7 +249,7 @@ tests = [
     ['common/232 dependency allow_fallback'],
     ['common/233 wrap case'],
     ['common/234 get_file_contents'],
-    ['common/235 invalid standard overriden to valid'],
+    ['common/235 invalid standard overridden to valid'],
     ['common/236 proper args splitting', [], {'env': {'CFLAGS': '-DFOO -DBAR'}}],
     ['common/237 fstrings'],
     ['common/238 dependency include_type inconsistency'],
@@ -275,6 +275,8 @@ tests = [
     ['common/257 generated header dep'],
     ['common/258 subsubproject inplace'],
     ['common/259 preprocess'],
+    ['common/260 declare_dependency objects'],
+    # ['common/261 testcase clause'],
 
     # unit
     ['unit/65 alias target', ['python']],
@@ -293,6 +295,7 @@ tests = [
     # nasm
     ['nasm/1 configure file'],
     ['nasm/2 asm language'],
+    ['nasm/3 nasm only'],
 
     # keyval
     ['keyval/1 basic'],

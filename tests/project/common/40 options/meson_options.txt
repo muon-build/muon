@@ -30,7 +30,7 @@ option(
     'CaseSenSiTivE',
     type: 'string',
     value: 'Some CAPS',
-    description: 'An option with mixed capitaliziation',
+    description: 'An option with mixed capitalization',
 )
 option(
     'CASESENSITIVE',
@@ -38,3 +38,8 @@ option(
     value: 'ALL CAPS',
     description: 'An option with all caps',
 )
+
+# different than meson: options have to typecheck
+#option('boolean_string', type: 'boolean', value: 'false')
+#option('boolean_string2', type: 'boolean', value: 'true')
+#option('integer_string', type: 'integer', value: '42')

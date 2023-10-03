@@ -166,7 +166,7 @@ assert(
 )
 
 f = files('subdir/../meson.build', 'meson.build')
-assert(fs.is_samepath(f[0], f[1]), 'is_samepath not detercting same files')
+assert(fs.is_samepath(f[0], f[1]), 'is_samepath not detecting same files')
 
 # TODO: implement readlink
 # if not is_windows and build_machine.system() != 'cygwin'

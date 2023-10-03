@@ -1,6 +1,7 @@
 project(
     'run command',
     version: run_command('get-version.py', check: true).stdout().strip(),
+    meson_version: '>=0.1.0',
 )
 
 if build_machine.system() == 'windows'

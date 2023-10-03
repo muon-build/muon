@@ -1,4 +1,10 @@
-project('subproj user', 'c', version: '2.3.4', license: 'mylicense')
+project(
+    'subproj user',
+    'c',
+    version: '2.3.4',
+    license: 'mylicense',
+    license_files: 'mylicense.txt',
+)
 
 assert(meson.project_name() == 'subproj user', 'Incorrect project name')
 
@@ -29,5 +35,5 @@ test('subdirtest', e)
 
 unknown_var = sub.get_variable('does-not-exist', [])
 if unknown_var != []
-    error('unexpetced fallback value for subproject.get_variable()')
+    error('unexpected fallback value for subproject.get_variable()')
 endif
