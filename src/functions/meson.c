@@ -380,10 +380,12 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 	enum kwargs {
 		kw_install_tag, // ignored
 		kw_skip_if_destdir, // ignored
+		kw_dry_run,
 	};
 	struct args_kw akw[] = {
 		[kw_install_tag] = { "install_tag", obj_string },
 		[kw_skip_if_destdir] = { "skip_if_destdir", obj_bool },
+		[kw_dry_run] = { "dry_run", obj_bool },
 		0
 	};
 
@@ -402,7 +404,16 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 		return false;
 	}
 
-	obj_array_push(wk, wk->install_scripts, ctx.arr);
+	if (!akw[kw_dry_run].set) {
+		make_obj(wk, &akw[kw_dry_run].val, obj_bool);
+		set_obj_bool(wk, akw[kw_dry_run].val, false);
+	}
+
+	obj install_script;
+	make_obj(wk, &install_script, obj_array);
+	obj_array_push(wk, install_script, akw[kw_dry_run].val);
+	obj_array_push(wk, install_script, ctx.arr);
+	obj_array_push(wk, wk->install_scripts, install_script);
 	return true;
 }
 

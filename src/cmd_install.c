@@ -217,9 +217,15 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 }
 
 static enum iteration_result
-install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
+install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 {
 	struct install_ctx *ctx = _ctx;
+
+	obj install_script_dry_run, install_script_cmdline;
+	obj_array_index(wk, install_script, 0, &install_script_dry_run);
+	obj_array_index(wk, install_script, 1, &install_script_cmdline);
+
+	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
 
 	obj env;
 	make_obj(wk, &env, obj_dict);
@@ -228,16 +234,19 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_PREFIX"), ctx->prefix);
 	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DESTDIR_PREFIX"), ctx->full_prefix);
+	if (ctx->opts->dry_run && script_can_dry_run) {
+		obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DRY_RUN"), make_str(wk, "1"));
+	}
 	set_default_environment_vars(wk, env, false);
 
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 	env_to_envstr(wk, &envstr, &envc, env);
-	join_args_argstr(wk, &argstr, &argc, v);
+	join_args_argstr(wk, &argstr, &argc, install_script_cmdline);
 
 	LOG_I("running install script '%s'", argstr);
 
-	if (ctx->opts->dry_run) {
+	if (ctx->opts->dry_run && !script_can_dry_run) {
 		return ir_cont;
 	}
 
