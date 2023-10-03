@@ -2155,11 +2155,13 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		kw_compile_args,
 		kw_include_directories,
 		kw_output,
+		kw_dependencies,
 	};
 	struct args_kw akw[] = {
 		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | tc_string },
 		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
 		[kw_output] = { "output", tc_string, .required = true },
+		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
 		0
 	};
 
@@ -2179,10 +2181,18 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 
 	get_option_compile_args(wk, current_project(wk), NULL, cmd, comp->lang);
 
+	bool have_dep = false;
+	struct build_dep dep = { 0 };
+	if (akw[kw_dependencies].set) {
+		have_dep = true;
+		dep_process_deps(wk, akw[kw_dependencies].val, &dep);
+		obj_array_extend_nodup(wk, cmd, dep.compile_args);
+	}
+
 	push_args(wk, cmd, compilers[comp->type].args.include("@OUTDIR@"));
 	push_args(wk, cmd, compilers[comp->type].args.include("@CURRENT_SOURCE_DIR@"));
 
-	if (!add_include_directory_args(wk, &akw[kw_include_directories], NULL, rcvr, cmd)) {
+	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, rcvr, cmd)) {
 		return false;
 	}
 
