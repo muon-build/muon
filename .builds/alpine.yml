@@ -21,6 +21,7 @@ packages:
   - samurai
 
   - python3 # for project tests, meson-reference.3, and parts of the website
+  - linux-headers # used in a few project tests
   - py3-yaml # for meson-reference.3
   - scdoc # for meson.build.5 and muon.1
   - mandoc # for html man pages
