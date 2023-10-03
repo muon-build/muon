@@ -12,3 +12,5 @@ test -f "$DESTDIR"/usr/share/sub1/third.dat
 test -f "$DESTDIR"/usr/share/sub1/sub2/data2.dat
 test -f "$DESTDIR"/usr/share/sub2/one.dat
 test -f "$DESTDIR"/usr/share/sub2/dircheck/excluded-three.dat
+test -f "$DESTDIR"/usr/share/sub3/data/data.txt
+test -d "$DESTDIR"/usr/share/new_directory
