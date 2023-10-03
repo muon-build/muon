@@ -776,6 +776,8 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 		  "int foo(void) __attribute__((unused));\n" },
 		{ "used",
 		  "int foo(void) __attribute__((used));\n" },
+		{ "vector_size",
+		  "__attribute__((vector_size(32))); int foo(void) { return 0; }\n" },
 		{ "visibility",
 		  "int foo_def(void) __attribute__((visibility(\"default\")));\n"
 		  "int foo_hid(void) __attribute__((visibility(\"hidden\")));\n"
