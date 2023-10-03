@@ -79,6 +79,101 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_n
 }
 
 static bool
+func_feature_opt_enable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+
+	if (!get_obj_bool(wk, an[0].val)) {
+		*res = rcvr;
+		return true;
+	} else if (state == feature_opt_disabled || state == feature_opt_enabled) {
+		*res = rcvr;
+		return true;
+	} else {
+		make_obj(wk, res, obj_feature_opt);
+		set_obj_feature_opt(wk, *res, feature_opt_enabled);
+		return true;
+	}
+}
+
+static bool
+func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_error_message,
+	};
+	struct args_kw akw[] = {
+		[kw_error_message] = { "error_message", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+
+	if (!get_obj_bool(wk, an[0].val)) {
+		*res = rcvr;
+		return true;
+	} else if (state == feature_opt_disabled) {
+		const char *err_msg = akw[kw_error_message].set
+			? get_cstr(wk, akw[kw_error_message].set)
+			: "requirement not met";
+
+		interp_error(wk, an[0].node, "%s", err_msg);
+		return false;
+	} else {
+		make_obj(wk, res, obj_feature_opt);
+		set_obj_feature_opt(wk, *res, feature_opt_enabled);
+		return true;
+	}
+
+	return true;
+}
+
+static bool
+func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_error_message,
+	};
+	struct args_kw akw[] = {
+		[kw_error_message] = { "error_message", obj_string },
+		0
+	};
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		return false;
+	}
+
+	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+
+	if (!get_obj_bool(wk, an[0].val)) {
+		*res = rcvr;
+		return true;
+	} else if (state == feature_opt_enabled) {
+		const char *err_msg = akw[kw_error_message].set
+			? get_cstr(wk, akw[kw_error_message].set)
+			: "requirement not met";
+
+		interp_error(wk, an[0].node, "%s", err_msg);
+		return false;
+	} else {
+		make_obj(wk, res, obj_feature_opt);
+		set_obj_feature_opt(wk, *res, feature_opt_disabled);
+		return true;
+	}
+
+	return true;
+}
+
+static bool
 func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
@@ -117,7 +212,10 @@ const struct func_impl_name impl_tbl_feature_opt[] = {
 	{ "allowed", func_feature_opt_allowed, tc_bool, true },
 	{ "auto", func_feature_opt_auto, tc_bool, true },
 	{ "disable_auto_if", func_feature_opt_disable_auto_if, tc_feature_opt, true },
+	{ "disable_if", func_feature_opt_disable_if, tc_feature_opt, true },
 	{ "disabled", func_feature_opt_disabled, tc_bool, true },
+	{ "enable_auto_if", func_feature_opt_enable_auto_if, tc_feature_opt, true },
+	{ "enable_if", func_feature_opt_enable_if, tc_feature_opt, true },
 	{ "enabled", func_feature_opt_enabled, tc_bool, true },
 	{ "require", func_feature_opt_require, tc_feature_opt, true },
 	{ NULL, NULL },
