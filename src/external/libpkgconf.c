@@ -291,6 +291,20 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 bool
+muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
+{
+	if (!pkgconf_ctx.init) {
+		if (!muon_pkgconf_init(wk)) {
+			return false;
+		}
+	}
+
+	pkgconf_tuple_add_global(&pkgconf_ctx.client, key, value);
+
+	return true;
+}
+
+bool
 muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
 {
 	if (!pkgconf_ctx.init) {

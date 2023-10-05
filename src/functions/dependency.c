@@ -76,17 +76,45 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj rcvr,
 }
 
 static bool
+dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
+{
+	struct obj_array *array = get_obj_array(wk, var);
+	uint32_t arraylen = array->len;
+	if (arraylen % 2 != 0) {
+		interp_error(wk, node, "non-even number of arguments in list");
+		return false;
+	}
+
+	for (int64_t idx = 0; idx < arraylen; idx += 2) {
+		obj key, val;
+		obj_array_index(wk, var, idx, &key);
+		obj_array_index(wk, var, idx + 1, &val);
+
+		const char *ckey = get_cstr(wk, key);
+		const char *cval = get_cstr(wk, val);
+		if (!muon_pkgconf_define(wk, ckey, cval)) {
+			interp_error(wk, node, "error setting %s=%s", ckey, cval);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
 func_dependency_get_variable(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_pkgconfig,
+		kw_pkgconfig_define,
 		kw_internal,
 		kw_default_value,
 	};
 	struct args_kw akw[] = {
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
+		[kw_pkgconfig_define] = { "pkgconfig_define", ARG_TYPE_ARRAY_OF | obj_string },
 		[kw_internal] = { "internal", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
 		0
@@ -115,6 +143,13 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 
 	struct obj_dependency *dep = get_obj_dependency(wk, rcvr);
 	if (dep->type == dependency_type_pkgconf) {
+		if (akw[kw_pkgconfig_define].set) {
+			node = akw[kw_pkgconfig_define].node;
+
+			if (!dep_pkgconfig_define(wk, rcvr, node, akw[kw_pkgconfig_define].val)) {
+				return false;
+			}
+		}
 		if (akw[kw_pkgconfig].set) {
 			node = akw[kw_pkgconfig].node;
 
