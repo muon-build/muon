@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
+if not host_machine.cpu_family().startswith('x86')
+    fail_on_non_x86 = ['failing']
+else
+    fail_on_non_x86 = []
+endif
+
 tests = [
     # project tests created for muon
     ['muon/timeout', ['failing']],
@@ -294,7 +300,7 @@ tests = [
 
     # nasm
     ['nasm/1 configure file'],
-    ['nasm/2 asm language'],
+    ['nasm/2 asm language', fail_on_non_x86],
     ['nasm/3 nasm only'],
 
     # keyval
