@@ -151,6 +151,12 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	current_project(wk)->cfg.name = an[0].val;
+#ifndef MUON_BOOTSTRAPPED
+	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
+		interp_error(wk, an[0].node, "This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
+		return false;
+	}
+#endif
 
 	if (!obj_array_foreach_flat(wk, an[1].val,
 		&(struct project_add_language_iter_ctx) {
