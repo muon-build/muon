@@ -258,8 +258,8 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_build_target:
 	case obj_external_program:
 	case obj_file: {
-		obj str;
-		if (!coerce_executable(wk, ctx->opts->err_node, val, &str)) {
+		obj str, args;
+		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &args)) {
 			return ir_err;
 		}
 
@@ -268,6 +268,13 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->opts->depends, ss);
 		}
+
+		if (args) {
+			obj_array_push(wk, *ctx->res, ss);
+			obj_array_extend_nodup(wk, *ctx->res, args);
+			return ir_cont;
+		}
+
 		break;
 	}
 	case obj_string: {

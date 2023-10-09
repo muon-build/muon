@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "args.h"
 #include "functions/common.h"
 #include "functions/external_program.h"
 #include "guess.h"
@@ -13,12 +14,19 @@
 #include "platform/run_cmd.h"
 
 void
-find_program_guess_version(struct workspace *wk, const char *path, obj *ver)
+find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver)
 {
 	*ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_argv(&cmd_ctx, (char *const []){ (char *)path, "--version", 0 }, NULL, 0)
-	    && cmd_ctx.status == 0) {
+	obj args;
+	obj_array_dup(wk, cmd_array, &args);
+	obj_array_push(wk, args, make_str(wk, "--version"));
+
+	const char *argstr;
+	uint32_t argc;
+	join_args_argstr(wk, &argstr, &argc, args);
+
+	if (run_cmd(&cmd_ctx, argstr, argc, NULL, 0) && cmd_ctx.status == 0) {
 		guess_version(wk, cmd_ctx.out.buf, ver);
 	}
 
@@ -45,7 +53,7 @@ func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	*res = get_obj_external_program(wk, rcvr)->full_path;
+	obj_array_index(wk, get_obj_external_program(wk, rcvr)->cmd_array, 0, res);
 	return true;
 }
 
@@ -58,7 +66,7 @@ func_external_program_version(struct workspace *wk, obj rcvr, uint32_t args_node
 
 	struct obj_external_program *prog = get_obj_external_program(wk, rcvr);
 	if (!prog->guessed_ver) {
-		find_program_guess_version(wk, get_cstr(wk, prog->full_path), &prog->ver);
+		find_program_guess_version(wk, prog->cmd_array, &prog->ver);
 		prog->guessed_ver = true;
 	}
 

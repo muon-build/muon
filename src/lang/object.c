@@ -264,11 +264,11 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 		for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 			mem += bucket_array_size(&wk->obj_aos[i]);
 		}
-#define MB(b) ((double)b / 1048576.0)
+	#define MB(b) ((double)b / 1048576.0)
 		TracyCPlot("objects", wk->objs.len);
 		TracyCPlot("object memory (mb)", MB(mem));
 		TracyCPlot("string memory (mb)", MB(bucket_array_size(&wk->chrs)));
-#undef MB
+	#undef MB
 	}
 #endif
 }
@@ -947,6 +947,49 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 	darr_destroy(&da);
 }
 
+struct obj_array_slice_ctx {
+	int64_t i, i0, i1;
+	obj res;
+};
+
+static enum iteration_result
+obj_array_slice_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	struct obj_array_slice_ctx *ctx = _ctx;
+
+	if (ctx->i >= ctx->i0) {
+		obj_array_push(wk, ctx->res, v);
+	}
+
+	++ctx->i;
+
+	if (ctx->i >= ctx->i1) {
+		return ir_done;
+	}
+
+	return ir_cont;
+}
+
+obj
+obj_array_slice(struct workspace *wk, obj a, int64_t i0, int64_t i1)
+{
+	struct obj_array *arr = get_obj_array(wk, a);
+	if (!(bounds_adjust(wk, arr->len, &i0) && bounds_adjust(wk, arr->len, &i1))) {
+		assert(false && "index out of bounds");
+	}
+
+	struct obj_array_slice_ctx ctx = {
+		.i0 = i0,
+		.i1 = i1,
+	};
+
+	make_obj(wk, &ctx.res, obj_array);
+
+	obj_array_foreach(wk, a, &ctx, obj_array_slice_iter);
+
+	return ctx.res;
+}
+
 /*
  * dictionaries
  */
@@ -1585,8 +1628,8 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 			obj_type_to_s(t), prog->found ? "true" : "false");
 
 		if (prog->found) {
-			sbuf_pushs(wk, sb, ", path: ");
-			obj_to_s_str(wk, &ctx, prog->full_path);
+			sbuf_pushs(wk, sb, ", cmd_array: ");
+			obj_to_s(wk, prog->cmd_array, sb);
 		}
 
 		sbuf_pushs(wk, sb, ">");

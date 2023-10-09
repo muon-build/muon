@@ -31,7 +31,8 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 	make_obj(wk, res, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = true;
-	ep->full_path = make_str(wk, cmd_path.buf);
+	make_obj(wk, &ep->cmd_array, obj_array);
+	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
 	return true;
 }
 
@@ -76,7 +77,8 @@ func_module_python_find_installation(struct workspace *wk,
 	make_obj(wk, res, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = found;
-	ep->full_path = make_str(wk, cmd_path.buf);
+	make_obj(wk, &ep->cmd_array, obj_array);
+	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
 	return true;
 }
 

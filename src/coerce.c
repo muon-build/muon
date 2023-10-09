@@ -230,9 +230,10 @@ coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 }
 
 bool
-coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
+coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args)
 {
 	obj str;
+	*args = 0;
 
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
@@ -259,7 +260,10 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res)
 			return ir_err;
 		}
 
-		str = o->full_path;
+		obj_array_index(wk, o->cmd_array, 0, &str);
+		if (get_obj_array(wk, o->cmd_array)->len > 1) {
+			*args = obj_array_slice(wk, o->cmd_array, 1, -1);
+		}
 		break;
 	}
 	default:

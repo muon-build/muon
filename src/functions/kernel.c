@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
+#include "external/samurai.h"
 #include "functions/common.h"
 #include "functions/environment.h"
 #include "functions/external_program.h"
@@ -516,7 +517,7 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 		}
 
 		if (ctx->version) {
-			find_program_guess_version(wk, get_cstr(wk, ep->full_path), &over);
+			find_program_guess_version(wk, ep->cmd_array, &over);
 		}
 		break;
 	default:
@@ -537,7 +538,8 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 		make_obj(wk, &newres, obj_external_program);
 		struct obj_external_program *ep = get_obj_external_program(wk, newres);
 		ep->found = true;
-		ep->full_path = *get_obj_file(wk, op);
+		make_obj(wk, &ep->cmd_array, obj_array);
+		obj_array_push(wk, ep->cmd_array, *get_obj_file(wk, op));
 		op = newres;
 	}
 
@@ -668,33 +670,54 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		}
 	}
 
-	return true;
-found:
-	if (ctx->version) {
-		find_program_guess_version(wk, path, &ver);
-		guessed_ver = true;
+	/* 8. Special cases */
+	if (t == obj_string) {
+		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
+			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+			ep->found = true;
+			make_obj(wk, &ep->cmd_array, obj_array);
+			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
+			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
 
-		if (!ver) {
-			return true; // no version to check against
-		}
+			ctx->found = true;
+			return true;
 
-		bool comparison_result;
-		if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
-			return false;
-		} else if (!comparison_result) {
 			return true;
 		}
 	}
 
-	make_obj(wk, ctx->res, obj_external_program);
-	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-	ep->found = true;
-	ep->full_path = make_str(wk, path);
-	ep->guessed_ver = guessed_ver;
-	ep->ver = ver;
-
-	ctx->found = true;
 	return true;
+found:  {
+		obj cmd_array;
+		make_obj(wk, &cmd_array, obj_array);
+		obj_array_push(wk, cmd_array, make_str(wk, path));
+
+		if (ctx->version) {
+			find_program_guess_version(wk, cmd_array, &ver);
+			guessed_ver = true;
+
+			if (!ver) {
+				return true; // no version to check against
+			}
+
+			bool comparison_result;
+			if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
+				return false;
+			} else if (!comparison_result) {
+				return true;
+			}
+		}
+
+		make_obj(wk, ctx->res, obj_external_program);
+		struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+		ep->found = true;
+		ep->cmd_array = cmd_array;
+		ep->guessed_ver = guessed_ver;
+		ep->ver = ver;
+
+		ctx->found = true;
+		return true;
+	}
 }
 
 static enum iteration_result
@@ -1366,8 +1389,8 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		}
 	}
 
-	obj exe;
-	if (!coerce_executable(wk, an[1].node, an[1].val, &exe)) {
+	obj exe, exe_args;
+	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args)) {
 		return false;
 	}
 
@@ -1377,6 +1400,11 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 			arr_to_args_build_target | arr_to_args_custom_target,
 			akw[kw_args].val, &args)) {
 			return false;
+		}
+
+		if (exe_args) {
+			obj_array_extend_nodup(wk, exe_args, args);
+			args = exe_args;
 		}
 	}
 

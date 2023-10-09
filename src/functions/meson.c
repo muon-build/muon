@@ -355,11 +355,20 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	//fallthrough
 	case obj_external_program:
-	case obj_file:
-		if (!coerce_executable(wk, ctx->node, val, &str)) {
+	case obj_file: {
+		obj args;
+		if (!coerce_executable(wk, ctx->node, val, &str, &args)) {
 			return ir_err;
 		}
+
+		if (args) {
+			obj_array_push(wk, ctx->arr, str);
+			obj_array_extend_nodup(wk, ctx->arr, args);
+			return ir_cont;
+		}
+
 		break;
+	}
 	default:
 type_error:
 		interp_error(wk, ctx->node, "invalid type for script commandline '%s'",

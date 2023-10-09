@@ -347,7 +347,7 @@ struct obj_dependency {
 
 struct obj_external_program {
 	bool found, guessed_ver;
-	obj full_path;
+	obj cmd_array;
 	obj ver;
 };
 
@@ -587,6 +587,7 @@ bool obj_array_flatten_one(struct workspace *wk, obj val, obj *res);
 typedef int32_t (*obj_array_sort_func)(struct workspace *wk, void *_ctx, obj a, obj b);
 int32_t obj_array_sort_by_str(struct workspace *wk, void *_ctx, obj a, obj b);
 void obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res);
+obj obj_array_slice(struct workspace *wk, obj arr, int64_t i0, int64_t i1);
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, obj key, obj val);
 bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb);
