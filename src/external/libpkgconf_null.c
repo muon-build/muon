@@ -23,3 +23,10 @@ muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char
 	LOG_W("libpkgconf not enabled");
 	return false;
 }
+
+bool
+muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
+{
+	LOG_W("libpkgconf not enabled");
+	return false;
+}
