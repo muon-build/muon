@@ -673,6 +673,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	/* 8. Special cases */
 	if (t == obj_string) {
 		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
+			make_obj(wk, ctx->res, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
 			make_obj(wk, &ep->cmd_array, obj_array);
@@ -680,8 +681,6 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
 
 			ctx->found = true;
-			return true;
-
 			return true;
 		}
 	}
