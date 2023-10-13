@@ -18,6 +18,7 @@
 #include "lang/interpreter.h"
 #include "log.h"
 #include "rpmvercmp.h"
+#include "util.h"
 
 static bool
 func_strip(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
@@ -433,21 +434,11 @@ func_string_substring(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		end = s->len + end;
 	}
 
-	if (start > s->len || start < 0) {
-		assert(ao[0].set);
-		interp_error(wk, ao[0].node, "substring start out of bounds");
-		return false;
-	} else if (end > s->len || end < 0) {
-		assert(ao[1].set);
-		interp_error(wk, ao[1].node, "substring end out of bounds");
-		return false;
-	} else if (end < start) {
-		assert(ao[1].set);
-		interp_error(wk, ao[1].node, "substring end before start");
-		return false;
+	if (end < start) {
+		end = start;
 	}
 
-	*res = make_strn(wk, &s->s[start], end - start);
+	*res = make_strn(wk, &s->s[MAX(0, start)], MIN(end - start, s->len));
 	return true;
 }
 
