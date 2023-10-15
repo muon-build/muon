@@ -963,7 +963,7 @@ obj_array_slice_iter(struct workspace *wk, void *_ctx, obj v)
 
 	++ctx->i;
 
-	if (ctx->i >= ctx->i1) {
+	if (ctx->i > ctx->i1) {
 		return ir_done;
 	}
 

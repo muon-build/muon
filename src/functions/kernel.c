@@ -1388,12 +1388,12 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		}
 	}
 
-	obj exe, exe_args;
+	obj exe, exe_args = 0;
 	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args)) {
 		return false;
 	}
 
-	obj args = 0;
+	obj args = exe_args;
 	if (akw[kw_args].set) {
 		if (!arr_to_args(wk,
 			arr_to_args_build_target | arr_to_args_custom_target,
