@@ -228,6 +228,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		return ir_cont;
 	}
 	case obj_external_program:
+	case obj_python_installation:
 		if (!(ctx->mode & arr_to_args_external_program)) {
 			goto type_err;
 		}

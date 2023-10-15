@@ -253,6 +253,9 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		str = sbuf_into_str(wk, &dest);
 		break;
 	}
+	case obj_python_installation:
+		val = get_obj_python_installation(wk, val)->prog;
+		/* fallthrough */
 	case obj_external_program: {
 		struct obj_external_program *o = get_obj_external_program(wk, val);
 		if (!o->found) {

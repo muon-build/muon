@@ -61,6 +61,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_subproject:
 	case obj_dependency:
 	case obj_external_program:
+	case obj_python_installation:
 	case obj_run_result:
 	case obj_configuration_data:
 	case obj_test:
@@ -185,6 +186,7 @@ OBJ_GETTER(obj_custom_target)
 OBJ_GETTER(obj_subproject)
 OBJ_GETTER(obj_dependency)
 OBJ_GETTER(obj_external_program)
+OBJ_GETTER(obj_python_installation)
 OBJ_GETTER(obj_run_result)
 OBJ_GETTER(obj_configuration_data)
 OBJ_GETTER(obj_test)
@@ -230,6 +232,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_subproject:
 	case obj_dependency:
 	case obj_external_program:
+	case obj_python_installation:
 	case obj_run_result:
 	case obj_configuration_data:
 	case obj_test:
@@ -331,6 +334,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_machine: return "build_machine";
 	case obj_feature_opt: return "feature";
 	case obj_external_program: return "external_program";
+	case obj_python_installation: return "python_installation";
 	case obj_run_result: return "runresult";
 	case obj_configuration_data: return "cfg_data";
 	case obj_custom_target: return "custom_tgt";
@@ -1622,6 +1626,21 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		obj_dict_foreach(wk, o, &ctx, obj_to_s_dict_iter);
 		sbuf_pushs(wk, sb, "}");
 		break;
+	case obj_python_installation: {
+		struct obj_python_installation *py = get_obj_python_installation(wk, o);
+		struct obj_external_program *prog = get_obj_external_program(wk, py->prog);
+		sbuf_pushf(wk, sb, "<%s found: %s",
+		obj_type_to_s(t), prog->found ? "true" : "false");
+
+		if (prog->found) {
+			sbuf_pushs(wk, sb, ", cmd_array: ");
+			obj_to_s(wk, prog->cmd_array, sb);
+			sbuf_pushf(wk, sb, "version: %s", get_cstr(wk, py->language_version));
+		}
+
+		sbuf_pushs(wk, sb, ">");
+		break;
+	}
 	case obj_external_program: {
 		struct obj_external_program *prog = get_obj_external_program(wk, o);
 		sbuf_pushf(wk, sb, "<%s found: %s",

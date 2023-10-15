@@ -28,6 +28,7 @@
 #include "functions/machine.h"
 #include "functions/meson.h"
 #include "functions/modules.h"
+#include "functions/modules/python.h"
 #include "functions/number.h"
 #include "functions/run_result.h"
 #include "functions/source_configuration.h"
@@ -706,6 +707,7 @@ const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_string] = { impl_tbl_string, impl_tbl_string },
 	[obj_dict] = { impl_tbl_dict, impl_tbl_dict },
 	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program },
+	[obj_python_installation] = { impl_tbl_python_installation, impl_tbl_python_installation },
 	[obj_configuration_data] = { impl_tbl_configuration_data, impl_tbl_configuration_data },
 	[obj_custom_target] = { impl_tbl_custom_target },
 	[obj_file] = { impl_tbl_file, impl_tbl_file },
@@ -725,6 +727,7 @@ void
 build_func_impl_tables(void)
 {
 	both_libs_build_impl_tbl();
+	python_build_impl_tbl();
 }
 
 const struct func_impl_name *

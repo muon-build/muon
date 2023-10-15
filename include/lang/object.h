@@ -41,6 +41,7 @@ enum obj_type {
 	obj_subproject,
 	obj_dependency,
 	obj_external_program,
+	obj_python_installation,
 	obj_run_result,
 	obj_configuration_data,
 	obj_test,
@@ -84,33 +85,35 @@ typedef uint64_t type_tag;
 #define tc_subproject         (obj_typechecking_type_tag | (((type_tag)1) << 13))
 #define tc_dependency         (obj_typechecking_type_tag | (((type_tag)1) << 14))
 #define tc_external_program   (obj_typechecking_type_tag | (((type_tag)1) << 15))
-#define tc_run_result         (obj_typechecking_type_tag | (((type_tag)1) << 16))
-#define tc_configuration_data (obj_typechecking_type_tag | (((type_tag)1) << 17))
-#define tc_test               (obj_typechecking_type_tag | (((type_tag)1) << 18))
-#define tc_module             (obj_typechecking_type_tag | (((type_tag)1) << 19))
-#define tc_install_target     (obj_typechecking_type_tag | (((type_tag)1) << 20))
-#define tc_environment        (obj_typechecking_type_tag | (((type_tag)1) << 21))
-#define tc_include_directory  (obj_typechecking_type_tag | (((type_tag)1) << 22))
-#define tc_option             (obj_typechecking_type_tag | (((type_tag)1) << 23))
-#define tc_generator          (obj_typechecking_type_tag | (((type_tag)1) << 24))
-#define tc_generated_list     (obj_typechecking_type_tag | (((type_tag)1) << 25))
-#define tc_alias_target       (obj_typechecking_type_tag | (((type_tag)1) << 26))
-#define tc_both_libs          (obj_typechecking_type_tag | (((type_tag)1) << 27))
-#define tc_source_set         (obj_typechecking_type_tag | (((type_tag)1) << 28))
-#define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 29))
-#define tc_type_count         30
+#define tc_python_installation (obj_typechecking_type_tag | (((type_tag)1) << 16))
+#define tc_run_result         (obj_typechecking_type_tag | (((type_tag)1) << 17))
+#define tc_configuration_data (obj_typechecking_type_tag | (((type_tag)1) << 18))
+#define tc_test               (obj_typechecking_type_tag | (((type_tag)1) << 19))
+#define tc_module             (obj_typechecking_type_tag | (((type_tag)1) << 20))
+#define tc_install_target     (obj_typechecking_type_tag | (((type_tag)1) << 21))
+#define tc_environment        (obj_typechecking_type_tag | (((type_tag)1) << 22))
+#define tc_include_directory  (obj_typechecking_type_tag | (((type_tag)1) << 23))
+#define tc_option             (obj_typechecking_type_tag | (((type_tag)1) << 24))
+#define tc_generator          (obj_typechecking_type_tag | (((type_tag)1) << 25))
+#define tc_generated_list     (obj_typechecking_type_tag | (((type_tag)1) << 26))
+#define tc_alias_target       (obj_typechecking_type_tag | (((type_tag)1) << 27))
+#define tc_both_libs          (obj_typechecking_type_tag | (((type_tag)1) << 28))
+#define tc_source_set         (obj_typechecking_type_tag | (((type_tag)1) << 29))
+#define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
+#define tc_type_count         31
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
 			       | tc_subproject | tc_dependency | tc_feature_opt \
-			       | tc_external_program | tc_run_result \
+			       | tc_external_program | tc_python_installation | tc_run_result \
 			       | tc_configuration_data | tc_test | tc_module \
 			       | tc_install_target | tc_environment | tc_include_directory \
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
 			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration)
 
-#define tc_exe                (tc_string | tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_both_libs)
+#define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
+			       | tc_build_target | tc_custom_target | tc_both_libs)
 
 #define tc_coercible_env      (tc_environment | tc_string | tc_array | tc_dict)
 #define tc_coercible_files    (tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs)
@@ -351,6 +354,13 @@ struct obj_external_program {
 	obj ver;
 };
 
+struct obj_python_installation {
+	obj prog;
+
+	obj sysconfig_paths;
+	obj sysconfig_vars;
+};
+
 enum run_result_flags {
 	run_result_flag_from_compile = 1 << 0,
 	run_result_flag_compile_ok = 1 << 1,
@@ -530,6 +540,7 @@ OBJ_GETTER(obj_custom_target);
 OBJ_GETTER(obj_subproject);
 OBJ_GETTER(obj_dependency);
 OBJ_GETTER(obj_external_program);
+OBJ_GETTER(obj_python_installation);
 OBJ_GETTER(obj_run_result);
 OBJ_GETTER(obj_configuration_data);
 OBJ_GETTER(obj_test);

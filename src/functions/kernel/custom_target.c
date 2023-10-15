@@ -257,6 +257,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_both_libs:
 	case obj_build_target:
 	case obj_external_program:
+	case obj_python_installation:
 	case obj_file: {
 		obj str, args;
 		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &args)) {

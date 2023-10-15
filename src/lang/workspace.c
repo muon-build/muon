@@ -116,6 +116,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_subproject] = { sizeof(struct obj_subproject), 16 },
 		[obj_dependency] = { sizeof(struct obj_dependency), 16 },
 		[obj_external_program] = { sizeof(struct obj_external_program), 32 },
+		[obj_python_installation] = { sizeof(struct obj_python_installation), 32 },
 		[obj_run_result] = { sizeof(struct obj_run_result), 32 },
 		[obj_configuration_data] = { sizeof(struct obj_configuration_data), 16 },
 		[obj_test] = { sizeof(struct obj_test), 64 },

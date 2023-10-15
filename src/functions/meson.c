@@ -261,11 +261,9 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 static bool
 func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = {
-		{ obj_string },
-		{ tc_file | tc_external_program | tc_build_target | tc_custom_target },
-		ARG_TYPE_NULL
-	};
+	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target \
+		| tc_custom_target | tc_python_installation;
+	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -287,6 +285,7 @@ func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node
 		obj_array_push(wk, override, ver);
 		break;
 	case obj_external_program:
+	case obj_python_installation:
 		override = an[1].val;
 		break;
 	default:
@@ -355,6 +354,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	//fallthrough
 	case obj_external_program:
+	case obj_python_installation:
 	case obj_file: {
 		obj args;
 		if (!coerce_executable(wk, ctx->node, val, &str, &args)) {

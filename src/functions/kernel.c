@@ -508,6 +508,7 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 		obj_array_index(wk, override, 0, &op);
 		obj_array_index(wk, override, 1, &over);
 		break;
+	case obj_python_installation:
 	case obj_external_program:
 		op = override;
 		struct obj_external_program *ep = get_obj_external_program(wk, op);
@@ -581,7 +582,9 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	obj ver = 0;
 	bool guessed_ver = false;
 
-	if (!typecheck(wk, ctx->node, prog, tc_file | tc_string | tc_external_program)) {
+	type_tag tc_allowed = tc_file | tc_string | tc_external_program \
+		| tc_python_installation;
+	if (!typecheck(wk, ctx->node, prog, tc_allowed)) {
 		return false;
 	}
 
@@ -593,6 +596,9 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	case obj_string:
 		str = get_cstr(wk, prog);
 		break;
+	case obj_python_installation:
+		prog = get_obj_python_installation(wk, prog)->prog;
+		/* fallthrough */
 	case obj_external_program:
 		if (get_obj_external_program(wk, prog)->found) {
 			*ctx->res = prog;
@@ -968,7 +974,9 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_external_program | tc_compiler }, ARG_TYPE_NULL };
+	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program \
+		| tc_compiler | tc_python_installation;
+	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
@@ -1280,6 +1288,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (get_obj_type(wk, val)) {
 	case obj_string:
 	case obj_external_program:
+	case obj_python_installation:
 		break;
 
 	case obj_file:
@@ -1318,9 +1327,9 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
-	struct args_norm an[] = { { obj_string },
-				  { tc_build_target | tc_external_program | tc_file },
-				  ARG_TYPE_NULL };
+	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file \
+		| tc_python_installation;
+	struct args_norm an[] = { { obj_string }, { tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
 		kw_workdir,
