@@ -11,6 +11,39 @@
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
+static const char *introspect_program =
+	"import sysconfig\n"
+	"print(sysconfig.get_python_version())\n";
+
+static bool
+introspect_python_interpreter(struct workspace *wk, obj *res, const char *path,
+	struct obj_python_installation *python)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	char *const args[] = { (char *)path, "-c", (char *)introspect_program, 0 };
+	if (!run_cmd_argv(&cmd_ctx, args, NULL, 0) || cmd_ctx.status != 0)
+		return false;
+
+	size_t index = 0, buf_index = 0, max_buf_index = cmd_ctx.out.len;
+	char *buf = cmd_ctx.out.buf, *entry = cmd_ctx.out.buf;
+	while (buf_index != max_buf_index) {
+		if (buf[buf_index] == '\n') {
+			buf[buf_index] = '\0';
+
+			if (index == 0) {  /* language_version */
+				python->language_version = make_str(wk, entry);
+			}
+
+			entry = &buf[buf_index + 1];
+			index++;
+		} else {
+			buf_index++;
+		}
+	}
+
+	return buf[buf_index] == '\0';
+}
+
 static bool
 func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
@@ -37,6 +70,12 @@ func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_nod
 	ep->found = true;
 	make_obj(wk, &ep->cmd_array, obj_array);
 	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+
+	if (!introspect_python_interpreter(wk, res, cmd_path.buf, python)) {
+		interp_error(wk, args_node, "failed to introspect python");
+		return false;
+	}
+
 	return true;
 }
 
@@ -156,6 +195,20 @@ func_module_python_find_installation(struct workspace *wk,
 	ep->found = found;
 	make_obj(wk, &ep->cmd_array, obj_array);
 	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+
+	if (!introspect_python_interpreter(wk, res, cmd_path.buf, python)) {
+		interp_error(wk, args_node, "failed to introspect python");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+func_python_installation_language_version(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
+{
+	*res = get_obj_python_installation(wk, rcvr)->language_version;
 	return true;
 }
 
@@ -179,7 +232,7 @@ python_build_impl_tbl(void)
 
 struct func_impl_name impl_tbl_module_python[] = {
 	[ARRAY_LEN(impl_tbl_external_program) - 1] =
-	{ "find_installation", func_module_python_find_python, tc_python_installation },
+	{ "find_installation", func_module_python_find_installation, tc_python_installation },
 	{ NULL, NULL },
 };
 
@@ -190,5 +243,6 @@ struct func_impl_name impl_tbl_module_python3[] = {
 };
 
 const struct func_impl_name impl_tbl_python_installation[] = {
+	{ "language_version", func_python_installation_language_version, tc_string },
 	{ NULL, NULL },
 };
