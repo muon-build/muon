@@ -5,9 +5,7 @@
 
 #include "compat.h"
 
-#include <errno.h>
 #include <string.h>
-#include <time.h>
 
 #include "args.h"
 #include "backend/ninja.h"
@@ -23,6 +21,9 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "platform/term.h"
+#include "platform/timer.h"
+
+#define SLEEP_TIME 10000000 // 10ms
 
 enum test_result_status {
 	test_result_status_running,
@@ -34,7 +35,7 @@ enum test_result_status {
 struct test_result {
 	struct run_cmd_ctx cmd_ctx;
 	struct obj_test *test;
-	struct timespec start;
+	struct timer t;
 	float dur, timeout;
 	enum test_result_status status;
 	bool busy;
@@ -466,30 +467,6 @@ ret:
  * Test runner
  */
 
-static void
-calculate_test_duration(struct test_result *res)
-{
-	struct timespec end;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &end)) {
-		LOG_E("error getting test end time: %s", strerror(errno));
-		return;
-	}
-
-	double secs = (double)end.tv_sec - (double)res->start.tv_sec;
-	double ns = ((secs * 1000000000.0) + end.tv_nsec) - res->start.tv_nsec;
-	res->dur = ns / 1000000000.0;
-}
-
-static void
-test_delay(void)
-{
-	struct timespec req = {
-		.tv_nsec = 10000000,
-	};
-	nanosleep(&req, NULL);
-}
-
 static bool
 check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
 {
@@ -529,7 +506,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 		struct test_result *res = &ctx->jobs[i];
-		calculate_test_duration(res);
+		res->dur = timer_end(&res->t);
 
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
 
@@ -633,7 +610,7 @@ push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
 		}
 
 cont:
-		test_delay();
+		timer_sleep(SLEEP_TIME);
 		collect_tests(wk, ctx);
 	}
 found_slot:
@@ -661,9 +638,7 @@ found_slot:
 		cmd_ctx->chdir = get_cstr(wk, test->workdir);
 	}
 
-	if (clock_gettime(CLOCK_MONOTONIC, &res->start)) {
-		LOG_E("error getting test start time: %s", strerror(errno));
-	}
+	timer_start(&res->t);
 
 	print_test_progress(wk, ctx, res, ctx->serial);
 
@@ -671,7 +646,7 @@ found_slot:
 		res->busy = false;
 		--ctx->busy_jobs;
 
-		calculate_test_duration(res);
+		res->dur = timer_end(&res->t);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
 		darr_push(&ctx->test_results, res);
@@ -833,7 +808,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	}
 
 	while (ctx->busy_jobs) {
-		test_delay();
+		timer_sleep(SLEEP_TIME);
 		collect_tests(wk, ctx);
 	}
 

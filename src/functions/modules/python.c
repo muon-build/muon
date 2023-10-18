@@ -71,7 +71,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 	struct iter_mod_ctx *_ctx = ctx;
 	const char *mod = get_cstr(wk, val);
 
-	if(python_module_present(wk, _ctx->pythonpath, mod)) {
+	if (python_module_present(wk, _ctx->pythonpath, mod)) {
 		return ir_cont;
 	}
 
@@ -126,12 +126,12 @@ func_module_python_find_installation(struct workspace *wk,
 		bool all_present = obj_array_foreach(wk,
 			akw[kw_modules].val,
 			&(struct iter_mod_ctx){
-				.pythonpath = cmd_path.buf,
-				.node = akw[kw_modules].node,
-				.required = required,
-			},
+			.pythonpath = cmd_path.buf,
+			.node = akw[kw_modules].node,
+			.required = required,
+		},
 			iterate_required_module_list
-		);
+			);
 
 		if (!all_present) {
 			if (required) {

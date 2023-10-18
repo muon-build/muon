@@ -110,6 +110,7 @@
 #include "platform/windows/rpath_fixer.c"
 #include "platform/windows/run_cmd.c"
 #include "platform/windows/term.c"
+#include "platform/windows/timer.c"
 #include "platform/windows/uname.c"
 #include "platform/windows/win32_error.c"
 #include "platform/windows/win32_getopt.c"
@@ -121,6 +122,7 @@
 #include "platform/posix/path.c"
 #include "platform/posix/run_cmd.c"
 #include "platform/posix/term.c"
+#include "platform/posix/timer.c"
 #include "platform/posix/uname.c"
 #endif
 

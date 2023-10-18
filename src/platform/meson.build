@@ -17,6 +17,7 @@ foreach f : [
     'path.c',
     'run_cmd.c',
     'term.c',
+    'timer.c',
     'uname.c',
 ]
     platform_sources += files(platform / f)
