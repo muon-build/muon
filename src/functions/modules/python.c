@@ -16,13 +16,14 @@ static const char *introspect_program =
 	"print(sysconfig.get_python_version())\n";
 
 static bool
-introspect_python_interpreter(struct workspace *wk, obj *res, const char *path,
+introspect_python_interpreter(struct workspace *wk, const char *path,
 	struct obj_python_installation *python)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const args[] = { (char *)path, "-c", (char *)introspect_program, 0 };
-	if (!run_cmd_argv(&cmd_ctx, args, NULL, 0) || cmd_ctx.status != 0)
+	if (!run_cmd_argv(&cmd_ctx, args, NULL, 0) || cmd_ctx.status != 0) {
 		return false;
+	}
 
 	size_t index = 0, buf_index = 0, max_buf_index = cmd_ctx.out.len;
 	char *buf = cmd_ctx.out.buf, *entry = cmd_ctx.out.buf;
@@ -41,42 +42,11 @@ introspect_python_interpreter(struct workspace *wk, obj *res, const char *path,
 		}
 	}
 
-	return buf[buf_index] == '\0';
-}
+	bool success = buf[buf_index] == '\0';
 
-static bool
-func_module_python_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
-{
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
-		return false;
-	}
+	run_cmd_ctx_destroy(&cmd_ctx);
 
-	const char *cmd = "python3";
-	if (ao[0].set) {
-		cmd = get_cstr(wk, ao[0].val);
-	}
-
-	SBUF(cmd_path);
-	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
-		interp_error(wk, args_node, "python3 not found");
-		return false;
-	}
-
-	make_obj(wk, res, obj_python_installation);
-	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
-	make_obj(wk, &python->prog, obj_external_program);
-	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
-	ep->found = true;
-	make_obj(wk, &ep->cmd_array, obj_array);
-	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
-
-	if (!introspect_python_interpreter(wk, res, cmd_path.buf, python)) {
-		interp_error(wk, args_node, "failed to introspect python");
-		return false;
-	}
-
-	return true;
+	return success;
 }
 
 static bool
@@ -196,7 +166,7 @@ func_module_python_find_installation(struct workspace *wk,
 	make_obj(wk, &ep->cmd_array, obj_array);
 	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
 
-	if (!introspect_python_interpreter(wk, res, cmd_path.buf, python)) {
+	if (!introspect_python_interpreter(wk, cmd_path.buf, python)) {
 		interp_error(wk, args_node, "failed to introspect python");
 		return false;
 	}
@@ -208,9 +178,42 @@ static bool
 func_python_installation_language_version(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
 	*res = get_obj_python_installation(wk, rcvr)->language_version;
 	return true;
 }
+
+static bool
+func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+		return false;
+	}
+
+	const char *cmd = "python3";
+	if (ao[0].set) {
+		cmd = get_cstr(wk, ao[0].val);
+	}
+
+	SBUF(cmd_path);
+	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
+		interp_error(wk, args_node, "python3 not found");
+		return false;
+	}
+
+	make_obj(wk, res, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, *res);
+	ep->found = true;
+	make_obj(wk, &ep->cmd_array, obj_array);
+	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+
+	return true;
+}
+
 
 static obj
 python_rcvr_transform(struct workspace *wk, obj rcvr)
@@ -226,7 +229,6 @@ python_build_impl_tbl(void)
 		struct func_impl_name tmp = impl_tbl_external_program[i];
 		tmp.rcvr_transform = python_rcvr_transform;
 		impl_tbl_module_python[i] = tmp;
-		impl_tbl_module_python3[i] = tmp;
 	}
 }
 
@@ -236,9 +238,8 @@ struct func_impl_name impl_tbl_module_python[] = {
 	{ NULL, NULL },
 };
 
-struct func_impl_name impl_tbl_module_python3[] = {
-	[ARRAY_LEN(impl_tbl_external_program) - 1] =
-	{ "find_python", func_module_python_find_python, tc_python_installation },
+const struct func_impl_name impl_tbl_module_python3[] = {
+	{ "find_python", func_module_python3_find_python, tc_external_program },
 	{ NULL, NULL },
 };
 
