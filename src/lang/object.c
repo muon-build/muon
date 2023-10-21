@@ -1635,7 +1635,42 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		if (prog->found) {
 			sbuf_pushs(wk, sb, ", cmd_array: ");
 			obj_to_s(wk, prog->cmd_array, sb);
-			sbuf_pushf(wk, sb, "version: %s", get_cstr(wk, py->language_version));
+
+			sbuf_pushs(wk, sb, ", info.install_paths: {");
+			obj_dict_foreach(wk, py->info.install_paths, &ctx, obj_to_s_dict_iter);
+
+			sbuf_pushs(wk, sb, "}, info.is_pypy: ");
+			obj_to_s(wk, py->info.is_pypy, sb);
+
+			sbuf_pushs(wk, sb, ", info.is_venv: ");
+			obj_to_s(wk, py->info.is_venv, sb);
+
+			sbuf_pushs(wk, sb, ", info.link_libpython: ");
+			obj_to_s(wk, py->info.link_libpython, sb);
+
+			sbuf_pushs(wk, sb, ", info.sysconfig_paths: {");
+			obj_dict_foreach(wk, py->info.sysconfig_paths, &ctx, obj_to_s_dict_iter);
+
+			sbuf_pushs(wk, sb, "}, info.paths: {");
+			obj_dict_foreach(wk, py->info.paths, &ctx, obj_to_s_dict_iter);
+
+			sbuf_pushs(wk, sb, "}, info.platform: ");
+			obj_to_s(wk, py->info.platform, sb);
+
+			sbuf_pushs(wk, sb, ", info.suffix: ");
+			obj_to_s(wk, py->info.suffix, sb);
+
+			sbuf_pushs(wk, sb, ", info.limited_api_suffix: ");
+			obj_to_s(wk, py->info.limited_api_suffix, sb);
+
+			sbuf_pushs(wk, sb, ", info.variables: {");
+			obj_dict_foreach(wk, py->info.variables, &ctx, obj_to_s_dict_iter);
+
+			sbuf_pushs(wk, sb, "}, info.language_version: ");
+			obj_to_s(wk, py->info.language_version, sb);
+
+			sbuf_pushs(wk, sb, ", info.pure: ");
+			obj_to_s(wk, py->info.pure, sb);
 		}
 
 		sbuf_pushs(wk, sb, ">");

@@ -74,6 +74,7 @@ src = files(
     'error.c',
     'guess.c',
     'install.c',
+    'json.c',
     'log.c',
     'machine_file.c',
     'main.c',

@@ -357,9 +357,20 @@ struct obj_external_program {
 struct obj_python_installation {
 	obj prog;
 
-	obj language_version;
-	obj sysconfig_paths;
-	obj sysconfig_vars;
+	struct python_info {
+		obj install_paths;
+		obj is_pypy;
+		obj is_venv;
+		obj link_libpython;
+		obj sysconfig_paths;
+		obj paths;
+		obj platform;
+		obj suffix;
+		obj limited_api_suffix;
+		obj variables;
+		obj language_version;
+		obj pure;
+	} info;
 };
 
 enum run_result_flags {
