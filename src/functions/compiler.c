@@ -637,8 +637,7 @@ func_compiler_compute_int(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		"#include <stdio.h>\n"
 		"%s\n"
 		"int main(void) {\n"
-		"int d = (%s);\n"
-		"printf(\"%%d\", d);\n"
+		"printf(\"%%ld\", (long)(%s));\n"
 		"}\n",
 		compiler_check_prefix(wk, akw),
 		get_cstr(wk, an[0].val)
