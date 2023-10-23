@@ -4,6 +4,7 @@
  */
 
 #include "compat.h"
+#include "coerce.h"
 
 #include "functions/modules/python.h"
 #include "functions/external_program.h"
@@ -74,7 +75,7 @@ python_module_present(struct workspace *wk, const char *pythonpath, const char *
 struct iter_mod_ctx {
 	const char *pythonpath;
 	uint32_t node;
-	bool required;
+	enum requirement_type requirement;
 };
 
 static enum iteration_result
@@ -87,7 +88,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 		return ir_cont;
 	}
 
-	if (_ctx->required) {
+	if (_ctx->requirement == requirement_required) {
 		interp_error(wk, _ctx->node, "python: required module '%s' not found", mod);
 	}
 
@@ -105,7 +106,7 @@ func_module_python_find_installation(struct workspace *wk,
 		kw_modules,
 	};
 	struct args_kw akw[] = {
-		[kw_required] = { "required", obj_bool },
+		[kw_required] = { "required", tc_required_kw },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_modules] = { "modules", ARG_TYPE_ARRAY_OF | obj_string },
 		0
@@ -114,7 +115,11 @@ func_module_python_find_installation(struct workspace *wk,
 		return false;
 	}
 
-	bool required = !akw[kw_required].set || get_obj_bool(wk, akw[kw_required].val);
+	enum requirement_type requirement;
+	if (!coerce_requirement(wk, &akw[kw_required], &requirement)) {
+		return false;
+	}
+
 	bool disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val);
 
 	const char *cmd = "python3";
@@ -124,7 +129,7 @@ func_module_python_find_installation(struct workspace *wk,
 
 	SBUF(cmd_path);
 	bool found = fs_find_cmd(wk, &cmd_path, cmd);
-	if (required && !found) {
+	if (!found && (requirement == requirement_required)) {
 		interp_error(wk, args_node, "%s not found", cmd);
 		return false;
 	}
@@ -140,13 +145,13 @@ func_module_python_find_installation(struct workspace *wk,
 			&(struct iter_mod_ctx){
 			.pythonpath = cmd_path.buf,
 			.node = akw[kw_modules].node,
-			.required = required,
+			.requirement = requirement,
 		},
 			iterate_required_module_list
 			);
 
 		if (!all_present) {
-			if (required) {
+			if (requirement == requirement_required) {
 				return false;
 			}
 			if (disabler) {
