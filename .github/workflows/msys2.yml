@@ -27,10 +27,10 @@ jobs:
     - name: bootstrap
       run: |
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
-#    - name: muon
-#      run: |
-#        ./build/muon.exe setup -Dbestline=disabled build
-#        ninja -C build
+    - name: muon
+      run: |
+        ./build/muon.exe setup -Dbestline=disabled build
+        ninja -C build
 
   mingw64:
     runs-on: windows-latest
@@ -47,10 +47,10 @@ jobs:
     - name: bootstrap
       run: |
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
-#    - name: muon
-#      run: |
-#        ./build/muon.exe setup -Dbestline=disabled build
-#        ninja -C build
+    - name: muon
+      run: |
+        ./build/muon.exe setup -Dbestline=disabled build
+        ninja -C build
 
   msys:
     runs-on: windows-latest
