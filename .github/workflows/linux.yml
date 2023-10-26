@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-FileCopyrightText: Vincent Torri <vtorri@outlook.fr>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: CI msys2
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    - uses: actions/checkout@v2
+    - name: dependencies
+      run |
+        sudo apt-get -qq update
+        sudo apt install build-essential ninja-build libpkgconf3 libarchive-dev libcurl4
+    - name: bootstrap muon
+      run: |
+        CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
+    - name: compile bootstrapped muon
+      run: |
+        ./build/muon.exe setup builddir
+        ninja -C builddir
+  meson:
+    runs-on: ubuntu-latest
+    - uses: actions/checkout@v2
+    - name: dependencies
+      run |
+        sudo apt-get -qq update
+        sudo apt install build-essential ninja-build libpkgconf3 libarchive-dev libcurl4 python3-pip python3-setuptools
+        pip3 install --upgrade pip
+        pip3 install meson --user
+    - name: compile muon with meson
+      run: |
+        meson setup builddir
+        ninja -C builddir
