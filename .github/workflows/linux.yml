@@ -13,10 +13,11 @@ on:
 
 jobs:
   bootstrap:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-lates
+    steps:
     - uses: actions/checkout@v2
     - name: dependencies
-      run |
+      run: |
         sudo apt-get -qq update
         sudo apt install build-essential ninja-build libpkgconf3 libarchive-dev libcurl4
     - name: bootstrap muon
@@ -28,9 +29,10 @@ jobs:
         ninja -C builddir
   meson:
     runs-on: ubuntu-latest
+    steps:
     - uses: actions/checkout@v2
     - name: dependencies
-      run |
+      run: |
         sudo apt-get -qq update
         sudo apt install build-essential ninja-build libpkgconf3 libarchive-dev libcurl4 python3-pip python3-setuptools
         pip3 install --upgrade pip
