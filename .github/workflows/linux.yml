@@ -25,7 +25,7 @@ jobs:
         CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
     - name: compile bootstrapped muon
       run: |
-        ./build/muon.exe setup builddir
+        ./build/muon setup builddir
         ninja -C builddir
   meson:
     runs-on: ubuntu-latest
