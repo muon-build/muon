@@ -14,7 +14,7 @@ tasks:
       cd muon
       # TODO remove this when we implement rpaths
       export LD_LIBRARY_PATH=/usr/pkg/lib
-      .builds/fullbootstrap.sh
+      tools/ci/fullbootstrap.sh
   - test: |
       cd muon/build
       # TODO remove this when we implement rpaths

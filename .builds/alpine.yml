@@ -57,16 +57,16 @@ tasks:
       reuse lint
   - push_to_gh_mirror: |
       cd muon
-      .builds/push_to_gh_mirror.sh
+      tools/ci/push_to_gh_mirror.sh
   - kickoff_custom_ci: |
       cd muon
-      .builds/solaris11.sh submit
+      tools/ci/solaris11.sh submit
   - build_gcc: |
       cd muon
-      CC=gcc .builds/fullbootstrap.sh -Dbuildtype=release -Dstatic=true -Dwebsite=true
+      CC=gcc tools/ci/fullbootstrap.sh -Dbuildtype=release -Dstatic=true -Dwebsite=true
   - build_tcc: |
       cd muon
-      CC=tcc .builds/bootstrap.sh build-tcc
+      CC=tcc tools/ci/bootstrap.sh build-tcc
   - test_gcc: |
       cd muon/build
       CC=gcc ./muon test -j$(nproc) -d dots
@@ -85,13 +85,13 @@ tasks:
       samu -C build-small
   - release: |
       cd muon
-      .builds/git_archive_with_samurai.sh muon-edge+samurai
-      .builds/prepare_release_docs.sh build
-      .builds/prepare_binary.sh build edge-amd64-linux-static
-      .builds/prepare_binary.sh build-small edge-amd64-linux-static-small
-      .builds/deploy.sh / -r --delete build/doc/website
-      .builds/deploy.sh /releases/edge -r --delete build/doc/docs
-      .builds/deploy.sh /releases/edge \
+      tools/ci/git_archive_with_samurai.sh muon-edge+samurai
+      tools/ci/prepare_release_docs.sh build
+      tools/ci/prepare_binary.sh build edge-amd64-linux-static
+      tools/ci/prepare_binary.sh build-small edge-amd64-linux-static-small
+      tools/ci/deploy.sh / -r --delete build/doc/website
+      tools/ci/deploy.sh /releases/edge -r --delete build/doc/docs
+      tools/ci/deploy.sh /releases/edge \
         build/muon-edge-amd64-linux-static \
         build/muon-edge-amd64-linux-static.md5 \
         build-small/muon-edge-amd64-linux-static-small \

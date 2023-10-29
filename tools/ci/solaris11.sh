@@ -32,7 +32,7 @@ build() {
 }
 
 submit() {
-	cat .builds/solaris11.sh | ssh \
+	cat tools/ci/solaris11.sh | ssh \
 		-oPubkeyAcceptedKeyTypes=+ssh-rsa \
 		-oStrictHostKeyChecking=no \
 		-oHostKeyAlgorithms=ssh-rsa \

@@ -4,7 +4,7 @@
 
 set -eux
 
-.builds/bootstrap.sh build
+tools/ci/bootstrap.sh build
 
 # enable samurai wrap
 build/muon setup -Dsamurai=enabled "$@" build
