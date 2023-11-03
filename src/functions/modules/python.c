@@ -6,22 +6,35 @@
 #include "compat.h"
 #include "coerce.h"
 
+#include <string.h>
+
+#include "external/tinyjson.h"
 #include "functions/modules/python.h"
 #include "functions/external_program.h"
 #include "lang/interpreter.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
-static const char *introspect_program =
+static const char *introspect_version =
 	"import sysconfig\n"
 	"print(sysconfig.get_python_version())\n";
 
+static const char *introspect_paths =
+	"import sysconfig\n"
+	"import json\n"
+	"print(json.dumps(sysconfig.get_paths()))\n";
+
+static const char *introspect_vars =
+	"import sysconfig\n"
+	"import json\n"
+	"print(json.dumps(sysconfig.get_config_vars()))\n";
+
 static bool
-introspect_python_interpreter(struct workspace *wk, const char *path,
+query_version(struct workspace *wk, const char *path,
 	struct obj_python_installation *python)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const args[] = { (char *)path, "-c", (char *)introspect_program, 0 };
+	char *const args[] = { (char *)path, "-c", (char *)introspect_version, 0 };
 	if (!run_cmd_argv(&cmd_ctx, args, NULL, 0) || cmd_ctx.status != 0) {
 		return false;
 	}
@@ -46,8 +59,48 @@ introspect_python_interpreter(struct workspace *wk, const char *path,
 	bool success = buf[buf_index] == '\0';
 
 	run_cmd_ctx_destroy(&cmd_ctx);
-
 	return success;
+}
+
+static bool
+query_paths(struct workspace *wk, const char *path,
+	struct obj_python_installation *python)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	char *const path_args[] = { (char *)path, "-c", (char *)introspect_paths, 0 };
+	if (!run_cmd_argv(&cmd_ctx, path_args, NULL, 0) || cmd_ctx.status != 0) {
+		return false;
+	}
+
+	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &python->sysconfig_paths);
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return success;
+}
+
+static bool
+query_vars(struct workspace *wk, const char *path,
+	struct obj_python_installation *python)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	char *const var_args[] = { (char *)path, "-c", (char *)introspect_vars, 0 };
+	if (!run_cmd_argv(&cmd_ctx, var_args, NULL, 0) || cmd_ctx.status != 0) {
+		return false;
+	}
+
+	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &python->sysconfig_vars);
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+	return success;
+
+}
+
+static bool
+introspect_python_interpreter(struct workspace *wk, const char *path,
+	struct obj_python_installation *python)
+{
+	return query_version(wk, path, python) && query_paths(wk, path, python)
+		&& query_vars(wk, path, python);
 }
 
 static bool
@@ -219,6 +272,58 @@ func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_no
 	return true;
 }
 
+static bool
+func_python_installation_get_path(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	obj path = an[0].val;
+	obj sysconfig_paths = get_obj_python_installation(wk, rcvr)->sysconfig_paths;
+	if (obj_dict_index(wk, sysconfig_paths, path, res)) {
+		return true;
+	}
+
+	if (!ao[0].set) {
+		interp_error(wk, args_node,
+			"path '%o' not found, no default specified", path);
+		return false;
+	}
+
+	*res = ao[0].val;
+	return true;
+}
+
+static bool
+func_python_installation_get_var(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, ao, NULL)) {
+		return false;
+	}
+
+	obj var = an[0].val;
+	obj sysconfig_vars = get_obj_python_installation(wk, rcvr)->sysconfig_vars;
+	if (obj_dict_index(wk, sysconfig_vars, var, res)) {
+		return true;
+	}
+
+	if (!ao[0].set) {
+		interp_error(wk, args_node,
+	    	"variable '%o' not found, no default specified", var);
+		return false;
+	}
+
+	*res = ao[0].val;
+	return true;
+}
+
 
 static obj
 python_rcvr_transform(struct workspace *wk, obj rcvr)
@@ -249,6 +354,8 @@ const struct func_impl_name impl_tbl_module_python3[] = {
 
 struct func_impl_name impl_tbl_python_installation[] = {
 	[ARRAY_LEN(impl_tbl_external_program) - 1] =
+	{ "get_path", func_python_installation_get_path, tc_string },
+	{ "get_variable", func_python_installation_get_var, tc_string },
 	{ "language_version", func_python_installation_language_version, tc_string },
 	{ NULL, NULL },
 };
