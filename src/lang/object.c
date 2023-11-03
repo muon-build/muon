@@ -1628,14 +1628,11 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		break;
 	case obj_python_installation: {
 		struct obj_python_installation *py = get_obj_python_installation(wk, o);
-		struct obj_external_program *prog = get_obj_external_program(wk, py->prog);
-		sbuf_pushf(wk, sb, "<%s found: %s",
-		obj_type_to_s(t), prog->found ? "true" : "false");
+		sbuf_pushf(wk, sb, "<%s prog: ", obj_type_to_s(t));
+		obj_to_s(wk, py->prog, sb);
 
-		if (prog->found) {
-			sbuf_pushs(wk, sb, ", cmd_array: ");
-			obj_to_s(wk, prog->cmd_array, sb);
-			sbuf_pushf(wk, sb, "version: %s", get_cstr(wk, py->language_version));
+		if (get_obj_external_program(wk, py->prog)->found) {
+			sbuf_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
 		}
 
 		sbuf_pushs(wk, sb, ">");
