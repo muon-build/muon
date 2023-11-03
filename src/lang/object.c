@@ -1633,6 +1633,10 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 
 		if (get_obj_external_program(wk, py->prog)->found) {
 			sbuf_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
+			sbuf_pushs(wk, sb, ", sysconfig_paths: ");
+			obj_to_s(wk, py->sysconfig_paths, sb);
+			sbuf_pushs(wk, sb, ", sysconfig_vars: ");
+			obj_to_s(wk, py->sysconfig_vars, sb);
 		}
 
 		sbuf_pushs(wk, sb, ">");
