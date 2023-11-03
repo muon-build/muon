@@ -9,3 +9,8 @@
 !bestline/bestline.c
 !bestline/bestline.h
 !bestline/meson.build
+!tinyjson
+!tinyjson/tiny-json.c
+!tinyjson/tiny-json.h
+!tinyjson/meson.build
+!tinyjson/README.md
