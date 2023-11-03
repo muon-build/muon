@@ -324,6 +324,39 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 	return true;
 }
 
+static bool
+func_python_installation_has_path(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj sysconfig_paths = get_obj_python_installation(wk, rcvr)->sysconfig_paths;
+	bool found = obj_dict_in(wk, sysconfig_paths, an[0].val);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, found);
+
+	return true;
+}
+
+static bool
+func_python_installation_has_var(struct workspace *wk, obj rcvr,
+	uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj sysconfig_vars = get_obj_python_installation(wk, rcvr)->sysconfig_vars;
+	bool found = obj_dict_in(wk, sysconfig_vars, an[0].val);
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, found);
+
+	return true;
+}
 
 static obj
 python_rcvr_transform(struct workspace *wk, obj rcvr)
@@ -356,6 +389,8 @@ struct func_impl_name impl_tbl_python_installation[] = {
 	[ARRAY_LEN(impl_tbl_external_program) - 1] =
 	{ "get_path", func_python_installation_get_path, tc_string },
 	{ "get_variable", func_python_installation_get_var, tc_string },
+	{ "has_path", func_python_installation_has_path, tc_bool },
+	{ "has_variable", func_python_installation_has_var, tc_bool },
 	{ "language_version", func_python_installation_language_version, tc_string },
 	{ NULL, NULL },
 };
