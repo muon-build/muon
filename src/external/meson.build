@@ -39,6 +39,10 @@ foreach d : [
     endif
 endforeach
 
+dep_tinyjson = dependency('tinyjson', required: true, static: true)
+external_deps += [dep_tinyjson]
+dep_sources += [files('tinyjson.c')]
+
 if get_option('static') and dep_dict['libcurl']
     external_deps += dependency('libbrotlidec', static: true)
 endif
