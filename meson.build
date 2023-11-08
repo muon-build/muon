@@ -22,8 +22,8 @@ fs = import('fs')
 
 git = find_program('git', required: false)
 if git.found() and fs.is_dir('.git')
-    git_rev_parse = run_command(git, 'rev-parse', '--short', '@', check: true)
-    git_sha = git_rev_parse.stdout().strip()
+    rev = run_command(git, 'rev-parse', '--short', 'HEAD', check: true)
+    git_sha = rev.stdout().strip()
 else
     git_sha = ''
 endif
