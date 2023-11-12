@@ -86,7 +86,7 @@ grow_str(struct workspace *wk, obj s, uint32_t grow_by, bool alloc_nul)
 		memcpy(np, ss->s, ss->len);
 		ss->s = np;
 	} else {
-		char *np = bucket_array_pushn(&wk->chrs, ss->s, ss->len, new_len);
+		char *np = bucket_arr_pushn(&wk->chrs, ss->s, ss->len, new_len);
 		ss->s = np;
 	}
 
@@ -105,7 +105,7 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 		f |= str_flag_big;
 		p = z_calloc(new_len, 1);
 	} else {
-		p = bucket_array_pushn(&wk->chrs, NULL, 0, new_len);
+		p = bucket_arr_pushn(&wk->chrs, NULL, 0, new_len);
 	}
 
 	make_obj(wk, s, obj_string);

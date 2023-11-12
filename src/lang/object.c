@@ -36,7 +36,7 @@ obj_type_to_tc_type(enum obj_type t)
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
-	struct obj_internal *o = bucket_array_get(&wk->objs, id);
+	struct obj_internal *o = bucket_arr_get(&wk->objs, id);
 	if (o->t != type) {
 		LOG_E("internal type error, expected %s but got %s",
 			obj_type_to_s(type), obj_type_to_s(o->t));
@@ -77,7 +77,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_typeinfo:
 	case obj_source_set:
 	case obj_source_configuration:
-		return bucket_array_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
+		return bucket_arr_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
 	case obj_null:
 	case obj_meson:
@@ -96,7 +96,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 enum obj_type
 get_obj_type(struct workspace *wk, obj id)
 {
-	struct obj_internal *o = bucket_array_get(&wk->objs, id);
+	struct obj_internal *o = bucket_arr_get(&wk->objs, id);
 	return o->t;
 }
 
@@ -249,28 +249,28 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_source_configuration:
 	case obj_typeinfo:
 	{
-		struct bucket_array *ba = &wk->obj_aos[type - _obj_aos_start];
+		struct bucket_arr *ba = &wk->obj_aos[type - _obj_aos_start];
 		val = ba->len;
-		bucket_array_pushn(ba, NULL, 0, 1);
+		bucket_arr_pushn(ba, NULL, 0, 1);
 		break;
 	}
 	default:
 		assert(false && "tried to make invalid object type");
 	}
 
-	bucket_array_push(&wk->objs, &(struct obj_internal){ .t = type, .val = val });
+	bucket_arr_push(&wk->objs, &(struct obj_internal){ .t = type, .val = val });
 #ifdef TRACY_ENABLE
 	if (wk->tracy.is_master_workspace) {
 		uint64_t mem = 0;
-		mem += bucket_array_size(&wk->objs);
+		mem += bucket_arr_size(&wk->objs);
 		uint32_t i;
 		for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-			mem += bucket_array_size(&wk->obj_aos[i]);
+			mem += bucket_arr_size(&wk->obj_aos[i]);
 		}
 	#define MB(b) ((double)b / 1048576.0)
 		TracyCPlot("objects", wk->objs.len);
 		TracyCPlot("object memory (mb)", MB(mem));
-		TracyCPlot("string memory (mb)", MB(bucket_array_size(&wk->chrs)));
+		TracyCPlot("string memory (mb)", MB(bucket_arr_size(&wk->chrs)));
 	#undef MB
 	}
 #endif
@@ -281,11 +281,11 @@ obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 {
 	mk->obji = wk->objs.len;
 
-	bucket_array_save(&wk->chrs, &mk->chrs);
-	bucket_array_save(&wk->objs, &mk->objs);
+	bucket_arr_save(&wk->chrs, &mk->chrs);
+	bucket_arr_save(&wk->objs, &mk->objs);
 	uint32_t i;
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-		bucket_array_save(&wk->obj_aos[i], &mk->obj_aos[i]);
+		bucket_arr_save(&wk->obj_aos[i], &mk->obj_aos[i]);
 	}
 }
 
@@ -296,9 +296,9 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 	struct str *ss;
 	uint32_t i;
 	for (i = mk->obji; i < wk->objs.len; ++i) {
-		o = bucket_array_get(&wk->objs, i);
+		o = bucket_arr_get(&wk->objs, i);
 		if (o->t == obj_string) {
-			ss = bucket_array_get(
+			ss = bucket_arr_get(
 				&wk->obj_aos[obj_string - _obj_aos_start], o->val);
 
 			if (ss->flags & str_flag_big) {
@@ -307,11 +307,11 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 		}
 	}
 
-	bucket_array_restore(&wk->objs, &mk->objs);
-	bucket_array_restore(&wk->chrs, &mk->chrs);
+	bucket_arr_restore(&wk->objs, &mk->objs);
+	bucket_arr_restore(&wk->chrs, &mk->chrs);
 
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-		bucket_array_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
+		bucket_arr_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
 	}
 }
 
@@ -904,8 +904,8 @@ obj_array_sort_by_str(struct workspace *wk, void *_ctx, obj a, obj b)
 static enum iteration_result
 obj_array_sort_push_to_da_iter(struct workspace *wk, void *_ctx, obj v)
 {
-	struct darr *da = _ctx;
-	darr_push(da, &v);
+	struct arr *da = _ctx;
+	arr_push(da, &v);
 	return ir_cont;
 }
 
@@ -933,22 +933,22 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 		return;
 	}
 
-	struct darr da;
-	darr_init(&da, len, sizeof(obj));
+	struct arr da;
+	arr_init(&da, len, sizeof(obj));
 	obj_array_foreach(wk, arr, &da, obj_array_sort_push_to_da_iter);
 
 	struct obj_array_sort_ctx ctx = { .wk = wk, .usr_ctx = usr_ctx, .func = func, };
 
-	darr_sort(&da, &ctx, obj_array_sort_wrapper);
+	arr_sort(&da, &ctx, obj_array_sort_wrapper);
 
 	make_obj(wk, res, obj_array);
 
 	uint32_t i;
 	for (i = 0; i < da.len; ++i) {
-		obj_array_push(wk, *res, *(obj *)darr_get(&da, i));
+		obj_array_push(wk, *res, *(obj *)arr_get(&da, i));
 	}
 
-	darr_destroy(&da);
+	arr_destroy(&da);
 }
 
 struct obj_array_slice_ctx {

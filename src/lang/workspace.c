@@ -20,7 +20,7 @@ bool
 get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	uint64_t *idp;
-	struct project *proj = darr_get(&wk->projects, proj_id);
+	struct project *proj = arr_get(&wk->projects, proj_id);
 
 	if ((idp = hash_get_str(&proj->scope, name))) {
 		*res = *idp;
@@ -37,8 +37,8 @@ struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir)
 {
-	*id = darr_push(&wk->projects, &(struct project){ 0 });
-	struct project *proj = darr_get(&wk->projects, *id);
+	*id = arr_push(&wk->projects, &(struct project){ 0 });
+	struct project *proj = arr_get(&wk->projects, *id);
 
 	hash_init_str(&proj->scope, 128);
 
@@ -73,7 +73,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 struct project *
 current_project(struct workspace *wk)
 {
-	return darr_get(&wk->projects, wk->cur_project);
+	return arr_get(&wk->projects, wk->cur_project);
 }
 
 void
@@ -99,8 +99,8 @@ workspace_init_bare(struct workspace *wk)
 	}
 #endif
 
-	bucket_array_init(&wk->chrs, 4096, 1);
-	bucket_array_init(&wk->objs, 1024, sizeof(struct obj_internal));
+	bucket_arr_init(&wk->chrs, 4096, 1);
+	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
 
 	const struct {
 		uint32_t item_size;
@@ -136,7 +136,7 @@ workspace_init_bare(struct workspace *wk)
 
 	uint32_t i;
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_array_init(&wk->obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
+		bucket_arr_init(&wk->obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
 	}
 
 	obj id;
@@ -162,9 +162,9 @@ workspace_init(struct workspace *wk)
 	path_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));
 
-	darr_init(&wk->projects, 16, sizeof(struct project));
-	darr_init(&wk->option_overrides, 32, sizeof(struct option_override));
-	darr_init(&wk->source_data, 4, sizeof(struct source_data));
+	arr_init(&wk->projects, 16, sizeof(struct project));
+	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
+	arr_init(&wk->source_data, 4, sizeof(struct source_data));
 	hash_init_str(&wk->scope, 32);
 
 	make_obj(wk, &id, obj_meson);
@@ -198,21 +198,21 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy_bare(struct workspace *wk)
 {
-	bucket_array_destroy(&wk->chrs);
+	bucket_arr_destroy(&wk->chrs);
 
-	bucket_array_destroy(&wk->objs);
+	bucket_arr_destroy(&wk->objs);
 
 	uint32_t i;
-	struct bucket_array *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
+	struct bucket_arr *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
 	for (i = 0; i < str_ba->len; ++i) {
-		struct str *s = bucket_array_get(str_ba, i);
+		struct str *s = bucket_arr_get(str_ba, i);
 		if (s->flags & str_flag_big) {
 			z_free((void *)s->s);
 		}
 	}
 
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_array_destroy(&wk->obj_aos[i - _obj_aos_start]);
+		bucket_arr_destroy(&wk->obj_aos[i - _obj_aos_start]);
 	}
 
 	hash_destroy(&wk->obj_hash);
@@ -224,20 +224,20 @@ workspace_destroy(struct workspace *wk)
 	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
-		proj = darr_get(&wk->projects, i);
+		proj = arr_get(&wk->projects, i);
 
 		hash_destroy(&proj->scope);
 	}
 
 	for (i = 0; i < wk->source_data.len; ++i) {
-		struct source_data *sdata = darr_get(&wk->source_data, i);
+		struct source_data *sdata = arr_get(&wk->source_data, i);
 
 		source_data_destroy(sdata);
 	}
 
-	darr_destroy(&wk->projects);
-	darr_destroy(&wk->option_overrides);
-	darr_destroy(&wk->source_data);
+	arr_destroy(&wk->projects);
+	arr_destroy(&wk->option_overrides);
+	arr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
 
 	workspace_destroy_bare(wk);
@@ -320,7 +320,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
-		proj = darr_get(&wk->projects, i);
+		proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
 			continue;
 		}

@@ -7,7 +7,7 @@
 
 #include "args.h"
 #include "buf_size.h"
-#include "data/darr.h"
+#include "datastructures/arr.h"
 #include "error.h"
 #include "lang/string.h"
 #include "lang/workspace.h"

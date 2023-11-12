@@ -15,7 +15,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "data/hash.h"
+#include "datastructures/hash.h"
 #include "error.h"
 #include "functions/common.h"
 #include "functions/kernel.h"

@@ -383,7 +383,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	obj rule_prefix_arr;
 	make_obj(wk, &rule_prefix_arr, obj_array);
 	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = darr_get(&wk->projects, i);
+		struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
 			continue;
 		}

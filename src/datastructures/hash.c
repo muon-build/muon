@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "data/darr.h"
-#include "data/hash.h"
+#include "datastructures/arr.h"
+#include "datastructures/hash.h"
 #include "log.h"
 #include "platform/mem.h"
 
@@ -92,9 +92,9 @@ hash_init(struct hash *h, size_t cap, uint32_t keysize)
 		.cap = cap, .capm = cap - 1,
 		.max_load = (size_t)((float)cap * LOAD_FACTOR)
 	};
-	darr_init(&h->meta, h->cap, sizeof(uint8_t));
-	darr_init(&h->e, h->cap, sizeof(struct hash_elem));
-	darr_init(&h->keys, h->cap, keysize);
+	arr_init(&h->meta, h->cap, sizeof(uint8_t));
+	arr_init(&h->e, h->cap, sizeof(struct hash_elem));
+	arr_init(&h->keys, h->cap, keysize);
 
 	prepare_table(h);
 
@@ -119,9 +119,9 @@ hash_init_str(struct hash *h, size_t cap)
 void
 hash_destroy(struct hash *h)
 {
-	darr_destroy(&h->meta);
-	darr_destroy(&h->e);
-	darr_destroy(&h->keys);
+	arr_destroy(&h->meta);
+	arr_destroy(&h->e);
+	arr_destroy(&h->keys);
 }
 
 void
@@ -222,8 +222,8 @@ resize(struct hash *h, size_t newcap)
 		.keycmp = h->keycmp,
 	};
 
-	darr_init(&newh.meta, newh.cap, sizeof(uint8_t));
-	darr_init(&newh.e, newh.cap, sizeof(struct hash_elem));
+	arr_init(&newh.meta, newh.cap, sizeof(uint8_t));
+	arr_init(&newh.e, newh.cap, sizeof(struct hash_elem));
 
 	prepare_table(&newh);
 
@@ -243,8 +243,8 @@ resize(struct hash *h, size_t newcap)
 		*meta = hv & 0x7f;
 	}
 
-	darr_destroy(&h->meta);
-	darr_destroy(&h->e);
+	arr_destroy(&h->meta);
+	arr_destroy(&h->e);
 	*h = newh;
 }
 
@@ -305,7 +305,7 @@ hash_set(struct hash *h, const void *key, uint64_t val)
 	if (k_full(*meta)) {
 		he->val = val;
 	} else {
-		he->keyi = darr_push(&h->keys, key);
+		he->keyi = arr_push(&h->keys, key);
 		he->val = val;
 		*meta = hv & 0x7f;
 		++h->len;

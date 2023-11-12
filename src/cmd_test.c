@@ -67,7 +67,7 @@ struct run_test_ctx {
 		float timeout_multiplier;
 	} setup;
 
-	struct darr test_results;
+	struct arr test_results;
 
 	struct test_result *jobs;
 	uint32_t busy_jobs;
@@ -514,7 +514,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		    && res->status == test_result_status_timedout) {
 			run_cmd_ctx_destroy(&res->cmd_ctx);
 			print_test_progress(wk, ctx, res, true);
-			darr_push(&ctx->test_results, res);
+			arr_push(&ctx->test_results, res);
 			goto free_slot;
 		}
 
@@ -536,7 +536,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_error:
 			res->status = test_result_status_failed;
 			print_test_progress(wk, ctx, res, true);
-			darr_push(&ctx->test_results, res);
+			arr_push(&ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
 			bool ok;
@@ -566,7 +566,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			}
 
 			print_test_progress(wk, ctx, res, true);
-			darr_push(&ctx->test_results, res);
+			arr_push(&ctx->test_results, res);
 			break;
 		}
 		}
@@ -649,7 +649,7 @@ found_slot:
 		res->dur = timer_end(&res->t);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
-		darr_push(&ctx->test_results, res);
+		arr_push(&ctx->test_results, res);
 	}
 }
 
@@ -838,7 +838,7 @@ tests_run(struct test_options *opts, const char *argv0)
 		.setup = { .timeout_multiplier = 1.0f, },
 	};
 
-	darr_init(&ctx.test_results, 32, sizeof(struct test_result));
+	arr_init(&ctx.test_results, 32, sizeof(struct test_result));
 	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
 	{ // load global opts
@@ -913,7 +913,7 @@ tests_run(struct test_options *opts, const char *argv0)
 	ret = true;
 	uint32_t i;
 	for (i = 0; i < ctx.test_results.len; ++i) {
-		struct test_result *res = darr_get(&ctx.test_results, i);
+		struct test_result *res = arr_get(&ctx.test_results, i);
 
 		if (opts->print_summary
 		    || (res->status == test_result_status_failed
@@ -947,7 +947,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 ret:
 	workspace_destroy_bare(&wk);
-	darr_destroy(&ctx.test_results);
+	arr_destroy(&ctx.test_results);
 	z_free(ctx.jobs);
 	return ret;
 }

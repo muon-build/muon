@@ -13,8 +13,8 @@
 #include <stdio.h>
 
 #include "compilers.h"
-#include "data/bucket_array.h"
-#include "iterator.h"
+#include "datastructures/bucket_arr.h"
+#include "datastructures/iterator.h"
 #include "lang/types.h"
 
 enum obj_type {
@@ -510,8 +510,8 @@ struct obj_source_configuration {
 
 struct obj_clear_mark {
 	uint32_t obji;
-	struct bucket_array_save objs, chrs;
-	struct bucket_array_save obj_aos[obj_type_count - _obj_aos_start];
+	struct bucket_arr_save objs, chrs;
+	struct bucket_arr_save obj_aos[obj_type_count - _obj_aos_start];
 };
 
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);

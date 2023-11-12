@@ -9,8 +9,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "darr.h"
-#include "iterator.h"
+#include "datastructures/arr.h"
+#include "datastructures/iterator.h"
 
 struct hash;
 
@@ -18,7 +18,7 @@ typedef bool ((*hash_keycmp)(const struct hash *h, const void *a, const void *b)
 typedef uint64_t ((*hash_func)(const struct hash *h, const void *k));
 
 struct hash {
-	struct darr meta, e, keys;
+	struct arr meta, e, keys;
 	size_t cap, len, load, max_load, capm;
 	hash_keycmp keycmp;
 	hash_func hash_func;

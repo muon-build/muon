@@ -9,9 +9,8 @@
 #include <string.h>
 
 #include "error.h"
-#include "formats/lines.h"
 #include "formats/ini.h"
-#include "iterator.h"
+#include "formats/lines.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"

@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "iterator.h"
+#include "datastructures/iterator.h"
 
 typedef enum iteration_result ((*each_line_callback)(void *ctx, char *line, size_t len));
 

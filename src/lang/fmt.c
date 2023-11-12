@@ -60,7 +60,7 @@ static uint32_t fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uin
 static const char *
 get_comment(struct fmt_ctx *ctx, struct node *n, uint32_t i)
 {
-	return *(const char **)darr_get(&ctx->ast->comments, n->comments.start + i);
+	return *(const char **)arr_get(&ctx->ast->comments, n->comments.start + i);
 }
 
 static bool
@@ -392,12 +392,12 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		fmt_newline(ctx, &fst, n_args);
 	}
 
-	struct darr args;
-	darr_init(&args, 64, sizeof(struct arg_elem));
+	struct arr args;
+	arr_init(&args, 64, sizeof(struct arg_elem));
 
 	while (arg->type != node_empty) {
-		darr_push(&args, &(struct arg_elem) { 0 });
-		struct arg_elem *ae = darr_get(&args, args.len - 1);
+		arr_push(&args, &(struct arg_elem) { 0 });
+		struct arg_elem *ae = arr_get(&args, args.len - 1);
 
 		if (arg->subtype == arg_kwarg) {
 			ae->kw = arg->l;
@@ -433,12 +433,12 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 	}
 
 	if (fst.special_fmt & special_fmt_sort_files) {
-		darr_sort(&args, ctx, fmt_files_args_sort_cmp);
+		arr_sort(&args, ctx, fmt_files_args_sort_cmp);
 	}
 
 	uint32_t i;
 	for (i = 0; i < args.len; ++i) {
-		struct arg_elem *ae = darr_get(&args, i);
+		struct arg_elem *ae = arr_get(&args, i);
 		fst.special_fmt = 0;
 
 		last = i == args.len - 1;
@@ -485,7 +485,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 		}
 	}
 
-	darr_destroy(&args);
+	arr_destroy(&args);
 
 	--ctx->enclosed;
 	fmt_end_block(ctx);

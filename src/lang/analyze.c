@@ -14,7 +14,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "data/hash.h"
+#include "datastructures/hash.h"
 #include "error.h"
 #include "functions/common.h"
 #include "functions/modules.h"
@@ -35,8 +35,8 @@ struct analyze_file_entrypoint {
 	uint32_t line, col, src_idx;
 };
 
-static struct darr analyze_entrypoint_stack,
-		   analyze_entrypoint_stacks;
+static struct arr analyze_entrypoint_stack,
+		  analyze_entrypoint_stacks;
 
 struct assignment {
 	const char *name;
@@ -49,12 +49,12 @@ struct assignment {
 };
 
 struct scope_group {
-	struct darr scopes;
+	struct arr scopes;
 };
 
 struct {
-	struct darr groups;
-	struct darr base;
+	struct arr groups;
+	struct arr base;
 } assignment_scopes;
 
 static void
@@ -62,10 +62,10 @@ copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
 {
 	if (analyze_entrypoint_stack.len) {
 		*ep_stacks_i = analyze_entrypoint_stacks.len;
-		darr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
+		arr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
 		*ep_stack_len = analyze_entrypoint_stack.len;
 
-		memcpy(darr_get(&analyze_entrypoint_stacks, *ep_stacks_i),
+		memcpy(arr_get(&analyze_entrypoint_stacks, *ep_stacks_i),
 			analyze_entrypoint_stack.e,
 			sizeof(struct analyze_file_entrypoint) * analyze_entrypoint_stack.len);
 	} else {
@@ -78,7 +78,7 @@ static void
 mark_analyze_entrypoint_as_containing_diagnostic(uint32_t ep_stacks_i, enum log_level lvl)
 {
 	struct analyze_file_entrypoint *ep
-		= darr_get(&analyze_entrypoint_stacks, ep_stacks_i);
+		= arr_get(&analyze_entrypoint_stacks, ep_stacks_i);
 
 	ep->has_diagnostic = true;
 	ep->lvl = lvl;
@@ -211,11 +211,11 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
  */
 
 static bool
-assign_lookup_scope_i(const char *name, struct darr *scope, uint32_t *res)
+assign_lookup_scope_i(const char *name, struct arr *scope, uint32_t *res)
 {
 	uint32_t i;
 	for (i = 0; i < scope->len; ++i) {
-		struct assignment *a = darr_get(scope, i);
+		struct assignment *a = arr_get(scope, i);
 		if (strcmp(a->name, name) == 0) {
 			*res = i;
 			return true;
@@ -226,11 +226,11 @@ assign_lookup_scope_i(const char *name, struct darr *scope, uint32_t *res)
 }
 
 static struct assignment *
-assign_lookup_scope(const char *name, struct darr *scope)
+assign_lookup_scope(const char *name, struct arr *scope)
 {
 	uint32_t i;
 	if (assign_lookup_scope_i(name, scope, &i)) {
-		return darr_get(scope, i);
+		return arr_get(scope, i);
 	} else {
 		return NULL;
 	}
@@ -241,16 +241,16 @@ analyze_unassign(struct workspace *wk, const char *name)
 {
 	int32_t i;
 	uint32_t idx = 0;
-	struct darr *containing_scope = NULL;
+	struct arr *containing_scope = NULL;
 	bool is_base = false;
 
 	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
-		struct scope_group *g = darr_get(&assignment_scopes.groups, i);
+		struct scope_group *g = arr_get(&assignment_scopes.groups, i);
 		if (!(g->scopes.len)) {
 			continue;
 		}
 
-		struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
+		struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
 
 		if (assign_lookup_scope_i(name, scope, &idx)) {
 			containing_scope = scope;
@@ -275,7 +275,7 @@ analyze_unassign(struct workspace *wk, const char *name)
 		return;
 	}
 
-	darr_del(containing_scope, idx);
+	arr_del(containing_scope, idx);
 	if (is_base) {
 		hash_unset_str(&current_project(wk)->scope, name);
 	}
@@ -289,19 +289,19 @@ assign_lookup(struct workspace *wk, const char *name)
 	struct assignment *found = NULL;
 
 	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
-		struct scope_group *g = darr_get(&assignment_scopes.groups, i);
+		struct scope_group *g = arr_get(&assignment_scopes.groups, i);
 		if (!(g->scopes.len)) {
 			continue;
 		}
 
-		struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
+		struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
 		if ((found = assign_lookup_scope(name, scope))) {
 			break;
 		}
 	}
 
 	if (!found && wk->projects.len && get_obj_id(wk, name, &id, wk->cur_project)) {
-		found = darr_get(&assignment_scopes.base, id);
+		found = arr_get(&assignment_scopes.base, id);
 	}
 	return found;
 }
@@ -345,12 +345,12 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		o = make_typeinfo(wk, tc_any, 0);
 	}
 
-	struct darr *s;
+	struct arr *s;
 	if (assignment_scopes.groups.len) {
-		struct scope_group *g = darr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
+		struct scope_group *g = arr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
 
 		assert(g->scopes.len);
-		s = darr_get(&g->scopes, g->scopes.len - 1);
+		s = arr_get(&g->scopes, g->scopes.len - 1);
 	} else {
 		s = &assignment_scopes.base;
 	}
@@ -383,7 +383,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
 	}
 
-	darr_push(s, &(struct assignment) {
+	arr_push(s, &(struct assignment) {
 		.name = name,
 		.o = o,
 		.line = n ? n->line : 0,
@@ -404,25 +404,25 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		hash_set_str(scope, name, s->len - 1);
 	}
 
-	return darr_get(s, s->len - 1);
+	return arr_get(s, s->len - 1);
 }
 
 static void
 push_scope_group_scope(void)
 {
 	assert(assignment_scopes.groups.len);
-	struct scope_group *g = darr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
-	darr_push(&g->scopes, &(struct darr) { 0 });
-	struct darr *scope = darr_get(&g->scopes, g->scopes.len - 1);
-	darr_init(scope, 256, sizeof(struct assignment));
+	struct scope_group *g = arr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
+	arr_push(&g->scopes, &(struct arr) { 0 });
+	struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
+	arr_init(scope, 256, sizeof(struct assignment));
 }
 
 static void
 push_scope_group(void)
 {
 	struct scope_group g = { 0 };
-	darr_init(&g.scopes, 4, sizeof(struct darr));
-	darr_push(&assignment_scopes.groups, &g);
+	arr_init(&g.scopes, 4, sizeof(struct arr));
+	arr_push(&assignment_scopes.groups, &g);
 }
 
 static void
@@ -451,31 +451,31 @@ pop_scope_group(struct workspace *wk)
 {
 	assert(assignment_scopes.groups.len);
 	size_t idx = assignment_scopes.groups.len - 1;
-	struct scope_group *g = darr_get(&assignment_scopes.groups, idx);
-	darr_del(&assignment_scopes.groups, idx);
+	struct scope_group *g = arr_get(&assignment_scopes.groups, idx);
+	arr_del(&assignment_scopes.groups, idx);
 
 	if (!g->scopes.len) {
 		// empty scope group
 		return;
 	}
 
-	struct darr *base = darr_get(&g->scopes, 0);
+	struct arr *base = arr_get(&g->scopes, 0);
 
 	uint32_t i, j;
 	for (i = 1; i < g->scopes.len; ++i) {
-		struct darr *scope = darr_get(&g->scopes, i);
+		struct arr *scope = arr_get(&g->scopes, i);
 		for (j = 0; j < scope->len; ++j) {
-			struct assignment *b, *a = darr_get(scope, j);
+			struct assignment *b, *a = arr_get(scope, j);
 			if ((b = assign_lookup_scope(a->name, base))) {
 				merge_objects(wk, b, a);
 			} else {
-				darr_push(base, a);
+				arr_push(base, a);
 			}
 		}
 	}
 
 	for (i = 0; i < base->len; ++i) {
-		struct assignment *a = darr_get(base, i), *b;
+		struct assignment *a = arr_get(base, i), *b;
 		if ((b = assign_lookup(wk, a->name))) {
 			merge_objects(wk, b, a);
 		} else {
@@ -493,10 +493,10 @@ pop_scope_group(struct workspace *wk)
 	}
 
 	for (i = 0; i < g->scopes.len; ++i) {
-		struct darr *scope = darr_get(&g->scopes, i);
-		darr_destroy(scope);
+		struct arr *scope = arr_get(&g->scopes, i);
+		arr_destroy(scope);
 	}
-	darr_destroy(&g->scopes);
+	arr_destroy(&g->scopes);
 }
 
 /*
@@ -598,7 +598,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	if (subdir_func) {
 		struct node *n = get_node(wk->ast, n_id);
 
-		darr_push(&analyze_entrypoint_stack, &(struct analyze_file_entrypoint) {
+		arr_push(&analyze_entrypoint_stack, &(struct analyze_file_entrypoint) {
 			.src_idx = error_diagnostic_store_push_src(wk->src),
 			.line = n->line,
 			.col = n->col,
@@ -619,7 +619,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 			interp_warning(wk, n_id, "unable to analyze subdir call");
 		}
 
-		darr_del(&analyze_entrypoint_stack, analyze_entrypoint_stack.len - 1);
+		arr_del(&analyze_entrypoint_stack, analyze_entrypoint_stack.len - 1);
 	}
 
 	analyze_error = old_analyze_error;
@@ -1502,7 +1502,7 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 
 	uint32_t i;
 	for (i = 0; i < ast->nodes.len; ++i) {
-		struct node *n = darr_get(&ast->nodes, i);
+		struct node *n = arr_get(&ast->nodes, i);
 		switch (n->type) {
 		case node_foreach_args:
 		case node_paren:
@@ -1616,8 +1616,8 @@ do_analyze(struct analyze_opts *opts)
 	struct workspace wk;
 	workspace_init(&wk);
 
-	darr_init(&assignment_scopes.groups, 16, sizeof(struct scope_group));
-	darr_init(&assignment_scopes.base, 256, sizeof(struct assignment));
+	arr_init(&assignment_scopes.groups, 16, sizeof(struct scope_group));
+	arr_init(&assignment_scopes.base, 256, sizeof(struct assignment));
 
 	{
 		/*
@@ -1650,8 +1650,8 @@ do_analyze(struct analyze_opts *opts)
 
 	error_diagnostic_store_init();
 
-	darr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
-	darr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
+	arr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
+	arr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
 
 	if (analyze_opts->file_override) {
 		const char *root = determine_project_root(&wk, analyze_opts->file_override);
@@ -1693,7 +1693,7 @@ do_analyze(struct analyze_opts *opts)
 		assert(assignment_scopes.groups.len == 0);
 		uint32_t i;
 		for (i = 0; i < assignment_scopes.base.len; ++i) {
-			struct assignment *a = darr_get(&assignment_scopes.base, i);
+			struct assignment *a = arr_get(&assignment_scopes.base, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
@@ -1709,7 +1709,7 @@ do_analyze(struct analyze_opts *opts)
 	uint32_t i;
 	for (i = 0; i < analyze_entrypoint_stacks.len;) {
 		uint32_t j;
-		struct analyze_file_entrypoint *ep_stack = darr_get(&analyze_entrypoint_stacks, i);
+		struct analyze_file_entrypoint *ep_stack = arr_get(&analyze_entrypoint_stacks, i);
 		assert(ep_stack->is_root);
 
 		uint32_t len = 1;
@@ -1741,10 +1741,10 @@ do_analyze(struct analyze_opts *opts)
 		res = false;
 	}
 
-	darr_destroy(&analyze_entrypoint_stack);
-	darr_destroy(&analyze_entrypoint_stacks);
-	darr_destroy(&assignment_scopes.groups);
-	darr_destroy(&assignment_scopes.base);
+	arr_destroy(&analyze_entrypoint_stack);
+	arr_destroy(&analyze_entrypoint_stacks);
+	arr_destroy(&assignment_scopes.groups);
+	arr_destroy(&assignment_scopes.base);
 	workspace_destroy(&wk);
 	return res;
 }

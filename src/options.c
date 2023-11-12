@@ -123,7 +123,7 @@ check_invalid_subproject_option(struct workspace *wk)
 	bool found, ret = true;
 
 	for (i = 0; i < wk->option_overrides.len; ++i) {
-		oo = darr_get(&wk->option_overrides, i);
+		oo = arr_get(&wk->option_overrides, i);
 		if (!oo->proj || oo->source < option_value_source_commandline) {
 			continue;
 		}
@@ -131,7 +131,7 @@ check_invalid_subproject_option(struct workspace *wk)
 		found = false;
 
 		for (j = 1; j < wk->projects.len; ++j) {
-			proj = darr_get(&wk->projects, j);
+			proj = arr_get(&wk->projects, j);
 			if (proj->not_ok) {
 				continue;
 			}
@@ -262,7 +262,7 @@ check_deprecated_option(struct workspace *wk, uint32_t err_node,
 				.source = option_value_source_deprecated_rename,
 			};
 
-			darr_push(&wk->option_overrides, &oo);
+			arr_push(&wk->option_overrides, &oo);
 		}
 		break;
 	}
@@ -759,7 +759,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 
 	if (!is_master_project) {
 		if (!obj_dict_foreach(wk, current_project(wk)->opts,
-			darr_get(&wk->projects, 0),
+			arr_get(&wk->projects, 0),
 			set_yielding_project_options_iter)) {
 			return false;
 		}
@@ -770,7 +770,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	struct option_override *oo;
 
 	for (i = 0; i < wk->option_overrides.len; ++i) {
-		oo = darr_get(&wk->option_overrides, i);
+		oo = arr_get(&wk->option_overrides, i);
 
 		if (!subproj_name_matches(wk, get_cstr(wk, current_project(wk)->subproject_name), get_cstr(wk, oo->proj))) {
 			continue;
@@ -843,7 +843,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 		return false;
 	}
 
-	darr_push(&wk->option_overrides, &oo);
+	arr_push(&wk->option_overrides, &oo);
 	return true;
 }
 
@@ -872,7 +872,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	if (ctx->for_subproject || oo_for_subproject) {
 		oo.source = option_value_source_subproject_default_options;
-		darr_push(&wk->option_overrides, &oo);
+		arr_push(&wk->option_overrides, &oo);
 		return ir_cont;
 	}
 
@@ -1210,8 +1210,8 @@ list_options(const struct list_options_opts *list_opts)
 	workspace_init(&wk);
 	wk.lang_mode = language_opts;
 
-	darr_push(&wk.projects, &(struct project){ 0 });
-	struct project *proj = darr_get(&wk.projects, 0);
+	arr_push(&wk.projects, &(struct project){ 0 });
+	struct project *proj = arr_get(&wk.projects, 0);
 	make_obj(&wk, &proj->opts, obj_dict);
 
 	if (fs_file_exists("meson.build")) {

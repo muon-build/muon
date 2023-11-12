@@ -99,7 +99,7 @@ lex_error(struct lexer *l, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	struct token *last_tok = darr_get(&l->toks->tok, l->toks->tok.len - 1);
+	struct token *last_tok = arr_get(&l->toks->tok, l->toks->tok.len - 1);
 
 	error_messagev(l->source, last_tok->line, last_tok->col, log_error, fmt, args);
 	va_end(args);
@@ -141,8 +141,8 @@ advance(struct lexer *l)
 static struct token *
 next_tok(struct lexer *l)
 {
-	uint32_t idx = darr_push(&l->toks->tok, &(struct token){ 0 });
-	struct token *tok = darr_get(&l->toks->tok, idx);
+	uint32_t idx = arr_push(&l->toks->tok, &(struct token){ 0 });
+	struct token *tok = arr_get(&l->toks->tok, idx);
 
 	*tok = (struct token) {
 		.line = l->line,
@@ -873,7 +873,7 @@ tokenize(struct lexer *lexer)
 	}
 
 	if (success) {
-		assert(((struct token *)darr_get(&lexer->toks->tok, lexer->toks->tok.len - 1))->type == tok_eof
+		assert(((struct token *)arr_get(&lexer->toks->tok, lexer->toks->tok.len - 1))->type == tok_eof
 			&& "lexer failed to terminate token stream with tok_eof");
 	}
 
@@ -881,7 +881,7 @@ tokenize(struct lexer *lexer)
 	/* 	uint32_t i; */
 	/* 	struct token *tok; */
 	/* 	for (i = 0; i < lexer->toks->tok.len; ++i) { */
-	/* 		tok = darr_get(&lexer->toks->tok, i); */
+	/* 		tok = arr_get(&lexer->toks->tok, i); */
 	/* 		log_plain("%s\n", tok_to_s(tok)); */
 	/* 	} */
 	/* } */
@@ -905,7 +905,7 @@ lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
 		.mode = mode,
 	};
 
-	darr_init(&toks->tok, 2048, sizeof(struct token));
+	arr_init(&toks->tok, 2048, sizeof(struct token));
 
 	// TODO: this could be done much more conservatively
 	sdata->data_len = src->len + 1;
@@ -919,5 +919,5 @@ lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
 void
 tokens_destroy(struct tokens *toks)
 {
-	darr_destroy(&toks->tok);
+	arr_destroy(&toks->tok);
 }

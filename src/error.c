@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include "buf_size.h"
-#include "data/darr.h"
+#include "datastructures/arr.h"
 #include "error.h"
 #include "log.h"
 #include "platform/mem.h"
@@ -28,16 +28,16 @@ struct error_diagnostic_source {
 };
 
 static struct {
-	struct darr messages;
-	struct darr sources;
+	struct arr messages;
+	struct arr sources;
 	bool init;
 } error_diagnostic_store;
 
 void
 error_diagnostic_store_init(void)
 {
-	darr_init(&error_diagnostic_store.messages, 32, sizeof(struct error_diagnostic_message));
-	darr_init(&error_diagnostic_store.sources, 4, sizeof(struct error_diagnostic_source));
+	arr_init(&error_diagnostic_store.messages, 32, sizeof(struct error_diagnostic_message));
+	arr_init(&error_diagnostic_store.sources, 4, sizeof(struct error_diagnostic_source));
 	error_diagnostic_store.init = true;
 }
 
@@ -47,7 +47,7 @@ error_diagnostic_store_push_src(struct source *src)
 	uint32_t i;
 	struct error_diagnostic_source *s = NULL;
 	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
-		s = darr_get(&error_diagnostic_store.sources, i);
+		s = arr_get(&error_diagnostic_store.sources, i);
 		// TODO: this is not super robust, as it relies on chance that
 		// two sources don't get allocated at the same place
 		if (s->id == (uint64_t)src && strcmp(s->src.label, src->label) == 0) {
@@ -61,7 +61,7 @@ error_diagnostic_store_push_src(struct source *src)
 		struct source dup;
 		fs_source_dup(src, &dup);
 
-		darr_push(&error_diagnostic_store.sources, &(struct error_diagnostic_source) {
+		arr_push(&error_diagnostic_store.sources, &(struct error_diagnostic_source) {
 			.src = dup,
 			.id = (uint64_t)src,
 		});
@@ -69,7 +69,7 @@ error_diagnostic_store_push_src(struct source *src)
 		i = error_diagnostic_store.sources.len - 1;
 	}
 
-	s = darr_get(&error_diagnostic_store.sources, i);
+	s = arr_get(&error_diagnostic_store.sources, i);
 	return i;
 }
 
@@ -80,7 +80,7 @@ error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col, enum 
 	char *m = z_calloc(mlen + 1, 1);
 	memcpy(m, msg, mlen);
 
-	darr_push(&error_diagnostic_store.messages,
+	arr_push(&error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
 		.line = line,
 		.col = col,
@@ -133,7 +133,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	struct error_diagnostic_message *msg;
 	struct error_diagnostic_source *last_src = NULL, *cur_src;
 
-	darr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
+	arr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
 
 	size_t tail, initial_len = error_diagnostic_store.messages.len;
 	if (error_diagnostic_store.messages.len > 1) {
@@ -141,18 +141,18 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 		tail = error_diagnostic_store.messages.len;
 
 		uint32_t initial_len = error_diagnostic_store.messages.len;
-		msg = darr_get(&error_diagnostic_store.messages, 0);
-		darr_push(&error_diagnostic_store.messages, msg);
+		msg = arr_get(&error_diagnostic_store.messages, 0);
+		arr_push(&error_diagnostic_store.messages, msg);
 		for (i = 1; i < initial_len; ++i) {
-			prev_msg = darr_get(&error_diagnostic_store.messages, i - 1);
-			msg = darr_get(&error_diagnostic_store.messages, i);
+			prev_msg = arr_get(&error_diagnostic_store.messages, i - 1);
+			msg = arr_get(&error_diagnostic_store.messages, i);
 
 			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, NULL) == 0) {
 				continue;
 			}
 
 			tmp = *msg;
-			darr_push(&error_diagnostic_store.messages, &tmp);
+			arr_push(&error_diagnostic_store.messages, &tmp);
 		}
 	} else {
 		tail = 0;
@@ -161,7 +161,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	*saw_error = false;
 	struct source src = { 0 };
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
-		msg = darr_get(&error_diagnostic_store.messages, i);
+		msg = arr_get(&error_diagnostic_store.messages, i);
 
 		if (opts & error_diagnostic_store_replay_werror) {
 			msg->lvl = log_error;
@@ -176,7 +176,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			*saw_error = true;
 		}
 
-		if ((cur_src = darr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
+		if ((cur_src = arr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
 			if (opts & error_diagnostic_store_replay_include_sources) {
 				if (last_src) {
 					log_plain("\n");
@@ -200,17 +200,17 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	}
 
 	for (i = 0; i < initial_len; ++i) {
-		msg = darr_get(&error_diagnostic_store.messages, i);
+		msg = arr_get(&error_diagnostic_store.messages, i);
 		z_free((char *)msg->msg);
 	}
 
 	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
-		cur_src = darr_get(&error_diagnostic_store.sources, i);
+		cur_src = arr_get(&error_diagnostic_store.sources, i);
 		fs_source_destroy(&cur_src->src);
 	}
 
-	darr_destroy(&error_diagnostic_store.messages);
-	darr_destroy(&error_diagnostic_store.sources);
+	arr_destroy(&error_diagnostic_store.messages);
+	arr_destroy(&error_diagnostic_store.sources);
 }
 
 void

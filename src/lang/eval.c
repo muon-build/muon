@@ -117,7 +117,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	struct ast ast = { 0 };
 
 	struct source_data *sdata =
-		darr_get(&wk->source_data, darr_push(&wk->source_data, &(struct source_data) { 0 }));
+		arr_get(&wk->source_data, arr_push(&wk->source_data, &(struct source_data) { 0 }));
 
 	enum parse_mode parse_mode = 0;
 	if (mode == eval_mode_repl) {

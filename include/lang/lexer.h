@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "data/darr.h"
+#include "datastructures/arr.h"
 #include "lang/eval.h"
 
 enum token_type {
@@ -87,7 +87,7 @@ struct token {
 };
 
 struct tokens {
-	struct darr tok;
+	struct arr tok;
 };
 
 enum lexer_mode {

@@ -7,9 +7,9 @@
 #define MUON_LANG_WORKSPACE_H
 
 #include "buf_size.h"
-#include "data/bucket_array.h"
-#include "data/darr.h"
-#include "data/hash.h"
+#include "datastructures/arr.h"
+#include "datastructures/bucket_arr.h"
+#include "datastructures/hash.h"
 #include "lang/eval.h"
 #include "lang/object.h"
 #include "lang/parser.h"
@@ -84,13 +84,13 @@ struct workspace {
 	obj compiler_check_cache;
 	/* ----------------- */
 
-	struct bucket_array chrs;
-	struct bucket_array objs;
-	struct bucket_array obj_aos[obj_type_count - _obj_aos_start];
+	struct bucket_arr chrs;
+	struct bucket_arr objs;
+	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 
-	struct darr projects;
-	struct darr option_overrides;
-	struct darr source_data;
+	struct arr projects;
+	struct arr option_overrides;
+	struct arr source_data;
 
 	struct hash scope;
 	struct hash obj_hash;

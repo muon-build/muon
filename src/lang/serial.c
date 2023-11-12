@@ -53,7 +53,7 @@ load_uint64(uint64_t *v, FILE *f)
 }
 
 static bool
-dump_bucket_array(const struct bucket_array *ba, FILE *f)
+dump_bucket_arr(const struct bucket_arr *ba, FILE *f)
 {
 	uint32_t i;
 
@@ -62,7 +62,7 @@ dump_bucket_array(const struct bucket_array *ba, FILE *f)
 	}
 
 	for (i = 0; i < ba->buckets.len; ++i) {
-		struct bucket *b = darr_get(&ba->buckets, i);
+		struct bucket *b = arr_get(&ba->buckets, i);
 
 		if (!dump_uint32(b->len, f)) {
 			return false;
@@ -77,7 +77,7 @@ dump_bucket_array(const struct bucket_array *ba, FILE *f)
 }
 
 static bool
-load_bucket_array(struct bucket_array *ba, FILE *f)
+load_bucket_arr(struct bucket_arr *ba, FILE *f)
 {
 	uint32_t buckets_len;
 	uint32_t i;
@@ -89,8 +89,8 @@ load_bucket_array(struct bucket_array *ba, FILE *f)
 		return false;
 	}
 
-	z_free(((struct bucket *)darr_get(&ba->buckets, 0))->mem);
-	darr_clear(&ba->buckets);
+	z_free(((struct bucket *)arr_get(&ba->buckets, 0))->mem);
+	arr_clear(&ba->buckets);
 
 	for (i = 0; i < buckets_len; ++i) {
 		init_bucket(ba, &b);
@@ -110,7 +110,7 @@ load_bucket_array(struct bucket_array *ba, FILE *f)
 			goto done;
 		}
 
-		darr_push(&ba->buckets, &b);
+		arr_push(&ba->buckets, &b);
 		continue;
 done:
 		z_free(b.mem);
@@ -155,7 +155,7 @@ load_serial_header(FILE *f)
 }
 
 static bool
-dump_big_strings(struct workspace *wk, struct darr *offsets, FILE *f)
+dump_big_strings(struct workspace *wk, struct arr *offsets, FILE *f)
 {
 	uint64_t len = 0;
 	uint64_t start, end;
@@ -168,9 +168,9 @@ dump_big_strings(struct workspace *wk, struct darr *offsets, FILE *f)
 	}
 
 	uint32_t i;
-	struct bucket_array *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
+	struct bucket_arr *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
 	for (i = 0; i < str_ba->len; ++i) {
-		struct str *ss = bucket_array_get(str_ba, i);
+		struct str *ss = bucket_arr_get(str_ba, i);
 
 		if (!(ss->flags & str_flag_big)) {
 			continue;
@@ -180,7 +180,7 @@ dump_big_strings(struct workspace *wk, struct darr *offsets, FILE *f)
 			return false;
 		}
 
-		darr_push(offsets, &len);
+		arr_push(offsets, &len);
 		len += ss->len + 1;
 	}
 
@@ -258,7 +258,7 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 }
 
 static bool
-dump_objs(struct workspace *wk, struct darr *big_string_offsets, FILE *f)
+dump_objs(struct workspace *wk, struct arr *big_string_offsets, FILE *f)
 {
 	if (!dump_uint32(wk->objs.len - 1, f)) {
 		return false;
@@ -278,7 +278,7 @@ dump_objs(struct workspace *wk, struct darr *big_string_offsets, FILE *f)
 
 	uint32_t i, big_string_i = 0;
 	for (i = 1; i < wk->objs.len; ++i) {
-		struct obj_internal *o = bucket_array_get(&wk->objs, i);
+		struct obj_internal *o = bucket_arr_get(&wk->objs, i);
 		type_tag = o->t;
 
 		if (!fs_fwrite(&type_tag, sizeof(uint8_t), f)) {
@@ -287,7 +287,7 @@ dump_objs(struct workspace *wk, struct darr *big_string_offsets, FILE *f)
 
 		if (o->t == obj_string) {
 			const struct str *ss =
-				bucket_array_get(&wk->obj_aos[obj_string - _obj_aos_start], o->val);
+				bucket_arr_get(&wk->obj_aos[obj_string - _obj_aos_start], o->val);
 
 			ser_s = (struct serial_str) {
 				.len = ss->len,
@@ -295,10 +295,10 @@ dump_objs(struct workspace *wk, struct darr *big_string_offsets, FILE *f)
 			};
 
 			if (ss->flags & str_flag_big) {
-				ser_s.s = *(uint64_t *)darr_get(big_string_offsets, big_string_i);
+				ser_s.s = *(uint64_t *)arr_get(big_string_offsets, big_string_i);
 				++big_string_i;
 			} else {
-				if (!bucket_array_lookup_pointer(&wk->chrs, (uint8_t *)ss->s, &ser_s.s)) {
+				if (!bucket_arr_lookup_pointer(&wk->chrs, (uint8_t *)ss->s, &ser_s.s)) {
 					assert(false && "pointer not found");
 				}
 			}
@@ -309,8 +309,8 @@ dump_objs(struct workspace *wk, struct darr *big_string_offsets, FILE *f)
 			data = &o->val;
 			len = sizeof(uint32_t);
 		} else {
-			struct bucket_array *ba = &wk->obj_aos[o->t - _obj_aos_start];
-			data = bucket_array_get(ba, o->val);
+			struct bucket_arr *ba = &wk->obj_aos[o->t - _obj_aos_start];
+			data = bucket_arr_get(ba, o->val);
 			len = ba->item_size;
 		}
 
@@ -336,7 +336,7 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 
 	uint8_t type_tag;
 	struct serial_str ser_s;
-	struct bucket_array *ba;
+	struct bucket_arr *ba;
 
 	uint32_t i;
 	for (i = 0; i < len; ++i) {
@@ -344,8 +344,8 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 			return false;
 		}
 
-		bucket_array_pushn(&wk->objs, NULL, 0, 1);
-		struct obj_internal *o = bucket_array_get(&wk->objs, wk->objs.len - 1);
+		bucket_arr_pushn(&wk->objs, NULL, 0, 1);
+		struct obj_internal *o = bucket_arr_get(&wk->objs, wk->objs.len - 1);
 
 		*o = (struct obj_internal) { .t = type_tag, };
 
@@ -362,14 +362,14 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 
 		ba = &wk->obj_aos[type_tag - _obj_aos_start];
 		o->val = ba->len;
-		bucket_array_pushn(ba, NULL, 0, 1);
+		bucket_arr_pushn(ba, NULL, 0, 1);
 
 		if (type_tag == obj_string) {
 			if (!fs_fread(&ser_s, sizeof(struct serial_str), f)) {
 				return false;
 			}
 
-			struct str *ss = bucket_array_get(ba, o->val);
+			struct str *ss = bucket_arr_get(ba, o->val);
 
 			if (ser_s.flags & str_flag_big) {
 				if (!get_big_string(wk, bst, &ser_s, ss)) {
@@ -379,18 +379,18 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 				uint32_t bucket_i = ser_s.s % wk->chrs.bucket_size,
 					 buckets_i = ser_s.s / wk->chrs.bucket_size;
 				if (buckets_i > wk->chrs.buckets.len
-				    || bucket_i > ((struct bucket *)(darr_get(&wk->chrs.buckets, buckets_i)))->len) {
+				    || bucket_i > ((struct bucket *)(arr_get(&wk->chrs.buckets, buckets_i)))->len) {
 					return corrupted_dump();
 				}
 
 				*ss = (struct str){
-					.s = bucket_array_get(&wk->chrs, ser_s.s),
+					.s = bucket_arr_get(&wk->chrs, ser_s.s),
 					.len = ser_s.len,
 					.flags = ser_s.flags,
 				};
 			}
 		} else {
-			if (!fs_fread(bucket_array_get(ba, o->val), ba->item_size, f)) {
+			if (!fs_fread(bucket_arr_get(ba, o->val), ba->item_size, f)) {
 				return false;
 			}
 		}
@@ -406,8 +406,8 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 	struct workspace wk_dest = { 0 };
 	workspace_init_bare(&wk_dest);
 
-	struct darr big_string_offsets;
-	darr_init(&big_string_offsets, 32, sizeof(uint64_t));
+	struct arr big_string_offsets;
+	arr_init(&big_string_offsets, 32, sizeof(uint64_t));
 
 	obj obj_dest;
 	if (!obj_clone(wk_src, &wk_dest, o, &obj_dest)) {
@@ -418,7 +418,7 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 
 	if (!(dump_serial_header(f)
 	      && dump_uint32(obj_dest, f)
-	      && dump_bucket_array(&wk_dest.chrs, f)
+	      && dump_bucket_arr(&wk_dest.chrs, f)
 	      && dump_big_strings(&wk_dest, &big_string_offsets, f)
 	      && dump_objs(&wk_dest, &big_string_offsets, f))) {
 		goto ret;
@@ -427,7 +427,7 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 	ret = true;
 ret:
 	workspace_destroy_bare(&wk_dest);
-	darr_destroy(&big_string_offsets);
+	arr_destroy(&big_string_offsets);
 	return ret;
 }
 
@@ -443,7 +443,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	obj obj_src;
 	if (!(load_serial_header(f)
 	      && load_uint32(&obj_src, f)
-	      && load_bucket_array(&wk_src.chrs, f)
+	      && load_bucket_arr(&wk_src.chrs, f)
 	      && load_big_strings(&wk_src, &bst, f)
 	      && load_objs(&wk_src, &bst, f))) {
 		goto ret;

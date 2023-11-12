@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "data/darr.h"
+#include "datastructures/arr.h"
 #include "lang/lexer.h"
 
 enum comparison_type {
@@ -99,7 +99,7 @@ struct node {
 };
 
 struct ast {
-	struct darr nodes, comments;
+	struct arr nodes, comments;
 	uint32_t root;
 };
 

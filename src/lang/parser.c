@@ -102,26 +102,26 @@ static struct token *
 get_next_tok(struct parser *p)
 {
 	p->last_last = p->last;
-	p->last = darr_get(&p->toks->tok, p->token_i);
+	p->last = arr_get(&p->toks->tok, p->token_i);
 	++p->token_i;
 	if (p->token_i >= p->toks->tok.len) {
 		p->token_i = p->toks->tok.len - 1;
 	}
 
-	return darr_get(&p->toks->tok, p->token_i);
+	return arr_get(&p->toks->tok, p->token_i);
 }
 
 static void
 accept_comment(struct parser *p)
 {
 	if (p->last->type == tok_comment) {
-		struct node *n = darr_get(&p->ast->nodes, p->ast->nodes.len - 1);
+		struct node *n = arr_get(&p->ast->nodes, p->ast->nodes.len - 1);
 
 		if (!n->comments.len) {
 			n->comments.start = p->ast->comments.len;
 		}
 
-		darr_push(&p->ast->comments, &p->last->dat.s);
+		arr_push(&p->ast->comments, &p->last->dat.s);
 		++n->comments.len;
 		get_next_tok(p);
 	}
@@ -171,14 +171,14 @@ consume_until(struct parser *p, enum token_type t)
 struct node *
 get_node(struct ast *ast, uint32_t i)
 {
-	return darr_get(&ast->nodes, i);
+	return arr_get(&ast->nodes, i);
 }
 
 static struct node *
 make_node(struct parser *p, uint32_t *idx, enum node_type t)
 {
-	*idx = darr_push(&p->ast->nodes, &(struct node){ .type = t });
-	struct node *n = darr_get(&p->ast->nodes, *idx);
+	*idx = arr_push(&p->ast->nodes, &(struct node){ .type = t });
+	struct node *n = arr_get(&p->ast->nodes, *idx);
 
 	if (p->last_last) {
 		n->line = p->last_last->line;
@@ -214,7 +214,7 @@ get_child(struct ast *ast, uint32_t idx, uint32_t c)
 static void
 add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_t c_id)
 {
-	struct node *n = darr_get(&p->ast->nodes, parent);
+	struct node *n = arr_get(&p->ast->nodes, parent);
 	assert(!(chflg & n->chflg) && "you tried to set the same child more than once");
 	n->chflg |= chflg;
 
@@ -1220,7 +1220,7 @@ parse_line(struct parser *p, uint32_t *id)
 		struct token *next = NULL;
 
 		if (p->token_i < p->toks->tok.len) {
-			next = darr_get(&p->toks->tok, p->token_i);
+			next = arr_get(&p->toks->tok, p->token_i);
 		}
 
 		if (p->last->type == tok_eol ||
@@ -1383,10 +1383,10 @@ parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, s
 		.wk = wk,
 	};
 
-	darr_init(&ast->nodes, 2048, sizeof(struct node));
+	arr_init(&ast->nodes, 2048, sizeof(struct node));
 
 	if (mode & pm_keep_formatting) {
-		darr_init(&ast->comments, 2048, sizeof(char *));
+		arr_init(&ast->comments, 2048, sizeof(char *));
 	}
 
 	uint32_t id;
@@ -1411,6 +1411,6 @@ ret:
 void
 ast_destroy(struct ast *ast)
 {
-	darr_destroy(&ast->nodes);
-	darr_destroy(&ast->comments);
+	arr_destroy(&ast->nodes);
+	arr_destroy(&ast->comments);
 }

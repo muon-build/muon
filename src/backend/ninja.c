@@ -113,7 +113,7 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = darr_get(&wk->projects, i);
+		struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
 			continue;
 		}
@@ -121,14 +121,14 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		obj_array_foreach(wk, proj->targets, &check_ctx, check_tgt_iter);
 	}
 
-	if (!ninja_write_rules(out, wk, darr_get(&wk->projects, 0), check_ctx.need_phony, ctx->compiler_rule_arr)) {
+	if (!ninja_write_rules(out, wk, arr_get(&wk->projects, 0), check_ctx.need_phony, ctx->compiler_rule_arr)) {
 		return false;
 	}
 
 	bool wrote_default = false;
 
 	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = darr_get(&wk->projects, i);
+		struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
 			continue;
 		}
@@ -163,7 +163,7 @@ ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = darr_get(&wk->projects, i);
+		struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
 			continue;
 		}
@@ -202,7 +202,7 @@ ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
 	obj_array_push(wk, o, wk->install_scripts);
 	obj_array_push(wk, o, make_str(wk, wk->source_root));
 
-	struct project *proj = darr_get(&wk->projects, 0);
+	struct project *proj = arr_get(&wk->projects, 0);
 	obj prefix;
 	get_option_value(wk, proj, "prefix", &prefix);
 	obj_array_push(wk, o, prefix);
@@ -230,7 +230,7 @@ ninja_write_option_info(struct workspace *wk, void *_ctx, FILE *out)
 	make_obj(wk, &arr, obj_array);
 	obj_array_push(wk, arr, wk->global_opts);
 
-	struct project *main_proj = darr_get(&wk->projects, 0);
+	struct project *main_proj = arr_get(&wk->projects, 0);
 	obj_array_push(wk, arr, main_proj->opts);
 
 	return serial_dump(wk, arr, out);

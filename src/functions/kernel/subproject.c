@@ -132,7 +132,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	if (versions && versions->set) {
-		struct project *subp = darr_get(&wk->projects, subproject_id);
+		struct project *subp = arr_get(&wk->projects, subproject_id);
 
 		bool compare_result;
 		if (!version_compare(wk, versions->node, get_str(wk, subp->cfg.version),
@@ -165,7 +165,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	return true;
 not_found:
 	if (subproject_id) {
-		struct project *proj = darr_get(&wk->projects, subproject_id);
+		struct project *proj = arr_get(&wk->projects, subproject_id);
 		proj->not_ok = true;
 	}
 

@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
-#include "iterator.h"
+#include "datastructures/iterator.h"
 
 struct source {
 	const char *label;
@@ -61,15 +61,15 @@ typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
 
 #ifndef S_ISGID
-#define S_ISGID 0
+	#define S_ISGID 0
 #endif
 
 #ifndef S_ISUID
-#define S_ISUID 0
+	#define S_ISUID 0
 #endif
 
 #ifndef S_ISVTX
-#define S_ISVTX 0
+	#define S_ISVTX 0
 #endif
 
 #endif

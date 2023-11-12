@@ -121,7 +121,7 @@ struct function_signature {
 };
 
 struct {
-	struct darr sigs;
+	struct arr sigs;
 } function_sig_dump;
 
 static const char *
@@ -142,7 +142,7 @@ dump_type(struct workspace *wk, type_tag type)
 }
 
 static int32_t
-darr_sort_by_string(const void *a, const void *b, void *_ctx)
+arr_sort_by_string(const void *a, const void *b, void *_ctx)
 {
 	return strcmp(*(const char **)a, *(const char **)b);
 }
@@ -155,7 +155,7 @@ dump_function_signature(struct workspace *wk,
 {
 	uint32_t i;
 
-	struct function_signature *sig = darr_get(&function_sig_dump.sigs, function_sig_dump.sigs.len - 1);
+	struct function_signature *sig = arr_get(&function_sig_dump.sigs, function_sig_dump.sigs.len - 1);
 
 	obj s;
 	if (posargs) {
@@ -184,24 +184,24 @@ dump_function_signature(struct workspace *wk,
 	}
 
 	if (kwargs) {
-		struct darr kwargs_list;
-		darr_init(&kwargs_list, 8, sizeof(char *));
+		struct arr kwargs_list;
+		arr_init(&kwargs_list, 8, sizeof(char *));
 
 		for (i = 0; kwargs[i].key; ++i) {
 			const char *v = get_cstr(wk, make_strf(wk, "    %s: %s\n", kwargs[i].key, dump_type(wk, kwargs[i].type)));
-			darr_push(&kwargs_list, &v);
+			arr_push(&kwargs_list, &v);
 		}
 
-		darr_sort(&kwargs_list, NULL, darr_sort_by_string);
+		arr_sort(&kwargs_list, NULL, arr_sort_by_string);
 
 		s = make_str(wk, "");
 		for (i = 0; i < kwargs_list.len; ++i) {
-			str_app(wk, s, *(const char **)darr_get(&kwargs_list, i));
+			str_app(wk, s, *(const char **)arr_get(&kwargs_list, i));
 
 		}
 		sig->kwargs = get_cstr(wk, s);
 
-		darr_destroy(&kwargs_list);
+		arr_destroy(&kwargs_list);
 	}
 }
 
@@ -913,12 +913,12 @@ dump_function_signatures(struct workspace *wk)
 {
 	analyze_function_opts.dump_signature = true;
 
-	darr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
+	arr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
 	struct function_signature *sig, empty = { 0 };
 
 	uint32_t i;
 	for (i = 0; kernel_func_tbl[wk->lang_mode][i].name; ++i) {
-		sig = darr_get(&function_sig_dump.sigs, darr_push(&function_sig_dump.sigs, &empty));
+		sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 		sig->impl = &kernel_func_tbl[wk->lang_mode][i];
 		sig->name = kernel_func_tbl[wk->lang_mode][i].name;
 		sig->returns = typechecking_type_to_s(wk, kernel_func_tbl[wk->lang_mode][i].return_type);
@@ -933,7 +933,7 @@ dump_function_signatures(struct workspace *wk)
 			}
 
 			for (i = 0; func_tbl[t][wk->lang_mode][i].name; ++i) {
-				sig = darr_get(&function_sig_dump.sigs, darr_push(&function_sig_dump.sigs, &empty));
+				sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 				sig->impl = &func_tbl[t][wk->lang_mode][i];
 				sig->is_method = true;
 				sig->name = get_cstr(wk, make_strf(wk, "%s.%s", obj_type_to_s(t), func_tbl[t][wk->lang_mode][i].name));
@@ -950,7 +950,7 @@ dump_function_signatures(struct workspace *wk)
 
 		uint32_t j;
 		for (j = 0; module_func_tbl[i][wk->lang_mode][j].name; ++j) {
-			sig = darr_get(&function_sig_dump.sigs, darr_push(&function_sig_dump.sigs, &empty));
+			sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 			sig->impl = &module_func_tbl[i][wk->lang_mode][j];
 			sig->is_method = true;
 			sig->name = get_cstr(wk, make_strf(wk, "import('%s').%s", module_names[i], module_func_tbl[i][wk->lang_mode][j].name));
@@ -960,10 +960,10 @@ dump_function_signatures(struct workspace *wk)
 	}
 
 
-	darr_sort(&function_sig_dump.sigs, NULL, function_sig_sort);
+	arr_sort(&function_sig_dump.sigs, NULL, function_sig_sort);
 
 	for (i = 0; i < function_sig_dump.sigs.len; ++i) {
-		sig = darr_get(&function_sig_dump.sigs, i);
+		sig = arr_get(&function_sig_dump.sigs, i);
 
 		if (sig->impl->extension) {
 			printf("extension:");
@@ -985,5 +985,5 @@ dump_function_signatures(struct workspace *wk)
 		printf("  returns:\n    %s\n", sig->returns);
 	}
 
-	darr_destroy(&function_sig_dump.sigs);
+	arr_destroy(&function_sig_dump.sigs);
 }
