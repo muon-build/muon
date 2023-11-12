@@ -61,7 +61,9 @@ tasks:
       tools/ci/push_to_gh_mirror.sh
   - kickoff_custom_ci: |
       cd muon
-      tools/ci/solaris11.sh submit
+      if [ -d ~/.ssh ]; then
+        tools/ci/solaris11.sh submit
+      fi
   - build_gcc: |
       cd muon
       CC=gcc tools/ci/fullbootstrap.sh -Dbuildtype=release -Dstatic=true -Dwebsite=true
