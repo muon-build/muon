@@ -30,6 +30,7 @@ packages:
   # alternative c compilers
   - clang
   - tcc
+  - tcc-libs-static # tcc 0.9.27_git20220323-r1 is broken without this
 
   # for static builds
   - acl-static
