@@ -92,7 +92,6 @@ query_vars(struct workspace *wk, const char *path,
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return success;
-
 }
 
 static bool
@@ -100,7 +99,7 @@ introspect_python_interpreter(struct workspace *wk, const char *path,
 	struct obj_python_installation *python)
 {
 	return query_version(wk, path, python) && query_paths(wk, path, python)
-		&& query_vars(wk, path, python);
+	       && query_vars(wk, path, python);
 }
 
 static bool
@@ -316,7 +315,7 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 
 	if (!ao[0].set) {
 		interp_error(wk, args_node,
-	    	"variable '%o' not found, no default specified", var);
+			"variable '%o' not found, no default specified", var);
 		return false;
 	}
 

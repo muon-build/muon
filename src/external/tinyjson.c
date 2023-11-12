@@ -8,11 +8,12 @@
 
 #include <tiny-json.h>
 
+#include "external/tinyjson.h"
 #include "lang/object.h"
 #include "lang/string.h"
 #include "log.h"
 
-#define MAX_FIELDS 1024
+#define TINYJSON_MAX_FIELDS 1024
 
 static bool
 build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
@@ -70,9 +71,9 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 bool
 muon_json_to_dict(struct workspace *wk, char *json_str, obj *res)
 {
-	json_t mem[MAX_FIELDS];
+	json_t mem[TINYJSON_MAX_FIELDS];
 
-	const json_t *json = json_create(json_str, mem, MAX_FIELDS);
+	const json_t *json = json_create(json_str, mem, TINYJSON_MAX_FIELDS);
 	if (!json) {
 		LOG_E("error parsing json to obj_dict: syntax error or out of memory");
 		return false;

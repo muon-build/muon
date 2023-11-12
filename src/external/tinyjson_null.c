@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include "external/tinyjson.h"
 #include "lang/types.h"
 #include "lang/workspace.h"
 #include "log.h"
