@@ -4,6 +4,10 @@
 
 set -eux
 
+if [ ! -d ~/.ssh ]; then
+	exit 0
+fi
+
 cat >> ~/.ssh/config <<EOF
 Host github.com
     IdentityFile ~/.ssh/18083346-dfba-4050-bc05-413561f99228

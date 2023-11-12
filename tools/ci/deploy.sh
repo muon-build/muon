@@ -4,7 +4,9 @@
 
 set -eux
 
-if [ "$(git rev-parse master)" != "$(git rev-parse HEAD)" ]; then
+if [ ! -d ~/.ssh ]; then
+	exit 0
+elif [ "$(git rev-parse master)" != "$(git rev-parse HEAD)" ]; then
 	exit 0
 fi
 
