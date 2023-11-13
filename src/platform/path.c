@@ -8,12 +8,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "buf_size.h"
 #include "error.h"
 #include "lang/string.h"
 #include "log.h"
+#include "platform/os.h"
 #include "platform/path.h"
 
 static struct {
@@ -27,7 +27,7 @@ static void
 path_getcwd(void)
 {
 	sbuf_clear(&path_ctx.cwd);
-	while (!getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
+	while (!os_getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
 		if (errno == ERANGE) {
 			sbuf_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
 		} else {
@@ -148,7 +148,7 @@ path_copy(struct workspace *wk, struct sbuf *sb, const char *path)
 bool
 path_chdir(const char *path)
 {
-	if (chdir(path) < 0) {
+	if (!os_chdir(path)) {
 		LOG_E("failed chdir(%s): %s", path, strerror(errno));
 		return false;
 	}

@@ -14,6 +14,7 @@ foreach f : [
     'filesystem.c',
     'init.c',
     'log.c',
+    'os.c',
     'path.c',
     'run_cmd.c',
     'term.c',
