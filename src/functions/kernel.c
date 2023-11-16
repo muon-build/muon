@@ -583,7 +583,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	bool guessed_ver = false;
 
 	type_tag tc_allowed = tc_file | tc_string | tc_external_program \
-		| tc_python_installation;
+			      | tc_python_installation;
 	if (!typecheck(wk, ctx->node, prog, tc_allowed)) {
 		return false;
 	}
@@ -598,7 +598,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		break;
 	case obj_python_installation:
 		prog = get_obj_python_installation(wk, prog)->prog;
-		/* fallthrough */
+	/* fallthrough */
 	case obj_external_program:
 		if (get_obj_external_program(wk, prog)->found) {
 			*ctx->res = prog;
@@ -975,7 +975,7 @@ static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program \
-		| tc_compiler | tc_python_installation;
+				 | tc_compiler | tc_python_installation;
 	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
@@ -1328,7 +1328,7 @@ static bool
 add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
 	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file \
-		| tc_python_installation;
+				 | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
@@ -1648,7 +1648,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 	disabler_among_args_immunity = false;
 
-	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, args_node);
+	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, args_node, false);
 	return true;
 }
 

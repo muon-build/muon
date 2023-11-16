@@ -689,6 +689,113 @@ end:
 	return true;
 }
 
+bool
+func_obj_eval(struct workspace *wk, obj func_obj, uint32_t args_node, obj *res)
+{
+	struct obj_func *f = get_obj_func(wk, func_obj);
+	L("evaling func obj %p", (void *)f);
+	bool ret = false;
+
+	struct analyze_function_opts old_opts = analyze_function_opts;
+	analyze_function_opts = (struct analyze_function_opts) { 0 };
+	struct ast *old_ast = 0;
+
+	struct args_norm an[f->nargs + 1];
+	struct args_kw akw[f->nkwargs + 1];
+	{ // init and interp args
+		memset(an, 0, sizeof(struct args_norm) * (f->nargs + 1));
+		an[f->nargs].type = ARG_TYPE_NULL;
+		memset(akw, 0, sizeof(struct args_kw) * (f->nkwargs + 1));
+		akw[f->nkwargs].type = ARG_TYPE_NULL;
+
+		uint32_t i = 0, arg_id = f->args_id;
+		while (true) {
+			struct node *arg = arr_get(&f->ast->nodes, arg_id);
+			if (arg->type == node_empty) {
+				break;
+			}
+
+			if (arg->subtype == arg_kwarg) {
+				struct node *key = arr_get(&f->ast->nodes, arg->l);
+				akw[i].key = key->dat.s;
+				++i;
+			}
+
+			if (!(arg->chflg & node_child_c)) {
+				break;
+			}
+			arg_id = arg->c;
+		}
+
+		if (!interp_args(wk, args_node, an, NULL, akw)) {
+			goto ret;
+		}
+	}
+
+	// push current interpreter state
+	old_ast = wk->ast;
+	wk->ast = f->ast;
+	++wk->func_depth;
+
+	// setup current scope
+	if (wk->func_depth >= wk->local_scope.len) {
+		arr_grow_by(&wk->local_scope, 1);
+		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
+		hash_init_str(scope, 64);
+	} else {
+		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
+		hash_clear(scope);
+	}
+
+
+	{ // assign arg values
+		uint32_t i = 0;
+		struct node *arg = arr_get(&f->ast->nodes, f->args_id);
+		while (arg->type != node_empty) {
+			obj val;
+			if (i < f->nargs) {
+				val = an[i].val;
+			} else {
+				if (akw[i - f->nargs].set) {
+					val = akw[i - f->nargs].val;
+				} else {
+					obj_array_index(wk, f->kwarg_defaults, i - f->nargs, &val);
+				}
+			}
+
+			struct node *arg_name = arr_get(&f->ast->nodes, arg->l);
+			wk->assign_variable(wk, arg_name->dat.s, val, arg->l, true);
+			++i;
+
+			if (!(arg->chflg & node_child_c)) {
+				break;
+			}
+
+			arg = arr_get(&f->ast->nodes, arg->c);
+		}
+	}
+
+	obj _;
+	wk->returning = false;
+	wk->returned = 0;
+	L("func %p\n---", (void *)f);
+	ret = wk->interp_node(wk, f->block_id, &_);
+	L("end func %p\n---", (void *)f);
+	obj_fprintf(wk, log_file(), "returned %o\n", wk->returned);
+	*res = wk->returned;
+	wk->returning = false;
+
+ret:
+	analyze_function_opts = old_opts;
+	if (old_ast) {
+		// pop old interpreter state
+		wk->ast = old_ast;
+		--wk->func_depth;
+	}
+
+	return ret;
+}
+
 const struct func_impl_name *kernel_func_tbl[language_mode_count] = {
 	impl_tbl_kernel,
 	impl_tbl_kernel_internal,
@@ -748,9 +855,13 @@ func_name_str(bool have_rcvr, enum obj_type rcvr_type, const char *name)
 {
 	static char buf[256];
 	if (have_rcvr) {
-		snprintf(buf, 256, "method %s.%s()", obj_type_to_s(rcvr_type), name);
+		if (rcvr_type == obj_func) {
+			snprintf(buf, ARRAY_LEN(buf), "<func>");
+		} else {
+			snprintf(buf, ARRAY_LEN(buf), "method %s.%s()", obj_type_to_s(rcvr_type), name);
+		}
 	} else {
-		snprintf(buf, 256, "function %s()", name);
+		snprintf(buf, ARRAY_LEN(buf), "function %s()", name);
 	}
 
 	return buf;
@@ -762,9 +873,9 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	const char *name;
 
 	enum obj_type rcvr_type = 0;
-	uint32_t args_node, name_node;
+	uint32_t args_node, name_node = 0;
 	struct node *n = get_node(wk->ast, node_id);
-	const struct func_impl_name *impl_tbl;
+	const struct func_impl_name *impl_tbl = 0;
 
 	if (have_rcvr && !rcvr_id) {
 		interp_error(wk, n->r, "tried to call function on null");
@@ -772,10 +883,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	}
 
 	if (have_rcvr) {
-		name_node = n->r;
-		args_node = n->c;
 		rcvr_type = get_obj_type(wk, rcvr_id);
-		impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+		if (rcvr_type == obj_func) {
+			args_node = n->r;
+		} else {
+			name_node = n->r;
+			args_node = n->c;
+			impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+		}
 	} else {
 		assert(n->chflg & node_child_l);
 		name_node = n->l;
@@ -783,8 +898,15 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		impl_tbl = kernel_func_tbl[wk->lang_mode];
 	}
 
-	const struct func_impl_name *fi;
-	name = get_node(wk->ast, name_node)->dat.s;
+	const struct func_impl_name *fi = 0;
+	obj func_obj = 0;
+	if (rcvr_type == obj_func) {
+		name = "<func>";
+	} else {
+		name = get_node(wk->ast, name_node)->dat.s;
+	}
+
+	L("running %s", func_name_str(have_rcvr, rcvr_type, name));
 
 	if (have_rcvr && rcvr_type == obj_module) {
 		struct obj_module *m = get_obj_module(wk, rcvr_id);
@@ -808,13 +930,17 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 				return false;
 			}
 		}
+	} else if (have_rcvr && rcvr_type == obj_func) {
+		func_obj = rcvr_id;
 	} else {
 		if (!impl_tbl) {
 			interp_error(wk, name_node, "%s not found", func_name_str(true, rcvr_type, name));
 			return false;
 		}
 
-		if (!(fi = func_lookup(impl_tbl, name))) {
+		fi = func_lookup(impl_tbl, name);
+
+		if (!fi) {
 			if (rcvr_type == obj_disabler) {
 				*res = disabler_id;
 				return true;
@@ -825,12 +951,12 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		}
 	}
 
-	if (fi->fuzz_unsafe && disable_fuzz_unsafe_functions) {
+	if (fi && fi->fuzz_unsafe && disable_fuzz_unsafe_functions) {
 		interp_error(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name));
 		return false;
 	}
 
-	if (have_rcvr && fi->rcvr_transform) {
+	if (have_rcvr && fi && fi->rcvr_transform) {
 		rcvr_id = fi->rcvr_transform(wk, rcvr_id);
 	}
 
@@ -840,7 +966,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	TracyCZoneName(tctx_func, func_name, strlen(func_name));
 #endif
 
-	bool func_res = fi->func(wk, rcvr_id, args_node, res);
+	bool func_res;
+
+	if (fi) {
+		func_res = fi->func(wk, rcvr_id, args_node, res);
+	} else {
+		func_res = func_obj_eval(wk, func_obj, args_node, res);
+	}
+
 	TracyCZoneEnd(tctx_func);
 
 	if (!func_res) {

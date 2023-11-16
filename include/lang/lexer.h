@@ -69,6 +69,10 @@ enum token_type {
 
 	/* special */
 	tok_stringify,
+	tok_func,
+	tok_endfunc,
+	tok_return,
+	tok_local,
 
 	/* formatting only */
 	tok_comment,
@@ -92,6 +96,7 @@ struct tokens {
 
 enum lexer_mode {
 	lexer_mode_format = 1 << 0,
+	lexer_mode_functions = 1 << 1,
 };
 
 bool lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,

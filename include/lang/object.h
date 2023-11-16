@@ -56,6 +56,9 @@ enum obj_type {
 	obj_both_libs,
 	obj_source_set,
 	obj_source_configuration,
+
+	/* muon-specific objects */
+	obj_func,
 	obj_typeinfo,
 
 	obj_type_count,
@@ -138,6 +141,13 @@ struct obj_typechecking_type_to_obj_type {
 
 struct obj_typeinfo {
 	type_tag type, subtype;
+};
+
+struct obj_func {
+	uint32_t args_id, block_id, nargs, nkwargs;
+	struct ast *ast;
+	obj kwarg_defaults;
+	const char *src;
 };
 
 enum tgt_type {
@@ -555,6 +565,7 @@ OBJ_GETTER(obj_generated_list);
 OBJ_GETTER(obj_alias_target);
 OBJ_GETTER(obj_both_libs);
 OBJ_GETTER(obj_typeinfo);
+OBJ_GETTER(obj_func);
 OBJ_GETTER(obj_source_set);
 OBJ_GETTER(obj_source_configuration);
 

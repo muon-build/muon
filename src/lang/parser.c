@@ -8,6 +8,7 @@
 
 #include <inttypes.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "buf_size.h"
 #include "error.h"
@@ -18,8 +19,6 @@
 #include "log.h"
 #include "tracy.h"
 
-#define NODE_MAX_CHILDREN 4
-
 const uint32_t arithmetic_type_count = 5;
 
 struct parser {
@@ -28,7 +27,7 @@ struct parser {
 	struct token *last_last, *last;
 	struct ast *ast;
 	struct workspace *wk;
-	uint32_t token_i, loop_depth, parse_depth;
+	uint32_t token_i, loop_depth, parse_depth, func_depth;
 	bool caused_effect, valid, preserve_fmt_eol;
 
 	enum parse_mode mode;
@@ -65,6 +64,8 @@ node_type_to_s(enum node_type t)
 	case node_ternary: return "ternary";
 	case node_block: return "block";
 	case node_stringify: return "stringify";
+	case node_func_def: return "func_def";
+	case node_return: return "return";
 	case node_empty_line: return "empty_line";
 	case node_paren: return "paren";
 	case node_plusassign: return "plusassign";
@@ -189,22 +190,20 @@ make_node(struct parser *p, uint32_t *idx, enum node_type t)
 	return n;
 }
 
-static uint32_t
-get_child(struct ast *ast, uint32_t idx, uint32_t c)
+uint32_t *
+get_node_child(struct node *n, uint32_t c)
 {
-	struct node *n = get_node(ast, idx);
-	assert(c < NODE_MAX_CHILDREN);
 	enum node_child_flag chflg = 1 << c;
 	assert(chflg & n->chflg);
 	switch (chflg) {
 	case node_child_l:
-		return n->l;
+		return &n->l;
 	case node_child_r:
-		return n->r;
+		return &n->r;
 	case node_child_c:
-		return n->c;
+		return &n->c;
 	case node_child_d:
-		return n->d;
+		return &n->d;
 	}
 
 	assert(false && "unreachable");
@@ -234,23 +233,23 @@ add_child(struct parser *p, uint32_t parent, enum node_child_flag chflg, uint32_
 	}
 }
 
-static void
-print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
+void
+print_ast_at(struct node *nodes, uint32_t id, uint32_t d, char label)
 {
-	struct node *n = get_node(ast, id);
+	struct node *n = &nodes[id];
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
-		putc(' ', stdout);
+		printf("  ");
 	}
 
-	printf("%c:%s\n", label, node_to_s(n));
+	printf("%d:%c:%s\n", id, label, node_to_s(n));
 
 	static const char *child_labels = "lrcd";
 
 	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
 		if ((1 << i) & n->chflg) {
-			print_tree(ast, get_child(ast, id, i), d + 1, child_labels[i]);
+			print_ast_at(nodes, *get_node_child(n, i), d + 1, child_labels[i]);
 		}
 	}
 }
@@ -258,7 +257,7 @@ print_tree(struct ast *ast, uint32_t id, uint32_t d, char label)
 void
 print_ast(struct ast *ast)
 {
-	print_tree(ast, ast->root, 0, 'l');
+	print_ast_at((struct node *)ast->nodes.e, ast->root, 0, 'l');
 }
 
 const char *
@@ -353,6 +352,7 @@ ensure_in_loop(struct parser *p)
 
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_expr(struct parser *p, uint32_t *id);
+static bool parse_block(struct parser *p, uint32_t *id);
 
 enum parse_list_mode {
 	parse_list_mode_array,
@@ -367,6 +367,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 	uint32_t s_id, c_id, v_id;
 	enum arg_type at = arg_normal;
 	struct node *n;
+	make_node(p, id, node_argument);
 
 	if ((p->mode & pm_keep_formatting) && (p->last->type == tok_comment || p->last->type == tok_fmt_eol)) {
 		make_node(p, &s_id, node_empty_line);
@@ -432,7 +433,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 		return false;
 	}
 
-	n = make_node(p, id, node_argument);
+	n = get_node(p->ast, *id);
 	n->subtype = at;
 
 	add_child(p, *id, node_child_l, s_id);
@@ -477,8 +478,7 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 	}
 
 	if (get_node(p->ast, r_id)->type == node_empty) {
-		parse_error(p, NULL, "empty index");
-		return false;
+		UNREACHABLE;
 	}
 
 	if (!expect(p, tok_rbrack)) {
@@ -494,6 +494,58 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 
 	return true;
 }
+
+static bool
+parse_func_def(struct parser *p, uint32_t *id)
+{
+	bool ret = false;
+	make_node(p, id, node_func_def);
+
+	uint32_t args, c_id;
+
+	/* if (!expect(p, tok_identifier)) { */
+	/* 	return false; */
+	/* } */
+
+	/* make_node(p, &l_id, node_id); */
+
+	if (!expect(p, tok_lparen)) {
+		goto ret;
+	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
+		goto ret;
+	} else if (!expect(p, tok_rparen)) {
+		goto ret;
+	}
+
+	if (!expect(p, tok_eol)) {
+		goto ret;
+	}
+
+	++p->func_depth;
+	if (!parse_block(p, &c_id)) {
+		goto ret;
+	}
+	--p->func_depth;
+
+	if (get_node(p->ast, c_id)->type != node_empty) {
+		p->caused_effect = true;
+	}
+
+	/* add_child(p, *id, node_child_l, l_id); */
+	add_child(p, *id, node_child_r, args);
+	add_child(p, *id, node_child_c, c_id);
+
+	ret = true;
+ret:
+	if (!ret) {
+		consume_until(p, tok_endfunc);
+	}
+	if (!expect(p, tok_endfunc)) {
+		ret = false;
+	}
+	return ret;
+}
+
 
 static bool
 parse_e9(struct parser *p, uint32_t *id)
@@ -527,6 +579,10 @@ parse_e9(struct parser *p, uint32_t *id)
 		n->subtype = p->last_last->n;
 		if (p->wk) {
 			n->l = make_strn(p->wk, n->dat.s, n->subtype);
+		}
+	} else if (accept(p, tok_func)) {
+		if (!parse_func_def(p, id)) {
+			return false;
 		}
 	} else {
 		make_node(p, id, node_empty);
@@ -605,6 +661,11 @@ parse_e8(struct parser *p, uint32_t *id)
 			return false;
 		}
 
+		if (get_node(p->ast, v)->type == node_empty) {
+			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_rparen));
+			return false;
+		}
+
 		if (p->mode & pm_keep_formatting) {
 			uint32_t rparen;
 			make_node(p, &rparen, node_paren);
@@ -650,23 +711,52 @@ parse_e8(struct parser *p, uint32_t *id)
 static bool
 parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
-	bool loop = false;
-	if (accept(p, tok_dot)) {
-		loop = true;
+	bool loop = false, l_empty = have_l && get_node(p->ast, l_id)->type == node_empty;
 
-		if (have_l && get_node(p->ast, l_id)->type == node_empty) {
-			parse_error(p, NULL, "cannot call a method on nothing");
+	if (accept(p, tok_dot)) {
+		if (l_empty) {
+			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_dot));
 			return false;
 		}
+
+		loop = true;
 
 		if (!parse_method_call(p, id, l_id, have_l)) {
 			return false;
 		}
 	} else if (accept(p, tok_lbrack)) {
+		if (l_empty) {
+			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lbrack));
+			return false;
+		}
+
 		loop = true;
+
 		if (!parse_index_call(p, id, l_id, have_l)) {
 			return false;
 		}
+	} else if (accept(p, tok_lparen)) {
+		if (l_empty) {
+			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lparen));
+			return false;
+		}
+
+		loop = true;
+
+		p->caused_effect = true;
+		make_node(p, id, node_function);
+
+		obj args;
+		if (!parse_list(p, &args, parse_list_mode_arguments)) {
+			return false;
+		} else if (!expect(p, tok_rparen)) {
+			return false;
+		}
+
+		if (have_l) {
+			add_child(p, *id, node_child_l, l_id);
+		}
+		add_child(p, *id, node_child_r, args);
 	}
 
 	if (loop) {
@@ -688,57 +778,57 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 static bool
 parse_e7(struct parser *p, uint32_t *id)
 {
-	uint32_t p_id, l_id;
+	uint32_t /*p_id,*/ l_id;
 	if (!(parse_e8(p, &l_id))) {
 		return false;
 	}
 
-	if (accept(p, tok_lparen)) {
-		p->caused_effect = true;
+	/* if (accept(p, tok_lparen)) { */
+	/* 	p->caused_effect = true; */
 
-		uint32_t args, d_id;
+	/* 	uint32_t args, d_id; */
 
-		if (get_node(p->ast, l_id)->type != node_id) {
-			parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lparen));
-			return false;
-		}
+	/* 	if (get_node(p->ast, l_id)->type != node_id) { */
+	/* 		parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lparen)); */
+	/* 		return false; */
+	/* 	} */
 
-		struct token *args_start = p->last;
+	/* 	struct token *args_start = p->last; */
 
-		if (!parse_list(p, &args, parse_list_mode_arguments)) {
-			return false;
-		} else if (!expect(p, tok_rparen)) {
-			return false;
-		}
+	/* 	if (!parse_list(p, &args, parse_list_mode_arguments)) { */
+	/* 		return false; */
+	/* 	} else if (!expect(p, tok_rparen)) { */
+	/* 		return false; */
+	/* 	} */
 
-		make_node(p, &p_id, node_function);
-		add_child(p, p_id, node_child_l, l_id);
-		add_child(p, p_id, node_child_r, args);
+	/* 	make_node(p, &p_id, node_function); */
+	/* 	add_child(p, p_id, node_child_l, l_id); */
+	/* 	add_child(p, p_id, node_child_r, args); */
 
-		struct node *n = get_node(p->ast, p_id),
-			    *func_name = get_node(p->ast, l_id);
+	/* 	struct node *n = get_node(p->ast, p_id), */
+	/* 		    *func_name = get_node(p->ast, l_id); */
 
-		n->line = func_name->line;
-		n->col = func_name->col;
+	/* 	n->line = func_name->line; */
+	/* 	n->col = func_name->col; */
 
-		n = get_node(p->ast, args);
-		n->line = args_start->line;
-		n->col = args_start->col;
+	/* 	n = get_node(p->ast, args); */
+	/* 	n->line = args_start->line; */
+	/* 	n->col = args_start->col; */
 
-		if (!parse_chained(p, &d_id, 0, false)) {
-			return false;
-		}
+	/* 	if (!parse_chained(p, &d_id, 0, false)) { */
+	/* 		return false; */
+	/* 	} */
 
-		if (d_id) {
-			add_child(p, p_id, node_child_d, d_id);
-		}
+	/* 	if (d_id) { */
+	/* 		add_child(p, p_id, node_child_d, d_id); */
+	/* 	} */
 
-		*id = p_id;
-	} else {
-		if (!parse_chained(p, id, l_id, true)) {
-			return false;
-		}
+	/* 	*id = p_id; */
+	/* } else { */
+	if (!parse_chained(p, id, l_id, true)) {
+		return false;
 	}
+	/* } */
 
 	return true;
 }
@@ -1019,12 +1109,21 @@ ret:
 static bool
 parse_assignment(struct parser *p, uint32_t *id)
 {
+	bool local = false;
+	if ((p->mode & pm_functions) && p->func_depth && accept(p, tok_local)) {
+		local = true;
+	}
+
 	uint32_t l_id = 0;
 	if (!(parse_expr(p, &l_id))) {
 		return false;
 	}
 
 	if (accept(p, tok_plus_assign)) {
+		if (local) {
+			parse_error(p, NULL, "local keyword not allowed on plusassign");
+		}
+
 		p->caused_effect = true;
 
 		uint32_t v, arith;
@@ -1043,7 +1142,6 @@ parse_assignment(struct parser *p, uint32_t *id)
 		}
 
 		struct node *n = get_node(p->ast, arith);
-
 		n->type = node_plusassign;
 		add_child(p, arith, node_child_l, l_id);
 		add_child(p, arith, node_child_r, v);
@@ -1052,6 +1150,7 @@ parse_assignment(struct parser *p, uint32_t *id)
 		p->caused_effect = true;
 
 		uint32_t v;
+		make_node(p, id, node_assignment);
 
 		if (get_node(p->ast, l_id)->type != node_id) {
 			parse_error(p, NULL, "assignment target must be an id (got %s)", node_to_s(get_node(p->ast, l_id)));
@@ -1065,7 +1164,8 @@ parse_assignment(struct parser *p, uint32_t *id)
 			return false;
 		}
 
-		make_node(p, id, node_assignment);
+		struct node *n = get_node(p->ast, *id);
+		n->subtype = local;
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, v);
 	} else {
@@ -1074,8 +1174,6 @@ parse_assignment(struct parser *p, uint32_t *id)
 
 	return true;
 }
-
-static bool parse_block(struct parser *p, uint32_t *id);
 
 static bool
 parse_if(struct parser *p, uint32_t *id, enum if_type if_type)
@@ -1238,6 +1336,7 @@ parse_line(struct parser *p, uint32_t *id)
 	case tok_else:
 	case tok_elif:
 	case tok_endif:
+	case tok_endfunc:
 	case tok_eof:
 		make_node(p, id, node_empty);
 		return true;
@@ -1269,6 +1368,31 @@ parse_line(struct parser *p, uint32_t *id)
 		if (!expect(p, tok_endforeach)) {
 			return false;
 		}
+		/* } else if ((p->mode & pm_functions) && accept(p, tok_func)) { */
+		/* 	if (!parse_func_def(p, id)) { */
+		/* 		ret = false; */
+		/* 		consume_until(p, tok_endfunc); */
+		/* 	} */
+
+		/* 	if (!expect(p, tok_endfunc)) { */
+		/* 		return false; */
+		/* 	} */
+	} else if ((p->mode & pm_functions) && accept(p, tok_return)) {
+		p->caused_effect = true;
+
+		if (!p->func_depth) {
+			parse_error(p, NULL, "statement not allowed outside of a func");
+			return false;
+		}
+
+		make_node(p, id, node_return);
+
+		uint32_t l_id;
+		if (!parse_expr(p, &l_id)) {
+			return false;
+		}
+
+		add_child(p, *id, node_child_l, l_id);
 	} else if (accept(p, tok_continue)) {
 		p->caused_effect = true;
 
@@ -1369,6 +1493,9 @@ parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, s
 	if (mode & pm_keep_formatting) {
 		lexer_mode |= lexer_mode_format;
 	}
+	if (mode & pm_functions) {
+		lexer_mode |= lexer_mode_functions;
+	}
 
 	if (!lexer_lex(&toks, sdata, src, lexer_mode)) {
 		goto ret;
@@ -1413,4 +1540,29 @@ ast_destroy(struct ast *ast)
 {
 	arr_destroy(&ast->nodes);
 	arr_destroy(&ast->comments);
+}
+
+void
+ast_span(struct ast *ast, uint32_t c, uint32_t *s, uint32_t *e)
+{
+	struct node *n;
+	uint32_t i, c_s, c_e;
+
+	n = get_node(ast, c);
+	*s = *e = c;
+
+	L("calculating span of %p", (void *)n);
+
+	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
+		if ((1 << i) & n->chflg) {
+			ast_span(ast, *get_node_child(n, i), &c_s, &c_e);
+			if (c_s < *s) {
+				*s = c_s;
+			}
+
+			if (c_e > *e) {
+				*e = c_e;
+			}
+		}
+	}
 }

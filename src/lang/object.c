@@ -77,6 +77,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_typeinfo:
 	case obj_source_set:
 	case obj_source_configuration:
+	case obj_func:
 		return bucket_arr_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
 	case obj_null:
@@ -200,6 +201,7 @@ OBJ_GETTER(obj_generated_list)
 OBJ_GETTER(obj_alias_target)
 OBJ_GETTER(obj_both_libs)
 OBJ_GETTER(obj_typeinfo)
+OBJ_GETTER(obj_func)
 OBJ_GETTER(obj_source_set)
 OBJ_GETTER(obj_source_configuration)
 
@@ -248,6 +250,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_source_set:
 	case obj_source_configuration:
 	case obj_typeinfo:
+	case obj_func:
 	{
 		struct bucket_arr *ba = &wk->obj_aos[type - _obj_aos_start];
 		val = ba->len;
@@ -350,6 +353,7 @@ obj_type_to_s(enum obj_type t)
 	case obj_alias_target: return "alias_tgt";
 	case obj_both_libs: return "both_libs";
 	case obj_typeinfo: return "typeinfo";
+	case obj_func: return "func";
 	case obj_source_set: return "source_set";
 	case obj_source_configuration: return "source_configuration";
 

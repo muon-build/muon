@@ -12,6 +12,8 @@
 #include "datastructures/arr.h"
 #include "lang/lexer.h"
 
+#define NODE_MAX_CHILDREN 4
+
 enum comparison_type {
 	comp_equal,
 	comp_nequal,
@@ -69,7 +71,11 @@ enum node_type {
 	node_u_minus,
 	node_ternary,
 	node_block,
+
+	/* special */
 	node_stringify,
+	node_func_def,
+	node_return,
 
 	/* formatting-only nodes */
 	node_empty_line,
@@ -107,13 +113,17 @@ enum parse_mode {
 	pm_ignore_statement_with_no_effect = 1 << 0,
 	pm_keep_formatting = 1 << 1,
 	pm_quiet = 1 << 2,
+	pm_functions = 1 << 3,
 };
 
 bool parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, struct source *src,
 	enum parse_mode mode);
 void print_ast(struct ast *ast);
+void print_ast_at(struct node *nodes, uint32_t id, uint32_t d, char label);
 struct node *get_node(struct ast *ast, uint32_t i);
+uint32_t *get_node_child(struct node *n, uint32_t c);
 const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
 void ast_destroy(struct ast *ast);
+void ast_span(struct ast *ast, uint32_t c, uint32_t *s, uint32_t *e);
 #endif // MUON_PARSER_H

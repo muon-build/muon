@@ -40,7 +40,7 @@ bool boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i);
 bool bounds_adjust(struct workspace *wk, uint32_t len, int64_t *i);
 bool rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n);
 
-void assign_variable(struct workspace *wk, const char *name, obj o, uint32_t n_id);
+void assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, bool shadow_global);
 void unassign_variable(struct workspace *wk, const char *name);
 
 void interpreter_init(void);

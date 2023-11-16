@@ -20,9 +20,12 @@ bool
 get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	uint64_t *idp;
-	struct project *proj = arr_get(&wk->projects, proj_id);
+	struct project *proj = wk->projects.len ? arr_get(&wk->projects, proj_id) : 0;
 
-	if ((idp = hash_get_str(&proj->scope, name))) {
+	if (wk->func_depth && (idp = hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name))) {
+		*res = *idp;
+		return true;
+	} else if (proj && (idp = hash_get_str(&proj->scope, name))) {
 		*res = *idp;
 		return true;
 	} else if ((idp = hash_get_str(&wk->scope, name))) {
@@ -101,6 +104,8 @@ workspace_init_bare(struct workspace *wk)
 
 	bucket_arr_init(&wk->chrs, 4096, 1);
 	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
+	/* bucket_arr_init(&wk->inst, 1024, sizeof(struct node)); */
+	arr_init(&wk->local_scope, 4, sizeof(struct hash));
 
 	const struct {
 		uint32_t item_size;
@@ -130,6 +135,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_alias_target] = { sizeof(struct obj_alias_target), 4 },
 		[obj_both_libs] = { sizeof(struct obj_both_libs), 4 },
 		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 4 },
+		[obj_func] = { sizeof(struct obj_func), 4 },
 		[obj_source_set] = { sizeof(struct obj_source_set), 4 },
 		[obj_source_configuration] = { sizeof(struct obj_source_configuration), 4 },
 	};
@@ -165,6 +171,7 @@ workspace_init(struct workspace *wk)
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	arr_init(&wk->source_data, 4, sizeof(struct source_data));
+	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
 	hash_init_str(&wk->scope, 32);
 
 	make_obj(wk, &id, obj_meson);
@@ -199,7 +206,6 @@ void
 workspace_destroy_bare(struct workspace *wk)
 {
 	bucket_arr_destroy(&wk->chrs);
-
 	bucket_arr_destroy(&wk->objs);
 
 	uint32_t i;
@@ -231,14 +237,25 @@ workspace_destroy(struct workspace *wk)
 
 	for (i = 0; i < wk->source_data.len; ++i) {
 		struct source_data *sdata = arr_get(&wk->source_data, i);
-
 		source_data_destroy(sdata);
+	}
+
+	for (i = 0; i < wk->asts.len; ++i) {
+		struct ast *ast = bucket_arr_get(&wk->asts, i);
+		ast_destroy(ast);
+	}
+
+	for (i = 0; i < wk->local_scope.len; ++i) {
+		struct hash *scope = arr_get(&wk->local_scope, i);
+		hash_destroy(scope);
 	}
 
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
 	arr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
+	arr_destroy(&wk->local_scope);
+	bucket_arr_destroy(&wk->asts);
 
 	workspace_destroy_bare(wk);
 }
@@ -372,4 +389,41 @@ workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr)
 	} else {
 		workspace_add_regenerate_deps_iter(wk, NULL, obj_or_arr);
 	}
+}
+
+struct node *
+wk_ast_copy(struct workspace *wk, uint32_t root, uint32_t *new_root)
+{
+#if 0
+	uint32_t s, e;
+	ast_span(wk->ast, root, &s, &e);
+	uint32_t len = e - s + 1;
+
+	if (len >= wk->inst.bucket_size) {
+		assert(false && "TODO: handle large functions");
+		// handle this
+	}
+
+	{ // This is much better...
+		*new_root = root;
+		return get_node(wk->ast, 0);
+	}
+
+	struct node *n = bucket_arr_pushn(&wk->inst, get_node(wk->ast, s), len, len);
+	uint32_t i, j;
+	for (i = 0; i < len; ++i) {
+		// XXX: This is a hack to work around the fact the ast is destroyed...
+		get_node(wk->ast, s)[i].chflg |= node_visited;
+		for (j = 0; j < NODE_MAX_CHILDREN; ++j) {
+			if ((1 << j) & n[i].chflg) {
+				*get_node_child(&n[i], j) -= s;
+			}
+		}
+	}
+
+	*new_root = root - s;
+
+	return n;
+#endif
+	return 0;
 }

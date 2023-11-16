@@ -86,18 +86,22 @@ struct workspace {
 
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
+	/* struct bucket_arr inst; */
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 
 	struct arr projects;
 	struct arr option_overrides;
 	struct arr source_data;
+	struct bucket_arr asts;
 
 	struct hash scope;
 	struct hash obj_hash;
+	struct arr local_scope;
 
-	uint32_t loop_depth, impure_loop_depth;
+	uint32_t loop_depth, impure_loop_depth, func_depth;
 	enum loop_ctl loop_ctl;
-	bool subdir_done;
+	bool subdir_done, returning;
+	obj returned;
 
 	uint32_t cur_project;
 
@@ -107,7 +111,7 @@ struct workspace {
 	struct source *src;
 	/* interpreter base functions */
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
-	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id));
+	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool local));
 	void ((*unassign_variable)(struct workspace *wk, const char *name));
 	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
 	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
@@ -142,4 +146,6 @@ struct project *make_project(struct workspace *wk, uint32_t *id, const char *sub
 struct project *current_project(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);
+
+struct node *wk_ast_copy(struct workspace *wk, uint32_t root, uint32_t *new_root);
 #endif

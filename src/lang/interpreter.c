@@ -173,7 +173,9 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type,
 {
 	type_tag got = get_obj_type(wk, obj_id);
 
-	if (got == obj_typeinfo) {
+	if (!type) {
+		return true;
+	} else if (got == obj_typeinfo) {
 		struct obj_typeinfo *ti = get_obj_typeinfo(wk, obj_id);
 		type_tag got = ti->type;
 		type_tag t = type;
@@ -284,9 +286,18 @@ typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, type_tag type)
 }
 
 void
-assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id)
+assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, bool local)
 {
-	hash_set_str(&current_project(wk)->scope, name, o);
+	if (wk->func_depth && hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name)) {
+		local = true;
+	}
+
+	if (local) {
+		hash_set_str(arr_get(&wk->local_scope, wk->func_depth - 1), name, o);
+	} else {
+		hash_set_str(&current_project(wk)->scope, name, o);
+	}
+
 	if (wk->dbg.watched && obj_array_in(wk, wk->dbg.watched, make_str(wk, name))) {
 		LOG_I("watched variable \"%s\" changed", name);
 		repl(wk, true);
@@ -296,10 +307,52 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id)
 void
 unassign_variable(struct workspace *wk, const char *name)
 {
-	hash_unset_str(&current_project(wk)->scope, name);
+	if (wk->func_depth && !hash_get_str(&current_project(wk)->scope, name)) {
+		hash_unset_str(arr_get(&wk->local_scope, wk->func_depth - 1), name);
+	} else {
+		hash_unset_str(&current_project(wk)->scope, name);
+	}
 }
 
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
+
+static bool
+interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *res)
+{
+	obj tmp = 0;
+	struct node *n = get_node(wk->ast, n_id);
+
+	bool have_rcvr = true;
+	if (!chained) {
+		// XXX: This is a hack to simulate looking up function objects
+		// for builtins
+		struct node *l = get_node(wk->ast, n->l);
+		if (l->type == node_id && func_lookup(kernel_func_tbl[wk->lang_mode], l->dat.s)) {
+			have_rcvr = false;
+			l_id = 0;
+		} else {
+			if (!wk->interp_node(wk, n->l, &l_id)) {
+				return false;
+			}
+		}
+	}
+
+	if (have_rcvr && !typecheck(wk, n->l, l_id, obj_func)) {
+		return false;
+	}
+
+	if (!builtin_run(wk, have_rcvr, l_id, n_id, &tmp)) {
+		return false;
+	}
+
+	if (n->chflg & node_child_d) {
+		L("doing chained");
+		return interp_chained(wk, n->d, tmp, res);
+	} else {
+		*res = tmp;
+		return true;
+	}
+}
 
 static bool
 interp_method(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
@@ -411,12 +464,14 @@ interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	struct node *n = get_node(wk->ast, node_id);
 
 	switch (n->type) {
+	case node_function:
+		return interp_func(wk, node_id, true, l_id, res);
 	case node_method:
 		return interp_method(wk, node_id, l_id, res);
 	case node_index:
 		return interp_index(wk, n, l_id, true, res);
 	default:
-		assert(false && "unreachable");
+		UNREACHABLE;
 		break;
 	}
 
@@ -626,7 +681,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, n->subtype);
 	return true;
 }
 
@@ -640,7 +695,7 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, false);
 	return true;
 }
 
@@ -1024,8 +1079,8 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, k_id, ctx->n_l);
-	wk->assign_variable(wk, ctx->id2, v_id, ctx->n_r);
+	wk->assign_variable(wk, ctx->id1, k_id, ctx->n_l, false);
+	wk->assign_variable(wk, ctx->id2, v_id, ctx->n_r, false);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -1035,7 +1090,7 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, v_id, ctx->n_l);
+	wk->assign_variable(wk, ctx->id1, v_id, ctx->n_l, false);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -1153,21 +1208,50 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-interp_func(struct workspace *wk, uint32_t n_id, obj *res)
+interp_func_def(struct workspace *wk, struct node *n, obj *res)
 {
-	obj tmp = 0;
-	struct node *n = get_node(wk->ast, n_id);
+	make_obj(wk, res, obj_func);
+	struct obj_func *f = get_obj_func(wk, *res);
+	f->src = wk->src->label;
+	f->args_id = n->r;
+	f->block_id = n->c;
+	f->ast = wk->ast;
 
-	if (!builtin_run(wk, false, 0, n_id, &tmp)) {
-		return false;
+	struct node *arg;
+	uint32_t arg_id = n->r;
+	while (true) {
+		arg = get_node(wk->ast, arg_id);
+		if (arg->type == node_empty) {
+			break;
+		}
+
+		assert(arg->type == node_argument); // TODO: delete
+		if (arg->subtype == arg_normal) {
+			if (f->nkwargs) {
+				interp_error(wk, arg_id, "non-kwarg after kwargs");
+			}
+			++f->nargs;
+		} else if (arg->subtype == arg_kwarg) {
+			if (!f->nkwargs) {
+				make_obj(wk, &f->kwarg_defaults, obj_array);
+			}
+			++f->nkwargs;
+
+			obj r;
+			if (!wk->interp_node(wk, arg->r, &r)) {
+				return false;
+			}
+
+			obj_array_push(wk, f->kwarg_defaults, r);
+		}
+
+		if (!(arg->chflg & node_child_c)) {
+			break;
+		}
+		arg_id = arg->c;
 	}
 
-	if (n->chflg & node_child_d) {
-		return interp_chained(wk, n->d, tmp, res);
-	} else {
-		*res = tmp;
-		return true;
-	}
+	return true;
 }
 
 bool
@@ -1195,12 +1279,8 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	struct node *n = get_node(wk->ast, n_id);
 	n->chflg |= node_visited; // for analyzer
 
-	/* L("%s", node_to_s(n)); */
-	if (wk->subdir_done) {
-		return true;
-	}
-
-	if (wk->loop_ctl) {
+	L("%d:%s", n_id, node_to_s(n));
+	if (wk->subdir_done || wk->loop_ctl || wk->returning) {
 		return true;
 	}
 
@@ -1298,10 +1378,14 @@ interp_block:
 		wk->loop_ctl = loop_breaking;
 		ret = true;
 		break;
+	case node_return:
+		ret = interp_node(wk, n->l, &wk->returned);
+		wk->returning = true;
+		break;
 
 	/* functions */
 	case node_function:
-		ret = interp_func(wk, n_id, res);
+		ret = interp_func(wk, n_id, false, 0, res);
 		break;
 	case node_method:
 	case node_index: {
@@ -1352,6 +1436,9 @@ interp_block:
 	case node_stringify:
 		ret = interp_stringify(wk, n, res);
 		break;
+	case node_func_def:
+		ret = interp_func_def(wk, n, res);
+		break;
 
 	/* handled in other places */
 	case node_foreach_args:
@@ -1369,6 +1456,10 @@ interp_block:
 	case node_null:
 		assert(false && "invalid node");
 		break;
+	}
+
+	if (!ret) {
+		*res = 0;
 	}
 
 	return ret;

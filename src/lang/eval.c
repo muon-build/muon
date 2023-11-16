@@ -114,7 +114,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	interpreter_init();
 
 	bool ret = false;
-	struct ast ast = { 0 };
+	struct ast *ast = bucket_arr_push(&wk->asts, &(struct ast) { 0 });
 
 	struct source_data *sdata =
 		arr_get(&wk->source_data, arr_push(&wk->source_data, &(struct source_data) { 0 }));
@@ -123,8 +123,11 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	if (mode == eval_mode_repl) {
 		parse_mode |= pm_ignore_statement_with_no_effect;
 	}
+	if (wk->lang_mode == language_internal) {
+		parse_mode |= pm_functions;
+	}
 
-	if (!parser_parse(wk, &ast, sdata, src, parse_mode)) {
+	if (!parser_parse(wk, ast, sdata, src, parse_mode)) {
 		goto ret;
 	}
 
@@ -132,10 +135,10 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	struct ast *old_ast = wk->ast;
 
 	wk->src = src;
-	wk->ast = &ast;
+	wk->ast = ast;
 
 	if (mode == eval_mode_first) {
-		if (!ensure_project_is_first_statement(wk, &ast, false)) {
+		if (!ensure_project_is_first_statement(wk, ast, false)) {
 			goto ret;
 		}
 	}
@@ -147,13 +150,12 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	}
 
 	if (wk->in_analyzer) {
-		analyze_check_dead_code(wk, &ast);
+		analyze_check_dead_code(wk, ast);
 	}
 
 	wk->src = old_src;
 	wk->ast = old_ast;
 ret:
-	ast_destroy(&ast);
 	TracyCZoneAutoE;
 	return ret;
 }

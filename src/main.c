@@ -194,18 +194,24 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		uint32_t parse_mode;
 	} opts = { 0 };
 
-	OPTSTART("pP") {
+	OPTSTART("pm:") {
 		case 'p':
 			opts.print_ast = true;
 			break;
-		case 'P':
-			opts.print_ast = true;
-			opts.parse_mode = pm_keep_formatting;
+		case 'm':
+			if (strcmp(optarg, "fmt") == 0) {
+				opts.parse_mode |= pm_keep_formatting;
+			} else if (strcmp(optarg, "functions") == 0) {
+				opts.parse_mode |= pm_functions;
+			} else {
+				LOG_E("invalid parse mode '%s'", optarg);
+				return false;
+			}
 			break;
 	} OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n"
-		"  -P - print parsed formatting ast\n",
+		"  -m <mode> - parse with parse mode <mode>\n",
 		NULL, 1)
 
 	opts.filename = argv[argi];
