@@ -82,6 +82,8 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
+	/* dict[name -> func] */
+	obj module_exports;
 	/* ----------------- */
 
 	struct bucket_arr chrs;
@@ -113,6 +115,8 @@ struct workspace {
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
 	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool local));
 	void ((*unassign_variable)(struct workspace *wk, const char *name));
+	void ((*push_local_scope)(struct workspace *wk));
+	void ((*pop_local_scope)(struct workspace *wk));
 	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
 	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
 	bool in_analyzer;

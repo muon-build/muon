@@ -1577,11 +1577,10 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	enum module mod = 0;
-	bool found = false, has_impl = false;
+	bool found = false;
 
 	if (requirement != requirement_skip) {
-		if (module_lookup(get_cstr(wk, an[0].val), &mod, &has_impl)) {
+		if (module_lookup(wk, get_cstr(wk, an[0].val), res)) {
 			found = true;
 		} else if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "module not found");
@@ -1589,10 +1588,10 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (!has_impl) {
+	struct obj_module *m = get_obj_module(wk, *res);
+	if (!m->has_impl) {
 		if (requirement != requirement_required || wk->in_analyzer) {
 			found = false;
-			has_impl = false;
 		} else {
 			LOG_W("importing unimplemented module '%s'", get_cstr(wk, an[0].val));
 		}
@@ -1603,11 +1602,23 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return true;
 	}
 
-	make_obj(wk, res, obj_module);
-	struct obj_module *m = get_obj_module(wk, *res);
-	m->module = mod;
-	m->found = found;
-	m->has_impl = has_impl;
+	return true;
+}
+
+static bool
+func_export(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { obj_dict }, ARG_TYPE_NULL };
+
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	if (!typecheck_dict(wk, an[0].node, an[0].val, tc_func)) {
+		return false;
+	}
+
+	wk->module_exports = an[0].val;
 	return true;
 }
 
@@ -2089,6 +2100,7 @@ const struct func_impl_name impl_tbl_kernel_internal[] = {
 	{ "p", func_p },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
+	{ "export", func_export, 0, true },
 	{ NULL, NULL },
 };
 

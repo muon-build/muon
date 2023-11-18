@@ -107,6 +107,7 @@ struct node {
 struct ast {
 	struct arr nodes, comments;
 	uint32_t root;
+	uint32_t src_id; // used for diagnostics in the analyzer
 };
 
 enum parse_mode {

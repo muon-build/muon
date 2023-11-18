@@ -11,10 +11,12 @@
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/keyval.h"
-#include "functions/modules/sourceset.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
+#include "functions/modules/sourceset.h"
+#include "lang/interpreter.h"
 #include "log.h"
+#include "platform/filesystem.h"
 
 const char *module_names[module_count] = {
 	[module_fs] = "fs",
@@ -45,8 +47,8 @@ const char *module_names[module_count] = {
 	[module_windows] = "windows",
 };
 
-bool
-module_lookup(const char *name, enum module *res, bool *has_impl)
+static bool
+module_lookup_builtin(const char *name, enum module *res, bool *has_impl)
 {
 	enum module i;
 	for (i = 0; i < module_count; ++i) {
@@ -58,6 +60,56 @@ module_lookup(const char *name, enum module *res, bool *has_impl)
 	}
 
 	return false;
+}
+
+bool
+module_lookup(struct workspace *wk, const char *name, obj *res)
+{
+	make_obj(wk, res, obj_module);
+	struct obj_module *m = get_obj_module(wk, *res);
+
+	{
+		enum module mod_type;
+		bool has_impl = false;
+		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
+			m->module = mod_type;
+			m->found = true;
+			m->has_impl = has_impl;
+			return true;
+		}
+	}
+
+	// script modules
+
+	if (!fs_file_exists(name)) {
+		return false;
+	}
+
+	bool ret = false;
+	enum language_mode old_language_mode = wk->lang_mode;
+	wk->lang_mode = language_internal;
+	struct hash old_scope = current_project(wk)->scope, scope = { 0 };
+	hash_init_str(&scope, 64);
+	current_project(wk)->scope = scope;
+
+	if (!eval_project_file(wk, name, false)) {
+		goto ret;
+	}
+
+	if (!wk->module_exports) {
+		interp_error(wk, 0, "%s did call export()", name);
+		goto ret;
+	}
+
+	m->found = true;
+	m->has_impl = true;
+	m->exports = wk->module_exports;
+	m->scope = scope;
+	ret = true;
+ret:
+	current_project(wk)->scope = old_scope;
+	wk->lang_mode = old_language_mode;
+	return ret;
 }
 
 static bool

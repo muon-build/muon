@@ -346,7 +346,6 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 	}
 
 	if (n->chflg & node_child_d) {
-		L("doing chained");
 		return interp_chained(wk, n->d, tmp, res);
 	} else {
 		*res = tmp;
@@ -1279,7 +1278,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	struct node *n = get_node(wk->ast, n_id);
 	n->chflg |= node_visited; // for analyzer
 
-	L("%d:%s", n_id, node_to_s(n));
+	/* L("%d:%s", n_id, node_to_s(n)); */
 	if (wk->subdir_done || wk->loop_ctl || wk->returning) {
 		return true;
 	}
@@ -1379,7 +1378,7 @@ interp_block:
 		ret = true;
 		break;
 	case node_return:
-		ret = interp_node(wk, n->l, &wk->returned);
+		ret = wk->interp_node(wk, n->l, &wk->returned);
 		wk->returning = true;
 		break;
 

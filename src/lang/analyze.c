@@ -141,6 +141,7 @@ struct analyze_ctx {
 	type_tag expected;
 	type_tag found;
 	const struct func_impl_name *found_func;
+	obj found_func_obj, found_func_module;
 	struct obj_typeinfo ti;
 	enum comparison_type comparison_type;
 	obj l;
@@ -288,6 +289,11 @@ assign_lookup(struct workspace *wk, const char *name)
 		}
 	}
 
+	if (!found && assignment_scopes.local.len) {
+		struct arr *s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
+		found = assign_lookup_scope(name, s);
+	}
+
 	if (!found) {
 		found = assign_lookup_scope(name, &assignment_scopes.global);
 	}
@@ -343,8 +349,16 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool 
 		assert(g->scopes.len);
 		s = arr_get(&g->scopes, g->scopes.len - 1);
 	} else {
-		/* Otherwise we are in the global scope */
-		s = &assignment_scopes.global;
+		if (!local && assignment_scopes.local.len) {
+			s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
+			local = assign_lookup_scope(name, s);
+		}
+
+		if (local) {
+			s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
+		} else {
+			s = &assignment_scopes.global;
+		}
 	}
 
 	struct assignment *a;
@@ -628,15 +642,24 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 	const char *name = get_node(wk->ast, n->r)->dat.s;
 	mark_node_visited(get_node(wk->ast, n->r));
 
-	const struct func_impl_name *fi;
+	obj func_obj = 0, func_module = 0;
+	const struct func_impl_name *fi = 0;
 
 	if (rcvr_type == obj_module
 	    && get_obj_type(wk, ctx->l) == obj_module
 	    && get_obj_module(wk, ctx->l)->found) {
 		struct obj_module *m = get_obj_module(wk, ctx->l);
-		enum module mod = m->module;
-		if (!(fi = module_func_lookup(wk, name, mod))) {
-			return;
+		if (m->exports) {
+			if (!obj_dict_index_str(wk, m->exports, name, &func_obj)) {
+				return;
+			}
+
+			func_module = ctx->l;
+		} else {
+			enum module mod = m->module;
+			if (!(fi = module_func_lookup(wk, name, mod))) {
+				return;
+			}
 		}
 	} else {
 		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
@@ -650,11 +673,13 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 		}
 	}
 
-	if (fi->return_type) {
+	if (fi && fi->return_type) {
 		*res = make_typeinfo(wk, fi->return_type, 0);
 	}
 
 	++ctx->found;
+	ctx->found_func_obj = func_obj;
+	ctx->found_func_module = func_module;
 	ctx->found_func = fi;
 
 	return;
@@ -738,10 +763,14 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 		if (!analyze_function_call(wk, n_id, n->r, fi, 0, &tmp)) {
 			ret = false;
 		}
-	} else {
-		if (!func_obj_eval(wk, l_id, n->r, &tmp)) {
+	} else if (l_id && get_obj_type(wk, l_id) != obj_typeinfo) {
+		bool old_analyze_error = analyze_error;
+		analyze_error = false;
+		if (!func_obj_eval(wk, l_id, 0, n->r, &tmp) || analyze_error) {
+			interp_error(wk, n_id, "in function");
 			ret = false;
 		}
+		analyze_error = old_analyze_error;
 	}
 
 	if (n->chflg & node_child_d) {
@@ -767,8 +796,18 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		analyze_for_each_type(wk, &ctx, n_id, l_id, 0, analyze_method, &tmp);
 
 		if (ctx.found == 1) {
-			if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
-				ret = false;
+			if (ctx.found_func) {
+				if (!analyze_function_call(wk, n_id, n->c, ctx.found_func, l_id, &tmp)) {
+					ret = false;
+				}
+			} else {
+				bool old_analyze_error = analyze_error;
+				analyze_error = false;
+				if (!func_obj_eval(wk, ctx.found_func_obj, ctx.found_func_module, n->c, &tmp) || analyze_error) {
+					interp_error(wk, n_id, "in function");
+					ret = false;
+				}
+				analyze_error = old_analyze_error;
 			}
 		} else if (ctx.found) {
 			analyze_all_function_arguments(wk, n_id, n->c);
@@ -1356,7 +1395,7 @@ analyze_assign(struct workspace *wk, struct node *n)
 
 	mark_node_visited(get_node(wk->ast, n->l));
 
-	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, false);
+	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, n->subtype);
 	return ret;
 }
 
@@ -1382,7 +1421,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 
 	struct node *n = get_node(wk->ast, n_id);
 	mark_node_visited(n);
-	L("analyzing node '%s'@%d", node_to_s(n), n_id);
+	/* L("analyzing node '%s'@%d", node_to_s(n), n_id); */
 
 	if (wk->loop_ctl || wk->returning) {
 		return true;
@@ -1395,8 +1434,11 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_string:
 	case node_number:
 	case node_bool:
-	case node_func_def:
 	case node_return:
+		ret = interp_node(wk, n_id, res);
+		break;
+	case node_func_def:
+		error_diagnostic_store_push_src(wk->src);
 		ret = interp_node(wk, n_id, res);
 		break;
 
@@ -1537,7 +1579,7 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 		}
 
 		if (!(n->chflg & node_visited)) {
-			interp_warning(wk, i, "%s, dead code", node_to_s(n));
+			error_diagnostic_store_push(ast->src_id, n->line, n->col, log_warn, "dead code");
 
 			if (analyze_entrypoint_stack.len) {
 				uint32_t ep_stacks_i, ep_stack_len;
@@ -1564,6 +1606,24 @@ analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_
 	} else {
 		return false;
 	}
+}
+
+static void
+analyze_push_local_scope(struct workspace *wk)
+{
+	struct arr *s;
+	arr_grow_by(&assignment_scopes.local, 1);
+	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
+	arr_init(s, 256, sizeof(struct assignment));
+}
+
+static void
+analyze_pop_local_scope(struct workspace *wk)
+{
+	struct arr *s;
+	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
+	arr_destroy(s);
+	arr_del(&assignment_scopes.local, assignment_scopes.local.len - 1);
 }
 
 static bool
@@ -1661,6 +1721,8 @@ do_analyze(struct analyze_opts *opts)
 	wk.interp_node = analyze_node;
 	wk.assign_variable = analyze_assign_wrapper;
 	wk.unassign_variable = analyze_unassign;
+	wk.push_local_scope = analyze_push_local_scope;
+	wk.pop_local_scope = analyze_pop_local_scope;
 	wk.get_variable = analyze_lookup_wrapper;
 	wk.eval_project_file = analyze_eval_project_file;
 	wk.in_analyzer = true;
@@ -1720,6 +1782,14 @@ do_analyze(struct analyze_opts *opts)
 					mark_analyze_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
 				}
 			}
+		}
+	}
+
+	{
+		uint32_t i;
+		for (i = 0; i < wk.asts.len; ++i) {
+			wk.ast = bucket_arr_get(&wk.asts, i);
+			analyze_check_dead_code(&wk, wk.ast);
 		}
 	}
 

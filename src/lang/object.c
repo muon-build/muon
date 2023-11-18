@@ -1142,6 +1142,12 @@ obj_dict_index_strn(struct workspace *wk, obj dict, const char *str,
 }
 
 bool
+obj_dict_index_str(struct workspace *wk, obj dict, const char *str, obj *res)
+{
+	return obj_dict_index_strn(wk, dict, str, strlen(str), res);
+}
+
+bool
 obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res)
 {
 	const struct str *k = get_str(wk, key);

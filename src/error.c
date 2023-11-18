@@ -44,12 +44,15 @@ error_diagnostic_store_init(void)
 uint32_t
 error_diagnostic_store_push_src(struct source *src)
 {
+	if (!src) {
+		return 0;
+	}
+
 	uint32_t i;
 	struct error_diagnostic_source *s = NULL;
 	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
 		s = arr_get(&error_diagnostic_store.sources, i);
-		// TODO: this is not super robust, as it relies on chance that
-		// two sources don't get allocated at the same place
+		// TODO: this is not super robust
 		if (s->id == (uint64_t)src && strcmp(s->src.label, src->label) == 0) {
 			break;
 		} else {
@@ -313,13 +316,21 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 
 	log_plain("%s\n", msg);
 
+	bool destroy_source = false;
 	if (!src->len) {
-		return;
+		if (src->is_file) {
+			if (!fs_read_entire_file(src->label, src)) {
+				return;
+			}
+			destroy_source = true;
+		} else {
+			return;
+		}
 	}
 
 	uint32_t line_pre_len, i, sol;
 	if (!list_line_internal(src, line, &sol, &line_pre_len)) {
-		return;
+		goto ret;
 	}
 
 	for (i = 0; i < line_pre_len; ++i) {
@@ -328,7 +339,7 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 
 	if (sol + col >= src->len) {
 		log_plain("^\n");
-		return;
+		goto ret;
 	}
 
 	for (i = 0; i < col; ++i) {
@@ -339,6 +350,11 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 		}
 	}
 	log_plain("\n");
+
+ret:
+	if (destroy_source) {
+		fs_source_destroy(src);
+	}
 }
 
 void

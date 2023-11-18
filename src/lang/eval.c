@@ -115,6 +115,9 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	bool ret = false;
 	struct ast *ast = bucket_arr_push(&wk->asts, &(struct ast) { 0 });
+	if (wk->in_analyzer) {
+		ast->src_id = error_diagnostic_store_push_src(src);
+	}
 
 	struct source_data *sdata =
 		arr_get(&wk->source_data, arr_push(&wk->source_data, &(struct source_data) { 0 }));
@@ -147,10 +150,6 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	if (wk->subdir_done) {
 		wk->subdir_done = false;
-	}
-
-	if (wk->in_analyzer) {
-		analyze_check_dead_code(wk, ast);
 	}
 
 	wk->src = old_src;

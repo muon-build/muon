@@ -37,6 +37,7 @@
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
 #include "log.h"
+#include "platform/filesystem.h"
 #include "tracy.h"
 
 // When true, disable functions with the .fuzz_unsafe attribute set to true.
@@ -690,15 +691,16 @@ end:
 }
 
 bool
-func_obj_eval(struct workspace *wk, obj func_obj, uint32_t args_node, obj *res)
+func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args_node, obj *res)
 {
 	struct obj_func *f = get_obj_func(wk, func_obj);
-	L("evaling func obj %p", (void *)f);
 	bool ret = false;
+	bool pushed_module_scope = false;
 
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	analyze_function_opts = (struct analyze_function_opts) { 0 };
 	struct ast *old_ast = 0;
+	struct source *old_src = 0;
 
 	struct args_norm an[f->nargs + 1];
 	struct args_kw akw[f->nkwargs + 1];
@@ -734,19 +736,23 @@ func_obj_eval(struct workspace *wk, obj func_obj, uint32_t args_node, obj *res)
 
 	// push current interpreter state
 	old_ast = wk->ast;
+	old_src = wk->src;
+	struct source src = { .label = f->src, .is_file = true, };
+	wk->src = &src;
 	wk->ast = f->ast;
 	++wk->func_depth;
 
-	// setup current scope
-	if (wk->func_depth >= wk->local_scope.len) {
-		arr_grow_by(&wk->local_scope, 1);
-		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
-		hash_init_str(scope, 64);
-	} else {
-		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
-		hash_clear(scope);
+	// setup module scope
+	struct hash old_scope;
+	if (func_module) {
+		pushed_module_scope = true;
+		struct obj_module *m = get_obj_module(wk, func_module);
+		old_scope = current_project(wk)->scope;
+		current_project(wk)->scope = m->scope;
 	}
 
+	// setup current scope
+	wk->push_local_scope(wk);
 
 	{ // assign arg values
 		uint32_t i = 0;
@@ -778,10 +784,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, uint32_t args_node, obj *res)
 	obj _;
 	wk->returning = false;
 	wk->returned = 0;
-	L("func %p\n---", (void *)f);
 	ret = wk->interp_node(wk, f->block_id, &_);
-	L("end func %p\n---", (void *)f);
-	obj_fprintf(wk, log_file(), "returned %o\n", wk->returned);
 	*res = wk->returned;
 	wk->returning = false;
 
@@ -790,7 +793,13 @@ ret:
 	if (old_ast) {
 		// pop old interpreter state
 		wk->ast = old_ast;
+		wk->src = old_src;
 		--wk->func_depth;
+		wk->pop_local_scope(wk);
+	}
+
+	if (pushed_module_scope) {
+		current_project(wk)->scope = old_scope;
 	}
 
 	return ret;
@@ -899,14 +908,12 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	}
 
 	const struct func_impl_name *fi = 0;
-	obj func_obj = 0;
+	obj func_obj = 0, func_module = 0;
 	if (rcvr_type == obj_func) {
 		name = "<func>";
 	} else {
 		name = get_node(wk->ast, name_node)->dat.s;
 	}
-
-	L("running %s", func_name_str(have_rcvr, rcvr_type, name));
 
 	if (have_rcvr && rcvr_type == obj_module) {
 		struct obj_module *m = get_obj_module(wk, rcvr_id);
@@ -915,6 +922,14 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		if (!m->found && strcmp(name, "found") != 0) {
 			interp_error(wk, name_node, "invalid attempt to use not-found module");
 			return false;
+		}
+
+		if (m->exports) {
+			if (!obj_dict_index_str(wk, m->exports, name, &func_obj)) {
+				interp_error(wk, name_node, "%s not found in module", name);
+				return false;
+			}
+			func_module = rcvr_id;
 		} else if (!(fi = module_func_lookup(wk, name, mod))) {
 			if (!m->has_impl) {
 				interp_error(wk, name_node, "module '%s' is unimplemented,\n"
@@ -971,7 +986,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	if (fi) {
 		func_res = fi->func(wk, rcvr_id, args_node, res);
 	} else {
-		func_res = func_obj_eval(wk, func_obj, args_node, res);
+		func_res = func_obj_eval(wk, func_obj, func_module, args_node, res);
 	}
 
 	TracyCZoneEnd(tctx_func);

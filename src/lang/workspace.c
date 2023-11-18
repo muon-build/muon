@@ -36,6 +36,26 @@ get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 	}
 }
 
+static void
+push_local_scope(struct workspace *wk)
+{
+	assert(wk->func_depth);
+	if (wk->func_depth - 1 >= wk->local_scope.len) {
+		arr_grow_by(&wk->local_scope, 1);
+		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
+		*scope = (struct hash){ 0 };
+		hash_init_str(scope, 64);
+	} else {
+		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
+		hash_clear(scope);
+	}
+}
+
+static void
+pop_local_scope(struct workspace *wk)
+{
+}
+
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir)
@@ -86,6 +106,8 @@ workspace_init_bare(struct workspace *wk)
 		.interp_node = interp_node,
 		.assign_variable = assign_variable,
 		.unassign_variable = unassign_variable,
+		.push_local_scope = push_local_scope,
+		.pop_local_scope = pop_local_scope,
 		.get_variable = get_obj_id,
 		.eval_project_file = eval_project_file,
 	};
@@ -104,8 +126,6 @@ workspace_init_bare(struct workspace *wk)
 
 	bucket_arr_init(&wk->chrs, 4096, 1);
 	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
-	/* bucket_arr_init(&wk->inst, 1024, sizeof(struct node)); */
-	arr_init(&wk->local_scope, 4, sizeof(struct hash));
 
 	const struct {
 		uint32_t item_size;
@@ -173,6 +193,7 @@ workspace_init(struct workspace *wk)
 	arr_init(&wk->source_data, 4, sizeof(struct source_data));
 	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
 	hash_init_str(&wk->scope, 32);
+	arr_init(&wk->local_scope, 4, sizeof(struct hash));
 
 	make_obj(wk, &id, obj_meson);
 	hash_set_str(&wk->scope, "meson", id);
@@ -209,11 +230,19 @@ workspace_destroy_bare(struct workspace *wk)
 	bucket_arr_destroy(&wk->objs);
 
 	uint32_t i;
-	struct bucket_arr *str_ba = &wk->obj_aos[obj_string - _obj_aos_start];
-	for (i = 0; i < str_ba->len; ++i) {
-		struct str *s = bucket_arr_get(str_ba, i);
+	struct bucket_arr *ba = &wk->obj_aos[obj_string - _obj_aos_start];
+	for (i = 0; i < ba->len; ++i) {
+		struct str *s = bucket_arr_get(ba, i);
 		if (s->flags & str_flag_big) {
 			z_free((void *)s->s);
+		}
+	}
+
+	ba =  &wk->obj_aos[obj_module - _obj_aos_start];
+	for (i = 0; i < ba->len; ++i) {
+		struct obj_module *m = bucket_arr_get(ba, i);
+		if (m->exports) {
+			hash_destroy(&m->scope);
 		}
 	}
 

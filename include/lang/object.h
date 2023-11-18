@@ -14,6 +14,7 @@
 
 #include "compilers.h"
 #include "datastructures/bucket_arr.h"
+#include "datastructures/hash.h"
 #include "datastructures/iterator.h"
 #include "lang/types.h"
 
@@ -103,7 +104,8 @@ typedef uint64_t type_tag;
 #define tc_both_libs            (obj_typechecking_type_tag | (((type_tag)1) << 28))
 #define tc_source_set           (obj_typechecking_type_tag | (((type_tag)1) << 29))
 #define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
-#define tc_type_count         31
+#define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 31))
+#define tc_type_count         32
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
@@ -113,7 +115,7 @@ typedef uint64_t type_tag;
 			       | tc_install_target | tc_environment | tc_include_directory \
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
-			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration)
+			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration | tc_func)
 
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
 			       | tc_build_target | tc_custom_target | tc_both_libs)
@@ -219,6 +221,8 @@ struct obj_subproject {
 struct obj_module {
 	enum module module;
 	bool found, has_impl;
+	struct hash scope;
+	obj exports;
 };
 
 struct obj_array {
@@ -617,6 +621,7 @@ bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterat
 bool obj_dict_in(struct workspace *wk, obj dict, obj key);
 bool obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res);
 bool obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res);
+bool obj_dict_index_str(struct workspace *wk, obj dict, const char *str, obj *res);
 void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);
 void obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);

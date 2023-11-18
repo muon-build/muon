@@ -11,7 +11,7 @@
 /* for symlinkat() and fchmodat(), as _POSIX_C_SOURCE does not enable them
  * (yet)
  */
-#define __EXTENSIONS__
+	#define __EXTENSIONS__
 #endif
 
 #include <errno.h>
@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #ifndef _WIN32
-#include <unistd.h>
+	#include <unistd.h>
 #endif
 
 #include "buf_size.h"
