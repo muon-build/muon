@@ -47,7 +47,7 @@ func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
-const struct func_impl_name impl_tbl_number[] = {
+const struct func_impl impl_tbl_number[] = {
 	{ "to_string", func_number_to_string, tc_string },
 	{ "is_even", func_number_is_even, tc_bool },
 	{ "is_odd", func_number_is_odd, tc_bool },

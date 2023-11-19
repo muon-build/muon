@@ -516,7 +516,7 @@ func_string_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	return true;
 }
 
-const struct func_impl_name impl_tbl_string[] = {
+const struct func_impl impl_tbl_string[] = {
 	{ "contains", func_string_contains, tc_bool, true },
 	{ "endswith", func_string_endswith, tc_bool, true },
 	{ "format", func_format, tc_string, true },

@@ -539,7 +539,7 @@ func_meson_add_devenv(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-const struct func_impl_name impl_tbl_meson[] = {
+const struct func_impl impl_tbl_meson[] = {
 	{ "add_devenv", func_meson_add_devenv },
 	{ "add_dist_script", func_meson_add_dist_script },
 	{ "add_install_script", func_meson_add_install_script },

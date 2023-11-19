@@ -28,5 +28,5 @@ enum machine_system {
 enum machine_system machine_system(void);
 uint32_t machine_cpu_address_bits(void);
 
-extern const struct func_impl_name impl_tbl_machine[];
+extern const struct func_impl impl_tbl_machine[];
 #endif

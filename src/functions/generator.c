@@ -243,7 +243,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 	return true;
 }
 
-const struct func_impl_name impl_tbl_generator[] = {
+const struct func_impl impl_tbl_generator[] = {
 	{ "process", func_generator_process, tc_generated_list },
 	{ NULL, NULL },
 };

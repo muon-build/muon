@@ -20,5 +20,5 @@ typedef enum format_cb_result ((*string_format_cb)(struct workspace *wk, uint32_
 
 bool string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb);
 
-extern const struct func_impl_name impl_tbl_string[];
+extern const struct func_impl impl_tbl_string[];
 #endif

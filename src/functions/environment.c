@@ -174,7 +174,7 @@ func_environment_prepend(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	return func_environment_set_common(wk, rcvr, args_node, environment_set_mode_prepend);
 }
 
-const struct func_impl_name impl_tbl_environment[] = {
+const struct func_impl impl_tbl_environment[] = {
 	{ "set", func_environment_set },
 	{ "append", func_environment_append },
 	{ "prepend", func_environment_prepend },

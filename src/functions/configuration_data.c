@@ -207,7 +207,7 @@ func_configuration_data_merge_from(struct workspace *wk, obj rcvr, uint32_t args
 	return true;
 }
 
-const struct func_impl_name impl_tbl_configuration_data[] = {
+const struct func_impl impl_tbl_configuration_data[] = {
 	{ "get", func_configuration_data_get, tc_any },
 	{ "get_unquoted", func_configuration_data_get_unquoted, tc_any },
 	{ "has", func_configuration_data_has, tc_bool },

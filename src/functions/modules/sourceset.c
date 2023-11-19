@@ -20,7 +20,7 @@ func_module_sourceset_source_set(struct workspace *wk, obj rcvr, uint32_t args_n
 	return true;
 }
 
-const struct func_impl_name impl_tbl_module_sourceset[] = {
+const struct func_impl impl_tbl_module_sourceset[] = {
 	{ "source_set", func_module_sourceset_source_set, tc_source_set, },
 	{ NULL, NULL },
 };

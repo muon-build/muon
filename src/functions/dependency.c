@@ -360,7 +360,7 @@ func_dependency_include_type(struct workspace *wk, obj rcvr, uint32_t args_node,
 	return true;
 }
 
-const struct func_impl_name impl_tbl_dependency[] = {
+const struct func_impl impl_tbl_dependency[] = {
 	{ "as_system", func_dependency_as_system, tc_dependency },
 	{ "found", func_dependency_found, tc_bool },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable, tc_string },

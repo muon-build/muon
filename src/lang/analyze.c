@@ -140,7 +140,7 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 struct analyze_ctx {
 	type_tag expected;
 	type_tag found;
-	const struct func_impl_name *found_func;
+	const struct func_impl *found_func;
 	obj found_func_obj, found_func_module;
 	struct obj_typeinfo ti;
 	enum comparison_type comparison_type;
@@ -597,7 +597,7 @@ analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, o
 }
 
 static bool
-analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl_name *fi, obj rcvr, obj *res)
+analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl *fi, obj rcvr, obj *res)
 {
 	bool ret = true;
 	obj func_res;
@@ -657,7 +657,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 	mark_node_visited(get_node(wk->ast, n->r));
 
 	obj func_obj = 0, func_module = 0;
-	const struct func_impl_name *fi = 0;
+	const struct func_impl *fi = 0;
 
 	if (rcvr_type == obj_module
 	    && get_obj_type(wk, ctx->l) == obj_module
@@ -676,7 +676,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 			}
 		}
 	} else {
-		const struct func_impl_name *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+		const struct func_impl *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
 
 		if (!impl_tbl) {
 			return;
@@ -755,7 +755,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 		}
 	}
 
-	const struct func_impl_name *fi = 0;
+	const struct func_impl *fi = 0;
 	if (name) {
 		fi = func_lookup(kernel_func_tbl[wk->lang_mode], name);
 	} else {

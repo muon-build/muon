@@ -365,7 +365,7 @@ func_source_set_apply(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
-const struct func_impl_name impl_tbl_source_set[] = {
+const struct func_impl impl_tbl_source_set[] = {
 	{ "add", func_source_set_add, 0, true },
 	{ "add_all", func_source_set_add_all, 0, true },
 	{ "all_sources", func_source_set_all_sources, tc_array, true },

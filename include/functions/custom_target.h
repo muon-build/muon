@@ -9,5 +9,5 @@
 
 bool custom_target_is_linkable(struct workspace *wk, obj ct);
 
-extern const struct func_impl_name impl_tbl_custom_target[];
+extern const struct func_impl impl_tbl_custom_target[];
 #endif

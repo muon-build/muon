@@ -32,7 +32,7 @@ func_source_configuration_dependencies(struct workspace *wk, obj rcvr, uint32_t 
 	return true;
 }
 
-const struct func_impl_name impl_tbl_source_configuration[] = {
+const struct func_impl impl_tbl_source_configuration[] = {
 	{ "sources", func_source_configuration_sources, tc_array, true },
 	{ "dependencies", func_source_configuration_dependencies, tc_array, true },
 	{ NULL, NULL },

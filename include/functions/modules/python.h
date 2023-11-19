@@ -8,8 +8,8 @@
 #include "functions/common.h"
 
 void python_build_impl_tbl(void);
-extern const struct func_impl_name impl_tbl_module_python[];
-extern const struct func_impl_name impl_tbl_module_python3[];
+extern const struct func_impl impl_tbl_module_python[];
+extern const struct func_impl impl_tbl_module_python3[];
 
-extern struct func_impl_name impl_tbl_python_installation[];
+extern struct func_impl impl_tbl_python_installation[];
 #endif

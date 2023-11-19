@@ -9,5 +9,5 @@
 
 bool file_is_linkable(struct workspace *wk, obj file);
 
-extern const struct func_impl_name impl_tbl_file[];
+extern const struct func_impl impl_tbl_file[];
 #endif

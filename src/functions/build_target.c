@@ -299,7 +299,7 @@ func_build_target_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	return true;
 }
 
-const struct func_impl_name impl_tbl_build_target[] = {
+const struct func_impl impl_tbl_build_target[] = {
 	{ "extract_all_objects", func_build_target_extract_all_objects, tc_array },
 	{ "extract_objects", func_build_target_extract_objects, tc_array },
 	{ "found", func_build_target_found, tc_bool },

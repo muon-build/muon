@@ -54,7 +54,7 @@ func_custom_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node,
 	return true;
 }
 
-const struct func_impl_name impl_tbl_custom_target[] = {
+const struct func_impl impl_tbl_custom_target[] = {
 	{ "full_path", func_custom_target_full_path, tc_string },
 	{ "to_list", func_custom_target_to_list, tc_array },
 	{ NULL, NULL },

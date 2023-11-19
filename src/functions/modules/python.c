@@ -368,23 +368,23 @@ python_build_impl_tbl(void)
 {
 	uint32_t i;
 	for (i = 0; impl_tbl_external_program[i].name; ++i) {
-		struct func_impl_name tmp = impl_tbl_external_program[i];
+		struct func_impl tmp = impl_tbl_external_program[i];
 		tmp.rcvr_transform = python_rcvr_transform;
 		impl_tbl_python_installation[i] = tmp;
 	}
 }
 
-const struct func_impl_name impl_tbl_module_python[] = {
+const struct func_impl impl_tbl_module_python[] = {
 	{ "find_installation", func_module_python_find_installation, tc_python_installation },
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_module_python3[] = {
+const struct func_impl impl_tbl_module_python3[] = {
 	{ "find_python", func_module_python3_find_python, tc_external_program },
 	{ NULL, NULL },
 };
 
-struct func_impl_name impl_tbl_python_installation[] = {
+struct func_impl impl_tbl_python_installation[] = {
 	[ARRAY_LEN(impl_tbl_external_program) - 1] =
 	{ "get_path", func_python_installation_get_path, tc_string },
 	{ "get_variable", func_python_installation_get_var, tc_string },

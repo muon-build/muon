@@ -89,7 +89,7 @@ func_run_result_compiled(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	return true;
 }
 
-const struct func_impl_name impl_tbl_run_result[] = {
+const struct func_impl impl_tbl_run_result[] = {
 	{ "compiled", func_run_result_compiled, tc_bool },
 	{ "returncode", func_run_result_returncode, tc_number },
 	{ "stderr", func_run_result_stderr, tc_string },

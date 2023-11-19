@@ -2012,7 +2012,7 @@ ret:
 	return ret;
 }
 
-const struct func_impl_name impl_tbl_kernel[] =
+const struct func_impl impl_tbl_kernel[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
 	{ "add_global_link_arguments", func_add_global_link_arguments },
@@ -2076,7 +2076,7 @@ const struct func_impl_name impl_tbl_kernel[] =
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_kernel_internal[] = {
+const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "assert", func_assert },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },
 	{ "disabler", func_disabler, tc_disabler },
@@ -2104,7 +2104,7 @@ const struct func_impl_name impl_tbl_kernel_internal[] = {
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_kernel_opts[] = {
+const struct func_impl impl_tbl_kernel_opts[] = {
 	{ "option", func_option, 0, true },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },

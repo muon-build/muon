@@ -341,7 +341,7 @@ func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-const struct func_impl_name impl_tbl_machine[] = {
+const struct func_impl impl_tbl_machine[] = {
 	{ "cpu", func_machine_cpu, tc_string },
 	{ "cpu_family", func_machine_cpu_family, tc_string },
 	{ "endian", func_machine_endian, tc_string },

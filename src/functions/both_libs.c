@@ -46,13 +46,13 @@ both_libs_build_impl_tbl(void)
 {
 	uint32_t i;
 	for (i = 0; impl_tbl_build_target[i].name; ++i) {
-		struct func_impl_name tmp = impl_tbl_build_target[i];
+		struct func_impl tmp = impl_tbl_build_target[i];
 		tmp.rcvr_transform = both_libs_rcvr_transform;
 		impl_tbl_both_libs[i] = tmp;
 	}
 }
 
-struct func_impl_name impl_tbl_both_libs[] = {
+struct func_impl impl_tbl_both_libs[] = {
 	[ARRAY_LEN(impl_tbl_build_target) - 1] =
 	{ "get_shared_lib", func_both_libs_get_shared_lib, tc_build_target },
 	{ "get_static_lib", func_both_libs_get_static_lib, tc_build_target },

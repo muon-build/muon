@@ -69,7 +69,7 @@ ret:
 	return ret;
 }
 
-const struct func_impl_name impl_tbl_module_keyval[] = {
+const struct func_impl impl_tbl_module_keyval[] = {
 	{ "load", func_module_keyval_load, tc_dict, },
 	{ NULL, NULL },
 };

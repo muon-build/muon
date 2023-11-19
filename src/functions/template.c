@@ -15,7 +15,7 @@ func_(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 }
 
-const struct func_impl_name impl_tbl_xxx[] = {
+const struct func_impl impl_tbl_xxx[] = {
 	{ "", func_ },
 	{ NULL, NULL },
 };

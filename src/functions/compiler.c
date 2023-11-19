@@ -2246,7 +2246,7 @@ func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
-const struct func_impl_name impl_tbl_compiler[] = {
+const struct func_impl impl_tbl_compiler[] = {
 	{ "alignment", func_compiler_alignment, tc_number },
 	{ "check_header", func_compiler_check_header, tc_bool },
 	{ "cmd_array", func_compiler_cmd_array, tc_array },

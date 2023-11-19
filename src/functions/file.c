@@ -39,7 +39,7 @@ func_file_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	return true;
 }
 
-const struct func_impl_name impl_tbl_file[] = {
+const struct func_impl impl_tbl_file[] = {
 	{ "full_path", func_file_full_path, tc_string },
 	{ NULL, NULL },
 };

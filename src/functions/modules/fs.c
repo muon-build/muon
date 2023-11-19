@@ -467,7 +467,7 @@ func_module_fs_copyfile(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	return true;
 }
 
-const struct func_impl_name impl_tbl_module_fs[] = {
+const struct func_impl impl_tbl_module_fs[] = {
 	{ "as_posix", func_module_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile, tc_custom_target },
 	{ "exists", func_module_fs_exists, tc_bool },
@@ -661,7 +661,7 @@ func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	return true;
 }
 
-const struct func_impl_name impl_tbl_module_fs_internal[] = {
+const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile, },
 	{ "exists", func_module_fs_exists, tc_bool },

@@ -105,14 +105,14 @@ func_array_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-const struct func_impl_name impl_tbl_array[] = {
+const struct func_impl impl_tbl_array[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
 	{ "contains", func_array_contains, tc_bool, true },
 	{ NULL, NULL },
 };
 
-const struct func_impl_name impl_tbl_array_internal[] = {
+const struct func_impl impl_tbl_array_internal[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
 	{ "contains", func_array_contains, tc_bool, true },

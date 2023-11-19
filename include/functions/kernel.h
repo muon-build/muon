@@ -13,7 +13,7 @@ struct range_params {
 
 bool func_range_common(struct workspace *wk, uint32_t args_node, struct range_params *res);
 
-extern const struct func_impl_name impl_tbl_kernel[];
-extern const struct func_impl_name impl_tbl_kernel_internal[];
-extern const struct func_impl_name impl_tbl_kernel_opts[];
+extern const struct func_impl impl_tbl_kernel[];
+extern const struct func_impl impl_tbl_kernel_internal[];
+extern const struct func_impl impl_tbl_kernel_opts[];
 #endif

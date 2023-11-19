@@ -208,7 +208,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	return true;
 }
 
-const struct func_impl_name impl_tbl_feature_opt[] = {
+const struct func_impl impl_tbl_feature_opt[] = {
 	{ "allowed", func_feature_opt_allowed, tc_bool, true },
 	{ "auto", func_feature_opt_auto, tc_bool, true },
 	{ "disable_auto_if", func_feature_opt_disable_auto_if, tc_feature_opt, true },

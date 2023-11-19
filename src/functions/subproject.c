@@ -62,7 +62,7 @@ func_subproject_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	return true;
 }
 
-const struct func_impl_name impl_tbl_subproject[] = {
+const struct func_impl impl_tbl_subproject[] = {
 	{ "found", func_subproject_found, tc_bool },
 	{ "get_variable", func_subproject_get_variable, tc_any },
 	{ NULL, NULL },

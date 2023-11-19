@@ -118,7 +118,7 @@ struct function_signature {
 		   *returns;
 	bool is_method;
 
-	const struct func_impl_name *impl;
+	const struct func_impl *impl;
 };
 
 struct {
@@ -805,13 +805,13 @@ ret:
 	return ret;
 }
 
-const struct func_impl_name *kernel_func_tbl[language_mode_count] = {
+const struct func_impl *kernel_func_tbl[language_mode_count] = {
 	impl_tbl_kernel,
 	impl_tbl_kernel_internal,
 	impl_tbl_kernel_opts,
 };
 
-const struct func_impl_name *func_tbl[obj_type_count][language_mode_count] = {
+const struct func_impl *func_tbl[obj_type_count][language_mode_count] = {
 	[obj_meson] = { impl_tbl_meson, },
 	[obj_subproject] = { impl_tbl_subproject },
 	[obj_number] = { impl_tbl_number, impl_tbl_number, },
@@ -846,8 +846,8 @@ build_func_impl_tables(void)
 	python_build_impl_tbl();
 }
 
-const struct func_impl_name *
-func_lookup(const struct func_impl_name *impl_tbl, const char *name)
+const struct func_impl *
+func_lookup(const struct func_impl *impl_tbl, const char *name)
 {
 	uint32_t i;
 	for (i = 0; impl_tbl[i].name; ++i) {
@@ -884,7 +884,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	enum obj_type rcvr_type = 0;
 	uint32_t args_node, name_node = 0;
 	struct node *n = get_node(wk->ast, node_id);
-	const struct func_impl_name *impl_tbl = 0;
+	const struct func_impl *impl_tbl = 0;
 
 	if (have_rcvr && !rcvr_id) {
 		interp_error(wk, n->r, "tried to call function on null");
@@ -907,7 +907,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		impl_tbl = kernel_func_tbl[wk->lang_mode];
 	}
 
-	const struct func_impl_name *fi = 0;
+	const struct func_impl *fi = 0;
 	obj func_obj = 0, func_module = 0;
 	if (rcvr_type == obj_func) {
 		name = "<func>";
@@ -1005,7 +1005,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 }
 
 bool
-analyze_function(struct workspace *wk, const struct func_impl_name *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure)
+analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure)
 {
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	*res = 0;
