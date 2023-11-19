@@ -583,6 +583,20 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 }
 
 static bool
+analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, obj func_obj, obj func_module, obj *res)
+{
+	bool ret = true;
+	bool old_analyze_error = analyze_error;
+	analyze_error = false;
+	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyze_error) {
+		interp_error(wk, n_id, "in function");
+		ret = false;
+	}
+	analyze_error = old_analyze_error;
+	return ret;
+}
+
+static bool
 analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl_name *fi, obj rcvr, obj *res)
 {
 	bool ret = true;
@@ -764,13 +778,9 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 			ret = false;
 		}
 	} else if (l_id && get_obj_type(wk, l_id) != obj_typeinfo) {
-		bool old_analyze_error = analyze_error;
-		analyze_error = false;
-		if (!func_obj_eval(wk, l_id, 0, n->r, &tmp) || analyze_error) {
-			interp_error(wk, n_id, "in function");
+		if (!analyze_func_obj_call(wk, n_id, n->r, l_id, 0, &tmp)) {
 			ret = false;
 		}
-		analyze_error = old_analyze_error;
 	}
 
 	if (n->chflg & node_child_d) {
@@ -801,13 +811,9 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 					ret = false;
 				}
 			} else {
-				bool old_analyze_error = analyze_error;
-				analyze_error = false;
-				if (!func_obj_eval(wk, ctx.found_func_obj, ctx.found_func_module, n->c, &tmp) || analyze_error) {
-					interp_error(wk, n_id, "in function");
+				if (!analyze_func_obj_call(wk, n_id, n->c, ctx.found_func_obj, ctx.found_func_module, &tmp)) {
 					ret = false;
 				}
-				analyze_error = old_analyze_error;
 			}
 		} else if (ctx.found) {
 			analyze_all_function_arguments(wk, n_id, n->c);
