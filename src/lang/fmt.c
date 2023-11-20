@@ -705,6 +705,12 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_write(ctx, pfst, ']');
 		tail_id = n_id;
 		break;
+	case node_function:
+		fst.arg_container = "()";
+		fst.parent = n->l;
+		len += fmt_arg_container(ctx, &fst, n->r);
+		tail_id = n_id;
+		break;
 	default:
 		UNREACHABLE_RETURN;
 	}
@@ -832,12 +838,15 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	case node_break:
 		len += fmt_writes(ctx, &fst, "break");
 		break;
+	case node_return:
+		len += fmt_writes(ctx, &fst, "return ");
+		len += fmt_node(ctx, &fst, n->l);
+		break;
 
 	/* functions */
 	case node_function:
 		len += fmt_check(ctx, &fst, fmt_function, n_id);
 		break;
-
 	case node_method:
 		len += fmt_node(ctx, &fst, n->l);
 		return len + fmt_chain(ctx, pfst, n_id);
@@ -845,6 +854,24 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		assert(n->chflg & node_child_l);
 		len += fmt_node(ctx, &fst, n->l);
 		return len + fmt_chain(ctx, pfst, n_id);
+	case node_func_def: {
+		fmt_writes(ctx, &fst, "func");
+
+		struct node *block = get_node(ctx->ast, n->c);
+		if (block->type == node_empty) {
+			fmt_comments(ctx, pfst, n->c, true);
+			fmt_newline_force(ctx, &fst, n->r);
+		} else {
+			fmt_begin_block(ctx);
+			fmt_newline_force(ctx, &fst, n->c);
+			fmt_node(ctx, &fst, n->c);
+			fmt_end_block(ctx);
+			fmt_newline_force(ctx, &fst, 0);
+		}
+
+		fmt_writes(ctx, &fst, "endfunc");
+		break;
+	}
 
 	/* assignment */
 	case node_assignment:
@@ -1081,7 +1108,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		}
 	}
 
-	if (!parser_parse(NULL, &ast, &sdata, src, pm_keep_formatting | pm_ignore_statement_with_no_effect)) {
+	if (!parser_parse(NULL, &ast, &sdata, src, pm_keep_formatting | pm_ignore_statement_with_no_effect | pm_functions)) {
 		goto ret;
 	}
 
