@@ -1579,7 +1579,9 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	bool found = false;
 
-	if (requirement != requirement_skip) {
+	if (requirement == requirement_skip) {
+		make_obj(wk, res, obj_module);
+	} else {
 		if (module_lookup(wk, get_cstr(wk, an[0].val), res)) {
 			found = true;
 		} else if (requirement == requirement_required) {
