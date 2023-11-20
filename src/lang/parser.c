@@ -113,10 +113,11 @@ get_next_tok(struct parser *p)
 }
 
 static void
-accept_comment(struct parser *p)
+accept_comment_for(struct parser *p, uint32_t id)
 {
 	if (p->last->type == tok_comment) {
-		struct node *n = arr_get(&p->ast->nodes, p->ast->nodes.len - 1);
+		struct node *n = arr_get(&p->ast->nodes, id);
+		L("adding comment to %s:%d", node_to_s(n), id);
 
 		if (!n->comments.len) {
 			n->comments.start = p->ast->comments.len;
@@ -126,6 +127,12 @@ accept_comment(struct parser *p)
 		++n->comments.len;
 		get_next_tok(p);
 	}
+}
+
+static void
+accept_comment(struct parser *p)
+{
+	accept_comment_for(p, p->ast->nodes.len - 1);
 }
 
 static bool
@@ -243,7 +250,11 @@ print_ast_at(struct node *nodes, uint32_t id, uint32_t d, char label)
 		printf("  ");
 	}
 
-	printf("%d:%c:%s\n", id, label, node_to_s(n));
+	printf("%d:%c:%s", id, label, node_to_s(n));
+	if (n->comments.len) {
+		printf("#%d", n->comments.len);
+	}
+	printf("\n");
 
 	static const char *child_labels = "lrcd";
 
@@ -366,8 +377,8 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 {
 	uint32_t s_id, c_id, v_id;
 	enum arg_type at = arg_normal;
-	struct node *n;
 	make_node(p, id, node_argument);
+	struct node *n;
 
 	if ((p->mode & pm_keep_formatting) && (p->last->type == tok_comment || p->last->type == tok_fmt_eol)) {
 		make_node(p, &s_id, node_empty_line);
@@ -675,8 +686,6 @@ parse_e8(struct parser *p, uint32_t *id)
 		} else {
 			*id = v;
 		}
-
-		return true;
 	} else if (accept(p, tok_lbrack)) {
 		make_node(p, id, node_array);
 
@@ -689,6 +698,7 @@ parse_e8(struct parser *p, uint32_t *id)
 		}
 
 		add_child(p, *id, node_child_l, v);
+		accept_comment_for(p, v);
 	} else if (accept(p, tok_lcurl)) {
 		make_node(p, id, node_dict);
 
@@ -701,6 +711,7 @@ parse_e8(struct parser *p, uint32_t *id)
 		}
 
 		add_child(p, *id, node_child_l, v);
+		accept_comment_for(p, v);
 	} else {
 		return parse_e9(p, id);
 	}
@@ -712,6 +723,8 @@ static bool
 parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 {
 	bool loop = false, l_empty = have_l && get_node(p->ast, l_id)->type == node_empty;
+
+	*id = 0;
 
 	if (accept(p, tok_dot)) {
 		if (l_empty) {
@@ -744,6 +757,7 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 		loop = true;
 
 		p->caused_effect = true;
+
 		make_node(p, id, node_function);
 
 		obj args;
@@ -757,6 +771,10 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 			add_child(p, *id, node_child_l, l_id);
 		}
 		add_child(p, *id, node_child_r, args);
+	}
+
+	if (*id) {
+		accept_comment_for(p, *id);
 	}
 
 	if (loop) {
@@ -1438,6 +1456,8 @@ parse_block(struct parser *p, uint32_t *id)
 	uint32_t l_id, r_id;
 	bool loop = true, have_eol = true, have_r = false;
 
+	make_node(p, id, node_block);
+
 	while (loop) {
 		if (parse_line(p, &l_id)) {
 			if (get_node(p->ast, l_id)->type != node_empty) {
@@ -1472,7 +1492,6 @@ parse_block(struct parser *p, uint32_t *id)
 		return true;
 	}
 
-	make_node(p, id, node_block);
 	add_child(p, *id, node_child_l, l_id);
 	if (have_r) {
 		add_child(p, *id, node_child_r, r_id);

@@ -522,12 +522,13 @@ fmt_function_common(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t 
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
 
 	uint32_t len = 0;
-	const char *name = get_node(ctx->ast, n_name)->dat.s;
-
-	len += fmt_writes(ctx, &fst, name);
+	if (n_name) {
+		const char *name = get_node(ctx->ast, n_name)->dat.s;
+		len += fmt_writes(ctx, &fst, name);
+		fst.parent = n_name;
+	}
 
 	fst.arg_container = "()";
-	fst.parent = n_name;
 	len += fmt_arg_container(ctx, &fst, n_args);
 	return len;
 }
@@ -556,12 +557,7 @@ fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		fst.special_fmt |= special_fmt_sort_files;
 	}
 
-	len += fmt_function_common(ctx, &fst, f->l, f->r);
-
-	if (f->chflg & node_child_d) {
-		len += fmt_chain(ctx, &fst, f->d);
-	}
-
+	len += fmt_function_common(ctx, &fst, 0, f->r);
 	return len;
 }
 
@@ -595,6 +591,7 @@ fmt_node_wrapped(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_i
 	case node_paren:
 	case node_string:
 	case node_number:
+	case node_func_def:
 		node_needs_paren = false;
 		break;
 	default:
@@ -688,14 +685,13 @@ static uint32_t
 fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 {
 	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	uint32_t len = 0, tail_id;
+	uint32_t len = 0;
 	struct node *n = get_node(ctx->ast, n_id);
 
 	switch (n->type) {
 	case node_method:
 		len += fmt_write(ctx, pfst, '.');
 		len += fmt_check(ctx, &fst, fmt_method, n_id);
-		tail_id = n->c;
 		break;
 	case node_index:
 		len += fmt_write(ctx, pfst, '[');
@@ -703,13 +699,9 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_check(ctx, &fst, fmt_node, n->r);
 		--ctx->enclosed;
 		len += fmt_write(ctx, pfst, ']');
-		tail_id = n_id;
 		break;
 	case node_function:
-		fst.arg_container = "()";
-		fst.parent = n->l;
-		len += fmt_arg_container(ctx, &fst, n->r);
-		tail_id = n_id;
+		len += fmt_check(ctx, &fst, fmt_function, n_id);
 		break;
 	default:
 		UNREACHABLE_RETURN;
@@ -718,7 +710,7 @@ fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 	if (n->chflg & node_child_d) {
 		len += fmt_chain(ctx, pfst, n->d);
 	} else {
-		len += fmt_tail(ctx, pfst, tail_id);
+		len += fmt_tail(ctx, pfst, n_id);
 	}
 	return len;
 }
@@ -845,17 +837,15 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	/* functions */
 	case node_function:
-		len += fmt_check(ctx, &fst, fmt_function, n_id);
-		break;
 	case node_method:
-		len += fmt_node(ctx, &fst, n->l);
-		return len + fmt_chain(ctx, pfst, n_id);
 	case node_index:
-		assert(n->chflg & node_child_l);
 		len += fmt_node(ctx, &fst, n->l);
 		return len + fmt_chain(ctx, pfst, n_id);
 	case node_func_def: {
 		fmt_writes(ctx, &fst, "func");
+
+		fst.arg_container = "()";
+		len += fmt_arg_container(ctx, &fst, n->r);
 
 		struct node *block = get_node(ctx->ast, n->c);
 		if (block->type == node_empty) {
