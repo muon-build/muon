@@ -41,7 +41,7 @@ extern bool disabler_among_args_immunity, disable_fuzz_unsafe_functions;
 
 void build_func_impl_tables(void);
 
-const struct func_impl *func_lookup(const struct func_impl *impl_tbl, const char *name);
+const struct func_impl *func_lookup(const struct func_impl **impl_tbl, enum language_mode mode, const char *name);
 
 bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],

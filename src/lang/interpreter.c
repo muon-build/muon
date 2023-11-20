@@ -327,7 +327,7 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 		// XXX: This is a hack to simulate looking up function objects
 		// for builtins
 		struct node *l = get_node(wk->ast, n->l);
-		if (l->type == node_id && func_lookup(kernel_func_tbl[wk->lang_mode], l->dat.s)) {
+		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, l->dat.s)) {
 			have_rcvr = false;
 			l_id = 0;
 		} else {

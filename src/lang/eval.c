@@ -126,7 +126,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	if (mode == eval_mode_repl) {
 		parse_mode |= pm_ignore_statement_with_no_effect;
 	}
-	if (wk->lang_mode == language_internal) {
+	if (wk->lang_mode == language_internal || wk->lang_mode == language_extended) {
 		parse_mode |= pm_functions;
 	}
 

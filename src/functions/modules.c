@@ -87,7 +87,7 @@ module_lookup(struct workspace *wk, const char *name, obj *res)
 
 	bool ret = false;
 	enum language_mode old_language_mode = wk->lang_mode;
-	wk->lang_mode = language_internal;
+	wk->lang_mode = language_extended;
 	struct hash old_scope = current_project(wk)->scope, scope = { 0 };
 	hash_init_str(&scope, 64);
 	current_project(wk)->scope = scope;
@@ -145,12 +145,8 @@ module_func_lookup(struct workspace *wk, const char *name, enum module mod)
 		return &impl_tbl_module[0];
 	}
 
-	if (!module_func_tbl[mod][wk->lang_mode]) {
-		return NULL;
-	}
-
 	const struct func_impl *fi;
-	if (!(fi = func_lookup(module_func_tbl[mod][wk->lang_mode], name))) {
+	if (!(fi = func_lookup(module_func_tbl[mod], wk->lang_mode, name))) {
 		return NULL;
 	}
 

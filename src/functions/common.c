@@ -846,14 +846,35 @@ build_func_impl_tables(void)
 	python_build_impl_tbl();
 }
 
-const struct func_impl *
-func_lookup(const struct func_impl *impl_tbl, const char *name)
+static const struct func_impl *
+func_lookup_for_mode(const struct func_impl *impl_tbl, const char *name)
 {
+	if (!impl_tbl) {
+		return NULL;
+	}
+
 	uint32_t i;
 	for (i = 0; impl_tbl[i].name; ++i) {
 		if (strcmp(impl_tbl[i].name, name) == 0) {
 			return &impl_tbl[i];
 		}
+	}
+
+	return NULL;
+}
+
+const struct func_impl *
+func_lookup(const struct func_impl **impl_tbl, enum language_mode mode, const char *name)
+{
+	if (mode == language_extended) {
+		const struct func_impl *r;
+		if ((r = func_lookup_for_mode(impl_tbl[language_internal], name))) {
+			return r;
+		}
+
+		return func_lookup_for_mode(impl_tbl[language_external], name);
+	} else {
+		return func_lookup_for_mode(impl_tbl[mode], name);
 	}
 
 	return NULL;
@@ -884,7 +905,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	enum obj_type rcvr_type = 0;
 	uint32_t args_node, name_node = 0;
 	struct node *n = get_node(wk->ast, node_id);
-	const struct func_impl *impl_tbl = 0;
+	const struct func_impl **impl_tbl = 0;
 
 	if (have_rcvr && !rcvr_id) {
 		interp_error(wk, n->r, "tried to call function on null");
@@ -898,13 +919,13 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 		} else {
 			name_node = n->r;
 			args_node = n->c;
-			impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+			impl_tbl = func_tbl[rcvr_type];
 		}
 	} else {
 		assert(n->chflg & node_child_l);
 		name_node = n->l;
 		args_node = n->r;
-		impl_tbl = kernel_func_tbl[wk->lang_mode];
+		impl_tbl = kernel_func_tbl;
 	}
 
 	const struct func_impl *fi = 0;
@@ -953,7 +974,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 			return false;
 		}
 
-		fi = func_lookup(impl_tbl, name);
+		fi = func_lookup(impl_tbl, wk->lang_mode, name);
 
 		if (!fi) {
 			if (rcvr_type == obj_disabler) {

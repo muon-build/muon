@@ -21,6 +21,8 @@ enum language_mode {
 	language_internal,
 	language_opts,
 	language_mode_count,
+
+	language_extended,
 };
 
 enum eval_mode {

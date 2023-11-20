@@ -676,13 +676,13 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 			}
 		}
 	} else {
-		const struct func_impl *impl_tbl = func_tbl[rcvr_type][wk->lang_mode];
+		const struct func_impl **impl_tbl = func_tbl[rcvr_type];
 
 		if (!impl_tbl) {
 			return;
 		}
 
-		if (!(fi = func_lookup(impl_tbl, name))) {
+		if (!(fi = func_lookup(impl_tbl, wk->lang_mode, name))) {
 			return;
 		}
 	}
@@ -744,7 +744,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 	const char *name = 0;
 	if (!chained) {
 		struct node *l = get_node(wk->ast, n->l);
-		if (l->type == node_id && func_lookup(kernel_func_tbl[wk->lang_mode], l->dat.s)) {
+		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, l->dat.s)) {
 			name = l->dat.s;
 			mark_node_visited(get_node(wk->ast, n->l));
 		} else {
@@ -757,7 +757,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 
 	const struct func_impl *fi = 0;
 	if (name) {
-		fi = func_lookup(kernel_func_tbl[wk->lang_mode], name);
+		fi = func_lookup(kernel_func_tbl, wk->lang_mode, name);
 	} else {
 		if (!typecheck(wk, n->l, l_id, obj_func)) {
 			l_id = 0;
