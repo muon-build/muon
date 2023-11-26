@@ -14,11 +14,11 @@ function! ale_linters#meson#muon#GetCommand(buffer) abort
 	let l:cmd = ale#Escape(l:executable)
 	let l:args = 'analyze -l'
 
-	" if match(l:file, '\.meson$') != -1
-	" 	let l:args = l:args . 'i-'
-	" else
+	if match(l:file, '\.meson$') != -1
+		let l:args = l:args . 'i-'
+	else
 		let l:args = l:args . 'O' . ale#Escape(l:file)
-	" endif
+	endif
 
 	return l:cmd . ' ' . l:args
 endfunction
