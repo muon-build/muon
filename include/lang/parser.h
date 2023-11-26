@@ -126,5 +126,4 @@ uint32_t *get_node_child(struct node *n, uint32_t c);
 const char *node_to_s(struct node *n);
 const char *node_type_to_s(enum node_type t);
 void ast_destroy(struct ast *ast);
-void ast_span(struct ast *ast, uint32_t c, uint32_t *s, uint32_t *e);
 #endif // MUON_PARSER_H

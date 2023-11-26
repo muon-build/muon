@@ -112,6 +112,10 @@ lex_error(struct lexer *l, const char *fmt, ...)
 const char *
 tok_to_s(struct token *token)
 {
+	if (!token) {
+		return "<null>";
+	}
+
 	static char buf[BUF_SIZE_S + 1];
 	uint32_t i;
 

@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "embedded.h"
 #include "functions/common.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
@@ -68,7 +69,43 @@ module_lookup(struct workspace *wk, const char *name, obj *res)
 	make_obj(wk, res, obj_module);
 	struct obj_module *m = get_obj_module(wk, *res);
 
-	{
+
+
+	SBUF(module_src);
+	sbuf_pushf(wk, &module_src, "modules/%s.meson", name);
+
+	// script modules
+	struct source src = { .label = module_src.buf };
+	if ((src.src = embedded_get(module_src.buf))) {
+		src.len = strlen(src.src);
+
+		bool ret = false;
+		enum language_mode old_language_mode = wk->lang_mode;
+		wk->lang_mode = language_extended;
+		struct hash old_scope = current_project(wk)->scope, scope = { 0 };
+		hash_init_str(&scope, 64);
+		current_project(wk)->scope = scope;
+
+		obj res;
+		if (!eval(wk, &src, eval_mode_default, &res)) {
+			goto ret;
+		}
+
+		if (!wk->module_exports) {
+			interp_error(wk, 0, "%s did call export()", name);
+			goto ret;
+		}
+
+		m->found = true;
+		m->has_impl = true;
+		m->exports = wk->module_exports;
+		m->scope = scope;
+		ret = true;
+ret:
+		current_project(wk)->scope = old_scope;
+		wk->lang_mode = old_language_mode;
+		return ret;
+	} else {
 		enum module mod_type;
 		bool has_impl = false;
 		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
@@ -77,39 +114,9 @@ module_lookup(struct workspace *wk, const char *name, obj *res)
 			m->has_impl = has_impl;
 			return true;
 		}
-	}
 
-	// script modules
-
-	if (!fs_file_exists(name)) {
 		return false;
 	}
-
-	bool ret = false;
-	enum language_mode old_language_mode = wk->lang_mode;
-	wk->lang_mode = language_extended;
-	struct hash old_scope = current_project(wk)->scope, scope = { 0 };
-	hash_init_str(&scope, 64);
-	current_project(wk)->scope = scope;
-
-	if (!eval_project_file(wk, name, false)) {
-		goto ret;
-	}
-
-	if (!wk->module_exports) {
-		interp_error(wk, 0, "%s did call export()", name);
-		goto ret;
-	}
-
-	m->found = true;
-	m->has_impl = true;
-	m->exports = wk->module_exports;
-	m->scope = scope;
-	ret = true;
-ret:
-	current_project(wk)->scope = old_scope;
-	wk->lang_mode = old_language_mode;
-	return ret;
 }
 
 static bool

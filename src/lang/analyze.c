@@ -1758,7 +1758,7 @@ do_analyze(struct analyze_opts *opts)
 		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0, false);
 		a->default_var = true;
 
-		wk.lang_mode = language_internal;
+		wk.lang_mode = language_extended;
 
 		struct source src;
 		if (!fs_read_entire_file(opts->internal_file, &src)) {

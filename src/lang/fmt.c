@@ -591,7 +591,6 @@ fmt_node_wrapped(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_i
 	case node_paren:
 	case node_string:
 	case node_number:
-	case node_func_def:
 		node_needs_paren = false;
 		break;
 	default:
@@ -842,7 +841,12 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_node(ctx, &fst, n->l);
 		return len + fmt_chain(ctx, pfst, n_id);
 	case node_func_def: {
-		fmt_writes(ctx, &fst, "func");
+		if (n->subtype) {
+			len += fmt_writes(ctx, &fst, "local ");
+		}
+
+		fmt_writes(ctx, &fst, "func ");
+		len += fmt_node(ctx, &fst, n->l);
 
 		fst.arg_container = "()";
 		len += fmt_arg_container(ctx, &fst, n->r);
@@ -865,6 +869,9 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	/* assignment */
 	case node_assignment:
+		if (n->subtype) {
+			len += fmt_writes(ctx, &fst, "local ");
+		}
 		len += fmt_node(ctx, &fst, n->l);
 		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
 		len += fmt_writes(ctx, &fst, "= ");

@@ -740,7 +740,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	// push current interpreter state
 	old_ast = wk->ast;
 	old_src = wk->src;
-	struct source src = { .label = f->src, .is_file = true, };
+	struct source src = { .label = f->src, .reopen_type = source_reopen_type_embedded };
 	wk->src = &src;
 	wk->ast = f->ast;
 	++wk->func_depth;

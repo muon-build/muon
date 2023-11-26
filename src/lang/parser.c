@@ -28,7 +28,7 @@ struct parser {
 	struct ast *ast;
 	struct workspace *wk;
 	uint32_t token_i, loop_depth, parse_depth, func_depth;
-	bool caused_effect, valid, preserve_fmt_eol;
+	bool caused_effect, valid, preserve_fmt_eol, parsing_func_def_args;
 
 	enum parse_mode mode;
 };
@@ -425,7 +425,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 			}
 			p->preserve_fmt_eol = true;
 
-			if (get_node(p->ast, v_id)->type == node_empty) {
+			if (get_node(p->ast, v_id)->type == node_empty && !p->parsing_func_def_args) {
 				parse_error(p, p->last_last, "missing value");
 				return false;
 			}
@@ -507,34 +507,35 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 }
 
 static bool
-parse_func_def(struct parser *p, uint32_t *id)
+parse_func_def(struct parser *p, uint32_t *id, bool local)
 {
-	bool ret = false;
 	make_node(p, id, node_func_def);
+	get_node(p->ast, *id)->subtype = local;
 
-	uint32_t args, c_id;
+	uint32_t args, l_id, c_id;
 
-	/* if (!expect(p, tok_identifier)) { */
-	/* 	return false; */
-	/* } */
-
-	/* make_node(p, &l_id, node_id); */
-
-	if (!expect(p, tok_lparen)) {
-		goto ret;
-	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
-		goto ret;
-	} else if (!expect(p, tok_rparen)) {
-		goto ret;
+	if (!expect(p, tok_identifier)) {
+		return false;
 	}
+	make_node(p, &l_id, node_id);
+
+	p->parsing_func_def_args = true;
+	if (!expect(p, tok_lparen)) {
+		return false;
+	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
+		return false;
+	} else if (!expect(p, tok_rparen)) {
+		return false;
+	}
+	p->parsing_func_def_args = false;
 
 	if (!expect(p, tok_eol)) {
-		goto ret;
+		return false;
 	}
 
 	++p->func_depth;
 	if (!parse_block(p, &c_id)) {
-		goto ret;
+		return false;
 	}
 	--p->func_depth;
 
@@ -542,19 +543,11 @@ parse_func_def(struct parser *p, uint32_t *id)
 		p->caused_effect = true;
 	}
 
-	/* add_child(p, *id, node_child_l, l_id); */
+	add_child(p, *id, node_child_l, l_id);
 	add_child(p, *id, node_child_r, args);
 	add_child(p, *id, node_child_c, c_id);
 
-	ret = true;
-ret:
-	if (!ret) {
-		consume_until(p, tok_endfunc);
-	}
-	if (!expect(p, tok_endfunc)) {
-		ret = false;
-	}
-	return ret;
+	return true;
 }
 
 
@@ -590,10 +583,6 @@ parse_e9(struct parser *p, uint32_t *id)
 		n->subtype = p->last_last->n;
 		if (p->wk) {
 			n->l = make_strn(p->wk, n->dat.s, n->subtype);
-		}
-	} else if (accept(p, tok_func)) {
-		if (!parse_func_def(p, id)) {
-			return false;
 		}
 	} else {
 		make_node(p, id, node_empty);
@@ -1125,13 +1114,8 @@ ret:
 }
 
 static bool
-parse_assignment(struct parser *p, uint32_t *id)
+parse_assignment(struct parser *p, uint32_t *id, bool local)
 {
-	bool local = false;
-	if ((p->mode & pm_functions) && p->func_depth && accept(p, tok_local)) {
-		local = true;
-	}
-
 	uint32_t l_id = 0;
 	if (!(parse_expr(p, &l_id))) {
 		return false;
@@ -1386,15 +1370,6 @@ parse_line(struct parser *p, uint32_t *id)
 		if (!expect(p, tok_endforeach)) {
 			return false;
 		}
-		/* } else if ((p->mode & pm_functions) && accept(p, tok_func)) { */
-		/* 	if (!parse_func_def(p, id)) { */
-		/* 		ret = false; */
-		/* 		consume_until(p, tok_endfunc); */
-		/* 	} */
-
-		/* 	if (!expect(p, tok_endfunc)) { */
-		/* 		return false; */
-		/* 	} */
 	} else if ((p->mode & pm_functions) && accept(p, tok_return)) {
 		p->caused_effect = true;
 
@@ -1428,8 +1403,24 @@ parse_line(struct parser *p, uint32_t *id)
 
 		make_node(p, id, node_break);
 	} else {
-		if (!parse_assignment(p, id)) {
-			return false;
+		bool local = false;
+		if ((p->mode & pm_functions) && p->func_depth) {
+			local = accept(p, tok_local);
+		}
+
+		if ((p->mode & pm_functions) && accept(p, tok_func)) {
+			if (!parse_func_def(p, id, local)) {
+				ret = false;
+				consume_until(p, tok_endfunc);
+			}
+
+			if (!expect(p, tok_endfunc)) {
+				return false;
+			}
+		} else {
+			if (!parse_assignment(p, id, local)) {
+				return false;
+			}
 		}
 	}
 
@@ -1559,29 +1550,4 @@ ast_destroy(struct ast *ast)
 {
 	arr_destroy(&ast->nodes);
 	arr_destroy(&ast->comments);
-}
-
-void
-ast_span(struct ast *ast, uint32_t c, uint32_t *s, uint32_t *e)
-{
-	struct node *n;
-	uint32_t i, c_s, c_e;
-
-	n = get_node(ast, c);
-	*s = *e = c;
-
-	L("calculating span of %p", (void *)n);
-
-	for (i = 0; i < NODE_MAX_CHILDREN; ++i) {
-		if ((1 << i) & n->chflg) {
-			ast_span(ast, *get_node_child(n, i), &c_s, &c_e);
-			if (c_s < *s) {
-				*s = c_s;
-			}
-
-			if (c_e > *e) {
-				*e = c_e;
-			}
-		}
-	}
 }

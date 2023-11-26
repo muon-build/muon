@@ -11,6 +11,7 @@
 
 #include "buf_size.h"
 #include "datastructures/arr.h"
+#include "embedded.h"
 #include "error.h"
 #include "log.h"
 #include "platform/mem.h"
@@ -318,13 +319,18 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 
 	bool destroy_source = false;
 	if (!src->len) {
-		if (src->is_file) {
+		switch (src->reopen_type) {
+		case source_reopen_type_none:
+			return;
+		case source_reopen_type_embedded:
+			src->src = embedded_get(src->label);
+			break;
+		case source_reopen_type_file:
 			if (!fs_read_entire_file(src->label, src)) {
 				return;
 			}
 			destroy_source = true;
-		} else {
-			return;
+			break;
 		}
 	}
 

@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 static bool
-embed(const char *path, const char *basename)
+embed(const char *path, const char *embedded_name)
 {
 	int c;
 	uint32_t i = 0;
@@ -22,7 +22,7 @@ embed(const char *path, const char *basename)
 		return false;
 	}
 
-	printf("{ .name = \"%s\", .src = (char []){\n", basename);
+	printf("{ .name = \"%s\", .src = (char []){\n", embedded_name);
 
 	while ((c = fgetc(f)) != EOF) {
 		printf("0x%x, ", c);
