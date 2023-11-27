@@ -1568,20 +1568,15 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 	for (i = 0; i < ast->nodes.len; ++i) {
 		struct node *n = arr_get(&ast->nodes, i);
 		switch (n->type) {
-		case node_foreach_args:
-		case node_paren:
-		case node_empty_line:
-		case node_null:
-		case node_empty:
-		case node_block:
-		case node_argument:
-		case node_id:
-		case node_string:
-		case node_number:
-			continue;
-		/* continue; */
-		default:
+		case node_foreach:
+		case node_if:
+		case node_assignment:
+		case node_func_def:
+		case node_function:
+		case node_return:
 			break;
+		default:
+			continue;
 		}
 
 		if (!(n->chflg & node_visited)) {

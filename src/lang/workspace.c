@@ -184,6 +184,13 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &id, obj_disabler);
 	assert(id == disabler_id);
 
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_true);
+	set_obj_bool(wk, id, true);
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_false);
+	set_obj_bool(wk, id, false);
+
 	SBUF(source_root);
 	path_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));

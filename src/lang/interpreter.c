@@ -1212,10 +1212,11 @@ interp_func_def(struct workspace *wk, struct node *n)
 	obj func_obj;
 	make_obj(wk, &func_obj, obj_func);
 	struct obj_func *f = get_obj_func(wk, func_obj);
-	f->src = wk->src->label;
+	f->src = make_str(wk, wk->src->label);
 	f->args_id = n->r;
 	f->block_id = n->c;
 	f->ast = wk->ast;
+	f->lang_mode = wk->lang_mode;
 
 	struct node *arg;
 	uint32_t arg_id = n->r;
@@ -1251,7 +1252,8 @@ interp_func_def(struct workspace *wk, struct node *n)
 		arg_id = arg->c;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, func_obj, 0, n->subtype);
+	f->name = get_node(wk->ast, n->l)->dat.s;
+	wk->assign_variable(wk, f->name, func_obj, 0, n->subtype);
 	return true;
 }
 

@@ -46,7 +46,10 @@ enum loop_ctl {
 };
 
 enum {
-	disabler_id = 1
+	disabler_id = 1,
+	obj_bool_true = 2,
+	obj_bool_false = 3,
+
 };
 
 struct workspace {
@@ -82,8 +85,6 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
-	/* dict[name -> func] */
-	obj module_exports;
 	/* ----------------- */
 
 	struct bucket_arr chrs;

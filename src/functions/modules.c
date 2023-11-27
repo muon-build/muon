@@ -64,51 +64,68 @@ module_lookup_builtin(const char *name, enum module *res, bool *has_impl)
 }
 
 bool
-module_lookup(struct workspace *wk, const char *name, obj *res)
+module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res)
 {
-	make_obj(wk, res, obj_module);
-	struct obj_module *m = get_obj_module(wk, *res);
-
-
+	struct obj_module *m;
+	if (encapsulate) {
+		make_obj(wk, res, obj_module);
+		m = get_obj_module(wk, *res);
+	}
 
 	SBUF(module_src);
 	sbuf_pushf(wk, &module_src, "modules/%s.meson", name);
 
 	// script modules
 	struct source src = { .label = module_src.buf };
-	if ((src.src = embedded_get(module_src.buf))) {
+	if ((src.src = embedded_get(src.label))) {
 		src.len = strlen(src.src);
 
 		bool ret = false;
 		enum language_mode old_language_mode = wk->lang_mode;
 		wk->lang_mode = language_extended;
-		struct hash old_scope = current_project(wk)->scope, scope = { 0 };
-		hash_init_str(&scope, 64);
-		current_project(wk)->scope = scope;
+
+		struct hash old_scope, scope = { 0 };
+		if (encapsulate) {
+			old_scope = current_project(wk)->scope;
+			hash_init_str(&scope, 64);
+			current_project(wk)->scope = scope;
+		}
 
 		obj res;
 		if (!eval(wk, &src, eval_mode_default, &res)) {
 			goto ret;
 		}
 
-		if (!wk->module_exports) {
-			interp_error(wk, 0, "%s did call export()", name);
-			goto ret;
+		if (encapsulate) {
+			if (!wk->returning || !wk->returned) {
+				interp_error(wk, 0, "%s did not return anything", name);
+				goto ret;
+			} else if (!typecheck_dict(wk, 0, wk->returned, tc_func)) {
+				goto ret;
+			}
+
+			m->found = true;
+			m->has_impl = true;
+			m->exports = wk->returned;
+			m->scope = scope;
 		}
 
-		m->found = true;
-		m->has_impl = true;
-		m->exports = wk->module_exports;
-		m->scope = scope;
 		ret = true;
 ret:
-		current_project(wk)->scope = old_scope;
+		if (encapsulate) {
+			current_project(wk)->scope = old_scope;
+		}
 		wk->lang_mode = old_language_mode;
 		return ret;
 	} else {
 		enum module mod_type;
 		bool has_impl = false;
 		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
+			if (!encapsulate) {
+				interp_error(wk, 0, "builtin modules cannot be imported into the current scope");
+				return false;
+			}
+
 			m->module = mod_type;
 			m->found = true;
 			m->has_impl = has_impl;

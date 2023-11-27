@@ -256,6 +256,7 @@ fs_source_dup(const struct source *src, struct source *dup)
 	dup->label = &buf[src->len];
 	dup->src = buf;
 	dup->len = src->len;
+	dup->reopen_type = src->reopen_type;
 
 	memcpy(buf, src->src, src->len);
 	memcpy(&buf[src->len], src->label, label_len);

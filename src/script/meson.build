@@ -9,6 +9,8 @@ foreach s : [
     'global_options.meson',
     'per_project_options.meson',
     'vcs_tagger.meson',
+
+    'modules/_test.meson',
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]

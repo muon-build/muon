@@ -16,15 +16,6 @@ struct workspace;
 struct source;
 struct darr;
 
-enum language_mode {
-	language_external,
-	language_internal,
-	language_opts,
-	language_mode_count,
-
-	language_extended,
-};
-
 enum eval_mode {
 	eval_mode_default,
 	eval_mode_repl,

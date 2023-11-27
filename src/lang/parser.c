@@ -1373,11 +1373,6 @@ parse_line(struct parser *p, uint32_t *id)
 	} else if ((p->mode & pm_functions) && accept(p, tok_return)) {
 		p->caused_effect = true;
 
-		if (!p->func_depth) {
-			parse_error(p, NULL, "statement not allowed outside of a func");
-			return false;
-		}
-
 		make_node(p, id, node_return);
 
 		uint32_t l_id;

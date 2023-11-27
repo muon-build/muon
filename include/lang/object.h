@@ -18,6 +18,15 @@
 #include "datastructures/iterator.h"
 #include "lang/types.h"
 
+enum language_mode {
+	language_external,
+	language_internal,
+	language_opts,
+	language_mode_count,
+
+	language_extended,
+};
+
 enum obj_type {
 	/* singleton object types */
 	obj_null,
@@ -146,10 +155,11 @@ struct obj_typeinfo {
 };
 
 struct obj_func {
-	uint32_t args_id, block_id, nargs, nkwargs;
+	const char *name;
 	struct ast *ast;
-	obj kwarg_defaults;
-	const char *src;
+	enum language_mode lang_mode;
+	uint32_t args_id, block_id, nargs, nkwargs;
+	obj kwarg_defaults, src;
 };
 
 enum tgt_type {

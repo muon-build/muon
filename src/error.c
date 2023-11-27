@@ -324,6 +324,7 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 			return;
 		case source_reopen_type_embedded:
 			src->src = embedded_get(src->label);
+			src->len = strlen(src->src);
 			break;
 		case source_reopen_type_file:
 			if (!fs_read_entire_file(src->label, src)) {

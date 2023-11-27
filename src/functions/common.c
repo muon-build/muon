@@ -627,7 +627,6 @@ process_kwarg:
 end:
 	if (keyword_args) {
 		for (i = 0; keyword_args[i].key; ++i) {
-			L("checking reqd for %d: %d, %d", i, keyword_args[i].required, keyword_args[i].set);
 			if (keyword_args[i].required && !keyword_args[i].set) {
 				interp_error(wk, args_node, "missing required kwarg: %s", keyword_args[i].key);
 				return false;
@@ -704,6 +703,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	analyze_function_opts = (struct analyze_function_opts) { 0 };
 	struct ast *old_ast = 0;
 	struct source *old_src = 0;
+	enum language_mode old_lang_mode = 0;
 
 	struct args_norm an[f->nargs + 1];
 	struct args_kw akw[f->nkwargs + 1];
@@ -740,9 +740,11 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	// push current interpreter state
 	old_ast = wk->ast;
 	old_src = wk->src;
-	struct source src = { .label = f->src, .reopen_type = source_reopen_type_embedded };
+	old_lang_mode = wk->lang_mode;
+	struct source src = { .label = get_cstr(wk, f->src), .reopen_type = source_reopen_type_embedded };
 	wk->src = &src;
 	wk->ast = f->ast;
+	wk->lang_mode = f->lang_mode;
 	++wk->func_depth;
 
 	// setup module scope
@@ -797,6 +799,7 @@ ret:
 		// pop old interpreter state
 		wk->ast = old_ast;
 		wk->src = old_src;
+		wk->lang_mode = old_lang_mode;
 		--wk->func_depth;
 		wk->pop_local_scope(wk);
 	}
@@ -871,9 +874,11 @@ func_lookup(const struct func_impl **impl_tbl, enum language_mode mode, const ch
 {
 	if (mode == language_extended) {
 		const struct func_impl *r;
+		L("looking for %s in internal", name);
 		if ((r = func_lookup_for_mode(impl_tbl[language_internal], name))) {
 			return r;
 		}
+		L("looking for %s in external", name);
 
 		return func_lookup_for_mode(impl_tbl[language_external], name);
 	} else {
@@ -887,12 +892,8 @@ const char *
 func_name_str(bool have_rcvr, enum obj_type rcvr_type, const char *name)
 {
 	static char buf[256];
-	if (have_rcvr) {
-		if (rcvr_type == obj_func) {
-			snprintf(buf, ARRAY_LEN(buf), "<func>");
-		} else {
-			snprintf(buf, ARRAY_LEN(buf), "method %s.%s()", obj_type_to_s(rcvr_type), name);
-		}
+	if (have_rcvr && rcvr_type != obj_func) {
+		snprintf(buf, ARRAY_LEN(buf), "method %s.%s()", obj_type_to_s(rcvr_type), name);
 	} else {
 		snprintf(buf, ARRAY_LEN(buf), "function %s()", name);
 	}
@@ -934,7 +935,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	const struct func_impl *fi = 0;
 	obj func_obj = 0, func_module = 0;
 	if (rcvr_type == obj_func) {
-		name = "<func>";
+		name = get_obj_func(wk, rcvr_id)->name;
 	} else {
 		name = get_node(wk->ast, name_node)->dat.s;
 	}

@@ -1,0 +1,5 @@
+func hello()
+    message('Hello, world!')
+endfunc
+
+return {'hello': hello}

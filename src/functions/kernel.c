@@ -1582,7 +1582,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	if (requirement == requirement_skip) {
 		make_obj(wk, res, obj_module);
 	} else {
-		if (module_lookup(wk, get_cstr(wk, an[0].val), res)) {
+		if (module_import(wk, get_cstr(wk, an[0].val), true, res)) {
 			found = true;
 		} else if (requirement == requirement_required) {
 			interp_error(wk, an[0].node, "module not found");
@@ -1604,23 +1604,6 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return true;
 	}
 
-	return true;
-}
-
-static bool
-func_export(struct workspace *wk, obj _, uint32_t args_node, obj *res)
-{
-	struct args_norm an[] = { { obj_dict }, ARG_TYPE_NULL };
-
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
-		return false;
-	}
-
-	if (!typecheck_dict(wk, an[0].node, an[0].val, tc_func)) {
-		return false;
-	}
-
-	wk->module_exports = an[0].val;
 	return true;
 }
 
@@ -1930,7 +1913,7 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -2012,6 +1995,23 @@ func_serial_dump(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	ret = true;
 ret:
 	return ret;
+}
+
+static bool
+func_is_void(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	if (get_obj_type(wk, an[0].val) == obj_null) {
+		*res = obj_bool_true;
+	} else {
+		*res = obj_bool_false;
+	}
+
+	return true;
 }
 
 const struct func_impl impl_tbl_kernel[] =
@@ -2102,7 +2102,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "p", func_p },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
-	{ "export", func_export, 0, true },
+	{ "is_void", func_is_void, tc_bool, true },
 	{ NULL, NULL },
 };
 
