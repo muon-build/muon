@@ -85,6 +85,8 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
+	/* array of dicts */
+	obj scope_stack;
 	/* ----------------- */
 
 	struct bucket_arr chrs;
@@ -99,7 +101,6 @@ struct workspace {
 
 	struct hash scope;
 	struct hash obj_hash;
-	struct arr local_scope;
 
 	uint32_t loop_depth, impure_loop_depth, func_depth;
 	enum loop_ctl loop_ctl;
@@ -137,6 +138,7 @@ struct workspace {
 };
 
 bool get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id);
+obj scope_stack_dup(struct workspace *wk, obj scope_stack);
 
 void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);

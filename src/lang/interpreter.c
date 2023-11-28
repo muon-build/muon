@@ -288,12 +288,14 @@ typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, type_tag type)
 void
 assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, bool local)
 {
-	if (wk->func_depth && hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name)) {
-		local = true;
-	}
+	/* if (wk->func_depth && hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name)) { */
+	/* 	local = true; */
+	/* } */
 
 	if (local) {
-		hash_set_str(arr_get(&wk->local_scope, wk->func_depth - 1), name, o);
+		obj scope;
+		obj_array_index(wk, wk->scope_stack, get_obj_array(wk, wk->scope_stack)->len - 1, &scope);
+		obj_dict_set(wk, scope, make_str(wk, name), o);
 	} else {
 		hash_set_str(&current_project(wk)->scope, name, o);
 	}
@@ -307,8 +309,9 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, b
 void
 unassign_variable(struct workspace *wk, const char *name)
 {
-	if (wk->func_depth && !hash_get_str(&current_project(wk)->scope, name)) {
-		hash_unset_str(arr_get(&wk->local_scope, wk->func_depth - 1), name);
+	if (wk->func_depth) {
+		// TODO!
+		/* hash_unset_str(arr_get(&wk->local_scope, wk->func_depth - 1), name); */
 	} else {
 		hash_unset_str(&current_project(wk)->scope, name);
 	}
@@ -1217,6 +1220,7 @@ interp_func_def(struct workspace *wk, struct node *n)
 	f->block_id = n->c;
 	f->ast = wk->ast;
 	f->lang_mode = wk->lang_mode;
+	f->scope_stack = scope_stack_dup(wk, wk->scope_stack);
 
 	struct node *arg;
 	uint32_t arg_id = n->r;

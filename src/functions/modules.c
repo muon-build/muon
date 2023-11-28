@@ -108,6 +108,9 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			m->has_impl = true;
 			m->exports = wk->returned;
 			m->scope = scope;
+
+			wk->returning = false;
+			wk->returned = false;
 		}
 
 		ret = true;

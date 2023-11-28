@@ -16,14 +16,30 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 
+struct check_scope_ctx {
+	const char *name;
+	obj res;
+};
+
+static enum iteration_result
+check_scope(struct workspace *wk, void *_ctx, obj scope)
+{
+	struct check_scope_ctx *ctx = _ctx;
+	obj_dict_index_str(wk, scope, ctx->name, &ctx->res);
+	return ir_cont;
+}
+
 bool
 get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	uint64_t *idp;
 	struct project *proj = wk->projects.len ? arr_get(&wk->projects, proj_id) : 0;
 
-	if (wk->func_depth && (idp = hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name))) {
-		*res = *idp;
+	struct check_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, wk->scope_stack, &ctx, check_scope);
+
+	if (ctx.res) {
+		*res = ctx.res;
 		return true;
 	} else if (proj && (idp = hash_get_str(&proj->scope, name))) {
 		*res = *idp;
@@ -36,24 +52,41 @@ get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 	}
 }
 
+static enum iteration_result
+scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	obj *r = _ctx;
+	obj scope;
+	obj_dict_dup(wk, v, &scope);
+	obj_array_push(wk, *r, scope);
+	return ir_cont;
+}
+
+obj
+scope_stack_dup(struct workspace *wk, obj scope_stack)
+{
+	obj r;
+	make_obj(wk, &r, obj_array);
+
+	obj_array_foreach(wk, scope_stack, &r, scope_stack_dup_iter);
+	return r;
+}
+
 static void
 push_local_scope(struct workspace *wk)
 {
-	assert(wk->func_depth);
-	if (wk->func_depth - 1 >= wk->local_scope.len) {
-		arr_grow_by(&wk->local_scope, 1);
-		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
-		*scope = (struct hash){ 0 };
-		hash_init_str(scope, 64);
-	} else {
-		struct hash *scope = arr_get(&wk->local_scope, wk->func_depth - 1);
-		hash_clear(scope);
-	}
+	obj scope;
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, wk->scope_stack, scope);
 }
 
 static void
 pop_local_scope(struct workspace *wk)
 {
+	struct obj_array *arr = get_obj_array(wk, wk->scope_stack);
+
+	assert(arr->len);
+	obj_array_del(wk, wk->scope_stack, arr->len - 1);
 }
 
 struct project *
@@ -200,7 +233,8 @@ workspace_init(struct workspace *wk)
 	arr_init(&wk->source_data, 4, sizeof(struct source_data));
 	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
 	hash_init_str(&wk->scope, 32);
-	arr_init(&wk->local_scope, 4, sizeof(struct hash));
+
+	make_obj(wk, &wk->scope_stack, obj_array);
 
 	make_obj(wk, &id, obj_meson);
 	hash_set_str(&wk->scope, "meson", id);
@@ -281,16 +315,10 @@ workspace_destroy(struct workspace *wk)
 		ast_destroy(ast);
 	}
 
-	for (i = 0; i < wk->local_scope.len; ++i) {
-		struct hash *scope = arr_get(&wk->local_scope, i);
-		hash_destroy(scope);
-	}
-
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
 	arr_destroy(&wk->source_data);
 	hash_destroy(&wk->scope);
-	arr_destroy(&wk->local_scope);
 	bucket_arr_destroy(&wk->asts);
 
 	workspace_destroy_bare(wk);

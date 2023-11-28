@@ -159,7 +159,7 @@ struct obj_func {
 	struct ast *ast;
 	enum language_mode lang_mode;
 	uint32_t args_id, block_id, nargs, nkwargs;
-	obj kwarg_defaults, src;
+	obj kwarg_defaults, src, scope_stack;
 };
 
 enum tgt_type {

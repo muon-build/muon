@@ -1,5 +1,11 @@
-func hello()
-    message('Hello, world!')
+glob = []
+
+func hello(t)
+	func g()
+		message('Hello, @0@!'.format(t))
+	endfunc
+
+	return g
 endfunc
 
 return {'hello': hello}
