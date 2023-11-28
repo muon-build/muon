@@ -368,7 +368,7 @@ cmd_found:
 
 			if (repl_res) {
 				obj_fprintf(wk, out, "%o\n", repl_res);
-				hash_set_str(&wk->scope, "_", repl_res);
+				wk->assign_variable(wk, "_", repl_res, 0, assign_local);
 			}
 		}
 cont:

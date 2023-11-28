@@ -557,7 +557,7 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	{ // populate argv array
 		obj argv_obj;
 		make_obj(&wk, &argv_obj, obj_array);
-		hash_set_str(&wk.scope, "argv", argv_obj);
+		wk.assign_variable(&wk, "argv", argv_obj, 0, assign_local);
 
 		uint32_t i;
 		for (i = 0; i < argc; ++i) {

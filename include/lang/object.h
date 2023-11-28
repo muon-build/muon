@@ -231,7 +231,6 @@ struct obj_subproject {
 struct obj_module {
 	enum module module;
 	bool found, has_impl;
-	struct hash scope;
 	obj exports;
 };
 

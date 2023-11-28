@@ -285,20 +285,104 @@ typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, type_tag type)
 	}, typecheck_dict_iter);
 }
 
-void
-assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, bool local)
-{
-	/* if (wk->func_depth && hash_get_str(arr_get(&wk->local_scope, wk->func_depth - 1), name)) { */
-	/* 	local = true; */
-	/* } */
+struct check_scope_ctx {
+	const char *name;
+	obj res, scope;
+	bool found;
+};
 
-	if (local) {
-		obj scope;
-		obj_array_index(wk, wk->scope_stack, get_obj_array(wk, wk->scope_stack)->len - 1, &scope);
-		obj_dict_set(wk, scope, make_str(wk, name), o);
-	} else {
-		hash_set_str(&current_project(wk)->scope, name, o);
+static enum iteration_result
+check_scope(struct workspace *wk, void *_ctx, obj scope)
+{
+	struct check_scope_ctx *ctx = _ctx;
+	if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
+		ctx->scope = scope;
+		ctx->found = true;
 	}
+	return ir_cont;
+}
+
+static bool
+get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
+{
+	struct check_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, check_scope);
+
+	if (ctx.found) {
+		*res = ctx.res;
+		*scope = ctx.scope;
+		return true;
+	}
+
+	return false;
+}
+
+bool
+get_variable(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
+{
+	obj o, _scope;
+
+	if (get_local_variable(wk, name, &o, &_scope)) {
+		*res = o;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static enum iteration_result
+scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	obj *r = _ctx;
+	obj scope;
+	obj_dict_dup(wk, v, &scope);
+	obj_array_push(wk, *r, scope);
+	return ir_cont;
+}
+
+obj
+scope_stack_dup(struct workspace *wk, obj scope_stack)
+{
+	obj r;
+	make_obj(wk, &r, obj_array);
+
+	obj_array_foreach(wk, scope_stack, &r, scope_stack_dup_iter);
+	return r;
+}
+
+void
+push_local_scope(struct workspace *wk)
+{
+	obj scope;
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, current_project(wk)->scope_stack, scope);
+	obj_fprintf(wk, log_file(), "> scope: %o\n", current_project(wk)->scope_stack);
+}
+
+void
+pop_local_scope(struct workspace *wk)
+{
+	struct obj_array *arr = get_obj_array(wk, current_project(wk)->scope_stack);
+
+	assert(arr->len);
+	obj_array_del(wk, current_project(wk)->scope_stack, arr->len - 1);
+	obj_fprintf(wk, log_file(), "< scope: %o\n", current_project(wk)->scope_stack);
+}
+
+void
+assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, enum variable_assignment_mode mode)
+{
+	struct project *proj = current_project(wk);
+	obj scope = 0;
+	if (mode == assign_reassign) {
+		obj _;
+		get_local_variable(wk, name, &_, &scope);
+	} else {
+		uint32_t len = get_obj_array(wk, proj->scope_stack)->len;
+		obj_array_index(wk, proj->scope_stack, len - 1, &scope);
+	}
+
+	obj_dict_set(wk, scope, make_str(wk, name), o);
 
 	if (wk->dbg.watched && obj_array_in(wk, wk->dbg.watched, make_str(wk, name))) {
 		LOG_I("watched variable \"%s\" changed", name);
@@ -309,12 +393,7 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, b
 void
 unassign_variable(struct workspace *wk, const char *name)
 {
-	if (wk->func_depth) {
-		// TODO!
-		/* hash_unset_str(arr_get(&wk->local_scope, wk->func_depth - 1), name); */
-	} else {
-		hash_unset_str(&current_project(wk)->scope, name);
-	}
+	// TODO!
 }
 
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
@@ -697,7 +776,7 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, false);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, assign_reassign);
 	return true;
 }
 
@@ -1081,8 +1160,8 @@ interp_foreach_dict_iter(struct workspace *wk, void *_ctx, obj k_id, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, k_id, ctx->n_l, false);
-	wk->assign_variable(wk, ctx->id2, v_id, ctx->n_r, false);
+	wk->assign_variable(wk, ctx->id1, k_id, ctx->n_l, assign_local);
+	wk->assign_variable(wk, ctx->id2, v_id, ctx->n_r, assign_local);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -1092,7 +1171,7 @@ interp_foreach_arr_iter(struct workspace *wk, void *_ctx, obj v_id)
 {
 	struct interp_foreach_ctx *ctx = _ctx;
 
-	wk->assign_variable(wk, ctx->id1, v_id, ctx->n_l, false);
+	wk->assign_variable(wk, ctx->id1, v_id, ctx->n_l, assign_local);
 
 	return interp_foreach_common(wk, ctx);
 }
@@ -1220,7 +1299,7 @@ interp_func_def(struct workspace *wk, struct node *n)
 	f->block_id = n->c;
 	f->ast = wk->ast;
 	f->lang_mode = wk->lang_mode;
-	f->scope_stack = scope_stack_dup(wk, wk->scope_stack);
+	f->scope_stack = wk->scope_stack_dup(wk, current_project(wk)->scope_stack);
 
 	struct node *arg;
 	uint32_t arg_id = n->r;

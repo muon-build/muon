@@ -68,7 +68,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 		}
 		return false;
 	} else if (!k) {
-		hash_clear(&current_project(ctx->wk)->scope);
+		/* TODO: hash_clear(&current_project(ctx->wk)->scope); */
 		return true;
 	}
 
@@ -89,9 +89,9 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	/* obj_to_s(ctx->wk, res, buf, 2048); */
 
 	if (sect == mfile_section_constants) {
-		hash_set_str(&ctx->wk->scope, k, res);
+		/* TODO: obj_dict_set(ctx->wk, ctx->wk->global_scope, make_str(ctx->wk, k), res); */
 	} else {
-		hash_set_str(&current_project(ctx->wk)->scope, k, res);
+		/* TODO: hash_set_str(&current_project(ctx->wk)->scope, k, res); */
 
 		obj cloned, objkey, dest_dict;
 		if (!obj_clone(ctx->wk, ctx->dest_wk, res, &cloned)) {

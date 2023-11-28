@@ -16,79 +16,6 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 
-struct check_scope_ctx {
-	const char *name;
-	obj res;
-};
-
-static enum iteration_result
-check_scope(struct workspace *wk, void *_ctx, obj scope)
-{
-	struct check_scope_ctx *ctx = _ctx;
-	obj_dict_index_str(wk, scope, ctx->name, &ctx->res);
-	return ir_cont;
-}
-
-bool
-get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
-{
-	uint64_t *idp;
-	struct project *proj = wk->projects.len ? arr_get(&wk->projects, proj_id) : 0;
-
-	struct check_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->scope_stack, &ctx, check_scope);
-
-	if (ctx.res) {
-		*res = ctx.res;
-		return true;
-	} else if (proj && (idp = hash_get_str(&proj->scope, name))) {
-		*res = *idp;
-		return true;
-	} else if ((idp = hash_get_str(&wk->scope, name))) {
-		*res = *idp;
-		return true;
-	} else {
-		return false;
-	}
-}
-
-static enum iteration_result
-scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	obj *r = _ctx;
-	obj scope;
-	obj_dict_dup(wk, v, &scope);
-	obj_array_push(wk, *r, scope);
-	return ir_cont;
-}
-
-obj
-scope_stack_dup(struct workspace *wk, obj scope_stack)
-{
-	obj r;
-	make_obj(wk, &r, obj_array);
-
-	obj_array_foreach(wk, scope_stack, &r, scope_stack_dup_iter);
-	return r;
-}
-
-static void
-push_local_scope(struct workspace *wk)
-{
-	obj scope;
-	make_obj(wk, &scope, obj_dict);
-	obj_array_push(wk, wk->scope_stack, scope);
-}
-
-static void
-pop_local_scope(struct workspace *wk)
-{
-	struct obj_array *arr = get_obj_array(wk, wk->scope_stack);
-
-	assert(arr->len);
-	obj_array_del(wk, wk->scope_stack, arr->len - 1);
-}
-
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	const char *cwd, const char *build_dir)
@@ -96,7 +23,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
-	hash_init_str(&proj->scope, 128);
+	proj->scope_stack = wk->scope_stack_dup(wk, wk->default_scope);
 
 	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
@@ -141,7 +68,8 @@ workspace_init_bare(struct workspace *wk)
 		.unassign_variable = unassign_variable,
 		.push_local_scope = push_local_scope,
 		.pop_local_scope = pop_local_scope,
-		.get_variable = get_obj_id,
+		.scope_stack_dup = scope_stack_dup,
+		.get_variable = get_variable,
 		.eval_project_file = eval_project_file,
 	};
 
@@ -232,17 +160,19 @@ workspace_init(struct workspace *wk)
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 	arr_init(&wk->source_data, 4, sizeof(struct source_data));
 	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
-	hash_init_str(&wk->scope, 32);
 
-	make_obj(wk, &wk->scope_stack, obj_array);
+	make_obj(wk, &wk->default_scope, obj_array);
+	obj scope;
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, wk->default_scope, scope);
 
 	make_obj(wk, &id, obj_meson);
-	hash_set_str(&wk->scope, "meson", id);
+	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
 
 	make_obj(wk, &id, obj_machine);
-	hash_set_str(&wk->scope, "host_machine", id);
-	hash_set_str(&wk->scope, "build_machine", id);
-	hash_set_str(&wk->scope, "target_machine", id);
+	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
+	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
+	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
 
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);
@@ -279,14 +209,6 @@ workspace_destroy_bare(struct workspace *wk)
 		}
 	}
 
-	ba =  &wk->obj_aos[obj_module - _obj_aos_start];
-	for (i = 0; i < ba->len; ++i) {
-		struct obj_module *m = bucket_arr_get(ba, i);
-		if (m->exports) {
-			hash_destroy(&m->scope);
-		}
-	}
-
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
 		bucket_arr_destroy(&wk->obj_aos[i - _obj_aos_start]);
 	}
@@ -298,13 +220,6 @@ void
 workspace_destroy(struct workspace *wk)
 {
 	uint32_t i;
-	struct project *proj;
-	for (i = 0; i < wk->projects.len; ++i) {
-		proj = arr_get(&wk->projects, i);
-
-		hash_destroy(&proj->scope);
-	}
-
 	for (i = 0; i < wk->source_data.len; ++i) {
 		struct source_data *sdata = arr_get(&wk->source_data, i);
 		source_data_destroy(sdata);
@@ -318,7 +233,6 @@ workspace_destroy(struct workspace *wk)
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
 	arr_destroy(&wk->source_data);
-	hash_destroy(&wk->scope);
 	bucket_arr_destroy(&wk->asts);
 
 	workspace_destroy_bare(wk);

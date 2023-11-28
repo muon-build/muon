@@ -16,7 +16,8 @@
 #include "lang/string.h"
 
 struct project {
-	struct hash scope;
+	/* array of dicts */
+	obj scope_stack;
 
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, test_setups, summary;
@@ -45,11 +46,15 @@ enum loop_ctl {
 	loop_continuing,
 };
 
+enum variable_assignment_mode {
+	assign_local,
+	assign_reassign,
+};
+
 enum {
 	disabler_id = 1,
 	obj_bool_true = 2,
 	obj_bool_false = 3,
-
 };
 
 struct workspace {
@@ -85,8 +90,8 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
-	/* array of dicts */
-	obj scope_stack;
+	/* list[dict[str -> any]] */
+	obj default_scope;
 	/* ----------------- */
 
 	struct bucket_arr chrs;
@@ -99,7 +104,6 @@ struct workspace {
 	struct arr source_data;
 	struct bucket_arr asts;
 
-	struct hash scope;
 	struct hash obj_hash;
 
 	uint32_t loop_depth, impure_loop_depth, func_depth;
@@ -115,10 +119,11 @@ struct workspace {
 	struct source *src;
 	/* interpreter base functions */
 	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
-	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool local));
+	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode));
 	void ((*unassign_variable)(struct workspace *wk, const char *name));
 	void ((*push_local_scope)(struct workspace *wk));
 	void ((*pop_local_scope)(struct workspace *wk));
+	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
 	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
 	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
 	bool in_analyzer;
@@ -136,9 +141,6 @@ struct workspace {
 	} tracy;
 #endif
 };
-
-bool get_obj_id(struct workspace *wk, const char *name, obj *res, uint32_t proj_id);
-obj scope_stack_dup(struct workspace *wk, obj scope_stack);
 
 void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);

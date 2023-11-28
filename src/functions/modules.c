@@ -84,11 +84,11 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		enum language_mode old_language_mode = wk->lang_mode;
 		wk->lang_mode = language_extended;
 
-		struct hash old_scope, scope = { 0 };
+		obj old_scope_stack;
 		if (encapsulate) {
-			old_scope = current_project(wk)->scope;
-			hash_init_str(&scope, 64);
-			current_project(wk)->scope = scope;
+			old_scope_stack = current_project(wk)->scope_stack;
+			make_obj(wk, &current_project(wk)->scope_stack, obj_array);
+			wk->push_local_scope(wk);
 		}
 
 		obj res;
@@ -107,7 +107,6 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			m->found = true;
 			m->has_impl = true;
 			m->exports = wk->returned;
-			m->scope = scope;
 
 			wk->returning = false;
 			wk->returned = false;
@@ -116,7 +115,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		ret = true;
 ret:
 		if (encapsulate) {
-			current_project(wk)->scope = old_scope;
+			current_project(wk)->scope_stack = old_scope_stack;
 		}
 		wk->lang_mode = old_language_mode;
 		return ret;

@@ -1,11 +1,13 @@
 glob = []
 
 func hello(t)
-	func g()
-		message('Hello, @0@!'.format(t))
-	endfunc
+    func g()
+        glob += 1
+        p(glob)
+        message('Hello, @0@!'.format(t))
+    endfunc
 
-	return g
+    return g
 endfunc
 
 return {'hello': hello}

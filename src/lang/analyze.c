@@ -52,11 +52,13 @@ struct scope_group {
 	struct arr scopes;
 };
 
-struct {
-	struct arr groups;
-	struct arr local;
-	struct arr global;
-} assignment_scopes;
+struct arr assignments;
+
+/* struct { */
+/* struct arr groups; */
+/* struct arr local; */
+/* struct arr global; */
+/* } assignment_scopes; */
 
 static void
 copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
@@ -241,6 +243,7 @@ assign_lookup_scope(const char *name, struct arr *scope)
 static void
 analyze_unassign(struct workspace *wk, const char *name)
 {
+#if 0
 	int32_t i;
 	uint32_t idx = 0;
 	struct arr *containing_scope = NULL;
@@ -269,6 +272,29 @@ analyze_unassign(struct workspace *wk, const char *name)
 	}
 
 	arr_del(containing_scope, idx);
+#endif
+}
+
+struct check_analyze_scope_ctx {
+	const char *name;
+	obj res, scope;
+	bool found;
+};
+
+static enum iteration_result
+analyze_check_scope_group(struct workspace *wk, void *_ctx, obj scope_group)
+{
+	struct check_analyze_scope_ctx *ctx = _ctx;
+
+	obj scope;
+	obj_array_index(wk, scope_group, get_obj_array(wk, scope_group)->len - 1, &scope);
+
+	if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
+		ctx->scope = scope;
+		ctx->found = true;
+	}
+
+	return ir_cont;
 }
 
 static struct assignment *
@@ -276,6 +302,9 @@ assign_lookup(struct workspace *wk, const char *name)
 {
 	int32_t i;
 	struct assignment *found = NULL;
+
+	struct check_analyze_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope);
 
 	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
 		struct scope_group *g = arr_get(&assignment_scopes.groups, i);
@@ -332,7 +361,7 @@ check_reassign_to_different_type(struct workspace *wk, struct assignment *a, obj
 }
 
 static struct assignment *
-scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool local)
+scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
 	/* if we assigned to null, throw an error but continue with a tc_any */
 	if (!o) {
@@ -349,12 +378,12 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool 
 		assert(g->scopes.len);
 		s = arr_get(&g->scopes, g->scopes.len - 1);
 	} else {
-		if (!local && assignment_scopes.local.len) {
-			s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
-			local = assign_lookup_scope(name, s);
-		}
+		/* if (mode && assignment_scopes.local.len) { */
+		/* 	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1); */
+		/* 	local = assign_lookup_scope(name, s); */
+		/* } */
 
-		if (local) {
+		if (mode == assign_local) {
 			s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
 		} else {
 			s = &assignment_scopes.global;
@@ -483,7 +512,7 @@ pop_scope_group(struct workspace *wk)
 				a->o = make_typeinfo(wk, obj_type_to_tc_type(type), 0);
 			}
 
-			b = scope_assign(wk, a->name, a->o, 0, false);
+			b = scope_assign(wk, a->name, a->o, 0, assign_local);
 			b->accessed = a->accessed;
 			b->line = a->line;
 			b->col = a->col;
@@ -1344,10 +1373,10 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		// two variables
 		n_r = get_node(wk->ast, args->r)->l;
 
-		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_string, 0), n_l, false);
-		scope_assign(wk, get_node(wk->ast, n_r)->dat.s, make_typeinfo(wk, tc_any, 0), n_r, false);
+		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_string, 0), n_l, assign_local);
+		scope_assign(wk, get_node(wk->ast, n_r)->dat.s, make_typeinfo(wk, tc_any, 0), n_r, assign_local);
 	} else {
-		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l, false);
+		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l, assign_local);
 	}
 
 	++wk->impure_loop_depth;
@@ -1415,7 +1444,7 @@ analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, false);
+	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, assign_local);
 	return true;
 }
 
@@ -1592,9 +1621,9 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 }
 
 static void
-analyze_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, bool local)
+analyze_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
-	scope_assign(wk, name, o, n_id, local);
+	scope_assign(wk, name, o, n_id, mode);
 }
 
 static bool
@@ -1693,6 +1722,15 @@ do_analyze(struct analyze_opts *opts)
 	struct workspace wk;
 	workspace_init(&wk);
 
+	/* re-initialize the default scope to
+	 * [[{<default vars}]]
+	 */
+	obj default_scope, scope_group;
+	obj_array_index(&wk, wk.default_scope, &default_scope, 0);
+	make_obj(wk, &wk.default_scope, obj_array);
+	make_obj(wk, &scope_group, obj_array);
+	obj_dict_foreach(&wk, default_scope, 0, reassign_default_vars);
+
 	arr_init(&assignment_scopes.groups, 16, sizeof(struct scope_group));
 	arr_init(&assignment_scopes.local, 16, sizeof(struct arr));
 	arr_init(&assignment_scopes.global, 256, sizeof(struct assignment));
@@ -1710,11 +1748,10 @@ do_analyze(struct analyze_opts *opts)
 		};
 
 		uint32_t i;
-		uint64_t obj;
+		obj o;
 		for (i = 0; i < ARRAY_LEN(default_vars); ++i) {
-			obj = *hash_get_str(&wk.scope, default_vars[i]);
-			hash_unset_str(&wk.scope, default_vars[i]);
-			struct assignment *a = scope_assign(&wk, default_vars[i], obj, 0, false);
+			wk->get_variable(&wk, wk.global_scope, default_vars[i]), &o);
+			struct assignment *a = scope_assign(&wk, default_vars[i], o, 0, assign_local);
 			a->default_var = true;
 		}
 	}
@@ -1750,7 +1787,7 @@ do_analyze(struct analyze_opts *opts)
 		uint32_t proj_id;
 		make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
 
-		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0, false);
+		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0, assign_local);
 		a->default_var = true;
 
 		wk.lang_mode = language_extended;

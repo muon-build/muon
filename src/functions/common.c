@@ -697,13 +697,14 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 {
 	struct obj_func *f = get_obj_func(wk, func_obj);
 	bool ret = false;
-	bool pushed_module_scope = false;
 
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	analyze_function_opts = (struct analyze_function_opts) { 0 };
 	struct ast *old_ast = 0;
 	struct source *old_src = 0;
+	struct project *proj = 0;
 	enum language_mode old_lang_mode = 0;
+	obj old_scope_stack = 0;
 
 	struct args_norm an[f->nargs + 1];
 	struct args_kw akw[f->nkwargs + 1];
@@ -741,20 +742,19 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	old_ast = wk->ast;
 	old_src = wk->src;
 	old_lang_mode = wk->lang_mode;
+	proj = current_project(wk);
+	old_scope_stack = proj->scope_stack;
+
 	struct source src = { .label = get_cstr(wk, f->src), .reopen_type = source_reopen_type_embedded };
 	wk->src = &src;
 	wk->ast = f->ast;
 	wk->lang_mode = f->lang_mode;
+	proj->scope_stack = wk->scope_stack_dup(wk, f->scope_stack);
+	L("restoring func scope");
+
 	++wk->func_depth;
 
-	// setup module scope
-	struct hash old_scope;
-	if (func_module) {
-		pushed_module_scope = true;
-		struct obj_module *m = get_obj_module(wk, func_module);
-		old_scope = current_project(wk)->scope;
-		current_project(wk)->scope = m->scope;
-	}
+	L("calling %s", f->name);
 
 	// setup current scope
 	wk->push_local_scope(wk);
@@ -775,7 +775,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 			}
 
 			struct node *arg_name = arr_get(&f->ast->nodes, arg->l);
-			wk->assign_variable(wk, arg_name->dat.s, val, arg->l, true);
+			wk->assign_variable(wk, arg_name->dat.s, val, arg->l, assign_local);
 			++i;
 
 			if (!(arg->chflg & node_child_c)) {
@@ -800,12 +800,9 @@ ret:
 		wk->ast = old_ast;
 		wk->src = old_src;
 		wk->lang_mode = old_lang_mode;
-		--wk->func_depth;
 		wk->pop_local_scope(wk);
-	}
-
-	if (pushed_module_scope) {
-		current_project(wk)->scope = old_scope;
+		proj->scope_stack = old_scope_stack;
+		--wk->func_depth;
 	}
 
 	return ret;
