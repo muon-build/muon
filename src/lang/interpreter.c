@@ -392,7 +392,12 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, e
 void
 unassign_variable(struct workspace *wk, const char *name)
 {
-	// TODO!
+	obj _, scope;
+	if (!get_local_variable(wk, name, current_project(wk), &_, &scope)) {
+		return;
+	}
+
+	obj_dict_del_str(wk, scope, name);
 }
 
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
@@ -405,8 +410,8 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 
 	bool have_rcvr = true;
 	if (!chained) {
-		// XXX: This is a hack to simulate looking up function objects
-		// for builtins
+		// NOTE: This is to simulate looking up function objects for
+		// builtins.
 		struct node *l = get_node(wk->ast, n->l);
 		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, l->dat.s)) {
 			have_rcvr = false;
