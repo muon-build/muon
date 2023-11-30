@@ -9,7 +9,7 @@ assert(a['c'] == 'd')
 # assert(a['e']['f']['g']['h'][2]['3'] == 'secret!')
 
 count = 0
-foreach x, y : a
+foreach _x, _y : a
     count += 1
 endforeach
 
@@ -34,3 +34,10 @@ assert(dict['a'] == 7)
 assert(dict['b'] == 7)
 assert(dict['c'] == 7)
 
+# Test dict.delete
+d = {'a': 1, 'b': 2, 'c': 3}
+d.delete('a')
+assert(d == {'b': 2, 'c': 3})
+assert(d.keys() == ['b', 'c'])
+d = d + {'a': 4, 'b': 3, 'e': 5}
+assert(d.keys() == ['b', 'c', 'a', 'e'])

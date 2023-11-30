@@ -1118,20 +1118,21 @@ _obj_dict_index(struct workspace *wk, obj dict,
 	obj **res)
 
 {
-	if (!get_obj_dict(wk, dict)->len) {
+	struct obj_dict *d = get_obj_dict(wk, dict);
+	if (!d->len) {
 		return false;
 	}
 
 	while (true) {
-		if (comp(wk, key, get_obj_dict(wk, dict)->key)) {
-			*res = &get_obj_dict(wk, dict)->val;
+		if (comp(wk, key, d->key)) {
+			*res = &d->val;
 			return true;
 		}
 
-		if (!get_obj_dict(wk, dict)->have_next) {
+		if (!d->have_next) {
 			break;
 		}
-		dict = get_obj_dict(wk, dict)->next;
+		d = get_obj_dict(wk, d->next);
 	}
 
 	return false;
@@ -1220,6 +1221,80 @@ void
 obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 {
 	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_objstr, key, val);
+}
+
+static bool
+_obj_dict_del(struct workspace *wk, obj dict,
+	union obj_dict_key_comparison_key *key,
+	obj_dict_key_comparison_func comp)
+{
+	struct obj_dict *d = get_obj_dict(wk, dict), *head = d, *prev, *next;
+	if (!d->len) {
+		return false;
+	}
+
+	uint32_t i = 0;
+	obj prev_id = dict;
+	bool found = false;
+	while (true) {
+		if (comp(wk, key, d->key)) {
+			found = true;
+			break;
+		}
+
+		prev_id = dict;
+		if (!d->have_next) {
+			break;
+		}
+		dict = d->next;
+		d = get_obj_dict(wk, dict);
+		++i;
+	}
+
+	if (!found) {
+		return false;
+	}
+
+	if (i == 0) {
+		if (head->have_next) {
+			next = get_obj_dict(wk, head->next);
+			next->len = head->len - 1;
+			next->tail = head->tail;
+			*head = *next;
+		} else {
+			*head = (struct obj_dict) { 0 };
+		}
+	} else {
+		prev = get_obj_dict(wk, prev_id);
+		if (d->have_next) {
+			prev->next = d->next;
+		} else {
+			head->tail = prev_id;
+			prev->have_next = false;
+		}
+	}
+
+	return true;
+}
+
+bool
+obj_dict_del_strn(struct workspace *wk, obj dict, const char *str, uint32_t len)
+{
+	union obj_dict_key_comparison_key key = { .string = { .s = str, .len = len, } };
+	return _obj_dict_del(wk, dict, &key, obj_dict_key_comparison_func_string);
+}
+
+bool
+obj_dict_del_str(struct workspace *wk, obj dict, const char *str)
+{
+	return obj_dict_del_strn(wk, dict, str, strlen(str));
+}
+
+bool
+obj_dict_del(struct workspace *wk, obj dict, obj key)
+{
+	const struct str *k = get_str(wk, key);
+	return obj_dict_del_strn(wk, dict, k->s, k->len);
 }
 
 /* dict convienence functions */

@@ -642,6 +642,9 @@ void obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);
 void obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2);
 void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);
 bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
+bool obj_dict_del(struct workspace *wk, obj dict, obj key);
+bool obj_dict_del_str(struct workspace *wk, obj dict, const char *str);
+bool obj_dict_del_strn(struct workspace *wk, obj dict, const char *str, uint32_t len);
 
 bool obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dict_iterator cb);
 #endif

@@ -8,4 +8,5 @@
 #include "functions/common.h"
 
 extern const struct func_impl impl_tbl_dict[];
+extern const struct func_impl impl_tbl_dict_internal[];
 #endif

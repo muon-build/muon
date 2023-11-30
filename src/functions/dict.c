@@ -67,9 +67,29 @@ func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_dict_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	obj_dict_del(wk, rcvr, an[0].val);
+	return true;
+}
+
 const struct func_impl impl_tbl_dict[] = {
 	{ "keys", func_dict_keys, tc_array, true },
 	{ "has_key", func_dict_has_key, tc_bool, true },
 	{ "get", func_dict_get, tc_any, true },
+	{ NULL, NULL },
+};
+
+const struct func_impl impl_tbl_dict_internal[] = {
+	{ "keys", func_dict_keys, tc_array, true },
+	{ "has_key", func_dict_has_key, tc_bool, true },
+	{ "get", func_dict_get, tc_any, true },
+	{ "delete", func_dict_delete },
 	{ NULL, NULL },
 };
