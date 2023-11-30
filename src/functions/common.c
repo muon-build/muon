@@ -749,7 +749,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	wk->src = &src;
 	wk->ast = f->ast;
 	wk->lang_mode = f->lang_mode;
-	proj->scope_stack = wk->scope_stack_dup(wk, f->scope_stack);
+	proj->scope_stack = f->scope_stack;
 	L("restoring func scope");
 
 	++wk->func_depth;
