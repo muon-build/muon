@@ -1470,20 +1470,53 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	}
 }
 
+struct obj_to_s_opts {
+	bool pretty;
+	uint32_t indent;
+};
+
 struct obj_to_s_ctx {
 	struct sbuf *sb;
+	struct obj_to_s_opts *opts;
 	uint32_t cont_i, cont_len;
 };
+
+static void obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts *opts);
+
+static void
+obj_to_s_indent(struct workspace *wk, struct obj_to_s_ctx *ctx)
+{
+	if (!ctx->opts->pretty) {
+		return;
+	}
+
+	uint32_t i;
+	for (i = 0; i < ctx->opts->indent; ++i) {
+		sbuf_pushs(wk, ctx->sb, "  ");
+	}
+}
+
+static void
+obj_to_s_pretty_newline(struct workspace *wk, struct obj_to_s_ctx *ctx)
+{
+	if (!ctx->opts->pretty) {
+		return;
+	}
+
+	sbuf_push(wk, ctx->sb, '\n');
+	obj_to_s_indent(wk, ctx);
+}
 
 static enum iteration_result
 obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
 
-	obj_to_s(wk, val, ctx->sb);
+	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		sbuf_pushs(wk, ctx->sb, ", ");
+		sbuf_pushs(wk, ctx->sb, ",");
+		obj_to_s_pretty_newline(wk, ctx);
 	}
 
 	++ctx->cont_i;
@@ -1495,14 +1528,15 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct obj_to_s_ctx *ctx = _ctx;
 
-	obj_to_s(wk, key, ctx->sb);
+	obj_to_s_opts(wk, key, ctx->sb, ctx->opts);
 
 	sbuf_pushs(wk, ctx->sb, ": ");
 
-	obj_to_s(wk, val, ctx->sb);
+	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
 		sbuf_pushs(wk, ctx->sb, ", ");
+		obj_to_s_pretty_newline(wk, ctx);
 	}
 
 	++ctx->cont_i;
@@ -1517,10 +1551,10 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 	sbuf_push(wk, ctx->sb, '\'');
 }
 
-void
-obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
+static void
+obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts *opts)
 {
-	struct obj_to_s_ctx ctx = { .sb = sb };
+	struct obj_to_s_ctx ctx = { .sb = sb, .opts = opts };
 	enum obj_type t = get_obj_type(wk, o);
 
 	switch (t) {
@@ -1596,7 +1630,7 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 
 		if (test->args) {
 			sbuf_pushs(wk, sb, ", args: ");
-			obj_to_s(wk, test->args, sb);
+			obj_to_s_opts(wk, test->args, sb, opts);
 		}
 
 		if (test->should_fail) {
@@ -1626,27 +1660,39 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		ctx.cont_len = get_obj_array(wk, o)->len;
 
 		sbuf_pushs(wk, sb, "[");
+		++opts->indent;
+		obj_to_s_pretty_newline(wk, &ctx);
+
 		obj_array_foreach(wk, o, &ctx, obj_to_s_array_iter);
+
+		--opts->indent;
+		obj_to_s_pretty_newline(wk, &ctx);
 		sbuf_pushs(wk, sb, "]");
 		break;
 	case obj_dict:
 		ctx.cont_len = get_obj_dict(wk, o)->len;
 
 		sbuf_pushs(wk, sb, "{");
+		++opts->indent;
+		obj_to_s_pretty_newline(wk, &ctx);
+
 		obj_dict_foreach(wk, o, &ctx, obj_to_s_dict_iter);
+
+		--opts->indent;
+		obj_to_s_pretty_newline(wk, &ctx);
 		sbuf_pushs(wk, sb, "}");
 		break;
 	case obj_python_installation: {
 		struct obj_python_installation *py = get_obj_python_installation(wk, o);
 		sbuf_pushf(wk, sb, "<%s prog: ", obj_type_to_s(t));
-		obj_to_s(wk, py->prog, sb);
+		obj_to_s_opts(wk, py->prog, sb, opts);
 
 		if (get_obj_external_program(wk, py->prog)->found) {
 			sbuf_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
 			sbuf_pushs(wk, sb, ", sysconfig_paths: ");
-			obj_to_s(wk, py->sysconfig_paths, sb);
+			obj_to_s_opts(wk, py->sysconfig_paths, sb, opts);
 			sbuf_pushs(wk, sb, ", sysconfig_vars: ");
-			obj_to_s(wk, py->sysconfig_vars, sb);
+			obj_to_s_opts(wk, py->sysconfig_vars, sb, opts);
 		}
 
 		sbuf_pushs(wk, sb, ">");
@@ -1659,7 +1705,7 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 
 		if (prog->found) {
 			sbuf_pushs(wk, sb, ", cmd_array: ");
-			obj_to_s(wk, prog->cmd_array, sb);
+			obj_to_s_opts(wk, prog->cmd_array, sb, opts);
 		}
 
 		sbuf_pushs(wk, sb, ">");
@@ -1669,7 +1715,7 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		struct obj_option *opt = get_obj_option(wk, o);
 		sbuf_pushs(wk, sb, "<option ");
 
-		obj_to_s(wk, opt->val, sb);
+		obj_to_s_opts(wk, opt->val, sb, opts);
 
 		sbuf_pushs(wk, sb, ">");
 		break;
@@ -1677,6 +1723,16 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 	default:
 		sbuf_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
+}
+
+void
+obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
+{
+	struct obj_to_s_opts opts = {
+		.pretty = false,
+	};
+
+	obj_to_s_opts(wk, o, sb, &opts);
 }
 
 #define FMT_PARTIAL(arg) \
@@ -1694,7 +1750,7 @@ bool
 obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap)
 {
 	const char *fmt_start;
-	bool quote_string;
+	bool got_hash;
 
 	struct {
 		int val;
@@ -1706,14 +1762,14 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 			arg_width.have = false;
 			arg_prec.have = false;
 
-			quote_string = true;
+			got_hash = false;
 			fmt_start = fmt;
 			++fmt;
 
 			// skip flags
 			while (strchr("#0- +", *fmt)) {
 				if (*fmt == '#') {
-					quote_string = false;
+					got_hash = true;
 				}
 				++fmt;
 			}
@@ -1767,10 +1823,16 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 
 			if (*fmt == 'o') {
 				obj o = va_arg(ap, unsigned int);
-				if (get_obj_type(wk, o) == obj_string && !quote_string) {
+				if (get_obj_type(wk, o) == obj_string && got_hash) {
 					str_unescape(wk, sb, get_str(wk, o), false);
 				} else {
-					obj_to_s(wk, o, sb);
+					struct obj_to_s_opts opts = { 0 };
+
+					if (got_hash) {
+						opts.pretty = true;
+					}
+
+					obj_to_s_opts(wk, o, sb, &opts);
 				}
 
 				continue;
