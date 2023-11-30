@@ -48,17 +48,7 @@ struct assignment {
 	uint32_t ep_stack_len;
 };
 
-struct scope_group {
-	struct arr scopes;
-};
-
 struct arr assignments;
-
-/* struct { */
-/* struct arr groups; */
-/* struct arr local; */
-/* struct arr global; */
-/* } assignment_scopes; */
 
 static void
 copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
@@ -214,32 +204,6 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
  * merged) into the parent scope, and the scope group is popped.
  */
 
-static bool
-assign_lookup_scope_i(const char *name, struct arr *scope, uint32_t *res)
-{
-	uint32_t i;
-	for (i = 0; i < scope->len; ++i) {
-		struct assignment *a = arr_get(scope, i);
-		if (strcmp(a->name, name) == 0) {
-			*res = i;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static struct assignment *
-assign_lookup_scope(const char *name, struct arr *scope)
-{
-	uint32_t i;
-	if (assign_lookup_scope_i(name, scope, &i)) {
-		return arr_get(scope, i);
-	} else {
-		return NULL;
-	}
-}
-
 static void
 analyze_unassign(struct workspace *wk, const char *name)
 {
@@ -277,57 +241,92 @@ analyze_unassign(struct workspace *wk, const char *name)
 
 struct check_analyze_scope_ctx {
 	const char *name;
+	uint32_t i;
 	obj res, scope;
 	bool found;
 };
 
+
+// {a: 1},           -- skip
+// [{b: 2}, {b: 3}], -- take last
+// [{c: 4}]          -- take last
 static enum iteration_result
-analyze_check_scope_group(struct workspace *wk, void *_ctx, obj scope_group)
+analyze_check_scope_group_scope(struct workspace *wk, void *_ctx, obj scope_group)
 {
 	struct check_analyze_scope_ctx *ctx = _ctx;
 
-	obj scope;
-	obj_array_index(wk, scope_group, get_obj_array(wk, scope_group)->len - 1, &scope);
+	if (ctx->i == 0) {
+		goto cont;
+	}
+
+	obj scope = obj_array_get_tail(wk, scope_group);
 
 	if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
 		ctx->scope = scope;
 		ctx->found = true;
 	}
 
+cont:
+	++ctx->i;
 	return ir_cont;
 }
 
+
+// [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
+static enum iteration_result
+analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
+{
+	struct check_analyze_scope_ctx *ctx = _ctx;
+
+	obj base;
+	obj_array_index(wk, local_scope, 0, &base);
+
+	struct check_analyze_scope_ctx sub_ctx = {
+		.res = ctx->res,
+		.name = ctx->name,
+	};
+
+	if (get_obj_array(wk, local_scope)->len > 1) {
+		obj_array_foreach(wk, local_scope, &sub_ctx, analyze_check_scope_group_scope);
+	}
+
+	if (sub_ctx.found) {
+		*ctx = sub_ctx;
+	} else {
+		if (obj_dict_index_str(wk, base, ctx->name, &ctx->res)) {
+			ctx->scope = base;
+			ctx->found = true;
+		}
+	}
+
+	return ir_cont;
+}
+
+// [[{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]]
 static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
-	int32_t i;
-	struct assignment *found = NULL;
-
 	struct check_analyze_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope);
+	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope_stack);
 
-	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
-		struct scope_group *g = arr_get(&assignment_scopes.groups, i);
-		if (!(g->scopes.len)) {
-			continue;
-		}
-
-		struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
-		if ((found = assign_lookup_scope(name, scope))) {
-			break;
-		}
+	if (ctx.found) {
+		return arr_get(&assignments, ctx.res);
+	} else {
+		return 0;
 	}
+}
 
-	if (!found && assignment_scopes.local.len) {
-		struct arr *s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
-		found = assign_lookup_scope(name, s);
+static obj
+assign_lookup_scope(struct workspace *wk, const char *name)
+{
+	struct check_analyze_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope_stack);
+
+	if (ctx.found) {
+		return ctx.scope;
+	} else {
+		return 0;
 	}
-
-	if (!found) {
-		found = assign_lookup_scope(name, &assignment_scopes.global);
-	}
-
-	return found;
 }
 
 static void
@@ -360,54 +359,9 @@ check_reassign_to_different_type(struct workspace *wk, struct assignment *a, obj
 	}
 }
 
-static struct assignment *
-scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
+static obj
+push_assignment(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
-	/* if we assigned to null, throw an error but continue with a tc_any */
-	if (!o) {
-		interp_error(wk, n_id, "assigning variable to null");
-		analyze_error = true;
-		o = make_typeinfo(wk, tc_any, 0);
-	}
-
-	struct arr *s;
-	if (assignment_scopes.groups.len) {
-		/* If we are in a scope group, retrieve the current scope as the last element of the last scope group  */
-		struct scope_group *g = arr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
-
-		assert(g->scopes.len);
-		s = arr_get(&g->scopes, g->scopes.len - 1);
-	} else {
-		/* if (mode && assignment_scopes.local.len) { */
-		/* 	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1); */
-		/* 	local = assign_lookup_scope(name, s); */
-		/* } */
-
-		if (mode == assign_local) {
-			s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
-		} else {
-			s = &assignment_scopes.global;
-		}
-	}
-
-	struct assignment *a;
-	if (wk->impure_loop_depth && (a = assign_lookup(wk, name))) {
-		// When overwriting a variable in a loop turn it into a
-		// typeinfo so that it gets marked as impure.
-		enum obj_type new_type = get_obj_type(wk, o);
-		if (new_type != obj_typeinfo && !obj_equal(wk, a->o, o)) {
-			o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
-		}
-	}
-
-	if ((a = assign_lookup_scope(name, s))) {
-		// The assignment was found so just reassign it here
-		check_reassign_to_different_type(wk, a, o, NULL, n_id);
-
-		a->o = o;
-		return a;
-	}
-
 	// initialize source location to 0 since some variables don't have
 	// anything to put there, like builtin variables
 	struct node *n = NULL;
@@ -420,9 +374,9 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 		copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
 	}
 
-	// Add the new assignment to the current scope and return a pointer to
-	// it
-	arr_push(s, &(struct assignment) {
+	// Add the new assignment to the current scope and return its index as
+	// an obj (for storage in the scope dict)
+	return arr_push(&assignments, &(struct assignment) {
 		.name = name,
 		.o = o,
 		.line = n ? n->line : 0,
@@ -431,100 +385,183 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 		.ep_stacks_i = ep_stacks_i,
 		.ep_stack_len = ep_stack_len,
 	});
-
-	return arr_get(s, s->len - 1);
 }
 
-static void
-push_scope_group_scope(void)
+static struct assignment *
+scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
-	assert(assignment_scopes.groups.len);
-	struct scope_group *g = arr_get(&assignment_scopes.groups, assignment_scopes.groups.len - 1);
-	arr_push(&g->scopes, &(struct arr) { 0 });
-	struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
-	arr_init(scope, 256, sizeof(struct assignment));
-}
-
-static void
-push_scope_group(void)
-{
-	struct scope_group g = { 0 };
-	arr_init(&g.scopes, 4, sizeof(struct arr));
-	arr_push(&assignment_scopes.groups, &g);
-}
-
-static void
-merge_objects(struct workspace *wk, struct assignment *new, struct assignment *old)
-{
-	type_tag new_type = get_obj_type(wk, new->o);
-	type_tag old_type = get_obj_type(wk, old->o);
-
-	if (new_type != obj_typeinfo) {
-		new->o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
+	/* if we assigned to null, throw an error but continue with a tc_any */
+	if (!o) {
+		interp_error(wk, n_id, "assigning variable to null");
+		analyze_error = true;
+		o = make_typeinfo(wk, tc_any, 0);
 	}
 
-	if (old_type != obj_typeinfo) {
-		old->o = make_typeinfo(wk, obj_type_to_tc_type(old_type), 0);
+	obj scope = 0;
+	if (mode == assign_local) {
+		obj local_scope = obj_array_get_tail(wk, current_project(wk)->scope_stack);
+		if (get_obj_array(wk, local_scope)->len == 1) {
+			scope = obj_array_get_tail(wk, local_scope);
+		} else {
+			obj scope_group = obj_array_get_tail(wk, local_scope);
+			scope = obj_array_get_tail(wk, scope_group);
+		}
+	} else if (mode == assign_reassign) {
+		scope = assign_lookup_scope(wk, name);
+	}
+	assert(scope);
+
+	struct assignment *a = 0;
+	if (wk->impure_loop_depth && (a = assign_lookup(wk, name))) {
+		// When overwriting a variable in a loop turn it into a
+		// typeinfo so that it gets marked as impure.
+		enum obj_type new_type = get_obj_type(wk, o);
+		if (new_type != obj_typeinfo && !obj_equal(wk, a->o, o)) {
+			o = make_typeinfo(wk, obj_type_to_tc_type(new_type), 0);
+		}
 	}
 
-	check_reassign_to_different_type(wk, new, old->o, old, 0);
-	merge_types(wk, get_obj_typeinfo(wk, new->o), old->o);
+	obj aid;
+	if (obj_dict_index(wk, scope, make_str(wk, name), &aid)) {
+		// The assignment was found so just reassign it here
+		a = arr_get(&assignments, aid);
+		check_reassign_to_different_type(wk, a, o, NULL, n_id);
 
-	assert(get_obj_type(wk, new->o) == obj_typeinfo);
-	assert(get_obj_type(wk, old->o) == obj_typeinfo);
+		a->o = o;
+		return a;
+	}
+
+	aid = push_assignment(wk, name, o, n_id);
+	obj_dict_set(wk, scope, make_str(wk, name), aid);
+
+	return arr_get(&assignments, aid);
+}
+
+static void
+push_scope_group(struct workspace *wk)
+{
+	struct project *proj = current_project(wk);
+	obj local_scope = obj_array_get_tail(wk, proj->scope_stack), scope_group;
+	make_obj(wk, &scope_group, obj_array);
+	obj_array_push(wk, local_scope, scope_group);
+}
+
+static void
+push_scope_group_scope(struct workspace *wk)
+{
+	struct project *proj = current_project(wk);
+	obj local_scope = obj_array_get_tail(wk, proj->scope_stack),
+	    scope_group = obj_array_get_tail(wk, local_scope),
+	    scope;
+
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, scope_group, scope);
+}
+
+static void
+merge_objects(struct workspace *wk, struct assignment *dest, struct assignment *src)
+{
+	type_tag dest_type = get_obj_type(wk, dest->o);
+	type_tag src_type = get_obj_type(wk, src->o);
+
+	src->accessed = true;
+
+	if (dest_type != obj_typeinfo) {
+		dest->o = make_typeinfo(wk, obj_type_to_tc_type(dest_type), 0);
+	}
+
+	if (src_type != obj_typeinfo) {
+		src->o = make_typeinfo(wk, obj_type_to_tc_type(src_type), 0);
+	}
+
+	check_reassign_to_different_type(wk, dest, src->o, src, 0);
+	merge_types(wk, get_obj_typeinfo(wk, dest->o), src->o);
+
+	assert(get_obj_type(wk, dest->o) == obj_typeinfo);
+	assert(get_obj_type(wk, src->o) == obj_typeinfo);
+	src->o = 0;
+}
+
+struct pop_scope_group_ctx {
+	uint32_t i;
+	obj merged, base;
+};
+
+static enum iteration_result
+merge_scope_group_scope_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
+{
+	struct pop_scope_group_ctx *ctx = _ctx;
+
+	obj bid;
+	struct assignment *b, *a = arr_get(&assignments, aid);
+	if (obj_dict_index(wk, ctx->merged, k, &bid)) {
+		b = arr_get(&assignments, bid);
+		merge_objects(wk, b, a);
+	} else {
+		obj_dict_set(wk, ctx->merged, k, aid);
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+merge_scope_group_scopes_iter(struct workspace *wk, void *_ctx, obj scope)
+{
+	struct pop_scope_group_ctx *ctx = _ctx;
+	if (ctx->i == 0) {
+		goto cont;
+	}
+
+	obj_dict_foreach(wk, scope, ctx, merge_scope_group_scope_iter);
+cont:
+	++ctx->i;
+	return ir_cont;
+}
+
+static enum iteration_result
+merge_scope_group_scope_with_base_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
+{
+	struct assignment *a = arr_get(&assignments, aid), *b;
+	if ((b = assign_lookup(wk, a->name))) {
+		merge_objects(wk, b, a);
+	} else {
+		type_tag type = get_obj_type(wk, a->o);
+		if (type != obj_typeinfo) {
+			a->o = make_typeinfo(wk, obj_type_to_tc_type(type), 0);
+		}
+
+		b = scope_assign(wk, a->name, a->o, 0, assign_local);
+		b->accessed = a->accessed;
+		b->line = a->line;
+		b->col = a->col;
+		b->src_idx = a->src_idx;
+
+		a->accessed = true;
+	}
+
+	return ir_cont;
 }
 
 static void
 pop_scope_group(struct workspace *wk)
 {
-	assert(assignment_scopes.groups.len);
-	size_t idx = assignment_scopes.groups.len - 1;
-	struct scope_group *g = arr_get(&assignment_scopes.groups, idx);
-	arr_del(&assignment_scopes.groups, idx);
+	struct project *proj = current_project(wk);
+	obj local_scope = obj_array_get_tail(wk, proj->scope_stack),
+	    scope_group = obj_array_get_tail(wk, local_scope);
 
-	if (!g->scopes.len) {
-		// empty scope group
+	if (get_obj_array(wk, scope_group)->len == 1) {
 		return;
 	}
 
-	struct arr *global = arr_get(&g->scopes, 0);
+	obj_array_pop(wk, local_scope);
 
-	uint32_t i, j;
-	for (i = 1; i < g->scopes.len; ++i) {
-		struct arr *scope = arr_get(&g->scopes, i);
-		for (j = 0; j < scope->len; ++j) {
-			struct assignment *b, *a = arr_get(scope, j);
-			if ((b = assign_lookup_scope(a->name, global))) {
-				merge_objects(wk, b, a);
-			} else {
-				arr_push(global, a);
-			}
-		}
-	}
+	struct pop_scope_group_ctx ctx = { 0 };
+	obj_array_index(wk, local_scope, 0, &ctx.base);
+	obj_array_index(wk, scope_group, 0, &ctx.merged);
 
-	for (i = 0; i < global->len; ++i) {
-		struct assignment *a = arr_get(global, i), *b;
-		if ((b = assign_lookup(wk, a->name))) {
-			merge_objects(wk, b, a);
-		} else {
-			type_tag type = get_obj_type(wk, a->o);
-			if (type != obj_typeinfo) {
-				a->o = make_typeinfo(wk, obj_type_to_tc_type(type), 0);
-			}
+	obj_array_foreach(wk, scope_group, &ctx, merge_scope_group_scopes_iter);
 
-			b = scope_assign(wk, a->name, a->o, 0, assign_local);
-			b->accessed = a->accessed;
-			b->line = a->line;
-			b->col = a->col;
-			b->src_idx = a->src_idx;
-		}
-	}
-
-	for (i = 0; i < g->scopes.len; ++i) {
-		struct arr *scope = arr_get(&g->scopes, i);
-		arr_destroy(scope);
-	}
-	arr_destroy(&g->scopes);
+	obj_dict_foreach(wk, ctx.merged, &ctx, merge_scope_group_scope_with_base_iter);
 }
 
 /*
@@ -1236,7 +1273,7 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 	// looked up in the previous branches scope, leading the analyzer to
 	// wrongly conclude the value `a` is constant 2 in the current scope,
 	// and marking the elsif branch as dead code.
-	push_scope_group_scope();
+	push_scope_group_scope(wk);
 
 	bool ret = true;
 	bool pure_cond = false, cond = false;
@@ -1366,8 +1403,8 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		/* } */
 	}
 
-	push_scope_group();
-	push_scope_group_scope();
+	push_scope_group(wk);
+	push_scope_group_scope(wk);
 
 	if (args->chflg & node_child_r) {
 		// two variables
@@ -1444,7 +1481,7 @@ analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, assign_local);
+	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, assign_reassign);
 	return true;
 }
 
@@ -1483,7 +1520,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	case node_if:
 		if (n->subtype == if_if) {
-			push_scope_group();
+			push_scope_group(wk);
 		}
 
 		ret = analyze_if(wk, n, res);
@@ -1641,19 +1678,50 @@ analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_
 static void
 analyze_push_local_scope(struct workspace *wk)
 {
-	struct arr *s;
-	arr_grow_by(&assignment_scopes.local, 1);
-	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
-	arr_init(s, 256, sizeof(struct assignment));
+	obj scope_group;
+	make_obj(wk, &scope_group, obj_array);
+	obj scope;
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, scope_group, scope);
+	obj_array_push(wk, current_project(wk)->scope_stack, scope_group);
 }
 
 static void
 analyze_pop_local_scope(struct workspace *wk)
 {
-	struct arr *s;
-	s = arr_get(&assignment_scopes.local, assignment_scopes.local.len - 1);
-	arr_destroy(s);
-	arr_del(&assignment_scopes.local, assignment_scopes.local.len - 1);
+	obj scope_group = obj_array_pop(wk, current_project(wk)->scope_stack);
+	assert(get_obj_array(wk, scope_group)->len == 1);
+}
+
+static enum iteration_result
+analyze_scope_stack_scope_dup_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	obj *g = _ctx;
+	obj scope;
+	obj_dict_dup(wk, v, &scope);
+	obj_array_push(wk, *g, scope);
+	return ir_cont;
+}
+
+static enum iteration_result
+analyze_scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj scope_group)
+{
+	obj *r = _ctx;
+	obj g;
+	make_obj(wk, &g, obj_array);
+	obj_array_foreach(wk, scope_group, &g, analyze_scope_stack_scope_dup_iter);
+	obj_array_push(wk, *r, g);
+	return ir_cont;
+}
+
+static obj
+analyze_scope_stack_dup(struct workspace *wk, obj scope_stack)
+{
+	obj r;
+	make_obj(wk, &r, obj_array);
+
+	obj_array_foreach(wk, scope_stack, &r, analyze_scope_stack_dup_iter);
+	return r;
 }
 
 static bool
@@ -1714,6 +1782,19 @@ analyze_print_diagnostic_names(void)
 	}
 }
 
+static enum iteration_result
+reassign_default_var(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	obj *scope = _ctx;
+	obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
+
+	struct assignment *a = arr_get(&assignments, aid);
+	a->default_var = true;
+
+	obj_dict_set(wk, *scope, k, aid);
+	return ir_cont;
+}
+
 bool
 do_analyze(struct analyze_opts *opts)
 {
@@ -1722,38 +1803,16 @@ do_analyze(struct analyze_opts *opts)
 	struct workspace wk;
 	workspace_init(&wk);
 
-	/* re-initialize the default scope to
-	 * [[{<default vars}]]
-	 */
-	obj default_scope, scope_group;
-	obj_array_index(&wk, wk.default_scope, &default_scope, 0);
-	make_obj(wk, &wk.default_scope, obj_array);
-	make_obj(wk, &scope_group, obj_array);
-	obj_dict_foreach(&wk, default_scope, 0, reassign_default_vars);
-
-	arr_init(&assignment_scopes.groups, 16, sizeof(struct scope_group));
-	arr_init(&assignment_scopes.local, 16, sizeof(struct arr));
-	arr_init(&assignment_scopes.global, 256, sizeof(struct assignment));
-
-	{
-		/*
-		 * default variables have to be re-assigned with scope_assign
-		 * for them to be used in the analyzer
-		 */
-		const char *default_vars[] = {
-			"meson",
-			"host_machine",
-			"build_machine",
-			"target_machine",
-		};
-
-		uint32_t i;
-		obj o;
-		for (i = 0; i < ARRAY_LEN(default_vars); ++i) {
-			wk->get_variable(&wk, wk.global_scope, default_vars[i]), &o);
-			struct assignment *a = scope_assign(&wk, default_vars[i], o, 0, assign_local);
-			a->default_var = true;
-		}
+	arr_init(&assignments, 512, sizeof(struct assignment));
+	{ /* re-initialize the default scope */
+		obj default_scope, scope_group, scope;
+		obj_array_index(&wk, wk.default_scope, 0, &default_scope);
+		make_obj(&wk, &wk.default_scope, obj_array);
+		make_obj(&wk, &scope_group, obj_array);
+		make_obj(&wk, &scope, obj_dict);
+		obj_array_push(&wk, scope_group, scope);
+		obj_array_push(&wk, wk.default_scope, scope_group);
+		obj_dict_foreach(&wk, default_scope, &scope, reassign_default_var);
 	}
 
 	wk.interp_node = analyze_node;
@@ -1762,6 +1821,7 @@ do_analyze(struct analyze_opts *opts)
 	wk.push_local_scope = analyze_push_local_scope;
 	wk.pop_local_scope = analyze_pop_local_scope;
 	wk.get_variable = analyze_lookup_wrapper;
+	wk.scope_stack_dup = analyze_scope_stack_dup;
 	wk.eval_project_file = analyze_eval_project_file;
 	wk.in_analyzer = true;
 
@@ -1783,10 +1843,10 @@ do_analyze(struct analyze_opts *opts)
 		}
 	}
 
-	if (opts->internal_file) {
-		uint32_t proj_id;
-		make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
+	uint32_t proj_id;
+	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
 
+	if (opts->internal_file) {
 		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0, assign_local);
 		a->default_var = true;
 
@@ -1807,10 +1867,9 @@ do_analyze(struct analyze_opts *opts)
 	}
 
 	if (analyze_diagnostic_enabled(analyze_diagnostic_unused_variable)) {
-		assert(assignment_scopes.groups.len == 0);
 		uint32_t i;
-		for (i = 0; i < assignment_scopes.global.len; ++i) {
-			struct assignment *a = arr_get(&assignment_scopes.global, i);
+		for (i = 0; i < assignments.len; ++i) {
+			struct assignment *a = arr_get(&assignments, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
@@ -1868,9 +1927,6 @@ do_analyze(struct analyze_opts *opts)
 
 	arr_destroy(&analyze_entrypoint_stack);
 	arr_destroy(&analyze_entrypoint_stacks);
-	arr_destroy(&assignment_scopes.groups);
-	arr_destroy(&assignment_scopes.local);
-	arr_destroy(&assignment_scopes.global);
 	workspace_destroy(&wk);
 	return res;
 }
