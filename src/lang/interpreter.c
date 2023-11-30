@@ -303,10 +303,10 @@ check_scope(struct workspace *wk, void *_ctx, obj scope)
 }
 
 static bool
-get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
+get_local_variable(struct workspace *wk, const char *name, struct project *proj, obj *res, obj *scope)
 {
 	struct check_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, check_scope);
+	obj_array_foreach(wk, proj->scope_stack, &ctx, check_scope);
 
 	if (ctx.found) {
 		*res = ctx.res;
@@ -322,7 +322,7 @@ get_variable(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
 {
 	obj o, _scope;
 
-	if (get_local_variable(wk, name, &o, &_scope)) {
+	if (get_local_variable(wk, name, arr_get(&wk->projects, proj_id), &o, &_scope)) {
 		*res = o;
 		return true;
 	} else {
@@ -373,7 +373,9 @@ assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, e
 	obj scope = 0;
 	if (mode == assign_reassign) {
 		obj _;
-		get_local_variable(wk, name, &_, &scope);
+		if (!get_local_variable(wk, name, current_project(wk), &_, &scope)) {
+			UNREACHABLE;
+		}
 	} else {
 		uint32_t len = get_obj_array(wk, proj->scope_stack)->len;
 		obj_array_index(wk, proj->scope_stack, len - 1, &scope);
