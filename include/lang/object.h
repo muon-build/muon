@@ -591,6 +591,9 @@ void obj_to_s(struct workspace *wk, obj o, struct sbuf *sb);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 
+#define LO(...) if (log_should_print(log_debug)) { char buf[4096]; log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); log_plain("%s", buf); obj_fprintf(wk, log_file(), __VA_ARGS__); }
+#define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
+
 bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
 bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 MUON_ATTR_FORMAT(printf, 3, 4);

@@ -25,6 +25,7 @@ enum log_level {
 
 extern const char *log_level_clr[log_level_count];
 extern const char *log_level_name[log_level_count];
+extern const char *log_level_shortname[log_level_count];
 
 #define L(...) log_print(true, log_debug, __VA_ARGS__)
 #define LOG_I(...) log_print(true, log_info, __VA_ARGS__)
@@ -42,6 +43,7 @@ void log_set_lvl(enum log_level lvl);
 void log_set_prefix(const char *prefix);
 const char *log_get_prefix(void);
 
+uint32_t log_print_prefix(enum log_level lvl, char *buf, uint32_t size);
 void log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 MUON_ATTR_FORMAT(printf, 3, 4);
 bool log_clr(void);

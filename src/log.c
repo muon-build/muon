@@ -30,7 +30,7 @@ const char *log_level_name[log_level_count] = {
 	[log_debug] = "debug",
 };
 
-static const char *log_level_shortname[log_level_count] = {
+const char *log_level_shortname[log_level_count] = {
 	[log_error] = "err ",
 	[log_warn]  = "warn ",
 	[log_info]  = "",
@@ -63,29 +63,38 @@ log_set_prefix(const char *prefix)
 	log_cfg.prefix = prefix;
 }
 
+uint32_t
+log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
+{
+	uint32_t len = 0;
+	assert(log_cfg.initialized);
+
+	if (log_cfg.prefix) {
+		len += snprintf(&buf[len], size - len, "%s ", log_cfg.prefix);
+	}
+
+	if (*log_level_shortname[lvl]) {
+		if (log_cfg.clr) {
+			len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
+				log_level_clr[lvl], log_level_shortname[lvl]);
+		} else {
+			len = strlen(log_level_shortname[lvl]);
+			strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
+		}
+	}
+
+	return len;
+}
+
 void
 log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {
 	static char buf[BUF_SIZE_4k + 3];
 
 	if (log_should_print(lvl)) {
-		uint32_t len = 0;
+		uint32_t len = log_print_prefix(lvl, buf, BUF_SIZE_4k);
 
 		assert(log_cfg.initialized);
-
-		if (log_cfg.prefix) {
-			len += snprintf(&buf[len], BUF_SIZE_4k - len, "%s ", log_cfg.prefix);
-		}
-
-		if (*log_level_shortname[lvl]) {
-			if (log_cfg.clr) {
-				len += snprintf(&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m",
-					log_level_clr[lvl], log_level_shortname[lvl]);
-			} else {
-				len = strlen(log_level_shortname[lvl]);
-				strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
-			}
-		}
 
 		va_list ap;
 		va_start(ap, fmt);
