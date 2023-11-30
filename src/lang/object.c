@@ -636,6 +636,12 @@ obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 	*res = ctx.res;
 }
 
+obj
+obj_array_get_tail(struct workspace *wk, obj arr)
+{
+	return get_obj_array(wk, get_obj_array(wk, arr)->tail)->val;
+}
+
 struct obj_array_dup_ctx { obj *arr; };
 
 static enum iteration_result
@@ -831,10 +837,19 @@ obj_array_del(struct workspace *wk, obj arr, int64_t i)
 	if (del->have_next) {
 		prev->next = del->next;
 	} else {
+		head->tail = p;
 		prev->have_next = false;
 	}
 
 	--head->len;
+}
+
+obj
+obj_array_pop(struct workspace *wk, obj arr)
+{
+	obj t = obj_array_get_tail(wk, arr);
+	obj_array_del(wk, arr, get_obj_array(wk, arr)->len - 1);
+	return t;
 }
 
 static enum iteration_result

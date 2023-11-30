@@ -627,6 +627,8 @@ typedef int32_t (*obj_array_sort_func)(struct workspace *wk, void *_ctx, obj a, 
 int32_t obj_array_sort_by_str(struct workspace *wk, void *_ctx, obj a, obj b);
 void obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res);
 obj obj_array_slice(struct workspace *wk, obj arr, int64_t i0, int64_t i1);
+obj obj_array_get_tail(struct workspace *wk, obj arr);
+obj obj_array_pop(struct workspace *wk, obj arr);
 
 typedef enum iteration_result (*obj_dict_iterator)(struct workspace *wk, void *ctx, obj key, obj val);
 bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb);

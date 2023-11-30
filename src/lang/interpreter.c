@@ -362,10 +362,7 @@ push_local_scope(struct workspace *wk)
 void
 pop_local_scope(struct workspace *wk)
 {
-	struct obj_array *arr = get_obj_array(wk, current_project(wk)->scope_stack);
-
-	assert(arr->len);
-	obj_array_del(wk, current_project(wk)->scope_stack, arr->len - 1);
+	obj_array_pop(wk, current_project(wk)->scope_stack);
 	obj_fprintf(wk, log_file(), "< scope: %o\n", current_project(wk)->scope_stack);
 }
 
