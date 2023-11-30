@@ -246,7 +246,6 @@ struct check_analyze_scope_ctx {
 	bool found;
 };
 
-
 // {a: 1},           -- skip
 // [{b: 2}, {b: 3}], -- take last
 // [{c: 4}]          -- take last
@@ -1668,6 +1667,7 @@ analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res, uint32_
 {
 	struct assignment *a = assign_lookup(wk, name);
 	if (a) {
+		a->accessed = true;
 		*res = a->o;
 		return true;
 	} else {
@@ -1843,10 +1843,10 @@ do_analyze(struct analyze_opts *opts)
 		}
 	}
 
-	uint32_t proj_id;
-	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
-
 	if (opts->internal_file) {
+		uint32_t proj_id;
+		make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
+
 		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array, 0), 0, assign_local);
 		a->default_var = true;
 
