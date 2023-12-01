@@ -1118,14 +1118,17 @@ _obj_dict_index(struct workspace *wk, obj dict,
 	obj **res)
 
 {
+	TracyCZoneAutoS;
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
+		TracyCZoneAutoE;
 		return false;
 	}
 
 	while (true) {
 		if (comp(wk, key, d->key)) {
 			*res = &d->val;
+			TracyCZoneAutoE;
 			return true;
 		}
 
@@ -1135,6 +1138,7 @@ _obj_dict_index(struct workspace *wk, obj dict,
 		d = get_obj_dict(wk, d->next);
 	}
 
+	TracyCZoneAutoE;
 	return false;
 }
 

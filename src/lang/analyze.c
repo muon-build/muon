@@ -25,6 +25,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 static bool analyze_error;
 static const struct analyze_opts *analyze_opts;
@@ -252,6 +253,7 @@ struct check_analyze_scope_ctx {
 static enum iteration_result
 analyze_check_scope_group_scope(struct workspace *wk, void *_ctx, obj scope_group)
 {
+	TracyCZoneAutoS;
 	struct check_analyze_scope_ctx *ctx = _ctx;
 
 	if (ctx->i == 0) {
@@ -267,6 +269,7 @@ analyze_check_scope_group_scope(struct workspace *wk, void *_ctx, obj scope_grou
 
 cont:
 	++ctx->i;
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -275,6 +278,7 @@ cont:
 static enum iteration_result
 analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 {
+	TracyCZoneAutoS;
 	struct check_analyze_scope_ctx *ctx = _ctx;
 
 	obj base;
@@ -298,6 +302,7 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 		}
 	}
 
+	TracyCZoneAutoE;
 	return ir_cont;
 }
 
@@ -305,12 +310,15 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
+	TracyCZoneAutoS;
 	struct check_analyze_scope_ctx ctx = { .name = name };
 	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope_stack);
 
 	if (ctx.found) {
+		TracyCZoneAutoE;
 		return arr_get(&assignments, ctx.res);
 	} else {
+		TracyCZoneAutoE;
 		return 0;
 	}
 }
@@ -318,12 +326,15 @@ assign_lookup(struct workspace *wk, const char *name)
 static obj
 assign_lookup_scope(struct workspace *wk, const char *name)
 {
+	TracyCZoneAutoS;
 	struct check_analyze_scope_ctx ctx = { .name = name };
 	obj_array_foreach(wk, current_project(wk)->scope_stack, &ctx, analyze_check_scope_stack);
 
 	if (ctx.found) {
+		TracyCZoneAutoE;
 		return ctx.scope;
 	} else {
+		TracyCZoneAutoE;
 		return 0;
 	}
 }
@@ -389,6 +400,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 static struct assignment *
 scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
+	TracyCZoneAutoS;
 	/* if we assigned to null, throw an error but continue with a tc_any */
 	if (!o) {
 		interp_error(wk, n_id, "assigning variable to null");
@@ -427,12 +439,14 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 		check_reassign_to_different_type(wk, a, o, NULL, n_id);
 
 		a->o = o;
+		TracyCZoneAutoE;
 		return a;
 	}
 
 	aid = push_assignment(wk, name, o, n_id);
 	obj_dict_set(wk, scope, make_str(wk, name), aid);
 
+	TracyCZoneAutoE;
 	return arr_get(&assignments, aid);
 }
 
