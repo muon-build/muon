@@ -559,14 +559,13 @@ static void
 pop_scope_group(struct workspace *wk)
 {
 	struct project *proj = current_project(wk);
-	obj local_scope = obj_array_get_tail(wk, proj->scope_stack),
-	    scope_group = obj_array_get_tail(wk, local_scope);
+	obj local_scope = obj_array_get_tail(wk, proj->scope_stack);
 
-	if (get_obj_array(wk, scope_group)->len == 1) {
+	if (get_obj_array(wk, local_scope)->len == 1) {
 		return;
 	}
 
-	obj_array_pop(wk, local_scope);
+	obj scope_group = obj_array_pop(wk, local_scope);
 
 	struct pop_scope_group_ctx ctx = { 0 };
 	obj_array_index(wk, local_scope, 0, &ctx.base);
