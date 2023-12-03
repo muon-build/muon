@@ -568,8 +568,14 @@ pop_scope_group(struct workspace *wk)
 	obj scope_group = obj_array_pop(wk, local_scope);
 
 	struct pop_scope_group_ctx ctx = { 0 };
-	obj_array_index(wk, local_scope, 0, &ctx.base);
 	obj_array_index(wk, scope_group, 0, &ctx.merged);
+
+	if (get_obj_array(wk, local_scope)->len == 1) {
+		obj_array_index(wk, local_scope, 0, &ctx.base);
+	} else {
+		obj prev_scope_group = obj_array_get_tail(wk, local_scope);
+		ctx.base = obj_array_get_tail(wk, prev_scope_group);
+	}
 
 	obj_array_foreach(wk, scope_group, &ctx, merge_scope_group_scopes_iter);
 
