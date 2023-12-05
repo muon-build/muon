@@ -63,12 +63,13 @@ obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...)
 MUON_ATTR_FORMAT(printf, 2, 3);
 
-void str_app(struct workspace *wk, obj s, const char *str);
-void str_appf(struct workspace *wk, obj s, const char *fmt, ...)
+void str_app(struct workspace *wk, obj *s, const char *str);
+void str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
 MUON_ATTR_FORMAT(printf, 3, 4);
-void str_appn(struct workspace *wk, obj s, const char *str, uint32_t n);
+void str_appn(struct workspace *wk, obj *s, const char *str, uint32_t n);
 
 obj str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val);
+obj str_clone_mutable(struct workspace *wk, obj val);
 
 bool str_eql(const struct str *ss1, const struct str *ss2);
 bool str_startswith(const struct str *ss, const struct str *pre);

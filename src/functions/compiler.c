@@ -1220,7 +1220,7 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		}
 
 		if (started) {
-			str_appn(wk, *res, &output.src[i], 1);
+			str_appn(wk, res, &output.src[i], 1);
 		}
 	}
 

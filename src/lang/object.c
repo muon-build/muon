@@ -282,6 +282,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 void
 obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 {
+	wk->obj_clear_mark_set = true;
 	mk->obji = wk->objs.len;
 
 	bucket_arr_save(&wk->chrs, &mk->chrs);
@@ -316,6 +317,8 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
 	}
+
+	wk->obj_clear_mark_set = false;
 }
 
 const char *
@@ -709,10 +712,10 @@ obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *ss = get_str(wk, val);
 
-	str_appn(wk, *ctx->res, ss->s, ss->len);
+	str_appn(wk, ctx->res, ss->s, ss->len);
 
 	if (ctx->i < ctx->len - 1) {
-		str_appn(wk, *ctx->res, ctx->join->s, ctx->join->len);
+		str_appn(wk, ctx->res, ctx->join->s, ctx->join->len);
 	}
 
 	++ctx->i;
@@ -1102,7 +1105,7 @@ obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_com
 static bool
 obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, obj other)
 {
-	return str_eql(get_str(wk, key->num), get_str(wk, other));
+	return key->num == other || str_eql(get_str(wk, key->num), get_str(wk, other));
 }
 
 static bool

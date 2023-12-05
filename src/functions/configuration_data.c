@@ -35,13 +35,13 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 
 	for (; *s; ++s) {
 		if (*s == '"') {
-			str_app(wk, str, "\\");
+			str_app(wk, &str, "\\");
 		}
 
-		str_appn(wk, str, s, 1);
+		str_appn(wk, &str, s, 1);
 	}
 
-	str_app(wk, str, "\"");
+	str_app(wk, &str, "\"");
 
 	obj_dict_set(wk, dict, an[0].val, str);
 	return true;

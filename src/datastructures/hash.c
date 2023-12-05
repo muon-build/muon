@@ -22,15 +22,20 @@
 
 #define LOAD_FACTOR 0.5f
 
+struct strkey {
+	const char *str;
+	uint64_t len;
+};
+
 static uint64_t
 fnv_1a_64_str(const struct hash *hash, const void *_key)
 {
-	const char *key = *(const char **)_key;
+	const struct strkey *key = _key;
 	uint64_t h = 14695981039346656037u;
 	uint16_t i;
 
-	for (i = 0; key[i]; i++) {
-		h ^= key[i];
+	for (i = 0; i < key->len; i++) {
+		h ^= key->str[i];
 		h *= 1099511628211u;
 	}
 
@@ -103,15 +108,16 @@ hash_init(struct hash *h, size_t cap, uint32_t keysize)
 }
 
 static bool
-hash_keycmp_strcmp(const struct hash *_h, const void *a, const void *b)
+hash_keycmp_strcmp(const struct hash *_h, const void *_a, const void *_b)
 {
-	return strcmp(*(char **)a, *(char **)b) == 0;
+	const struct strkey *a = _a, *b = _b;
+	return a->len == b->len ? strcmp(a->str, b->str) == 0 : false;
 }
 
 void
 hash_init_str(struct hash *h, size_t cap)
 {
-	hash_init(h, cap, sizeof(char *));
+	hash_init(h, cap, sizeof(struct strkey));
 	h->keycmp = hash_keycmp_strcmp;
 	h->hash_func = fnv_1a_64_str;
 }
@@ -261,8 +267,9 @@ hash_get(const struct hash *h, const void *key)
 }
 
 uint64_t *
-hash_get_str(const struct hash *h, const char *key)
+hash_get_strn(const struct hash *h, const char *str, uint64_t len)
 {
+	struct strkey key = { .str = str, .len = len };
 	return hash_get(h, &key);
 }
 
@@ -314,7 +321,8 @@ hash_set(struct hash *h, const void *key, uint64_t val)
 }
 
 void
-hash_set_str(struct hash *h, const char *key, uint64_t val)
+hash_set_strn(struct hash *h, const char *s, uint64_t len, uint64_t val)
 {
+	struct strkey key = { .str = s, .len = len };
 	hash_set(h, &key, val);
 }

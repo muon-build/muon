@@ -41,8 +41,7 @@ func_to_upper(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	*res = str_clone(wk, wk, rcvr);
-
+	*res = str_clone_mutable(wk, rcvr);
 	const struct str *ss = get_str(wk, *res);
 
 	uint32_t i;
@@ -62,7 +61,7 @@ func_to_lower(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	*res = str_clone(wk, wk, rcvr);
+	*res = str_clone_mutable(wk, rcvr);
 
 	const struct str *ss = get_str(wk, *res);
 
@@ -94,7 +93,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				id_end = i + 1;
 
 				if (i == id_start) {
-					str_app(wk, *res, "@");
+					str_app(wk, res, "@");
 					id_start = i + 1;
 					reading_id = true;
 					key.len = 0;
@@ -117,11 +116,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 					}
 
 					const struct str *ss = get_str(wk, coerced);
-					str_appn(wk, *res, ss->s, ss->len);
+					str_appn(wk, res, ss->s, ss->len);
 					break;
 				}
 				case format_cb_skip: {
-					str_app(wk, *res, "@");
+					str_app(wk, res, "@");
 					i = id_start - 1;
 					id_end = id_start;
 					id_start = 0;
@@ -133,7 +132,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				reading_id = false;
 			} else {
 				if (i) {
-					str_appn(wk, *res, &ss_in->s[id_end], i - id_end);
+					str_appn(wk, res, &ss_in->s[id_end], i - id_end);
 				}
 
 				id_start = i + 1;
@@ -144,11 +143,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 	}
 
 	if (reading_id) {
-		str_app(wk, *res, "@");
-		str_appn(wk, *res, &ss_in->s[id_start], i - id_start);
+		str_app(wk, res, "@");
+		str_appn(wk, res, &ss_in->s[id_start], i - id_start);
 	} else {
 		if (i > id_end) {
-			str_appn(wk, *res, &ss_in->s[id_end], i - id_end);
+			str_appn(wk, res, &ss_in->s[id_end], i - id_end);
 		}
 	}
 
@@ -207,7 +206,7 @@ func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	*res = str_clone(wk, wk, rcvr);
+	*res = str_clone_mutable(wk, rcvr);
 
 	const struct str *ss = get_str(wk, *res);
 
@@ -468,8 +467,8 @@ func_string_replace(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		};
 
 		if (str_startswith(&tmp, find)) {
-			str_appn(wk, *res, pre.s, pre.len);
-			str_appn(wk, *res, replace->s, replace->len);
+			str_appn(wk, res, pre.s, pre.len);
+			str_appn(wk, res, replace->s, replace->len);
 			i += find->len;
 			pre.s = &s->s[i];
 			pre.len = 0;
@@ -480,7 +479,7 @@ func_string_replace(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		}
 	}
 
-	str_appn(wk, *res, pre.s, pre.len);
+	str_appn(wk, res, pre.s, pre.len);
 
 	return true;
 }

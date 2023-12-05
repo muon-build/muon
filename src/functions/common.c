@@ -167,7 +167,7 @@ dump_function_signature(struct workspace *wk,
 				continue;
 			}
 
-			str_appf(wk, s, "    %s\n", dump_type(wk, posargs[i].type));
+			str_appf(wk, &s, "    %s\n", dump_type(wk, posargs[i].type));
 		}
 
 		const char *ts = get_cstr(wk, s);
@@ -179,7 +179,7 @@ dump_function_signature(struct workspace *wk,
 	if (optargs) {
 		s = make_str(wk, "");
 		for (i = 0; optargs[i].type != ARG_TYPE_NULL; ++i) {
-			str_appf(wk, s, "    %s\n", dump_type(wk, optargs[i].type));
+			str_appf(wk, &s, "    %s\n", dump_type(wk, optargs[i].type));
 		}
 		sig->optargs = get_cstr(wk, s);
 	}
@@ -197,7 +197,7 @@ dump_function_signature(struct workspace *wk,
 
 		s = make_str(wk, "");
 		for (i = 0; i < kwargs_list.len; ++i) {
-			str_app(wk, s, *(const char **)arr_get(&kwargs_list, i));
+			str_app(wk, &s, *(const char **)arr_get(&kwargs_list, i));
 
 		}
 		sig->kwargs = get_cstr(wk, s);

@@ -31,9 +31,9 @@ void hash_init_str(struct hash *h, size_t cap);
 void hash_destroy(struct hash *h);
 
 uint64_t *hash_get(const struct hash *h, const void *key);
-uint64_t *hash_get_str(const struct hash *h, const char *key);
+uint64_t *hash_get_strn(const struct hash *h, const char *str, uint64_t len);
 void hash_set(struct hash *h, const void *key, uint64_t val);
-void hash_set_str(struct hash *h, const char *key, uint64_t val);
+void hash_set_strn(struct hash *h, const char *key, uint64_t len, uint64_t val);
 void hash_unset(struct hash *h, const void *key);
 void hash_unset_str(struct hash *h, const char *key);
 void hash_clear(struct hash *h);

@@ -66,34 +66,6 @@ get_cstr(struct workspace *wk, obj s)
 }
 
 static struct str *
-grow_str(struct workspace *wk, obj s, uint32_t grow_by, bool alloc_nul)
-{
-	assert(s);
-
-	struct str *ss = (struct str *)get_str(wk, s);
-	uint32_t new_len = ss->len + grow_by;
-
-	if (alloc_nul) {
-		new_len += 1;
-	}
-
-	if (ss->flags & str_flag_big) {
-		ss->s = z_realloc((void *)ss->s, new_len);
-		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
-	} else if (new_len >= wk->chrs.bucket_size) {
-		ss->flags |= str_flag_big;
-		char *np = z_calloc(new_len, 1);
-		memcpy(np, ss->s, ss->len);
-		ss->s = np;
-	} else {
-		char *np = bucket_arr_pushn(&wk->chrs, ss->s, ss->len, new_len);
-		ss->s = np;
-	}
-
-	return ss;
-}
-
-static struct str *
 reserve_str(struct workspace *wk, obj *s, uint32_t len)
 {
 	enum str_flags f = 0;
@@ -121,8 +93,46 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 	return str;
 }
 
+
+static struct str *
+grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
+{
+	assert(s);
+
+	struct str *ss = (struct str *)get_str(wk, *s);
+
+	uint32_t new_len = ss->len + grow_by;
+
+	if (!(ss->flags & str_flag_mutable)) {
+		struct str *newstr = reserve_str(wk, s, new_len);
+		newstr->flags |= str_flag_mutable;
+		newstr->len = ss->len;
+		memcpy((void *)newstr->s, ss->s, ss->len);
+		return newstr;
+	}
+
+	if (alloc_nul) {
+		new_len += 1;
+	}
+
+	if (ss->flags & str_flag_big) {
+		ss->s = z_realloc((void *)ss->s, new_len);
+		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
+	} else if (new_len >= wk->chrs.bucket_size) {
+		ss->flags |= str_flag_big;
+		char *np = z_calloc(new_len, 1);
+		memcpy(np, ss->s, ss->len);
+		ss->s = np;
+	} else {
+		char *np = bucket_arr_pushn(&wk->chrs, ss->s, ss->len, new_len);
+		ss->s = np;
+	}
+
+	return ss;
+}
+
 static obj
-_make_str(struct workspace *wk, const char *p, uint32_t len)
+_make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 {
 	obj s;
 
@@ -130,20 +140,33 @@ _make_str(struct workspace *wk, const char *p, uint32_t len)
 		return 0;
 	}
 
-	memcpy((void *)reserve_str(wk, &s, len)->s, p, len);
+	uint64_t *v;
+	if (!mutable && (v = hash_get_strn(&wk->str_hash, p, len))) {
+		s = *v;
+		return s;
+	}
+
+	struct str *str = reserve_str(wk, &s, len);
+	memcpy((void *)str->s, p, len);
+
+	if (mutable) {
+		str->flags |= str_flag_mutable;
+	} else if (!wk->obj_clear_mark_set) {
+		hash_set_strn(&wk->str_hash, str->s, str->len, s);
+	}
 	return s;
 }
 
 obj
 make_strn(struct workspace *wk, const char *str, uint32_t n)
 {
-	return _make_str(wk, str, n);
+	return _make_str(wk, str, n, false);
 }
 
 obj
 make_str(struct workspace *wk, const char *str)
 {
-	return _make_str(wk, str, strlen(str));
+	return _make_str(wk, str, strlen(str), false);
 }
 
 obj
@@ -172,7 +195,7 @@ make_strf(struct workspace *wk, const char *fmt, ...)
 }
 
 void
-str_appn(struct workspace *wk, obj s, const char *str, uint32_t n)
+str_appn(struct workspace *wk, obj *s, const char *str, uint32_t n)
 {
 	struct str *ss = grow_str(wk, s, n, true);
 	memcpy((char *)&ss->s[ss->len], str, n);
@@ -180,13 +203,13 @@ str_appn(struct workspace *wk, obj s, const char *str, uint32_t n)
 }
 
 void
-str_app(struct workspace *wk, obj s, const char *str)
+str_app(struct workspace *wk, obj *s, const char *str)
 {
 	str_appn(wk, s, str, strlen(str));
 }
 
 void
-str_appf(struct workspace *wk, obj s, const char *fmt, ...)
+str_appf(struct workspace *wk, obj *s, const char *fmt, ...)
 {
 	uint32_t len;
 	va_list args, args_copy;
@@ -195,7 +218,7 @@ str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	uint32_t olen = get_str(wk, s)->len;
+	uint32_t olen = get_str(wk, *s)->len;
 	struct str *ss = grow_str(wk, s, len, true);
 
 	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
@@ -207,10 +230,17 @@ str_appf(struct workspace *wk, obj s, const char *fmt, ...)
 }
 
 obj
+str_clone_mutable(struct workspace *wk, obj val)
+{
+	const struct str *ss = get_str(wk, val);
+	return _make_str(wk, ss->s, ss->len, true);
+}
+
+obj
 str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val)
 {
 	const struct str *ss = get_str(wk_src, val);
-	return make_strn(wk_dest, ss->s, ss->len);
+	return _make_str(wk_dest, ss->s, ss->len, false);
 }
 
 bool
@@ -451,7 +481,7 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			sb->buf = z_realloc(sb->buf, newcap);
 			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
 		} else {
-			grow_str(wk, sb->s, newcap - sb->cap, false);
+			grow_str(wk, &sb->s, newcap - sb->cap, false);
 			struct str *ss = (struct str *)get_str(wk, sb->s);
 			sb->buf = (char *)ss->s;
 			ss->len = newcap;
@@ -473,7 +503,8 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			sb->buf = z_calloc(newcap, 1);
 		} else {
 			reserve_str(wk, &sb->s, newcap);
-			const struct str *ss = get_str(wk, sb->s);
+			struct str *ss = (struct str *)get_str(wk, sb->s);
+			ss->flags |= str_flag_mutable;
 			sb->buf = (char *)ss->s;
 			assert(ss->len == newcap);
 		}

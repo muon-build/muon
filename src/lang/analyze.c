@@ -247,32 +247,6 @@ struct check_analyze_scope_ctx {
 	bool found;
 };
 
-// {a: 1},           -- skip
-// [{b: 2}, {b: 3}], -- take last
-// [{c: 4}]          -- take last
-static enum iteration_result
-analyze_check_scope_group_scope(struct workspace *wk, void *_ctx, obj scope_group)
-{
-	TracyCZoneAutoS;
-	struct check_analyze_scope_ctx *ctx = _ctx;
-
-	if (ctx->i == 0) {
-		goto cont;
-	}
-
-	obj scope = obj_array_get_tail(wk, scope_group);
-
-	if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
-		ctx->scope = scope;
-		ctx->found = true;
-	}
-
-cont:
-	++ctx->i;
-	TracyCZoneAutoE;
-	return ir_cont;
-}
-
 
 // [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
 static enum iteration_result
@@ -284,18 +258,28 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 	obj base;
 	obj_array_index(wk, local_scope, 0, &base);
 
-	struct check_analyze_scope_ctx sub_ctx = {
-		.res = ctx->res,
-		.name = ctx->name,
-	};
+	uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
+	if (local_scope_len > 1) {
+		int32_t i;
+		// {a: 1},           -- skip
+		// [{b: 2}, {b: 3}], -- take last
+		// [{c: 4}]          -- take last
+		for (i = local_scope_len - 1; i >= 1; --i) {
+			struct check_analyze_scope_ctx *ctx = _ctx;
 
-	if (get_obj_array(wk, local_scope)->len > 1) {
-		obj_array_foreach(wk, local_scope, &sub_ctx, analyze_check_scope_group_scope);
+			obj scope_group;
+			obj_array_index(wk, local_scope, i, &scope_group);
+			obj scope = obj_array_get_tail(wk, scope_group);
+
+			if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
+				ctx->scope = scope;
+				ctx->found = true;
+				break;
+			}
+		}
 	}
 
-	if (sub_ctx.found) {
-		*ctx = sub_ctx;
-	} else {
+	if (!ctx->found) {
 		if (obj_dict_index_str(wk, base, ctx->name, &ctx->res)) {
 			ctx->scope = base;
 			ctx->found = true;

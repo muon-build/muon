@@ -499,7 +499,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 				buf.len = strlen(buf.buf);
 			}
 
-			str_app(wk, str, buf.buf);
+			str_app(wk, &str, buf.buf);
 			s += len - 1;
 		} else if (is_substr(s, "@PLAINNAME@", &len)) {
 			if (!array_to_elem_or_err(wk, node, input_arr, &e)) {
@@ -508,10 +508,10 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 
 			SBUF(buf);
 			path_basename(wk, &buf, get_file_path(wk, e));
-			str_app(wk, str, buf.buf);
+			str_app(wk, &str, buf.buf);
 			s += len - 1;
 		} else {
-			str_appn(wk, str, s, 1);
+			str_appn(wk, &str, s, 1);
 		}
 	}
 

@@ -131,6 +131,7 @@ workspace_init_bare(struct workspace *wk)
 	assert(id == 0);
 
 	hash_init(&wk->obj_hash, 128, sizeof(obj));
+	hash_init_str(&wk->str_hash, 128);
 }
 
 void
@@ -214,6 +215,7 @@ workspace_destroy_bare(struct workspace *wk)
 	}
 
 	hash_destroy(&wk->obj_hash);
+	hash_destroy(&wk->str_hash);
 }
 
 void

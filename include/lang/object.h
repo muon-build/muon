@@ -210,6 +210,7 @@ enum module {
 
 enum str_flags {
 	str_flag_big = 1 << 0,
+	str_flag_mutable = 1 << 1,
 };
 
 struct str {

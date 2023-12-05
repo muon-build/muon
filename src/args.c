@@ -99,10 +99,10 @@ join_args_iter(struct workspace *wk, void *_ctx, obj val)
 		s = esc.buf;
 	}
 
-	str_app(wk, *ctx->obj, s);
+	str_app(wk, ctx->obj, s);
 
 	if (ctx->i < ctx->len - 1) {
-		str_app(wk, *ctx->obj, " ");
+		str_app(wk, ctx->obj, " ");
 	}
 
 	++ctx->i;
@@ -272,7 +272,7 @@ join_args_argstr_iter(struct workspace *wk, void *_ctx, obj v)
 
 	const struct str *s = get_str(wk, v);
 
-	str_appn(wk, ctx->str, s->s, s->len + 1);
+	str_appn(wk, &ctx->str, s->s, s->len + 1);
 
 	return ir_cont;
 }
@@ -302,8 +302,8 @@ env_to_envstr_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	const struct str *k = get_str(wk, key),
 			 *v = get_str(wk, val);
 
-	str_appn(wk, ctx->str, k->s, k->len + 1);
-	str_appn(wk, ctx->str, v->s, v->len + 1);
+	str_appn(wk, &ctx->str, k->s, k->len + 1);
+	str_appn(wk, &ctx->str, v->s, v->len + 1);
 
 	return ir_cont;
 }

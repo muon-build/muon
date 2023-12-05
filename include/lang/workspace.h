@@ -104,11 +104,11 @@ struct workspace {
 	struct arr source_data;
 	struct bucket_arr asts;
 
-	struct hash obj_hash;
+	struct hash obj_hash, str_hash;
 
 	uint32_t loop_depth, impure_loop_depth, func_depth;
 	enum loop_ctl loop_ctl;
-	bool subdir_done, returning;
+	bool subdir_done, returning, obj_clear_mark_set;
 	obj returned;
 
 	uint32_t cur_project;

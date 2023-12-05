@@ -1048,12 +1048,12 @@ make_option_choices_iter(struct workspace *wk, void *_ctx, obj val)
 		clr = ctx->sel_clr;
 	}
 
-	str_app(wk, ctx->res, clr);
-	str_appn(wk, ctx->res, ss->s, ss->len);
-	str_app(wk, ctx->res, ctx->no_clr);
+	str_app(wk, &ctx->res, clr);
+	str_appn(wk, &ctx->res, ss->s, ss->len);
+	str_app(wk, &ctx->res, ctx->no_clr);
 
 	if (ctx->i < ctx->len - 1) {
-		str_app(wk, ctx->res, "|");
+		str_app(wk, &ctx->res, "|");
 	}
 
 	++ctx->i;

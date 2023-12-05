@@ -51,8 +51,8 @@ generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, 
 		SBUF(rel);
 		path_relative_to(wk, &rel, wk->build_root, generated_path);
 
-		str_app(wk, ctx->name, " ");
-		str_app(wk, ctx->name, rel.buf);
+		str_app(wk, &ctx->name, " ");
+		str_app(wk, &ctx->name, rel.buf);
 	}
 
 	return ir_cont;
