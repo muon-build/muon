@@ -420,7 +420,8 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 	      && dump_uint32(obj_dest, f)
 	      && dump_bucket_arr(&wk_dest.chrs, f)
 	      && dump_big_strings(&wk_dest, &big_string_offsets, f)
-	      && dump_objs(&wk_dest, &big_string_offsets, f))) {
+	      && dump_objs(&wk_dest, &big_string_offsets, f)
+	      && dump_bucket_arr(&wk_dest.dict_elems, f))) {
 		goto ret;
 	}
 
@@ -437,6 +438,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	bool ret = false;
 	struct workspace wk_src = { 0 };
 	workspace_init_bare(&wk_src);
+	bucket_arr_clear(&wk_src.dict_elems); // remove null dict_elem
 
 	struct big_string_table bst = { 0 };
 
@@ -445,7 +447,8 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	      && load_uint32(&obj_src, f)
 	      && load_bucket_arr(&wk_src.chrs, f)
 	      && load_big_strings(&wk_src, &bst, f)
-	      && load_objs(&wk_src, &bst, f))) {
+	      && load_objs(&wk_src, &bst, f)
+	      && load_bucket_arr(&wk_src.dict_elems, f))) {
 		goto ret;
 	}
 

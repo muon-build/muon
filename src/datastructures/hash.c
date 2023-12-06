@@ -111,7 +111,7 @@ static bool
 hash_keycmp_strcmp(const struct hash *_h, const void *_a, const void *_b)
 {
 	const struct strkey *a = _a, *b = _b;
-	return a->len == b->len ? strcmp(a->str, b->str) == 0 : false;
+	return a->len == b->len ? strncmp(a->str, b->str, a->len) == 0 : false;
 }
 
 void

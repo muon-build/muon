@@ -838,7 +838,7 @@ interp_array(struct workspace *wk, uint32_t n_id, obj *res)
 static bool
 interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 {
-	obj key, value, tail;
+	obj key, value;
 
 	struct node *n = get_node(wk->ast, n_id);
 	n->chflg |= node_visited;
@@ -872,31 +872,25 @@ interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 		return false;
 	}
 
-	if (have_c) {
-		if (!interp_dict(wk, n->c, &tail)) {
-			return false;
-		}
-	}
-
-	make_obj(wk, res, obj_dict);
-	struct obj_dict *dict = get_obj_dict(wk, *res);
-	dict->key = key;
-	dict->val = value;
-
-	if ((dict->have_next = have_c)) {
-		struct obj_dict *dict_r = get_obj_dict(wk, tail);
-
-		if (obj_dict_in(wk, tail, key)) {
+	if (get_obj_type(wk, *res) == obj_typeinfo) {
+		// do nothing?
+	} else if (get_obj_type(wk, key) == obj_typeinfo) {
+		make_obj(wk, res, obj_typeinfo);
+		struct obj_typeinfo *type = get_obj_typeinfo(wk, *res);
+		type->type = tc_dict;
+	} else {
+		if (obj_dict_in(wk, *res, key)) {
 			interp_error(wk, n->l, "key %o is duplicated", key);
 			return false;
 		}
 
-		dict->len = dict_r->len + 1;
-		dict->tail = dict_r->tail;
-		dict->next = tail;
-	} else {
-		dict->len = 1;
-		dict->tail = *res;
+		obj_dict_set(wk, *res, key, value);
+	}
+
+	if (have_c) {
+		if (!interp_dict(wk, n->c, res)) {
+			return false;
+		}
 	}
 
 	return true;
@@ -1386,6 +1380,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		ret = interp_array(wk, n->l, res);
 		break;
 	case node_dict:
+		make_obj(wk, res, obj_dict);
 		ret = interp_dict(wk, n->l, res);
 		break;
 	case node_id:

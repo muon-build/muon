@@ -87,6 +87,8 @@ workspace_init_bare(struct workspace *wk)
 
 	bucket_arr_init(&wk->chrs, 4096, 1);
 	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
+	bucket_arr_init(&wk->dict_elems, 1024, sizeof(struct obj_dict_elem));
+	bucket_arr_init(&wk->dict_hashes, 16, sizeof(struct hash));
 
 	const struct {
 		uint32_t item_size;
@@ -129,6 +131,8 @@ workspace_init_bare(struct workspace *wk)
 	obj id;
 	make_obj(wk, &id, obj_null);
 	assert(id == 0);
+
+	bucket_arr_pushn(&wk->dict_elems, 0, 0, 1); // reserve dict_elem 0 as a null element
 
 	hash_init(&wk->obj_hash, 128, sizeof(obj));
 	hash_init_str(&wk->str_hash, 128);

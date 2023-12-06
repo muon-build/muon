@@ -1023,24 +1023,47 @@ obj_array_slice(struct workspace *wk, obj a, int64_t i0, int64_t i1)
 bool
 obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb)
 {
-	if (!get_obj_dict(wk, dict)->len) {
+	struct obj_dict *d = get_obj_dict(wk, dict);
+	if (!d->len) {
 		return true;
 	}
 
-	while (true) {
-		switch (cb(wk, ctx, get_obj_dict(wk, dict)->key, get_obj_dict(wk, dict)->val)) {
-		case ir_cont:
-			break;
-		case ir_done:
-			return true;
-		case ir_err:
-			return false;
-		}
+	if (d->flags & obj_dict_flag_big) {
+		uint32_t i;
+		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		for (i = 0; i < h->keys.len; ++i) {
+			void *_key = arr_get(&h->keys, i);
+			uint64_t *_val = hash_get(h, _key);
+			obj key = *_val >> 32;
+			obj val = *_val & 0xffffffff;
 
-		if (!get_obj_dict(wk, dict)->have_next) {
-			break;
+			switch (cb(wk, ctx, key, val)) {
+			case ir_cont:
+				break;
+			case ir_done:
+				return true;
+			case ir_err:
+				return false;
+			}
 		}
-		dict = get_obj_dict(wk, dict)->next;
+	} else {
+		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
+
+		while (true) {
+			switch (cb(wk, ctx, e->key, e->val)) {
+			case ir_cont:
+				break;
+			case ir_done:
+				return true;
+			case ir_err:
+				return false;
+			}
+
+			if (!e->next) {
+				break;
+			}
+			e = bucket_arr_get(&wk->dict_elems, e->next);
+		}
 	}
 
 	return true;
@@ -1103,12 +1126,6 @@ obj_dict_key_comparison_func_string(struct workspace *wk, union obj_dict_key_com
 }
 
 static bool
-obj_dict_key_comparison_func_objstr(struct workspace *wk, union obj_dict_key_comparison_key *key, obj other)
-{
-	return key->num == other || str_eql(get_str(wk, key->num), get_str(wk, other));
-}
-
-static bool
 obj_dict_key_comparison_func_int(struct workspace *wk, union obj_dict_key_comparison_key *key, uint32_t other)
 {
 	return key->num == other;
@@ -1118,7 +1135,7 @@ static bool
 _obj_dict_index(struct workspace *wk, obj dict,
 	union obj_dict_key_comparison_key *key,
 	obj_dict_key_comparison_func comp,
-	obj **res)
+	obj **res, uint64_t **ures)
 
 {
 	TracyCZoneAutoS;
@@ -1128,17 +1145,33 @@ _obj_dict_index(struct workspace *wk, obj dict,
 		return false;
 	}
 
-	while (true) {
-		if (comp(wk, key, d->key)) {
-			*res = &d->val;
+	if (d->flags & obj_dict_flag_big) {
+		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		if (d->flags & obj_dict_flag_int_key) {
+			*ures = hash_get(h, &key->num);
+		} else {
+			*ures = hash_get_strn(h, key->string.s, key->string.len);
+		}
+
+		if (*ures) {
 			TracyCZoneAutoE;
 			return true;
 		}
+	} else {
+		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
 
-		if (!d->have_next) {
-			break;
+		while (true) {
+			if (comp(wk, key, e->key)) {
+				*res = &e->val;
+				TracyCZoneAutoE;
+				return true;
+			}
+
+			if (!e->next) {
+				break;
+			}
+			e = bucket_arr_get(&wk->dict_elems, e->next);
 		}
-		d = get_obj_dict(wk, d->next);
 	}
 
 	TracyCZoneAutoE;
@@ -1149,17 +1182,18 @@ bool
 obj_dict_index_strn(struct workspace *wk, obj dict, const char *str,
 	uint32_t len, obj *res)
 {
-	obj *r;
+	uint64_t *ur = 0;
+	obj *r = 0;
 	union obj_dict_key_comparison_key key = {
 		.string = { .s = str, .len = len, }
 	};
 
 	if (!_obj_dict_index(wk, dict, &key,
-		obj_dict_key_comparison_func_string, &r)) {
+		obj_dict_key_comparison_func_string, &r, &ur)) {
 		return false;
 	}
 
-	*res = *r;
+	*res = r ? *r : (*ur & 0xffffffff);
 
 	return true;
 }
@@ -1186,48 +1220,95 @@ obj_dict_in(struct workspace *wk, obj dict, obj key)
 
 static void
 _obj_dict_set(struct workspace *wk, obj dict,
-	obj_dict_key_comparison_func comp, obj key, obj val)
+	union obj_dict_key_comparison_key *k,
+	obj_dict_key_comparison_func comp,
+	obj key, obj val)
 {
-	struct obj_dict *d; //, *tail;
-	obj tail;
+	struct obj_dict *d = get_obj_dict(wk, dict);
+
+	assert(key);
 
 	/* empty dict */
-	if (!(d = get_obj_dict(wk, dict))->len) {
-		d->key = key;
-		d->val = val;
-		d->tail = dict;
+	if (!d->len) {
+		uint32_t e_idx = wk->dict_elems.len;
+		bucket_arr_push(&wk->dict_elems, &(struct obj_dict_elem) { .key = key, .val = val });
+		d->data = e_idx;
+		d->tail = e_idx;
 		++d->len;
 		return;
 	}
 
-	obj *r;
-	union obj_dict_key_comparison_key k = { .num = key };
-	if (_obj_dict_index(wk, dict, &k, comp, &r)) {
-		*r = val;
+	if (!(d->flags & obj_dict_flag_dont_expand) && !(d->flags & obj_dict_flag_big) && d->len >= 15) {
+		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
+		uint32_t h_idx = wk->dict_hashes.len;
+		struct hash *h = bucket_arr_push(&wk->dict_hashes, &(struct hash) { 0 });
+		if (d->flags & obj_dict_flag_int_key) {
+			hash_init(h, 16, sizeof(obj));
+		} else {
+			hash_init_str(h, 16);
+		}
+		d->data = h_idx;
+		d->tail = 0; // unnecessary but nice
+
+		while (true) {
+			uint64_t uv = ((uint64_t)(e->key) << 32) | e->val;
+
+			if (d->flags & obj_dict_flag_int_key) {
+				hash_set(h, &key, uv);
+			} else {
+				const struct str *ss = get_str(wk, e->key);
+				/* LO("setting %s, %d to %ld, (%o=%o)\n", ss->s, ss->len, uv, (obj)(uv >> 32), (obj)(uv & 0xffffffff)); */
+				hash_set_strn(h, ss->s, ss->len, uv);
+			}
+
+			if (!e->next) {
+				break;
+			}
+			e = bucket_arr_get(&wk->dict_elems, e->next);
+		}
+		d->flags |= obj_dict_flag_big;
+	}
+
+	uint64_t *ur;
+	obj *r = 0;
+	if (_obj_dict_index(wk, dict, k, comp, &r, &ur)) {
+		if (r) {
+			*r = val;
+		} else {
+			*ur = ((uint64_t)key << 32) | val;
+		}
 		return;
 	}
 
 	/* set new value */
-	make_obj(wk, &tail, obj_dict);
-	d = get_obj_dict(wk, tail);
-	d->key = key;
-	d->val = val;
+	if ((d->flags & obj_dict_flag_big)) {
+		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		if (d->flags & obj_dict_flag_int_key) {
+			hash_set(h, &key, val);
+		} else {
+			const struct str *ss = get_str(wk, key);
+			hash_set_strn(h, ss->s, ss->len, ((uint64_t)key << 32) | val);
+		}
+		d->len = h->len;
+	} else {
+		uint32_t e_idx = wk->dict_elems.len;
+		bucket_arr_push(&wk->dict_elems, &(struct obj_dict_elem) { .key = key, .val = val, });
 
-	d = get_obj_dict(wk, get_obj_dict(wk, dict)->tail);
-	assert(!d->have_next);
-	d->have_next = true;
-	d->next = tail;
+		struct obj_dict_elem *tail = bucket_arr_get(&wk->dict_elems, d->tail);
+		tail->next = e_idx;
 
-	d = get_obj_dict(wk, dict);
-
-	d->tail = tail;
-	++d->len;
+		d->tail = e_idx;
+		++d->len;
+	}
 }
 
 void
 obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 {
-	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_objstr, key, val);
+	union obj_dict_key_comparison_key k = {
+		.string = *get_str(wk, key),
+	};
+	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_string, key, val);
 }
 
 static bool
@@ -1235,6 +1316,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 	union obj_dict_key_comparison_key *key,
 	obj_dict_key_comparison_func comp)
 {
+#if 0
 	struct obj_dict *d = get_obj_dict(wk, dict), *head = d, *prev, *next;
 	if (!d->len) {
 		return false;
@@ -1282,6 +1364,8 @@ _obj_dict_del(struct workspace *wk, obj dict,
 	}
 
 	return true;
+#endif
+	return true;
 }
 
 bool
@@ -1309,17 +1393,19 @@ obj_dict_del(struct workspace *wk, obj dict, obj key)
 void
 obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val)
 {
-	_obj_dict_set(wk, dict, obj_dict_key_comparison_func_int, key, val);
+	union obj_dict_key_comparison_key k = { .num = key };
+	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_int, key, val);
 }
 
 bool
 obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 {
-	obj *r;
+	uint64_t *ur = 0;
+	obj *r = 0;
 	if (_obj_dict_index(wk, dict,
 		&(union obj_dict_key_comparison_key){ .num = key },
-		obj_dict_key_comparison_func_int, &r)) {
-		*val = *r;
+		obj_dict_key_comparison_func_int, &r, &ur)) {
+		*val = r ? *r : (*ur & 0xffffffff);
 		return true;
 	}
 
@@ -1435,9 +1521,13 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		}, obj_clone_array_iter);
 	case obj_dict:
 		make_obj(wk_dest, ret, t);
-		return obj_dict_foreach(wk_src, val, &(struct obj_clone_ctx) {
+		struct obj_dict *d = get_obj_dict(wk_dest, *ret);
+		d->flags |= obj_dict_flag_dont_expand;
+		bool status = obj_dict_foreach(wk_src, val, &(struct obj_clone_ctx) {
 			.container = *ret, .wk_dest = wk_dest
 		}, obj_clone_dict_iter);
+		d->flags &= ~obj_dict_flag_dont_expand;
+		return status;
 	case obj_test: {
 		make_obj(wk_dest, ret, t);
 		struct obj_test *test = get_obj_test(wk_src, val),

@@ -1639,6 +1639,7 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 		case node_foreach:
 		case node_if:
 		case node_assignment:
+		case node_plusassign:
 		case node_func_def:
 		case node_function:
 		case node_return:

@@ -243,13 +243,21 @@ struct obj_array {
 	bool have_next;
 };
 
+enum obj_dict_flags {
+	obj_dict_flag_big = 1 << 0,
+	obj_dict_flag_int_key = 1 << 1,
+	obj_dict_flag_dont_expand = 1 << 2,
+};
+
+struct obj_dict_elem {
+	uint32_t next;
+	obj key, val;
+};
+
 struct obj_dict {
-	obj key; // obj_string
-	obj val; // any
-	obj next; // obj_array
-	obj tail; // obj_array
-	uint32_t len;
-	bool have_next;
+	uint32_t data, len;
+	obj tail;
+	enum obj_dict_flags flags;
 };
 
 enum build_tgt_flags {

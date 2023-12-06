@@ -96,6 +96,7 @@ struct workspace {
 
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
+	struct bucket_arr dict_elems, dict_hashes;
 	/* struct bucket_arr inst; */
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 
