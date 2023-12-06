@@ -49,7 +49,7 @@ struct assignment {
 	uint32_t ep_stack_len;
 };
 
-struct arr assignments;
+struct bucket_arr assignments;
 
 static void
 copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
@@ -300,7 +300,7 @@ assign_lookup(struct workspace *wk, const char *name)
 
 	if (ctx.found) {
 		TracyCZoneAutoE;
-		return arr_get(&assignments, ctx.res);
+		return bucket_arr_get(&assignments, ctx.res);
 	} else {
 		TracyCZoneAutoE;
 		return 0;
@@ -370,7 +370,8 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 
 	// Add the new assignment to the current scope and return its index as
 	// an obj (for storage in the scope dict)
-	return arr_push(&assignments, &(struct assignment) {
+	obj v = assignments.len;
+	bucket_arr_push(&assignments, &(struct assignment) {
 		.name = name,
 		.o = o,
 		.line = n ? n->line : 0,
@@ -379,6 +380,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 		.ep_stacks_i = ep_stacks_i,
 		.ep_stack_len = ep_stack_len,
 	});
+	return v;
 }
 
 static struct assignment *
@@ -419,7 +421,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	obj aid;
 	if (obj_dict_index(wk, scope, make_str(wk, name), &aid)) {
 		// The assignment was found so just reassign it here
-		a = arr_get(&assignments, aid);
+		a = bucket_arr_get(&assignments, aid);
 		check_reassign_to_different_type(wk, a, o, NULL, n_id);
 
 		a->o = o;
@@ -431,7 +433,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	obj_dict_set(wk, scope, make_str(wk, name), aid);
 
 	TracyCZoneAutoE;
-	return arr_get(&assignments, aid);
+	return bucket_arr_get(&assignments, aid);
 }
 
 static void
@@ -490,9 +492,9 @@ merge_scope_group_scope_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
 	struct pop_scope_group_ctx *ctx = _ctx;
 
 	obj bid;
-	struct assignment *b, *a = arr_get(&assignments, aid);
+	struct assignment *b, *a = bucket_arr_get(&assignments, aid);
 	if (obj_dict_index(wk, ctx->merged, k, &bid)) {
-		b = arr_get(&assignments, bid);
+		b = bucket_arr_get(&assignments, bid);
 		merge_objects(wk, b, a);
 	} else {
 		obj_dict_set(wk, ctx->merged, k, aid);
@@ -518,7 +520,7 @@ cont:
 static enum iteration_result
 merge_scope_group_scope_with_base_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
 {
-	struct assignment *a = arr_get(&assignments, aid), *b;
+	struct assignment *a = bucket_arr_get(&assignments, aid), *b;
 	if ((b = assign_lookup(wk, a->name))) {
 		merge_objects(wk, b, a);
 	} else {
@@ -1792,10 +1794,82 @@ reassign_default_var(struct workspace *wk, void *_ctx, obj k, obj v)
 	obj *scope = _ctx;
 	obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
 
-	struct assignment *a = arr_get(&assignments, aid);
+	struct assignment *a = bucket_arr_get(&assignments, aid);
 	a->default_var = true;
 
 	obj_dict_set(wk, *scope, k, aid);
+	return ir_cont;
+}
+
+struct eval_trace_print_ctx {
+	uint32_t indent, len, i;
+	uint64_t bars;
+};
+
+static enum iteration_result
+eval_trace_arr_len_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	if (get_obj_type(wk, v) != obj_array) {
+		++*(uint32_t *)_ctx;
+	}
+	return ir_cont;
+}
+static uint32_t
+eval_trace_arr_len(struct workspace *wk, obj arr)
+{
+	uint32_t cnt = 0;
+	obj_array_foreach(wk, arr, &cnt, eval_trace_arr_len_iter);
+	return cnt;
+}
+
+static enum iteration_result
+eval_trace_print(struct workspace *wk, void *_ctx, obj v)
+{
+	struct eval_trace_print_ctx *ctx = _ctx;
+	switch (get_obj_type(wk, v)) {
+	case obj_array: {
+		struct eval_trace_print_ctx subctx = {
+			.indent = ctx->indent + 1,
+			.bars = ctx->bars,
+			.len = eval_trace_arr_len(wk, v),
+		};
+		if (ctx->i <= ctx->len - 1) {
+			subctx.bars |= (1 << (ctx->indent - 1));
+		}
+		obj_array_foreach(wk, v, &subctx, eval_trace_print);
+		break;
+	}
+	case obj_string: {
+		uint32_t i;
+		for (i = 0; i < ctx->indent; ++i) {
+			if (i < ctx->indent - 1) {
+				if (ctx->bars & (1 << i)) {
+					printf("│   ");
+				} else {
+					printf("    ");
+				}
+			} else if (ctx->i == ctx->len - 1) {
+				printf("└── ");
+			} else {
+				printf("├── ");
+			}
+		}
+
+		SBUF(rel);
+		if (path_is_absolute(get_cstr(wk, v))) {
+			SBUF(cwd);
+			path_cwd(wk, &cwd);
+			path_relative_to(wk, &rel, cwd.buf, get_cstr(wk, v));
+			printf("%s\n", rel.buf);
+		} else {
+			printf("%s\n", get_cstr(wk, v));
+		}
+		++ctx->i;
+		break;
+	}
+	default:
+		UNREACHABLE;
+	}
 	return ir_cont;
 }
 
@@ -1807,7 +1881,7 @@ do_analyze(struct analyze_opts *opts)
 	struct workspace wk;
 	workspace_init(&wk);
 
-	arr_init(&assignments, 512, sizeof(struct assignment));
+	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	{ /* re-initialize the default scope */
 		obj default_scope, scope_group, scope;
 		obj_array_index(&wk, wk.default_scope, 0, &default_scope);
@@ -1873,7 +1947,7 @@ do_analyze(struct analyze_opts *opts)
 	if (analyze_diagnostic_enabled(analyze_diagnostic_unused_variable)) {
 		uint32_t i;
 		for (i = 0; i < assignments.len; ++i) {
-			struct assignment *a = arr_get(&assignments, i);
+			struct assignment *a = bucket_arr_get(&assignments, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
