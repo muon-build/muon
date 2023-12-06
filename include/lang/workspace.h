@@ -134,6 +134,8 @@ struct workspace {
 		uint32_t node, last_line;
 		bool stepping, break_on_err;
 		obj watched;
+		obj eval_trace;
+		bool eval_trace_subdir;
 	} dbg;
 
 #ifdef TRACY_ENABLE

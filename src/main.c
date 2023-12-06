@@ -251,7 +251,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 				       | analyze_diagnostic_dead_code,
 	};
 
-	OPTSTART("luqO:W:i:") {
+	OPTSTART("luqO:W:i:td:") {
 		case 'i':
 			opts.internal_file = optarg;
 			break;
@@ -264,6 +264,9 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 			break;
 		case 'q':
 			opts.replay_opts |= error_diagnostic_store_replay_errors_only;
+			break;
+		case 't':
+			opts.eval_trace = true;
 			break;
 		case 'W': {
 			bool enable = true;
@@ -298,6 +301,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -q - only report errors\n"
 		"  -O <path> - read project file with matching path from stdin\n"
 		"  -i <path> - analyze the single file <path> in internal mode\n"
+		"  -t - print a tree of all meson source files that are evaluated\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n"

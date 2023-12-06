@@ -29,6 +29,7 @@
 
 static bool analyze_error;
 static const struct analyze_opts *analyze_opts;
+obj eval_trace;
 
 struct analyze_file_entrypoint {
 	bool is_root, has_diagnostic;
@@ -675,6 +676,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	analyze_error = false;
 
 	bool subdir_func = !rcvr && strcmp(fi->name, "subdir") == 0;
+	obj parent_eval_trace;
 
 	analyze_all_function_arguments(wk, n_id, args_node);
 
@@ -687,6 +689,9 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 			.col = n->col,
 			.is_root = analyze_entrypoint_stack.len == 0,
 		});
+
+		wk->dbg.eval_trace_subdir = true;
+		parent_eval_trace = wk->dbg.eval_trace;
 	}
 
 	bool was_pure;
@@ -700,9 +705,17 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	if (subdir_func) {
 		if (!was_pure) {
 			interp_warning(wk, n_id, "unable to analyze subdir call");
+			if (parent_eval_trace) {
+				obj_array_push(wk, parent_eval_trace, make_str(wk, "<unknown>"));
+			}
+		} else {
+			if (parent_eval_trace && !get_obj_array(wk, obj_array_get_tail(wk, parent_eval_trace))->len) {
+				obj_array_pop(wk, parent_eval_trace);
+			}
 		}
 
 		arr_del(&analyze_entrypoint_stack, analyze_entrypoint_stack.len - 1);
+		wk->dbg.eval_trace = parent_eval_trace;
 	}
 
 	analyze_error = old_analyze_error;
@@ -1908,6 +1921,10 @@ do_analyze(struct analyze_opts *opts)
 	arr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
 	arr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
 
+	if (analyze_opts->eval_trace) {
+		make_obj(&wk, &wk.dbg.eval_trace, obj_array);
+	}
+
 	if (analyze_opts->file_override) {
 		const char *root = determine_project_root(&wk, analyze_opts->file_override);
 		if (root) {
@@ -1997,10 +2014,17 @@ do_analyze(struct analyze_opts *opts)
 	}
 
 	bool saw_error;
-	error_diagnostic_store_replay(analyze_opts->replay_opts, &saw_error);
-
-	if (saw_error || analyze_error) {
-		res = false;
+	if (analyze_opts->eval_trace) {
+		struct eval_trace_print_ctx ctx = {
+			.indent = 1,
+			.len = eval_trace_arr_len(&wk, wk.dbg.eval_trace),
+		};
+		obj_array_foreach(&wk, wk.dbg.eval_trace, &ctx, eval_trace_print);
+	} else {
+		error_diagnostic_store_replay(analyze_opts->replay_opts, &saw_error);
+		if (saw_error || analyze_error) {
+			res = false;
+		}
 	}
 
 	arr_destroy(&analyze_entrypoint_stack);

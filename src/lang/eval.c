@@ -35,6 +35,8 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
+	obj parent_eval_trace = wk->dbg.eval_trace;
+
 	const char *parent_prefix = log_get_prefix();
 	char log_prefix[256] = { 0 };
 	if (wk->cur_project > 0) {
@@ -54,6 +56,10 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		goto cleanup;
 	}
 
+	if (wk->dbg.eval_trace) {
+		wk->dbg.eval_trace_subdir = true;
+	}
+
 	if (!wk->eval_project_file(wk, src.buf, true)) {
 		goto cleanup;
 	}
@@ -64,6 +70,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 
 	ret = true;
 cleanup:
+	wk->dbg.eval_trace = parent_eval_trace;
 	wk->cur_project = parent_project;
 
 	log_set_prefix(parent_prefix);
@@ -117,6 +124,16 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	struct ast *ast = bucket_arr_push(&wk->asts, &(struct ast) { 0 });
 	if (wk->in_analyzer) {
 		ast->src_id = error_diagnostic_store_push_src(src);
+		if (wk->dbg.eval_trace) {
+			obj_array_push(wk, wk->dbg.eval_trace, make_str(wk, src->label));
+			if ((wk->dbg.eval_trace_subdir)) {
+				obj subdir_eval_trace;
+				make_obj(wk, &subdir_eval_trace, obj_array);
+				obj_array_push(wk, wk->dbg.eval_trace, subdir_eval_trace);
+				wk->dbg.eval_trace = subdir_eval_trace;
+				wk->dbg.eval_trace_subdir = false;
+			}
+		}
 	}
 
 	struct source_data *sdata =

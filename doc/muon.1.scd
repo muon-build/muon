@@ -62,6 +62,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-i* <path> - analyze the single file _path_ in internal mode.  This
 	  is useful for catching bugs in scripts that will be evaluated with
 	  *muon internal eval*.
+	- *-t* - print a tree of all meson source files that are evaluated
 	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
 	e.g. unused-variable.
 	- *-W* list - list available diagnostics.

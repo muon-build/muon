@@ -17,6 +17,7 @@ enum analyze_diagnostic {
 
 struct analyze_opts {
 	bool subdir_error;
+	bool eval_trace;
 	enum error_diagnostic_store_replay_opts replay_opts;
 	const char *file_override, *internal_file;
 	uint64_t enabled_diagnostics;
