@@ -1362,6 +1362,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 			prev->next = e->next;
 		} else {
 			d->tail = prev_id;
+			prev->next = 0;
 		}
 	}
 }
