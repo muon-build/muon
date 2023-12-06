@@ -1149,15 +1149,16 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_if_found,
 	};
+	type_tag if_found_type = wk->in_analyzer ? 0 : ARG_TYPE_ARRAY_OF | tc_dependency;
 	struct args_kw akw[] = {
-		[kw_if_found] = { "if_found", ARG_TYPE_ARRAY_OF | tc_dependency },
+		[kw_if_found] = { "if_found", if_found_type },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	if (akw[kw_if_found].set) {
+	if (akw[kw_if_found].set && !wk->in_analyzer) {
 		bool all_found = true;
 		obj_array_foreach(wk, akw[kw_if_found].val, &all_found, subdir_if_found_iter);
 

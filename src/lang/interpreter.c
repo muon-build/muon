@@ -1396,6 +1396,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_block: {
 		bool have_r;
 interp_block:
+		n->chflg |= node_visited; // for analyzer
 		have_r = n->chflg & node_child_r
 			 && get_node(wk->ast, n->r)->type != node_empty;
 

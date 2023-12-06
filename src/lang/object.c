@@ -317,8 +317,6 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
 	}
-
-	wk->obj_clear_mark_set = false;
 }
 
 const char *

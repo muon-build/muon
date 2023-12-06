@@ -61,7 +61,7 @@ static struct analyze_function_opts {
 	bool do_analyze;
 	bool pure_function;
 	bool encountered_error;
-	bool set_variable_special; // set to true if the function is set_variable()
+	bool allow_impure_args, allow_impure_args_except_first; // set to true for set_variable and subdir
 
 	bool dump_signature; // used when dumping funciton signatures
 } analyze_function_opts;
@@ -417,13 +417,21 @@ process_kwarg_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	return ir_cont;
 }
 
-static bool obj_tainted_by_typeinfo(struct workspace *wk, obj o);
+struct obj_tainted_by_typeinfo_ctx {
+	bool allow_tainted_dict_values;
+};
+
+static bool obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx);
 
 static enum iteration_result
 obj_tainted_by_typeinfo_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 {
-	if (obj_tainted_by_typeinfo(wk, k)
-	    || obj_tainted_by_typeinfo(wk, v)) {
+	struct obj_tainted_by_typeinfo_ctx *ctx = _ctx;
+	if (obj_tainted_by_typeinfo(wk, k, 0)) {
+		return ir_err;
+	}
+
+	if (ctx && !ctx->allow_tainted_dict_values && obj_tainted_by_typeinfo(wk, v, 0)) {
 		return ir_err;
 	}
 
@@ -433,7 +441,7 @@ obj_tainted_by_typeinfo_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v
 static enum iteration_result
 obj_tainted_by_typeinfo_array_iter(struct workspace *wk, void *_ctx, obj v)
 {
-	if (obj_tainted_by_typeinfo(wk, v)) {
+	if (obj_tainted_by_typeinfo(wk, v, _ctx)) {
 		return ir_err;
 	}
 
@@ -441,7 +449,7 @@ obj_tainted_by_typeinfo_array_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 static bool
-obj_tainted_by_typeinfo(struct workspace *wk, obj o)
+obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx)
 {
 	if (!o) {
 		return true;
@@ -451,9 +459,9 @@ obj_tainted_by_typeinfo(struct workspace *wk, obj o)
 	case obj_typeinfo:
 		return true;
 	case obj_array:
-		return !obj_array_foreach(wk, o, NULL, obj_tainted_by_typeinfo_array_iter);
+		return !obj_array_foreach(wk, o, ctx, obj_tainted_by_typeinfo_array_iter);
 	case obj_dict:
-		return !obj_dict_foreach(wk, o, NULL, obj_tainted_by_typeinfo_dict_iter);
+		return !obj_dict_foreach(wk, o, ctx, obj_tainted_by_typeinfo_dict_iter);
 	default:
 		return false;
 	}
@@ -647,14 +655,13 @@ end:
 					continue;
 				}
 
-				if (analyze_function_opts.set_variable_special && stage == 0 && i == 1) {
-					// allow set_variable() to be called
-					// even if its second argument is
-					// impure
+				if (analyze_function_opts.allow_impure_args) {
+					continue;
+				} else if (analyze_function_opts.allow_impure_args_except_first && ((stage == 0 && i > 0) || stage > 0)) {
 					continue;
 				}
 
-				if (obj_tainted_by_typeinfo(wk, an[stage][i].val)) {
+				if (obj_tainted_by_typeinfo(wk, an[stage][i].val, 0)) {
 					typeinfo_among_args = true;
 					break;
 				}
@@ -667,7 +674,11 @@ end:
 					continue;
 				}
 
-				if (obj_tainted_by_typeinfo(wk, keyword_args[i].val)) {
+				if (analyze_function_opts.allow_impure_args || analyze_function_opts.allow_impure_args_except_first) {
+					continue;
+				}
+
+				if (obj_tainted_by_typeinfo(wk, keyword_args[i].val, 0)) {
 					typeinfo_among_args = true;
 					break;
 				}
@@ -1034,12 +1045,17 @@ analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args
 
 	bool pure = fi->pure;
 
-	if (rcvr && obj_tainted_by_typeinfo(wk, rcvr)) {
+	struct obj_tainted_by_typeinfo_ctx tainted_ctx = { .allow_tainted_dict_values = true };
+	if (rcvr && obj_tainted_by_typeinfo(wk, rcvr, &tainted_ctx)) {
 		pure = false;
 	}
 
-	if (!rcvr && strcmp(fi->name, "set_variable") == 0) {
-		analyze_function_opts.set_variable_special = true;
+	if (!rcvr) {
+		if (strcmp(fi->name, "set_variable") == 0 || strcmp(fi->name, "subdir") == 0) {
+			analyze_function_opts.allow_impure_args_except_first = true;
+		} else if (strcmp(fi->name, "p") == 0) {
+			analyze_function_opts.allow_impure_args = true;
+		}
 	}
 
 	analyze_function_opts.do_analyze = true;
