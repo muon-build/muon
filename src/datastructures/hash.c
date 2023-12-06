@@ -291,8 +291,9 @@ hash_unset(struct hash *h, const void *key)
 }
 
 void
-hash_unset_str(struct hash *h, const char *key)
+hash_unset_strn(struct hash *h, const char *s, uint64_t len)
 {
+	struct strkey key = { .str = s, .len = len };
 	hash_unset(h, &key);
 }
 

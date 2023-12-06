@@ -1311,81 +1311,81 @@ obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_string, key, val);
 }
 
-static bool
+static void
 _obj_dict_del(struct workspace *wk, obj dict,
 	union obj_dict_key_comparison_key *key,
 	obj_dict_key_comparison_func comp)
 {
-#if 0
-	struct obj_dict *d = get_obj_dict(wk, dict), *head = d, *prev, *next;
+	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
-		return false;
+		return;
 	}
 
-	uint32_t i = 0;
-	obj prev_id = dict;
+	if (d->flags & obj_dict_flag_big) {
+		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+
+		if (d->flags & obj_dict_flag_int_key) {
+			hash_unset(h, &key->num);
+		} else {
+			hash_unset_strn(h, key->string.s, key->string.len);
+		}
+
+		return;
+	}
+
+	uint32_t cur_id = d->data, prev_id = 0;
 	bool found = false;
+	struct obj_dict_elem *prev, *e = bucket_arr_get(&wk->dict_elems, d->data);
+
 	while (true) {
-		if (comp(wk, key, d->key)) {
+		if (comp(wk, key, e->key)) {
 			found = true;
 			break;
 		}
 
-		prev_id = dict;
-		if (!d->have_next) {
+		prev_id = cur_id;
+		if (!e->next) {
 			break;
 		}
-		dict = d->next;
-		d = get_obj_dict(wk, dict);
-		++i;
+		cur_id = e->next;
+		e = bucket_arr_get(&wk->dict_elems, e->next);
 	}
 
 	if (!found) {
-		return false;
+		return;
 	}
 
-	if (i == 0) {
-		if (head->have_next) {
-			next = get_obj_dict(wk, head->next);
-			next->len = head->len - 1;
-			next->tail = head->tail;
-			*head = *next;
-		} else {
-			*head = (struct obj_dict) { 0 };
-		}
+	--d->len;
+	if (cur_id == d->data) {
+		d->data = e->next;
 	} else {
-		prev = get_obj_dict(wk, prev_id);
-		if (d->have_next) {
-			prev->next = d->next;
+		prev = bucket_arr_get(&wk->dict_elems, prev_id);
+		if (e->next) {
+			prev->next = e->next;
 		} else {
-			head->tail = prev_id;
-			prev->have_next = false;
+			d->tail = prev_id;
 		}
 	}
-
-	return true;
-#endif
-	return true;
 }
 
-bool
+void
 obj_dict_del_strn(struct workspace *wk, obj dict, const char *str, uint32_t len)
 {
 	union obj_dict_key_comparison_key key = { .string = { .s = str, .len = len, } };
-	return _obj_dict_del(wk, dict, &key, obj_dict_key_comparison_func_string);
+	_obj_dict_del(wk, dict, &key, obj_dict_key_comparison_func_string);
 }
 
-bool
+void
 obj_dict_del_str(struct workspace *wk, obj dict, const char *str)
 {
-	return obj_dict_del_strn(wk, dict, str, strlen(str));
+	obj_dict_del_strn(wk, dict, str, strlen(str));
 }
 
-bool
+void
 obj_dict_del(struct workspace *wk, obj dict, obj key)
 {
 	const struct str *k = get_str(wk, key);
-	return obj_dict_del_strn(wk, dict, k->s, k->len);
+	obj_dict_del_strn(wk, dict, k->s, k->len);
 }
 
 /* dict convienence functions */

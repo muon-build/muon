@@ -35,7 +35,7 @@ uint64_t *hash_get_strn(const struct hash *h, const char *str, uint64_t len);
 void hash_set(struct hash *h, const void *key, uint64_t val);
 void hash_set_strn(struct hash *h, const char *key, uint64_t len, uint64_t val);
 void hash_unset(struct hash *h, const void *key);
-void hash_unset_str(struct hash *h, const char *key);
+void hash_unset_strn(struct hash *h, const char *s, uint64_t len);
 void hash_clear(struct hash *h);
 
 void hash_for_each(struct hash *h, void *ctx, iterator_func ifnc);
