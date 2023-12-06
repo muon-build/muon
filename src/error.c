@@ -241,6 +241,12 @@ error_unrecoverable(const char *fmt, ...)
 	exit(1);
 }
 
+struct source *
+error_get_stored_source(uint32_t src_idx)
+{
+	return arr_get(&error_diagnostic_store.sources, src_idx);
+}
+
 static bool
 list_line_internal(struct source *src, uint32_t lno, uint32_t *start_of_line, uint32_t *line_pre_len)
 {
@@ -277,10 +283,32 @@ list_line_internal(struct source *src, uint32_t lno, uint32_t *start_of_line, ui
 	return true;
 }
 
-void
-list_line_range(struct source *src, uint32_t lno, uint32_t list_amt)
+static void
+list_line_col_marker(const struct source *src, uint32_t col, uint32_t sol, uint32_t line_pre_len)
 {
-	uint32_t _, __;
+	uint32_t i;
+	for (i = 0; i < line_pre_len; ++i) {
+		log_plain(" ");
+	}
+
+	if (sol + col >= src->len) {
+		log_plain("^\n");
+		return;
+	}
+
+	for (i = 0; i < col; ++i) {
+		if (src->src[sol + i] == '\t') {
+			log_plain("        ");
+		} else {
+			log_plain(i == col - 1 ? "^" : " ");
+		}
+	}
+	log_plain("\n");
+}
+
+void
+list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t col)
+{
 	uint32_t lstart = 0, lend, i;
 
 	if (lno > list_amt / 2) {
@@ -295,7 +323,12 @@ list_line_range(struct source *src, uint32_t lno, uint32_t list_amt)
 		);
 
 	for (i = lstart; i < lend; ++i) {
-		list_line_internal(src, i, &_, &__);
+		uint32_t line_pre_len, sol;
+		if (list_line_internal(src, i, &sol, &line_pre_len)) {
+			if (i == lno && col) {
+				list_line_col_marker(src, col, sol, line_pre_len);
+			}
+		}
 	}
 }
 
@@ -335,28 +368,12 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 		}
 	}
 
-	uint32_t line_pre_len, i, sol;
+	uint32_t line_pre_len, sol;
 	if (!list_line_internal(src, line, &sol, &line_pre_len)) {
 		goto ret;
 	}
 
-	for (i = 0; i < line_pre_len; ++i) {
-		log_plain(" ");
-	}
-
-	if (sol + col >= src->len) {
-		log_plain("^\n");
-		goto ret;
-	}
-
-	for (i = 0; i < col; ++i) {
-		if (src->src[sol + i] == '\t') {
-			log_plain("        ");
-		} else {
-			log_plain(i == col - 1 ? "^" : " ");
-		}
-	}
-	log_plain("\n");
+	list_line_col_marker(src, col, sol, line_pre_len);
 
 ret:
 	if (destroy_source) {

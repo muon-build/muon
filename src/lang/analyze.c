@@ -2020,8 +2020,24 @@ do_analyze(struct analyze_opts *opts)
 			.len = eval_trace_arr_len(&wk, wk.dbg.eval_trace),
 		};
 		obj_array_foreach(&wk, wk.dbg.eval_trace, &ctx, eval_trace_print);
+	} else if (analyze_opts->get_definition_for) {
+		bool found = false;
+		uint32_t i;
+		for (i = 0; i < assignments.len; ++i) {
+			struct assignment *a = bucket_arr_get(&assignments, i);
+			if (strcmp(a->name, analyze_opts->get_definition_for) == 0) {
+				struct source *src = error_get_stored_source(a->src_idx);
+				list_line_range(src, a->line, 1, a->col);
+				found = true;
+			}
+		}
+
+		if (!found) {
+			LOG_W("couldn't find definition for %s", analyze_opts->get_definition_for);
+		}
 	} else {
 		error_diagnostic_store_replay(analyze_opts->replay_opts, &saw_error);
+
 		if (saw_error || analyze_error) {
 			res = false;
 		}

@@ -262,7 +262,7 @@ repl(struct workspace *wk, bool dbg)
 	};
 
 	if (dbg) {
-		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 1);
+		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 1, 0);
 
 		if (wk->dbg.stepping) {
 			cmd = repl_cmd_step;
@@ -344,7 +344,7 @@ cmd_found:
 				}
 				break;
 			case repl_cmd_list: {
-				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 11);
+				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 11, 0);
 				break;
 			}
 			case repl_cmd_step:

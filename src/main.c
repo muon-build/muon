@@ -268,6 +268,9 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		case 't':
 			opts.eval_trace = true;
 			break;
+		case 'd':
+			opts.get_definition_for = optarg;
+			break;
 		case 'W': {
 			bool enable = true;
 			const char *name = optarg;
@@ -302,6 +305,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -O <path> - read project file with matching path from stdin\n"
 		"  -i <path> - analyze the single file <path> in internal mode\n"
 		"  -t - print a tree of all meson source files that are evaluated\n"
+		"  -d <var> - print the location of the definition of <var>\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n"
