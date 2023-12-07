@@ -202,9 +202,6 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy_bare(struct workspace *wk)
 {
-	bucket_arr_destroy(&wk->chrs);
-	bucket_arr_destroy(&wk->objs);
-
 	uint32_t i;
 	struct bucket_arr *ba = &wk->obj_aos[obj_string - _obj_aos_start];
 	for (i = 0; i < ba->len; ++i) {
@@ -217,6 +214,16 @@ workspace_destroy_bare(struct workspace *wk)
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
 		bucket_arr_destroy(&wk->obj_aos[i - _obj_aos_start]);
 	}
+
+	for (i = 0; i < wk->dict_hashes.len; ++i) {
+		struct hash *h = bucket_arr_get(&wk->dict_hashes, i);
+		hash_destroy(h);
+	}
+
+	bucket_arr_destroy(&wk->chrs);
+	bucket_arr_destroy(&wk->objs);
+	bucket_arr_destroy(&wk->dict_elems);
+	bucket_arr_destroy(&wk->dict_hashes);
 
 	hash_destroy(&wk->obj_hash);
 	hash_destroy(&wk->str_hash);
