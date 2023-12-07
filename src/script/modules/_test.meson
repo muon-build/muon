@@ -1,15 +1,70 @@
-glob = []
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
 
-func hello(t)
-    i = 1
-    func g()
-        message('Hello, @0@! (@1@)'.format(t, i))
-	glob += 1
-	p(glob)
-	i += 1
-    endfunc
+global = []
 
-    return g
+func identity(t)
+    return t
 endfunc
 
-return {'hello': hello}
+func append_global(t)
+    global += t
+endfunc
+
+func get_global()
+    return global
+endfunc
+
+func basic_scope()
+    assert(not is_variable('a'))
+    a = 1
+    return a
+endfunc
+
+func factory(v)
+    func f()
+        return v
+    endfunc
+
+    return f
+endfunc
+
+func incrementer()
+    i = 0
+    func f()
+        r = i
+        i += 1
+        return r
+    endfunc
+
+    return f
+endfunc
+
+func custom_target_wrap(base_kwargs)
+    func f(name, kwargs)
+        kwargs = base_kwargs + kwargs
+        return custom_target(name, kwargs: kwargs)
+    endfunc
+
+    return f
+endfunc
+
+func test_wrap(exe, base_kwargs)
+    func f(name, args, kwargs: {})
+        kwargs = base_kwargs + kwargs + {'args': args}
+        return test(name, exe, kwargs: kwargs)
+    endfunc
+
+    return f
+endfunc
+
+return {
+    'identity': identity,
+    'append_global': append_global,
+    'get_global': get_global,
+    'basic_scope': basic_scope,
+    'factory': factory,
+    'incrementer': incrementer,
+    'custom_target_wrap': custom_target_wrap,
+    'test_wrap': test_wrap,
+}
