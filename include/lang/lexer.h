@@ -72,7 +72,6 @@ enum token_type {
 	tok_func,
 	tok_endfunc,
 	tok_return,
-	tok_local,
 
 	/* formatting only */
 	tok_comment,

@@ -356,14 +356,12 @@ push_local_scope(struct workspace *wk)
 	obj scope;
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, current_project(wk)->scope_stack, scope);
-	obj_fprintf(wk, log_file(), "> scope: %o\n", current_project(wk)->scope_stack);
 }
 
 void
 pop_local_scope(struct workspace *wk)
 {
 	obj_array_pop(wk, current_project(wk)->scope_stack);
-	obj_fprintf(wk, log_file(), "< scope: %o\n", current_project(wk)->scope_stack);
 }
 
 void
@@ -766,7 +764,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, n->subtype);
+	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, assign_local);
 	return true;
 }
 
@@ -1334,7 +1332,7 @@ interp_func_def(struct workspace *wk, struct node *n)
 	}
 
 	f->name = get_node(wk->ast, n->l)->dat.s;
-	wk->assign_variable(wk, f->name, func_obj, 0, n->subtype);
+	wk->assign_variable(wk, f->name, func_obj, 0, assign_local);
 	return true;
 }
 

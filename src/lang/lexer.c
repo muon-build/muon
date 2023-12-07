@@ -88,7 +88,6 @@ tok_type_to_s(enum token_type type)
 	case tok_func: return "func";
 	case tok_endfunc: return "endfunc";
 	case tok_return: return "return";
-	case tok_local: return "local";
 	case tok_comment: return "comment";
 	case tok_fmt_eol: return "fmt_eol";
 	}
@@ -250,7 +249,6 @@ keyword(struct lexer *lexer, const char *id, uint32_t len, enum token_type *res)
 			{ "func", tok_func },
 			{ "endfunc", tok_endfunc },
 			{ "return", tok_return },
-			{ "local", tok_local },
 			{ 0 },
 		};
 

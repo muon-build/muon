@@ -117,7 +117,7 @@ accept_comment_for(struct parser *p, uint32_t id)
 {
 	if (p->last->type == tok_comment) {
 		struct node *n = arr_get(&p->ast->nodes, id);
-		L("adding comment to %s:%d", node_to_s(n), id);
+		/* L("adding comment to %s:%d", node_to_s(n), id); */
 
 		if (!n->comments.len) {
 			n->comments.start = p->ast->comments.len;
@@ -507,10 +507,9 @@ parse_index_call(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 }
 
 static bool
-parse_func_def(struct parser *p, uint32_t *id, bool local)
+parse_func_def(struct parser *p, uint32_t *id)
 {
 	make_node(p, id, node_func_def);
-	get_node(p->ast, *id)->subtype = local;
 
 	uint32_t args, l_id, c_id;
 
@@ -1114,7 +1113,7 @@ ret:
 }
 
 static bool
-parse_assignment(struct parser *p, uint32_t *id, bool local)
+parse_assignment(struct parser *p, uint32_t *id)
 {
 	uint32_t l_id = 0;
 	if (!(parse_expr(p, &l_id))) {
@@ -1122,10 +1121,6 @@ parse_assignment(struct parser *p, uint32_t *id, bool local)
 	}
 
 	if (accept(p, tok_plus_assign)) {
-		if (local) {
-			parse_error(p, NULL, "local keyword not allowed on plusassign");
-		}
-
 		p->caused_effect = true;
 
 		uint32_t v, arith;
@@ -1166,8 +1161,6 @@ parse_assignment(struct parser *p, uint32_t *id, bool local)
 			return false;
 		}
 
-		struct node *n = get_node(p->ast, *id);
-		n->subtype = local;
 		add_child(p, *id, node_child_l, l_id);
 		add_child(p, *id, node_child_r, v);
 	} else {
@@ -1398,13 +1391,8 @@ parse_line(struct parser *p, uint32_t *id)
 
 		make_node(p, id, node_break);
 	} else {
-		bool local = false;
-		if ((p->mode & pm_functions) && p->func_depth) {
-			local = accept(p, tok_local);
-		}
-
 		if ((p->mode & pm_functions) && accept(p, tok_func)) {
-			if (!parse_func_def(p, id, local)) {
+			if (!parse_func_def(p, id)) {
 				ret = false;
 				consume_until(p, tok_endfunc);
 			}
@@ -1413,7 +1401,7 @@ parse_line(struct parser *p, uint32_t *id)
 				return false;
 			}
 		} else {
-			if (!parse_assignment(p, id, local)) {
+			if (!parse_assignment(p, id)) {
 				return false;
 			}
 		}
