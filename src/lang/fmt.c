@@ -1102,7 +1102,12 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		}
 	}
 
-	if (!parser_parse(NULL, &ast, &sdata, src, pm_keep_formatting | pm_ignore_statement_with_no_effect | pm_functions)) {
+	enum parse_mode parse_mode = pm_keep_formatting | pm_ignore_statement_with_no_effect;
+	if (str_endswith(&WKSTR(src->label), &WKSTR(".meson"))) {
+		parse_mode |= pm_functions;
+	}
+
+	if (!parser_parse(NULL, &ast, &sdata, src, parse_mode)) {
 		goto ret;
 	}
 
