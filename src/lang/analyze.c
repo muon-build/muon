@@ -206,41 +206,6 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
  * merged) into the parent scope, and the scope group is popped.
  */
 
-static void
-analyze_unassign(struct workspace *wk, const char *name)
-{
-#if 0
-	int32_t i;
-	uint32_t idx = 0;
-	struct arr *containing_scope = NULL;
-
-	for (i = assignment_scopes.groups.len - 1; i >= 0; --i) {
-		struct scope_group *g = arr_get(&assignment_scopes.groups, i);
-		if (!(g->scopes.len)) {
-			continue;
-		}
-
-		struct arr *scope = arr_get(&g->scopes, g->scopes.len - 1);
-
-		if (assign_lookup_scope_i(name, scope, &idx)) {
-			containing_scope = scope;
-			break;
-		}
-	}
-
-	if (!containing_scope && assign_lookup_scope_i(name, &assignment_scopes.global, &idx)) {
-		containing_scope = &assignment_scopes.global;
-	}
-
-	if (!containing_scope) {
-		// variable not found...
-		return;
-	}
-
-	arr_del(containing_scope, idx);
-#endif
-}
-
 struct check_analyze_scope_ctx {
 	const char *name;
 	uint32_t i;
@@ -248,8 +213,7 @@ struct check_analyze_scope_ctx {
 	bool found;
 };
 
-
-// [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
+// example local_scope: [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
 static enum iteration_result
 analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 {
@@ -262,9 +226,9 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 	uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
 	if (local_scope_len > 1) {
 		int32_t i;
-		// {a: 1},           -- skip
-		// [{b: 2}, {b: 3}], -- take last
-		// [{c: 4}]          -- take last
+		// example: {a: 1},           -- skip
+		// example: [{b: 2}, {b: 3}], -- take last
+		// example: [{c: 4}]          -- take last
 		for (i = local_scope_len - 1; i >= 1; --i) {
 			struct check_analyze_scope_ctx *ctx = _ctx;
 
@@ -291,7 +255,7 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 	return ir_cont;
 }
 
-// [[{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]]
+// example scope_stack: [[{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]]
 static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
@@ -321,6 +285,15 @@ assign_lookup_scope(struct workspace *wk, const char *name)
 	} else {
 		TracyCZoneAutoE;
 		return 0;
+	}
+}
+
+static void
+analyze_unassign(struct workspace *wk, const char *name)
+{
+	obj scope = assign_lookup_scope(wk, name);
+	if (scope) {
+		obj_dict_del_strn(wk, scope, name, strlen(name));
 	}
 }
 
@@ -396,6 +369,12 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	}
 
 	obj scope = 0;
+	if (mode == assign_reassign) {
+		if (!(scope = assign_lookup_scope(wk, name))) {
+			mode = assign_local;
+		}
+	}
+
 	if (mode == assign_local) {
 		obj local_scope = obj_array_get_tail(wk, current_project(wk)->scope_stack);
 		if (get_obj_array(wk, local_scope)->len == 1) {
@@ -404,9 +383,8 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 			obj scope_group = obj_array_get_tail(wk, local_scope);
 			scope = obj_array_get_tail(wk, scope_group);
 		}
-	} else if (mode == assign_reassign) {
-		scope = assign_lookup_scope(wk, name);
 	}
+
 	assert(scope);
 
 	struct assignment *a = 0;
@@ -949,10 +927,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 		break;
 	}
 	case node_function: {
-		if (!(ret = analyze_func(wk, n_id, true, l_id, &tmp))) {
-			tmp = make_typeinfo(wk, tc_any, 0);
-		}
-		break;
+		return analyze_func(wk, n_id, true, l_id, res);
 	}
 	default:
 		UNREACHABLE_RETURN;
@@ -2043,6 +2018,7 @@ do_analyze(struct analyze_opts *opts)
 		}
 	}
 
+	bucket_arr_destroy(&assignments);
 	arr_destroy(&analyze_entrypoint_stack);
 	arr_destroy(&analyze_entrypoint_stacks);
 	workspace_destroy(&wk);
