@@ -752,6 +752,8 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	/* if (pfst->write) { */
 	/* 	L("formatting %s", node_to_s(n)); */
+	/* } else { */
+	/* 	L("checking %s", node_to_s(n)); */
 	/* } */
 
 	switch (n->type) {
@@ -841,15 +843,13 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_node(ctx, &fst, n->l);
 		return len + fmt_chain(ctx, pfst, n_id);
 	case node_func_def: {
-		if (n->subtype) {
-			len += fmt_writes(ctx, &fst, "local ");
-		}
-
 		fmt_writes(ctx, &fst, "func ");
 		len += fmt_node(ctx, &fst, n->l);
 
-		fst.arg_container = "()";
-		len += fmt_arg_container(ctx, &fst, n->r);
+		struct fmt_stack arg_fst = *fmt_setup_fst(&fst);
+		arg_fst.arg_container = "()";
+		arg_fst.ml = false;
+		len += fmt_check(ctx, &arg_fst, fmt_arg_container, n->r);//(ctx, &arg_fst, n->r);
 
 		struct node *block = get_node(ctx->ast, n->c);
 		if (block->type == node_empty) {
@@ -869,9 +869,6 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 	/* assignment */
 	case node_assignment:
-		if (n->subtype) {
-			len += fmt_writes(ctx, &fst, "local ");
-		}
 		len += fmt_node(ctx, &fst, n->l);
 		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
 		len += fmt_writes(ctx, &fst, "= ");
