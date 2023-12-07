@@ -761,11 +761,8 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	wk->ast = f->ast;
 	wk->lang_mode = f->lang_mode;
 	proj->scope_stack = f->scope_stack;
-	L("restoring func scope");
 
 	++wk->func_depth;
-
-	L("calling %s", f->name);
 
 	// setup current scope
 	wk->push_local_scope(wk);
@@ -882,11 +879,9 @@ func_lookup(const struct func_impl **impl_tbl, enum language_mode mode, const ch
 {
 	if (mode == language_extended) {
 		const struct func_impl *r;
-		L("looking for %s in internal", name);
 		if ((r = func_lookup_for_mode(impl_tbl[language_internal], name))) {
 			return r;
 		}
-		L("looking for %s in external", name);
 
 		return func_lookup_for_mode(impl_tbl[language_external], name);
 	} else {
