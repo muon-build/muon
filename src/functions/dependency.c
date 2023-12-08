@@ -223,6 +223,9 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	case dependency_type_external_library:
 		n = "library";
 		break;
+	case dependency_type_not_found:
+		n = "not-found";
+		break;
 	}
 
 	*res = make_str(wk, n);

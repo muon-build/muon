@@ -356,6 +356,7 @@ enum dependency_type {
 	dependency_type_threads,
 	dependency_type_external_library,
 	dependency_type_appleframeworks,
+	dependency_type_not_found,
 };
 
 enum dep_flags {

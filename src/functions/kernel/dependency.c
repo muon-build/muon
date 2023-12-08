@@ -403,7 +403,7 @@ dependency_iter(struct workspace *wk, void *_ctx, obj name)
 	bool handled;
 	struct dep_lookup_ctx *parent_ctx = _ctx;
 	struct dep_lookup_ctx ctx = *parent_ctx;
-	ctx.name = name;
+	parent_ctx->name = ctx.name = name;
 
 	if (!handle_special_dependency(wk, &ctx, &handled)) {
 		return ir_err;
@@ -416,7 +416,6 @@ dependency_iter(struct workspace *wk, void *_ctx, obj name)
 	}
 
 	if (ctx.found) {
-		parent_ctx->name = name;
 		parent_ctx->lib_mode = ctx.lib_mode;
 		parent_ctx->from_cache = ctx.from_cache;
 		parent_ctx->found = true;
@@ -637,7 +636,9 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 				*ctx.res = disabler_id;
 			} else {
 				make_obj(wk, ctx.res, obj_dependency);
-				get_obj_dependency(wk, *ctx.res)->name = ctx.name;
+				struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
+				dep->name = ctx.name;
+				dep->type = dependency_type_not_found;
 			}
 		}
 	} else if (!str_eql(get_str(wk, ctx.name), &WKSTR(""))) {
