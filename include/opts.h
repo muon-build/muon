@@ -6,6 +6,8 @@
 #ifndef MUON_OPTS_H
 #define MUON_OPTS_H
 
+#include <unistd.h>
+
 #include "lang/workspace.h"
 
 /* OPTSTART should be pretty self-explanatory.  You just pass it the optstring
