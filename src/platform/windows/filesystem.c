@@ -302,11 +302,7 @@ fs_is_a_tty_from_fd(int fd)
 
 		mod = LoadLibrary("kernel32.dll");
 		if (mod) {
-			typedef void (*ClosePseudoConsole_t)(void *);
-			ClosePseudoConsole_t ClosePseudoConsole_f;
-
-			ClosePseudoConsole_f = GetProcAddress(mod, "ClosePseudoConsole");
-			if (ClosePseudoConsole_f) {
+			if (GetProcAddress(mod, "ClosePseudoConsole")) {
 				if (GetConsoleMode(h, &mode)) {
 					// ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT
 					mode |= 0x4 | 0x1;
