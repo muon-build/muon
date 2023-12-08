@@ -28,7 +28,7 @@ option(
 option(
     'bestline',
     type: 'feature',
-    value: 'enabled',
+    value: 'disabled',
     description: 'add readline support via bestline',
 )
 option(
