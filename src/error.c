@@ -53,8 +53,7 @@ error_diagnostic_store_push_src(struct source *src)
 	struct error_diagnostic_source *s = NULL;
 	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
 		s = arr_get(&error_diagnostic_store.sources, i);
-		// TODO: this is not super robust
-		if (s->id == (uint64_t)src && strcmp(s->src.label, src->label) == 0) {
+		if (s->id == (uintptr_t)src && strcmp(s->src.label, src->label) == 0) {
 			break;
 		} else {
 			s = NULL;
@@ -67,7 +66,7 @@ error_diagnostic_store_push_src(struct source *src)
 
 		arr_push(&error_diagnostic_store.sources, &(struct error_diagnostic_source) {
 			.src = dup,
-			.id = (uint64_t)src,
+			.id = (uintptr_t)src,
 		});
 
 		i = error_diagnostic_store.sources.len - 1;
