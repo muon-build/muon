@@ -6,8 +6,6 @@
 #ifndef MUON_OPTS_H
 #define MUON_OPTS_H
 
-#include <unistd.h>
-
 #include "lang/workspace.h"
 
 /* OPTSTART should be pretty self-explanatory.  You just pass it the optstring
@@ -30,11 +28,11 @@
 	default: \
 		print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
 		return false; \
-} \
-} \
+	} \
+	} \
 	if (!check_operands(argc, (argi + optind), operands)) { \
-	print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
-	return false; \
+		print_usage(stderr, commands, usage_pre, usage_opts, usage_post); \
+		return false; \
 	} \
 	argi += optind;
 

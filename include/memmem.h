@@ -5,7 +5,7 @@
 
 #ifndef MUON_MEMMEM_H
 #define MUON_MEMMEM_H
-#include <unistd.h>
+#include <stddef.h>
 
 void *memmem(const void *h0, size_t k, const void *n0, size_t l);
 #endif

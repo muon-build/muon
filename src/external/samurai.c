@@ -6,7 +6,6 @@
 #include "compat.h"
 
 #include <samu.h>
-#include <unistd.h>
 
 #include "buf_size.h"
 #include "external/samurai.h"
