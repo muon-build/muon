@@ -6,9 +6,8 @@
 #ifndef MUON_OPTS_H
 #define MUON_OPTS_H
 
-#include <unistd.h>
-
 #include "lang/workspace.h"
+#include "platform/os.h"
 
 /* OPTSTART should be pretty self-explanatory.  You just pass it the optstring
  * that you would pass to getopt().  "h" is added to this optstring for you.
@@ -20,7 +19,7 @@
 #define OPTSTART(optstring) \
 	signed char opt; \
 	optind = 1; \
-	while ((opt = getopt(argc - argi, &argv[argi], optstring "h")) != -1) { \
+	while ((opt = os_getopt(argc - argi, &argv[argi], optstring "h")) != -1) { \
 		switch (opt) {
 #define OPTEND(usage_pre, usage_post, usage_opts, commands, operands) \
 	case 'h': \

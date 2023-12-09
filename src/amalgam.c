@@ -115,7 +115,6 @@
 	#include "platform/windows/timer.c"
 	#include "platform/windows/uname.c"
 	#include "platform/windows/win32_error.c"
-	#include "platform/windows/win32_getopt.c"
 #else
 	#include "platform/null/rpath_fixer.c"
 	#include "platform/posix/filesystem.c"
