@@ -29,7 +29,6 @@ if host_machine.system() == 'windows'
     platform_sources += files(
         'windows/rpath_fixer.c',
         'windows/win32_error.c',
-        'windows/win32_getopt.c',
     )
 endif
 
