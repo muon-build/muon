@@ -62,9 +62,10 @@ jobs:
       - uses: actions/checkout@master
         with:
           fetch-depth: 0
+      # Required for gnome module tests.
       - name: Install dependencies
         run: |
-          sudo apt install libpkgconf-dev
+          sudo apt install libpkgconf-dev libglib2.0-0 libglib2.0-dev libgirepository1.0-dev
 
       # Bootstrap basic build.
       - name: Bootstrap

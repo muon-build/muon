@@ -332,6 +332,7 @@ tests = [
 
     # frameworks
     ['frameworks/6 gettext'],
+    ['frameworks/7 gnome'],
 ]
 
 if dep_dict['samurai']
