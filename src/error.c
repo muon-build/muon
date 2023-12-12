@@ -305,6 +305,27 @@ list_line_col_marker(const struct source *src, uint32_t col, uint32_t sol, uint3
 	log_plain("\n");
 }
 
+static void
+reopen_source(struct source *src, bool *destroy_source)
+{
+	if (!src->len) {
+		switch (src->reopen_type) {
+		case source_reopen_type_none:
+			return;
+		case source_reopen_type_embedded:
+			src->src = embedded_get(src->label);
+			src->len = strlen(src->src);
+			break;
+		case source_reopen_type_file:
+			if (!fs_read_entire_file(src->label, src)) {
+				return;
+			}
+			*destroy_source = true;
+			break;
+		}
+	}
+}
+
 void
 list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t col)
 {
@@ -321,6 +342,9 @@ list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t co
 		log_clr() ? "\033[0m" : ""
 		);
 
+	bool destroy_source = false;
+	reopen_source(src, &destroy_source);
+
 	for (i = lstart; i < lend; ++i) {
 		uint32_t line_pre_len, sol;
 		if (list_line_internal(src, i, &sol, &line_pre_len)) {
@@ -328,6 +352,10 @@ list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t co
 				list_line_col_marker(src, col, sol, line_pre_len);
 			}
 		}
+	}
+
+	if (destroy_source) {
+		fs_source_destroy(src);
 	}
 }
 
@@ -350,22 +378,7 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 	log_plain("%s\n", msg);
 
 	bool destroy_source = false;
-	if (!src->len) {
-		switch (src->reopen_type) {
-		case source_reopen_type_none:
-			return;
-		case source_reopen_type_embedded:
-			src->src = embedded_get(src->label);
-			src->len = strlen(src->src);
-			break;
-		case source_reopen_type_file:
-			if (!fs_read_entire_file(src->label, src)) {
-				return;
-			}
-			destroy_source = true;
-			break;
-		}
-	}
+	reopen_source(src, &destroy_source);
 
 	uint32_t line_pre_len, sol;
 	if (!list_line_internal(src, line, &sol, &line_pre_len)) {
