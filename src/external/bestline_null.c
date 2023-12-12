@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "external/bestline.h"
 #include "log.h"
@@ -14,8 +15,22 @@ char *
 muon_bestline(const char *prompt)
 {
 	static char buf[2048];
+	if (feof(stdin)) {
+		return NULL;
+	}
+
 	fputs(prompt, log_file());
 	fgets(buf, 2048, stdin);
+
+	uint32_t len = strlen(buf);
+	int32_t i;
+	for (i = len - 1; i >= 0; --i) {
+		if (!strchr(" \n", buf[i])) {
+			break;
+		}
+	}
+	buf[i + 1] = 0;
+
 	return buf;
 }
 
