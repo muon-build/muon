@@ -6,7 +6,6 @@
 #include "compat.h"
 
 #include <string.h>
-#include <strings.h>
 
 #include "formats/lines.h"
 #include "formats/tap.h"
@@ -53,9 +52,9 @@ tap_parse_line_cb(void *_ctx, char *line, size_t _)
 		char *directive_str;
 		if ((directive_str = strstr(rest.s, " # "))) {
 			directive_str += 3;
-			if (strncasecmp(directive_str, "todo", 4) == 0) {
+			if (str_startswithi(&WKSTR(directive_str), &WKSTR("todo"))) {
 				directive = todo;
-			} else if (strncasecmp(directive_str, "skip", 4) == 0) {
+			} else if (str_startswithi(&WKSTR(directive_str), &WKSTR("skip"))) {
 				directive = skip;
 			}
 		}

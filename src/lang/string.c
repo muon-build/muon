@@ -249,6 +249,16 @@ str_eql(const struct str *ss1, const struct str *ss2)
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
 
+static bool
+str_char_to_lower(uint8_t c)
+{
+	if ('A' <= c && c <= 'Z') {
+		return c + 32;
+	}
+
+	return c;
+}
+
 bool
 str_startswith(const struct str *ss, const struct str *pre)
 {
@@ -257,6 +267,22 @@ str_startswith(const struct str *ss, const struct str *pre)
 	}
 
 	return memcmp(ss->s, pre->s, pre->len) == 0;
+}
+
+bool
+str_startswithi(const struct str *ss, const struct str *pre)
+{
+	if (ss->len < pre->len) {
+		return false;
+	}
+
+	uint32_t i;
+	for (i = 0; i < pre->len; ++i) {
+		if (str_char_to_lower(ss->s[i]) != str_char_to_lower(pre->s[i])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 bool
