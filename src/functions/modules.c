@@ -87,8 +87,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		obj old_scope_stack;
 		if (encapsulate) {
 			old_scope_stack = current_project(wk)->scope_stack;
-			make_obj(wk, &current_project(wk)->scope_stack, obj_array);
-			wk->push_local_scope(wk);
+			current_project(wk)->scope_stack = wk->scope_stack_dup(wk, wk->default_scope);
 		}
 
 		obj res;

@@ -55,3 +55,6 @@ func = 1
 return = 2
 endfunc = 3
 message([func, return, endfunc])
+
+# make sure modules can access global objects
+assert(m.access_globals() == meson.project_name())

@@ -58,6 +58,10 @@ func test_wrap(exe, base_kwargs)
     return f
 endfunc
 
+func access_globals()
+    return meson.project_name()
+endfunc
+
 return {
     'identity': identity,
     'append_global': append_global,
@@ -67,4 +71,5 @@ return {
     'incrementer': incrementer,
     'custom_target_wrap': custom_target_wrap,
     'test_wrap': test_wrap,
+    'access_globals': access_globals,
 }
