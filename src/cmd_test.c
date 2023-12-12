@@ -30,6 +30,7 @@ enum test_result_status {
 	test_result_status_ok,
 	test_result_status_failed,
 	test_result_status_timedout,
+	test_result_status_skipped,
 };
 
 struct test_result {
@@ -103,6 +104,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		status_failed_ok,
 		status_running,
 		status_timedout,
+		status_skipped,
 	} status = status_ok;
 
 	const char *status_msg[] = {
@@ -112,6 +114,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		[status_failed_ok]          = "fail*",
 		[status_running]            = "start",
 		[status_timedout]           = "timeout",
+		[status_skipped]            = "skip ",
 	};
 
 	switch (res->status) {
@@ -134,6 +137,9 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		} else {
 			status = status_ok;
 		}
+		break;
+	case test_result_status_skipped:
+		status = status_skipped;
 		break;
 	}
 
@@ -160,6 +166,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_failed_ok] = 33,
 			[status_running] = 0,
 			[status_timedout] = 31,
+			[status_skipped] = 33,
 		};
 		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
 	} else {
@@ -467,7 +474,7 @@ ret:
  * Test runner
  */
 
-static bool
+static enum test_result_status
 check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
 {
 	struct tap_parse_result tap_result = { 0 };
@@ -477,21 +484,21 @@ check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct tes
 	res->subtests.pass = tap_result.pass + tap_result.skip;
 	res->subtests.total = tap_result.total;
 
-	return tap_result.all_ok && res->status == 0;
+	return tap_result.all_ok && res->status == 0 ? test_result_status_ok : test_result_status_failed;
 }
 
-static bool
+static enum test_result_status
 check_test_result_exitcode(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
 {
 	if (res->cmd_ctx.status == 0) {
-		return true;
+		return test_result_status_ok;
 	} else if (res->cmd_ctx.status == 77) {
 		++ctx->stats.total_skipped;
-		return true;
+		return test_result_status_skipped;
 	} else if (res->cmd_ctx.status == 99) {
-		return false;
+		return test_result_status_failed;
 	} else {
-		return false;
+		return test_result_status_failed;
 	}
 }
 
@@ -539,27 +546,27 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			arr_push(&ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
-			bool ok;
+			enum test_result_status status;
 
 			switch (res->test->protocol) {
 			case test_protocol_tap:
-				ok = check_test_result_tap(wk, ctx, res);
+				status = check_test_result_tap(wk, ctx, res);
 				break;
 			default:
-				ok = check_test_result_exitcode(wk, ctx, res);
+				status = check_test_result_exitcode(wk, ctx, res);
 				break;
 			}
 
-			if (!ok && res->test->should_fail) {
-				ok = true;
+			if (status == test_result_status_failed && res->test->should_fail) {
+				status = test_result_status_ok;
 			}
 
-			if (ok) {
+			if (status != test_result_status_failed) {
 				if (res->test->should_fail) {
 					++ctx->stats.total_expect_fail_count;
 				}
 
-				res->status = test_result_status_ok;
+				res->status = status;
 				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {
 				res->status = test_result_status_failed;
