@@ -62,6 +62,14 @@ func access_globals()
     return meson.project_name()
 endfunc
 
+func array_kwarg_default(bar: [])
+    baz = []
+    foreach b : bar
+        baz += b
+    endforeach
+    return baz
+endfunc
+
 return {
     'identity': identity,
     'append_global': append_global,
@@ -72,4 +80,5 @@ return {
     'custom_target_wrap': custom_target_wrap,
     'test_wrap': test_wrap,
     'access_globals': access_globals,
+    'array_kwarg_default': array_kwarg_default,
 }

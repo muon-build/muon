@@ -58,3 +58,7 @@ message([func, return, endfunc])
 
 # make sure modules can access global objects
 assert(m.access_globals() == meson.project_name())
+
+# make sure lists dont get flattened
+assert(m.array_kwarg_default() == [])
+assert(m.array_kwarg_default(bar: ['meow']) == ['meow'])
