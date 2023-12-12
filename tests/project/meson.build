@@ -336,7 +336,7 @@ foreach t : tests
     extra = t.get(1, [])
     kwargs = t.get(2, {})
 
-    skip_exit_code = 0
+    skip_exit_code = 77
     if 'failing' in extra
         skip_exit_code = 1
         kwargs += {'should_fail': true}
