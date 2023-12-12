@@ -88,6 +88,8 @@ tok_type_to_s(enum token_type type)
 	case tok_func: return "func";
 	case tok_endfunc: return "endfunc";
 	case tok_return: return "return";
+	case tok_bitor: return "|";
+	case tok_returntype: return "->";
 	case tok_comment: return "comment";
 	case tok_fmt_eol: return "fmt_eol";
 	}
@@ -805,7 +807,12 @@ lexer_tokenize_one(struct lexer *lexer)
 			}
 			break;
 		case '-':
-			token->type = tok_minus;
+			if ((lexer->mode & lexer_mode_functions) && lexer->src[lexer->i + 1] == '>') {
+				advance(lexer);
+				token->type = tok_returntype;
+			} else {
+				token->type = tok_minus;
+			}
 			break;
 		case '*':
 			token->type = tok_star;
@@ -856,6 +863,14 @@ lexer_tokenize_one(struct lexer *lexer)
 			}
 			token->type = tok_eof;
 			return lex_done;
+		case '|':
+			if (lexer->mode & lexer_mode_functions) {
+				token->type = tok_bitor;
+			} else {
+				lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
+				return lex_fail;
+			}
+			break;
 		default:
 			lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
 			return lex_fail;

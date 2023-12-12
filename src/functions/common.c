@@ -325,7 +325,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, type_t
 
 	assert((type & obj_typechecking_type_tag) || type < obj_type_count);
 
-	// If obj_file or tc_file is requested, and the arugment is an array of
+	// If obj_file or tc_file is requested, and the argument is an array of
 	// length 1, try to unpack it.
 	if (!array_of && (type == obj_file || (type & tc_file) == tc_file)) {
 		if (get_obj_type(wk, *val) == obj_array
@@ -725,17 +725,21 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 		memset(akw, 0, sizeof(struct args_kw) * (f->nkwargs + 1));
 		akw[f->nkwargs].type = ARG_TYPE_NULL;
 
-		uint32_t i = 0, arg_id = f->args_id;
+		uint32_t pos_i = 0, kw_i = 0, arg_id = f->args_id;
 		while (true) {
 			struct node *arg = arr_get(&f->ast->nodes, arg_id);
 			if (arg->type == node_empty) {
 				break;
 			}
 
-			if (arg->subtype == arg_kwarg) {
+			if (arg->subtype == arg_normal) {
+				an[pos_i].type = arg->dat.type;
+				++pos_i;
+			} else if (arg->subtype == arg_kwarg) {
 				struct node *key = arr_get(&f->ast->nodes, arg->l);
-				akw[i].key = key->dat.s;
-				++i;
+				akw[kw_i].key = key->dat.s;
+				akw[kw_i].type = arg->dat.type;
+				++kw_i;
 			}
 
 			if (!(arg->chflg & node_child_c)) {
@@ -799,6 +803,10 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	wk->returned = 0;
 	ret = wk->interp_node(wk, f->block_id, &_);
 	*res = wk->returned;
+	if (ret && !typecheck(wk, args_node, *res, f->return_type)) {
+		interp_error(wk, args_node, "function returned invalid type");
+		ret = false;
+	}
 	wk->returning = false;
 
 ret:

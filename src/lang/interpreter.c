@@ -110,16 +110,32 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 	obj expected_types;
 	make_obj(wk, &expected_types, obj_array);
 
+	if ((t & ARG_TYPE_GLOB)) {
+		t &= ~ARG_TYPE_GLOB;
+		obj_array_push(wk, expected_types, make_str(wk, "glob"));
+	}
+	if ((t & ARG_TYPE_ARRAY_OF)) {
+		t &= ~ARG_TYPE_ARRAY_OF;
+		obj_array_push(wk, expected_types, make_str(wk, "listify"));
+	}
+
 	const char *single = NULL;
 	if (!(t & obj_typechecking_type_tag)) {
 		single = obj_type_to_s(t);
 	} else if (t == tc_any) {
 		single = "any";
+	} else if (t == tc_exe) {
+		single = "exe";
 	} else if (t == obj_typechecking_type_tag) {
-		single = "null";
+		single = "void";
 	}
 
 	if (single) {
+		if (get_obj_array(wk,expected_types)->len && strcmp(single, "void") == 0) {
+			// avoids outputting `listify|void` when `listify` has the same meaning
+			return expected_types;
+		}
+
 		obj_array_push(wk, expected_types, make_str(wk, single));
 		return expected_types;
 	}
@@ -1296,6 +1312,7 @@ interp_func_def(struct workspace *wk, struct node *n)
 	f->ast = wk->ast;
 	f->lang_mode = wk->lang_mode;
 	f->scope_stack = wk->scope_stack_dup(wk, current_project(wk)->scope_stack);
+	f->return_type = n->dat.type;
 
 	struct node *arg;
 	uint32_t arg_id = n->r;

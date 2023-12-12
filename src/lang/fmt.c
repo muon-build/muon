@@ -15,6 +15,7 @@
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
+#include "lang/interpreter.h"
 #include "lang/string.h"
 #include "log.h"
 #include "platform/mem.h"
@@ -22,10 +23,12 @@
 
 struct arg_elem {
 	uint32_t kw, val, next;
+	type_tag type;
 };
 
 struct fmt_ctx {
 	struct ast *ast;
+	struct workspace *wk;
 	struct sbuf *out_buf;
 	uint32_t indent, col, enclosed;
 	bool force_ml;
@@ -408,6 +411,8 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			ae->val = arg->l;
 		}
 
+		ae->type = arg->dat.type;
+
 		arg_val = get_node(ctx->ast, ae->val);
 
 		{ // deal with empty lines and comment lines
@@ -450,8 +455,19 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 				fst.special_fmt |= special_fmt_cmd_array;
 			}
 
-			fst.node_sep = ctx->wide_colon ? " : " : ": ";
-			len += fmt_node(ctx, &fst, ae->kw);
+			const char *kw_sep = ctx->wide_colon ? " : " : ": ";
+
+			if (ae->type) {
+				fst.node_sep = 0;
+				len += fmt_node(ctx, &fst, ae->kw);
+				len += fmt_writes(ctx, &fst, " ");
+				len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, ae->type));
+				fst.node_sep = kw_sep;
+				len += fmt_tail(ctx, &fst, ae->kw);
+			} else {
+				fst.node_sep = kw_sep;
+				len += fmt_node(ctx, &fst, ae->kw);
+			}
 		}
 
 		bool need_comma;
@@ -469,8 +485,18 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			need_comma = true;
 		}
 
-		fst.node_sep = need_comma ? "," : NULL;
-		len += fmt_check(ctx, &fst, fmt_node, ae->val);
+		const char *val_sep = need_comma ? "," : NULL;
+		if (!ae->kw && ae->type) {
+			fst.node_sep = 0;
+			len += fmt_node(ctx, &fst, ae->val);
+			len += fmt_writes(ctx, &fst, " ");
+			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, ae->type));
+			fst.node_sep = val_sep;
+			len += fmt_tail(ctx, &fst, ae->val);
+		} else {
+			fst.node_sep = val_sep;
+			len += fmt_check(ctx, &fst, fmt_node, ae->val);
+		}
 
 		if (!last) {
 			if ((pfst->special_fmt & special_fmt_cmd_array)
@@ -849,7 +875,12 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		struct fmt_stack arg_fst = *fmt_setup_fst(&fst);
 		arg_fst.arg_container = "()";
 		arg_fst.ml = false;
-		len += fmt_check(ctx, &arg_fst, fmt_arg_container, n->r);//(ctx, &arg_fst, n->r);
+		len += fmt_check(ctx, &arg_fst, fmt_arg_container, n->r);
+
+		if (n->dat.type) {
+			len += fmt_writes(ctx, &fst, " -> ");
+			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, n->dat.type));
+		}
 
 		struct node *block = get_node(ctx->ast, n->c);
 		if (block->type == node_empty) {
@@ -1063,8 +1094,11 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 	struct ast ast = { 0 };
 	struct source_data sdata = { 0 };
 	struct sbuf out_buf;
+	struct workspace wk = { 0 };
+	workspace_init_bare(&wk);
 	struct fmt_ctx ctx = {
 		.ast = &ast,
+		.wk = &wk,
 		.out_buf = &out_buf,
 		.max_line_len = 80,
 		.indent_by = "    ",
@@ -1125,6 +1159,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 
 	ret = true;
 ret:
+	workspace_destroy_bare(&wk);
 	if (cfg_buf) {
 		z_free(cfg_buf);
 	}

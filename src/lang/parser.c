@@ -361,15 +361,43 @@ ensure_in_loop(struct parser *p)
 	return true;
 }
 
+static bool
+parse_type(struct parser *p, type_tag *type)
+{
+	*type = 0;
+	if (accept(p, tok_identifier)) {
+		const char *typestr = p->last_last->dat.s;
+		type_tag t;
+		if (s_to_type_tag(typestr, &t)) {
+			*type = t;
+		} else {
+			parse_error(p, NULL, "unknown type %s", typestr);
+			return false;
+		}
+	}
+
+	if (accept(p, tok_bitor)) {
+		type_tag other_type;
+		if (!parse_type(p, &other_type)) {
+			return false;
+		}
+
+		*type |= other_type;
+	}
+
+	return true;
+}
+
 typedef bool (*parse_func)(struct parser *, uint32_t *);
 static bool parse_expr(struct parser *p, uint32_t *id);
 static bool parse_block(struct parser *p, uint32_t *id);
 
 enum parse_list_mode {
-	parse_list_mode_array,
-	parse_list_mode_dictionary,
-	parse_list_mode_arguments,
-	parse_list_mode_tail,
+	parse_list_mode_array = 1 << 0,
+	parse_list_mode_dictionary = 1 << 1,
+	parse_list_mode_arguments = 1 << 2,
+	parse_list_mode_tail = 1 << 3,
+	parse_list_mode_types = 1 << 4,
 };
 
 static bool
@@ -398,9 +426,19 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 			return true;
 		}
 
+		if (mode & parse_list_mode_types) {
+			type_tag type;
+			if (!parse_type(p, &type)) {
+				return false;
+			}
+
+			n = get_node(p->ast, *id);
+			n->dat.type = type;
+		}
+
 		bool have_colon = false;
 
-		if (mode == parse_list_mode_arguments) {
+		if (mode & parse_list_mode_arguments) {
 			have_colon = accept(p, tok_colon);
 		} else if (mode == parse_list_mode_dictionary) {
 			if (!expect(p, tok_colon)) {
@@ -412,7 +450,7 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 		if (have_colon) {
 			at = arg_kwarg;
 
-			if (mode == parse_list_mode_arguments
+			if ((mode & parse_list_mode_arguments)
 			    && get_node(p->ast, s_id)->type != node_id) {
 				parse_error(p, NULL, "keyword argument key must be a plain identifier (not a %s)",
 					node_type_to_s(get_node(p->ast, s_id)->type));
@@ -521,12 +559,21 @@ parse_func_def(struct parser *p, uint32_t *id)
 	p->parsing_func_def_args = true;
 	if (!expect(p, tok_lparen)) {
 		return false;
-	} else if (!parse_list(p, &args, parse_list_mode_arguments)) {
+	} else if (!parse_list(p, &args, parse_list_mode_arguments | parse_list_mode_types)) {
 		return false;
 	} else if (!expect(p, tok_rparen)) {
 		return false;
 	}
 	p->parsing_func_def_args = false;
+
+	if (accept(p, tok_returntype)) {
+		type_tag type;
+		if (!parse_type(p, &type)) {
+			return false;
+		}
+
+		get_node(p->ast, *id)->dat.type = type;
+	}
 
 	if (!expect(p, tok_eol)) {
 		return false;
@@ -784,57 +831,14 @@ parse_chained(struct parser *p, uint32_t *id, uint32_t l_id, bool have_l)
 static bool
 parse_e7(struct parser *p, uint32_t *id)
 {
-	uint32_t /*p_id,*/ l_id;
+	uint32_t l_id;
 	if (!(parse_e8(p, &l_id))) {
 		return false;
 	}
 
-	/* if (accept(p, tok_lparen)) { */
-	/* 	p->caused_effect = true; */
-
-	/* 	uint32_t args, d_id; */
-
-	/* 	if (get_node(p->ast, l_id)->type != node_id) { */
-	/* 		parse_error(p, p->last_last, "unexpected token '%s'", tok_type_to_s(tok_lparen)); */
-	/* 		return false; */
-	/* 	} */
-
-	/* 	struct token *args_start = p->last; */
-
-	/* 	if (!parse_list(p, &args, parse_list_mode_arguments)) { */
-	/* 		return false; */
-	/* 	} else if (!expect(p, tok_rparen)) { */
-	/* 		return false; */
-	/* 	} */
-
-	/* 	make_node(p, &p_id, node_function); */
-	/* 	add_child(p, p_id, node_child_l, l_id); */
-	/* 	add_child(p, p_id, node_child_r, args); */
-
-	/* 	struct node *n = get_node(p->ast, p_id), */
-	/* 		    *func_name = get_node(p->ast, l_id); */
-
-	/* 	n->line = func_name->line; */
-	/* 	n->col = func_name->col; */
-
-	/* 	n = get_node(p->ast, args); */
-	/* 	n->line = args_start->line; */
-	/* 	n->col = args_start->col; */
-
-	/* 	if (!parse_chained(p, &d_id, 0, false)) { */
-	/* 		return false; */
-	/* 	} */
-
-	/* 	if (d_id) { */
-	/* 		add_child(p, p_id, node_child_d, d_id); */
-	/* 	} */
-
-	/* 	*id = p_id; */
-	/* } else { */
 	if (!parse_chained(p, id, l_id, true)) {
 		return false;
 	}
-	/* } */
 
 	return true;
 }

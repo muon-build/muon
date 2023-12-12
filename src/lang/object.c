@@ -319,51 +319,86 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 	}
 }
 
+static struct
+{
+	enum obj_type t;
+	const char *name;
+} obj_names[obj_type_count] = {
+	{ .t = obj_null, .name = "void" },
+	{ .t = obj_compiler, .name = "compiler" },
+	{ .t = obj_dependency, .name = "dep" },
+	{ .t = obj_meson, .name = "meson" },
+	{ .t = obj_string, .name = "str" },
+	{ .t = obj_number, .name = "int" },
+	{ .t = obj_array, .name = "list" },
+	{ .t = obj_dict, .name = "dict" },
+	{ .t = obj_bool, .name = "bool" },
+	{ .t = obj_file, .name = "file" },
+	{ .t = obj_build_target, .name = "build_tgt" },
+	{ .t = obj_subproject, .name = "subproject" },
+	{ .t = obj_machine, .name = "build_machine" },
+	{ .t = obj_feature_opt, .name = "feature" },
+	{ .t = obj_external_program, .name = "external_program" },
+	{ .t = obj_python_installation, .name = "python_installation" },
+	{ .t = obj_run_result, .name = "runresult" },
+	{ .t = obj_configuration_data, .name = "cfg_data" },
+	{ .t = obj_custom_target, .name = "custom_tgt" },
+	{ .t = obj_test, .name = "test" },
+	{ .t = obj_module, .name = "module" },
+	{ .t = obj_install_target, .name = "install_tgt" },
+	{ .t = obj_environment, .name = "env" },
+	{ .t = obj_include_directory, .name = "inc" },
+	{ .t = obj_option, .name = "option" },
+	{ .t = obj_disabler, .name = "disabler" },
+	{ .t = obj_generator, .name = "generator" },
+	{ .t = obj_generated_list, .name = "generated_list" },
+	{ .t = obj_alias_target, .name = "alias_tgt" },
+	{ .t = obj_both_libs, .name = "both_libs" },
+	{ .t = obj_typeinfo, .name = "typeinfo" },
+	{ .t = obj_func, .name = "function" },
+	{ .t = obj_source_set, .name = "source_set" },
+	{ .t = obj_source_configuration, .name = "source_configuration" },
+};
+
 const char *
 obj_type_to_s(enum obj_type t)
 {
-	switch (t) {
-	case obj_null: return "void";
-	case obj_compiler: return "compiler";
-	case obj_dependency: return "dep";
-	case obj_meson: return "meson";
-	case obj_string: return "str";
-	case obj_number: return "int";
-	case obj_array: return "list";
-	case obj_dict: return "dict";
-	case obj_bool: return "bool";
-	case obj_file: return "file";
-	case obj_build_target: return "build_tgt";
-	case obj_subproject: return "subproject";
-	case obj_machine: return "build_machine";
-	case obj_feature_opt: return "feature";
-	case obj_external_program: return "external_program";
-	case obj_python_installation: return "python_installation";
-	case obj_run_result: return "runresult";
-	case obj_configuration_data: return "cfg_data";
-	case obj_custom_target: return "custom_tgt";
-	case obj_test: return "test";
-	case obj_module: return "module";
-	case obj_install_target: return "install_tgt";
-	case obj_environment: return "env";
-	case obj_include_directory: return "inc";
-	case obj_option: return "option";
-	case obj_disabler: return "disabler";
-	case obj_generator: return "generator";
-	case obj_generated_list: return "generated_list";
-	case obj_alias_target: return "alias_tgt";
-	case obj_both_libs: return "both_libs";
-	case obj_typeinfo: return "typeinfo";
-	case obj_func: return "func";
-	case obj_source_set: return "source_set";
-	case obj_source_configuration: return "source_configuration";
-
-	case obj_type_count:
-		assert(false); return "uh oh";
+	uint32_t i;
+	for (i = 0; i < obj_type_count; ++i) {
+		if (obj_names[i].t == t) {
+			return obj_names[i].name;
+		}
 	}
 
 	assert(false && "unreachable");
 	return NULL;
+}
+
+bool
+s_to_type_tag(const char *s, type_tag *t)
+{
+	uint32_t i;
+	for (i = 0; i < obj_type_count; ++i) {
+		if (strcmp(s, obj_names[i].name) == 0) {
+			*t = obj_type_to_tc_type(obj_names[i].t);
+			return true;
+		}
+	}
+
+	struct { type_tag t; const char *name; } extra_types[] = {
+		{ .t = tc_exe, .name = "exe" },
+		{ .t = ARG_TYPE_ARRAY_OF, .name = "listify" },
+		{ .t = ARG_TYPE_GLOB, .name = "glob" },
+	};
+
+	for (i = 0; i < ARRAY_LEN(extra_types); ++i) {
+		if (strcmp(s, extra_types[i].name) == 0) {
+			*t = extra_types[i].t;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 struct obj_equal_iter_ctx {

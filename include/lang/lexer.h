@@ -72,6 +72,8 @@ enum token_type {
 	tok_func,
 	tok_endfunc,
 	tok_return,
+	tok_bitor,
+	tok_returntype,
 
 	/* formatting only */
 	tok_comment,
@@ -81,6 +83,7 @@ enum token_type {
 union token_data {
 	const char *s;
 	int64_t n;
+	uint64_t type;
 };
 
 struct token {

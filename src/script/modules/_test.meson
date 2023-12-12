@@ -3,7 +3,7 @@
 
 global = []
 
-func identity(t)
+func identity(t int) -> int
     return t
 endfunc
 
@@ -11,7 +11,7 @@ func append_global(t)
     global += t
 endfunc
 
-func get_global()
+func get_global() -> list
     return global
 endfunc
 
@@ -21,7 +21,7 @@ func basic_scope()
     return a
 endfunc
 
-func factory(v)
+func factory(v) -> function
     func f()
         return v
     endfunc
@@ -29,9 +29,9 @@ func factory(v)
     return f
 endfunc
 
-func incrementer()
+func incrementer() -> function
     i = 0
-    func f()
+    func f() -> int
         r = i
         i += 1
         return r
@@ -40,8 +40,8 @@ func incrementer()
     return f
 endfunc
 
-func custom_target_wrap(base_kwargs)
-    func f(name, kwargs)
+func custom_target_wrap(base_kwargs dict) -> function
+    func f(name str, kwargs dict) -> custom_tgt
         kwargs = base_kwargs + kwargs
         return custom_target(name, kwargs: kwargs)
     endfunc
@@ -49,20 +49,20 @@ func custom_target_wrap(base_kwargs)
     return f
 endfunc
 
-func test_wrap(exe, base_kwargs)
-    func f(name, args, kwargs: {})
+func test_wrap(exe exe, base_kwargs dict) -> function
+    func f(name str, args listify, kwargs dict: {})
         kwargs = base_kwargs + kwargs + {'args': args}
-        return test(name, exe, kwargs: kwargs)
+        test(name, exe, kwargs: kwargs)
     endfunc
 
     return f
 endfunc
 
-func access_globals()
+func access_globals() -> str
     return meson.project_name()
 endfunc
 
-func array_kwarg_default(bar: [])
+func array_kwarg_default(bar list: []) -> list
     baz = []
     foreach b : bar
         baz += b
@@ -70,8 +70,16 @@ func array_kwarg_default(bar: [])
     return baz
 endfunc
 
-func get_type(a)
+func get_type(a) -> str
     return typeof(a)
+endfunc
+
+func listify_arg(a listify|str) -> list
+    return a
+endfunc
+
+func glob_arg(a glob|int) -> list
+    return a
 endfunc
 
 return {
@@ -86,4 +94,6 @@ return {
     'access_globals': access_globals,
     'array_kwarg_default': array_kwarg_default,
     'get_type': get_type,
+    'listify_arg': listify_arg,
+    'glob_arg': glob_arg,
 }

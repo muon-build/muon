@@ -160,6 +160,7 @@ struct obj_func {
 	enum language_mode lang_mode;
 	uint32_t args_id, block_id, nargs, nkwargs;
 	obj kwarg_defaults, src, scope_stack;
+	type_tag return_type;
 };
 
 enum tgt_type {
@@ -597,6 +598,7 @@ OBJ_GETTER(obj_source_configuration);
 struct sbuf;
 
 const char *obj_type_to_s(enum obj_type t);
+bool s_to_type_tag(const char *s, type_tag *t);
 void obj_to_s(struct workspace *wk, obj o, struct sbuf *sb);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);

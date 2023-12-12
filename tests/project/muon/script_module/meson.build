@@ -67,3 +67,11 @@ assert(m.array_kwarg_default(bar: ['meow']) == ['meow'])
 assert(m.get_type('asdf') == 'str')
 assert(m.get_type([]) == 'list')
 assert(m.get_type({}) == 'dict')
+
+# test listify
+assert(m.listify_arg('meow') == ['meow'])
+assert(m.listify_arg(['meow']) == ['meow'])
+assert(m.listify_arg([[['meow']]]) == ['meow'])
+
+# test glob
+assert(m.glob_arg(1, 2, 3, 4, 5) == [1, 2, 3, 4, 5])
