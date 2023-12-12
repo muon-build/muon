@@ -2015,6 +2015,19 @@ func_is_void(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_typeof(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, obj_type_to_s(get_obj_type(wk, an[0].val)));
+
+	return true;
+}
+
 const struct func_impl impl_tbl_kernel[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },
@@ -2104,6 +2117,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
 	{ "is_void", func_is_void, tc_bool, true },
+	{ "typeof", func_typeof, tc_string, true },
 	{ NULL, NULL },
 };
 

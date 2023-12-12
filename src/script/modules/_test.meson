@@ -70,6 +70,10 @@ func array_kwarg_default(bar: [])
     return baz
 endfunc
 
+func get_type(a)
+    return typeof(a)
+endfunc
+
 return {
     'identity': identity,
     'append_global': append_global,
@@ -81,4 +85,5 @@ return {
     'test_wrap': test_wrap,
     'access_globals': access_globals,
     'array_kwarg_default': array_kwarg_default,
+    'get_type': get_type,
 }
