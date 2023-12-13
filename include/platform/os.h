@@ -10,6 +10,15 @@
 #include <stdbool.h>
 
 #ifdef _WIN32
+#ifndef S_IRUSR
+#define S_IRUSR 0
+#endif
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#endif
+#ifndef S_ISREG
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
 extern char *optarg;
 extern int opterr, optind, optopt;
 #else

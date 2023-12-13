@@ -15,6 +15,7 @@
 #include "lang/interpreter.h"
 #include "log.h"
 #include "options.h"
+#include "platform/os.h"
 #include "platform/path.h"
 
 static bool
