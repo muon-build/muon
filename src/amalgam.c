@@ -6,7 +6,7 @@
 #include "compat.h"
 
 #ifdef __sun
-	#define __EXTENSIONS__
+#define __EXTENSIONS__
 #endif
 
 #include "args.c"
@@ -22,8 +22,8 @@
 #include "cmd_test.c"
 #include "coerce.c"
 #include "compilers.c"
-#include "datastructures/bucket_arr.c"
 #include "datastructures/arr.c"
+#include "datastructures/bucket_arr.c"
 #include "datastructures/hash.c"
 #include "embedded.c"
 #include "error.c"
@@ -104,33 +104,33 @@
 #include "wrap.c"
 
 #ifdef _WIN32
-	#include "platform/windows/filesystem.c"
-	#include "platform/windows/init.c"
-	#include "platform/windows/log.c"
-	#include "platform/windows/os.c"
-	#include "platform/windows/path.c"
-	#include "platform/windows/rpath_fixer.c"
-	#include "platform/windows/run_cmd.c"
-	#include "platform/windows/term.c"
-	#include "platform/windows/timer.c"
-	#include "platform/windows/uname.c"
-	#include "platform/windows/win32_error.c"
-	#include "platform/windows/win32_getopt.c"
+#include "platform/windows/filesystem.c"
+#include "platform/windows/init.c"
+#include "platform/windows/log.c"
+#include "platform/windows/os.c"
+#include "platform/windows/path.c"
+#include "platform/windows/rpath_fixer.c"
+#include "platform/windows/run_cmd.c"
+#include "platform/windows/term.c"
+#include "platform/windows/timer.c"
+#include "platform/windows/uname.c"
+#include "platform/windows/win32_error.c"
+#include "platform/windows/win32_getopt.c"
 #else
-	#include "platform/null/rpath_fixer.c"
-	#include "platform/posix/filesystem.c"
-	#include "platform/posix/init.c"
-	#include "platform/posix/log.c"
-	#include "platform/posix/os.c"
-	#include "platform/posix/path.c"
-	#include "platform/posix/run_cmd.c"
-	#include "platform/posix/term.c"
-	#include "platform/posix/timer.c"
-	#include "platform/posix/uname.c"
+#include "platform/null/rpath_fixer.c"
+#include "platform/posix/filesystem.c"
+#include "platform/posix/init.c"
+#include "platform/posix/log.c"
+#include "platform/posix/os.c"
+#include "platform/posix/path.c"
+#include "platform/posix/run_cmd.c"
+#include "platform/posix/term.c"
+#include "platform/posix/timer.c"
+#include "platform/posix/uname.c"
 #endif
 
 #ifdef BOOTSTRAP_HAVE_LIBPKGCONF
-	#include "external/libpkgconf.c"
+#include "external/libpkgconf.c"
 #else
-	#include "external/libpkgconf_null.c"
+#include "external/libpkgconf_null.c"
 #endif
