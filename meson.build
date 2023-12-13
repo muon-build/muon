@@ -72,12 +72,12 @@ cc = meson.get_compiler('c')
 add_project_arguments(
     cc.get_supported_arguments(
         [
-            '-Wno-missing-braces',
             '-Wendif-labels',
             '-Wimplicit-fallthrough=2',
             '-Winit-self',
             '-Wlogical-op',
             '-Wmissing-include-dirs',
+            '-Wno-missing-braces',
             '-Wno-missing-field-initializers',
             '-Wno-unused-parameter',
             '-Wold-style-definition',
@@ -85,6 +85,7 @@ add_project_arguments(
             '-Wstrict-aliasing=2',
             '-Wstrict-prototypes',
             '-Wundef',
+            '-Wvla',
             '-fstrict-aliasing',
         ],
     ),

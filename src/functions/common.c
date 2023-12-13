@@ -717,8 +717,10 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	enum language_mode old_lang_mode = 0;
 	obj old_scope_stack = 0;
 
-	struct args_norm an[f->nargs + 1];
-	struct args_kw akw[f->nkwargs + 1];
+	static struct args_norm an[64];
+	assert(f->nargs + 1 < ARRAY_LEN(an));
+	static struct args_kw akw[128];
+	assert(f->nkwargs + 1 < ARRAY_LEN(akw));
 	{ // init and interp args
 		memset(an, 0, sizeof(struct args_norm) * (f->nargs + 1));
 		an[f->nargs].type = ARG_TYPE_NULL;
