@@ -8,6 +8,7 @@
 #include "functions/common.h"
 #include "functions/source_configuration.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static bool

@@ -15,6 +15,7 @@
 #include "functions/file.h"
 #include "install.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"

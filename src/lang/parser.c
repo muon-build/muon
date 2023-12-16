@@ -16,6 +16,8 @@
 #include "lang/lexer.h"
 #include "lang/parser.h"
 #include "lang/string.h"
+#include "lang/typecheck.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "tracy.h"
 
@@ -362,9 +364,10 @@ ensure_in_loop(struct parser *p)
 }
 
 static bool
-parse_type(struct parser *p, type_tag *type)
+parse_type(struct parser *p, type_tag *type, bool top_level)
 {
 	*type = 0;
+
 	if (accept(p, tok_identifier)) {
 		const char *typestr = p->last_last->dat.s;
 		type_tag t;
@@ -374,15 +377,53 @@ parse_type(struct parser *p, type_tag *type)
 			parse_error(p, NULL, "unknown type %s", typestr);
 			return false;
 		}
+	} else if (accept(p, tok_func)) {
+		*type = tc_func;
+	}
+
+	if (!top_level) {
+		const char *err_type = 0;
+		if ((*type & ARG_TYPE_ARRAY_OF)) {
+			err_type = "listify";
+		} else if ((*type & ARG_TYPE_GLOB)) {
+			err_type = "glob";
+		}
+
+		if (err_type) {
+			parse_error(p, p->last_last, "%s can only be specified as the top level type", err_type);
+			return false;
+		}
 	}
 
 	if (accept(p, tok_bitor)) {
-		type_tag other_type;
-		if (!parse_type(p, &other_type)) {
+		type_tag ord_type;
+		if (!parse_type(p, &ord_type, false)) {
 			return false;
 		}
 
-		*type |= other_type;
+		if (ord_type & TYPE_TAG_COMPLEX) {
+			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
+		} else {
+			*type |= ord_type;
+		}
+	} else if (accept(p, tok_lbrack)) {
+		type_tag sub_type;
+		if (!parse_type(p, &sub_type, false)) {
+			return false;
+		}
+
+		if (!expect(p, tok_rbrack)) {
+			return false;
+		}
+
+		if (*type == ARG_TYPE_ARRAY_OF || *type == ARG_TYPE_GLOB) {
+			*type |= sub_type;
+		} else if (*type == tc_dict || *type == tc_array) {
+			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);
+		} else {
+			parse_error(p, NULL, "type cannot have subtype");
+			return false;
+		}
 	}
 
 	return true;
@@ -428,7 +469,10 @@ parse_list_recurse(struct parser *p, uint32_t *id, enum parse_list_mode mode)
 
 		if (mode & parse_list_mode_types) {
 			type_tag type;
-			if (!parse_type(p, &type)) {
+			if (!parse_type(p, &type, true)) {
+				return false;
+			} else if (!type) {
+				parse_error(p, p->last_last, "missing type specifier for function argument");
 				return false;
 			}
 
@@ -568,7 +612,7 @@ parse_func_def(struct parser *p, uint32_t *id)
 
 	if (accept(p, tok_returntype)) {
 		type_tag type;
-		if (!parse_type(p, &type)) {
+		if (!parse_type(p, &type, true)) {
 			return false;
 		}
 

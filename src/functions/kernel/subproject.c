@@ -8,6 +8,7 @@
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"

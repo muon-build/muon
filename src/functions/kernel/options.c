@@ -11,6 +11,7 @@
 #include "functions/common.h"
 #include "functions/kernel/options.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 

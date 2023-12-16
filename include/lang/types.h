@@ -9,4 +9,5 @@
 #include <stdint.h>
 
 typedef uint32_t obj;
+typedef uint64_t type_tag;
 #endif

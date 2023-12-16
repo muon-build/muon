@@ -9,6 +9,7 @@
 #include "functions/common.h"
 #include "functions/source_set.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static enum iteration_result

@@ -864,14 +864,14 @@ lexer_tokenize_one(struct lexer *lexer)
 			token->type = tok_eof;
 			return lex_done;
 		case '|':
-			if (lexer->mode & lexer_mode_functions) {
-				token->type = tok_bitor;
-			} else {
-				lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
-				return lex_fail;
+			if (!(lexer->mode & lexer_mode_functions)) {
+				goto unexpected_character;
 			}
+
+			token->type = tok_bitor;
 			break;
 		default:
+unexpected_character:
 			lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
 			return lex_fail;
 		}

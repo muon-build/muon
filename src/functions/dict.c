@@ -8,6 +8,7 @@
 #include "functions/common.h"
 #include "functions/dict.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static enum iteration_result

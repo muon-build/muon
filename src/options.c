@@ -14,6 +14,7 @@
 #include "error.h"
 #include "lang/interpreter.h"
 #include "lang/serial.h"
+#include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"

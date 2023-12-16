@@ -36,6 +36,7 @@
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "tracy.h"
@@ -805,10 +806,6 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	wk->returned = 0;
 	ret = wk->interp_node(wk, f->block_id, &_);
 	*res = wk->returned;
-	if (ret && !typecheck(wk, args_node, *res, f->return_type)) {
-		interp_error(wk, args_node, "function returned invalid type");
-		ret = false;
-	}
 	wk->returning = false;
 
 ret:
@@ -821,6 +818,11 @@ ret:
 		wk->pop_local_scope(wk);
 		proj->scope_stack = old_scope_stack;
 		--wk->func_depth;
+	}
+
+	if (ret && !typecheck(wk, args_node, *res, f->return_type)) {
+		interp_error(wk, args_node, "function returned invalid type");
+		ret = false;
 	}
 
 	return ret;

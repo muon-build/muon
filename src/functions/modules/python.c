@@ -9,9 +9,10 @@
 #include <string.h>
 
 #include "external/tinyjson.h"
-#include "functions/modules/python.h"
 #include "functions/external_program.h"
+#include "functions/modules/python.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 

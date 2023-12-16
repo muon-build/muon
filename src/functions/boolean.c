@@ -7,9 +7,10 @@
 
 #include <string.h>
 
-#include "functions/common.h"
 #include "functions/boolean.h"
+#include "functions/common.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static bool

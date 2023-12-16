@@ -10,6 +10,7 @@
 #include "functions/external_program.h"
 #include "guess.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/run_cmd.h"
 

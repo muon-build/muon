@@ -7,7 +7,7 @@ func identity(t int) -> int
     return t
 endfunc
 
-func append_global(t)
+func append_global(t any)
     global += t
 endfunc
 
@@ -21,7 +21,7 @@ func basic_scope()
     return a
 endfunc
 
-func factory(v) -> function
+func factory(v any) -> func
     func f()
         return v
     endfunc
@@ -29,7 +29,7 @@ func factory(v) -> function
     return f
 endfunc
 
-func incrementer() -> function
+func incrementer() -> func
     i = 0
     func f() -> int
         r = i
@@ -40,7 +40,7 @@ func incrementer() -> function
     return f
 endfunc
 
-func custom_target_wrap(base_kwargs dict) -> function
+func custom_target_wrap(base_kwargs dict) -> func
     func f(name str, kwargs dict) -> custom_tgt
         kwargs = base_kwargs + kwargs
         return custom_target(name, kwargs: kwargs)
@@ -49,8 +49,8 @@ func custom_target_wrap(base_kwargs dict) -> function
     return f
 endfunc
 
-func test_wrap(exe exe, base_kwargs dict) -> function
-    func f(name str, args listify, kwargs dict: {})
+func test_wrap(exe exe, base_kwargs dict) -> func
+    func f(name str, args listify[any], kwargs dict: {})
         kwargs = base_kwargs + kwargs + {'args': args}
         test(name, exe, kwargs: kwargs)
     endfunc
@@ -70,16 +70,20 @@ func array_kwarg_default(bar list: []) -> list
     return baz
 endfunc
 
-func get_type(a) -> str
+func get_type(a any) -> str
     return typeof(a)
 endfunc
 
-func listify_arg(a listify|str) -> list
+func listify_arg(a listify[any]) -> list
     return a
 endfunc
 
-func glob_arg(a glob|int) -> list
+func glob_arg(a glob[any]) -> list
     return a
+endfunc
+
+func typed_list(a list[str]) -> list[int]
+    return [1]
 endfunc
 
 return {
@@ -96,4 +100,5 @@ return {
     'get_type': get_type,
     'listify_arg': listify_arg,
     'glob_arg': glob_arg,
+    'typed_list': typed_list,
 }

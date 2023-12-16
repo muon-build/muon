@@ -23,6 +23,7 @@
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"

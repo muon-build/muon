@@ -8,6 +8,7 @@
 #include "functions/common.h"
 #include "functions/subproject.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 bool

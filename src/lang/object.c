@@ -17,21 +17,11 @@
 #include "lang/interpreter.h"
 #include "lang/object.h"
 #include "lang/parser.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 #include "platform/mem.h"
 #include "tracy.h"
-
-type_tag
-obj_type_to_tc_type(enum obj_type t)
-{
-	if (!t) {
-		return obj_typechecking_type_tag;
-	}
-
-	assert(t - 1 < tc_type_count);
-	return (((type_tag)1) << (t - 1)) | obj_typechecking_type_tag;
-}
 
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
@@ -355,7 +345,7 @@ static struct
 	{ .t = obj_alias_target, .name = "alias_tgt" },
 	{ .t = obj_both_libs, .name = "both_libs" },
 	{ .t = obj_typeinfo, .name = "typeinfo" },
-	{ .t = obj_func, .name = "function" },
+	{ .t = obj_func, .name = "func" },
 	{ .t = obj_source_set, .name = "source_set" },
 	{ .t = obj_source_configuration, .name = "source_configuration" },
 };
@@ -387,6 +377,7 @@ s_to_type_tag(const char *s, type_tag *t)
 
 	struct { type_tag t; const char *name; } extra_types[] = {
 		{ .t = tc_exe, .name = "exe" },
+		{ .t = tc_any, .name = "any" },
 		{ .t = ARG_TYPE_ARRAY_OF, .name = "listify" },
 		{ .t = ARG_TYPE_GLOB, .name = "glob" },
 	};

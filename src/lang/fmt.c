@@ -17,6 +17,7 @@
 #include "lang/fmt.h"
 #include "lang/interpreter.h"
 #include "lang/string.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -1141,7 +1142,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		parse_mode |= pm_functions;
 	}
 
-	if (!parser_parse(NULL, &ast, &sdata, src, parse_mode)) {
+	if (!parser_parse(&wk, &ast, &sdata, src, parse_mode)) {
 		goto ret;
 	}
 

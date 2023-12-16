@@ -75,3 +75,6 @@ assert(m.listify_arg([[['meow']]]) == ['meow'])
 
 # test glob
 assert(m.glob_arg(1, 2, 3, 4, 5) == [1, 2, 3, 4, 5])
+
+# test nested types
+m.typed_list(['a', 'b'])

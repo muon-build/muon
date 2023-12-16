@@ -64,6 +64,7 @@ src = files(
     'lang/parser.c',
     'lang/serial.c',
     'lang/string.c',
+    'lang/typecheck.c',
     'lang/workspace.c',
     'args.c',
     'cmd_install.c',

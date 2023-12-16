@@ -12,6 +12,7 @@
 #include "coerce.h"
 #include "functions/environment.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"

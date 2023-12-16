@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "lang/typecheck.h"
 #include "functions/common.h"
 #include "functions/configuration_data.h"
 #include "lang/interpreter.h"

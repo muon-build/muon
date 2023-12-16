@@ -16,6 +16,7 @@
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
 

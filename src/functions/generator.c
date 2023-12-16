@@ -5,8 +5,6 @@
 
 #include "compat.h"
 
-#include <string.h> // XXX
-
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
@@ -14,6 +12,7 @@
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
 

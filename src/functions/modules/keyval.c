@@ -9,6 +9,7 @@
 #include "formats/ini.h"
 #include "functions/common.h"
 #include "functions/modules/keyval.h"
+#include "lang/typecheck.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 

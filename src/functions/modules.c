@@ -16,6 +16,7 @@
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
 

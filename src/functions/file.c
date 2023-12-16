@@ -10,6 +10,7 @@
 #include "functions/common.h"
 #include "functions/file.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 bool

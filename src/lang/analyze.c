@@ -22,6 +22,7 @@
 #include "lang/eval.h"
 #include "lang/interpreter.h"
 #include "lang/parser.h"
+#include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"

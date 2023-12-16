@@ -5,9 +5,10 @@
 
 #include "compat.h"
 
-#include "functions/common.h"
 #include "functions/array.h"
+#include "functions/common.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static bool

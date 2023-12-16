@@ -85,6 +85,7 @@
 #include "lang/parser.c"
 #include "lang/serial.c"
 #include "lang/string.c"
+#include "lang/typecheck.c"
 #include "lang/workspace.c"
 #include "log.c"
 #include "machine_file.c"

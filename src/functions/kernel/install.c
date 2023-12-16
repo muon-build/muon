@@ -13,6 +13,7 @@
 #include "functions/kernel/install.h"
 #include "install.h"
 #include "lang/interpreter.h"
+#include "lang/typecheck.h"
 #include "options.h"
 #include "platform/path.h"
 

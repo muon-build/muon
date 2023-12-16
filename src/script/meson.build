@@ -23,4 +23,3 @@ script_sources = custom_target(
     capture: true,
     command: [embedder, scripts_cmdline],
 )
-
