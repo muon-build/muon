@@ -127,7 +127,7 @@ originally based on `boson`, though has since been almost completely rewritten.
 
 [muon]: https://muon.build
 [samurai]: https://github.com/michaelforney/samurai
-[contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/CONTRIBUTING.md
+[contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/contributing.md
 [mailing list]: https://lists.sr.ht/~lattis/muon/
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
 [#muon on libera.chat]: ircs://irc.libera.chat/#muon
