@@ -285,9 +285,9 @@ typecheck_complex_type(struct workspace *wk, obj got, type_tag type)
 			.type = ti->subtype,
 		};
 
-		if (ti->type & tc_array) {
+		if (ti->type == tc_array) {
 			return obj_array_foreach(wk, got, &ctx, typecheck_nested_type_arr_iter);
-		} else if (ti->type & tc_dict) {
+		} else if (ti->type == tc_dict) {
 			return obj_dict_foreach(wk, got, &ctx, typecheck_nested_type_dict_iter);
 		}
 	}

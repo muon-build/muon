@@ -1540,7 +1540,7 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	make_obj(wk, &d->actions, obj_array);
 
 	if (ao[0].set) {
-		if (!typecheck_dict(wk, ao[0].node, ao[0].val, obj_string)) {
+		if (!typecheck(wk, ao[0].node, ao[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
 		}
 

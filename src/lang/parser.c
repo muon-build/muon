@@ -111,6 +111,8 @@ get_next_tok(struct parser *p)
 		p->token_i = p->toks->tok.len - 1;
 	}
 
+	/* L("next tok %s", tok_to_s(p->last)); */
+
 	return arr_get(&p->toks->tok, p->token_i);
 }
 

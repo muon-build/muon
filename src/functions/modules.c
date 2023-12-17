@@ -100,7 +100,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			if (!wk->returning || !wk->returned) {
 				interp_error(wk, 0, "%s did not return anything", name);
 				goto ret;
-			} else if (!typecheck_dict(wk, 0, wk->returned, tc_func)) {
+			} else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) {
 				goto ret;
 			}
 

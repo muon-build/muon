@@ -78,6 +78,16 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		kw_kind = kwargs_count,
 	};
 
+	// TODO: this winds up creating 4 typeinfo objects every time you call
+	// option, it'd be nice to have some caching
+	type_tag deprecated_type = make_complex_type(wk, complex_type_or,
+			tc_string | tc_bool,
+			make_complex_type(wk, complex_type_or,
+				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
+				make_complex_type(wk, complex_type_nested, tc_array, tc_string)
+			)
+	);
+
 	struct args_kw akw[] = {
 		[kw_type] = { "type", obj_string },
 		[kw_value] = { "value", tc_any },
@@ -86,7 +96,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		[kw_max] = { "max", obj_number },
 		[kw_min] = { "min", obj_number },
 		[kw_yield] = { "yield", obj_bool },
-		[kw_deprecated] = { "deprecated", tc_string | tc_bool | tc_array | tc_dict },
+		[kw_deprecated] = { "deprecated", deprecated_type },
 		[kw_kind] = { 0 },
 		0
 	};
@@ -193,24 +203,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	o->choices = akw[kw_choices].val;
 	o->yield = akw[kw_yield].set && get_obj_bool(wk, akw[kw_yield].val);
 	o->description = akw[kw_description].val;
-
-	if (akw[kw_deprecated].set) {
-		switch (get_obj_type(wk, akw[kw_deprecated].val)) {
-		case obj_array:
-			typecheck_array(wk, akw[kw_deprecated].node, akw[kw_deprecated].val, obj_string);
-			break;
-		case obj_dict:
-			typecheck_dict(wk, akw[kw_deprecated].node, akw[kw_deprecated].val, obj_string);
-			break;
-		case obj_string:
-		case obj_bool:
-			break;
-		default:
-			UNREACHABLE;
-		}
-
-		o->deprecated = akw[kw_deprecated].val;
-	}
+	o->deprecated = akw[kw_deprecated].val;
 
 	if (akw[kw_kind].set) {
 		if (str_eql(&WKSTR("default"), get_str(wk, akw[kw_kind].val))) {

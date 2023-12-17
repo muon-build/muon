@@ -109,7 +109,7 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 	case obj_array:
 		return obj_array_foreach_flat(wk, val, &ctx, coerce_environment_iter);
 	case obj_dict:
-		if (!typecheck_dict(wk, err_node, val, obj_string)) {
+		if (!typecheck(wk, err_node, val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
 		}
 

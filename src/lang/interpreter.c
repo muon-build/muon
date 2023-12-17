@@ -92,61 +92,6 @@ rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_
 	return true;
 }
 
-struct typecheck_iter_ctx {
-	uint32_t err_node;
-	type_tag t;
-};
-
-static enum iteration_result
-typecheck_array_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct typecheck_iter_ctx *ctx = _ctx;
-
-	if (!typecheck_custom(wk, ctx->err_node, val, ctx->t, "expected type %s, got %s")) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-bool
-typecheck_array(struct workspace *wk, uint32_t n_id, obj arr, type_tag type)
-{
-	if (!typecheck(wk, n_id, arr, obj_array)) {
-		return false;
-	}
-
-	return obj_array_foreach(wk, arr, &(struct typecheck_iter_ctx) {
-		.err_node = n_id,
-		.t = type,
-	}, typecheck_array_iter);
-}
-
-static enum iteration_result
-typecheck_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	struct typecheck_iter_ctx *ctx = _ctx;
-
-	if (!typecheck_custom(wk, ctx->err_node, val, ctx->t, "expected type %s, got %s")) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-bool
-typecheck_dict(struct workspace *wk, uint32_t n_id, obj dict, type_tag type)
-{
-	if (!typecheck(wk, n_id, dict, obj_dict)) {
-		return false;
-	}
-
-	return obj_dict_foreach(wk, dict, &(struct typecheck_iter_ctx) {
-		.err_node = n_id,
-		.t = type,
-	}, typecheck_dict_iter);
-}
-
 struct check_scope_ctx {
 	const char *name;
 	obj res, scope;
