@@ -74,7 +74,7 @@ func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	const type_tag tc_ss_sources = tc_string | tc_file | tc_custom_target
 				       | tc_generated_list;
 
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_ss_sources | tc_dependency },
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_ss_sources | tc_dependency },
 				  ARG_TYPE_NULL };
 	enum kwargs {
 		kw_when,
@@ -82,9 +82,9 @@ func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		kw_if_false,
 	};
 	struct args_kw akw[] = {
-		[kw_when] = { "when", ARG_TYPE_ARRAY_OF | tc_string | tc_dependency },
-		[kw_if_true] = { "if_true", ARG_TYPE_ARRAY_OF | tc_ss_sources | tc_dependency },
-		[kw_if_false] = { "if_false", ARG_TYPE_ARRAY_OF | tc_ss_sources  },
+		[kw_when] = { "when", TYPE_TAG_LISTIFY | tc_string | tc_dependency },
+		[kw_if_true] = { "if_true", TYPE_TAG_LISTIFY | tc_ss_sources | tc_dependency },
+		[kw_if_false] = { "if_false", TYPE_TAG_LISTIFY | tc_ss_sources  },
 		0
 	};
 
@@ -102,14 +102,14 @@ func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 static bool
 func_source_set_add_all(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_source_set }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_source_set }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_when,
 		kw_if_true,
 	};
 	struct args_kw akw[] = {
-		[kw_when] = { "when", ARG_TYPE_ARRAY_OF | tc_string | tc_dependency },
-		[kw_if_true] = { "if_true", ARG_TYPE_ARRAY_OF | tc_source_set },
+		[kw_when] = { "when", TYPE_TAG_LISTIFY | tc_string | tc_dependency },
+		[kw_if_true] = { "if_true", TYPE_TAG_LISTIFY | tc_source_set },
 		0
 	};
 

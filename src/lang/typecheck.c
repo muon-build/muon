@@ -122,11 +122,11 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 	obj typestr;
 
 	const char *modifier = 0;
-	if (t & ARG_TYPE_GLOB) {
-		t &= ~ARG_TYPE_GLOB;
+	if (t & TYPE_TAG_GLOB) {
+		t &= ~TYPE_TAG_GLOB;
 		modifier = "glob";
-	} else if ((t & ARG_TYPE_ARRAY_OF)) {
-		t &= ~ARG_TYPE_ARRAY_OF;
+	} else if ((t & TYPE_TAG_LISTIFY)) {
+		t &= ~TYPE_TAG_LISTIFY;
 		modifier = "listify";
 	}
 

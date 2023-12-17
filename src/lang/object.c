@@ -378,8 +378,8 @@ s_to_type_tag(const char *s, type_tag *t)
 	struct { type_tag t; const char *name; } extra_types[] = {
 		{ .t = tc_exe, .name = "exe" },
 		{ .t = tc_any, .name = "any" },
-		{ .t = ARG_TYPE_ARRAY_OF, .name = "listify" },
-		{ .t = ARG_TYPE_GLOB, .name = "glob" },
+		{ .t = TYPE_TAG_LISTIFY, .name = "listify" },
+		{ .t = TYPE_TAG_GLOB, .name = "glob" },
 	};
 
 	for (i = 0; i < ARRAY_LEN(extra_types); ++i) {

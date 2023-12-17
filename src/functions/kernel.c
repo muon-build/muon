@@ -129,7 +129,7 @@ project_add_language_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default_options,
 		kw_license,
@@ -139,9 +139,9 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_version,
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_license] = { "license", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_license_files] = { "license_files", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
+		[kw_license] = { "license", TYPE_TAG_LISTIFY | obj_string },
+		[kw_license_files] = { "license_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
 		[kw_version] = { "version", tc_string | tc_file },
@@ -294,13 +294,13 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_language,
 		kw_native, // ignored
 	};
 	struct args_kw akw[] = {
-		[kw_language] = { "language", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_native] = { "native", obj_bool },
 		0
 	};
@@ -392,13 +392,13 @@ add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
 static bool
 func_add_project_dependencies(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_dependency }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_language,
 		kw_native, // ignored
 	};
 	struct args_kw akw[] = {
-		[kw_language] = { "language", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_native] = { "native", obj_bool },
 		0
 	};
@@ -422,7 +422,7 @@ func_add_project_dependencies(struct workspace *wk, obj _, uint32_t args_node, o
 static bool
 func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native,
@@ -457,7 +457,7 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -741,7 +741,7 @@ find_program_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native,
@@ -753,8 +753,8 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
+		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -804,7 +804,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_inc }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_inc }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_is_system,
 	};
@@ -839,7 +839,7 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depends,
 	};
 	struct args_kw akw[] = {
-		[kw_output] = { "output", ARG_TYPE_ARRAY_OF | obj_string, .required = true },
+		[kw_output] = { "output", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_arguments] = { "arguments", obj_array, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
@@ -977,7 +977,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program \
 				 | tc_compiler | tc_python_installation;
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
@@ -1150,7 +1150,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_if_found,
 	};
-	type_tag if_found_type = wk->in_analyzer ? 0 : ARG_TYPE_ARRAY_OF | tc_dependency;
+	type_tag if_found_type = wk->in_analyzer ? 0 : TYPE_TAG_LISTIFY | tc_dependency;
 	struct args_kw akw[] = {
 		[kw_if_found] = { "if_found", if_found_type },
 		0
@@ -1232,7 +1232,7 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	};
 	struct args_kw akw[] = {
 		[kw_env] = { "env", tc_coercible_env, },
-		[kw_exclude_suites] = { "exclude_suites", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_exclude_suites] = { "exclude_suites", TYPE_TAG_LISTIFY | obj_string },
 		[kw_exe_wrapper] = { "exe_wrapper", tc_command_array },
 		[kw_gdb] = { "gdb", obj_bool },
 		[kw_is_default] = { "is_default", obj_bool },
@@ -1351,7 +1351,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		[kw_depends] = { "depends", tc_depends_kw, },
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_env] = { "env", tc_coercible_env, },
-		[kw_suite] = { "suite", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_suite] = { "suite", TYPE_TAG_LISTIFY | obj_string },
 		[kw_priority] = { "priority", obj_number, },
 		[kw_timeout] = { "timeout", obj_number, },
 		[kw_protocol] = { "protocol", obj_string, },
@@ -1494,7 +1494,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1824,7 +1824,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

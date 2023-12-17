@@ -621,17 +621,17 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_console,
 	};
 	struct args_kw akw[] = {
-		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list, },
-		[kw_output] = { "output", ARG_TYPE_ARRAY_OF | tc_string, .required = true },
+		[kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list, },
+		[kw_output] = { "output", TYPE_TAG_LISTIFY | tc_string, .required = true },
 		[kw_command] = { "command", tc_command_array | tc_both_libs, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_install] = { "install", obj_bool },
-		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },
+		[kw_install_dir] = { "install_dir", TYPE_TAG_LISTIFY | tc_string | tc_bool },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		[kw_build_by_default] = { "build_by_default", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
-		[kw_depend_files] = { "depend_files", ARG_TYPE_ARRAY_OF | tc_string | tc_file },
+		[kw_depend_files] = { "depend_files", TYPE_TAG_LISTIFY | tc_string | tc_file },
 		[kw_depends] = { "depends", tc_depends_kw },
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
 		[kw_build_always] = { "build_always", obj_bool },
@@ -768,7 +768,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_replace_string,
 	};
 	struct args_kw akw[] = {
-		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files, .required = true },
+		[kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files, .required = true },
 		[kw_output] = { "output", obj_string, .required = true },
 		[kw_command] = { "command", tc_command_array | tc_both_libs },
 		[kw_fallback] = { "fallback", obj_string },

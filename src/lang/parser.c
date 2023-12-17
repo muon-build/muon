@@ -385,9 +385,9 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 
 	if (!top_level) {
 		const char *err_type = 0;
-		if ((*type & ARG_TYPE_ARRAY_OF)) {
+		if ((*type & TYPE_TAG_LISTIFY)) {
 			err_type = "listify";
-		} else if ((*type & ARG_TYPE_GLOB)) {
+		} else if ((*type & TYPE_TAG_GLOB)) {
 			err_type = "glob";
 		}
 
@@ -418,7 +418,7 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 			return false;
 		}
 
-		if (*type == ARG_TYPE_ARRAY_OF || *type == ARG_TYPE_GLOB) {
+		if (*type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB) {
 			*type |= sub_type;
 		} else if (*type == tc_dict || *type == tc_array) {
 			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);

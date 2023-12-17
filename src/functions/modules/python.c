@@ -161,7 +161,7 @@ func_module_python_find_installation(struct workspace *wk,
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_modules] = { "modules", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, NULL, ao, akw)) {

@@ -445,7 +445,7 @@ set_dependency_cache_iter(struct workspace *wk, void *_ctx, obj name)
 bool
 func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_native, // ignored
@@ -465,14 +465,14 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
-		[kw_version] = { "version", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		[kw_static] = { "static", obj_bool },
-		[kw_modules] = { "modules", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_optional_modules] = { "optional_modules", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_components] = { "components", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_fallback] = { "fallback", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
+		[kw_optional_modules] = { "optional_modules", TYPE_TAG_LISTIFY | obj_string },
+		[kw_components] = { "components", TYPE_TAG_LISTIFY | obj_string },
+		[kw_fallback] = { "fallback", TYPE_TAG_LISTIFY | obj_string },
 		[kw_allow_fallback] = { "allow_fallback", obj_bool },
-		[kw_default_options] = { "default_options", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
 		[kw_not_found_message] = { "not_found_message", obj_string },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_method] = { "method", obj_string },
@@ -732,16 +732,16 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		kw_objects,
 	};
 	struct args_kw akw[] = {
-		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_coercible_files | tc_generated_list },
+		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
 		[kw_link_with] = { "link_with", tc_link_with_kw },
 		[kw_link_whole] = { "link_whole", tc_link_with_kw },
-		[kw_link_args] = { "link_args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
+		[kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
+		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
 		[kw_version] = { "version", obj_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_variables] = { "variables", tc_array | tc_dict },
-		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_objects] = { "objects", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
+		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
+		[kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		0
 	};
 

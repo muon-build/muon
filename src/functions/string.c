@@ -181,7 +181,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 static bool
 func_format(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_number | tc_bool | tc_string | tc_file }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_number | tc_bool | tc_string | tc_file }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -242,7 +242,7 @@ func_split(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 static bool
 func_join(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;

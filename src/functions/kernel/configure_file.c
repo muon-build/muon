@@ -560,7 +560,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_configuration] = { "configuration", tc_configuration_data | tc_dict },
-		[kw_input] = { "input", ARG_TYPE_ARRAY_OF | tc_coercible_files, },
+		[kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files, },
 		[kw_output] = { "output", obj_string, .required = true },
 		[kw_command] = { "command", obj_array },
 		[kw_capture] = { "capture", obj_bool },

@@ -133,7 +133,7 @@ dump_type(struct workspace *wk, type_tag type)
 	obj typestr, sep = make_str(wk, "|");
 	obj_array_join(wk, false, types, sep, &typestr);
 
-	if (type & ARG_TYPE_ARRAY_OF) {
+	if (type & TYPE_TAG_LISTIFY) {
 		obj_array_push(wk, types, make_strf(wk, "list[%s]", get_cstr(wk, typestr)));
 		obj sorted;
 		obj_array_sort(wk, NULL, types, obj_array_sort_by_str, &sorted);
@@ -163,7 +163,7 @@ dump_function_signature(struct workspace *wk,
 	if (posargs) {
 		s = make_str(wk, "");
 		for (i = 0; posargs[i].type != ARG_TYPE_NULL; ++i) {
-			if (posargs[i].type & ARG_TYPE_GLOB) {
+			if (posargs[i].type & TYPE_TAG_GLOB) {
 				sig->varargs = get_cstr(wk, make_strf(wk, "    %s\n", dump_type(wk, posargs[i].type)));
 				continue;
 			}
@@ -222,7 +222,7 @@ arity_to_s(struct args_norm positional_args[],
 		bool glob = false;
 
 		for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
-			if (positional_args[i].type & ARG_TYPE_GLOB) {
+			if (positional_args[i].type & TYPE_TAG_GLOB) {
 				glob = true;
 				break;
 			}
@@ -319,9 +319,9 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, type_t
 	}
 
 	bool array_of = false;
-	if (type & ARG_TYPE_ARRAY_OF) {
+	if (type & TYPE_TAG_LISTIFY) {
 		array_of = true;
-		type &= ~ARG_TYPE_ARRAY_OF;
+		type &= ~TYPE_TAG_LISTIFY;
 	}
 
 	assert((type & obj_typechecking_type_tag) || type < obj_type_count);
@@ -491,13 +491,13 @@ interp_args(struct workspace *wk, uint32_t args_node,
 		}
 
 		for (i = 0; an[stage][i].type != ARG_TYPE_NULL; ++i) {
-			if (an[stage][i].type & ARG_TYPE_GLOB) {
+			if (an[stage][i].type & TYPE_TAG_GLOB) {
 				assert(stage == 0 && "glob args must not be optional");
 				assert(!optional_positional_args && "glob args cannot be followed by optional args");
 				assert(an[stage][i + 1].type == ARG_TYPE_NULL && "glob args must come last");
-				assert(!(an[stage][i].type & ARG_TYPE_ARRAY_OF) && "glob args are implicitly ARG_TYPE_ARRAY_OF");
+				assert(!(an[stage][i].type & TYPE_TAG_LISTIFY) && "glob args are implicitly TYPE_TAG_LISTIFY");
 
-				an[stage][i].type &= ~ARG_TYPE_GLOB;
+				an[stage][i].type &= ~TYPE_TAG_GLOB;
 
 				bool set_arg_node = false;
 
@@ -531,7 +531,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 							// TODO typecheck subtype
 							obj_array_push(wk, an[stage][i].val, val);
 						} else {
-							if (!typecheck_function_arg(wk, arg_node, &val, ARG_TYPE_ARRAY_OF | an[stage][i].type)) {
+							if (!typecheck_function_arg(wk, arg_node, &val, TYPE_TAG_LISTIFY | an[stage][i].type)) {
 								return false;
 							}
 

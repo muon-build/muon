@@ -33,8 +33,8 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_install_dir] = { "install_dir", obj_string, .required = true },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
-		[kw_exclude_directories] = { "exclude_directories", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_exclude_files] = { "exclude_files", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_exclude_directories] = { "exclude_directories", TYPE_TAG_LISTIFY | obj_string },
+		[kw_exclude_files] = { "exclude_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_strip_directory] = { "strip_directory", obj_bool },
 		0
 	};
@@ -138,7 +138,7 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -236,7 +236,7 @@ install_emptydir_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_mode,
 		kw_install_tag,
@@ -289,7 +289,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,
@@ -303,8 +303,8 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
-		[kw_rename] = { "rename", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_sources] = { "sources", ARG_TYPE_ARRAY_OF | tc_file | tc_string },
+		[kw_rename] = { "rename", TYPE_TAG_LISTIFY | obj_string },
+		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
 		0
 	};
@@ -373,7 +373,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 bool
 func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_dir,
 		kw_install_mode,

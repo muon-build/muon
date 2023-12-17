@@ -740,14 +740,14 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	struct args_kw akw[] = {
 		[kw_name] = { "name", obj_string },
 		[kw_description] = { "description", obj_string },
-		[kw_extra_cflags] = { "extra_cflags", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_extra_cflags] = { "extra_cflags", TYPE_TAG_LISTIFY | obj_string },
 		[kw_filebase] = { "filebase", obj_string },
 		[kw_install_dir] = { "install_dir", obj_string },
-		[kw_libraries] = { "libraries", ARG_TYPE_ARRAY_OF | tc_library },
-		[kw_libraries_private] = { "libraries_private", ARG_TYPE_ARRAY_OF | tc_library  },
-		[kw_subdirs] = { "subdirs", ARG_TYPE_ARRAY_OF | obj_string },
-		[kw_requires] = { "requires", ARG_TYPE_ARRAY_OF | tc_requires },
-		[kw_requires_private] = { "requires_private", ARG_TYPE_ARRAY_OF | tc_requires },
+		[kw_libraries] = { "libraries", TYPE_TAG_LISTIFY | tc_library },
+		[kw_libraries_private] = { "libraries_private", TYPE_TAG_LISTIFY | tc_library  },
+		[kw_subdirs] = { "subdirs", TYPE_TAG_LISTIFY | obj_string },
+		[kw_requires] = { "requires", TYPE_TAG_LISTIFY | tc_requires },
+		[kw_requires_private] = { "requires_private", TYPE_TAG_LISTIFY | tc_requires },
 		[kw_url] = { "url", obj_string },
 		[kw_variables] = { "variables", tc_string | tc_array | tc_dict },
 		[kw_unescaped_variables] = { "unescaped_variables", tc_string | tc_array | tc_dict },
@@ -755,7 +755,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		[kw_unescaped_uninstalled_variables] = { "unescaped_uninstalled_variables", tc_string | tc_array | tc_dict },
 		[kw_version] = { "version", obj_string },
 		[kw_dataonly] = { "dataonly", obj_bool },
-		[kw_conflicts] = { "conflicts", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
 		0
 	};
 	if (!interp_args(wk, args_node, NULL, ao, akw)) {

@@ -198,13 +198,13 @@ check_preserve_path_from_iter(struct workspace *wk, void *_ctx, obj f)
 static bool
 func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_extra_args,
 		kw_preserve_path_from,
 	};
 	struct args_kw akw[] = {
-		[kw_extra_args] = { "extra_args", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
 		0
 	};

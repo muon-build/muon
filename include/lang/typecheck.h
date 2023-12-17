@@ -16,8 +16,8 @@ enum complex_type {
 #define ARG_TYPE_NULL (obj_type_count + 1)
 
 #define TYPE_TAG_COMPLEX          (((type_tag)1) << 60)
-#define ARG_TYPE_GLOB             (((type_tag)1) << 61)
-#define ARG_TYPE_ARRAY_OF         (((type_tag)1) << 62)
+#define TYPE_TAG_GLOB             (((type_tag)1) << 61)
+#define TYPE_TAG_LISTIFY          (((type_tag)1) << 62)
 #define obj_typechecking_type_tag (((type_tag)1) << 63)
 
 /* complex types look like this:
@@ -27,7 +27,7 @@ enum complex_type {
  *  8 bits -> enum complex_type type (e.g. complex_type_or or complex_type_nested)
  *  4 bits -> tags (should be ARG_TYPE_COMPLEX |
  *  obj_typechecking_type_tag (and potentially also
- *  ARG_TYPE_GLOB/ARG_TYPE_ARRAY_OF))
+ *  TYPE_TAG_GLOB/TYPE_TAG_LISTIFY))
  */
 #define COMPLEX_TYPE(index, t) (((uint64_t)index) | (((uint64_t)t) << 48) | TYPE_TAG_COMPLEX | obj_typechecking_type_tag);
 #define COMPLEX_TYPE_INDEX(t) (t & 0xffffffff)
@@ -83,16 +83,16 @@ enum complex_type {
 #define tc_coercible_env      (tc_environment | tc_string | tc_array | tc_dict)
 #define tc_coercible_files    (tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs)
 #define tc_coercible_inc      (tc_string | tc_include_directory)
-#define tc_command_array      (ARG_TYPE_ARRAY_OF | tc_exe)
-#define tc_depends_kw         (ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_both_libs)
-#define tc_install_mode_kw    (ARG_TYPE_ARRAY_OF | tc_string | tc_number | tc_bool)
+#define tc_command_array      (TYPE_TAG_LISTIFY | tc_exe)
+#define tc_depends_kw         (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_both_libs)
+#define tc_install_mode_kw    (TYPE_TAG_LISTIFY | tc_string | tc_number | tc_bool)
 #define tc_required_kw        (tc_bool | tc_feature_opt)
 /* XXX: tc_file should not really be in tc_link_with_kw, however this is
  * how muon represents custom_target outputs, which are valid link_with
  * arguments...
  */
-#define tc_link_with_kw       (ARG_TYPE_ARRAY_OF | tc_build_target | tc_custom_target | tc_file | tc_both_libs)
-#define tc_message            (ARG_TYPE_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict) // doesn't handle nested types
+#define tc_link_with_kw       (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_file | tc_both_libs)
+#define tc_message            (TYPE_TAG_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict) // doesn't handle nested types
 
 struct obj_typechecking_type_to_obj_type {
 	enum obj_type type;

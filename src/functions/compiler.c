@@ -459,11 +459,11 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 {
 	static struct args_kw akw[cc_kwargs_count + 1] = { 0 };
 	struct args_kw akw_base[] = {
-		[cc_kw_args] = { "args", ARG_TYPE_ARRAY_OF | obj_string },
-		[cc_kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
-		[cc_kw_prefix] = { "prefix", ARG_TYPE_ARRAY_OF | obj_string },
+		[cc_kw_args] = { "args", TYPE_TAG_LISTIFY | obj_string },
+		[cc_kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
+		[cc_kw_prefix] = { "prefix", TYPE_TAG_LISTIFY | obj_string },
 		[cc_kw_required] = { "required", tc_required_kw },
-		[cc_kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[cc_kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[cc_kw_name] = { "name", obj_string },
 		[cc_kw_guess] = { "guess", obj_number, },
 		[cc_kw_high] = { "high", obj_number, },
@@ -883,7 +883,7 @@ func_compiler_get_supported_function_attributes_iter(struct workspace *wk, void 
 static bool
 func_compiler_get_supported_function_attributes(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1559,7 +1559,7 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
@@ -1753,19 +1753,19 @@ func_compiler_has_link_argument(struct workspace *wk, obj rcvr, uint32_t args_no
 static bool
 func_compiler_has_multi_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, ARG_TYPE_GLOB, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, rcvr, args_node, TYPE_TAG_GLOB, res, compile_mode_compile);
 }
 
 static bool
 func_compiler_has_multi_link_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, ARG_TYPE_GLOB, res, compile_mode_link);
+	return compiler_has_argument_common(wk, rcvr, args_node, TYPE_TAG_GLOB, res, compile_mode_link);
 }
 
 static bool
 compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1816,7 +1816,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 static bool
 compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
@@ -1976,13 +1976,13 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		[kw_required] = { "required", tc_required_kw },
 		[kw_static] = { "static", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
-		[kw_dirs] = { "dirs", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		// has_headers
-		[kw_has_headers] = { "has_headers", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_has_headers] = { "has_headers", TYPE_TAG_LISTIFY | obj_string },
 		[kw_header_required] = { "header_required", },
 		[kw_header_args] = { "header_args", },
 		[kw_header_dependencies] = { "header_dependencies", },
-		[kw_header_include_directories] = { "header_include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[kw_header_include_directories] = { "header_include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_header_no_builtin_args] = { "header_no_builtin_args", },
 		[kw_header_prefix] = { "header_prefix", },
 		0
@@ -2150,7 +2150,7 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { ARG_TYPE_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_compile_args,
 		kw_include_directories,
@@ -2158,10 +2158,10 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		kw_dependencies,
 	};
 	struct args_kw akw[] = {
-		[kw_compile_args] = { "compile_args", ARG_TYPE_ARRAY_OF | tc_string },
-		[kw_include_directories] = { "include_directories", ARG_TYPE_ARRAY_OF | tc_coercible_inc },
+		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
+		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_output] = { "output", tc_string, .required = true },
-		[kw_dependencies] = { "dependencies", ARG_TYPE_ARRAY_OF | tc_dependency },
+		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
 		0
 	};
 

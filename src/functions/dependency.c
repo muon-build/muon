@@ -115,7 +115,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 	};
 	struct args_kw akw[] = {
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
-		[kw_pkgconfig_define] = { "pkgconfig_define", ARG_TYPE_ARRAY_OF | obj_string },
+		[kw_pkgconfig_define] = { "pkgconfig_define", TYPE_TAG_LISTIFY | obj_string },
 		[kw_internal] = { "internal", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
 		0

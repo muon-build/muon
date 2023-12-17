@@ -411,7 +411,7 @@ func_module_fs_copyfile(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 	};
 	struct args_kw akw[] = {
 		[kw_install] = { "install", obj_bool },
-		[kw_install_dir] = { "install_dir", ARG_TYPE_ARRAY_OF | tc_string | tc_bool },
+		[kw_install_dir] = { "install_dir", TYPE_TAG_LISTIFY | tc_string | tc_bool },
 		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		0

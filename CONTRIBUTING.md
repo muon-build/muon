@@ -72,11 +72,11 @@ Arguments should specify what types they accept by bitwise or-ing `tc_`-prefixed
 types together.  `an` and `ao` argument arrays *must* be terminated by an
 argument of type `ARG_TYPE_NULL`.
 
-`ARG_TYPE_GLOB` can be or-d with the type of the last element of `an`, and will
+`TYPE_TAG_GLOB` can be or-d with the type of the last element of `an`, and will
 store the remaining arguments in an `obj_array`.  This is similar to e.g. `def
 func(a, b, *c):` in python, where `c` is the "glob" argument.
 
-You may also bitwise or any type with `ARG_TYPE_ARRAY_OF`.  This "type" will
+You may also bitwise or any type with `TYPE_TAG_LISTIFY`.  This "type" will
 cause `interp_args` to do the following things:
 
 1. coerce single elements to arrays
@@ -84,7 +84,7 @@ cause `interp_args` to do the following things:
 2. flatten arrays
     - `['hello', [], [['world']]] #=> ['hello', 'world']`
 3. typecheck all elements of the array
-    - given the "type" `ARG_TYPE_ARRAY_OF | obj_string`, the above examples
+    - given the "type" `TYPE_TAG_LISTIFY | obj_string`, the above examples
       would pass, but `['a', false]` would not.
 
 ## Workspace
