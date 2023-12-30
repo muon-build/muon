@@ -11,18 +11,18 @@ func append_global(t any)
     global += t
 endfunc
 
-func get_global() -> list
+func get_global() -> list[any]
     return global
 endfunc
 
-func basic_scope()
+func basic_scope() -> int
     assert(not is_variable('a'))
     a = 1
     return a
 endfunc
 
 func factory(v any) -> func
-    func f()
+    func f() -> any
         return v
     endfunc
 
@@ -40,8 +40,8 @@ func incrementer() -> func
     return f
 endfunc
 
-func custom_target_wrap(base_kwargs dict) -> func
-    func f(name str, kwargs dict) -> custom_tgt
+func custom_target_wrap(base_kwargs dict[any]) -> func
+    func f(name str, kwargs dict[any]) -> custom_tgt
         kwargs = base_kwargs + kwargs
         return custom_target(name, kwargs: kwargs)
     endfunc
@@ -49,8 +49,8 @@ func custom_target_wrap(base_kwargs dict) -> func
     return f
 endfunc
 
-func test_wrap(exe exe, base_kwargs dict) -> func
-    func f(name str, args listify[any], kwargs dict: {})
+func test_wrap(exe exe, base_kwargs dict[any]) -> func
+    func f(name str, args listify[any], kwargs dict[any]: {})
         kwargs = base_kwargs + kwargs + {'args': args}
         test(name, exe, kwargs: kwargs)
     endfunc
@@ -62,7 +62,7 @@ func access_globals() -> str
     return meson.project_name()
 endfunc
 
-func array_kwarg_default(bar list: []) -> list
+func array_kwarg_default(bar list[any]: []) -> list[any]
     baz = []
     foreach b : bar
         baz += b
@@ -74,16 +74,21 @@ func get_type(a any) -> str
     return typeof(a)
 endfunc
 
-func listify_arg(a listify[any]) -> list
+func listify_arg(a listify[any]) -> list[any]
     return a
 endfunc
 
-func glob_arg(a glob[any]) -> list
+func glob_arg(a glob[any]) -> list[any]
     return a
 endfunc
 
 func typed_list(a list[str]) -> list[int]
-    return [1]
+    l = []
+    foreach e : a
+        l += e.to_int()
+    endforeach
+
+    return l
 endfunc
 
 return {

@@ -25,7 +25,7 @@ make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type
 {
 	struct bucket_arr *typeinfo_arr = &wk->obj_aos[obj_typeinfo - _obj_aos_start];
 	uint32_t idx = typeinfo_arr->len;
-	bucket_arr_push(typeinfo_arr, &(struct obj_typeinfo) { .type = type, .subtype=subtype });
+	bucket_arr_push(typeinfo_arr, &(struct obj_typeinfo) { .type = type, .subtype = subtype });
 	return COMPLEX_TYPE(idx, t);
 }
 
@@ -121,6 +121,8 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 {
 	obj typestr;
 
+	t &= ~TYPE_TAG_ALLOW_VOID;
+
 	const char *modifier = 0;
 	if (t & TYPE_TAG_GLOB) {
 		t &= ~TYPE_TAG_GLOB;
@@ -180,6 +182,12 @@ obj
 obj_type_to_typestr(struct workspace *wk, obj o)
 {
 	enum obj_type t = get_obj_type(wk, o);
+
+	if (t == obj_typeinfo) {
+		obj str = typechecking_type_to_str(wk, get_obj_typeinfo(wk, o)->type);
+		return str;
+	}
+
 	obj str = make_str(wk, obj_type_to_s(t));
 
 	switch (t) {
@@ -215,37 +223,18 @@ obj_type_to_typestr(struct workspace *wk, obj o)
  * ----------------------------------------------------------------------------
  */
 
-static bool
-typecheck_typechecking_type(enum obj_type got, type_tag type)
-{
-	type |= tc_disabler; // always allow disabler type
-
-	type_tag ot;
-	for (ot = 1; ot <= tc_type_count; ++ot) {
-		type_tag tc = obj_type_to_tc_type(ot);
-		if ((type & tc) != tc) {
-			continue;
-		}
-
-		if (ot == got) {
-			return true;
-		}
-	}
-	return false;
-}
-
 struct typecheck_nested_type_ctx {
 	type_tag type;
 };
 
-static bool typecheck_complex_type(struct workspace *wk, obj got, type_tag type);
+static bool typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, type_tag type);
 
 static enum iteration_result
 typecheck_nested_type_arr_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct typecheck_nested_type_ctx *ctx = _ctx;
 
-	if (!typecheck_complex_type(wk, v, ctx->type)) {
+	if (!typecheck_complex_type(wk, v, obj_type_to_tc_type(get_obj_type(wk, v)), ctx->type)) {
 		return ir_err;
 	}
 
@@ -259,10 +248,28 @@ typecheck_nested_type_dict_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 }
 
 static bool
-typecheck_complex_type(struct workspace *wk, obj got, type_tag type)
+typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, type_tag type)
 {
+	/* L("typechecking 0%016lx (%s) vs 0%016lx (%s)", got_type, typechecking_type_to_s(wk, got_type), type, typechecking_type_to_s(wk, type)); */
+
 	if (!(type & TYPE_TAG_COMPLEX)) {
-		return typecheck_typechecking_type(get_obj_type(wk, got), type);
+		got_type &= ~obj_typechecking_type_tag;
+
+		if (!got_type && ((type & TYPE_TAG_ALLOW_VOID) || !(type & ~TYPE_TAG_MASK))) {
+			return true;
+		}
+
+		if (!got_type && type == tc_func) {
+			assert(false);
+		}
+
+		type |= tc_disabler; // always allow disabler type
+		type &= ~(obj_typechecking_type_tag | TYPE_TAG_ALLOW_VOID);
+
+		assert(!(got_type & TYPE_TAG_MASK));
+		assert(!(type & TYPE_TAG_MASK));
+
+		return (!got_type && !type) || (got_type & type);
 	}
 
 	uint32_t idx = COMPLEX_TYPE_INDEX(type);
@@ -273,12 +280,18 @@ typecheck_complex_type(struct workspace *wk, obj got, type_tag type)
 
 	switch (ct) {
 	case complex_type_or: {
-		return typecheck_complex_type(wk, got, ti->type)
-			|| typecheck_complex_type(wk, got, ti->subtype);
+		return typecheck_complex_type(wk, got_obj, got_type, ti->type)
+		       || typecheck_complex_type(wk, got_obj, got_type, ti->subtype);
 	}
 	case complex_type_nested: {
-		if (!typecheck_complex_type(wk, got, ti->type)) {
+		if (!typecheck_complex_type(wk, got_obj, got_type, ti->type)) {
 			return false;
+		}
+
+		if (get_obj_type(wk, got_obj) == obj_typeinfo) {
+			// currently typeinfo types don't contain nested type
+			// information
+			return true;
 		}
 
 		struct typecheck_nested_type_ctx ctx = {
@@ -286,9 +299,9 @@ typecheck_complex_type(struct workspace *wk, obj got, type_tag type)
 		};
 
 		if (ti->type == tc_array) {
-			return obj_array_foreach(wk, got, &ctx, typecheck_nested_type_arr_iter);
+			return obj_array_foreach(wk, got_obj, &ctx, typecheck_nested_type_arr_iter);
 		} else if (ti->type == tc_dict) {
-			return obj_dict_foreach(wk, got, &ctx, typecheck_nested_type_dict_iter);
+			return obj_dict_foreach(wk, got_obj, &ctx, typecheck_nested_type_dict_iter);
 		}
 	}
 	}
@@ -297,65 +310,30 @@ typecheck_complex_type(struct workspace *wk, obj got, type_tag type)
 }
 
 bool
-typecheck_custom(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type, const char *fmt)
+typecheck_custom(struct workspace *wk, uint32_t n_id, obj got_obj, type_tag type, const char *fmt)
 {
-	enum obj_type got = get_obj_type(wk, obj_id);
+	type_tag got_type;
 
-	if (!type) {
-		return true;
-	} else if (got == obj_typeinfo) {
-		struct obj_typeinfo *ti = get_obj_typeinfo(wk, obj_id);
-		type_tag got = ti->type;
-		type_tag t = type;
-
-		if (!(t & obj_typechecking_type_tag)) {
-			t = obj_type_to_tc_type(type);
+	{
+		enum obj_type t = get_obj_type(wk, got_obj);
+		if (t == obj_typeinfo) {
+			got_type = get_obj_typeinfo(wk, got_obj)->type;
+		} else {
+			got_type = obj_type_to_tc_type(t);
 		}
+	}
 
-		type_tag ot;
-		for (ot = 1; ot <= tc_type_count; ++ot) {
-			type_tag tc = obj_type_to_tc_type(ot);
+	if (!(type & obj_typechecking_type_tag)) {
+		type = obj_type_to_tc_type(type);
+	}
 
-			if ((got & tc) != tc) {
-				continue;
-			}
-
-			if (typecheck_typechecking_type(ot, t)) {
-				return true;
-			}
-		}
-
+	if (!typecheck_complex_type(wk, got_obj, got_type, type)) {
 		if (fmt) {
 			interp_error(wk, n_id, fmt,
-				typechecking_type_to_s(wk, t),
-				typechecking_type_to_s(wk, got));
+				typechecking_type_to_s(wk, type),
+				get_cstr(wk, obj_type_to_typestr(wk, got_obj)));
 		}
 		return false;
-	} else if ((type & TYPE_TAG_COMPLEX)) {
-		if (!typecheck_complex_type(wk, obj_id, type)) {
-			if (fmt) {
-				interp_error(wk, n_id, fmt,
-					typechecking_type_to_s(wk, type),
-					get_cstr(wk, obj_type_to_typestr(wk, obj_id)));
-			}
-			return false;
-		}
-	} else if ((type & obj_typechecking_type_tag)) {
-		if (!typecheck_typechecking_type(got, type)) {
-			if (fmt) {
-				interp_error(wk, n_id, fmt,
-					typechecking_type_to_s(wk, type),
-					obj_type_to_s(got));
-			}
-			return false;
-		}
-	} else {
-		if (got != type) {
-			if (fmt) {
-				interp_error(wk, n_id, fmt, obj_type_to_s(type), obj_type_to_s(got));
-			}
-			return false;
-		}
 	}
 
 	return true;

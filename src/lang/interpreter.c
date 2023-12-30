@@ -1092,11 +1092,10 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 }
 
 static bool
-interp_func_def(struct workspace *wk, struct node *n)
+interp_func_def(struct workspace *wk, struct node *n, obj *res)
 {
-	obj func_obj;
-	make_obj(wk, &func_obj, obj_func);
-	struct obj_func *f = get_obj_func(wk, func_obj);
+	make_obj(wk, res, obj_func);
+	struct obj_func *f = get_obj_func(wk, *res);
 	f->src = make_str(wk, wk->src->label);
 	f->args_id = n->r;
 	f->block_id = n->c;
@@ -1140,7 +1139,7 @@ interp_func_def(struct workspace *wk, struct node *n)
 	}
 
 	f->name = get_node(wk->ast, n->l)->dat.s;
-	wk->assign_variable(wk, f->name, func_obj, 0, assign_local);
+	wk->assign_variable(wk, f->name, *res, 0, assign_local);
 	return true;
 }
 
@@ -1272,6 +1271,7 @@ interp_block:
 		break;
 	case node_return:
 		ret = wk->interp_node(wk, n->l, &wk->returned);
+		wk->return_node = n_id;
 		wk->returning = true;
 		break;
 
@@ -1329,7 +1329,7 @@ interp_block:
 		ret = interp_stringify(wk, n, res);
 		break;
 	case node_func_def:
-		ret = interp_func_def(wk, n);
+		ret = interp_func_def(wk, n, res);
 		break;
 
 	/* handled in other places */

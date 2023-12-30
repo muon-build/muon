@@ -1150,7 +1150,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_if_found,
 	};
-	type_tag if_found_type = wk->in_analyzer ? 0 : TYPE_TAG_LISTIFY | tc_dependency;
+	type_tag if_found_type = wk->in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
 	struct args_kw akw[] = {
 		[kw_if_found] = { "if_found", if_found_type },
 		0
@@ -2002,7 +2002,7 @@ ret:
 static bool
 func_is_void(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -2019,7 +2019,7 @@ func_is_void(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_typeof(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}

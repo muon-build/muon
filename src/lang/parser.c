@@ -397,21 +397,17 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 		}
 	}
 
-	if (accept(p, tok_bitor)) {
-		type_tag ord_type;
-		if (!parse_type(p, &ord_type, false)) {
-			return false;
-		}
+	bool has_sub_type = *type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB
+			    || *type == tc_dict || *type == tc_array;
 
-		if (ord_type & TYPE_TAG_COMPLEX) {
-			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
-		} else {
-			*type |= ord_type;
-		}
-	} else if (accept(p, tok_lbrack)) {
+	if (has_sub_type && expect(p, tok_lbrack)) {
 		type_tag sub_type;
 		if (!parse_type(p, &sub_type, false)) {
 			return false;
+		}
+
+		if (!sub_type) {
+			parse_error(p, p->last_last, "expected type");
 		}
 
 		if (!expect(p, tok_rbrack)) {
@@ -423,8 +419,20 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 		} else if (*type == tc_dict || *type == tc_array) {
 			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);
 		} else {
-			parse_error(p, NULL, "type cannot have subtype");
+			UNREACHABLE;
+		}
+	}
+
+	if (accept(p, tok_bitor)) {
+		type_tag ord_type;
+		if (!parse_type(p, &ord_type, false)) {
 			return false;
+		}
+
+		if (ord_type & TYPE_TAG_COMPLEX) {
+			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
+		} else {
+			*type |= ord_type;
 		}
 	}
 

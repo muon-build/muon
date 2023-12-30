@@ -484,6 +484,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 	uint32_t i, stage;
 	struct args_norm *an[2] = { positional_args, optional_positional_args };
 	struct node *args = get_node(wk->ast, args_node);
+	bool got_dynamic_kwargs_typeinfo = false;
 
 	for (stage = 0; stage < 2; ++stage) {
 		if (!an[stage]) {
@@ -612,7 +613,9 @@ process_kwarg:
 					.keyword_args = keyword_args
 				};
 
-				if (get_obj_type(wk, val) != obj_typeinfo) {
+				if (get_obj_type(wk, val) == obj_typeinfo) {
+					got_dynamic_kwargs_typeinfo = true;
+				} else {
 					if (!obj_dict_foreach(wk, val, &ctx, process_kwarg_dict_iter)) {
 						return false;
 					}
@@ -634,7 +637,7 @@ process_kwarg:
 	}
 
 end:
-	if (keyword_args) {
+	if (keyword_args && !got_dynamic_kwargs_typeinfo) {
 		for (i = 0; keyword_args[i].key; ++i) {
 			if (keyword_args[i].required && !keyword_args[i].set) {
 				interp_error(wk, args_node, "missing required kwarg: %s", keyword_args[i].key);
@@ -695,7 +698,6 @@ end:
 		}
 
 		analyze_function_opts.encountered_error = false;
-		//
 		// if we are analyzing arguments only return false to halt the
 		// function
 		return false;
@@ -705,65 +707,22 @@ end:
 }
 
 bool
-func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args_node, obj *res)
+func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res)
 {
-	struct obj_func *f = get_obj_func(wk, func_obj);
 	bool ret = false;
-
-	struct analyze_function_opts old_opts = analyze_function_opts;
-	analyze_function_opts = (struct analyze_function_opts) { 0 };
-	struct ast *old_ast = 0;
-	struct source *old_src = 0;
-	struct project *proj = 0;
-	enum language_mode old_lang_mode = 0;
-	obj old_scope_stack = 0;
-
-	static struct args_norm an[64];
-	assert(f->nargs + 1 < ARRAY_LEN(an));
-	static struct args_kw akw[128];
-	assert(f->nkwargs + 1 < ARRAY_LEN(akw));
-	{ // init and interp args
-		memset(an, 0, sizeof(struct args_norm) * (f->nargs + 1));
-		an[f->nargs].type = ARG_TYPE_NULL;
-		memset(akw, 0, sizeof(struct args_kw) * (f->nkwargs + 1));
-		akw[f->nkwargs].type = ARG_TYPE_NULL;
-
-		uint32_t pos_i = 0, kw_i = 0, arg_id = f->args_id;
-		while (true) {
-			struct node *arg = arr_get(&f->ast->nodes, arg_id);
-			if (arg->type == node_empty) {
-				break;
-			}
-
-			if (arg->subtype == arg_normal) {
-				an[pos_i].type = arg->dat.type;
-				++pos_i;
-			} else if (arg->subtype == arg_kwarg) {
-				struct node *key = arr_get(&f->ast->nodes, arg->l);
-				akw[kw_i].key = key->dat.s;
-				akw[kw_i].type = arg->dat.type;
-				++kw_i;
-			}
-
-			if (!(arg->chflg & node_child_c)) {
-				break;
-			}
-			arg_id = arg->c;
-		}
-
-		if (!interp_args(wk, args_node, an, NULL, akw)) {
-			goto ret;
-		}
-	}
+	struct project *proj = current_project(wk);
+	struct source src = {
+		.label = get_cstr(wk, f->src),
+		.reopen_type = source_reopen_type_embedded
+	};
 
 	// push current interpreter state
-	old_ast = wk->ast;
-	old_src = wk->src;
-	old_lang_mode = wk->lang_mode;
-	proj = current_project(wk);
-	old_scope_stack = proj->scope_stack;
+	struct source *old_src = wk->src;
+	struct ast *old_ast = wk->ast;
+	enum language_mode old_lang_mode = wk->lang_mode;
+	obj old_scope_stack = proj->scope_stack;
 
-	struct source src = { .label = get_cstr(wk, f->src), .reopen_type = source_reopen_type_embedded };
+	// set new state
 	wk->src = &src;
 	wk->ast = f->ast;
 	wk->lang_mode = f->lang_mode;
@@ -778,15 +737,10 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 		uint32_t i = 0;
 		struct node *arg = arr_get(&f->ast->nodes, f->args_id);
 		while (arg->type != node_empty) {
-			obj val;
-			if (i < f->nargs) {
-				val = an[i].val;
-			} else {
-				if (akw[i - f->nargs].set) {
-					val = akw[i - f->nargs].val;
-				} else {
-					obj_array_index(wk, f->kwarg_defaults, i - f->nargs, &val);
-				}
+			obj val = 0;
+			obj_array_index(wk, args, i, &val);
+			if (!val && i >= f->nargs) {
+				obj_array_index(wk, f->kwarg_defaults, i - f->nargs, &val);
 			}
 
 			struct node *arg_name = arr_get(&f->ast->nodes, arg->l);
@@ -804,12 +758,18 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	obj _;
 	wk->returning = false;
 	wk->returned = 0;
+	// call block
 	ret = wk->interp_node(wk, f->block_id, &_);
 	*res = wk->returned;
+	/* LO("%s returned %o\n", f->name, wk->returned); */
 	wk->returning = false;
 
-ret:
-	analyze_function_opts = old_opts;
+	if (ret && !typecheck_custom(wk, wk->return_node, *res, f->return_type,
+		"function returned invalid type, expected %s, got %s")) {
+		ret = false;
+	}
+
+	// cleanup and return
 	if (old_ast) {
 		// pop old interpreter state
 		wk->ast = old_ast;
@@ -820,12 +780,88 @@ ret:
 		--wk->func_depth;
 	}
 
-	if (ret && !typecheck(wk, args_node, *res, f->return_type)) {
-		interp_error(wk, args_node, "function returned invalid type");
-		ret = false;
+	return ret;
+}
+
+bool
+func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args_node, obj *res)
+{
+	struct obj_func *f = get_obj_func(wk, func_obj);
+
+	obj args = 0;
+	if (f->nargs || f->nkwargs) {
+		make_obj(wk, &args, obj_array);
 	}
 
-	return ret;
+	static struct args_norm an[64];
+	assert(f->nargs + 1 < ARRAY_LEN(an));
+	static struct args_kw akw[128];
+	assert(f->nkwargs + 1 < ARRAY_LEN(akw));
+
+	// init and interp args
+	memset(an, 0, sizeof(struct args_norm) * (f->nargs + 1));
+	an[f->nargs].type = ARG_TYPE_NULL;
+	memset(akw, 0, sizeof(struct args_kw) * (f->nkwargs + 1));
+	akw[f->nkwargs].type = ARG_TYPE_NULL;
+
+	uint32_t pos_i = 0, kw_i = 0, arg_id = f->args_id;
+	while (true) {
+		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		if (arg->type == node_empty) {
+			break;
+		}
+
+		if (arg->subtype == arg_normal) {
+			an[pos_i].type = arg->dat.type;
+			++pos_i;
+		} else if (arg->subtype == arg_kwarg) {
+			struct node *key = arr_get(&f->ast->nodes, arg->l);
+			akw[kw_i].key = key->dat.s;
+			akw[kw_i].type = arg->dat.type;
+			++kw_i;
+		}
+
+		if (!(arg->chflg & node_child_c)) {
+			break;
+		}
+		arg_id = arg->c;
+	}
+
+	// Save and restore analyze_function_opts around interp_args to prevent
+	// analyzer from halting the function.
+	struct analyze_function_opts old_opts = analyze_function_opts;
+	analyze_function_opts = (struct analyze_function_opts) { 0 };
+
+	if (!interp_args(wk, args_node, an, NULL, akw)) {
+		analyze_function_opts = old_opts;
+		return false;
+	}
+
+	analyze_function_opts = old_opts;
+
+	arg_id = f->args_id;
+	pos_i = kw_i = 0;
+	while (true) {
+		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		if (arg->type == node_empty) {
+			break;
+		}
+
+		if (arg->subtype == arg_normal) {
+			obj_array_push(wk, args, an[pos_i].val);
+			++pos_i;
+		} else if (arg->subtype == arg_kwarg) {
+			obj_array_push(wk, args, akw[kw_i].val);
+			++kw_i;
+		}
+
+		if (!(arg->chflg & node_child_c)) {
+			break;
+		}
+		arg_id = arg->c;
+	}
+
+	return func_obj_call(wk, f, args, res);
 }
 
 const struct func_impl *kernel_func_tbl[language_mode_count] = {

@@ -98,14 +98,32 @@ inspect_typeinfo(struct workspace *wk, obj t)
 	}
 }
 
+type_tag
+flatten_type(struct workspace *wk, type_tag t)
+{
+	if (!(t & TYPE_TAG_COMPLEX)) {
+		return t;
+	}
+
+	uint32_t idx = COMPLEX_TYPE_INDEX(t);
+	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
+
+	struct bucket_arr *typeinfo_arr = &wk->obj_aos[obj_typeinfo - _obj_aos_start];
+	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
+
+	switch (ct) {
+	case complex_type_or:
+		return flatten_type(wk, ti->type) | flatten_type(wk, ti->subtype);
+	case complex_type_nested:
+		return ti->type;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
 static obj
 make_typeinfo(struct workspace *wk, type_tag t, type_tag sub_t)
 {
-	assert(t & obj_typechecking_type_tag);
-	if (sub_t) {
-		assert(sub_t & obj_typechecking_type_tag);
-	}
-
 	obj res;
 	make_obj(wk, &res, obj_typeinfo);
 	struct obj_typeinfo *type = get_obj_typeinfo(wk, res);
@@ -129,7 +147,7 @@ coerce_type_tag(struct workspace *wk, obj r)
 static void
 merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 {
-	a->type |= coerce_type_tag(wk, r);
+	a->type |= coerce_type_tag (wk, r);
 }
 
 struct analyze_ctx {
@@ -633,16 +651,68 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 }
 
 static bool
+analyze_func_obj_immediate(struct workspace *wk, uint32_t n_id, obj func_obj)
+{
+	struct obj_func *f = get_obj_func(wk, func_obj);
+
+	obj args = 0;
+	if (f->nargs || f->nkwargs) {
+		make_obj(wk, &args, obj_array);
+	}
+
+	uint32_t arg_id = f->args_id;
+	while (true) {
+		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		if (arg->type == node_empty) {
+			break;
+		}
+
+		type_tag t = arg->dat.type;
+		if (t & TYPE_TAG_COMPLEX) {
+			t = flatten_type(wk, t);
+		}
+
+		t &= ~(TYPE_TAG_LISTIFY | TYPE_TAG_GLOB);
+
+		obj_array_push(wk, args, make_typeinfo(wk, t, 0));
+
+		if (!(arg->chflg & node_child_c)) {
+			break;
+		}
+		arg_id = arg->c;
+	}
+
+	bool ret = true;
+	bool old_analyze_error = analyze_error;
+	analyze_error = false;
+	obj res;
+	if (!func_obj_call(wk, f, args, &res) || analyze_error) {
+		if (analyze_opts->subdir_error) {
+			interp_error(wk, n_id, "in function");
+		}
+		ret = false;
+	}
+	analyze_error = old_analyze_error;
+	return ret;
+}
+
+static bool
 analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, obj func_obj, obj func_module, obj *res)
 {
 	bool ret = true;
 	bool old_analyze_error = analyze_error;
 	analyze_error = false;
 	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyze_error) {
-		interp_error(wk, n_id, "in function");
+		if (analyze_opts->subdir_error) {
+			interp_error(wk, n_id, "in function");
+		}
 		ret = false;
 	}
 	analyze_error = old_analyze_error;
+
+	if (!ret) {
+		*res = make_typeinfo(wk, flatten_type(wk, get_obj_func(wk, func_obj)->return_type), 0);
+	}
 	return ret;
 }
 
@@ -839,9 +909,13 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 		if (!analyze_function_call(wk, n_id, n->r, fi, 0, &tmp)) {
 			ret = false;
 		}
-	} else if (l_id && get_obj_type(wk, l_id) != obj_typeinfo) {
-		if (!analyze_func_obj_call(wk, n_id, n->r, l_id, 0, &tmp)) {
-			ret = false;
+	} else if (l_id) {
+		if (get_obj_type(wk, l_id) == obj_typeinfo) {
+			tmp = make_typeinfo(wk, tc_any, 0);
+		} else {
+			if (!analyze_func_obj_call(wk, n_id, n->r, l_id, 0, &tmp)) {
+				ret = false;
+			}
 		}
 	}
 
@@ -1379,21 +1453,7 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	if (get_obj_type(wk, iterable) != obj_typeinfo) {
-		/* uint32_t len; */
-		/* switch (get_obj_type(wk, iterable)) { */
-		/* case obj_dict: */
-		/* 	len = get_obj_dict(wk, iterable)->len; */
-		/* 	break; */
-		/* case obj_array: */
-		/* 	len = get_obj_array(wk, iterable)->len; */
-		/* 	break; */
-		/* default: */
-		/* 	UNREACHABLE; */
-		/* } */
-
-		/* if (len) { */
 		return interp_node(wk, n_id, res);
-		/* } */
 	}
 
 	push_scope_group(wk);
@@ -1505,6 +1565,9 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_func_def:
 		error_diagnostic_store_push_src(wk->src);
 		ret = interp_node(wk, n_id, res);
+		if (ret) {
+			ret = analyze_func_obj_immediate(wk, n_id, *res);
+		}
 		break;
 
 	/* control flow */

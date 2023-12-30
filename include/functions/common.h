@@ -49,6 +49,7 @@ bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_kw keyword_args[]);
 bool builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res);
 
+bool func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res);
 bool func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args_node, obj *res);
 bool analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure);
 

@@ -107,7 +107,7 @@ struct workspace {
 
 	struct hash obj_hash, str_hash;
 
-	uint32_t loop_depth, impure_loop_depth, func_depth;
+	uint32_t loop_depth, impure_loop_depth, func_depth, return_node;
 	enum loop_ctl loop_ctl;
 	bool subdir_done, returning, obj_clear_mark_set;
 	obj returned;
