@@ -28,9 +28,12 @@
 #include "platform/path.h"
 #include "tracy.h"
 
-static bool analyze_error;
-static const struct analyze_opts *analyze_opts;
-obj eval_trace;
+static struct {
+	bool error;
+	const struct analyze_opts *opts;
+	obj eval_trace;
+	struct obj_func *fp;
+} analyzer;
 
 struct analyze_file_entrypoint {
 	bool is_root, has_diagnostic;
@@ -83,7 +86,7 @@ mark_analyze_entrypoint_as_containing_diagnostic(uint32_t ep_stacks_i, enum log_
 static bool
 analyze_diagnostic_enabled(enum analyze_diagnostic d)
 {
-	return analyze_opts->enabled_diagnostics & d;
+	return analyzer.opts->enabled_diagnostics & d;
 }
 
 static const char *
@@ -383,7 +386,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	/* if we assigned to null, throw an error but continue with a tc_any */
 	if (!o) {
 		interp_error(wk, n_id, "assigning variable to null");
-		analyze_error = true;
+		analyzer.error = true;
 		o = make_typeinfo(wk, tc_any, 0);
 	}
 
@@ -653,7 +656,8 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 static bool
 analyze_func_obj_immediate(struct workspace *wk, uint32_t n_id, obj func_obj)
 {
-	struct obj_func *f = get_obj_func(wk, func_obj);
+	struct obj_func *f = get_obj_func(wk, func_obj), *ofp = analyzer.fp;
+	analyzer.fp = f;
 
 	obj args = 0;
 	if (f->nargs || f->nkwargs) {
@@ -683,32 +687,39 @@ analyze_func_obj_immediate(struct workspace *wk, uint32_t n_id, obj func_obj)
 	}
 
 	bool ret = true;
-	bool old_analyze_error = analyze_error;
-	analyze_error = false;
+	bool old_analyze_error = analyzer.error;
+	analyzer.error = false;
 	obj res;
-	if (!func_obj_call(wk, f, args, &res) || analyze_error) {
-		if (analyze_opts->subdir_error) {
+	if (!func_obj_call(wk, f, args, &res) || analyzer.error) {
+		if (analyzer.opts->subdir_error) {
 			interp_error(wk, n_id, "in function");
 		}
 		ret = false;
 	}
-	analyze_error = old_analyze_error;
+	analyzer.error = old_analyze_error;
+	analyzer.fp = ofp;
 	return ret;
 }
 
 static bool
 analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, obj func_obj, obj func_module, obj *res)
 {
+	struct obj_func *f = get_obj_func(wk, func_obj), *ofp = analyzer.fp;
+	analyzer.fp = f;
+
+	analyzer.fp = f;
 	bool ret = true;
-	bool old_analyze_error = analyze_error;
-	analyze_error = false;
-	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyze_error) {
-		if (analyze_opts->subdir_error) {
+	bool old_analyze_error = analyzer.error;
+	analyzer.error = false;
+	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyzer.error) {
+		if (analyzer.opts->subdir_error) {
 			interp_error(wk, n_id, "in function");
 		}
 		ret = false;
 	}
-	analyze_error = old_analyze_error;
+
+	analyzer.error = old_analyze_error;
+	analyzer.fp = ofp;
 
 	if (!ret) {
 		*res = make_typeinfo(wk, flatten_type(wk, get_obj_func(wk, func_obj)->return_type), 0);
@@ -721,8 +732,8 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 {
 	bool ret = true;
 	obj func_res;
-	bool old_analyze_error = analyze_error;
-	analyze_error = false;
+	bool old_analyze_error = analyzer.error;
+	analyzer.error = false;
 
 	bool subdir_func = !rcvr && strcmp(fi->name, "subdir") == 0;
 	obj parent_eval_trace;
@@ -744,8 +755,8 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	}
 
 	bool was_pure;
-	if (!analyze_function(wk, fi, args_node, rcvr, &func_res, &was_pure) || analyze_error) {
-		if (subdir_func && analyze_opts->subdir_error) {
+	if (!analyze_function(wk, fi, args_node, rcvr, &func_res, &was_pure) || analyzer.error) {
+		if (subdir_func && analyzer.opts->subdir_error) {
 			interp_error(wk, n_id, "in subdir");
 		}
 		ret = false;
@@ -767,7 +778,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 		wk->dbg.eval_trace = parent_eval_trace;
 	}
 
-	analyze_error = old_analyze_error;
+	analyzer.error = old_analyze_error;
 
 	if (func_res) {
 		*res = func_res;
@@ -1559,7 +1570,6 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_string:
 	case node_number:
 	case node_bool:
-	case node_return:
 		ret = interp_node(wk, n_id, res);
 		break;
 	case node_func_def:
@@ -1593,6 +1603,17 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	case node_break:
 		ret = true;
+		break;
+	case node_return:
+		ret = wk->interp_node(wk, n->l, &wk->returned);
+		wk->return_node = n_id;
+
+		if (ret && analyzer.fp) {
+			if (!typecheck_custom(wk, n_id, wk->returned, analyzer.fp->return_type,
+				"function returned invalid type, expected %s, got %s")) {
+				ret = false;
+			}
+		}
 		break;
 
 	/* functions */
@@ -1674,7 +1695,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	if (!ret) {
-		analyze_error = true;
+		analyzer.error = true;
 	}
 	return true;
 }
@@ -1786,7 +1807,7 @@ static bool
 analyze_eval_project_file(struct workspace *wk, const char *path, bool first)
 {
 	const char *newpath = path;
-	if (analyze_opts->file_override && strcmp(analyze_opts->file_override, path) == 0) {
+	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
 		bool ret = false;
 		struct source src = { 0 };
 		if (!fs_read_entire_file("-", &src)) {
@@ -1929,7 +1950,7 @@ bool
 do_analyze(struct analyze_opts *opts)
 {
 	bool res = false;
-	analyze_opts = opts;
+	analyzer.opts = opts;
 	struct workspace wk;
 	workspace_init(&wk);
 
@@ -1960,12 +1981,12 @@ do_analyze(struct analyze_opts *opts)
 	arr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
 	arr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
 
-	if (analyze_opts->eval_trace) {
+	if (analyzer.opts->eval_trace) {
 		make_obj(&wk, &wk.dbg.eval_trace, obj_array);
 	}
 
-	if (analyze_opts->file_override) {
-		const char *root = determine_project_root(&wk, analyze_opts->file_override);
+	if (analyzer.opts->file_override) {
+		const char *root = determine_project_root(&wk, analyzer.opts->file_override);
 		if (root) {
 			SBUF(cwd);
 			path_cwd(&wk, &cwd);
@@ -2009,7 +2030,7 @@ do_analyze(struct analyze_opts *opts)
 				enum log_level lvl = log_warn;
 				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
 
-				if (analyze_opts->subdir_error && a->ep_stack_len) {
+				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_analyze_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
 				}
 			}
@@ -2053,18 +2074,18 @@ do_analyze(struct analyze_opts *opts)
 	}
 
 	bool saw_error;
-	if (analyze_opts->eval_trace) {
+	if (analyzer.opts->eval_trace) {
 		struct eval_trace_print_ctx ctx = {
 			.indent = 1,
 			.len = eval_trace_arr_len(&wk, wk.dbg.eval_trace),
 		};
 		obj_array_foreach(&wk, wk.dbg.eval_trace, &ctx, eval_trace_print);
-	} else if (analyze_opts->get_definition_for) {
+	} else if (analyzer.opts->get_definition_for) {
 		bool found = false;
 		uint32_t i;
 		for (i = 0; i < assignments.len; ++i) {
 			struct assignment *a = bucket_arr_get(&assignments, i);
-			if (strcmp(a->name, analyze_opts->get_definition_for) == 0) {
+			if (strcmp(a->name, analyzer.opts->get_definition_for) == 0) {
 				struct source *src = error_get_stored_source(a->src_idx);
 				list_line_range(src, a->line, 1, a->col);
 				found = true;
@@ -2072,12 +2093,12 @@ do_analyze(struct analyze_opts *opts)
 		}
 
 		if (!found) {
-			LOG_W("couldn't find definition for %s", analyze_opts->get_definition_for);
+			LOG_W("couldn't find definition for %s", analyzer.opts->get_definition_for);
 		}
 	} else {
-		error_diagnostic_store_replay(analyze_opts->replay_opts, &saw_error);
+		error_diagnostic_store_replay(analyzer.opts->replay_opts, &saw_error);
 
-		if (saw_error || analyze_error) {
+		if (saw_error || analyzer.error) {
 			res = false;
 		}
 	}

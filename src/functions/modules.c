@@ -91,13 +91,15 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			current_project(wk)->scope_stack = wk->scope_stack_dup(wk, wk->default_scope);
 		}
 
+		wk->returned = 0;
+
 		obj res;
 		if (!eval(wk, &src, eval_mode_default, &res)) {
 			goto ret;
 		}
 
 		if (encapsulate) {
-			if (!wk->returning || !wk->returned) {
+			if (!wk->returned) {
 				interp_error(wk, 0, "%s did not return anything", name);
 				goto ret;
 			} else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) {
@@ -109,7 +111,6 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			m->exports = wk->returned;
 
 			wk->returning = false;
-			wk->returned = false;
 		}
 
 		ret = true;

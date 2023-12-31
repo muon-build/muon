@@ -91,6 +91,16 @@ func typed_list(a list[str]) -> list[int]
     return l
 endfunc
 
+func multi_return(n int) -> str
+    if n == 1
+        return 'one'
+    elif n == 2
+        return 'two'
+    endif
+
+    return 'unknown'
+endfunc
+
 return {
     'identity': identity,
     'append_global': append_global,
@@ -106,4 +116,5 @@ return {
     'listify_arg': listify_arg,
     'glob_arg': glob_arg,
     'typed_list': typed_list,
+    'multi_return': multi_return,
 }

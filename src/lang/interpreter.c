@@ -1139,7 +1139,7 @@ interp_func_def(struct workspace *wk, struct node *n, obj *res)
 	}
 
 	f->name = get_node(wk->ast, n->l)->dat.s;
-	wk->assign_variable(wk, f->name, *res, 0, assign_local);
+	wk->assign_variable(wk, f->name, *res, n->l, assign_local);
 	return true;
 }
 

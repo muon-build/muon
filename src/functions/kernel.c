@@ -1915,7 +1915,7 @@ func_range(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { 0 }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_VOID }, ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
