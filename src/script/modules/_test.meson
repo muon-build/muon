@@ -91,14 +91,13 @@ func typed_list(a list[str]) -> list[int]
     return l
 endfunc
 
-func multi_return(n int) -> str
-    if n == 1
-        return 'one'
-    elif n == 2
-        return 'two'
+func multi_return(k str) -> int
+    d = {'a': 1, 'b': 2}
+    if not d.has_key(k)
+        return 0
     endif
 
-    return 'unknown'
+    return d[k]
 endfunc
 
 return {

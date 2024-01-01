@@ -30,6 +30,7 @@
 
 static struct {
 	bool error;
+	uint32_t impure_loop_depth, impure_branch_depth;
 	const struct analyze_opts *opts;
 	obj eval_trace;
 	struct obj_func *fp;
@@ -55,6 +56,12 @@ struct assignment {
 };
 
 struct bucket_arr assignments;
+
+static bool
+analyzer_in_pure_codepath(void)
+{
+	return !analyzer.impure_loop_depth && !analyzer.impure_branch_depth;
+}
 
 static void
 copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
@@ -410,7 +417,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	assert(scope);
 
 	struct assignment *a = 0;
-	if (wk->impure_loop_depth && (a = assign_lookup(wk, name))) {
+	if (analyzer.impure_loop_depth && (a = assign_lookup(wk, name))) {
 		// When overwriting a variable in a loop turn it into a
 		// typeinfo so that it gets marked as impure.
 		enum obj_type new_type = get_obj_type(wk, o);
@@ -1384,8 +1391,16 @@ analyze_if(struct workspace *wk, struct node *n, obj *res)
 		// don't evaluate this block
 	} else {
 		// if block
+		if (!pure_cond) {
+			++analyzer.impure_branch_depth;
+		}
+
 		if (!wk->interp_node(wk, n->r, res)) {
 			ret = false;
+		}
+
+		if (!pure_cond) {
+			--analyzer.impure_branch_depth;
 		}
 	}
 
@@ -1480,7 +1495,7 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l, assign_local);
 	}
 
-	++wk->impure_loop_depth;
+	++analyzer.impure_loop_depth;
 	if (!wk->interp_node(wk, n->c, res)) {
 		ret = false;
 	}
@@ -1491,7 +1506,7 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 	if (!wk->interp_node(wk, n->c, res)) {
 		ret = false;
 	}
-	--wk->impure_loop_depth;
+	--analyzer.impure_loop_depth;
 
 	pop_scope_group(wk);
 
@@ -1599,10 +1614,11 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		ret = analyze_foreach(wk, n_id, res);
 		break;
 	case node_continue:
-		ret = true;
-		break;
 	case node_break:
 		ret = true;
+		if (analyzer_in_pure_codepath()) {
+			ret = interp_node(wk, n_id, res);
+		}
 		break;
 	case node_return:
 		ret = wk->interp_node(wk, n->l, &wk->returned);
@@ -1613,6 +1629,10 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 				"function returned invalid type, expected %s, got %s")) {
 				ret = false;
 			}
+		}
+
+		if (analyzer_in_pure_codepath()) {
+			wk->returning = true;
 		}
 		break;
 

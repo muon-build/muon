@@ -80,5 +80,6 @@ assert(m.glob_arg(1, 2, 3, 4, 5) == [1, 2, 3, 4, 5])
 m.typed_list(['1', '2'])
 
 # this is mostly to test the analyzer
-assert(m.multi_return(1) == 'one')
-assert(m.multi_return(3) == 'unknown')
+assert(m.multi_return('a') == 1)
+assert(m.multi_return('b') == 2)
+assert(m.multi_return('c') == 0)

@@ -1260,12 +1260,10 @@ interp_block:
 		ret = interp_foreach(wk, n, res);
 		break;
 	case node_continue:
-		assert(wk->loop_depth && "continue outside loop");
 		wk->loop_ctl = loop_continuing;
 		ret = true;
 		break;
 	case node_break:
-		assert(wk->loop_depth && "break outside loop");
 		wk->loop_ctl = loop_breaking;
 		ret = true;
 		break;
