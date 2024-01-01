@@ -35,5 +35,7 @@ void error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col,
 	enum log_level lvl, const char *msg);
 uint32_t error_diagnostic_store_push_src(struct source *src);
 struct source *error_get_stored_source(uint32_t src_idx);
+void error_diagnostic_store_redirect(struct source *src, uint32_t line, uint32_t col);
+void error_diagnostic_store_redirect_reset(void);
 void list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t col);
 #endif

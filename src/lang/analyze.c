@@ -697,12 +697,11 @@ analyze_func_obj_immediate(struct workspace *wk, uint32_t n_id, obj func_obj)
 	bool old_analyze_error = analyzer.error;
 	analyzer.error = false;
 	obj res;
+
 	if (!func_obj_call(wk, f, args, &res) || analyzer.error) {
-		if (analyzer.opts->subdir_error) {
-			interp_error(wk, n_id, "in function");
-		}
 		ret = false;
 	}
+
 	analyzer.error = old_analyze_error;
 	analyzer.fp = ofp;
 	return ret;
@@ -718,12 +717,15 @@ analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, o
 	bool ret = true;
 	bool old_analyze_error = analyzer.error;
 	analyzer.error = false;
+
+	struct node *n = get_node(wk->ast, n_id);
+	error_diagnostic_store_redirect(wk->src, n->line, n->col);
+
 	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyzer.error) {
-		if (analyzer.opts->subdir_error) {
-			interp_error(wk, n_id, "in function");
-		}
 		ret = false;
 	}
+
+	error_diagnostic_store_redirect_reset();
 
 	analyzer.error = old_analyze_error;
 	analyzer.fp = ofp;

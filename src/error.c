@@ -31,7 +31,31 @@ static struct {
 	struct arr messages;
 	struct arr sources;
 	bool init;
+	struct {
+		struct source *src;
+		uint32_t line, col;
+		bool redirect;
+	} redirect;
 } error_diagnostic_store;
+
+void
+error_diagnostic_store_redirect(struct source *src, uint32_t line, uint32_t col)
+{
+	if (error_diagnostic_store.redirect.redirect) {
+		return;
+	}
+
+	error_diagnostic_store.redirect.redirect = true;
+	error_diagnostic_store.redirect.src = src;
+	error_diagnostic_store.redirect.line = line;
+	error_diagnostic_store.redirect.col = col;
+}
+
+void
+error_diagnostic_store_redirect_reset(void)
+{
+	error_diagnostic_store.redirect.redirect = false;
+}
 
 void
 error_diagnostic_store_init(void)
@@ -361,6 +385,12 @@ void
 error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *msg)
 {
 	if (error_diagnostic_store.init) {
+		if (error_diagnostic_store.redirect.redirect) {
+			src = error_diagnostic_store.redirect.src;
+			line = error_diagnostic_store.redirect.line;
+			col = error_diagnostic_store.redirect.col;
+		}
+
 		error_diagnostic_store_push(error_diagnostic_store_push_src(src), line, col, lvl, msg);
 		return;
 	}
