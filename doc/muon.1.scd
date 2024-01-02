@@ -65,7 +65,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-t* - print a tree of all meson source files that are evaluated
 	- *-d* <var> - print the location of the definition of _var_
 	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
-	e.g. unused-variable.
+	  e.g. unused-variable.
 	- *-W* list - list available diagnostics.
 	- *-W* error - turn all warnings into errors.
 
@@ -93,7 +93,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-i* - format files in-place
 	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_
 	- *-e* - try to read configuration from .editorconfig.  Only indentation
-	related settings are recognized.
+	  related settings are recognized.
 
 	*CONFIGURATION OPTIONS*
 [[ *key*
@@ -140,8 +140,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*muon* *internal* <command> [<args>]
 
 	Internal contains several subcommands used by *muon* internally.  These
-	commands are subject to change at any time and this should not be
-	relied upon.
+	commands are subject to change at any time and should not be relied
+	upon.
 
 	*SUBCOMMANDS*:
 	- *eval* - evaluate a _source file_
@@ -161,9 +161,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*OPTIONS*:
 	- *-e* - lookup <filename> as an embedded script
 	- *-s* - disable functions that are unsafe to be called at random,
-	particularly `run_command()`.  The motivation for this flag is so that
-	automated fuzz testing can be used without accidentally executing
-	something like `run_command('rm', '-rf', '/')`.
+	  particularly `run_command()`.  The motivation for this flag is so that
+	  automated fuzz testing can be used without accidentally executing
+	  something like `run_command('rm', '-rf', '/')`.
 
 ## internal exe
 	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] [*-e*
