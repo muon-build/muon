@@ -67,7 +67,7 @@ module_lookup_builtin(const char *name, enum module *res, bool *has_impl)
 bool
 module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res)
 {
-	struct obj_module *m;
+	struct obj_module *m = 0;
 	if (encapsulate) {
 		make_obj(wk, res, obj_module);
 		m = get_obj_module(wk, *res);
