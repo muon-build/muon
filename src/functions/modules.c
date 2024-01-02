@@ -130,7 +130,7 @@ ret:
 			}
 
 			m->module = mod_type;
-			m->found = true;
+			m->found = has_impl;
 			m->has_impl = has_impl;
 			return true;
 		}
