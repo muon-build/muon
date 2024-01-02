@@ -1921,6 +1921,7 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	obj_fprintf(wk, log_file(), "%o\n", an[0].val);
+	*res = an[0].val;
 	return true;
 }
 
@@ -2089,7 +2090,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "warning", func_warning },
 	// non-standard muon extensions
 	{ "dbg", func_dbg, .extension = true },
-	{ "p", func_p, 0, true, .extension = true },
+	{ "p", func_p, tc_any, true, .extension = true },
 	{ NULL, NULL },
 };
 
@@ -2114,7 +2115,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "warning", func_warning },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
-	{ "p", func_p },
+	{ "p", func_p, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
 	{ "is_void", func_is_void, tc_bool, true },
@@ -2126,6 +2127,6 @@ const struct func_impl impl_tbl_kernel_opts[] = {
 	{ "option", func_option, 0, true },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
-	{ "p", func_p },
+	{ "p", func_p, tc_any },
 	{ NULL, NULL },
 };
