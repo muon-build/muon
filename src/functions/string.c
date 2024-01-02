@@ -140,10 +140,23 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				reading_id = true;
 				key.len = 0;
 			}
+		} else if (ss_in->s[i] == '\\' && ss_in->s[i + 1] == '@') {
+			if (i) {
+				if (reading_id) {
+					interp_warning(wk, err_node, "unclosed @ (opened at index %d)", id_start);
+					str_app(wk, res, "@");
+				}
+				str_appn(wk, res, &ss_in->s[id_start], i - id_start);
+			}
+			L("\"%s\"", get_cstr(wk, *res));
+			id_end = id_start = i + 1;
+			++i;
+			reading_id = false;
 		}
 	}
 
 	if (reading_id) {
+		interp_warning(wk, err_node, "unclosed @ (opened at index %d)", id_start);
 		str_app(wk, res, "@");
 		str_appn(wk, res, &ss_in->s[id_start], i - id_start);
 	} else {

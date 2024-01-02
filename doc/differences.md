@@ -64,7 +64,10 @@ In muon, malformed escape sequences are parse errors.
 Format strings in various parts of Meson use `@` as the delimiter.  The behavior
 is inconsistent, `configure_file()` recognizes `\` as an escape character, but
 format strings in `string.format()` and `custom_target` command arguments do
-not.
+not.  Muon will accept `\` as an escape character in `string.format()` and
+`custom_target`, but this is incompatible with meson.  `\` use in
+`custom_target` command arguments is already incompatible though (see next
+point).
 
 `configure_file()`  will also warn you about invalid substitutions, and will
 remove them in the output, `string.format()` will error on invalid
