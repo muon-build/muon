@@ -13,6 +13,7 @@ enum analyze_diagnostic {
 	analyze_diagnostic_unused_variable = 1 << 0,
 	analyze_diagnostic_reassign_to_conflicting_type = 1 << 1,
 	analyze_diagnostic_dead_code = 1 << 2,
+	analyze_diagnostic_redirect_script_error = 1 << 3,
 };
 
 struct analyze_opts {

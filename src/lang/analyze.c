@@ -711,8 +711,10 @@ analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, o
 	bool old_analyze_error = analyzer.error;
 	analyzer.error = false;
 
-	struct node *n = get_node(wk->ast, n_id);
-	error_diagnostic_store_redirect(wk->src, n->line, n->col);
+	if (analyze_diagnostic_enabled(analyze_diagnostic_redirect_script_error)) {
+		struct node *n = get_node(wk->ast, n_id);
+		error_diagnostic_store_redirect(wk->src, n->line, n->col);
+	}
 
 	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyzer.error) {
 		ret = false;
@@ -1856,6 +1858,7 @@ static const struct {
 	{ "unused-variable", analyze_diagnostic_unused_variable },
 	{ "reassign-to-conflicting-type", analyze_diagnostic_reassign_to_conflicting_type },
 	{ "dead-code", analyze_diagnostic_dead_code },
+	{ "redirect-script-error", analyze_diagnostic_redirect_script_error },
 };
 
 bool

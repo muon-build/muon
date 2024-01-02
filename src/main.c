@@ -248,7 +248,8 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 	struct analyze_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_include_sources,
 		.enabled_diagnostics = analyze_diagnostic_unused_variable
-				       | analyze_diagnostic_dead_code,
+				       | analyze_diagnostic_dead_code
+				       | analyze_diagnostic_redirect_script_error,
 	};
 
 	OPTSTART("luqO:W:i:td:") {
