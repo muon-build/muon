@@ -24,6 +24,8 @@ struct translate_meson_opts_ctx {
 	obj prepend_args;
 	obj stray_args;
 	obj argv;
+	bool help;
+	const char *subcommand;
 };
 
 struct meson_option_spec {
@@ -38,6 +40,61 @@ typedef bool ((*translate_meson_opts_func)(struct workspace *wk, char *argv[],
 	uint32_t argc, struct translate_meson_opts_ctx *ctx));
 typedef bool ((*translate_meson_opts_callback)(struct workspace *wk,
 	const struct meson_option_spec *spec, const char *val, struct translate_meson_opts_ctx *ctx));
+
+static void
+translate_meson_opts_help(struct translate_meson_opts_ctx *ctx,
+	const struct meson_option_spec *opts, uint32_t opts_len)
+{
+	printf("This is the muon meson cli compatibility layer.\n"
+		"usage for subcommand %s:\n", ctx->subcommand);
+
+	bool any_ignored = false, indent = true;
+	printf("opts:\n");
+
+	uint32_t i;
+	for (i = 0; i < opts_len; ++i) {
+		any_ignored |= opts[i].ignore;
+
+		if (indent) {
+			printf(" ");
+		}
+
+		printf("%s%s%s%s%s",
+			(opts[i].ignore && log_clr()) ? "\033[31m" : "",
+			opts[i].ignore ? "*" : (indent ? " " : ""),
+			(opts[i].ignore && log_clr()) ? "\033[0m" : "",
+			opts[i].name[1] ? "--" : "-", opts[i].name);
+
+		if (i + 1 < opts_len
+		    && ((opts[i].help && opts[i + 1].help)
+			|| (opts[i].handle_as
+			    && opts[i + 1].handle_as
+			    && opts[i].handle_as == opts[i + 1].handle_as))) {
+			printf(", ");
+			indent = false;
+			continue;
+		}
+
+		if (opts[i].has_value) {
+			printf(" <value>");
+		} else if (opts[i].help) {
+			printf(" - show this message");
+		}
+
+		if (opts[i].corresponding_option) {
+			printf(" - -D%s=%s", opts[i].corresponding_option, opts[i].has_value ? "<value>" : "true");
+		}
+
+		printf("\n");
+		indent = true;
+	}
+
+	if (any_ignored) {
+		printf("%s*%s denotes an ignored option.\n",
+			log_clr() ? "\033[31m" : "",
+			log_clr() ? "\033[0m" : "");
+	}
+}
 
 static bool
 translate_meson_opts_parser(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx,
@@ -100,7 +157,7 @@ translate_meson_opts_parser(struct workspace *wk, char *argv[], uint32_t argc, s
 
 		if (spec->has_value && !val) {
 			if (argi + 1 > argc) {
-				LOG_E("option '%s' requires an argument", argv[argi]);
+				LOG_E("option '%s' requires an argument", argv[argi - 1]);
 				return false;
 			}
 
@@ -117,9 +174,12 @@ translate_meson_opts_parser(struct workspace *wk, char *argv[], uint32_t argc, s
 
 			obj_array_push(wk, ctx->argv, make_strf(wk, "-D%s=%s", spec->corresponding_option, val));
 		} else if (spec->help) {
-			obj_array_push(wk, ctx->argv, make_str(wk, "-h"));
+			ctx->help = true;
+			translate_meson_opts_help(ctx, opts, opts_len);
 		} else if (spec->handle_as) {
-			cb(wk, spec, val, ctx);
+			if (!cb(wk, spec, val, ctx)) {
+				return false;
+			}
 		} else {
 			UNREACHABLE;
 		}
@@ -137,6 +197,7 @@ enum meson_opts_test {
 	opt_test_workers,
 	opt_test_verbose,
 	opt_test_setup,
+	opt_test_fail_fast,
 };
 
 static bool
@@ -160,7 +221,7 @@ translate_meson_opts_test_callback(struct workspace *wk,
 		obj_array_push(wk, ctx->argv, make_strf(wk, "-j%s", val));
 		break;
 	case opt_test_verbose:
-		obj_array_push(wk, ctx->argv, make_strf(wk, "-vv"));
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-v"));
 		break;
 	case opt_test_setup:
 		obj_array_push(wk, ctx->argv, make_strf(wk, "-e%s", val));
@@ -168,6 +229,15 @@ translate_meson_opts_test_callback(struct workspace *wk,
 	case opt_test_chdir:
 		obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", val));
 		break;
+	case opt_test_fail_fast: {
+		if (strcmp(val, "1") != 0) {
+			LOG_E("--maxfail only supports 1, value %s unsupported", val);
+			return false;
+		}
+
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-f"));
+		break;
+	}
 	default:
 		UNREACHABLE;
 	}
@@ -176,31 +246,33 @@ translate_meson_opts_test_callback(struct workspace *wk,
 }
 
 static bool
-translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
+translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc,
+	struct translate_meson_opts_ctx *ctx)
 {
 	struct meson_option_spec opts[] = {
 		{ "h", .help = true },
 		{ "help", .help = true },
-		{ "maxfail", true, .ignore = true },
-		{ "repeat", true, .ignore = true },
+		{ "C", true, .handle_as = opt_test_chdir },
+		{ "v", .handle_as = opt_test_verbose },
+		{ "maxfail", true, .handle_as = opt_test_fail_fast },
 		{ "no-rebuild", .handle_as = opt_test_no_rebuild },
+		{ "list", .handle_as = opt_test_list },
+		{ "suite", true, .handle_as = opt_test_suite },
+		{ "benchmark", .handle_as = opt_test_benchmark },
+		{ "num-processes", true, .handle_as = opt_test_workers },
+		{ "setup", true, .handle_as = opt_test_setup },
+		{ "q", .ignore = true, .handle_as = 0xfff0 },
+		{ "quiet", .ignore = true, .handle_as = 0xfff0 },
+		{ "t", true, .ignore = true, .handle_as = 0xfff1 },
+		{ "timeout-multiplier", true, .ignore = true, .handle_as = 0xfff1 },
 		{ "gdb", .ignore = true },
 		{ "gdb-path", true, .ignore = true },
-		{ "list", .handle_as = opt_test_list },
+		{ "repeat", true, .ignore = true },
 		{ "wrapper", true, .ignore = true, },
-		{ "C", true, .handle_as = opt_test_chdir },
-		{ "suite", true, .handle_as = opt_test_suite },
 		{ "no-suite", .ignore = true },
 		{ "no-stdsplit", .ignore = true },
 		{ "print-errorlogs", .ignore = true },
-		{ "benchmark", .handle_as = opt_test_benchmark },
 		{ "logbase", true, .ignore = true },
-		{ "num-processes", true, .handle_as = opt_test_workers },
-		{ "v", .handle_as = opt_test_verbose },
-		{ "q", .ignore = true },
-		{ "t", true, .ignore = true },
-		{ "timeout-multiplier", true, .ignore = true },
-		{ "setup", true, .handle_as = opt_test_setup },
 		{ "test-args", true, .ignore = true },
 	};
 
@@ -235,17 +307,18 @@ translate_meson_opts_install_callback(struct workspace *wk,
 }
 
 static bool
-translate_meson_opts_install(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
+translate_meson_opts_install(struct workspace *wk, char *argv[], uint32_t argc,
+	struct translate_meson_opts_ctx *ctx)
 {
 	struct meson_option_spec opts[] = {
 		{ "h", .help = true },
 		{ "help", .help = true },
 		{ "C", true, .handle_as = opt_install_chdir },
+		{ "n", .handle_as = opt_install_dryrun },
+		{ "dryrun", .handle_as = opt_install_dryrun },
 		{ "no-rebuild", .ignore = true },
 		{ "only-changed", .ignore = true },
 		{ "quiet", .ignore = true },
-		{ "dryrun", .handle_as = opt_install_dryrun },
-		{ "n", .handle_as = opt_install_dryrun },
 		{ "destdir", .ignore = true },
 		{ "skip-subprojects", true, .ignore = true },
 		{ "tags", true, .ignore = true },
@@ -254,7 +327,11 @@ translate_meson_opts_install(struct workspace *wk, char *argv[], uint32_t argc, 
 
 	obj_array_push(wk, ctx->argv, make_str(wk, "install"));
 
-	return translate_meson_opts_parser(wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_install_callback);
+	if (!translate_meson_opts_parser(wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_install_callback)) {
+		return false;
+	}
+
+	return true;
 }
 
 enum meson_opts_setup {
@@ -282,11 +359,15 @@ translate_meson_opts_setup_callback(struct workspace *wk,
 }
 
 static bool
-translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
+translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc,
+	struct translate_meson_opts_ctx *ctx)
 {
-	obj_array_push(wk, ctx->argv, make_str(wk, "setup"));
-
 	struct meson_option_spec opts[] = {
+		{ "h", .help = true },
+		{ "help", .help = true },
+		{ "v", .handle_as = opt_setup_version },
+		{ "D", true, .handle_as = opt_setup_define },
+
 		{ "bindir", true, "bindir", },
 		{ "datadir", true, "datadir" },
 		{ "includedir", true, "includedir" },
@@ -331,16 +412,13 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "werror", false, "werror" },
 		{ "wrap-mode", true, "wrap_mode" },
 
-		{ "help", .help = true },
 		{ "reconfigure", .ignore = true },
 		{ "version", .handle_as = opt_setup_version },
 		{ "vsenv", .ignore = true },
 		{ "wipe", .ignore = true },
-
-		{ "D", true, .handle_as = opt_setup_define },
-		{ "h", .help = true },
-		{ "v", .handle_as = opt_setup_version },
 	};
+
+	obj_array_push(wk, ctx->argv, make_str(wk, "setup"));
 
 	if (!translate_meson_opts_parser(wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_setup_callback)) {
 		return false;
@@ -367,35 +445,70 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 	return true;
 }
 
+static const struct {
+	const char *name;
+	translate_meson_opts_func translate_func;
+} meson_opts_subcommands[] = {
+	{ "setup", translate_meson_opts_setup },
+	{ "configure", translate_meson_opts_setup },
+	{ "install", translate_meson_opts_install, },
+	{ "test", translate_meson_opts_test, },
+};
+
+static translate_meson_opts_func
+meson_opts_subcommand(const char *arg)
+{
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(meson_opts_subcommands); ++i) {
+		if (strcmp(arg, meson_opts_subcommands[i].name) == 0) {
+			return meson_opts_subcommands[i].translate_func;
+		}
+	}
+
+	LOG_E("unknown subcommand '%s'", arg);
+	return 0;
+}
+
+static void
+print_meson_opts_usage(void)
+{
+	printf("opts:\n"
+		"  -v, --version - print the meson compat version and exit\n"
+		"  -h [subcommand] - print this message or show help for a subcommand\n"
+		"commands:\n"
+		);
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(meson_opts_subcommands); ++i) {
+		printf("  %s\n", meson_opts_subcommands[i].name);
+	}
+}
+
 bool
 translate_meson_opts(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[],
 	uint32_t *new_argc, uint32_t *new_argi, char **new_argv[])
 {
 	if (argc - argi < 1) {
-		LOG_E("missing subcommand");
+		print_meson_opts_usage();
 		return false;
 	}
 
-	translate_meson_opts_func translate_func;
+	translate_meson_opts_func translate_func = 0;
 
-	if (strcmp(argv[argi], "setup") == 0 || strcmp(argv[argi], "configure") == 0) {
-		translate_func = translate_meson_opts_setup;
-	} else if (strcmp(argv[argi], "install") == 0) {
-		translate_func = translate_meson_opts_install;
-	} else if (strcmp(argv[argi], "test") == 0) {
-		translate_func = translate_meson_opts_test;
-	} else if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--version") == 0) {
+	if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--version") == 0) {
 		printf("%s\n", muon_version.meson_compat);
 		exit(0);
 	} else if (strcmp(argv[argi], "-h") == 0) {
-		printf("This is the muon meson cli compatibility layer.  Help not available.\n");
-		exit(1);
-	} else {
-		LOG_E("unknown subcommand '%s'", argv[argi]);
+		printf("This is the muon meson cli compatibility layer.\n");
+		print_meson_opts_usage();
+		exit(0);
+	}
+
+	if (!(translate_func = meson_opts_subcommand(argv[argi]))) {
 		return false;
 	}
 
-	struct translate_meson_opts_ctx ctx = { 0 };
+	struct translate_meson_opts_ctx ctx = { .subcommand = argv[argi] };
 	make_obj(wk, &ctx.argv, obj_array);
 	make_obj(wk, &ctx.prepend_args, obj_array);
 	make_obj(wk, &ctx.stray_args, obj_array);
@@ -404,6 +517,10 @@ translate_meson_opts(struct workspace *wk, uint32_t argc, uint32_t argi, char *a
 	if (!translate_func(wk, argv + argi, argc - argi, &ctx)) {
 		/* LOG_E("failed to translate"); */
 		return false;
+	}
+
+	if (ctx.help) {
+		exit(0);
 	}
 
 	obj_array_prepend(wk, &ctx.prepend_args, make_str(wk, argv[0]));

@@ -192,7 +192,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	is mainly useful for generating https://muon.build/status.html.
 
 ## meson
-	*meson* ...
+	\[*muon*\] *meson* ...
 
 	A compatibility layer that attempts to translate all flags and
 	operands from meson cli syntax to muon cli syntax.  For example, the
@@ -212,6 +212,14 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	This compatibility layer is also enabled when muon's executable is named
 	_meson_.
+
+	For a more detailed usage information you can use the following two
+	commands:
+
+	```
+	muon meson -h
+	muon meson <subcommand> -h
+	```
 
 	NOTE: This is a best-effort translation and does not guarantee or imply
 	full cli compatibility.  Many unimplemented flags are ignored and
