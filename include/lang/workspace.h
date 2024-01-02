@@ -38,6 +38,7 @@ struct project {
 	} cfg;
 
 	bool not_ok; // set by failed subprojects
+	bool initialized;
 };
 
 enum loop_ctl {

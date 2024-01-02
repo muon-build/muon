@@ -152,6 +152,11 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
+	if (current_project(wk)->initialized) {
+		interp_error(wk, args_node, "project may only be called once");
+		return false;
+	}
+
 	current_project(wk)->cfg.name = an[0].val;
 #ifndef MUON_BOOTSTRAPPED
 	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
@@ -234,6 +239,8 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		get_cstr(wk, current_project(wk)->cfg.name),
 		get_cstr(wk, current_project(wk)->cfg.version)
 		);
+
+	current_project(wk)->initialized = true;
 	return true;
 }
 
