@@ -29,7 +29,11 @@ str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
 		}
 
 		if (esc) {
-			sbuf_pushf(wk, sb, "\\%d", ss->s[i]);
+			if (7 <= ss->s[i] && ss->s[i] <= 13) {
+				sbuf_pushf(wk, sb, "\\%c", "abtnvfr"[ss->s[i] - 7]);
+			} else {
+				sbuf_pushf(wk, sb, "\\%d", ss->s[i]);
+			}
 		} else {
 			sbuf_push(wk, sb, ss->s[i]);
 		}
