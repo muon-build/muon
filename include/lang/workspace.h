@@ -158,6 +158,4 @@ struct project *make_project(struct workspace *wk, uint32_t *id, const char *sub
 struct project *current_project(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);
-
-struct node *wk_ast_copy(struct workspace *wk, uint32_t root, uint32_t *new_root);
 #endif
