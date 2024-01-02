@@ -268,9 +268,25 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## test
 	*muon* *test* [*-d* <display mode>] [*-e* <setup>] [*-f*] [*-j* <jobs>]
-	\[*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
+	\[*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*] [<test> [<test>[...]]
 
 	Execute tests defined in _source files_.
+
+	The default is to execute all tests, but you can also specify which
+	tests to execute on the command line.
+
+	<test> should consist of an optional project name, followed by a colon
+	and then a test name.  Either may be omitted. For example,
+
+	"test name" and ":test name" will match all tests named 'test name' in
+	any project.++
+"proj:test name" will match all tests named 'test name' in the project 'proj'.++
+"proj:" will match all tests in the project 'proj'.
+
+	Additionally, the test name may be a glob expression.  For example,
+
+	"proj:long\*" will match all tests with names starting with 'long' in
+	the project 'proj'.
 
 	*OPTIONS*:
 	- *-d* <display mode> - Control test output.  _display mode_ can be one

@@ -153,7 +153,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			suite_str = get_cstr(wk, s);
 		} else if (suites_len > 1) {
 			obj s;
-			obj_array_join(wk, true, res->test->suites, make_str(wk, ", "), &s);
+			obj_array_join(wk, true, res->test->suites, make_str(wk, "+"), &s);
 			suite_str = get_cstr(wk, s);
 		}
 	}
@@ -168,15 +168,15 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			[status_timedout] = 31,
 			[status_skipped] = 33,
 		};
-		log_plain("[\033[%dm%s\033[0m]", clr[status], status_msg[status]);
+		log_plain("\033[%dm%s\033[0m", clr[status], status_msg[status]);
 	} else {
-		log_plain("[%s]", status_msg[status]);
+		log_plain("%s", status_msg[status]);
 	}
 
 	if (res->status == test_result_status_running) {
 		log_plain("          ");
 	} else {
-		log_plain(" %6.2fs, ", res->dur);
+		log_plain(" %6.2fs ", res->dur);
 	}
 
 	if (res->subtests.have) {
@@ -184,11 +184,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 	}
 
 	if (suite_str) {
-		if (suites_len > 1) {
-			log_plain("[%s]:", suite_str);
-		} else {
-			log_plain("%s:", suite_str);
-		}
+		log_plain("%s:", suite_str);
 	}
 
 	log_plain("%s", name);
@@ -204,9 +200,18 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	if (res->status != test_result_status_running) {
 		++ctx->stats.total_count;
 		++ctx->stats.test_i;
-		if (res->status != test_result_status_ok) {
+		switch (res->status) {
+		case test_result_status_running:
+			UNREACHABLE;
+			break;
+		case test_result_status_ok:
+		case test_result_status_skipped:
+			break;
+		case test_result_status_failed:
+		case test_result_status_timedout:
 			++ctx->stats.total_error_count;
 			++ctx->stats.error_count;
+			break;
 		}
 	}
 
@@ -249,7 +254,10 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	uint32_t i, pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f: %d (%d) ", ctx->stats.test_i, ctx->stats.test_len, ctx->stats.error_count, ctx->busy_jobs);
+	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f:%d s:%d j:%d ",
+		ctx->stats.test_i, ctx->stats.test_len,
+		ctx->stats.error_count, ctx->stats.total_skipped,
+		ctx->busy_jobs);
 
 	log_plain("%s[", info);
 	uint32_t pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
@@ -269,6 +277,17 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
  * test setup / suites
  */
 
+/*
+ * Matching rules used for -e (setup) and -s (suite).  name1 is user-provided.
+ *
+ * If name1 is fully qualified with a project name, it will match the main
+ * project only.
+ *
+ * e.g.
+ * name == main_proj:name
+ * name != sub_proj:name
+ * sub_proj:name == sub_proj:name
+ */
 static bool
 project_namespaced_name_matches(const char *name1, bool proj2_is_main,
 	const struct str *proj2, const struct str *name2)
@@ -362,7 +381,6 @@ test_in_suite(struct workspace *wk, obj suites, struct run_test_ctx *run_test_ct
 
 	if (!run_test_ctx->opts->suites_len) {
 		// no suites given on command line
-
 		if (run_test_ctx->setup.exclude_suites) {
 			obj_array_foreach(wk, suites, &ctx, test_in_exclude_suites_iter);
 			return !ctx.found;
@@ -713,6 +731,44 @@ run_test(struct workspace *wk, void *_ctx, obj t)
  * Test filtering and dispatch
  */
 
+static bool
+test_matches_cmdline_tests(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test)
+{
+	if (!ctx->opts->tests_len) {
+		return true;
+	}
+
+	uint32_t i;
+	for (i = 0; i < ctx->opts->tests_len; ++i) {
+		const char *testspec = ctx->opts->tests[i];
+		const char *sep = strchr(testspec, ':');
+
+		struct str proj = { 0 }, name = { 0 };
+
+		if (sep) {
+			proj.s = testspec;
+			proj.len = sep - testspec;
+			name.s = sep + 1;
+			name.len = strlen(name.s);
+		} else {
+			name.s = testspec;
+			name.len = strlen(name.s);
+		}
+
+		if (proj.len && !str_eql(&proj, get_str(wk, ctx->proj_name))) {
+			continue;
+		}
+
+		if (name.len && !str_eql_glob(&name, get_str(wk, test->name))) {
+			continue;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 static enum iteration_result
 gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 {
@@ -721,6 +777,10 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 
 	if (!(t->category == ctx->opts->cat
 	      && test_in_suite(wk, t->suites, ctx))) {
+		return ir_cont;
+	}
+
+	if (!test_matches_cmdline_tests(wk, ctx, t)) {
 		return ir_cont;
 	}
 

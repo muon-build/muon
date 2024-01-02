@@ -742,7 +742,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'R':
 			test_opts.no_rebuild = true;
 			break;
-	} OPTEND(argv[argi], "",
+	} OPTEND(argv[argi], " [test [test [...]]]",
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -e <setup> - use test setup <setup>\n"
 		"  -f - fail fast; exit after first failure\n"
@@ -752,11 +752,14 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -S - print a summary with elapsed time\n"
 		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
 		"  -v - increase verbosity, may be passed twice\n",
-		NULL, 0)
+		NULL, -1)
 
 	if (!ensure_in_build_dir()) {
 		return false;
 	}
+
+	test_opts.tests = &argv[argi];
+	test_opts.tests_len = argc - argi;
 
 	return tests_run(&test_opts, argv[0]);
 }
