@@ -7,6 +7,8 @@
 
 #include "compat.h"
 
+#include "args.h"
+#include "backend/common_args.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
@@ -172,6 +174,22 @@ func_meson_global_build_root(struct workspace *wk, obj _, uint32_t args_node, ob
 }
 
 static bool
+func_meson_build_options(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	obj options = regenerate_build_command(wk, true);
+
+	// remove the build directory from options
+	obj_array_pop(wk, options);
+
+	*res = join_args_shell(wk, options);
+	return true;
+}
+
+static bool
 func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
@@ -263,7 +281,7 @@ static bool
 func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target \
-		| tc_custom_target | tc_python_installation;
+			      | tc_custom_target | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
 
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
@@ -546,6 +564,7 @@ const struct func_impl impl_tbl_meson[] = {
 	{ "add_install_script", func_meson_add_install_script },
 	{ "add_postconf_script", func_meson_add_postconf_script },
 	{ "backend", func_meson_backend, tc_string },
+	{ "build_options", func_meson_build_options, tc_string },
 	{ "build_root", func_meson_global_build_root, tc_string },
 	{ "can_run_host_binaries", func_meson_can_run_host_binaries, tc_bool },
 	{ "current_build_dir", func_meson_current_build_dir, tc_string },

@@ -11,6 +11,7 @@
 
 #include "args.h"
 #include "backend/common_args.h"
+#include "backend/output.h"
 #include "error.h"
 #include "functions/dependency.h"
 #include "log.h"
@@ -698,4 +699,71 @@ relativize_path_push(struct workspace *wk, obj path, obj arr)
 	};
 
 	relativize_paths_iter(wk, &ctx, path);
+}
+
+static enum iteration_result
+add_global_opts_set_from_env_iter(struct workspace *wk, void *_ctx, obj key, obj val)
+{
+	obj regen_args = *(obj *)_ctx;
+
+	struct obj_option *o = get_obj_option(wk, val);
+	if (o->source != option_value_source_environment) {
+		return ir_cont;
+	}
+
+
+	// NOTE: This only handles options of type str or [str], which is okay since
+	// the only options that can be set from the environment are of this
+	// type.
+	// TODO: The current implementation of array stringification would
+	// choke on spaces, etc.
+
+	const char *sval;
+	switch (get_obj_type(wk, o->val)) {
+	case obj_string:
+		sval = get_cstr(wk, o->val);
+		break;
+	case obj_array: {
+		obj joined;
+		obj_array_join(wk, true, o->val, make_str(wk, ","), &joined);
+		sval = get_cstr(wk, joined);
+		break;
+	}
+	default:
+		UNREACHABLE;
+	}
+
+	obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), sval));
+	return ir_cont;
+}
+
+obj
+regenerate_build_command(struct workspace *wk, bool opts_only)
+{
+	obj regen_args;
+	make_obj(wk, &regen_args, obj_array);
+
+	if (!opts_only) {
+		obj_array_push(wk, regen_args, make_str(wk, wk->argv0));
+		obj_array_push(wk, regen_args, make_str(wk, "-C"));
+		obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
+		obj_array_push(wk, regen_args, make_str(wk, "setup"));
+
+		SBUF(compiler_check_cache_path);
+		path_join(wk, &compiler_check_cache_path,
+			wk->muon_private, output_path.compiler_check_cache);
+
+		obj_array_push(wk, regen_args, make_str(wk, "-c"));
+		obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path.buf));
+	}
+
+	obj_dict_foreach(wk, wk->global_opts, &regen_args, add_global_opts_set_from_env_iter);
+
+	uint32_t i;
+	for (i = 0; i < wk->original_commandline.argc; ++i) {
+		obj_array_push(wk, regen_args,
+			make_str(wk, wk->original_commandline.argv[i]));
+	}
+
+	return regen_args;
 }

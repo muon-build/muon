@@ -34,4 +34,6 @@ void setup_compiler_args_includes(struct workspace *wk, obj compiler, obj includ
 void relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res);
 void relativize_path(struct workspace *wk, obj path, bool relativize_strings, obj *res);
 void relativize_path_push(struct workspace *wk, obj path, obj arr);
+
+obj regenerate_build_command(struct workspace *wk, bool opts_only);
 #endif

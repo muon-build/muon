@@ -247,42 +247,6 @@ name_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	return ir_cont;
 }
 
-static enum iteration_result
-add_global_opts_set_from_env_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	obj regen_args = *(obj *)_ctx;
-
-	struct obj_option *o = get_obj_option(wk, val);
-	if (o->source != option_value_source_environment) {
-		return ir_cont;
-	}
-
-
-	// NOTE: This only handles options of type str or [str], which is okay since
-	// the only options that can be set from the environment are of this
-	// type.
-	// TODO: The current implementation of array stringification would
-	// choke on spaces, etc.
-
-	const char *sval;
-	switch (get_obj_type(wk, o->val)) {
-	case obj_string:
-		sval = get_cstr(wk, o->val);
-		break;
-	case obj_array: {
-		obj joined;
-		obj_array_join(wk, true, o->val, make_str(wk, ","), &joined);
-		sval = get_cstr(wk, joined);
-		break;
-	}
-	default:
-		UNREACHABLE;
-	}
-
-	obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), sval));
-	return ir_cont;
-}
-
 bool
 ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 	bool need_phony,
@@ -330,30 +294,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		"\n"
 		);
 
-	obj regen_args;
-	make_obj(wk, &regen_args, obj_array);
-
-	obj_array_push(wk, regen_args, make_str(wk, wk->argv0));
-	obj_array_push(wk, regen_args, make_str(wk, "-C"));
-	obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
-	obj_array_push(wk, regen_args, make_str(wk, "setup"));
-
-	SBUF(compiler_check_cache_path);
-	path_join(wk, &compiler_check_cache_path,
-		wk->muon_private, output_path.compiler_check_cache);
-
-	obj_array_push(wk, regen_args, make_str(wk, "-c"));
-	obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path.buf));
-
-	obj_dict_foreach(wk, wk->global_opts, &regen_args, add_global_opts_set_from_env_iter);
-
-	uint32_t i;
-	for (i = 0; i < wk->original_commandline.argc; ++i) {
-		obj_array_push(wk, regen_args,
-			make_str(wk, wk->original_commandline.argv[i]));
-	}
-
-	obj regen_cmd = join_args_shell(wk, regen_args);
+	obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
 
 	fprintf(out,
 		"rule REGENERATE_BUILD\n"
@@ -382,6 +323,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 
 	obj rule_prefix_arr;
 	make_obj(wk, &rule_prefix_arr, obj_array);
+	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok) {
