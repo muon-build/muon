@@ -250,6 +250,58 @@ str_eql(const struct str *ss1, const struct str *ss2)
 }
 
 static bool
+str_eql_glob_impl(const struct str *ss1, const struct str *ss2, uint32_t *match_len, bool top)
+{
+	if (!ss1->len && !top) {
+		*match_len = ss2->len;
+		return true;
+	}
+
+	if (!ss2->len) {
+		*match_len = 0;
+		return true;
+	}
+
+	*match_len = 0;
+	uint32_t i1 = 0, i2 = 0;
+	for (i1 = 0; i1 < ss1->len; ++i1) {
+		if (ss1->s[i1] == '*') {
+			struct str sub1 = { .s = ss1->s + (i1 + 1),
+					    .len = ss1->len - (i1 + 1) },
+				   sub2 = { .s = ss2->s + i2, .len = ss2->len - i2 };
+
+			uint32_t sub_match_len, sub_match_consumed = 0;
+			while (!str_eql_glob_impl(&sub1, &sub2, &sub_match_len, false)) {
+				++i2;
+				++sub_match_consumed;
+				sub2 = (struct str){ .s = ss2->s + i2, .len = ss2->len - i2 };
+			}
+
+			if (sub_match_len) {
+				sub_match_len += sub_match_consumed;
+			}
+
+			*match_len += sub_match_len;
+			i1 += sub_match_len;
+		} else if (ss1->s[i1] == ss2->s[i2]) {
+			++*match_len;
+			++i2;
+		} else {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+str_eql_glob(const struct str *ss1, const struct str *ss2)
+{
+	uint32_t match_len;
+	return str_eql_glob_impl(ss1, ss2, &match_len, true) && match_len == ss2->len;
+}
+
+static bool
 str_char_to_lower(uint8_t c)
 {
 	if ('A' <= c && c <= 'Z') {
