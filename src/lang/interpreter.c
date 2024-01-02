@@ -567,7 +567,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 	}
 
 	if (!rhs) {
-		interp_error(wk, n->l, "cannot assign variable to null");
+		interp_error(wk, n->l, "cannot assign variable to void");
 		return false;
 	}
 

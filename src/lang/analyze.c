@@ -390,13 +390,6 @@ static struct assignment *
 scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
 	TracyCZoneAutoS;
-	/* if we assigned to null, throw an error but continue with a tc_any */
-	if (!o) {
-		interp_error(wk, n_id, "assigning variable to null");
-		analyzer.error = true;
-		o = make_typeinfo(wk, tc_any, 0);
-	}
-
 	obj scope = 0;
 	if (mode == assign_reassign) {
 		if (!(scope = assign_lookup_scope(wk, name))) {
@@ -1547,6 +1540,11 @@ analyze_assign(struct workspace *wk, struct node *n)
 	}
 
 	mark_node_visited(get_node(wk->ast, n->l));
+
+	if (!rhs) {
+		interp_error(wk, n->l, "cannot assign variable to void");
+		ret = false;
+	}
 
 	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, n->subtype);
 	return ret;
