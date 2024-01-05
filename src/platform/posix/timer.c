@@ -23,7 +23,7 @@ timer_start(struct timer *t)
 }
 
 float
-timer_end(struct timer *t)
+timer_read(struct timer *t)
 {
 	struct timespec end;
 

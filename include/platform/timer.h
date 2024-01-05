@@ -28,7 +28,7 @@ struct timer {
 };
 
 void timer_start(struct timer *t);
-float timer_end(struct timer *t);
+float timer_read(struct timer *t);
 void timer_sleep(uint64_t nanoseconds);
 
 #endif
