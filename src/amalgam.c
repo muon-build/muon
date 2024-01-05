@@ -9,6 +9,8 @@
 #define __EXTENSIONS__
 #endif
 
+#define NO_GETLOADAVG
+
 #include "args.c"
 #include "backend/backend.c"
 #include "backend/common_args.c"
@@ -30,7 +32,19 @@
 #include "external/bestline_null.c"
 #include "external/libarchive_null.c"
 #include "external/libcurl_null.c"
-#include "external/samurai_null.c"
+#include "external/samurai.c"
+#include "external/samurai/build.c"
+#include "external/samurai/deps.c"
+#include "external/samurai/env.c"
+#include "external/samurai/graph.c"
+#include "external/samurai/htab.c"
+#include "external/samurai/log.c"
+#include "external/samurai/parse.c"
+#include "external/samurai/samu.c"
+#include "external/samurai/scan.c"
+#include "external/samurai/tool.c"
+#include "external/samurai/tree.c"
+#include "external/samurai/util.c"
 #include "external/tinyjson_null.c"
 #include "formats/editorconfig.c"
 #include "formats/ini.c"
