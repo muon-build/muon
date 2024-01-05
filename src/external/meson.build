@@ -16,7 +16,6 @@ foreach d : [
             'default_options': ['pkgconf:tests=false', 'warning_level=1'],
         },
     ],
-    ['samurai', {'fallback': ['samurai', 'libsamu_dep']}],
     ['bestline'],
 ]
     name = d[0]
@@ -45,4 +44,26 @@ dep_sources += [files('tinyjson.c')]
 
 if get_option('static') and dep_dict['libcurl']
     external_deps += dependency('libbrotlidec', static: true)
+endif
+
+if get_option('samurai').disabled()
+    dep_dict += {'samurai': false}
+    dep_sources += files('samurai_null.c')
+else
+    dep_dict += {'samurai': true}
+    dep_sources += files(
+        'samurai/build.c',
+        'samurai/deps.c',
+        'samurai/env.c',
+        'samurai/graph.c',
+        'samurai/htab.c',
+        'samurai/log.c',
+        'samurai/parse.c',
+        'samurai/samu.c',
+        'samurai/scan.c',
+        'samurai/tool.c',
+        'samurai/tree.c',
+        'samurai/util.c',
+        'samurai.c',
+    )
 endif

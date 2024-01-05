@@ -5,10 +5,9 @@
 
 #include "compat.h"
 
-#include <samu.h>
-
 #include "buf_size.h"
 #include "external/samurai.h"
+#include "external/samurai/samu.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
