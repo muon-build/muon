@@ -531,7 +531,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		}
 
 		struct test_result *res = &ctx->jobs[i];
-		res->dur = timer_end(&res->t);
+		res->dur = timer_read(&res->t);
 
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
 
@@ -671,7 +671,7 @@ found_slot:
 		res->busy = false;
 		--ctx->busy_jobs;
 
-		res->dur = timer_end(&res->t);
+		res->dur = timer_read(&res->t);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
 		arr_push(&ctx->test_results, res);
