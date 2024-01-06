@@ -1,7 +1,0 @@
-; SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-; SPDX-License-Identifier: GPL-3.0-only
-;
-[wrap-file]
-source_filename = samurai-1.2-32-g81cef5d.tar.gz
-source_url = https://mochiro.moe/wrap/samurai-1.2-32-g81cef5d.tar.gz
-source_hash = 68f300b5272ac1e1a58ef38b693b91e81d00d0641042b55b46f8976387690a87
