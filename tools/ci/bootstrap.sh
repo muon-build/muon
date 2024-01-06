@@ -4,9 +4,10 @@
 
 set -eux
 
-# initial build
-./bootstrap.sh "$1"
+build="$1"
+shift
 
-# get curl and zlib
-build/muon setup "$1"
-samu -C "$1"
+./bootstrap.sh "$build"
+
+build/muon setup "$@" "$build"
+build/muon -C "$build" samu

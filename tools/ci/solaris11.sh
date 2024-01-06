@@ -24,10 +24,9 @@ build() {
 	export CC=gcc
 	export CFLAGS="-D_POSIX_C_SOURCE=200112L -D__EXTENSIONS__"
 
-	CURLOPTS=-k tools/bootstrap_ninja.sh build
 	./bootstrap.sh build
-	build/muon setup -Dbestline=disabled -Dsamurai=enabled build
-	build/samu -C build
+	build/muon setup build
+	build/muon -C build samu
 	build/muon -C build test -d dots -s lang -j$(nproc)
 }
 

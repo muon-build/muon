@@ -3,10 +3,6 @@
 
 image: netbsd/latest
 packages:
-  - curl
-  - libarchive
-  - pkgconf
-  - samurai
 sources:
   - https://git.sr.ht/~lattis/muon
 tasks:
@@ -14,7 +10,7 @@ tasks:
       cd muon
       # TODO remove this when we implement rpaths
       export LD_LIBRARY_PATH=/usr/pkg/lib
-      tools/ci/fullbootstrap.sh
+      tools/ci/bootstrap.sh build
   - test: |
       cd muon/build
       # TODO remove this when we implement rpaths

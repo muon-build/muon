@@ -22,7 +22,7 @@ option(
 option(
     'samurai',
     type: 'feature',
-    value: 'disabled',
+    value: 'enabled',
     description: 'embed samurai into the muon executable',
 )
 option(

@@ -43,8 +43,6 @@ Patches and bug reports welcome!
 Essential:
 
 - `c99`
-- a ninja-compatible build tool (`samu` can be optionally bootstrapped with
-  `tools/bootstrap_ninja.sh`)
 
 For `pkgconf` support:
 
@@ -90,19 +88,14 @@ Stage 1:
 ./bootstrap.sh build
 ```
 
-Optionally, if your system does not provide a ninja-compatible build tool, you
-may use the provided ninja bootstrapping script.
-
-```
-./tools/bootstrap_ninja.sh build
-ninja=build/samu
-```
+This will by default build a copy of samurai into the resulting executable.  To
+disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.
 
 Stage 2:
 
 ```
 build/muon setup build
-$ninja -C build
+build/muon -C build samu
 build/muon -C build test
 build/muon -C build install
 ```
