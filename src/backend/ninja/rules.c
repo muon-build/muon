@@ -38,6 +38,22 @@ uniqify_name(struct workspace *wk, obj arr, obj name, obj *res)
 	*res = name;
 }
 
+static void
+escape_rule(struct sbuf *buf)
+{
+	uint32_t i;
+	for (i = 0; i < buf->len; ++i) {
+		if (buf->buf[i] == '_'
+		    || ('a' <= buf->buf[i] && buf->buf[i] <= 'z')
+		    || ('A' <= buf->buf[i] && buf->buf[i] <= 'Z')
+		    || ('0' <= buf->buf[i] && buf->buf[i] <= '9')) {
+			continue;
+		}
+
+		buf->buf[i] = '_';
+	}
+}
+
 static enum iteration_result
 write_linker_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, obj comp_id)
 {
@@ -201,20 +217,25 @@ name_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language
 	bool specialized_rule = count > 2;
 
 	obj rule_name;
+	SBUF(rule_name_buf);
 	if (specialized_rule) {
-		obj name = make_strf(wk, "%s_%s_compiler_for_%s",
+		sbuf_pushf(wk, &rule_name_buf, "%s_%s_compiler_for_%s",
 			get_cstr(wk, ctx->proj->rule_prefix),
 			compiler_language_to_s(l),
 			get_cstr(wk, ctx->tgt->build_name)
 			);
 
+		escape_rule(&rule_name_buf);
+		obj name = sbuf_into_str(wk, &rule_name_buf);
 		uniqify_name(wk, ctx->compiler_rule_arr, name, &rule_name);
 	} else {
 		if (!obj_dict_geti(wk, ctx->generic_rules, l, &rule_name)) {
-			obj name = make_strf(wk, "%s_%s_compiler",
+			sbuf_pushf(wk, &rule_name_buf, "%s_%s_compiler",
 				get_cstr(wk, ctx->proj->rule_prefix),
 				compiler_language_to_s(l));
 
+			escape_rule(&rule_name_buf);
+			obj name = sbuf_into_str(wk, &rule_name_buf);
 			uniqify_name(wk, ctx->compiler_rule_arr, name, &rule_name);
 			obj_dict_seti(wk, ctx->generic_rules, l, rule_name);
 		}
@@ -333,23 +354,10 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		TracyCZoneN(tctx_name, "name rules", true);
 
 		{ // determine project rule prefix
-			const char *proj_name = get_cstr(wk, proj->cfg.name);
-			char buf[BUF_SIZE_1k] = { 0 }, *p;
-			strncpy(buf, proj_name, BUF_SIZE_1k - 1);
-			for (p = buf; *p; ++p) {
-				if (*p == '_'
-				    || ('a' <= *p && *p <= 'z')
-				    || ('A' <= *p && *p <= 'Z')
-				    || ('0' <= *p && *p <= '9')) {
-					continue;
-				}
-
-				*p = '_';
-			}
-
-			obj pre = make_str(wk, buf);
-
-			uniqify_name(wk, rule_prefix_arr, pre, &proj->rule_prefix);
+			SBUF(pre);
+			sbuf_pushs(wk, &pre, get_cstr(wk, proj->cfg.name));
+			escape_rule(&pre);
+			uniqify_name(wk, rule_prefix_arr, sbuf_into_str(wk, &pre), &proj->rule_prefix);
 		}
 
 		obj generic_rules;
