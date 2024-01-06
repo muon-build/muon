@@ -135,6 +135,8 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 	return ss;
 }
 
+#define SMALL_STR_LEN 64
+
 static obj
 _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 {
@@ -145,7 +147,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 	}
 
 	uint64_t *v;
-	if (!mutable && (v = hash_get_strn(&wk->str_hash, p, len))) {
+	if (!mutable && len <= SMALL_STR_LEN && (v = hash_get_strn(&wk->str_hash, p, len))) {
 		s = *v;
 		return s;
 	}
@@ -155,7 +157,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 
 	if (mutable) {
 		str->flags |= str_flag_mutable;
-	} else if (!wk->obj_clear_mark_set) {
+	} else if (!wk->obj_clear_mark_set && len <= SMALL_STR_LEN) {
 		hash_set_strn(&wk->str_hash, str->s, str->len, s);
 	}
 	return s;
