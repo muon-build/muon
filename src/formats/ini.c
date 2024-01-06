@@ -91,6 +91,12 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 		++val;
 	}
 
+	char *val_end = val + strlen(val) - 1;
+	while (is_whitespace(*val_end)) {
+		*val_end = '\0';
+		--val_end;
+	}
+
 	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, ctx->line)) {
 		ctx->success = false;
 	}
