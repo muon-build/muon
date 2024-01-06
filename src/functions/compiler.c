@@ -380,6 +380,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		*res = cmd_ctx.status == 0;
 	}
 
+	// store wether or not the check suceeded in the cache, the caller is
+	// responsible for storing the actual value
 	set_compiler_cache(wk, opts->cache_key, *res, 0);
 
 	ret = true;
@@ -1642,18 +1644,24 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			);
 	}
 
-	make_obj(wk, res, obj_run_result);
-	struct obj_run_result *rr = get_obj_run_result(wk, *res);
-	rr->flags |= run_result_flag_from_compile;
+	if (opts.from_cache) {
+		*res = opts.cache_val;
+	} else {
+		make_obj(wk, res, obj_run_result);
+		struct obj_run_result *rr = get_obj_run_result(wk, *res);
+		rr->flags |= run_result_flag_from_compile;
 
-	if (ok) {
-		rr->flags |= run_result_flag_compile_ok;
-		rr->out = make_strn(wk, opts.cmd_ctx.out.buf, opts.cmd_ctx.out.len);
-		rr->err = make_strn(wk, opts.cmd_ctx.err.buf, opts.cmd_ctx.err.len);
-		rr->status = opts.cmd_ctx.status;
+		if (ok) {
+			rr->flags |= run_result_flag_compile_ok;
+			rr->out = make_strn(wk, opts.cmd_ctx.out.buf, opts.cmd_ctx.out.len);
+			rr->err = make_strn(wk, opts.cmd_ctx.err.buf, opts.cmd_ctx.err.len);
+			rr->status = opts.cmd_ctx.status;
+		}
+
+		set_compiler_cache(wk, opts.cache_key, ok, *res);
+		run_cmd_ctx_destroy(&opts.cmd_ctx);
 	}
 
-	run_cmd_ctx_destroy(&opts.cmd_ctx);
 	return true;
 }
 
@@ -1979,9 +1987,9 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		// has_headers
 		[kw_has_headers] = { "has_headers", TYPE_TAG_LISTIFY | obj_string },
-		[kw_header_required] = { "header_required", },
-		[kw_header_args] = { "header_args", },
-		[kw_header_dependencies] = { "header_dependencies", },
+		[kw_header_required] = { "header_required", obj_bool },
+		[kw_header_args] = { "header_args", TYPE_TAG_LISTIFY | obj_string },
+		[kw_header_dependencies] = { "header_dependencies", TYPE_TAG_LISTIFY | tc_dependency },
 		[kw_header_include_directories] = { "header_include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_header_no_builtin_args] = { "header_no_builtin_args", },
 		[kw_header_prefix] = { "header_prefix", },

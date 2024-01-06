@@ -1676,6 +1676,20 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		}
 		return true;
 	}
+	case obj_run_result: {
+		make_obj(wk_dest, ret, t);
+		struct obj_run_result *rr = get_obj_run_result(wk_src, val),
+				      *o = get_obj_run_result(wk_dest, *ret);
+
+		*o = *rr;
+
+		if (!obj_clone(wk_src, wk_dest, rr->out, &o->out)) {
+			return false;
+		} else if (!obj_clone(wk_src, wk_dest, rr->err, &o->err)) {
+			return false;
+		}
+		return true;
+	}
 	default:
 		LOG_E("unable to clone '%s'", obj_type_to_s(t));
 		return false;
