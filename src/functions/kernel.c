@@ -479,6 +479,7 @@ struct find_program_iter_ctx {
 	obj version;
 	obj dirs;
 	obj *res;
+	enum requirement_type requirement;
 };
 
 struct find_program_custom_dir_ctx {
@@ -674,7 +675,9 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	}
 
 	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
-	if (t == obj_string && wrap_mode != wrap_mode_nofallback) {
+	if (t == obj_string
+		&& wrap_mode != wrap_mode_nofallback
+		&& ctx->requirement == requirement_required) {
 		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
 		}
@@ -788,6 +791,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		.version = akw[kw_version].val,
 		.dirs = akw[kw_dirs].val,
 		.res = res,
+		.requirement = requirement,
 	};
 	obj_array_foreach_flat(wk, an[0].val, &ctx, find_program_iter);
 
@@ -1009,6 +1013,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		struct find_program_iter_ctx find_program_ctx = {
 			.node = an[0].node,
 			.res = &cmd_file,
+			.requirement = requirement_auto,
 		};
 
 		if (!get_obj_array(wk, an[0].val)->len) {
@@ -1261,7 +1266,7 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 
 	obj exe_wrapper = 0;
 	if (akw[kw_exe_wrapper].set && !arr_to_args(wk,
-		arr_to_args_build_target | arr_to_args_custom_target,
+		arr_to_args_build_target | arr_to_args_custom_target | arr_to_args_external_program,
 		akw[kw_exe_wrapper].val, &exe_wrapper)) {
 		return false;
 	}
