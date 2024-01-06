@@ -751,6 +751,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		enum language_mode old_mode = wk->lang_mode;
 		wk->lang_mode = language_opts;
 		if (!wk->eval_project_file(wk, meson_opts.buf, false)) {
+			wk->lang_mode = old_mode;
 			return false;
 		}
 		wk->lang_mode = old_mode;
