@@ -120,8 +120,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	L("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
 	SBUF(esc_path);
+	SBUF(rel_build_path);
 	{
-		SBUF(rel_build_path);
 		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
 		ninja_escape(wk, &esc_path, rel_build_path.buf);
 	}
@@ -150,6 +150,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with);
 	relativize_paths(wk, ctx.args.link_whole, true, &ctx.args.link_whole);
 
+	bool have_custom_order_deps = false;
 	{ /* order deps */
 		if ((ctx.have_order_deps = (get_obj_array(wk, ctx.args.order_deps)->len > 0))) {
 			obj deduped;
@@ -160,6 +161,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 				fprintf(wctx->out, "build %s-order_deps: phony || %s\n", esc_path.buf, get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
 				ctx.implicit_deps = make_strf(wk, "%s-order_deps", esc_path.buf);
+				have_custom_order_deps = true;
 			} else {
 				ctx.order_deps = order_deps;
 			}
@@ -176,8 +178,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	obj implicit_link_deps;
 	make_obj(wk, &implicit_link_deps, obj_array);
-	if (ctx.implicit_deps) {
-		obj_array_push(wk, implicit_link_deps, ctx.implicit_deps);
+	if (have_custom_order_deps) {
+		obj_array_push(wk, implicit_link_deps, make_strf(wk, "%s-order_deps", rel_build_path.buf));
 	}
 
 	if (!(tgt->type & (tgt_static_library))) {
