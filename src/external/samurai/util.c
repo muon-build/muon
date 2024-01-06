@@ -58,6 +58,41 @@ samu_fatal(const char *fmt, ...)
 	exit(1);
 }
 
+int
+samu_vprintf(struct samu_ctx *ctx, const char *fmt, va_list ap)
+{
+	return vfprintf(ctx->out, fmt, ap);
+}
+
+int
+samu_printf(struct samu_ctx *ctx, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int r = samu_vprintf(ctx, fmt, ap);
+	va_end(ap);
+	return r;
+}
+
+void
+samu_puts_no_newline(struct samu_ctx *ctx, const char *str)
+{
+	fputs(str, ctx->out);
+}
+
+void
+samu_puts(struct samu_ctx *ctx, const char *str)
+{
+	fputs(str, ctx->out);
+	fputc('\n', ctx->out);
+}
+
+void
+samu_putchar(struct samu_ctx *ctx, const char c)
+{
+	fputc(c, ctx->out);
+}
+
 void *
 samu_xmalloc(struct samu_arena *a, size_t n)
 {

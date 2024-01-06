@@ -6,8 +6,17 @@
 
 #ifndef MUON_EXTERNAL_SAMU_UTIL_H
 #define MUON_EXTERNAL_SAMU_UTIL_H
-void samu_warn(const char *, ...);
-void samu_fatal(const char *, ...);
+void samu_warn(const char *, ...)
+MUON_ATTR_FORMAT(printf, 1, 2);
+void samu_fatal(const char *, ...)
+MUON_ATTR_FORMAT(printf, 1, 2);
+
+int samu_vprintf(struct samu_ctx *ctx, const char *fmt, va_list ap);
+int samu_printf(struct samu_ctx *ctx, const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 2, 3);
+void samu_puts(struct samu_ctx *ctx, const char *str);
+void samu_puts_no_newline(struct samu_ctx *ctx, const char *str);
+void samu_putchar(struct samu_ctx *ctx, const char c);
 
 void samu_arena_init(struct samu_arena *a);
 void samu_arena_destroy(struct samu_arena *a);

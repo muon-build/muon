@@ -6,10 +6,15 @@
 #ifndef MUON_EXTERNAL_SAMURAI_H
 #define MUON_EXTERNAL_SAMURAI_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+
+struct samu_opts {
+	FILE *out;
+};
 
 extern const bool have_samurai;
 
-bool muon_samu(uint32_t argc, char *const argv[]);
+bool samu_main(int argc, char *argv[], struct samu_opts *opts);
 #endif

@@ -679,7 +679,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	return muon_samu(argc - argi, (char **)&argv[argi]);
+	return samu_main(argc - argi, (char **)&argv[argi], 0);
 }
 
 static bool

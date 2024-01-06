@@ -51,8 +51,6 @@ bool fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd);
 bool fs_has_cmd(const char *cmd);
 void fs_source_destroy(struct source *src);
 void fs_source_dup(const struct source *src, struct source *dup);
-bool fs_redirect(const char *path, const char *mode, int fd, int *old_fd);
-bool fs_redirect_restore(int fd, int old_fd);
 bool fs_copy_file(const char *src, const char *dest);
 bool fs_copy_dir(const char *src_base, const char *dest_base);
 bool fs_fileno(FILE *f, int *ret);

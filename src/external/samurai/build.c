@@ -268,8 +268,8 @@ samu_printstatus(struct samu_ctx *ctx, struct samu_edge *e, struct samu_string *
 	if (!description || description->n == 0)
 		description = cmd;
 	samu_formatstatus(ctx, status, sizeof(status));
-	fputs(status, stdout);
-	puts(description->s);
+	samu_puts_no_newline(ctx, status);
+	samu_puts(ctx, description->s);
 }
 
 static int
