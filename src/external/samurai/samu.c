@@ -13,9 +13,11 @@
 #include <string.h>
 #include <unistd.h>  /* for chdir */
 
+#include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
 
+#include "external/samurai.h"
 #include "external/samurai/arg.h"
 #include "external/samurai/build.h"
 #include "external/samurai/deps.h"
@@ -23,7 +25,6 @@
 #include "external/samurai/graph.h"
 #include "external/samurai/log.h"
 #include "external/samurai/parse.h"
-#include "external/samurai/samu.h"
 #include "external/samurai/tool.h"
 #include "external/samurai/util.h"
 
@@ -135,19 +136,28 @@ samu_parseenvargs(struct samu_ctx *ctx, char *env)
 	} SAMU_ARGEND
 }
 
-static const char *
-samu_progname(const char *arg, const char *def)
-{
-	const char *slash;
+static void
+samu_init_ctx(struct samu_ctx *ctx, struct samu_opts *opts) {
+	*ctx = (struct samu_ctx){
+		.buildopts = {.maxfail = 1},
+		.phonyrule = {.name = "phony"},
+		.consolepool = {.name = "console", .maxjobs = 1},
+		.out = stdout,
+	};
 
-	if (!arg)
-		return def;
-	slash = strrchr(arg, '/');
-	return slash ? slash + 1 : arg;
+	if (opts) {
+		if (ctx->out) {
+			ctx->out = opts->out;
+		}
+	}
+
+	ctx->argv0 = "<muon samu>";
+
+	samu_arena_init(&ctx->arena);
 }
 
-int
-samu_main(int argc, char *argv[])
+bool
+samu_main(int argc, char *argv[], struct samu_opts *opts)
 {
 	char *builddir, *manifest = "build.ninja", *end, *arg;
 	const struct samu_tool *tool = NULL;
@@ -155,22 +165,16 @@ samu_main(int argc, char *argv[])
 	long num;
 	int tries;
 
-	struct samu_ctx samu_ctx = {
-		.buildopts = {.maxfail = 1},
-		.phonyrule = {.name = "phony"},
-		.consolepool = {.name = "console", .maxjobs = 1},
-	}, *ctx = &samu_ctx;
+	struct samu_ctx _ctx, *ctx = &_ctx;
+	samu_init_ctx(ctx, opts);
 
-	samu_arena_init(&ctx->arena);
-
-	ctx->argv0 = samu_progname(argv[0], "samu");
 	samu_parseenvargs(ctx, getenv("SAMUFLAGS"));
 	SAMU_ARGBEGIN {
 	case '-':
 		arg = SAMU_EARGF(samu_usage(ctx));
 		if (strcmp(arg, "version") == 0) {
-			printf("%d.%d.0\n", ninjamajor, ninjaminor);
-			return 0;
+			samu_printf(ctx, "%d.%d.0\n", ninjamajor, ninjaminor);
+			return true;
 		} else if (strcmp(arg, "verbose") == 0) {
 			ctx->buildopts.verbose = true;
 		} else {
@@ -255,7 +259,7 @@ retry:
 	if (tool) {
 		int r = tool->run(ctx, argc, argv);
 		samu_arena_destroy(&ctx->arena);
-		return r;
+		return r == 0;
 	}
 
 	/* load the build log */
@@ -296,5 +300,5 @@ retry:
 	samu_depsclose(ctx);
 
 	samu_arena_destroy(&ctx->arena);
-	return 0;
+	return true;
 }

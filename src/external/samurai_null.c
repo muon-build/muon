@@ -11,7 +11,7 @@
 const bool have_samurai = false;
 
 bool
-muon_samu(uint32_t argc, char *const argv[])
+samu_main(int argc, char *argv[], struct samu_opts *opts)
 {
 	LOG_W("samurai not enabled");
 	return false;

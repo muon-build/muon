@@ -212,6 +212,8 @@ struct samu_ctx {
 	struct samu_rule phonyrule;
 	struct samu_pool consolepool;
 	struct samu_arena arena;
+
+	FILE *out;
 };
 
 struct samu_tool {

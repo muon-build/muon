@@ -855,7 +855,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	if (get_obj_array(wk, ctx->deps)->len && !ctx->opts->no_rebuild) {
 		obj ninja_cmd;
 		obj_array_dedup(wk, ctx->deps, &ninja_cmd);
-		if (ninja_run(wk, ninja_cmd, NULL, NULL) != 0) {
+		if (!ninja_run(wk, ninja_cmd, NULL, NULL)) {
 			LOG_W("failed to run ninja");
 		}
 	}

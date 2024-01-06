@@ -350,17 +350,6 @@ fs_has_cmd(const char *cmd)
 	return res;
 }
 
-static bool
-fs_dup2(int oldfd, int newfd)
-{
-	if ((dup2(oldfd, newfd)) == -1) {
-		LOG_E("failed dup2(%d, %d): %s", oldfd, newfd, strerror(errno));
-		return false;
-	}
-
-	return true;
-}
-
 bool
 fs_fileno(FILE *f, int *ret)
 {
@@ -372,40 +361,6 @@ fs_fileno(FILE *f, int *ret)
 	}
 
 	*ret = v;
-	return true;
-}
-
-bool
-fs_redirect(const char *path, const char *mode, int fd, int *old_fd)
-{
-	FILE *out;
-	int out_fd;
-
-	if ((*old_fd = dup(fd)) == -1) {
-		LOG_E("failed dup(%d): %s", fd, strerror(errno));
-		return false;
-	} else if (!(out = fs_fopen(path, mode))) {
-		return false;
-	} else if (!fs_fileno(out, &out_fd)) {
-		return false;
-	} else if (!fs_dup2(out_fd, fd)) {
-		return false;
-	} else if (!fs_fclose(out)) {
-		return false;
-	}
-
-	return true;
-}
-
-bool
-fs_redirect_restore(int fd, int old_fd)
-{
-	if (!fs_dup2(old_fd, fd)) {
-		return false;
-	} else if (close(old_fd) == -1) {
-		LOG_E("failed close(%d): %s", old_fd, strerror(errno));
-		return false;
-	}
 	return true;
 }
 

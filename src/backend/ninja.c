@@ -262,7 +262,7 @@ ninja_write_all(struct workspace *wk)
 		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
 		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
 		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
-		if (ninja_run(wk, compdb_args, wk->build_root, "compile_commands.json") != 0) {
+		if (!ninja_run(wk, compdb_args, wk->build_root, "compile_commands.json")) {
 			LOG_E("error writing compile_commands.json");
 		}
 
@@ -272,13 +272,13 @@ ninja_write_all(struct workspace *wk)
 	return true;
 }
 
-int
+bool
 ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture)
 {
 	const char *argstr;
 	uint32_t argstr_argc;
 
-	int ret = 1;
+	bool ret = false;
 	char *const *argv = NULL;
 	uint32_t argc;
 	SBUF_manual(cwd);
@@ -291,35 +291,24 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 	}
 
-	bool have_stdout_fileno;
-	int stdout_fileno;
-	if (capture) {
-		have_stdout_fileno = fs_fileno(stdout, &stdout_fileno);
-	} else {
-		have_stdout_fileno = true;
-	}
-
-	if (have_samurai && have_stdout_fileno) {
+	if (have_samurai) {
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
-		int old_stdout;
-
+		struct samu_opts samu_opts = { .out = stdout };
 		if (capture) {
-			if (!fs_redirect(capture, "wb", stdout_fileno, &old_stdout)) {
+			if (!(samu_opts.out = fs_fopen(capture, "wb"))) {
 				goto ret;
 			}
 		}
 
-		bool res = muon_samu(argc, argv);
+		ret = samu_main(argc, (char **)argv, &samu_opts);
 
 		if (capture) {
-			if (!fs_redirect_restore(stdout_fileno, old_stdout)) {
+			if (!fs_fclose(samu_opts.out)) {
 				goto ret;
 			}
 		}
-
-		ret = res ? 0 : 1;
 	} else {
 		struct run_cmd_ctx cmd_ctx = { 0 };
 
@@ -367,7 +356,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			}
 		}
 
-		ret = cmd_ctx.status;
+		ret = cmd_ctx.status == 0;
 run_cmd_done:
 		sbuf_destroy(&cmd);
 		run_cmd_ctx_destroy(&cmd_ctx);
