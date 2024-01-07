@@ -27,12 +27,6 @@ struct ini_parse_ctx {
 };
 
 static bool
-is_whitespace(char c)
-{
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
-
-static bool
 line_is_whitespace(const char *c)
 {
 	for (; *c; ++c) {

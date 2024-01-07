@@ -39,7 +39,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 		return str_to_i(&(struct str) {
 			.s = &ss->s[len],
 			.len = ss->len - len
-		}, index);
+		}, index, false);
 	}
 
 	return false;

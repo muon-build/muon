@@ -178,7 +178,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 	struct func_format_ctx *ctx = _ctx;
 	int64_t i;
 
-	if (!str_to_i(key, &i)) {
+	if (!str_to_i(key, &i, false)) {
 		return format_cb_skip;
 	}
 
@@ -384,7 +384,7 @@ func_string_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	const struct str *ss = get_str(wk, rcvr);
 
 	int64_t n;
-	if (!str_to_i(ss, &n)) {
+	if (!str_to_i(ss, &n, true)) {
 		interp_error(wk, args_node, "unable to parse %o", rcvr);
 		return false;
 	}

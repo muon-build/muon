@@ -28,7 +28,7 @@ tap_parse_line_cb(void *_ctx, char *line, size_t _)
 	if (str_startswith(&l, &WKSTR("1..")) && l.len > 3) {
 		struct str i = { .s = &l.s[3], l.len - 3 };
 		int64_t plan_count;
-		if (str_to_i(&i, &plan_count) && plan_count > 0) {
+		if (str_to_i(&i, &plan_count, false) && plan_count > 0) {
 			ctx->have_plan = true;
 			ctx->res->total = plan_count;
 		}

@@ -369,10 +369,31 @@ str_join(struct workspace *wk, obj s1, obj s2)
 }
 
 bool
-str_to_i(const struct str *ss, int64_t *res)
+is_whitespace(char c)
+{
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+bool
+str_to_i(const struct str *ss, int64_t *res, bool strip)
 {
 	char *endptr = NULL;
-	*res = strtol(ss->s, &endptr, 10);
+	const char *start = ss->s;
+
+	if (strip) {
+		while (is_whitespace(*start)) {
+			++start;
+		}
+	}
+
+	*res = strtol(start, &endptr, 10);
+
+	if (strip) {
+		while (is_whitespace(*endptr)) {
+			++endptr;
+		}
+	}
+
 	if ((uint32_t)(endptr - ss->s) != ss->len) {
 		return false;
 	}
