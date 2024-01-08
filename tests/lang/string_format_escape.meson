@@ -1,0 +1,3 @@
+assert(p('@0@\@escaped\@'.format(1)) == '1@escaped@')
+assert(p('@0@\@0\@\\\\@escaped\\\\@'.format(1).format(2)) == '12@escaped@')
+

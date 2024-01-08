@@ -14,6 +14,7 @@ tests = [
     ['katie.meson'],
     ['multiline.meson'],
     ['run_command.meson'],
+    ['string_format_escape.meson'],
     ['strings.meson'],
     ['ternary.meson'],
     ['unicode.meson'],

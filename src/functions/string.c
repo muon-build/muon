@@ -146,9 +146,8 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 					interp_warning(wk, err_node, "unclosed @ (opened at index %d)", id_start);
 					str_app(wk, res, "@");
 				}
-				str_appn(wk, res, &ss_in->s[id_start], i - id_start);
+				str_appn(wk, res, &ss_in->s[id_end], i - id_end);
 			}
-			L("\"%s\"", get_cstr(wk, *res));
 			id_end = id_start = i + 1;
 			++i;
 			reading_id = false;
