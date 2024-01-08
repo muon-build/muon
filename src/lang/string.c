@@ -307,7 +307,7 @@ str_eql_glob(const struct str *ss1, const struct str *ss2)
 	return str_eql_glob_impl(ss1, ss2, &match_len, true) && match_len == ss2->len;
 }
 
-static bool
+static uint8_t
 str_char_to_lower(uint8_t c)
 {
 	if ('A' <= c && c <= 'Z') {
