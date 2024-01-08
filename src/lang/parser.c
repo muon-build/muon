@@ -370,8 +370,9 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 {
 	*type = 0;
 
+	const char *typestr = 0;
 	if (accept(p, tok_identifier)) {
-		const char *typestr = p->last_last->dat.s;
+		typestr = p->last_last->dat.s;
 		type_tag t;
 		if (s_to_type_tag(typestr, &t)) {
 			*type = t;
@@ -400,7 +401,12 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 	bool has_sub_type = *type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB
 			    || *type == tc_dict || *type == tc_array;
 
-	if (has_sub_type && expect(p, tok_lbrack)) {
+	if (has_sub_type) {
+		if (!accept(p, tok_lbrack)) {
+			parse_error(p, p->last_last, "the type %s requires a sub type (e.g. %s[any])", typestr, typestr);
+			return false;
+		}
+
 		type_tag sub_type;
 		if (!parse_type(p, &sub_type, false)) {
 			return false;
