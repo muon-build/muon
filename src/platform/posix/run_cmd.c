@@ -162,8 +162,14 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	if (WIFEXITED(status)) {
 		ctx->status = WEXITSTATUS(status);
+	} else if (WIFSIGNALED(status)) {
+		// TODO: it may be helpful to communicate the signal that
+		// caused the command to terminate, this is available with
+		// `WTERMSIG(status)`
+		ctx->err_msg = "command terminated due to signal";
+		return run_cmd_error;
 	} else {
-		ctx->err_msg = "child exited abnormally";
+		ctx->err_msg = "command exited abnormally";
 		return run_cmd_error;
 	}
 
