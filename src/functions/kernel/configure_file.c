@@ -153,18 +153,18 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 						}
 					} else {
 extraneous_cmake_chars:
-						error_messagef(&src, id_start_line, i - start_of_line + 1, log_error,
-							"cmakedefine only supports two modes:\n"
-							"\t--> #cmakedefine %.*s\n "
-							"\t--> #cmakedefine %.*s @%.*s@\n"
-							"In particular, no value other than \"%.*s\" will be substituted and\n"
-							"no extra characters (comments, etc.) are allowed on the line.",
-							id_len, &src.src[id_start],
-							id_len, &src.src[id_start],
-							id_len, &src.src[id_start],
-							id_len, &src.src[id_start]
-							);
-						return false;
+						{
+							uint32_t orig_i = i;
+
+							while (src.src[i] && src.src[i] != '\n') {
+								++i;
+							}
+
+							error_messagef(&src, id_start_line, orig_i - start_of_line + 1, log_warn,
+								"ignoring trailing characters (%.*s) in cmakedefine",
+								i - orig_i, &src.src[orig_i]
+								);
+						}
 					}
 				} else {
 					error_messagef(&src, id_start_line, i - start_of_line + 1, log_error, "expected exactly one token on mesondefine line");
