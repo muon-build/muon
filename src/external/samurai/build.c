@@ -24,6 +24,8 @@
 #include <unistd.h>
 
 #include "external/samurai/ctx.h"
+#include "log.h"
+#include "platform/run_cmd.h"
 
 #include "external/samurai/build.h"
 #include "external/samurai/deps.h"
@@ -35,11 +37,9 @@
 struct samu_job {
 	struct samu_string *cmd;
 	struct samu_edge *edge;
-	struct samu_buffer buf;
 	size_t next;
-	pid_t pid;
-	int fd;
-	bool failed;
+	struct run_cmd_ctx cmd_ctx;
+	bool failed, running;
 };
 
 void
@@ -272,15 +272,12 @@ samu_printstatus(struct samu_ctx *ctx, struct samu_edge *e, struct samu_string *
 	samu_puts(ctx, description->s);
 }
 
-static int
+static bool
 samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 {
-	extern char **environ;
 	size_t i;
 	struct samu_node *n;
 	struct samu_string *rspfile, *content;
-	int fd[2];
-	posix_spawn_file_actions_t actions;
 	char *argv[] = {"/bin/sh", "-c", NULL, NULL};
 
 	++ctx->build.nstarted;
@@ -288,76 +285,43 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 		n = e->out[i];
 		if (n->mtime == SAMU_MTIME_MISSING) {
 			if (samu_makedirs(n->path, true) < 0)
-				goto err0;
+				return false;
 		}
 	}
+
 	rspfile = samu_edgevar(ctx, e, "rspfile", false);
 	if (rspfile) {
 		content = samu_edgevar(ctx, e, "rspfile_content", true);
 		if (samu_writefile(rspfile->s, content) < 0)
-			goto err0;
+			return false;
 	}
 
-	if (pipe(fd) < 0) {
-		samu_warn("pipe:");
-		goto err1;
-	}
 	j->edge = e;
 	j->cmd = samu_edgevar(ctx, e, "command", true);
-	j->fd = fd[0];
+	j->cmd_ctx = (struct run_cmd_ctx) {
+		.flags = run_cmd_ctx_flag_async,
+	};
+
+	if (e->pool == &ctx->consolepool) {
+		j->cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
+	}
+
 	argv[2] = j->cmd->s;
 
 	if (!ctx->build.consoleused)
 		samu_printstatus(ctx, e, j->cmd);
 
-	if ((errno = posix_spawn_file_actions_init(&actions))) {
-		samu_warn("posix_spawn_file_actions_init:");
-		goto err2;
+	if (!run_cmd_argv(&j->cmd_ctx, argv, 0, 0)) {
+		samu_warn("failed to start job: %s", j->cmd_ctx.err_msg);
+		j->failed = true;
+		return false;
 	}
-	if ((errno = posix_spawn_file_actions_addclose(&actions, fd[0]))) {
-		samu_warn("posix_spawn_file_actions_addclose:");
-		goto err3;
-	}
-	if (e->pool != &ctx->consolepool) {
-		if ((errno = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0))) {
-			samu_warn("posix_spawn_file_actions_addopen:");
-			goto err3;
-		}
-		if ((errno = posix_spawn_file_actions_adddup2(&actions, fd[1], 1))) {
-			samu_warn("posix_spawn_file_actions_adddup2:");
-			goto err3;
-		}
-		if ((errno = posix_spawn_file_actions_adddup2(&actions, fd[1], 2))) {
-			samu_warn("posix_spawn_file_actions_adddup2:");
-			goto err3;
-		}
-		if ((errno = posix_spawn_file_actions_addclose(&actions, fd[1]))) {
-			samu_warn("posix_spawn_file_actions_addclose:");
-			goto err3;
-		}
-	}
-	if ((errno = posix_spawn(&j->pid, argv[0], &actions, NULL, argv, environ))) {
-		samu_warn("posix_spawn %s:", j->cmd->s);
-		goto err3;
-	}
-	posix_spawn_file_actions_destroy(&actions);
-	close(fd[1]);
+
 	j->failed = false;
 	if (e->pool == &ctx->consolepool)
 		ctx->build.consoleused = true;
 
-	return j->fd;
-
-err3:
-	posix_spawn_file_actions_destroy(&actions);
-err2:
-	close(fd[0]);
-	close(fd[1]);
-err1:
-	if (rspfile && !ctx->buildopts.keeprsp)
-		remove(rspfile->s);
-err0:
-	return -1;
+	return true;
 }
 
 static void
@@ -438,31 +402,19 @@ samu_edgedone(struct samu_ctx *ctx, struct samu_edge *e)
 static void
 samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 {
-	int status;
 	struct samu_edge *e, *new;
 	struct samu_pool *p;
 
 	++ctx->build.nfinished;
-	if (waitpid(j->pid, &status, 0) < 0) {
-		samu_warn("waitpid %d:", j->pid);
-		j->failed = true;
-	} else if (WIFEXITED(status)) {
-		if (WEXITSTATUS(status) != 0) {
-			samu_warn("job failed: %s", j->cmd->s);
-			j->failed = true;
+	if (!ctx->build.consoleused || j->failed) {
+		if (j->cmd_ctx.out.len) {
+			fwrite(j->cmd_ctx.out.buf, 1, j->cmd_ctx.out.len, stdout);
 		}
-	} else if (WIFSIGNALED(status)) {
-		samu_warn("job terminated due to signal %d: %s", WTERMSIG(status), j->cmd->s);
-		j->failed = true;
-	} else {
-		/* cannot happen according to POSIX */
-		samu_warn("job status unknown: %s", j->cmd->s);
-		j->failed = true;
+
+		if (j->cmd_ctx.err.len) {
+			fwrite(j->cmd_ctx.err.buf, 1, j->cmd_ctx.err.len, stdout);
+		}
 	}
-	close(j->fd);
-	if (j->buf.len && (!ctx->build.consoleused || j->failed))
-		fwrite(j->buf.data, 1, j->buf.len, stdout);
-	j->buf.len = 0;
 	e = j->edge;
 	if (e->pool) {
 		p = e->pool;
@@ -481,42 +433,6 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 	}
 	if (!j->failed)
 		samu_edgedone(ctx, e);
-}
-
-/* returns whether a job still has work to do. if not, sets j->failed */
-static bool
-samu_jobwork(struct samu_ctx *ctx, struct samu_job *j)
-{
-	char *newdata;
-	size_t newcap;
-	ssize_t n;
-
-	if (j->buf.cap - j->buf.len < BUFSIZ / 2) {
-		newcap = j->buf.cap + BUFSIZ;
-		newdata = samu_arena_realloc(&ctx->arena, j->buf.data, j->buf.cap, newcap);
-		if (!newdata) {
-			samu_warn("realloc:");
-			goto kill;
-		}
-		j->buf.cap = newcap;
-		j->buf.data = newdata;
-	}
-	n = read(j->fd, j->buf.data + j->buf.len, j->buf.cap - j->buf.len);
-	if (n > 0) {
-		j->buf.len += n;
-		return true;
-	}
-	if (n == 0)
-		goto done;
-	samu_warn("read:");
-
-kill:
-	kill(j->pid, SIGTERM);
-	j->failed = true;
-done:
-	samu_jobdone(ctx, j);
-
-	return false;
 }
 
 /* queries the system load average */
@@ -541,7 +457,6 @@ void
 samu_build(struct samu_ctx *ctx)
 {
 	struct samu_job *jobs = NULL;
-	struct pollfd *fds = NULL;
 	size_t i, next = 0, jobslen = 0, maxjobs = ctx->buildopts.maxjobs, numjobs = 0, numfail = 0;
 	struct samu_edge *e;
 
@@ -553,7 +468,7 @@ samu_build(struct samu_ctx *ctx)
 	samu_formatstatus(ctx, NULL, 0);
 
 	ctx->build.nstarted = 0;
-	for (;;) {
+	while (true) {
 		/* limit number of of jobs based on load */
 		if (ctx->buildopts.maxload)
 			maxjobs = samu_queryload() > ctx->buildopts.maxload ? 1 : ctx->buildopts.maxjobs;
@@ -577,36 +492,43 @@ samu_build(struct samu_ctx *ctx)
 				if (newjobslen > ctx->buildopts.maxjobs)
 					newjobslen = ctx->buildopts.maxjobs;
 				jobs = samu_xreallocarray(&ctx->arena, jobs, jobslen, newjobslen, sizeof(jobs[0]));
-				fds = samu_xreallocarray(&ctx->arena, fds, jobslen, newjobslen, sizeof(fds[0]));
 				jobslen = newjobslen;
 				for (i = next; i < jobslen; ++i) {
-					jobs[i].buf.data = NULL;
-					jobs[i].buf.len = 0;
-					jobs[i].buf.cap = 0;
 					jobs[i].next = i + 1;
-					fds[i].fd = -1;
-					fds[i].events = POLLIN;
 				}
 			}
-			fds[next].fd = samu_jobstart(ctx, &jobs[next], e);
-			if (fds[next].fd < 0) {
+
+			if (!samu_jobstart(ctx, &jobs[next], e)) {
 				samu_warn("job failed to start");
 				++numfail;
 			} else {
+				jobs[next].running = true;
 				next = jobs[next].next;
 				++numjobs;
 			}
 		}
 		if (numjobs == 0)
 			break;
-		if (poll(fds, jobslen, 5000) < 0)
-			samu_fatal("poll:");
 		for (i = 0; i < jobslen; ++i) {
-			if (!fds[i].revents || samu_jobwork(ctx, &jobs[i]))
+			if (!jobs[i].running) {
 				continue;
+			}
+
+			enum run_cmd_state state = run_cmd_collect(&jobs[i].cmd_ctx);
+			if (state == run_cmd_running) {
+				continue;
+			}
+
+			jobs[i].running = false;
+			if (state == run_cmd_error) {
+				jobs[i].failed = true;
+			}
+
+			samu_jobdone(ctx, &jobs[i]);
+			run_cmd_ctx_destroy(&jobs[i].cmd_ctx);
+
 			--numjobs;
 			jobs[i].next = next;
-			fds[i].fd = -1;
 			next = i;
 			if (jobs[i].failed)
 				++numfail;
