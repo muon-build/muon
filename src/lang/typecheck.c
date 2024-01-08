@@ -101,7 +101,9 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 	case complex_type_or: {
 		obj subtype_arr = typechecking_type_to_arr(wk, ti->subtype);
 		obj_array_push(wk, subtype_arr, typestr);
-		return subtype_arr;
+		obj sorted;
+		obj_array_sort(wk, NULL, subtype_arr, obj_array_sort_by_str, &sorted);
+		return sorted;
 	}
 	case complex_type_nested: {
 		str_appf(wk, &typestr, "[%s]", typechecking_type_to_s(wk, ti->subtype));
