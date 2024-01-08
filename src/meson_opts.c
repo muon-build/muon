@@ -285,6 +285,7 @@ translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc,
 enum meson_opts_install {
 	opt_install_dryrun = 1,
 	opt_install_chdir,
+	opt_install_destdir,
 };
 
 static bool
@@ -298,6 +299,9 @@ translate_meson_opts_install_callback(struct workspace *wk,
 	}
 	case opt_install_chdir:
 		obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", val));
+		break;
+	case opt_install_destdir:
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-d%s", val));
 		break;
 	default:
 		UNREACHABLE;
@@ -316,10 +320,10 @@ translate_meson_opts_install(struct workspace *wk, char *argv[], uint32_t argc,
 		{ "C", true, .handle_as = opt_install_chdir },
 		{ "n", .handle_as = opt_install_dryrun },
 		{ "dryrun", .handle_as = opt_install_dryrun },
+		{ "destdir", true, .handle_as = opt_install_destdir },
 		{ "no-rebuild", .ignore = true },
 		{ "only-changed", .ignore = true },
 		{ "quiet", .ignore = true },
-		{ "destdir", .ignore = true },
 		{ "skip-subprojects", true, .ignore = true },
 		{ "tags", true, .ignore = true },
 		{ "strip", .ignore = true },

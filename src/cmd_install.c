@@ -311,11 +311,10 @@ install_run(struct install_options *opts)
 	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root));
 	wk.source_root = get_cstr(&wk, source_root);
 
-	const char *destdir;
-	if ((destdir = getenv("DESTDIR"))) {
+	if ((opts->destdir)) {
 		SBUF(full_prefix);
 		SBUF(abs_destdir);
-		path_make_absolute(&wk, &abs_destdir, destdir);
+		path_make_absolute(&wk, &abs_destdir, opts->destdir);
 		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
 
 		ctx.full_prefix = sbuf_into_str(&wk, &full_prefix);

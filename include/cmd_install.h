@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 struct install_options {
+	const char *destdir;
 	bool dry_run;
 };
 

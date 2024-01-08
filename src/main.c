@@ -768,14 +768,20 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct install_options opts = { 0 };
+	struct install_options opts = {
+		.destdir = getenv("DESTDIR"),
+	};
 
-	OPTSTART("n") {
+	OPTSTART("nd:") {
 		case 'n':
 			opts.dry_run = true;
 			break;
+		case 'd':
+			opts.destdir = optarg;
+			break;
 	} OPTEND(argv[argi], "",
-		"  -n - dry run\n",
+		"  -n - dry run\n"
+		"  -d <destdir> - set destdir\n",
 		NULL, 0)
 
 	if (!ensure_in_build_dir()) {

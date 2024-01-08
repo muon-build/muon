@@ -135,6 +135,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	*OPTIONS*:
 	- *-n* - dry run
+	- *-d* <destdir> - set destdir
 
 ## internal
 	*muon* *internal* <command> [<args>]
