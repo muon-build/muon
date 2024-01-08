@@ -219,7 +219,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 	}
 
-	if (wk->cur_project == 0 && akw[kw_subproject_dir].set) {
+	if (akw[kw_subproject_dir].set) {
 		current_project(wk)->subprojects_dir = akw[kw_subproject_dir].val;
 	}
 
