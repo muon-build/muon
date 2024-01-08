@@ -83,3 +83,8 @@ m.typed_list(['1', '2'])
 assert(m.multi_return('a') == 1)
 assert(m.multi_return('b') == 2)
 assert(m.multi_return('c') == 0)
+
+# test meson.project()
+assert('c' not in m.project()['compilers'])
+add_languages('c')
+assert('c' in m.project()['compilers'])

@@ -590,3 +590,42 @@ const struct func_impl impl_tbl_meson[] = {
 	{ "version", func_meson_version, tc_string },
 	{ NULL, NULL },
 };
+
+static enum iteration_result
+compiler_dict_to_str_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	obj_dict_set(wk, *(obj *)_ctx, make_str(wk, compiler_language_to_s(k)), v);
+	return ir_cont;
+}
+
+static obj
+compiler_dict_to_str_dict(struct workspace *wk, obj d)
+{
+	obj r;
+	make_obj(wk, &r, obj_dict);
+	obj_dict_foreach(wk, d, &r, compiler_dict_to_str_dict_iter);
+
+	return r;
+}
+
+static bool
+func_meson_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	struct project *proj = current_project(wk);
+
+	make_obj(wk, res, obj_dict);
+	obj_dict_set(wk, *res, make_str(wk, "opts"), proj->opts);
+	obj_dict_set(wk, *res, make_str(wk, "compilers"), compiler_dict_to_str_dict(wk, proj->compilers));
+	obj_dict_set(wk, *res, make_str(wk, "args"), compiler_dict_to_str_dict(wk, proj->args));
+	obj_dict_set(wk, *res, make_str(wk, "link_args"), compiler_dict_to_str_dict(wk, proj->link_args));
+	return true;
+}
+
+const struct func_impl impl_tbl_meson_internal[] = {
+	{ "project", func_meson_project, tc_dict, true },
+	{ NULL, NULL },
+};

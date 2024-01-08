@@ -100,6 +100,10 @@ func multi_return(k str) -> int
     return d[k]
 endfunc
 
+func project() -> dict[any]
+    return meson.project()
+endfunc
+
 return {
     'identity': identity,
     'append_global': append_global,
@@ -116,4 +120,5 @@ return {
     'glob_arg': glob_arg,
     'typed_list': typed_list,
     'multi_return': multi_return,
+    'project': project,
 }

@@ -8,4 +8,5 @@
 #include "functions/common.h"
 
 extern const struct func_impl impl_tbl_meson[];
+extern const struct func_impl impl_tbl_meson_internal[];
 #endif

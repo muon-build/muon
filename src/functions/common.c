@@ -871,7 +871,7 @@ const struct func_impl *kernel_func_tbl[language_mode_count] = {
 };
 
 const struct func_impl *func_tbl[obj_type_count][language_mode_count] = {
-	[obj_meson] = { impl_tbl_meson, },
+	[obj_meson] = { impl_tbl_meson, impl_tbl_meson_internal, },
 	[obj_subproject] = { impl_tbl_subproject },
 	[obj_number] = { impl_tbl_number, impl_tbl_number, },
 	[obj_dependency] = { impl_tbl_dependency },
