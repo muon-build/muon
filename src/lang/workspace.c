@@ -117,7 +117,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
 		[obj_alias_target] = { sizeof(struct obj_alias_target), 4 },
 		[obj_both_libs] = { sizeof(struct obj_both_libs), 4 },
-		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 4 },
+		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 32 },
 		[obj_func] = { sizeof(struct obj_func), 4 },
 		[obj_source_set] = { sizeof(struct obj_source_set), 4 },
 		[obj_source_configuration] = { sizeof(struct obj_source_configuration), 4 },

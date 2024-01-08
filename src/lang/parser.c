@@ -435,7 +435,7 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 			return false;
 		}
 
-		if (ord_type & TYPE_TAG_COMPLEX) {
+		if ((ord_type & TYPE_TAG_COMPLEX) || (*type & TYPE_TAG_COMPLEX)) {
 			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
 		} else {
 			*type |= ord_type;
