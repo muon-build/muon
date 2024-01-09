@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 assert(p('@0@\@escaped\@'.format(1)) == '1@escaped@')
 assert(p('@0@\@0\@\\\\@escaped\\\\@'.format(1).format(2)) == '12@escaped@')
-
