@@ -130,7 +130,7 @@ samu_arena_destroy(struct samu_arena *a)
 }
 
 void *
-samu_arena_alloc(struct samu_arena *a, uint64_t size)
+samu_arena_alloc(struct samu_arena *a, size_t size)
 {
 	uint64_t align = -a->i & 7;
 	a->i += align;
