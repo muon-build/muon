@@ -18,6 +18,7 @@
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "platform/term.h"
@@ -897,7 +898,7 @@ tests_run(struct test_options *opts, const char *argv0)
 	wk.argv0 = argv0;
 
 	if (!opts->jobs) {
-		opts->jobs = 4;
+		opts->jobs = os_parallel_job_count();
 	}
 
 	struct run_test_ctx ctx = {
