@@ -49,21 +49,6 @@ samu_mkhtab(struct samu_arena *a, size_t cap)
 	return h;
 }
 
-void
-samu_delhtab(struct samu_hashtable *h, void del(void *))
-{
-	size_t i;
-
-	if (!h)
-		return;
-	if (del) {
-		for (i = 0; i < h->cap; ++i) {
-			if (h->keys[i].str)
-				del(h->vals[i]);
-		}
-	}
-}
-
 static bool
 samu_keyequal(struct samu_hashtablekey *k1, struct samu_hashtablekey *k2)
 {

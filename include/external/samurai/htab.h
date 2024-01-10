@@ -12,7 +12,6 @@
 void samu_htabkey(struct samu_hashtablekey *, const char *, size_t);
 
 struct samu_hashtable *samu_mkhtab(struct samu_arena *a, size_t cap);
-void samu_delhtab(struct samu_hashtable *, void(void *));
 void **samu_htabput(struct samu_arena *a, struct samu_hashtable *h, struct samu_hashtablekey *k);
 void *samu_htabget(struct samu_hashtable *, struct samu_hashtablekey *);
 

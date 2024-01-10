@@ -20,18 +20,11 @@
 #include "external/samurai/htab.h"
 #include "external/samurai/util.h"
 
-static void
-samu_delnode(void *p)
-{
-}
-
 void
 samu_graphinit(struct samu_ctx *ctx)
 {
 	struct samu_edge *e;
 
-	/* delete old nodes and edges in case we rebuilt the manifest */
-	samu_delhtab(ctx->graph.allnodes, samu_delnode);
 	while (ctx->graph.alledges) {
 		e = ctx->graph.alledges;
 		ctx->graph.alledges = e->allnext;
