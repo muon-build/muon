@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "platform/filesystem.h"
 #include "platform/timer.h"
 
 struct samu_buffer {
@@ -58,9 +59,10 @@ enum samu_token {
 };
 
 struct samu_scanner {
-	FILE *f;
+	struct source src;
 	const char *path;
 	int chr, line, col;
+	uint32_t src_i;
 };
 
 struct samu_node {

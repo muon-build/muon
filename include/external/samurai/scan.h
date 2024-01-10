@@ -10,7 +10,8 @@
 void samu_scaninit(struct samu_scanner *, const char *);
 void samu_scanclose(struct samu_scanner *);
 
-void samu_scanerror(struct samu_scanner *, const char *, ...);
+void samu_scanerror(struct samu_scanner *, const char *, ...)
+MUON_ATTR_FORMAT(printf, 2, 3);
 int samu_scankeyword(struct samu_ctx *ctx, struct samu_scanner *s, char **var);
 char *samu_scanname(struct samu_ctx *ctx, struct samu_scanner *s);
 struct samu_evalstring *samu_scanstring(struct samu_ctx *ctx, struct samu_scanner *s, bool path);

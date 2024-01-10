@@ -8,8 +8,6 @@
 
 #include <ctype.h>
 #include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,25 +17,27 @@
 #include "external/samurai/scan.h"
 #include "external/samurai/util.h"
 
-#undef getc
-#define getc getc_unlocked
-
 void
 samu_scaninit(struct samu_scanner *s, const char *path)
 {
-	s->path = path;
-	s->line = 1;
-	s->col = 1;
-	s->f = fopen(path, "r");
-	if (!s->f)
-		samu_fatal("open %s:", path);
-	s->chr = getc(s->f);
+	*s = (struct samu_scanner) {
+		.path = path,
+		.line = 1,
+		.col = 1,
+		.src_i = 1,
+	};
+
+	if (!fs_read_entire_file(path, &s->src)) {
+		samu_fatal("failed to read %s", path);
+	}
+
+	s->chr = s->src.src[0];
 }
 
 void
 samu_scanclose(struct samu_scanner *s)
 {
-	fclose(s->f);
+	fs_source_destroy(&s->src);
 }
 
 void
@@ -62,7 +62,12 @@ samu_next(struct samu_scanner *s)
 	} else {
 		++s->col;
 	}
-	s->chr = getc(s->f);
+	if (s->src_i < s->src.len) {
+		s->chr = s->src.src[s->src_i];
+		++s->src_i;
+	} else {
+		s->chr = EOF;
+	}
 
 	return s->chr;
 }
@@ -102,7 +107,7 @@ samu_singlespace(struct samu_scanner *s)
 		samu_next(s);
 		if (samu_newline(s))
 			return true;
-		ungetc(s->chr, s->f);
+		--s->src_i;
 		s->chr = '$';
 		return false;
 	case ' ':
