@@ -25,8 +25,5 @@ extern int opterr, optind, optopt;
 #include <unistd.h>
 #endif
 
-bool os_chdir(const char *path);
-char *os_getcwd(char *buf, size_t size);
 int os_getopt(int argc, char * const argv[], const char *optstring);
-
 #endif
