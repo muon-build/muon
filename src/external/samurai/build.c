@@ -391,6 +391,10 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 	struct samu_edge *e, *new;
 	struct samu_pool *p;
 
+	if (j->failed) {
+		samu_warn("job failed: %s", j->cmd->s);
+	}
+
 	++ctx->build.nfinished;
 	if (!ctx->build.consoleused || j->failed) {
 		if (j->cmd_ctx.out.len) {
