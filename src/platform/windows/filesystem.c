@@ -494,3 +494,17 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 
 	return false;
 }
+
+enum fs_mtime_result
+fs_mtime(const char *path, int64_t *mtime)
+{
+	WIN32_FILE_ATTRIBUTE_DATA d;
+	ULARGE_INTEGER t;
+	if (!GetFileAttributesEx(name, GetFileExInfoStandard, &d)) {
+		return fs_mtime_result_not_found;
+	}
+
+	t.LowPart = d.ftLastWriteTime.dwLowDateTime;
+	t.HighPart = d.ftLastWriteTime.dwHighDateTime;
+	return t.QuadPart * 100;
+}

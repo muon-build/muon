@@ -7,13 +7,10 @@
 #include "compat.h"
 
 #include <ctype.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "external/samurai/ctx.h"
+#include "platform/filesystem.h"
 
 #include "external/samurai/env.h"
 #include "external/samurai/graph.h"
@@ -73,25 +70,15 @@ samu_nodeget(struct samu_ctx *ctx, const char *path, size_t len)
 void
 samu_nodestat(struct samu_node *n)
 {
-	struct stat st;
-
-	if (stat(n->path->s, &st) < 0) {
-		if (errno != ENOENT)
-			samu_fatal("stat %s:", n->path->s);
+	switch (fs_mtime(n->path->s, &n->mtime)) {
+	case fs_mtime_result_ok:
+		return;
+	case fs_mtime_result_not_found:
 		n->mtime = SAMU_MTIME_MISSING;
-	} else {
-#ifdef __APPLE__
-		n->mtime = (int64_t)st.st_mtime * 1000000000 + st.st_mtimensec;
-/*
-Illumos hides the members of st_mtim when you define _POSIX_C_SOURCE
-since it has not been updated to support POSIX.1-2008:
-https://www.illumos.org/issues/13327
-*/
-#elif defined(__sun) && !defined(__EXTENSIONS__)
-		n->mtime = (int64_t)st.st_mtim.__tv_sec * 1000000000 + st.st_mtim.__tv_nsec;
-#else
-		n->mtime = (int64_t)st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
-#endif
+		return;
+	case fs_mtime_result_err:
+		samu_fatal("stat %s:", n->path->s);
+		return;
 	}
 }
 
