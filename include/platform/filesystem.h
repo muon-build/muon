@@ -33,6 +33,8 @@ struct workspace;
 struct sbuf;
 
 bool fs_stat(const char *path, struct stat *sb);
+enum fs_mtime_result { fs_mtime_result_ok, fs_mtime_result_not_found, fs_mtime_result_err };
+enum fs_mtime_result fs_mtime(const char *path, int64_t *mtime);
 bool fs_exists(const char *path);
 bool fs_file_exists(const char *path);
 bool fs_symlink_exists(const char *path);
