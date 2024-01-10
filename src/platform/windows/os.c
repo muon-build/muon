@@ -142,3 +142,17 @@ os_getopt(int argc, char * const argv[], const char *optstring)
 	}
 	return c;
 }
+
+uint32_t
+os_parallel_job_count(void)
+{
+	// TODO: this needs a real implementation
+	return 4;
+}
+
+double
+os_getloadavg(void)
+{
+	// TODO: this needs a real implementation
+	return 0;
+}
