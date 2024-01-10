@@ -62,13 +62,13 @@ z_realloc(void *ptr, size_t size)
 {
 	assert(size);
 	void *ret;
+	TracyCFree(ptr);
 	ret = realloc(ptr, size);
 
 	if (!ret) {
 		error_unrecoverable("realloc failed: %s", strerror(errno));
 	}
 
-	TracyCFree(ptr);
 	TracyCAlloc(ret, size);
 	PlotRSS;
 	return ret;
@@ -78,7 +78,7 @@ void
 z_free(void *ptr)
 {
 	assert(ptr);
-	free(ptr);
 	TracyCFree(ptr);
+	free(ptr);
 	PlotRSS;
 }
