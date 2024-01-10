@@ -16,6 +16,8 @@
 
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "lang/string.h"
+#include "platform/path.h"
 
 #include "external/samurai/arg.h"
 #include "external/samurai/env.h"
@@ -205,7 +207,7 @@ samu_printjson(struct samu_ctx *ctx, const char *s, size_t n, bool join)
 static int
 samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 {
-	char dir[PATH_MAX], *p;
+	char *p;
 	struct samu_edge *e;
 	struct samu_string *cmd, *rspfile, *content;
 	bool expandrsp = false, first = true;
@@ -225,8 +227,8 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 		return 2;
 	} SAMU_ARGEND
 
-	if (!getcwd(dir, sizeof(dir)))
-		samu_fatal("getcwd:");
+	SBUF_manual(dir);
+	path_cwd(0, &dir);
 
 	samu_putchar(ctx, '[');
 	for (e = ctx->graph.alledges; e; e = e->allnext) {
@@ -254,7 +256,7 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 			samu_putchar(ctx, ',');
 
 		samu_printf(ctx, "\n  {\n    \"directory\": \"");
-		samu_printjson(ctx, dir, -1, false);
+		samu_printjson(ctx, dir.buf, -1, false);
 
 		samu_printf(ctx, "\",\n    \"command\": \"");
 		cmd = samu_edgevar(ctx, e, "command", true);
@@ -284,6 +286,7 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	if (fflush(stdout) || ferror(stdout))
 		samu_fatal("write failed");
 
+	sbuf_destroy(&dir);
 	return 0;
 }
 
