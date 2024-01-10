@@ -6,16 +6,16 @@
 
 #include "compat.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
-#include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
 #include "log.h"
@@ -325,20 +325,9 @@ samu_makedirs(struct samu_string *path, bool parent)
 int
 samu_writefile(const char *name, struct samu_string *s)
 {
-	FILE *f;
-	int ret;
-
-	f = fopen(name, "w");
-	if (!f) {
-		samu_warn("open %s:", name);
+	if (!fs_write(name, (uint8_t *)s->s, s->n)) {
 		return -1;
 	}
-	ret = 0;
-	if (s && (fwrite(s->s, 1, s->n, f) != s->n || fflush(f) != 0)) {
-		samu_warn("write %s:", name);
-		ret = -1;
-	}
-	fclose(f);
 
-	return ret;
+	return 0;
 }
