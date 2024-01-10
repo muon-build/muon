@@ -23,6 +23,13 @@ static struct {
 	struct sbuf cwd, tmp1, tmp2;
 } path_ctx;
 
+// These functions are defined in platform/<plat>/os.c
+//
+// They should only be called indirectly through path_chdir and path_cwd though
+// so the prototypes were removed from os.h.
+bool os_chdir(const char *path);
+char *os_getcwd(char *buf, size_t size);
+
 static void
 path_getcwd(void)
 {
