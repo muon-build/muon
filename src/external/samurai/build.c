@@ -6,22 +6,7 @@
 
 #include "compat.h"
 
-#ifndef NO_GETLOADAVG
-#define _BSD_SOURCE /* for getloadavg */
-#endif
-
-#include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
-#include <poll.h>
-#include <signal.h>
-#include <spawn.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/wait.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "external/samurai/ctx.h"
 #include "log.h"
