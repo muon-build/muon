@@ -8,6 +8,7 @@
 #define MUON_PLATFORM_OS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef _WIN32
 #ifndef S_IRUSR
@@ -26,4 +27,10 @@ extern int opterr, optind, optopt;
 #endif
 
 int os_getopt(int argc, char * const argv[], const char *optstring);
+
+// Returns the number of jobs to spawn.  This number should be slightly larger
+// than the number of cpus.
+uint32_t os_parallel_job_count(void);
+
+double os_getloadavg(void);
 #endif

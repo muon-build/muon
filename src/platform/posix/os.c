@@ -24,3 +24,37 @@ int os_getopt(int argc, char * const argv[], const char *optstring)
 {
 	return getopt(argc, argv, optstring);
 }
+
+uint32_t
+os_parallel_job_count(void)
+{
+#ifdef _SC_NPROCESSORS_ONLN
+	int n = sysconf(_SC_NPROCESSORS_ONLN);
+	if (n == -1) {
+		return 4;
+	} else if (n < 2) {
+		return 2;
+	} else {
+		return n + 2;
+	}
+#else
+	return 4;
+#endif
+}
+
+double
+os_getloadavg(void)
+{
+#ifdef HAVE_GETLOADAVG
+	double load;
+
+	if (getloadavg(&load, 1) == -1) {
+		samu_warn("getloadavg:");
+		load = 100.0;
+	}
+
+	return load;
+#else
+	return 0;
+#endif
+}

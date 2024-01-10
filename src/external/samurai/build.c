@@ -25,6 +25,7 @@
 
 #include "external/samurai/ctx.h"
 #include "log.h"
+#include "platform/os.h"
 #include "platform/run_cmd.h"
 
 #include "external/samurai/build.h"
@@ -435,24 +436,6 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 		samu_edgedone(ctx, e);
 }
 
-/* queries the system load average */
-static double
-samu_queryload(void)
-{
-#ifdef NO_GETLOADAVG
-	return 0;
-#else
-	double load;
-
-	if (getloadavg(&load, 1) == -1) {
-		samu_warn("getloadavg:");
-		load = 100.0;
-	}
-
-	return load;
-#endif
-}
-
 void
 samu_build(struct samu_ctx *ctx)
 {
@@ -471,7 +454,7 @@ samu_build(struct samu_ctx *ctx)
 	while (true) {
 		/* limit number of of jobs based on load */
 		if (ctx->buildopts.maxload)
-			maxjobs = samu_queryload() > ctx->buildopts.maxload ? 1 : ctx->buildopts.maxjobs;
+			maxjobs = os_getloadavg() > ctx->buildopts.maxload ? 1 : ctx->buildopts.maxjobs;
 		/* start ready edges */
 		while (ctx->build.work && numjobs < maxjobs && numfail < ctx->buildopts.maxfail) {
 			e = ctx->build.work;

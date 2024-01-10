@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>  /* for chdir */
 
 #include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "platform/os.h"
 #include "platform/path.h"
 
 #include "external/samurai.h"
@@ -223,22 +223,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	} SAMU_ARGEND
 argdone:
 	if (!ctx->buildopts.maxjobs) {
-#ifdef _SC_NPROCESSORS_ONLN
-		int n = sysconf(_SC_NPROCESSORS_ONLN);
-		switch (n) {
-		case -1: case 0: case 1:
-			ctx->buildopts.maxjobs = 2;
-			break;
-		case 2:
-			ctx->buildopts.maxjobs = 3;
-			break;
-		default:
-			ctx->buildopts.maxjobs = n + 2;
-			break;
-		}
-#else
-		ctx->buildopts.maxjobs = 2;
-#endif
+		ctx->buildopts.maxjobs = os_parallel_job_count();
 	}
 
 	ctx->buildopts.statusfmt = getenv("NINJA_STATUS");
