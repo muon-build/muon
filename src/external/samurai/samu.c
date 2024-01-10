@@ -16,6 +16,7 @@
 #include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "platform/path.h"
 
 #include "external/samurai.h"
 #include "external/samurai/arg.h"
@@ -184,7 +185,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	case 'C':
 		arg = SAMU_EARGF(samu_usage(ctx));
 		/* samu_warn("entering directory '%s'", arg); */
-		if (chdir(arg) < 0)
+		if (!path_chdir(arg))
 			samu_fatal("chdir:");
 		break;
 	case 'd':
