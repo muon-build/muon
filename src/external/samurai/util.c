@@ -14,13 +14,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "buf_size.h"
-#include "external/samurai/ctx.h"
-#include "log.h"
 #include "error.h"
+#include "external/samurai/ctx.h"
+#include "lang/string.h"
+#include "log.h"
 #include "platform/mem.h"
+#include "platform/path.h"
 
 #include "external/samurai/util.h"
 
@@ -288,38 +289,17 @@ samu_canonpath(struct samu_string *path)
 int
 samu_makedirs(struct samu_string *path, bool parent)
 {
-	int ret;
-	struct stat st;
-	char *s, *end;
-
-	ret = 0;
-	end = path->s + path->n;
-	for (s = end - parent; s > path->s; --s) {
-		if (*s != '/' && *s)
-			continue;
-		*s = '\0';
-		if (stat(path->s, &st) == 0)
-			break;
-		if (errno != ENOENT) {
-			samu_warn("stat %s:", path->s);
-			ret = -1;
-			break;
-		}
-	}
-	if (s > path->s && s < end)
-		*s = '/';
-	while (++s <= end - parent) {
-		if (*s != '\0')
-			continue;
-		if (ret == 0 && mkdir(path->s, 0777) < 0 && errno != EEXIST) {
-			samu_warn("mkdir %s:", path->s);
-			ret = -1;
-		}
-		if (s < end)
-			*s = '/';
+	bool ok;
+	if (parent) {
+		SBUF_manual(dirname);
+		path_dirname(0, &dirname, path->s);
+		ok = fs_mkdir_p(dirname.buf);
+		sbuf_destroy(&dirname);
+	} else {
+		ok = fs_mkdir(path->s);
 	}
 
-	return ret;
+	return ok ? 0 : -1;
 }
 
 int

@@ -52,7 +52,7 @@ fs_mkdir_p(const char *path)
 	SBUF_manual(buf);
 	path_copy(NULL, &buf, path);
 
-	assert(len > 1);
+	assert(len >= 1);
 
 	for (i = 1; i < len; ++i) {
 		if (buf.buf[i] == PATH_SEP) {
