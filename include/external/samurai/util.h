@@ -35,9 +35,6 @@ void samu_bufadd(struct samu_arena *a, struct samu_buffer *buf, char c);
  * s, but not initialized. */
 struct samu_string *samu_mkstr(struct samu_arena *a, size_t n);
 
-/* delete an unevaluated string */
-void samu_delevalstr(void *);
-
 /* canonicalizes the given path by removing duplicate slashes, and
  * folding '/.' and 'foo/..' */
 void samu_canonpath(struct samu_string *);

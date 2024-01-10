@@ -120,7 +120,6 @@ samu_enveval(struct samu_ctx *ctx, struct samu_environment *env, struct samu_eva
 			n += p->str->n;
 	}
 	res = samu_merge(ctx, str, n);
-	samu_delevalstr(str);
 
 	return res;
 }

@@ -230,11 +230,6 @@ samu_mkstr(struct samu_arena *a, size_t n)
 }
 
 void
-samu_delevalstr(void *ptr)
-{
-}
-
-void
 samu_canonpath(struct samu_string *path)
 {
 	char *component[60];
