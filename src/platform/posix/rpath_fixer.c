@@ -51,6 +51,20 @@ struct elf_dynstr {
 	bool found;
 };
 
+union elf_hdrbuf {
+	Elf64_Ehdr e64;
+	Elf32_Ehdr e32;
+	Elf64_Shdr s64;
+	Elf32_Shdr s32;
+	Elf64_Dyn d64;
+	Elf32_Dyn d32;
+	char bytes[BUF_SIZE_2k];
+};
+
+#define EHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.e32.FLD : BUF.e64.FLD
+#define SHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.s32.FLD : BUF.s64.FLD
+#define DHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.d32.FLD : BUF.d64.FLD
+
 static bool
 parse_elf(FILE *f, struct elf *elf)
 {
@@ -65,8 +79,6 @@ parse_elf(FILE *f, struct elf *elf)
 	if (memcmp(ident, magic, 4) != 0) {
 		return false;
 	}
-
-	uint8_t buf[BUF_SIZE_2k] = { 0 };
 
 	uint32_t hdr_size;
 	switch (ident[EI_CLASS]) {
@@ -95,24 +107,16 @@ parse_elf(FILE *f, struct elf *elf)
 		return false;
 	}
 
-	assert(hdr_size <= BUF_SIZE_2k);
-	r = fread(&buf[EI_NIDENT], 1, hdr_size - EI_NIDENT, f);
+	union elf_hdrbuf buf = { 0 };
+	assert(hdr_size <= sizeof(buf));
+	r = fread(&buf.bytes[EI_NIDENT], 1, hdr_size - EI_NIDENT, f);
 	if (r != hdr_size - EI_NIDENT) {
 		return false;
 	}
 
-	switch (elf->class) {
-	case elf_class_32:
-		elf->shoff = ((Elf32_Ehdr *)buf)->e_shoff;
-		elf->shentsize = ((Elf32_Ehdr *)buf)->e_shentsize;
-		elf->shnum = ((Elf32_Ehdr *)buf)->e_shnum;
-		break;
-	case elf_class_64:
-		elf->shoff = ((Elf64_Ehdr *)buf)->e_shoff;
-		elf->shentsize = ((Elf64_Ehdr *)buf)->e_shentsize;
-		elf->shnum = ((Elf64_Ehdr *)buf)->e_shnum;
-		break;
-	}
+	elf->shoff = EHDR(buf, elf->class, e_shoff);
+	elf->shentsize = EHDR(buf, elf->class, e_shentsize);
+	elf->shnum = EHDR(buf, elf->class, e_shnum);
 
 	return true;
 }
@@ -121,8 +125,9 @@ bool
 parse_elf_sections(FILE *f, struct elf *elf, struct elf_section *sections[])
 {
 	uint32_t i, j;
-	char buf[BUF_SIZE_2k];
-	assert(elf->shentsize <= BUF_SIZE_2k);
+	union elf_hdrbuf buf;
+
+	assert(elf->shentsize <= sizeof(buf));
 	struct elf_section tmp;
 
 	if (!fs_fseek(f, elf->shoff)) {
@@ -130,24 +135,14 @@ parse_elf_sections(FILE *f, struct elf *elf, struct elf_section *sections[])
 	}
 
 	for (i = 0; i < elf->shnum; ++i) {
-		if (!fs_fread(buf, elf->shentsize, f)) {
+		if (!fs_fread(buf.bytes, elf->shentsize, f)) {
 			return false;
 		}
 
-		switch (elf->class) {
-		case elf_class_32:
-			tmp.type = ((Elf32_Shdr *)buf)->sh_type;
-			tmp.off = ((Elf32_Shdr *)buf)->sh_offset;
-			tmp.entsize = ((Elf32_Shdr *)buf)->sh_entsize;
-			tmp.size = ((Elf32_Shdr *)buf)->sh_size;
-			break;
-		case elf_class_64:
-			tmp.type = ((Elf64_Shdr *)buf)->sh_type;
-			tmp.off = ((Elf64_Shdr *)buf)->sh_offset;
-			tmp.entsize = ((Elf64_Shdr *)buf)->sh_entsize;
-			tmp.size = ((Elf64_Shdr *)buf)->sh_size;
-			break;
-		}
+		tmp.type = SHDR(buf, elf->class, sh_type);
+		tmp.off = SHDR(buf, elf->class, sh_offset);
+		tmp.entsize = SHDR(buf, elf->class, sh_entsize);
+		tmp.size = SHDR(buf, elf->class, sh_size);
 
 		tmp.len = tmp.entsize ? tmp.size / tmp.entsize : 0;
 
@@ -178,8 +173,8 @@ static bool
 parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struct elf_dynstr *strs[])
 {
 	uint32_t i, j;
-	char buf[BUF_SIZE_2k];
-	assert(s_dynamic->entsize <= BUF_SIZE_2k);
+	union elf_hdrbuf buf;
+	assert(s_dynamic->entsize <= sizeof(buf));
 	struct elf_dynstr tmp;
 
 	if (!fs_fseek(f, s_dynamic->off)) {
@@ -187,20 +182,12 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 	}
 
 	for (i = 0; i < s_dynamic->len; ++i) {
-		if (!fs_fread(buf, s_dynamic->entsize, f)) {
+		if (!fs_fread(buf.bytes, s_dynamic->entsize, f)) {
 			return false;
 		}
 
-		switch (elf->class) {
-		case elf_class_32:
-			tmp.tag = ((Elf32_Dyn *)buf)->d_tag;
-			tmp.off = ((Elf32_Dyn *)buf)->d_un.d_val;
-			break;
-		case elf_class_64:
-			tmp.tag = ((Elf64_Dyn *)buf)->d_tag;
-			tmp.off = ((Elf64_Dyn *)buf)->d_un.d_val;
-			break;
-		}
+		tmp.tag = DHDR(buf, elf->class, d_tag);
+		tmp.off = DHDR(buf, elf->class, d_un.d_val);
 
 		for (j = 0; strs[j]; ++j) {
 			if (tmp.tag != strs[j]->tag) {
