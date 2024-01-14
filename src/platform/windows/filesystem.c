@@ -500,7 +500,7 @@ fs_mtime(const char *path, int64_t *mtime)
 {
 	WIN32_FILE_ATTRIBUTE_DATA d;
 	ULARGE_INTEGER t;
-	if (!GetFileAttributesEx(name, GetFileExInfoStandard, &d)) {
+	if (!GetFileAttributesEx(path, GetFileExInfoStandard, &d)) {
 		return fs_mtime_result_not_found;
 	}
 
