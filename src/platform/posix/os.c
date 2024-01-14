@@ -7,8 +7,8 @@
 #include "compat.h"
 
 #ifdef MUON_HAVE_GETLOADAVG
-#include <errno.h>
 #define _BSD_SOURCE
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #endif
