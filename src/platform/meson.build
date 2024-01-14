@@ -38,4 +38,12 @@ if platform == 'posix'
     else
         platform_sources += files('posix/rpath_fixer.c')
     endif
+
+    if cc.has_function(
+        'getloadavg',
+        args: ['-D_BSD_SOURCE'],
+        prefix: '#include <stdlib.h>',
+    )
+        c_args += '-DMUON_HAVE_GETLOADAVG'
+    endif
 endif

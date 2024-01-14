@@ -135,7 +135,6 @@
 #endif
 
 #ifndef BOOTSTRAP_NO_SAMU
-#define NO_GETLOADAVG
 #include "external/samurai.c"
 #include "external/samurai/build.c"
 #include "external/samurai/deps.c"

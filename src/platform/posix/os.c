@@ -6,8 +6,16 @@
 
 #include "compat.h"
 
+#ifdef MUON_HAVE_GETLOADAVG
+#include <errno.h>
+#define _BSD_SOURCE
+#include <stdlib.h>
+#include <string.h>
+#endif
+
 #include <unistd.h>
 
+#include "log.h"
 #include "platform/os.h"
 
 bool os_chdir(const char *path)
@@ -45,11 +53,11 @@ os_parallel_job_count(void)
 double
 os_getloadavg(void)
 {
-#ifdef HAVE_GETLOADAVG
+#ifdef MUON_HAVE_GETLOADAVG
 	double load;
 
 	if (getloadavg(&load, 1) == -1) {
-		samu_warn("getloadavg:");
+		LOG_W("failed: getloadavg: %s", strerror(errno));
 		load = 100.0;
 	}
 

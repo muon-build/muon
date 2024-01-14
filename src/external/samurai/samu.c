@@ -63,9 +63,6 @@ samu_debugflag(struct samu_ctx *ctx, const char *flag)
 static void
 samu_loadflag(struct samu_ctx *ctx, const char *flag)
 {
-#ifdef NO_GETLOADAVG
-	samu_warn("job scheduling based on load average is not implemented");
-#else
 	double value;
 	char *end;
 	errno = 0;
@@ -74,7 +71,6 @@ samu_loadflag(struct samu_ctx *ctx, const char *flag)
 	if (*end || value < 0 || errno != 0)
 		samu_fatal("invalid -l parameter");
 	ctx->buildopts.maxload = value;
-#endif
 }
 
 static void
