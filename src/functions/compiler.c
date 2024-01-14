@@ -338,12 +338,14 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	opts->cache_key = make_strn(wk, (const char *)sha, 32);
 
 	if (!opts->src_is_path) {
+		L("compiling: '%s'", src);
+
 		if (!fs_write(get_cstr(wk, source_path), (const uint8_t *)src, strlen(src))) {
 			return false;
 		}
+	} else {
+		L("compiling: '%s'", get_cstr(wk, source_path));
 	}
-
-	L("compiling: '%s'", get_cstr(wk, source_path));
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, NULL, 0)) {
 		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
