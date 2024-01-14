@@ -492,7 +492,7 @@ samu_build(struct samu_ctx *ctx)
 			}
 
 			jobs[i].running = false;
-			if (state == run_cmd_error) {
+			if (state == run_cmd_error || jobs[i].cmd_ctx.status != 0) {
 				jobs[i].failed = true;
 			}
 
