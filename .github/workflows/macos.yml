@@ -28,7 +28,7 @@ jobs:
     - name: bootstrap
       run: |
         ./bootstrap.sh build
-        PATH="build:$PATH" build/muon setup build
+        PATH="build:$PATH" build/muon -v setup build
         build/muon -C build samu
     - name: test
       run: |
