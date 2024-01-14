@@ -6,14 +6,23 @@
 
 #include "compat.h"
 
+#include <unistd.h>
+
 #ifdef MUON_HAVE_GETLOADAVG
-#define _BSD_SOURCE
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
+
+#if defined(__APPLE__)
+// On macOS, getloadavg is unavailable if _POSIX_C_SOURCE is defined
+#undef _POSIX_C_SOURCE
+#else
+// Otherwise assume getloadavg is available when _BSD_SOURCE is defined
+#define _BSD_SOURCE
 #endif
 
-#include <unistd.h>
+#include <stdlib.h>
+
+#endif
 
 #include "log.h"
 #include "platform/os.h"
