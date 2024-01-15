@@ -143,11 +143,86 @@ os_getopt(int argc, char * const argv[], const char *optstring)
 	return c;
 }
 
-uint32_t
-os_parallel_job_count(void)
+static uint32_t
+count_bits(ULONG_PTR bit_mask)
 {
-	// TODO: this needs a real implementation
-	return 4;
+	DWORD lshift;
+	uint32_t bit_count = 0;
+	ULONG_PTR bit_test;
+	DWORD i;
+
+	lshift = sizeof(ULONG_PTR) * 8 - 1;
+	bit_test = (ULONG_PTR)1 << lshift;
+
+	for (i = 0; i <= lshift; i++) {
+		bit_count += ((bit_mask & bit_test) ? 1 : 0);
+		bit_test /= 2;
+	}
+
+	return bit_count;
+}
+
+int32_t
+os_ncpus(void)
+{
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer;
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION iter;
+	uint32_t ncpus;
+	DWORD length;
+	DWORD byte_offset;
+	BOOL ret;
+
+	buffer = NULL;
+	length = 0UL;
+	ret = GetLogicalProcessorInformation(buffer, &length);
+	/*
+	 * buffer and length values make this function failing
+	 * with error being ERROR_INSUFFICIENT_BUFFER.
+	 * Error not being ERROR_INSUFFICIENT_BUFFER is very unlikely.
+	 */
+	if (!ret) {
+		if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+			return -1;
+		}
+		/*
+		 * Otherwise length is the size in bytes to allocate
+		 */
+	}
+
+	buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
+	if (!buffer) {
+		return -1;
+	}
+
+	ret = GetLogicalProcessorInformation(buffer, &length);
+	/*
+	 * Should not fail as buffer and length have the correct values,
+	 * but anyway, we check the returned value.
+	 */
+	if (!ret) {
+		free(buffer);
+		return -1;
+	}
+
+	iter = buffer;
+	byte_offset = 0;
+	ncpus = 0;
+
+	while (byte_offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= length) {
+		switch (iter->Relationship) {
+			case RelationProcessorCore:
+				ncpus += count_bits(iter->ProcessorMask);
+				break;
+			default:
+				break;
+		}
+		byte_offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+		iter++;
+	}
+
+	free(buffer);
+
+	return ncpus;
 }
 
 double

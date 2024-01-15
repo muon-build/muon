@@ -5,6 +5,7 @@
 platform_sources = files(
     'filesystem.c',
     'mem.c',
+    'os.c',
     'path.c',
     'run_cmd.c',
     'uname.c',
