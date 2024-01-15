@@ -42,20 +42,13 @@ int os_getopt(int argc, char * const argv[], const char *optstring)
 	return getopt(argc, argv, optstring);
 }
 
-uint32_t
-os_parallel_job_count(void)
+int32_t
+os_ncpus(void)
 {
 #ifdef _SC_NPROCESSORS_ONLN
-	int n = sysconf(_SC_NPROCESSORS_ONLN);
-	if (n == -1) {
-		return 4;
-	} else if (n < 2) {
-		return 2;
-	} else {
-		return n + 2;
-	}
+	return sysconf(_SC_NPROCESSORS_ONLN);
 #else
-	return 4;
+	return -1;
 #endif
 }
 
