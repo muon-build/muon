@@ -7,22 +7,31 @@
 #include "compat.h"
 
 #include <unistd.h>
-
-#ifdef MUON_HAVE_GETLOADAVG
 #include <errno.h>
 #include <string.h>
+
+// Messing with these defines and includes in the amalgamated build is
+// difficult to reason about, so features requiring feature detection are
+// disabled until we are bootstrapped.
+#if defined(MUON_BOOTSTRAPPED)
 
 #if defined(__APPLE__)
 // On macOS, getloadavg is unavailable if _POSIX_C_SOURCE is defined
 #undef _POSIX_C_SOURCE
-#else
-// Otherwise assume getloadavg is available when _BSD_SOURCE is defined
+// for sysctl
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif // defined(__APPLE__)
+
+#ifdef MUON_HAVE_GETLOADAVG
+#if !defined(__APPLE__)
+// Assume getloadavg is available when _BSD_SOURCE is defined
 #define _BSD_SOURCE
 #endif
-
 #include <stdlib.h>
+#endif // MUON_HAVE_GETLOADAVG
 
-#endif
+#endif // MUON_BOOTSTRAPPED
 
 #include "log.h"
 #include "platform/os.h"
@@ -45,8 +54,17 @@ int os_getopt(int argc, char * const argv[], const char *optstring)
 int32_t
 os_ncpus(void)
 {
-#ifdef _SC_NPROCESSORS_ONLN
+#if defined(_SC_NPROCESSORS_ONLN)
 	return sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(__APPLE__) && defined(MUON_BOOTSTRAPPED)
+	int64_t res;
+	size_t size = sizeof(res);
+	int r = sysctlbyname("hw.activecpu", &res, &size, NULL, 0);
+	if (r == -1) {
+		return -1;
+	} else {
+		return res;
+	}
 #else
 	return -1;
 #endif
