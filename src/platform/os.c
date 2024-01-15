@@ -15,7 +15,7 @@ os_parallel_job_count(void)
 	int32_t n = os_ncpus();
 
 	if (n == -1) {
-		return -1;
+		return 4;
 	} else if (n < 2) {
 		return 2;
 	} else {
