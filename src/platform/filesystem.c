@@ -311,7 +311,9 @@ fs_fread(void *ptr, size_t size, FILE *f)
 	if (r == size) {
 		return true;
 	} else {
-		if ((err = ferror(f))) {
+		if (feof(f)) {
+			LOG_E("fread got EOF");
+		} else if ((err = ferror(f))) {
 			LOG_E("fread failed: %s", strerror(err));
 		} else {
 			LOG_E("fread failed: unknown");
