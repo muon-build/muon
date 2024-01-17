@@ -12,6 +12,7 @@
 
 #include "args.h"
 #include "backend/backend.h"
+#include "backend/output.h"
 #include "cmd_install.h"
 #include "cmd_test.h"
 #include "embedded.h"
@@ -39,7 +40,7 @@
 static bool
 ensure_in_build_dir(void)
 {
-	if (!fs_dir_exists("muon-private")) {
+	if (!fs_dir_exists(output_path.private_dir)) {
 		LOG_E("this subcommand must be run from a build directory");
 		return false;
 	}
@@ -363,9 +364,12 @@ cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
+	SBUF_manual(path);
+	path_join(0, &path, output_path.private_dir, output_path.summary);
+
 	bool ret = false;
 	struct source src = { 0 };
-	if (!fs_read_entire_file("muon-private/summary.txt", &src)) {
+	if (!fs_read_entire_file(path.buf, &src)) {
 		goto ret;
 	}
 
@@ -373,6 +377,7 @@ cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
 
 	ret = true;
 ret:
+	sbuf_destroy(&path);
 	fs_source_destroy(&src);
 	return ret;
 }

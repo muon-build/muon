@@ -195,7 +195,7 @@ to_validate += 'libvartest2'
 cmp = find_program('diff')
 
 
-privder = 'muon-private'
+privder = '.muon'
 env = environment()
 env.prepend('PKG_CONFIG_PATH', meson.current_build_dir() / privder)
 
