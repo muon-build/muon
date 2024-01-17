@@ -198,7 +198,6 @@ samu_xasprintf(struct samu_arena *a, char **s, const char *fmt, ...)
 	va_start(ap, fmt);
 	ret = vsnprintf(*s, n, fmt, ap);
 	va_end(ap);
-	assert(ret < 0 || (size_t)ret >= n);
 	assert(!(ret < 0 || (size_t)ret >= n));
 
 	return ret;
