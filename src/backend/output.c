@@ -13,7 +13,7 @@
 #include "tracy.h"
 
 const struct output_path output_path = {
-	.private_dir = "muon-private",
+	.private_dir = ".muon",
 	.summary = "summary.txt",
 	.tests = "tests.dat",
 	.install = "install.dat",

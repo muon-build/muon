@@ -4,6 +4,8 @@
 
 set -eux
 
+muon_private=".muon"
+
 muon="$1"
 ninja="$2"
 source="$3"
@@ -20,8 +22,8 @@ if [ $git_clean -eq 1 ]; then
 	git clean -xdf -- "$source"
 fi
 
-mkdir -p "$build/muon-private"
-log="$build/muon-private/build_log.txt"
+mkdir -p "$build/$muon_private"
+log="$build/$muon_private/build_log.txt"
 
 if [ $skip_analyze -eq 0 ]; then
 	set +e
