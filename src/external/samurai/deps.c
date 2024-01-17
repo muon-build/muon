@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "external/samurai/ctx.h"
+#include "platform/filesystem.h"
 
 #include "external/samurai/build.h"
 #include "external/samurai/deps.h"
@@ -51,7 +52,6 @@ specified previously in node records.
 #define SAMU_MAX_RECORD_SIZE (1 << 19)
 
 static const char ninja_depsname[] = ".ninja_deps";
-static const char ninja_depstmpname[] = ".ninja_deps.tmp";
 static const char ninja_depsheader[] = "# ninjadeps\n";
 static const uint32_t ninja_depsver = 4;
 
@@ -107,7 +107,7 @@ samu_recorddeps(struct samu_ctx *ctx, struct samu_node *out, struct samu_nodearr
 void
 samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 {
-	char *depspath = (char *)ninja_depsname, *depstmppath = (char *)ninja_depstmpname;
+	char *depspath = (char *)ninja_depsname;
 	uint32_t *buf, cap, ver, sz, id;
 	size_t len, i, j, nrecord;
 	bool isdep;
@@ -128,12 +128,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	buf = samu_xmalloc(&ctx->arena, cap);
 	if (builddir)
 		samu_xasprintf(&ctx->arena, &depspath, "%s/%s", builddir, ninja_depsname);
-	ctx->deps.depsfile = fopen(depspath, "r+");
-	if (!ctx->deps.depsfile) {
-		if (errno != ENOENT)
-			samu_fatal("open %s:", depspath);
+	if (!fs_exists(depspath))
 		goto rewrite;
-	}
+	ctx->deps.depsfile = fs_fopen(depspath, "r+");
 	if (!fgets((char *)buf, sizeof(ninja_depsheader), ctx->deps.depsfile))
 		goto rewrite;
 	if (strcmp((char *)buf, ninja_depsheader) != 0) {
@@ -240,11 +237,9 @@ rewrite:
 		fclose(ctx->deps.depsfile);
 		ctx->deps.depsfile = NULL;
 	}
-	if (builddir)
-		samu_xasprintf(&ctx->arena, &depstmppath, "%s/%s", builddir, ninja_depstmpname);
-	ctx->deps.depsfile = fopen(depstmppath, "w");
+	ctx->deps.depsfile = fopen(depspath, "w");
 	if (!ctx->deps.depsfile)
-		samu_fatal("open %s:", depstmppath);
+		samu_fatal("open %s:", depspath);
 	samu_depswrite(ctx, ninja_depsheader, 1, sizeof(ninja_depsheader) - 1);
 	samu_depswrite(ctx, &ninja_depsver, 1, sizeof(ninja_depsver));
 
@@ -270,8 +265,6 @@ rewrite:
 	fflush(ctx->deps.depsfile);
 	if (ferror(ctx->deps.depsfile))
 		samu_fatal("deps log write failed");
-	if (rename(depstmppath, depspath) < 0)
-		samu_fatal("deps log rename:");
 }
 
 void
