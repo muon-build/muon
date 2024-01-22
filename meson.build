@@ -69,6 +69,19 @@ if get_option('static')
 endif
 
 cc = meson.get_compiler('c')
+
+if cc.get_id() == 'msvc'
+## just checked if /wd was supported in muon
+add_project_arguments(
+    cc.get_supported_arguments(
+        [
+            '/wd4027', # -Wstrict-prototypes
+            '/wd4056', # -Woverflow
+        ]
+    ),
+    language: 'c',
+)
+else
 add_project_arguments(
     cc.get_supported_arguments(
         [
@@ -91,6 +104,7 @@ add_project_arguments(
     ),
     language: 'c',
 )
+endif
 
 add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
 

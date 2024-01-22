@@ -819,6 +819,11 @@ compiler_gcc_args_lto(void)
 static const struct args *
 compiler_cl_args_compile_only(void)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   get_compile_only_args
+	 */
+
 	COMPILER_ARGS({ "/c" });
 
 	return &args;
@@ -827,6 +832,11 @@ compiler_cl_args_compile_only(void)
 static const struct args *
 compiler_cl_args_preprocess_only(void)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   get_preprocess_only_args
+	 */
+
 	COMPILER_ARGS({ "/EP" });
 
 	return &args;
@@ -835,10 +845,25 @@ compiler_cl_args_preprocess_only(void)
 static const struct args *
 compiler_cl_args_output(const char *f)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   get_output_args
+	 *
+	 * TODO: with preprocessor
+	 */
+
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "/Fo\"%s\"", f);
+	if (str_endswithi(&WKSTR(f), &WKSTR(".obj"))) {
+		snprintf(buf, BUF_SIZE_S, "/Fo%s", f);
+	} else if (str_endswithi(&WKSTR(f), &WKSTR(".exe"))) {
+		snprintf(buf, BUF_SIZE_S, "/Fe%s", f);
+	}
+	else {
+		args.len = 0;
+		LOG_E("extension of file '%s' not supported", f);
+	}
 
 	return &args;
 }
@@ -846,8 +871,12 @@ compiler_cl_args_output(const char *f)
 static const struct args *
 compiler_cl_args_optimization(uint32_t lvl)
 {
-	COMPILER_ARGS({ NULL, NULL });
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   msvc_optimization_args
+	 */
 
+	COMPILER_ARGS({ NULL, NULL });
 	switch ((enum compiler_optimization_lvl)lvl) {
 	case compiler_optimization_lvl_none:
 	case compiler_optimization_lvl_g:
@@ -883,6 +912,11 @@ compiler_cl_args_optimization(uint32_t lvl)
 static const struct args *
 compiler_cl_args_debug(void)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   msvc_debug_args
+	 */
+
 	COMPILER_ARGS({ "/Zi" });
 
 	return &args;
@@ -895,7 +929,11 @@ compiler_cl_args_warning_lvl(uint32_t lvl)
 	 * meson uses nothing instead of /W0, but it's the same warning level
 	 * see:
 	 * https://mesonbuild.com/Builtin-options.html#details-for-warning_level
+	 *
+	 * also see mesonbuild/compilers/mixins/visualstudio.py
+	 *   warn_args
 	 */
+
 	COMPILER_ARGS({ NULL });
 
 	switch ((enum compiler_warning_lvl)lvl) {
@@ -920,6 +958,11 @@ compiler_cl_args_warning_lvl(uint32_t lvl)
 static const struct args *
 compiler_cl_args_warn_everything(void)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   warn_args
+	 */
+
 	COMPILER_ARGS({ "/Wall" });
 	return &args;
 }
@@ -927,6 +970,11 @@ compiler_cl_args_warn_everything(void)
 static const struct args *
 compiler_cl_args_werror(void)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   get_werror_args
+	 */
+
 	COMPILER_ARGS({ "/WX" });
 	return &args;
 }
@@ -934,12 +982,20 @@ compiler_cl_args_werror(void)
 static const struct args *
 compiler_cl_args_set_std(const char *std)
 {
+	// FIXME: add also c++ standards (c++14|17|20|latest) ?
+	/*
+	 * see mesonbuild/compilers/c.py
+	 *   get_option_compile_args
+	 */
+
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	// FIXME: add also c++ standards (c++14|17|20|latest) ?
-	if (!strcmp(std, "c11") || !strcmp(std, "c17")) {
-		snprintf(buf, BUF_SIZE_S, "/std:%s", std);
+	if (!strcmp(std, "c11")) {
+		snprintf(buf, BUF_SIZE_S, "/std:c11", std);
+	}
+	else if (!strcmp(std, "c17") || !strcmp(std, "c18")) {
+		snprintf(buf, BUF_SIZE_S, "/std:c17", std);
 	} else {
 		args.len = 0;
 	}
@@ -960,14 +1016,20 @@ compiler_cl_args_include(const char *dir)
 static const struct args *
 compiler_cl_args_sanitize(const char *sanitizers)
 {
+	/*
+	 * see mesonbuild/compilers/mixins/visualstudio.py
+	 *   sanitizer_compile_args
+	 */
+
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
 	if (strcmp(sanitizers, "address") != 0) {
 		LOG_W("msvc compiler ignoring sanitizer '%s', only 'address' is supported", sanitizers);
+		args.len = 0;
+	} else {
+		snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
 	}
-
-	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
 
 	return &args;
 }
