@@ -76,6 +76,7 @@ bool str_eql_glob(const struct str *ss1, const struct str *ss2);
 bool str_startswith(const struct str *ss, const struct str *pre);
 bool str_startswithi(const struct str *ss, const struct str *pre);
 bool str_endswith(const struct str *ss, const struct str *suf);
+bool str_endswithi(const struct str *ss, const struct str *suf);
 obj str_join(struct workspace *wk, obj s1, obj s2);
 
 bool str_to_i(const struct str *ss, int64_t *res, bool strip);

@@ -353,6 +353,23 @@ str_endswith(const struct str *ss, const struct str *suf)
 	return memcmp(&ss->s[ss->len - suf->len], suf->s, suf->len) == 0;
 }
 
+bool
+str_endswithi(const struct str *ss, const struct str *suf)
+{
+	if (ss->len < suf->len) {
+		return false;
+	}
+
+
+	uint32_t i;
+	for (i = 0; i < suf->len; ++i) {
+		if (str_char_to_lower(ss->s[ss->len - i - 1]) != str_char_to_lower(suf->s[suf->len - i - 1])) {
+			return false;
+		}
+	}
+	return true;
+}
+
 obj
 str_join(struct workspace *wk, obj s1, obj s2)
 {
