@@ -71,39 +71,39 @@ endif
 cc = meson.get_compiler('c')
 
 if cc.get_id() == 'msvc'
-## just checked if /wd was supported in muon
-add_project_arguments(
-    cc.get_supported_arguments(
-        [
-            '/wd4027', # -Wstrict-prototypes
-            '/wd4056', # -Woverflow
-        ]
-    ),
-    language: 'c',
-)
+    ## just checked if /wd was supported in muon
+    add_project_arguments(
+        cc.get_supported_arguments(
+            [
+                '/wd4027', # -Wstrict-prototypes
+                '/wd4056', # -Woverflow
+            ],
+        ),
+        language: 'c',
+    )
 else
-add_project_arguments(
-    cc.get_supported_arguments(
-        [
-            '-Wendif-labels',
-            '-Wimplicit-fallthrough=2',
-            '-Winit-self',
-            '-Wlogical-op',
-            '-Wmissing-include-dirs',
-            '-Wno-missing-braces',
-            '-Wno-missing-field-initializers',
-            '-Wno-unused-parameter',
-            '-Wold-style-definition',
-            '-Woverflow',
-            '-Wstrict-aliasing=2',
-            '-Wstrict-prototypes',
-            '-Wundef',
-            '-Wvla',
-            '-fstrict-aliasing',
-        ],
-    ),
-    language: 'c',
-)
+    add_project_arguments(
+        cc.get_supported_arguments(
+            [
+                '-Wendif-labels',
+                '-Wimplicit-fallthrough=2',
+                '-Winit-self',
+                '-Wlogical-op',
+                '-Wmissing-include-dirs',
+                '-Wno-missing-braces',
+                '-Wno-missing-field-initializers',
+                '-Wno-unused-parameter',
+                '-Wold-style-definition',
+                '-Woverflow',
+                '-Wstrict-aliasing=2',
+                '-Wstrict-prototypes',
+                '-Wundef',
+                '-Wvla',
+                '-fstrict-aliasing',
+            ],
+        ),
+        language: 'c',
+    )
 endif
 
 add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
