@@ -14,9 +14,9 @@ struct samu_string;
 /* set in the tv_nsec field of a node's mtime */
 enum {
 	/* we haven't stat the file yet */
-	SAMU_MTIME_UNKNOWN = -1,
+	SAMU_MTIME_UNKNOWN = 1,
 	/* the file does not exist */
-	SAMU_MTIME_MISSING = -2,
+	SAMU_MTIME_MISSING = 2,
 };
 
 void samu_graphinit(struct samu_ctx *ctx);
