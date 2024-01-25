@@ -726,15 +726,16 @@ done:
 obj
 sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 {
-	assert(!(sb->flags & sbuf_flag_string_exposed)
-		&& !(sb->flags & sbuf_flag_overflow_alloc));
+	assert(!(sb->flags & sbuf_flag_string_exposed));
 
-	if (sb->flags & sbuf_flag_overflown) {
+	if (!(sb->flags & sbuf_flag_overflow_alloc) && sb->flags & sbuf_flag_overflown) {
 		sb->flags |= sbuf_flag_string_exposed;
 		struct str *ss = (struct str *)get_str(wk, sb->s);
 		assert(strlen(sb->buf) == sb->len);
 		ss->len = sb->len;
 		return sb->s;
+	} else if (!sb->len) {
+		return make_str(wk, "");
 	} else {
 		return make_strn(wk, sb->buf, sb->len);
 	}
