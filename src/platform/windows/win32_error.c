@@ -7,19 +7,20 @@
 #include "compat.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 #define STRSAFE_NO_CB_FUNCTIONS
 #include <strsafe.h>
 
 #include "platform/windows/win32_error.h"
-
-static char _msg[4096];
+#include "log.h"
 
 const char *
 win32_error(void)
 {
+	static char _msg[4096];
+
 	LPTSTR msg;
 	DWORD err;
 
@@ -35,4 +36,19 @@ win32_error(void)
 	LocalFree(msg);
 
 	return _msg;
+}
+
+void
+win32_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	log_plainv(fmt, ap);
+	va_end(ap);
+	if (fmt[strlen(fmt) - 1] == ':') {
+		log_plain(" %s", win32_error());
+	}
+	log_plain("\n");
+	exit(1);
 }
