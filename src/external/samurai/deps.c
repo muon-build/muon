@@ -153,7 +153,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 {
 	char *depspath = (char *)ninja_depsname;
 	uint32_t *buf, cap, ver, sz, id;
-	size_t len, i, j, nrecord;
+	size_t len, i, j;
 	bool isdep;
 	struct samu_string *path;
 	struct samu_node *n;
@@ -199,7 +199,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 		samu_warn("unknown deps log version");
 		goto rewrite;
 	}
-	for (nrecord = 0;; ++nrecord) {
+	while (true) {
 		if (src_fread(&sz, sizeof(sz), 1, &src) != 1) {
 			break;
 		}
@@ -389,7 +389,7 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 			case '$':
 				c = src_getc(&src);
 				if (c != '$') {
-					samu_warn("bad depfile[%lld]: contains variable reference", src.i);
+					samu_warn("bad depfile[%d]: contains variable reference", (int)src.i);
 					goto err;
 				}
 				break;
@@ -399,7 +399,7 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		}
 		if (sawcolon) {
 			if (!isspace(c) && c != EOF) {
-				samu_warn("bad depfile[%lld]: '%c' is not a valid target character", src.i, c);
+				samu_warn("bad depfile[%d]: '%c' is not a valid target character", (int)src.i, c);
 				goto err;
 			}
 			if (ctx->deps.buf.len > 0) {
@@ -448,7 +448,7 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		for (;;) {
 			if (c == '\\') {
 				if (src_getc(&src) != '\n') {
-					samu_warn("bad depfile[%lld]: '\\' only allowed before newline", src.i);
+					samu_warn("bad depfile[%d]: '\\' only allowed before newline", (int)src.i);
 					printf("%s", src.src.src);
 					goto err;
 				}

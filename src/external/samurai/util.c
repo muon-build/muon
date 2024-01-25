@@ -120,7 +120,7 @@ samu_arena_destroy(struct samu_arena *a)
 		z_free(a->blocks[i]);
 	}
 
-	L("samu allocd %d blocks, a:%d, f:%d, r:%3.3f\n", a->blocks_len, a->allocd, a->filled, (float)a->filled / (float)a->allocd * 100.0f);
+	L("samu allocd %d blocks, a:%d, f:%d, r:%3.3f\n", (int)a->blocks_len, (int)a->allocd, (int)a->filled, (float)a->filled / (float)a->allocd * 100.0f);
 
 	z_free(a->blocks);
 }
