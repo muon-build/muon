@@ -6,10 +6,12 @@
 
 #include "compat.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 
 #include "external/samurai/ctx.h"
+#include "log.h"
 #include "platform/filesystem.h"
 
 #include "external/samurai/env.h"
@@ -79,6 +81,8 @@ samu_nodestat(struct samu_node *n)
 	case fs_mtime_result_err:
 		samu_fatal("stat %s:", n->path->s);
 		return;
+	default:
+		assert(false && "unreachable");
 	}
 }
 
