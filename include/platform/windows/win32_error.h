@@ -7,6 +7,9 @@
 #ifndef MUON_PLATFORM_WINDOWS_WIN32_ERROR_H
 #define MUON_PLATFORM_WINDOWS_WIN32_ERROR_H
 
+#include "compat.h"
+
 const char *win32_error(void);
+void win32_fatal(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 
 #endif
