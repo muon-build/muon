@@ -224,8 +224,6 @@ argdone:
 	if (!ctx->buildopts.statusfmt)
 		ctx->buildopts.statusfmt = "[%s/%t] ";
 
-	setvbuf(stdout, NULL, _IOLBF, 0);
-
 	tries = 0;
 retry:
 	/* (re-)initialize global graph, environment, and parse structures */
