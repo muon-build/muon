@@ -676,8 +676,8 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
 	if (t == obj_string
-		&& wrap_mode != wrap_mode_nofallback
-		&& ctx->requirement == requirement_required) {
+	    && wrap_mode != wrap_mode_nofallback
+	    && ctx->requirement == requirement_required) {
 		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
 		}
@@ -1080,8 +1080,8 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		run_result->out = make_str(wk, "");
 		run_result->err = make_str(wk, "");
 	} else {
-		run_result->out = make_strn(wk, cmd_ctx.out.buf, cmd_ctx.out.len);
-		run_result->err = make_strn(wk, cmd_ctx.err.buf, cmd_ctx.err.len);
+		run_result->out = sbuf_into_str(wk, &cmd_ctx.out);
+		run_result->err = sbuf_into_str(wk, &cmd_ctx.err);
 	}
 
 	ret = true;
