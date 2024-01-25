@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <string.h>
 
+#include "log.h"
 #include "external/samurai/ctx.h"
 #include "platform/filesystem.h"
 
@@ -21,32 +22,32 @@
 #include "external/samurai/util.h"
 
 /*
-.ninja_deps file format
+   .ninja_deps file format
 
-The header identifying the format is the string "# ninjadeps\n", followed by a
-4-byte integer specifying the format version. After this is a series of binary
-records. All integers in .ninja_deps are written in system byte-order.
+   The header identifying the format is the string "# ninjadeps\n", followed by a
+   4-byte integer specifying the format version. After this is a series of binary
+   records. All integers in .ninja_deps are written in system byte-order.
 
-A record starts with a 4-byte integer indicating the record type and size. If
-the high bit is set, then it is a dependency record. Otherwise, it is a node
-record. In either case, the remaining 31 bits specify the size in bytes of the
-rest of the record. The size must be a multiple of 4, and no larger than than
-2^19.
+   A record starts with a 4-byte integer indicating the record type and size. If
+   the high bit is set, then it is a dependency record. Otherwise, it is a node
+   record. In either case, the remaining 31 bits specify the size in bytes of the
+   rest of the record. The size must be a multiple of 4, and no larger than than
+   2^19.
 
-Node records are given in incrementing ID order, and must be given before any
-dependency record that refers to it. The last 4-byte integer in the record is
-used as a checksum to prevent corruption. Counting from 0, the n-th node record
-(specifying the node with ID n) will have a checksum of ~n (bitwise negation of
-n). The remaining bytes of the record specify the path of the node, padded with
-NUL bytes to the next 4-byte boundary (start of the checksum value).
+   Node records are given in incrementing ID order, and must be given before any
+   dependency record that refers to it. The last 4-byte integer in the record is
+   used as a checksum to prevent corruption. Counting from 0, the n-th node record
+   (specifying the node with ID n) will have a checksum of ~n (bitwise negation of
+   n). The remaining bytes of the record specify the path of the node, padded with
+   NUL bytes to the next 4-byte boundary (start of the checksum value).
 
-A dependency record contains a list of dependencies for the edge that built a
-particular node. The first 4-byte integer is the node ID. The second and third
-4-byte integers are the low and high 32-bits of the UNIX mtime (in nanoseconds)
-of the node when it was built. Following this is a sequence of 4-byte integers
-specifying the IDs of the dependency nodes for this edge, which will have been
-specified previously in node records.
-*/
+   A dependency record contains a list of dependencies for the edge that built a
+   particular node. The first 4-byte integer is the node ID. The second and third
+   4-byte integers are the low and high 32-bits of the UNIX mtime (in nanoseconds)
+   of the node when it was built. Following this is a sequence of 4-byte integers
+   specifying the IDs of the dependency nodes for this edge, which will have been
+   specified previously in node records.
+ */
 
 /* maximum record size (in bytes) */
 #define SAMU_MAX_RECORD_SIZE (1 << 19)
@@ -58,8 +59,9 @@ static const uint32_t ninja_depsver = 4;
 static void
 samu_depswrite(struct samu_ctx *ctx, const void *p, size_t n, size_t m)
 {
-	if (fwrite(p, n, m, ctx->deps.depsfile) != m)
+	if (fwrite(p, n, m, ctx->deps.depsfile) != m) {
 		samu_fatal("deps log write:");
+	}
 }
 
 static bool
@@ -67,17 +69,20 @@ samu_recordid(struct samu_ctx *ctx, struct samu_node *n)
 {
 	uint32_t sz, chk;
 
-	if (n->id != -1)
+	if (n->id != -1) {
 		return false;
-	if (ctx->deps.entrieslen == INT32_MAX)
+	}
+	if (ctx->deps.entrieslen == INT32_MAX) {
 		samu_fatal("too many nodes");
+	}
 	n->id = ctx->deps.entrieslen++;
 	sz = (n->path->n + 7) & ~3;
-	if (sz + 4 >= SAMU_MAX_RECORD_SIZE)
+	if (sz + 4 >= SAMU_MAX_RECORD_SIZE) {
 		samu_fatal("ID record too large");
+	}
 	samu_depswrite(ctx, &sz, 4, 1);
 	samu_depswrite(ctx, n->path->s, 1, n->path->n);
-	samu_depswrite(ctx, (char[4]){0}, 1, sz - n->path->n - 4);
+	samu_depswrite(ctx, (char[4]){ 0 }, 1, sz - n->path->n - 4);
 	chk = ~n->id;
 	samu_depswrite(ctx, &chk, 4, 1);
 
@@ -91,8 +96,9 @@ samu_recorddeps(struct samu_ctx *ctx, struct samu_node *out, struct samu_nodearr
 	size_t i;
 
 	sz = 12 + deps->len * 4;
-	if (sz + 4 >= SAMU_MAX_RECORD_SIZE)
+	if (sz + 4 >= SAMU_MAX_RECORD_SIZE) {
 		samu_fatal("deps record too large");
+	}
 	sz |= 0x80000000;
 	samu_depswrite(ctx, &sz, 4, 1);
 	samu_depswrite(ctx, &out->id, 4, 1);
@@ -100,8 +106,46 @@ samu_recorddeps(struct samu_ctx *ctx, struct samu_node *out, struct samu_nodearr
 	samu_depswrite(ctx, &m, 4, 1);
 	m = (mtime >> 32) & 0xffffffff;
 	samu_depswrite(ctx, &m, 4, 1);
-	for (i = 0; i < deps->len; ++i)
+	for (i = 0; i < deps->len; ++i) {
 		samu_depswrite(ctx, &deps->node[i]->id, 4, 1);
+	}
+}
+
+struct seekable_source {
+	struct source src;
+	uint64_t i;
+};
+
+static size_t
+src_fread(void *buf, size_t sz, size_t n, struct seekable_source *src)
+{
+	if (src->i >= src->src.len) {
+		return 0;
+	}
+
+	size_t l = n,
+	       r = (src->src.len - src->i) / sz;
+	r = r < l ? r : l;
+
+	memcpy(buf, &src->src.src[src->i], r * sz);
+	src->i += r * sz;
+	return r;
+}
+
+static char
+src_getc(struct seekable_source *src)
+{
+	if (src->i >= src->src.len) {
+		return EOF;
+	} else {
+		char c = src->src.src[src->i];
+		if (c == '\r' && src->src.src[src->i + 1] == '\n') {
+			c = '\n';
+			++src->i;
+		}
+		++src->i;
+		return c;
+	}
 }
 
 void
@@ -115,6 +159,8 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	struct samu_node *n;
 	struct samu_edge *e;
 	struct samu_entry *entry, *oldentries;
+	struct seekable_source src = { 0 };
+	bool free_src = false;
 
 	/* XXX: when ninja hits a bad record, it truncates the log to the last
 	 * good record. perhaps we should do the same. */
@@ -126,19 +172,27 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	ctx->deps.entrieslen = 0;
 	cap = BUFSIZ;
 	buf = samu_xmalloc(&ctx->arena, cap);
-	if (builddir)
+	if (builddir) {
 		samu_xasprintf(&ctx->arena, &depspath, "%s/%s", builddir, ninja_depsname);
-	if (!fs_exists(depspath))
+	}
+	if (!fs_exists(depspath)) {
 		goto rewrite;
-	ctx->deps.depsfile = fs_fopen(depspath, "r+");
-	if (!fgets((char *)buf, sizeof(ninja_depsheader), ctx->deps.depsfile))
+	}
+
+	if (!fs_read_entire_file(depspath, &src.src)) {
+		samu_warn("failed to read deps file");
 		goto rewrite;
-	if (strcmp((char *)buf, ninja_depsheader) != 0) {
+	}
+	free_src = true;
+
+	if (strncmp(src.src.src, ninja_depsheader, strlen(ninja_depsheader)) != 0) {
 		samu_warn("invalid deps log header");
 		goto rewrite;
 	}
-	if (fread(&ver, sizeof(ver), 1, ctx->deps.depsfile) != 1) {
-		samu_warn(ferror(ctx->deps.depsfile) ? "deps log read:" : "deps log truncated");
+	src.i += strlen(ninja_depsheader);
+
+	if (src_fread(&ver, sizeof(ver), 1, &src) != 1) {
+		samu_warn("deps log truncated");
 		goto rewrite;
 	}
 	if (ver != ninja_depsver) {
@@ -146,8 +200,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 		goto rewrite;
 	}
 	for (nrecord = 0;; ++nrecord) {
-		if (fread(&sz, sizeof(sz), 1, ctx->deps.depsfile) != 1)
+		if (src_fread(&sz, sizeof(sz), 1, &src) != 1) {
 			break;
+		}
 		isdep = sz & 0x80000000;
 		sz &= 0x7fffffff;
 		if (sz > SAMU_MAX_RECORD_SIZE) {
@@ -155,12 +210,13 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			goto rewrite;
 		}
 		if (sz > cap) {
-			do cap *= 2;
-			while (sz > cap);
+			do{
+				cap *= 2;
+			}while (sz > cap);
 			buf = samu_xmalloc(&ctx->arena, cap);
 		}
-		if (fread(buf, sz, 1, ctx->deps.depsfile) != 1) {
-			samu_warn(ferror(ctx->deps.depsfile) ? "deps log read:" : "deps log truncated");
+		if (src_fread(buf, sz, 1, &src) != 1) {
+			samu_warn("deps log truncated");
 			goto rewrite;
 		}
 		if (sz % 4) {
@@ -181,8 +237,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			entry = &ctx->deps.entries[id];
 			entry->mtime = (int64_t)buf[2] << 32 | buf[1];
 			e = entry->node->gen;
-			if (!e || !samu_edgevar(ctx, e, "deps", true))
+			if (!e || !samu_edgevar(ctx, e, "deps", true)) {
 				continue;
+			}
 			sz /= 4;
 			entry->deps.len = sz;
 			entry->deps.node = samu_xreallocarray(&ctx->arena, NULL, 0, sz, sizeof(n));
@@ -208,8 +265,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 				goto rewrite;
 			}
 			len = sz - 4;
-			while (((char *)buf)[len - 1] == '\0')
+			while (((char *)buf)[len - 1] == '\0') {
 				--len;
+			}
 			path = samu_mkstr(&ctx->arena, len);
 			memcpy(path->s, buf, len);
 			path->s[len] = '\0';
@@ -221,15 +279,8 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 				ctx->deps.entriescap = newcap;
 			}
 			n->id = ctx->deps.entrieslen;
-			ctx->deps.entries[ctx->deps.entrieslen++] = (struct samu_entry){.node = n};
+			ctx->deps.entries[ctx->deps.entrieslen++] = (struct samu_entry){ .node = n };
 		}
-	}
-	if (ferror(ctx->deps.depsfile)) {
-		samu_warn("deps log read:");
-		goto rewrite;
-	}
-	if (nrecord <= 1000 || nrecord < 3 * ctx->deps.entrieslen) {
-		return;
 	}
 
 rewrite:
@@ -237,15 +288,17 @@ rewrite:
 		fclose(ctx->deps.depsfile);
 		ctx->deps.depsfile = NULL;
 	}
-	ctx->deps.depsfile = fopen(depspath, "w");
-	if (!ctx->deps.depsfile)
+	ctx->deps.depsfile = fopen(depspath, "wb");
+	if (!ctx->deps.depsfile) {
 		samu_fatal("open %s:", depspath);
+	}
 	samu_depswrite(ctx, ninja_depsheader, 1, sizeof(ninja_depsheader) - 1);
 	samu_depswrite(ctx, &ninja_depsver, 1, sizeof(ninja_depsver));
 
 	/* reset ID for all current entries */
-	for (i = 0; i < ctx->deps.entrieslen; ++i)
+	for (i = 0; i < ctx->deps.entrieslen; ++i) {
 		ctx->deps.entries[i].node->id = -1;
+	}
 	/* save a temporary copy of the old entries */
 	oldentries = samu_xreallocarray(&ctx->arena, NULL, 0, ctx->deps.entrieslen, sizeof(ctx->deps.entries[0]));
 	memcpy(oldentries, ctx->deps.entries, ctx->deps.entrieslen * sizeof(ctx->deps.entries[0]));
@@ -254,25 +307,33 @@ rewrite:
 	ctx->deps.entrieslen = 0;
 	for (i = 0; i < len; ++i) {
 		entry = &oldentries[i];
-		if (!entry->deps.len)
+		if (!entry->deps.len) {
 			continue;
+		}
 		samu_recordid(ctx, entry->node);
 		ctx->deps.entries[entry->node->id] = *entry;
-		for (j = 0; j < entry->deps.len; ++j)
+		for (j = 0; j < entry->deps.len; ++j) {
 			samu_recordid(ctx, entry->deps.node[j]);
+		}
 		samu_recorddeps(ctx, entry->node, &entry->deps, entry->mtime);
 	}
 	fflush(ctx->deps.depsfile);
-	if (ferror(ctx->deps.depsfile))
+	if (ferror(ctx->deps.depsfile)) {
 		samu_fatal("deps log write failed");
+	}
+
+	if (free_src) {
+		fs_source_destroy(&src.src);
+	}
 }
 
 void
 samu_depsclose(struct samu_ctx *ctx)
 {
 	fflush(ctx->deps.depsfile);
-	if (ferror(ctx->deps.depsfile))
+	if (ferror(ctx->deps.depsfile)) {
 		samu_fatal("deps log write failed");
+	}
 	fclose(ctx->deps.depsfile);
 	ctx->deps.depsfile = NULL;
 }
@@ -281,20 +342,25 @@ static struct samu_nodearray *
 samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 {
 	struct samu_string *in, *out = NULL;
-	FILE *f;
+	struct seekable_source src = { 0 };
 	int c, n;
 	bool sawcolon;
 
 	ctx->deps.deps.len = 0;
-	f = fopen(name, "r");
-	if (!f) {
-		if (errno == ENOENT && allowmissing)
+	if (!fs_exists(name)) {
+		if (allowmissing) {
 			return &ctx->deps.deps;
-		return NULL;
+		}
+		return 0;
 	}
+
+	if (!fs_read_entire_file(name, &src.src)) {
+		return 0;
+	}
+
 	sawcolon = false;
 	ctx->deps.buf.len = 0;
-	c = getc(f);
+	c = src_getc(&src);
 	for (;;) {
 		/* TODO: this parser needs to be rewritten to be made simpler */
 		while (isalnum(c) || strchr("$+,-./@\\_", c)) {
@@ -303,14 +369,17 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				/* handle the crazy escaping generated by clang and gcc */
 				n = 0;
 				do {
-					c = getc(f);
-					if (++n % 2 == 0)
+					c = src_getc(&src);
+					if (++n % 2 == 0) {
 						samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+					}
 				} while (c == '\\');
-				if ((c == ' ' || c == '\t') && n % 2 != 0)
+				if ((c == ' ' || c == '\t') && n % 2 != 0) {
 					break;
-				for (; n > 2; n -= 2)
+				}
+				for (; n > 2; n -= 2) {
 					samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+				}
 				switch (c) {
 				case '#':  break;
 				case '\n': c = ' '; continue;
@@ -318,19 +387,19 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				}
 				break;
 			case '$':
-				c = getc(f);
+				c = src_getc(&src);
 				if (c != '$') {
-					samu_warn("bad depfile: contains variable reference");
+					samu_warn("bad depfile[%lld]: contains variable reference", src.i);
 					goto err;
 				}
 				break;
 			}
 			samu_bufadd(&ctx->arena, &ctx->deps.buf, c);
-			c = getc(f);
+			c = src_getc(&src);
 		}
 		if (sawcolon) {
 			if (!isspace(c) && c != EOF) {
-				samu_warn("bad depfile: '%c' is not a valid target character", c);
+				samu_warn("bad depfile[%lld]: '%c' is not a valid target character", src.i, c);
 				goto err;
 			}
 			if (ctx->deps.buf.len > 0) {
@@ -346,16 +415,20 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 			}
 			if (c == '\n') {
 				sawcolon = false;
-				do c = getc(f);
-				while (c == '\n');
+				do{
+					c = src_getc(&src);
+				}while (c == '\n');
 			}
-			if (c == EOF)
+			if (c == EOF) {
 				break;
+			}
 		} else {
-			while (isblank(c))
-				c = getc(f);
-			if (c == EOF)
+			while (isblank(c)) {
+				c = src_getc(&src);
+			}
+			if (c == EOF) {
 				break;
+			}
 			if (c != ':') {
 				samu_warn("bad depfile: expected ':', saw '%c'", c);
 				goto err;
@@ -365,34 +438,35 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				memcpy(out->s, ctx->deps.buf.data, ctx->deps.buf.len);
 				out->s[ctx->deps.buf.len] = '\0';
 			} else if (out->n != ctx->deps.buf.len || memcmp(ctx->deps.buf.data, out->s, ctx->deps.buf.len) != 0) {
-				samu_warn("bad depfile: multiple outputs: %.*s != %s", (int)ctx->deps.buf.len, ctx->deps.buf.data, out->s);
+				samu_fatal("bad depfile: multiple outputs: %.*s != %s", (int)ctx->deps.buf.len, ctx->deps.buf.data, out->s);
 				goto err;
 			}
 			sawcolon = true;
-			c = getc(f);
+			c = src_getc(&src);
 		}
 		ctx->deps.buf.len = 0;
 		for (;;) {
 			if (c == '\\') {
-				if (getc(f) != '\n') {
-					samu_warn("bad depfile: '\\' only allowed before newline");
+				if (src_getc(&src) != '\n') {
+					samu_warn("bad depfile[%lld]: '\\' only allowed before newline", src.i);
+					printf("%s", src.src.src);
 					goto err;
 				}
 			} else if (!isblank(c)) {
 				break;
 			}
-			c = getc(f);
+			c = src_getc(&src);
 		}
 	}
-	if (ferror(f)) {
-		samu_warn("depfile read:");
-		goto err;
-	}
-	fclose(f);
+
+	fs_source_destroy(&src.src);
 	return &ctx->deps.deps;
 
 err:
-	fclose(f);
+	fs_source_destroy(&src.src);
+	if (!allowmissing) {
+		samu_fatal("failed to parse depfile %s", name);
+	}
 	return NULL;
 }
 
@@ -403,23 +477,27 @@ samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 	struct samu_nodearray *deps = NULL;
 	struct samu_node *n;
 
-	if (e->flags & FLAG_DEPS)
+	if (e->flags & FLAG_DEPS) {
 		return;
+	}
 	e->flags |= FLAG_DEPS;
 	n = e->out[0];
 	deptype = samu_edgevar(ctx, e, "deps", true);
 	if (deptype) {
-		if (n->id != -1 && n->mtime <= ctx->deps.entries[n->id].mtime)
+		if (n->id != -1 && n->mtime <= ctx->deps.entries[n->id].mtime) {
 			deps = &ctx->deps.entries[n->id].deps;
-		else if (ctx->buildopts.explain)
+		}else if (ctx->buildopts.explain) {
 			samu_warn("explain %s: missing or outdated record in .ninja_deps", n->path->s);
+		}
 	} else {
 		depfile = samu_edgevar(ctx, e, "depfile", false);
-		if (!depfile)
+		if (!depfile) {
 			return;
+		}
 		deps = samu_depsparse(ctx, depfile->s, false);
-		if (ctx->buildopts.explain && !deps)
+		if (ctx->buildopts.explain && !deps) {
 			samu_warn("explain %s: missing or invalid depfile", n->path->s);
+		}
 	}
 	if (deps) {
 		samu_edgeadddeps(ctx, e, deps->node, deps->len);
@@ -440,8 +518,9 @@ samu_depsrecord(struct samu_ctx *ctx, struct samu_edge *e)
 	bool update;
 
 	deptype = samu_edgevar(ctx, e, "deps", true);
-	if (!deptype || deptype->n == 0)
+	if (!deptype || deptype->n == 0) {
 		return;
+	}
 	if (strcmp(deptype->s, "gcc") != 0) {
 		samu_warn("unsuported deps type: %s", deptype->s);
 		return;
@@ -453,31 +532,37 @@ samu_depsrecord(struct samu_ctx *ctx, struct samu_edge *e)
 	}
 	out = e->out[0];
 	deps = samu_depsparse(ctx, depfile->s, true);
-	if (!ctx->buildopts.keepdepfile)
+	if (!ctx->buildopts.keepdepfile) {
 		remove(depfile->s);
-	if (!deps)
+	}
+	if (!deps) {
 		return;
+	}
 	update = false;
 	entry = NULL;
 	if (samu_recordid(ctx, out)) {
 		update = true;
 	} else {
 		entry = &ctx->deps.entries[out->id];
-		if (entry->mtime != out->mtime || entry->deps.len != deps->len)
+		if (entry->mtime != out->mtime || entry->deps.len != deps->len) {
 			update = true;
+		}
 		for (i = 0; i < deps->len && !update; ++i) {
-			if (entry->deps.node[i] != deps->node[i])
+			if (entry->deps.node[i] != deps->node[i]) {
 				update = true;
+			}
 		}
 	}
 	for (i = 0; i < deps->len; ++i) {
 		n = deps->node[i];
-		if (samu_recordid(ctx, n))
+		if (samu_recordid(ctx, n)) {
 			update = true;
+		}
 	}
 	if (update) {
 		samu_recorddeps(ctx, out, deps, out->mtime);
-		if (fflush(ctx->deps.depsfile) < 0)
+		if (fflush(ctx->deps.depsfile) < 0) {
 			samu_fatal("deps log flush:");
+		}
 	}
 }
