@@ -1946,6 +1946,22 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 		sbuf_pushs(wk, sb, ">");
 		break;
 	}
+	case obj_generated_list: {
+		struct obj_generated_list *gl = get_obj_generated_list(wk, o);
+		sbuf_pushs(wk, sb, "<generated_list input: ");
+
+		obj_to_s_opts(wk, gl->input, sb, opts);
+
+		/* sbuf_pushs(wk, sb, ", extra_args: "); */
+		/* obj_to_s_opts(wk, gl->extra_arguments, sb, opts); */
+
+		/* sbuf_pushs(wk, sb, ", preserve_path_from: "); */
+		/* obj_to_s_opts(wk, gl->preserve_path_from, sb, opts); */
+
+		sbuf_pushs(wk, sb, ">");
+
+		break;
+	}
 	default:
 		sbuf_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
