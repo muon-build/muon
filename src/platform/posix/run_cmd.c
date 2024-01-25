@@ -17,6 +17,7 @@
 
 #include "args.h"
 #include "buf_size.h"
+#include "error.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -25,8 +26,6 @@
 
 extern char **environ;
 
-#define COPY_PIPE_BLOCK_SIZE BUF_SIZE_1k
-
 enum copy_pipe_result {
 	copy_pipe_result_finished,
 	copy_pipe_result_waiting,
@@ -34,17 +33,13 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(int pipe, struct run_cmd_pipe_ctx *ctx)
+copy_pipe(int pipe, struct sbuf *sbuf)
 {
 	ssize_t b;
-	if (!ctx->size) {
-		ctx->size = COPY_PIPE_BLOCK_SIZE;
-		ctx->len = 0;
-		ctx->buf = z_calloc(1, ctx->size + 1);
-	}
+	char buf[4096];
 
 	while (true) {
-		b = read(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len);
+		b = read(pipe, buf, sizeof(buf));
 
 		if (b == -1) {
 			if (errno == EAGAIN) {
@@ -56,12 +51,7 @@ copy_pipe(int pipe, struct run_cmd_pipe_ctx *ctx)
 			return copy_pipe_result_finished;
 		}
 
-		ctx->len += b;
-		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
-			ctx->size *= 2;
-			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
-			memset(&ctx->buf[ctx->len], 0, (ctx->size + 1) - ctx->len);
-		}
+		sbuf_pushn(0, sbuf, buf, b);
 	}
 }
 
@@ -253,6 +243,9 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	}
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		sbuf_init(&ctx->out, 0, 0, sbuf_flag_overflow_alloc);
+		sbuf_init(&ctx->err, 0, 0, sbuf_flag_overflow_alloc);
+
 		if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
 			goto err;
 		} else if (!open_run_cmd_pipe(ctx->pipefd_err, ctx->pipefd_err_open)) {
@@ -496,15 +489,8 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
 	run_cmd_ctx_close_fds(ctx);
 
-	if (ctx->out.size) {
-		z_free(ctx->out.buf);
-		ctx->out.size = 0;
-	}
-
-	if (ctx->err.size) {
-		z_free(ctx->err.buf);
-		ctx->err.size = 0;
-	}
+	sbuf_destroy(&ctx->out);
+	sbuf_destroy(&ctx->err);
 }
 
 bool
