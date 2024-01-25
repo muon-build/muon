@@ -82,8 +82,7 @@ copy_pipes(struct run_cmd_ctx *ctx)
 	case copy_pipe_result_failed:
 		return copy_pipe_result_failed;
 	default:
-		assert(false && "unreachable");
-		return copy_pipe_result_failed;
+		UNREACHABLE_RETURN;
 	}
 }
 
@@ -524,4 +523,10 @@ run_cmd_kill(struct run_cmd_ctx *ctx, bool force)
 	}
 
 	return true;
+}
+
+bool
+run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
+{
+	assert(false && "this function should only be called under windows");
 }

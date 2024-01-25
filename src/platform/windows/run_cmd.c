@@ -7,7 +7,6 @@
 #include "compat.h"
 
 #include <string.h>
-#include <assert.h>
 
 #include <windows.h>
 #define STRSAFE_NO_CB_FUNCTIONS
@@ -15,21 +14,51 @@
 
 #include "args.h"
 #include "buf_size.h"
+#include "error.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "platform/timer.h"
 #include "platform/windows/win32_error.h"
 
-#define CLOSE_PIPE(p_) do { \
-		if ((p_) != INVALID_HANDLE_VALUE && !CloseHandle(p_)) { \
-			LOG_E("failed to close pipe: %s", win32_error()); \
-		} \
-		p_ = INVALID_HANDLE_VALUE; \
-} while (0)
+static uint32_t cnt_open;
 
-#define COPY_PIPE_BLOCK_SIZE BUF_SIZE_1k
+#define record_handle(__h, v) _record_handle(__h, v, #__h)
+
+static bool
+_record_handle(HANDLE *h, HANDLE v, const char *desc)
+{
+	if (v == INVALID_HANDLE_VALUE) {
+		return false;
+	}
+
+	++cnt_open;
+	*h = v;
+	return true;
+}
+
+#define close_handle(__h) _close_handle(__h, #__h)
+
+static bool
+_close_handle(HANDLE *h, const char *desc)
+{
+	if (*h == INVALID_HANDLE_VALUE) {
+		return true;
+	}
+
+	assert(cnt_open);
+
+	if (!CloseHandle(*h)) {
+		LOG_E("failed to close handle %s:%p: %s", desc, *h, win32_error());
+		return false;
+	}
+
+	--cnt_open;
+	*h = INVALID_HANDLE_VALUE;
+	return true;
+}
 
 enum copy_pipe_result {
 	copy_pipe_result_finished,
@@ -37,102 +66,103 @@ enum copy_pipe_result {
 	copy_pipe_result_failed,
 };
 
-/*
- * [X] copy_pipe()
- * [X] copy_pipes()
- * [X] run_cmd_ctx_close_pipes()
- * [X] run_cmd_collect()
- * [X] open_run_cmd_pipe()
- * [X] run_cmd_internal()
- * [X] run_cmd_argv()
- * [X] run_cmd()
- * [X] run_cmd_ctx_destroy()
- * [ ] run_cmd_kill()
- */
-
 static enum copy_pipe_result
-copy_pipe(HANDLE pipe, struct run_cmd_pipe_ctx *ctx)
+copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 {
-	char *buf;
-	char *it1;
-	char *it2;
-	size_t len;
+	if (pipe->is_eof) {
+		return copy_pipe_result_finished;
+	}
+
 	DWORD bytes_read;
-	BOOL res;
 
-	if (!ctx->size) {
-		ctx->size = COPY_PIPE_BLOCK_SIZE;
-		ctx->len = 0;
-		ctx->buf = z_calloc(1, ctx->size + 1);
+	if (pipe->is_pending) {
+		if (!GetOverlappedResult(pipe->handle, &pipe->overlapped, &bytes_read, TRUE)) {
+			switch (GetLastError()) {
+			case ERROR_BROKEN_PIPE:
+				pipe->is_eof = true;
+				if (!close_handle(&pipe->handle)) {
+					return copy_pipe_result_failed;
+				}
+				return copy_pipe_result_finished;
+			default:
+				win32_fatal("GetOverlappedResult:");
+				return copy_pipe_result_failed;
+			}
+		} else {
+			if (bytes_read) {
+				sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
+				pipe->overlapped.Offset = 0;
+				pipe->overlapped.OffsetHigh = 0;
+			}
+
+			ResetEvent(pipe->overlapped.hEvent);
+		}
 	}
 
-	while (1) {
-		res = ReadFile(pipe, &ctx->buf[ctx->len], ctx->size - ctx->len, &bytes_read, NULL);
-
-		if (!res && GetLastError() != ERROR_MORE_DATA) {
+	if (!ReadFile(pipe->handle,
+		pipe->overlapped_buf,
+		sizeof(pipe->overlapped_buf),
+		&bytes_read,
+		&pipe->overlapped)) {
+		switch (GetLastError()) {
+		case ERROR_BROKEN_PIPE:
+			pipe->is_eof = true;
+			if (!close_handle(&pipe->handle)) {
+				return copy_pipe_result_failed;
+			}
+			return copy_pipe_result_finished;
+		case ERROR_IO_PENDING:
+			pipe->is_pending = true;
 			break;
-		}
-
-		ctx->len += bytes_read;
-		if ((ctx->len + COPY_PIPE_BLOCK_SIZE) > ctx->size) {
-			ctx->size += COPY_PIPE_BLOCK_SIZE;
-			ctx->buf = z_realloc(ctx->buf, ctx->size + 1);
-			memset(ctx->buf + ctx->len, 0, (ctx->size + 1) - ctx->len);
-		}
-	}
-
-	if (!res) {
-		if (GetLastError() != ERROR_BROKEN_PIPE) {
+		default:
+			win32_fatal("ReadFile:");
 			return copy_pipe_result_failed;
 		}
+	} else {
+		pipe->is_pending = false;
 	}
 
-	/* remove remaining \r */
-	buf = z_calloc(1, ctx->size + 1);
-	if (!buf) {
-		return copy_pipe_result_failed;
-	}
-
-	it1 = ctx->buf;
-	it2 = buf;
-	len = 0;
-	for (it1 = ctx->buf; *it1; it1++) {
-		if (*it1 == '\r' && *(it1 + 1) == '\n') {
-			continue;
-		}
-
-		*it2 = *it1;
-		it2++;
-		len++;
-	}
-
-	z_free(ctx->buf);
-	ctx->buf = buf;
-	ctx->len = len;
-
-	return copy_pipe_result_finished;
+	return copy_pipe_result_waiting;
 }
 
 static enum copy_pipe_result
 copy_pipes(struct run_cmd_ctx *ctx)
 {
-	enum copy_pipe_result res;
+	struct {
+		struct win_pipe_inst *pipe;
+		struct sbuf *sbuf;
+	} pipes[2];
+	HANDLE events[2];
+	uint32_t event_count = 0;
 
-	if ((res = copy_pipe(ctx->pipe_out.pipe[0], &ctx->out)) == copy_pipe_result_failed) {
-		return res;
-	}
+#define PUSH_PIPE(__p, __sb) \
+	if (!(__p)->is_eof) { \
+		pipes[event_count].pipe = (__p); \
+		pipes[event_count].sbuf = (__sb); \
+		events[event_count] = (__p)->event; \
+		++event_count; \
+	} \
 
-	switch (copy_pipe(ctx->pipe_err.pipe[0], &ctx->err)) {
-	case copy_pipe_result_waiting:
+	PUSH_PIPE(&ctx->pipe_out, &ctx->out);
+	PUSH_PIPE(&ctx->pipe_err, &ctx->err);
+
+#undef PUSH_PIPE
+
+	DWORD wait = WaitForMultipleObjects(event_count, events, FALSE, 0);
+
+	if (wait == WAIT_TIMEOUT) {
 		return copy_pipe_result_waiting;
-	case copy_pipe_result_finished:
-		return res;
-	case copy_pipe_result_failed:
-		return copy_pipe_result_failed;
-	default:
-		assert(false && "unreachable");
-		return copy_pipe_result_failed;
+	} else if (wait == WAIT_FAILED) {
+		win32_fatal("WaitForMultipleObjects:");
+	} else if (WAIT_ABANDONED_0 <= wait &&  wait < WAIT_ABANDONED_0 + event_count) {
+		win32_fatal("WaitForMultipleObjects: abandoned");
+	} else if (wait >= WAIT_OBJECT_0 + event_count) {
+		win32_fatal("WaitForMultipleObjects: index out of range");
+	} else {
+		wait -= WAIT_OBJECT_0;
 	}
+
+	return copy_pipe(pipes[wait].pipe, pipes[wait].sbuf);
 }
 
 static void
@@ -142,10 +172,10 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 		return;
 	}
 
-	CLOSE_PIPE(ctx->pipe_err.pipe[0]);
-	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
-	CLOSE_PIPE(ctx->pipe_out.pipe[0]);
-	CLOSE_PIPE(ctx->pipe_out.pipe[1]);
+	close_handle(&ctx->pipe_err.handle);
+	close_handle(&ctx->pipe_err.event);
+	close_handle(&ctx->pipe_out.handle);
+	close_handle(&ctx->pipe_out.event);
 
 	// TODO stdin
 #if 0
@@ -159,110 +189,141 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 enum run_cmd_state
 run_cmd_collect(struct run_cmd_ctx *ctx)
 {
+	DWORD res;
+	DWORD status;
+
 	enum copy_pipe_result pipe_res = 0;
 
-	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+	bool loop = true;
+	while (loop) {
+		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+				return run_cmd_error;
+			}
+		}
+
+		res = WaitForSingleObject(ctx->process, 1);
+		switch (res) {
+		case WAIT_TIMEOUT:
+			if (ctx->flags & run_cmd_ctx_flag_async) {
+				return run_cmd_running;
+			}
+			break;
+		case WAIT_OBJECT_0:
+			// State is signalled
+			loop = false;
+			break;
+		case WAIT_FAILED:
+			ctx->err_msg = win32_error();
+			return run_cmd_error;
+		case WAIT_ABANDONED:
+			ctx->err_msg = "child exited abnormally (WAIT_ABANDONED)";
 			return run_cmd_error;
 		}
 	}
 
-	if (ctx->flags & run_cmd_ctx_flag_async) {
-	} else {
-		DWORD res;
-		DWORD status;
-
-		res = WaitForSingleObject(ctx->process, INFINITE);
-		switch (res) {
-		case WAIT_OBJECT_0:
-			 break;
-		default:
-			 ctx->err_msg = "child exited abnormally";
-			 return run_cmd_error;
-		}
-
-		if (!GetExitCodeProcess(ctx->process, &status)) {
-			 ctx->err_msg = "can not get process exit code";
-			 return run_cmd_error;
-		}
-
-		ctx->status = (int)status;
+	if (!GetExitCodeProcess(ctx->process, &status)) {
+		ctx->err_msg = "can not get process exit code";
+		return run_cmd_error;
 	}
 
+	ctx->status = (int)status;
+
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		while (pipe_res != copy_pipe_result_finished) {
-			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+		while (!(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
+			if (copy_pipes(ctx) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
 		}
 	}
 
-	run_cmd_ctx_close_pipes(ctx);
-
 	return run_cmd_finished;
 }
 
 static bool
-open_pipes(HANDLE *pipe, const char *name)
+open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name)
 {
-	char buf[512];
-	SECURITY_ATTRIBUTES sa;
-	BOOL connected;
-	int i;
+	static uint64_t uniq = 0;
+	char pipe_name[256];
+	snprintf(pipe_name, ARRAY_LEN(pipe_name),
+		"\\\\.\\pipe\\muon_run_cmd_pid%lu_%llu_%s", GetCurrentProcessId(), uniq, name);
+	++uniq;
 
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sa.lpSecurityDescriptor = NULL;
-	sa.bInheritHandle = TRUE;
+	if (!record_handle(&pipe->event, CreateEvent(
+		NULL, // default security attribute
+		TRUE, // manual-reset event
+		TRUE, // initial state = signaled
+		NULL  // unnamed event object
+		))) {
+		win32_fatal("CreateEvent:");
+	}
 
-	i = 0;
-	do {
-		HRESULT res;
+	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
+	pipe->overlapped.hEvent = pipe->event;
 
-		if (FAILED(StringCchPrintf(buf, sizeof(buf), "%s%d", name, i))) {
+	if (!record_handle(&pipe->handle, CreateNamedPipeA(
+		pipe_name,
+		PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+		PIPE_TYPE_BYTE | PIPE_WAIT,
+		PIPE_UNLIMITED_INSTANCES,
+		0, 0, INFINITE, NULL
+		))) {
+		win32_fatal("CreateNamedPipe:");
+		return false;
+	}
+
+	if (!ConnectNamedPipe(pipe->handle, &pipe->overlapped) && GetLastError() != ERROR_IO_PENDING) {
+		win32_fatal("ConnectNamedPipe:");
+		return false;
+	}
+
+	HANDLE output_write_child;
+	{
+		// Get the write end of the pipe as a handle inheritable across processes.
+		HANDLE output_write_handle, dup;
+		if (!record_handle(&output_write_handle,
+			CreateFileA(pipe_name, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL))) {
+			win32_fatal("CreateFile:");
 			return false;
 		}
-		pipe[0] = CreateNamedPipe(buf, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1UL, BUF_SIZE_4k, BUF_SIZE_4k, 0UL, &sa);
-		i++;
-	} while (pipe[0] == INVALID_HANDLE_VALUE);
 
-	if (pipe[0] == INVALID_HANDLE_VALUE) {
-		LOG_E("failed to create read end of the pipe: %ld %s", GetLastError(), win32_error());
-		return false;
+		if (!DuplicateHandle(
+			GetCurrentProcess(),
+			output_write_handle,
+			GetCurrentProcess(),
+			&dup,
+			0,
+			TRUE,
+			DUPLICATE_SAME_ACCESS)) {
+			win32_fatal("DuplicateHandle:");
+			return false;
+		}
+
+		if (!record_handle(&output_write_child, dup)) {
+			return false;
+		} else if (!close_handle(&output_write_handle)) {
+			return false;
+		}
 	}
 
-	pipe[1] = CreateFile(buf, GENERIC_WRITE, 0UL, &sa, OPEN_EXISTING, 0UL, NULL);
-	if (pipe[1] == INVALID_HANDLE_VALUE) {
-		LOG_E("failed to create write end of the pipe: %s", win32_error());
-		CLOSE_PIPE(pipe[0]);
-		return false;
-	}
-
-	connected = ConnectNamedPipe(pipe[0], NULL);
-	if (connected == 0 && GetLastError() != ERROR_PIPE_CONNECTED) {
-		LOG_E("failed to connect to pipe: %s", win32_error());
-		CLOSE_PIPE(pipe[1]);
-		CLOSE_PIPE(pipe[0]);
-		return false;
-	}
-
+	pipe->child_handle = output_write_child;
+	pipe->is_pending = true;
 	return true;
 }
 
 static bool
 open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 {
-	ctx->pipe_out.pipe[0] = INVALID_HANDLE_VALUE;
-	ctx->pipe_out.pipe[1] = INVALID_HANDLE_VALUE;
-	ctx->pipe_err.pipe[0] = INVALID_HANDLE_VALUE;
-	ctx->pipe_err.pipe[1] = INVALID_HANDLE_VALUE;
-
 	if (ctx->flags & run_cmd_ctx_flag_dont_capture) {
 		return true;
 	}
 
-	if (!open_pipes(ctx->pipe_out.pipe, "\\\\.\\pipe\\run_cmd_pipe_out")) {
+	sbuf_init(&ctx->out, 0, 0, sbuf_flag_overflow_alloc);
+	sbuf_init(&ctx->err, 0, 0, sbuf_flag_overflow_alloc);
+
+	if (!open_pipes(ctx, &ctx->pipe_out, "out")) {
 		return false;
-	} else if (!open_pipes(ctx->pipe_err.pipe, "\\\\.\\pipe\\run_cmd_pipe_err")) {
+	} else if (!open_pipes(ctx, &ctx->pipe_err, "err")) {
 		return false;
 	}
 
@@ -274,8 +335,6 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 static bool
 run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr, uint32_t envc)
 {
-	PROCESS_INFORMATION pi;
-	STARTUPINFO si;
 	const char *p;
 	BOOL res;
 
@@ -343,17 +402,32 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		goto err;
 	}
 
-	ZeroMemory(&si, sizeof(STARTUPINFO));
-	si.cb = sizeof(STARTUPINFO);
-	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		si.dwFlags = STARTF_USESTDHANDLES;
-		si.hStdOutput = ctx->pipe_out.pipe[1];
-		// FIXME stdin
-		si.hStdInput  = NULL;
-		si.hStdError  = ctx->pipe_err.pipe[1];
+	SECURITY_ATTRIBUTES security_attributes;
+	memset(&security_attributes, 0, sizeof(SECURITY_ATTRIBUTES));
+	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+	security_attributes.bInheritHandle = TRUE;
+
+	// Must be inheritable so subprocesses can dup to children.
+	// TODO: delete when stdin support added
+	HANDLE nul;
+	if (!record_handle(&nul, CreateFileA("NUL", GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		&security_attributes, OPEN_EXISTING, 0, NULL))) {
+		error_unrecoverable("couldn't open nul");
 	}
 
-	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+	STARTUPINFOA startup_info;
+	memset(&startup_info, 0, sizeof(startup_info));
+	startup_info.cb = sizeof(STARTUPINFO);
+	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		startup_info.dwFlags = STARTF_USESTDHANDLES;
+		startup_info.hStdInput = nul;
+		startup_info.hStdOutput = ctx->pipe_out.child_handle;
+		startup_info.hStdError = ctx->pipe_err.child_handle;
+	}
+
+	PROCESS_INFORMATION process_info;
+	memset(&process_info, 0, sizeof(process_info));
 
 	if (ctx->chdir) {
 		if (!fs_dir_exists(ctx->chdir)) {
@@ -362,17 +436,26 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		}
 	}
 
-	res = CreateProcess(NULL, command_line, NULL, NULL, TRUE, 0UL, NULL, ctx->chdir, &si, &pi);
+	DWORD process_flags = 0;
+
+	res = CreateProcess(NULL, command_line, NULL, NULL,
+		/* inherit handles */ TRUE, process_flags,
+		NULL, ctx->chdir,
+		&startup_info, &process_info);
 	if (!res) {
+		DWORD error = GetLastError();
+		if (error == ERROR_FILE_NOT_FOUND) {
+		}
 		LOG_E("CreateProcess() failed: %s", win32_error());
 		goto err;
 	}
 
-	CLOSE_PIPE(ctx->pipe_out.pipe[1]);
-	CLOSE_PIPE(ctx->pipe_err.pipe[1]);
+	close_handle(&ctx->pipe_out.child_handle);
+	close_handle(&ctx->pipe_err.child_handle);
+	close_handle(&nul);
 
-	ctx->process = pi.hProcess;
-	CloseHandle(pi.hThread);
+	record_handle(&ctx->process, process_info.hProcess);
+	CloseHandle(process_info.hThread);
 
 	if (ctx->flags & run_cmd_ctx_flag_async) {
 		return true;
@@ -433,14 +516,14 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 			sbuf_push(NULL, cmd, '\"');
 			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
 			sbuf_push(NULL, cmd, '\"');
-		}else if (fs_has_extension(cmd_argv0->buf, ".bat")) {
+		} else if (fs_has_extension(cmd_argv0->buf, ".bat")) {
 			/*
 			 * to run .bat file, run it with cmd.exe /c
 			 */
 			sbuf_pushs(NULL, cmd, "\"c:\\windows\\system32\\cmd.exe\" \"/c\" \"");
 			sbuf_pushs(NULL, cmd, cmd_argv0->buf);
 			sbuf_push(NULL, cmd, '\"');
-		}else {
+		} else if (fs_exists(cmd_argv0->buf)) {
 			if (!fs_read_entire_file(cmd_argv0->buf, src)) {
 				ctx->err_msg = "error determining command interpreter";
 				return false;
@@ -488,7 +571,6 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 			}
 		}
 	} else {
-
 		if (!fs_find_cmd(NULL, cmd_argv0, argv0)) {
 			ctx->err_msg = "command not found";
 			return false;
@@ -548,6 +630,12 @@ argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *ar
 }
 
 bool
+run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
+{
+	return run_cmd_internal(ctx, cmd, envstr, envc);
+}
+
+bool
 run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argtab, const char *envstr, uint32_t envc)
 {
 	bool ret = false;
@@ -594,18 +682,11 @@ err:
 void
 run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
-	CloseHandle(ctx->process);
+	close_handle(&ctx->process);
 	run_cmd_ctx_close_pipes(ctx);
 
-	if (ctx->out.size) {
-		z_free(ctx->out.buf);
-		ctx->out.size = 0;
-	}
-
-	if (ctx->err.size) {
-		z_free(ctx->err.buf);
-		ctx->err.size = 0;
-	}
+	sbuf_destroy(&ctx->out);
+	sbuf_destroy(&ctx->err);
 }
 
 bool

@@ -9,24 +9,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+	#ifndef WIN32_LEAN_AND_MEAN
+		#define WIN32_LEAN_AND_MEAN
+	#endif
+	#include <windows.h>
 #else
-#include <unistd.h>
+	#include <unistd.h>
 #endif
+
+#include "lang/string.h"
 
 enum run_cmd_state {
-	run_cmd_error,
 	run_cmd_running,
 	run_cmd_finished,
-};
-
-struct run_cmd_pipe_ctx {
-	size_t size;
-	size_t len;
-	char *buf;
+	run_cmd_error,
 };
 
 enum run_cmd_ctx_flags {
@@ -34,8 +30,19 @@ enum run_cmd_ctx_flags {
 	run_cmd_ctx_flag_dont_capture = 1 << 1,
 };
 
+#ifdef _WIN32
+struct win_pipe_inst {
+	OVERLAPPED overlapped;
+	HANDLE handle;
+	HANDLE child_handle;
+	HANDLE event;
+	char overlapped_buf[4 << 10];
+	bool is_pending, is_eof;
+};
+#endif
+
 struct run_cmd_ctx {
-	struct run_cmd_pipe_ctx err, out;
+	struct sbuf err, out;
 	const char *err_msg; // set on error
 	const char *chdir; // set by caller
 	const char *stdin_path; // set by caller
@@ -44,10 +51,7 @@ struct run_cmd_ctx {
 #ifdef _WIN32
 	HANDLE process;
 	bool close_pipes;
-	struct {
-		OVERLAPPED overlap;
-		HANDLE pipe[2];
-	} pipe_out, pipe_err;
+	struct win_pipe_inst pipe_out, pipe_err;
 #else
 	int pipefd_out[2], pipefd_err[2];
 	int input_fd;
@@ -71,4 +75,10 @@ bool run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr
 enum run_cmd_state run_cmd_collect(struct run_cmd_ctx *ctx);
 void run_cmd_ctx_destroy(struct run_cmd_ctx *ctx);
 bool run_cmd_kill(struct run_cmd_ctx *ctx, bool force);
+
+// runs a command by passing a single string containing both the command and
+// arguments.
+// currently only used by samurai on windows
+bool run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc);
+
 #endif

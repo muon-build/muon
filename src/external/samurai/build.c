@@ -9,6 +9,7 @@
 #include <inttypes.h>
 
 #include "external/samurai/ctx.h"
+#include "functions/machine.h"
 #include "log.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
@@ -264,7 +265,6 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 	size_t i;
 	struct samu_node *n;
 	struct samu_string *rspfile, *content;
-	char *argv[] = {"/bin/sh", "-c", NULL, NULL};
 
 	++ctx->build.nstarted;
 	for (i = 0; i < e->nout; ++i) {
@@ -292,12 +292,19 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 		j->cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 	}
 
-	argv[2] = j->cmd->s;
-
 	if (!ctx->build.consoleused)
 		samu_printstatus(ctx, e, j->cmd);
 
-	if (!run_cmd_argv(&j->cmd_ctx, argv, 0, 0)) {
+
+	bool cmd_started = false;
+	if (machine_system() == machine_system_windows) {
+		cmd_started = run_cmd_unsplit(&j->cmd_ctx, j->cmd->s, 0, 0);
+	} else {
+		char *argv[] = {"/bin/sh", "-c", j->cmd->s, NULL};
+		cmd_started = run_cmd_argv(&j->cmd_ctx, argv, 0, 0);
+	}
+
+	if (!cmd_started) {
 		samu_warn("failed to start job: %s", j->cmd_ctx.err_msg);
 		j->failed = true;
 		return false;
@@ -481,6 +488,7 @@ samu_build(struct samu_ctx *ctx)
 		}
 		if (numjobs == 0)
 			break;
+
 		for (i = 0; i < jobslen; ++i) {
 			if (!jobs[i].running) {
 				continue;
