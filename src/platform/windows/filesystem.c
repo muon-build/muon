@@ -7,11 +7,12 @@
 #include "compat.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 #include <io.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "log.h"
 #include "lang/string.h"
@@ -339,7 +340,7 @@ fs_is_a_tty_from_fd(int fd)
 				/*
 				 * Check the name of the pipe:
 				 * '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
-				*/
+				 */
 				p = fni->FileName;
 				if (is_wprefix(p, L"\\cygwin-")) {
 					p += 8;
@@ -351,7 +352,7 @@ fs_is_a_tty_from_fd(int fd)
 				if (p) {
 					/* Skip 16-digit hexadecimal. */
 					if (wcsspn(p, L"0123456789abcdefABCDEF") == 16) {
-						p+= 16;
+						p += 16;
 					} else {
 						p = NULL;
 					}
@@ -359,8 +360,7 @@ fs_is_a_tty_from_fd(int fd)
 				if (p) {
 					if (is_wprefix(p, L"-pty")) {
 						p += 4;
-					}
-					else {
+					}else {
 						p = NULL;
 					}
 				}
@@ -377,8 +377,7 @@ fs_is_a_tty_from_fd(int fd)
 							//p += 12;
 						} else if (is_wprefix(p, L"-to-master")) {
 							//p += 10;
-						}
-						else {
+						}else {
 							p = NULL;
 						}
 					}
@@ -506,5 +505,6 @@ fs_mtime(const char *path, int64_t *mtime)
 
 	t.LowPart = d.ftLastWriteTime.dwLowDateTime;
 	t.HighPart = d.ftLastWriteTime.dwHighDateTime;
-	return t.QuadPart * 100;
+	*mtime = t.QuadPart * 100;
+	return fs_mtime_result_ok;
 }
