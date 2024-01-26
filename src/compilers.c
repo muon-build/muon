@@ -992,10 +992,10 @@ compiler_cl_args_set_std(const char *std)
 	COMPILER_ARGS({ buf });
 
 	if (!strcmp(std, "c11")) {
-		snprintf(buf, BUF_SIZE_S, "/std:c11", std);
+		snprintf(buf, BUF_SIZE_S, "/std:c11");
 	}
 	else if (!strcmp(std, "c17") || !strcmp(std, "c18")) {
-		snprintf(buf, BUF_SIZE_S, "/std:c17", std);
+		snprintf(buf, BUF_SIZE_S, "/std:c17");
 	} else {
 		args.len = 0;
 	}
