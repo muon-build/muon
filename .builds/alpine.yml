@@ -18,7 +18,6 @@ packages:
   - curl-dev
   - libarchive-dev
   - pkgconf-dev
-  - samurai
 
   - python3 # for project tests, meson-reference.3, and parts of the website
   - linux-headers # used in a few project tests
@@ -65,8 +64,13 @@ tasks:
         tools/ci/solaris11.sh submit
       fi
   - build_gcc: |
+      # In order to fetch the meson-docs wrap, we have to build muon twice,
+      # once to bootstrap, and then again when we have libcurl
       cd muon
-      CC=gcc tools/ci/bootstrap.sh build -Dbuildtype=release -Dstatic=true -Dwebsite=true
+      OPTS="-Dlibpkgconf=enabled -Dlibarchive=enabled -Dlibcurl=enabled -Dbuildtype=release -Dstatic=true -Dwebsite=true"
+      CC=gcc tools/ci/bootstrap.sh build $OPTS
+      build/muon setup $OPTS build
+      build/muon -C build samu
   - build_tcc: |
       cd muon
       CC=tcc tools/ci/bootstrap.sh build-tcc
@@ -84,7 +88,7 @@ tasks:
         -Dlibcurl=disabled \
         -Dlibarchive=disabled \
         build-small
-      samu -C build-small
+      build/muon -C build-small samu
   - release: |
       cd muon
       tools/ci/prepare_release_docs.sh build
