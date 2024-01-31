@@ -3,7 +3,6 @@
 
 image: debian/stable
 packages:
-  - ninja-build
   - clang
   - libclang-rt-dev
   - llvm
@@ -13,24 +12,22 @@ sources:
 tasks:
   - bootstrap: |
       cd muon
-      ./bootstrap.sh build
-      build/muon setup build
-      ninja -C build
+      tools/ci/bootstrap.sh build
 
   - build_asan_ubsan: |
       cd muon
       build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
-      ninja -C build_asan_ubsan
+      build/muon -C build_asan_ubsan samu
 
   - build_memsan: |
       cd muon
       CC=clang build/muon setup -Db_sanitize=memory build_memsan
-      ninja -C build_memsan
+      build/muon -C build_memsan samu
 
   - build_fortify_source: |
       cd muon
       CC=clang CFLAGS=-D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
-      ninja -C build_fortify_source
+      build/muon -C build_fortify_source samu
 
   - test_asan_ubsan: |
       cd muon/build_asan_ubsan
