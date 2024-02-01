@@ -237,7 +237,9 @@ samu_formatstatus(struct samu_ctx *ctx, char *buf, size_t len)
 		ret += n;
 		if ((size_t)n > len)
 			n = len;
-		buf += n;
+		if (buf) {
+			buf += n;
+		}
 		len -= n;
 	}
 	if (len > 0)

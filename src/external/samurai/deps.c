@@ -119,6 +119,10 @@ struct seekable_source {
 static size_t
 src_fread(void *buf, size_t sz, size_t n, struct seekable_source *src)
 {
+	if (!sz || !n) {
+		return 0;
+	}
+
 	if (src->i >= src->src.len) {
 		return 0;
 	}

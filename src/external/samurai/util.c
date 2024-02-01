@@ -150,7 +150,9 @@ void *
 samu_arena_realloc(struct samu_arena *a, void *p, size_t old, size_t new)
 {
 	char *mem = samu_arena_alloc(a, new);
-	memcpy(mem, p, old);
+	if (p) {
+		memcpy(mem, p, old);
+	}
 	return mem;
 }
 
@@ -231,8 +233,9 @@ samu_canonpath(struct samu_string *path)
 	int n;
 	char *s, *d, *end;
 
-	if (path->n == 0)
+	if (path->n == 0) {
 		samu_fatal("empty path");
+	}
 	s = d = path->s;
 	end = path->s + path->n;
 	n = 0;
@@ -251,8 +254,9 @@ samu_canonpath(struct samu_string *path)
 				s += 2;
 				continue;
 			case '.':
-				if (s[2] != '/' && s[2] != '\0')
+				if (s[2] != '/' && s[2] != '\0') {
 					break;
+				}
 				if (n > 0) {
 					d = component[--n];
 				} else {
@@ -264,11 +268,13 @@ samu_canonpath(struct samu_string *path)
 				continue;
 			}
 		}
-		if (n == ARRAY_LEN(component))
+		if (n == ARRAY_LEN(component)) {
 			samu_fatal("path has too many components: %s", path->s);
+		}
 		component[n++] = d;
-		while (*s != '/' && *s != '\0')
+		while (*s != '/' && *s != '\0') {
 			*d++ = *s++;
+		}
 		*d++ = *s++;
 	}
 	if (d == path->s) {
