@@ -17,6 +17,7 @@ dependencies.
 - `muon analyze` - a static analyzer for meson.build files.  [demo]
 - `muon fmt` - a meson.build code formatter
 - An interactive stepping debugger with the `dbg()` function.
+- A built-in cross platform [ninja implementation]
 - [fast]
 
 ## Status
@@ -42,7 +43,7 @@ Patches and bug reports welcome!
 
 Essential:
 
-- `c99`
+- A c99 compatible toolchain
 
 For `pkgconf` support:
 
@@ -88,8 +89,8 @@ Stage 1:
 ./bootstrap.sh build
 ```
 
-This will by default build a copy of samurai into the resulting executable.  To
-disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.
+This will by default build a ninja implementation (samu) into the resulting
+executable.  To disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.
 
 Stage 2:
 
@@ -119,7 +120,6 @@ inspired to actually go out and do it when I saw [boson].  `muon`'s code was
 originally based on `boson`, though has since been almost completely rewritten.
 
 [muon]: https://muon.build
-[samurai]: https://github.com/michaelforney/samurai
 [contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/contributing.md
 [mailing list]: https://lists.sr.ht/~lattis/muon/
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
@@ -130,3 +130,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [status page]: https://muon.build/releases/edge/docs/status.html
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
 [demo]: https://play.muon.build
+[ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
