@@ -744,10 +744,25 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return true;
 	}
 
-	SBUF(meson_opts);
-	path_join(wk, &meson_opts, cwd, "meson_options.txt");
+	const char *option_file_names[] = {
+		"meson.options",
+		"meson_options.txt",
+	};
 
-	if (fs_file_exists(meson_opts.buf)) {
+	SBUF(meson_opts);
+
+	bool exists = false;
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(option_file_names); ++i) {
+		path_join(wk, &meson_opts, cwd, option_file_names[i]);
+
+		if (fs_file_exists(meson_opts.buf)) {
+			exists = true;
+			break;
+		}
+	}
+
+	if (exists) {
 		enum language_mode old_mode = wk->lang_mode;
 		wk->lang_mode = language_opts;
 		if (!wk->eval_project_file(wk, meson_opts.buf, false)) {
@@ -768,7 +783,6 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	}
 
 	bool ret = true;
-	uint32_t i;
 	struct option_override *oo;
 
 	for (i = 0; i < wk->option_overrides.len; ++i) {
