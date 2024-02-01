@@ -64,6 +64,7 @@ bool fs_is_a_tty_from_fd(int fd);
 bool fs_is_a_tty(FILE *f);
 bool fs_chmod(const char *path, uint32_t mode);
 bool fs_copy_metadata(const char *src, const char *dest);
+bool fs_remove(const char *path);
 /* Windows only */
 bool fs_has_extension(const char *path, const char *ext);
 

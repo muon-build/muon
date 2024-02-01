@@ -508,3 +508,14 @@ fs_mtime(const char *path, int64_t *mtime)
 	*mtime = t.QuadPart * 100;
 	return fs_mtime_result_ok;
 }
+
+bool
+fs_remove(const char *path)
+{
+	if (!DeleteFileA(path)) {
+		LOG_E("failed DeleteFile(\"%s\"): %s", path, win32_error());
+		return false;
+	}
+
+	return true;
+}

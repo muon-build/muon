@@ -39,17 +39,17 @@ fs_mtime(const char *path, int64_t *mtime)
 	if (stat(path, &st) < 0) {
 		if (errno != ENOENT) {
 			LOG_E("failed stat(%s): %s", path, strerror(errno));
-			return fs_mtime_result_err ;
+			return fs_mtime_result_err;
 		}
 		return fs_mtime_result_not_found;
 	} else {
 #ifdef __APPLE__
 		*mtime = (int64_t)st.st_mtime * 1000000000 + st.st_mtimensec;
 /*
-Illumos hides the members of st_mtim when you define _POSIX_C_SOURCE
-since it has not been updated to support POSIX.1-2008:
-https://www.illumos.org/issues/13327
-*/
+   Illumos hides the members of st_mtim when you define _POSIX_C_SOURCE
+   since it has not been updated to support POSIX.1-2008:
+   https://www.illumos.org/issues/13327
+ */
 #elif defined(__sun) && !defined(__EXTENSIONS__)
 		*mtime = (int64_t)st.st_mtim.__tv_sec * 1000000000 + st.st_mtim.__tv_nsec;
 #else
@@ -280,7 +280,7 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 	return res;
 }
 
-static bool
+bool
 fs_remove(const char *path)
 {
 	if (remove(path) != 0) {

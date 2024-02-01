@@ -537,7 +537,7 @@ samu_depsrecord(struct samu_ctx *ctx, struct samu_edge *e)
 	out = e->out[0];
 	deps = samu_depsparse(ctx, depfile->s, true);
 	if (!ctx->buildopts.keepdepfile) {
-		remove(depfile->s);
+		fs_remove(depfile->s);
 	}
 	if (!deps) {
 		return;

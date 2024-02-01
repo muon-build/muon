@@ -384,7 +384,7 @@ samu_edgedone(struct samu_ctx *ctx, struct samu_edge *e)
 	}
 	rspfile = samu_edgevar(ctx, e, "rspfile", false);
 	if (rspfile && !ctx->buildopts.keeprsp)
-		remove(rspfile->s);
+		fs_remove(rspfile->s);
 	samu_edgehash(ctx, e);
 	samu_depsrecord(ctx, e);
 	for (i = 0; i < e->nout; ++i) {

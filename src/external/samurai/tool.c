@@ -25,11 +25,10 @@
 static int
 samu_cleanpath(struct samu_ctx *ctx, struct samu_string *path)
 {
-	if (path) {
-		if (remove(path->s) == 0) {
+	if (path && fs_exists(path->s)) {
+		if (fs_remove(path->s)) {
 			samu_printf(ctx, "remove %s\n", path->s);
-		} else if (errno != ENOENT) {
-			samu_warn("remove %s:", path->s);
+		} else {
 			return -1;
 		}
 	}
