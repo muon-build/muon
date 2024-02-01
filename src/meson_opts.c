@@ -121,7 +121,7 @@ translate_meson_opts_parser(struct workspace *wk, char *argv[], uint32_t argc, s
 			char *sep;
 			if ((sep = strchr(argv[argi], '='))) {
 				val = sep + 1;
-				arg->len -= 1 - strlen(val);
+				arg->len -= (1 + strlen(val));
 			}
 		} else if (is_opt) {
 			arg->s += 1;
@@ -372,6 +372,7 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc,
 		{ "v", .handle_as = opt_setup_version },
 		{ "D", true, .handle_as = opt_setup_define },
 
+		{ "prefix", true, "prefix" },
 		{ "bindir", true, "bindir", },
 		{ "datadir", true, "datadir" },
 		{ "includedir", true, "includedir" },
@@ -404,7 +405,6 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc,
 		{ "pkg-config-path", true, "pkg_config_path", },
 		{ "pkgconfig.relocatable", .ignore = true },
 		{ "prefer-static", false, "prefer_static" },
-		{ "prefix", true, "prefix" },
 		{ "python.install-env", true, .ignore = true },
 		{ "python.platlibdir", true, .ignore = true },
 		{ "python.purelibdir", true, .ignore = true },
