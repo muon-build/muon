@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 This is a port of [samurai] by Michael Forney.
 
 Most of the changes are to make use of muon's platform layer.  This makes
