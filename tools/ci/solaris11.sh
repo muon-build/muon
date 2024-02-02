@@ -27,7 +27,7 @@ build() {
 	./bootstrap.sh build
 	build/muon setup build
 	build/muon -C build samu
-	build/muon -C build test -d dots -s lang -j$(nproc)
+	build/muon -C build test -d dots -s lang
 }
 
 submit() {

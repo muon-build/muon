@@ -76,10 +76,10 @@ tasks:
       CC=tcc tools/ci/bootstrap.sh build-tcc
   - test_gcc: |
       cd muon/build
-      CC=gcc ./muon test -j$(nproc) -d dots
+      CC=gcc ./muon test -d dots
   - test_clang: |
       cd muon/build
-      CC=clang ./muon test -j$(nproc) -d dots
+      CC=clang ./muon test -d dots
   - build_small: |
       cd muon
       CC=gcc build/muon setup \

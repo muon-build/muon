@@ -31,12 +31,12 @@ tasks:
 
   - test_asan_ubsan: |
       cd muon/build_asan_ubsan
-      ./muon test -j$(nproc) -d dots
+      ./muon test -d dots
 
   - test_memsan: |
       cd muon/build_memsan
-      ./muon test -j$(nproc) -d dots
+      ./muon test -d dots
 
   - test_fortify_source: |
       cd muon/build_fortify_source
-      ./muon test -j$(nproc) -d dots
+      ./muon test -d dots
