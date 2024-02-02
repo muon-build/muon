@@ -93,6 +93,7 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 				sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
 				pipe->overlapped.Offset = 0;
 				pipe->overlapped.OffsetHigh = 0;
+				memset(pipe->overlapped_buf, 0, sizeof(pipe->overlapped_buf));
 			}
 
 			ResetEvent(pipe->overlapped.hEvent);
@@ -120,6 +121,9 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 		}
 	} else {
 		pipe->is_pending = false;
+		if (bytes_read) {
+			sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
+		}
 	}
 
 	return copy_pipe_result_waiting;
@@ -148,7 +152,11 @@ copy_pipes(struct run_cmd_ctx *ctx)
 
 #undef PUSH_PIPE
 
-	DWORD wait = WaitForMultipleObjects(event_count, events, FALSE, 0);
+	if (!event_count) {
+		return copy_pipe_result_finished;
+	}
+
+	DWORD wait = WaitForMultipleObjects(event_count, events, FALSE, 100);
 
 	if (wait == WAIT_TIMEOUT) {
 		return copy_pipe_result_waiting;
@@ -202,7 +210,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 			}
 		}
 
-		res = WaitForSingleObject(ctx->process, 1);
+		res = WaitForSingleObject(ctx->process, 0);
 		switch (res) {
 		case WAIT_TIMEOUT:
 			if (ctx->flags & run_cmd_ctx_flag_async) {
