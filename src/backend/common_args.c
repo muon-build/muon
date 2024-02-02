@@ -321,6 +321,8 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj,
 	obj args;
 	make_obj(wk, &args, obj_array);
 
+	push_args(wk, args, compilers[t].args.always());
+
 	get_std_args(wk, proj, tgt, args, lang, t);
 	if (!get_buildtype_args(wk, proj, tgt, args, t)) {
 		return false;

@@ -814,16 +814,32 @@ compiler_gcc_args_lto(void)
 	return &args;
 }
 
-/* cl compilers */
+/* cl compilers
+ * see mesonbuild/compilers/mixins/visualstudio.py for reference
+ */
+
+static const struct args *
+compiler_cl_args_always(void)
+{
+	COMPILER_ARGS({ "/nologo" });
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_deps(const char *out_target, const char *out_file)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ "/showIncludes", "/MD", buf });
+
+	snprintf(buf, BUF_SIZE_S, "/Fd%s.pdb", out_target);
+
+	return &args;
+}
 
 static const struct args *
 compiler_cl_args_compile_only(void)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   get_compile_only_args
-	 */
-
 	COMPILER_ARGS({ "/c" });
 
 	return &args;
@@ -832,11 +848,6 @@ compiler_cl_args_compile_only(void)
 static const struct args *
 compiler_cl_args_preprocess_only(void)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   get_preprocess_only_args
-	 */
-
 	COMPILER_ARGS({ "/EP" });
 
 	return &args;
@@ -845,24 +856,13 @@ compiler_cl_args_preprocess_only(void)
 static const struct args *
 compiler_cl_args_output(const char *f)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   get_output_args
-	 *
-	 * TODO: with preprocessor
-	 */
-
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	if (str_endswithi(&WKSTR(f), &WKSTR(".obj"))) {
-		snprintf(buf, BUF_SIZE_S, "/Fo%s", f);
-	} else if (str_endswithi(&WKSTR(f), &WKSTR(".exe"))) {
+	if (str_endswithi(&WKSTR(f), &WKSTR(".exe"))) {
 		snprintf(buf, BUF_SIZE_S, "/Fe%s", f);
-	}
-	else {
-		args.len = 0;
-		LOG_E("extension of file '%s' not supported", f);
+	} else {
+		snprintf(buf, BUF_SIZE_S, "/Fo%s", f);
 	}
 
 	return &args;
@@ -871,11 +871,6 @@ compiler_cl_args_output(const char *f)
 static const struct args *
 compiler_cl_args_optimization(uint32_t lvl)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   msvc_optimization_args
-	 */
-
 	COMPILER_ARGS({ NULL, NULL });
 	switch ((enum compiler_optimization_lvl)lvl) {
 	case compiler_optimization_lvl_none:
@@ -912,11 +907,6 @@ compiler_cl_args_optimization(uint32_t lvl)
 static const struct args *
 compiler_cl_args_debug(void)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   msvc_debug_args
-	 */
-
 	COMPILER_ARGS({ "/Zi" });
 
 	return &args;
@@ -925,13 +915,8 @@ compiler_cl_args_debug(void)
 static const struct args *
 compiler_cl_args_warning_lvl(uint32_t lvl)
 {
-	/*
-	 * meson uses nothing instead of /W0, but it's the same warning level
-	 * see:
-	 * https://mesonbuild.com/Builtin-options.html#details-for-warning_level
-	 *
-	 * also see mesonbuild/compilers/mixins/visualstudio.py
-	 *   warn_args
+	/* meson uses nothing instead of /W0, but it's the same warning level
+	 * see: https://mesonbuild.com/Builtin-options.html#details-for-warning_level
 	 */
 
 	COMPILER_ARGS({ NULL });
@@ -958,11 +943,6 @@ compiler_cl_args_warning_lvl(uint32_t lvl)
 static const struct args *
 compiler_cl_args_warn_everything(void)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   warn_args
-	 */
-
 	COMPILER_ARGS({ "/Wall" });
 	return &args;
 }
@@ -970,11 +950,6 @@ compiler_cl_args_warn_everything(void)
 static const struct args *
 compiler_cl_args_werror(void)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   get_werror_args
-	 */
-
 	COMPILER_ARGS({ "/WX" });
 	return &args;
 }
@@ -982,23 +957,9 @@ compiler_cl_args_werror(void)
 static const struct args *
 compiler_cl_args_set_std(const char *std)
 {
-	// FIXME: add also c++ standards (c++14|17|20|latest) ?
-	/*
-	 * see mesonbuild/compilers/c.py
-	 *   get_option_compile_args
-	 */
-
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
-
-	if (!strcmp(std, "c11")) {
-		snprintf(buf, BUF_SIZE_S, "/std:c11");
-	}
-	else if (!strcmp(std, "c17") || !strcmp(std, "c18")) {
-		snprintf(buf, BUF_SIZE_S, "/std:c17");
-	} else {
-		args.len = 0;
-	}
+	snprintf(buf, BUF_SIZE_S, "/std:%s", std);
 
 	return &args;
 }
@@ -1016,20 +977,9 @@ compiler_cl_args_include(const char *dir)
 static const struct args *
 compiler_cl_args_sanitize(const char *sanitizers)
 {
-	/*
-	 * see mesonbuild/compilers/mixins/visualstudio.py
-	 *   sanitizer_compile_args
-	 */
-
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
-
-	if (strcmp(sanitizers, "address") != 0) {
-		LOG_W("msvc compiler ignoring sanitizer '%s', only 'address' is supported", sanitizers);
-		args.len = 0;
-	} else {
-		snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
-	}
+	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", sanitizers);
 
 	return &args;
 }
@@ -1061,6 +1011,7 @@ compiler_clang_cl_args_lto(void)
 	return &args;
 }
 
+/* empty functions */
 
 static const struct args *
 compiler_arg_empty_0(void)
@@ -1134,6 +1085,7 @@ build_compilers(void)
 			.specify_lang    = compiler_arg_empty_1s,
 			.color_output    = compiler_arg_empty_1s,
 			.enable_lto      = compiler_arg_empty_0,
+			.always          = compiler_arg_empty_0,
 		},
 		.object_ext = ".o",
 	};
@@ -1181,7 +1133,7 @@ build_compilers(void)
 	apple_clang.linker = linker_apple;
 
 	struct compiler msvc = empty;
-	/* msvc.args.deps = compiler_cl_args_deps; */
+	msvc.args.deps = compiler_cl_args_deps;
 	msvc.args.compile_only = compiler_cl_args_compile_only;
 	msvc.args.preprocess_only = compiler_cl_args_preprocess_only;
 	msvc.args.output = compiler_cl_args_output;
@@ -1194,7 +1146,9 @@ build_compilers(void)
 	msvc.args.include = compiler_cl_args_include;
 	msvc.args.sanitize = compiler_cl_args_sanitize;
 	msvc.args.define = compiler_cl_args_define;
+	msvc.args.always = compiler_cl_args_always;
 	msvc.linker = linker_msvc;
+	msvc.deps = compiler_deps_msvc;
 	msvc.object_ext = ".obj";
 
 	struct compiler clang_cl = msvc;
