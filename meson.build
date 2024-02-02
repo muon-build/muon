@@ -71,7 +71,6 @@ endif
 cc = meson.get_compiler('c')
 
 if cc.get_id() == 'msvc'
-    ## just checked if /wd was supported in muon
     add_project_arguments(
         cc.get_supported_arguments(
             [
