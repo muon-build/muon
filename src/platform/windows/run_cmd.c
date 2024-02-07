@@ -346,6 +346,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	const char *p;
 	BOOL res;
 
+	ctx->process = INVALID_HANDLE_VALUE;
+
 	if (envstr) {
 		const char *k;
 		uint32_t i = 0;
@@ -407,7 +409,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 #endif
 
 	if (!open_run_cmd_pipe(ctx)) {
-		goto err;
+		return false;
 	}
 
 	SECURITY_ATTRIBUTES security_attributes;
@@ -450,17 +452,23 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		/* inherit handles */ TRUE, process_flags,
 		NULL, ctx->chdir,
 		&startup_info, &process_info);
+
 	if (!res) {
 		DWORD error = GetLastError();
 		if (error == ERROR_FILE_NOT_FOUND) {
 		}
+
 		LOG_E("CreateProcess() failed: %s", win32_error());
-		goto err;
+		ctx->err_msg = "failed to create process";
 	}
 
 	close_handle(&ctx->pipe_out.child_handle);
 	close_handle(&ctx->pipe_err.child_handle);
 	close_handle(&nul);
+
+	if (!res) {
+		return false;
+	}
 
 	record_handle(&ctx->process, process_info.hProcess);
 	CloseHandle(process_info.hThread);
@@ -470,8 +478,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	}
 
 	return run_cmd_collect(ctx) == run_cmd_finished;
-err:
-	return false;
 }
 
 static bool
