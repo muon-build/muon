@@ -70,6 +70,10 @@ void argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32
  */
 uint32_t argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res);
 
+struct source;
+bool run_cmd_determine_interpreter(struct source *src, const char *path,
+	const char **err_msg, const char **new_argv0, const char **new_argv1);
+
 bool run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
 bool run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
 enum run_cmd_state run_cmd_collect(struct run_cmd_ctx *ctx);
