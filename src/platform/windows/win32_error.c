@@ -35,6 +35,13 @@ win32_error(void)
 	StringCchCat(_msg, sizeof(_msg), msg);
 	LocalFree(msg);
 
+	// strip trailing newlines from the error message
+	char *end = &_msg[strlen(_msg) - 1];
+	while (end > msg && strchr("\t\r\n ", *end)) {
+		*end = 0;
+		--end;
+	}
+
 	return _msg;
 }
 
