@@ -10,7 +10,8 @@
 #include <errno.h>
 #include <string.h>
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && defined(MUON_BOOTSTRAPPED)
+	#undef _POSIX_C_SOURCE
 // for sysctl
 	#include <sys/types.h>
 	#include <sys/sysctl.h>
