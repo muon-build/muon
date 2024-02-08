@@ -30,7 +30,7 @@
 static void
 samu_usage(struct samu_ctx *ctx)
 {
-	fprintf(stderr, "usage: %s [-C dir] [-f buildfile] [-j maxjobs] [-k maxfail] [-l maxload] [-n]\n", ctx->argv0);
+	fprintf(stderr, "usage: %s [-C dir] [-f buildfile] [-j maxjobs] [-k maxfail] [-n]\n", ctx->argv0);
 	exit(2);
 }
 
@@ -58,19 +58,6 @@ samu_debugflag(struct samu_ctx *ctx, const char *flag)
 		ctx->buildopts.keeprsp = true;
 	else
 		samu_fatal("unknown debug flag '%s'", flag);
-}
-
-static void
-samu_loadflag(struct samu_ctx *ctx, const char *flag)
-{
-	double value;
-	char *end;
-	errno = 0;
-
-	value = strtod(flag, &end);
-	if (*end || value < 0 || errno != 0)
-		samu_fatal("invalid -l parameter");
-	ctx->buildopts.maxload = value;
 }
 
 static void
@@ -122,9 +109,6 @@ samu_parseenvargs(struct samu_ctx *ctx, char *env)
 		break;
 	case 'v':
 		ctx->buildopts.verbose = true;
-		break;
-	case 'l':
-		samu_loadflag(ctx, SAMU_EARGF(samu_usage(ctx)));
 		break;
 	default:
 		samu_fatal("invalid option in SAMUFLAGS");
@@ -196,9 +180,6 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 		if (*end)
 			samu_fatal("invalid -k parameter");
 		ctx->buildopts.maxfail = num > 0 ? num : -1;
-		break;
-	case 'l':
-		samu_loadflag(ctx, SAMU_EARGF(samu_usage(ctx)));
 		break;
 	case 'n':
 		ctx->buildopts.dryrun = true;

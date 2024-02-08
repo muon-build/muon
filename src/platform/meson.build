@@ -39,20 +39,4 @@ if platform == 'posix'
     else
         platform_sources += files('posix/rpath_fixer.c')
     endif
-
-    # getloadavg detection
-
-    if host_machine.system() == 'darwin'
-        defines = []
-    else
-        defines = ['-D_POSIX_C_SOURCE=200809L', '-D_BSD_SOURCE']
-    endif
-
-    if cc.has_function(
-        'getloadavg',
-        args: defines,
-        prefix: '#include <stdlib.h>',
-    )
-        c_args += '-DMUON_HAVE_GETLOADAVG'
-    endif
 endif

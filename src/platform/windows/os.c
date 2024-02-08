@@ -12,7 +12,8 @@
 
 #include "platform/os.h"
 
-bool os_chdir(const char *path)
+bool
+os_chdir(const char *path)
 {
 	BOOL res;
 
@@ -20,11 +21,9 @@ bool os_chdir(const char *path)
 	if (!res) {
 		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
 			errno = ENOENT;
-		}
-		else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+		}else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
 			errno = ENOTDIR;
-		}
-		else if (GetLastError() == ERROR_FILENAME_EXCED_RANGE) {
+		}else if (GetLastError() == ERROR_FILENAME_EXCED_RANGE) {
 			errno = ENAMETOOLONG;
 		} else {
 			errno = EIO;
@@ -34,11 +33,12 @@ bool os_chdir(const char *path)
 	return res;
 }
 
-char *os_getcwd(char *buf, size_t size)
+char *
+os_getcwd(char *buf, size_t size)
 {
 	DWORD len;
 
-        /* set errno to ERANGE for crossplatform usage of getcwd() in path.c */
+	/* set errno to ERANGE for crossplatform usage of getcwd() in path.c */
 	len = GetCurrentDirectory(0UL, NULL);
 	if (size < len) {
 		errno = ERANGE;
@@ -210,11 +210,11 @@ os_ncpus(void)
 
 	while (byte_offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= length) {
 		switch (iter->Relationship) {
-			case RelationProcessorCore:
-				ncpus += count_bits(iter->ProcessorMask);
-				break;
-			default:
-				break;
+		case RelationProcessorCore:
+			ncpus += count_bits(iter->ProcessorMask);
+			break;
+		default:
+			break;
 		}
 		byte_offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
 		iter++;
@@ -223,11 +223,4 @@ os_ncpus(void)
 	free(buffer);
 
 	return ncpus;
-}
-
-double
-os_getloadavg(void)
-{
-	// TODO: this needs a real implementation
-	return 0;
 }

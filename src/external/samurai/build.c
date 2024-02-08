@@ -450,9 +450,6 @@ samu_build(struct samu_ctx *ctx)
 
 	ctx->build.nstarted = 0;
 	while (true) {
-		/* limit number of of jobs based on load */
-		if (ctx->buildopts.maxload)
-			maxjobs = os_getloadavg() > ctx->buildopts.maxload ? 1 : ctx->buildopts.maxjobs;
 		/* start ready edges */
 		while (ctx->build.work && numjobs < maxjobs && numfail < ctx->buildopts.maxfail) {
 			e = ctx->build.work;
