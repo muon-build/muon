@@ -8,12 +8,14 @@
 
 #ifdef __sun
 /* for signals */
-#define __EXTENSIONS__
+	#define __EXTENSIONS__
 #endif
 
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/run_cmd.h"
@@ -67,6 +69,30 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 	return argc;
 }
 
+static bool
+run_cmd_determine_interpreter_skip_chars(char **p, const char *skip, bool invert)
+{
+	bool char_found;
+
+	while (**p) {
+		char_found = strchr(skip, **p);
+
+		if (invert) {
+			if (char_found) {
+				return true;
+			}
+		} else {
+			if (!char_found) {
+				return true;
+			}
+		}
+
+		++*p;
+	}
+
+	return false;
+}
+
 bool
 run_cmd_determine_interpreter(struct source *src, const char *path,
 	const char **err_msg, const char **new_argv0, const char **new_argv1)
@@ -81,23 +107,37 @@ run_cmd_determine_interpreter(struct source *src, const char *path,
 		return false;
 	}
 
-	*new_argv0 = &src->src[2];
-	*new_argv1 = 0;
+	char *p;
 
-	char *p = (char *)&src->src[2];
-	while (*p && !strchr(" \t", *p)) {
-		++p;
+	if ((p = strchr(&src->src[2], '\n'))) {
+		*p = 0;
 	}
 
-	if (!*p || strchr("\r\n", *p)) {
-		*p = 0;
+	p = (char *)&src->src[2];
+
+	// skip over all whitespace characters before the next token
+	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", false)) {
+		*err_msg = "error determining command interpreter: no interpreter specified after #!";
+		return false;
+	}
+
+	*new_argv0 = p;
+	*new_argv1 = 0;
+
+	// skip over all non-whitespace characters
+	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", true)) {
+		return true;
+	}
+
+	*p = 0;
+	++p;
+
+	// skip over all whitespace characters before the next token
+	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", false)) {
 		return true;
 	}
 
 	*new_argv1 = p;
-	while (*p && !strchr(" \t", *p)) {
-		++p;
-	}
 
 	return true;
 }

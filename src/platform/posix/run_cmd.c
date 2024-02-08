@@ -365,40 +365,8 @@ build_argv(struct run_cmd_ctx *ctx, struct source *src,
 		path_make_absolute(NULL, cmd, argv0);
 
 		if (!fs_exe_exists(cmd->buf)) {
-			if (!fs_read_entire_file(cmd->buf, src)) {
-				ctx->err_msg = "error determining command interpreter";
+			if (!run_cmd_determine_interpreter(src, cmd->buf, &ctx->err_msg, &new_argv0, &new_argv1)) {
 				return false;
-			}
-
-			char *nl;
-			if (!(nl = strchr(src->src, '\n'))) {
-				ctx->err_msg = "error determining command interpreter: no newline in file";
-				return false;
-			}
-
-			*nl = 0;
-
-			uint32_t line_len = strlen(src->src);
-			if (!(line_len > 2 && src->src[0] == '#' && src->src[1] == '!')) {
-				ctx->err_msg = "error determining command interpreter: missing #!";
-				return false;
-			}
-
-			const char *p = &src->src[2];
-			char *s;
-
-			while (strchr(" \t", *p)) {
-				++p;
-			}
-
-			new_argv0 = p;
-
-			if ((s = strchr(p, ' '))) {
-				*s = 0;
-				while (strchr(" \t", *p)) {
-					++p;
-				}
-				new_argv1 = s + 1;
 			}
 
 			argc += new_argv1 ? 2 : 1;
