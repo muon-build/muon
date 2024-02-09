@@ -23,14 +23,14 @@
 #include "platform/timer.h"
 #include "platform/windows/win32_error.h"
 
-static uint32_t cnt_open;
+static uint32_t cnt_open = 0;
 
 #define record_handle(__h, v) _record_handle(__h, v, #__h)
 
 static bool
 _record_handle(HANDLE *h, HANDLE v, const char *desc)
 {
-	if (v == INVALID_HANDLE_VALUE) {
+	if (!v || v == INVALID_HANDLE_VALUE) {
 		return false;
 	}
 
@@ -44,7 +44,7 @@ _record_handle(HANDLE *h, HANDLE v, const char *desc)
 static bool
 _close_handle(HANDLE *h, const char *desc)
 {
-	if (*h == INVALID_HANDLE_VALUE) {
+	if (!*h || *h == INVALID_HANDLE_VALUE) {
 		return true;
 	}
 
