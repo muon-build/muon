@@ -64,7 +64,7 @@ static_linker_type_to_s(enum static_linker_type t)
 {
 	switch (t) {
 	case static_linker_ar_posix: return "ar";
-	case static_linker_ar_gcc: return "ar";
+	case static_linker_ar_gcc: return "ar (gcc)";
 	case static_linker_msvc: return "lib";
 	case static_linker_type_count: UNREACHABLE;
 	}
