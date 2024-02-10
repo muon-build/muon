@@ -1574,7 +1574,7 @@ build_static_linkers(void)
 	posix.args.input_output = linker_posix_args_input_output;
 
 	struct static_linker gcc = posix;
-	posix.args.base = static_linker_ar_gcc_args_base;
+	gcc.args.base = static_linker_ar_gcc_args_base;
 
 	struct static_linker msvc = empty;
 	msvc.args.input_output = linker_msvc_args_input_output;
