@@ -140,7 +140,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			return false;
 		}
 
-		linker = compilers[get_obj_compiler(wk, comp_id)->type].linker;
+		linker = get_obj_compiler(wk, comp_id)->linker_type;
 	}
 
 	make_obj(wk, &ctx.object_names, obj_array);
@@ -218,27 +218,24 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	const char *linker_type, *link_args;
-	bool linker_rule_prefix = false;
 	switch (tgt->type) {
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
 		linker_type = compiler_language_to_s(tgt->dep_internal.link_language);
-		linker_rule_prefix = true;
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:
 		linker_type = "static";
-		link_args = ar_arguments();
+		link_args = 0;
 		break;
 	default:
 		assert(false);
 		return false;
 	}
 
-	fprintf(wctx->out, "build %s: %s%s%s_linker ", esc_path.buf,
-		linker_rule_prefix ? get_cstr(wk, ctx.proj->rule_prefix) : "",
-		linker_rule_prefix ? "_" : "",
+	fprintf(wctx->out, "build %s: %s_%s_linker ", esc_path.buf,
+		get_cstr(wk, ctx.proj->rule_prefix),
 		linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (get_obj_array(wk, implicit_link_deps)->len) {
@@ -250,11 +247,13 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		fputs(" || ", wctx->out);
 		fputs(get_cstr(wk, ctx.order_deps), wctx->out);
 	}
-	fprintf(wctx->out, "\n LINK_ARGS = %s\n", link_args);
+	if (link_args) {
+		fprintf(wctx->out, "\n LINK_ARGS = %s", link_args);
+	}
 
 	if (tgt->flags & build_tgt_flag_build_by_default) {
 		wctx->wrote_default = true;
-		fprintf(wctx->out, "default %s\n", esc_path.buf);
+		fprintf(wctx->out, "\ndefault %s\n", esc_path.buf);
 	}
 	fprintf(wctx->out, "\n");
 	return true;

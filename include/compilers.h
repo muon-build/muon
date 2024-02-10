@@ -38,6 +38,13 @@ enum linker_type {
 	linker_type_count,
 };
 
+enum static_linker_type {
+	static_linker_ar_posix,
+	static_linker_ar_gcc,
+	static_linker_msvc,
+	static_linker_type_count
+};
+
 enum compiler_language {
 	compiler_language_null,
 	compiler_language_c,
@@ -120,7 +127,8 @@ struct compiler {
 		compiler_get_arg_func_0 always;
 	} args;
 	enum compiler_deps_type deps;
-	enum linker_type linker;
+	enum linker_type default_linker;
+	enum static_linker_type default_static_linker;
 	const char *object_ext;
 };
 
@@ -142,6 +150,14 @@ struct linker {
 		compiler_get_arg_func_0 whole_archive;
 		compiler_get_arg_func_0 no_whole_archive;
 		compiler_get_arg_func_0 enable_lto;
+		compiler_get_arg_func_2s input_output;
+	} args;
+};
+
+struct static_linker {
+	struct {
+		compiler_get_arg_func_0 base;
+		compiler_get_arg_func_2s input_output;
 	} args;
 };
 
@@ -152,6 +168,7 @@ struct language {
 
 extern struct compiler compilers[];
 extern struct linker linkers[];
+extern struct static_linker static_linkers[];
 extern const struct language languages[];
 
 const char *compiler_type_to_s(enum compiler_type t);
@@ -162,8 +179,6 @@ bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 const char *compiler_language_extension(enum compiler_language l);
 enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new);
 
-bool compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang);
+bool toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang);
 void compilers_init(void);
-
-const char *ar_arguments(void);
 #endif

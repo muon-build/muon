@@ -59,6 +59,19 @@ linker_type_to_s(enum linker_type t)
 	UNREACHABLE_RETURN;
 }
 
+const char *
+static_linker_type_to_s(enum static_linker_type t)
+{
+	switch (t) {
+	case static_linker_ar_posix: return "ar";
+	case static_linker_ar_gcc: return "ar";
+	case static_linker_msvc: return "lib";
+	case static_linker_type_count: UNREACHABLE;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
 static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_null] = "null",
 	[compiler_language_c] = "c",
@@ -190,9 +203,9 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 }
 
 static const char *
-compiler_get_c_version_arg(struct workspace *wk, obj cmd_arr)
+guess_version_arg(struct workspace *wk, bool msvc_like)
 {
-	if (obj_array_in(wk, cmd_arr, make_str(wk, "cl"))) {
+	if (msvc_like) {
 		return "/?";
 	} else {
 		return "--version";
@@ -200,11 +213,13 @@ compiler_get_c_version_arg(struct workspace *wk, obj cmd_arr)
 }
 
 static bool
-compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
+compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 {
+	bool msvc_like = obj_array_in(wk, cmd_arr, make_str(wk, "cl"));
+
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, compiler_get_c_version_arg(wk, cmd_arr))) {
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, msvc_like))) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
@@ -238,9 +253,6 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj *comp_id)
 	}
 
 	unknown = false;
-	LLOG_I("detected compiler %s ", compiler_type_to_s(type));
-	obj_fprintf(wk, log_file(), "%o (%o), ", ver, cmd_arr);
-	log_plain("linker %s\n", linker_type_to_s(compilers[type].linker));
 
 detection_over:
 	if (unknown) {
@@ -249,8 +261,7 @@ detection_over:
 		ver = make_str(wk, "unknown");
 	}
 
-	make_obj(wk, comp_id, obj_compiler);
-	struct obj_compiler *comp = get_obj_compiler(wk, *comp_id);
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	comp->cmd_arr = cmd_arr;
 	comp->type = type;
 	comp->ver = ver;
@@ -260,7 +271,7 @@ detection_over:
 }
 
 static bool
-compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj *comp_id)
+compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")) {
@@ -312,8 +323,7 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj *comp_id)
 		}
 	}
 
-	make_obj(wk, comp_id, obj_compiler);
-	struct obj_compiler *comp = get_obj_compiler(wk, *comp_id);
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	comp->cmd_arr = new_cmd;
 	comp->type = type;
 	comp->ver = ver;
@@ -379,7 +389,7 @@ done:
 }
 
 static bool
-compiler_detect_cmd_arr(struct workspace *wk, obj *comp, enum compiler_language lang, obj cmd_arr)
+compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
 	if (log_should_print(log_debug)) {
 		obj_fprintf(wk, log_file(), "checking compiler %o\n", cmd_arr);
@@ -393,7 +403,7 @@ compiler_detect_cmd_arr(struct workspace *wk, obj *comp, enum compiler_language 
 			return false;
 		}
 
-		struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
+		struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 		compiler_get_libdirs(wk, compiler);
 		compiler->lang = lang;
 		return true;
@@ -408,8 +418,120 @@ compiler_detect_cmd_arr(struct workspace *wk, obj *comp, enum compiler_language 
 	}
 }
 
+static bool
+static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
+{
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, compiler->type == compiler_msvc))) {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return false;
+	}
+
+	enum static_linker_type type = compiler->type == compiler_msvc ? static_linker_msvc : static_linker_ar_posix;
+
+	if (cmd_ctx.status == 0 && strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
+		type = static_linker_ar_gcc;
+	}
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+
+	get_obj_compiler(wk, comp)->static_linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->static_linker_type = type;
+	return true;
+}
+
+static bool
+linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
+{
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, compiler->type == compiler_msvc))) {
+		run_cmd_ctx_destroy(&cmd_ctx);
+		return false;
+	}
+
+	enum linker_type type = compilers[compiler->type].default_linker;
+
+	// TODO: do something with command output?
+
+	run_cmd_ctx_destroy(&cmd_ctx);
+
+	get_obj_compiler(wk, comp)->linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->linker_type = type;
+	return true;
+}
+
+typedef bool ((*toolchain_detect_cmd_arr_cb)(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr));
+
 bool
-compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+toolchain_exe_detect(struct workspace *wk,
+	const char *toolchain_exe_option_name,
+	const char *exe_list[],
+	obj comp, enum compiler_language lang, toolchain_detect_cmd_arr_cb cb)
+{
+	if (!toolchain_exe_option_name) {
+		return false;
+	}
+
+	obj cmd_arr_opt;
+	get_option(wk, NULL, &WKSTR(toolchain_exe_option_name), &cmd_arr_opt);
+	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
+
+	if (cmd_arr->source > option_value_source_default) {
+		return cb(wk, comp, lang, cmd_arr->val);
+	}
+
+	uint32_t i;
+	for (i = 0; exe_list[i]; ++i) {
+		obj cmd_arr;
+		make_obj(wk, &cmd_arr, obj_array);
+		obj_array_push(wk, cmd_arr, make_str(wk, exe_list[i]));
+
+		if (cb(wk, comp, lang, cmd_arr)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang)
+{
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	const char *exe_list[] = {
+		linker_type_to_s(compilers[compiler->type].default_linker),
+		"ld",
+		NULL
+	};
+
+	return toolchain_exe_detect(wk, "env.LD", exe_list, comp, lang, linker_detect);
+}
+
+static bool
+toolchain_static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang)
+{
+	const char **exe_list = NULL;
+
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	if (compiler->type == compiler_msvc) {
+		static const char *msvc_list[] = { "lib", NULL };
+		exe_list = msvc_list;
+	} else {
+		static const char *default_list[] = { "ar", NULL };
+		exe_list = default_list;
+	}
+
+	return toolchain_exe_detect(wk, "env.AR", exe_list, comp, lang, static_linker_detect);
+}
+
+static bool
+toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language lang)
 {
 	static const char *compiler_option[compiler_language_count] = {
 		[compiler_language_c] = "env.CC",
@@ -418,52 +540,58 @@ compiler_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		[compiler_language_nasm] = "env.NASM",
 	};
 
-	if (!compiler_option[lang]) {
-		return false;
-	}
+	const char **exe_list = NULL;
 
-	obj cmd_arr_opt;
-	get_option(wk, NULL, &WKSTR(compiler_option[lang]), &cmd_arr_opt);
-	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
+	if (machine_system() == machine_system_windows) {
+		static const char *default_executables[][compiler_language_count] = {
+			[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
+			[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
+			[compiler_language_objc] = { "cc", "gcc", NULL },
+			[compiler_language_nasm] = { "nasm", "yasm", NULL },
+		};
 
-	if (cmd_arr->source <= option_value_source_default) {
-		const char **exe_list = NULL;
-
-		if (machine_system() == machine_system_windows) {
-			static const char *default_executables[][compiler_language_count] = {
-				[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
-				[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
-				[compiler_language_objc] = { "cc", "gcc", NULL },
-				[compiler_language_nasm] = { "nasm", "yasm", NULL },
-			};
-
-			exe_list = default_executables[lang];
-		} else {
-			static const char *default_executables[][compiler_language_count] = {
-				[compiler_language_c] = { "cc", "gcc", "clang", NULL },
-				[compiler_language_cpp] = { "c++", "g++", "clang++", NULL },
-				[compiler_language_objc] = { "cc", "gcc", "clang", NULL },
-				[compiler_language_nasm] = { "nasm", "yasm", NULL },
-			};
-
-			exe_list = default_executables[lang];
-		}
-
-		uint32_t i;
-		for (i = 0; exe_list[i]; ++i) {
-			obj cmd_arr;
-			make_obj(wk, &cmd_arr, obj_array);
-			obj_array_push(wk, cmd_arr, make_str(wk, exe_list[i]));
-
-			if (compiler_detect_cmd_arr(wk, comp, lang, cmd_arr)) {
-				return true;
-			}
-		}
-
-		return false;
+		exe_list = default_executables[lang];
 	} else {
-		return compiler_detect_cmd_arr(wk, comp, lang, cmd_arr->val);
+		static const char *default_executables[][compiler_language_count] = {
+			[compiler_language_c] = { "cc", "gcc", "clang", NULL },
+			[compiler_language_cpp] = { "c++", "g++", "clang++", NULL },
+			[compiler_language_objc] = { "cc", "gcc", "clang", NULL },
+			[compiler_language_nasm] = { "nasm", "yasm", NULL },
+		};
+
+		exe_list = default_executables[lang];
 	}
+
+	return toolchain_exe_detect(wk, compiler_option[lang], exe_list, comp, lang, compiler_detect_cmd_arr);
+}
+
+bool
+toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+{
+	make_obj(wk, comp, obj_compiler);
+
+	if (!toolchain_compiler_detect(wk, *comp, lang)) {
+		return false;
+	}
+
+	if (!toolchain_linker_detect(wk, *comp, lang)) {
+		return false;
+	}
+
+	if (!toolchain_static_linker_detect(wk, *comp, lang)) {
+		return false;
+	}
+
+	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
+
+	LLOG_I("detected compiler %s ", compiler_type_to_s(compiler->type));
+	obj_fprintf(wk, log_file(), "%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
+		compiler->ver, compiler->cmd_arr,
+		linker_type_to_s(compiler->linker_type), compiler->linker_cmd_arr,
+		static_linker_type_to_s(compiler->static_linker_type), compiler->static_linker_cmd_arr
+		);
+
+	return true;
 }
 
 #define COMPILER_ARGS(...) \
@@ -1047,6 +1175,7 @@ compiler_arg_empty_2s(const char *_, const char *__)
 
 struct compiler compilers[compiler_type_count];
 struct linker linkers[linker_type_count];
+struct static_linker static_linkers[static_linker_type_count];
 
 const struct language languages[compiler_language_count] = {
 	[compiler_language_null] = { 0 },
@@ -1103,7 +1232,8 @@ build_compilers(void)
 	posix.args.include = compiler_posix_args_include;
 	posix.args.include_system = compiler_posix_args_include;
 	posix.args.define = compiler_posix_args_define;
-	posix.linker = linker_posix;
+	posix.default_linker = linker_posix;
+	posix.default_static_linker = static_linker_ar_posix;
 
 	struct compiler gcc = posix;
 	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
@@ -1123,14 +1253,16 @@ build_compilers(void)
 	gcc.args.color_output = compiler_gcc_args_color_output;
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 	gcc.deps = compiler_deps_gcc;
-	gcc.linker = linker_gcc;
+	gcc.default_linker = linker_gcc;
+	gcc.default_static_linker = static_linker_ar_gcc;
 
 	struct compiler clang = gcc;
 	clang.args.warn_everything = compiler_clang_args_warn_everything;
-	clang.linker = linker_clang;
+	clang.default_linker = linker_clang;
 
 	struct compiler apple_clang = clang;
-	apple_clang.linker = linker_apple;
+	apple_clang.default_linker = linker_apple;
+	apple_clang.default_static_linker = static_linker_ar_posix;
 
 	struct compiler msvc = empty;
 	msvc.args.deps = compiler_cl_args_deps;
@@ -1147,14 +1279,15 @@ build_compilers(void)
 	msvc.args.sanitize = compiler_cl_args_sanitize;
 	msvc.args.define = compiler_cl_args_define;
 	msvc.args.always = compiler_cl_args_always;
-	msvc.linker = linker_msvc;
+	msvc.default_linker = linker_msvc;
+	msvc.default_static_linker = static_linker_msvc;
 	msvc.deps = compiler_deps_msvc;
 	msvc.object_ext = ".obj";
 
 	struct compiler clang_cl = msvc;
 	clang_cl.args.color_output = compiler_clang_cl_args_color_output;
 	clang_cl.args.enable_lto = compiler_clang_cl_args_lto;
-	clang_cl.linker = linker_lld_link;
+	clang_cl.default_linker = linker_lld_link;
 
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
@@ -1171,7 +1304,8 @@ build_compilers(void)
 	nasm.args.include = compiler_posix_args_include;
 	nasm.args.include_system = compiler_posix_args_include;
 	nasm.args.define = compiler_posix_args_define;
-	nasm.linker = linker_posix;
+	nasm.default_linker = linker_posix;
+	nasm.default_static_linker = static_linker_ar_posix;
 
 	compilers[compiler_nasm] = nasm;
 	compilers[compiler_yasm] = nasm;
@@ -1183,6 +1317,16 @@ linker_posix_args_lib(const char *s)
 	COMPILER_ARGS({ "-l", NULL });
 	argv[1] = s;
 
+	return &args;
+}
+
+
+static const struct args *
+linker_posix_args_input_output(const char *in, const char *out)
+{
+	COMPILER_ARGS({ NULL, NULL });
+	argv[0] = out;
+	argv[1] = in;
 	return &args;
 }
 
@@ -1316,6 +1460,19 @@ linker_lld_link_args_whole_archive(void)
 	return &args;
 }
 
+static const struct args *
+linker_msvc_args_input_output(const char *in, const char *out)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf, NULL });
+
+	snprintf(buf, BUF_SIZE_S, "/out:%s", out);
+
+	argv[1] = in;
+
+	return &args;
+}
+
 static void
 build_linkers(void)
 {
@@ -1338,12 +1495,14 @@ build_linkers(void)
 			.whole_archive = compiler_arg_empty_0,
 			.no_whole_archive = compiler_arg_empty_0,
 			.enable_lto = compiler_arg_empty_0,
+			.input_output = compiler_arg_empty_2s,
 		}
 	};
 
 	struct linker posix = empty;
 	posix.args.lib = linker_posix_args_lib;
 	posix.args.shared = linker_posix_args_shared;
+	posix.args.input_output = linker_posix_args_input_output;
 
 	struct linker gcc = posix;
 	gcc.args.as_needed = linker_gcc_args_as_needed;
@@ -1371,6 +1530,7 @@ build_linkers(void)
 	link.args.lib = linker_link_args_lib;
 	link.args.shared = linker_link_args_shared;
 	link.args.soname = linker_link_args_soname;
+	link.args.input_output = linker_msvc_args_input_output;
 
 	struct linker lld_link = link;
 	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
@@ -1383,54 +1543,51 @@ build_linkers(void)
 	linkers[linker_msvc] = link;
 }
 
+/* static linkers */
+
+static const struct args *
+static_linker_ar_posix_args_base(void)
+{
+	COMPILER_ARGS({ "csr" });
+	return &args;
+}
+
+static const struct args *
+static_linker_ar_gcc_args_base(void)
+{
+	COMPILER_ARGS({ "csrD" });
+	return &args;
+}
+
+static void
+build_static_linkers(void)
+{
+	struct static_linker empty = {
+		.args = {
+			.base          = compiler_arg_empty_0,
+			.input_output  = compiler_arg_empty_2s,
+		}
+	};
+
+	struct static_linker posix = empty;
+	posix.args.base = static_linker_ar_posix_args_base;
+	posix.args.input_output = linker_posix_args_input_output;
+
+	struct static_linker gcc = posix;
+	posix.args.base = static_linker_ar_gcc_args_base;
+
+	struct static_linker msvc = empty;
+	msvc.args.input_output = linker_msvc_args_input_output;
+
+	static_linkers[static_linker_ar_posix] = posix;
+	static_linkers[static_linker_ar_gcc] = gcc;
+	static_linkers[static_linker_msvc] = msvc;
+}
+
 void
 compilers_init(void)
 {
 	build_compilers();
 	build_linkers();
-}
-
-enum ar_type {
-	ar_posix,
-	ar_gcc,
-};
-
-static enum ar_type
-compiler_detect_ar_type(void)
-{
-	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_argv(&cmd_ctx, (char *[]){ "ar", "--version", NULL }, NULL, 0)) {
-		run_cmd_ctx_destroy(&cmd_ctx);
-		return ar_posix;
-	}
-
-	enum ar_type ret = ar_posix;
-
-	if (cmd_ctx.status == 0 && strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
-		ret = ar_gcc;
-	}
-
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return ret;
-}
-
-const char *
-ar_arguments(void)
-{
-	static enum ar_type ar_type;
-	static bool ar_type_initialized = false;
-
-	if (!ar_type_initialized) {
-		ar_type = compiler_detect_ar_type();
-		ar_type_initialized = true;
-	}
-
-	switch (ar_type) {
-	case ar_gcc:
-		return "csrD";
-	case ar_posix:
-		return "csr";
-	default:
-		UNREACHABLE_RETURN;
-	}
+	build_static_linkers();
 }

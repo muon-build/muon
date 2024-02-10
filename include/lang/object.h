@@ -367,9 +367,13 @@ struct obj_test {
 
 struct obj_compiler {
 	obj cmd_arr;
+	obj linker_cmd_arr;
+	obj static_linker_cmd_arr;
 	obj ver;
 	obj libdirs;
 	enum compiler_type type;
+	enum linker_type linker_type;
+	enum static_linker_type static_linker_type;
 	enum compiler_language lang;
 };
 

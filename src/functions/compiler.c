@@ -275,7 +275,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	case compile_mode_run:
 		break;
 	case compile_mode_link:
-		push_args(wk, compiler_args, linkers[compilers[t].linker].args.fatal_warnings());
+		push_args(wk, compiler_args, linkers[comp->linker_type].args.fatal_warnings());
 		break;
 	}
 
@@ -309,7 +309,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	if (have_dep) {
 		struct setup_linker_args_ctx sctx = {
-			.linker = compilers[t].linker,
+			.linker = comp->linker_type,
 			.link_lang = comp->lang,
 			.args = &dep
 		};
@@ -1873,8 +1873,7 @@ func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	enum compiler_type t = get_obj_compiler(wk, rcvr)->type;
-	*res = make_str(wk, linker_type_to_s(compilers[t].linker));
+	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, rcvr)->linker_type));
 	return true;
 }
 

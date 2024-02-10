@@ -61,7 +61,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 		return true;
 	}
 
-	if (!compiler_detect(wk, &comp_id, l)) {
+	if (!toolchain_detect(wk, &comp_id, l)) {
 		if (req == requirement_required) {
 			interp_error(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
 			return false;

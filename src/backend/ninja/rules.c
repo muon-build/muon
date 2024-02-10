@@ -63,12 +63,22 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language 
 
 	obj args;
 	make_obj(wk, &args, obj_array);
-	obj_array_extend(wk, args, comp->cmd_arr);
-	obj_array_push(wk, args, make_str(wk, "$ARGS"));
 
-	push_args(wk, args, compilers[t].args.output("$out"));
-	obj_array_push(wk, args, make_str(wk, "$in"));
-	obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
+	bool compiler_is_linker = comp->type != compiler_msvc;
+
+	if (compiler_is_linker) {
+		obj_array_extend(wk, args, comp->cmd_arr);
+		obj_array_push(wk, args, make_str(wk, "$ARGS"));
+
+		push_args(wk, args, compilers[t].args.output("$out"));
+		obj_array_push(wk, args, make_str(wk, "$in"));
+		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
+	} else {
+		obj_array_extend(wk, args, comp->linker_cmd_arr);
+		obj_array_push(wk, args, make_str(wk, "$ARGS"));
+		push_args(wk, args, linkers[comp->linker_type].args.input_output("$in", "$out"));
+		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
+	}
 
 	obj link_command = join_args_plain(wk, args);
 
@@ -286,21 +296,14 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		output_path.private_dir
 		);
 
-	if (machine_system() == machine_system_windows) {
-		fprintf(out,
-			"rule static_linker\n"
-			" command = sh -c \"rm -f $out && ar $LINK_ARGS $out $in\"\n"
-			" description = linking static $out\n"
-			"\n"
-			);
-	} else {
-		fprintf(out,
-			"rule static_linker\n"
-			" command = rm -f $out && ar $LINK_ARGS $out $in\n"
-			" description = linking static $out\n"
-			"\n"
-			);
-	}
+	/* } else { */
+	/* 	fprintf(out, */
+	/* 		"rule static_linker\n" */
+	/* 		" command = rm -f $out && ar $LINK_ARGS $out $in\n" */
+	/* 		" description = linking static $out\n" */
+	/* 		"\n" */
+	/* 		); */
+	/* } */
 
 	fprintf(out,
 		"rule CUSTOM_COMMAND\n"
@@ -407,6 +410,51 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 			obj_clear(wk, &mk);
 
 			TracyCZoneEnd(tctx_rules);
+		}
+
+		{ // static linker
+			enum compiler_language static_linker_precedence[] = {
+				compiler_language_c,
+				compiler_language_cpp,
+				compiler_language_objc,
+				compiler_language_nasm,
+			};
+
+			obj comp_id = 0;
+			uint32_t j;
+			for (j = 0; j < ARRAY_LEN(static_linker_precedence); ++j) {
+				if (obj_dict_geti(wk, proj->compilers, static_linker_precedence[j], &comp_id)) {
+					break;
+				}
+			}
+
+			if (comp_id) {
+				struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+
+				obj static_link_args;
+				make_obj(wk, &static_link_args, obj_array);
+
+				if (comp->static_linker_type == static_linker_ar_posix
+				    || comp->static_linker_type == static_linker_ar_gcc) {
+					obj_array_push(wk, static_link_args, make_str(wk, "rm"));
+					obj_array_push(wk, static_link_args, make_str(wk, "-f"));
+					obj_array_push(wk, static_link_args, make_str(wk, "$out"));
+					obj_array_push(wk, static_link_args, make_str(wk, "&&"));
+				}
+
+				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
+				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.base());
+				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.input_output("$in", "$out"));
+
+				fprintf(out,
+					"rule %s_static_linker\n"
+					" command = %s\n"
+					" description = linking static $out\n"
+					"\n",
+					get_cstr(wk, proj->rule_prefix),
+					get_cstr(wk, join_args_plain(wk, static_link_args))
+					);
+			}
 		}
 	}
 

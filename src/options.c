@@ -830,12 +830,16 @@ init_global_options(struct workspace *wk)
 
 		"option('env.CC', type: 'array', value: ['cc'])\n"
 		"option('env.NINJA', type: 'array', value: ['ninja'])\n"
+		"option('env.AR', type: 'array', value: ['ar'])\n"
+		"option('env.LD', type: 'array', value: ['ld'])\n"
 		)) {
 		return false;
 	}
 
 	set_binary_from_env(wk, "CC", "env.CC");
 	set_binary_from_env(wk, "NINJA", "env.NINJA");
+	set_binary_from_env(wk, "AR", "env.AR");
+	set_binary_from_env(wk, "LD", "env.LD");
 	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 
