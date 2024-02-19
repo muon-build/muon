@@ -100,6 +100,17 @@ func multi_return(k str) -> int
     return d[k]
 endfunc
 
+func returns_string() -> str
+    return '10'
+endfunc
+
+# this should return void and muon should not raise an error stating that
+# it expected a return of 'str' due to the internal call to `returns_string`
+func returns_void()
+    val_str = returns_string()
+    message(val_str)
+endfunc
+
 func project() -> dict[any]
     return meson.project()
 endfunc
@@ -120,5 +131,6 @@ return {
     'glob_arg': glob_arg,
     'typed_list': typed_list,
     'multi_return': multi_return,
+    'returns_void': returns_void,
     'project': project,
 }
