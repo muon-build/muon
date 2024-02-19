@@ -763,6 +763,7 @@ func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res)
 	*res = wk->returned;
 	/* LO("%s returned %o\n", f->name, wk->returned); */
 	wk->returning = false;
+	wk->returned = 0;
 
 	if (ret && !typecheck_custom(wk, wk->return_node, *res, f->return_type,
 		"function returned invalid type, expected %s, got %s")) {

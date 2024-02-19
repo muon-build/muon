@@ -84,6 +84,9 @@ assert(m.multi_return('a') == 1)
 assert(m.multi_return('b') == 2)
 assert(m.multi_return('c') == 0)
 
+# test internal calls not changing interpreter state.
+m.returns_void()
+
 # test meson.project()
 assert('c' not in m.project()['compilers'])
 add_languages('c')
