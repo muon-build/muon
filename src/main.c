@@ -79,9 +79,10 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		const char *environment;
 		const char *args;
 		const char *const *cmd;
+		const char *remove_before_running;
 	} opts = { 0 };
 
-	OPTSTART("f:c:e:a:") {
+	OPTSTART("f:c:e:a:R:") {
 		case 'f':
 			opts.feed = optarg;
 			break;
@@ -94,12 +95,16 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 		case 'a':
 			opts.args = optarg;
 			break;
+		case 'R':
+			opts.remove_before_running = optarg;
+			break;
 	} OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -f <file> - feed file to input\n"
 		"  -c <file> - capture output to file\n"
 		"  -e <file> - load environment from data file\n"
-		"  -a <file> - load arguments from data file\n",
+		"  -a <file> - load arguments from data file\n"
+		"  -R <file> - remove file if it exists before executing the command\n",
 		NULL, -1)
 
 	if (argi >= argc && !opts.args) {
@@ -112,6 +117,12 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 
 	opts.cmd = (const char *const *)&argv[argi];
 	++argi;
+
+	if (opts.remove_before_running && fs_exists(opts.remove_before_running)) {
+		if (!fs_remove(opts.remove_before_running)) {
+			return false;
+		}
+	}
 
 	bool ret = false;
 	struct run_cmd_ctx ctx = { 0 };

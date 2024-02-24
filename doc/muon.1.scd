@@ -168,7 +168,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## internal exe
 	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] [*-e*
-	<env.dat>] [*-a* <args.dat>] [-- <cmd> [<args>]]
+	<env.dat>] [*-a* <args.dat>] [*-R* <file>] [-- <cmd> [<args>]]
 
 	Execute <cmd> with arguments <args>.
 
@@ -178,6 +178,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  file_
 	- *-e* <env.dat> - read and set environment variables from _env.dat_
 	- *-a* <args.dat> - read and set command from _args.dat_
+	- *-R* <file> - remove _file_ if it exists before executing the command
 
 ## internal repl
 	*muon* *internal* *repl*

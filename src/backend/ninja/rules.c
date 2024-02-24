@@ -296,30 +296,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		output_path.private_dir
 		);
 
-	/* } else { */
-	/* 	fprintf(out, */
-	/* 		"rule static_linker\n" */
-	/* 		" command = rm -f $out && ar $LINK_ARGS $out $in\n" */
-	/* 		" description = linking static $out\n" */
-	/* 		"\n" */
-	/* 		); */
-	/* } */
-
-	fprintf(out,
-		"rule CUSTOM_COMMAND\n"
-		" command = $COMMAND\n"
-		" description = $COMMAND\n"
-		" restat = 1\n"
-		"\n"
-		"rule CUSTOM_COMMAND_DEP\n"
-		" command = $COMMAND\n"
-		" description = $COMMAND\n"
-		" deps = gcc\n"
-		" depfile = $DEPFILE\n"
-		" restat = 1\n"
-		"\n"
-		);
-
 	obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
 
 	fprintf(out,
@@ -341,6 +317,21 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 		"build build.ninja: REGENERATE_BUILD %s\n"
 		" pool = console\n\n",
 		get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel))
+		);
+
+	fprintf(out,
+		"rule CUSTOM_COMMAND\n"
+		" command = $COMMAND\n"
+		" description = $COMMAND\n"
+		" restat = 1\n"
+		"\n"
+		"rule CUSTOM_COMMAND_DEP\n"
+		" command = $COMMAND\n"
+		" description = $COMMAND\n"
+		" deps = gcc\n"
+		" depfile = $DEPFILE\n"
+		" restat = 1\n"
+		"\n"
 		);
 
 	if (need_phony) {
@@ -436,10 +427,12 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj,
 
 				if (comp->static_linker_type == static_linker_ar_posix
 				    || comp->static_linker_type == static_linker_ar_gcc) {
-					obj_array_push(wk, static_link_args, make_str(wk, "rm"));
-					obj_array_push(wk, static_link_args, make_str(wk, "-f"));
+					obj_array_push(wk, static_link_args, make_str(wk, wk->argv0));
+					obj_array_push(wk, static_link_args, make_str(wk, "internal"));
+					obj_array_push(wk, static_link_args, make_str(wk, "exe"));
+					obj_array_push(wk, static_link_args, make_str(wk, "-R"));
 					obj_array_push(wk, static_link_args, make_str(wk, "$out"));
-					obj_array_push(wk, static_link_args, make_str(wk, "&&"));
+					obj_array_push(wk, static_link_args, make_str(wk, "--"));
 				}
 
 				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
