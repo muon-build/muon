@@ -49,9 +49,9 @@ print_colorized(FILE *out, const char *s)
 		const char *start = s;
 		uint32_t len = 0;
 
-		uint32_t esc_num;
+		uint32_t esc_num = 0;
 		for (; *s; ++s) {
-			WORD attr;
+			WORD attr = 0;
 			if (*s == '\033') {
 				attr = 0;
 				if (len) {
