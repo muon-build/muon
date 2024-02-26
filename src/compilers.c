@@ -681,6 +681,13 @@ compiler_posix_args_define(const char *define)
 	return &args;
 }
 
+static const struct args *
+compiler_posix_args_always(void)
+{
+	COMPILER_ARGS({ "-D_FILE_OFFSET_BITS=64" });
+	return &args;
+}
+
 /* gcc compilers */
 
 static const struct args *
@@ -1232,6 +1239,7 @@ build_compilers(void)
 	posix.args.include = compiler_posix_args_include;
 	posix.args.include_system = compiler_posix_args_include;
 	posix.args.define = compiler_posix_args_define;
+	posix.args.always = compiler_posix_args_always;
 	posix.default_linker = linker_posix;
 	posix.default_static_linker = static_linker_ar_posix;
 
