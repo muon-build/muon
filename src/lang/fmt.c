@@ -1038,11 +1038,11 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 			switch (keys[i].type) {
 			case type_uint: {
 				char *endptr = NULL;
-				long lval = strtol(v, &endptr, 10);
+				long long lval = strtoll(v, &endptr, 10);
 				if (*endptr) {
 					error_messagef(src, line, 1, log_error, "unable to parse integer");
 					return false;
-				} else if (lval < 0 || lval > (long)UINT32_MAX) {
+				} else if (lval < 0 || lval > (long long)UINT32_MAX) {
 					error_messagef(src, line, 1, log_error, "integer outside of range 0-%u", UINT32_MAX);
 					return false;
 				}
