@@ -596,6 +596,26 @@ func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
+func_module_fs_rmdir(struct workspace *wk, obj rcvr, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	enum kwargs { kw_recursive };
+	struct args_kw akw[] = { [kw_recursive] = { "recursive", obj_bool }, 0 };
+
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	bool recursive = akw[kw_recursive].set ? get_obj_bool(wk, akw[kw_recursive].val) : false;
+
+	if (recursive && !fs_rmdir_recursive(get_cstr(wk, an[0].val))) {
+		return false;
+	}
+
+	return fs_rmdir(get_cstr(wk, an[0].val));
+}
+
+static bool
 func_module_fs_is_basename(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
@@ -697,6 +717,7 @@ const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "is_subpath", func_module_fs_is_subpath, tc_bool, true },
 	{ "make_absolute", func_module_fs_make_absolute, tc_string },
 	{ "mkdir", func_module_fs_mkdir, .fuzz_unsafe = true },
+	{ "rmdir", func_module_fs_rmdir, .fuzz_unsafe = true },
 	{ "relative_to", func_module_fs_relative_to, tc_string, true },
 	{ "without_ext", func_module_fs_without_ext, tc_string, true },
 	{ "write", func_module_fs_write, .fuzz_unsafe = true },
