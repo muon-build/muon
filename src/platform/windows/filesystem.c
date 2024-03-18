@@ -13,6 +13,7 @@
 #include <io.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #include "log.h"
 #include "lang/string.h"
