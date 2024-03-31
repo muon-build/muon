@@ -136,7 +136,7 @@ src_fread(void *buf, size_t sz, size_t n, struct seekable_source *src)
 	return r;
 }
 
-static char
+static int
 src_getc(struct seekable_source *src)
 {
 	if (src->i >= src->src.len) {
