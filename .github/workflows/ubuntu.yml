@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: ubuntu
+
+on:
+    push:
+      branches: [ master ]
+    pull_request:
+      branches: [ master ]
+      types: [opened, synchronize, reopened]
+
+jobs:
+  with-sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout muon source and install dependencies.
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+
+      # Bootstrap basic build.
+      - name: Bootstrap
+        run: |
+          ./bootstrap.sh build
+          PATH="build:$PATH" build/muon -v setup build
+          build/muon -C build samu
+
+      # Build muon with ASan and UBSan and run the testsuite.
+      - name: build_asan_ubsan
+        run: |
+          build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
+          build/muon -C build_asan_ubsan samu
+      - name: test_asan_ubsan
+        run: |
+          cd build_asan_ubsan
+          ./muon test -d dots
+
+      # Build muon FORTIFY_SOURCE=3 and run the testsuite.
+      - name: build_fortify_source
+        run: |
+          CFLAGS=-U_FORTIFY_SOURCE D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
+          build/muon -C build_fortify_source samu
+      - name: test_fortify_source
+        run: |
+          cd build_fortify_source
+          ./muon test -d dots
+
+  # Build muon with libpkgconf and run the testsuite. These steps exist
+  # due to the version of libpkgconf-dev that is currently packaged by Debian
+  # (1.8.1) containing a number of memory leaks that, if run with the sanitizers
+  # enabled, will cause a number of test failures. So we build without them
+  # enabled in this case.
+  # TODO: when Debian updates its libpkgconf-dev package, investigate whether
+  # this is still necessary.
+  with-libpkgconf:
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # Checkout muon source and install dependencies.
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo apt install libpkgconf-dev
+
+      # Bootstrap basic build.
+      - name: Bootstrap
+        run: |
+          ./bootstrap.sh build
+          PATH="build:$PATH" build/muon -v setup build
+          build/muon -C build samu
+
+      # Build and run testsuite.
+      - name: build_with_libpkgconf
+        run: |
+          build/muon setup -Dlibpkgconf=enabled build_with_libpkgconf
+          build/muon -C build_with_libpkgconf samu
+      - name: test_with_libpkgconf
+        run: |
+          cd build_with_libpkgconf
+          ./muon test -d dots
