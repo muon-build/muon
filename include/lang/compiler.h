@@ -12,8 +12,7 @@
 #include "lang/workspace.h"
 
 enum vm_compile_mode {
-	/* pm_ignore_statement_with_no_effect = 1 << 0, */
-	/* pm_keep_formatting = 1 << 1, */
+	vm_compile_mode_fmt = 1 << 1,
 	vm_compile_mode_quiet = 1 << 2,
 	vm_compile_mode_language_extended = 1 << 3,
 };

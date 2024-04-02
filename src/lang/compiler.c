@@ -603,10 +603,9 @@ vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, 
 {
 	struct node *n;
 
-	bucket_arr_clear(&wk->vm.compiler_state.nodes);
 	wk->vm.compiler_state.err = false;
 
-	if (!(n = parse(wk, src, &wk->vm.compiler_state.nodes, mode))) {
+	if (!(n = parse(wk, src, mode))) {
 		wk->vm.compiler_state.err = true;
 	}
 

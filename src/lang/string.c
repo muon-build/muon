@@ -16,8 +16,7 @@
 #include "platform/mem.h"
 
 void
-str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss,
-	bool escape_whitespace)
+str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace)
 {
 	bool esc;
 	uint32_t i;
@@ -86,9 +85,9 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 
 	make_obj(wk, s, obj_string);
 
-	struct str *str = (struct str*)get_str(wk, *s);
+	struct str *str = (struct str *)get_str(wk, *s);
 
-	*str = (struct str) {
+	*str = (struct str){
 		.s = p,
 		.len = len,
 		.flags = f,
@@ -216,6 +215,13 @@ str_appn(struct workspace *wk, obj *s, const char *str, uint32_t n)
 }
 
 void
+str_apps(struct workspace *wk, obj *s, obj s_id)
+{
+	const struct str *str = get_str(wk, s_id);
+	str_appn(wk, s, str->s, str->len);
+}
+
+void
 str_app(struct workspace *wk, obj *s, const char *str)
 {
 	str_appn(wk, s, str, strlen(str));
@@ -279,8 +285,7 @@ str_eql_glob_impl(const struct str *ss1, const struct str *ss2, uint32_t *match_
 	uint32_t i1 = 0, i2 = 0;
 	for (i1 = 0; i1 < ss1->len; ++i1) {
 		if (ss1->s[i1] == '*') {
-			struct str sub1 = { .s = ss1->s + (i1 + 1),
-					    .len = ss1->len - (i1 + 1) },
+			struct str sub1 = { .s = ss1->s + (i1 + 1), .len = ss1->len - (i1 + 1) },
 				   sub2 = { .s = ss2->s + i2, .len = ss2->len - i2 };
 
 			uint32_t sub_match_len, sub_match_consumed = 0;
@@ -367,7 +372,6 @@ str_endswithi(const struct str *ss, const struct str *suf)
 		return false;
 	}
 
-
 	uint32_t i;
 	for (i = 0; i < suf->len; ++i) {
 		if (str_char_to_lower(ss->s[ss->len - i - 1]) != str_char_to_lower(suf->s[suf->len - i - 1])) {
@@ -381,8 +385,7 @@ obj
 str_join(struct workspace *wk, obj s1, obj s2)
 {
 	obj res;
-	const struct str *ss1 = get_str(wk, s1),
-			 *ss2 = get_str(wk, s2);
+	const struct str *ss1 = get_str(wk, s1), *ss2 = get_str(wk, s2);
 
 	struct str *ss = reserve_str(wk, &res, ss1->len + ss2->len);
 
@@ -535,10 +538,7 @@ str_split_strip_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 obj
-str_split_strip(struct workspace *wk,
-	const struct str *ss,
-	const struct str *split,
-	const struct str *strip)
+str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip)
 {
 	struct str_split_strip_ctx ctx = {
 		.strip = strip,
@@ -552,14 +552,13 @@ str_split_strip(struct workspace *wk,
 /* sbuf */
 
 void
-sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap,
-	enum sbuf_flags flags)
+sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum sbuf_flags flags)
 {
 	if (initial_buffer_cap) {
 		initial_buffer[0] = 0;
 	}
 
-	*sb = (struct sbuf) {
+	*sb = (struct sbuf){
 		.flags = flags,
 		.buf = initial_buffer,
 		.cap = initial_buffer_cap,
@@ -569,8 +568,7 @@ sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap,
 void
 sbuf_destroy(struct sbuf *sb)
 {
-	if ((sb->flags & sbuf_flag_overflown)
-	    && (sb->flags & sbuf_flag_overflow_alloc)) {
+	if ((sb->flags & sbuf_flag_overflown) && (sb->flags & sbuf_flag_overflow_alloc)) {
 		z_free(sb->buf);
 	}
 }
@@ -617,11 +615,12 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 		}
 	} else {
 		if (sb->flags & sbuf_flag_overflow_error) {
-			error_unrecoverable(
-				"unhandled sbuf overflow: "
-				"capacity: %d, length: %d, "
-				"trying to push %d bytes",
-				sb->cap, sb->len, inc);
+			error_unrecoverable("unhandled sbuf overflow: "
+					    "capacity: %d, length: %d, "
+					    "trying to push %d bytes",
+				sb->cap,
+				sb->len,
+				inc);
 		}
 
 		sb->flags |= sbuf_flag_overflown;

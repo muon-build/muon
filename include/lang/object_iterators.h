@@ -19,12 +19,12 @@ struct obj_array_for_helper {
 	struct obj_array *a;
 };
 
-#define obj_array_for_(__wk, __arr, __val, __iter)                                      \
-	struct obj_array_for_helper __iter = {                                          \
-		.a = get_obj_array(__wk, __arr),                                        \
-	};                                                                              \
-	for (__val = __iter.a->len ? __iter.a->val : 0; __iter.a;                       \
-		__iter.a = __iter.a->have_next ? get_obj_array(wk, __iter.a->next) : 0, \
+#define obj_array_for_(__wk, __arr, __val, __iter)                                        \
+	struct obj_array_for_helper __iter = {                                            \
+		.a = get_obj_array(__wk, __arr),                                          \
+	};                                                                                \
+	for (__val = __iter.a->len ? __iter.a->val : 0; __iter.a;                         \
+		__iter.a = __iter.a->have_next ? get_obj_array(__wk, __iter.a->next) : 0, \
 	    __val = __iter.a ? __iter.a->val : 0)
 
 #define obj_array_for(__wk, __arr, __val) obj_array_for_(__wk, __arr, __val, CONCAT(__iter, __LINE__))

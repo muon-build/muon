@@ -6,35 +6,39 @@
 
 #include "compat.h"
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "buf_size.h"
-#include "error.h"
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
+#include "lang/object_iterators.h"
 #include "lang/string.h"
-#include "lang/typecheck.h"
-#include "log.h"
 #include "platform/mem.h"
-#include "platform/path.h"
 
-#if 0
+enum fmt_frag_flag {
+	fmt_frag_flag_comment = 1 << 0,
+	fmt_frag_flag_comment_trailing = 1 << 1,
+	fmt_frag_flag_has_comment_trailing = 1 << 2,
+};
 
-struct arg_elem {
-	uint32_t kw, val, next;
-	type_tag type;
+struct fmt_frag {
+	obj str;
+	bool force_ml;
+	const char *enclosing;
+
+	struct fmt_frag *next, *child, *ws;
+	uint32_t len, flags;
+	bool measured;
 };
 
 struct fmt_ctx {
-	struct ast *ast;
 	struct workspace *wk;
 	struct sbuf *out_buf;
-	uint32_t indent, col, enclosed;
-	bool force_ml;
+	uint32_t indent, enclosing;
 	bool trailing_comment;
+
+	struct bucket_arr frags;
 
 	/* options */
 	bool space_array, kwa_ml, wide_colon, no_single_comma_function;
@@ -42,964 +46,481 @@ struct fmt_ctx {
 	const char *indent_by;
 };
 
-enum special_fmt {
-	special_fmt_sort_files = 1 << 0,
-	special_fmt_collapse_lone_array_arg = 1 << 1,
-	special_fmt_cmd_array  = 1 << 2,
-};
-
-struct fmt_stack {
-	uint32_t parent;
-	const char *node_sep;
-	const char *arg_container;
-	enum special_fmt special_fmt;
-	bool write;
-	bool ml;
-	bool fmt_and_or_force_ml;
-};
-
-typedef uint32_t ((*fmt_func)(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id));
-static uint32_t fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
-static uint32_t fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id);
-
-static const char *
-get_comment(struct fmt_ctx *ctx, struct node *n, uint32_t i)
+static struct fmt_frag *
+fmt_frag(struct fmt_ctx *f)
 {
-	return *(const char **)arr_get(&ctx->ast->comments, n->comments.start + i);
+	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = make_str(f->wk, "") });
 }
 
-static bool
-fmt_str_startwith(struct fmt_ctx *ctx, uint32_t n_id, const char *pre)
+static struct fmt_frag *
+fmt_frag_s(struct fmt_ctx *f, const char *s)
 {
-	struct node *n = get_node(ctx->ast, n_id);
-	if (n->type != node_string) {
-		return false;
-	}
-
-	const char *s = get_cstr(ctx->wk, n->data.str);
-	if (*s == 'f') {
-		++s;
-	}
-
-	if (strncmp(s, "'''", 3) == 0) {
-		s += 3;
-	} else {
-		++s;
-	}
-
-	return strncmp(s, pre, strlen(pre)) == 0;
+	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = make_str(f->wk, s) });
 }
 
-static bool
-fmt_id_eql(struct fmt_ctx *ctx, uint32_t n_id, const char *id)
+static struct fmt_frag *
+fmt_frag_o(struct fmt_ctx *f, obj s)
 {
-	struct node *n = get_node(ctx->ast, n_id);
-	if (n->type != node_id) {
-		return false;
-	}
-
-	return str_eql(get_str(ctx->wk, n->data.str), &WKSTR(id));
+	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = s });
 }
 
-static struct fmt_stack *
-fmt_setup_fst(const struct fmt_stack *pfst)
+static struct fmt_frag *
+fmt_frag_sibling(struct fmt_ctx *f, struct fmt_frag *fr, struct fmt_frag *sibling)
 {
-	static struct fmt_stack fst;
-	fst = *pfst;
-	fst.node_sep = NULL;
-	return &fst;
-}
-
-static uint32_t
-fmt_check(struct fmt_ctx *ctx, const struct fmt_stack *pfst, fmt_func func, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	fst.node_sep = pfst->node_sep;
-
-	if (!fst.write) {
-		return func(ctx, &fst, n_id);
+	for (; fr->next; fr = fr->next) {
 	}
 
-	bool old_force_ml = ctx->force_ml;
-	ctx->force_ml = false;
-
-	struct fmt_stack tmp = fst;
-	tmp.write = false;
-	tmp.ml = false;
-
-	uint32_t len = func(ctx, &tmp, n_id);
-
-	fst.ml = ctx->force_ml || (len + ctx->col > ctx->max_line_len);
-
-	len = func(ctx, &fst, n_id);
-
-	ctx->force_ml = old_force_ml;
-	return len;
+	fr->next = sibling;
+	return sibling;
 }
 
-static uint32_t
-fmt_write(struct fmt_ctx *ctx, const struct fmt_stack *pfst, char c)
+static struct fmt_frag *
+fmt_frag_child(struct fmt_ctx *f, struct fmt_frag *parent, struct fmt_frag *child)
 {
-	uint32_t len;
-	assert(c != '\n');
-
-	if (c == '\t') {
-		len = 8;
-	} else {
-		len = 1;
+	if (!parent->child) {
+		parent->child = child;
+		return child;
 	}
 
-	if (pfst->write) {
-		sbuf_push(NULL, ctx->out_buf, c);
-		ctx->col += len;
-	}
-	return len;
+	return fmt_frag_sibling(f, parent->child, child);
 }
 
-static uint32_t
-fmt_writeml(struct fmt_ctx *ctx, const struct fmt_stack *pfst, const char *s)
-{
-	uint32_t len = 0;
-	for (; *s; ++s) {
-		if (*s == '\n') {
-			if (pfst->write) {
-				sbuf_push(NULL, ctx->out_buf, '\n');
-				ctx->col = 0;
-			}
-
-			ctx->force_ml = true;
-		} else {
-			len += fmt_write(ctx, pfst, *s);
-		}
-	}
-
-	return len;
-}
-
-static uint32_t
-fmt_writes(struct fmt_ctx *ctx, const struct fmt_stack *pfst, const char *s)
-{
-	uint32_t len = 0;
-	for (; *s; ++s) {
-		len += fmt_write(ctx, pfst, *s);
-	}
-	return len;
-}
+/*******************************************************************************
+ * fmt_write
+ ******************************************************************************/
 
 static void
-fmt_newline(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
+fmt_write_indent(struct fmt_ctx *f)
 {
 	uint32_t i;
-	if (pfst->ml) {
-		ctx->trailing_comment = false;
-	}
-
-	if (pfst->write && pfst->ml) {
-		sbuf_push(NULL, ctx->out_buf, '\n');
-		ctx->col = 0;
-
-		if (next != 0) {
-			struct node *n = get_node(ctx->ast, next);
-			if (n->type == node_block) {
-				n = get_node(ctx->ast, n->l);
-			}
-
-			if (n->type == node_empty_line && !n->comments.len) {
-				return;
-			}
-		}
-
-		for (i = 0; i < ctx->indent; ++i) {
-			fmt_writes(ctx, pfst, ctx->indent_by);
-		}
+	for (i = 0; i < f->indent; ++i) {
+		sbuf_pushs(0, f->out_buf, f->indent_by);
 	}
 }
 
 static void
-fmt_newline_force(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
+fmt_write_nl_indent(struct fmt_ctx *f)
 {
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	fst.ml = true;
-
-	fmt_newline(ctx, &fst, next);
+	sbuf_pushs(0, f->out_buf, "\n");
+	fmt_write_indent(f);
 }
 
 static uint32_t
-fmt_newline_or_space(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
+saturating_add(uint32_t a, uint32_t b)
 {
-	if (pfst->ml) {
-		fmt_newline(ctx, pfst, next);
-		return 0;
-	} else {
-		return fmt_write(ctx, pfst, ' ');
+	uint64_t s64 = (uint64_t)a + (uint64_t)b;
+	if (s64 > UINT32_MAX) {
+		s64 = UINT32_MAX;
 	}
+
+	return s64;
 }
 
 static uint32_t
-fmt_breaking_space(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t next)
+fmt_measure_frag_ws(struct fmt_ctx *f, struct fmt_frag *p)
 {
-	if (ctx->col >= ctx->max_line_len) {
-		fmt_newline_force(ctx, pfst, next);
-		ctx->force_ml = true;
-		return 0;
-	} else {
-		return fmt_write(ctx, pfst, ' ');
-	}
-}
+	/* struct fmt_frag *fr; */
+	/* uint32_t len; */
 
-static void
-fmt_begin_block(struct fmt_ctx *ctx)
-{
-	++ctx->indent;
-}
-
-static void
-fmt_end_block(struct fmt_ctx *ctx)
-{
-	--ctx->indent;
-}
-
-MUON_ATTR_FORMAT(printf, 3, 4)
-static uint32_t
-fmt_writef(struct fmt_ctx *ctx, const struct fmt_stack *pfst, const char *fmt, ...)
-{
-	uint32_t len;
-	va_list args;
-	va_start(args, fmt);
-
-	static char buf[BUF_SIZE_4k];
-	if (pfst->write) {
-		vsnprintf(buf, BUF_SIZE_4k, fmt, args);
-		len = fmt_writes(ctx, pfst, buf);
-	} else {
-		len = vsnprintf(NULL, 0, fmt, args);
-	}
-	va_end(args);
-	return len;
-}
-
-static uint32_t
-fmt_comments(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id, bool allow_leading_space)
-{
-	struct node *n = get_node(ctx->ast, n_id);
-	uint32_t len = 0;
-
-	if (!n->comments.len) {
+	if (!p->ws) {
 		return 0;
 	}
 
-	bool leading_space = allow_leading_space && n->type != node_empty_line;
-
-	ctx->force_ml = true;
-
-	uint32_t i;
-	for (i = 0; i < n->comments.len; ++i) {
-		len += fmt_writef(ctx, pfst, "%s#%s",
-			leading_space ? " " : "",
-			get_comment(ctx, n, i));
-
-		if (i < n->comments.len - 1) { // && !trailing_line) {
-			fmt_newline_force(ctx, pfst, n_id);
-		} else {
-			if (pfst->write) {
-				ctx->trailing_comment = true;
-			}
-		}
-
-		leading_space = false;
-	}
-
-	return len;
-}
-
-static uint32_t
-fmt_check_trailing_comment_or_space(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	if (ctx->trailing_comment) {
-		fmt_newline_force(ctx, pfst, n_id);
-		return 0;
-	} else {
-		fmt_write(ctx, pfst, ' ');
-		return 1;
-	}
-}
-
-static uint32_t
-fmt_tail(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	uint32_t len = 0;
-
-	if (pfst->node_sep) {
-		len += fmt_writes(ctx, pfst, pfst->node_sep);
-	}
-
-	len += fmt_comments(ctx, pfst, n_id, true);
-	return len;
-}
-
-static int32_t
-fmt_files_args_sort_cmp(const void *a, const void *b, void *_ctx)
-{
-	struct fmt_ctx *ctx = _ctx;
-	const struct arg_elem *ae1 = a, *ae2 = b;
-
-	struct node *v1 = get_node(ctx->ast, ae1->val),
-		    *v2 = get_node(ctx->ast, ae2->val);
-
-	if (v1->type == node_string && v2->type == node_string) {
-		const char *s1 = get_cstr(ctx->wk, v1->data.str), *s2 = get_cstr(ctx->wk, v2->data.str);
-		bool s1_hasdir = strchr(s1, '/') != NULL,
-		     s2_hasdir = strchr(s2, '/') != NULL;
-
-		if ((s1_hasdir && s2_hasdir) || (!s1_hasdir && !s2_hasdir)) {
-			return strcmp(s1, s2);
-		} else if (s1_hasdir) {
-			return -1;
-		} else {
-			return 1;
-		}
-	} else if (v1->type == node_string && v2->type != node_string) {
-		return -1;
-	} else if (v1->type != node_string && v2->type == node_string) {
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
-static uint32_t
-fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	fst.node_sep = pfst->node_sep;
-
-	uint32_t len = 0, kwa = 0;
-	struct node *arg = get_node(ctx->ast, n_args),
-		    *arg_val;
-	bool last = false;
-
-	if (fst.special_fmt & special_fmt_collapse_lone_array_arg) {
-		assert(arg->type != node_empty);
-		struct node *arr = get_node(ctx->ast, arg->l);
-		assert(arr->type == node_array);
-		arg = get_node(ctx->ast, arr->l);
-	}
-
-	if (arg->type == node_empty) {
-		return 0;
-	}
-
-	++ctx->enclosed;
-	fmt_begin_block(ctx);
-	if (pfst->arg_container[0] == '[' && ctx->space_array) {
-		fmt_newline_or_space(ctx, &fst, n_args);
-	} else {
-		fmt_newline(ctx, &fst, n_args);
-	}
-
-	struct arr args;
-	arr_init(&args, 64, sizeof(struct arg_elem));
-
-	while (arg->type != node_empty) {
-		arr_push(&args, &(struct arg_elem) { 0 });
-		struct arg_elem *ae = arr_get(&args, args.len - 1);
-
-		if (arg->subtype == arg_kwarg) {
-			ae->kw = arg->l;
-			ae->val = arg->r;
-			++kwa;
-		} else {
-			ae->kw = 0;
-			ae->val = arg->l;
-		}
-
-		ae->type = arg->data.type;
-
-		arg_val = get_node(ctx->ast, ae->val);
-
-		{ // deal with empty lines and comment lines
-			if (arg_val->type == node_empty_line) {
-				ctx->force_ml = true;
-			}
-		}
-
-		if (arg->chflg & node_child_c) {
-			arg = get_node(ctx->ast, arg->c);
-			ae->next = arg->subtype == arg_kwarg ? arg->r : arg->l;
-
-			// this means there was a trailing comma
-			if (arg->type == node_empty) {
-				ctx->force_ml = true;
-			}
-		} else {
-			break;
-		}
-	}
-	if (kwa > 1 && ctx->kwa_ml) {
-		ctx->force_ml = true;
-	}
-
-	if (fst.special_fmt & special_fmt_sort_files) {
-		arr_sort(&args, ctx, fmt_files_args_sort_cmp);
-	}
-
-	uint32_t i;
-	for (i = 0; i < args.len; ++i) {
-		struct arg_elem *ae = arr_get(&args, i);
-		fst.special_fmt = 0;
-
-		last = i == args.len - 1;
-
-		struct node *n = get_node(ctx->ast, ae->val);
-
-		if (ae->kw) {
-			if (fmt_id_eql(ctx, ae->kw, "command")) {
-				fst.special_fmt |= special_fmt_cmd_array;
-			}
-
-			const char *kw_sep = ctx->wide_colon ? " : " : ": ";
-
-			if (ae->type) {
-				fst.node_sep = 0;
-				len += fmt_node(ctx, &fst, ae->kw);
-				len += fmt_writes(ctx, &fst, " ");
-				len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, ae->type));
-				fst.node_sep = kw_sep;
-				len += fmt_tail(ctx, &fst, ae->kw);
-			} else {
-				fst.node_sep = kw_sep;
-				len += fmt_node(ctx, &fst, ae->kw);
-			}
-		}
-
-		bool need_comma;
-		if (n->type == node_empty_line) {
-			// never put commas on empty lines
-			need_comma = false;
-		} else if (pfst->arg_container[0] == '('
-			   && ctx->no_single_comma_function
-			   && args.len == 1
-			   && !ae->kw) {
-			need_comma = false;
-		} else if (last && !fst.ml) {
-			need_comma = false;
-		} else {
-			need_comma = true;
-		}
-
-		const char *val_sep = need_comma ? "," : NULL;
-		if (!ae->kw && ae->type) {
-			fst.node_sep = 0;
-			len += fmt_node(ctx, &fst, ae->val);
-			len += fmt_writes(ctx, &fst, " ");
-			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, ae->type));
-			fst.node_sep = val_sep;
-			len += fmt_tail(ctx, &fst, ae->val);
-		} else {
-			fst.node_sep = val_sep;
-			len += fmt_check(ctx, &fst, fmt_node, ae->val);
-		}
-
-		if (!last) {
-			if ((pfst->special_fmt & special_fmt_cmd_array)
-			    && fmt_str_startwith(ctx, ae->val, "-")
-			    && !fmt_str_startwith(ctx, ae->next, "-")) {
-				len += fmt_write(ctx, &fst, ' ');
-			} else {
-				len += fmt_newline_or_space(ctx, &fst, ae->next);
-			}
-		} else {
-			break;
-		}
-	}
-
-	arr_destroy(&args);
-
-	--ctx->enclosed;
-	fmt_end_block(ctx);
-	if (pfst->arg_container[1] == ']' && ctx->space_array) {
-		fmt_newline_or_space(ctx, &fst, 0);
-	}else {
-		fmt_newline(ctx, &fst, 0);
-	}
-	return len;
-}
-
-static uint32_t
-fmt_arg_container(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	/* struct node *p = get_node(ctx->ast, fst.parent); */
-
-	uint32_t len = 0;
-	len += fmt_write(ctx, &fst, fst.arg_container[0]);
-	len += fmt_comments(ctx, pfst, fst.parent, true);
-	/* if (p->comment) { */
-	/* 	len += fmt_writef(ctx, pfst, " #%s", p->comment); */
-	/* 	ctx->force_ml = true; */
+	return f->max_line_len;
+	/* for (fr = p->ws; fr; fr = fr->next) { */
 	/* } */
-
-	len += fmt_args(ctx, &fst, n_id);
-	len += fmt_write(ctx, &fst, fst.arg_container[1]);
-	return len;
 }
 
 static uint32_t
-fmt_function_common(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_name, uint32_t n_args)
+fmt_measure_frag_set(struct fmt_ctx *f, struct fmt_frag *p)
 {
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
+	const struct str *str;
+	struct fmt_frag *fr;
 	uint32_t len = 0;
-	if (n_name) {
-		const char *name = get_cstr(ctx->wk, get_node(ctx->ast, n_name)->data.str);
-		len += fmt_writes(ctx, &fst, name);
-		fst.parent = n_name;
+
+	if (p->child) {
+		len = saturating_add(len, 2);
 	}
 
-	fst.arg_container = "()";
-	len += fmt_arg_container(ctx, &fst, n_args);
-	return len;
-}
+	for (fr = p->child; fr; fr = fr->next) {
+		fr->len = 0;
 
-static uint32_t
-fmt_function(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	fst.special_fmt = 0;
-
-	uint32_t len = 0;
-	struct node *f = get_node(ctx->ast, n_id);
-
-	if (fmt_id_eql(ctx, f->l, "files")) {
-		// fire only if an array is the lone argument
-		struct node *arg = get_node(ctx->ast, f->r);
-		if (arg->type != node_empty
-		    && arg->subtype != arg_kwarg
-		    && (!(arg->chflg & node_child_c)
-			|| get_node(ctx->ast, arg->c)->type == node_empty)
-		    && get_node(ctx->ast, arg->l)->type == node_array
-		    ) {
-			fst.special_fmt |= special_fmt_collapse_lone_array_arg;
+		if (fr->ws) {
+			fr->len = saturating_add(fr->len, fmt_measure_frag_ws(f, fr));
 		}
 
-		fst.special_fmt |= special_fmt_sort_files;
+		if (fr->child) {
+			fr->len = saturating_add(fr->len, fmt_measure_frag_set(f, fr));
+		}
+
+		str = get_str(f->wk, fr->str);
+		if (strchr(str->s, '\n')) {
+			// force ml if str has \n
+			fr->len = saturating_add(fr->len, f->max_line_len);
+		} else {
+			fr->len = saturating_add(fr->len, str->len);
+		}
+		if (fr->next) {
+			fr->len = saturating_add(fr->len, 1);
+		}
+
+		if (fr->force_ml) {
+			fr->len = saturating_add(fr->len, f->max_line_len);
+		}
+
+		L("child len: %d", fr->len);
+		len = saturating_add(len, fr->len);
 	}
 
-	len += fmt_function_common(ctx, &fst, 0, f->r);
-	return len;
-}
-
-static uint32_t
-fmt_method(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
-	uint32_t len = 0;
-	struct node *f = get_node(ctx->ast, n_id);
-
-	len += fmt_function_common(ctx, &fst, f->r, f->c);
-
-	return len;
-}
-
-static uint32_t
-fmt_node_wrapped(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
-	uint32_t len = 0;
-	bool node_needs_paren;
-
-	switch (get_node(ctx->ast, n_id)->type) {
-	case node_method:
-	case node_array:
-	case node_dict:
-	case node_function:
-	case node_index:
-	case node_paren:
-	case node_string:
-	case node_number:
-		node_needs_paren = false;
-		break;
-	default:
-		node_needs_paren = true;
-		break;
-	}
-
-	node_needs_paren &= ctx->enclosed == 0;
-
-	if (fst.ml && node_needs_paren) {
-		++ctx->enclosed;
-		len += fmt_write(ctx, &fst, '(');
-		fmt_begin_block(ctx);
-		fmt_newline(ctx, &fst, n_id);
-	}
-
-	len += fmt_node(ctx, &fst, n_id);
-
-	if (fst.ml && node_needs_paren) {
-		--ctx->enclosed;
-		fmt_end_block(ctx);
-		fmt_newline(ctx, &fst, 0);
-		len += fmt_write(ctx, &fst, ')');
-	}
-
-	return len;
-}
-
-static uint32_t
-fmt_parens(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
-	uint32_t len = 0;
-	struct node *n = get_node(ctx->ast, n_id);
-
-	len += fmt_write(ctx, &fst, '(');
-	++ctx->enclosed;
-
-	if (fst.ml) {
-		fmt_begin_block(ctx);
-		fmt_newline(ctx, &fst, n->l);
-	}
-
-	len += fmt_comments(ctx, &fst, n_id, false);
-	len += fmt_node(ctx, &fst, n->l);
-
-	if (fst.ml) {
-		fmt_end_block(ctx);
-		fmt_newline(ctx, &fst, 0);
-	}
-
-	--ctx->enclosed;
-	len += fmt_write(ctx, &fst, ')');
-
+	p->len = len;
+	L("ttl len: %d", p->len);
 	return len;
 }
 
 static void
-fmt_if(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id, bool first)
+fmt_write_frag_trailing_comment(struct fmt_ctx *f, struct fmt_frag *p)
 {
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
-	struct node *n = get_node(ctx->ast, n_id);
-
-	if (n->subtype == if_if || n->subtype == if_elseif) {
-		fmt_writef(ctx, &fst, "%s ", first ? "if" : "elif");
-		fmt_check(ctx, &fst, fmt_node_wrapped, n->l);
-	} else {
-		fmt_writes(ctx, &fst, "else");
-	}
-
-	struct node *block = get_node(ctx->ast, n->r);
-	if (block->type == node_empty) {
-		fmt_comments(ctx, pfst, n->r, true);
-		fmt_newline_force(ctx, &fst, n->r);
-	} else {
-		fmt_begin_block(ctx);
-		fmt_newline_force(ctx, &fst, n->r);
-		fmt_node(ctx, &fst, n->r);
-		fmt_end_block(ctx);
-		fmt_newline_force(ctx, &fst, n->c);
-	}
-
-	if (n->chflg & node_child_c) {
-		fmt_if(ctx, &fst, n->c, false);
+	const struct str *str;
+	struct fmt_frag *fr;
+	for (fr = p->ws; fr; fr = fr->next) {
+		if (!(fr->flags & fmt_frag_flag_comment_trailing)) {
+			continue;
+		}
+		str = get_str(f->wk, fr->str);
+		/* if (str_eql(str, &WKSTR("\n"))) { */
+		/* 	/1* fmt_write_nl_indent(f); *1/ */
+		/* } else { */
+		sbuf_pushn(0, f->out_buf, str->s, str->len);
+		/* } */
 	}
 }
 
-static uint32_t
-fmt_chain(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
+static void
+fmt_write_frag_ws(struct fmt_ctx *f, struct fmt_frag *p)
 {
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	uint32_t len = 0;
-	struct node *n = get_node(ctx->ast, n_id);
+	const struct str *str;
+	struct fmt_frag *fr;
+	for (fr = p->ws; fr; fr = fr->next) {
+		if (fr->flags & fmt_frag_flag_comment_trailing) {
+			continue;
+		}
+
+		if (fr->flags & fmt_frag_flag_comment) {
+			str = get_str(f->wk, fr->str);
+			sbuf_pushn(0, f->out_buf, str->s, str->len);
+			fmt_write_nl_indent(f);
+		}
+	}
+}
+
+static void
+fmt_write_frag_set(struct fmt_ctx *f, struct fmt_frag *p)
+{
+	const struct str *str;
+	struct fmt_frag *fr;
+	uint32_t base_len = strlen(f->indent_by) * f->indent;
+	bool ml = base_len + p->len > f->max_line_len, sub_ml;
+
+	/* L("formatting: %d, %d, %d", base_len, p->len, f->max_line_len); */
+
+	if (p->enclosing) {
+		sbuf_push(0, f->out_buf, p->enclosing[0]);
+		++f->enclosing;
+
+		sub_ml = base_len + p->len > f->max_line_len;
+
+		if (sub_ml) {
+			++f->indent;
+			fmt_write_nl_indent(f);
+		}
+	}
+
+	if (p->child && p->child->flags & fmt_frag_flag_has_comment_trailing) {
+		fmt_write_frag_trailing_comment(f, p->child);
+		fmt_write_nl_indent(f);
+	}
+
+	for (fr = p->child; fr; fr = fr->next) {
+		if (fr->ws) {
+			fmt_write_frag_ws(f, fr);
+		}
+
+		if (fr->child) {
+			fmt_write_frag_ws(f, fr);
+		}
+
+		if (fr->child) {
+			fmt_write_frag_set(f, fr);
+		}
+
+		str = get_str(f->wk, fr->str);
+		sbuf_pushn(0, f->out_buf, str->s, str->len);
+
+		if (fr->next) {
+			if (fr->next->flags & fmt_frag_flag_has_comment_trailing) {
+				sbuf_push(0, f->out_buf, ' ');
+				fmt_write_frag_trailing_comment(f, fr->next);
+			}
+
+			if (ml) {
+				fmt_write_nl_indent(f);
+			} else {
+				sbuf_push(0, f->out_buf, ' ');
+			}
+		}
+	}
+
+	if (p->enclosing) {
+		if (ml) {
+			--f->indent;
+			fmt_write_nl_indent(f);
+		}
+
+		sbuf_push(0, f->out_buf, p->enclosing[1]);
+		--f->enclosing;
+	}
+}
+
+static void
+fmt_write_frag_set_dbg(struct fmt_ctx *f, const struct fmt_frag *p, uint32_t d)
+{
+#define IND()                              \
+	for (uint32_t i = 0; i < d; ++i) { \
+		log_plain("  ");           \
+	}
+
+	if (p->enclosing) {
+		IND();
+		log_plain("%c\n", p->enclosing[0]);
+	}
+
+	struct fmt_frag *fr;
+
+	for (fr = p->child; fr; fr = fr->next) {
+		if (fr->child) {
+			fmt_write_frag_set_dbg(f, fr, d + 1);
+		}
+
+		IND();
+		obj_fprintf(f->wk, log_file(), "%o\n", fr->str);
+		/* str = get_str(f->wk, fr->str); */
+		/* if (strchr(str->s, '\n')) { */
+		/* 	// force ml if str has \n */
+		/* 	fr->len = saturating_add(fr->len, f->max_line_len); */
+		/* } else { */
+		/* 	fr->len = saturating_add(fr->len, str->len); */
+		/* } */
+	}
+
+	if (p->enclosing) {
+		IND();
+		log_plain("%c\n", p->enclosing[1]);
+	}
+#undef IND
+}
+
+static void
+fmt_write_line(struct fmt_ctx *f, struct fmt_frag *root)
+{
+	fmt_measure_frag_set(f, root);
+	L("---");
+	fmt_write_frag_set_dbg(f, root, 0);
+	L("---");
+	fmt_write_frag_set(f, root);
+	fmt_write_nl_indent(f);
+}
+
+/*******************************************************************************
+ * formatter
+ ******************************************************************************/
+
+static void fmt_block(struct fmt_ctx *f, struct node *n);
+
+static void
+fmt_node_ws(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr)
+{
+	const struct str *s = get_str(f->wk, n->fmt.ws);
+	struct fmt_frag *child;
+	bool trailing_comment = true;
+	uint32_t i, cs, ce;
+	for (i = 0; i < s->len; ++i) {
+		if (s->s[i] == '\n') {
+			trailing_comment = false;
+			fmt_frag_child(f, fr, fmt_frag_s(f, "\n"));
+			/* str_appn(f->wk, &fr->str, "\n", 1); */
+		} else if (s->s[i] == '#') {
+			cs = i;
+			for (; s->s[i] != '\n' && i < s->len; ++i) {
+			}
+			ce = i;
+
+			child = fmt_frag_child(f, fr, fmt_frag_o(f, make_strn(f->wk, &s->s[cs], ce - cs)));
+			child->flags |= fmt_frag_flag_comment;
+			if (trailing_comment) {
+				child->flags = fmt_frag_flag_comment_trailing;
+				fr->flags |= fmt_frag_flag_has_comment_trailing;
+			}
+			/* str_appn(f->wk, &fr->str, &s->s[cs], (ce - cs) + 1); */
+
+			L("got comment '%.*s' %s", ce - cs, &s->s[cs], trailing_comment ? "trailing" : "");
+			trailing_comment = false;
+		}
+	}
+}
+
+static struct fmt_frag *
+fmt_node(struct fmt_ctx *f, struct node *n)
+{
+	assert(n->type != node_type_stmt);
+	struct fmt_frag *fr, *child;
+
+	fr = fmt_frag(f);
+
+	if (n->fmt.ws) {
+		fmt_node_ws(f, n, fr);
+		fr->ws = fr->child;
+		fr->child = 0;
+	}
+
+	/* L("formatting %s", node_to_s(f->wk, n)); */
 
 	switch (n->type) {
-	case node_method:
-		len += fmt_write(ctx, pfst, '.');
-		len += fmt_check(ctx, &fst, fmt_method, n_id);
+	case node_type_stmt: UNREACHABLE;
+
+	case node_type_id_lit:
+	case node_type_args:
+	case node_type_def_args:
+	case node_type_kw:
+	case node_type_list:
+	case node_type_foreach_args:
+		// Skipped
 		break;
-	case node_index:
-		len += fmt_write(ctx, pfst, '[');
-		++ctx->enclosed;
-		len += fmt_check(ctx, &fst, fmt_node, n->r);
-		--ctx->enclosed;
-		len += fmt_write(ctx, pfst, ']');
+
+	case node_type_stringify: break;
+	case node_type_index: break;
+	case node_type_negate: break;
+	case node_type_add: break;
+	case node_type_sub: break;
+	case node_type_mul: break;
+	case node_type_div: break;
+	case node_type_mod: break;
+	case node_type_not: break;
+	case node_type_eq: break;
+	case node_type_neq: break;
+	case node_type_in: break;
+	case node_type_not_in: break;
+	case node_type_lt: break;
+	case node_type_gt: break;
+	case node_type_leq: break;
+	case node_type_geq: break;
+	case node_type_id: break;
+	case node_type_string:
+	case node_type_number: {
+		str_apps(f->wk, &fr->str, n->data.str);
 		break;
-	case node_function:
-		len += fmt_check(ctx, &fst, fmt_function, n_id);
-		break;
-	default:
-		UNREACHABLE_RETURN;
 	}
-
-	if (n->chflg & node_child_d) {
-		len += fmt_chain(ctx, pfst, n->d);
-	} else {
-		len += fmt_tail(ctx, pfst, n_id);
+	case node_type_bool: {
+		str_app(f->wk, &fr->str, n->data.num ? "true" : "false");
+		break;
 	}
-	return len;
-}
+	case node_type_array: {
+		fr->enclosing = "[]";
 
-static uint32_t
-fmt_and_or(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-	fst.fmt_and_or_force_ml = pfst->fmt_and_or_force_ml;
+		while (true) {
+			if (n->l) {
+				child = fmt_frag_child(f, fr, fmt_node(f, n->l));
+			}
+			if (!n->r) {
+				break;
+			}
 
-	struct node *n = get_node(ctx->ast, n_id);
-	uint32_t len = 0;
+			str_app(f->wk, &child->str, ",");
+			n = n->r;
 
-	len += fmt_check(ctx, &fst, fmt_node, n->l);
-
-	if ((ctx->enclosed && fst.ml) || fst.fmt_and_or_force_ml) {
-		fmt_newline_force(ctx, &fst, 0);
-		fst.fmt_and_or_force_ml = true;
-	} else {
-		len += fmt_writes(ctx, &fst, " ");
-	}
-
-	len += fmt_writes(ctx, &fst, n->type == node_or ? "or " : "and ");
-
-	len += fmt_check(ctx, &fst, fmt_node, n->r);
-	return len;
-}
-
-static uint32_t
-fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
-{
-	struct fmt_stack fst = *fmt_setup_fst(pfst);
-
-	uint32_t len = 0;
-	struct node *n = get_node(ctx->ast, n_id);
-
-	if (ctx->trailing_comment && n->type != node_empty_line) {
-		fmt_newline_force(ctx, pfst, n_id);
-	}
-
-	/* if (pfst->write) { */
-	/* 	L("formatting %s", node_to_s(n)); */
-	/* } else { */
-	/* 	L("checking %s", node_to_s(n)); */
-	/* } */
-
-	switch (n->type) {
-	/* literals */
-	case node_bool:
-		len += fmt_writes(ctx, &fst, n->subtype ? "true" : "false");
-		break;
-	case node_string:
-		len += fmt_writeml(ctx, &fst, get_cstr(ctx->wk, n->data.str));
-		break;
-	case node_array:
-	case node_dict:
-		fst.arg_container = n->type == node_array ? "[]" : "{}";
-		fst.parent = n_id;
-		n_id = n->l;
-		n = get_node(ctx->ast, n_id);
-		len += fmt_check(ctx, &fst, fmt_arg_container, n_id);
-		break;
-	case node_id:
-		len += fmt_writes(ctx, &fst, get_cstr(ctx->wk, n->data.str));
-		break;
-	case node_number:
-		len += fmt_writes(ctx, &fst, get_cstr(ctx->wk, n->data.str));
-		break;
-
-	/* control flow */
-	case node_block: {
-		len = fmt_check(ctx, &fst, fmt_node, n->l);
-
-		if (n->chflg & node_child_r) {
-			struct node *bnext = get_node(ctx->ast, n->r);
-
-			if (bnext->type != node_empty) {
-				fmt_newline_force(ctx, &fst, n->r);
-				fmt_node(ctx, &fst, n->r);
+			if (!n->r && !n->l) {
+				// trailing comma
+				fr->force_ml = true;
 			}
 		}
 		break;
 	}
-	case node_if: {
-		fmt_if(ctx, &fst, n_id, true);
-		fmt_writes(ctx, &fst, "endif");
+	case node_type_dict: break;
+	case node_type_assign: break;
+	case node_type_plusassign: break;
+	case node_type_method: {
 		break;
 	}
-	case node_foreach_args:
-		len += fmt_node(ctx, &fst, n->l);
-		if (n->chflg & node_child_r) {
-			len += fmt_writes(ctx, &fst, ", ");
-			len += fmt_node(ctx, &fst, n->r);
-		}
-		break;
-	case node_foreach:
-		fmt_writes(ctx, &fst, "foreach ");
-		fmt_node(ctx, &fst, n->l);
-		fmt_writes(ctx, &fst, " : ");
-		fmt_check(ctx, &fst, fmt_node_wrapped, n->r);
-
-		struct node *block = get_node(ctx->ast, n->c);
-		if (block->type == node_empty) {
-			fmt_comments(ctx, pfst, n->c, true);
-			fmt_newline_force(ctx, &fst, n->r);
-		} else {
-			fmt_begin_block(ctx);
-			fmt_newline_force(ctx, &fst, n->c);
-			fmt_node(ctx, &fst, n->c);
-			fmt_end_block(ctx);
-			fmt_newline_force(ctx, &fst, 0);
-		}
-
-		fmt_writes(ctx, &fst, "endforeach");
-		break;
-	case node_continue:
-		len += fmt_writes(ctx, &fst, "continue");
-		break;
-	case node_break:
-		len += fmt_writes(ctx, &fst, "break");
-		break;
-	case node_return:
-		len += fmt_writes(ctx, &fst, "return ");
-		len += fmt_node(ctx, &fst, n->l);
-		break;
-
-	/* functions */
-	case node_function:
-	case node_method:
-	case node_index:
-		len += fmt_node(ctx, &fst, n->l);
-		return len + fmt_chain(ctx, pfst, n_id);
-	case node_func_def: {
-		fmt_writes(ctx, &fst, "func ");
-		len += fmt_node(ctx, &fst, n->l);
-
-		struct fmt_stack arg_fst = *fmt_setup_fst(&fst);
-		arg_fst.arg_container = "()";
-		arg_fst.ml = false;
-		len += fmt_check(ctx, &arg_fst, fmt_arg_container, n->r);
-
-		if (n->data.type) {
-			len += fmt_writes(ctx, &fst, " -> ");
-			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, n->data.type));
-		}
-
-		struct node *block = get_node(ctx->ast, n->c);
-		if (block->type == node_empty) {
-			fmt_comments(ctx, pfst, n->c, true);
-			fmt_newline_force(ctx, &fst, n->r);
-		} else {
-			fmt_begin_block(ctx);
-			fmt_newline_force(ctx, &fst, n->c);
-			fmt_node(ctx, &fst, n->c);
-			fmt_end_block(ctx);
-			fmt_newline_force(ctx, &fst, 0);
-		}
-
-		fmt_writes(ctx, &fst, "endfunc");
+	case node_type_call: {
 		break;
 	}
-
-	/* assignment */
-	case node_assignment:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_writes(ctx, &fst, "= ");
-		len += fmt_node_wrapped(ctx, &fst, n->r);
-		break;
-	case node_plusassign:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_writes(ctx, &fst, "+= ");
-		len += fmt_node_wrapped(ctx, &fst, n->r);
-		break;
-
-	/* comparison stuff */
-	case node_not:
-		len += fmt_writes(ctx, &fst, "not ");
-		len += fmt_node(ctx, &fst, n->l);
-		break;
-	case node_and:
-	case node_or:
-		len += fmt_and_or(ctx, &fst, n_id);
-		break;
-	case node_comparison: {
-		assert(n->subtype <= comp_not_in);
-
-		const char *kw = (char *[]){
-			[comp_equal] = "==",
-			[comp_nequal] = "!=",
-			[comp_lt] = "<",
-			[comp_le] = "<=",
-			[comp_gt] = ">",
-			[comp_ge] = ">=",
-			[comp_in] = "in",
-			[comp_not_in] = "not in",
-		}[n->subtype];
-
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_writef(ctx, &fst, "%s ", kw);
-		len += fmt_node(ctx, &fst, n->r);
+	case node_type_return: {
 		break;
 	}
-	case node_ternary:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_writef(ctx, &fst, "? ");
-		len += fmt_node(ctx, &fst, n->r);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_writef(ctx, &fst, ": ");
-		len += fmt_node(ctx, &fst, n->c);
-		break;
-
-	/* math */
-	case node_u_minus:
-		len += fmt_write(ctx, &fst, '-');
-		len += fmt_node(ctx, &fst, n->l);
-		break;
-	case node_arithmetic:
-		len += fmt_node(ctx, &fst, n->l);
-		len += fmt_check_trailing_comment_or_space(ctx, &fst, n->l);
-		len += fmt_write(ctx, &fst, "+-%*/"[n->subtype]);
-		len += fmt_breaking_space(ctx, &fst, n->r);
-		len += fmt_node(ctx, &fst, n->r);
-		break;
-
-	/* formatting */
-	case node_paren:
-		len += fmt_check(ctx, &fst, fmt_parens, n_id);
-		n_id = n->r;
-		break;
-	case node_empty_line:
-		break;
-
-	/* handled in other places */
-	case node_argument:
-		assert(false && "unreachable");
-		break;
-
-	case node_empty:
-		break;
-
-	/* never valid */
-	case node_stringify:
-	case node_null:
-		assert(false);
+	case node_type_foreach: {
 		break;
 	}
+	case node_type_continue: {
+		break;
+	}
+	case node_type_break: {
+		break;
+	}
+	case node_type_if: {
+		break;
+	}
+	case node_type_ternary: {
+		break;
+	}
+	case node_type_or: {
+		break;
+	}
+	case node_type_and: {
+		break;
+	}
+	case node_type_func_def: {
+		break;
+	}
+	}
 
-	len += fmt_tail(ctx, pfst, n_id);
-	return len;
+	return fr;
 }
 
-/*
+static void
+fmt_block(struct fmt_ctx *f, struct node *n)
+{
+	struct fmt_frag *line;
+
+	while (n) {
+		assert(n->type == node_type_stmt);
+
+		if (!n->l) {
+			fmt_write_nl_indent(f);
+			goto cont;
+		}
+
+		line = fmt_frag(f);
+		fmt_frag_child(f, line, fmt_node(f, n->l));
+
+		fmt_write_line(f, line);
+
+		bucket_arr_clear(&f->frags);
+
+cont:
+		n = n->r;
+	}
+}
+
+/*******************************************************************************
  * config parsing
- */
+ ******************************************************************************/
 
 static bool
-fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, struct source_location location)
+fmt_cfg_parse_cb(void *_ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	struct fmt_ctx *ctx = _ctx;
 
@@ -1009,16 +530,18 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 		type_bool,
 	};
 
-	static const struct { const char *name; enum val_type type; uint32_t off; } keys[] = {
-		{ "max_line_len", type_uint, offsetof(struct fmt_ctx, max_line_len) },
+	static const struct {
+		const char *name;
+		enum val_type type;
+		uint32_t off;
+	} keys[] = { { "max_line_len", type_uint, offsetof(struct fmt_ctx, max_line_len) },
 		{ "indent_by", type_str, offsetof(struct fmt_ctx, indent_by) },
 		{ "space_array", type_bool, offsetof(struct fmt_ctx, space_array) },
 		{ "kwargs_force_multiline", type_bool, offsetof(struct fmt_ctx, kwa_ml) },
 		{ "kwa_ml", type_bool, offsetof(struct fmt_ctx, kwa_ml) }, // kept for backwards compat
 		{ "wide_colon", type_bool, offsetof(struct fmt_ctx, wide_colon) },
 		{ "no_single_comma_function", type_bool, offsetof(struct fmt_ctx, no_single_comma_function) },
-		0
-	};
+		0 };
 
 	if (!k || !*k) {
 		error_messagef(src, location, log_error, "missing key");
@@ -1044,7 +567,8 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 					error_messagef(src, location, log_error, "unable to parse integer");
 					return false;
 				} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-					error_messagef(src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
+					error_messagef(
+						src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
 					return false;
 				}
 
@@ -1075,7 +599,10 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				} else if (strcmp(v, "false") == 0) {
 					val = false;
 				} else {
-					error_messagef(src, location, log_error, "invalid value for bool, expected true/false");
+					error_messagef(src,
+						location,
+						log_error,
+						"invalid value for bool, expected true/false");
 					return false;
 				}
 
@@ -1089,16 +616,18 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 	return true;
 }
 
+/*******************************************************************************
+ * entrypoint
+ ******************************************************************************/
+
 bool
 fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
 {
 	bool ret = false;
-	struct ast ast = { 0 };
 	struct sbuf out_buf;
 	struct workspace wk = { 0 };
 	workspace_init_bare(&wk);
-	struct fmt_ctx ctx = {
-		.ast = &ast,
+	struct fmt_ctx f = {
 		.wk = &wk,
 		.out_buf = &out_buf,
 		.max_line_len = 80,
@@ -1108,9 +637,8 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		.wide_colon = false,
 		.no_single_comma_function = false,
 	};
-	struct fmt_stack fst = {
-		.write = true,
-	};
+
+	bucket_arr_init(&f.frags, 1024, sizeof(struct fmt_frag));
 
 	if (check_only) {
 		sbuf_init(&out_buf, NULL, 0, sbuf_flag_overflow_alloc);
@@ -1123,7 +651,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		struct editorconfig_opts editorconfig_opts;
 		try_parse_editorconfig(src, &editorconfig_opts);
 		if (editorconfig_opts.indent_by) {
-			ctx.indent_by = editorconfig_opts.indent_by;
+			f.indent_by = editorconfig_opts.indent_by;
 		}
 	}
 
@@ -1132,23 +660,22 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 	if (cfg_path) {
 		if (!fs_read_entire_file(cfg_path, &cfg_src)) {
 			goto ret;
-		} else if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &ctx)) {
+		} else if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
 			goto ret;
 		}
 	}
 
-	enum parse_mode parse_mode = pm_keep_formatting | pm_ignore_statement_with_no_effect;
+	enum vm_compile_mode compile_mode = vm_compile_mode_fmt;
 	if (str_endswith(&WKSTR(src->label), &WKSTR(".meson"))) {
-		parse_mode |= pm_functions;
+		compile_mode |= vm_compile_mode_language_extended;
 	}
 
-	if (!parser_parse(&wk, &ast, src, parse_mode)) {
+	struct node *n;
+	if (!(n = parse_fmt(&wk, src, compile_mode))) {
 		goto ret;
 	}
 
-	fmt_node(&ctx, &fst, ast.root);
-	assert(!ctx.indent);
-	fmt_newline_force(&ctx, &fst, 0);
+	fmt_block(&f, n);
 
 	if (check_only) {
 		if (src->len != out_buf.len) {
@@ -1166,13 +693,5 @@ ret:
 	}
 	sbuf_destroy(&out_buf);
 	fs_source_destroy(&cfg_src);
-	ast_destroy(&ast);
 	return ret;
-}
-#endif
-
-bool
-fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
-{
-	return false;
 }

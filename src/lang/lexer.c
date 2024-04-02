@@ -72,7 +72,6 @@ token_type_to_s(enum token_type type)
 	case token_type_bitor: return "|";
 	case token_type_returntype: return "->";
 	case token_type_comment: return "comment";
-	case token_type_fmt_eol: return "fmt_eol";
 	}
 
 	UNREACHABLE_RETURN;
@@ -271,7 +270,7 @@ lex_number(struct lexer *lexer, struct token *token)
 			break;
 		default:
 			lex_advance(lexer);
-			if (lexer->mode & lexer_mode_format) {
+			if (lexer->mode & lexer_mode_fmt) {
 				lex_copy_str(lexer, token, start, lexer->i);
 			} else {
 				token->data.num = 0;
@@ -294,7 +293,7 @@ lex_number(struct lexer *lexer, struct token *token)
 
 	lexer->i += endptr - &lexer->src[lexer->i];
 
-	if (lexer->mode & lexer_mode_format) {
+	if (lexer->mode & lexer_mode_fmt) {
 		lex_copy_str(lexer, token, start, lexer->i);
 	} else {
 		token->data.num = val;
@@ -501,6 +500,8 @@ unterminated_string:
 void
 lexer_next(struct lexer *lexer, struct token *token)
 {
+	uint32_t start;
+	lexer->ws_start = lexer->i, lexer->ws_end = lexer->i;
 restart:
 	*token = (struct token){
 		.location = (struct source_location){ .off = lexer->i, .len = 1 },
@@ -515,17 +516,18 @@ restart:
 		if (lexer->src[lexer->i] == '#') {
 			lex_advance(lexer);
 
-			uint32_t start = lexer->i;
+			/* start = lexer->i; */
 
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
 				lex_advance(lexer);
 			}
 
-			if (lexer->mode & lexer_mode_format) {
-				token->type = token_type_comment;
-				lex_copy_str(lexer, token, start, lexer->i);
-				return;
-			}
+			/* if (lexer->mode & lexer_mode_fmt) { */
+			/* 	lexer->ws_end = lexer->i; */
+			/* 	token->type = token_type_comment; */
+			/* 	lex_copy_str(lexer, token, start, lexer->i); */
+			/* 	return; */
+			/* } */
 		} else {
 			lex_advance(lexer);
 		}
@@ -536,6 +538,7 @@ restart:
 		goto restart;
 	}
 
+	lexer->ws_end = lexer->i;
 	token->location.off = lexer->i;
 
 	struct str lexer_str_2chr = lexer_str(2);
@@ -548,13 +551,18 @@ restart:
 	}
 
 	if (str_eql(&lexer_str(2), &WKSTR("f\'"))) {
+		start = lexer->i;
 		lex_advance(lexer);
 		token->type = token_type_fstring;
 		lex_string(lexer, token);
 		token->location.len = lexer->i - token->location.off;
+		if (lexer->mode & lexer_mode_fmt) {
+			token->type = token_type_string;
+			lex_copy_str(lexer, token, start, lexer->i);
+		}
 		return;
 	} else if (is_valid_start_of_identifier(lexer->src[lexer->i])) {
-		uint32_t start = lexer->i;
+		start = lexer->i;
 		struct str str = { &lexer->src[lexer->i] };
 
 		while (is_valid_inside_of_identifier(lexer->src[lexer->i])) {
@@ -587,19 +595,19 @@ restart:
 		lex_advance(lexer);
 
 		if (lexer->enclosing) {
-			if (lexer->mode & lexer_mode_format) {
-				token->type = token_type_fmt_eol;
-			} else {
-				goto restart;
-			}
+			goto restart;
 		} else {
 			token->type = token_type_eol;
 		}
 		return;
 	case '\'':
+		start = lexer->i;
 		token->type = token_type_string;
 		lex_string(lexer, token);
 		token->location.len = lexer->i - token->location.off;
+		if (lexer->mode & lexer_mode_fmt) {
+			lex_copy_str(lexer, token, start, lexer->i);
+		}
 		return;
 	case '(':
 	case '[':
@@ -649,6 +657,12 @@ unexpected_character:
 
 	lex_advance(lexer);
 	return;
+}
+
+obj
+lexer_get_preceeding_whitespace(struct lexer *lexer)
+{
+	return make_strn(lexer->wk, &lexer->src[lexer->ws_start], lexer->ws_end - lexer->ws_start);
 }
 
 void

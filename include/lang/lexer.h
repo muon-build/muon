@@ -83,7 +83,6 @@ enum token_type {
 
 	/* formatting only */
 	token_type_comment,
-	token_type_fmt_eol,
 };
 
 union literal_data {
@@ -103,7 +102,7 @@ struct token {
 };
 
 enum lexer_mode {
-	lexer_mode_format = 1 << 0,
+	lexer_mode_fmt = 1 << 0,
 	lexer_mode_functions = 1 << 1,
 };
 
@@ -111,7 +110,7 @@ struct lexer {
 	struct workspace *wk;
 	struct source *source;
 	const char *src;
-	uint32_t i, enclosing;
+	uint32_t i, enclosing, ws_start, ws_end;
 	enum lexer_mode mode;
 };
 
@@ -120,6 +119,7 @@ bool is_valid_start_of_identifier(const char c);
 
 void lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode);
 void lexer_next(struct lexer *lexer, struct token *token);
+obj lexer_get_preceeding_whitespace(struct lexer *lexer);
 
 const char *token_type_to_s(enum token_type type);
 const char *token_to_s(struct workspace *wk, struct token *token);

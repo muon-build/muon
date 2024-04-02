@@ -200,14 +200,22 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("pdm:") {
 	case 'p': opts.print_ast = true; break;
 	case 'd': opts.print_dis = true; break;
-	case 'm':
-		if (strcmp(optarg, "x") == 0) {
-			opts.compile_mode |= vm_compile_mode_language_extended;
-		} else {
-			LOG_E("invalid mode '%s'", optarg);
-			return false;
+	case 'm': {
+		const char *p, *chars = "xf";
+		for (p = chars; *p; ++p) {
+			if (!strchr(chars, *p)) {
+				LOG_E("invalid mode '%c', must be one of %s", *p, chars);
+				return false;
+			}
+
+			switch (*p) {
+			case 'x': opts.compile_mode |= vm_compile_mode_language_extended; break;
+			case 'f': opts.compile_mode |= vm_compile_mode_fmt; break;
+			default: UNREACHABLE;
+			}
 		}
 		break;
+	}
 	}
 	OPTEND(argv[argi],
 		" <filename>",
@@ -232,11 +240,15 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 
 	if (opts.print_ast) {
 		struct node *n;
-		if (!(n = parse(&wk, src, &wk.vm.compiler_state.nodes, opts.compile_mode))) {
+		if (!(n = parse(&wk, src, opts.compile_mode))) {
 			goto ret;
 		}
 
-		print_ast(&wk, n);
+		if (opts.compile_mode & vm_compile_mode_fmt) {
+			print_fmt_ast(&wk, n);
+		} else {
+			print_ast(&wk, n);
+		}
 	} else {
 		uint32_t _entry;
 		if (!vm_compile(&wk, src, opts.compile_mode, &_entry)) {
