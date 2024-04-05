@@ -55,9 +55,9 @@ simple_type_to_arr(struct workspace *wk, type_tag t)
 		t &= ~tc_exe;
 	}
 
-	uint32_t ot;
+	uint64_t ot;
 	for (ot = 1; ot <= tc_type_count; ++ot) {
-		uint32_t tc = obj_type_to_tc_type(ot);
+		uint64_t tc = obj_type_to_tc_type(ot);
 		if ((t & tc) != tc) {
 			continue;
 		}

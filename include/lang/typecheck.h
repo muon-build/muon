@@ -71,7 +71,8 @@ enum complex_type {
 #define tc_source_set           (obj_typechecking_type_tag | (((type_tag)1) << 29))
 #define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
 #define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 31))
-#define tc_type_count         32
+#define tc_typeinfo             (obj_typechecking_type_tag | (((type_tag)1) << 32))
+#define tc_type_count         33
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
