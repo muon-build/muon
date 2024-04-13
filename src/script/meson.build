@@ -13,6 +13,7 @@ foreach s : [
     'gettext.meson',
     'itstool.meson',
     'msgfmthelper.meson',
+    'python_info.py',
 
     'modules/_test.meson',
     'modules/i18n.meson',
