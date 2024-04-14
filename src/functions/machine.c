@@ -234,6 +234,8 @@ machine_cpu_family(void)
 
 	if (machine->s[0] == 'i' && str_endswith(machine, &WKSTR("86"))) {
 		norm = "x86";
+	} else if (str_startswith(machine, &WKSTR("arm64"))) {
+		norm = "aarch64";
 	} else if (str_startswith(machine, &WKSTR("arm"))) {
 		norm = "arm";
 	} else if (str_startswith(machine, &WKSTR("powerpc64"))
@@ -245,7 +247,6 @@ machine_cpu_family(void)
 	} else {
 		const char *map[][2] = {
 			{ "bepc", "x86" },
-			{ "arm64", "aarch64" },
 			{ "macppc", "ppc" },
 			{ "power macintosh", "ppc" },
 			{ "amd64", "x86_64" },
