@@ -22,10 +22,7 @@ foreach f : run_command('git', '-C', source_root, 'ls-files').stdout().strip().s
         continue
     elif basename in exclude
         continue
-    elif (
-        'tests/fmt/editorconfig' in f
-        or 'tests/fmt/cases' in f
-    )
+    elif 'tests/fmt/editorconfig' in f or 'tests/fmt/cases' in f
         continue
     endif
 
