@@ -1617,9 +1617,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 	char *cfg_buf = NULL;
 	struct source cfg_src = { 0 };
 	if (cfg_path) {
-		if (!fs_read_entire_file(cfg_path, &cfg_src)) {
-			goto ret;
-		} else if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
+		if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
 			goto ret;
 		}
 	}
