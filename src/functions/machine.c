@@ -209,6 +209,8 @@ machine_cpu_family(void)
 
 	if (machine->s[0] == 'i' && str_endswith(machine, &WKSTR("86"))) {
 		norm = "x86";
+	} else if (str_startswith(machine, &WKSTR("arm64"))) {
+		norm = "aarch64";
 	} else if (str_startswith(machine, &WKSTR("arm"))) {
 		norm = "arm";
 	} else if (str_startswith(machine, &WKSTR("powerpc64")) || str_startswith(machine, &WKSTR("ppc64"))) {
@@ -216,8 +218,8 @@ machine_cpu_family(void)
 	} else if (str_startswith(machine, &WKSTR("powerpc")) || str_startswith(machine, &WKSTR("ppc"))) {
 		norm = "ppc";
 	} else {
-		const char *map[][2] = { { "bepc", "x86" },
-			{ "arm64", "aarch64" },
+		const char *map[][2] = {
+			{ "bepc", "x86" },
 			{ "macppc", "ppc" },
 			{ "power macintosh", "ppc" },
 			{ "amd64", "x86_64" },
@@ -227,7 +229,8 @@ machine_cpu_family(void)
 			{ "sun4v", "sparc64" },
 			{ "ip30", "mpis64" },
 			{ "ip35", "mpis64" },
-			0 };
+			0,
+		};
 
 		uint32_t i;
 		for (i = 0; map[i][0]; ++i) {
