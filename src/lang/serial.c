@@ -229,9 +229,10 @@ load_big_strings(struct workspace *wk, struct big_string_table *bst, FILE *f)
 	return true;
 }
 
+// store flags as a u64 to prevent padding in this struct, which makes memsan
+// upset when we fwrite it out
 struct serial_str {
-	uint64_t s, len;
-	enum str_flags flags;
+	uint64_t s, len, flags;
 };
 
 static bool
@@ -262,11 +263,7 @@ dump_objs(struct workspace *wk, struct arr *big_string_offsets, FILE *f)
 		return false;
 	}
 
-	struct serial_str ser_s;
-	// memsan is upset about uninitialized padding bytes in this struct
-	// when we try to write it out.  A better solution would be to not
-	// write the padding bytes to disk, but that would complicate the code.
-	memset(&ser_s, 0, sizeof(struct serial_str));
+	struct serial_str ser_s = { 0 };
 
 	void *data;
 	size_t len;
