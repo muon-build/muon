@@ -114,7 +114,7 @@ substitute_config(struct workspace *wk,
 	SBUF_manual(out_buf);
 
 	struct source_location location = { 0, 1 }, id_location;
-	uint32_t i, id_start, id_len, col = 0;
+	uint32_t i, id_start, id_len, col = 0, orig_i;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
@@ -150,21 +150,20 @@ substitute_config(struct workspace *wk,
 							goto extraneous_cmake_chars;
 						}
 					} else {
-extraneous_cmake_chars: {
-	uint32_t orig_i = i;
+extraneous_cmake_chars:
+						orig_i = i;
 
-	while (src.src[i] && src.src[i] != '\n') {
-		++i;
-	}
+						while (src.src[i] && src.src[i] != '\n') {
+							++i;
+						}
 
-	/* id_location.col = orig_i - location.col + 1; */
-	error_messagef(&src,
-		id_location,
-		log_warn,
-		"ignoring trailing characters (%.*s) in cmakedefine",
-		i - orig_i,
-		&src.src[orig_i]);
-}
+						/* id_location.col = orig_i - location.col + 1; */
+						error_messagef(&src,
+							id_location,
+							log_warn,
+							"ignoring trailing characters (%.*s) in cmakedefine",
+							i - orig_i,
+							&src.src[orig_i]);
 					}
 				} else {
 					/* id_location.col = i - location.col + 1; */
