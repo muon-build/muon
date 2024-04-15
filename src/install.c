@@ -29,8 +29,7 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 	uint32_t i;
 	for (i = 0; i < 9; ++i) {
 		switch (rwx[i]) {
-		case '-':
-			break;
+		case '-': break;
 		case 't':
 		case 'T':
 			if (i != 8) {
@@ -65,8 +64,7 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 				return false;
 			}
 			break;
-		default:
-			return false;
+		default: return false;
 		}
 		if (rwx[i] != '-' && rwx[i] != 'S' && rwx[i] != 'T') {
 			*perm |= bit;
@@ -101,9 +99,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		obj perm;
 		obj_array_index(wk, mode, 0, &perm);
 		switch (get_obj_type(wk, perm)) {
-		case obj_bool:
-			tgt->has_perm = false;
-			break;
+		case obj_bool: tgt->has_perm = false; break;
 		case obj_string:
 			if (!rwx_to_perm(get_cstr(wk, perm), &tgt->perm)) {
 				LOG_E("install_mode has malformed permission string: %s", get_cstr(wk, perm));
@@ -111,8 +107,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 			}
 			tgt->has_perm = true;
 			break;
-		default:
-			return NULL;
+		default: return NULL;
 		}
 	}
 
@@ -136,8 +131,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 }
 
 bool
-push_install_target_install_dir(struct workspace *wk, obj src,
-	obj install_dir, obj mode)
+push_install_target_install_dir(struct workspace *wk, obj src, obj install_dir, obj mode)
 {
 	SBUF(basename);
 	path_basename(wk, &basename, get_cstr(wk, src));
@@ -209,19 +203,17 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 
 		f = val_id;
 
-handle_file:    {
-			SBUF(basename);
-			path_basename(wk, &basename, get_file_path(wk, f));
+handle_file: {
+	SBUF(basename);
+	path_basename(wk, &basename, get_file_path(wk, f));
 
-			SBUF(dest_path);
-			path_join(wk, &dest_path, get_cstr(wk, install_dir), basename.buf);
+	SBUF(dest_path);
+	path_join(wk, &dest_path, get_cstr(wk, install_dir), basename.buf);
 
-			src = *get_obj_file(wk, f);
-			dest = sbuf_into_str(wk, &dest_path);
-		}
-		break;
-	default:
-		UNREACHABLE;
+	src = *get_obj_file(wk, f);
+	dest = sbuf_into_str(wk, &dest_path);
+} break;
+	default: UNREACHABLE;
 	}
 
 	if (!push_install_target(wk, src, dest, ctx->install_mode)) {
@@ -231,8 +223,12 @@ handle_file:    {
 }
 
 bool
-push_install_targets(struct workspace *wk, uint32_t err_node,
-	obj filenames, obj install_dirs, obj install_mode, bool preserve_path)
+push_install_targets(struct workspace *wk,
+	uint32_t err_node,
+	obj filenames,
+	obj install_dirs,
+	obj install_mode,
+	bool preserve_path)
 {
 	struct push_install_targets_ctx ctx = {
 		.err_node = err_node,
@@ -255,4 +251,3 @@ push_install_targets(struct workspace *wk, uint32_t err_node,
 
 	return obj_array_foreach(wk, filenames, &ctx, push_install_targets_iter);
 }
-

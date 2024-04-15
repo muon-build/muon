@@ -84,12 +84,9 @@ static const char *
 test_category_label(enum test_category cat)
 {
 	switch (cat) {
-	case test_category_test:
-		return "test";
-	case test_category_benchmark:
-		return "benchmark";
-	default:
-		UNREACHABLE_RETURN;
+	case test_category_test: return "test";
+	case test_category_benchmark: return "benchmark";
+	default: UNREACHABLE_RETURN;
 	}
 }
 
@@ -106,25 +103,22 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		status_running,
 		status_timedout,
 		status_skipped,
-	} status = status_ok;
+	} status
+		= status_ok;
 
 	const char *status_msg[] = {
-		[status_failed]             = "fail ",
+		[status_failed] = "fail ",
 		[status_should_have_failed] = "ok*  ",
-		[status_ok]                 = "ok   ",
-		[status_failed_ok]          = "fail*",
-		[status_running]            = "start",
-		[status_timedout]           = "timeout",
-		[status_skipped]            = "skip ",
+		[status_ok] = "ok   ",
+		[status_failed_ok] = "fail*",
+		[status_running] = "start",
+		[status_timedout] = "timeout",
+		[status_skipped] = "skip ",
 	};
 
 	switch (res->status) {
-	case test_result_status_running:
-		status = status_running;
-		break;
-	case test_result_status_timedout:
-		status = status_timedout;
-		break;
+	case test_result_status_running: status = status_running; break;
+	case test_result_status_timedout: status = status_timedout; break;
 	case test_result_status_failed:
 		if (res->test->should_fail) {
 			status = status_should_have_failed;
@@ -139,9 +133,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 			status = status_ok;
 		}
 		break;
-	case test_result_status_skipped:
-		status = status_skipped;
-		break;
+	case test_result_status_skipped: status = status_skipped; break;
 	}
 
 	const char *suite_str = NULL;
@@ -202,12 +194,9 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		++ctx->stats.total_count;
 		++ctx->stats.test_i;
 		switch (res->status) {
-		case test_result_status_running:
-			UNREACHABLE;
-			break;
+		case test_result_status_running: UNREACHABLE; break;
 		case test_result_status_ok:
-		case test_result_status_skipped:
-			break;
+		case test_result_status_skipped: break;
 		case test_result_status_failed:
 		case test_result_status_timedout:
 			++ctx->stats.total_error_count;
@@ -220,15 +209,9 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		if (res->status != test_result_status_running) {
 			char c;
 			switch (res->status) {
-			case test_result_status_failed:
-				c = 'E';
-				break;
-			case test_result_status_timedout:
-				c = 'T';
-				break;
-			default:
-				c = '.';
-				break;
+			case test_result_status_failed: c = 'E'; break;
+			case test_result_status_timedout: c = 'T'; break;
+			default: c = '.'; break;
 			}
 
 			log_plain("%c", c);
@@ -255,9 +238,13 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	uint32_t i, pad = 2;
 
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, BUF_SIZE_4k, "%d/%d f:%d s:%d j:%d ",
-		ctx->stats.test_i, ctx->stats.test_len,
-		ctx->stats.error_count, ctx->stats.total_skipped,
+	pad += snprintf(info,
+		BUF_SIZE_4k,
+		"%d/%d f:%d s:%d j:%d ",
+		ctx->stats.test_i,
+		ctx->stats.test_len,
+		ctx->stats.error_count,
+		ctx->stats.total_skipped,
 		ctx->busy_jobs);
 
 	log_plain("%s[", info);
@@ -290,8 +277,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
  * sub_proj:name == sub_proj:name
  */
 static bool
-project_namespaced_name_matches(const char *name1, bool proj2_is_main,
-	const struct str *proj2, const struct str *name2)
+project_namespaced_name_matches(const char *name1, bool proj2_is_main, const struct str *proj2, const struct str *name2)
 {
 	struct str proj1 = { 0 };
 	const char *sep;
@@ -330,8 +316,9 @@ test_in_suite_iter(struct workspace *wk, void *_ctx, obj s)
 
 	for (i = 0; i < opts->suites_len; ++i) {
 		if (!project_namespaced_name_matches(opts->suites[i],
-			ctx->run_test_ctx->proj_i == 0,
-			get_str(wk, ctx->run_test_ctx->proj_name), get_str(wk, s))) {
+			    ctx->run_test_ctx->proj_i == 0,
+			    get_str(wk, ctx->run_test_ctx->proj_name),
+			    get_str(wk, s))) {
 			continue;
 		}
 
@@ -348,9 +335,9 @@ test_in_exclude_suites_exclude_suites_iter(struct workspace *wk, void *_ctx, obj
 	struct test_in_suite_ctx *ctx = _ctx;
 
 	if (project_namespaced_name_matches(get_cstr(wk, exclude),
-		ctx->run_test_ctx->proj_i == 0,
-		get_str(wk, ctx->run_test_ctx->proj_name), get_str(wk, ctx->suite))) {
-
+		    ctx->run_test_ctx->proj_i == 0,
+		    get_str(wk, ctx->run_test_ctx->proj_name),
+		    get_str(wk, ctx->suite))) {
 		ctx->found = true;
 		return ir_done;
 	}
@@ -364,8 +351,7 @@ test_in_exclude_suites_iter(struct workspace *wk, void *_ctx, obj suite)
 	struct test_in_suite_ctx *ctx = _ctx;
 	ctx->suite = suite;
 
-	obj_array_foreach(wk, ctx->run_test_ctx->setup.exclude_suites,
-		ctx, test_in_exclude_suites_exclude_suites_iter);
+	obj_array_foreach(wk, ctx->run_test_ctx->setup.exclude_suites, ctx, test_in_exclude_suites_exclude_suites_iter);
 
 	if (ctx->found) {
 		return ir_done;
@@ -419,8 +405,9 @@ find_test_setup_iter(struct workspace *wk, void *_ctx, obj arr)
 
 	if (ctx->rtctx->opts->setup) {
 		if (!project_namespaced_name_matches(ctx->rtctx->opts->setup,
-			ctx->rtctx->proj_i == 0,
-			get_str(wk, ctx->rtctx->proj_name), get_str(wk, name))) {
+			    ctx->rtctx->proj_i == 0,
+			    get_str(wk, ctx->rtctx->proj_name),
+			    get_str(wk, name))) {
 			return ir_cont;
 		}
 	} else if (!is_default || !get_obj_bool(wk, is_default)) {
@@ -436,9 +423,7 @@ find_test_setup_iter(struct workspace *wk, void *_ctx, obj arr)
 	ctx->rtctx->setup.env = env;
 	ctx->rtctx->setup.exclude_suites = exclude_suites;
 	ctx->rtctx->setup.wrapper = exe_wrapper;
-	ctx->rtctx->setup.timeout_multiplier =
-		timeout_multiplier ? get_obj_number(wk, timeout_multiplier)
-			: 1.0f;
+	ctx->rtctx->setup.timeout_multiplier = timeout_multiplier ? get_obj_number(wk, timeout_multiplier) : 1.0f;
 	ctx->found = true;
 	return ir_done;
 }
@@ -536,8 +521,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
 
-		if (state != run_cmd_running
-		    && res->status == test_result_status_timedout) {
+		if (state != run_cmd_running && res->status == test_result_status_timedout) {
 			run_cmd_ctx_destroy(&res->cmd_ctx);
 			print_test_progress(wk, ctx, res, true);
 			arr_push(&ctx->test_results, res);
@@ -568,12 +552,8 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			enum test_result_status status;
 
 			switch (res->test->protocol) {
-			case test_protocol_tap:
-				status = check_test_result_tap(wk, ctx, res);
-				break;
-			default:
-				status = check_test_result_exitcode(wk, ctx, res);
-				break;
+			case test_protocol_tap: status = check_test_result_tap(wk, ctx, res); break;
+			default: status = check_test_result_exitcode(wk, ctx, res); break;
 			}
 
 			if (status == test_result_status_failed && res->test->should_fail) {
@@ -612,8 +592,13 @@ free_slot:
 }
 
 static void
-push_test(struct workspace *wk, struct run_test_ctx *ctx, struct obj_test *test,
-	const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+push_test(struct workspace *wk,
+	struct run_test_ctx *ctx,
+	struct obj_test *test,
+	const char *argstr,
+	uint32_t argc,
+	const char *envstr,
+	uint32_t envc)
 {
 	uint32_t i;
 	while (true) {
@@ -776,8 +761,7 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 	struct run_test_ctx *ctx = _ctx;
 	struct obj_test *t = get_obj_test(wk, val);
 
-	if (!(t->category == ctx->opts->cat
-	      && test_in_suite(wk, t->suites, ctx))) {
+	if (!(t->category == ctx->opts->cat && test_in_suite(wk, t->suites, ctx))) {
 		return ir_cont;
 	}
 
@@ -797,8 +781,7 @@ gather_project_tests_iter(struct workspace *wk, void *_ctx, obj val)
 static int32_t
 test_compare(struct workspace *wk, void *_ctx, obj t1_id, obj t2_id)
 {
-	struct obj_test *t1 = get_obj_test(wk, t1_id),
-			*t2 = get_obj_test(wk, t2_id);
+	struct obj_test *t1 = get_obj_test(wk, t1_id), *t2 = get_obj_test(wk, t2_id);
 
 	int64_t p1 = t1->priority ? get_obj_number(wk, t1->priority) : 0,
 		p2 = t2->priority ? get_obj_number(wk, t2->priority) : 0;
@@ -974,8 +957,7 @@ tests_run(struct test_options *opts, const char *argv0)
 			test_category_label(opts->cat),
 			ctx.stats.total_expect_fail_count,
 			ctx.stats.total_error_count,
-			ctx.stats.total_skipped
-			);
+			ctx.stats.total_skipped);
 	}
 
 	ret = true;
@@ -984,8 +966,7 @@ tests_run(struct test_options *opts, const char *argv0)
 		struct test_result *res = arr_get(&ctx.test_results, i);
 
 		if (opts->print_summary
-		    || (res->status == test_result_status_failed
-			|| res->status == test_result_status_timedout)) {
+			|| (res->status == test_result_status_failed || res->status == test_result_status_timedout)) {
 			print_test_result(&wk, res);
 			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
 				log_plain(": %s", res->cmd_ctx.err_msg);
@@ -1004,7 +985,6 @@ tests_run(struct test_options *opts, const char *argv0)
 				if (res->cmd_ctx.err.len) {
 					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
 				}
-
 			}
 
 			run_cmd_ctx_destroy(&res->cmd_ctx);

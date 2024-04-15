@@ -33,8 +33,7 @@ output_open(const char *dir, const char *name)
 }
 
 bool
-with_open(const char *dir, const char *name, struct workspace *wk,
-	void *ctx, with_open_callback cb)
+with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, with_open_callback cb)
 {
 	TracyCZone(tctx_func, true);
 #ifdef TRACY_ENABLE

@@ -7,18 +7,18 @@
 #include "compat.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-#include <io.h>
-#include <errno.h>
 #include <assert.h>
+#include <errno.h>
+#include <io.h>
 #include <stdlib.h>
+#include <windows.h>
 
-#include "log.h"
 #include "lang/string.h"
-#include "platform/mem.h"
+#include "log.h"
 #include "platform/filesystem.h"
+#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/windows/log.h"
 #include "platform/windows/win32_error.h"
@@ -30,7 +30,13 @@ fs_exists(const char *path)
 {
 	HANDLE h;
 
-	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	h = CreateFile(path,
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_BACKUP_SEMANTICS,
+		NULL);
 	if (h == INVALID_HANDLE_VALUE) {
 		return false;
 	}
@@ -112,7 +118,7 @@ fs_exe_exists(const char *path)
 		goto close_file;
 	}
 
-	base =  MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0);
+	base = MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0);
 	if (!base) {
 		LOG_I("Can not view map: %s", win32_error());
 		goto close_fm;
@@ -132,8 +138,7 @@ fs_exe_exists(const char *path)
 	}
 
 	iter += offset;
-	if ((iter[0] != 'P') && (iter[1] != 'E') &&
-	    (iter[2] != '\0') && (iter[3] != '\0')) {
+	if ((iter[0] != 'P') && (iter[1] != 'E') && (iter[2] != '\0') && (iter[3] != '\0')) {
 		LOG_I("file %s is not a PE file", path);
 		goto unmap;
 	}
@@ -219,7 +224,7 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 	filter = (char *)z_malloc(len + 3);
 
 	CopyMemory(filter, path, len);
-	filter[len    ] = '\\';
+	filter[len] = '\\';
 	filter[len + 1] = '*';
 	filter[len + 2] = '\0';
 
@@ -242,11 +247,8 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 		}
 
 		switch (cb(_ctx, fd.cFileName)) {
-		case ir_cont:
-			break;
-		case ir_done:
-			loop = false;
-			break;
+		case ir_cont: break;
+		case ir_done: loop = false; break;
 		case ir_err:
 			loop = false;
 			res = false;
@@ -361,7 +363,7 @@ fs_is_a_tty_from_fd(int fd)
 				if (p) {
 					if (is_wprefix(p, L"-pty")) {
 						p += 4;
-					}else {
+					} else {
 						p = NULL;
 					}
 				}
@@ -378,7 +380,7 @@ fs_is_a_tty_from_fd(int fd)
 							//p += 12;
 						} else if (is_wprefix(p, L"-to-master")) {
 							//p += 10;
-						}else {
+						} else {
 							p = NULL;
 						}
 					}
@@ -477,7 +479,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 
 			if (fs_exe_exists(buf->buf)) {
 				return true;
-			}else if (!fs_has_extension(buf->buf, ".exe")) {
+			} else if (!fs_has_extension(buf->buf, ".exe")) {
 				sbuf_pushs(wk, buf, ".exe");
 				if (fs_exe_exists(buf->buf)) {
 					return true;

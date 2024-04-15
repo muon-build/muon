@@ -8,7 +8,7 @@
 
 #ifdef __sun
 /* for signals */
-	#define __EXTENSIONS__
+#define __EXTENSIONS__
 #endif
 
 #include <assert.h>
@@ -94,8 +94,11 @@ run_cmd_determine_interpreter_skip_chars(char **p, const char *skip, bool invert
 }
 
 bool
-run_cmd_determine_interpreter(struct source *src, const char *path,
-	const char **err_msg, const char **new_argv0, const char **new_argv1)
+run_cmd_determine_interpreter(struct source *src,
+	const char *path,
+	const char **err_msg,
+	const char **new_argv0,
+	const char **new_argv1)
 {
 	if (!fs_read_entire_file(path, src)) {
 		*err_msg = "error determining command interpreter: failed to read file";

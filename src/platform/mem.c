@@ -17,8 +17,8 @@
 #ifdef TRACY_ENABLE
 #include <sys/resource.h>
 
-#define PlotRSS  \
-	struct rusage usage; \
+#define PlotRSS                         \
+	struct rusage usage;            \
 	getrusage(RUSAGE_SELF, &usage); \
 	TracyCPlot("maxrss", ((double)usage.ru_maxrss / 1024.0));
 #else

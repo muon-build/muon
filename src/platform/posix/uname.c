@@ -5,8 +5,8 @@
 
 #include "compat.h"
 
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/utsname.h>
 
 #include "buf_size.h"
@@ -14,8 +14,7 @@
 
 static struct {
 	struct utsname uname;
-	char machine[BUF_SIZE_2k + 1],
-	     sysname[BUF_SIZE_2k + 1];
+	char machine[BUF_SIZE_2k + 1], sysname[BUF_SIZE_2k + 1];
 	bool init;
 } uname_info;
 

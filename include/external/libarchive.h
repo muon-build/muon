@@ -6,8 +6,8 @@
 #ifndef MUON_EXTERNAL_LIBARCHIVE_H
 #define MUON_EXTERNAL_LIBARCHIVE_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 extern const bool have_libarchive;
 

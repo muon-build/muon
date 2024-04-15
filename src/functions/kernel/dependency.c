@@ -146,15 +146,10 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	obj subproj_name, subproj_dep = 0, subproj;
 
 	switch (get_obj_array(wk, ctx->fallback)->len) {
-	case 2:
-		obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
+	case 2: obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
 	/* FALLTHROUGH */
-	case 1:
-		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
-		break;
-	default:
-		vm_error_at(wk, ctx->err_node, "expected array of length 1-2 for fallback");
-		return false;
+	case 1: obj_array_index(wk, ctx->fallback, 0, &subproj_name); break;
+	default: vm_error_at(wk, ctx->err_node, "expected array of length 1-2 for fallback"); return false;
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_default) {
@@ -190,7 +185,10 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 
 	if (subproj_dep) {
 		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
-			vm_warning_at(wk, ctx->fallback_node, "subproject dependency variable %o is not defined", subproj_dep);
+			vm_warning_at(wk,
+				ctx->fallback_node,
+				"subproject dependency variable %o is not defined",
+				subproj_dep);
 			goto not_found;
 		}
 	} else {
@@ -229,8 +227,12 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
-		obj_fprintf(wk, log_file(), "pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
-			ctx->name, ver_str, ctx->versions->val);
+		obj_fprintf(wk,
+			log_file(),
+			"pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
+			ctx->name,
+			ver_str,
+			ctx->versions->val);
 		return true;
 	}
 
@@ -258,8 +260,8 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		if (check_dependency_cache(wk, ctx, &cached_dep)) {
 			bool ver_match;
 			struct obj_dependency *dep = get_obj_dependency(wk, cached_dep);
-			if (!check_dependency_version(wk, dep->version, ctx->versions->node,
-				ctx->versions->val, &ver_match)) {
+			if (!check_dependency_version(
+				    wk, dep->version, ctx->versions->node, ctx->versions->val, &ver_match)) {
 				return false;
 			}
 
@@ -283,8 +285,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 
 	if (!ctx->fallback) {
 		obj provided_fallback;
-		if (obj_dict_index(wk, current_project(wk)->wrap_provides_deps,
-			ctx->name, &provided_fallback)) {
+		if (obj_dict_index(wk, current_project(wk)->wrap_provides_deps, ctx->name, &provided_fallback)) {
 			ctx->fallback = provided_fallback;
 		}
 	}
@@ -301,10 +302,8 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		get_option_value(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
 		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 
-		force_fallback =
-			wrap_mode == wrap_mode_forcefallback
-			|| obj_array_in(wk, force_fallback_for, ctx->name)
-			|| obj_dict_in(wk, wk->subprojects, subproj_name);
+		force_fallback = wrap_mode == wrap_mode_forcefallback || obj_array_in(wk, force_fallback_for, ctx->name)
+				 || obj_dict_in(wk, wk->subprojects, subproj_name);
 	}
 
 	if (!ctx->found) {
@@ -461,8 +460,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		kw_method,
 		kw_include_type,
 	};
-	struct args_kw akw[] = {
-		[kw_required] = { "required", tc_required_kw },
+	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		[kw_static] = { "static", obj_bool },
@@ -476,8 +474,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_method] = { "method", obj_string },
 		[kw_include_type] = { "include_type", obj_string },
-		0
-	};
+		0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -490,8 +487,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 
 	enum include_type inc_type = include_type_preserve;
 	if (akw[kw_include_type].set) {
-		if (!coerce_include_type(wk, get_str(wk, akw[kw_include_type].val),
-			akw[kw_include_type].node, &inc_type)) {
+		if (!coerce_include_type(
+			    wk, get_str(wk, akw[kw_include_type].val), akw[kw_include_type].node, &inc_type)) {
 			return false;
 		}
 	}
@@ -534,11 +531,13 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 
 		if (!(lookup_method == dependency_lookup_method_auto
-		      || lookup_method == dependency_lookup_method_pkgconfig
-		      || lookup_method == dependency_lookup_method_builtin
-		      || lookup_method == dependency_lookup_method_system
-		      )) {
-			vm_warning_at(wk, akw[kw_method].node, "unsupported dependency method %o, falling back to 'auto'", akw[kw_method].val);
+			    || lookup_method == dependency_lookup_method_pkgconfig
+			    || lookup_method == dependency_lookup_method_builtin
+			    || lookup_method == dependency_lookup_method_system)) {
+			vm_warning_at(wk,
+				akw[kw_method].node,
+				"unsupported dependency method %o, falling back to 'auto'",
+				akw[kw_method].val);
 			lookup_method = dependency_lookup_method_auto;
 		}
 	}
@@ -572,7 +571,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		|| (!akw[kw_allow_fallback].set && requirement == requirement_required)
 		/* - allow_fallback is not specified and the fallback keyword is
 		 *   specified with at least one value (i.e. not an empty array) */
-		|| (!akw[kw_allow_fallback].set && akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len);
+		|| (!akw[kw_allow_fallback].set && akw[kw_fallback].set
+			&& get_obj_array(wk, akw[kw_fallback].val)->len);
 
 	uint32_t fallback_err_node = 0;
 	obj fallback = 0;
@@ -700,9 +700,7 @@ coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	struct process_dependency_sources_ctx *ctx = _ctx;
 
 	switch (get_obj_type(wk, val)) {
-	case obj_generated_list:
-		obj_array_push(wk, ctx->res, val);
-		break;
+	case obj_generated_list: obj_array_push(wk, ctx->res, val); break;
 	default: {
 		obj res;
 		if (!coerce_files(wk, ctx->err_node, val, &res)) {
@@ -730,19 +728,18 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 		kw_compile_args,
 		kw_objects,
 	};
-	struct args_kw akw[] = {
-		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
-		[kw_link_with] = { "link_with", tc_link_with_kw },
-		[kw_link_whole] = { "link_whole", tc_link_with_kw },
-		[kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
-		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
-		[kw_version] = { "version", obj_string },
-		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
-		[kw_variables] = { "variables", tc_array | tc_dict },
-		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
-		[kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
-		0
-	};
+	struct args_kw akw[]
+		= { [kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
+			  [kw_link_with] = { "link_with", tc_link_with_kw },
+			  [kw_link_whole] = { "link_whole", tc_link_with_kw },
+			  [kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
+			  [kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
+			  [kw_version] = { "version", obj_string },
+			  [kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
+			  [kw_variables] = { "variables", tc_array | tc_dict },
+			  [kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
+			  [kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
+			  0 };
 
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
@@ -750,7 +747,8 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 
 	if (akw[kw_include_directories].set) {
 		obj inc_dirs;
-		if (!coerce_include_dirs(wk, akw[kw_include_directories].node, akw[kw_include_directories].val, false, &inc_dirs)) {
+		if (!coerce_include_dirs(
+			    wk, akw[kw_include_directories].node, akw[kw_include_directories].val, false, &inc_dirs)) {
 			return false;
 		}
 
@@ -771,7 +769,8 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
 
-	if (akw[kw_variables].set && !coerce_key_value_dict(wk, akw[kw_variables].node, akw[kw_variables].val, &dep->variables)) {
+	if (akw[kw_variables].set
+		&& !coerce_key_value_dict(wk, akw[kw_variables].node, akw[kw_variables].val, &dep->variables)) {
 		return false;
 	}
 
@@ -801,21 +800,20 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (akw[kw_link_with].set) {
-		if (!dep_process_link_with(wk, akw[kw_link_with].node,
-			akw[kw_link_with].val, &dep->dep)) {
+		if (!dep_process_link_with(wk, akw[kw_link_with].node, akw[kw_link_with].val, &dep->dep)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_link_whole].set) {
-		if (!dep_process_link_whole(wk, akw[kw_link_whole].node,
-			akw[kw_link_whole].val, &dep->dep)) {
+		if (!dep_process_link_whole(wk, akw[kw_link_whole].node, akw[kw_link_whole].val, &dep->dep)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_include_directories].set) {
-		dep_process_includes(wk, akw[kw_include_directories].val, include_type_preserve, dep->dep.include_directories);
+		dep_process_includes(
+			wk, akw[kw_include_directories].val, include_type_preserve, dep->dep.include_directories);
 	}
 
 	if (akw[kw_dependencies].set) {
@@ -855,20 +853,14 @@ dep_process_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 	bool new_is_system = inc->is_system;
 
 	switch (ctx->include_type) {
-	case include_type_preserve:
-		break;
-	case include_type_system:
-		new_is_system = true;
-		break;
-	case include_type_non_system:
-		new_is_system = false;
-		break;
+	case include_type_preserve: break;
+	case include_type_system: new_is_system = true; break;
+	case include_type_non_system: new_is_system = false; break;
 	}
 
 	if (inc->is_system != new_is_system) {
 		make_obj(wk, &inc_id, obj_include_directory);
-		struct obj_include_directory *new_inc =
-			get_obj_include_directory(wk, inc_id);
+		struct obj_include_directory *new_inc = get_obj_include_directory(wk, inc_id);
 		*new_inc = *inc;
 		new_inc->is_system = new_is_system;
 	}
@@ -880,10 +872,13 @@ dep_process_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 void
 dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, obj dest)
 {
-	obj_array_foreach_flat(wk, arr, &(struct dep_process_includes_ctx) {
-		.include_type = include_type,
-		.dest = dest,
-	}, dep_process_includes_iter);
+	obj_array_foreach_flat(wk,
+		arr,
+		&(struct dep_process_includes_ctx){
+			.include_type = include_type,
+			.dest = dest,
+		},
+		dep_process_includes_iter);
 }
 
 void
@@ -1058,8 +1053,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	switch (t) {
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -1108,12 +1102,8 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, dest_link_with, *get_obj_file(wk, val));
 		break;
 	}
-	case obj_string:
-		obj_array_push(wk, dest_link_with, val);
-		break;
-	default:
-		vm_error_at(wk, ctx->err_node, "invalid type for link_with: '%s'", obj_type_to_s(t));
-		return ir_err;
+	case obj_string: obj_array_push(wk, dest_link_with, val); break;
+	default: vm_error_at(wk, ctx->err_node, "invalid type for link_with: '%s'", obj_type_to_s(t)); return ir_err;
 	}
 
 	return ir_cont;
@@ -1127,10 +1117,13 @@ dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct b
 
 	hash_clear(&wk->vm.objects.obj_hash);
 
-	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
-		.dest = dest,
-		.err_node = err_node,
-	}, dep_process_link_with_iter)) {
+	if (!obj_array_foreach_flat(wk,
+		    arr,
+		    &(struct dep_process_link_with_ctx){
+			    .dest = dest,
+			    .err_node = err_node,
+		    },
+		    dep_process_link_with_iter)) {
 		return false;
 	}
 
@@ -1146,11 +1139,14 @@ dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct 
 
 	hash_clear(&wk->vm.objects.obj_hash);
 
-	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
-		.dest = dest,
-		.link_whole = true,
-		.err_node = err_node,
-	}, dep_process_link_with_iter)) {
+	if (!obj_array_foreach_flat(wk,
+		    arr,
+		    &(struct dep_process_link_with_ctx){
+			    .dest = dest,
+			    .link_whole = true,
+			    .err_node = err_node,
+		    },
+		    dep_process_link_with_iter)) {
 		return false;
 	}
 

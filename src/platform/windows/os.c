@@ -21,9 +21,9 @@ os_chdir(const char *path)
 	if (!res) {
 		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
 			errno = ENOENT;
-		}else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+		} else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
 			errno = ENOTDIR;
-		}else if (GetLastError() == ERROR_FILENAME_EXCED_RANGE) {
+		} else if (GetLastError() == ERROR_FILENAME_EXCED_RANGE) {
 			errno = ENAMETOOLONG;
 		} else {
 			errno = EIO;
@@ -63,7 +63,7 @@ int optind = 1, opterr = 1, optopt, __optpos, __optreset = 0;
 #define optpos __optpos
 
 int
-os_getopt(int argc, char * const argv[], const char *optstring)
+os_getopt(int argc, char *const argv[], const char *optstring)
 {
 	int i;
 	char c, d;
@@ -210,11 +210,8 @@ os_ncpus(void)
 
 	while (byte_offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= length) {
 		switch (iter->Relationship) {
-		case RelationProcessorCore:
-			ncpus += count_bits(iter->ProcessorMask);
-			break;
-		default:
-			break;
+		case RelationProcessorCore: ncpus += count_bits(iter->ProcessorMask); break;
+		default: break;
 		}
 		byte_offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
 		iter++;

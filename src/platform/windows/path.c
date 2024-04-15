@@ -6,8 +6,8 @@
 
 #include "compat.h"
 
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "lang/string.h"
 
@@ -35,10 +35,8 @@ path_is_absolute(const char *path)
 	}
 
 	/* c:/ or c:\ case insensitive*/
-	return
-		(((path[0] >= 'a') && (path[0] <= 'z')) || ((path[0] >= 'A') && (path[0] <= 'Z'))) &&
-		(path[1] == ':') &&
-		((path[2] == '/') || (path[2] == '\\'));
+	return (((path[0] >= 'a') && (path[0] <= 'z')) || ((path[0] >= 'A') && (path[0] <= 'Z'))) && (path[1] == ':')
+	       && ((path[2] == '/') || (path[2] == '\\'));
 }
 
 bool

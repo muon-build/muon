@@ -13,4 +13,3 @@ enum iteration_result {
 
 typedef enum iteration_result (*iterator_func)(void *ctx, void *val);
 #endif
-

@@ -29,24 +29,13 @@ uname_machine(const char **res)
 
 	GetSystemInfo(&si);
 	switch (si.wProcessorArchitecture) {
-	case PROCESSOR_ARCHITECTURE_AMD64:
-		*res = "x86_64";
-		return true;
-	case PROCESSOR_ARCHITECTURE_ARM:
-		*res = "arm";
-		return true;
-	case PROCESSOR_ARCHITECTURE_ARM64:
-		*res = "aarch64";
-		return true;
-	case PROCESSOR_ARCHITECTURE_IA64:
-		*res = "ia64";
-		return true;
-	case PROCESSOR_ARCHITECTURE_INTEL:
-		*res = "i686";
-		return true;
+	case PROCESSOR_ARCHITECTURE_AMD64: *res = "x86_64"; return true;
+	case PROCESSOR_ARCHITECTURE_ARM: *res = "arm"; return true;
+	case PROCESSOR_ARCHITECTURE_ARM64: *res = "aarch64"; return true;
+	case PROCESSOR_ARCHITECTURE_IA64: *res = "ia64"; return true;
+	case PROCESSOR_ARCHITECTURE_INTEL: *res = "i686"; return true;
 	case PROCESSOR_ARCHITECTURE_UNKNOWN:
 	/* fall through */
-	default:
-		return false;
+	default: return false;
 	}
 }

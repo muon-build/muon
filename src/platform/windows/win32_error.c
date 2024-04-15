@@ -7,14 +7,14 @@
 #include "compat.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 #define STRSAFE_NO_CB_FUNCTIONS
 #include <strsafe.h>
 
-#include "platform/windows/win32_error.h"
 #include "log.h"
+#include "platform/windows/win32_error.h"
 
 const char *
 win32_error(void)
@@ -27,7 +27,13 @@ win32_error(void)
 	*_msg = '\0';
 	err = GetLastError();
 
-	if (!FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, 0UL,  (LPTSTR)&msg, 0UL, NULL)) {
+	if (!FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL,
+		    err,
+		    0UL,
+		    (LPTSTR)&msg,
+		    0UL,
+		    NULL)) {
 		StringCchPrintf(_msg, sizeof(_msg), "FormatMessage() failed with error Id %ld", GetLastError());
 		return _msg;
 	}

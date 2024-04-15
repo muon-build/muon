@@ -20,16 +20,14 @@
 #include "platform/log.h"
 #include "platform/windows/log.h"
 
-static const WORD color_map[] = {
-	[1]  = FOREGROUND_INTENSITY,
+static const WORD color_map[] = { [1] = FOREGROUND_INTENSITY,
 	[31] = FOREGROUND_RED,
 	[32] = FOREGROUND_GREEN,
 	[33] = FOREGROUND_GREEN | FOREGROUND_RED,
 	[34] = FOREGROUND_BLUE,
 	[35] = FOREGROUND_BLUE | FOREGROUND_RED,
 	[36] = FOREGROUND_BLUE | FOREGROUND_GREEN,
-	[37] = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED
-};
+	[37] = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED };
 
 void
 print_colorized(FILE *out, const char *s)

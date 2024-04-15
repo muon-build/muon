@@ -36,16 +36,10 @@ check_operands(uint32_t argc, uint32_t argi, int32_t expected)
 }
 
 void
-print_usage(FILE *f, const struct command *commands,
-	const char *pre, const char *opts, const char *post)
+print_usage(FILE *f, const struct command *commands, const char *pre, const char *opts, const char *post)
 {
 	uint32_t i;
-	fprintf(f, "usage: %s%s%s%s\n",
-		pre,
-		opts ?  " [opts]" : "",
-		commands ?  " [command]" : "",
-		post ? post : ""
-		);
+	fprintf(f, "usage: %s%s%s%s\n", pre, opts ? " [opts]" : "", commands ? " [command]" : "", post ? post : "");
 
 	if (opts) {
 		fprintf(f,
@@ -69,8 +63,7 @@ print_usage(FILE *f, const struct command *commands,
 }
 
 bool
-find_cmd(const struct command *commands, cmd_func *ret,
-	uint32_t argc, uint32_t argi, char *const argv[], bool optional)
+find_cmd(const struct command *commands, cmd_func *ret, uint32_t argc, uint32_t argi, char *const argv[], bool optional)
 {
 	uint32_t i;
 	const char *cmd;

@@ -30,9 +30,7 @@ rpmvercmp(const struct str *a, const struct str *b)
 {
 	int rc;
 	bool isnum;
-	uint32_t ai = 0, bi = 0,
-		 ap = 0, bp = 0,
-		 al, bl;
+	uint32_t ai = 0, bi = 0, ap = 0, bp = 0, al, bl;
 
 	/* easy comparison to see if versions are identical */
 	if (str_eql(a, b)) {

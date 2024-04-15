@@ -38,12 +38,7 @@ enum linker_type {
 	linker_type_count,
 };
 
-enum static_linker_type {
-	static_linker_ar_posix,
-	static_linker_ar_gcc,
-	static_linker_msvc,
-	static_linker_type_count
-};
+enum static_linker_type { static_linker_ar_posix, static_linker_ar_gcc, static_linker_msvc, static_linker_type_count };
 
 enum compiler_language {
 	compiler_language_null,

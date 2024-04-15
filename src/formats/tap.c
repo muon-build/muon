@@ -39,15 +39,20 @@ tap_parse_line_cb(void *_ctx, char *line, size_t _)
 		return ir_cont;
 	} else if (str_startswith(&l, &WKSTR("ok"))) {
 		ok = true;
-		rest = (struct str) { .s = &l.s[2], .len = l.len - 2 };
+		rest = (struct str){ .s = &l.s[2], .len = l.len - 2 };
 	} else if (str_startswith(&l, &WKSTR("not ok"))) {
 		ok = false;
-		rest = (struct str) { .s = &l.s[6], .len = l.len - 6 };
+		rest = (struct str){ .s = &l.s[6], .len = l.len - 6 };
 	} else {
 		return ir_cont;
 	}
 
-	enum { none, todo, skip, } directive = none;
+	enum {
+		none,
+		todo,
+		skip,
+	} directive
+		= none;
 	{
 		char *directive_str;
 		if ((directive_str = strstr(rest.s, " # "))) {

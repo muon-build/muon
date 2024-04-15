@@ -26,7 +26,7 @@ extern int opterr, optind, optopt;
 #include <unistd.h>
 #endif
 
-int os_getopt(int argc, char * const argv[], const char *optstring);
+int os_getopt(int argc, char *const argv[], const char *optstring);
 
 // Returns the number of jobs to spawn.  This number should be slightly larger
 // than the number of cpus.

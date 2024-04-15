@@ -14,11 +14,13 @@
 #include "log.h"
 #include "platform/mem.h"
 
-#define k_empty    0x80 // 0b10000000
-#define k_deleted  0xfe // 0b11111110
-#define k_full(v)  !(v & (1 << 7)) // k_full = 0b0xxxxxxx
+#define k_empty 0x80 // 0b10000000
+#define k_deleted 0xfe // 0b11111110
+#define k_full(v) !(v & (1 << 7)) // k_full = 0b0xxxxxxx
 
-#define ASSERT_VALID_CAP(cap) assert(cap >= 8); assert((cap & (cap - 1)) == 0);
+#define ASSERT_VALID_CAP(cap) \
+	assert(cap >= 8);     \
+	assert((cap & (cap - 1)) == 0);
 
 #define LOAD_FACTOR 0.5f
 
@@ -93,10 +95,7 @@ hash_init(struct hash *h, size_t cap, uint32_t keysize)
 {
 	ASSERT_VALID_CAP(cap);
 
-	*h = (struct hash) {
-		.cap = cap, .capm = cap - 1,
-		.max_load = (size_t)((float)cap * LOAD_FACTOR)
-	};
+	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (size_t)((float)cap * LOAD_FACTOR) };
 	arr_init(&h->meta, h->cap, sizeof(uint8_t));
 	arr_init(&h->e, h->cap, sizeof(struct hash_elem));
 	arr_init(&h->keys, h->cap, keysize);
@@ -141,11 +140,9 @@ hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
 		}
 
 		switch (ifnc(ctx, &((struct hash_elem *)h->e.e)[i].val)) {
-		case ir_cont:
-			break;
+		case ir_cont: break;
 		case ir_done:
-		case ir_err:
-			return;
+		case ir_err: return;
 		}
 	}
 }
@@ -164,11 +161,9 @@ hash_for_each_with_keys(struct hash *h, void *ctx, hash_with_keys_iterator_func 
 		he = &((struct hash_elem *)h->e.e)[i];
 
 		switch (ifnc(ctx, h->keys.e + he->keyi * h->keys.item_size, he->val)) {
-		case ir_cont:
-			break;
+		case ir_cont: break;
 		case ir_done:
-		case ir_err:
-			return;
+		case ir_err: return;
 		}
 	}
 }
@@ -183,8 +178,7 @@ hash_clear(struct hash *h)
 static void
 probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
 {
-#define match ((meta & 0x7f) == h2 \
-	       && h->keycmp(h, h->keys.e + (h->keys.item_size * he->keyi), key))
+#define match ((meta & 0x7f) == h2 && h->keycmp(h, h->keys.e + (h->keys.item_size * he->keyi), key))
 
 	struct hash_elem *he;
 	*hv = h->hash_func(h, key);
@@ -219,9 +213,12 @@ resize(struct hash *h, size_t newcap)
 	uint8_t *meta;
 	void *key;
 
-	struct hash newh = (struct hash) {
-		.cap = newcap, .capm = newcap - 1, .keys = h->keys,
-		.len = h->len, .load = h->load,
+	struct hash newh = (struct hash){
+		.cap = newcap,
+		.capm = newcap - 1,
+		.keys = h->keys,
+		.len = h->len,
+		.load = h->load,
 		.max_load = (size_t)((float)newcap * LOAD_FACTOR),
 
 		.hash_func = h->hash_func,

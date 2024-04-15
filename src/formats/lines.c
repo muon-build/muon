@@ -34,4 +34,3 @@ each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
 		cb(ctx, line, strlen(line));
 	}
 }
-

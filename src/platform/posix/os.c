@@ -6,15 +6,15 @@
 
 #include "compat.h"
 
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #if defined(__APPLE__) && defined(MUON_BOOTSTRAPPED)
-	#undef _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
 // for sysctl
-	#include <sys/types.h>
-	#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #endif
 
 #include "log.h"
@@ -33,7 +33,7 @@ os_getcwd(char *buf, size_t size)
 }
 
 int
-os_getopt(int argc, char * const argv[], const char *optstring)
+os_getopt(int argc, char *const argv[], const char *optstring)
 {
 	return getopt(argc, argv, optstring);
 }

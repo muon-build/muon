@@ -55,36 +55,21 @@ static const char *
 machine_system_to_s(enum machine_system sys)
 {
 	switch (sys) {
-	case machine_system_dragonfly:
-		return "dragonfly";
-	case machine_system_freebsd:
-		return "freebsd";
-	case machine_system_gnu:
-		return "gnu";
-	case machine_system_haiku:
-		return "haiku";
-	case machine_system_linux:
-		return "linux";
-	case machine_system_netbsd:
-		return "netbsd";
-	case machine_system_openbsd:
-		return "openbsd";
-	case machine_system_sunos:
-		return "sunos";
-	case machine_system_android:
-		return "android";
-	case machine_system_emscripten:
-		return "emscripten";
-	case machine_system_windows:
-		return "windows";
-	case machine_system_cygwin:
-		return "cygwin";
-	case machine_system_msys2:
-		return "msys2";
-	case machine_system_darwin:
-		return "darwin";
-	case machine_system_unknown:
-		return "unknown";
+	case machine_system_dragonfly: return "dragonfly";
+	case machine_system_freebsd: return "freebsd";
+	case machine_system_gnu: return "gnu";
+	case machine_system_haiku: return "haiku";
+	case machine_system_linux: return "linux";
+	case machine_system_netbsd: return "netbsd";
+	case machine_system_openbsd: return "openbsd";
+	case machine_system_sunos: return "sunos";
+	case machine_system_android: return "android";
+	case machine_system_emscripten: return "emscripten";
+	case machine_system_windows: return "windows";
+	case machine_system_cygwin: return "cygwin";
+	case machine_system_msys2: return "msys2";
+	case machine_system_darwin: return "darwin";
+	case machine_system_unknown: return "unknown";
 	}
 
 	UNREACHABLE_RETURN;
@@ -163,12 +148,8 @@ func_machine_endian(struct workspace *wk, obj self, obj *res)
 
 	const char *s = NULL;
 	switch (e) {
-	case little_endian:
-		s = "little";
-		break;
-	case big_endian:
-		s = "big";
-		break;
+	case little_endian: s = "little"; break;
+	case big_endian: s = "big"; break;
 	}
 
 	*res = make_str(wk, s);
@@ -201,12 +182,7 @@ machine_cpu_normalize_base(const char **machine_cstr, const char **norm)
 			*norm = "mips";
 		}
 	} else {
-		const char *map[][2] = {
-			{ "amd64", "x86_64" },
-			{ "x64", "x86_64" },
-			{ "i86pc", "x86_64" },
-			0
-		};
+		const char *map[][2] = { { "amd64", "x86_64" }, { "x64", "x86_64" }, { "i86pc", "x86_64" }, 0 };
 
 		uint32_t i;
 		for (i = 0; map[i][0]; ++i) {
@@ -235,15 +211,12 @@ machine_cpu_family(void)
 		norm = "x86";
 	} else if (str_startswith(machine, &WKSTR("arm"))) {
 		norm = "arm";
-	} else if (str_startswith(machine, &WKSTR("powerpc64"))
-		   || str_startswith(machine, &WKSTR("ppc64"))) {
+	} else if (str_startswith(machine, &WKSTR("powerpc64")) || str_startswith(machine, &WKSTR("ppc64"))) {
 		norm = "ppc64";
-	} else if (str_startswith(machine, &WKSTR("powerpc"))
-		   || str_startswith(machine, &WKSTR("ppc"))) {
+	} else if (str_startswith(machine, &WKSTR("powerpc")) || str_startswith(machine, &WKSTR("ppc"))) {
 		norm = "ppc";
 	} else {
-		const char *map[][2] = {
-			{ "bepc", "x86" },
+		const char *map[][2] = { { "bepc", "x86" },
 			{ "arm64", "aarch64" },
 			{ "macppc", "ppc" },
 			{ "power macintosh", "ppc" },
@@ -254,8 +227,7 @@ machine_cpu_family(void)
 			{ "sun4v", "sparc64" },
 			{ "ip30", "mpis64" },
 			{ "ip35", "mpis64" },
-			0
-		};
+			0 };
 
 		uint32_t i;
 		for (i = 0; map[i][0]; ++i) {
@@ -321,7 +293,6 @@ machine_cpu_address_bits(void)
 
 	return 32;
 }
-
 
 static bool
 func_machine_cpu(struct workspace *wk, obj self, obj *res)

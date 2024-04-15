@@ -5,20 +5,20 @@
 
 #include "compat.h"
 
-#include <stdlib.h>
+#include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <dirent.h>
 
 #include "buf_size.h"
-#include "log.h"
 #include "lang/string.h"
+#include "log.h"
+#include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"
-#include "platform/filesystem.h"
 
 static bool
 fs_lstat(const char *path, struct stat *sb)
@@ -260,11 +260,8 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 		}
 
 		switch (cb(_ctx, ent->d_name)) {
-		case ir_cont:
-			break;
-		case ir_done:
-			loop = false;
-			break;
+		case ir_cont: break;
+		case ir_done: loop = false; break;
 		case ir_err:
 			loop = false;
 			res = false;

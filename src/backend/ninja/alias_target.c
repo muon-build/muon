@@ -25,9 +25,11 @@ ninja_write_alias_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *ct
 	ninja_escape(wk, &name_esc, get_cstr(wk, tgt->name));
 
 	obj depstrs;
-	if (!arr_to_args(wk, arr_to_args_alias_target | arr_to_args_build_target
-		| arr_to_args_custom_target | arr_to_args_relativize_paths,
-		tgt->depends, &depstrs)) {
+	if (!arr_to_args(wk,
+		    arr_to_args_alias_target | arr_to_args_build_target | arr_to_args_custom_target
+			    | arr_to_args_relativize_paths,
+		    tgt->depends,
+		    &depstrs)) {
 		return false;
 	}
 	obj depstr = join_args_ninja(wk, depstrs);

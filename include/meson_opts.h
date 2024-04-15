@@ -8,7 +8,12 @@
 
 #include "lang/workspace.h"
 
-bool translate_meson_opts(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[],
-	uint32_t *new_argc, uint32_t *new_argi, char **new_argv[]);
+bool translate_meson_opts(struct workspace *wk,
+	uint32_t argc,
+	uint32_t argi,
+	char *argv[],
+	uint32_t *new_argc,
+	uint32_t *new_argi,
+	char **new_argv[]);
 
 #endif

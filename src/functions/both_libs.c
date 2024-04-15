@@ -53,8 +53,7 @@ both_libs_build_impl_tbl(void)
 }
 
 struct func_impl impl_tbl_both_libs[] = {
-	[ARRAY_LEN(impl_tbl_build_target) - 1] =
-	{ "get_shared_lib", func_both_libs_get_shared_lib, tc_build_target },
+	[ARRAY_LEN(impl_tbl_build_target) - 1] = { "get_shared_lib", func_both_libs_get_shared_lib, tc_build_target },
 	{ "get_static_lib", func_both_libs_get_static_lib, tc_build_target },
 	{ NULL, NULL },
 };

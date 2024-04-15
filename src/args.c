@@ -12,12 +12,12 @@
 #include "args.h"
 #include "buf_size.h"
 #include "compilers.h"
+#include "error.h"
 #include "functions/build_target.h"
 #include "functions/environment.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
-#include "error.h"
 
 void
 push_args(struct workspace *wk, obj arr, const struct args *args)
@@ -76,7 +76,7 @@ pkgconf_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 	simple_escape(wk, sb, str, " ", '\\');
 }
 
-typedef void ((*escape_func)(struct workspace *wk, struct sbuf *sb, const char *str));
+typedef void((*escape_func)(struct workspace *wk, struct sbuf *sb, const char *str));
 
 struct join_args_iter_ctx {
 	uint32_t i, len;
@@ -114,11 +114,7 @@ join_args(struct workspace *wk, obj arr, escape_func escape)
 {
 	obj o = make_str(wk, "");
 
-	struct join_args_iter_ctx ctx = {
-		.obj = &o,
-		.len = get_obj_array(wk, arr)->len,
-		.escape = escape
-	};
+	struct join_args_iter_ctx ctx = { .obj = &o, .len = get_obj_array(wk, arr)->len, .escape = escape };
 
 	obj_array_foreach(wk, arr, &ctx, join_args_iter);
 	return o;
@@ -168,9 +164,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 	enum obj_type t = get_obj_type(wk, src);
 
 	switch (t) {
-	case obj_string:
-		str = src;
-		break;
+	case obj_string: str = src; break;
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			SBUF(rel);
@@ -186,8 +180,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		}
 		str = get_obj_alias_target(wk, src)->name;
 		break;
-	case obj_both_libs:
-		src = get_obj_both_libs(wk, src)->dynamic_lib;
+	case obj_both_libs: src = get_obj_both_libs(wk, src)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		if (!(ctx->mode & arr_to_args_build_target)) {
@@ -211,7 +204,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 			goto type_err;
 		}
 
-		struct obj_custom_target* custom_tgt = get_obj_custom_target(wk, src);
+		struct obj_custom_target *custom_tgt = get_obj_custom_target(wk, src);
 		obj output_arr = custom_tgt->output;
 
 		// run_target is a custom_target without an output, so we yield
@@ -234,9 +227,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		obj_array_extend(wk, ctx->res, get_obj_external_program(wk, src)->cmd_array);
 		return ir_cont;
-	case obj_compiler:
-		obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr);
-		return ir_cont;
+	case obj_compiler: obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr); return ir_cont;
 	default:
 type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));
@@ -252,10 +243,7 @@ arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res
 {
 	make_obj(wk, res, obj_array);
 
-	struct arr_to_args_ctx ctx = {
-		.mode = mode,
-		.res = *res
-	};
+	struct arr_to_args_ctx ctx = { .mode = mode, .res = *res };
 
 	return obj_array_foreach_flat(wk, arr, &ctx, arr_to_args_iter);
 }
@@ -298,8 +286,7 @@ env_to_envstr_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct env_to_envstr_ctx *ctx = _ctx;
 
-	const struct str *k = get_str(wk, key),
-			 *v = get_str(wk, val);
+	const struct str *k = get_str(wk, key), *v = get_str(wk, val);
 
 	str_appn(wk, &ctx->str, k->s, k->len + 1);
 	str_appn(wk, &ctx->str, v->s, v->len + 1);

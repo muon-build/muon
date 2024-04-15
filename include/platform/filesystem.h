@@ -7,8 +7,8 @@
 #define MUON_PLATFORM_FILESYSTEM_H
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/stat.h>
 
 #include "datastructures/iterator.h"
@@ -53,19 +53,19 @@ bool fs_remove(const char *path);
 /* Windows only */
 bool fs_has_extension(const char *path, const char *ext);
 
-typedef enum iteration_result ((*fs_dir_foreach_cb)(void *_ctx, const char *path));
+typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
 
 #ifndef S_ISGID
-	#define S_ISGID 0
+#define S_ISGID 0
 #endif
 
 #ifndef S_ISUID
-	#define S_ISUID 0
+#define S_ISUID 0
 #endif
 
 #ifndef S_ISVTX
-	#define S_ISVTX 0
+#define S_ISVTX 0
 #endif
 
 #endif

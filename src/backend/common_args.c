@@ -20,15 +20,21 @@
 #include "platform/path.h"
 
 static void
-get_option_value_for_tgt(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, const char *name, obj *res)
+get_option_value_for_tgt(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	const char *name,
+	obj *res)
 {
 	get_option_value_overridable(wk, proj, tgt ? tgt->override_options : 0, name, res);
 }
 
 static bool
-get_buildtype_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
+get_buildtype_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_type t)
 {
 	uint32_t i;
 	enum compiler_optimization_lvl opt = 0;
@@ -38,14 +44,12 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 		const char *name;
 		enum compiler_optimization_lvl opt;
 		bool debug;
-	} tbl[] = {
-		{ "plain",          compiler_optimization_lvl_none, false },
-		{ "debug",          compiler_optimization_lvl_0,    true  },
-		{ "debugoptimized", compiler_optimization_lvl_g,    true  },
-		{ "release",        compiler_optimization_lvl_3,    false },
-		{ "minsize",        compiler_optimization_lvl_s,    false },
-		{ NULL }
-	};
+	} tbl[] = { { "plain", compiler_optimization_lvl_none, false },
+		{ "debug", compiler_optimization_lvl_0, true },
+		{ "debugoptimized", compiler_optimization_lvl_g, true },
+		{ "release", compiler_optimization_lvl_3, false },
+		{ "minsize", compiler_optimization_lvl_s, false },
+		{ NULL } };
 
 	obj buildtype_opt_id, buildtype;
 	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &WKSTR("buildtype"), &buildtype_opt_id);
@@ -54,8 +58,7 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 
 	const char *str = get_cstr(wk, buildtype);
 
-	bool use_custom = (strcmp(str, "custom") == 0)
-			  || (buildtype_opt->source <= option_value_source_default);
+	bool use_custom = (strcmp(str, "custom") == 0) || (buildtype_opt->source <= option_value_source_default);
 
 	if (use_custom) {
 		obj optimization_id, debug_id;
@@ -71,17 +74,13 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 		}
 
 		switch (*str->s) {
-		case '0': case '1': case '2': case '3':
-			opt = compiler_optimization_lvl_0 + (*str->s - '0');
-			break;
-		case 'g':
-			opt = compiler_optimization_lvl_g;
-			break;
-		case 's':
-			opt = compiler_optimization_lvl_s;
-			break;
-		default:
-			UNREACHABLE;
+		case '0':
+		case '1':
+		case '2':
+		case '3': opt = compiler_optimization_lvl_0 + (*str->s - '0'); break;
+		case 'g': opt = compiler_optimization_lvl_g; break;
+		case 's': opt = compiler_optimization_lvl_s; break;
+		default: UNREACHABLE;
 		}
 
 		debug = get_obj_bool(wk, debug_id);
@@ -109,8 +108,11 @@ get_buildtype_args(struct workspace *wk, const struct project *proj,
 }
 
 static void
-get_warning_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
+get_warning_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_type t)
 {
 	obj lvl_id;
 	get_option_value_for_tgt(wk, proj, tgt, "warning_level", &lvl_id);
@@ -124,29 +126,22 @@ get_warning_args(struct workspace *wk, const struct project *proj,
 	uint32_t lvl;
 	assert(sl->len == 1 && "invalid warning_level");
 	switch (sl->s[0]) {
-	case '0':
-		lvl = 0;
-		break;
-	case '1':
-		lvl = 1;
-		break;
-	case '2':
-		lvl = 2;
-		break;
-	case '3':
-		lvl = 3;
-		break;
-	default:
-		UNREACHABLE;
-		return;
+	case '0': lvl = 0; break;
+	case '1': lvl = 1; break;
+	case '2': lvl = 2; break;
+	case '3': lvl = 3; break;
+	default: UNREACHABLE; return;
 	}
 
 	push_args(wk, args_id, compilers[t].args.warning_lvl(lvl));
 }
 
 static void
-get_werror_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id, enum compiler_type t)
+get_werror_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_type t)
 {
 	obj active;
 	get_option_value_for_tgt(wk, proj, tgt, "werror", &active);
@@ -157,21 +152,19 @@ get_werror_args(struct workspace *wk, const struct project *proj,
 }
 
 void
-get_std_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id,
-	enum compiler_language lang, enum compiler_type t)
+get_std_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_language lang,
+	enum compiler_type t)
 {
 	obj std;
 
 	switch (lang) {
-	case compiler_language_c:
-		get_option_value_for_tgt(wk, proj, tgt, "c_std", &std);
-		break;
-	case compiler_language_cpp:
-		get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std);
-		break;
-	default:
-		return;
+	case compiler_language_c: get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
+	case compiler_language_cpp: get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std); break;
+	default: return;
 	}
 
 	const char *s = get_cstr(wk, std);
@@ -182,19 +175,17 @@ get_std_args(struct workspace *wk, const struct project *proj,
 }
 
 void
-get_option_compile_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
+get_option_compile_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_language lang)
 {
 	obj args;
 	switch (lang) {
-	case compiler_language_c:
-		get_option_value_for_tgt(wk, proj, tgt, "c_args", &args);
-		break;
-	case compiler_language_cpp:
-		get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args);
-		break;
-	default:
-		return;
+	case compiler_language_c: get_option_value_for_tgt(wk, proj, tgt, "c_args", &args); break;
+	case compiler_language_cpp: get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args); break;
+	default: return;
 	}
 
 	obj_array_extend(wk, args_id, args);
@@ -225,9 +216,7 @@ setup_compiler_args_includes_iter(struct workspace *wk, void *_ctx, obj v)
 			dir = get_cstr(wk, v);
 			is_system = false;
 			break;
-		default:
-			LOG_E("invalid type for include directory '%s'", obj_type_to_s(t));
-			UNREACHABLE;
+		default: LOG_E("invalid type for include directory '%s'", obj_type_to_s(t)); UNREACHABLE;
 		}
 	}
 
@@ -261,8 +250,11 @@ struct setup_compiler_args_ctx {
 };
 
 static void
-setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args, enum compiler_type t)
+setup_optional_b_args_compiler(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args,
+	enum compiler_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
@@ -294,8 +286,8 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype);
 	get_option_value_for_tgt(wk, proj, tgt, "b_ndebug", &opt);
 	if (str_eql(get_str(wk, opt), &WKSTR("true"))
-	    || (str_eql(get_str(wk, opt), &WKSTR("if-release"))
-		&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
+		|| (str_eql(get_str(wk, opt), &WKSTR("if-release"))
+			&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
 		push_args(wk, args, compilers[t].args.define("NDEBUG"));
 	}
 
@@ -311,9 +303,12 @@ setup_optional_b_args_compiler(struct workspace *wk, const struct project *proj,
 }
 
 static bool
-get_base_compiler_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, enum compiler_language lang,
-	obj comp_id, obj *res)
+get_base_compiler_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	enum compiler_language lang,
+	obj comp_id,
+	obj *res)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
@@ -357,16 +352,18 @@ get_base_compiler_args(struct workspace *wk, const struct project *proj,
 void
 setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dirs, obj args, bool relativize)
 {
-	obj_array_foreach(wk, include_dirs, &(struct setup_compiler_args_includes_ctx) {
-		.args = args,
-		.t = get_obj_compiler(wk, compiler)->type,
-		.dont_relativize = !relativize,
-	}, setup_compiler_args_includes_iter);
+	obj_array_foreach(wk,
+		include_dirs,
+		&(struct setup_compiler_args_includes_ctx){
+			.args = args,
+			.t = get_obj_compiler(wk, compiler)->type,
+			.dont_relativize = !relativize,
+		},
+		setup_compiler_args_includes_iter);
 }
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx,
-	enum compiler_language lang, obj comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
 {
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
@@ -401,8 +398,8 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 
 	{ /* target args */
 		obj tgt_args;
-		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args)
-		    && tgt_args && get_obj_array(wk, tgt_args)->len) {
+		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args) && tgt_args
+			&& get_obj_array(wk, tgt_args)->len) {
 			obj_array_extend(wk, args, tgt_args);
 		}
 	}
@@ -424,8 +421,11 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx,
 }
 
 bool
-setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
-	const struct project *proj, obj include_dirs, obj dep_args,
+setup_compiler_args(struct workspace *wk,
+	const struct obj_build_target *tgt,
+	const struct project *proj,
+	obj include_dirs,
+	obj dep_args,
 	obj *joined_args)
 {
 	make_obj(wk, joined_args, obj_dict);
@@ -446,8 +446,7 @@ setup_compiler_args(struct workspace *wk, const struct obj_build_target *tgt,
 }
 
 bool
-build_target_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj *joined_args)
+build_target_args(struct workspace *wk, const struct project *proj, const struct obj_build_target *tgt, obj *joined_args)
 {
 	struct build_dep args = tgt->dep_internal;
 
@@ -466,8 +465,7 @@ build_target_args(struct workspace *wk, const struct project *proj,
 		args.include_directories = inc;
 	}
 
-	if (!setup_compiler_args(wk, tgt, proj, args.include_directories,
-		args.compile_args, joined_args)) {
+	if (!setup_compiler_args(wk, tgt, proj, args.include_directories, args.compile_args, joined_args)) {
 		return false;
 	}
 
@@ -475,19 +473,17 @@ build_target_args(struct workspace *wk, const struct project *proj,
 }
 
 void
-get_option_link_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args_id, enum compiler_language lang)
+get_option_link_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_language lang)
 {
 	obj args;
 	switch (lang) {
-	case compiler_language_c:
-		get_option_value_for_tgt(wk, proj, tgt, "c_link_args", &args);
-		break;
-	case compiler_language_cpp:
-		get_option_value_for_tgt(wk, proj, tgt, "cpp_link_args", &args);
-		break;
-	default:
-		return;
+	case compiler_language_c: get_option_value_for_tgt(wk, proj, tgt, "c_link_args", &args); break;
+	case compiler_language_cpp: get_option_value_for_tgt(wk, proj, tgt, "cpp_link_args", &args); break;
+	default: return;
 	}
 
 	obj_array_extend(wk, args_id, args);
@@ -508,8 +504,11 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 static bool
-setup_optional_b_args_linker(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, obj args, enum linker_type t)
+setup_optional_b_args_linker(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args,
+	enum linker_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
@@ -554,8 +553,10 @@ push_not_found_lib_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 void
-setup_linker_args(struct workspace *wk, const struct project *proj,
-	const struct obj_build_target *tgt, struct setup_linker_args_ctx *ctx)
+setup_linker_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	struct setup_linker_args_ctx *ctx)
 {
 	obj link_with;
 	obj_array_dedup(wk, ctx->args->link_with, &link_with);
@@ -604,8 +605,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
 
 	bool have_link_whole = get_obj_array(wk, ctx->args->link_whole)->len,
-	     have_link_with = have_link_whole
-			      || get_obj_array(wk, ctx->args->link_with)->len
+	     have_link_with = have_link_whole || get_obj_array(wk, ctx->args->link_with)->len
 			      || get_obj_array(wk, ctx->args->link_with_not_found)->len;
 
 	if (have_link_with) {
@@ -713,7 +713,6 @@ add_global_opts_set_from_env_iter(struct workspace *wk, void *_ctx, obj key, obj
 		return ir_cont;
 	}
 
-
 	// NOTE: This only handles options of type str or [str], which is okay since
 	// the only options that can be set from the environment are of this
 	// type.
@@ -722,17 +721,14 @@ add_global_opts_set_from_env_iter(struct workspace *wk, void *_ctx, obj key, obj
 
 	const char *sval;
 	switch (get_obj_type(wk, o->val)) {
-	case obj_string:
-		sval = get_cstr(wk, o->val);
-		break;
+	case obj_string: sval = get_cstr(wk, o->val); break;
 	case obj_array: {
 		obj joined;
 		obj_array_join(wk, true, o->val, make_str(wk, ","), &joined);
 		sval = get_cstr(wk, joined);
 		break;
 	}
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), sval));
@@ -752,8 +748,7 @@ regenerate_build_command(struct workspace *wk, bool opts_only)
 		obj_array_push(wk, regen_args, make_str(wk, "setup"));
 
 		SBUF(compiler_check_cache_path);
-		path_join(wk, &compiler_check_cache_path,
-			wk->muon_private, output_path.compiler_check_cache);
+		path_join(wk, &compiler_check_cache_path, wk->muon_private, output_path.compiler_check_cache);
 
 		obj_array_push(wk, regen_args, make_str(wk, "-c"));
 		obj_array_push(wk, regen_args, make_str(wk, compiler_check_cache_path.buf));
@@ -763,8 +758,7 @@ regenerate_build_command(struct workspace *wk, bool opts_only)
 
 	uint32_t i;
 	for (i = 0; i < wk->original_commandline.argc; ++i) {
-		obj_array_push(wk, regen_args,
-			make_str(wk, wk->original_commandline.argv[i]));
+		obj_array_push(wk, regen_args, make_str(wk, wk->original_commandline.argv[i]));
 	}
 
 	return regen_args;

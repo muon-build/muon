@@ -10,10 +10,15 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "platform/filesystem.h"
 #include "error.h"
+#include "platform/filesystem.h"
 
-typedef bool ((*inihcb)(void *ctx, struct source *src, const char *sect, const char *k, const char *v, struct source_location location));
+typedef bool((*inihcb)(void *ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location));
 
 bool ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
 bool ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx);

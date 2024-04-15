@@ -16,7 +16,8 @@ enum format_cb_result {
 
 bool version_compare(struct workspace *wk, uint32_t err_node, const struct str *ver, obj cmp_arr, bool *res);
 
-typedef enum format_cb_result ((*string_format_cb)(struct workspace *wk, uint32_t node, void *ctx, const struct str *key, uint32_t *elem));
+typedef enum format_cb_result(
+	(*string_format_cb)(struct workspace *wk, uint32_t node, void *ctx, const struct str *key, uint32_t *elem));
 
 bool string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb);
 

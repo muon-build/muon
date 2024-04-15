@@ -55,14 +55,17 @@ struct machine_file_parse_ctx {
 };
 
 static bool
-machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
-	const char *k, const char *v, struct source_location location)
+machine_file_parse_cb(void *_ctx,
+	struct source *src,
+	const char *_sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	struct machine_file_parse_ctx *ctx = _ctx;
 	enum machine_file_section sect;
 
-	if (!mfile_lookup(_sect, machine_file_section_names,
-		machine_file_section_count, &sect)) {
+	if (!mfile_lookup(_sect, machine_file_section_names, machine_file_section_count, &sect)) {
 		if (!k) {
 			error_messagef(src, location, log_error, "invalid section '%s'", _sect);
 		}
@@ -77,7 +80,11 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 		return false;
 	}
 
-	struct source val_src = { .label = k, .src = v, .len = strlen(v), };
+	struct source val_src = {
+		.label = k,
+		.src = v,
+		.len = strlen(v),
+	};
 
 	obj res;
 	if (!eval(ctx->wk, &val_src, eval_mode_default, &res)) {
@@ -106,12 +113,8 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 
 			dest_dict = ctx->dest_wk->binaries;
 			break;
-		case mfile_section_host_machine:
-			dest_dict = ctx->dest_wk->host_machine;
-			break;
-		default:
-			assert(false && "todo");
-			return false;
+		case mfile_section_host_machine: dest_dict = ctx->dest_wk->host_machine; break;
+		default: assert(false && "todo"); return false;
 		}
 
 		obj_dict_set(ctx->dest_wk, dest_dict, objkey, cloned);
@@ -133,7 +136,10 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 	uint32_t proj_id;
 	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
 
-	struct machine_file_parse_ctx ctx = { .wk = &wk, .dest_wk = dest_wk, };
+	struct machine_file_parse_ctx ctx = {
+		.wk = &wk,
+		.dest_wk = dest_wk,
+	};
 
 	struct source src;
 	char *buf = NULL;
@@ -149,5 +155,4 @@ ret:
 	fs_source_destroy(&src);
 	workspace_destroy(&wk);
 	return ret;
-
 }

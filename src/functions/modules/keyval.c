@@ -19,7 +19,12 @@ struct keyval_parse_ctx {
 };
 
 static bool
-keyval_parse_cb(void *_ctx, struct source *src, const char *sect, const char *k, const char *v, struct source_location location)
+keyval_parse_cb(void *_ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	struct keyval_parse_ctx *ctx = _ctx;
 
@@ -38,14 +43,9 @@ func_module_keyval_load(struct workspace *wk, obj self, obj *res)
 
 	const char *path = NULL;
 	switch (get_obj_type(wk, an[0].val)) {
-	case obj_file:
-		path = get_file_path(wk, an[0].val);
-		break;
-	case obj_string:
-		path = get_cstr(wk, an[0].val);
-		break;
-	default:
-		UNREACHABLE;
+	case obj_file: path = get_file_path(wk, an[0].val); break;
+	case obj_string: path = get_cstr(wk, an[0].val); break;
+	default: UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_dict);
@@ -71,6 +71,10 @@ ret:
 }
 
 const struct func_impl impl_tbl_module_keyval[] = {
-	{ "load", func_module_keyval_load, tc_dict, },
+	{
+		"load",
+		func_module_keyval_load,
+		tc_dict,
+	},
 	{ NULL, NULL },
 };

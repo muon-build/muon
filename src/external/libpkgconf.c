@@ -35,7 +35,7 @@ static bool
 #if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 10900
 error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 #else
-error_handler(const char *msg, const pkgconf_client_t * client, const void *data)
+error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 #endif
 {
 	if (log_should_print(log_debug)) {
@@ -63,7 +63,7 @@ muon_pkgconf_init(struct workspace *wk)
 #ifdef MUON_STATIC
 	if (!pkg_config_path->len) {
 		LOG_E("Unable to determine pkgconf search path.  Please set "
-			"PKG_CONFIG_PATH or -Dpkg_config_path to an appropriate value.");
+		      "PKG_CONFIG_PATH or -Dpkg_config_path to an appropriate value.");
 		return false;
 	}
 #endif
@@ -100,23 +100,17 @@ static const char *
 pkgconf_strerr(int err)
 {
 	switch (err) {
-	case PKGCONF_PKG_ERRF_OK:
-		return "ok";
-	case PKGCONF_PKG_ERRF_PACKAGE_NOT_FOUND:
-		return "not found";
-	case PKGCONF_PKG_ERRF_PACKAGE_VER_MISMATCH:
-		return "ver mismatch";
-	case PKGCONF_PKG_ERRF_PACKAGE_CONFLICT:
-		return "package conflict";
-	case PKGCONF_PKG_ERRF_DEPGRAPH_BREAK:
-		return "depgraph break";
+	case PKGCONF_PKG_ERRF_OK: return "ok";
+	case PKGCONF_PKG_ERRF_PACKAGE_NOT_FOUND: return "not found";
+	case PKGCONF_PKG_ERRF_PACKAGE_VER_MISMATCH: return "ver mismatch";
+	case PKGCONF_PKG_ERRF_PACKAGE_CONFLICT: return "package conflict";
+	case PKGCONF_PKG_ERRF_DEPGRAPH_BREAK: return "depgraph break";
 	}
 
 	return "unknown";
 }
 
-typedef unsigned int (*apply_func)(pkgconf_client_t *client,
-	pkgconf_pkg_t *world, pkgconf_list_t *list, int maxdepth);
+typedef unsigned int (*apply_func)(pkgconf_client_t *client, pkgconf_pkg_t *world, pkgconf_list_t *list, int maxdepth);
 
 struct pkgconf_lookup_ctx {
 	apply_func apply_func;
@@ -140,8 +134,7 @@ check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *
 	enum ext { ext_a, ext_so, ext_dll_a, ext_count };
 	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so", [ext_dll_a] = ".dll.a" };
 	static const uint8_t ext_order_static[] = { ext_a, ext_so, ext_dll_a },
-			     ext_order_dynamic[] = { ext_so, ext_dll_a, ext_a },
-			     *ext_order;
+			     ext_order_dynamic[] = { ext_so, ext_dll_a, ext_a }, *ext_order;
 
 	if (ctx->is_static) {
 		ext_order = ext_order_static;
@@ -192,12 +185,8 @@ find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const ch
 	SBUF(buf);
 	SBUF(name_buf);
 
-	struct find_lib_path_ctx find_lib_path_ctx = {
-		.buf = &buf,
-		.name_buf = &name_buf,
-		.name = name,
-		.is_static = ctx->is_static
-	};
+	struct find_lib_path_ctx find_lib_path_ctx
+		= { .buf = &buf, .name_buf = &name_buf, .name = name, .is_static = ctx->is_static };
 
 	if (!obj_array_foreach(ctx->wk, ctx->libdirs, &find_lib_path_ctx, find_lib_path_iter)) {
 		return 0;
@@ -225,7 +214,8 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		goto ret;
 	}
 
-	PKGCONF_FOREACH_LIST_ENTRY(list.head, node) {
+	PKGCONF_FOREACH_LIST_ENTRY(list.head, node)
+	{
 		const pkgconf_fragment_t *frag = node->data;
 
 		/* L("got option: -'%c' '%s'", frag->type, frag->data); */
@@ -249,19 +239,23 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			if ((path = find_lib_path(client, ctx, frag->data))) {
 				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
 					L("library '%s' found for dependency '%s'",
-						get_cstr(ctx->wk, path), get_cstr(ctx->wk, ctx->name));
+						get_cstr(ctx->wk, path),
+						get_cstr(ctx->wk, ctx->name));
 
 					obj_array_push(ctx->wk, ctx->info->libs, path);
 				}
 			} else {
-				LOG_W("library '%s' not found for dependency '%s'", frag->data, get_cstr(ctx->wk, ctx->name));
+				LOG_W("library '%s' not found for dependency '%s'",
+					frag->data,
+					get_cstr(ctx->wk, ctx->name));
 				obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
 			}
 			break;
 		}
 		default:
 			if (frag->type) {
-				obj_array_push(ctx->wk, ctx->info->compile_args,
+				obj_array_push(ctx->wk,
+					ctx->info->compile_args,
 					make_strf(ctx->wk, "-%c%s", frag->type, frag->data));
 			} else {
 				L("skipping null pkgconf fragment: '%s'", frag->data);
@@ -273,7 +267,6 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 ret:
 	pkgconf_fragment_free(&list);
 	return ret;
-
 }
 
 static bool
@@ -407,7 +400,11 @@ muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char
 	pkgconf_queue_push(&pkgq, pkg_name);
 	bool ret = true;
 
-	struct pkgconf_get_variable_ctx ctx = { .wk = wk, .res = res, .var = var, };
+	struct pkgconf_get_variable_ctx ctx = {
+		.wk = wk,
+		.res = res,
+		.var = var,
+	};
 
 	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_variable, pkgconf_ctx.maxdepth, &ctx)) {
 		ret = false;

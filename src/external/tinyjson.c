@@ -46,23 +46,17 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 		break;
 	case JSON_TEXT:
 	/* muon doesn't have reals, so use string for the time being */
-	case JSON_REAL:
-		*res = make_str(wk, json_getValue(json));
-		break;
+	case JSON_REAL: *res = make_str(wk, json_getValue(json)); break;
 	case JSON_INTEGER:
 		make_obj(wk, res, obj_number);
 		set_obj_number(wk, *res, (int64_t)json_getInteger(json));
 		break;
-	case JSON_NULL:
-		*res = obj_null;
-		break;
+	case JSON_NULL: *res = obj_null; break;
 	case JSON_BOOLEAN:
 		make_obj(wk, res, obj_bool);
 		set_obj_bool(wk, *res, json_getBoolean(json));
 		break;
-	default:
-		LOG_E("error parsing json: invalid object");
-		return false;
+	default: LOG_E("error parsing json: invalid object"); return false;
 	}
 
 	return true;

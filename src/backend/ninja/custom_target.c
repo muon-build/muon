@@ -92,7 +92,8 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj name;
 
 		if (ctx->proj->subproject_name) {
-			name = make_strf(wk, "%s@@%s", get_cstr(wk, ctx->proj->subproject_name), get_cstr(wk, tgt->name));
+			name = make_strf(
+				wk, "%s@@%s", get_cstr(wk, ctx->proj->subproject_name), get_cstr(wk, tgt->name));
 		} else {
 			name = tgt->name;
 		}
@@ -170,14 +171,14 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		rule = "CUSTOM_COMMAND";
 	}
 
-	fprintf(ctx->out, "build %s: %s %s | %s\n"
+	fprintf(ctx->out,
+		"build %s: %s %s | %s\n"
 		" COMMAND = %s\n",
 		get_cstr(wk, outputs),
 		rule,
 		get_cstr(wk, inputs),
 		get_cstr(wk, depends),
-		get_cstr(wk, cmdline)
-		);
+		get_cstr(wk, cmdline));
 
 	if (tgt->depfile) {
 		obj depfile_rel;

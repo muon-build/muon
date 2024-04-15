@@ -15,8 +15,12 @@
 #include "wrap.h"
 
 static bool
-subproject_prepare(struct workspace *wk, struct sbuf *cwd_buf, const char **cwd,
-	struct sbuf *build_dir_buf, const char **build_dir, bool required,
+subproject_prepare(struct workspace *wk,
+	struct sbuf *cwd_buf,
+	const char **cwd,
+	struct sbuf *build_dir_buf,
+	const char **build_dir,
+	bool required,
 	bool *found)
 {
 	if (!fs_dir_exists(*cwd)) {
@@ -81,8 +85,12 @@ wrap_done:
 }
 
 bool
-subproject(struct workspace *wk, obj name, enum requirement_type req, struct args_kw *default_options,
-	struct args_kw *versions, obj *res)
+subproject(struct workspace *wk,
+	obj name,
+	enum requirement_type req,
+	struct args_kw *default_options,
+	struct args_kw *versions,
+	obj *res)
 {
 	// don't re-evaluate the same subproject
 	if (obj_dict_index(wk, wk->subprojects, name, res)) {
@@ -98,10 +106,16 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	SBUF(cwd);
 	SBUF(build_dir);
 
-	path_join(wk, &cwd, get_cstr(wk, current_project(wk)->source_root), get_cstr(wk, current_project(wk)->subprojects_dir));
+	path_join(wk,
+		&cwd,
+		get_cstr(wk, current_project(wk)->source_root),
+		get_cstr(wk, current_project(wk)->subprojects_dir));
 	path_push(wk, &cwd, subproj_name);
 
-	path_join(wk, &build_dir, get_cstr(wk, current_project(wk)->build_root), get_cstr(wk, current_project(wk)->subprojects_dir));
+	path_join(wk,
+		&build_dir,
+		get_cstr(wk, current_project(wk)->build_root),
+		get_cstr(wk, current_project(wk)->subprojects_dir));
 	path_push(wk, &build_dir, subproj_name);
 
 	uint32_t subproject_id = 0;
@@ -111,8 +125,8 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	SBUF(sp_cwd_buf);
 	SBUF(sp_build_dir_buf);
 
-	if (!subproject_prepare(wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf,
-		&sp_build_dir, req == requirement_required, &found)) {
+	if (!subproject_prepare(
+		    wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf, &sp_build_dir, req == requirement_required, &found)) {
 		return false;
 	}
 
@@ -121,8 +135,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 	}
 
 	if (default_options && default_options->set) {
-		if (!parse_and_set_default_options(wk, default_options->node,
-			default_options->val, name, true)) {
+		if (!parse_and_set_default_options(wk, default_options->node, default_options->val, name, true)) {
 			return false;
 		}
 	}
@@ -135,16 +148,18 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 		struct project *subp = arr_get(&wk->projects, subproject_id);
 
 		bool compare_result;
-		if (!version_compare(wk, versions->node, get_str(wk, subp->cfg.version),
-			versions->val, &compare_result)) {
+		if (!version_compare(
+			    wk, versions->node, get_str(wk, subp->cfg.version), versions->val, &compare_result)) {
 			goto not_found;
 		}
 
 		if (!compare_result) {
 			if (req == requirement_required) {
-				vm_error_at(wk, versions->node,
+				vm_error_at(wk,
+					versions->node,
 					"subproject version mismatch; wanted %o, got %o",
-					versions->val, subp->cfg.version);
+					versions->val,
+					subp->cfg.version);
 				goto not_found;
 			}
 		}
@@ -182,12 +197,10 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 		kw_version,
 
 	};
-	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
+	struct args_kw akw[] = { [kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
 		[kw_required] = { "required", tc_required_kw },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
-		0
-	};
+		0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;

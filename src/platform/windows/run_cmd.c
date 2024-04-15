@@ -84,9 +84,7 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 					return copy_pipe_result_failed;
 				}
 				return copy_pipe_result_finished;
-			default:
-				win32_fatal("GetOverlappedResult:");
-				return copy_pipe_result_failed;
+			default: win32_fatal("GetOverlappedResult:"); return copy_pipe_result_failed;
 			}
 		} else {
 			if (bytes_read) {
@@ -100,11 +98,8 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 		}
 	}
 
-	if (!ReadFile(pipe->handle,
-		pipe->overlapped_buf,
-		sizeof(pipe->overlapped_buf),
-		&bytes_read,
-		&pipe->overlapped)) {
+	if (!ReadFile(
+		    pipe->handle, pipe->overlapped_buf, sizeof(pipe->overlapped_buf), &bytes_read, &pipe->overlapped)) {
 		switch (GetLastError()) {
 		case ERROR_BROKEN_PIPE:
 			pipe->is_eof = true;
@@ -112,12 +107,8 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 				return copy_pipe_result_failed;
 			}
 			return copy_pipe_result_finished;
-		case ERROR_IO_PENDING:
-			pipe->is_pending = true;
-			break;
-		default:
-			win32_fatal("ReadFile:");
-			return copy_pipe_result_failed;
+		case ERROR_IO_PENDING: pipe->is_pending = true; break;
+		default: win32_fatal("ReadFile:"); return copy_pipe_result_failed;
 		}
 	} else {
 		pipe->is_pending = false;
@@ -139,13 +130,13 @@ copy_pipes(struct run_cmd_ctx *ctx)
 	HANDLE events[2];
 	uint32_t event_count = 0;
 
-#define PUSH_PIPE(__p, __sb) \
-	if (!(__p)->is_eof) { \
-		pipes[event_count].pipe = (__p); \
-		pipes[event_count].sbuf = (__sb); \
+#define PUSH_PIPE(__p, __sb)                        \
+	if (!(__p)->is_eof) {                       \
+		pipes[event_count].pipe = (__p);    \
+		pipes[event_count].sbuf = (__sb);   \
 		events[event_count] = (__p)->event; \
-		++event_count; \
-	} \
+		++event_count;                      \
+	}
 
 	PUSH_PIPE(&ctx->pipe_out, &ctx->out);
 	PUSH_PIPE(&ctx->pipe_err, &ctx->err);
@@ -162,7 +153,7 @@ copy_pipes(struct run_cmd_ctx *ctx)
 		return copy_pipe_result_waiting;
 	} else if (wait == WAIT_FAILED) {
 		win32_fatal("WaitForMultipleObjects:");
-	} else if (WAIT_ABANDONED_0 <= wait &&  wait < WAIT_ABANDONED_0 + event_count) {
+	} else if (WAIT_ABANDONED_0 <= wait && wait < WAIT_ABANDONED_0 + event_count) {
 		win32_fatal("WaitForMultipleObjects: abandoned");
 	} else if (wait >= WAIT_OBJECT_0 + event_count) {
 		win32_fatal("WaitForMultipleObjects: index out of range");
@@ -221,12 +212,8 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 			// State is signalled
 			loop = false;
 			break;
-		case WAIT_FAILED:
-			ctx->err_msg = win32_error();
-			return run_cmd_error;
-		case WAIT_ABANDONED:
-			ctx->err_msg = "child exited abnormally (WAIT_ABANDONED)";
-			return run_cmd_error;
+		case WAIT_FAILED: ctx->err_msg = win32_error(); return run_cmd_error;
+		case WAIT_ABANDONED: ctx->err_msg = "child exited abnormally (WAIT_ABANDONED)"; return run_cmd_error;
 		}
 	}
 
@@ -253,29 +240,35 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 {
 	static uint64_t uniq = 0;
 	char pipe_name[256];
-	snprintf(pipe_name, ARRAY_LEN(pipe_name),
-		"\\\\.\\pipe\\muon_run_cmd_pid%lu_%llu_%s", GetCurrentProcessId(), uniq, name);
+	snprintf(pipe_name,
+		ARRAY_LEN(pipe_name),
+		"\\\\.\\pipe\\muon_run_cmd_pid%lu_%llu_%s",
+		GetCurrentProcessId(),
+		uniq,
+		name);
 	++uniq;
 
-	if (!record_handle(&pipe->event, CreateEvent(
-		NULL, // default security attribute
-		TRUE, // manual-reset event
-		TRUE, // initial state = signaled
-		NULL  // unnamed event object
-		))) {
+	if (!record_handle(&pipe->event,
+		    CreateEvent(NULL, // default security attribute
+			    TRUE, // manual-reset event
+			    TRUE, // initial state = signaled
+			    NULL // unnamed event object
+			    ))) {
 		win32_fatal("CreateEvent:");
 	}
 
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
 	pipe->overlapped.hEvent = pipe->event;
 
-	if (!record_handle(&pipe->handle, CreateNamedPipeA(
-		pipe_name,
-		PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-		PIPE_TYPE_BYTE | PIPE_WAIT,
-		PIPE_UNLIMITED_INSTANCES,
-		0, 0, INFINITE, NULL
-		))) {
+	if (!record_handle(&pipe->handle,
+		    CreateNamedPipeA(pipe_name,
+			    PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+			    PIPE_TYPE_BYTE | PIPE_WAIT,
+			    PIPE_UNLIMITED_INSTANCES,
+			    0,
+			    0,
+			    INFINITE,
+			    NULL))) {
 		win32_fatal("CreateNamedPipe:");
 		return false;
 	}
@@ -290,19 +283,18 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 		// Get the write end of the pipe as a handle inheritable across processes.
 		HANDLE output_write_handle, dup;
 		if (!record_handle(&output_write_handle,
-			CreateFileA(pipe_name, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL))) {
+			    CreateFileA(pipe_name, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL))) {
 			win32_fatal("CreateFile:");
 			return false;
 		}
 
-		if (!DuplicateHandle(
-			GetCurrentProcess(),
-			output_write_handle,
-			GetCurrentProcess(),
-			&dup,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS)) {
+		if (!DuplicateHandle(GetCurrentProcess(),
+			    output_write_handle,
+			    GetCurrentProcess(),
+			    &dup,
+			    0,
+			    TRUE,
+			    DUPLICATE_SAME_ACCESS)) {
 			win32_fatal("DuplicateHandle:");
 			return false;
 		}
@@ -420,9 +412,14 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	// Must be inheritable so subprocesses can dup to children.
 	// TODO: delete when stdin support added
 	HANDLE nul;
-	if (!record_handle(&nul, CreateFileA("NUL", GENERIC_READ,
-		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-		&security_attributes, OPEN_EXISTING, 0, NULL))) {
+	if (!record_handle(&nul,
+		    CreateFileA("NUL",
+			    GENERIC_READ,
+			    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			    &security_attributes,
+			    OPEN_EXISTING,
+			    0,
+			    NULL))) {
 		error_unrecoverable("couldn't open nul");
 	}
 
@@ -448,10 +445,16 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 
 	DWORD process_flags = 0;
 
-	res = CreateProcess(NULL, command_line, NULL, NULL,
-		/* inherit handles */ TRUE, process_flags,
-		NULL, ctx->chdir,
-		&startup_info, &process_info);
+	res = CreateProcess(NULL,
+		command_line,
+		NULL,
+		NULL,
+		/* inherit handles */ TRUE,
+		process_flags,
+		NULL,
+		ctx->chdir,
+		&startup_info,
+		&process_info);
 
 	if (!res) {
 		DWORD error = GetLastError();
@@ -481,7 +484,12 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 }
 
 static bool
-argv_to_command_line(struct run_cmd_ctx *ctx, struct source *src, const char *argstr, char *const *argv, uint32_t argstr_argc, struct sbuf *cmd)
+argv_to_command_line(struct run_cmd_ctx *ctx,
+	struct source *src,
+	const char *argstr,
+	char *const *argv,
+	uint32_t argstr_argc,
+	struct sbuf *cmd)
 {
 	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
 

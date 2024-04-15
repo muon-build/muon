@@ -22,7 +22,10 @@ func_module_sourceset_source_set(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_module_sourceset[] = {
-	{ "source_set", func_module_sourceset_source_set, tc_source_set, },
+	{
+		"source_set",
+		func_module_sourceset_source_set,
+		tc_source_set,
+	},
 	{ NULL, NULL },
 };
-

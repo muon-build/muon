@@ -7,8 +7,8 @@
 
 #include "compat.h"
 
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "util.h"
 
@@ -50,8 +50,7 @@ fourbyte_memmem(const unsigned char *h, size_t k, const unsigned char *n)
 	return hw == nw ? (char *)h - 4 : 0;
 }
 
-#define BITOP(a, b, op) \
-	((a)[(size_t)(b) / (8 * sizeof *(a))] op(size_t) 1 << ((size_t)(b) % (8 * sizeof *(a))))
+#define BITOP(a, b, op) ((a)[(size_t)(b) / (8 * sizeof *(a))] op(size_t) 1 << ((size_t)(b) % (8 * sizeof *(a))))
 
 static char *
 twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned char *n, size_t l)
@@ -62,11 +61,13 @@ twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned cha
 
 	/* Computing length of needle and fill shift table */
 	for (i = 0; i < l; i++) {
-		BITOP(byteset, n[i], |= ), shift[n[i]] = i + 1;
+		BITOP(byteset, n[i], |=), shift[n[i]] = i + 1;
 	}
 
 	/* Compute maximal suffix */
-	ip = -1; jp = 0; k = p = 1;
+	ip = -1;
+	jp = 0;
+	k = p = 1;
 	while (jp + k < l) {
 		if (n[ip + k] == n[jp + k]) {
 			if (k == p) {
@@ -88,7 +89,9 @@ twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned cha
 	p0 = p;
 
 	/* And with the opposite comparison */
-	ip = -1; jp = 0; k = p = 1;
+	ip = -1;
+	jp = 0;
+	k = p = 1;
 	while (jp + k < l) {
 		if (n[ip + k] == n[jp + k]) {
 			if (k == p) {
@@ -108,7 +111,7 @@ twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned cha
 	}
 	if (ip + 1 > ms + 1) {
 		ms = ip;
-	}else {
+	} else {
 		p = p0;
 	}
 

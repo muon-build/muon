@@ -24,10 +24,7 @@
 #define DT_MIPS_RLD_MAP_REL 1879048245
 #endif
 
-enum elf_class {
-	elf_class_32,
-	elf_class_64
-};
+enum elf_class { elf_class_32, elf_class_64 };
 
 struct elf {
 	enum elf_class class;
@@ -91,20 +88,14 @@ parse_elf(FILE *f, struct elf *elf)
 		elf->class = elf_class_64;
 		break;
 	case ELFCLASSNONE:
-	default:
-		return false;
+	default: return false;
 	}
 
 	switch (ident[EI_DATA]) {
-	case ELFDATA2LSB:
-		elf->endian = little_endian;
-		break;
-	case ELFDATA2MSB:
-		elf->endian = big_endian;
-		break;
+	case ELFDATA2LSB: elf->endian = little_endian; break;
+	case ELFDATA2MSB: elf->endian = big_endian; break;
 	case ELFDATANONE:
-	default:
-		return false;
+	default: return false;
 	}
 
 	union elf_hdrbuf buf = { 0 };
@@ -208,9 +199,7 @@ static bool
 remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
 {
 	char rpath[BUF_SIZE_4k];
-	uint32_t rpath_len = 0,
-		 cur_off = s_dynstr->off + str->off,
-		 copy_to = cur_off;
+	uint32_t rpath_len = 0, cur_off = s_dynstr->off + str->off, copy_to = cur_off;
 	bool modified = false, preserve_separator = false;
 	*cleared = true;
 
@@ -262,7 +251,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 
 	if (!fs_fseek(f, copy_to)) {
 		return false;
-	} else if (!fs_fwrite((char []) { 0 }, 1, f)) {
+	} else if (!fs_fwrite((char[]){ 0 }, 1, f)) {
 		return false;
 	}
 
@@ -295,7 +284,7 @@ remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 	}
 
 	struct elf_dynstr mips_rld_map_rel = { .tag = DT_MIPS_RLD_MAP_REL };
-	if (!parse_elf_dynamic(f, elf, s_dynamic, (struct elf_dynstr *[]) { &mips_rld_map_rel, NULL })) {
+	if (!parse_elf_dynamic(f, elf, s_dynamic, (struct elf_dynstr *[]){ &mips_rld_map_rel, NULL })) {
 		return false;
 	}
 
@@ -322,14 +311,13 @@ fix_rpaths(const char *elf_path, const char *build_root)
 		goto ret;
 	}
 
-	struct elf_section s_dynamic = { .type = SHT_DYNAMIC },
-			   s_dynstr = { .type = SHT_STRTAB };
-	if (!parse_elf_sections(f, &elf, (struct elf_section *[]) { &s_dynamic, &s_dynstr, NULL })) {
+	struct elf_section s_dynamic = { .type = SHT_DYNAMIC }, s_dynstr = { .type = SHT_STRTAB };
+	if (!parse_elf_sections(f, &elf, (struct elf_section *[]){ &s_dynamic, &s_dynstr, NULL })) {
 		goto ret;
 	}
 
 	struct elf_dynstr rpaths[] = { { .tag = DT_RPATH }, { .tag = DT_RUNPATH } };
-	if (!parse_elf_dynamic(f, &elf, &s_dynamic, (struct elf_dynstr *[]) { &rpaths[0], &rpaths[1], NULL })) {
+	if (!parse_elf_dynamic(f, &elf, &s_dynamic, (struct elf_dynstr *[]){ &rpaths[0], &rpaths[1], NULL })) {
 		goto ret;
 	}
 

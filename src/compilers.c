@@ -154,8 +154,7 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 	case compiler_language_null:
 	case compiler_language_c_hdr:
 	case compiler_language_cpp_hdr:
-	case compiler_language_llvm_ir:
-		break;
+	case compiler_language_llvm_ir: break;
 	case compiler_language_assembly:
 		if (!cur) {
 			return compiler_language_assembly;
@@ -170,14 +169,11 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 		}
 		break;
 	case compiler_language_cpp:
-		if (!cur
-		    || cur == compiler_language_c
-		    || cur == compiler_language_assembly) {
+		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
 			return compiler_language_cpp;
 		}
 		break;
-	case compiler_language_count:
-		UNREACHABLE;
+	case compiler_language_count: UNREACHABLE;
 	}
 
 	return cur;
@@ -337,8 +333,7 @@ static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-print-search-dirs")
-	    || cmd_ctx.status) {
+	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-print-search-dirs") || cmd_ctx.status) {
 		goto done;
 	}
 
@@ -370,12 +365,7 @@ done:
 	run_cmd_ctx_destroy(&cmd_ctx);
 
 	if (!comp->libdirs) {
-		const char *libdirs[] = {
-			"/usr/lib",
-			"/usr/local/lib",
-			"/lib",
-			NULL
-		};
+		const char *libdirs[] = { "/usr/lib", "/usr/local/lib", "/lib", NULL };
 
 		make_obj(wk, &comp->libdirs, obj_array);
 
@@ -464,13 +454,15 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 	return true;
 }
 
-typedef bool ((*toolchain_detect_cmd_arr_cb)(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr));
+typedef bool((*toolchain_detect_cmd_arr_cb)(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr));
 
 bool
 toolchain_exe_detect(struct workspace *wk,
 	const char *toolchain_exe_option_name,
 	const char *exe_list[],
-	obj comp, enum compiler_language lang, toolchain_detect_cmd_arr_cb cb)
+	obj comp,
+	enum compiler_language lang,
+	toolchain_detect_cmd_arr_cb cb)
 {
 	if (!toolchain_exe_option_name) {
 		return false;
@@ -503,11 +495,7 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 {
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	const char *exe_list[] = {
-		linker_type_to_s(compilers[compiler->type].default_linker),
-		"ld",
-		NULL
-	};
+	const char *exe_list[] = { linker_type_to_s(compilers[compiler->type].default_linker), "ld", NULL };
 
 	return toolchain_exe_detect(wk, "env.LD", exe_list, comp, lang, linker_detect);
 }
@@ -585,21 +573,22 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 
 	LLOG_I("detected compiler %s ", compiler_type_to_s(compiler->type));
-	obj_fprintf(wk, log_file(), "%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
-		compiler->ver, compiler->cmd_arr,
-		linker_type_to_s(compiler->linker_type), compiler->linker_cmd_arr,
-		static_linker_type_to_s(compiler->static_linker_type), compiler->static_linker_cmd_arr
-		);
+	obj_fprintf(wk,
+		log_file(),
+		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
+		compiler->ver,
+		compiler->cmd_arr,
+		linker_type_to_s(compiler->linker_type),
+		compiler->linker_cmd_arr,
+		static_linker_type_to_s(compiler->static_linker_type),
+		compiler->static_linker_cmd_arr);
 
 	return true;
 }
 
-#define COMPILER_ARGS(...) \
+#define COMPILER_ARGS(...)                       \
 	static const char *argv[] = __VA_ARGS__; \
-	static struct args args = { \
-		.args = argv, \
-		.len = ARRAY_LEN(argv) \
-	};
+	static struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
 
 /* posix compilers */
 
@@ -635,19 +624,13 @@ compiler_posix_args_optimization(uint32_t lvl)
 	COMPILER_ARGS({ NULL });
 
 	switch ((enum compiler_optimization_lvl)lvl) {
-	case compiler_optimization_lvl_0:
-		argv[0] = "-O0";
-		break;
+	case compiler_optimization_lvl_0: argv[0] = "-O0"; break;
 	case compiler_optimization_lvl_1:
 	case compiler_optimization_lvl_2:
-	case compiler_optimization_lvl_3:
-		argv[0] = "-O1";
-		break;
+	case compiler_optimization_lvl_3: argv[0] = "-O1"; break;
 	case compiler_optimization_lvl_none:
 	case compiler_optimization_lvl_g:
-	case compiler_optimization_lvl_s:
-		args.len = 0;
-		break;
+	case compiler_optimization_lvl_s: args.len = 0; break;
 	}
 
 	return &args;
@@ -718,27 +701,13 @@ compiler_gcc_args_optimization(uint32_t lvl)
 	COMPILER_ARGS({ NULL });
 
 	switch ((enum compiler_optimization_lvl)lvl) {
-	case compiler_optimization_lvl_none:
-		args.len = 0;
-		break;
-	case compiler_optimization_lvl_0:
-		argv[0] = "-O0";
-		break;
-	case compiler_optimization_lvl_1:
-		argv[0] = "-O1";
-		break;
-	case compiler_optimization_lvl_2:
-		argv[0] = "-O2";
-		break;
-	case compiler_optimization_lvl_3:
-		argv[0] = "-O3";
-		break;
-	case compiler_optimization_lvl_g:
-		argv[0] = "-Og";
-		break;
-	case compiler_optimization_lvl_s:
-		argv[0] = "-Os";
-		break;
+	case compiler_optimization_lvl_none: args.len = 0; break;
+	case compiler_optimization_lvl_0: argv[0] = "-O0"; break;
+	case compiler_optimization_lvl_1: argv[0] = "-O1"; break;
+	case compiler_optimization_lvl_2: argv[0] = "-O2"; break;
+	case compiler_optimization_lvl_3: argv[0] = "-O3"; break;
+	case compiler_optimization_lvl_g: argv[0] = "-Og"; break;
+	case compiler_optimization_lvl_s: argv[0] = "-Os"; break;
 	}
 
 	return &args;
@@ -752,23 +721,14 @@ compiler_gcc_args_warning_lvl(uint32_t lvl)
 	args.len = 0;
 
 	switch ((enum compiler_warning_lvl)lvl) {
-	case compiler_warning_lvl_everything:
-		UNREACHABLE;
-		break;
-	case compiler_warning_lvl_3:
-		argv[args.len] = "-Wpedantic";
-		++args.len;
+	case compiler_warning_lvl_everything: UNREACHABLE; break;
+	case compiler_warning_lvl_3: argv[args.len] = "-Wpedantic"; ++args.len;
 	/* fallthrough */
-	case compiler_warning_lvl_2:
-		argv[args.len] = "-Wextra";
-		++args.len;
+	case compiler_warning_lvl_2: argv[args.len] = "-Wextra"; ++args.len;
 	/* fallthrough */
-	case compiler_warning_lvl_1:
-		argv[args.len] = "-Wall";
-		++args.len;
+	case compiler_warning_lvl_1: argv[args.len] = "-Wall"; ++args.len;
 	/* fallthrough */
-	case compiler_warning_lvl_0:
-		break;
+	case compiler_warning_lvl_0: break;
 	}
 
 	return &args;
@@ -784,37 +744,74 @@ compiler_gcc_args_werror(void)
 static const struct args *
 compiler_gcc_args_warn_everything(void)
 {
-	COMPILER_ARGS({ "-Wall", "-Winvalid-pch", "-Wextra", "-Wpedantic",
-			"-Wcast-qual", "-Wconversion", "-Wfloat-equal",
-			"-Wformat=2", "-Winline", "-Wmissing-declarations",
-			"-Wredundant-decls", "-Wshadow", "-Wundef",
-			"-Wuninitialized", "-Wwrite-strings",
-			"-Wdisabled-optimization", "-Wpacked", "-Wpadded",
-			"-Wmultichar", "-Wswitch-default", "-Wswitch-enum",
-			"-Wunused-macros", "-Wmissing-include-dirs",
-			"-Wunsafe-loop-optimizations", "-Wstack-protector",
-			"-Wstrict-overflow=5", "-Warray-bounds=2",
-			"-Wlogical-op", "-Wstrict-aliasing=3", "-Wvla",
-			"-Wdouble-promotion", "-Wsuggest-attribute=const",
-			"-Wsuggest-attribute=noreturn",
-			"-Wsuggest-attribute=pure", "-Wtrampolines",
-			"-Wvector-operation-performance",
-			"-Wsuggest-attribute=format", "-Wdate-time",
-			"-Wformat-signedness", "-Wnormalized=nfc",
-			"-Wduplicated-cond", "-Wnull-dereference",
-			"-Wshift-negative-value", "-Wshift-overflow=2",
-			"-Wunused-const-variable=2", "-Walloca",
-			"-Walloc-zero", "-Wformat-overflow=2",
-			"-Wformat-truncation=2", "-Wstringop-overflow=3",
-			"-Wduplicated-branches", "-Wattribute-alias=2",
-			"-Wcast-align=strict", "-Wsuggest-attribute=cold",
-			"-Wsuggest-attribute=malloc", "-Wanalyzer-too-complex",
-			"-Warith-conversion", "-Wbidi-chars=ucn",
-			"-Wopenacc-parallelism", "-Wtrivial-auto-var-init",
-			"-Wbad-function-cast", "-Wmissing-prototypes",
-			"-Wnested-externs", "-Wstrict-prototypes",
-			"-Wold-style-definition", "-Winit-self",
-			"-Wc++-compat", "-Wunsuffixed-float-constants" });
+	COMPILER_ARGS({ "-Wall",
+		"-Winvalid-pch",
+		"-Wextra",
+		"-Wpedantic",
+		"-Wcast-qual",
+		"-Wconversion",
+		"-Wfloat-equal",
+		"-Wformat=2",
+		"-Winline",
+		"-Wmissing-declarations",
+		"-Wredundant-decls",
+		"-Wshadow",
+		"-Wundef",
+		"-Wuninitialized",
+		"-Wwrite-strings",
+		"-Wdisabled-optimization",
+		"-Wpacked",
+		"-Wpadded",
+		"-Wmultichar",
+		"-Wswitch-default",
+		"-Wswitch-enum",
+		"-Wunused-macros",
+		"-Wmissing-include-dirs",
+		"-Wunsafe-loop-optimizations",
+		"-Wstack-protector",
+		"-Wstrict-overflow=5",
+		"-Warray-bounds=2",
+		"-Wlogical-op",
+		"-Wstrict-aliasing=3",
+		"-Wvla",
+		"-Wdouble-promotion",
+		"-Wsuggest-attribute=const",
+		"-Wsuggest-attribute=noreturn",
+		"-Wsuggest-attribute=pure",
+		"-Wtrampolines",
+		"-Wvector-operation-performance",
+		"-Wsuggest-attribute=format",
+		"-Wdate-time",
+		"-Wformat-signedness",
+		"-Wnormalized=nfc",
+		"-Wduplicated-cond",
+		"-Wnull-dereference",
+		"-Wshift-negative-value",
+		"-Wshift-overflow=2",
+		"-Wunused-const-variable=2",
+		"-Walloca",
+		"-Walloc-zero",
+		"-Wformat-overflow=2",
+		"-Wformat-truncation=2",
+		"-Wstringop-overflow=3",
+		"-Wduplicated-branches",
+		"-Wattribute-alias=2",
+		"-Wcast-align=strict",
+		"-Wsuggest-attribute=cold",
+		"-Wsuggest-attribute=malloc",
+		"-Wanalyzer-too-complex",
+		"-Warith-conversion",
+		"-Wbidi-chars=ucn",
+		"-Wopenacc-parallelism",
+		"-Wtrivial-auto-var-init",
+		"-Wbad-function-cast",
+		"-Wmissing-prototypes",
+		"-Wnested-externs",
+		"-Wstrict-prototypes",
+		"-Wold-style-definition",
+		"-Winit-self",
+		"-Wc++-compat",
+		"-Wunsuffixed-float-constants" });
 	return &args;
 }
 
@@ -844,9 +841,7 @@ compiler_gcc_args_pgo(uint32_t stage)
 	args.len = 1;
 
 	switch ((enum compiler_pgo_stage)stage) {
-	case compiler_pgo_generate:
-		argv[0] = "-fprofile-generate";
-		break;
+	case compiler_pgo_generate: argv[0] = "-fprofile-generate"; break;
 	case compiler_pgo_use:
 		argv[1] = "-fprofile-correction";
 		++args.len;
@@ -890,24 +885,13 @@ compiler_gcc_args_visibility(uint32_t type)
 	args.len = 1;
 
 	switch ((enum compiler_visibility_type)type) {
-	case compiler_visibility_default:
-		argv[0] = "-fvisibility=default";
-		break;
-	case compiler_visibility_internal:
-		argv[0] = "-fvisibility=internal";
-		break;
-	case compiler_visibility_protected:
-		argv[0] = "-fvisibility=protected";
-		break;
-	case compiler_visibility_inlineshidden:
-		argv[1] = "-fvisibility-inlines-hidden";
-		++args.len;
+	case compiler_visibility_default: argv[0] = "-fvisibility=default"; break;
+	case compiler_visibility_internal: argv[0] = "-fvisibility=internal"; break;
+	case compiler_visibility_protected: argv[0] = "-fvisibility=protected"; break;
+	case compiler_visibility_inlineshidden: argv[1] = "-fvisibility-inlines-hidden"; ++args.len;
 	// fallthrough
-	case compiler_visibility_hidden:
-		argv[0] = "-fvisibility=hidden";
-		break;
-	default:
-		assert(false && "unreachable");
+	case compiler_visibility_hidden: argv[0] = "-fvisibility=hidden"; break;
+	default: assert(false && "unreachable");
 	}
 
 	return &args;
@@ -916,7 +900,10 @@ compiler_gcc_args_visibility(uint32_t type)
 static const struct args *
 compiler_gcc_args_specify_lang(const char *language)
 {
-	COMPILER_ARGS({ "-x", NULL, });
+	COMPILER_ARGS({
+		"-x",
+		NULL,
+	});
 
 	argv[1] = language;
 
@@ -1002,9 +989,7 @@ compiler_cl_args_optimization(uint32_t lvl)
 	COMPILER_ARGS({ NULL, NULL });
 	switch ((enum compiler_optimization_lvl)lvl) {
 	case compiler_optimization_lvl_none:
-	case compiler_optimization_lvl_g:
-		args.len = 0;
-		break;
+	case compiler_optimization_lvl_g: args.len = 0; break;
 	case compiler_optimization_lvl_0:
 		args.len = 1;
 		argv[0] = "/Od";
@@ -1050,19 +1035,11 @@ compiler_cl_args_warning_lvl(uint32_t lvl)
 	COMPILER_ARGS({ NULL });
 
 	switch ((enum compiler_warning_lvl)lvl) {
-	case compiler_warning_lvl_0:
-		args.len = 0;
-		break;
-	case compiler_warning_lvl_1:
-		argv[0] = "/W2";
-		break;
-	case compiler_warning_lvl_2:
-		argv[0] = "/W3";
-		break;
+	case compiler_warning_lvl_0: args.len = 0; break;
+	case compiler_warning_lvl_1: argv[0] = "/W2"; break;
+	case compiler_warning_lvl_2: argv[0] = "/W3"; break;
 	case compiler_warning_lvl_everything:
-	case compiler_warning_lvl_3:
-		argv[0] = "/W4";
-		break;
+	case compiler_warning_lvl_3: argv[0] = "/W4"; break;
 	}
 
 	return &args;
@@ -1158,7 +1135,7 @@ compiler_arg_empty_1i(uint32_t _)
 }
 
 static const struct args *
-compiler_arg_empty_1s(const char * _)
+compiler_arg_empty_1s(const char *_)
 {
 	COMPILER_ARGS({ NULL });
 	args.len = 0;
@@ -1320,7 +1297,6 @@ linker_posix_args_lib(const char *s)
 	return &args;
 }
 
-
 static const struct args *
 linker_posix_args_input_output(const char *in, const char *out)
 {
@@ -1477,27 +1453,25 @@ static void
 build_linkers(void)
 {
 	/* linkers */
-	struct linker empty = {
-		.args = {
-			.lib          = compiler_arg_empty_1s,
-			.as_needed    = compiler_arg_empty_0,
-			.no_undefined = compiler_arg_empty_0,
-			.start_group  = compiler_arg_empty_0,
-			.end_group    = compiler_arg_empty_0,
-			.shared       = compiler_arg_empty_0,
-			.soname       = compiler_arg_empty_1s,
-			.rpath        = compiler_arg_empty_1s,
-			.pgo          = compiler_arg_empty_1i,
-			.sanitize     = compiler_arg_empty_1s,
-			.allow_shlib_undefined = compiler_arg_empty_0,
-			.export_dynamic = compiler_arg_empty_0,
-			.fatal_warnings = compiler_arg_empty_0,
-			.whole_archive = compiler_arg_empty_0,
-			.no_whole_archive = compiler_arg_empty_0,
-			.enable_lto = compiler_arg_empty_0,
-			.input_output = compiler_arg_empty_2s,
-		}
-	};
+	struct linker empty = { .args = {
+					.lib = compiler_arg_empty_1s,
+					.as_needed = compiler_arg_empty_0,
+					.no_undefined = compiler_arg_empty_0,
+					.start_group = compiler_arg_empty_0,
+					.end_group = compiler_arg_empty_0,
+					.shared = compiler_arg_empty_0,
+					.soname = compiler_arg_empty_1s,
+					.rpath = compiler_arg_empty_1s,
+					.pgo = compiler_arg_empty_1i,
+					.sanitize = compiler_arg_empty_1s,
+					.allow_shlib_undefined = compiler_arg_empty_0,
+					.export_dynamic = compiler_arg_empty_0,
+					.fatal_warnings = compiler_arg_empty_0,
+					.whole_archive = compiler_arg_empty_0,
+					.no_whole_archive = compiler_arg_empty_0,
+					.enable_lto = compiler_arg_empty_0,
+					.input_output = compiler_arg_empty_2s,
+				} };
 
 	struct linker posix = empty;
 	posix.args.lib = linker_posix_args_lib;
@@ -1562,12 +1536,10 @@ static_linker_ar_gcc_args_base(void)
 static void
 build_static_linkers(void)
 {
-	struct static_linker empty = {
-		.args = {
-			.base          = compiler_arg_empty_0,
-			.input_output  = compiler_arg_empty_2s,
-		}
-	};
+	struct static_linker empty = { .args = {
+					       .base = compiler_arg_empty_0,
+					       .input_output = compiler_arg_empty_2s,
+				       } };
 
 	struct static_linker posix = empty;
 	posix.args.base = static_linker_ar_posix_args_base;

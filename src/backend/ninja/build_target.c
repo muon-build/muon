@@ -106,8 +106,7 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 			UNREACHABLE;
 		}
 
-		fprintf(ctx->out,
-			" ARGS = %s\n", get_cstr(wk, args));
+		fprintf(ctx->out, " ARGS = %s\n", get_cstr(wk, args));
 	}
 
 	return ir_cont;
@@ -136,7 +135,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	{ /* determine linker */
 		obj comp_id;
 		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep_internal.link_language, &comp_id)) {
-			LOG_E("no compiler defined for language %s", compiler_language_to_s(tgt->dep_internal.link_language));
+			LOG_E("no compiler defined for language %s",
+				compiler_language_to_s(tgt->dep_internal.link_language));
 			return false;
 		}
 
@@ -158,7 +158,10 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			obj order_deps = join_args_ninja(wk, deduped);
 
 			if (get_obj_array(wk, deduped)->len > 1) {
-				fprintf(wctx->out, "build %s-order_deps: phony || %s\n", esc_path.buf, get_cstr(wk, order_deps));
+				fprintf(wctx->out,
+					"build %s-order_deps: phony || %s\n",
+					esc_path.buf,
+					get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
 				ctx.implicit_deps = make_strf(wk, "%s-order_deps", esc_path.buf);
 				have_custom_order_deps = true;
@@ -183,11 +186,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	if (!(tgt->type & (tgt_static_library))) {
-		struct setup_linker_args_ctx sctx = {
-			.linker = linker,
-			.link_lang = tgt->dep_internal.link_language,
-			.args = &ctx.args
-		};
+		struct setup_linker_args_ctx sctx
+			= { .linker = linker, .link_lang = tgt->dep_internal.link_language, .args = &ctx.args };
 
 		setup_linker_args(wk, ctx.proj, tgt, &sctx);
 
@@ -229,14 +229,10 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		linker_type = "static";
 		link_args = 0;
 		break;
-	default:
-		assert(false);
-		return false;
+	default: assert(false); return false;
 	}
 
-	fprintf(wctx->out, "build %s: %s_%s_linker ", esc_path.buf,
-		get_cstr(wk, ctx.proj->rule_prefix),
-		linker_type);
+	fprintf(wctx->out, "build %s: %s_%s_linker ", esc_path.buf, get_cstr(wk, ctx.proj->rule_prefix), linker_type);
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (get_obj_array(wk, implicit_link_deps)->len) {
 		implicit_link_deps = join_args_ninja(wk, implicit_link_deps);

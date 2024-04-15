@@ -23,8 +23,7 @@ struct make_custom_target_opts {
 	bool extra_args_valid, extra_args_used;
 };
 
-bool make_custom_target(struct workspace *wk,
-	struct make_custom_target_opts *opts, obj *res);
+bool make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, obj *res);
 
 struct process_custom_target_commandline_opts {
 	uint32_t err_node;
@@ -40,7 +39,9 @@ struct process_custom_target_commandline_opts {
 };
 
 bool process_custom_target_commandline(struct workspace *wk,
-	struct process_custom_target_commandline_opts *opts, obj arr, obj *res);
+	struct process_custom_target_commandline_opts *opts,
+	obj arr,
+	obj *res);
 
 bool func_custom_target(struct workspace *wk, obj _, obj *res);
 
