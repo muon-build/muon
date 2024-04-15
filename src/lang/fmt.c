@@ -126,7 +126,6 @@ fmt_obj_as_simple_str(struct fmt_ctx *f, obj s)
 
 	n_str_stmt = parse(f->wk, &(struct source){ .src = str->s, .len = str->len }, 0);
 
-	/* print_ast(f->wk, n_str_stmt); */
 	assert(n_str_stmt && n_str_stmt->type == node_type_stmt && n_str_stmt->l);
 	n_str = n_str_stmt->l;
 
@@ -176,7 +175,6 @@ static void
 tree_indent_print(const struct tree_indent *ti)
 {
 	uint32_t i;
-	/* fprintf(log_file(), "%3d/%3d", ti->i, ti->len); */
 	for (i = 0; i < ti->indent; ++i) {
 		if (i < ti->indent - 1) {
 			if (ti->bars & (1 << i)) {
@@ -319,10 +317,8 @@ fmt_push_out_block(struct fmt_ctx *f)
 	sbuf_init(f->out_buf, 0, 0, 0);
 }
 
-#define fmt_write_nl(f) fmt_write_nl_src(f, __FILE__ ":" LINE_STRING)
-
 static void
-fmt_write_nl_src(struct fmt_ctx *f, const char *src)
+fmt_write_nl(struct fmt_ctx *f)
 {
 	if (f->measuring) {
 		if (f->enclosing) {
@@ -334,9 +330,7 @@ fmt_write_nl_src(struct fmt_ctx *f, const char *src)
 	}
 
 	f->line_has_content = false;
-	/* sbuf_pushs(f->wk, f->out_buf, src); */
 	sbuf_push(f->wk, f->out_buf, '\n');
-	/* L("out_buf_so_far: %s", f->out_buf->buf); */
 }
 
 static void
@@ -352,8 +346,6 @@ fmt_write(struct fmt_ctx *f, const char *s, uint32_t n)
 	} else if (!f->fmt_on) {
 		return;
 	}
-
-	/* assert(!); */
 
 	if (!f->line_has_content) {
 		uint32_t i, j;
@@ -374,29 +366,8 @@ fmt_write(struct fmt_ctx *f, const char *s, uint32_t n)
 	}
 
 	f->line_has_content = true;
-	/* { */
-	/* 	// Track if the current line has had anything but whitespace */
-	/* 	// (indentation) so far.  Used to determine if a trailing */
-	/* 	// comment needs a space before it. */
-	/* 	uint32_t i; */
-	/* 	for (i = 0; i < n; ++i) { */
-	/* 		if (strchr(" \r\t", *s)) { */
-	/* 			// ws; */
-	/* 		} else if (*s == '\n') { */
-	/* 			f->line_has_content = false; */
-	/* 			uint32_t i; */
-	/* 			for (i = 1; i < f->indent; ++i) { */
-	/* 				L("indenting %d", i); */
-	/* 				sbuf_pushs(f->wk, f->out_buf, "--->"); //f->indent_by); */
-	/* 			} */
-	/* 		} else { */
-	/* 			f->line_has_content = true; */
-	/* 		} */
-	/* 	} */
-	/* } */
 
 	sbuf_pushn(f->wk, f->out_buf, s, n);
-	/* L("out_buf_so_far: %s", f->out_buf->buf); */
 }
 
 static void
@@ -521,7 +492,6 @@ fmt_write_frag_ws(struct fmt_ctx *f, struct fmt_frag *ws, enum fmt_write_frag_ws
 				}
 			}
 
-			/* fmt_writes(f, "%ws_newline"); */
 			fmt_write_nl(f);
 			++newlines;
 			++consecutive_newlines;
@@ -608,14 +578,6 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 					  || (fr->next->flags & fmt_frag_flag_stick_line_left)
 					  || (!f->enclosing
 						  && (fr->next->flags & fmt_frag_flag_stick_line_left_unless_enclosed));
-				/* L("deciding to break: ml:%d, flags: %s %s %s | %d", */
-				/* 	ml, */
-				/* 	(fr->flags & fmt_frag_flag_stick_line_right) ? "stick_line_right" : "", */
-				/* 	(fr->flags & fmt_frag_flag_stick_line_left) ? "stick_line_left" : "", */
-				/* 	(fr->flags & fmt_frag_flag_stick_line_left_unless_enclosed) ? */
-				/* 		"stick_line_left_unless_enclosed" : */
-				/* 		"", */
-				/* 	stick_line); */
 
 				if (ml && !stick_line) {
 					fmt_write_nl(f);
@@ -1526,8 +1488,6 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 	}
 
 	for (i = 0; i < f->out_blocks.len; ++i) {
-		/* obj_fprintf(f->wk, log_file(), "%d: %o\n", i, blocks[i].str); */
-
 		s = get_str(f->wk, blocks[i].str);
 		if (blocks[i].raw) {
 			sbuf_pushn(f->wk, f->out_buf, s->s, s->len);
@@ -1552,8 +1512,6 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 			end_of_block = !*(line + lstr.len);
 
 			l = str_strip(f->wk, &lstr, 0, str_strip_flag_right_only);
-			/* l = make_strn(f->wk, lstr.s, lstr.len); */
-			/* obj_fprintf(f->wk, log_file(), "printing: %o\n", l); */
 			s = get_str(f->wk, l);
 
 			sbuf_pushn(f->wk, f->out_buf, s->s, s->len);
