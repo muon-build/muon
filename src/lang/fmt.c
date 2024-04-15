@@ -1002,6 +1002,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 
 		next = fmt_frag_sibling(fr, fmt_frag_s(f, fmt_node_to_token(n->type)));
 		switch (n->type) {
+		case node_type_add:
 		case node_type_or:
 		case node_type_and: {
 			next->flags |= fmt_frag_flag_stick_line_left_unless_enclosed;
