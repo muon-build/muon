@@ -13,6 +13,7 @@
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "memmem.h"
 #include "platform/mem.h"
 
 void
@@ -329,6 +330,16 @@ str_char_to_lower(uint8_t c)
 	return c;
 }
 
+void
+str_to_lower(struct str *str)
+{
+	uint32_t i;
+	char *s = (char *)str->s;
+	for (i = 0; i < str->len; ++i) {
+		s[i] = str_char_to_lower(str->s[i]);
+	}
+}
+
 bool
 str_startswith(const struct str *ss, const struct str *pre)
 {
@@ -379,6 +390,12 @@ str_endswithi(const struct str *ss, const struct str *suf)
 		}
 	}
 	return true;
+}
+
+bool
+str_contains(const struct str *str, const struct str *substr)
+{
+	return !!memmem(str->s, str->len, substr->s, substr->len);
 }
 
 obj
@@ -491,7 +508,7 @@ str_has_chr(char c, const struct str *ss)
 }
 
 obj
-str_strip(struct workspace *wk, const struct str *ss, const struct str *strip)
+str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags)
 {
 	const struct str *defstrip = &WKSTR(" \n\t");
 
@@ -499,12 +516,14 @@ str_strip(struct workspace *wk, const struct str *ss, const struct str *strip)
 		strip = defstrip;
 	}
 
-	uint32_t i;
+	uint32_t i = 0;
 	int32_t len;
 
-	for (i = 0; i < ss->len; ++i) {
-		if (!str_has_chr(ss->s[i], strip)) {
-			break;
+	if (!(flags & str_strip_flag_right_only)) {
+		for (; i < ss->len; ++i) {
+			if (!str_has_chr(ss->s[i], strip)) {
+				break;
+			}
 		}
 	}
 
@@ -533,7 +552,7 @@ str_split_strip_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct str_split_strip_ctx *ctx = _ctx;
 
-	obj_array_push(wk, ctx->res, str_strip(wk, get_str(wk, v), ctx->strip));
+	obj_array_push(wk, ctx->res, str_strip(wk, get_str(wk, v), ctx->strip, 0));
 	return ir_cont;
 }
 

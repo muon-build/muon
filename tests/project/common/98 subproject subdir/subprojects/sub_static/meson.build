@@ -13,4 +13,3 @@ meson.override_dependency(
     declare_dependency(variables: {'static': 'false'}),
     static: false,
 )
-

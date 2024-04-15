@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+diff = find_program('diff', required: false)
+
+muon = argv[1]
+source_root = argv[2]
+
+fail_fast = 'f' in argv # TODO make this a proper argument
+
+files = []
+exclude = ['badnum.meson']
+
+foreach f : run_command('git', '-C', source_root, 'ls-files').stdout().strip().split('\n')
+    basename = fs.name(f)
+    if not (
+        basename == 'meson.build'
+        or basename == 'meson_options.txt'
+        or basename.endswith('.meson')
+    )
+        continue
+    elif basename in exclude
+        continue
+    elif (
+        basename.startswith('tests/fmt/editorconfig')
+        or basename.startswith('tests/fmt/cases')
+    )
+        continue
+    endif
+
+    files += f
+endforeach
+
+failing_len = 0
+passing_len = 0
+files_len = files.length()
+
+foreach f : files
+    path = source_root / f
+    res = run_command('muon', 'fmt', '-eq', path, check: false)
+    if res.returncode() == 0
+        passing_len += 1
+    else
+        failing_len += 1
+
+        print(f'\033[31mfailing\033[0m: @path@\n')
+        if diff.found()
+            tmp_file = '/tmp/muon_fmt_diff_tmp'
+            fs.write(tmp_file, run_command('muon', 'fmt', path).stdout())
+            print(run_command(diff, path, tmp_file).stdout())
+        endif
+
+        if fail_fast
+            break
+        endif
+    endif
+endforeach
+
+print(f'@passing_len@/@files_len@ passed\n')
+
+if failing_len > 0
+    error('errors encountered')
+endif

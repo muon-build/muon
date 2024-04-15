@@ -14,6 +14,7 @@
 #include "error.h"
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
+#include "lang/fmt.h"
 #include "lang/string.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -21,7 +22,7 @@
 struct parse_editorconfig_ctx {
 	const char *path;
 	bool was_root, matched;
-	const char *indent_style, *indent_size, *tab_width;
+	const char *indent_style, *indent_size, *tab_width, *max_line_length, *end_of_line, *insert_final_newline;
 };
 
 struct editorconfig_pat {
@@ -123,10 +124,15 @@ strnchr(const char *s, char c, uint32_t len)
 #define L_editorconfig(...)
 
 static const char *
-editorconfig_pat_match(struct editorconfig_pat *pat, const char *path, const char *c, bool *consume_pattern, uint32_t depth)
+editorconfig_pat_match(struct editorconfig_pat *pat,
+	const char *path,
+	const char *c,
+	bool *consume_pattern,
+	uint32_t depth)
 {
 	*consume_pattern = true;
-	L_editorconfig("MATCHING: type: %c, pat: '%.*s', glob_slash: %d", pat->type, pat->len, pat->pat, pat->glob_slash);
+	L_editorconfig(
+		"MATCHING: type: %c, pat: '%.*s', glob_slash: %d", pat->type, pat->len, pat->pat, pat->glob_slash);
 	L_editorconfig("remaining pattern: '%s', remaining path: '%s'", c, path);
 
 	switch (pat->type) {
@@ -214,21 +220,32 @@ editorconfig_pat_match(struct editorconfig_pat *pat, const char *path, const cha
 		// meson filenames can't have numbers in them so patterns that
 		// have this default to no-match
 		return NULL;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	return NULL;
 }
 
 static bool
-editorconfig_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, struct source_location location)
+editorconfig_cfg_parse_cb(void *_ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	struct parse_editorconfig_ctx *ctx = _ctx;
 
 	if (!k) {
 		return true;
+	}
+
+	struct str kstr = WKSTR(k);
+	str_to_lower(&kstr);
+
+	if (v) {
+		struct str vstr = WKSTR(k);
+		str_to_lower(&vstr);
 	}
 
 	if (!sect) {
@@ -273,13 +290,19 @@ editorconfig_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 		ctx->indent_size = v;
 	} else if (strcmp(k, "tab_width") == 0) {
 		ctx->tab_width = v;
+	} else if (strcmp(k, "max_line_length") == 0) {
+		ctx->max_line_length = v;
+	} else if (strcmp(k, "end_of_line") == 0) {
+		ctx->end_of_line = v;
+	} else if (strcmp(k, "insert_final_newline") == 0) {
+		ctx->insert_final_newline = v;
 	}
 
 	return true;
 }
 
 void
-try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
+try_parse_editorconfig(struct source *src, struct fmt_opts *opts)
 {
 	SBUF_manual(path_abs);
 	SBUF_manual(path);
@@ -288,7 +311,8 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 	path_copy(0, &path, path_abs.buf);
 	path_dirname(0, &wd, path.buf);
 
-	const char *indent_style = NULL, *indent_size = NULL, *tab_width = NULL;
+	const char *indent_style = 0, *indent_size = 0, *tab_width = 0, *max_line_length = 0, *end_of_line = 0,
+		   *insert_final_newline = 0;
 	struct source cfg_src = { 0 };
 
 	struct arr garbage;
@@ -323,6 +347,18 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 				if (!tab_width) {
 					tab_width = editorconfig_ctx.tab_width;
 				}
+
+				if (!max_line_length) {
+					max_line_length = editorconfig_ctx.max_line_length;
+				}
+
+				if (!end_of_line) {
+					end_of_line = editorconfig_ctx.end_of_line;
+				}
+
+				if (!insert_final_newline) {
+					insert_final_newline = editorconfig_ctx.insert_final_newline;
+				}
 			}
 
 			if (editorconfig_ctx.was_root) {
@@ -342,6 +378,12 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 		indent_style = "space";
 	}
 
+	if (strcmp(indent_style, "space") == 0) {
+		opts->indent_style = fmt_indent_style_space;
+	} else if (strcmp(indent_style, "tab") == 0) {
+		opts->indent_style = fmt_indent_style_tab;
+	}
+
 	if (!tab_width) {
 		tab_width = "8";
 	}
@@ -358,22 +400,29 @@ try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts)
 		indent_size = tab_width;
 	}
 
-	char indent = strcmp(indent_style, "tab") == 0 ? '\t' : ' ';
+	opts->indent_size = strtol(indent_size, 0, 10);
+	opts->tab_width = strtol(tab_width, 0, 10);
 
-	static char buf[BUF_SIZE_1k];
-	uint32_t indent_cols = strtol(indent_size, NULL, 10);
-	assert(indent_cols + 1 < BUF_SIZE_1k);
-
-	uint32_t i;
-	for (i = 0; i < indent_cols; ++i) {
-		buf[i] = indent;
+	if (max_line_length) {
+		opts->max_line_len = strtol(max_line_length, 0, 10);
 	}
-	buf[i] = 0;
 
-	opts->indent_by = buf;
+	if (end_of_line) {
+		if (strcmp("end_of_line", "cr") == 0) {
+			opts->end_of_line = fmt_end_of_line_cr;
+		} else if (strcmp("end_of_line", "lf") == 0) {
+			opts->end_of_line = fmt_end_of_line_lf;
+		} else if (strcmp("end_of_line", "crlf") == 0) {
+			opts->end_of_line = fmt_end_of_line_crlf;
+		}
+	}
+
+	if (insert_final_newline) {
+		opts->insert_final_newline = strcmp(insert_final_newline, "false") == 0 ? false : true;
+	}
 
 ret:
-	for (i = 0; i < garbage.len; ++i) {
+	for (uint32_t i = 0; i < garbage.len; ++i) {
 		z_free(*(void **)arr_get(&garbage, i));
 	}
 	arr_destroy(&garbage);

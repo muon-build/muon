@@ -19,7 +19,6 @@ assert(
     'did not get native property with native:false and non-cross build.',
 )
 
-
 x = meson.get_external_property('nonexistent', 'fallback')
 assert(x == 'fallback', 'fallback did not work')
 
@@ -28,7 +27,6 @@ assert(x == 'fallback', 'fallback native:true did not work')
 
 x = meson.get_external_property('nonexistent', 'fallback', native: false)
 assert(x == 'fallback', 'fallback native:false did not work')
-
 
 x = meson.get_external_property('anarray')
 assert(x == ['one', 'two'], 'array did not work')

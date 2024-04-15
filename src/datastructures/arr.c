@@ -124,12 +124,18 @@ arr_sort_compare(const void *a, const void *b)
 }
 
 void
-arr_sort(struct arr *arr, void *ctx, sort_func func)
+arr_sort_range(struct arr *arr, uint32_t start, uint32_t end, void *ctx, sort_func func)
 {
 	arr_sort_ctx.user_ctx = ctx;
 	arr_sort_ctx.func = func;
 
-	qsort(arr->e, arr->len, arr->item_size, arr_sort_compare);
+	qsort(arr_point_at(arr, start), end - start, arr->item_size, arr_sort_compare);
+}
+
+void
+arr_sort(struct arr *arr, void *ctx, sort_func func)
+{
+	arr_sort_range(arr, 0, arr->len, ctx, func);
 }
 
 void *

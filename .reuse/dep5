@@ -11,3 +11,7 @@ Files: tests/project/common/*
 Copyright: The Meson development team
            Stone Tickle <lattis@mochiro.moe>
 License: Apache-2.0
+
+Files: tests/fmt/cases/*
+Copyright: Stone Tickle <lattis@mochiro.moe>
+License: GPL-3.0-only

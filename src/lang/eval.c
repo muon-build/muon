@@ -130,15 +130,29 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		return false;
 	}
 
-	arr_push(&wk->vm.call_stack,
-		&(struct call_frame){
-			.type = call_frame_type_eval,
-			.return_ip = wk->vm.ip,
-		});
+	uint32_t call_stack_base = wk->vm.call_stack.len;
+	struct call_frame eval_frame = {
+		.type = call_frame_type_eval,
+		.return_ip = wk->vm.ip,
+	};
+
+	arr_push(&wk->vm.call_stack, &eval_frame);
 
 	wk->vm.ip = entry;
 
 	*res = vm_execute(wk);
+
+	if (*res) {
+		// If vm_execute was successful, then we expect to only get
+		// here after popping off the stack frame we pushed
+		assert(call_stack_base == wk->vm.call_stack.len);
+	} else if (call_stack_base != wk->vm.call_stack.len) {
+		// If *res is false and we have pending stack frames, fix them
+		// up and ensure that we reset return_ip properly so that error
+		// handling works as the stack unwinds
+		wk->vm.call_stack.len = call_stack_base;
+		wk->vm.ip = eval_frame.return_ip;
+	}
 
 	TracyCZoneAutoE;
 
@@ -209,10 +223,11 @@ eval_project_file(struct workspace *wk, const char *path, bool first)
 {
 	/* L("evaluating '%s'", path); */
 	bool ret = false;
-	workspace_add_regenerate_deps(wk, make_str(wk, path));
+	obj path_str = make_str(wk, path);
+	workspace_add_regenerate_deps(wk, path_str);
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path, &src)) {
+	if (!fs_read_entire_file(get_str(wk, path_str)->s, &src)) {
 		return false;
 	}
 

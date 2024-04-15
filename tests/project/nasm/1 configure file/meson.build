@@ -29,20 +29,14 @@ asm_gen = generator(
     nasm,
     output: '@BASENAME@.o',
     arguments: [
-        '-f',
-        asm_format,
-        '-i',
-        meson.current_source_dir() + '/',
-        '-i',
-        join_paths(meson.current_source_dir(), ''),
-        '-P',
-        join_paths(meson.current_build_dir(), 'config.asm'),
+        '-f', asm_format,
+        '-i', meson.current_source_dir() + '/',
+        '-i', join_paths(meson.current_source_dir(), ''),
+        '-P', join_paths(meson.current_build_dir(), 'config.asm'),
         '@INPUT@',
-        '-o',
-        '@OUTPUT@',
+        '-o', '@OUTPUT@',
     ],
 )
-
 
 config_file = configure_file(
     output: 'config.asm',

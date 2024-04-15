@@ -1,5 +1,3 @@
-
-
 mytarget = custom_target(
     'depfile',
     output: 'dep.dat',

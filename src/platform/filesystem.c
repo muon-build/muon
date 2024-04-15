@@ -11,7 +11,7 @@
 /* for symlinkat() and fchmodat(), as _POSIX_C_SOURCE does not enable them
  * (yet)
  */
-	#define __EXTENSIONS__
+#define __EXTENSIONS__
 #endif
 
 #include <errno.h>
@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #ifndef _WIN32
-	#include <unistd.h>
+#include <unistd.h>
 #endif
 
 #include "buf_size.h"
@@ -170,7 +170,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	size_t read;
 	char *buf = NULL;
 
-	*src = (struct source) { .label = path, .reopen_type = source_reopen_type_file };
+	*src = (struct source){ .label = path, .reopen_type = source_reopen_type_file };
 
 	if (strcmp(path, "-") == 0) {
 		f = stdin;
@@ -205,7 +205,9 @@ fs_read_entire_file(const char *path, struct source *src)
 		read = fread(buf, 1, src->len, f);
 
 		if (read != src->len) {
-			LOG_E("failed to read entire file, only read %" PRIu64 "/%" PRId64 "bytes", (uint64_t)read, src->len);
+			LOG_E("failed to read entire file, only read %" PRIu64 "/%" PRId64 "bytes",
+				(uint64_t)read,
+				src->len);
 			goto err;
 		}
 	} else {
@@ -269,6 +271,8 @@ fs_source_destroy(struct source *src)
 	if (src->src) {
 		z_free((char *)src->src);
 	}
+	src->src = 0;
+	src->len = 0;
 }
 
 bool

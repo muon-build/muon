@@ -17,7 +17,6 @@ else
     grabber = find_program('grabber.sh')
 endif
 
-
 # First test running command explicitly.
 if c.returncode() != 0
     error('Executing script failed.')

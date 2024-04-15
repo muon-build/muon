@@ -6,5 +6,3 @@ count = 0
 foreach x, y : a
     count += 1
 endforeach
-
-

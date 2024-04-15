@@ -1,7 +1,4 @@
-
 project('subproj with includedir', 'c')
-
-
 
 compile_check = (
     '''

@@ -73,20 +73,20 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	See documentation for the *test* subcommand.
 
 ## check
-	*muon* *check* [*-p*|*-P*] <filename>
+	*muon* *check* [*-p*|*-d*] [*-m*<x|f>] <filename>
 
 	Check if _filename_ parses.
 
 	*OPTIONS*:
 	- *-p* - print the parsed ast
-	- *-P* - print the parsed formatting ast
+	- *-d* - print the dissasembly
+	- *-m* <mode> - set the compilation mode.  `f` parses for formatting,
+	  `x` compiles for the extended language (e.g. user-defined functions)
 
 ## fmt
 	*muon* *fmt* [*-i*] [*-q*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
 
-	Format a _source file_.  The formatting is currently minimally
-	configurable, and is based on the official meson style guide
-	<https://mesonbuild.com/Style-guide.html>.
+	Format a _source file_.
 
 	*OPTIONS*:
 	- *-q* - exit with 1 if files would be modified by muon fmt
@@ -101,13 +101,26 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 :[ *default*
 :[ *description*
 |  max_line_len
-:  uint
+:  int
 :  80
 :  The maximum length of lines before they are split
-|  indent_by
-:  str
-:  '    '
-:  A string that will be used to indent with
+|  indent_style
+:  space|tab
+:  space
+:  Wether to use spaces or tabs for indentation
+|  indent_size
+:  int
+:  4
+:  For indent_style = space, the number of spaces to indent by per level
+|  insert_final_newline
+:  bool
+:  true
+:  Whether or not to insert a trailing newline at the end of the file
+|  end_of_line
+:  lf|crlf|cr
+:  <unset>
+:  The type of line ending to use.  If this value is not set then the
+   line ending of the first line in the source file will be used.
 |  space_array
 :  bool
 :  false
@@ -126,6 +139,27 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 :  false
 :  Don't add a trailing comma to multi-line function calls with only one
    argument.
+|  sort_files
+:  bool
+:  true
+:  Whether to sort the arguments of files()
+|  group_arg_value
+:  bool
+:  true
+:  Whether to group strings in array literals such that command line arguments
+   that take a value remain on the same line as the value.  The heuristic used
+   is that if a string starts with `-` and the next string does not, put both
+   strings on the same line
+|  simplify_string_literals
+:  bool
+:  false
+:  Whether to automatically convert multiline string literals without newlines,
+   as well as f-strings without formatting into single-quoted string literals.
+|  indent_before_comments
+:  str
+:  ' '
+:  The indent to put before trailing comments
+
 
 ## install
 	*muon* *install* [*-n*]
@@ -153,7 +187,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 ## internal eval
 	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]
 
-	Interpret a _source file_.  The interpreter environment is
+	Evaluate a _source file_.  The interpreter environment is
 	substantially different from the typical environment during *setup*.
 	Build related functions are unavailable, as well as many other
 	functions including *subdir*.  Additionally, the variable *argv* is

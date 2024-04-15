@@ -1,4 +1,3 @@
-
 k = import('keyval')
 
 conf = k.load(meson.source_root() / '.config')

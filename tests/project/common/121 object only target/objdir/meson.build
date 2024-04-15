@@ -1,4 +1,3 @@
-
 #mesonlib.File built
 source4 = configure_file(
     input: 'source4.c',
@@ -12,7 +11,6 @@ source4 = configure_file(
 )
 
 subdirfilebuilt_obj = static_library('subdirfilebuilt_obj', objects: source4)
-
 
 #mesonlib.File not built
 configure_file(
@@ -31,7 +29,6 @@ subdirfile_obj = static_library(
     objects: files(meson.current_build_dir() / 'source5' + ext),
 )
 
-
 #str
 configure_file(
     input: 'source6.c',
@@ -43,7 +40,6 @@ configure_file(
         join_paths(meson.current_build_dir(), 'source6' + ext),
     ],
 )
-
 
 subdirstr_obj = static_library(
     'subdirstr_obj',

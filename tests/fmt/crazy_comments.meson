@@ -6,14 +6,16 @@ project('a')
 if (
     # comment
     false # in a weird
-) # place! # test
+)
+    # place! # test
 else
 endif # test2
 
 foreach a : (
     # test 7
     b # test 4
-) # test 6 # test 3
+)
+    # test 6 # test 3
 endforeach
 # test 5
 
@@ -30,9 +32,7 @@ a = [
 )
 a = (
     # comment 7
-    1 # comment 8
-    # comment 9
-    + 2 # comment 10
+    1 + 2
 ) # comment 11
 # comment 12
 

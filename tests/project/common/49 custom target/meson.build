@@ -56,7 +56,8 @@ mytarget_ci = custom_target(
         python,
         comp,
         '--input=@INPUT@',
-        '--output=@OUTPUT@', mytarget.to_list(),
+        '--output=@OUTPUT@',
+        mytarget.to_list(),
     ],
 )
 

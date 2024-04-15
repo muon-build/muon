@@ -15,6 +15,7 @@
 
 enum node_type {
 	node_type_stmt,
+	node_type_group,
 	node_type_bool,
 	node_type_id,
 	node_type_id_lit,
@@ -67,14 +68,16 @@ struct node {
 	union literal_data data;
 	struct node *l, *r;
 	struct source_location location;
-	struct node_fmt fmt;
+	struct {
+		struct node_fmt pre, post;
+	} fmt;
 	enum node_type type;
 };
 
 void print_ast(struct workspace *wk, struct node *root);
 void print_fmt_ast(struct workspace *wk, struct node *root);
 struct node *parse(struct workspace *wk, struct source *src, enum vm_compile_mode mode);
-struct node *parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode);
+struct node *parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode, obj *raw_blocks);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
 #endif

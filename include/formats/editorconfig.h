@@ -8,9 +8,7 @@
 
 #include "platform/filesystem.h"
 
-struct editorconfig_opts {
-	const char *indent_by;
-};
+struct fmt_opts;
 
-void try_parse_editorconfig(struct source *src, struct editorconfig_opts *opts);
+void try_parse_editorconfig(struct source *src, struct fmt_opts *opts);
 #endif

@@ -78,6 +78,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	/* L("compiling %s", node_to_s(wk, n)); */
 
 	switch (n->type) {
+	case node_type_group:
 	case node_type_stmt: UNREACHABLE;
 
 	case node_type_id_lit:
@@ -604,6 +605,8 @@ vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, 
 	struct node *n;
 
 	wk->vm.compiler_state.err = false;
+
+	bucket_arr_clear(&wk->vm.compiler_state.nodes);
 
 	if (!(n = parse(wk, src, mode))) {
 		wk->vm.compiler_state.err = true;

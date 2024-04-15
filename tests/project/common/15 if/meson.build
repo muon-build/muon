@@ -29,7 +29,6 @@ if get_variable('nonexisting', false)
     error('Get_variable fail.')
 endif
 
-
 # Now test elseif
 
 t = true

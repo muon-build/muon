@@ -5,8 +5,8 @@
 
 #include "compat.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "error.h"
 #include "external/libarchive.h"
@@ -71,8 +71,12 @@ struct wrap_parse_ctx {
 };
 
 static bool
-wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, struct source_location location)
+wrap_parse_cb(void *_ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	uint32_t res;
 	struct wrap_parse_ctx *ctx = _ctx;
@@ -133,14 +137,17 @@ struct wrap_parse_provides_ctx {
 };
 
 static void
-wrap_check_provide_duplication(struct workspace *wk,
-	struct wrap_parse_provides_ctx *ctx,
-	obj provides, obj key, obj val)
+wrap_check_provide_duplication(struct workspace *wk, struct wrap_parse_provides_ctx *ctx, obj provides, obj key, obj val)
 {
 	obj oldval;
 	if (obj_dict_index(wk, provides, key, &oldval)) {
-		error_messagef(ctx->src, ctx->location, log_warn,
-			"previous provide for %o from %o, is being overridden by %o", key, oldval, val);
+		error_messagef(ctx->src,
+			ctx->location,
+			log_warn,
+			"previous provide for %o from %o, is being overridden by %o",
+			key,
+			oldval,
+			val);
 	}
 }
 
@@ -156,8 +163,12 @@ wrap_parse_provides_cb_add_provides_iter(struct workspace *wk, void *_ctx, obj v
 }
 
 static bool
-wrap_parse_provides_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, struct source_location location)
+wrap_parse_provides_cb(void *_ctx,
+	struct source *src,
+	const char *sect,
+	const char *k,
+	const char *v,
+	struct source_location location)
 {
 	struct wrap_parse_provides_ctx *ctx = _ctx;
 	ctx->src = src;
@@ -198,8 +209,9 @@ wrap_parse_provides_cb(void *_ctx, struct source *src, const char *sect,
 
 	if (ctx->add_provides_tgt) {
 		if (!obj_array_foreach(ctx->wk,
-			str_split_strip(ctx->wk, &WKSTR(v), &WKSTR(","), NULL),
-			ctx, wrap_parse_provides_cb_add_provides_iter)) {
+			    str_split_strip(ctx->wk, &WKSTR(v), &WKSTR(","), NULL),
+			    ctx,
+			    wrap_parse_provides_cb_add_provides_iter)) {
 			return false;
 		}
 	} else {
@@ -245,8 +257,7 @@ checksum(const uint8_t *file_buf, uint64_t len, const char *sha256)
 }
 
 static bool
-checksum_extract(const char *buf, size_t len, const char *sha256,
-	const char *dest_dir)
+checksum_extract(const char *buf, size_t len, const char *sha256, const char *dest_dir)
 {
 	if (sha256 && !checksum((const uint8_t *)buf, len, sha256)) {
 		return false;
@@ -258,8 +269,7 @@ checksum_extract(const char *buf, size_t len, const char *sha256,
 }
 
 static bool
-fetch_checksum_extract(const char *src, const char *dest, const char *sha256,
-	const char *dest_dir)
+fetch_checksum_extract(const char *src, const char *dest, const char *sha256, const char *dest_dir)
 {
 	bool res = false;
 	uint8_t *dlbuf = NULL;
@@ -283,8 +293,11 @@ ret:
 }
 
 static bool
-wrap_download_or_check_packagefiles(const char *filename, const char *url,
-	const char *hash, const char *subprojects, const char *dest_dir,
+wrap_download_or_check_packagefiles(const char *filename,
+	const char *url,
+	const char *hash,
+	const char *subprojects,
+	const char *dest_dir,
 	bool download)
 {
 	bool res = false;
@@ -346,16 +359,12 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	uint32_t i;
 
 	enum req { invalid, required, optional };
-	enum req field_req[wrap_fields_count] = {
-		[wf_directory] = optional,
+	enum req field_req[wrap_fields_count] = { [wf_directory] = optional,
 		[wf_patch_directory] = optional,
 		[wf_diff_files] = optional,
-		[wf_wrapdb_version] = optional
-	};
+		[wf_wrapdb_version] = optional };
 
-	if (ctx->wrap.fields[wf_patch_url]
-	    || ctx->wrap.fields[wf_patch_filename]
-	    || ctx->wrap.fields[wf_patch_hash]) {
+	if (ctx->wrap.fields[wf_patch_url] || ctx->wrap.fields[wf_patch_filename] || ctx->wrap.fields[wf_patch_hash]) {
 		field_req[wf_patch_url] = optional;
 		field_req[wf_patch_filename] = required;
 		field_req[wf_patch_hash] = optional;
@@ -381,26 +390,28 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 		field_req[wf_clone_recursive] = optional;
 		field_req[wf_push_url] = optional;
 		break;
-	default:
-		assert(false && "unreachable");
-		return false;
+	default: assert(false && "unreachable"); return false;
 	}
 
 	bool valid = true;
 
 	for (i = 0; i < wrap_fields_count; ++i) {
 		switch (field_req[i]) {
-		case optional:
-			break;
+		case optional: break;
 		case required:
 			if (!ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, (struct source_location) { 1, 1}, log_error, "missing field '%s'", wrap_field_names[i]);
+				error_messagef(&ctx->wrap.src,
+					(struct source_location){ 1, 1 },
+					log_error,
+					"missing field '%s'",
+					wrap_field_names[i]);
 				valid = false;
 			}
 			break;
 		case invalid:
 			if (ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, ctx->wrap_field_source_location[i], log_error, "invalid field");
+				error_messagef(
+					&ctx->wrap.src, ctx->wrap_field_source_location[i], log_error, "invalid field");
 				valid = false;
 			}
 			break;
@@ -440,15 +451,12 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	*wrap = ctx.wrap;
 
-	sbuf_init(&wrap->dest_dir, wrap->dest_dir_buf,
-		ARRAY_LEN(wrap->dest_dir_buf), sbuf_flag_overflow_alloc);
-	sbuf_init(&wrap->name, wrap->name_buf,
-		ARRAY_LEN(wrap->name_buf), sbuf_flag_overflow_alloc);
+	sbuf_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), sbuf_flag_overflow_alloc);
+	sbuf_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), sbuf_flag_overflow_alloc);
 
 	path_basename(NULL, &wrap->name, wrap_file);
 
-	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len },
-			 ext = WKSTR(".wrap");
+	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len }, ext = WKSTR(".wrap");
 
 	assert(str_endswith(&name, &ext));
 
@@ -474,7 +482,7 @@ ret:
 }
 
 static bool
-wrap_run_cmd(const char *cmd, const char *const argv[], const char *chdir, const char *feed)
+wrap_run_cmd(const char *const argv[], const char *chdir, const char *feed)
 {
 	struct run_cmd_ctx cmd_ctx = {
 		.flags = run_cmd_ctx_flag_dont_capture,
@@ -517,17 +525,17 @@ wrap_apply_diff_files(struct wrap *wrap, const char *subprojects, const char *de
 			L("applying diff_file '%s'", diff_path.buf);
 
 			if (patch_cmd_found) {
-				if (!wrap_run_cmd("patch", (const char *const[]) {
-					"patch", "-p1",
-					NULL
-				}, wrap->dest_dir.buf, diff_path.buf)) {
+				if (!wrap_run_cmd((const char *const[]){ "patch", "-p1", NULL },
+					    wrap->dest_dir.buf,
+					    diff_path.buf)) {
 					goto ret;
 				}
 			} else {
-				if (!wrap_run_cmd("git", (const char *const[]) {
-					"git", "--work-tree", ".", "apply", "-p1", diff_path.buf,
-					NULL
-				}, wrap->dest_dir.buf, NULL)) {
+				if (!wrap_run_cmd(
+					    (const char *const[]){
+						    "git", "--work-tree", ".", "apply", "-p1", diff_path.buf, NULL },
+					    wrap->dest_dir.buf,
+					    NULL)) {
 					goto ret;
 				}
 			}
@@ -571,14 +579,12 @@ wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
 	}
 
 	if (filename) {
-		if (!wrap_download_or_check_packagefiles(
-			filename,
-			wrap->fields[wf_patch_url],
-			wrap->fields[wf_patch_hash],
-			subprojects,
-			dest_dir,
-			download
-			)) {
+		if (!wrap_download_or_check_packagefiles(filename,
+			    wrap->fields[wf_patch_url],
+			    wrap->fields[wf_patch_hash],
+			    subprojects,
+			    dest_dir,
+			    download)) {
 			return false;
 		}
 	}
@@ -595,17 +601,17 @@ wrap_apply_patch(struct wrap *wrap, const char *subprojects, bool download)
 static bool
 wrap_handle_git(struct wrap *wrap, const char *subprojects)
 {
-	if (!wrap_run_cmd("git", (const char *const[]) {
-		"git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf,
-		NULL
-	}, NULL, NULL)) {
+	if (!wrap_run_cmd((const char *const[]){ "git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf, NULL },
+		    NULL,
+		    NULL)) {
 		return false;
 	}
 
-	if (!wrap_run_cmd("git", (const char *const[]) {
-		"git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--",
-		NULL
-	}, wrap->dest_dir.buf, NULL)) {
+	if (!wrap_run_cmd(
+		    (const char *const[]){
+			    "git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--", NULL },
+		    wrap->dest_dir.buf,
+		    NULL)) {
 		return false;
 	}
 
@@ -629,14 +635,12 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 		}
 	}
 
-	return wrap_download_or_check_packagefiles(
-		wrap->fields[wf_source_filename],
+	return wrap_download_or_check_packagefiles(wrap->fields[wf_source_filename],
 		wrap->fields[wf_source_url],
 		wrap->fields[wf_source_hash],
 		subprojects,
 		dest,
-		download
-		);
+		download);
 }
 
 bool
@@ -672,9 +676,7 @@ wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, b
 			goto ret;
 		}
 		break;
-	default:
-		assert(false && "unreachable");
-		goto ret;
+	default: assert(false && "unreachable"); goto ret;
 	}
 
 	if (!wrap_apply_patch(wrap, subprojects, download)) {

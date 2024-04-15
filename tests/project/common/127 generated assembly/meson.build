@@ -14,7 +14,6 @@ if meson.backend() == 'xcode'
     )
 endif
 
-
 crt_workaround = []
 if cc.get_linker_id() == 'lld-link'
     # It seems that when building without a .c file, lld-link.exe

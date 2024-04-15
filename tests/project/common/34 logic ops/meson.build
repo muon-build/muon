@@ -75,7 +75,6 @@ else
     error('Negation failed.')
 endif
 
-
 if f or f or f or f or f or f or f or f or t
     message('Ok.')
 else

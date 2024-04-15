@@ -67,8 +67,7 @@ assert(ret.stdout() == 'some output\n', 'failed to run python3')
 
 ret = run_command(
     py3,
-    '-c',
-    'print("some output")',
+    '-c', 'print("some output")',
     check: false,
     capture: false,
 )
@@ -82,8 +81,7 @@ c_env = environment()
 c_env.append('CUSTOM_ENV_VAR', 'FOOBAR')
 ret = run_command(
     py3,
-    '-c',
-    'import os; print(os.environ.get("CUSTOM_ENV_VAR"))',
+    '-c', 'import os; print(os.environ.get("CUSTOM_ENV_VAR"))',
     env: c_env,
     check: false,
 )

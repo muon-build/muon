@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+a = [
+    1,
+    2,
+    # fmt: off
+3, 4,
+       5]
+# fmt: on
+
+foreach a : b
+    b + (
+        # fmt:off
+        # c
+        #
+            2)
+    endforeach
+
+#fmt: on
+
+a = [
+    1,
+    2,
+    3,
+    4,
+    5,
+]
+
+# fmt:off
+a = ['The quick brown fox jumped over the lazy dog.', 'The quick brown fox jumped over the lazy dog.', 'The quick brown fox jumped over the lazy dog.']
+#fmt:on
+a = [
+    'The quick brown fox jumped over the lazy dog.',
+    'The quick brown fox jumped over the lazy dog.',
+    'The quick brown fox jumped over the lazy dog.',
+]

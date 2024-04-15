@@ -71,7 +71,6 @@ token_type_to_s(enum token_type type)
 	case token_type_return: return "return";
 	case token_type_bitor: return "|";
 	case token_type_returntype: return "->";
-	case token_type_comment: return "comment";
 	}
 
 	UNREACHABLE_RETURN;
@@ -93,7 +92,7 @@ token_to_s(struct workspace *wk, struct token *token)
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRIi64, token->data.num);
 	}
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, " off %d, len: %d", token->location.off, token->location.len);
+	/* i += snprintf(&buf[i], BUF_SIZE_S - i, " off %d, len: %d", token->location.off, token->location.len); */
 
 	return buf;
 }
@@ -280,18 +279,26 @@ lex_number(struct lexer *lexer, struct token *token)
 	}
 
 	char *endptr = 0;
+	errno = 0;
 	int64_t val = strtol(&lexer->src[lexer->i], &endptr, base);
 
 	assert(endptr);
 	if (endptr == &lexer->src[lexer->i]) {
+		++lexer->i;
 		lex_error_token(lexer, token, "invalid number");
-		return;
-	} else if (errno == ERANGE) {
-		lex_error_token(lexer, token, "number out of range");
 		return;
 	}
 
 	lexer->i += endptr - &lexer->src[lexer->i];
+
+	if (errno == ERANGE) {
+		lex_error_token(lexer,
+			token,
+			"number out of representable range [%" PRId64 ",%" PRId64 "]",
+			INT64_MIN,
+			INT64_MAX);
+		return;
+	}
 
 	if (lexer->mode & lexer_mode_fmt) {
 		lex_copy_str(lexer, token, start, lexer->i);
@@ -516,18 +523,36 @@ restart:
 		if (lexer->src[lexer->i] == '#') {
 			lex_advance(lexer);
 
-			/* start = lexer->i; */
+			start = lexer->i;
 
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
 				lex_advance(lexer);
 			}
 
-			/* if (lexer->mode & lexer_mode_fmt) { */
-			/* 	lexer->ws_end = lexer->i; */
-			/* 	token->type = token_type_comment; */
-			/* 	lex_copy_str(lexer, token, start, lexer->i); */
-			/* 	return; */
-			/* } */
+			if (lexer->mode & lexer_mode_fmt) {
+				bool fmt_on;
+				obj s;
+
+				s = make_strn(lexer->wk, &lexer->src[start], lexer->i - start);
+				s = str_strip(lexer->wk, get_str(lexer->wk, s), 0, 0);
+				if (lexer_is_fmt_comment(get_str(lexer->wk, s), &fmt_on)) {
+					if (fmt_on) {
+						if (lexer->fmt.in_raw_block) {
+							s = make_strn(lexer->wk,
+								&lexer->src[lexer->fmt.raw_block_start],
+								(start - 1) - lexer->fmt.raw_block_start);
+
+							obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
+							lexer->fmt.in_raw_block = false;
+						}
+					} else {
+						if (!lexer->fmt.in_raw_block) {
+							lexer->fmt.raw_block_start = lexer->i;
+							lexer->fmt.in_raw_block = true;
+						}
+					}
+				}
+			}
 		} else {
 			lex_advance(lexer);
 		}
@@ -659,12 +684,6 @@ unexpected_character:
 	return;
 }
 
-obj
-lexer_get_preceeding_whitespace(struct lexer *lexer)
-{
-	return make_strn(lexer->wk, &lexer->src[lexer->ws_start], lexer->ws_end - lexer->ws_start);
-}
-
 void
 lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode)
 {
@@ -674,4 +693,32 @@ lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum l
 		.src = src->src,
 		.mode = mode,
 	};
+
+	if (lexer->mode & lexer_mode_fmt) {
+		make_obj(lexer->wk, &lexer->fmt.raw_blocks, obj_array);
+	}
+}
+
+/******************************************************************************
+* fmt related
+******************************************************************************/
+
+obj
+lexer_get_preceeding_whitespace(struct lexer *lexer)
+{
+	return make_strn(lexer->wk, &lexer->src[lexer->ws_start], lexer->ws_end - lexer->ws_start);
+}
+
+bool
+lexer_is_fmt_comment(const struct str *comment, bool *fmt_on)
+{
+	if (str_eql(comment, &WKSTR("fmt:off")) || str_eql(comment, &WKSTR("fmt: off"))) {
+		*fmt_on = false;
+		return true;
+	} else if (str_eql(comment, &WKSTR("fmt:on")) || str_eql(comment, &WKSTR("fmt: on"))) {
+		*fmt_on = true;
+		return true;
+	}
+
+	return false;
 }

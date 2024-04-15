@@ -14,7 +14,6 @@ test('six', e)
 # Override stuff with an executables
 meson.override_find_program('six_meson_exe', e)
 
-
 # The same again, but this time with a program that was generated
 # with configure_file.
 

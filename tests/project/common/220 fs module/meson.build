@@ -22,8 +22,7 @@ if not is_windows and build_machine.system() != 'cygwin'
     run_command(
         'ln',
         '-s',
-        '-f',
-        meson.current_source_dir() / 'meson.build',
+        '-f', meson.current_source_dir() / 'meson.build',
         symlink,
         check: true,
     )

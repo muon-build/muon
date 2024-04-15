@@ -11,7 +11,8 @@ project(
     default_options: [
         'c_std=c99',
         'warning_level=3',
-        'buildtype=debugoptimized',
+        'buildtype=debug',
+        # 'optimization=0',
         'default_library=static',
     ],
 )
@@ -56,7 +57,6 @@ elif platform not in ['windows']
     )
     platform = 'null'
 endif
-
 
 # compiler setup
 

@@ -964,6 +964,21 @@ func_error(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
+func_print(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	log_plain("%s", get_cstr(wk, an[0].val));
+	*res = 0;
+
+	return true;
+}
+
+static bool
 func_warning(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
@@ -2057,6 +2072,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
 	{ "p", func_p, tc_any },
+	{ "print", func_print, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
 	{ "is_void", func_is_void, tc_bool, true },

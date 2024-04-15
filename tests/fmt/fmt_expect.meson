@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+diff = find_program('diff', required: false)
+
+muon = argv[1]
+cfg = argv[2]
+src = argv[3]
+expect = argv[4]
+
+result = run_command(muon, 'fmt', '-c', cfg, src).stdout()
+expected = fs.read(expect)
+
+if result != expected
+    print(f'\033[31mfailing\033[0m: muon fmt -c @cfg@ @src@ != @expect@\n')
+
+    if diff.found()
+        tmp_file = '/tmp/muon_fmt_expect_diff_tmp'
+        fs.write(tmp_file, result)
+        print(run_command(diff, expect, tmp_file).stdout())
+    endif
+
+    error('failing')
+endif

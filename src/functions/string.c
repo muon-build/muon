@@ -28,7 +28,7 @@ func_strip(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = str_strip(wk, get_str(wk, self), an[0].set ? get_str(wk, an[0].val) : NULL);
+	*res = str_strip(wk, get_str(wk, self), an[0].set ? get_str(wk, an[0].val) : NULL, 0);
 	return true;
 }
 

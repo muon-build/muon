@@ -18,7 +18,6 @@
 #include "lang/vm.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "memmem.h"
 #include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -880,11 +879,7 @@ op_div_type_err:
 				}
 
 				const struct str *r = get_str(wk, b), *l = get_str(wk, a);
-				if (memmem(r->s, r->len, l->s, l->len)) {
-					res = true;
-				} else {
-					res = false;
-				}
+				res = str_contains(r, l);
 				break;
 			default: vm_error(wk, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, a))); break;
 			}

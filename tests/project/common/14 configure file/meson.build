@@ -120,7 +120,6 @@ configure_file(output: 'config3.h', configuration: dump)
 
 test('Configless.', executable('dumpprog', 'dumpprog.c'))
 
-
 # Config file generation in a loop with @BASENAME@ substitution
 dump = configuration_data()
 dump.set('ZERO', 0)

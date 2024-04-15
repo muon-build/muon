@@ -6,7 +6,6 @@ if meson.backend() == 'xcode'
     )
 endif
 
-
 checker = find_program('check_object.py')
 
 cc = meson.get_compiler('c').cmd_array().get(-1)

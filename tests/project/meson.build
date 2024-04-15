@@ -259,7 +259,11 @@ tests = [
     ['common/233 wrap case'],
     ['common/234 get_file_contents'],
     ['common/235 invalid standard overridden to valid'],
-    ['common/236 proper args splitting', [], {'env': {'CFLAGS': '-DFOO -DBAR'}}],
+    [
+        'common/236 proper args splitting',
+        [],
+        {'env': {'CFLAGS': '-DFOO -DBAR'}},
+    ],
     ['common/237 fstrings'],
     ['common/238 dependency include_type inconsistency'],
     ['common/239 includedir violation'],

@@ -15,7 +15,6 @@ gen = generator(
 )
 gensrc = gen.process('source.c')
 
-
 gen = generator(
     gen_py,
     arguments: ['@INPUT@', 'func1', 'func4'],
