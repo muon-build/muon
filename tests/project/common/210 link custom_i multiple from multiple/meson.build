@@ -15,7 +15,8 @@ genprog = find_program('generate_stlibs.py')
 clib = custom_target(
     'linkcustom',
     output: ['libflob_1.a', 'libflob_2.a'],
-    command: [genprog, '-o', '@OUTPUT@', '--private-dir', '@PRIVATE_DIR@'] + cc.cmd_array(),
+    command: [genprog, '-o', '@OUTPUT@', '--private-dir', '@PRIVATE_DIR@']
+    + cc.cmd_array(),
 )
 
 clibs = [clib[0], clib[1]]

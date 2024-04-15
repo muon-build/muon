@@ -23,13 +23,17 @@ foreach compiler : [meson.get_compiler('c'), meson.get_compiler('cpp')]
 
     if compiler.compiles(breakcode, name: 'should fail')
         error(
-            'Compiler ' + compiler.get_id() + ' returned true on broken code.',
+            'Compiler '
+            + compiler.get_id()
+            + ' returned true on broken code.',
         )
     endif
 
     if compiler.compiles(files('invalid.c'), name: 'should fail')
         error(
-            'Compiler ' + compiler.get_id() + ' returned true on broken code.',
+            'Compiler '
+            + compiler.get_id()
+            + ' returned true on broken code.',
         )
     endif
 endforeach

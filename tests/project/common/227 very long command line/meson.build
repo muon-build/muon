@@ -25,7 +25,8 @@ endif
 namelen = 260
 nfiles = 50 + limit / namelen
 message(
-    'Expected link commandline length is approximately ' + '@0@'.format(
+    'Expected link commandline length is approximately '
+    + '@0@'.format(
         (nfiles * (namelen + 28)),
     ),
 )

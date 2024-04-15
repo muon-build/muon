@@ -32,7 +32,8 @@ a = [
 )
 a = (
     # comment 7
-    1 + 2
+    1
+    + 2
 ) # comment 11
 # comment 12
 

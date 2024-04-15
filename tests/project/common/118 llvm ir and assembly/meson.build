@@ -66,7 +66,8 @@ foreach lang : ['c', 'cpp']
                 '/Fi' + preproc_name,
                 '/Tc',
                 '@INPUT@',
-            ] + uscore_args,
+            ]
+            + uscore_args,
         )
         # Use assembled object file instead of the original .S assembly source
         if asmcmd.startswith('armasm')
@@ -104,7 +105,9 @@ foreach lang : ['c', 'cpp']
         test('test ASM square' + lang, e)
     elif cc_id != 'clang'
         error(
-            'MESON_SKIP_TEST: Unsupported cpu: "' + cpu + '", and LLVM not found',
+            'MESON_SKIP_TEST: Unsupported cpu: "'
+            + cpu
+            + '", and LLVM not found',
         )
     endif
 endforeach
