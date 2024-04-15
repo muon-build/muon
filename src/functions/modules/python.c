@@ -8,6 +8,7 @@
 
 #include <string.h>
 
+#include "embedded.h"
 #include "external/tinyjson.h"
 #include "functions/external_program.h"
 #include "functions/modules/python.h"
@@ -15,83 +16,44 @@
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
-static const char *introspect_version = "import sysconfig\n"
-					"print(sysconfig.get_python_version())\n";
-
-static const char *introspect_paths = "import sysconfig\n"
-				      "import json\n"
-				      "print(json.dumps(sysconfig.get_paths()))\n";
-
-static const char *introspect_vars = "import sysconfig\n"
-				     "import json\n"
-				     "print(json.dumps(sysconfig.get_config_vars()))\n";
-
 static bool
-query_version(struct workspace *wk, const char *path, struct obj_python_installation *python)
+introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
-	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const args[] = { (char *)path, "-c", (char *)introspect_version, 0 };
-	if (!run_cmd_argv(&cmd_ctx, args, NULL, 0) || cmd_ctx.status != 0) {
+	const char *pyinfo = embedded_get("python_info.py");
+	if (!pyinfo) {
 		return false;
 	}
 
-	size_t index = 0, buf_index = 0, max_buf_index = cmd_ctx.out.len;
-	char *buf = cmd_ctx.out.buf, *entry = cmd_ctx.out.buf;
-	while (buf_index != max_buf_index) {
-		if (buf[buf_index] == '\n') {
-			buf[buf_index] = '\0';
-
-			if (index == 0) { /* language_version */
-				python->language_version = make_str(wk, entry);
-			}
-
-			entry = &buf[buf_index + 1];
-			index++;
-		} else {
-			buf_index++;
-		}
-	}
-
-	bool success = buf[buf_index] == '\0';
-
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return success;
-}
-
-static bool
-query_paths(struct workspace *wk, const char *path, struct obj_python_installation *python)
-{
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const path_args[] = { (char *)path, "-c", (char *)introspect_paths, 0 };
-	if (!run_cmd_argv(&cmd_ctx, path_args, NULL, 0) || cmd_ctx.status != 0) {
-		return false;
-	}
-
-	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &python->sysconfig_paths);
-
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return success;
-}
-
-static bool
-query_vars(struct workspace *wk, const char *path, struct obj_python_installation *python)
-{
-	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const var_args[] = { (char *)path, "-c", (char *)introspect_vars, 0 };
+	char *const var_args[] = { (char *)path, "-c", (char *)pyinfo, 0 };
 	if (!run_cmd_argv(&cmd_ctx, var_args, NULL, 0) || cmd_ctx.status != 0) {
 		return false;
 	}
 
-	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &python->sysconfig_vars);
+	obj res_introspect;
+	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &res_introspect);
 
+	if (!success) {
+		goto end;
+	}
+
+	if (!obj_dict_index_str(wk, res_introspect, "version", &python->language_version)) {
+		success = false;
+		goto end;
+	}
+
+	if (!obj_dict_index_str(wk, res_introspect, "sysconfig_paths", &python->sysconfig_paths)) {
+		success = false;
+		goto end;
+	}
+
+	if (!obj_dict_index_str(wk, res_introspect, "variables", &python->sysconfig_vars)) {
+		success = false;
+		goto end;
+	}
+end:
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return success;
-}
-
-static bool
-introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
-{
-	return query_version(wk, path, python) && query_paths(wk, path, python) && query_vars(wk, path, python);
 }
 
 static bool
