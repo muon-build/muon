@@ -15,6 +15,7 @@
 #include "functions/common.h"
 #include "functions/string.h"
 #include "guess.h"
+#include "lang/lexer.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "rpmvercmp.h"
@@ -76,33 +77,23 @@ func_to_lower(struct workspace *wk, obj self, obj *res)
 bool
 string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb)
 {
-	struct str key;
 	const struct str *ss_in = get_str(wk, str);
+	struct str key, text = { .s = ss_in->s };
+	obj elem;
 
-	uint32_t i, id_start = 0, id_end = 0;
+	uint32_t i;
 	bool reading_id = false;
 
 	*res = make_str(wk, "");
 
 	for (i = 0; i < ss_in->len; ++i) {
-		if (ss_in->s[i] == '@') {
-			if (reading_id) {
-				obj elem;
-				id_end = i + 1;
+		if (reading_id) {
+			key.len = &ss_in->s[i] - key.s;
 
-				if (i == id_start) {
-					str_app(wk, res, "@");
-					id_start = i + 1;
-					reading_id = true;
-					key.len = 0;
-					continue;
-				}
-
-				key = (struct str){ .s = &ss_in->s[id_start], .len = i - id_start };
-
+			if (ss_in->s[i] == '@') {
 				switch (cb(wk, err_node, ctx, &key, &elem)) {
 				case format_cb_not_found: {
-					vm_error_at(wk, err_node, "key '%.*s' not found", key.len, key.s);
+					vm_error(wk, "key '%.*s' not found", key.len, key.s);
 					return false;
 				}
 				case format_cb_error: return false;
@@ -112,61 +103,44 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 						return false;
 					}
 
-					const struct str *ss = get_str(wk, coerced);
-					str_appn(wk, res, ss->s, ss->len);
+					str_apps(wk, res, coerced);
+					text.s = &ss_in->s[i + 1];
 					break;
 				}
 				case format_cb_skip: {
-					str_app(wk, res, "@");
-					i = id_start - 1;
-					id_end = id_start;
-					id_start = 0;
-					reading_id = false;
-					continue;
+					str_appn(wk, res, key.s - 1, key.len + 1);
+					text.s = &ss_in->s[i];
+					--i;
+					break;
 				}
 				}
 
 				reading_id = false;
-			} else {
-				if (i) {
-					str_appn(wk, res, &ss_in->s[id_end], i - id_end);
-				}
+			} else if (!is_valid_inside_of_identifier(ss_in->s[i])) {
+				str_appn(wk, res, key.s - 1, key.len + 1);
+				text.s = &ss_in->s[i];
+				reading_id = false;
+			}
+		} else if (ss_in->s[i] == '@' && is_valid_inside_of_identifier(ss_in->s[i + 1])) {
+			text.len = &ss_in->s[i] - text.s;
+			str_appn(wk, res, text.s, text.len);
+			text.s = &ss_in->s[i];
 
-				id_start = i + 1;
-				reading_id = true;
-				key.len = 0;
-			}
+			reading_id = true;
+			key.s = &ss_in->s[i + 1];
 		} else if (ss_in->s[i] == '\\' && ss_in->s[i + 1] == '@') {
-			if (i) {
-				if (reading_id) {
-					vm_warning_at(wk, err_node, "unclosed @ (opened at index %d)", id_start);
-					str_app(wk, res, "@");
-				}
-				str_appn(wk, res, &ss_in->s[id_end], i - id_end);
-			}
-			id_end = id_start = i + 1;
+			text.len = &ss_in->s[i] - text.s;
+			str_appn(wk, res, text.s, text.len);
+			text.s = &ss_in->s[i + 1];
 			++i;
-			reading_id = false;
 		}
 	}
 
+	text.len = &ss_in->s[i] - text.s;
+	str_appn(wk, res, text.s, text.len);
+
 	if (reading_id) {
-		// TODO: This error message isn't very good.  It will trigger
-		// if an unrecognized key is given, and the format cb returns
-		// format_cb_skip.  For example: @UNRECOGNIZED@ will trigger
-		// this warning, when clearly it is closed.  What is happening
-		// is that in order to replicate meson's regex based parsing
-		// (to support such beautiful constructs as @UNKNOWN@INPUT@ :),
-		// as soon as @UNRECOGNIZED@ is skipped, we have to continue
-		// searching for a key starting at U, which means that we end
-		// up reading UNRECOGNIZED@, which looks like an unclosed @.
-		vm_warning_at(wk, err_node, "unclosed @ (opened at index %d)", id_start);
-		str_app(wk, res, "@");
-		str_appn(wk, res, &ss_in->s[id_start], i - id_start);
-	} else {
-		if (i > id_end) {
-			str_appn(wk, res, &ss_in->s[id_end], i - id_end);
-		}
+		vm_warning(wk, "unclosed @");
 	}
 
 	return true;
