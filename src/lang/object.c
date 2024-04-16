@@ -1969,6 +1969,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 		obj_to_s_opts(wk, py->prog, sb, opts);
 
 		if (get_obj_external_program(wk, py->prog)->found) {
+			sbuf_pushf(wk, sb, ", pure: %s", py->pure ? "true" : "false");
 			sbuf_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
 			sbuf_pushs(wk, sb, ", sysconfig_paths: ");
 			obj_to_s_opts(wk, py->sysconfig_paths, sb, opts);

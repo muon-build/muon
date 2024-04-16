@@ -323,6 +323,7 @@ struct obj_external_program {
 struct obj_python_installation {
 	obj prog;
 
+	bool pure;
 	obj language_version;
 	obj sysconfig_paths;
 	obj sysconfig_vars;

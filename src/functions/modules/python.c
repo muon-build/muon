@@ -6,6 +6,7 @@
 #include "coerce.h"
 #include "compat.h"
 
+#include "lang/object.h"
 #include <string.h>
 
 #include "embedded.h"
@@ -104,13 +105,20 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 		kw_required,
 		kw_disabler,
 		kw_modules,
+		kw_pure,
 	};
 	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
+		[kw_pure] = { "pure", obj_bool },
 		0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	bool pure = false;
+	if (akw[kw_pure].set) {
+		pure = get_obj_bool(wk, akw[kw_pure].val);
 	}
 
 	enum requirement_type requirement;
@@ -162,6 +170,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 
 	make_obj(wk, res, obj_python_installation);
 	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
+	python->pure = pure;
 	make_obj(wk, &python->prog, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
 	ep->found = found;
