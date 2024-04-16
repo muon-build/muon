@@ -52,6 +52,11 @@ introspect_python_interpreter(struct workspace *wk, const char *path, struct obj
 		success = false;
 		goto end;
 	}
+
+	if (!obj_dict_index_str(wk, res_introspect, "install_paths", &python->install_paths)) {
+		success = false;
+		goto end;
+	}
 end:
 	run_cmd_ctx_destroy(&cmd_ctx);
 	return success;

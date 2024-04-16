@@ -1975,6 +1975,8 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 			obj_to_s_opts(wk, py->sysconfig_paths, sb, opts);
 			sbuf_pushs(wk, sb, ", sysconfig_vars: ");
 			obj_to_s_opts(wk, py->sysconfig_vars, sb, opts);
+			sbuf_pushs(wk, sb, ", install_paths: ");
+			obj_to_s_opts(wk, py->install_paths, sb, opts);
 		}
 
 		sbuf_pushs(wk, sb, ">");

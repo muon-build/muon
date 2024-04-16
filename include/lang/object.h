@@ -327,6 +327,7 @@ struct obj_python_installation {
 	obj language_version;
 	obj sysconfig_paths;
 	obj sysconfig_vars;
+	obj install_paths;
 };
 
 enum run_result_flags {
