@@ -150,7 +150,10 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 
 	const char *cmd = "python3";
 	if (an[0].set) {
-		cmd = get_cstr(wk, an[0].val);
+		const char *pycmd = get_cstr(wk, an[0].val);
+		if (pycmd && *pycmd) {
+			cmd = pycmd;
+		}
 	}
 
 	SBUF(cmd_path);
