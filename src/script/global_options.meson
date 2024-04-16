@@ -144,6 +144,12 @@ option('cpp_rtti', type: 'boolean', value: true) # TODO
 option('cpp_thread_count', type: 'integer', value: 4, min: 0) # TODO
 option('cpp_winlibs', type: 'array', value: []) # TODO
 
+# Python specific options
+option('python.bytecompile', type: 'integer', value: 0, min: -1, max: 2)
+option('python.purelibdir', type: 'string', value: '')
+option('python.platlibdir', type: 'string', value: '')
+option('python.allow_limited_api', type: 'boolean', value: true)
+
 # muon-specific options.  These are safe from being overridden because meson
 # forbids . in an opiton name
 
