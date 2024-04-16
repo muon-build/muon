@@ -98,6 +98,26 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 }
 
 static bool
+build_python_installation(struct workspace *wk, obj self, obj *res, struct sbuf cmd_path, bool found, bool pure)
+{
+	make_obj(wk, res, obj_python_installation);
+	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
+	python->pure = pure;
+	make_obj(wk, &python->prog, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
+	ep->found = found;
+	make_obj(wk, &ep->cmd_array, obj_array);
+	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+
+	if (found && !introspect_python_interpreter(wk, cmd_path.buf, python)) {
+		vm_error(wk, "failed to introspect python");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
@@ -145,6 +165,10 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 		return true;
 	}
 
+	if (!found) {
+		return build_python_installation(wk, self, res, cmd_path, found, pure);
+	}
+
 	if (akw[kw_modules].set && found) {
 		bool all_present = obj_array_foreach(wk,
 			akw[kw_modules].val,
@@ -168,21 +192,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	make_obj(wk, res, obj_python_installation);
-	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
-	python->pure = pure;
-	make_obj(wk, &python->prog, obj_external_program);
-	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
-	ep->found = found;
-	make_obj(wk, &ep->cmd_array, obj_array);
-	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
-
-	if (!introspect_python_interpreter(wk, cmd_path.buf, python)) {
-		vm_error(wk, "failed to introspect python");
-		return false;
-	}
-
-	return true;
+	return build_python_installation(wk, self, res, cmd_path, found, pure);
 }
 
 static bool

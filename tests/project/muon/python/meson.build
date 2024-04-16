@@ -10,6 +10,12 @@ if py.language_version().version_compare('< 3.6')
     error('Invalid Python version, only >= 3.6 is supported.')
 endif
 
+py_nonexisting = import('nonexisting_python_b075e5a', required: false)
+
+if py_nonexisting.found()
+    error('Python installation found that is unlikely to exist.')
+endif
+
 # kwargs
 pymod_with_modules = py_mod.find_installation(
     'python3',
