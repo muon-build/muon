@@ -291,6 +291,20 @@ tests = [
     ['common/260 declare_dependency objects'],
     # ['common/261 testcase clause'],
 
+    # python
+    ['python/1 basic', ['python']],
+    # The following need the currently unimplemented `dependency()`
+    # ['python/2 extmodule', ['python']],
+    # ['python/3 cython', ['python']],
+    # ['python/4 custom target depends extmodule', ['python']],
+    # ['python/8 different python versions', ['python']],
+    ['python/5 modules kwarg', ['python']],
+    ['python/6 failing subproject', ['python', 'failing']],
+    ['python/7 install path', ['python']],
+    # These need the currently unimplemented `extension_module()`
+    # ['python/9 extmodule limited api', ['python']],
+    # ['python/10 extmodule limited api disabled', ['python']],
+
     # unit
     ['unit/65 alias target', ['python']],
 
