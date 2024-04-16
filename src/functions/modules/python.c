@@ -7,12 +7,14 @@
 #include "compat.h"
 
 #include "lang/object.h"
-#include <string.h>
+#include "options.h"
+#include "platform/path.h"
 
 #include "embedded.h"
 #include "external/tinyjson.h"
 #include "functions/external_program.h"
 #include "functions/modules/python.h"
+#include "install.h"
 #include "lang/typecheck.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
@@ -320,6 +322,80 @@ func_python_installation_has_var(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, obj *res)
+{
+	SBUF(installdir);
+
+	obj prefix;
+	get_option_value(wk, current_project(wk), "prefix", &prefix);
+
+	struct obj_python_installation *py = get_obj_python_installation(wk, self);
+
+	if (pure) {
+		obj puredir;
+		get_option_value(wk, current_project(wk), "python.purelibdir", &puredir);
+		if (!str_eql(get_str(wk, puredir), &WKSTR(""))) {
+			path_push(wk, &installdir, get_cstr(wk, puredir));
+		} else {
+			if (!obj_dict_index_str(wk, py->install_paths, "purelib", &puredir)) {
+				return false;
+			}
+			path_join_absolute(wk, &installdir, get_cstr(wk, prefix), get_cstr(wk, puredir));
+		}
+	} else {
+		obj platdir;
+		get_option_value(wk, current_project(wk), "python.platlibdir", &platdir);
+		if (!str_eql(get_str(wk, platdir), &WKSTR(""))) {
+			path_push(wk, &installdir, get_cstr(wk, platdir));
+		} else {
+			if (!obj_dict_index_str(wk, py->install_paths, "platlib", &platdir)) {
+				return false;
+			}
+			path_join_absolute(wk, &installdir, get_cstr(wk, prefix), get_cstr(wk, platdir));
+		}
+	}
+
+	if (subdir) {
+		path_push(wk, &installdir, subdir);
+	}
+
+	*res = sbuf_into_str(wk, &installdir);
+
+	return true;
+}
+
+static bool
+func_python_installation_get_install_dir(struct workspace *wk, obj self, obj *res)
+{
+	enum kwargs {
+		kw_pure,
+		kw_subdir,
+	};
+	struct args_kw akw[] = {
+		[kw_pure] = { "pure", obj_bool },
+		[kw_subdir] = { "subdir", obj_string },
+		0
+	};
+
+	if (!pop_args(wk, NULL, akw)) {
+		return false;
+	}
+
+	struct obj_python_installation *py = get_obj_python_installation(wk, self);
+	bool pure = py->pure;
+	if (akw[kw_pure].set) {
+		pure = get_obj_bool(wk, akw[kw_pure].val);
+	}
+
+	const char *subdir = NULL;
+	if (akw[kw_subdir].set) {
+		subdir = get_cstr(wk, akw[kw_subdir].val);
+	}
+
+	return get_install_dir(wk, self, pure, subdir, res);
+}
+
 static obj
 python_self_transform(struct workspace *wk, obj self)
 {
@@ -349,6 +425,7 @@ const struct func_impl impl_tbl_module_python3[] = {
 
 struct func_impl impl_tbl_python_installation[] = {
 	[ARRAY_LEN(impl_tbl_external_program) - 1] = { "get_path", func_python_installation_get_path, tc_string },
+	{ "get_install_dir", func_python_installation_get_install_dir, tc_string },
 	{ "get_variable", func_python_installation_get_var, tc_string },
 	{ "has_path", func_python_installation_has_path, tc_bool },
 	{ "has_variable", func_python_installation_has_var, tc_bool },
