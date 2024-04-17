@@ -21,6 +21,7 @@
 #include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 /******************************************************************************
  * object stack
@@ -640,12 +641,9 @@ vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], 
 
 		int32_t i = 0;
 		for (i = wk->vm.nargs - 1; i >= 0; --i) {
-			LO("pushing: %o\n", an[i].val);
 			object_stack_push(wk, an[i].val);
 		}
 	}
-
-	L("nargs: %d", wk->vm.nargs);
 
 	wk->vm.nkwargs = 0;
 	if (akw) {
@@ -655,15 +653,11 @@ vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], 
 				continue;
 			}
 
-			LO("pushing: %o\n", akw[i].val);
 			object_stack_push(wk, akw[i].val);
-			LO("pushing: %o\n", make_str(wk, akw[i].key));
 			object_stack_push(wk, make_str(wk, akw[i].key));
 			++wk->vm.nkwargs;
 		}
 	}
-
-	L("nkwargs: %d", wk->vm.nkwargs);
 
 	uint32_t call_stack_base = wk->vm.call_stack.len;
 	arr_push(&wk->vm.call_stack,
@@ -1231,8 +1225,27 @@ op_add_store_type_err:
 				}
 
 				stack_push(&wk->stack, wk->vm.saw_disabler, false);
-				bool ok = native_funcs[idx].func(wk, b, &a);
+
+				bool ok;
+				{
+#ifdef TRACY_ENABLE
+					TracyCZoneC(tctx_func, 0xff5000, true);
+					char func_name[1024];
+					snprintf(func_name,
+						sizeof(func_name),
+						"%s.%s",
+						obj_type_to_s(get_obj_type(wk, b)),
+						native_funcs[idx].name);
+					TracyCZoneName(tctx_func, func_name, strlen(func_name));
+#endif
+
+					ok = native_funcs[idx].func(wk, b, &a);
+
+					TracyCZoneEnd(tctx_func);
+				}
+
 				bool saw_disabler = wk->vm.saw_disabler;
+
 				stack_pop(&wk->stack, wk->vm.saw_disabler);
 
 				if (!ok) {
@@ -1258,7 +1271,19 @@ op_add_store_type_err:
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			stack_push(&wk->stack, wk->vm.saw_disabler, false);
-			bool ok = native_funcs[b].func(wk, 0, &a);
+			bool ok;
+			{
+#ifdef TRACY_ENABLE
+				TracyCZoneC(tctx_func, 0xff5000, true);
+				char func_name[1024];
+				snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
+				TracyCZoneName(tctx_func, func_name, strlen(func_name));
+#endif
+
+				ok = native_funcs[b].func(wk, 0, &a);
+
+				TracyCZoneEnd(tctx_func);
+			}
 			bool saw_disabler = wk->vm.saw_disabler;
 			stack_pop(&wk->stack, wk->vm.saw_disabler);
 

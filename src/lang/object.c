@@ -245,15 +245,15 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 #ifdef TRACY_ENABLE
 	if (wk->tracy.is_master_workspace) {
 		uint64_t mem = 0;
-		mem += bucket_arr_size(&wk->objs);
+		mem += bucket_arr_size(&wk->vm.objects.objs);
 		uint32_t i;
 		for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-			mem += bucket_arr_size(&wk->obj_aos[i]);
+			mem += bucket_arr_size(&wk->vm.objects.obj_aos[i]);
 		}
 #define MB(b) ((double)b / 1048576.0)
-		TracyCPlot("objects", wk->objs.len);
+		TracyCPlot("objects", wk->vm.objects.objs.len);
 		TracyCPlot("object memory (mb)", MB(mem));
-		TracyCPlot("string memory (mb)", MB(bucket_arr_size(&wk->chrs)));
+		TracyCPlot("string memory (mb)", MB(bucket_arr_size(&wk->vm.objects.chrs)));
 #undef MB
 	}
 #endif
@@ -1199,10 +1199,8 @@ _obj_dict_index(struct workspace *wk,
 	uint64_t **ures)
 
 {
-	TracyCZoneAutoS;
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
-		TracyCZoneAutoE;
 		return false;
 	}
 
@@ -1215,7 +1213,6 @@ _obj_dict_index(struct workspace *wk,
 		}
 
 		if (*ures) {
-			TracyCZoneAutoE;
 			return true;
 		}
 	} else {
@@ -1224,7 +1221,6 @@ _obj_dict_index(struct workspace *wk,
 		while (true) {
 			if (comp(wk, key, e->key)) {
 				*res = &e->val;
-				TracyCZoneAutoE;
 				return true;
 			}
 
@@ -1235,7 +1231,6 @@ _obj_dict_index(struct workspace *wk,
 		}
 	}
 
-	TracyCZoneAutoE;
 	return false;
 }
 
