@@ -1871,11 +1871,26 @@ static bool
 func_p(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_VOID }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	enum kwargs {
+		kw_inspect,
+		kw_pretty,
+	};
+	struct args_kw akw[] = {
+		[kw_inspect] = { "inspect", tc_bool },
+		[kw_pretty] = { "pretty", tc_bool },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	obj_fprintf(wk, log_file(), "%o\n", an[0].val);
+	if (akw[kw_inspect].set && get_obj_bool(wk, akw[kw_inspect].val)) {
+		obj_inspect(wk, log_file(), an[0].val);
+	} else {
+		const char *fmt = akw[kw_pretty].set && get_obj_bool(wk, akw[kw_pretty].val) ? "%#o\n" : "%o\n";
+		obj_fprintf(wk, log_file(), fmt, an[0].val);
+	}
+
 	*res = an[0].val;
 	return true;
 }

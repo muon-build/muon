@@ -1771,6 +1771,17 @@ obj_to_s_pretty_newline(struct workspace *wk, struct obj_to_s_ctx *ctx)
 	obj_to_s_indent(wk, ctx);
 }
 
+static void
+obj_to_s_pretty_newline_or_space(struct workspace *wk, struct obj_to_s_ctx *ctx)
+{
+	if (!ctx->opts->pretty) {
+		sbuf_push(wk, ctx->sb, ' ');
+		return;
+	}
+
+	obj_to_s_pretty_newline(wk, ctx);
+}
+
 static enum iteration_result
 obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 {
@@ -1780,7 +1791,7 @@ obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
 		sbuf_pushs(wk, ctx->sb, ",");
-		obj_to_s_pretty_newline(wk, ctx);
+		obj_to_s_pretty_newline_or_space(wk, ctx);
 	}
 
 	++ctx->cont_i;
@@ -1799,8 +1810,8 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		sbuf_pushs(wk, ctx->sb, ", ");
-		obj_to_s_pretty_newline(wk, ctx);
+		sbuf_pushs(wk, ctx->sb, ",");
+		obj_to_s_pretty_newline_or_space(wk, ctx);
 	}
 
 	++ctx->cont_i;
