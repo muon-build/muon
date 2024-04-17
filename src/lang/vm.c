@@ -355,6 +355,15 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		}
 	}
 
+	if (akw) {
+		for (i = 0; akw[i].key; ++i) {
+			if (akw[i].required && !akw[i].set) {
+				vm_error(wk, "missing required keyword argument: %s", akw[i].key);
+				return false;
+			}
+		}
+	}
+
 	argi = 0;
 
 	for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {
@@ -375,7 +384,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		} else {
 			if (argi >= wk->vm.nargs) {
 				if (!an[i].optional) {
-					vm_error(wk, "missing args %s", an[i].name);
+					vm_error(wk, "missing positional argument: %s", an[i].name);
 					return false;
 				} else {
 					break;
@@ -566,7 +575,7 @@ vm_abort_handler(void *ctx)
 	vm_error(wk, "encountered unhandled error");
 }
 
-void
+static void
 vm_execute_capture(struct workspace *wk, obj a)
 {
 	uint32_t i;
@@ -621,19 +630,80 @@ vm_execute_capture(struct workspace *wk, obj a)
 	return;
 }
 
+bool
+vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res)
+{
+	wk->vm.nargs = 0;
+	if (an) {
+		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
+		}
+
+		int32_t i = 0;
+		for (i = wk->vm.nargs - 1; i >= 0; --i) {
+			LO("pushing: %o\n", an[i].val);
+			object_stack_push(wk, an[i].val);
+		}
+	}
+
+	L("nargs: %d", wk->vm.nargs);
+
+	wk->vm.nkwargs = 0;
+	if (akw) {
+		uint32_t i;
+		for (i = 0; akw[i].key; ++i) {
+			if (!akw[i].val) {
+				continue;
+			}
+
+			LO("pushing: %o\n", akw[i].val);
+			object_stack_push(wk, akw[i].val);
+			LO("pushing: %o\n", make_str(wk, akw[i].key));
+			object_stack_push(wk, make_str(wk, akw[i].key));
+			++wk->vm.nkwargs;
+		}
+	}
+
+	L("nkwargs: %d", wk->vm.nkwargs);
+
+	uint32_t call_stack_base = wk->vm.call_stack.len;
+	arr_push(&wk->vm.call_stack,
+		&(struct call_frame){
+			.type = call_frame_type_eval,
+			.return_ip = wk->vm.ip,
+		});
+
+	// Set the vm ip to 0 where vm_compile_initial_code_segment has placed a return statement
+	wk->vm.ip = 0;
+	vm_execute_capture(wk, capture);
+
+	vm_execute(wk);
+	assert(call_stack_base == wk->vm.call_stack.len);
+
+	bool ok = !wk->vm.error;
+	*res = ok ? object_stack_pop(&wk->vm.stack) : 0;
+
+	wk->vm.error = false;
+	return ok;
+}
+
 static void
 vm_unwind_call_stack(struct workspace *wk)
 {
 	struct call_frame *frame;
 	while (wk->vm.call_stack.len) {
-		frame = arr_peek(&wk->vm.call_stack, 1);
+		frame = arr_pop(&wk->vm.call_stack);
+
 		switch (frame->type) {
-		case call_frame_type_eval: return;
+		case call_frame_type_eval: {
+			wk->vm.ip = frame->return_ip;
+			return;
+		}
 		case call_frame_type_func: break;
 		}
 
-		frame = arr_pop(&wk->vm.call_stack);
-		vm_error_at(wk, frame->return_ip - 1, "in function");
+		if (frame->return_ip) {
+			vm_error_at(wk, frame->return_ip, "in function");
+		}
 	}
 }
 
@@ -642,19 +712,20 @@ vm_execute(struct workspace *wk)
 {
 	struct obj_stack_entry *entry;
 	uint32_t a_ip, b_ip;
+	uint32_t object_stack_base = wk->vm.stack.ba.len;
 	obj a, b;
 
 	platform_set_abort_handler(vm_abort_handler, wk);
 
 	while (!wk->vm.error) {
-		/* if (log_should_print(log_debug)) { */
-		/* 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-		/* 	object_stack_print(wk, &wk->vm.stack); */
-		/* 	/1* struct source_location loc; *1/ */
-		/* 	/1* struct source *src; *1/ */
-		/* 	/1* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); *1/ */
-		/* 	/1* list_line_range(src, loc, 0); *1/ */
-		/* } */
+		if (log_should_print(log_debug)) {
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
+			/* object_stack_print(wk, &wk->vm.stack); */
+			/* struct source_location loc; */
+			/* struct source *src; */
+			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
+			/* list_line_range(src, loc, 0); */
+		}
 
 		switch ((enum op)wk->vm.code.e[wk->vm.ip++]) {
 		case op_constant:
@@ -1172,7 +1243,6 @@ op_add_store_type_err:
 							"in method %s.%s",
 							obj_type_to_s(get_obj_type(wk, b)),
 							native_funcs[idx].name);
-						vm_unwind_call_stack(wk);
 					}
 				}
 			}
@@ -1197,7 +1267,6 @@ op_add_store_type_err:
 					a = disabler_id;
 				} else {
 					vm_error(wk, "in function %s", native_funcs[b].name);
-					vm_unwind_call_stack(wk);
 				}
 			}
 
@@ -1395,9 +1464,12 @@ op_add_store_type_err:
 		}
 		}
 	}
-	/* stack_pop(&stack, a); */
-	/* LO("%o\n", a); */
-	/* printf("%04x %02x\n", i, code[i]); */
+
+	if (wk->vm.error) {
+		vm_unwind_call_stack(wk);
+		assert(wk->vm.stack.ba.len >= object_stack_base);
+		object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - object_stack_base);
+	}
 	return 0;
 }
 

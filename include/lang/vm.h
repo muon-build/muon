@@ -85,7 +85,7 @@ struct call_frame {
 	type_tag expected_return_type;
 	enum call_frame_type type;
 	obj scope_stack;
-	uint32_t return_ip;
+	uint32_t return_ip, call_stack_base;
 	enum language_mode lang_mode;
 };
 
@@ -146,6 +146,8 @@ struct vm {
 };
 
 obj vm_execute(struct workspace *wk);
+bool
+vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);

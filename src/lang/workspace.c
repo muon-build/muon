@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "backend/output.h"
+#include "embedded.h"
 #include "error.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -73,6 +74,24 @@ workspace_init_bare(struct workspace *wk)
 	}
 }
 
+static bool
+workspace_eval_startup_file(struct workspace *wk, const char *script)
+{
+	obj _;
+	bool ret;
+	const char *src;
+
+	if (!(src = embedded_get(script))) {
+		LOG_E("embedded script %s not found", script);
+		return false;
+	}
+
+	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	ret = eval(wk, &(struct source){ .src = src, .label = script, .len = strlen(src) }, eval_mode_default, &_);
+	stack_pop(&wk->stack, wk->vm.lang_mode);
+	return ret;
+}
+
 void
 workspace_init(struct workspace *wk)
 {
@@ -102,10 +121,23 @@ workspace_init(struct workspace *wk)
 	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	make_obj(wk, &wk->global_opts, obj_dict);
 	make_obj(wk, &wk->compiler_check_cache, obj_dict);
+	make_obj(wk, &wk->dependency_handlers, obj_dict);
 
 	if (!init_global_options(wk)) {
 		UNREACHABLE;
 	}
+
+#ifdef MUON_BOOTSTRAPPED
+	const char *startup_files[] = {
+		"dependencies.meson",
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(startup_files); ++i) {
+		if (!workspace_eval_startup_file(wk, startup_files[i])) {
+			LOG_W("script %s failed to load", startup_files[i]);
+		}
+	}
+#endif
 }
 
 void

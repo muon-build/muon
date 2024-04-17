@@ -52,7 +52,7 @@ enum dep_lib_mode {
 
 struct dep_lookup_ctx {
 	obj *res;
-	struct args_kw *default_options, *versions;
+	struct args_kw *default_options, *versions, *handler_kwargs;
 	enum requirement_type requirement;
 	uint32_t err_node;
 	uint32_t fallback_node;
@@ -341,7 +341,14 @@ handle_appleframeworks_modules_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
 {
-	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
+	obj handler;
+	if (obj_dict_index(wk, wk->dependency_handlers, ctx->name, &handler)) {
+		*handled = true;
+
+		if (!vm_eval_capture(wk, handler, 0, ctx->handler_kwargs, ctx->res)) {
+			return false;
+		}
+	} else if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		LOG_I("dependency threads found");
 
 		*handled = true;
@@ -382,6 +389,14 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 			make_obj(wk, &dep->dep.link_args, obj_array);
 			obj_array_foreach(wk, ctx->modules, ctx, handle_appleframeworks_modules_iter);
 		}
+	} else if (strcmp(get_cstr(wk, ctx->name), "intl") == 0) {
+		*handled = true;
+		make_obj(wk, ctx->res, obj_dependency);
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+		dep->name = make_str(wk, "intl");
+		dep->flags |= dep_flag_found;
+		dep->type = dependency_type_external_library;
+
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
 		if (ctx->requirement == requirement_required) {
@@ -460,7 +475,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		kw_method,
 		kw_include_type,
 	};
-	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
+	struct args_kw akw[] = {
+		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		[kw_static] = { "static", obj_bool },
@@ -474,7 +490,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_method] = { "method", obj_string },
 		[kw_include_type] = { "include_type", obj_string },
-		0 };
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -493,6 +510,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
+	// TODO: lookup_method is unused.  This is partially because cmake and
+	// extraframework aren't supported so the default (auto) is the same as
+	// just saying pkgconfig.  It also seems that rarely is the lookup
+	// method specified to be builtin or system in practice.
 	enum dependency_lookup_method lookup_method = dependency_lookup_method_auto;
 	if (akw[kw_method].set) {
 		struct {
@@ -587,8 +608,15 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
+	struct args_kw handler_kwargs[] = {
+		{ "required", .val = requirement == requirement_required ? obj_bool_true : obj_bool_false },
+		{ "static", .val = lib_mode == dep_lib_mode_static ? obj_bool_true : obj_bool_false },
+		0,
+	};
+
 	struct dep_lookup_ctx ctx = {
 		.res = res,
+		.handler_kwargs = handler_kwargs,
 		.names = an[0].val,
 		.requirement = requirement,
 		.versions = &akw[kw_version],

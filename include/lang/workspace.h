@@ -78,6 +78,8 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
+	/* dict -> capture */
+	obj dependency_handlers;
 	/* ----------------- */
 
 	struct vm vm;

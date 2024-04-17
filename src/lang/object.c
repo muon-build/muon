@@ -2285,6 +2285,8 @@ obj_inspect(struct workspace *wk, FILE *out, obj val)
 
 		fprintf(out, "dependency:\n");
 
+		obj_fprintf(wk, out, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
+
 		if (dep->name) {
 			obj_fprintf(wk, out, "    name: %o\n", dep->name);
 		}

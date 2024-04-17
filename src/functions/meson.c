@@ -606,7 +606,25 @@ func_meson_project(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static bool
+func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = {
+		{ tc_string },
+		{ tc_capture },
+		ARG_TYPE_NULL,
+	};
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	obj_dict_set(wk, wk->dependency_handlers, an[0].val, an[1].val);
+	return true;
+}
+
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict, true },
+	{ "register_dependency_handler", func_meson_register_dependency_handler },
 	{ NULL, NULL },
 };

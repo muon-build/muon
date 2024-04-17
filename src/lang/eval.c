@@ -141,23 +141,12 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	wk->vm.ip = entry;
 
 	*res = vm_execute(wk);
-
-	if (*res) {
-		// If vm_execute was successful, then we expect to only get
-		// here after popping off the stack frame we pushed
-		assert(call_stack_base == wk->vm.call_stack.len);
-	} else if (call_stack_base != wk->vm.call_stack.len) {
-		// If *res is false and we have pending stack frames, fix them
-		// up and ensure that we reset return_ip properly so that error
-		// handling works as the stack unwinds
-		wk->vm.call_stack.len = call_stack_base;
-		wk->vm.ip = eval_frame.return_ip;
-	}
-
-	TracyCZoneAutoE;
+	assert(call_stack_base == wk->vm.call_stack.len);
 
 	bool ok = !wk->vm.error;
 	wk->vm.error = false;
+
+	TracyCZoneAutoE;
 	return ok;
 
 	/* if (wk->in_analyzer) { */

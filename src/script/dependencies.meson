@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+func get_clike_compiler(dep_name str) -> compiler
+    proj = meson.project()
+    foreach comp : ['c', 'cpp']
+        if comp in proj['compilers']
+            return proj['compilers'][comp]
+        endif
+    endforeach
+
+    error(f'@dep_name@ requires a c or cpp compiler')
+endfunc
+
+func intl(required bool:, static bool:) -> dep
+    cc = get_clike_compiler('intl')
+    code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
+
+    if cc.links(code)
+        dep = declare_dependency()
+    else
+        dep = cc.find_library(
+            'intl',
+            has_headers: ['libintl.h'],
+            required: required,
+            static: static,
+        )
+    endif
+
+    return dep
+endfunc
+
+meson.register_dependency_handler('intl', intl)
