@@ -37,6 +37,8 @@ eval_project(struct workspace *wk,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
+	stack_push(&wk->stack, wk->vm.scope_stack, current_project(wk)->scope_stack);
+
 	obj parent_eval_trace = wk->vm.dbg_state.eval_trace;
 
 	const char *parent_prefix = log_get_prefix();
@@ -46,6 +48,7 @@ eval_project(struct workspace *wk,
 		snprintf(log_prefix, 255, "[%s%s%s]", clr, subproject_name, no_clr);
 		log_set_prefix(log_prefix);
 	}
+
 	if (subproject_name) {
 		LOG_I("entering subproject '%s'", subproject_name);
 	}
@@ -70,6 +73,7 @@ eval_project(struct workspace *wk,
 cleanup:
 	wk->vm.dbg_state.eval_trace = parent_eval_trace;
 	wk->cur_project = parent_project;
+	stack_pop(&wk->stack, wk->vm.scope_stack);
 
 	log_set_prefix(parent_prefix);
 	return ret;

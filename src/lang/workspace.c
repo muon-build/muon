@@ -47,6 +47,8 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	proj->build_dir = make_str(wk, build_dir);
 	proj->build_root = proj->build_dir;
 
+	proj->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
+
 	return proj;
 }
 
