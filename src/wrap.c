@@ -141,13 +141,16 @@ wrap_check_provide_duplication(struct workspace *wk, struct wrap_parse_provides_
 {
 	obj oldval;
 	if (obj_dict_index(wk, provides, key, &oldval)) {
-		error_messagef(ctx->src,
-			ctx->location,
-			log_warn,
+		static char buf[1024];
+		obj_snprintf(wk,
+			buf,
+			ARRAY_LEN(buf),
 			"previous provide for %o from %o, is being overridden by %o",
 			key,
 			oldval,
 			val);
+
+		error_message(ctx->src, ctx->location, log_warn, buf);
 	}
 }
 
