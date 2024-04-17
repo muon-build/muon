@@ -1395,6 +1395,7 @@ op_add_store_type_err:
 					uint64_t *v = hash_get(iterator->data.dict_big.h, k);
 					key = *v >> 32;
 					val = *v & 0xffffffff;
+					++iterator->data.dict_big.i;
 				}
 				break;
 			default: UNREACHABLE;

@@ -41,3 +41,19 @@ assert(d == {'b': 2, 'c': 3})
 assert(d.keys() == ['b', 'c'])
 d = d + {'a': 4, 'b': 3, 'e': 5}
 assert(d.keys() == ['b', 'c', 'a', 'e'])
+
+func big_dict(n int) -> dict[int]
+	d = {}
+	foreach i : range(n)
+            d += {f'@i@': i}
+	endforeach
+
+        return d
+endfunc
+
+n = 128
+l = 0
+foreach k, v : big_dict(n)
+    assert(k == f'@v@')
+    l += 1
+endforeach
