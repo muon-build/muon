@@ -53,6 +53,7 @@ bucket_arr_clear(struct bucket_arr *ba)
 	}
 
 	ba->buckets.len = 1;
+	ba->tail_bucket = 0;
 	ba->len = 0;
 }
 
