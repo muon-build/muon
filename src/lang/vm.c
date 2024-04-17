@@ -256,6 +256,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag typ
 				}
 
 				obj_array_push(wk, arr, v);
+
 				obj_array_flat_for_end;
 			}
 		} else {

@@ -79,7 +79,6 @@ struct obj_array_flat_for_helper {
 	struct workspace *wk;
 	struct obj_array *a;
 	uint32_t stack_base;
-	bool empty;
 };
 
 #define obj_array_flat_for_begin(__wk, __arr, __val)                                                                  \
@@ -89,18 +88,16 @@ struct obj_array_flat_for_helper {
 			.a = get_obj_array(__wk, __arr),                                                              \
 			.stack_base = __wk->stack.len,                                                                \
 		};                                                                                                    \
-		__flat_iter.empty = __flat_iter.a->len == 0;                                                          \
                                                                                                                       \
 		while (true) {                                                                                        \
 			__val = __flat_iter.a->val;                                                                   \
 			if (get_obj_type(__flat_iter.wk, __val) == obj_array) {                                       \
 				stack_push(                                                                           \
 					&__flat_iter.wk->stack, __flat_iter.a, get_obj_array(__flat_iter.wk, __val)); \
-				__flat_iter.empty = __flat_iter.a->len == 0;                                          \
 				continue;                                                                             \
 			}                                                                                             \
                                                                                                                       \
-			if (!__flat_iter.empty)
+			if (__val)
 
 #define obj_array_flat_for_end                                                                            \
 	}                                                                                                 \
