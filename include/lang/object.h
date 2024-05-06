@@ -483,6 +483,7 @@ enum obj_iterator_type {
 	obj_iterator_type_dict_small,
 	obj_iterator_type_dict_big,
 	obj_iterator_type_range,
+	obj_iterator_type_typeinfo,
 };
 
 struct range_params {
@@ -499,6 +500,10 @@ struct obj_iterator {
 			uint32_t i;
 		} dict_big;
 		struct range_params range;
+		struct {
+			enum obj_type type;
+			uint32_t i;
+		} typeinfo;
 	} data;
 };
 
@@ -519,6 +524,7 @@ void obj_clear(struct workspace *wk, const struct obj_clear_mark *mk);
 void set_obj_bool(struct workspace *wk, obj o, bool v);
 bool get_obj_bool(struct workspace *wk, obj o);
 void set_obj_bool(struct workspace *wk, obj o, bool v);
+obj make_number(struct workspace *wk, int64_t n);
 int64_t get_obj_number(struct workspace *wk, obj o);
 void set_obj_number(struct workspace *wk, obj o, int64_t v);
 obj *get_obj_file(struct workspace *wk, obj o);

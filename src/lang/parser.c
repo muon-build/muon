@@ -12,6 +12,7 @@
 #include "lang/lexer.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
+#include "tracy.h"
 
 /******************************************************************************
  * parser
@@ -1084,6 +1085,7 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 static struct node *
 parse_impl(struct parser *p)
 {
+	TracyCZoneAutoS;
 	enum lexer_mode lexer_mode = 0;
 	if (p->mode & vm_compile_mode_language_extended) {
 		lexer_mode |= lexer_mode_functions;
@@ -1103,6 +1105,7 @@ parse_impl(struct parser *p)
 		n = make_node_t(p, node_type_stmt);
 	}
 
+	TracyCZoneAutoE;
 	return p->err.count ? 0 : n;
 }
 

@@ -32,8 +32,8 @@ enum op {
 	op_stringify,
 	op_store,
 	op_add_store,
-	op_try_load,
 	op_load,
+	op_try_load,
 	op_return,
 	op_call,
 	op_call_method,
@@ -41,15 +41,18 @@ enum op {
 	op_index,
 	op_iterator,
 	op_iterator_next,
-	op_jmp_if_null,
-	op_jmp_if_false,
-	op_jmp_if_true,
-	op_jmp_if_disabler,
 	op_jmp,
+	op_jmp_if_true,
+	op_jmp_if_false,
+	op_jmp_if_disabler,
+	op_jmp_if_disabler_keep,
 	op_pop,
 	op_dup,
 	op_swap,
 	op_typecheck,
+	// Analyzer only ops
+	op_az_branch,
+	op_az_merge,
 
 	op_count,
 };
@@ -65,6 +68,11 @@ enum compile_time_constant_objects {
 	disabler_id = 1,
 	obj_bool_true = 2,
 	obj_bool_false = 3,
+};
+
+struct obj_stack_entry {
+	obj o;
+	uint32_t ip;
 };
 
 struct object_stack {
@@ -162,6 +170,12 @@ struct vm {
 	bool error;
 };
 
+void object_stack_push(struct workspace *wk, obj o);
+struct obj_stack_entry *object_stack_pop_entry(struct object_stack *s);
+void object_stack_discard(struct object_stack *s, uint32_t n);
+void object_stack_print(struct workspace *wk, struct object_stack *s);
+
+obj vm_get_constant(uint8_t *code, uint32_t *ip);
 obj vm_execute(struct workspace *wk);
 bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);

@@ -24,6 +24,7 @@ struct func_impl_group {
 	uint32_t off, len;
 };
 
+extern struct func_impl_group func_impl_groups[obj_type_count][language_mode_count];
 extern struct func_impl native_funcs[];
 
 /* extern bool disable_fuzz_unsafe_functions; */

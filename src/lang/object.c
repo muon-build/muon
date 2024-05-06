@@ -93,6 +93,15 @@ get_obj_bool(struct workspace *wk, obj o)
 	return *(bool *)get_obj_internal(wk, o, obj_bool);
 }
 
+obj
+make_number(struct workspace *wk, int64_t n)
+{
+	obj o;
+	make_obj(wk, &o, obj_number);
+	set_obj_number(wk, o, n);
+	return o;
+}
+
 int64_t
 get_obj_number(struct workspace *wk, obj o)
 {

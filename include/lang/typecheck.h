@@ -122,6 +122,7 @@ obj typechecking_type_to_arr(struct workspace *wk, type_tag t);
 type_tag make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type_tag subtype);
 
 type_tag obj_type_to_tc_type(enum obj_type t);
+obj obj_type_to_typestr(struct workspace *wk, obj o);
 
 bool bounds_adjust(uint32_t len, int64_t *i);
 bool boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i);

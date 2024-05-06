@@ -32,3 +32,6 @@ str8192 = str4096 + str4096
 assert(str8192.split().length() == 8192 / 2)
 
 assert('@0@ < @INPUT@'.format('a') == 'a < @INPUT@')
+
+f = 'asdf'
+assert(f'HAVE_@f@'.to_upper() == 'HAVE_ASDF')

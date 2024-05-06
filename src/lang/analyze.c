@@ -9,6 +9,7 @@
 
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -23,6 +24,8 @@ static struct {
 	obj eval_trace;
 	struct obj_func *fp;
 	struct vm_ops unpatched_ops;
+
+	struct obj_typeinfo az_injected_native_func_return;
 } analyzer;
 
 struct az_file_entrypoint {
@@ -135,7 +138,7 @@ az_diagnostic_enabled(enum az_diagnostic d)
 	return analyzer.opts->enabled_diagnostics & d;
 }
 
-static const char *
+/*static*/ const char *
 inspect_typeinfo(struct workspace *wk, obj t)
 {
 	if (get_obj_type(wk, t) == obj_typeinfo) {
@@ -168,7 +171,7 @@ flatten_type(struct workspace *wk, type_tag t)
 	UNREACHABLE_RETURN;
 }
 
-static obj
+obj
 make_typeinfo(struct workspace *wk, type_tag t)
 {
 	obj res;
@@ -207,7 +210,7 @@ struct az_ctx {
 
 typedef void((az_for_each_type_cb)(struct workspace *wk, struct az_ctx *ctx, uint32_t n_id, type_tag t, obj *res));
 
-static void
+/*static*/ void
 az_for_each_type(struct workspace *wk,
 	struct az_ctx *ctx,
 	uint32_t n_id,
@@ -479,7 +482,8 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 static void
 push_scope_group(struct workspace *wk)
 {
-	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack), scope_group;
+	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
+	obj scope_group;
 	make_obj(wk, &scope_group, obj_array);
 	obj_array_push(wk, local_scope, scope_group);
 }
@@ -487,8 +491,9 @@ push_scope_group(struct workspace *wk)
 static void
 push_scope_group_scope(struct workspace *wk)
 {
-	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack), scope_group = obj_array_get_tail(wk, local_scope),
-	    scope;
+	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
+	obj scope_group = obj_array_get_tail(wk, local_scope);
+	obj scope;
 
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, scope_group, scope);
@@ -604,6 +609,158 @@ pop_scope_group(struct workspace *wk)
 }
 
 /******************************************************************************
+ * analyzer ops
+ ******************************************************************************/
+
+struct az_branch {
+	uint32_t merge_point;
+	obj branches;
+};
+
+static struct az_branch cur_branch;
+
+static void
+az_op_az_branch(struct workspace *wk)
+{
+	uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	struct az_branch new_branch = {
+		.merge_point = merge_point,
+		.branches = branches,
+	};
+	stack_push(&wk->stack, cur_branch, new_branch);
+
+	push_scope_group(wk);
+
+	L("---> branching, merging @ %03x", cur_branch.merge_point);
+
+	obj branch;
+	obj_array_for(wk, branches, branch) {
+		L("--> branch");
+		wk->vm.ip = get_obj_number(wk, branch);
+		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval });
+		push_scope_group_scope(wk);
+		vm_execute(wk);
+	}
+
+	L("<--- all branches merged %03x <---", cur_branch.merge_point);
+
+	pop_scope_group(wk);
+	stack_pop(&wk->stack, cur_branch);
+}
+
+static void
+az_op_az_merge(struct workspace *wk)
+{
+	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
+
+	L("<--- joining branch %03x, %03x", cur_branch.merge_point, wk->vm.ip - 1);
+
+	assert(cur_branch.merge_point == wk->vm.ip - 1);
+	assert(frame->type == call_frame_type_eval);
+
+	object_stack_push(wk, 0);
+	wk->vm.run = false;
+}
+
+/* static void */
+/* az_branch(struct workspace *wk, uint32_t branches[2]) */
+/* { */
+/* 	push_scope_group(wk); */
+
+/* 	uint32_t i; */
+/* 	for (i = 0; i < 2; ++i) { */
+/* 		L("--> branch %d", i); */
+/* 		wk->vm.ip = branches[i]; */
+/* 		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval }); */
+/* 		push_scope_group_scope(wk); */
+/* 		vm_execute(wk); */
+/* 	} */
+
+/* 	L("<--- all branches merged %03x <---", cur_branch.merge_point); */
+
+/* 	pop_scope_group(wk); */
+
+/* 	wk->vm.ip = cur_branch.merge_point + 1; */
+/* 	stack_pop(&wk->stack, cur_branch); */
+/* } */
+
+/* static void */
+/* az_jmp_if_cond_matches(struct workspace *wk, bool cond) */
+/* { */
+/* 	struct obj_stack_entry *entry; */
+/* 	uint32_t a_ip; */
+/* 	obj a, b; */
+
+/* 	entry = object_stack_pop_entry(&wk->vm.stack); */
+/* 	a = entry->o; */
+/* 	a_ip = entry->ip; */
+
+/* 	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip); */
+
+/* 	typecheck(wk, a_ip, a, obj_bool); */
+
+/* 	if (get_obj_type(wk, a) == obj_bool) { */
+/* 		if (cond == get_obj_bool(wk, a)) { */
+/* 			vm_warning(wk, "branch never taken"); */
+/* 		} else { */
+/* 			vm_warning(wk, "branch always taken"); */
+/* 		} */
+/* 	} */
+
+/* 	az_branch(wk, (uint32_t[2]){ wk->vm.ip, b }); */
+/* } */
+
+static void
+az_op_jmp_if_false(struct workspace *wk)
+{
+	/* az_jmp_if_cond_matches(wk, false); */
+
+	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
+	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	typecheck(wk, entry->ip, entry->o, obj_bool);
+	if (get_obj_type(wk, entry->o) == obj_bool) {
+		if (get_obj_bool(wk, entry->o)) {
+			vm_warning(wk, "branch always taken");
+		} else {
+			vm_warning(wk, "branch never taken");
+		}
+	}
+}
+
+static void
+az_op_jmp_if_true(struct workspace *wk)
+{
+	/* az_jmp_if_cond_matches(wk, true); */
+
+	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
+	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	typecheck(wk, entry->ip, entry->o, obj_bool);
+	if (get_obj_type(wk, entry->o) == obj_bool) {
+		if (get_obj_bool(wk, entry->o)) {
+			vm_warning(wk, "branch never taken");
+		} else {
+			vm_warning(wk, "branch always taken");
+		}
+	}
+}
+
+static void
+az_op_jmp_if_disabler(struct workspace *wk)
+{
+	/* obj a, b; */
+	/* a = object_stack_peek(&wk->vm.stack, 1); */
+	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	/* if (a == disabler_id) { */
+	/* 	object_stack_discard(&wk->vm.stack, 1); */
+	/* 	wk->vm.ip = b; */
+	/* } */
+
+	/* az_jmp_if_cond_matches(wk, true); */
+}
+
+/******************************************************************************
  * analyzer behaviors
  ******************************************************************************/
 
@@ -705,13 +862,26 @@ ret:
  * analyzer behaviors -- function lookup and dispatch
  ******************************************************************************/
 
-static struct obj_typeinfo az_injected_native_func_return;
+struct az_pop_args_ctx {
+	bool do_analyze;
+	bool pure_function;
+	bool encountered_error;
+	bool allow_impure_args;
+	bool allow_impure_args_except_first; // set to true for set_variable and subdir
+} pop_args_ctx;
 
 static bool
 az_injected_native_func(struct workspace *wk, obj self, obj *res)
 {
-	L("calling injected native func");
-	*res = make_typeinfo(wk, az_injected_native_func_return.type);
+	L("calling injected native func, returning %s",
+		typechecking_type_to_s(wk, analyzer.az_injected_native_func_return.type));
+
+	pop_args_ctx.encountered_error = false;
+
+	// discard all arguments
+	object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
+
+	*res = make_typeinfo(wk, analyzer.az_injected_native_func_return.type);
 	return true;
 }
 
@@ -735,7 +905,6 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 	struct {
 		uint32_t idx;
 		uint32_t matches;
-		obj func;
 	} lookup_res = { 0 };
 	type_tag t = ti->type;
 	uint32_t i;
@@ -752,10 +921,12 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 			continue;
 		}
 
-		if (func_lookup(wk, self, name, &lookup_res.idx, &lookup_res.func)) {
+		// TODO: add a warning if not all candidates match, e.g.
+		// calling to_string on something that is potentially a string?
+		if (func_lookup_for_group(func_impl_groups[i], wk->vm.lang_mode, name, &lookup_res.idx)) {
 			++lookup_res.matches;
 
-			merge_types(wk, &res_t, native_funcs[*idx].return_type);
+			res_t.type |= native_funcs[lookup_res.idx].return_type;
 		}
 	}
 
@@ -765,30 +936,23 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 	} else if (lookup_res.matches > 1) {
 		// Multiple matches found, return the index of az_injected_native_func
 		// and wire it up to return our merged return type.
-		az_injected_native_func_return = res_t;
+		analyzer.az_injected_native_func_return = res_t;
 		*idx = az_func_impl_group.off;
 		*func = 0;
 	} else {
 		// Single match found, return it
 		*idx = lookup_res.idx;
-		*func = lookup_res.func;
 	}
 
 	return true;
 }
 
-struct az_pop_args_ctx {
-	bool do_analyze;
-	bool pure_function;
-	bool encountered_error;
-	bool allow_impure_args;
-	bool allow_impure_args_except_first; // set to true for set_variable and subdir
-} pop_args_ctx;
-
 static bool
 az_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 {
+	L("popping args");
 	if (!vm_pop_args(wk, an, akw)) {
+		L("failed popping args");
 		return false;
 	}
 
@@ -892,7 +1056,13 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 		return func_ok;
 	}
 
-	*res = make_typeinfo(wk, native_funcs[func_idx].return_type);
+	if (func_idx == az_func_impl_group.off) {
+		// This means the native function we called was
+		// az_injected_native_func and we should respect the return
+		// type.
+	} else {
+		*res = make_typeinfo(wk, native_funcs[func_idx].return_type);
+	}
 
 	if (!args_ok) {
 		// Add error here if func was subdir
@@ -1087,18 +1257,24 @@ do_analyze(struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 	struct workspace wk;
-	workspace_init(&wk);
+	if (opts->internal_file) {
+		workspace_init_bare(&wk);
+	} else {
+		workspace_init(&wk);
+	}
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	{ /* re-initialize the default scope */
-		obj default_scope_stack, scope_group, scope;
-		obj_array_index(&wk, wk.vm.default_scope_stack, 0, &default_scope_stack);
+		obj original_scope, scope_group, scope;
+		obj_array_index(&wk, wk.vm.default_scope_stack, 0, &original_scope);
 		make_obj(&wk, &wk.vm.default_scope_stack, obj_array);
 		make_obj(&wk, &scope_group, obj_array);
 		make_obj(&wk, &scope, obj_dict);
 		obj_array_push(&wk, scope_group, scope);
 		obj_array_push(&wk, wk.vm.default_scope_stack, scope_group);
-		obj_dict_foreach(&wk, default_scope_stack, &scope, reassign_default_var);
+		obj_dict_foreach(&wk, original_scope, &scope, reassign_default_var);
+		obj_fprintf(&wk, log_file(), "%o\n", wk.vm.default_scope_stack);
+		wk.vm.scope_stack = az_scope_stack_dup(&wk, wk.vm.default_scope_stack);
 	}
 
 	wk.vm.behavior.assign_variable = az_assign_wrapper;
@@ -1114,6 +1290,12 @@ do_analyze(struct az_opts *opts)
 	wk.vm.in_analyzer = true;
 
 	analyzer.unpatched_ops = wk.vm.ops;
+
+	wk.vm.ops.ops[op_az_branch] = az_op_az_branch;
+	wk.vm.ops.ops[op_az_merge] = az_op_az_merge;
+	wk.vm.ops.ops[op_jmp_if_disabler] = az_op_jmp_if_disabler;
+	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
+	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
 
 	/* error_diagnostic_store_init(&wk); */
 
@@ -1150,8 +1332,6 @@ do_analyze(struct az_opts *opts)
 			obj _v;
 			res = eval(&wk, &src, eval_mode_default, &_v);
 		}
-
-		fs_source_destroy(&src);
 	} else {
 		uint32_t project_id;
 		L(">>>");
@@ -1221,6 +1401,7 @@ do_analyze(struct az_opts *opts)
 			LOG_W("couldn't find definition for %s", analyzer.opts->get_definition_for);
 		}
 	} else {
+		error_diagnostic_store_init(&wk);
 		error_diagnostic_store_replay(analyzer.opts->replay_opts, &saw_error);
 
 		if (saw_error || analyzer.error) {

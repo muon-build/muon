@@ -24,6 +24,8 @@ struct az_opts {
 	uint64_t enabled_diagnostics;
 };
 
+obj make_typeinfo(struct workspace *wk, type_tag t);
+
 bool az_diagnostic_name_to_enum(const char *name, enum az_diagnostic *ret);
 void az_print_diagnostic_names(void);
 void az_check_dead_code(struct workspace *wk, struct ast *ast);
