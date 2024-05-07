@@ -128,7 +128,7 @@ samu_arena_destroy(struct samu_arena *a)
 void *
 samu_arena_alloc(struct samu_arena *a, size_t size)
 {
-	uint64_t align = -a->i & 7;
+	uint64_t align = -(int64_t)a->i & (int64_t)7;
 	a->i += align;
 
 	if (a->i + size > SAMU_ARENA_DEF_BLOCK_SIZE || size > SAMU_ARENA_DEF_BLOCK_SIZE) {

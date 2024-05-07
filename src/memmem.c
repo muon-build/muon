@@ -65,7 +65,7 @@ twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned cha
 	}
 
 	/* Compute maximal suffix */
-	ip = -1;
+	ip = ~(size_t)0;
 	jp = 0;
 	k = p = 1;
 	while (jp + k < l) {
@@ -89,7 +89,7 @@ twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned cha
 	p0 = p;
 
 	/* And with the opposite comparison */
-	ip = -1;
+	ip = ~(size_t)0;
 	jp = 0;
 	k = p = 1;
 	while (jp + k < l) {

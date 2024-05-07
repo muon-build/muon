@@ -172,9 +172,9 @@ samu_commands(struct samu_ctx *ctx, int argc, char *argv[])
 }
 
 static void
-samu_printjson(struct samu_ctx *ctx, const char *s, size_t n, bool join)
+samu_printjson(struct samu_ctx *ctx, const char *s, uint32_t n, bool join)
 {
-	size_t i;
+	uint32_t i;
 	char c;
 
 	for (i = 0; i < n; ++i) {
@@ -240,7 +240,7 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 			samu_putchar(ctx, ',');
 
 		samu_printf(ctx, "\n  {\n    \"directory\": \"");
-		samu_printjson(ctx, dir.buf, -1, false);
+		samu_printjson(ctx, dir.buf, UINT32_MAX, false);
 
 		samu_printf(ctx, "\",\n    \"command\": \"");
 		cmd = samu_edgevar(ctx, e, "command", true);
@@ -258,10 +258,10 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 		}
 
 		samu_printf(ctx, "\",\n    \"file\": \"");
-		samu_printjson(ctx, e->in[0]->path->s, -1, false);
+		samu_printjson(ctx, e->in[0]->path->s, UINT32_MAX, false);
 
 		samu_printf(ctx, "\",\n    \"output\": \"");
-		samu_printjson(ctx, e->out[0]->path->s, -1, false);
+		samu_printjson(ctx, e->out[0]->path->s, UINT32_MAX, false);
 
 		samu_printf(ctx, "\"\n  }");
 	}

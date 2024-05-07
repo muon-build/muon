@@ -945,7 +945,8 @@ static const struct args *
 compiler_cl_args_deps(const char *out_target, const char *out_file)
 {
 	static char buf[BUF_SIZE_S];
-	COMPILER_ARGS({ "/showIncludes", "/MD", buf });
+	COMPILER_ARGS({ "/MD", buf });
+	/* COMPILER_ARGS({ "/showIncludes", "/MD", buf }); */
 
 	snprintf(buf, BUF_SIZE_S, "/Fd%s.pdb", out_target);
 

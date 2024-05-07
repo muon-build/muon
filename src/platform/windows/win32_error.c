@@ -12,6 +12,7 @@
 #include <windows.h>
 #define STRSAFE_NO_CB_FUNCTIONS
 #include <strsafe.h>
+#include <stdlib.h>
 
 #include "log.h"
 #include "platform/windows/win32_error.h"

@@ -635,10 +635,10 @@ run_cmd_kill(struct run_cmd_ctx *ctx, bool force)
 {
 	BOOL r;
 	if (force) {
-		r = TerminateProcess(ctx->process, -1);
+		r = TerminateProcess(ctx->process, 1);
 	} else {
 		// FIXME
-		r = TerminateProcess(ctx->process, -1);
+		r = TerminateProcess(ctx->process, 1);
 	}
 
 	if (!r) {

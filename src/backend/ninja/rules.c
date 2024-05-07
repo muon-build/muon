@@ -53,8 +53,9 @@ escape_rule(struct sbuf *buf)
 }
 
 static enum iteration_result
-write_linker_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, obj comp_id)
+write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 {
+	enum compiler_language l = k;
 	struct write_compiler_rule_ctx *ctx = _ctx;
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
@@ -133,8 +134,9 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 }
 
 static enum iteration_result
-write_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, obj comp_id)
+write_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 {
+	enum compiler_language l = k;
 	struct write_compiler_rule_ctx *ctx = _ctx;
 
 	obj rule_name;
@@ -192,8 +194,9 @@ ret:
 }
 
 static enum iteration_result
-write_generic_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, obj comp_id)
+write_generic_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 {
+	enum compiler_language l = k;
 	struct write_compiler_rule_ctx *ctx = _ctx;
 	obj rule_name;
 
@@ -214,8 +217,9 @@ struct name_compiler_rule_ctx {
 };
 
 static enum iteration_result
-name_compiler_rule_iter(struct workspace *wk, void *_ctx, enum compiler_language l, uint32_t count)
+name_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, uint32_t count)
 {
+	enum compiler_language l = k;
 	struct name_compiler_rule_ctx *ctx = _ctx;
 	bool specialized_rule = count > 2;
 

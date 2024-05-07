@@ -65,7 +65,7 @@ machine_file_parse_cb(void *_ctx,
 	struct machine_file_parse_ctx *ctx = _ctx;
 	enum machine_file_section sect;
 
-	if (!mfile_lookup(_sect, machine_file_section_names, machine_file_section_count, &sect)) {
+	if (!mfile_lookup(_sect, machine_file_section_names, machine_file_section_count, (uint32_t *)&sect)) {
 		if (!k) {
 			error_messagef(src, location, log_error, "invalid section '%s'", _sect);
 		}

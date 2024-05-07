@@ -183,7 +183,7 @@ wrap_parse_provides_cb(void *_ctx,
 
 	if (!k) {
 		enum wrap_type res;
-		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, &res)) {
+		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, (uint32_t *)&res)) {
 			UNREACHABLE_RETURN;
 		}
 

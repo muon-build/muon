@@ -702,7 +702,7 @@ fmt_node_to_token(enum node_type type)
 	case node_type_gt: return ">";
 	case node_type_leq: return "<=";
 	case node_type_geq: return ">=";
-	default: UNREACHABLE;
+	default: UNREACHABLE_RETURN;
 	}
 }
 

@@ -17,7 +17,7 @@
 #include "platform/path.h"
 
 #define SERIAL_MAGIC_LEN 8
-static const char serial_magic[SERIAL_MAGIC_LEN] = "muondump";
+static const char serial_magic[SERIAL_MAGIC_LEN + 1] = "muondump";
 static const uint32_t serial_version = 7;
 
 static bool

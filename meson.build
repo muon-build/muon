@@ -9,10 +9,8 @@ project(
     license: 'GPL-3.0-only',
     meson_version: '>=0.59.0',
     default_options: [
-        'c_std=c99',
         'warning_level=3',
         'buildtype=debug',
-        # 'optimization=0',
         'default_library=static',
     ],
 )
@@ -74,10 +72,34 @@ if cc.get_id() == 'msvc'
     add_project_arguments(
         cc.get_supported_arguments(
             [
-                '/wd4027', # -Wstrict-prototypes
-                '/wd4056', # -Woverflow
+                '/we4027', # -Wstrict-prototypes
+                '/we4056', # -Woverflow
+                '/we4013', # function undefined; assuming extern returning int
+
+                '/wd4100', # -Wno-unused-parameter
+                '/wd4706', # assignment within conditional expression
+                '/wd4244', # conversion from x to y, possible loss of data
+                '/wd4456', # declaration of identifier hides previous local declaration
+                '/wd4457', # declaration of 'identifier' hides function parameter
+
+                # Lots of false positivies due to not understanding UNREACHABLE
+                '/wd4701', # potentially uninitialized local variable name used
+                '/wd4703', # potentially uninitialized local variable name used
+                '/wd4702', # unreachable code
+
+                # msvc complaining about flexible array member
+                '/wd4200', # nonstandard extension used: zero-sized array in struct/union
+
+                '/std:c11',
+                # Occurs spuriously due to /std:c11 enabling a
+                # standards-conformant preprocessor
+                '/wd5105', # macro expansion producing 'defined' has undefined behavior
             ],
-        ),
+        ) + [
+            # Disable warnings that recommend
+            '/D_CRT_SECURE_NO_WARNINGS',
+            '/D_CRT_NONSTDC_NO_DEPRECATE',
+        ],
         language: 'c',
     )
 else
@@ -99,6 +121,7 @@ else
                 '-Wundef',
                 '-Wvla',
                 '-fstrict-aliasing',
+                '-std=c99'
             ],
         ),
         language: 'c',

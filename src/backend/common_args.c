@@ -363,8 +363,9 @@ setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dir
 }
 
 static enum iteration_result
-setup_compiler_args_iter(struct workspace *wk, void *_ctx, enum compiler_language lang, obj comp_id)
+setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 {
+	enum compiler_language lang = k;
 	struct setup_compiler_args_ctx *ctx = _ctx;
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);

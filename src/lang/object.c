@@ -515,7 +515,7 @@ obj_equal(struct workspace *wk, obj left, obj right)
 			       && iter->data.range.stop == riter->data.range.stop
 			       && iter->data.range.step == riter->data.range.step;
 		}
-		default: UNREACHABLE;
+		default: UNREACHABLE_RETURN;
 		}
 
 		break;

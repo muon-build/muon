@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <fcntl.h>
+#include <io.h>
 #include <stdio.h>
 
 #include "platform/init.h"

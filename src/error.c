@@ -424,7 +424,7 @@ list_line_range(struct source *src, struct source_location location, uint32_t co
 	get_detailed_source_location(src, location, &dloc);
 
 	int32_t i;
-	for (i = -context; i <= (int32_t)context; ++i) {
+	for (i = -(int32_t)context; i <= (int32_t)context; ++i) {
 		uint32_t line_pre_len;
 
 		line_pre_len = print_source_line(src, dloc.line, "%s%3d | ", i == 0 ? ">" : " ", dloc.line);
