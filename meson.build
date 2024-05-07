@@ -39,6 +39,7 @@ version_info.set('meson_compat', '1.1')
 platform = host_machine.system()
 if (
     platform in [
+        'android',
         'cygwin',
         'darwin',
         'freebsd',
