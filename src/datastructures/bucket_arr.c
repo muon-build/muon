@@ -5,12 +5,12 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "datastructures/bucket_arr.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 void

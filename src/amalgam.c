@@ -95,6 +95,7 @@
 #include "meson_opts.c"
 #include "options.c"
 #include "opts.c"
+#include "platform/assert.c"
 #include "platform/filesystem.c"
 #include "platform/mem.c"
 #include "platform/os.c"

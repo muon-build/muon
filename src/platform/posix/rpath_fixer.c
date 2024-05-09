@@ -9,12 +9,12 @@
 #include <gelf.h> /* Elf32_Dyn and similar on Solaris */
 #endif
 
-#include <assert.h>
 #include <elf.h>
 #include <string.h>
 
 #include "buf_size.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/rpath_fixer.h"

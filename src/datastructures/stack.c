@@ -5,11 +5,11 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "datastructures/stack.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 /******************************************************************************

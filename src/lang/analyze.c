@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -24,6 +23,7 @@
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 #include "tracy.h"
 

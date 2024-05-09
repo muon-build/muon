@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -14,6 +13,7 @@
 #include "install.h"
 #include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
 

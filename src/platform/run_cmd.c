@@ -11,11 +11,11 @@
 #define __EXTENSIONS__
 #endif
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/run_cmd.h"

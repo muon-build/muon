@@ -5,12 +5,12 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "error.h"
 #include "formats/ini.h"
 #include "machine_file.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 

@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "args.h"
@@ -17,6 +16,7 @@
 #include "functions/environment.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 void

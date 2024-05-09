@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -13,6 +12,7 @@
 
 #include "datastructures/arr.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 void

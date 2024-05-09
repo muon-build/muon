@@ -8,13 +8,13 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
 #include "lang/types.h"
+#include "platform/assert.h"
 
 extern const char *log_level_clr[log_level_count];
 extern const char *log_level_name[log_level_count];

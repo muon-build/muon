@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "coerce.h"
@@ -14,6 +13,7 @@
 #include "install.h"
 #include "lang/typecheck.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 bool

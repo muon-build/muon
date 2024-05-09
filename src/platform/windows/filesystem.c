@@ -9,7 +9,6 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <assert.h>
 #include <errno.h>
 #include <io.h>
 #include <stdlib.h>
@@ -17,6 +16,7 @@
 
 #include "lang/string.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

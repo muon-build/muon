@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +16,7 @@
 #include <windows.h>
 
 #include "buf_size.h"
+#include "platform/assert.h"
 #include "platform/log.h"
 #include "platform/windows/log.h"
 

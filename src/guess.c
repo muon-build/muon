@@ -5,10 +5,9 @@
 
 #include "compat.h"
 
-#include <assert.h>
-
 #include "guess.h"
 #include "log.h"
+#include "platform/assert.h"
 
 bool
 guess_version(struct workspace *wk, const char *src, obj *res)

@@ -5,13 +5,13 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "datastructures/arr.h"
 #include "datastructures/hash.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 #define k_empty 0x80 // 0b10000000

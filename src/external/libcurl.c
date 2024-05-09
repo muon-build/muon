@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
@@ -14,6 +13,7 @@
 
 #include "external/libcurl.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 const bool have_libcurl = true;

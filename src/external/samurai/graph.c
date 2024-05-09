@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -18,6 +17,7 @@
 #include "external/samurai/graph.h"
 #include "external/samurai/htab.h"
 #include "external/samurai/util.h"
+#include "platform/assert.h"
 
 void
 samu_graphinit(struct samu_ctx *ctx)

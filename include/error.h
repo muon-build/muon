@@ -8,7 +8,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <stdarg.h>
 
 #include "log.h"

@@ -6,13 +6,13 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "external/samurai/ctx.h"
 
 #include "external/samurai/htab.h"
 #include "external/samurai/util.h"
+#include "platform/assert.h"
 
 struct samu_hashtable {
 	size_t len, cap;

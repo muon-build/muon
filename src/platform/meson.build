@@ -3,6 +3,7 @@
 
 # common platform sources
 platform_sources = files(
+    'assert.c',
     'filesystem.c',
     'mem.c',
     'os.c',

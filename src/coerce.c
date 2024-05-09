@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -13,6 +12,7 @@
 #include "functions/environment.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

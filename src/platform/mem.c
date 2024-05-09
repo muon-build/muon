@@ -5,12 +5,12 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "error.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 #include "tracy.h"
 

@@ -5,11 +5,11 @@
 
 #include "compat.h"
 
-#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 
 #include "log.h"
+#include "platform/assert.h"
 #include "rpmvercmp.h"
 
 /*
