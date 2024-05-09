@@ -706,7 +706,9 @@ linker_args_passthrough(const struct args *link_args)
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	if (link_args->len == 1) {
+	if (link_args->len == 0) {
+		return link_args;
+	} else if (link_args->len == 1) {
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s", link_args->args[0]);
 	} else if (link_args->len == 2) {
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", link_args->args[0], link_args->args[1]);
