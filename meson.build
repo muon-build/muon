@@ -95,11 +95,7 @@ if cc.get_id() == 'msvc'
                 # standards-conformant preprocessor
                 '/wd5105', # macro expansion producing 'defined' has undefined behavior
             ],
-        ) + [
-            # Disable warnings that recommend
-            '/D_CRT_SECURE_NO_WARNINGS',
-            '/D_CRT_NONSTDC_NO_DEPRECATE',
-        ],
+        ),
         language: 'c',
     )
 else
@@ -125,6 +121,16 @@ else
             ],
         ),
         language: 'c',
+    )
+endif
+
+if platform == 'windows'
+    add_project_arguments(
+        [
+            '-D_CRT_SECURE_NO_WARNINGS',
+            '-D_CRT_NONSTDC_NO_DEPRECATE'
+        ],
+        language: 'c'
     )
 endif
 
