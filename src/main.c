@@ -566,7 +566,6 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	bool ret = false;
 
 	struct source src = { 0 };
-	bool src_allocd = false;
 
 	struct workspace wk;
 	workspace_init_bare(&wk);
@@ -585,7 +584,6 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 		if (!fs_read_entire_file(filename, &src)) {
 			goto ret;
 		}
-		src_allocd = true;
 	}
 
 	{ // populate argv array
@@ -606,9 +604,6 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 
 	ret = true;
 ret:
-	if (src_allocd) {
-		fs_source_destroy(&src);
-	}
 	workspace_destroy(&wk);
 	return ret;
 }
