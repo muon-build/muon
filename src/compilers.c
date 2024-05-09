@@ -456,7 +456,7 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 	bool msvc_like = compiler->type == compiler_msvc;
 
 	enum linker_type type = compilers[compiler->type].default_linker;
-	if (compiler->triple && str_contains(get_str(wk, compiler->triple), &WKSTR("windows-msvc"))) {
+	if (host_machine.sys == machine_system_windows) {
 		if (compiler->type == compiler_clang) {
 			type = linker_lld_link;
 			msvc_like = true;
@@ -520,7 +520,7 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
 	enum linker_type t = compilers[compiler->type].default_linker;
-	if (compiler->triple && str_contains(get_str(wk, compiler->triple), &WKSTR("windows-msvc"))) {
+	if (host_machine.sys == machine_system_windows) {
 		if (compiler->type == compiler_clang) {
 			t = linker_lld_link;
 		}
