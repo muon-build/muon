@@ -78,6 +78,7 @@ if cc.get_id() == 'msvc'
 
                 '/wd4100', # -Wno-unused-parameter
                 '/wd4706', # assignment within conditional expression
+                '/wd4267', # conversion from x to y, possible loss of data
                 '/wd4244', # conversion from x to y, possible loss of data
                 '/wd4456', # declaration of identifier hides previous local declaration
                 '/wd4457', # declaration of 'identifier' hides function parameter
