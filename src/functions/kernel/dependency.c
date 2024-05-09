@@ -15,11 +15,11 @@
 #include "functions/common.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
-#include "functions/machine.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "machine.h"
 #include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -381,7 +381,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		}
 
 		make_obj(wk, ctx->res, obj_dependency);
-		if (machine_system() == machine_system_darwin) {
+		if (host_machine.sys == machine_system_darwin) {
 			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 			dep->name = make_str(wk, "appleframeworks");
 			dep->flags |= dep_flag_found;

@@ -13,7 +13,7 @@ enum endianness {
 	little_endian,
 };
 
-bool uname_sysname(const char **res);
-bool uname_machine(const char **res);
-bool uname_endian(enum endianness *res);
+const char *uname_sysname(void);
+const char *uname_machine(void);
+enum endianness uname_endian(void);
 #endif

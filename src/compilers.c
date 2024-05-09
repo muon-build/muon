@@ -295,16 +295,15 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 	obj_array_dup(wk, cmd_arr, &new_cmd);
 
 	{
-		uint32_t addr_bits = machine_cpu_address_bits();
-		enum machine_system sys = machine_system();
+		uint32_t addr_bits = host_machine.address_bits;
 
 		const char *plat;
 		SBUF(define);
 
-		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		if (host_machine.is_windows) {
 			plat = "win";
 			sbuf_pushf(wk, &define, "WIN%d", addr_bits);
-		} else if (sys == machine_system_darwin) {
+		} else if (host_machine.sys == machine_system_darwin) {
 			plat = "macho";
 			sbuf_pushs(wk, &define, "MACHO");
 		} else {
@@ -378,6 +377,18 @@ done:
 	return true;
 }
 
+static void
+compiler_refine_host_machine(struct workspace *wk, struct obj_compiler *comp)
+{
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-dumpmachine") && cmd_ctx.status == 0) {
+		machine_parse_and_apply_triplet(&host_machine, cmd_ctx.out.buf);
+	}
+	run_cmd_ctx_destroy(&cmd_ctx);
+
+	// TODO: check for macros like ILP32 and x86_64
+}
+
 static bool
 compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
@@ -396,13 +407,7 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 		struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 		compiler_get_libdirs(wk, compiler);
 
-		{
-			struct run_cmd_ctx dumpmachine_ctx = { 0 };
-			if (run_cmd_arr(wk, &dumpmachine_ctx, cmd_arr, "-dumpmachine") && dumpmachine_ctx.status == 0) {
-				compiler->triple = sbuf_into_str(wk, &dumpmachine_ctx.out);
-			}
-			run_cmd_ctx_destroy(&dumpmachine_ctx);
-		}
+		compiler_refine_host_machine(wk, compiler);
 
 		compiler->lang = lang;
 
@@ -459,7 +464,7 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, compiler->type == compiler_msvc))) {
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, msvc_like))) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
@@ -556,7 +561,7 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 
 	const char **exe_list = NULL;
 
-	if (machine_system() == machine_system_windows) {
+	if (host_machine.sys == machine_system_windows) {
 		static const char *default_executables[][compiler_language_count] = {
 			[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
 			[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
@@ -910,8 +915,7 @@ compiler_gcc_args_pic(void)
 {
 	COMPILER_ARGS({ "-fpic" });
 
-	enum machine_system sys = machine_system();
-	if (sys == machine_system_windows || sys == machine_system_cygwin) {
+	if (host_machine.is_windows) {
 		args.len = 0;
 	} else {
 		args.len = 1;

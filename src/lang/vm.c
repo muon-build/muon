@@ -1737,8 +1737,12 @@ vm_init(struct workspace *wk)
 	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
 
 	make_obj(wk, &id, obj_machine);
-	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
+	set_obj_machine(wk, id, machine_kind_build);
 	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
+
+	make_obj(wk, &id, obj_machine);
+	set_obj_machine(wk, id, machine_kind_host);
+	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
 	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
 
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);

@@ -99,6 +99,8 @@ workspace_init(struct workspace *wk)
 {
 	workspace_init_bare(wk);
 
+	machine_init();
+
 	wk->argv0 = "dummy";
 	wk->build_root = "dummy";
 

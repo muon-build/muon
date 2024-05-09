@@ -15,27 +15,26 @@
 
 #include "platform/uname.h"
 
-bool
-uname_sysname(const char **res)
+const char *
+uname_sysname(void)
 {
-	*res = "windows";
-	return true;
+	return "windows";
 }
 
-bool
-uname_machine(const char **res)
+const char *
+uname_machine(void)
 {
 	SYSTEM_INFO si;
 
 	GetSystemInfo(&si);
 	switch (si.wProcessorArchitecture) {
-	case PROCESSOR_ARCHITECTURE_AMD64: *res = "x86_64"; return true;
-	case PROCESSOR_ARCHITECTURE_ARM: *res = "arm"; return true;
-	case PROCESSOR_ARCHITECTURE_ARM64: *res = "aarch64"; return true;
-	case PROCESSOR_ARCHITECTURE_IA64: *res = "ia64"; return true;
-	case PROCESSOR_ARCHITECTURE_INTEL: *res = "i686"; return true;
+	case PROCESSOR_ARCHITECTURE_AMD64: return "x86_64";
+	case PROCESSOR_ARCHITECTURE_ARM: return "arm";
+	case PROCESSOR_ARCHITECTURE_ARM64: return "aarch64";
+	case PROCESSOR_ARCHITECTURE_IA64: return "ia64";
+	case PROCESSOR_ARCHITECTURE_INTEL: return "i686";
 	case PROCESSOR_ARCHITECTURE_UNKNOWN:
 	/* fall through */
-	default: return false;
+	default: return "unknown";
 	}
 }

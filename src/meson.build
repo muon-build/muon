@@ -78,6 +78,7 @@ src = files(
     'guess.c',
     'install.c',
     'log.c',
+    'machine.c',
     'machine_file.c',
     'main.c',
     'memmem.c',

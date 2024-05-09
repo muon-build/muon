@@ -16,18 +16,19 @@
 #include "datastructures/bucket_arr.h"
 #include "datastructures/iterator.h"
 #include "lang/types.h"
+#include "machine.h"
 
 enum obj_type {
 	/* singleton object types */
 	obj_null,
 	obj_meson,
 	obj_disabler,
-	obj_machine, // this won't be a singleton object when cross compilaton is implemented
 
 	/* simple object types */
 	obj_bool,
 	obj_file,
 	obj_feature_opt,
+	obj_machine,
 
 	/* complex object types */
 	_obj_aos_start,
@@ -515,6 +516,7 @@ enum obj_type get_obj_type(struct workspace *wk, obj id);
 void obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk);
 void obj_clear(struct workspace *wk, const struct obj_clear_mark *mk);
 
+void set_obj_bool(struct workspace *wk, obj o, bool v);
 bool get_obj_bool(struct workspace *wk, obj o);
 void set_obj_bool(struct workspace *wk, obj o, bool v);
 int64_t get_obj_number(struct workspace *wk, obj o);
@@ -524,6 +526,8 @@ const char *get_file_path(struct workspace *wk, obj o);
 const struct str *get_str(struct workspace *wk, obj s);
 enum feature_opt_state get_obj_feature_opt(struct workspace *wk, obj fo);
 void set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state);
+enum machine_kind get_obj_machine(struct workspace *wk, obj o);
+void set_obj_machine(struct workspace *wk, obj o, enum machine_kind kind);
 
 #define OBJ_GETTER(type) struct type *get_##type(struct workspace *wk, obj o)
 

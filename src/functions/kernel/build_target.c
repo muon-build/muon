@@ -17,10 +17,10 @@
 #include "functions/generator.h"
 #include "functions/kernel/build_target.h"
 #include "functions/kernel/dependency.h"
-#include "functions/machine.h"
 #include "install.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "machine.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -401,21 +401,20 @@ determine_target_build_name(struct workspace *wk,
 {
 	char ver_dll[BUF_SIZE_1k];
 	const char *pref, *suff, *ver_suff = NULL;
-	enum machine_system sys = machine_system();
 
 	*ver_dll = '\0';
 
 	switch (tgt->type) {
 	case tgt_executable:
 		pref = "";
-		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		if (host_machine.is_windows) {
 			suff = "exe";
 		} else {
 			suff = NULL;
 		}
 		break;
 	case tgt_static_library:
-		if (sys == machine_system_cygwin) {
+		if (host_machine.sys == machine_system_cygwin) {
 			pref = "cyg";
 		} else {
 			pref = "lib";
@@ -424,15 +423,15 @@ determine_target_build_name(struct workspace *wk,
 		break;
 	case tgt_shared_module:
 	case tgt_dynamic_library:
-		if (sys == machine_system_cygwin) {
+		if (host_machine.sys == machine_system_cygwin) {
 			pref = "cyg";
-		} else if (sys == machine_system_windows) {
+		} else if (host_machine.sys == machine_system_windows) {
 			pref = "";
 		} else {
 			pref = "lib";
 		}
 
-		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		if (host_machine.is_windows) {
 			suff = "dll";
 			if (sover) {
 				strncpy(ver_dll, get_cstr(wk, sover), sizeof(ver_dll) - 1);
@@ -445,7 +444,7 @@ determine_target_build_name(struct workspace *wk,
 					*ver_dll = 0;
 				}
 			}
-		} else if (sys == machine_system_darwin) {
+		} else if (host_machine.sys == machine_system_darwin) {
 			suff = "dylib";
 		} else {
 			suff = "so";
@@ -467,7 +466,7 @@ determine_target_build_name(struct workspace *wk,
 		suff = get_cstr(wk, name_suff);
 	}
 
-	if (sys == machine_system_windows || sys == machine_system_cygwin) {
+	if (host_machine.is_windows) {
 		snprintf(plain_name, BUF_SIZE_2k, "%s%s", pref, get_cstr(wk, tgt->name));
 		tgt->build_name = make_strf(wk,
 			"%s%s%s%s%s",
@@ -643,8 +642,8 @@ create_target(struct workspace *wk,
 	}
 
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
-							  get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
-							  true;
+						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
+						    true;
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {
@@ -751,9 +750,7 @@ create_target(struct workspace *wk,
 
 	// soname handling
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
-		enum machine_system sys = machine_system();
-
-		if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		if (host_machine.is_windows) {
 			setup_dllname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 		} else {
 			setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
@@ -791,9 +788,7 @@ create_target(struct workspace *wk,
 				break;
 			case tgt_dynamic_library:
 			case tgt_shared_module: {
-				enum machine_system sys = machine_system();
-
-				if (sys == machine_system_windows || sys == machine_system_cygwin) {
+				if (host_machine.is_windows) {
 					get_option_value(wk, current_project(wk), "bindir", &install_dir);
 				} else {
 					get_option_value(wk, current_project(wk), "libdir", &install_dir);

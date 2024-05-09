@@ -89,6 +89,7 @@
 #include "lang/vm.c"
 #include "lang/workspace.c"
 #include "log.c"
+#include "machine.c"
 #include "machine_file.c"
 #include "main.c"
 #include "memmem.c"

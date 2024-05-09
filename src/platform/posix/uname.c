@@ -10,6 +10,7 @@
 #include <sys/utsname.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "platform/uname.h"
 
 static struct {
@@ -34,42 +35,35 @@ strncpy_lowered(char *dest, const char *src, uint32_t len)
 	}
 }
 
-static bool
+static void
 uname_init(void)
 {
 	if (uname_info.init) {
-		return true;
+		return;
 	}
 
 	if (uname(&uname_info.uname) == -1) {
-		return false;
+		UNREACHABLE;
 	}
 
 	strncpy_lowered(uname_info.machine, uname_info.uname.machine, BUF_SIZE_2k);
 	strncpy_lowered(uname_info.sysname, uname_info.uname.sysname, BUF_SIZE_2k);
 
 	uname_info.init = true;
-	return true;
 }
 
-bool
-uname_sysname(const char **res)
+const char *
+uname_sysname(void)
 {
-	if (!uname_init()) {
-		return false;
-	}
+	uname_init();
 
-	*res = uname_info.sysname;
-	return true;
+	return uname_info.sysname;
 }
 
-bool
-uname_machine(const char **res)
+const char *
+uname_machine(void)
 {
-	if (!uname_init()) {
-		return false;
-	}
+	uname_init();
 
-	*res = uname_info.machine;
-	return true;
+	return uname_info.machine;
 }

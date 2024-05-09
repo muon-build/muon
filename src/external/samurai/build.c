@@ -9,8 +9,8 @@
 #include <inttypes.h>
 
 #include "external/samurai/ctx.h"
-#include "functions/machine.h"
 #include "log.h"
+#include "machine.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
@@ -67,7 +67,10 @@ samu_isdirty(struct samu_ctx *ctx, struct samu_node *n, struct samu_node *newest
 	if (samu_isnewer(newest, n) && (!restat || n->logmtime == SAMU_MTIME_MISSING)) {
 		if (ctx->buildopts.explain) {
 			samu_warn("explain %s: older than input '%s': %" PRId64 " vs %" PRId64,
-			     n->path->s, newest->path->s, n->mtime, newest->mtime);
+				n->path->s,
+				newest->path->s,
+				n->mtime,
+				newest->mtime);
 		}
 		return true;
 	}
@@ -80,7 +83,10 @@ samu_isdirty(struct samu_ctx *ctx, struct samu_node *n, struct samu_node *newest
 	} else if (newest && n->logmtime < newest->mtime) {
 		if (ctx->buildopts.explain) {
 			samu_warn("explain %s: recorded mtime is older than input '%s': %" PRId64 " vs %" PRId64,
-			     n->path->s, newest->path->s, n->logmtime, newest->mtime);
+				n->path->s,
+				newest->path->s,
+				n->logmtime,
+				newest->mtime);
 		}
 		return true;
 	}
@@ -204,33 +210,17 @@ samu_formatstatus(struct samu_ctx *ctx, char *buf, size_t len)
 		}
 		n = 0;
 		switch (*fmt) {
-		case 's':
-			n = snprintf(buf, len, "%zu", ctx->build.nstarted);
-			break;
-		case 'f':
-			n = snprintf(buf, len, "%zu", ctx->build.nfinished);
-			break;
-		case 't':
-			n = snprintf(buf, len, "%zu", ctx->build.ntotal);
-			break;
-		case 'r':
-			n = snprintf(buf, len, "%zu", ctx->build.nstarted - ctx->build.nfinished);
-			break;
-		case 'u':
-			n = snprintf(buf, len, "%zu", ctx->build.ntotal - ctx->build.nstarted);
-			break;
-		case 'p':
-			n = snprintf(buf, len, "%3zu%%", 100 * ctx->build.nfinished / ctx->build.ntotal);
-			break;
-		case 'o':
-			n = snprintf(buf, len, "%.1f", ctx->build.nfinished / timer_read(&ctx->build.timer));
-			break;
-		case 'e':
-			n = snprintf(buf, len, "%.3f", timer_read(&ctx->build.timer));
-			break;
+		case 's': n = snprintf(buf, len, "%zu", ctx->build.nstarted); break;
+		case 'f': n = snprintf(buf, len, "%zu", ctx->build.nfinished); break;
+		case 't': n = snprintf(buf, len, "%zu", ctx->build.ntotal); break;
+		case 'r': n = snprintf(buf, len, "%zu", ctx->build.nstarted - ctx->build.nfinished); break;
+		case 'u': n = snprintf(buf, len, "%zu", ctx->build.ntotal - ctx->build.nstarted); break;
+		case 'p': n = snprintf(buf, len, "%3zu%%", 100 * ctx->build.nfinished / ctx->build.ntotal); break;
+		case 'o': n = snprintf(buf, len, "%.1f", ctx->build.nfinished / timer_read(&ctx->build.timer)); break;
+		case 'e': n = snprintf(buf, len, "%.3f", timer_read(&ctx->build.timer)); break;
 		default:
 			samu_fatal("unknown placeholder '%%%c' in $NINJA_STATUS", *fmt);
-			continue;  /* unreachable, but avoids warning */
+			continue; /* unreachable, but avoids warning */
 		}
 		if (n < 0)
 			samu_fatal("snprintf:");
@@ -286,7 +276,7 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 
 	j->edge = e;
 	j->cmd = samu_edgevar(ctx, e, "command", true);
-	j->cmd_ctx = (struct run_cmd_ctx) {
+	j->cmd_ctx = (struct run_cmd_ctx){
 		.flags = run_cmd_ctx_flag_async,
 	};
 
@@ -297,12 +287,11 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 	if (!ctx->build.consoleused)
 		samu_printstatus(ctx, e, j->cmd);
 
-
 	bool cmd_started = false;
-	if (machine_system() == machine_system_windows) {
+	if (build_machine.is_windows) {
 		cmd_started = run_cmd_unsplit(&j->cmd_ctx, j->cmd->s, 0, 0);
 	} else {
-		char *argv[] = {"/bin/sh", "-c", j->cmd->s, NULL};
+		char *argv[] = { "/bin/sh", "-c", j->cmd->s, NULL };
 		cmd_started = run_cmd_argv(&j->cmd_ctx, argv, 0, 0);
 	}
 
@@ -521,5 +510,5 @@ samu_build(struct samu_ctx *ctx)
 		else
 			samu_fatal("subcommand failed");
 	}
-	ctx->build.ntotal = 0;  /* reset in case we just rebuilt the manifest */
+	ctx->build.ntotal = 0; /* reset in case we just rebuilt the manifest */
 }

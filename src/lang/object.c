@@ -36,7 +36,11 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	switch (type) {
 	case obj_bool:
 	case obj_file:
-	case obj_feature_opt: return &o->val; break;
+	case obj_feature_opt:
+	case obj_machine: {
+		return &o->val;
+		break;
+	}
 
 	case obj_number:
 	case obj_string:
@@ -70,8 +74,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 
 	case obj_null:
 	case obj_meson:
-	case obj_disabler:
-	case obj_machine: LOG_E("tried to get singleton object of type %s", obj_type_to_s(type)); abort();
+	case obj_disabler: LOG_E("tried to get singleton object of type %s", obj_type_to_s(type)); abort();
 
 	default: assert(false && "tried to get invalid object type"); return NULL;
 	}
@@ -151,6 +154,18 @@ void
 set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state)
 {
 	*(enum feature_opt_state *)get_obj_internal(wk, fo, obj_feature_opt) = state;
+}
+
+enum machine_kind
+get_obj_machine(struct workspace *wk, obj o)
+{
+	return *(enum machine_kind *)get_obj_internal(wk, o, obj_machine);
+}
+
+void
+set_obj_machine(struct workspace *wk, obj o, enum machine_kind kind)
+{
+	*(enum machine_kind *)get_obj_internal(wk, o, obj_machine) = kind;
 }
 
 #define OBJ_GETTER(type)                                     \
