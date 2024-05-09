@@ -217,14 +217,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		obj_array_extend_nodup(wk, implicit_link_deps, arr);
 	}
 
-	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-		push_args(wk, ctx.args.link_args, linkers[linker].args.shared());
-		push_args(wk, ctx.args.link_args, linkers[linker].args.soname(get_cstr(wk, tgt->soname)));
-		if (tgt->type == tgt_shared_module) {
-			push_args(wk, ctx.args.link_args, linkers[linker].args.allow_shlib_undefined());
-		}
-	}
-
 	const char *linker_type, *link_args;
 	switch (tgt->type) {
 	case tgt_shared_module:

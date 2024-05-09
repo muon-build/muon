@@ -271,7 +271,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	case compile_mode_preprocess: push_args(wk, compiler_args, compilers[t].args.preprocess_only()); break;
 	case compile_mode_compile: push_args(wk, compiler_args, compilers[t].args.compile_only()); break;
 	case compile_mode_run: break;
-	case compile_mode_link: push_args(wk, compiler_args, linkers[comp->linker_type].args.fatal_warnings()); break;
+	case compile_mode_link: {
+		push_args(wk,
+			compiler_args,
+			compilers[t].args.linker_passthrough_1s(linkers[comp->linker_type].args.fatal_warnings()));
+		break;
+	}
 	}
 
 	obj source_path;

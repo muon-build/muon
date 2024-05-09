@@ -507,10 +507,14 @@ push_linker_args(struct workspace *wk, struct setup_linker_args_ctx *ctx, const 
 		return;
 	}
 
-	L("pushing linker args %d", ctx->compiler->linker_passthrough);
 	if (ctx->compiler->linker_passthrough) {
 		switch (args->len) {
 		case 1: {
+			// Special linker args that shouldn't be wrapped
+			if (strcmp(args->args[0], "-shared") == 0) {
+				break;
+			}
+
 			args = compilers[ctx->compiler->type].args.linker_passthrough_1s(args);
 			break;
 		}
@@ -671,6 +675,14 @@ setup_linker_args(struct workspace *wk,
 		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, push_not_found_lib_iter);
 
 		push_linker_args(wk, ctx, linkers[ctx->linker].args.end_group());
+	}
+
+	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
+		push_linker_args(wk, ctx, linkers[ctx->linker].args.shared());
+		push_linker_args(wk, ctx, linkers[ctx->linker].args.soname(get_cstr(wk, tgt->soname)));
+		if (tgt->type == tgt_shared_module) {
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.allow_shlib_undefined());
+		}
 	}
 }
 
