@@ -33,6 +33,7 @@
 #include "functions/source_set.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
+#include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -112,6 +113,8 @@ build_func_impl_tables(void)
 			copy_func_impl_group(&module_func_impl_groups[m][lang_mode], &off);
 		}
 	}
+
+	copy_func_impl_group(&az_func_impl_group, &off);
 }
 
 /******************************************************************************

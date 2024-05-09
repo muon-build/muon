@@ -20,10 +20,10 @@
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
-#include "lang/func_lookup.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/fmt.h"
+#include "lang/func_lookup.h"
 #include "lang/serial.h"
 #include "machine_file.h"
 #include "meson_opts.h"
@@ -270,10 +270,10 @@ ret:
 static bool
 cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct analyze_opts opts = {
+	struct az_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_include_sources,
-		.enabled_diagnostics = analyze_diagnostic_unused_variable | analyze_diagnostic_dead_code
-				       | analyze_diagnostic_redirect_script_error,
+		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
+				       | az_diagnostic_redirect_script_error,
 	};
 
 	OPTSTART("luqO:W:i:td:") {
@@ -287,31 +287,31 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 	case 't': opts.eval_trace = true; break;
 	case 'd': opts.get_definition_for = optarg; break;
 	case 'W': {
-		/* bool enable = true; */
-		/* const char *name = optarg; */
-		/* if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) { */
-		/* 	enable = false; */
-		/* 	name += 3; */
-		/* } */
+		bool enable = true;
+		const char *name = optarg;
+		if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) {
+			enable = false;
+			name += 3;
+		}
 
-		/* if (strcmp(name, "list") == 0) { */
-		/* 	analyze_print_diagnostic_names(); */
-		/* 	return true; */
-		/* } else if (strcmp(name, "error") == 0) { */
-		/* 	opts.replay_opts |= error_diagnostic_store_replay_werror; */
-		/* } else { */
-		/* 	enum analyze_diagnostic d; */
-		/* 	if (!analyze_diagnostic_name_to_enum(name, &d)) { */
-		/* 		LOG_E("invalid diagnostic name '%s'", name); */
-		/* 		return false; */
-		/* 	} */
+		if (strcmp(name, "list") == 0) {
+			az_print_diagnostic_names();
+			return true;
+		} else if (strcmp(name, "error") == 0) {
+			opts.replay_opts |= error_diagnostic_store_replay_werror;
+		} else {
+			enum az_diagnostic d;
+			if (!az_diagnostic_name_to_enum(name, &d)) {
+				LOG_E("invalid diagnostic name '%s'", name);
+				return false;
+			}
 
-		/* 	if (enable) { */
-		/* 		opts.enabled_diagnostics |= d; */
-		/* 	} else { */
-		/* 		opts.enabled_diagnostics &= ~d; */
-		/* 	} */
-		/* } */
+			if (enable) {
+				opts.enabled_diagnostics |= d;
+			} else {
+				opts.enabled_diagnostics &= ~d;
+			}
+		}
 		break;
 	}
 	}
@@ -609,8 +609,10 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	bool embedded = false;
 
 	OPTSTART("es") {
-	case 'e': embedded = true; break;
-	/* case 's': disable_fuzz_unsafe_functions = true; break; */
+	case 'e':
+		embedded = true;
+		break;
+		/* case 's': disable_fuzz_unsafe_functions = true; break; */
 	}
 	OPTEND(argv[argi],
 		" <filename> [args]",

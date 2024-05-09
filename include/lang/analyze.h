@@ -9,14 +9,14 @@
 #include "error.h"
 #include "workspace.h"
 
-enum analyze_diagnostic {
-	analyze_diagnostic_unused_variable = 1 << 0,
-	analyze_diagnostic_reassign_to_conflicting_type = 1 << 1,
-	analyze_diagnostic_dead_code = 1 << 2,
-	analyze_diagnostic_redirect_script_error = 1 << 3,
+enum az_diagnostic {
+	az_diagnostic_unused_variable = 1 << 0,
+	az_diagnostic_reassign_to_conflicting_type = 1 << 1,
+	az_diagnostic_dead_code = 1 << 2,
+	az_diagnostic_redirect_script_error = 1 << 3,
 };
 
-struct analyze_opts {
+struct az_opts {
 	bool subdir_error;
 	bool eval_trace;
 	enum error_diagnostic_store_replay_opts replay_opts;
@@ -24,9 +24,12 @@ struct analyze_opts {
 	uint64_t enabled_diagnostics;
 };
 
-bool analyze_diagnostic_name_to_enum(const char *name, enum analyze_diagnostic *ret);
-void analyze_print_diagnostic_names(void);
-void analyze_check_dead_code(struct workspace *wk, struct ast *ast);
+bool az_diagnostic_name_to_enum(const char *name, enum az_diagnostic *ret);
+void az_print_diagnostic_names(void);
+void az_check_dead_code(struct workspace *wk, struct ast *ast);
+void az_set_error(void);
 
-bool do_analyze(struct analyze_opts *opts);
+extern struct func_impl_group az_func_impl_group;
+
+bool do_analyze(struct az_opts *opts);
 #endif

@@ -19,20 +19,20 @@
 static struct {
 	bool error;
 	uint32_t impure_loop_depth, impure_branch_depth;
-	const struct analyze_opts *opts;
+	const struct az_opts *opts;
 	obj eval_trace;
 	struct obj_func *fp;
 	struct vm_ops unpatched_ops;
 } analyzer;
 
-struct analyze_file_entrypoint {
+struct az_file_entrypoint {
 	bool is_root, has_diagnostic;
 	enum log_level lvl;
 	struct source_location location;
 	uint32_t src_idx;
 };
 
-static struct arr analyze_entrypoint_stack, analyze_entrypoint_stacks;
+static struct arr az_entrypoint_stack, az_entrypoint_stacks;
 
 struct assignment {
 	const char *name;
@@ -47,17 +47,73 @@ struct assignment {
 
 struct bucket_arr assignments;
 
-static void
-copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
+void
+az_set_error(void)
 {
-	if (analyze_entrypoint_stack.len) {
-		*ep_stacks_i = analyze_entrypoint_stacks.len;
-		arr_grow_by(&analyze_entrypoint_stacks, analyze_entrypoint_stack.len);
-		*ep_stack_len = analyze_entrypoint_stack.len;
+	analyzer.error = true;
+}
 
-		memcpy(arr_get(&analyze_entrypoint_stacks, *ep_stacks_i),
-			analyze_entrypoint_stack.e,
-			sizeof(struct analyze_file_entrypoint) * analyze_entrypoint_stack.len);
+/******************************************************************************
+ * typeinfo utilities
+ ******************************************************************************/
+
+struct obj_tainted_by_typeinfo_ctx {
+	bool allow_tainted_dict_values;
+};
+
+static bool obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx);
+
+static enum iteration_result
+obj_tainted_by_typeinfo_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+{
+	struct obj_tainted_by_typeinfo_ctx *ctx = _ctx;
+	if (obj_tainted_by_typeinfo(wk, k, 0)) {
+		return ir_err;
+	}
+
+	if (ctx && !ctx->allow_tainted_dict_values && obj_tainted_by_typeinfo(wk, v, 0)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+obj_tainted_by_typeinfo_array_iter(struct workspace *wk, void *_ctx, obj v)
+{
+	if (obj_tainted_by_typeinfo(wk, v, _ctx)) {
+		return ir_err;
+	}
+
+	return ir_cont;
+}
+
+static bool
+obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx)
+{
+	if (!o) {
+		return true;
+	}
+
+	switch (get_obj_type(wk, o)) {
+	case obj_typeinfo: return true;
+	case obj_array: return !obj_array_foreach(wk, o, ctx, obj_tainted_by_typeinfo_array_iter);
+	case obj_dict: return !obj_dict_foreach(wk, o, ctx, obj_tainted_by_typeinfo_dict_iter);
+	default: return false;
+	}
+}
+
+static void
+copy_az_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
+{
+	if (az_entrypoint_stack.len) {
+		*ep_stacks_i = az_entrypoint_stacks.len;
+		arr_grow_by(&az_entrypoint_stacks, az_entrypoint_stack.len);
+		*ep_stack_len = az_entrypoint_stack.len;
+
+		memcpy(arr_get(&az_entrypoint_stacks, *ep_stacks_i),
+			az_entrypoint_stack.e,
+			sizeof(struct az_file_entrypoint) * az_entrypoint_stack.len);
 	} else {
 		*ep_stacks_i = 0;
 		*ep_stack_len = 0;
@@ -65,16 +121,16 @@ copy_analyze_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
 }
 
 static void
-mark_analyze_entrypoint_as_containing_diagnostic(uint32_t ep_stacks_i, enum log_level lvl)
+mark_az_entrypoint_as_containing_diagnostic(uint32_t ep_stacks_i, enum log_level lvl)
 {
-	struct analyze_file_entrypoint *ep = arr_get(&analyze_entrypoint_stacks, ep_stacks_i);
+	struct az_file_entrypoint *ep = arr_get(&az_entrypoint_stacks, ep_stacks_i);
 
 	ep->has_diagnostic = true;
 	ep->lvl = lvl;
 }
 
 static bool
-analyze_diagnostic_enabled(enum analyze_diagnostic d)
+az_diagnostic_enabled(enum az_diagnostic d)
 {
 	return analyzer.opts->enabled_diagnostics & d;
 }
@@ -140,6 +196,77 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 	a->type |= coerce_type_tag(wk, r);
 }
 
+struct az_ctx {
+	type_tag expected;
+	type_tag found;
+	const struct func_impl *found_func;
+	obj found_func_obj, found_func_module;
+	struct obj_typeinfo ti;
+	obj l;
+};
+
+typedef void((az_for_each_type_cb)(struct workspace *wk, struct az_ctx *ctx, uint32_t n_id, type_tag t, obj *res));
+
+static void
+az_for_each_type(struct workspace *wk,
+	struct az_ctx *ctx,
+	uint32_t n_id,
+	obj o,
+	type_tag typemask,
+	az_for_each_type_cb cb,
+	obj *res)
+{
+	obj r = 0;
+
+	type_tag t;
+	if ((t = get_obj_type(wk, o)) == obj_typeinfo) {
+		t = get_obj_typeinfo(wk, o)->type;
+	}
+
+	if (t & obj_typechecking_type_tag) {
+		if (t == tc_disabler) {
+			vm_warning_at(wk, n_id, "this expression is always disabled");
+			ctx->expected = tc_any;
+			*res = make_typeinfo(wk, tc_disabler);
+			ctx->found = 2; // set found to > 1 to indicate the
+				// method exists but it is unknown
+				// which one it is.
+			return;
+		} else if ((t & tc_disabler) == tc_disabler) {
+			t &= ~tc_disabler;
+			t |= obj_typechecking_type_tag;
+		}
+
+		struct obj_typeinfo res_t = { 0 };
+
+		if (typemask) {
+			t &= typemask;
+		}
+
+		type_tag ot;
+		for (ot = 1; ot <= tc_type_count; ++ot) {
+			type_tag tc = obj_type_to_tc_type(ot);
+
+			if ((t & tc) == tc) {
+				r = 0;
+				cb(wk, ctx, n_id, ot, &r);
+				if (r) {
+					merge_types(wk, &res_t, r);
+				}
+			}
+		}
+
+		make_obj(wk, res, obj_typeinfo);
+		*get_obj_typeinfo(wk, *res) = res_t;
+	} else {
+		cb(wk, ctx, n_id, t, res);
+	}
+}
+
+/******************************************************************************
+ * scope handling
+ ******************************************************************************/
+
 /*
  * Variable assignment and retrieval is handled with the following functions.
  * The additional complexity is required due to variables that are
@@ -151,7 +278,7 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
  * merged) into the parent scope, and the scope group is popped.
  */
 
-struct check_analyze_scope_ctx {
+struct check_az_scope_ctx {
 	const char *name;
 	uint32_t i;
 	obj res, scope;
@@ -160,10 +287,10 @@ struct check_analyze_scope_ctx {
 
 // example local_scope: [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
 static enum iteration_result
-analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
+az_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 {
 	TracyCZoneAutoS;
-	struct check_analyze_scope_ctx *ctx = _ctx;
+	struct check_az_scope_ctx *ctx = _ctx;
 
 	obj base;
 	obj_array_index(wk, local_scope, 0, &base);
@@ -175,7 +302,7 @@ analyze_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
 		// example: [{b: 2}, {b: 3}], -- take last
 		// example: [{c: 4}]          -- take last
 		for (i = local_scope_len - 1; i >= 1; --i) {
-			struct check_analyze_scope_ctx *ctx = _ctx;
+			struct check_az_scope_ctx *ctx = _ctx;
 
 			obj scope_group;
 			obj_array_index(wk, local_scope, i, &scope_group);
@@ -205,8 +332,8 @@ static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
 	TracyCZoneAutoS;
-	struct check_analyze_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, analyze_check_scope_stack);
+	struct check_az_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, az_check_scope_stack);
 
 	if (ctx.found) {
 		TracyCZoneAutoE;
@@ -221,8 +348,8 @@ static obj
 assign_lookup_scope(struct workspace *wk, const char *name)
 {
 	TracyCZoneAutoS;
-	struct check_analyze_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, analyze_check_scope_stack);
+	struct check_az_scope_ctx ctx = { .name = name };
+	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, az_check_scope_stack);
 
 	if (ctx.found) {
 		TracyCZoneAutoE;
@@ -234,7 +361,7 @@ assign_lookup_scope(struct workspace *wk, const char *name)
 }
 
 static void
-analyze_unassign(struct workspace *wk, const char *name)
+az_unassign(struct workspace *wk, const char *name)
 {
 	obj scope = assign_lookup_scope(wk, name);
 	if (scope) {
@@ -249,7 +376,7 @@ check_reassign_to_different_type(struct workspace *wk,
 	struct assignment *new_a,
 	uint32_t n_id)
 {
-	if (!analyze_diagnostic_enabled(analyze_diagnostic_reassign_to_conflicting_type)) {
+	if (!az_diagnostic_enabled(az_diagnostic_reassign_to_conflicting_type)) {
 		return;
 	}
 
@@ -278,7 +405,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// initialize source location to 0 since some variables don't have
 	// anything to put there, like builtin variables
 	uint32_t src_idx, ep_stack_len = 0, ep_stacks_i = 0;
-	copy_analyze_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
+	copy_az_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
 
 	struct source_location loc;
 	vm_lookup_inst_location_src_idx(&wk->vm, ip, &loc, &src_idx);
@@ -477,17 +604,17 @@ pop_scope_group(struct workspace *wk)
 }
 
 /******************************************************************************
- * analyzer behavior functions
+ * analyzer behaviors
  ******************************************************************************/
 
 static void
-analyze_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
+az_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
 	scope_assign(wk, name, o, n_id, mode);
 }
 
 static bool
-analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
+az_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
 {
 	struct assignment *a = assign_lookup(wk, name);
 	if (a) {
@@ -500,7 +627,7 @@ analyze_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
 }
 
 static void
-analyze_push_local_scope(struct workspace *wk)
+az_push_local_scope(struct workspace *wk)
 {
 	obj scope_group;
 	make_obj(wk, &scope_group, obj_array);
@@ -511,14 +638,14 @@ analyze_push_local_scope(struct workspace *wk)
 }
 
 static void
-analyze_pop_local_scope(struct workspace *wk)
+az_pop_local_scope(struct workspace *wk)
 {
 	obj scope_group = obj_array_pop(wk, wk->vm.scope_stack);
 	assert(get_obj_array(wk, scope_group)->len == 1);
 }
 
 static enum iteration_result
-analyze_scope_stack_scope_dup_iter(struct workspace *wk, void *_ctx, obj v)
+az_scope_stack_scope_dup_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	obj *g = _ctx;
 	obj scope;
@@ -528,28 +655,28 @@ analyze_scope_stack_scope_dup_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 static enum iteration_result
-analyze_scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj scope_group)
+az_scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj scope_group)
 {
 	obj *r = _ctx;
 	obj g;
 	make_obj(wk, &g, obj_array);
-	obj_array_foreach(wk, scope_group, &g, analyze_scope_stack_scope_dup_iter);
+	obj_array_foreach(wk, scope_group, &g, az_scope_stack_scope_dup_iter);
 	obj_array_push(wk, *r, g);
 	return ir_cont;
 }
 
 static obj
-analyze_scope_stack_dup(struct workspace *wk, obj scope_stack)
+az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
 	obj r;
 	make_obj(wk, &r, obj_array);
 
-	obj_array_foreach(wk, scope_stack, &r, analyze_scope_stack_dup_iter);
+	obj_array_foreach(wk, scope_stack, &r, az_scope_stack_dup_iter);
 	return r;
 }
 
 static bool
-analyze_eval_project_file(struct workspace *wk, const char *path, bool first)
+az_eval_project_file(struct workspace *wk, const char *path, bool first)
 {
 	const char *newpath = path;
 	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
@@ -574,40 +701,216 @@ ret:
 	return eval_project_file(wk, newpath, first);
 }
 
-// HACK: This works like disabler_among_args kind of.  These opts should only
-// ever be set by analyze_function().
-/* static struct analyze_function_opts { */
-/* 	bool do_analyze; */
-/* 	bool pure_function; */
-/* 	bool encountered_error; */
-/* 	bool allow_impure_args, allow_impure_args_except_first; // set to true for set_variable and subdir */
+/******************************************************************************
+ * analyzer behaviors -- function lookup and dispatch
+ ******************************************************************************/
 
-/* 	bool dump_signature; // used when dumping funciton signatures */
-/* } analyze_function_opts; */
+static struct obj_typeinfo az_injected_native_func_return;
 
 static bool
-analyze_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *res)
+az_injected_native_func(struct workspace *wk, obj self, obj *res)
 {
-	if (!native_funcs[func_idx].pure) {
-		*res = make_typeinfo(wk, native_funcs[func_idx].return_type);
-		L("skipping call %s", native_funcs[func_idx].name);
+	L("calling injected native func");
+	*res = make_typeinfo(wk, az_injected_native_func_return.type);
+	return true;
+}
+
+static const struct func_impl az_func_impls[] = {
+	{ "az_injected_native_func", az_injected_native_func },
+};
+
+struct func_impl_group az_func_impl_group = {
+	.impls = az_func_impls,
+};
+
+static bool
+az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func)
+{
+	// If self isn't typeinfo just proceed with standard func_lookup
+	if (get_obj_type(wk, self) != obj_typeinfo) {
+		return func_lookup(wk, self, name, idx, func);
+	}
+
+	struct obj_typeinfo res_t = { 0 }, *ti = get_obj_typeinfo(wk, self);
+	struct {
+		uint32_t idx;
+		uint32_t matches;
+		obj func;
+	} lookup_res = { 0 };
+	type_tag t = ti->type;
+	uint32_t i;
+
+	// Strip disabler from type list
+	if ((t & tc_disabler) == tc_disabler) {
+		t &= ~tc_disabler;
+		t |= obj_typechecking_type_tag;
+	}
+
+	for (i = 1; i <= tc_type_count; ++i) {
+		type_tag tc = obj_type_to_tc_type(i);
+		if ((t & tc) != tc) {
+			continue;
+		}
+
+		if (func_lookup(wk, self, name, &lookup_res.idx, &lookup_res.func)) {
+			++lookup_res.matches;
+
+			merge_types(wk, &res_t, native_funcs[*idx].return_type);
+		}
+	}
+
+	if (lookup_res.matches < 1) {
+		// No matches found
+		return false;
+	} else if (lookup_res.matches > 1) {
+		// Multiple matches found, return the index of az_injected_native_func
+		// and wire it up to return our merged return type.
+		az_injected_native_func_return = res_t;
+		*idx = az_func_impl_group.off;
+		*func = 0;
+	} else {
+		// Single match found, return it
+		*idx = lookup_res.idx;
+		*func = lookup_res.func;
+	}
+
+	return true;
+}
+
+struct az_pop_args_ctx {
+	bool do_analyze;
+	bool pure_function;
+	bool encountered_error;
+	bool allow_impure_args;
+	bool allow_impure_args_except_first; // set to true for set_variable and subdir
+} pop_args_ctx;
+
+static bool
+az_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
+{
+	if (!vm_pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	pop_args_ctx.encountered_error = false;
+
+	if (!pop_args_ctx.do_analyze) {
 		return true;
 	}
 
-	L("about to call %s", native_funcs[func_idx].name);
-	return native_funcs[func_idx].func(wk, self, res);
+	bool typeinfo_among_args = false;
+
+	{ // Check if any argument value is tainted
+		uint32_t i;
+		for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {
+			if (!an[i].set) {
+				continue;
+			}
+
+			if (pop_args_ctx.allow_impure_args) {
+				continue;
+			} else if (pop_args_ctx.allow_impure_args_except_first && i > 0) {
+				continue;
+			}
+
+			if (obj_tainted_by_typeinfo(wk, an[i].val, 0)) {
+				typeinfo_among_args = true;
+				break;
+			}
+		}
+
+		if (!typeinfo_among_args && akw) {
+			for (i = 0; akw[i].key; ++i) {
+				if (!akw[i].set) {
+					continue;
+				}
+
+				if (pop_args_ctx.allow_impure_args || pop_args_ctx.allow_impure_args_except_first) {
+					continue;
+				}
+
+				if (obj_tainted_by_typeinfo(wk, akw[i].val, 0)) {
+					typeinfo_among_args = true;
+					break;
+				}
+			}
+		}
+	}
+
+	if (typeinfo_among_args) {
+		pop_args_ctx.pure_function = false;
+	}
+
+	if (pop_args_ctx.pure_function) {
+		return true;
+	}
+
+	// now return false to halt the function
+	return false;
+}
+
+static bool
+az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *res)
+{
+	struct az_pop_args_ctx _ctx = { 0 };
+	stack_push(&wk->stack, pop_args_ctx, _ctx);
+
+	*res = 0;
+	bool pure = native_funcs[func_idx].pure;
+
+	struct obj_tainted_by_typeinfo_ctx tainted_ctx = { .allow_tainted_dict_values = true };
+	if (self && obj_tainted_by_typeinfo(wk, self, &tainted_ctx)) {
+		pure = false;
+	}
+
+	if (!self) {
+		if (strcmp(native_funcs[func_idx].name, "subdir") == 0) {
+			pop_args_ctx.allow_impure_args_except_first = true;
+		} else if (strcmp(native_funcs[func_idx].name, "p") == 0) {
+			pop_args_ctx.allow_impure_args = true;
+		}
+	}
+
+	pop_args_ctx.do_analyze = true;
+	// pure_function can be set to false even if it was true in the case
+	// that any of its arguments are of type obj_typeinfo
+	pop_args_ctx.pure_function = pure;
+	pop_args_ctx.encountered_error = true;
+
+	L("about to call %s, pure: %d", native_funcs[func_idx].name, pure);
+	bool func_ok = native_funcs[func_idx].func(wk, self, res);
+
+	pure = pop_args_ctx.pure_function;
+
+	bool args_ok = !pop_args_ctx.encountered_error;
+
+	L("called %s: func_ok: %d, pure: %d, args_ok: %d", native_funcs[func_idx].name, func_ok, pure, args_ok);
+
+	stack_pop(&wk->stack, pop_args_ctx);
+
+	if (pure) {
+		return func_ok;
+	}
+
+	*res = make_typeinfo(wk, native_funcs[func_idx].return_type);
+
+	if (!args_ok) {
+		// Add error here if func was subdir
+	}
+
+	return args_ok;
 }
 
 #if 0
 bool
-analyze_function(struct workspace *wk,
+az_function(struct workspace *wk,
 	const struct func_impl *fi,
 	uint32_t args_node,
 	obj self,
 	obj *res,
 	bool *was_pure)
 {
-	struct analyze_function_opts old_opts = analyze_function_opts;
+	struct pop_args_ctx old_opts = pop_args_ctx;
 	*res = 0;
 
 	bool pure = fi->pure;
@@ -619,24 +922,24 @@ analyze_function(struct workspace *wk,
 
 	if (!self) {
 		if (strcmp(fi->name, "set_variable") == 0 || strcmp(fi->name, "subdir") == 0) {
-			analyze_function_opts.allow_impure_args_except_first = true;
+			pop_args_ctx.allow_impure_args_except_first = true;
 		} else if (strcmp(fi->name, "p") == 0) {
-			analyze_function_opts.allow_impure_args = true;
+			pop_args_ctx.allow_impure_args = true;
 		}
 	}
 
-	analyze_function_opts.do_analyze = true;
+	pop_args_ctx.do_analyze = true;
 	// pure_function can be set to false even if it was true in the case
 	// that any of its arguments are of type obj_typeinfo
-	analyze_function_opts.pure_function = pure;
-	analyze_function_opts.encountered_error = true;
+	pop_args_ctx.pure_function = pure;
+	pop_args_ctx.encountered_error = true;
 
 	bool func_ret = fi->func(wk, self, args_node, res);
 
-	pure = analyze_function_opts.pure_function;
-	bool ok = !analyze_function_opts.encountered_error;
+	pure = pop_args_ctx.pure_function;
+	bool ok = !pop_args_ctx.encountered_error;
 
-	analyze_function_opts = old_opts;
+	pop_args_ctx = old_opts;
 
 	*was_pure = pure;
 
@@ -648,12 +951,6 @@ analyze_function(struct workspace *wk,
 	return false;
 }
 #endif
-
-static bool
-analyze_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
-{
-	return vm_pop_args(wk, an, akw);
-}
 
 /******************************************************************************
  * eval trace helpers
@@ -736,21 +1033,21 @@ eval_trace_print(struct workspace *wk, void *_ctx, obj v)
 
 static const struct {
 	const char *name;
-	enum analyze_diagnostic d;
-} analyze_diagnostic_names[] = {
-	{ "unused-variable", analyze_diagnostic_unused_variable },
-	{ "reassign-to-conflicting-type", analyze_diagnostic_reassign_to_conflicting_type },
-	{ "dead-code", analyze_diagnostic_dead_code },
-	{ "redirect-script-error", analyze_diagnostic_redirect_script_error },
+	enum az_diagnostic d;
+} az_diagnostic_names[] = {
+	{ "unused-variable", az_diagnostic_unused_variable },
+	{ "reassign-to-conflicting-type", az_diagnostic_reassign_to_conflicting_type },
+	{ "dead-code", az_diagnostic_dead_code },
+	{ "redirect-script-error", az_diagnostic_redirect_script_error },
 };
 
 bool
-analyze_diagnostic_name_to_enum(const char *name, enum analyze_diagnostic *ret)
+az_diagnostic_name_to_enum(const char *name, enum az_diagnostic *ret)
 {
 	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(analyze_diagnostic_names); ++i) {
-		if (strcmp(analyze_diagnostic_names[i].name, name) == 0) {
-			*ret = analyze_diagnostic_names[i].d;
+	for (i = 0; i < ARRAY_LEN(az_diagnostic_names); ++i) {
+		if (strcmp(az_diagnostic_names[i].name, name) == 0) {
+			*ret = az_diagnostic_names[i].d;
 			return true;
 		}
 	}
@@ -759,11 +1056,11 @@ analyze_diagnostic_name_to_enum(const char *name, enum analyze_diagnostic *ret)
 }
 
 void
-analyze_print_diagnostic_names(void)
+az_print_diagnostic_names(void)
 {
 	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(analyze_diagnostic_names); ++i) {
-		printf("%s\n", analyze_diagnostic_names[i].name);
+	for (i = 0; i < ARRAY_LEN(az_diagnostic_names); ++i) {
+		printf("%s\n", az_diagnostic_names[i].name);
 	}
 }
 
@@ -785,7 +1082,7 @@ reassign_default_var(struct workspace *wk, void *_ctx, obj k, obj v)
 }
 
 bool
-do_analyze(struct analyze_opts *opts)
+do_analyze(struct az_opts *opts)
 {
 	bool res = false;
 	analyzer.opts = opts;
@@ -804,24 +1101,24 @@ do_analyze(struct analyze_opts *opts)
 		obj_dict_foreach(&wk, default_scope_stack, &scope, reassign_default_var);
 	}
 
-	wk.vm.behavior.assign_variable = analyze_assign_wrapper;
-	wk.vm.behavior.unassign_variable = analyze_unassign;
-	wk.vm.behavior.push_local_scope = analyze_push_local_scope;
-	wk.vm.behavior.pop_local_scope = analyze_pop_local_scope;
-	wk.vm.behavior.get_variable = analyze_lookup_wrapper;
-	wk.vm.behavior.scope_stack_dup = analyze_scope_stack_dup;
-	wk.vm.behavior.eval_project_file = analyze_eval_project_file;
-	wk.vm.behavior.native_func_dispatch = analyze_native_func_dispatch;
-	wk.vm.behavior.pop_args = analyze_pop_args;
-	/* wk.vm.behavior.lookup_method = analyze_lookup_method; */
+	wk.vm.behavior.assign_variable = az_assign_wrapper;
+	wk.vm.behavior.unassign_variable = az_unassign;
+	wk.vm.behavior.push_local_scope = az_push_local_scope;
+	wk.vm.behavior.pop_local_scope = az_pop_local_scope;
+	wk.vm.behavior.get_variable = az_lookup_wrapper;
+	wk.vm.behavior.scope_stack_dup = az_scope_stack_dup;
+	wk.vm.behavior.eval_project_file = az_eval_project_file;
+	wk.vm.behavior.native_func_dispatch = az_native_func_dispatch;
+	wk.vm.behavior.pop_args = az_pop_args;
+	wk.vm.behavior.func_lookup = az_func_lookup;
 	wk.vm.in_analyzer = true;
 
 	analyzer.unpatched_ops = wk.vm.ops;
 
-	error_diagnostic_store_init(&wk);
+	/* error_diagnostic_store_init(&wk); */
 
-	arr_init(&analyze_entrypoint_stack, 32, sizeof(struct analyze_file_entrypoint));
-	arr_init(&analyze_entrypoint_stacks, 32, sizeof(struct analyze_file_entrypoint));
+	arr_init(&az_entrypoint_stack, 32, sizeof(struct az_file_entrypoint));
+	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
 
 	if (analyzer.opts->eval_trace) {
 		make_obj(&wk, &wk.vm.dbg_state.eval_trace, obj_array);
@@ -862,7 +1159,7 @@ do_analyze(struct analyze_opts *opts)
 		L("<<<");
 	}
 
-	if (analyze_diagnostic_enabled(analyze_diagnostic_unused_variable)) {
+	if (az_diagnostic_enabled(az_diagnostic_unused_variable)) {
 		uint32_t i;
 		for (i = 0; i < assignments.len; ++i) {
 			struct assignment *a = bucket_arr_get(&assignments, i);
@@ -872,20 +1169,20 @@ do_analyze(struct analyze_opts *opts)
 				error_diagnostic_store_push(a->src_idx, a->location, lvl, msg);
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
-					mark_analyze_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
+					mark_az_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
 				}
 			}
 		}
 	}
 
 	uint32_t i;
-	for (i = 0; i < analyze_entrypoint_stacks.len;) {
+	for (i = 0; i < az_entrypoint_stacks.len;) {
 		uint32_t j;
-		struct analyze_file_entrypoint *ep_stack = arr_get(&analyze_entrypoint_stacks, i);
+		struct az_file_entrypoint *ep_stack = arr_get(&az_entrypoint_stacks, i);
 		assert(ep_stack->is_root);
 
 		uint32_t len = 1;
-		for (j = 1; j + i < analyze_entrypoint_stacks.len && !ep_stack[j].is_root; ++j) {
+		for (j = 1; j + i < az_entrypoint_stacks.len && !ep_stack[j].is_root; ++j) {
 			++len;
 		}
 
@@ -932,8 +1229,8 @@ do_analyze(struct analyze_opts *opts)
 	}
 
 	bucket_arr_destroy(&assignments);
-	arr_destroy(&analyze_entrypoint_stack);
-	arr_destroy(&analyze_entrypoint_stacks);
+	arr_destroy(&az_entrypoint_stack);
+	arr_destroy(&az_entrypoint_stacks);
 	workspace_destroy(&wk);
 	return res;
 }

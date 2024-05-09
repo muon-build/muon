@@ -10,8 +10,9 @@
 
 #include "coerce.h"
 #include "error.h"
-#include "lang/func_lookup.h"
+#include "lang/analyze.h"
 #include "lang/compiler.h"
+#include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
@@ -176,8 +177,12 @@ vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const cha
 	error_message(src, loc, lvl, buf);
 
 	if (lvl == log_error) {
-		wk->vm.error = true;
-		wk->vm.run = false;
+		if (wk->vm.in_analyzer) {
+			az_set_error();
+		} else {
+			wk->vm.error = true;
+			wk->vm.run = false;
+		}
 	}
 }
 
@@ -1208,7 +1213,7 @@ vm_op_call_method(struct workspace *wk)
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	if (!func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
+	if (!wk->vm.behavior.func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
 		if (b == disabler_id) {
 			object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 			object_stack_push(wk, disabler_id);
@@ -1637,8 +1642,8 @@ vm_execute(struct workspace *wk)
 
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-			/* object_stack_print(wk, &wk->vm.stack); */
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text);
+			object_stack_print(wk, &wk->vm.stack);
 			/* struct source_location loc; */
 			/* struct source *src; */
 			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
@@ -1903,6 +1908,7 @@ vm_init(struct workspace *wk)
 		.eval_project_file = eval_project_file,
 		.native_func_dispatch = vm_native_func_dispatch,
 		.pop_args = vm_pop_args,
+		.func_lookup = func_lookup,
 	};
 
 	/* ops */

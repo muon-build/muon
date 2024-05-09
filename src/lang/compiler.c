@@ -599,20 +599,19 @@ vm_compile_initial_code_segment(struct workspace *wk)
 	push_code(wk, op_return);
 }
 
-bool
-vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, uint32_t *entry)
+void
+vm_compile_state_reset(struct workspace *wk)
 {
-	struct node *n;
+	bucket_arr_clear(&wk->vm.compiler_state.nodes);
+}
 
+bool
+vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, uint32_t *entry)
+{
 	wk->vm.compiler_state.err = false;
 
-	bucket_arr_clear(&wk->vm.compiler_state.nodes);
-
-	if (!(n = parse(wk, src, mode))) {
-		wk->vm.compiler_state.err = true;
-	}
-
 	*entry = wk->vm.code.len;
+
 	vm_compile_block(wk, n);
 
 	push_code(wk, op_constant);
@@ -622,5 +621,20 @@ vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
 	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
+
 	return !wk->vm.compiler_state.err;
+}
+
+bool
+vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, uint32_t *entry)
+{
+	struct node *n;
+
+	vm_compile_state_reset(wk);
+
+	if (!(n = parse(wk, src, mode))) {
+		wk->vm.compiler_state.err = true;
+	}
+
+	return vm_compile_ast(wk, n, mode, entry);
 }

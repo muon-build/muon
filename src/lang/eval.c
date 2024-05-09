@@ -13,6 +13,7 @@
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/eval.h"
+#include "lang/parser.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
@@ -79,43 +80,21 @@ cleanup:
 	return ret;
 }
 
-#if 0
 static bool
-ensure_project_is_first_statement(struct workspace *wk, struct ast *ast, bool check_only)
+ensure_project_is_first_statement(struct workspace *wk, struct source *src, struct node *n, bool check_only)
 {
-	uint32_t err_node;
-	bool first_statement_is_a_call_to_project = false;
-	struct node *n;
+	bool first_statement_is_a_call_to_project = n->type == node_type_stmt && n->l && n->l->type == node_type_call
+						    && n->l->r && n->l->r->type == node_type_id_lit
+						    && str_eql(get_str(wk, n->l->r->data.str), &WKSTR("project"));
 
-	err_node = ast->root;
-	n = get_node(ast, ast->root);
-	if (!(n->type == node_block && n->chflg & node_child_l)) {
-		goto err;
-	}
-
-	err_node = n->l;
-	n = get_node(ast, n->l);
-	if (!(n->type == node_function)) {
-		goto err;
-	}
-
-	err_node = n->l;
-	n = get_node(ast, n->l);
-	if (!(n->type == node_id && str_eql(get_str(wk, n->data.str), &WKSTR("project")))) {
-		goto err;
-	}
-
-	first_statement_is_a_call_to_project = true;
-err:
 	if (!first_statement_is_a_call_to_project) {
 		if (!check_only) {
-			vm_error_at(wk, err_node, "first statement is not a call to project()");
+			error_message(src, n->location, log_error, "first statement is not a call to project()");
 		}
 		return false;
 	}
 	return true;
 }
-#endif
 
 bool
 eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
@@ -123,6 +102,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	TracyCZoneAutoS;
 
 	arr_push(&wk->vm.src, src);
+	src = arr_peek(&wk->vm.src, 1);
 
 	enum vm_compile_mode compile_mode
 		= (wk->vm.lang_mode == language_extended || wk->vm.lang_mode == language_internal) ?
@@ -130,8 +110,24 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 			  0;
 
 	uint32_t entry;
-	if (!vm_compile(wk, src, compile_mode, &entry)) {
-		return false;
+	{
+		struct node *n;
+
+		vm_compile_state_reset(wk);
+
+		if (!(n = parse(wk, src, compile_mode))) {
+			return false;
+		}
+
+		if (mode & eval_mode_first) {
+			if (!ensure_project_is_first_statement(wk, src, n, false)) {
+				return false;
+			}
+		}
+
+		if (!vm_compile_ast(wk, n, compile_mode, &entry)) {
+			return false;
+		}
 	}
 
 	uint32_t call_stack_base = wk->vm.call_stack.len;
@@ -150,58 +146,26 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	bool ok = !wk->vm.error;
 	wk->vm.error = false;
 
+	if (wk->vm.in_analyzer) {
+		if (wk->vm.dbg_state.eval_trace) {
+			obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
+			if ((wk->vm.dbg_state.eval_trace_subdir)) {
+				obj subdir_eval_trace;
+				make_obj(wk, &subdir_eval_trace, obj_array);
+				obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
+				wk->vm.dbg_state.eval_trace = subdir_eval_trace;
+				wk->vm.dbg_state.eval_trace_subdir = false;
+			}
+		}
+
+		if (!ok) {
+			UNREACHABLE; //?
+			ok = true;
+		}
+	}
+
 	TracyCZoneAutoE;
 	return ok;
-
-	/* if (wk->in_analyzer) { */
-	/* 	ast->src_id = error_diagnostic_store_push_src(src); */
-	/* 	if (wk->vm.dbg_state.eval_trace) { */
-	/* 		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label)); */
-	/* 		if ((wk->vm.dbg_state.eval_trace_subdir)) { */
-	/* 			obj subdir_eval_trace; */
-	/* 			make_obj(wk, &subdir_eval_trace, obj_array); */
-	/* 			obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace); */
-	/* 			wk->vm.dbg_state.eval_trace = subdir_eval_trace; */
-	/* 			wk->vm.dbg_state.eval_trace_subdir = false; */
-	/* 		} */
-	/* 	} */
-	/* } */
-
-	/* enum parse_mode parse_mode = 0; */
-	/* if (mode == eval_mode_repl) { */
-	/* 	parse_mode |= pm_ignore_statement_with_no_effect; */
-	/* } */
-	/* if (wk->lang_mode == language_internal || wk->lang_mode == language_extended) { */
-	/* 	parse_mode |= pm_functions; */
-	/* } */
-
-	/* if (!parser_parse(wk, ast, src, parse_mode)) { */
-	/* 	goto ret; */
-	/* } */
-
-	/* struct source *old_src = wk->src; */
-	/* struct ast *old_ast = wk->ast; */
-
-	/* wk->src = src; */
-	/* wk->ast = ast; */
-
-	/* if (mode == eval_mode_first) { */
-	/* 	if (!ensure_project_is_first_statement(wk, ast, false)) { */
-	/* 		goto ret; */
-	/* 	} */
-	/* } */
-
-	/* ret = wk->interp_node(wk, wk->ast->root, res); */
-
-	/* if (wk->subdir_done) { */
-	/* 	wk->subdir_done = false; */
-	/* } */
-
-	/* wk->src = old_src; */
-	/* wk->ast = old_ast; */
-	/* ret: */
-	/* TracyCZoneAutoE; */
-	/* return ret; */
 }
 
 bool
@@ -418,7 +382,6 @@ cont:
 const char *
 determine_project_root(struct workspace *wk, const char *path)
 {
-#if 0
 	SBUF(tmp);
 	SBUF(new_path);
 
@@ -430,18 +393,16 @@ determine_project_root(struct workspace *wk, const char *path)
 			goto cont;
 		}
 
-		struct ast ast = { 0 };
+		struct node *n;
 		struct source src = { 0 };
 
 		if (!fs_read_entire_file(path, &src)) {
-			return NULL;
-		} else if (!parser_parse(wk, &ast, &src, pm_quiet)) {
-			return NULL;
+			return 0;
+		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet))) {
+			return 0;
 		}
 
-		wk->src = &src;
-		wk->ast = &ast;
-		if (ensure_project_is_first_statement(wk, &ast, true)) {
+		if (ensure_project_is_first_statement(wk, &src, n, true)) {
 			// found
 			path_dirname(wk, &tmp, path);
 			obj s = sbuf_into_str(wk, &tmp);
@@ -458,6 +419,4 @@ cont:
 		path_push(wk, &new_path, "meson.build");
 		path = new_path.buf;
 	}
-#endif
-	return 0;
 }
