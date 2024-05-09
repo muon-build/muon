@@ -886,6 +886,7 @@ az_injected_native_func(struct workspace *wk, obj self, obj *res)
 
 static const struct func_impl az_func_impls[] = {
 	{ "az_injected_native_func", az_injected_native_func },
+	{ 0 },
 };
 
 struct func_impl_group az_func_impl_group = {
