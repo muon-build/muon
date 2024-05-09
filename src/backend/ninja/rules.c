@@ -63,9 +63,7 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 	obj args;
 	make_obj(wk, &args, obj_array);
 
-	bool compiler_is_linker = comp->type != compiler_msvc;
-
-	if (compiler_is_linker) {
+	if (comp->linker_passthrough) {
 		obj_array_extend(wk, args, comp->cmd_arr);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 

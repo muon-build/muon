@@ -48,7 +48,7 @@ linker_type_to_s(enum linker_type t)
 {
 	switch (t) {
 	case linker_posix: return "ld";
-	case linker_gcc: return "ld.bfd";
+	case linker_ld: return "ld (gnu)";
 	case linker_clang: return "lld";
 	case linker_apple: return "ld64";
 	case linker_lld_link: return "lld-link";
@@ -228,10 +228,10 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 		goto detection_over;
 	}
 
-	if (strstr(cmd_ctx.out.buf, "Apple") && strstr(cmd_ctx.out.buf, "clang")) {
-		type = compiler_apple_clang;
-	} else if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
-		if (strstr(cmd_ctx.out.buf, "msvc")) {
+	if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
+		if (strstr(cmd_ctx.out.buf, "Apple") && strstr(cmd_ctx.out.buf, "clang")) {
+			type = compiler_apple_clang;
+		} else if (strstr(cmd_ctx.out.buf, "CL.EXE COMPATIBILITY")) {
 			type = compiler_clang_cl;
 		} else {
 			type = compiler_clang;
@@ -395,7 +395,18 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 
 		struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 		compiler_get_libdirs(wk, compiler);
+
+		{
+			struct run_cmd_ctx dumpmachine_ctx = { 0 };
+			if (run_cmd_arr(wk, &dumpmachine_ctx, cmd_arr, "-dumpmachine") && dumpmachine_ctx.status == 0) {
+				compiler->triple = sbuf_into_str(wk, &dumpmachine_ctx.out);
+			}
+			run_cmd_ctx_destroy(&dumpmachine_ctx);
+		}
+
 		compiler->lang = lang;
+
+		compiler->linker_passthrough = compiler->type != compiler_msvc;
 		return true;
 	case compiler_language_nasm:
 		if (!compiler_detect_nasm(wk, cmd_arr, comp)) {
@@ -437,13 +448,21 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 {
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
+	bool msvc_like = compiler->type == compiler_msvc;
+
+	enum linker_type type = compilers[compiler->type].default_linker;
+	if (compiler->triple && str_contains(get_str(wk, compiler->triple), &WKSTR("windows-msvc"))) {
+		if (compiler->type == compiler_clang) {
+			type = linker_lld_link;
+			msvc_like = true;
+		}
+	}
+
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, compiler->type == compiler_msvc))) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
-
-	enum linker_type type = compilers[compiler->type].default_linker;
 
 	// TODO: do something with command output?
 
@@ -495,7 +514,14 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 {
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	const char *exe_list[] = { linker_type_to_s(compilers[compiler->type].default_linker), "ld", NULL };
+	enum linker_type t = compilers[compiler->type].default_linker;
+	if (compiler->triple && str_contains(get_str(wk, compiler->triple), &WKSTR("windows-msvc"))) {
+		if (compiler->type == compiler_clang) {
+			t = linker_lld_link;
+		}
+	}
+
+	const char *exe_list[] = { linker_type_to_s(t), "ld", NULL };
 
 	return toolchain_exe_detect(wk, "env.LD", exe_list, comp, lang, linker_detect);
 }
@@ -511,7 +537,7 @@ toolchain_static_linker_detect(struct workspace *wk, obj comp, enum compiler_lan
 		static const char *msvc_list[] = { "lib", NULL };
 		exe_list = msvc_list;
 	} else {
-		static const char *default_list[] = { "ar", NULL };
+		static const char *default_list[] = { "ar", "llvm-ar", NULL };
 		exe_list = default_list;
 	}
 
@@ -559,14 +585,17 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 	make_obj(wk, comp, obj_compiler);
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
+		LOG_E("failed to detect compiler");
 		return false;
 	}
 
 	if (!toolchain_linker_detect(wk, *comp, lang)) {
+		LOG_E("failed to detect linker");
 		return false;
 	}
 
 	if (!toolchain_static_linker_detect(wk, *comp, lang)) {
+		LOG_E("failed to detect static linker");
 		return false;
 	}
 
@@ -665,6 +694,30 @@ compiler_posix_args_define(const char *define)
 }
 
 /* gcc compilers */
+
+static const struct args *
+linker_args_passthrough_1s(const struct args *link_args)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	assert(link_args->len == 1);
+
+	snprintf(buf, BUF_SIZE_S, "-Wl,%s", link_args->args[0]);
+	return &args;
+}
+
+static const struct args *
+linker_args_passthrough_2s(const struct args *link_args)
+{
+	static char buf[BUF_SIZE_S];
+	COMPILER_ARGS({ buf });
+
+	assert(link_args->len == 2);
+
+	snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", link_args->args[0], link_args->args[1]);
+	return &args;
+}
 
 static const struct args *
 compiler_gcc_args_preprocess_only(void)
@@ -856,6 +909,13 @@ static const struct args *
 compiler_gcc_args_pic(void)
 {
 	COMPILER_ARGS({ "-fpic" });
+
+	enum machine_system sys = machine_system();
+	if (sys == machine_system_windows || sys == machine_system_cygwin) {
+		args.len = 0;
+	} else {
+		args.len = 1;
+	}
 	return &args;
 }
 
@@ -1151,6 +1211,12 @@ compiler_arg_empty_2s(const char *_, const char *__)
 	return &args;
 }
 
+static const struct args *
+linker_passthrough_empty(const struct args *link_args)
+{
+	return link_args;
+}
+
 struct compiler compilers[compiler_type_count];
 struct linker linkers[linker_type_count];
 struct static_linker static_linkers[static_linker_type_count];
@@ -1171,6 +1237,8 @@ build_compilers(void)
 {
 	struct compiler empty = {
 		.args = {
+			.linker_passthrough_1s = linker_passthrough_empty,
+			.linker_passthrough_2s = linker_passthrough_empty,
 			.deps            = compiler_arg_empty_2s,
 			.compile_only    = compiler_arg_empty_0,
 			.preprocess_only = compiler_arg_empty_0,
@@ -1214,6 +1282,8 @@ build_compilers(void)
 	posix.default_static_linker = static_linker_ar_posix;
 
 	struct compiler gcc = posix;
+	gcc.args.linker_passthrough_1s = linker_args_passthrough_1s;
+	gcc.args.linker_passthrough_2s = linker_args_passthrough_2s;
 	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
 	gcc.args.deps = compiler_gcc_args_deps;
 	gcc.args.optimization = compiler_gcc_args_optimization;
@@ -1231,7 +1301,7 @@ build_compilers(void)
 	gcc.args.color_output = compiler_gcc_args_color_output;
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 	gcc.deps = compiler_deps_gcc;
-	gcc.default_linker = linker_gcc;
+	gcc.default_linker = linker_ld;
 	gcc.default_static_linker = static_linker_ar_gcc;
 
 	struct compiler clang = gcc;
@@ -1318,87 +1388,85 @@ linker_posix_args_shared(void)
 }
 
 static const struct args *
-linker_gcc_args_as_needed(void)
+linker_ld_args_as_needed(void)
 {
-	COMPILER_ARGS({ "-Wl,--as-needed" });
+	COMPILER_ARGS({ "--as-needed" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_no_undefined(void)
+linker_ld_args_no_undefined(void)
 {
-	COMPILER_ARGS({ "-Wl,--no-undefined" });
+	COMPILER_ARGS({ "--no-undefined" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_start_group(void)
+linker_ld_args_start_group(void)
 {
-	COMPILER_ARGS({ "-Wl,--start-group" });
+	COMPILER_ARGS({ "--start-group" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_end_group(void)
+linker_ld_args_end_group(void)
 {
-	COMPILER_ARGS({ "-Wl,--end-group" });
+	COMPILER_ARGS({ "--end-group" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_soname(const char *soname)
+linker_ld_args_soname(const char *soname)
+{
+	COMPILER_ARGS({ "-soname", NULL });
+	argv[1] = soname;
+
+	return &args;
+}
+
+static const struct args *
+linker_ld_args_rpath(const char *rpath)
 {
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "-Wl,-soname,%s", soname);
+	snprintf(buf, BUF_SIZE_S, "-rpath,%s", rpath);
 
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_rpath(const char *rpath)
+linker_ld_args_allow_shlib_undefined(void)
 {
-	static char buf[BUF_SIZE_S];
-	COMPILER_ARGS({ buf });
-
-	snprintf(buf, BUF_SIZE_S, "-Wl,-rpath,%s", rpath);
-
+	COMPILER_ARGS({ "--allow-shlib-undefined" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_allow_shlib_undefined(void)
+linker_ld_args_export_dynamic(void)
 {
-	COMPILER_ARGS({ "-Wl,--allow-shlib-undefined" });
+	COMPILER_ARGS({ "-export-dynamic" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_export_dynamic(void)
+linker_ld_args_fatal_warnings(void)
 {
-	COMPILER_ARGS({ "-Wl,-export-dynamic" });
+	COMPILER_ARGS({ "--fatal-warnings" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_fatal_warnings(void)
+linker_ld_args_whole_archive(void)
 {
-	COMPILER_ARGS({ "-Wl,--fatal-warnings" });
+	COMPILER_ARGS({ "--whole-archive" });
 	return &args;
 }
 
 static const struct args *
-linker_gcc_args_whole_archive(void)
+linker_ld_args_no_whole_archive(void)
 {
-	COMPILER_ARGS({ "-Wl,--whole-archive" });
-	return &args;
-}
-
-static const struct args *
-linker_gcc_args_no_whole_archive(void)
-{
-	COMPILER_ARGS({ "-Wl,--no-whole-archive" });
+	COMPILER_ARGS({ "--no-whole-archive" });
 	return &args;
 }
 
@@ -1412,10 +1480,18 @@ linker_link_args_lib(const char *s)
 
 	return &args;
 }
+
+static const struct args *
+linker_link_args_debug(void)
+{
+	COMPILER_ARGS({ "/DEBUG" });
+	return &args;
+}
+
 static const struct args *
 linker_link_args_shared(void)
 {
-	COMPILER_ARGS({ "/DYNAMICBASE" });
+	COMPILER_ARGS({ "/DLL" });
 	return &args;
 }
 
@@ -1456,6 +1532,7 @@ build_linkers(void)
 	/* linkers */
 	struct linker empty = { .args = {
 					.lib = compiler_arg_empty_1s,
+					.debug = compiler_arg_empty_0,
 					.as_needed = compiler_arg_empty_0,
 					.no_undefined = compiler_arg_empty_0,
 					.start_group = compiler_arg_empty_0,
@@ -1480,23 +1557,23 @@ build_linkers(void)
 	posix.args.shared = linker_posix_args_shared;
 	posix.args.input_output = linker_posix_args_input_output;
 
-	struct linker gcc = posix;
-	gcc.args.as_needed = linker_gcc_args_as_needed;
-	gcc.args.no_undefined = linker_gcc_args_no_undefined;
-	gcc.args.start_group = linker_gcc_args_start_group;
-	gcc.args.end_group = linker_gcc_args_end_group;
-	gcc.args.soname = linker_gcc_args_soname;
-	gcc.args.rpath = linker_gcc_args_rpath;
-	gcc.args.pgo = compiler_gcc_args_pgo;
-	gcc.args.sanitize = compiler_gcc_args_sanitize;
-	gcc.args.allow_shlib_undefined = linker_gcc_args_allow_shlib_undefined;
-	gcc.args.export_dynamic = linker_gcc_args_export_dynamic;
-	gcc.args.fatal_warnings = linker_gcc_args_fatal_warnings;
-	gcc.args.whole_archive = linker_gcc_args_whole_archive;
-	gcc.args.no_whole_archive = linker_gcc_args_no_whole_archive;
-	gcc.args.enable_lto = compiler_gcc_args_lto;
+	struct linker ld = posix;
+	ld.args.as_needed = linker_ld_args_as_needed;
+	ld.args.no_undefined = linker_ld_args_no_undefined;
+	ld.args.start_group = linker_ld_args_start_group;
+	ld.args.end_group = linker_ld_args_end_group;
+	ld.args.soname = linker_ld_args_soname;
+	ld.args.rpath = linker_ld_args_rpath;
+	ld.args.pgo = compiler_gcc_args_pgo;
+	ld.args.sanitize = compiler_gcc_args_sanitize;
+	ld.args.allow_shlib_undefined = linker_ld_args_allow_shlib_undefined;
+	ld.args.export_dynamic = linker_ld_args_export_dynamic;
+	ld.args.fatal_warnings = linker_ld_args_fatal_warnings;
+	ld.args.whole_archive = linker_ld_args_whole_archive;
+	ld.args.no_whole_archive = linker_ld_args_no_whole_archive;
+	ld.args.enable_lto = compiler_gcc_args_lto;
 
-	struct linker lld = gcc;
+	struct linker lld = ld;
 
 	struct linker apple = posix;
 	apple.args.sanitize = compiler_gcc_args_sanitize;
@@ -1504,6 +1581,7 @@ build_linkers(void)
 
 	struct linker link = empty;
 	link.args.lib = linker_link_args_lib;
+	link.args.debug = linker_link_args_debug;
 	link.args.shared = linker_link_args_shared;
 	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
@@ -1514,7 +1592,7 @@ build_linkers(void)
 	lld_link.args.always = compiler_arg_empty_0;
 
 	linkers[linker_posix] = posix;
-	linkers[linker_gcc] = gcc;
+	linkers[linker_ld] = ld;
 	linkers[linker_clang] = lld;
 	linkers[linker_apple] = apple;
 	linkers[linker_lld_link] = lld_link;

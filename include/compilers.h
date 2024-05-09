@@ -30,7 +30,7 @@ enum compiler_type {
 
 enum linker_type {
 	linker_posix,
-	linker_gcc,
+	linker_ld,
 	linker_clang,
 	linker_apple,
 	linker_lld_link,
@@ -95,9 +95,12 @@ typedef const struct args *((*compiler_get_arg_func_0)(void));
 typedef const struct args *((*compiler_get_arg_func_1i)(uint32_t));
 typedef const struct args *((*compiler_get_arg_func_1s)(const char *));
 typedef const struct args *((*compiler_get_arg_func_2s)(const char *, const char *));
+typedef const struct args *((*compiler_get_arg_func_linker_passthrough)(const struct args *));
 
 struct compiler {
 	struct {
+		compiler_get_arg_func_linker_passthrough linker_passthrough_1s;
+		compiler_get_arg_func_linker_passthrough linker_passthrough_2s;
 		compiler_get_arg_func_2s deps;
 		compiler_get_arg_func_0 compile_only;
 		compiler_get_arg_func_0 preprocess_only;
@@ -130,6 +133,7 @@ struct compiler {
 struct linker {
 	struct {
 		compiler_get_arg_func_1s lib;
+		compiler_get_arg_func_0 debug;
 		compiler_get_arg_func_0 as_needed;
 		compiler_get_arg_func_0 no_undefined;
 		compiler_get_arg_func_0 start_group;

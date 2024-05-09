@@ -29,16 +29,16 @@ get_option_value_for_tgt(struct workspace *wk,
 	get_option_value_overridable(wk, proj, tgt ? tgt->override_options : 0, name, res);
 }
 
-static bool
-get_buildtype_args(struct workspace *wk,
+static void
+get_buildtype(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
-	obj args_id,
-	enum compiler_type t)
+	enum compiler_optimization_lvl *opt,
+	bool *debug)
 {
 	uint32_t i;
-	enum compiler_optimization_lvl opt = 0;
-	bool debug = false;
+	*opt = 0;
+	*debug = false;
 
 	static struct {
 		const char *name;
@@ -68,7 +68,7 @@ get_buildtype_args(struct workspace *wk,
 
 		const struct str *str = get_str(wk, optimization_id);
 		if (str_eql(str, &WKSTR("plain"))) {
-			opt = compiler_optimization_lvl_none;
+			*opt = compiler_optimization_lvl_none;
 		} else if (str->len != 1) {
 			UNREACHABLE;
 		}
@@ -77,34 +77,46 @@ get_buildtype_args(struct workspace *wk,
 		case '0':
 		case '1':
 		case '2':
-		case '3': opt = compiler_optimization_lvl_0 + (*str->s - '0'); break;
-		case 'g': opt = compiler_optimization_lvl_g; break;
-		case 's': opt = compiler_optimization_lvl_s; break;
+		case '3': *opt = compiler_optimization_lvl_0 + (*str->s - '0'); break;
+		case 'g': *opt = compiler_optimization_lvl_g; break;
+		case 's': *opt = compiler_optimization_lvl_s; break;
 		default: UNREACHABLE;
 		}
 
-		debug = get_obj_bool(wk, debug_id);
+		*debug = get_obj_bool(wk, debug_id);
 	} else {
 		for (i = 0; tbl[i].name; ++i) {
 			if (strcmp(str, tbl[i].name) == 0) {
-				opt = tbl[i].opt;
-				debug = tbl[i].debug;
+				*opt = tbl[i].opt;
+				*debug = tbl[i].debug;
 				break;
 			}
 		}
 
 		if (!tbl[i].name) {
 			LOG_E("invalid build type %s", str);
-			return false;
+			UNREACHABLE;
 		}
 	}
+}
+
+static void
+get_buildtype_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj args_id,
+	enum compiler_type t)
+{
+	enum compiler_optimization_lvl opt;
+	bool debug;
+
+	get_buildtype(wk, proj, tgt, &opt, &debug);
 
 	if (debug) {
 		push_args(wk, args_id, compilers[t].args.debug());
 	}
 
 	push_args(wk, args_id, compilers[t].args.optimization(opt));
-	return true;
 }
 
 static void
@@ -319,9 +331,7 @@ get_base_compiler_args(struct workspace *wk,
 	push_args(wk, args, compilers[t].args.always());
 
 	get_std_args(wk, proj, tgt, args, lang, t);
-	if (!get_buildtype_args(wk, proj, tgt, args, t)) {
-		return false;
-	}
+	get_buildtype_args(wk, proj, tgt, args, t);
 	get_warning_args(wk, proj, tgt, args, t);
 	get_werror_args(wk, proj, tgt, args, t);
 
@@ -490,6 +500,31 @@ get_option_link_args(struct workspace *wk,
 	obj_array_extend(wk, args_id, args);
 }
 
+static void
+push_linker_args(struct workspace *wk, struct setup_linker_args_ctx *ctx, const struct args *args)
+{
+	if (!args->len) {
+		return;
+	}
+
+	L("pushing linker args %d", ctx->compiler->linker_passthrough);
+	if (ctx->compiler->linker_passthrough) {
+		switch (args->len) {
+		case 1: {
+			args = compilers[ctx->compiler->type].args.linker_passthrough_1s(args);
+			break;
+		}
+		case 2: {
+			args = compilers[ctx->compiler->type].args.linker_passthrough_2s(args);
+			break;
+		}
+		default: UNREACHABLE;
+		}
+	}
+
+	push_args(wk, ctx->args->link_args, args);
+}
+
 static enum iteration_result
 process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 {
@@ -499,7 +534,7 @@ process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
 		return ir_cont;
 	}
 
-	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
+	push_linker_args(wk, ctx, linkers[ctx->linker].args.rpath(get_cstr(wk, v)));
 
 	return ir_cont;
 }
@@ -549,7 +584,7 @@ push_not_found_lib_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct setup_linker_args_ctx *ctx = _ctx;
 
-	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.lib(get_cstr(wk, v)));
+	push_linker_args(wk, ctx, linkers[ctx->linker].args.lib(get_cstr(wk, v)));
 	return ir_cont;
 }
 
@@ -571,18 +606,28 @@ setup_linker_args(struct workspace *wk,
 	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
 	ctx->args->link_with_not_found = link_with_not_found;
 
-	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.always());
-	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.as_needed());
+	{
+		enum compiler_optimization_lvl opt;
+		bool debug;
+		get_buildtype(wk, ctx->proj, ctx->tgt, &opt, &debug);
+
+		if (debug) {
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.debug());
+		}
+	}
+
+	push_linker_args(wk, ctx, linkers[ctx->linker].args.always());
+	push_linker_args(wk, ctx, linkers[ctx->linker].args.as_needed());
 
 	if (proj) {
 		assert(tgt);
 
 		if (!(tgt->type & tgt_shared_module)) {
-			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_undefined());
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.no_undefined());
 		}
 
 		if (tgt->flags & build_tgt_flag_export_dynamic) {
-			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.export_dynamic());
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.export_dynamic());
 		}
 
 		setup_optional_b_args_linker(wk, proj, tgt, ctx->args->link_args, ctx->linker);
@@ -611,21 +656,21 @@ setup_linker_args(struct workspace *wk,
 			      || get_obj_array(wk, ctx->args->link_with_not_found)->len;
 
 	if (have_link_with) {
-		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.start_group());
+		push_linker_args(wk, ctx, linkers[ctx->linker].args.start_group());
 
 		if (have_link_whole) {
-			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.whole_archive());
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.whole_archive());
 
 			obj_array_extend(wk, ctx->args->link_args, ctx->args->link_whole);
 
-			push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.no_whole_archive());
+			push_linker_args(wk, ctx, linkers[ctx->linker].args.no_whole_archive());
 		}
 
 		obj_array_extend(wk, ctx->args->link_args, ctx->args->link_with);
 
 		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, push_not_found_lib_iter);
 
-		push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.end_group());
+		push_linker_args(wk, ctx, linkers[ctx->linker].args.end_group());
 	}
 }
 

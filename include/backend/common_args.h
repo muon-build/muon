@@ -38,9 +38,12 @@ bool build_target_args(struct workspace *wk,
 	obj *joined_args);
 
 struct setup_linker_args_ctx {
+	struct obj_compiler *compiler;
+	struct build_dep *args;
+	const struct obj_build_target *tgt;
+	const struct project *proj;
 	enum linker_type linker;
 	enum compiler_language link_lang;
-	struct build_dep *args;
 };
 
 void setup_linker_args(struct workspace *wk,

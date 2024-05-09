@@ -376,10 +376,12 @@ struct obj_compiler {
 	obj static_linker_cmd_arr;
 	obj ver;
 	obj libdirs;
+	obj triple;
 	enum compiler_type type;
 	enum linker_type linker_type;
 	enum static_linker_type static_linker_type;
 	enum compiler_language lang;
+	bool linker_passthrough;
 };
 
 enum install_target_type {
