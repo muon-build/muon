@@ -16,7 +16,7 @@
 #include "datastructures/bucket_arr.h"
 #include "datastructures/iterator.h"
 #include "lang/types.h"
-#include "machine.h"
+#include "machines.h"
 
 enum obj_type {
 	/* singleton object types */

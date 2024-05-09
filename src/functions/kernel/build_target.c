@@ -20,7 +20,7 @@
 #include "install.h"
 #include "lang/typecheck.h"
 #include "log.h"
-#include "machine.h"
+#include "machines.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -642,8 +642,8 @@ create_target(struct workspace *wk,
 	}
 
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
-						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
-						    true;
+							  get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
+							  true;
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {

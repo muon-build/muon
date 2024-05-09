@@ -10,7 +10,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/string.h"
-#include "machine.h"
+#include "machines.h"
 #include "platform/uname.h"
 
 struct machine_definition build_machine, host_machine;

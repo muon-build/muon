@@ -8,11 +8,11 @@
 #include <string.h>
 
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/machine.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
-#include "machine.h"
+#include "machines.h"
 
 static struct machine_definition *
 get_machine_for_self(struct workspace *wk, obj self)

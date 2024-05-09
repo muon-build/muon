@@ -10,7 +10,7 @@
 
 #include "external/samurai/ctx.h"
 #include "log.h"
-#include "machine.h"
+#include "machines.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
