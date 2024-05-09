@@ -18,10 +18,10 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/compiler.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -274,7 +274,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	case compile_mode_link: {
 		push_args(wk,
 			compiler_args,
-			compilers[t].args.linker_passthrough_1s(linkers[comp->linker_type].args.fatal_warnings()));
+			compilers[t].args.linker_passthrough(linkers[comp->linker_type].args.fatal_warnings()));
 		break;
 	}
 	}

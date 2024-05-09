@@ -508,21 +508,10 @@ push_linker_args(struct workspace *wk, struct setup_linker_args_ctx *ctx, const 
 	}
 
 	if (ctx->compiler->linker_passthrough) {
-		switch (args->len) {
-		case 1: {
-			// Special linker args that shouldn't be wrapped
-			if (strcmp(args->args[0], "-shared") == 0) {
-				break;
-			}
-
-			args = compilers[ctx->compiler->type].args.linker_passthrough_1s(args);
-			break;
-		}
-		case 2: {
-			args = compilers[ctx->compiler->type].args.linker_passthrough_2s(args);
-			break;
-		}
-		default: UNREACHABLE;
+		// Special linker args that shouldn't be wrapped
+		if (args->len == 1 && strcmp(args->args[0], "-shared") == 0) {
+		} else {
+			args = compilers[ctx->compiler->type].args.linker_passthrough(args);
 		}
 	}
 

@@ -99,8 +99,7 @@ typedef const struct args *((*compiler_get_arg_func_linker_passthrough)(const st
 
 struct compiler {
 	struct {
-		compiler_get_arg_func_linker_passthrough linker_passthrough_1s;
-		compiler_get_arg_func_linker_passthrough linker_passthrough_2s;
+		compiler_get_arg_func_linker_passthrough linker_passthrough;
 		compiler_get_arg_func_2s deps;
 		compiler_get_arg_func_0 compile_only;
 		compiler_get_arg_func_0 preprocess_only;

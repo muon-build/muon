@@ -701,26 +701,19 @@ compiler_posix_args_define(const char *define)
 /* gcc compilers */
 
 static const struct args *
-linker_args_passthrough_1s(const struct args *link_args)
+linker_args_passthrough(const struct args *link_args)
 {
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf });
 
-	assert(link_args->len == 1);
+	if (link_args->len == 1) {
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s", link_args->args[0]);
+	} else if (link_args->len == 2) {
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", link_args->args[0], link_args->args[1]);
+	} else {
+		UNREACHABLE;
+	}
 
-	snprintf(buf, BUF_SIZE_S, "-Wl,%s", link_args->args[0]);
-	return &args;
-}
-
-static const struct args *
-linker_args_passthrough_2s(const struct args *link_args)
-{
-	static char buf[BUF_SIZE_S];
-	COMPILER_ARGS({ buf });
-
-	assert(link_args->len == 2);
-
-	snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", link_args->args[0], link_args->args[1]);
 	return &args;
 }
 
@@ -1241,8 +1234,7 @@ build_compilers(void)
 {
 	struct compiler empty = {
 		.args = {
-			.linker_passthrough_1s = linker_passthrough_empty,
-			.linker_passthrough_2s = linker_passthrough_empty,
+			.linker_passthrough = linker_passthrough_empty,
 			.deps            = compiler_arg_empty_2s,
 			.compile_only    = compiler_arg_empty_0,
 			.preprocess_only = compiler_arg_empty_0,
@@ -1286,8 +1278,7 @@ build_compilers(void)
 	posix.default_static_linker = static_linker_ar_posix;
 
 	struct compiler gcc = posix;
-	gcc.args.linker_passthrough_1s = linker_args_passthrough_1s;
-	gcc.args.linker_passthrough_2s = linker_args_passthrough_2s;
+	gcc.args.linker_passthrough = linker_args_passthrough;
 	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
 	gcc.args.deps = compiler_gcc_args_deps;
 	gcc.args.optimization = compiler_gcc_args_optimization;
