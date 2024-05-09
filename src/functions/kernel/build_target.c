@@ -426,9 +426,12 @@ determine_target_build_name(struct workspace *wk,
 	case tgt_dynamic_library:
 		if (sys == machine_system_cygwin) {
 			pref = "cyg";
+		} else if (sys == machine_system_windows) {
+			pref = "";
 		} else {
 			pref = "lib";
 		}
+
 		if (sys == machine_system_windows || sys == machine_system_cygwin) {
 			suff = "dll";
 			if (sover) {
@@ -437,9 +440,9 @@ determine_target_build_name(struct workspace *wk,
 				strncpy(ver_dll, get_cstr(wk, ver), sizeof(ver_dll) - 1);
 				char *ver_tmp = strchr(ver_dll, '.');
 				if (ver_tmp) {
-					*ver_tmp = '\0';
+					*ver_tmp = 0;
 				} else {
-					*ver_dll = '\0';
+					*ver_dll = 0;
 				}
 			}
 		} else if (sys == machine_system_darwin) {
@@ -640,8 +643,8 @@ create_target(struct workspace *wk,
 	}
 
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
-						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
-						    true;
+							  get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
+							  true;
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {
