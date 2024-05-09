@@ -13,6 +13,7 @@
 #include "datastructures/arr.h"
 #include "embedded.h"
 #include "error.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/mem.h"
 
@@ -23,19 +24,15 @@ struct error_diagnostic_message {
 	uint32_t src_idx;
 };
 
-struct error_diagnostic_source {
-	struct source src;
-};
-
 static struct {
 	struct arr messages;
-	struct arr sources;
 	bool init;
 	struct {
 		struct source *src;
 		struct source_location location;
 		bool redirect;
 	} redirect;
+	struct workspace *wk;
 } error_diagnostic_store;
 
 void
@@ -57,45 +54,11 @@ error_diagnostic_store_redirect_reset(void)
 }
 
 void
-error_diagnostic_store_init(void)
+error_diagnostic_store_init(struct workspace *wk)
 {
 	arr_init(&error_diagnostic_store.messages, 32, sizeof(struct error_diagnostic_message));
-	arr_init(&error_diagnostic_store.sources, 4, sizeof(struct error_diagnostic_source));
 	error_diagnostic_store.init = true;
-}
-
-uint32_t
-error_diagnostic_store_push_src(struct source *src)
-{
-	if (!src) {
-		return 0;
-	}
-
-	uint32_t i;
-	struct error_diagnostic_source *s = NULL;
-	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
-		s = arr_get(&error_diagnostic_store.sources, i);
-		if (strcmp(s->src.label, src->label) == 0) {
-			break;
-		} else {
-			s = NULL;
-		}
-	}
-
-	if (!s) {
-		struct source dup;
-		fs_source_dup(src, &dup);
-
-		arr_push(&error_diagnostic_store.sources,
-			&(struct error_diagnostic_source){
-				.src = dup,
-			});
-
-		i = error_diagnostic_store.sources.len - 1;
-	}
-
-	s = arr_get(&error_diagnostic_store.sources, i);
-	return i;
+	error_diagnostic_store.wk = wk;
 }
 
 void
@@ -104,6 +67,8 @@ error_diagnostic_store_push(uint32_t src_idx, struct source_location location, e
 	uint32_t mlen = strlen(msg);
 	char *m = z_calloc(mlen + 1, 1);
 	memcpy(m, msg, mlen);
+
+	L("%d", src_idx);
 
 	arr_push(&error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
@@ -155,7 +120,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 
 	uint32_t i;
 	struct error_diagnostic_message *msg;
-	struct error_diagnostic_source *last_src = NULL, *cur_src;
+	struct source *last_src = 0, *cur_src;
 
 	arr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
 
@@ -183,7 +148,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	}
 
 	*saw_error = false;
-	struct source src = { 0 };
+	struct source src = { 0 }, null_src = { .label = "", };
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = arr_get(&error_diagnostic_store.messages, i);
 
@@ -199,7 +164,9 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			*saw_error = true;
 		}
 
-		if ((cur_src = arr_get(&error_diagnostic_store.sources, msg->src_idx)) != last_src) {
+		cur_src = msg->src_idx == UINT32_MAX ? &null_src : arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
+
+		if (cur_src != last_src) {
 			if (opts & error_diagnostic_store_replay_include_sources) {
 				if (last_src) {
 					log_plain("\n");
@@ -207,12 +174,12 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 
 				log_plain("%s%s%s\n",
 					log_clr() ? "\033[31;1m" : "",
-					cur_src->src.label,
+					cur_src->label,
 					log_clr() ? "\033[0m" : "");
 			}
 
 			last_src = cur_src;
-			src = cur_src->src;
+			src = *cur_src;
 
 			if (!(opts & error_diagnostic_store_replay_include_sources)) {
 				src.len = 0;
@@ -227,13 +194,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 		z_free((char *)msg->msg);
 	}
 
-	for (i = 0; i < error_diagnostic_store.sources.len; ++i) {
-		cur_src = arr_get(&error_diagnostic_store.sources, i);
-		fs_source_destroy(&cur_src->src);
-	}
-
 	arr_destroy(&error_diagnostic_store.messages);
-	arr_destroy(&error_diagnostic_store.sources);
 }
 
 void
@@ -258,12 +219,6 @@ error_unrecoverable(const char *fmt, ...)
 	va_end(ap);
 
 	exit(1);
-}
-
-struct source *
-error_get_stored_source(uint32_t src_idx)
-{
-	return arr_get(&error_diagnostic_store.sources, src_idx);
 }
 
 struct detailed_source_location {
@@ -413,8 +368,6 @@ reopen_source(struct source *src, bool *destroy_source)
 void
 list_line_range(struct source *src, struct source_location location, uint32_t context)
 {
-	/* uint32_t lstart = 0, lend = 1, i; */
-
 	log_plain("-> %s%s%s\n", log_clr() ? "\033[32m" : "", src->label, log_clr() ? "\033[0m" : "");
 
 	bool destroy_source = false;
@@ -448,7 +401,15 @@ error_message(struct source *src, struct source_location location, enum log_leve
 			location = error_diagnostic_store.redirect.location;
 		}
 
-		error_diagnostic_store_push(error_diagnostic_store_push_src(src), location, lvl, msg);
+		uint32_t i;
+		for (i = 0; i < error_diagnostic_store.wk->vm.src.len; ++i) {
+			if (src == (struct source *)(arr_get(&error_diagnostic_store.wk->vm.src, i))) {
+				break;
+			}
+		}
+		assert(i < error_diagnostic_store.wk->vm.src.len);
+
+		error_diagnostic_store_push(i, location, lvl, msg);
 		return;
 	}
 

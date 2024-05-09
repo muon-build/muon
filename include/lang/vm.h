@@ -50,6 +50,8 @@ enum op {
 	op_dup,
 	op_swap,
 	op_typecheck,
+
+	op_count,
 };
 
 struct workspace;
@@ -116,6 +118,8 @@ struct vm_behavior {
 	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
 	bool((*get_variable)(struct workspace *wk, const char *name, obj *res));
 	bool((*eval_project_file)(struct workspace *wk, const char *path, bool first));
+	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));
+	bool((*pop_args)(struct workspace *wk, struct args_norm an[], struct args_kw akw[]));
 };
 
 struct vm_objects {
@@ -127,12 +131,18 @@ struct vm_objects {
 	bool obj_clear_mark_set;
 };
 
+typedef void((*vm_op_fn)(struct workspace *wk));
+struct vm_ops {
+	vm_op_fn ops[op_count];
+};
+
 struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
 
+	struct vm_ops ops;
 	struct vm_objects objects;
 	struct vm_behavior behavior;
 	struct vm_compiler_state compiler_state;
@@ -140,14 +150,21 @@ struct vm {
 
 	enum language_mode lang_mode;
 
+	bool run;
 	bool saw_disabler;
 	bool in_analyzer;
+	// When true, disable functions with the .fuzz_unsafe attribute set to true.
+	// This is useful when running `muon internal eval` on randomly generated
+	// files, where you don't want to accidentally execute `run_command('rm',
+	// '-rf', '/')` for example
+	bool disable_fuzz_unsafe_functions;
 	bool error;
 };
 
 obj vm_execute(struct workspace *wk);
 bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
+void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
@@ -155,6 +172,7 @@ void vm_destroy(struct workspace *wk);
 void vm_destroy_objects(struct workspace *wk);
 
 bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
+bool vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
 
 MUON_ATTR_FORMAT(printf, 4, 5)
 void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);

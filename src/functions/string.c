@@ -12,7 +12,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/string.h"
 #include "guess.h"
 #include "lang/lexer.h"

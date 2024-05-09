@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_BUILD_TARGET_H
 #define MUON_FUNCTIONS_BUILD_TARGET_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 bool tgt_src_to_object_path(struct workspace *wk,
 	const struct obj_build_target *tgt,

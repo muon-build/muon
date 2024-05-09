@@ -13,7 +13,7 @@
 #include "compilers.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/meson.h"
 #include "lang/typecheck.h"
 #include "log.h"

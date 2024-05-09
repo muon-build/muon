@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_GENERATOR_H
 #define MUON_FUNCTIONS_GENERATOR_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 bool
 generated_list_process_for_target(struct workspace *wk, uint32_t err_node, obj gl, obj tgt, bool add_targets, obj *res);

@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_CUSTOM_TARGET_H
 #define MUON_FUNCTIONS_CUSTOM_TARGET_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 bool custom_target_is_linkable(struct workspace *wk, obj ct);
 

@@ -7,7 +7,7 @@
 
 #include "error.h"
 #include "formats/ini.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/modules/keyval.h"
 #include "lang/typecheck.h"
 #include "platform/filesystem.h"

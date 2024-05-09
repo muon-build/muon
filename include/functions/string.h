@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_STRING_H
 #define MUON_FUNCTIONS_STRING_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 enum format_cb_result {
 	format_cb_found,

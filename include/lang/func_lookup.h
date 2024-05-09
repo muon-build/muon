@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#ifndef MUON_FUNCTIONS_COMMON_H
-#define MUON_FUNCTIONS_COMMON_H
+#ifndef MUON_LANG_FUNC_LOOKUP_H
+#define MUON_LANG_FUNC_LOOKUP_H
 
 #include "lang/workspace.h"
 
@@ -26,7 +26,7 @@ struct func_impl_group {
 
 extern struct func_impl native_funcs[];
 
-extern bool disable_fuzz_unsafe_functions;
+/* extern bool disable_fuzz_unsafe_functions; */
 
 void build_func_impl_tables(void);
 
@@ -35,22 +35,6 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 	enum language_mode mode,
 	const char *name,
 	uint32_t *idx);
-
-bool interp_args(struct workspace *wk,
-	uint32_t args_node,
-	struct args_norm positional_args[],
-	struct args_norm optional_positional_args[],
-	struct args_kw keyword_args[]);
-bool builtin_run(struct workspace *wk, bool have_self, obj self_id, uint32_t node_id, obj *res);
-
-/* bool func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res); */
-/* bool func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args_node, obj *res); */
-bool analyze_function(struct workspace *wk,
-	const struct func_impl *fi,
-	uint32_t args_node,
-	obj self,
-	obj *res,
-	bool *was_pure);
 
 void dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[]);
 void dump_function_signatures(struct workspace *wk);

@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_FILE_H
 #define MUON_FUNCTIONS_FILE_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 bool file_is_linkable(struct workspace *wk, obj file);
 

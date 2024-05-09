@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "error.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/kernel/options.h"
 #include "lang/typecheck.h"
 #include "log.h"

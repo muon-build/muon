@@ -89,7 +89,11 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	}
 
 	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
+
 	ret = eval(wk, &(struct source){ .src = src, .label = script, .len = strlen(src) }, eval_mode_default, &_);
+
+	stack_pop(&wk->stack, wk->vm.scope_stack);
 	stack_pop(&wk->stack, wk->vm.lang_mode);
 	return ret;
 }

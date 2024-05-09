@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
 bool dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);

@@ -10,7 +10,7 @@
 
 #include "coerce.h"
 #include "error.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/compiler.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
@@ -122,8 +122,8 @@ object_stack_print(struct workspace *wk, struct object_stack *s)
  * vm errors
  ******************************************************************************/
 
-static void
-vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src)
+void
+vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx)
 {
 	struct source_location_mapping *locations = (struct source_location_mapping *)vm->locations.e;
 
@@ -142,12 +142,20 @@ vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc,
 	}
 
 	*loc = locations[i].loc;
+	*src_idx = locations[i].src_idx;
+}
 
-	if (locations[i].src_idx == UINT32_MAX) {
+static void
+vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src)
+{
+	uint32_t src_idx;
+	vm_lookup_inst_location_src_idx(vm, ip, loc, &src_idx);
+
+	if (src_idx == UINT32_MAX) {
 		static struct source null_src = { 0 };
 		*src = &null_src;
 	} else {
-		*src = arr_get(&vm->src, locations[i].src_idx);
+		*src = arr_get(&vm->src, src_idx);
 	}
 }
 
@@ -169,6 +177,7 @@ vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const cha
 
 	if (lvl == log_error) {
 		wk->vm.error = true;
+		wk->vm.run = false;
 	}
 }
 
@@ -306,7 +315,7 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 }
 
 bool
-pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
+vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 {
 	const char *kw;
 	struct obj_stack_entry *entry;
@@ -420,6 +429,12 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	return true;
 }
 
+bool
+pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
+{
+	return wk->vm.behavior.pop_args(wk, an, akw);
+}
+
 /******************************************************************************
  * utility functions
  ******************************************************************************/
@@ -528,6 +543,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_typecheck)
 		buf_push(":%s", obj_type_to_s(vm_get_constant(code, &ip)));
 		break;
+	case op_count: UNREACHABLE;
 	}
 	// clang-format on
 
@@ -558,24 +574,8 @@ vm_dis(struct workspace *wk)
 }
 
 /******************************************************************************
- * vm_execute
+ * vm ops
  ******************************************************************************/
-
-#define binop_disabler_check(a, b)                  \
-	if (a == disabler_id || b == disabler_id) { \
-		object_stack_push(wk, disabler_id); \
-		break;                              \
-	}
-
-#define vm_pop(__it) entry = object_stack_pop_entry(&wk->vm.stack), __it = entry->o, __it##_ip = entry->ip
-#define vm_peek(__it, __i) entry = object_stack_peek_entry(&wk->vm.stack, __i), __it = entry->o, __it##_ip = entry->ip
-
-static void
-vm_abort_handler(void *ctx)
-{
-	struct workspace *wk = ctx;
-	vm_error(wk, "encountered unhandled error");
-}
 
 static void
 vm_execute_capture(struct workspace *wk, obj a)
@@ -630,6 +630,930 @@ vm_execute_capture(struct workspace *wk, obj a)
 
 	wk->vm.ip = capture->func->entry;
 	return;
+}
+
+#define binop_disabler_check(a, b)                  \
+	if (a == disabler_id || b == disabler_id) { \
+		object_stack_push(wk, disabler_id); \
+		return;                             \
+	}
+
+#define vm_pop(__it) entry = object_stack_pop_entry(&wk->vm.stack), __it = entry->o, __it##_ip = entry->ip
+#define vm_peek(__it, __i) entry = object_stack_peek_entry(&wk->vm.stack, __i), __it = entry->o, __it##_ip = entry->ip
+
+static void
+vm_op_constant(struct workspace *wk)
+{
+	obj a;
+	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_constant_list(struct workspace *wk)
+{
+	obj b;
+	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	make_obj(wk, &b, obj_array);
+	for (i = 0; i < len; ++i) {
+		obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
+	}
+
+	object_stack_discard(&wk->vm.stack, len);
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_constant_dict(struct workspace *wk)
+{
+	obj b;
+	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	make_obj(wk, &b, obj_dict);
+	for (i = 0; i < len; ++i) {
+		obj_dict_set(wk,
+			b,
+			object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1),
+			object_stack_peek(&wk->vm.stack, (len - i) * 2));
+	}
+
+	object_stack_discard(&wk->vm.stack, len * 2);
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_constant_func(struct workspace *wk)
+{
+	obj a, c, defargs;
+	struct obj_capture *capture;
+
+	defargs = object_stack_pop(&wk->vm.stack);
+	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	make_obj(wk, &c, obj_capture);
+	capture = get_obj_capture(wk, c);
+
+	capture->func = get_obj_func(wk, a);
+	capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
+	capture->defargs = defargs;
+
+	object_stack_push(wk, c);
+}
+
+static void
+vm_op_add(struct workspace *wk)
+{
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == obj_array || a_t == b_t)) {
+		goto op_add_type_err;
+	}
+
+	obj res = 0;
+
+	switch (a_t) {
+	case obj_number:
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
+		break;
+	case obj_string: res = str_join(wk, a, b); break;
+	case obj_array:
+		obj_array_dup(wk, a, &res);
+		if (b_t == obj_array) {
+			obj_array_extend(wk, res, b);
+		} else {
+			obj_array_push(wk, res, b);
+		}
+		break;
+	case obj_dict: obj_dict_merge(wk, a, b, &res); break;
+	default:
+op_add_type_err:
+		vm_error(wk, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		return;
+	}
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_sub(struct workspace *wk)
+{
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == obj_number && a_t == b_t)) {
+		vm_error(wk, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		return;
+	}
+
+	obj res;
+	make_obj(wk, &res, obj_number);
+	set_obj_number(wk, res, get_obj_number(wk, a) - get_obj_number(wk, b));
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_mul(struct workspace *wk)
+{
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == obj_number && a_t == b_t)) {
+		vm_error(wk, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		return;
+	}
+
+	obj res;
+	make_obj(wk, &res, obj_number);
+	set_obj_number(wk, res, get_obj_number(wk, a) * get_obj_number(wk, b));
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_div(struct workspace *wk)
+{
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == b_t)) {
+		goto op_div_type_err;
+	}
+
+	obj res = 0;
+
+	switch (a_t) {
+	case obj_number:
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
+		break;
+	case obj_string: {
+		const struct str *ss1 = get_str(wk, a), *ss2 = get_str(wk, b);
+
+		if (str_has_null(ss1)) {
+			vm_error(wk, "%o is an invalid path", a);
+			break;
+		} else if (str_has_null(ss2)) {
+			vm_error(wk, "%o is an invalid path", b);
+			break;
+		}
+
+		SBUF(buf);
+		path_join(wk, &buf, ss1->s, ss2->s);
+		res = sbuf_into_str(wk, &buf);
+		break;
+	}
+	default:
+op_div_type_err:
+		vm_error(wk, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		return;
+	}
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_mod(struct workspace *wk)
+{
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == obj_number && a_t == b_t)) {
+		vm_error(wk, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		return;
+	}
+
+	obj res;
+	make_obj(wk, &res, obj_number);
+	set_obj_number(wk, res, get_obj_number(wk, a) % get_obj_number(wk, b));
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_lt(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t a_ip, b_ip;
+	obj a, b;
+
+	vm_pop(b);
+	vm_pop(a);
+	binop_disabler_check(a, b);
+	if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
+		return;
+	}
+
+	object_stack_push(wk, get_obj_number(wk, a) < get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
+}
+
+static void
+vm_op_gt(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t a_ip, b_ip;
+	obj a, b;
+
+	vm_pop(b);
+	vm_pop(a);
+	binop_disabler_check(a, b);
+
+	if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
+		return;
+	}
+
+	object_stack_push(wk, get_obj_number(wk, a) > get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
+}
+
+static void
+vm_op_in(struct workspace *wk)
+{
+	obj a, b;
+
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	bool res = false;
+
+	switch (get_obj_type(wk, b)) {
+	case obj_array: res = obj_array_in(wk, b, a); break;
+	case obj_dict:
+		if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
+			break;
+		}
+
+		res = obj_dict_in(wk, b, a);
+		break;
+	case obj_string:
+		if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
+			break;
+		}
+
+		const struct str *r = get_str(wk, b), *l = get_str(wk, a);
+		res = str_contains(r, l);
+		break;
+	default: vm_error(wk, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, a))); break;
+	}
+
+	a = res ? obj_bool_true : obj_bool_false;
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_eq(struct workspace *wk)
+{
+	obj a, b;
+
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_not(struct workspace *wk)
+{
+	obj a;
+	a = object_stack_pop(&wk->vm.stack);
+
+	if (a == disabler_id) {
+		object_stack_push(wk, disabler_id);
+		return;
+	} else if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
+		return;
+	}
+
+	a = get_obj_bool(wk, a) ? obj_bool_false : obj_bool_true;
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_negate(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_pop(&wk->vm.stack);
+
+	if (a == disabler_id) {
+		object_stack_push(wk, disabler_id);
+		return;
+	} else if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
+		return;
+	}
+
+	make_obj(wk, &b, obj_number);
+	set_obj_number(wk, b, get_obj_number(wk, a) * -1);
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_stringify(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_pop(&wk->vm.stack);
+
+	if (!coerce_string(wk, wk->vm.ip - 1, a, &b)) {
+		return;
+	}
+
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_store(struct workspace *wk)
+{
+	struct obj_stack_entry *a_entry;
+	obj a, b;
+	a_entry = object_stack_pop_entry(&wk->vm.stack);
+	a = a_entry->o;
+	b = object_stack_peek(&wk->vm.stack, 1);
+
+	switch (get_obj_type(wk, b)) {
+	case obj_environment:
+	case obj_configuration_data: {
+		obj cloned;
+		if (!obj_clone(wk, wk, b, &cloned)) {
+			UNREACHABLE;
+		}
+
+		b = cloned;
+		break;
+	}
+	case obj_dict: {
+		obj dup;
+		obj_dict_dup(wk, b, &dup);
+		b = dup;
+		break;
+	}
+	case obj_array: {
+		obj dup;
+		obj_array_dup(wk, b, &dup);
+		b = dup;
+	}
+	default: break;
+	}
+
+	wk->vm.behavior.assign_variable(wk, get_str(wk, a)->s, b, a_entry->ip, assign_local);
+	/* LO("%o <= %o\n", a, b); */
+}
+
+static void
+vm_op_add_store(struct workspace *wk)
+{
+	obj a, b;
+
+	b = object_stack_pop(&wk->vm.stack);
+	obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	const struct str *id = get_str(wk, a_id);
+	if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
+		vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
+		return;
+	}
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	if (!(a_t == obj_array || a_t == b_t)) {
+		goto op_add_store_type_err;
+	}
+
+	switch (a_t) {
+	case obj_number: {
+		obj res;
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
+		a = res;
+		wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
+		break;
+	}
+	case obj_string:
+		// TODO: could use str_appn, but would have to dup on store
+		a = str_join(wk, a, b);
+		wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
+		break;
+	case obj_array:
+		if (b_t == obj_array) {
+			obj_array_extend(wk, a, b);
+		} else {
+			obj_array_push(wk, a, b);
+		}
+		break;
+	case obj_dict: obj_dict_merge_nodup(wk, a, b); break;
+	default:
+op_add_store_type_err:
+		vm_error(wk, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+		break;
+	}
+
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_load(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_pop(&wk->vm.stack);
+
+	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
+		vm_error(wk, "undefined object %s", get_cstr(wk, a));
+		return;
+	}
+
+	/* LO("%o <= %o\n", b, a); */
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_try_load(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_pop(&wk->vm.stack);
+
+	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
+		b = 0;
+	}
+
+	/* LO("%o <= %o\n", b, a); */
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_index(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t b_ip;
+	obj a, b;
+
+	int64_t i;
+	obj res = 0;
+	vm_pop(b);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	switch (get_obj_type(wk, a)) {
+	case obj_array: {
+		if (!typecheck(wk, b_ip, b, obj_number)) {
+			break;
+		}
+		i = get_obj_number(wk, b);
+
+		if (!boundscheck(wk, b_ip, get_obj_array(wk, a)->len, &i)) {
+			break;
+		}
+
+		obj_array_index(wk, a, i, &res);
+		break;
+	}
+	case obj_dict: {
+		if (!typecheck(wk, b_ip, b, obj_string)) {
+			break;
+		}
+
+		if (!obj_dict_index(wk, a, b, &res)) {
+			vm_error_at(wk, b_ip, "key not in dictionary: %o", b);
+			break;
+		}
+		break;
+	}
+	case obj_custom_target: {
+		if (!typecheck(wk, b_ip, b, obj_number)) {
+			break;
+		}
+		i = get_obj_number(wk, b);
+
+		struct obj_custom_target *tgt = get_obj_custom_target(wk, a);
+		struct obj_array *arr = get_obj_array(wk, tgt->output);
+
+		if (!boundscheck(wk, b_ip, arr->len, &i)) {
+			break;
+		}
+
+		obj_array_index(wk, tgt->output, i, &res);
+		break;
+	}
+	case obj_string: {
+		if (!typecheck(wk, b_ip, b, obj_number)) {
+			break;
+		}
+		i = get_obj_number(wk, b);
+
+		const struct str *s = get_str(wk, a);
+		if (!boundscheck(wk, b_ip, s->len, &i)) {
+			break;
+		}
+
+		res = make_strn(wk, &s->s[i], 1);
+		break;
+	}
+	case obj_iterator: {
+		if (!typecheck(wk, b_ip, b, obj_number)) {
+			break;
+		}
+		i = get_obj_number(wk, b);
+
+		struct obj_iterator *iter = get_obj_iterator(wk, a);
+
+		assert(iter->type == obj_iterator_type_range);
+
+		double r = (double)iter->data.range.stop - (double)iter->data.range.start;
+		uint32_t steps = (uint32_t)(r / (double)iter->data.range.step + 0.5);
+
+		if (!boundscheck(wk, b_ip, steps, &i)) {
+			break;
+		}
+
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, (i * iter->data.range.step) + iter->data.range.start);
+		break;
+	}
+	default: vm_error_at(wk, b_ip, "index unsupported for %s", obj_type_to_s(get_obj_type(wk, a))); break;
+	}
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_call(struct workspace *wk)
+{
+	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	vm_execute_capture(wk, object_stack_pop(&wk->vm.stack));
+}
+
+static void
+vm_op_call_method(struct workspace *wk)
+{
+	obj a, b, f = 0;
+	uint32_t idx;
+
+	b = object_stack_pop(&wk->vm.stack);
+	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	if (!func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
+		if (b == disabler_id) {
+			object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
+			object_stack_push(wk, disabler_id);
+			return;
+		}
+		vm_error(wk, "method %o not found on %s", a, obj_type_to_s(get_obj_type(wk, b)));
+		return;
+	}
+
+	if (f) {
+		vm_execute_capture(wk, f);
+		return;
+	} else {
+		a = 0;
+
+		if (native_funcs[idx].self_transform) {
+			b = native_funcs[idx].self_transform(wk, b);
+		}
+
+		stack_push(&wk->stack, wk->vm.saw_disabler, false);
+
+		bool ok;
+		{
+#ifdef TRACY_ENABLE
+			TracyCZoneC(tctx_func, 0xff5000, true);
+			char func_name[1024];
+			snprintf(func_name,
+				sizeof(func_name),
+				"%s.%s",
+				obj_type_to_s(get_obj_type(wk, b)),
+				native_funcs[idx].name);
+			TracyCZoneName(tctx_func, func_name, strlen(func_name));
+#endif
+
+			ok = wk->vm.behavior.native_func_dispatch(wk, idx, b, &a)
+
+			TracyCZoneEnd(tctx_func);
+		}
+
+		bool saw_disabler = wk->vm.saw_disabler;
+
+		stack_pop(&wk->stack, wk->vm.saw_disabler);
+
+		if (!ok) {
+			if (saw_disabler) {
+				a = disabler_id;
+			} else {
+				vm_error(wk,
+					"in method %s.%s",
+					obj_type_to_s(get_obj_type(wk, b)),
+					native_funcs[idx].name);
+			}
+		}
+	}
+
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_call_native(struct workspace *wk)
+{
+	obj a, b;
+	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	a = 0;
+	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	stack_push(&wk->stack, wk->vm.saw_disabler, false);
+
+	bool ok;
+	{
+#ifdef TRACY_ENABLE
+		TracyCZoneC(tctx_func, 0xff5000, true);
+		char func_name[1024];
+		snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
+		TracyCZoneName(tctx_func, func_name, strlen(func_name));
+#endif
+
+		ok = wk->vm.behavior.native_func_dispatch(wk, b, 0, &a);
+
+		TracyCZoneEnd(tctx_func);
+	}
+
+	bool saw_disabler = wk->vm.saw_disabler;
+	stack_pop(&wk->stack, wk->vm.saw_disabler);
+
+	if (!ok) {
+		if (saw_disabler) {
+			a = disabler_id;
+		} else {
+			vm_error(wk, "in function %s", native_funcs[b].name);
+		}
+	}
+
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_iterator(struct workspace *wk)
+{
+	obj a, iter;
+	struct obj_iterator *iterator;
+
+	a = object_stack_pop(&wk->vm.stack);
+	enum obj_type a_type = get_obj_type(wk, a);
+
+	switch (a_type) {
+	case obj_array:
+		make_obj(wk, &iter, obj_iterator);
+		object_stack_push(wk, iter);
+		iterator = get_obj_iterator(wk, iter);
+
+		iterator->type = obj_iterator_type_array;
+		iterator->data.array = get_obj_array(wk, a);
+		if (!iterator->data.array->len) {
+			// TODO: update this when we implement array_elem
+			iterator->data.array = 0;
+		}
+		break;
+	case obj_dict: {
+		make_obj(wk, &iter, obj_iterator);
+		object_stack_push(wk, iter);
+		iterator = get_obj_iterator(wk, iter);
+
+		struct obj_dict *d = get_obj_dict(wk, a);
+		if (d->flags & obj_dict_flag_big) {
+			iterator->type = obj_iterator_type_dict_big;
+			iterator->data.dict_big.h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
+		} else {
+			iterator->type = obj_iterator_type_dict_small;
+			iterator->data.dict_small = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
+		}
+		break;
+	}
+	case obj_iterator: {
+		object_stack_push(wk, a);
+		iterator = get_obj_iterator(wk, a);
+
+		assert(iterator->type == obj_iterator_type_range);
+		iterator->data.range.i = iterator->data.range.start;
+		break;
+	}
+	default: {
+		UNREACHABLE;
+	}
+	}
+}
+
+static void
+vm_op_iterator_next(struct workspace *wk)
+{
+	obj key = 0, val;
+	struct obj_iterator *iterator;
+	iterator = get_obj_iterator(wk, object_stack_peek(&wk->vm.stack, 1));
+
+	switch (iterator->type) {
+	case obj_iterator_type_array:
+		if (!iterator->data.array) {
+			val = 0;
+		} else {
+			val = iterator->data.array->val;
+			iterator->data.array
+				= iterator->data.array->have_next ? get_obj_array(wk, iterator->data.array->next) : 0;
+		}
+		break;
+	case obj_iterator_type_range:
+		if (iterator->data.range.i >= iterator->data.range.stop) {
+			val = 0;
+		} else {
+			make_obj(wk, &val, obj_number);
+			set_obj_number(wk, val, iterator->data.range.i);
+			iterator->data.range.i += iterator->data.range.step;
+		}
+		break;
+	case obj_iterator_type_dict_small:
+		if (!iterator->data.dict_small) {
+			val = 0;
+		} else {
+			key = iterator->data.dict_small->key;
+			val = iterator->data.dict_small->val;
+			if (iterator->data.dict_small->next) {
+				iterator->data.dict_small
+					= bucket_arr_get(&wk->vm.objects.dict_elems, iterator->data.dict_small->next);
+			} else {
+				iterator->data.dict_small = 0;
+			}
+		}
+		break;
+	case obj_iterator_type_dict_big:
+		if (iterator->data.dict_big.i >= iterator->data.dict_big.h->keys.len) {
+			val = 0;
+		} else {
+			void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
+			uint64_t *v = hash_get(iterator->data.dict_big.h, k);
+			key = *v >> 32;
+			val = *v & 0xffffffff;
+			++iterator->data.dict_big.i;
+		}
+		break;
+	default: UNREACHABLE;
+	}
+
+	object_stack_push(wk, val);
+	if (key) {
+		object_stack_push(wk, key);
+	}
+}
+
+static void
+vm_op_pop(struct workspace *wk)
+{
+	object_stack_pop(&wk->vm.stack);
+}
+
+static void
+vm_op_dup(struct workspace *wk)
+{
+	obj a;
+	a = object_stack_peek(&wk->vm.stack, 1);
+	object_stack_push(wk, a);
+}
+
+static void
+vm_op_swap(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_pop(&wk->vm.stack);
+	b = object_stack_pop(&wk->vm.stack);
+	object_stack_push(wk, a);
+	object_stack_push(wk, b);
+}
+
+static void
+vm_op_jmp_if_null(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_peek(&wk->vm.stack, 1);
+	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	if (!a) {
+		object_stack_discard(&wk->vm.stack, 1);
+		wk->vm.ip = b;
+	}
+}
+
+static void
+vm_op_jmp_if_disabler(struct workspace *wk)
+{
+	obj a, b;
+	a = object_stack_peek(&wk->vm.stack, 1);
+	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	if (a == disabler_id) {
+		object_stack_discard(&wk->vm.stack, 1);
+		wk->vm.ip = b;
+	}
+}
+
+static void
+vm_op_jmp_if_true(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t a_ip;
+	obj a, b;
+
+	vm_pop(a);
+	if (!typecheck(wk, a_ip, a, obj_bool)) {
+		return;
+	}
+
+	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	if (get_obj_bool(wk, a)) {
+		wk->vm.ip = b;
+	}
+}
+
+static void
+vm_op_jmp_if_false(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t a_ip;
+	obj a, b;
+
+	vm_pop(a);
+	if (!typecheck(wk, a_ip, a, obj_bool)) {
+		return;
+	}
+
+	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	if (!get_obj_bool(wk, a)) {
+		wk->vm.ip = b;
+	}
+}
+
+static void
+vm_op_jmp(struct workspace *wk)
+{
+	obj a;
+
+	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	wk->vm.ip = a;
+}
+
+static void
+vm_op_return(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+	uint32_t a_ip;
+	obj a;
+
+	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
+	wk->vm.ip = frame->return_ip;
+
+	switch (frame->type) {
+	case call_frame_type_eval: {
+		wk->vm.run = false;
+		break;
+	}
+	case call_frame_type_func:
+		wk->vm.behavior.pop_local_scope(wk);
+		wk->vm.scope_stack = frame->scope_stack;
+		wk->vm.lang_mode = frame->lang_mode;
+		vm_peek(a, 1);
+		typecheck(wk, a_ip, a, frame->expected_return_type);
+		break;
+	}
+}
+
+static void
+vm_op_typecheck(struct workspace *wk)
+{
+	struct obj_stack_entry *entry;
+
+	entry = object_stack_peek_entry(&wk->vm.stack, 1);
+	typecheck(wk, entry->ip, entry->o, vm_get_constant(wk->vm.code.e, &wk->vm.ip));
+}
+
+/******************************************************************************
+ * vm_execute
+ ******************************************************************************/
+
+static void
+vm_abort_handler(void *ctx)
+{
+	struct workspace *wk = ctx;
+	vm_error(wk, "encountered unhandled error");
 }
 
 bool
@@ -705,14 +1629,13 @@ vm_unwind_call_stack(struct workspace *wk)
 obj
 vm_execute(struct workspace *wk)
 {
-	struct obj_stack_entry *entry;
-	uint32_t a_ip, b_ip;
-	uint32_t object_stack_base = wk->vm.stack.ba.len;
-	obj a, b;
+	uint32_t cip, object_stack_base = wk->vm.stack.ba.len;
 
 	platform_set_abort_handler(vm_abort_handler, wk);
 
-	while (!wk->vm.error) {
+	stack_push(&wk->stack, wk->vm.run, true);
+
+	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
 			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
 			/* object_stack_print(wk, &wk->vm.stack); */
@@ -722,787 +1645,53 @@ vm_execute(struct workspace *wk)
 			/* list_line_range(src, loc, 0); */
 		}
 
-		switch ((enum op)wk->vm.code.e[wk->vm.ip++]) {
-		case op_constant:
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			object_stack_push(wk, a);
-			break;
-		case op_constant_list: {
-			uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			make_obj(wk, &b, obj_array);
-			for (i = 0; i < len; ++i) {
-				obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
-			}
-
-			object_stack_discard(&wk->vm.stack, len);
-			object_stack_push(wk, b);
-			break;
-		}
-		case op_constant_dict: {
-			uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			make_obj(wk, &b, obj_dict);
-			for (i = 0; i < len; ++i) {
-				obj_dict_set(wk,
-					b,
-					object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1),
-					object_stack_peek(&wk->vm.stack, (len - i) * 2));
-			}
-
-			object_stack_discard(&wk->vm.stack, len * 2);
-			object_stack_push(wk, b);
-			break;
-		}
-		case op_constant_func: {
-			obj c, defargs;
-			struct obj_capture *capture;
-
-			defargs = object_stack_pop(&wk->vm.stack);
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-			make_obj(wk, &c, obj_capture);
-			capture = get_obj_capture(wk, c);
-
-			capture->func = get_obj_func(wk, a);
-			capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
-			capture->defargs = defargs;
-
-			object_stack_push(wk, c);
-			break;
-		}
-		case op_add: {
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == obj_array || a_t == b_t)) {
-				goto op_add_type_err;
-			}
-
-			obj res = 0;
-
-			switch (a_t) {
-			case obj_number:
-				make_obj(wk, &res, obj_number);
-				set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
-				break;
-			case obj_string: res = str_join(wk, a, b); break;
-			case obj_array:
-				obj_array_dup(wk, a, &res);
-				if (b_t == obj_array) {
-					obj_array_extend(wk, res, b);
-				} else {
-					obj_array_push(wk, res, b);
-				}
-				break;
-			case obj_dict: obj_dict_merge(wk, a, b, &res); break;
-			default:
-op_add_type_err:
-				vm_error(wk, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_sub: {
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			obj res;
-			make_obj(wk, &res, obj_number);
-			set_obj_number(wk, res, get_obj_number(wk, a) - get_obj_number(wk, b));
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_mul: {
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			obj res;
-			make_obj(wk, &res, obj_number);
-			set_obj_number(wk, res, get_obj_number(wk, a) * get_obj_number(wk, b));
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_div: {
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == b_t)) {
-				goto op_div_type_err;
-			}
-
-			obj res = 0;
-
-			switch (a_t) {
-			case obj_number:
-				make_obj(wk, &res, obj_number);
-				set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
-				break;
-			case obj_string: {
-				const struct str *ss1 = get_str(wk, a), *ss2 = get_str(wk, b);
-
-				if (str_has_null(ss1)) {
-					vm_error(wk, "%o is an invalid path", a);
-					break;
-				} else if (str_has_null(ss2)) {
-					vm_error(wk, "%o is an invalid path", b);
-					break;
-				}
-
-				SBUF(buf);
-				path_join(wk, &buf, ss1->s, ss2->s);
-				res = sbuf_into_str(wk, &buf);
-				break;
-			}
-			default:
-op_div_type_err:
-				vm_error(wk, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_mod: {
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			obj res;
-			make_obj(wk, &res, obj_number);
-			set_obj_number(wk, res, get_obj_number(wk, a) % get_obj_number(wk, b));
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_lt:
-			vm_pop(b);
-			vm_pop(a);
-			binop_disabler_check(a, b);
-			if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
-				break;
-			}
-
-			object_stack_push(
-				wk, get_obj_number(wk, a) < get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
-			break;
-		case op_gt:
-			vm_pop(b);
-			vm_pop(a);
-			binop_disabler_check(a, b);
-			if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
-				break;
-			}
-
-			object_stack_push(
-				wk, get_obj_number(wk, a) > get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
-			break;
-		case op_in:
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			bool res = false;
-
-			switch (get_obj_type(wk, b)) {
-			case obj_array: res = obj_array_in(wk, b, a); break;
-			case obj_dict:
-				if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
-					break;
-				}
-
-				res = obj_dict_in(wk, b, a);
-				break;
-			case obj_string:
-				if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
-					break;
-				}
-
-				const struct str *r = get_str(wk, b), *l = get_str(wk, a);
-				res = str_contains(r, l);
-				break;
-			default: vm_error(wk, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, a))); break;
-			}
-
-			a = res ? obj_bool_true : obj_bool_false;
-			object_stack_push(wk, a);
-			break;
-		case op_eq:
-			b = object_stack_pop(&wk->vm.stack);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
-			object_stack_push(wk, a);
-			break;
-		case op_not:
-			a = object_stack_pop(&wk->vm.stack);
-
-			if (a == disabler_id) {
-				object_stack_push(wk, disabler_id);
-				break;
-			} else if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
-				break;
-			}
-
-			a = get_obj_bool(wk, a) ? obj_bool_false : obj_bool_true;
-			object_stack_push(wk, a);
-			break;
-		case op_negate:
-			a = object_stack_pop(&wk->vm.stack);
-
-			if (a == disabler_id) {
-				object_stack_push(wk, disabler_id);
-				break;
-			} else if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
-				break;
-			}
-
-			make_obj(wk, &b, obj_number);
-			set_obj_number(wk, b, get_obj_number(wk, a) * -1);
-			object_stack_push(wk, b);
-			break;
-		case op_stringify:
-			a = object_stack_pop(&wk->vm.stack);
-
-			if (!coerce_string(wk, wk->vm.ip - 1, a, &b)) {
-				break;
-			}
-
-			object_stack_push(wk, b);
-			break;
-		case op_store: {
-			a = object_stack_pop(&wk->vm.stack);
-			b = object_stack_peek(&wk->vm.stack, 1);
-
-			switch (get_obj_type(wk, b)) {
-			case obj_environment:
-			case obj_configuration_data: {
-				obj cloned;
-				if (!obj_clone(wk, wk, b, &cloned)) {
-					UNREACHABLE;
-				}
-
-				b = cloned;
-				break;
-			}
-			case obj_dict: {
-				obj dup;
-				obj_dict_dup(wk, b, &dup);
-				b = dup;
-				break;
-			}
-			case obj_array: {
-				obj dup;
-				obj_array_dup(wk, b, &dup);
-				b = dup;
-			}
-			default: break;
-			}
-
-			wk->vm.behavior.assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
-			/* LO("%o <= %o\n", a, b); */
-			break;
-		}
-		case op_add_store: {
-			b = object_stack_pop(&wk->vm.stack);
-			obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			const struct str *id = get_str(wk, a_id);
-			if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
-				vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
-				break;
-			}
-
-			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-			if (!(a_t == obj_array || a_t == b_t)) {
-				goto op_add_store_type_err;
-			}
-
-			switch (a_t) {
-			case obj_number: {
-				obj res;
-				make_obj(wk, &res, obj_number);
-				set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
-				a = res;
-				wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
-				break;
-			}
-			case obj_string:
-				// TODO: could use str_appn, but would have to dup on store
-				a = str_join(wk, a, b);
-				wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
-				break;
-			case obj_array:
-				if (b_t == obj_array) {
-					obj_array_extend(wk, a, b);
-				} else {
-					obj_array_push(wk, a, b);
-				}
-				break;
-			case obj_dict: obj_dict_merge_nodup(wk, a, b); break;
-			default:
-op_add_store_type_err:
-				vm_error(wk, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-				break;
-			}
-
-			object_stack_push(wk, a);
-			break;
-		}
-		case op_load: {
-			a = object_stack_pop(&wk->vm.stack);
-
-			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
-				vm_error(wk, "undefined object %s", get_cstr(wk, a));
-				break;
-			}
-
-			/* LO("%o <= %o\n", b, a); */
-			object_stack_push(wk, b);
-			break;
-		}
-		case op_try_load: {
-			a = object_stack_pop(&wk->vm.stack);
-
-			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
-				b = 0;
-			}
-
-			/* LO("%o <= %o\n", b, a); */
-			object_stack_push(wk, b);
-			break;
-		}
-		case op_index: {
-			int64_t i;
-			obj res = 0;
-			vm_pop(b);
-			a = object_stack_pop(&wk->vm.stack);
-			binop_disabler_check(a, b);
-
-			switch (get_obj_type(wk, a)) {
-			case obj_array: {
-				if (!typecheck(wk, b_ip, b, obj_number)) {
-					break;
-				}
-				i = get_obj_number(wk, b);
-
-				if (!boundscheck(wk, b_ip, get_obj_array(wk, a)->len, &i)) {
-					break;
-				}
-
-				obj_array_index(wk, a, i, &res);
-				break;
-			}
-			case obj_dict: {
-				if (!typecheck(wk, b_ip, b, obj_string)) {
-					break;
-				}
-
-				if (!obj_dict_index(wk, a, b, &res)) {
-					vm_error_at(wk, b_ip, "key not in dictionary: %o", b);
-					break;
-				}
-				break;
-			}
-			case obj_custom_target: {
-				if (!typecheck(wk, b_ip, b, obj_number)) {
-					break;
-				}
-				i = get_obj_number(wk, b);
-
-				struct obj_custom_target *tgt = get_obj_custom_target(wk, a);
-				struct obj_array *arr = get_obj_array(wk, tgt->output);
-
-				if (!boundscheck(wk, b_ip, arr->len, &i)) {
-					break;
-				}
-
-				obj_array_index(wk, tgt->output, i, &res);
-				break;
-			}
-			case obj_string: {
-				if (!typecheck(wk, b_ip, b, obj_number)) {
-					break;
-				}
-				i = get_obj_number(wk, b);
-
-				const struct str *s = get_str(wk, a);
-				if (!boundscheck(wk, b_ip, s->len, &i)) {
-					break;
-				}
-
-				res = make_strn(wk, &s->s[i], 1);
-				break;
-			}
-			case obj_iterator: {
-				if (!typecheck(wk, b_ip, b, obj_number)) {
-					break;
-				}
-				i = get_obj_number(wk, b);
-
-				struct obj_iterator *iter = get_obj_iterator(wk, a);
-
-				assert(iter->type == obj_iterator_type_range);
-
-				double r = (double)iter->data.range.stop - (double)iter->data.range.start;
-				uint32_t steps = (uint32_t)(r / (double)iter->data.range.step + 0.5);
-
-				if (!boundscheck(wk, b_ip, steps, &i)) {
-					break;
-				}
-
-				make_obj(wk, &res, obj_number);
-				set_obj_number(wk, res, (i * iter->data.range.step) + iter->data.range.start);
-				break;
-			}
-			default:
-				vm_error_at(wk, b_ip, "index unsupported for %s", obj_type_to_s(get_obj_type(wk, a)));
-				break;
-			}
-
-			object_stack_push(wk, res);
-			break;
-		}
-		case op_call: {
-			wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-			vm_execute_capture(wk, object_stack_pop(&wk->vm.stack));
-			break;
-		}
-		case op_call_method: {
-			obj f = 0;
-			uint32_t idx;
-
-			b = object_stack_pop(&wk->vm.stack);
-			wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-			if (!func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
-				if (b == disabler_id) {
-					object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
-					object_stack_push(wk, disabler_id);
-					break;
-				}
-				vm_error(wk, "method %o not found on %s", a, obj_type_to_s(get_obj_type(wk, b)));
-				break;
-			}
-
-			if (f) {
-				vm_execute_capture(wk, f);
-				break;
-			} else {
-				a = 0;
-
-				if (native_funcs[idx].self_transform) {
-					b = native_funcs[idx].self_transform(wk, b);
-				}
-
-				stack_push(&wk->stack, wk->vm.saw_disabler, false);
-
-				bool ok;
-				{
-#ifdef TRACY_ENABLE
-					TracyCZoneC(tctx_func, 0xff5000, true);
-					char func_name[1024];
-					snprintf(func_name,
-						sizeof(func_name),
-						"%s.%s",
-						obj_type_to_s(get_obj_type(wk, b)),
-						native_funcs[idx].name);
-					TracyCZoneName(tctx_func, func_name, strlen(func_name));
-#endif
-
-					ok = native_funcs[idx].func(wk, b, &a);
-
-					TracyCZoneEnd(tctx_func);
-				}
-
-				bool saw_disabler = wk->vm.saw_disabler;
-
-				stack_pop(&wk->stack, wk->vm.saw_disabler);
-
-				if (!ok) {
-					if (saw_disabler) {
-						a = disabler_id;
-					} else {
-						vm_error(wk,
-							"in method %s.%s",
-							obj_type_to_s(get_obj_type(wk, b)),
-							native_funcs[idx].name);
-					}
-				}
-			}
-
-			object_stack_push(wk, a);
-			break;
-		}
-		case op_call_native: {
-			wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-			a = 0;
-			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-			stack_push(&wk->stack, wk->vm.saw_disabler, false);
-			bool ok;
-			{
-#ifdef TRACY_ENABLE
-				TracyCZoneC(tctx_func, 0xff5000, true);
-				char func_name[1024];
-				snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
-				TracyCZoneName(tctx_func, func_name, strlen(func_name));
-#endif
-
-				ok = native_funcs[b].func(wk, 0, &a);
-
-				TracyCZoneEnd(tctx_func);
-			}
-			bool saw_disabler = wk->vm.saw_disabler;
-			stack_pop(&wk->stack, wk->vm.saw_disabler);
-
-			if (!ok) {
-				if (saw_disabler) {
-					a = disabler_id;
-				} else {
-					vm_error(wk, "in function %s", native_funcs[b].name);
-				}
-			}
-
-			object_stack_push(wk, a);
-			break;
-		}
-		case op_iterator: {
-			obj iter;
-			struct obj_iterator *iterator;
-
-			a = object_stack_pop(&wk->vm.stack);
-			enum obj_type a_type = get_obj_type(wk, a);
-
-			switch (a_type) {
-			case obj_array:
-				make_obj(wk, &iter, obj_iterator);
-				object_stack_push(wk, iter);
-				iterator = get_obj_iterator(wk, iter);
-
-				iterator->type = obj_iterator_type_array;
-				iterator->data.array = get_obj_array(wk, a);
-				if (!iterator->data.array->len) {
-					// TODO: update this when we implement array_elem
-					iterator->data.array = 0;
-				}
-				break;
-			case obj_dict: {
-				make_obj(wk, &iter, obj_iterator);
-				object_stack_push(wk, iter);
-				iterator = get_obj_iterator(wk, iter);
-
-				struct obj_dict *d = get_obj_dict(wk, a);
-				if (d->flags & obj_dict_flag_big) {
-					iterator->type = obj_iterator_type_dict_big;
-					iterator->data.dict_big.h
-						= bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
-				} else {
-					iterator->type = obj_iterator_type_dict_small;
-					iterator->data.dict_small = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
-				}
-				break;
-			}
-			case obj_iterator: {
-				object_stack_push(wk, a);
-				iterator = get_obj_iterator(wk, a);
-
-				assert(iterator->type == obj_iterator_type_range);
-				iterator->data.range.i = iterator->data.range.start;
-				break;
-			}
-			default: {
-				UNREACHABLE;
-			}
-			}
-			break;
-		}
-		case op_iterator_next: {
-			obj key = 0, val;
-			struct obj_iterator *iterator;
-			iterator = get_obj_iterator(wk, object_stack_peek(&wk->vm.stack, 1));
-
-			switch (iterator->type) {
-			case obj_iterator_type_array:
-				if (!iterator->data.array) {
-					val = 0;
-				} else {
-					val = iterator->data.array->val;
-					iterator->data.array = iterator->data.array->have_next ?
-								       get_obj_array(wk, iterator->data.array->next) :
-								       0;
-				}
-				break;
-			case obj_iterator_type_range:
-				if (iterator->data.range.i >= iterator->data.range.stop) {
-					val = 0;
-				} else {
-					make_obj(wk, &val, obj_number);
-					set_obj_number(wk, val, iterator->data.range.i);
-					iterator->data.range.i += iterator->data.range.step;
-				}
-				break;
-			case obj_iterator_type_dict_small:
-				if (!iterator->data.dict_small) {
-					val = 0;
-				} else {
-					key = iterator->data.dict_small->key;
-					val = iterator->data.dict_small->val;
-					if (iterator->data.dict_small->next) {
-						iterator->data.dict_small = bucket_arr_get(
-							&wk->vm.objects.dict_elems, iterator->data.dict_small->next);
-					} else {
-						iterator->data.dict_small = 0;
-					}
-				}
-				break;
-			case obj_iterator_type_dict_big:
-				if (iterator->data.dict_big.i >= iterator->data.dict_big.h->keys.len) {
-					val = 0;
-				} else {
-					void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
-					uint64_t *v = hash_get(iterator->data.dict_big.h, k);
-					key = *v >> 32;
-					val = *v & 0xffffffff;
-					++iterator->data.dict_big.i;
-				}
-				break;
-			default: UNREACHABLE;
-			}
-
-			object_stack_push(wk, val);
-			if (key) {
-				object_stack_push(wk, key);
-			}
-			break;
-		}
-		case op_pop: {
-			a = object_stack_pop(&wk->vm.stack);
-			break;
-		}
-		case op_dup: {
-			a = object_stack_peek(&wk->vm.stack, 1);
-			object_stack_push(wk, a);
-			break;
-		}
-		case op_swap: {
-			a = object_stack_pop(&wk->vm.stack);
-			b = object_stack_pop(&wk->vm.stack);
-			object_stack_push(wk, a);
-			object_stack_push(wk, b);
-			break;
-		}
-		case op_jmp_if_null:
-			a = object_stack_peek(&wk->vm.stack, 1);
-			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			if (!a) {
-				object_stack_discard(&wk->vm.stack, 1);
-				wk->vm.ip = b;
-			}
-			break;
-		case op_jmp_if_disabler:
-			a = object_stack_peek(&wk->vm.stack, 1);
-			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			if (a == disabler_id) {
-				object_stack_discard(&wk->vm.stack, 1);
-				wk->vm.ip = b;
-			}
-			break;
-		case op_jmp_if_true:
-			vm_pop(a);
-			if (!typecheck(wk, a_ip, a, obj_bool)) {
-				break;
-			}
-
-			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			if (get_obj_bool(wk, a)) {
-				wk->vm.ip = b;
-			}
-			break;
-		case op_jmp_if_false:
-			vm_pop(a);
-			if (!typecheck(wk, a_ip, a, obj_bool)) {
-				break;
-			}
-
-			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			if (!get_obj_bool(wk, a)) {
-				wk->vm.ip = b;
-			}
-			break;
-		case op_jmp:
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			wk->vm.ip = a;
-			break;
-		case op_return: {
-			struct call_frame *frame = arr_pop(&wk->vm.call_stack);
-			wk->vm.ip = frame->return_ip;
-
-			switch (frame->type) {
-			case call_frame_type_eval: {
-				return object_stack_pop(&wk->vm.stack);
-			}
-			case call_frame_type_func:
-				wk->vm.behavior.pop_local_scope(wk);
-				wk->vm.scope_stack = frame->scope_stack;
-				wk->vm.lang_mode = frame->lang_mode;
-				vm_peek(a, 1);
-				typecheck(wk, a_ip, a, frame->expected_return_type);
-				break;
-			}
-			break;
-		}
-		case op_typecheck: {
-			entry = object_stack_peek_entry(&wk->vm.stack, 1);
-			typecheck(wk, entry->ip, entry->o, vm_get_constant(wk->vm.code.e, &wk->vm.ip));
-			break;
-		}
-		}
+		cip = wk->vm.ip;
+		++wk->vm.ip;
+		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
 	}
+
+	stack_pop(&wk->stack, wk->vm.run);
 
 	if (wk->vm.error) {
 		vm_unwind_call_stack(wk);
 		assert(wk->vm.stack.ba.len >= object_stack_base);
 		object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - object_stack_base);
+		return 0;
+	} else {
+		return object_stack_pop(&wk->vm.stack);
 	}
-	return 0;
 }
 
 /******************************************************************************
  * vm behavior functions
  ******************************************************************************/
+
+/* muon stores variable scopes as an array of dicts.
+ *
+ * Each element of the array is a block scope.  Currently the only way to enter
+ * a new block is inside of a function.
+ *
+ * For example, take the below scope_stack:
+ *
+ *     [{'a': 1}, {'b': 2}, {'c': 3}]
+ *
+ * This could be generated by the following code:
+ *
+ *     a = 1
+ *
+ *     func f()
+ *         b = 2
+ *         func g()
+ *             c = 3 # at this point, scope_stack looks like the above.
+ *         endfunc
+ *         g()
+ *     endfunc
+ *
+ *     f()
+ *
+ * When looking up variables, scopes are checked from the end of the
+ * scope_stack.
+ */
 
 struct vm_check_scope_ctx {
 	const char *name;
@@ -1604,8 +1793,7 @@ vm_assign_variable(struct workspace *wk, const char *name, obj o, uint32_t ip, e
 			UNREACHABLE;
 		}
 	} else {
-		uint32_t len = get_obj_array(wk, wk->vm.scope_stack)->len;
-		obj_array_index(wk, wk->vm.scope_stack, len - 1, &scope);
+		scope = obj_array_get_tail(wk, wk->vm.scope_stack);
 	}
 
 	obj_dict_set(wk, scope, make_str(wk, name), o);
@@ -1614,6 +1802,12 @@ vm_assign_variable(struct workspace *wk, const char *name, obj o, uint32_t ip, e
 		LOG_I("watched variable \"%s\" changed", name);
 		repl(wk, true);
 	}
+}
+
+static bool
+vm_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *res)
+{
+	return native_funcs[func_idx].func(wk, self, res);
 }
 
 /******************************************************************************
@@ -1707,7 +1901,49 @@ vm_init(struct workspace *wk)
 		.scope_stack_dup = vm_scope_stack_dup,
 		.get_variable = vm_get_variable,
 		.eval_project_file = eval_project_file,
+		.native_func_dispatch = vm_native_func_dispatch,
+		.pop_args = vm_pop_args,
 	};
+
+	/* ops */
+	wk->vm.ops = (struct vm_ops){ .ops = {
+					      [op_constant] = vm_op_constant,
+					      [op_constant_list] = vm_op_constant_list,
+					      [op_constant_dict] = vm_op_constant_dict,
+					      [op_constant_func] = vm_op_constant_func,
+					      [op_add] = vm_op_add,
+					      [op_sub] = vm_op_sub,
+					      [op_mul] = vm_op_mul,
+					      [op_div] = vm_op_div,
+					      [op_mod] = vm_op_mod,
+					      [op_not] = vm_op_not,
+					      [op_eq] = vm_op_eq,
+					      [op_in] = vm_op_in,
+					      [op_gt] = vm_op_gt,
+					      [op_lt] = vm_op_lt,
+					      [op_negate] = vm_op_negate,
+					      [op_stringify] = vm_op_stringify,
+					      [op_store] = vm_op_store,
+					      [op_add_store] = vm_op_add_store,
+					      [op_try_load] = vm_op_try_load,
+					      [op_load] = vm_op_load,
+					      [op_return] = vm_op_return,
+					      [op_call] = vm_op_call,
+					      [op_call_method] = vm_op_call_method,
+					      [op_call_native] = vm_op_call_native,
+					      [op_index] = vm_op_index,
+					      [op_iterator] = vm_op_iterator,
+					      [op_iterator_next] = vm_op_iterator_next,
+					      [op_jmp_if_null] = vm_op_jmp_if_null,
+					      [op_jmp_if_false] = vm_op_jmp_if_false,
+					      [op_jmp_if_true] = vm_op_jmp_if_true,
+					      [op_jmp_if_disabler] = vm_op_jmp_if_disabler,
+					      [op_jmp] = vm_op_jmp,
+					      [op_pop] = vm_op_pop,
+					      [op_dup] = vm_op_dup,
+					      [op_swap] = vm_op_swap,
+					      [op_typecheck] = vm_op_typecheck,
+				      } };
 
 	/* objects */
 	vm_init_objects(wk);

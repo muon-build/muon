@@ -6,7 +6,7 @@
 #ifndef MUON_FUNCTIONS_MODULES_H
 #define MUON_FUNCTIONS_MODULES_H
 
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 extern const char *module_names[module_count];
 extern const struct func_impl impl_tbl_module[];

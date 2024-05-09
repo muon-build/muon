@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
 #define MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 bool func_both_libraries(struct workspace *wk, obj _, obj *res);
 bool func_build_target(struct workspace *wk, obj _, obj *res);

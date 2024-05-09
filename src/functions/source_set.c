@@ -6,7 +6,7 @@
 #include "compat.h"
 
 #include "error.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/source_set.h"
 #include "lang/typecheck.h"
 #include "log.h"

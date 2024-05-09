@@ -12,7 +12,7 @@
 #include "coerce.h"
 #include "error.h"
 #include "external/libpkgconf.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"

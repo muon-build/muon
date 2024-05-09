@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
 #define MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 struct make_custom_target_opts {
 	obj name;

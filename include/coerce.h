@@ -5,7 +5,7 @@
 
 #ifndef MUON_COERCE_H
 #define MUON_COERCE_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 enum requirement_type {
 	requirement_skip,

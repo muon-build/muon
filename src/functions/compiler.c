@@ -18,7 +18,7 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/compiler.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"

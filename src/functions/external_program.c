@@ -6,7 +6,7 @@
 #include "compat.h"
 
 #include "args.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/external_program.h"
 #include "guess.h"
 #include "lang/typecheck.h"

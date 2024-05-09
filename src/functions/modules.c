@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "embedded.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/keyval.h"

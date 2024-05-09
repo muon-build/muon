@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_ENVIRONMENT_H
 #define MUON_FUNCTIONS_ENVIRONMENT_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 enum environment_set_mode {
 	environment_set_mode_set,

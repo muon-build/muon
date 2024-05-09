@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_H
 #define MUON_FUNCTIONS_KERNEL_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 extern const struct func_impl impl_tbl_kernel[];
 extern const struct func_impl impl_tbl_kernel_internal[];

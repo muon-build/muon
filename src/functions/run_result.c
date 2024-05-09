@@ -5,7 +5,7 @@
 
 #include "compat.h"
 
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/run_result.h"
 #include "lang/typecheck.h"
 #include "log.h"

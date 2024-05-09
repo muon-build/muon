@@ -13,7 +13,7 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/environment.h"
 #include "functions/kernel/configure_file.h"
 #include "functions/kernel/custom_target.h"

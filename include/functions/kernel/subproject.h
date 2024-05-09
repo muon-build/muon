@@ -7,7 +7,7 @@
 #define MUON_FUNCTIONS_KERNEL_SUBPROJECT_H
 
 #include "coerce.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/workspace.h"
 
 bool subproject(struct workspace *wk,

@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_EXTERNAL_PROGRAM_H
 #define MUON_FUNCTIONS_EXTERNAL_PROGRAM_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 void find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver);
 

@@ -20,7 +20,7 @@
 #include "external/libcurl.h"
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/fmt.h"
@@ -610,7 +610,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 
 	OPTSTART("es") {
 	case 'e': embedded = true; break;
-	case 's': disable_fuzz_unsafe_functions = true; break;
+	/* case 's': disable_fuzz_unsafe_functions = true; break; */
 	}
 	OPTEND(argv[argi],
 		" <filename> [args]",

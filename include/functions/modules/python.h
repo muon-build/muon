@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_MODULES_PYTHON_H
 #define MUON_FUNCTIONS_MODULES_PYTHON_H
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 
 void python_build_impl_tbl(void);
 extern const struct func_impl impl_tbl_module_python[];

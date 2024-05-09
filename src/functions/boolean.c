@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "functions/boolean.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 

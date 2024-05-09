@@ -5,7 +5,7 @@
 
 #include "compat.h"
 
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "lang/typecheck.h"

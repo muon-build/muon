@@ -7,7 +7,7 @@
 
 #include <inttypes.h>
 
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/number.h"
 #include "lang/typecheck.h"
 #include "log.h"

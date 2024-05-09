@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "args.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
 #include "lang/typecheck.h"

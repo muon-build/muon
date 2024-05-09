@@ -8,7 +8,7 @@
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
 #include "lang/typecheck.h"

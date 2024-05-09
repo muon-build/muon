@@ -9,7 +9,7 @@
 #include "buf_size.h"
 #include "functions/both_libs.h"
 #include "functions/build_target.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 

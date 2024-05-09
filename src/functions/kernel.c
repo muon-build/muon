@@ -13,7 +13,7 @@
 #include "coerce.h"
 #include "error.h"
 #include "external/samurai.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "functions/environment.h"
 #include "functions/external_program.h"
 #include "functions/kernel.h"

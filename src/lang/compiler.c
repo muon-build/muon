@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "buf_size.h"
-#include "functions/common.h"
+#include "lang/func_lookup.h"
 #include "lang/compiler.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
