@@ -1394,7 +1394,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 			[test_protocol_rust] = "rust",
 		};
 
-		for (protocol = 0; protocol < ARRAY_LEN(protocol_names); ++protocol) {
+		for (protocol = 0; (uint32_t)protocol < ARRAY_LEN(protocol_names); ++protocol) {
 			if (str_eql(get_str(wk, akw[kw_protocol].val), &WKSTR(protocol_names[protocol]))) {
 				break;
 			}

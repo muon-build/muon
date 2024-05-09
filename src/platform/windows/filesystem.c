@@ -80,7 +80,7 @@ fs_exe_exists(const char *path)
 	HANDLE fm;
 	unsigned char *base;
 	unsigned char *iter;
-	unsigned __int64 size;
+	int64_t size;
 	DWORD size_high;
 	DWORD size_low;
 	DWORD offset;
@@ -97,7 +97,7 @@ fs_exe_exists(const char *path)
 		goto close_file;
 	}
 
-	size = size_low | ((__int64)size_high << 32);
+	size = size_low | ((int64_t)size_high << 32);
 
 	/*
 	 * PE file is organized as followed:
@@ -294,10 +294,15 @@ fs_user_home(void)
 }
 
 static inline bool
-is_wprefix(const WCHAR *s, const WCHAR *prefix)
+_is_wprefix(const WCHAR *s, const WCHAR *prefix, uint32_t n)
 {
-	return wcsncmp(s, prefix, sizeof(prefix) / sizeof(WCHAR) - 1) == 0;
+	return wcsncmp(s, prefix, n) == 0;
 }
+
+#define is_wprefix(__s, __p) _is_wprefix( \
+	__s, \
+	__p, \
+	sizeof(__p) / sizeof(WCHAR) - 1)
 
 bool
 fs_is_a_tty_from_fd(int fd)
