@@ -1798,8 +1798,8 @@ vm_execute(struct workspace *wk)
 
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text);
-			object_stack_print(wk, &wk->vm.stack);
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
+			/* object_stack_print(wk, &wk->vm.stack); */
 			/* struct source_location loc; */
 			/* struct source *src; */
 			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
