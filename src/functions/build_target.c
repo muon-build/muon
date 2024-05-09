@@ -59,7 +59,7 @@ tgt_src_to_object_path(struct workspace *wk,
 
 		uint32_t i;
 		for (i = 0; i < rel.len; ++i) {
-			if (rel.buf[i] == PATH_SEP) {
+			if (rel.buf[i] == PATH_SEP || rel.buf[i] == ':') {
 				rel.buf[i] = '_';
 			}
 		}
