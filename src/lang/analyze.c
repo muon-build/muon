@@ -842,7 +842,7 @@ az_eval_project_file(struct workspace *wk, const char *path, bool first)
 		if (!fs_read_entire_file("-", &src)) {
 			return false;
 		}
-		src.label = path;
+		src.label = get_cstr(wk, make_str(wk, path));
 
 		obj res;
 		if (!eval(wk, &src, first ? eval_mode_first : eval_mode_default, &res)) {
@@ -851,7 +851,6 @@ az_eval_project_file(struct workspace *wk, const char *path, bool first)
 
 		ret = true;
 ret:
-		fs_source_destroy(&src);
 		return ret;
 	}
 
@@ -1273,7 +1272,6 @@ do_analyze(struct az_opts *opts)
 		obj_array_push(&wk, scope_group, scope);
 		obj_array_push(&wk, wk.vm.default_scope_stack, scope_group);
 		obj_dict_foreach(&wk, original_scope, &scope, reassign_default_var);
-		obj_fprintf(&wk, log_file(), "%o\n", wk.vm.default_scope_stack);
 		wk.vm.scope_stack = az_scope_stack_dup(&wk, wk.vm.default_scope_stack);
 	}
 
@@ -1297,7 +1295,7 @@ do_analyze(struct az_opts *opts)
 	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
 	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
 
-	/* error_diagnostic_store_init(&wk); */
+	error_diagnostic_store_init(&wk);
 
 	arr_init(&az_entrypoint_stack, 32, sizeof(struct az_file_entrypoint));
 	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
@@ -1401,7 +1399,6 @@ do_analyze(struct az_opts *opts)
 			LOG_W("couldn't find definition for %s", analyzer.opts->get_definition_for);
 		}
 	} else {
-		error_diagnostic_store_init(&wk);
 		error_diagnostic_store_replay(analyzer.opts->replay_opts, &saw_error);
 
 		if (saw_error || analyzer.error) {

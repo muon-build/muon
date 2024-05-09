@@ -33,6 +33,7 @@ static struct {
 		bool redirect;
 	} redirect;
 	struct workspace *wk;
+	enum error_diagnostic_store_replay_opts opts;
 } error_diagnostic_store;
 
 void
@@ -117,6 +118,7 @@ void
 error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool *saw_error)
 {
 	error_diagnostic_store.init = false;
+	error_diagnostic_store.opts = opts;
 
 	uint32_t i;
 	struct error_diagnostic_message *msg;
@@ -148,7 +150,9 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	}
 
 	*saw_error = false;
-	struct source src = { 0 }, null_src = { .label = "", };
+	struct source src = { 0 }, null_src = {
+		.label = "",
+	};
 	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
 		msg = arr_get(&error_diagnostic_store.messages, i);
 
@@ -164,7 +168,8 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			*saw_error = true;
 		}
 
-		cur_src = msg->src_idx == UINT32_MAX ? &null_src : arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
+		cur_src = msg->src_idx == UINT32_MAX ? &null_src :
+						       arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
 
 		if (cur_src != last_src) {
 			if (opts & error_diagnostic_store_replay_include_sources) {
@@ -180,10 +185,6 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 
 			last_src = cur_src;
 			src = *cur_src;
-
-			if (!(opts & error_diagnostic_store_replay_include_sources)) {
-				src.len = 0;
-			}
 		}
 
 		error_message(&src, msg->location, msg->lvl, msg->msg);
@@ -195,6 +196,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	}
 
 	arr_destroy(&error_diagnostic_store.messages);
+	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
 }
 
 void
@@ -428,6 +430,10 @@ error_message(struct source *src, struct source_location location, enum log_leve
 	}
 
 	log_plain("%s\n", msg);
+
+	if (!(error_diagnostic_store.opts & error_diagnostic_store_replay_include_sources)) {
+		goto ret;
+	}
 
 	uint32_t line_pre_len = 0;
 	if (dloc.end_line) {

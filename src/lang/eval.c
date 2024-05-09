@@ -195,7 +195,6 @@ eval_project_file(struct workspace *wk, const char *path, bool first)
 
 	ret = true;
 ret:
-	fs_source_destroy(&src);
 	return ret;
 }
 
@@ -401,8 +400,9 @@ determine_project_root(struct workspace *wk, const char *path)
 		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet))) {
 			return 0;
 		}
+		fs_source_destroy(&src);
 
-		if (ensure_project_is_first_statement(wk, &src, n, true)) {
+		if (ensure_project_is_first_statement(wk, 0, n, true)) {
 			// found
 			path_dirname(wk, &tmp, path);
 			obj s = sbuf_into_str(wk, &tmp);

@@ -433,10 +433,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 
 	return true;
 err:
-	object_stack_print(wk, &wk->vm.stack);
-	L("discarding %d, %d", (wk->vm.nargs + wk->vm.nkwargs * 2), args_popped);
 	object_stack_discard(&wk->vm.stack, (wk->vm.nargs + wk->vm.nkwargs * 2) - args_popped);
-	object_stack_print(wk, &wk->vm.stack);
 	return false;
 }
 
@@ -976,7 +973,21 @@ vm_op_not(struct workspace *wk)
 	if (a == disabler_id) {
 		object_stack_push(wk, disabler_id);
 		return;
-	} else if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
+	}
+
+	switch (get_obj_type(wk, a)) {
+	case obj_bool: break;
+	case obj_typeinfo:
+		if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
+			goto type_error;
+		}
+
+		object_stack_push(wk, make_typeinfo(wk, tc_bool));
+		return;
+	default:
+type_error:
+		vm_error(wk, "'not' not supported for %#o", obj_type_to_typestr(wk, a));
+		object_stack_push(wk, make_typeinfo(wk, tc_bool));
 		return;
 	}
 
@@ -1303,7 +1314,6 @@ vm_op_call_method(struct workspace *wk)
 #endif
 
 			ok = wk->vm.behavior.native_func_dispatch(wk, idx, b, &a);
-			LO("got: %o\n", a);
 
 			TracyCZoneEnd(tctx_func);
 		}
@@ -1457,8 +1467,7 @@ vm_op_iterator(struct workspace *wk)
 	}
 	default: {
 type_error:
-		vm_error_at(
-			wk, a_ip, "unable to iterate over object of type %s", get_cstr(wk, obj_type_to_typestr(wk, a)));
+		vm_error_at(wk, a_ip, "unable to iterate over object of type %#o", obj_type_to_typestr(wk, a));
 		goto push_dummy_iterator;
 		break;
 	}
@@ -2178,6 +2187,12 @@ vm_destroy(struct workspace *wk)
 	bucket_arr_destroy(&wk->vm.stack.ba);
 	arr_destroy(&wk->vm.call_stack);
 	arr_destroy(&wk->vm.code);
+	for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
+		struct source *src = arr_get(&wk->vm.src, i);
+		if (src->reopen_type == source_reopen_type_file) {
+			fs_source_destroy(src);
+		}
+	}
 	arr_destroy(&wk->vm.src);
 	arr_destroy(&wk->vm.locations);
 
