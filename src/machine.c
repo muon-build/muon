@@ -225,7 +225,9 @@ machine_cpu_family(struct machine_definition *m)
 		}
 	}
 
-	LOG_W("%s machine has unknown cpu family '%s'", machine_kind_to_s(m->kind), m->cpu_family);
+	if (i == ARRAY_LEN(known_cpu_families)) {
+		LOG_W("%s machine has unknown cpu family '%s'", machine_kind_to_s(m->kind), m->cpu_family);
+	}
 }
 
 static uint32_t
