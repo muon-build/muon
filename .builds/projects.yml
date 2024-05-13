@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+image: alpine/3.17
+packages:
+  - curl-dev
+  - libarchive-dev
+  - pkgconf-dev
+
+  - linux-headers # assumed by rizin
+sources:
+  - https://git.sr.ht/~lattis/muon
+  - https://github.com/rizinorg/rizin
+environment:
+  PKG_CONFIG_PATH: /usr/lib/pkgconfig
+tasks:
+  - muon: |
+      cd muon
+      OPTS="-Dlibpkgconf=enabled -Dlibarchive=enabled -Dlibcurl=enabled -Dbuildtype=release"
+      CC=gcc tools/ci/bootstrap.sh build $OPTS
+      build/muon setup $OPTS build
+      build/muon -C build samu
+      sudo build/muon -C build install
+  - rizin: |
+      cd rizin
+      muon setup build
+      muon -C build samu
