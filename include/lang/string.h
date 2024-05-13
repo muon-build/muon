@@ -8,6 +8,8 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "lang/object.h"
 
 struct workspace;
