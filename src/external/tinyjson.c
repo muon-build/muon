@@ -13,7 +13,7 @@
 #include "lang/string.h"
 #include "log.h"
 
-#define TINYJSON_MAX_FIELDS 1024
+#define TINYJSON_MAX_FIELDS 2048
 
 static bool
 build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
