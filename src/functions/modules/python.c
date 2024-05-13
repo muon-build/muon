@@ -395,6 +395,130 @@ func_python_installation_get_install_dir(struct workspace *wk, obj self, obj *re
 	return get_install_dir(wk, self, pure, subdir, res);
 }
 
+struct py_install_data_rename_ctx {
+	obj rename;
+	obj mode;
+	obj dest;
+	uint32_t i;
+	uint32_t node;
+};
+
+static enum iteration_result
+py_install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct py_install_data_rename_ctx *ctx = _ctx;
+
+	obj src = *get_obj_file(wk, val);
+	obj dest;
+
+	obj rename;
+	obj_array_index(wk, ctx->rename, ctx->i, &rename);
+
+	SBUF(d);
+	path_join(wk, &d, get_cstr(wk, ctx->dest), get_cstr(wk, rename));
+
+	dest = sbuf_into_str(wk, &d);
+
+	push_install_target(wk, src, dest, ctx->mode);
+
+	++ctx->i;
+	return ir_cont;
+}
+
+static bool
+func_python_installation_install_sources(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_follow_symlinks,
+		kw_install_dir,
+		kw_install_mode,
+		kw_install_tag,
+		kw_rename,
+		kw_sources,
+		kw_preserve_path,
+		kw_pure,
+		kw_subdir,
+	};
+
+	struct args_kw akw[] = {
+		[kw_follow_symlinks] = { "follow_symlinks", obj_bool }, // TODO
+		[kw_install_dir] = { "install_dir", obj_string },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[kw_install_tag] = { "install_tag", obj_string }, // TODO
+		[kw_rename] = { "rename", TYPE_TAG_LISTIFY | obj_string },
+		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_file | tc_string },
+		[kw_preserve_path] = { "preserve_path", obj_bool },
+		[kw_pure] = { "pure", obj_bool },
+		[kw_subdir] = { "subdir", obj_string },
+		0
+	};
+
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	if (akw[kw_rename].set && akw[kw_preserve_path].set) {
+		vm_error(wk, "rename keyword conflicts with preserve_path");
+		return false;
+	}
+
+	struct obj_python_installation *py = get_obj_python_installation(wk, self);
+	bool pure = py->pure;
+	if (akw[kw_pure].set) {
+		pure = get_obj_bool(wk, akw[kw_pure].val);
+	}
+
+	const char *subdir = NULL;
+	if (akw[kw_subdir].set) {
+		subdir = get_cstr(wk, akw[kw_subdir].val);
+	}
+
+	obj install_dir;
+	if (akw[kw_install_dir].set) {
+		install_dir = akw[kw_install_dir].val;
+	} else {
+		get_install_dir(wk, self, pure, subdir, &install_dir);
+	}
+
+	obj sources = an[0].val;
+	uint32_t err_node = an[0].node;
+
+	if (akw[kw_sources].set) {
+		obj_array_extend_nodup(wk, sources, akw[kw_sources].val);
+		err_node = akw[kw_sources].node;
+	}
+
+	if (akw[kw_rename].set) {
+		if (get_obj_array(wk, akw[kw_rename].val)->len !=
+		    get_obj_array(wk, sources)->len) {
+			vm_error(wk, "number of elements in rename != number of sources");
+			return false;
+		}
+
+		struct py_install_data_rename_ctx ctx = {
+			.node = err_node,
+			.mode = akw[kw_install_mode].val,
+			.rename = akw[kw_rename].val,
+			.dest = install_dir,
+		};
+
+		obj coerced;
+		if (!coerce_files(wk, err_node, sources, &coerced)) {
+			return false;
+		}
+
+		return obj_array_foreach(wk, coerced, &ctx, py_install_data_rename_iter);
+	}
+
+	bool preserve_path =
+		akw[kw_preserve_path].set
+		&& get_obj_bool(wk, akw[kw_preserve_path].val);
+
+	return push_install_targets(wk, err_node, sources, install_dir,
+		akw[kw_install_mode].val, preserve_path);
+}
+
 static obj
 python_self_transform(struct workspace *wk, obj self)
 {
@@ -428,6 +552,7 @@ struct func_impl impl_tbl_python_installation[] = {
 	{ "get_variable", func_python_installation_get_var, tc_string },
 	{ "has_path", func_python_installation_has_path, tc_bool },
 	{ "has_variable", func_python_installation_has_var, tc_bool },
+	{ "install_sources", func_python_installation_install_sources },
 	{ "language_version", func_python_installation_language_version, tc_string },
 	{ NULL, NULL },
 };
