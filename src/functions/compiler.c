@@ -308,10 +308,14 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	push_args(wk, compiler_args, compilers[t].args.output(output_path));
 
 	if (have_dep) {
-		struct setup_linker_args_ctx sctx
-			= { .linker = comp->linker_type, .link_lang = comp->lang, .args = &dep };
+		struct setup_linker_args_ctx sctx = {
+			.compiler = comp,
+			.linker = comp->linker_type,
+			.link_lang = comp->lang,
+			.args = &dep,
+		};
 
-		setup_linker_args(wk, NULL, NULL, &sctx);
+		setup_linker_args(wk, 0, 0, &sctx);
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 

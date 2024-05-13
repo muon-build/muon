@@ -189,8 +189,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	if (!(tgt->type & (tgt_static_library))) {
 		struct setup_linker_args_ctx sctx = {
-			.proj = wctx->proj,
-			.tgt = tgt,
 			.compiler = compiler,
 			.linker = linker,
 			.link_lang = tgt->dep_internal.link_language,

@@ -587,6 +587,9 @@ setup_linker_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	struct setup_linker_args_ctx *ctx)
 {
+	ctx->proj = proj;
+	ctx->tgt = tgt;
+
 	obj link_with;
 	obj_array_dedup(wk, ctx->args->link_with, &link_with);
 	ctx->args->link_with = link_with;
@@ -666,7 +669,7 @@ setup_linker_args(struct workspace *wk,
 		push_linker_args(wk, ctx, linkers[ctx->linker].args.end_group());
 	}
 
-	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
+	if (tgt && (tgt->type & (tgt_dynamic_library | tgt_shared_module))) {
 		push_linker_args(wk, ctx, linkers[ctx->linker].args.shared());
 		push_linker_args(wk, ctx, linkers[ctx->linker].args.soname(get_cstr(wk, tgt->soname)));
 		if (tgt->type == tgt_shared_module) {
