@@ -245,6 +245,8 @@ path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, c
 
 	const char *base = path_ctx.tmp1.buf, *path = path_ctx.tmp2.buf;
 
+	L("%s, %s", base, path);
+
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
 		assert(false);

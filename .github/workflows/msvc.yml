@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: msvc
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - amd64_x86
+          - amd64_arm64
+    runs-on: windows-2019
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - name: bootstrap
+        run: >
+          bootstrap.bat build
+          && build\muon-bootstrap.exe -v setup build
+          && build\muon-bootstrap.exe -vC build samu
+      - name: test
+        run: >
+          build\muon.exe -vC build test
