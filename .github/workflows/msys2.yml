@@ -12,7 +12,17 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  mingw32:
+  test:
+    strategy:
+      matrix:
+        config:
+          - msystem: mingw32
+            install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
+          - msystem: mingw64
+            install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
+          - msystem: msys
+            install: base-devel git ninja gcc pkgconf libcurl-devel libarchive-devel
+    name: msys2 - ${{ matrix.config.msystem }}
     runs-on: windows-latest
     defaults:
       run:
@@ -21,51 +31,14 @@ jobs:
     - uses: actions/checkout@master
     - uses: msys2/setup-msys2@v2
       with:
-        msystem: mingw32
+        msystem: ${{ matrix.config.msystem }}
         update: true
-        install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
+        install: ${{ matrix.config.install }}
     - name: bootstrap
       run: |
         CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
-    - name: muon
-      run: |
         CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup build
         ninja -C build
-
-  mingw64:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-    - uses: actions/checkout@master
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: mingw64
-        update: true
-        install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
-    - name: bootstrap
+    - name: test
       run: |
-        CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
-    - name: muon
-      run: |
-        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup build
-        ninja -C build
-
-  msys:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-    - uses: actions/checkout@master
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: msys
-        update: true
-        install: base-devel git ninja gcc pkgconf libcurl-devel libarchive-devel
-    - name: Bootstrap for msys
-      run: |
-        ./bootstrap.sh build
-        ./build/muon.exe setup build
-        ninja -C build
+        ./build/muon.exe -C build test -v -ddots || true
