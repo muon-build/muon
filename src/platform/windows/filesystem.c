@@ -299,10 +299,7 @@ _is_wprefix(const WCHAR *s, const WCHAR *prefix, uint32_t n)
 	return wcsncmp(s, prefix, n) == 0;
 }
 
-#define is_wprefix(__s, __p) _is_wprefix( \
-	__s, \
-	__p, \
-	sizeof(__p) / sizeof(WCHAR) - 1)
+#define is_wprefix(__s, __p) _is_wprefix(__s, __p, sizeof(__p) / sizeof(WCHAR) - 1)
 
 bool
 fs_is_a_tty_from_fd(int fd)
@@ -524,7 +521,7 @@ fs_mtime(const char *path, int64_t *mtime)
 
 	t.LowPart = d.ftLastWriteTime.dwLowDateTime;
 	t.HighPart = d.ftLastWriteTime.dwHighDateTime;
-	*mtime = t.QuadPart * 100;
+	*mtime = t.QuadPart / 100;
 	return fs_mtime_result_ok;
 }
 
