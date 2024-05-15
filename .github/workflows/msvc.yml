@@ -17,7 +17,6 @@ jobs:
         arch:
           - amd64
           - amd64_x86
-          - amd64_arm64
     runs-on: windows-2019
     defaults:
       run:
