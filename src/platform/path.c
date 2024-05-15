@@ -276,9 +276,8 @@ path_relative_to(struct workspace *wk, struct sbuf *buf, const char *base_raw, c
 		common_end = i;
 	}
 
-	assert(i);
-	if (i == 1) {
-		/* -> base and path match only at root */
+	if (i <= 1) {
+		/* -> base and path match only at root, so take path */
 		path_copy(wk, buf, path);
 		return;
 	}
