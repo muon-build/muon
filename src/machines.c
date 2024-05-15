@@ -336,6 +336,12 @@ machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 void
 machine_init(void)
 {
+	static bool init = false;
+	if (init) {
+		return;
+	}
+	init = true;
+
 	const char *mstr = uname_machine();
 	const char *sysstr = uname_sysname();
 

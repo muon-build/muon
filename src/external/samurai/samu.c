@@ -13,6 +13,7 @@
 #include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "machines.h"
 #include "platform/os.h"
 #include "platform/path.h"
 
@@ -138,6 +139,8 @@ samu_init_ctx(struct samu_ctx *ctx, struct samu_opts *opts) {
 bool
 samu_main(int argc, char *argv[], struct samu_opts *opts)
 {
+	machine_init();
+
 	char *builddir, *manifest = "build.ninja", *end, *arg;
 	const struct samu_tool *tool = NULL;
 	struct samu_node *n;
