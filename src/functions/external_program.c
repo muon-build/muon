@@ -27,7 +27,9 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver)
 	join_args_argstr(wk, &argstr, &argc, args);
 
 	if (run_cmd(&cmd_ctx, argstr, argc, NULL, 0) && cmd_ctx.status == 0) {
-		guess_version(wk, cmd_ctx.out.buf, ver);
+		if (!guess_version(wk, cmd_ctx.out.buf, ver)) {
+			*ver = make_str(wk, "unknown");
+		}
 	}
 
 	run_cmd_ctx_destroy(&cmd_ctx);
