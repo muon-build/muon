@@ -15,6 +15,10 @@ guess_version(struct workspace *wk, const char *src, obj *res)
 	uint32_t dots = 0, ver_len = 0, new_len, new_dots;
 	const char *p, *ver = NULL;
 
+	if (!src) {
+		return false;
+	}
+
 	for (p = src; *p; ++p) {
 		new_len = 0;
 		new_dots = 0;
