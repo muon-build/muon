@@ -160,6 +160,7 @@ struct static_linker {
 	struct {
 		compiler_get_arg_func_0 base;
 		compiler_get_arg_func_2s input_output;
+		compiler_get_arg_func_0 always;
 	} args;
 };
 

@@ -1653,6 +1653,7 @@ build_static_linkers(void)
 	struct static_linker empty = { .args = {
 					       .base = compiler_arg_empty_0,
 					       .input_output = compiler_arg_empty_2s,
+					       .always = compiler_arg_empty_0,
 				       } };
 
 	struct static_linker posix = empty;
@@ -1664,6 +1665,7 @@ build_static_linkers(void)
 
 	struct static_linker msvc = empty;
 	msvc.args.input_output = linker_link_args_input_output;
+	msvc.args.always = compiler_cl_args_always;
 
 	static_linkers[static_linker_ar_posix] = posix;
 	static_linkers[static_linker_ar_gcc] = gcc;

@@ -433,6 +433,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 				}
 
 				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
+				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.always());
 				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.base());
 				push_args(wk,
 					static_link_args,
