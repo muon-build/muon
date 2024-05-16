@@ -29,16 +29,20 @@ get_option_value_for_tgt(struct workspace *wk,
 	get_option_value_overridable(wk, proj, tgt ? tgt->override_options : 0, name, res);
 }
 
+struct buildtype {
+	enum compiler_optimization_lvl opt;
+	bool debug;
+};
+
 static void
 get_buildtype(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
-	enum compiler_optimization_lvl *opt,
-	bool *debug)
+	struct buildtype *buildtype)
 {
 	uint32_t i;
-	*opt = 0;
-	*debug = false;
+	buildtype->opt = 0;
+	buildtype->debug = false;
 
 	static struct {
 		const char *name;
@@ -51,12 +55,12 @@ get_buildtype(struct workspace *wk,
 		{ "minsize", compiler_optimization_lvl_s, false },
 		{ NULL } };
 
-	obj buildtype_opt_id, buildtype;
+	obj buildtype_opt_id, buildtype_val;
 	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &WKSTR("buildtype"), &buildtype_opt_id);
 	struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
-	buildtype = buildtype_opt->val;
+	buildtype_val = buildtype_opt->val;
 
-	const char *str = get_cstr(wk, buildtype);
+	const char *str = get_cstr(wk, buildtype_val);
 
 	bool use_custom = (strcmp(str, "custom") == 0) || (buildtype_opt->source <= option_value_source_default);
 
@@ -68,7 +72,7 @@ get_buildtype(struct workspace *wk,
 
 		const struct str *str = get_str(wk, optimization_id);
 		if (str_eql(str, &WKSTR("plain"))) {
-			*opt = compiler_optimization_lvl_none;
+			buildtype->opt = compiler_optimization_lvl_none;
 		} else if (str->len != 1) {
 			UNREACHABLE;
 		}
@@ -77,18 +81,18 @@ get_buildtype(struct workspace *wk,
 		case '0':
 		case '1':
 		case '2':
-		case '3': *opt = compiler_optimization_lvl_0 + (*str->s - '0'); break;
-		case 'g': *opt = compiler_optimization_lvl_g; break;
-		case 's': *opt = compiler_optimization_lvl_s; break;
+		case '3': buildtype->opt = compiler_optimization_lvl_0 + (*str->s - '0'); break;
+		case 'g': buildtype->opt = compiler_optimization_lvl_g; break;
+		case 's': buildtype->opt = compiler_optimization_lvl_s; break;
 		default: UNREACHABLE;
 		}
 
-		*debug = get_obj_bool(wk, debug_id);
+		buildtype->debug = get_obj_bool(wk, debug_id);
 	} else {
 		for (i = 0; tbl[i].name; ++i) {
 			if (strcmp(str, tbl[i].name) == 0) {
-				*opt = tbl[i].opt;
-				*debug = tbl[i].debug;
+				buildtype->opt = tbl[i].opt;
+				buildtype->debug = tbl[i].debug;
 				break;
 			}
 		}
@@ -101,22 +105,13 @@ get_buildtype(struct workspace *wk,
 }
 
 static void
-get_buildtype_args(struct workspace *wk,
-	const struct project *proj,
-	const struct obj_build_target *tgt,
-	obj args_id,
-	enum compiler_type t)
+get_buildtype_args(struct workspace *wk, const struct buildtype *buildtype, obj args_id, enum compiler_type t)
 {
-	enum compiler_optimization_lvl opt;
-	bool debug;
-
-	get_buildtype(wk, proj, tgt, &opt, &debug);
-
-	if (debug) {
+	if (buildtype->debug) {
 		push_args(wk, args_id, compilers[t].args.debug());
 	}
 
-	push_args(wk, args_id, compilers[t].args.optimization(opt));
+	push_args(wk, args_id, compilers[t].args.optimization(buildtype->opt));
 }
 
 static void
@@ -265,15 +260,23 @@ static void
 setup_optional_b_args_compiler(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
+	const struct buildtype *buildtype,
 	obj args,
 	enum compiler_type t)
 {
 #ifndef MUON_BOOTSTRAPPED
 	// If we aren't bootstrapped, we don't yet have any b_ options defined
+
+	push_args(wk, args, compilers[t].args.crt("static_from_buildtype", buildtype->debug));
+
 	return;
 #endif
 
 	obj opt;
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_vscrt", &opt);
+	push_args(wk, args, compilers[t].args.crt(get_cstr(wk, opt), buildtype->debug));
+
 	get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
 	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {
 		uint32_t stage;
@@ -294,12 +297,12 @@ setup_optional_b_args_compiler(struct workspace *wk,
 		push_args(wk, args, compilers[t].args.sanitize(get_cstr(wk, opt)));
 	}
 
-	obj buildtype;
-	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype);
+	obj buildtype_val;
+	get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype_val);
 	get_option_value_for_tgt(wk, proj, tgt, "b_ndebug", &opt);
 	if (str_eql(get_str(wk, opt), &WKSTR("true"))
 		|| (str_eql(get_str(wk, opt), &WKSTR("if-release"))
-			&& str_eql(get_str(wk, buildtype), &WKSTR("release")))) {
+			&& str_eql(get_str(wk, buildtype_val), &WKSTR("release")))) {
 		push_args(wk, args, compilers[t].args.define("NDEBUG"));
 	}
 
@@ -324,6 +327,9 @@ get_base_compiler_args(struct workspace *wk,
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
+	struct buildtype buildtype;
+
+	get_buildtype(wk, proj, tgt, &buildtype);
 
 	obj args;
 	make_obj(wk, &args, obj_array);
@@ -331,11 +337,11 @@ get_base_compiler_args(struct workspace *wk,
 	push_args(wk, args, compilers[t].args.always());
 
 	get_std_args(wk, proj, tgt, args, lang, t);
-	get_buildtype_args(wk, proj, tgt, args, t);
+	get_buildtype_args(wk, &buildtype, args, t);
 	get_warning_args(wk, proj, tgt, args, t);
 	get_werror_args(wk, proj, tgt, args, t);
 
-	setup_optional_b_args_compiler(wk, proj, tgt, args, t);
+	setup_optional_b_args_compiler(wk, proj, tgt, &buildtype, args, t);
 
 	{ /* option args (from option('x_args')) */
 		get_option_compile_args(wk, proj, tgt, args, lang);
@@ -603,11 +609,10 @@ setup_linker_args(struct workspace *wk,
 	ctx->args->link_with_not_found = link_with_not_found;
 
 	{
-		enum compiler_optimization_lvl opt;
-		bool debug;
-		get_buildtype(wk, ctx->proj, ctx->tgt, &opt, &debug);
+		struct buildtype buildtype;
+		get_buildtype(wk, ctx->proj, ctx->tgt, &buildtype);
 
-		if (debug) {
+		if (buildtype.debug) {
 			push_linker_args(wk, ctx, linkers[ctx->linker].args.debug());
 		}
 	}

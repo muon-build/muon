@@ -111,6 +111,9 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	if (compilers[t].deps) {
 		push_args(wk, args, compilers[t].args.deps("$out", "${out}.d"));
 	}
+
+	push_args(wk, args, compilers[t].args.debugfile("$out"));
+
 	push_args(wk, args, compilers[t].args.output("$out"));
 	push_args(wk, args, compilers[t].args.compile_only());
 	obj_array_push(wk, args, make_str(wk, "$in"));

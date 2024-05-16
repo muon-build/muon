@@ -124,7 +124,7 @@ option(
         'from_buildtype',
         'static_from_buildtype',
     ],
-) # TODO
+)
 
 # Compiler options
 option('c_args', type: 'array', value: [])

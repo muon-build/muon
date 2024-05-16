@@ -95,6 +95,7 @@ typedef const struct args *((*compiler_get_arg_func_0)(void));
 typedef const struct args *((*compiler_get_arg_func_1i)(uint32_t));
 typedef const struct args *((*compiler_get_arg_func_1s)(const char *));
 typedef const struct args *((*compiler_get_arg_func_2s)(const char *, const char *));
+typedef const struct args *((*compiler_get_arg_func_1s1b)(const char *, bool));
 typedef const struct args *((*compiler_get_arg_func_linker_passthrough)(const struct args *));
 
 struct compiler {
@@ -122,6 +123,8 @@ struct compiler {
 		compiler_get_arg_func_1s color_output;
 		compiler_get_arg_func_0 enable_lto;
 		compiler_get_arg_func_0 always;
+		compiler_get_arg_func_1s1b crt;
+		compiler_get_arg_func_1s debugfile;
 	} args;
 	enum compiler_deps_type deps;
 	enum linker_type default_linker;

@@ -1001,13 +1001,36 @@ compiler_cl_args_always(void)
 }
 
 static const struct args *
-compiler_cl_args_deps(const char *out_target, const char *out_file)
+compiler_cl_args_crt(const char *crt_val, bool debug)
+{
+	COMPILER_ARGS({ NULL });
+
+	if (strcmp(crt_val, "from_buildtype") == 0) {
+		argv[0] = debug ? "/MDd" : "/MD";
+	} else if (strcmp(crt_val, "static_from_buildtype") == 0) {
+		argv[0] = debug ? "/MTd" : "/MT";
+	} else {
+		argv[0] = crt_val;
+	}
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_debugfile(const char *out_target)
 {
 	static char buf[BUF_SIZE_S];
-	COMPILER_ARGS({ "/MD", buf });
-	/* COMPILER_ARGS({ "/showIncludes", "/MD", buf }); */
+	COMPILER_ARGS({ buf });
 
 	snprintf(buf, BUF_SIZE_S, "/Fd%s.pdb", out_target);
+
+	return &args;
+}
+
+static const struct args *
+compiler_cl_args_deps(const char *out_target, const char *out_file)
+{
+	COMPILER_ARGS({ "/showIncludes" });
 
 	return &args;
 }
@@ -1211,6 +1234,14 @@ compiler_arg_empty_2s(const char *_, const char *__)
 }
 
 static const struct args *
+compiler_arg_empty_1s1b(const char *_, bool __)
+{
+	COMPILER_ARGS({ NULL });
+	args.len = 0;
+	return &args;
+}
+
+static const struct args *
 linker_passthrough_empty(const struct args *link_args)
 {
 	return link_args;
@@ -1259,6 +1290,8 @@ build_compilers(void)
 			.color_output    = compiler_arg_empty_1s,
 			.enable_lto      = compiler_arg_empty_0,
 			.always          = compiler_arg_empty_0,
+			.crt             = compiler_arg_empty_1s1b,
+			.debugfile       = compiler_arg_empty_1s,
 		},
 		.object_ext = ".o",
 	};
@@ -1324,6 +1357,8 @@ build_compilers(void)
 	msvc.args.sanitize = compiler_cl_args_sanitize;
 	msvc.args.define = compiler_cl_args_define;
 	msvc.args.always = compiler_cl_args_always;
+	msvc.args.crt = compiler_cl_args_crt;
+	msvc.args.debugfile = compiler_cl_args_debugfile;
 	msvc.default_linker = linker_msvc;
 	msvc.default_static_linker = static_linker_msvc;
 	msvc.deps = compiler_deps_msvc;
