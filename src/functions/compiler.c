@@ -241,6 +241,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	obj_array_extend(wk, compiler_args, comp->cmd_arr);
 
+	push_args(wk, compiler_args, compilers[t].args.always());
+
 	get_std_args(wk, current_project(wk), NULL, compiler_args, comp->lang, t);
 
 	add_extra_compiler_check_args(wk, comp, compiler_args);
