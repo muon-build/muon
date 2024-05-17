@@ -12,6 +12,6 @@ struct samu_edge;
 void samu_depsinit(struct samu_ctx *ctx, const char *builddir);
 void samu_depsclose(struct samu_ctx *ctx);
 void samu_depsload(struct samu_ctx *ctx, struct samu_edge *e);
-void samu_depsrecord(struct samu_ctx *ctx, struct samu_edge *e);
+void samu_depsrecord(struct samu_ctx *ctx, struct sbuf *output, const char **filtered_output, struct samu_edge *e);
 
 #endif

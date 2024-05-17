@@ -355,13 +355,16 @@ samu_shouldprune(struct samu_edge *e, struct samu_node *n, int64_t old)
 }
 
 static void
-samu_edgedone(struct samu_ctx *ctx, struct samu_edge *e)
+samu_edgedone(struct samu_ctx *ctx, const char **filtered_output, struct samu_job *j)
 {
 	struct samu_node *n;
+	struct samu_edge *e;
 	size_t i;
 	struct samu_string *rspfile;
 	bool restat;
 	int64_t old;
+
+	e = j->edge;
 
 	restat = samu_edgevar(ctx, e, "restat", true);
 	for (i = 0; i < e->nout; ++i) {
@@ -375,7 +378,9 @@ samu_edgedone(struct samu_ctx *ctx, struct samu_edge *e)
 	if (rspfile && !ctx->buildopts.keeprsp)
 		fs_remove(rspfile->s);
 	samu_edgehash(ctx, e);
-	samu_depsrecord(ctx, e);
+
+	samu_depsrecord(ctx, &j->cmd_ctx.out, filtered_output, e);
+
 	for (i = 0; i < e->nout; ++i) {
 		n = e->out[i];
 		n->hash = e->hash;
@@ -389,13 +394,20 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 	struct samu_edge *e, *new;
 	struct samu_pool *p;
 
+	const char *filtered_output = 0;
+
 	if (j->failed) {
 		samu_warn("job failed with status %d: %s", j->cmd_ctx.status, j->cmd->s);
+	} else {
+		samu_edgedone(ctx, &filtered_output, j);
 	}
 
 	++ctx->build.nfinished;
+
 	if (!ctx->build.consoleused || j->failed) {
-		if (j->cmd_ctx.out.len) {
+		if (filtered_output) {
+			fputs(filtered_output, stdout);
+		} else if (j->cmd_ctx.out.len) {
 			fwrite(j->cmd_ctx.out.buf, 1, j->cmd_ctx.out.len, stdout);
 		}
 
@@ -403,6 +415,7 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 			fwrite(j->cmd_ctx.err.buf, 1, j->cmd_ctx.err.len, stdout);
 		}
 	}
+
 	e = j->edge;
 	if (e->pool) {
 		p = e->pool;
@@ -419,8 +432,6 @@ samu_jobdone(struct samu_ctx *ctx, struct samu_job *j)
 			--p->numjobs;
 		}
 	}
-	if (!j->failed)
-		samu_edgedone(ctx, e);
 }
 
 void

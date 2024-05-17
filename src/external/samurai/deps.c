@@ -11,9 +11,11 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "log.h"
 #include "external/samurai/ctx.h"
+#include "lang/string.h"
+#include "log.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 
 #include "external/samurai/build.h"
 #include "external/samurai/deps.h"
@@ -127,8 +129,7 @@ src_fread(void *buf, size_t sz, size_t n, struct seekable_source *src)
 		return 0;
 	}
 
-	size_t l = n,
-	       r = (src->src.len - src->i) / sz;
+	size_t l = n, r = (src->src.len - src->i) / sz;
 	r = r < l ? r : l;
 
 	memcpy(buf, &src->src.src[src->i], r * sz);
@@ -214,9 +215,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			goto rewrite;
 		}
 		if (sz > cap) {
-			do{
+			do {
 				cap *= 2;
-			}while (sz > cap);
+			} while (sz > cap);
 			buf = samu_xmalloc(&ctx->arena, cap);
 		}
 		if (src_fread(buf, sz, 1, &src) != 1) {
@@ -279,7 +280,11 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			n = samu_mknode(ctx, path);
 			if (ctx->deps.entrieslen >= ctx->deps.entriescap) {
 				size_t newcap = ctx->deps.entriescap ? ctx->deps.entriescap * 2 : 1024;
-				ctx->deps.entries = samu_xreallocarray(&ctx->arena, ctx->deps.entries, ctx->deps.entriescap, newcap, sizeof(ctx->deps.entries[0]));
+				ctx->deps.entries = samu_xreallocarray(&ctx->arena,
+					ctx->deps.entries,
+					ctx->deps.entriescap,
+					newcap,
+					sizeof(ctx->deps.entries[0]));
 				ctx->deps.entriescap = newcap;
 			}
 			n->id = ctx->deps.entrieslen;
@@ -342,10 +347,27 @@ samu_depsclose(struct samu_ctx *ctx)
 	ctx->deps.depsfile = NULL;
 }
 
-static struct samu_nodearray *
-samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
+static void
+samu_deps_push_node(struct samu_ctx *ctx, const struct str *f)
 {
-	struct samu_string *in, *out = NULL;
+	struct samu_string *in;
+
+	if (ctx->deps.deps.len == ctx->deps.depscap) {
+		size_t newcap = ctx->deps.deps.node ? ctx->deps.depscap * 2 : 32;
+		ctx->deps.deps.node = samu_xreallocarray(
+			&ctx->arena, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
+		ctx->deps.depscap = newcap;
+	}
+	in = samu_mkstr(&ctx->arena, f->len);
+	memcpy(in->s, f->s, f->len);
+	in->s[f->len] = '\0';
+	ctx->deps.deps.node[ctx->deps.deps.len++] = samu_mknode(ctx, in);
+}
+
+static struct samu_nodearray *
+samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
+{
+	struct samu_string *out = NULL;
 	struct seekable_source src = { 0 };
 	int c, n;
 	bool sawcolon;
@@ -385,9 +407,9 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 					samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
 				}
 				switch (c) {
-				case '#':  break;
+				case '#': break;
 				case '\n': c = ' '; continue;
-				default:   samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\'); continue;
+				default: samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\'); continue;
 				}
 				break;
 			case '$':
@@ -407,21 +429,17 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				goto err;
 			}
 			if (ctx->deps.buf.len > 0) {
-				if (ctx->deps.deps.len == ctx->deps.depscap) {
-					size_t newcap = ctx->deps.deps.node ? ctx->deps.depscap * 2 : 32;
-					ctx->deps.deps.node = samu_xreallocarray(&ctx->arena, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
-					ctx->deps.depscap = newcap;
-				}
-				in = samu_mkstr(&ctx->arena, ctx->deps.buf.len);
-				memcpy(in->s, ctx->deps.buf.data, ctx->deps.buf.len);
-				in->s[ctx->deps.buf.len] = '\0';
-				ctx->deps.deps.node[ctx->deps.deps.len++] = samu_mknode(ctx, in);
+				samu_deps_push_node(ctx,
+					&(struct str){
+						.s = ctx->deps.buf.data,
+						.len = ctx->deps.buf.len,
+					});
 			}
 			if (c == '\n') {
 				sawcolon = false;
-				do{
+				do {
 					c = src_getc(&src);
-				}while (c == '\n');
+				} while (c == '\n');
 			}
 			if (c == EOF) {
 				break;
@@ -441,8 +459,12 @@ samu_depsparse(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				out = samu_mkstr(&ctx->arena, ctx->deps.buf.len);
 				memcpy(out->s, ctx->deps.buf.data, ctx->deps.buf.len);
 				out->s[ctx->deps.buf.len] = '\0';
-			} else if (out->n != ctx->deps.buf.len || memcmp(ctx->deps.buf.data, out->s, ctx->deps.buf.len) != 0) {
-				samu_fatal("bad depfile: multiple outputs: %.*s != %s", (int)ctx->deps.buf.len, ctx->deps.buf.data, out->s);
+			} else if (out->n != ctx->deps.buf.len
+				   || memcmp(ctx->deps.buf.data, out->s, ctx->deps.buf.len) != 0) {
+				samu_fatal("bad depfile: multiple outputs: %.*s != %s",
+					(int)ctx->deps.buf.len,
+					ctx->deps.buf.data,
+					out->s);
 				goto err;
 			}
 			sawcolon = true;
@@ -474,6 +496,99 @@ err:
 	return NULL;
 }
 
+static struct samu_nodearray *
+samu_depsparse_msvc(struct samu_ctx *ctx, struct sbuf *out, struct samu_string *deps_prefix)
+{
+	const struct str prefix = deps_prefix ? WKSTR(deps_prefix->s) : WKSTR("Note: including file: ");
+	const char *whitespace = " \r\t";
+	struct str line = { .s = out->buf, .len = 0 };
+	int32_t i;
+	const char *nl;
+	bool seen_prefix = false;
+
+	// Here, we are using ctx->deps.buf as the buffer for filtered output.
+	ctx->deps.buf.len = 0;
+
+	while (true) {
+		if ((nl = strchr(line.s, '\n'))) {
+			line.len = nl - line.s;
+		} else {
+			line.len = strlen(line.s);
+		}
+
+		// Trim off trailing whitespace
+		for (i = line.len - 1; i >= 0; --i) {
+			if (!strchr(whitespace, line.s[i])) {
+				break;
+			}
+			--line.len;
+		}
+
+		if (!seen_prefix
+			&& (str_endswithi(&line, &WKSTR(".c")) || str_endswithi(&line, &WKSTR(".cc"))
+				|| str_endswithi(&line, &WKSTR(".cxx")) || str_endswithi(&line, &WKSTR(".cpp"))
+				|| str_endswithi(&line, &WKSTR(".c++")))) {
+			// cl.exe likes to output the name of the compiled
+			// file.  ninja filters this here so we do the same.
+			goto cont;
+		} else if (str_startswith(&line, &prefix)) {
+			// Trim off prefix
+			line.s += prefix.len;
+			line.len -= prefix.len;
+
+			// Trim off leading whitespace
+			for (i = 0; (uint32_t)i < line.len; ++i) {
+				if (!strchr(whitespace, line.s[i])) {
+					break;
+				}
+			}
+			line.s += i;
+			line.len -= i;
+
+			str_to_lower(&line);
+
+			SBUF_manual(buf);
+			SBUF_manual(path);
+			sbuf_pushn(0, &buf, line.s, line.len);
+			path_make_absolute(0, &path, buf.buf);
+
+			// Skip system headers
+			if (str_contains(&line, &WKSTR("program files"))
+				|| str_contains(&line, &WKSTR("microsoft visual studio"))) {
+				goto cont;
+			}
+
+			/* L("path: '%s'", path.buf); */
+			samu_deps_push_node(ctx,
+				&(struct str){
+					path.buf,
+					path.len,
+				});
+
+			sbuf_destroy(&buf);
+			sbuf_destroy(&path);
+		} else {
+			for (i = 0; (uint32_t)i < line.len; ++i) {
+				samu_bufadd(&ctx->arena, &ctx->deps.buf, line.s[i]);
+			}
+
+			if (nl) {
+				samu_bufadd(&ctx->arena, &ctx->deps.buf, '\n');
+			}
+		}
+
+cont:
+		if (nl) {
+			line.s = nl + 1;
+		} else {
+			break;
+		}
+	}
+
+	samu_bufadd(&ctx->arena, &ctx->deps.buf, 0);
+	return &ctx->deps.deps;
+}
+
 void
 samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 {
@@ -490,7 +605,7 @@ samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 	if (deptype) {
 		if (n->id != -1 && n->mtime <= ctx->deps.entries[n->id].mtime) {
 			deps = &ctx->deps.entries[n->id].deps;
-		}else if (ctx->buildopts.explain) {
+		} else if (ctx->buildopts.explain) {
 			samu_warn("explain %s: missing or outdated record in .ninja_deps", n->path->s);
 		}
 	} else {
@@ -498,7 +613,7 @@ samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 		if (!depfile) {
 			return;
 		}
-		deps = samu_depsparse(ctx, depfile->s, false);
+		deps = samu_depsparse_gcc(ctx, depfile->s, false);
 		if (ctx->buildopts.explain && !deps) {
 			samu_warn("explain %s: missing or invalid depfile", n->path->s);
 		}
@@ -512,33 +627,55 @@ samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 }
 
 void
-samu_depsrecord(struct samu_ctx *ctx, struct samu_edge *e)
+samu_depsrecord(struct samu_ctx *ctx, struct sbuf *output, const char **filtered_output, struct samu_edge *e)
 {
-	struct samu_string *deptype, *depfile;
+	struct samu_string *deptype_str, *depfile;
 	struct samu_nodearray *deps;
 	struct samu_node *out, *n;
 	struct samu_entry *entry;
 	size_t i;
 	bool update;
+	enum {
+		deptype_gcc,
+		deptype_msvc,
+	} deptype;
 
-	deptype = samu_edgevar(ctx, e, "deps", true);
-	if (!deptype || deptype->n == 0) {
+	deptype_str = samu_edgevar(ctx, e, "deps", true);
+	if (!deptype_str || deptype_str->n == 0) {
 		return;
 	}
-	if (strcmp(deptype->s, "gcc") != 0) {
-		samu_warn("unsuported deps type: %s", deptype->s);
+
+	if (strcmp(deptype_str->s, "msvc") == 0) {
+		deptype = deptype_msvc;
+	} else if (strcmp(deptype_str->s, "gcc") == 0) {
+		deptype = deptype_gcc;
+	} else {
+		samu_warn("unsuported deps type: %s", deptype_str->s);
 		return;
 	}
-	depfile = samu_edgevar(ctx, e, "depfile", false);
-	if (!depfile || depfile->n == 0) {
-		samu_warn("deps but no depfile");
-		return;
+
+	switch (deptype) {
+	case deptype_gcc: {
+		depfile = samu_edgevar(ctx, e, "depfile", false);
+		if (!depfile || depfile->n == 0) {
+			samu_warn("deps but no depfile");
+			return;
+		}
+		deps = samu_depsparse_gcc(ctx, depfile->s, true);
+		if (!ctx->buildopts.keepdepfile) {
+			fs_remove(depfile->s);
+		}
+		*filtered_output = 0;
+		break;
 	}
+	case deptype_msvc: {
+		deps = samu_depsparse_msvc(ctx, output, samu_edgevar(ctx, e, "msvc_deps_prefix", true));
+		*filtered_output = ctx->deps.buf.data;
+		break;
+	}
+	}
+
 	out = e->out[0];
-	deps = samu_depsparse(ctx, depfile->s, true);
-	if (!ctx->buildopts.keepdepfile) {
-		fs_remove(depfile->s);
-	}
 	if (!deps) {
 		return;
 	}
