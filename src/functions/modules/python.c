@@ -3,20 +3,19 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "coerce.h"
 #include "compat.h"
 
-#include "lang/object.h"
-#include "options.h"
-#include "platform/path.h"
-
+#include "coerce.h"
 #include "embedded.h"
 #include "external/tinyjson.h"
 #include "functions/external_program.h"
 #include "functions/modules/python.h"
 #include "install.h"
+#include "lang/object.h"
 #include "lang/typecheck.h"
+#include "options.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 #include "platform/run_cmd.h"
 
 static bool
@@ -375,7 +374,7 @@ func_python_installation_get_install_dir(struct workspace *wk, obj self, obj *re
 	struct args_kw akw[] = {
 		[kw_pure] = { "pure", obj_bool },
 		[kw_subdir] = { "subdir", obj_string },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, NULL, akw)) {
