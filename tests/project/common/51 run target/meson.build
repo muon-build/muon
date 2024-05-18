@@ -148,5 +148,13 @@ tests += 'textprinter'
 
 ninja = find_program('ninja', 'samu')
 foreach test : tests
-    test(test, ninja, args: ['-C', meson.build_root(), test])
+    # There is a race condition when running samu on the same build folder
+    # multiple times in parallel that can cause the build log to get corrupted,
+    # so make these tests non-parallel.
+    test(
+        test,
+        ninja,
+        args: ['-C', meson.build_root(), test],
+        is_parallel: false,
+    )
 endforeach
