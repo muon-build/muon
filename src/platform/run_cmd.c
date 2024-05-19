@@ -66,7 +66,7 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 	argstr_pushall(argstr, argc, new_argv, &argi, max);
 
 	*res = (char *const *)new_argv;
-	return argc;
+	return argi;
 }
 
 static bool
