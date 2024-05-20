@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+muon_private = '.muon'
+
+muon = argv[1]
+ninja = argv[2]
+source = argv[3]
+build = argv[4]
+skip_exit_code = argv[5]
+skip_analyze = argv[6]
+git_clean = argv[7]
+
+func check_install(destdir str)
+    install_check_script = source / 'check.sh'
+
+    if fs.is_file(install_check_script)
+        install_check_result = run_command(install_check_script, env: {'DESTDIR': destdir})
+
+        if install_check_result.returncode() != 0
+            if fs.is_dir(build / destdir)
+                message('failing destdir contains:')
+                print(run_command('find', build / destdir, check: true).stdout())
+            else
+                message(
+                    'failing destdir @0@ does not exist'.format(build / destdir),
+                )
+            endif
+        endif
+    endif
+endfunc
+
+if fs.is_dir(build)
+    fs.rmdir(build, recursive: true, force: true)
+endif
+
+if git_clean == '1'
+    run_command('git', 'clean', '-xdf', '--', source, check: true)
+endif
+
+fs.mkdir(build / muon_private, make_parents: true)
+log = build / muon_private / 'build_log.txt'
+
+if skip_analyze == '0'
+    analyze_result = run_command(muon, '-vC', source, 'analyze')
+
+    print(analyze_result.stderr())
+
+    if analyze_result.returncode() != 0
+        exit(analyze_result.returncode())
+    endif
+endif
+
+setup_result = run_command(muon, '-vC', source, 'setup', '-Dprefix=/usr', build)
+
+if setup_result.returncode() != 0
+    if 'MESON_SKIP_TEST' in setup_result.stderr()
+        exit(skip_exit_code.to_int())
+    else
+        exit(setup_result.returncode())
+    endif
+endif
+
+run_command(ninja.split(' '), '-C', build, check: true)
+
+run_command(muon, '-C', build, 'test', check: true)
+
+run_command(muon, '-C', build, 'install', env: {'DESTDIR': 'destdir'}, check: true)
+
+if build_machine.system() != 'windows' and find_program('sh', required: false).found()
+    check_install('destdir')
+endif

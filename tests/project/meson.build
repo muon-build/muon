@@ -334,7 +334,6 @@ endif
 
 test_dir = meson.current_build_dir()
 
-runner = find_program('runner.sh')
 is_git_repo = fs.is_dir(meson.global_source_root() / '.git')
 
 foreach t : tests
@@ -364,8 +363,11 @@ foreach t : tests
 
     test(
         test,
-        runner,
+        muon,
         args: [
+            'internal',
+            'eval',
+            meson.current_source_dir() / 'runner.meson',
             muon,
             ninja,
             meson.current_source_dir() / test,

@@ -191,6 +191,8 @@ Various additional builtin functions are avaliable:
 - `dict.delete(key str)` - delete key from dict
 - `meson.argv0() -> str` - gets the command used to invoke muon (useful for
   creating targets which invoke scripts).
+- `print(str str)` - print text without additional modifications.
+- `exit(code int)` - call exit() with the given code.
 
 The `fs` module also has additonal functions:
 
@@ -198,9 +200,10 @@ The `fs` module also has additonal functions:
 - `write(dest str|file, data str)` - write `data` to `dest`
 - `cwd() -> str` - returns muon's current working directory
 - `mkdir(path str)` - make the directory at `path`
-- `rmdir(path str, recursive bool)` - delete the directory at `path`. `recursive`
-  defaults to false. If set to true the contents of `path` will be recursively
-  deleted before `path` itself.
+- `rmdir(path str, recursive bool: false, force bool: false)` - delete the
+  directory at `path`. `recursive` defaults to false. If set to true the
+  contents of `path` will be recursively deleted before `path` itself.  `force`
+  will ignore errors.
 - `is_basename(path str) -> bool` - true if str contains no path separators
 - `is_subpath(base str, sub str) -> bool` - true if `sub` is a subpath of `base`
 - `add_suffix(path str, suff str) -> str` - add the suffix `suff` to `path`

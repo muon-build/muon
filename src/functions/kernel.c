@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "args.h"
@@ -2000,6 +2001,19 @@ func_typeof(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static bool
+func_exit(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	exit(get_obj_number(wk, an[0].val));
+
+	return true;
+}
+
 // clang-format off
 const struct func_impl impl_tbl_kernel[] =
 {
@@ -2092,6 +2106,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
 	{ "is_void", func_is_void, tc_bool, true },
 	{ "typeof", func_typeof, tc_string, true },
+	{ "exit", func_exit },
 	{ NULL, NULL },
 };
 

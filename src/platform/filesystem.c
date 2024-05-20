@@ -438,6 +438,7 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 
 struct fs_rmdir_ctx {
 	const char *base_dir;
+	bool force;
 };
 
 static enum iteration_result
@@ -451,22 +452,25 @@ fs_rmdir_iter(void *_ctx, const char *path)
 
 	path_join(NULL, &name, ctx->base_dir, path);
 
-	if (!fs_stat(name.buf, &sb)) {
+	if (stat(name.buf, &sb) != 0) {
+		if (ctx->force) {
+			ir_res = ir_cont;
+		} else {
+			LOG_E("failed stat(%s): %s", path, strerror(errno));
+		}
 		goto ret;
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-
-		if (!fs_rmdir_recursive(name.buf)) {
+		if (!fs_rmdir_recursive(name.buf, ctx->force)) {
 			goto ret;
 		}
 
-		if (!fs_rmdir(name.buf)) {
+		if (!fs_rmdir(name.buf, ctx->force)) {
 			goto ret;
 		}
 
 	} else if (S_ISREG(sb.st_mode)) {
-
 		if (!fs_remove(name.buf)) {
 			goto ret;
 		}
@@ -484,10 +488,11 @@ ret:
 }
 
 bool
-fs_rmdir_recursive(const char *path)
+fs_rmdir_recursive(const char *path, bool force)
 {
 	struct fs_rmdir_ctx ctx = {
-		.base_dir = path
+		.base_dir = path,
+		.force = force,
 	};
 
 	return fs_dir_foreach(path, &ctx, fs_rmdir_iter);

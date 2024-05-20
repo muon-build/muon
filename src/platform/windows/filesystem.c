@@ -193,9 +193,13 @@ fs_mkdir(const char *path)
 }
 
 bool
-fs_rmdir(const char *path)
+fs_rmdir(const char *path, bool force)
 {
 	if (!RemoveDirectory(path)) {
+		if (force) {
+			return true;
+		}
+
 		LOG_E("failed to remove directory %s: %s\n", path, win32_error());
 		return false;
 	}

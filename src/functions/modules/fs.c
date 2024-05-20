@@ -9,9 +9,9 @@
 #include <string.h>
 
 #include "args.h"
-#include "lang/func_lookup.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -564,11 +564,20 @@ static bool
 func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	enum kwargs { kw_make_parents };
+	struct args_kw akw[] = {
+		[kw_make_parents] = { "make_parents", obj_bool },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	return fs_mkdir(get_cstr(wk, an[0].val));
+	if (akw[kw_make_parents].set && get_obj_bool(wk, akw[kw_make_parents].val)) {
+		return fs_mkdir_p(get_cstr(wk, an[0].val));
+	} else {
+		return fs_mkdir(get_cstr(wk, an[0].val));
+	}
 }
 
 static bool
@@ -599,20 +608,28 @@ static bool
 func_module_fs_rmdir(struct workspace *wk, obj rcvr, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
-	enum kwargs { kw_recursive };
-	struct args_kw akw[] = { [kw_recursive] = { "recursive", obj_bool }, 0 };
+	enum kwargs {
+		kw_recursive,
+		kw_force,
+	};
+	struct args_kw akw[] = {
+		[kw_recursive] = { "recursive", obj_bool },
+		[kw_force] = { "force", obj_bool },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
 	bool recursive = akw[kw_recursive].set ? get_obj_bool(wk, akw[kw_recursive].val) : false;
+	bool force = akw[kw_force].set ? get_obj_bool(wk, akw[kw_force].val) : false;
 
-	if (recursive && !fs_rmdir_recursive(get_cstr(wk, an[0].val))) {
-		return false;
+	if (recursive) {
+		return fs_rmdir_recursive(get_cstr(wk, an[0].val), force);
+	} else {
+		return fs_rmdir(get_cstr(wk, an[0].val), force);
 	}
-
-	return fs_rmdir(get_cstr(wk, an[0].val));
 }
 
 static bool
