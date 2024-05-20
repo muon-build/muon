@@ -10,6 +10,9 @@ if py.language_version().version_compare('< 3.6')
     error('Invalid Python version, only >= 3.6 is supported.')
 endif
 
+interpreter_path = py.path()
+message(f'path: @interpreter_path@')
+
 py_nonexisting = import('nonexisting_python_b075e5a', required: false)
 
 if py_nonexisting.found()

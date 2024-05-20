@@ -451,7 +451,7 @@ func_python_installation_install_sources(struct workspace *wk, obj self, obj *re
 		[kw_preserve_path] = { "preserve_path", obj_bool },
 		[kw_pure] = { "pure", obj_bool },
 		[kw_subdir] = { "subdir", obj_string },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
@@ -464,6 +464,7 @@ func_python_installation_install_sources(struct workspace *wk, obj self, obj *re
 	}
 
 	struct obj_python_installation *py = get_obj_python_installation(wk, self);
+
 	bool pure = py->pure;
 	if (akw[kw_pure].set) {
 		pure = get_obj_bool(wk, akw[kw_pure].val);
@@ -490,8 +491,7 @@ func_python_installation_install_sources(struct workspace *wk, obj self, obj *re
 	}
 
 	if (akw[kw_rename].set) {
-		if (get_obj_array(wk, akw[kw_rename].val)->len !=
-		    get_obj_array(wk, sources)->len) {
+		if (get_obj_array(wk, akw[kw_rename].val)->len != get_obj_array(wk, sources)->len) {
 			vm_error(wk, "number of elements in rename != number of sources");
 			return false;
 		}
@@ -511,12 +511,29 @@ func_python_installation_install_sources(struct workspace *wk, obj self, obj *re
 		return obj_array_foreach(wk, coerced, &ctx, py_install_data_rename_iter);
 	}
 
-	bool preserve_path =
-		akw[kw_preserve_path].set
-		&& get_obj_bool(wk, akw[kw_preserve_path].val);
+	bool preserve_path = akw[kw_preserve_path].set && get_obj_bool(wk, akw[kw_preserve_path].val);
 
-	return push_install_targets(wk, err_node, sources, install_dir,
-		akw[kw_install_mode].val, preserve_path);
+	return push_install_targets(wk, err_node, sources, install_dir, akw[kw_install_mode].val, preserve_path);
+}
+
+static bool
+func_python_installation_interpreter_path(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	struct obj_python_installation *py = get_obj_python_installation(wk, self);
+	struct obj_external_program *ep = get_obj_external_program(wk, py->prog);
+	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
+		vm_error(wk,
+			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",
+			ep->cmd_array);
+		return false;
+	}
+
+	obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0, res);
+	return true;
 }
 
 static obj
@@ -554,5 +571,6 @@ struct func_impl impl_tbl_python_installation[] = {
 	{ "has_variable", func_python_installation_has_var, tc_bool },
 	{ "install_sources", func_python_installation_install_sources },
 	{ "language_version", func_python_installation_language_version, tc_string },
+	{ "path", func_python_installation_interpreter_path, tc_string },
 	{ NULL, NULL },
 };
