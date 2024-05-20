@@ -896,8 +896,10 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	}
 	case node_type_return: {
 		fr->str = make_str(f->wk, fmt_node_to_token(n->type));
-		next = fmt_frag_sibling(fr, fmt_node(f, n->l));
-		next->flags |= fmt_frag_flag_stick_line_left;
+		if (n->l) {
+			next = fmt_frag_sibling(fr, fmt_node(f, n->l));
+			next->flags |= fmt_frag_flag_stick_line_left;
+		}
 		break;
 	}
 
