@@ -13,8 +13,8 @@
 #include "compilers.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "lang/func_lookup.h"
 #include "functions/meson.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -396,10 +396,12 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 		kw_skip_if_destdir, // ignored
 		kw_dry_run,
 	};
-	struct args_kw akw[] = { [kw_install_tag] = { "install_tag", obj_string },
+	struct args_kw akw[] = {
+		[kw_install_tag] = { "install_tag", obj_string },
 		[kw_skip_if_destdir] = { "skip_if_destdir", obj_bool },
 		[kw_dry_run] = { "dry_run", obj_bool },
-		0 };
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
