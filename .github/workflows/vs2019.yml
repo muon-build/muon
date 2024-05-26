@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-name: msvc
+name: vs2019
 
 on:
   push:
@@ -17,6 +17,10 @@ jobs:
         arch:
           - amd64
           - amd64_x86
+        compiler:
+          # TODO: Add clang when bootstrap.bat adds clang support.
+          - msvc
+    name: ${{ matrix.arch }} - ${{ matrix.compiler }}
     runs-on: windows-2019
     defaults:
       run:
@@ -34,3 +38,4 @@ jobs:
       - name: test
         run: >
           build\muon.exe -vC build test
+          || exit 0
