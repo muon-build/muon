@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-14 02:04+0000\n"
+"POT-Creation-Date: 2013-09-12 18:53+0300\n"
 "PO-Revision-Date: 2013-09-12 18:57+0300\n"
 "Last-Translator: Jussi Pakkanen <jpakkane@brash>\n"
 "Language-Team: German\n"
@@ -21,18 +21,6 @@ msgstr ""
 msgid "International greeting."
 msgstr "Internationale Gruss."
 
-#: data/test.desktop.in:3
-msgid "Test"
-msgstr ""
-
-#: data/test.desktop.in:4
-msgid "Application"
-msgstr ""
-
-#: data/test.desktop.in:5
-msgid "Test Application"
-msgstr ""
-
-#~ msgid "This is <code>text</code> with <em>embedded XML tags</em>. Nice!"
-#~ msgstr ""
-#~ "Dies ist <code>Text</code> mit <em>eingebetteten XML Tags</em>. Toll!"
+#: data/com.mesonbuild.test.dummy.metainfo.xml:19
+msgid "This is <code>text</code> with <em>embedded XML tags</em>. Nice!"
+msgstr "Dies ist <code>Text</code> mit <em>eingebetteten XML Tags</em>. Toll!"
