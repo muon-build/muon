@@ -9,6 +9,7 @@ Files: tests/project/common/*
        tests/project/native/*
        tests/project/unit/*
        tests/project/frameworks/*
+       tests/project/python/*
 Copyright: The Meson development team
            Stone Tickle <lattis@mochiro.moe>
 License: Apache-2.0
