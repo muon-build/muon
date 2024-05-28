@@ -62,6 +62,7 @@ src = files(
     'lang/func_lookup.c',
     'lang/lexer.c',
     'lang/object.c',
+    'lang/object_iterators.c',
     'lang/parser.c',
     'lang/serial.c',
     'lang/string.c',

@@ -257,16 +257,15 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag typ
 		make_obj(wk, &arr, obj_array);
 
 		if (t == obj_array) {
-			obj_array_flat_for_begin(wk, *val, v) {
+			obj_array_flat_for_(wk, *val, v, flat_iter) {
 				if (v == disabler_id) {
 					wk->vm.saw_disabler = true;
 				} else if (!typecheck(wk, ip, v, type)) {
+					obj_array_flat_iter_end(wk, &flat_iter);
 					return false;
 				}
 
 				obj_array_push(wk, arr, v);
-
-				obj_array_flat_for_end;
 			}
 		} else {
 			if (*val == disabler_id) {

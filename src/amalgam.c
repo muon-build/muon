@@ -82,6 +82,7 @@
 #include "lang/func_lookup.c"
 #include "lang/lexer.c"
 #include "lang/object.c"
+#include "lang/object_iterators.c"
 #include "lang/parser.c"
 #include "lang/serial.c"
 #include "lang/string.c"

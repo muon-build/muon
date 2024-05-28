@@ -56,7 +56,8 @@ FixNamespaceComments: false
 
 ForEachMacros:
   - 'OPTSTART'
-  - 'obj_array_flat_for_begin'
+  - 'obj_array_flat_for_'
+  - 'obj_array_flat_for'
   - 'obj_array_for'
   - 'obj_dict_for'
 
