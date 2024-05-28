@@ -229,9 +229,32 @@ vm_error(struct workspace *wk, const char *fmt, ...)
 /******************************************************************************
  * pop_args
  ******************************************************************************/
+static bool
+typecheck_function_arg(struct workspace *wk, uint32_t ip, obj val, type_tag type)
+{
+	bool listify = (type & TYPE_TAG_LISTIFY) == TYPE_TAG_LISTIFY;
+	type &= ~TYPE_TAG_LISTIFY;
+	enum obj_type t = get_obj_type(wk, val);
+	obj v;
+
+	if (listify && t == obj_array) {
+		obj_array_flat_for_(wk, val, v, flat_iter) {
+			if (get_obj_type(wk, v) == obj_typeinfo && (get_obj_typeinfo(wk, v)->type & tc_array)) {
+				continue;
+			} else if (!typecheck(wk, ip, v, type)) {
+				obj_array_flat_iter_end(wk, &flat_iter);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return typecheck(wk, ip, val, type);
+}
 
 static bool
-typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag type)
+typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag type)
 {
 	bool listify = (type & TYPE_TAG_LISTIFY) == TYPE_TAG_LISTIFY;
 	type &= ~TYPE_TAG_LISTIFY;
@@ -260,6 +283,9 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag typ
 			obj_array_flat_for_(wk, *val, v, flat_iter) {
 				if (v == disabler_id) {
 					wk->vm.saw_disabler = true;
+				} else if (get_obj_type(wk, v) == obj_typeinfo
+					   && (get_obj_typeinfo(wk, v)->type & tc_array)) {
+					continue;
 				} else if (!typecheck(wk, ip, v, type)) {
 					obj_array_flat_iter_end(wk, &flat_iter);
 					return false;
@@ -303,7 +329,7 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 		return false;
 	}
 
-	if (!typecheck_function_arg(wk, v_ip, &v, akw[i].type)) {
+	if (!typecheck_and_mutate_function_arg(wk, v_ip, &v, akw[i].type)) {
 		return false;
 	}
 
@@ -394,6 +420,10 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 				obj_array_push(wk, an[i].val, entry->o);
 				an[i].node = entry->ip;
 				++argi;
+
+				if (!typecheck_function_arg(wk, entry->ip, entry->o, an[i].type)) {
+					goto err;
+				}
 			}
 		} else {
 			if (argi >= wk->vm.nargs) {
@@ -413,12 +443,12 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			++argi;
 		}
 
-		if (!typecheck_function_arg(wk, an[i].node, &an[i].val, an[i].type)) {
+		if (!typecheck_and_mutate_function_arg(wk, an[i].node, &an[i].val, an[i].type)) {
 			goto err;
 		}
 	}
 
-	if (argi > wk->vm.nargs) {
+	if (wk->vm.nargs > argi) {
 		vm_error(wk, "too many args, got %d, expected %d", argi, wk->vm.nargs);
 		goto err;
 	}
@@ -616,6 +646,8 @@ vm_execute_capture(struct workspace *wk, obj a)
 	if (!ok) {
 		if (saw_disabler) {
 			object_stack_push(wk, disabler_id);
+		} else {
+			object_stack_push(wk, make_typeinfo(wk, capture->func->return_type));
 		}
 		return;
 	}
