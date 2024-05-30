@@ -120,6 +120,7 @@ bool typecheck_simple_err(struct workspace *wk, obj o, type_tag type);
 const char *typechecking_type_to_s(struct workspace *wk, type_tag t);
 obj typechecking_type_to_arr(struct workspace *wk, type_tag t);
 type_tag make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type_tag subtype);
+bool typecheck_typeinfo(struct workspace *wk, obj v, type_tag t);
 
 type_tag obj_type_to_tc_type(enum obj_type t);
 obj obj_type_to_typestr(struct workspace *wk, obj o);

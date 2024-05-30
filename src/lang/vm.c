@@ -239,7 +239,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj val, type_tag type
 
 	if (listify && t == obj_array) {
 		obj_array_flat_for_(wk, val, v, flat_iter) {
-			if (get_obj_type(wk, v) == obj_typeinfo && (get_obj_typeinfo(wk, v)->type & tc_array)) {
+			if (typecheck_typeinfo(wk, v, tc_array)) {
 				continue;
 			} else if (!typecheck(wk, ip, v, type)) {
 				obj_array_flat_iter_end(wk, &flat_iter);
@@ -247,6 +247,8 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj val, type_tag type
 			}
 		}
 
+		return true;
+	} else if (listify && typecheck_typeinfo(wk, val, tc_array)) {
 		return true;
 	}
 
@@ -270,7 +272,7 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 			if (get_obj_type(wk, i0) == obj_file) {
 				*val = i0;
 			}
-		} else if (t == obj_typeinfo && (get_obj_typeinfo(wk, *val)->type & tc_array) == tc_array) {
+		} else if (t == obj_typeinfo && typecheck_typeinfo(wk, *val, tc_array)) {
 			return true;
 		}
 	}
@@ -283,9 +285,27 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 			obj_array_flat_for_(wk, *val, v, flat_iter) {
 				if (v == disabler_id) {
 					wk->vm.saw_disabler = true;
-				} else if (get_obj_type(wk, v) == obj_typeinfo
-					   && (get_obj_typeinfo(wk, v)->type & tc_array)) {
-					continue;
+				} else if (typecheck_typeinfo(wk, v, tc_array)) {
+					// Consider a function with signature:
+					//   func f(a listify[str])
+					// Now, imagine it gets called like this:
+					//   f(['a', ['b'], <typeinfo: array>, 'd'])
+					// When flattening this array, it is
+					// impossible to flatten the typeinfo
+					// array because it lacks any
+					// information about what might be
+					// inside it, or even if it is empty or
+					// not.
+					//
+					// Also, consider this:
+					//   f(['a', ['b'], <typeinfo: any>, 'd'])
+					//
+					// Now, the typeinfo could be anything
+					// (including an array) so we still
+					// don't know whether to flatten it.
+					//
+					// For now, just let these values
+					// through unscathed.
 				} else if (!typecheck(wk, ip, v, type)) {
 					obj_array_flat_iter_end(wk, &flat_iter);
 					return false;
@@ -293,6 +313,8 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 
 				obj_array_push(wk, arr, v);
 			}
+		} else if (t == obj_typeinfo && typecheck_typeinfo(wk, *val, tc_array)) {
+			return true;
 		} else {
 			if (*val == disabler_id) {
 				wk->vm.saw_disabler = true;

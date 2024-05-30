@@ -362,6 +362,12 @@ typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 }
 
 bool
+typecheck_typeinfo(struct workspace *wk, obj v, type_tag t)
+{
+	return get_obj_type(wk, v) == obj_typeinfo && (get_obj_typeinfo(wk, v)->type & t);
+}
+
+bool
 bounds_adjust(uint32_t len, int64_t *i)
 {
 	if (*i < 0) {
