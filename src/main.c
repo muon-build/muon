@@ -569,6 +569,7 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 
 	struct workspace wk;
 	workspace_init_bare(&wk);
+	machine_init();
 
 	wk.vm.lang_mode = language_internal;
 
