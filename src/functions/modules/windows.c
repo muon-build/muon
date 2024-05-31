@@ -387,9 +387,6 @@ func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
 	sbuf_pushn(NULL, &depfile, ".d", 2);
 
 	{
-		char cwd[4096];
-		GetCurrentDirectory(4096, cwd);
-		printf(" *** cwd      : '%s'\n", cwd);
 		printf(" *** current build dir : '%s'\n", get_cstr(wk, current_project(wk)->build_dir));
 		printf(" *** full     : '%s'\n", rc_file_tmp);
 		printf(" *** prefix   : '%s'\n", prefix.buf);
