@@ -116,6 +116,7 @@ enum module {
 	module_python,
 	module_python3,
 	module_sourceset,
+	module_windows,
 
 	// unimplemented
 	module_unimplemented_separator,
@@ -136,7 +137,6 @@ enum module {
 	module_unstable_rust,
 	module_unstable_simd,
 	module_unstable_wayland,
-	module_windows,
 
 	module_count,
 };

@@ -67,6 +67,7 @@
 #include "functions/modules/pkgconfig.c"
 #include "functions/modules/python.c"
 #include "functions/modules/sourceset.c"
+#include "functions/modules/windows.c"
 #include "functions/number.c"
 #include "functions/run_result.c"
 #include "functions/source_configuration.c"

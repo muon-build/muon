@@ -49,6 +49,7 @@ src = files(
     'functions/modules/pkgconfig.c',
     'functions/modules/python.c',
     'functions/modules/sourceset.c',
+    'functions/modules/windows.c',
     'functions/number.c',
     'functions/run_result.c',
     'functions/source_configuration.c',

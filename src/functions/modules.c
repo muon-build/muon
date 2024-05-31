@@ -15,6 +15,7 @@
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
+#include "functions/modules/windows.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -26,6 +27,7 @@ const char *module_names[module_count] = {
 	[module_python3] = "python3",
 	[module_python] = "python",
 	[module_sourceset] = "sourceset",
+	[module_windows] = "windows",
 
 	// unimplemented
 	[module_cmake] = "cmake",
@@ -45,7 +47,6 @@ const char *module_names[module_count] = {
 	[module_unstable_rust] = "unstable-rust",
 	[module_unstable_simd] = "unstable-simd",
 	[module_unstable_wayland] = "unstable-wayland",
-	[module_windows] = "windows",
 };
 
 static bool
@@ -151,6 +152,7 @@ struct func_impl_group module_func_impl_groups[module_count][language_mode_count
 	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                           },
 	[module_python]    = { { impl_tbl_module_python },    { 0 }                           },
 	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                           },
+	[module_windows]   = { { impl_tbl_module_windows },   { 0 }                           },
 };
 
 const struct func_impl impl_tbl_module[] = {
