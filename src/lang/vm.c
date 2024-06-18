@@ -399,6 +399,12 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 				goto err;
 			}
 
+			if (get_obj_type(wk, entry->o) == obj_typeinfo) {
+				// If we get kwargs as typeinfo, we can't do
+				// anything useful
+				continue;
+			}
+
 			obj k, v;
 			obj_dict_for(wk, entry->o, k, v) {
 				if (!handle_kwarg(wk, akw, get_cstr(wk, k), entry->ip, v, entry->ip)) {
@@ -546,6 +552,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_not) break;
 	op_case(op_negate) break;
 	op_case(op_return) break;
+	op_case(op_return_end) break;
 	op_case(op_iterator_next) break;
 	op_case(op_store) break;
 	op_case(op_try_load) break;
@@ -658,6 +665,12 @@ vm_execute_capture(struct workspace *wk, obj a)
 	uint32_t i;
 	struct obj_capture *capture;
 
+	if (wk->vm.in_analyzer && get_obj_type(wk, a) == obj_typeinfo) {
+		vm_push_dummy(wk);
+		typecheck(wk, 0, a, tc_capture);
+		return;
+	}
+
 	capture = get_obj_capture(wk, a);
 
 	stack_push(&wk->stack, wk->vm.saw_disabler, false);
@@ -711,6 +724,12 @@ vm_execute_capture(struct workspace *wk, obj a)
 
 #define binop_disabler_check(a, b)                  \
 	if (a == disabler_id || b == disabler_id) { \
+		object_stack_push(wk, disabler_id); \
+		return;                             \
+	}
+
+#define unop_disabler_check(a)                      \
+	if (a == disabler_id) {                     \
 		object_stack_push(wk, disabler_id); \
 		return;                             \
 	}
@@ -776,6 +795,53 @@ vm_op_constant_func(struct workspace *wk)
 	object_stack_push(wk, c);
 }
 
+#define typecheck_operand(__o, __o_type, __expect_type, __expect_tc_type, __result_type) \
+	if (__o_type == obj_typeinfo) {                                                  \
+		if (!typecheck_typeinfo(wk, __o, __expect_tc_type)) {                    \
+			goto type_err;                                                   \
+		} else {                                                                 \
+			res = make_typeinfo(wk, __result_type);                          \
+			break;                                                           \
+		}                                                                        \
+	} else if (__expect_type != 0 && __o_type != __expect_type) {                    \
+		goto type_err;                                                           \
+	}
+
+struct check_obj_typeinfo_map {
+	type_tag expect, result;
+};
+
+static bool
+typecheck_typeinfo_operands(struct workspace *wk,
+	obj a,
+	obj b,
+	obj *res,
+	struct check_obj_typeinfo_map map[obj_type_count])
+{
+	type_tag ot, tc, a_t = get_obj_typeinfo(wk, a)->type, result = 0;
+	uint32_t matches = 0;
+	for (ot = 1; ot <= tc_type_count; ++ot) {
+		tc = obj_type_to_tc_type(ot);
+		if ((a_t & tc) != tc) {
+			continue;
+		} else if (!map[ot].expect) {
+			continue;
+		}
+
+		if (typecheck_custom(wk, 0, b, map[ot].expect, 0)) {
+			result |= map[ot].result;
+			++matches;
+		}
+	}
+
+	if (!matches) {
+		return false;
+	}
+
+	*res = make_typeinfo(wk, result);
+	return true;
+}
+
 static void
 vm_op_add(struct workspace *wk)
 {
@@ -785,30 +851,54 @@ vm_op_add(struct workspace *wk)
 	binop_disabler_check(a, b);
 
 	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == obj_array || a_t == b_t)) {
-		goto op_add_type_err;
-	}
 
 	obj res = 0;
 
 	switch (a_t) {
-	case obj_number:
+	case obj_number: {
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
+
 		make_obj(wk, &res, obj_number);
 		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
 		break;
-	case obj_string: res = str_join(wk, a, b); break;
-	case obj_array:
+	}
+	case obj_string: {
+		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
+
+		res = str_join(wk, a, b);
+		break;
+	}
+	case obj_array: {
 		obj_array_dup(wk, a, &res);
+
 		if (b_t == obj_array) {
 			obj_array_extend(wk, res, b);
 		} else {
 			obj_array_push(wk, res, b);
 		}
 		break;
-	case obj_dict: obj_dict_merge(wk, a, b, &res); break;
+	}
+	case obj_dict: {
+		typecheck_operand(b, b_t, obj_dict, tc_dict, tc_dict);
+
+		obj_dict_merge(wk, a, b, &res);
+		break;
+	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_number] = { tc_number, tc_number },
+			[obj_string] = { tc_string, tc_string },
+			[obj_dict] = { tc_dict, tc_dict },
+			[obj_array] = { tc_any, tc_array },
+		};
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
 	default:
-op_add_type_err:
-		vm_error(wk, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+type_err:
+		vm_error(wk, "+ not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
 	}
@@ -817,47 +907,136 @@ op_add_type_err:
 }
 
 static void
-vm_op_sub(struct workspace *wk)
+vm_op_add_store(struct workspace *wk)
 {
 	obj a, b;
-	b = object_stack_pop(&wk->vm.stack);
-	a = object_stack_pop(&wk->vm.stack);
-	binop_disabler_check(a, b);
 
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == obj_number && a_t == b_t)) {
-		vm_error(wk, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+	b = object_stack_pop(&wk->vm.stack);
+	obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	const struct str *id = get_str(wk, a_id);
+	if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
+		vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
 		vm_push_dummy(wk);
 		return;
 	}
 
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
 	obj res;
-	make_obj(wk, &res, obj_number);
-	set_obj_number(wk, res, get_obj_number(wk, a) - get_obj_number(wk, b));
+	bool assign = false;
+
+	switch (a_t) {
+	case obj_number: {
+		assign = true;
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
+
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
+		break;
+	}
+	case obj_string: {
+		assign = true;
+		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
+
+		// TODO: could use str_appn, but would have to dup on store
+		res = str_join(wk, a, b);
+		break;
+	}
+	case obj_array: {
+		if (b_t == obj_array) {
+			obj_array_extend(wk, a, b);
+		} else {
+			obj_array_push(wk, a, b);
+		}
+		res = a;
+		break;
+	}
+	case obj_dict: {
+		assign = true;
+		typecheck_operand(b, b_t, obj_dict, tc_dict, tc_dict);
+
+		obj_dict_merge_nodup(wk, a, b);
+		res = a;
+		assign = false;
+		break;
+	}
+	case obj_typeinfo: {
+		assign = true;
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_number] = { tc_number, tc_number },
+			[obj_string] = { tc_string, tc_string },
+			[obj_dict] = { tc_dict, tc_dict },
+			[obj_array] = { tc_any, tc_array },
+		};
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
+	default:
+type_err:
+		vm_error(wk, "+= not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
+		vm_push_dummy(wk);
+		return;
+	}
+
+	if (assign) {
+		wk->vm.behavior.assign_variable(wk, id->s, res, 0, assign_reassign);
+	}
 
 	object_stack_push(wk, res);
+}
+
+#define vm_simple_integer_op_body(__op, __strop)                                                            \
+	obj a, b;                                                                                           \
+	b = object_stack_pop(&wk->vm.stack);                                                                \
+	a = object_stack_pop(&wk->vm.stack);                                                                \
+	binop_disabler_check(a, b);                                                                         \
+                                                                                                            \
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);                                 \
+	obj res;                                                                                            \
+                                                                                                            \
+	switch (a_t) {                                                                                      \
+	case obj_number: {                                                                                  \
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                \
+                                                                                                            \
+		make_obj(wk, &res, obj_number);                                                             \
+		set_obj_number(wk, res, get_obj_number(wk, a) __op get_obj_number(wk, b));                  \
+		break;                                                                                      \
+	}                                                                                                   \
+	case obj_typeinfo: {                                                                                \
+		struct check_obj_typeinfo_map map[obj_type_count] = {                                       \
+			[obj_number] = { tc_number, tc_number },                                            \
+		};                                                                                          \
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {                                    \
+			goto type_err;                                                                      \
+		}                                                                                           \
+		break;                                                                                      \
+	}                                                                                                   \
+	default:                                                                                            \
+type_err:                                                                                                   \
+		vm_error(wk, __strop " not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b)); \
+		vm_push_dummy(wk);                                                                          \
+		return;                                                                                     \
+	}                                                                                                   \
+                                                                                                            \
+	object_stack_push(wk, res);
+
+static void
+vm_op_sub(struct workspace *wk)
+{
+	vm_simple_integer_op_body(-, "-");
 }
 
 static void
 vm_op_mul(struct workspace *wk)
 {
-	obj a, b;
-	b = object_stack_pop(&wk->vm.stack);
-	a = object_stack_pop(&wk->vm.stack);
-	binop_disabler_check(a, b);
+	vm_simple_integer_op_body(*, "*");
+}
 
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == obj_number && a_t == b_t)) {
-		vm_error(wk, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	obj res;
-	make_obj(wk, &res, obj_number);
-	set_obj_number(wk, res, get_obj_number(wk, a) * get_obj_number(wk, b));
-
-	object_stack_push(wk, res);
+static void
+vm_op_mod(struct workspace *wk)
+{
+	vm_simple_integer_op_body(%, "%%");
 }
 
 static void
@@ -869,18 +1048,18 @@ vm_op_div(struct workspace *wk)
 	binop_disabler_check(a, b);
 
 	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == b_t)) {
-		goto op_div_type_err;
-	}
-
 	obj res = 0;
 
 	switch (a_t) {
 	case obj_number:
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
+
 		make_obj(wk, &res, obj_number);
 		set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
 		break;
 	case obj_string: {
+		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
+
 		const struct str *ss1 = get_str(wk, a), *ss2 = get_str(wk, b);
 
 		if (str_has_null(ss1)) {
@@ -898,9 +1077,19 @@ vm_op_div(struct workspace *wk)
 		res = sbuf_into_str(wk, &buf);
 		break;
 	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_number] = { tc_number, tc_number },
+			[obj_string] = { tc_string, tc_string },
+		};
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
 	default:
-op_div_type_err:
-		vm_error(wk, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+type_err:
+		vm_error(wk, "/ not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
 	}
@@ -908,61 +1097,50 @@ op_div_type_err:
 	object_stack_push(wk, res);
 }
 
-static void
-vm_op_mod(struct workspace *wk)
-{
-	obj a, b;
-	b = object_stack_pop(&wk->vm.stack);
-	a = object_stack_pop(&wk->vm.stack);
-	binop_disabler_check(a, b);
-
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == obj_number && a_t == b_t)) {
-		vm_error(wk, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	obj res;
-	make_obj(wk, &res, obj_number);
-	set_obj_number(wk, res, get_obj_number(wk, a) % get_obj_number(wk, b));
-
+#define vm_simple_comparison_op_body(__op, __strop)                                                         \
+	obj a, b;                                                                                           \
+	b = object_stack_pop(&wk->vm.stack);                                                                \
+	a = object_stack_pop(&wk->vm.stack);                                                                \
+	binop_disabler_check(a, b);                                                                         \
+                                                                                                            \
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);                                 \
+	obj res = 0;                                                                                        \
+                                                                                                            \
+	switch (a_t) {                                                                                      \
+	case obj_number: {                                                                                  \
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                \
+                                                                                                            \
+		res = get_obj_number(wk, a) __op get_obj_number(wk, b) ? obj_bool_true : obj_bool_false;    \
+		break;                                                                                      \
+	}                                                                                                   \
+	case obj_typeinfo: {                                                                                \
+		struct check_obj_typeinfo_map map[obj_type_count] = {                                       \
+			[obj_number] = { tc_number, tc_bool },                                              \
+		};                                                                                          \
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {                                    \
+			goto type_err;                                                                      \
+		}                                                                                           \
+		break;                                                                                      \
+	}                                                                                                   \
+	default:                                                                                            \
+type_err:                                                                                                   \
+		vm_error(wk, __strop " not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b)); \
+		vm_push_dummy(wk);                                                                          \
+		return;                                                                                     \
+	}                                                                                                   \
+                                                                                                            \
 	object_stack_push(wk, res);
-}
 
 static void
 vm_op_lt(struct workspace *wk)
 {
-	struct obj_stack_entry *entry;
-	uint32_t a_ip, b_ip;
-	obj a, b;
-
-	vm_pop(b);
-	vm_pop(a);
-	binop_disabler_check(a, b);
-	if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
-		return;
-	}
-
-	object_stack_push(wk, get_obj_number(wk, a) < get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
+	vm_simple_comparison_op_body(<, "<");
 }
 
 static void
 vm_op_gt(struct workspace *wk)
 {
-	struct obj_stack_entry *entry;
-	uint32_t a_ip, b_ip;
-	obj a, b;
-
-	vm_pop(b);
-	vm_pop(a);
-	binop_disabler_check(a, b);
-
-	if (!typecheck(wk, b_ip, b, obj_number) || !typecheck(wk, a_ip, a, obj_number)) {
-		return;
-	}
-
-	object_stack_push(wk, get_obj_number(wk, a) > get_obj_number(wk, b) ? obj_bool_true : obj_bool_false);
+	vm_simple_comparison_op_body(>, ">");
 }
 
 static void
@@ -974,34 +1152,48 @@ vm_op_in(struct workspace *wk)
 	a = object_stack_pop(&wk->vm.stack);
 	binop_disabler_check(a, b);
 
-	bool res = false;
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	obj res = 0;
 
-	switch (get_obj_type(wk, b)) {
-	case obj_array: res = obj_array_in(wk, b, a); break;
+	switch (b_t) {
+	case obj_array: {
+		L("here, %s, %d", obj_type_to_s(a_t), typecheck_typeinfo(wk, a, tc_any));
+		typecheck_operand(a, a_t, 0, tc_any, tc_bool);
+
+		res = obj_array_in(wk, b, a) ? obj_bool_true : obj_bool_false;
+		break;
+	}
 	case obj_dict:
-		if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
-			break;
-		}
+		typecheck_operand(a, a_t, obj_string, tc_string, tc_bool);
 
-		res = obj_dict_in(wk, b, a);
+		res = obj_dict_in(wk, b, a) ? obj_bool_true : obj_bool_false;
 		break;
 	case obj_string:
-		if (!typecheck(wk, wk->vm.ip - 1, a, obj_string)) {
-			break;
-		}
+		typecheck_operand(a, a_t, obj_string, tc_string, tc_bool);
 
 		const struct str *r = get_str(wk, b), *l = get_str(wk, a);
-		res = str_contains(r, l);
+		res = str_contains(r, l) ? obj_bool_true : obj_bool_false;
 		break;
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_array] = { tc_any, tc_bool },
+			[obj_dict] = { tc_string, tc_bool },
+			[obj_string] = { tc_string, tc_bool },
+		};
+		if (!typecheck_typeinfo_operands(wk, b, a, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
 	default: {
-		vm_error(wk, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, a)));
+type_err:
+		vm_error(wk, "'in' not supported for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
 	}
 	}
 
-	a = res ? obj_bool_true : obj_bool_false;
-	object_stack_push(wk, a);
+	object_stack_push(wk, res);
 }
 
 static void
@@ -1013,8 +1205,16 @@ vm_op_eq(struct workspace *wk)
 	a = object_stack_pop(&wk->vm.stack);
 	binop_disabler_check(a, b);
 
-	a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
-	object_stack_push(wk, a);
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	obj res = 0;
+
+	if (a_t == obj_typeinfo || b_t == obj_typeinfo) {
+		res = make_typeinfo(wk, tc_bool);
+	} else {
+		res = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
+	}
+
+	object_stack_push(wk, res);
 }
 
 static void
@@ -1022,62 +1222,88 @@ vm_op_not(struct workspace *wk)
 {
 	obj a;
 	a = object_stack_pop(&wk->vm.stack);
+	unop_disabler_check(a);
 
-	if (a == disabler_id) {
-		object_stack_push(wk, disabler_id);
-		return;
+	enum obj_type a_t = get_obj_type(wk, a);
+	obj res = 0;
+
+	switch (a_t) {
+	case obj_bool: {
+		res = get_obj_bool(wk, a) ? obj_bool_false : obj_bool_true;
+		break;
 	}
-
-	switch (get_obj_type(wk, a)) {
-	case obj_bool: break;
-	case obj_typeinfo:
-		if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
-			goto type_error;
+	case obj_typeinfo: {
+		if (!typecheck_typeinfo(wk, a, tc_bool)) {
+			goto type_err;
 		}
 
-		object_stack_push(wk, make_typeinfo(wk, tc_bool));
-		return;
+		res = make_typeinfo(wk, tc_bool);
+		break;
+	}
 	default:
-type_error:
-		vm_error(wk, "'not' not supported for %#o", obj_type_to_typestr(wk, a));
+type_err:
+		vm_error(wk, "'not' not supported for %s", obj_typestr(wk, a));
 		object_stack_push(wk, make_typeinfo(wk, tc_bool));
 		return;
 	}
 
-	a = get_obj_bool(wk, a) ? obj_bool_false : obj_bool_true;
-	object_stack_push(wk, a);
+	object_stack_push(wk, res);
 }
 
 static void
 vm_op_negate(struct workspace *wk)
 {
-	obj a, b;
+	obj a;
 	a = object_stack_pop(&wk->vm.stack);
+	unop_disabler_check(a);
 
-	if (a == disabler_id) {
-		object_stack_push(wk, disabler_id);
-		return;
-	} else if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
+	enum obj_type a_t = get_obj_type(wk, a);
+	obj res = 0;
+
+	switch (a_t) {
+	case obj_number: {
+		make_obj(wk, &res, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) * -1);
+		break;
+	}
+	case obj_typeinfo: {
+		if (!typecheck_typeinfo(wk, a, tc_number)) {
+			goto type_err;
+		}
+
+		res = make_typeinfo(wk, tc_number);
+		break;
+	}
+	default:
+type_err:
+		vm_error(wk, "unary - not supported for %s", obj_typestr(wk, a));
+		object_stack_push(wk, make_typeinfo(wk, tc_number));
 		return;
 	}
 
-	make_obj(wk, &b, obj_number);
-	set_obj_number(wk, b, get_obj_number(wk, a) * -1);
-	object_stack_push(wk, b);
+	object_stack_push(wk, res);
 }
 
 static void
 vm_op_stringify(struct workspace *wk)
 {
-	obj a, b;
+	obj a;
 	a = object_stack_pop(&wk->vm.stack);
 
-	if (!coerce_string(wk, wk->vm.ip - 1, a, &b)) {
+	obj res = 0;
+
+	if (get_obj_type(wk, a) == obj_typeinfo) {
+		if (!typecheck_typeinfo(wk, a, tc_bool | tc_file | tc_number | tc_string)) {
+			vm_error(wk, "unable to coerce %s to string", obj_typestr(wk, a));
+		}
+
+		res = make_typeinfo(wk, tc_string);
+	} else if (!coerce_string(wk, wk->vm.ip - 1, a, &res)) {
 		vm_push_dummy(wk);
 		return;
 	}
 
-	object_stack_push(wk, b);
+	object_stack_push(wk, res);
 }
 
 static void
@@ -1116,57 +1342,6 @@ vm_op_store(struct workspace *wk)
 
 	wk->vm.behavior.assign_variable(wk, get_str(wk, a)->s, b, a_entry->ip, assign_local);
 	/* LO("%o <= %o\n", a, b); */
-}
-
-static void
-vm_op_add_store(struct workspace *wk)
-{
-	obj a, b;
-
-	b = object_stack_pop(&wk->vm.stack);
-	obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct str *id = get_str(wk, a_id);
-	if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
-		vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	if (!(a_t == obj_array || a_t == b_t)) {
-		goto op_add_store_type_err;
-	}
-
-	switch (a_t) {
-	case obj_number: {
-		obj res;
-		make_obj(wk, &res, obj_number);
-		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
-		a = res;
-		wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
-		break;
-	}
-	case obj_string:
-		// TODO: could use str_appn, but would have to dup on store
-		a = str_join(wk, a, b);
-		wk->vm.behavior.assign_variable(wk, id->s, a, 0, assign_reassign);
-		break;
-	case obj_array:
-		if (b_t == obj_array) {
-			obj_array_extend(wk, a, b);
-		} else {
-			obj_array_push(wk, a, b);
-		}
-		break;
-	case obj_dict: obj_dict_merge_nodup(wk, a, b); break;
-	default:
-op_add_store_type_err:
-		vm_error(wk, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	object_stack_push(wk, a);
 }
 
 static void
@@ -1218,16 +1393,18 @@ vm_op_index(struct workspace *wk)
 	obj a, b;
 
 	int64_t i;
+
 	obj res = 0;
 	vm_pop(b);
 	a = object_stack_pop(&wk->vm.stack);
 	binop_disabler_check(a, b);
 
-	switch (get_obj_type(wk, a)) {
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+
+	switch (a_t) {
 	case obj_array: {
-		if (!typecheck(wk, b_ip, b, obj_number)) {
-			break;
-		}
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_any);
+
 		i = get_obj_number(wk, b);
 
 		if (!boundscheck(wk, b_ip, get_obj_array(wk, a)->len, &i)) {
@@ -1238,9 +1415,7 @@ vm_op_index(struct workspace *wk)
 		break;
 	}
 	case obj_dict: {
-		if (!typecheck(wk, b_ip, b, obj_string)) {
-			break;
-		}
+		typecheck_operand(b, b_t, obj_string, tc_string, tc_any);
 
 		if (!obj_dict_index(wk, a, b, &res)) {
 			vm_error_at(wk, b_ip, "key not in dictionary: %o", b);
@@ -1250,9 +1425,8 @@ vm_op_index(struct workspace *wk)
 		break;
 	}
 	case obj_custom_target: {
-		if (!typecheck(wk, b_ip, b, obj_number)) {
-			break;
-		}
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_file);
+
 		i = get_obj_number(wk, b);
 
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, a);
@@ -1266,9 +1440,8 @@ vm_op_index(struct workspace *wk)
 		break;
 	}
 	case obj_string: {
-		if (!typecheck(wk, b_ip, b, obj_number)) {
-			break;
-		}
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_string);
+
 		i = get_obj_number(wk, b);
 
 		const struct str *s = get_str(wk, a);
@@ -1280,13 +1453,14 @@ vm_op_index(struct workspace *wk)
 		break;
 	}
 	case obj_iterator: {
-		if (!typecheck(wk, b_ip, b, obj_number)) {
-			break;
-		}
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
+
 		i = get_obj_number(wk, b);
 
 		struct obj_iterator *iter = get_obj_iterator(wk, a);
 
+		// It should be impossible to get a different type of iterator
+		// outside of a loop.
 		assert(iter->type == obj_iterator_type_range);
 
 		double r = (double)iter->data.range.stop - (double)iter->data.range.start;
@@ -1300,8 +1474,22 @@ vm_op_index(struct workspace *wk)
 		set_obj_number(wk, res, (i * iter->data.range.step) + iter->data.range.start);
 		break;
 	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_array] = { tc_number, tc_any },
+			[obj_dict] = { tc_string, tc_any },
+			[obj_custom_target] = { tc_number, tc_file },
+			[obj_string] = { tc_number, tc_string },
+			[obj_iterator] = { tc_number, tc_number },
+		};
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
 	default: {
-		vm_error_at(wk, b_ip, "index unsupported for %s", obj_type_to_s(get_obj_type(wk, a)));
+type_err:
+		vm_error_at(wk, b_ip, "[] unsupported for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
 	}
@@ -1533,7 +1721,7 @@ args_to_unpack_mismatch_error:
 		"%s args to unpack, expected %d for %s",
 		args_to_unpack > expected_args_to_unpack ? "too many" : "not enough",
 		expected_args_to_unpack,
-		get_cstr(wk, obj_type_to_typestr(wk, a)));
+		obj_typestr(wk, a));
 
 push_dummy_iterator:
 	make_obj(wk, &iter, obj_iterator);
@@ -1725,7 +1913,7 @@ vm_op_jmp(struct workspace *wk)
 	wk->vm.ip = a;
 }
 
-static void
+void
 vm_op_return(struct workspace *wk)
 {
 	struct obj_stack_entry *entry;
@@ -2143,6 +2331,7 @@ vm_init(struct workspace *wk)
 					      [op_try_load] = vm_op_try_load,
 					      [op_load] = vm_op_load,
 					      [op_return] = vm_op_return,
+					      [op_return_end] = vm_op_return,
 					      [op_call] = vm_op_call,
 					      [op_call_method] = vm_op_call_method,
 					      [op_call_native] = vm_op_call_native,

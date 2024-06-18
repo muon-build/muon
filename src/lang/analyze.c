@@ -760,6 +760,12 @@ az_op_jmp_if_disabler(struct workspace *wk)
 	/* az_jmp_if_cond_matches(wk, true); */
 }
 
+static void
+az_op_return(struct workspace *wk)
+{
+	/* no-op */
+}
+
 /******************************************************************************
  * analyzer behaviors
  ******************************************************************************/
@@ -952,7 +958,6 @@ az_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 {
 	L("popping args");
 	if (!vm_pop_args(wk, an, akw)) {
-		L("failed popping args");
 		return false;
 	}
 
@@ -1295,6 +1300,7 @@ do_analyze(struct az_opts *opts)
 	wk.vm.ops.ops[op_jmp_if_disabler] = az_op_jmp_if_disabler;
 	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
 	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
+	wk.vm.ops.ops[op_return] = az_op_return;
 
 	error_diagnostic_store_init(&wk);
 

@@ -352,11 +352,23 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		break;
 	}
 	case node_type_continue: {
+		if (wk->vm.in_analyzer) {
+			push_code(wk, op_constant);
+			push_constant(wk, 0);
+			break;
+		}
+
 		push_code(wk, op_jmp);
 		push_constant(wk, *(uint32_t *)arr_peek(&wk->vm.compiler_state.loop_jmp_stack, 1));
 		break;
 	}
 	case node_type_break: {
+		if (wk->vm.in_analyzer) {
+			push_code(wk, op_constant);
+			push_constant(wk, 0);
+			break;
+		}
+
 		push_code(wk, op_jmp);
 
 		uint32_t top = *(uint32_t *)arr_pop(&wk->vm.compiler_state.loop_jmp_stack);
@@ -527,7 +539,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		vm_compile_block(wk, n->r);
 		push_code(wk, op_constant);
 		push_constant(wk, 0);
-		push_code(wk, op_return);
+		push_code(wk, op_return_end);
 
 		/* function body end */
 
@@ -641,7 +653,7 @@ vm_compile_initial_code_segment(struct workspace *wk)
 
 	push_code(wk, op_constant);
 	push_constant(wk, 0);
-	push_code(wk, op_return);
+	push_code(wk, op_return_end);
 }
 
 void
@@ -662,7 +674,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	push_code(wk, op_constant);
 	push_constant(wk, 0);
-	push_code(wk, op_return);
+	push_code(wk, op_return_end);
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);

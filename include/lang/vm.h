@@ -35,6 +35,7 @@ enum op {
 	op_load,
 	op_try_load,
 	op_return,
+	op_return_end,
 	op_call,
 	op_call_method,
 	op_call_native,
@@ -188,6 +189,7 @@ void vm_destroy_objects(struct workspace *wk);
 
 bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
 bool vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
+void vm_op_return(struct workspace *wk);
 
 MUON_ATTR_FORMAT(printf, 4, 5)
 void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);

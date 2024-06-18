@@ -218,6 +218,12 @@ obj_type_to_typestr(struct workspace *wk, obj o)
 	return str;
 }
 
+const char *
+obj_typestr(struct workspace *wk, obj o)
+{
+	return get_cstr(wk, obj_type_to_typestr(wk, o));
+}
+
 /*
  * ----------------------------------------------------------------------------
  * typechecking
@@ -364,7 +370,7 @@ typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 bool
 typecheck_typeinfo(struct workspace *wk, obj v, type_tag t)
 {
-	return get_obj_type(wk, v) == obj_typeinfo && (get_obj_typeinfo(wk, v)->type & t);
+	return get_obj_type(wk, v) == obj_typeinfo && ((get_obj_typeinfo(wk, v)->type & t) & ~TYPE_TAG_MASK);
 }
 
 bool

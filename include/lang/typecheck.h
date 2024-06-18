@@ -124,6 +124,7 @@ bool typecheck_typeinfo(struct workspace *wk, obj v, type_tag t);
 
 type_tag obj_type_to_tc_type(enum obj_type t);
 obj obj_type_to_typestr(struct workspace *wk, obj o);
+const char *obj_typestr(struct workspace *wk, obj o);
 
 bool bounds_adjust(uint32_t len, int64_t *i);
 bool boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i);
