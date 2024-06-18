@@ -812,7 +812,9 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 		}
 
 		if (!parse_accept(p, ',')) {
-			n->l->fmt.post = p->fmt.current;
+			if (n->l) {
+				n->l->fmt.post = p->fmt.current;
+			}
 			break;
 		} else if (p->current.type == end) {
 			// Don't break here, let n->r be made and then break.
