@@ -431,7 +431,8 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s\n", msg);
 
-	if (!(error_diagnostic_store.opts & error_diagnostic_store_replay_include_sources)) {
+	if (error_diagnostic_store.init
+		&& !(error_diagnostic_store.opts & error_diagnostic_store_replay_include_sources)) {
 		goto ret;
 	}
 
