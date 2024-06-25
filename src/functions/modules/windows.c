@@ -22,9 +22,9 @@
 #include "platform/run_cmd.h"
 
 enum rc_type {
-	windres, /* GNU windres */
-	rc,      /* Windows rc or llvm-rc */
-	wrc      /* wine rc */
+	rc_type_windres, /* GNU windres */
+	rc_type_rc,      /* Windows rc or llvm-rc */
+	rc_type_wrc      /* wine rc */
 };
 
 struct module_windows_ctx {
@@ -71,10 +71,10 @@ func_module_find_resource_compiler(struct workspace *wk, struct module_windows_c
 		// FIXME : add intel_cl compiler too
 		// FIXME: add wine rc too
 		if (cc_type == compiler_msvc || cc_type == compiler_clang_cl) {
-			rc_type = rc;
+			rc_type = rc_type_rc;
 			ctx->suffix = "res";
 		} else {
-			rc_type = windres;
+			rc_type = rc_type_windres;
 			ctx->suffix = "o";
 		}
 	} else {
@@ -129,7 +129,7 @@ func_module_find_resource_compiler(struct workspace *wk, struct module_windows_c
 	struct run_cmd_ctx run_cmd_ctx = { 0 };
 	char *run_cmd[] = {
 		(char *)rc_str,
-		(rc_type == rc) ? "/?" : "--version",
+		(rc_type == rc_type_rc) ? "/?" : "--version",
 		NULL
 	};
 
@@ -254,7 +254,7 @@ func_module_include_directories_iter(struct workspace *wk, void *_ctx, obj val)
 	SBUF(incdir);
 	sbuf_clear(&incdir);
 
-	sbuf_pushs(NULL, &incdir, ctx->rc_type == rc ? "/i" : "-I");
+	sbuf_pushs(NULL, &incdir, ctx->rc_type == rc_type_rc ? "/i" : "-I");
 
 	switch (get_obj_type(wk, val)) {
 	case obj_string:
@@ -397,7 +397,7 @@ func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	switch (ctx->rc_type) {
-	case windres: {
+	case rc_type_windres: {
 		const char *argv[5] = { NULL, NULL, NULL, NULL, NULL };
 		struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
 
@@ -419,7 +419,7 @@ func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
 		push_args(wk, cmd, &args);
 		break;
 	}
-	case rc:
+	case rc_type_rc:
 	{
 		const char *argv[2] = { NULL, NULL };
 		struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
@@ -429,7 +429,7 @@ func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
 		push_args(wk, cmd, &args);
 		break;
 	}
-	case wrc:
+	case rc_type_wrc:
 	{
 		const char *argv[3] = { NULL, NULL, NULL };
 		struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
