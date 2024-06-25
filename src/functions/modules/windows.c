@@ -39,7 +39,7 @@ struct module_windows_ctx {
 };
 
 static bool
-func_module_find_resource_compiler(struct workspace *wk, struct module_windows_ctx *ctx)
+module_find_resource_compiler(struct workspace *wk, struct module_windows_ctx *ctx)
 {
 	/*
 	 * from https://mesonbuild.com/Windows-module.html#compile_resources
@@ -194,7 +194,7 @@ cmd_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-func_module_args_iter(struct workspace *wk, void *_ctx, obj val)
+module_args_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	const char *argv[1] = { NULL };
 	struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
@@ -220,7 +220,7 @@ func_module_args_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-func_module_depend_files_iter(struct workspace *wk, void *_ctx, obj val)
+module_depend_files_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	const char *argv[1] = { NULL };
 	struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
@@ -245,7 +245,7 @@ func_module_depend_files_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static enum iteration_result
-func_module_include_directories_iter(struct workspace *wk, void *_ctx, obj val)
+module_include_directories_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	const char *argv[1] = { NULL };
 	struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
@@ -279,7 +279,7 @@ func_module_include_directories_iter(struct workspace *wk, void *_ctx, obj val)
 
 /* prefix for output from rc file */
 static void
-func_module_prefix(struct workspace *wk, struct sbuf *buf, const char *path)
+module_prefix(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	SBUF(tmp)
 	sbuf_clear(&tmp);
@@ -319,7 +319,7 @@ func_module_prefix(struct workspace *wk, struct sbuf *buf, const char *path)
 
 /* basename without extension */
 static void
-func_module_basename(struct workspace *wk, struct sbuf *buf, const char *path)
+module_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 {
 	SBUF(tmp)
 	sbuf_clear(&tmp);
@@ -332,7 +332,7 @@ func_module_basename(struct workspace *wk, struct sbuf *buf, const char *path)
 }
 
 static enum iteration_result
-func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
+module_an_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct module_windows_ctx *ctx = _ctx;
 	obj cmd;
@@ -362,11 +362,11 @@ func_module_an_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/* prefix of rc_file for 'output' */
 	SBUF(prefix);
-	func_module_prefix(wk, &prefix, rc_file_tmp);
+	module_prefix(wk, &prefix, rc_file_tmp);
 
 	/* basename of rc_file, without extention */
 	SBUF(basename);
-	func_module_basename(NULL, &basename, rc_file_tmp);
+	module_basename(NULL, &basename, rc_file_tmp);
 
 	/* if 'input' is
 	 * ../foo/bar.ext
@@ -513,7 +513,7 @@ func_module_windows_compile_resources(struct workspace *wk, obj self, obj *res)
 	 * The function fills ctx.command with the resource compiler
 	 * It also appends '/nologo' to ctx.command with rc.exe compiler
 	 */
-	if (!func_module_find_resource_compiler(wk, &ctx)) {
+	if (!module_find_resource_compiler(wk, &ctx)) {
 		return false;
 	}
 
@@ -522,7 +522,7 @@ func_module_windows_compile_resources(struct workspace *wk, obj self, obj *res)
 	 * Append to ctx.command the values in kw_args
 	 */
 	if (akw[kw_args].set) {
-		if (!obj_array_foreach(wk, akw[kw_args].val, &ctx, func_module_args_iter)) {
+		if (!obj_array_foreach(wk, akw[kw_args].val, &ctx, module_args_iter)) {
 			return false;
 		}
 	}
@@ -533,7 +533,7 @@ func_module_windows_compile_resources(struct workspace *wk, obj self, obj *res)
 	 */
 	if (akw[kw_depend_files].set) {
 		make_obj(wk, &ctx.depend_files, obj_array);
-		if (!obj_array_foreach(wk, akw[kw_depend_files].val, &ctx, func_module_depend_files_iter)) {
+		if (!obj_array_foreach(wk, akw[kw_depend_files].val, &ctx, module_depend_files_iter)) {
 			return false;
 		}
 	}
@@ -544,12 +544,12 @@ func_module_windows_compile_resources(struct workspace *wk, obj self, obj *res)
 	 * (with '/i' or '-I', according to the resource compiler)
 	 */
 	if (akw[kw_include_directories].set) {
-		if (!obj_array_foreach(wk, akw[kw_include_directories].val, &ctx, func_module_include_directories_iter)) {
+		if (!obj_array_foreach(wk, akw[kw_include_directories].val, &ctx, module_include_directories_iter)) {
 			return false;
 		}
 	}
 
-	if (!obj_array_foreach(wk, an[0].val, &ctx, func_module_an_iter)) {
+	if (!obj_array_foreach(wk, an[0].val, &ctx, module_an_iter)) {
 		return false;
 	}
 
