@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/func_lookup.h"
 #include "lang/parser.h"
@@ -408,7 +409,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		while (n) {
 			if (wk->vm.in_analyzer) {
-				obj_array_push(wk, az_branches, make_number(wk, wk->vm.code.len));
+				obj_array_push(wk, az_branches, make_az_branch_element(wk, wk->vm.code.len, 0));
 			}
 
 			if (n->l->l) {
@@ -456,28 +457,59 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		 * <rhs> <-----------------|-`
 		 *    <--------------------+
 		 */
-		uint32_t else_jmp, end_jmp[2];
+		uint32_t else_jmp, end_jmp[3];
 
 		vm_compile_expr(wk, n->l);
 
-		push_code(wk, op_jmp_if_disabler_keep);
-		end_jmp[0] = wk->vm.code.len;
-		push_constant(wk, 0);
+		obj az_branches = 0;
+		if (wk->vm.in_analyzer) {
+			push_code(wk, op_az_branch);
+			end_jmp[2] = wk->vm.code.len;
+			push_constant(wk, 0);
 
-		push_code(wk, op_jmp_if_false);
-		else_jmp = wk->vm.code.len;
-		push_constant(wk, 0);
+			make_obj(wk, &az_branches, obj_array);
+			push_constant(wk, az_branches);
+		}
 
-		vm_compile_expr(wk, n->r->l);
-		push_code(wk, op_jmp);
-		end_jmp[1] = wk->vm.code.len;
-		push_constant(wk, 0);
+		{ // if then branch
+			if (wk->vm.in_analyzer) {
+				obj_array_push(wk,
+					az_branches,
+					make_az_branch_element(wk, wk->vm.code.len, az_branch_element_flag_pop));
+			}
 
-		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
-		vm_compile_expr(wk, n->r->r);
+			push_code(wk, op_jmp_if_disabler_keep);
+			end_jmp[0] = wk->vm.code.len;
+			push_constant(wk, 0);
+
+			push_code(wk, op_jmp_if_false);
+			else_jmp = wk->vm.code.len;
+			push_constant(wk, 0);
+
+			vm_compile_expr(wk, n->r->l);
+			push_code(wk, op_jmp);
+			end_jmp[1] = wk->vm.code.len;
+			push_constant(wk, 0);
+		}
+
+		{ // else branch
+			if (wk->vm.in_analyzer) {
+				obj_array_push(wk,
+					az_branches,
+					make_az_branch_element(wk, wk->vm.code.len, az_branch_element_flag_pop));
+			}
+			push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
+
+			vm_compile_expr(wk, n->r->r);
+		}
 
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp[0]));
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp[1]));
+
+		if (wk->vm.in_analyzer) {
+			push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp[2]));
+			push_code(wk, op_az_merge);
+		}
 
 		break;
 	}
@@ -493,7 +525,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		 *    <--------------------+-`
 		 */
 
-		uint32_t jmp1, jmp2;
+		uint32_t jmp1, end_jmp[2];
 		vm_compile_expr(wk, n->l);
 
 		push_code(wk, op_jmp_if_disabler_keep);
@@ -501,12 +533,27 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, 0);
 
 		push_code(wk, op_dup);
+
+		if (wk->vm.in_analyzer) {
+			obj az_branches = 0;
+			push_code(wk, op_az_branch);
+			end_jmp[1] = wk->vm.code.len;
+			push_constant(wk, 0);
+
+			make_obj(wk, &az_branches, obj_array);
+			push_constant(wk, az_branches);
+
+			obj_array_push(wk,
+				az_branches,
+				make_az_branch_element(wk, wk->vm.code.len, az_branch_element_flag_pop));
+		}
+
 		if (n->type == node_type_and) {
 			push_code(wk, op_jmp_if_false);
 		} else {
 			push_code(wk, op_jmp_if_true);
 		}
-		jmp2 = wk->vm.code.len;
+		end_jmp[0] = wk->vm.code.len;
 		push_constant(wk, 0);
 
 		push_code(wk, op_pop);
@@ -516,7 +563,14 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, obj_bool);
 
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp1));
-		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp2));
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp[0]));
+		if (wk->vm.in_analyzer) {
+			push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp[1]));
+		}
+
+		if (wk->vm.in_analyzer) {
+			push_code(wk, op_az_merge);
+		}
 		break;
 	}
 	case node_type_func_def: {

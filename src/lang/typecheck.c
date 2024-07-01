@@ -257,7 +257,11 @@ typecheck_nested_type_dict_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 static bool
 typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, type_tag type)
 {
-	/* L("typechecking 0%016lx (%s) vs 0%016lx (%s)", got_type, typechecking_type_to_s(wk, got_type), type, typechecking_type_to_s(wk, type)); */
+	/* L("typechecking 0%016lx (%s) vs 0%016lx (%s)", */
+	/* 	got_type, */
+	/* 	typechecking_type_to_s(wk, got_type), */
+	/* 	type, */
+	/* 	typechecking_type_to_s(wk, type)); */
 
 	if (!(type & TYPE_TAG_COMPLEX)) {
 		got_type &= ~obj_typechecking_type_tag;

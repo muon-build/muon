@@ -172,6 +172,7 @@ struct vm {
 };
 
 void object_stack_push(struct workspace *wk, obj o);
+struct obj_stack_entry *object_stack_peek_entry(struct object_stack *s, uint32_t off);
 struct obj_stack_entry *object_stack_pop_entry(struct object_stack *s);
 void object_stack_discard(struct object_stack *s, uint32_t n);
 void object_stack_print(struct workspace *wk, struct object_stack *s);

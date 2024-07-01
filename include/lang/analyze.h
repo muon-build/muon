@@ -24,7 +24,19 @@ struct az_opts {
 	uint64_t enabled_diagnostics;
 };
 
+enum az_branch_element_flag {
+	az_branch_element_flag_pop = 1 << 0,
+};
+union az_branch_element {
+	int64_t i64;
+	struct az_branch_element_data {
+		uint32_t ip;
+		uint32_t flags;
+	} data;
+};
+
 obj make_typeinfo(struct workspace *wk, type_tag t);
+obj make_az_branch_element(struct workspace *wk, uint32_t ip, uint32_t flags);
 
 bool az_diagnostic_name_to_enum(const char *name, enum az_diagnostic *ret);
 void az_print_diagnostic_names(void);

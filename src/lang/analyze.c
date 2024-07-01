@@ -26,6 +26,7 @@ static struct {
 	struct vm_ops unpatched_ops;
 
 	struct obj_typeinfo az_injected_native_func_return;
+	struct hash branch_map;
 } analyzer;
 
 struct az_file_entrypoint {
@@ -46,6 +47,18 @@ struct assignment {
 
 	uint32_t ep_stacks_i;
 	uint32_t ep_stack_len;
+};
+
+enum branch_map_type {
+	branch_map_type_normal,
+	branch_map_type_ternary,
+};
+
+union branch_map {
+	struct branch_map_data {
+		uint8_t taken, not_taken, impure, type;
+	} data;
+	uint64_t u64;
 };
 
 struct bucket_arr assignments;
@@ -179,6 +192,18 @@ make_typeinfo(struct workspace *wk, type_tag t)
 	struct obj_typeinfo *type = get_obj_typeinfo(wk, res);
 	type->type = t;
 	return res;
+}
+
+obj
+make_az_branch_element(struct workspace *wk, uint32_t ip, uint32_t flags)
+{
+	union az_branch_element elem = {
+		.data = {
+			.ip = ip,
+			.flags = flags,
+		},
+	};
+	return make_number(wk, elem.i64);
 }
 
 static type_tag
@@ -612,12 +637,14 @@ pop_scope_group(struct workspace *wk)
  * analyzer ops
  ******************************************************************************/
 
-struct az_branch {
+struct az_branch_group {
 	uint32_t merge_point;
-	obj branches;
+
+	struct az_branch_element_data branch;
+	struct branch_map_data result;
 };
 
-static struct az_branch cur_branch;
+static struct az_branch_group cur_branch_group;
 
 static void
 az_op_az_branch(struct workspace *wk)
@@ -625,29 +652,62 @@ az_op_az_branch(struct workspace *wk)
 	uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	struct az_branch new_branch = {
-		.merge_point = merge_point,
-		.branches = branches,
-	};
-	stack_push(&wk->stack, cur_branch, new_branch);
+	{
+		struct az_branch_group new_branch_group = {
+			.merge_point = merge_point,
+		};
+		stack_push(&wk->stack, cur_branch_group, new_branch_group);
+	}
 
 	push_scope_group(wk);
 
-	L("---> branching, merging @ %03x", cur_branch.merge_point);
+	L("---> branching, merging @ %03x", cur_branch_group.merge_point);
 
-	obj branch;
+	bool pure = true;
+	obj branch, expr_result = 0;
 	obj_array_for(wk, branches, branch) {
 		L("--> branch");
-		wk->vm.ip = get_obj_number(wk, branch);
+		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
+		cur_branch_group.result = (struct branch_map_data){ 0 };
+		wk->vm.ip = cur_branch_group.branch.ip;
 		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval });
 		push_scope_group_scope(wk);
 		vm_execute(wk);
+
+		L("branch done: %d, %d, %d",
+			cur_branch_group.result.impure,
+			cur_branch_group.result.taken,
+			cur_branch_group.result.not_taken);
+
+		if (cur_branch_group.result.impure) {
+			pure = false;
+		}
+		if (pure && cur_branch_group.result.taken) {
+			break;
+		}
+
+		if ((cur_branch_group.branch.flags & az_branch_element_flag_pop)
+			&& (cur_branch_group.result.taken || !pure)) {
+			struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
+			type_tag entry_type = coerce_type_tag(wk, entry->o);
+
+			if (!expr_result) {
+				expr_result = make_typeinfo(wk, entry_type);
+			} else {
+				merge_types(wk, get_obj_typeinfo(wk, expr_result), entry->o);
+			}
+		}
 	}
 
-	L("<--- all branches merged %03x <---", cur_branch.merge_point);
+	L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
 
 	pop_scope_group(wk);
-	stack_pop(&wk->stack, cur_branch);
+	stack_pop(&wk->stack, cur_branch_group);
+
+	L("pure && expr_result: %d, %d", pure, expr_result);
+	if (expr_result && !pure) {
+		object_stack_push(wk, expr_result);
+	}
 }
 
 static void
@@ -655,95 +715,57 @@ az_op_az_merge(struct workspace *wk)
 {
 	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
 
-	L("<--- joining branch %03x, %03x", cur_branch.merge_point, wk->vm.ip - 1);
+	L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1);
 
-	assert(cur_branch.merge_point == wk->vm.ip - 1);
+	assert(cur_branch_group.merge_point == wk->vm.ip - 1);
 	assert(frame->type == call_frame_type_eval);
 
 	object_stack_push(wk, 0);
 	wk->vm.run = false;
 }
 
-/* static void */
-/* az_branch(struct workspace *wk, uint32_t branches[2]) */
-/* { */
-/* 	push_scope_group(wk); */
+static void
+az_jmp_if_cond_matches(struct workspace *wk, bool cond)
+{
+	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
+	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	typecheck(wk, entry->ip, entry->o, obj_bool);
 
-/* 	uint32_t i; */
-/* 	for (i = 0; i < 2; ++i) { */
-/* 		L("--> branch %d", i); */
-/* 		wk->vm.ip = branches[i]; */
-/* 		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval }); */
-/* 		push_scope_group_scope(wk); */
-/* 		vm_execute(wk); */
-/* 	} */
+	union branch_map *map;
+	{
+		uint32_t ip = wk->vm.ip - 1;
+		if (!(map = (union branch_map *)hash_get(&analyzer.branch_map, &ip))) {
+			hash_set(&analyzer.branch_map, &ip, 0);
+			map = (union branch_map *)hash_get(&analyzer.branch_map, &ip);
+		}
+	}
 
-/* 	L("<--- all branches merged %03x <---", cur_branch.merge_point); */
+	if (cur_branch_group.branch.flags & az_branch_element_flag_pop) {
+		map->data.type = branch_map_type_ternary;
+	}
 
-/* 	pop_scope_group(wk); */
-
-/* 	wk->vm.ip = cur_branch.merge_point + 1; */
-/* 	stack_pop(&wk->stack, cur_branch); */
-/* } */
-
-/* static void */
-/* az_jmp_if_cond_matches(struct workspace *wk, bool cond) */
-/* { */
-/* 	struct obj_stack_entry *entry; */
-/* 	uint32_t a_ip; */
-/* 	obj a, b; */
-
-/* 	entry = object_stack_pop_entry(&wk->vm.stack); */
-/* 	a = entry->o; */
-/* 	a_ip = entry->ip; */
-
-/* 	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip); */
-
-/* 	typecheck(wk, a_ip, a, obj_bool); */
-
-/* 	if (get_obj_type(wk, a) == obj_bool) { */
-/* 		if (cond == get_obj_bool(wk, a)) { */
-/* 			vm_warning(wk, "branch never taken"); */
-/* 		} else { */
-/* 			vm_warning(wk, "branch always taken"); */
-/* 		} */
-/* 	} */
-
-/* 	az_branch(wk, (uint32_t[2]){ wk->vm.ip, b }); */
-/* } */
+	if (get_obj_type(wk, entry->o) == obj_bool) {
+		if (cond == get_obj_bool(wk, entry->o)) {
+			map->data.not_taken = cur_branch_group.result.not_taken = true;
+			wk->vm.ip = cur_branch_group.merge_point;
+		} else {
+			map->data.taken = cur_branch_group.result.taken = true;
+		}
+	} else {
+		map->data.impure = cur_branch_group.result.impure = true;
+	}
+}
 
 static void
 az_op_jmp_if_false(struct workspace *wk)
 {
-	/* az_jmp_if_cond_matches(wk, false); */
-
-	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
-	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	typecheck(wk, entry->ip, entry->o, obj_bool);
-	if (get_obj_type(wk, entry->o) == obj_bool) {
-		if (get_obj_bool(wk, entry->o)) {
-			vm_warning(wk, "branch always taken");
-		} else {
-			vm_warning(wk, "branch never taken");
-		}
-	}
+	az_jmp_if_cond_matches(wk, false);
 }
 
 static void
 az_op_jmp_if_true(struct workspace *wk)
 {
-	/* az_jmp_if_cond_matches(wk, true); */
-
-	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
-	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	typecheck(wk, entry->ip, entry->o, obj_bool);
-	if (get_obj_type(wk, entry->o) == obj_bool) {
-		if (get_obj_bool(wk, entry->o)) {
-			vm_warning(wk, "branch never taken");
-		} else {
-			vm_warning(wk, "branch always taken");
-		}
-	}
+	az_jmp_if_cond_matches(wk, true);
 }
 
 static void
@@ -1269,6 +1291,8 @@ do_analyze(struct az_opts *opts)
 	}
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
+	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
+
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
 		obj_array_index(&wk, wk.vm.default_scope_stack, 0, &original_scope);
@@ -1355,6 +1379,35 @@ do_analyze(struct az_opts *opts)
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_az_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
+				}
+			}
+		}
+	}
+
+	if (az_diagnostic_enabled(az_diagnostic_dead_code)) {
+		uint32_t i, *ip;
+		for (i = 0; i < analyzer.branch_map.keys.len; ++i) {
+			ip = arr_get(&analyzer.branch_map.keys, i);
+			const union branch_map *map = (union branch_map *)hash_get(&analyzer.branch_map, ip);
+			if (!map->data.impure) {
+				if (!map->data.taken && map->data.not_taken) {
+					switch (map->data.type) {
+					case branch_map_type_normal:
+						vm_warning_at(&wk, *ip, "branch never taken");
+						break;
+					case branch_map_type_ternary:
+						vm_warning_at(&wk, *ip, "true branch never evaluated");
+						break;
+					}
+				} else if (map->data.taken && !map->data.not_taken) {
+					switch (map->data.type) {
+					case branch_map_type_normal:
+						vm_warning_at(&wk, *ip, "branch always taken");
+						break;
+					case branch_map_type_ternary:
+						vm_warning_at(&wk, *ip, "false branch never evaluated");
+						break;
+					}
 				}
 			}
 		}

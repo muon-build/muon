@@ -82,7 +82,7 @@ object_stack_pop(struct object_stack *s)
 	return object_stack_pop_entry(s)->o;
 }
 
-static struct obj_stack_entry *
+struct obj_stack_entry *
 object_stack_peek_entry(struct object_stack *s, uint32_t off)
 {
 	return bucket_arr_get(&s->ba, s->ba.len - off);
@@ -456,7 +456,10 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		} else {
 			if (argi >= wk->vm.nargs) {
 				if (!an[i].optional) {
-					vm_error(wk, "missing positional argument: %s", an[i].name);
+					vm_error(wk,
+						"missing positional argument%s%s",
+						an[i].name ? ": " : "",
+						an[i].name ? an[i].name : "");
 					goto err;
 				} else {
 					break;
@@ -766,10 +769,14 @@ vm_op_constant_dict(struct workspace *wk)
 	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	make_obj(wk, &b, obj_dict);
 	for (i = 0; i < len; ++i) {
-		obj_dict_set(wk,
-			b,
-			object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1),
-			object_stack_peek(&wk->vm.stack, (len - i) * 2));
+		obj key = object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1);
+		if (wk->vm.in_analyzer && get_obj_type(wk, key) == obj_typeinfo) {
+			object_stack_discard(&wk->vm.stack, len * 2);
+			object_stack_push(wk, make_typeinfo(wk, tc_dict));
+			return;
+		}
+
+		obj_dict_set(wk, b, key, object_stack_peek(&wk->vm.stack, (len - i) * 2));
 	}
 
 	object_stack_discard(&wk->vm.stack, len * 2);
@@ -1157,7 +1164,6 @@ vm_op_in(struct workspace *wk)
 
 	switch (b_t) {
 	case obj_array: {
-		L("here, %s, %d", obj_type_to_s(a_t), typecheck_typeinfo(wk, a, tc_any));
 		typecheck_operand(a, a_t, 0, tc_any, tc_bool);
 
 		res = obj_array_in(wk, b, a) ? obj_bool_true : obj_bool_false;
@@ -2039,12 +2045,8 @@ vm_execute(struct workspace *wk)
 
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-			/* object_stack_print(wk, &wk->vm.stack); */
-			/* struct source_location loc; */
-			/* struct source *src; */
-			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
-			/* list_line_range(src, loc, 0); */
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text);
+			object_stack_print(wk, &wk->vm.stack);
 		}
 
 		cip = wk->vm.ip;
