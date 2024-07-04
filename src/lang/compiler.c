@@ -175,8 +175,26 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_store);
 		break;
 	case node_type_plusassign:
-		push_code(wk, op_add_store);
-		push_constant(wk, n->l->data.str);
+		if (wk->vm.in_analyzer) {
+			// The op_add_store has some optimizations that break
+			// the analyzer when adding dicts or arrays, so just
+			// convert a += b to a = a + b for simplicity.
+			push_code(wk, op_constant);
+			push_constant(wk, n->l->data.str);
+			push_code(wk, op_load);
+
+			push_code(wk, op_swap);
+
+			push_code(wk, op_add);
+
+			push_code(wk, op_constant);
+			push_constant(wk, n->l->data.str);
+
+			push_code(wk, op_store);
+		} else {
+			push_code(wk, op_add_store);
+			push_constant(wk, n->l->data.str);
+		}
 		break;
 	case node_type_method: {
 		push_code(wk, op_call_method);

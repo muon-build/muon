@@ -958,12 +958,10 @@ vm_op_add_store(struct workspace *wk)
 		break;
 	}
 	case obj_dict: {
-		assign = true;
 		typecheck_operand(b, b_t, obj_dict, tc_dict, tc_dict);
 
 		obj_dict_merge_nodup(wk, a, b);
 		res = a;
-		assign = false;
 		break;
 	}
 	case obj_typeinfo: {
@@ -1693,10 +1691,16 @@ vm_op_iterator(struct workspace *wk)
 		break;
 	}
 	case obj_typeinfo: {
+		enum obj_type t;
 		if (typecheck_custom(wk, 0, a, tc_dict, 0)) {
 			expected_args_to_unpack = 2;
-		} else if (typecheck_custom(wk, 0, a, tc_array | tc_iterator, 0)) {
+			t = obj_dict;
+		} else if (typecheck_custom(wk, 0, a, tc_array, 0)) {
 			expected_args_to_unpack = 1;
+			t = obj_array;
+		} else if (typecheck_custom(wk, 0, a, tc_iterator, 0)) {
+			expected_args_to_unpack = 1;
+			t = obj_iterator;
 		} else {
 			goto type_error;
 		}
@@ -1709,7 +1713,7 @@ vm_op_iterator(struct workspace *wk)
 		object_stack_push(wk, iter);
 		iterator = get_obj_iterator(wk, iter);
 		iterator->type = obj_iterator_type_typeinfo;
-		iterator->data.typeinfo.type = a_type;
+		iterator->data.typeinfo.type = t;
 		break;
 	}
 	default: {
@@ -1806,7 +1810,7 @@ vm_op_iterator_next(struct workspace *wk)
 			val = make_typeinfo(wk, tc_any);
 			break;
 		}
-		case obj_typeinfo: {
+		case obj_iterator: {
 			val = make_typeinfo(wk, tc_number);
 			break;
 		}

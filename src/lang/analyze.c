@@ -19,7 +19,6 @@
 
 static struct {
 	bool error;
-	uint32_t impure_loop_depth, impure_branch_depth;
 	const struct az_opts *opts;
 	obj eval_trace;
 	struct obj_func *fp;
@@ -304,7 +303,45 @@ az_for_each_type(struct workspace *wk,
  * every branch of the if statement gets its own sub-scope.  At the end of the
  * if statement, all the sub scopes are merged (conflicting object types get
  * merged) into the parent scope, and the scope group is popped.
+ *
+ * The scope stack, rather than simply an array of dicts as in normal vm
+ * execution, is an array of "scope groups".  The first group is a plain dict,
+ * which represents the root scope for this level in the scope stack.  When
+ * entering a branch, additional groups are pushed onto this list each
+ * consisting of a separate dict per sub-scope.
  */
+
+void
+print_scope_stack(struct workspace *wk)
+{
+	L("scope stack:");
+	obj local_scope, scope_group, scope, k, v;
+	obj_array_for(wk, wk->vm.scope_stack, local_scope) {
+		L("  local scope:");
+		uint32_t i = 0;
+		obj_array_for(wk, local_scope, scope_group) {
+			if (i == 0) {
+				L("    root scope:");
+				obj_dict_for(wk, scope_group, k, v) {
+					LO("      %o: %o\n",
+						k,
+						((struct assignment *)bucket_arr_get(&assignments, v))->o);
+				}
+			} else {
+				obj_array_for(wk, scope_group, scope) {
+					L("    scope group:");
+					obj_dict_for(wk, scope, k, v) {
+						LO("      %o: %o\n",
+							k,
+							((struct assignment *)bucket_arr_get(&assignments, v))->o);
+					}
+				}
+			}
+
+			++i;
+		}
+	}
+}
 
 struct check_az_scope_ctx {
 	const char *name;
@@ -458,10 +495,9 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 {
 	TracyCZoneAutoS;
 	obj scope = 0;
+
 	if (mode == assign_reassign) {
-		if (!(scope = assign_lookup_scope(wk, name))) {
-			mode = assign_local;
-		}
+		mode = assign_local;
 	}
 
 	if (mode == assign_local) {
@@ -477,15 +513,6 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	assert(scope);
 
 	struct assignment *a = 0;
-	if (analyzer.impure_loop_depth && (a = assign_lookup(wk, name))) {
-		// When overwriting a variable in a loop turn it into a
-		// typeinfo so that it gets marked as impure.
-		enum obj_type new_type = get_obj_type(wk, o);
-		if (new_type != obj_typeinfo && !obj_equal(wk, a->o, o)) {
-			o = make_typeinfo(wk, obj_type_to_tc_type(new_type));
-		}
-	}
-
 	obj aid;
 	if (obj_dict_index(wk, scope, make_str(wk, name), &aid)) {
 		// The assignment was found so just reassign it here
@@ -702,6 +729,7 @@ az_op_az_branch(struct workspace *wk)
 	L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
 
 	pop_scope_group(wk);
+
 	stack_pop(&wk->stack, cur_branch_group);
 
 	L("pure && expr_result: %d, %d", pure, expr_result);
@@ -771,15 +799,13 @@ az_op_jmp_if_true(struct workspace *wk)
 static void
 az_op_jmp_if_disabler(struct workspace *wk)
 {
-	/* obj a, b; */
-	/* a = object_stack_peek(&wk->vm.stack, 1); */
 	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	/* if (a == disabler_id) { */
-	/* 	object_stack_discard(&wk->vm.stack, 1); */
-	/* 	wk->vm.ip = b; */
-	/* } */
+}
 
-	/* az_jmp_if_cond_matches(wk, true); */
+static void
+az_op_jmp_if_disabler_keep(struct workspace *wk)
+{
+	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 }
 
 static void
@@ -1322,6 +1348,7 @@ do_analyze(struct az_opts *opts)
 	wk.vm.ops.ops[op_az_branch] = az_op_az_branch;
 	wk.vm.ops.ops[op_az_merge] = az_op_az_merge;
 	wk.vm.ops.ops[op_jmp_if_disabler] = az_op_jmp_if_disabler;
+	wk.vm.ops.ops[op_jmp_if_disabler_keep] = az_op_jmp_if_disabler_keep;
 	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
 	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
 	wk.vm.ops.ops[op_return] = az_op_return;

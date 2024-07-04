@@ -41,7 +41,6 @@ if git_clean == '1'
 endif
 
 fs.mkdir(build / muon_private, make_parents: true)
-log = build / muon_private / 'build_log.txt'
 
 if skip_analyze == '0'
     analyze_result = run_command(muon, '-vC', source, 'analyze')
