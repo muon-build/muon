@@ -220,6 +220,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n"
+		"  -d - print dissasembly\n"
 		"  -m <mode> - parse with parse mode <mode>\n",
 		NULL,
 		1)
