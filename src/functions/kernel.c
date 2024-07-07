@@ -2100,7 +2100,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "warning", func_warning },
 	// non-standard muon extensions
 	{ "dbg", func_dbg },
-	{ "p", func_p, tc_any },
+	{ "p", func_p, tc_any, true },
 	{ "print", func_print, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },

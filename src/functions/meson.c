@@ -637,8 +637,8 @@ func_meson_argv0(struct workspace *wk, obj _, obj *res)
 }
 
 const struct func_impl impl_tbl_meson_internal[] = {
-	{ "project", func_meson_project, tc_dict, true },
+	{ "project", func_meson_project, tc_dict },
 	{ "register_dependency_handler", func_meson_register_dependency_handler },
-	{ "argv0", func_meson_argv0, tc_string, true },
+	{ "argv0", func_meson_argv0, tc_string },
 	{ NULL, NULL },
 };

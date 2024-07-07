@@ -230,6 +230,17 @@ obj_typestr(struct workspace *wk, obj o)
  * ----------------------------------------------------------------------------
  */
 
+static type_tag
+get_obj_typechecking_type(struct workspace *wk, obj got_obj)
+{
+	enum obj_type t = get_obj_type(wk, got_obj);
+	if (t == obj_typeinfo) {
+		return get_obj_typeinfo(wk, got_obj)->type;
+	} else {
+		return obj_type_to_tc_type(t);
+	}
+}
+
 struct typecheck_nested_type_ctx {
 	type_tag type;
 };
@@ -241,7 +252,7 @@ typecheck_nested_type_arr_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct typecheck_nested_type_ctx *ctx = _ctx;
 
-	if (!typecheck_complex_type(wk, v, obj_type_to_tc_type(get_obj_type(wk, v)), ctx->type)) {
+	if (!typecheck_complex_type(wk, v, get_obj_typechecking_type(wk, v), ctx->type)) {
 		return ir_err;
 	}
 
@@ -323,16 +334,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 bool
 typecheck_custom(struct workspace *wk, uint32_t ip, obj got_obj, type_tag type, const char *fmt)
 {
-	type_tag got_type;
-
-	{
-		enum obj_type t = get_obj_type(wk, got_obj);
-		if (t == obj_typeinfo) {
-			got_type = get_obj_typeinfo(wk, got_obj)->type;
-		} else {
-			got_type = obj_type_to_tc_type(t);
-		}
-	}
+	type_tag got_type = get_obj_typechecking_type(wk, got_obj);
 
 	if (!(type & obj_typechecking_type_tag)) {
 		type = obj_type_to_tc_type(type);

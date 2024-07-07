@@ -69,8 +69,6 @@ error_diagnostic_store_push(uint32_t src_idx, struct source_location location, e
 	char *m = z_calloc(mlen + 1, 1);
 	memcpy(m, msg, mlen);
 
-	L("%d", src_idx);
-
 	arr_push(&error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
 			.location = location,

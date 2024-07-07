@@ -8,13 +8,13 @@
 #include <string.h>
 
 #include "embedded.h"
-#include "lang/func_lookup.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/keyval.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -78,6 +78,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 	// script modules
 	struct source src = { .label = module_src.buf };
 	if ((src.src = embedded_get(src.label))) {
+		src.label = get_cstr(wk, sbuf_into_str(wk, &module_src));
 		src.len = strlen(src.src);
 
 		bool ret = false;

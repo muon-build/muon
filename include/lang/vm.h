@@ -171,7 +171,9 @@ struct vm {
 	bool error;
 };
 
+obj object_stack_pop(struct object_stack *s);
 void object_stack_push(struct workspace *wk, obj o);
+obj object_stack_peek(struct object_stack *s, uint32_t off);
 struct obj_stack_entry *object_stack_peek_entry(struct object_stack *s, uint32_t off);
 struct obj_stack_entry *object_stack_pop_entry(struct object_stack *s);
 void object_stack_discard(struct object_stack *s, uint32_t n);

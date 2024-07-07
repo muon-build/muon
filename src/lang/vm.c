@@ -49,16 +49,22 @@ object_stack_init(struct object_stack *s)
 	((struct bucket *)s->ba.buckets.e)[0].len = object_stack_page_size;
 }
 
-void
-object_stack_push(struct workspace *wk, obj o)
+static void
+object_stack_push_ip(struct workspace *wk, obj o, uint32_t ip)
 {
 	if (wk->vm.stack.i >= object_stack_page_size) {
 		object_stack_alloc_page(&wk->vm.stack);
 	}
 
-	wk->vm.stack.page[wk->vm.stack.i] = (struct obj_stack_entry){ .o = o, .ip = wk->vm.ip - 1 };
+	wk->vm.stack.page[wk->vm.stack.i] = (struct obj_stack_entry){ .o = o, .ip = ip };
 	++wk->vm.stack.i;
 	++wk->vm.stack.ba.len;
+}
+
+void
+object_stack_push(struct workspace *wk, obj o)
+{
+	object_stack_push_ip(wk, o, wk->vm.ip - 1);
 }
 
 struct obj_stack_entry *
@@ -76,7 +82,7 @@ object_stack_pop_entry(struct object_stack *s)
 	return &s->page[s->i];
 }
 
-static obj
+obj
 object_stack_pop(struct object_stack *s)
 {
 	return object_stack_pop_entry(s)->o;
@@ -88,7 +94,7 @@ object_stack_peek_entry(struct object_stack *s, uint32_t off)
 	return bucket_arr_get(&s->ba, s->ba.len - off);
 }
 
-static obj
+obj
 object_stack_peek(struct object_stack *s, uint32_t off)
 {
 	return ((struct obj_stack_entry *)bucket_arr_get(&s->ba, s->ba.len - off))->o;
@@ -368,6 +374,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	struct obj_stack_entry *entry;
 	uint32_t i, j, argi;
 	uint32_t args_popped = 0;
+	bool got_kwargs_typeinfo = false;
 
 	if (wk->vm.dbg_state.dump_signature) {
 		dump_function_signature(wk, an, akw);
@@ -402,6 +409,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			if (get_obj_type(wk, entry->o) == obj_typeinfo) {
 				// If we get kwargs as typeinfo, we can't do
 				// anything useful
+				got_kwargs_typeinfo = true;
 				continue;
 			}
 
@@ -423,7 +431,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		}
 	}
 
-	if (akw) {
+	if (akw && !got_kwargs_typeinfo) {
 		for (i = 0; akw[i].key; ++i) {
 			if (akw[i].required && !akw[i].set) {
 				vm_error(wk, "missing required keyword argument: %s", akw[i].key);
@@ -436,10 +444,11 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 
 	for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {
 		an[i].set = false;
+		type_tag type = an[i].type;
 
-		if (an[i].type & TYPE_TAG_GLOB) {
-			an[i].type &= ~TYPE_TAG_GLOB;
-			an[i].type |= TYPE_TAG_LISTIFY;
+		if (type & TYPE_TAG_GLOB) {
+			type &= ~TYPE_TAG_GLOB;
+			type |= TYPE_TAG_LISTIFY;
 			an[i].set = true;
 			make_obj(wk, &an[i].val, obj_array);
 			for (j = i; j < wk->vm.nargs; ++j) {
@@ -449,7 +458,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 				an[i].node = entry->ip;
 				++argi;
 
-				if (!typecheck_function_arg(wk, entry->ip, entry->o, an[i].type)) {
+				if (!typecheck_function_arg(wk, entry->ip, entry->o, type)) {
 					goto err;
 				}
 			}
@@ -474,13 +483,13 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			++argi;
 		}
 
-		if (!typecheck_and_mutate_function_arg(wk, an[i].node, &an[i].val, an[i].type)) {
+		if (!typecheck_and_mutate_function_arg(wk, an[i].node, &an[i].val, type)) {
 			goto err;
 		}
 	}
 
 	if (wk->vm.nargs > argi) {
-		vm_error(wk, "too many args, got %d, expected %d", argi, wk->vm.nargs);
+		vm_error(wk, "too many args, got %d, expected %d", wk->vm.nargs, argi);
 		goto err;
 	}
 
@@ -556,13 +565,15 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_negate) break;
 	op_case(op_return) break;
 	op_case(op_return_end) break;
-	op_case(op_iterator_next) break;
 	op_case(op_store) break;
 	op_case(op_try_load) break;
 	op_case(op_load) break;
 
 	op_case(op_iterator)
 		buf_push(":%d", vm_get_constant(code, &ip));
+		break;
+	op_case(op_iterator_next)
+		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_add_store)
 		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
@@ -587,7 +598,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		a = vm_get_constant(code, &ip);
 		b = vm_get_constant(code, &ip);
 		c = vm_get_constant(code, &ip);
-		buf_push(":%d,%d,%o", a, b, c);
+		buf_push(":%o,%d,%d", a, b, c);
 		break;
 	}
 	op_case(op_call_native)
@@ -671,6 +682,9 @@ vm_execute_capture(struct workspace *wk, obj a)
 	if (wk->vm.in_analyzer && get_obj_type(wk, a) == obj_typeinfo) {
 		vm_push_dummy(wk);
 		typecheck(wk, 0, a, tc_capture);
+		return;
+	} else if (!typecheck(wk, 0, a, tc_capture)) {
+		vm_push_dummy(wk);
 		return;
 	}
 
@@ -799,7 +813,7 @@ vm_op_constant_func(struct workspace *wk)
 	capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
 	capture->defargs = defargs;
 
-	object_stack_push(wk, c);
+	object_stack_push_ip(wk, c, capture->func->entry);
 }
 
 #define typecheck_operand(__o, __o_type, __expect_type, __expect_tc_type, __result_type) \
@@ -1518,9 +1532,9 @@ vm_op_call_method(struct workspace *wk)
 	uint32_t idx;
 
 	b = object_stack_pop(&wk->vm.stack);
+	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	if (!wk->vm.behavior.func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
 		if (b == disabler_id) {
@@ -1534,12 +1548,16 @@ vm_op_call_method(struct workspace *wk)
 	}
 
 	if (f) {
-		vm_execute_capture(wk, f);
+		// step backwards 2 constants so that the nargs / nkwargs
+		// constants are where op_call expects them
+		wk->vm.ip -= 2 * 3;
+		object_stack_push(wk, f);
+		wk->vm.ops.ops[op_call](wk);
 		return;
 	} else {
 		a = 0;
 
-		if (native_funcs[idx].self_transform) {
+		if (native_funcs[idx].self_transform && get_obj_type(wk, b) != obj_typeinfo) {
 			b = native_funcs[idx].self_transform(wk, b);
 		}
 
@@ -1943,7 +1961,7 @@ vm_op_return(struct workspace *wk)
 		wk->vm.scope_stack = frame->scope_stack;
 		wk->vm.lang_mode = frame->lang_mode;
 		vm_peek(a, 1);
-		typecheck(wk, a_ip, a, frame->expected_return_type);
+		typecheck_custom(wk, a_ip, a, frame->expected_return_type, "expected return type %s, got %s");
 		break;
 	}
 }
@@ -1974,11 +1992,7 @@ vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], 
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
-		}
-
-		int32_t i = 0;
-		for (i = wk->vm.nargs - 1; i >= 0; --i) {
-			object_stack_push(wk, an[i].val);
+			object_stack_push(wk, an[wk->vm.nargs].val);
 		}
 	}
 

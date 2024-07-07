@@ -35,6 +35,11 @@ union az_branch_element {
 	} data;
 };
 
+enum az_branch_type {
+	az_branch_type_normal,
+	az_branch_type_loop,
+};
+
 obj make_typeinfo(struct workspace *wk, type_tag t);
 obj make_az_branch_element(struct workspace *wk, uint32_t ip, uint32_t flags);
 

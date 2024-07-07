@@ -18,12 +18,13 @@
 #include "tracy.h"
 
 static struct {
-	bool error;
 	const struct az_opts *opts;
-	obj eval_trace;
 	struct obj_func *fp;
-	struct vm_ops unpatched_ops;
+	obj eval_trace;
+	uint32_t impure_loop_depth;
+	bool error;
 
+	struct vm_ops unpatched_ops;
 	struct obj_typeinfo az_injected_native_func_return;
 	struct hash branch_map;
 } analyzer;
@@ -162,10 +163,15 @@ inspect_typeinfo(struct workspace *wk, obj t)
 	}
 }
 
-type_tag
+static type_tag
 flatten_type(struct workspace *wk, type_tag t)
 {
 	if (!(t & TYPE_TAG_COMPLEX)) {
+		t &= ~TYPE_TAG_GLOB;
+
+		if (t & TYPE_TAG_LISTIFY) {
+			t = tc_array;
+		}
 		return t;
 	}
 
@@ -177,7 +183,7 @@ flatten_type(struct workspace *wk, type_tag t)
 
 	switch (ct) {
 	case complex_type_or: return flatten_type(wk, ti->type) | flatten_type(wk, ti->subtype);
-	case complex_type_nested: return ti->type;
+	case complex_type_nested: return flatten_type(wk, ti->type);
 	}
 
 	UNREACHABLE_RETURN;
@@ -323,17 +329,15 @@ print_scope_stack(struct workspace *wk)
 			if (i == 0) {
 				L("    root scope:");
 				obj_dict_for(wk, scope_group, k, v) {
-					LO("      %o: %o\n",
-						k,
-						((struct assignment *)bucket_arr_get(&assignments, v))->o);
+					struct assignment *assign = bucket_arr_get(&assignments, v);
+					LO("      %o: %s %o\n", k, assign->accessed ? "a" : " ", assign->o);
 				}
 			} else {
 				obj_array_for(wk, scope_group, scope) {
+					struct assignment *assign = bucket_arr_get(&assignments, v);
 					L("    scope group:");
 					obj_dict_for(wk, scope, k, v) {
-						LO("      %o: %o\n",
-							k,
-							((struct assignment *)bucket_arr_get(&assignments, v))->o);
+						LO("      %o: %s %o\n", k, assign->accessed ? "a" : " ", assign->o);
 					}
 				}
 			}
@@ -495,9 +499,11 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 {
 	TracyCZoneAutoS;
 	obj scope = 0;
+	bool accessed = false;
 
 	if (mode == assign_reassign) {
 		mode = assign_local;
+		accessed = true;
 	}
 
 	if (mode == assign_local) {
@@ -513,6 +519,15 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	assert(scope);
 
 	struct assignment *a = 0;
+	if (analyzer.impure_loop_depth && (a = assign_lookup(wk, name))) {
+		// When overwriting a variable in an impure loop turn it into a
+		// typeinfo so that it gets marked as impure.
+		enum obj_type new_type = get_obj_type(wk, o);
+		if (new_type != obj_typeinfo && !obj_equal(wk, a->o, o)) {
+			o = make_typeinfo(wk, obj_type_to_tc_type(new_type));
+		}
+	}
+
 	obj aid;
 	if (obj_dict_index(wk, scope, make_str(wk, name), &aid)) {
 		// The assignment was found so just reassign it here
@@ -527,8 +542,11 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	aid = push_assignment(wk, name, o, n_id);
 	obj_dict_set(wk, scope, make_str(wk, name), aid);
 
+	struct assignment *assign = bucket_arr_get(&assignments, aid);
+	assign->accessed = accessed;
+
 	TracyCZoneAutoE;
-	return bucket_arr_get(&assignments, aid);
+	return assign;
 }
 
 static void
@@ -665,7 +683,9 @@ pop_scope_group(struct workspace *wk)
  ******************************************************************************/
 
 struct az_branch_group {
-	uint32_t merge_point;
+	enum az_branch_type type;
+	bool loop_impure;
+	uint32_t merge_point; // TODO: remove this, it is unused
 
 	struct az_branch_element_data branch;
 	struct branch_map_data result;
@@ -676,15 +696,27 @@ static struct az_branch_group cur_branch_group;
 static void
 az_op_az_branch(struct workspace *wk)
 {
+	enum az_branch_type branch_type = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	{
 		struct az_branch_group new_branch_group = {
 			.merge_point = merge_point,
+			.type = branch_type,
 		};
 		stack_push(&wk->stack, cur_branch_group, new_branch_group);
 	}
+
+	if (branch_type == az_branch_type_loop) {
+		obj it = object_stack_peek(&wk->vm.stack, 1);
+		if (get_obj_iterator(wk, it)->type == obj_iterator_type_typeinfo) {
+			++analyzer.impure_loop_depth;
+			cur_branch_group.loop_impure = true;
+		}
+		return;
+	}
+
+	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	push_scope_group(wk);
 
@@ -700,11 +732,6 @@ az_op_az_branch(struct workspace *wk)
 		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval });
 		push_scope_group_scope(wk);
 		vm_execute(wk);
-
-		L("branch done: %d, %d, %d",
-			cur_branch_group.result.impure,
-			cur_branch_group.result.taken,
-			cur_branch_group.result.not_taken);
 
 		if (cur_branch_group.result.impure) {
 			pure = false;
@@ -732,7 +759,6 @@ az_op_az_branch(struct workspace *wk)
 
 	stack_pop(&wk->stack, cur_branch_group);
 
-	L("pure && expr_result: %d, %d", pure, expr_result);
 	if (expr_result && !pure) {
 		object_stack_push(wk, expr_result);
 	}
@@ -741,9 +767,18 @@ az_op_az_branch(struct workspace *wk)
 static void
 az_op_az_merge(struct workspace *wk)
 {
-	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
-
 	L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1);
+
+	if (cur_branch_group.type == az_branch_type_loop) {
+		if (cur_branch_group.loop_impure) {
+			--analyzer.impure_loop_depth;
+		}
+
+		stack_pop(&wk->stack, cur_branch_group);
+		return;
+	}
+
+	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
 
 	assert(cur_branch_group.merge_point == wk->vm.ip - 1);
 	assert(frame->type == call_frame_type_eval);
@@ -808,10 +843,56 @@ az_op_jmp_if_disabler_keep(struct workspace *wk)
 	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 }
 
+struct az_func_context {
+	struct obj_capture *capture;
+};
+
+static struct az_func_context cur_func_context;
+
 static void
 az_op_return(struct workspace *wk)
 {
-	/* no-op */
+	if (cur_func_context.capture) {
+		obj v = object_stack_peek(&wk->vm.stack, 1);
+		typecheck_custom(
+			wk, 0, v, cur_func_context.capture->func->return_type, "expected return type %s, got %s");
+	}
+}
+
+static void
+az_op_return_end(struct workspace *wk)
+{
+	struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
+
+	if (frame->type == call_frame_type_func) {
+		object_stack_pop(&wk->vm.stack);
+		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.capture->func->return_type)));
+	}
+
+	analyzer.unpatched_ops.ops[op_return_end](wk);
+}
+
+static void
+az_op_add_store(struct workspace *wk)
+{
+	obj a, b;
+
+	b = object_stack_pop(&wk->vm.stack);
+	obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	const struct str *id = get_str(wk, a_id);
+	if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
+		vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
+		object_stack_push(wk, make_typeinfo(wk, tc_any));
+		return;
+	}
+
+	object_stack_push(wk, a);
+	object_stack_push(wk, b);
+	analyzer.unpatched_ops.ops[op_add](wk);
+
+	obj res = object_stack_peek(&wk->vm.stack, 1);
+	wk->vm.behavior.assign_variable(wk, id->s, res, 0, assign_reassign);
 }
 
 /******************************************************************************
@@ -916,6 +997,7 @@ ret:
  ******************************************************************************/
 
 struct az_pop_args_ctx {
+	uint32_t id;
 	bool do_analyze;
 	bool pure_function;
 	bool encountered_error;
@@ -926,9 +1008,6 @@ struct az_pop_args_ctx {
 static bool
 az_injected_native_func(struct workspace *wk, obj self, obj *res)
 {
-	L("calling injected native func, returning %s",
-		typechecking_type_to_s(wk, analyzer.az_injected_native_func_return.type));
-
 	pop_args_ctx.encountered_error = false;
 
 	// discard all arguments
@@ -1004,7 +1083,6 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 static bool
 az_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 {
-	L("popping args");
 	if (!vm_pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -1069,7 +1147,9 @@ az_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 static bool
 az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *res)
 {
-	struct az_pop_args_ctx _ctx = { 0 };
+	static uint32_t id = 0;
+	struct az_pop_args_ctx _ctx = { .id = id };
+	++id;
 	stack_push(&wk->stack, pop_args_ctx, _ctx);
 
 	*res = 0;
@@ -1094,14 +1174,11 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	pop_args_ctx.pure_function = pure;
 	pop_args_ctx.encountered_error = true;
 
-	L("about to call %s, pure: %d", native_funcs[func_idx].name, pure);
 	bool func_ok = native_funcs[func_idx].func(wk, self, res);
 
 	pure = pop_args_ctx.pure_function;
 
 	bool args_ok = !pop_args_ctx.encountered_error;
-
-	L("called %s: func_ok: %d, pure: %d, args_ok: %d", native_funcs[func_idx].name, func_ok, pure, args_ok);
 
 	stack_pop(&wk->stack, pop_args_ctx);
 
@@ -1122,6 +1199,79 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	}
 
 	return args_ok;
+}
+
+static void
+az_op_constant_func(struct workspace *wk)
+{
+	analyzer.unpatched_ops.ops[op_constant_func](wk);
+
+	obj c = object_stack_peek(&wk->vm.stack, 1);
+	struct obj_capture *capture = get_obj_capture(wk, c);
+
+	struct args_norm an[ARRAY_LEN(capture->func->an)] = { 0 };
+	struct args_kw akw[ARRAY_LEN(capture->func->akw)] = { 0 };
+	{
+		uint32_t i;
+		for (i = 0; i < capture->func->nargs; ++i) {
+			an[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->an[i].type));
+		}
+		an[i].type = ARG_TYPE_NULL;
+
+		for (i = 0; i < capture->func->nkwargs; ++i) {
+			akw[i].key = capture->func->akw[i].key;
+			akw[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->akw[i].type));
+		}
+		akw[i].key = 0;
+	}
+
+	{
+		obj res;
+		struct az_func_context new_func_context = {
+			.capture = capture,
+		};
+
+		stack_push(&wk->stack, pop_args_ctx, (struct az_pop_args_ctx){ 0 });
+		stack_push(&wk->stack, cur_func_context, new_func_context);
+
+		vm_eval_capture(wk, c, an, akw, &res);
+
+		stack_pop(&wk->stack, cur_func_context);
+		stack_pop(&wk->stack, pop_args_ctx);
+	}
+}
+
+static void
+az_op_call(struct workspace *wk)
+{
+	obj c = object_stack_peek(&wk->vm.stack, 1);
+
+	stack_push(&wk->stack, pop_args_ctx, (struct az_pop_args_ctx){ 0 });
+	analyzer.unpatched_ops.ops[op_call](wk);
+	stack_pop(&wk->stack, pop_args_ctx);
+
+	if (get_obj_type(wk, c) == obj_capture) {
+		struct obj_capture *capture = get_obj_capture(wk, c);
+
+		{
+			// TODO: only if there were no errors!
+			//
+			// op_call just set some variables for function args
+			// that we will never use but we don't want an unused
+			// variable warning so mark them all accessed.
+			obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack),
+			    root_scope = obj_array_get_tail(wk, local_scope);
+			obj _k, aid;
+			obj_dict_for(wk, root_scope, _k, aid) {
+				(void)_k;
+				struct assignment *assign = bucket_arr_get(&assignments, aid);
+				assign->accessed = true;
+			}
+		}
+
+		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
+		analyzer.unpatched_ops.ops[op_return](wk);
+	}
 }
 
 #if 0
@@ -1351,7 +1501,11 @@ do_analyze(struct az_opts *opts)
 	wk.vm.ops.ops[op_jmp_if_disabler_keep] = az_op_jmp_if_disabler_keep;
 	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
 	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
+	wk.vm.ops.ops[op_constant_func] = az_op_constant_func;
 	wk.vm.ops.ops[op_return] = az_op_return;
+	wk.vm.ops.ops[op_return_end] = az_op_return_end;
+	wk.vm.ops.ops[op_call] = az_op_call;
+	wk.vm.ops.ops[op_add_store] = az_op_add_store;
 
 	error_diagnostic_store_init(&wk);
 
@@ -1390,9 +1544,7 @@ do_analyze(struct az_opts *opts)
 		}
 	} else {
 		uint32_t project_id;
-		L(">>>");
 		res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
-		L("<<<");
 	}
 
 	if (az_diagnostic_enabled(az_diagnostic_unused_variable)) {
