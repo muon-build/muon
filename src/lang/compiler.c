@@ -219,6 +219,14 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					push_code(wk, op_try_load);
 				}
 				break;
+			} else if (str_eql(name, &WKSTR("disabler"))) {
+				push_location(wk, n);
+
+				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
+
+				push_code(wk, op_constant);
+				push_constant(wk, disabler_id);
+				break;
 			} else if (str_eql(name, &WKSTR("is_disabler"))) {
 				/* jmp_if_disabler >-,
 				 * pop               |
@@ -544,12 +552,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		uint32_t jmp1, end_jmp[2];
 		vm_compile_expr(wk, n->l);
 
-		push_code(wk, op_jmp_if_disabler_keep);
-		jmp1 = wk->vm.code.len;
-		push_constant(wk, 0);
-
-		push_code(wk, op_dup);
-
 		if (wk->vm.in_analyzer) {
 			obj az_branches = 0;
 			push_code(wk, op_az_branch);
@@ -564,6 +566,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				az_branches,
 				make_az_branch_element(wk, wk->vm.code.len, az_branch_element_flag_pop));
 		}
+
+		push_code(wk, op_jmp_if_disabler_keep);
+		jmp1 = wk->vm.code.len;
+		push_constant(wk, 0);
+
+		push_code(wk, op_dup);
 
 		if (n->type == node_type_and) {
 			push_code(wk, op_jmp_if_false);

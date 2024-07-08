@@ -240,62 +240,6 @@ struct az_ctx {
 
 typedef void((az_for_each_type_cb)(struct workspace *wk, struct az_ctx *ctx, uint32_t n_id, type_tag t, obj *res));
 
-/*static*/ void
-az_for_each_type(struct workspace *wk,
-	struct az_ctx *ctx,
-	uint32_t n_id,
-	obj o,
-	type_tag typemask,
-	az_for_each_type_cb cb,
-	obj *res)
-{
-	obj r = 0;
-
-	type_tag t;
-	if ((t = get_obj_type(wk, o)) == obj_typeinfo) {
-		t = get_obj_typeinfo(wk, o)->type;
-	}
-
-	if (t & obj_typechecking_type_tag) {
-		if (t == tc_disabler) {
-			vm_warning_at(wk, n_id, "this expression is always disabled");
-			ctx->expected = tc_any;
-			*res = make_typeinfo(wk, tc_disabler);
-			ctx->found = 2; // set found to > 1 to indicate the
-				// method exists but it is unknown
-				// which one it is.
-			return;
-		} else if ((t & tc_disabler) == tc_disabler) {
-			t &= ~tc_disabler;
-			t |= obj_typechecking_type_tag;
-		}
-
-		struct obj_typeinfo res_t = { 0 };
-
-		if (typemask) {
-			t &= typemask;
-		}
-
-		type_tag ot;
-		for (ot = 1; ot <= tc_type_count; ++ot) {
-			type_tag tc = obj_type_to_tc_type(ot);
-
-			if ((t & tc) == tc) {
-				r = 0;
-				cb(wk, ctx, n_id, ot, &r);
-				if (r) {
-					merge_types(wk, &res_t, r);
-				}
-			}
-		}
-
-		make_obj(wk, res, obj_typeinfo);
-		*get_obj_typeinfo(wk, *res) = res_t;
-	} else {
-		cb(wk, ctx, n_id, t, res);
-	}
-}
-
 /******************************************************************************
  * scope handling
  ******************************************************************************/
@@ -831,18 +775,6 @@ az_op_jmp_if_true(struct workspace *wk)
 	az_jmp_if_cond_matches(wk, true);
 }
 
-static void
-az_op_jmp_if_disabler(struct workspace *wk)
-{
-	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-}
-
-static void
-az_op_jmp_if_disabler_keep(struct workspace *wk)
-{
-	vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-}
-
 struct az_func_context {
 	struct obj_capture *capture;
 };
@@ -1279,57 +1211,6 @@ az_op_call(struct workspace *wk)
 	}
 }
 
-#if 0
-bool
-az_function(struct workspace *wk,
-	const struct func_impl *fi,
-	uint32_t args_node,
-	obj self,
-	obj *res,
-	bool *was_pure)
-{
-	struct pop_args_ctx old_opts = pop_args_ctx;
-	*res = 0;
-
-	bool pure = fi->pure;
-
-	struct obj_tainted_by_typeinfo_ctx tainted_ctx = { .allow_tainted_dict_values = true };
-	if (self && obj_tainted_by_typeinfo(wk, self, &tainted_ctx)) {
-		pure = false;
-	}
-
-	if (!self) {
-		if (strcmp(fi->name, "set_variable") == 0 || strcmp(fi->name, "subdir") == 0) {
-			pop_args_ctx.allow_impure_args_except_first = true;
-		} else if (strcmp(fi->name, "p") == 0) {
-			pop_args_ctx.allow_impure_args = true;
-		}
-	}
-
-	pop_args_ctx.do_analyze = true;
-	// pure_function can be set to false even if it was true in the case
-	// that any of its arguments are of type obj_typeinfo
-	pop_args_ctx.pure_function = pure;
-	pop_args_ctx.encountered_error = true;
-
-	bool func_ret = fi->func(wk, self, args_node, res);
-
-	pure = pop_args_ctx.pure_function;
-	bool ok = !pop_args_ctx.encountered_error;
-
-	pop_args_ctx = old_opts;
-
-	*was_pure = pure;
-
-	if (pure) {
-		return func_ret;
-	} else {
-		return ok;
-	}
-	return false;
-}
-#endif
-
 /******************************************************************************
  * eval trace helpers
  ******************************************************************************/
@@ -1502,8 +1383,6 @@ do_analyze(struct az_opts *opts)
 
 	wk.vm.ops.ops[op_az_branch] = az_op_az_branch;
 	wk.vm.ops.ops[op_az_merge] = az_op_az_merge;
-	wk.vm.ops.ops[op_jmp_if_disabler] = az_op_jmp_if_disabler;
-	wk.vm.ops.ops[op_jmp_if_disabler_keep] = az_op_jmp_if_disabler_keep;
 	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
 	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
 	wk.vm.ops.ops[op_constant_func] = az_op_constant_func;

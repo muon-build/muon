@@ -1634,8 +1634,7 @@ func_disabler(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	*res = disabler_id;
-	return true;
+	UNREACHABLE_RETURN;
 }
 
 static bool
