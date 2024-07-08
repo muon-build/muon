@@ -719,8 +719,11 @@ vm_execute_capture(struct workspace *wk, obj a)
 	wk->vm.behavior.push_local_scope(wk);
 
 	for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
-		wk->vm.behavior.assign_variable(
-			wk, capture->func->an[i].name, capture->func->an[i].val, 0, assign_local);
+		wk->vm.behavior.assign_variable(wk,
+			capture->func->an[i].name,
+			capture->func->an[i].val,
+			capture->func->an[i].node,
+			assign_local);
 	}
 
 	for (i = 0; capture->func->akw[i].key; ++i) {
@@ -732,7 +735,8 @@ vm_execute_capture(struct workspace *wk, obj a)
 			obj_dict_index_strn(wk, capture->defargs, s.s, s.len, &val);
 		}
 
-		wk->vm.behavior.assign_variable(wk, capture->func->akw[i].key, val, 0, assign_local);
+		wk->vm.behavior.assign_variable(
+			wk, capture->func->akw[i].key, val, capture->func->akw[i].node, assign_local);
 	}
 
 	wk->vm.ip = capture->func->entry;
@@ -1987,12 +1991,12 @@ vm_abort_handler(void *ctx)
 }
 
 bool
-vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res)
+vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
 {
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
-			object_stack_push(wk, an[wk->vm.nargs].val);
+			object_stack_push_ip(wk, an[wk->vm.nargs].val, an[wk->vm.nargs].node);
 		}
 	}
 
@@ -2004,7 +2008,7 @@ vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], 
 				continue;
 			}
 
-			object_stack_push(wk, akw[i].val);
+			object_stack_push_ip(wk, akw[i].val, akw[i].node);
 			object_stack_push(wk, make_str(wk, akw[i].key));
 			++wk->vm.nkwargs;
 		}
@@ -2019,7 +2023,7 @@ vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], 
 
 	// Set the vm ip to 0 where vm_compile_initial_code_segment has placed a return statement
 	wk->vm.ip = 0;
-	vm_execute_capture(wk, capture);
+	vm_execute_capture(wk, c);
 
 	vm_execute(wk);
 	assert(call_stack_base == wk->vm.call_stack.len);

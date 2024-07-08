@@ -1147,12 +1147,14 @@ az_op_constant_func(struct workspace *wk)
 		uint32_t i;
 		for (i = 0; i < capture->func->nargs; ++i) {
 			an[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->an[i].type));
+			an[i].node = wk->vm.ip - 1;
 		}
 		an[i].type = ARG_TYPE_NULL;
 
 		for (i = 0; i < capture->func->nkwargs; ++i) {
 			akw[i].key = capture->func->akw[i].key;
 			akw[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->akw[i].type));
+			akw[i].node = wk->vm.ip - 1;
 		}
 		akw[i].key = 0;
 	}

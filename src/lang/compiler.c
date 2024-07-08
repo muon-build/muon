@@ -660,6 +660,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
+		push_location(wk, n->l->l);
+
 		push_code(wk, op_constant_func);
 		push_constant(wk, f);
 
