@@ -1006,10 +1006,12 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		kw_env,
 		kw_capture,
 	};
-	struct args_kw akw[] = { [kw_check] = { "check", obj_bool },
+	struct args_kw akw[] = {
+		[kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
-		0 };
+		0,
+	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -1079,7 +1081,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
-		vm_error_at(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
+		vm_error_at(wk, an[0].node, "command failed: %s", cmd_ctx.err.buf);
 		return false;
 	}
 

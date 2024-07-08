@@ -89,7 +89,7 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 	}
 }
 
-static void vm_compile_block(struct workspace *wk, struct node *n);
+static void vm_compile_block(struct workspace *wk, struct node *n, bool final_return);
 static void vm_compile_expr(struct workspace *wk, struct node *n);
 
 static void
@@ -346,7 +346,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		uint32_t loop_jmp_stack_base = wk->vm.compiler_state.loop_jmp_stack.len;
 		arr_push(&wk->vm.compiler_state.loop_jmp_stack, &loop_body_start);
 
-		vm_compile_block(wk, n->r);
+		vm_compile_block(wk, n->r, 0);
 
 		push_code(wk, op_jmp);
 		push_constant(wk, loop_body_start);
@@ -439,7 +439,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_constant(wk, 0);
 			}
 
-			vm_compile_block(wk, n->l->r);
+			vm_compile_block(wk, n->l->r, 0);
 
 			push_code(wk, op_jmp);
 			arr_push(&wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
@@ -607,10 +607,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		vm_compile_block(wk, n->r);
-		push_code(wk, op_constant);
-		push_constant(wk, 0);
-		push_code(wk, op_return_end);
+		vm_compile_block(wk, n->r, true);
 
 		/* function body end */
 
@@ -700,15 +697,30 @@ vm_compile_expr(struct workspace *wk, struct node *n)
 }
 
 static void
-vm_compile_block(struct workspace *wk, struct node *n)
+vm_compile_block(struct workspace *wk, struct node *n, bool final_return)
 {
+	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
 		vm_compile_expr(wk, n->l);
+
 		if (n->l->type != node_type_if) {
 			push_code(wk, op_pop);
 		}
+
+		prev = n;
 		n = n->r;
+	}
+
+	if (final_return) {
+		if (prev && prev->l->type == node_type_return) {
+			--wk->vm.code.len;
+			wk->vm.code.e[wk->vm.code.len - 1] = op_return_end;
+		} else {
+			push_code(wk, op_constant);
+			push_constant(wk, 0);
+			push_code(wk, op_return_end);
+		}
 	}
 }
 
@@ -741,15 +753,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	*entry = wk->vm.code.len;
 
-	vm_compile_block(wk, n);
-
-	push_code(wk, op_constant);
-	if (wk->vm.code.e[wk->vm.code.len - 3] == op_return && wk->vm.code.e[wk->vm.code.len - 2] == op_pop) {
-		wk->vm.code.e[wk->vm.code.len - 3] = op_return_end;
-	} else {
-		push_constant(wk, 0);
-		push_code(wk, op_return_end);
-	}
+	vm_compile_block(wk, n, true);
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);

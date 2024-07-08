@@ -1245,12 +1245,17 @@ static void
 az_op_call(struct workspace *wk)
 {
 	obj c = object_stack_peek(&wk->vm.stack, 1);
+	bool pop_args_error;
 
-	stack_push(&wk->stack, pop_args_ctx, (struct az_pop_args_ctx){ 0 });
+	const struct az_pop_args_ctx new_pop_args_ctx = {
+		.encountered_error = true,
+	};
+	stack_push(&wk->stack, pop_args_ctx, new_pop_args_ctx);
 	analyzer.unpatched_ops.ops[op_call](wk);
+	pop_args_error = pop_args_ctx.encountered_error;
 	stack_pop(&wk->stack, pop_args_ctx);
 
-	if (get_obj_type(wk, c) == obj_capture) {
+	if (get_obj_type(wk, c) == obj_capture && !pop_args_error) {
 		struct obj_capture *capture = get_obj_capture(wk, c);
 
 		{

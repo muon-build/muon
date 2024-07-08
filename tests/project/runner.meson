@@ -45,9 +45,9 @@ fs.mkdir(build / muon_private, make_parents: true)
 if skip_analyze == '0'
     analyze_result = run_command(muon, '-vC', source, 'analyze')
 
-    print(analyze_result.stderr())
-
     if analyze_result.returncode() != 0
+        print(analyze_result.stdout())
+        print(analyze_result.stderr())
         exit(analyze_result.returncode())
     endif
 endif
@@ -55,6 +55,9 @@ endif
 setup_result = run_command(muon, '-vC', source, 'setup', '-Dprefix=/usr', build)
 
 if setup_result.returncode() != 0
+    print(setup_result.stdout())
+    print(setup_result.stderr())
+
     if 'MESON_SKIP_TEST' in setup_result.stderr()
         exit(skip_exit_code.to_int())
     else
