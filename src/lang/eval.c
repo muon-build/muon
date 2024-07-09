@@ -58,9 +58,7 @@ eval_project(struct workspace *wk,
 		goto cleanup;
 	}
 
-	if (wk->vm.dbg_state.eval_trace) {
-		wk->vm.dbg_state.eval_trace_subdir = true;
-	}
+	wk->vm.dbg_state.eval_trace_subdir = true;
 
 	if (!wk->vm.behavior.eval_project_file(wk, src.buf, true)) {
 		goto cleanup;
@@ -130,6 +128,20 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		}
 	}
 
+	if (wk->vm.in_analyzer) {
+		if (wk->vm.dbg_state.eval_trace) {
+			obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
+			bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
+			if (trace_subdir) {
+				obj subdir_eval_trace;
+				make_obj(wk, &subdir_eval_trace, obj_array);
+				obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
+				stack_push(&wk->stack, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
+			}
+			stack_push(&wk->stack, wk->vm.dbg_state.eval_trace_subdir, false);
+		}
+	}
+
 	uint32_t call_stack_base = wk->vm.call_stack.len;
 	struct call_frame eval_frame = {
 		.type = call_frame_type_eval,
@@ -143,36 +155,33 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	*res = vm_execute(wk);
 	assert(call_stack_base == wk->vm.call_stack.len);
 
-	bool ok = !wk->vm.error;
-	wk->vm.error = false;
-
 	if (wk->vm.in_analyzer) {
 		if (wk->vm.dbg_state.eval_trace) {
-			obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
-			if ((wk->vm.dbg_state.eval_trace_subdir)) {
-				obj subdir_eval_trace;
-				make_obj(wk, &subdir_eval_trace, obj_array);
-				obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
-				wk->vm.dbg_state.eval_trace = subdir_eval_trace;
-				wk->vm.dbg_state.eval_trace_subdir = false;
+			stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace_subdir);
+			if (wk->vm.dbg_state.eval_trace_subdir) {
+				stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace);
 			}
 		}
-
-		if (!ok) {
-			UNREACHABLE; //?
-			ok = true;
-		}
 	}
+
+	bool ok = !wk->vm.error;
+	wk->vm.error = false;
 
 	TracyCZoneAutoE;
 	return ok;
 }
 
 bool
+eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res)
+{
+	struct source src = { .label = get_cstr(wk, make_str(wk, label)), .src = str, .len = strlen(str) };
+	return eval(wk, &src, mode, res);
+}
+
+bool
 eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 {
-	struct source src = { .label = "<internal>", .src = str, .len = strlen(str) };
-	return eval(wk, &src, mode, res);
+	return eval_str_label(wk, "<internal>", str, mode, res);
 }
 
 bool

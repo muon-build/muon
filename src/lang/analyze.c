@@ -664,12 +664,12 @@ az_op_az_branch(struct workspace *wk)
 
 	push_scope_group(wk);
 
-	L("---> branching, merging @ %03x", cur_branch_group.merge_point);
+	/* L("---> branching, merging @ %03x", cur_branch_group.merge_point); */
 
 	bool pure = true;
 	obj branch, expr_result = 0;
 	obj_array_for(wk, branches, branch) {
-		L("--> branch");
+		/* L("--> branch"); */
 		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
 		cur_branch_group.result = (struct branch_map_data){ 0 };
 		wk->vm.ip = cur_branch_group.branch.ip;
@@ -697,7 +697,7 @@ az_op_az_branch(struct workspace *wk)
 		}
 	}
 
-	L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
+	/* L("<--- all branches merged %03x <---", cur_branch_group.merge_point); */
 
 	pop_scope_group(wk);
 
@@ -711,7 +711,7 @@ az_op_az_branch(struct workspace *wk)
 static void
 az_op_az_merge(struct workspace *wk)
 {
-	L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1);
+	/* L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1); */
 
 	if (cur_branch_group.type == az_branch_type_loop) {
 		if (cur_branch_group.loop_impure) {
