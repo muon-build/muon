@@ -277,11 +277,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 				       | az_diagnostic_redirect_script_error,
 	};
 
-	// TODO: Delete this undocumented flag when the analyzer returns to
-	// feature parity with the old analyzer
-	bool temp_disable = true;
-
-	OPTSTART("luqO:W:i:td:f") {
+	OPTSTART("luqO:W:i:td:") {
 	case 'i': opts.internal_file = optarg; break;
 	case 'l':
 		opts.subdir_error = true;
@@ -319,7 +315,6 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		break;
 	}
-	case 'f': temp_disable = false; break;
 	}
 	OPTEND(argv[argi],
 		"",
@@ -338,12 +333,6 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 	if (opts.internal_file && opts.file_override) {
 		LOG_E("-i and -O are mutually exclusive");
 		return false;
-	}
-
-	if (temp_disable) {
-		LOG_W("muon analyze is temporarily disabled as it is refactored to work with the new bytecode vm.");
-		LOG_W("To bypass this restriction you may pass -f.");
-		return true;
 	}
 
 	SBUF_manual(abs);
