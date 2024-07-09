@@ -99,10 +99,8 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 }
 
 void
-workspace_init(struct workspace *wk)
+workspace_init_runtime(struct workspace *wk)
 {
-	workspace_init_bare(wk);
-
 	machine_init();
 
 	wk->argv0 = "dummy";
@@ -146,6 +144,13 @@ workspace_init(struct workspace *wk)
 		}
 	}
 #endif
+}
+
+void
+workspace_init(struct workspace *wk)
+{
+	workspace_init_bare(wk);
+	workspace_init_runtime(wk);
 }
 
 void

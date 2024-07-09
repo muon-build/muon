@@ -26,6 +26,7 @@ void *arr_get(const struct arr *arr, size_t i);
 void arr_del(struct arr *arr, size_t i);
 void arr_clear(struct arr *arr);
 void arr_grow_by(struct arr *arr, size_t size);
+void arr_grow_to(struct arr *arr, size_t size);
 
 typedef int32_t (*sort_func)(const void *a, const void *b, void *ctx);
 void arr_sort_range(struct arr *arr, uint32_t start, uint32_t end, void *ctx, sort_func func);

@@ -331,6 +331,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, az_branch_type_loop);
 			az_merge_point_tgt = wk->vm.code.len;
 			push_constant(wk, 0);
+			push_constant(wk, 1);
 		}
 
 		loop_body_start = wk->vm.code.len;

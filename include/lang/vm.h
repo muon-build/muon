@@ -58,6 +58,10 @@ enum op {
 	op_count,
 };
 
+extern const uint32_t op_operands[op_count];
+extern const uint32_t op_operand_size;
+#define OP_WIDTH(op) (1 + op_operand_size * op_operands[op])
+
 struct workspace;
 
 enum variable_assignment_mode {
@@ -130,6 +134,7 @@ struct vm_behavior {
 	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));
 	bool((*pop_args)(struct workspace *wk, struct args_norm an[], struct args_kw akw[]));
 	bool((*func_lookup)(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func));
+	void((*execute_loop)(struct workspace *wk));
 };
 
 struct vm_objects {
@@ -185,6 +190,7 @@ bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_dis(struct workspace *wk);
+const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
 void vm_destroy(struct workspace *wk);

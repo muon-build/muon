@@ -24,6 +24,27 @@
 #include "platform/path.h"
 #include "tracy.h"
 
+const uint32_t op_operands[op_count] = {
+	[op_iterator] = 1,
+	[op_iterator_next] = 1,
+	[op_add_store] = 1,
+	[op_constant] = 1,
+	[op_constant_list] = 1,
+	[op_constant_dict] = 1,
+	[op_constant_func] = 1,
+	[op_call] = 2,
+	[op_call_method] = 3,
+	[op_call_native] = 3,
+	[op_jmp_if_true] = 1,
+	[op_jmp_if_false] = 1,
+	[op_jmp_if_disabler] = 1,
+	[op_jmp_if_disabler_keep] = 1,
+	[op_jmp] = 1,
+	[op_typecheck] = 1,
+	[op_az_branch] = 3,
+};
+const uint32_t op_operand_size = 3;
+
 /******************************************************************************
  * object stack
  ******************************************************************************/
@@ -528,16 +549,12 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
  * disassembler
  ******************************************************************************/
 
-struct vm_dis_result {
-	const char *text;
-	uint32_t inst_len;
-};
-
-struct vm_dis_result
+const char *
 vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 {
 	uint32_t i = 0;
 	static char buf[2048];
+	buf[0] = 0;
 #define buf_push(...) i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, __VA_ARGS__);
 #define op_case(__op) \
 	case __op: buf_push(#__op);
@@ -628,7 +645,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 
 	op_case(op_az_branch)
 		buf_push(":%d", vm_get_constant(code, &ip));
-		buf_push(", obj:%d", vm_get_constant(code, &ip));
+		buf_push(", obj:%d, %d", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
 		break;
 	op_case(op_az_merge)
 		break;
@@ -638,7 +655,8 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 
 #undef buf_push
 
-	return (struct vm_dis_result){ buf, ip - base_ip };
+	assert(ip - base_ip == OP_WIDTH(code[base_ip]));
+	return buf;
 }
 
 void
@@ -648,17 +666,18 @@ vm_dis(struct workspace *wk)
 
 	char loc_buf[256];
 	for (uint32_t i = 0; i < wk->vm.code.len;) {
-		struct vm_dis_result dis = vm_dis_inst(wk, wk->vm.code.e, i);
+		uint8_t op = wk->vm.code.e[i];
+		const char *dis = vm_dis_inst(wk, wk->vm.code.e, i);
 		struct source_location loc;
 		struct source *src;
 		vm_lookup_inst_location(&wk->vm, i, &loc, &src);
 		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d", src ? src->label : 0, loc.off, loc.len);
-		printf("%-*s%s\n", w, dis.text, loc_buf);
+		printf("%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
 		/* 	list_line_range(src, loc, 0); */
 		/* } */
-		i += dis.inst_len;
+		i += 1 + op_operands[op];
 	}
 }
 
@@ -2059,22 +2078,13 @@ vm_unwind_call_stack(struct workspace *wk)
 obj
 vm_execute(struct workspace *wk)
 {
-	uint32_t cip, object_stack_base = wk->vm.stack.ba.len;
+	uint32_t object_stack_base = wk->vm.stack.ba.len;
 
 	platform_set_abort_handler(vm_abort_handler, wk);
 
 	stack_push(&wk->stack, wk->vm.run, true);
 
-	while (wk->vm.run) {
-		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text);
-			object_stack_print(wk, &wk->vm.stack);
-		}
-
-		cip = wk->vm.ip;
-		++wk->vm.ip;
-		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
-	}
+	wk->vm.behavior.execute_loop(wk);
 
 	stack_pop(&wk->stack, wk->vm.run);
 
@@ -2236,6 +2246,22 @@ vm_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	return native_funcs[func_idx].func(wk, self, res);
 }
 
+static void
+vm_execute_loop(struct workspace *wk)
+{
+	uint32_t cip;
+	while (wk->vm.run) {
+		if (log_should_print(log_debug)) {
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
+			/* object_stack_print(wk, &wk->vm.stack); */
+		}
+
+		cip = wk->vm.ip;
+		++wk->vm.ip;
+		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+	}
+}
+
 /******************************************************************************
  * init / destroy
  ******************************************************************************/
@@ -2330,6 +2356,7 @@ vm_init(struct workspace *wk)
 		.native_func_dispatch = vm_native_func_dispatch,
 		.pop_args = vm_pop_args,
 		.func_lookup = func_lookup,
+		.execute_loop = vm_execute_loop,
 	};
 
 	/* ops */

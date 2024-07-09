@@ -399,6 +399,10 @@ error_message(struct source *src, struct source_location location, enum log_leve
 		if (error_diagnostic_store.redirect.redirect) {
 			src = error_diagnostic_store.redirect.src;
 			location = error_diagnostic_store.redirect.location;
+		} else if (src->len == 0 && src->src == 0) {
+			// Skip messages generated for code regions with no
+			// sources
+			return;
 		}
 
 		uint32_t i;

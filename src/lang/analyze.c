@@ -27,6 +27,7 @@ static struct {
 	struct vm_ops unpatched_ops;
 	struct obj_typeinfo az_injected_native_func_return;
 	struct hash branch_map;
+	struct arr visited_ops;
 } analyzer;
 
 struct az_file_entrypoint {
@@ -642,6 +643,7 @@ az_op_az_branch(struct workspace *wk)
 {
 	enum az_branch_type branch_type = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	{
 		struct az_branch_group new_branch_group = {
@@ -659,8 +661,6 @@ az_op_az_branch(struct workspace *wk)
 		}
 		return;
 	}
-
-	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	push_scope_group(wk);
 
@@ -924,6 +924,25 @@ ret:
 	return eval_project_file(wk, newpath, first);
 }
 
+static void
+az_execute_loop(struct workspace *wk)
+{
+	arr_grow_to(&analyzer.visited_ops, wk->vm.code.len);
+
+	uint32_t cip;
+	while (wk->vm.run) {
+		if (log_should_print(log_debug)) {
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
+			/* object_stack_print(wk, &wk->vm.stack); */
+		}
+
+		cip = wk->vm.ip;
+		++wk->vm.ip;
+		analyzer.visited_ops.e[cip] = 1;
+		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+	}
+}
+
 /******************************************************************************
  * analyzer behaviors -- function lookup and dispatch
  ******************************************************************************/
@@ -1133,6 +1152,9 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	return args_ok;
 }
 
+/*
+ */
+
 static void
 az_op_constant_func(struct workspace *wk)
 {
@@ -1326,6 +1348,33 @@ az_print_diagnostic_names(void)
 }
 
 /******************************************************************************
+ * diagnostic helpers
+ ******************************************************************************/
+
+static void
+az_warn_dead_code(struct workspace *wk,
+	uint32_t src_idx,
+	struct source_location *start_loc,
+	struct source_location *end_loc)
+{
+	if (src_idx == UINT32_MAX) {
+		return;
+	}
+
+	// TOOD: how can this occur?
+	if (end_loc->off < start_loc->off) {
+		return;
+	}
+
+	struct source_location merged
+		= { .off = start_loc->off, .len = (end_loc->off - start_loc->off) + end_loc->len };
+	struct source *src = arr_get(&wk->vm.src, src_idx);
+
+	L("%d, %d", merged.off, merged.len);
+	error_message(src, merged, log_warn, "dead code");
+}
+
+/******************************************************************************
  * entrypoint
  ******************************************************************************/
 
@@ -1348,14 +1397,11 @@ do_analyze(struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 	struct workspace wk;
-	if (opts->internal_file) {
-		workspace_init_bare(&wk);
-	} else {
-		workspace_init(&wk);
-	}
+	workspace_init_bare(&wk);
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
+	arr_init(&analyzer.visited_ops, 1024, 1);
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
@@ -1379,6 +1425,7 @@ do_analyze(struct az_opts *opts)
 	wk.vm.behavior.native_func_dispatch = az_native_func_dispatch;
 	wk.vm.behavior.pop_args = az_pop_args;
 	wk.vm.behavior.func_lookup = az_func_lookup;
+	wk.vm.behavior.execute_loop = az_execute_loop;
 	wk.vm.in_analyzer = true;
 
 	analyzer.unpatched_ops = wk.vm.ops;
@@ -1430,6 +1477,7 @@ do_analyze(struct az_opts *opts)
 		}
 	} else {
 		uint32_t project_id;
+		workspace_init_runtime(&wk);
 		res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
 	}
 
@@ -1474,6 +1522,29 @@ do_analyze(struct az_opts *opts)
 						break;
 					}
 				}
+			}
+		}
+
+		assert(wk.vm.code.len == analyzer.visited_ops.len);
+
+		bool in_dead_code = false;
+		uint32_t start_src_idx, src_idx;
+		struct source_location start_loc, loc;
+
+		for (i = 5; i < wk.vm.code.len; i += OP_WIDTH(wk.vm.code.e[i])) {
+			if (!analyzer.visited_ops.e[i]) {
+				vm_lookup_inst_location_src_idx(&wk.vm, i, &loc, &src_idx);
+
+				if (!in_dead_code) {
+					in_dead_code = true;
+					start_loc = loc;
+					start_src_idx = src_idx;
+				}
+
+				assert(src_idx == start_src_idx);
+			} else if (in_dead_code) {
+				az_warn_dead_code(&wk, src_idx, &start_loc, &loc);
+				in_dead_code = false;
 			}
 		}
 	}
@@ -1534,6 +1605,7 @@ do_analyze(struct az_opts *opts)
 	bucket_arr_destroy(&assignments);
 	arr_destroy(&az_entrypoint_stack);
 	arr_destroy(&az_entrypoint_stacks);
+	arr_destroy(&analyzer.visited_ops);
 	workspace_destroy(&wk);
 	return res;
 }

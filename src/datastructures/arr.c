@@ -81,6 +81,13 @@ arr_grow_by(struct arr *arr, size_t size)
 	arr_get_mem(arr);
 }
 
+void
+arr_grow_to(struct arr *arr, size_t size)
+{
+	arr->len = size - 1;
+	arr_get_mem(arr);
+}
+
 size_t
 arr_push(struct arr *arr, const void *item)
 {
