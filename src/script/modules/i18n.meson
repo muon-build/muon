@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
+fs = import('fs')
+
 PRESET_ARGS = {
     'glib': [
         '--from-code=UTF-8',
@@ -39,7 +41,6 @@ func read_linguas(source_dir str) -> list[any]
 
     linguas_path = join_paths(source_dir, 'LINGUAS')
 
-    fs = import('fs')
     if not fs.exists(linguas_path)
         return []
     endif
@@ -64,12 +65,12 @@ func get_data_dirs(source_dir str, dirs list[str]|void) -> str
         return ''
     endif
 
-    dirs = []
+    full_dirs = []
     foreach dir : dirs
-        dirs += source_dir / dir
+        full_dirs += source_dir / dir
     endforeach
 
-    datadirs = ':'.join(dirs)
+    datadirs = ':'.join(full_dirs)
     return f'datadirs=@datadirs@'
 endfunc
 
@@ -134,7 +135,7 @@ func gettext(
     extra_arg = ''
     if not is_void(args)
         extra_args_merged = '^'.join(args)
-        extra_arg = f'extra_args=@extra_arg@'
+        extra_arg = f'extra_args=@extra_args_merged@'
     endif
 
     source_root_arg = 'source_root=@0@'.format(meson.project_source_root())
@@ -185,7 +186,7 @@ func gettext(
 
     endforeach
 
-    all_gmo_target = alias_target(f'@package_name@-gmo', gmo_targets)
+    alias_target(f'@package_name@-gmo', gmo_targets)
 
     update_po_args = gettext_invocation + 'update_po' + pkg_arg + source_root_arg + subdir_arg
     if lang_arg != ''
@@ -227,7 +228,6 @@ func merge_file(
 ) -> custom_tgt
 
     current_source_dir = meson.current_source_dir()
-    current_build_dir = meson.current_build_dir()
 
     msgfmt = find_program('msgfmt', native: false, required: true)
     if msgfmt.found()
@@ -249,7 +249,7 @@ func merge_file(
     extra_arg = ''
     if not is_void(args)
         extra_args_merged = '^'.join(args)
-        extra_arg = f'extra_args=@extra_arg@'
+        extra_arg = f'extra_args=@extra_args_merged@'
     endif
 
     msgfmthelper_invocation = [
@@ -312,10 +312,8 @@ func itstool_join(
 
     itstool = find_program('itstool', native: false)
 
-    current_build_dir = meson.current_build_dir()
     current_source_dir = meson.current_source_dir()
 
-    fs = import('fs')
     mo_fnames = []
     foreach target : mo_targets
         mo_fnames += target.full_path()
