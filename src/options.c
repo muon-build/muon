@@ -325,7 +325,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 	case op_integer: {
 		int64_t num;
 		char *endptr;
-		num = strtol(val->s, &endptr, 10);
+		num = strtoll(val->s, &endptr, 10);
 
 		if (!val->len || *endptr) {
 			vm_error(wk, "unable to coerce '%s' into a number", val->s);

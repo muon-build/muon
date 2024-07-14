@@ -403,7 +403,7 @@ compiler_check_parse_output_int(struct compiler_check_opts *opts)
 {
 	char *endptr;
 	int64_t size;
-	size = strtol(opts->cmd_ctx.out.buf, &endptr, 10);
+	size = strtoll(opts->cmd_ctx.out.buf, &endptr, 10);
 	if (*endptr) {
 		LOG_W("compiler check binary had malformed output '%s'", opts->cmd_ctx.out.buf);
 		return -1;

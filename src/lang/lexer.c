@@ -280,7 +280,7 @@ lex_number(struct lexer *lexer, struct token *token)
 
 	char *endptr = 0;
 	errno = 0;
-	int64_t val = strtol(&lexer->src[lexer->i], &endptr, base);
+	int64_t val = strtoll(&lexer->src[lexer->i], &endptr, base);
 
 	assert(endptr);
 	if (endptr == &lexer->src[lexer->i]) {

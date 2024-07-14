@@ -430,7 +430,7 @@ str_to_i(const struct str *ss, int64_t *res, bool strip)
 		}
 	}
 
-	*res = strtol(start, &endptr, 10);
+	*res = strtoll(start, &endptr, 10);
 
 	if (strip) {
 		while (is_whitespace(*endptr)) {
