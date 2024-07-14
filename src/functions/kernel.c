@@ -1081,7 +1081,14 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
-		vm_error_at(wk, an[0].node, "command failed: %s", cmd_ctx.err.buf);
+		vm_error_at(wk, an[0].node, "command failed");
+		if (cmd_ctx.out.len) {
+			log_plain("stdout:\n%s", cmd_ctx.out.buf);
+		}
+		if (cmd_ctx.err.len) {
+			log_plain("stderr:\n%s", cmd_ctx.err.buf);
+		}
+
 		return false;
 	}
 
