@@ -230,7 +230,7 @@ obj_typestr(struct workspace *wk, obj o)
  * ----------------------------------------------------------------------------
  */
 
-static type_tag
+type_tag
 get_obj_typechecking_type(struct workspace *wk, obj got_obj)
 {
 	enum obj_type t = get_obj_type(wk, got_obj);

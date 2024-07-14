@@ -114,6 +114,7 @@ struct obj_typechecking_type_to_obj_type {
 	type_tag tc;
 };
 
+type_tag get_obj_typechecking_type(struct workspace *wk, obj got_obj);
 bool typecheck(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type);
 bool typecheck_custom(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type, const char *fmt);
 bool typecheck_simple_err(struct workspace *wk, obj o, type_tag type);
