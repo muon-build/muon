@@ -917,6 +917,10 @@ vm_op_add(struct workspace *wk)
 
 		if (b_t == obj_array) {
 			obj_array_extend(wk, res, b);
+		} else if (b_t == obj_typeinfo && typecheck_typeinfo(wk, b, tc_array)) {
+			// Skip this, because if b were a pure list it wouldn't be pushed,
+			// but would be merged onto a.  But since we don't know what b
+			// would contain just treat it as empty.
 		} else {
 			obj_array_push(wk, res, b);
 		}
@@ -1356,6 +1360,10 @@ vm_op_store(struct workspace *wk)
 	a = a_entry->o;
 	b = object_stack_peek(&wk->vm.stack, 1);
 
+	if (get_obj_type(wk, a) == obj_typeinfo) {
+		return;
+	}
+
 	switch (get_obj_type(wk, b)) {
 	case obj_environment:
 	case obj_configuration_data: {
@@ -1394,6 +1402,9 @@ vm_op_load(struct workspace *wk)
 	// a could be a disabler if this is an inlined get_variable call
 	if (a == disabler_id) {
 		object_stack_push(wk, disabler_id);
+		return;
+	} else if (get_obj_type(wk, a) == obj_typeinfo) {
+		vm_push_dummy(wk);
 		return;
 	}
 
@@ -1612,10 +1623,7 @@ vm_op_call_method(struct workspace *wk)
 			if (saw_disabler) {
 				a = disabler_id;
 			} else {
-				vm_error(wk,
-					"in method %s.%s",
-					obj_type_to_s(get_obj_type(wk, b)),
-					native_funcs[idx].name);
+				vm_error(wk, "in method %s.%s", obj_typestr(wk, b), native_funcs[idx].name);
 				vm_push_dummy(wk);
 				return;
 			}
@@ -1724,16 +1732,19 @@ vm_op_iterator(struct workspace *wk)
 			goto args_to_unpack_mismatch_error;
 		}
 
-		object_stack_push(wk, a);
 		iterator = get_obj_iterator(wk, a);
-
 		assert(iterator->type == obj_iterator_type_range);
+
+		object_stack_push(wk, a);
 		iterator->data.range.i = iterator->data.range.start;
 		break;
 	}
 	case obj_typeinfo: {
 		enum obj_type t;
-		if (typecheck_custom(wk, 0, a, tc_dict, 0)) {
+		if ((get_obj_typechecking_type(wk, a) & (tc_dict | tc_array)) == (tc_dict | tc_array)) {
+			expected_args_to_unpack = args_to_unpack;
+			t = args_to_unpack == 1 ? obj_array : obj_dict;
+		} else if (typecheck_custom(wk, 0, a, tc_dict, 0)) {
 			expected_args_to_unpack = 2;
 			t = obj_dict;
 		} else if (typecheck_custom(wk, 0, a, tc_array, 0)) {

@@ -74,50 +74,48 @@ az_set_error(void)
  * typeinfo utilities
  ******************************************************************************/
 
-struct obj_tainted_by_typeinfo_ctx {
+struct obj_tainted_by_typeinfo_opts {
 	bool allow_tainted_dict_values;
 };
 
-static bool obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx);
-
-static enum iteration_result
-obj_tainted_by_typeinfo_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
-{
-	struct obj_tainted_by_typeinfo_ctx *ctx = _ctx;
-	if (obj_tainted_by_typeinfo(wk, k, 0)) {
-		return ir_err;
-	}
-
-	if (ctx && !ctx->allow_tainted_dict_values && obj_tainted_by_typeinfo(wk, v, 0)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
-static enum iteration_result
-obj_tainted_by_typeinfo_array_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	if (obj_tainted_by_typeinfo(wk, v, _ctx)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
 static bool
-obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_ctx *ctx)
+obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typeinfo_opts *opts)
 {
 	if (!o) {
 		return true;
 	}
 
 	switch (get_obj_type(wk, o)) {
-	case obj_typeinfo: return true;
-	case obj_array: return !obj_array_foreach(wk, o, ctx, obj_tainted_by_typeinfo_array_iter);
-	case obj_dict: return !obj_dict_foreach(wk, o, ctx, obj_tainted_by_typeinfo_dict_iter);
-	default: return false;
+	case obj_typeinfo: {
+		return true;
 	}
+	case obj_array: {
+		obj v;
+		obj_array_for(wk, o, v) {
+			if (obj_tainted_by_typeinfo(wk, v, opts)) {
+				return true;
+			}
+		}
+
+		break;
+	}
+	case obj_dict: {
+		const bool disallow_tainted_values = opts && !opts->allow_tainted_dict_values;
+
+		obj k, v;
+		obj_dict_for(wk, o, k, v) {
+			if (obj_tainted_by_typeinfo(wk, k, 0)) {
+				return true;
+			} else if (disallow_tainted_values && obj_tainted_by_typeinfo(wk, v, 0)) {
+				return true;
+			}
+		}
+		break;
+	}
+	default: break;
+	}
+
+	return false;
 }
 
 static void
@@ -292,86 +290,69 @@ print_scope_stack(struct workspace *wk)
 	}
 }
 
-struct check_az_scope_ctx {
-	const char *name;
-	uint32_t i;
-	obj res, scope;
-	bool found;
-};
-
+// example scope_stack: [[{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]]
 // example local_scope: [{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]
-static enum iteration_result
-az_check_scope_stack(struct workspace *wk, void *_ctx, obj local_scope)
+static bool
+assign_lookup_with_scope(struct workspace *wk, const char *name, obj *scope, obj *res)
 {
 	TracyCZoneAutoS;
-	struct check_az_scope_ctx *ctx = _ctx;
 
-	obj base;
-	obj_array_index(wk, local_scope, 0, &base);
+	bool found = false;
+	obj local_scope;
+	obj_array_for(wk, wk->vm.scope_stack, local_scope) {
+		obj base;
+		obj_array_index(wk, local_scope, 0, &base);
 
-	uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
-	if (local_scope_len > 1) {
-		int32_t i;
-		// example: {a: 1},           -- skip
-		// example: [{b: 2}, {b: 3}], -- take last
-		// example: [{c: 4}]          -- take last
-		for (i = local_scope_len - 1; i >= 1; --i) {
-			struct check_az_scope_ctx *ctx = _ctx;
+		uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
+		if (local_scope_len > 1) {
+			int32_t i;
+			// example: {a: 1},           -- skip
+			// example: [{b: 2}, {b: 3}], -- take last
+			// example: [{c: 4}]          -- take last
+			for (i = local_scope_len - 1; i >= 1; --i) {
+				obj scope_group;
+				obj_array_index(wk, local_scope, i, &scope_group);
+				*scope = obj_array_get_tail(wk, scope_group);
 
-			obj scope_group;
-			obj_array_index(wk, local_scope, i, &scope_group);
-			obj scope = obj_array_get_tail(wk, scope_group);
+				if (obj_dict_index_str(wk, *scope, name, res)) {
+					found = true;
+					break;
+				}
+			}
+		}
 
-			if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
-				ctx->scope = scope;
-				ctx->found = true;
-				break;
+		if (!found) {
+			if (obj_dict_index_str(wk, base, name, res)) {
+				*scope = base;
+				found = true;
 			}
 		}
 	}
 
-	if (!ctx->found) {
-		if (obj_dict_index_str(wk, base, ctx->name, &ctx->res)) {
-			ctx->scope = base;
-			ctx->found = true;
-		}
-	}
-
 	TracyCZoneAutoE;
-	return ir_cont;
+	return found;
 }
 
-// example scope_stack: [[{a: 1}, [{b: 2}, {b: 3}], [{c: 4}]]]
 static struct assignment *
 assign_lookup(struct workspace *wk, const char *name)
 {
-	TracyCZoneAutoS;
-	struct check_az_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, az_check_scope_stack);
-
-	if (ctx.found) {
-		TracyCZoneAutoE;
-		return bucket_arr_get(&assignments, ctx.res);
-	} else {
-		TracyCZoneAutoE;
-		return 0;
+	obj res, _;
+	if (assign_lookup_with_scope(wk, name, &_, &res)) {
+		return bucket_arr_get(&assignments, res);
 	}
+
+	return 0;
 }
 
 static obj
 assign_lookup_scope(struct workspace *wk, const char *name)
 {
-	TracyCZoneAutoS;
-	struct check_az_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, az_check_scope_stack);
-
-	if (ctx.found) {
-		TracyCZoneAutoE;
-		return ctx.scope;
-	} else {
-		TracyCZoneAutoE;
-		return 0;
+	obj _, scope;
+	if (assign_lookup_with_scope(wk, name, &scope, &_)) {
+		return scope;
 	}
+
+	return 0;
 }
 
 static void
@@ -538,65 +519,6 @@ merge_objects(struct workspace *wk, struct assignment *dest, struct assignment *
 	src->o = 0;
 }
 
-struct pop_scope_group_ctx {
-	uint32_t i;
-	obj merged, base;
-};
-
-static enum iteration_result
-merge_scope_group_scope_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
-{
-	struct pop_scope_group_ctx *ctx = _ctx;
-
-	obj bid;
-	struct assignment *b, *a = bucket_arr_get(&assignments, aid);
-	if (obj_dict_index(wk, ctx->merged, k, &bid)) {
-		b = bucket_arr_get(&assignments, bid);
-		merge_objects(wk, b, a);
-	} else {
-		obj_dict_set(wk, ctx->merged, k, aid);
-	}
-
-	return ir_cont;
-}
-
-static enum iteration_result
-merge_scope_group_scopes_iter(struct workspace *wk, void *_ctx, obj scope)
-{
-	struct pop_scope_group_ctx *ctx = _ctx;
-	if (ctx->i == 0) {
-		goto cont;
-	}
-
-	obj_dict_foreach(wk, scope, ctx, merge_scope_group_scope_iter);
-cont:
-	++ctx->i;
-	return ir_cont;
-}
-
-static enum iteration_result
-merge_scope_group_scope_with_base_iter(struct workspace *wk, void *_ctx, obj k, obj aid)
-{
-	struct assignment *a = bucket_arr_get(&assignments, aid), *b;
-	if ((b = assign_lookup(wk, a->name))) {
-		merge_objects(wk, b, a);
-	} else {
-		type_tag type = get_obj_type(wk, a->o);
-		if (type != obj_typeinfo) {
-			a->o = make_typeinfo(wk, obj_type_to_tc_type(type));
-		}
-
-		b = scope_assign(wk, a->name, a->o, 0, assign_local);
-		b->accessed = a->accessed;
-		b->location = a->location;
-		b->src_idx = a->src_idx;
-
-		a->accessed = true;
-	}
-
-	return ir_cont;
-}
-
 static void
 pop_scope_group(struct workspace *wk)
 {
@@ -608,19 +530,71 @@ pop_scope_group(struct workspace *wk)
 
 	obj scope_group = obj_array_pop(wk, local_scope);
 
-	struct pop_scope_group_ctx ctx = { 0 };
-	obj_array_index(wk, scope_group, 0, &ctx.merged);
+	obj merged, base;
+	obj_array_index(wk, scope_group, 0, &merged);
 
 	if (get_obj_array(wk, local_scope)->len == 1) {
-		obj_array_index(wk, local_scope, 0, &ctx.base);
+		obj_array_index(wk, local_scope, 0, &base);
 	} else {
 		obj prev_scope_group = obj_array_get_tail(wk, local_scope);
-		ctx.base = obj_array_get_tail(wk, prev_scope_group);
+		base = obj_array_get_tail(wk, prev_scope_group);
 	}
 
-	obj_array_foreach(wk, scope_group, &ctx, merge_scope_group_scopes_iter);
+	{ // First, merge all scopes other than the root scope into `merged`
+		bool first = true;
+		obj scope;
+		obj_array_for(wk, scope_group, scope) {
+			if (first) {
+				first = false;
+				continue;
+			}
 
-	obj_dict_foreach(wk, ctx.merged, &ctx, merge_scope_group_scope_with_base_iter);
+			obj k, aid;
+			obj_dict_for(wk, scope, k, aid) {
+				obj bid;
+				struct assignment *b, *a = bucket_arr_get(&assignments, aid);
+				if (obj_dict_index(wk, merged, k, &bid)) {
+					b = bucket_arr_get(&assignments, bid);
+					merge_objects(wk, b, a);
+				} else {
+					obj_dict_set(wk, merged, k, aid);
+				}
+			}
+		}
+	}
+
+	{ // Now, merge `merged` into base
+		obj k, aid;
+		obj_dict_for(wk, merged, k, aid) {
+			struct assignment *a = bucket_arr_get(&assignments, aid), *b;
+			if ((b = assign_lookup(wk, a->name))) {
+				merge_objects(wk, b, a);
+			} else {
+				if (false) {
+					// This code makes all assignments within scope groups become
+					// impure on pop.  I'm not sure why I added this because it messes up code like this:
+					//
+					// if use_i18n
+					//   i18n = import('i18n')
+					// endif
+					//
+					// With the below block enabled i18n becomes impure afterward
+					// so we can't typecheck any of its methods.
+					type_tag type = get_obj_type(wk, a->o);
+					if (type != obj_typeinfo) {
+						a->o = make_typeinfo(wk, obj_type_to_tc_type(type));
+					}
+				}
+
+				b = scope_assign(wk, a->name, a->o, 0, assign_local);
+				b->accessed = a->accessed;
+				b->location = a->location;
+				b->src_idx = a->src_idx;
+
+				a->accessed = true;
+			}
+		}
+	}
 }
 
 /******************************************************************************
@@ -868,34 +842,25 @@ az_pop_local_scope(struct workspace *wk)
 	assert(get_obj_array(wk, scope_group)->len == 1);
 }
 
-static enum iteration_result
-az_scope_stack_scope_dup_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	obj *g = _ctx;
-	obj scope;
-	obj_dict_dup(wk, v, &scope);
-	obj_array_push(wk, *g, scope);
-	return ir_cont;
-}
-
-static enum iteration_result
-az_scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj scope_group)
-{
-	obj *r = _ctx;
-	obj g;
-	make_obj(wk, &g, obj_array);
-	obj_array_foreach(wk, scope_group, &g, az_scope_stack_scope_dup_iter);
-	obj_array_push(wk, *r, g);
-	return ir_cont;
-}
-
 static obj
 az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
-	obj r;
+	obj r, scope_group;
 	make_obj(wk, &r, obj_array);
 
-	obj_array_foreach(wk, scope_stack, &r, az_scope_stack_dup_iter);
+	obj_array_for(wk, scope_stack, scope_group) {
+		obj g, v;
+		make_obj(wk, &g, obj_array);
+
+		obj_array_for(wk, scope_group, v) {
+			obj scope;
+			obj_dict_dup(wk, v, &scope);
+			obj_array_push(wk, g, scope);
+		}
+
+		obj_array_push(wk, r, g);
+	}
+
 	return r;
 }
 
@@ -999,6 +964,13 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 		t |= obj_typechecking_type_tag;
 	}
 
+	// If type includes module, then we can't be sure what methods it might
+	// respond to
+	if (t & tc_module) {
+		res_t.type = tc_any;
+		goto return_injected_native_func;
+	}
+
 	for (i = 1; i <= tc_type_count; ++i) {
 		type_tag tc = obj_type_to_tc_type(i);
 		if ((t & tc) != tc) {
@@ -1020,14 +992,18 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 	} else if (lookup_res.matches > 1) {
 		// Multiple matches found, return the index of az_injected_native_func
 		// and wire it up to return our merged return type.
-		analyzer.az_injected_native_func_return = res_t;
-		*idx = az_func_impl_group.off;
-		*func = 0;
+		goto return_injected_native_func;
 	} else {
 		// Single match found, return it
 		*idx = lookup_res.idx;
 	}
 
+	return true;
+
+return_injected_native_func:
+	analyzer.az_injected_native_func_return = res_t;
+	*idx = az_func_impl_group.off;
+	*func = 0;
 	return true;
 }
 
@@ -1106,8 +1082,9 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	*res = 0;
 	bool pure = native_funcs[func_idx].pure;
 
-	struct obj_tainted_by_typeinfo_ctx tainted_ctx = { .allow_tainted_dict_values = true };
-	if (self && obj_tainted_by_typeinfo(wk, self, &tainted_ctx)) {
+	if (self
+		&& obj_tainted_by_typeinfo(
+			wk, self, &(struct obj_tainted_by_typeinfo_opts){ .allow_tainted_dict_values = true })) {
 		pure = false;
 	}
 
@@ -1244,26 +1221,23 @@ struct eval_trace_print_ctx {
 	uint64_t bars;
 };
 
-static enum iteration_result
-eval_trace_arr_len_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	if (get_obj_type(wk, v) != obj_array) {
-		++*(uint32_t *)_ctx;
-	}
-	return ir_cont;
-}
 static uint32_t
 eval_trace_arr_len(struct workspace *wk, obj arr)
 {
 	uint32_t cnt = 0;
-	obj_array_foreach(wk, arr, &cnt, eval_trace_arr_len_iter);
+	obj v;
+	obj_array_for(wk, arr, v) {
+		if (get_obj_type(wk, v) != obj_array) {
+			++cnt;
+		}
+	}
+
 	return cnt;
 }
 
-static enum iteration_result
-eval_trace_print(struct workspace *wk, void *_ctx, obj v)
+static void
+eval_trace_print(struct workspace *wk, struct eval_trace_print_ctx *ctx, obj v)
 {
-	struct eval_trace_print_ctx *ctx = _ctx;
 	switch (get_obj_type(wk, v)) {
 	case obj_array: {
 		struct eval_trace_print_ctx subctx = {
@@ -1274,7 +1248,11 @@ eval_trace_print(struct workspace *wk, void *_ctx, obj v)
 		if (ctx->i <= ctx->len - 1) {
 			subctx.bars |= (1 << (ctx->indent - 1));
 		}
-		obj_array_foreach(wk, v, &subctx, eval_trace_print);
+
+		obj sub_v;
+		obj_array_for(wk, v, sub_v) {
+			eval_trace_print(wk, &subctx, v);
+		}
 		break;
 	}
 	case obj_string: {
@@ -1307,7 +1285,6 @@ eval_trace_print(struct workspace *wk, void *_ctx, obj v)
 	}
 	default: UNREACHABLE;
 	}
-	return ir_cont;
 }
 
 /******************************************************************************
@@ -1370,26 +1347,12 @@ az_warn_dead_code(struct workspace *wk,
 		= { .off = start_loc->off, .len = (end_loc->off - start_loc->off) + end_loc->len };
 	struct source *src = arr_get(&wk->vm.src, src_idx);
 
-	L("%d, %d", merged.off, merged.len);
 	error_message(src, merged, log_warn, "dead code");
 }
 
 /******************************************************************************
  * entrypoint
  ******************************************************************************/
-
-static enum iteration_result
-reassign_default_var(struct workspace *wk, void *_ctx, obj k, obj v)
-{
-	obj *scope = _ctx;
-	obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
-
-	struct assignment *a = bucket_arr_get(&assignments, aid);
-	a->default_var = true;
-
-	obj_dict_set(wk, *scope, k, aid);
-	return ir_cont;
-}
 
 bool
 do_analyze(struct az_opts *opts)
@@ -1411,7 +1374,15 @@ do_analyze(struct az_opts *opts)
 		make_obj(&wk, &scope, obj_dict);
 		obj_array_push(&wk, scope_group, scope);
 		obj_array_push(&wk, wk.vm.default_scope_stack, scope_group);
-		obj_dict_foreach(&wk, original_scope, &scope, reassign_default_var);
+		obj k, v;
+		obj_dict_for(&wk, original_scope, k, v) {
+			obj aid = push_assignment(&wk, get_cstr(&wk, k), v, 0);
+
+			struct assignment *a = bucket_arr_get(&assignments, aid);
+			a->default_var = true;
+
+			obj_dict_set(&wk, scope, k, aid);
+		}
 		wk.vm.scope_stack = az_scope_stack_dup(&wk, wk.vm.default_scope_stack);
 	}
 
@@ -1578,7 +1549,10 @@ do_analyze(struct az_opts *opts)
 			.indent = 1,
 			.len = eval_trace_arr_len(&wk, wk.vm.dbg_state.eval_trace),
 		};
-		obj_array_foreach(&wk, wk.vm.dbg_state.eval_trace, &ctx, eval_trace_print);
+		obj v;
+		obj_array_for(&wk, wk.vm.dbg_state.eval_trace, v) {
+			eval_trace_print(&wk, &ctx, v);
+		}
 	} else if (analyzer.opts->get_definition_for) {
 		bool found = false;
 		uint32_t i;
