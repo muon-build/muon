@@ -377,7 +377,8 @@ setup_shared_object_symlinks(struct workspace *wk,
 		*soname_install = sbuf_into_str(wk, &soname_symlink);
 	}
 
-	if (!str_eql(get_str(wk, tgt->soname), &WKSTR(plain_name))) {
+	if (!str_eql(&WKSTR(plain_name), get_str(wk, tgt->soname))
+		&& !str_eql(&WKSTR(plain_name), get_str(wk, tgt->build_name))) {
 		path_join(wk, &plain_name_symlink, get_cstr(wk, tgt->build_dir), plain_name);
 
 		if (!fs_make_symlink(get_cstr(wk, tgt->soname), plain_name_symlink.buf, true)) {
@@ -642,8 +643,8 @@ create_target(struct workspace *wk,
 	}
 
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
-							  get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
-							  true;
+						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
+						    true;
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {
