@@ -9,21 +9,20 @@
 #include "lang/workspace.h"
 
 void get_std_args(struct workspace *wk,
+	struct obj_compiler *comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
-	obj args_id,
-	enum compiler_language lang,
-	enum compiler_type t);
+	obj args_id);
 void get_option_compile_args(struct workspace *wk,
+	struct obj_compiler *comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
-	obj args_id,
-	enum compiler_language lang);
+	obj args_id);
 void get_option_link_args(struct workspace *wk,
+	struct obj_compiler *comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
-	obj args_id,
-	enum compiler_language lang);
+	obj args_id);
 
 bool setup_compiler_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
@@ -42,8 +41,6 @@ struct setup_linker_args_ctx {
 	struct build_dep *args;
 	const struct obj_build_target *tgt;
 	const struct project *proj;
-	enum linker_type linker;
-	enum compiler_language link_lang;
 };
 
 void setup_linker_args(struct workspace *wk,

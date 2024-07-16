@@ -77,12 +77,14 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 		obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_assembly, comp_id);
 
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-		if (comp->type == compiler_clang) {
+		// TODO: make this overrideable
+		const enum compiler_type type = comp->type[toolchain_component_compiler];
+		if (type == compiler_clang || type == compiler_apple_clang) {
 			obj llvm_ir_compiler;
 			make_obj(wk, &llvm_ir_compiler, obj_compiler);
 			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
 			*c = *comp;
-			c->type = compiler_clang_llvm_ir;
+			c->type[toolchain_component_compiler] = compiler_clang_llvm_ir;
 			c->lang = compiler_language_llvm_ir;
 			obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_llvm_ir, llvm_ir_compiler);
 		}
@@ -1029,7 +1031,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		};
 
 		if (!get_obj_array(wk, an[0].val)->len) {
-			vm_error_at(wk, an[0].node, "missing command");
+			vm_error(wk, "missing command");
 			return false;
 		}
 
@@ -1046,7 +1048,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 			if (!find_program(wk, &find_program_ctx, arg0)) {
 				return false;
 			} else if (!find_program_ctx.found) {
-				vm_error_at(wk, an[0].node, "unable to find program %o", arg0);
+				vm_error(wk, "unable to find program %o", arg0);
 				return false;
 			}
 			obj_array_set(wk, an[0].val, 0, cmd_file);
@@ -1076,12 +1078,12 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
-		vm_error_at(wk, an[0].node, "%s", cmd_ctx.err_msg);
+		vm_error(wk, "%s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
 	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
-		vm_error_at(wk, an[0].node, "command failed");
+		vm_error(wk, "command failed");
 		if (cmd_ctx.out.len) {
 			log_plain("stdout:\n%s", cmd_ctx.out.buf);
 		}

@@ -58,7 +58,6 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 	enum compiler_language l = k;
 	struct write_compiler_rule_ctx *ctx = _ctx;
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	enum compiler_type t = comp->type;
 
 	obj args;
 	make_obj(wk, &args, obj_array);
@@ -67,13 +66,13 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 		obj_array_extend(wk, args, comp->cmd_arr);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 
-		push_args(wk, args, compilers[t].args.output("$out"));
+		push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
 		obj_array_push(wk, args, make_str(wk, "$in"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	} else {
 		obj_array_extend(wk, args, comp->linker_cmd_arr);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
-		push_args(wk, args, linkers[comp->linker_type].args.input_output("$in", "$out"));
+		push_args(wk, args, toolchain_linker_input_output(wk, comp, "$in", "$out"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	}
 
@@ -94,13 +93,13 @@ static void
 write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_name, enum compiler_language l, obj comp_id)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	enum compiler_type t = comp->type;
 
-	const char *deps = NULL;
-	switch (compilers[t].deps) {
-	case compiler_deps_none: break;
-	case compiler_deps_gcc: deps = "gcc"; break;
-	case compiler_deps_msvc: deps = "msvc"; break;
+	const char *deps = 0;
+	{
+		const struct args *deps_args = toolchain_compiler_deps_type(wk, comp);
+		if (deps_args->len) {
+			deps = deps_args->args[0];
+		}
 	}
 
 	obj args;
@@ -108,14 +107,14 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	obj_array_extend(wk, args, comp->cmd_arr);
 	obj_array_push(wk, args, rule_args);
 
-	if (compilers[t].deps) {
-		push_args(wk, args, compilers[t].args.deps("$out", "${out}.d"));
+	if (deps) {
+		push_args(wk, args, toolchain_compiler_deps(wk, comp, "$out", "${out}.d"));
 	}
 
-	push_args(wk, args, compilers[t].args.debugfile("$out"));
+	push_args(wk, args, toolchain_compiler_debugfile(wk, comp, "$out"));
 
-	push_args(wk, args, compilers[t].args.output("$out"));
-	push_args(wk, args, compilers[t].args.compile_only());
+	push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
+	push_args(wk, args, toolchain_compiler_compile_only(wk, comp));
 	obj_array_push(wk, args, make_str(wk, "$in"));
 
 	obj compile_command = join_args_plain(wk, args);
@@ -125,7 +124,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 		" command = %s\n",
 		get_cstr(wk, rule_name),
 		get_cstr(wk, compile_command));
-	if (compilers[t].deps) {
+	if (deps) {
 		fprintf(out,
 			" deps = %s\n"
 			" depfile = ${out}.d\n",
@@ -422,8 +421,9 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 				obj static_link_args;
 				make_obj(wk, &static_link_args, obj_array);
 
-				if (comp->static_linker_type == static_linker_ar_posix
-					|| comp->static_linker_type == static_linker_ar_gcc) {
+				// TODO: make this overrideable
+				const enum static_linker_type type = comp->type[toolchain_component_static_linker];
+				if (type == static_linker_ar_posix || type == static_linker_ar_gcc) {
 					obj_array_push(wk, static_link_args, make_str(wk, wk->argv0));
 					obj_array_push(wk, static_link_args, make_str(wk, "internal"));
 					obj_array_push(wk, static_link_args, make_str(wk, "exe"));
@@ -433,11 +433,11 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 				}
 
 				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
-				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.always());
-				push_args(wk, static_link_args, static_linkers[comp->static_linker_type].args.base());
+				push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp));
+				push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp));
 				push_args(wk,
 					static_link_args,
-					static_linkers[comp->static_linker_type].args.input_output("$in", "$out"));
+					toolchain_static_linker_input_output(wk, comp, "$in", "$out"));
 
 				fprintf(out,
 					"rule %s_static_linker\n"

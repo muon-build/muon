@@ -8,11 +8,12 @@
 
 #include <string.h>
 
+#include "args.h"
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "lang/func_lookup.h"
 #include "functions/generator.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -74,7 +75,7 @@ tgt_src_to_object_path(struct workspace *wk,
 		obj comp_id;
 		if (filename_to_compiler_language(res->buf, &lang)
 			&& obj_dict_geti(wk, current_project(wk)->compilers, lang, &comp_id)) {
-			ext = compilers[get_obj_compiler(wk, comp_id)->type].object_ext;
+			ext = toolchain_compiler_object_ext(wk, get_obj_compiler(wk, comp_id))->args[0];
 		}
 	}
 

@@ -1,7 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
- * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net>
- * SPDX-FileCopyrightText: Luke Drummond <ldrumm@rtps.co>
+ * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net> SPDX-FileCopyrightText: Luke Drummond <ldrumm@rtps.co>
  * SPDX-FileCopyrightText: Eli Schwartz <eschwartz@archlinux.org>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
  * SPDX-License-Identifier: GPL-3.0-only
@@ -22,6 +21,7 @@
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -234,24 +234,24 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	enum compiler_type t = comp->type;
+	/* enum compiler_type t = comp->type; */
 
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
 	obj_array_extend(wk, compiler_args, comp->cmd_arr);
 
-	push_args(wk, compiler_args, compilers[t].args.always());
+	push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
 
-	get_std_args(wk, current_project(wk), NULL, compiler_args, comp->lang, t);
+	get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
 	add_extra_compiler_check_args(wk, comp, compiler_args);
 
 	switch (opts->mode) {
 	case compile_mode_run:
-	case compile_mode_link: get_option_link_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
+	case compile_mode_link: get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
-	case compile_mode_compile: get_option_compile_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
+	case compile_mode_compile: get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compile_mode_preprocess: break;
 	}
@@ -270,13 +270,13 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	switch (opts->mode) {
-	case compile_mode_preprocess: push_args(wk, compiler_args, compilers[t].args.preprocess_only()); break;
-	case compile_mode_compile: push_args(wk, compiler_args, compilers[t].args.compile_only()); break;
+	case compile_mode_preprocess: push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp)); break;
+	case compile_mode_compile: push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp)); break;
 	case compile_mode_run: break;
 	case compile_mode_link: {
 		push_args(wk,
 			compiler_args,
-			compilers[t].args.linker_passthrough(linkers[comp->linker_type].args.fatal_warnings()));
+			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
 		break;
 	}
 	}
@@ -303,17 +303,15 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	} else {
 		path_join(wk, &test_output_path, wk->muon_private, "test.");
 		sbuf_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
-		sbuf_pushs(wk, &test_output_path, compilers[t].object_ext);
+		sbuf_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
 		output_path = test_output_path.buf;
 	}
 
-	push_args(wk, compiler_args, compilers[t].args.output(output_path));
+	push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
 
 	if (have_dep) {
 		struct setup_linker_args_ctx sctx = {
 			.compiler = comp,
-			.linker = comp->linker_type,
-			.link_lang = comp->lang,
 			.args = &dep,
 		};
 
@@ -1634,7 +1632,6 @@ compiler_has_argument(struct workspace *wk,
 	enum compile_mode mode)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	enum compiler_type t = comp->type;
 
 	obj args;
 	make_obj(wk, &args, obj_array);
@@ -1648,7 +1645,7 @@ compiler_has_argument(struct workspace *wk,
 		arg = str;
 	}
 
-	push_args(wk, args, compilers[t].args.werror());
+	push_args(wk, args, toolchain_compiler_werror(wk, comp));
 
 	struct compiler_check_opts opts = {
 		.mode = mode,
@@ -1825,7 +1822,7 @@ func_compiler_get_id(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, self)->type));
+	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, self)->type[toolchain_component_compiler]));
 	return true;
 }
 
@@ -1836,7 +1833,7 @@ func_compiler_get_linker_id(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, self)->linker_type));
+	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, self)->type[toolchain_component_linker]));
 	return true;
 }
 
@@ -1848,7 +1845,7 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 	}
 
 	const char *syntax;
-	enum compiler_type type = get_obj_compiler(wk, self)->type;
+	enum compiler_type type = get_obj_compiler(wk, self)->type[toolchain_component_compiler];
 
 	switch (type) {
 	case compiler_posix:
@@ -2067,56 +2064,6 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-struct compiler_preprocess_create_tgt_ctx {
-	obj output;
-	obj cmd;
-	obj res;
-	uint32_t input_node, output_node;
-	enum compiler_type t;
-	const char *output_dir;
-};
-
-static enum iteration_result
-compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct compiler_preprocess_create_tgt_ctx *ctx = _ctx;
-
-	obj cmd;
-	obj_array_dup(wk, ctx->cmd, &cmd);
-
-	push_args(wk, cmd, compilers[ctx->t].args.output("@OUTPUT@"));
-	obj_array_push(wk, cmd, make_str(wk, "@INPUT@"));
-
-	struct make_custom_target_opts opts = {
-		.input_node = ctx->input_node,
-		.output_node = ctx->output_node,
-		.command_node = 0,
-		.input_orig = val,
-		.output_orig = ctx->output,
-		.output_dir = ctx->output_dir,
-		.command_orig = cmd,
-		.extra_args_valid = true,
-	};
-
-	obj tgt;
-	if (!make_custom_target(wk, &opts, &tgt)) {
-		return ir_err;
-	}
-
-	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
-
-	obj output;
-	if (!obj_array_flatten_one(wk, t->output, &output)) {
-		UNREACHABLE;
-	}
-
-	t->name = make_strf(wk, "<preprocess:%s>", get_file_path(wk, output));
-	obj_array_push(wk, current_project(wk)->targets, tgt);
-
-	obj_array_push(wk, ctx->res, output);
-	return ir_cont;
-}
-
 static bool
 func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 {
@@ -2140,33 +2087,33 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 
 	struct obj_compiler *comp = get_obj_compiler(wk, self);
 
-	obj cmd;
-	obj_array_dup(wk, comp->cmd_arr, &cmd);
+	obj base_cmd;
+	obj_array_dup(wk, comp->cmd_arr, &base_cmd);
 
-	push_args(wk, cmd, compilers[comp->type].args.preprocess_only());
-	push_args(wk, cmd, compilers[comp->type].args.specify_lang("assembler-with-cpp"));
+	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, comp));
+	push_args(wk, base_cmd, toolchain_compiler_specify_lang(wk, comp, "assembler-with-cpp"));
 
-	get_std_args(wk, current_project(wk), NULL, cmd, comp->lang, comp->type);
+	get_std_args(wk, comp, current_project(wk), NULL, base_cmd);
 
-	get_option_compile_args(wk, current_project(wk), NULL, cmd, comp->lang);
+	get_option_compile_args(wk, comp, current_project(wk), NULL, base_cmd);
 
 	bool have_dep = false;
 	struct build_dep dep = { 0 };
 	if (akw[kw_dependencies].set) {
 		have_dep = true;
 		dep_process_deps(wk, akw[kw_dependencies].val, &dep);
-		obj_array_extend_nodup(wk, cmd, dep.compile_args);
+		obj_array_extend_nodup(wk, base_cmd, dep.compile_args);
 	}
 
-	push_args(wk, cmd, compilers[comp->type].args.include("@OUTDIR@"));
-	push_args(wk, cmd, compilers[comp->type].args.include("@CURRENT_SOURCE_DIR@"));
+	push_args(wk, base_cmd, toolchain_compiler_include(wk, comp, "@OUTDIR@"));
+	push_args(wk, base_cmd, toolchain_compiler_include(wk, comp, "@CURRENT_SOURCE_DIR@"));
 
-	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, self, cmd)) {
+	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, self, base_cmd)) {
 		return false;
 	}
 
 	if (akw[kw_compile_args].set) {
-		obj_array_extend(wk, cmd, akw[kw_compile_args].val);
+		obj_array_extend(wk, base_cmd, akw[kw_compile_args].val);
 	}
 
 	make_obj(wk, res, obj_array);
@@ -2179,15 +2126,42 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	struct compiler_preprocess_create_tgt_ctx ctx = { .output = akw[kw_output].val,
-		.cmd = cmd,
-		.res = *res,
-		.input_node = an[0].node,
-		.output_node = akw[kw_output].node,
-		.output_dir = output_dir.buf,
-		.t = comp->type };
+	obj v;
+	obj_array_for(wk, an[0].val, v) {
+		obj cmd;
+		obj_array_dup(wk, base_cmd, &cmd);
 
-	obj_array_foreach(wk, an[0].val, &ctx, compiler_preprocess_create_tgt_iter);
+		push_args(wk, cmd, toolchain_compiler_output(wk, comp, "@OUTPUT@"));
+		obj_array_push(wk, cmd, make_str(wk, "@INPUT@"));
+
+		struct make_custom_target_opts opts = {
+			.input_node = an[0].node,
+			.output_node = akw[kw_output].node,
+			.command_node = 0,
+			.input_orig = v,
+			.output_orig = akw[kw_output].val,
+			.output_dir = output_dir.buf,
+			.command_orig = cmd,
+			.extra_args_valid = true,
+		};
+
+		obj tgt;
+		if (!make_custom_target(wk, &opts, &tgt)) {
+			return false;
+		}
+
+		struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
+
+		obj output;
+		if (!obj_array_flatten_one(wk, t->output, &output)) {
+			UNREACHABLE;
+		}
+
+		t->name = make_strf(wk, "<preprocess:%s>", get_file_path(wk, output));
+		obj_array_push(wk, current_project(wk)->targets, tgt);
+
+		obj_array_push(wk, *res, output);
+	}
 
 	return true;
 }

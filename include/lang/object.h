@@ -379,9 +379,8 @@ struct obj_compiler {
 	obj static_linker_cmd_arr;
 	obj ver;
 	obj libdirs;
-	enum compiler_type type;
-	enum linker_type linker_type;
-	enum static_linker_type static_linker_type;
+	obj overrides[3];
+	uint32_t type[3];
 	enum compiler_language lang;
 	bool linker_passthrough;
 };

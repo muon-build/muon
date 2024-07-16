@@ -47,7 +47,7 @@ check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_both_libs: break;
-	default: LOG_E("invalid tgt type '%s'", obj_type_to_s(t)); return ir_err;
+	default: UNREACHABLE;
 	}
 
 	return ir_cont;
@@ -63,28 +63,25 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	struct obj_clear_mark mk;
 	obj_set_clear_mark(wk, &mk);
 
+	enum obj_type t = get_obj_type(wk, tgt_id);
 	const char *name = NULL;
 
-	enum obj_type t = get_obj_type(wk, tgt_id);
 	switch (t) {
-	case obj_alias_target:
-		ret = ninja_write_alias_tgt(wk, tgt_id, ctx);
-		name = get_cstr(wk, get_obj_alias_target(wk, tgt_id)->name);
-		break;
+	case obj_alias_target: name = get_cstr(wk, get_obj_alias_target(wk, tgt_id)->name); break;
 	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
 	/* fallthrough */
-	case obj_build_target:
-		ret = ninja_write_build_tgt(wk, tgt_id, ctx);
-		name = get_cstr(wk, get_obj_build_target(wk, tgt_id)->build_name);
-		break;
-	case obj_custom_target:
-		ret = ninja_write_custom_tgt(wk, tgt_id, ctx);
-		name = get_cstr(wk, get_obj_custom_target(wk, tgt_id)->name);
-		break;
-	default:
-		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
-		ret = ir_err;
-		break;
+	case obj_build_target: name = get_cstr(wk, get_obj_build_target(wk, tgt_id)->build_name); break;
+	case obj_custom_target: name = get_cstr(wk, get_obj_custom_target(wk, tgt_id)->name); break;
+	default: UNREACHABLE;
+	}
+
+	switch (t) {
+	case obj_alias_target: ret = ninja_write_alias_tgt(wk, tgt_id, ctx); break;
+	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
+	/* fallthrough */
+	case obj_build_target: ret = ninja_write_build_tgt(wk, tgt_id, ctx); break;
+	case obj_custom_target: ret = ninja_write_custom_tgt(wk, tgt_id, ctx); break;
+	default: UNREACHABLE;
 	}
 
 	if (!ret) {

@@ -132,7 +132,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	};
 
 	struct obj_compiler *compiler;
-	enum linker_type linker;
 	{ /* determine linker */
 		obj comp_id;
 		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep_internal.link_language, &comp_id)) {
@@ -142,7 +141,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 
 		compiler = get_obj_compiler(wk, comp_id);
-		linker = compiler->linker_type;
 	}
 
 	make_obj(wk, &ctx.object_names, obj_array);
@@ -187,11 +185,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		obj_array_push(wk, implicit_link_deps, make_strf(wk, "%s-order_deps", rel_build_path.buf));
 	}
 
-	if (!(tgt->type & (tgt_static_library))) {
+	if (!(tgt->type & tgt_static_library)) {
 		struct setup_linker_args_ctx sctx = {
 			.compiler = compiler,
-			.linker = linker,
-			.link_lang = tgt->dep_internal.link_language,
 			.args = &ctx.args,
 		};
 
