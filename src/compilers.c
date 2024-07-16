@@ -775,8 +775,8 @@ TOOLCHAIN_PROTO_1s(compiler_posix_args_define)
 
 TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 {
-	static char buf[BUF_SIZE_S];
-	TOOLCHAIN_ARGS({ buf });
+	static char buf[BUF_SIZE_S], buf2[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf, NULL, buf2 });
 
 	if (a->len == 0) {
 		return a;
@@ -795,8 +795,15 @@ TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 		}
 
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s", a->args[0]);
+		args.len = 1;
 	} else if (a->len == 2) {
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", a->args[0], a->args[1]);
+		args.len = 1;
+	} else if (a->len == 3) {
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s", a->args[0]);
+		argv[1] = a->args[1];
+		snprintf(buf2, BUF_SIZE_S, "-Wl,%s", a->args[2]);
+		args.len = 3;
 	} else {
 		UNREACHABLE;
 	}
