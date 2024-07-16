@@ -189,7 +189,7 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 		m = get_obj_module(wk, self);
 
 		if (!m->found && strcmp(name, "found") != 0) {
-			vm_error(wk, "module %s was not found", module_names[m->module]);
+			vm_error(wk, "module %s was not found", module_info[m->module].name);
 			return false;
 		}
 
@@ -208,14 +208,14 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 					"  If you would like to make your build files portable to muon, use"
 					" `import('%s', required: false)`, and then check"
 					" the .found() method before use.",
-					module_names[m->module],
-					module_names[m->module]);
+					module_info[m->module].name,
+					module_info[m->module].name);
 				return false;
 			} else {
 				vm_error(wk,
 					"%s not found in module %s",
 					func_name_str(0, name),
-					module_names[m->module]);
+					module_info[m->module].name);
 				return false;
 			}
 		}
@@ -381,7 +381,8 @@ dump_function_signatures(struct workspace *wk)
 			sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 			sig->impl = &g->impls[j];
 			sig->is_method = true;
-			sig->name = get_cstr(wk, make_strf(wk, "import('%s').%s", module_names[i], g->impls[j].name));
+			sig->name
+				= get_cstr(wk, make_strf(wk, "import('%s').%s", module_info[i].name, g->impls[j].name));
 			sig->returns = typechecking_type_to_s(wk, g->impls[j].return_type);
 			g->impls[j].func(wk, 0, 0);
 		}

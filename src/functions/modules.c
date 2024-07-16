@@ -8,60 +8,110 @@
 #include <string.h>
 
 #include "embedded.h"
+#include "error.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/keyval.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
+#include "functions/modules/toolchain.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
 
-const char *module_names[module_count] = {
-	[module_fs] = "fs",
-	[module_keyval] = "keyval",
-	[module_pkgconfig] = "pkgconfig",
-	[module_python3] = "python3",
-	[module_python] = "python",
-	[module_sourceset] = "sourceset",
-
-	// unimplemented
-	[module_cmake] = "cmake",
-	[module_dlang] = "dlang",
-	[module_gnome] = "gnome",
-	[module_hotdoc] = "hotdoc",
-	[module_i18n] = "i18n",
-	[module_java] = "java",
-	[module_modtest] = "modtest",
-	[module_qt] = "qt",
-	[module_qt4] = "qt4",
-	[module_qt5] = "qt5",
-	[module_qt6] = "qt6",
-	[module_unstable_cuda] = "unstable-cuda",
-	[module_unstable_external_project] = "unstable-external_project",
-	[module_unstable_icestorm] = "unstable-icestorm",
-	[module_unstable_rust] = "unstable-rust",
-	[module_unstable_simd] = "unstable-simd",
-	[module_unstable_wayland] = "unstable-wayland",
-	[module_windows] = "windows",
-};
+#define MODULE_INFO(mod, path_prefix, _implemented) \
+	{ .name = #mod, .path = path_prefix "/" #mod, .implemented = _implemented },
+const struct module_info module_info[module_count] = { FOREACH_BUILTIN_MODULE(MODULE_INFO) };
+#undef MODULE_INFO
 
 static bool
 module_lookup_builtin(const char *name, enum module *res, bool *has_impl)
 {
 	enum module i;
 	for (i = 0; i < module_count; ++i) {
-		if (strcmp(name, module_names[i]) == 0) {
+		if (strcmp(name, module_info[i].path) == 0) {
 			*res = i;
-			*has_impl = i < module_unimplemented_separator;
+			*has_impl = module_info[i].implemented;
 			return true;
 		}
 	}
 
 	return false;
 }
+
+struct module_lookup_script_opts {
+	bool embedded;
+	bool encapsulate;
+};
+
+static bool
+module_lookup_script(struct workspace *wk,
+	struct sbuf *path,
+	struct obj_module *m,
+	const struct module_lookup_script_opts *opts)
+{
+	struct source src;
+
+	if (opts->embedded) {
+		src = (struct source){ .label = path->buf };
+		if (!(src.src = embedded_get(src.label))) {
+			return false;
+		}
+	} else {
+		if (!fs_file_exists(path->buf)) {
+			return false;
+		}
+
+		if (!fs_read_entire_file(path->buf, &src)) {
+			UNREACHABLE;
+		}
+	}
+
+	src.label = get_cstr(wk, sbuf_into_str(wk, path));
+	src.len = strlen(src.src);
+
+	bool ret = false;
+	enum language_mode old_language_mode = wk->vm.lang_mode;
+	wk->vm.lang_mode = language_extended;
+
+	if (opts->encapsulate) {
+		stack_push(&wk->stack,
+			wk->vm.scope_stack,
+			wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
+	}
+
+	obj res;
+	if (!eval(wk, &src, eval_mode_default, &res)) {
+		goto ret;
+	}
+
+	if (opts->encapsulate) {
+		if (!typecheck(wk, 0, res, make_complex_type(wk, complex_type_nested, tc_dict, tc_capture))) {
+			goto ret;
+		}
+
+		m->found = true;
+		m->has_impl = true;
+		m->exports = res;
+	}
+
+	ret = true;
+ret:
+	if (opts->encapsulate) {
+		stack_pop(&wk->stack, wk->vm.scope_stack);
+	}
+	wk->vm.lang_mode = old_language_mode;
+	return ret;
+}
+
+const char *module_paths[] = {
+	[language_external] = "embedded:modules/%.meson;builtin:public/%",
+	[language_internal] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+	[language_opts] = "",
+	[language_extended] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+};
 
 bool
 module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res)
@@ -72,64 +122,108 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		m = get_obj_module(wk, *res);
 	}
 
-	SBUF(module_src);
-	sbuf_pushf(wk, &module_src, "modules/%s.meson", name);
+	{
+		enum {
+			schema_type_none,
+			schema_type_embedded,
+			schema_type_builtin,
+		} schema;
 
-	// script modules
-	struct source src = { .label = module_src.buf };
-	if ((src.src = embedded_get(src.label))) {
-		src.label = get_cstr(wk, sbuf_into_str(wk, &module_src));
-		src.len = strlen(src.src);
+		const char *schema_type_str[] = {
+			[schema_type_embedded] = "embedded",
+			[schema_type_builtin] = "builtin",
+		};
 
-		bool ret = false;
-		enum language_mode old_language_mode = wk->vm.lang_mode;
-		wk->vm.lang_mode = language_extended;
-
-		if (encapsulate) {
-			stack_push(&wk->stack,
-				wk->vm.scope_stack,
-				wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
-		}
-
-		obj res;
-		if (!eval(wk, &src, eval_mode_default, &res)) {
-			goto ret;
-		}
-
-		if (encapsulate) {
-			if (!typecheck(wk, 0, res, make_complex_type(wk, complex_type_nested, tc_dict, tc_capture))) {
-				goto ret;
+		bool loop = true;
+		struct str path;
+		SBUF(path_interpolated);
+		const char *p = module_paths[wk->vm.lang_mode], *sep;
+		while (loop) {
+			path.s = p;
+			if ((sep = strchr(path.s, ';'))) {
+				path.len = sep - path.s;
+				p = sep + 1;
+			} else {
+				path.len = strlen(path.s);
+				loop = false;
 			}
 
-			m->found = true;
-			m->has_impl = true;
-			m->exports = res;
-		}
+			{ // Parse schema if given
+				if ((sep = memchr(path.s, ':', path.len))) {
+					const struct str schema_str = { path.s, sep - path.s };
+					for (schema = 0; schema < ARRAY_LEN(schema_type_str); ++schema) {
+						if (schema_type_str[schema]
+							&& str_eql(&WKSTR(schema_type_str[schema]), &schema_str)) {
+							break;
+						}
+					}
 
-		ret = true;
-ret:
-		if (encapsulate) {
-			stack_pop(&wk->stack, wk->vm.scope_stack);
-		}
-		wk->vm.lang_mode = old_language_mode;
-		return ret;
-	} else {
-		enum module mod_type;
-		bool has_impl = false;
-		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
-			if (!encapsulate) {
-				vm_error(wk, "builtin modules cannot be imported into the current scope");
-				return false;
+					if (schema == ARRAY_LEN(schema_type_str)) {
+						vm_error(wk,
+							"invalid schema %.*s in module path",
+							schema_str.len,
+							schema_str.s);
+						return false;
+					}
+
+					path.s = sep + 1;
+					path.len -= (schema_str.len + 1);
+				} else {
+					schema = schema_type_none;
+				}
 			}
 
-			m->module = mod_type;
-			m->found = has_impl;
-			m->has_impl = has_impl;
-			return true;
-		}
+			{ // Interpolate path
+				sbuf_clear(&path_interpolated);
 
-		return false;
+				uint32_t i;
+				for (i = 0; i < path.len; ++i) {
+					if (path.s[i] == '%') {
+						sbuf_pushs(wk, &path_interpolated, name);
+					} else {
+						sbuf_push(wk, &path_interpolated, path.s[i]);
+					}
+				}
+			}
+
+			switch (schema) {
+			case schema_type_none:
+			case schema_type_embedded: {
+				struct module_lookup_script_opts opts = {
+					.encapsulate = encapsulate,
+					.embedded = schema == schema_type_embedded,
+				};
+
+				if (module_lookup_script(wk, &path_interpolated, m, &opts)) {
+					if (wk->vm.error) {
+						return false;
+					}
+					return true;
+				}
+				break;
+			}
+			case schema_type_builtin: {
+				enum module mod_type;
+				bool has_impl = false;
+				if (module_lookup_builtin(path_interpolated.buf, &mod_type, &has_impl)) {
+					if (!encapsulate) {
+						vm_error(wk,
+							"builtin modules cannot be imported into the current scope");
+						return false;
+					}
+
+					m->module = mod_type;
+					m->found = has_impl;
+					m->has_impl = has_impl;
+					return true;
+				}
+				break;
+			}
+			}
+		}
 	}
+
+	return false;
 }
 
 static bool

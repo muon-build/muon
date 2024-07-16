@@ -8,7 +8,13 @@
 
 #include "lang/func_lookup.h"
 
-extern const char *module_names[module_count];
+struct module_info {
+	const char *name;
+	const char *path;
+	bool implemented;
+};
+
+extern const struct module_info module_info[module_count];
 extern const struct func_impl impl_tbl_module[];
 extern struct func_impl_group module_func_impl_groups[module_count][language_mode_count];
 

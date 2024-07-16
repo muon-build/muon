@@ -156,6 +156,7 @@ struct vm {
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
+	obj module_path;
 
 	struct vm_ops ops;
 	struct vm_objects objects;

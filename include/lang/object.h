@@ -109,37 +109,37 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
+#define FOREACH_BUILTIN_MODULE(_)                     \
+	_(fs, "public", true)                         \
+	_(keyval, "public", true)                     \
+	_(pkgconfig, "public", true)                  \
+	_(python, "public", true)                     \
+	_(python3, "public", true)                    \
+	_(sourceset, "public", true)                  \
+	_(cmake, "public", false)                     \
+	_(dlang, "public", false)                     \
+	_(gnome, "public", false)                     \
+	_(hotdoc, "public", false)                    \
+	_(i18n, "public", false)                      \
+	_(java, "public", false)                      \
+	_(modtest, "public", false)                   \
+	_(qt, "public", false)                        \
+	_(qt4, "public", false)                       \
+	_(qt5, "public", false)                       \
+	_(qt6, "public", false)                       \
+	_(unstable_cuda, "public", false)             \
+	_(unstable_external_project, "public", false) \
+	_(unstable_icestorm, "public", false)         \
+	_(unstable_rust, "public", false)             \
+	_(unstable_simd, "public", false)             \
+	_(unstable_wayland, "public", false)          \
+	_(windows, "public", false)
+
+#define MODULE_ENUM(mod, path, implemented) module_##mod,
 enum module {
-	module_fs,
-	module_keyval,
-	module_pkgconfig,
-	module_python,
-	module_python3,
-	module_sourceset,
-
-	// unimplemented
-	module_unimplemented_separator,
-	module_cmake = module_unimplemented_separator,
-	module_dlang,
-	module_gnome,
-	module_hotdoc,
-	module_i18n,
-	module_java,
-	module_modtest,
-	module_qt,
-	module_qt4,
-	module_qt5,
-	module_qt6,
-	module_unstable_cuda,
-	module_unstable_external_project,
-	module_unstable_icestorm,
-	module_unstable_rust,
-	module_unstable_simd,
-	module_unstable_wayland,
-	module_windows,
-
-	module_count,
+	FOREACH_BUILTIN_MODULE(MODULE_ENUM) module_count,
 };
+#undef MODULE_ENUM
 
 enum str_flags {
 	str_flag_big = 1 << 0,
