@@ -410,3 +410,32 @@ rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t 
 
 	return true;
 }
+
+bool
+type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
+{
+	if (!(a & TYPE_TAG_COMPLEX)) {
+		return a == b;
+	}
+
+	if (!(b & TYPE_TAG_COMPLEX)) {
+		return false;
+	}
+
+	enum complex_type a_ct = COMPLEX_TYPE_TYPE(a), b_ct = COMPLEX_TYPE_TYPE(b);
+
+	if (a_ct != b_ct) {
+		return false;
+	}
+
+	uint32_t a_idx = COMPLEX_TYPE_INDEX(a), b_idx = COMPLEX_TYPE_INDEX(b);
+
+	if (a_idx == b_idx) {
+		return true;
+	}
+
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
+	struct obj_typeinfo *a_ti = bucket_arr_get(typeinfo_arr, a_idx), *b_ti = bucket_arr_get(typeinfo_arr, b_idx);
+
+	return type_tags_eql(wk, a_ti->type, b_ti->type) && type_tags_eql(wk, a_ti->subtype, b_ti->subtype);
+}
