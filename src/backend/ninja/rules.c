@@ -282,6 +282,8 @@ bool
 ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bool need_phony, obj compiler_rule_arr)
 {
 	TracyCZoneAutoS;
+	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "ninja_write_rules"));
+
 	bool res = false;
 
 	fprintf(out,
@@ -454,6 +456,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 	res = true;
 ret:
+	obj_array_pop(wk, wk->backend_output_stack);
 	TracyCZoneAutoE;
 	return res;
 }

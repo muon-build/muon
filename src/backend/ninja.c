@@ -75,6 +75,8 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	default: UNREACHABLE;
 	}
 
+	obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing target %s", name));
+
 	switch (t) {
 	case obj_alias_target: ret = ninja_write_alias_tgt(wk, tgt_id, ctx); break;
 	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
@@ -87,6 +89,8 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	if (!ret) {
 		LOG_E("failed to write %s '%s'", obj_type_to_s(t), name);
 	}
+
+	obj_array_pop(wk, wk->backend_output_stack);
 
 	obj_clear(wk, &mk);
 
@@ -234,6 +238,8 @@ ninja_write_all(struct workspace *wk)
 	struct write_build_ctx ctx = { 0 };
 	make_obj(wk, &ctx.compiler_rule_arr, obj_array);
 
+	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "ninja_write_all"));
+
 	if (!(with_open(wk->build_root, "build.ninja", wk, &ctx, ninja_write_build)
 		    && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
 		    && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
@@ -246,6 +252,8 @@ ninja_write_all(struct workspace *wk)
 		    && with_open(wk->muon_private, output_path.option_info, wk, NULL, ninja_write_option_info))) {
 		return false;
 	}
+
+	obj_array_pop(wk, wk->backend_output_stack);
 
 	{ /* compile_commands.json */
 		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);

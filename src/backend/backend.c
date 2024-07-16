@@ -9,7 +9,9 @@
 #include "backend/backend.h"
 #include "backend/ninja.h"
 #include "functions/environment.h"
+#include "lang/object_iterators.h"
 #include "log.h"
+#include "platform/init.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
 
@@ -49,12 +51,36 @@ ret:
 	return ret;
 }
 
+static void
+backend_print_stack(struct workspace *wk)
+{
+	log_plain("stack trace:\n");
+	obj v;
+	obj_array_for(wk, wk->backend_output_stack, v) {
+		log_plain(" -> %s\n", get_cstr(wk, v));
+	}
+}
+
+static void
+backend_abort_handler(void *_ctx)
+{
+	struct workspace *wk = _ctx;
+	LOG_E("an unhandled error occured during backend output");
+	backend_print_stack(wk);
+}
+
 bool
 backend_output(struct workspace *wk)
 {
 	TracyCZoneAutoS;
+
+	make_obj(wk, &wk->backend_output_stack, obj_array);
+	platform_set_abort_handler(backend_abort_handler, wk);
+
 	if (!ninja_write_all(wk)) {
 		LOG_E("backend output failed");
+
+		backend_print_stack(wk);
 		TracyCZoneAutoE;
 		return false;
 	}

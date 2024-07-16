@@ -80,6 +80,8 @@ struct workspace {
 	obj compiler_check_cache;
 	/* dict -> capture */
 	obj dependency_handlers;
+	/* list[str], used for error reporting */
+	obj backend_output_stack;
 	/* ----------------- */
 
 	struct vm vm;
