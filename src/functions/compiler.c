@@ -2223,3 +2223,138 @@ const struct func_impl impl_tbl_compiler[] = {
 	{ "version", func_compiler_version, tc_string },
 	{ NULL, NULL },
 };
+
+static bool
+compiler_handle_toolchain_args(struct workspace *wk, obj self, obj *res, enum toolchain_component component)
+{
+	struct args_norm an[] = {
+		{ make_complex_type(wk,
+			complex_type_nested,
+			tc_dict,
+			make_complex_type(wk,
+				complex_type_or,
+				tc_capture,
+				make_complex_type(wk, complex_type_nested, tc_array, tc_string))) },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_overwrite,
+	};
+	struct args_kw akw[] = {
+		[kw_overwrite] = { "overwrite", tc_bool },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	struct obj_compiler *c = get_obj_compiler(wk, self);
+
+	{ // validate function signatures
+		const struct toolchain_arg_handler *handler;
+		obj k, v;
+		obj_dict_for(wk, an[0].val, k, v) {
+			if (!(handler = get_toolchain_arg_handler_info(component, get_cstr(wk, k)))) {
+				vm_error(wk, "unknown toolchain function %o", k);
+				return false;
+			}
+
+			if (get_obj_type(wk, v) != obj_capture) {
+				continue;
+			}
+
+			struct obj_func *f = get_obj_capture(wk, v)->func;
+			if (f->nkwargs) {
+				vm_error(wk, "toolchain function %o has an invalid signature: accepts kwargs", k);
+				return false;
+			} else if (!type_tags_eql(wk,
+					   f->return_type,
+					   make_complex_type(wk, complex_type_nested, tc_array, tc_string))) {
+				vm_error(wk,
+					"toolchain function %o has an invalid signature: return type must be list[str]",
+					k);
+				return false;
+			}
+
+			type_tag expected_sig[2];
+			uint32_t expected_sig_len;
+			toolchain_arg_arity_to_sig(handler->arity, expected_sig, &expected_sig_len);
+
+			bool sig_valid;
+			switch (f->nargs) {
+			case 0: {
+				sig_valid = expected_sig_len == 0;
+				break;
+			}
+			case 1: {
+				sig_valid = expected_sig_len == 1 && expected_sig[0] == f->an[0].type;
+				break;
+			}
+			case 2: {
+				sig_valid = expected_sig_len == 2 && expected_sig[0] == f->an[0].type
+					    && expected_sig[1] == f->an[1].type;
+				break;
+			}
+			default: sig_valid = false;
+			}
+
+			if (!sig_valid) {
+				obj expected = make_str(wk, "(");
+				uint32_t i;
+				for (i = 0; i < expected_sig_len; ++i) {
+					str_app(wk, &expected, typechecking_type_to_s(wk, expected_sig[i]));
+					if (i + 1 < expected_sig_len) {
+						str_app(wk, &expected, ", ");
+					}
+				}
+				str_app(wk, &expected, ")");
+
+				vm_error(wk,
+					"toolchain function %o has an invalid signature: expected signature: %#o",
+					k,
+					expected);
+				return false;
+			}
+		}
+	}
+
+	obj *overrides = &c->overrides[component];
+
+	bool overwrite = akw[kw_overwrite].set ? get_obj_bool(wk, akw[kw_overwrite].val) : *overrides == 0;
+
+	if (overwrite) {
+		*overrides = an[0].val;
+	} else if (!*overrides) {
+		vm_error(wk, "unable to merge overrides: there are no existing overrides");
+		return false;
+	} else {
+		obj_dict_merge_nodup(wk, *overrides, an[0].val);
+	}
+
+	return true;
+}
+
+static bool
+func_compiler_handle_compiler_args(struct workspace *wk, obj self, obj *res)
+{
+	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_compiler);
+}
+
+static bool
+func_compiler_handle_linker_args(struct workspace *wk, obj self, obj *res)
+{
+	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_linker);
+}
+
+static bool
+func_compiler_handle_static_linker_args(struct workspace *wk, obj self, obj *res)
+{
+	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_static_linker);
+}
+
+const struct func_impl impl_tbl_compiler_internal[] = {
+	{ "handle_compiler_args", func_compiler_handle_compiler_args },
+	{ "handle_linker_args", func_compiler_handle_linker_args },
+	{ "handle_static_linker_args", func_compiler_handle_static_linker_args },
+	{ NULL, NULL },
+};

@@ -240,12 +240,13 @@ func_module_found(struct workspace *wk, obj self, obj *res)
 
 // clang-format off
 struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = {
-	[module_fs]        = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal } },
-	[module_keyval]    = { { impl_tbl_module_keyval },    { 0 }                           },
-	[module_pkgconfig] = { { impl_tbl_module_pkgconfig }, { 0 }                           },
-	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                           },
-	[module_python]    = { { impl_tbl_module_python },    { 0 }                           },
-	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                           },
+	[module_fs]        = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal }        },
+	[module_keyval]    = { { impl_tbl_module_keyval },    { 0 }                                  },
+	[module_pkgconfig] = { { impl_tbl_module_pkgconfig }, { 0 }                                  },
+	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                                  },
+	[module_python]    = { { impl_tbl_module_python },    { 0 }                                  },
+	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                                  },
+	[module_toolchain] = { { 0 },                         { impl_tbl_module_toolchain }          },
 };
 
 const struct func_impl impl_tbl_module[] = {
