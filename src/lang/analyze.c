@@ -966,7 +966,7 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 
 	// If type includes module, then we can't be sure what methods it might
 	// respond to
-	if (t & tc_module) {
+	if ((t & tc_module & ~TYPE_TAG_MASK)) {
 		res_t.type = tc_any;
 		goto return_injected_native_func;
 	}
@@ -1496,26 +1496,27 @@ do_analyze(struct az_opts *opts)
 			}
 		}
 
-		assert(wk.vm.code.len == analyzer.visited_ops.len);
+		// If this isn't true then we probaly failed to parse a file
+		if (wk.vm.code.len == analyzer.visited_ops.len) {
+			bool in_dead_code = false;
+			uint32_t start_src_idx, src_idx;
+			struct source_location start_loc, loc;
 
-		bool in_dead_code = false;
-		uint32_t start_src_idx, src_idx;
-		struct source_location start_loc, loc;
+			for (i = 5; i < wk.vm.code.len; i += OP_WIDTH(wk.vm.code.e[i])) {
+				if (!analyzer.visited_ops.e[i]) {
+					vm_lookup_inst_location_src_idx(&wk.vm, i, &loc, &src_idx);
 
-		for (i = 5; i < wk.vm.code.len; i += OP_WIDTH(wk.vm.code.e[i])) {
-			if (!analyzer.visited_ops.e[i]) {
-				vm_lookup_inst_location_src_idx(&wk.vm, i, &loc, &src_idx);
+					if (!in_dead_code) {
+						in_dead_code = true;
+						start_loc = loc;
+						start_src_idx = src_idx;
+					}
 
-				if (!in_dead_code) {
-					in_dead_code = true;
-					start_loc = loc;
-					start_src_idx = src_idx;
+					assert(src_idx == start_src_idx);
+				} else if (in_dead_code) {
+					az_warn_dead_code(&wk, src_idx, &start_loc, &loc);
+					in_dead_code = false;
 				}
-
-				assert(src_idx == start_src_idx);
-			} else if (in_dead_code) {
-				az_warn_dead_code(&wk, src_idx, &start_loc, &loc);
-				in_dead_code = false;
 			}
 		}
 	}
