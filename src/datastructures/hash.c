@@ -91,11 +91,11 @@ hash_keycmp_memcmp(const struct hash *h, const void *a, const void *b)
 }
 
 void
-hash_init(struct hash *h, size_t cap, uint32_t keysize)
+hash_init(struct hash *h, uint32_t cap, uint32_t keysize)
 {
 	ASSERT_VALID_CAP(cap);
 
-	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (size_t)((float)cap * LOAD_FACTOR) };
+	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (uint32_t)((float)cap * LOAD_FACTOR) };
 	arr_init(&h->meta, h->cap, sizeof(uint8_t));
 	arr_init(&h->e, h->cap, sizeof(struct hash_elem));
 	arr_init(&h->keys, h->cap, keysize);
@@ -114,7 +114,7 @@ hash_keycmp_strcmp(const struct hash *_h, const void *_a, const void *_b)
 }
 
 void
-hash_init_str(struct hash *h, size_t cap)
+hash_init_str(struct hash *h, uint32_t cap)
 {
 	hash_init(h, cap, sizeof(struct strkey));
 	h->keycmp = hash_keycmp_strcmp;
@@ -132,7 +132,7 @@ hash_destroy(struct hash *h)
 void
 hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
 {
-	size_t i;
+	uint32_t i;
 
 	for (i = 0; i < h->cap; ++i) {
 		if (!k_full(((uint8_t *)h->meta.e)[i])) {
@@ -150,7 +150,7 @@ hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
 void
 hash_for_each_with_keys(struct hash *h, void *ctx, hash_with_keys_iterator_func ifnc)
 {
-	size_t i;
+	uint32_t i;
 	struct hash_elem *he;
 
 	for (i = 0; i < h->cap; ++i) {
@@ -202,7 +202,7 @@ probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t 
 }
 
 static void
-resize(struct hash *h, size_t newcap)
+resize(struct hash *h, uint32_t newcap)
 {
 	ASSERT_VALID_CAP(newcap);
 	assert(h->len <= newcap);
@@ -219,7 +219,7 @@ resize(struct hash *h, size_t newcap)
 		.keys = h->keys,
 		.len = h->len,
 		.load = h->load,
-		.max_load = (size_t)((float)newcap * LOAD_FACTOR),
+		.max_load = (uint32_t)((float)newcap * LOAD_FACTOR),
 
 		.hash_func = h->hash_func,
 		.keycmp = h->keycmp,

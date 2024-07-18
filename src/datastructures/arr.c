@@ -16,7 +16,7 @@
 #include "platform/mem.h"
 
 void
-arr_init(struct arr *arr, size_t initial, size_t item_size)
+arr_init(struct arr *arr, uint32_t initial, uint32_t item_size)
 {
 	assert(item_size > 0);
 	*arr = (struct arr){
@@ -42,7 +42,7 @@ arr_clear(struct arr *arr)
 }
 
 static uint8_t *
-arr_point_at(const struct arr *arr, size_t i)
+arr_point_at(const struct arr *arr, uint32_t i)
 {
 	return arr->e + (i * arr->item_size);
 }
@@ -50,7 +50,7 @@ arr_point_at(const struct arr *arr, size_t i)
 static void *
 arr_get_mem(struct arr *arr)
 {
-	size_t i, newcap;
+	uint32_t i, newcap;
 	++arr->len;
 	/* ensure_mem_size(elem, size, ++(*len), cap); */
 	if (arr->len > arr->cap) {
@@ -77,20 +77,20 @@ arr_get_mem(struct arr *arr)
 }
 
 void
-arr_grow_by(struct arr *arr, size_t size)
+arr_grow_by(struct arr *arr, uint32_t size)
 {
 	arr->len += size - 1;
 	arr_get_mem(arr);
 }
 
 void
-arr_grow_to(struct arr *arr, size_t size)
+arr_grow_to(struct arr *arr, uint32_t size)
 {
 	arr->len = size - 1;
 	arr_get_mem(arr);
 }
 
-size_t
+uint32_t
 arr_push(struct arr *arr, const void *item)
 {
 	memcpy(arr_get_mem(arr), item, arr->item_size);
@@ -99,7 +99,7 @@ arr_push(struct arr *arr, const void *item)
 }
 
 void *
-arr_get(const struct arr *arr, size_t i)
+arr_get(const struct arr *arr, uint32_t i)
 {
 	if (i >= arr->len) {
 		L("index %" PRIu64 " out of bounds (%" PRIu64 ")", (uint64_t)i, (uint64_t)arr->len);
@@ -110,7 +110,7 @@ arr_get(const struct arr *arr, size_t i)
 }
 
 void
-arr_del(struct arr *arr, size_t i)
+arr_del(struct arr *arr, uint32_t i)
 {
 	assert(i < arr->len);
 
