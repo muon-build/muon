@@ -59,7 +59,10 @@ endif
 
 # compiler setup
 
-c_args = ['-DMUON_PLATFORM_' + platform]
+c_args = [
+    '-DMUON_PLATFORM_' + platform,
+    '-DMUON_ENDIAN=@0@'.format({'big': 1, 'little': 0}[host_machine.endian()]),
+]
 link_args = []
 
 if get_option('static')

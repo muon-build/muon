@@ -537,10 +537,43 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
  * utility functions
  ******************************************************************************/
 
+uint32_t
+vm_constant_host_to_bc(uint32_t n)
+{
+#if !defined(MUON_ENDIAN)
+	union {
+		int i;
+		char c;
+	} u = { 1 };
+	return u.c ? n : bswap_32(n) >> 8;
+#elif MUON_ENDIAN == 1
+	return bswap_32(n) >> 8;
+#elif MUON_ENDIAN == 0
+	return n;
+#endif
+}
+
+static uint32_t
+vm_constant_bc_to_host(uint32_t n)
+{
+#if !defined(MUON_ENDIAN)
+	union {
+		int i;
+		char c;
+	} u = { 1 };
+	return u.c ? n : bswap_32(n << 8);
+#elif MUON_ENDIAN == 1
+	return bswap_32(n << 8);
+#elif MUON_ENDIAN == 0
+	return n;
+#endif
+}
+
 obj
 vm_get_constant(uint8_t *code, uint32_t *ip)
 {
 	obj r = (code[*ip + 0] << 16) | (code[*ip + 1] << 8) | code[*ip + 2];
+	r = vm_constant_bc_to_host(r);
 	*ip += 3;
 	return r;
 }
@@ -562,8 +595,17 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	uint32_t ip = base_ip;
 	buf_push("%04x ", ip);
 
+	uint32_t op = code[ip], constants[3];
+	{
+		++ip;
+		uint32_t j;
+		for (j = 0; j < op_operands[op]; ++j) {
+			constants[j] = vm_get_constant(code, &ip);
+		}
+	}
+
 	// clang-format off
-	switch ((enum op)code[ip++]) {
+	switch (op) {
 	op_case(op_pop) break;
 	op_case(op_dup) break;
 	op_case(op_swap) break;
@@ -587,65 +629,65 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_load) break;
 
 	op_case(op_iterator)
-		buf_push(":%d", vm_get_constant(code, &ip));
+		buf_push(":%d", constants[0]);
 		break;
 	op_case(op_iterator_next)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_add_store)
-		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
+		buf_push(":%s", get_str(wk, constants[0])->s);
 		break;
 	op_case(op_constant)
-		buf_push(":%o", vm_get_constant(code, &ip));
+		buf_push(":%o", constants[0]);
 		break;
 	op_case(op_constant_list)
-		buf_push(":len:%d", vm_get_constant(code, &ip));
+		buf_push(":len:%d", constants[0]);
 		break;
 	op_case(op_constant_dict)
-		buf_push(":len:%d", vm_get_constant(code, &ip));
+		buf_push(":len:%d", constants[0]);
 		break;
 	op_case(op_constant_func)
-		buf_push(":%d", vm_get_constant(code, &ip));
+		buf_push(":%d", constants[0]);
 		break;
 	op_case(op_call)
-		buf_push(":%d,%d", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
+		buf_push(":%d,%d", constants[0], constants[1]);
 		break;
 	op_case(op_call_method) {
 		uint32_t a, b, c;
-		a = vm_get_constant(code, &ip);
-		b = vm_get_constant(code, &ip);
-		c = vm_get_constant(code, &ip);
+		a = constants[0];
+		b = constants[1];
+		c = constants[2];
 		buf_push(":%o,%d,%d", a, b, c);
 		break;
 	}
 	op_case(op_call_native)
 		buf_push(":");
-		buf_push("%d,%d,", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
-		uint32_t id = vm_get_constant(code, &ip);
+		buf_push("%d,%d,", constants[0], constants[1]);
+		uint32_t id = constants[2];
 		buf_push("%s", native_funcs[id].name);
 		break;
 	op_case(op_jmp_if_true)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_jmp_if_false)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_jmp_if_disabler)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_jmp_if_disabler_keep)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_jmp)
-		buf_push(":%04x", vm_get_constant(code, &ip));
+		buf_push(":%04x", constants[0]);
 		break;
 	op_case(op_typecheck)
-		buf_push(":%s", obj_type_to_s(vm_get_constant(code, &ip)));
+		buf_push(":%s", obj_type_to_s(constants[0]));
 		break;
 
 	op_case(op_az_branch)
-		buf_push(":%d", vm_get_constant(code, &ip));
-		buf_push(", obj:%d, %d", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
+		buf_push(":%d", constants[0]);
+		buf_push(", obj:%d, %d", constants[1], constants[2]);
 		break;
 	op_case(op_az_merge)
 		break;
@@ -677,7 +719,7 @@ vm_dis(struct workspace *wk)
 		/* if (src) { */
 		/* 	list_line_range(src, loc, 0); */
 		/* } */
-		i += 1 + op_operands[op];
+		i += OP_WIDTH(op);
 	}
 }
 
@@ -2263,8 +2305,8 @@ vm_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-			/* object_stack_print(wk, &wk->vm.stack); */
+			/*LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));*/
+			/*object_stack_print(wk, &wk->vm.stack);*/
 		}
 
 		cip = wk->vm.ip;

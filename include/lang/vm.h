@@ -186,6 +186,7 @@ void object_stack_discard(struct object_stack *s, uint32_t n);
 void object_stack_print(struct workspace *wk, struct object_stack *s);
 
 obj vm_get_constant(uint8_t *code, uint32_t *ip);
+uint32_t vm_constant_host_to_bc(uint32_t n);
 obj vm_execute(struct workspace *wk);
 bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);

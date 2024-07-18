@@ -43,6 +43,7 @@ push_code(struct workspace *wk, uint8_t b)
 static void
 push_constant_at(obj v, uint8_t *code)
 {
+	v = vm_constant_host_to_bc(v);
 	code[0] = (v >> 16) & 0xff;
 	code[1] = (v >> 8) & 0xff;
 	code[2] = v & 0xff;
@@ -51,6 +52,7 @@ push_constant_at(obj v, uint8_t *code)
 static void
 push_constant(struct workspace *wk, obj v)
 {
+	v = vm_constant_host_to_bc(v);
 	push_code(wk, (v >> 16) & 0xff);
 	push_code(wk, (v >> 8) & 0xff);
 	push_code(wk, v & 0xff);
