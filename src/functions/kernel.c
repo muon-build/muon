@@ -1915,9 +1915,8 @@ func_dbg(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	LOG_I("entering debugger, type \\help for help");
-	repl(wk, true);
-
+	wk->vm.dbg_state.debugging = true;
+	wk->vm.dbg_state.prev_source_location = (struct source_location){ 0 };
 	return true;
 }
 

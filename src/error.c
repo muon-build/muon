@@ -221,11 +221,6 @@ error_unrecoverable(const char *fmt, ...)
 	exit(1);
 }
 
-struct detailed_source_location {
-	struct source_location loc;
-	uint32_t line, col, start_of_line, end_line, end_col;
-};
-
 MUON_ATTR_FORMAT(printf, 3, 4)
 static uint32_t
 print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt, ...)
@@ -264,8 +259,11 @@ print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt,
 	return ret;
 }
 
-static void
-get_detailed_source_location(struct source *src, struct source_location loc, struct detailed_source_location *dloc)
+void
+get_detailed_source_location(struct source *src,
+	struct source_location loc,
+	struct detailed_source_location *dloc,
+	enum get_detailed_source_location_flag flags)
 {
 	*dloc = (struct detailed_source_location){
 		.loc = loc,
@@ -282,11 +280,16 @@ get_detailed_source_location(struct source *src, struct source_location loc, str
 		if (i == loc.off) {
 			dloc->col = (i - dloc->start_of_line) + 1;
 		} else if (i == end) {
-			dloc->end_col = (i - dloc->start_of_line) + 1;
+			dloc->end_col = i - dloc->start_of_line;
 			return;
 		}
 
 		if (src->src[i] == '\n') {
+			if (i > loc.off && !(flags & get_detailed_source_location_flag_multiline)) {
+				dloc->loc.len = ((i - dloc->start_of_line) - dloc->col);
+				return;
+			}
+
 			++line;
 
 			if (i <= loc.off) {
@@ -374,13 +377,13 @@ list_line_range(struct source *src, struct source_location location, uint32_t co
 	reopen_source(src, &destroy_source);
 
 	struct detailed_source_location dloc;
-	get_detailed_source_location(src, location, &dloc);
+	get_detailed_source_location(src, location, &dloc, 0);
 
 	int32_t i;
 	for (i = -(int32_t)context; i <= (int32_t)context; ++i) {
 		uint32_t line_pre_len;
 
-		line_pre_len = print_source_line(src, dloc.line, "%s%3d | ", i == 0 ? ">" : " ", dloc.line);
+		line_pre_len = print_source_line(src, dloc.line + i, "%s%3d | ", i == 0 ? ">" : " ", dloc.line + i);
 
 		if (i == 0) {
 			list_line_underline(src, &dloc, line_pre_len, false);
@@ -421,7 +424,7 @@ error_message(struct source *src, struct source_location location, enum log_leve
 	reopen_source(src, &destroy_source);
 
 	struct detailed_source_location dloc;
-	get_detailed_source_location(src, location, &dloc);
+	get_detailed_source_location(src, location, &dloc, get_detailed_source_location_flag_multiline);
 
 	log_plain("%s:%d:%d: ", src->label, dloc.line, dloc.col);
 

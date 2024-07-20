@@ -91,7 +91,12 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 	}
 }
 
-static void vm_compile_block(struct workspace *wk, struct node *n, bool final_return);
+enum vm_compile_block_flags {
+	vm_compile_block_final_return = 1 << 0,
+	vm_compile_block_expr = 1 << 1,
+};
+
+static void vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
 static void vm_compile_expr(struct workspace *wk, struct node *n);
 
 static void
@@ -618,7 +623,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		vm_compile_block(wk, n->r, true);
+		vm_compile_block(wk, n->r, vm_compile_block_final_return);
 
 		/* function body end */
 
@@ -710,14 +715,18 @@ vm_compile_expr(struct workspace *wk, struct node *n)
 }
 
 static void
-vm_compile_block(struct workspace *wk, struct node *n, bool final_return)
+vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
 		vm_compile_expr(wk, n->l);
 
-		if (n->l->type != node_type_if) {
+		if (n->l->type == node_type_if) {
+			// don't pop
+		} else if ((flags & vm_compile_block_expr) && !(n->r && n->r->l)) {
+			// don't pop
+		} else {
 			push_code(wk, op_pop);
 		}
 
@@ -725,7 +734,7 @@ vm_compile_block(struct workspace *wk, struct node *n, bool final_return)
 		n = n->r;
 	}
 
-	if (final_return) {
+	if (flags & vm_compile_block_final_return) {
 		if (prev && prev->l->type == node_type_return) {
 			--wk->vm.code.len;
 			wk->vm.code.e[wk->vm.code.len - 1] = op_return_end;
@@ -734,6 +743,8 @@ vm_compile_block(struct workspace *wk, struct node *n, bool final_return)
 			push_constant(wk, 0);
 			push_code(wk, op_return_end);
 		}
+	} else if (flags & vm_compile_block_expr) {
+		push_code(wk, op_return_end);
 	}
 }
 
@@ -766,7 +777,13 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	*entry = wk->vm.code.len;
 
-	vm_compile_block(wk, n, true);
+	enum vm_compile_block_flags flags = vm_compile_block_final_return;
+	if (mode & vm_compile_mode_expr) {
+		flags &= ~vm_compile_block_final_return;
+		flags |= vm_compile_block_expr;
+	}
+
+	vm_compile_block(wk, n, flags);
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);

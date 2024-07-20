@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "error.h"
-#include "external/bestline.h"
+#include "external/readline.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/eval.h"
@@ -106,6 +106,10 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		= (wk->vm.lang_mode == language_extended || wk->vm.lang_mode == language_internal) ?
 			  vm_compile_mode_language_extended :
 			  0;
+
+	if (mode == eval_mode_repl) {
+		compile_mode |= vm_compile_mode_expr;
+	}
 
 	uint32_t entry;
 	{
@@ -210,10 +214,9 @@ ret:
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
-	bool ret, o_break_on_err = wk->vm.dbg_state.break_on_err;
-	wk->vm.dbg_state.break_on_err = false;
-	ret = eval_str(wk, str, eval_mode_repl, repl_res);
-	wk->vm.dbg_state.break_on_err = o_break_on_err;
+	stack_push(&wk->stack, wk->vm.dbg_state.debugging, false);
+	bool ret = eval_str(wk, str, eval_mode_repl, repl_res);
+	stack_pop(&wk->stack, wk->vm.dbg_state.debugging);
 	return ret;
 }
 
@@ -233,11 +236,12 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_inspect,
 		repl_cmd_watch,
 		repl_cmd_unwatch,
+		repl_cmd_eval,
 		repl_cmd_help,
 	};
-	enum repl_cmd cmd = repl_cmd_noop;
+	static enum repl_cmd cmd = repl_cmd_noop;
 	struct {
-		const char *name[3];
+		const char *name[5];
 		enum repl_cmd cmd;
 		bool valid, has_arg;
 		const char *help_text;
@@ -245,129 +249,129 @@ repl(struct workspace *wk, bool dbg)
 		{ { "c", "continue", 0 }, repl_cmd_exit, dbg },
 		{ { "exit", 0 }, repl_cmd_exit, !dbg },
 		{ { "h", "help", 0 }, repl_cmd_help, true },
-		{ { "i", "inspect", 0 }, repl_cmd_inspect, dbg, true, .help_text = "\\inspect <expr>" },
+		{ { "i", "inspect", 0 }, repl_cmd_inspect, dbg, true },
 		{ { "l", "list", 0 }, repl_cmd_list, dbg },
 		{ { "s", "step", 0 }, repl_cmd_step, dbg },
 		{ { "w", "watch", 0 }, repl_cmd_watch, dbg, true },
 		{ { "uw", "unwatch", 0 }, repl_cmd_unwatch, dbg, true },
+		{ { "e", "p", "eval", "print", 0 }, repl_cmd_eval, dbg, true },
 		0 };
 
 	if (dbg) {
-		/* list_line_range(wk->src, get_node(wk->ast, wk->vm.dbg_state.node)->location.line, 1, 0); */
-
-		if (wk->vm.dbg_state.stepping) {
-			cmd = repl_cmd_step;
-		}
+		struct source_location loc;
+		uint32_t src_idx;
+		vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
+		list_line_range(arr_get(&wk->vm.src, src_idx), loc, 1);
 	}
 
-	const char *prompt = "> ", cmd_char = '\\';
+	const char *prompt = "> ";
 
-	while (loop && (line = muon_bestline(prompt))) {
-		muon_bestline_history_add(line);
+	while (loop && (line = muon_readline(prompt))) {
+		if (!*line) {
+			goto cmd_found;
+		}
 
-		if (!*line || *line == cmd_char) {
-			char *arg = NULL;
+		muon_readline_history_add(line);
 
-			if (!*line || !line[1]) {
-				goto cmd_found;
-			}
+		char *arg = NULL;
 
-			if ((arg = strchr(line, ' '))) {
-				*arg = 0;
-				++arg;
-			}
+		if ((arg = strchr(line, ' '))) {
+			*arg = 0;
+			++arg;
+		}
 
-			uint32_t i, j;
-			for (i = 0; *repl_cmds[i].name; ++i) {
-				if (repl_cmds[i].valid) {
-					for (j = 0; repl_cmds[i].name[j]; ++j) {
-						if (strcmp(&line[1], repl_cmds[i].name[j]) == 0) {
-							if (repl_cmds[i].has_arg) {
-								if (!arg) {
-									fprintf(out, "missing argument\n");
-									goto cont;
-								}
-							} else {
-								if (arg) {
-									fprintf(out,
-										"this command does not take an argument\n");
-									goto cont;
-								}
+		uint32_t i, j;
+		for (i = 0; *repl_cmds[i].name; ++i) {
+			if (repl_cmds[i].valid) {
+				for (j = 0; repl_cmds[i].name[j]; ++j) {
+					if (strcmp(line, repl_cmds[i].name[j]) == 0) {
+						if (repl_cmds[i].has_arg) {
+							if (!arg) {
+								fprintf(out, "missing argument\n");
+								goto cont;
 							}
-
-							cmd = repl_cmds[i].cmd;
-							goto cmd_found;
+						} else {
+							if (arg) {
+								fprintf(out,
+									"this command does not take an argument\n");
+								goto cont;
+							}
 						}
+
+						cmd = repl_cmds[i].cmd;
+						goto cmd_found;
 					}
 				}
 			}
+		}
 
-			fprintf(out, "unknown repl command '%s'\n", &line[1]);
-			goto cont;
+		fprintf(out, "unknown repl command '%s'\n", line);
+		goto cont;
 cmd_found:
-			switch (cmd) {
-			case repl_cmd_abort: exit(1); break;
-			case repl_cmd_exit:
-				wk->vm.dbg_state.stepping = false;
-				loop = false;
-				break;
-			case repl_cmd_help:
-				fprintf(out, "repl commands:\n");
-				for (i = 0; *repl_cmds[i].name; ++i) {
-					if (!repl_cmds[i].valid) {
-						continue;
-					}
-
-					fprintf(out, "  - ");
-					for (j = 0; repl_cmds[i].name[j]; ++j) {
-						fprintf(out, "%c%s", cmd_char, repl_cmds[i].name[j]);
-						if (repl_cmds[i].name[j + 1]) {
-							fprintf(out, ", ");
-						}
-					}
-
-					if (repl_cmds[i].help_text) {
-						fprintf(out, " - %s", repl_cmds[i].help_text);
-					}
-					fprintf(out, "\n");
+		switch (cmd) {
+		case repl_cmd_abort: exit(1); break;
+		case repl_cmd_exit: {
+			wk->vm.dbg_state.debugging = false;
+			loop = false;
+			break;
+		}
+		case repl_cmd_help:
+			fprintf(out, "repl commands:\n");
+			for (i = 0; *repl_cmds[i].name; ++i) {
+				if (!repl_cmds[i].valid) {
+					continue;
 				}
-				break;
-			case repl_cmd_list: {
-				/* list_line_range(wk->src, get_node(wk->ast, wk->vm.dbg_state.node)->location.line, 11, 0); */
+
+				fprintf(out, "  - ");
+				for (j = 0; repl_cmds[i].name[j]; ++j) {
+					fprintf(out, "%s", repl_cmds[i].name[j]);
+					if (repl_cmds[i].name[j + 1]) {
+						fprintf(out, ", ");
+					}
+				}
+
+				if (repl_cmds[i].help_text) {
+					fprintf(out, " - %s", repl_cmds[i].help_text);
+				}
+				fprintf(out, "\n");
+			}
+			break;
+		case repl_cmd_list: {
+			struct source_location loc;
+			uint32_t src_idx;
+			vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
+			list_line_range(arr_get(&wk->vm.src, src_idx), loc, 11);
+			break;
+		}
+		case repl_cmd_step: {
+			wk->vm.dbg_state.debugging = true;
+			loop = false;
+			break;
+		}
+		case repl_cmd_inspect:
+			if (!repl_eval_str(wk, arg, &repl_res)) {
 				break;
 			}
-			case repl_cmd_step:
-				wk->vm.dbg_state.stepping = true;
-				loop = false;
-				break;
-			case repl_cmd_inspect:
-				if (!repl_eval_str(wk, arg, &repl_res)) {
-					break;
-				}
 
-				obj_inspect(wk, out, repl_res);
-				break;
-			case repl_cmd_watch:
-				if (!wk->vm.dbg_state.watched) {
-					make_obj(wk, &wk->vm.dbg_state.watched, obj_array);
-				}
-
-				obj_array_push(wk, wk->vm.dbg_state.watched, make_str(wk, arg));
-				break;
-			case repl_cmd_unwatch:
-				if (wk->vm.dbg_state.watched) {
-					uint32_t idx;
-					if (obj_array_index_of(wk, wk->vm.dbg_state.watched, make_str(wk, arg), &idx)) {
-						obj_array_del(wk, wk->vm.dbg_state.watched, idx);
-					}
-				}
-				break;
-			case repl_cmd_noop: break;
+			obj_inspect(wk, out, repl_res);
+			break;
+		case repl_cmd_watch:
+			if (!wk->vm.dbg_state.watched) {
+				make_obj(wk, &wk->vm.dbg_state.watched, obj_array);
 			}
-		} else {
-			cmd = repl_cmd_noop;
 
-			if (!repl_eval_str(wk, line, &repl_res)) {
+			obj_array_push(wk, wk->vm.dbg_state.watched, make_str(wk, arg));
+			break;
+		case repl_cmd_unwatch:
+			if (wk->vm.dbg_state.watched) {
+				uint32_t idx;
+				if (obj_array_index_of(wk, wk->vm.dbg_state.watched, make_str(wk, arg), &idx)) {
+					obj_array_del(wk, wk->vm.dbg_state.watched, idx);
+				}
+			}
+			break;
+		case repl_cmd_eval: {
+			if (!repl_eval_str(wk, arg, &repl_res)) {
 				goto cont;
 			}
 
@@ -375,16 +379,16 @@ cmd_found:
 				obj_fprintf(wk, out, "%o\n", repl_res);
 				wk->vm.behavior.assign_variable(wk, "_", repl_res, 0, assign_local);
 			}
+			break;
 		}
+		case repl_cmd_noop: break;
+		}
+
 cont:
-		muon_bestline_free(line);
+		muon_readline_free(line);
 	}
 
-	muon_bestline_history_free();
-
-	if (!line) {
-		wk->vm.dbg_state.stepping = false;
-	}
+	muon_readline_history_free();
 }
 
 const char *

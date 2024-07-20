@@ -112,10 +112,11 @@ struct vm_compiler_state {
 };
 
 struct vm_dbg_state {
-	uint32_t node, last_line;
-	bool stepping, break_on_err, dump_signature;
+	struct source_location prev_source_location;
 	obj watched;
+	obj breakpoints;
 	obj eval_trace;
+	bool debugging, dump_signature;
 	bool eval_trace_subdir;
 };
 
@@ -191,6 +192,7 @@ obj vm_execute(struct workspace *wk);
 bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
+void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
 void vm_dis(struct workspace *wk);
 const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);
@@ -208,4 +210,6 @@ MUON_ATTR_FORMAT(printf, 3, 4) void vm_error_at(struct workspace *wk, uint32_t i
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char *fmt, ...);
+
+bool vm_dbg_push_breakpoint(struct workspace *wk, const char *bp);
 #endif

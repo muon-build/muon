@@ -16,7 +16,6 @@ foreach d : [
             'default_options': ['pkgconf:tests=false', 'warning_level=1'],
         },
     ],
-    ['bestline'],
 ]
     name = d[0]
     kwargs = d.get(1, {})
@@ -38,7 +37,7 @@ foreach d : [
     endif
 endforeach
 
-dep_tinyjson = dependency('tinyjson', required: true, static: true)
+dep_tinyjson = dependency('tinyjson', static: true)
 external_deps += [dep_tinyjson]
 dep_sources += [files('tinyjson.c')]
 
@@ -66,4 +65,13 @@ else
         'samurai/util.c',
         'samurai.c',
     )
+endif
+
+readline_opt = get_option('readline')
+dep_sources += files(f'readline_@readline_opt@.c')
+if readline_opt != 'builtin'
+    dep = dependency(readline_opt)
+    summary(name, dep.found())
+    dep_dict += {name: dep.found()}
+    external_deps += [dep]
 endif

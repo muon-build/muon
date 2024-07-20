@@ -8,11 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "external/bestline.h"
+#include "external/readline.h"
 #include "log.h"
 
 char *
-muon_bestline(const char *prompt)
+muon_readline(const char *prompt)
 {
 	static char buf[2048];
 	if (feof(stdin)) {
@@ -35,17 +35,17 @@ muon_bestline(const char *prompt)
 }
 
 void
-muon_bestline_free(const char *line)
+muon_readline_free(const char *line)
 {
 }
 
 int
-muon_bestline_history_add(const char *line)
+muon_readline_history_add(const char *line)
 {
 	return 0;
 }
 
 void
-muon_bestline_history_free(void)
+muon_readline_history_free(void)
 {
 }

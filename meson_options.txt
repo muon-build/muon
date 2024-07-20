@@ -26,10 +26,11 @@ option(
     description: 'embed samurai into the muon executable',
 )
 option(
-    'bestline',
-    type: 'feature',
-    value: 'disabled',
-    description: 'add readline support via bestline',
+    'readline',
+    type: 'combo',
+    choices: ['builtin', 'bestline'],
+    value: 'builtin',
+    description: 'select readline implementation',
 )
 option(
     'static',

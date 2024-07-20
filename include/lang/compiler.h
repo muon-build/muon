@@ -15,6 +15,7 @@ enum vm_compile_mode {
 	vm_compile_mode_fmt = 1 << 1,
 	vm_compile_mode_quiet = 1 << 2,
 	vm_compile_mode_language_extended = 1 << 3,
+	vm_compile_mode_expr = 1 << 4,
 };
 
 void vm_compile_state_reset(struct workspace *wk);

@@ -40,4 +40,18 @@ error_diagnostic_store_push(uint32_t src_idx, struct source_location location, e
 void error_diagnostic_store_redirect(struct source *src, struct source_location location);
 void error_diagnostic_store_redirect_reset(void);
 void list_line_range(struct source *src, struct source_location location, uint32_t context);
+
+struct detailed_source_location {
+	struct source_location loc;
+	uint32_t line, col, start_of_line, end_line, end_col;
+};
+
+enum get_detailed_source_location_flag {
+	get_detailed_source_location_flag_multiline = 1 << 0,
+};
+
+void get_detailed_source_location(struct source *src,
+	struct source_location loc,
+	struct detailed_source_location *dloc,
+	enum get_detailed_source_location_flag flags);
 #endif

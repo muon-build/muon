@@ -549,16 +549,45 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 
 	return cmd(argc, argi, argv);
 }
-
 static bool
-eval_internal(const char *filename, bool embedded, const char *argv0, char *const argv[], uint32_t argc)
+cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
+	const char *filename;
+	bool embedded = false;
+
+	OPTSTART("esb:") {
+	case 'e': embedded = true; break;
+	case 's': {
+		assert(false && "TODO");
+		/* disable_fuzz_unsafe_functions = true; */
+		break;
+	}
+	case 'b': {
+		vm_dbg_push_breakpoint(&wk, optarg);
+		break;
+	}
+	}
+	OPTEND(argv[argi],
+		" <filename> [args]",
+		"  -e - lookup <filename> as an embedded script\n"
+		"  -s - disable functions that are unsafe to be called at random\n",
+		NULL,
+		-1)
+
+	if (argi >= argc) {
+		LOG_E("missing required filename argument");
+		return false;
+	}
+
+	filename = argv[argi];
+
 	bool ret = false;
 
 	struct source src = { 0 };
 
-	struct workspace wk;
-	workspace_init_bare(&wk);
 	machine_init();
 
 	wk.vm.lang_mode = language_internal;
@@ -597,35 +626,6 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 ret:
 	workspace_destroy(&wk);
 	return ret;
-}
-
-static bool
-cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	const char *filename;
-	bool embedded = false;
-
-	OPTSTART("es") {
-	case 'e':
-		embedded = true;
-		break;
-		/* case 's': disable_fuzz_unsafe_functions = true; break; */
-	}
-	OPTEND(argv[argi],
-		" <filename> [args]",
-		"  -e - lookup <filename> as an embedded script\n"
-		"  -s - disable functions that are unsafe to be called at random\n",
-		NULL,
-		-1)
-
-	if (argi >= argc) {
-		LOG_E("missing required filename argument");
-		return false;
-	}
-
-	filename = argv[argi];
-
-	return eval_internal(filename, embedded, argv[0], &argv[argi], argc - argi);
 }
 
 static bool
@@ -806,7 +806,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:c:b") {
+	OPTSTART("D:c:b:") {
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
@@ -814,7 +814,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	case 'c': {
 		FILE *f;
-		if (!(f = fs_fopen(optarg, "rb"))) {
+		if (!(f = fs_fopen(optarg, "rb:"))) {
 			goto ret;
 		} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
 			LOG_E("failed to load compiler check cache");
@@ -824,13 +824,16 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		break;
 	}
-	case 'b': wk.vm.dbg_state.break_on_err = true; break;
+	case 'b': {
+		vm_dbg_push_breakpoint(&wk, optarg);
+		break;
+	}
 	}
 	OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n"
 		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
-		"  -b - break on errors\n",
+		"  -b <breakpoint> - set breakpoint\n",
 		NULL,
 		1)
 
