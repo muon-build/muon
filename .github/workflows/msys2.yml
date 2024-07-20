@@ -18,10 +18,19 @@ jobs:
         config:
           - msystem: mingw32
             install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
+            compiler: gcc
           - msystem: mingw64
             install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
+            compiler: gcc
           - msystem: msys
             install: base-devel git ninja gcc pkgconf libcurl-devel libarchive-devel
+            compiler: gcc
+          - msystem: clang32
+            install: base-devel git mingw-w64-clang-i686-ninja mingw-w64-clang-i686-toolchain mingw-w64-clang-i686-pkgconf mingw-w64-clang-i686-curl mingw-w64-clang-i686-libarchive
+            compiler: clang
+          - msystem: clang64
+            install: base-devel git mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-toolchain mingw-w64-clang-x86_64-pkgconf mingw-w64-clang-x86_64-curl mingw-w64-clang-x86_64-libarchive
+            compiler: clang
     name: msys2 - ${{ matrix.config.msystem }}
     runs-on: windows-latest
     defaults:
@@ -36,8 +45,8 @@ jobs:
         install: ${{ matrix.config.install }}
     - name: bootstrap
       run: |
-        CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
-        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup build
+        CC=${{ matrix.config.compiler }} CFLAGS=-std=c99 ./bootstrap.sh build
+        CC=${{ matrix.config.compiler }} CFLAGS=-std=c99 ./build/muon.exe setup build
         ninja -C build
     - name: test
       run: |
