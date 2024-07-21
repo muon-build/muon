@@ -132,18 +132,16 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		}
 	}
 
-	if (wk->vm.in_analyzer) {
-		if (wk->vm.dbg_state.eval_trace) {
-			obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
-			bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
-			if (trace_subdir) {
-				obj subdir_eval_trace;
-				make_obj(wk, &subdir_eval_trace, obj_array);
-				obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
-				stack_push(&wk->stack, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
-			}
-			stack_push(&wk->stack, wk->vm.dbg_state.eval_trace_subdir, false);
+	if (wk->vm.dbg_state.eval_trace) {
+		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
+		bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
+		if (trace_subdir) {
+			obj subdir_eval_trace;
+			make_obj(wk, &subdir_eval_trace, obj_array);
+			obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
+			stack_push(&wk->stack, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
 		}
+		stack_push(&wk->stack, wk->vm.dbg_state.eval_trace_subdir, false);
 	}
 
 	uint32_t call_stack_base = wk->vm.call_stack.len;
@@ -159,12 +157,10 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	*res = vm_execute(wk);
 	assert(call_stack_base == wk->vm.call_stack.len);
 
-	if (wk->vm.in_analyzer) {
-		if (wk->vm.dbg_state.eval_trace) {
-			stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace_subdir);
-			if (wk->vm.dbg_state.eval_trace_subdir) {
-				stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace);
-			}
+	if (wk->vm.dbg_state.eval_trace) {
+		stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace_subdir);
+		if (wk->vm.dbg_state.eval_trace_subdir) {
+			stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace);
 		}
 	}
 
@@ -214,9 +210,9 @@ ret:
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
-	stack_push(&wk->stack, wk->vm.dbg_state.debugging, false);
+	stack_push(&wk->stack, wk->vm.dbg_state.stepping, false);
 	bool ret = eval_str(wk, str, eval_mode_repl, repl_res);
-	stack_pop(&wk->stack, wk->vm.dbg_state.debugging);
+	stack_pop(&wk->stack, wk->vm.dbg_state.stepping);
 	return ret;
 }
 
@@ -237,6 +233,8 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_watch,
 		repl_cmd_unwatch,
 		repl_cmd_eval,
+		repl_cmd_breakpoint,
+		repl_cmd_backtrace,
 		repl_cmd_help,
 	};
 	static enum repl_cmd cmd = repl_cmd_noop;
@@ -255,6 +253,8 @@ repl(struct workspace *wk, bool dbg)
 		{ { "w", "watch", 0 }, repl_cmd_watch, dbg, true },
 		{ { "uw", "unwatch", 0 }, repl_cmd_unwatch, dbg, true },
 		{ { "e", "p", "eval", "print", 0 }, repl_cmd_eval, dbg, true },
+		{ { "br", "breakpoint", 0 }, repl_cmd_breakpoint, dbg, true },
+		{ { "bt", "backtrace", 0 }, repl_cmd_backtrace, dbg },
 		0 };
 
 	if (dbg) {
@@ -288,13 +288,13 @@ repl(struct workspace *wk, bool dbg)
 						if (repl_cmds[i].has_arg) {
 							if (!arg) {
 								fprintf(out, "missing argument\n");
-								goto cont;
+								continue;
 							}
 						} else {
 							if (arg) {
 								fprintf(out,
 									"this command does not take an argument\n");
-								goto cont;
+								continue;
 							}
 						}
 
@@ -306,12 +306,13 @@ repl(struct workspace *wk, bool dbg)
 		}
 
 		fprintf(out, "unknown repl command '%s'\n", line);
-		goto cont;
+		continue;
+
 cmd_found:
 		switch (cmd) {
 		case repl_cmd_abort: exit(1); break;
 		case repl_cmd_exit: {
-			wk->vm.dbg_state.debugging = false;
+			wk->vm.dbg_state.stepping = false;
 			loop = false;
 			break;
 		}
@@ -344,7 +345,7 @@ cmd_found:
 			break;
 		}
 		case repl_cmd_step: {
-			wk->vm.dbg_state.debugging = true;
+			wk->vm.dbg_state.stepping = true;
 			loop = false;
 			break;
 		}
@@ -372,7 +373,7 @@ cmd_found:
 			break;
 		case repl_cmd_eval: {
 			if (!repl_eval_str(wk, arg, &repl_res)) {
-				goto cont;
+				continue;
 			}
 
 			if (repl_res) {
@@ -381,11 +382,32 @@ cmd_found:
 			}
 			break;
 		}
+		case repl_cmd_breakpoint: {
+			vm_dbg_push_breakpoint(wk, arg);
+			break;
+		}
+		case repl_cmd_backtrace: {
+			uint32_t i;
+			struct call_frame frame;
+			struct source *src;
+			struct source_location loc;
+			for (i = 1; i < wk->vm.call_stack.len + 1; ++i) {
+				if (i == wk->vm.call_stack.len) {
+					frame = (struct call_frame){
+						.return_ip = wk->vm.ip - 1,
+					};
+				} else {
+					frame = *(struct call_frame *)arr_get(&wk->vm.call_stack, i);
+				}
+
+				vm_lookup_inst_location(&wk->vm, frame.return_ip, &loc, &src);
+
+				error_message(src, loc, log_info, "");
+			}
+			break;
+		}
 		case repl_cmd_noop: break;
 		}
-
-cont:
-		muon_readline_free(line);
 	}
 
 	muon_readline_history_free();

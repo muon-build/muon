@@ -20,7 +20,6 @@
 static struct {
 	const struct az_opts *opts;
 	struct obj_func *fp;
-	obj eval_trace;
 	uint32_t impure_loop_depth;
 	bool error;
 
@@ -1236,7 +1235,7 @@ eval_trace_arr_len(struct workspace *wk, obj arr)
 }
 
 static void
-eval_trace_print(struct workspace *wk, struct eval_trace_print_ctx *ctx, obj v)
+eval_trace_print_level(struct workspace *wk, struct eval_trace_print_ctx *ctx, obj v)
 {
 	switch (get_obj_type(wk, v)) {
 	case obj_array: {
@@ -1251,7 +1250,7 @@ eval_trace_print(struct workspace *wk, struct eval_trace_print_ctx *ctx, obj v)
 
 		obj sub_v;
 		obj_array_for(wk, v, sub_v) {
-			eval_trace_print(wk, &subctx, v);
+			eval_trace_print_level(wk, &subctx, sub_v);
 		}
 		break;
 	}
@@ -1284,6 +1283,19 @@ eval_trace_print(struct workspace *wk, struct eval_trace_print_ctx *ctx, obj v)
 		break;
 	}
 	default: UNREACHABLE;
+	}
+}
+
+void
+eval_trace_print(struct workspace *wk, obj trace)
+{
+	struct eval_trace_print_ctx ctx = {
+		.indent = 1,
+		.len = eval_trace_arr_len(wk, trace),
+	};
+	obj v;
+	obj_array_for(wk, trace, v) {
+		eval_trace_print_level(wk, &ctx, v);
 	}
 }
 
@@ -1546,14 +1558,7 @@ do_analyze(struct az_opts *opts)
 
 	bool saw_error;
 	if (analyzer.opts->eval_trace) {
-		struct eval_trace_print_ctx ctx = {
-			.indent = 1,
-			.len = eval_trace_arr_len(&wk, wk.vm.dbg_state.eval_trace),
-		};
-		obj v;
-		obj_array_for(&wk, wk.vm.dbg_state.eval_trace, v) {
-			eval_trace_print(&wk, &ctx, v);
-		}
+		eval_trace_print(&wk, wk.vm.dbg_state.eval_trace);
 	} else if (analyzer.opts->get_definition_for) {
 		bool found = false;
 		uint32_t i;

@@ -115,8 +115,9 @@ struct vm_dbg_state {
 	struct source_location prev_source_location;
 	obj watched;
 	obj breakpoints;
+	obj root_eval_trace;
 	obj eval_trace;
-	bool debugging, dump_signature;
+	bool dbg, stepping, dump_signature;
 	bool eval_trace_subdir;
 };
 

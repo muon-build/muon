@@ -2331,6 +2331,18 @@ union vm_breakpoint {
 	int64_t i;
 };
 
+static void
+vm_dgb_enable(struct workspace *wk)
+{
+	if (wk->vm.dbg_state.dbg) {
+		return;
+	}
+
+	wk->vm.dbg_state.dbg = true;
+	make_obj(wk, &wk->vm.dbg_state.eval_trace, obj_array);
+	wk->vm.dbg_state.root_eval_trace = wk->vm.dbg_state.eval_trace;
+}
+
 bool
 vm_dbg_push_breakpoint(struct workspace *wk, const char *bp)
 {
@@ -2352,6 +2364,8 @@ vm_dbg_push_breakpoint(struct workspace *wk, const char *bp)
 		name = make_str(wk, bp);
 		line = 0;
 	}
+
+	vm_dgb_enable(wk);
 
 	union vm_breakpoint breakpoint = { .dat = { name, line } };
 
@@ -2376,7 +2390,6 @@ vm_at_dbg_breakpoint(struct workspace *wk, uint32_t ip)
 	obj_array_for(wk, wk->vm.dbg_state.breakpoints, v) {
 		union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
 		const struct str *name = get_str(wk, breakpoint.dat.name);
-		L("cehcking bp %s, %s", name->s, src->label);
 
 		if (breakpoint.dat.line == dloc.line && wk->vm.dbg_state.prev_source_location.off != loc.off
 			&& str_contains(&WKSTR(src->label), name)) {
@@ -2399,7 +2412,7 @@ vm_execute_loop(struct workspace *wk)
 			/* object_stack_print(wk, &wk->vm.stack); */
 		}
 
-		if ((wk->vm.dbg_state.debugging && vm_at_dbg_step_point(wk, wk->vm.ip))
+		if ((wk->vm.dbg_state.stepping && vm_at_dbg_step_point(wk, wk->vm.ip))
 			|| (wk->vm.dbg_state.breakpoints && vm_at_dbg_breakpoint(wk, wk->vm.ip))) {
 			repl(wk, true);
 		}

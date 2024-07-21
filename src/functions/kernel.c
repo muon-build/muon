@@ -1909,18 +1909,6 @@ func_p(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
-func_dbg(struct workspace *wk, obj _, obj *res)
-{
-	if (!pop_args(wk, NULL, NULL)) {
-		return false;
-	}
-
-	wk->vm.dbg_state.debugging = true;
-	wk->vm.dbg_state.prev_source_location = (struct source_location){ 0 };
-	return true;
-}
-
-static bool
 func_serial_load(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
@@ -2085,7 +2073,6 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "vcs_tag", func_vcs_tag, tc_custom_target },
 	{ "warning", func_warning },
 	// non-standard muon extensions
-	{ "dbg", func_dbg, .extension = true },
 	{ "p", func_p, tc_any, true, .extension = true },
 	{ NULL, NULL },
 };
@@ -2110,7 +2097,6 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "unset_variable", func_unset_variable, 0, true },
 	{ "warning", func_warning },
 	// non-standard muon extensions
-	{ "dbg", func_dbg },
 	{ "p", func_p, tc_any, true },
 	{ "print", func_print, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
@@ -2124,7 +2110,6 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 const struct func_impl impl_tbl_kernel_opts[] = {
 	{ "option", func_option, 0, true },
 	// non-standard muon extensions
-	{ "dbg", func_dbg },
 	{ "p", func_p, tc_any },
 	{ NULL, NULL },
 };

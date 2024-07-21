@@ -561,8 +561,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("esb:") {
 	case 'e': embedded = true; break;
 	case 's': {
-		assert(false && "TODO");
-		/* disable_fuzz_unsafe_functions = true; */
+		wk.vm.disable_fuzz_unsafe_functions = true;
 		break;
 	}
 	case 'b': {
@@ -802,7 +801,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	TracyCZoneAutoS;
 	bool res = false;
 	struct workspace wk;
-	workspace_init(&wk);
+	workspace_init_bare(&wk);
 
 	uint32_t original_argi = argi + 1;
 
@@ -836,6 +835,8 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -b <breakpoint> - set breakpoint\n",
 		NULL,
 		1)
+
+	workspace_init_runtime(&wk);
 
 	const char *build = argv[argi];
 	++argi;

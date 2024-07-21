@@ -51,4 +51,6 @@ void az_set_error(void);
 extern struct func_impl_group az_func_impl_group;
 
 bool do_analyze(struct az_opts *opts);
+
+void eval_trace_print(struct workspace *wk, obj trace);
 #endif

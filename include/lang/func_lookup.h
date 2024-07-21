@@ -27,8 +27,6 @@ struct func_impl_group {
 extern struct func_impl_group func_impl_groups[obj_type_count][language_mode_count];
 extern struct func_impl native_funcs[];
 
-/* extern bool disable_fuzz_unsafe_functions; */
-
 void build_func_impl_tables(void);
 
 bool func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func);

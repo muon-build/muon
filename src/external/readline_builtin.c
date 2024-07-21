@@ -34,11 +34,6 @@ muon_readline(const char *prompt)
 	return buf;
 }
 
-void
-muon_readline_free(const char *line)
-{
-}
-
 int
 muon_readline_history_add(const char *line)
 {

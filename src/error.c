@@ -428,10 +428,12 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s:%d:%d: ", src->label, dloc.line, dloc.col);
 
-	if (log_clr()) {
-		log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
-	} else {
-		log_plain("%s ", log_level_name[lvl]);
+	if (lvl != log_info) {
+		if (log_clr()) {
+			log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
+		} else {
+			log_plain("%s ", log_level_name[lvl]);
+		}
 	}
 
 	log_plain("%s\n", msg);
