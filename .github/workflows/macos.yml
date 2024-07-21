@@ -32,4 +32,4 @@ jobs:
         build/muon -C build samu
     - name: test
       run: |
-        build/muon -C build test -v -ddots || true
+        build/muon -C build test -v -ddots
