@@ -1461,6 +1461,7 @@ do_analyze(struct az_opts *opts)
 	} else {
 		uint32_t project_id;
 		workspace_init_runtime(&wk);
+		workspace_init_startup_files(&wk);
 		res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
 	}
 

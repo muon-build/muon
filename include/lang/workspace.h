@@ -101,6 +101,7 @@ struct workspace {
 
 void workspace_init_bare(struct workspace *wk);
 void workspace_init_runtime(struct workspace *wk);
+void workspace_init_startup_files(struct workspace *wk);
 void workspace_init(struct workspace *wk);
 void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);

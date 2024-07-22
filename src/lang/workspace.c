@@ -128,7 +128,11 @@ workspace_init_runtime(struct workspace *wk)
 	make_obj(wk, &wk->global_opts, obj_dict);
 	make_obj(wk, &wk->compiler_check_cache, obj_dict);
 	make_obj(wk, &wk->dependency_handlers, obj_dict);
+}
 
+void
+workspace_init_startup_files(struct workspace *wk)
+{
 	if (!init_global_options(wk)) {
 		UNREACHABLE;
 	}
@@ -151,6 +155,7 @@ workspace_init(struct workspace *wk)
 {
 	workspace_init_bare(wk);
 	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
 }
 
 void
