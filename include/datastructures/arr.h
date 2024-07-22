@@ -10,13 +10,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum arr_flag {
+	arr_flag_zero_memory = 1 << 0,
+};
+
 struct arr {
 	uint32_t len;
 	uint32_t cap;
 	uint32_t item_size;
+	uint32_t flags;
 	uint8_t *e;
 };
 
+void arr_init_flags(struct arr *arr, uint32_t initial, uint32_t item_size, uint32_t flags);
 void arr_init(struct arr *arr, uint32_t initial, uint32_t item_size);
 void arr_destroy(struct arr *arr);
 uint32_t arr_push(struct arr *arr, const void *item);

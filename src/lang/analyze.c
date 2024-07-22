@@ -1376,7 +1376,7 @@ do_analyze(struct az_opts *opts)
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
-	arr_init(&analyzer.visited_ops, 1024, 1);
+	arr_init_flags(&analyzer.visited_ops, 1024, 1, arr_flag_zero_memory);
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;

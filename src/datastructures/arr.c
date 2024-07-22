@@ -16,14 +16,21 @@
 #include "platform/mem.h"
 
 void
-arr_init(struct arr *arr, uint32_t initial, uint32_t item_size)
+arr_init_flags(struct arr *arr, uint32_t initial, uint32_t item_size, uint32_t flags)
 {
 	assert(item_size > 0);
 	*arr = (struct arr){
 		.item_size = item_size,
 		.cap = initial,
-		.e = z_calloc(initial, item_size),
+		.flags = flags,
+		.e = (flags & arr_flag_zero_memory) ? z_calloc(initial, item_size) : z_malloc(initial * item_size),
 	};
+}
+
+void
+arr_init(struct arr *arr, uint32_t initial, uint32_t item_size)
+{
+	arr_init_flags(arr, initial, item_size, 0);
 }
 
 void
@@ -63,7 +70,9 @@ arr_get_mem(struct arr *arr)
 		arr->cap = newcap;
 		arr->e = z_realloc(arr->e, arr->cap * arr->item_size);
 
-		memset(arr->e + (arr->len * arr->item_size), 0, (arr->cap - arr->len) * arr->item_size);
+		if (arr->flags & arr_flag_zero_memory) {
+			memset(arr->e + (arr->len * arr->item_size), 0, (arr->cap - arr->len) * arr->item_size);
+		}
 	} else {
 		/* NOTE: uncomment the below line to cause a realloc for
 		 * _every_ push into a arr.  This can help find bugs where you
