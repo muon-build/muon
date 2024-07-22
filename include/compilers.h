@@ -236,8 +236,10 @@ struct static_linker {
 enum toolchain_arg {
 #define TOOLCHAIN_ARG_MEMBER_(comp, _name) toolchain_arg_##comp##_name,
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(comp, _##name)
-	FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
-		FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
+	toolchain_arg_compiler_base_offset,
+	FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) toolchain_arg_linker_base_offset,
+	FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) toolchain_arg_static_linker_base_offset,
+	FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 };
