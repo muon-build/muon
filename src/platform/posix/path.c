@@ -31,7 +31,7 @@ path_to_posix(char *path)
 void
 shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	const char *need_escaping = "\"'$ \\><&#\n";
+	const char *need_escaping = "\"'$ \\><&#()\n";
 	const char *s;
 	bool do_esc = false;
 
