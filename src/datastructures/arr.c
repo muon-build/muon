@@ -67,12 +67,13 @@ arr_get_mem(struct arr *arr)
 			newcap = arr->len * 2;
 		}
 
-		arr->cap = newcap;
-		arr->e = z_realloc(arr->e, arr->cap * arr->item_size);
+		arr->e = z_realloc(arr->e, newcap * arr->item_size);
 
 		if (arr->flags & arr_flag_zero_memory) {
-			memset(arr->e + (arr->len * arr->item_size), 0, (arr->cap - arr->len) * arr->item_size);
+			memset(arr->e + (arr->cap * arr->item_size), 0, (newcap - arr->cap) * arr->item_size);
 		}
+
+		arr->cap = newcap;
 	} else {
 		/* NOTE: uncomment the below line to cause a realloc for
 		 * _every_ push into a arr.  This can help find bugs where you
