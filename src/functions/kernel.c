@@ -975,7 +975,7 @@ func_print(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	log_plain("%s", get_cstr(wk, an[0].val));
+	fprintf(log_file(), "%s", get_cstr(wk, an[0].val));
 	*res = 0;
 
 	return true;
