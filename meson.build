@@ -35,26 +35,10 @@ version_info.set('meson_compat', '1.1')
 # platform
 
 platform = host_machine.system()
-if (
-    platform in [
-        'android',
-        'cygwin',
-        'darwin',
-        'freebsd',
-        'linux',
-        'msys2',
-        'netbsd',
-        'openbsd',
-        'sunos',
-        'emscripten',
-    ]
-)
+if platform != 'windows'
+    # Assume everything that is not windows is posix.  This will likely need to
+    # change in the future.
     platform = 'posix'
-elif platform not in ['windows']
-    warning(
-        'configuring muon for an unsupported platform "@0@"'.format(platform),
-    )
-    platform = 'null'
 endif
 
 # compiler setup
