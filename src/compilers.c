@@ -1407,9 +1407,9 @@ TOOLCHAIN_PROTO_2s(linker_link_args_input_output)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf, NULL });
 
-	snprintf(buf, BUF_SIZE_S, "/out:%s", a);
+	snprintf(buf, BUF_SIZE_S, "/out:%s", b);
 
-	argv[1] = b;
+	argv[1] = a;
 
 	return &args;
 }
