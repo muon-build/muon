@@ -39,6 +39,11 @@ Other differences from meson are described in `doc/differences.md`
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
 
+Additionally, muon is not fully supported on all platforms yet.  The current
+status may be viewed on muon's [ci dashboard].  Platforms with some or all tests
+disabled are currently WIP and platforms not tested in CI have unknown status.
+In general, posix systems should work fine.
+
 ## Dependencies
 
 Essential:
@@ -131,3 +136,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
 [demo]: https://play.muon.build
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
+[ci dashboard]:  https://muon.build/muon_ci.html
