@@ -10,7 +10,7 @@ source_root = argv[2]
 fail_fast = 'f' in argv # TODO make this a proper argument
 
 files = []
-exclude = ['badnum.meson']
+exclude = ['badnum.meson', 'line_continuation.meson']
 
 foreach f : run_command('git', '-C', source_root, 'ls-files').stdout().strip().split('\n')
     basename = fs.name(f)

@@ -561,6 +561,9 @@ restart:
 	if (str_eql(&lexer_str(2), &WKSTR("\\\n"))) {
 		lex_advance_n(lexer, 2);
 		goto restart;
+	} else if (str_eql(&lexer_str(3), &WKSTR("\\\r\n"))) {
+		lex_advance_n(lexer, 3);
+		goto restart;
 	}
 
 	lexer->ws_end = lexer->i;

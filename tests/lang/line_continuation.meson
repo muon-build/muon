@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Note: this file intentionally has mixed LF and CRLF endings.  Do not format.
+
+a = \
+    1
+assert(a == 1)
+a = \
+    2
+assert(a == 2)
