@@ -332,7 +332,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_iterator);
 		push_constant(wk, idb ? 2 : 1);
 
-		uint32_t az_merge_point_tgt;
+		uint32_t az_merge_point_tgt = 0;
 		if (wk->vm.in_analyzer) {
 			push_code(wk, op_az_branch);
 			push_constant(wk, az_branch_type_loop);
@@ -488,7 +488,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		 * <rhs> <-----------------|-`
 		 *    <--------------------+
 		 */
-		uint32_t else_jmp, end_jmp[3];
+		uint32_t else_jmp, end_jmp[3] = { 0 };
 
 		vm_compile_expr(wk, n->l);
 
@@ -557,7 +557,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		 *    <--------------------+-`
 		 */
 
-		uint32_t jmp1, end_jmp[2];
+		uint32_t jmp1, end_jmp[2] = { 0 };
 		vm_compile_expr(wk, n->l);
 
 		if (wk->vm.in_analyzer) {

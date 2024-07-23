@@ -1753,6 +1753,16 @@ lookup_toolchain_arg_override(struct workspace *wk,
 	return 0;
 }
 
+enum toolchain_arg_by_component {
+#define TOOLCHAIN_ARG_MEMBER_(comp, _name) toolchain_arg_by_component_##comp##_name,
+#define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(comp, _##name)
+	FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) toolchain_arg_by_component_reset_0 = -1,
+	FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) toolchain_arg_by_component_reset_1 = -1,
+	FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+};
+
 static obj handle_toolchain_arg_override;
 
 static const struct args *
@@ -1833,16 +1843,16 @@ handle_toolchain_arg_override_ns(TOOLCHAIN_SIG_ns)
 	return 0;
 }
 
-#define TOOLCHAIN_ARG_MEMBER_(name, _name, component, _type, params, names)                           \
-	const struct args *toolchain_##component##_name params                                        \
-	{                                                                                             \
-		handle_toolchain_arg_override = lookup_toolchain_arg_override(                        \
-			wk, comp, toolchain_component_##component, toolchain_arg_##component##_name - toolchain_arg_##component##_base_offset); \
-		if (handle_toolchain_arg_override) {                                                  \
-			return handle_toolchain_arg_override_##_type names;                           \
-		}                                                                                     \
-                                                                                                      \
-		return component##s[comp->type[toolchain_component_##component]].args.name names;     \
+#define TOOLCHAIN_ARG_MEMBER_(name, _name, component, _type, params, names)                                        \
+	const struct args *toolchain_##component##_name params                                                     \
+	{                                                                                                          \
+		handle_toolchain_arg_override = lookup_toolchain_arg_override(                                     \
+			wk, comp, toolchain_component_##component, toolchain_arg_by_component_##component##_name); \
+		if (handle_toolchain_arg_override) {                                                               \
+			return handle_toolchain_arg_override_##_type names;                                        \
+		}                                                                                                  \
+                                                                                                                   \
+		return component##s[comp->type[toolchain_component_##component]].args.name names;                  \
 	}
 
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, _##name, comp, type)

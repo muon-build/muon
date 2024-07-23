@@ -265,6 +265,7 @@ repl(struct workspace *wk, bool dbg)
 	}
 
 	const char *prompt = "> ";
+	char *arg = NULL;
 
 	while (loop && (line = muon_readline(prompt))) {
 		if (!*line) {
@@ -272,8 +273,6 @@ repl(struct workspace *wk, bool dbg)
 		}
 
 		muon_readline_history_add(line);
-
-		char *arg = NULL;
 
 		if ((arg = strchr(line, ' '))) {
 			*arg = 0;
