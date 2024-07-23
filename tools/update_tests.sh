@@ -8,6 +8,32 @@ cmp_() {
 	cmp "$@" 2>/dev/null 1>&2
 }
 
+remove_test_case_blocks_() {
+	in_block=0
+	while IFS= read -r line; do
+		case "$line" in
+		*testcase*)
+			in_block="$((in_block+1))"
+			;;
+		*endtestcase*)
+			if [ "$in_block" -gt 0 ]; then
+				in_block="$((in_block-1))"
+			fi
+			;;
+		esac
+
+		if [ "$in_block" -gt 0 ]; then
+			printf "# "
+		fi
+
+		printf "%s\n" "$line"
+	done
+}
+
+format_() {
+	cat "$1" | remove_test_case_blocks_ |  $muon fmt -
+}
+
 copy_tests_() {
 	src_dir="$1"
 	dest_dir="$2"
@@ -59,7 +85,7 @@ copy_tests_() {
 			meson_source=""
 			if [ "$basename" = "meson.build" ] || [ "$basename" = "meson_options.txt" ]; then
 				meson_source=1
-				if $muon fmt "$src_file" | cmp_ "$old_file"; then
+				if format_ "$src_file" | cmp_ "$old_file"; then
 					changed=""
 				fi
 			else
@@ -87,13 +113,15 @@ copy_tests_() {
 					fi
 				else
 					if [ "$status" = "R" ]; then
-						rm "$old_file"
+						if [ -f "$old_file" ]; then
+							rm "$old_file"
+						fi
 						dirname="${relative%/*}"
 						mkdir -p "$dest_dir/$dirname"
 					fi
 
 					if [ "$meson_source" ]; then
-						$muon fmt "$src_file" > "$dest"
+						format_ "$src_file" > "$dest"
 					else
 						cp "$src_file" "$dest"
 					fi
