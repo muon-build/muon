@@ -504,6 +504,50 @@ unterminated_string:
 	token->data.str = sbuf_into_str(lexer->wk, &buf);
 }
 
+enum lexer_enclosed_state {
+	lexer_enclosed_state_none = 0,
+	lexer_enclosed_state_enclosed = 1,
+};
+
+static void
+lexer_push_pop_enclosed_state(struct lexer *lexer, enum token_type type)
+{
+	bool pop = false;
+	uint8_t enclosed_state;
+
+	switch (type) {
+	case token_type_func: {
+		enclosed_state = lexer_enclosed_state_none;
+		break;
+	}
+	case token_type_endfunc: {
+		pop = true;
+		break;
+	}
+	case '(':
+	case '[':
+	case '{': {
+		enclosed_state = lexer_enclosed_state_enclosed;
+		break;
+	}
+	case ')':
+	case ']':
+	case '}': {
+		pop = true;
+		break;
+	}
+	default: return;
+	}
+
+	if (pop) {
+		if (lexer->stack.len) {
+			stack_pop(&lexer->stack, lexer->enclosed_state);
+		}
+	} else {
+		stack_push(&lexer->stack, lexer->enclosed_state, enclosed_state);
+	}
+}
+
 void
 lexer_next(struct lexer *lexer, struct token *token)
 {
@@ -605,6 +649,7 @@ restart:
 					lex_keyword_tokens_func,
 					ARRAY_LEN(lex_keyword_tokens_func),
 					&str))) {
+			lexer_push_pop_enclosed_state(lexer, token->type);
 			return;
 		} else {
 			token->type = token_type_identifier;
@@ -622,7 +667,7 @@ restart:
 	case '\n':
 		lex_advance(lexer);
 
-		if (lexer->enclosing) {
+		if (lexer->enclosed_state) {
 			goto restart;
 		} else {
 			token->type = token_type_eol;
@@ -641,15 +686,13 @@ restart:
 	case '[':
 	case '{':
 		token->type = lexer->src[lexer->i];
-		++lexer->enclosing;
+		lexer_push_pop_enclosed_state(lexer, token->type);
 		break;
 	case ')':
 	case ']':
 	case '}':
 		token->type = lexer->src[lexer->i];
-		if (lexer->enclosing) {
-			--lexer->enclosing;
-		}
+		lexer_push_pop_enclosed_state(lexer, token->type);
 		break;
 	case '.':
 	case ',':
@@ -697,9 +740,17 @@ lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum l
 		.mode = mode,
 	};
 
+	stack_init(&lexer->stack, 2048);
+
 	if (lexer->mode & lexer_mode_fmt) {
 		make_obj(lexer->wk, &lexer->fmt.raw_blocks, obj_array);
 	}
+}
+
+void
+lexer_destroy(struct lexer *lexer)
+{
+	stack_destroy(&lexer->stack);
 }
 
 /******************************************************************************

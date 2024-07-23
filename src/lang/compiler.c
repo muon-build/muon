@@ -668,15 +668,16 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
-		push_location(wk, n->l->l);
+		push_location(wk, n->l->l ? n->l->l : n->l);
 
 		push_code(wk, op_constant_func);
 		push_constant(wk, f);
 
-		push_code(wk, op_constant);
-		push_constant(wk, n->l->l->data.str);
-		push_code(wk, op_store);
-
+		if (n->l->l) {
+			push_code(wk, op_constant);
+			push_constant(wk, n->l->l->data.str);
+			push_code(wk, op_store);
+		}
 		break;
 	}
 	}

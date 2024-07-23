@@ -667,8 +667,6 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 			parse_error(p, NULL, "unknown type %s", typestr);
 			return false;
 		}
-	} else if (parse_accept(p, token_type_func)) {
-		*type = tc_capture;
 	} else {
 		return true;
 	}
@@ -886,6 +884,39 @@ parse_method(struct parser *p, struct node *l)
 }
 
 static struct node *
+parse_func_params_and_body(struct parser *p, struct node *id)
+{
+	struct node *n = make_node_t(p, node_type_func_def);
+
+	n->l = make_node_t(p, node_type_list);
+	n->l->l = id;
+	parse_expect(p, '(');
+	n->l->r = parse_list(p, node_type_def_args, ')');
+
+	if (parse_accept(p, token_type_returntype)) {
+		parse_type(p, &n->data.type, true);
+		if (!n->data.type) {
+			parse_error(p, 0, "expected type");
+		}
+	} else {
+		n->data.type = 0;
+	}
+
+	parse_expect(p, token_type_eol);
+
+	n->r = parse_block(p, (enum token_type[]){ token_type_endfunc }, 1);
+	parse_expect(p, token_type_endfunc);
+
+	return n;
+}
+
+static struct node *
+parse_func(struct parser *p)
+{
+	return parse_func_params_and_body(p, 0);
+}
+
+static struct node *
 parse_expr(struct parser *p)
 {
 	return parse_prec(p, parse_precedence_assignment);
@@ -968,25 +999,8 @@ parse_stmt(struct parser *p)
 	} else if (p->inside_loop && parse_accept(p, token_type_break)) {
 		n = make_node_t(p, node_type_break);
 	} else if (parse_accept(p, token_type_func)) {
-		n = make_node_t(p, node_type_func_def);
-
 		parse_expect(p, token_type_identifier);
-		n->l = make_node_t(p, node_type_list);
-		n->l->l = parse_id(p);
-		parse_expect(p, '(');
-		n->l->r = parse_list(p, node_type_def_args, ')');
-
-		if (parse_accept(p, token_type_returntype)) {
-			parse_type(p, &n->data.type, true);
-			if (!n->data.type) {
-				parse_error(p, 0, "expected type");
-			}
-		}
-
-		parse_expect(p, token_type_eol);
-
-		n->r = parse_block(p, (enum token_type[]){ token_type_endfunc }, 1);
-		parse_expect(p, token_type_endfunc);
+		n = parse_func_params_and_body(p, parse_id(p));
 	} else if (parse_accept(p, token_type_return)) {
 		n = make_node_t(p, node_type_return);
 
@@ -1107,12 +1121,14 @@ parse_impl(struct parser *p)
 		n = make_node_t(p, node_type_stmt);
 	}
 
+	lexer_destroy(&p->lexer);
+
 	TracyCZoneAutoE;
 	return p->err.count ? 0 : n;
 }
 
 // clang-format off
-static const struct parse_rule parse_rules_base[] = {
+static const struct parse_rule parse_rules_base[token_type_count] = {
 	[token_type_number]     = { parse_number,   0,             0                           },
 	[token_type_identifier] = { parse_id,       0,             0                           },
 	[token_type_string]     = { parse_string,   0,             0                           },
@@ -1140,6 +1156,7 @@ static const struct parse_rule parse_rules_base[] = {
 	['.']                   = { 0,              parse_method,  parse_precedence_call       },
 	['?']                   = { 0,              parse_ternary, parse_precedence_assignment },
 	[token_type_not]        = { parse_unary,    0,             0                           },
+	[token_type_func]       = { parse_func,     0,             0                           },
 };
 // clang-format on
 

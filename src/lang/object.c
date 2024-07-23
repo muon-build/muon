@@ -358,7 +358,7 @@ static struct {
 	{ .t = obj_both_libs, .name = "both_libs" },
 	{ .t = obj_typeinfo, .name = "typeinfo" },
 	{ .t = obj_func, .name = "func_def" },
-	{ .t = obj_capture, .name = "func" },
+	{ .t = obj_capture, .name = "function" },
 	{ .t = obj_source_set, .name = "source_set" },
 	{ .t = obj_source_configuration, .name = "source_configuration" },
 	{ .t = obj_iterator, .name = "iterator" },

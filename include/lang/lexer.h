@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "datastructures/bucket_arr.h"
+#include "datastructures/stack.h"
 #include "error.h"
 #include "lang/string.h"
 
@@ -82,6 +83,9 @@ enum token_type {
 	token_type_returntype,
 };
 
+// Keep in sync with above
+#define token_type_count (token_type_returntype + 1)
+
 union literal_data {
 	obj literal;
 	obj str;
@@ -113,15 +117,18 @@ struct lexer {
 	struct workspace *wk;
 	struct source *source;
 	const char *src;
+	struct stack stack;
 	struct lexer_fmt fmt;
-	uint32_t i, enclosing, ws_start, ws_end;
+	uint32_t i, ws_start, ws_end;
 	enum lexer_mode mode;
+	uint8_t enclosed_state;
 };
 
 bool is_valid_inside_of_identifier(const char c);
 bool is_valid_start_of_identifier(const char c);
 
 void lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode);
+void lexer_destroy(struct lexer *lexer);
 void lexer_next(struct lexer *lexer, struct token *token);
 
 obj lexer_get_preceeding_whitespace(struct lexer *lexer);

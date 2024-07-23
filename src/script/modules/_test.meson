@@ -21,7 +21,7 @@ func basic_scope() -> int
     return a
 endfunc
 
-func factory(v any) -> func
+func factory(v any) -> function
     func f() -> any
         return v
     endfunc
@@ -29,7 +29,7 @@ func factory(v any) -> func
     return f
 endfunc
 
-func incrementer() -> func
+func incrementer() -> function
     i = 0
     func f() -> int
         r = i
@@ -40,7 +40,7 @@ func incrementer() -> func
     return f
 endfunc
 
-func custom_target_wrap(base_kwargs dict[any]) -> func
+func custom_target_wrap(base_kwargs dict[any]) -> function
     func f(name str, kwargs dict[any]) -> custom_tgt
         kwargs = base_kwargs + kwargs
         return custom_target(name, kwargs: kwargs)
@@ -49,7 +49,7 @@ func custom_target_wrap(base_kwargs dict[any]) -> func
     return f
 endfunc
 
-func test_wrap(exe exe, base_kwargs dict[any]) -> func
+func test_wrap(exe exe, base_kwargs dict[any]) -> function
     func f(name str, args listify[any], kwargs dict[any]: {})
         kwargs = base_kwargs + kwargs + {'args': args}
         test(name, exe, kwargs: kwargs)
