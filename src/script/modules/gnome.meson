@@ -42,28 +42,29 @@ func compile_resources(
 
     depends = []
     depend_files = []
+    source_dirs = source_dir
 
     foreach sd : source_dir
-        sd = fs.relative_to(meson.current_build_dir(), fs.make_absolute(sd))
+        source_dirs += meson.current_source_dir() / sd
     endforeach
 
     foreach d : dependencies
         # is 'subdir' meson member struct or 'get_subdir' meson method fs.parent?
         if typeof(d) == 'custom_tgt'
-            source_dir += fs.parent(d.full_path())
+            source_dirs += fs.parent(d.full_path())
             depends += d
         elif typeof(d) == 'file'
-            source_dir += fs.parent(d)
+            source_dirs += fs.parent(d)
             depend_files += d
         else
-            source_dir += fs.parent(d)
+            source_dirs += fs.parent(d)
             depends += d
         endif
     endforeach
 
-    source_dir += meson.current_build_dir()
+    source_dirs += [meson.current_build_dir(), meson.current_source_dir()]
 
-    foreach sd : source_dir
+    foreach sd : source_dirs
         cmd += ['--sourcedir', sd]
     endforeach
 
