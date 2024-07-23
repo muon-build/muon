@@ -5,6 +5,8 @@
 
 fs = import('fs')
 
+warning('muon\'s gnome module implementation is unstable.')
+
 # TODO: investigate
 func post_install(
     _glib_compile_schemas bool: false,
