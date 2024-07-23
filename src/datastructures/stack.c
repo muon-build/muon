@@ -67,13 +67,14 @@ stack_print(struct stack *_stack)
 	struct stack stack = *_stack;
 	while (stack.len) {
 		stack_pop_raw(&stack, &tag, sizeof(tag));
-		printf("  - %04d - %s", tag.size, tag.name);
+		printf("  - %d, %04d - %s", stack.len, tag.size, tag.name);
 
 		assert(stack.len >= tag.size);
 		stack.len -= tag.size;
-		void *mem = stack.mem + stack.len;
 
-		stack.cb(stack.ctx, mem, &tag);
+		if (tag.size == 1) {
+			printf(" %02x", *(uint8_t *)(stack.mem + stack.len));
+		}
 
 		printf("\n");
 	}
@@ -85,10 +86,7 @@ stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char
 	stack_push_raw(stack, mem, size);
 	stack_push_raw(stack, &(struct stack_tag){ name, size }, sizeof(struct stack_tag));
 
-	if (stack->log) {
-		L("\033[33mstack\033[0m %05d %s pushed %s (%d)", stack->len, stack->name, name, size);
-		/* stack_print(stack); */
-	}
+	/* L("\033[33mstack\033[0m %05d pushed %s (%d)", stack->len, name, size); */
 }
 
 void
@@ -101,10 +99,7 @@ stack_pop_sized(struct stack *stack, void *mem, uint32_t size)
 
 	stack_pop_raw(stack, mem, size);
 
-	if (stack->log) {
-		L("\033[33mstack\033[0m %05d %s popped %s (%d)", stack->len, stack->name, tag.name, tag.size);
-		/* stack_print(stack); */
-	}
+	/* L("\033[33mstack\033[0m %05d popped %s (%d)", stack->len, tag.name, tag.size); */
 }
 
 void
