@@ -151,7 +151,7 @@ option('python.platlibdir', type: 'string', value: '')
 option('python.allow_limited_api', type: 'boolean', value: true)
 
 # muon-specific options.  These are safe from being overridden because meson
-# forbids . in an opiton name
+# forbids . in an option name
 
 option('env.CC', type: 'array', value: ['cc'])
 option('env.CXX', type: 'array', value: ['c++'])
