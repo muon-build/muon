@@ -12,10 +12,10 @@ if not glib.found()
     error('MESON_SKIP_TEST glib not found.')
 endif
 
-# gir = dependency('gobject-introspection-1.0', required: false)
-# if not gir.found()
-#     error('MESON_SKIP_TEST gobject-introspection not found.')
-# endif
+gir = dependency('gobject-introspection-1.0', required: false)
+if not gir.found()
+    error('MESON_SKIP_TEST gobject-introspection not found.')
+endif
 
 python3 = import('python3')
 py3 = python3.find_python()
