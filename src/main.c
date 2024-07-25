@@ -1084,7 +1084,7 @@ main(int argc, char *argv[])
 	{
 		SBUF(basename);
 		path_basename(NULL, &basename, argv[0]);
-		meson_compat = strcmp(basename.buf, "meson") == 0 && strcmp(argv[1], "internal") != 0;
+		meson_compat = strcmp(basename.buf, "meson") == 0 && (argc < 2 || strcmp(argv[1], "internal") != 0);
 		sbuf_destroy(&basename);
 	}
 
