@@ -91,15 +91,32 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 		}
 	}
 
-	if (l == compiler_language_nasm) {
-		obj c_compiler;
-		if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_c, &c_compiler)
-			&& !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
-			bool c_found;
-			if (!project_add_language(wk, err_node, make_str(wk, "c"), req, &c_found)) {
-				return false;
+	switch (l) {
+	case compiler_language_assembly:
+	case compiler_language_nasm:
+	case compiler_language_objc: {
+			obj c_compiler;
+			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_c, &c_compiler)
+				&& !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
+				bool c_found;
+				if (!project_add_language(wk, err_node, make_str(wk, "c"), req, &c_found)) {
+					return false;
+				}
 			}
 		}
+		break;
+	case compiler_language_objcpp: {
+			obj cpp_compiler;
+			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &cpp_compiler)) {
+				bool cpp_found;
+				if (!project_add_language(wk, err_node, make_str(wk, "cpp"), req, &cpp_found)) {
+					return false;
+				}
+			}
+		}
+		break;
+	default:
+		break;
 	}
 
 	*found = true;

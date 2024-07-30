@@ -171,6 +171,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_c:
 	case compiler_language_cpp:
 	case compiler_language_llvm_ir:
+	case compiler_language_objcpp:
 	case compiler_language_objc: break;
 	case compiler_language_null:
 	case compiler_language_count: UNREACHABLE;

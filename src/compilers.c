@@ -94,6 +94,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_cpp_hdr] = "cpp_hdr",
 	[compiler_language_c_obj] = "c_obj",
 	[compiler_language_objc] = "objc",
+	[compiler_language_objcpp] = "objcpp",
 	[compiler_language_assembly] = "assembly",
 	[compiler_language_llvm_ir] = "llvm_ir",
 	[compiler_language_nasm] = "nasm",
@@ -126,8 +127,9 @@ static const char *compiler_language_exts[compiler_language_count][10] = {
 	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
 	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
 	[compiler_language_c_obj] = { "o", "obj" },
-	[compiler_language_objc] = { "m", "mm", "M" },
-	[compiler_language_assembly] = { "S" },
+	[compiler_language_objc] = { "m", "M" },
+	[compiler_language_objcpp] = { "mm" },
+	[compiler_language_assembly] = { "s", "S" },
 	[compiler_language_llvm_ir] = { "ll" },
 	[compiler_language_nasm] = { "asm" },
 };
@@ -183,6 +185,7 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 		}
 		break;
 	case compiler_language_cpp:
+	case compiler_language_objcpp:
 		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
 			return compiler_language_cpp;
 		}
@@ -414,6 +417,7 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 	case compiler_language_c:
 	case compiler_language_cpp:
 	case compiler_language_objc:
+	case compiler_language_objcpp:
 		if (!compiler_detect_c_or_cpp(wk, cmd_arr, comp)) {
 			return false;
 		}
@@ -575,6 +579,7 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 		[compiler_language_c] = "env.CC",
 		[compiler_language_cpp] = "env.CXX",
 		[compiler_language_objc] = "env.OBJC",
+		[compiler_language_objcpp] = "env.OBJCPP",
 		[compiler_language_nasm] = "env.NASM",
 	};
 
@@ -585,6 +590,7 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 			[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
 			[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
 			[compiler_language_objc] = { "cc", "gcc", NULL },
+			[compiler_language_objcpp] = { "c++", "g++", "clang++", "clang-cl", NULL },
 			[compiler_language_nasm] = { "nasm", "yasm", NULL },
 		};
 
@@ -594,6 +600,7 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 			[compiler_language_c] = { "cc", "gcc", "clang", NULL },
 			[compiler_language_cpp] = { "c++", "g++", "clang++", NULL },
 			[compiler_language_objc] = { "cc", "gcc", "clang", NULL },
+			[compiler_language_objcpp] = { "c++", "g++", "clang++", NULL },
 			[compiler_language_nasm] = { "nasm", "yasm", NULL },
 		};
 

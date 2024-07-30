@@ -14,6 +14,7 @@ tests = [
     ['muon/str'],
     ['muon/python', ['python']],
     ['muon/script_module'],
+    ['muon/objc and cpp'],
 
     # project tests imported from meson unit tests
 
@@ -374,6 +375,18 @@ tests = [
     # frameworks
     ['meson-tests/frameworks/6 gettext'],
     ['meson-tests/frameworks/7 gnome'],
+
+    # objc
+    ['meson-tests/objc/1 simple'],
+    ['meson-tests/objc/2 nsstring'],
+    ['meson-tests/objc/3 objc args'],
+    ['meson-tests/objc/4 c++ project objc subproject'],
+    ['meson-tests/objc/5 objfw'],
+
+    # objcpp
+    ['meson-tests/objcpp/1 simple'],
+    ['meson-tests/objcpp/2 objc++ args'],
+    ['meson-tests/objcpp/3 objfw'],
 ]
 
 if dep_dict['samurai']
@@ -390,7 +403,7 @@ endif
 
 if git.found()
     meson_tests_dir = meson.current_source_dir() / 'meson-tests'
-    meson_tests_sha = '1fce5b37fc879f8a106fbba93b3387a9d9b43833'
+    meson_tests_sha = 'b2b57f03b4a631e50ad3eb44d343c6a60040ebc9'
 
     if fs.is_dir('meson-tests')
         meson_tests_clean = run_command(git, '-C', meson_tests_dir, 'diff', '--quiet', check: false).returncode() == 0

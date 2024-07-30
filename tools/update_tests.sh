@@ -156,7 +156,7 @@ copy_tests_from_rev_() {
 	done
 }
 
-rev="1.0.1"
+rev="1.5.1"
 
 usage() {
 	cat <<EOF
@@ -208,3 +208,5 @@ tests_root="$2"
 "$copy_fun" "test cases/nasm" "nasm" "$rev"
 "$copy_fun" "test cases/native" "native" "$rev"
 "$copy_fun" "test cases/python" "python" "$rev"
+"$copy_fun" "test cases/objc" "objc" "$rev"
+"$copy_fun" "test cases/objcpp" "objcpp" "$rev"

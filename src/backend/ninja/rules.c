@@ -406,6 +406,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 				compiler_language_c,
 				compiler_language_cpp,
 				compiler_language_objc,
+				compiler_language_objcpp,
 				compiler_language_nasm,
 			};
 

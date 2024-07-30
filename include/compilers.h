@@ -62,6 +62,7 @@ enum static_linker_type {
 	_(c)                                 \
 	_(cpp)                               \
 	_(objc)                              \
+	_(objcpp)                              \
 	_(assembly)                          \
 	_(llvm_ir)                           \
 	_(nasm)
