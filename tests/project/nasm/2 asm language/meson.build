@@ -5,6 +5,16 @@ if not host_machine.cpu_family().startswith('x86')
     error('MESON_SKIP_TEST: nasm only supported for x86 and x86_64')
 endif
 
+if host_machine.system() == 'darwin'
+    # verify that /usr/bin/nasm stub on darwin actually works
+    #   $ /usr/bin/nasm
+    #   nasm: error: unable to find utility "nasm", not a developer tool or in PATH
+    nasm_version = run_command('nasm', '--version')
+    if nasm_version.returncode() == 72
+        error('MESON_SKIP_TEST: nasm not found')
+    endif
+endif
+
 if host_machine.system() == 'windows'
     error('MESON_SKIP_TEST: this test asm is not made for Windows')
 endif

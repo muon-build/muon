@@ -8,10 +8,12 @@ project('generated header dep', 'c')
 # dependency on the header file. This happened in GLib:
 # https://gitlab.gnome.org/GNOME/glib/-/merge_requests/2917.
 
-python = find_program('python3')
+python = find_program('python')
+
 header = custom_target(
     output: 'foo.h',
     capture: true,
+    # works with either python2 or python3
     command: [python, '-c', 'print("#define FOO")'],
 )
 

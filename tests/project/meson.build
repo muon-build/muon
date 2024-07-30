@@ -149,7 +149,7 @@ tests = [
     ['common/130 include order', ['python']],
     ['common/131 override options'],
     ['common/132 get define'],
-    ['common/133 c cpp and asm'],
+    ['common/133 asm c cpp'],
     ['common/134 compute int'],
     ['common/135 custom target object output', ['python']],
     ['common/136 empty build file'],
@@ -323,6 +323,19 @@ tests = [
     ['nasm/1 configure file'],
     ['nasm/2 asm language', fail_on_non_x86],
     ['nasm/3 nasm only'],
+
+    # objc
+    ['objc/1 simple'],
+    ['objc/2 nsstring'],
+    ['objc/3 objc args'],
+    ['objc/4 c++ project objc subproject'],
+    ['objc/5 objfw'],
+
+    # objcpp
+    ['objcpp/1 simple'],
+    ['objcpp/2 objc++ args'],
+    ['objcpp/3 objfw'],
+    ['objcpp/9 objc and objcpp'],
 
     # keyval
     ['keyval/1 basic'],

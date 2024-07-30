@@ -2,6 +2,7 @@
 
 .text
 .globl SYMBOL_NAME(get_retval)
+
 # ifdef __linux__
 .type get_retval, %function
 #endif

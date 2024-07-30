@@ -14,19 +14,19 @@ if meson.get_compiler('c').get_argument_syntax() == 'msvc'
 endif
 
 if cc.symbols_have_underscore_prefix()
-    add_project_arguments('-DMESON_TEST__UNDERSCORE_SYMBOL', language: 'c')
+    add_project_arguments('-DMESON_TEST__UNDERSCORE_SYMBOL', language: 'assembly')
 endif
 
-test('test-c-asm', executable('c-asm', ['main.c', 'retval-' + cpu + '.S']))
+test('test-c-asm', executable('c-asm', ['main.c', 'retval-' + cpu + '.s']))
 test(
     'test-cpp-asm',
-    executable('cpp-asm', ['main.cpp', 'retval-' + cpu + '.S']),
+    executable('cpp-asm', ['main.cpp', 'retval-' + cpu + '.s']),
 )
 test(
     'test-c-cpp-asm',
-    executable('c-cpp-asm', ['somelib.c', 'main.cpp', 'retval-' + cpu + '.S']),
+    executable('c-cpp-asm', ['somelib.c', 'main.cpp', 'retval-' + cpu + '.s']),
 )
 test(
     'test-cpp-c-asm',
-    executable('cpp-c-asm', ['main.cpp', 'somelib.c', 'retval-' + cpu + '.S']),
+    executable('cpp-c-asm', ['main.cpp', 'somelib.c', 'retval-' + cpu + '.s']),
 )

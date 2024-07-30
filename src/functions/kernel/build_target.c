@@ -67,6 +67,7 @@ enum build_target_kwargs {
 	bt_kw_c_args,
 	bt_kw_cpp_args,
 	bt_kw_objc_args,
+	bt_kw_objcpp_args,
 	bt_kw_masm_args, // TODO
 	bt_kw_nasm_args, // TODO
 	bt_kw_link_args,
@@ -728,6 +729,7 @@ create_target(struct workspace *wk,
 			{ bt_kw_c_args, compiler_language_c },
 			{ bt_kw_cpp_args, compiler_language_cpp },
 			{ bt_kw_objc_args, compiler_language_objc },
+			{ bt_kw_objcpp_args, compiler_language_objcpp },
 			{ bt_kw_nasm_args, compiler_language_nasm },
 		};
 
@@ -930,6 +932,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_c_args] = { "c_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_cpp_args] = { "cpp_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_objc_args] = { "objc_args", TYPE_TAG_LISTIFY | obj_string },
+		[bt_kw_objcpp_args] = { "objcpp_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_nasm_args] = { "nasm_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_masm_args] = { "masm_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },

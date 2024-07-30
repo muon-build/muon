@@ -10,7 +10,8 @@ bar_c = custom_target(
     input: 'bar.c',
     output: 'bar.c',
     command: [
-        'python3',
+        # works with either python2 or python3
+        'python',
         '-c', '''import sys;print(sys.argv[1].replace('@BAR@', 'bar'))''',
         bar_content,
     ],

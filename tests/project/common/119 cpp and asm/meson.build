@@ -17,7 +17,7 @@ if not supported_cpus.contains(cpu)
 endif
 
 if cpp.symbols_have_underscore_prefix()
-    add_project_arguments('-DMESON_TEST__UNDERSCORE_SYMBOL', language: 'cpp')
+    add_project_arguments('-DMESON_TEST__UNDERSCORE_SYMBOL', language: 'assembly')
 endif
 
 sources = ['trivial.cc']
