@@ -706,7 +706,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		test_opts.print_summary = true;
 	}
 
-	OPTSTART("s:d:Sfj:lvRe:") {
+	OPTSTART("s:d:Sfj:lvRe:o:") {
 	case 'l': test_opts.list = true; break;
 	case 'e': test_opts.setup = optarg; break;
 	case 's':
@@ -724,6 +724,18 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 			test_opts.display = test_display_dots;
 		} else if (strcmp(optarg, "bar") == 0) {
 			test_opts.display = test_display_bar;
+		} else {
+			LOG_E("invalid progress display mode '%s'", optarg);
+			return false;
+		}
+		break;
+	case 'o':
+		if (strcmp(optarg, "term") == 0) {
+			test_opts.output = test_output_term;
+		} else if (strcmp(optarg, "html") == 0) {
+			test_opts.output = test_output_html;
+		} else if (strcmp(optarg, "json") == 0) {
+			test_opts.output = test_output_json;
 		} else {
 			LOG_E("invalid progress display mode '%s'", optarg);
 			return false;
@@ -749,6 +761,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTEND(argv[argi],
 		" [test [test [...]]]",
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
+		"  -o <mode> - set output mode (term|html|json)\n"
 		"  -e <setup> - use test setup <setup>\n"
 		"  -f - fail fast; exit after first failure\n"
 		"  -j <jobs> - set the number of test workers\n"

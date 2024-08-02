@@ -18,6 +18,8 @@ foreach s : [
     'modules/_test.meson',
     'modules/i18n.meson',
     'modules/gnome.meson',
+
+    'html/test_out.html',
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]

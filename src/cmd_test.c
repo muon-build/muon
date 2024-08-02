@@ -11,6 +11,7 @@
 #include "backend/ninja.h"
 #include "backend/output.h"
 #include "cmd_test.h"
+#include "embedded.h"
 #include "error.h"
 #include "formats/tap.h"
 #include "functions/environment.h"
@@ -90,31 +91,40 @@ test_category_label(enum test_category cat)
 	}
 }
 
-static void
-print_test_result(struct workspace *wk, const struct test_result *res)
+static const char *
+test_suites_label(struct workspace *wk, const struct test_result *res)
 {
-	const char *name = get_cstr(wk, res->test->name);
+	const char *suite_str = 0;
+	uint32_t suites_len = 0;
+	if (res->test->suites) {
+		suites_len = get_obj_array(wk, res->test->suites)->len;
+		if (suites_len == 1) {
+			obj s;
+			obj_array_index(wk, res->test->suites, 0, &s);
+			suite_str = get_cstr(wk, s);
+		} else if (suites_len > 1) {
+			obj s;
+			obj_array_join(wk, true, res->test->suites, make_str(wk, "+"), &s);
+			suite_str = get_cstr(wk, s);
+		}
+	}
+	return suite_str;
+}
 
-	enum {
-		status_failed,
-		status_should_have_failed,
-		status_ok,
-		status_failed_ok,
-		status_running,
-		status_timedout,
-		status_skipped,
-	} status
-		= status_ok;
+enum test_detailed_status {
+	status_ok,
+	status_failed,
+	status_failed_ok,
+	status_running,
+	status_timedout,
+	status_skipped,
+	status_should_have_failed,
+};
 
-	const char *status_msg[] = {
-		[status_failed] = "fail ",
-		[status_should_have_failed] = "ok*  ",
-		[status_ok] = "ok   ",
-		[status_failed_ok] = "fail*",
-		[status_running] = "start",
-		[status_timedout] = "timeout",
-		[status_skipped] = "skip ",
-	};
+static enum test_detailed_status
+test_detailed_status(const struct test_result *res)
+{
+	enum test_detailed_status status = status_ok;
 
 	switch (res->status) {
 	case test_result_status_running: status = status_running; break;
@@ -136,20 +146,27 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 	case test_result_status_skipped: status = status_skipped; break;
 	}
 
-	const char *suite_str = NULL;
-	uint32_t suites_len = 0;
-	if (res->test->suites) {
-		suites_len = get_obj_array(wk, res->test->suites)->len;
-		if (suites_len == 1) {
-			obj s;
-			obj_array_index(wk, res->test->suites, 0, &s);
-			suite_str = get_cstr(wk, s);
-		} else if (suites_len > 1) {
-			obj s;
-			obj_array_join(wk, true, res->test->suites, make_str(wk, "+"), &s);
-			suite_str = get_cstr(wk, s);
-		}
-	}
+	return status;
+}
+
+static void
+print_test_result(struct workspace *wk, const struct test_result *res)
+{
+	const char *name = get_cstr(wk, res->test->name);
+
+	const char *status_msg[] = {
+		[status_failed] = "fail ",
+		[status_should_have_failed] = "ok*  ",
+		[status_ok] = "ok   ",
+		[status_failed_ok] = "fail*",
+		[status_running] = "start",
+		[status_timedout] = "timeout",
+		[status_skipped] = "skip ",
+	};
+
+	enum test_detailed_status status = test_detailed_status(res);
+
+	const char *suite_str = test_suites_label(wk, res);
 
 	if (log_clr()) {
 		uint32_t clr[] = {
@@ -522,7 +539,6 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
 
 		if (state != run_cmd_running && res->status == test_result_status_timedout) {
-			run_cmd_ctx_destroy(&res->cmd_ctx);
 			print_test_progress(wk, ctx, res, true);
 			arr_push(&ctx->test_results, res);
 			goto free_slot;
@@ -566,7 +582,6 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 				}
 
 				res->status = status;
-				run_cmd_ctx_destroy(&res->cmd_ctx);
 			} else {
 				res->status = test_result_status_failed;
 			}
@@ -870,6 +885,179 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	return ir_cont;
 }
 
+static bool
+tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
+{
+	bool ret = true;
+
+	uint32_t i;
+	for (i = 0; i < ctx->test_results.len; ++i) {
+		struct test_result *res = arr_get(&ctx->test_results, i);
+
+		if (ctx->opts->print_summary
+			|| (res->status == test_result_status_failed || res->status == test_result_status_timedout)) {
+			print_test_result(wk, res);
+			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
+				log_plain(": %s", res->cmd_ctx.err_msg);
+			}
+			log_plain("\n");
+		}
+
+		if (res->status == test_result_status_failed) {
+			if (res->test->should_fail) {
+				ret = false;
+			} else {
+				ret = false;
+				if (res->cmd_ctx.out.len) {
+					log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
+				}
+				if (res->cmd_ctx.err.len) {
+					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
+				}
+			}
+		} else if (res->status == test_result_status_timedout) {
+			ret = false;
+		}
+	}
+
+	return ret;
+}
+
+static void
+push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len)
+{
+	uint32_t i;
+	for (i = 0; i < len; ++i) {
+		switch (str[i]) {
+		case '\b': sbuf_pushs(wk, buf, "\\b"); break;
+		case '\f': sbuf_pushs(wk, buf, "\\f"); break;
+		case '\n': sbuf_pushs(wk, buf, "\\n"); break;
+		case '\r': sbuf_pushs(wk, buf, "\\r"); break;
+		case '\t': sbuf_pushs(wk, buf, "\\t"); break;
+		case '"': sbuf_pushs(wk, buf, "\\\""); break;
+		case '\\': sbuf_pushs(wk, buf, "\\\\"); break;
+		default: {
+			if (str[i] < ' ') {
+				sbuf_pushf(wk, buf, "\\u%04x", str[i]);
+			} else {
+				sbuf_push(wk, buf, str[i]);
+			}
+			break;
+		}
+		}
+	}
+}
+
+static void
+tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
+{
+	const char *status_str[] = {
+		[status_failed] = "failed",
+		[status_should_have_failed] = "should_have_failed",
+		[status_ok] = "ok",
+		[status_failed_ok] = "failed_ok",
+		[status_running] = "running",
+		[status_timedout] = "timedout",
+		[status_skipped] = "skipped",
+	};
+
+	sbuf_push(wk, data, '{');
+	sbuf_pushf(wk, data, "\"project\":{\"name\":\"%s\"},", get_cstr(wk, ctx->proj_name));
+	sbuf_pushf(wk, data, "\"tests\":[");
+
+	uint32_t i;
+	for (i = 0; i < ctx->test_results.len; ++i) {
+		struct test_result *res = arr_get(&ctx->test_results, i);
+		enum test_detailed_status status = test_detailed_status(res);
+		const char *suite_str = test_suites_label(wk, res);
+
+		sbuf_pushf(wk,
+			data,
+			"{"
+			"\"status\":\"%s\","
+			"\"name\":\"%s\","
+			"\"suite\":\"%s\","
+			"\"duration\":%f,",
+			status_str[status],
+			get_cstr(wk, res->test->name),
+			suite_str,
+			res->dur);
+
+		if (res->subtests.have) {
+			sbuf_pushf(wk,
+				data,
+				"\"subtests\":{\"pass\":%d,\"total\":%d},",
+				res->subtests.pass,
+				res->subtests.total);
+		}
+
+		/* if (res->status == test_result_status_failed) { */
+		sbuf_pushs(wk, data, "\"stdout\":\"");
+		push_json_escaped(wk, data, res->cmd_ctx.out.buf, res->cmd_ctx.out.len);
+		sbuf_pushs(wk, data, "\",\"stderr\":\"");
+		push_json_escaped(wk, data, res->cmd_ctx.err.buf, res->cmd_ctx.err.len);
+		sbuf_pushs(wk, data, "\"");
+		/* } else { */
+		/* 	sbuf_pushs(wk, data, "\"stdout\":\"\",\"stderr\":\"\""); */
+		/* } */
+
+		sbuf_pushs(wk, data, "}");
+
+		if (i + 1 != ctx->test_results.len) {
+			sbuf_push(wk, data, ',');
+		}
+	}
+	sbuf_pushf(wk, data, "]}");
+}
+
+static bool
+tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
+{
+	SBUF(data);
+
+	tests_as_json(wk, ctx, &data);
+
+	SBUF(html_path);
+	path_join(wk, &html_path, output_path.private_dir, "tests.html");
+	SBUF(abs);
+	path_make_absolute(wk, &abs, html_path.buf);
+
+	FILE *f = 0;
+	if (!(f = fs_fopen(abs.buf, "wb"))) {
+		return false;
+	}
+
+	fprintf(f, embedded_get("html/test_out.html"), data.buf);
+	LOG_I("wrote html output to %s", abs.buf);
+	fclose(f);
+
+	return true;
+}
+
+static bool
+tests_output_json(struct workspace *wk, struct run_test_ctx *ctx)
+{
+	SBUF(data);
+
+	tests_as_json(wk, ctx, &data);
+
+	SBUF(json_path);
+	path_join(wk, &json_path, output_path.private_dir, "tests.json");
+	SBUF(abs);
+	path_make_absolute(wk, &abs, json_path.buf);
+
+	FILE *f = 0;
+	if (!(f = fs_fopen(abs.buf, "wb"))) {
+		return false;
+	}
+
+	fprintf(f, "%s", data.buf);
+	LOG_I("wrote json output to %s", abs.buf);
+	fclose(f);
+
+	return true;
+}
+
 bool
 tests_run(struct test_options *opts, const char *argv0)
 {
@@ -960,36 +1148,26 @@ tests_run(struct test_options *opts, const char *argv0)
 			ctx.stats.total_skipped);
 	}
 
-	ret = true;
-	uint32_t i;
-	for (i = 0; i < ctx.test_results.len; ++i) {
-		struct test_result *res = arr_get(&ctx.test_results, i);
+	switch (opts->output) {
+	case test_output_term: ret = tests_output_term(&wk, &ctx); break;
+	case test_output_html: ret = tests_output_html(&wk, &ctx); break;
+	case test_output_json: ret = tests_output_json(&wk, &ctx); break;
+	}
 
-		if (opts->print_summary
-			|| (res->status == test_result_status_failed || res->status == test_result_status_timedout)) {
-			print_test_result(&wk, res);
-			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
-				log_plain(": %s", res->cmd_ctx.err_msg);
-			}
-			log_plain("\n");
-		}
-
-		if (res->status == test_result_status_failed) {
-			if (res->test->should_fail) {
-				ret = false;
-			} else {
-				ret = false;
-				if (res->cmd_ctx.out.len) {
-					log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
+	{
+		uint32_t i;
+		for (i = 0; i < ctx.test_results.len; ++i) {
+			struct test_result *res = arr_get(&ctx.test_results, i);
+			if (res->status == test_result_status_failed) {
+				if (res->test->should_fail) {
+					ret = false;
+				} else {
+					ret = false;
 				}
-				if (res->cmd_ctx.err.len) {
-					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
-				}
+			} else if (res->status == test_result_status_timedout) {
+				ret = false;
 			}
-
 			run_cmd_ctx_destroy(&res->cmd_ctx);
-		} else if (res->status == test_result_status_timedout) {
-			ret = false;
 		}
 	}
 

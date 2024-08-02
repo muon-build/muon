@@ -303,8 +303,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	Print a previously configured project's summary.
 
 ## test
-	*muon* *test* [*-d* <display mode>] [*-e* <setup>] [*-f*] [*-j* <jobs>]
-	\[*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*] [<test> [<test>[...]]
+	*muon* *test* [*-d* <display mode>] [*-o* <output>] [*-e* <setup>] [*-f*]
+	\[*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]  [<test>
+	[<test>[...]]
 
 	Execute tests defined in _source files_.
 
@@ -325,11 +326,14 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	the project 'proj'.
 
 	*OPTIONS*:
-	- *-d* <display mode> - Control test output.  _display mode_ can be one
-	  of *auto*, *dots*, or *bar*.  *dots* prints a '.' for success and 'E'
-	  for error, *bar* prints a progress bar with an error count.  The
-	  default mode, *auto*, selects *bar* if the output device is a
-	  terminal or *dots* otherwise.
+	- *-d* <display mode> - Control test progress output.  _display mode_ can
+	  be one of *auto*, *dots*, or *bar*.  *dots* prints a '.' for success and
+	  'E' for error, *bar* prints a progress bar with an error count.  The
+	  default mode, *auto*, selects *bar* if the output device is a terminal or
+	  *dots* otherwise.
+	- *-o* <output mode> - Control test results output.  *term* prints failures
+	  and output to the terminal, *html* generates a single-page html report,
+	  and *json* outputs test information to a json file.
 	- *-e* <setup> - Use test setup _setup_.
 	- *-f* - Fail fast. exit after first test failure is encountered.
 	- *-j* - Set the number of jobs used when running tests.

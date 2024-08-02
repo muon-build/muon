@@ -22,12 +22,19 @@ enum test_display {
 	test_display_bar,
 };
 
+enum test_output {
+	test_output_term,
+	test_output_html,
+	test_output_json,
+};
+
 struct test_options {
 	const char *suites[MAX_CMDLINE_TEST_SUITES];
 	char *const *tests;
 	const char *setup;
 	uint32_t suites_len, tests_len, jobs, verbosity;
 	enum test_display display;
+	enum test_output output;
 	bool fail_fast, print_summary, no_rebuild, list;
 
 	enum test_category cat;

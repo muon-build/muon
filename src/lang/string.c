@@ -588,7 +588,10 @@ void
 sbuf_destroy(struct sbuf *sb)
 {
 	if ((sb->flags & sbuf_flag_overflown) && (sb->flags & sbuf_flag_overflow_alloc)) {
-		z_free(sb->buf);
+		if (sb->buf) {
+			z_free(sb->buf);
+			sb->buf = 0;
+		}
 	}
 }
 
