@@ -22,13 +22,12 @@ elif command -v pkg-config >/dev/null; then
 fi
 
 if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd libpkgconf; then
-	pkgconf_src="libpkgconf.c"
 	pkgconf_cflags="$($pkgconf_cmd --cflags libpkgconf) -DBOOTSTRAP_HAVE_LIBPKGCONF"
 	pkgconf_libs="$($pkgconf_cmd --libs libpkgconf)"
 else
-	pkgconf_src="libpkgconf_null.c"
 	pkgconf_cflags=""
 	pkgconf_libs=""
 fi
 
+# shellcheck disable=SC2086
 ${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$dir/muon"
