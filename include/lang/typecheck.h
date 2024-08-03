@@ -97,7 +97,7 @@ enum complex_type {
 #define tc_coercible_files    (tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs)
 #define tc_coercible_inc      (tc_string | tc_include_directory)
 #define tc_command_array      (TYPE_TAG_LISTIFY | tc_exe)
-#define tc_depends_kw         (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_both_libs)
+#define tc_depends_kw         (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_both_libs | tc_file)
 #define tc_install_mode_kw    (TYPE_TAG_LISTIFY | tc_string | tc_number | tc_bool)
 #define tc_required_kw        (tc_bool | tc_feature_opt)
 /* XXX: tc_file should not really be in tc_link_with_kw, however this is
