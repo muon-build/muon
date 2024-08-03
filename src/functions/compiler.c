@@ -2074,18 +2074,29 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		kw_include_directories,
 		kw_output,
 		kw_dependencies,
+		kw_depends,
 	};
-	struct args_kw akw[] = { [kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
+	struct args_kw akw[] = {
+		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
 		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_output] = { "output", tc_string, .required = true },
 		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
-		0 };
+		[kw_depends] = { "depends", tc_depends_kw },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, self);
+
+	obj depends = 0;
+	if (akw[kw_depends].set) {
+		if (!coerce_files(wk, akw[kw_depends].node, akw[kw_depends].val, &depends)) {
+			return false;
+		}
+	}
 
 	obj base_cmd;
 	obj_array_dup(wk, comp->cmd_arr, &base_cmd);
@@ -2158,6 +2169,10 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		}
 
 		t->name = make_strf(wk, "<preprocess:%s>", get_file_path(wk, output));
+		if (depends) {
+			obj_array_extend_nodup(wk, t->depends, depends);
+		}
+
 		obj_array_push(wk, current_project(wk)->targets, tgt);
 
 		obj_array_push(wk, *res, output);
