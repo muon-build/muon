@@ -229,6 +229,17 @@ func_split(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
+func_splitlines(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	*res = str_splitlines(wk, get_str(wk, self));
+	return true;
+}
+
+static bool
 func_join(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
@@ -439,7 +450,14 @@ func_string_substring(struct workspace *wk, obj self, obj *res)
 		end = start;
 	}
 
-	*res = make_strn(wk, &s->s[MAX(0, start)], MIN(end - start, s->len));
+	start = MAX(0, start);
+
+	if (start > end || start > s->len) {
+		*res = make_str(wk, "");
+		return true;
+	}
+
+	*res = make_strn(wk, &s->s[start], MIN(end - start, s->len - start));
 	return true;
 }
 
@@ -524,6 +542,7 @@ const struct func_impl impl_tbl_string[] = {
 	{ "join", func_join, tc_string, true },
 	{ "replace", func_string_replace, tc_string, true },
 	{ "split", func_split, tc_array, true },
+	{ "splitlines", func_splitlines, tc_array, true },
 	{ "startswith", func_string_startswith, tc_bool, true },
 	{ "strip", func_strip, tc_string, true },
 	{ "substring", func_string_substring, tc_string, true },

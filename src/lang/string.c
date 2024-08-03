@@ -494,6 +494,48 @@ str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 	return res;
 }
 
+obj
+str_splitlines(struct workspace *wk, const struct str *ss)
+{
+	const struct str seps[] = { WKSTR("\n"), WKSTR("\r\n"), WKSTR("\r") };
+	const struct str *split;
+
+	obj res;
+	make_obj(wk, &res, obj_array);
+
+	if (!ss->len) {
+		return res;
+	}
+
+	uint32_t i, j, start = 0;
+	obj s;
+
+	for (i = 0; i < ss->len; ++i) {
+		struct str slice = { .s = &ss->s[i], .len = ss->len - i };
+
+		for (j = 0; j < ARRAY_LEN(seps); ++j) {
+			split = &seps[j];
+
+			if (str_startswith(&slice, split)) {
+				s = make_strn(wk, &ss->s[start], i - start);
+
+				obj_array_push(wk, res, s);
+
+				start = i + split->len;
+				i += split->len - 1;
+				break;
+			}
+		}
+	}
+
+	// Only push the final element if not empty
+	if (i != start) {
+		s = make_strn(wk, &ss->s[start], i - start);
+		obj_array_push(wk, res, s);
+	}
+	return res;
+}
+
 static bool
 str_has_chr(char c, const struct str *ss)
 {

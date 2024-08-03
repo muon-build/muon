@@ -89,6 +89,7 @@ obj str_join(struct workspace *wk, obj s1, obj s2);
 bool str_to_i(const struct str *ss, int64_t *res, bool strip);
 
 obj str_split(struct workspace *wk, const struct str *ss, const struct str *split);
+obj str_splitlines(struct workspace *wk, const struct str *ss);
 enum str_strip_flag {
 	str_strip_flag_right_only = 1 << 1,
 };
