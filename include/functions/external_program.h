@@ -7,7 +7,7 @@
 #define MUON_FUNCTIONS_EXTERNAL_PROGRAM_H
 #include "lang/func_lookup.h"
 
-void find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver);
+void find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver);
 
 extern const struct func_impl impl_tbl_external_program[5];
 #endif

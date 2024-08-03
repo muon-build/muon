@@ -6,21 +6,21 @@
 #include "compat.h"
 
 #include "args.h"
-#include "lang/func_lookup.h"
 #include "functions/external_program.h"
 #include "guess.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/run_cmd.h"
 
 void
-find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver)
+find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver)
 {
 	*ver = 0;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	obj args;
 	obj_array_dup(wk, cmd_array, &args);
-	obj_array_push(wk, args, make_str(wk, "--version"));
+	obj_array_push(wk, args, version_argument ? version_argument : make_str(wk, "--version"));
 
 	const char *argstr;
 	uint32_t argc;
@@ -75,7 +75,7 @@ func_external_program_version(struct workspace *wk, obj self, obj *res)
 
 	struct obj_external_program *prog = get_obj_external_program(wk, self);
 	if (!prog->guessed_ver) {
-		find_program_guess_version(wk, prog->cmd_array, &prog->ver);
+		find_program_guess_version(wk, prog->cmd_array, 0, &prog->ver);
 		prog->guessed_ver = true;
 	}
 

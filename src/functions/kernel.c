@@ -27,6 +27,7 @@
 #include "functions/modules.h"
 #include "functions/string.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -480,7 +481,7 @@ func_files(struct workspace *wk, obj _, obj *res)
 struct find_program_iter_ctx {
 	bool found;
 	uint32_t node, version_node;
-	obj version;
+	obj version, version_argument;
 	obj dirs;
 	obj *res;
 	enum requirement_type requirement;
@@ -531,7 +532,7 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 		}
 
 		if (ctx->version) {
-			find_program_guess_version(wk, ep->cmd_array, &over);
+			find_program_guess_version(wk, ep->cmd_array, ctx->version_argument, &over);
 		}
 		break;
 	default: UNREACHABLE;
@@ -717,7 +718,7 @@ found: {
 	obj_array_push(wk, cmd_array, make_str(wk, path));
 
 	if (ctx->version) {
-		find_program_guess_version(wk, cmd_array, &ver);
+		find_program_guess_version(wk, cmd_array, ctx->version_argument, &ver);
 		guessed_ver = true;
 
 		if (!ver) {
@@ -744,18 +745,6 @@ found: {
 }
 }
 
-static enum iteration_result
-find_program_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct find_program_iter_ctx *ctx = _ctx;
-
-	if (!find_program(wk, ctx, val)) {
-		return ir_err;
-	}
-
-	return ctx->found ? ir_done : ir_cont;
-}
-
 static bool
 func_find_program(struct workspace *wk, obj _, obj *res)
 {
@@ -766,6 +755,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		kw_disabler,
 		kw_dirs,
 		kw_version,
+		kw_version_argument,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
@@ -773,6 +763,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
+		[kw_version_argument] = { "version_argument", obj_string },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -797,11 +788,23 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 	struct find_program_iter_ctx ctx = {
 		.node = an[0].node,
 		.version = akw[kw_version].val,
+		.version_argument = akw[kw_version_argument].val,
 		.dirs = akw[kw_dirs].val,
 		.res = res,
 		.requirement = requirement,
 	};
-	obj_array_foreach_flat(wk, an[0].val, &ctx, find_program_iter);
+	{
+		obj val;
+		obj_array_flat_for_(wk, an[0].val, val, flat_iter) {
+			if (!find_program(wk, &ctx, val)) {
+				obj_array_flat_iter_end(wk, &flat_iter);
+				break;
+			} else if (ctx.found) {
+				obj_array_flat_iter_end(wk, &flat_iter);
+				break;
+			}
+		}
+	}
 
 	if (!ctx.found) {
 		if (requirement == requirement_required) {
