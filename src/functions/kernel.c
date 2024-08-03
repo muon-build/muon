@@ -1079,6 +1079,13 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
+		if (cmd_ctx.out.len) {
+			log_plain("stdout:\n%s", cmd_ctx.out.buf);
+		}
+		if (cmd_ctx.err.len) {
+			log_plain("stderr:\n%s", cmd_ctx.err.buf);
+		}
+
 		goto ret;
 	}
 
