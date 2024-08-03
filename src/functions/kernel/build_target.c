@@ -60,19 +60,20 @@ enum build_target_kwargs {
 	bt_kw_link_language, // TODO
 	bt_kw_win_subsystem, // TODO
 	bt_kw_override_options,
-
-	/* lang args */
-	bt_kw_c_pch, // TODO
-	bt_kw_cpp_pch, // TODO
-	bt_kw_c_args,
-	bt_kw_cpp_args,
-	bt_kw_objc_args,
-	bt_kw_masm_args, // TODO
-	bt_kw_nasm_args, // TODO
 	bt_kw_link_args,
 
-	bt_kwargs_count,
+#define E(lang, s) bt_kw_##lang##s
+#define TOOLCHAIN_ENUM(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
+	FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#undef E
+		bt_kwargs_count,
 };
+
+#define bt_kwarg_lang_args(cl) ;
+#define bt_kwarg_lang_static_args(cl) ;
+#define bt_kwarg_lang_shared_args(cl) ;
+#define bt_kwarg_lang_pch(cl) ;
 
 static enum iteration_result
 determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
@@ -724,11 +725,13 @@ create_target(struct workspace *wk,
 		static struct {
 			enum build_target_kwargs kw;
 			enum compiler_language l;
+			bool static_only, shared_only;
 		} lang_args[] = {
-			{ bt_kw_c_args, compiler_language_c },
-			{ bt_kw_cpp_args, compiler_language_cpp },
-			{ bt_kw_objc_args, compiler_language_objc },
-			{ bt_kw_nasm_args, compiler_language_nasm },
+#define E(lang, s, st, sh) { bt_kw_##lang##s, compiler_language_##lang, st, sh }
+#define TOOLCHAIN_ENUM(lang) E(lang, _args, false, false), E(lang, _static_args, true, false), E(lang, _shared_args, false, true),
+			FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#undef E
 		};
 
 		{ // copy c or cpp args to assembly args
@@ -741,9 +744,15 @@ create_target(struct workspace *wk,
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(lang_args); ++i) {
-			if (akw[lang_args[i].kw].set) {
-				obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
+			if (!akw[lang_args[i].kw].set) {
+				continue;
+			} else if (lang_args[i].static_only && type != tgt_static_library) {
+				continue;
+			} else if (lang_args[i].shared_only && type != tgt_dynamic_library) {
+				continue;
 			}
+
+			obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
 		}
 	}
 
@@ -890,7 +899,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 	struct args_norm an[]
 		= { { obj_string }, { TYPE_TAG_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
 
-	struct args_kw akw[] = {
+	struct args_kw akw[bt_kwargs_count + 1] = {
 		[bt_kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
 		[bt_kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[bt_kw_implicit_include_directories] = { "implicit_include_directories", obj_bool },
@@ -924,16 +933,14 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_link_language] = { "link_language", obj_string },
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
 		[bt_kw_override_options] = { "override_options", TYPE_TAG_LISTIFY | obj_string },
-		/* lang args */
-		[bt_kw_c_pch] = { "c_pch", tc_string | tc_file, },
-		[bt_kw_cpp_pch] = { "cpp_pch", tc_string | tc_file, },
-		[bt_kw_c_args] = { "c_args", TYPE_TAG_LISTIFY | obj_string },
-		[bt_kw_cpp_args] = { "cpp_args", TYPE_TAG_LISTIFY | obj_string },
-		[bt_kw_objc_args] = { "objc_args", TYPE_TAG_LISTIFY | obj_string },
-		[bt_kw_nasm_args] = { "nasm_args", TYPE_TAG_LISTIFY | obj_string },
-		[bt_kw_masm_args] = { "masm_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
-		0
+#define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
+#define TOOLCHAIN_ENUM(lang)                                                                                 \
+	E(lang, _args, TYPE_TAG_LISTIFY | obj_string), E(lang, _static_args, TYPE_TAG_LISTIFY | obj_string), \
+		E(lang, _shared_args, TYPE_TAG_LISTIFY | obj_string), E(lang, _pch, tc_string | tc_file),
+		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#undef E
 	};
 
 	if (!pop_args(wk, an, akw)) {

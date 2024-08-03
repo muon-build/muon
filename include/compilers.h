@@ -58,19 +58,24 @@ enum static_linker_type {
 };
 #undef TOOLCHAIN_ENUM
 
+#define FOREACH_COMPILER_EXPOSED_LANGUAGE(_)         \
+	_(c) \
+	_(cpp) \
+	_(objc) \
+	_(assembly) \
+	_(llvm_ir) \
+	_(nasm)
+
+#define TOOLCHAIN_ENUM(lang) compiler_language_##lang,
 enum compiler_language {
 	compiler_language_null,
-	compiler_language_c,
+	FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 	compiler_language_c_hdr,
-	compiler_language_cpp,
 	compiler_language_cpp_hdr,
 	compiler_language_c_obj,
-	compiler_language_objc,
-	compiler_language_assembly,
-	compiler_language_llvm_ir,
-	compiler_language_nasm,
 	compiler_language_count,
 };
+#undef TOOLCHAIN_ENUM
 
 enum compiler_optimization_lvl {
 	compiler_optimization_lvl_none,
