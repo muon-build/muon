@@ -470,6 +470,30 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	const char *p1 = get_cstr(wk, an[0].val), *p2 = get_cstr(wk, an[1].val);
+
+	if (!path_is_absolute(p1)) {
+		vm_error_at(wk, an[0].node, "base path '%s' is not absolute", p1);
+		return false;
+	} else if (!path_is_absolute(p2)) {
+		vm_error_at(wk, an[1].node, "path '%s' is not absolute", p2);
+		return false;
+	}
+
+	SBUF(path);
+	path_relative_to(wk, &path, p1, p2);
+	*res = sbuf_into_str(wk, &path);
+	return true;
+}
+
 const struct func_impl impl_tbl_module_fs[] = {
 	{ "as_posix", func_module_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile, tc_custom_target },
@@ -484,6 +508,7 @@ const struct func_impl impl_tbl_module_fs[] = {
 	{ "name", func_module_fs_name, tc_string, true },
 	{ "parent", func_module_fs_parent, tc_string, true },
 	{ "read", func_module_fs_read, tc_string },
+	{ "relative_to", func_module_fs_relative_to, tc_string, true },
 	{ "replace_suffix", func_module_replace_suffix, tc_string, true },
 	{
 		"size",
@@ -578,30 +603,6 @@ func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
 	} else {
 		return fs_mkdir(get_cstr(wk, an[0].val));
 	}
-}
-
-static bool
-func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
-{
-	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	const char *p1 = get_cstr(wk, an[0].val), *p2 = get_cstr(wk, an[1].val);
-
-	if (!path_is_absolute(p1)) {
-		vm_error_at(wk, an[0].node, "base path '%s' is not absolute", p1);
-		return false;
-	} else if (!path_is_absolute(p2)) {
-		vm_error_at(wk, an[1].node, "path '%s' is not absolute", p2);
-		return false;
-	}
-
-	SBUF(path);
-	path_relative_to(wk, &path, p1, p2);
-	*res = sbuf_into_str(wk, &path);
-	return true;
 }
 
 static bool
