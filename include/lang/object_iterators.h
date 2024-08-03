@@ -85,7 +85,7 @@ struct obj_array_flat_iter_ctx {
 
 #define obj_array_flat_for_(__wk, __arr, __val, __iter)                 \
 	struct obj_array_flat_iter_ctx __iter = { 0 };                  \
-	for (v = obj_array_flat_iter_next(__wk, __arr, &__iter); __val; \
+	for (__val = obj_array_flat_iter_next(__wk, __arr, &__iter); __val; \
 		__val = obj_array_flat_iter_next(__wk, __arr, &__iter))
 
 #define obj_array_flat_for(__wk, __arr, __val) obj_array_flat_for_(__wk, __arr, __val, CONCAT(__iter, __LINE__))
