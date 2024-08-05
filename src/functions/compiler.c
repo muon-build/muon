@@ -40,7 +40,7 @@ struct compiler_check_opts {
 	struct run_cmd_ctx cmd_ctx;
 	enum compile_mode mode;
 	obj comp_id;
-	struct args_kw *deps, *inc, *required;
+	struct args_kw *deps, *inc, *required, *werror;
 	obj args;
 	bool skip_run_check;
 	bool src_is_path;
@@ -247,6 +247,10 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	add_extra_compiler_check_args(wk, comp, compiler_args);
 
+	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
+		push_args(wk, compiler_args, toolchain_compiler_werror(wk, comp));
+	}
+
 	switch (opts->mode) {
 	case compile_mode_run:
 	case compile_mode_link: get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
@@ -422,6 +426,8 @@ enum cc_kwargs {
 	cc_kw_guess,
 	cc_kw_high,
 	cc_kw_low,
+	cc_kw_werror,
+
 	cc_kwargs_count,
 
 	cm_kw_args = 1 << 0,
@@ -430,10 +436,10 @@ enum cc_kwargs {
 	cm_kw_required = 1 << 3,
 	cm_kw_include_directories = 1 << 4,
 	cm_kw_name = 1 << 5,
-
 	cm_kw_guess = 1 << 6,
 	cm_kw_high = 1 << 7,
 	cm_kw_low = 1 << 8,
+	cm_kw_werror = 1 << 9,
 };
 
 static void
@@ -454,6 +460,10 @@ compiler_opts_init(obj self, struct args_kw *akw, struct compiler_check_opts *op
 
 	if (akw[cc_kw_required].set) {
 		opts->required = &akw[cc_kw_required];
+	}
+
+	if (akw[cc_kw_werror].set) {
+		opts->werror = &akw[cc_kw_werror];
 	}
 }
 
@@ -476,6 +486,7 @@ func_compiler_check_args_common(struct workspace *wk,
 		[cc_kw_guess] = { "guess", obj_number, },
 		[cc_kw_high] = { "high", obj_number, },
 		[cc_kw_low] = { "low", obj_number, },
+		[cc_kw_werror] = { "werror", obj_bool },
 		0
 	};
 
@@ -1271,7 +1282,7 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_include_directories | cm_kw_werror)) {
 		return false;
 	}
 
@@ -1570,7 +1581,8 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 		.mode = compile_mode_run,
 		.skip_run_check = true,
 	};
-	if (!func_compiler_check_args_common(wk, self, an, &akw, &opts, cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
+	if (!func_compiler_check_args_common(
+		    wk, self, an, &akw, &opts, cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_werror)) {
 		return false;
 	}
 
