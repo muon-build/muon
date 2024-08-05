@@ -13,11 +13,11 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/environment.h"
 #include "functions/kernel/configure_file.h"
 #include "functions/kernel/custom_target.h"
 #include "install.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -222,10 +222,13 @@ write_mesondefine:
 		} else if (src.src[i] == '\\') {
 			/* cope with weird config file escaping rules :(
 			 *
-			 * - Backslashes not directly preceeding a format character are not modified.
-			 * - The number of backslashes preceding varstart in the
-			 *   output is equal to the number of backslashes in
-			 *   the input divided by two, rounding down.
+			 * - Backslashes not directly preceeding a format character are not
+			 *   modified.
+			 * - The number of backslashes preceding varstart in the output is
+			 *   equal to the number of backslashes in the input divided by
+			 *   two, rounding down.
+			 * - If mode is cmake and the number of backslashes is even, don't
+			 *   escape the variable, otherwise always escape the variable.
 			 */
 
 			uint32_t j, output_backslashes;
@@ -236,11 +239,17 @@ write_mesondefine:
 
 			if (strncmp(&src.src[i + j], varstart, varstart_len) == 0) {
 				output_backslashes = j / 2;
-				if ((j & 1) != 0) {
+
+				if (*varstart == '@') {
 					output_format_char = true;
 					i += j;
 				} else {
-					i += j - 1;
+					if ((j & 1) != 0) {
+						output_format_char = true;
+						i += j;
+					} else {
+						i += j - 1;
+					}
 				}
 			} else {
 				i += j - 1;
