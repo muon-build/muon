@@ -208,7 +208,6 @@ The `fs` module also has additonal functions:
 - `is_subpath(base str, sub str) -> bool` - true if `sub` is a subpath of `base`
 - `add_suffix(path str, suff str) -> str` - add the suffix `suff` to `path`
 - `make_absolute(path str) -> str` - prepend cwd to `path` if path is relative
-- `relative_to(base str, sub str) -> str` - return path `sub` relative to `base`
 - `without_ext(path str) -> str` - return path with extension removed
   to it, otherwise return path
 - `executable(path str) -> str` - if path has no path separators, prepend './'

@@ -25,16 +25,16 @@ assert(fs.is_absolute('/absolute/path'))
 assert(fs.make_absolute('rel/path') == fs.cwd() / 'rel/path')
 
 assert(
-    fs.relative_to('/path/to/build/', '/path/to/build/tgt/dir/libfoo.a') == 'tgt/dir/libfoo.a',
+    fs.relative_to('/path/to/build/tgt/dir/libfoo.a', '/path/to/build/') == 'tgt/dir/libfoo.a',
 )
 assert(
-    fs.relative_to('/path/to/build', '/path/to/build/libfoo.a') == 'libfoo.a',
+    fs.relative_to('/path/to/build/libfoo.a', '/path/to/build') == 'libfoo.a',
 )
-assert(fs.relative_to('/path/to/build', '/path/to/src/asd.c') == '../src/asd.c')
-assert(fs.relative_to('/path/to/build', '/path/to/build/include') == 'include')
+assert(fs.relative_to('/path/to/src/asd.c', '/path/to/build') == '../src/asd.c')
+assert(fs.relative_to('/path/to/build/include', '/path/to/build') == 'include')
 assert(fs.relative_to('/path/to/build', '/path/to/build') == '.')
-assert(fs.relative_to('/path/to/build/', '/path/to/build') == '.')
 assert(fs.relative_to('/path/to/build', '/path/to/build/') == '.')
+assert(fs.relative_to('/path/to/build/', '/path/to/build') == '.')
 
 assert(not fs.is_basename('a/b/c'))
 assert(fs.is_basename('basename'))

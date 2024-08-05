@@ -425,8 +425,8 @@ func mkenums_simple(
     fhead = body_prefix + '\n' + '#include "@0@"\n'.format(name + '.h')
     foreach s : sources
         h_path = fs.relative_to(
-            meson.current_build_dir(),
             typeof(s) == 'file' ? s.full_path() : files(s)[0].full_path(),
+            meson.current_build_dir(),
         )
         fhead += '#include "@0@"'.format(h_path)
     endforeach
