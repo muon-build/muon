@@ -1,9 +1,0 @@
-prefix=/usr
-includedir=${prefix}/include
-libdir=${prefix}/lib
-
-Name: simple3
-Description: desc
-Version: undefined
-Libs: -L${libdir} -lsimple3
-Cflags: -I${includedir}

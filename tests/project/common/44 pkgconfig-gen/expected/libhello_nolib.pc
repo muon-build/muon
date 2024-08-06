@@ -1,9 +1,0 @@
-
-foo=bar
-prefix=/usr
-escaped_var=hello\ world
-unescaped_var=hello world
-
-Name: libhello_nolib
-Description: A minimalistic pkgconfig file.
-Version: 1.0

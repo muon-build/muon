@@ -1,6 +1,0 @@
-#define MESSAGE "@var@"
-// different from meson: invalid substitutions are errors
-#define OTHER "@other@" "@second@"
-
-#mesondefine BE_TRUE
-#mesondefine SHOULD_BE_UNDEF

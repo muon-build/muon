@@ -1,7 +1,0 @@
-prefix=/usr
-includedir=${prefix}/include
-
-Name: libhello
-Description: A minimalistic pkgconfig file.
-Version: 1.0
-Cflags: -I${includedir}

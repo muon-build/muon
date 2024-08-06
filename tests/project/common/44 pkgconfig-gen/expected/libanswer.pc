@@ -1,9 +1,0 @@
-prefix=/usr
-includedir=${prefix}/include
-libdir=${prefix}/lib
-
-Name: libanswer
-Description: An answer library.
-Version: undefined
-Libs: -L${libdir} -lanswer
-Cflags: -I${includedir} -DLIBFOO

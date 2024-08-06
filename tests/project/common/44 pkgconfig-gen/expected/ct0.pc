@@ -1,9 +1,0 @@
-prefix=/usr
-includedir=${prefix}/include
-libdir=${prefix}/lib
-
-Name: ct0
-Description: custom target index
-Version: undefined
-Libs: -L${libdir} -lct
-Cflags: -I${includedir}
