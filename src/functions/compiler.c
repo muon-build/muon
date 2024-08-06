@@ -1115,6 +1115,7 @@ static bool
 compiler_get_define(struct workspace *wk,
 	uint32_t err_node,
 	struct compiler_check_opts *opts,
+	bool check_only,
 	const char *prefix,
 	const char *def,
 	obj *res)
@@ -1126,20 +1127,23 @@ compiler_get_define(struct workspace *wk,
 	opts->mode = compile_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
-	const char *delim = "MUON_GET_DEFINE_DELIMITER\n";
-	const uint32_t delim_len = strlen(delim);
+	const struct str delim_start = WKSTR("\"MUON_GET_DEFINE_DELIMITER_START\"\n"),
+			 delim_end = WKSTR("\n\"MUON_GET_DEFINE_DELIMITER_END\""),
+			 delim_sentinel = WKSTR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
 	snprintf(src,
 		BUF_SIZE_4k,
 		"%s\n"
 		"#ifndef %s\n"
-		"#define %s\n"
+		"#define %s %s\n"
 		"#endif \n"
-		"%s%s\n",
+		"%s%s%s\n",
 		prefix,
 		def,
 		def,
-		delim,
-		def);
+		delim_sentinel.s,
+		delim_start.s,
+		def,
+		delim_end.s);
 
 	struct source output = { 0 };
 	bool ok;
@@ -1158,7 +1162,7 @@ compiler_get_define(struct workspace *wk,
 		return false;
 	}
 
-	*res = make_str(wk, "");
+	*res = 0;
 	bool started = false;
 	bool in_quotes = false;
 	bool esc = false;
@@ -1166,9 +1170,21 @@ compiler_get_define(struct workspace *wk,
 
 	uint32_t i;
 	for (i = 0; i < output.len; ++i) {
-		if (!started && strncmp(&output.src[i], delim, delim_len) == 0) {
-			i += delim_len;
+		struct str output_s = { &output.src[i], output.len - i };
+
+		if (!started && str_startswith(&output_s, &delim_start)) {
 			started = true;
+			*res = make_str(wk, "");
+
+			// Check for delim_end right after delim_start.  If there is no
+			// value they will share a newline so we need to do the check here.
+			i += delim_start.len - 1;
+			output_s = (struct str){ &output.src[i], output.len - i };
+			if (str_startswith(&output_s, &delim_end)) {
+				break;
+			}
+			++i;
+			output_s = (struct str){ &output.src[i], output.len - i };
 
 			if (i >= output.len) {
 				break;
@@ -1177,6 +1193,10 @@ compiler_get_define(struct workspace *wk,
 
 		if (!started) {
 			continue;
+		}
+
+		if (str_startswith(&output_s, &delim_end)) {
+			break;
 		}
 
 		switch (output.src[i]) {
@@ -1217,13 +1237,25 @@ compiler_get_define(struct workspace *wk,
 
 	fs_source_destroy(&output);
 
+	if (*res && str_eql(get_str(wk, *res), &delim_sentinel)) {
+		*res = 0;
+	}
+
 	set_compiler_cache(wk, opts->cache_key, true, *res);
 done:
-	compiler_check_log(wk, opts, "defines %s as '%s'", def, get_cstr(wk, *res));
+	if (check_only) {
+		compiler_check_log(wk, opts, "defines %s %s", def, bool_to_yn(!!*res));
+	} else {
+		if (!*res) {
+			*res = make_str(wk, "");
+		}
+
+		compiler_check_log(wk, opts, "defines %s as '%s'", def, get_cstr(wk, *res));
+	}
 	return true;
 failed:
 	fs_source_destroy(&output);
-	vm_error_at(wk, err_node, "failed to get define: '%s'", def);
+	vm_error_at(wk, err_node, "failed to %s define: '%s'", check_only ? "check" : "get", def);
 	return false;
 }
 
@@ -1244,9 +1276,41 @@ func_compiler_get_define(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	if (!compiler_get_define(wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
+	if (!compiler_get_define(
+		    wk, an[0].node, &opts, false, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
 		return false;
 	}
+
+	return true;
+}
+
+static bool
+func_compiler_has_define(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_kw *akw;
+
+	struct compiler_check_opts opts = { 0 };
+
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		return false;
+	}
+
+	if (!compiler_get_define(
+		    wk, an[0].node, &opts, true, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
+		return false;
+	}
+
+	obj b;
+	make_obj(wk, &b, obj_bool);
+	set_obj_bool(wk, b, !!*res);
+	*res = b;
+
 	return true;
 }
 
@@ -1260,7 +1324,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj
 	}
 
 	obj pre;
-	if (!compiler_get_define(wk, 0, &opts, "", "__USER_LABEL_PREFIX__", &pre)) {
+	if (!compiler_get_define(wk, 0, &opts, false, "", "__USER_LABEL_PREFIX__", &pre)) {
 		return false;
 	}
 
@@ -2232,6 +2296,7 @@ const struct func_impl impl_tbl_compiler[] = {
 	{ "get_supported_function_attributes", func_compiler_get_supported_function_attributes, tc_array },
 	{ "get_supported_link_arguments", func_compiler_get_supported_link_arguments, tc_array },
 	{ "has_argument", func_compiler_has_argument, tc_bool },
+	{ "has_define", func_compiler_has_define, tc_bool },
 	{ "has_function", func_compiler_has_function, tc_bool },
 	{ "has_function_attribute", func_compiler_has_function_attribute, tc_bool },
 	{ "has_header", func_compiler_has_header, tc_bool },
