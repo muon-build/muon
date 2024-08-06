@@ -305,7 +305,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 ## test
 	*muon* *test* [*-d* <display mode>] [*-o* <output>] [*-e* <setup>] [*-f*]
 	\[*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]  [<test>
-	[<test>[...]]
+	\[<test>[...]]
 
 	Execute tests defined in _source files_.
 
