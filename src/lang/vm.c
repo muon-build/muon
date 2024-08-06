@@ -1622,8 +1622,9 @@ vm_op_call_method(struct workspace *wk)
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	if (!wk->vm.behavior.func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
+		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
+
 		if (b == disabler_id) {
-			object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 			object_stack_push(wk, disabler_id);
 			return;
 		}
