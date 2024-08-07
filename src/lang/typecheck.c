@@ -439,3 +439,13 @@ type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
 
 	return type_tags_eql(wk, a_ti->type, b_ti->type) && type_tags_eql(wk, a_ti->subtype, b_ti->subtype);
 }
+
+void
+complex_types_init(struct workspace *wk, struct complex_types *types)
+{
+	wk->complex_types.options_dict_or_list = make_complex_type(wk,
+		complex_type_or,
+		make_complex_type(
+			wk, complex_type_or, make_complex_type(wk, complex_type_nested, tc_array, tc_string), tc_string),
+		make_complex_type(wk, complex_type_nested, tc_dict, tc_string | tc_number | tc_bool | tc_array));
+}

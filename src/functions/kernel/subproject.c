@@ -197,10 +197,12 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 		kw_version,
 
 	};
-	struct args_kw akw[] = { [kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
+	struct args_kw akw[] = {
+		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
 		[kw_required] = { "required", tc_required_kw },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
-		0 };
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;

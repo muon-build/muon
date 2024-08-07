@@ -728,7 +728,8 @@ create_target(struct workspace *wk,
 			bool static_only, shared_only;
 		} lang_args[] = {
 #define E(lang, s, st, sh) { bt_kw_##lang##s, compiler_language_##lang, st, sh }
-#define TOOLCHAIN_ENUM(lang) E(lang, _args, false, false), E(lang, _static_args, true, false), E(lang, _shared_args, false, true),
+#define TOOLCHAIN_ENUM(lang) \
+	E(lang, _args, false, false), E(lang, _static_args, true, false), E(lang, _shared_args, false, true),
 			FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 #undef E
@@ -932,7 +933,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
-		[bt_kw_override_options] = { "override_options", TYPE_TAG_LISTIFY | obj_string },
+		[bt_kw_override_options] = { "override_options", wk->complex_types.options_dict_or_list },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \

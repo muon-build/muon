@@ -10,6 +10,7 @@
 #include "backend/output.h"
 #include "embedded.h"
 #include "error.h"
+#include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
@@ -64,6 +65,7 @@ workspace_init_bare(struct workspace *wk)
 	*wk = (struct workspace){ 0 };
 	vm_init(wk);
 	stack_init(&wk->stack, 4096);
+	complex_types_init(wk, &wk->complex_types);
 
 	{
 #ifdef TRACY_ENABLE

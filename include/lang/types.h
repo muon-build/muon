@@ -45,4 +45,8 @@ enum log_level {
 	log_debug,
 	log_level_count,
 };
+
+struct complex_types {
+	type_tag options_dict_or_list;
+};
 #endif

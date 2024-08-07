@@ -132,4 +132,6 @@ bool boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i);
 bool rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t n);
 
 bool type_tags_eql(struct workspace *wk, type_tag a, type_tag b);
+
+void complex_types_init(struct workspace *wk, struct complex_types *types);
 #endif

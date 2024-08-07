@@ -90,6 +90,8 @@ struct workspace {
 	struct arr projects;
 	struct arr option_overrides;
 
+	struct complex_types complex_types;
+
 	uint32_t cur_project;
 
 #ifdef TRACY_ENABLE

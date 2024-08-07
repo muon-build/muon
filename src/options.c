@@ -12,9 +12,9 @@
 #include "backend/output.h"
 #include "embedded.h"
 #include "error.h"
+#include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
-#include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
@@ -31,17 +31,18 @@ static const char *build_option_type_to_s[build_option_type_count] = {
 	[op_feature] = "feature",
 };
 
-static bool set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source source, bool coerce);
+static bool
+set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce);
 
 static bool
-parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo)
+parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo, bool key_only)
 {
 	if (str_has_null(ss)) {
 		LOG_E("option cannot contain NUL");
 		return false;
 	}
 
-	struct str subproject = { 0 }, key = { 0 }, val, cur = { 0 };
+	struct str subproject = { 0 }, key = { 0 }, val = { 0 }, cur = { 0 };
 
 	cur.s = ss->s;
 	bool reading_key = true, have_subproject = false;
@@ -72,18 +73,32 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 		++cur.len;
 	}
 
-	val = cur;
+	if (!reading_key) {
+		val = cur;
+	} else {
+		key = cur;
+	}
 
-	if (!key.len) {
-		LOG_E("expected '=' in option '%s'", ss->s);
-		return false;
-	} else if (have_subproject && !subproject.len) {
+	if (have_subproject && !subproject.len) {
 		LOG_E("missing subproject in option '%s'", ss->s);
 		return false;
 	}
 
+	if (!key.len) {
+		LOG_E("missing key in option '%s'", ss->s);
+		return false;
+	} else if (key_only && val.len) {
+		LOG_E("unexpected '=' in option '%s'", ss->s);
+		return false;
+	} else if (!key_only && !val.len) {
+		LOG_E("expected '=' in option '%s'", ss->s);
+		return false;
+	}
+
 	oo->name = make_strn(wk, key.s, key.len);
-	oo->val = make_strn(wk, val.s, val.len);
+	if (!key_only) {
+		oo->val = make_strn(wk, val.s, val.len);
+	}
 	if (have_subproject) {
 		oo->proj = make_strn(wk, subproject.s, subproject.len);
 	}
@@ -150,23 +165,6 @@ check_invalid_subproject_option(struct workspace *wk)
 	}
 
 	return ret;
-}
-
-struct check_array_opt_ctx {
-	obj choices;
-};
-
-static enum iteration_result
-check_array_opt_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct check_array_opt_ctx *ctx = _ctx;
-
-	if (!obj_array_in(wk, ctx->choices, val)) {
-		vm_error(wk, "array element %o is not one of %o", val, ctx->choices);
-		return ir_err;
-	}
-
-	return ir_cont;
 }
 
 static bool
@@ -248,7 +246,7 @@ check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, 
 
 		obj newopt;
 		if (get_option(wk, cur_proj, get_str(wk, opt->deprecated), &newopt)) {
-			set_option(wk, newopt, sval, option_value_source_deprecated_rename, true);
+			set_option(wk, 0, newopt, sval, option_value_source_deprecated_rename, true);
 		} else {
 			struct option_override oo = {
 				.proj = current_project(wk)->cfg.name,
@@ -348,7 +346,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 }
 
 static bool
-typecheck_opt(struct workspace *wk, obj val, enum build_option_type type, obj *res)
+typecheck_opt(struct workspace *wk, uint32_t node, obj val, enum build_option_type type, obj name, obj *res)
 {
 	enum obj_type expected_type;
 
@@ -370,7 +368,10 @@ typecheck_opt(struct workspace *wk, obj val, enum build_option_type type, obj *r
 	default: UNREACHABLE_RETURN;
 	}
 
-	if (!typecheck(wk, 0, val, expected_type)) {
+	char msg[256];
+	snprintf(msg, sizeof(msg), "expected type %%s for option %s, got %%s", get_cstr(wk, name));
+
+	if (!typecheck_custom(wk, node, val, expected_type, msg)) {
 		return false;
 	}
 
@@ -437,7 +438,7 @@ extend_array_option(struct workspace *wk, obj opt, obj new_val, enum option_valu
 }
 
 static bool
-set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source source, bool coerce)
+set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce)
 {
 	struct obj_option *o = get_obj_option(wk, opt);
 
@@ -476,7 +477,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 	o->source = source;
 
 	if (get_obj_type(wk, o->deprecated) == obj_bool && get_obj_bool(wk, o->deprecated)) {
-		vm_warning(wk, "option %o is deprecated", o->name);
+		vm_warning_at(wk, node, "option %o is deprecated", o->name);
 	}
 
 	if (coerce) {
@@ -487,14 +488,14 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 		new_val = coerced;
 	}
 
-	if (!typecheck_opt(wk, new_val, o->type, &new_val)) {
+	if (!typecheck_opt(wk, node, new_val, o->type, o->name, &new_val)) {
 		return false;
 	}
 
 	switch (o->type) {
 	case op_combo: {
 		if (!obj_array_in(wk, o->choices, new_val)) {
-			vm_error(wk, "'%o' is not one of %o", new_val, o->choices);
+			vm_error_at(wk, node, "'%o' is not one of %o", new_val, o->choices);
 			return false;
 		}
 		break;
@@ -503,7 +504,8 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 		int64_t num = get_obj_number(wk, new_val);
 
 		if ((o->max && num > get_obj_number(wk, o->max)) || (o->min && num < get_obj_number(wk, o->min))) {
-			vm_error(wk,
+			vm_error_at(wk,
+				node,
 				"value %" PRId64 " is out of range (%" PRId64 "..%" PRId64 ")",
 				get_obj_number(wk, new_val),
 				(o->min ? get_obj_number(wk, o->min) : INT64_MIN),
@@ -514,13 +516,12 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 	}
 	case op_array: {
 		if (o->choices) {
-			if (!obj_array_foreach(wk,
-				    new_val,
-				    &(struct check_array_opt_ctx){
-					    .choices = o->choices,
-				    },
-				    check_array_opt_iter)) {
-				return false;
+			obj val;
+			obj_array_for(wk, new_val, val) {
+				if (!obj_array_in(wk, o->choices, val)) {
+					vm_error_at(wk, node, "array element %o is not one of %o", val, o->choices);
+					return false;
+				}
 			}
 		}
 		break;
@@ -538,7 +539,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 bool
 create_option(struct workspace *wk, obj opts, obj opt, obj val)
 {
-	if (!set_option(wk, opt, val, option_value_source_default, false)) {
+	if (!set_option(wk, 0, opt, val, option_value_source_default, false)) {
 		return false;
 	}
 
@@ -621,7 +622,7 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 
 	// TODO: implement something like shlex.split()
 	obj cmd = str_split(wk, &WKSTR(v), NULL);
-	set_option(wk, opt, cmd, option_value_source_environment, false);
+	set_option(wk, 0, opt, cmd, option_value_source_environment, false);
 }
 
 static void
@@ -651,7 +652,7 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 
 	const char *env_val;
 	if ((env_val = getenv(env_name)) && *env_val) {
-		set_option(wk, opt, make_str(wk, env_val), option_value_source_environment, false);
+		set_option(wk, 0, opt, make_str(wk, env_val), option_value_source_environment, false);
 	}
 }
 
@@ -708,7 +709,7 @@ set_yielding_project_options_iter(struct workspace *wk, void *_ctx, obj _k, obj 
 		return ir_cont;
 	}
 
-	if (!set_option(wk, opt, po->val, option_value_source_yield, false)) {
+	if (!set_option(wk, 0, opt, po->val, option_value_source_yield, false)) {
 		return ir_err;
 	}
 	return ir_cont;
@@ -779,7 +780,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		obj opt;
 		if (obj_dict_index_strn(wk, current_project(wk)->opts, name->s, name->len, &opt)
 			|| (is_master_project && obj_dict_index_strn(wk, wk->global_opts, name->s, name->len, &opt))) {
-			if (!set_option(wk, opt, oo->val, oo->source, !oo->obj_value)) {
+			if (!set_option(wk, 0, opt, oo->val, oo->source, !oo->obj_value)) {
 				ret = false;
 			}
 		} else {
@@ -842,7 +843,7 @@ bool
 parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 {
 	struct option_override oo = { .source = option_value_source_commandline };
-	if (!parse_config_string(wk, &WKSTR(lhs), &oo)) {
+	if (!parse_config_string(wk, &WKSTR(lhs), &oo, false)) {
 		return false;
 	}
 
@@ -850,126 +851,161 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 	return true;
 }
 
-struct parse_and_set_default_options_ctx {
-	uint32_t node;
-	obj project_name;
-	bool for_subproject;
+enum parse_and_set_option_flag {
+	parse_and_set_option_flag_override = 1 << 0,
+	parse_and_set_option_flag_for_subproject = 1 << 1,
+	parse_and_set_option_flag_have_value = 1 << 2,
 };
 
-static enum iteration_result
-parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct parse_and_set_default_options_ctx *ctx = _ctx;
-
-	struct option_override oo = { .source = option_value_source_default_options };
-	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
-		vm_error_at(wk, ctx->node, "invalid option string");
-		return ir_err;
-	}
-
-	bool oo_for_subproject = true;
-	if (!oo.proj) {
-		oo_for_subproject = false;
-		oo.proj = ctx->project_name;
-	}
-
-	if (ctx->for_subproject || oo_for_subproject) {
-		oo.source = option_value_source_subproject_default_options;
-		arr_push(&wk->option_overrides, &oo);
-		return ir_cont;
-	}
-
+struct parse_and_set_option_params {
+	uint32_t node;
+	obj project_name;
 	obj opt;
-	if (get_option(wk, current_project(wk), get_str(wk, oo.name), &opt)) {
-		if (!set_option(wk, opt, oo.val, option_value_source_default_options, true)) {
-			return ir_err;
-		}
+	obj value;
+	obj opts;
+	enum parse_and_set_option_flag flags;
+};
+
+static bool
+parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_params *params)
+{
+	struct option_override oo = { 0 };
+
+	if (params->flags & parse_and_set_option_flag_override) {
+		oo.source = option_value_source_override_options;
 	} else {
-		LLOG_E("invalid option: ");
-		log_option_override(wk, &oo);
-		log_plain("\n");
-		return ir_err;
+		oo.source = option_value_source_default_options;
 	}
 
-	return ir_cont;
-}
+	bool key_only = false;
+	if (params->flags & parse_and_set_option_flag_have_value) {
+		key_only = true;
+		oo.val = params->value;
+		oo.obj_value = true;
+	}
 
-bool
-parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name, bool for_subproject)
-{
-	struct parse_and_set_default_options_ctx ctx = {
-		.node = err_node,
-		.project_name = project_name,
-		.for_subproject = for_subproject,
-	};
-
-	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_default_options_iter)) {
+	if (!parse_config_string(wk, get_str(wk, params->opt), &oo, key_only)) {
+		vm_error_at(wk, params->node, "invalid option string");
 		return false;
 	}
 
-	return true;
-}
+	if (params->flags & parse_and_set_option_flag_override) {
+		if (oo.proj) {
+			vm_error_at(wk, params->node, "subproject options may not be set in override_options");
+			return false;
+		}
+	} else {
+		bool oo_for_subproject = true;
+		if (!oo.proj) {
+			oo_for_subproject = false;
+			oo.proj = params->project_name;
+		}
 
-struct parse_and_set_override_options_ctx {
-	uint32_t node;
-	obj opts;
-};
-
-static enum iteration_result
-parse_and_set_override_options_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct parse_and_set_override_options_ctx *ctx = _ctx;
-
-	struct option_override oo = { .source = option_value_source_default_options };
-	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
-		vm_error_at(wk, ctx->node, "invalid option string");
-		return ir_err;
-	}
-
-	if (oo.proj) {
-		vm_error_at(wk, ctx->node, "subproject options may not be set in override_options");
-		return ir_err;
+		if ((params->flags & parse_and_set_option_flag_for_subproject) || oo_for_subproject) {
+			oo.source = option_value_source_subproject_default_options;
+			arr_push(&wk->option_overrides, &oo);
+			return true;
+		}
 	}
 
 	obj opt;
 	if (!get_option(wk, current_project(wk), get_str(wk, oo.name), &opt)) {
-		vm_error_at(wk, ctx->node, "invalid option %o in override_options", oo.name);
-		return ir_err;
-	}
-
-	obj newopt;
-	make_obj(wk, &newopt, obj_option);
-	struct obj_option *o = get_obj_option(wk, newopt);
-	*o = *get_obj_option(wk, opt);
-
-	if (!set_option(wk, newopt, oo.val, option_value_source_override_options, true)) {
-		return ir_err;
-	}
-
-	if (obj_dict_in(wk, ctx->opts, o->name)) {
-		vm_error_at(wk, ctx->node, "duplicate option %o in override_options", oo.name);
-		return ir_err;
-	}
-
-	obj_dict_set(wk, ctx->opts, o->name, newopt);
-	return ir_cont;
-}
-
-bool
-parse_and_set_override_options(struct workspace *wk, uint32_t err_node, obj arr, obj *res)
-{
-	struct parse_and_set_override_options_ctx ctx = {
-		.node = err_node,
-	};
-
-	make_obj(wk, &ctx.opts, obj_dict);
-
-	if (!obj_array_foreach(wk, arr, &ctx, parse_and_set_override_options_iter)) {
+		vm_error_at(wk, params->node, "invalid option %o", oo.name);
 		return false;
 	}
 
-	*res = ctx.opts;
+	if (params->flags & parse_and_set_option_flag_override) {
+		obj newopt;
+		make_obj(wk, &newopt, obj_option);
+		struct obj_option *o = get_obj_option(wk, newopt);
+		*o = *get_obj_option(wk, opt);
+		opt = newopt;
+	}
+
+	if (!set_option(wk, params->node, opt, oo.val, oo.source, !oo.obj_value)) {
+		return false;
+	}
+
+	if (params->flags & parse_and_set_option_flag_override) {
+		if (obj_dict_in(wk, params->opts, oo.name)) {
+			vm_error_at(wk, params->node, "duplicate option %o in override_options", oo.name);
+			return false;
+		}
+
+		obj_dict_set(wk, params->opts, oo.name, opt);
+	}
+
 	return true;
+}
+
+static bool
+parse_and_set_options(struct workspace *wk, struct parse_and_set_option_params *params, obj opts)
+{
+	enum obj_type t = get_obj_type(wk, opts);
+
+	switch (t) {
+	case obj_dict: {
+		params->flags |= parse_and_set_option_flag_have_value;
+
+		obj k, v;
+		obj_dict_for(wk, opts, k, v) {
+			params->opt = k;
+			params->value = v;
+			if (!parse_and_set_option(wk, params)) {
+				return false;
+			}
+		}
+		break;
+	}
+	case obj_string:
+		params->opt = opts;
+		if (!parse_and_set_option(wk, params)) {
+			return false;
+		}
+		break;
+	case obj_array: {
+		obj v;
+		obj_array_for(wk, opts, v) {
+			params->opt = v;
+			if (!parse_and_set_option(wk, params)) {
+				return false;
+			}
+		}
+		break;
+	}
+	default: UNREACHABLE;
+	}
+
+	return true;
+}
+
+bool
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj opts, obj project_name, bool for_subproject)
+{
+	struct parse_and_set_option_params params = {
+		.node = err_node,
+		.project_name = project_name,
+	};
+
+	if (for_subproject) {
+		params.flags |= parse_and_set_option_flag_for_subproject;
+	}
+
+	return parse_and_set_options(wk, &params, opts);
+}
+
+bool
+parse_and_set_override_options(struct workspace *wk, uint32_t err_node, obj opts, obj *res)
+{
+	struct parse_and_set_option_params params = {
+		.node = err_node,
+		.flags = parse_and_set_option_flag_override,
+	};
+
+	make_obj(wk, &params.opts, obj_dict);
+	*res = params.opts;
+
+	return parse_and_set_options(wk, &params, opts);
 }
 
 /* helper functions */

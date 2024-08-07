@@ -142,7 +142,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 		kw_version,
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", TYPE_TAG_LISTIFY | obj_string },
+		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
 		[kw_license] = { "license", TYPE_TAG_LISTIFY | obj_string },
 		[kw_license_files] = { "license_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
