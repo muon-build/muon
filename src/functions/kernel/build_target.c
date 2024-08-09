@@ -967,7 +967,6 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 	static const enum tgt_type keyword_validity[bt_kwargs_count] = {
 		[bt_kw_version] = tgt_dynamic_library,
 		[bt_kw_soversion] = tgt_dynamic_library,
-		[bt_kw_vs_module_defs] = tgt_dynamic_library | tgt_static_library | tgt_shared_module,
 	};
 
 	uint32_t i;
