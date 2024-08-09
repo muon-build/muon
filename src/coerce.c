@@ -313,6 +313,26 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		}
 		break;
 	}
+	case obj_custom_target: {
+		struct obj_custom_target *o = get_obj_custom_target(wk, val);
+
+		uint32_t i = 0;
+		obj v;
+		obj_array_for(wk, o->output, v) {
+			if (i == 0) {
+				str = *get_obj_file(wk, v);
+			} else {
+				if (!args) {
+					make_obj(wk, args, obj_array);
+				}
+
+				obj_array_push(wk, *args, *get_obj_file(wk, v));
+			}
+
+			++i;
+		}
+		break;
+	}
 	default: vm_error_at(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t)); return false;
 	}
 

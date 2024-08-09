@@ -1377,7 +1377,8 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 add_test_common(struct workspace *wk, enum test_category cat)
 {
-	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file | tc_python_installation;
+	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file | tc_python_installation
+				 | tc_custom_target;
 	struct args_norm an[] = { { obj_string }, { tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
