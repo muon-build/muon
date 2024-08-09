@@ -10,6 +10,7 @@
 
 #include "coerce.h"
 #include "functions/environment.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/assert.h"
@@ -182,6 +183,60 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 	}
 	case obj_string: {
 		*res = val;
+		break;
+	}
+	case obj_feature_opt: {
+		const char *s = 0;
+		switch (get_obj_feature_opt(wk, val)) {
+		case feature_opt_auto: s = "auto"; break;
+		case feature_opt_enabled: s = "enabled"; break;
+		case feature_opt_disabled: s = "disabled"; break;
+		}
+
+		*res = make_strf(wk, "<option %s>", s);
+		break;
+	}
+	case obj_array: {
+		obj strs, v, s;
+		make_obj(wk, &strs, obj_array);
+		obj_array_for(wk, val, v) {
+			if (!coerce_string(wk, node, v, &s)) {
+				return false;
+			}
+
+			obj_array_push(wk, strs, s);
+		}
+
+		obj joined;
+		obj_array_join(wk, false, strs, make_str(wk, ", "), &joined);
+
+		*res = make_str(wk, "[");
+		str_apps(wk, res, joined);
+		str_app(wk, res, "]");
+		break;
+	}
+	case obj_dict: {
+		obj strs, k, v, s;
+		make_obj(wk, &strs, obj_array);
+		obj_dict_for(wk, val, k, v) {
+			if (!coerce_string(wk, node, v, &s)) {
+				return false;
+			}
+
+			obj kv = make_str(wk, "'");
+			str_apps(wk, &kv, k);
+			str_app(wk, &kv, "': ");
+			str_apps(wk, &kv, s);
+
+			obj_array_push(wk, strs, kv);
+		}
+
+		obj joined;
+		obj_array_join(wk, false, strs, make_str(wk, ", "), &joined);
+
+		*res = make_str(wk, "{");
+		str_apps(wk, res, joined);
+		str_app(wk, res, "}");
 		break;
 	}
 	default: vm_error_at(wk, node, "unable to coerce %o to string", val); return false;

@@ -105,7 +105,7 @@ enum complex_type {
  * arguments...
  */
 #define tc_link_with_kw       (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_file | tc_both_libs)
-#define tc_message            (TYPE_TAG_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict) // doesn't handle nested types
+#define tc_message            (TYPE_TAG_GLOB | tc_feature_opt | tc_string | tc_bool | tc_number | tc_array | tc_dict | tc_file) // doesn't handle nested types
 
 // clang-format on
 

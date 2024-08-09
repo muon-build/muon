@@ -12,9 +12,9 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "lang/func_lookup.h"
 #include "functions/string.h"
 #include "guess.h"
+#include "lang/func_lookup.h"
 #include "lang/lexer.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -172,7 +172,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 static bool
 func_format(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_number | tc_bool | tc_string | tc_file }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
