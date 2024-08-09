@@ -18,6 +18,7 @@
 #include "functions/kernel/custom_target.h"
 #include "install.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -28,6 +29,7 @@
 enum configure_file_output_format {
 	configure_file_output_format_c,
 	configure_file_output_format_nasm,
+	configure_file_output_format_json,
 };
 
 static bool
@@ -319,76 +321,120 @@ cleanup:
 	return ret;
 }
 
-struct generate_config_ctx {
-	struct sbuf *out_buf;
-	uint32_t node;
-	enum configure_file_output_format output_format;
-};
-
-static enum iteration_result
-generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	struct generate_config_ctx *ctx = _ctx;
-	enum obj_type t = get_obj_type(wk, val);
-
-	char define_prefix = (char[]){
-		[configure_file_output_format_c] = '#',
-		[configure_file_output_format_nasm] = '%',
-	}[ctx->output_format];
-
-	switch (t) {
-	case obj_string:
-		/* conf_data.set('FOO', '"string"') => #define FOO "string" */
-		/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
-		sbuf_pushf(wk, ctx->out_buf, "%cdefine %s %s\n", define_prefix, get_cstr(wk, key), get_cstr(wk, val));
-		break;
-	case obj_bool:
-		/* conf_data.set('FOO', true)       => #define FOO */
-		/* conf_data.set('FOO', false)      => #undef FOO */
-		if (get_obj_bool(wk, val)) {
-			sbuf_pushf(wk, ctx->out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
-		} else {
-			sbuf_pushf(wk, ctx->out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
-		}
-		break;
-	case obj_number:
-		/* conf_data.set('FOO', 1)          => #define FOO 1 */
-		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		sbuf_pushf(wk,
-			ctx->out_buf,
-			"%cdefine %s %" PRId64 "\n",
-			define_prefix,
-			get_cstr(wk, key),
-			get_obj_number(wk, val));
-		break;
-	default:
-		vm_error_at(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
 static bool
-generate_config(struct workspace *wk, enum configure_file_output_format format, obj dict, uint32_t node, obj out_path)
+generate_config(struct workspace *wk,
+	enum configure_file_output_format format,
+	obj macro_name,
+	obj dict,
+	uint32_t node,
+	obj out_path)
 {
 	SBUF_manual(out_buf);
 
-	struct generate_config_ctx ctx = {
-		.out_buf = &out_buf,
-		.node = node,
-		.output_format = format,
-	};
+	if (macro_name) {
+		sbuf_pushf(
+			wk, &out_buf, "#ifndef %s\n#define %s\n", get_cstr(wk, macro_name), get_cstr(wk, macro_name));
+	} else if (format == configure_file_output_format_json) {
+		sbuf_push(wk, &out_buf, '{');
+	}
 
-	bool ret;
-	ret = obj_dict_foreach(wk, dict, &ctx, generate_config_iter);
+	bool ret = false, first = true;
 
-	if (!file_exists_with_content(wk, get_cstr(wk, out_path), ctx.out_buf->buf, ctx.out_buf->len)) {
-		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)ctx.out_buf->buf, ctx.out_buf->len)) {
-			ret = false;
+	obj key, val;
+	obj_dict_for(wk, dict, key, val) {
+		enum obj_type t = get_obj_type(wk, val);
+
+		char define_prefix = (char[]){
+			[configure_file_output_format_c] = '#',
+			[configure_file_output_format_nasm] = '%',
+		}[format];
+
+		if (format == configure_file_output_format_json) {
+			if (!first) {
+				sbuf_push(wk, &out_buf, ',');
+			}
+			first = false;
+
+			sbuf_push_json_escaped_quoted(wk, &out_buf, get_str(wk, key));
+			sbuf_push(wk, &out_buf, ':');
+		}
+
+		switch (t) {
+		case obj_string:
+			/* conf_data.set('FOO', '"string"') => #define FOO "string" */
+			/* conf_data.set('FOO', 'a_token')  => #define FOO a_token */
+			switch (format) {
+			case configure_file_output_format_c:
+			case configure_file_output_format_nasm:
+				sbuf_pushf(wk,
+					&out_buf,
+					"%cdefine %s %s\n",
+					define_prefix,
+					get_cstr(wk, key),
+					get_cstr(wk, val));
+				break;
+			case configure_file_output_format_json: {
+				sbuf_push_json_escaped_quoted(wk, &out_buf, get_str(wk, val));
+				break;
+			}
+			}
+			break;
+		case obj_bool:
+			/* conf_data.set('FOO', true)       => #define FOO */
+			/* conf_data.set('FOO', false)      => #undef FOO */
+			switch (format) {
+			case configure_file_output_format_c:
+			case configure_file_output_format_nasm:
+				if (get_obj_bool(wk, val)) {
+					sbuf_pushf(wk, &out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
+				} else {
+					sbuf_pushf(wk, &out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
+				}
+				break;
+			case configure_file_output_format_json:
+				sbuf_pushs(wk, &out_buf, get_obj_bool(wk, val) ? "true" : "false");
+				break;
+			}
+			break;
+		case obj_number:
+			/* conf_data.set('FOO', 1)          => #define FOO 1 */
+			/* conf_data.set('FOO', 0)          => #define FOO 0 */
+			switch (format) {
+			case configure_file_output_format_c:
+			case configure_file_output_format_nasm:
+				sbuf_pushf(wk,
+					&out_buf,
+					"%cdefine %s %" PRId64 "\n",
+					define_prefix,
+					get_cstr(wk, key),
+					get_obj_number(wk, val));
+				break;
+			case configure_file_output_format_json: {
+				char buf[32] = { 0 };
+				snprintf(buf, sizeof(buf), "%" PRId64, get_obj_number(wk, val));
+				sbuf_pushs(wk, &out_buf, buf);
+				break;
+			}
+			}
+			break;
+		default: vm_error_at(wk, node, "invalid type for config data value: '%s'", obj_type_to_s(t)); goto ret;
 		}
 	}
 
+	if (macro_name) {
+		sbuf_pushf(wk, &out_buf, "#endif\n");
+	} else if (format == configure_file_output_format_json) {
+		sbuf_pushs(wk, &out_buf, "}\n");
+	}
+
+	if (!file_exists_with_content(wk, get_cstr(wk, out_path), out_buf.buf, out_buf.len)) {
+		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)out_buf.buf, out_buf.len)) {
+			goto ret;
+		}
+	}
+
+	ret = true;
+ret:
 	sbuf_destroy(&out_buf);
 	return ret;
 }
@@ -579,6 +625,7 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 		kw_output_format,
 		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
+		kw_macro_name,
 	};
 	struct args_kw akw[] = {
 		[kw_configuration] = { "configuration", tc_configuration_data | tc_dict },
@@ -595,6 +642,7 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 		[kw_output_format] = { "output_format", obj_string },
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
+		[kw_macro_name] = { "macro_name", obj_string },
 		0,
 	};
 
@@ -609,6 +657,8 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 			output_format = configure_file_output_format_c;
 		} else if (str_eql(output_format_str, &WKSTR("nasm"))) {
 			output_format = configure_file_output_format_nasm;
+		} else if (str_eql(output_format_str, &WKSTR("json"))) {
+			output_format = configure_file_output_format_json;
 		} else {
 			vm_error_at(
 				wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
@@ -748,7 +798,18 @@ copy_err:
 				return false;
 			}
 		} else {
-			if (!generate_config(wk, output_format, dict, akw[kw_configuration].node, output_str)) {
+			if (akw[kw_macro_name].set && output_format != configure_file_output_format_c) {
+				vm_error_at(
+					wk, akw[kw_macro_name].node, "macro_name specified with a non c output format");
+				return false;
+			}
+
+			if (!generate_config(wk,
+				    output_format,
+				    akw[kw_macro_name].val,
+				    dict,
+				    akw[kw_configuration].node,
+				    output_str)) {
 				return false;
 			}
 		}

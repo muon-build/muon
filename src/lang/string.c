@@ -810,6 +810,39 @@ done:
 	va_end(args);
 }
 
+void
+sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len)
+{
+	uint32_t i;
+	for (i = 0; i < len; ++i) {
+		switch (str[i]) {
+		case '\b': sbuf_pushs(wk, buf, "\\b"); break;
+		case '\f': sbuf_pushs(wk, buf, "\\f"); break;
+		case '\n': sbuf_pushs(wk, buf, "\\n"); break;
+		case '\r': sbuf_pushs(wk, buf, "\\r"); break;
+		case '\t': sbuf_pushs(wk, buf, "\\t"); break;
+		case '"': sbuf_pushs(wk, buf, "\\\""); break;
+		case '\\': sbuf_pushs(wk, buf, "\\\\"); break;
+		default: {
+			if (str[i] < ' ') {
+				sbuf_pushf(wk, buf, "\\u%04x", str[i]);
+			} else {
+				sbuf_push(wk, buf, str[i]);
+			}
+			break;
+		}
+		}
+	}
+}
+
+void
+sbuf_push_json_escaped_quoted(struct workspace *wk, struct sbuf *buf, const struct str *str)
+{
+	sbuf_push(wk, buf, '"');
+	sbuf_push_json_escaped(wk, buf, str->s, str->len);
+	sbuf_push(wk, buf, '"');
+}
+
 obj
 sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 {

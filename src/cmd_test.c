@@ -924,31 +924,6 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 }
 
 static void
-push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len)
-{
-	uint32_t i;
-	for (i = 0; i < len; ++i) {
-		switch (str[i]) {
-		case '\b': sbuf_pushs(wk, buf, "\\b"); break;
-		case '\f': sbuf_pushs(wk, buf, "\\f"); break;
-		case '\n': sbuf_pushs(wk, buf, "\\n"); break;
-		case '\r': sbuf_pushs(wk, buf, "\\r"); break;
-		case '\t': sbuf_pushs(wk, buf, "\\t"); break;
-		case '"': sbuf_pushs(wk, buf, "\\\""); break;
-		case '\\': sbuf_pushs(wk, buf, "\\\\"); break;
-		default: {
-			if (str[i] < ' ') {
-				sbuf_pushf(wk, buf, "\\u%04x", str[i]);
-			} else {
-				sbuf_push(wk, buf, str[i]);
-			}
-			break;
-		}
-		}
-	}
-}
-
-static void
 tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
 {
 	const char *status_str[] = {
@@ -991,15 +966,11 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
 				res->subtests.total);
 		}
 
-		/* if (res->status == test_result_status_failed) { */
 		sbuf_pushs(wk, data, "\"stdout\":\"");
-		push_json_escaped(wk, data, res->cmd_ctx.out.buf, res->cmd_ctx.out.len);
+		sbuf_push_json_escaped(wk, data, res->cmd_ctx.out.buf, res->cmd_ctx.out.len);
 		sbuf_pushs(wk, data, "\",\"stderr\":\"");
-		push_json_escaped(wk, data, res->cmd_ctx.err.buf, res->cmd_ctx.err.len);
+		sbuf_push_json_escaped(wk, data, res->cmd_ctx.err.buf, res->cmd_ctx.err.len);
 		sbuf_pushs(wk, data, "\"");
-		/* } else { */
-		/* 	sbuf_pushs(wk, data, "\"stdout\":\"\",\"stderr\":\"\""); */
-		/* } */
 
 		sbuf_pushs(wk, data, "}");
 
