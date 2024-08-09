@@ -709,6 +709,16 @@ find_program_step_8:
 
 			ctx->found = true;
 			return true;
+		} else if (strcmp(str, "meson") == 0) {
+			make_obj(wk, ctx->res, obj_external_program);
+			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+			ep->found = true;
+			make_obj(wk, &ep->cmd_array, obj_array);
+			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
+			obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
+
+			ctx->found = true;
+			return true;
 		}
 	}
 
