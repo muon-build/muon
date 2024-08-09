@@ -84,10 +84,37 @@ func_machine_cpu(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_machine_kernel(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	struct machine_definition *m = get_machine_for_self(wk, self);
+
+	*res = make_str(wk, machine_system_to_kernel_name(m->sys));
+	return true;
+}
+
+static bool
+func_machine_subsystem(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	LOG_W("machine.subsystem is not supported");
+	*res = make_str(wk, "");
+	return true;
+}
+
 const struct func_impl impl_tbl_machine[] = {
 	{ "cpu", func_machine_cpu, tc_string },
 	{ "cpu_family", func_machine_cpu_family, tc_string },
 	{ "endian", func_machine_endian, tc_string },
 	{ "system", func_machine_system, tc_string },
+	{ "kernel", func_machine_kernel, tc_string },
+	{ "subsystem", func_machine_subsystem, tc_string },
 	{ NULL, NULL },
 };

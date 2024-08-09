@@ -47,6 +47,7 @@ struct machine_definition {
 extern struct machine_definition build_machine, host_machine;
 
 const char *machine_system_to_s(enum machine_system sys);
+const char *machine_system_to_kernel_name(enum machine_system sys);
 
 void machine_parse_and_apply_triplet(struct machine_definition *m, const char *s);
 

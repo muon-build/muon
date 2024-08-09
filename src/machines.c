@@ -87,6 +87,25 @@ machine_system_to_s(enum machine_system sys)
 	UNREACHABLE_RETURN;
 }
 
+const char *
+machine_system_to_kernel_name(enum machine_system sys)
+{
+	switch (sys) {
+	case machine_system_freebsd: return "freebsd";
+	case machine_system_openbsd: return "openbsd";
+	case machine_system_netbsd: return "netbsd";
+	case machine_system_windows: return "nt";
+	case machine_system_android: return "linux";
+	case machine_system_linux: return "linux";
+	case machine_system_cygwin: return "nt";
+	case machine_system_darwin: return "xnu";
+	case machine_system_sunos: return "sunos";
+	case machine_system_dragonfly: return "dragonfly";
+	case machine_system_haiku: return "haiku";
+	default: return "none";
+	}
+}
+
 static enum machine_system
 machine_system(const struct str *sysname)
 {
