@@ -536,6 +536,25 @@ compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 	}
 }
 
+#define compiler_handle_has_required_kw_setup(__requirement, kw)        \
+	enum requirement_type __requirement;                            \
+	if (!akw[kw].set) {                                             \
+		__requirement = requirement_auto;                       \
+	} else if (!coerce_requirement(wk, &akw[kw], &__requirement)) { \
+		return false;                                           \
+	}                                                               \
+	if (__requirement == requirement_skip) {                        \
+		make_obj(wk, res, obj_bool);                            \
+		set_obj_bool(wk, *res, false);                          \
+		return true;                                            \
+	}
+
+#define compiler_handle_has_required_kw(__requirement, __result)  \
+	if (__requirement == requirement_required && !__result) { \
+		vm_error(wk, "required compiler check failed");   \
+		return false;                                     \
+	}
+
 static bool
 func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 {
@@ -813,14 +832,20 @@ static bool
 func_compiler_has_function_attribute(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	enum kwargs { kw_required };
+	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw }, 0 };
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(requirement, kw_required);
 
 	bool has_fattr;
 	if (!compiler_has_function_attribute(wk, self, an[0].node, an[0].val, &has_fattr)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw(requirement, has_fattr);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, has_fattr);
@@ -884,9 +909,11 @@ func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(requirement, cc_kw_required);
 
 	const char *prefix = compiler_check_prefix(wk, akw), *func = get_cstr(wk, an[0].val);
 
@@ -986,6 +1013,8 @@ func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
+	compiler_handle_has_required_kw(requirement, ok);
+
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 
@@ -1074,6 +1103,8 @@ func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
+
 	bool ok;
 	switch (get_obj_compiler(wk, self)->lang) {
 	case compiler_language_c:
@@ -1097,6 +1128,8 @@ func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
 		break;
 	default: UNREACHABLE;
 	}
+
+	compiler_handle_has_required_kw(required, ok);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
@@ -1297,14 +1330,18 @@ func_compiler_has_define(struct workspace *wk, obj self, obj *res)
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	if (!compiler_get_define(
 		    wk, an[0].node, &opts, true, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw(required, !!*res);
 
 	obj b;
 	make_obj(wk, &b, obj_bool);
@@ -1346,9 +1383,12 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_include_directories | cm_kw_werror)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_include_directories | cm_kw_werror
+			    | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(requirement, cc_kw_required);
 
 	enum obj_type t = get_obj_type(wk, an[0].val);
 
@@ -1369,9 +1409,6 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
-
 	if (akw[cc_kw_name].set) {
 		const char *mode_s = NULL;
 		switch (mode) {
@@ -1383,6 +1420,11 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 
 		compiler_check_log(wk, &opts, "%s %s: %s", get_cstr(wk, akw[cc_kw_name].val), mode_s, bool_to_yn(ok));
 	}
+
+	compiler_handle_has_required_kw(requirement, ok);
+
+	make_obj(wk, res, obj_bool);
+	set_obj_bool(wk, *res, ok);
 
 	return true;
 }
@@ -1405,6 +1447,7 @@ compiler_check_header(struct workspace *wk,
 	struct compiler_check_opts *opts,
 	const char *prefix,
 	const char *hdr,
+	enum requirement_type required,
 	obj *res)
 {
 	char src[BUF_SIZE_4k];
@@ -1427,6 +1470,8 @@ compiler_check_header(struct workspace *wk,
 	case compile_mode_preprocess: mode_s = "found"; break;
 	default: abort();
 	}
+
+	compiler_handle_has_required_kw(required, ok);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
@@ -1454,8 +1499,10 @@ compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum comp
 		return false;
 	}
 
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
+
 	return compiler_check_header(
-		wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res);
+		wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), required, res);
 }
 
 static bool
@@ -1484,9 +1531,11 @@ func_compiler_has_type(struct workspace *wk, obj self, obj *res)
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	char src[BUF_SIZE_4k];
 	snprintf(src,
@@ -1500,6 +1549,8 @@ func_compiler_has_type(struct workspace *wk, obj self, obj *res)
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw(required, ok);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
@@ -1554,14 +1605,18 @@ func_compiler_has_member(struct workspace *wk, obj self, obj *res)
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	bool ok;
 	if (!compiler_has_member(wk, &opts, an[0].node, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw(required, ok);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
@@ -1610,9 +1665,11 @@ func_compiler_has_members(struct workspace *wk, obj self, obj *res)
 		    an,
 		    &akw,
 		    &opts,
-		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_required)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	if (!get_obj_array(wk, an[1].val)->len) {
 		vm_error_at(wk, an[1].node, "missing member arguments");
@@ -1631,6 +1688,8 @@ func_compiler_has_members(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
+	compiler_handle_has_required_kw(required, ctx.ok);
+
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ctx.ok);
 	return true;
@@ -1645,8 +1704,12 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 		.mode = compile_mode_run,
 		.skip_run_check = true,
 	};
-	if (!func_compiler_check_args_common(
-		    wk, self, an, &akw, &opts, cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_werror)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_werror | cm_kw_required)) {
 		return false;
 	}
 
@@ -1669,6 +1732,21 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 	default: vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t)); return false;
 	}
 
+	enum requirement_type requirement;
+	{
+		if (!akw[cc_kw_required].set) {
+			requirement = requirement_auto;
+		} else if (!coerce_requirement(wk, &akw[cc_kw_required], &requirement)) {
+			return false;
+		}
+		if (requirement == requirement_skip) {
+			make_obj(wk, res, obj_run_result);
+			struct obj_run_result *rr = get_obj_run_result(wk, *res);
+			rr->flags |= run_result_flag_from_compile;
+			return true;
+		}
+	}
+
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 		return false;
@@ -1677,6 +1755,8 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 	if (akw[cc_kw_name].set) {
 		compiler_check_log(wk, &opts, "runs %s: %s", get_cstr(wk, akw[cc_kw_name].val), bool_to_yn(ok));
 	}
+
+	compiler_handle_has_required_kw(requirement, ok);
 
 	if (opts.from_cache) {
 		*res = opts.cache_val;
@@ -1766,14 +1846,20 @@ static bool
 compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	enum kwargs { kw_required };
+	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw }, 0 };
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw_setup(requirement, kw_required);
 
 	bool has_argument;
 	if (!compiler_has_argument(wk, self, an[0].node, an[0].val, &has_argument, mode)) {
 		return false;
 	}
+
+	compiler_handle_has_required_kw(requirement, has_argument);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, has_argument);
@@ -1986,7 +2072,8 @@ compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj h
 	struct compiler_find_library_check_headers_ctx *ctx = _ctx;
 
 	obj res;
-	if (!compiler_check_header(wk, ctx->err_node, ctx->opts, ctx->prefix, get_cstr(wk, hdr), &res)) {
+	if (!compiler_check_header(
+		    wk, ctx->err_node, ctx->opts, ctx->prefix, get_cstr(wk, hdr), requirement_auto, &res)) {
 		return ir_err;
 	}
 
