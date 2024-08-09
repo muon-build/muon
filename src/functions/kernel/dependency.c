@@ -755,19 +755,22 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 		kw_variables,
 		kw_compile_args,
 		kw_objects,
+		kw_extra_files,
 	};
-	struct args_kw akw[]
-		= { [kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
-			  [kw_link_with] = { "link_with", tc_link_with_kw },
-			  [kw_link_whole] = { "link_whole", tc_link_with_kw },
-			  [kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
-			  [kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
-			  [kw_version] = { "version", obj_string },
-			  [kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
-			  [kw_variables] = { "variables", tc_array | tc_dict },
-			  [kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
-			  [kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
-			  0 };
+	struct args_kw akw[] = {
+		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
+		[kw_link_with] = { "link_with", tc_link_with_kw },
+		[kw_link_whole] = { "link_whole", tc_link_with_kw },
+		[kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
+		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
+		[kw_version] = { "version", obj_string },
+		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
+		[kw_variables] = { "variables", tc_array | tc_dict },
+		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
+		[kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
+		[kw_extra_files] = { "extra_files", TYPE_TAG_LISTIFY | tc_coercible_files }, // ignored
+		0,
+	};
 
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
