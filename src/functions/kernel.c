@@ -485,6 +485,7 @@ struct find_program_iter_ctx {
 	obj dirs;
 	obj *res;
 	enum requirement_type requirement;
+	struct args_kw *default_options;
 };
 
 struct find_program_custom_dir_ctx {
@@ -570,7 +571,7 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 		obj_array_flatten_one(wk, fallback_arr, &subproj_name);
 
 		obj subproj;
-		if (!subproject(wk, subproj_name, requirement_auto, NULL, NULL, &subproj)
+		if (!subproject(wk, subproj_name, requirement_auto, ctx->default_options, NULL, &subproj)
 			&& get_obj_subproject(wk, subproj)->found) {
 			return true;
 		}
@@ -756,6 +757,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		kw_dirs,
 		kw_version,
 		kw_version_argument,
+		kw_default_options,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
@@ -764,6 +766,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version_argument] = { "version_argument", obj_string },
+		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -792,6 +795,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		.dirs = akw[kw_dirs].val,
 		.res = res,
 		.requirement = requirement,
+		.default_options = &akw[kw_default_options],
 	};
 	{
 		obj val;
