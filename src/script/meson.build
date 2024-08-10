@@ -14,6 +14,8 @@ foreach s : [
     'itstool.meson',
     'msgfmthelper.meson',
     'python_info.py',
+    'delete_suffix.meson',
+    'coverage.meson',
 
     'modules/_test.meson',
     'modules/i18n.meson',

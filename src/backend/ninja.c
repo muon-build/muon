@@ -12,6 +12,7 @@
 #include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
 #include "backend/ninja/custom_target.h"
+#include "backend/ninja/coverage.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "error.h"
@@ -108,6 +109,11 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 	struct write_build_ctx *ctx = _ctx;
 	struct check_tgt_ctx check_ctx = { 0 };
 
+#ifdef MUON_BOOTSTRAPPED
+	bool coverage_enabled = ninja_coverage_is_enabled_and_available(wk);
+	check_ctx.need_phony = coverage_enabled;
+#endif
+
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = arr_get(&wk->projects, i);
@@ -139,6 +145,12 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 
 		wrote_default |= ctx.wrote_default;
 	}
+
+#ifdef MUON_BOOTSTRAPPED
+	if (coverage_enabled) {
+		ninja_coverage_write_targets(wk, out);
+	}
+#endif
 
 	if (!wrote_default) {
 		fprintf(out,

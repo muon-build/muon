@@ -7,6 +7,7 @@ src = files(
     'backend/ninja.c',
     'backend/ninja/alias_target.c',
     'backend/ninja/build_target.c',
+    'backend/ninja/coverage.c',
     'backend/ninja/custom_target.c',
     'backend/ninja/rules.c',
     'backend/output.c',
