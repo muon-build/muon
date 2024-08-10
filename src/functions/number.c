@@ -7,8 +7,8 @@
 
 #include <inttypes.h>
 
-#include "lang/func_lookup.h"
 #include "functions/number.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -39,11 +39,21 @@ func_number_is_even(struct workspace *wk, obj self, obj *res)
 static bool
 func_number_to_string(struct workspace *wk, obj self, obj *res)
 {
-	if (!pop_args(wk, NULL, NULL)) {
+	enum kwargs { kw_fill };
+	struct args_kw akw[] = { [kw_fill] = { "fill", tc_number }, 0 };
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
-	*res = make_strf(wk, "%" PRId64, get_obj_number(wk, self));
+	char fmt[32];
+	int64_t fill = akw[kw_fill].set ? get_obj_number(wk, akw[kw_fill].val) : 0;
+	if (fill > 0) {
+		snprintf(fmt, sizeof(fmt), "%%0%" PRId64 PRId64, get_obj_number(wk, akw[kw_fill].val));
+	} else {
+		snprintf(fmt, sizeof(fmt), "%%" PRId64);
+	}
+
+	*res = make_strf(wk, fmt, get_obj_number(wk, self));
 	return true;
 }
 
