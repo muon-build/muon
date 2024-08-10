@@ -84,7 +84,7 @@ option(
     value: 'always',
     choices: ['auto', 'always', 'never'],
 )
-option('b_coverage', type: 'boolean', value: false) # TODO
+option('b_coverage', type: 'boolean', value: false)
 option('b_lundef', type: 'boolean', value: true) # TODO
 option('b_lto', type: 'boolean', value: false)
 option('b_lto_threads', type: 'integer', value: 0, min: 0) # TODO

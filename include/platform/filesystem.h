@@ -52,7 +52,6 @@ bool fs_is_a_tty(FILE *f);
 bool fs_chmod(const char *path, uint32_t mode);
 bool fs_copy_metadata(const char *src, const char *dest);
 bool fs_remove(const char *path);
-/* Windows only */
 bool fs_has_extension(const char *path, const char *ext);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));

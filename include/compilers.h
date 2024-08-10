@@ -182,7 +182,8 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)              \
 	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)          \
 	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)          \
-	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)
+	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)           \
+	_(coverage, compiler, TOOLCHAIN_PARAMS_0)
 
 #define FOREACH_LINKER_ARG(_)                                \
 	_(lib, linker, TOOLCHAIN_PARAMS_1s)                  \
@@ -203,7 +204,8 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(whole_archive, linker, TOOLCHAIN_PARAMS_1s)        \
 	_(enable_lto, linker, TOOLCHAIN_PARAMS_0)            \
 	_(input_output, linker, TOOLCHAIN_PARAMS_2s)         \
-	_(always, linker, TOOLCHAIN_PARAMS_0)
+	_(always, linker, TOOLCHAIN_PARAMS_0)                \
+	_(coverage, linker, TOOLCHAIN_PARAMS_0)
 
 #define FOREACH_STATIC_LINKER_ARG(_)                        \
 	_(base, static_linker, TOOLCHAIN_PARAMS_0)          \
