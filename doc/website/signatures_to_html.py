@@ -396,7 +396,7 @@ for f in sorted(kernel) + sorted(methods):
         arg_tbls.append((r, t))
 
 module_tbl = Table(Row("module", "status"))
-for m in ["fs", "keyval", "pkgconfig", "sourceset"]:
+for m in ["fs", "keyval", "pkgconfig", "sourceset", "i18n"]:
     module_tbl += Row(m, positive("supported"))
 
 for m in ["python3", "python"]:
@@ -407,7 +407,6 @@ for m in [
     "dlang",
     "gnome",
     "hotdoc",
-    "i18n",
     "java",
     "modtest",
     "qt",
