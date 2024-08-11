@@ -347,6 +347,7 @@ generate_config(struct workspace *wk,
 		char define_prefix = (char[]){
 			[configure_file_output_format_c] = '#',
 			[configure_file_output_format_nasm] = '%',
+			[configure_file_output_format_json] = 0,
 		}[format];
 
 		if (format == configure_file_output_format_json) {
