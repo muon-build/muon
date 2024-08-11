@@ -51,6 +51,13 @@ write_custom_target_dat(struct workspace *wk, struct obj_custom_target *tgt, obj
 	sbuf_pushf(wk, &name, "%s%d.dat", get_cstr(wk, tgt->name), custom_tgt_dat_sequence);
 	++custom_tgt_dat_sequence;
 
+	uint32_t i;
+	for (i = 0; i < name.len; ++i) {
+		if (!strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_", name.buf[i])) {
+			name.buf[i] = '_';
+		}
+	}
+
 	SBUF(dirpath);
 	SBUF(dat_path);
 	path_join(wk, &dirpath, wk->muon_private, dir);
