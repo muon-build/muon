@@ -16,6 +16,11 @@
 #include "platform/assert.h"
 #include "platform/path.h"
 
+#define install_follow_symlinks_check()                                                      \
+	if (akw[kw_follow_symlinks].set && !get_obj_bool(wk, akw[kw_follow_symlinks].val)) { \
+		LOG_W("follow_symlinks: false is not supported");                            \
+	}
+
 bool
 func_install_subdir(struct workspace *wk, obj _, obj *ret)
 {
@@ -27,6 +32,7 @@ func_install_subdir(struct workspace *wk, obj _, obj *ret)
 		kw_exclude_directories,
 		kw_exclude_files,
 		kw_strip_directory,
+		kw_follow_symlinks,
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string, .required = true },
@@ -35,11 +41,14 @@ func_install_subdir(struct workspace *wk, obj _, obj *ret)
 		[kw_exclude_directories] = { "exclude_directories", TYPE_TAG_LISTIFY | obj_string },
 		[kw_exclude_files] = { "exclude_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_strip_directory] = { "strip_directory", obj_bool },
+		[kw_follow_symlinks] = { "follow_symlinks", obj_bool },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	install_follow_symlinks_check();
 
 	bool strip_directory = akw[kw_strip_directory].set ? get_obj_bool(wk, akw[kw_strip_directory].val) : false;
 
@@ -292,6 +301,7 @@ func_install_data(struct workspace *wk, obj _, obj *res)
 		kw_rename,
 		kw_sources,
 		kw_preserve_path,
+		kw_follow_symlinks,
 	};
 
 	struct args_kw akw[] = {
@@ -301,12 +311,15 @@ func_install_data(struct workspace *wk, obj _, obj *res)
 		[kw_rename] = { "rename", TYPE_TAG_LISTIFY | obj_string },
 		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
+		[kw_follow_symlinks] = { "follow_symlinks", obj_bool },
 		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	install_follow_symlinks_check();
 
 	if (akw[kw_rename].set && akw[kw_preserve_path].set) {
 		vm_error_at(wk, akw[kw_preserve_path].node, "rename keyword conflicts with preserve_path");
@@ -370,17 +383,21 @@ func_install_headers(struct workspace *wk, obj _, obj *ret)
 		kw_install_mode,
 		kw_subdir,
 		kw_preserve_path,
+		kw_follow_symlinks,
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_subdir] = { "subdir", obj_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
+		[kw_follow_symlinks] = { "follow_symlinks", obj_bool },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	install_follow_symlinks_check();
 
 	if (akw[kw_install_dir].set && akw[kw_subdir].set) {
 		vm_error_at(wk, akw[kw_subdir].node, "subdir may not be set if install_dir is set");
