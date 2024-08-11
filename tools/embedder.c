@@ -25,7 +25,8 @@ embed(const char *path, const char *embedded_name)
 	printf("{ .name = \"%s\", .src = (char []){\n", embedded_name);
 
 	while ((c = fgetc(f)) != EOF) {
-		printf("0x%x, ", c);
+		// output signed char
+		printf("%hhd, ", c);
 
 		if ((i % 14) == 0) {
 			fputs("\n", stdout);
@@ -45,9 +46,8 @@ main(int argc, char *const argv[])
 	assert(((argc - 1) & 1) == 0 && "you must pass an even number of arguments");
 
 	printf("uint32_t embedded_len = %d;\n"
-		"\n"
-		"static struct embedded_file embedded[] = {\n"
-		,
+	       "\n"
+	       "static struct embedded_file embedded[] = {\n",
 		(argc - 1) / 2);
 
 	uint32_t i;
