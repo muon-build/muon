@@ -56,3 +56,8 @@ option(
     value: 'auto',
     description: 'whether to enable tracy',
 )
+option(
+    'meson_tests_repo',
+    type: 'string',
+    value: 'https://git.sr.ht/~lattis/meson-tests'
+)

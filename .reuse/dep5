@@ -3,13 +3,7 @@ Upstream-Name: muon
 Upstream-Contact: Stone Tickle <lattis@mochiro.moe>
 Source: https://muon.build
 
-Files: tests/project/common/*
-       tests/project/keyval/*
-       tests/project/nasm/*
-       tests/project/native/*
-       tests/project/unit/*
-       tests/project/frameworks/*
-       tests/project/python/*
+Files: tests/project/unit/*
 Copyright: The Meson development team
            Stone Tickle <lattis@mochiro.moe>
 License: Apache-2.0

@@ -315,6 +315,24 @@ tests = [
     ['meson-tests/common/259 preprocess'],
     ['meson-tests/common/260 declare_dependency objects'],
     # ['meson-tests/common/261 testcase clause'],
+    ['meson-tests/common/262 generator chain'],
+    ['meson-tests/common/263 internal dependency includes in checks'],
+    ['meson-tests/common/264 required keyword in has functions'],
+    ['meson-tests/common/265 default_options dict'],
+    ['meson-tests/common/266 format string'],
+    ['meson-tests/common/267 default_options in find_program'],
+    # This test depends on symlinks being created prior to the test being run.
+    # ['meson-tests/common/268 install functions and follow symlinks'],
+    ['meson-tests/common/269 configure file output format'],
+    ['meson-tests/common/270 int_to_str_fill'],
+    ['meson-tests/common/271 env in generator.process'],
+    # requires unity
+    # ['meson-tests/common/272 unity'],
+    ['meson-tests/common/273 customtarget exe for test'],
+    ['meson-tests/common/274 environment'],
+    ['meson-tests/common/275 required keyword in compiles functions'],
+    ['meson-tests/common/276 generator custom_tgt subdir'],
+    ['meson-tests/common/277 custom target private dir'],
 
     # python
     ['meson-tests/python/1 basic', ['python']],
@@ -345,6 +363,7 @@ tests = [
     ['meson-tests/nasm/1 configure file'],
     ['meson-tests/nasm/2 asm language', fail_on_non_x86],
     ['meson-tests/nasm/3 nasm only'],
+    ['meson-tests/nasm/4 through configure'],
 
     # keyval
     ['meson-tests/keyval/1 basic'],
@@ -370,9 +389,8 @@ else
 endif
 
 if git.found()
-    meson_tests_uri = 'https://git.sr.ht/~lattis/meson-tests'
     meson_tests_dir = meson.current_source_dir() / 'meson-tests'
-    meson_tests_sha = 'a5fdd2f'
+    meson_tests_sha = '1fce5b37fc879f8a106fbba93b3387a9d9b43833'
 
     if fs.is_dir('meson-tests')
         meson_tests_clean = run_command(git, '-C', meson_tests_dir, 'diff', '--quiet', check: false).returncode() == 0
@@ -383,10 +401,11 @@ if git.found()
             git,
             '-C', meson_tests_dir,
             'merge-base',
-            '--is-ancestor', 'HEAD',
-            meson_tests_sha,
+            '--is-ancestor', meson_tests_sha,
+            'HEAD',
             check: false,
         ).returncode() != 0
+            warning('force-updating meson-tests repo')
             run_command(
                 git,
                 '-C', meson_tests_dir,
@@ -409,7 +428,7 @@ if git.found()
         run_command(
             git,
             'clone',
-            meson_tests_uri,
+            get_option('meson_tests_repo'),
             meson_tests_dir,
             capture: false,
             check: true,
