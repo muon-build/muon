@@ -8,8 +8,9 @@
 #include <stdlib.h>
 
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/environment.h"
+#include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -174,9 +175,42 @@ func_environment_prepend(struct workspace *wk, obj self, obj *res)
 	return func_environment_set_common(wk, self, environment_set_mode_prepend);
 }
 
+static bool
+func_environment_unset(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+	obj to_delete, action, key, actions = get_obj_environment(wk, self)->actions;
+
+	make_obj(wk, &to_delete, obj_array);
+
+	uint32_t i = 0;
+	obj_array_for(wk, actions, action) {
+		/* obj_array_index(wk, action, 0, &mode_num); */
+		obj_array_index(wk, action, 1, &key);
+		/* obj_array_index(wk, action, 2, &val); */
+		/* obj_array_index(wk, action, 3, &sep); */
+
+		if (obj_equal(wk, action, an[0].val)) {
+			obj_array_push(wk, to_delete, i + 1);
+		}
+
+		++i;
+	}
+
+	obj_array_for(wk, to_delete, i) {
+		obj_array_del(wk, actions, i - 1);
+	}
+	return true;
+}
+
 const struct func_impl impl_tbl_environment[] = {
 	{ "set", func_environment_set },
 	{ "append", func_environment_append },
 	{ "prepend", func_environment_prepend },
+	{ "unset", func_environment_unset },
 	{ NULL, NULL },
 };

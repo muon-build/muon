@@ -1564,24 +1564,52 @@ func_join_paths(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static enum iteration_result
-environment_set_initial_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	obj env = *(obj *)_ctx;
-
-	if (!environment_set(wk, env, environment_set_mode_set, key, val, 0)) {
-		return ir_err;
-	}
-
-	return ir_cont;
-}
-
 static bool
 func_environment(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	struct args_norm an[] = { { make_complex_type(wk,
+					    complex_type_or,
+					    make_complex_type(wk,
+						    complex_type_or,
+						    tc_string,
+						    make_complex_type(wk, complex_type_nested, tc_array, tc_string)),
+					    make_complex_type(wk, complex_type_nested, tc_dict, tc_string)),
+					  .optional = true },
+		ARG_TYPE_NULL };
+	enum kwargs {
+		kw_method,
+		kw_separator,
+	};
+	struct args_kw akw[] = {
+		[kw_method] = { "method", tc_string },
+		[kw_separator] = { "separator", tc_string },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	enum environment_set_mode mode = environment_set_mode_set;
+	if (akw[kw_method].set) {
+		const struct str modes[] = {
+			[environment_set_mode_set] = WKSTR("set"),
+			[environment_set_mode_append] = WKSTR("append"),
+			[environment_set_mode_prepend] = WKSTR("prepend"),
+		}, *method = get_str(wk, akw[kw_method].val);
+
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(modes); ++i) {
+			if (str_eql(method, &modes[i])) {
+				break;
+			}
+		}
+
+		if (i >= ARRAY_LEN(modes)) {
+			vm_error_at(wk, akw[kw_method].node, "invalid method: %o", akw[kw_method].val);
+			return false;
+		}
+
+		mode = i;
 	}
 
 	make_obj(wk, res, obj_environment);
@@ -1589,12 +1617,17 @@ func_environment(struct workspace *wk, obj _, obj *res)
 	make_obj(wk, &d->actions, obj_array);
 
 	if (an[0].set) {
-		if (!typecheck(
-			    wk, an[0].node, an[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
+		obj dict;
+		if (!coerce_key_value_dict(wk, an[0].node, an[0].val, &dict)) {
 			return false;
 		}
 
-		obj_dict_foreach(wk, an[0].val, res, environment_set_initial_iter);
+		obj key, val;
+		obj_dict_for(wk, dict, key, val) {
+			if (!environment_set(wk, *res, mode, key, val, akw[kw_separator].val)) {
+				return false;
+			}
+		}
 	}
 
 	return true;
