@@ -8,9 +8,9 @@
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
-#include "lang/func_lookup.h"
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -99,6 +99,9 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
 	ctx->custom_target = tgt;
 	ctx->t = t;
+
+	t->env = ctx->gl->env;
+
 	make_obj(wk, &ctx->tmp_arr, obj_array);
 
 	if (ctx->add_targets) {
@@ -195,10 +198,14 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 	enum kwargs {
 		kw_extra_args,
 		kw_preserve_path_from,
+		kw_env,
 	};
-	struct args_kw akw[] = { [kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
+	struct args_kw akw[] = {
+		[kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
-		0 };
+		[kw_env] = { "env", tc_coercible_env },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -209,6 +216,10 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 	gl->generator = gen;
 	gl->extra_arguments = akw[kw_extra_args].val;
 	gl->preserve_path_from = akw[kw_preserve_path_from].val;
+
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &gl->env)) {
+		return false;
+	}
 
 	if (!coerce_files(wk, an[0].node, an[0].val, &gl->input)) {
 		return false;

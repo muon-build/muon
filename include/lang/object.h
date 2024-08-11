@@ -468,6 +468,7 @@ struct obj_generated_list {
 	obj input; // obj_array of obj_file
 	obj extra_arguments; // obj_array of obj_string
 	obj preserve_path_from; // obj_string
+	obj env;
 };
 
 struct obj_source_set {
