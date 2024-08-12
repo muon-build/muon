@@ -2265,7 +2265,20 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 	obj_array_dup(wk, comp->cmd_arr, &base_cmd);
 
 	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, comp));
-	push_args(wk, base_cmd, toolchain_compiler_specify_lang(wk, comp, "assembler-with-cpp"));
+
+	const char *lang = 0;
+	switch (comp->lang) {
+	case compiler_language_c: lang = "c"; break;
+	case compiler_language_cpp: lang = "c++"; break;
+	case compiler_language_objc: lang = "objective-c"; break;
+	default:
+		vm_error(wk,
+			"compiler for language %s does not support preprocess()",
+			compiler_language_to_s(comp->lang));
+		return false;
+	}
+
+	push_args(wk, base_cmd, toolchain_compiler_specify_lang(wk, comp, lang));
 
 	get_std_args(wk, comp, current_project(wk), NULL, base_cmd);
 
