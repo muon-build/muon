@@ -1120,7 +1120,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 			log_plain("stderr:\n%s", cmd_ctx.err.buf);
 		}
 
-		return false;
+		goto ret;
 	}
 
 	make_obj(wk, res, obj_run_result);
