@@ -134,7 +134,7 @@ ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *oct
 		return false;
 	}
 
-	*buf = z_calloc(src->len, 1);
+	*buf = z_calloc(src->len + 1, 1);
 
 	return ini_reparse(path, src, *buf, cb, octx);
 }
@@ -146,7 +146,7 @@ keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *
 		return false;
 	}
 
-	*buf = z_calloc(src->len, 1);
+	*buf = z_calloc(src->len + 1, 1);
 
 	struct ini_parse_ctx ctx = {
 		.comment_chars = "#",
