@@ -26,7 +26,7 @@ embed(const char *path, const char *embedded_name)
 
 	while ((c = fgetc(f)) != EOF) {
 		// output signed char
-		printf("%hhd, ", c);
+		printf("%hhd, ", (signed char)c);
 
 		if ((i % 14) == 0) {
 			fputs("\n", stdout);
