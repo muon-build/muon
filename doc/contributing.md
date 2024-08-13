@@ -46,7 +46,7 @@ In general, just try to follow the style of surrounding code.
 ## Error handling
 
 All errors that can be checked, should be checked.  If an error is detected, an
-error message should be printed using `interp_error`, or if there is no source
+error message should be printed using `vm_error`, or if there is no source
 code associated with the error, `LOG_E`.  The error should be immediately
 returned.  Most functions returning  a `bool` return `false` on error.  The most
 common other type of error returning function has the return type
@@ -61,11 +61,11 @@ it may be broken up into a separate file under `functions/<object
 type>/<function name>.c`.
 
 When declaring a new function, you need to add it to the "impl\_tbl" at the
-bottom of the file.  All functions should call `interp_args()` before they do
-anything, even if they don't take any arguments.  `interp_args` takes 3 arrays,
+bottom of the file.  All functions should call `pop_args()` before they do
+anything, even if they don't take any arguments.  `pop_args` takes 3 arrays,
 conventionally named `an` (args, normal), `ao` (args, optional), and `akw`
 (args, keyword).  Any of these may be NULL.  In particular, if they are all NULL
-then the function takes no arguments, and `interp_args` will ensure this is the
+then the function takes no arguments, and `pop_args` will ensure this is the
 case.
 
 Arguments should specify what types they accept by bitwise or-ing `tc_`-prefixed
@@ -77,7 +77,7 @@ store the remaining arguments in an `obj_array`.  This is similar to e.g. `def
 func(a, b, *c):` in python, where `c` is the "glob" argument.
 
 You may also bitwise or any type with `TYPE_TAG_LISTIFY`.  This "type" will
-cause `interp_args` to do the following things:
+cause `pop_args` to do the following things:
 
 1. coerce single elements to arrays
     - `'hello' #=> ['hello']`
