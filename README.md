@@ -12,11 +12,11 @@ SPDX-License-Identifier: GPL-3.0-only
 muon is an implementation of the meson build system in c99 with minimal
 dependencies.
 
-## Features
+## [Features]
 
 - `muon analyze` - a static analyzer for meson.build files.  [demo]
 - `muon fmt` - a meson.build code formatter
-- An interactive stepping debugger with the `dbg()` function.
+- An interactive stepping debugger
 - A built-in cross platform [ninja implementation]
 - [fast]
 
@@ -136,4 +136,5 @@ originally based on `boson`, though has since been almost completely rewritten.
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
 [demo]: https://play.muon.build
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
-[ci dashboard]:  https://muon.build/muon_ci.html
+[ci dashboard]: https://muon.build/muon_ci.html
+[Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md
