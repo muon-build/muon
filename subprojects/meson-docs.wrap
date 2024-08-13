@@ -2,6 +2,6 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-file]
-source_filename = meson-docs-1.1.1-1-g1c1a31a22.tar.gz
-source_url = https://mochiro.moe/wrap/meson-docs-1.1.1-1-g1c1a31a22.tar.gz
-source_hash = d1b4ec2c2cb15708a6733ecd0e11cc6f5f4d4037acb656f3fb10325ffef2e6da
+source_filename = meson-docs-1.5.1-18-g587869c37.tar.gz
+source_url = https://mochiro.moe/wrap/meson-docs-1.5.1-18-g587869c37.tar.gz
+source_hash = 2a781073f8fdbf0f3c9dcea73cf32a37f12714d6cf0e7054d5dba245c3b564df
