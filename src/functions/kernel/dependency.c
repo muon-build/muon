@@ -582,6 +582,12 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		} else {
 			lib_mode = dep_lib_mode_shared;
 		}
+	} else {
+		obj prefer_static;
+		get_option_value(wk, current_project(wk), "prefer_static", &prefer_static);
+		if (get_obj_bool(wk, prefer_static)) {
+			lib_mode = dep_lib_mode_static;
+		}
 	}
 
 	/* A fallback is allowed if */

@@ -24,6 +24,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -2148,10 +2149,14 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 
 	SBUF(library_path);
 
+	if (!akw[kw_static].set) {
+		get_option_value(wk, current_project(wk), "prefer_static", &akw[kw_static].val);
+	}
+
 	struct compiler_find_library_ctx ctx = {
 		.path = &library_path,
 		.lib_name = an[0].val,
-		.only_static = akw[kw_static].set ? get_obj_bool(wk, akw[kw_static].val) : false,
+		.only_static = get_obj_bool(wk, akw[kw_static].val),
 	};
 	struct obj_compiler *comp = get_obj_compiler(wk, self);
 
