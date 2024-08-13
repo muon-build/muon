@@ -16,6 +16,9 @@ Configuration data escaping rules:
    no backslashes.  Both "\\\\@" and "\\\\\\@" (two and three backslashes) will
    produce one backslash in the output "\\@".
 
+4. If the configuration format is cmake and the number of backslashes is even,
+   don't escape the variable.  Otherwise, always escape the variable.
+
 Examples:
 
 "\\@" -> "@"
