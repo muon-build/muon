@@ -6,6 +6,7 @@ packages:
   - clang
   - libclang-rt-dev
   - llvm
+  - gobjc
 
 sources:
   - https://git.sr.ht/~lattis/muon

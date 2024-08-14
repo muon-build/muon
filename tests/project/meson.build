@@ -377,16 +377,16 @@ tests = [
     ['meson-tests/frameworks/7 gnome'],
 
     # objc
-    ['meson-tests/objc/1 simple'],
-    ['meson-tests/objc/2 nsstring'],
-    ['meson-tests/objc/3 objc args'],
-    ['meson-tests/objc/4 c++ project objc subproject'],
-    ['meson-tests/objc/5 objfw'],
+    ['meson-tests/objc/1 simple', ['objc']],
+    ['meson-tests/objc/2 nsstring', ['objc']],
+    ['meson-tests/objc/3 objc args', ['objc']],
+    ['meson-tests/objc/4 c++ project objc subproject', ['objc']],
+    ['meson-tests/objc/5 objfw', ['objc']],
 
     # objcpp
-    ['meson-tests/objcpp/1 simple'],
-    ['meson-tests/objcpp/2 objc++ args'],
-    ['meson-tests/objcpp/3 objfw'],
+    ['meson-tests/objcpp/1 simple', ['objc']],
+    ['meson-tests/objcpp/2 objc++ args', ['objc']],
+    ['meson-tests/objcpp/3 objfw', ['objc']],
 ]
 
 if dep_dict['samurai']
@@ -465,6 +465,12 @@ foreach t : tests
     kwargs = t.get(2, {})
 
     if test.startswith('meson-test') and skip_meson_tests
+        continue
+    endif
+
+    # skip objc tests on non darwin platforms
+    # TODO: add objc / objcpp compiler detection and skip based on that instead
+    if 'objc' in extra and host_machine.system() != 'darwin'
         continue
     endif
 
