@@ -129,7 +129,7 @@ static const char *compiler_language_exts[compiler_language_count][10] = {
 	[compiler_language_c_obj] = { "o", "obj" },
 	[compiler_language_objc] = { "m", "M" },
 	[compiler_language_objcpp] = { "mm" },
-	[compiler_language_assembly] = { "s", "S" },
+	[compiler_language_assembly] = { "S", "s" },
 	[compiler_language_llvm_ir] = { "ll" },
 	[compiler_language_nasm] = { "asm" },
 };
