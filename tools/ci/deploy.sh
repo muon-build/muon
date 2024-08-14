@@ -6,7 +6,7 @@ set -eux
 
 if [ ! -d ~/.ssh ]; then
 	exit 0
-elif [ "$GH_DEPLOY" ]; then
+elif [ "${GH_DEPLOY:-}" ]; then
 	:
 elif [ "$(git rev-parse master)" != "$(git rev-parse HEAD)" ]; then
 	exit 0
