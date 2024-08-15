@@ -456,7 +456,7 @@ endif
 
 test_dir = meson.current_build_dir()
 
-is_git_repo = fs.is_dir(meson.global_source_root() / '.git')
+is_git_repo = fs.is_dir('meson-tests' / '.git')
 
 foreach t : tests
     # The exit code to use when a test is skipped

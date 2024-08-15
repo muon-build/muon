@@ -37,7 +37,8 @@ if fs.is_dir(build)
 endif
 
 if git_clean == '1'
-    run_command('git', 'clean', '-xdf', '--', source, check: true)
+    warning('running git clean on @0@'.format(source))
+    run_command('git', '-C', source, 'clean', '-xdf', check: true)
 endif
 
 fs.mkdir(build / muon_private, make_parents: true)
