@@ -316,7 +316,7 @@ tests = [
     ['meson-tests/common/259 preprocess'],
     ['meson-tests/common/260 declare_dependency objects'],
     # ['meson-tests/common/261 testcase clause'],
-    ['meson-tests/common/262 generator chain'],
+    ['meson-tests/common/262 generator chain', ['python']],
     ['meson-tests/common/263 internal dependency includes in checks'],
     ['meson-tests/common/264 required keyword in has functions'],
     ['meson-tests/common/265 default_options dict'],
@@ -324,13 +324,13 @@ tests = [
     ['meson-tests/common/267 default_options in find_program'],
     # This test depends on symlinks being created prior to the test being run.
     # ['meson-tests/common/268 install functions and follow symlinks'],
-    ['meson-tests/common/269 configure file output format'],
+    ['meson-tests/common/269 configure file output format', ['python']],
     ['meson-tests/common/270 int_to_str_fill'],
-    ['meson-tests/common/271 env in generator.process'],
+    ['meson-tests/common/271 env in generator.process', ['python']],
     # requires unity
     # ['meson-tests/common/272 unity'],
-    ['meson-tests/common/273 customtarget exe for test'],
-    ['meson-tests/common/274 environment'],
+    ['meson-tests/common/273 customtarget exe for test', ['python']],
+    ['meson-tests/common/274 environment', ['python']],
     ['meson-tests/common/275 required keyword in compiles functions'],
     ['meson-tests/common/276 generator custom_tgt subdir'],
     ['meson-tests/common/277 custom target private dir'],
@@ -403,7 +403,7 @@ endif
 
 if git.found()
     meson_tests_dir = meson.current_source_dir() / 'meson-tests'
-    meson_tests_sha = '38633de9c04ac7a57b09c8a7a83ab88a12409464'
+    meson_tests_sha = 'f715b17378902593eb176965d2a7f62ae5797aa8'
 
     if fs.is_dir('meson-tests')
         meson_tests_clean = run_command(git, '-C', meson_tests_dir, 'diff', '--quiet', check: false).returncode() == 0

@@ -287,7 +287,8 @@ static bool
 compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")) {
+	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, "--version")
+		|| strstr(cmd_ctx.err.buf, "nasm: error: unable to find utility")) {
 		run_cmd_ctx_destroy(&cmd_ctx);
 		return false;
 	}
