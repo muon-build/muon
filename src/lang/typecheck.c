@@ -440,6 +440,32 @@ type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
 	return type_tags_eql(wk, a_ti->type, b_ti->type) && type_tags_eql(wk, a_ti->subtype, b_ti->subtype);
 }
 
+type_tag
+flatten_type(struct workspace *wk, type_tag t)
+{
+	if (!(t & TYPE_TAG_COMPLEX)) {
+		t &= ~TYPE_TAG_GLOB;
+
+		if (t & TYPE_TAG_LISTIFY) {
+			t = tc_array;
+		}
+		return t;
+	}
+
+	uint32_t idx = COMPLEX_TYPE_INDEX(t);
+	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
+
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
+	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
+
+	switch (ct) {
+	case complex_type_or: return flatten_type(wk, ti->type) | flatten_type(wk, ti->subtype);
+	case complex_type_nested: return flatten_type(wk, ti->type);
+	}
+
+	UNREACHABLE_RETURN;
+}
+
 void
 complex_types_init(struct workspace *wk, struct complex_types *types)
 {

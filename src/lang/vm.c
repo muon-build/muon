@@ -769,7 +769,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 		if (saw_disabler) {
 			object_stack_push(wk, disabler_id);
 		} else {
-			object_stack_push(wk, make_typeinfo(wk, capture->func->return_type));
+			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
 		}
 		return;
 	}

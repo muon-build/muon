@@ -133,5 +133,7 @@ bool rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int
 
 bool type_tags_eql(struct workspace *wk, type_tag a, type_tag b);
 
+type_tag flatten_type(struct workspace *wk, type_tag t);
+
 void complex_types_init(struct workspace *wk, struct complex_types *types);
 #endif

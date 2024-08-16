@@ -161,32 +161,6 @@ inspect_typeinfo(struct workspace *wk, obj t)
 	}
 }
 
-static type_tag
-flatten_type(struct workspace *wk, type_tag t)
-{
-	if (!(t & TYPE_TAG_COMPLEX)) {
-		t &= ~TYPE_TAG_GLOB;
-
-		if (t & TYPE_TAG_LISTIFY) {
-			t = tc_array;
-		}
-		return t;
-	}
-
-	uint32_t idx = COMPLEX_TYPE_INDEX(t);
-	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
-
-	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
-	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
-
-	switch (ct) {
-	case complex_type_or: return flatten_type(wk, ti->type) | flatten_type(wk, ti->subtype);
-	case complex_type_nested: return flatten_type(wk, ti->type);
-	}
-
-	UNREACHABLE_RETURN;
-}
-
 obj
 make_typeinfo(struct workspace *wk, type_tag t)
 {
