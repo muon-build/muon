@@ -2,7 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 fs = import('fs')
-diff = find_program('diff', required: false)
+
+func file_list(source_root str) -> list[str]
+    l = ['meson.build', 'meson_options.txt']
+
+    foreach dir : ['doc', 'src', 'tests']
+        l += fs.glob(source_root / f'@dir@/**/meson.build')
+        l += fs.glob(source_root / f'@dir@/**/*.meson')
+        l += fs.glob(source_root / f'@dir@/**/meson_options.txt')
+    endforeach
+
+    return l
+endfunc
 
 muon = argv[1]
 source_root = argv[2]
@@ -12,17 +23,9 @@ fail_fast = 'f' in argv # TODO make this a proper argument
 files = []
 exclude = ['badnum.meson', 'line_continuation.meson']
 
-foreach f : run_command('git', '-C', source_root, 'ls-files').stdout().strip().split('\n')
+foreach f : file_list(source_root)
     basename = fs.name(f)
-    if not (
-        basename == 'meson.build'
-        or basename == 'meson_options.txt'
-        or basename.endswith('.meson')
-    )
-        continue
-    elif basename in exclude
-        continue
-    elif 'tests/fmt/editorconfig' in f or 'tests/fmt/cases' in f
+    if basename in exclude or 'tests/fmt/editorconfig' in f or 'tests/fmt/cases' in f
         continue
     endif
 
@@ -33,9 +36,11 @@ failing_len = 0
 passing_len = 0
 files_len = files.length()
 
+diff = find_program('diff', required: false)
+
 foreach f : files
     path = source_root / f
-    res = run_command('muon', 'fmt', '-eq', path, check: false)
+    res = run_command(muon, 'fmt', '-eq', path, check: false)
     if res.returncode() == 0
         passing_len += 1
     else
@@ -44,7 +49,7 @@ foreach f : files
         print(f'\033[31mfailing\033[0m: @path@\n')
         if diff.found()
             tmp_file = '/tmp/muon_fmt_diff_tmp'
-            fs.write(tmp_file, run_command('muon', 'fmt', path).stdout())
+            fs.write(tmp_file, run_command(muon, 'fmt', path).stdout())
             print(run_command(diff, path, tmp_file).stdout())
         endif
 
