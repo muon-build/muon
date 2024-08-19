@@ -968,10 +968,15 @@ vm_op_add(struct workspace *wk)
 
 		if (b_t == obj_array) {
 			obj_array_extend(wk, res, b);
-		} else if (b_t == obj_typeinfo && typecheck_typeinfo(wk, b, tc_array)) {
-			// Skip this, because if b were a pure list it wouldn't be pushed,
-			// but would be merged onto a.  But since we don't know what b
-			// would contain just treat it as empty.
+		} else if (b_t == obj_typeinfo) {
+			type_tag t = get_obj_typeinfo(wk, b)->type;
+			t &= ~tc_array | obj_typechecking_type_tag;
+			// Only push b if it has a type other than list.  This is because
+			// if we push b with type tc_list then it looks like we just made a
+			// nested list which [] + [] is never supposed to do.
+			if (t) {
+				obj_array_push(wk, res, b);
+			}
 		} else {
 			obj_array_push(wk, res, b);
 		}
