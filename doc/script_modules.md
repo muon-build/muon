@@ -211,6 +211,7 @@ The `fs` module also has additonal functions:
 - `without_ext(path str) -> str` - return path with extension removed
   to it, otherwise return path
 - `executable(path str) -> str` - if path has no path separators, prepend './'
+- `glob(pattern str) -> list[str]` - similar to python's glob.glob
 
 
 ## Semantic differences between regular and extended Meson

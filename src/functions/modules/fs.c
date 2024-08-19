@@ -11,6 +11,7 @@
 #include "args.h"
 #include "coerce.h"
 #include "error.h"
+#include "formats/editorconfig.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
 #include "lang/func_lookup.h"
@@ -91,8 +92,7 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		} else if (opts & fix_file_path_noabs) {
 			path_copy(wk, buf, s);
 		} else {
-			struct project *proj = current_project(wk);
-			path_join(wk, buf, proj ? get_cstr(wk, proj->cwd) : "", s);
+			path_join(wk, buf, workspace_cwd(wk), s);
 		}
 	}
 
@@ -521,13 +521,13 @@ func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 	if (path_is_absolute(p1)) {
 		path_copy(wk, &b1, p1);
 	} else {
-		path_join(wk, &b1, get_cstr(wk, current_project(wk)->cwd), p1);
+		path_join(wk, &b1, workspace_cwd(wk), p1);
 	}
 
 	if (path_is_absolute(p2)) {
 		path_copy(wk, &b2, p2);
 	} else {
-		path_join(wk, &b2, get_cstr(wk, current_project(wk)->cwd), p2);
+		path_join(wk, &b2, workspace_cwd(wk), p2);
 	}
 
 	SBUF(path);
@@ -740,6 +740,150 @@ func_module_fs_executable(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+struct func_module_fs_glob_ctx {
+	struct workspace *wk;
+	const char *pat, *prefix, *matchprefix;
+	enum {
+		fs_glob_mode_normal,
+		fs_glob_mode_recurse,
+	} mode;
+	obj res;
+};
+
+static enum iteration_result
+func_module_fs_glob_cb(void *_ctx, const char *name)
+{
+	const struct func_module_fs_glob_ctx *ctx = _ctx;
+	struct workspace *wk = ctx->wk;
+
+	struct func_module_fs_glob_ctx subctx = *ctx;
+	if (ctx->mode == fs_glob_mode_recurse) {
+		goto recurse_all_mode;
+	}
+
+	struct str pat = { .s = ctx->pat };
+	{
+		uint32_t i;
+		for (i = 0; pat.s[i] && pat.s[i] != '/'; ++i) {
+			++pat.len;
+		}
+	}
+
+	/* L("path: %s, pat: %.*s", name, pat.len, pat.s); */
+
+	if (str_eql(&pat, &WKSTR("**"))) {
+		subctx.mode = fs_glob_mode_recurse;
+		subctx.matchprefix = "/";
+		goto recurse_all_mode;
+	}
+
+	if (str_eql_glob(&pat, &WKSTR(name))) {
+		SBUF(path);
+		path_join(wk, &path, ctx->prefix, name);
+		subctx.prefix = path.buf;
+
+		subctx.pat += pat.len;
+		if (!*subctx.pat) {
+			obj_array_push(wk, ctx->res, sbuf_into_str(wk, &path));
+		} else {
+			++subctx.pat;
+			if (fs_dir_exists(path.buf)) {
+				if (!fs_dir_foreach(path.buf, &subctx, func_module_fs_glob_cb)) {
+					return ir_err;
+				}
+			}
+		}
+	}
+
+	return ir_cont;
+recurse_all_mode: {
+	SBUF(path);
+	path_join(wk, &path, subctx.matchprefix, name);
+	SBUF(full_path);
+	path_join(wk, &full_path, subctx.prefix, name);
+
+	subctx.prefix = full_path.buf;
+	subctx.matchprefix = path.buf;
+
+	/* L("recurse: path: %s, pat: %s", path.buf, ctx->pat); */
+
+	if (editorconfig_pattern_match(ctx->pat, path.buf)) {
+		obj_array_push(wk, ctx->res, sbuf_into_str(wk, &full_path));
+	}
+
+	if (fs_dir_exists(full_path.buf)) {
+		if (!fs_dir_foreach(full_path.buf, &subctx, func_module_fs_glob_cb)) {
+			return ir_err;
+		}
+	}
+	return ir_cont;
+}
+}
+
+static bool
+func_module_fs_glob(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	SBUF(pat);
+	{
+		const struct str *_pat = get_str(wk, an[0].val);
+		if (str_has_null(_pat)) {
+			vm_error(wk, "null byte not allowed in pattern");
+			return false;
+		}
+
+		/* path_join(wk, &pat, workspace_cwd(wk), _pat->s); */
+		path_copy(wk, &pat, _pat->s);
+	}
+
+	SBUF(prefix);
+	{
+		uint32_t i, prefix_len = 0;
+		for (i = 0; pat.buf[i]; ++i) {
+			if (pat.buf[i] == '\\') {
+				++i;
+				continue;
+			}
+
+			if (pat.buf[i] == '*') {
+				break;
+			} else if (pat.buf[i] == '/') {
+				prefix_len = i;
+			}
+		}
+
+		sbuf_pushn(wk, &prefix, pat.buf, prefix_len);
+	}
+
+	if (prefix.len) {
+		pat.buf += prefix.len + 1;
+		pat.len -= prefix.len + 1;
+	} else {
+		path_copy(wk, &prefix, ".");
+	}
+
+	/* L("prefix: %.*s, pat: %s", prefix.len, prefix.buf, pat.buf); */
+
+	make_obj(wk, res, obj_array);
+
+	if (!fs_dir_exists(prefix.buf)) {
+		return true;
+	}
+
+	struct func_module_fs_glob_ctx ctx = {
+		.wk = wk,
+		.pat = pat.buf,
+		.prefix = prefix.buf,
+		.res = *res,
+	};
+
+	return fs_dir_foreach(prefix.buf, &ctx, func_module_fs_glob_cb);
+}
+
 const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_fs_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile },
@@ -762,12 +906,13 @@ const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "copy", func_module_fs_copy, .fuzz_unsafe = true },
 	{ "cwd", func_module_fs_cwd, tc_string },
 	{ "executable", func_module_fs_executable, tc_string, true },
+	{ "glob", func_module_fs_glob, tc_array },
 	{ "is_basename", func_module_fs_is_basename, tc_bool, true },
 	{ "is_subpath", func_module_fs_is_subpath, tc_bool, true },
 	{ "make_absolute", func_module_fs_make_absolute, tc_string },
 	{ "mkdir", func_module_fs_mkdir, .fuzz_unsafe = true },
-	{ "rmdir", func_module_fs_rmdir, .fuzz_unsafe = true },
 	{ "relative_to", func_module_fs_relative_to, tc_string, true },
+	{ "rmdir", func_module_fs_rmdir, .fuzz_unsafe = true },
 	{ "without_ext", func_module_fs_without_ext, tc_string, true },
 	{ "write", func_module_fs_write, .fuzz_unsafe = true },
 	{ NULL, NULL },

@@ -46,7 +46,9 @@ struct editorconfig_pat {
 static const char *
 editorconfig_parse_pat(struct editorconfig_pat *pat, const char *c)
 {
-	if (*c == '\\') {
+	if (!*c) {
+		return c;
+	} else if (*c == '\\') {
 		++c;
 		pat->type = 'a';
 		pat->pat = c;
@@ -130,6 +132,10 @@ editorconfig_pat_match(struct editorconfig_pat *pat,
 	bool *consume_pattern,
 	uint32_t depth)
 {
+	if (!pat->type) {
+		return 0;
+	}
+
 	*consume_pattern = true;
 	L_editorconfig(
 		"MATCHING: type: %c, pat: '%.*s', glob_slash: %d", pat->type, pat->len, pat->pat, pat->glob_slash);
@@ -224,6 +230,39 @@ editorconfig_pat_match(struct editorconfig_pat *pat,
 	}
 
 	return NULL;
+}
+
+bool
+editorconfig_pattern_match(const char *pattern, const char *string)
+{
+	struct editorconfig_pat cur = { .glob_slash = true };
+	const char *new_string;
+	bool match = false;
+
+	pattern = editorconfig_parse_pat(&cur, pattern);
+
+	while (true) {
+		bool consume_pattern;
+		if (!(new_string = editorconfig_pat_match(&cur, string, pattern, &consume_pattern, 0))) {
+			match = false;
+		} else {
+			if (consume_pattern) {
+				pattern = editorconfig_parse_pat(&cur, pattern);
+			}
+			string = new_string;
+			match = true;
+		}
+
+		if (!match || !*string) {
+			break;
+		}
+	}
+
+	if (*string || *pattern) {
+		match = false;
+	}
+
+	return match;
 }
 
 static bool

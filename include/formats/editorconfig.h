@@ -10,5 +10,7 @@
 
 struct fmt_opts;
 
+bool editorconfig_pattern_match(const char *pattern, const char *string);
+
 void try_parse_editorconfig(struct source *src, struct fmt_opts *opts);
 #endif
