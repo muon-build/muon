@@ -628,7 +628,7 @@ restart:
 		token->type = token_type_fstring;
 		lex_string(lexer, token);
 		token->location.len = lexer->i - token->location.off;
-		if (lexer->mode & lexer_mode_fmt) {
+		if (lexer->mode & lexer_mode_fmt && token->type != token_type_error) {
 			token->type = token_type_string;
 			lex_copy_str(lexer, token, start, lexer->i);
 		}
@@ -678,7 +678,7 @@ restart:
 		token->type = token_type_string;
 		lex_string(lexer, token);
 		token->location.len = lexer->i - token->location.off;
-		if (lexer->mode & lexer_mode_fmt) {
+		if (lexer->mode & lexer_mode_fmt && token->type != token_type_error) {
 			lex_copy_str(lexer, token, start, lexer->i);
 		}
 		return;
