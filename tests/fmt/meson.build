@@ -14,7 +14,7 @@ test(
     suite: 'fmt',
 
     # Increased timeout necessary to avoid sporadic timeouts on GitHub ubuntu workflow
-    timeout: 45,
+    timeout: 90,
 )
 
 subdir('editorconfig')
