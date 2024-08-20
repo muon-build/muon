@@ -1349,101 +1349,111 @@ fmt_cfg_parse_cb(void *_ctx,
 
 	uint32_t i;
 	for (i = 0; keys[i].name; ++i) {
-		if (strcmp(k, keys[i].name) == 0) {
-			void *val_dest = (((uint8_t *)(&ctx->opts)) + keys[i].off);
+		if (strcmp(k, keys[i].name) != 0) {
+			continue;
+		}
 
-			if (keys[i].deprecated) {
-				error_messagef(src, location, log_warn, "option %s is deprecated", keys[i].name);
+		void *val_dest = (((uint8_t *)(&ctx->opts)) + keys[i].off);
+
+		if (keys[i].deprecated) {
+			error_messagef(src, location, log_warn, "option %s is deprecated", keys[i].name);
+		}
+
+		switch (keys[i].type) {
+		case type_uint: {
+			char *endptr = NULL;
+			long long lval = strtoll(v, &endptr, 10);
+			if (*endptr) {
+				error_messagef(src, location, log_error, "unable to parse integer");
+				return false;
+			} else if (lval < 0 || lval > (long long)UINT32_MAX) {
+				error_messagef(
+					src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
+				return false;
 			}
 
-			switch (keys[i].type) {
-			case type_uint: {
-				char *endptr = NULL;
-				long long lval = strtoll(v, &endptr, 10);
-				if (*endptr) {
-					error_messagef(src, location, log_error, "unable to parse integer");
-					return false;
-				} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-					error_messagef(
-						src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
-					return false;
-				}
+			uint32_t val = lval;
 
-				uint32_t val = lval;
-
-				if (keys[i].deprecated_action) {
-					keys[i].deprecated_action(ctx, &val);
-				} else {
-					memcpy(val_dest, &val, sizeof(uint32_t));
-				}
-				break;
+			if (keys[i].deprecated_action) {
+				keys[i].deprecated_action(ctx, &val);
+			} else {
+				memcpy(val_dest, &val, sizeof(uint32_t));
 			}
-			case type_str: {
-				char *start, *end;
-				start = strchr(v, '\'');
-				end = strrchr(v, '\'');
+			break;
+		}
+		case type_str: {
+			char *start, *end;
+			start = strchr(v, '\'');
+			end = strrchr(v, '\'');
 
-				if (!start || !end || start == end) {
-					error_messagef(src, location, log_error, "expected single-quoted string");
-					return false;
-				}
-
-				*end = 0;
-				++start;
-
-				if (keys[i].deprecated_action) {
-					keys[i].deprecated_action(ctx, &start);
-				} else {
-					memcpy(val_dest, &start, sizeof(char *));
-				}
-				break;
+			if (!start || !end || start == end) {
+				error_messagef(src, location, log_error, "expected single-quoted string");
+				return false;
 			}
-			case type_bool: {
-				bool val;
-				if (strcmp(v, "true") == 0) {
-					val = true;
-				} else if (strcmp(v, "false") == 0) {
-					val = false;
-				} else {
-					error_messagef(src,
-						location,
-						log_error,
-						"invalid value for bool, expected true/false");
-					return false;
-				}
 
-				if (keys[i].deprecated_action) {
-					keys[i].deprecated_action(ctx, &val);
-				} else {
-					memcpy(val_dest, &val, sizeof(bool));
-				}
-				break;
+			*end = 0;
+			++start;
+
+			if (keys[i].deprecated_action) {
+				keys[i].deprecated_action(ctx, &start);
+			} else {
+				memcpy(val_dest, &start, sizeof(char *));
 			}
-			case type_enum: {
-				assert(keys[i].enum_tbl);
+			break;
+		}
+		case type_bool: {
+			bool val;
+			if (strcmp(v, "true") == 0) {
+				val = true;
+			} else if (strcmp(v, "false") == 0) {
+				val = false;
+			} else {
+				error_messagef(src,
+					location,
+					log_error,
+					"invalid value for bool, expected true/false");
+				return false;
+			}
 
-				uint32_t j, val = 0;
-				for (j = 0; keys[i].enum_tbl[j].name; ++j) {
-					if (strcmp(v, keys[i].enum_tbl[j].name) == 0) {
-						val = keys[i].enum_tbl[j].val;
-						break;
-					}
-				}
+			if (keys[i].deprecated_action) {
+				keys[i].deprecated_action(ctx, &val);
+			} else {
+				memcpy(val_dest, &val, sizeof(bool));
+			}
+			break;
+		}
+		case type_enum: {
+			assert(keys[i].enum_tbl);
 
-				if (!keys[i].enum_tbl[j].name) {
-					error_messagef(
-						src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
-					return false;
-				}
-
-				if (keys[i].deprecated_action) {
-					keys[i].deprecated_action(ctx, &val);
-				} else {
-					memcpy(val_dest, &val, sizeof(uint32_t));
+			uint32_t j, val = 0;
+			for (j = 0; keys[i].enum_tbl[j].name; ++j) {
+				if (strcmp(v, keys[i].enum_tbl[j].name) == 0) {
+					val = keys[i].enum_tbl[j].val;
+					break;
 				}
 			}
+
+			if (!keys[i].enum_tbl[j].name) {
+				error_messagef(
+					src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
+				return false;
+			}
+
+			if (keys[i].deprecated_action) {
+				keys[i].deprecated_action(ctx, &val);
+			} else {
+				memcpy(val_dest, &val, sizeof(uint32_t));
 			}
 		}
+		}
+
+		break;
+	}
+
+	if (!keys[i].name) {
+		error_messagef(
+			src, location, log_error, "unknown config key: %s", k);
+		return false;
 	}
 
 	return true;
