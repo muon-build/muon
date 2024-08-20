@@ -912,7 +912,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_string: {
 		obj str;
 		if (f->opts.simplify_string_literals && (str = fmt_obj_as_simple_str(f, n->data.str))
-			&& !str_contains(get_str(f->wk, str), &WKSTR("\n"))) {
+			&& !str_contains(get_str(f->wk, str), &WKSTR("\n")) && !str_contains(get_str(f->wk, str), &WKSTR("'"))) {
 			struct str newstr = *get_str(f->wk, n->data.str);
 			if (str_startswith(&newstr, &WKSTR("f"))) {
 				++newstr.s;
