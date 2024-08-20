@@ -632,10 +632,8 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 		dest = subprojects;
 	}
 
-	if (!fs_dir_exists(dest)) {
-		if (!fs_mkdir(dest)) {
-			return false;
-		}
+	if (!fs_mkdir(dest, true)) {
+		return false;
 	}
 
 	return wrap_download_or_check_packagefiles(wrap->fields[wf_source_filename],

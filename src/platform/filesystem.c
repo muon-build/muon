@@ -60,19 +60,15 @@ fs_mkdir_p(const char *path)
 	for (i = 1; i < len; ++i) {
 		if (buf.buf[i] == PATH_SEP) {
 			buf.buf[i] = 0;
-			if (!fs_dir_exists(buf.buf)) {
-				if (!fs_mkdir(buf.buf)) {
-					goto ret;
-				}
+			if (!fs_mkdir(buf.buf, true)) {
+				goto ret;
 			}
 			buf.buf[i] = PATH_SEP;
 		}
 	}
 
-	if (!fs_dir_exists(path)) {
-		if (!fs_mkdir(path)) {
-			goto ret;
-		}
+	if (!fs_mkdir(path, true)) {
+		goto ret;
 	}
 
 	res = true;
@@ -394,10 +390,8 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-		if (!fs_dir_exists(dest.buf)) {
-			if (!fs_mkdir(dest.buf)) {
-				goto ret;
-			}
+		if (!fs_mkdir(dest.buf, true)) {
+			goto ret;
 		}
 
 		if (!fs_copy_dir(src.buf, dest.buf)) {
@@ -427,10 +421,8 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 		.dest_base = dest_base,
 	};
 
-	if (!fs_dir_exists(dest_base)) {
-		if (!fs_mkdir(dest_base)) {
-			return ir_err;
-		}
+	if (!fs_mkdir(dest_base, true)) {
+		return ir_err;
 	}
 
 	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);

@@ -639,7 +639,7 @@ func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
 	if (akw[kw_make_parents].set && get_obj_bool(wk, akw[kw_make_parents].val)) {
 		return fs_mkdir_p(get_cstr(wk, an[0].val));
 	} else {
-		return fs_mkdir(get_cstr(wk, an[0].val));
+		return fs_mkdir(get_cstr(wk, an[0].val), true);
 	}
 }
 

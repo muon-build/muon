@@ -126,9 +126,13 @@ fs_dir_exists(const char *path)
 }
 
 bool
-fs_mkdir(const char *path)
+fs_mkdir(const char *path, bool exist_ok)
 {
 	if (mkdir(path, 0755) == -1) {
+		if (exist_ok && errno == EEXIST) {
+			return true;
+		}
+
 		LOG_E("failed to create directory %s: %s", path, strerror(errno));
 		return false;
 	}

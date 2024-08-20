@@ -182,9 +182,12 @@ fs_dir_exists(const char *path)
 }
 
 bool
-fs_mkdir(const char *path)
+fs_mkdir(const char *path, bool exist_ok)
 {
 	if (!CreateDirectory(path, NULL)) {
+		if (exist_ok && GetLastError() == ERROR_ALREADY_EXISTS) {
+			return true;
+		}
 		LOG_E("failed to create directory %s: %s", path, win32_error());
 		return false;
 	}

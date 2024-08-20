@@ -53,10 +53,8 @@ copy_subdir_iter(void *_ctx, const char *path)
 
 		LOG_I("make dir '%s'", dest.buf);
 
-		if (!fs_dir_exists(dest.buf)) {
-			if (!fs_mkdir(dest.buf)) {
-				return ir_err;
-			}
+		if (!fs_mkdir(dest.buf, true)) {
+			return ir_err;
 		}
 
 		struct copy_subdir_ctx new_ctx = {

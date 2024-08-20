@@ -295,8 +295,8 @@ samu_makedirs(struct samu_string *path, bool parent)
 		path_dirname(0, &dirname, path->s);
 		ok = fs_mkdir_p(dirname.buf);
 		sbuf_destroy(&dirname);
-	} else if (!fs_dir_exists(path->s)) {
-		ok = fs_mkdir(path->s);
+	} else {
+		ok = fs_mkdir(path->s, true);
 	}
 
 	return ok ? 0 : -1;
