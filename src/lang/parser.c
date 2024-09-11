@@ -18,6 +18,20 @@
  * parser
  ******************************************************************************/
 
+struct parser;
+
+struct parse_behavior {
+	void (*advance)(struct parser *p);
+	struct node *(*parse_stmt)(struct parser *p);
+	struct node *(*parse_list)(struct parser *p, enum node_type t, enum token_type end);
+};
+
+enum cm_parse_mode {
+	cm_parse_mode_command,
+	cm_parse_mode_command_args,
+	cm_parse_mode_conditional,
+};
+
 struct parser {
 	struct token previous, current, next;
 	struct lexer lexer;
@@ -26,6 +40,7 @@ struct parser {
 	struct source *src;
 	struct bucket_arr *nodes;
 	enum vm_compile_mode mode;
+	enum cm_parse_mode cm_mode;
 	uint32_t inside_loop;
 
 	struct {
@@ -38,6 +53,8 @@ struct parser {
 	struct {
 		struct node_fmt previous, current;
 	} fmt;
+
+	struct parse_behavior behavior;
 };
 
 enum parse_precedence {
@@ -122,6 +139,7 @@ node_type_to_s(enum node_type t)
 		nt(func_def);
 		nt(return);
 		nt(group);
+		nt(maybe_id);
 	}
 
 	UNREACHABLE_RETURN;
@@ -138,6 +156,7 @@ fmt_node_to_s(struct workspace *wk, const struct node *n)
 	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s", node_type_to_s(n->type));
 
 	switch (n->type) {
+	case node_type_maybe_id:
 	case node_type_id:
 	case node_type_id_lit:
 	case node_type_number:
@@ -160,6 +179,7 @@ node_to_s(struct workspace *wk, const struct node *n)
 	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s", node_type_to_s(n->type));
 
 	switch (n->type) {
+	case node_type_maybe_id:
 	case node_type_id:
 	case node_type_id_lit:
 	case node_type_string: i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o", n->data.str); break;
@@ -362,7 +382,7 @@ static bool
 parse_accept(struct parser *p, enum token_type type)
 {
 	if (p->current.type == type) {
-		parse_advance(p);
+		p->behavior.advance(p);
 		return true;
 	}
 
@@ -408,7 +428,7 @@ parse_expect(struct parser *p, enum token_type type)
 		return false;
 	}
 
-	parse_advance(p);
+	p->behavior.advance(p);
 	return true;
 }
 
@@ -834,13 +854,13 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 static struct node *
 parse_array(struct parser *p)
 {
-	return parse_list(p, node_type_array, ']');
+	return p->behavior.parse_list(p, node_type_array, ']');
 }
 
 static struct node *
 parse_dict(struct parser *p)
 {
-	return parse_list(p, node_type_dict, '}');
+	return p->behavior.parse_list(p, node_type_dict, '}');
 }
 
 static struct node *
@@ -849,7 +869,7 @@ parse_call(struct parser *p, struct node *l)
 	struct node *n;
 	n = make_node_t(p, node_type_call);
 	n->r = l;
-	n->l = parse_list(p, node_type_args, ')');
+	n->l = p->behavior.parse_list(p, node_type_args, ')');
 
 	n->location = source_location_merge(l->location, p->previous.location);
 
@@ -891,7 +911,7 @@ parse_func_params_and_body(struct parser *p, struct node *id)
 	n->l = make_node_t(p, node_type_list);
 	n->l->l = id;
 	parse_expect(p, '(');
-	n->l->r = parse_list(p, node_type_def_args, ')');
+	n->l->r = p->behavior.parse_list(p, node_type_def_args, ')');
 
 	if (parse_accept(p, token_type_returntype)) {
 		parse_type(p, &n->data.type, true);
@@ -925,7 +945,7 @@ parse_expr(struct parser *p)
 static struct node *
 parse_prec(struct parser *p, enum parse_precedence prec)
 {
-	parse_advance(p);
+	p->behavior.advance(p);
 
 	if (!p->parse_rules[p->previous.type].prefix) {
 		parse_error(p, 0, "expected expression, got %s", token_type_to_s(p->previous.type));
@@ -935,11 +955,23 @@ parse_prec(struct parser *p, enum parse_precedence prec)
 	struct node *l = p->parse_rules[p->previous.type].prefix(p);
 
 	while (prec <= p->parse_rules[p->current.type].precedence) {
-		parse_advance(p);
+		p->behavior.advance(p);
 		l = p->parse_rules[p->previous.type].infix(p, l);
 	}
 
 	return l;
+}
+
+static struct node *
+parse_plus_assign(struct parser *p)
+{
+	/* n = make_node_t(p, p->current.type == '=' ? node_type_assign : node_type_plusassign); */
+	/* n->l = parse_id(p); */
+	/* n->l->type = node_type_id_lit; */
+
+	/* p->behavior.advance(p); */
+	/* n->r = parse_expr(p); */
+	return 0;
 }
 
 static struct node *
@@ -1009,13 +1041,13 @@ parse_stmt(struct parser *p)
 		}
 	} else if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
 		   || parse_match(p, assign_sequences[1], ARRAY_LEN(assign_sequences[1]))) {
-		parse_advance(p);
+		p->behavior.advance(p);
 
 		n = make_node_t(p, p->current.type == '=' ? node_type_assign : node_type_plusassign);
 		n->l = parse_id(p);
 		n->l->type = node_type_id_lit;
 
-		parse_advance(p);
+		p->behavior.advance(p);
 		n->r = parse_expr(p);
 	} else {
 		n = parse_expr(p);
@@ -1024,19 +1056,12 @@ parse_stmt(struct parser *p)
 	if (p->err.unwinding) {
 		while (p->err.unwinding && p->current.type != token_type_eof) {
 			switch (p->current.type) {
-			/* case token_type_func: */
-			/* case token_type_foreach: */
-			/* case token_type_endforeach: */
-			/* case token_type_endif: */
-			/* case token_type_else: */
-			/* case token_type_elif: */
-			/* case token_type_if: */
 			case token_type_eol: p->err.unwinding = false; break;
 			default: break;
 			}
 
 			if (p->err.unwinding) {
-				parse_advance(p);
+				p->behavior.advance(p);
 			}
 		}
 	} else {
@@ -1078,7 +1103,7 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 			res = n = make_node_t(p, node_type_stmt);
 		}
 
-		n->l = parse_stmt(p);
+		n->l = p->behavior.parse_stmt(p);
 
 		if (parse_block_skip_eol_and_check_terminator(p, types, types_len)) {
 			break;
@@ -1099,9 +1124,24 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 }
 
 static struct node *
-parse_impl(struct parser *p)
+parse_impl(struct workspace *wk,
+	struct source *src,
+	enum vm_compile_mode mode,
+	const struct parse_behavior *behavior,
+	const struct parse_rule *rules,
+	struct parser *p)
 {
 	TracyCZoneAutoS;
+
+	*p = (struct parser){
+		.wk = wk,
+		.nodes = &wk->vm.compiler_state.nodes,
+		.src = src,
+		.mode = mode,
+		.parse_rules = rules,
+		.behavior = *behavior,
+	};
+
 	enum lexer_mode lexer_mode = 0;
 	if (p->mode & vm_compile_mode_language_extended) {
 		lexer_mode |= lexer_mode_functions;
@@ -1111,13 +1151,12 @@ parse_impl(struct parser *p)
 	}
 	lexer_init(&p->lexer, p->wk, p->src, lexer_mode);
 
-	parse_advance(p);
+	p->behavior.advance(p);
 
 	struct node *n = parse_block(p, (enum token_type[]){ token_type_eof }, 1);
 
 	if (!p->err.count && !n) {
-		// This is an empty meson.build file.  Add a single dummy
-		// statement.
+		// This is an empty file.  Add a single dummy statement.
 		n = make_node_t(p, node_type_stmt);
 	}
 
@@ -1129,47 +1168,53 @@ parse_impl(struct parser *p)
 
 // clang-format off
 static const struct parse_rule parse_rules_base[token_type_count] = {
-	[token_type_number]     = { parse_number,   0,             0                           },
-	[token_type_identifier] = { parse_id,       0,             0                           },
-	[token_type_string]     = { parse_string,   0,             0                           },
-	[token_type_fstring]    = { parse_fstring,  0,             0                           },
-	[token_type_true]       = { parse_bool,     0,             0                           },
-	[token_type_false]      = { parse_bool,     0,             0                           },
-	['(']                   = { parse_grouping, parse_call,    parse_precedence_call       },
-	['[']                   = { parse_array,    parse_index,   parse_precedence_call       },
-	['{']                   = { parse_dict,     0,             0                           },
-	['+']                   = { 0,              parse_binary,  parse_precedence_term       },
-	['-']                   = { parse_unary,    parse_binary,  parse_precedence_term       },
-	['*']                   = { 0,              parse_binary,  parse_precedence_factor     },
-	['/']                   = { 0,              parse_binary,  parse_precedence_factor     },
-	['%']                   = { 0,              parse_binary,  parse_precedence_factor     },
-	['<']                   = { 0,              parse_binary,  parse_precedence_comparison },
-	['>']                   = { 0,              parse_binary,  parse_precedence_comparison },
-	[token_type_leq]        = { 0,              parse_binary,  parse_precedence_comparison },
-	[token_type_geq]        = { 0,              parse_binary,  parse_precedence_comparison },
-	[token_type_or]         = { 0,              parse_binary,  parse_precedence_or         },
-	[token_type_and]        = { 0,              parse_binary,  parse_precedence_and        },
-	[token_type_eq]         = { 0,              parse_binary,  parse_precedence_equality   },
-	[token_type_neq]        = { 0,              parse_binary,  parse_precedence_equality   },
-	[token_type_in]         = { 0,              parse_binary,  parse_precedence_equality   },
-	[token_type_not_in]     = { 0,              parse_binary,  parse_precedence_equality   },
-	['.']                   = { 0,              parse_method,  parse_precedence_call       },
-	['?']                   = { 0,              parse_ternary, parse_precedence_assignment },
-	[token_type_not]        = { parse_unary,    0,             0                           },
-	[token_type_func]       = { parse_func,     0,             0                           },
+	[token_type_number]      = { parse_number,   0,             0                           },
+	[token_type_identifier]  = { parse_id,       0,             0                           },
+	[token_type_string]      = { parse_string,   0,             0                           },
+	[token_type_fstring]     = { parse_fstring,  0,             0                           },
+	[token_type_true]        = { parse_bool,     0,             0                           },
+	[token_type_false]       = { parse_bool,     0,             0                           },
+	['(']                    = { parse_grouping, parse_call,    parse_precedence_call       },
+	['[']                    = { parse_array,    parse_index,   parse_precedence_call       },
+	['{']                    = { parse_dict,     0,             0                           },
+	['+']                    = { 0,              parse_binary,  parse_precedence_term       },
+	['-']                    = { parse_unary,    parse_binary,  parse_precedence_term       },
+	['*']                    = { 0,              parse_binary,  parse_precedence_factor     },
+	['/']                    = { 0,              parse_binary,  parse_precedence_factor     },
+	['%']                    = { 0,              parse_binary,  parse_precedence_factor     },
+	['<']                    = { 0,              parse_binary,  parse_precedence_comparison },
+	['>']                    = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_leq]         = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_geq]         = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_or]          = { 0,              parse_binary,  parse_precedence_or         },
+	[token_type_and]         = { 0,              parse_binary,  parse_precedence_and        },
+	[token_type_eq]          = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_neq]         = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_in]          = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_not_in]      = { 0,              parse_binary,  parse_precedence_equality   },
+	['.']                    = { 0,              parse_method,  parse_precedence_call       },
+	['?']                    = { 0,              parse_ternary, parse_precedence_assignment },
+	[token_type_not]         = { parse_unary,    0,             0                           },
+	[token_type_func]        = { parse_func,     0,             0                           },
+};
+
+static const struct parse_behavior parse_behavior_base = {
+	.advance = parse_advance,
+	.parse_stmt = parse_stmt,
+	.parse_list = parse_list,
 };
 // clang-format on
 
 struct node *
 parse(struct workspace *wk, struct source *src, enum vm_compile_mode mode)
 {
-	return parse_impl(&(struct parser){
-		.wk = wk,
-		.nodes = &wk->vm.compiler_state.nodes,
-		.src = src,
-		.mode = mode,
-		.parse_rules = parse_rules_base,
-	});
+	struct parser p;
+	struct parse_rule parse_rules[ARRAY_LEN(parse_rules_base)];
+	memcpy(parse_rules, parse_rules_base, sizeof(parse_rules_base));
+
+	parse_rules[token_type_plus_assign] = (struct parse_rule){ parse_plus_assign, 0, 0 };
+
+	return parse_impl(wk, src, mode, &parse_behavior_base, parse_rules, &p);
 }
 
 struct node *
@@ -1179,19 +1224,244 @@ parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode, o
 	memcpy(parse_rules, parse_rules_base, sizeof(parse_rules_base));
 	parse_rules['('].prefix = parse_grouping_fmt;
 
-	struct parser p = {
-		.wk = wk,
-		.nodes = &wk->vm.compiler_state.nodes,
-		.src = src,
-		.mode = mode,
-		.parse_rules = parse_rules,
-	};
-
-	struct node *n = parse_impl(&p);
+	struct parser p;
+	struct node *n = parse_impl(wk, src, mode, &parse_behavior_base, parse_rules, &p);
 
 	*raw_blocks = p.lexer.fmt.raw_blocks;
 
 	/* LO("raw blocks: %o\n", *raw_blocks); */
 
+	return n;
+}
+
+/******************************************************************************
+* cmake
+******************************************************************************/
+
+static void
+cm_parse_advance(struct parser *p)
+{
+	struct lexer prev_lexer;
+
+	p->previous = p->current;
+	p->fmt.previous = p->fmt.current;
+
+	bool relex = false;
+
+relex:
+	prev_lexer = p->lexer;
+
+	switch (p->cm_mode) {
+	case cm_parse_mode_conditional: p->lexer.cm_mode = cm_lexer_mode_conditional; break;
+	default: break;
+	}
+
+	cm_lexer_next(&p->lexer, &p->current);
+	p->lexer.cm_mode = cm_lexer_mode_default;
+
+	while (p->current.type == token_type_error) {
+		parse_error(p, &p->current.location, "%s", get_cstr(p->wk, p->current.data.str));
+		p->err.unwinding = false;
+		prev_lexer = p->lexer;
+		cm_lexer_next(&p->lexer, &p->current);
+	}
+
+	if (p->current.type == token_type_eof) {
+		if (p->previous.type != token_type_eol) {
+			// simulate a eol at the end of the file even if we
+			// didn't get one
+			p->current.type = token_type_eol;
+		}
+	}
+
+	if (!relex) {
+		if (p->cm_mode == cm_parse_mode_command && p->current.type == token_type_identifier) {
+			struct lexer lexer_peek = p->lexer;
+			struct token next;
+
+			cm_lexer_next(&lexer_peek, &next);
+
+			if (next.type == '(') {
+				p->lexer = prev_lexer;
+				p->lexer.cm_mode = cm_lexer_mode_command;
+				relex = true;
+				goto relex;
+			}
+		}
+	}
+
+	if (p->cm_mode == cm_parse_mode_conditional && p->current.type == token_type_string) {
+		p->current.type = token_type_identifier;
+	} else if (p->cm_mode == cm_parse_mode_command_args && p->current.type == token_type_identifier) {
+		p->current.type = token_type_string;
+	}
+
+	LL("%d, previous: %s, current: ", p->cm_mode, token_to_s(p->wk, &p->previous));
+	log_plain("%s\n", token_to_s(p->wk, &p->current));
+
+	/* obj_fprintf(p->wk, log_file(), "%o, %o\n", p->fmt.previous.ws, p->fmt.current.ws); */
+
+	/* list_line_range(p->src, p->current.location, 0); */
+}
+
+static struct node *
+cm_parse_id(struct parser *p)
+{
+	if (p->cm_mode == cm_parse_mode_conditional) {
+		return make_node_t(p, node_type_maybe_id);
+	} else {
+		return make_node_t(p, node_type_id);
+	}
+}
+
+static struct node *
+cm_parse_string(struct parser *p)
+{
+	return make_node_t(p, node_type_string);
+}
+
+static struct node *
+cm_parse_with_mode(struct parser *p, enum cm_parse_mode mode, struct node *(parse_fun)(struct parser *))
+{
+	stack_push(&p->wk->stack, p->cm_mode, mode);
+	struct node *n = parse_fun(p);
+	stack_pop(&p->wk->stack, p->cm_mode);
+	return n;
+}
+
+static struct node *
+cm_parse_ignored_list(struct parser *p)
+{
+	parse_expect(p, '(');
+	p->behavior.parse_list(p, node_type_def_args, ')');
+	return 0;
+}
+
+static struct node *
+cm_parse_stmt(struct parser *p)
+{
+	struct node *n;
+	if (parse_accept(p, token_type_if)) {
+		struct node *parent;
+		parent = n = make_node_t(p, node_type_if);
+		while (true) {
+			n->l = make_node_t(p, node_type_list);
+			n->l->l = p->previous.type == token_type_else ?
+					  cm_parse_ignored_list(p) :
+					  cm_parse_with_mode(p, cm_parse_mode_conditional, parse_expr);
+			parse_expect(p, token_type_eol);
+			n->l->r = parse_block(
+				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3);
+
+			if (!(parse_accept(p, token_type_elif) || parse_accept(p, token_type_else))) {
+				break;
+			}
+
+			n = n->r = make_node_t(p, node_type_if);
+		}
+
+		parse_expect(p, token_type_endif);
+		cm_parse_ignored_list(p);
+
+		n = parent;
+	} else {
+		n = parse_expr(p);
+	}
+
+	if (p->err.unwinding) {
+		while (p->err.unwinding && p->current.type != token_type_eof) {
+			switch (p->current.type) {
+			case token_type_eol: p->err.unwinding = false; break;
+			default: break;
+			}
+
+			if (p->err.unwinding) {
+				p->behavior.advance(p);
+			}
+		}
+	} else {
+		parse_expect(p, token_type_eol);
+	}
+
+	return n;
+}
+
+static struct node *
+cm_parse_list(struct parser *p, enum node_type t, enum token_type end)
+{
+	struct node *n = make_node_t(p, t), *res = n;
+	uint32_t len = 0;
+
+	while (p->current.type != end) {
+		n->l = parse_expr(p);
+		++len;
+		if (p->current.type != end) {
+			n = n->r = make_node_t(p, node_type_list);
+		}
+	}
+
+	parse_expect(p, end);
+
+	res->data.len.args = len;
+	return res;
+}
+
+static struct node *
+cm_parse_call(struct parser *p, struct node *l)
+{
+	struct node *n;
+
+	if (p->current.type == token_type_identifier) {
+		p->current.type = token_type_string;
+	}
+
+	stack_push(&p->wk->stack, p->cm_mode, cm_parse_mode_command_args);
+
+	n = make_node_t(p, node_type_call);
+	n->r = l;
+	n->l = p->behavior.parse_list(p, node_type_args, ')');
+
+	/* n->r->data.str = make_strf(p->wk, "cm_%s", get_cstr(p->wk, n->r->data.str)); */
+
+	stack_pop(&p->wk->stack, p->cm_mode);
+
+	n->location = source_location_merge(l->location, p->previous.location);
+
+	if (n->r->type == node_type_id) {
+		n->r->type = node_type_id_lit;
+	}
+	return n;
+}
+
+struct node *
+cm_parse(struct workspace *wk, struct source *src)
+{
+	struct parse_behavior behavior = {
+		.advance = cm_parse_advance,
+		.parse_stmt = cm_parse_stmt,
+		.parse_list = cm_parse_list,
+	};
+
+	// clang-format off
+	struct parse_rule parse_rules[token_type_count] = {
+		[token_type_identifier] = { cm_parse_id, 0, 0 },
+		[token_type_string] = { cm_parse_string, 0, 0 },
+		['('] = { parse_grouping, cm_parse_call, parse_precedence_call },
+		['<']                   = { 0,              parse_binary,  parse_precedence_comparison },
+		['>']                   = { 0,              parse_binary,  parse_precedence_comparison },
+		[token_type_leq]        = { 0,              parse_binary,  parse_precedence_comparison },
+		[token_type_geq]        = { 0,              parse_binary,  parse_precedence_comparison },
+		[token_type_or]         = { 0,              parse_binary,  parse_precedence_or         },
+		[token_type_and]        = { 0,              parse_binary,  parse_precedence_and        },
+		[token_type_eq]         = { 0,              parse_binary,  parse_precedence_equality   },
+		[token_type_neq]        = { 0,              parse_binary,  parse_precedence_equality   },
+		[token_type_in]         = { 0,              parse_binary,  parse_precedence_equality   },
+		[token_type_not_in]     = { 0,              parse_binary,  parse_precedence_equality   },
+	};
+	// clang-format on
+
+	struct parser p;
+	struct node *n = parse_impl(wk, src, 0, &behavior, parse_rules, &p);
+	print_ast(wk, n);
 	return n;
 }

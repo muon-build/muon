@@ -839,7 +839,7 @@ az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 }
 
 static bool
-az_eval_project_file(struct workspace *wk, const char *path, bool first)
+az_eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags)
 {
 	const char *newpath = path;
 	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
@@ -851,7 +851,13 @@ az_eval_project_file(struct workspace *wk, const char *path, bool first)
 		src.label = get_cstr(wk, make_str(wk, path));
 
 		obj res;
-		if (!eval(wk, &src, first ? eval_mode_first : eval_mode_default, &res)) {
+
+		enum eval_mode eval_mode = eval_mode_default;
+		if (flags & eval_project_file_flag_first) {
+			eval_mode = eval_mode_first;
+		}
+
+		if (!eval(wk, &src, lang, eval_mode, &res)) {
 			goto ret;
 		}
 
@@ -860,7 +866,7 @@ ret:
 		return ret;
 	}
 
-	return eval_project_file(wk, newpath, first);
+	return eval_project_file(wk, newpath, lang, flags);
 }
 
 static void
@@ -871,8 +877,8 @@ az_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-			/* object_stack_print(wk, &wk->vm.stack); */
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
 		}
 
 		cip = wk->vm.ip;
@@ -1431,7 +1437,7 @@ do_analyze(struct az_opts *opts)
 			res = false;
 		} else {
 			obj _v;
-			res = eval(&wk, &src, eval_mode_default, &_v);
+			res = eval(&wk, &src, build_language_meson, eval_mode_default, &_v);
 		}
 	} else {
 		uint32_t project_id;

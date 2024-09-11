@@ -1,0 +1,68 @@
+fs = import('fs')
+
+add_languages('c', 'cpp')
+
+targets = {}
+
+func add_executable(name str, src glob[str])
+    targets.set(name, {
+        'target_type': 'executable',
+        'sources': src,
+        'link_with': [],
+    })
+endfunc
+
+func add_library(name str, type str, src glob[str])
+    lib_types = {
+        'STATIC': 'static_library',
+        'SHARED': 'shared_library',
+        'MODULE': 'shared_module',
+    }
+
+    if type in lib_types
+        type = lib_types[type]
+    else
+        type = 'library'
+        src = [type] + src
+    endif
+
+    targets.set(name, {
+        'target_type': type,
+        'sources': src,
+    })
+endfunc
+
+func target_link_libraries(name str, scope str, libnames glob[str])
+    assert(name in targets)
+
+    if scope not in ['PRIVATE', 'PUBLIC', 'INTERFACE']
+        libnames = [scope] + libnames
+        scope = 'BOTH'
+    endif
+
+    cxx = meson.get_compiler('cpp')
+
+    libs = []
+    foreach name : libnames
+        if name in targets
+            libs += targets[name]
+            continue
+        endif
+
+        dep = cxx.find_library(name, required: false)
+        if dep.found()
+            libs += dep
+            continue
+        endif
+    endforeach
+
+    targets[name].link_with +=
+endfunc
+
+func finalize_targets()
+    foreach name, kwargs : targets
+        build_target(name, kwargs: kwargs)
+    endforeach
+endfunc
+
+meson.register_finalizer(finalize_targets)

@@ -747,7 +747,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	if (exists) {
 		enum language_mode old_mode = wk->vm.lang_mode;
 		wk->vm.lang_mode = language_opts;
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, false)) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0)) {
 			wk->vm.lang_mode = old_mode;
 			return false;
 		}
@@ -1260,7 +1260,7 @@ list_options(const struct list_options_opts *list_opts)
 		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
 
 		if (fs_file_exists(meson_opts.buf)) {
-			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, false)) {
+			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0)) {
 				goto ret;
 			}
 		}

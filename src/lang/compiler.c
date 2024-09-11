@@ -167,6 +167,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.str);
 		push_code(wk, op_load);
 		break;
+	case node_type_maybe_id:
+		push_code(wk, op_constant);
+		push_constant(wk, n->data.str);
+		push_code(wk, op_dup);
+		push_code(wk, op_try_load);
+		break;
 	case node_type_number:
 		push_code(wk, op_constant);
 		obj o;

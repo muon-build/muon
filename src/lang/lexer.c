@@ -163,6 +163,7 @@ lex_advance_n(struct lexer *lexer, uint32_t n)
 struct lex_str_token_table {
 	struct str str;
 	int32_t token_type;
+	int32_t token_subtype;
 };
 
 static bool
@@ -178,6 +179,7 @@ lex_str_token_lookup(struct lexer *lexer,
 		if (str_eql(&table[i].str, str)) {
 			token->type = table[i].token_type;
 			token->location.len = table[i].str.len;
+			token->data.type = table[i].token_subtype;
 			return true;
 		}
 	}
@@ -775,4 +777,202 @@ lexer_is_fmt_comment(const struct str *comment, bool *fmt_on)
 	}
 
 	return false;
+}
+
+/******************************************************************************
+* cmake
+******************************************************************************/
+
+static const struct lex_str_token_table cm_lex_keyword_tokens_command[] = {
+	{ WKSTR_STATIC("else"), token_type_else },
+	{ WKSTR_STATIC("elseif"), token_type_elif },
+	{ WKSTR_STATIC("endif"), token_type_endif },
+	{ WKSTR_STATIC("if"), token_type_if },
+};
+
+static const struct lex_str_token_table cm_lex_keyword_tokens_conditional[] = {
+	{ WKSTR_STATIC("NOT"), token_type_not },
+	{ WKSTR_STATIC("AND"), token_type_and },
+	{ WKSTR_STATIC("OR"), token_type_or },
+	{ WKSTR_STATIC("EQUAL"), token_type_eq },
+	{ WKSTR_STATIC("LESS"), '<' },
+	{ WKSTR_STATIC("LESS_EQUAL"), token_type_leq },
+	{ WKSTR_STATIC("GREATER"), '>' },
+	{ WKSTR_STATIC("GREATER_EQUAL"), token_type_geq },
+	{ WKSTR_STATIC("STREQUAL"), token_type_eq, cm_token_subtype_comp_str },
+	{ WKSTR_STATIC("STRLESS"), '<', cm_token_subtype_comp_str },
+	{ WKSTR_STATIC("STRLESS_EQUAL"), token_type_leq, cm_token_subtype_comp_str },
+	{ WKSTR_STATIC("STRGREATER"), '>', cm_token_subtype_comp_str },
+	{ WKSTR_STATIC("STRGREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
+	{ WKSTR_STATIC("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
+	{ WKSTR_STATIC("VERSION_LESS"), '<', cm_token_subtype_comp_ver  },
+	{ WKSTR_STATIC("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver  },
+	{ WKSTR_STATIC("VERSION_GREATER"), '>', cm_token_subtype_comp_ver  },
+	{ WKSTR_STATIC("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver  },
+	{ WKSTR_STATIC("PATH_EQUAL"), token_type_eq, cm_token_subtype_comp_path },
+	{ WKSTR_STATIC("MATCHES"), token_type_eq, cm_token_subtype_comp_regex },
+};
+
+void
+cm_lexer_next(struct lexer *lexer, struct token *token)
+{
+	uint32_t start;
+
+restart:
+	*token = (struct token){
+		.location = (struct source_location){ .off = lexer->i, .len = 1 },
+	};
+
+	if (lexer->i >= lexer->source->len) {
+		token->type = token_type_eof;
+		return;
+	}
+
+	while (is_skipchar(lexer->src[lexer->i])) {
+		if (lexer->src[lexer->i] == '#') {
+			lex_advance(lexer);
+
+			start = lexer->i;
+
+			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
+				lex_advance(lexer);
+			}
+
+			if (lexer->mode & lexer_mode_fmt) {
+				bool fmt_on;
+				obj s;
+
+				s = make_strn(lexer->wk, &lexer->src[start], lexer->i - start);
+				s = str_strip(lexer->wk, get_str(lexer->wk, s), 0, 0);
+				if (lexer_is_fmt_comment(get_str(lexer->wk, s), &fmt_on)) {
+					if (fmt_on) {
+						if (lexer->fmt.in_raw_block) {
+							s = make_strn(lexer->wk,
+								&lexer->src[lexer->fmt.raw_block_start],
+								(start - 1) - lexer->fmt.raw_block_start);
+
+							obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
+							lexer->fmt.in_raw_block = false;
+						}
+					} else {
+						if (!lexer->fmt.in_raw_block) {
+							lexer->fmt.raw_block_start = lexer->i;
+							lexer->fmt.in_raw_block = true;
+						}
+					}
+				}
+			}
+		} else {
+			lex_advance(lexer);
+		}
+	}
+
+	token->location.off = lexer->i;
+
+	/* if (is_valid_start_of_identifier(lexer->src[lexer->i])) { */
+	/* 	start = lexer->i; */
+	/* 	struct str str = { &lexer->src[lexer->i] }; */
+
+	/* 	while (is_valid_inside_of_identifier(lexer->src[lexer->i])) { */
+	/* 		lex_advance(lexer); */
+	/* 		++str.len; */
+	/* 	} */
+
+	/* 	token->type = token_type_identifier; */
+	/* 	lex_copy_str(lexer, token, start, lexer->i); */
+	/* 	return; */
+	/* } */
+
+	if (!strchr("()#\" \r\n\t", lexer->src[lexer->i])) {
+		start = lexer->i;
+		struct str str = { &lexer->src[lexer->i] };
+
+		while (!strchr("()#\" \r\n\t", lexer->src[lexer->i])) {
+			lex_advance(lexer);
+			++str.len;
+		}
+
+		token->type = token_type_string;
+
+		if (is_valid_start_of_identifier(lexer->src[start])) {
+			uint32_t i;
+			for (i = 1; i < str.len; ++i) {
+				if (!is_valid_inside_of_identifier(lexer->src[start + i])) {
+					break;
+				}
+			}
+
+			if (i == str.len) {
+				token->type = token_type_identifier;
+			}
+		}
+
+		if (token->type == token_type_identifier) {
+			const struct lex_str_token_table *token_table = 0;
+			uint32_t token_table_len = 0;
+
+			switch (lexer->cm_mode) {
+			case cm_lexer_mode_default:
+				break;
+			case cm_lexer_mode_command:
+				token_table = cm_lex_keyword_tokens_command;
+				token_table_len = ARRAY_LEN(cm_lex_keyword_tokens_command);
+				break;
+			case cm_lexer_mode_conditional:
+				token_table = cm_lex_keyword_tokens_conditional;
+				token_table_len = ARRAY_LEN(cm_lex_keyword_tokens_conditional);
+				break;
+			}
+
+			if (token_table && lex_str_token_lookup(lexer, token, token_table, token_table_len, &str)) {
+				return;
+			}
+		}
+
+		lex_copy_str(lexer, token, start, lexer->i);
+		return;
+	}
+
+	switch (lexer->src[lexer->i]) {
+	case '\n':
+		lex_advance(lexer);
+
+		if (lexer->enclosed_state) {
+			goto restart;
+		} else {
+			token->type = token_type_eol;
+		}
+		return;
+	case '"':
+		start = lexer->i;
+		token->type = token_type_string;
+		lex_string(lexer, token);
+		token->location.len = lexer->i - token->location.off;
+		if (lexer->mode & lexer_mode_fmt && token->type != token_type_error) {
+			lex_copy_str(lexer, token, start, lexer->i);
+		}
+		return;
+	case '(':
+		token->type = lexer->src[lexer->i];
+		lexer_push_pop_enclosed_state(lexer, token->type);
+		break;
+	case ')':
+		token->type = lexer->src[lexer->i];
+		lexer_push_pop_enclosed_state(lexer, token->type);
+		break;
+	case '\0':
+		if (lexer->i != lexer->source->len) {
+			goto unexpected_character;
+		}
+
+		token->type = token_type_eof;
+		break;
+	default:
+unexpected_character:
+		lex_error_token(lexer, token, "unexpected character: '%c'", lexer->src[lexer->i]);
+		break;
+	}
+
+	lex_advance(lexer);
+	return;
 }

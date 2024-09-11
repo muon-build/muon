@@ -1263,8 +1263,11 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 
 	wk->vm.dbg_state.eval_trace_subdir = true;
 
-	path_push(wk, &new_cwd, "meson.build");
-	ret = wk->vm.behavior.eval_project_file(wk, new_cwd.buf, false);
+	{
+		enum build_language lang;
+		const char *build_file = determine_build_file(wk, new_cwd.buf, &lang);
+		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, 0);
+	}
 
 ret:
 	current_project(wk)->cwd = old_cwd;

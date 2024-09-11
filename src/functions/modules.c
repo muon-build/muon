@@ -83,7 +83,7 @@ module_lookup_script(struct workspace *wk,
 	}
 
 	obj res;
-	if (!eval(wk, &src, eval_mode_default, &res)) {
+	if (!eval(wk, &src, build_language_meson, eval_mode_default, &res)) {
 		goto ret;
 	}
 

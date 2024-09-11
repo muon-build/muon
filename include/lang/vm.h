@@ -133,7 +133,10 @@ struct vm_behavior {
 	void((*pop_local_scope)(struct workspace *wk));
 	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
 	bool((*get_variable)(struct workspace *wk, const char *name, obj *res));
-	bool((*eval_project_file)(struct workspace *wk, const char *path, bool first));
+	bool((*eval_project_file)(struct workspace *wk,
+		const char *path,
+		enum build_language lang,
+		enum eval_project_file_flags flags));
 	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));
 	bool((*pop_args)(struct workspace *wk, struct args_norm an[], struct args_kw akw[]));
 	bool((*func_lookup)(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func));

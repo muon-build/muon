@@ -24,6 +24,7 @@
 #include "lang/compiler.h"
 #include "lang/fmt.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "machine_file.h"
 #include "meson_opts.h"
@@ -618,7 +619,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	obj res;
-	if (!eval(&wk, &src, eval_mode_default, &res)) {
+	if (!eval(&wk, &src, build_language_meson, eval_mode_default, &res)) {
 		goto ret;
 	}
 
@@ -866,6 +867,14 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	log_plain("\n");
+
+	obj finalizer;
+	obj_array_for(&wk, wk.finalizers, finalizer) {
+		obj _;
+		if (!vm_eval_capture(&wk, finalizer, 0, 0, &_)) {
+			goto ret;
+		}
+	}
 
 	if (!backend_output(&wk)) {
 		goto ret;

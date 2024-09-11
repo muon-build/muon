@@ -37,6 +37,11 @@ enum language_mode {
 	language_extended,
 };
 
+enum build_language {
+	build_language_meson,
+	build_language_cmake,
+};
+
 enum log_level {
 	log_quiet,
 	log_error,
