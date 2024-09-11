@@ -103,7 +103,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	if (!specialized_rule) {
 		obj args;
 		if (!obj_dict_geti(wk, ctx->joined_args, lang, &args)) {
-			UNREACHABLE;
+			LOG_E("No compiler defined for language %s", compiler_language_to_s(lang));
+			return ir_err;
 		}
 
 		fprintf(ctx->out, " ARGS = %s\n", get_cstr(wk, args));
