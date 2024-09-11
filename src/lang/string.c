@@ -615,6 +615,15 @@ str_split_strip(struct workspace *wk, const struct str *ss, const struct str *sp
 void
 sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum sbuf_flags flags)
 {
+	// If we don't get passed an initial buffer, initial_buffer_cap must be
+	// zero so that the first write to this buf triggers an allocation.  As
+	// a convenience, ensure the buf points to a valid empty string so that
+	// callers don't have to always check len before trying to read buf.
+	if (!initial_buffer) {
+		assert(initial_buffer_cap == 0);
+		initial_buffer = "";
+	}
+
 	if (initial_buffer_cap) {
 		initial_buffer[0] = 0;
 	}
