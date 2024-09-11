@@ -23,7 +23,7 @@ enum fmt_end_of_line {
 
 struct fmt_opts {
 	bool space_array, kwargs_force_multiline, wide_colon, no_single_comma_function, insert_final_newline,
-		sort_files, group_arg_value, simplify_string_literals;
+		sort_files, group_arg_value, simplify_string_literals, sticky_parens, continuation_indent;
 	uint32_t max_line_len;
 
 	uint32_t indent_style; // enum fmt_indent_style

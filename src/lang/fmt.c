@@ -25,10 +25,13 @@ enum fmt_frag_flag {
 	fmt_frag_flag_fmt_off = 1 << 4,
 	fmt_frag_flag_fmt_on = 1 << 5,
 	fmt_frag_flag_stick_left = 1 << 6,
-	fmt_frag_flag_stick_right = 1 << 7,
-	fmt_frag_flag_stick_line_left = 1 << 8,
-	fmt_frag_flag_stick_line_right = 1 << 9,
-	fmt_frag_flag_stick_line_left_unless_enclosed = 1 << 10,
+	fmt_frag_flag_stick_left_unless_enclosed = 1 << 7,
+	fmt_frag_flag_stick_right = 1 << 8,
+	fmt_frag_flag_stick_line_left = 1 << 9,
+	fmt_frag_flag_stick_line_right = 1 << 10,
+	fmt_frag_flag_stick_line_left_unless_enclosed = 1 << 11,
+	fmt_frag_flag_force_single_line = 1 << 12,
+	fmt_frag_flag_enclosed_extra_indent = 1 << 13,
 };
 
 enum fmt_frag_type {
@@ -45,7 +48,7 @@ struct fmt_frag {
 	obj str;
 	enum fmt_frag_type type;
 	enum node_type node_type;
-	bool force_ml;
+	bool force_ml; // TODO: should this be a flag?
 	const char *enclosing;
 
 	struct fmt_frag *next, *child, *pre_ws, *post_ws;
@@ -116,6 +119,14 @@ fmt_frag_last_child(struct fmt_frag *fr)
 	}
 
 	return fr;
+}
+
+static void
+fmt_frag_broadcast_flag(struct fmt_frag *fr, enum fmt_frag_flag flag)
+{
+	for (; fr; fr = fr->next) {
+		fr->flags |= flag;
+	}
 }
 
 static obj
@@ -261,15 +272,45 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 	} else if (p->enclosing) {
 		obj_fprintf(f->wk, log_file(), "%s", p->enclosing);
 	} else {
-		obj_fprintf(f->wk, log_file(), "+");
+		obj_fprintf(f->wk, log_file(), "?");
 	}
 
 	if (p->flags) {
-		log_plain(" ");
+		obj flags;
+		make_obj(f->wk, &flags, obj_array);
 
-		if (p->flags & fmt_frag_flag_has_comment_trailing) {
-			log_plain("has_comment_trailing");
+		struct {
+			uint32_t flag;
+			const char *label;
+		} names[] = {
+#define FF(v) { fmt_frag_flag_##v, #v }
+			FF(add_trailing_comma),
+			FF(enclosing_space),
+			FF(has_comment_trailing),
+			FF(fmt_off),
+			FF(fmt_on),
+			FF(stick_left),
+			FF(stick_left_unless_enclosed),
+			FF(stick_right),
+			FF(stick_line_left),
+			FF(stick_line_right),
+			FF(stick_line_left_unless_enclosed),
+			FF(force_single_line),
+			FF(enclosed_extra_indent),
+#undef FF
+		};
+
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(names); ++i) {
+			if (p->flags & names[i].flag) {
+				obj_array_push(f->wk, flags, make_str(f->wk, names[i].label));
+			}
 		}
+
+		obj joined;
+		obj_array_join(f->wk, false, flags, make_str(f->wk, ","), &joined);
+
+		log_plain(" <%s>", get_cstr(f->wk, joined));
 	}
 
 	if (p == hl) {
@@ -521,9 +562,14 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 	uint32_t base_len = f->opts.indent_size * f->indent;
 	bool ml = f->measuring ? false : base_len + fmt_measure_frag(f, p) > f->opts.max_line_len;
 
-	if (f->measuring && p->force_ml) {
-		f->measured_len += f->opts.max_line_len + 1;
-		return;
+	if (f->measuring) {
+		if (p->force_ml) {
+			f->measured_len += f->opts.max_line_len + 1;
+			return;
+		} else if (p->flags & fmt_frag_flag_force_single_line) {
+			f->measured_len = 0;
+			return;
+		}
 	}
 
 	// Write preceeding whitespace
@@ -545,9 +591,21 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 
 		if (ml) {
 			++f->indent;
-			fmt_write_nl(f);
-		} else if (p->flags & fmt_frag_flag_enclosing_space) {
-			fmt_writes(f, " ");
+			if (p->flags & fmt_frag_flag_enclosed_extra_indent) {
+				++f->indent;
+			}
+		}
+
+		if (p->child
+			&& (p->child->flags & fmt_frag_flag_stick_left
+				|| p->child->flags & fmt_frag_flag_stick_line_left)) {
+			//
+		} else {
+			if (ml) {
+				fmt_write_nl(f);
+			} else if (p->flags & fmt_frag_flag_enclosing_space) {
+				fmt_writes(f, " ");
+			}
 		}
 	} else if (p->type == fmt_frag_type_block) {
 		++f->indent;
@@ -577,10 +635,13 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 					= (fr->flags & fmt_frag_flag_stick_line_right)
 					  || (fr->next->flags & fmt_frag_flag_stick_line_left)
 					  || (!f->enclosing
-						  && (fr->next->flags & fmt_frag_flag_stick_line_left_unless_enclosed));
+						  && (fr->next->flags & fmt_frag_flag_stick_line_left_unless_enclosed
+							  || fr->next->flags
+								     & fmt_frag_flag_stick_left_unless_enclosed));
 
 				if (ml && !stick_line) {
 					fmt_write_nl(f);
+				} else if (fr->next->flags & fmt_frag_flag_stick_left_unless_enclosed) {
 				} else {
 					fmt_writes(f, " ");
 				}
@@ -596,18 +657,27 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 	// Write enclosing characters and dedent if necessary
 	if (p->enclosing) {
 		if (ml) {
-			if ((p->flags & fmt_frag_flag_add_trailing_comma)) {
-				fmt_writes(f, ",");
-			}
 			--f->indent;
-			fmt_write_nl(f);
-		} else if (p->flags & fmt_frag_flag_enclosing_space) {
-			fmt_writes(f, " ");
 		}
 
-		if (p->enclosing) {
-			fmt_write(f, &p->enclosing[1], 1);
-			--f->enclosing;
+		if (p->child && (fmt_frag_last_child(p)->flags & fmt_frag_flag_stick_right)) {
+			//
+		} else {
+			if (ml) {
+				if ((p->flags & fmt_frag_flag_add_trailing_comma)) {
+					fmt_writes(f, ",");
+				}
+				fmt_write_nl(f);
+			} else if (p->flags & fmt_frag_flag_enclosing_space) {
+				fmt_writes(f, " ");
+			}
+		}
+
+		fmt_write(f, &p->enclosing[1], 1);
+		--f->enclosing;
+
+		if (ml && p->flags & fmt_frag_flag_enclosed_extra_indent) {
+			--f->indent;
 		}
 	} else if (p->type == fmt_frag_type_block) {
 		--f->indent;
@@ -744,6 +814,7 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 
 	uint32_t list_tmp_base = f->list_tmp.len, len = 0;
 	bool saw_trailing_comma = false;
+	bool is_func_with_single_arg = false;
 
 	while (true) {
 		if (n->l) {
@@ -817,14 +888,6 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 		}
 
 		if (!n->r) {
-			if (!saw_trailing_comma) {
-				bool is_func_with_single_arg = (flags & fmt_list_flag_func_args) && len == 1;
-
-				if (f->opts.no_single_comma_function && is_func_with_single_arg) {
-				} else {
-					fr->flags |= fmt_frag_flag_add_trailing_comma;
-				}
-			}
 			break;
 		}
 
@@ -845,8 +908,41 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 		}
 	}
 
+	if (!saw_trailing_comma) {
+		is_func_with_single_arg = (flags & fmt_list_flag_func_args) && len == 1;
+
+		if (is_func_with_single_arg) {
+			if (n->l->type == node_type_string
+				&& str_startswith(get_str(f->wk, n->l->data.str), &WKSTR("'''"))) {
+				fr->flags |= fmt_frag_flag_force_single_line;
+			}
+		}
+
+		if (f->opts.no_single_comma_function && is_func_with_single_arg) {
+		} else {
+			fr->flags |= fmt_frag_flag_add_trailing_comma;
+		}
+	}
+
 	if (flags & fmt_list_flag_sort_files) {
 		arr_sort_range(&f->list_tmp, list_tmp_base, f->list_tmp.len, f, fmt_files_args_sort_cmp);
+
+		// Fix-up commas that might have gotten messed up by the above sorting
+		uint32_t i;
+		for (i = list_tmp_base; i < f->list_tmp.len; ++i) {
+			child = *(struct fmt_frag **)arr_get(&f->list_tmp, i);
+			if (i == f->list_tmp.len - 1) {
+				if (saw_trailing_comma) {
+					if (!child->str) {
+						child->str = make_str(f->wk, ",");
+					}
+				} else {
+					child->str = 0;
+				}
+			} else if (!child->str) {
+				child->str = make_str(f->wk, ",");
+			}
+		}
 	}
 
 	uint32_t i;
@@ -912,7 +1008,8 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_string: {
 		obj str;
 		if (f->opts.simplify_string_literals && (str = fmt_obj_as_simple_str(f, n->data.str))
-			&& !str_contains(get_str(f->wk, str), &WKSTR("\n")) && !str_contains(get_str(f->wk, str), &WKSTR("'"))) {
+			&& !str_contains(get_str(f->wk, str), &WKSTR("\n"))
+			&& !str_contains(get_str(f->wk, str), &WKSTR("'"))) {
 			struct str newstr = *get_str(f->wk, n->data.str);
 			if (str_startswith(&newstr, &WKSTR("f"))) {
 				++newstr.s;
@@ -993,6 +1090,10 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_group: {
 		fr->enclosing = "()";
 		fmt_frag_child(&fr->child, fmt_node(f, n->l));
+		if (f->opts.sticky_parens) {
+			fr->child->flags |= fmt_frag_flag_stick_left;
+			fmt_frag_last_child(fr)->flags |= fmt_frag_flag_stick_right;
+		}
 		break;
 	}
 	case node_type_dict: {
@@ -1142,6 +1243,9 @@ fmt_special_function_done:
 			if (n->l->l) {
 				next = fmt_frag_sibling(fr, fmt_node(f, n->l->l));
 				next->flags |= fmt_frag_flag_stick_line_left;
+				if (f->opts.continuation_indent) {
+					fmt_frag_broadcast_flag(next, fmt_frag_flag_enclosed_extra_indent);
+				}
 			}
 
 			if (n->l->r) {
@@ -1328,6 +1432,8 @@ fmt_cfg_parse_cb(void *_ctx,
 		{ "tab_width", type_uint, offsetof(struct fmt_opts, tab_width) },
 		{ "indent_style", type_enum, offsetof(struct fmt_opts, indent_style), .enum_tbl = indent_style_tbl },
 		{ "end_of_line", type_enum, offsetof(struct fmt_opts, end_of_line), .enum_tbl = end_of_line_tbl },
+		{ "sticky_parens", type_bool, offsetof(struct fmt_opts, sticky_parens) },
+		{ "continuation_indent", type_bool, offsetof(struct fmt_opts, continuation_indent) },
 
 		// deprecated options
 		{ "indent_by", type_str, .deprecated = true, .deprecated_action = fmt_cfg_parse_indent_by },
@@ -1367,8 +1473,7 @@ fmt_cfg_parse_cb(void *_ctx,
 				error_messagef(src, location, log_error, "unable to parse integer");
 				return false;
 			} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-				error_messagef(
-					src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
+				error_messagef(src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
 				return false;
 			}
 
@@ -1408,10 +1513,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			} else if (strcmp(v, "false") == 0) {
 				val = false;
 			} else {
-				error_messagef(src,
-					location,
-					log_error,
-					"invalid value for bool, expected true/false");
+				error_messagef(src, location, log_error, "invalid value for bool, expected true/false");
 				return false;
 			}
 
@@ -1434,8 +1536,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			}
 
 			if (!keys[i].enum_tbl[j].name) {
-				error_messagef(
-					src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
+				error_messagef(src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
 				return false;
 			}
 
@@ -1451,8 +1552,7 @@ fmt_cfg_parse_cb(void *_ctx,
 	}
 
 	if (!keys[i].name) {
-		error_messagef(
-			src, location, log_error, "unknown config key: %s", k);
+		error_messagef(src, location, log_error, "unknown config key: %s", k);
 		return false;
 	}
 
@@ -1574,6 +1674,8 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 			.simplify_string_literals = false,
 			.indent_before_comments = " ",
 			.use_editor_config = true,
+			.sticky_parens = false,
+			.continuation_indent = false,
 		},
 	};
 

@@ -159,6 +159,16 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 :  str
 :  ' '
 :  The indent to put before trailing comments
+|  sticky_parens
+:  bool
+:  false
+:  Controls whether parenthesis used for grouping are stuck to what they enclose
+   or are exploded out to be on their own lines.
+|  continuation_indent
+:  bool
+:  false
+:  Controls whether a multiline conditional in an if statement gets an extra
+   indent.
 
 
 ## install

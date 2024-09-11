@@ -70,6 +70,8 @@ foreach case : [
         'input': 'end_of_line_mixed_lf_first',
         'expect': 'end_of_line_lf',
     },
+    {'case': 'sticky_parens'},
+    {'case': 'continuation_indent'},
 ]
     path_base = meson.current_source_dir() / 'cases'
     case_name = case['case']

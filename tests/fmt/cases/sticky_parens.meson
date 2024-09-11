@@ -1,0 +1,11 @@
+a = (long_identifier_one
+    and long_identifier_two
+    and long_identifier_three
+    and long_identifier_four)
+
+if (long_identifier_one
+    and long_identifier_two
+    and long_identifier_three
+    and long_identifier_four)
+    # do stuff
+endif
