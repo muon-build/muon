@@ -255,7 +255,7 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 		}
 	} else if (strstr(cmd_ctx.out.buf, "Free Software Foundation")) {
 		type = compiler_gcc;
-	} else if (strstr(cmd_ctx.out.buf, "Microsoft")) {
+	} else if (strstr(cmd_ctx.out.buf, "Microsoft") || strstr(cmd_ctx.err.buf, "Microsoft")) {
 		type = compiler_msvc;
 	} else {
 		goto detection_over;
