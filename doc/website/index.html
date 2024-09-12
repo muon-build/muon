@@ -60,60 +60,8 @@ SPDX-License-Identifier: GPL-3.0-only
         </div>
       </div>
       <div>
-        downloads
-        <div>
-          <details>
-            <summary>edge</summary>
-            <div>
-              <a href="/releases/edge/muon-edge-amd64-linux-static">muon-edge-amd64-linux-static</a>
-              - <a href="/releases/edge/muon-amd64-edge-linux-static.md5">md5</a>
-              <br>
-              <a href="/releases/edge/muon-edge-amd64-linux-static-small">muon-edge-amd64-linux-static-small</a>
-              - <a href="/releases/edge/muon-edge-amd64-linux-static-small.md5">md5</a>
-              <br>
-              <a href="/releases/edge/muon-edge-universal-macos.zip">muon-edge-universal-macos.zip</a>
-              <br>
-              <a href="/releases/edge/muon-edge.tar.gz">muon-edge.tar.gz</a>
-              <br>
-              <a href="/releases/edge/docs/man.tar.gz">man.tar.gz</a>
-            </div>
-          </details>
-
-          <details>
-            <summary>0.2.0</summary>
-            <div>
-              <a href="/releases/v0.2.0/muon-0.2.0-amd64-linux-static">muon-0.2.0-amd64-linux-static</a>
-              - <a href="/releases/v0.2.0/muon-0.2.0-amd64-linux-static.md5">md5</a> - 5.4M
-              <br>
-              <a href="/releases/v0.2.0/muon-0.2.0-amd64-linux-static-small">muon-0.2.0-amd64-linux-static-small</a>
-              - <a href="/releases/v0.2.0/muon-0.2.0-amd64-linux-static-small.md5">md5</a> - 568.0K
-              <br>
-              <a href="https://git.sr.ht/~lattis/muon/archive/0.2.0.tar.gz">muon-0.2.0.tar.gz</a>
-              <br>
-              <a href="/releases/v0.2.0/docs/status.html">implementation status</a>
-              <br>
-              <a href="/releases/v0.2.0/docs/man.tar.gz">man.tar.gz</a>
-              <br>
-              <a href="/releases/v0.2.0/docs/release_notes.html">release notes</a>
-            </div>
-          </details>
-
-          <details>
-            <summary>0.1.0</summary>
-            <div>
-              <a href="/releases/v0.1.0/muon-0.1.0-amd64-linux-static">muon-0.1.0-amd64-linux-static</a>
-              - <a href="/releases/v0.1.0/muon-0.1.0-amd64-linux-static.md5">md5</a> - 4.6M
-              <br>
-              <a href="/releases/v0.1.0/muon-0.1.0-amd64-linux-static-small">muon-0.1.0-amd64-linux-static-small</a>
-              - <a href="/releases/v0.1.0/muon-0.1.0-amd64-linux-static-small.md5">md5</a> - 462K
-              <br>
-              <a href="https://git.sr.ht/~lattis/muon/archive/0.1.0.tar.gz">muon-0.1.0.tar.gz</a>
-              <br>
-              <a href="/releases/v0.1.0/docs/status.html">implementation status</a>
-              <br>
-              <a href="/releases/v0.1.0/docs/man.tar.gz">man.tar.gz</a>
-            </div>
-          </details>
+        <span class="downloads_title"><span>downloads</span> <span class="loader" id="loader"></span></span>
+        <div id=downloads>
         </div>
       </div>
       <div>
@@ -123,5 +71,127 @@ SPDX-License-Identifier: GPL-3.0-only
         </div>
       </div>
     </nav>
+
+    <script>
+      (() => {
+        const baseUri = 'https://muon.build/releases'
+        var downloadsElement = document.getElementById('downloads');
+
+        function sizeToH(b) {
+          if (b > 1024 * 1024) {
+            b /= 1024 * 1024;
+            return `${b.toFixed(2)}mb`
+          } else if (b > 1024) {
+            b /= 1024;
+            return `${b.toFixed(2)}kb`
+          } else {
+            return `${b}b`
+          }
+        }
+
+        function sortReleases(list) {
+          function verToNum(ver) {
+            return ver.substr(1).split('.').map((n) => parseInt(n)).reduce((a, b) => a * 100 + b, 0);
+          }
+
+          list.sort((a, b) => {
+            if (a.ver === 'edge') {
+              return -1;
+            } else {
+              return verToNum(b.ver) - verToNum(a.ver) ;
+            }
+          });
+
+          list.forEach((e) => {
+            e.items.sort((a, b) => {
+              if (a.itemPath < b.itemPath) {
+                return -1;
+              } else if (a.itemPath > b.itemPath) {
+                return 1;
+              } else {
+                return 0;
+              }
+            });
+          });
+        }
+
+        function doneLoading() {
+          document.getElementById('loader').style.display = 'none';
+        }
+
+        function renderReleases(list) {
+          sortReleases(list);
+
+          list.forEach((e) => {
+            var elem = document.createElement("details");
+            downloadsElement.appendChild(elem);
+
+            var summary = document.createElement("summary");
+            summary.innerHTML = e.ver;
+            elem.appendChild(summary);
+
+            var ul = document.createElement("ul");
+            elem.appendChild(ul);
+
+            e.items.forEach((item) => {
+              var li = document.createElement("li");
+              ul.appendChild(li);
+
+              var a = document.createElement("a");
+
+              a.innerHTML = item.itemPath.substr(e.ver.length + 1);
+
+              a.href = `${baseUri}/${item.itemPath}`;
+              li.appendChild(a);
+
+              var info = document.createElement("span");
+              info.innerHTML = ` - ${sizeToH(item.item.size)}`;
+              li.appendChild(info);
+            });
+          });
+        }
+
+        function fetchJson(uri) {
+          return fetch(uri).then((response) => {
+            if (!response.ok) {
+              throw new Error("Failed with HTTP code " + response.status);
+            }
+            return response.json();
+          })
+        }
+
+        function fetchAndAddItems(path) {
+          return fetchJson(`${baseUri}/${path}`).then((dir) => {
+            return Promise.all(dir.map((item) => {
+              const itemPath =  `${path}/${item.name}`;
+              if (item['type'] === 'directory') {
+                return fetchAndAddItems(itemPath);
+              } else if (item['type'] === 'file') {
+                return new Promise((resolve, reject) => {
+                  resolve({item: item, itemPath: itemPath});
+                });
+              }
+            }));
+          });
+        }
+
+        fetchJson(baseUri).then((versions) => {
+          Promise.all(versions.map((ver) => {
+            return fetchAndAddItems(ver.name);
+          })).then((result) => {
+            doneLoading();
+            renderReleases(result.map((items, i) => ({
+              ver: versions[i].name,
+              items: items.flatMap((item) => item)
+            })));
+          });
+        }).catch(err => {
+          doneLoading();
+          var p = document.createElement("p");
+          p.innerHTML = `Error fetching releases: ${err}`;
+          downloadsElement.appendChild(p);
+        });
+      })()
+    </script>
   </body>
 </html>
