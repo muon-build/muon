@@ -1424,7 +1424,7 @@ cm_parse_list(struct parser *p, enum node_type t, enum token_type end)
 	struct node *n = make_node_t(p, t), *res = n;
 	uint32_t len = 0;
 
-	while (p->current.type != end) {
+	while (p->current.type != end && p->current.type != token_type_eol) {
 		n->l = parse_expr(p);
 		++len;
 		if (p->current.type != end) {

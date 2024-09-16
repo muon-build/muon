@@ -453,6 +453,38 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 	UNREACHABLE_RETURN;
 }
 
+typedef bool(lex_string_escape_fun)(struct lexer *lexer, struct token *token, struct sbuf *buf);
+
+static void
+lex_basic_string(struct lexer *lexer, struct token *token, struct sbuf *buf, char end, lex_string_escape_fun escape)
+{
+	lex_advance(lexer);
+
+	for (; lexer->i < lexer->source->len && lexer->src[lexer->i] != end; lex_advance(lexer)) {
+		switch (lexer->src[lexer->i]) {
+		case 0:
+		case '\n': goto unterminated_string;
+		case '\\': {
+			if (!lex_string_escape(lexer, token, buf)) {
+				return;
+			}
+			break;
+		}
+		default: sbuf_push(lexer->wk, buf, lexer->src[lexer->i]); break;
+		}
+	}
+
+	if (lexer->src[lexer->i] != end) {
+unterminated_string:
+		lex_error_token(lexer, token, "unterminated string");
+		return;
+	}
+
+	lex_advance(lexer);
+
+	token->data.str = sbuf_into_str(lexer->wk, buf);
+}
+
 static void
 lex_string(struct lexer *lexer, struct token *token)
 {
@@ -479,31 +511,7 @@ lex_string(struct lexer *lexer, struct token *token)
 		return;
 	}
 
-	lex_advance(lexer);
-
-	for (; lexer->i < lexer->source->len && lexer->src[lexer->i] != '\''; lex_advance(lexer)) {
-		switch (lexer->src[lexer->i]) {
-		case 0:
-		case '\n': goto unterminated_string;
-		case '\\': {
-			if (!lex_string_escape(lexer, token, &buf)) {
-				return;
-			}
-			break;
-		}
-		default: sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]); break;
-		}
-	}
-
-	if (lexer->src[lexer->i] != '\'') {
-unterminated_string:
-		lex_error_token(lexer, token, "unterminated string");
-		return;
-	}
-
-	lex_advance(lexer);
-
-	token->data.str = sbuf_into_str(lexer->wk, &buf);
+	lex_basic_string(lexer, token, &buf, '\'', lex_string_escape);
 }
 
 enum lexer_enclosed_state {
@@ -805,10 +813,10 @@ static const struct lex_str_token_table cm_lex_keyword_tokens_conditional[] = {
 	{ WKSTR_STATIC("STRGREATER"), '>', cm_token_subtype_comp_str },
 	{ WKSTR_STATIC("STRGREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
 	{ WKSTR_STATIC("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("VERSION_LESS"), '<', cm_token_subtype_comp_ver  },
-	{ WKSTR_STATIC("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver  },
-	{ WKSTR_STATIC("VERSION_GREATER"), '>', cm_token_subtype_comp_ver  },
-	{ WKSTR_STATIC("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver  },
+	{ WKSTR_STATIC("VERSION_LESS"), '<', cm_token_subtype_comp_ver },
+	{ WKSTR_STATIC("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver },
+	{ WKSTR_STATIC("VERSION_GREATER"), '>', cm_token_subtype_comp_ver },
+	{ WKSTR_STATIC("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver },
 	{ WKSTR_STATIC("PATH_EQUAL"), token_type_eq, cm_token_subtype_comp_path },
 	{ WKSTR_STATIC("MATCHES"), token_type_eq, cm_token_subtype_comp_regex },
 };
@@ -912,8 +920,7 @@ restart:
 			uint32_t token_table_len = 0;
 
 			switch (lexer->cm_mode) {
-			case cm_lexer_mode_default:
-				break;
+			case cm_lexer_mode_default: break;
 			case cm_lexer_mode_command:
 				token_table = cm_lex_keyword_tokens_command;
 				token_table_len = ARRAY_LEN(cm_lex_keyword_tokens_command);
@@ -943,15 +950,15 @@ restart:
 			token->type = token_type_eol;
 		}
 		return;
-	case '"':
+	case '"': {
 		start = lexer->i;
 		token->type = token_type_string;
-		lex_string(lexer, token);
+
+		SBUF(buf);
+		lex_basic_string(lexer, token, &buf, '"', lex_string_escape);
 		token->location.len = lexer->i - token->location.off;
-		if (lexer->mode & lexer_mode_fmt && token->type != token_type_error) {
-			lex_copy_str(lexer, token, start, lexer->i);
-		}
 		return;
+	}
 	case '(':
 		token->type = lexer->src[lexer->i];
 		lexer_push_pop_enclosed_state(lexer, token->type);
