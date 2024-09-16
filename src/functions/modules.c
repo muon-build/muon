@@ -17,6 +17,7 @@
 #include "functions/modules/sourceset.h"
 #include "functions/modules/toolchain.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -76,30 +77,38 @@ module_lookup_script(struct workspace *wk,
 	enum language_mode old_language_mode = wk->vm.lang_mode;
 	wk->vm.lang_mode = language_extended;
 
-	if (opts->encapsulate) {
-		stack_push(&wk->stack,
-			wk->vm.scope_stack,
-			wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
-	}
+	bool stack_popped = false;
+	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	obj res;
 	if (!eval(wk, &src, build_language_meson, eval_mode_default, &res)) {
 		goto ret;
 	}
 
-	if (opts->encapsulate) {
-		if (!typecheck(wk, 0, res, make_complex_type(wk, complex_type_nested, tc_dict, tc_capture))) {
-			goto ret;
-		}
+	if (!typecheck_custom(wk,
+		    0,
+		    res,
+		    make_complex_type(wk, complex_type_nested, tc_dict, tc_capture),
+		    "expected %s, got %s for module return type")) {
+		goto ret;
+	}
 
+	if (opts->encapsulate) {
 		m->found = true;
 		m->has_impl = true;
 		m->exports = res;
+	} else {
+		stack_pop(&wk->stack, wk->vm.scope_stack);
+		stack_popped = true;
+		obj k, v;
+		obj_dict_for(wk, res, k, v) {
+			wk->vm.behavior.assign_variable(wk, get_cstr(wk, k), v, 0, assign_local);
+		}
 	}
 
 	ret = true;
 ret:
-	if (opts->encapsulate) {
+	if (!stack_popped) {
 		stack_pop(&wk->stack, wk->vm.scope_stack);
 	}
 	wk->vm.lang_mode = old_language_mode;

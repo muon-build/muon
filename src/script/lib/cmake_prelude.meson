@@ -1,15 +1,17 @@
+M = {}
+
 add_languages('c', 'cpp')
 
 targets = {}
 
-func add_executable(name str, src glob[str])
+M.add_executable = func(name str, src glob[str])
     targets[name] = executable(
         name,
         sources: src,
     )
 endfunc
 
-func add_library(name str, type str, src glob[str])
+M.add_library = func(name str, type str, src glob[str])
     lib_types = {
         'STATIC': 'static_library',
         'SHARED': 'shared_library',
@@ -30,7 +32,7 @@ func add_library(name str, type str, src glob[str])
     )
 endfunc
 
-func target_link_libraries(name str, scope str, libnames glob[str])
+M.target_link_libraries = func(name str, scope str, libnames glob[str])
     assert(name in targets)
 
     if scope not in ['PRIVATE', 'PUBLIC', 'INTERFACE']
@@ -56,3 +58,5 @@ func target_link_libraries(name str, scope str, libnames glob[str])
 
     targets[name].add_link_with(libs)
 endfunc
+
+return M
