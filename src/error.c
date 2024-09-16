@@ -285,6 +285,12 @@ get_detailed_source_location(struct source *src,
 		}
 
 		if (src->src[i] == '\n') {
+			if (i + 1 == loc.off && loc.len == 1) {
+				dloc->end_col = dloc->col = (i - dloc->start_of_line) + 1;
+				dloc->line = line;
+				return;
+			}
+
 			if (i > loc.off && !(flags & get_detailed_source_location_flag_multiline)) {
 				dloc->loc.len = ((i - dloc->start_of_line) - dloc->col);
 				return;
