@@ -54,4 +54,12 @@ enum log_level {
 struct complex_types {
 	type_tag options_dict_or_list;
 };
+
+union obj_dict_big_dict_value {
+	uint64_t u64;
+	struct {
+		obj key, val;
+	} val;
+};
+
 #endif

@@ -27,13 +27,13 @@
 const uint32_t op_operands[op_count] = {
 	[op_iterator] = 1,
 	[op_iterator_next] = 1,
-	[op_add_store] = 1,
+	[op_store] = 1,
 	[op_constant] = 1,
 	[op_constant_list] = 1,
 	[op_constant_dict] = 1,
 	[op_constant_func] = 1,
 	[op_call] = 2,
-	[op_call_method] = 3,
+	[op_member] = 1,
 	[op_call_native] = 3,
 	[op_jmp_if_true] = 1,
 	[op_jmp_if_false] = 1,
@@ -291,8 +291,21 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj val, type_tag type
 	return typecheck(wk, ip, val, type);
 }
 
+static void
+vm_function_arg_type_error(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type, const char *name)
+{
+	vm_error_at(wk,
+		ip,
+		"expected type %s, got %s for argument%s%s",
+		typechecking_type_to_s(wk, type),
+		get_cstr(wk, obj_type_to_typestr(wk, obj_id)),
+		name ? " " : "",
+		name ? name : ""
+		);
+}
+
 static bool
-typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag type)
+typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag type, const char *name)
 {
 	bool listify = (type & TYPE_TAG_LISTIFY) == TYPE_TAG_LISTIFY;
 	type &= ~TYPE_TAG_LISTIFY;
@@ -342,7 +355,8 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 					//
 					// For now, just let these values
 					// through unscathed.
-				} else if (!typecheck(wk, ip, v, type)) {
+				} else if (!typecheck_custom(wk, ip, v, type, 0)) {
+					vm_function_arg_type_error(wk, ip, v, type, name);
 					obj_array_flat_iter_end(wk, &flat_iter);
 					return false;
 				}
@@ -354,7 +368,8 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 		} else {
 			if (*val == disabler_id) {
 				wk->vm.saw_disabler = true;
-			} else if (!typecheck(wk, ip, *val, type)) {
+			} else if (!typecheck_custom(wk, ip, *val, type, 0)) {
+				vm_function_arg_type_error(wk, ip, *val, type, name);
 				return false;
 			}
 
@@ -365,7 +380,11 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 		return true;
 	}
 
-	return typecheck(wk, ip, *val, type);
+	if (!typecheck_custom(wk, ip, *val, type, 0)) {
+		vm_function_arg_type_error(wk, ip, *val, type, name);
+		return false;
+	}
+	return true;
 }
 
 static bool
@@ -387,7 +406,7 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 		return false;
 	}
 
-	if (!typecheck_and_mutate_function_arg(wk, v_ip, &v, akw[i].type)) {
+	if (!typecheck_and_mutate_function_arg(wk, v_ip, &v, akw[i].type, akw[i].key)) {
 		return false;
 	}
 
@@ -513,7 +532,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			++argi;
 		}
 
-		if (!typecheck_and_mutate_function_arg(wk, an[i].node, &an[i].val, type)) {
+		if (!typecheck_and_mutate_function_arg(wk, an[i].node, &an[i].val, type, 0)) {
 			goto err;
 		}
 	}
@@ -633,18 +652,24 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_negate) break;
 	op_case(op_return) break;
 	op_case(op_return_end) break;
-	op_case(op_store) break;
 	op_case(op_try_load) break;
 	op_case(op_load) break;
 
+	op_case(op_store) {
+		buf_push(":%04x:", constants[0]);
+		if (constants[0] & op_store_flag_member) {
+			buf_push("member");
+		}
+		if (constants[0] & op_store_flag_add_store) {
+			buf_push("+=");
+		}
+		break;
+	}
 	op_case(op_iterator)
 		buf_push(":%d", constants[0]);
 		break;
 	op_case(op_iterator_next)
 		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_add_store)
-		buf_push(":%s", get_str(wk, constants[0])->s);
 		break;
 	op_case(op_constant)
 		buf_push(":%o", constants[0]);
@@ -661,12 +686,10 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_call)
 		buf_push(":%d,%d", constants[0], constants[1]);
 		break;
-	op_case(op_call_method) {
-		uint32_t a, b, c;
+	op_case(op_member) {
+		uint32_t a;
 		a = constants[0];
-		b = constants[1];
-		c = constants[2];
-		buf_push(":%o,%d,%d", a, b, c);
+		buf_push(":%o", a);
 		break;
 	}
 	op_case(op_call_native)
@@ -749,15 +772,6 @@ vm_execute_capture(struct workspace *wk, obj a)
 	uint32_t i;
 	struct obj_capture *capture;
 
-	if (wk->vm.in_analyzer && get_obj_type(wk, a) == obj_typeinfo) {
-		vm_push_dummy(wk);
-		typecheck(wk, 0, a, tc_capture);
-		return;
-	} else if (!typecheck(wk, 0, a, tc_capture)) {
-		vm_push_dummy(wk);
-		return;
-	}
-
 	capture = get_obj_capture(wk, a);
 
 	stack_push(&wk->stack, wk->vm.saw_disabler, false);
@@ -811,6 +825,43 @@ vm_execute_capture(struct workspace *wk, obj a)
 
 	wk->vm.ip = capture->func->entry;
 	return;
+}
+
+static void
+vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
+{
+	obj res;
+
+	stack_push(&wk->stack, wk->vm.saw_disabler, false);
+
+	bool ok;
+	{
+#ifdef TRACY_ENABLE
+		TracyCZoneC(tctx_func, 0xff5000, true);
+		char func_name[1024];
+		snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
+		TracyCZoneName(tctx_func, func_name, strlen(func_name));
+#endif
+
+		ok = wk->vm.behavior.native_func_dispatch(wk, func_idx, self, &res);
+
+		TracyCZoneEnd(tctx_func);
+	}
+
+	bool saw_disabler = wk->vm.saw_disabler;
+	stack_pop(&wk->stack, wk->vm.saw_disabler);
+
+	if (!ok) {
+		if (saw_disabler) {
+			res = disabler_id;
+		} else {
+			vm_error(wk, "in function %s", native_funcs[func_idx].name);
+			vm_push_dummy(wk);
+			return;
+		}
+	}
+
+	object_stack_push(wk, res);
 }
 
 #define binop_disabler_check(a, b)                  \
@@ -1005,84 +1056,6 @@ type_err:
 		vm_error(wk, "+ not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
-	}
-
-	object_stack_push(wk, res);
-}
-
-static void
-vm_op_add_store(struct workspace *wk)
-{
-	obj a, b;
-
-	b = object_stack_pop(&wk->vm.stack);
-	obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct str *id = get_str(wk, a_id);
-	if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
-		vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
-	obj res;
-	bool assign = false;
-
-	switch (a_t) {
-	case obj_number: {
-		assign = true;
-		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
-
-		make_obj(wk, &res, obj_number);
-		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
-		break;
-	}
-	case obj_string: {
-		assign = true;
-		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
-
-		// TODO: could use str_appn, but would have to dup on store
-		res = str_join(wk, a, b);
-		break;
-	}
-	case obj_array: {
-		if (b_t == obj_array) {
-			obj_array_extend(wk, a, b);
-		} else {
-			obj_array_push(wk, a, b);
-		}
-		res = a;
-		break;
-	}
-	case obj_dict: {
-		typecheck_operand(b, b_t, obj_dict, tc_dict, tc_dict);
-
-		obj_dict_merge_nodup(wk, a, b);
-		res = a;
-		break;
-	}
-	case obj_typeinfo: {
-		assign = true;
-		struct check_obj_typeinfo_map map[obj_type_count] = {
-			[obj_number] = { tc_number, tc_number },
-			[obj_string] = { tc_string, tc_string },
-			[obj_dict] = { tc_dict, tc_dict },
-			[obj_array] = { tc_any, tc_array },
-		};
-		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
-			goto type_err;
-		}
-		break;
-	}
-	default:
-type_err:
-		vm_error(wk, "+= not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
-		vm_push_dummy(wk);
-		return;
-	}
-
-	if (assign) {
-		wk->vm.behavior.assign_variable(wk, id->s, res, 0, assign_reassign);
 	}
 
 	object_stack_push(wk, res);
@@ -1407,46 +1380,201 @@ vm_op_stringify(struct workspace *wk)
 	object_stack_push(wk, res);
 }
 
+static bool
+vm_op_store_member_target(struct workspace *wk, uint32_t ip, obj id, enum op_store_flags flags, obj **member_target)
+{
+	obj res;
+	obj target_container = object_stack_pop(&wk->vm.stack);
+	enum obj_type target_container_type = get_obj_type(wk, target_container), id_type = get_obj_type(wk, id);
+
+	switch (target_container_type) {
+	case obj_array: {
+		typecheck_operand(id, id_type, obj_number, tc_number, tc_any);
+
+		int64_t i;
+		i = get_obj_number(wk, id);
+
+		if (!boundscheck(wk, ip, get_obj_array(wk, target_container)->len, &i)) {
+			return false;
+		}
+
+		*member_target = obj_array_index_pointer(wk, target_container, i);
+		return true;
+	}
+	case obj_dict: {
+		typecheck_operand(id, id_type, obj_string, tc_string, tc_any);
+
+		const struct str *s = get_str(wk, id);
+		*member_target = obj_dict_index_strn_pointer(wk, target_container, s->s, s->len);
+
+		if (!*member_target) {
+			if (flags & op_store_flag_add_store) {
+				vm_error_at(wk, ip, "member %o not found on %s", id, obj_typestr(wk, target_container));
+				return false;
+			}
+
+			obj_dict_set(wk, target_container, id, 0);
+			*member_target = obj_dict_index_strn_pointer(wk, target_container, s->s, s->len);
+		}
+		return true;
+	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_array] = { tc_number, tc_any },
+			[obj_dict] = { tc_string, tc_any },
+		};
+		if (!typecheck_typeinfo_operands(wk, target_container, id, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
+	default:
+type_err:
+		vm_error_at(
+			wk, ip, "unable to index %s with %s", obj_typestr(wk, target_container), obj_typestr(wk, id));
+		break;
+	}
+
+	// If we got here it means that the member expression contains a typeinfo or there was a type error.
+	return false;
+}
+
 static void
 vm_op_store(struct workspace *wk)
 {
-	struct obj_stack_entry *a_entry;
-	obj a, b;
-	a_entry = object_stack_pop_entry(&wk->vm.stack);
-	a = a_entry->o;
-	b = object_stack_peek(&wk->vm.stack, 1);
+	enum op_store_flags flags = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	struct obj_stack_entry *id_entry;
+	obj id, val, *member_target = 0;
 
-	if (get_obj_type(wk, a) == obj_typeinfo) {
+	id_entry = object_stack_pop_entry(&wk->vm.stack);
+	id = id_entry->o;
+	val = object_stack_pop(&wk->vm.stack);
+
+	if (flags & op_store_flag_member) {
+		if (!vm_op_store_member_target(wk, id_entry->ip, id, flags, &member_target)) {
+			object_stack_push(wk, val);
+			return;
+		}
+	} else if (get_obj_type(wk, id) == obj_typeinfo) {
+		object_stack_push(wk, val);
 		return;
 	}
 
-	switch (get_obj_type(wk, b)) {
-	case obj_environment:
-	case obj_configuration_data: {
-		obj cloned;
-		if (!obj_clone(wk, wk, b, &cloned)) {
-			UNREACHABLE;
+	if (flags & op_store_flag_add_store) {
+		obj source;
+		const struct str *id_str;
+
+		if (member_target) {
+			source = *member_target;
+		} else {
+			id_str = get_str(wk, id);
+			if (!wk->vm.behavior.get_variable(wk, id_str->s, &source)) {
+				vm_error(wk, "undefined object %o", id);
+				vm_push_dummy(wk);
+				return;
+			}
 		}
 
-		b = cloned;
-		break;
-	}
-	case obj_dict: {
-		obj dup;
-		obj_dict_dup(wk, b, &dup);
-		b = dup;
-		break;
-	}
-	case obj_array: {
-		obj dup;
-		obj_array_dup(wk, b, &dup);
-		b = dup;
-	}
-	default: break;
-	}
+		enum obj_type source_t = get_obj_type(wk, source), val_t = get_obj_type(wk, val);
+		obj res;
+		bool assign = false;
 
-	wk->vm.behavior.assign_variable(wk, get_str(wk, a)->s, b, a_entry->ip, assign_local);
-	/* LO("%o <= %o\n", a, b); */
+		switch (source_t) {
+		case obj_number: {
+			assign = true;
+			typecheck_operand(val, val_t, obj_number, tc_number, tc_number);
+
+			make_obj(wk, &res, obj_number);
+			set_obj_number(wk, res, get_obj_number(wk, source) + get_obj_number(wk, val));
+			break;
+		}
+		case obj_string: {
+			assign = true;
+			typecheck_operand(val, val_t, obj_string, tc_string, tc_string);
+
+			// TODO: could use str_appn, but would have to dup on store
+			res = str_join(wk, source, val);
+			break;
+		}
+		case obj_array: {
+			if (val_t == obj_array) {
+				obj_array_extend(wk, source, val);
+			} else {
+				obj_array_push(wk, source, val);
+			}
+			res = source;
+			break;
+		}
+		case obj_dict: {
+			typecheck_operand(val, val_t, obj_dict, tc_dict, tc_dict);
+
+			obj_dict_merge_nodup(wk, source, val);
+			res = source;
+			break;
+		}
+		case obj_typeinfo: {
+			assign = true;
+			struct check_obj_typeinfo_map map[obj_type_count] = {
+				[obj_number] = { tc_number, tc_number },
+				[obj_string] = { tc_string, tc_string },
+				[obj_dict] = { tc_dict, tc_dict },
+				[obj_array] = { tc_any, tc_array },
+			};
+			if (!typecheck_typeinfo_operands(wk, source, val, &res, map)) {
+				goto type_err;
+			}
+			break;
+		}
+		default:
+type_err:
+			vm_error(wk, "+= not defined for %s and %s", obj_typestr(wk, source), obj_typestr(wk, val));
+			vm_push_dummy(wk);
+			return;
+		}
+
+		if (assign) {
+			if (member_target) {
+				*member_target = res;
+			} else {
+				wk->vm.behavior.assign_variable(wk, id_str->s, res, 0, assign_reassign);
+			}
+		}
+
+		object_stack_push(wk, res);
+	} else {
+		switch (get_obj_type(wk, val)) {
+		case obj_environment:
+		case obj_configuration_data: {
+			obj cloned;
+			if (!obj_clone(wk, wk, val, &cloned)) {
+				UNREACHABLE;
+			}
+
+			val = cloned;
+			break;
+		}
+		case obj_dict: {
+			obj dup;
+			obj_dict_dup(wk, val, &dup);
+			val = dup;
+			break;
+		}
+		case obj_array: {
+			obj dup;
+			obj_array_dup(wk, val, &dup);
+			val = dup;
+		}
+		default: break;
+		}
+
+		if (member_target) {
+			*member_target = val;
+		} else {
+			wk->vm.behavior.assign_variable(wk, get_str(wk, id)->s, val, id_entry->ip, assign_local);
+		}
+
+		object_stack_push(wk, val);
+	}
 }
 
 static void
@@ -1597,11 +1725,59 @@ vm_op_index(struct workspace *wk)
 	}
 	default: {
 type_err:
-		vm_error_at(wk, b_ip, "[] unsupported for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
+		vm_error_at(wk, b_ip, "unable to index %s with %s", obj_typestr(wk, a), obj_typestr(wk, b));
 		vm_push_dummy(wk);
 		return;
 	}
 	}
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_member(struct workspace *wk)
+{
+	obj id, self, f = 0;
+	uint32_t idx;
+
+	self = object_stack_pop(&wk->vm.stack);
+	id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+
+	if (!wk->vm.behavior.func_lookup(wk, self, get_str(wk, id)->s, &idx, &f)) {
+		if (self == disabler_id) {
+			object_stack_push(wk, disabler_id);
+			return;
+		} else if (get_obj_type(wk, self) == obj_dict) {
+			obj res;
+			if (obj_dict_index(wk, self, id, &res)) {
+				object_stack_push(wk, res);
+				return;
+			}
+		} else if (typecheck_typeinfo(wk, self, tc_dict)) {
+			vm_push_dummy(wk);
+			return;
+		}
+
+		vm_error(wk, "member %o not found on %#o", id, obj_type_to_typestr(wk, self));
+		vm_push_dummy(wk);
+		return;
+	}
+
+	obj res;
+	make_obj(wk, &res, obj_capture);
+	struct obj_capture *c = get_obj_capture(wk, res);
+
+	if (f) {
+		*c = *get_obj_capture(wk, f);
+	} else {
+		c->native_func = idx;
+
+		if (native_funcs[idx].self_transform && get_obj_type(wk, self) != obj_typeinfo) {
+			self = native_funcs[idx].self_transform(wk, self);
+		}
+	}
+
+	c->self = self;
 
 	object_stack_push(wk, res);
 }
@@ -1612,124 +1788,35 @@ vm_op_call(struct workspace *wk)
 	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	vm_execute_capture(wk, object_stack_pop(&wk->vm.stack));
-}
+	obj f = object_stack_pop(&wk->vm.stack);
 
-static void
-vm_op_call_method(struct workspace *wk)
-{
-	obj a, b, f = 0;
-	uint32_t idx;
+	unop_disabler_check(f);
 
-	b = object_stack_pop(&wk->vm.stack);
-	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-	if (!wk->vm.behavior.func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
-		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
-
-		if (b == disabler_id) {
-			object_stack_push(wk, disabler_id);
-			return;
-		}
-		vm_error(wk, "method %o not found on %#o", a, obj_type_to_typestr(wk, b));
+	if (wk->vm.in_analyzer && get_obj_type(wk, f) == obj_typeinfo) {
+		vm_push_dummy(wk);
+		typecheck(wk, 0, f, tc_capture);
+		return;
+	} else if (!typecheck(wk, 0, f, tc_capture)) {
 		vm_push_dummy(wk);
 		return;
 	}
 
-	if (f) {
-		// step backwards 2 constants so that the nargs / nkwargs
-		// constants are where op_call expects them
-		wk->vm.ip -= 2 * 3;
-		object_stack_push(wk, f);
-		wk->vm.ops.ops[op_call](wk);
-		return;
+	struct obj_capture *c = get_obj_capture(wk, f);
+	if (c->func) {
+		vm_execute_capture(wk, f);
 	} else {
-		a = 0;
-
-		if (native_funcs[idx].self_transform && get_obj_type(wk, b) != obj_typeinfo) {
-			b = native_funcs[idx].self_transform(wk, b);
-		}
-
-		stack_push(&wk->stack, wk->vm.saw_disabler, false);
-
-		bool ok;
-		{
-#ifdef TRACY_ENABLE
-			TracyCZoneC(tctx_func, 0xff5000, true);
-			char func_name[1024];
-			snprintf(func_name,
-				sizeof(func_name),
-				"%s.%s",
-				obj_type_to_s(get_obj_type(wk, b)),
-				native_funcs[idx].name);
-			TracyCZoneName(tctx_func, func_name, strlen(func_name));
-#endif
-
-			ok = wk->vm.behavior.native_func_dispatch(wk, idx, b, &a);
-
-			TracyCZoneEnd(tctx_func);
-		}
-
-		bool saw_disabler = wk->vm.saw_disabler;
-
-		stack_pop(&wk->stack, wk->vm.saw_disabler);
-
-		if (!ok) {
-			if (saw_disabler) {
-				a = disabler_id;
-			} else {
-				vm_error(wk, "in method %s.%s", obj_typestr(wk, b), native_funcs[idx].name);
-				vm_push_dummy(wk);
-				return;
-			}
-		}
+		vm_execute_native(wk, c->native_func, c->self);
 	}
-
-	object_stack_push(wk, a);
 }
 
 static void
 vm_op_call_native(struct workspace *wk)
 {
-	obj a, b;
 	wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	a = 0;
-	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-
-	stack_push(&wk->stack, wk->vm.saw_disabler, false);
-
-	bool ok;
-	{
-#ifdef TRACY_ENABLE
-		TracyCZoneC(tctx_func, 0xff5000, true);
-		char func_name[1024];
-		snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
-		TracyCZoneName(tctx_func, func_name, strlen(func_name));
-#endif
-
-		ok = wk->vm.behavior.native_func_dispatch(wk, b, 0, &a);
-
-		TracyCZoneEnd(tctx_func);
-	}
-
-	bool saw_disabler = wk->vm.saw_disabler;
-	stack_pop(&wk->stack, wk->vm.saw_disabler);
-
-	if (!ok) {
-		if (saw_disabler) {
-			a = disabler_id;
-		} else {
-			vm_error(wk, "in function %s", native_funcs[b].name);
-			vm_push_dummy(wk);
-			return;
-		}
-	}
-
-	object_stack_push(wk, a);
+	uint32_t idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	vm_execute_native(wk, idx, 0);
 }
 
 static void
@@ -1896,9 +1983,10 @@ vm_op_iterator_next(struct workspace *wk)
 			val = 0;
 		} else {
 			void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
-			uint64_t *v = hash_get(iterator->data.dict_big.h, k);
-			key = *v >> 32;
-			val = *v & 0xffffffff;
+			union obj_dict_big_dict_value *uv
+				= (union obj_dict_big_dict_value *)hash_get(iterator->data.dict_big.h, k);
+			key = uv->val.key;
+			val = uv->val.val;
 			++iterator->data.dict_big.i;
 		}
 		break;
@@ -2545,13 +2633,12 @@ vm_init(struct workspace *wk)
 					      [op_negate] = vm_op_negate,
 					      [op_stringify] = vm_op_stringify,
 					      [op_store] = vm_op_store,
-					      [op_add_store] = vm_op_add_store,
 					      [op_try_load] = vm_op_try_load,
 					      [op_load] = vm_op_load,
 					      [op_return] = vm_op_return,
 					      [op_return_end] = vm_op_return,
 					      [op_call] = vm_op_call,
-					      [op_call_method] = vm_op_call_method,
+					      [op_member] = vm_op_member,
 					      [op_call_native] = vm_op_call_native,
 					      [op_index] = vm_op_index,
 					      [op_iterator] = vm_op_iterator,

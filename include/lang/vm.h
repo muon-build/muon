@@ -31,14 +31,13 @@ enum op {
 	op_negate,
 	op_stringify,
 	op_store,
-	op_add_store,
 	op_load,
 	op_try_load,
 	op_return,
 	op_return_end,
 	op_call,
-	op_call_method,
 	op_call_native,
+	op_member,
 	op_index,
 	op_iterator,
 	op_iterator_next,
@@ -63,6 +62,11 @@ extern const uint32_t op_operand_size;
 #define OP_WIDTH(op) (1 + op_operand_size * op_operands[op])
 
 struct workspace;
+
+enum op_store_flags {
+	op_store_flag_add_store = 1 << 0,
+	op_store_flag_member = 2 << 0,
+};
 
 enum variable_assignment_mode {
 	assign_local,

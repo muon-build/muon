@@ -752,6 +752,7 @@ az_op_return_end(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_return_end](wk);
 }
 
+#if 0
 static void
 az_op_add_store(struct workspace *wk)
 {
@@ -774,6 +775,7 @@ az_op_add_store(struct workspace *wk)
 	obj res = object_stack_peek(&wk->vm.stack, 1);
 	wk->vm.behavior.assign_variable(wk, id->s, res, 0, assign_reassign);
 }
+#endif
 
 /******************************************************************************
  * analyzer behaviors
@@ -1402,7 +1404,7 @@ do_analyze(struct az_opts *opts)
 	wk.vm.ops.ops[op_return] = az_op_return;
 	wk.vm.ops.ops[op_return_end] = az_op_return_end;
 	wk.vm.ops.ops[op_call] = az_op_call;
-	wk.vm.ops.ops[op_add_store] = az_op_add_store;
+	/* wk.vm.ops.ops[op_add_store] = az_op_add_store; */
 
 	error_diagnostic_store_init(&wk);
 

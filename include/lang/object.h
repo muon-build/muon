@@ -90,7 +90,8 @@ struct obj_func {
 
 struct obj_capture {
 	struct obj_func *func;
-	obj scope_stack, defargs;
+	obj scope_stack, defargs, self;
+	uint32_t native_func;
 };
 
 enum tgt_type {
@@ -603,6 +604,7 @@ bool obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_itera
 bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb);
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
 bool obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx);
+obj *obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i);
 void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
@@ -626,6 +628,7 @@ bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterat
 bool obj_dict_in(struct workspace *wk, obj dict, obj key);
 bool obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res);
 bool obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res);
+obj *obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len);
 bool obj_dict_index_str(struct workspace *wk, obj dict, const char *str, obj *res);
 void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);

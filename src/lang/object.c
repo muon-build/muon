@@ -694,31 +694,28 @@ obj_array_in(struct workspace *wk, obj arr, obj val)
 	return obj_array_index_of(wk, arr, val, &_);
 }
 
-struct obj_array_index_iter_ctx {
-	obj res, i, tgt;
-};
-
-static enum iteration_result
-obj_array_index_iter(struct workspace *wk, void *_ctx, obj v)
+obj *
+obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
 {
-	struct obj_array_index_iter_ctx *ctx = _ctx;
-
-	if (ctx->i == ctx->tgt) {
-		ctx->res = v;
-		return ir_done;
+	obj v;
+	int64_t j = 0;
+	obj_array_for_(wk, arr, v, iter)
+	{
+		if (j == i) {
+			return &iter.a->val;
+		}
+		++j;
 	}
 
-	++ctx->i;
-	return ir_cont;
+	return 0;
 }
 
 void
 obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 {
-	struct obj_array_index_iter_ctx ctx = { .tgt = i };
-	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
-	obj_array_foreach(wk, arr, &ctx, obj_array_index_iter);
-	*res = ctx.res;
+	obj *a = obj_array_index_pointer(wk, arr, i);
+	assert(a);
+	*res = *a;
 }
 
 obj
@@ -1119,10 +1116,9 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 		for (i = 0; i < h->keys.len; ++i) {
 			void *_key = arr_get(&h->keys, i);
 			uint64_t *_val = hash_get(h, _key);
-			obj key = *_val >> 32;
-			obj val = *_val & 0xffffffff;
+			union obj_dict_big_dict_value val = { .u64 = *_val };
 
-			switch (cb(wk, ctx, key, val)) {
+			switch (cb(wk, ctx, val.val.key, val.val.val)) {
 			case ir_cont: break;
 			case ir_done: return true;
 			case ir_err: return false;
@@ -1219,9 +1215,7 @@ _obj_dict_index(struct workspace *wk,
 	obj dict,
 	union obj_dict_key_comparison_key *key,
 	obj_dict_key_comparison_func comp,
-	obj **res,
-	uint64_t **ures)
-
+	obj **res)
 {
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
@@ -1230,13 +1224,17 @@ _obj_dict_index(struct workspace *wk,
 
 	if (d->flags & obj_dict_flag_big) {
 		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
+		uint64_t *uv;
+
 		if (d->flags & obj_dict_flag_int_key) {
-			*ures = hash_get(h, &key->num);
+			uv = hash_get(h, &key->num);
 		} else {
-			*ures = hash_get_strn(h, key->string.s, key->string.len);
+			uv = hash_get_strn(h, key->string.s, key->string.len);
 		}
 
-		if (*ures) {
+		if (uv) {
+			union obj_dict_big_dict_value *val = (union obj_dict_big_dict_value *)uv;
+			*res = &val->val.val;
 			return true;
 		}
 	} else {
@@ -1258,23 +1256,28 @@ _obj_dict_index(struct workspace *wk,
 	return false;
 }
 
+obj *
+obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len)
+{
+	obj *r = 0;
+	union obj_dict_key_comparison_key key = { .string = { .s = str, .len = len } };
+
+	if (!_obj_dict_index(wk, dict, &key, obj_dict_key_comparison_func_string, &r)) {
+		return 0;
+	}
+
+	return r;
+}
+
 bool
 obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res)
 {
-	uint64_t *ur = 0;
-	obj *r = 0;
-	union obj_dict_key_comparison_key key = { .string = {
-							  .s = str,
-							  .len = len,
-						  } };
-
-	if (!_obj_dict_index(wk, dict, &key, obj_dict_key_comparison_func_string, &r, &ur)) {
-		return false;
+	obj *r = obj_dict_index_strn_pointer(wk, dict, str, len);
+	if (r) {
+		*res = *r;
+		return true;
 	}
-
-	*res = r ? *r : (*ur & 0xffffffff);
-
-	return true;
+	return false;
 }
 
 bool
@@ -1332,15 +1335,15 @@ _obj_dict_set(struct workspace *wk,
 		d->tail = 0; // unnecessary but nice
 
 		while (true) {
-			uint64_t uv = ((uint64_t)(e->key) << 32) | e->val;
+			union obj_dict_big_dict_value val = {
+				.val = { .key = e->key, .val = e->val }
+			};
 
 			if (d->flags & obj_dict_flag_int_key) {
-				hash_set(h, &key, uv);
+				hash_set(h, &key, val.u64);
 			} else {
 				const struct str *ss = get_str(wk, e->key);
-				/* LO("setting %s, %d to %ld, (%o=%o)\n", ss->s, ss->len, uv, (obj)(uv
-         * >> 32), (obj)(uv & 0xffffffff)); */
-				hash_set_strn(h, ss->s, ss->len, uv);
+				hash_set_strn(h, ss->s, ss->len, val.u64);
 			}
 
 			if (!e->next) {
@@ -1351,14 +1354,9 @@ _obj_dict_set(struct workspace *wk,
 		d->flags |= obj_dict_flag_big;
 	}
 
-	uint64_t *ur;
 	obj *r = 0;
-	if (_obj_dict_index(wk, dict, k, comp, &r, &ur)) {
-		if (r) {
-			*r = val;
-		} else {
-			*ur = ((uint64_t)key << 32) | val;
-		}
+	if (_obj_dict_index(wk, dict, k, comp, &r)) {
+		*r = val;
 		return;
 	}
 
@@ -1369,7 +1367,8 @@ _obj_dict_set(struct workspace *wk,
 			hash_set(h, &key, val);
 		} else {
 			const struct str *ss = get_str(wk, key);
-			hash_set_strn(h, ss->s, ss->len, ((uint64_t)key << 32) | val);
+			union obj_dict_big_dict_value big_val = { .val = { .key = key, .val = val } };
+			hash_set_strn(h, ss->s, ss->len, big_val.u64);
 		}
 		d->len = h->len;
 	} else {
@@ -1488,15 +1487,13 @@ obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val)
 bool
 obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 {
-	uint64_t *ur = 0;
 	obj *r = 0;
 	if (_obj_dict_index(wk,
 		    dict,
 		    &(union obj_dict_key_comparison_key){ .num = key },
 		    obj_dict_key_comparison_func_int,
-		    &r,
-		    &ur)) {
-		*val = r ? *r : (*ur & 0xffffffff);
+		    &r)) {
+		*val = *r;
 		return true;
 	}
 

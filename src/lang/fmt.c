@@ -755,7 +755,6 @@ fmt_node_to_token(enum node_type type)
 	case node_type_break: return "break";
 	case node_type_return: return "return";
 	case node_type_assign: return "=";
-	case node_type_plusassign: return "+=";
 	case node_type_or: return "or";
 	case node_type_and: return "and";
 	case node_type_add: return "+";
@@ -974,6 +973,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	/* L("formatting %p:%s", (void *)n, node_to_s(f->wk, n)); */
 
 	switch (n->type) {
+	case node_type_maybe_id:
 	case node_type_stringify:
 	case node_type_stmt: UNREACHABLE;
 
@@ -1043,7 +1043,6 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		break;
 	}
 	case node_type_assign:
-	case node_type_plusassign:
 	case node_type_or:
 	case node_type_and:
 	case node_type_add:
@@ -1110,16 +1109,17 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		fmt_list(f, n, fr, 0);
 		break;
 	}
-	case node_type_method: {
+	case node_type_member: {
 		res = fr = fmt_node(f, n->l->r);
 		next = fmt_frag_sibling(fr, fmt_frag_s(f, "."));
 		next->flags |= fmt_frag_flag_stick_left;
 		next = fmt_frag_sibling(fr, fmt_node(f, n->r));
 		next->flags |= fmt_frag_flag_stick_left;
 		next = fmt_frag_sibling(fr, fmt_frag(f, fmt_frag_type_expr));
-		fmt_list(f, n->l->l, next, fmt_list_flag_func_args);
-		next->enclosing = "()";
-		next->flags |= fmt_frag_flag_stick_left;
+
+		/* fmt_list(f, n->l->l, next, fmt_list_flag_func_args); */
+		/* next->enclosing = "()"; */
+		/* next->flags |= fmt_frag_flag_stick_left; */
 		break;
 	}
 	case node_type_call: {

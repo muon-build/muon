@@ -157,16 +157,17 @@ typechecking_type_to_s(struct workspace *wk, type_tag t)
 
 struct obj_type_to_typestr_ctx {
 	obj arr;
+	uint32_t depth;
 };
 
-obj obj_type_to_typestr(struct workspace *wk, obj o);
+static obj _obj_type_to_typestr(struct workspace *wk, obj o, uint32_t depth);
 
 static enum iteration_result
 obj_type_to_typestr_arr_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct obj_type_to_typestr_ctx *ctx = _ctx;
 
-	obj s = obj_type_to_typestr(wk, v);
+	obj s = _obj_type_to_typestr(wk, v, ctx->depth);
 
 	if (!obj_array_in(wk, ctx->arr, s)) {
 		obj_array_push(wk, ctx->arr, s);
@@ -180,9 +181,13 @@ obj_type_to_typestr_dict_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 	return obj_type_to_typestr_arr_iter(wk, _ctx, v);
 }
 
-obj
-obj_type_to_typestr(struct workspace *wk, obj o)
+static obj
+_obj_type_to_typestr(struct workspace *wk, obj o, uint32_t depth)
 {
+	if (depth > 16) {
+		return make_str(wk, "...");
+	}
+
 	enum obj_type t = get_obj_type(wk, o);
 
 	if (t == obj_typeinfo) {
@@ -195,7 +200,7 @@ obj_type_to_typestr(struct workspace *wk, obj o)
 	switch (t) {
 	case obj_dict:
 	case obj_array: {
-		struct obj_type_to_typestr_ctx ctx = { 0 };
+		struct obj_type_to_typestr_ctx ctx = { .depth = depth + 1 };
 		make_obj(wk, &ctx.arr, obj_array);
 
 		if (t == obj_dict) {
@@ -216,6 +221,12 @@ obj_type_to_typestr(struct workspace *wk, obj o)
 	}
 
 	return str;
+}
+
+obj
+obj_type_to_typestr(struct workspace *wk, obj o)
+{
+	return _obj_type_to_typestr(wk, o, 0);
 }
 
 const char *

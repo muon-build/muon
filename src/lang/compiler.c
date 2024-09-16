@@ -58,6 +58,13 @@ push_constant(struct workspace *wk, obj v)
 	push_code(wk, v & 0xff);
 }
 
+static void
+push_op_store(struct workspace *wk, enum op_store_flags flags)
+{
+	push_code(wk, op_store);
+	push_constant(wk, flags);
+}
+
 static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 static void
 vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
@@ -197,19 +204,20 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.len.kwargs);
 		break;
 	case node_type_assign:
-		push_code(wk, op_constant);
-		push_constant(wk, n->l->data.str);
-		push_code(wk, op_store);
+		switch (n->l->type) {
+		case node_type_id_lit:
+			push_code(wk, op_constant);
+			push_constant(wk, n->l->data.str);
+			break;
+		default:
+			vm_compile_expr(wk, n->l);
+			break;
+		}
+		push_op_store(wk, n->data.type);
 		break;
-	case node_type_plusassign:
-		push_code(wk, op_add_store);
-		push_constant(wk, n->l->data.str);
-		break;
-	case node_type_method: {
-		push_code(wk, op_call_method);
+	case node_type_member: {
+		push_code(wk, op_member);
 		push_constant(wk, n->r->data.str);
-		push_constant(wk, n->l->data.len.args);
-		push_constant(wk, n->l->data.len.kwargs);
 		break;
 	}
 	case node_type_call: {
@@ -234,7 +242,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
 
 				push_code(wk, op_swap);
-				push_code(wk, op_store);
+				push_op_store(wk, 0);
 				break;
 			} else if (str_eql(name, &WKSTR("get_variable"))) {
 				push_location(wk, n);
@@ -371,13 +379,13 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		push_code(wk, op_constant);
 		push_constant(wk, ida->data.str);
-		push_code(wk, op_store);
+		push_op_store(wk, 0);
 		push_code(wk, op_pop);
 
 		if (idb) {
 			push_code(wk, op_constant);
 			push_constant(wk, idb->data.str);
-			push_code(wk, op_store);
+			push_op_store(wk, 0);
 			push_code(wk, op_pop);
 		}
 
@@ -700,7 +708,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		if (n->l->l) {
 			push_code(wk, op_constant);
 			push_constant(wk, n->l->l->data.str);
-			push_code(wk, op_store);
+			push_op_store(wk, 0);
 		}
 		break;
 	}

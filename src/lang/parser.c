@@ -20,9 +20,13 @@
 
 struct parser;
 
+enum parse_stmt_flags {
+	parse_stmt_flag_eol_optional = 1 << 0,
+};
+
 struct parse_behavior {
 	void (*advance)(struct parser *p);
-	struct node *(*parse_stmt)(struct parser *p);
+	struct node *(*parse_stmt)(struct parser *p, enum parse_stmt_flags flags);
 	struct node *(*parse_list)(struct parser *p, enum node_type t, enum token_type end);
 };
 
@@ -71,8 +75,8 @@ enum parse_precedence {
 	parse_precedence_primary,
 };
 
-typedef struct node *((*parse_prefix_fn)(struct parser *p));
-typedef struct node *((*parse_infix_fn)(struct parser *p, struct node *l));
+typedef struct node *((*parse_prefix_fn)(struct parser *p, bool assignment_allowed));
+typedef struct node *((*parse_infix_fn)(struct parser *p, struct node *l, bool assignment_allowed));
 
 struct parse_rule {
 	parse_prefix_fn prefix;
@@ -82,7 +86,7 @@ struct parse_rule {
 
 static struct node *parse_prec(struct parser *p, enum parse_precedence prec);
 static struct node *parse_expr(struct parser *p);
-static struct node *parse_block(struct parser *p, enum token_type types[], uint32_t types_len);
+static struct node *parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum parse_stmt_flags);
 
 /*******************************************************************************
  * misc api functions
@@ -125,10 +129,9 @@ node_type_to_s(enum node_type t)
 		nt(mod);
 		nt(not );
 		nt(index);
-		nt(method);
+		nt(member);
 		nt(call);
 		nt(assign);
-		nt(plusassign);
 		nt(foreach_args);
 		nt(foreach);
 		nt(if);
@@ -417,7 +420,7 @@ parse_match(struct parser *p, enum token_type types[], uint32_t types_len)
 }
 
 static bool
-parse_expect(struct parser *p, enum token_type type)
+parse_expect_noadvance(struct parser *p, enum token_type type)
 {
 	if (p->current.type != type) {
 		parse_error(p,
@@ -428,6 +431,15 @@ parse_expect(struct parser *p, enum token_type type)
 		return false;
 	}
 
+	return true;
+}
+
+static bool
+parse_expect(struct parser *p, enum token_type type)
+{
+	if (!parse_expect_noadvance(p, type)) {
+		return false;
+	}
 	p->behavior.advance(p);
 	return true;
 }
@@ -450,30 +462,60 @@ make_node_t(struct parser *p, enum node_type t)
 	return make_node(p, &(struct node){ .type = t });
 }
 
+static struct node *
+make_node_assign(struct parser *p, enum op_store_flags flags)
+{
+	struct node *n = make_node_t(p, node_type_assign);
+	n->data.type = flags;
+
+	switch (p->previous.type) {
+	case '=': {
+		break;
+	}
+	case token_type_plus_assign: {
+		n->data.type |= op_store_flag_add_store;
+		break;
+	}
+	default: UNREACHABLE;
+	}
+
+	return n;
+}
+
 /******************************************************************************
  * parsing functions
  ******************************************************************************/
 
 static struct node *
-parse_number(struct parser *p)
+parse_number(struct parser *p, bool assignment_allowed)
 {
 	return make_node_t(p, node_type_number);
 }
 
 static struct node *
-parse_id(struct parser *p)
+parse_id(struct parser *p, bool assignment_allowed)
 {
-	return make_node_t(p, node_type_id);
+	struct node *id = make_node_t(p, node_type_id);
+
+	if (assignment_allowed && (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
+		struct node *n = make_node_assign(p, 0);
+		id->type = node_type_id_lit;
+		n->l = id;
+		n->r = parse_expr(p);
+		return n;
+	} else {
+		return make_node_t(p, node_type_id);
+	}
 }
 
 static struct node *
-parse_string(struct parser *p)
+parse_string(struct parser *p, bool assignment_allowed)
 {
 	return make_node_t(p, node_type_string);
 }
 
 static struct node *
-parse_bool(struct parser *p)
+parse_bool(struct parser *p, bool assignment_allowed)
 {
 	struct node *n = make_node_t(p, node_type_bool);
 	n->data.num = p->previous.type == token_type_true;
@@ -481,7 +523,7 @@ parse_bool(struct parser *p)
 }
 
 static struct node *
-parse_fstring(struct parser *p)
+parse_fstring(struct parser *p, bool assignment_allowed)
 {
 	uint32_t i, j;
 	const struct str *fstr = get_str(p->wk, p->previous.data.str);
@@ -578,7 +620,7 @@ parse_fstring(struct parser *p)
 }
 
 static struct node *
-parse_binary(struct parser *p, struct node *l)
+parse_binary(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	enum node_type t;
 	enum token_type prev = p->previous.type;
@@ -612,7 +654,7 @@ parse_binary(struct parser *p, struct node *l)
 }
 
 static struct node *
-parse_ternary(struct parser *p, struct node *l)
+parse_ternary(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	struct node *n;
 
@@ -626,21 +668,31 @@ parse_ternary(struct parser *p, struct node *l)
 }
 
 static struct node *
-parse_index(struct parser *p, struct node *l)
+parse_index(struct parser *p, struct node *l, bool assignment_allowed)
 {
-	struct node *n;
+	struct node *n, *key;
 
-	n = make_node_t(p, node_type_index);
-	n->l = l;
-	n->r = parse_prec(p, parse_precedence_assignment);
-
+	key = parse_prec(p, parse_precedence_assignment);
 	parse_expect(p, ']');
+
+	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
+		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
+		n = make_node_assign(p, op_store_flag_member);
+		n->l = key;
+		n->r = make_node_t(p, node_type_list);
+		n->r->l = l;
+		n->r->r = parse_expr(p);
+	} else {
+		n = make_node_t(p, node_type_index);
+		n->l = l;
+		n->r = key;
+	}
 
 	return n;
 }
 
 static struct node *
-parse_unary(struct parser *p)
+parse_unary(struct parser *p, bool assignment_allowed)
 {
 	struct node *n;
 	switch (p->previous.type) {
@@ -654,7 +706,7 @@ parse_unary(struct parser *p)
 }
 
 static struct node *
-parse_grouping(struct parser *p)
+parse_grouping(struct parser *p, bool assignment_allowed)
 {
 	struct node *n = parse_prec(p, parse_precedence_assignment);
 	parse_expect(p, ')');
@@ -662,7 +714,7 @@ parse_grouping(struct parser *p)
 }
 
 static struct node *
-parse_grouping_fmt(struct parser *p)
+parse_grouping_fmt(struct parser *p, bool assignment_allowed)
 {
 	struct node *n = make_node_t(p, node_type_group);
 	n->l = parse_prec(p, parse_precedence_assignment);
@@ -779,7 +831,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 		case node_type_args:
 			if (parse_match(p, (enum token_type[]){ token_type_identifier, ':' }, 2)) {
 				parse_expect(p, token_type_identifier);
-				key = parse_id(p);
+				key = parse_id(p, false);
 				key->type = node_type_string;
 				parse_expect(p, ':');
 			}
@@ -787,7 +839,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 			break;
 		case node_type_def_args:
 			parse_expect(p, token_type_identifier);
-			val = parse_id(p);
+			val = parse_id(p, false);
 			parse_type(p, &type, true);
 
 			if (!type) {
@@ -852,19 +904,19 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 }
 
 static struct node *
-parse_array(struct parser *p)
+parse_array(struct parser *p, bool assignment_allowed)
 {
 	return p->behavior.parse_list(p, node_type_array, ']');
 }
 
 static struct node *
-parse_dict(struct parser *p)
+parse_dict(struct parser *p, bool assignment_allowed)
 {
 	return p->behavior.parse_list(p, node_type_dict, '}');
 }
 
 static struct node *
-parse_call(struct parser *p, struct node *l)
+parse_call(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	struct node *n;
 	n = make_node_t(p, node_type_call);
@@ -880,25 +932,30 @@ parse_call(struct parser *p, struct node *l)
 }
 
 static struct node *
-parse_method(struct parser *p, struct node *l)
+parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 {
-	struct node *n, *id, *args;
-
-	struct source_location loc = p->previous.location;
+	struct node *n, *id;
 
 	parse_expect(p, token_type_identifier);
-	id = parse_id(p);
+	id = parse_id(p, false);
+	id->type = node_type_id_lit;
 
-	parse_expect(p, '(');
-	n = parse_call(p, id);
-	n->type = node_type_method;
-	n->location = source_location_merge(loc, p->previous.location);
+	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
+		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
+		n = make_node_assign(p, op_store_flag_member);
+		n->l = id;
+		n->r = make_node_t(p, node_type_list);
+		n->r->l = l;
+		n->r->r = parse_expr(p);
+	} else {
+		n = make_node_t(p, node_type_member);
+		n->l = l;
+		n->r = id;
 
-	args = make_node_t(p, node_type_args);
-	args->data = n->l->data;
-	args->r = l;
-	args->l = n->l;
-	n->l = args;
+		if (!(p->mode & vm_compile_mode_language_extended)) {
+			parse_expect_noadvance(p, '(');
+		}
+	}
 
 	return n;
 }
@@ -922,16 +979,16 @@ parse_func_params_and_body(struct parser *p, struct node *id)
 		n->data.type = 0;
 	}
 
-	parse_expect(p, token_type_eol);
+	parse_accept(p, token_type_eol);
 
-	n->r = parse_block(p, (enum token_type[]){ token_type_endfunc }, 1);
+	n->r = parse_block(p, (enum token_type[]){ token_type_endfunc }, 1, parse_stmt_flag_eol_optional);
 	parse_expect(p, token_type_endfunc);
 
 	return n;
 }
 
 static struct node *
-parse_func(struct parser *p)
+parse_func(struct parser *p, bool assignment_allowed)
 {
 	return parse_func_params_and_body(p, 0);
 }
@@ -952,37 +1009,21 @@ parse_prec(struct parser *p, enum parse_precedence prec)
 		return 0;
 	}
 
-	struct node *l = p->parse_rules[p->previous.type].prefix(p);
+	bool assignment_allowed = prec <= parse_precedence_assignment;
+	struct node *l = p->parse_rules[p->previous.type].prefix(p, assignment_allowed);
 
 	while (prec <= p->parse_rules[p->current.type].precedence) {
 		p->behavior.advance(p);
-		l = p->parse_rules[p->previous.type].infix(p, l);
+		l = p->parse_rules[p->previous.type].infix(p, l, assignment_allowed);
 	}
 
 	return l;
 }
 
 static struct node *
-parse_plus_assign(struct parser *p)
-{
-	/* n = make_node_t(p, p->current.type == '=' ? node_type_assign : node_type_plusassign); */
-	/* n->l = parse_id(p); */
-	/* n->l->type = node_type_id_lit; */
-
-	/* p->behavior.advance(p); */
-	/* n->r = parse_expr(p); */
-	return 0;
-}
-
-static struct node *
-parse_stmt(struct parser *p)
+parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 {
 	struct node *n;
-
-	enum token_type assign_sequences[][2] = {
-		{ token_type_identifier, '=' },
-		{ token_type_identifier, token_type_plus_assign },
-	};
 
 	if (parse_accept(p, token_type_if)) {
 		struct node *parent;
@@ -992,7 +1033,7 @@ parse_stmt(struct parser *p)
 			n->l->l = p->previous.type == token_type_else ? 0 : parse_expr(p);
 			parse_expect(p, token_type_eol);
 			n->l->r = parse_block(
-				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3);
+				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3, 0);
 
 			if (!(parse_accept(p, token_type_elif) || parse_accept(p, token_type_else))) {
 				break;
@@ -1009,11 +1050,11 @@ parse_stmt(struct parser *p)
 
 		parse_expect(p, token_type_identifier);
 		n->l->l = make_node_t(p, node_type_list);
-		n->l->l->l = parse_id(p);
+		n->l->l->l = parse_id(p, false);
 
 		if (parse_accept(p, ',')) {
 			parse_expect(p, token_type_identifier);
-			n->l->l->r = parse_id(p);
+			n->l->l->r = parse_id(p, false);
 		}
 
 		parse_expect(p, ':');
@@ -1022,7 +1063,7 @@ parse_stmt(struct parser *p)
 		parse_expect(p, token_type_eol);
 
 		++p->inside_loop;
-		n->r = parse_block(p, (enum token_type[]){ token_type_endforeach }, 1);
+		n->r = parse_block(p, (enum token_type[]){ token_type_endforeach }, 1, 0);
 		--p->inside_loop;
 
 		parse_expect(p, token_type_endforeach);
@@ -1032,23 +1073,13 @@ parse_stmt(struct parser *p)
 		n = make_node_t(p, node_type_break);
 	} else if (parse_accept(p, token_type_func)) {
 		parse_expect(p, token_type_identifier);
-		n = parse_func_params_and_body(p, parse_id(p));
+		n = parse_func_params_and_body(p, parse_id(p, false));
 	} else if (parse_accept(p, token_type_return)) {
 		n = make_node_t(p, node_type_return);
 
 		if (p->current.type != token_type_eol) {
 			n->l = parse_expr(p);
 		}
-	} else if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
-		   || parse_match(p, assign_sequences[1], ARRAY_LEN(assign_sequences[1]))) {
-		p->behavior.advance(p);
-
-		n = make_node_t(p, p->current.type == '=' ? node_type_assign : node_type_plusassign);
-		n->l = parse_id(p);
-		n->l->type = node_type_id_lit;
-
-		p->behavior.advance(p);
-		n->r = parse_expr(p);
 	} else {
 		n = parse_expr(p);
 	}
@@ -1065,7 +1096,11 @@ parse_stmt(struct parser *p)
 			}
 		}
 	} else {
-		parse_expect(p, token_type_eol);
+		if (flags & parse_stmt_flag_eol_optional) {
+			parse_accept(p, token_type_eol);
+		} else {
+			parse_expect(p, token_type_eol);
+		}
 	}
 
 	return n;
@@ -1088,7 +1123,7 @@ parse_block_skip_eol_and_check_terminator(struct parser *p, enum token_type type
 }
 
 static struct node *
-parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
+parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum parse_stmt_flags flags)
 {
 	struct node *res, *n;
 
@@ -1103,9 +1138,11 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 			res = n = make_node_t(p, node_type_stmt);
 		}
 
-		n->l = p->behavior.parse_stmt(p);
+		n->l = p->behavior.parse_stmt(p, flags);
 
-		if (parse_block_skip_eol_and_check_terminator(p, types, types_len)) {
+		if ((flags & parse_stmt_flag_eol_optional) && p->previous.type != token_type_eol) {
+			break;
+		} else if (parse_block_skip_eol_and_check_terminator(p, types, types_len)) {
 			break;
 		}
 
@@ -1153,7 +1190,7 @@ parse_impl(struct workspace *wk,
 
 	p->behavior.advance(p);
 
-	struct node *n = parse_block(p, (enum token_type[]){ token_type_eof }, 1);
+	struct node *n = parse_block(p, (enum token_type[]){ token_type_eof }, 1, 0);
 
 	if (!p->err.count && !n) {
 		// This is an empty file.  Add a single dummy statement.
@@ -1192,10 +1229,10 @@ static const struct parse_rule parse_rules_base[token_type_count] = {
 	[token_type_neq]         = { 0,              parse_binary,  parse_precedence_equality   },
 	[token_type_in]          = { 0,              parse_binary,  parse_precedence_equality   },
 	[token_type_not_in]      = { 0,              parse_binary,  parse_precedence_equality   },
-	['.']                    = { 0,              parse_method,  parse_precedence_call       },
+	['.']                    = { 0,              parse_member,  parse_precedence_call       },
 	['?']                    = { 0,              parse_ternary, parse_precedence_assignment },
 	[token_type_not]         = { parse_unary,    0,             0                           },
-	[token_type_func]        = { parse_func,     0,             0                           },
+	[token_type_func]        = { parse_func,     0,             parse_precedence_assignment },
 };
 
 static const struct parse_behavior parse_behavior_base = {
@@ -1209,12 +1246,7 @@ struct node *
 parse(struct workspace *wk, struct source *src, enum vm_compile_mode mode)
 {
 	struct parser p;
-	struct parse_rule parse_rules[ARRAY_LEN(parse_rules_base)];
-	memcpy(parse_rules, parse_rules_base, sizeof(parse_rules_base));
-
-	parse_rules[token_type_plus_assign] = (struct parse_rule){ parse_plus_assign, 0, 0 };
-
-	return parse_impl(wk, src, mode, &parse_behavior_base, parse_rules, &p);
+	return parse_impl(wk, src, mode, &parse_behavior_base, parse_rules_base, &p);
 }
 
 struct node *
@@ -1305,7 +1337,7 @@ relex:
 }
 
 static struct node *
-cm_parse_id(struct parser *p)
+cm_parse_id(struct parser *p, bool assignment_allowed)
 {
 	if (p->cm_mode == cm_parse_mode_conditional) {
 		return make_node_t(p, node_type_maybe_id);
@@ -1315,7 +1347,7 @@ cm_parse_id(struct parser *p)
 }
 
 static struct node *
-cm_parse_string(struct parser *p)
+cm_parse_string(struct parser *p, bool assignment_allowed)
 {
 	return make_node_t(p, node_type_string);
 }
@@ -1338,7 +1370,7 @@ cm_parse_ignored_list(struct parser *p)
 }
 
 static struct node *
-cm_parse_stmt(struct parser *p)
+cm_parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 {
 	struct node *n;
 	if (parse_accept(p, token_type_if)) {
@@ -1351,7 +1383,7 @@ cm_parse_stmt(struct parser *p)
 					  cm_parse_with_mode(p, cm_parse_mode_conditional, parse_expr);
 			parse_expect(p, token_type_eol);
 			n->l->r = parse_block(
-				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3);
+				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3, 0);
 
 			if (!(parse_accept(p, token_type_elif) || parse_accept(p, token_type_else))) {
 				break;
@@ -1407,7 +1439,7 @@ cm_parse_list(struct parser *p, enum node_type t, enum token_type end)
 }
 
 static struct node *
-cm_parse_call(struct parser *p, struct node *l)
+cm_parse_call(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	struct node *n;
 
