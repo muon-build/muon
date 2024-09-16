@@ -37,6 +37,8 @@ PRESET_ARGS = {
     ],
 }
 
+# Parse a LINGUAS file:
+# https://www.gnu.org/software/gettext/manual/html_node/po_002fLINGUAS.html
 func read_linguas(source_dir str) -> list[any]
 
     linguas_path = join_paths(source_dir, 'LINGUAS')
@@ -53,7 +55,7 @@ func read_linguas(source_dir str) -> list[any]
             continue
         endif
 
-        languages += line
+        languages += line.split()
     endforeach
 
     return languages
