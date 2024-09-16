@@ -1,15 +1,12 @@
-fs = import('fs')
-
 add_languages('c', 'cpp')
 
 targets = {}
 
 func add_executable(name str, src glob[str])
-    targets.set(name, {
-        'target_type': 'executable',
-        'sources': src,
-        'link_with': [],
-    })
+    targets[name] = executable(
+        name,
+        sources: src,
+    )
 endfunc
 
 func add_library(name str, type str, src glob[str])
@@ -26,10 +23,11 @@ func add_library(name str, type str, src glob[str])
         src = [type] + src
     endif
 
-    targets.set(name, {
-        'target_type': type,
-        'sources': src,
-    })
+    targets[name] = build_target(
+        name,
+        target_type: type,
+        sources: src,
+    )
 endfunc
 
 func target_link_libraries(name str, scope str, libnames glob[str])
@@ -43,26 +41,18 @@ func target_link_libraries(name str, scope str, libnames glob[str])
     cxx = meson.get_compiler('cpp')
 
     libs = []
-    foreach name : libnames
+    foreach libname : libnames
         if name in targets
-            libs += targets[name]
+            libs += targets[libname]
             continue
         endif
 
-        dep = cxx.find_library(name, required: false)
+        dep = cxx.find_library(libname, required: false)
         if dep.found()
             libs += dep
             continue
         endif
     endforeach
 
-    targets[name].link_with +=
+    targets[name].add_link_with(libs)
 endfunc
-
-func finalize_targets()
-    foreach name, kwargs : targets
-        build_target(name, kwargs: kwargs)
-    endforeach
-endfunc
-
-meson.register_finalizer(finalize_targets)

@@ -1328,8 +1328,8 @@ relex:
 		p->current.type = token_type_string;
 	}
 
-	LL("%d, previous: %s, current: ", p->cm_mode, token_to_s(p->wk, &p->previous));
-	log_plain("%s\n", token_to_s(p->wk, &p->current));
+	/* LL("%d, previous: %s, current: ", p->cm_mode, token_to_s(p->wk, &p->previous)); */
+	/* log_plain("%s\n", token_to_s(p->wk, &p->current)); */
 
 	/* obj_fprintf(p->wk, log_file(), "%o, %o\n", p->fmt.previous.ws, p->fmt.current.ws); */
 
@@ -1494,6 +1494,6 @@ cm_parse(struct workspace *wk, struct source *src)
 
 	struct parser p;
 	struct node *n = parse_impl(wk, src, 0, &behavior, parse_rules, &p);
-	print_ast(wk, n);
+	/* print_ast(wk, n); */
 	return n;
 }

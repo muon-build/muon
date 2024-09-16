@@ -102,6 +102,15 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 {
 	TracyCZoneAutoS;
 
+	if (lang == build_language_cmake && mode == eval_mode_first) {
+		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+		obj _;
+		bool ok = module_import(wk, "cmake_prelude", false, &_);
+		stack_pop(&wk->stack, wk->vm.lang_mode);
+
+		assert(ok);
+	}
+
 	arr_push(&wk->vm.src, src);
 	src = arr_peek(&wk->vm.src, 1);
 
@@ -112,16 +121,6 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 
 	if (mode == eval_mode_repl) {
 		compile_mode |= vm_compile_mode_expr;
-	}
-
-
-	if (lang == build_language_cmake && mode == eval_mode_first) {
-		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
-		obj _;
-		bool ok = module_import(wk, "cmake_prelude", false, &_);
-		stack_pop(&wk->stack, wk->vm.lang_mode);
-
-		assert(ok);
 	}
 
 	uint32_t entry;
