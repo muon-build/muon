@@ -1467,10 +1467,13 @@ TOOLCHAIN_PROTO_0(linker_link_args_always)
 	return &args;
 }
 
-TOOLCHAIN_PROTO_1s(linker_lld_link_args_whole_archive)
+TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
 {
-	TOOLCHAIN_ARGS({ "/whole-archive", NULL });
-	argv[1] = a;
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "/WHOLEARCHIVE:%s", a);
+
 	return &args;
 }
 
@@ -1678,9 +1681,9 @@ build_linkers(void)
 	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
 	link.args.always = linker_link_args_always;
+	link.args.whole_archive = linker_link_args_whole_archive;
 
 	struct linker lld_link = link;
-	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
 	lld_link.args.always = toolchain_arg_empty_0;
 
 	linkers[linker_posix] = posix;
