@@ -1705,7 +1705,7 @@ build_static_linkers(void)
 
 	struct static_linker msvc = empty;
 	msvc.args.input_output = linker_link_args_input_output;
-	msvc.args.always = compiler_cl_args_always;
+	msvc.args.always = linker_link_args_always;
 
 	static_linkers[static_linker_ar_posix] = posix;
 	static_linkers[static_linker_ar_gcc] = gcc;
