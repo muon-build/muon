@@ -274,6 +274,14 @@ write_mesondefine:
 			/* id_location.col = id_start - location.col + 1; */
 			i += configure_var_len(&src.src[id_start]);
 
+			/* In this mode, we're tracking '@' as the delimiters.
+			 * However, we want to skip over the case where '@@'
+			 * is present as this breaks the parsing.
+			 */
+			if (src.src[i-1] == '@' && src.src[i] == '@') {
+				i++;
+			}
+
 			if (src.src[i] != varend) {
 				i = id_start - 1;
 				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
