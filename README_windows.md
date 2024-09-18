@@ -17,7 +17,8 @@ bootstrapping, execute:
 ```
 CC="gcc -std=c99" ./bootstrap.sh build
 CC="gcc -std=c99" ./build/muon-bootstrap.exe setup build
-ninja -C build
+build/muon-bootstrap.exe -C build samu
+build/muon-bootstrap.exe -C build install
 ```
 
 muon provides an additional option (not available with meson) to set
@@ -30,13 +31,13 @@ the compiler, instead of overriding the `CC` environment variable:
 # Miscrosoft Visual Compiler (cl.exe)
 
 Install Visual Studio Community 2022 and launch the native tools
-command prompt for VS 2022. Be sure also that ninja is in the
-PATH. Then enter the muon directory and run:
+command prompt for VS 2022.Then enter the muon directory and run:
 
 ```
 bootstrap.bat build
 build/muon-bootstrap.exe setup build
-ninja -C build
+build/muon-bootstrap.exe -C build samu
+build/muon-bootstrap.exe -C build install
 ```
 
 [muon]: https://muon.build
