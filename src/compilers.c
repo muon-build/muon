@@ -1225,7 +1225,13 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_set_std)
 {
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
-	snprintf(buf, BUF_SIZE_S, "/std:%s", a);
+	if (strcmp(a, "c11") == 0) {
+		memcpy(buf, "/std:c11", sizeof("/std:c11"));
+	} else if (strcmp(a, "c17") == 0 || strcmp(a, "c18") == 0) {
+		memcpy(buf, "/std:c17", sizeof("/std:c17"));
+	} else {
+		args.len = 0;
+	}
 
 	return &args;
 }
