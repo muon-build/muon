@@ -2017,6 +2017,8 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 	case compiler_gcc:
 	case compiler_clang:
 	case compiler_apple_clang: syntax = "gcc"; break;
+	case compiler_clang_cl:
+	case compiler_msvc: syntax = "msvc"; break;
 	default: syntax = "other"; break;
 	}
 
