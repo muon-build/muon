@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net> SPDX-FileCopyrightText: Luke Drummond <ldrumm@rtps.co>
  * SPDX-FileCopyrightText: Eli Schwartz <eschwartz@archlinux.org>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
