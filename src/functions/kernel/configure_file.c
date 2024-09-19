@@ -274,14 +274,6 @@ write_mesondefine:
 			/* id_location.col = id_start - location.col + 1; */
 			i += configure_var_len(&src.src[id_start]);
 
-			/* In this mode, we're tracking '@' as the delimiters.
-			 * However, we want to skip over the case where '@@'
-			 * is present as this breaks the parsing.
-			 */
-			if (src.src[i-1] == '@' && src.src[i] == '@') {
-				i++;
-			}
-
 			if (src.src[i] != varend) {
 				i = id_start - 1;
 				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
@@ -289,8 +281,9 @@ write_mesondefine:
 			}
 
 			if (i <= id_start) {
-				error_messagef(&src, id_location, log_error, "key of zero length not supported");
-				return false;
+				// This means we got a key of length zero
+				sbuf_pushs(wk, &out_buf, "@@");
+				continue;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
 				error_messagef(&src, id_location, log_error, "key not found in configuration data");
 				return false;
