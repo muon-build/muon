@@ -496,8 +496,27 @@ ret:
  */
 
 static enum test_result_status
-check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
+check_test_result_exitcode(struct workspace *wk, const struct run_test_ctx *ctx, const struct test_result *res)
 {
+	if (res->cmd_ctx.status == 0) {
+		return test_result_status_ok;
+	} else if (res->cmd_ctx.status == 77) {
+		return test_result_status_skipped;
+	} else if (res->cmd_ctx.status == 99) {
+		return test_result_status_failed;
+	} else {
+		return test_result_status_failed;
+	}
+}
+
+static enum test_result_status
+check_test_result_tap(struct workspace *wk, const struct run_test_ctx *ctx, struct test_result *res)
+{
+	enum test_result_status exitcode_status = check_test_result_exitcode(wk, ctx, res);
+	if (exitcode_status != test_result_status_ok) {
+		return exitcode_status;
+	}
+
 	struct tap_parse_result tap_result = { 0 };
 	tap_parse(res->cmd_ctx.out.buf, res->cmd_ctx.out.len, &tap_result);
 
@@ -506,21 +525,6 @@ check_test_result_tap(struct workspace *wk, struct run_test_ctx *ctx, struct tes
 	res->subtests.total = tap_result.total;
 
 	return tap_result.all_ok && res->status == 0 ? test_result_status_ok : test_result_status_failed;
-}
-
-static enum test_result_status
-check_test_result_exitcode(struct workspace *wk, struct run_test_ctx *ctx, struct test_result *res)
-{
-	if (res->cmd_ctx.status == 0) {
-		return test_result_status_ok;
-	} else if (res->cmd_ctx.status == 77) {
-		++ctx->stats.total_skipped;
-		return test_result_status_skipped;
-	} else if (res->cmd_ctx.status == 99) {
-		return test_result_status_failed;
-	} else {
-		return test_result_status_failed;
-	}
 }
 
 static void
@@ -570,6 +574,10 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			switch (res->test->protocol) {
 			case test_protocol_tap: status = check_test_result_tap(wk, ctx, res); break;
 			default: status = check_test_result_exitcode(wk, ctx, res); break;
+			}
+
+			if (status == test_result_status_skipped) {
+				++ctx->stats.total_skipped;
 			}
 
 			if (status == test_result_status_failed && res->test->should_fail) {
@@ -657,7 +665,11 @@ found_slot:
 	};
 
 	if (ctx->opts->verbosity > 1) {
-		cmd_ctx->flags |= run_cmd_ctx_flag_dont_capture;
+		if (res->test->protocol == test_protocol_tap) {
+			cmd_ctx->flags |= run_cmd_ctx_flag_tee;
+		} else {
+			cmd_ctx->flags |= run_cmd_ctx_flag_dont_capture;
+		}
 	}
 
 	if (test->workdir) {
