@@ -24,6 +24,7 @@
 #include "platform/run_cmd.h"
 #include "platform/term.h"
 #include "platform/timer.h"
+#include "util.h"
 
 #define SLEEP_TIME 10000000 // 10ms
 
@@ -58,7 +59,8 @@ struct run_test_ctx {
 		uint32_t test_i, test_len, error_count;
 		uint32_t total_count, total_error_count, total_expect_fail_count;
 		uint32_t total_skipped;
-		uint32_t term_width;
+		uint32_t term_width, term_height;
+		uint32_t prev_jobs_displayed;
 		bool term;
 		bool ran_tests;
 	} stats;
@@ -71,6 +73,7 @@ struct run_test_ctx {
 	} setup;
 
 	struct arr test_results;
+	struct arr jobs_sorted;
 
 	struct test_result *jobs;
 	uint32_t busy_jobs;
@@ -204,10 +207,27 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 	}
 }
 
+static int32_t
+sort_jobs(const void *_a, const void *_b, void *_ctx)
+{
+	const uint32_t *a = _a, *b = _b;
+	struct run_test_ctx *ctx = _ctx;
+
+	const struct test_result *res_a = &ctx->jobs[*a], *res_b = &ctx->jobs[*b];
+
+	if (res_a->dur > res_b->dur) {
+		return -1;
+	} else if (res_a->dur < res_b->dur) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 static void
 print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct test_result *res, bool write_line)
 {
-	if (res->status != test_result_status_running) {
+	if (res && res->status != test_result_status_running) {
 		++ctx->stats.total_count;
 		++ctx->stats.test_i;
 		switch (res->status) {
@@ -223,7 +243,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 	}
 
 	if (!ctx->stats.term && !ctx->opts->verbosity) {
-		if (res->status != test_result_status_running) {
+		if (res && res->status != test_result_status_running) {
 			char c;
 			switch (res->status) {
 			case test_result_status_failed: c = 'E'; break;
@@ -265,17 +285,85 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		ctx->busy_jobs);
 
 	log_plain("%s[", info);
-	uint32_t pct = (float)(ctx->stats.test_i) * (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
+	const float pct_scale = (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
+	uint32_t pct_done = (float)(ctx->stats.test_i) * pct_scale;
+	uint32_t pct_working = (float)(ctx->stats.test_i + ctx->busy_jobs) * pct_scale;
+
 	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
-		if (i < pct) {
+		if (i <= pct_done) {
 			log_plain("=");
-		} else if (i == pct) {
+		} else if (i < pct_working) {
+			log_plain("-");
+		} else if (i == pct_working) {
 			log_plain(">");
 		} else {
 			log_plain(" ");
 		}
 	}
 	log_plain("]");
+
+	log_plain("\n");
+
+	arr_sort(&ctx->jobs_sorted, ctx, sort_jobs);
+
+	const uint32_t term_height = ctx->stats.term_height - 2;
+	const uint32_t max_jobs_to_display = MIN(term_height, ctx->opts->jobs);
+	uint32_t jobs_displayed = 0;
+
+	for (i = 0; i < ctx->opts->jobs; ++i) {
+		res = &ctx->jobs[*(uint32_t *)arr_get(&ctx->jobs_sorted, i)];
+
+		if (!res->busy) {
+			continue;
+		}
+
+		struct {
+			bool have;
+			struct tap_parse_result result;
+		} tap = { 0 };
+
+		if (res->test->protocol == test_protocol_tap) {
+			if (res->cmd_ctx.out.buf) {
+				tap_parse(res->cmd_ctx.out.buf, res->cmd_ctx.out.len, &tap.result);
+				tap.have = true;
+			}
+		}
+
+		log_plain("%6.2fs %s", res->dur, get_cstr(wk, res->test->name));
+
+		if (tap.have) {
+			log_plain(" (%d/", tap.result.pass + tap.result.fail + tap.result.skip);
+			if (tap.result.have_plan) {
+				log_plain("%d", tap.result.total);
+			} else {
+				log_plain("?");
+			}
+
+			if (tap.result.fail) {
+				log_plain(" f:%d", tap.result.fail);
+			}
+
+			if (tap.result.skip) {
+				log_plain(" s:%d", tap.result.skip);
+			}
+
+			log_plain(")");
+		}
+
+		log_plain("\033[K\n");
+
+		++jobs_displayed;
+		if (jobs_displayed >= max_jobs_to_display) {
+			break;
+		}
+	}
+	for (i = jobs_displayed; i < ctx->stats.prev_jobs_displayed; ++i) {
+		log_plain("\033[K\n");
+	}
+
+	log_plain("\033[%dA", MAX(jobs_displayed, ctx->stats.prev_jobs_displayed) + 1);
+
+	ctx->stats.prev_jobs_displayed = jobs_displayed;
 }
 
 /*
@@ -532,12 +620,17 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 {
 	uint32_t i;
 
+	if (ctx->stats.term) {
+		print_test_progress(wk, ctx, 0, false);
+	}
+
 	for (i = 0; i < ctx->opts->jobs; ++i) {
-		if (!ctx->jobs[i].busy) {
+		struct test_result *res = &ctx->jobs[i];
+
+		if (!res->busy) {
 			continue;
 		}
 
-		struct test_result *res = &ctx->jobs[i];
 		res->dur = timer_read(&res->t);
 
 		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
@@ -607,6 +700,8 @@ free_slot:
 		if (!res->test->is_parallel) {
 			ctx->serial = false;
 		}
+
+		*res = (struct test_result){ 0 };
 
 		if (ctx->opts->fail_fast && ctx->stats.total_error_count) {
 			break;
@@ -1061,6 +1156,10 @@ tests_run(struct test_options *opts, const char *argv0)
 	};
 
 	arr_init(&ctx.test_results, 32, sizeof(struct test_result));
+	arr_init(&ctx.jobs_sorted, ctx.opts->jobs, sizeof(uint32_t));
+	for (uint32_t i = 0; i < ctx.opts->jobs; ++i) {
+		arr_push(&ctx.jobs_sorted, &i);
+	}
 	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
 	{ // load global opts
@@ -1079,22 +1178,21 @@ tests_run(struct test_options *opts, const char *argv0)
 	}
 
 	{
-		int fd;
-		if (!fs_fileno(log_file(), &fd)) {
+		int term_fd;
+		if (!fs_fileno(log_file(), &term_fd)) {
 			return false;
 		}
 
 		if (opts->display == test_display_auto) {
 			opts->display = test_display_dots;
-			if (fs_is_a_tty_from_fd(fd)) {
+			if (fs_is_a_tty_from_fd(term_fd)) {
 				opts->display = test_display_bar;
 			}
 		}
 
 		if (opts->display == test_display_bar) {
-			uint32_t h;
 			ctx.stats.term = true;
-			term_winsize(fd, &h, &ctx.stats.term_width);
+			term_winsize(term_fd, &ctx.stats.term_height, &ctx.stats.term_width);
 		} else if (opts->display == test_display_dots) {
 			ctx.stats.term = false;
 		} else {
@@ -1157,6 +1255,7 @@ tests_run(struct test_options *opts, const char *argv0)
 ret:
 	workspace_destroy_bare(&wk);
 	arr_destroy(&ctx.test_results);
+	arr_destroy(&ctx.jobs_sorted);
 	z_free(ctx.jobs);
 	return ret;
 }
