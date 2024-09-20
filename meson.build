@@ -5,7 +5,7 @@
 project(
     'muon',
     'c',
-    version: '0.2.0',
+    version: '0.3.0',
     license: 'GPL-3.0-only',
     meson_version: '>=1.3.0',
     default_options: {
@@ -31,6 +31,12 @@ version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
 version_info.set('meson_compat', '1.5')
+
+configure_file(
+    configuration: version_info,
+    input: 'tools/ci/version.txt.in',
+    output: 'version.txt',
+)
 
 # platform
 
