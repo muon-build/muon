@@ -33,7 +33,7 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(int pipe, struct sbuf *sbuf)
+copy_pipe(int pipe, struct sbuf *sbuf, FILE *tee_out)
 {
 	ssize_t b;
 	char buf[4096];
@@ -52,6 +52,10 @@ copy_pipe(int pipe, struct sbuf *sbuf)
 		}
 
 		sbuf_pushn(0, sbuf, buf, b);
+
+		if (tee_out) {
+			fwrite(buf, b, 1, tee_out);
+		}
 	}
 }
 
@@ -60,11 +64,13 @@ copy_pipes(struct run_cmd_ctx *ctx)
 {
 	enum copy_pipe_result res;
 
-	if ((res = copy_pipe(ctx->pipefd_out[0], &ctx->out)) == copy_pipe_result_failed) {
+	bool tee = ctx->flags & run_cmd_ctx_flag_tee;
+
+	if ((res = copy_pipe(ctx->pipefd_out[0], &ctx->out, tee ? stdout : 0)) == copy_pipe_result_failed) {
 		return res;
 	}
 
-	switch (copy_pipe(ctx->pipefd_err[0], &ctx->err)) {
+	switch (copy_pipe(ctx->pipefd_err[0], &ctx->err, tee ? stderr : 0)) {
 	case copy_pipe_result_waiting: return copy_pipe_result_waiting;
 	case copy_pipe_result_finished: return res;
 	case copy_pipe_result_failed: return copy_pipe_result_failed;

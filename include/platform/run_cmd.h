@@ -28,6 +28,7 @@ enum run_cmd_state {
 enum run_cmd_ctx_flags {
 	run_cmd_ctx_flag_async = 1 << 0,
 	run_cmd_ctx_flag_dont_capture = 1 << 1,
+	run_cmd_ctx_flag_tee = 1 << 2,
 };
 
 #ifdef _WIN32
