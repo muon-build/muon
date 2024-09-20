@@ -19,10 +19,10 @@ struct tap_parse_ctx {
 };
 
 static enum iteration_result
-tap_parse_line_cb(void *_ctx, char *line, size_t _)
+tap_parse_line_cb(void *_ctx, const char *line, size_t len)
 {
 	struct tap_parse_ctx *ctx = _ctx;
-	struct str l = WKSTR(line), rest;
+	struct str l = { .s = line, .len = len }, rest;
 	bool ok;
 
 	if (str_startswith(&l, &WKSTR("1..")) && l.len > 3) {
@@ -84,11 +84,13 @@ tap_parse_line_cb(void *_ctx, char *line, size_t _)
 }
 
 void
-tap_parse(char *buf, uint64_t buf_len, struct tap_parse_result *res)
+tap_parse(const char *buf, uint64_t buf_len, struct tap_parse_result *res)
 {
 	struct tap_parse_ctx ctx = { .res = res };
 
-	each_line(buf, buf_len, &ctx, tap_parse_line_cb);
+	each_line_const(buf, buf_len, &ctx, tap_parse_line_cb);
+
+	res->have_plan = ctx.have_plan;
 
 	if (!ctx.have_plan) {
 		res->total = res->pass + res->skip + res->fail;

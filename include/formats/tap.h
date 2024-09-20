@@ -11,8 +11,9 @@
 
 struct tap_parse_result {
 	uint32_t total, pass, fail, skip;
+	bool have_plan;
 	bool all_ok;
 };
 
-void tap_parse(char *buf, uint64_t buf_len, struct tap_parse_result *res);
+void tap_parse(const char *buf, uint64_t buf_len, struct tap_parse_result *res);
 #endif
