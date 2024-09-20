@@ -34,3 +34,27 @@ each_line(char *buf, uint64_t len, void *ctx, each_line_callback cb)
 		cb(ctx, line, strlen(line));
 	}
 }
+
+void
+each_line_const(const char *buf, uint64_t len, void *ctx, each_line_const_callback cb)
+{
+	const char *line, *b;
+
+	line = buf;
+
+	while ((b = strchr(line, '\n'))) {
+		if (cb(ctx, line, b - line) != ir_cont) {
+			return;
+		}
+
+		line = b + 1;
+
+		if ((size_t)(line - buf) >= len) {
+			return;
+		}
+	}
+
+	if (*line) {
+		cb(ctx, line, strlen(line));
+	}
+}
