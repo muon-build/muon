@@ -44,13 +44,15 @@ jobs:
         '
     - name: build-universal-binary
       run: |
+        ver="$(cat build/version.txt)"
         lipo -create -output muon build-x86_64/muon build/muon
-        zip muon-edge-universal-macos.zip muon
+        zip "muon-${ver}-universal-macos.zip" muon
     - name: upload-universal-binary
       if: github.ref == 'refs/heads/master'
       env:
         GH_DEPLOY: 1
       run: |
+        ver="$(cat build/version.txt)"
         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
         chmod 600 ~/.ssh/deploy
         cat >> ~/.ssh/config <<EOF
@@ -58,5 +60,5 @@ jobs:
             IdentityFile ~/.ssh/deploy
             IdentitiesOnly yes
         EOF
-        tools/ci/deploy.sh /releases/edge \
-          muon-edge-universal-macos.zip
+        tools/ci/deploy.sh "/releases/${ver}" \
+          "muon-${ver}-universal-macos.zip"

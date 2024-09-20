@@ -95,11 +95,7 @@ SPDX-License-Identifier: GPL-3.0-only
           }
 
           list.sort((a, b) => {
-            if (a.ver === 'edge') {
-              return -1;
-            } else {
-              return verToNum(b.ver) - verToNum(a.ver) ;
-            }
+            return verToNum(b.ver) - verToNum(a.ver) ;
           });
 
           list.forEach((e) => {
