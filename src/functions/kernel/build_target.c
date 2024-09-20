@@ -929,7 +929,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_gnu_symbol_visibility] = { "gnu_symbol_visibility", obj_string },
 		[bt_kw_native] = { "native", obj_bool },
 		[bt_kw_darwin_versions] = { "darwin_versions", TYPE_TAG_LISTIFY | tc_string | tc_number },
-		[bt_kw_implib] = { "implib", obj_bool },
+		[bt_kw_implib] = { "implib", tc_bool | tc_string },
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
