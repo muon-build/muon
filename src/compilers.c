@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "args.h"
 #include "buf_size.h"
@@ -112,7 +113,7 @@ s_to_compiler_language(const char *s, enum compiler_language *l)
 {
 	uint32_t i;
 	for (i = 0; i < compiler_language_count; ++i) {
-		if (strcmp(s, compiler_language_names[i]) == 0) {
+		if (strcasecmp(s, compiler_language_names[i]) == 0) {
 			*l = i;
 			return true;
 		}
