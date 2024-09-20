@@ -24,7 +24,7 @@ dependencies.
 
 `muon` is close to feature-complete with the core of meson for `c` and `c++`.
 
-See the [status page] for more detailed information.
+See the status page for each version for more detailed information.
 
 Things missing include:
 
@@ -132,7 +132,6 @@ originally based on `boson`, though has since been almost completely rewritten.
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
-[status page]: https://muon.build/releases/edge/docs/status.html
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
 [demo]: https://play.muon.build
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
