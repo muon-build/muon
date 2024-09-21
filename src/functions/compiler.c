@@ -765,6 +765,8 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 		{ "nonnull", "int foo(char * p) __attribute__((nonnull(1)));\n" },
 		{ "noreturn", "int foo(void) __attribute__((noreturn));\n" },
 		{ "nothrow", "int foo(void) __attribute__((nothrow));\n" },
+		{ "null_terminated_string_arg",
+			"int foo(const char * p) __attribute__((null_terminated_string_arg(1)));\n" },
 		{ "optimize", "__attribute__((optimize(3))) int foo(void) { return 0; }\n" },
 		{ "packed", "struct __attribute__((packed)) foo { int bar; };\n" },
 		{ "pure", "int foo(void) __attribute__((pure));\n" },
