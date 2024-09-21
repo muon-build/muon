@@ -25,6 +25,7 @@ option(
     value: 'ninja',
     choices: ['ninja'],
 )
+option('backend_max_links', type: 'integer', value: 0, min: 0)
 option(
     'buildtype',
     type: 'combo',

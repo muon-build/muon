@@ -15,6 +15,7 @@
 #include "functions/machine.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -78,13 +79,25 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 
 	obj link_command = join_args_plain(wk, args);
 
+#ifdef MUON_BOOTSTRAPPED
+	obj backend_max_links;
+	get_option_value(wk, current_project(wk), "backend_max_links", &backend_max_links);
+	const char *linker_pool = get_obj_number(wk, backend_max_links) ? " pool = linker_pool\n" : "";
+#else
+	const char *linker_pool = "";
+#endif
+
+
 	fprintf(ctx->out,
 		"rule %s_%s_linker\n"
 		" command = %s\n"
-		" description = linking $out\n\n",
+		" description = linking $out\n"
+		"%s"
+		"\n",
 		get_cstr(wk, ctx->proj->rule_prefix),
 		compiler_language_to_s(l),
-		get_cstr(wk, link_command));
+		get_cstr(wk, link_command),
+		linker_pool);
 
 	return ir_cont;
 }
@@ -293,6 +306,18 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		"builddir = %s\n\n",
 		get_cstr(wk, main_proj->cfg.name),
 		output_path.private_dir);
+
+#ifdef MUON_BOOTSTRAPPED
+	obj backend_max_links;
+	get_option_value(wk, main_proj, "backend_max_links", &backend_max_links);
+	int64_t linker_pool_depth = get_obj_number(wk, backend_max_links);
+	if (linker_pool_depth) {
+		fprintf(out,
+			"pool linker_pool\n"
+			" depth = %lld\n\n",
+			(long long int)linker_pool_depth);
+	}
+#endif
 
 	obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
 
