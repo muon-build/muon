@@ -11,7 +11,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 
 #include "args.h"
 #include "buf_size.h"
@@ -109,11 +108,12 @@ compiler_language_to_s(enum compiler_language l)
 }
 
 bool
-s_to_compiler_language(const char *s, enum compiler_language *l)
+s_to_compiler_language(const char *_s, enum compiler_language *l)
 {
+	const struct str s = WKSTR(_s);
 	uint32_t i;
 	for (i = 0; i < compiler_language_count; ++i) {
-		if (strcasecmp(s, compiler_language_names[i]) == 0) {
+		if (str_eqli(&s, &WKSTR(compiler_language_names[i]))) {
 			*l = i;
 			return true;
 		}
