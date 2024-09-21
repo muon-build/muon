@@ -81,6 +81,7 @@ obj str_clone_mutable(struct workspace *wk, obj val);
 
 bool str_eql(const struct str *ss1, const struct str *ss2);
 bool str_eql_glob(const struct str *ss1, const struct str *ss2);
+bool str_eqli(const struct str *ss1, const struct str *ss2);
 bool str_startswith(const struct str *ss, const struct str *pre);
 bool str_startswithi(const struct str *ss, const struct str *pre);
 bool str_endswith(const struct str *ss, const struct str *suf);

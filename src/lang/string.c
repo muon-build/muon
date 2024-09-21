@@ -341,6 +341,22 @@ str_to_lower(struct str *str)
 }
 
 bool
+str_eqli(const struct str *ss1, const struct str *ss2)
+{
+	if (ss1->len != ss2->len) {
+		return false;
+	}
+
+	uint32_t i;
+	for (i = 0; i < ss1->len; ++i) {
+		if (str_char_to_lower(ss1->s[i]) != str_char_to_lower(ss2->s[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool
 str_startswith(const struct str *ss, const struct str *pre)
 {
 	if (ss->len < pre->len) {
