@@ -226,7 +226,7 @@ func merge_file(
     args listify[str]: [],
     data_dirs listify[str]: [],
     po_dir str:,
-    type str:,
+    type str: 'xml',
 ) -> custom_tgt
 
     current_source_dir = meson.current_source_dir()
