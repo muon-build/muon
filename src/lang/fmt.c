@@ -1264,8 +1264,10 @@ fmt_special_function_done:
 		res->type = fmt_frag_type_lines;
 		fr = fmt_frag_child(&res->child, fmt_frag(f, fmt_frag_type_line));
 		fr = fmt_frag_child(&fr->child, fmt_frag_s(f, "func"));
-		next = fmt_frag_sibling(fr, fmt_node(f, n->l->l));
-		next->flags |= fmt_frag_flag_stick_line_left;
+		if (n->l->l) {
+			next = fmt_frag_sibling(fr, fmt_node(f, n->l->l));
+			next->flags |= fmt_frag_flag_stick_line_left;
+		}
 		next = fmt_frag_sibling(fr, fmt_frag(f, fmt_frag_type_expr));
 		fmt_list(f, n->l->r, next, 0);
 		next->enclosing = "()";
