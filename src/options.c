@@ -818,7 +818,8 @@ init_global_options(struct workspace *wk)
 		    "option('env.CC', type: 'array', value: ['cc'])\n"
 		    "option('env.NINJA', type: 'array', value: ['ninja'])\n"
 		    "option('env.AR', type: 'array', value: ['ar'])\n"
-		    "option('env.LD', type: 'array', value: ['ld'])\n")) {
+		    "option('env.LD', type: 'array', value: ['ld'])\n"
+		    "option('env.WINDRES', type: 'array', value: ['windres'])\n")) {
 		return false;
 	}
 

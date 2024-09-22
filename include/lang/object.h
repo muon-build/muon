@@ -134,7 +134,7 @@ enum feature_opt_state {
 	_(unstable_rust, "public", false)             \
 	_(unstable_simd, "public", false)             \
 	_(unstable_wayland, "public", false)          \
-	_(windows, "public", false)
+	_(windows, "public", true)
 
 #define MODULE_ENUM(mod, path, implemented) module_##mod,
 enum module {

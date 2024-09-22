@@ -16,6 +16,7 @@
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
 #include "functions/modules/toolchain.h"
+#include "functions/modules/windows.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -246,6 +247,7 @@ struct func_impl_group module_func_impl_groups[module_count][language_mode_count
 	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                                  },
 	[module_python]    = { { impl_tbl_module_python },    { 0 }                                  },
 	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                                  },
+	[module_windows]   = { { impl_tbl_module_windows },   { 0 }                                  },
 	[module_toolchain] = { { 0 },                         { impl_tbl_module_toolchain }          },
 };
 
