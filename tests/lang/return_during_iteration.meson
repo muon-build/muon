@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+z = 0
+
+func f() -> int
+    foreach i : range(4)
+        foreach j : range(4)
+            foreach k : range(4)
+                if i > 2
+                    return 1
+                endif
+            endforeach
+        endforeach
+    endforeach
+endfunc
+
+foreach i : range(4)
+    foreach j : range(4)
+        foreach k : range(4)
+            z += (
+                func() -> int
+                    foreach l : range(4)
+                        return f()
+                    endforeach
+                endfunc
+            )()
+        endforeach
+    endforeach
+endforeach
+
+assert(p(z) == 64)

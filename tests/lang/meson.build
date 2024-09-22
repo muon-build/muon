@@ -15,6 +15,7 @@ tests = [
     ['line_continuation.meson'],
     ['multiline.meson'],
     ['range.meson'],
+    ['return_during_iteration.meson'],
     ['run_command.meson'],
     ['string_format_escape.meson'],
     ['strings.meson'],

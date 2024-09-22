@@ -108,6 +108,7 @@ struct vm_compiler_state {
 	struct bucket_arr nodes;
 	struct arr node_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
+	uint32_t loop_depth;
 	bool err;
 };
 
