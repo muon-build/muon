@@ -202,7 +202,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	case 'd': opts.print_dis = true; break;
 	case 'm': {
 		const char *p, *chars = "xf";
-		for (p = chars; *p; ++p) {
+		for (p = optarg; *p; ++p) {
 			if (!strchr(chars, *p)) {
 				LOG_E("invalid mode '%c', must be one of %s", *p, chars);
 				return false;
