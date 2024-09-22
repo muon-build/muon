@@ -126,9 +126,9 @@ object_stack_discard(struct object_stack *s, uint32_t n)
 {
 	assert(s->ba.len >= n);
 	s->ba.len -= n;
-	s->bucket = s->ba.len / s->ba.bucket_size;
+	s->bucket = (s->ba.len ? s->ba.len - 1 : 0) / s->ba.bucket_size;
 	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
-	s->i = s->ba.len % s->ba.bucket_size;
+	s->i = s->ba.len - (s->bucket * s->ba.bucket_size);
 }
 
 void

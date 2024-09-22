@@ -14,6 +14,7 @@ tests = [
     ['katie.meson'],
     ['line_continuation.meson'],
     ['multiline.meson'],
+    ['object_stack_page_size.meson'],
     ['range.meson'],
     ['return_during_iteration.meson'],
     ['run_command.meson'],
