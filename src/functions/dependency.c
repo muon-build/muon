@@ -275,6 +275,9 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 	if (akw[kw_sources].set && get_obj_bool(wk, akw[kw_sources].val)) {
 		partial->dep.sources = dep->dep.sources;
 	}
+
+	build_dep_init(wk, &partial->dep);
+
 	return true;
 }
 
