@@ -91,6 +91,19 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 	}
 }
 
+void
+vm_comp_op_return(struct workspace *wk)
+{
+		if (!wk->vm.in_analyzer) {
+			for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
+				push_code(wk, op_swap);
+				push_code(wk, op_pop);
+			}
+		}
+
+		push_code(wk, op_return);
+}
+
 enum vm_compile_block_flags {
 	vm_compile_block_final_return = 1 << 0,
 	vm_compile_block_expr = 1 << 1,
@@ -206,7 +219,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 				push_code(wk, op_constant);
 				push_constant(wk, 0);
-				push_code(wk, op_return);
+
+				vm_comp_op_return(wk);
 				break;
 			} else if (str_eql(name, &WKSTR("set_variable"))) {
 				push_location(wk, n);
@@ -297,14 +311,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
-		if (!wk->vm.in_analyzer) {
-			for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
-				push_code(wk, op_swap);
-				push_code(wk, op_pop);
-			}
-		}
-
-		push_code(wk, op_return);
+		vm_comp_op_return(wk);
 		break;
 	}
 	case node_type_foreach: {
