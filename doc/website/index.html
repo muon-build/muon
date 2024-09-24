@@ -116,14 +116,29 @@ SPDX-License-Identifier: GPL-3.0-only
         }
 
         function renderReleases(list) {
+          function versionTag(type) {
+            var e = document.createElement("span");
+            e.classList.add("version-tag");
+            e.classList.add(`version-tag-${type}`);
+            e.innerHTML = type;
+            return e;
+          }
+
           sortReleases(list);
 
-          list.forEach((e) => {
+          list.forEach((e, i) => {
             var elem = document.createElement("details");
             downloadsElement.appendChild(elem);
 
             var summary = document.createElement("summary");
-            summary.innerHTML = e.ver;
+            var summaryTitle = document.createElement("span");
+            summaryTitle.innerHTML = e.ver;
+            summary.appendChild(summaryTitle);
+            if (i == 0) {
+              summary.appendChild(versionTag("edge"));
+            } else if (i == 1) {
+              summary.appendChild(versionTag("released"));
+            }
             elem.appendChild(summary);
 
             var ul = document.createElement("ul");

@@ -72,3 +72,37 @@ nav div {
     transform: rotate(360deg);
   }
 }
+
+summary {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+summary:hover {
+  background-color: #21222C;
+}
+
+.version-tag {
+  margin-left: 3px;
+  font-size: 10px;
+  border-radius: 40% / 100%;
+  padding: 1px;
+  min-width: 40px;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 18px;
+}
+
+.version-tag-edge {
+  color: #282A36;
+  background-color: #FFB86C;
+}
+
+.version-tag-released {
+  color: #282A36;
+  background-color: #50FA7B;
+}
+
