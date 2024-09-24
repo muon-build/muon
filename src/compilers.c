@@ -998,7 +998,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_pgo)
 
 TOOLCHAIN_PROTO_0(compiler_gcc_args_pic)
 {
-	TOOLCHAIN_ARGS({ "-fpic" });
+	TOOLCHAIN_ARGS({ "-fPIC" });
 
 	if (host_machine.is_windows) {
 		args.len = 0;
@@ -1010,7 +1010,7 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_pic)
 
 TOOLCHAIN_PROTO_0(compiler_gcc_args_pie)
 {
-	TOOLCHAIN_ARGS({ "-fpie" });
+	TOOLCHAIN_ARGS({ "-fPIE" });
 	return &args;
 }
 
