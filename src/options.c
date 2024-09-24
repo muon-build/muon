@@ -799,7 +799,7 @@ init_global_options(struct workspace *wk)
 {
 	if (!init_builtin_options(wk,
 		    "global_options.meson",
-		    "option('buildtype', type: 'string', value: 'debugoptimized')\n"
+		    "option('buildtype', type: 'string', value: 'debug')\n"
 		    "option('prefix', type: 'string', value: '/usr/local')\n"
 		    "option('bindir', type: 'string', value: 'bin')\n"
 		    "option('mandir', type: 'string', value: 'share/man')\n"

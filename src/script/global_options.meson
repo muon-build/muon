@@ -28,7 +28,7 @@ option(
 option(
     'buildtype',
     type: 'combo',
-    value: 'debugoptimized',
+    value: 'debug',
     choices: [
         'plain',
         'debug',
