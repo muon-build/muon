@@ -626,6 +626,10 @@ setup_linker_args(struct workspace *wk,
 		if (obj_dict_geti(wk, proj->link_args, ctx->compiler->lang, &proj_args)) {
 			obj_array_extend(wk, ctx->args->link_args, proj_args);
 		}
+
+		if (tgt && tgt->flags & build_tgt_flag_pic) {
+			push_args(wk, ctx->args->link_args, toolchain_compiler_pic(wk, ctx->compiler));
+		}
 	}
 
 	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
