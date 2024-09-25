@@ -47,16 +47,10 @@ nav div {
   padding: 10px;
 }
 
-.downloads_title {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
 .loader {
-  width: 20px;
-  height: 20px;
-  border: 5px solid #FFF;
+  width: 18px;
+  height: 18px;
+  border: 5px solid #50FA7B;
   border-bottom-color: transparent;
   border-radius: 50%;
   display: inline-block;
@@ -73,12 +67,14 @@ nav div {
   }
 }
 
-summary {
-  display: flex;
+.version-item {
+  display: inline-flex;
   flex-direction: row;
   justify-content: flex-start;
-  width: 100%;
-  margin-bottom: 5px;
+}
+
+summary {
+  margin-bottom: 10px;
 }
 
 summary:hover {
@@ -91,9 +87,10 @@ summary:hover {
   border-radius: 40% / 100%;
   padding: 1px;
   min-width: 40px;
-  text-align: center;
-  vertical-align: middle;
-  line-height: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .version-tag-edge {

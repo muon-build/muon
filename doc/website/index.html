@@ -60,8 +60,9 @@ SPDX-License-Identifier: GPL-3.0-only
         </div>
       </div>
       <div>
-        <span class="downloads_title"><span>downloads</span> <span class="loader" id="loader"></span></span>
+        <span>downloads</span>
         <div id=downloads>
+          <span class="loader" id="loader"></span>
         </div>
       </div>
       <div>
@@ -117,10 +118,12 @@ SPDX-License-Identifier: GPL-3.0-only
 
         function renderReleases(list) {
           function versionTag(type) {
-            var e = document.createElement("span");
+            var e = document.createElement("div");
             e.classList.add("version-tag");
             e.classList.add(`version-tag-${type}`);
-            e.innerHTML = type;
+            var t = document.createElement("span");
+            t.innerHTML = type;
+            e.appendChild(t);
             return e;
           }
 
@@ -131,15 +134,19 @@ SPDX-License-Identifier: GPL-3.0-only
             downloadsElement.appendChild(elem);
 
             var summary = document.createElement("summary");
+            var content = document.createElement("span");
+            summary.appendChild(content);
+            elem.appendChild(summary);
+
+            content.classList.add("version-item");
             var summaryTitle = document.createElement("span");
             summaryTitle.innerHTML = e.ver;
-            summary.appendChild(summaryTitle);
+            content.appendChild(summaryTitle);
             if (i == 0) {
-              summary.appendChild(versionTag("edge"));
+              content.appendChild(versionTag("edge"));
             } else if (i == 1) {
-              summary.appendChild(versionTag("released"));
+              content.appendChild(versionTag("released"));
             }
-            elem.appendChild(summary);
 
             var ul = document.createElement("ul");
             elem.appendChild(ul);
