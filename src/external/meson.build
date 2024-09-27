@@ -71,7 +71,7 @@ readline_opt = get_option('readline')
 dep_sources += files(f'readline_@readline_opt@.c')
 if readline_opt != 'builtin'
     dep = dependency(readline_opt)
-    summary(name, dep.found())
+    summary(readline_opt, dep.found())
     dep_dict += {name: dep.found()}
     external_deps += [dep]
 endif
