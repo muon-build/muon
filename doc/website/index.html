@@ -193,16 +193,23 @@ SPDX-License-Identifier: GPL-3.0-only
           });
         }
 
-        fetchJson(baseUri).then((versions) => {
-          Promise.all(versions.map((ver) => {
-            return fetchAndAddItems(ver.name);
-          })).then((result) => {
-            doneLoading();
-            renderReleases(result.map((items, i) => ({
-              ver: versions[i].name,
-              items: items.flatMap((item) => item)
-            })));
+        function flattenChildren(children, path) {
+          return Object.keys(children).flatMap((entry) => {
+            const itemPath =  `${path}/${entry}`;
+            if (children[entry].children === undefined) {
+              return {itemPath: itemPath, item: {size: children[entry].size}};
+            } else {
+              return flattenChildren(children[entry].children, itemPath);
+            }
           });
+        }
+
+        fetchJson(baseUri).then((result) => {
+          doneLoading();
+          renderReleases(Object.keys(result).map((ver) => ({
+            ver: ver,
+            items: flattenChildren(result[ver].children, ver)
+          })));
         }).catch(err => {
           doneLoading();
           var p = document.createElement("p");
