@@ -405,7 +405,16 @@ if git.found()
     meson_tests_dir = meson.current_source_dir() / 'meson-tests'
     meson_tests_sha = '1e565931348f15f3f9b654f46ab4bf5fa009ca4f'
 
-    if fs.is_dir('meson-tests')
+    if not fs.is_dir(meson_tests_dir)
+        run_command(
+            git,
+            'clone',
+            get_option('meson_tests_repo'),
+            meson_tests_dir,
+            capture: false,
+            check: true,
+        )
+    elif fs.is_dir(meson_tests_dir / '.git')
         meson_tests_clean = run_command(git, '-C', meson_tests_dir, 'diff', '--quiet', check: false).returncode() == 0
 
         # If the meson-tests repo has no modifications and is not up to date,
@@ -437,19 +446,10 @@ if git.found()
                 check: true,
             )
         endif
-    else
-        run_command(
-            git,
-            'clone',
-            get_option('meson_tests_repo'),
-            meson_tests_dir,
-            capture: false,
-            check: true,
-        )
     endif
 endif
 
-skip_meson_tests = not fs.is_dir('meson-tests')
+skip_meson_tests = not fs.is_dir(meson_tests_dir)
 if skip_meson_tests
     warning('meson-tests not found, tests imported from meson will not be run')
 endif
