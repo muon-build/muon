@@ -91,16 +91,4 @@ tasks:
       build/muon -C build-small samu
   - release: |
       cd muon
-      ver="$(cat build/version.txt)"
-      tools/ci/prepare_release_docs.sh build
-      tools/ci/prepare_binary.sh build "$ver-amd64-linux-static"
-      tools/ci/prepare_binary.sh build-small "${ver}-amd64-linux-static-small"
-      tools/ci/prepare_tarball.sh "muon-${ver}"
-      tools/ci/deploy.sh / -r --delete build/doc/website
-      tools/ci/deploy.sh "/releases/${ver}" -r --delete build/doc/docs
-      tools/ci/deploy.sh "/releases/${ver}" \
-        "build/muon-${ver}-amd64-linux-static" \
-        "build/muon-${ver}-amd64-linux-static.md5" \
-        "build-small/muon-${ver}-amd64-linux-static-small" \
-        "build-small/muon-${ver}-amd64-linux-static-small.md5" \
-        "muon-${ver}.tar.gz"
+      tools/ci/release.sh build build-small

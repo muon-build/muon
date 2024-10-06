@@ -34,8 +34,8 @@ version_info.set('meson_compat', '1.5')
 
 configure_file(
     configuration: version_info,
-    input: 'tools/ci/version.txt.in',
-    output: 'version.txt',
+    input: 'tools/ci/version.sh.in',
+    output: 'version.sh',
 )
 
 # platform
