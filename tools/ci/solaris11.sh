@@ -19,7 +19,7 @@ build() {
 
 	git clone https://git.sr.ht/~lattis/muon "$tmp"
 	cd "$tmp"
-	git checkout $1
+	git checkout "$1"
 
 	export CC=gcc
 	export CFLAGS="-D_POSIX_C_SOURCE=200112L -D__EXTENSIONS__"
@@ -45,7 +45,6 @@ _receive() {
 	exec 2>&1
 	send_status pending
 
-	dir=ci/muon
 	tmp="ci/muon/$(date +%s)"
 	mkdir -p "$tmp"
 
