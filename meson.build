@@ -17,6 +17,8 @@ project(
 
 fs = import('fs')
 
+#dummy
+
 # version information
 
 git = find_program('git', required: false)
