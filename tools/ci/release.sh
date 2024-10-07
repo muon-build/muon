@@ -11,7 +11,7 @@ version=""
 # shellcheck disable=SC1091
 . "$build/version.sh"
 
-branch_name="$(git branch --contains HEAD | sed 's/^[* ]*//g' | grep '^[^ ]*$')"
+branch_name="$(git name-rev --name-only HEAD | sed 's|.*/||g')"
 
 echo "version: $version, branch_name: '$branch_name'"
 
