@@ -5,7 +5,9 @@ name: vs2019
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]

@@ -5,9 +5,11 @@ name: macos
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
   pull_request:
-    branches: [ master ]
+    branches: [master]
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -37,11 +39,11 @@ jobs:
         build/muon -C build test -v -ddots
     - name: build-x86_64
       run: |
-        arch -x86_64 sh -c '
+        arch -x86_64 sh -c "
           ./bootstrap.sh build-x86_64 &&\
-          PATH="build-x86_64:$PATH" build-x86_64/muon -v setup build-x86_64 &&\
+          PATH=\"build-x86_64:$PATH\" build-x86_64/muon -v setup build-x86_64 &&\
           build-x86_64/muon -C build-x86_64 samu\
-        '
+        "
     - name: build-universal-binary
       run: |
         . "build/version.sh"
