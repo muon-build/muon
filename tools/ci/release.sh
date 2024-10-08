@@ -11,7 +11,7 @@ version=""
 # shellcheck disable=SC1091
 . "$build/version.sh"
 
-branch_name="$(git name-rev --name-only HEAD | sed 's|.*/||g')"
+branch_name="$GIT_REF"
 
 echo "version: $version, branch_name: '$branch_name'"
 
@@ -21,8 +21,7 @@ tools/ci/prepare_release_docs.sh "$build"
 tools/ci/prepare_tarball.sh "muon-$version"
 
 # only allow master and release branches through
-if [ "$branch_name" = "master" ]; then :
-elif echo "$branch_name" | grep -q '[0-9]\+\.[0-9]\+'; then :
+if tools/ci/ref_is_release_branch.sh "$branch_name"; then :
 else exit 0
 fi
 
@@ -35,7 +34,7 @@ tools/ci/deploy.sh "/releases/$version" \
 	"muon-$version.tar.gz"
 
 # only allow master through
-if [ "$branch_name" = "master" ]; then :
+if [ "$branch_name" = "refs/heads/master" ]; then :
 else exit 0
 fi
 
