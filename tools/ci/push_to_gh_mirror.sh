@@ -18,4 +18,4 @@ EOF
 chmod 600 ~/.ssh/config
 
 git remote add github git@github.com:muon-build/muon.git
-git push --force --mirror github
+git push --mirror github

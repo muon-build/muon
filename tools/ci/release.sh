@@ -11,9 +11,11 @@ version=""
 # shellcheck disable=SC1091
 . "$build/version.sh"
 
-branch_name="$(git name-rev --name-only HEAD | sed 's|.*/||g')"
+branch_name="$GIT_REF"
 
 echo "version: $version, branch_name: '$branch_name'"
+
+exit 1
 
 tools/ci/prepare_binary.sh "$build" "$version-amd64-linux-static"
 tools/ci/prepare_binary.sh "$build_small" "$version-amd64-linux-static-small"
