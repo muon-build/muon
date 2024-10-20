@@ -1,0 +1,112 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Generate coverage using gcovr. Based on meson's coverage.py but simplified as
+# we only support gcovr currently.
+
+source_root = argv[1]
+subproject_dir = argv[2]
+build_root = argv[3]
+full_private_dir = join_paths(build_root, meson.private_dir())
+
+fs = import('fs')
+gcovr_exe = find_program('gcovr', required: true)
+
+gcovr_base_args = ['-r', build_root]
+gcovr_config = ['-e', subproject_dir]
+
+if gcovr_exe.version().version_compare('>=4.2')
+    gcovr_base_args = ['-r', source_root, build_root]
+    if fs.exists(join_paths(source_root, 'gcovr.cfg'))
+        gcovr_config = []
+    endif
+endif
+
+# `ninja coverage-text`
+func coverage_text() -> str
+    text_outfile = join_paths(full_private_dir, 'coverage.txt')
+    run_command(
+        gcovr_exe,
+        gcovr_base_args,
+        gcovr_config,
+        '-o', text_outfile,
+        check: true,
+    )
+    return text_outfile
+endfunc
+
+# `ninja coverage-html`
+func coverage_html() -> str
+    html_outdir = join_paths(full_private_dir, 'coveragereport')
+    if not fs.exists(html_outdir)
+        fs.mkdir(html_outdir)
+    endif
+
+    index_html = join_paths(html_outdir, 'index.html')
+    run_command(
+        gcovr_exe,
+        gcovr_base_args,
+        gcovr_config,
+        '--html',
+        '--html-details',
+        '--print-summary',
+        '-o', index_html,
+        check: true,
+    )
+
+    return index_html
+endfunc
+
+# `ninja coverage-xml`
+func coverage_xml() -> str
+    xml_outfile = join_paths(full_private_dir, 'coverage.xml')
+    run_command(
+        gcovr_exe,
+        gcovr_base_args,
+        gcovr_config,
+        '-x',
+        '-o', xml_outfile,
+        check: true,
+    )
+    return xml_outfile
+endfunc
+
+# `ninja coverage-sonarqube`
+func coverage_sonarqube() -> any
+    gcovr_version = gcovr_exe.version()
+    if gcovr_version.version_compare('<4.2')
+        warning(
+            f'gcovr >= 4.2 needed to generate sonarqube report, found: @gcov_version@',
+        )
+        return
+    endif
+    sonarqube_outfile = join_paths(full_private_dir, 'sonarqube.xml')
+    run_command(
+        gcovr_exe,
+        gcovr_base_args,
+        gcovr_config,
+        '--sonarqube',
+        '-o', sonarqube_outfile,
+        check: true,
+    )
+    return sonarqube_outfile
+endfunc
+
+coverage_functions = {
+    'text': coverage_text,
+    'xml': coverage_xml,
+    'html': coverage_html,
+    'sonarqube': coverage_sonarqube,
+}
+
+coverage_types = ['text', 'xml', 'html', 'sonarqube']
+if argv.length() > 4
+    coverage_types = [argv[4]]
+endif
+
+foreach coverage_type : coverage_types
+    report_file = coverage_functions[coverage_type]()
+    if not is_void(report_file)
+        message(f'Generated @coverage_type@ coverage report: @report_file@')
+    endif
+endforeach

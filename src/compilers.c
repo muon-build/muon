@@ -1072,6 +1072,13 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_lto)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_0(compiler_gcc_args_coverage)
+{
+	TOOLCHAIN_ARGS({ "--coverage" })
+
+	return &args;
+}
+
 /* cl compilers
  * see mesonbuild/compilers/mixins/visualstudio.py for reference
  */
@@ -1527,6 +1534,7 @@ build_compilers(void)
 	gcc.args.color_output = compiler_gcc_args_color_output;
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 	gcc.args.deps_type = compiler_deps_gcc;
+	gcc.args.coverage = compiler_gcc_args_coverage;
 	gcc.default_linker = linker_ld;
 	gcc.default_static_linker = static_linker_ar_gcc;
 
@@ -1613,6 +1621,7 @@ build_linkers(void)
 	ld.args.fatal_warnings = linker_ld_args_fatal_warnings;
 	ld.args.whole_archive = linker_ld_args_whole_archive;
 	ld.args.enable_lto = compiler_gcc_args_lto;
+	ld.args.coverage = compiler_gcc_args_coverage;
 
 	struct linker lld = ld;
 

@@ -813,6 +813,7 @@ init_global_options(struct workspace *wk)
 		    "option('c_link_args', type: 'array', value: [])\n"
 		    "option('werror', type: 'boolean', value: false)\n"
 		    "option('prefer_static', type: 'boolean', value: false)\n"
+		    "option('b_coverage', type: 'boolean', value: false)\n"
 
 		    "option('env.CC', type: 'array', value: ['cc'])\n"
 		    "option('env.NINJA', type: 'array', value: ['ninja'])\n"

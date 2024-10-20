@@ -18,6 +18,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "sha_256.h"
 
@@ -884,6 +885,79 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 	return fs_dir_foreach(prefix.buf, &ctx, func_module_fs_glob_cb);
 }
 
+struct delete_suffixes_ctx {
+	const char *base_dir;
+	const char *suffix;
+};
+
+static enum iteration_result
+delete_suffix_recursive(void *_ctx, const char *path)
+{
+	enum iteration_result ir_res = ir_err;
+	struct delete_suffixes_ctx *ctx = _ctx;
+	struct stat sb;
+
+	SBUF(name);
+
+	path_join(NULL, &name, ctx->base_dir, path);
+
+	// Check for existence first, before doing a stat. It's possible that
+	// another process has deleted this file in the time since the iteration
+	// machinery found this file. In this case, the file no longer exists, so
+	// just continue.
+	if (!fs_exists(name.buf)) {
+		sbuf_destroy(&name);
+		return ir_cont;
+	}
+
+	if (!fs_stat(name.buf, &sb)) {
+		goto ret;
+	}
+
+	if (S_ISDIR(sb.st_mode)) {
+
+		struct delete_suffixes_ctx new_ctx = *ctx;
+		new_ctx.base_dir = name.buf;
+
+		if (!fs_dir_foreach(new_ctx.base_dir, &new_ctx, delete_suffix_recursive)) {
+			goto ret;
+		}
+
+	} else if (S_ISREG(sb.st_mode)) {
+
+		if (fs_has_extension(name.buf, ctx->suffix) && !fs_remove(name.buf)) {
+			goto ret;
+		}
+
+	} else {
+		LOG_E("unhandled file type: %s", name.buf);
+		goto ret;
+	}
+
+	ir_res = ir_cont;
+
+ret:
+	sbuf_destroy(&name);
+	return ir_res;
+}
+
+static bool
+func_module_fs_delete_with_suffix(struct workspace *wk, obj rcrv, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	const char *base_dir = get_cstr(wk, an[0].val);
+	struct delete_suffixes_ctx ctx = {
+		.base_dir = base_dir,
+		.suffix = get_cstr(wk, an[1].val)
+	};
+
+	return fs_dir_foreach(base_dir, &ctx, delete_suffix_recursive);
+}
+
 const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_fs_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile },
@@ -915,5 +989,6 @@ const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "rmdir", func_module_fs_rmdir, .fuzz_unsafe = true },
 	{ "without_ext", func_module_fs_without_ext, tc_string, true },
 	{ "write", func_module_fs_write, .fuzz_unsafe = true },
+	{ "delete_with_suffix", func_module_fs_delete_with_suffix },
 	{ NULL, NULL },
 };

@@ -426,3 +426,16 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 
 	return false;
 }
+
+bool
+fs_has_extension(const char *path, const char *ext)
+{
+	char *s;
+
+	s = strrchr(path, '.');
+	if (!s) {
+		return false;
+	}
+
+	return strcmp(s, ext) == 0;
+}

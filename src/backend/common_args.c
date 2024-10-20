@@ -266,6 +266,11 @@ setup_optional_b_args_compiler(struct workspace *wk,
 	if (get_obj_bool(wk, opt)) {
 		push_args(wk, args, toolchain_compiler_enable_lto(wk, comp));
 	}
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
+	if (get_obj_bool(wk, opt)) {
+		push_args(wk, args, toolchain_compiler_coverage(wk, comp));
+	}
 }
 
 static bool
@@ -553,6 +558,12 @@ setup_optional_b_args_linker(struct workspace *wk,
 	if (get_obj_bool(wk, opt)) {
 		push_args(wk, args, toolchain_linker_enable_lto(wk, comp));
 	}
+
+	get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
+	if (get_obj_bool(wk, opt)) {
+		push_args(wk, args, toolchain_linker_coverage(wk, comp));
+	}
+
 	return true;
 }
 
