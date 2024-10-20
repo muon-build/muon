@@ -30,4 +30,23 @@ func intl(required bool:, static bool:) -> dep
     return dep
 endfunc
 
+func iconv(required bool:, static bool:) -> dep
+    cc = get_clike_compiler('iconv')
+    code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
+
+    if cc.links(code)
+        dep = declare_dependency()
+    else
+        dep = cc.find_library(
+            'iconv',
+            has_headers: ['iconv.h'],
+            required: required,
+            static: static,
+        )
+    endif
+
+    return dep
+endfunc
+
 meson.register_dependency_handler('intl', intl)
+meson.register_dependency_handler('iconv', iconv)
