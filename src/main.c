@@ -35,6 +35,7 @@
 #include "platform/run_cmd.h"
 #include "tracy.h"
 #include "version.h"
+#include "vsenv.h"
 #include "wrap.h"
 
 static bool
@@ -1044,7 +1045,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	bool res = false;
 	SBUF_manual(argv0);
 
-	OPTSTART("vC:") {
+	OPTSTART("vC:e:") {
 	case 'v': log_set_lvl(log_debug); break;
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
@@ -1059,11 +1060,23 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		}
 		break;
 	}
+	case 'e': {
+		if (strcmp(optarg, "vs") != 0) {
+			LOG_E("unsupported env \"%s\", supported envs are: vs", optarg);
+			return false;
+		}
+
+		if (!vsenv_setup(true)) {
+			return false;
+		}
+		break;
+	}
 	}
 	OPTEND(argv[0],
 		"",
 		"  -v - turn on debug messages\n"
-		"  -C <path> - chdir to path\n",
+		"  -C <path> - chdir to path\n"
+		"  -e <env> - load environment\n",
 		commands,
 		-1)
 

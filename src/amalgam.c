@@ -109,6 +109,7 @@
 #include "rpmvercmp.c"
 #include "sha_256.c"
 #include "version.c.in"
+#include "vsenv.c"
 #include "wrap.c"
 
 #ifdef _WIN32

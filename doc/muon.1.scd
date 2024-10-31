@@ -38,6 +38,7 @@ finally install the project with the *install* subcommand.
 
 - *-v* - enable verbose output
 - *-C* <path> - chdir to _path_ before executing a command
+- *-e* <env> - load _env_ before executing a command
 - *-h* - print a help message
 
 # COMMANDS

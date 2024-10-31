@@ -90,6 +90,7 @@ src = files(
     'opts.c',
     'rpmvercmp.c',
     'sha_256.c',
+    'vsenv.c',
     'wrap.c',
 )
 
