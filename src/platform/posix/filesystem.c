@@ -439,3 +439,9 @@ fs_has_extension(const char *path, const char *ext)
 
 	return strcmp(s, ext) == 0;
 }
+
+FILE *
+fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
+{
+	return 0;
+}

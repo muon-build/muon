@@ -542,3 +542,22 @@ fs_remove(const char *path)
 
 	return true;
 }
+
+FILE *
+fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
+{
+	static uint32_t unique = 0;
+	++unique;
+
+	char tmp_dir[MAX_PATH + 1];
+	DWORD result = GetTempPath(sizeof(tmp_dir), tmp_dir);
+	if (result == 0) {
+		// Use '.' (current dir) as tmp dir if GetTempPath fails
+		tmp_dir[0] = '.';
+		tmp_dir[1] = 0;
+	}
+
+	snprintf(buf, len, "%s\\__muon_tmp_%d_%s.%s", tmp_dir, unique, name, suffix);
+
+	return fs_fopen(buf, "w+b");
+}

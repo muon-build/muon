@@ -53,6 +53,7 @@ bool fs_chmod(const char *path, uint32_t mode);
 bool fs_copy_metadata(const char *src, const char *dest);
 bool fs_remove(const char *path);
 bool fs_has_extension(const char *path, const char *ext);
+FILE *fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
