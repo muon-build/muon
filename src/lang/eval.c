@@ -208,7 +208,6 @@ eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 bool
 eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags)
 {
-	L("evaluating '%s'", path);
 	bool ret = false;
 	obj path_str = make_str(wk, path);
 	workspace_add_regenerate_deps(wk, path_str);

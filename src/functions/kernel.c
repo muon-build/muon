@@ -156,6 +156,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 		kw_license_files,
 		kw_meson_version,
 		kw_subproject_dir,
+		kw_module_dir,
 		kw_version,
 	};
 	struct args_kw akw[] = {
@@ -164,6 +165,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 		[kw_license_files] = { "license_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
+		[kw_module_dir] = { "module_dir", obj_string },
 		[kw_version] = { "version", tc_string | tc_file },
 		0,
 	};
@@ -175,6 +177,18 @@ func_project(struct workspace *wk, obj _, obj *res)
 	if (current_project(wk)->initialized) {
 		vm_error(wk, "project may only be called once");
 		return false;
+	}
+
+	if (akw[kw_subproject_dir].set) {
+		current_project(wk)->subprojects_dir = akw[kw_subproject_dir].val;
+	}
+
+	if (akw[kw_module_dir].set) {
+		current_project(wk)->module_dir = akw[kw_module_dir].val;
+	}
+
+	if (wk->vm.in_analyzer) {
+		return true;
 	}
 
 	current_project(wk)->cfg.name = an[0].val;
@@ -244,10 +258,6 @@ func_project(struct workspace *wk, obj _, obj *res)
 		if (!prefix_dir_opts(wk)) {
 			return false;
 		}
-	}
-
-	if (akw[kw_subproject_dir].set) {
-		current_project(wk)->subprojects_dir = akw[kw_subproject_dir].val;
 	}
 
 	{ // subprojects
@@ -2139,7 +2149,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "join_paths", func_join_paths, tc_string, true },
 	{ "library", func_library, tc_build_target | tc_both_libs },
 	{ "message", func_message },
-	{ "project", func_project },
+	{ "project", func_project, 0, true }, // Not really pure but partially runs
 	{ "range", func_range, tc_array, true },
 	{ "run_command", func_run_command, tc_run_result },
 	{ "run_target", func_run_target, tc_custom_target },

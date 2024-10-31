@@ -32,6 +32,7 @@ struct project {
 	// string
 	obj rule_prefix;
 	obj subprojects_dir;
+	obj module_dir;
 
 	struct {
 		obj name;

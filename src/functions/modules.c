@@ -21,6 +21,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 
 #define MODULE_INFO(mod, path_prefix, _implemented) \
 	{ .name = #mod, .path = path_prefix "/" #mod, .implemented = _implemented },
@@ -117,9 +118,9 @@ ret:
 
 const char *module_paths[] = {
 	[language_external] = "embedded:modules/%.meson;builtin:public/%",
-	[language_internal] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+	[language_internal] = "embedded:lib/%.meson;builtin:private/%;builtin:public/%",
 	[language_opts] = "",
-	[language_extended] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+	[language_extended] = "embedded:lib/%.meson;builtin:private/%;builtin:public/%",
 };
 
 bool
@@ -146,7 +147,27 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		bool loop = true;
 		struct str path;
 		SBUF(path_interpolated);
-		const char *p = module_paths[wk->vm.lang_mode], *sep;
+		SBUF(module_path);
+		const char *p, *sep;
+
+		{
+			struct project *proj;
+			if (wk->vm.lang_mode == language_external && (proj = current_project(wk)) && proj->module_dir) {
+				sbuf_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
+
+				sbuf_push(wk, &module_path, ';');
+
+				SBUF(new_module_path);
+				path_push(wk, &new_module_path, get_cstr(wk, proj->source_root));
+				path_push(wk, &new_module_path, get_cstr(wk, proj->module_dir));
+				path_push(wk, &new_module_path, "%.meson");
+				sbuf_pushn(wk, &module_path, new_module_path.buf, new_module_path.len);
+				p = module_path.buf;
+			} else {
+				p = module_paths[wk->vm.lang_mode];
+			}
+		}
+
 		while (loop) {
 			path.s = p;
 			if ((sep = strchr(path.s, ';'))) {
