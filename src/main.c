@@ -817,10 +817,11 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init_bare(&wk);
 	workspace_init_runtime(&wk);
+	enum backend_output backend = backend_output_ninja;
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:c:b:") {
+	OPTSTART("D:c:b:B:") {
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
@@ -842,12 +843,28 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		vm_dbg_push_breakpoint(&wk, optarg);
 		break;
 	}
+	case 'B': {
+		if (strcmp(optarg, "ninja") == 0) {
+			backend = backend_output_ninja;
+		} else if (strcmp(optarg, "vs") == 0) {
+			backend = backend_output_vs;
+		} else if (strcmp(optarg, "vs2019") == 0) {
+			backend = backend_output_vs2019;
+		} else if (strcmp(optarg, "vs2022") == 0) {
+			backend = backend_output_vs2022;
+		} else {
+			LOG_E("invalid backend '%s', must be one of 'ninja', 'vs', 'vs2019', 'vs2022'", optarg);
+			goto ret;
+		}
+		break;
+	}
 	}
 	OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n"
 		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
-		"  -b <breakpoint> - set breakpoint\n",
+		"  -b <breakpoint> - set breakpoint\n"
+		"  -B <backend> - set backend\n",
 		NULL,
 		1)
 
@@ -867,7 +884,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	log_plain("\n");
 
-	if (!backend_output(&wk)) {
+	if (!backend_output(&wk, backend)) {
 		goto ret;
 	}
 

@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
@@ -8,6 +9,7 @@
 #include "args.h"
 #include "backend/backend.h"
 #include "backend/ninja.h"
+#include "backend/vs.h"
 #include "functions/environment.h"
 #include "lang/object_iterators.h"
 #include "log.h"
@@ -70,19 +72,34 @@ backend_abort_handler(void *_ctx)
 }
 
 bool
-backend_output(struct workspace *wk)
+backend_output(struct workspace *wk, enum backend_output backend)
 {
 	TracyCZoneAutoS;
 
 	make_obj(wk, &wk->backend_output_stack, obj_array);
 	platform_set_abort_handler(backend_abort_handler, wk);
 
-	if (!ninja_write_all(wk)) {
-		LOG_E("backend output failed");
+	switch (backend) {
+	case backend_output_ninja:
+		if (!ninja_write_all(wk)) {
+			LOG_E("backend output failed");
 
-		backend_print_stack(wk);
-		TracyCZoneAutoE;
-		return false;
+			backend_print_stack(wk);
+			TracyCZoneAutoE;
+			return false;
+		}
+		break;
+	case backend_output_vs:
+	case backend_output_vs2019:
+	case backend_output_vs2022:
+		if (!vs_write_all(wk, backend)) {
+			LOG_E("backend output failed");
+
+			backend_print_stack(wk);
+			TracyCZoneAutoE;
+			return false;
+		}
+		break;
 	}
 
 	if (!obj_array_foreach(wk, wk->postconf_scripts, NULL, run_postconf_script_iter)) {
