@@ -827,7 +827,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	case 'c': {
 		FILE *f;
-		if (!(f = fs_fopen(optarg, "rb:"))) {
+		if (!(f = fs_fopen(optarg, "rb"))) {
 			goto ret;
 		} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
 			LOG_E("failed to load compiler check cache");
