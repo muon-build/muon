@@ -681,7 +681,7 @@ init_per_project_options(struct workspace *wk)
 		"per_project_options.meson",
 		"option('default_library', type: 'string', value: 'static')\n"
 		"option('warning_level', type: 'string', value: '3')\n"
-		"option('c_std', type: 'string', value: 'c99')\n");
+		"option('c_std', type: 'string', value: 'none')\n");
 }
 
 static enum iteration_result
