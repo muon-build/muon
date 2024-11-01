@@ -24,7 +24,7 @@ extern char *vs_configurations[2];
 /* x64 x86, maybe later arm */
 extern char *vs_platforms[2];
 
-/* x64 wwin32, maybe later arm */
+/* x64 win32, maybe later arm */
 extern char *vs_machines[2];
 
 struct vs_ctx {

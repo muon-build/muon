@@ -23,7 +23,7 @@ option(
     'backend',
     type: 'combo',
     value: 'ninja',
-    choices: ['ninja', 'vs'],
+    choices: ['ninja', 'vs', 'vs2019', 'vs2022'],
 )
 option('backend_max_links', type: 'integer', value: 0, min: 0)
 option(

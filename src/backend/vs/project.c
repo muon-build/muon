@@ -57,8 +57,8 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	arr_clear(&attributes);
 	ATTR_PUSH("Label", "ProjectConfigurations");
 	struct xml_node n1 = tag(wk, root, "ItemGroup", &attributes, false);
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			SBUF_manual(buf);
 			sbuf_pushf(wk, &buf, "%s|%s", vs_configurations[i], vs_machines[j]);
 			arr_clear(&attributes);
@@ -109,7 +109,7 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	tag_end(wk, n1);
 
 	/* Property Group: Configuration */
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
 		const char *debug_lib;
 		bool whole_opt = false;
 		if (strcmp(vs_configurations[i], "Debug") == 0) {
@@ -119,7 +119,7 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 			whole_opt = true;
 		}
 
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			arr_clear(&attributes);
 			sbuf_clear(&buf);
 			sbuf_pushf(0, &buf, "'$(Configuration)|$(Platform)'=='%s|%s'", vs_configurations[i], vs_machines[j]);
@@ -175,8 +175,8 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	tag_end(wk, n1);
 
 	/* import group - PropertySheets */
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			arr_clear(&attributes);
 			ATTR_PUSH("Label", "PropertySheets");
 			sbuf_clear(&buf);
@@ -202,9 +202,9 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	tag_end(wk, n1);
 
 	/* item definition group - compiler and linker */
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
 		bool is_debug = strcmp(vs_configurations[i], "Debug") == 0;
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			arr_clear(&attributes);
 			sbuf_clear(&buf);
 			sbuf_pushf(0, &buf, "'$(Configuration)|$(Platform)'=='%s|%s'", vs_configurations[i], vs_machines[j]);

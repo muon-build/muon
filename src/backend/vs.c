@@ -301,24 +301,6 @@ vs_guid_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	return ir_cont;
 }
 
-static enum iteration_result cb_dict(struct workspace *wk, void *ctx, obj key, obj val)
-{
-	enum obj_type t1 = get_obj_type(wk, key);
-	enum obj_type t2 = get_obj_type(wk, val);
-	printf(" ** dict : %d %d\n", t1, t2);
-	fflush(stdout);
-	return ir_cont;
-}
-
-static enum iteration_result cb_dict2(struct workspace *wk, void *ctx, obj key, obj val)
-{
-	enum obj_type t1 = get_obj_type(wk, key);
-	enum obj_type t2 = get_obj_type(wk, val);
-	printf(" ** dict2 : %d %d\n", t1, t2);
-	fflush(stdout);
-	return ir_cont;
-}
-
 static enum iteration_result
 vs_target_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
@@ -351,18 +333,6 @@ vs_target_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 		LOG_E("soname      : '%s'", get_cstr(wk, target->soname));
 		LOG_E("type        : '%d'", target->type);
 
-		if (target->args) {
-			printf(" ** dict: args \n");
-			obj_dict_foreach(wk, target->args, NULL, cb_dict);
-		} else {
-			printf(" ** dict: pas d'args\n");
-		}
-		if (target->required_compilers) {
-			printf(" ** dict2: required_compilers \n");
-			obj_dict_foreach(wk, target->required_compilers, NULL, cb_dict2);
-		} else {
-			printf(" ** dict2: pas d'required_compilers\n");
-		}
 		/* if (target->src) { */
 		/* 	obj_array_foreach(wk, target->src, NULL, vs_target_src_iter); */
 		/* } else { */
@@ -382,11 +352,6 @@ vs_target_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 		} else {
 			printf("ZUT\n");
 			fflush(stdout);
-		}
-
-		obj tgt_args;
-		if (!arr_to_args(wk, 0, target->args, &tgt_args)) {
-			UNREACHABLE;
 		}
 
 		SBUF_manual(project_name);

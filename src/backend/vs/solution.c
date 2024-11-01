@@ -87,8 +87,8 @@ vs_sln_body_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 		   guid_project->data4[5],
 		   guid_project->data4[6],
 		   guid_project->data4[7]);
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			fprintf(ctx->out, "\t\t{%s}.%s|%s.ActiveCfg = %s|%s\n",
 				guid_project_str.buf,
 				vs_configurations[i],
@@ -130,8 +130,8 @@ vs_write_solution(struct workspace *wk, void *_ctx, FILE *out)
 	fprintf(out, "Global\n");
 
 	fprintf(out, "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n");
-	for (uint32_t i = 0; i < sizeof(vs_configurations) / sizeof(char *); i++) {
-		for (uint32_t j = 0; j < sizeof(vs_platforms) / sizeof(char *); j++) {
+	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
 			fprintf(out, "\t\t%s|%s = %s|%s\n",
 				vs_configurations[i],
 				vs_platforms[j],
