@@ -26,9 +26,14 @@ extern int opterr, optind, optopt;
 #include <unistd.h>
 #endif
 
+#include "lang/string.h"
+
 int os_getopt(int argc, char *const argv[], const char *optstring);
 
 // Returns the number of jobs to spawn.  This number should be slightly larger
 // than the number of cpus.
 uint32_t os_parallel_job_count(void);
+
+void os_set_env(const struct str *k, const struct str *v);
+const char *os_get_env(const char *k);
 #endif

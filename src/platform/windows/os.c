@@ -221,3 +221,16 @@ os_ncpus(void)
 
 	return ncpus;
 }
+
+void
+os_set_env(const struct str *k, const struct str *v)
+{
+	SBUF_manual(buf_kv);
+
+	sbuf_pushn(0, &buf_kv, k->s, k->len);
+	sbuf_push(0, &buf_kv, '=');
+	sbuf_pushn(0, &buf_kv, v->s, v->len);
+	sbuf_push(0, &buf_kv, 0);
+
+	putenv(buf_kv.buf);
+}

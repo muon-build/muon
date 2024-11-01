@@ -552,6 +552,20 @@ str_splitlines(struct workspace *wk, const struct str *ss)
 	return res;
 }
 
+bool
+str_split_in_two(const struct str *s, struct str *l, struct str *r, char split)
+{
+	const char *p;
+	if (!(p = memchr(s->s, split, s->len))) {
+		return false;
+	}
+
+	*l = (struct str){ s->s, p - s->s };
+	*r = (struct str){ s->s + l->len + 1, s->len - (l->len + 1) };
+
+	return true;
+}
+
 static bool
 str_has_chr(char c, const struct str *ss)
 {

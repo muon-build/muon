@@ -5,6 +5,8 @@
 
 #include "compat.h"
 
+#include <stdlib.h>
+
 #include "platform/os.h"
 
 int32_t os_ncpus(void);
@@ -21,4 +23,10 @@ os_parallel_job_count(void)
 	} else {
 		return n + 2;
 	}
+}
+
+const char *
+os_get_env(const char *k)
+{
+	return getenv(k);
 }

@@ -5,13 +5,12 @@
 
 #include "compat.h"
 
-#include <stdlib.h>
-
 #include "buf_size.h"
 #include "lang/string.h"
 #include "log.h"
 #include "machines.h"
 #include "platform/filesystem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "vsenv.h"
@@ -20,7 +19,7 @@ bool
 vsenv_setup(bool force)
 {
 	if (!force) {
-		if (getenv("VSINSTALLDIR")) {
+		if (os_get_env("VSINSTALLDIR")) {
 			return true;
 		} else if (fs_has_cmd("cl.exe")) {
 			return true;
@@ -35,7 +34,7 @@ vsenv_setup(bool force)
 	struct run_cmd_ctx vswhere_cmd_ctx = { 0 }, bat_cmd_ctx = { 0 };
 	uint32_t i;
 
-	if (!(program_files = getenv("ProgramFiles(x86)"))) {
+	if (!(program_files = os_get_env("ProgramFiles(x86)"))) {
 		LOG_E("vsenv: unable to get value of 'ProgramFiles(x86)' env var");
 		goto ret;
 	}
@@ -167,17 +166,14 @@ vsenv_setup(bool force)
 			break;
 		}
 		uint32_t line_len = p - line;
-		struct str l = { line, line_len };
+		struct str l = { line, line_len }, k, v;
 
 		if (!sep_seen) {
 			if (str_eql(&l, &WKSTR(sep))) {
 				sep_seen = true;
 			}
-		} else if ((p = memchr(l.s, '=', l.len))) {
-				sbuf_clear(&path);
-				sbuf_pushn(0, &path, l.s, l.len);
-				sbuf_push(0, &path, 0);
-				putenv(path.buf);
+		} else if (str_split_in_two(&l, &k, &v, '=')) {
+			os_set_env(&k, &v);
 		}
 
 		i += line_len + 2;

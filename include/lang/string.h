@@ -98,7 +98,7 @@ enum str_strip_flag {
 };
 obj str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags);
 obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip);
-
+bool str_split_in_two(const struct str *s, struct str *l, struct str *r, char split);
 void str_to_lower(struct str *str);
 
 bool is_whitespace(char c);

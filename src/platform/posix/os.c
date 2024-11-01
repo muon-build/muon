@@ -7,6 +7,7 @@
 #include "compat.h"
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -55,4 +56,18 @@ os_ncpus(void)
 #else
 	return -1;
 #endif
+}
+
+void
+os_set_env(const struct str *k, const struct str *v)
+{
+	SBUF_manual(buf_k);
+	SBUF_manual(buf_v);
+
+	sbuf_pushn(0, &buf_k, k->s, k->len);
+	sbuf_push(0, &buf_k, 0);
+	sbuf_pushn(0, &buf_v, v->s, v->len);
+	sbuf_push(0, &buf_v, 0);
+
+	setenv(buf_k.buf, buf_v.buf, true);
 }
