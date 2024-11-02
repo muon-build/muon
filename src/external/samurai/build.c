@@ -445,6 +445,12 @@ samu_build(struct samu_ctx *ctx)
 		return;
 	}
 
+	jobs = samu_xreallocarray(&ctx->arena, jobs, jobslen, maxjobs, sizeof(jobs[0]));
+	jobslen = maxjobs;
+	for (i = next; i < jobslen; ++i) {
+		jobs[i].next = i + 1;
+	}
+
 	timer_start(&ctx->build.timer);
 	samu_formatstatus(ctx, NULL, 0);
 
@@ -463,17 +469,6 @@ samu_build(struct samu_ctx *ctx)
 				for (i = 0; i < e->nout; ++i)
 					samu_nodedone(ctx, e->out[i], false);
 				continue;
-			}
-			if (next == jobslen) {
-				size_t newjobslen;
-				newjobslen = jobslen ? jobslen * 2 : 8;
-				if (newjobslen > ctx->buildopts.maxjobs)
-					newjobslen = ctx->buildopts.maxjobs;
-				jobs = samu_xreallocarray(&ctx->arena, jobs, jobslen, newjobslen, sizeof(jobs[0]));
-				jobslen = newjobslen;
-				for (i = next; i < jobslen; ++i) {
-					jobs[i].next = i + 1;
-				}
 			}
 
 			if (!samu_jobstart(ctx, &jobs[next], e)) {
