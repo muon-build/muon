@@ -52,5 +52,4 @@ void path_dirname(struct workspace *wk, struct sbuf *buf, const char *path);
 void path_executable(struct workspace *wk, struct sbuf *buf, const char *path);
 void _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize);
 void path_to_posix(char *path);
-void shell_escape(struct workspace *wk, struct sbuf *sb, const char *str);
 #endif

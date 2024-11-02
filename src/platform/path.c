@@ -66,7 +66,6 @@ _path_normalize(struct workspace *wk, struct sbuf *buf, bool optimize)
 	uint32_t part_len, i, slen = buf->len, blen = 0, sep_len;
 	bool loop = true, skip_part;
 
-	/* assert(slen && "path is empty"); */
 	if (!buf->len) {
 		return;
 	}
