@@ -115,8 +115,10 @@ copy_pipes(struct run_cmd_ctx *ctx)
 	struct win_pipe_inst *pipe;
 	OVERLAPPED *overlapped;
 
-	if (!GetQueuedCompletionStatus(ctx->ioport, &bytes_read, (PULONG_PTR)&pipe, &overlapped, INFINITE)) {
-		if (GetLastError() != ERROR_BROKEN_PIPE) {
+	if (!GetQueuedCompletionStatus(ctx->ioport, &bytes_read, (PULONG_PTR)&pipe, &overlapped, 100)) {
+		if (GetLastError() == WAIT_TIMEOUT) {
+			return copy_pipe_result_waiting;
+		} else if (GetLastError() != ERROR_BROKEN_PIPE) {
 			win32_fatal("GetQueuedCompletionStatus:");
 		}
 	}
