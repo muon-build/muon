@@ -4,10 +4,10 @@
 env = environment({'other_key': 'val', 'other_key2': 'val1'})
 env.set('noval', '')
 env.set('key', 'val')
-env.prepend('other_key2', 'hello')
+env.prepend('other_key2', 'hello', separator: ':')
 env.set('key2', 'val', 'val2', separator: '!!')
 env.append('key2', 'val', 'val2', separator: ';;')
-env.append('inherited', 'new!')
+env.append('inherited', 'new!', separator: ':')
 
 d = {}
 foreach line : run_command(
