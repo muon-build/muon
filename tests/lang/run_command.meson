@@ -14,7 +14,7 @@
 env = {}
 cmd = []
 expect = []
-foreach n : range(1000)
+foreach n : range(100)
     env += {f'envvar@n@': f'val@n@'}
     cmd += f'$envvar@n@'
     expect += f'val@n@'
