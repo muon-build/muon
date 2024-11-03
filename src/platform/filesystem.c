@@ -57,7 +57,15 @@ fs_mkdir_p(const char *path)
 
 	assert(len >= 1);
 
-	for (i = 1; i < len; ++i) {
+	i = 0;
+	if (path_is_absolute(buf.buf)) {
+		char *p;
+		if ((p = strchr(buf.buf, PATH_SEP))) {
+			i = (p - buf.buf) + 1;
+		}
+	}
+
+	for (; i < len; ++i) {
 		if (buf.buf[i] == PATH_SEP) {
 			buf.buf[i] = 0;
 			if (!fs_mkdir(buf.buf, true)) {

@@ -30,6 +30,11 @@ path_is_absolute(const char *path)
 		return true;
 	}
 
+	// Handle unix paths as well
+	if (*path == '/') {
+		return true;
+	}
+
 	length = strlen(path);
 	if (length < 3) {
 		return false;
