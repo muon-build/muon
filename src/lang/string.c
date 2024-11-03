@@ -23,13 +23,15 @@ str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool e
 	uint32_t i;
 
 	for (i = 0; i < ss->len; ++i) {
-		esc = ss->s[i] < 32;
+		esc = ss->s[i] < 32 || ss->s[i] == '\'';
 		if (!escape_whitespace && strchr("\t\n\r", ss->s[i])) {
 			esc = false;
 		}
 
 		if (esc) {
-			if (7 <= ss->s[i] && ss->s[i] <= 13) {
+			if (ss->s[i] == '\'') {
+				sbuf_pushf(wk, sb, "\\'");
+			} else if (7 <= ss->s[i] && ss->s[i] <= 13) {
 				sbuf_pushf(wk, sb, "\\%c", "abtnvfr"[ss->s[i] - 7]);
 			} else {
 				sbuf_pushf(wk, sb, "\\%d", ss->s[i]);
