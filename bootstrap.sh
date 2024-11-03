@@ -30,4 +30,4 @@ else
 fi
 
 # shellcheck disable=SC2086
-${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$dir/muon"
+${CC:-c99} ${CFLAGS:-} ${LDFLAGS:-} -Iinclude $pkgconf_cflags "src/amalgam.c" $pkgconf_libs -o "$dir/muon-bootstrap"

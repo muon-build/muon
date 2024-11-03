@@ -9,5 +9,5 @@ shift
 
 ./bootstrap.sh "$build"
 
-build/muon setup "$@" "$build"
-build/muon -C "$build" samu
+build/muon-bootstrap setup "$@" "$build"
+build/muon-bootstrap -C "$build" samu

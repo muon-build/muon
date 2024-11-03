@@ -32,8 +32,8 @@ jobs:
     - name: build
       run: |
         ./bootstrap.sh build
-        PATH="build:$PATH" build/muon -v setup build
-        build/muon -C build samu
+        PATH="build:$PATH" build/muon-bootstrap -v setup build
+        build/muon-bootstrap -C build samu
     - name: test
       run: |
         build/muon -C build test -v -ddots
@@ -41,8 +41,8 @@ jobs:
       run: |
         arch -x86_64 sh -c "
           ./bootstrap.sh build-x86_64 &&\
-          PATH=\"build-x86_64:$PATH\" build-x86_64/muon -v setup build-x86_64 &&\
-          build-x86_64/muon -C build-x86_64 samu\
+          PATH=\"build-x86_64:$PATH\" build-x86_64/muon-bootstrap -v setup build-x86_64 &&\
+          build-x86_64/muon-bootstrap -C build-x86_64 samu\
         "
     - name: build-universal-binary
       run: |

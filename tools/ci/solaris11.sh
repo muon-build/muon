@@ -25,9 +25,9 @@ build() {
 	export CFLAGS="-D_POSIX_C_SOURCE=200112L -D__EXTENSIONS__"
 
 	./bootstrap.sh build
-	build/muon setup build
-	build/muon -C build samu
-	build/muon -C build test -d dots -s lang
+	build/muon-bootstrap setup build
+	build/muon-bootstrap -C build samu
+	build/muon-bootstrap -C build test -d dots -s lang
 }
 
 submit() {

@@ -25,8 +25,8 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          PATH="build:$PATH" build/muon -v setup build
-          build/muon -C build samu
+          PATH="build:$PATH" build/muon-bootstrap -v setup build
+          build/muon-bootstrap -C build samu
 
       # Build muon with ASan and UBSan and run the testsuite.
       - name: build_asan_ubsan
@@ -73,8 +73,8 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          PATH="build:$PATH" build/muon -v setup build
-          build/muon -C build samu
+          PATH="build:$PATH" build/muon-bootstrap -v setup build
+          build/muon-bootstrap -C build samu
 
       # Build and run testsuite.
       - name: build_with_libpkgconf
