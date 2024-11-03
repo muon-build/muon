@@ -25,7 +25,6 @@ win32_error(void)
 	LPTSTR msg;
 	DWORD err;
 
-	*_msg = '\0';
 	err = GetLastError();
 
 	if (!FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -35,19 +34,20 @@ win32_error(void)
 		    (LPTSTR)&msg,
 		    0UL,
 		    NULL)) {
-		StringCchPrintf(_msg, sizeof(_msg), "FormatMessage() failed with error Id %ld", GetLastError());
+		snprintf(_msg, sizeof(_msg), "FormatMessage() failed with error Id %ld", GetLastError());
 		return _msg;
 	}
 
-	StringCchCat(_msg, sizeof(_msg), msg);
-	LocalFree(msg);
-
 	// strip trailing newlines from the error message
-	char *end = &_msg[strlen(_msg) - 1];
+	char *end = &msg[strlen(msg) - 1];
 	while (end > msg && strchr("\t\r\n ", *end)) {
 		*end = 0;
 		--end;
 	}
+
+	snprintf(_msg, sizeof(_msg), "%s (%lu)", msg, err);
+
+	LocalFree(msg);
 
 	return _msg;
 }
