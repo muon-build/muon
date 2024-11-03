@@ -23,39 +23,37 @@
 #include "platform/timer.h"
 #include "platform/windows/win32_error.h"
 
-static uint32_t cnt_open = 0;
-
-#define record_handle(__h, v) _record_handle(__h, v, #__h)
+#define record_handle(__h, v) _record_handle(ctx, __h, v, #__h)
 
 static bool
-_record_handle(HANDLE *h, HANDLE v, const char *desc)
+_record_handle(struct run_cmd_ctx *ctx, HANDLE *h, HANDLE v, const char *desc)
 {
 	if (!v || v == INVALID_HANDLE_VALUE) {
 		return false;
 	}
 
-	++cnt_open;
+	++ctx->cnt_open;
 	*h = v;
 	return true;
 }
 
-#define close_handle(__h) _close_handle(__h, #__h)
+#define close_handle(__h) _close_handle(ctx, __h, #__h)
 
 static bool
-_close_handle(HANDLE *h, const char *desc)
+_close_handle(struct run_cmd_ctx *ctx, HANDLE *h, const char *desc)
 {
 	if (!*h || *h == INVALID_HANDLE_VALUE) {
 		return true;
 	}
 
-	assert(cnt_open);
+	assert(ctx->cnt_open);
 
 	if (!CloseHandle(*h)) {
 		LOG_E("failed to close handle %s:%p: %s", desc, *h, win32_error());
 		return false;
 	}
 
-	--cnt_open;
+	--ctx->cnt_open;
 	*h = INVALID_HANDLE_VALUE;
 	return true;
 }
@@ -67,7 +65,7 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
+copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct sbuf *sbuf)
 {
 	if (pipe->is_eof) {
 		return copy_pipe_result_finished;
@@ -75,45 +73,35 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 
 	DWORD bytes_read;
 
-	if (pipe->is_pending) {
-		if (!GetOverlappedResult(pipe->handle, &pipe->overlapped, &bytes_read, TRUE)) {
-			switch (GetLastError()) {
-			case ERROR_BROKEN_PIPE:
-				pipe->is_eof = true;
-				if (!close_handle(&pipe->handle)) {
-					return copy_pipe_result_failed;
-				}
-				return copy_pipe_result_finished;
-			default: win32_fatal("GetOverlappedResult:"); return copy_pipe_result_failed;
-			}
-		} else {
-			if (bytes_read) {
-				sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
-				pipe->overlapped.Offset = 0;
-				pipe->overlapped.OffsetHigh = 0;
-				memset(pipe->overlapped_buf, 0, sizeof(pipe->overlapped_buf));
-			}
-
-			ResetEvent(pipe->overlapped.hEvent);
-		}
-	}
-
-	if (!ReadFile(
-		    pipe->handle, pipe->overlapped_buf, sizeof(pipe->overlapped_buf), &bytes_read, &pipe->overlapped)) {
-		switch (GetLastError()) {
-		case ERROR_BROKEN_PIPE:
+	if (!GetOverlappedResult(pipe->handle, &pipe->overlapped, &bytes_read, TRUE)) {
+		if (GetLastError() == ERROR_BROKEN_PIPE) {
 			pipe->is_eof = true;
 			if (!close_handle(&pipe->handle)) {
 				return copy_pipe_result_failed;
 			}
 			return copy_pipe_result_finished;
-		case ERROR_IO_PENDING: pipe->is_pending = true; break;
-		default: win32_fatal("ReadFile:"); return copy_pipe_result_failed;
 		}
-	} else {
-		pipe->is_pending = false;
-		if (bytes_read) {
-			sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
+
+		win32_fatal("GetOverlappedResult:");
+	}
+
+	if (pipe->is_reading && bytes_read) {
+		sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
+	}
+	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
+	pipe->is_reading = true;
+
+	if (!ReadFile(
+		    pipe->handle, pipe->overlapped_buf, sizeof(pipe->overlapped_buf), &bytes_read, &pipe->overlapped)) {
+		if (GetLastError() == ERROR_BROKEN_PIPE) {
+			pipe->is_eof = true;
+			if (!close_handle(&pipe->handle)) {
+				return copy_pipe_result_failed;
+			}
+			return copy_pipe_result_finished;
+		}
+		if (GetLastError() != ERROR_IO_PENDING) {
+			win32_fatal("ReadFile:");
 		}
 	}
 
@@ -123,45 +111,27 @@ copy_pipe(struct win_pipe_inst *pipe, struct sbuf *sbuf)
 static enum copy_pipe_result
 copy_pipes(struct run_cmd_ctx *ctx)
 {
-	struct {
-		struct win_pipe_inst *pipe;
-		struct sbuf *sbuf;
-	} pipes[2];
-	HANDLE events[2];
-	uint32_t event_count = 0;
+	DWORD bytes_read;
+	struct win_pipe_inst *pipe;
+	OVERLAPPED *overlapped;
 
-#define PUSH_PIPE(__p, __sb)                        \
-	if (!(__p)->is_eof) {                       \
-		pipes[event_count].pipe = (__p);    \
-		pipes[event_count].sbuf = (__sb);   \
-		events[event_count] = (__p)->event; \
-		++event_count;                      \
+	if (!GetQueuedCompletionStatus(ctx->ioport, &bytes_read, (PULONG_PTR)&pipe, &overlapped, INFINITE)) {
+		if (GetLastError() != ERROR_BROKEN_PIPE) {
+			win32_fatal("GetQueuedCompletionStatus:");
+		}
 	}
 
-	PUSH_PIPE(&ctx->pipe_out, &ctx->out);
-	PUSH_PIPE(&ctx->pipe_err, &ctx->err);
-
-#undef PUSH_PIPE
-
-	if (!event_count) {
-		return copy_pipe_result_finished;
-	}
-
-	DWORD wait = WaitForMultipleObjects(event_count, events, FALSE, 100);
-
-	if (wait == WAIT_TIMEOUT) {
-		return copy_pipe_result_waiting;
-	} else if (wait == WAIT_FAILED) {
-		win32_fatal("WaitForMultipleObjects:");
-	} else if (WAIT_ABANDONED_0 <= wait && wait < WAIT_ABANDONED_0 + event_count) {
-		win32_fatal("WaitForMultipleObjects: abandoned");
-	} else if (wait >= WAIT_OBJECT_0 + event_count) {
-		win32_fatal("WaitForMultipleObjects: index out of range");
+	struct sbuf *sbuf = 0;
+	if (pipe == &ctx->pipe_out) {
+		sbuf = &ctx->out;
+	} else if (pipe == &ctx->pipe_err) {
+		sbuf = &ctx->err;
 	} else {
-		wait -= WAIT_OBJECT_0;
+		/* return copy_pipe_result_waiting; */
+		UNREACHABLE;
 	}
 
-	return copy_pipe(pipes[wait].pipe, pipes[wait].sbuf);
+	return copy_pipe(ctx, pipe, sbuf);
 }
 
 static void
@@ -172,9 +142,8 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 	}
 
 	close_handle(&ctx->pipe_err.handle);
-	close_handle(&ctx->pipe_err.event);
 	close_handle(&ctx->pipe_out.handle);
-	close_handle(&ctx->pipe_out.event);
+	close_handle(&ctx->ioport);
 
 	// TODO stdin
 #if 0
@@ -195,7 +164,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	bool loop = true;
 	while (loop) {
-		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture) && !(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
 			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
@@ -248,17 +217,7 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 		name);
 	++uniq;
 
-	if (!record_handle(&pipe->event,
-		    CreateEvent(NULL, // default security attribute
-			    TRUE, // manual-reset event
-			    TRUE, // initial state = signaled
-			    NULL // unnamed event object
-			    ))) {
-		win32_fatal("CreateEvent:");
-	}
-
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
-	pipe->overlapped.hEvent = pipe->event;
 
 	if (!record_handle(&pipe->handle,
 		    CreateNamedPipeA(pipe_name,
@@ -271,6 +230,10 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 			    NULL))) {
 		win32_fatal("CreateNamedPipe:");
 		return false;
+	}
+
+	if (!CreateIoCompletionPort(pipe->handle, ctx->ioport, (ULONG_PTR)pipe, 0)) {
+		win32_fatal("CreateIoCompletionPort");
 	}
 
 	if (!ConnectNamedPipe(pipe->handle, &pipe->overlapped) && GetLastError() != ERROR_IO_PENDING) {
@@ -307,7 +270,6 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 	}
 
 	pipe->child_handle = output_write_child;
-	pipe->is_pending = true;
 	return true;
 }
 
@@ -316,6 +278,11 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 {
 	if (ctx->flags & run_cmd_ctx_flag_dont_capture) {
 		return true;
+	}
+
+	assert(ctx->ioport == 0);
+	if (!record_handle(&ctx->ioport, CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1))) {
+		win32_fatal("CreateIoCompletionPort:");
 	}
 
 	sbuf_init(&ctx->out, 0, 0, sbuf_flag_overflow_alloc);
@@ -340,51 +307,81 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 
 	ctx->process = INVALID_HANDLE_VALUE;
 
+	LL("executing: (%d)", strlen(command_line));
+	if (log_should_print(log_debug)) {
+		log_plain("%s\n", command_line);
+	}
+
 	if (envstr) {
+		LPSTR oldenv = GetEnvironmentStrings();
+
 		const char *k;
 		uint32_t i = 0;
-
+		LL("env:");
 		p = k = envstr;
-		for (;; ++p) {
+		for (; envc; ++p) {
 			if (!p[0]) {
 				if (!k) {
 					k = p + 1;
 				} else {
-					SetEnvironmentVariable(k, p + 1);
+					assert(*k);
+					if (log_should_print(log_debug)) {
+						log_plain(" %s='%s'", k, p + 1);
+					}
+
+					if (!SetEnvironmentVariable(k, p + 1)) {
+						LOG_E("failed to set environment var %s='%s': %s",
+							k,
+							p + 1,
+							win32_error());
+						FreeEnvironmentStrings(oldenv);
+						return false;
+					}
+
 					k = NULL;
+
 					if (++i >= envc) {
 						break;
 					}
 				}
 			}
 		}
-	}
 
-	if (log_should_print(log_debug)) {
-		LL("executing : '%s'\n", command_line);
-
-		if (envstr) {
-			const char *k;
-			uint32_t i = 0;
-			LL("env:");
-			p = k = envstr;
-			for (;; ++p) {
-				if (!p[0]) {
-					if (!k) {
-						k = p + 1;
-					} else {
-						log_plain(" %s='%s'", k, p + 1);
-						k = NULL;
-
-						if (++i >= envc) {
-							break;
-						}
-					}
-				}
-			}
-
+		if (log_should_print(log_debug)) {
 			log_plain("\n");
 		}
+
+		LPSTR newenv = GetEnvironmentStrings();
+
+		// Clear out current env based on newenv
+		char *var;
+		for (var = newenv; *var;) {
+			size_t len = strlen(var);
+			char *split = strchr(var, '=');
+			*split = 0;
+			SetEnvironmentVariable(var, 0);
+			*split = '=';
+			var += len + 1;
+		}
+
+		// Copy newenv into ctx->env
+		sbuf_init(&ctx->env, 0, 0, sbuf_flag_overflow_alloc);
+		sbuf_pushn(0, &ctx->env, newenv, var - newenv);
+		sbuf_push(0, &ctx->env, 0);
+
+		FreeEnvironmentStrings(newenv);
+
+		// Reset env based on oldenv
+		for (var = oldenv; *var;) {
+			size_t len = strlen(var);
+			char *split = strchr(var, '=');
+			*split = 0;
+			SetEnvironmentVariable(var, split + 1);
+			*split = '=';
+			var += len + 1;
+		}
+
+		FreeEnvironmentStrings(oldenv);
 	}
 
 	// TODO stdin
@@ -445,13 +442,17 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 
 	DWORD process_flags = 0;
 
-	res = CreateProcess(NULL,
+	if (strlen(command_line) >= 32767) {
+		LOG_E("command too long");
+	}
+
+	res = CreateProcessA(NULL,
 		command_line,
 		NULL,
 		NULL,
 		/* inherit handles */ TRUE,
 		process_flags,
-		NULL,
+		ctx->env.buf,
 		ctx->chdir,
 		&startup_info,
 		&process_info);
@@ -546,6 +547,8 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		sbuf_pushf(0, cmd, " \"%s\"", new_argv1);
 	}
 
+	SBUF_manual(arg_buf);
+
 	if (argstr) {
 		const char *p, *arg;
 		uint32_t i = 0;
@@ -554,7 +557,9 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		for (;; ++p) {
 			if (!p[0]) {
 				if (i > 0) {
-					sbuf_pushf(0, cmd, " %s", arg);
+					sbuf_clear(&arg_buf);
+					shell_escape(0, &arg_buf, arg);
+					sbuf_pushf(0, cmd, " %s", arg_buf.buf);
 				}
 
 				if (++i >= argstr_argc) {
@@ -567,9 +572,13 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	} else {
 		uint32_t i;
 		for (i = 1; argv[i]; ++i) {
-			sbuf_pushf(0, cmd, " %s", argv[i]);
+			sbuf_clear(&arg_buf);
+			shell_escape(0, &arg_buf, argv[i]);
+			sbuf_pushf(0, cmd, " %s", arg_buf.buf);
 		}
 	}
+
+	sbuf_destroy(&arg_buf);
 
 	return true;
 }
@@ -628,6 +637,9 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 
 	sbuf_destroy(&ctx->out);
 	sbuf_destroy(&ctx->err);
+	sbuf_destroy(&ctx->env);
+
+	assert(ctx->cnt_open == 0);
 }
 
 bool
