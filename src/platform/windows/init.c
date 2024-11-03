@@ -17,6 +17,8 @@ platform_init(void)
 	setmode(fileno(stdin), O_BINARY);
 	setmode(fileno(stdout), O_BINARY);
 	setmode(fileno(stderr), O_BINARY);
+
+	setvbuf(stderr, 0, _IOFBF, 2048);
 }
 
 void
