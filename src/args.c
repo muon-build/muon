@@ -41,6 +41,7 @@ void
 shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
 	const char *need_escaping = "\"'$ \\><&#()\n";
+	const char *escape = "\"$\\";
 	const char *s;
 	bool do_esc = false;
 
@@ -64,11 +65,10 @@ shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 	sbuf_push(wk, sb, '"');
 
 	for (s = str; *s; ++s) {
-		if (*s == '"') {
-			sbuf_pushs(wk, sb, "\\\"");
-		} else {
-			sbuf_push(wk, sb, *s);
+		if (strchr(escape, *s)) {
+			sbuf_push(wk, sb, '\\');
 		}
+		sbuf_push(wk, sb, *s);
 	}
 
 	sbuf_push(wk, sb, '"');
