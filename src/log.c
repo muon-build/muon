@@ -153,7 +153,7 @@ log_init(void)
 	uint64_t ll;
 
 	assert(!log_cfg.initialized);
-	log_cfg.file = stderr;
+	log_cfg.file = stdout;
 	log_cfg.initialized = true;
 
 	if ((sll = getenv("MUON_LOG_LVL"))) {

@@ -222,7 +222,7 @@ repl(struct workspace *wk, bool dbg)
 	bool loop = true;
 	obj repl_res = 0;
 	char *line;
-	FILE *out = stderr;
+	FILE *out = log_file();
 	enum repl_cmd {
 		repl_cmd_noop,
 		repl_cmd_exit,

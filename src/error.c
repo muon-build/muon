@@ -252,7 +252,7 @@ print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt,
 		if (src->src[i] == '\t') {
 			log_plain("        ");
 		} else {
-			putc(src->src[i], stderr);
+			putc(src->src[i], log_file());
 		}
 	}
 	log_plain("\n");
