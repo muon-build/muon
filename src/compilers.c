@@ -1264,6 +1264,28 @@ TOOLCHAIN_PROTO_0(compiler_cl_args_object_extension)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(compiler_cl_args_std_supported)
+{
+	const char *supported[] = {
+		"c++14",
+		"c++17",
+		"c++20",
+		"c++latest",
+		"c11",
+		"c17",
+		"clatest",
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(supported); ++i) {
+		if (strcmp(a, supported[i]) == 0) {
+			return TOOLCHAIN_TRUE;
+		}
+	}
+
+	return TOOLCHAIN_FALSE;
+}
+
 TOOLCHAIN_PROTO_1s(compiler_clang_cl_args_color_output)
 {
 	TOOLCHAIN_ARGS({ "-fcolor-diagnostics" });
@@ -1567,6 +1589,7 @@ build_compilers(void)
 	msvc.default_static_linker = static_linker_msvc;
 	msvc.args.object_ext = compiler_cl_args_object_extension;
 	msvc.args.deps_type = compiler_deps_msvc;
+	msvc.args.std_supported = compiler_cl_args_std_supported;
 
 	struct compiler clang_cl = msvc;
 	clang_cl.args.color_output = compiler_clang_cl_args_color_output;

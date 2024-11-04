@@ -174,11 +174,38 @@ get_std_args(struct workspace *wk,
 	default: return;
 	}
 
-	const char *s = get_cstr(wk, std);
+	const char *s, *next = get_cstr(wk, std);
+	char buf[256];
+	uint32_t len;
 
-	if (strcmp(s, "none") != 0) {
-		push_args(wk, args_id, toolchain_compiler_set_std(wk, comp, s));
-	}
+	do {
+		s = next;
+		if ((next = strchr(s, ','))) {
+			len = next - s;
+			++next;
+		} else {
+			len = strlen(s);
+			next = s + len;
+		}
+
+		if (!len) {
+			continue;
+		} else if (len >= sizeof(buf)) {
+			LOG_W("skipping invalid std '%.*s'", len, s);
+		} else if (strncmp(s, "none", len) == 0) {
+			return;
+		} else {
+			memcpy(buf, s, len);
+			buf[len] = 0;
+
+			if (toolchain_compiler_std_supported(wk, comp, buf)) {
+				push_args(wk, args_id, toolchain_compiler_set_std(wk, comp, buf));
+				return;
+			}
+		}
+	} while (*next);
+
+	LOG_W("none of the requested stds are supported: '%s'", get_cstr(wk, std));
 }
 
 void

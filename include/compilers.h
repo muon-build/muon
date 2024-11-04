@@ -62,7 +62,7 @@ enum static_linker_type {
 	_(c)                                 \
 	_(cpp)                               \
 	_(objc)                              \
-	_(objcpp)                              \
+	_(objcpp)                            \
 	_(assembly)                          \
 	_(llvm_ir)                           \
 	_(nasm)
@@ -128,6 +128,9 @@ struct toolchain_arg_handler {
 	enum toolchain_arg_arity arity;
 };
 
+#define TOOLCHAIN_TRUE ((void*)1)
+#define TOOLCHAIN_FALSE 0
+
 #define TOOLCHAIN_PARAMS_BASE struct workspace *wk, struct obj_compiler *comp
 #define TOOLCHAIN_PARAM_NAMES_BASE wk, comp
 
@@ -183,7 +186,8 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)          \
 	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)          \
 	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)           \
-	_(coverage, compiler, TOOLCHAIN_PARAMS_0)
+	_(coverage, compiler, TOOLCHAIN_PARAMS_0)            \
+	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)
 
 #define FOREACH_LINKER_ARG(_)                                \
 	_(lib, linker, TOOLCHAIN_PARAMS_1s)                  \
