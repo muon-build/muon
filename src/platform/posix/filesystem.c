@@ -337,9 +337,6 @@ fs_is_a_tty_from_fd(int fd)
 	if (isatty(fd) == 1) {
 		return true;
 	} else {
-		if (errno != ENOTTY) {
-			LOG_W("isatty() failed: %s", strerror(errno));
-		}
 		return false;
 	}
 }
