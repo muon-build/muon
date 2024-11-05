@@ -51,7 +51,7 @@ call ale#linter#Define('meson', {
 \   'executable': function('ale_linters#meson#muon#GetExecutable'),
 \   'command': function('ale_linters#meson#muon#GetCommand'),
 \   'callback': 'ale_linters#meson#muon#Handle',
-\   'output_stream': 'stderr',
+\   'output_stream': 'stdout',
 \})
 
 " usage:
