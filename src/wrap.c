@@ -626,6 +626,10 @@ wrap_handle_file(struct wrap *wrap, const char *subprojects, bool download)
 {
 	const char *dest;
 
+	if (!wrap->fields[wf_source_filename]) {
+		return false;
+	}
+
 	if (wrap->fields[wf_lead_directory_missing]) {
 		dest = wrap->dest_dir.buf;
 	} else {
