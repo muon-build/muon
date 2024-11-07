@@ -938,7 +938,6 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 
 	parse_expect(p, token_type_identifier);
 	id = parse_id(p, false);
-	id->type = node_type_id_lit;
 
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
 		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
@@ -950,6 +949,7 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 	} else {
 		n = make_node_t(p, node_type_member);
 		n->l = l;
+		id->type = node_type_id_lit;
 		n->r = id;
 
 		if (!(p->mode & vm_compile_mode_language_extended)) {

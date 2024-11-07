@@ -1381,10 +1381,9 @@ vm_op_stringify(struct workspace *wk)
 }
 
 static bool
-vm_op_store_member_target(struct workspace *wk, uint32_t ip, obj id, enum op_store_flags flags, obj **member_target)
+vm_op_store_member_target(struct workspace *wk, uint32_t ip, obj target_container, obj id, enum op_store_flags flags, obj **member_target)
 {
 	obj res;
-	obj target_container = object_stack_pop(&wk->vm.stack);
 	enum obj_type target_container_type = get_obj_type(wk, target_container), id_type = get_obj_type(wk, id);
 
 	switch (target_container_type) {
@@ -1446,16 +1445,29 @@ vm_op_store(struct workspace *wk)
 	struct obj_stack_entry *id_entry;
 	obj id, val, *member_target = 0;
 
-	id_entry = object_stack_pop_entry(&wk->vm.stack);
-	id = id_entry->o;
-	val = object_stack_pop(&wk->vm.stack);
-
+	/* op store operands come in different order depending on the store type:
+	 *   regular store:
+	 *     <destination_id> <value>
+	 *   member store
+	 *     <value> <container> <destination_id>
+	 */
 	if (flags & op_store_flag_member) {
-		if (!vm_op_store_member_target(wk, id_entry->ip, id, flags, &member_target)) {
+		val = object_stack_pop(&wk->vm.stack);
+		obj target_container = object_stack_pop(&wk->vm.stack);
+		id_entry = object_stack_pop_entry(&wk->vm.stack);
+		id = id_entry->o;
+
+		if (!vm_op_store_member_target(wk, id_entry->ip, target_container, id, flags, &member_target)) {
 			object_stack_push(wk, val);
 			return;
 		}
-	} else if (get_obj_type(wk, id) == obj_typeinfo) {
+	} else {
+		id_entry = object_stack_pop_entry(&wk->vm.stack);
+		id = id_entry->o;
+		val = object_stack_pop(&wk->vm.stack);
+	}
+
+	if (get_obj_type(wk, id) == obj_typeinfo) {
 		object_stack_push(wk, val);
 		return;
 	}

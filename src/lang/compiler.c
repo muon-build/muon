@@ -204,14 +204,16 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.len.kwargs);
 		break;
 	case node_type_assign:
-		switch (n->l->type) {
-		case node_type_id_lit:
-			push_code(wk, op_constant);
-			push_constant(wk, n->l->data.str);
-			break;
-		default:
-			vm_compile_expr(wk, n->l);
-			break;
+		if (!(n->data.type & op_store_flag_member)) {
+			switch (n->l->type) {
+			case node_type_id_lit:
+				push_code(wk, op_constant);
+				push_constant(wk, n->l->data.str);
+				break;
+			default:
+				vm_compile_expr(wk, n->l);
+				break;
+			}
 		}
 		push_op_store(wk, n->data.type);
 		break;
