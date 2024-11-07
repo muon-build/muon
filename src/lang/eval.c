@@ -62,7 +62,9 @@ eval_project(struct workspace *wk,
 		enum build_language lang;
 		const char *build_file = determine_build_file(wk, cwd, &lang);
 
-		if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first)) {
+		if (!build_file) {
+			goto cleanup;
+		} else if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first)) {
 			goto cleanup;
 		}
 	}
