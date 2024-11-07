@@ -457,9 +457,9 @@ determine_project_root(struct workspace *wk, const char *path)
 		struct source src = { 0 };
 
 		if (!fs_read_entire_file(path, &src)) {
-			return 0;
+			goto cont;
 		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet))) {
-			return 0;
+			goto cont;
 		}
 		fs_source_destroy(&src);
 
@@ -507,12 +507,11 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 	}
 
 	if (!found) {
-		LLOG_E("No build file found (tried ");
+		LLOG_W("No build file found in %s (tried ", cwd);
 		for (i = 0; i < ARRAY_LEN(names); ++i) {
 			log_plain("%s%s", names[i].name, i + 1 == ARRAY_LEN(names) ? "" : ", ");
 		}
-
-		return 0;
+		log_plain(")\n");
 	}
 
 	*out_lang = names[i].lang;
