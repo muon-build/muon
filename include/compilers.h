@@ -258,6 +258,22 @@ extern struct linker linkers[];
 extern struct static_linker static_linkers[];
 extern const struct language languages[];
 
+struct compiler_check_cache_key {
+	struct obj_compiler *comp;
+	const char *argstr;
+	const char *src;
+	uint32_t argc;
+};
+
+struct compiler_check_cache_value {
+	obj value;
+	bool success;
+};
+
+obj compiler_check_cache_key(struct workspace *wk, const struct compiler_check_cache_key *key);
+bool compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val);
+void compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val);
+
 const char *compiler_type_to_s(enum compiler_type t);
 bool compiler_type_from_s(const char *name, uint32_t *res);
 const char *linker_type_to_s(enum linker_type t);

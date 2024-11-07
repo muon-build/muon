@@ -28,7 +28,6 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
-#include "sha_256.h"
 
 enum compile_mode {
 	compile_mode_preprocess,
@@ -128,95 +127,6 @@ add_include_directory_args(struct workspace *wk,
 
 	setup_compiler_args_includes(wk, comp_id, include_dirs, compiler_args, false);
 	return true;
-}
-
-static bool
-compiler_check_cache(struct workspace *wk,
-	struct obj_compiler *comp,
-	const char *argstr,
-	uint32_t argc,
-	const char *src,
-	uint8_t sha_res[32],
-	bool *res,
-	obj *res_val)
-{
-	uint32_t argstr_len;
-	{
-		uint32_t i = 0;
-		const char *p = argstr;
-		for (;; ++p) {
-			if (!p[0]) {
-				if (++i >= argc) {
-					break;
-				}
-			}
-		}
-
-		argstr_len = p - argstr;
-	}
-
-	enum {
-		sha_idx_argstr = 0,
-		sha_idx_ver = sha_idx_argstr + 32,
-		sha_idx_src = sha_idx_ver + 32,
-		sha_len = sha_idx_src + 32
-	};
-
-	uint8_t sha[sha_len] = { 0 };
-
-	calc_sha_256(&sha[sha_idx_argstr], argstr, argstr_len);
-
-	if (comp->ver) {
-		const struct str *ver = get_str(wk, comp->ver);
-		calc_sha_256(&sha[sha_idx_ver], ver->s, ver->len);
-	}
-
-	calc_sha_256(&sha[sha_idx_src], src, strlen(src));
-
-	calc_sha_256(sha_res, sha, sha_len);
-
-	/* LLOG_I("sha: "); */
-	/* uint32_t i; */
-	/* for (i = 0; i < 32; ++i) { */
-	/* 	log_plain("%02x", sha_res[i]); */
-	/* } */
-	/* log_plain("\n"); */
-
-	obj arr;
-	if (obj_dict_index_strn(wk, wk->compiler_check_cache, (const char *)sha_res, 32, &arr)) {
-		obj cache_res;
-		obj_array_index(wk, arr, 0, &cache_res);
-		*res = get_obj_bool(wk, cache_res);
-		obj_array_index(wk, arr, 1, res_val);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-static void
-set_compiler_cache(struct workspace *wk, obj key, bool res, obj val)
-{
-	if (!key) {
-		return;
-	}
-
-	obj arr, cache_res;
-	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
-		obj_array_index(wk, arr, 0, &cache_res);
-		set_obj_bool(wk, cache_res, res);
-		obj_array_set(wk, arr, 1, val);
-	} else {
-		make_obj(wk, &arr, obj_array);
-
-		make_obj(wk, &cache_res, obj_bool);
-		set_obj_bool(wk, cache_res, res);
-
-		obj_array_push(wk, arr, cache_res);
-		obj_array_push(wk, arr, val);
-
-		obj_dict_set(wk, wk->compiler_check_cache, key, arr);
-	}
 }
 
 static bool
@@ -335,13 +245,22 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, compiler_args);
 
-	uint8_t sha[32];
-	if (compiler_check_cache(wk, comp, argstr, argc, src, sha, res, &opts->cache_val)) {
+	opts->cache_key = compiler_check_cache_key(wk,
+		&(struct compiler_check_cache_key){
+			.comp = comp,
+			.argstr = argstr,
+			.argc = argc,
+			.src = src,
+		});
+
+	struct compiler_check_cache_value cache_value = { 0 };
+
+	if (compiler_check_cache_get(wk, opts->cache_key, &cache_value)) {
+		*res = cache_value.success;
+		opts->cache_val = cache_value.value;
 		opts->from_cache = true;
 		return true;
 	}
-
-	opts->cache_key = make_strn(wk, (const char *)sha, 32);
 
 	if (!opts->src_is_path) {
 		L("compiling: '%s'", src);
@@ -390,7 +309,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	// store wether or not the check suceeded in the cache, the caller is
 	// responsible for storing the actual value
-	set_compiler_cache(wk, opts->cache_key, *res, 0);
+	compiler_check_cache_set(wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = *res });
 
 	ret = true;
 ret:
@@ -601,7 +520,9 @@ func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 		*res = opts.cache_val;
 	} else {
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
-		set_compiler_cache(wk, opts.cache_key, true, *res);
+
+		compiler_check_cache_set(
+			wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 	}
 
 	compiler_check_log(wk, &opts, "sizeof %s: %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
@@ -645,7 +566,8 @@ func_compiler_alignment(struct workspace *wk, obj self, obj *res)
 		make_obj(wk, res, obj_number);
 		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
-		set_compiler_cache(wk, opts.cache_key, true, *res);
+		compiler_check_cache_set(
+			wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 	}
 
 	compiler_check_log(wk, &opts, "alignment of %s: %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
@@ -694,7 +616,8 @@ func_compiler_compute_int(struct workspace *wk, obj self, obj *res)
 		make_obj(wk, res, obj_number);
 		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
-		set_compiler_cache(wk, opts.cache_key, true, *res);
+		compiler_check_cache_set(
+			wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 	}
 
 	compiler_check_log(wk, &opts, "%s computed to %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
@@ -1277,7 +1200,8 @@ compiler_get_define(struct workspace *wk,
 		*res = 0;
 	}
 
-	set_compiler_cache(wk, opts->cache_key, true, *res);
+		compiler_check_cache_set(
+			wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 done:
 	if (check_only) {
 		compiler_check_log(wk, opts, "defines %s %s", def, bool_to_yn(!!*res));
@@ -1775,7 +1699,8 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 			rr->status = opts.cmd_ctx.status;
 		}
 
-		set_compiler_cache(wk, opts.cache_key, ok, *res);
+		compiler_check_cache_set(
+			wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = ok, .value = *res });
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
 	}
 

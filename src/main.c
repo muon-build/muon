@@ -820,24 +820,12 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:c:b:") {
+	OPTSTART("D:b:") {
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
 		}
 		break;
-	case 'c': {
-		FILE *f;
-		if (!(f = fs_fopen(optarg, "rb"))) {
-			goto ret;
-		} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
-			LOG_E("failed to load compiler check cache");
-			goto ret;
-		} else if (!fs_fclose(f)) {
-			goto ret;
-		}
-		break;
-	}
 	case 'b': {
 		vm_dbg_push_breakpoint(&wk, optarg);
 		break;
@@ -846,7 +834,6 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n"
-		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
 		"  -b <breakpoint> - set breakpoint\n",
 		NULL,
 		1)
@@ -859,6 +846,20 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	workspace_init_startup_files(&wk);
+
+	{
+		SBUF(path);
+		path_join(&wk, &path, wk.muon_private, output_path.compiler_check_cache);
+		if (fs_file_exists(path.buf)) {
+			FILE *f;
+			if ((f = fs_fopen(path.buf, "rb"))) {
+				if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
+					LOG_E("failed to load compiler check cache");
+				}
+				fs_fclose(f);
+			}
+		}
+	}
 
 	uint32_t project_id;
 	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {

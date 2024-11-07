@@ -292,8 +292,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-c* <compiler
-	check cache.dat>] [*-b*] <build dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-b*] <build dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 
@@ -302,8 +301,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  are either built in or project-defined.  Subproject options can be
 	  specified by prepending the subproject's name and a colon to the
 	  *option*.  This option may be specified multiple times.
-	- *-c* <path> - load compiler check cache dump from path.  This is used
-	  internally when creating the regeneration command.
 	- *-b* - Break on error.  When this option is passed, muon will enter a
 	  debugging repl when a fatal error is encountered.  From there you can
 	  inspect and modify state, and optionally continue setup.

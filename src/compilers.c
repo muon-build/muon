@@ -25,6 +25,96 @@
 #include "options.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "sha_256.h"
+
+obj
+compiler_check_cache_key(struct workspace *wk, const struct compiler_check_cache_key *key)
+{
+	uint32_t argstr_len;
+	{
+		uint32_t i = 0;
+		const char *p = key->argstr;
+		for (;; ++p) {
+			if (!p[0]) {
+				if (++i >= key->argc) {
+					break;
+				}
+			}
+		}
+
+		argstr_len = p - key->argstr;
+	}
+
+	enum {
+		sha_idx_argstr = 0,
+		sha_idx_ver = sha_idx_argstr + 32,
+		sha_idx_src = sha_idx_ver + 32,
+		sha_data_len = sha_idx_src + 32
+	};
+
+	uint8_t sha_data[sha_data_len] = { 0 };
+
+	calc_sha_256(&sha_data[sha_idx_argstr], key->argstr, argstr_len);
+	if (key->comp && key->comp->ver) {
+		const struct str *ver = get_str(wk, key->comp->ver);
+		calc_sha_256(&sha_data[sha_idx_ver], ver->s, ver->len);
+	}
+	if (key->src) {
+		calc_sha_256(&sha_data[sha_idx_src], key->src, strlen(key->src));
+	}
+
+	uint8_t sha[32];
+	calc_sha_256(sha, sha_data, sha_data_len);
+
+	/* LLOG_I("sha: "); */
+	/* uint32_t i; */
+	/* for (i = 0; i < 32; ++i) { */
+	/* 	log_plain("%02x", sha_res[i]); */
+	/* } */
+	/* log_plain("\n"); */
+
+	return make_strn(wk, (const char *)sha, 32);
+}
+
+bool
+compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val)
+{
+	obj arr;
+	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
+		obj cache_res;
+		obj_array_index(wk, arr, 0, &cache_res);
+		val->success = get_obj_bool(wk, cache_res);
+		obj_array_index(wk, arr, 1, &val->value);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+void
+compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val)
+{
+	if (!key) {
+		return;
+	}
+
+	obj arr, cache_res;
+	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
+		obj_array_index(wk, arr, 0, &cache_res);
+		set_obj_bool(wk, cache_res, val->success);
+		obj_array_set(wk, arr, 1, val->value);
+	} else {
+		make_obj(wk, &arr, obj_array);
+
+		make_obj(wk, &cache_res, obj_bool);
+		set_obj_bool(wk, cache_res, val->success);
+
+		obj_array_push(wk, arr, cache_res);
+		obj_array_push(wk, arr, val->value);
+
+		obj_dict_set(wk, wk->compiler_check_cache, key, arr);
+	}
+}
 
 struct toolchain_id {
 	const char *public_id;
@@ -208,12 +298,65 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, args);
 
-	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
-		run_cmd_ctx_destroy(cmd_ctx);
-		return false;
+	obj cache_key = compiler_check_cache_key(wk,
+		&(struct compiler_check_cache_key){
+			.argstr = argstr,
+			.argc = argc,
+		});
+
+	struct compiler_check_cache_value cache_val = { 0 };
+	if (compiler_check_cache_get(wk, cache_key, &cache_val)) {
+		if (!cache_val.success) {
+			return false;
+		}
+
+		obj status, err, out;
+		obj_array_index(wk, cache_val.value, 0, &status);
+		obj_array_index(wk, cache_val.value, 1, &out);
+		obj_array_index(wk, cache_val.value, 2, &err);
+
+		cmd_ctx->status = get_obj_number(wk, status);
+
+		const struct str *err_str = get_str(wk, err), *out_str = get_str(wk, out);
+
+		cmd_ctx->out = (struct sbuf){
+			.buf = (char *)out_str->s,
+			.len = out_str->len,
+			.cap = out_str->len,
+			.flags = sbuf_flag_overflown,
+			.s = out,
+		};
+
+		cmd_ctx->err = (struct sbuf){
+			.buf = (char *)err_str->s,
+			.len = err_str->len,
+			.cap = err_str->len,
+			.flags = sbuf_flag_overflown,
+			.s = err,
+		};
+
+		return true;
 	}
 
-	return true;
+	bool success = true;
+
+	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+		run_cmd_ctx_destroy(cmd_ctx);
+		success = false;
+	}
+
+	cache_val.success = success;
+	make_obj(wk, &cache_val.value, obj_array);
+
+	obj status;
+	make_obj(wk, &status, obj_number);
+	set_obj_number(wk, status, cmd_ctx->status);
+	obj_array_push(wk, cache_val.value, status);
+	obj_array_push(wk, cache_val.value, make_strn(wk, cmd_ctx->out.buf, cmd_ctx->out.len));
+	obj_array_push(wk, cache_val.value, make_strn(wk, cmd_ctx->err.buf, cmd_ctx->err.len));
+	compiler_check_cache_set(wk, cache_key, &cache_val);
+
+	return success;
 }
 
 static const char *
@@ -615,6 +758,10 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 bool
 toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 {
+	if (obj_dict_geti(wk, wk->toolchain_cache, lang, comp)) {
+		return true;
+	}
+
 	make_obj(wk, comp, obj_compiler);
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
@@ -632,9 +779,13 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		return false;
 	}
 
+	obj_dict_seti(wk, wk->toolchain_cache, lang, *comp);
+
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 
-	LLOG_I("detected compiler %s ", compiler_type_to_s(compiler->type[toolchain_component_compiler]));
+	LLOG_I("detected compiler for %s: %s ",
+		compiler_language_to_s(lang),
+		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
 	obj_fprintf(wk,
 		log_file(),
 		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",

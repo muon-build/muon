@@ -129,6 +129,7 @@ workspace_init_runtime(struct workspace *wk)
 	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	make_obj(wk, &wk->global_opts, obj_dict);
 	make_obj(wk, &wk->compiler_check_cache, obj_dict);
+	make_obj(wk, &wk->toolchain_cache, obj_dict);
 	make_obj(wk, &wk->dependency_handlers, obj_dict);
 	make_obj(wk, &wk->finalizers, obj_array);
 }
@@ -151,6 +152,7 @@ workspace_init_startup_files(struct workspace *wk)
 		}
 	}
 #endif
+
 }
 
 void

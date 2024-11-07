@@ -79,6 +79,8 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
+	/* compiler_lang -> obj_compiler */
+	obj toolchain_cache;
 	/* dict -> capture */
 	obj dependency_handlers;
 	/* list[str], used for error reporting */
