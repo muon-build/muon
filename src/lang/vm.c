@@ -1793,10 +1793,12 @@ vm_op_call(struct workspace *wk)
 	unop_disabler_check(f);
 
 	if (wk->vm.in_analyzer && get_obj_type(wk, f) == obj_typeinfo) {
+		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 		vm_push_dummy(wk);
 		typecheck(wk, 0, f, tc_capture);
 		return;
 	} else if (!typecheck(wk, 0, f, tc_capture)) {
+		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 		vm_push_dummy(wk);
 		return;
 	}
@@ -2503,16 +2505,6 @@ vm_execute_loop(struct workspace *wk)
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
 			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-
-			/* if (false) { */
-			/* 	char loc_buf[256]; */
-			/* 	struct source_location loc; */
-			/* 	struct source *src; */
-			/* 	vm_lookup_inst_location(&wk->vm, wk->vm.ip, &loc, &src); */
-			/* 	snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d", src ? src->label : 0, loc.off, loc.len); */
-			/* 	log_plain("%s ", loc_buf); */
-			/* } */
-
 			/* object_stack_print(wk, &wk->vm.stack); */
 		}
 
