@@ -170,6 +170,7 @@ get_std_args(struct workspace *wk,
 
 	switch (comp->lang) {
 	case compiler_language_c: get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
+	case compiler_language_objcpp:
 	case compiler_language_cpp: get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std); break;
 	default: return;
 	}
