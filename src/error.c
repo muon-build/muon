@@ -34,7 +34,7 @@ static struct {
 	} redirect;
 	struct workspace *wk;
 	enum error_diagnostic_store_replay_opts opts;
-} error_diagnostic_store;
+} error_diagnostic_store = { 0 };
 
 void
 error_diagnostic_store_redirect(struct source *src, struct source_location location)
@@ -170,7 +170,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 						       arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
 
 		if (cur_src != last_src) {
-			if (opts & error_diagnostic_store_replay_include_sources) {
+			if (!(opts & error_diagnostic_store_replay_dont_include_sources)) {
 				if (last_src) {
 					log_plain("\n");
 				}
@@ -444,8 +444,7 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s\n", msg);
 
-	if (error_diagnostic_store.init
-		&& !(error_diagnostic_store.opts & error_diagnostic_store_replay_include_sources)) {
+	if (error_diagnostic_store.opts & error_diagnostic_store_replay_dont_include_sources) {
 		goto ret;
 	}
 

@@ -274,7 +274,6 @@ static bool
 cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct az_opts opts = {
-		.replay_opts = error_diagnostic_store_replay_include_sources,
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
 				       | az_diagnostic_redirect_script_error,
 	};
@@ -283,7 +282,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 	case 'i': opts.internal_file = optarg; break;
 	case 'l':
 		opts.subdir_error = true;
-		opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
+		opts.replay_opts |= error_diagnostic_store_replay_dont_include_sources;
 		break;
 	case 'O': opts.file_override = optarg; break;
 	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
