@@ -12,11 +12,13 @@
 #include "coerce.h"
 #include "error.h"
 #include "external/libpkgconf.h"
+#include "functions/file.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "machines.h"
@@ -327,17 +329,6 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return true;
 }
 
-static enum iteration_result
-handle_appleframeworks_modules_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct dep_lookup_ctx *ctx = _ctx;
-	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-
-	obj_array_push(wk, dep->dep.link_args, make_str(wk, "-framework"));
-	obj_array_push(wk, dep->dep.link_args, val);
-	return ir_cont;
-}
-
 static bool
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
 {
@@ -386,8 +377,13 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 			dep->name = make_str(wk, "appleframeworks");
 			dep->flags |= dep_flag_found;
 			dep->type = dependency_type_appleframeworks;
-			make_obj(wk, &dep->dep.link_args, obj_array);
-			obj_array_foreach(wk, ctx->modules, ctx, handle_appleframeworks_modules_iter);
+			make_obj(wk, &dep->dep.frameworks, obj_array);
+
+			SBUF(path);
+			obj val;
+			obj_array_for(wk, ctx->modules, val) {
+				obj_array_push(wk, dep->dep.frameworks, val);
+			}
 		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
@@ -929,6 +925,10 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 		make_obj(wk, &dep->link_with_not_found, obj_array);
 	}
 
+	if (!dep->frameworks) {
+		make_obj(wk, &dep->frameworks, obj_array);
+	}
+
 	if (!dep->link_args) {
 		make_obj(wk, &dep->link_args, obj_array);
 	}
@@ -979,6 +979,10 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 
 	if (src->link_args) {
 		obj_array_extend(wk, dest->link_args, src->link_args);
+	}
+
+	if (src->frameworks) {
+		obj_array_extend(wk, dest->frameworks, src->frameworks);
 	}
 
 	if (dep && src->compile_args) {
@@ -1034,6 +1038,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->link_with);
 	obj_array_dedup_in_place(wk, &dep->link_with_not_found);
 	obj_array_dedup_in_place(wk, &dep->link_whole);
+	obj_array_dedup_in_place(wk, &dep->frameworks);
 	obj_array_dedup_in_place(wk, &dep->raw.deps);
 	obj_array_dedup_in_place(wk, &dep->raw.link_with);
 	obj_array_dedup_in_place(wk, &dep->raw.link_whole);

@@ -208,21 +208,22 @@ enum build_tgt_flags {
 struct build_dep {
 	enum compiler_language link_language;
 
-	obj link_whole; // obj_array
+	obj link_whole;
 
-	obj link_with; // obj_array
-	obj link_with_not_found; // obj_array
+	obj link_with;
+	obj link_with_not_found;
+	obj frameworks;
 
-	obj link_args; // obj_array
-	obj compile_args; // obj_array
+	obj link_args;
+	obj compile_args;
 
-	obj include_directories; // obj_array
+	obj include_directories;
 
-	obj sources; // obj_array
-	obj objects; // obj_array
+	obj sources;
+	obj objects;
 
-	obj order_deps; // obj_array
-	obj rpath; // obj_array
+	obj order_deps;
+	obj rpath;
 
 	struct {
 		obj deps;

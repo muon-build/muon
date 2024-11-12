@@ -673,6 +673,14 @@ setup_linker_args(struct workspace *wk,
 
 	obj_array_foreach(wk, ctx->args->rpath, ctx, process_rpath_iter);
 
+	if (ctx->args->frameworks) {
+		obj v;
+		obj_array_for(wk, ctx->args->frameworks, v) {
+			obj_array_push(wk, ctx->args->link_args, make_str(wk, "-framework"));
+			obj_array_push(wk, ctx->args->link_args, v);
+		}
+	}
+
 	bool have_link_whole = get_obj_array(wk, ctx->args->link_whole)->len,
 	     have_link_with = have_link_whole || get_obj_array(wk, ctx->args->link_with)->len
 			      || get_obj_array(wk, ctx->args->link_with_not_found)->len;
