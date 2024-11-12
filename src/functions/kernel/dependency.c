@@ -666,25 +666,27 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	} else if (!str_eql(get_str(wk, ctx.name), &WKSTR(""))) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 
-		LLOG_I("found dependency ");
-		if (dep->type == dependency_type_declared) {
-			obj_fprintf(wk, log_file(), "%o (declared dependency)", ctx.name);
-		} else {
-			log_plain("%s", get_cstr(wk, dep->name));
-		}
+		if (!ctx.from_cache) {
+			LLOG_I("found dependency ");
+			if (dep->type == dependency_type_declared) {
+				obj_fprintf(wk, log_file(), "%o (declared dependency)", ctx.name);
+			} else {
+				log_plain("%s", get_cstr(wk, dep->name));
+			}
 
-		if (dep->version) {
-			log_plain(" version %s", get_cstr(wk, dep->version));
-		}
+			if (dep->version) {
+				log_plain(" version %s", get_cstr(wk, dep->version));
+			}
 
-		if (ctx.lib_mode == dep_lib_mode_static) {
-			log_plain(" static");
-		}
+			if (ctx.lib_mode == dep_lib_mode_static) {
+				log_plain(" static");
+			}
 
-		log_plain("\n");
+			log_plain("\n");
 
-		if (dep->type == dependency_type_declared) {
-			L("(%s)", get_cstr(wk, dep->name));
+			if (dep->type == dependency_type_declared) {
+				L("(%s)", get_cstr(wk, dep->name));
+			}
 		}
 	}
 
@@ -1032,6 +1034,23 @@ dedup_link_args_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+dedup_compile_args_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj new_args = *(obj *)_ctx;
+
+	const struct str *s = get_str(wk, val);
+
+	if (str_eql(s, &WKSTR("-pthread")) || str_startswith(s, &WKSTR("-W")) || str_startswith(s, &WKSTR("-D"))) {
+		if (obj_array_in(wk, new_args, val)) {
+			return ir_cont;
+		}
+	}
+
+	obj_array_push(wk, new_args, val);
+	return ir_cont;
+}
+
 static void
 dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 {
@@ -1055,7 +1074,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 
 	obj new_compile_args;
 	make_obj(wk, &new_compile_args, obj_array);
-	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_link_args_iter);
+	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_compile_args_iter);
 	dep->compile_args = new_compile_args;
 }
 
