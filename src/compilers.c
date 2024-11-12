@@ -126,6 +126,12 @@ static const struct toolchain_id linker_type_name[] = { FOREACH_TOOLCHAIN_LINKER
 static const struct toolchain_id static_linker_type_name[] = { FOREACH_TOOLCHAIN_STATIC_LINKER_TYPE(TOOLCHAIN_NAME) };
 #undef TOOLCHAIN_CASE
 
+static const struct toolchain_id toolchain_component_name[] = {
+	[toolchain_component_compiler] = { "compiler", "compiler" },
+	[toolchain_component_linker] = { "linker", "linker" },
+	[toolchain_component_static_linker] = { "static_linker", "static_linker" },
+};
+
 static bool
 toolchain_id_lookup(const char *name, const struct toolchain_id names[], uint32_t len, uint32_t *res)
 {
@@ -174,6 +180,18 @@ bool
 static_linker_type_from_s(const char *name, uint32_t *res)
 {
 	return toolchain_id_lookup(name, static_linker_type_name, ARRAY_LEN(static_linker_type_name), res);
+}
+
+const char *
+toolchain_component_to_s(enum toolchain_component comp)
+{
+	return toolchain_component_name[comp].public_id;
+}
+
+bool
+toolchain_component_from_s(const char *name, uint32_t *res)
+{
+	return toolchain_id_lookup(name, toolchain_component_name, ARRAY_LEN(toolchain_component_name), res);
 }
 
 static const char *compiler_language_names[compiler_language_count] = {
@@ -419,7 +437,7 @@ detection_over:
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	comp->cmd_arr = cmd_arr;
+	comp->cmd_arr[toolchain_component_compiler] = cmd_arr;
 	comp->type[toolchain_component_compiler] = type;
 	comp->ver = ver;
 
@@ -481,7 +499,7 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	comp->cmd_arr = new_cmd;
+	comp->cmd_arr[toolchain_component_compiler] = new_cmd;
 	comp->type[toolchain_component_compiler] = type;
 	comp->ver = ver;
 	comp->lang = compiler_language_nasm;
@@ -494,7 +512,8 @@ static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-print-search-dirs") || cmd_ctx.status) {
+	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr[toolchain_component_compiler], "-print-search-dirs")
+		|| cmd_ctx.status) {
 		goto done;
 	}
 
@@ -543,7 +562,8 @@ static void
 compiler_refine_host_machine(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-dumpmachine") && cmd_ctx.status == 0) {
+	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr[toolchain_component_compiler], "-dumpmachine")
+		&& cmd_ctx.status == 0) {
 		machine_parse_and_apply_triplet(&host_machine, cmd_ctx.out.buf);
 	}
 	run_cmd_ctx_destroy(&cmd_ctx);
@@ -573,8 +593,6 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 		compiler_refine_host_machine(wk, compiler);
 
 		compiler->lang = lang;
-
-		compiler->linker_passthrough = compiler->type[toolchain_component_compiler] != compiler_msvc;
 		return true;
 	case compiler_language_nasm:
 		if (!compiler_detect_nasm(wk, cmd_arr, comp)) {
@@ -611,7 +629,7 @@ static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 
-	get_obj_compiler(wk, comp)->static_linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->cmd_arr[toolchain_component_static_linker] = cmd_arr;
 	get_obj_compiler(wk, comp)->type[toolchain_component_static_linker] = type;
 	return true;
 }
@@ -641,7 +659,7 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 
-	get_obj_compiler(wk, comp)->linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->cmd_arr[toolchain_component_linker] = cmd_arr;
 	get_obj_compiler(wk, comp)->type[toolchain_component_linker] = type;
 	return true;
 }
@@ -790,11 +808,11 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		log_file(),
 		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
 		compiler->ver,
-		compiler->cmd_arr,
+		compiler->cmd_arr[toolchain_component_compiler],
 		linker_type_to_s(compiler->type[toolchain_component_linker]),
-		compiler->linker_cmd_arr,
+		compiler->cmd_arr[toolchain_component_linker],
 		static_linker_type_to_s(compiler->type[toolchain_component_static_linker]),
-		compiler->static_linker_cmd_arr);
+		compiler->cmd_arr[toolchain_component_static_linker]);
 
 	return true;
 }
@@ -1452,6 +1470,11 @@ TOOLCHAIN_PROTO_0(compiler_clang_cl_args_lto)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_0(compiler_cl_args_do_linker_passthrough)
+{
+	return TOOLCHAIN_FALSE;
+}
+
 TOOLCHAIN_PROTO_0(compiler_deps_gcc)
 {
 	TOOLCHAIN_ARGS({ "gcc" });
@@ -1736,11 +1759,12 @@ build_compilers(void)
 	msvc.args.always = compiler_cl_args_always;
 	msvc.args.crt = compiler_cl_args_crt;
 	msvc.args.debugfile = compiler_cl_args_debugfile;
-	msvc.default_linker = linker_msvc;
-	msvc.default_static_linker = static_linker_msvc;
 	msvc.args.object_ext = compiler_cl_args_object_extension;
 	msvc.args.deps_type = compiler_deps_msvc;
 	msvc.args.std_supported = compiler_cl_args_std_supported;
+	msvc.args.do_linker_passthrough = compiler_cl_args_do_linker_passthrough;
+	msvc.default_linker = linker_msvc;
+	msvc.default_static_linker = static_linker_msvc;
 
 	struct compiler clang_cl = msvc;
 	clang_cl.args.color_output = compiler_clang_cl_args_color_output;

@@ -31,7 +31,7 @@ struct obj_compiler;
 	_(posix, "posix", "posix")          \
 	_(ld, "ld", "ld")                   \
 	_(clang, "lld", "lld")              \
-	_(apple, "ld64", "ld64")            \
+	_(apple, "ld", "ld-apple")            \
 	_(lld_link, "lld-link", "lld-link") \
 	_(msvc, "link", "link")
 
@@ -108,12 +108,6 @@ enum compiler_visibility_type {
 	compiler_visibility_inlineshidden,
 };
 
-enum toolchain_component {
-	toolchain_component_compiler,
-	toolchain_component_linker,
-	toolchain_component_static_linker,
-};
-
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
 	toolchain_arg_arity_1i,
@@ -159,6 +153,7 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, type)
 
 #define FOREACH_COMPILER_ARG(_)                              \
+	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0) \
 	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns) \
 	_(deps, compiler, TOOLCHAIN_PARAMS_2s)               \
 	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)        \
@@ -274,6 +269,8 @@ obj compiler_check_cache_key(struct workspace *wk, const struct compiler_check_c
 bool compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val);
 void compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val);
 
+const char *toolchain_component_to_s(enum toolchain_component comp);
+bool toolchain_component_from_s(const char *name, uint32_t *res);
 const char *compiler_type_to_s(enum compiler_type t);
 bool compiler_type_from_s(const char *name, uint32_t *res);
 const char *linker_type_to_s(enum linker_type t);

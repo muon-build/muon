@@ -150,7 +150,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
 
-	obj_array_extend(wk, compiler_args, comp->cmd_arr);
+	obj_array_extend(wk, compiler_args, comp->cmd_arr[toolchain_component_compiler]);
 
 	push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
 
@@ -1200,8 +1200,8 @@ compiler_get_define(struct workspace *wk,
 		*res = 0;
 	}
 
-		compiler_check_cache_set(
-			wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
+	compiler_check_cache_set(
+		wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 done:
 	if (check_only) {
 		compiler_check_log(wk, opts, "defines %s %s", def, bool_to_yn(!!*res));
@@ -2194,7 +2194,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 	}
 
 	obj base_cmd;
-	obj_array_dup(wk, comp->cmd_arr, &base_cmd);
+	obj_array_dup(wk, comp->cmd_arr[toolchain_component_compiler], &base_cmd);
 
 	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, comp));
 
@@ -2296,7 +2296,7 @@ func_compiler_cmd_array(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = get_obj_compiler(wk, self)->cmd_arr;
+	*res = get_obj_compiler(wk, self)->cmd_arr[toolchain_component_compiler];
 	return true;
 }
 
@@ -2349,136 +2349,159 @@ const struct func_impl impl_tbl_compiler[] = {
 };
 
 static bool
-compiler_handle_toolchain_args(struct workspace *wk, obj self, obj *res, enum toolchain_component component)
+validate_toolchain_handlers(struct workspace *wk, obj handlers, enum toolchain_component component)
 {
-	struct args_norm an[] = {
-		{ make_complex_type(wk,
-			complex_type_nested,
-			tc_dict,
-			make_complex_type(wk,
-				complex_type_or,
-				tc_capture,
-				make_complex_type(wk, complex_type_nested, tc_array, tc_string))) },
-		ARG_TYPE_NULL,
-	};
+	const struct toolchain_arg_handler *handler;
+	obj k, v;
+	obj_dict_for(wk, handlers, k, v) {
+		if (!(handler = get_toolchain_arg_handler_info(component, get_cstr(wk, k)))) {
+			vm_error(wk, "unknown toolchain function %o", k);
+			return false;
+		}
+
+		if (get_obj_type(wk, v) != obj_capture) {
+			continue;
+		}
+
+		struct obj_func *f = get_obj_capture(wk, v)->func;
+		if (f->nkwargs) {
+			vm_error(wk, "toolchain function %o has an invalid signature: accepts kwargs", k);
+			return false;
+		} else if (!type_tags_eql(wk,
+				   f->return_type,
+				   make_complex_type(wk, complex_type_nested, tc_array, tc_string))) {
+			vm_error(
+				wk, "toolchain function %o has an invalid signature: return type must be list[str]", k);
+			return false;
+		}
+
+		type_tag expected_sig[2];
+		uint32_t expected_sig_len;
+		toolchain_arg_arity_to_sig(handler->arity, expected_sig, &expected_sig_len);
+
+		bool sig_valid;
+		switch (f->nargs) {
+		case 0: {
+			sig_valid = expected_sig_len == 0;
+			break;
+		}
+		case 1: {
+			sig_valid = expected_sig_len == 1 && expected_sig[0] == f->an[0].type;
+			break;
+		}
+		case 2: {
+			sig_valid = expected_sig_len == 2 && expected_sig[0] == f->an[0].type
+				    && expected_sig[1] == f->an[1].type;
+			break;
+		}
+		default: sig_valid = false;
+		}
+
+		if (!sig_valid) {
+			obj expected = make_str(wk, "(");
+			uint32_t i;
+			for (i = 0; i < expected_sig_len; ++i) {
+				str_app(wk, &expected, typechecking_type_to_s(wk, expected_sig[i]));
+				if (i + 1 < expected_sig_len) {
+					str_app(wk, &expected, ", ");
+				}
+			}
+			str_app(wk, &expected, ")");
+
+			vm_error(wk,
+				"toolchain function %o has an invalid signature: expected signature: %#o",
+				k,
+				expected);
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool
+func_compiler_configure(struct workspace *wk, obj self, obj *res)
+{
+	type_tag override_type = make_complex_type(wk,
+		complex_type_nested,
+		tc_dict,
+		make_complex_type(wk,
+			complex_type_or,
+			tc_capture,
+			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
+
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_overwrite,
+		kw_cmd_array,
+		kw_handlers,
+		kw_libdirs,
+		kw_version,
 	};
 	struct args_kw akw[] = {
 		[kw_overwrite] = { "overwrite", tc_bool },
+		[kw_cmd_array] = { "cmd_array", TYPE_TAG_LISTIFY | tc_string },
+		[kw_handlers] = { "handlers", override_type },
+		[kw_libdirs] = { "libdirs", TYPE_TAG_LISTIFY | tc_string },
+		[kw_version] = { "version", tc_string },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
+	enum toolchain_component component;
+	if (!toolchain_component_from_s(get_cstr(wk, an[0].val), &component)) {
+		vm_error(wk, "unknown toolchain component %o", an[0].val);
+		return false;
+	}
+
 	struct obj_compiler *c = get_obj_compiler(wk, self);
 
-	{ // validate function signatures
-		const struct toolchain_arg_handler *handler;
-		obj k, v;
-		obj_dict_for(wk, an[0].val, k, v) {
-			if (!(handler = get_toolchain_arg_handler_info(component, get_cstr(wk, k)))) {
-				vm_error(wk, "unknown toolchain function %o", k);
-				return false;
-			}
+	if (akw[kw_handlers].set) {
+		obj *overrides = &c->overrides[component];
 
-			if (get_obj_type(wk, v) != obj_capture) {
-				continue;
-			}
+		bool overwrite = akw[kw_overwrite].set ? get_obj_bool(wk, akw[kw_overwrite].val) : *overrides == 0;
 
-			struct obj_func *f = get_obj_capture(wk, v)->func;
-			if (f->nkwargs) {
-				vm_error(wk, "toolchain function %o has an invalid signature: accepts kwargs", k);
-				return false;
-			} else if (!type_tags_eql(wk,
-					   f->return_type,
-					   make_complex_type(wk, complex_type_nested, tc_array, tc_string))) {
-				vm_error(wk,
-					"toolchain function %o has an invalid signature: return type must be list[str]",
-					k);
-				return false;
-			}
+		if (!validate_toolchain_handlers(wk, akw[kw_handlers].val, component)) {
+			return false;
+		}
 
-			type_tag expected_sig[2];
-			uint32_t expected_sig_len;
-			toolchain_arg_arity_to_sig(handler->arity, expected_sig, &expected_sig_len);
-
-			bool sig_valid;
-			switch (f->nargs) {
-			case 0: {
-				sig_valid = expected_sig_len == 0;
-				break;
-			}
-			case 1: {
-				sig_valid = expected_sig_len == 1 && expected_sig[0] == f->an[0].type;
-				break;
-			}
-			case 2: {
-				sig_valid = expected_sig_len == 2 && expected_sig[0] == f->an[0].type
-					    && expected_sig[1] == f->an[1].type;
-				break;
-			}
-			default: sig_valid = false;
-			}
-
-			if (!sig_valid) {
-				obj expected = make_str(wk, "(");
-				uint32_t i;
-				for (i = 0; i < expected_sig_len; ++i) {
-					str_app(wk, &expected, typechecking_type_to_s(wk, expected_sig[i]));
-					if (i + 1 < expected_sig_len) {
-						str_app(wk, &expected, ", ");
-					}
-				}
-				str_app(wk, &expected, ")");
-
-				vm_error(wk,
-					"toolchain function %o has an invalid signature: expected signature: %#o",
-					k,
-					expected);
-				return false;
-			}
+		if (overwrite) {
+			*overrides = akw[kw_handlers].val;
+		} else if (!*overrides) {
+			vm_error(wk, "unable to merge overrides: there are no existing overrides");
+			return false;
+		} else {
+			obj_dict_merge_nodup(wk, *overrides, akw[kw_handlers].val);
 		}
 	}
 
-	obj *overrides = &c->overrides[component];
+	if (akw[kw_cmd_array].set) {
+		c->cmd_arr[component] = akw[kw_cmd_array].val;
+	}
 
-	bool overwrite = akw[kw_overwrite].set ? get_obj_bool(wk, akw[kw_overwrite].val) : *overrides == 0;
+	if (akw[kw_libdirs].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "libdirs only configurable for compiler");
+			return false;
+		}
 
-	if (overwrite) {
-		*overrides = an[0].val;
-	} else if (!*overrides) {
-		vm_error(wk, "unable to merge overrides: there are no existing overrides");
-		return false;
-	} else {
-		obj_dict_merge_nodup(wk, *overrides, an[0].val);
+		c->libdirs = akw[kw_libdirs].val;
+	}
+
+	if (akw[kw_version].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "version only configurable for compiler");
+			return false;
+		}
+
+		c->ver = akw[kw_version].val;
 	}
 
 	return true;
 }
 
-static bool
-func_compiler_handle_compiler_args(struct workspace *wk, obj self, obj *res)
-{
-	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_compiler);
-}
-
-static bool
-func_compiler_handle_linker_args(struct workspace *wk, obj self, obj *res)
-{
-	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_linker);
-}
-
-static bool
-func_compiler_handle_static_linker_args(struct workspace *wk, obj self, obj *res)
-{
-	return compiler_handle_toolchain_args(wk, self, res, toolchain_component_static_linker);
-}
-
 const struct func_impl impl_tbl_compiler_internal[] = {
-	{ "handle_compiler_args", func_compiler_handle_compiler_args },
-	{ "handle_linker_args", func_compiler_handle_linker_args },
-	{ "handle_static_linker_args", func_compiler_handle_static_linker_args },
+	{ "configure", func_compiler_configure },
 	{ NULL, NULL },
 };

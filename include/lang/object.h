@@ -377,15 +377,12 @@ struct obj_test {
 };
 
 struct obj_compiler {
-	obj cmd_arr;
-	obj linker_cmd_arr;
-	obj static_linker_cmd_arr;
+	obj cmd_arr[toolchain_component_count];
+	obj overrides[toolchain_component_count];
+	uint32_t type[toolchain_component_count];
 	obj ver;
 	obj libdirs;
-	obj overrides[3];
-	uint32_t type[3];
 	enum compiler_language lang;
-	bool linker_passthrough;
 };
 
 enum install_target_type {

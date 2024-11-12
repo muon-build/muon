@@ -63,15 +63,15 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 	obj args;
 	make_obj(wk, &args, obj_array);
 
-	if (comp->linker_passthrough) {
-		obj_array_extend(wk, args, comp->cmd_arr);
+	if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
+		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 
 		push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
 		obj_array_push(wk, args, make_str(wk, "$in"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	} else {
-		obj_array_extend(wk, args, comp->linker_cmd_arr);
+		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 		push_args(wk, args, toolchain_linker_input_output(wk, comp, "$in", "$out"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
@@ -117,7 +117,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 
 	obj args;
 	make_obj(wk, &args, obj_array);
-	obj_array_extend(wk, args, comp->cmd_arr);
+	obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 	obj_array_push(wk, args, rule_args);
 
 	if (deps) {
@@ -460,7 +460,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					obj_array_push(wk, static_link_args, make_str(wk, "--"));
 				}
 
-				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
+				obj_array_extend(wk, static_link_args, comp->cmd_arr[toolchain_component_static_linker]);
 				push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp));
 				push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp));
 				push_args(wk,

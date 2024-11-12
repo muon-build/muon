@@ -528,7 +528,7 @@ push_linker_args(struct workspace *wk, struct setup_linker_args_ctx *ctx, const 
 		return;
 	}
 
-	if (ctx->compiler->linker_passthrough) {
+	if (toolchain_compiler_do_linker_passthrough(wk, ctx->compiler)) {
 		args = toolchain_compiler_linker_passthrough(wk, ctx->compiler, args);
 	}
 

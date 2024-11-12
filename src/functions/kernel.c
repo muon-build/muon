@@ -39,14 +39,16 @@
 #include "wrap.h"
 
 static bool
-project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requirement_type req, bool *found)
+project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compiler, enum requirement_type req, bool *found)
 {
 	if (req == requirement_skip) {
 		return true;
 	}
 
 	obj comp_id;
+	obj res;
 	enum compiler_language l;
+
 	if (!s_to_compiler_language(get_cstr(wk, str), &l)) {
 		if (req == requirement_required) {
 			vm_error_at(wk, err_node, "%o is not a valid language", str);
@@ -56,18 +58,33 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 		}
 	}
 
-	obj res;
 	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
 		*found = true;
 		return true;
 	}
 
-	if (!toolchain_detect(wk, &comp_id, l)) {
-		if (req == requirement_required) {
-			vm_error_at(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
-			return false;
-		} else {
-			return true;
+	if (compiler) {
+		make_obj(wk, &comp_id, obj_compiler);
+		struct obj_compiler *c = get_obj_compiler(wk, comp_id);
+		*c = *get_obj_compiler(wk, compiler);
+		c->lang = l;
+
+		enum toolchain_component component;
+		for (component = 0; component < toolchain_component_count; ++component) {
+			if (!c->cmd_arr[component]) {
+				vm_error(wk, "compiler %s is not configured", toolchain_component_to_s(component));
+			}
+		}
+
+		obj_dict_seti(wk, wk->toolchain_cache, l, comp_id);
+	} else {
+		if (!toolchain_detect(wk, &comp_id, l)) {
+			if (req == requirement_required) {
+				vm_error_at(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
+				return false;
+			} else {
+				return true;
+			}
 		}
 	}
 
@@ -99,7 +116,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_c, &c_compiler)
 				&& !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
 				bool c_found;
-				if (!project_add_language(wk, err_node, make_str(wk, "c"), req, &c_found)) {
+				if (!project_add_language(wk, err_node, make_str(wk, "c"), 0, req, &c_found)) {
 					return false;
 				}
 			}
@@ -109,7 +126,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 			obj cpp_compiler;
 			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &cpp_compiler)) {
 				bool cpp_found;
-				if (!project_add_language(wk, err_node, make_str(wk, "cpp"), req, &cpp_found)) {
+				if (!project_add_language(wk, err_node, make_str(wk, "cpp"), 0, req, &cpp_found)) {
 					return false;
 				}
 			}
@@ -121,29 +138,6 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 
 	*found = true;
 	return true;
-}
-
-struct project_add_language_iter_ctx {
-	uint32_t err_node;
-	enum requirement_type req;
-	bool missing;
-};
-
-static enum iteration_result
-project_add_language_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct project_add_language_iter_ctx *ctx = _ctx;
-
-	bool found = false;
-	if (!project_add_language(wk, ctx->err_node, val, ctx->req, &found)) {
-		return ir_err;
-	}
-
-	if (!found) {
-		ctx->missing = true;
-	}
-
-	return ir_cont;
 }
 
 static bool
@@ -201,14 +195,16 @@ func_project(struct workspace *wk, obj _, obj *res)
 	}
 #endif
 
-	if (!obj_array_foreach_flat(wk,
-		    an[1].val,
-		    &(struct project_add_language_iter_ctx){
-			    .err_node = an[1].node,
-			    .req = requirement_required,
-		    },
-		    project_add_language_iter)) {
-		return false;
+	obj val;
+	obj_array_for(wk, an[1].val, val) {
+		bool found;
+		if (!project_add_language(wk, an[1].node, val, 0, requirement_required, &found)) {
+			return false;
+		}
+
+		if (!found) {
+			return false;
+		}
 	}
 
 	current_project(wk)->cfg.license = akw[kw_license].val;
@@ -465,10 +461,12 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 	enum kwargs {
 		kw_required,
 		kw_native,
+		kw_toolchain,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
+		[kw_toolchain] = { "toolchain", tc_compiler },
 		0,
 	};
 
@@ -476,20 +474,27 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	struct project_add_language_iter_ctx ctx = {
-		.err_node = an[0].node,
-	};
-
-	if (!coerce_requirement(wk, &akw[kw_required], &ctx.req)) {
+	enum requirement_type required;
+	if (!coerce_requirement(wk, &akw[kw_required], &required)) {
 		return false;
 	}
 
-	if (!obj_array_foreach(wk, an[0].val, &ctx, project_add_language_iter)) {
-		return false;
+	bool missing = false;
+
+	obj val;
+	obj_array_for(wk, an[0].val, val) {
+		bool found = false;
+		if (!project_add_language(wk, an[0].node, val, akw[kw_toolchain].val, required, &found)) {
+			return false;
+		}
+
+		if (!found) {
+			missing = true;
+		}
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, !ctx.missing);
+	set_obj_bool(wk, *res, !missing);
 	return true;
 }
 
@@ -1087,7 +1092,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		obj_array_index(wk, an[0].val, 0, &arg0);
 
 		if (get_obj_type(wk, arg0) == obj_compiler) {
-			obj cmd_arr = get_obj_compiler(wk, arg0)->cmd_arr;
+			obj cmd_arr = get_obj_compiler(wk, arg0)->cmd_arr[toolchain_component_compiler];
 
 			obj tail;
 			obj_array_tail(wk, an[0].val, &tail);

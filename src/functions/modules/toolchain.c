@@ -32,6 +32,8 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 
 	make_obj(wk, res, obj_compiler);
 	struct obj_compiler *c = get_obj_compiler(wk, *res);
+	c->ver = make_str(wk, "unknown");
+	make_obj(wk, &c->libdirs, obj_array);
 
 	{
 		const struct {
@@ -57,6 +59,7 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 
 			uint32_t type;
 			obj override = 0;
+			obj cmd_array = 0;
 
 			if (get_obj_type(wk, akw[toolchain_elem[i].kw].val) == obj_string) {
 				uint32_t compiler_type;
@@ -75,10 +78,12 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 				const struct obj_compiler *base = get_obj_compiler(wk, akw[toolchain_elem[i].kw].val);
 				type = base->type[i];
 				override = base->overrides[i];
+				cmd_array = base->cmd_arr[i];
 			}
 
 			c->type[i] = type;
 			c->overrides[i] = override;
+			c->cmd_arr[i] = cmd_array;
 		}
 	}
 
