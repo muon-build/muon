@@ -54,7 +54,7 @@ option(
 option(
     'optimization',
     type: 'combo',
-    value: 'g',
+    value: '0',
     choices: ['plain', '0', 'g', '1', '2', '3', 's'],
 )
 option('pkg_config_path', type: 'string', value: '')
