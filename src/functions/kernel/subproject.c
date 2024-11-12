@@ -23,16 +23,13 @@ subproject_prepare(struct workspace *wk,
 	bool required,
 	bool *found)
 {
-	if (!fs_dir_exists(*cwd)) {
+	SBUF(wrap_path);
+	sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
+
+	if (fs_file_exists(wrap_path.buf)) {
 		bool wrap_ok = false;
 
-		SBUF(wrap_path);
 		SBUF(base_path);
-		sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
-
-		if (!fs_file_exists(wrap_path.buf)) {
-			goto wrap_done;
-		}
 
 		path_dirname(wk, &base_path, *cwd);
 
@@ -53,12 +50,13 @@ subproject_prepare(struct workspace *wk,
 		}
 
 		wrap_ok = true;
+
 wrap_cleanup:
 		wrap_destroy(&wrap);
-wrap_done:
+
 		if (!wrap_ok) {
 			if (required) {
-				LOG_E("project %s not found", *cwd);
+				LOG_E("project %s wrap error", *cwd);
 				return false;
 			} else {
 				*found = false;

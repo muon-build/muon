@@ -652,45 +652,44 @@ bool
 wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download)
 {
 	bool res = false;
-	SBUF_manual(meson_build);
 
 	if (!wrap_parse(wrap_file, wrap)) {
 		goto ret;
 	}
 
-	path_join(NULL, &meson_build, wrap->dest_dir.buf, "meson.build");
+	bool new_content = false;
 
-	if (fs_file_exists(meson_build.buf)) {
-		res = true;
-		goto ret;
+	if (!fs_dir_exists(wrap->dest_dir.buf)) {
+		new_content = true;
+
+		switch (wrap->type) {
+		case wrap_type_file:
+			if (!wrap_handle_file(wrap, subprojects, download)) {
+				goto ret;
+			}
+			break;
+		case wrap_type_git:
+			if (!download) {
+				LOG_E("wrap downloading disabled");
+				goto ret;
+			}
+
+			if (!wrap_handle_git(wrap, subprojects)) {
+				goto ret;
+			}
+			break;
+		default: assert(false && "unreachable"); goto ret;
+		}
 	}
 
-	switch (wrap->type) {
-	case wrap_type_file:
-		if (!wrap_handle_file(wrap, subprojects, download)) {
+	if (new_content || wrap->fields[wf_patch_directory]) {
+		if (!wrap_apply_patch(wrap, subprojects, download)) {
 			goto ret;
 		}
-		break;
-	case wrap_type_git:
-		if (!download) {
-			LOG_E("wrap downloading disabled");
-			goto ret;
-		}
-
-		if (!wrap_handle_git(wrap, subprojects)) {
-			goto ret;
-		}
-		break;
-	default: assert(false && "unreachable"); goto ret;
-	}
-
-	if (!wrap_apply_patch(wrap, subprojects, download)) {
-		goto ret;
 	}
 
 	res = true;
 ret:
-	sbuf_destroy(&meson_build);
 	return res;
 }
 
