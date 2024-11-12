@@ -20,6 +20,7 @@
 #include "backend/ninja/rules.c"
 #include "backend/output.c"
 #include "cmd_install.c"
+#include "cmd_subprojects.c"
 #include "cmd_test.c"
 #include "coerce.c"
 #include "compilers.c"

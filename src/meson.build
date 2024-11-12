@@ -73,6 +73,7 @@ src = files(
     'lang/workspace.c',
     'args.c',
     'cmd_install.c',
+    'cmd_subprojects.c',
     'cmd_test.c',
     'coerce.c',
     'compilers.c',
