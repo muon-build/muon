@@ -121,6 +121,7 @@ substitute_config(struct workspace *wk,
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
+		location.off = i;
 		if (src.src[i] == '\n') {
 			col = i + 1;
 		}
@@ -271,7 +272,6 @@ write_mesondefine:
 			i += varstart_len;
 			id_start = i;
 			id_location = location;
-			/* id_location.col = id_start - location.col + 1; */
 			i += configure_var_len(&src.src[id_start]);
 
 			if (src.src[i] != varend) {
