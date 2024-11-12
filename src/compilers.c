@@ -1806,6 +1806,7 @@ build_linkers(void)
 	apple.args.allow_shlib_undefined = linker_apple_args_allow_shlib_undefined;
 	apple.args.shared_module = linker_apple_args_shared_module;
 	apple.args.whole_archive = linker_apple_args_whole_archive;
+	apple.args.rpath = linker_ld_args_rpath;
 
 	struct linker link = empty;
 	link.args.lib = linker_link_args_lib;
