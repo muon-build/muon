@@ -946,6 +946,11 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 		t |= obj_typechecking_type_tag;
 	}
 
+	// If type includes dict, then we could potentially respond to anything
+	if ((t & tc_dict & ~TYPE_TAG_MASK)) {
+		return false;
+	}
+
 	// If type includes module, then we can't be sure what methods it might
 	// respond to
 	if ((t & tc_module & ~TYPE_TAG_MASK)) {
