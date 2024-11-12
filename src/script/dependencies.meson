@@ -1,19 +1,19 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-func get_clike_compiler(dep_name str) -> compiler
+func get_clike_compiler(dep_name str, machine str:) -> compiler
     proj = meson.project()
     foreach comp : ['c', 'cpp']
-        if comp in proj['compilers']
-            return proj['compilers'][comp]
+        if comp in proj['toolchains'][machine]
+            return proj['toolchains'][machine][comp]
         endif
     endforeach
 
     error(f'@dep_name@ requires a c or cpp compiler')
 endfunc
 
-func intl(required bool:, static bool:) -> dep
-    cc = get_clike_compiler('intl')
+func intl(required bool:, static bool:, machine str:) -> dep
+    cc = get_clike_compiler('intl', machine: machine)
     code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
 
     if cc.links(code)
@@ -30,8 +30,8 @@ func intl(required bool:, static bool:) -> dep
     return dep
 endfunc
 
-func iconv(required bool:, static bool:) -> dep
-    cc = get_clike_compiler('iconv')
+func iconv(required bool:, static bool:, machine str:) -> dep
+    cc = get_clike_compiler('iconv', machine: machine)
     code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
 
     if cc.links(code)

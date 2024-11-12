@@ -254,6 +254,7 @@ struct obj_build_target {
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
 	enum tgt_type type;
+	enum machine_kind machine;
 };
 
 struct obj_both_libs {

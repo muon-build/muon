@@ -23,10 +23,6 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
-	make_obj(wk, &proj->args, obj_dict);
-	make_obj(wk, &proj->compilers, obj_dict);
-	make_obj(wk, &proj->link_args, obj_dict);
-	make_obj(wk, &proj->include_dirs, obj_dict);
 	make_obj(wk, &proj->opts, obj_dict);
 	make_obj(wk, &proj->summary, obj_dict);
 	make_obj(wk, &proj->targets, obj_array);
@@ -35,6 +31,14 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	make_obj(wk, &proj->dep_cache.shared_deps, obj_dict);
 	make_obj(wk, &proj->wrap_provides_deps, obj_dict);
 	make_obj(wk, &proj->wrap_provides_exes, obj_dict);
+
+	for (uint32_t i = 0; i < machine_kind_count; ++i) {
+		make_obj(wk, &proj->toolchains[i], obj_dict);
+		make_obj(wk, &proj->args[i], obj_dict);
+		make_obj(wk, &proj->link_args[i], obj_dict);
+		make_obj(wk, &proj->include_dirs[i], obj_dict);
+	}
+
 	proj->subprojects_dir = make_str(wk, "subprojects");
 
 	if (subproject_name) {
@@ -93,7 +97,11 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
-	ret = eval(wk, &(struct source){ .src = src, .label = script, .len = strlen(src) }, build_language_meson, eval_mode_default, &_);
+	ret = eval(wk,
+		&(struct source){ .src = src, .label = script, .len = strlen(src) },
+		build_language_meson,
+		eval_mode_default,
+		&_);
 
 	stack_pop(&wk->stack, wk->vm.scope_stack);
 	stack_pop(&wk->stack, wk->vm.lang_mode);
@@ -122,16 +130,19 @@ workspace_init_runtime(struct workspace *wk)
 	make_obj(wk, &wk->install_scripts, obj_array);
 	make_obj(wk, &wk->postconf_scripts, obj_array);
 	make_obj(wk, &wk->subprojects, obj_dict);
-	make_obj(wk, &wk->global_args, obj_dict);
-	make_obj(wk, &wk->global_link_args, obj_dict);
-	make_obj(wk, &wk->dep_overrides_static, obj_dict);
-	make_obj(wk, &wk->dep_overrides_dynamic, obj_dict);
-	make_obj(wk, &wk->find_program_overrides, obj_dict);
 	make_obj(wk, &wk->global_opts, obj_dict);
 	make_obj(wk, &wk->compiler_check_cache, obj_dict);
-	make_obj(wk, &wk->toolchain_cache, obj_dict);
 	make_obj(wk, &wk->dependency_handlers, obj_dict);
 	make_obj(wk, &wk->finalizers, obj_array);
+
+	for (uint32_t i = 0; i < machine_kind_count; ++i) {
+		make_obj(wk, &wk->toolchains[i], obj_dict);
+		make_obj(wk, &wk->global_args[i], obj_dict);
+		make_obj(wk, &wk->global_link_args[i], obj_dict);
+		make_obj(wk, &wk->dep_overrides_static[i], obj_dict);
+		make_obj(wk, &wk->dep_overrides_dynamic[i], obj_dict);
+		make_obj(wk, &wk->find_program_overrides[i], obj_dict);
+	}
 }
 
 void
@@ -152,7 +163,6 @@ workspace_init_startup_files(struct workspace *wk)
 		}
 	}
 #endif
-
 }
 
 void

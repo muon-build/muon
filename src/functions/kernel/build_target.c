@@ -53,7 +53,7 @@ enum build_target_kwargs {
 	bt_kw_export_dynamic,
 	bt_kw_vs_module_defs, // TODO
 	bt_kw_gnu_symbol_visibility,
-	bt_kw_native, // TODO
+	bt_kw_native,
 	bt_kw_darwin_versions, // TODO
 	bt_kw_implib, // TODO
 	bt_kw_gui_app, // TODO
@@ -149,7 +149,7 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 		obj comp;
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
-			if (obj_dict_geti(wk, current_project(wk)->compilers, clink_langs[i], &comp)) {
+			if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], clink_langs[i], &comp)) {
 				tgt->dep_internal.link_language = clink_langs[i];
 				break;
 			}
@@ -506,6 +506,7 @@ create_target(struct workspace *wk,
 	tgt->name = an[0].val;
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
+	tgt->machine = coerce_machine_kind(wk, &akw[bt_kw_native]);
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->src, obj_array);
 	make_obj(wk, &tgt->required_compilers, obj_dict);

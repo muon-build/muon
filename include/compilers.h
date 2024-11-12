@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "lang/types.h"
+#include "machines.h"
 
 struct workspace;
 struct obj_compiler;
@@ -282,7 +283,7 @@ bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 const char *compiler_language_extension(enum compiler_language l);
 enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new);
 
-bool toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang);
+bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
 void compilers_init(void);
 
 const struct toolchain_arg_handler *get_toolchain_arg_handler_info(enum toolchain_component component,

@@ -774,9 +774,9 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 }
 
 bool
-toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang)
 {
-	if (obj_dict_geti(wk, wk->toolchain_cache, lang, comp)) {
+	if (obj_dict_geti(wk, wk->toolchains[machine], lang, comp)) {
 		return true;
 	}
 
@@ -797,7 +797,7 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		return false;
 	}
 
-	obj_dict_seti(wk, wk->toolchain_cache, lang, *comp);
+	obj_dict_seti(wk, wk->toolchains[machine], lang, *comp);
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 

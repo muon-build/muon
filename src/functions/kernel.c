@@ -39,7 +39,13 @@
 #include "wrap.h"
 
 static bool
-project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compiler, enum requirement_type req, bool *found)
+project_add_language(struct workspace *wk,
+	uint32_t err_node,
+	obj str,
+	obj compiler,
+	enum machine_kind machine,
+	enum requirement_type req,
+	bool *found)
 {
 	if (req == requirement_skip) {
 		return true;
@@ -58,7 +64,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compi
 		}
 	}
 
-	if (obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
+	if (obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
 		*found = true;
 		return true;
 	}
@@ -76,9 +82,9 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compi
 			}
 		}
 
-		obj_dict_seti(wk, wk->toolchain_cache, l, comp_id);
+		obj_dict_seti(wk, wk->toolchains[machine], l, comp_id);
 	} else {
-		if (!toolchain_detect(wk, &comp_id, l)) {
+		if (!toolchain_detect(wk, &comp_id, machine, l)) {
 			if (req == requirement_required) {
 				vm_error_at(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
 				return false;
@@ -88,11 +94,11 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compi
 		}
 	}
 
-	obj_dict_seti(wk, current_project(wk)->compilers, l, comp_id);
+	obj_dict_seti(wk, current_project(wk)->toolchains[machine], l, comp_id);
 
 	/* if we just added a c or cpp compiler, set the assembly compiler to that */
 	if (l == compiler_language_c || l == compiler_language_cpp) {
-		obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_assembly, comp_id);
+		obj_dict_seti(wk, current_project(wk)->toolchains[machine], compiler_language_assembly, comp_id);
 
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 		// TODO: make this overrideable
@@ -104,7 +110,10 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compi
 			*c = *comp;
 			c->type[toolchain_component_compiler] = compiler_clang_llvm_ir;
 			c->lang = compiler_language_llvm_ir;
-			obj_dict_seti(wk, current_project(wk)->compilers, compiler_language_llvm_ir, llvm_ir_compiler);
+			obj_dict_seti(wk,
+				current_project(wk)->toolchains[machine],
+				compiler_language_llvm_ir,
+				llvm_ir_compiler);
 		}
 	}
 
@@ -112,28 +121,28 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, obj compi
 	case compiler_language_assembly:
 	case compiler_language_nasm:
 	case compiler_language_objc: {
-			obj c_compiler;
-			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_c, &c_compiler)
-				&& !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
-				bool c_found;
-				if (!project_add_language(wk, err_node, make_str(wk, "c"), 0, req, &c_found)) {
-					return false;
-				}
+		obj c_compiler;
+		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], compiler_language_c, &c_compiler)
+			&& !obj_dict_geti(
+				wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &c_compiler)) {
+			bool c_found;
+			if (!project_add_language(wk, err_node, make_str(wk, "c"), compiler, machine, req, &c_found)) {
+				return false;
 			}
 		}
-		break;
+	} break;
 	case compiler_language_objcpp: {
-			obj cpp_compiler;
-			if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &cpp_compiler)) {
-				bool cpp_found;
-				if (!project_add_language(wk, err_node, make_str(wk, "cpp"), 0, req, &cpp_found)) {
-					return false;
-				}
+		obj cpp_compiler;
+		if (!obj_dict_geti(
+			    wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &cpp_compiler)) {
+			bool cpp_found;
+			if (!project_add_language(
+				    wk, err_node, make_str(wk, "cpp"), compiler, machine, req, &cpp_found)) {
+				return false;
 			}
 		}
-		break;
-	default:
-		break;
+	} break;
+	default: break;
 	}
 
 	*found = true;
@@ -197,12 +206,11 @@ func_project(struct workspace *wk, obj _, obj *res)
 
 	obj val;
 	obj_array_for(wk, an[1].val, val) {
-		bool found;
-		if (!project_add_language(wk, an[1].node, val, 0, requirement_required, &found)) {
+		bool _found;
+		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_host, requirement_required, &_found)) {
 			return false;
 		}
-
-		if (!found) {
+		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_build, requirement_auto, &_found)) {
 			return false;
 		}
 	}
@@ -332,12 +340,12 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-add_arguments_common(struct workspace *wk, obj args_dict, obj *res)
+add_arguments_common(struct workspace *wk, obj args_dict[machine_kind_count], obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_language,
-		kw_native, // ignored
+		kw_native,
 	};
 	struct args_kw akw[] = {
 		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
@@ -352,7 +360,7 @@ add_arguments_common(struct workspace *wk, obj args_dict, obj *res)
 	struct add_arguments_ctx ctx = {
 		.lang_node = akw[kw_language].node,
 		.args_node = an[0].node,
-		.args_dict = args_dict,
+		.args_dict = args_dict[coerce_machine_kind(wk, &akw[kw_native])],
 		.args_to_add = an[0].val,
 	};
 	return obj_array_foreach(wk, akw[kw_language].val, &ctx, add_arguments_iter);
@@ -392,45 +400,13 @@ func_add_global_link_arguments(struct workspace *wk, obj _, obj *res)
 	return add_arguments_common(wk, wk->global_link_args, res);
 }
 
-struct add_project_dependencies_ctx {
-	uint32_t lang_node;
-	struct build_dep *d;
-};
-
-static enum iteration_result
-add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
-{
-	struct add_project_dependencies_ctx *ctx = _ctx;
-	enum compiler_language l;
-
-	if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
-		vm_error_at(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, lang));
-		return ir_err;
-	}
-
-	obj res;
-	if (!obj_dict_geti(wk, current_project(wk)->compilers, l, &res)) {
-		// NOTE: Its a little weird that the other add_project_xxx
-		// functions don't check this and this function does, but that
-		// is how meson does it.
-		vm_error_at(wk, ctx->lang_node, "undeclared language '%s'", get_cstr(wk, lang));
-		return ir_err;
-	}
-
-	obj_array_extend(wk, get_project_argument_array(wk, current_project(wk)->args, l), ctx->d->compile_args);
-	obj_array_extend(wk, get_project_argument_array(wk, current_project(wk)->link_args, l), ctx->d->link_args);
-	obj_array_extend(
-		wk, get_project_argument_array(wk, current_project(wk)->include_dirs, l), ctx->d->include_directories);
-	return ir_cont;
-}
-
 static bool
 func_add_project_dependencies(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_language,
-		kw_native, // ignored
+		kw_native,
 	};
 	struct args_kw akw[] = {
 		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
@@ -442,15 +418,38 @@ func_add_project_dependencies(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
+
 	struct build_dep d = { 0 };
 	dep_process_deps(wk, an[0].val, &d);
 
-	struct add_project_dependencies_ctx ctx = {
-		.lang_node = akw[kw_language].node,
-		.d = &d,
-	};
+	obj lang;
+	obj_array_for(wk, akw[kw_language].val, lang) {
+		enum compiler_language l;
 
-	obj_array_foreach(wk, akw[kw_language].val, &ctx, add_project_dependencies_iter);
+		if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
+			vm_error_at(wk, akw[kw_language].node, "unknown language '%s'", get_cstr(wk, lang));
+			return false;
+		}
+
+		obj res;
+		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
+			// NOTE: Its a little weird that the other add_project_xxx
+			// functions don't check this and this function does, but that
+			// is how meson does it.
+			vm_error_at(wk, akw[kw_language].node, "undeclared language '%s'", get_cstr(wk, lang));
+			return false;
+		}
+
+		obj_array_extend(
+			wk, get_project_argument_array(wk, current_project(wk)->args[machine], l), d.compile_args);
+		obj_array_extend(
+			wk, get_project_argument_array(wk, current_project(wk)->link_args[machine], l), d.link_args);
+		obj_array_extend(wk,
+			get_project_argument_array(wk, current_project(wk)->include_dirs[machine], l),
+			d.include_directories);
+	}
+
 	return true;
 }
 
@@ -479,12 +478,14 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
+
 	bool missing = false;
 
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
 		bool found = false;
-		if (!project_add_language(wk, an[0].node, val, akw[kw_toolchain].val, required, &found)) {
+		if (!project_add_language(wk, an[0].node, val, akw[kw_toolchain].val, machine, required, &found)) {
 			return false;
 		}
 
@@ -517,6 +518,7 @@ struct find_program_iter_ctx {
 	obj dirs;
 	obj *res;
 	enum requirement_type requirement;
+	enum machine_kind machine;
 	struct args_kw *default_options;
 };
 
@@ -545,7 +547,7 @@ static bool
 find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 {
 	obj override;
-	if (!obj_dict_index(wk, wk->find_program_overrides, prog, &override)) {
+	if (!obj_dict_index(wk, wk->find_program_overrides[ctx->machine], prog, &override)) {
 		return true;
 	}
 
@@ -612,7 +614,7 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 			return false;
 		} else if (!ctx->found) {
 			obj _;
-			if (!obj_dict_index(wk, wk->find_program_overrides, prog, &_)) {
+			if (!obj_dict_index(wk, wk->find_program_overrides[ctx->machine], prog, &_)) {
 				vm_warning_at(wk,
 					0,
 					"subproject %o claims to provide %o, but did not override it",
@@ -838,6 +840,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		.res = res,
 		.requirement = requirement,
 		.default_options = &akw[kw_default_options],
+		.machine = coerce_machine_kind(wk, &akw[kw_native]),
 	};
 	{
 		obj val;
@@ -1082,6 +1085,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 			.node = an[0].node,
 			.res = &cmd_file,
 			.requirement = requirement_auto,
+			.machine = coerce_machine_kind(wk, 0),
 		};
 
 		if (!get_obj_array(wk, an[0].val)->len) {

@@ -56,6 +56,7 @@ struct dep_lookup_ctx {
 	obj *res;
 	struct args_kw *default_options, *versions, *handler_kwargs;
 	enum requirement_type requirement;
+	enum machine_kind machine;
 	uint32_t err_node;
 	uint32_t fallback_node;
 	obj name;
@@ -77,7 +78,7 @@ check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
 	struct dep_lookup_ctx *ctx = _ctx;
 
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, wk->dep_overrides_static, n, ctx->res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_static[ctx->machine], n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_static;
 			ctx->found = true;
 			return ir_done;
@@ -85,7 +86,7 @@ check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, wk->dep_overrides_dynamic, n, ctx->res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_dynamic[ctx->machine], n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_shared;
 			ctx->found = true;
 			return ir_done;
@@ -449,10 +450,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
-		kw_native, // ignored
+		kw_native,
 		kw_version,
 		kw_static,
-		kw_modules, // ignored
+		kw_modules,
 		kw_optional_modules, // ignored
 		kw_components, // ignored
 		kw_fallback,
@@ -602,9 +603,12 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
+
 	struct args_kw handler_kwargs[] = {
 		{ "required", .val = requirement == requirement_required ? obj_bool_true : obj_bool_false },
 		{ "static", .val = lib_mode == dep_lib_mode_static ? obj_bool_true : obj_bool_false },
+		{ "machine", .val = make_str(wk, machine_kind_to_s(machine)) },
 		0,
 	};
 
@@ -613,6 +617,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		.handler_kwargs = handler_kwargs,
 		.names = an[0].val,
 		.requirement = requirement,
+		.machine = machine,
 		.versions = &akw[kw_version],
 		.err_node = an[0].node,
 		.fallback_node = fallback_err_node,

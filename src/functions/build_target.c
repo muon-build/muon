@@ -75,7 +75,7 @@ tgt_src_to_object_path(struct workspace *wk,
 		enum compiler_language lang;
 		obj comp_id;
 		if (filename_to_compiler_language(res->buf, &lang)
-			&& obj_dict_geti(wk, current_project(wk)->compilers, lang, &comp_id)) {
+			&& obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], lang, &comp_id)) {
 			ext = toolchain_compiler_object_ext(wk, get_obj_compiler(wk, comp_id))->args[0];
 		}
 	}

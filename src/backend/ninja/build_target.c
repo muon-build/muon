@@ -135,7 +135,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	struct obj_compiler *compiler;
 	{ /* determine linker */
 		obj comp_id;
-		if (!obj_dict_geti(wk, ctx.proj->compilers, tgt->dep_internal.link_language, &comp_id)) {
+		if (!obj_dict_geti(wk, ctx.proj->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp_id)) {
 			LOG_E("no compiler defined for language %s",
 				compiler_language_to_s(tgt->dep_internal.link_language));
 			return false;
@@ -227,7 +227,13 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	default: assert(false); return false;
 	}
 
-	fprintf(wctx->out, "build %s: %s_%s_linker ", esc_path.buf, get_cstr(wk, ctx.proj->rule_prefix), linker_type);
+	fprintf(wctx->out,
+		"build %s: %s_%s_%s_linker ",
+		esc_path.buf,
+		get_cstr(wk, ctx.proj->rule_prefix),
+		machine_kind_to_s(tgt->machine),
+		linker_type);
+
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
 	if (get_obj_array(wk, implicit_link_deps)->len) {
 		implicit_link_deps = join_args_ninja(wk, implicit_link_deps);

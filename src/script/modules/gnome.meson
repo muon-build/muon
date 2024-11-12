@@ -74,10 +74,10 @@ func compile_resources(
     if gresource_bundle
         output = target_name + '.gresource'
         name = target_name + '_gresource'
-    elif 'c' in proj['compilers']
+    elif 'c' in proj['toolchains']['host']
         output = target_name + '.c'
         name = target_name + '_c'
-    elif 'c++' in proj['compilers']['']
+    elif 'c++' in proj['toolchains']['host']
         output = target_name + '.cpp'
         name = target_name + '_cpp'
     else

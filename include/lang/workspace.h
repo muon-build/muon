@@ -21,9 +21,11 @@ struct project {
 	/* array of dicts */
 	obj scope_stack;
 
+	obj toolchains[machine_kind_count];
+	obj args[machine_kind_count], link_args[machine_kind_count], include_dirs[machine_kind_count];
+
 	obj source_root, build_root, cwd, build_dir, subproject_name;
-	obj opts, compilers, targets, tests, test_setups, summary;
-	obj args, link_args, include_dirs;
+	obj opts, targets, tests, test_setups, summary;
 	struct {
 		obj static_deps, shared_deps;
 	} dep_cache;
@@ -57,30 +59,32 @@ struct workspace {
 	/* Global objects
 	 * These should probably be cleaned up into a separate struct.
 	 * ----------------- */
-	/* obj_array that tracks files for build regeneration */
-	obj regenerate_deps;
+
+	obj toolchains[machine_kind_count];
+	obj global_args[machine_kind_count], global_link_args[machine_kind_count];
+
+	/* overridden dependencies dict */
+	obj dep_overrides_static[machine_kind_count], dep_overrides_dynamic[machine_kind_count];
+	/* overridden find_program dict */
+	obj find_program_overrides[machine_kind_count];
+
 	/* TODO host machine dict */
 	obj host_machine;
 	/* TODO binaries dict */
 	obj binaries;
+
+	/* obj_array that tracks files for build regeneration */
+	obj regenerate_deps;
+
 	obj install;
 	obj install_scripts;
+
 	obj postconf_scripts;
 	obj subprojects;
-	/* args dict for add_global_arguments() */
-	obj global_args;
-	/* args dict for add_global_link_arguments() */
-	obj global_link_args;
-	/* overridden dependencies dict */
-	obj dep_overrides_static, dep_overrides_dynamic;
-	/* overridden find_program dict */
-	obj find_program_overrides;
 	/* global options */
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
-	/* compiler_lang -> obj_compiler */
-	obj toolchain_cache;
 	/* dict -> capture */
 	obj dependency_handlers;
 	/* list[str], used for error reporting */

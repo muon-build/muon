@@ -332,14 +332,14 @@ get_base_compiler_args(struct workspace *wk,
 
 	{ /* global args */
 		obj global_args;
-		if (obj_dict_geti(wk, wk->global_args, lang, &global_args)) {
+		if (obj_dict_geti(wk, wk->global_args[tgt->machine], lang, &global_args)) {
 			obj_array_extend(wk, args, global_args);
 		}
 	}
 
 	{ /* project args */
 		obj proj_args;
-		if (obj_dict_geti(wk, proj->args, lang, &proj_args)) {
+		if (obj_dict_geti(wk, proj->args[tgt->machine], lang, &proj_args)) {
 			obj_array_extend(wk, args, proj_args);
 		}
 	}
@@ -412,7 +412,7 @@ setup_compiler_args_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 
 	{ /* project includes */
 		obj proj_incs;
-		if (obj_dict_geti(wk, ctx->proj->include_dirs, lang, &proj_incs)) {
+		if (obj_dict_geti(wk, ctx->proj->include_dirs[ctx->tgt->machine], lang, &proj_incs)) {
 			obj_array_extend(wk, inc_dirs, proj_incs);
 			obj dedupd;
 			obj_array_dedup(wk, inc_dirs, &dedupd);
@@ -470,7 +470,7 @@ setup_compiler_args(struct workspace *wk,
 		.joined_args = *joined_args,
 	};
 
-	if (!obj_dict_foreach(wk, proj->compilers, &ctx, setup_compiler_args_iter)) {
+	if (!obj_dict_foreach(wk, proj->toolchains[tgt->machine], &ctx, setup_compiler_args_iter)) {
 		return false;
 	}
 
@@ -656,13 +656,13 @@ setup_linker_args(struct workspace *wk,
 
 		/* global args */
 		obj global_args;
-		if (obj_dict_geti(wk, wk->global_link_args, ctx->compiler->lang, &global_args)) {
+		if (obj_dict_geti(wk, wk->global_link_args[tgt->machine], ctx->compiler->lang, &global_args)) {
 			obj_array_extend(wk, ctx->args->link_args, global_args);
 		}
 
 		/* project args */
 		obj proj_args;
-		if (obj_dict_geti(wk, proj->link_args, ctx->compiler->lang, &proj_args)) {
+		if (obj_dict_geti(wk, proj->link_args[tgt->machine], ctx->compiler->lang, &proj_args)) {
 			obj_array_extend(wk, ctx->args->link_args, proj_args);
 		}
 
