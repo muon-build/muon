@@ -942,6 +942,7 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
 		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
 		n = make_node_assign(p, op_store_flag_member);
+		id->type = node_type_string;
 		n->l = id;
 		n->r = make_node_t(p, node_type_list);
 		n->r->l = l;
