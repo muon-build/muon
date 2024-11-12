@@ -1129,6 +1129,11 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_file: {
 		obj_array_push(wk, dest_link_with, *get_obj_file(wk, val));
+		if (file_is_dynamic_lib(wk, val)) {
+			SBUF(dir);
+			path_dirname(wk, &dir, get_file_path(wk, val));
+			obj_array_push(wk, ctx->dest->rpath, sbuf_into_str(wk, &dir));
+		}
 		break;
 	}
 	case obj_string: obj_array_push(wk, dest_link_with, val); break;
