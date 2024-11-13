@@ -16,13 +16,14 @@ struct workspace;
 struct source;
 
 enum eval_mode {
-	eval_mode_default,
-	eval_mode_repl,
-	eval_mode_first,
+	eval_mode_repl = 1 << 0,
+	eval_mode_first = 1 << 1,
+	eval_mode_return_after_project = 1 << 2,
 };
 
 enum eval_project_file_flags {
 	eval_project_file_flag_first = 1 << 0,
+	eval_project_file_flag_return_after_project = 1 << 1,
 };
 
 bool eval_project(struct workspace *wk,

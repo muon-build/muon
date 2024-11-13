@@ -121,8 +121,11 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 			  vm_compile_mode_language_extended :
 			  0;
 
-	if (mode == eval_mode_repl) {
+	if (mode & eval_mode_repl) {
 		compile_mode |= vm_compile_mode_expr;
+	}
+	if (mode & eval_mode_return_after_project) {
+		compile_mode |= vm_compile_mode_return_after_project;
 	}
 
 	uint32_t entry;
@@ -144,7 +147,7 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 			return false;
 		}
 
-		if (lang == build_language_meson && mode == eval_mode_first) {
+		if (lang == build_language_meson && (mode & eval_mode_first)) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
 				return false;
 			}
@@ -219,9 +222,12 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 		return false;
 	}
 
-	enum eval_mode eval_mode = eval_mode_default;
+	enum eval_mode eval_mode = 0;
 	if (flags & eval_project_file_flag_first) {
-		eval_mode = eval_mode_first;
+		eval_mode |= eval_mode_first;
+	}
+	if (flags & eval_project_file_flag_return_after_project) {
+		eval_mode |= eval_mode_return_after_project;
 	}
 
 	obj res;

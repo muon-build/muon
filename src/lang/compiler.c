@@ -101,14 +101,14 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 void
 vm_comp_op_return(struct workspace *wk)
 {
-		if (!wk->vm.in_analyzer) {
-			for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
-				push_code(wk, op_swap);
-				push_code(wk, op_pop);
-			}
+	if (!wk->vm.in_analyzer) {
+		for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
+			push_code(wk, op_swap);
+			push_code(wk, op_pop);
 		}
+	}
 
-		push_code(wk, op_return);
+	push_code(wk, op_return);
 }
 
 enum vm_compile_block_flags {
@@ -210,9 +210,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_code(wk, op_constant);
 				push_constant(wk, n->l->data.str);
 				break;
-			default:
-				vm_compile_expr(wk, n->l);
-				break;
+			default: vm_compile_expr(wk, n->l); break;
 			}
 		}
 		push_op_store(wk, n->data.type);
@@ -224,10 +222,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_call: {
 		bool known = false;
+		const struct str *name = 0;
 		uint32_t idx;
 
 		if (n->r->type == node_type_id_lit) {
-			const struct str *name = get_str(wk, n->r->data.str);
+			name = get_str(wk, n->r->data.str);
+
 			if (str_eql(name, &WKSTR("subdir_done"))) {
 				push_location(wk, n);
 
@@ -319,6 +319,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, n->l->data.len.args);
 			push_constant(wk, n->l->data.len.kwargs);
 		}
+
+		if (known && (wk->vm.compiler_state.mode & vm_compile_mode_return_after_project)
+			&& str_eql(name, &WKSTR("project"))) {
+			push_code(wk, op_return_end);
+		}
+
 		break;
 	}
 	case node_type_return: {
@@ -817,6 +823,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 {
 	TracyCZoneAutoS;
 	wk->vm.compiler_state.err = false;
+	wk->vm.compiler_state.mode = mode;
 
 	*entry = wk->vm.code.len;
 

@@ -12,6 +12,8 @@
 #include "lang/lexer.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
+#include "lang/vm.h"
+#include "lang/workspace.h"
 #include "tracy.h"
 
 /******************************************************************************

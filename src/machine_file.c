@@ -87,7 +87,7 @@ machine_file_parse_cb(void *_ctx,
 	};
 
 	obj res;
-	if (!eval(ctx->wk, &val_src, build_language_meson, eval_mode_default, &res)) {
+	if (!eval(ctx->wk, &val_src, build_language_meson, 0, &res)) {
 		error_messagef(src, location, log_error, "failed to parse value");
 		return false;
 	}

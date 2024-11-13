@@ -489,7 +489,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	obj res;
-	if (!eval(&wk, &src, build_language_meson, eval_mode_default, &res)) {
+	if (!eval(&wk, &src, build_language_meson, 0, &res)) {
 		goto ret;
 	}
 

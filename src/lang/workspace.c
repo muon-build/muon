@@ -100,7 +100,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	ret = eval(wk,
 		&(struct source){ .src = src, .label = script, .len = strlen(src) },
 		build_language_meson,
-		eval_mode_default,
+		0,
 		&_);
 
 	stack_pop(&wk->stack, wk->vm.scope_stack);

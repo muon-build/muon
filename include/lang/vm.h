@@ -9,6 +9,8 @@
 #include "datastructures/arr.h"
 #include "datastructures/bucket_arr.h"
 #include "datastructures/hash.h"
+#include "lang/compiler.h"
+#include "lang/eval.h"
 #include "lang/object.h"
 #include "lang/source.h"
 #include "lang/types.h"
@@ -113,6 +115,7 @@ struct vm_compiler_state {
 	struct arr node_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
+	enum vm_compile_mode mode;
 	bool err;
 };
 

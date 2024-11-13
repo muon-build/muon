@@ -9,12 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
 #include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "lang/typecheck.h"
+#include "lang/workspace.h"
 #include "memmem.h"
 #include "platform/mem.h"
 

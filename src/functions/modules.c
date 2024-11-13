@@ -82,7 +82,7 @@ module_lookup_script(struct workspace *wk,
 	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	obj res;
-	if (!eval(wk, &src, build_language_meson, eval_mode_default, &res)) {
+	if (!eval(wk, &src, build_language_meson, 0, &res)) {
 		goto ret;
 	}
 
