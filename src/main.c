@@ -795,6 +795,8 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
+	log_set_file(stderr);
+
 	opts.filenames = &argv[argi];
 	const uint32_t num_files = argc - argi;
 

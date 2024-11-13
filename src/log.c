@@ -153,7 +153,6 @@ log_init(void)
 	uint64_t ll;
 
 	assert(!log_cfg.initialized);
-	log_cfg.file = stdout;
 	log_cfg.initialized = true;
 
 	if ((sll = getenv("MUON_LOG_LVL"))) {
@@ -161,7 +160,7 @@ log_init(void)
 		log_set_lvl(ll);
 	}
 
-	log_cfg.clr = fs_is_a_tty(log_cfg.file);
+	log_set_file(stdout);
 }
 
 void
