@@ -513,13 +513,19 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 	}
 
 	if (!found) {
-		LLOG_W("No build file found in %s (tried ", cwd);
+		LLOG_E("No build file found in %s (tried ", cwd);
 		for (i = 0; i < ARRAY_LEN(names); ++i) {
 			log_plain("%s%s", names[i].name, i + 1 == ARRAY_LEN(names) ? "" : ", ");
 		}
 		log_plain(")\n");
+		return 0;
 	}
 
 	*out_lang = names[i].lang;
+
+	if (*out_lang == build_language_cmake) {
+		LOG_W("Using experimental cmake compat mode, this will probably break");
+	}
+
 	return get_cstr(wk, sbuf_into_str(wk, &name));
 }
