@@ -130,7 +130,7 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 
 	uint32_t entry;
 	{
-		struct node *n;
+		struct node *n = 0;
 
 		vm_compile_state_reset(wk);
 

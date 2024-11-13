@@ -698,6 +698,7 @@ obj *
 obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
 {
 	obj v;
+	(void)v;
 	int64_t j = 0;
 	obj_array_for_(wk, arr, v, iter)
 	{

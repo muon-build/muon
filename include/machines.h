@@ -33,9 +33,7 @@ enum machine_kind {
 	machine_kind_build,
 	machine_kind_host,
 };
-enum machine_kind_count {
-	machine_kind_count = 2, // Keep in sync with above
-};
+#define machine_kind_count 2 // Keep in sync with above
 
 struct machine_definition {
 	enum machine_kind kind;

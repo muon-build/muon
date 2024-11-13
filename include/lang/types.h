@@ -56,9 +56,7 @@ enum toolchain_component {
 	toolchain_component_linker,
 	toolchain_component_static_linker,
 };
-enum toolchain_component_count {
-	toolchain_component_count = 3, // Keep in sync with above
-};
+#define toolchain_component_count 3 // Keep in sync with above
 
 struct complex_types {
 	type_tag options_dict_or_list;

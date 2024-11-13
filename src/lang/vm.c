@@ -1474,7 +1474,7 @@ vm_op_store(struct workspace *wk)
 
 	if (flags & op_store_flag_add_store) {
 		obj source;
-		const struct str *id_str;
+		const struct str *id_str = 0;
 
 		if (member_target) {
 			source = *member_target;
