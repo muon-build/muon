@@ -34,8 +34,11 @@ subproject_prepare(struct workspace *wk,
 		path_dirname(wk, &base_path, *cwd);
 
 		struct wrap wrap = { 0 };
-		enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-		if (!wrap_handle(wrap_path.buf, base_path.buf, &wrap, wrap_mode != wrap_mode_nodownload)) {
+		struct wrap_opts wrap_opts = {
+			.allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
+			.subprojects = base_path.buf,
+		};
+		if (!wrap_handle(wrap_path.buf, &wrap, &wrap_opts)) {
 			goto wrap_cleanup;
 		}
 
