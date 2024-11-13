@@ -1060,9 +1060,36 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_gt:
 	case node_type_leq:
 	case node_type_geq: {
-		res = fr = fmt_node(f, n->l);
+		const char *token;
+		if (n->type == node_type_assign && (n->data.type & op_store_flag_add_store)) {
+			token = "+=";
+		} else {
+			token = fmt_node_to_token(n->type);
+		}
+		bool is_member_assign = n->type == node_type_assign && (n->data.type & op_store_flag_member);
 
-		next = fmt_frag_sibling(fr, fmt_frag_s(f, fmt_node_to_token(n->type)));
+		struct node *rhs;
+
+		if (is_member_assign) {
+			res = fr = fmt_node(f, n->r->l);
+			if (n->l->type == node_type_id_lit) {
+				next = fmt_frag_sibling(fr, fmt_frag_s(f, "."));
+				next->flags |= fmt_frag_flag_stick_left;
+				next = fmt_frag_sibling(fr, fmt_node(f, n->l));
+				next->flags |= fmt_frag_flag_stick_left;
+			} else {
+				next = fmt_frag_sibling(fr, fmt_frag(f, fmt_frag_type_expr));
+				next->enclosing = "[]";
+				next->flags |= fmt_frag_flag_stick_left;
+				fmt_frag_child(&next->child, fmt_node(f, n->l));
+			}
+			rhs = n->r->r;
+		} else {
+			res = fr = fmt_node(f, n->l);
+			rhs = n->r;
+		}
+
+		next = fmt_frag_sibling(fr, fmt_frag_s(f, token));
 		switch (n->type) {
 		case node_type_add:
 		case node_type_or:
@@ -1076,7 +1103,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		}
 		}
 
-		next = fmt_frag_sibling(fr, fmt_node(f, n->r));
+		next = fmt_frag_sibling(fr, fmt_node(f, rhs));
 		next->flags |= fmt_frag_flag_stick_line_left;
 		break;
 	}
@@ -1112,12 +1139,11 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		break;
 	}
 	case node_type_member: {
-		res = fr = fmt_node(f, n->l->r);
+		res = fr = fmt_node(f, n->l);
 		next = fmt_frag_sibling(fr, fmt_frag_s(f, "."));
 		next->flags |= fmt_frag_flag_stick_left;
 		next = fmt_frag_sibling(fr, fmt_node(f, n->r));
 		next->flags |= fmt_frag_flag_stick_left;
-		next = fmt_frag_sibling(fr, fmt_frag(f, fmt_frag_type_expr));
 
 		/* fmt_list(f, n->l->l, next, fmt_list_flag_func_args); */
 		/* next->enclosing = "()"; */
