@@ -448,6 +448,8 @@ func_add_project_dependencies(struct workspace *wk, obj _, obj *res)
 		obj_array_extend(wk,
 			get_project_argument_array(wk, current_project(wk)->include_dirs[machine], l),
 			d.include_directories);
+		obj_array_extend(
+			wk, get_project_argument_array(wk, current_project(wk)->link_with[machine], l), d.link_with);
 	}
 
 	return true;

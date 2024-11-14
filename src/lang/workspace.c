@@ -36,6 +36,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 		make_obj(wk, &proj->toolchains[i], obj_dict);
 		make_obj(wk, &proj->args[i], obj_dict);
 		make_obj(wk, &proj->link_args[i], obj_dict);
+		make_obj(wk, &proj->link_with[i], obj_dict);
 		make_obj(wk, &proj->include_dirs[i], obj_dict);
 	}
 

@@ -696,6 +696,12 @@ setup_linker_args(struct workspace *wk,
 			}
 		}
 
+		/* project link_with */
+		obj proj_link_with;
+		if (obj_dict_geti(wk, proj->link_with[tgt->machine], ctx->compiler->lang, &proj_link_with)) {
+			obj_array_extend(wk, ctx->args->link_args, proj_link_with);
+		}
+
 		obj_array_extend(wk, ctx->args->link_args, ctx->args->link_with);
 
 		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, push_not_found_lib_iter);

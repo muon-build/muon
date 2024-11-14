@@ -22,7 +22,7 @@ struct project {
 	obj scope_stack;
 
 	obj toolchains[machine_kind_count];
-	obj args[machine_kind_count], link_args[machine_kind_count], include_dirs[machine_kind_count];
+	obj args[machine_kind_count], link_args[machine_kind_count], include_dirs[machine_kind_count], link_with[machine_kind_count];
 
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, targets, tests, test_setups, summary;
