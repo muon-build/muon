@@ -538,6 +538,194 @@ cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct obj_compiler comp = { 0 };
+	bool set_linker, set_static_linker;
+
+	const char *n1_args[32] = { "<value1>", "<value2>" };
+	struct args n1 = { n1_args, 2 };
+	struct toolchain_dump_opts opts = {
+		.s1 = "<value1>",
+		.s2 = "<value2>",
+		.b1 = true,
+		.i1 = 0,
+		.n1 = &n1,
+	};
+
+	OPTSTART("t:s:") {
+	case 't': {
+		if (strcmp(optarg, "list") == 0) {
+			printf("registered toolchains:\n");
+			enum toolchain_component component;
+			for (component = 0; component < toolchain_component_count; ++component) {
+				const struct toolchain_id *list = 0;
+				uint32_t i, count = 0;
+				switch (component) {
+				case toolchain_component_compiler:
+					list = compiler_type_name;
+					count = compiler_type_count;
+					break;
+				case toolchain_component_linker:
+					list = linker_type_name;
+					count = linker_type_count;
+					break;
+				case toolchain_component_static_linker:
+					list = static_linker_type_name;
+					count = static_linker_type_count;
+					break;
+				}
+
+				printf("  %s\n", toolchain_component_to_s(component));
+				for (i = 0; i < count; ++i) {
+					printf("    %s\n", list[i].id);
+				}
+			}
+			return true;
+		}
+
+		char *sep;
+		if (!(sep = strchr(optarg, '='))) {
+			LOG_E("invalid type: %s", optarg);
+			return false;
+		}
+
+		*sep = 0;
+
+		enum toolchain_component component;
+		const char *type = sep + 1;
+
+		if (!toolchain_component_from_s(optarg, &component)) {
+			LOG_E("unknown toolchain component: %s", optarg);
+			return false;
+		}
+
+		switch (component) {
+		case toolchain_component_compiler:
+			if (!compiler_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown compiler type: %s", type);
+				return false;
+			}
+
+			if (!set_linker) {
+				comp.type[toolchain_component_linker] = compilers[comp.type[component]].default_linker;
+			}
+			if (!set_static_linker) {
+				comp.type[toolchain_component_static_linker]
+					= compilers[comp.type[component]].default_static_linker;
+			}
+			break;
+		case toolchain_component_linker:
+			set_linker = true;
+			if (!linker_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown linker type: %s", type);
+				return false;
+			}
+			break;
+		case toolchain_component_static_linker:
+			set_static_linker = true;
+			if (!static_linker_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown static_linker type: %s", type);
+				return false;
+			}
+			break;
+		}
+
+		break;
+	}
+	case 's': {
+		char *sep;
+		if (!(sep = strchr(optarg, '='))) {
+			LOG_E("invalid argument setting: %s", optarg);
+			return false;
+		}
+
+		*sep = 0;
+		++sep;
+
+		if (strcmp(optarg, "s1") == 0) {
+			opts.s1 = sep;
+		} else if (strcmp(optarg, "s2") == 0) {
+			opts.s2 = sep;
+		} else if (strcmp(optarg, "b1") == 0) {
+			if (strcmp(sep, "true") == 0) {
+				opts.b1 = true;
+			} else if (strcmp(sep, "false") == 0) {
+				opts.b1 = false;
+			} else {
+				LOG_E("invalid value for bool: %s", sep);
+				return false;
+			}
+		} else if (strcmp(optarg, "i1") == 0) {
+			int64_t res;
+			if (!str_to_i(&WKSTR(sep), &res, false)) {
+				LOG_E("invalid value for integer: %s", sep);
+				return false;
+			}
+
+			opts.i1 = res;
+		} else if (strcmp(optarg, "n1") == 0) {
+			n1.len = 0;
+
+			while (*sep) {
+				if (n1.len >= ARRAY_LEN(n1_args)) {
+					LOG_E("too many arguments for n1 value");
+					return false;
+				}
+
+				n1.args[n1.len] = sep;
+				++n1.len;
+
+				sep = strchr(sep, ',');
+				if (!sep) {
+					break;
+				}
+				*sep = 0;
+				++sep;
+			}
+		} else {
+			LOG_E("invalid setting name: %s", optarg);
+			return false;
+		}
+
+		break;
+	}
+	}
+	OPTEND(argv[argi], "",
+		"  -t <component>=<type>|list - set the type for a component or list all component types\n"
+		"  -s <key>=<val> - set the value for a template argument\n",
+		NULL, 0)
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	obj id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+	if (!setup_project_options(&wk, NULL)) {
+		UNREACHABLE;
+	}
+
+	printf("compiler: %s, linker: %s, static_linker: %s\n",
+			compiler_type_name[comp.type[toolchain_component_compiler]].id,
+			linker_type_name[comp.type[toolchain_component_linker]].id,
+			static_linker_type_name[comp.type[toolchain_component_static_linker]].id
+			);
+	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {", opts.s1, opts.s2, opts.b1 ? "true" : "false", opts.i1);
+	for (uint32_t i = 0; i < opts.n1->len; ++i) {
+		printf("\"%s\"", opts.n1->args[i]);
+		if (i + 1 < opts.n1->len) {
+			printf(", ");
+		}
+	}
+	printf("}\n");
+
+	toolchain_dump(&wk, &comp, &opts);
+
+	workspace_destroy(&wk);
+	return true;
+}
+
+static bool
 cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
@@ -545,6 +733,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
 		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
+		{ "dump_toolchains", cmd_dump_toolchains, "output toolchain arguments" },
 		0,
 	};
 
