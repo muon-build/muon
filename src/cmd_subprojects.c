@@ -150,10 +150,21 @@ cmd_subprojects_list_iter(void *_ctx, const char *path)
 		goto cont;
 	}
 
-	LLOG_I("%s ", wrap.name.buf);
+	char *clr_green = log_clr() ? "\033[32m" : "",
+		 *clr_blue = log_clr() ? "\033[34m" : "",
+		 *clr_magenta = log_clr() ? "\033[35m" : "",
+	     *clr_off = log_clr() ? "\033[0m" : "";
+
+	char *t = "file", *t_clr = clr_blue;
+	if (wrap.type == wrap_type_git) {
+		t = "git ";
+		t_clr = clr_magenta;
+	}
+
+	LLOG_I("[%s%s%s] %s ", t_clr, t, clr_off, wrap.name.buf);
 
 	if (wrap.outdated) {
-		log_plain("U");
+		log_plain("%sU%s", clr_green, clr_off);
 	}
 	if (wrap.dirty) {
 		log_plain("*");
@@ -190,6 +201,10 @@ cmd_subprojects_clean_iter(void *_ctx, const char *path)
 		goto cont;
 	}
 
+	if (wrap.type != wrap_type_git) {
+		goto cont;
+	}
+
 	if (ctx->force) {
 		LOG_I("removing %s", wrap.dest_dir.buf);
 		fs_rmdir_recursive(wrap.dest_dir.buf, true);
@@ -223,8 +238,8 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		{ "check-wrap", cmd_subprojects_check_wrap, "check if a wrap file is valid" },
 		{ "update", cmd_subprojects_update, "update subprojects with .wrap files" },
-		{ "list", cmd_subprojects_list, "list subprojects with .wrap files" },
-		{ "clean", cmd_subprojects_clean, "clean subprojects with .wrap files" },
+		{ "list", cmd_subprojects_list, "list subprojects with .wrap files and their status" },
+		{ "clean", cmd_subprojects_clean, "clean wrap-git subprojects" },
 		{ 0 },
 	};
 
