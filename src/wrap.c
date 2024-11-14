@@ -621,12 +621,30 @@ wrap_handle_file(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 static bool
+is_git_dir(const char *dir)
+{
+	SBUF_manual(git_dir);
+	path_join(0, &git_dir, dir, ".git");
+	bool res = fs_dir_exists(git_dir.buf);
+	sbuf_destroy(&git_dir);
+	return res;
+}
+
+static bool
 wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 {
-	if (!wrap_run_cmd((const char *const[]){ "git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf, NULL },
-		    NULL,
-		    NULL)) {
-		return false;
+	if (is_git_dir(wrap->dest_dir.buf)) {
+		if (!wrap_run_cmd((const char *const[]){ "git", "remote", "update", NULL },
+				wrap->dest_dir.buf,
+				NULL)) {
+			return false;
+		}
+	} else {
+		if (!wrap_run_cmd((const char *const[]){ "git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf, NULL },
+				NULL,
+				NULL)) {
+			return false;
+		}
 	}
 
 	if (!wrap_run_cmd(
@@ -664,17 +682,7 @@ git_rev_parse(const char *dir, const char *rev, struct sbuf *out)
 	return true;
 }
 
-bool
-is_git_dir(const char *dir)
-{
-	SBUF_manual(git_dir);
-	path_join(0, &git_dir, dir, ".git");
-	bool res = fs_dir_exists(git_dir.buf);
-	sbuf_destroy(&git_dir);
-	return res;
-}
-
-bool
+static bool
 wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 {
 	if (!is_git_dir(wrap->dest_dir.buf)) {
@@ -682,7 +690,7 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 		return true;
 	}
 
-	wrap->dirty = wrap_run_cmd_status((const char *const[]){ "git", "diff", "-q", 0 }, wrap->dest_dir.buf, 0) != 0;
+	wrap->dirty = wrap_run_cmd_status((const char *const[]){ "git", "diff", "--quiet", 0 }, wrap->dest_dir.buf, 0) != 0;
 
 	SBUF_manual(head_rev);
 	SBUF_manual(wrap_rev);
