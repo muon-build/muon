@@ -1287,6 +1287,9 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 	{
 		enum build_language lang;
 		const char *build_file = determine_build_file(wk, new_cwd.buf, &lang);
+		if (!build_file) {
+			goto ret;
+		}
 		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, 0);
 	}
 
