@@ -657,11 +657,11 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 }
 
 static bool
-init_builtin_options(struct workspace *wk, const char *script, const char *fallback)
+init_builtin_options(struct workspace *wk, const char *script)
 {
 	const char *opts;
 	if (!(opts = embedded_get(script))) {
-		opts = fallback;
+		return false;
 	}
 
 	enum language_mode old_mode = wk->vm.lang_mode;
@@ -677,11 +677,7 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 static bool
 init_per_project_options(struct workspace *wk)
 {
-	return init_builtin_options(wk,
-		"per_project_options.meson",
-		"option('default_library', type: 'string', value: 'static')\n"
-		"option('warning_level', type: 'string', value: '3')\n"
-		"option('c_std', type: 'string', value: 'none')\n");
+	return init_builtin_options(wk, "per_project_options.meson");
 }
 
 static enum iteration_result
@@ -797,47 +793,23 @@ setup_project_options(struct workspace *wk, const char *cwd)
 bool
 init_global_options(struct workspace *wk)
 {
-	if (!init_builtin_options(wk,
-		    "global_options.meson",
-		    "option('buildtype', type: 'string', value: 'debug')\n"
-		    "option('prefix', type: 'string', value: '/usr/local')\n"
-		    "option('bindir', type: 'string', value: 'bin')\n"
-		    "option('mandir', type: 'string', value: 'share/man')\n"
-		    "option('datadir', type: 'string', value: 'share')\n"
-		    "option('libdir', type: 'string', value: 'lib')\n"
-		    "option('includedir', type: 'string', value: 'include')\n"
-		    "option('wrap_mode', type: 'string', value: 'nopromote')\n"
-		    "option('force_fallback_for', type: 'array', value: [])\n"
-		    "option('pkg_config_path', type: 'string', value: '')\n"
-		    "option('c_args', type: 'array', value: [])\n"
-		    "option('c_link_args', type: 'array', value: [])\n"
-		    "option('werror', type: 'boolean', value: false)\n"
-		    "option('prefer_static', type: 'boolean', value: false)\n"
-		    "option('b_coverage', type: 'boolean', value: false)\n"
-
-		    "option('env.CC', type: 'array', value: ['cc'])\n"
-		    "option('env.NINJA', type: 'array', value: ['ninja'])\n"
-		    "option('env.AR', type: 'array', value: ['ar'])\n"
-		    "option('env.LD', type: 'array', value: ['ld'])\n")) {
+	if (!init_builtin_options(wk, "global_options.meson")) {
 		return false;
 	}
 
-	set_binary_from_env(wk, "CC", "env.CC");
-	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "AR", "env.AR");
-	set_binary_from_env(wk, "LD", "env.LD");
-	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
-	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
-
-#ifdef MUON_BOOTSTRAPPED
+	set_binary_from_env(wk, "CC", "env.CC");
 	set_binary_from_env(wk, "CXX", "env.CXX");
+	set_binary_from_env(wk, "LD", "env.LD");
+	set_binary_from_env(wk, "NASM", "env.NASM");
+	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "OBJC", "env.OBJC");
 	set_binary_from_env(wk, "OBJCPP", "env.OBJCPP");
-	set_binary_from_env(wk, "NASM", "env.NASM");
+	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
+	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path");
-#endif
 
 	return true;
 }

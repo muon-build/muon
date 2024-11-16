@@ -243,14 +243,6 @@ setup_optional_b_args_compiler(struct workspace *wk,
 	const struct buildtype *buildtype,
 	obj args)
 {
-#ifndef MUON_BOOTSTRAPPED
-	// If we aren't bootstrapped, we don't yet have any b_ options defined
-
-	push_args(wk, args, toolchain_compiler_crt(wk, comp, "static_from_buildtype", buildtype->debug));
-
-	return;
-#endif
-
 	obj opt;
 
 	get_option_value_for_tgt(wk, proj, tgt, "b_vscrt", &opt);
@@ -556,11 +548,6 @@ setup_optional_b_args_linker(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args)
 {
-#ifndef MUON_BOOTSTRAPPED
-	// If we aren't bootstrapped, we don't yet have any b_ options defined
-	return true;
-#endif
-
 	obj opt;
 	get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
 	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {

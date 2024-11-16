@@ -153,7 +153,6 @@ workspace_init_startup_files(struct workspace *wk)
 		UNREACHABLE;
 	}
 
-#ifdef MUON_BOOTSTRAPPED
 	const char *startup_files[] = {
 		"dependencies.meson",
 	};
@@ -163,7 +162,6 @@ workspace_init_startup_files(struct workspace *wk)
 			LOG_W("script %s failed to load", startup_files[i]);
 		}
 	}
-#endif
 }
 
 void

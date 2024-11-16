@@ -83,13 +83,9 @@ write_linker_rule(struct workspace *wk,
 
 	obj link_command = join_args_plain(wk, args);
 
-#ifdef MUON_BOOTSTRAPPED
 	obj backend_max_links;
 	get_option_value(wk, current_project(wk), "backend_max_links", &backend_max_links);
 	const char *linker_pool = get_obj_number(wk, backend_max_links) ? " pool = linker_pool\n" : "";
-#else
-	const char *linker_pool = "";
-#endif
 
 	fprintf(out,
 		"rule %s_%s_%s_linker\n"
@@ -276,7 +272,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		get_cstr(wk, main_proj->cfg.name),
 		output_path.private_dir);
 
-#ifdef MUON_BOOTSTRAPPED
 	obj backend_max_links;
 	get_option_value(wk, main_proj, "backend_max_links", &backend_max_links);
 	int64_t linker_pool_depth = get_obj_number(wk, backend_max_links);
@@ -286,7 +281,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			" depth = %lld\n\n",
 			(long long int)linker_pool_depth);
 	}
-#endif
 
 	{ // Build file regeneration
 		obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
