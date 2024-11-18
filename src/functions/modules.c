@@ -127,19 +127,6 @@ bool
 module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res)
 {
 	struct obj_module *m = 0;
-	if (encapsulate) {
-		if (!wk->vm.modules) {
-			make_obj(wk, &wk->vm.modules, obj_dict);
-		}
-		if (obj_dict_index_str(wk, wk->vm.modules, name, res)) {
-			return true;
-		}
-
-		make_obj(wk, res, obj_module);
-		m = get_obj_module(wk, *res);
-
-		obj_dict_set(wk, wk->vm.modules, make_str(wk, name), *res);
-	}
 
 	{
 		enum {
@@ -233,7 +220,20 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					.embedded = schema == schema_type_embedded,
 				};
 
+				if (encapsulate) {
+					make_obj(wk, res, obj_module);
+					m = get_obj_module(wk, *res);
+
+					if (obj_dict_index_strn(wk, wk->vm.modules, path_interpolated.buf, path_interpolated.len, res)) {
+						return true;
+					}
+				}
+
 				if (module_lookup_script(wk, &path_interpolated, m, &opts)) {
+					if (encapsulate) {
+						obj_dict_set(wk, wk->vm.modules, sbuf_into_str(wk, &path_interpolated), *res);
+					}
+
 					if (wk->vm.error) {
 						return false;
 					}
@@ -251,6 +251,8 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 						return false;
 					}
 
+					make_obj(wk, res, obj_module);
+					m = get_obj_module(wk, *res);
 					m->module = mod_type;
 					m->found = has_impl;
 					m->has_impl = has_impl;

@@ -2683,6 +2683,8 @@ vm_init(struct workspace *wk)
 	assert(id == obj_bool_false);
 	set_obj_bool(wk, id, false);
 
+	make_obj(wk, &wk->vm.modules, obj_dict);
+
 	/* func impl tables */
 	build_func_impl_tables();
 
