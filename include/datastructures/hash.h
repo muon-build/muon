@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #include "datastructures/arr.h"
-#include "datastructures/iterator.h"
+#include "iterator.h"
 
 struct hash;
 
@@ -37,7 +37,4 @@ void hash_set_strn(struct hash *h, const char *key, uint64_t len, uint64_t val);
 void hash_unset(struct hash *h, const void *key);
 void hash_unset_strn(struct hash *h, const char *s, uint64_t len);
 void hash_clear(struct hash *h);
-
-void hash_for_each(struct hash *h, void *ctx, iterator_func ifnc);
-void hash_for_each_with_keys(struct hash *h, void *ctx, hash_with_keys_iterator_func ifnc);
 #endif

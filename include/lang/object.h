@@ -14,7 +14,7 @@
 
 #include "compilers.h"
 #include "datastructures/bucket_arr.h"
-#include "datastructures/iterator.h"
+#include "iterator.h"
 #include "lang/types.h"
 #include "machines.h"
 

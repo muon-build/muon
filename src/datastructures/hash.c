@@ -130,45 +130,6 @@ hash_destroy(struct hash *h)
 }
 
 void
-hash_for_each(struct hash *h, void *ctx, iterator_func ifnc)
-{
-	uint32_t i;
-
-	for (i = 0; i < h->cap; ++i) {
-		if (!k_full(((uint8_t *)h->meta.e)[i])) {
-			continue;
-		}
-
-		switch (ifnc(ctx, &((struct hash_elem *)h->e.e)[i].val)) {
-		case ir_cont: break;
-		case ir_done:
-		case ir_err: return;
-		}
-	}
-}
-
-void
-hash_for_each_with_keys(struct hash *h, void *ctx, hash_with_keys_iterator_func ifnc)
-{
-	uint32_t i;
-	struct hash_elem *he;
-
-	for (i = 0; i < h->cap; ++i) {
-		if (!k_full(((uint8_t *)h->meta.e)[i])) {
-			continue;
-		}
-
-		he = &((struct hash_elem *)h->e.e)[i];
-
-		switch (ifnc(ctx, h->keys.e + he->keyi * h->keys.item_size, he->val)) {
-		case ir_cont: break;
-		case ir_done:
-		case ir_err: return;
-		}
-	}
-}
-
-void
 hash_clear(struct hash *h)
 {
 	h->len = h->load = 0;
