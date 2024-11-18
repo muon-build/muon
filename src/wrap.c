@@ -651,9 +651,9 @@ wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 		}
 
 		if (strlen(wrap->fields[wf_revision]) != 40) {
-			LOG_E("When specifying clone depth you must provide a full git sha as the revision.  Got '%s'",
+			LOG_W("When specifying clone depth you must provide a full git sha as the revision.  Got '%s'",
 				wrap->fields[wf_revision]);
-			return false;
+			depth = 0;
 		}
 
 		// Write it back to a string.  This makes sure we got rid of any whitespace.
