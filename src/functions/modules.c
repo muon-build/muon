@@ -128,8 +128,17 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 {
 	struct obj_module *m = 0;
 	if (encapsulate) {
+		if (!wk->vm.modules) {
+			make_obj(wk, &wk->vm.modules, obj_dict);
+		}
+		if (obj_dict_index_str(wk, wk->vm.modules, name, res)) {
+			return true;
+		}
+
 		make_obj(wk, res, obj_module);
 		m = get_obj_module(wk, *res);
+
+		obj_dict_set(wk, wk->vm.modules, make_str(wk, name), *res);
 	}
 
 	{
