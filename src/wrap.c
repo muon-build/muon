@@ -12,6 +12,7 @@
 #include "external/libarchive.h"
 #include "external/libcurl.h"
 #include "formats/ini.h"
+#include "inttypes.h"
 #include "lang/eval.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -484,14 +485,14 @@ ret:
 }
 
 static int32_t
-wrap_run_cmd_status(const char *const argv[], const char *chdir, const char *feed)
+wrap_run_cmd_status(char *const *argv, const char *chdir, const char *feed)
 {
 	struct run_cmd_ctx cmd_ctx = {
 		.flags = run_cmd_ctx_flag_dont_capture,
 		.chdir = chdir,
 		.stdin_path = feed,
 	};
-	if (!run_cmd_argv(&cmd_ctx, (char *const *)argv, NULL, 0)) {
+	if (!run_cmd_argv(&cmd_ctx, argv, NULL, 0)) {
 		return -1;
 	}
 	run_cmd_ctx_destroy(&cmd_ctx);
@@ -499,9 +500,15 @@ wrap_run_cmd_status(const char *const argv[], const char *chdir, const char *fee
 }
 
 static bool
-wrap_run_cmd(const char *const argv[], const char *chdir, const char *feed)
+wrap_run_cmd_feed(char *const *argv, const char *chdir, const char *feed)
 {
 	return wrap_run_cmd_status(argv, chdir, feed) == 0;
+}
+
+static bool
+wrap_run_cmd(char *const *argv, const char *chdir)
+{
+	return wrap_run_cmd_status(argv, chdir, 0) == 0;
 }
 
 static bool
@@ -528,17 +535,12 @@ wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts 
 			L("applying diff_file '%s'", diff_path.buf);
 
 			if (patch_cmd_found) {
-				if (!wrap_run_cmd((const char *const[]){ "patch", "-p1", NULL },
-					    wrap->dest_dir.buf,
-					    diff_path.buf)) {
+				if (!wrap_run_cmd_feed(ARGV("patch", "-p1"), wrap->dest_dir.buf, diff_path.buf)) {
 					goto ret;
 				}
 			} else {
-				if (!wrap_run_cmd(
-					    (const char *const[]){
-						    "git", "--work-tree", ".", "apply", "-p1", diff_path.buf, NULL },
-					    wrap->dest_dir.buf,
-					    NULL)) {
+				if (!wrap_run_cmd(ARGV("git", "--work-tree", ".", "apply", "-p1", diff_path.buf),
+					    wrap->dest_dir.buf)) {
 					goto ret;
 				}
 			}
@@ -631,27 +633,64 @@ is_git_dir(const char *dir)
 }
 
 static bool
+git_fetch_revision(struct wrap *wrap, const char *depth_str)
+{
+	return wrap_run_cmd(
+		ARGV("git", "fetch", "--depth", depth_str, "origin", wrap->fields[wf_revision]), wrap->dest_dir.buf);
+}
+
+static bool
 wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 {
-	if (is_git_dir(wrap->dest_dir.buf)) {
-		if (!wrap_run_cmd((const char *const[]){ "git", "remote", "update", NULL },
-				wrap->dest_dir.buf,
-				NULL)) {
+	int64_t depth = 0;
+	char depth_str[64] = { 0 };
+	if (wrap->fields[wf_depth]) {
+		if (!str_to_i(&WKSTR(wrap->fields[wf_depth]), &depth, true)) {
+			LOG_E("invalid value for depth: '%s'", wrap->fields[wf_depth]);
 			return false;
 		}
-	} else {
-		if (!wrap_run_cmd((const char *const[]){ "git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf, NULL },
-				NULL,
-				NULL)) {
+
+		if (strlen(wrap->fields[wf_revision]) != 40) {
+			LOG_E("When specifying clone depth you must provide a full git sha as the revision.  Got '%s'",
+				wrap->fields[wf_revision]);
 			return false;
+		}
+
+		// Write it back to a string.  This makes sure we got rid of any whitespace.
+		snprintf(depth_str, sizeof(depth_str), "%" PRId64, depth);
+	}
+
+	if (is_git_dir(wrap->dest_dir.buf)) {
+		if (depth) {
+			if (!git_fetch_revision(wrap, depth_str)) {
+				return false;
+			}
+		} else {
+			if (!wrap_run_cmd(ARGV("git", "remote", "update"), wrap->dest_dir.buf)) {
+				return false;
+			}
+		}
+	} else {
+		if (depth) {
+			if (!fs_mkdir_p(wrap->dest_dir.buf)) {
+				return false;
+			} else if (!wrap_run_cmd(ARGV("git", "init"), wrap->dest_dir.buf)) {
+				return false;
+			} else if (!wrap_run_cmd(ARGV("git", "remote", "add", "origin", wrap->fields[wf_url]),
+					   wrap->dest_dir.buf)) {
+				return false;
+			} else if (!git_fetch_revision(wrap, depth_str)) {
+				return false;
+			}
+		} else {
+			if (!wrap_run_cmd(ARGV("git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf), 0)) {
+				return false;
+			}
 		}
 	}
 
-	if (!wrap_run_cmd(
-		    (const char *const[]){
-			    "git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--", NULL },
-		    wrap->dest_dir.buf,
-		    NULL)) {
+	if (!wrap_run_cmd(ARGV("git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--"),
+		    wrap->dest_dir.buf)) {
 		return false;
 	}
 
@@ -690,7 +729,7 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 		return true;
 	}
 
-	wrap->dirty = wrap_run_cmd_status((const char *const[]){ "git", "diff", "--quiet", 0 }, wrap->dest_dir.buf, 0) != 0;
+	wrap->dirty = wrap_run_cmd_status(ARGV("git", "diff", "--quiet"), wrap->dest_dir.buf, 0) != 0;
 
 	SBUF_manual(head_rev);
 	SBUF_manual(wrap_rev);
@@ -796,12 +835,9 @@ wrap_handle(const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts)
 	}
 
 	switch (opts->mode) {
-	case wrap_handle_mode_default:
-		return wrap_handle_default(wrap, opts);
-	case wrap_handle_mode_update:
-		return wrap_handle_update(wrap, opts);
-	case wrap_handle_mode_check_dirty:
-		return wrap_handle_check_dirty(wrap, opts);
+	case wrap_handle_mode_default: return wrap_handle_default(wrap, opts);
+	case wrap_handle_mode_update: return wrap_handle_update(wrap, opts);
+	case wrap_handle_mode_check_dirty: return wrap_handle_check_dirty(wrap, opts);
 	}
 
 	return true;
