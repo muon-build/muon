@@ -110,9 +110,14 @@ ret:
 	return ret;
 }
 
+struct cmd_subprojects_update_ctx {
+	uint32_t failed;
+};
+
 static enum iteration_result
 cmd_subprojects_update_iter(void *_ctx, const char *path)
 {
+	struct cmd_subprojects_update_ctx *ctx = _ctx;
 	struct wrap wrap = { 0 };
 	struct wrap_opts wrap_opts = {
 		.allow_download = true,
@@ -120,6 +125,7 @@ cmd_subprojects_update_iter(void *_ctx, const char *path)
 		.mode = wrap_handle_mode_update,
 	};
 	if (!wrap_handle(path, &wrap, &wrap_opts)) {
+		++ctx->failed;
 		goto cont;
 	}
 	wrap_destroy(&wrap);
@@ -134,7 +140,14 @@ cmd_subprojects_update(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	return cmd_subprojects_foreach(argc, argi, argv, 0, cmd_subprojects_update_iter);
+	struct cmd_subprojects_update_ctx ctx = { 0 };
+	cmd_subprojects_foreach(argc, argi, argv, &ctx, cmd_subprojects_update_iter);
+
+	if (ctx.failed) {
+		return false;
+	}
+
+	return true;
 }
 
 static enum iteration_result
