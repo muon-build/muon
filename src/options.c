@@ -1039,6 +1039,21 @@ get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fall
 	}
 }
 
+enum backend
+get_option_backend(struct workspace *wk)
+{
+		obj backend_opt;
+		get_option_value(wk, 0, "backend", &backend_opt);
+		const struct str *backend_str = get_str(wk, backend_opt);
+		if (str_eql(backend_str, &WKSTR("ninja"))) {
+			return backend_ninja;
+		} else if (str_eql(backend_str, &WKSTR("xcode"))) {
+			return backend_xcode;
+		} else {
+			UNREACHABLE;
+		}
+}
+
 /* options listing subcommand */
 
 struct make_option_choices_ctx {

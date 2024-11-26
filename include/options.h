@@ -51,6 +51,11 @@ enum wrap_mode {
 enum wrap_mode get_option_wrap_mode(struct workspace *wk);
 enum tgt_type get_option_default_library(struct workspace *wk);
 bool get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback);
+enum backend {
+	backend_ninja,
+	backend_xcode,
+};
+enum backend get_option_backend(struct workspace *wk);
 
 struct list_options_opts {
 	bool list_all, only_modified;

@@ -8,9 +8,13 @@
 #include "args.h"
 #include "backend/backend.h"
 #include "backend/ninja.h"
+#include "backend/output.h"
+#include "backend/xcode.h"
 #include "functions/environment.h"
 #include "lang/object_iterators.h"
+#include "lang/serial.h"
 #include "log.h"
+#include "options.h"
 #include "platform/init.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
@@ -69,6 +73,89 @@ backend_abort_handler(void *_ctx)
 	backend_print_stack(wk);
 }
 
+static bool
+write_tests(struct workspace *wk, void *_ctx, FILE *out)
+{
+	bool wrote_header = false;
+
+	obj tests;
+	make_obj(wk, &tests, obj_dict);
+
+	uint32_t i;
+	for (i = 0; i < wk->projects.len; ++i) {
+		struct project *proj = arr_get(&wk->projects, i);
+		if (proj->not_ok) {
+			continue;
+		}
+
+		if (proj->tests && get_obj_array(wk, proj->tests)->len) {
+			if (!wrote_header) {
+				L("writing tests");
+				wrote_header = true;
+			}
+
+			obj res, key;
+			key = proj->cfg.name;
+
+			if (obj_dict_index(wk, tests, key, &res)) {
+				assert(false && "project defined multiple times");
+			}
+
+			obj arr;
+			make_obj(wk, &arr, obj_array);
+
+			obj_array_push(wk, arr, proj->tests);
+			obj_array_push(wk, arr, proj->test_setups);
+			obj_dict_set(wk, tests, key, arr);
+		}
+	}
+
+	return serial_dump(wk, tests, out);
+}
+
+static bool
+write_install(struct workspace *wk, void *_ctx, FILE *out)
+{
+	obj o;
+	make_obj(wk, &o, obj_array);
+	obj_array_push(wk, o, wk->install);
+	obj_array_push(wk, o, wk->install_scripts);
+	obj_array_push(wk, o, make_str(wk, wk->source_root));
+
+	struct project *proj = arr_get(&wk->projects, 0);
+	obj prefix;
+	get_option_value(wk, proj, "prefix", &prefix);
+	obj_array_push(wk, o, prefix);
+
+	return serial_dump(wk, o, out);
+}
+
+static bool
+write_compiler_check_cache(struct workspace *wk, void *_ctx, FILE *out)
+{
+	return serial_dump(wk, wk->compiler_check_cache, out);
+}
+
+static bool
+write_summary_file(struct workspace *wk, void *_ctx, FILE *out)
+{
+	workspace_print_summaries(wk, out);
+	return true;
+}
+
+static bool
+write_option_info(struct workspace *wk, void *_ctx, FILE *out)
+{
+	obj arr;
+	make_obj(wk, &arr, obj_array);
+	obj_array_push(wk, arr, wk->global_opts);
+
+	struct project *main_proj = arr_get(&wk->projects, 0);
+	obj_array_push(wk, arr, main_proj->opts);
+
+	return serial_dump(wk, arr, out);
+}
+
 bool
 backend_output(struct workspace *wk)
 {
@@ -77,7 +164,23 @@ backend_output(struct workspace *wk)
 	make_obj(wk, &wk->backend_output_stack, obj_array);
 	platform_set_abort_handler(backend_abort_handler, wk);
 
-	if (!ninja_write_all(wk)) {
+	bool ok = true;
+
+	switch (get_option_backend(wk)) {
+	case backend_ninja: ok = ninja_write_all(wk); break;
+	case backend_xcode: ok = ninja_write_all(wk) && xcode_write_all(wk); break;
+	}
+
+	if (ok) {
+		ok = with_open(wk->muon_private, output_path.tests, wk, NULL, write_tests)
+		     && with_open(wk->muon_private, output_path.install, wk, NULL, write_install)
+		     && with_open(
+			     wk->muon_private, output_path.compiler_check_cache, wk, NULL, write_compiler_check_cache)
+		     && with_open(wk->muon_private, output_path.summary, wk, NULL, write_summary_file)
+		     && with_open(wk->muon_private, output_path.option_info, wk, NULL, write_option_info);
+	}
+
+	if (!ok) {
 		LOG_E("backend output failed");
 
 		backend_print_stack(wk);

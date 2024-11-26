@@ -839,3 +839,16 @@ regenerate_build_command(struct workspace *wk, bool opts_only)
 
 	return regen_args;
 }
+
+obj
+backend_tgt_name(struct workspace *wk, obj tgt_id)
+{
+	switch (get_obj_type(wk, tgt_id)) {
+	case obj_alias_target: return get_obj_alias_target(wk, tgt_id)->name; break;
+	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
+	/* fallthrough */
+	case obj_build_target: return get_obj_build_target(wk, tgt_id)->build_name; break;
+	case obj_custom_target: return get_obj_custom_target(wk, tgt_id)->name; break;
+	default: UNREACHABLE_RETURN;
+	}
+}

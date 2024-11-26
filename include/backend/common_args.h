@@ -54,4 +54,6 @@ void relativize_path(struct workspace *wk, obj path, bool relativize_strings, ob
 void relativize_path_push(struct workspace *wk, obj path, obj arr);
 
 obj regenerate_build_command(struct workspace *wk, bool opts_only);
+
+obj backend_tgt_name(struct workspace *wk, obj tgt_id);
 #endif

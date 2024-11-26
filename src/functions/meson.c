@@ -212,7 +212,11 @@ func_meson_backend(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	*res = make_str(wk, "ninja");
+	switch (get_option_backend(wk)) {
+	case backend_ninja: *res = make_str(wk, "ninja"); break;
+	case backend_xcode: *res = make_str(wk, "xcode"); break;
+	}
+
 	return true;
 }
 

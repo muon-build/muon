@@ -20,7 +20,7 @@ muon - a meson-compatible build system
 # DESCRIPTION
 
 *muon* interprets _source files_ written in the _meson dsl_ and produces
-_buildfiles_ for a backend.  Currently the only supported backend is _ninja_.
+_buildfiles_ for a backend.
 
 When building *meson* projects with *muon*, you typically first start by
 running the *setup* command in the project root.  This will create _buildfiles_
