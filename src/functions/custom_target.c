@@ -9,7 +9,6 @@
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 bool
 custom_target_is_linkable(struct workspace *wk, obj ct)

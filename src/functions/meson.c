@@ -13,12 +13,10 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
-#include "functions/build_target.h"
 #include "functions/meson.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "options.h"
 #include "platform/path.h"
 #include "version.h"
@@ -184,7 +182,7 @@ func_meson_build_options(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	obj options = regenerate_build_command(wk, true);
+	obj options = ca_regenerate_build_command(wk, true);
 
 	// remove the build directory from options
 	obj_array_pop(wk, options);

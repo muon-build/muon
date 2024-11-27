@@ -5,17 +5,13 @@
 
 #include "compat.h"
 
-#include <string.h>
-
 #include "args.h"
 #include "backend/common_args.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "error.h"
-#include "functions/machine.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
-#include "log.h"
 #include "options.h"
 #include "platform/path.h"
 #include "tracy.h"
@@ -242,7 +238,7 @@ write_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 
 	ctx->tgt = get_obj_build_target(wk, tgt_id);
 
-	if (!build_target_args(wk, ctx->proj, ctx->tgt, &ctx->args[ctx->tgt->machine])) {
+	if (!ca_build_target_args(wk, ctx->proj, ctx->tgt, &ctx->args[ctx->tgt->machine])) {
 		goto ret;
 	}
 
@@ -283,7 +279,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 	}
 
 	{ // Build file regeneration
-		obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
+		obj regen_cmd = join_args_shell(wk, ca_regenerate_build_command(wk, false));
 
 		fprintf(out,
 			"rule REGENERATE_BUILD\n"
@@ -299,7 +295,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		{
 			obj deduped;
 			obj_array_dedup(wk, wk->regenerate_deps, &deduped);
-			relativize_paths(wk, deduped, true, &regenerate_deps_rel);
+			ca_relativize_paths(wk, deduped, true, &regenerate_deps_rel);
 		}
 
 		fprintf(out,

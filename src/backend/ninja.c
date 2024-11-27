@@ -65,7 +65,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	obj_set_clear_mark(wk, &mk);
 
 	enum obj_type t = get_obj_type(wk, tgt_id);
-	const char *name = get_cstr(wk, backend_tgt_name(wk, tgt_id));
+	const char *name = get_cstr(wk, ca_backend_tgt_name(wk, tgt_id));
 
 	obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing target %s", name));
 

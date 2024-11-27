@@ -125,7 +125,7 @@ add_include_directory_args(struct workspace *wk,
 		obj_array_extend_nodup(wk, include_dirs, dep->include_directories);
 	}
 
-	setup_compiler_args_includes(wk, comp_id, include_dirs, compiler_args, false);
+	ca_setup_compiler_args_includes(wk, comp_id, include_dirs, compiler_args, false);
 	return true;
 }
 
@@ -154,7 +154,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
 
-	get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
+	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
 	add_extra_compiler_check_args(wk, comp, compiler_args);
 
@@ -164,9 +164,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	switch (opts->mode) {
 	case compile_mode_run:
-	case compile_mode_link: get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compile_mode_link: ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
-	case compile_mode_compile: get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compile_mode_compile: ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compile_mode_preprocess: break;
 	}
@@ -225,12 +225,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
 
 	if (have_dep) {
-		struct setup_linker_args_ctx sctx = {
+		struct ca_setup_linker_args_ctx sctx = {
 			.compiler = comp,
 			.args = &dep,
 		};
 
-		setup_linker_args(wk, 0, 0, &sctx);
+		ca_setup_linker_args(wk, 0, 0, &sctx);
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 
@@ -2212,9 +2212,9 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 
 	push_args(wk, base_cmd, toolchain_compiler_specify_lang(wk, comp, lang));
 
-	get_std_args(wk, comp, current_project(wk), NULL, base_cmd);
+	ca_get_std_args(wk, comp, current_project(wk), NULL, base_cmd);
 
-	get_option_compile_args(wk, comp, current_project(wk), NULL, base_cmd);
+	ca_get_option_compile_args(wk, comp, current_project(wk), NULL, base_cmd);
 
 	bool have_dep = false;
 	struct build_dep dep = { 0 };

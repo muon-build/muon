@@ -379,7 +379,7 @@ xc_project_target_custom_tgt(struct xc_ctx *ctx, struct project *proj, obj tgt)
 {
 	struct obj_custom_target *t = get_obj_custom_target(ctx->wk, tgt);
 
-	return xc_project_target_sources(ctx, proj, backend_tgt_name(ctx->wk, tgt), t->input);
+	return xc_project_target_sources(ctx, proj, ca_backend_tgt_name(ctx->wk, tgt), t->input);
 }
 
 static obj
@@ -393,7 +393,7 @@ xc_project_target_build_tgt(struct xc_ctx *ctx, struct project *proj, obj tgt)
 		obj_array_extend(ctx->wk, files, t->extra_files);
 	}
 
-	return xc_project_target_sources(ctx, proj, backend_tgt_name(ctx->wk, tgt), files);
+	return xc_project_target_sources(ctx, proj, ca_backend_tgt_name(ctx->wk, tgt), files);
 }
 
 static obj
@@ -402,7 +402,7 @@ xc_project_target_group(struct xc_ctx *ctx, struct project *proj, obj tgt)
 	obj pbx, pbx_children;
 	pbx = xc_pbx_new_group(ctx, &pbx_children);
 	xc_pbx_push_kv(ctx, pbx, "sourceTree", xc_quoted_str(ctx, "<group>"));
-	xc_pbx_push_kv(ctx, pbx, "name", xc_quoted(ctx, backend_tgt_name(ctx->wk, tgt)));
+	xc_pbx_push_kv(ctx, pbx, "name", xc_quoted(ctx, ca_backend_tgt_name(ctx->wk, tgt)));
 
 	obj child = 0;
 
