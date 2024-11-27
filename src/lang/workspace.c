@@ -8,13 +8,14 @@
 #include <string.h>
 
 #include "backend/output.h"
+#include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
+#include "functions/kernel/dependency.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 
 struct project *

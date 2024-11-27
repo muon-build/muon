@@ -10,6 +10,7 @@
 #include "args.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "cmd_test.h"
 #include "embedded.h"
 #include "error.h"

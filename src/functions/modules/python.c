@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "buf_size.h"
 #include "coerce.h"
 #include "embedded.h"
 #include "external/tinyjson.h"

@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
 #include "functions/modules.h"
@@ -19,7 +20,6 @@
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

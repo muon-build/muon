@@ -14,6 +14,7 @@
 
 #include "args.h"
 #include "backend/common_args.h"
+#include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"

@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include "args.h"
+#include "buf_size.h"
 #include "backend/common_args.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"

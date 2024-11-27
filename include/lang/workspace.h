@@ -6,14 +6,9 @@
 #ifndef MUON_LANG_WORKSPACE_H
 #define MUON_LANG_WORKSPACE_H
 
-#include "buf_size.h"
 #include "datastructures/arr.h"
-#include "datastructures/bucket_arr.h"
-#include "datastructures/hash.h"
 #include "datastructures/stack.h"
 #include "lang/eval.h"
-#include "lang/object.h"
-#include "lang/source.h"
 #include "lang/string.h"
 #include "lang/vm.h"
 

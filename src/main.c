@@ -13,6 +13,7 @@
 #include "args.h"
 #include "backend/backend.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "cmd_install.h"
 #include "cmd_subprojects.h"
 #include "cmd_test.h"

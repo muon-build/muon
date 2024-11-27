@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "functions/array.h"
 #include "functions/boolean.h"
 #include "functions/both_libs.h"
@@ -36,7 +37,6 @@
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 /******************************************************************************
  * function tables

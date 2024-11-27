@@ -9,8 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "lang/types.h"
-
 struct source;
 struct workspace;
 

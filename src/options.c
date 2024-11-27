@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "backend/output.h"
+#include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
 #include "lang/object_iterators.h"

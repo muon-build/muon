@@ -5,7 +5,7 @@
 
 #include "compat.h"
 
-#include "error.h"
+#include "buf_size.h"
 #include "functions/modules/toolchain.h"
 #include "lang/typecheck.h"
 

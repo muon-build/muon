@@ -5,9 +5,7 @@
 
 #include "compat.h"
 
-#include <inttypes.h>
-#include <string.h>
-
+#include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
 #include "lang/analyze.h"

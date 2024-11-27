@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "error.h"
 #include "lang/object.h"
 #include "lang/string.h"

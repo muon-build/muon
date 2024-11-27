@@ -7,13 +7,13 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "platform/assert.h"
 #include "platform/path.h"
 #include "tracy.h"
 
