@@ -223,15 +223,6 @@ ca_get_option_compile_args(struct workspace *wk,
 	obj_array_extend(wk, args_id, args);
 }
 
-struct ca_setup_compiler_args_ctx {
-	const struct obj_build_target *tgt;
-	const struct project *proj;
-
-	obj include_dirs;
-	obj dep_args;
-	obj joined_args;
-};
-
 static void
 ca_setup_optional_b_args_compiler(struct workspace *wk,
 	struct obj_compiler *comp,
@@ -381,88 +372,75 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 	};
 }
 
-static void
-ca_target_toolchain_args(struct workspace *wk,
-	struct ca_setup_compiler_args_ctx *ctx,
-	enum compiler_language lang,
-	obj comp_id)
-{
-	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-
-	obj args = ca_get_base_compiler_args(wk, ctx->proj, ctx->tgt, lang, comp_id);
-
-	obj inc_dirs;
-	obj_array_dedup(wk, ctx->include_dirs, &inc_dirs);
-
-	{ /* project includes */
-		obj proj_incs;
-		if (obj_dict_geti(wk, ctx->proj->include_dirs[ctx->tgt->machine], lang, &proj_incs)) {
-			obj_array_extend(wk, inc_dirs, proj_incs);
-			obj dedupd;
-			obj_array_dedup(wk, inc_dirs, &dedupd);
-			inc_dirs = dedupd;
-		}
-	}
-
-	ca_setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true);
-
-	{ /* dep args */
-		if (ctx->dep_args) {
-			obj_array_extend(wk, args, ctx->dep_args);
-		}
-	}
-
-	{ /* target args */
-		obj tgt_args;
-		if (obj_dict_geti(wk, ctx->tgt->args, lang, &tgt_args) && tgt_args
-			&& get_obj_array(wk, tgt_args)->len) {
-			obj_array_extend(wk, args, tgt_args);
-		}
-	}
-
-	if (ctx->tgt->flags & build_tgt_flag_pic) {
-		push_args(wk, args, toolchain_compiler_pic(wk, comp));
-	}
-
-	if (ctx->tgt->flags & build_tgt_flag_pie) {
-		push_args(wk, args, toolchain_compiler_pie(wk, comp));
-	}
-
-	if (ctx->tgt->flags & build_tgt_flag_visibility) {
-		push_args(wk, args, toolchain_compiler_visibility(wk, comp, ctx->tgt->visibility));
-	}
-
-	obj_dict_seti(wk, ctx->joined_args, lang, join_args_shell_ninja(wk, args));
-}
-
 static obj
 ca_target_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	const struct project *proj,
 	obj include_dirs,
-	obj dep_args)
+	obj compile_args)
 {
 	obj joined_args;
 	make_obj(wk, &joined_args, obj_dict);
 
-	struct ca_setup_compiler_args_ctx ctx = {
-		.tgt = tgt,
-		.proj = proj,
-		.include_dirs = include_dirs,
-		.dep_args = dep_args,
-		.joined_args = joined_args,
-	};
+	obj k, comp_id;
+	obj_dict_for(wk, proj->toolchains[tgt->machine], k, comp_id) {
+		enum compiler_language lang = k;
+		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
-	obj k, v;
-	obj_dict_for(wk, proj->toolchains[tgt->machine], k, v) {
-		ca_target_toolchain_args(wk, &ctx, k, v);
+		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp_id);
+
+		obj inc_dirs;
+		obj_array_dedup(wk, include_dirs, &inc_dirs);
+
+		{ /* project includes */
+			obj proj_incs;
+			if (obj_dict_geti(wk, proj->include_dirs[tgt->machine], lang, &proj_incs)) {
+				obj_array_extend(wk, inc_dirs, proj_incs);
+				obj dedupd;
+				obj_array_dedup(wk, inc_dirs, &dedupd);
+				inc_dirs = dedupd;
+			}
+		}
+
+		ca_setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true);
+
+		{ /* compile args */
+			if (compile_args) {
+				obj_array_extend(wk, args, compile_args);
+			}
+		}
+
+		{ /* target args */
+			obj tgt_args;
+			if (obj_dict_geti(wk, tgt->args, lang, &tgt_args) && tgt_args
+				&& get_obj_array(wk, tgt_args)->len) {
+				obj_array_extend(wk, args, tgt_args);
+			}
+		}
+
+		if (tgt->flags & build_tgt_flag_pic) {
+			push_args(wk, args, toolchain_compiler_pic(wk, comp));
+		}
+
+		if (tgt->flags & build_tgt_flag_pie) {
+			push_args(wk, args, toolchain_compiler_pie(wk, comp));
+		}
+
+		if (tgt->flags & build_tgt_flag_visibility) {
+			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
+		}
+
+		obj_dict_seti(wk, joined_args, lang, join_args_shell_ninja(wk, args));
 	}
 
 	return joined_args;
 }
 
 bool
-ca_build_target_args(struct workspace *wk, const struct project *proj, const struct obj_build_target *tgt, obj *joined_args)
+ca_build_target_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	obj *joined_args)
 {
 	struct build_dep args = tgt->dep_internal;
 
