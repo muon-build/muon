@@ -961,9 +961,14 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 	}
 }
 
-static void
-merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *dest, bool dep)
+void
+build_dep_merge(struct workspace *wk,
+	struct build_dep *dest,
+	const struct build_dep *src,
+	enum build_dep_merge_flag flags)
 {
+	bool merge_all = flags & build_dep_merge_flag_merge_all;
+
 	build_dep_init(wk, dest);
 
 	dest->link_language = coalesce_link_languages(src->link_language, dest->link_language);
@@ -980,7 +985,7 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->link_whole, src->link_whole);
 	}
 
-	if (dep && src->include_directories) {
+	if (merge_all && src->include_directories) {
 		obj_array_extend(wk, dest->include_directories, src->include_directories);
 	}
 
@@ -992,7 +997,7 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->frameworks, src->frameworks);
 	}
 
-	if (dep && src->compile_args) {
+	if (merge_all && src->compile_args) {
 		obj_array_extend(wk, dest->compile_args, src->compile_args);
 	}
 
@@ -1004,11 +1009,11 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->order_deps, src->order_deps);
 	}
 
-	if (dep && src->sources) {
+	if (merge_all && src->sources) {
 		obj_array_extend(wk, dest->sources, src->sources);
 	}
 
-	if (dep && src->objects) {
+	if (merge_all && src->objects) {
 		obj_array_extend(wk, dest->objects, src->objects);
 	}
 }
@@ -1114,7 +1119,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
-		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+		const struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		const char *path = get_cstr(wk, tgt->build_path);
 
 		if (ctx->link_whole && tgt->type != tgt_static_library) {
@@ -1149,7 +1154,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
-		merge_build_deps(wk, &tgt->dep, ctx->dest, false);
+		build_dep_merge(wk, ctx->dest, &tgt->dep, 0);
 		break;
 	}
 	case obj_custom_target: {
@@ -1228,12 +1233,12 @@ dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	struct obj_dependency *dep = get_obj_dependency(wk, val);
+	const struct obj_dependency *dep = get_obj_dependency(wk, val);
 	if (!(dep->flags & dep_flag_found)) {
 		return ir_cont;
 	}
 
-	merge_build_deps(wk, &dep->dep, dest, true);
+	build_dep_merge(wk, dest, &dep->dep, build_dep_merge_flag_merge_all);
 
 	return ir_cont;
 }
