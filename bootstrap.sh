@@ -23,7 +23,7 @@ fi
 
 if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd libpkgconf; then
 	pkgconf_cflags="$($pkgconf_cmd --cflags libpkgconf) -DBOOTSTRAP_HAVE_LIBPKGCONF"
-	pkgconf_libs="$($pkgconf_cmd --libs libpkgconf)"
+	pkgconf_libs="$($pkgconf_cmd --keep-system-libs --libs libpkgconf)"
 else
 	pkgconf_cflags=""
 	pkgconf_libs=""
