@@ -108,7 +108,7 @@ xc_pbx_push(struct xc_ctx *ctx, obj pbx, obj key, obj value, obj comment)
 		});
 
 	if (key || value) {
-		assert(xc_pbx_type(ctx, pbx) == key ? obj_dict : obj_array);
+		assert(xc_pbx_type(ctx, pbx) == (key ? obj_dict : obj_array));
 	}
 
 	obj_array_push(ctx->wk, pbx, idx);
@@ -464,7 +464,7 @@ xc_project_main_group(struct xc_ctx *ctx, struct project *proj)
 }
 
 static obj
-xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj)
+xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj, struct obj_build_target *tgt)
 {
 	obj pbx_build_settings = xc_pbx_new(ctx, obj_dict);
 	xc_pbx_push_kv(ctx, pbx_build_settings, "ARCHS", xc_quoted_str(ctx, "arm64"));
@@ -474,6 +474,31 @@ xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj)
 	xc_pbx_push_kv(ctx, pbx_build_settings, "MACOSX_DEPLOYMENT_TARGET", make_str(ctx->wk, "10.15"));
 	/* xc_pbx_push_kv(ctx, pbx_build_settings, "SDKROOT", xc_bool(ctx, true)); */
 	/* xc_pbx_push_kv(ctx, pbx_build_settings, "OBJROOT", xc_bool(ctx, true)); */
+
+	if (tgt) {
+		obj pbx_header_search_paths = xc_pbx_new(ctx, obj_array);
+		obj v;
+		obj_array_for(ctx->wk, tgt->dep_internal.include_directories, v) {
+			struct obj_include_directory *i = get_obj_include_directory(ctx->wk, v);
+			// TODO: ignoring system paths
+			xc_pbx_push_v(ctx, pbx_header_search_paths, xc_quoted(ctx, i->path));
+		}
+		xc_pbx_push_v(ctx, pbx_header_search_paths, xc_quoted_str(ctx, "$(inherited)"));
+		xc_pbx_push_kv(ctx, pbx_build_settings, "HEADER_SEARCH_PATHS", pbx_header_search_paths);
+
+		if (tgt->dep_internal.compile_args) {
+			obj pbx_gcc_preprocessor_definitions = xc_pbx_new(ctx, obj_array);
+			obj_array_for(ctx->wk, tgt->dep_internal.compile_args, v) {
+				const struct str *s = get_str(ctx->wk, v);
+				if (str_startswith(s, &WKSTR("-D")) && s->len > 2) {
+					xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted(ctx, make_strn(ctx->wk, s->s + 2, s->len - 2)));
+				}
+			}
+			xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted_str(ctx, "$(inherited)"));
+			xc_pbx_push_kv(ctx, pbx_build_settings, "GCC_PREPROCESSOR_DEFINITIONS", pbx_gcc_preprocessor_definitions);
+		}
+	}
+
 
 	obj pbx_configuration = xc_pbx_new_t(ctx, "XCBuildConfiguration");
 	xc_pbx_push_kv(ctx, pbx_configuration, "name", make_str(ctx->wk, "debug"));
@@ -582,7 +607,8 @@ xc_project_ninja_build(struct xc_ctx *ctx, struct project *proj)
 {
 	obj pbx = xc_pbx_new_t(ctx, "PBXLegacyTarget");
 	xc_pbx_push_kv(ctx, pbx, "buildArgumentsString", xc_quoted_str(ctx, "samu"));
-	xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj));
+	xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj, 0));
+
 	xc_pbx_push_kv(ctx, pbx, "buildPhases", xc_pbx_new(ctx, obj_array));
 	xc_pbx_push_kv(ctx, pbx, "buildToolPath", make_str(ctx->wk, ctx->wk->argv0));
 	xc_pbx_push_kv(ctx, pbx, "buildWorkingDirectory", proj->build_root);
@@ -606,6 +632,22 @@ xc_project_ninja_build(struct xc_ctx *ctx, struct project *proj)
 	}
 
 	return ctx->legacy_target_uuid;
+}
+
+static obj
+xc_project_target(struct xc_ctx *ctx, struct project *proj, obj _tgt)
+{
+	struct obj_build_target *tgt = get_obj_build_target(ctx->wk, _tgt);
+
+	obj pbx = xc_pbx_new_t(ctx, "PBXNativeTarget");
+	xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj, tgt));
+	xc_pbx_push_kv(ctx, pbx, "buildPhases", xc_pbx_new(ctx, obj_array));
+	xc_pbx_push_kv(ctx, pbx, "buildRules", xc_pbx_new(ctx, obj_array));
+	xc_pbx_push_kv(ctx, pbx, "dependencies", xc_pbx_new(ctx, obj_array));
+	xc_pbx_push_kv(ctx, pbx, "name", tgt->build_name);
+	xc_pbx_push_kv(ctx, pbx, "productName", tgt->build_name);
+
+	return xc_pbx_push_root_object(ctx, pbx);
 }
 
 static bool
@@ -635,7 +677,7 @@ xc_project_main(struct workspace *_wk, void *_ctx, FILE *_out)
 		xc_pbx_push_kv(ctx, pbx, "attributes", pbx_attributes);
 		xc_pbx_push_kv(ctx, pbx, "projectDirPath", xc_quoted(ctx, proj->source_root));
 		xc_pbx_push_kv(ctx, pbx, "projectRoot", xc_quoted_str(ctx, ""));
-		xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj));
+		xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj, 0));
 		xc_pbx_push_kv(ctx, pbx, "mainGroup", xc_project_main_group(ctx, proj));
 		/* xc_pbx_push_kv(ctx, pbx, "compatibilityVersion", make_str(ctx->wk, "Xcode 15.0")); */
 		/* xc_pbx_push_kv(ctx, pbx, "hasScannedForEncodings", make_number(ctx->wk, 0)); */
@@ -643,7 +685,9 @@ xc_project_main(struct workspace *_wk, void *_ctx, FILE *_out)
 
 		obj pbx_targets = xc_pbx_new(ctx, obj_array), tgt;
 		obj_array_for(ctx->wk, proj->targets, tgt) {
-			/* xc_pbx_push_v(ctx, pbx_targets, xc_obj_uuid(ctx, tgt, 0)); */
+			if (get_obj_type(ctx->wk, tgt) == obj_build_target) {
+				xc_pbx_push_v(ctx, pbx_targets, xc_project_target(ctx, proj, tgt));
+			}
 		}
 
 		if (ctx->master_project) {
