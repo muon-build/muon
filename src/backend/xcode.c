@@ -29,6 +29,7 @@ struct xc_ctx {
 	bool master_project;
 	const char *proj_path, *pbx_path;
 	obj legacy_target_uuid;
+	obj tgt_build_files;
 };
 
 static void
@@ -260,6 +261,16 @@ xc_file(struct xc_ctx *ctx, const char *name, const char *path)
 	return xc_pbx_push(ctx, ctx->pbx_objects, xc_obj_uuid(ctx, pbx, 0), pbx, 0);
 }
 
+static obj
+xc_build_file(struct xc_ctx *ctx, obj file_uuid)
+{
+	obj pbx = xc_pbx_new_t(ctx, "PBXBuildFile");
+
+	xc_pbx_push_kv(ctx, pbx, "fileRef", file_uuid);
+
+	return xc_pbx_push(ctx, ctx->pbx_objects, xc_obj_uuid(ctx, pbx, 0), pbx, 0);
+}
+
 static int32_t
 xc_source_sort(struct workspace *wk, void *_ctx, obj a, obj b)
 {
@@ -267,12 +278,22 @@ xc_source_sort(struct workspace *wk, void *_ctx, obj a, obj b)
 }
 
 static obj
-xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj name, obj sources)
+xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj tgt, obj name, obj sources)
 {
 	obj pbx, pbx_children;
 	pbx = xc_pbx_new_group(ctx, &pbx_children);
 	xc_pbx_push_kv(ctx, pbx, "sourceTree", xc_quoted_str(ctx, "<group>"));
 	xc_pbx_push_kv(ctx, pbx, "name", xc_quoted(ctx, name));
+
+	obj pbx_build_files = 0;
+	obj pbx_build = 0;
+	if (tgt) {
+		pbx_build_files = xc_pbx_new(ctx, obj_array);
+		pbx_build = xc_pbx_new_t(ctx, "PBXSourcesBuildPhase");
+		xc_pbx_push_kv(ctx, pbx_build, "buildActionMask", make_number(ctx->wk, 0x7fffffff));
+		xc_pbx_push_kv(ctx, pbx_build, "runOnlyForDeploymentPostprocessing", make_number(ctx->wk, 0));
+		xc_pbx_push_kv(ctx, pbx_build, "files", pbx_build_files);
+	}
 
 	if (!sources) {
 		goto done;
@@ -305,8 +326,6 @@ xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj name, ob
 			dirname.buf[0] = 0;
 			dirname.len = 0;
 		}
-
-		L("%s, prev: %s, cur: %s", rel.buf, prev_dirname.buf, dirname.buf);
 
 		if (strcmp(prev_dirname.buf, dirname.buf) != 0) {
 			uint32_t i;
@@ -365,13 +384,20 @@ xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj name, ob
 
 		path_basename(ctx->wk, &basename, rel.buf);
 
-		xc_pbx_push_v(ctx, pbx_children, xc_file(ctx, basename.buf, path));
+		obj file_uuid = xc_file(ctx, basename.buf, path);
+		xc_pbx_push_v(ctx, pbx_children, file_uuid);
+		if (tgt) {
+			xc_pbx_push_v(ctx, pbx_build_files, xc_build_file(ctx, file_uuid));
+		}
 	}
 
 	ctx->stack.len = stack_base;
 
 done:
-	return xc_pbx_push(ctx, ctx->pbx_objects, xc_obj_uuid(ctx, pbx, 0), pbx, 0);
+	if (tgt) {
+		obj_dict_seti(ctx->wk, ctx->tgt_build_files, tgt, xc_pbx_push_root_object(ctx, pbx_build));
+	}
+	return xc_pbx_push_root_object(ctx, pbx);
 }
 
 static obj
@@ -379,7 +405,7 @@ xc_project_target_custom_tgt(struct xc_ctx *ctx, struct project *proj, obj tgt)
 {
 	struct obj_custom_target *t = get_obj_custom_target(ctx->wk, tgt);
 
-	return xc_project_target_sources(ctx, proj, ca_backend_tgt_name(ctx->wk, tgt), t->input);
+	return xc_project_target_sources(ctx, proj, tgt, ca_backend_tgt_name(ctx->wk, tgt), t->input);
 }
 
 static obj
@@ -393,7 +419,7 @@ xc_project_target_build_tgt(struct xc_ctx *ctx, struct project *proj, obj tgt)
 		obj_array_extend(ctx->wk, files, t->extra_files);
 	}
 
-	return xc_project_target_sources(ctx, proj, ca_backend_tgt_name(ctx->wk, tgt), files);
+	return xc_project_target_sources(ctx, proj, tgt, ca_backend_tgt_name(ctx->wk, tgt), files);
 }
 
 static obj
@@ -443,7 +469,7 @@ xc_project_meson_group(struct xc_ctx *ctx, struct project *proj)
 		}
 	}
 
-	return xc_project_target_sources(ctx, proj, make_str(ctx->wk, "meson"), files);
+	return xc_project_target_sources(ctx, proj, 0, make_str(ctx->wk, "meson"), files);
 }
 
 static obj
@@ -642,11 +668,18 @@ xc_project_ninja_build(struct xc_ctx *ctx, struct project *proj)
 static obj
 xc_project_target(struct xc_ctx *ctx, struct project *proj, obj _tgt)
 {
+	obj pbx_build_uuid;
+	if (!obj_dict_geti(ctx->wk, ctx->tgt_build_files, _tgt, &pbx_build_uuid)) {
+		UNREACHABLE;
+	}
 	struct obj_build_target *tgt = get_obj_build_target(ctx->wk, _tgt);
+
+	obj pbx_build_phases = xc_pbx_new(ctx, obj_array);
+	xc_pbx_push_v(ctx, pbx_build_phases, pbx_build_uuid);
 
 	obj pbx = xc_pbx_new_t(ctx, "PBXNativeTarget");
 	xc_pbx_push_kv(ctx, pbx, "buildConfigurationList", xc_build_configuration_list(ctx, proj, tgt));
-	xc_pbx_push_kv(ctx, pbx, "buildPhases", xc_pbx_new(ctx, obj_array));
+	xc_pbx_push_kv(ctx, pbx, "buildPhases", pbx_build_phases);
 	xc_pbx_push_kv(ctx, pbx, "buildRules", xc_pbx_new(ctx, obj_array));
 	xc_pbx_push_kv(ctx, pbx, "dependencies", xc_pbx_new(ctx, obj_array));
 	xc_pbx_push_kv(ctx, pbx, "name", tgt->build_name);
@@ -661,6 +694,8 @@ xc_project_main(struct workspace *_wk, void *_ctx, FILE *_out)
 	struct xc_ctx *ctx = _ctx;
 	ctx->out = _out;
 	struct project *proj = ctx->proj;
+
+	make_obj(ctx->wk, &ctx->tgt_build_files, obj_dict);
 
 	obj pbx_main = xc_pbx_new(ctx, obj_dict);
 	xc_pbx_push_kv(ctx, pbx_main, "archiveVersion", make_number(ctx->wk, 1));
