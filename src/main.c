@@ -277,7 +277,19 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 				       | az_diagnostic_redirect_script_error,
 	};
 
-	OPTSTART("luqO:W:i:td:") {
+	enum {
+		action_trace,
+		action_define,
+		action_default,
+	} action = action_default;
+
+	static const struct command commands[] = {
+		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
+		[action_define] = { "define <var>", 0, "lookup the definition of a variable" },
+		0,
+	};
+
+	OPTSTART("luqO:W:i:") {
 	case 'i': opts.internal_file = optarg; break;
 	case 'l':
 		opts.subdir_error = true;
@@ -285,8 +297,6 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	case 'O': opts.file_override = optarg; break;
 	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
-	case 't': opts.eval_trace = true; break;
-	case 'd': opts.get_definition_for = optarg; break;
 	case 'W': {
 		bool enable = true;
 		const char *name = optarg;
@@ -322,13 +332,42 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -q - only report errors\n"
 		"  -O <path> - read project file with matching path from stdin\n"
 		"  -i <path> - analyze the single file <path> in internal mode\n"
-		"  -t - print a tree of all meson source files that are evaluated\n"
-		"  -d <var> - print the location of the definition of <var>\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n",
-		NULL,
-		0)
+		commands,
+		-1);
+
+	uint32_t cmd_i = action_default;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, true)) {
+		return false;
+	}
+	if (cmd_i != action_default) {
+		++argi;
+	}
+	action = cmd_i;
+
+	if (action == action_define) {
+		if (!check_operands(argc, argi, 1)) {
+			return false;
+		}
+	} else {
+		if (!check_operands(argc, argi, 0)) {
+			return false;
+		}
+	}
+
+	switch (action) {
+	case action_default: break;
+	case action_trace: {
+		opts.eval_trace = true;
+		break;
+	}
+	case action_define: {
+		opts.get_definition_for = argv[argi];
+		break;
+	}
+	}
 
 	if (opts.internal_file && opts.file_override) {
 		LOG_E("-i and -O are mutually exclusive");
@@ -412,14 +451,12 @@ cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;
-	;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 
-	assert(cmd);
-	return cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(argc, argi, argv);
 }
 
 static bool
@@ -465,13 +502,10 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	wk.vm.lang_mode = language_internal;
 
 	if (embedded) {
-		if (!(src.src = embedded_get(filename))) {
+		if (!(embedded_get(filename, &src))) {
 			LOG_E("failed to find '%s' in embedded sources", filename);
 			goto ret;
 		}
-
-		src.len = strlen(src.src);
-		src.label = filename;
 	} else {
 		if (!fs_read_entire_file(filename, &src)) {
 			goto ret;
@@ -692,10 +726,12 @@ cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	}
-	OPTEND(argv[argi], "",
+	OPTEND(argv[argi],
+		"",
 		"  -t <component>=<type>|list - set the type for a component or list all component types\n"
 		"  -s <key>=<val> - set the value for a template argument\n",
-		NULL, 0)
+		NULL,
+		0)
 
 	struct workspace wk;
 	workspace_init(&wk);
@@ -707,11 +743,14 @@ cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	printf("compiler: %s, linker: %s, static_linker: %s\n",
-			compiler_type_name[comp.type[toolchain_component_compiler]].id,
-			linker_type_name[comp.type[toolchain_component_linker]].id,
-			static_linker_type_name[comp.type[toolchain_component_static_linker]].id
-			);
-	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {", opts.s1, opts.s2, opts.b1 ? "true" : "false", opts.i1);
+		compiler_type_name[comp.type[toolchain_component_compiler]].id,
+		linker_type_name[comp.type[toolchain_component_linker]].id,
+		static_linker_type_name[comp.type[toolchain_component_static_linker]].id);
+	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {",
+		opts.s1,
+		opts.s2,
+		opts.b1 ? "true" : "false",
+		opts.i1);
 	for (uint32_t i = 0; i < opts.n1->len; ++i) {
 		printf("\"%s\"", opts.n1->args[i]);
 		if (i + 1 < opts.n1->len) {
@@ -742,14 +781,12 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;
-	;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 
-	assert(cmd);
-	return cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(argc, argi, argv);
 }
 
 static bool
@@ -1152,12 +1189,12 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		commands,
 		-1)
 
-	cmd_func cmd;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		goto ret;
 	}
 
-	res = cmd(argc, argi, argv);
+	res = commands[cmd_i].cmd(argc, argi, argv);
 
 ret:
 	sbuf_destroy(&argv0);

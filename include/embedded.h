@@ -5,5 +5,7 @@
 
 #ifndef MUON_EMBEDDED_H
 #define MUON_EMBEDDED_H
-const char *embedded_get(const char *name);
+#include <stdbool.h>
+struct source;
+bool embedded_get(const char *name, struct source *src);
 #endif

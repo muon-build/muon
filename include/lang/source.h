@@ -6,22 +6,20 @@
 
 #define MUON_LANG_SOURCE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
-enum source_reopen_type {
-	source_reopen_type_none,
-	source_reopen_type_embedded,
-	source_reopen_type_file,
+enum source_type {
+	source_type_unknown,
+	source_type_file,
+	source_type_embedded,
 };
 
 struct source {
 	const char *label;
 	const char *src;
 	uint64_t len;
-
-	// only necessary if src is NULL.  If so, this source will be re-read
-	// on error to fetch appropriate context lines.
-	enum source_reopen_type reopen_type;
+	enum source_type type;
 };
 
 struct source_location {

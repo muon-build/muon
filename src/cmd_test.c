@@ -1106,7 +1106,12 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 		return false;
 	}
 
-	fprintf(f, embedded_get("html/test_out.html"), data.buf);
+	struct source src;
+	if (!embedded_get("html/test_out.html", &src)) {
+		UNREACHABLE;
+	}
+
+	fprintf(f, src.src, data.buf);
 	LOG_I("wrote html output to %s", abs.buf);
 	fclose(f);
 

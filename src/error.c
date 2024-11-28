@@ -358,13 +358,10 @@ static void
 reopen_source(struct source *src, bool *destroy_source)
 {
 	if (!src->len) {
-		switch (src->reopen_type) {
-		case source_reopen_type_none: return;
-		case source_reopen_type_embedded:
-			src->src = embedded_get(src->label);
-			src->len = strlen(src->src);
-			break;
-		case source_reopen_type_file:
+		switch (src->type) {
+		case source_type_unknown: return;
+		case source_type_embedded: UNREACHABLE; break;
+		case source_type_file:
 			if (!fs_read_entire_file(src->label, src)) {
 				return;
 			}

@@ -2750,7 +2750,7 @@ vm_destroy(struct workspace *wk)
 	arr_destroy(&wk->vm.code);
 	for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
 		struct source *src = arr_get(&wk->vm.src, i);
-		if (src->reopen_type == source_reopen_type_file) {
+		if (src->type == source_type_file) {
 			fs_source_destroy(src);
 		}
 	}

@@ -89,9 +89,9 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 {
 	obj _;
 	bool ret;
-	const char *src;
+	struct source src;
 
-	if (!(src = embedded_get(script))) {
+	if (!embedded_get(script, &src)) {
 		LOG_E("embedded script %s not found", script);
 		return false;
 	}
@@ -100,7 +100,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	ret = eval(wk,
-		&(struct source){ .src = src, .label = script, .len = strlen(src) },
+		&src,
 		build_language_meson,
 		0,
 		&_);

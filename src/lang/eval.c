@@ -48,7 +48,7 @@ eval_project(struct workspace *wk,
 		log_set_prefix(log_prefix);
 	}
 
-	if (subproject_name) {
+	if (subproject_name && !wk->vm.in_analyzer) {
 		LOG_I("entering subproject '%s'", subproject_name);
 	}
 
@@ -159,7 +159,7 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 	}
 
 	if (wk->vm.dbg_state.eval_trace) {
-		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
+		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 		bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
 		if (trace_subdir) {
 			obj subdir_eval_trace;

@@ -10,6 +10,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "lang/analyze.h"
 #include "error.h"
 #include "external/libpkgconf.h"
 #include "functions/file.h"
@@ -489,6 +490,17 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	if (!get_obj_array(wk, an[0].val)->len) {
 		vm_error_at(wk, an[0].node, "no dependency names specified");
 		return false;
+	}
+
+	if (wk->vm.in_analyzer) {
+		// TODO: check fallback keyword?
+		obj name, _subproj;
+		obj_array_for(wk, an[0].val, name) {
+			subproject(wk, name, requirement_auto, 0, 0, &_subproj);
+		}
+
+		*res = make_typeinfo(wk, tc_dependency);
+		return true;
 	}
 
 	enum include_type inc_type = include_type_preserve;

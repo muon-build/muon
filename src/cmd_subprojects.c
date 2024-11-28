@@ -265,8 +265,8 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[0], "", "  -d <directory> - manually specify subprojects directory\n", commands, -1)
 
-	cmd_func cmd;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 
@@ -281,7 +281,7 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	cmd_subprojects_subprojects_dir = path.buf;
 
-	bool res = cmd(argc, argi, argv);
+	bool res = commands[cmd_i].cmd(argc, argi, argv);
 
 	sbuf_destroy(&path);
 	return res;

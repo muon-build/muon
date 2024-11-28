@@ -26,7 +26,7 @@ subproject_prepare(struct workspace *wk,
 	SBUF(wrap_path);
 	sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
 
-	if (fs_file_exists(wrap_path.buf)) {
+	if (!wk->vm.in_analyzer && fs_file_exists(wrap_path.buf)) {
 		bool wrap_ok = false;
 
 		SBUF(base_path);
@@ -207,6 +207,11 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	if (wk->vm.in_analyzer) {
+		subproject(wk, an[0].val, requirement_auto, 0, 0, res);
+		return true;
 	}
 
 	enum requirement_type req;

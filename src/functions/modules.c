@@ -57,8 +57,7 @@ module_lookup_script(struct workspace *wk,
 	struct source src;
 
 	if (opts->embedded) {
-		src = (struct source){ .label = path->buf };
-		if (!(src.src = embedded_get(src.label))) {
+		if (!(embedded_get(path->buf, &src))) {
 			return false;
 		}
 	} else {

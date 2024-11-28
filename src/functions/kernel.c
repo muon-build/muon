@@ -33,7 +33,6 @@
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "wrap.h"
@@ -2140,7 +2139,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "custom_target", func_custom_target, tc_custom_target },
 	{ "debug", func_debug },
 	{ "declare_dependency", func_declare_dependency, tc_dependency },
-	{ "dependency", func_dependency, tc_dependency },
+	{ "dependency", func_dependency, tc_dependency, true },
 	{ "disabler", func_disabler, tc_disabler },
 	{ "environment", func_environment, tc_environment },
 	{ "error", func_error },
@@ -2173,7 +2172,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "static_library", func_static_library, tc_build_target },
 	{ "subdir", func_subdir, 0, true },
 	{ "subdir_done", func_subdir_done },
-	{ "subproject", func_subproject, tc_subproject },
+	{ "subproject", func_subproject, tc_subproject, true }, // Not really pure but partially runs
 	{ "summary", func_summary },
 	{ "test", func_test },
 	{ "unset_variable", func_unset_variable, 0, true },

@@ -48,7 +48,7 @@ finally install the project with the *install* subcommand.
 All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## analyze
-	*muon* *analyze*
+	*muon* *analyze* [command]
 
 	Run a static analyzer on the current project.
 
@@ -63,12 +63,14 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-i* <path> - analyze the single file _path_ in internal mode.  This
 	  is useful for catching bugs in scripts that will be evaluated with
 	  *muon internal eval*.
-	- *-t* - print a tree of all meson source files that are evaluated
-	- *-d* <var> - print the location of the definition of _var_
 	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
 	  e.g. unused-variable.
 	- *-W* list - list available diagnostics.
 	- *-W* error - turn all warnings into errors.
+
+	*COMMANDS*:
+	- *trace* - print a tree of all meson source files that are evaluated
+	- *define* <var> - print the location of the definition of _var_
 
 ## benchmark
 	See documentation for the *test* subcommand.
@@ -189,7 +191,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	commands are subject to change at any time and should not be relied
 	upon.
 
-	*SUBCOMMANDS*:
+	*COMMANDS*:
 	- *eval* - evaluate a _source file_
 	- *exe* - execute a command
 	- *repl* - start a _meson dsl_ repl

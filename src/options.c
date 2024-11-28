@@ -33,9 +33,6 @@ static const char *build_option_type_to_s[build_option_type_count] = {
 };
 
 static bool
-set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce);
-
-static bool
 parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo, bool key_only)
 {
 	if (str_has_null(ss)) {
@@ -438,7 +435,7 @@ extend_array_option(struct workspace *wk, obj opt, obj new_val, enum option_valu
 	obj_array_extend_nodup(wk, o->val, new_val);
 }
 
-static bool
+bool
 set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce)
 {
 	struct obj_option *o = get_obj_option(wk, opt);
@@ -660,8 +657,8 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 static bool
 init_builtin_options(struct workspace *wk, const char *script)
 {
-	const char *opts;
-	if (!(opts = embedded_get(script))) {
+	struct source src;
+	if (!embedded_get(script, &src)) {
 		return false;
 	}
 
@@ -669,7 +666,7 @@ init_builtin_options(struct workspace *wk, const char *script)
 	wk->vm.lang_mode = language_opts;
 	obj _;
 	initializing_builtin_options = true;
-	bool ret = eval_str_label(wk, script, opts, 0, &_);
+	bool ret = eval(wk, &src, build_language_meson, 0, &_);
 	initializing_builtin_options = false;
 	wk->vm.lang_mode = old_mode;
 	return ret;

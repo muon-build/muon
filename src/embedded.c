@@ -15,7 +15,8 @@
 #include "platform/path.h"
 
 struct embedded_file {
-	const char *name, *src;
+	const char *name;
+	struct source src;
 };
 
 #ifdef MUON_BOOTSTRAPPED
@@ -25,8 +26,8 @@ static struct embedded_file embedded[] = { 0 };
 static uint32_t embedded_len = 0;
 #endif
 
-const char *
-embedded_get(const char *name)
+bool
+embedded_get(const char *name, struct source *src_out)
 {
 	bool bootstrapped = false;
 #ifdef MUON_BOOTSTRAPPED
@@ -40,19 +41,20 @@ embedded_get(const char *name)
 		path_push(0, &path, name);
 		struct source src = { 0 };
 		if (!fs_file_exists(path.buf)) {
-			return 0;
+			return false;
 		} else if (!fs_read_entire_file(path.buf, &src)) {
-			return 0;
+			return false;
 		}
-		return src.src;
+		*src_out = src;
 	}
 
 	uint32_t i;
 	for (i = 0; i < embedded_len; ++i) {
 		if (strcmp(embedded[i].name, name) == 0) {
-			return embedded[i].src;
+			*src_out = embedded[i].src;
+			return true;
 		}
 	}
 
-	return 0;
+	return false;
 }

@@ -22,7 +22,7 @@ embed(const char *path, const char *embedded_name)
 		return false;
 	}
 
-	printf("{ .name = \"%s\", .src = (char []){\n", embedded_name);
+	printf("{ .name = \"%s\", .src = { .label = \"%s\", .type = source_type_embedded, .src = (char []){\n", embedded_name, embedded_name);
 
 	while ((c = fgetc(f)) != EOF) {
 		// output signed char
@@ -34,7 +34,7 @@ embed(const char *path, const char *embedded_name)
 		++i;
 	}
 
-	fputs("0x0\n} },\n", stdout);
+	fprintf(stdout, "0x0\n}, .len = %d } },\n", i);
 
 	return fclose(f) == 0;
 }

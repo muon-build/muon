@@ -14,6 +14,7 @@
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -1083,7 +1084,9 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	}
 
 	if (!self) {
-		if (strcmp(native_funcs[func_idx].name, "subdir") == 0) {
+		if (strcmp(native_funcs[func_idx].name, "subdir") == 0
+			|| strcmp(native_funcs[func_idx].name, "subproject") == 0
+			|| strcmp(native_funcs[func_idx].name, "dependency") == 0) {
 			pop_args_ctx.allow_impure_args_except_first = true;
 		} else if (strcmp(native_funcs[func_idx].name, "p") == 0) {
 			pop_args_ctx.allow_impure_args = true;
@@ -1456,6 +1459,14 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 		uint32_t project_id;
 		workspace_init_runtime(wk);
 		workspace_init_startup_files(wk);
+
+		{
+			obj wrap_mode;
+			get_option(wk, 0, &WKSTR("wrap_mode"), &wrap_mode);
+			set_option(
+				wk, 0, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
+		}
+
 		res = eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id);
 	}
 

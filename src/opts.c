@@ -63,14 +63,13 @@ print_usage(FILE *f, const struct command *commands, const char *pre, const char
 }
 
 bool
-find_cmd(const struct command *commands, cmd_func *ret, uint32_t argc, uint32_t argi, char *const argv[], bool optional)
+find_cmd(const struct command *commands, uint32_t *ret, uint32_t argc, uint32_t argi, char *const argv[], bool optional)
 {
 	uint32_t i;
 	const char *cmd;
 
 	if (argi >= argc) {
 		if (optional) {
-			*ret = NULL;
 			return true;
 		} else {
 			LOG_E("missing command");
@@ -82,7 +81,7 @@ find_cmd(const struct command *commands, cmd_func *ret, uint32_t argc, uint32_t 
 
 	for (i = 0; commands[i].name; ++i) {
 		if (strcmp(commands[i].name, cmd) == 0) {
-			*ret = commands[i].cmd;
+			*ret = i;
 			return true;
 		}
 	}

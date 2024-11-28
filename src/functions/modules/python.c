@@ -22,13 +22,13 @@
 static bool
 introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
-	const char *pyinfo = embedded_get("python_info.py");
-	if (!pyinfo) {
+	struct source src;
+	if (!embedded_get("python_info.py", &src)) {
 		return false;
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	char *const var_args[] = { (char *)path, "-c", (char *)pyinfo, 0 };
+	char *const var_args[] = { (char *)path, "-c", (char *)src.src, 0 };
 	if (!run_cmd_argv(&cmd_ctx, var_args, NULL, 0) || cmd_ctx.status != 0) {
 		return false;
 	}
