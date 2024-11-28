@@ -824,6 +824,7 @@ ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 	}
 
 	obj key, val;
+	(void)key;
 	obj_dict_for(wk, wk->global_opts, key, val) {
 		struct obj_option *o = get_obj_option(wk, val);
 		if (o->source != option_value_source_environment) {
