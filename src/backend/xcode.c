@@ -486,19 +486,24 @@ xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj, struct obj
 		xc_pbx_push_v(ctx, pbx_header_search_paths, xc_quoted_str(ctx, "$(inherited)"));
 		xc_pbx_push_kv(ctx, pbx_build_settings, "HEADER_SEARCH_PATHS", pbx_header_search_paths);
 
-		if (tgt->dep_internal.compile_args) {
-			obj pbx_gcc_preprocessor_definitions = xc_pbx_new(ctx, obj_array);
-			obj_array_for(ctx->wk, tgt->dep_internal.compile_args, v) {
+
+		obj pbx_gcc_preprocessor_definitions = xc_pbx_new(ctx, obj_array);
+
+		obj _lang, args;
+		(void)_lang;
+		// TODO: This adds duplicates
+		obj_dict_for(ctx->wk, tgt->args, _lang, args) {
+			obj_array_for(ctx->wk, args, v) {
 				const struct str *s = get_str(ctx->wk, v);
 				if (str_startswith(s, &WKSTR("-D")) && s->len > 2) {
 					xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted(ctx, make_strn(ctx->wk, s->s + 2, s->len - 2)));
 				}
 			}
-			xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted_str(ctx, "$(inherited)"));
-			xc_pbx_push_kv(ctx, pbx_build_settings, "GCC_PREPROCESSOR_DEFINITIONS", pbx_gcc_preprocessor_definitions);
 		}
-	}
 
+		xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted_str(ctx, "$(inherited)"));
+		xc_pbx_push_kv(ctx, pbx_build_settings, "GCC_PREPROCESSOR_DEFINITIONS", pbx_gcc_preprocessor_definitions);
+	}
 
 	obj pbx_configuration = xc_pbx_new_t(ctx, "XCBuildConfiguration");
 	xc_pbx_push_kv(ctx, pbx_configuration, "name", make_str(ctx->wk, "debug"));
