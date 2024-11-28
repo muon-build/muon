@@ -684,6 +684,7 @@ xc_project_target(struct xc_ctx *ctx, struct project *proj, obj _tgt)
 	xc_pbx_push_kv(ctx, pbx, "dependencies", xc_pbx_new(ctx, obj_array));
 	xc_pbx_push_kv(ctx, pbx, "name", tgt->build_name);
 	xc_pbx_push_kv(ctx, pbx, "productName", tgt->build_name);
+	xc_pbx_push_kv(ctx, pbx, "productType", make_str(ctx->wk, "com.apple.product-type.library.static"));
 
 	return xc_pbx_push_root_object(ctx, pbx);
 }
