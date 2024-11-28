@@ -76,8 +76,8 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
 
 		if (!specialized_rule) {
-			if (!ctx->joined_args && !ca_build_target_args(wk, ctx->proj, ctx->tgt, &ctx->joined_args)) {
-				return ir_err;
+			if (!ctx->joined_args) {
+				ctx->joined_args = ca_build_target_joined_args(wk, ctx->proj, ctx->tgt);
 			}
 		}
 	}

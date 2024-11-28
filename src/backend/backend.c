@@ -7,6 +7,7 @@
 
 #include "args.h"
 #include "backend/backend.h"
+#include "backend/common_args.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
 #include "backend/xcode.h"
@@ -166,9 +167,15 @@ backend_output(struct workspace *wk)
 
 	bool ok = true;
 
-	switch (get_option_backend(wk)) {
-	case backend_ninja: ok = ninja_write_all(wk); break;
-	case backend_xcode: ok = ninja_write_all(wk) && xcode_write_all(wk); break;
+	if (!ca_prepare_all_targets(wk)) {
+		ok = false;
+	}
+
+	if (ok) {
+		switch (get_option_backend(wk)) {
+		case backend_ninja: ok = ninja_write_all(wk); break;
+		case backend_xcode: ok = ninja_write_all(wk) && xcode_write_all(wk); break;
+		}
 	}
 
 	if (ok) {

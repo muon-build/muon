@@ -372,48 +372,75 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 	};
 }
 
-static obj
-ca_target_args(struct workspace *wk,
-	const struct obj_build_target *tgt,
+static bool
+ca_prepare_target_args(struct workspace *wk,
 	const struct project *proj,
-	obj include_dirs,
-	obj compile_args)
+	struct obj_build_target *tgt)
 {
-	obj joined_args;
-	make_obj(wk, &joined_args, obj_dict);
+	assert(!tgt->processed_args);
 
-	obj k, comp_id;
-	obj_dict_for(wk, proj->toolchains[tgt->machine], k, comp_id) {
-		enum compiler_language lang = k;
+	make_obj(wk, &tgt->processed_args, obj_dict);
+
+	if (tgt->flags & build_tgt_generated_include) {
+		const char *private_path = get_cstr(wk, tgt->private_path);
+
+		// mkdir so that the include dir doesn't get pruned later on
+		if (!fs_mkdir_p(private_path)) {
+			return false;
+		}
+
+		obj inc;
+		make_obj(wk, &inc, obj_array);
+		obj_array_push(wk, inc, make_str(wk, private_path));
+		obj_array_extend_nodup(wk, inc, tgt->dep_internal.include_directories);
+		tgt->dep_internal.include_directories = inc;
+	}
+
+	obj _lang, _n;
+	(void)_n;
+	obj_dict_for(wk, tgt->required_compilers, _lang, _n) {
+		enum compiler_language lang = _lang;
+		obj comp_id;
+		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], lang, &comp_id)) {
+			LOG_E("No %s compiler defined for language %s",
+				machine_kind_to_s(tgt->machine),
+				compiler_language_to_s(lang));
+			return false;
+		}
+
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
 		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp_id);
 
-		obj inc_dirs;
-		obj_array_dedup(wk, include_dirs, &inc_dirs);
+		obj dedupd;
+		obj_array_dedup(wk, tgt->dep_internal.include_directories, &dedupd);
+		tgt->dep_internal.include_directories = dedupd;
 
 		{ /* project includes */
 			obj proj_incs;
 			if (obj_dict_geti(wk, proj->include_dirs[tgt->machine], lang, &proj_incs)) {
-				obj_array_extend(wk, inc_dirs, proj_incs);
-				obj dedupd;
-				obj_array_dedup(wk, inc_dirs, &dedupd);
-				inc_dirs = dedupd;
+				obj_array_extend(wk, tgt->dep_internal.include_directories, proj_incs);
+				obj_array_dedup(wk, tgt->dep_internal.include_directories, &dedupd);
+				tgt->dep_internal.include_directories = dedupd;
 			}
 		}
 
-		ca_setup_compiler_args_includes(wk, comp_id, inc_dirs, args, true);
+		ca_setup_compiler_args_includes(wk, comp_id, tgt->dep_internal.include_directories, args, true);
 
 		{ /* compile args */
-			if (compile_args) {
-				obj_array_extend(wk, args, compile_args);
+			if (tgt->dep_internal.compile_args) {
+				obj tgt_args;
+				if (obj_dict_geti(wk, tgt->args, lang, &tgt_args)) {
+					obj_array_extend(wk, tgt_args, tgt->dep_internal.compile_args);
+				} else {
+					obj_dict_seti(wk, tgt->args, lang, tgt->dep_internal.compile_args);
+				}
 			}
 		}
 
 		{ /* target args */
 			obj tgt_args;
-			if (obj_dict_geti(wk, tgt->args, lang, &tgt_args) && tgt_args
-				&& get_obj_array(wk, tgt_args)->len) {
+			if (obj_dict_geti(wk, tgt->args, lang, &tgt_args) && get_obj_array(wk, tgt_args)->len) {
 				obj_array_extend(wk, args, tgt_args);
 			}
 		}
@@ -430,37 +457,68 @@ ca_target_args(struct workspace *wk,
 			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
 		}
 
-		obj_dict_seti(wk, joined_args, lang, join_args_shell_ninja(wk, args));
+		obj_dict_seti(wk, tgt->processed_args, lang, args);
 	}
 
-	return joined_args;
+	return true;
 }
 
 bool
-ca_build_target_args(struct workspace *wk,
-	const struct project *proj,
-	const struct obj_build_target *tgt,
-	obj *joined_args)
+ca_prepare_all_targets(struct workspace *wk)
 {
-	struct build_dep args = tgt->dep_internal;
+	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "preparing targets"));
 
-	if (tgt->flags & build_tgt_generated_include) {
-		const char *private_path = get_cstr(wk, tgt->private_path);
+	obj t;
+	bool tgt_ok = true;
+	uint32_t proj_i;
+	const struct project *proj;
+	struct obj_build_target *tgt;
 
-		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(private_path)) {
-			return false;
+	for (proj_i = 0; proj_i < wk->projects.len; ++proj_i) {
+		proj = arr_get(&wk->projects, proj_i);
+		obj_array_push(wk, wk->backend_output_stack, proj->cfg.name);
+		obj_array_for(wk, proj->targets, t) {
+			switch (get_obj_type(wk, t)) {
+			case obj_both_libs:
+				t = get_obj_both_libs(wk, t)->dynamic_lib;
+				// fallthrough
+			case obj_build_target: tgt = get_obj_build_target(wk, t); break;
+			default: continue;
+			}
+
+			obj_array_push(wk, wk->backend_output_stack, tgt->name);
+			tgt_ok = ca_prepare_target_args(wk, proj, tgt);
+			obj_array_pop(wk, wk->backend_output_stack);
+
+			if (!tgt_ok) {
+				break;
+			}
 		}
 
-		obj inc;
-		make_obj(wk, &inc, obj_array);
-		obj_array_push(wk, inc, make_str(wk, private_path));
-		obj_array_extend_nodup(wk, inc, args.include_directories);
-		args.include_directories = inc;
+		obj_array_pop(wk, wk->backend_output_stack);
+		if (!tgt_ok) {
+			break;
+		}
 	}
 
-	*joined_args = ca_target_args(wk, tgt, proj, args.include_directories, args.compile_args);
-	return true;
+	obj_array_pop(wk, wk->backend_output_stack);
+	return tgt_ok;
+}
+
+obj
+ca_build_target_joined_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt)
+{
+	obj joined;
+	make_obj(wk, &joined, obj_dict);
+
+	obj lang, v;
+	obj_dict_for(wk, tgt->processed_args, lang, v) {
+		obj_dict_seti(wk, joined, lang, join_args_shell_ninja(wk, v));
+	}
+
+	return joined;
 }
 
 void

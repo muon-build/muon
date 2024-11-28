@@ -239,9 +239,7 @@ write_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 
 	ctx->tgt = get_obj_build_target(wk, tgt_id);
 
-	if (!ca_build_target_args(wk, ctx->proj, ctx->tgt, &ctx->args[ctx->tgt->machine])) {
-		goto ret;
-	}
+	ctx->args[ctx->tgt->machine] = ca_build_target_joined_args(wk, ctx->proj, ctx->tgt);
 
 	if (!obj_dict_foreach(wk, ctx->proj->toolchains[ctx->tgt->machine], ctx, write_compiler_rule_iter)) {
 		goto ret;
