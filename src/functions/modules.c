@@ -233,6 +233,10 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 						obj_dict_set(wk, wk->vm.modules, sbuf_into_str(wk, &path_interpolated), *res);
 					}
 
+					if (schema == schema_type_none) {
+						obj_array_push(wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
+					}
+
 					if (wk->vm.error) {
 						return false;
 					}
