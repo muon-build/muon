@@ -46,6 +46,7 @@ embedded_get(const char *name, struct source *src_out)
 			return false;
 		}
 		*src_out = src;
+		return true;
 	}
 
 	uint32_t i;
