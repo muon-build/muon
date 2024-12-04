@@ -34,6 +34,7 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
+#include "ui.h"
 #include "version.h"
 #include "vsenv.h"
 
@@ -1089,6 +1090,16 @@ cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_ui(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	}
+	OPTEND(argv[argi], "", "", 0, 0);
+
+	return ui_main();
+}
+
+static bool
 cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
@@ -1107,6 +1118,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
 		{ "summary", cmd_summary, "print a configured project's summary" },
 		{ "test", cmd_test, "run tests" },
+		{ "ui", cmd_ui, "ui" },
 		{ "version", cmd_version, "print version information" },
 		{ 0 },
 	};

@@ -12,6 +12,7 @@ project(
         'warning_level': '3',
         'buildtype': 'debug',
         'default_library': 'static',
+        'cpp_std': 'c++11',
     },
 )
 

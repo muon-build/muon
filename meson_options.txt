@@ -61,3 +61,8 @@ option(
     type: 'string',
     value: 'https://git.sr.ht/~lattis/meson-tests',
 )
+option(
+    'ui',
+    type: 'feature',
+    value: 'disabled',
+)

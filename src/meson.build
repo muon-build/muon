@@ -117,3 +117,9 @@ src += script_sources
 subdir('external')
 src += dep_sources
 deps += external_deps
+
+if get_option('ui').enabled()
+    subdir('ui')
+else
+    src += files('ui_null.c')
+endif
