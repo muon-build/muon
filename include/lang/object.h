@@ -249,6 +249,7 @@ struct obj_build_target {
 	obj override_options; // obj_array
 	obj required_compilers; // obj_dict
 	obj extra_files; // obj_array
+	obj callstack; // obj_array
 
 	struct build_dep dep;
 	struct build_dep dep_internal;
