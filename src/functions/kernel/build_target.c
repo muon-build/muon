@@ -509,6 +509,7 @@ create_target(struct workspace *wk,
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
 	tgt->machine = coerce_machine_kind(wk, &akw[bt_kw_native]);
+	tgt->callstack = vm_callstack(wk);
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->src, obj_array);
 	make_obj(wk, &tgt->required_compilers, obj_dict);

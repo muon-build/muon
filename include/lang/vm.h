@@ -205,6 +205,7 @@ bool
 vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
+obj vm_callstack(struct workspace *wk);
 void vm_dis(struct workspace *wk);
 const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);

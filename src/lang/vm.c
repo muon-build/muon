@@ -189,6 +189,46 @@ vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc,
 	}
 }
 
+static obj
+vm_inst_location_obj(struct workspace *wk, uint32_t ip)
+{
+	struct source_location loc;
+	struct source *src;
+	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+	struct detailed_source_location dloc;
+	get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+	SBUF(rel);
+	path_relative_to(wk, &rel, wk->source_root, src->label);
+
+	obj res;
+	make_obj(wk, &res, obj_array);
+	obj_array_push(wk, res, make_str(wk, src->label));
+	obj_array_push(wk, res, make_number(wk, dloc.line));
+	obj_array_push(wk, res, make_number(wk, dloc.col));
+	return res;
+}
+
+obj
+vm_callstack(struct workspace *wk)
+{
+	obj res;
+	make_obj(wk, &res, obj_array);
+
+	obj_array_push(wk, res, vm_inst_location_obj(wk, wk->vm.ip - 1));
+
+	int32_t i;
+	struct call_frame *frame;
+	for (i = wk->vm.call_stack.len - 1; i >= 0; --i) {
+		frame = arr_get(&wk->vm.call_stack, i);
+
+		if (frame->return_ip) {
+			obj_array_push(wk, res, vm_inst_location_obj(wk, frame->return_ip - 1));
+		}
+	}
+
+	return res;
+}
+
 void
 vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, va_list args)
 {
