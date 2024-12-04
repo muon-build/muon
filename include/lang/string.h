@@ -38,7 +38,7 @@ enum sbuf_flags {
 #define SBUF_CUSTOM(name, static_len, flags)     \
 	struct sbuf name;                        \
 	char sbuf_static_buf_##name[static_len]; \
-	sbuf_init(&name, sbuf_static_buf_##name, static_len, flags);
+	sbuf_init(&name, sbuf_static_buf_##name, static_len, (enum sbuf_flags)flags);
 #define SBUF(name) SBUF_CUSTOM(name, 1024, 0)
 #define SBUF_manual(name) SBUF_CUSTOM(name, 1024, sbuf_flag_overflow_alloc)
 
@@ -57,6 +57,7 @@ void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
 void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
 void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
 void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+void sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args);
 void sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len);
 void sbuf_push_json_escaped_quoted(struct workspace *wk, struct sbuf *buf, const struct str *str);
 obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);

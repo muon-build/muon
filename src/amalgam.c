@@ -111,6 +111,7 @@
 #include "platform/uname.c"
 #include "rpmvercmp.c"
 #include "sha_256.c"
+#include "ui_null.c"
 #include "version.c.in"
 #include "vsenv.c"
 #include "wrap.c"

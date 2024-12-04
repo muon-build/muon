@@ -1185,7 +1185,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 	{
 		int term_fd;
-		if (!fs_fileno(log_file(), &term_fd)) {
+		if (!fs_fileno(_log_file(), &term_fd)) {
 			return false;
 		}
 

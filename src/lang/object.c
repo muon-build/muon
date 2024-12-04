@@ -2049,7 +2049,7 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 		sbuf_pushf(wk, sb, fmt_buf, arg);                              \
 	}
 
-bool
+static bool
 obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap)
 {
 	const char *fmt_start;
@@ -2219,16 +2219,6 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 	return true;
 }
 
-bool
-obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	bool ret = obj_vasprintf(wk, sb, fmt, ap);
-	va_end(ap);
-	return ret;
-}
-
 uint32_t
 obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap)
 {
@@ -2253,7 +2243,7 @@ obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...
 	return ret;
 }
 
-bool
+static bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
 	struct sbuf sb = { .flags = sbuf_flag_write, .buf = (void *)f };
@@ -2281,66 +2271,93 @@ obj_printf(struct workspace *wk, const char *fmt, ...)
 	return ret;
 }
 
+static bool
+obj_vlprintf(struct workspace *wk, const char *fmt, va_list ap)
+{
+	FILE *f = _log_file();
+	struct sbuf *buf = _log_sbuf();
+	struct sbuf sb;
+
+	if (f) {
+		sb = (struct sbuf){ .flags = sbuf_flag_write, .buf = (void *)f };
+		buf = &sb;
+	}
+
+
+	return obj_vasprintf(wk, buf, fmt, ap);
+}
+
+bool
+obj_lprintf(struct workspace *wk, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = obj_vlprintf(wk, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+
 /*
  * inspect - obj_to_s + more detail for some objects
  */
 
 static void
-obj_inspect_dep(struct workspace *wk, FILE *out, const char *pre, struct build_dep *dep)
+obj_inspect_dep(struct workspace *wk, const char *pre, struct build_dep *dep)
 {
-	obj_fprintf(wk, out, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
-	obj_fprintf(wk, out, "%slink_whole: %o\n", pre, dep->link_whole);
-	obj_fprintf(wk, out, "%slink_with: %o\n", pre, dep->link_with);
-	obj_fprintf(wk, out, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
-	obj_fprintf(wk, out, "%slink_args: %o\n", pre, dep->link_args);
-	obj_fprintf(wk, out, "%scompile_args: %o\n", pre, dep->compile_args);
-	obj_fprintf(wk, out, "%sinclude_directories: %o\n", pre, dep->include_directories);
-	obj_fprintf(wk, out, "%ssources: %o\n", pre, dep->sources);
-	obj_fprintf(wk, out, "%sobjects: %o\n", pre, dep->objects);
-	obj_fprintf(wk, out, "%sorder_deps: %o\n", pre, dep->order_deps);
-	obj_fprintf(wk, out, "%srpath: %o\n", pre, dep->rpath);
+	obj_lprintf(wk, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
+	obj_lprintf(wk, "%slink_whole: %o\n", pre, dep->link_whole);
+	obj_lprintf(wk, "%slink_with: %o\n", pre, dep->link_with);
+	obj_lprintf(wk, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
+	obj_lprintf(wk, "%slink_args: %o\n", pre, dep->link_args);
+	obj_lprintf(wk, "%scompile_args: %o\n", pre, dep->compile_args);
+	obj_lprintf(wk, "%sinclude_directories: %o\n", pre, dep->include_directories);
+	obj_lprintf(wk, "%ssources: %o\n", pre, dep->sources);
+	obj_lprintf(wk, "%sobjects: %o\n", pre, dep->objects);
+	obj_lprintf(wk, "%sorder_deps: %o\n", pre, dep->order_deps);
+	obj_lprintf(wk, "%srpath: %o\n", pre, dep->rpath);
 }
 
 void
-obj_inspect(struct workspace *wk, FILE *out, obj val)
+obj_inspect(struct workspace *wk, obj val)
 {
 	switch (get_obj_type(wk, val)) {
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		fprintf(out, "build_target:\n");
+		log_plain("build_target:\n");
 		if (tgt->name) {
-			obj_fprintf(wk, out, "    name: %o,\n", tgt->name);
+			obj_lprintf(wk, "    name: %o,\n", tgt->name);
 		}
-		obj_fprintf(wk, out, "    dep:\n");
-		obj_inspect_dep(wk, out, "        ", &tgt->dep);
-		obj_fprintf(wk, out, "    dep_internal:\n");
-		obj_inspect_dep(wk, out, "        ", &tgt->dep_internal);
+		obj_lprintf(wk, "    dep:\n");
+		obj_inspect_dep(wk, "        ", &tgt->dep);
+		obj_lprintf(wk, "    dep_internal:\n");
+		obj_inspect_dep(wk, "        ", &tgt->dep_internal);
 		break;
 	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, val);
 
-		fprintf(out, "dependency:\n");
+		log_plain("dependency:\n");
 
-		obj_fprintf(wk, out, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
+		obj_lprintf(wk, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
 
 		if (dep->name) {
-			obj_fprintf(wk, out, "    name: %o\n", dep->name);
+			obj_lprintf(wk, "    name: %o\n", dep->name);
 		}
 		if (dep->version) {
-			obj_fprintf(wk, out, "    version: %o\n", dep->version);
+			obj_lprintf(wk, "    version: %o\n", dep->version);
 		}
 		if (dep->variables) {
-			obj_fprintf(wk, out, "    variables: '%o'\n", dep->variables);
+			obj_lprintf(wk, "    variables: '%o'\n", dep->variables);
 		}
 
-		obj_fprintf(wk, out, "    type: %d\n", dep->type);
-		obj_fprintf(wk, out, "    dep:\n");
+		obj_lprintf(wk, "    type: %d\n", dep->type);
+		obj_lprintf(wk, "    dep:\n");
 
-		obj_inspect_dep(wk, out, "        ", &dep->dep);
+		obj_inspect_dep(wk, "        ", &dep->dep);
 		break;
 	}
-	default: obj_fprintf(wk, out, "%o\n", val);
+	default: obj_lprintf(wk, "%o\n", val);
 	}
 }

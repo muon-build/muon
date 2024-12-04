@@ -255,7 +255,7 @@ repl(struct workspace *wk, bool dbg)
 	bool loop = true;
 	obj repl_res = 0;
 	char *line;
-	FILE *out = log_file();
+	FILE *out = _log_file();
 	enum repl_cmd {
 		repl_cmd_noop,
 		repl_cmd_exit,
@@ -386,7 +386,7 @@ cmd_found:
 				break;
 			}
 
-			obj_inspect(wk, out, repl_res);
+			obj_inspect(wk, repl_res);
 			break;
 		case repl_cmd_watch:
 			if (!wk->vm.dbg_state.watched) {

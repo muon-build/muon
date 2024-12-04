@@ -469,7 +469,6 @@ ca_prepare_all_targets(struct workspace *wk)
 	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "preparing targets"));
 
 	obj t;
-	bool tgt_ok = true;
 	uint32_t proj_i;
 	const struct project *proj;
 	struct obj_build_target *tgt;
@@ -487,22 +486,17 @@ ca_prepare_all_targets(struct workspace *wk)
 			}
 
 			obj_array_push(wk, wk->backend_output_stack, tgt->name);
-			tgt_ok = ca_prepare_target_args(wk, proj, tgt);
-			obj_array_pop(wk, wk->backend_output_stack);
-
-			if (!tgt_ok) {
-				break;
+			if (!ca_prepare_target_args(wk, proj, tgt)) {
+				return false;
 			}
+			obj_array_pop(wk, wk->backend_output_stack);
 		}
 
 		obj_array_pop(wk, wk->backend_output_stack);
-		if (!tgt_ok) {
-			break;
-		}
 	}
 
 	obj_array_pop(wk, wk->backend_output_stack);
-	return tgt_ok;
+	return true;
 }
 
 obj

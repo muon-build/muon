@@ -122,7 +122,7 @@ log_option_override(struct workspace *wk, struct option_override *oo)
 		log_plain("%s:", get_cstr(wk, oo->proj));
 	}
 
-	obj_fprintf(wk, log_file(), "%s=%#o", get_cstr(wk, oo->name), oo->val);
+	obj_lprintf(wk, "%s=%#o", get_cstr(wk, oo->name), oo->val);
 	log_plain("'");
 }
 
@@ -1120,7 +1120,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		no_clr = "\033[0m";
 	}
 
-	obj_fprintf(wk, log_file(), "  %s%#o%s=", key_clr, key, no_clr);
+	obj_lprintf(wk, "  %s%#o%s=", key_clr, key, no_clr);
 
 	obj choices = 0;
 	obj selected = 0;
@@ -1180,11 +1180,10 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	switch (opt->type) {
 	case op_boolean:
 	case op_combo:
-	case op_feature: obj_fprintf(wk, log_file(), "<%s>", get_cstr(wk, choices)); break;
+	case op_feature: obj_lprintf(wk, "<%s>", get_cstr(wk, choices)); break;
 	case op_string: {
 		const struct str *def = get_str(wk, opt->val);
-		obj_fprintf(wk,
-			log_file(),
+		obj_lprintf(wk,
 			"<%s>, default: %s%s%s",
 			get_cstr(wk, choices),
 			sel_clr,
@@ -1197,31 +1196,31 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		if (opt->min || opt->max) {
 			log_plain(" where ");
 			if (opt->min) {
-				obj_fprintf(wk, log_file(), "%o <= ", opt->min);
+				obj_lprintf(wk, "%o <= ", opt->min);
 			}
 			log_plain("%sN%s", val_clr, no_clr);
 			if (opt->max) {
-				obj_fprintf(wk, log_file(), " <= %o", opt->max);
+				obj_lprintf(wk, " <= %o", opt->max);
 			}
 		}
-		obj_fprintf(wk, log_file(), ", default: %s%o%s", sel_clr, opt->val, no_clr);
+		obj_lprintf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
 
 		break;
 	case op_array:
 		log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
 		if (opt->choices) {
-			obj_fprintf(wk, log_file(), " where value in %s", get_cstr(wk, choices));
+			obj_lprintf(wk, " where value in %s", get_cstr(wk, choices));
 		}
 		break;
 	default: UNREACHABLE;
 	}
 
 	if (opt->source != option_value_source_default) {
-		obj_fprintf(wk, log_file(), "*");
+		obj_lprintf(wk, "*");
 	}
 
 	if (opt->description) {
-		obj_fprintf(wk, log_file(), "\n    %#o", opt->description);
+		obj_lprintf(wk, "\n    %#o", opt->description);
 	}
 
 	log_plain("\n");

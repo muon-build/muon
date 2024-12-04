@@ -233,7 +233,7 @@ fmt_write_frag_set_dbg_ws(struct fmt_ctx *f, const struct fmt_frag *pws, struct 
 		if (ws->type == fmt_frag_type_ws_newline) {
 			log_plain("newline");
 		} else {
-			obj_fprintf(f->wk, log_file(), "# %o", ws->str);
+			obj_lprintf(f->wk, "# %o", ws->str);
 			if (ws->type == fmt_frag_type_ws_comment) {
 				log_plain(" comment");
 			} else if (ws->type == fmt_frag_type_ws_comment_trailing) {
@@ -266,15 +266,15 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 	tree_indent_print(ti);
 
 	if (p->str) {
-		obj_fprintf(f->wk, log_file(), "%o", p->str);
+		obj_lprintf(f->wk, "%o", p->str);
 	} else if (p->type == fmt_frag_type_block) {
-		obj_fprintf(f->wk, log_file(), "block");
+		obj_lprintf(f->wk, "block");
 	} else if (p->type == fmt_frag_type_line) {
-		obj_fprintf(f->wk, log_file(), "line");
+		obj_lprintf(f->wk, "line");
 	} else if (p->enclosing) {
-		obj_fprintf(f->wk, log_file(), "%s", p->enclosing);
+		obj_lprintf(f->wk, "%s", p->enclosing);
 	} else {
-		obj_fprintf(f->wk, log_file(), "?");
+		obj_lprintf(f->wk, "?");
 	}
 
 	if (p->flags) {

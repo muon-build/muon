@@ -973,7 +973,7 @@ func_debug(struct workspace *wk, obj _, obj *res)
 	log_plain(log_clr() ? "\033[35mdebug\033[0m: " : "debug: ");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
-		obj_fprintf(wk, log_file(), "%#o ", val);
+		obj_lprintf(wk, "%#o ", val);
 	}
 	log_plain("\n");
 	*res = 0;
@@ -993,7 +993,7 @@ func_message(struct workspace *wk, obj _, obj *res)
 	log_plain(log_clr() ? "\033[34mmessage\033[0m " : "message: ");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
-		obj_fprintf(wk, log_file(), "%#o ", val);
+		obj_lprintf(wk, "%#o ", val);
 	}
 	log_plain("\n");
 	*res = 0;
@@ -1013,7 +1013,7 @@ func_error(struct workspace *wk, obj _, obj *res)
 	log_plain(log_clr() ? "\033[31merror\033[0m " : "error: ");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
-		obj_fprintf(wk, log_file(), "%#o ", val);
+		obj_lprintf(wk, "%#o ", val);
 	}
 	log_plain("\n");
 	*res = 0;
@@ -1030,7 +1030,7 @@ func_print(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	fprintf(log_file(), "%s", get_cstr(wk, an[0].val));
+	log_plain("%s", get_cstr(wk, an[0].val));
 	*res = 0;
 
 	return true;
@@ -1048,7 +1048,7 @@ func_warning(struct workspace *wk, obj _, obj *res)
 	log_plain(log_clr() ? "\033[33mwarn\033[0m " : "warn: ");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
-		obj_fprintf(wk, log_file(), "%#o ", val);
+		obj_lprintf(wk, "%#o ", val);
 	}
 	log_plain("\n");
 	*res = 0;
@@ -2004,10 +2004,10 @@ func_p(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (akw[kw_inspect].set && get_obj_bool(wk, akw[kw_inspect].val)) {
-		obj_inspect(wk, log_file(), an[0].val);
+		obj_inspect(wk, an[0].val);
 	} else {
 		const char *fmt = akw[kw_pretty].set && get_obj_bool(wk, akw[kw_pretty].val) ? "%#o\n" : "%o\n";
-		obj_fprintf(wk, log_file(), fmt, an[0].val);
+		obj_lprintf(wk, fmt, an[0].val);
 	}
 
 	*res = an[0].val;

@@ -585,19 +585,17 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		char buf[4096];                                   \
 		log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); \
 		log_plain("%s", buf);                             \
-		obj_fprintf(wk, log_file(), __VA_ARGS__);         \
+		obj_lprintf(wk, __VA_ARGS__);         \
 	}
 #define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
 
-bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
-bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
-bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap) MUON_ATTR_FORMAT(printf, 3, 0);
+bool obj_lprintf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 bool obj_printf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 uint32_t obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap);
 uint32_t obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
 	MUON_ATTR_FORMAT(printf, 4, 5);
-void obj_inspect(struct workspace *wk, FILE *out, obj val);
+void obj_inspect(struct workspace *wk, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
 void obj_array_push(struct workspace *wk, obj arr, obj child);

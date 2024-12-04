@@ -134,7 +134,7 @@ object_stack_print(struct workspace *wk, struct object_stack *s)
 {
 	for (int32_t i = s->ba.len - 1; i >= 0; --i) {
 		struct obj_stack_entry *e = bucket_arr_get(&s->ba, i);
-		obj_fprintf(wk, log_file(), "%o%s", e->o, i > 0 ? ", " : "");
+		obj_lprintf(wk, "%o%s", e->o, i > 0 ? ", " : "");
 	}
 	log_plain("\n");
 }

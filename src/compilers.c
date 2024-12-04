@@ -571,7 +571,7 @@ static bool
 compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
 	if (log_should_print(log_debug)) {
-		obj_fprintf(wk, log_file(), "checking compiler %o\n", cmd_arr);
+		obj_lprintf(wk, "checking compiler %o\n", cmd_arr);
 	}
 
 	switch (lang) {
@@ -800,8 +800,7 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 	LLOG_I("detected compiler for %s: %s ",
 		compiler_language_to_s(lang),
 		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
-	obj_fprintf(wk,
-		log_file(),
+	obj_lprintf(wk,
 		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
 		compiler->ver,
 		compiler->cmd_arr[toolchain_component_compiler],

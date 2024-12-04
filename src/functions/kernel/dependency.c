@@ -210,7 +210,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	*found = true;
 	return true;
 not_found:
-	obj_fprintf(wk, log_file(), "fallback %o failed for %o\n", ctx->fallback, ctx->name);
+	obj_lprintf(wk, "fallback %o failed for %o\n", ctx->fallback, ctx->name);
 	*ctx->res = 0;
 	*found = false;
 	return true;
@@ -231,8 +231,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
-		obj_fprintf(wk,
-			log_file(),
+		obj_lprintf(wk,
 			"pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
 			ctx->name,
 			ver_str,
@@ -659,10 +658,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			LLOG_W("%s", "");
 		}
 
-		obj_fprintf(wk, log_file(), "dependency %o not found", an[0].val);
+		obj_lprintf(wk, "dependency %o not found", an[0].val);
 
 		if (ctx.not_found_message) {
-			obj_fprintf(wk, log_file(), ", %#o", ctx.not_found_message);
+			obj_lprintf(wk, ", %#o", ctx.not_found_message);
 		}
 
 		log_plain("\n");
@@ -686,7 +685,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		if (!ctx.from_cache) {
 			LLOG_I("found dependency ");
 			if (dep->type == dependency_type_declared) {
-				obj_fprintf(wk, log_file(), "%o (declared dependency)", ctx.name);
+				obj_lprintf(wk, "%o (declared dependency)", ctx.name);
 			} else {
 				log_plain("%s", get_cstr(wk, dep->name));
 			}
