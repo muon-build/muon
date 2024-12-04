@@ -120,11 +120,15 @@ struct vm_compiler_state {
 };
 
 struct vm_dbg_state {
+	void (*break_cb)(struct workspace *wk);
+	void *usr_ctx;
 	struct source_location prev_source_location;
 	obj watched;
 	obj breakpoints;
 	obj root_eval_trace;
 	obj eval_trace;
+	uint32_t icount;
+	uint32_t break_after;
 	bool dbg, stepping, dump_signature;
 	bool eval_trace_subdir;
 };

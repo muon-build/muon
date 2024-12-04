@@ -20,10 +20,12 @@
 extern "C" {
 #include "log.h"
 #include "ui.h"
-#include "ui/inspector.h"
+#include "ui/ui.h"
 }
 
 ImFont* gMonospaceFont = nullptr;
+
+struct g_win g_win;
 
 static void
 glfw_error_callback(int error, const char *description)
@@ -58,11 +60,11 @@ ui_main()
 #endif
 
 	// Create window with graphics context
-	GLFWwindow *window = glfwCreateWindow(1280, 720, "muon", nullptr, nullptr);
-	if (window == nullptr) {
+	g_win.window = glfwCreateWindow(1280, 720, "muon", nullptr, nullptr);
+	if (g_win.window == nullptr) {
 		return false;
 	}
-	glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(g_win.window);
 	glfwSwapInterval(1); // Enable vsync
 
 	int version = gladLoadGL(glfwGetProcAddress);
@@ -92,7 +94,7 @@ ui_main()
 	}
 
 	// Setup Platform/Renderer backends
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplGlfw_InitForOpenGL(g_win.window, true);
 	ImGui_ImplOpenGL3_Init(glsl_version);
 
 	// Load Fonts
@@ -113,45 +115,9 @@ ui_main()
 
     gMonospaceFont = io.Fonts->AddFontFromFileTTF(IMGUI_FONT_PATH "/Cousine-Regular.ttf", baseFontSize);
 
-	ImVec4 clear_color = ImVec4(40.0 / 256.0, 42 / 256.0, 54 / 256.0, 1.00f);
-
 	// Main loop
-	while (!glfwWindowShouldClose(window)) {
-		// Poll and handle events (inputs, window resize, etc.)
-		glfwPollEvents();
-		if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) {
-			ImGui_ImplGlfw_Sleep(10);
-			continue;
-		}
-
-		// Start the Dear ImGui frame
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		ui_inspector_window();
-
-		// Rendering
-		ImGui::Render();
-		int display_w, display_h;
-		glfwGetFramebufferSize(window, &display_w, &display_h);
-		glViewport(0, 0, display_w, display_h);
-		glClearColor(clear_color.x * clear_color.w,
-			clear_color.y * clear_color.w,
-			clear_color.z * clear_color.w,
-			clear_color.w);
-		glClear(GL_COLOR_BUFFER_BIT);
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		// Update and Render additional Platform Windows
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-			GLFWwindow *backup_current_context = glfwGetCurrentContext();
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-			glfwMakeContextCurrent(backup_current_context);
-		}
-
-		glfwSwapBuffers(window);
+	while (!glfwWindowShouldClose(g_win.window))  {
+		ui_update();
 	}
 
 	// Cleanup
@@ -159,7 +125,7 @@ ui_main()
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
-	glfwDestroyWindow(window);
+	glfwDestroyWindow(g_win.window);
 	glfwTerminate();
 
 	return true;

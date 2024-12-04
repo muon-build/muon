@@ -5,9 +5,16 @@
 
 #include "compat.h"
 
+#define GL_SILENCE_DEPRECATION
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+#include <glad/gl.h>
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <ImGuiColorTextEdit/TextEditor.h>
 #include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <imgui_internal.h>
 #include <math.h>
 
@@ -21,6 +28,7 @@ extern "C" {
 #include "log.h"
 #include "platform/path.h"
 #include "ui/inspector.h"
+#include "ui/ui.h"
 }
 
 static uint32_t
@@ -184,7 +192,8 @@ struct inspector_context {
 	obj callstack;
 	bool show_grid = false;
 	uint32_t node_selected = 0;
-	bool init;
+	bool init = false, reinit = false;
+	uint32_t run = 0;
 
 	struct {
 		float c1, c2, c3, c4, c5;
@@ -319,19 +328,12 @@ add_recursive_deps(struct inspector_context *ctx, int32_t dest, obj d)
 	}
 }
 
-static void init_inspector_context(struct inspector_context *ctx);
-
 struct inspector_context *
 get_inspector_context()
 {
-	static struct inspector_context ctx;
-
-	if (!ctx.init) {
-		init_inspector_context(&ctx);
-		ctx.init = true;
-	}
-
-	return &ctx;
+	static struct inspector_context _ctx;
+	struct inspector_context *ctx = &_ctx;
+	return ctx;
 }
 
 static void
@@ -380,6 +382,10 @@ open_editor(struct source *src, struct detailed_source_location dloc)
 	win.editor.SetReadOnly(true);
 	win.editor.SetText(src->src);
 	win.editor.SetCursorPosition(coords);
+	win.editor.SetShowWhitespaces(false);
+
+	/* wk->vm.dbg_state.breakpoints; */
+	/* win.editor.SetBreakpoints(); */
 
 	ImGui::DockBuilderDockWindow(win.file, ctx->dock_id_right);
 
@@ -700,6 +706,10 @@ render_sidebar(inspector_window *window)
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = (struct project *)arr_get(&wk->projects, i);
+		if (!proj->cfg.name) {
+			continue;
+		}
+
 		if (ImGui::TreeNodeEx(get_cstr(wk, proj->cfg.name), ImGuiTreeNodeFlags_None)) {
 			obj t;
 			obj_array_for(wk, proj->targets, t) {
@@ -715,11 +725,20 @@ render_sidebar(inspector_window *window)
 }
 
 static void
-reinit_inspector_context(struct inspector_context *ctx)
+inspector_break_cb(struct workspace *wk)
+{
+	wk->vm.dbg_state.icount = 0;
+	ui_update();
+}
+
+static void
+reinit_inspector_context(struct inspector_context *ctx, bool first=false)
 {
 	struct workspace *wk = &ctx->wk;
 
-	if (ctx->init) {
+	ctx->reinit = false;
+
+	if (ctx->init && !first) {
 		workspace_destroy(wk);
 	}
 
@@ -730,6 +749,10 @@ reinit_inspector_context(struct inspector_context *ctx)
 
 	workspace_init_bare(wk);
 	workspace_init_runtime(wk);
+
+	wk->vm.dbg_state.break_after = 1024;
+	wk->vm.dbg_state.break_cb = inspector_break_cb;
+
 	workspace_do_setup(wk, "build-tmp", "muon", 0, 0);
 
 	obj t;
@@ -814,27 +837,6 @@ reinit_inspector_context(struct inspector_context *ctx)
 
 }
 
-static void
-init_inspector_context(struct inspector_context *ctx)
-{
-	sbuf_init(&ctx->log, 0, 0, sbuf_flag_overflow_alloc);
-	log_set_buffer(&ctx->log);
-
-	reinit_inspector_context(ctx);
-
-	ctx->graph_params.c1 = 0.5;
-	ctx->graph_params.c2 = 9.0;
-	ctx->graph_params.c3 = 3.0;
-	ctx->graph_params.c4 = 5.0;
-	ctx->graph_params.c5 = 40.0;
-	ctx->graph_params.zoom_tgt = 1.0f;
-	ctx->graph_params.scroll_tgt = { 0, 0 };
-
-	ctx->windows.push_back({ "Targets", render_sidebar, true });
-	ctx->windows.push_back({ "Graph", render_node_graph, true });
-	ctx->windows.push_back({ "Callstack", render_callstack, true });
-	ctx->windows.push_back({ "Log", render_log, true });
-}
 
 void
 ui_inspector_window()
@@ -849,7 +851,7 @@ ui_inspector_window()
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Rerun")) {
-				reinit_inspector_context(ctx);
+				ctx->reinit = true;
 			}
 			if (ImGui::MenuItem("Show ImGui Debug Log")) {
 				imgui_debug = true;
@@ -939,5 +941,80 @@ ui_inspector_window()
 	}
 
 	ImGui::DockBuilderFinish(dockspace_id);
+}
+
+void
+ui_update()
+{
+	inspector_context *ctx = get_inspector_context();
+
+	static bool first = true;
+	if (first) {
+		first = false;
+
+		sbuf_init(&ctx->log, 0, 0, sbuf_flag_overflow_alloc);
+		log_set_buffer(&ctx->log);
+
+		ctx->graph_params.c1 = 0.5;
+		ctx->graph_params.c2 = 9.0;
+		ctx->graph_params.c3 = 3.0;
+		ctx->graph_params.c4 = 5.0;
+		ctx->graph_params.c5 = 40.0;
+		ctx->graph_params.zoom_tgt = 1.0f;
+		ctx->graph_params.scroll_tgt = { 0, 0 };
+
+		ctx->windows.push_back({ "Targets", render_sidebar, true });
+		ctx->windows.push_back({ "Callstack", render_callstack, true });
+		ctx->windows.push_back({ "Log", render_log, true });
+		ctx->windows.push_back({ "Graph", render_node_graph, true });
+
+		ctx->init = true;
+		reinit_inspector_context(ctx, true);
+	}
+
+	if (ctx->reinit) {
+		reinit_inspector_context(ctx);
+	}
+
+	extern struct g_win g_win;
+	const ImVec4 clear_color = ImVec4(40.0 / 256.0, 42 / 256.0, 54 / 256.0, 1.00f);
+
+	ImGuiIO &io = ImGui::GetIO();
+
+	// Poll and handle events (inputs, window resize, etc.)
+	glfwPollEvents();
+	if (glfwGetWindowAttrib(g_win.window, GLFW_ICONIFIED) != 0) {
+		ImGui_ImplGlfw_Sleep(10);
+		return;
+	}
+
+	// Start the Dear ImGui frame
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	ui_inspector_window();
+
+	// Rendering
+	ImGui::Render();
+	int display_w, display_h;
+	glfwGetFramebufferSize(g_win.window, &display_w, &display_h);
+	glViewport(0, 0, display_w, display_h);
+	glClearColor(clear_color.x * clear_color.w,
+		clear_color.y * clear_color.w,
+		clear_color.z * clear_color.w,
+		clear_color.w);
+	glClear(GL_COLOR_BUFFER_BIT);
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	// Update and Render additional Platform Windows
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		GLFWwindow *backup_current_context = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup_current_context);
+	}
+
+	glfwSwapBuffers(g_win.window);
 }
 

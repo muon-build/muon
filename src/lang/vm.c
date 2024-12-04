@@ -2558,14 +2558,23 @@ vm_execute_loop(struct workspace *wk)
 			/* object_stack_print(wk, &wk->vm.stack); */
 		}
 
-		if ((wk->vm.dbg_state.stepping && vm_at_dbg_step_point(wk, wk->vm.ip))
-			|| (wk->vm.dbg_state.breakpoints && vm_at_dbg_breakpoint(wk, wk->vm.ip))) {
-			repl(wk, true);
+		bool should_break = (wk->vm.dbg_state.stepping && vm_at_dbg_step_point(wk, wk->vm.ip))
+					|| (wk->vm.dbg_state.breakpoints && vm_at_dbg_breakpoint(wk, wk->vm.ip))
+					|| (wk->vm.dbg_state.break_after && wk->vm.dbg_state.icount >= wk->vm.dbg_state.break_after);
+
+		if (should_break) {
+			if (wk->vm.dbg_state.break_cb) {
+				wk->vm.dbg_state.break_cb(wk);
+			} else {
+				repl(wk, true);
+			}
 		}
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
 		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+
+		++wk->vm.dbg_state.icount;
 	}
 }
 
