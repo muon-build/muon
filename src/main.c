@@ -11,7 +11,6 @@
 #include <string.h>
 
 #include "args.h"
-#include "backend/backend.h"
 #include "backend/output.h"
 #include "buf_size.h"
 #include "cmd_install.h"
@@ -939,48 +938,9 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	if (!workspace_setup_paths(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
+	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
 	}
-
-	workspace_init_startup_files(&wk);
-
-	{
-		SBUF(path);
-		path_join(&wk, &path, wk.muon_private, output_path.compiler_check_cache);
-		if (fs_file_exists(path.buf)) {
-			FILE *f;
-			if ((f = fs_fopen(path.buf, "rb"))) {
-				if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
-					LOG_E("failed to load compiler check cache");
-				}
-				fs_fclose(f);
-			}
-		}
-	}
-
-	uint32_t project_id;
-	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
-		goto ret;
-	}
-
-	log_plain("\n");
-
-	obj finalizer;
-	obj_array_for(&wk, wk.finalizers, finalizer) {
-		obj _;
-		if (!vm_eval_capture(&wk, finalizer, 0, 0, &_)) {
-			goto ret;
-		}
-	}
-
-	if (!backend_output(&wk)) {
-		goto ret;
-	}
-
-	workspace_print_summaries(&wk, log_file());
-
-	LOG_I("setup complete");
 
 	res = true;
 ret:

@@ -122,4 +122,6 @@ struct project *current_project(struct workspace *wk);
 const char *workspace_cwd(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);
+
+bool workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
 #endif
