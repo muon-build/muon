@@ -16,7 +16,6 @@
 #include "error.h"
 #include "lang/object.h"
 #include "lang/object_iterators.h"
-#include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -1341,7 +1340,7 @@ _obj_dict_set(struct workspace *wk,
 			};
 
 			if (d->flags & obj_dict_flag_int_key) {
-				hash_set(h, &key, val.u64);
+				hash_set(h, &e->key, val.u64);
 			} else {
 				const struct str *ss = get_str(wk, e->key);
 				hash_set_strn(h, ss->s, ss->len, val.u64);
@@ -1482,6 +1481,8 @@ void
 obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val)
 {
 	union obj_dict_key_comparison_key k = { .num = key };
+	struct obj_dict *d = get_obj_dict(wk, dict);
+	d->flags |= obj_dict_flag_int_key;
 	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_int, key, val);
 }
 
