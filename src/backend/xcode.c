@@ -7,6 +7,7 @@
 
 #include <inttypes.h>
 
+#include "args.h"
 #include "backend/common_args.h"
 #include "backend/output.h"
 #include "backend/xcode.h"
@@ -62,7 +63,13 @@ xc_bool(struct xc_ctx *ctx, bool b)
 static obj
 xc_quoted_str(struct xc_ctx *ctx, const char *s)
 {
-	return make_strf(ctx->wk, "\"%s\"", s);
+	SBUF(tmp);
+	shell_escape(ctx->wk, &tmp, s);
+	if (tmp.buf[0] != '"') {
+		return make_strf(ctx->wk, "\"%s\"", s);
+	} else {
+		return sbuf_into_str(ctx->wk, &tmp);
+	}
 }
 
 static obj
@@ -668,13 +675,13 @@ xc_project_ninja_build(struct xc_ctx *ctx, struct project *proj)
 static obj
 xc_project_target(struct xc_ctx *ctx, struct project *proj, obj _tgt)
 {
+	struct obj_build_target *tgt = get_obj_build_target(ctx->wk, _tgt);
+
+	obj pbx_build_phases = xc_pbx_new(ctx, obj_array);
 	obj pbx_build_uuid;
 	if (!obj_dict_geti(ctx->wk, ctx->tgt_build_files, _tgt, &pbx_build_uuid)) {
 		UNREACHABLE;
 	}
-	struct obj_build_target *tgt = get_obj_build_target(ctx->wk, _tgt);
-
-	obj pbx_build_phases = xc_pbx_new(ctx, obj_array);
 	xc_pbx_push_v(ctx, pbx_build_phases, pbx_build_uuid);
 
 	obj pbx = xc_pbx_new_t(ctx, "PBXNativeTarget");
