@@ -17,7 +17,7 @@ project(
             'glad',
             'glfw3',
             'imgui',
-        ]
+        ],
     },
 )
 
