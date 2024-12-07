@@ -262,6 +262,10 @@ print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 void
 workspace_print_summaries(struct workspace *wk, FILE *out)
 {
+	if (!out) {
+		return;
+	}
+
 	bool printed_summary_header = false;
 	uint32_t i;
 	struct project *proj;
