@@ -475,7 +475,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	case 'b': {
-		vm_dbg_push_breakpoint(&wk, optarg);
+		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
 	}
@@ -925,7 +925,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		break;
 	case 'b': {
-		vm_dbg_push_breakpoint(&wk, optarg);
+		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
 	}

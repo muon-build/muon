@@ -70,6 +70,8 @@ ui_main()
 	int version = gladLoadGL(glfwGetProcAddress);
 	L("loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
+	glfwSetKeyCallback(g_win.window, key_callback);
+
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();

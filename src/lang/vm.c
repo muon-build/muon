@@ -197,12 +197,10 @@ vm_inst_location_obj(struct workspace *wk, uint32_t ip)
 	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 	struct detailed_source_location dloc;
 	get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
-	SBUF(rel);
-	path_relative_to(wk, &rel, wk->source_root, src->label);
 
 	obj res;
 	make_obj(wk, &res, obj_array);
-	obj_array_push(wk, res, make_str(wk, src->label));
+	obj_array_push(wk, res, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 	obj_array_push(wk, res, make_number(wk, dloc.line));
 	obj_array_push(wk, res, make_number(wk, dloc.col));
 	return res;
@@ -338,8 +336,7 @@ vm_function_arg_type_error(struct workspace *wk, uint32_t ip, obj obj_id, type_t
 		typechecking_type_to_s(wk, type),
 		get_cstr(wk, obj_type_to_typestr(wk, obj_id)),
 		name ? " " : "",
-		name ? name : ""
-		);
+		name ? name : "");
 }
 
 static bool
@@ -1419,7 +1416,12 @@ vm_op_stringify(struct workspace *wk)
 }
 
 static bool
-vm_op_store_member_target(struct workspace *wk, uint32_t ip, obj target_container, obj id, enum op_store_flags flags, obj **member_target)
+vm_op_store_member_target(struct workspace *wk,
+	uint32_t ip,
+	obj target_container,
+	obj id,
+	enum op_store_flags flags,
+	obj **member_target)
 {
 	obj res;
 	enum obj_type target_container_type = get_obj_type(wk, target_container), id_type = get_obj_type(wk, id);
@@ -2454,25 +2456,10 @@ vm_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	return native_funcs[func_idx].func(wk, self, res);
 }
 
-static bool
-vm_at_dbg_step_point(struct workspace *wk, uint32_t ip)
-{
-	struct source *src;
-	struct source_location loc = { 0 };
-	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
-
-	if (wk->vm.dbg_state.prev_source_location.off != loc.off) {
-		wk->vm.dbg_state.prev_source_location = loc;
-		return true;
-	}
-	return false;
-}
-
 union vm_breakpoint {
 	struct {
 		obj name;
-		uint16_t line;
-		uint8_t triggered;
+		uint32_t line;
 	} dat;
 	int64_t i;
 };
@@ -2489,8 +2476,30 @@ vm_dgb_enable(struct workspace *wk)
 	wk->vm.dbg_state.root_eval_trace = wk->vm.dbg_state.eval_trace;
 }
 
+void
+vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line)
+{
+	vm_dgb_enable(wk);
+
+	union vm_breakpoint breakpoint = { .dat = { file, line } };
+
+	if (!wk->vm.dbg_state.breakpoints) {
+		make_obj(wk, &wk->vm.dbg_state.breakpoints, obj_array);
+	}
+
+	obj_array_push(wk, wk->vm.dbg_state.breakpoints, make_number(wk, breakpoint.i));
+}
+
+void
+vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line)
+{
+	union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
+	*file = breakpoint.dat.name;
+	*line = breakpoint.dat.line;
+}
+
 bool
-vm_dbg_push_breakpoint(struct workspace *wk, const char *bp)
+vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 {
 	const char *sep = strchr(bp, ':');
 	obj name, line;
@@ -2511,41 +2520,69 @@ vm_dbg_push_breakpoint(struct workspace *wk, const char *bp)
 		line = 0;
 	}
 
-	vm_dgb_enable(wk);
-
-	union vm_breakpoint breakpoint = { .dat = { name, line } };
-
-	if (!wk->vm.dbg_state.breakpoints) {
-		make_obj(wk, &wk->vm.dbg_state.breakpoints, obj_array);
-	}
-
-	obj_array_push(wk, wk->vm.dbg_state.breakpoints, make_number(wk, breakpoint.i));
+	vm_dbg_push_breakpoint(wk, name, line);
 	return true;
 }
 
-static bool
-vm_at_dbg_breakpoint(struct workspace *wk, uint32_t ip)
+static void
+vm_check_break(struct workspace *wk, uint32_t ip)
 {
-	struct source *src;
-	struct source_location loc = { 0 };
-	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
-	struct detailed_source_location dloc;
-	get_detailed_source_location(src, loc, &dloc, 0);
+	bool should_break = false;
 
-	obj v;
-	obj_array_for(wk, wk->vm.dbg_state.breakpoints, v) {
-		union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
-		const struct str *name = get_str(wk, breakpoint.dat.name);
+	struct source *src = 0;
+	uint32_t line = 0, col = 0;
 
-		if (breakpoint.dat.line == dloc.line && wk->vm.dbg_state.prev_source_location.off != loc.off
-			&& str_contains(&WKSTR(src->label), name)) {
-			L("hit breakpoint!");
+	if (wk->vm.dbg_state.stepping) {
+		struct source_location loc = { 0 };
+		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+
+		if (wk->vm.dbg_state.prev_source_location.off != loc.off) {
 			wk->vm.dbg_state.prev_source_location = loc;
-			return true;
+
+			struct detailed_source_location dloc;
+			get_detailed_source_location(src, loc, &dloc, 0);
+			line = dloc.line;
+			col = dloc.col;
+
+			should_break = true;
 		}
 	}
 
-	return false;
+	if (!should_break && wk->vm.dbg_state.breakpoints) {
+		struct source_location loc = { 0 };
+		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+		struct detailed_source_location dloc;
+		get_detailed_source_location(src, loc, &dloc, 0);
+
+		obj v;
+		obj_array_for(wk, wk->vm.dbg_state.breakpoints, v) {
+			union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
+			const struct str *name = get_str(wk, breakpoint.dat.name);
+
+			printf("checking %s:%d / %s:%d\n", name->s, breakpoint.dat.line, src->label, dloc.line);
+
+			if (breakpoint.dat.line == dloc.line && wk->vm.dbg_state.prev_source_location.off != loc.off
+				&& str_contains(&WKSTR(src->label), name)) {
+				wk->vm.dbg_state.prev_source_location = loc;
+
+				line = breakpoint.dat.line;
+				col = dloc.col;
+				should_break = true;
+			}
+		}
+	}
+
+	if (!should_break && wk->vm.dbg_state.break_after) {
+		should_break = wk->vm.dbg_state.icount >= wk->vm.dbg_state.break_after;
+	}
+
+	if (should_break) {
+		if (wk->vm.dbg_state.break_cb) {
+			wk->vm.dbg_state.break_cb(wk, src, line, col);
+		} else {
+			repl(wk, true);
+		}
+	}
 }
 
 static void
@@ -2558,17 +2595,7 @@ vm_execute_loop(struct workspace *wk)
 			/* object_stack_print(wk, &wk->vm.stack); */
 		}
 
-		bool should_break = (wk->vm.dbg_state.stepping && vm_at_dbg_step_point(wk, wk->vm.ip))
-					|| (wk->vm.dbg_state.breakpoints && vm_at_dbg_breakpoint(wk, wk->vm.ip))
-					|| (wk->vm.dbg_state.break_after && wk->vm.dbg_state.icount >= wk->vm.dbg_state.break_after);
-
-		if (should_break) {
-			if (wk->vm.dbg_state.break_cb) {
-				wk->vm.dbg_state.break_cb(wk);
-			} else {
-				repl(wk, true);
-			}
-		}
+		vm_check_break(wk, wk->vm.ip);
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;

@@ -22,7 +22,6 @@
 
 extern "C" {
 #include "backend/common_args.h"
-#include "error.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -163,7 +162,7 @@ struct inspector_window {
 };
 
 struct editor_window {
-	char file[256] = {};
+	char file[1024] = {};
 	TextEditor editor;
 	bool open;
 
@@ -182,26 +181,40 @@ struct editor_window {
 	friend class TextEditor;
 };
 
+struct breakpoint {
+	char file[1024];
+	uint32_t col, line;
+};
+
 struct inspector_context {
+	// Initialization
+	bool init = false, reinit = false;
+
+	// Workspace
 	struct workspace wk;
 	struct sbuf log;
+
+	// Windows
 	ImVector<inspector_window> windows;
 	ImVector<editor_window> editor_windows;
+	ImGuiID dock_id_right;
+
+	// Breakpoints and debugging
+	bool stopped_at_breakpoint = false;
+	ImVector<breakpoint> breakpoints;
+	ImVector<std::string> expressions;
+	obj callstack;
+
+	// Graph params
 	ImVector<inspector_node> nodes;
 	ImVector<inspector_node_link> links;
-	obj callstack;
-	bool show_grid = false;
-	uint32_t node_selected = 0;
-	bool init = false, reinit = false;
-	uint32_t run = 0;
-
 	struct {
+		bool show_grid = false;
 		float c1, c2, c3, c4, c5;
 		float zoom, zoom_tgt;
 		ImVec2 scroll, scroll_tgt;
+		uint32_t node_selected = 0;
 	} graph_params;
-
-	ImGuiID dock_id_right;
 };
 
 static int32_t
@@ -337,7 +350,34 @@ get_inspector_context()
 }
 
 static void
-render_editor(editor_window& window)
+sync_breakpoints()
+{
+	struct inspector_context *ctx = get_inspector_context();
+
+	for (breakpoint &bp : ctx->breakpoints) {
+		for (editor_window &win : ctx->editor_windows) {
+			if (strcmp(win.file, bp.file) == 0) {
+				win.editor.mBreakpoints.insert(bp.line);
+			}
+		}
+	}
+}
+
+static void
+push_breakpoint(const char *file, uint32_t line, uint32_t col)
+{
+	struct inspector_context *ctx = get_inspector_context();
+	struct workspace *wk = &ctx->wk;
+
+	breakpoint bp = { .line = line, .col = col };
+	cstr_copy(bp.file, file, sizeof(bp.file));
+	ctx->breakpoints.push_back(bp);
+	vm_dbg_push_breakpoint(wk, make_str(wk, file), line);
+	sync_breakpoints();
+}
+
+static void
+render_editor(editor_window &window)
 {
 	if (!ImGui::Begin(window.file, &window.open)) {
 		ImGui::End();
@@ -349,19 +389,38 @@ render_editor(editor_window& window)
 	window.editor.Render(window.file);
 	ImGui::PopFont();
 
+	if (ImGui::BeginPopupContextItem("editor context menu")) {
+		if (ImGui::Selectable("Add breakpoint")) {
+			TextEditor::Coordinates coords = window.editor.GetCursorPosition();
+			push_breakpoint(window.file, coords.mLine + 1, coords.mColumn + 1);
+		}
+
+		ImGui::EndPopup();
+	}
+
 	ImGui::End();
 }
 
 static void
-open_editor(struct source *src, struct detailed_source_location dloc)
+safe_path_relative_to(struct workspace *wk, struct sbuf *sbuf, const char *base, const char *path)
+{
+	if (path_is_absolute(path)) {
+		path_relative_to(wk, sbuf, base, path);
+	} else {
+		path_copy(wk, sbuf, path);
+	}
+}
+
+static void
+open_editor(struct source *src, uint32_t line, uint32_t col)
 {
 	struct inspector_context *ctx = get_inspector_context();
 	struct workspace *wk = &ctx->wk;
 
 	SBUF(rel);
-	path_relative_to(wk, &rel, wk->source_root, src->label);
+	safe_path_relative_to(wk, &rel, wk->source_root, src->label);
 
-	TextEditor::Coordinates coords(dloc.line - 1, dloc.col - 1);
+	TextEditor::Coordinates coords(line - 1, col - 1);
 
 	for (editor_window &win : ctx->editor_windows) {
 		if (strcmp(win.file, rel.buf) == 0) {
@@ -389,10 +448,45 @@ open_editor(struct source *src, struct detailed_source_location dloc)
 
 	ImGui::DockBuilderDockWindow(win.file, ctx->dock_id_right);
 
+	sync_breakpoints();
+
 	/* std::unordered_set<int> lineNumbers; */
 	/* for (auto line : annotatedSource.linesWithTags) */
 	/*     lineNumbers.insert(line.lineNumber + 1); */
 	/* editor.SetBreakpoints(lineNumbers); */
+}
+
+struct source *
+source_lookup_by_name(struct workspace *wk, const char *path)
+{
+	struct source *src = 0;
+
+	for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
+		src = (struct source *)arr_get(&wk->vm.src, i);
+		if (strcmp(src->label, path) == 0) {
+			break;
+		}
+	}
+
+	return src;
+}
+
+struct source *
+obj_callstack_unpack(obj e, uint32_t *line, uint32_t *col)
+{
+	struct inspector_context *ctx = get_inspector_context();
+	struct workspace *wk = &ctx->wk;
+
+	obj path_, line_, col_;
+	obj_array_index(wk, e, 0, &path_);
+	obj_array_index(wk, e, 1, &line_);
+	obj_array_index(wk, e, 2, &col_);
+
+	const char *path = get_cstr(wk, path_);
+	*line = get_obj_number(wk, line_);
+	*col = get_obj_number(wk, col_);
+
+	return source_lookup_by_name(wk, path);
 }
 
 static void
@@ -401,23 +495,23 @@ open_editor_for_object(obj t)
 	struct inspector_context *ctx = get_inspector_context();
 	struct workspace *wk = &ctx->wk;
 
-	if (get_obj_type(wk, t) == obj_build_target) {
-		ctx->callstack = get_obj_build_target(wk, t)->callstack;
+	if (get_obj_type(wk, t) != obj_build_target) {
+		return;
 	}
 
-	obj_internal *o = (obj_internal *)bucket_arr_get(&wk->vm.objects.objs, t);
-	struct source_location loc;
-	struct source *src;
-	vm_lookup_inst_location(&wk->vm, o->ip, &loc, &src);
-	struct detailed_source_location dloc;
-	get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
-	open_editor(src, dloc);
+	ctx->callstack = get_obj_build_target(wk, t)->callstack;
+	obj e;
+	obj_array_index(wk, ctx->callstack, 0, &e);
+
+	uint32_t line, col;
+	struct source *src = obj_callstack_unpack(e, &line, &col);
+	open_editor(src, line, col);
 }
 
 static void
 render_callstack(inspector_window *window)
 {
-	if (!ImGui::Begin("Callstack", &window->open)) {
+	if (!ImGui::Begin(window->name, &window->open)) {
 		ImGui::End();
 		return;
 	}
@@ -428,39 +522,92 @@ render_callstack(inspector_window *window)
 	if (ctx->callstack) {
 		obj e;
 		obj_array_for(wk, ctx->callstack, e) {
-			obj path_, line_, col_;
-			obj_array_index(wk, e, 0, &path_);
-			obj_array_index(wk, e, 1, &line_);
-			obj_array_index(wk, e, 2, &col_);
-
-			const char *path = get_cstr(wk, path_);
-			uint32_t line = get_obj_number(wk, line_), col = get_obj_number(wk, col_);
+			uint32_t line, col;
+			struct source *src = obj_callstack_unpack(e, &line, &col);
 
 			SBUF(rel);
-			path_relative_to(wk, &rel, wk->source_root, path);
 			char label[1024];
+			safe_path_relative_to(wk, &rel, wk->source_root, src->label);
 			snprintf(label, sizeof(label), "%s:%d:%d", rel.buf, line, col);
 
 			if (ImGui::Selectable(label)) {
-				struct source *src;
-				for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
-					src = (struct source *)arr_get(&wk->vm.src, i);
-					if (strcmp(src->label, path) == 0) {
-						break;
-					}
-					src = 0;
-				}
-
-				if (src) {
-					struct detailed_source_location dloc = {
-						.line = line,
-						.col = col,
-					};
-					open_editor(src, dloc);
-				}
+				open_editor(src, line, col);
 			}
 		}
 	}
+
+	ImGui::End();
+}
+
+static void
+render_breakpoints(inspector_window *window)
+{
+	if (!ImGui::Begin(window->name, &window->open)) {
+		ImGui::End();
+		return;
+	}
+
+	struct inspector_context *ctx = get_inspector_context();
+
+	for (breakpoint &bp : ctx->breakpoints) {
+		char label[1024];
+		snprintf(label, sizeof(label), "%s:%d:%d", bp.file, bp.line, bp.col);
+		if (ImGui::Selectable(label)) {
+		}
+	}
+
+	ImGui::End();
+}
+
+static void
+render_expressions(inspector_window *window)
+{
+	if (!ImGui::Begin(window->name, &window->open)) {
+		ImGui::End();
+		return;
+	}
+
+	struct inspector_context *ctx = get_inspector_context();
+	struct workspace *wk = &ctx->wk;
+
+	struct vm_dbg_state empty_state = {};
+	stack_push(&wk->stack, wk->vm.dbg_state, empty_state);
+
+	for (int32_t i = 0; i < ctx->expressions.Size; ++i) {
+		ImGui::PushID(i);
+
+		std::string& s = ctx->expressions[i];
+
+		if (ImGui::SmallButton(ICON_FA_MINUS)) {
+			ctx->expressions.erase(&s);
+		}
+
+		ImGui::SameLine();
+
+
+		obj res = 0;
+		SBUF(res_str);
+		if (eval_str(wk, s.c_str(), eval_mode_repl, &res)) {
+			obj_to_s(wk, res, &res_str);
+		} else {
+			sbuf_pushs(wk, &res_str, "<error>");
+		}
+
+
+		ImGui::LabelText(s.c_str(), "%s", res_str.buf);
+
+		ImGui::PopID();
+	}
+
+	stack_pop(&wk->stack, wk->vm.dbg_state);
+
+	static char buf[1024];
+	if (ImGui::SmallButton(ICON_FA_PLUS) && buf[0]) {
+		ctx->expressions.push_back(buf);
+		buf[0] = 0;
+	}
+	ImGui::SameLine();
+	ImGui::InputText("new", buf, sizeof(buf));
 
 	ImGui::End();
 }
@@ -522,7 +669,7 @@ render_node_graph(inspector_window *window)
 	ImGui::PushItemWidth(100);
 	ImGui::SliderFloat("c5", &ctx->graph_params.c5, 0, 500, "%f", ImGuiSliderFlags_Logarithmic);
 	ImGui::SameLine();
-	ImGui::Checkbox("Show grid", &ctx->show_grid);
+	ImGui::Checkbox("Show grid", &ctx->graph_params.show_grid);
 
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(60, 60, 70, 200));
 	ImGui::BeginChild("scrolling_region",
@@ -538,32 +685,27 @@ render_node_graph(inspector_window *window)
 
 	float new_zoom = ctx->graph_params.zoom + (ctx->graph_params.zoom_tgt - ctx->graph_params.zoom) * 0.1;
 
-	/*
-	 *
-	 * 0,0---------------------
+	/* 0,0---------
 	 * |    |   |
 	 * |    |   |          real    scaled off    scaled
 	 * |----x   |  - z = 1 (1, 1), (1, 1) (0, 0) (0, 0)
 	 * |        |
 	 * |--------x  - z = 2 (1, 1), (2, 2) (1, 1) (.5, .5)
 	 * |
-	 * |
-	 * |
-	 * |
-	 * |
-	 * |
 	 */
 	ImDrawList *draw_list = ImGui::GetWindowDrawList();
 
 	if (io.WantCaptureMouse && ImGui::IsWindowHovered()) {
 		const ImVec2 offset_px = (ImGui::GetWindowSize() * 0.5) * ctx->graph_params.zoom;
-		ImVec2 mouse_px = ctx->graph_params.scroll; // - ImGui::GetCursorScreenPos() + ImGui::GetMousePos();
+		/* ImVec2 mouse_px = ctx->graph_params.scroll; // - ImGui::GetCursorScreenPos() + ImGui::GetMousePos(); */
 		ImVec2 mouse_pre = (ctx->graph_params.scroll) * ctx->graph_params.zoom + offset_px;
 		ImVec2 mouse_post = (ctx->graph_params.scroll) * new_zoom + offset_px;
-		draw_list->AddCircleFilled(mouse_px, 12, IM_COL32(255, 0, 0, 255));
-		draw_list->AddCircleFilled(mouse_post, 10, IM_COL32(0, 0, 255, 155));
-		draw_list->AddCircleFilled(mouse_pre, 8, IM_COL32(0, 255, 0, 155));
-		draw_list->AddCircleFilled(ImGui::GetMousePos(), 6, IM_COL32(244, 255, 0, 155));
+
+		/* draw_list->AddCircleFilled(mouse_px, 12, IM_COL32(255, 0, 0, 255)); */
+		/* draw_list->AddCircleFilled(mouse_post, 10, IM_COL32(0, 0, 255, 155)); */
+		/* draw_list->AddCircleFilled(mouse_pre, 8, IM_COL32(0, 255, 0, 155)); */
+		/* draw_list->AddCircleFilled(ImGui::GetMousePos(), 6, IM_COL32(244, 255, 0, 155)); */
+
 		ImVec2 mouse_diff_px = (mouse_pre - mouse_post) / new_zoom;
 		/* L("%f | %f, %f | %f, %f | %f, %f", new_zoom, ctx->graph_params.scroll.x, ctx->graph_params.scroll.y, ImGui::GetMousePos().x, ImGui::GetMousePos().y, ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y); */
 
@@ -580,7 +722,7 @@ render_node_graph(inspector_window *window)
 	const ImVec2 offset = (ImGui::GetCursorScreenPos() + ctx->graph_params.scroll) * ctx->graph_params.zoom;
 
 	// Display grid
-	if (ctx->show_grid) {
+	if (ctx->graph_params.show_grid) {
 		ImU32 GRID_COLOR = IM_COL32(200, 200, 200, 40);
 		float GRID_SZ = 64.0f * ctx->graph_params.zoom;
 		ImVec2 win_pos = ImGui::GetCursorScreenPos() * ctx->graph_params.zoom;
@@ -606,8 +748,7 @@ render_node_graph(inspector_window *window)
 		ImVec2 p2 = offset + node_out->output_slot_pos(link->output_slot, ctx->graph_params.zoom);
 
 		uint32_t clr = fnv_1a((uint8_t *)&node_inp->id, 4) | IM_COL32_A_MASK;
-		;
-		if (ctx->node_selected && node_out->id != ctx->node_selected) {
+		if (ctx->graph_params.node_selected && node_out->id != ctx->graph_params.node_selected) {
 			clr = IM_COL32(200, 200, 200, 100);
 		}
 
@@ -642,16 +783,17 @@ render_node_graph(inspector_window *window)
 		}
 		bool node_moving_active = ImGui::IsItemActive();
 		if (node_widgets_active || node_moving_active) {
-			ctx->node_selected = node->id;
+			ctx->graph_params.node_selected = node->id;
 		}
 		if (node_moving_active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
 			node->pos = node->pos + io.MouseDelta / ctx->graph_params.zoom;
 		}
 
-		ImU32 node_bg_color = (node_hovered_in_list == node->id || node_hovered_in_scene == node->id
-					      || (node_hovered_in_list == 0 && ctx->node_selected == node->id)) ?
-					      IM_COL32(75, 75, 75, 255) :
-					      IM_COL32(60, 60, 60, 255);
+		ImU32 node_bg_color
+			= (node_hovered_in_list == node->id || node_hovered_in_scene == node->id
+				  || (node_hovered_in_list == 0 && ctx->graph_params.node_selected == node->id)) ?
+				  IM_COL32(75, 75, 75, 255) :
+				  IM_COL32(60, 60, 60, 255);
 		draw_list->AddRectFilled(node_rect_min, node_rect_max, node_bg_color, 4.0f);
 		draw_list->AddRect(node_rect_min, node_rect_max, IM_COL32(100, 100, 100, 255), 4.0f);
 		/* ImVec2 pos = offset + node->input_slot_pos(0, ctx->graph_params.zoom); */
@@ -673,7 +815,7 @@ render_node_graph(inspector_window *window)
 	// Clear selection
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
 		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) || !ImGui::IsAnyItemHovered()) {
-			ctx->node_selected = node_hovered_in_list = node_hovered_in_scene = 0;
+			ctx->graph_params.node_selected = node_hovered_in_list = node_hovered_in_scene = 0;
 		}
 	}
 
@@ -725,14 +867,27 @@ render_sidebar(inspector_window *window)
 }
 
 static void
-inspector_break_cb(struct workspace *wk)
+inspector_break_cb(struct workspace *wk, struct source *src, uint32_t line, uint32_t col)
 {
+	struct inspector_context *ctx = get_inspector_context();
+
 	wk->vm.dbg_state.icount = 0;
-	ui_update();
+
+	if (line) {
+		ctx->callstack = vm_callstack(wk);
+
+		open_editor(src, line, col);
+		ctx->stopped_at_breakpoint = true;
+		while (ctx->stopped_at_breakpoint) {
+			ui_update();
+		}
+	} else {
+		ui_update();
+	}
 }
 
 static void
-reinit_inspector_context(struct inspector_context *ctx, bool first=false)
+reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 {
 	struct workspace *wk = &ctx->wk;
 
@@ -747,13 +902,21 @@ reinit_inspector_context(struct inspector_context *ctx, bool first=false)
 	ctx->nodes.clear();
 	ctx->links.clear();
 
+	ctx->callstack = 0;
+
 	workspace_init_bare(wk);
 	workspace_init_runtime(wk);
 
 	wk->vm.dbg_state.break_after = 1024;
+	for (breakpoint &bp : ctx->breakpoints) {
+		vm_dbg_push_breakpoint(wk, make_str(wk, bp.file), bp.line);
+	}
 	wk->vm.dbg_state.break_cb = inspector_break_cb;
 
 	workspace_do_setup(wk, "build-tmp", "muon", 0, 0);
+
+	// Clear callstack again after setup
+	ctx->callstack = 0;
 
 	obj t;
 	uint32_t i;
@@ -834,9 +997,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first=false)
 		default: break;
 		}
 	}
-
 }
-
 
 void
 ui_inspector_window()
@@ -846,6 +1007,7 @@ ui_inspector_window()
 	static bool imgui_debug = false;
 	if (imgui_debug) {
 		ImGui::ShowDebugLogWindow();
+		ImGui::ShowDemoWindow();
 	}
 
 	if (ImGui::BeginMainMenuBar()) {
@@ -866,6 +1028,19 @@ ui_inspector_window()
 			}
 			ImGui::EndMenu();
 		}
+
+		if (ctx->stopped_at_breakpoint) {
+			if (ImGui::SmallButton(ICON_FA_ARROW_ALT_CIRCLE_RIGHT)) {
+				ctx->wk.vm.dbg_state.stepping = true;
+				ctx->stopped_at_breakpoint = false;
+			}
+
+			if (ImGui::SmallButton(ICON_FA_PLAY)) {
+				ctx->wk.vm.dbg_state.stepping = false;
+				ctx->stopped_at_breakpoint = false;
+			}
+		}
+
 		ImGui::EndMainMenuBar();
 	}
 
@@ -924,6 +1099,8 @@ ui_inspector_window()
 		ImGui::DockBuilderDockWindow("Log", dock_id_right);
 		ImGui::DockBuilderDockWindow("Targets", dock_id_left_up);
 		ImGui::DockBuilderDockWindow("Callstack", dock_id_left_down);
+		ImGui::DockBuilderDockWindow("Breakpoints", dock_id_left_down);
+		ImGui::DockBuilderDockWindow("Expressions", dock_id_left_down);
 	}
 
 	ImGui::End();
@@ -941,6 +1118,49 @@ ui_inspector_window()
 	}
 
 	ImGui::DockBuilderFinish(dockspace_id);
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	(void)scancode;
+	(void)window;
+
+	if (action != GLFW_RELEASE) {
+		return;
+	}
+
+	struct inspector_context *ctx = get_inspector_context();
+
+	if (key == GLFW_KEY_W  && (mods & GLFW_MOD_CONTROL)) {
+		ImGuiContext& g = *GImGui;
+		ImGuiWindow *cur_window = g.NavWindow;
+
+		if (!cur_window) {
+			return;
+		}
+
+		for (inspector_window &win : ctx->windows) {
+			if (win.open && strcmp(cur_window->Name, win.name) == 0) {
+				win.open = false;
+			}
+		}
+
+		for (editor_window &win : ctx->editor_windows) {
+			if (win.open && strcmp(cur_window->Name, win.file) == 0) {
+				win.open = false;
+			}
+		}
+	}
+
+	if (ctx->stopped_at_breakpoint) {
+		if (key == GLFW_KEY_S  && (mods & GLFW_MOD_CONTROL)) {
+			ctx->wk.vm.dbg_state.stepping = true;
+			ctx->stopped_at_breakpoint = false;
+		} else if (key == GLFW_KEY_C  && (mods & GLFW_MOD_CONTROL)) {
+			ctx->wk.vm.dbg_state.stepping = false;
+			ctx->stopped_at_breakpoint = false;
+		}
+	}
 }
 
 void
@@ -964,6 +1184,8 @@ ui_update()
 		ctx->graph_params.scroll_tgt = { 0, 0 };
 
 		ctx->windows.push_back({ "Targets", render_sidebar, true });
+		ctx->windows.push_back({ "Breakpoints", render_breakpoints, true });
+		ctx->windows.push_back({ "Expressions", render_expressions, true });
 		ctx->windows.push_back({ "Callstack", render_callstack, true });
 		ctx->windows.push_back({ "Log", render_log, true });
 		ctx->windows.push_back({ "Graph", render_node_graph, true });

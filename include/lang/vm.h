@@ -120,7 +120,7 @@ struct vm_compiler_state {
 };
 
 struct vm_dbg_state {
-	void (*break_cb)(struct workspace *wk);
+	void (*break_cb)(struct workspace *wk, struct source *src, uint32_t line, uint32_t col);
 	void *usr_ctx;
 	struct source_location prev_source_location;
 	obj watched;
@@ -205,8 +205,7 @@ void object_stack_print(struct workspace *wk, struct object_stack *s);
 obj vm_get_constant(uint8_t *code, uint32_t *ip);
 uint32_t vm_constant_host_to_bc(uint32_t n);
 obj vm_execute(struct workspace *wk);
-bool
-vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
+bool vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
 obj vm_callstack(struct workspace *wk);
@@ -228,5 +227,7 @@ MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *f
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char *fmt, ...);
 
-bool vm_dbg_push_breakpoint(struct workspace *wk, const char *bp);
+void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line);
+bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
+void vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line);
 #endif

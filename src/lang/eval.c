@@ -415,7 +415,7 @@ cmd_found:
 			break;
 		}
 		case repl_cmd_breakpoint: {
-			vm_dbg_push_breakpoint(wk, arg);
+			vm_dbg_push_breakpoint_str(wk, arg);
 			break;
 		}
 		case repl_cmd_backtrace: {

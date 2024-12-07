@@ -909,3 +909,11 @@ sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 		return make_strn(wk, sb->buf, sb->len);
 	}
 }
+
+void
+cstr_copy(char *dest, const char *src, uint32_t dest_len)
+{
+	uint32_t src_len = strlen(src) + 1;
+	assert(src_len <= dest_len);
+	memcpy(dest, src, src_len);
+}
