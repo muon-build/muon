@@ -13,6 +13,11 @@ project(
         'buildtype': 'debug',
         'default_library': 'static',
         'cpp_std': 'c++11',
+        'force_fallback_for': [
+            'glad',
+            'glfw3',
+            'imgui',
+        ]
     },
 )
 

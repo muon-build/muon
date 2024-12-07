@@ -1,0 +1,10 @@
+; SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+; SPDX-License-Identifier: GPL-3.0-only
+
+[wrap-git]
+url = https://git.sr.ht/~lattis/glad
+revision = a0a82e90b0a5efcdaf3010f7128c4540924c8479
+depth = 1
+
+[provide]
+glad = glad_dep
