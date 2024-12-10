@@ -8,16 +8,6 @@
 
 #include "lang/workspace.h"
 
-#define vs_guid_fmt "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X"
-
-struct guid
-{
-	uint32_t data1;
-	uint16_t data2;
-	uint16_t data3;
-	uint8_t data4[8];
-};
-
 /* Debug and Release */
 extern char *vs_configurations[2];
 
@@ -30,8 +20,7 @@ extern char *vs_machines[2];
 struct vs_ctx {
 	FILE *out;
 	const struct project *project;
-	struct arr projects_guid; /* array of struct guid */
-	struct obj_build_target *target; /* current target */
+	obj tgt_id; /* current target */
 	uint32_t vs_version;
 	uint32_t idx;
 };

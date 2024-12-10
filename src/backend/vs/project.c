@@ -17,7 +17,12 @@
 struct target_source_iter_ctx
 {
 	struct xml_node parent;
-	struct arr attributes; /* array if xml_attributes */
+	struct arr attributes; /* array of xml_attributes */
+};
+
+struct target_include_directory_iter_ctx
+{
+	struct sbuf *buf;
 };
 
 static enum iteration_result
@@ -26,6 +31,9 @@ write_target_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	struct target_source_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
 
+	printf(" %%%% source: '%s'\n", src);
+	fflush(stdout);
+
 	SBUF(path);
 	path_relative_to(wk, &path, wk->build_root, src);
 	struct arr attributes; /* array of strings */
@@ -33,6 +41,28 @@ write_target_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	ATTR_PUSH("Include", path.buf);
 	struct xml_node n = tag(wk, ctx->parent, "ClCompile", &attributes, true);
 	tag_end(wk, n);
+	return ir_cont;
+}
+
+static enum iteration_result
+write_target_include_directory_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct target_include_directory_iter_ctx *ctx = _ctx;
+
+	switch (get_obj_type(wk, val)) {
+	case obj_include_directory:
+	{
+		struct obj_include_directory *incdir = get_obj_include_directory(wk, val);
+		SBUF(dir);
+		path_relative_to(wk, &dir, wk->build_root, get_cstr(wk, incdir->path));
+		sbuf_pushs(0, ctx->buf, dir.buf);
+		sbuf_push(0, ctx->buf, ';');
+		break;
+	default:
+		break;//UNREACHABLE;
+	}
+	}
+
 	return ir_cont;
 }
 
@@ -73,32 +103,20 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	tag_end(wk, n1);
 
 	/* Property Group: Globals */
+	struct obj_build_target *target = get_obj_build_target(wk, ctx->tgt_id);
 	arr_clear(&attributes);
 	ATTR_PUSH("Label", "Globals");
 	n1 = tag(wk, root, "PropertyGroup", &attributes, false);
 
 	SBUF_manual(buf);
-	struct guid *guid_project = arr_get(&ctx->projects_guid, ctx->idx);
-	sbuf_pushf(0, &buf,
-		   "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-		   guid_project->data1,
-		   guid_project->data2,
-		   guid_project->data3,
-		   guid_project->data4[0],
-		   guid_project->data4[1],
-		   guid_project->data4[2],
-		   guid_project->data4[3],
-		   guid_project->data4[4],
-		   guid_project->data4[5],
-		   guid_project->data4[6],
-		   guid_project->data4[7]);
+	sbuf_pushf(0, &buf, "{%04X}", ctx->tgt_id);
 	tag_elt(n1, "ProjectGuid", buf.buf);
+	sbuf_destroy(&buf);
 	tag_elt(n1, "VCProjectVersion", ctx->vs_version == 16 ? "16.0" : "17.0");
-	tag_elt(n1, "RootNamespace", get_cstr(wk, ctx->target->name));
-	tag_elt(n1, "ProjectName", get_cstr(wk, ctx->target->name));
+	tag_elt(n1, "RootNamespace", get_cstr(wk, target->name));
+	tag_elt(n1, "ProjectName", get_cstr(wk, target->name));
 	tag_elt(n1, "Keyword", "x64Proj");
 	tag_elt(n1, "Platform", "x64");
-	sbuf_destroy(&buf);
 
 	tag_end(wk, n1);
 
@@ -129,7 +147,7 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 			sbuf_destroy(&buf);
 
 			const char *conf_type;
-			switch (ctx->target->type) {
+			switch (target->type) {
 			case tgt_executable:
 				conf_type = "Application";
 				break;
@@ -204,7 +222,7 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	/* item definition group - compiler and linker */
 	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
 		bool is_debug = strcmp(vs_configurations[i], "Debug") == 0;
-		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
+		for (uint32_t j = 0; j < ARRAY_LEN(vs_machines); j++) {
 			arr_clear(&attributes);
 			sbuf_clear(&buf);
 			sbuf_pushf(0, &buf, "'$(Configuration)|$(Platform)'=='%s|%s'", vs_configurations[i], vs_machines[j]);
@@ -215,18 +233,42 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 
 			/* compiler */
 			n2 = tag(wk, n1, "ClCompile", NULL, false);
+
+			// Warning level
 			// FIXME: how to get it ??
 			tag_elt(n2, "WarningLevel", "Level3");
+
+			// SDL check
+			// FIXME: how to get it ??
 			if (!is_debug) {
 				tag_elt(n2, "FunctionLevelLinking", "true");
 				tag_elt(n2, "IntrinsicFunctions", "true");
 			}
 			tag_elt(n2, "SDLCheck", "true");
-			// FIXME: how to get them ??
+
+			// Preprocessor definitions
 			sbuf_clear(&buf);
-			sbuf_pushf(0, &buf, "WIN32;%s;_CONSOLE;%%(PreprocessorDefinitions)", is_debug ? "_DEBUG" : "NDEBUG");
+			if (strcmp(vs_machines[j], "Win32") == 0) {
+				sbuf_pushs(0, &buf, "WIN32;");
+			}
+			sbuf_pushf(0, &buf, "%s;", is_debug ? "_DEBUG" : "NDEBUG");
+			sbuf_pushs(0, &buf, "_CONSOLE;%(PreprocessorDefinitions)");
 			tag_elt(n2, "PreprocessorDefinitions", buf.buf);
+
+			// Conformance mode
 			tag_elt(n2, "ConformanceMode", "true");
+
+			// Additional include directories
+			if (target->dep_internal.include_directories) {
+				struct target_include_directory_iter_ctx ctx_incdir;
+
+				sbuf_clear(&buf);
+				ctx_incdir.buf = &buf;
+				obj_array_foreach(wk, target->dep_internal.include_directories, &ctx_incdir, write_target_include_directory_iter);
+				sbuf_pushs(0, &buf, "%(AdditionalIncludeDirectories)");
+				tag_elt(n2, "AdditionalIncludeDirectories", buf.buf);
+			}
+
 			tag_end(wk, n2);
 
 			/* linker */
@@ -248,7 +290,7 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 	// FIXME: no source file for shared lib
 	n1 = tag(wk, root, "ItemGroup", NULL, false);
 	struct target_source_iter_ctx ctx_sources = { n1, attributes };
-	if (!obj_array_foreach(wk, ctx->target->src, &ctx_sources, write_target_sources_iter)) {
+	if (!obj_array_foreach(wk, target->src, &ctx_sources, write_target_sources_iter)) {
 		return false;
 	}
 	tag_end(wk, n1);

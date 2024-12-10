@@ -144,7 +144,7 @@ endif
 muon = executable(
     'muon',
     src,
-    dependencies: [deps,cc.find_library('rpcrt4')],
+    dependencies: deps,
     include_directories: include_dir,
     link_args: link_args,
     c_args: c_args,

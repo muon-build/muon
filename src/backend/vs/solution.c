@@ -26,41 +26,86 @@ static const char *vs_sln_guid[VS_SLN_GUID_LAST] = {
 	"8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942"
 };
 
+struct sln_target_dep_iter_ctx
+{
+	FILE *out;
+	obj name;
+};
+
+struct sln_target_iter_ctx
+{
+	FILE *out;
+	const struct project *project;
+};
+
+static enum iteration_result
+vs_sln_dep_find_iter(struct workspace *wk, void *_ctx, obj tgt_id)
+{
+	struct sln_target_dep_iter_ctx *ctx = _ctx;
+	struct obj_build_target *target = get_obj_build_target(wk, tgt_id);
+	printf(" ###### : cur name : %u '%s'\n", ctx->name, get_cstr(wk, ctx->name));
+	printf(" ###### : dep tgt '%u'\n", tgt_id);
+	printf(" ###### : tgt name : %u '%s'\n",
+	       target->build_path,
+	       get_cstr(wk, target->build_path));
+	fflush(stdout);
+	if (strcmp(get_cstr(wk, ctx->name), get_cstr(wk, target->build_path)) == 0) {
+		fprintf(ctx->out, "\t\t{%04X} = {%04X}\n", tgt_id, tgt_id);
+	}
+
+	return ir_cont;
+}
+
+static enum iteration_result
+vs_sln_dep_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	struct sln_target_iter_ctx *ctx = _ctx;
+	switch (get_obj_type(wk, val)) {
+	case obj_dependency:
+	{
+		struct obj_dependency *dep = get_obj_dependency(wk, val);
+		struct sln_target_dep_iter_ctx ctx_dep;
+		ctx_dep.out = ctx->out;
+		ctx_dep.name = dep->name;
+		LOG_E("    dep (dep)  : '%u' (type: %d)  '%s'", val, get_obj_type(wk, dep->name), get_cstr(wk, dep->name));
+		obj_array_foreach(wk, ctx->project->targets, &ctx_dep, vs_sln_dep_find_iter);
+		break;
+	}
+	default:
+		LOG_E("    dep (other) : '%d'", get_obj_type(wk, val));
+		break;//UNREACHABLE;
+	}
+
+	return ir_cont;
+}
+
 static enum iteration_result
 vs_sln_header_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
 	struct vs_ctx *ctx = _ctx;
 	struct obj_build_target *target = get_obj_build_target(wk, tgt_id);
 
-	struct guid *guid_project = arr_get(&ctx->projects_guid, ctx->idx);
-	SBUF_manual(guid_project_str);
-	sbuf_pushf(0, &guid_project_str,
-		   "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-		   guid_project->data1,
-		   guid_project->data2,
-		   guid_project->data3,
-		   guid_project->data4[0],
-		   guid_project->data4[1],
-		   guid_project->data4[2],
-		   guid_project->data4[3],
-		   guid_project->data4[4],
-		   guid_project->data4[5],
-		   guid_project->data4[6],
-		   guid_project->data4[7]);
-
 	// FIXME: check langage ?
 	SBUF_manual(project_name);
 	vs_get_project_filename(wk, &project_name, get_obj_build_target(wk, tgt_id));
 	fprintf(ctx->out,
-		"Project(\"{%s}\") = \"%s\", \"%s\", \"{%s}\"\n",
+		"Project(\"{%s}\") = \"%s\", \"%s\", \"{%04X}\"\n",
 		vs_sln_guid[VS_SLN_GUID_LANG_C],
 		get_cstr(wk, target->name),
 		project_name.buf,
-		guid_project_str.buf);
+		tgt_id);
 	sbuf_destroy(&project_name);
-	sbuf_destroy(&guid_project_str);
 
-	// FIXME add dependencies
+	// add dependencies
+	if (target->dep_internal.raw.deps) {
+		struct sln_target_iter_ctx ctx_tgt;
+
+		ctx_tgt.out = ctx->out;
+		ctx_tgt.project = ctx->project;
+		fprintf(ctx->out, "\tProjectSection(ProjectDependencies) = postProject\n");
+		obj_array_foreach(wk, target->dep_internal.raw.deps, &ctx_tgt, vs_sln_dep_iter);
+		fprintf(ctx->out, "\tEndProjectSection\n");
+	}
 
 	fprintf(ctx->out, "EndProject\n");
 
@@ -72,39 +117,22 @@ static enum iteration_result
 vs_sln_body_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 {
 	struct vs_ctx *ctx = _ctx;
-	struct guid *guid_project = arr_get(&ctx->projects_guid, ctx->idx);
-	SBUF_manual(guid_project_str);
-	sbuf_pushf(0, &guid_project_str,
-		   "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-		   guid_project->data1,
-		   guid_project->data2,
-		   guid_project->data3,
-		   guid_project->data4[0],
-		   guid_project->data4[1],
-		   guid_project->data4[2],
-		   guid_project->data4[3],
-		   guid_project->data4[4],
-		   guid_project->data4[5],
-		   guid_project->data4[6],
-		   guid_project->data4[7]);
 	for (uint32_t i = 0; i < ARRAY_LEN(vs_configurations); i++) {
 		for (uint32_t j = 0; j < ARRAY_LEN(vs_platforms); j++) {
-			fprintf(ctx->out, "\t\t{%s}.%s|%s.ActiveCfg = %s|%s\n",
-				guid_project_str.buf,
+			fprintf(ctx->out, "\t\t{%04X}.%s|%s.ActiveCfg = %s|%s\n",
+				tgt_id,
 				vs_configurations[i],
 				vs_machines[j],
 				vs_configurations[i],
 				vs_machines[j]);
-			fprintf(ctx->out, "\t\t{%s}.%s|%s.Build.0 = %s|%s\n",
-				guid_project_str.buf,
+			fprintf(ctx->out, "\t\t{%04X}.%s|%s.Build.0 = %s|%s\n",
+				tgt_id,
 				vs_configurations[i],
 				vs_machines[j],
 				vs_configurations[i],
 				vs_machines[j]);
 		}
 	}
-
-	sbuf_destroy(&guid_project_str);
 
 	ctx->idx++;
 	return ir_cont;
