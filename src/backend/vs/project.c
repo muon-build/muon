@@ -235,6 +235,13 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 			/* compiler */
 			n2 = tag(wk, n1, "ClCompile", NULL, false);
 
+			// Warnings as error
+			obj active;
+			get_option_value_overridable(wk, ctx->project, target->override_options, "werror", &active);
+			if (get_obj_bool(wk, active)) {
+				tag_elt(n2, "TreatWarningAsError", "true");
+			}
+
 			// Warning level
 			obj level_id;
 			get_option_value_overridable(wk, ctx->project, target->override_options, "warning_level", &level_id);
