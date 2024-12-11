@@ -10,6 +10,7 @@
 #include "backend/vs.h"
 #include "backend/vs/xml.h"
 #include "error.h"
+#include "options.h"
 #include "platform/path.h"
 
 /* https://learn.microsoft.com/en-us/cpp/build/reference/vcxproj-file-structure?view=msvc-170 */
@@ -235,8 +236,30 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 			n2 = tag(wk, n1, "ClCompile", NULL, false);
 
 			// Warning level
-			// FIXME: how to get it ??
-			tag_elt(n2, "WarningLevel", "Level3");
+			obj level_id;
+			get_option_value_overridable(wk, ctx->project, target->override_options, "warning_level", &level_id);
+			const struct str *sl = get_str(wk, level_id);
+			if (str_eql(sl, &WKSTR("everything"))) {
+				tag_elt(n2, "WarningLevel", "EnableAllWarnings");
+			} else {
+				assert(sl->len == 1 && "invalid warning_level");
+				switch (sl->s[0]) {
+				case '1': {
+					tag_elt(n2, "WarningLevel", "Level2");
+					break;
+				}
+				case '2': {
+					tag_elt(n2, "WarningLevel", "Level3");
+					break;
+				}
+				case '3': {
+					tag_elt(n2, "WarningLevel", "Level4");
+					break;
+				}
+				// default: nothing added
+				default: break;
+				}
+			}
 
 			// SDL check
 			// FIXME: how to get it ??
