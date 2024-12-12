@@ -86,7 +86,11 @@ func gettext(
     preset str:,
 ) -> list[any]
 
-    xgettext = find_program('xgettext', native: false)
+    xgettext = find_program('xgettext', native: false, required: false)
+    if not xgettext.found()
+        warning('gettext not found, all translation (po) targets will be ignored.')
+        return []
+    endif
     msgfmt = find_program('msgfmt', native: false)
     msgmerge = find_program('msgmerge', native: false)
     msginit = find_program('msginit', native: false)
