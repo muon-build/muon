@@ -206,10 +206,12 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 {
 	struct install_ctx *ctx = _ctx;
 
-	obj install_script_dry_run, install_script_cmdline;
-	obj_array_index(wk, install_script, 0, &install_script_dry_run);
-	obj_array_index(wk, install_script, 1, &install_script_cmdline);
+	obj install_script_skip_if_destdir, install_script_dry_run, install_script_cmdline;
+	obj_array_index(wk, install_script, 0, &install_script_skip_if_destdir);
+	obj_array_index(wk, install_script, 1, &install_script_dry_run);
+	obj_array_index(wk, install_script, 2, &install_script_cmdline);
 
+	bool script_skip_if_destdir = get_obj_bool(wk, install_script_skip_if_destdir);
 	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
 
 	obj env;
@@ -228,6 +230,11 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	uint32_t argc, envc;
 	env_to_envstr(wk, &envstr, &envc, env);
 	join_args_argstr(wk, &argstr, &argc, install_script_cmdline);
+
+	if (ctx->destdir && script_skip_if_destdir) {
+		LOG_I("skipping install script because DESTDIR is set '%s'", argstr);
+		return ir_cont;
+	}
 
 	LOG_I("running install script '%s'", argstr);
 
