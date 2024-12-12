@@ -294,8 +294,9 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 				case 'g': /* managed by IDE */ break;
 				default: UNREACHABLE;
 				}
+			} else if (is_debug) {
+				tag_elt(n2, "Optimization", "Disabled"); break;
 			}
-			/* else, no additional flag */
 
 			// SDL check
 			// FIXME: how to get it ??
