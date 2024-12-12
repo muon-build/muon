@@ -58,6 +58,13 @@ push_constant(struct workspace *wk, obj v)
 	push_code(wk, v & 0xff);
 }
 
+static void
+push_op_store(struct workspace *wk, enum op_store_flags flags)
+{
+	push_code(wk, op_store);
+	push_constant(wk, flags);
+}
+
 static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 static void
 vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
@@ -94,14 +101,14 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 void
 vm_comp_op_return(struct workspace *wk)
 {
-		if (!wk->vm.in_analyzer) {
-			for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
-				push_code(wk, op_swap);
-				push_code(wk, op_pop);
-			}
+	if (!wk->vm.in_analyzer) {
+		for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
+			push_code(wk, op_swap);
+			push_code(wk, op_pop);
 		}
+	}
 
-		push_code(wk, op_return);
+	push_code(wk, op_return);
 }
 
 enum vm_compile_block_flags {
@@ -167,6 +174,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.str);
 		push_code(wk, op_load);
 		break;
+	case node_type_maybe_id:
+		push_code(wk, op_constant);
+		push_constant(wk, n->data.str);
+		push_code(wk, op_dup);
+		push_code(wk, op_try_load);
+		break;
 	case node_type_number:
 		push_code(wk, op_constant);
 		obj o;
@@ -191,27 +204,30 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.len.kwargs);
 		break;
 	case node_type_assign:
-		push_code(wk, op_constant);
-		push_constant(wk, n->l->data.str);
-		push_code(wk, op_store);
+		if (!(n->data.type & op_store_flag_member)) {
+			switch (n->l->type) {
+			case node_type_id_lit:
+				push_code(wk, op_constant);
+				push_constant(wk, n->l->data.str);
+				break;
+			default: vm_compile_expr(wk, n->l); break;
+			}
+		}
+		push_op_store(wk, n->data.type);
 		break;
-	case node_type_plusassign:
-		push_code(wk, op_add_store);
-		push_constant(wk, n->l->data.str);
-		break;
-	case node_type_method: {
-		push_code(wk, op_call_method);
+	case node_type_member: {
+		push_code(wk, op_member);
 		push_constant(wk, n->r->data.str);
-		push_constant(wk, n->l->data.len.args);
-		push_constant(wk, n->l->data.len.kwargs);
 		break;
 	}
 	case node_type_call: {
 		bool known = false;
+		const struct str *name = 0;
 		uint32_t idx;
 
 		if (n->r->type == node_type_id_lit) {
-			const struct str *name = get_str(wk, n->r->data.str);
+			name = get_str(wk, n->r->data.str);
+
 			if (str_eql(name, &WKSTR("subdir_done"))) {
 				push_location(wk, n);
 
@@ -228,7 +244,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
 
 				push_code(wk, op_swap);
-				push_code(wk, op_store);
+				push_op_store(wk, 0);
 				break;
 			} else if (str_eql(name, &WKSTR("get_variable"))) {
 				push_location(wk, n);
@@ -303,6 +319,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, n->l->data.len.args);
 			push_constant(wk, n->l->data.len.kwargs);
 		}
+
+		if (known && (wk->vm.compiler_state.mode & vm_compile_mode_return_after_project)
+			&& str_eql(name, &WKSTR("project"))) {
+			push_code(wk, op_return_end);
+		}
+
 		break;
 	}
 	case node_type_return: {
@@ -365,13 +387,13 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		push_code(wk, op_constant);
 		push_constant(wk, ida->data.str);
-		push_code(wk, op_store);
+		push_op_store(wk, 0);
 		push_code(wk, op_pop);
 
 		if (idb) {
 			push_code(wk, op_constant);
 			push_constant(wk, idb->data.str);
-			push_code(wk, op_store);
+			push_op_store(wk, 0);
 			push_code(wk, op_pop);
 		}
 
@@ -694,7 +716,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		if (n->l->l) {
 			push_code(wk, op_constant);
 			push_constant(wk, n->l->l->data.str);
-			push_code(wk, op_store);
+			push_op_store(wk, 0);
 		}
 		break;
 	}
@@ -801,6 +823,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 {
 	TracyCZoneAutoS;
 	wk->vm.compiler_state.err = false;
+	wk->vm.compiler_state.mode = mode;
 
 	*entry = wk->vm.code.len;
 

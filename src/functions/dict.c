@@ -66,6 +66,13 @@ func_dict_get(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+const struct func_impl impl_tbl_dict[] = {
+	{ "keys", func_dict_keys, tc_array, true },
+	{ "has_key", func_dict_has_key, tc_bool, true },
+	{ "get", func_dict_get, tc_any, true },
+	{ NULL, NULL },
+};
+
 static bool
 func_dict_delete(struct workspace *wk, obj self, obj *res)
 {
@@ -78,17 +85,23 @@ func_dict_delete(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_dict[] = {
-	{ "keys", func_dict_keys, tc_array, true },
-	{ "has_key", func_dict_has_key, tc_bool, true },
-	{ "get", func_dict_get, tc_any, true },
-	{ NULL, NULL },
-};
+static bool
+func_dict_set(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, { tc_any }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	obj_dict_set(wk, self, an[0].val, an[1].val);
+	return true;
+}
 
 const struct func_impl impl_tbl_dict_internal[] = {
 	{ "keys", func_dict_keys, tc_array, true },
 	{ "has_key", func_dict_has_key, tc_bool, true },
 	{ "get", func_dict_get, tc_any, true },
 	{ "delete", func_dict_delete },
+	{ "set", func_dict_set },
 	{ NULL, NULL },
 };

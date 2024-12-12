@@ -34,7 +34,7 @@ static struct {
 	} redirect;
 	struct workspace *wk;
 	enum error_diagnostic_store_replay_opts opts;
-} error_diagnostic_store;
+} error_diagnostic_store = { 0 };
 
 void
 error_diagnostic_store_redirect(struct source *src, struct source_location location)
@@ -170,7 +170,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 						       arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
 
 		if (cur_src != last_src) {
-			if (opts & error_diagnostic_store_replay_include_sources) {
+			if (!(opts & error_diagnostic_store_replay_dont_include_sources)) {
 				if (last_src) {
 					log_plain("\n");
 				}
@@ -252,7 +252,7 @@ print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt,
 		if (src->src[i] == '\t') {
 			log_plain("        ");
 		} else {
-			putc(src->src[i], log_file());
+			log_plain("%c", src->src[i]);
 		}
 	}
 	log_plain("\n");
@@ -285,6 +285,12 @@ get_detailed_source_location(struct source *src,
 		}
 
 		if (src->src[i] == '\n') {
+			if (i + 1 == loc.off && loc.len == 1) {
+				dloc->end_col = dloc->col = (i - dloc->start_of_line) + 1;
+				dloc->line = line;
+				return;
+			}
+
 			if (i > loc.off && !(flags & get_detailed_source_location_flag_multiline)) {
 				dloc->loc.len = ((i - dloc->start_of_line) - dloc->col);
 				return;
@@ -352,13 +358,10 @@ static void
 reopen_source(struct source *src, bool *destroy_source)
 {
 	if (!src->len) {
-		switch (src->reopen_type) {
-		case source_reopen_type_none: return;
-		case source_reopen_type_embedded:
-			src->src = embedded_get(src->label);
-			src->len = strlen(src->src);
-			break;
-		case source_reopen_type_file:
+		switch (src->type) {
+		case source_type_unknown: return;
+		case source_type_embedded: UNREACHABLE; break;
+		case source_type_file:
 			if (!fs_read_entire_file(src->label, src)) {
 				return;
 			}
@@ -438,8 +441,7 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s\n", msg);
 
-	if (error_diagnostic_store.init
-		&& !(error_diagnostic_store.opts & error_diagnostic_store_replay_include_sources)) {
+	if (error_diagnostic_store.opts & error_diagnostic_store_replay_dont_include_sources) {
 		goto ret;
 	}
 

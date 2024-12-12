@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "backend/output.h"
+#include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
 #include "lang/object_iterators.h"
@@ -30,9 +31,6 @@ static const char *build_option_type_to_s[build_option_type_count] = {
 	[op_array] = "array",
 	[op_feature] = "feature",
 };
-
-static bool
-set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce);
 
 static bool
 parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo, bool key_only)
@@ -124,7 +122,7 @@ log_option_override(struct workspace *wk, struct option_override *oo)
 		log_plain("%s:", get_cstr(wk, oo->proj));
 	}
 
-	obj_fprintf(wk, log_file(), "%s=%#o", get_cstr(wk, oo->name), oo->val);
+	obj_lprintf(wk, "%s=%#o", get_cstr(wk, oo->name), oo->val);
 	log_plain("'");
 }
 
@@ -437,7 +435,7 @@ extend_array_option(struct workspace *wk, obj opt, obj new_val, enum option_valu
 	obj_array_extend_nodup(wk, o->val, new_val);
 }
 
-static bool
+bool
 set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val, enum option_value_source source, bool coerce)
 {
 	struct obj_option *o = get_obj_option(wk, opt);
@@ -657,18 +655,18 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 }
 
 static bool
-init_builtin_options(struct workspace *wk, const char *script, const char *fallback)
+init_builtin_options(struct workspace *wk, const char *script)
 {
-	const char *opts;
-	if (!(opts = embedded_get(script))) {
-		opts = fallback;
+	struct source src;
+	if (!embedded_get(script, &src)) {
+		return false;
 	}
 
 	enum language_mode old_mode = wk->vm.lang_mode;
 	wk->vm.lang_mode = language_opts;
 	obj _;
 	initializing_builtin_options = true;
-	bool ret = eval_str_label(wk, script, opts, eval_mode_default, &_);
+	bool ret = eval(wk, &src, build_language_meson, 0, &_);
 	initializing_builtin_options = false;
 	wk->vm.lang_mode = old_mode;
 	return ret;
@@ -677,11 +675,7 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 static bool
 init_per_project_options(struct workspace *wk)
 {
-	return init_builtin_options(wk,
-		"per_project_options.meson",
-		"option('default_library', type: 'string', value: 'static')\n"
-		"option('warning_level', type: 'string', value: '3')\n"
-		"option('c_std', type: 'string', value: 'none')\n");
+	return init_builtin_options(wk, "per_project_options.meson");
 }
 
 static enum iteration_result
@@ -747,7 +741,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	if (exists) {
 		enum language_mode old_mode = wk->vm.lang_mode;
 		wk->vm.lang_mode = language_opts;
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, false)) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0)) {
 			wk->vm.lang_mode = old_mode;
 			return false;
 		}
@@ -797,48 +791,23 @@ setup_project_options(struct workspace *wk, const char *cwd)
 bool
 init_global_options(struct workspace *wk)
 {
-	if (!init_builtin_options(wk,
-		    "global_options.meson",
-		    "option('buildtype', type: 'string', value: 'debug')\n"
-		    "option('prefix', type: 'string', value: '/usr/local')\n"
-		    "option('bindir', type: 'string', value: 'bin')\n"
-		    "option('mandir', type: 'string', value: 'share/man')\n"
-		    "option('datadir', type: 'string', value: 'share')\n"
-		    "option('libdir', type: 'string', value: 'lib')\n"
-		    "option('includedir', type: 'string', value: 'include')\n"
-		    "option('wrap_mode', type: 'string', value: 'nopromote')\n"
-		    "option('force_fallback_for', type: 'array', value: [])\n"
-		    "option('pkg_config_path', type: 'string', value: '')\n"
-		    "option('c_args', type: 'array', value: [])\n"
-		    "option('c_link_args', type: 'array', value: [])\n"
-		    "option('werror', type: 'boolean', value: false)\n"
-		    "option('prefer_static', type: 'boolean', value: false)\n"
-		    "option('b_coverage', type: 'boolean', value: false)\n"
-
-		    "option('env.CC', type: 'array', value: ['cc'])\n"
-		    "option('env.NINJA', type: 'array', value: ['ninja'])\n"
-		    "option('env.AR', type: 'array', value: ['ar'])\n"
-		    "option('env.LD', type: 'array', value: ['ld'])\n"
-		    "option('env.WINDRES', type: 'array', value: ['windres'])\n")) {
+	if (!init_builtin_options(wk, "global_options.meson")) {
 		return false;
 	}
 
-	set_binary_from_env(wk, "CC", "env.CC");
-	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "AR", "env.AR");
-	set_binary_from_env(wk, "LD", "env.LD");
-	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
-	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
-
-#ifdef MUON_BOOTSTRAPPED
+	set_binary_from_env(wk, "CC", "env.CC");
 	set_binary_from_env(wk, "CXX", "env.CXX");
+	set_binary_from_env(wk, "LD", "env.LD");
+	set_binary_from_env(wk, "NASM", "env.NASM");
+	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "OBJC", "env.OBJC");
 	set_binary_from_env(wk, "OBJCPP", "env.OBJCPP");
-	set_binary_from_env(wk, "NASM", "env.NASM");
+	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
+	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path");
-#endif
 
 	return true;
 }
@@ -1068,6 +1037,21 @@ get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fall
 	}
 }
 
+enum backend
+get_option_backend(struct workspace *wk)
+{
+		obj backend_opt;
+		get_option_value(wk, 0, "backend", &backend_opt);
+		const struct str *backend_str = get_str(wk, backend_opt);
+		if (str_eql(backend_str, &WKSTR("ninja"))) {
+			return backend_ninja;
+		} else if (str_eql(backend_str, &WKSTR("xcode"))) {
+			return backend_xcode;
+		} else {
+			UNREACHABLE;
+		}
+}
+
 /* options listing subcommand */
 
 struct make_option_choices_ctx {
@@ -1136,7 +1120,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		no_clr = "\033[0m";
 	}
 
-	obj_fprintf(wk, log_file(), "  %s%#o%s=", key_clr, key, no_clr);
+	obj_lprintf(wk, "  %s%#o%s=", key_clr, key, no_clr);
 
 	obj choices = 0;
 	obj selected = 0;
@@ -1196,11 +1180,10 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	switch (opt->type) {
 	case op_boolean:
 	case op_combo:
-	case op_feature: obj_fprintf(wk, log_file(), "<%s>", get_cstr(wk, choices)); break;
+	case op_feature: obj_lprintf(wk, "<%s>", get_cstr(wk, choices)); break;
 	case op_string: {
 		const struct str *def = get_str(wk, opt->val);
-		obj_fprintf(wk,
-			log_file(),
+		obj_lprintf(wk,
 			"<%s>, default: %s%s%s",
 			get_cstr(wk, choices),
 			sel_clr,
@@ -1213,31 +1196,31 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		if (opt->min || opt->max) {
 			log_plain(" where ");
 			if (opt->min) {
-				obj_fprintf(wk, log_file(), "%o <= ", opt->min);
+				obj_lprintf(wk, "%o <= ", opt->min);
 			}
 			log_plain("%sN%s", val_clr, no_clr);
 			if (opt->max) {
-				obj_fprintf(wk, log_file(), " <= %o", opt->max);
+				obj_lprintf(wk, " <= %o", opt->max);
 			}
 		}
-		obj_fprintf(wk, log_file(), ", default: %s%o%s", sel_clr, opt->val, no_clr);
+		obj_lprintf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
 
 		break;
 	case op_array:
 		log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
 		if (opt->choices) {
-			obj_fprintf(wk, log_file(), " where value in %s", get_cstr(wk, choices));
+			obj_lprintf(wk, " where value in %s", get_cstr(wk, choices));
 		}
 		break;
 	default: UNREACHABLE;
 	}
 
 	if (opt->source != option_value_source_default) {
-		obj_fprintf(wk, log_file(), "*");
+		obj_lprintf(wk, "*");
 	}
 
 	if (opt->description) {
-		obj_fprintf(wk, log_file(), "\n    %#o", opt->description);
+		obj_lprintf(wk, "\n    %#o", opt->description);
 	}
 
 	log_plain("\n");
@@ -1261,7 +1244,7 @@ list_options(const struct list_options_opts *list_opts)
 		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
 
 		if (fs_file_exists(meson_opts.buf)) {
-			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, false)) {
+			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0)) {
 				goto ret;
 			}
 		}

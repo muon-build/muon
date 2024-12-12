@@ -5,16 +5,14 @@
 
 #include "compat.h"
 
-#include <string.h>
-
 #include "args.h"
+#include "buf_size.h"
 #include "backend/common_args.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "error.h"
-#include "functions/machine.h"
+#include "lang/object_iterators.h"
 #include "lang/workspace.h"
-#include "log.h"
 #include "options.h"
 #include "platform/path.h"
 #include "tracy.h"
@@ -23,7 +21,7 @@ struct write_compiler_rule_ctx {
 	FILE *out;
 	struct project *proj;
 	struct obj_build_target *tgt;
-	obj args, generic_rules;
+	obj args[machine_kind_count], generic_rules[machine_kind_count];
 };
 
 static void
@@ -53,25 +51,28 @@ escape_rule(struct sbuf *buf)
 	}
 }
 
-static enum iteration_result
-write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
+static void
+write_linker_rule(struct workspace *wk,
+	FILE *out,
+	struct project *proj,
+	enum machine_kind machine,
+	enum compiler_language l,
+	obj comp_id)
 {
-	enum compiler_language l = k;
-	struct write_compiler_rule_ctx *ctx = _ctx;
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
 	obj args;
 	make_obj(wk, &args, obj_array);
 
-	if (comp->linker_passthrough) {
-		obj_array_extend(wk, args, comp->cmd_arr);
+	if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
+		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 
 		push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
 		obj_array_push(wk, args, make_str(wk, "$in"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	} else {
-		obj_array_extend(wk, args, comp->linker_cmd_arr);
+		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_linker]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 		push_args(wk, args, toolchain_linker_input_output(wk, comp, "$in", "$out"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
@@ -79,27 +80,73 @@ write_linker_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 
 	obj link_command = join_args_plain(wk, args);
 
-#ifdef MUON_BOOTSTRAPPED
 	obj backend_max_links;
 	get_option_value(wk, current_project(wk), "backend_max_links", &backend_max_links);
 	const char *linker_pool = get_obj_number(wk, backend_max_links) ? " pool = linker_pool\n" : "";
-#else
-	const char *linker_pool = "";
-#endif
 
-
-	fprintf(ctx->out,
-		"rule %s_%s_linker\n"
+	fprintf(out,
+		"rule %s_%s_%s_linker\n"
 		" command = %s\n"
 		" description = linking $out\n"
 		"%s"
 		"\n",
-		get_cstr(wk, ctx->proj->rule_prefix),
+		get_cstr(wk, proj->rule_prefix),
+		machine_kind_to_s(machine),
 		compiler_language_to_s(l),
 		get_cstr(wk, link_command),
 		linker_pool);
+}
 
-	return ir_cont;
+static void
+write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
+{
+	enum compiler_language static_linker_precedence[] = {
+		compiler_language_c,
+		compiler_language_cpp,
+		compiler_language_objc,
+		compiler_language_objcpp,
+		compiler_language_nasm,
+	};
+
+	obj comp_id = 0;
+	uint32_t j;
+	for (j = 0; j < ARRAY_LEN(static_linker_precedence); ++j) {
+		if (obj_dict_geti(wk, proj->toolchains[machine], static_linker_precedence[j], &comp_id)) {
+			break;
+		}
+	}
+
+	if (comp_id) {
+		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+
+		obj static_link_args;
+		make_obj(wk, &static_link_args, obj_array);
+
+		// TODO: make this overrideable
+		const enum static_linker_type type = comp->type[toolchain_component_static_linker];
+		if (type == static_linker_ar_posix || type == static_linker_ar_gcc) {
+			obj_array_push(wk, static_link_args, make_str(wk, wk->argv0));
+			obj_array_push(wk, static_link_args, make_str(wk, "internal"));
+			obj_array_push(wk, static_link_args, make_str(wk, "exe"));
+			obj_array_push(wk, static_link_args, make_str(wk, "-R"));
+			obj_array_push(wk, static_link_args, make_str(wk, "$out"));
+			obj_array_push(wk, static_link_args, make_str(wk, "--"));
+		}
+
+		obj_array_extend(wk, static_link_args, comp->cmd_arr[toolchain_component_static_linker]);
+		push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp));
+		push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp));
+		push_args(wk, static_link_args, toolchain_static_linker_input_output(wk, comp, "$in", "$out"));
+
+		fprintf(out,
+			"rule %s_%s_static_linker\n"
+			" command = %s\n"
+			" description = linking static $out\n"
+			"\n",
+			get_cstr(wk, proj->rule_prefix),
+			machine_kind_to_s(machine),
+			get_cstr(wk, join_args_plain(wk, static_link_args)));
+	}
 }
 
 static void
@@ -117,7 +164,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 
 	obj args;
 	make_obj(wk, &args, obj_array);
-	obj_array_extend(wk, args, comp->cmd_arr);
+	obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 	obj_array_push(wk, args, rule_args);
 
 	if (deps) {
@@ -169,7 +216,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 	}
 
 	obj rule_args;
-	if (!obj_dict_geti(wk, ctx->args, l, &rule_args)) {
+	if (!obj_dict_geti(wk, ctx->args[ctx->tgt->machine], l, &rule_args)) {
 		UNREACHABLE;
 	}
 
@@ -192,11 +239,9 @@ write_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 
 	ctx->tgt = get_obj_build_target(wk, tgt_id);
 
-	if (!build_target_args(wk, ctx->proj, ctx->tgt, &ctx->args)) {
-		goto ret;
-	}
+	ctx->args[ctx->tgt->machine] = ca_build_target_joined_args(wk, ctx->proj, ctx->tgt);
 
-	if (!obj_dict_foreach(wk, ctx->proj->compilers, ctx, write_compiler_rule_iter)) {
+	if (!obj_dict_foreach(wk, ctx->proj->toolchains[ctx->tgt->machine], ctx, write_compiler_rule_iter)) {
 		goto ret;
 	}
 
@@ -204,91 +249,6 @@ write_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 ret:
 	obj_clear(wk, &mk);
 	return ret;
-}
-
-static enum iteration_result
-write_generic_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
-{
-	enum compiler_language l = k;
-	struct write_compiler_rule_ctx *ctx = _ctx;
-	obj rule_name;
-
-	if (!obj_dict_geti(wk, ctx->generic_rules, l, &rule_name)) {
-		return ir_cont;
-	}
-
-	write_compiler_rule(wk, ctx->out, make_str(wk, "$ARGS"), rule_name, l, comp_id);
-	return ir_cont;
-}
-
-struct name_compiler_rule_ctx {
-	struct project *proj;
-	struct obj_build_target *tgt;
-	obj rule_prefix_arr;
-	obj compiler_rule_arr;
-	obj generic_rules;
-};
-
-static enum iteration_result
-name_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, uint32_t count)
-{
-	enum compiler_language l = k;
-	struct name_compiler_rule_ctx *ctx = _ctx;
-	bool specialized_rule = count > 2;
-
-	obj rule_name;
-	SBUF(rule_name_buf);
-	if (specialized_rule) {
-		sbuf_pushf(wk,
-			&rule_name_buf,
-			"%s_%s_compiler_for_%s",
-			get_cstr(wk, ctx->proj->rule_prefix),
-			compiler_language_to_s(l),
-			get_cstr(wk, ctx->tgt->build_name));
-
-		escape_rule(&rule_name_buf);
-		obj name = sbuf_into_str(wk, &rule_name_buf);
-		uniqify_name(wk, ctx->compiler_rule_arr, name, &rule_name);
-	} else {
-		if (!obj_dict_geti(wk, ctx->generic_rules, l, &rule_name)) {
-			sbuf_pushf(wk,
-				&rule_name_buf,
-				"%s_%s_compiler",
-				get_cstr(wk, ctx->proj->rule_prefix),
-				compiler_language_to_s(l));
-
-			escape_rule(&rule_name_buf);
-			obj name = sbuf_into_str(wk, &rule_name_buf);
-			uniqify_name(wk, ctx->compiler_rule_arr, name, &rule_name);
-			obj_dict_seti(wk, ctx->generic_rules, l, rule_name);
-		}
-	}
-
-	obj arr;
-	make_obj(wk, &arr, obj_array);
-	obj_array_push(wk, arr, rule_name);
-	obj_array_push(wk, arr, specialized_rule);
-
-	obj_dict_seti(wk, ctx->tgt->required_compilers, l, arr);
-	return ir_cont;
-}
-
-static enum iteration_result
-name_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
-{
-	struct name_compiler_rule_ctx *ctx = _ctx;
-
-	if (get_obj_type(wk, tgt_id) != obj_build_target) {
-		return ir_cont;
-	}
-
-	ctx->tgt = get_obj_build_target(wk, tgt_id);
-
-	if (!obj_dict_foreach(wk, ctx->tgt->required_compilers, ctx, name_compiler_rule_iter)) {
-		return ir_err;
-	}
-
-	return ir_cont;
 }
 
 bool
@@ -307,7 +267,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		get_cstr(wk, main_proj->cfg.name),
 		output_path.private_dir);
 
-#ifdef MUON_BOOTSTRAPPED
 	obj backend_max_links;
 	get_option_value(wk, main_proj, "backend_max_links", &backend_max_links);
 	int64_t linker_pool_depth = get_obj_number(wk, backend_max_links);
@@ -317,31 +276,32 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			" depth = %lld\n\n",
 			(long long int)linker_pool_depth);
 	}
-#endif
 
-	obj regen_cmd = join_args_shell(wk, regenerate_build_command(wk, false));
+	{ // Build file regeneration
+		obj regen_cmd = join_args_shell(wk, ca_regenerate_build_command(wk, false));
 
-	fprintf(out,
-		"rule REGENERATE_BUILD\n"
-		" command = %s",
-		get_cstr(wk, regen_cmd));
+		fprintf(out,
+			"rule REGENERATE_BUILD\n"
+			" command = %s",
+			get_cstr(wk, regen_cmd));
 
-	fputs("\n description = Regenerating build files.\n"
-	      " generator = 1\n"
-	      "\n",
-		out);
+		fputs("\n description = Regenerating build files.\n"
+		      " generator = 1\n"
+		      "\n",
+			out);
 
-	obj regenerate_deps_rel;
-	{
-		obj deduped;
-		obj_array_dedup(wk, wk->regenerate_deps, &deduped);
-		relativize_paths(wk, deduped, true, &regenerate_deps_rel);
+		obj regenerate_deps_rel;
+		{
+			obj deduped;
+			obj_array_dedup(wk, wk->regenerate_deps, &deduped);
+			ca_relativize_paths(wk, deduped, true, &regenerate_deps_rel);
+		}
+
+		fprintf(out,
+			"build build.ninja: REGENERATE_BUILD %s\n"
+			" pool = console\n\n",
+			get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel)));
 	}
-
-	fprintf(out,
-		"build build.ninja: REGENERATE_BUILD %s\n"
-		" pool = console\n\n",
-		get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel)));
 
 	fprintf(out,
 		"rule CUSTOM_COMMAND\n"
@@ -370,8 +330,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			continue;
 		}
 
-		TracyCZoneN(tctx_name, "name rules", true);
-
 		{ // determine project rule prefix
 			SBUF(pre);
 			sbuf_pushs(wk, &pre, get_cstr(wk, proj->cfg.name));
@@ -379,31 +337,76 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			uniqify_name(wk, rule_prefix_arr, sbuf_into_str(wk, &pre), &proj->rule_prefix);
 		}
 
-		obj generic_rules;
-		make_obj(wk, &generic_rules, obj_dict);
-
-		{
-			struct name_compiler_rule_ctx ctx = {
-				.proj = proj,
-				.rule_prefix_arr = rule_prefix_arr,
-				.compiler_rule_arr = compiler_rule_arr,
-				.generic_rules = generic_rules,
-			};
-
-			if (!obj_array_foreach(wk, proj->targets, &ctx, name_compiler_rule_tgt_iter)) {
-				goto ret;
-			}
+		obj generic_rules[machine_kind_count];
+		for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
+			make_obj(wk, &generic_rules[machine], obj_dict);
 		}
 
-		TracyCZoneEnd(tctx_name);
+		{ // Name all rules
+			TracyCZoneN(tctx_name, "name rules", true);
 
-		{
+			obj tgt_id;
+			obj_array_for(wk, proj->targets, tgt_id) {
+				if (get_obj_type(wk, tgt_id) != obj_build_target) {
+					continue;
+				}
+
+				struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
+
+				obj _l, _count;
+				obj_dict_for(wk, tgt->required_compilers, _l, _count) {
+					const enum compiler_language l = _l;
+					const uint32_t count = _count;
+					bool specialized_rule = count > 2;
+
+					obj rule_name;
+					SBUF(rule_name_buf);
+					if (specialized_rule) {
+						sbuf_pushf(wk,
+							&rule_name_buf,
+							"%s_%s_compiler_for_%s",
+							get_cstr(wk, proj->rule_prefix),
+							compiler_language_to_s(l),
+							get_cstr(wk, tgt->build_name));
+
+						escape_rule(&rule_name_buf);
+						obj name = sbuf_into_str(wk, &rule_name_buf);
+						uniqify_name(wk, compiler_rule_arr, name, &rule_name);
+					} else {
+						if (!obj_dict_geti(wk, generic_rules[tgt->machine], l, &rule_name)) {
+							sbuf_pushf(wk,
+								&rule_name_buf,
+								"%s_%s_%s_compiler",
+								get_cstr(wk, proj->rule_prefix),
+								machine_kind_to_s(tgt->machine),
+								compiler_language_to_s(l));
+
+							escape_rule(&rule_name_buf);
+							obj name = sbuf_into_str(wk, &rule_name_buf);
+							uniqify_name(wk, compiler_rule_arr, name, &rule_name);
+							obj_dict_seti(wk, generic_rules[tgt->machine], l, rule_name);
+						}
+					}
+
+					obj arr;
+					make_obj(wk, &arr, obj_array);
+					obj_array_push(wk, arr, rule_name);
+					obj_array_push(wk, arr, specialized_rule);
+
+					obj_dict_seti(wk, tgt->required_compilers, l, arr);
+				}
+			}
+
+			TracyCZoneEnd(tctx_name);
+		}
+
+		{ // Write rules
 			TracyCZoneN(tctx_rules, "write rules", true);
 
 			struct write_compiler_rule_ctx ctx = {
 				.out = out,
 				.proj = proj,
-				.generic_rules = generic_rules,
+				.generic_rules = { generic_rules[0], generic_rules[1] },
 			};
 
 			struct obj_clear_mark mk;
@@ -413,68 +416,28 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 				goto ret;
 			}
 
-			if (!obj_dict_foreach(wk, proj->compilers, &ctx, write_generic_compiler_rule_iter)) {
-				goto ret;
-			}
+			for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
+				obj k, comp_id;
+				obj_dict_for(wk, proj->toolchains[machine], k, comp_id) {
+					enum compiler_language l = k;
 
-			if (!obj_dict_foreach(wk, proj->compilers, &ctx, write_linker_rule_iter)) {
-				goto ret;
+					write_linker_rule(wk, out, proj, machine, l, comp_id);
+
+					{ // generic compiler rules
+						obj rule_name;
+						if (obj_dict_geti(wk, generic_rules[machine], l, &rule_name)) {
+							write_compiler_rule(
+								wk, out, make_str(wk, "$ARGS"), rule_name, l, comp_id);
+						}
+					}
+				}
+
+				write_static_linker_rule(wk, out, proj, machine);
 			}
 
 			obj_clear(wk, &mk);
 
 			TracyCZoneEnd(tctx_rules);
-		}
-
-		{ // static linker
-			enum compiler_language static_linker_precedence[] = {
-				compiler_language_c,
-				compiler_language_cpp,
-				compiler_language_objc,
-				compiler_language_objcpp,
-				compiler_language_nasm,
-			};
-
-			obj comp_id = 0;
-			uint32_t j;
-			for (j = 0; j < ARRAY_LEN(static_linker_precedence); ++j) {
-				if (obj_dict_geti(wk, proj->compilers, static_linker_precedence[j], &comp_id)) {
-					break;
-				}
-			}
-
-			if (comp_id) {
-				struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-
-				obj static_link_args;
-				make_obj(wk, &static_link_args, obj_array);
-
-				// TODO: make this overrideable
-				const enum static_linker_type type = comp->type[toolchain_component_static_linker];
-				if (type == static_linker_ar_posix || type == static_linker_ar_gcc) {
-					obj_array_push(wk, static_link_args, make_str(wk, wk->argv0));
-					obj_array_push(wk, static_link_args, make_str(wk, "internal"));
-					obj_array_push(wk, static_link_args, make_str(wk, "exe"));
-					obj_array_push(wk, static_link_args, make_str(wk, "-R"));
-					obj_array_push(wk, static_link_args, make_str(wk, "$out"));
-					obj_array_push(wk, static_link_args, make_str(wk, "--"));
-				}
-
-				obj_array_extend(wk, static_link_args, comp->static_linker_cmd_arr);
-				push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp));
-				push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp));
-				push_args(wk,
-					static_link_args,
-					toolchain_static_linker_input_output(wk, comp, "$in", "$out"));
-
-				fprintf(out,
-					"rule %s_static_linker\n"
-					" command = %s\n"
-					" description = linking static $out\n"
-					"\n",
-					get_cstr(wk, proj->rule_prefix),
-					get_cstr(wk, join_args_plain(wk, static_link_args)));
-			}
 		}
 	}
 

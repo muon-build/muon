@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "error.h"
 #include "lang/object.h"
 #include "lang/string.h"
@@ -755,7 +756,7 @@ sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 {
 	if (sb->flags & sbuf_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == log_file()) {
+		if (out == _log_file()) {
 			log_plain("%c", s);
 		} else if (fputc(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
@@ -775,7 +776,7 @@ sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 {
 	if (sb->flags & sbuf_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == log_file()) {
+		if (out == _log_file()) {
 			log_plain("%.*s", n, s);
 		} else if (!fs_fwrite(s, n, out)) {
 			error_unrecoverable("failed to write output to file");
@@ -799,7 +800,7 @@ sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 {
 	if (sb->flags & sbuf_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == log_file()) {
+		if (out == _log_file()) {
 			log_plain("%s", s);
 		} else if (fputs(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
@@ -820,22 +821,21 @@ sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 }
 
 void
-sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args)
 {
 	uint32_t len;
-	va_list args, args_copy;
-	va_start(args, fmt);
 
 	if (sb->flags & sbuf_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == log_file()) {
+		if (out == _log_file()) {
 			log_plainv(fmt, args);
 		} else if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
 			error_unrecoverable("failed to write output to file");
 		}
-		goto done;
+		return;
 	}
 
+	va_list args_copy;
 	va_copy(args_copy, args);
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
@@ -846,8 +846,16 @@ sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 	sb->len += len;
 
 	va_end(args_copy);
+}
 
-done:
+void
+sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	sbuf_vpushf(wk, sb, fmt, args);
+
 	va_end(args);
 }
 
@@ -900,4 +908,12 @@ sbuf_into_str(struct workspace *wk, struct sbuf *sb)
 	} else {
 		return make_strn(wk, sb->buf, sb->len);
 	}
+}
+
+void
+cstr_copy(char *dest, const char *src, uint32_t dest_len)
+{
+	uint32_t src_len = strlen(src) + 1;
+	assert(src_len <= dest_len);
+	memcpy(dest, src, src_len);
 }

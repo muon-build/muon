@@ -401,8 +401,9 @@ else
     endif
 endif
 
+meson_tests_dir = meson.current_source_dir() / 'meson-tests'
+
 if git.found()
-    meson_tests_dir = meson.current_source_dir() / 'meson-tests'
     meson_tests_sha = '1e565931348f15f3f9b654f46ab4bf5fa009ca4f'
 
     if not fs.is_dir(meson_tests_dir)

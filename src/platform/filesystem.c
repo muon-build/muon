@@ -176,7 +176,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	size_t read;
 	char *buf = NULL;
 
-	*src = (struct source){ .label = path, .reopen_type = source_reopen_type_file };
+	*src = (struct source){ .label = path, .type = source_type_file };
 
 	if (strcmp(path, "-") == 0) {
 		f = stdin;
@@ -265,7 +265,7 @@ fs_source_dup(const struct source *src, struct source *dup)
 	dup->label = &buf[src->len];
 	dup->src = buf;
 	dup->len = src->len;
-	dup->reopen_type = src->reopen_type;
+	dup->type = src->type;
 
 	memcpy(buf, src->src, src->len);
 	memcpy(&buf[src->len], src->label, label_len);
@@ -452,7 +452,14 @@ fs_rmdir_iter(void *_ctx, const char *path)
 
 	path_join(NULL, &name, ctx->base_dir, path);
 
-	if (stat(name.buf, &sb) != 0) {
+	if (fs_symlink_exists(name.buf)) {
+		if (!fs_remove(name.buf)) {
+			goto ret;
+		}
+
+		ir_res = ir_cont;
+		goto ret;
+	} else if (stat(name.buf, &sb) != 0) {
 		if (ctx->force) {
 			ir_res = ir_cont;
 		} else {

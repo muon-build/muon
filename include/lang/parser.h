@@ -18,6 +18,7 @@ enum node_type {
 	node_type_group,
 	node_type_bool,
 	node_type_id,
+	node_type_maybe_id,
 	node_type_id_lit,
 	node_type_number,
 	node_type_string,
@@ -46,10 +47,9 @@ enum node_type {
 	node_type_mod,
 	node_type_not,
 	node_type_index,
-	node_type_method,
+	node_type_member,
 	node_type_call,
 	node_type_assign,
-	node_type_plusassign,
 	node_type_foreach,
 	node_type_foreach_args,
 	node_type_if,
@@ -80,4 +80,6 @@ struct node *parse(struct workspace *wk, struct source *src, enum vm_compile_mod
 struct node *parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode, obj *raw_blocks);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
+
+struct node *cm_parse(struct workspace *wk, struct source *src);
 #endif

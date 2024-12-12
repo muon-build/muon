@@ -7,6 +7,13 @@
 #define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #include "lang/func_lookup.h"
 
+
+enum build_dep_merge_flag {
+	build_dep_merge_flag_merge_all = 1 << 0,
+};
+
+void
+build_dep_merge(struct workspace *wk, struct build_dep *dest, const struct build_dep *src, enum build_dep_merge_flag flags);
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
 bool dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);
 bool dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);

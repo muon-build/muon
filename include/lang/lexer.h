@@ -86,6 +86,14 @@ enum token_type {
 // Keep in sync with above
 #define token_type_count (token_type_returntype + 1)
 
+enum cm_token_subtype {
+	cm_token_subtype_none,
+	cm_token_subtype_comp_str,
+	cm_token_subtype_comp_ver,
+	cm_token_subtype_comp_path,
+	cm_token_subtype_comp_regex,
+};
+
 union literal_data {
 	obj literal;
 	obj str;
@@ -105,6 +113,13 @@ struct token {
 enum lexer_mode {
 	lexer_mode_fmt = 1 << 0,
 	lexer_mode_functions = 1 << 1,
+	lexer_mode_cmake = 1 << 2,
+};
+
+enum cm_lexer_mode {
+	cm_lexer_mode_default,
+	cm_lexer_mode_command,
+	cm_lexer_mode_conditional,
 };
 
 struct lexer_fmt {
@@ -121,6 +136,7 @@ struct lexer {
 	struct lexer_fmt fmt;
 	uint32_t i, ws_start, ws_end;
 	enum lexer_mode mode;
+	enum cm_lexer_mode cm_mode;
 	uint8_t enclosed_state;
 };
 
@@ -136,4 +152,6 @@ bool lexer_is_fmt_comment(const struct str *comment, bool *fmt_on);
 
 const char *token_type_to_s(enum token_type type);
 const char *token_to_s(struct workspace *wk, struct token *token);
+
+void cm_lexer_next(struct lexer *lexer, struct token *token);
 #endif

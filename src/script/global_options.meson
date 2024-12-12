@@ -23,7 +23,7 @@ option(
     'backend',
     type: 'combo',
     value: 'ninja',
-    choices: ['ninja', 'vs', 'vs2019', 'vs2022'],
+    choices: ['ninja', 'vs', 'vs2019', 'vs2022', 'xcode'],
 )
 option('backend_max_links', type: 'integer', value: 0, min: 0)
 option(
@@ -54,7 +54,7 @@ option(
 option(
     'optimization',
     type: 'combo',
-    value: 'g',
+    value: '0',
     choices: ['plain', '0', 'g', '1', '2', '3', 's'],
 )
 option('pkg_config_path', type: 'string', value: '')

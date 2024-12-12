@@ -25,16 +25,108 @@
 #include "options.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "sha_256.h"
 
-struct toolchain_id {
-	const char *public_id;
-	const char *id;
-};
+obj
+compiler_check_cache_key(struct workspace *wk, const struct compiler_check_cache_key *key)
+{
+	uint32_t argstr_len;
+	{
+		uint32_t i = 0;
+		const char *p = key->argstr;
+		for (;; ++p) {
+			if (!p[0]) {
+				if (++i >= key->argc) {
+					break;
+				}
+			}
+		}
+
+		argstr_len = p - key->argstr;
+	}
+
+	enum {
+		sha_idx_argstr = 0,
+		sha_idx_ver = sha_idx_argstr + 32,
+		sha_idx_src = sha_idx_ver + 32,
+		sha_data_len = sha_idx_src + 32
+	};
+
+	uint8_t sha_data[sha_data_len] = { 0 };
+
+	calc_sha_256(&sha_data[sha_idx_argstr], key->argstr, argstr_len);
+	if (key->comp && key->comp->ver) {
+		const struct str *ver = get_str(wk, key->comp->ver);
+		calc_sha_256(&sha_data[sha_idx_ver], ver->s, ver->len);
+	}
+	if (key->src) {
+		calc_sha_256(&sha_data[sha_idx_src], key->src, strlen(key->src));
+	}
+
+	uint8_t sha[32];
+	calc_sha_256(sha, sha_data, sha_data_len);
+
+	/* LLOG_I("sha: "); */
+	/* uint32_t i; */
+	/* for (i = 0; i < 32; ++i) { */
+	/* 	log_plain("%02x", sha_res[i]); */
+	/* } */
+	/* log_plain("\n"); */
+
+	return make_strn(wk, (const char *)sha, 32);
+}
+
+bool
+compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val)
+{
+	obj arr;
+	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
+		obj cache_res;
+		obj_array_index(wk, arr, 0, &cache_res);
+		val->success = get_obj_bool(wk, cache_res);
+		obj_array_index(wk, arr, 1, &val->value);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+void
+compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val)
+{
+	if (!key) {
+		return;
+	}
+
+	obj arr, cache_res;
+	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
+		obj_array_index(wk, arr, 0, &cache_res);
+		set_obj_bool(wk, cache_res, val->success);
+		obj_array_set(wk, arr, 1, val->value);
+	} else {
+		make_obj(wk, &arr, obj_array);
+
+		make_obj(wk, &cache_res, obj_bool);
+		set_obj_bool(wk, cache_res, val->success);
+
+		obj_array_push(wk, arr, cache_res);
+		obj_array_push(wk, arr, val->value);
+
+		obj_dict_set(wk, wk->compiler_check_cache, key, arr);
+	}
+}
+
 #define TOOLCHAIN_NAME(_, public_id, id) { public_id, id },
-static const struct toolchain_id compiler_type_name[] = { FOREACH_TOOLCHAIN_COMPILER_TYPE(TOOLCHAIN_NAME) };
-static const struct toolchain_id linker_type_name[] = { FOREACH_TOOLCHAIN_LINKER_TYPE(TOOLCHAIN_NAME) };
-static const struct toolchain_id static_linker_type_name[] = { FOREACH_TOOLCHAIN_STATIC_LINKER_TYPE(TOOLCHAIN_NAME) };
+const struct toolchain_id compiler_type_name[] = { FOREACH_TOOLCHAIN_COMPILER_TYPE(TOOLCHAIN_NAME) };
+const struct toolchain_id linker_type_name[] = { FOREACH_TOOLCHAIN_LINKER_TYPE(TOOLCHAIN_NAME) };
+const struct toolchain_id static_linker_type_name[] = { FOREACH_TOOLCHAIN_STATIC_LINKER_TYPE(TOOLCHAIN_NAME) };
 #undef TOOLCHAIN_CASE
+
+static const struct toolchain_id toolchain_component_name[] = {
+	[toolchain_component_compiler] = { "compiler", "compiler" },
+	[toolchain_component_linker] = { "linker", "linker" },
+	[toolchain_component_static_linker] = { "static_linker", "static_linker" },
+};
 
 static bool
 toolchain_id_lookup(const char *name, const struct toolchain_id names[], uint32_t len, uint32_t *res)
@@ -84,6 +176,18 @@ bool
 static_linker_type_from_s(const char *name, uint32_t *res)
 {
 	return toolchain_id_lookup(name, static_linker_type_name, ARRAY_LEN(static_linker_type_name), res);
+}
+
+const char *
+toolchain_component_to_s(enum toolchain_component comp)
+{
+	return toolchain_component_name[comp].public_id;
+}
+
+bool
+toolchain_component_from_s(const char *name, uint32_t *res)
+{
+	return toolchain_id_lookup(name, toolchain_component_name, ARRAY_LEN(toolchain_component_name), res);
 }
 
 static const char *compiler_language_names[compiler_language_count] = {
@@ -208,12 +312,65 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, args);
 
-	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
-		run_cmd_ctx_destroy(cmd_ctx);
-		return false;
+	obj cache_key = compiler_check_cache_key(wk,
+		&(struct compiler_check_cache_key){
+			.argstr = argstr,
+			.argc = argc,
+		});
+
+	struct compiler_check_cache_value cache_val = { 0 };
+	if (compiler_check_cache_get(wk, cache_key, &cache_val)) {
+		if (!cache_val.success) {
+			return false;
+		}
+
+		obj status, err, out;
+		obj_array_index(wk, cache_val.value, 0, &status);
+		obj_array_index(wk, cache_val.value, 1, &out);
+		obj_array_index(wk, cache_val.value, 2, &err);
+
+		cmd_ctx->status = get_obj_number(wk, status);
+
+		const struct str *err_str = get_str(wk, err), *out_str = get_str(wk, out);
+
+		cmd_ctx->out = (struct sbuf){
+			.buf = (char *)out_str->s,
+			.len = out_str->len,
+			.cap = out_str->len,
+			.flags = sbuf_flag_overflown,
+			.s = out,
+		};
+
+		cmd_ctx->err = (struct sbuf){
+			.buf = (char *)err_str->s,
+			.len = err_str->len,
+			.cap = err_str->len,
+			.flags = sbuf_flag_overflown,
+			.s = err,
+		};
+
+		return true;
 	}
 
-	return true;
+	bool success = true;
+
+	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+		run_cmd_ctx_destroy(cmd_ctx);
+		success = false;
+	}
+
+	cache_val.success = success;
+	make_obj(wk, &cache_val.value, obj_array);
+
+	obj status;
+	make_obj(wk, &status, obj_number);
+	set_obj_number(wk, status, cmd_ctx->status);
+	obj_array_push(wk, cache_val.value, status);
+	obj_array_push(wk, cache_val.value, make_strn(wk, cmd_ctx->out.buf, cmd_ctx->out.len));
+	obj_array_push(wk, cache_val.value, make_strn(wk, cmd_ctx->err.buf, cmd_ctx->err.len));
+	compiler_check_cache_set(wk, cache_key, &cache_val);
+
+	return success;
 }
 
 static const char *
@@ -276,7 +433,7 @@ detection_over:
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	comp->cmd_arr = cmd_arr;
+	comp->cmd_arr[toolchain_component_compiler] = cmd_arr;
 	comp->type[toolchain_component_compiler] = type;
 	comp->ver = ver;
 
@@ -338,7 +495,7 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-	comp->cmd_arr = new_cmd;
+	comp->cmd_arr[toolchain_component_compiler] = new_cmd;
 	comp->type[toolchain_component_compiler] = type;
 	comp->ver = ver;
 	comp->lang = compiler_language_nasm;
@@ -351,7 +508,8 @@ static bool
 compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-print-search-dirs") || cmd_ctx.status) {
+	if (!run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr[toolchain_component_compiler], "-print-search-dirs")
+		|| cmd_ctx.status) {
 		goto done;
 	}
 
@@ -400,7 +558,8 @@ static void
 compiler_refine_host_machine(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr, "-dumpmachine") && cmd_ctx.status == 0) {
+	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr[toolchain_component_compiler], "-dumpmachine")
+		&& cmd_ctx.status == 0) {
 		machine_parse_and_apply_triplet(&host_machine, cmd_ctx.out.buf);
 	}
 	run_cmd_ctx_destroy(&cmd_ctx);
@@ -412,7 +571,7 @@ static bool
 compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
 	if (log_should_print(log_debug)) {
-		obj_fprintf(wk, log_file(), "checking compiler %o\n", cmd_arr);
+		obj_lprintf(wk, "checking compiler %o\n", cmd_arr);
 	}
 
 	switch (lang) {
@@ -430,8 +589,6 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 		compiler_refine_host_machine(wk, compiler);
 
 		compiler->lang = lang;
-
-		compiler->linker_passthrough = compiler->type[toolchain_component_compiler] != compiler_msvc;
 		return true;
 	case compiler_language_nasm:
 		if (!compiler_detect_nasm(wk, cmd_arr, comp)) {
@@ -468,7 +625,7 @@ static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 
-	get_obj_compiler(wk, comp)->static_linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->cmd_arr[toolchain_component_static_linker] = cmd_arr;
 	get_obj_compiler(wk, comp)->type[toolchain_component_static_linker] = type;
 	return true;
 }
@@ -498,7 +655,7 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 
-	get_obj_compiler(wk, comp)->linker_cmd_arr = cmd_arr;
+	get_obj_compiler(wk, comp)->cmd_arr[toolchain_component_linker] = cmd_arr;
 	get_obj_compiler(wk, comp)->type[toolchain_component_linker] = type;
 	return true;
 }
@@ -613,8 +770,12 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 }
 
 bool
-toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
+toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang)
 {
+	if (obj_dict_geti(wk, wk->toolchains[machine], lang, comp)) {
+		return true;
+	}
+
 	make_obj(wk, comp, obj_compiler);
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
@@ -632,18 +793,21 @@ toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang)
 		return false;
 	}
 
+	obj_dict_seti(wk, wk->toolchains[machine], lang, *comp);
+
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 
-	LLOG_I("detected compiler %s ", compiler_type_to_s(compiler->type[toolchain_component_compiler]));
-	obj_fprintf(wk,
-		log_file(),
+	LLOG_I("detected compiler for %s: %s ",
+		compiler_language_to_s(lang),
+		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
+	obj_lprintf(wk,
 		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
 		compiler->ver,
-		compiler->cmd_arr,
+		compiler->cmd_arr[toolchain_component_compiler],
 		linker_type_to_s(compiler->type[toolchain_component_linker]),
-		compiler->linker_cmd_arr,
+		compiler->cmd_arr[toolchain_component_linker],
 		static_linker_type_to_s(compiler->type[toolchain_component_static_linker]),
-		compiler->static_linker_cmd_arr);
+		compiler->cmd_arr[toolchain_component_static_linker]);
 
 	return true;
 }
@@ -703,7 +867,7 @@ TOOLCHAIN_PROTO_1s1b(toolchain_arg_empty_1s1b)
 
 TOOLCHAIN_PROTO_ns(toolchain_arg_empty_ns)
 {
-	return a;
+	return n1;
 }
 
 /* posix compilers */
@@ -733,7 +897,7 @@ TOOLCHAIN_PROTO_1s(compiler_posix_args_output)
 {
 	TOOLCHAIN_ARGS({ "-o", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -742,7 +906,7 @@ TOOLCHAIN_PROTO_1i(compiler_posix_args_optimization)
 {
 	TOOLCHAIN_ARGS({ NULL });
 
-	switch ((enum compiler_optimization_lvl)a) {
+	switch ((enum compiler_optimization_lvl)i1) {
 	case compiler_optimization_lvl_0: argv[0] = "-O0"; break;
 	case compiler_optimization_lvl_1:
 	case compiler_optimization_lvl_2:
@@ -766,7 +930,7 @@ TOOLCHAIN_PROTO_1s(compiler_posix_args_include)
 {
 	TOOLCHAIN_ARGS({ "-I", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -775,7 +939,7 @@ TOOLCHAIN_PROTO_1s(compiler_posix_args_define)
 {
 	TOOLCHAIN_ARGS({ "-D", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -787,9 +951,9 @@ TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 	static char buf[BUF_SIZE_S], buf2[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf, NULL, buf2 });
 
-	if (a->len == 0) {
-		return a;
-	} else if (a->len == 1) {
+	if (n1->len == 0) {
+		return n1;
+	} else if (n1->len == 1) {
 		const char *passthrough_blacklist[] = {
 			"-shared",
 			"-bundle",
@@ -798,20 +962,20 @@ TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(passthrough_blacklist); ++i) {
-			if (strcmp(passthrough_blacklist[i], a->args[0]) == 0) {
-				return a;
+			if (strcmp(passthrough_blacklist[i], n1->args[0]) == 0) {
+				return n1;
 			}
 		}
 
-		snprintf(buf, BUF_SIZE_S, "-Wl,%s", a->args[0]);
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s", n1->args[0]);
 		args.len = 1;
-	} else if (a->len == 2) {
-		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", a->args[0], a->args[1]);
+	} else if (n1->len == 2) {
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", n1->args[0], n1->args[1]);
 		args.len = 1;
-	} else if (a->len == 3) {
-		snprintf(buf, BUF_SIZE_S, "-Wl,%s", a->args[0]);
-		argv[1] = a->args[1];
-		snprintf(buf2, BUF_SIZE_S, "-Wl,%s", a->args[2]);
+	} else if (n1->len == 3) {
+		snprintf(buf, BUF_SIZE_S, "-Wl,%s", n1->args[0]);
+		argv[1] = n1->args[1];
+		snprintf(buf2, BUF_SIZE_S, "-Wl,%s", n1->args[2]);
 		args.len = 3;
 	} else {
 		UNREACHABLE;
@@ -831,7 +995,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_system)
 {
 	TOOLCHAIN_ARGS({ "-isystem", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -840,8 +1004,8 @@ TOOLCHAIN_PROTO_2s(compiler_gcc_args_deps)
 {
 	TOOLCHAIN_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
 
-	argv[2] = a;
-	argv[4] = b;
+	argv[2] = s1;
+	argv[4] = s2;
 
 	return &args;
 }
@@ -850,7 +1014,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_optimization)
 {
 	TOOLCHAIN_ARGS({ NULL });
 
-	switch ((enum compiler_optimization_lvl)a) {
+	switch ((enum compiler_optimization_lvl)i1) {
 	case compiler_optimization_lvl_none: args.len = 0; break;
 	case compiler_optimization_lvl_0: argv[0] = "-O0"; break;
 	case compiler_optimization_lvl_1: argv[0] = "-O1"; break;
@@ -869,7 +1033,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_warning_lvl)
 
 	args.len = 0;
 
-	switch ((enum compiler_warning_lvl)a) {
+	switch ((enum compiler_warning_lvl)i1) {
 	case compiler_warning_lvl_everything: UNREACHABLE; break;
 	case compiler_warning_lvl_3: argv[args.len] = "-Wpedantic"; ++args.len;
 	/* fallthrough */
@@ -973,7 +1137,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_set_std)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "-std=%s", a);
+	snprintf(buf, BUF_SIZE_S, "-std=%s", s1);
 
 	return &args;
 }
@@ -984,7 +1148,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_pgo)
 
 	args.len = 1;
 
-	switch ((enum compiler_pgo_stage)a) {
+	switch ((enum compiler_pgo_stage)i1) {
 	case compiler_pgo_generate: argv[0] = "-fprofile-generate"; break;
 	case compiler_pgo_use:
 		argv[1] = "-fprofile-correction";
@@ -1019,7 +1183,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_sanitize)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", a);
+	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", s1);
 
 	return &args;
 }
@@ -1030,7 +1194,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_visibility)
 
 	args.len = 1;
 
-	switch ((enum compiler_visibility_type)a) {
+	switch ((enum compiler_visibility_type)i1) {
 	case compiler_visibility_default: argv[0] = "-fvisibility=default"; break;
 	case compiler_visibility_internal: argv[0] = "-fvisibility=internal"; break;
 	case compiler_visibility_protected: argv[0] = "-fvisibility=protected"; break;
@@ -1050,7 +1214,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_specify_lang)
 		NULL,
 	});
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1060,7 +1224,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_color_output)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "-fdiagnostics-color=%s", a);
+	snprintf(buf, BUF_SIZE_S, "-fdiagnostics-color=%s", s1);
 
 	return &args;
 }
@@ -1094,12 +1258,12 @@ TOOLCHAIN_PROTO_1s1b(compiler_cl_args_crt)
 {
 	TOOLCHAIN_ARGS({ NULL });
 
-	if (strcmp(a, "from_buildtype") == 0) {
-		argv[0] = b ? "/MDd" : "/MD";
-	} else if (strcmp(a, "static_from_buildtype") == 0) {
-		argv[0] = b ? "/MTd" : "/MT";
+	if (strcmp(s1, "from_buildtype") == 0) {
+		argv[0] = b1 ? "/MDd" : "/MD";
+	} else if (strcmp(s1, "static_from_buildtype") == 0) {
+		argv[0] = b1 ? "/MTd" : "/MT";
 	} else {
-		argv[0] = a;
+		argv[0] = s1;
 	}
 
 	return &args;
@@ -1110,7 +1274,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_debugfile)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "/Fd%s.pdb", a);
+	snprintf(buf, BUF_SIZE_S, "/Fd%s.pdb", s1);
 
 	return &args;
 }
@@ -1141,10 +1305,10 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_output)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	if (str_endswithi(&WKSTR(a), &WKSTR(".exe"))) {
-		snprintf(buf, BUF_SIZE_S, "/Fe%s", a);
+	if (str_endswithi(&WKSTR(s1), &WKSTR(".exe"))) {
+		snprintf(buf, BUF_SIZE_S, "/Fe%s", s1);
 	} else {
-		snprintf(buf, BUF_SIZE_S, "/Fo%s", a);
+		snprintf(buf, BUF_SIZE_S, "/Fo%s", s1);
 	}
 
 	return &args;
@@ -1153,7 +1317,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_output)
 TOOLCHAIN_PROTO_1i(compiler_cl_args_optimization)
 {
 	TOOLCHAIN_ARGS({ NULL, NULL });
-	switch ((enum compiler_optimization_lvl)a) {
+	switch ((enum compiler_optimization_lvl)i1) {
 	case compiler_optimization_lvl_none:
 	case compiler_optimization_lvl_g: args.len = 0; break;
 	case compiler_optimization_lvl_0:
@@ -1198,7 +1362,7 @@ TOOLCHAIN_PROTO_1i(compiler_cl_args_warning_lvl)
 
 	TOOLCHAIN_ARGS({ NULL });
 
-	switch ((enum compiler_warning_lvl)a) {
+	switch ((enum compiler_warning_lvl)i1) {
 	case compiler_warning_lvl_0: args.len = 0; break;
 	case compiler_warning_lvl_1: argv[0] = "/W2"; break;
 	case compiler_warning_lvl_2: argv[0] = "/W3"; break;
@@ -1240,7 +1404,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_include)
 {
 	TOOLCHAIN_ARGS({ "/I", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1249,7 +1413,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_sanitize)
 {
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
-	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", a);
+	snprintf(buf, BUF_SIZE_S, "-fsanitize=%s", s1);
 
 	return &args;
 }
@@ -1258,7 +1422,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_define)
 {
 	TOOLCHAIN_ARGS({ "/D", NULL });
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1284,7 +1448,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_std_supported)
 
 	uint32_t i;
 	for (i = 0; i < ARRAY_LEN(supported); ++i) {
-		if (strcmp(a, supported[i]) == 0) {
+		if (strcmp(s1, supported[i]) == 0) {
 			return TOOLCHAIN_TRUE;
 		}
 	}
@@ -1297,7 +1461,7 @@ TOOLCHAIN_PROTO_1s(compiler_clang_cl_args_color_output)
 	TOOLCHAIN_ARGS({ "-fcolor-diagnostics" });
 
 	return &args;
-	(void)a;
+	(void)s1;
 }
 
 TOOLCHAIN_PROTO_0(compiler_clang_cl_args_lto)
@@ -1305,6 +1469,11 @@ TOOLCHAIN_PROTO_0(compiler_clang_cl_args_lto)
 	TOOLCHAIN_ARGS({ "-flto" });
 
 	return &args;
+}
+
+TOOLCHAIN_PROTO_0(compiler_cl_args_do_linker_passthrough)
+{
+	return TOOLCHAIN_FALSE;
 }
 
 TOOLCHAIN_PROTO_0(compiler_deps_gcc)
@@ -1324,7 +1493,7 @@ TOOLCHAIN_PROTO_0(compiler_deps_msvc)
 TOOLCHAIN_PROTO_1s(linker_posix_args_lib)
 {
 	TOOLCHAIN_ARGS({ "-l", NULL });
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1332,8 +1501,8 @@ TOOLCHAIN_PROTO_1s(linker_posix_args_lib)
 TOOLCHAIN_PROTO_2s(linker_posix_args_input_output)
 {
 	TOOLCHAIN_ARGS({ NULL, NULL });
-	argv[0] = b;
-	argv[1] = a;
+	argv[0] = s2;
+	argv[1] = s1;
 	return &args;
 }
 
@@ -1374,7 +1543,7 @@ TOOLCHAIN_PROTO_0(linker_ld_args_end_group)
 TOOLCHAIN_PROTO_1s(linker_ld_args_soname)
 {
 	TOOLCHAIN_ARGS({ "-soname", NULL });
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1384,7 +1553,7 @@ TOOLCHAIN_PROTO_1s(linker_ld_args_rpath)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "-rpath,%s", a);
+	snprintf(buf, BUF_SIZE_S, "-rpath,%s", s1);
 
 	return &args;
 }
@@ -1410,7 +1579,7 @@ TOOLCHAIN_PROTO_0(linker_ld_args_fatal_warnings)
 TOOLCHAIN_PROTO_1s(linker_ld_args_whole_archive)
 {
 	TOOLCHAIN_ARGS({ "--whole-archive", NULL, "--no-whole-archive" });
-	argv[1] = a;
+	argv[1] = s1;
 	return &args;
 }
 
@@ -1419,7 +1588,7 @@ TOOLCHAIN_PROTO_1s(linker_ld_args_whole_archive)
 TOOLCHAIN_PROTO_1s(linker_link_args_lib)
 {
 	TOOLCHAIN_ARGS({ NULL });
-	argv[0] = a;
+	argv[0] = s1;
 
 	return &args;
 }
@@ -1441,7 +1610,7 @@ TOOLCHAIN_PROTO_1s(linker_link_args_soname)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	snprintf(buf, BUF_SIZE_S, "/OUT:%s", a);
+	snprintf(buf, BUF_SIZE_S, "/OUT:%s", s1);
 
 	return &args;
 }
@@ -1451,9 +1620,9 @@ TOOLCHAIN_PROTO_2s(linker_link_args_input_output)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf, NULL });
 
-	snprintf(buf, BUF_SIZE_S, "/out:%s", b);
+	snprintf(buf, BUF_SIZE_S, "/out:%s", s2);
 
-	argv[1] = a;
+	argv[1] = s1;
 
 	return &args;
 }
@@ -1482,7 +1651,7 @@ TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
 TOOLCHAIN_PROTO_1s(linker_apple_args_whole_archive)
 {
 	TOOLCHAIN_ARGS({ "-force_load", NULL });
-	argv[1] = a;
+	argv[1] = s1;
 	return &args;
 }
 
@@ -1603,11 +1772,12 @@ build_compilers(void)
 	msvc.args.always = compiler_cl_args_always;
 	msvc.args.crt = compiler_cl_args_crt;
 	msvc.args.debugfile = compiler_cl_args_debugfile;
-	msvc.default_linker = linker_msvc;
-	msvc.default_static_linker = static_linker_msvc;
 	msvc.args.object_ext = compiler_cl_args_object_extension;
 	msvc.args.deps_type = compiler_deps_msvc;
 	msvc.args.std_supported = compiler_cl_args_std_supported;
+	msvc.args.do_linker_passthrough = compiler_cl_args_do_linker_passthrough;
+	msvc.default_linker = linker_msvc;
+	msvc.default_static_linker = static_linker_msvc;
 
 	struct compiler clang_cl = msvc;
 	clang_cl.args.color_output = compiler_clang_cl_args_color_output;
@@ -1673,6 +1843,7 @@ build_linkers(void)
 	apple.args.allow_shlib_undefined = linker_apple_args_allow_shlib_undefined;
 	apple.args.shared_module = linker_apple_args_shared_module;
 	apple.args.whole_archive = linker_apple_args_whole_archive;
+	apple.args.rpath = linker_ld_args_rpath;
 
 	struct linker link = empty;
 	link.args.lib = linker_link_args_lib;
@@ -1922,3 +2093,52 @@ FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
+
+static void
+toolchain_dump_args(struct workspace *wk,
+	const char *component,
+	const char *name,
+	const char *type,
+	const struct args *args)
+{
+	printf("%-13s %-25s %-4s ", component, name, type);
+
+	if (args) {
+		printf("{");
+		for (uint32_t i = 0; i < args->len; ++i) {
+			printf("\"%s\"", args->args[i]);
+
+			if (i + 1 < args->len) {
+				printf(", ");
+			}
+		}
+		printf("}");
+	} else {
+		printf("false");
+	}
+
+	printf("\n");
+}
+
+void
+toolchain_dump(struct workspace *wk, struct obj_compiler *comp, struct toolchain_dump_opts *opts)
+{
+	const char *s1 = opts->s1, *s2 = opts->s2;
+	const bool b1 = opts->b1;
+	const uint32_t i1 = opts->i1;
+	const struct args *n1 = opts->n1;
+
+	printf("%-13s %-25s %-4s %s\n", "component", "name", "sig", "args");
+	printf("%-13s %-25s %-4s %s\n", "---", "---", "---", "---");
+
+#define TOOLCHAIN_ARG_MEMBER_(name, _name, component, _type, params, names) \
+	toolchain_dump_args(wk, #component, #name, #_type, toolchain_##component##_name names);
+#define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, _##name, comp, type)
+
+	FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER)
+	FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
+	FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
+
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+}

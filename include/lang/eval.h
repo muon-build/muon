@@ -14,12 +14,16 @@
 
 struct workspace;
 struct source;
-struct darr;
 
 enum eval_mode {
-	eval_mode_default,
-	eval_mode_repl,
-	eval_mode_first,
+	eval_mode_repl = 1 << 0,
+	eval_mode_first = 1 << 1,
+	eval_mode_return_after_project = 1 << 2,
+};
+
+enum eval_project_file_flags {
+	eval_project_file_flag_first = 1 << 0,
+	eval_project_file_flag_return_after_project = 1 << 1,
 };
 
 bool eval_project(struct workspace *wk,
@@ -27,11 +31,12 @@ bool eval_project(struct workspace *wk,
 	const char *cwd,
 	const char *build_dir,
 	uint32_t *proj_id);
-bool eval_project_file(struct workspace *wk, const char *path, bool first);
-bool eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res);
+bool eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags);
+bool eval(struct workspace *wk, struct source *src, enum build_language lang, enum eval_mode mode, obj *res);
 bool eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res);
 bool eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res);
 void repl(struct workspace *wk, bool dbg);
 
 const char *determine_project_root(struct workspace *wk, const char *path);
+const char *determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang);
 #endif

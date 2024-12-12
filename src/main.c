@@ -11,9 +11,10 @@
 #include <string.h>
 
 #include "args.h"
-#include "backend/backend.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "cmd_install.h"
+#include "cmd_subprojects.h"
 #include "cmd_test.h"
 #include "embedded.h"
 #include "external/libarchive.h"
@@ -21,11 +22,10 @@
 #include "external/libpkgconf.h"
 #include "external/samurai.h"
 #include "lang/analyze.h"
-#include "lang/compiler.h"
 #include "lang/fmt.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/serial.h"
-#include "machine_file.h"
 #include "meson_opts.h"
 #include "options.h"
 #include "opts.h"
@@ -34,9 +34,9 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
+#include "ui.h"
 #include "version.h"
 #include "vsenv.h"
-#include "wrap.h"
 
 static bool
 ensure_in_build_dir(void)
@@ -273,21 +273,30 @@ static bool
 cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct az_opts opts = {
-		.replay_opts = error_diagnostic_store_replay_include_sources,
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
 				       | az_diagnostic_redirect_script_error,
 	};
 
-	OPTSTART("luqO:W:i:td:") {
+	enum {
+		action_trace,
+		action_define,
+		action_default,
+	} action = action_default;
+
+	static const struct command commands[] = {
+		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
+		[action_define] = { "define <var>", 0, "lookup the definition of a variable" },
+		0,
+	};
+
+	OPTSTART("luqO:W:i:") {
 	case 'i': opts.internal_file = optarg; break;
 	case 'l':
 		opts.subdir_error = true;
-		opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
+		opts.replay_opts |= error_diagnostic_store_replay_dont_include_sources;
 		break;
 	case 'O': opts.file_override = optarg; break;
 	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
-	case 't': opts.eval_trace = true; break;
-	case 'd': opts.get_definition_for = optarg; break;
 	case 'W': {
 		bool enable = true;
 		const char *name = optarg;
@@ -323,13 +332,42 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -q - only report errors\n"
 		"  -O <path> - read project file with matching path from stdin\n"
 		"  -i <path> - analyze the single file <path> in internal mode\n"
-		"  -t - print a tree of all meson source files that are evaluated\n"
-		"  -d <var> - print the location of the definition of <var>\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n",
-		NULL,
-		0)
+		commands,
+		-1);
+
+	uint32_t cmd_i = action_default;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, true)) {
+		return false;
+	}
+	if (cmd_i != action_default) {
+		++argi;
+	}
+	action = cmd_i;
+
+	if (action == action_define) {
+		if (!check_operands(argc, argi, 1)) {
+			return false;
+		}
+	} else {
+		if (!check_operands(argc, argi, 0)) {
+			return false;
+		}
+	}
+
+	switch (action) {
+	case action_default: break;
+	case action_trace: {
+		opts.eval_trace = true;
+		break;
+	}
+	case action_define: {
+		opts.get_definition_for = argv[argi];
+		break;
+	}
+	}
 
 	if (opts.internal_file && opts.file_override) {
 		LOG_E("-i and -O are mutually exclusive");
@@ -413,143 +451,14 @@ cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;
-	;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 
-	assert(cmd);
-	return cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(argc, argi, argv);
 }
 
-static const char *cmd_subprojects_subprojects_dir = "subprojects";
-
-static bool
-cmd_subprojects_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	struct {
-		const char *filename;
-	} opts = { 0 };
-
-	OPTSTART("") {
-	}
-	OPTEND(argv[argi], " <filename>", "", NULL, 1)
-
-	opts.filename = argv[argi];
-
-	bool ret = false;
-
-	struct wrap wrap = { 0 };
-	if (!wrap_parse(opts.filename, &wrap)) {
-		goto ret;
-	}
-
-	ret = true;
-ret:
-	wrap_destroy(&wrap);
-	return ret;
-}
-
-struct cmd_subprojects_download_ctx {
-	const char *subprojects;
-};
-
-static enum iteration_result
-cmd_subprojects_download_iter(void *_ctx, const char *name)
-{
-	struct cmd_subprojects_download_ctx *ctx = _ctx;
-	uint32_t len = strlen(name);
-	SBUF_manual(path);
-
-	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
-		goto cont;
-	}
-
-	path_join(NULL, &path, ctx->subprojects, name);
-
-	if (!fs_file_exists(path.buf)) {
-		goto cont;
-	}
-
-	LOG_I("fetching %s", name);
-	struct wrap wrap = { 0 };
-	if (!wrap_handle(path.buf, ctx->subprojects, &wrap, true)) {
-		goto cont;
-	}
-
-	wrap_destroy(&wrap);
-cont:
-	sbuf_destroy(&path);
-	return ir_cont;
-}
-
-static bool
-cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	bool res = false;
-
-	OPTSTART("") {
-	}
-	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
-
-	SBUF_manual(path);
-	path_make_absolute(NULL, &path, cmd_subprojects_subprojects_dir);
-
-	struct cmd_subprojects_download_ctx ctx = {
-		.subprojects = path.buf,
-	};
-
-	if (argc > argi) {
-		SBUF_manual(wrap_file);
-
-		for (; argc > argi; ++argi) {
-			path_join(NULL, &wrap_file, ctx.subprojects, argv[argi]);
-
-			sbuf_pushs(NULL, &wrap_file, ".wrap");
-
-			if (!fs_file_exists(wrap_file.buf)) {
-				LOG_E("wrap file for '%s' not found", argv[argi]);
-				goto ret;
-			}
-
-			if (cmd_subprojects_download_iter(&ctx, wrap_file.buf) == ir_err) {
-				goto ret;
-			}
-		}
-
-		sbuf_destroy(&wrap_file);
-		res = true;
-	} else {
-		res = fs_dir_foreach(path.buf, &ctx, cmd_subprojects_download_iter);
-	}
-
-ret:
-	sbuf_destroy(&path);
-	return res;
-}
-
-static bool
-cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	static const struct command commands[] = {
-		{ "check-wrap", cmd_subprojects_check_wrap, "check if a wrap file is valid" },
-		{ "download", cmd_subprojects_download, "download subprojects" },
-		{ 0 },
-	};
-
-	OPTSTART("d:") {
-	case 'd': cmd_subprojects_subprojects_dir = optarg; break;
-	}
-	OPTEND(argv[0], "", "  -d <directory> - use an alternative subprojects directory\n", commands, -1)
-
-	cmd_func cmd;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
-		return false;
-	}
-
-	return cmd(argc, argi, argv);
-}
 static bool
 cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -566,7 +475,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	case 'b': {
-		vm_dbg_push_breakpoint(&wk, optarg);
+		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
 	}
@@ -593,13 +502,10 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	wk.vm.lang_mode = language_internal;
 
 	if (embedded) {
-		if (!(src.src = embedded_get(filename))) {
+		if (!(embedded_get(filename, &src))) {
 			LOG_E("failed to find '%s' in embedded sources", filename);
 			goto ret;
 		}
-
-		src.len = strlen(src.src);
-		src.label = filename;
 	} else {
 		if (!fs_read_entire_file(filename, &src)) {
 			goto ret;
@@ -618,7 +524,7 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	obj res;
-	if (!eval(&wk, &src, eval_mode_default, &res)) {
+	if (!eval(&wk, &src, build_language_meson, 0, &res)) {
 		goto ret;
 	}
 
@@ -667,6 +573,199 @@ cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct obj_compiler comp = { 0 };
+	bool set_linker, set_static_linker;
+
+	const char *n1_args[32] = { "<value1>", "<value2>" };
+	struct args n1 = { n1_args, 2 };
+	struct toolchain_dump_opts opts = {
+		.s1 = "<value1>",
+		.s2 = "<value2>",
+		.b1 = true,
+		.i1 = 0,
+		.n1 = &n1,
+	};
+
+	OPTSTART("t:s:") {
+	case 't': {
+		if (strcmp(optarg, "list") == 0) {
+			printf("registered toolchains:\n");
+			enum toolchain_component component;
+			for (component = 0; component < toolchain_component_count; ++component) {
+				const struct toolchain_id *list = 0;
+				uint32_t i, count = 0;
+				switch (component) {
+				case toolchain_component_compiler:
+					list = compiler_type_name;
+					count = compiler_type_count;
+					break;
+				case toolchain_component_linker:
+					list = linker_type_name;
+					count = linker_type_count;
+					break;
+				case toolchain_component_static_linker:
+					list = static_linker_type_name;
+					count = static_linker_type_count;
+					break;
+				}
+
+				printf("  %s\n", toolchain_component_to_s(component));
+				for (i = 0; i < count; ++i) {
+					printf("    %s\n", list[i].id);
+				}
+			}
+			return true;
+		}
+
+		char *sep;
+		if (!(sep = strchr(optarg, '='))) {
+			LOG_E("invalid type: %s", optarg);
+			return false;
+		}
+
+		*sep = 0;
+
+		enum toolchain_component component;
+		const char *type = sep + 1;
+
+		if (!toolchain_component_from_s(optarg, &component)) {
+			LOG_E("unknown toolchain component: %s", optarg);
+			return false;
+		}
+
+		switch (component) {
+		case toolchain_component_compiler:
+			if (!compiler_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown compiler type: %s", type);
+				return false;
+			}
+
+			if (!set_linker) {
+				comp.type[toolchain_component_linker] = compilers[comp.type[component]].default_linker;
+			}
+			if (!set_static_linker) {
+				comp.type[toolchain_component_static_linker]
+					= compilers[comp.type[component]].default_static_linker;
+			}
+			break;
+		case toolchain_component_linker:
+			set_linker = true;
+			if (!linker_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown linker type: %s", type);
+				return false;
+			}
+			break;
+		case toolchain_component_static_linker:
+			set_static_linker = true;
+			if (!static_linker_type_from_s(type, &comp.type[component])) {
+				LOG_E("unknown static_linker type: %s", type);
+				return false;
+			}
+			break;
+		}
+
+		break;
+	}
+	case 's': {
+		char *sep;
+		if (!(sep = strchr(optarg, '='))) {
+			LOG_E("invalid argument setting: %s", optarg);
+			return false;
+		}
+
+		*sep = 0;
+		++sep;
+
+		if (strcmp(optarg, "s1") == 0) {
+			opts.s1 = sep;
+		} else if (strcmp(optarg, "s2") == 0) {
+			opts.s2 = sep;
+		} else if (strcmp(optarg, "b1") == 0) {
+			if (strcmp(sep, "true") == 0) {
+				opts.b1 = true;
+			} else if (strcmp(sep, "false") == 0) {
+				opts.b1 = false;
+			} else {
+				LOG_E("invalid value for bool: %s", sep);
+				return false;
+			}
+		} else if (strcmp(optarg, "i1") == 0) {
+			int64_t res;
+			if (!str_to_i(&WKSTR(sep), &res, false)) {
+				LOG_E("invalid value for integer: %s", sep);
+				return false;
+			}
+
+			opts.i1 = res;
+		} else if (strcmp(optarg, "n1") == 0) {
+			n1.len = 0;
+
+			while (*sep) {
+				if (n1.len >= ARRAY_LEN(n1_args)) {
+					LOG_E("too many arguments for n1 value");
+					return false;
+				}
+
+				n1.args[n1.len] = sep;
+				++n1.len;
+
+				sep = strchr(sep, ',');
+				if (!sep) {
+					break;
+				}
+				*sep = 0;
+				++sep;
+			}
+		} else {
+			LOG_E("invalid setting name: %s", optarg);
+			return false;
+		}
+
+		break;
+	}
+	}
+	OPTEND(argv[argi],
+		"",
+		"  -t <component>=<type>|list - set the type for a component or list all component types\n"
+		"  -s <key>=<val> - set the value for a template argument\n",
+		NULL,
+		0)
+
+	struct workspace wk;
+	workspace_init(&wk);
+
+	obj id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+	if (!setup_project_options(&wk, NULL)) {
+		UNREACHABLE;
+	}
+
+	printf("compiler: %s, linker: %s, static_linker: %s\n",
+		compiler_type_name[comp.type[toolchain_component_compiler]].id,
+		linker_type_name[comp.type[toolchain_component_linker]].id,
+		static_linker_type_name[comp.type[toolchain_component_static_linker]].id);
+	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {",
+		opts.s1,
+		opts.s2,
+		opts.b1 ? "true" : "false",
+		opts.i1);
+	for (uint32_t i = 0; i < opts.n1->len; ++i) {
+		printf("\"%s\"", opts.n1->args[i]);
+		if (i + 1 < opts.n1->len) {
+			printf(", ");
+		}
+	}
+	printf("}\n");
+
+	toolchain_dump(&wk, &comp, &opts);
+
+	workspace_destroy(&wk);
+	return true;
+}
+
+static bool
 cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
@@ -674,6 +773,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
 		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
+		{ "dump_toolchains", cmd_dump_toolchains, "output toolchain arguments" },
 		0,
 	};
 
@@ -681,14 +781,12 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;
-	;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 
-	assert(cmd);
-	return cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(argc, argi, argv);
 }
 
 static bool
@@ -821,33 +919,20 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:c:b:") {
+	OPTSTART("D:b:") {
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
 		}
 		break;
-	case 'c': {
-		FILE *f;
-		if (!(f = fs_fopen(optarg, "rb"))) {
-			goto ret;
-		} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
-			LOG_E("failed to load compiler check cache");
-			goto ret;
-		} else if (!fs_fclose(f)) {
-			goto ret;
-		}
-		break;
-	}
 	case 'b': {
-		vm_dbg_push_breakpoint(&wk, optarg);
+		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
 	}
 	OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n"
-		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
 		"  -b <breakpoint> - set breakpoint\n",
 		NULL,
 		1)
@@ -855,26 +940,9 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	if (!workspace_setup_paths(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
+	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
 	}
-
-	workspace_init_startup_files(&wk);
-
-	uint32_t project_id;
-	if (!eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id)) {
-		goto ret;
-	}
-
-	log_plain("\n");
-
-	if (!backend_output(&wk, backend)) {
-		goto ret;
-	}
-
-	workspace_print_summaries(&wk, log_file());
-
-	LOG_I("setup complete");
 
 	res = true;
 ret:
@@ -915,6 +983,8 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 		LOG_E("-q and -i are mutually exclusive");
 		return false;
 	}
+
+	log_set_file(stderr);
 
 	opts.filenames = &argv[argi];
 	const uint32_t num_files = argc - argi;
@@ -1021,6 +1091,16 @@ cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_ui(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	}
+	OPTEND(argv[argi], "", "", 0, 0);
+
+	return ui_main();
+}
+
+static bool
 cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
@@ -1039,6 +1119,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
 		{ "summary", cmd_summary, "print a configured project's summary" },
 		{ "test", cmd_test, "run tests" },
+		{ "ui", cmd_ui, "ui" },
 		{ "version", cmd_version, "print version information" },
 		{ 0 },
 	};
@@ -1081,12 +1162,12 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		commands,
 		-1)
 
-	cmd_func cmd;
-	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
+	uint32_t cmd_i;
+	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		goto ret;
 	}
 
-	res = cmd(argc, argi, argv);
+	res = commands[cmd_i].cmd(argc, argi, argv);
 
 ret:
 	sbuf_destroy(&argv0);

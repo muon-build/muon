@@ -23,22 +23,22 @@ subproject_prepare(struct workspace *wk,
 	bool required,
 	bool *found)
 {
-	if (!fs_dir_exists(*cwd)) {
+	SBUF(wrap_path);
+	sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
+
+	if (!wk->vm.in_analyzer && fs_file_exists(wrap_path.buf)) {
 		bool wrap_ok = false;
 
-		SBUF(wrap_path);
 		SBUF(base_path);
-		sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
-
-		if (!fs_file_exists(wrap_path.buf)) {
-			goto wrap_done;
-		}
 
 		path_dirname(wk, &base_path, *cwd);
 
 		struct wrap wrap = { 0 };
-		enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
-		if (!wrap_handle(wrap_path.buf, base_path.buf, &wrap, wrap_mode != wrap_mode_nodownload)) {
+		struct wrap_opts wrap_opts = {
+			.allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
+			.subprojects = base_path.buf,
+		};
+		if (!wrap_handle(wrap_path.buf, &wrap, &wrap_opts)) {
 			goto wrap_cleanup;
 		}
 
@@ -53,12 +53,13 @@ subproject_prepare(struct workspace *wk,
 		}
 
 		wrap_ok = true;
+
 wrap_cleanup:
 		wrap_destroy(&wrap);
-wrap_done:
+
 		if (!wrap_ok) {
 			if (required) {
-				LOG_E("project %s not found", *cwd);
+				LOG_E("project %s wrap error", *cwd);
 				return false;
 			} else {
 				*found = false;
@@ -206,6 +207,11 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	if (wk->vm.in_analyzer) {
+		subproject(wk, an[0].val, requirement_auto, 0, 0, res);
+		return true;
 	}
 
 	enum requirement_type req;

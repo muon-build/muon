@@ -18,15 +18,18 @@
 
 struct obj_array_for_helper {
 	struct obj_array *a;
+	uint32_t i, len;
 };
 
 #define obj_array_for_(__wk, __arr, __val, __iter)                                        \
 	struct obj_array_for_helper __iter = {                                            \
 		.a = get_obj_array(__wk, __arr),                                          \
 	};                                                                                \
-	for (__val = __iter.a->len ? __iter.a->val : 0; __val;                            \
+	__iter.len = __iter.a->len; \
+	for (__val = __iter.a->len ? __iter.a->val : 0; __iter.i < __iter.len;                            \
 		__iter.a = __iter.a->have_next ? get_obj_array(__wk, __iter.a->next) : 0, \
-	    __val = __iter.a ? __iter.a->val : 0)
+	    __val = __iter.a ? __iter.a->val : 0, \
+		++__iter.i)
 
 #define obj_array_for(__wk, __arr, __val) obj_array_for_(__wk, __arr, __val, CONCAT(__iter, __LINE__))
 
@@ -39,14 +42,14 @@ struct obj_dict_for_helper {
 	struct hash *h;
 	struct obj_dict_elem *e;
 	void *k;
-	uint64_t *v;
+	union obj_dict_big_dict_value v;
 	uint32_t i;
 	bool big;
 };
 
 #define obj_dict_for_get_kv_big(__iter, __key, __val)                                           \
-	__iter.k = arr_get(&__iter.h->keys, __iter.i), __iter.v = hash_get(__iter.h, __iter.k), \
-	__key = *__iter.v >> 32, __val = *__iter.v & 0xffffffff
+	__iter.k = arr_get(&__iter.h->keys, __iter.i), __iter.v.u64 = *hash_get(__iter.h, __iter.k), \
+	__key = __iter.v.val.key, __val = __iter.v.val.val
 
 #define obj_dict_for_get_kv(__iter, __key, __val) __key = __iter.e->key, __val = __iter.e->val
 

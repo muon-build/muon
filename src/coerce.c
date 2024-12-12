@@ -663,3 +663,17 @@ coerce_include_dirs(struct workspace *wk, uint32_t node, obj val, bool is_system
 	*res = ctx.res;
 	return true;
 }
+
+enum machine_kind
+coerce_machine_kind(struct workspace *wk, struct args_kw *native_kw)
+{
+	if (native_kw && native_kw->set) {
+		if (get_obj_bool(wk, native_kw->val)) {
+			return machine_kind_build;
+		} else {
+			return machine_kind_host;
+		}
+	}
+
+	return machine_kind_host;
+}

@@ -20,7 +20,7 @@ muon - a meson-compatible build system
 # DESCRIPTION
 
 *muon* interprets _source files_ written in the _meson dsl_ and produces
-_buildfiles_ for a backend.  Currently the only supported backend is _ninja_.
+_buildfiles_ for a backend.
 
 When building *meson* projects with *muon*, you typically first start by
 running the *setup* command in the project root.  This will create _buildfiles_
@@ -48,7 +48,7 @@ finally install the project with the *install* subcommand.
 All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## analyze
-	*muon* *analyze*
+	*muon* *analyze* [command]
 
 	Run a static analyzer on the current project.
 
@@ -63,12 +63,14 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-i* <path> - analyze the single file _path_ in internal mode.  This
 	  is useful for catching bugs in scripts that will be evaluated with
 	  *muon internal eval*.
-	- *-t* - print a tree of all meson source files that are evaluated
-	- *-d* <var> - print the location of the definition of _var_
 	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
 	  e.g. unused-variable.
 	- *-W* list - list available diagnostics.
 	- *-W* error - turn all warnings into errors.
+
+	*COMMANDS*:
+	- *trace* - print a tree of all meson source files that are evaluated
+	- *define* <var> - print the location of the definition of _var_
 
 ## benchmark
 	See documentation for the *test* subcommand.
@@ -189,7 +191,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	commands are subject to change at any time and should not be relied
 	upon.
 
-	*SUBCOMMANDS*:
+	*COMMANDS*:
 	- *eval* - evaluate a _source file_
 	- *exe* - execute a command
 	- *repl* - start a _meson dsl_ repl
@@ -292,8 +294,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-c* <compiler
-	check cache.dat>] [*-b*] <build dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-b*] <build dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 
@@ -302,8 +303,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  are either built in or project-defined.  Subproject options can be
 	  specified by prepending the subproject's name and a colon to the
 	  *option*.  This option may be specified multiple times.
-	- *-c* <path> - load compiler check cache dump from path.  This is used
-	  internally when creating the regeneration command.
 	- *-b* - Break on error.  When this option is passed, muon will enter a
 	  debugging repl when a fatal error is encountered.  From there you can
 	  inspect and modify state, and optionally continue setup.

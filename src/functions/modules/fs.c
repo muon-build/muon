@@ -837,8 +837,7 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 			return false;
 		}
 
-		/* path_join(wk, &pat, workspace_cwd(wk), _pat->s); */
-		path_copy(wk, &pat, _pat->s);
+		path_join(wk, &pat, workspace_cwd(wk), _pat->s);
 	}
 
 	SBUF(prefix);
@@ -872,7 +871,8 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 	make_obj(wk, res, obj_array);
 
 	if (!fs_dir_exists(prefix.buf)) {
-		return true;
+		vm_error(wk, "Path \"%s\" does not exist", prefix.buf);
+		return false;
 	}
 
 	struct func_module_fs_glob_ctx ctx = {

@@ -28,11 +28,10 @@ See the status page for each version for more detailed information.
 
 Things missing include:
 
-- cross-compilation support
 - build optimizations like pch and unity
 - some `b_` options
 - dependencies with a custom configuration tool
-- many modules
+- some modules
 
 Other differences from meson are described in `doc/differences.md`
 

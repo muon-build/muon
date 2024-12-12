@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-#include "datastructures/iterator.h"
+#include "iterator.h"
 #include "lang/source.h"
 
 struct workspace;

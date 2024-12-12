@@ -15,15 +15,19 @@ dir="$1"
 mkdir -p "$dir"
 
 pkgconf_cmd=""
-if command -v pkgconf >/dev/null; then
-	pkgconf_cmd=pkgconf
-elif command -v pkg-config >/dev/null; then
-	pkgconf_cmd=pkg-config
+if [ "${2:-}" = "no-pkgconf" ]; then
+	:
+else
+	if command -v pkgconf >/dev/null; then
+		pkgconf_cmd=pkgconf
+	elif command -v pkg-config >/dev/null; then
+		pkgconf_cmd=pkg-config
+	fi
 fi
 
 if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd libpkgconf; then
 	pkgconf_cflags="$($pkgconf_cmd --cflags libpkgconf) -DBOOTSTRAP_HAVE_LIBPKGCONF"
-	pkgconf_libs="$($pkgconf_cmd --libs libpkgconf)"
+	pkgconf_libs="$($pkgconf_cmd --keep-system-libs --libs libpkgconf)"
 else
 	pkgconf_cflags=""
 	pkgconf_libs=""

@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "functions/array.h"
 #include "functions/boolean.h"
 #include "functions/both_libs.h"
@@ -36,7 +37,6 @@
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 /******************************************************************************
  * function tables
@@ -63,7 +63,7 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[obj_file]                 = { { impl_tbl_file },                 { impl_tbl_file }                },
 	[obj_bool]                 = { { impl_tbl_boolean },              { impl_tbl_boolean }             },
 	[obj_array]                = { { impl_tbl_array },                { impl_tbl_array_internal }      },
-	[obj_build_target]         = { { impl_tbl_build_target },         { 0 }                            },
+	[obj_build_target]         = { { impl_tbl_build_target },         { impl_tbl_build_target_internal } },
 	[obj_environment]          = { { impl_tbl_environment },          { impl_tbl_environment }         },
 	[obj_disabler]             = { { impl_tbl_disabler },             { impl_tbl_disabler }            },
 	[obj_generator]            = { { impl_tbl_generator },            { 0 }                            },

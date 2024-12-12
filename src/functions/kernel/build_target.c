@@ -39,7 +39,7 @@ enum build_target_kwargs {
 	bt_kw_link_whole,
 	bt_kw_version,
 	bt_kw_build_by_default,
-	bt_kw_extra_files, // TODO
+	bt_kw_extra_files,
 	bt_kw_target_type,
 	bt_kw_name_prefix,
 	bt_kw_name_suffix,
@@ -53,7 +53,7 @@ enum build_target_kwargs {
 	bt_kw_export_dynamic,
 	bt_kw_vs_module_defs, // TODO
 	bt_kw_gnu_symbol_visibility,
-	bt_kw_native, // TODO
+	bt_kw_native,
 	bt_kw_darwin_versions, // TODO
 	bt_kw_implib, // TODO
 	bt_kw_gui_app, // TODO
@@ -149,7 +149,7 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 		obj comp;
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
-			if (obj_dict_geti(wk, current_project(wk)->compilers, clink_langs[i], &comp)) {
+			if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], clink_langs[i], &comp)) {
 				tgt->dep_internal.link_language = clink_langs[i];
 				break;
 			}
@@ -215,6 +215,8 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 	enum compiler_language lang;
 	if (!filename_to_compiler_language(get_file_path(wk, val), &lang) || languages[lang].is_header) {
+		obj_array_push(wk, tgt->extra_files, val);
+
 		// process every file that is either a header, or isn't
 		// recognized, as a header
 		if (!process_source_include(wk, ctx, val)) {
@@ -506,9 +508,12 @@ create_target(struct workspace *wk,
 	tgt->name = an[0].val;
 	tgt->cwd = current_project(wk)->cwd;
 	tgt->build_dir = current_project(wk)->build_dir;
+	tgt->machine = coerce_machine_kind(wk, &akw[bt_kw_native]);
+	tgt->callstack = vm_callstack(wk);
 	make_obj(wk, &tgt->args, obj_dict);
 	make_obj(wk, &tgt->src, obj_array);
 	make_obj(wk, &tgt->required_compilers, obj_dict);
+	make_obj(wk, &tgt->extra_files, obj_array);
 	build_dep_init(wk, &tgt->dep_internal);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
@@ -694,6 +699,10 @@ create_target(struct workspace *wk,
 
 			vm_error_at(wk, node, "target declared with no linkable sources");
 			return false;
+		}
+
+		if (akw[bt_kw_extra_files].set) {
+			obj_array_extend(wk, tgt->extra_files, akw[bt_kw_extra_files].val);
 		}
 	}
 
@@ -913,7 +922,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[bt_kw_version] = { "version", obj_string },
 		[bt_kw_build_by_default] = { "build_by_default", obj_bool },
-		[bt_kw_extra_files] = { "extra_files", TYPE_TAG_LISTIFY | tc_coercible_files }, // ignored
+		[bt_kw_extra_files] = { "extra_files", TYPE_TAG_LISTIFY | tc_coercible_files },
 		[bt_kw_target_type] = { "target_type", obj_string },
 		[bt_kw_name_prefix] = { "name_prefix", tc_string | tc_array },
 		[bt_kw_name_suffix] = { "name_suffix", tc_string | tc_array },

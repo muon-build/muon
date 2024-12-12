@@ -21,6 +21,8 @@ foreach s : [
     'modules/i18n.meson',
     'modules/gnome.meson',
 
+    'lib/cmake_prelude.meson',
+
     'html/test_out.html',
 ]
     scripts_input += s

@@ -37,6 +37,11 @@ enum language_mode {
 	language_extended,
 };
 
+enum build_language {
+	build_language_meson,
+	build_language_cmake,
+};
+
 enum log_level {
 	log_quiet,
 	log_error,
@@ -46,7 +51,22 @@ enum log_level {
 	log_level_count,
 };
 
+enum toolchain_component {
+	toolchain_component_compiler,
+	toolchain_component_linker,
+	toolchain_component_static_linker,
+};
+#define toolchain_component_count 3 // Keep in sync with above
+
 struct complex_types {
 	type_tag options_dict_or_list;
 };
+
+union obj_dict_big_dict_value {
+	uint64_t u64;
+	struct {
+		obj key, val;
+	} val;
+};
+
 #endif

@@ -62,6 +62,7 @@ struct wrap {
 	char *buf;
 	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
 	struct sbuf dest_dir, name;
+	bool dirty, outdated;
 };
 
 enum wrap_provides_key {
@@ -70,8 +71,20 @@ enum wrap_provides_key {
 	wrap_provides_key_dependency_variables,
 };
 
+enum wrap_handle_mode {
+	wrap_handle_mode_default,
+	wrap_handle_mode_check_dirty,
+	wrap_handle_mode_update,
+};
+
+struct wrap_opts {
+	const char *subprojects;
+	bool allow_download, force_update;
+	enum wrap_handle_mode mode;
+};
+
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(const char *wrap_file, struct wrap *wrap);
-bool wrap_handle(const char *wrap_file, const char *subprojects, struct wrap *wrap, bool download);
+bool wrap_handle(const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts);
 bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
 #endif

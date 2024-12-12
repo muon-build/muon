@@ -10,6 +10,7 @@
 #include "args.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "cmd_test.h"
 #include "embedded.h"
 #include "error.h"
@@ -1105,7 +1106,12 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 		return false;
 	}
 
-	fprintf(f, embedded_get("html/test_out.html"), data.buf);
+	struct source src;
+	if (!embedded_get("html/test_out.html", &src)) {
+		UNREACHABLE;
+	}
+
+	fprintf(f, src.src, data.buf);
 	LOG_I("wrote html output to %s", abs.buf);
 	fclose(f);
 
@@ -1179,7 +1185,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 	{
 		int term_fd;
-		if (!fs_fileno(log_file(), &term_fd)) {
+		if (!fs_fileno(_log_file(), &term_fd)) {
 			return false;
 		}
 

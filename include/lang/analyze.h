@@ -19,6 +19,7 @@ enum az_diagnostic {
 struct az_opts {
 	bool subdir_error;
 	bool eval_trace;
+	bool analyze_project_call_only;
 	enum error_diagnostic_store_replay_opts replay_opts;
 	const char *file_override, *internal_file, *get_definition_for;
 	uint64_t enabled_diagnostics;
@@ -53,4 +54,6 @@ extern struct func_impl_group az_func_impl_group;
 bool do_analyze(struct az_opts *opts);
 
 void eval_trace_print(struct workspace *wk, obj trace);
+
+bool analyze_project_call(struct workspace *wk);
 #endif

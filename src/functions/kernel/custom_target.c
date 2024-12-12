@@ -321,7 +321,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		goto cont;
 	}
 	case obj_compiler: {
-		obj cmd_array = get_obj_compiler(wk, val)->cmd_arr;
+		obj cmd_array = get_obj_compiler(wk, val)->cmd_arr[toolchain_component_compiler];
 
 		if (!obj_array_foreach(wk, cmd_array, ctx, custom_target_cmd_fmt_iter)) {
 			return ir_err;

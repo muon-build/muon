@@ -235,15 +235,16 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 		}
 	}
 
-	if (ctx->stdin_path) {
-		ctx->input_fd = open(ctx->stdin_path, O_RDONLY);
-		if (ctx->input_fd == -1) {
-			LOG_E("failed to open %s: %s", ctx->stdin_path, strerror(errno));
-			goto err;
-		}
-
-		ctx->input_fd_open = true;
+	if (!ctx->stdin_path) {
+		ctx->stdin_path = "/dev/null";
 	}
+
+	ctx->input_fd = open(ctx->stdin_path, O_RDONLY);
+	if (ctx->input_fd == -1) {
+		LOG_E("failed to open %s: %s", ctx->stdin_path, strerror(errno));
+		goto err;
+	}
+	ctx->input_fd_open = true;
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 		sbuf_init(&ctx->out, 0, 0, sbuf_flag_overflow_alloc);

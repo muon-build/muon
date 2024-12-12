@@ -14,7 +14,7 @@
 
 #include "compilers.h"
 #include "datastructures/bucket_arr.h"
-#include "datastructures/iterator.h"
+#include "iterator.h"
 #include "lang/types.h"
 #include "machines.h"
 
@@ -90,7 +90,8 @@ struct obj_func {
 
 struct obj_capture {
 	struct obj_func *func;
-	obj scope_stack, defargs;
+	obj scope_stack, defargs, self;
+	uint32_t native_func;
 };
 
 enum tgt_type {
@@ -207,21 +208,22 @@ enum build_tgt_flags {
 struct build_dep {
 	enum compiler_language link_language;
 
-	obj link_whole; // obj_array
+	obj link_whole;
 
-	obj link_with; // obj_array
-	obj link_with_not_found; // obj_array
+	obj link_with;
+	obj link_with_not_found;
+	obj frameworks;
 
-	obj link_args; // obj_array
-	obj compile_args; // obj_array
+	obj link_args;
+	obj compile_args;
 
-	obj include_directories; // obj_array
+	obj include_directories;
 
-	obj sources; // obj_array
-	obj objects; // obj_array
+	obj sources;
+	obj objects;
 
-	obj order_deps; // obj_array
-	obj rpath; // obj_array
+	obj order_deps;
+	obj rpath;
 
 	struct {
 		obj deps;
@@ -241,10 +243,13 @@ struct obj_build_target {
 	obj src; // obj_array
 	obj objects; // obj_array
 	obj args; // obj_dict
+	obj processed_args; // obj_dict
 	obj link_depends; // obj_array
 	obj generated_pc; // obj_string
 	obj override_options; // obj_array
 	obj required_compilers; // obj_dict
+	obj extra_files; // obj_array
+	obj callstack; // obj_array
 
 	struct build_dep dep;
 	struct build_dep dep_internal;
@@ -252,6 +257,7 @@ struct obj_build_target {
 	enum compiler_visibility_type visibility;
 	enum build_tgt_flags flags;
 	enum tgt_type type;
+	enum machine_kind machine;
 };
 
 struct obj_both_libs {
@@ -375,15 +381,12 @@ struct obj_test {
 };
 
 struct obj_compiler {
-	obj cmd_arr;
-	obj linker_cmd_arr;
-	obj static_linker_cmd_arr;
+	obj cmd_arr[toolchain_component_count];
+	obj overrides[toolchain_component_count];
+	uint32_t type[toolchain_component_count];
 	obj ver;
 	obj libdirs;
-	obj overrides[3];
-	uint32_t type[3];
 	enum compiler_language lang;
-	bool linker_passthrough;
 };
 
 enum install_target_type {
@@ -582,19 +585,17 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		char buf[4096];                                   \
 		log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); \
 		log_plain("%s", buf);                             \
-		obj_fprintf(wk, log_file(), __VA_ARGS__);         \
+		obj_lprintf(wk, __VA_ARGS__);         \
 	}
 #define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
 
-bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
-bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
-bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap) MUON_ATTR_FORMAT(printf, 3, 0);
+bool obj_lprintf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 bool obj_printf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 uint32_t obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap);
 uint32_t obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
 	MUON_ATTR_FORMAT(printf, 4, 5);
-void obj_inspect(struct workspace *wk, FILE *out, obj val);
+void obj_inspect(struct workspace *wk, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
 void obj_array_push(struct workspace *wk, obj arr, obj child);
@@ -603,6 +604,7 @@ bool obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_itera
 bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb);
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
 bool obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx);
+obj *obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i);
 void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
@@ -626,6 +628,7 @@ bool obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterat
 bool obj_dict_in(struct workspace *wk, obj dict, obj key);
 bool obj_dict_index(struct workspace *wk, obj dict, obj key, obj *res);
 bool obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res);
+obj *obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len);
 bool obj_dict_index_str(struct workspace *wk, obj dict, const char *str, obj *res);
 void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);

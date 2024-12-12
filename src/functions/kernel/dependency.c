@@ -10,13 +10,16 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "lang/analyze.h"
 #include "error.h"
 #include "external/libpkgconf.h"
+#include "functions/file.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "machines.h"
@@ -54,6 +57,7 @@ struct dep_lookup_ctx {
 	obj *res;
 	struct args_kw *default_options, *versions, *handler_kwargs;
 	enum requirement_type requirement;
+	enum machine_kind machine;
 	uint32_t err_node;
 	uint32_t fallback_node;
 	obj name;
@@ -75,7 +79,7 @@ check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
 	struct dep_lookup_ctx *ctx = _ctx;
 
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, wk->dep_overrides_static, n, ctx->res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_static[ctx->machine], n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_static;
 			ctx->found = true;
 			return ir_done;
@@ -83,7 +87,7 @@ check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, wk->dep_overrides_dynamic, n, ctx->res)) {
+		if (obj_dict_index(wk, wk->dep_overrides_dynamic[ctx->machine], n, ctx->res)) {
 			ctx->lib_mode = dep_lib_mode_shared;
 			ctx->found = true;
 			return ir_done;
@@ -206,7 +210,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	*found = true;
 	return true;
 not_found:
-	obj_fprintf(wk, log_file(), "fallback %o failed for %o\n", ctx->fallback, ctx->name);
+	obj_lprintf(wk, "fallback %o failed for %o\n", ctx->fallback, ctx->name);
 	*ctx->res = 0;
 	*found = false;
 	return true;
@@ -227,8 +231,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
 		return false;
 	} else if (!ver_match) {
-		obj_fprintf(wk,
-			log_file(),
+		obj_lprintf(wk,
 			"pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
 			ctx->name,
 			ver_str,
@@ -327,17 +330,6 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return true;
 }
 
-static enum iteration_result
-handle_appleframeworks_modules_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct dep_lookup_ctx *ctx = _ctx;
-	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-
-	obj_array_push(wk, dep->dep.link_args, make_str(wk, "-framework"));
-	obj_array_push(wk, dep->dep.link_args, val);
-	return ir_cont;
-}
-
 static bool
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
 {
@@ -386,8 +378,13 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 			dep->name = make_str(wk, "appleframeworks");
 			dep->flags |= dep_flag_found;
 			dep->type = dependency_type_appleframeworks;
-			make_obj(wk, &dep->dep.link_args, obj_array);
-			obj_array_foreach(wk, ctx->modules, ctx, handle_appleframeworks_modules_iter);
+			make_obj(wk, &dep->dep.frameworks, obj_array);
+
+			SBUF(path);
+			obj val;
+			obj_array_for(wk, ctx->modules, val) {
+				obj_array_push(wk, dep->dep.frameworks, val);
+			}
 		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
@@ -453,10 +450,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
-		kw_native, // ignored
+		kw_native,
 		kw_version,
 		kw_static,
-		kw_modules, // ignored
+		kw_modules,
 		kw_optional_modules, // ignored
 		kw_components, // ignored
 		kw_fallback,
@@ -492,6 +489,17 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	if (!get_obj_array(wk, an[0].val)->len) {
 		vm_error_at(wk, an[0].node, "no dependency names specified");
 		return false;
+	}
+
+	if (wk->vm.in_analyzer) {
+		// TODO: check fallback keyword?
+		obj name, _subproj;
+		obj_array_for(wk, an[0].val, name) {
+			subproject(wk, name, requirement_auto, 0, 0, &_subproj);
+		}
+
+		*res = make_typeinfo(wk, tc_dependency);
+		return true;
 	}
 
 	enum include_type inc_type = include_type_preserve;
@@ -606,9 +614,12 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
+
 	struct args_kw handler_kwargs[] = {
 		{ "required", .val = requirement == requirement_required ? obj_bool_true : obj_bool_false },
 		{ "static", .val = lib_mode == dep_lib_mode_static ? obj_bool_true : obj_bool_false },
+		{ "machine", .val = make_str(wk, machine_kind_to_s(machine)) },
 		0,
 	};
 
@@ -617,6 +628,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		.handler_kwargs = handler_kwargs,
 		.names = an[0].val,
 		.requirement = requirement,
+		.machine = machine,
 		.versions = &akw[kw_version],
 		.err_node = an[0].node,
 		.fallback_node = fallback_err_node,
@@ -646,10 +658,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			LLOG_W("%s", "");
 		}
 
-		obj_fprintf(wk, log_file(), "dependency %o not found", an[0].val);
+		obj_lprintf(wk, "dependency %o not found", an[0].val);
 
 		if (ctx.not_found_message) {
-			obj_fprintf(wk, log_file(), ", %#o", ctx.not_found_message);
+			obj_lprintf(wk, ", %#o", ctx.not_found_message);
 		}
 
 		log_plain("\n");
@@ -670,25 +682,27 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	} else if (!str_eql(get_str(wk, ctx.name), &WKSTR(""))) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 
-		LLOG_I("found dependency ");
-		if (dep->type == dependency_type_declared) {
-			obj_fprintf(wk, log_file(), "%o (declared dependency)", ctx.name);
-		} else {
-			log_plain("%s", get_cstr(wk, dep->name));
-		}
+		if (!ctx.from_cache) {
+			LLOG_I("found dependency ");
+			if (dep->type == dependency_type_declared) {
+				obj_lprintf(wk, "%o (declared dependency)", ctx.name);
+			} else {
+				log_plain("%s", get_cstr(wk, dep->name));
+			}
 
-		if (dep->version) {
-			log_plain(" version %s", get_cstr(wk, dep->version));
-		}
+			if (dep->version) {
+				log_plain(" version %s", get_cstr(wk, dep->version));
+			}
 
-		if (ctx.lib_mode == dep_lib_mode_static) {
-			log_plain(" static");
-		}
+			if (ctx.lib_mode == dep_lib_mode_static) {
+				log_plain(" static");
+			}
 
-		log_plain("\n");
+			log_plain("\n");
 
-		if (dep->type == dependency_type_declared) {
-			L("(%s)", get_cstr(wk, dep->name));
+			if (dep->type == dependency_type_declared) {
+				L("(%s)", get_cstr(wk, dep->name));
+			}
 		}
 	}
 
@@ -929,6 +943,10 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 		make_obj(wk, &dep->link_with_not_found, obj_array);
 	}
 
+	if (!dep->frameworks) {
+		make_obj(wk, &dep->frameworks, obj_array);
+	}
+
 	if (!dep->link_args) {
 		make_obj(wk, &dep->link_args, obj_array);
 	}
@@ -954,9 +972,14 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 	}
 }
 
-static void
-merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *dest, bool dep)
+void
+build_dep_merge(struct workspace *wk,
+	struct build_dep *dest,
+	const struct build_dep *src,
+	enum build_dep_merge_flag flags)
 {
+	bool merge_all = flags & build_dep_merge_flag_merge_all;
+
 	build_dep_init(wk, dest);
 
 	dest->link_language = coalesce_link_languages(src->link_language, dest->link_language);
@@ -973,7 +996,7 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->link_whole, src->link_whole);
 	}
 
-	if (dep && src->include_directories) {
+	if (merge_all && src->include_directories) {
 		obj_array_extend(wk, dest->include_directories, src->include_directories);
 	}
 
@@ -981,7 +1004,11 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->link_args, src->link_args);
 	}
 
-	if (dep && src->compile_args) {
+	if (src->frameworks) {
+		obj_array_extend(wk, dest->frameworks, src->frameworks);
+	}
+
+	if (merge_all && src->compile_args) {
 		obj_array_extend(wk, dest->compile_args, src->compile_args);
 	}
 
@@ -993,11 +1020,11 @@ merge_build_deps(struct workspace *wk, struct build_dep *src, struct build_dep *
 		obj_array_extend(wk, dest->order_deps, src->order_deps);
 	}
 
-	if (dep && src->sources) {
+	if (merge_all && src->sources) {
 		obj_array_extend(wk, dest->sources, src->sources);
 	}
 
-	if (dep && src->objects) {
+	if (merge_all && src->objects) {
 		obj_array_extend(wk, dest->objects, src->objects);
 	}
 }
@@ -1028,12 +1055,30 @@ dedup_link_args_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+dedup_compile_args_iter(struct workspace *wk, void *_ctx, obj val)
+{
+	obj new_args = *(obj *)_ctx;
+
+	const struct str *s = get_str(wk, val);
+
+	if (str_eql(s, &WKSTR("-pthread")) || str_startswith(s, &WKSTR("-W")) || str_startswith(s, &WKSTR("-D"))) {
+		if (obj_array_in(wk, new_args, val)) {
+			return ir_cont;
+		}
+	}
+
+	obj_array_push(wk, new_args, val);
+	return ir_cont;
+}
+
 static void
 dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 {
 	obj_array_dedup_in_place(wk, &dep->link_with);
 	obj_array_dedup_in_place(wk, &dep->link_with_not_found);
 	obj_array_dedup_in_place(wk, &dep->link_whole);
+	obj_array_dedup_in_place(wk, &dep->frameworks);
 	obj_array_dedup_in_place(wk, &dep->raw.deps);
 	obj_array_dedup_in_place(wk, &dep->raw.link_with);
 	obj_array_dedup_in_place(wk, &dep->raw.link_whole);
@@ -1050,7 +1095,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 
 	obj new_compile_args;
 	make_obj(wk, &new_compile_args, obj_array);
-	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_link_args_iter);
+	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_compile_args_iter);
 	dep->compile_args = new_compile_args;
 }
 
@@ -1085,7 +1130,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
-		struct obj_build_target *tgt = get_obj_build_target(wk, val);
+		const struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		const char *path = get_cstr(wk, tgt->build_path);
 
 		if (ctx->link_whole && tgt->type != tgt_static_library) {
@@ -1120,7 +1165,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 		}
 
-		merge_build_deps(wk, &tgt->dep, ctx->dest, false);
+		build_dep_merge(wk, ctx->dest, &tgt->dep, 0);
 		break;
 	}
 	case obj_custom_target: {
@@ -1129,6 +1174,11 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_file: {
 		obj_array_push(wk, dest_link_with, *get_obj_file(wk, val));
+		if (file_is_dynamic_lib(wk, val)) {
+			SBUF(dir);
+			path_dirname(wk, &dir, get_file_path(wk, val));
+			obj_array_push(wk, ctx->dest->rpath, sbuf_into_str(wk, &dir));
+		}
 		break;
 	}
 	case obj_string: obj_array_push(wk, dest_link_with, val); break;
@@ -1194,12 +1244,12 @@ dep_process_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	struct obj_dependency *dep = get_obj_dependency(wk, val);
+	const struct obj_dependency *dep = get_obj_dependency(wk, val);
 	if (!(dep->flags & dep_flag_found)) {
 		return ir_cont;
 	}
 
-	merge_build_deps(wk, &dep->dep, dest, true);
+	build_dep_merge(wk, dest, &dep->dep, build_dep_merge_flag_merge_all);
 
 	return ir_cont;
 }

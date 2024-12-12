@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
 #include "functions/modules.h"
@@ -18,9 +19,10 @@
 #include "functions/modules/toolchain.h"
 #include "functions/modules/windows.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 
 #define MODULE_INFO(mod, path_prefix, _implemented) \
 	{ .name = #mod, .path = path_prefix "/" #mod, .implemented = _implemented },
@@ -56,8 +58,7 @@ module_lookup_script(struct workspace *wk,
 	struct source src;
 
 	if (opts->embedded) {
-		src = (struct source){ .label = path->buf };
-		if (!(src.src = embedded_get(src.label))) {
+		if (!(embedded_get(path->buf, &src))) {
 			return false;
 		}
 	} else {
@@ -77,30 +78,38 @@ module_lookup_script(struct workspace *wk,
 	enum language_mode old_language_mode = wk->vm.lang_mode;
 	wk->vm.lang_mode = language_extended;
 
-	if (opts->encapsulate) {
-		stack_push(&wk->stack,
-			wk->vm.scope_stack,
-			wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
-	}
+	bool stack_popped = false;
+	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	obj res;
-	if (!eval(wk, &src, eval_mode_default, &res)) {
+	if (!eval(wk, &src, build_language_meson, 0, &res)) {
+		goto ret;
+	}
+
+	if (!typecheck_custom(wk,
+		    0,
+		    res,
+		    make_complex_type(wk, complex_type_nested, tc_dict, tc_capture),
+		    "expected %s, got %s for module return type")) {
 		goto ret;
 	}
 
 	if (opts->encapsulate) {
-		if (!typecheck(wk, 0, res, make_complex_type(wk, complex_type_nested, tc_dict, tc_capture))) {
-			goto ret;
-		}
-
 		m->found = true;
 		m->has_impl = true;
 		m->exports = res;
+	} else {
+		stack_pop(&wk->stack, wk->vm.scope_stack);
+		stack_popped = true;
+		obj k, v;
+		obj_dict_for(wk, res, k, v) {
+			wk->vm.behavior.assign_variable(wk, get_cstr(wk, k), v, 0, assign_local);
+		}
 	}
 
 	ret = true;
 ret:
-	if (opts->encapsulate) {
+	if (!stack_popped) {
 		stack_pop(&wk->stack, wk->vm.scope_stack);
 	}
 	wk->vm.lang_mode = old_language_mode;
@@ -109,19 +118,15 @@ ret:
 
 const char *module_paths[] = {
 	[language_external] = "embedded:modules/%.meson;builtin:public/%",
-	[language_internal] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+	[language_internal] = "embedded:lib/%.meson;builtin:private/%;builtin:public/%",
 	[language_opts] = "",
-	[language_extended] = "embedded:lib/%.meson;modules/%.meson;builtin:private/%;builtin:public/%",
+	[language_extended] = "embedded:lib/%.meson;builtin:private/%;builtin:public/%",
 };
 
 bool
 module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res)
 {
 	struct obj_module *m = 0;
-	if (encapsulate) {
-		make_obj(wk, res, obj_module);
-		m = get_obj_module(wk, *res);
-	}
 
 	{
 		enum {
@@ -138,7 +143,27 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		bool loop = true;
 		struct str path;
 		SBUF(path_interpolated);
-		const char *p = module_paths[wk->vm.lang_mode], *sep;
+		SBUF(module_path);
+		const char *p, *sep;
+
+		{
+			struct project *proj;
+			if (wk->vm.lang_mode == language_external && (proj = current_project(wk)) && proj->module_dir) {
+				sbuf_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
+
+				sbuf_push(wk, &module_path, ';');
+
+				SBUF(new_module_path);
+				path_push(wk, &new_module_path, get_cstr(wk, proj->source_root));
+				path_push(wk, &new_module_path, get_cstr(wk, proj->module_dir));
+				path_push(wk, &new_module_path, "%.meson");
+				sbuf_pushn(wk, &module_path, new_module_path.buf, new_module_path.len);
+				p = module_path.buf;
+			} else {
+				p = module_paths[wk->vm.lang_mode];
+			}
+		}
+
 		while (loop) {
 			path.s = p;
 			if ((sep = strchr(path.s, ';'))) {
@@ -195,7 +220,24 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					.embedded = schema == schema_type_embedded,
 				};
 
+				if (encapsulate) {
+					make_obj(wk, res, obj_module);
+					m = get_obj_module(wk, *res);
+
+					if (obj_dict_index_strn(wk, wk->vm.modules, path_interpolated.buf, path_interpolated.len, res)) {
+						return true;
+					}
+				}
+
 				if (module_lookup_script(wk, &path_interpolated, m, &opts)) {
+					if (encapsulate) {
+						obj_dict_set(wk, wk->vm.modules, sbuf_into_str(wk, &path_interpolated), *res);
+					}
+
+					if (schema == schema_type_none) {
+						obj_array_push(wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
+					}
+
 					if (wk->vm.error) {
 						return false;
 					}
@@ -213,6 +255,8 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 						return false;
 					}
 
+					make_obj(wk, res, obj_module);
+					m = get_obj_module(wk, *res);
 					m->module = mod_type;
 					m->found = has_impl;
 					m->has_impl = has_impl;

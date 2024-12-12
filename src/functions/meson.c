@@ -13,11 +13,10 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
-#include "functions/build_target.h"
 #include "functions/meson.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "options.h"
 #include "platform/path.h"
 #include "version.h"
@@ -29,7 +28,10 @@ func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
 	enum kwargs {
 		kw_native,
 	};
-	struct args_kw akw[] = { [kw_native] = { "native", obj_bool }, 0 };
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -37,7 +39,8 @@ func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
 
 	enum compiler_language l;
 	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
-		|| !obj_dict_geti(wk, current_project(wk)->compilers, l, res)) {
+		|| !obj_dict_geti(
+			wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, res)) {
 		vm_error_at(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
@@ -179,7 +182,7 @@ func_meson_build_options(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	obj options = regenerate_build_command(wk, true);
+	obj options = ca_regenerate_build_command(wk, true);
 
 	// remove the build directory from options
 	obj_array_pop(wk, options);
@@ -207,7 +210,11 @@ func_meson_backend(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	*res = make_str(wk, "ninja");
+	switch (get_option_backend(wk)) {
+	case backend_ninja: *res = make_str(wk, "ninja"); break;
+	case backend_xcode: *res = make_str(wk, "xcode"); break;
+	}
+
 	return true;
 }
 
@@ -241,26 +248,32 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 	struct args_norm an[] = { { obj_string }, { obj_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_static,
-		kw_native, // ignored
+		kw_native,
 	};
-	struct args_kw akw[] = { [kw_static] = { "static", obj_bool }, [kw_native] = { "native", obj_bool }, 0 };
+	struct args_kw akw[] = {
+		[kw_static] = { "static", obj_bool },
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
+
 	obj override_dict;
 
 	if (akw[kw_static].set) {
 		if (get_obj_bool(wk, akw[kw_static].val)) {
-			override_dict = wk->dep_overrides_static;
+			override_dict = wk->dep_overrides_static[machine];
 		} else {
-			override_dict = wk->dep_overrides_dynamic;
+			override_dict = wk->dep_overrides_dynamic[machine];
 		}
 	} else {
 		switch (get_option_default_library(wk)) {
-		case tgt_static_library: override_dict = wk->dep_overrides_static; break;
-		default: override_dict = wk->dep_overrides_dynamic; break;
+		case tgt_static_library: override_dict = wk->dep_overrides_static[machine]; break;
+		default: override_dict = wk->dep_overrides_dynamic[machine]; break;
 		}
 	}
 
@@ -274,6 +287,9 @@ func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target | tc_custom_target
 			      | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
+
+	// TODO: why does override_find_program not accept a native keyword?
+	enum machine_kind machine = coerce_machine_kind(wk, 0);
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
@@ -299,7 +315,7 @@ func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 	default: UNREACHABLE;
 	}
 
-	obj_dict_set(wk, wk->find_program_overrides, an[0].val, override);
+	obj_dict_set(wk, wk->find_program_overrides[machine], an[0].val, override);
 	return true;
 }
 
@@ -503,7 +519,10 @@ func_meson_get_external_property(struct workspace *wk, obj _, obj *res)
 	enum kwargs {
 		kw_native,
 	};
-	struct args_kw akw[] = { [kw_native] = { "native", obj_bool }, 0 };
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -575,21 +594,25 @@ const struct func_impl impl_tbl_meson[] = {
 	{ NULL, NULL },
 };
 
-static enum iteration_result
-compiler_dict_to_str_dict_iter(struct workspace *wk, void *_ctx, obj k, obj v)
-{
-	obj_dict_set(wk, *(obj *)_ctx, make_str(wk, compiler_language_to_s(k)), v);
-	return ir_cont;
-}
-
 static obj
-compiler_dict_to_str_dict(struct workspace *wk, obj d)
+compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
 {
-	obj r;
-	make_obj(wk, &r, obj_dict);
-	obj_dict_foreach(wk, d, &r, compiler_dict_to_str_dict_iter);
+	obj res;
+	make_obj(wk, &res, obj_dict);
 
-	return r;
+	for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
+		obj r;
+		make_obj(wk, &r, obj_dict);
+
+		obj k, v;
+		obj_dict_for(wk, d[machine], k, v) {
+			obj_dict_set(wk, r, make_str(wk, compiler_language_to_s(k)), v);
+		}
+
+		obj_dict_set(wk, res, make_str(wk, machine_kind_to_s(machine)), r);
+	}
+
+	return res;
 }
 
 static bool
@@ -602,8 +625,13 @@ func_meson_project(struct workspace *wk, obj _, obj *res)
 	struct project *proj = current_project(wk);
 
 	make_obj(wk, res, obj_dict);
+
+	if (!proj) {
+		return true;
+	}
+
 	obj_dict_set(wk, *res, make_str(wk, "opts"), proj->opts);
-	obj_dict_set(wk, *res, make_str(wk, "compilers"), compiler_dict_to_str_dict(wk, proj->compilers));
+	obj_dict_set(wk, *res, make_str(wk, "toolchains"), compiler_dict_to_str_dict(wk, proj->toolchains));
 	obj_dict_set(wk, *res, make_str(wk, "args"), compiler_dict_to_str_dict(wk, proj->args));
 	obj_dict_set(wk, *res, make_str(wk, "link_args"), compiler_dict_to_str_dict(wk, proj->link_args));
 	return true;
@@ -623,6 +651,22 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj_dict_set(wk, wk->dependency_handlers, an[0].val, an[1].val);
+	return true;
+}
+
+static bool
+func_meson_register_finalizer(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = {
+		{ tc_capture },
+		ARG_TYPE_NULL,
+	};
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	obj_array_push(wk, wk->finalizers, an[0].val);
 	return true;
 }
 
@@ -651,6 +695,7 @@ func_meson_private_dir(struct workspace *wk, obj _, obj *res)
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict },
 	{ "register_dependency_handler", func_meson_register_dependency_handler },
+	{ "register_finalizer", func_meson_register_finalizer },
 	{ "argv0", func_meson_argv0, tc_string },
 	{ "private_dir", func_meson_private_dir, tc_string },
 	{ NULL, NULL },

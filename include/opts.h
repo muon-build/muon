@@ -45,6 +45,6 @@ struct command {
 
 void print_usage(FILE *f, const struct command *commands, const char *pre, const char *opts, const char *post);
 bool
-find_cmd(const struct command *commands, cmd_func *ret, uint32_t argc, uint32_t argi, char *const argv[], bool optional);
+find_cmd(const struct command *commands, uint32_t *ret, uint32_t argc, uint32_t argi, char *const argv[], bool optional);
 bool check_operands(uint32_t argc, uint32_t argi, int32_t expected);
 #endif

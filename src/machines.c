@@ -52,7 +52,7 @@ static const char *known_cpu_families[] = {
 	"x86_64",
 };
 
-static const char *
+const char *
 machine_kind_to_s(enum machine_kind kind)
 {
 	switch (kind) {

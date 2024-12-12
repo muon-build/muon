@@ -10,6 +10,7 @@
 
 #include "error.h"
 #include "external/readline.h"
+#include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/eval.h"
@@ -29,9 +30,6 @@ eval_project(struct workspace *wk,
 	const char *build_dir,
 	uint32_t *proj_id)
 {
-	SBUF(src);
-	path_join(wk, &src, cwd, "meson.build");
-
 	bool ret = false;
 	uint32_t parent_project = wk->cur_project;
 
@@ -50,7 +48,7 @@ eval_project(struct workspace *wk,
 		log_set_prefix(log_prefix);
 	}
 
-	if (subproject_name) {
+	if (subproject_name && !wk->vm.in_analyzer) {
 		LOG_I("entering subproject '%s'", subproject_name);
 	}
 
@@ -60,8 +58,15 @@ eval_project(struct workspace *wk,
 
 	wk->vm.dbg_state.eval_trace_subdir = true;
 
-	if (!wk->vm.behavior.eval_project_file(wk, src.buf, true)) {
-		goto cleanup;
+	{
+		enum build_language lang;
+		const char *build_file = determine_build_file(wk, cwd, &lang);
+
+		if (!build_file) {
+			goto cleanup;
+		} else if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first)) {
+			goto cleanup;
+		}
 	}
 
 	if (wk->cur_project == 0 && !check_invalid_subproject_option(wk)) {
@@ -95,9 +100,18 @@ ensure_project_is_first_statement(struct workspace *wk, struct source *src, stru
 }
 
 bool
-eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
+eval(struct workspace *wk, struct source *src, enum build_language lang, enum eval_mode mode, obj *res)
 {
 	TracyCZoneAutoS;
+
+	if (lang == build_language_cmake && mode == eval_mode_first) {
+		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+		obj _;
+		bool ok = module_import(wk, "cmake_prelude", false, &_);
+		stack_pop(&wk->stack, wk->vm.lang_mode);
+
+		assert(ok);
+	}
 
 	arr_push(&wk->vm.src, src);
 	src = arr_peek(&wk->vm.src, 1);
@@ -107,21 +121,33 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 			  vm_compile_mode_language_extended :
 			  0;
 
-	if (mode == eval_mode_repl) {
+	if (mode & eval_mode_repl) {
 		compile_mode |= vm_compile_mode_expr;
+	}
+	if (mode & eval_mode_return_after_project) {
+		compile_mode |= vm_compile_mode_return_after_project;
 	}
 
 	uint32_t entry;
 	{
-		struct node *n;
+		struct node *n = 0;
 
 		vm_compile_state_reset(wk);
 
-		if (!(n = parse(wk, src, compile_mode))) {
+		switch (lang) {
+		case build_language_meson:
+			n = parse(wk, src, compile_mode);
+			break;
+		case build_language_cmake:
+			n = cm_parse(wk, src);
+			break;
+		}
+
+		if (!n) {
 			return false;
 		}
 
-		if (mode & eval_mode_first) {
+		if (lang == build_language_meson && (mode & eval_mode_first)) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
 				return false;
 			}
@@ -133,7 +159,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	}
 
 	if (wk->vm.dbg_state.eval_trace) {
-		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label));
+		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 		bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
 		if (trace_subdir) {
 			obj subdir_eval_trace;
@@ -175,7 +201,7 @@ bool
 eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res)
 {
 	struct source src = { .label = get_cstr(wk, make_str(wk, label)), .src = str, .len = strlen(str) };
-	return eval(wk, &src, mode, res);
+	return eval(wk, &src, build_language_meson, mode, res);
 }
 
 bool
@@ -185,9 +211,8 @@ eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 }
 
 bool
-eval_project_file(struct workspace *wk, const char *path, bool first)
+eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags)
 {
-	/* L("evaluating '%s'", path); */
 	bool ret = false;
 	obj path_str = make_str(wk, path);
 	workspace_add_regenerate_deps(wk, path_str);
@@ -197,8 +222,16 @@ eval_project_file(struct workspace *wk, const char *path, bool first)
 		return false;
 	}
 
+	enum eval_mode eval_mode = 0;
+	if (flags & eval_project_file_flag_first) {
+		eval_mode |= eval_mode_first;
+	}
+	if (flags & eval_project_file_flag_return_after_project) {
+		eval_mode |= eval_mode_return_after_project;
+	}
+
 	obj res;
-	if (!eval(wk, &src, first ? eval_mode_first : eval_mode_default, &res)) {
+	if (!eval(wk, &src, lang, eval_mode, &res)) {
 		goto ret;
 	}
 
@@ -222,7 +255,7 @@ repl(struct workspace *wk, bool dbg)
 	bool loop = true;
 	obj repl_res = 0;
 	char *line;
-	FILE *out = log_file();
+	FILE *out = _log_file();
 	enum repl_cmd {
 		repl_cmd_noop,
 		repl_cmd_exit,
@@ -353,7 +386,7 @@ cmd_found:
 				break;
 			}
 
-			obj_inspect(wk, out, repl_res);
+			obj_inspect(wk, repl_res);
 			break;
 		case repl_cmd_watch:
 			if (!wk->vm.dbg_state.watched) {
@@ -382,7 +415,7 @@ cmd_found:
 			break;
 		}
 		case repl_cmd_breakpoint: {
-			vm_dbg_push_breakpoint(wk, arg);
+			vm_dbg_push_breakpoint_str(wk, arg);
 			break;
 		}
 		case repl_cmd_backtrace: {
@@ -430,9 +463,9 @@ determine_project_root(struct workspace *wk, const char *path)
 		struct source src = { 0 };
 
 		if (!fs_read_entire_file(path, &src)) {
-			return 0;
+			goto cont;
 		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet))) {
-			return 0;
+			goto cont;
 		}
 		fs_source_destroy(&src);
 
@@ -453,4 +486,46 @@ cont:
 		path_push(wk, &new_path, "meson.build");
 		path = new_path.buf;
 	}
+}
+
+const char *
+determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang)
+{
+	const struct {
+		const char *name;
+		enum build_language lang;
+	} names[] = {
+		{ "meson.build", build_language_meson },
+		{ "CMakeLists.txt", build_language_cmake },
+	};
+
+	SBUF(name);
+	bool found = false;
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(names); ++i) {
+		path_join(wk, &name, cwd, names[i].name);
+
+		if (fs_file_exists(name.buf)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		LLOG_E("No build file found in %s (tried ", cwd);
+		for (i = 0; i < ARRAY_LEN(names); ++i) {
+			log_plain("%s%s", names[i].name, i + 1 == ARRAY_LEN(names) ? "" : ", ");
+		}
+		log_plain(")\n");
+		return 0;
+	}
+
+	*out_lang = names[i].lang;
+
+	if (*out_lang == build_language_cmake) {
+		LOG_W("Using experimental cmake compat mode, this will probably break");
+	}
+
+	return get_cstr(wk, sbuf_into_str(wk, &name));
 }

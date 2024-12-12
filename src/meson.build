@@ -16,6 +16,7 @@ src = files(
     'backend/vs/solution.c',
     'backend/vs/xml.c',
     'backend/output.c',
+    'backend/xcode.c',
     'datastructures/arr.c',
     'datastructures/bucket_arr.c',
     'datastructures/hash.c',
@@ -24,6 +25,7 @@ src = files(
     'formats/ini.c',
     'formats/lines.c',
     'formats/tap.c',
+    'formats/xml.c',
     'functions/array.c',
     'functions/boolean.c',
     'functions/both_libs.c',
@@ -79,6 +81,7 @@ src = files(
     'lang/workspace.c',
     'args.c',
     'cmd_install.c',
+    'cmd_subprojects.c',
     'cmd_test.c',
     'coerce.c',
     'compilers.c',
@@ -120,3 +123,9 @@ src += script_sources
 subdir('external')
 src += dep_sources
 deps += external_deps
+
+if get_option('ui').enabled()
+    subdir('ui')
+else
+    src += files('ui_null.c')
+endif

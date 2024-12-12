@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "lang/types.h"
+#include "machines.h"
 
 struct workspace;
 struct obj_compiler;
@@ -31,7 +32,7 @@ struct obj_compiler;
 	_(posix, "posix", "posix")          \
 	_(ld, "ld", "ld")                   \
 	_(clang, "lld", "lld")              \
-	_(apple, "ld64", "ld64")            \
+	_(apple, "ld", "ld-apple")            \
 	_(lld_link, "lld-link", "lld-link") \
 	_(msvc, "link", "link")
 
@@ -108,12 +109,6 @@ enum compiler_visibility_type {
 	compiler_visibility_inlineshidden,
 };
 
-enum toolchain_component {
-	toolchain_component_compiler,
-	toolchain_component_linker,
-	toolchain_component_static_linker,
-};
-
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
 	toolchain_arg_arity_1i,
@@ -135,18 +130,18 @@ struct toolchain_arg_handler {
 #define TOOLCHAIN_PARAM_NAMES_BASE wk, comp
 
 #define TOOLCHAIN_SIG_0 TOOLCHAIN_PARAMS_BASE
-#define TOOLCHAIN_SIG_1i TOOLCHAIN_PARAMS_BASE, uint32_t a
-#define TOOLCHAIN_SIG_1s TOOLCHAIN_PARAMS_BASE, const char *a
-#define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *a, const char *b
-#define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *a, bool b
-#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, const struct args *a
+#define TOOLCHAIN_SIG_1i TOOLCHAIN_PARAMS_BASE, uint32_t i1
+#define TOOLCHAIN_SIG_1s TOOLCHAIN_PARAMS_BASE, const char *s1
+#define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *s1, const char *s2
+#define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *s1, bool b1
+#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, const struct args *n1
 
 #define TOOLCHAIN_PARAMS_0 0, (TOOLCHAIN_SIG_0), (TOOLCHAIN_PARAM_NAMES_BASE)
-#define TOOLCHAIN_PARAMS_1i 1i, (TOOLCHAIN_SIG_1i), (TOOLCHAIN_PARAM_NAMES_BASE, a)
-#define TOOLCHAIN_PARAMS_1s 1s, (TOOLCHAIN_SIG_1s), (TOOLCHAIN_PARAM_NAMES_BASE, a)
-#define TOOLCHAIN_PARAMS_2s 2s, (TOOLCHAIN_SIG_2s), (TOOLCHAIN_PARAM_NAMES_BASE, a, b)
-#define TOOLCHAIN_PARAMS_1s1b 1s1b, (TOOLCHAIN_SIG_1s1b), (TOOLCHAIN_PARAM_NAMES_BASE, a, b)
-#define TOOLCHAIN_PARAMS_ns ns, (TOOLCHAIN_SIG_ns), (TOOLCHAIN_PARAM_NAMES_BASE, a)
+#define TOOLCHAIN_PARAMS_1i 1i, (TOOLCHAIN_SIG_1i), (TOOLCHAIN_PARAM_NAMES_BASE, i1)
+#define TOOLCHAIN_PARAMS_1s 1s, (TOOLCHAIN_SIG_1s), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
+#define TOOLCHAIN_PARAMS_2s 2s, (TOOLCHAIN_SIG_2s), (TOOLCHAIN_PARAM_NAMES_BASE, s1, s2)
+#define TOOLCHAIN_PARAMS_1s1b 1s1b, (TOOLCHAIN_SIG_1s1b), (TOOLCHAIN_PARAM_NAMES_BASE, s1, b1)
+#define TOOLCHAIN_PARAMS_ns ns, (TOOLCHAIN_SIG_ns), (TOOLCHAIN_PARAM_NAMES_BASE, n1)
 
 typedef const struct args *((*compiler_get_arg_func_0)(TOOLCHAIN_SIG_0));
 typedef const struct args *((*compiler_get_arg_func_1i)(TOOLCHAIN_SIG_1i));
@@ -159,6 +154,7 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, type)
 
 #define FOREACH_COMPILER_ARG(_)                              \
+	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0) \
 	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns) \
 	_(deps, compiler, TOOLCHAIN_PARAMS_2s)               \
 	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)        \
@@ -253,11 +249,37 @@ enum toolchain_arg {
 #undef TOOLCHAIN_ARG_MEMBER_
 };
 
+struct toolchain_id {
+	const char *public_id;
+	const char *id;
+};
+extern const struct toolchain_id compiler_type_name[];
+extern const struct toolchain_id linker_type_name[];
+extern const struct toolchain_id static_linker_type_name[];
+
 extern struct compiler compilers[];
 extern struct linker linkers[];
 extern struct static_linker static_linkers[];
 extern const struct language languages[];
 
+struct compiler_check_cache_key {
+	struct obj_compiler *comp;
+	const char *argstr;
+	const char *src;
+	uint32_t argc;
+};
+
+struct compiler_check_cache_value {
+	obj value;
+	bool success;
+};
+
+obj compiler_check_cache_key(struct workspace *wk, const struct compiler_check_cache_key *key);
+bool compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val);
+void compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val);
+
+const char *toolchain_component_to_s(enum toolchain_component comp);
+bool toolchain_component_from_s(const char *name, uint32_t *res);
 const char *compiler_type_to_s(enum compiler_type t);
 bool compiler_type_from_s(const char *name, uint32_t *res);
 const char *linker_type_to_s(enum linker_type t);
@@ -267,14 +289,22 @@ const char *compiler_language_to_s(enum compiler_language l);
 bool s_to_compiler_language(const char *s, enum compiler_language *l);
 bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 const char *compiler_language_extension(enum compiler_language l);
-enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new);
+enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang);
 
-bool toolchain_detect(struct workspace *wk, obj *comp, enum compiler_language lang);
+bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
 void compilers_init(void);
 
 const struct toolchain_arg_handler *get_toolchain_arg_handler_info(enum toolchain_component component,
 	const char *name);
 void toolchain_arg_arity_to_sig(enum toolchain_arg_arity arity, type_tag signature[2], uint32_t *len);
+
+struct toolchain_dump_opts {
+	const char *s1, *s2;
+	bool b1;
+	uint32_t i1;
+	const struct args *n1;
+};
+void toolchain_dump(struct workspace *wk, struct obj_compiler *comp, struct toolchain_dump_opts *opts);
 
 #define TOOLCHAIN_ARG_MEMBER_(name, _name, component, _type, params, names) \
 	const struct args *toolchain_##component##_name params;

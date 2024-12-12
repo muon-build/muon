@@ -9,6 +9,8 @@
 #include "datastructures/arr.h"
 #include "datastructures/bucket_arr.h"
 #include "datastructures/hash.h"
+#include "lang/compiler.h"
+#include "lang/eval.h"
 #include "lang/object.h"
 #include "lang/source.h"
 #include "lang/types.h"
@@ -31,14 +33,13 @@ enum op {
 	op_negate,
 	op_stringify,
 	op_store,
-	op_add_store,
 	op_load,
 	op_try_load,
 	op_return,
 	op_return_end,
 	op_call,
-	op_call_method,
 	op_call_native,
+	op_member,
 	op_index,
 	op_iterator,
 	op_iterator_next,
@@ -63,6 +64,11 @@ extern const uint32_t op_operand_size;
 #define OP_WIDTH(op) (1 + op_operand_size * op_operands[op])
 
 struct workspace;
+
+enum op_store_flags {
+	op_store_flag_add_store = 1 << 0,
+	op_store_flag_member = 2 << 0,
+};
 
 enum variable_assignment_mode {
 	assign_local,
@@ -109,15 +115,20 @@ struct vm_compiler_state {
 	struct arr node_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
+	enum vm_compile_mode mode;
 	bool err;
 };
 
 struct vm_dbg_state {
+	void (*break_cb)(struct workspace *wk, struct source *src, uint32_t line, uint32_t col);
+	void *usr_ctx;
 	struct source_location prev_source_location;
 	obj watched;
 	obj breakpoints;
 	obj root_eval_trace;
 	obj eval_trace;
+	uint32_t icount;
+	uint32_t break_after;
 	bool dbg, stepping, dump_signature;
 	bool eval_trace_subdir;
 };
@@ -133,7 +144,10 @@ struct vm_behavior {
 	void((*pop_local_scope)(struct workspace *wk));
 	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
 	bool((*get_variable)(struct workspace *wk, const char *name, obj *res));
-	bool((*eval_project_file)(struct workspace *wk, const char *path, bool first));
+	bool((*eval_project_file)(struct workspace *wk,
+		const char *path,
+		enum build_language lang,
+		enum eval_project_file_flags flags));
 	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));
 	bool((*pop_args)(struct workspace *wk, struct args_norm an[], struct args_kw akw[]));
 	bool((*func_lookup)(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func));
@@ -159,7 +173,7 @@ struct vm {
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
-	obj module_path;
+	obj modules;
 
 	struct vm_ops ops;
 	struct vm_objects objects;
@@ -191,10 +205,10 @@ void object_stack_print(struct workspace *wk, struct object_stack *s);
 obj vm_get_constant(uint8_t *code, uint32_t *ip);
 uint32_t vm_constant_host_to_bc(uint32_t n);
 obj vm_execute(struct workspace *wk);
-bool
-vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
+bool vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
+obj vm_callstack(struct workspace *wk);
 void vm_dis(struct workspace *wk);
 const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);
@@ -213,5 +227,7 @@ MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *f
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char *fmt, ...);
 
-bool vm_dbg_push_breakpoint(struct workspace *wk, const char *bp);
+void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line);
+bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
+void vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line);
 #endif

@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+M = {}
+
+add_languages('c', 'cpp')
+
+targets = {}
+
+M.add_executable = func(name str, src glob[str])
+    targets[name] = executable(
+        name,
+        sources: src,
+    )
+endfunc
+
+M.add_library = func(name str, type str, src glob[str])
+    lib_types = {
+        'STATIC': 'static_library',
+        'SHARED': 'shared_library',
+        'MODULE': 'shared_module',
+    }
+
+    if type in lib_types
+        type = lib_types[type]
+    else
+        type = 'library'
+        src = [type] + src
+    endif
+
+    targets[name] = build_target(
+        name,
+        target_type: type,
+        sources: src,
+    )
+endfunc
+
+M.target_link_libraries = func(name str, scope str, libnames glob[str])
+    assert(name in targets)
+
+    if scope not in ['PRIVATE', 'PUBLIC', 'INTERFACE']
+        libnames = [scope] + libnames
+        scope = 'BOTH'
+    endif
+
+    cxx = meson.get_compiler('cpp')
+
+    libs = []
+    foreach libname : libnames
+        if name in targets
+            libs += targets[libname]
+            continue
+        endif
+
+        dep = cxx.find_library(libname, required: false)
+        if dep.found()
+            libs += dep
+            continue
+        endif
+    endforeach
+
+    targets[name].add_link_with(libs)
+endfunc
+
+return M

@@ -7,13 +7,14 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
-#include "platform/assert.h"
+#include "options.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -752,6 +753,7 @@ az_op_return_end(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_return_end](wk);
 }
 
+#if 0
 static void
 az_op_add_store(struct workspace *wk)
 {
@@ -774,6 +776,7 @@ az_op_add_store(struct workspace *wk)
 	obj res = object_stack_peek(&wk->vm.stack, 1);
 	wk->vm.behavior.assign_variable(wk, id->s, res, 0, assign_reassign);
 }
+#endif
 
 /******************************************************************************
  * analyzer behaviors
@@ -839,7 +842,10 @@ az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 }
 
 static bool
-az_eval_project_file(struct workspace *wk, const char *path, bool first)
+az_eval_project_file(struct workspace *wk,
+	const char *path,
+	enum build_language lang,
+	enum eval_project_file_flags flags)
 {
 	const char *newpath = path;
 	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
@@ -851,7 +857,13 @@ az_eval_project_file(struct workspace *wk, const char *path, bool first)
 		src.label = get_cstr(wk, make_str(wk, path));
 
 		obj res;
-		if (!eval(wk, &src, first ? eval_mode_first : eval_mode_default, &res)) {
+
+		enum eval_mode eval_mode = 0;
+		if (flags & eval_project_file_flag_first) {
+			eval_mode |= eval_mode_first;
+		}
+
+		if (!eval(wk, &src, lang, eval_mode, &res)) {
 			goto ret;
 		}
 
@@ -860,7 +872,11 @@ ret:
 		return ret;
 	}
 
-	return eval_project_file(wk, newpath, first);
+	if (analyzer.opts->analyze_project_call_only) {
+		flags |= eval_project_file_flag_return_after_project;
+	}
+
+	return eval_project_file(wk, newpath, lang, flags);
 }
 
 static void
@@ -936,6 +952,11 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 	if ((t & tc_disabler) == tc_disabler) {
 		t &= ~tc_disabler;
 		t |= obj_typechecking_type_tag;
+	}
+
+	// If type includes dict, then we could potentially respond to anything
+	if ((t & tc_dict & ~TYPE_TAG_MASK)) {
+		return false;
 	}
 
 	// If type includes module, then we can't be sure what methods it might
@@ -1063,7 +1084,9 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	}
 
 	if (!self) {
-		if (strcmp(native_funcs[func_idx].name, "subdir") == 0) {
+		if (strcmp(native_funcs[func_idx].name, "subdir") == 0
+			|| strcmp(native_funcs[func_idx].name, "subproject") == 0
+			|| strcmp(native_funcs[func_idx].name, "dependency") == 0) {
 			pop_args_ctx.allow_impure_args_except_first = true;
 		} else if (strcmp(native_funcs[func_idx].name, "p") == 0) {
 			pop_args_ctx.allow_impure_args = true;
@@ -1342,12 +1365,11 @@ az_warn_dead_code(struct workspace *wk,
  ******************************************************************************/
 
 bool
-do_analyze(struct az_opts *opts)
+do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 {
 	bool res = false;
 	analyzer.opts = opts;
-	struct workspace wk;
-	workspace_init_bare(&wk);
+	workspace_init_bare(wk);
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
@@ -1355,89 +1377,97 @@ do_analyze(struct az_opts *opts)
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
-		obj_array_index(&wk, wk.vm.default_scope_stack, 0, &original_scope);
-		make_obj(&wk, &wk.vm.default_scope_stack, obj_array);
-		make_obj(&wk, &scope_group, obj_array);
-		make_obj(&wk, &scope, obj_dict);
-		obj_array_push(&wk, scope_group, scope);
-		obj_array_push(&wk, wk.vm.default_scope_stack, scope_group);
+		obj_array_index(wk, wk->vm.default_scope_stack, 0, &original_scope);
+		make_obj(wk, &wk->vm.default_scope_stack, obj_array);
+		make_obj(wk, &scope_group, obj_array);
+		make_obj(wk, &scope, obj_dict);
+		obj_array_push(wk, scope_group, scope);
+		obj_array_push(wk, wk->vm.default_scope_stack, scope_group);
 		obj k, v;
-		obj_dict_for(&wk, original_scope, k, v) {
-			obj aid = push_assignment(&wk, get_cstr(&wk, k), v, 0);
+		obj_dict_for(wk, original_scope, k, v) {
+			obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
 
 			struct assignment *a = bucket_arr_get(&assignments, aid);
 			a->default_var = true;
 
-			obj_dict_set(&wk, scope, k, aid);
+			obj_dict_set(wk, scope, k, aid);
 		}
-		wk.vm.scope_stack = az_scope_stack_dup(&wk, wk.vm.default_scope_stack);
+		wk->vm.scope_stack = az_scope_stack_dup(wk, wk->vm.default_scope_stack);
 	}
 
-	wk.vm.behavior.assign_variable = az_assign_wrapper;
-	wk.vm.behavior.unassign_variable = az_unassign;
-	wk.vm.behavior.push_local_scope = az_push_local_scope;
-	wk.vm.behavior.pop_local_scope = az_pop_local_scope;
-	wk.vm.behavior.get_variable = az_lookup_wrapper;
-	wk.vm.behavior.scope_stack_dup = az_scope_stack_dup;
-	wk.vm.behavior.eval_project_file = az_eval_project_file;
-	wk.vm.behavior.native_func_dispatch = az_native_func_dispatch;
-	wk.vm.behavior.pop_args = az_pop_args;
-	wk.vm.behavior.func_lookup = az_func_lookup;
-	wk.vm.behavior.execute_loop = az_execute_loop;
-	wk.vm.in_analyzer = true;
+	wk->vm.behavior.assign_variable = az_assign_wrapper;
+	wk->vm.behavior.unassign_variable = az_unassign;
+	wk->vm.behavior.push_local_scope = az_push_local_scope;
+	wk->vm.behavior.pop_local_scope = az_pop_local_scope;
+	wk->vm.behavior.get_variable = az_lookup_wrapper;
+	wk->vm.behavior.scope_stack_dup = az_scope_stack_dup;
+	wk->vm.behavior.eval_project_file = az_eval_project_file;
+	wk->vm.behavior.native_func_dispatch = az_native_func_dispatch;
+	wk->vm.behavior.pop_args = az_pop_args;
+	wk->vm.behavior.func_lookup = az_func_lookup;
+	wk->vm.behavior.execute_loop = az_execute_loop;
+	wk->vm.in_analyzer = true;
 
-	analyzer.unpatched_ops = wk.vm.ops;
+	analyzer.unpatched_ops = wk->vm.ops;
 
-	wk.vm.ops.ops[op_az_branch] = az_op_az_branch;
-	wk.vm.ops.ops[op_az_merge] = az_op_az_merge;
-	wk.vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
-	wk.vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
-	wk.vm.ops.ops[op_constant_func] = az_op_constant_func;
-	wk.vm.ops.ops[op_return] = az_op_return;
-	wk.vm.ops.ops[op_return_end] = az_op_return_end;
-	wk.vm.ops.ops[op_call] = az_op_call;
-	wk.vm.ops.ops[op_add_store] = az_op_add_store;
+	wk->vm.ops.ops[op_az_branch] = az_op_az_branch;
+	wk->vm.ops.ops[op_az_merge] = az_op_az_merge;
+	wk->vm.ops.ops[op_jmp_if_false] = az_op_jmp_if_false;
+	wk->vm.ops.ops[op_jmp_if_true] = az_op_jmp_if_true;
+	wk->vm.ops.ops[op_constant_func] = az_op_constant_func;
+	wk->vm.ops.ops[op_return] = az_op_return;
+	wk->vm.ops.ops[op_return_end] = az_op_return_end;
+	wk->vm.ops.ops[op_call] = az_op_call;
+	/* wk->vm.ops.ops[op_add_store] = az_op_add_store; */
 
-	error_diagnostic_store_init(&wk);
+	error_diagnostic_store_init(wk);
 
 	arr_init(&az_entrypoint_stack, 32, sizeof(struct az_file_entrypoint));
 	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
 
 	if (analyzer.opts->eval_trace) {
-		make_obj(&wk, &wk.vm.dbg_state.eval_trace, obj_array);
+		make_obj(wk, &wk->vm.dbg_state.eval_trace, obj_array);
 	}
 
 	if (analyzer.opts->file_override) {
-		const char *root = determine_project_root(&wk, analyzer.opts->file_override);
+		const char *root = determine_project_root(wk, analyzer.opts->file_override);
 		if (root) {
 			SBUF(cwd);
-			path_copy_cwd(&wk, &cwd);
+			path_copy_cwd(wk, &cwd);
 
 			if (strcmp(cwd.buf, root) != 0) {
 				path_chdir(root);
-				wk.source_root = root;
+				wk->source_root = root;
 			}
 		}
 	}
 
 	if (opts->internal_file) {
-		struct assignment *a = scope_assign(&wk, "argv", make_typeinfo(&wk, tc_array), 0, assign_local);
+		struct assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
 		a->default_var = true;
 
-		wk.vm.lang_mode = language_extended;
+		wk->vm.lang_mode = language_extended;
 
 		struct source src;
 		if (!fs_read_entire_file(opts->internal_file, &src)) {
 			res = false;
 		} else {
 			obj _v;
-			res = eval(&wk, &src, eval_mode_default, &_v);
+			res = eval(wk, &src, build_language_meson, 0, &_v);
 		}
 	} else {
 		uint32_t project_id;
-		workspace_init_runtime(&wk);
-		workspace_init_startup_files(&wk);
-		res = eval_project(&wk, NULL, wk.source_root, wk.build_root, &project_id);
+		workspace_init_runtime(wk);
+		workspace_init_startup_files(wk);
+
+		{
+			obj wrap_mode;
+			get_option(wk, 0, &WKSTR("wrap_mode"), &wrap_mode);
+			set_option(
+				wk, 0, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
+		}
+
+		res = eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id);
 	}
 
 	if (az_diagnostic_enabled(az_diagnostic_unused_variable)) {
@@ -1445,7 +1475,7 @@ do_analyze(struct az_opts *opts)
 		for (i = 0; i < assignments.len; ++i) {
 			struct assignment *a = bucket_arr_get(&assignments, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
-				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
+				const char *msg = get_cstr(wk, make_strf(wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
 				error_diagnostic_store_push(a->src_idx, a->location, lvl, msg);
 
@@ -1465,19 +1495,19 @@ do_analyze(struct az_opts *opts)
 				if (!map->data.taken && map->data.not_taken) {
 					switch (map->data.type) {
 					case branch_map_type_normal:
-						vm_warning_at(&wk, *ip, "branch never taken");
+						vm_warning_at(wk, *ip, "branch never taken");
 						break;
 					case branch_map_type_ternary:
-						vm_warning_at(&wk, *ip, "true branch never evaluated");
+						vm_warning_at(wk, *ip, "true branch never evaluated");
 						break;
 					}
 				} else if (map->data.taken && !map->data.not_taken) {
 					switch (map->data.type) {
 					case branch_map_type_normal:
-						vm_warning_at(&wk, *ip, "branch always taken");
+						vm_warning_at(wk, *ip, "branch always taken");
 						break;
 					case branch_map_type_ternary:
-						vm_warning_at(&wk, *ip, "false branch never evaluated");
+						vm_warning_at(wk, *ip, "false branch never evaluated");
 						break;
 					}
 				}
@@ -1485,14 +1515,14 @@ do_analyze(struct az_opts *opts)
 		}
 
 		// If this isn't true then we probaly failed to parse a file
-		if (wk.vm.code.len == analyzer.visited_ops.len) {
+		if (wk->vm.code.len == analyzer.visited_ops.len) {
 			bool in_dead_code = false;
 			uint32_t start_src_idx, src_idx;
 			struct source_location start_loc, loc;
 
-			for (i = 5; i < wk.vm.code.len; i += OP_WIDTH(wk.vm.code.e[i])) {
+			for (i = 5; i < wk->vm.code.len; i += OP_WIDTH(wk->vm.code.e[i])) {
 				if (!analyzer.visited_ops.e[i]) {
-					vm_lookup_inst_location_src_idx(&wk.vm, i, &loc, &src_idx);
+					vm_lookup_inst_location_src_idx(&wk->vm, i, &loc, &src_idx);
 
 					if (!in_dead_code) {
 						in_dead_code = true;
@@ -1502,7 +1532,7 @@ do_analyze(struct az_opts *opts)
 
 					assert(src_idx == start_src_idx);
 				} else if (in_dead_code) {
-					az_warn_dead_code(&wk, src_idx, &start_loc, &loc);
+					az_warn_dead_code(wk, src_idx, &start_loc, &loc);
 					in_dead_code = false;
 				}
 			}
@@ -1534,14 +1564,14 @@ do_analyze(struct az_opts *opts)
 
 	bool saw_error;
 	if (analyzer.opts->eval_trace) {
-		eval_trace_print(&wk, wk.vm.dbg_state.eval_trace);
+		eval_trace_print(wk, wk->vm.dbg_state.eval_trace);
 	} else if (analyzer.opts->get_definition_for) {
 		bool found = false;
 		uint32_t i;
 		for (i = 0; i < assignments.len; ++i) {
 			struct assignment *a = bucket_arr_get(&assignments, i);
 			if (strcmp(a->name, analyzer.opts->get_definition_for) == 0) {
-				struct source *src = arr_get(&wk.vm.src, a->src_idx);
+				struct source *src = arr_get(&wk->vm.src, a->src_idx);
 				list_line_range(src, a->location, 1);
 				found = true;
 			}
@@ -1562,6 +1592,25 @@ do_analyze(struct az_opts *opts)
 	arr_destroy(&az_entrypoint_stack);
 	arr_destroy(&az_entrypoint_stacks);
 	arr_destroy(&analyzer.visited_ops);
+	return res;
+}
+
+bool
+do_analyze(struct az_opts *opts)
+{
+	struct workspace wk;
+	bool res = do_analyze_internal(&wk, opts);
 	workspace_destroy(&wk);
 	return res;
+}
+
+bool
+analyze_project_call(struct workspace *wk)
+{
+	struct az_opts opts = {
+		.replay_opts = error_diagnostic_store_replay_errors_only,
+		.analyze_project_call_only = true,
+	};
+
+	return do_analyze_internal(wk, &opts);
 }

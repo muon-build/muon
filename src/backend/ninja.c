@@ -8,16 +8,16 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/common_args.h"
 #include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
-#include "backend/ninja/custom_target.h"
 #include "backend/ninja/coverage.h"
+#include "backend/ninja/custom_target.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
 #include "error.h"
 #include "external/samurai.h"
-#include "lang/serial.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
@@ -65,16 +65,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	obj_set_clear_mark(wk, &mk);
 
 	enum obj_type t = get_obj_type(wk, tgt_id);
-	const char *name = NULL;
-
-	switch (t) {
-	case obj_alias_target: name = get_cstr(wk, get_obj_alias_target(wk, tgt_id)->name); break;
-	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
-	/* fallthrough */
-	case obj_build_target: name = get_cstr(wk, get_obj_build_target(wk, tgt_id)->build_name); break;
-	case obj_custom_target: name = get_cstr(wk, get_obj_custom_target(wk, tgt_id)->name); break;
-	default: UNREACHABLE;
-	}
+	const char *name = get_cstr(wk, ca_backend_tgt_name(wk, tgt_id));
 
 	obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing target %s", name));
 
@@ -157,89 +148,6 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 	return true;
 }
 
-static bool
-ninja_write_tests(struct workspace *wk, void *_ctx, FILE *out)
-{
-	bool wrote_header = false;
-
-	obj tests;
-	make_obj(wk, &tests, obj_dict);
-
-	uint32_t i;
-	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = arr_get(&wk->projects, i);
-		if (proj->not_ok) {
-			continue;
-		}
-
-		if (proj->tests && get_obj_array(wk, proj->tests)->len) {
-			if (!wrote_header) {
-				L("writing tests");
-				wrote_header = true;
-			}
-
-			obj res, key;
-			key = proj->cfg.name;
-
-			if (obj_dict_index(wk, tests, key, &res)) {
-				assert(false && "project defined multiple times");
-			}
-
-			obj arr;
-			make_obj(wk, &arr, obj_array);
-
-			obj_array_push(wk, arr, proj->tests);
-			obj_array_push(wk, arr, proj->test_setups);
-			obj_dict_set(wk, tests, key, arr);
-		}
-	}
-
-	return serial_dump(wk, tests, out);
-}
-
-static bool
-ninja_write_install(struct workspace *wk, void *_ctx, FILE *out)
-{
-	obj o;
-	make_obj(wk, &o, obj_array);
-	obj_array_push(wk, o, wk->install);
-	obj_array_push(wk, o, wk->install_scripts);
-	obj_array_push(wk, o, make_str(wk, wk->source_root));
-
-	struct project *proj = arr_get(&wk->projects, 0);
-	obj prefix;
-	get_option_value(wk, proj, "prefix", &prefix);
-	obj_array_push(wk, o, prefix);
-
-	return serial_dump(wk, o, out);
-}
-
-static bool
-ninja_write_compiler_check_cache(struct workspace *wk, void *_ctx, FILE *out)
-{
-	return serial_dump(wk, wk->compiler_check_cache, out);
-}
-
-static bool
-ninja_write_summary_file(struct workspace *wk, void *_ctx, FILE *out)
-{
-	workspace_print_summaries(wk, out);
-	return true;
-}
-
-static bool
-ninja_write_option_info(struct workspace *wk, void *_ctx, FILE *out)
-{
-	obj arr;
-	make_obj(wk, &arr, obj_array);
-	obj_array_push(wk, arr, wk->global_opts);
-
-	struct project *main_proj = arr_get(&wk->projects, 0);
-	obj_array_push(wk, arr, main_proj->opts);
-
-	return serial_dump(wk, arr, out);
-}
-
 bool
 ninja_write_all(struct workspace *wk)
 {
@@ -248,16 +156,7 @@ ninja_write_all(struct workspace *wk)
 
 	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "ninja_write_all"));
 
-	if (!(with_open(wk->build_root, "build.ninja", wk, &ctx, ninja_write_build)
-		    && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
-		    && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
-		    && with_open(wk->muon_private,
-			    output_path.compiler_check_cache,
-			    wk,
-			    NULL,
-			    ninja_write_compiler_check_cache)
-		    && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
-		    && with_open(wk->muon_private, output_path.option_info, wk, NULL, ninja_write_option_info))) {
+	if (!(with_open(wk->build_root, "build.ninja", wk, &ctx, ninja_write_build))) {
 		return false;
 	}
 

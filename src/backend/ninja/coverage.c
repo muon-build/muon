@@ -194,10 +194,6 @@ ninja_coverage_write_targets(struct workspace *wk, FILE *out)
 bool
 ninja_coverage_is_enabled_and_available(struct workspace *wk)
 {
-#ifndef MUON_BOOTSTRAPPED
-	return false;
-#endif
-
 	obj coverage_option;
 	get_option_value(wk, NULL, "b_coverage", &coverage_option);
 	if (!get_obj_bool(wk, coverage_option)) {

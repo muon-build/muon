@@ -33,6 +33,7 @@ enum machine_kind {
 	machine_kind_build,
 	machine_kind_host,
 };
+#define machine_kind_count 2 // Keep in sync with above
 
 struct machine_definition {
 	enum machine_kind kind;
@@ -46,6 +47,7 @@ struct machine_definition {
 
 extern struct machine_definition build_machine, host_machine;
 
+const char *machine_kind_to_s(enum machine_kind kind);
 const char *machine_system_to_s(enum machine_system sys);
 const char *machine_system_to_kernel_name(enum machine_system sys);
 

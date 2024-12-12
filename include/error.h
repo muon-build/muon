@@ -22,7 +22,7 @@
 
 enum error_diagnostic_store_replay_opts {
 	error_diagnostic_store_replay_errors_only = 1 << 0,
-	error_diagnostic_store_replay_include_sources = 1 << 1,
+	error_diagnostic_store_replay_dont_include_sources = 1 << 1,
 	error_diagnostic_store_replay_werror = 1 << 2,
 };
 
