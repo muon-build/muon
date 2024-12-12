@@ -8,16 +8,6 @@
 
 #include "compat.h"
 
-#define vs_guid_fmt "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X"
-
-struct guid
-{
-	uint32_t data1;
-	uint16_t data2;
-	uint16_t data3;
-	uint8_t data4[8];
-};
-
 /* Debug and Release */
 extern char *vs_configuration[2];
 

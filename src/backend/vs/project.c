@@ -268,6 +268,35 @@ vs_write_project(struct workspace *wk, void *_ctx, FILE *out)
 				}
 			}
 
+			// Optimization
+			obj buildtype_opt_id;
+			get_option_overridable(wk, ctx->project, target->override_options, &WKSTR("buildtype"), &buildtype_opt_id);
+			struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
+			obj buildtype_val = buildtype_opt->val;
+			const char *str = get_cstr(wk, buildtype_val);
+
+			bool use_custom = (strcmp(str, "custom") == 0) || (buildtype_opt->source <= option_value_source_default);
+
+			if (use_custom) {
+				obj optimization_id;
+				get_option_value_overridable(wk, ctx->project, target->override_options, "optimization", &optimization_id);
+				const struct str *str = get_str(wk, optimization_id);
+				if (!str_eql(str, &WKSTR("plain")) && str->len != 1) {
+					UNREACHABLE;
+				}
+
+				switch (*str->s) {
+				case '3': tag_elt(n2, "Optimization", "Full"); break;
+				case '2': tag_elt(n2, "Optimization", "MaxSpeed"); break;
+				case '1': /* no flag */ break;
+				case '0': tag_elt(n2, "Optimization", "Disabled"); break;
+				case 's': tag_elt(n2, "Optimization", "MinSpace"); break;
+				case 'g': /* managed by IDE */ break;
+				default: UNREACHABLE;
+				}
+			}
+			/* else, no additional flag */
+
 			// SDL check
 			// FIXME: how to get it ??
 			if (!is_debug) {
