@@ -5,8 +5,6 @@
 
 #include <stdlib.h>
 
-#include <windows.h>
-
 #include "compat.h"
 
 #include "args.h"
