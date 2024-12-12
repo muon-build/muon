@@ -12,7 +12,7 @@ option(
     'warning_level',
     yield: true,
     type: 'combo',
-    value: '3',
+    value: '1',
     choices: ['0', '1', '2', '3', 'everything'],
 )
 option('werror', yield: true, type: 'boolean', value: false)
