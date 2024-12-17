@@ -635,8 +635,13 @@ is_git_dir(const char *dir)
 static bool
 git_fetch_revision(struct wrap *wrap, const char *depth_str)
 {
-	return wrap_run_cmd(
-		ARGV("git", "fetch", "--depth", depth_str, "origin", wrap->fields[wf_revision]), wrap->dest_dir.buf);
+	if (wrap_run_cmd(ARGV("git", "fetch", "--depth", depth_str, "origin", wrap->fields[wf_revision]),
+		    wrap->dest_dir.buf)) {
+		return true;
+	}
+
+	LOG_W("Shallow clone failed, falling back to full clone.");
+	return wrap_run_cmd(ARGV("git", "fetch", "origin"), wrap->dest_dir.buf);
 }
 
 static bool
