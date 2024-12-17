@@ -403,8 +403,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 		goto detection_over;
 	}
 
-	if (strstr(cmd_ctx.out.buf, "clang") || strstr(cmd_ctx.out.buf, "Clang")) {
-		if (strstr(cmd_ctx.out.buf, "Apple") && strstr(cmd_ctx.out.buf, "clang")) {
+	if (str_containsi(&SBUF_WKSTR(&cmd_ctx.out), &WKSTR("clang"))) {
+		if (str_contains(&SBUF_WKSTR(&cmd_ctx.out), &WKSTR("Apple"))) {
 			type = compiler_apple_clang;
 		} else if (strstr(cmd_ctx.out.buf, "CL.EXE COMPATIBILITY")) {
 			type = compiler_clang_cl;
