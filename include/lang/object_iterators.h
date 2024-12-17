@@ -60,9 +60,9 @@ struct obj_dict_for_helper {
 	for (__key = 0,                                                                                          \
 	    __val = 0,                                                                                           \
 	    __iter.big = __iter.d->flags & obj_dict_flag_big,                                                    \
-	    __iter.h = __iter.big ? bucket_arr_get(&__wk->vm.objects.dict_hashes, __iter.d->data) : 0,           \
+	    __iter.h = __iter.big ? (struct hash *)bucket_arr_get(&__wk->vm.objects.dict_hashes, __iter.d->data) : 0,           \
 	    __iter.e = __iter.big    ? 0 :                                                                       \
-		       __iter.d->len ? bucket_arr_get(&__wk->vm.objects.dict_elems, __iter.d->data) :            \
+		       __iter.d->len ? (struct obj_dict_elem *)bucket_arr_get(&__wk->vm.objects.dict_elems, __iter.d->data) :            \
 				       0,                                                                        \
 	    __iter.big ? (__iter.i < __iter.h->keys.len ? (obj_dict_for_get_kv_big(__iter, __key, __val)) : 0) : \
 			 (__iter.e ? (obj_dict_for_get_kv(__iter, __key, __val)) : 0);                           \
@@ -70,7 +70,7 @@ struct obj_dict_for_helper {
 		__iter.big ? (++__iter.i,                                                                        \
 			(__iter.i < __iter.h->keys.len ? (obj_dict_for_get_kv_big(__iter, __key, __val)) : 0)) : \
 			     (__iter.e = __iter.e->next ?                                                        \
-						 bucket_arr_get(&__wk->vm.objects.dict_elems, __iter.e->next) :  \
+						 (struct obj_dict_elem *)bucket_arr_get(&__wk->vm.objects.dict_elems, __iter.e->next) :  \
 						 0,                                                              \
 			     (__iter.e ? (obj_dict_for_get_kv(__iter, __key, __val)) : 0)))
 
