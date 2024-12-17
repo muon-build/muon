@@ -1994,15 +1994,16 @@ push_dummy_iterator:
 static void
 vm_op_iterator_next(struct workspace *wk)
 {
-	obj key = 0, val;
+	obj key = 0, val = 0;
 	struct obj_iterator *iterator;
 	uint32_t break_jmp = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	iterator = get_obj_iterator(wk, object_stack_peek(&wk->vm.stack, 1));
+	bool should_break = false;
 
 	switch (iterator->type) {
 	case obj_iterator_type_array:
 		if (!iterator->data.array) {
-			val = 0;
+			should_break = true;
 		} else {
 			val = iterator->data.array->val;
 			iterator->data.array
@@ -2011,7 +2012,7 @@ vm_op_iterator_next(struct workspace *wk)
 		break;
 	case obj_iterator_type_range:
 		if (iterator->data.range.i >= iterator->data.range.stop) {
-			val = 0;
+			should_break = true;
 		} else {
 			make_obj(wk, &val, obj_number);
 			set_obj_number(wk, val, iterator->data.range.i);
@@ -2020,7 +2021,7 @@ vm_op_iterator_next(struct workspace *wk)
 		break;
 	case obj_iterator_type_dict_small:
 		if (!iterator->data.dict_small) {
-			val = 0;
+			should_break = true;
 		} else {
 			key = iterator->data.dict_small->key;
 			val = iterator->data.dict_small->val;
@@ -2034,7 +2035,7 @@ vm_op_iterator_next(struct workspace *wk)
 		break;
 	case obj_iterator_type_dict_big:
 		if (iterator->data.dict_big.i >= iterator->data.dict_big.h->keys.len) {
-			val = 0;
+			should_break = true;
 		} else {
 			void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
 			union obj_dict_big_dict_value *uv
@@ -2046,7 +2047,7 @@ vm_op_iterator_next(struct workspace *wk)
 		break;
 	case obj_iterator_type_typeinfo: {
 		if (iterator->data.typeinfo.i) {
-			val = 0;
+			should_break = true;
 			break;
 		}
 		++iterator->data.typeinfo.i;
@@ -2071,7 +2072,7 @@ vm_op_iterator_next(struct workspace *wk)
 	}
 	}
 
-	if (!val) {
+	if (should_break) {
 		wk->vm.ip = break_jmp;
 		return;
 	}
