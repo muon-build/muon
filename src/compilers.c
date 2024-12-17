@@ -643,6 +643,10 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 			type = linker_lld_link;
 			msvc_like = true;
 		}
+	} else if (host_machine.sys == machine_system_darwin) {
+		if (compiler->type[toolchain_component_compiler] == compiler_clang) {
+			type = linker_apple;
+		}
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
