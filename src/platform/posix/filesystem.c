@@ -189,7 +189,7 @@ ret:
 }
 
 bool
-fs_copy_file(const char *src, const char *dest)
+fs_copy_file(const char *src, const char *dest, bool force)
 {
 	bool res = false;
 	FILE *f_src = NULL;
@@ -205,6 +205,10 @@ fs_copy_file(const char *src, const char *dest)
 	} else if (!S_ISREG(st.st_mode)) {
 		LOG_E("unhandled file type");
 		goto ret;
+	}
+
+	if (force) {
+		fs_make_writeable_if_exists(dest);
 	}
 
 	if (!(f_src = fs_fopen(src, "r"))) {

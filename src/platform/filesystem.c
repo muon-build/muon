@@ -377,6 +377,21 @@ fs_fileno(FILE *f, int *ret)
 	return true;
 }
 
+bool
+fs_make_writeable_if_exists(const char *path)
+{
+	struct stat sb;
+	if (stat(path, &sb) == 0) {
+		if (!(sb.st_mode & S_IWUSR)) {
+			if (!fs_chmod(path, sb.st_mode | S_IWUSR)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 struct fs_copy_dir_ctx {
 	const char *src_base, *dest_base;
 	bool force;
@@ -407,25 +422,7 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 			goto ret;
 		}
 	} else if (S_ISREG(sb.st_mode)) {
-		bool dest_readonly = false;
-
-		struct stat dest_stat;
-		if (stat(dest.buf, &dest_stat) == 0) {
-			dest_readonly = !(dest_stat.st_mode & S_IWUSR);
-		}
-
-		if (dest_readonly) {
-			if (ctx->force) {
-				if (!fs_chmod(dest.buf, dest_stat.st_mode | S_IWUSR)) {
-					goto ret;
-				}
-			} else {
-				LOG_E("destination '%s' is read only", dest.buf);
-				goto ret;
-			}
-		}
-
-		if (!fs_copy_file(src.buf, dest.buf)) {
+		if (!fs_copy_file(src.buf, dest.buf, ctx->force)) {
 			goto ret;
 		}
 	} else {

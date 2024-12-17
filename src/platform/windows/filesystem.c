@@ -211,8 +211,12 @@ fs_rmdir(const char *path, bool force)
 }
 
 bool
-fs_copy_file(const char *src, const char *dest)
+fs_copy_file(const char *src, const char *dest, bool force)
 {
+	if (force) {
+		fs_make_writeable_if_exists(dest);
+	}
+
 	if (!CopyFile(src, dest, FALSE)) {
 		LOG_E("failed to copy file %s: %s", src, win32_error());
 		return false;

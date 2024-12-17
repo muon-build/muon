@@ -582,16 +582,26 @@ static bool
 func_module_fs_copy(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	enum kwargs {
+		kw_force,
+	};
+	struct args_kw akw[] = {
+		[kw_force] = { "force", obj_bool },
+		0,
+	};
+
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	bool force = akw[kw_force].set ? get_obj_bool(wk, akw[kw_force].val) : false;
 
 	SBUF(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
 
-	if (!fs_copy_file(path.buf, get_cstr(wk, an[1].val))) {
+	if (!fs_copy_file(path.buf, get_cstr(wk, an[1].val), force)) {
 		return false;
 	}
 	return true;

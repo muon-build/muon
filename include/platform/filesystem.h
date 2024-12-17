@@ -40,7 +40,7 @@ bool fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd);
 bool fs_has_cmd(const char *cmd);
 void fs_source_destroy(struct source *src);
 void fs_source_dup(const struct source *src, struct source *dup);
-bool fs_copy_file(const char *src, const char *dest);
+bool fs_copy_file(const char *src, const char *dest, bool force);
 bool fs_copy_dir(const char *src_base, const char *dest_base, bool force);
 bool fs_fileno(FILE *f, int *ret);
 bool fs_make_symlink(const char *target, const char *path, bool force);
@@ -54,6 +54,7 @@ bool fs_copy_metadata(const char *src, const char *dest);
 bool fs_remove(const char *path);
 bool fs_has_extension(const char *path, const char *ext);
 FILE *fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len);
+bool fs_make_writeable_if_exists(const char *path);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
