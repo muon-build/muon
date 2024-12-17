@@ -417,6 +417,26 @@ str_contains(const struct str *str, const struct str *substr)
 	return !!memmem(str->s, str->len, substr->s, substr->len);
 }
 
+bool
+str_containsi(const struct str *str, const struct str *substr)
+{
+	if (substr->len > str->len) {
+		return false;
+	} else if (substr->len == str->len) {
+		return str_eqli(str, substr);
+	}
+
+	uint32_t i;
+	for (i = 0; i < str->len - substr->len; ++i) {
+		struct str a = { .s = str->s + i, .len = substr->len };
+		if (str_eqli(&a, substr)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 obj
 str_join(struct workspace *wk, obj s1, obj s2)
 {

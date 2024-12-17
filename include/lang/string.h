@@ -42,6 +42,8 @@ enum sbuf_flags {
 #define SBUF(name) SBUF_CUSTOM(name, 1024, 0)
 #define SBUF_manual(name) SBUF_CUSTOM(name, 1024, sbuf_flag_overflow_alloc)
 
+#define SBUF_WKSTR(sb) (struct str) { .s = (sb)->buf, .len = (sb)->len }
+
 struct sbuf {
 	char *buf;
 	uint32_t len, cap;
@@ -88,6 +90,7 @@ bool str_startswithi(const struct str *ss, const struct str *pre);
 bool str_endswith(const struct str *ss, const struct str *suf);
 bool str_endswithi(const struct str *ss, const struct str *suf);
 bool str_contains(const struct str *str, const struct str *substr);
+bool str_containsi(const struct str *str, const struct str *substr);
 obj str_join(struct workspace *wk, obj s1, obj s2);
 
 bool str_to_i(const struct str *ss, int64_t *res, bool strip);
