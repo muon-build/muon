@@ -21,6 +21,8 @@
 
 extern "C" {
 #include "backend/common_args.h"
+#include "buf_size.h"
+#include "error.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -28,7 +30,7 @@ extern "C" {
 #include "ui.h"
 }
 
-static ImFont* gMonospaceFont = nullptr;
+static ImFont *gMonospaceFont = nullptr;
 
 struct g_win {
 	struct GLFWwindow *window;
@@ -147,7 +149,7 @@ struct inspector_node {
 		default: break;
 		}
 
-		return ICON_FA_QUESTION;
+		return ICON_FA_FILE;
 	}
 };
 
@@ -584,14 +586,13 @@ render_expressions(inspector_window *window)
 	for (int32_t i = 0; i < ctx->expressions.Size; ++i) {
 		ImGui::PushID(i);
 
-		std::string& s = ctx->expressions[i];
+		std::string &s = ctx->expressions[i];
 
 		if (ImGui::SmallButton(ICON_FA_MINUS)) {
 			ctx->expressions.erase(&s);
 		}
 
 		ImGui::SameLine();
-
 
 		obj res = 0;
 		SBUF(res_str);
@@ -600,7 +601,6 @@ render_expressions(inspector_window *window)
 		} else {
 			sbuf_pushs(wk, &res_str, "<error>");
 		}
-
 
 		ImGui::LabelText(s.c_str(), "%s", res_str.buf);
 
@@ -844,7 +844,7 @@ render_node_graph(inspector_window *window)
 static void
 render_sidebar(inspector_window *window)
 {
-	if (!ImGui::Begin("Targets", &window->open)) {
+	if (!ImGui::Begin(window->name, &window->open)) {
 		ImGui::End();
 		return;
 	}
@@ -866,6 +866,122 @@ render_sidebar(inspector_window *window)
 				if (ImGui::Selectable(get_cstr(wk, ca_backend_tgt_name(wk, t)))) {
 					open_editor_for_object(t);
 				}
+			}
+			ImGui::TreePop();
+		}
+	}
+
+	ImGui::End();
+}
+
+static void
+render_option(struct workspace *wk, obj k, obj o)
+{
+	ImGui::PushID(o);
+
+	struct obj_option *opt = get_obj_option(wk, o);
+
+	ImGui::TableNextColumn();
+	ImGui::Selectable(get_cstr(wk, k));
+	ImGui::TableNextColumn();
+
+	switch (opt->type) {
+	case op_boolean: {
+		bool v = get_obj_bool(wk, opt->val);
+		if (ImGui::Checkbox("", &v)) {
+			set_obj_bool(wk, opt->val, v);
+		}
+		break;
+	}
+	case op_integer: {
+		int i = get_obj_number(wk, opt->val);
+		if (ImGui::InputInt("", &i)) {
+			set_obj_number(wk, opt->val, i);
+		}
+		break;
+	}
+	case op_string: break;
+	case op_feature: {
+		int cur = (int)get_obj_feature_opt(wk, opt->val);
+		const char *items[] = {
+			[feature_opt_auto] = "auto", [feature_opt_enabled] = "enabled", [feature_opt_disabled] = "disabled"
+		};
+
+		if (ImGui::Combo("", &cur, items, ARRAY_LEN(items))) {
+			set_obj_feature_opt(wk, opt->val, (feature_opt_state)cur);
+		}
+		break;
+	}
+	case op_array: {
+		char preview[256];
+		obj_snprintf(wk, preview, sizeof(preview), "%o", opt->val);
+
+		if (opt->choices) {
+			if (ImGui::BeginCombo("", preview)) {
+				obj c;
+				obj_array_for(wk, opt->choices, c) {
+					bool selected = obj_array_in(wk, opt->val, c);
+					if (ImGui::Selectable(get_cstr(wk, c), selected)) {
+						opt->val = c;
+					}
+
+					if (selected) {
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+		}
+		break;
+	}
+	case op_combo: {
+		if (ImGui::BeginCombo("", get_cstr(wk, opt->val))) {
+			obj c;
+			obj_array_for(wk, opt->choices, c) {
+				if (ImGui::Selectable(get_cstr(wk, c), c == opt->val)) {
+					opt->val = c;
+				}
+
+				if (c == opt->val) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+		break;
+	}
+	case build_option_type_count: UNREACHABLE;
+	}
+
+	ImGui::PopID();
+}
+
+static void
+render_options(inspector_window *window)
+{
+	if (!ImGui::Begin(window->name, &window->open)) {
+		ImGui::End();
+		return;
+	}
+
+	struct inspector_context *ctx = get_inspector_context();
+	struct workspace *wk = &ctx->wk;
+	struct project *proj;
+
+	uint32_t i;
+	for (i = 0; i < wk->projects.len; ++i) {
+		proj = (struct project *)arr_get(&wk->projects, i);
+		if (!proj->cfg.name) {
+			continue;
+		}
+
+		if (ImGui::TreeNodeEx(get_cstr(wk, proj->cfg.name), ImGuiTreeNodeFlags_None)) {
+			if (ImGui::BeginTable("options", 2)) {
+				obj k, o;
+				obj_dict_for(wk, proj->opts, k, o) {
+					render_option(wk, k, o);
+				}
+				ImGui::EndTable();
 			}
 			ImGui::TreePop();
 		}
@@ -926,13 +1042,13 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 	// Clear callstack again after setup
 	ctx->callstack = 0;
 
-	obj t;
+	obj id;
 	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
 		proj = (struct project *)arr_get(&wk->projects, i);
-		obj_array_for(wk, proj->targets, t) {
-			ctx->nodes.push_back(inspector_node(t, 0, 0));
+		obj_array_for(wk, proj->targets, id) {
+			ctx->nodes.push_back(inspector_node(id, 0, 0));
 		}
 	}
 
@@ -949,6 +1065,13 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 		}
 		case obj_custom_target: {
 			struct obj_custom_target *t = get_obj_custom_target(wk, id);
+			if (t->output) {
+				obj_array_for(wk, t->output, d) {
+					uint32_t d_i = ctx->nodes.size();
+					ctx->nodes.push_back(inspector_node(d, 0, 0));
+					add_dependency_link(ctx, d_i, id);
+				}
+			}
 			if (t->input) {
 				obj_array_for(wk, t->input, d) {
 					add_dependency_link(ctx, i, d);
@@ -981,6 +1104,11 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 					add_dependency_link(ctx, i, d);
 				}
 			}
+			if (t->dep_internal.raw.order_deps) {
+				obj_array_for(wk, t->dep_internal.raw.order_deps, d) {
+					add_dependency_link(ctx, i, d);
+				}
+			}
 			break;
 		}
 		case obj_dependency: {
@@ -1007,7 +1135,97 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 	}
 }
 
-void
+enum ui_command {
+	ui_command_reconfigure,
+	ui_command_step,
+	ui_command_continue,
+	ui_command_options,
+	ui_command_close_focused_window,
+};
+
+struct ui_shortcut {
+	char key;
+	int mod;
+	enum ui_command command;
+};
+
+struct ui_shortcut ui_shortcuts[] = {
+	{ 'W', GLFW_MOD_CONTROL, ui_command_close_focused_window },
+	{ 'S', GLFW_MOD_CONTROL, ui_command_step },
+	{ 'C', GLFW_MOD_CONTROL, ui_command_continue },
+	{ 'R', GLFW_MOD_CONTROL, ui_command_reconfigure },
+	{ ',', GLFW_MOD_CONTROL, ui_command_options },
+};
+
+static const char *
+ui_command_shortcut(enum ui_command command)
+{
+	static char buf[128];
+	uint32_t bufi = 0;
+	buf[0] = 0;
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(ui_shortcuts); ++i) {
+		ui_shortcut &sc = ui_shortcuts[i];
+
+		if (command == sc.command) {
+			if (sc.mod & GLFW_MOD_CONTROL) {
+				bufi += snprintf(buf + bufi, sizeof(buf) - bufi, "ctrl+");
+			}
+
+			bufi += snprintf(buf + bufi, sizeof(buf) - bufi, "%c", sc.key);
+			break;
+		}
+	}
+
+	return buf;
+}
+
+static void
+ui_trigger_command(enum ui_command command)
+{
+	struct inspector_context *ctx = get_inspector_context();
+
+	switch (command) {
+	case ui_command_reconfigure: ctx->reinit = true; break;
+	case ui_command_step:
+		if (ctx->stopped_at_breakpoint) {
+			ctx->wk.vm.dbg_state.stepping = true;
+			ctx->stopped_at_breakpoint = false;
+		}
+		break;
+	case ui_command_continue:
+		if (ctx->stopped_at_breakpoint) {
+			ctx->wk.vm.dbg_state.stepping = false;
+			ctx->stopped_at_breakpoint = false;
+		}
+		break;
+	case ui_command_options: break;
+	case ui_command_close_focused_window: {
+		ImGuiContext &g = *GImGui;
+		ImGuiWindow *cur_window = g.NavWindow;
+
+		if (!cur_window) {
+			return;
+		}
+
+		for (inspector_window &win : ctx->windows) {
+			if (win.open && strcmp(cur_window->Name, win.name) == 0) {
+				win.open = false;
+			}
+		}
+
+		for (editor_window &win : ctx->editor_windows) {
+			if (win.open && strcmp(cur_window->Name, win.file) == 0) {
+				win.open = false;
+			}
+		}
+		break;
+	}
+	}
+}
+
+static void
 ui_inspector_window()
 {
 	struct inspector_context *ctx = get_inspector_context();
@@ -1020,8 +1238,11 @@ ui_inspector_window()
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Rerun")) {
-				ctx->reinit = true;
+			if (ImGui::MenuItem("Reconfigure", ui_command_shortcut(ui_command_reconfigure))) {
+				ui_trigger_command(ui_command_reconfigure);
+			}
+			if (ImGui::MenuItem("Options", ui_command_shortcut(ui_command_options))) {
+				ui_trigger_command(ui_command_options);
 			}
 			if (ImGui::MenuItem("Show ImGui Debug Log")) {
 				imgui_debug = true;
@@ -1104,6 +1325,7 @@ ui_inspector_window()
 
 		// we now dock our windows into the docking node we made above
 		ImGui::DockBuilderDockWindow("Graph", dock_id_right);
+		ImGui::DockBuilderDockWindow("Options", dock_id_right);
 		ImGui::DockBuilderDockWindow("Log", dock_id_right);
 		ImGui::DockBuilderDockWindow("Targets", dock_id_left_up);
 		ImGui::DockBuilderDockWindow("Callstack", dock_id_left_down);
@@ -1128,45 +1350,22 @@ ui_inspector_window()
 	ImGui::DockBuilderFinish(dockspace_id);
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+void
+key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	(void)scancode;
 	(void)window;
 
-	if (action != GLFW_RELEASE) {
+	if (action != GLFW_PRESS) {
 		return;
 	}
 
-	struct inspector_context *ctx = get_inspector_context();
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(ui_shortcuts); ++i) {
+		ui_shortcut &sc = ui_shortcuts[i];
 
-	if (key == GLFW_KEY_W  && (mods & GLFW_MOD_CONTROL)) {
-		ImGuiContext& g = *GImGui;
-		ImGuiWindow *cur_window = g.NavWindow;
-
-		if (!cur_window) {
-			return;
-		}
-
-		for (inspector_window &win : ctx->windows) {
-			if (win.open && strcmp(cur_window->Name, win.name) == 0) {
-				win.open = false;
-			}
-		}
-
-		for (editor_window &win : ctx->editor_windows) {
-			if (win.open && strcmp(cur_window->Name, win.file) == 0) {
-				win.open = false;
-			}
-		}
-	}
-
-	if (ctx->stopped_at_breakpoint) {
-		if (key == GLFW_KEY_S  && (mods & GLFW_MOD_CONTROL)) {
-			ctx->wk.vm.dbg_state.stepping = true;
-			ctx->stopped_at_breakpoint = false;
-		} else if (key == GLFW_KEY_C  && (mods & GLFW_MOD_CONTROL)) {
-			ctx->wk.vm.dbg_state.stepping = false;
-			ctx->stopped_at_breakpoint = false;
+		if (key == sc.key && (mods & sc.mod) == mods) {
+			ui_trigger_command(sc.command);
 		}
 	}
 }
@@ -1195,8 +1394,9 @@ ui_update()
 		ctx->windows.push_back({ "Breakpoints", render_breakpoints, true });
 		ctx->windows.push_back({ "Expressions", render_expressions, true });
 		ctx->windows.push_back({ "Callstack", render_callstack, true });
-		ctx->windows.push_back({ "Log", render_log, true });
 		ctx->windows.push_back({ "Graph", render_node_graph, true });
+		ctx->windows.push_back({ "Options", render_options, true });
+		ctx->windows.push_back({ "Log", render_log, true });
 
 		ctx->init = true;
 		reinit_inspector_context(ctx, true);
@@ -1247,7 +1447,6 @@ ui_update()
 
 	glfwSwapBuffers(g_win.window);
 }
-
 
 static void
 glfw_error_callback(int error, const char *description)
@@ -1337,10 +1536,10 @@ ui_main()
 	io.Fonts->AddFontFromFileTTF(
 		IMGUI_FONT_PATH "/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges);
 
-    gMonospaceFont = io.Fonts->AddFontFromFileTTF(IMGUI_FONT_PATH "/Cousine-Regular.ttf", baseFontSize);
+	gMonospaceFont = io.Fonts->AddFontFromFileTTF(IMGUI_FONT_PATH "/Cousine-Regular.ttf", baseFontSize);
 
 	// Main loop
-	while (!glfwWindowShouldClose(g_win.window))  {
+	while (!glfwWindowShouldClose(g_win.window)) {
 		ui_update();
 	}
 
