@@ -187,6 +187,11 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 	obj_array_push(wk, tgt->dep_internal.order_deps, sbuf_into_str(wk, &path));
 
+	if (!tgt->dep_internal.raw.order_deps) {
+		make_obj(wk, &tgt->dep_internal.raw.order_deps, obj_array);
+	}
+	obj_array_push(wk, tgt->dep_internal.raw.order_deps, val);
+
 	if (!ctx->implicit_include_directories) {
 		return true;
 	}

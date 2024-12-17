@@ -1080,6 +1080,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->link_whole);
 	obj_array_dedup_in_place(wk, &dep->frameworks);
 	obj_array_dedup_in_place(wk, &dep->raw.deps);
+	obj_array_dedup_in_place(wk, &dep->raw.order_deps);
 	obj_array_dedup_in_place(wk, &dep->raw.link_with);
 	obj_array_dedup_in_place(wk, &dep->raw.link_whole);
 	obj_array_dedup_in_place(wk, &dep->include_directories);

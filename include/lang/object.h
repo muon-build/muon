@@ -227,6 +227,7 @@ struct build_dep {
 
 	struct {
 		obj deps;
+		obj order_deps;
 		obj link_with;
 		obj link_whole;
 	} raw;
