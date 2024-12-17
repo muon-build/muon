@@ -1920,7 +1920,9 @@ vm_op_iterator(struct workspace *wk)
 			iterator->data.dict_big.h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 		} else {
 			iterator->type = obj_iterator_type_dict_small;
-			iterator->data.dict_small = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
+			if (d->len) {
+				iterator->data.dict_small = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
+			}
 		}
 		break;
 	}
@@ -1994,6 +1996,7 @@ push_dummy_iterator:
 static void
 vm_op_iterator_next(struct workspace *wk)
 {
+	bool push_key = false;
 	obj key = 0, val = 0;
 	struct obj_iterator *iterator;
 	uint32_t break_jmp = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
@@ -2023,6 +2026,7 @@ vm_op_iterator_next(struct workspace *wk)
 		if (!iterator->data.dict_small) {
 			should_break = true;
 		} else {
+			push_key = true;
 			key = iterator->data.dict_small->key;
 			val = iterator->data.dict_small->val;
 			if (iterator->data.dict_small->next) {
@@ -2037,6 +2041,7 @@ vm_op_iterator_next(struct workspace *wk)
 		if (iterator->data.dict_big.i >= iterator->data.dict_big.h->keys.len) {
 			should_break = true;
 		} else {
+			push_key = true;
 			void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
 			union obj_dict_big_dict_value *uv
 				= (union obj_dict_big_dict_value *)hash_get(iterator->data.dict_big.h, k);
@@ -2054,6 +2059,7 @@ vm_op_iterator_next(struct workspace *wk)
 
 		switch (iterator->data.typeinfo.type) {
 		case obj_dict: {
+			push_key = true;
 			key = make_typeinfo(wk, tc_string);
 			val = make_typeinfo(wk, tc_any);
 			break;
@@ -2078,7 +2084,7 @@ vm_op_iterator_next(struct workspace *wk)
 	}
 
 	object_stack_push(wk, val);
-	if (key) {
+	if (push_key) {
 		object_stack_push(wk, key);
 	}
 }
