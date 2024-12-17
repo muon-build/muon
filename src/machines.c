@@ -295,6 +295,13 @@ machine_cpu_address_bits(struct machine_definition *m)
 void
 machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 {
+	enum part {
+		part_arch,
+		part_vendor,
+		part_sys,
+		part_env,
+	};
+
 	struct str parts[4] = { 0 };
 	uint32_t i;
 	const char *end;
@@ -350,7 +357,9 @@ machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 		parts[3].len,
 		parts[3].s);
 
-	// Not doing anything with it so far.
+	if (str_eql(&parts[part_sys], &WKSTR("apple"))) {
+		m->sys = machine_system_darwin;
+	}
 }
 
 void
