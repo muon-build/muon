@@ -85,7 +85,7 @@ assert(m.multi_return('b') == 2)
 assert(m.multi_return('c') == 0)
 
 # test internal calls not changing interpreter state.
-m.returns_void()
+m.returns_null()
 
 # test meson.project()
 p(m.project())

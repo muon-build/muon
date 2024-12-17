@@ -104,9 +104,9 @@ func returns_string() -> str
     return '10'
 endfunc
 
-# this should return void and muon should not raise an error stating that
+# this should return null and muon should not raise an error stating that
 # it expected a return of 'str' due to the internal call to `returns_string`
-func returns_void()
+func returns_null()
     val_str = returns_string()
     message(val_str)
 endfunc
@@ -131,6 +131,6 @@ return {
     'glob_arg': glob_arg,
     'typed_list': typed_list,
     'multi_return': multi_return,
-    'returns_void': returns_void,
+    'returns_null': returns_null,
     'project': project,
 }

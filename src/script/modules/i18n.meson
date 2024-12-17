@@ -61,7 +61,7 @@ func read_linguas(source_dir str) -> list[any]
     return languages
 endfunc
 
-func get_data_dirs(source_dir str, dirs list[str]|void) -> str
+func get_data_dirs(source_dir str, dirs list[str]|null) -> str
 
     if is_null(dirs)
         return ''

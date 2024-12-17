@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: sewn <sewn@disroot.org>
 # SPDX-License-Identifier: GPL-3.0-only
 
-# TODO: investigate void kwarg in custom_target
+# TODO: investigate null kwarg in custom_target
 
 fs = import('fs')
 
