@@ -106,7 +106,7 @@ endif
 
 foreach coverage_type : coverage_types
     report_file = coverage_functions[coverage_type]()
-    if not is_void(report_file)
+    if not is_null(report_file)
         message(f'Generated @coverage_type@ coverage report: @report_file@')
     endif
 endforeach

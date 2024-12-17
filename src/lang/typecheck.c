@@ -124,7 +124,7 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 {
 	obj typestr;
 
-	t &= ~TYPE_TAG_ALLOW_VOID;
+	t &= ~TYPE_TAG_ALLOW_NULL;
 
 	const char *modifier = 0;
 	if (t & TYPE_TAG_GLOB) {
@@ -288,7 +288,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 	if (!(type & TYPE_TAG_COMPLEX)) {
 		got_type &= ~obj_typechecking_type_tag;
 
-		if (!got_type && ((type & TYPE_TAG_ALLOW_VOID) || !(type & ~TYPE_TAG_MASK))) {
+		if (!got_type && ((type & TYPE_TAG_ALLOW_NULL) || !(type & ~TYPE_TAG_MASK))) {
 			return true;
 		}
 
@@ -297,7 +297,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 		}
 
 		type |= tc_disabler; // always allow disabler type
-		type &= ~(obj_typechecking_type_tag | TYPE_TAG_ALLOW_VOID);
+		type &= ~(obj_typechecking_type_tag | TYPE_TAG_ALLOW_NULL);
 
 		assert(!(got_type & TYPE_TAG_MASK));
 		assert(!(type & TYPE_TAG_MASK));

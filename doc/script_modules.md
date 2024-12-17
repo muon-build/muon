@@ -184,7 +184,7 @@ Various additional builtin functions are avaliable:
 
 - `serial_load(path str) -> any` - load a serialized object from a file
 - `serial_dump(path str, obj any)` - serialize and save an object to a file
-- `is_void(arg any) -> bool` - check if arg is the value void.  This can be used
+- `is_null(arg any) -> bool` - check if arg is the value null.  This can be used
   to check if a kwarg with no default value has been set.
 - `typeof(arg any) -> str` - returns the type of an object.
 - `list.delete(index int)` - delete the element from list at the specefied index

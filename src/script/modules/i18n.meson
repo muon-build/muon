@@ -63,7 +63,7 @@ endfunc
 
 func get_data_dirs(source_dir str, dirs list[str]|void) -> str
 
-    if is_void(dirs)
+    if is_null(dirs)
         return ''
     endif
 
@@ -106,7 +106,7 @@ func gettext(
 
     pkg_arg = f'pkgname=@package_name@'
     lang_arg = ''
-    if not is_void(languages)
+    if not is_null(languages)
         langs_merged = '^'.join(languages)
         lang_arg = f'langs=@langs_merged@'
     endif
@@ -125,13 +125,13 @@ func gettext(
         warning(f'@tool_name@ not found, maintainer targets will not work')
     endforeach
 
-    if not is_void(preset)
+    if not is_null(preset)
         if not PRESET_ARGS.has_key(preset)
             error(f'preset: @preset@ not found')
         endif
 
         selected_preset_args = PRESET_ARGS[preset]
-        if is_void(args)
+        if is_null(args)
             args = []
         endif
 
@@ -139,7 +139,7 @@ func gettext(
     endif
 
     extra_arg = ''
-    if not is_void(args)
+    if not is_null(args)
         extra_args_merged = '^'.join(args)
         extra_arg = f'extra_args=@extra_args_merged@'
     endif
@@ -164,11 +164,11 @@ func gettext(
 
     potgen_target = run_target(f'@package_name@-pot', command: potgen_command)
 
-    if is_void(languages)
+    if is_null(languages)
         languages = read_linguas(current_source_dir)
     endif
 
-    if is_void(install_dir)
+    if is_null(install_dir)
         install_dir = get_option('localedir')
     endif
 
@@ -253,7 +253,7 @@ func merge_file(
     data_dirs_arg = get_data_dirs(current_source_dir, data_dirs)
 
     extra_arg = ''
-    if not is_void(args)
+    if not is_null(args)
         extra_args_merged = '^'.join(args)
         extra_arg = f'extra_args=@extra_args_merged@'
     endif
@@ -278,11 +278,11 @@ func merge_file(
         msgfmthelper_invocation += extra_arg
     endif
 
-    if is_void(build_by_default)
+    if is_null(build_by_default)
         build_by_default = install
     endif
 
-    if is_void(install_tag)
+    if is_null(install_tag)
         install_tag = ''
     endif
 
@@ -292,8 +292,8 @@ func merge_file(
         input: input,
         output: output,
         install_tag: install_tag,
-        install: is_void(install) ? false : install,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install: is_null(install) ? false : install,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         build_by_default: build_by_default,
     )
 
@@ -310,7 +310,7 @@ func itstool_join(
     mo_targets listify[custom_tgt]: [],
 ) -> custom_tgt
 
-    if install and is_void(install_dir)
+    if install and is_null(install_dir)
         error(
             '"install_dir" keyword argument must be set when "install" is true',
         )
@@ -337,7 +337,7 @@ func itstool_join(
         'build_root=@0@'.format(meson.project_build_root()),
     ]
 
-    if not is_void(its_files)
+    if not is_null(its_files)
         its_paths = []
         foreach its_file : its_files
             if not fs.is_absolute(its_file)
@@ -357,11 +357,11 @@ func itstool_join(
         itstool_invocation += f'mo_files=@mo_fnames_merged@'
     endif
 
-    if is_void(install)
+    if is_null(install)
         install = false
     endif
 
-    if is_void(build_by_default)
+    if is_null(build_by_default)
         build_by_default = install
     endif
 
@@ -371,8 +371,8 @@ func itstool_join(
         output: output,
         command: itstool_invocation,
         install: install,
-        install_dir: is_void(install_dir) ? '' : install_dir,
-        install_tag: is_void(install_tag) ? '' : install_tag,
+        install_dir: is_null(install_dir) ? '' : install_dir,
+        install_tag: is_null(install_tag) ? '' : install_tag,
         build_by_default: build_by_default,
         depends: mo_targets,
     )

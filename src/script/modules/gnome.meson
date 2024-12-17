@@ -35,7 +35,7 @@ func compile_resources(
     cmd = [
         find_program('glib-compile-resources'),
         '@INPUT@',
-        is_void(c_name) ? [] : ['--c-name', c_name],
+        is_null(c_name) ? [] : ['--c-name', c_name],
         export ? [] : ['--internal'],
         '--generate',
         '--target', '@OUTPUT@',
@@ -103,7 +103,7 @@ func compile_resources(
         depfile: output + '.d',
         input: input,
         install: install,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         install_tag: 'runtime',
         output: output,
         command: [
@@ -124,7 +124,7 @@ func compile_resources(
         build_by_default: build_by_default,
         input: input,
         install: install_header,
-        install_dir: is_void(install_dir) ? get_option('includedir') : install_dir,
+        install_dir: is_null(install_dir) ? get_option('includedir') : install_dir,
         install_tag: 'devel',
         output: target_name + '.h',
         command: [
@@ -158,11 +158,11 @@ endfunc
 #     sources listify[custom_tgt|file|generated_list|str]: ,
 #     symbol_prefix listify[str]: ,
 # ) -> list[custom_tgt]
-#     if is_void(namespace)
+#     if is_null(namespace)
 #         error('namespace kwarg required')
 #     endif
 #
-#     if is_void(nsversion)
+#     if is_null(nsversion)
 #         error('nsversion kwarg required')
 #     endif
 #
@@ -252,10 +252,10 @@ func gdbus_codegen(
     cmd = [
         find_program('gdbus-codegen'),
         '--c-generate-autocleanup', [autocleanup == 'default' ? 'all' : autocleanup],
-        is_void(interface_prefix) ? [] : [
+        is_null(interface_prefix) ? [] : [
             '--interface-prefix', interface_prefix,
         ],
-        is_void(namespace) ? [] : ['--c-namespace', namespace],
+        is_null(namespace) ? [] : ['--c-namespace', namespace],
         object_manager ? ['--c-generate-object-manager'] : [],
     ]
 
@@ -271,7 +271,7 @@ func gdbus_codegen(
         build_by_default: build_by_default,
         input: xml_files,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
@@ -285,7 +285,7 @@ func gdbus_codegen(
         build_by_default: build_by_default,
         input: xml_files,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         install_tag: 'devel',
         output: name + '.h',
         command: [
@@ -297,7 +297,7 @@ func gdbus_codegen(
 
     targets = [body, header]
 
-    if not is_void(docbook)
+    if not is_null(docbook)
         outputs = []
 
         foreach xml : xml_files
@@ -343,7 +343,7 @@ func mkenums(
     vprod str:,
     vtail str:,
 ) -> list[custom_tgt]
-    if is_void(sources)
+    if is_null(sources)
         error('sources kwarg required')
     endif
 
@@ -363,7 +363,7 @@ func mkenums(
     }
 
     foreach kwarg, value : known_kwargs
-        if not is_void(value)
+        if not is_null(value)
             cmd += ['--' + kwarg, value.replace('@', '\@')]
         endif
     endforeach
@@ -375,11 +375,11 @@ func mkenums(
         depends: depends,
         input: sources,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.h',
         command: [
             cmd,
-            is_void(h_template) ? [] : ['--template', h_template],
+            is_null(h_template) ? [] : ['--template', h_template],
             '@INPUT@',
         ],
     )
@@ -390,11 +390,11 @@ func mkenums(
         input: sources,
         depends: depends,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
-            is_void(c_template) ? [] : ['--template', c_template],
+            is_null(c_template) ? [] : ['--template', c_template],
             '@INPUT@',
         ],
     )
@@ -416,10 +416,10 @@ func mkenums_simple(
 ) -> list[custom_tgt]
     cmd = [
         find_program('glib-mkenums'),
-        is_void(identifier_prefix) ? [] : [
+        is_null(identifier_prefix) ? [] : [
             '--identifier-prefix', identifier_prefix,
         ],
-        is_void(symbol_prefix) ? [] : ['--symbol-prefix', symbol_prefix],
+        is_null(symbol_prefix) ? [] : ['--symbol-prefix', symbol_prefix],
     ]
 
     fhead = body_prefix + '\n' + '#include "@0@"\n'.format(name + '.h')
@@ -437,7 +437,7 @@ func mkenums_simple(
         capture: true,
         input: sources,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
@@ -457,7 +457,7 @@ func mkenums_simple(
         capture: true,
         input: sources,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.h',
         command: [
             cmd,
@@ -498,13 +498,13 @@ func genmarshal(
     stdinc bool: false,
     valist_marshallers bool: false,
 ) -> list[custom_tgt]
-    if is_void(sources)
+    if is_null(sources)
         error('sources kwarg required')
     endif
 
     cmd = [
         find_program('glib-genmarshal'),
-        is_void(prefix) ? [] : ['--prefix', prefix],
+        is_null(prefix) ? [] : ['--prefix', prefix],
         '--output', '@OUTPUT@',
         extra_args,
     ]
@@ -531,7 +531,7 @@ func genmarshal(
         depends: depends,
         depend_files: depend_files,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: header_file,
         command: [
             cmd,
@@ -546,7 +546,7 @@ func genmarshal(
         depends: depends + header,
         depend_files: depend_files,
         install: install_header,
-        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,

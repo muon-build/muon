@@ -9,7 +9,7 @@ func join(
     input str,
     output str,
 )
-    if is_void(mo_files) or mo_files.length() == 0
+    if is_null(mo_files) or mo_files.length() == 0
         error('No mo files specified to use for translation.')
     endif
 

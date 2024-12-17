@@ -16,7 +16,7 @@ enum complex_type {
 #define ARG_TYPE_NULL (obj_type_count + 1)
 
 // clang-format off
-#define TYPE_TAG_ALLOW_VOID       (((type_tag)1) << 59)
+#define TYPE_TAG_ALLOW_NULL       (((type_tag)1) << 59)
 #define TYPE_TAG_COMPLEX          (((type_tag)1) << 60)
 #define TYPE_TAG_GLOB             (((type_tag)1) << 61)
 #define TYPE_TAG_LISTIFY          (((type_tag)1) << 62)
@@ -24,7 +24,7 @@ enum complex_type {
 // clang-format on
 
 #define TYPE_TAG_MASK \
-	(TYPE_TAG_ALLOW_VOID | TYPE_TAG_COMPLEX | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY | obj_typechecking_type_tag)
+	(TYPE_TAG_ALLOW_NULL | TYPE_TAG_COMPLEX | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY | obj_typechecking_type_tag)
 
 /* complex types look like this:
  *

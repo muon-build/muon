@@ -1989,7 +1989,7 @@ func_range(struct workspace *wk, obj _, obj *res)
 static bool
 func_p(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_VOID }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_NULL }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_inspect,
 		kw_pretty,
@@ -2077,9 +2077,9 @@ ret:
 }
 
 static bool
-func_is_void(struct workspace *wk, obj _, obj *res)
+func_is_null(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_ALLOW_NULL | tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -2096,7 +2096,7 @@ func_is_void(struct workspace *wk, obj _, obj *res)
 static bool
 func_typeof(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_ALLOW_NULL | tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -2207,7 +2207,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "print", func_print, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
 	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
-	{ "is_void", func_is_void, tc_bool, true },
+	{ "is_null", func_is_null, tc_bool, true },
 	{ "typeof", func_typeof, tc_string, true },
 	{ "exit", func_exit },
 	{ NULL, NULL },

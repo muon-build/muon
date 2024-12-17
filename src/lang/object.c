@@ -325,7 +325,7 @@ static struct {
 	enum obj_type t;
 	const char *name;
 } obj_names[obj_type_count] = {
-	{ .t = obj_null, .name = "void" },
+	{ .t = obj_null, .name = "null" },
 	{ .t = obj_compiler, .name = "compiler" },
 	{ .t = obj_dependency, .name = "dep" },
 	{ .t = obj_meson, .name = "meson" },
