@@ -25,7 +25,7 @@ rwx_to_perm(const char *rwx, uint32_t *perm)
 		return false;
 	}
 
-	uint32_t bit = S_IRUSR; // 400
+	uint32_t bit = S_IRUSR;
 	uint32_t i;
 	for (i = 0; i < 9; ++i) {
 		switch (rwx[i]) {

@@ -379,6 +379,7 @@ fs_fileno(FILE *f, int *ret)
 
 struct fs_copy_dir_ctx {
 	const char *src_base, *dest_base;
+	bool force;
 };
 
 static enum iteration_result
@@ -398,14 +399,32 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-		if (!fs_mkdir(dest.buf, true)) {
+		if (!fs_mkdir(dest.buf, ctx->force)) {
 			goto ret;
 		}
 
-		if (!fs_copy_dir(src.buf, dest.buf)) {
+		if (!fs_copy_dir(src.buf, dest.buf, ctx->force)) {
 			goto ret;
 		}
 	} else if (S_ISREG(sb.st_mode)) {
+		bool dest_readonly = false;
+
+		struct stat dest_stat;
+		if (stat(dest.buf, &dest_stat) == 0) {
+			dest_readonly = !(dest_stat.st_mode & S_IWUSR);
+		}
+
+		if (dest_readonly) {
+			if (ctx->force) {
+				if (!fs_chmod(dest.buf, dest_stat.st_mode | S_IWUSR)) {
+					goto ret;
+				}
+			} else {
+				LOG_E("destination '%s' is read only", dest.buf);
+				goto ret;
+			}
+		}
+
 		if (!fs_copy_file(src.buf, dest.buf)) {
 			goto ret;
 		}
@@ -422,11 +441,12 @@ ret:
 }
 
 bool
-fs_copy_dir(const char *src_base, const char *dest_base)
+fs_copy_dir(const char *src_base, const char *dest_base, bool force)
 {
 	struct fs_copy_dir_ctx ctx = {
 		.src_base = src_base,
 		.dest_base = dest_base,
+		.force = force,
 	};
 
 	if (!fs_mkdir(dest_base, true)) {

@@ -41,7 +41,7 @@ bool fs_has_cmd(const char *cmd);
 void fs_source_destroy(struct source *src);
 void fs_source_dup(const struct source *src, struct source *dup);
 bool fs_copy_file(const char *src, const char *dest);
-bool fs_copy_dir(const char *src_base, const char *dest_base);
+bool fs_copy_dir(const char *src_base, const char *dest_base, bool force);
 bool fs_fileno(FILE *f, int *ret);
 bool fs_make_symlink(const char *target, const char *path, bool force);
 bool fs_fseek(FILE *file, size_t off);

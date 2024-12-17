@@ -12,7 +12,10 @@
 
 #ifdef _WIN32
 #ifndef S_IRUSR
-#define S_IRUSR 0
+#define S_IRUSR 0400
+#endif
+#ifndef S_IWUSR
+#define S_IWUSR 0200
 #endif
 #ifndef S_ISDIR
 #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)

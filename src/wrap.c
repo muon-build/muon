@@ -336,7 +336,7 @@ wrap_download_or_check_packagefiles(const char *filename,
 			LOG_W("url specified, but local directory '%s' is being used", source_path.buf);
 		}
 
-		if (!fs_copy_dir(source_path.buf, dest_dir)) {
+		if (!fs_copy_dir(source_path.buf, dest_dir, true)) {
 			goto ret;
 		}
 

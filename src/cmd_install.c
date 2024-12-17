@@ -146,7 +146,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 
 		if (in->type == install_target_default) {
 			if (fs_dir_exists(src)) {
-				if (!fs_copy_dir(src, dest)) {
+				if (!fs_copy_dir(src, dest, true)) {
 					return ir_err;
 				}
 			} else {
