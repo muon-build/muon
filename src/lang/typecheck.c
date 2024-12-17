@@ -67,7 +67,7 @@ simple_type_to_arr(struct workspace *wk, type_tag t)
 	}
 
 	if (!get_obj_array(wk, expected_types)->len) {
-		obj_array_push(wk, expected_types, make_str(wk, "void"));
+		obj_array_push(wk, expected_types, make_str(wk, "null"));
 	}
 
 	obj sorted;

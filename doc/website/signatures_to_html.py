@@ -294,7 +294,7 @@ def normalize_types(tp):
                 {
                     "custom_idx": ["file"],
                     "extracted_obj": ["file"],
-                    "void": [],
+                    "null": [],
                     "tgt": ["build_tgt", "custom_tgt", "both_libs"],
                     "lib": ["build_tgt", "both_libs"],
                     "exe": ["build_tgt"],
