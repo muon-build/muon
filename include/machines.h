@@ -12,6 +12,8 @@
 #include "platform/uname.h"
 
 enum machine_system {
+	machine_system_uninitialized = 0,
+	machine_system_unknown = 1,
 	machine_system_dragonfly,
 	machine_system_freebsd,
 	machine_system_gnu,
@@ -26,7 +28,6 @@ enum machine_system {
 	machine_system_cygwin,
 	machine_system_msys2,
 	machine_system_darwin,
-	machine_system_unknown,
 };
 
 enum machine_kind {

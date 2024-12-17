@@ -67,6 +67,8 @@ const char *
 machine_system_to_s(enum machine_system sys)
 {
 	switch (sys) {
+	case machine_system_uninitialized: return "<uninitialized>";
+	case machine_system_unknown: return "unknown";
 	case machine_system_dragonfly: return "dragonfly";
 	case machine_system_freebsd: return "freebsd";
 	case machine_system_gnu: return "gnu";
@@ -81,7 +83,6 @@ machine_system_to_s(enum machine_system sys)
 	case machine_system_cygwin: return "cygwin";
 	case machine_system_msys2: return "msys2";
 	case machine_system_darwin: return "darwin";
-	case machine_system_unknown: return "unknown";
 	}
 
 	UNREACHABLE_RETURN;
