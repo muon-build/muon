@@ -932,7 +932,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_name_prefix] = { "name_prefix", tc_string | tc_array },
 		[bt_kw_name_suffix] = { "name_suffix", tc_string | tc_array },
 		[bt_kw_soversion] = { "soversion", tc_number | tc_string },
-		[bt_kw_link_depends] = { "link_depends", TYPE_TAG_LISTIFY | tc_string | tc_file | tc_custom_target },
+		[bt_kw_link_depends] = { "link_depends", TYPE_TAG_LISTIFY | tc_string | tc_file | tc_custom_target | tc_build_target  | tc_build_target},
 		[bt_kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[bt_kw_pic] = { "pic", obj_bool },
 		[bt_kw_pie] = { "pie", obj_bool },
