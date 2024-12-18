@@ -671,7 +671,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			return false;
 		} else {
 			if (ctx.disabler) {
-				*ctx.res = disabler_id;
+				*ctx.res = obj_disabler;
 			} else {
 				make_obj(wk, ctx.res, obj_dependency);
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);

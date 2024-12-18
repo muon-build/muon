@@ -2128,7 +2128,7 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 
 		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
-			*res = disabler_id;
+			*res = obj_disabler;
 		}
 		return true;
 	}

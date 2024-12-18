@@ -20,12 +20,12 @@
 
 enum obj_type {
 	/* singleton object types */
-	obj_null,
-	obj_meson,
-	obj_disabler,
+	obj_null = 0,
+	obj_disabler = 1,
+	obj_meson = 2,
+	obj_bool, // obj_bool_true, obj_bool_false
 
 	/* simple object types */
-	obj_bool,
 	obj_file,
 	obj_feature_opt,
 	obj_machine,

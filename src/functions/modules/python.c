@@ -171,7 +171,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (!found && disabler) {
-		*res = disabler_id;
+		*res = obj_disabler;
 		return true;
 	}
 
@@ -194,7 +194,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 				return false;
 			}
 			if (disabler) {
-				*res = disabler_id;
+				*res = obj_disabler;
 				return true;
 			}
 			/* Return a not-found object. */

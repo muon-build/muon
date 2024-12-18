@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include "backend/output.h"
-#include "buf_size.h"
 #include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -18,7 +17,7 @@
 
 #define SERIAL_MAGIC_LEN 8
 static const char serial_magic[SERIAL_MAGIC_LEN + 1] = "muondump";
-static const uint32_t serial_version = 7;
+static const uint32_t serial_version = 9;
 
 static bool
 corrupted_dump(void)
@@ -259,7 +258,7 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 static bool
 dump_objs(struct workspace *wk, struct arr *big_string_offsets, FILE *f)
 {
-	if (!dump_uint32(wk->vm.objects.objs.len - 1, f)) {
+	if (!dump_uint32(wk->vm.objects.objs.len - compile_time_constant_objects_end, f)) {
 		return false;
 	}
 
@@ -272,7 +271,7 @@ dump_objs(struct workspace *wk, struct arr *big_string_offsets, FILE *f)
 	assert(obj_type_count < UINT8_MAX && "increase size of type tag");
 
 	uint32_t i, big_string_i = 0;
-	for (i = 1; i < wk->vm.objects.objs.len; ++i) {
+	for (i = compile_time_constant_objects_end; i < wk->vm.objects.objs.len; ++i) {
 		struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, i);
 		type_tag = o->t;
 
@@ -413,7 +412,7 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 		goto ret;
 	}
 
-	/* obj_fprintf(&wk_dest, log_file(), "saving %o\n", obj_dest); */
+	/* obj_lprintf(&wk_dest, "saving %o\n", obj_dest); */
 
 	if (!(dump_serial_header(f) && dump_uint32(obj_dest, f) && dump_bucket_arr(&wk_dest.vm.objects.chrs, f)
 		    && dump_big_strings(&wk_dest, &big_string_offsets, f) && dump_objs(&wk_dest, &big_string_offsets, f)
@@ -445,7 +444,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 		goto ret;
 	}
 
-	/* obj_fprintf(&wk_src, log_file(), "loaded %o\n", obj_src); */
+	/* obj_lprintf(&wk_src, "loaded %o\n", obj_src); */
 
 	if (!obj_clone(&wk_src, wk, obj_src, res)) {
 		corrupted_dump();

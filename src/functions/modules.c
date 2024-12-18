@@ -223,18 +223,26 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					make_obj(wk, res, obj_module);
 					m = get_obj_module(wk, *res);
 
-					if (obj_dict_index_strn(wk, wk->vm.modules, path_interpolated.buf, path_interpolated.len, res)) {
+					if (obj_dict_index_strn(wk,
+						    wk->vm.modules,
+						    path_interpolated.buf,
+						    path_interpolated.len,
+						    res)) {
 						return true;
 					}
 				}
 
 				if (module_lookup_script(wk, &path_interpolated, m, &opts)) {
 					if (encapsulate) {
-						obj_dict_set(wk, wk->vm.modules, sbuf_into_str(wk, &path_interpolated), *res);
+						obj_dict_set(wk,
+							wk->vm.modules,
+							sbuf_into_str(wk, &path_interpolated),
+							*res);
 					}
 
 					if (schema == schema_type_none) {
-						obj_array_push(wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
+						obj_array_push(
+							wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
 					}
 
 					if (wk->vm.error) {

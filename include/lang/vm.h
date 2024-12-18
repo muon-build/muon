@@ -76,9 +76,12 @@ enum variable_assignment_mode {
 };
 
 enum compile_time_constant_objects {
-	disabler_id = 1,
-	obj_bool_true = 2,
-	obj_bool_false = 3,
+	/* obj_null = 0, */
+	/* obj_disabler = 1, */
+	/* obj_meson = 2, */
+	obj_bool_true = 3,
+	obj_bool_false = 4,
+	compile_time_constant_objects_end,
 };
 
 struct obj_stack_entry {

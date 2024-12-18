@@ -41,8 +41,8 @@ enum complex_type {
 #define COMPLEX_TYPE_TYPE(t) ((t >> 48) & 0xff)
 
 // clang-format off
-#define tc_meson                (obj_typechecking_type_tag | (((type_tag)1) << 0))
-#define tc_disabler             (obj_typechecking_type_tag | (((type_tag)1) << 1))
+#define tc_disabler             (obj_typechecking_type_tag | (((type_tag)1) << 0))
+#define tc_meson                (obj_typechecking_type_tag | (((type_tag)1) << 1))
 #define tc_bool                 (obj_typechecking_type_tag | (((type_tag)1) << 2))
 #define tc_file                 (obj_typechecking_type_tag | (((type_tag)1) << 3))
 #define tc_feature_opt          (obj_typechecking_type_tag | (((type_tag)1) << 4))

@@ -263,7 +263,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
 
 				push_code(wk, op_constant);
-				push_constant(wk, disabler_id);
+				push_constant(wk, obj_disabler);
 				break;
 			} else if (str_eql(name, &WKSTR("is_disabler"))) {
 				/* jmp_if_disabler >-,

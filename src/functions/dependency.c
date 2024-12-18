@@ -26,7 +26,6 @@ func_dependency_found(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
 	*res = make_obj_bool(wk, (get_obj_dependency(wk, self)->flags & dep_flag_found) == dep_flag_found);
 	return true;
 }

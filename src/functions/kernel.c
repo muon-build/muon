@@ -824,7 +824,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 
 	if (requirement == requirement_skip) {
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
-			*res = disabler_id;
+			*res = obj_disabler;
 		} else {
 			make_obj(wk, res, obj_external_program);
 			get_obj_external_program(wk, *res)->found = false;
@@ -862,7 +862,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		}
 
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
-			*res = disabler_id;
+			*res = obj_disabler;
 		} else {
 			make_obj(wk, res, obj_external_program);
 			get_obj_external_program(wk, *res)->found = false;
@@ -1724,7 +1724,7 @@ func_import(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (!found && akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
-		*res = disabler_id;
+		*res = obj_disabler;
 		return true;
 	}
 

@@ -367,7 +367,7 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 
 		if (t == obj_array) {
 			obj_array_flat_for_(wk, *val, v, flat_iter) {
-				if (v == disabler_id) {
+				if (v == obj_disabler) {
 					wk->vm.saw_disabler = true;
 				} else if (typecheck_typeinfo(wk, v, tc_array)) {
 					// Consider a function with signature:
@@ -401,7 +401,7 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 		} else if (t == obj_typeinfo && typecheck_typeinfo(wk, *val, tc_array)) {
 			return true;
 		} else {
-			if (*val == disabler_id) {
+			if (*val == obj_disabler) {
 				wk->vm.saw_disabler = true;
 			} else if (!typecheck_custom(wk, ip, *val, type, 0)) {
 				vm_function_arg_type_error(wk, ip, *val, type, name);
@@ -481,7 +481,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		if (strcmp(kw, "kwargs") == 0) {
 			entry = object_stack_pop_entry(&wk->vm.stack);
 			++args_popped;
-			if (entry->o == disabler_id) {
+			if (entry->o == obj_disabler) {
 				wk->vm.saw_disabler = true;
 				continue;
 			}
@@ -502,7 +502,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 				if (!handle_kwarg(wk, akw, get_cstr(wk, k), entry->ip, v, entry->ip)) {
 					goto err;
 				}
-				wk->vm.saw_disabler |= v == disabler_id;
+				wk->vm.saw_disabler |= v == obj_disabler;
 			}
 		} else {
 			uint32_t kw_ip = entry->ip;
@@ -511,7 +511,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			if (!handle_kwarg(wk, akw, kw, kw_ip, entry->o, entry->ip)) {
 				goto err;
 			}
-			wk->vm.saw_disabler |= entry->o == disabler_id;
+			wk->vm.saw_disabler |= entry->o == obj_disabler;
 		}
 	}
 
@@ -537,7 +537,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			make_obj(wk, &an[i].val, obj_array);
 			for (j = i; j < wk->vm.nargs; ++j) {
 				entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
-				wk->vm.saw_disabler |= entry->o == disabler_id;
+				wk->vm.saw_disabler |= entry->o == obj_disabler;
 				obj_array_push(wk, an[i].val, entry->o);
 				an[i].node = entry->ip;
 				++argi;
@@ -560,7 +560,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			}
 
 			entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
-			wk->vm.saw_disabler |= entry->o == disabler_id;
+			wk->vm.saw_disabler |= entry->o == obj_disabler;
 			an[i].val = entry->o;
 			an[i].node = entry->ip;
 			an[i].set = true;
@@ -816,7 +816,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 
 	if (!ok) {
 		if (saw_disabler) {
-			object_stack_push(wk, disabler_id);
+			object_stack_push(wk, obj_disabler);
 		} else {
 			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
 		}
@@ -888,7 +888,7 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 
 	if (!ok) {
 		if (saw_disabler) {
-			res = disabler_id;
+			res = obj_disabler;
 		} else {
 			vm_error(wk, "in function %s", native_funcs[func_idx].name);
 			vm_push_dummy(wk);
@@ -900,14 +900,14 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 }
 
 #define binop_disabler_check(a, b)                  \
-	if (a == disabler_id || b == disabler_id) { \
-		object_stack_push(wk, disabler_id); \
+	if (a == obj_disabler || b == obj_disabler) { \
+		object_stack_push(wk, obj_disabler); \
 		return;                             \
 	}
 
 #define unop_disabler_check(a)                      \
-	if (a == disabler_id) {                     \
-		object_stack_push(wk, disabler_id); \
+	if (a == obj_disabler) {                     \
+		object_stack_push(wk, obj_disabler); \
 		return;                             \
 	}
 
@@ -1636,8 +1636,8 @@ vm_op_load(struct workspace *wk)
 	a = object_stack_pop(&wk->vm.stack);
 
 	// a could be a disabler if this is an inlined get_variable call
-	if (a == disabler_id) {
-		object_stack_push(wk, disabler_id);
+	if (a == obj_disabler) {
+		object_stack_push(wk, obj_disabler);
 		return;
 	} else if (get_obj_type(wk, a) == obj_typeinfo) {
 		vm_push_dummy(wk);
@@ -1661,8 +1661,8 @@ vm_op_try_load(struct workspace *wk)
 	b = object_stack_pop(&wk->vm.stack);
 	a = object_stack_pop(&wk->vm.stack);
 
-	if (a == disabler_id) {
-		object_stack_push(wk, disabler_id);
+	if (a == obj_disabler) {
+		object_stack_push(wk, obj_disabler);
 		return;
 	}
 
@@ -1796,8 +1796,8 @@ vm_op_member(struct workspace *wk)
 	id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	if (!wk->vm.behavior.func_lookup(wk, self, get_str(wk, id)->s, &idx, &f)) {
-		if (self == disabler_id) {
-			object_stack_push(wk, disabler_id);
+		if (self == obj_disabler) {
+			object_stack_push(wk, obj_disabler);
 			return;
 		} else if (get_obj_type(wk, self) == obj_dict) {
 			obj res;
@@ -2119,7 +2119,7 @@ vm_op_jmp_if_disabler(struct workspace *wk)
 	obj a, b;
 	a = object_stack_peek(&wk->vm.stack, 1);
 	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	if (a == disabler_id) {
+	if (a == obj_disabler) {
 		object_stack_discard(&wk->vm.stack, 1);
 		wk->vm.ip = b;
 	}
@@ -2131,7 +2131,7 @@ vm_op_jmp_if_disabler_keep(struct workspace *wk)
 	obj a, b;
 	a = object_stack_peek(&wk->vm.stack, 1);
 	b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	if (a == disabler_id) {
+	if (a == obj_disabler) {
 		wk->vm.ip = b;
 	}
 }
@@ -2669,11 +2669,7 @@ vm_init_objects(struct workspace *wk)
 	hash_init(&wk->vm.objects.obj_hash, 128, sizeof(obj));
 	hash_init_str(&wk->vm.objects.str_hash, 128);
 
-	/* default objects */
-
-	obj id;
-	make_obj(wk, &id, obj_null);
-	assert(id == 0);
+	make_default_objects(wk);
 }
 
 void
@@ -2752,9 +2748,6 @@ vm_init(struct workspace *wk)
 	/* objects */
 	vm_init_objects(wk);
 
-	make_default_objects(wk);
-	make_obj(wk, &wk->vm.modules, obj_dict);
-
 	/* func impl tables */
 	build_func_impl_tables();
 
@@ -2764,10 +2757,9 @@ vm_init(struct workspace *wk)
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, wk->vm.default_scope_stack, scope);
 
-	obj id;
-	make_obj(wk, &id, obj_meson);
-	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
+	obj_dict_set(wk, scope, make_str(wk, "meson"), obj_meson);
 
+	obj id;
 	make_obj(wk, &id, obj_machine);
 	set_obj_machine(wk, id, machine_kind_build);
 	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
@@ -2776,6 +2768,9 @@ vm_init(struct workspace *wk)
 	set_obj_machine(wk, id, machine_kind_host);
 	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
 	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
+
+	/* module cache */
+	make_obj(wk, &wk->vm.modules, obj_dict);
 
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
 

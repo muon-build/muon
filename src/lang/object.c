@@ -22,6 +22,8 @@
 #include "platform/mem.h"
 #include "tracy.h"
 
+static bool making_default_objects = false;
+
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
@@ -33,7 +35,14 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	}
 
 	switch (type) {
+	case obj_null:
+	case obj_disabler:
+	case obj_meson:
 	case obj_bool:
+		if (!making_default_objects) {
+			error_unrecoverable("tried to get singleton object of type %s", obj_type_to_s(type));
+		}
+		// fallthrough
 	case obj_file:
 	case obj_feature_opt:
 	case obj_machine: {
@@ -71,10 +80,6 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_func:
 	case obj_capture: return bucket_arr_get(&wk->vm.objects.obj_aos[o->t - _obj_aos_start], o->val);
 
-	case obj_null:
-	case obj_meson:
-	case obj_disabler: LOG_E("tried to get singleton object of type %s", obj_type_to_s(type)); abort();
-
 	default: assert(false && "tried to get invalid object type"); return NULL;
 	}
 }
@@ -82,9 +87,17 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 void
 make_default_objects(struct workspace *wk)
 {
+	making_default_objects = true;
+
 	obj id;
+	make_obj(wk, &id, obj_null);
+	assert(id == 0);
+
 	make_obj(wk, &id, obj_disabler);
-	assert(id == disabler_id);
+	assert(id == obj_disabler);
+
+	make_obj(wk, &id, obj_meson);
+	assert(id == obj_meson);
 
 	make_obj(wk, &id, obj_bool);
 	assert(id == obj_bool_true);
@@ -93,6 +106,8 @@ make_default_objects(struct workspace *wk)
 	make_obj(wk, &id, obj_bool);
 	assert(id == obj_bool_false);
 	*(bool *)get_obj_internal(wk, id, obj_bool) = false;
+
+	making_default_objects = false;
 }
 
 enum obj_type
@@ -116,12 +131,14 @@ get_obj_bool(struct workspace *wk, obj o)
 	/* return *(bool *)get_obj_internal(wk, o, obj_bool); */
 }
 
-obj make_obj_bool(struct workspace *wk, bool v)
+obj
+make_obj_bool(struct workspace *wk, bool v)
 {
 	return v ? obj_bool_true : obj_bool_false;
 }
 
-obj get_obj_bool_with_default(struct workspace *wk, obj o, bool def)
+obj
+get_obj_bool_with_default(struct workspace *wk, obj o, bool def)
 {
 	return o ? get_obj_bool(wk, o) : def;
 }
@@ -140,7 +157,6 @@ get_obj_number(struct workspace *wk, obj o)
 {
 	return *(int64_t *)get_obj_internal(wk, o, obj_number);
 }
-
 
 void
 set_obj_number(struct workspace *wk, obj o, int64_t v)
@@ -248,11 +264,15 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	*id = wk->vm.objects.objs.len;
 
 	switch (type) {
-	case obj_bool:
-	case obj_file:
 	case obj_null:
-	case obj_meson:
 	case obj_disabler:
+	case obj_meson:
+	case obj_bool:
+		if (!making_default_objects) {
+			UNREACHABLE;
+		}
+		// fallthrough
+	case obj_file:
 	case obj_machine:
 	case obj_feature_opt: val = 0; break;
 
@@ -1364,9 +1384,7 @@ _obj_dict_set(struct workspace *wk,
 		d->tail = 0; // unnecessary but nice
 
 		while (true) {
-			union obj_dict_big_dict_value val = {
-				.val = { .key = e->key, .val = e->val }
-			};
+			union obj_dict_big_dict_value val = { .val = { .key = e->key, .val = e->val } };
 
 			if (d->flags & obj_dict_flag_int_key) {
 				hash_set(h, &e->key, val.u64);
@@ -1613,7 +1631,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	}
 
 	enum obj_type t = get_obj_type(wk_src, val);
-	/* L("cloning %s", obj_type_to_s(t)); */
+	L("cloning %s", obj_type_to_s(t));
 
 	switch (t) {
 	case obj_null: *ret = 0; return true;
@@ -1621,9 +1639,8 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		make_obj(wk_dest, ret, t);
 		set_obj_number(wk_dest, *ret, get_obj_number(wk_src, val));
 		return true;
-	case obj_bool:
-		*ret = make_obj_bool(wk_dest, get_obj_bool(wk_src, val));
-		return true;
+	case obj_disabler: *ret = val; return true;
+	case obj_bool: *ret = val; return true;
 	case obj_string: {
 		*ret = str_clone(wk_src, wk_dest, val);
 		return true;
@@ -2312,7 +2329,6 @@ obj_vlprintf(struct workspace *wk, const char *fmt, va_list ap)
 		buf = &sb;
 	}
 
-
 	return obj_vasprintf(wk, buf, fmt, ap);
 }
 
@@ -2325,7 +2341,6 @@ obj_lprintf(struct workspace *wk, const char *fmt, ...)
 	va_end(ap);
 	return ret;
 }
-
 
 /*
  * inspect - obj_to_s + more detail for some objects
