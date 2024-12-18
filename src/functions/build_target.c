@@ -289,8 +289,7 @@ func_build_target_found(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, true);
+	*res = make_obj_bool(wk, true);
 	return true;
 }
 

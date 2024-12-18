@@ -79,6 +79,22 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	}
 }
 
+void
+make_default_objects(struct workspace *wk)
+{
+	obj id;
+	make_obj(wk, &id, obj_disabler);
+	assert(id == disabler_id);
+
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_true);
+	*(bool *)get_obj_internal(wk, id, obj_bool) = true;
+
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_false);
+	*(bool *)get_obj_internal(wk, id, obj_bool) = false;
+}
+
 enum obj_type
 get_obj_type(struct workspace *wk, obj id)
 {
@@ -89,7 +105,25 @@ get_obj_type(struct workspace *wk, obj id)
 bool
 get_obj_bool(struct workspace *wk, obj o)
 {
-	return *(bool *)get_obj_internal(wk, o, obj_bool);
+	if (o == obj_bool_true) {
+		return true;
+	} else if (o == obj_bool_false) {
+		return false;
+	} else {
+		UNREACHABLE;
+	}
+
+	/* return *(bool *)get_obj_internal(wk, o, obj_bool); */
+}
+
+obj make_obj_bool(struct workspace *wk, bool v)
+{
+	return v ? obj_bool_true : obj_bool_false;
+}
+
+obj get_obj_bool_with_default(struct workspace *wk, obj o, bool def)
+{
+	return o ? get_obj_bool(wk, o) : def;
 }
 
 obj
@@ -107,11 +141,6 @@ get_obj_number(struct workspace *wk, obj o)
 	return *(int64_t *)get_obj_internal(wk, o, obj_number);
 }
 
-void
-set_obj_bool(struct workspace *wk, obj o, bool v)
-{
-	*(bool *)get_obj_internal(wk, o, obj_bool) = v;
-}
 
 void
 set_obj_number(struct workspace *wk, obj o, int64_t v)
@@ -1593,8 +1622,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		set_obj_number(wk_dest, *ret, get_obj_number(wk_src, val));
 		return true;
 	case obj_bool:
-		make_obj(wk_dest, ret, t);
-		set_obj_bool(wk_dest, *ret, get_obj_bool(wk_src, val));
+		*ret = make_obj_bool(wk_dest, get_obj_bool(wk_src, val));
 		return true;
 	case obj_string: {
 		*ret = str_clone(wk_src, wk_dest, val);

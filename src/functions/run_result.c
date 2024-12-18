@@ -83,8 +83,7 @@ func_run_result_compiled(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, rr->flags & run_result_flag_compile_ok);
+	*res = make_obj_bool(wk, rr->flags & run_result_flag_compile_ok);
 	return true;
 }
 

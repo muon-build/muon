@@ -495,8 +495,7 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 		}
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, !missing);
+	*res = make_obj_bool(wk, !missing);
 	return true;
 }
 
@@ -1807,8 +1806,7 @@ func_is_variable(struct workspace *wk, obj _, obj *res)
 
 	obj dont_care;
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), &dont_care));
+	*res = make_obj_bool(wk, wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), &dont_care));
 	return true;
 }
 

@@ -42,8 +42,7 @@ func_dict_has_key(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, obj_dict_in(wk, self, an[0].val));
+	*res = make_obj_bool(wk, obj_dict_in(wk, self, an[0].val));
 	return true;
 }
 

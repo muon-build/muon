@@ -155,8 +155,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 		switch (type) {
 		case op_string: val = make_str(wk, ""); break;
 		case op_boolean:
-			make_obj(wk, &val, obj_bool);
-			set_obj_bool(wk, val, true);
+			val = make_obj_bool(wk, true);
 			break;
 		case op_combo:
 			if (!get_obj_array(wk, akw[kw_choices].val)->len) {

@@ -19,8 +19,7 @@ func_number_is_odd(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, (get_obj_number(wk, self) & 1) != 0);
+	*res = make_obj_bool(wk, (get_obj_number(wk, self) & 1) != 0);
 	return true;
 }
 
@@ -31,8 +30,7 @@ func_number_is_even(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, (get_obj_number(wk, self) & 1) == 0);
+	*res = make_obj_bool(wk, (get_obj_number(wk, self) & 1) == 0);
 	return true;
 }
 

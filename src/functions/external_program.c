@@ -42,8 +42,7 @@ func_external_program_found(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_external_program(wk, self)->found);
+	*res = make_obj_bool(wk, get_obj_external_program(wk, self)->found);
 	return true;
 }
 

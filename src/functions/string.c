@@ -368,8 +368,7 @@ func_version_compare(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ctx.res);
+	*res = make_obj_bool(wk, ctx.res);
 	return true;
 }
 
@@ -401,8 +400,7 @@ func_string_startswith(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, str_startswith(get_str(wk, self), get_str(wk, an[0].val)));
+	*res = make_obj_bool(wk, str_startswith(get_str(wk, self), get_str(wk, an[0].val)));
 	return true;
 }
 
@@ -414,8 +412,7 @@ func_string_endswith(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, str_endswith(get_str(wk, self), get_str(wk, an[0].val)));
+	*res = make_obj_bool(wk, str_endswith(get_str(wk, self), get_str(wk, an[0].val)));
 	return true;
 }
 
@@ -530,8 +527,7 @@ func_string_contains(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, found);
+	*res = make_obj_bool(wk, found);
 	return true;
 }
 

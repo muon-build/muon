@@ -125,8 +125,7 @@ func_module_fs_lookup_common(struct workspace *wk,
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, lookup(path.buf));
+	*res = make_obj_bool(wk, lookup(path.buf));
 	return true;
 }
 
@@ -218,9 +217,8 @@ func_module_fs_is_absolute(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
 	// TODO: Handle this
-	set_obj_bool(wk, *res, path_is_absolute(get_cstr(wk, an[0].val)));
+	*res = make_obj_bool(wk, path_is_absolute(get_cstr(wk, an[0].val)));
 	return true;
 }
 
@@ -425,8 +423,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
 
 	// TODO: handle symlinks
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, strcmp(path1.buf, path2.buf) == 0);
+	*res = make_obj_bool(wk, strcmp(path1.buf, path2.buf) == 0);
 	return true;
 }
 
@@ -690,8 +687,7 @@ func_module_fs_is_basename(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, path_is_basename(get_cstr(wk, an[0].val)));
+	*res = make_obj_bool(wk, path_is_basename(get_cstr(wk, an[0].val)));
 	return true;
 }
 
@@ -717,8 +713,7 @@ func_module_fs_is_subpath(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, path_is_subpath(get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
+	*res = make_obj_bool(wk, path_is_subpath(get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
 	return true;
 }
 

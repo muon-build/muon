@@ -82,8 +82,7 @@ func_array_contains(struct workspace *wk, obj self, obj *res)
 	struct array_contains_ctx ctx = { .item = an[0].val };
 	obj_array_foreach(wk, self, &ctx, array_contains_iter);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ctx.found);
+	*res = make_obj_bool(wk, ctx.found);
 	return true;
 }
 

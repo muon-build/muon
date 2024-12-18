@@ -465,8 +465,7 @@ compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 		return false;                                           \
 	}                                                               \
 	if (__requirement == requirement_skip) {                        \
-		make_obj(wk, res, obj_bool);                            \
-		set_obj_bool(wk, *res, false);                          \
+		*res = make_obj_bool(wk, false);                        \
 		return true;                                            \
 	}
 
@@ -774,8 +773,7 @@ func_compiler_has_function_attribute(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(requirement, has_fattr);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, has_fattr);
+	*res = make_obj_bool(wk, has_fattr);
 	return true;
 }
 
@@ -942,8 +940,7 @@ func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(requirement, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 
 	compiler_check_log(wk, &opts, "has function %s: %s", get_cstr(wk, an[0].val), bool_to_yn(ok));
 
@@ -1058,8 +1055,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(required, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 
 	compiler_check_log(wk,
 		&opts,
@@ -1272,8 +1268,7 @@ func_compiler_has_define(struct workspace *wk, obj self, obj *res)
 	compiler_handle_has_required_kw(required, !!*res);
 
 	obj b;
-	make_obj(wk, &b, obj_bool);
-	set_obj_bool(wk, b, !!*res);
+	b = make_obj_bool(wk, !!*res);
 	*res = b;
 
 	return true;
@@ -1293,8 +1288,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, str_eql(get_str(wk, pre), &WKSTR("_")));
+	*res = make_obj_bool(wk, str_eql(get_str(wk, pre), &WKSTR("_")));
 	return true;
 }
 
@@ -1351,8 +1345,7 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 
 	compiler_handle_has_required_kw(requirement, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 
 	return true;
 }
@@ -1401,8 +1394,7 @@ compiler_check_header(struct workspace *wk,
 
 	compiler_handle_has_required_kw(required, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 
 	compiler_check_log(wk, opts, "header %s %s: %s", hdr, mode_s, bool_to_yn(ok));
 
@@ -1480,8 +1472,7 @@ func_compiler_has_type(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(required, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 
 	compiler_check_log(wk, &opts, "has type %s: %s", get_cstr(wk, an[0].val), bool_to_yn(ok));
 
@@ -1546,8 +1537,7 @@ func_compiler_has_member(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(required, ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ok);
+	*res = make_obj_bool(wk, ok);
 	return true;
 }
 
@@ -1618,8 +1608,7 @@ func_compiler_has_members(struct workspace *wk, obj self, obj *res)
 
 	compiler_handle_has_required_kw(required, ctx.ok);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, ctx.ok);
+	*res = make_obj_bool(wk, ctx.ok);
 	return true;
 }
 
@@ -1790,8 +1779,7 @@ compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj 
 
 	compiler_handle_has_required_kw(requirement, has_argument);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, has_argument);
+	*res = make_obj_bool(wk, has_argument);
 	return true;
 }
 

@@ -17,8 +17,7 @@ func_disabler_found(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, false);
+	*res = make_obj_bool(wk, false);
 	return true;
 }
 

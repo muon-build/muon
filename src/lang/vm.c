@@ -2752,18 +2752,7 @@ vm_init(struct workspace *wk)
 	/* objects */
 	vm_init_objects(wk);
 
-	obj id;
-	make_obj(wk, &id, obj_disabler);
-	assert(id == disabler_id);
-
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_true);
-	set_obj_bool(wk, id, true);
-
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_false);
-	set_obj_bool(wk, id, false);
-
+	make_default_objects(wk);
 	make_obj(wk, &wk->vm.modules, obj_dict);
 
 	/* func impl tables */
@@ -2775,6 +2764,7 @@ vm_init(struct workspace *wk)
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, wk->vm.default_scope_stack, scope);
 
+	obj id;
 	make_obj(wk, &id, obj_meson);
 	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
 

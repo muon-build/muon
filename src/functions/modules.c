@@ -277,8 +277,7 @@ func_module_found(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_module(wk, self)->found);
+	*res = make_obj_bool(wk, get_obj_module(wk, self)->found);
 	return true;
 }
 

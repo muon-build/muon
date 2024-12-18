@@ -300,8 +300,7 @@ func_python_installation_has_path(struct workspace *wk, obj self, obj *res)
 
 	obj sysconfig_paths = get_obj_python_installation(wk, self)->sysconfig_paths;
 	bool found = obj_dict_in(wk, sysconfig_paths, an[0].val);
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, found);
+	*res = make_obj_bool(wk, found);
 
 	return true;
 }
@@ -316,8 +315,7 @@ func_python_installation_has_var(struct workspace *wk, obj self, obj *res)
 
 	obj sysconfig_vars = get_obj_python_installation(wk, self)->sysconfig_vars;
 	bool found = obj_dict_in(wk, sysconfig_vars, an[0].val);
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, found);
+	*res = make_obj_bool(wk, found);
 
 	return true;
 }

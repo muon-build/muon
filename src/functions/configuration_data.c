@@ -184,8 +184,7 @@ func_configuration_data_has(struct workspace *wk, obj self, obj *res)
 	}
 
 	obj _, dict = get_obj_configuration_data(wk, self)->dict;
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, obj_dict_index(wk, dict, an[0].val, &_));
+	*res = make_obj_bool(wk, obj_dict_index(wk, dict, an[0].val, &_));
 	return true;
 }
 

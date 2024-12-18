@@ -53,8 +53,7 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 		break;
 	case JSON_NULL: *res = obj_null; break;
 	case JSON_BOOLEAN:
-		make_obj(wk, res, obj_bool);
-		set_obj_bool(wk, *res, json_getBoolean(json));
+		*res = make_obj_bool(wk, json_getBoolean(json));
 		break;
 	default: LOG_E("error parsing json: invalid object"); return false;
 	}

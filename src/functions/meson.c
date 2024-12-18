@@ -198,8 +198,7 @@ func_meson_is_subproject(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, wk->cur_project != 0);
+	*res = make_obj_bool(wk, wk->cur_project != 0);
 	return true;
 }
 
@@ -225,8 +224,7 @@ func_meson_is_cross_build(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, false);
+	*res = make_obj_bool(wk, false);
 	return true;
 }
 
@@ -237,8 +235,7 @@ func_meson_is_unity(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, false);
+	*res = make_obj_bool(wk, false);
 	return true;
 }
 
@@ -436,13 +433,11 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (!akw[kw_skip_if_destdir].set) {
-		make_obj(wk, &akw[kw_skip_if_destdir].val, obj_bool);
-		set_obj_bool(wk, akw[kw_skip_if_destdir].val, false);
+		akw[kw_skip_if_destdir].val = make_obj_bool(wk, false);
 	}
 
 	if (!akw[kw_dry_run].set) {
-		make_obj(wk, &akw[kw_dry_run].val, obj_bool);
-		set_obj_bool(wk, akw[kw_dry_run].val, false);
+		akw[kw_dry_run].val = make_obj_bool(wk, false);
 	}
 
 	obj install_script;
@@ -551,8 +546,7 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, true); // TODO: can return false in cross compile
+	*res = make_obj_bool(wk, true); // TODO: can return false in cross compile
 	return true;
 }
 

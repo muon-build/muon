@@ -524,12 +524,14 @@ struct obj_clear_mark {
 void make_obj(struct workspace *wk, obj *id, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
 
+void make_default_objects(struct workspace *wk);
+
 void obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk);
 void obj_clear(struct workspace *wk, const struct obj_clear_mark *mk);
 
-void set_obj_bool(struct workspace *wk, obj o, bool v);
 bool get_obj_bool(struct workspace *wk, obj o);
-void set_obj_bool(struct workspace *wk, obj o, bool v);
+obj make_obj_bool(struct workspace *wk, bool v);
+obj get_obj_bool_with_default(struct workspace *wk, obj o, bool def);
 obj make_number(struct workspace *wk, int64_t n);
 int64_t get_obj_number(struct workspace *wk, obj o);
 void set_obj_number(struct workspace *wk, obj o, int64_t v);

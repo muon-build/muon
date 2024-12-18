@@ -101,13 +101,12 @@ compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_ch
 	obj arr, cache_res;
 	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
 		obj_array_index(wk, arr, 0, &cache_res);
-		set_obj_bool(wk, cache_res, val->success);
+		cache_res = make_obj_bool(wk, val->success);
 		obj_array_set(wk, arr, 1, val->value);
 	} else {
 		make_obj(wk, &arr, obj_array);
 
-		make_obj(wk, &cache_res, obj_bool);
-		set_obj_bool(wk, cache_res, val->success);
+		cache_res = make_obj_bool(wk, val->success);
 
 		obj_array_push(wk, arr, cache_res);
 		obj_array_push(wk, arr, val->value);

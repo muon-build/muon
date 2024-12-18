@@ -17,8 +17,7 @@ feature_opt_common(struct workspace *wk, obj self, obj *res, enum feature_opt_st
 		return false;
 	}
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_feature_opt(wk, self) == state);
+	*res = make_obj_bool(wk, get_obj_feature_opt(wk, self) == state);
 	return true;
 }
 
@@ -49,8 +48,7 @@ func_feature_opt_allowed(struct workspace *wk, obj self, obj *res)
 
 	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, state == feature_opt_auto || state == feature_opt_enabled);
+	*res = make_obj_bool(wk, state == feature_opt_auto || state == feature_opt_enabled);
 	return true;
 }
 

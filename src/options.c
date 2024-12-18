@@ -314,8 +314,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 			return false;
 		}
 
-		make_obj(wk, res, obj_bool);
-		set_obj_bool(wk, *res, b);
+		*res = make_obj_bool(wk, b);
 		break;
 	}
 	case op_integer: {
