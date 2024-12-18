@@ -23,7 +23,7 @@ option(
     'backend',
     type: 'combo',
     value: 'ninja',
-    choices: ['ninja', 'xcode'],
+    choices: ['ninja', 'vs', 'vs2019', 'vs2022', 'xcode'],
 )
 option('backend_max_links', type: 'integer', value: 0, min: 0)
 option(
@@ -163,3 +163,4 @@ option('env.NINJA', type: 'array', value: ['ninja'])
 option('env.NASM', type: 'array', value: ['nasm'])
 option('env.AR', type: 'array', value: ['ar'])
 option('env.LD', type: 'array', value: ['cc'])
+option('env.WINDRES', type: 'array', value: ['windres'])

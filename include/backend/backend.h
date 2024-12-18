@@ -7,5 +7,5 @@
 #define MUON_BACKEND_BACKEND_H
 #include "lang/workspace.h"
 
-bool backend_output(struct workspace *wk);
+bool backend_output(struct workspace *wk, enum backend_output);
 #endif

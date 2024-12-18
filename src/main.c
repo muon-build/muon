@@ -915,6 +915,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init_bare(&wk);
 	workspace_init_runtime(&wk);
+	enum backend_output backend = backend_output_ninja;
 
 	uint32_t original_argi = argi + 1;
 

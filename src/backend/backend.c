@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
@@ -9,6 +10,7 @@
 #include "backend/backend.h"
 #include "backend/common_args.h"
 #include "backend/ninja.h"
+#include "backend/vs.h"
 #include "backend/output.h"
 #include "backend/xcode.h"
 #include "functions/environment.h"
@@ -158,7 +160,7 @@ write_option_info(struct workspace *wk, void *_ctx, FILE *out)
 }
 
 bool
-backend_output(struct workspace *wk)
+backend_output(struct workspace *wk, enum backend_output backend)
 {
 	TracyCZoneAutoS;
 
