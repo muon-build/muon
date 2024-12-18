@@ -26,6 +26,7 @@ extern "C" {
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/path.h"
 #include "ui.h"
 }
@@ -877,6 +878,8 @@ render_sidebar(inspector_window *window)
 static void
 render_option(struct workspace *wk, obj k, obj o)
 {
+	static obj editing_option = 0;
+
 	ImGui::PushID(o);
 
 	struct obj_option *opt = get_obj_option(wk, o);
@@ -889,18 +892,36 @@ render_option(struct workspace *wk, obj k, obj o)
 	case op_boolean: {
 		bool v = get_obj_bool(wk, opt->val);
 		if (ImGui::Checkbox("", &v)) {
-			set_obj_bool(wk, opt->val, v);
+			set_option(wk, 0, o, make_obj_bool(wk, v), option_value_source_commandline, false);
 		}
 		break;
 	}
 	case op_integer: {
 		int i = get_obj_number(wk, opt->val);
 		if (ImGui::InputInt("", &i)) {
-			set_obj_number(wk, opt->val, i);
+			set_option(wk, 0, o, make_number(wk, i), option_value_source_commandline, false);
 		}
 		break;
 	}
-	case op_string: break;
+	case op_string: {
+		if (editing_option == o) {
+			static char buf[1024];
+			if (ImGui::SmallButton(ICON_FA_CHECK)) {
+				set_option(wk, 0, o, make_str(wk, buf), option_value_source_commandline, false);
+				editing_option = 0;
+				buf[0] = 0;
+			}
+			ImGui::SameLine();
+			ImGui::InputText("", buf, sizeof(buf));
+		} else {
+			if (ImGui::SmallButton(ICON_FA_PEN)) {
+				editing_option = o;
+			}
+			ImGui::SameLine();
+			ImGui::Text("%s", get_cstr(wk, opt->val));
+		}
+		break;
+	}
 	case op_feature: {
 		int cur = (int)get_obj_feature_opt(wk, opt->val);
 		const char *items[] = {
@@ -908,7 +929,10 @@ render_option(struct workspace *wk, obj k, obj o)
 		};
 
 		if (ImGui::Combo("", &cur, items, ARRAY_LEN(items))) {
-			set_obj_feature_opt(wk, opt->val, (feature_opt_state)cur);
+			obj val;
+			make_obj(wk, &val, obj_feature_opt);
+			set_obj_feature_opt(wk, val, (feature_opt_state)cur);
+			set_option(wk, 0, o, val, option_value_source_commandline, false);
 		}
 		break;
 	}
@@ -917,19 +941,97 @@ render_option(struct workspace *wk, obj k, obj o)
 		obj_snprintf(wk, preview, sizeof(preview), "%o", opt->val);
 
 		if (opt->choices) {
+			bool rebuild = false;
+			uint32_t rebuild_idx = 0;
+			bool rebuild_idx_selected = false;
+
 			if (ImGui::BeginCombo("", preview)) {
+				uint32_t choice_idx = 0;
 				obj c;
 				obj_array_for(wk, opt->choices, c) {
-					bool selected = obj_array_in(wk, opt->val, c);
+					uint32_t selected_idx;
+					bool selected = obj_array_index_of(wk, opt->val, c, &selected_idx);
+
 					if (ImGui::Selectable(get_cstr(wk, c), selected)) {
-						opt->val = c;
+						rebuild_idx_selected = !selected;
+						if (rebuild_idx_selected) {
+							rebuild_idx = choice_idx;
+						} else {
+							rebuild_idx = selected_idx;
+						}
+						rebuild = true;
 					}
 
 					if (selected) {
 						ImGui::SetItemDefaultFocus();
 					}
+
+					++choice_idx;
 				}
 				ImGui::EndCombo();
+			}
+
+			if (rebuild) {
+				obj val;
+				obj_array_dup(wk, opt->val, &val);
+
+				if (rebuild_idx_selected) {
+					obj nv;
+					obj_array_index(wk, opt->choices, rebuild_idx, &nv);
+					obj_array_push(wk, val, nv);
+				} else {
+					obj_array_del(wk, val, rebuild_idx);
+				}
+
+				set_option(wk, 0, o, val, option_value_source_commandline, false);
+			}
+		} else {
+			bool do_delete = false;
+			uint32_t delete_idx = 0;
+
+			if (ImGui::BeginCombo("", preview)) {
+				obj v;
+				uint32_t idx = 0;
+				obj_array_for(wk, opt->val, v) {
+					ImGui::PushID(idx);
+
+					bool selected = true;
+					if (ImGui::Selectable(get_cstr(wk, v), selected)) {
+						do_delete = true;
+						delete_idx = idx;
+					}
+
+					ImGui::PopID();
+					++idx;
+				}
+				ImGui::EndCombo();
+			}
+
+			if (do_delete) {
+				obj val;
+				obj_array_dup(wk, opt->val, &val);
+				obj_array_del(wk, val, delete_idx);
+				set_option(wk, 0, o, val, option_value_source_commandline, false);
+			}
+
+			if (editing_option == o) {
+				static char buf[1024];
+				ImGui::InputText("##xx", buf, sizeof(buf));
+				ImGui::SameLine();
+				if (ImGui::SmallButton(ICON_FA_CHECK) && buf[0]) {
+					obj val;
+					obj_array_dup(wk, opt->val, &val);
+					obj_array_push(wk, val, make_str(wk, buf));
+
+					set_option(wk, 0, o, val, option_value_source_commandline, false);
+					buf[0] = 0;
+					editing_option = 0;
+				}
+			} else {
+				ImGui::SameLine();
+				if (ImGui::SmallButton(ICON_FA_PLUS)) {
+					editing_option = o;
+				}
 			}
 		}
 		break;
@@ -939,7 +1041,7 @@ render_option(struct workspace *wk, obj k, obj o)
 			obj c;
 			obj_array_for(wk, opt->choices, c) {
 				if (ImGui::Selectable(get_cstr(wk, c), c == opt->val)) {
-					opt->val = c;
+					set_option(wk, 0, o, c, option_value_source_commandline, false);
 				}
 
 				if (c == opt->val) {
@@ -1014,10 +1116,23 @@ static void
 reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 {
 	struct workspace *wk = &ctx->wk;
+	struct workspace wk_bu;
+	obj opts_bu;
 
 	ctx->reinit = false;
 
 	if (ctx->init && !first) {
+		obj opts;
+		make_obj(wk, &opts, obj_dict);
+		workspace_init_bare(&wk_bu);
+		uint32_t i;
+		for (i = 0; i < wk->projects.len; ++i) {
+			struct project *proj = (struct project *)arr_get(&wk->projects, i);
+			obj_dict_set(wk, opts, proj->cfg.name, proj->opts);
+		}
+
+		obj_clone(wk, &wk_bu, opts, &opts_bu);
+
 		workspace_destroy(wk);
 	}
 
@@ -1036,6 +1151,31 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 		vm_dbg_push_breakpoint(wk, make_str(wk, bp.file), bp.line);
 	}
 	wk->vm.dbg_state.break_cb = inspector_break_cb;
+
+	if (ctx->init && !first) {
+		obj opts, proj_name, proj_opts;
+		obj_clone(&wk_bu, wk, opts_bu, &opts);
+
+		obj_dict_for(wk, opts, proj_name, proj_opts) {
+			obj k, o;
+			obj_dict_for(wk, proj_opts, k, o) {
+				struct obj_option *opt = get_obj_option(wk, o);
+				printf("cloning opt %d\n", opt->source);
+				if (opt->source != option_value_source_commandline) {
+					continue;
+				}
+
+				struct option_override oo = {
+					/* .proj = proj_name, */
+					.name = k,
+					.val = opt->val,
+					.source = option_value_source_commandline,
+					.obj_value = true,
+				};
+				arr_push(&wk->option_overrides, &oo);
+			}
+		}
+	}
 
 	workspace_do_setup(wk, "build-tmp", "muon", 0, 0);
 
@@ -1364,7 +1504,7 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	for (i = 0; i < ARRAY_LEN(ui_shortcuts); ++i) {
 		ui_shortcut &sc = ui_shortcuts[i];
 
-		if (key == sc.key && (mods & sc.mod) == mods) {
+		if (key == sc.key && (mods & sc.mod) == sc.mod) {
 			ui_trigger_command(sc.command);
 		}
 	}
