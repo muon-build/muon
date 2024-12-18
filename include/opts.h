@@ -35,7 +35,7 @@
 		}                                                                                \
 		argi += optind;
 
-typedef bool (*cmd_func)(uint32_t argc, uint32_t argi, char *const[]);
+typedef bool (*cmd_func)(void *ctx, uint32_t argc, uint32_t argi, char *const[]);
 
 struct command {
 	const char *name;

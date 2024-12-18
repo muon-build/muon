@@ -72,7 +72,7 @@ ret:
 }
 
 static bool
-cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *feed;
@@ -190,7 +190,7 @@ ret:
 }
 
 static bool
-cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
@@ -270,7 +270,7 @@ ret:
 }
 
 static bool
-cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct az_opts opts = {
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
@@ -390,7 +390,7 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_options(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct list_options_opts opts = { 0 };
 	OPTSTART("am") {
@@ -408,7 +408,7 @@ cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -437,7 +437,7 @@ ret:
 }
 
 static bool
-cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_info(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	LOG_W("the info subcommand has been deprecated, please use options / summary directly");
 
@@ -456,11 +456,11 @@ cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	return commands[cmd_i].cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(0, argc, argi, argv);
 }
 
 static bool
-cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init_bare(&wk);
@@ -535,7 +535,7 @@ ret:
 }
 
 static bool
-cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_repl(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init(&wk);
@@ -551,7 +551,7 @@ cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_dump_signatures(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -573,7 +573,7 @@ cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct obj_compiler comp = { 0 };
 	bool set_linker, set_static_linker;
@@ -766,7 +766,7 @@ cmd_dump_toolchains(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "eval", cmd_eval, "evaluate a file" },
@@ -786,17 +786,17 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	return commands[cmd_i].cmd(argc, argi, argv);
+	return commands[cmd_i].cmd(0, argc, argi, argv);
 }
 
 static bool
-cmd_samu(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	return samu_main(argc - argi, (char **)&argv[argi], 0);
 }
 
 static bool
-cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
@@ -883,7 +883,7 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct install_options opts = {
 		.destdir = getenv("DESTDIR"),
@@ -908,7 +908,7 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	TracyCZoneAutoS;
 	bool res = false;
@@ -951,7 +951,7 @@ ret:
 }
 
 static bool
-cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	if (strcmp(argv[argi], "fmt_unstable") == 0) {
 		LOG_W("the subcommand name fmt_unstable is deprecated, please use fmt instead");
@@ -1031,7 +1031,7 @@ cont:
 }
 
 static bool
-cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	printf("muon %s%s%s\nmeson compatibility version %s\nenabled features:\n",
 		muon_version.version,
@@ -1062,10 +1062,10 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
-static bool cmd_main(uint32_t argc, uint32_t argi, char *argv[]);
+static bool cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[]);
 
 static bool
-cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_meson(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	++argi;
 
@@ -1081,7 +1081,7 @@ cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
 	argc = new_argc;
 	argv = new_argv;
 
-	bool res = cmd_main(argc, argi, (char **)argv);
+	bool res = cmd_main(0, argc, argi, (char **)argv);
 
 	workspace_destroy(&wk);
 	z_free(new_argv);
@@ -1090,7 +1090,7 @@ cmd_meson(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_ui(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_ui(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -1100,7 +1100,7 @@ cmd_ui(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_main(uint32_t argc, uint32_t argi, char *argv[])
+cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
@@ -1166,7 +1166,7 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 		goto ret;
 	}
 
-	res = commands[cmd_i].cmd(argc, argi, argv);
+	res = commands[cmd_i].cmd(0, argc, argi, argv);
 
 ret:
 	sbuf_destroy(&argv0);
@@ -1196,9 +1196,9 @@ main(int argc, char *argv[])
 	}
 
 	if (meson_compat) {
-		res = cmd_meson(argc, 0, argv);
+		res = cmd_meson(0, argc, 0, argv);
 	} else {
-		res = cmd_main(argc, 0, argv);
+		res = cmd_main(0, argc, 0, argv);
 	}
 
 	int ret = res ? 0 : 1;

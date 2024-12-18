@@ -9,5 +9,5 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-bool cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[]);
+bool cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]);
 #endif

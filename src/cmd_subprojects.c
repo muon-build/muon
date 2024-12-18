@@ -85,7 +85,7 @@ cmd_subprojects_foreach(uint32_t argc, uint32_t argi, char *const argv[], void *
 }
 
 static bool
-cmd_subprojects_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_check_wrap(void *ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
@@ -134,7 +134,7 @@ cont:
 }
 
 static bool
-cmd_subprojects_update(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -192,7 +192,7 @@ cont:
 }
 
 static bool
-cmd_subprojects_list(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -233,7 +233,7 @@ cont:
 }
 
 static bool
-cmd_subprojects_clean(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct cmd_subprojects_clean_ctx ctx = { 0 };
 
@@ -246,7 +246,7 @@ cmd_subprojects_clean(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 bool
-cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "check-wrap", cmd_subprojects_check_wrap, "check if a wrap file is valid" },
@@ -281,7 +281,7 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	cmd_subprojects_subprojects_dir = path.buf;
 
-	bool res = commands[cmd_i].cmd(argc, argi, argv);
+	bool res = commands[cmd_i].cmd(0, argc, argi, argv);
 
 	sbuf_destroy(&path);
 	return res;
