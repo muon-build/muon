@@ -52,6 +52,7 @@ src = files(
     'functions/modules/pkgconfig.c',
     'functions/modules/python.c',
     'functions/modules/sourceset.c',
+    'functions/modules/subprojects.c',
     'functions/modules/toolchain.c',
     'functions/number.c',
     'functions/run_result.c',

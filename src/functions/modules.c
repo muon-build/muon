@@ -16,6 +16,7 @@
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
+#include "functions/modules/subprojects.h"
 #include "functions/modules/toolchain.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
@@ -291,13 +292,14 @@ func_module_found(struct workspace *wk, obj self, obj *res)
 
 // clang-format off
 struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = {
-	[module_fs]        = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal }        },
-	[module_keyval]    = { { impl_tbl_module_keyval },    { 0 }                                  },
-	[module_pkgconfig] = { { impl_tbl_module_pkgconfig }, { 0 }                                  },
-	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                                  },
-	[module_python]    = { { impl_tbl_module_python },    { 0 }                                  },
-	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                                  },
-	[module_toolchain] = { { 0 },                         { impl_tbl_module_toolchain }          },
+	[module_fs]          = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal }        },
+	[module_keyval]      = { { impl_tbl_module_keyval },    { 0 }                                  },
+	[module_pkgconfig]   = { { impl_tbl_module_pkgconfig }, { 0 }                                  },
+	[module_python3]     = { { impl_tbl_module_python3 },   { 0 }                                  },
+	[module_python]      = { { impl_tbl_module_python },    { 0 }                                  },
+	[module_sourceset]   = { { impl_tbl_module_sourceset }, { 0 }                                  },
+	[module_toolchain]   = { { 0 },                         { impl_tbl_module_toolchain }          },
+	[module_subprojects] = { { 0 },                         { impl_tbl_module_subprojects }        },
 };
 
 const struct func_impl impl_tbl_module[] = {

@@ -9,80 +9,9 @@
 
 #include "cmd_subprojects.h"
 #include "lang/analyze.h"
-#include "log.h"
 #include "opts.h"
 #include "platform/path.h"
 #include "wrap.h"
-
-static const char *cmd_subprojects_subprojects_dir;
-
-typedef enum iteration_result (*cmd_subprojects_foreach_cb)(void *_ctx, const char *name);
-
-struct cmd_subprojects_foreach_ctx {
-	cmd_subprojects_foreach_cb cb;
-	void *usr_ctx;
-};
-
-static enum iteration_result
-cmd_subprojects_foreach_iter(void *_ctx, const char *name)
-{
-	struct cmd_subprojects_foreach_ctx *ctx = _ctx;
-	uint32_t len = strlen(name);
-	SBUF_manual(path);
-	enum iteration_result res = ir_cont;
-
-	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
-		goto cont;
-	}
-
-	path_join(NULL, &path, cmd_subprojects_subprojects_dir, name);
-
-	if (!fs_file_exists(path.buf)) {
-		goto cont;
-	}
-
-	res = ctx->cb(ctx->usr_ctx, path.buf);
-
-cont:
-	sbuf_destroy(&path);
-	return res;
-}
-
-static bool
-cmd_subprojects_foreach(uint32_t argc, uint32_t argi, char *const argv[], void *usr_ctx, cmd_subprojects_foreach_cb cb)
-{
-	if (argc > argi) {
-		bool res = true;
-		SBUF_manual(wrap_file);
-
-		for (; argc > argi; ++argi) {
-			path_join(NULL, &wrap_file, cmd_subprojects_subprojects_dir, argv[argi]);
-
-			sbuf_pushs(NULL, &wrap_file, ".wrap");
-
-			if (!fs_file_exists(wrap_file.buf)) {
-				LOG_E("wrap file for '%s' not found", argv[argi]);
-				res = false;
-				break;
-			}
-
-			if (cb(usr_ctx, wrap_file.buf) == ir_err) {
-				res = false;
-				break;
-			}
-		}
-
-		sbuf_destroy(&wrap_file);
-		return res;
-	} else {
-		struct cmd_subprojects_foreach_ctx ctx = {
-			.cb = cb,
-			.usr_ctx = usr_ctx,
-		};
-
-		return fs_dir_foreach(cmd_subprojects_subprojects_dir, &ctx, cmd_subprojects_foreach_iter);
-	}
-}
 
 static bool
 cmd_subprojects_check_wrap(void *ctx, uint32_t argc, uint32_t argi, char *const argv[])
@@ -110,140 +39,73 @@ ret:
 	return ret;
 }
 
-struct cmd_subprojects_update_ctx {
-	uint32_t failed;
-};
-
-static enum iteration_result
-cmd_subprojects_update_iter(void *_ctx, const char *path)
+static void
+cmd_subprojects_args_to_list(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct cmd_subprojects_update_ctx *ctx = _ctx;
-	struct wrap wrap = { 0 };
-	struct wrap_opts wrap_opts = {
-		.allow_download = true,
-		.subprojects = cmd_subprojects_subprojects_dir,
-		.mode = wrap_handle_mode_update,
-	};
-	if (!wrap_handle(path, &wrap, &wrap_opts)) {
-		++ctx->failed;
-		goto cont;
+	obj res = 0;
+	make_obj(wk, &res, obj_array);
+
+	if (argc > argi) {
+		for (; argc > argi; ++argi) {
+			obj_array_push(wk, res, make_str(wk, argv[argi]));
+		}
 	}
-	wrap_destroy(&wrap);
-cont:
-	return ir_cont;
+
+	wk->vm.behavior.assign_variable(wk, "argv", res, 0, assign_local);
 }
 
 static bool
 cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
+	struct workspace *wk = _ctx;
+
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	struct cmd_subprojects_update_ctx ctx = { 0 };
-	cmd_subprojects_foreach(argc, argi, argv, &ctx, cmd_subprojects_update_iter);
+	cmd_subprojects_args_to_list(wk, argc, argi, argv);
 
-	if (ctx.failed) {
-		return false;
-	}
-
-	return true;
-}
-
-static enum iteration_result
-cmd_subprojects_list_iter(void *_ctx, const char *path)
-{
-	struct wrap wrap = { 0 };
-	struct wrap_opts wrap_opts = {
-		.allow_download = false,
-		.subprojects = cmd_subprojects_subprojects_dir,
-		.mode = wrap_handle_mode_check_dirty,
-	};
-	if (!wrap_handle(path, &wrap, &wrap_opts)) {
-		goto cont;
-	}
-
-	char *clr_green = log_clr() ? "\033[32m" : "",
-		 *clr_blue = log_clr() ? "\033[34m" : "",
-		 *clr_magenta = log_clr() ? "\033[35m" : "",
-	     *clr_off = log_clr() ? "\033[0m" : "";
-
-	char *t = "file", *t_clr = clr_blue;
-	if (wrap.type == wrap_type_git) {
-		t = "git ";
-		t_clr = clr_magenta;
-	}
-
-	LLOG_I("[%s%s%s] %s ", t_clr, t, clr_off, wrap.name.buf);
-
-	if (wrap.outdated) {
-		log_plain("%sU%s", clr_green, clr_off);
-	}
-	if (wrap.dirty) {
-		log_plain("*");
-	}
-
-	log_plain("\n");
-
-	wrap_destroy(&wrap);
-
-cont:
-	return ir_cont;
+	obj res;
+	return eval_str(wk, "import('subprojects').update(argv)", eval_mode_repl, &res);
 }
 
 static bool
 cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
+	struct workspace *wk = _ctx;
+
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	return cmd_subprojects_foreach(argc, argi, argv, 0, cmd_subprojects_list_iter);
-}
+	cmd_subprojects_args_to_list(wk, argc, argi, argv);
 
-struct cmd_subprojects_clean_ctx {
-	bool force;
-};
-
-static enum iteration_result
-cmd_subprojects_clean_iter(void *_ctx, const char *path)
-{
-	struct cmd_subprojects_clean_ctx *ctx = _ctx;
-	struct wrap wrap = { 0 };
-	if (!wrap_parse(path, &wrap)) {
-		goto cont;
-	}
-
-	if (wrap.type != wrap_type_git) {
-		goto cont;
-	}
-
-	if (ctx->force) {
-		LOG_I("removing %s", wrap.dest_dir.buf);
-		fs_rmdir_recursive(wrap.dest_dir.buf, true);
-		fs_rmdir(wrap.dest_dir.buf, true);
-	} else {
-		LOG_I("would remove %s", wrap.dest_dir.buf);
-	}
-
-	wrap_destroy(&wrap);
-
-cont:
-	return ir_cont;
+	obj res;
+	return eval_str(wk, "import('subprojects').list(argv, print: true)", eval_mode_repl, &res);
 }
 
 static bool
 cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct cmd_subprojects_clean_ctx ctx = { 0 };
+	struct workspace *wk = _ctx;
+	bool force;
 
 	OPTSTART("f") {
-	case 'f': ctx.force = true; break;
+	case 'f': force = true; break;
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "  -f - force the operation", NULL, -1)
 
-	return cmd_subprojects_foreach(argc, argi, argv, &ctx, cmd_subprojects_clean_iter);
+	cmd_subprojects_args_to_list(wk, argc, argi, argv);
+
+	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
+
+	obj res;
+	return eval_str(wk, "import('subprojects').clean(argv, force: force)", eval_mode_repl, &res);
 }
+
+struct cmd_subprojects_ctx {
+	struct workspace *wk;
+};
 
 bool
 cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
@@ -270,19 +132,33 @@ cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	SBUF_manual(path);
+	struct workspace wk;
+	workspace_init_bare(&wk);
+	workspace_init_runtime(&wk);
+
+	SBUF(path);
 
 	if (opts.dir) {
+		sbuf_pushs(&wk, &path, opts.dir);
 	} else {
-		struct workspace wk = { 0 };
-		analyze_project_call(&wk);
-		path_make_absolute(0, &path, get_cstr(&wk, current_project(&wk)->subprojects_dir));
-		workspace_destroy(&wk);
+		struct workspace az_wk = { 0 };
+		analyze_project_call(&az_wk);
+		path_make_absolute(&wk, &path, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+		workspace_destroy(&az_wk);
 	}
-	cmd_subprojects_subprojects_dir = path.buf;
 
-	bool res = commands[cmd_i].cmd(0, argc, argi, argv);
+	{
+		uint32_t id;
+		make_project(&wk, &id, 0, wk.source_root, wk.build_root);
+		struct project *proj = arr_get(&wk.projects, 0);
+		proj->subprojects_dir = sbuf_into_str(&wk, &path);
+	}
 
-	sbuf_destroy(&path);
+	wk.vm.lang_mode = language_extended;
+
+	bool res = commands[cmd_i].cmd(&wk, argc, argi, argv);
+
+	workspace_destroy(&wk);
+
 	return res;
 }
