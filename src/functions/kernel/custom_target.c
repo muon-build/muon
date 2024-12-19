@@ -611,7 +611,7 @@ install_custom_target(struct workspace *wk,
 	}
 
 	if (!install_dir || !get_obj_array(wk, install_dir)->len) {
-		vm_error(wk, 0, "custom target installation requires install_dir");
+		vm_error(wk, "custom target installation requires install_dir");
 		return false;
 	}
 
