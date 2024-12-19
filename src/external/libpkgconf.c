@@ -11,8 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "buf_size.h"
 #include "external/libpkgconf.h"
+#include "functions/compiler.h"
 #include "lang/object.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -121,82 +121,6 @@ struct pkgconf_lookup_ctx {
 	bool is_static;
 };
 
-struct find_lib_path_ctx {
-	bool is_static;
-	bool found;
-	const char *name;
-	struct sbuf *buf, *name_buf;
-};
-
-static bool
-check_lib_path(struct workspace *wk, struct find_lib_path_ctx *ctx, const char *lib_path)
-{
-	enum ext { ext_a, ext_so, ext_dll_a, ext_count };
-	static const char *ext[] = { [ext_a] = ".a", [ext_so] = ".so", [ext_dll_a] = ".dll.a" };
-	static const uint8_t ext_order_static[] = { ext_a, ext_so, ext_dll_a },
-			     ext_order_dynamic[] = { ext_so, ext_dll_a, ext_a }, *ext_order;
-
-	if (ctx->is_static) {
-		ext_order = ext_order_static;
-	} else {
-		ext_order = ext_order_dynamic;
-	}
-
-	uint32_t i;
-
-	/*
-	 * TODO
-	 * on Windows, ld is searching for several library names when direct
-	 * linking to a DLL, not necessarly 'lib***.dll.a".
-	 * Also, ld is searching for '*.dll' in $prefix/bin, not $prefix/lib
-	 * See https://sourceware.org/binutils/docs/ld/WIN32.html
-	 * section "direct linking to a dll"
-	 */
-	for (i = 0; i < ext_count; ++i) {
-		sbuf_clear(ctx->name_buf);
-		sbuf_pushf(wk, ctx->name_buf, "lib%s%s", ctx->name, ext[ext_order[i]]);
-
-		path_join(wk, ctx->buf, lib_path, ctx->name_buf->buf);
-
-		if (fs_file_exists(ctx->buf->buf)) {
-			ctx->found = true;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static enum iteration_result
-find_lib_path_iter(struct workspace *wk, void *_ctx, obj val_id)
-{
-	struct find_lib_path_ctx *ctx = _ctx;
-
-	if (check_lib_path(wk, ctx, get_cstr(wk, val_id))) {
-		return ir_done;
-	}
-
-	return ir_cont;
-}
-
-static obj
-find_lib_path(pkgconf_client_t *client, struct pkgconf_lookup_ctx *ctx, const char *name)
-{
-	SBUF(buf);
-	SBUF(name_buf);
-
-	struct find_lib_path_ctx find_lib_path_ctx
-		= { .buf = &buf, .name_buf = &name_buf, .name = name, .is_static = ctx->is_static };
-
-	if (!obj_array_foreach(ctx->wk, ctx->libdirs, &find_lib_path_ctx, find_lib_path_iter)) {
-		return 0;
-	} else if (!find_lib_path_ctx.found) {
-		return 0;
-	}
-
-	return sbuf_into_str(ctx->wk, &buf);
-}
-
 static bool
 apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
@@ -236,7 +160,12 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			break;
 		case 'l': {
 			obj path;
-			if ((path = find_lib_path(client, ctx, frag->data))) {
+			enum find_library_flag flags = 0;
+			if (ctx->is_static) {
+				flags |= find_library_flag_prefer_static;
+			}
+
+			if ((path = find_library(ctx->wk, frag->data, ctx->libdirs, flags))) {
 				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
 					L("library '%s' found for dependency '%s'",
 						get_cstr(ctx->wk, path),
@@ -300,6 +229,7 @@ muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
 bool
 muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
 {
+	L("looking up: %d", is_static);
 	if (!pkgconf_ctx.init) {
 		if (!muon_pkgconf_init(wk)) {
 			return false;
