@@ -17,6 +17,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "sha_256.h"
 
