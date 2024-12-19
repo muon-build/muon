@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
 #define MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
-#include "lang/func_lookup.h"
+#include "lang/workspace.h"
 
 struct make_custom_target_opts {
 	obj name;
@@ -24,6 +24,14 @@ struct make_custom_target_opts {
 };
 
 bool make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, obj *res);
+
+bool
+install_custom_target(struct workspace *wk,
+	struct obj_custom_target *tgt,
+	const struct args_kw *kw_install,
+	const struct args_kw *kw_build_by_default,
+	obj install_dir,
+	obj install_mode);
 
 struct process_custom_target_commandline_opts {
 	uint32_t err_node;

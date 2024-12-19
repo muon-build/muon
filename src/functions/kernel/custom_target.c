@@ -592,6 +592,39 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 }
 
 bool
+install_custom_target(struct workspace *wk,
+	struct obj_custom_target *tgt,
+	const struct args_kw *kw_install,
+	const struct args_kw *kw_build_by_default,
+	obj install_dir,
+	obj install_mode)
+{
+	bool should_install = get_obj_bool_with_default(wk, kw_install->val, false)
+			      || (!kw_install->set && install_dir);
+
+	if (!should_install) {
+		return true;
+	}
+
+	if (!kw_build_by_default || !kw_build_by_default->set) {
+		tgt->flags |= custom_target_build_by_default;
+	}
+
+	if (!install_dir || !get_obj_array(wk, install_dir)->len) {
+		vm_error(wk, 0, "custom target installation requires install_dir");
+		return false;
+	}
+
+	if (get_obj_array(wk, install_dir)->len == 1) {
+		obj i0;
+		obj_array_index(wk, install_dir, 0, &i0);
+		install_dir = i0;
+	}
+
+	return push_install_targets(wk, 0, tgt->output, install_dir, install_mode, false);
+}
+
+bool
 func_custom_target(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
@@ -712,33 +745,13 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 		tgt->flags |= custom_target_console;
 	}
 
-	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
-		|| (!akw[kw_install].set && akw[kw_install_dir].set)) {
-		if (!akw[kw_install_dir].set || !get_obj_array(wk, akw[kw_install_dir].val)->len) {
-			vm_error_at(wk, akw[kw_install].node, "custom target installation requires install_dir");
-			return false;
-		}
-
-		if (!akw[kw_build_by_default].set) {
-			tgt->flags |= custom_target_build_by_default;
-		}
-
-		obj install_mode_id = 0;
-		if (akw[kw_install_mode].set) {
-			install_mode_id = akw[kw_install_mode].val;
-		}
-
-		obj install_dir = akw[kw_install_dir].val;
-		if (get_obj_array(wk, akw[kw_install_dir].val)->len == 1) {
-			obj i0;
-			obj_array_index(wk, akw[kw_install_dir].val, 0, &i0);
-			install_dir = i0;
-		}
-
-		if (!push_install_targets(
-			    wk, akw[kw_install_dir].node, tgt->output, install_dir, install_mode_id, false)) {
-			return false;
-		}
+	if (!install_custom_target(wk,
+		    tgt,
+		    &akw[kw_install],
+		    &akw[kw_build_by_default],
+		    akw[kw_install_dir].val,
+		    akw[kw_install_mode].val)) {
+		return false;
 	}
 
 	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &tgt->env)) {

@@ -9,7 +9,6 @@
 #include <string.h>
 
 #include "args.h"
-#include "coerce.h"
 #include "error.h"
 #include "formats/editorconfig.h"
 #include "functions/kernel/custom_target.h"
@@ -18,7 +17,6 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
-#include "platform/os.h"
 #include "platform/path.h"
 #include "sha_256.h"
 
@@ -494,6 +492,12 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 
 	obj_array_push(wk, current_project(wk)->targets, *res);
 
+	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
+
+	if (!install_custom_target(wk, tgt, &akw[kw_install], 0, akw[kw_install_dir].val, 0)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -920,7 +924,6 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-
 		struct delete_suffixes_ctx new_ctx = *ctx;
 		new_ctx.base_dir = name.buf;
 
@@ -929,7 +932,6 @@ delete_suffix_recursive(void *_ctx, const char *path)
 		}
 
 	} else if (S_ISREG(sb.st_mode)) {
-
 		if (fs_has_extension(name.buf, ctx->suffix) && !fs_remove(name.buf)) {
 			goto ret;
 		}
@@ -957,7 +959,7 @@ func_module_fs_delete_with_suffix(struct workspace *wk, obj rcrv, obj *res)
 	const char *base_dir = get_cstr(wk, an[0].val);
 	struct delete_suffixes_ctx ctx = {
 		.base_dir = base_dir,
-		.suffix = get_cstr(wk, an[1].val)
+		.suffix = get_cstr(wk, an[1].val),
 	};
 
 	return fs_dir_foreach(base_dir, &ctx, delete_suffix_recursive);
