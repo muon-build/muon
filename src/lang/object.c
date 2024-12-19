@@ -1631,7 +1631,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	}
 
 	enum obj_type t = get_obj_type(wk_src, val);
-	L("cloning %s", obj_type_to_s(t));
+	/* L("cloning %s", obj_type_to_s(t)); */
 
 	switch (t) {
 	case obj_null: *ret = 0; return true;
