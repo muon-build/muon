@@ -7,17 +7,19 @@
 
 #include <string.h>
 
-#include "lang/func_lookup.h"
+#include "buf_size.h"
+#include "functions/compiler.h"
 #include "functions/file.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 
 static bool
-file_ends_with_suffix(struct workspace *wk, obj file, const char *suffixes[])
+file_ends_with_suffix(struct workspace *wk, obj file, const char *suffixes[], uint32_t len)
 {
 	const struct str *s = get_str(wk, *get_obj_file(wk, file));
 
 	uint32_t i;
-	for (i = 0; suffixes[i]; ++i) {
+	for (i = 0; i < len; ++i) {
 		if (str_endswith(s, &WKSTR(suffixes[i]))) {
 			return true;
 		}
@@ -29,13 +31,15 @@ file_ends_with_suffix(struct workspace *wk, obj file, const char *suffixes[])
 bool
 file_is_dynamic_lib(struct workspace *wk, obj file)
 {
-	return file_ends_with_suffix(wk, file, (const char *[]){ ".dll", ".lib", ".so", ".dylib", 0 });
+	const char *exts[] = { COMPILER_DYNAMIC_LIB_EXTS };
+	return file_ends_with_suffix(wk, file, exts, ARRAY_LEN(exts));
 }
 
 bool
 file_is_static_lib(struct workspace *wk, obj file)
 {
-	return file_ends_with_suffix(wk, file, (const char *[]){ ".a", 0 });
+	const char *exts[] = { COMPILER_STATIC_LIB_EXTS };
+	return file_ends_with_suffix(wk, file, exts, ARRAY_LEN(exts));
 }
 
 bool

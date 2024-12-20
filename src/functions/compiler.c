@@ -1943,32 +1943,12 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 obj
 find_library(struct workspace *wk, const char *name, obj libdirs, enum find_library_flag flags)
 {
-	enum ext {
-		ext_a,
-		ext_so,
-		ext_dylib,
-		ext_dll_a,
-		ext_count,
-	};
-	static const char *ext[] = {
-		[ext_a] = ".a",
-		[ext_so] = ".so",
-		[ext_dylib] = ".dylib",
-		[ext_dll_a] = ".dll.a",
-	};
-
-#define EXT_DYNAMIC ext_so, ext_dylib, ext_dll_a
-#define EXT_STATIC ext_a, ext_dll_a
-
-	static const enum ext ext_order_static_preferred[] = { EXT_STATIC, EXT_DYNAMIC },
-			      ext_order_static_only[] = { EXT_STATIC },
-			      ext_order_dynamic_preferred[] = { EXT_DYNAMIC, EXT_STATIC };
-
-#undef EXT_STATIC
-#undef EXT_DYNAMIC
+	static const char *ext_order_static_preferred[] = { COMPILER_STATIC_LIB_EXTS, COMPILER_DYNAMIC_LIB_EXTS },
+			  *ext_order_static_only[] = { COMPILER_STATIC_LIB_EXTS },
+			  *ext_order_dynamic_preferred[] = { COMPILER_DYNAMIC_LIB_EXTS, COMPILER_STATIC_LIB_EXTS };
 
 	static const char *pref[] = { "", "lib" };
-	const enum ext *ext_order;
+	const char **ext_order;
 	uint32_t ext_order_len;
 
 	SBUF(path);
@@ -1991,7 +1971,7 @@ find_library(struct workspace *wk, const char *name, obj libdirs, enum find_libr
 		for (i = 0; i < ext_order_len; ++i) {
 			for (j = 0; j < ARRAY_LEN(pref); ++j) {
 				sbuf_clear(&lib);
-				sbuf_pushf(wk, &lib, "%s%s%s", pref[j], name, ext[ext_order[i]]);
+				sbuf_pushf(wk, &lib, "%s%s%s", pref[j], name, ext_order[i]);
 
 				path_join(wk, &path, get_cstr(wk, libdir), lib.buf);
 
