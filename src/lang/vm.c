@@ -5,6 +5,9 @@
 
 #include "compat.h"
 
+#include <stdarg.h>
+#include <string.h>
+
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
@@ -17,6 +20,7 @@
 #include "lang/vm.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"

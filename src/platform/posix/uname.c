@@ -11,6 +11,7 @@
 
 #include "buf_size.h"
 #include "error.h"
+#include "platform/assert.h"
 #include "platform/uname.h"
 
 static struct {

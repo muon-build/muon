@@ -6,14 +6,13 @@
 
 #include "compat.h"
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "assert.h"
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
 #include "machines.h"
+#include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
 

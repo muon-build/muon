@@ -37,6 +37,7 @@
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
+#include "platform/assert.h"
 
 /******************************************************************************
  * function tables

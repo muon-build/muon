@@ -10,7 +10,6 @@
 #include "functions/boolean.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_boolean_to_string(struct workspace *wk, obj self, obj *res)

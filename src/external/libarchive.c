@@ -8,7 +8,6 @@
 #include <archive.h>
 #include <archive_entry.h>
 
-#include "buf_size.h"
 #include "external/libarchive.h"
 #include "lang/string.h"
 #include "log.h"

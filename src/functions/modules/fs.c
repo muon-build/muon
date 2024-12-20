@@ -16,6 +16,7 @@
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/os.h"
 #include "platform/path.h"

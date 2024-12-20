@@ -13,6 +13,7 @@
 #include "functions/build_target.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

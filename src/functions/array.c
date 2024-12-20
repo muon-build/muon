@@ -8,7 +8,6 @@
 #include "functions/array.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_array_length(struct workspace *wk, obj self, obj *res)

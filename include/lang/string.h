@@ -8,7 +8,7 @@
 
 #include "compat.h"
 
-#include <string.h>
+#include <stdarg.h>
 
 #include "lang/object.h"
 

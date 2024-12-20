@@ -7,7 +7,6 @@
 
 #include "lang/func_lookup.h"
 #include "functions/xxx.h"
-#include "log.h"
 
 static bool
 func_(struct workspace *wk, obj self, obj *res)

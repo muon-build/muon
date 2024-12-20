@@ -23,6 +23,7 @@
 #include "log.h"
 #include "machines.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "sha_256.h"

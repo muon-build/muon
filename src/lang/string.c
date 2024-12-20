@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,6 +16,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "memmem.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 void

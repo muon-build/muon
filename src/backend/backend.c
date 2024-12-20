@@ -16,6 +16,7 @@
 #include "lang/serial.h"
 #include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/init.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"

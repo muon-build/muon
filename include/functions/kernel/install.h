@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_INSTALL_H
 #define MUON_FUNCTIONS_KERNEL_INSTALL_H
-#include "lang/func_lookup.h"
+#include "lang/workspace.h"
 
 bool func_install_subdir(struct workspace *wk, obj _, obj *ret);
 bool func_install_man(struct workspace *wk, obj _, obj *ret);

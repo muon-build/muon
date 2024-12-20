@@ -6,9 +6,6 @@
 #ifndef MUON_DATA_HASH_H
 #define MUON_DATA_HASH_H
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "datastructures/arr.h"
 #include "iterator.h"
 

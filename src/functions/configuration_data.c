@@ -10,7 +10,6 @@
 #include "lang/func_lookup.h"
 #include "functions/configuration_data.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_configuration_data_set_quoted(struct workspace *wk, obj self, obj *res)

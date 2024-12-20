@@ -29,7 +29,7 @@ extern int opterr, optind, optopt;
 #include <unistd.h>
 #endif
 
-#include "lang/string.h"
+#include "lang/object.h"
 
 int os_getopt(int argc, char *const argv[], const char *optstring);
 

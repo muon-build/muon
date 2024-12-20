@@ -6,14 +6,17 @@
 #include "compat.h"
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "lang/lexer.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/vm.h"
 #include "lang/workspace.h"
+#include "platform/assert.h"
 #include "tracy.h"
 
 /******************************************************************************

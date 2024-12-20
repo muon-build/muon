@@ -10,7 +10,6 @@
 #include "functions/number.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_number_is_odd(struct workspace *wk, obj self, obj *res)

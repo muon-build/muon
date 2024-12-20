@@ -11,7 +11,6 @@
 #include <time.h>
 
 #include "log.h"
-#include "platform/log.h"
 #include "platform/timer.h"
 
 void

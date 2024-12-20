@@ -16,6 +16,7 @@
 #include "lang/eval.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

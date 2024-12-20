@@ -9,13 +9,14 @@
 #include <string.h>
 
 #include "args.h"
+#include "buf_size.h"
 #include "error.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "install.h"
 #include "lang/typecheck.h"
-#include "buf_size.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

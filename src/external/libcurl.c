@@ -5,11 +5,9 @@
 
 #include "compat.h"
 
-#include <errno.h>
+#include <curl/curl.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include <curl/curl.h>
 
 #include "external/libcurl.h"
 #include "log.h"

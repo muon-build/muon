@@ -7,11 +7,14 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "lang/lexer.h"
+#include "platform/assert.h"
 
 /******************************************************************************
 * token printing

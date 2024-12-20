@@ -5,6 +5,8 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "functions/modules/subprojects.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"

@@ -7,9 +7,10 @@
 
 #ifdef _WIN32
 #include <process.h>
-#endif
 
 #include "log.h"
+#endif
+
 #include "platform/assert.h"
 
 #ifdef _WIN32

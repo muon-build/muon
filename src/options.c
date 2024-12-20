@@ -13,11 +13,13 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
+#include "error.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

@@ -8,17 +8,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <time.h>
-#include <unistd.h>
 
-#include "args.h"
-#include "buf_size.h"
 #include "error.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

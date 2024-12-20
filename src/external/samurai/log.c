@@ -6,14 +6,12 @@
 
 #include "compat.h"
 
-#include <errno.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "external/samurai/ctx.h"
 #include "formats/lines.h"
-#include "log.h"
 
 #include "external/samurai/graph.h"
 #include "external/samurai/log.h"

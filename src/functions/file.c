@@ -10,7 +10,6 @@
 #include "lang/func_lookup.h"
 #include "functions/file.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 file_ends_with_suffix(struct workspace *wk, obj file, const char *suffixes[])

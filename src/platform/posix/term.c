@@ -16,7 +16,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/term.h"
 

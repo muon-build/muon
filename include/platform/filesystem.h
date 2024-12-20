@@ -7,7 +7,6 @@
 #define MUON_PLATFORM_FILESYSTEM_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <sys/stat.h>
 

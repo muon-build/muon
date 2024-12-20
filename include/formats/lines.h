@@ -5,6 +5,7 @@
 
 #ifndef MUON_FORMATS_LINES_H
 #define MUON_FORMATS_LINES_H
+
 #include <stddef.h>
 #include <stdint.h>
 

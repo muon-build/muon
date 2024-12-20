@@ -10,9 +10,7 @@
 
 #include "datastructures/arr.h"
 #include "datastructures/hash.h"
-#include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 #define k_empty 0x80 // 0b10000000
 #define k_deleted 0xfe // 0b11111110

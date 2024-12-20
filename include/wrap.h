@@ -13,7 +13,6 @@
 
 #include "buf_size.h"
 #include "lang/string.h"
-#include "lang/types.h"
 #include "platform/filesystem.h"
 
 struct workspace;

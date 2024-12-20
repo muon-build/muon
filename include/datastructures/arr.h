@@ -7,7 +7,6 @@
 #define MUON_DATA_ARR_H
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 enum arr_flag {

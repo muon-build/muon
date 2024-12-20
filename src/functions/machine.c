@@ -13,6 +13,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "machines.h"
+#include "platform/assert.h"
 
 static struct machine_definition *
 get_machine_for_self(struct workspace *wk, obj self)

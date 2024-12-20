@@ -18,6 +18,7 @@
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/os.h"

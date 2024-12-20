@@ -10,6 +10,7 @@
 #include "cmd_subprojects.h"
 #include "lang/analyze.h"
 #include "opts.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "wrap.h"
 

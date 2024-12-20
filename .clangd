@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+Diagnostics:
+  UnusedIncludes: Strict
+  Includes:
+    IgnoreHeader:
+      # Getting lots of false positives on system headers.
+      - ctype\.h
+      - stdarg\.h
+      - stdint\.h
+      - stdio\.h
+      - stdlib\.h
+      - string\.h
+      - time\.h
+      # These only define symbols on some platforms
+      - platform/assert\.h
+      - platform/os\.h

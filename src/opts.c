@@ -6,12 +6,11 @@
 #include "compat.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "lang/workspace.h"
 #include "log.h"
 #include "opts.h"
+#include "platform/assert.h"
 
 bool
 check_operands(uint32_t argc, uint32_t argi, int32_t expected)

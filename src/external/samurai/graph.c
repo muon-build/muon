@@ -10,7 +10,6 @@
 #include <string.h>
 
 #include "external/samurai/ctx.h"
-#include "log.h"
 #include "platform/filesystem.h"
 
 #include "external/samurai/env.h"

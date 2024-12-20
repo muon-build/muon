@@ -5,20 +5,20 @@
 
 #include "compat.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "args.h"
 #include "buf_size.h"
-#include "datastructures/arr.h"
 #include "error.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "meson_opts.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "version.h"
-
-#include <stdlib.h>
-#include <string.h>
 
 struct translate_meson_opts_ctx {
 	obj prepend_args;

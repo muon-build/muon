@@ -9,10 +9,8 @@
 #include <string.h>
 
 #include "args.h"
-#include "buf_size.h"
 #include "compilers.h"
 #include "error.h"
-#include "functions/build_target.h"
 #include "functions/environment.h"
 #include "lang/workspace.h"
 #include "log.h"

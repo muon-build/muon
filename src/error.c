@@ -15,6 +15,7 @@
 #include "error.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 
 struct error_diagnostic_message {

@@ -8,7 +8,6 @@
 #include "lang/func_lookup.h"
 #include "functions/feature_opt.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 feature_opt_common(struct workspace *wk, obj self, obj *res, enum feature_opt_state state)

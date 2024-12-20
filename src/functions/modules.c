@@ -21,6 +21,7 @@
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

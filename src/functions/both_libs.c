@@ -11,7 +11,6 @@
 #include "functions/build_target.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_both_libs_get_shared_lib(struct workspace *wk, obj self, obj *res)

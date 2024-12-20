@@ -7,14 +7,15 @@
 #include "compat.h"
 
 #include <errno.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
-#include "error.h"
 #include "external/samurai/ctx.h"
 #include "lang/string.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 #include "platform/path.h"
 

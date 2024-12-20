@@ -6,12 +6,14 @@
 
 #include "compat.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
 #include "lang/string.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/log.h"
 

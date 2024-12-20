@@ -8,7 +8,6 @@
 #include "lang/func_lookup.h"
 #include "functions/dict.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static enum iteration_result
 dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)

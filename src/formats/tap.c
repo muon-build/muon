@@ -10,7 +10,6 @@
 #include "formats/lines.h"
 #include "formats/tap.h"
 #include "lang/string.h"
-#include "log.h"
 
 struct tap_parse_ctx {
 	struct tap_parse_result *res;

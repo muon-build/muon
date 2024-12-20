@@ -5,7 +5,10 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "buf_size.h"
+#include "lang/string.h"
 #include "lang/string.h"
 #include "log.h"
 #include "machines.h"

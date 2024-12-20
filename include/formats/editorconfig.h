@@ -6,7 +6,7 @@
 #ifndef MUON_FORMATS_EDITORCONFIG_H
 #define MUON_FORMATS_EDITORCONFIG_H
 
-#include "platform/filesystem.h"
+#include "lang/source.h"
 
 struct fmt_opts;
 

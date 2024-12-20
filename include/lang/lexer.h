@@ -7,11 +7,9 @@
 #define MUON_LANG_LEXER_H
 
 #include <stdbool.h>
-#include <stdint.h>
 
-#include "datastructures/bucket_arr.h"
 #include "datastructures/stack.h"
-#include "error.h"
+#include "lang/source.h"
 #include "lang/string.h"
 
 enum token_type {

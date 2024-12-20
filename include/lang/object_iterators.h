@@ -7,7 +7,6 @@
 #define LANG_OBJECT_ITERATORS_H
 
 #include <stdbool.h>
-#include <stdint.h>
 
 #include "lang/types.h"
 #include "preprocessor_helpers.h"

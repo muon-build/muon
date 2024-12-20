@@ -11,14 +11,12 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "lang/analyze.h"
-#include "error.h"
 #include "external/libpkgconf.h"
 #include "functions/file.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
-#include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -26,7 +24,6 @@
 #include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
-#include "platform/run_cmd.h"
 
 enum dependency_lookup_method {
 	// Auto means to use whatever dependency checking mechanisms in whatever order meson thinks is best.

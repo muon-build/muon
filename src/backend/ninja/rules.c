@@ -6,14 +6,15 @@
 #include "compat.h"
 
 #include "args.h"
-#include "buf_size.h"
 #include "backend/common_args.h"
 #include "backend/ninja/rules.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "error.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 #include "tracy.h"
 

@@ -6,9 +6,10 @@
 #ifndef MUON_LANG_FMT_H
 #define MUON_LANG_FMT_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
-#include "lang/parser.h"
+#include "lang/source.h"
 
 enum fmt_indent_style {
 	fmt_indent_style_space,

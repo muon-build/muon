@@ -7,13 +7,13 @@
 
 #include "coerce.h"
 #include "error.h"
-#include "functions/build_target.h"
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 bool

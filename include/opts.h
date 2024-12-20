@@ -6,8 +6,9 @@
 #ifndef MUON_OPTS_H
 #define MUON_OPTS_H
 
-#include "lang/workspace.h"
-#include "platform/os.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
 /* OPTSTART should be pretty self-explanatory.  You just pass it the optstring
  * that you would pass to getopt().  "h" is added to this optstring for you.

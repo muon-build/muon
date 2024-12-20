@@ -6,8 +6,6 @@
 #ifndef MUON_BACKEND_NINJA_ALIAS_TARGET_H
 #define MUON_BACKEND_NINJA_ALIAS_TARGET_H
 
-#include <stdio.h>
-
 #include "lang/types.h"
 
 struct workspace;

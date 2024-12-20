@@ -8,8 +8,6 @@
 
 #include "compat.h"
 
-#include <stdarg.h>
-
 #include "log.h"
 #include "platform/filesystem.h"
 

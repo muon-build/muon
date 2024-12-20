@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
-#include "lang/func_lookup.h"
+#include "lang/workspace.h"
 
 
 enum build_dep_merge_flag {

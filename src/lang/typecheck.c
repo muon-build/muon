@@ -9,6 +9,7 @@
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 
 type_tag
 obj_type_to_tc_type(enum obj_type t)

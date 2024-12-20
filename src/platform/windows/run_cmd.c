@@ -16,6 +16,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 #include "platform/path.h"

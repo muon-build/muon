@@ -7,9 +7,7 @@
 #define MUON_LANG_PARSER_H
 
 #include <stdbool.h>
-#include <stdint.h>
 
-#include "datastructures/arr.h"
 #include "lang/compiler.h"
 #include "lang/lexer.h"
 

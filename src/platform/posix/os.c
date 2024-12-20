@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -18,6 +17,7 @@
 #include <sys/sysctl.h>
 #endif
 
+#include "lang/string.h"
 #include "log.h"
 #include "platform/os.h"
 

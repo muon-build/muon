@@ -8,7 +8,6 @@
 #include "lang/func_lookup.h"
 #include "functions/subproject.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 bool
 subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id, obj fallback, obj subproj, obj *res)

@@ -9,7 +9,6 @@
 
 #include "compat.h"
 
-#include <stdarg.h>
 #include <stdio.h>
 
 #include "compilers.h"

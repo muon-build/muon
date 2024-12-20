@@ -6,10 +6,10 @@
 #include "compat.h"
 
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/source_set.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
+#include "platform/assert.h"
 
 static enum iteration_result
 source_set_freeze_nested_iter(struct workspace *wk, void *_ctx, obj v)

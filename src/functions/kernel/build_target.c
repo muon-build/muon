@@ -11,7 +11,6 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "error.h"
 #include "functions/build_target.h"
 #include "functions/file.h"
 #include "functions/generator.h"

@@ -7,7 +7,6 @@
 #include "compat.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <inttypes.h>
 #include <string.h>
 

@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "log.h"
+#include "lang/string.h"
 #include "platform/assert.h"
 #include "rpmvercmp.h"
 

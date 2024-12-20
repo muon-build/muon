@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <inttypes.h>
+#include <string.h>
 
 #include "args.h"
 #include "backend/common_args.h"
@@ -15,6 +16,7 @@
 #include "error.h"
 #include "formats/xml.h"
 #include "lang/object_iterators.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 

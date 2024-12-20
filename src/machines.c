@@ -11,6 +11,7 @@
 #include "error.h"
 #include "lang/string.h"
 #include "machines.h"
+#include "platform/assert.h"
 #include "platform/uname.h"
 
 struct machine_definition build_machine, host_machine;

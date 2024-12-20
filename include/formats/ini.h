@@ -8,10 +8,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
-#include "error.h"
-#include "platform/filesystem.h"
+#include "lang/source.h"
 
 typedef bool((*inihcb)(void *ctx,
 	struct source *src,

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <windows.h>
 
+#include "lang/string.h"
 #include "platform/os.h"
 
 bool

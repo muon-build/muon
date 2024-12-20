@@ -5,7 +5,6 @@
 
 #include "args.h"
 #include "functions/string.h"
-#include "guess.h"
 #include "log.h"
 #include "options.h"
 #include "backend/ninja/coverage.h"

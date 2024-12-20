@@ -11,11 +11,11 @@
 
 #include "args.h"
 #include "backend/output.h"
-#include "buf_size.h"
 #include "cmd_install.h"
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/rpath_fixer.h"

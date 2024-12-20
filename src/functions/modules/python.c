@@ -5,6 +5,8 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "buf_size.h"
 #include "coerce.h"
 #include "embedded.h"

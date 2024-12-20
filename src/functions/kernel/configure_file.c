@@ -17,12 +17,11 @@
 #include "functions/kernel/configure_file.h"
 #include "functions/kernel/custom_target.h"
 #include "install.h"
-#include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 

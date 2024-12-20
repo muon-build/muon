@@ -13,6 +13,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 static enum iteration_result

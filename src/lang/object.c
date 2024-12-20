@@ -19,6 +19,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/mem.h"
 #include "tracy.h"
 

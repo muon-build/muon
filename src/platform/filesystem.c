@@ -31,9 +31,10 @@
 #include "buf_size.h"
 #include "lang/string.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
-#include "platform/os.h" // For S_ISDIR, S_ISREG on windows
+#include "platform/os.h"
 #include "platform/path.h"
 
 bool

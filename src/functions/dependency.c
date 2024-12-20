@@ -11,12 +11,11 @@
 
 #include "coerce.h"
 #include "external/libpkgconf.h"
-#include "functions/build_target.h"
-#include "lang/func_lookup.h"
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
-#include "log.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 static bool

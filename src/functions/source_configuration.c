@@ -8,7 +8,6 @@
 #include "lang/func_lookup.h"
 #include "functions/source_configuration.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 func_source_configuration_sources(struct workspace *wk, obj self, obj *res)

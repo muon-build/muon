@@ -8,11 +8,10 @@
 #include <string.h>
 
 #include "error.h"
-#include "lang/func_lookup.h"
 #include "functions/kernel/options.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 
 static bool
 build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enum build_option_type *res)

@@ -12,7 +12,6 @@
 #include "formats/ini.h"
 #include "formats/lines.h"
 #include "lang/string.h"
-#include "log.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
 

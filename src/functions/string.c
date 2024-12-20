@@ -13,11 +13,9 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "functions/string.h"
-#include "guess.h"
 #include "lang/func_lookup.h"
 #include "lang/lexer.h"
 #include "lang/typecheck.h"
-#include "log.h"
 #include "rpmvercmp.h"
 #include "util.h"
 

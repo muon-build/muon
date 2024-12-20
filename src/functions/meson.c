@@ -18,6 +18,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 #include "version.h"
 

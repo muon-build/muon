@@ -8,7 +8,6 @@
 #include "lang/func_lookup.h"
 #include "functions/run_result.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
 static bool
 ensure_valid_run_result(struct workspace *wk, obj self)

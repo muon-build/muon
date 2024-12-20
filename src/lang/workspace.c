@@ -18,6 +18,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
+#include "platform/assert.h"
 #include "platform/path.h"
 
 struct project *
