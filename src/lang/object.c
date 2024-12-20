@@ -1148,86 +1148,43 @@ obj_array_slice(struct workspace *wk, obj a, int64_t i0, int64_t i1)
 	return ctx.res;
 }
 
-/*
+/*******************************************************************************
  * dictionaries
- */
+ ******************************************************************************/
 
 bool
 obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb)
 {
-	struct obj_dict *d = get_obj_dict(wk, dict);
-	if (!d->len) {
-		return true;
-	}
-
-	if (d->flags & obj_dict_flag_big) {
-		uint32_t i;
-		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
-		for (i = 0; i < h->keys.len; ++i) {
-			void *_key = arr_get(&h->keys, i);
-			uint64_t *_val = hash_get(h, _key);
-			union obj_dict_big_dict_value val = { .u64 = *_val };
-
-			switch (cb(wk, ctx, val.val.key, val.val.val)) {
-			case ir_cont: break;
-			case ir_done: return true;
-			case ir_err: return false;
-			}
-		}
-	} else {
-		struct obj_dict_elem *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
-
-		while (true) {
-			switch (cb(wk, ctx, e->key, e->val)) {
-			case ir_cont: break;
-			case ir_done: return true;
-			case ir_err: return false;
-			}
-
-			if (!e->next) {
-				break;
-			}
-			e = bucket_arr_get(&wk->vm.objects.dict_elems, e->next);
+	obj k, v;
+	obj_dict_for(wk, dict, k, v) {
+		switch (cb(wk, ctx, k, v)) {
+		case ir_cont: break;
+		case ir_done: return true;
+		case ir_err: return false;
 		}
 	}
 
 	return true;
 }
 
-struct obj_dict_dup_ctx {
-	obj *dict;
-};
-
-static enum iteration_result
-obj_dict_dup_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	struct obj_dict_dup_ctx *ctx = _ctx;
-	obj_dict_set(wk, *ctx->dict, key, val);
-	return ir_cont;
-}
-
 void
 obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 {
-	struct obj_dict_dup_ctx ctx = { .dict = res };
 	make_obj(wk, res, obj_dict);
-	obj_dict_foreach(wk, dict, &ctx, obj_dict_dup_iter);
-}
 
-static enum iteration_result
-obj_dict_merge_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	obj *res = _ctx;
-
-	obj_dict_set(wk, *res, key, val);
-
-	return ir_cont;
+	obj k, v;
+	obj_dict_for(wk, dict, k, v) {
+		obj_dict_set(wk, *res, k, v);
+	}
 }
 
 void
 obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2)
 {
-	obj_dict_foreach(wk, dict2, &dict, obj_dict_merge_iter);
+	obj k, v;
+	obj_dict_for(wk, dict2, k, v) {
+		obj_dict_set(wk, dict, k, v);
+	}
 }
 
 void
@@ -1306,8 +1263,8 @@ _obj_dict_index(struct workspace *wk,
 	return false;
 }
 
-obj *
-obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len)
+static obj *
+obj_dict_index_strn_pointer_raw(struct workspace *wk, obj dict, const char *str, uint32_t len)
 {
 	obj *r = 0;
 	union obj_dict_key_comparison_key key = { .string = { .s = str, .len = len } };
@@ -1319,10 +1276,18 @@ obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uin
 	return r;
 }
 
+obj *
+obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len)
+{
+	obj *r = obj_dict_index_strn_pointer_raw(wk, dict, str, len);
+
+	return r;
+}
+
 bool
 obj_dict_index_strn(struct workspace *wk, obj dict, const char *str, uint32_t len, obj *res)
 {
-	obj *r = obj_dict_index_strn_pointer(wk, dict, str, len);
+	obj *r = obj_dict_index_strn_pointer_raw(wk, dict, str, len);
 	if (r) {
 		*res = *r;
 		return true;
@@ -1351,7 +1316,7 @@ obj_dict_in(struct workspace *wk, obj dict, obj key)
 }
 
 static void
-_obj_dict_set(struct workspace *wk,
+obj_dict_set_impl(struct workspace *wk,
 	obj dict,
 	union obj_dict_key_comparison_key *k,
 	obj_dict_key_comparison_func comp,
@@ -1441,7 +1406,7 @@ obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 	union obj_dict_key_comparison_key k = {
 		.string = *get_str(wk, key),
 	};
-	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_string, key, val);
+	obj_dict_set_impl(wk, dict, &k, obj_dict_key_comparison_func_string, key, val);
 }
 
 static void
@@ -1531,7 +1496,7 @@ obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val)
 	union obj_dict_key_comparison_key k = { .num = key };
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	d->flags |= obj_dict_flag_int_key;
-	_obj_dict_set(wk, dict, &k, obj_dict_key_comparison_func_int, key, val);
+	obj_dict_set_impl(wk, dict, &k, obj_dict_key_comparison_func_int, key, val);
 }
 
 bool
@@ -1550,7 +1515,9 @@ obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 	return false;
 }
 
-/* */
+/*******************************************************************************
+ * obj_iterable_foreach
+ ******************************************************************************/
 
 struct obj_iterable_foreach_ctx {
 	void *ctx;
