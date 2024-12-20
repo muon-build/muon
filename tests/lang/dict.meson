@@ -36,12 +36,15 @@ assert(dict['c'] == 7)
 
 # Test dict.delete
 d = {'a': 1, 'b': 2, 'c': 3}
+a = d
 d.delete('a')
+assert(a.a == 1)
 assert(d == {'b': 2, 'c': 3})
 assert(d.keys() == ['b', 'c'])
 d = d + {'a': 4, 'b': 3, 'e': 5}
 assert(d.keys() == ['b', 'c', 'a', 'e'])
 
+# test big dicts
 func big_dict(n int) -> dict[int]
     d = {}
     foreach i : range(n)
@@ -52,8 +55,17 @@ func big_dict(n int) -> dict[int]
 endfunc
 
 n = 128
+
 l = 0
 foreach k, v : big_dict(n)
     assert(k == f'@v@')
     l += 1
 endforeach
+
+q = big_dict(n)
+foreach k, v : q
+    q += {(k.to_int() + n).to_string(): 1}
+endforeach
+
+p(q.keys())
+assert(q.keys().length() == n * 2)

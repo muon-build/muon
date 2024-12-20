@@ -1179,6 +1179,28 @@ obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 }
 
 void
+obj_dict_dup_light(struct workspace *wk, obj dict, obj *res)
+{
+	make_obj(wk, res, obj_dict);
+	struct obj_dict *new = get_obj_dict(wk, *res),
+					*cur = get_obj_dict(wk, dict);
+	*new = *cur;
+	// TODO: We have to set cow on both dicts because we don't know which one
+	// will be modified.
+	// Ideally, we would unset the one dict's cow flag when the other one gets
+	// written to, but that would require refcounting.
+	//
+	// a = {}
+	// b = a
+	// c = a
+	//
+	// Now a, b, and c all point at the same underlying dict.  We'd need to
+	// track the references and only remove cow when there is a single reference.
+	cur->flags |= obj_dict_flag_cow;
+	new->flags |= obj_dict_flag_cow;
+}
+
+void
 obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2)
 {
 	obj k, v;
@@ -1276,10 +1298,31 @@ obj_dict_index_strn_pointer_raw(struct workspace *wk, obj dict, const char *str,
 	return r;
 }
 
+static void
+obj_dict_copy_on_write(struct workspace *wk, obj dict)
+{
+	struct obj_dict *d = get_obj_dict(wk, dict), cur;
+
+	if (!(d->flags & obj_dict_flag_cow)) {
+		return;
+	}
+
+	cur = *d;
+	*d = (struct obj_dict){ 0 };
+
+	obj k, v;
+	obj_dict_for_dict(wk, &cur, k, v) {
+		obj_dict_set(wk, dict, k, v);
+	}
+}
+
 obj *
 obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len)
 {
 	obj *r = obj_dict_index_strn_pointer_raw(wk, dict, str, len);
+	if (r) {
+		obj_dict_copy_on_write(wk, dict);
+	}
 
 	return r;
 }
@@ -1323,6 +1366,8 @@ obj_dict_set_impl(struct workspace *wk,
 	obj key,
 	obj val)
 {
+	obj_dict_copy_on_write(wk, dict);
+
 	struct obj_dict *d = get_obj_dict(wk, dict);
 
 	assert(key);
@@ -1412,6 +1457,8 @@ obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 static void
 _obj_dict_del(struct workspace *wk, obj dict, union obj_dict_key_comparison_key *key, obj_dict_key_comparison_func comp)
 {
+	obj_dict_copy_on_write(wk, dict);
+
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
 		return;

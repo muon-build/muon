@@ -182,6 +182,7 @@ enum obj_dict_flags {
 	obj_dict_flag_big = 1 << 0,
 	obj_dict_flag_int_key = 1 << 1,
 	obj_dict_flag_dont_expand = 1 << 2,
+	obj_dict_flag_cow = 1 << 3,
 };
 
 struct obj_dict_elem {
@@ -635,6 +636,7 @@ obj *obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str
 bool obj_dict_index_str(struct workspace *wk, obj dict, const char *str, obj *res);
 void obj_dict_set(struct workspace *wk, obj dict, obj key, obj val);
 void obj_dict_dup(struct workspace *wk, obj dict, obj *res);
+void obj_dict_dup_light(struct workspace *wk, obj dict, obj *res);
 void obj_dict_merge(struct workspace *wk, obj dict, obj dict2, obj *res);
 void obj_dict_merge_nodup(struct workspace *wk, obj dict, obj dict2);
 void obj_dict_seti(struct workspace *wk, obj dict, uint32_t key, obj val);

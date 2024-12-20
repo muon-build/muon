@@ -204,7 +204,8 @@ vm_inst_location_obj(struct workspace *wk, uint32_t ip)
 
 	obj res;
 	make_obj(wk, &res, obj_array);
-	obj_array_push(wk, res, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
+	obj_array_push(
+		wk, res, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 	obj_array_push(wk, res, make_number(wk, dloc.line));
 	obj_array_push(wk, res, make_number(wk, dloc.col));
 	return res;
@@ -903,16 +904,16 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 	object_stack_push(wk, res);
 }
 
-#define binop_disabler_check(a, b)                  \
+#define binop_disabler_check(a, b)                    \
 	if (a == obj_disabler || b == obj_disabler) { \
-		object_stack_push(wk, obj_disabler); \
-		return;                             \
+		object_stack_push(wk, obj_disabler);  \
+		return;                               \
 	}
 
-#define unop_disabler_check(a)                      \
+#define unop_disabler_check(a)                       \
 	if (a == obj_disabler) {                     \
 		object_stack_push(wk, obj_disabler); \
-		return;                             \
+		return;                              \
 	}
 
 #define vm_pop(__it) entry = object_stack_pop_entry(&wk->vm.stack), __it = entry->o, __it##_ip = entry->ip
@@ -1601,6 +1602,7 @@ type_err:
 		switch (get_obj_type(wk, val)) {
 		case obj_environment:
 		case obj_configuration_data: {
+			// TODO: these objects are just tiny wrappers over dict and array.  They could probably use the same logic as below.
 			obj cloned;
 			if (!obj_clone(wk, wk, val, &cloned)) {
 				UNREACHABLE;
@@ -1610,8 +1612,9 @@ type_err:
 			break;
 		}
 		case obj_dict: {
+			// TODO: If we could detect if this was the initial storage of a dict literal to a var, then we wouldn't have to dup this.
 			obj dup;
-			obj_dict_dup(wk, val, &dup);
+			obj_dict_dup_light(wk, val, &dup);
 			val = dup;
 			break;
 		}
@@ -1918,7 +1921,9 @@ vm_op_iterator(struct workspace *wk)
 		object_stack_push(wk, iter);
 		iterator = get_obj_iterator(wk, iter);
 
-		struct obj_dict *d = get_obj_dict(wk, a);
+		obj dup;
+		obj_dict_dup_light(wk, a, &dup);
+		struct obj_dict *d = get_obj_dict(wk, dup);
 		if (d->flags & obj_dict_flag_big) {
 			iterator->type = obj_iterator_type_dict_big;
 			iterator->data.dict_big.h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
