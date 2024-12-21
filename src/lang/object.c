@@ -599,100 +599,87 @@ obj_equal(struct workspace *wk, obj left, obj right)
 	}
 }
 
-/*
+/*******************************************************************************
  * arrays
- */
+ ******************************************************************************/
+
+static void
+obj_array_copy_on_write(struct workspace *wk, struct obj_array *a, obj arr)
+{
+	struct obj_array cur;
+
+	if (!(a->flags & obj_array_flag_cow)) {
+		return;
+	}
+
+	cur = *a;
+	*a = (struct obj_array){ 0 };
+
+	obj v;
+	obj_array_for_array(wk, &cur, v) {
+		obj_array_push(wk, arr, v);
+	}
+}
 
 bool
 obj_array_foreach(struct workspace *wk, obj arr, void *ctx, obj_array_iterator cb)
 {
-	struct obj_array *a = get_obj_array(wk, arr);
-
-	if (!a->len) {
-		return true;
-	}
-
-	while (true) {
-		switch (cb(wk, ctx, a->val)) {
+	obj v;
+	obj_array_for(wk, arr, v) {
+		switch (cb(wk, ctx, v)) {
 		case ir_cont: break;
 		case ir_done: return true;
 		case ir_err: return false;
 		}
-
-		if (!a->have_next) {
-			break;
-		}
-
-		a = get_obj_array(wk, a->next);
 	}
 
 	return true;
 }
 
-struct obj_array_foreach_flat_ctx {
-	void *usr_ctx;
-	obj_array_iterator cb;
-};
-
-static enum iteration_result
-obj_array_foreach_flat_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct obj_array_foreach_flat_ctx *ctx = _ctx;
-
-	if (get_obj_type(wk, val) == obj_array) {
-		if (!obj_array_foreach(wk, val, ctx, obj_array_foreach_flat_iter)) {
-			return ir_err;
-		} else {
-			return ir_cont;
-		}
-	} else if (get_obj_type(wk, val) == obj_typeinfo && get_obj_typeinfo(wk, val)->type == tc_array) {
-		// skip typeinfo arrays as they wouldn't be yielded if they
-		// were real arrays
-		return ir_cont;
-	} else {
-		return ctx->cb(wk, ctx->usr_ctx, val);
-	}
-
-	return ir_cont;
-}
-
 bool
 obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_array_iterator cb)
 {
-	struct obj_array_foreach_flat_ctx ctx = {
-		.usr_ctx = usr_ctx,
-		.cb = cb,
-	};
+	obj v;
+	obj_array_flat_for_(wk, arr, v, iter) {
+		switch (cb(wk, usr_ctx, v)) {
+		case ir_cont: break;
+		case ir_done: {
+			obj_array_flat_iter_end(wk, &iter);
+			return true;
+		}
+		case ir_err: {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
+		}
+	}
 
-	return obj_array_foreach(wk, arr, &ctx, obj_array_foreach_flat_iter);
+	return true;
 }
 
 void
 obj_array_push(struct workspace *wk, obj arr, obj child)
 {
-	obj child_arr;
-	struct obj_array *a, *tail, *c;
-
-	if (!(a = get_obj_array(wk, arr))->len) {
-		a->tail = arr;
-		a->len = 1;
-		a->val = child;
-		a->have_next = false;
-		return;
-	}
-
-	make_obj(wk, &child_arr, obj_array);
-	c = get_obj_array(wk, child_arr);
-	c->val = child;
+	struct obj_array_elem *e;
+	struct obj_array *a;
 
 	a = get_obj_array(wk, arr);
-	tail = get_obj_array(wk, a->tail);
-	assert(!tail->have_next);
+	obj_array_copy_on_write(wk, a, arr);
 
-	tail->have_next = true;
-	tail->next = child_arr;
+	uint32_t next = wk->vm.objects.array_elems.len;
 
-	a->tail = child_arr;
+	if (!a->len) {
+		a->head = next;
+	}
+
+	bucket_arr_push(&wk->vm.objects.array_elems, &(struct obj_array_elem){ .val = child });
+
+	if (a->len) {
+		e = bucket_arr_get(&wk->vm.objects.array_elems, a->tail);
+		e->next = next;
+	}
+
+	a->tail = next;
 	++a->len;
 }
 
@@ -706,34 +693,21 @@ obj_array_prepend(struct workspace *wk, obj *arr, obj val)
 	*arr = prepend;
 }
 
-struct obj_array_index_of_iter_ctx {
-	obj l;
-	bool res;
-	uint32_t i;
-};
-
-static enum iteration_result
-obj_array_index_of_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct obj_array_index_of_iter_ctx *ctx = _ctx;
-
-	if (obj_equal(wk, ctx->l, v)) {
-		ctx->res = true;
-		return ir_done;
-	}
-
-	++ctx->i;
-	return ir_cont;
-}
-
 bool
 obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx)
 {
-	struct obj_array_index_of_iter_ctx ctx = { .l = val };
-	obj_array_foreach(wk, arr, &ctx, obj_array_index_of_iter);
+	obj v;
+	uint32_t i = 0;
+	obj_array_for(wk, arr, v)
+	{
+		if (obj_equal(wk, val, v)) {
+			*idx = i;
+			return true;
+		}
+		++i;
+	}
 
-	*idx = ctx.i;
-	return ctx.res;
+	return false;
 }
 
 bool
@@ -743,8 +717,8 @@ obj_array_in(struct workspace *wk, obj arr, obj val)
 	return obj_array_index_of(wk, arr, val, &_);
 }
 
-obj *
-obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
+static obj *
+obj_array_index_pointer_raw(struct workspace *wk, obj arr, int64_t i)
 {
 	obj v;
 	(void)v;
@@ -752,7 +726,7 @@ obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
 	obj_array_for_(wk, arr, v, iter)
 	{
 		if (j == i) {
-			return &iter.a->val;
+			return &iter.e->val;
 		}
 		++j;
 	}
@@ -760,10 +734,17 @@ obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
 	return 0;
 }
 
+obj *
+obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
+{
+	obj_array_copy_on_write(wk, get_obj_array(wk, arr), arr);
+	return obj_array_index_pointer_raw(wk, arr, i);
+}
+
 void
 obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 {
-	obj *a = obj_array_index_pointer(wk, arr, i);
+	obj *a = obj_array_index_pointer_raw(wk, arr, i);
 	assert(a);
 	*res = *a;
 }
@@ -771,53 +752,67 @@ obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
 obj
 obj_array_get_tail(struct workspace *wk, obj arr)
 {
-	return get_obj_array(wk, get_obj_array(wk, arr)->tail)->val;
-}
-
-struct obj_array_dup_ctx {
-	obj *arr;
-};
-
-static enum iteration_result
-obj_array_dup_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct obj_array_dup_ctx *ctx = _ctx;
-	obj_array_push(wk, *ctx->arr, v);
-	return ir_cont;
+	uint32_t tail = get_obj_array(wk, arr)->tail;
+	struct obj_array_elem *e = bucket_arr_get(&wk->vm.objects.array_elems, tail);
+	return e->val;
 }
 
 void
 obj_array_dup(struct workspace *wk, obj arr, obj *res)
 {
-	struct obj_array_dup_ctx ctx = { .arr = res };
 	make_obj(wk, res, obj_array);
-	obj_array_foreach(wk, arr, &ctx, obj_array_dup_iter);
+	obj v;
+	obj_array_for(wk, arr, v) {
+		obj_array_push(wk, *res, v);
+	}
 }
 
+static void
+obj_array_dup_into_light(struct workspace *wk, obj src, obj dst)
+{
+	struct obj_array *a_dst = get_obj_array(wk, dst), *a_src = get_obj_array(wk, src);
+	*a_dst = *a_src;
+	a_dst->flags |= obj_array_flag_cow;
+	a_src->flags |= obj_array_flag_cow;
+}
+
+obj
+obj_array_dup_light(struct workspace *wk, obj src)
+{
+	obj res;
+	make_obj(wk, &res, obj_array);
+	obj_array_dup_into_light(wk, src, res);
+	return res;
+}
+
+// mutates arr and consumes arr2
 void
 obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2)
 {
-	struct obj_array *a, *b, *tail;
+	struct obj_array *a, *b;
+	struct obj_array_elem *tail;
 
 	if (!(b = get_obj_array(wk, arr2))->len) {
 		return;
 	}
 
-	if (!(a = get_obj_array(wk, arr))->len) {
-		struct obj_array_dup_ctx ctx = { .arr = &arr };
-		obj_array_foreach(wk, arr2, &ctx, obj_array_dup_iter);
+	a = get_obj_array(wk, arr);
+	obj_array_copy_on_write(wk, a, arr);
+
+	if (!a->len) {
+		obj_array_dup_into_light(wk, arr2, arr);
 		return;
 	}
 
-	tail = get_obj_array(wk, a->tail);
-	assert(!tail->have_next);
-	tail->have_next = true;
-	tail->next = arr2;
+	tail = bucket_arr_get(&wk->vm.objects.array_elems, a->tail);
+	assert(!tail->next);
+	tail->next = b->head;
 
 	a->tail = b->tail;
 	a->len += b->len;
 }
 
+// mutates arr without modifying arr2
 void
 obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 {
@@ -898,82 +893,74 @@ obj_array_tail(struct workspace *wk, obj arr, obj *res)
 {
 	const struct obj_array *a = get_obj_array(wk, arr);
 
-	if (a->have_next) {
-		struct obj_array *n = get_obj_array(wk, a->next);
+	make_obj(wk, res, obj_array);
+
+	if (a->len > 1) {
+		struct obj_array *n = get_obj_array(wk, *res);
+		struct obj_array_elem *head = bucket_arr_get(&wk->vm.objects.array_elems, a->head);
+
+		n->head = head->next;
 		n->tail = a->tail;
 		n->len = a->len;
-		*res = a->next;
-	} else {
-		// the tail of a zero or single element array is an empty array
-		make_obj(wk, res, obj_array);
 	}
 }
 
 void
 obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v)
 {
-	assert(i >= 0 && i < get_obj_array(wk, arr)->len);
-
-	uint32_t j = 0;
-
-	while (true) {
-		if (j == i) {
-			get_obj_array(wk, arr)->val = v;
-			return;
-		}
-
-		assert(get_obj_array(wk, arr)->have_next);
-		arr = get_obj_array(wk, arr)->next;
-		++j;
-	}
-
-	assert(false && "unreachable");
+	obj *p = obj_array_index_pointer(wk, arr, i);
+	assert(p);
+	*p = v;
 }
 
 void
 obj_array_del(struct workspace *wk, obj arr, int64_t i)
 {
-	uint32_t j = 0;
-	obj p = arr;
-	struct obj_array *head = get_obj_array(wk, arr), *prev, *next, *del;
+	struct obj_array *a = get_obj_array(wk, arr);
+	obj_array_copy_on_write(wk, a, arr);
 
-	assert(i >= 0 && i < head->len);
+	struct obj_array_elem *head = bucket_arr_get(&wk->vm.objects.array_elems, a->head), *prev = 0;
+	uint32_t head_idx = a->head, prev_idx = 0;
 
+	assert(i >= 0 && i < a->len);
+
+#if 0
 	if (i == 0) {
-		if (head->have_next) {
-			next = get_obj_array(wk, head->next);
-			next->len = head->len - 1;
-			next->tail = head->tail;
-			*head = *next;
+		if (a->len >= 1) {
+			head = bucket_arr_get(&wk->vm.objects.array_elems, a->head);
+			a->head = head->next;
+			--a->len;
 		} else {
-			*head = (struct obj_array){ 0 };
+			*a = (struct obj_array){ 0 };
 		}
 
 		return;
 	}
+#endif
 
+	int64_t j = 0;
 	while (true) {
 		if (j == i) {
-			del = get_obj_array(wk, arr);
 			break;
 		}
 
-		p = arr;
-		assert(get_obj_array(wk, arr)->have_next);
-		arr = get_obj_array(wk, arr)->next;
+		prev_idx = head_idx;
+		prev = head;
+		head_idx = head->next;
+		head = bucket_arr_get(&wk->vm.objects.array_elems, head_idx);
 		++j;
 	}
 
-	prev = get_obj_array(wk, p);
-
-	if (del->have_next) {
-		prev->next = del->next;
+	if (i == 0) {
+		a->head = head->next;
+	} else if (i == a->len - 1) {
+		a->tail = prev_idx;
+		prev->next = 0;
 	} else {
-		head->tail = p;
-		prev->have_next = false;
+		prev->next = head->next;
 	}
 
-	--head->len;
+	--a->len;
 }
 
 obj
@@ -1182,8 +1169,7 @@ void
 obj_dict_dup_light(struct workspace *wk, obj dict, obj *res)
 {
 	make_obj(wk, res, obj_dict);
-	struct obj_dict *new = get_obj_dict(wk, *res),
-					*cur = get_obj_dict(wk, dict);
+	struct obj_dict *new = get_obj_dict(wk, *res), *cur = get_obj_dict(wk, dict);
 	*new = *cur;
 	// TODO: We have to set cow on both dicts because we don't know which one
 	// will be modified.
@@ -1311,7 +1297,8 @@ obj_dict_copy_on_write(struct workspace *wk, obj dict)
 	*d = (struct obj_dict){ 0 };
 
 	obj k, v;
-	obj_dict_for_dict(wk, &cur, k, v) {
+	obj_dict_for_dict(wk, &cur, k, v)
+	{
 		obj_dict_set(wk, dict, k, v);
 	}
 }
@@ -1319,12 +1306,8 @@ obj_dict_copy_on_write(struct workspace *wk, obj dict)
 obj *
 obj_dict_index_strn_pointer(struct workspace *wk, obj dict, const char *str, uint32_t len)
 {
-	obj *r = obj_dict_index_strn_pointer_raw(wk, dict, str, len);
-	if (r) {
-		obj_dict_copy_on_write(wk, dict);
-	}
-
-	return r;
+	obj_dict_copy_on_write(wk, dict);
+	return obj_dict_index_strn_pointer_raw(wk, dict, str, len);
 }
 
 bool

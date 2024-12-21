@@ -160,7 +160,7 @@ struct vm_behavior {
 struct vm_objects {
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
-	struct bucket_arr dict_elems, dict_hashes;
+	struct bucket_arr dict_elems, dict_hashes, array_elems;
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 	struct hash obj_hash, str_hash;
 	bool obj_clear_mark_set;

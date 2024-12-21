@@ -170,12 +170,18 @@ struct obj_module {
 	obj exports;
 };
 
+struct obj_array_elem {
+	uint32_t next;
+	obj val;
+};
+
+enum obj_array_flags {
+	obj_array_flag_cow = 1 << 3,
+};
+
 struct obj_array {
-	obj val; // any
-	obj next; // obj_array
-	obj tail; // obj_array
-	uint32_t len;
-	bool have_next;
+	uint32_t head, tail, len;
+	enum obj_array_flags flags;
 };
 
 enum obj_dict_flags {
@@ -500,7 +506,7 @@ struct range_params {
 struct obj_iterator {
 	enum obj_iterator_type type;
 	union {
-		struct obj_array *array;
+		struct obj_array_elem *array;
 		struct obj_dict_elem *dict_small;
 		struct {
 			struct hash *h;
@@ -613,6 +619,7 @@ void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
 void obj_array_dup(struct workspace *wk, obj arr, obj *res);
+obj obj_array_dup_light(struct workspace *wk, obj src);
 bool obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res);
 void obj_array_tail(struct workspace *wk, obj arr, obj *res);
 void obj_array_set(struct workspace *wk, obj arr, int64_t i, obj v);

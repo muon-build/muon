@@ -16,7 +16,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 
-#define SERIAL_MAGIC_LEN 8
+#define SERIAL_MAGIC_LEN 9
 static const char serial_magic[SERIAL_MAGIC_LEN + 1] = "muondump";
 static const uint32_t serial_version = 9;
 
@@ -417,7 +417,8 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 
 	if (!(dump_serial_header(f) && dump_uint32(obj_dest, f) && dump_bucket_arr(&wk_dest.vm.objects.chrs, f)
 		    && dump_big_strings(&wk_dest, &big_string_offsets, f) && dump_objs(&wk_dest, &big_string_offsets, f)
-		    && dump_bucket_arr(&wk_dest.vm.objects.dict_elems, f))) {
+		    && dump_bucket_arr(&wk_dest.vm.objects.dict_elems, f)
+		    && dump_bucket_arr(&wk_dest.vm.objects.array_elems, f))) {
 		goto ret;
 	}
 
@@ -434,14 +435,17 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	bool ret = false;
 	struct workspace wk_src = { 0 };
 	vm_init_objects(&wk_src);
-	bucket_arr_clear(&wk_src.vm.objects.dict_elems); // remove null dict_elem
+	// remove null elems
+	bucket_arr_clear(&wk_src.vm.objects.dict_elems);
+	bucket_arr_clear(&wk_src.vm.objects.array_elems);
 
 	struct big_string_table bst = { 0 };
 
 	obj obj_src;
 	if (!(load_serial_header(f) && load_uint32(&obj_src, f) && load_bucket_arr(&wk_src.vm.objects.chrs, f)
 		    && load_big_strings(&wk_src, &bst, f) && load_objs(&wk_src, &bst, f)
-		    && load_bucket_arr(&wk_src.vm.objects.dict_elems, f))) {
+		    && load_bucket_arr(&wk_src.vm.objects.dict_elems, f)
+		    && load_bucket_arr(&wk_src.vm.objects.array_elems, f))) {
 		goto ret;
 	}
 

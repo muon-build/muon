@@ -16,20 +16,26 @@
  ******************************************************************************/
 
 struct obj_array_for_helper {
-	struct obj_array *a;
+	const struct obj_array *a;
+	struct obj_array_elem *e;
 	uint32_t i, len;
 };
 
-#define obj_array_for_(__wk, __arr, __val, __iter)                                        \
+#define obj_array_for_array_(__wk, __arr, __val, __iter)                                        \
 	struct obj_array_for_helper __iter = {                                            \
-		.a = get_obj_array(__wk, __arr),                                          \
+		.a = __arr,                                          \
 	};                                                                                \
 	__iter.len = __iter.a->len;                                                       \
-	for (__val = __iter.a->len ? __iter.a->val : 0; __iter.i < __iter.len;            \
-		__iter.a = __iter.a->have_next ? get_obj_array(__wk, __iter.a->next) : 0, \
-	    __val = __iter.a ? __iter.a->val : 0,                                         \
+	for (__iter.e = __iter.a->len ? (struct obj_array_elem *)bucket_arr_get(&__wk->vm.objects.array_elems, __iter.a->head) : 0,\
+			__val = __iter.e ? __iter.e->val : 0; __iter.i < __iter.len;            \
+		__iter.e = __iter.e->next ? (struct obj_array_elem *)bucket_arr_get(&__wk->vm.objects.array_elems, __iter.e->next) : 0, \
+	    __val = __iter.e ? __iter.e->val : 0,                                         \
 	    ++__iter.i)
 
+#define obj_array_for_array(__wk, __arr, __val) \
+	obj_array_for_array_((__wk), __arr, __val, CONCAT(__iter, __LINE__))
+
+#define obj_array_for_(__wk, __arr, __val, __iter) obj_array_for_array_(__wk, get_obj_array(__wk, __arr), __val, __iter)
 #define obj_array_for(__wk, __arr, __val) obj_array_for_(__wk, __arr, __val, CONCAT(__iter, __LINE__))
 
 /******************************************************************************
@@ -78,7 +84,7 @@ struct obj_dict_for_helper {
 	obj_dict_for_dict_((__wk), __dict, __key, __val, CONCAT(__iter, __LINE__))
 
 #define obj_dict_for_(__wk, __dict, __key, __val, __iter) \
-	obj_dict_for_dict_((__wk), get_obj_dict(__wk, __dict), __key, __val, CONCAT(__iter, __LINE__))
+	obj_dict_for_dict_((__wk), get_obj_dict(__wk, __dict), __key, __val, __iter)
 #define obj_dict_for(__wk, __dict, __key, __val) obj_dict_for_((__wk), __dict, __key, __val, CONCAT(__iter, __LINE__))
 
 /******************************************************************************
@@ -86,7 +92,7 @@ struct obj_dict_for_helper {
  ******************************************************************************/
 
 struct obj_array_flat_iter_ctx {
-	struct obj_array *a;
+	struct obj_array_elem *e;
 	uint32_t pushed;
 	bool init;
 };

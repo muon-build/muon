@@ -1619,9 +1619,7 @@ type_err:
 			break;
 		}
 		case obj_array: {
-			obj dup;
-			obj_array_dup(wk, val, &dup);
-			val = dup;
+			val = obj_array_dup_light(wk, val);
 		}
 		default: break;
 		}
@@ -1905,11 +1903,10 @@ vm_op_iterator(struct workspace *wk)
 		iterator = get_obj_iterator(wk, iter);
 
 		iterator->type = obj_iterator_type_array;
-		iterator->data.array = get_obj_array(wk, a);
-		if (!iterator->data.array->len) {
-			// TODO: update this when we implement array_elem
-			iterator->data.array = 0;
-		}
+
+		obj dup = obj_array_dup_light(wk, a);
+		struct obj_array *arr = get_obj_array(wk, dup);
+		iterator->data.array = arr->len ? bucket_arr_get(&wk->vm.objects.array_elems, arr->head) : 0;
 		break;
 	case obj_dict: {
 		expected_args_to_unpack = 2;
@@ -2019,7 +2016,7 @@ vm_op_iterator_next(struct workspace *wk)
 		} else {
 			val = iterator->data.array->val;
 			iterator->data.array
-				= iterator->data.array->have_next ? get_obj_array(wk, iterator->data.array->next) : 0;
+				= iterator->data.array->next ? bucket_arr_get(&wk->vm.objects.array_elems, iterator->data.array->next) : 0;
 		}
 		break;
 	case obj_iterator_type_range:
@@ -2632,6 +2629,7 @@ vm_init_objects(struct workspace *wk)
 	bucket_arr_init(&wk->vm.objects.objs, 1024, sizeof(struct obj_internal));
 	bucket_arr_init(&wk->vm.objects.dict_elems, 1024, sizeof(struct obj_dict_elem));
 	bucket_arr_init(&wk->vm.objects.dict_hashes, 16, sizeof(struct hash));
+	bucket_arr_init(&wk->vm.objects.array_elems, 1024, sizeof(struct obj_array_elem));
 
 	const struct {
 		uint32_t item_size;
@@ -2673,7 +2671,9 @@ vm_init_objects(struct workspace *wk)
 		bucket_arr_init(&wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
 	}
 
-	bucket_arr_pushn(&wk->vm.objects.dict_elems, 0, 0, 1); // reserve dict_elem 0 as a null element
+	 // reserve dict_elem 0 and array_elem as a null element
+	bucket_arr_pushn(&wk->vm.objects.dict_elems, 0, 0, 1);
+	bucket_arr_pushn(&wk->vm.objects.array_elems, 0, 0, 1);
 
 	hash_init(&wk->vm.objects.obj_hash, 128, sizeof(obj));
 	hash_init_str(&wk->vm.objects.str_hash, 128);

@@ -65,3 +65,9 @@ a.delete(4)
 assert(a == [1, 2, 4, 5])
 a += a
 assert(a == [1, 2, 4, 5, 1, 2, 4, 5])
+
+a = ['a', 'a']
+foreach e : a
+    a += e
+endforeach
+assert(a.length() == 4)
