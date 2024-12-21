@@ -15,3 +15,6 @@ Diagnostics:
       # These only define symbols on some platforms
       - platform/assert\.h
       - platform/os\.h
+  ClangTidy:
+    CheckOptions:
+      bugprone-sizeof-expression.WarnOnSizeOfPointerToAggregate: false
