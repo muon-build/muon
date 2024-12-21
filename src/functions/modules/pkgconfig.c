@@ -223,7 +223,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct module_pkgconf_process_libs_iter_ctx *ctx = _ctx;
 
-	/* obj_fprintf(wk, log_file(), "%o\n", val); */
+	/* obj_lprintf(wk, "processing lib %o\n", val); */
 
 	switch (get_obj_type(wk, val)) {
 	case obj_string: {
@@ -271,7 +271,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 					    ctx->err_node,
 					    tgt->dep.raw.deps,
 					    ctx->pc,
-					    pkgconf_visibility_priv,
+					    pkgconf_visibility_pub,
 					    false)) {
 					return ir_err;
 				}
