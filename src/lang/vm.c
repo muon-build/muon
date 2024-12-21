@@ -2812,6 +2812,7 @@ vm_destroy_objects(struct workspace *wk)
 	bucket_arr_destroy(&wk->vm.objects.objs);
 	bucket_arr_destroy(&wk->vm.objects.dict_elems);
 	bucket_arr_destroy(&wk->vm.objects.dict_hashes);
+	bucket_arr_destroy(&wk->vm.objects.array_elems);
 
 	hash_destroy(&wk->vm.objects.obj_hash);
 	hash_destroy(&wk->vm.objects.str_hash);
