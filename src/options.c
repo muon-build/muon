@@ -13,7 +13,6 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
-#include "error.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
@@ -1041,16 +1040,16 @@ get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fall
 enum backend
 get_option_backend(struct workspace *wk)
 {
-		obj backend_opt;
-		get_option_value(wk, 0, "backend", &backend_opt);
-		const struct str *backend_str = get_str(wk, backend_opt);
-		if (str_eql(backend_str, &WKSTR("ninja"))) {
-			return backend_ninja;
-		} else if (str_eql(backend_str, &WKSTR("xcode"))) {
-			return backend_xcode;
-		} else {
-			UNREACHABLE;
-		}
+	obj backend_opt;
+	get_option_value(wk, 0, "backend", &backend_opt);
+	const struct str *backend_str = get_str(wk, backend_opt);
+	if (str_eql(backend_str, &WKSTR("ninja"))) {
+		return backend_ninja;
+	} else if (str_eql(backend_str, &WKSTR("xcode"))) {
+		return backend_xcode;
+	} else {
+		UNREACHABLE;
+	}
 }
 
 /* options listing subcommand */
@@ -1121,7 +1120,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		no_clr = "\033[0m";
 	}
 
-	obj_lprintf(wk, "  %s%#o%s=", key_clr, key, no_clr);
+	obj_lprintf(wk, "  -D %s%#o%s=", key_clr, key, no_clr);
 
 	obj choices = 0;
 	obj selected = 0;
@@ -1184,12 +1183,8 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case op_feature: obj_lprintf(wk, "<%s>", get_cstr(wk, choices)); break;
 	case op_string: {
 		const struct str *def = get_str(wk, opt->val);
-		obj_lprintf(wk,
-			"<%s>, default: %s%s%s",
-			get_cstr(wk, choices),
-			sel_clr,
-			def->len ? def->s : "''",
-			no_clr);
+		obj_lprintf(
+			wk, "<%s>, default: %s%s%s", get_cstr(wk, choices), sel_clr, def->len ? def->s : "''", no_clr);
 		break;
 	}
 	case op_integer:
@@ -1221,7 +1216,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	}
 
 	if (opt->description) {
-		obj_lprintf(wk, "\n    %#o", opt->description);
+		obj_lprintf(wk, " - %#o", opt->description);
 	}
 
 	log_plain("\n");
@@ -1248,10 +1243,11 @@ list_options(const struct list_options_opts *list_opts)
 			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0)) {
 				goto ret;
 			}
+		} else {
+			make_obj(&wk, &current_project(&wk)->opts, obj_dict);
 		}
 
 		if (list_opts->list_all) {
-			make_obj(&wk, &current_project(&wk)->opts, obj_dict);
 			if (!init_per_project_options(&wk)) {
 				goto ret;
 			}

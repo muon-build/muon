@@ -285,7 +285,8 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		action_trace,
 		action_define,
 		action_default,
-	} action = action_default;
+	} action
+		= action_default;
 
 	static const struct command commands[] = {
 		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
@@ -911,6 +912,17 @@ cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	return install_run(&opts);
 }
 
+static void
+cmd_setup_help(void)
+{
+	log_plain("\n");
+
+	struct list_options_opts list_opts = { 0 };
+	list_options(&list_opts);
+
+	log_plain("To see all options, including global options, use `muon options -a`.\n");
+}
+
 static bool
 cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -933,12 +945,13 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	}
-	OPTEND(argv[argi],
+	OPTEND_CUSTOM(argv[argi],
 		" <build dir>",
-		"  -D <option>=<value> - set project options\n"
+		"  -D <option>=<value> - set options\n"
 		"  -b <breakpoint> - set breakpoint\n",
 		NULL,
-		1)
+		1,
+		cmd_setup_help())
 
 	const char *build = argv[argi];
 	++argi;

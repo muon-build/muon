@@ -38,11 +38,11 @@ void
 print_usage(FILE *f, const struct command *commands, const char *pre, const char *opts, const char *post)
 {
 	uint32_t i;
-	fprintf(f, "usage: %s%s%s%s\n", pre, opts ? " [opts]" : "", commands ? " [command]" : "", post ? post : "");
+	fprintf(f, "usage: %s%s%s%s\n", pre, opts ? " [options]" : "", commands ? " [command]" : "", post ? post : "");
 
 	if (opts) {
 		fprintf(f,
-			"opts:\n"
+			"options:\n"
 			"%s"
 			"  -h - show this message\n",
 			opts);

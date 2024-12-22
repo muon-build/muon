@@ -22,9 +22,10 @@
 	optind = 1;                                                                \
 	while ((opt = os_getopt(argc - argi, &argv[argi], optstring "h")) != -1) { \
 		switch (opt) {
-#define OPTEND(usage_pre, usage_post, usage_opts, commands, operands)                            \
+#define OPTEND_CUSTOM(usage_pre, usage_post, usage_opts, commands, operands, extra_help)         \
 	case 'h':                                                                                \
 		print_usage(stdout, commands, usage_pre, usage_opts, usage_post);                \
+		extra_help;                                                                      \
 		exit(0);                                                                         \
 		break;                                                                           \
 	default: print_usage(stderr, commands, usage_pre, usage_opts, usage_post); return false; \
@@ -35,6 +36,9 @@
 			return false;                                                            \
 		}                                                                                \
 		argi += optind;
+
+#define OPTEND(usage_pre, usage_post, usage_opts, commands, operands) \
+	OPTEND_CUSTOM(usage_pre, usage_post, usage_opts, commands, operands, {})
 
 typedef bool (*cmd_func)(void *ctx, uint32_t argc, uint32_t argi, char *const[]);
 
