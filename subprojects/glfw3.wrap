@@ -3,7 +3,7 @@
 
 [wrap-git]
 url = https://git.sr.ht/~lattis/glfw3
-revision = bc87fe5203d3d02611fc13549763f852af199f87
+revision = d70ff6cf248621e88793e18b9bbec400730e68d4
 depth = 1
 
 [provide]

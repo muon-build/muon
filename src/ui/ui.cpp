@@ -382,7 +382,7 @@ push_breakpoint(const char *file, uint32_t line, uint32_t col)
 	struct inspector_context *ctx = get_inspector_context();
 	struct workspace *wk = &ctx->wk;
 
-	breakpoint bp = { .line = line, .col = col };
+	breakpoint bp = { .col = col, .line = line };
 	cstr_copy(bp.file, file, sizeof(bp.file));
 	ctx->breakpoints.push_back(bp);
 	vm_dbg_push_breakpoint(wk, make_str(wk, file), line);
