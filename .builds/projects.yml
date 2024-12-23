@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-image: alpine/3.17
+image: alpine/3.21
 packages:
   - curl-dev
   - libarchive-dev
