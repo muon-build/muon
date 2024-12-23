@@ -41,10 +41,6 @@ dep_tinyjson = dependency('tinyjson', static: true)
 external_deps += [dep_tinyjson]
 dep_sources += [files('tinyjson.c')]
 
-if get_option('static') and dep_dict['libcurl']
-    external_deps += dependency('libbrotlidec', static: true)
-endif
-
 if get_option('samurai').disabled()
     dep_dict += {'samurai': false}
     dep_sources += files('samurai_null.c')

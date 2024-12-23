@@ -43,7 +43,10 @@ packages:
   - openssl-libs-static
   - xz-static
   - zlib-static
-  - zstd-dev
+  - zstd-static
+  - libidn2-static
+  - libunistring-static
+  - libpsl-static
 
   # for releases
   - rsync
@@ -52,6 +55,10 @@ sources:
 environment:
   PKG_CONFIG_PATH: /usr/lib/pkgconfig
 tasks:
+  - fix-static-libs: |
+      # Because static libcares is installed as libcares_static, and this is
+      # not listed in any .pc files, symlink it to the expected location.
+      sudo ln -s /usr/lib/libcares_static.a /usr/lib/libcares.a
   - reuse: |
       cd muon
       reuse lint
