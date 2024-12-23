@@ -774,11 +774,13 @@ static bool
 cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
+		{ "check", cmd_check, "check if a meson file parses" },
+		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
+		{ "dump_toolchains", cmd_dump_toolchains, "output toolchain arguments" },
 		{ "eval", cmd_eval, "evaluate a file" },
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
-		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
-		{ "dump_toolchains", cmd_dump_toolchains, "output toolchain arguments" },
+		{ "summary", cmd_summary, "print a configured project's summary" },
 		0,
 	};
 
@@ -805,12 +807,12 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
-	if (strcmp(argv[argi], "benchmark") == 0) {
+	OPTSTART("bs:d:Sfj:lvRe:o:") {
+	case 'b': {
 		test_opts.cat = test_category_benchmark;
 		test_opts.print_summary = true;
+		break;
 	}
-
-	OPTSTART("s:d:Sfj:lvRe:o:") {
 	case 'l': test_opts.list = true; break;
 	case 'e': test_opts.setup = optarg; break;
 	case 's':
@@ -864,6 +866,7 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi],
 		" [test [test [...]]]",
+		"  -b - run benchmarks instead of tests\n"
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -o <mode> - set output mode (term|html|json)\n"
 		"  -e <setup> - use test setup <setup>\n"
@@ -920,7 +923,7 @@ cmd_setup_help(void)
 	struct list_options_opts list_opts = { 0 };
 	list_options(&list_opts);
 
-	log_plain("To see all options, including global options, use `muon options -a`.\n");
+	log_plain("To see all options, including builtin options, use `muon options -a`.\n");
 }
 
 static bool
@@ -947,8 +950,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND_CUSTOM(argv[argi],
 		" <build dir>",
-		"  -D <option>=<value> - set options\n"
-		"  -b <breakpoint> - set breakpoint\n",
+		"  -D <option>=<value> - set options\n",
 		NULL,
 		1,
 		cmd_setup_help())
@@ -970,10 +972,6 @@ ret:
 static bool
 cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	if (strcmp(argv[argi], "fmt_unstable") == 0) {
-		LOG_W("the subcommand name fmt_unstable is deprecated, please use fmt instead");
-	}
-
 	struct {
 		char *const *filenames;
 		const char *cfg_path;
@@ -1120,22 +1118,18 @@ static bool
 cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
-		{ "analyze", cmd_analyze, "run a static analyzer on the current project." },
-		{ "benchmark", cmd_test, "run benchmarks" },
-		{ "check", cmd_check, "check if a meson file parses" },
+		{ "analyze", cmd_analyze, "run a static analyzer" },
 		{ "fmt", cmd_format, "format meson source file" },
-		{ "fmt_unstable", cmd_format, NULL },
 		{ "info", cmd_info, NULL },
-		{ "install", cmd_install, "install project" },
+		{ "install", cmd_install, "install files" },
 		{ "internal", cmd_internal, "internal subcommands" },
-		{ "meson", cmd_meson, "meson compatible cli proxy" },
+		{ "meson", cmd_meson, NULL },
 		{ "options", cmd_options, "list project options" },
 		{ "samu", cmd_samu, have_samurai ? "run samurai" : NULL },
 		{ "setup", cmd_setup, "setup a build directory" },
 		{ "subprojects", cmd_subprojects, "manage subprojects" },
-		{ "summary", cmd_summary, "print a configured project's summary" },
 		{ "test", cmd_test, "run tests" },
-		{ "ui", cmd_ui, "ui" },
+		{ "ui", cmd_ui, have_ui ? "run an interactive ui" : NULL },
 		{ "version", cmd_version, "print version information" },
 		{ 0 },
 	};

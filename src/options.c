@@ -13,6 +13,8 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
+#include "functions/modules/subprojects.h"
+#include "lang/analyze.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
@@ -21,6 +23,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "wrap.h"
 
 bool initializing_builtin_options = false;
 
@@ -709,6 +712,28 @@ set_yielding_project_options_iter(struct workspace *wk, void *_ctx, obj _k, obj 
 	return ir_cont;
 }
 
+static bool
+determine_option_file(struct workspace *wk, const char *cwd, struct sbuf *out)
+{
+	const char *option_file_names[] = {
+		"meson.options",
+		"meson_options.txt",
+	};
+
+	bool exists = false;
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(option_file_names); ++i) {
+		path_join(wk, out, cwd, option_file_names[i]);
+
+		if (fs_file_exists(out->buf)) {
+			exists = true;
+			break;
+		}
+	}
+
+	return exists;
+}
+
 bool
 setup_project_options(struct workspace *wk, const char *cwd)
 {
@@ -720,23 +745,8 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return true;
 	}
 
-	const char *option_file_names[] = {
-		"meson.options",
-		"meson_options.txt",
-	};
-
 	SBUF(meson_opts);
-
-	bool exists = false;
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(option_file_names); ++i) {
-		path_join(wk, &meson_opts, cwd, option_file_names[i]);
-
-		if (fs_file_exists(meson_opts.buf)) {
-			exists = true;
-			break;
-		}
-	}
+	bool exists = determine_option_file(wk, cwd, &meson_opts);
 
 	if (exists) {
 		enum language_mode old_mode = wk->vm.lang_mode;
@@ -762,6 +772,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	bool ret = true;
 	struct option_override *oo;
 
+	uint32_t i;
 	for (i = 0; i < wk->option_overrides.len; ++i) {
 		oo = arr_get(&wk->option_overrides, i);
 
@@ -1088,6 +1099,7 @@ make_option_choices_iter(struct workspace *wk, void *_ctx, obj val)
 struct list_options_ctx {
 	bool show_builtin;
 	const struct list_options_opts *list_opts;
+	const char *subproject_name;
 };
 
 static enum iteration_result
@@ -1120,7 +1132,10 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		no_clr = "\033[0m";
 	}
 
-	obj_lprintf(wk, "  -D %s%#o%s=", key_clr, key, no_clr);
+	{
+		const char *subp = ctx->subproject_name;
+		obj_lprintf(wk, "  -D %s%s%s%#o%s=", subp ? subp : "", subp ? ":" : "", key_clr, key, no_clr);
+	}
 
 	obj choices = 0;
 	obj selected = 0;
@@ -1223,6 +1238,37 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	return ir_cont;
 }
 
+static enum iteration_result
+list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
+{
+	SBUF(cwd);
+
+	struct wrap wrap = { 0 };
+	if (!wrap_parse(path, &wrap)) {
+		return ir_err;
+	}
+
+	SBUF(meson_opts);
+	bool exists = determine_option_file(wk, wrap.dest_dir.buf, &meson_opts);
+
+	make_project(wk, &wk->cur_project, wrap.name.buf, wrap.dest_dir.buf, "");
+	current_project(wk)->cfg.name = make_str(wk, wrap.name.buf);
+
+	if (exists) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0)) {
+			goto cont;
+		}
+	} else {
+		make_obj(wk, &current_project(wk)->opts, obj_dict);
+	}
+
+cont:
+	wrap_destroy(&wrap);
+	wk->cur_project = 0;
+
+	return ir_cont;
+}
+
 bool
 list_options(const struct list_options_opts *list_opts)
 {
@@ -1231,20 +1277,37 @@ list_options(const struct list_options_opts *list_opts)
 	workspace_init(&wk);
 	wk.vm.lang_mode = language_opts;
 
-	arr_push(&wk.projects, &(struct project){ 0 });
-	struct project *proj = arr_get(&wk.projects, 0);
-	make_obj(&wk, &proj->opts, obj_dict);
+	uint32_t idx;
+	make_project(&wk, &idx, "dummy", path_cwd(), "");
 
 	if (fs_file_exists("meson.build")) {
 		SBUF(meson_opts);
-		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
+		bool exists = determine_option_file(&wk, ".", &meson_opts);
 
-		if (fs_file_exists(meson_opts.buf)) {
+		if (exists) {
 			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0)) {
 				goto ret;
 			}
 		} else {
 			make_obj(&wk, &current_project(&wk)->opts, obj_dict);
+		}
+
+		{
+			SBUF(subprojects_dir);
+			struct workspace az_wk = { 0 };
+			analyze_project_call(&az_wk);
+			path_make_absolute(&wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+
+			obj name = current_project(&az_wk)->cfg.name;
+			if (name) {
+				current_project(&wk)->cfg.name = make_str(&wk, get_cstr(&az_wk, name));
+			}
+
+			current_project(&wk)->subprojects_dir = sbuf_into_str(&wk, &subprojects_dir);
+
+			workspace_destroy(&az_wk);
+
+			subprojects_foreach(&wk, 0, 0, list_options_for_subproject);
 		}
 
 		if (list_opts->list_all) {
@@ -1271,18 +1334,34 @@ list_options(const struct list_options_opts *list_opts)
 
 	struct list_options_ctx ctx = { .list_opts = list_opts };
 
-	if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
-		log_plain("project options:\n");
-		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
-	} else if (!list_opts->list_all) {
+	bool had_project_options = false;
+
+	uint32_t i;
+	for (i = 0; i < wk.projects.len; ++i) {
+		struct project *proj = arr_get(&wk.projects, i);
+		if (get_obj_dict(&wk, proj->opts)->len) {
+			had_project_options = true;
+
+			const char *name = get_cstr(&wk, proj->cfg.name);
+			if (!name) {
+				name = "project";
+			}
+
+			log_plain("%s options:\n", name);
+
+			ctx.subproject_name = i == 0 ? 0 : name;
+			obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
+			ctx.subproject_name = 0;
+
+			log_plain("\n");
+		}
+	}
+
+	if (!had_project_options && !list_opts->list_all) {
 		log_plain("no project options defined\n");
 	}
 
 	if (list_opts->list_all) {
-		if (get_obj_dict(&wk, current_project(&wk)->opts)->len) {
-			log_plain("\n");
-		}
-
 		ctx.show_builtin = true;
 
 		log_plain("project builtin-options:\n");

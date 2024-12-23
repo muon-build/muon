@@ -591,7 +591,7 @@ const struct func_impl impl_tbl_meson[] = {
 	{ "project_source_root", func_meson_project_source_root, tc_string },
 	{ "project_version", func_meson_project_version, tc_string },
 	{ "source_root", func_meson_global_source_root, tc_string },
-	{ "version", func_meson_version, tc_string },
+	{ "version", func_meson_version, tc_string, true },
 	{ NULL, NULL },
 };
 

@@ -190,11 +190,12 @@ func_project(struct workspace *wk, obj _, obj *res)
 		current_project(wk)->module_dir = akw[kw_module_dir].val;
 	}
 
+	current_project(wk)->cfg.name = an[0].val;
+
 	if (wk->vm.in_analyzer) {
 		return true;
 	}
 
-	current_project(wk)->cfg.name = an[0].val;
 #ifndef MUON_BOOTSTRAPPED
 	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
 		vm_error_at(wk,

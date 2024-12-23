@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 
+extern bool have_ui;
 bool ui_main(void);
 
 #endif

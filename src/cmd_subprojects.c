@@ -94,7 +94,7 @@ cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 	OPTSTART("f") {
 	case 'f': force = true; break;
 	}
-	OPTEND(argv[argi], " <list of subprojects>", "  -f - force the operation", NULL, -1)
+	OPTEND(argv[argi], " <list of subprojects>", "  -f - force the operation\n", NULL, -1)
 
 	cmd_subprojects_args_to_list(wk, argc, argi, argv);
 

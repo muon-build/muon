@@ -31,6 +31,8 @@ extern "C" {
 #include "ui.h"
 }
 
+bool have_ui = true;
+
 static ImFont *gMonospaceFont = nullptr;
 
 struct g_win {

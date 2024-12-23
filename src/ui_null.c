@@ -7,6 +7,8 @@
 
 #include "ui.h"
 
+bool have_ui = false;
+
 bool
 ui_main(void)
 {

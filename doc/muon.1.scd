@@ -72,20 +72,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *trace* - print a tree of all meson source files that are evaluated
 	- *define* <var> - print the location of the definition of _var_
 
-## benchmark
-	See documentation for the *test* subcommand.
-
-## check
-	*muon* *check* [*-p*|*-d*] [*-m*<x|f>] <filename>
-
-	Check if _filename_ parses.
-
-	*OPTIONS*:
-	- *-p* - print the parsed ast
-	- *-d* - print the dissasembly
-	- *-m* <mode> - set the compilation mode.  `f` parses for formatting,
-	  `x` compiles for the extended language (e.g. user-defined functions)
-
 ## fmt
 	*muon* *fmt* [*-i*] [*-q*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
 
@@ -189,13 +175,24 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	Internal contains several subcommands used by *muon* internally.  These
 	commands are subject to change at any time and should not be relied
-	upon.
+	upon.  Not all internal commands are documented.
 
 	*COMMANDS*:
 	- *eval* - evaluate a _source file_
 	- *exe* - execute a command
 	- *repl* - start a _meson dsl_ repl
 	- *dump_funcs* - output all supported functions and arguments
+
+## internal check
+	*muon* *internal* *check* [*-p*|*-d*] [*-m*<x|f>] <filename>
+
+	Check if _filename_ parses.
+
+	*OPTIONS*:
+	- *-p* - print the parsed ast
+	- *-d* - print the dissasembly
+	- *-m* <mode> - set the compilation mode.  `f` parses for formatting,
+	  `x` compiles for the extended language (e.g. user-defined functions)
 
 ## internal eval
 	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]
@@ -232,6 +229,11 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	Start a _meson dsl_ repl.  The functions available are limited as with
 	*internal eval*.
+
+## internal summary
+	*muon* *internal* *summary*
+
+	Print a previously configured project's summary.
 
 ## internal dump_funcs
 	*muon* *internal* *dump_funcs*
@@ -294,7 +296,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-b*] <build dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] <build dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 
@@ -303,19 +305,29 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  are either built in or project-defined.  Subproject options can be
 	  specified by prepending the subproject's name and a colon to the
 	  *option*.  This option may be specified multiple times.
-	- *-b* - Break on error.  When this option is passed, muon will enter a
-	  debugging repl when a fatal error is encountered.  From there you can
-	  inspect and modify state, and optionally continue setup.
 
-## summary
-	*muon* *summary*
+## subprojects
+	*muon* *subprojects*
 
-	Print a previously configured project's summary.
+	Run various commands over all subprojects.  Only subprojects with .wrap
+	files are supported.  Most commands accept a list of projects as trailing
+	arguments.
+
+	*OPTIONS*:
+	- *-d* <directory> - manually specify subprojects directory.  By default
+	  muon will evaluate the current project's project() call to determine the
+	  value for subproject_dir.
+
+	*COMMANDS*:
+	- *check-wrap* - check if a wrap file is valid
+	- *update* - update subprojects with .wrap files
+	- *list* - list subprojects with .wrap files and their status
+	- *clean* - clean wrap-git subprojects
 
 ## test
-	*muon* *test* [*-d* <display mode>] [*-o* <output>] [*-e* <setup>] [*-f*]
-	\[*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]  [<test>
-	\[<test>[...]]
+	*muon* *test* [*-b*] [*-d* <display mode>] [*-o* <output>] [*-e* <setup>]
+	\[*-f*] [*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
+	\[<test> [<test>[...]]
 
 	Execute tests defined in _source files_.
 
@@ -336,6 +348,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	the project 'proj'.
 
 	*OPTIONS*:
+	- *-b* - run benchmarks instead of tests
 	- *-d* <display mode> - Control test progress output.  _display mode_ can
 	  be one of *auto*, *dots*, or *bar*.  *dots* prints a '.' for success and
 	  'E' for error, *bar* prints a progress bar with an error count.  The

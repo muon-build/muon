@@ -14,15 +14,6 @@
 #include "platform/path.h"
 #include "wrap.h"
 
-struct subprojects_common_ctx {
-	uint32_t failed;
-	bool force, print;
-	obj *res;
-};
-
-typedef enum iteration_result (
-	*subprojects_foreach_cb)(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *name);
-
 struct subprojects_foreach_ctx {
 	subprojects_foreach_cb cb;
 	struct subprojects_common_ctx *usr_ctx;
@@ -56,7 +47,7 @@ subprojects_foreach_iter(void *_ctx, const char *name)
 	return ctx->cb(ctx->wk, ctx->usr_ctx, path.buf);
 }
 
-static bool
+bool
 subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ctx *usr_ctx, subprojects_foreach_cb cb)
 {
 	if (list && get_obj_array(wk, list)->len) {
@@ -83,7 +74,7 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 		}
 
 		return res;
-	} else {
+	} else if (fs_dir_exists(subprojects_dir(wk))) {
 		struct subprojects_foreach_ctx ctx = {
 			.cb = cb,
 			.usr_ctx = usr_ctx,
@@ -92,6 +83,8 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 
 		return fs_dir_foreach(subprojects_dir(wk), &ctx, subprojects_foreach_iter);
 	}
+
+	return true;
 }
 
 static enum iteration_result
@@ -198,6 +191,7 @@ func_subprojects_list(struct workspace *wk, obj self, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_print] = { "print", tc_bool },
+		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
@@ -250,6 +244,7 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 	};
 	struct args_kw akw[] = {
 		[kw_force] = { "force", tc_bool },
+		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
