@@ -875,6 +875,7 @@ create_target(struct workspace *wk,
 		tgt->dep.link_whole = tgt->dep_internal.link_whole;
 		tgt->dep.link_with = tgt->dep_internal.link_with;
 		tgt->dep.link_with_not_found = tgt->dep_internal.link_with_not_found;
+		tgt->dep.frameworks = tgt->dep_internal.frameworks;
 		obj_array_dup(wk, tgt->dep_internal.link_args, &tgt->dep.link_args);
 	}
 
