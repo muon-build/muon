@@ -948,12 +948,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	}
-	OPTEND_CUSTOM(argv[argi],
-		" <build dir>",
-		"  -D <option>=<value> - set options\n",
-		NULL,
-		1,
-		cmd_setup_help())
+	OPTEND_CUSTOM(argv[argi], " <build dir>", "  -D <option>=<value> - set options\n", NULL, 1, cmd_setup_help())
 
 	const char *build = argv[argi];
 	++argi;
@@ -975,18 +970,23 @@ cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		char *const *filenames;
 		const char *cfg_path;
-		bool in_place, check_only, editorconfig;
+		bool in_place, check_only, editorconfig, print_failures;
 	} opts = { 0 };
 
-	OPTSTART("ic:qe") {
+	OPTSTART("ic:qel") {
 	case 'i': opts.in_place = true; break;
 	case 'c': opts.cfg_path = optarg; break;
 	case 'q': opts.check_only = true; break;
 	case 'e': opts.editorconfig = true; break;
+	case 'l':
+		opts.check_only = true;
+		opts.print_failures = true;
+		break;
 	}
 	OPTEND(argv[argi],
 		" <file>[ <file>[...]]",
 		"  -q - exit with 1 if files would be modified by muon fmt\n"
+		"  -l - like -q but also print failing filenames\n"
 		"  -i - format files in-place\n"
 		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n"
 		"  -e - try to read configuration from .editorconfig\n",
@@ -1030,6 +1030,9 @@ cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 
 		fmt_ret = fmt(&src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		if (!fmt_ret && opts.print_failures) {
+			printf("%s\n", opts.filenames[i]);
+		}
 cont:
 		if (opened_out) {
 			fs_fclose(out);

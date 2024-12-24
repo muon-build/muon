@@ -29,33 +29,29 @@ foreach f : file_list(source_root)
         continue
     endif
 
-    files += f
+    files += source_root / f
 endforeach
 
-failing_len = 0
-passing_len = 0
-files_len = files.length()
+res = run_command(muon, 'fmt', '-el', files, check: false)
 
 diff = find_program('diff', required: false)
 
-foreach f : files
-    path = source_root / f
-    res = run_command(muon, 'fmt', '-eq', path, check: false)
-    if res.returncode() == 0
-        passing_len += 1
-    else
-        failing_len += 1
+failing_files = res.stdout().splitlines()
 
-        print(f'\033[31mfailing\033[0m: @path@\n')
-        if diff.found()
-            tmp_file = '/tmp/muon_fmt_diff_tmp'
-            fs.write(tmp_file, run_command(muon, 'fmt', path).stdout())
-            print(run_command(diff, path, tmp_file).stdout())
-        endif
+files_len = files.length()
+failing_len = failing_files.length()
+passing_len = files_len - failing_len
 
-        if fail_fast
-            break
-        endif
+foreach path : failing_files
+    print(f'\033[31mfailing\033[0m: @path@\n')
+    if diff.found()
+        tmp_file = '/tmp/muon_fmt_diff_tmp'
+        fs.write(tmp_file, run_command(muon, 'fmt', path).stdout())
+        print(run_command(diff, path, tmp_file).stdout())
+    endif
+
+    if fail_fast
+        break
     endif
 endforeach
 

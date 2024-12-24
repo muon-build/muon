@@ -73,12 +73,13 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *define* <var> - print the location of the definition of _var_
 
 ## fmt
-	*muon* *fmt* [*-i*] [*-q*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
+	*muon* *fmt* [*-i*] [*-q*] [*-l*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
 
 	Format a _source file_.
 
 	*OPTIONS*:
 	- *-q* - exit with 1 if files would be modified by muon fmt
+	- *-l* - like -q but also print failing filenames
 	- *-i* - format files in-place
 	- *-c* <muon_fmt.ini> - read configuration from _muon\_fmt.ini_
 	- *-e* - try to read configuration from .editorconfig.  Only indentation
