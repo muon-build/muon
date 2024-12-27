@@ -870,7 +870,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 static void
 vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 {
-	obj res;
+	obj res = 0;
 
 	stack_push(&wk->stack, wk->vm.saw_disabler, false);
 
