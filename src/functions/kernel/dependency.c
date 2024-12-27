@@ -450,6 +450,9 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 		if (!vm_eval_capture(wk, handler, 0, ctx->handler_kwargs, ctx->res)) {
 			return false;
 		}
+
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+		dep->name = ctx->name;
 	} else if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		LOG_I("dependency threads found");
 
