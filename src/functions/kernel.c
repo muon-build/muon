@@ -1135,7 +1135,9 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	}
 
 	bool ret = false;
-	struct run_cmd_ctx cmd_ctx = { 0 };
+	struct run_cmd_ctx cmd_ctx = {
+		.chdir = current_project(wk) ? get_cstr(wk, current_project(wk)->cwd) : 0,
+	};
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
