@@ -259,11 +259,7 @@ translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc, str
 		{ "gdb", .ignore = true },
 		{ "gdb-path", true, .ignore = true },
 		{ "repeat", true, .ignore = true },
-		{
-			"wrapper",
-			true,
-			.ignore = true,
-		},
+		{ "wrapper", true, .ignore = true },
 		{ "no-suite", .ignore = true },
 		{ "no-stdsplit", .ignore = true },
 		{ "print-errorlogs", .ignore = true },
@@ -364,19 +360,11 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "D", true, .handle_as = opt_setup_define },
 
 		{ "prefix", true, "prefix" },
-		{
-			"bindir",
-			true,
-			"bindir",
-		},
+		{ "bindir", true, "bindir" },
 		{ "datadir", true, "datadir" },
 		{ "includedir", true, "includedir" },
 		{ "infodir", true, "infodir" },
-		{
-			"libdir",
-			true,
-			"libdir",
-		},
+		{ "libdir", true, "libdir" },
 		{ "libexecdir", true, "libexecdir" },
 		{ "localedir", true, "localedir" },
 		{ "localstatedir", true, "localstatedir" },
@@ -391,37 +379,17 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "build.pkg-config-path", true, "pkg_config_path" },
 		{ "buildtype", true, "buildtype" },
 		{ "cmake-prefix-path", true, "cmake_prefix_path" },
-		{
-			"cross-file",
-			true,
-			.ignore = true,
-		},
-		{
-			"debug",
-			false,
-			"debug",
-		},
+		{ "cross-file", true, .ignore = true },
+		{ "debug", false, "debug" },
 		{ "default-library", true, "default_library" },
 		{ "errorlogs", .ignore = true },
 		{ "fatal-meson-warnings", .ignore = true },
-		{
-			"force-fallback-for",
-			true,
-			"force_fallback_for",
-		},
+		{ "force-fallback-for", true, "force_fallback_for" },
 		{ "install-umask", true, "insall_umask" },
-		{
-			"layout",
-			true,
-			"layout",
-		},
+		{ "layout", true, "layout" },
 		{ "native-file", true, .ignore = true },
 		{ "optimization", true, "optimization" },
-		{
-			"pkg-config-path",
-			true,
-			"pkg_config_path",
-		},
+		{ "pkg-config-path", true, "pkg_config_path" },
 		{ "pkgconfig.relocatable", .ignore = true },
 		{ "prefer-static", false, "prefer_static" },
 		{ "python.install-env", true, .ignore = true },
@@ -477,14 +445,8 @@ static const struct {
 } meson_opts_subcommands[] = {
 	{ "setup", translate_meson_opts_setup },
 	{ "configure", translate_meson_opts_setup },
-	{
-		"install",
-		translate_meson_opts_install,
-	},
-	{
-		"test",
-		translate_meson_opts_test,
-	},
+	{ "install", translate_meson_opts_install },
+	{ "test", translate_meson_opts_test },
 };
 
 static translate_meson_opts_func
