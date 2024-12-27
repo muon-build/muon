@@ -32,27 +32,6 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
-enum compile_mode {
-	compile_mode_preprocess,
-	compile_mode_compile,
-	compile_mode_link,
-	compile_mode_run,
-};
-
-struct compiler_check_opts {
-	struct run_cmd_ctx cmd_ctx;
-	enum compile_mode mode;
-	obj comp_id;
-	struct args_kw *deps, *inc, *required, *werror;
-	obj args;
-	bool skip_run_check;
-	bool src_is_path;
-	const char *output_path;
-
-	bool from_cache;
-	obj cache_key, cache_val;
-};
-
 static const char *
 bool_to_yn(bool v)
 {
@@ -132,7 +111,7 @@ add_include_directory_args(struct workspace *wk,
 	return true;
 }
 
-static bool
+bool
 compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const char *src, uint32_t err_node, bool *res)
 {
 	enum requirement_type req = requirement_auto;
@@ -166,12 +145,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	switch (opts->mode) {
-	case compile_mode_run:
-	case compile_mode_link: ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compiler_check_mode_run:
+	case compiler_check_mode_link: ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
-	case compile_mode_compile: ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compiler_check_mode_compile: ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
-	case compile_mode_preprocess: break;
+	case compiler_check_mode_preprocess: break;
 	}
 
 	bool have_dep = false;
@@ -188,10 +167,10 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	switch (opts->mode) {
-	case compile_mode_preprocess: push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp)); break;
-	case compile_mode_compile: push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp)); break;
-	case compile_mode_run: break;
-	case compile_mode_link: {
+	case compiler_check_mode_preprocess: push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp)); break;
+	case compiler_check_mode_compile: push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp)); break;
+	case compiler_check_mode_run: break;
+	case compiler_check_mode_link: {
 		push_args(wk,
 			compiler_args,
 			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
@@ -215,7 +194,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	const char *output_path;
 	if (opts->output_path) {
 		output_path = opts->output_path;
-	} else if (opts->mode == compile_mode_run) {
+	} else if (opts->mode == compiler_check_mode_run) {
 		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
 		output_path = test_output_path.buf;
 	} else {
@@ -283,7 +262,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	L("compiler stdout: '%s'", cmd_ctx.err.buf);
 	L("compiler stderr: '%s'", cmd_ctx.out.buf);
 
-	if (opts->mode == compile_mode_run) {
+	if (opts->mode == compiler_check_mode_run) {
 		if (cmd_ctx.status != 0) {
 			if (opts->skip_run_check) {
 				*res = false;
@@ -483,7 +462,7 @@ func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
+		.mode = compiler_check_mode_run,
 		.skip_run_check = true,
 	};
 
@@ -538,7 +517,7 @@ func_compiler_alignment(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
+		.mode = compiler_check_mode_run,
 	};
 
 	if (!func_compiler_check_args_common(
@@ -583,7 +562,7 @@ func_compiler_compute_int(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
+		.mode = compiler_check_mode_run,
 	};
 
 	if (!func_compiler_check_args_common(wk,
@@ -737,7 +716,7 @@ static bool
 compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_fattr)
 {
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
+		.mode = compiler_check_mode_compile,
 		.comp_id = comp_id,
 	};
 
@@ -828,7 +807,7 @@ func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_link,
+		.mode = compiler_check_mode_link,
 	};
 
 	if (!func_compiler_check_args_common(wk,
@@ -1017,7 +996,7 @@ func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
+		.mode = compiler_check_mode_compile,
 	};
 
 	if (!func_compiler_check_args_common(wk,
@@ -1082,7 +1061,7 @@ compiler_get_define(struct workspace *wk,
 	path_join(wk, &output_path, wk->muon_private, "get_define_output");
 
 	opts->output_path = output_path.buf;
-	opts->mode = compile_mode_preprocess;
+	opts->mode = compiler_check_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
 	const struct str delim_start = WKSTR("\"MUON_GET_DEFINE_DELIMITER_START\"\n"),
@@ -1295,7 +1274,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj
 }
 
 static bool
-func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
+func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compiler_check_mode mode)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1336,10 +1315,10 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 	if (akw[cc_kw_name].set) {
 		const char *mode_s = NULL;
 		switch (mode) {
-		case compile_mode_run: mode_s = "runs"; break;
-		case compile_mode_link: mode_s = "links"; break;
-		case compile_mode_compile: mode_s = "compiles"; break;
-		case compile_mode_preprocess: mode_s = "preprocesses"; break;
+		case compiler_check_mode_run: mode_s = "runs"; break;
+		case compiler_check_mode_link: mode_s = "links"; break;
+		case compiler_check_mode_compile: mode_s = "compiles"; break;
+		case compiler_check_mode_preprocess: mode_s = "preprocesses"; break;
 		}
 
 		compiler_check_log(wk, &opts, "%s %s: %s", get_cstr(wk, akw[cc_kw_name].val), mode_s, bool_to_yn(ok));
@@ -1355,13 +1334,13 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 static bool
 func_compiler_compiles(struct workspace *wk, obj self, obj *res)
 {
-	return func_compiler_check_common(wk, self, res, compile_mode_compile);
+	return func_compiler_check_common(wk, self, res, compiler_check_mode_compile);
 }
 
 static bool
 func_compiler_links(struct workspace *wk, obj self, obj *res)
 {
-	return func_compiler_check_common(wk, self, res, compile_mode_link);
+	return func_compiler_check_common(wk, self, res, compiler_check_mode_link);
 }
 
 static bool
@@ -1389,8 +1368,8 @@ compiler_check_header(struct workspace *wk,
 
 	const char *mode_s = NULL;
 	switch (opts->mode) {
-	case compile_mode_compile: mode_s = "is usable"; break;
-	case compile_mode_preprocess: mode_s = "found"; break;
+	case compiler_check_mode_compile: mode_s = "is usable"; break;
+	case compiler_check_mode_preprocess: mode_s = "found"; break;
 	default: abort();
 	}
 
@@ -1404,7 +1383,7 @@ compiler_check_header(struct workspace *wk,
 }
 
 static bool
-compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
+compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum compiler_check_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1430,13 +1409,13 @@ compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum comp
 static bool
 func_compiler_has_header(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_check_header_common(wk, self, res, compile_mode_preprocess);
+	return compiler_check_header_common(wk, self, res, compiler_check_mode_preprocess);
 }
 
 static bool
 func_compiler_check_header(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_check_header_common(wk, self, res, compile_mode_compile);
+	return compiler_check_header_common(wk, self, res, compiler_check_mode_compile);
 }
 
 static bool
@@ -1445,7 +1424,7 @@ func_compiler_has_type(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_compile,
+		.mode = compiler_check_mode_compile,
 	};
 
 	if (!func_compiler_check_args_common(wk,
@@ -1490,7 +1469,7 @@ compiler_has_member(struct workspace *wk,
 	obj member,
 	bool *res)
 {
-	opts->mode = compile_mode_compile;
+	opts->mode = compiler_check_mode_compile;
 
 	char src[BUF_SIZE_4k];
 	snprintf(src,
@@ -1620,7 +1599,7 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
-		.mode = compile_mode_run,
+		.mode = compiler_check_mode_run,
 		.skip_run_check = true,
 	};
 	if (!func_compiler_check_args_common(wk,
@@ -1705,7 +1684,7 @@ compiler_has_argument(struct workspace *wk,
 	uint32_t err_node,
 	obj arg,
 	bool *has_argument,
-	enum compile_mode mode)
+	enum compiler_check_mode mode)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
@@ -1742,7 +1721,7 @@ compiler_has_argument(struct workspace *wk,
 struct func_compiler_get_supported_arguments_iter_ctx {
 	uint32_t node;
 	obj arr, compiler;
-	enum compile_mode mode;
+	enum compiler_check_mode mode;
 };
 
 static enum iteration_result
@@ -1763,7 +1742,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj *res, enum compile_mode mode)
+compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj *res, enum compiler_check_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_required };
@@ -1788,29 +1767,29 @@ compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj 
 static bool
 func_compiler_has_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, 0, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, 0, res, compiler_check_mode_compile);
 }
 
 static bool
 func_compiler_has_link_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, 0, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, 0, res, compiler_check_mode_link);
 }
 
 static bool
 func_compiler_has_multi_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compiler_check_mode_compile);
 }
 
 static bool
 func_compiler_has_multi_link_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compiler_check_mode_link);
 }
 
 static bool
-compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
+compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum compiler_check_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1834,13 +1813,13 @@ compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum 
 static bool
 func_compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_get_supported_arguments(wk, self, res, compile_mode_compile);
+	return compiler_get_supported_arguments(wk, self, res, compiler_check_mode_compile);
 }
 
 static bool
 func_compiler_get_supported_link_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_get_supported_arguments(wk, self, res, compile_mode_link);
+	return compiler_get_supported_arguments(wk, self, res, compiler_check_mode_link);
 }
 
 static enum iteration_result
@@ -1863,7 +1842,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 }
 
 static bool
-compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
+compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum compiler_check_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1887,13 +1866,13 @@ compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum
 static bool
 func_compiler_first_supported_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_first_supported_argument(wk, self, res, compile_mode_compile);
+	return compiler_first_supported_argument(wk, self, res, compiler_check_mode_compile);
 }
 
 static bool
 func_compiler_first_supported_link_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_first_supported_argument(wk, self, res, compile_mode_link);
+	return compiler_first_supported_argument(wk, self, res, compiler_check_mode_link);
 }
 
 static bool
