@@ -10,13 +10,14 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "lang/analyze.h"
 #include "external/libpkgconf.h"
+#include "functions/compiler.h"
 #include "functions/file.h"
 #include "functions/kernel/dependency.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
+#include "lang/analyze.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -69,6 +70,26 @@ struct dep_lookup_ctx {
 	bool from_cache;
 	bool found;
 };
+
+static obj
+get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
+{
+	struct project *proj = current_project(wk);
+
+	obj compiler;
+
+	if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_c, &compiler)) {
+		return compiler;
+	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_cpp, &compiler)) {
+		return compiler;
+	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objc, &compiler)) {
+		return compiler;
+	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objcpp, &compiler)) {
+		return compiler;
+	} else {
+		return 0;
+	}
+}
 
 static enum iteration_result
 check_dependency_override_iter(struct workspace *wk, void *_ctx, obj n)
@@ -253,6 +274,86 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 }
 
 static bool
+get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
+{
+	if (host_machine.sys != machine_system_darwin) {
+		return true;
+	}
+
+	obj modules;
+
+	if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
+		if (!ctx->modules) {
+			vm_error_at(wk, ctx->err_node, "'appleframeworks' dependency requires the modules keyword");
+			return false;
+		}
+
+		modules = ctx->modules;
+	} else {
+		make_obj(wk, &modules, obj_array);
+		obj_array_push(wk, modules, ctx->name);
+	}
+
+	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
+	if (!compiler) {
+		return true;
+	}
+
+	bool all_found = true;
+
+	obj fw;
+	obj_array_for(wk, modules, fw) {
+		struct compiler_check_opts opts = {
+			.mode = compiler_check_mode_link,
+			.comp_id = compiler,
+		};
+
+		make_obj(wk, &opts.args, obj_array);
+		obj_array_push(wk, opts.args, make_str(wk, "-framework"));
+		obj_array_push(wk, opts.args, fw);
+
+		bool ok;
+		const char *src = "int main(void) { return 0; }\n";
+		if (!compiler_check(wk, &opts, src, 0, &ok)) {
+			return false;
+		}
+
+		if (!ok) {
+			all_found = false;
+		}
+	}
+
+	*found = all_found;
+
+	if (!*found) {
+		return true;
+	}
+
+	make_obj(wk, ctx->res, obj_dependency);
+
+	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+
+	char name[512];
+	obj_snprintf(wk, name, sizeof(name), "framework:%o", ctx->modules ? ctx->modules : ctx->name);
+
+	dep->name = make_str(wk, name);
+	dep->flags |= dep_flag_found;
+	dep->type = dependency_type_appleframeworks;
+	make_obj(wk, &dep->dep.frameworks, obj_array);
+
+	if (ctx->modules) {
+		obj val;
+		obj_array_for(wk, ctx->modules, val) {
+			obj_array_push(wk, dep->dep.frameworks, val);
+		}
+	} else {
+		obj_array_push(wk, dep->dep.frameworks, ctx->name);
+	}
+
+	return true;
+}
+
+static bool
 get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	{
@@ -312,8 +413,20 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 				return false;
 			}
 		} else {
-			if (!get_dependency_pkgconfig(wk, ctx, &ctx->found)) {
-				return false;
+			bool (*lookup_methods[])(struct workspace *, struct dep_lookup_ctx *, bool *) = {
+				get_dependency_pkgconfig,
+				get_dependency_appleframeworks,
+			};
+
+			uint32_t i;
+			for (i = 0; i < ARRAY_LEN(lookup_methods); ++i) {
+				if (!lookup_methods[i](wk, ctx, &ctx->found)) {
+					return false;
+				}
+
+				if (ctx->found) {
+					break;
+				}
 			}
 
 			if (!ctx->found && ctx->fallback) {
@@ -363,26 +476,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 			*handled = false;
 		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
-		*handled = true;
-		if (!ctx->modules) {
-			vm_error_at(wk, ctx->err_node, "'appleframeworks' dependency requires the modules keyword");
-			return false;
-		}
-
-		make_obj(wk, ctx->res, obj_dependency);
-		if (host_machine.sys == machine_system_darwin) {
-			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-			dep->name = make_str(wk, "appleframeworks");
-			dep->flags |= dep_flag_found;
-			dep->type = dependency_type_appleframeworks;
-			make_obj(wk, &dep->dep.frameworks, obj_array);
-
-			SBUF(path);
-			obj val;
-			obj_array_for(wk, ctx->modules, val) {
-				obj_array_push(wk, dep->dep.frameworks, val);
-			}
-		}
+		get_dependency_appleframeworks(wk, ctx, handled);
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
 		if (ctx->requirement == requirement_required) {
