@@ -98,12 +98,6 @@ subprojects are available to the main project and vice-versa.  This can hide
 bugs that will surface if the subproject is built by itself, or subproject calls
 are rearranged.
 
-## run\_command() cwd
-
-Meson executes run\_command() commands in the current subdirectory, while muon
-executes them in the project root.  Neither behaviour should be relied upon
-however, since the docs say that it runs commands from an unspecified directory.
-
 ## backslash escaping in compiler defines
 
 Meson replaces `\` with `\\` in compiler defines.  This is legacy behavior that
@@ -133,4 +127,3 @@ is provided for users who are waiting for
 A number of builtin options have different default values:
 
 - `default_library` is `'static'`
-- `warning_level` is `'3'`
