@@ -1919,19 +1919,43 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-obj
-find_library(struct workspace *wk, const char *name, obj libdirs, enum find_library_flag flags)
+static obj
+find_library_check_dirs(struct workspace *wk, const char *libname, obj libdirs, const char **exts, uint32_t exts_len)
+{
+	static const char *pref[] = { "", "lib" };
+
+	SBUF(path);
+	SBUF(lib);
+
+	uint32_t i, j;
+	obj libdir;
+	obj_array_for(wk, libdirs, libdir) {
+		for (i = 0; i < exts_len; ++i) {
+			for (j = 0; j < ARRAY_LEN(pref); ++j) {
+				sbuf_clear(&lib);
+				sbuf_pushf(wk, &lib, "%s%s%s", pref[j], libname, exts[i]);
+
+				path_join(wk, &path, get_cstr(wk, libdir), lib.buf);
+
+				if (fs_file_exists(path.buf)) {
+					return sbuf_into_str(wk, &path);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+struct find_library_result
+find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_dirs, enum find_library_flag flags)
 {
 	static const char *ext_order_static_preferred[] = { COMPILER_STATIC_LIB_EXTS, COMPILER_DYNAMIC_LIB_EXTS },
 			  *ext_order_static_only[] = { COMPILER_STATIC_LIB_EXTS },
 			  *ext_order_dynamic_preferred[] = { COMPILER_DYNAMIC_LIB_EXTS, COMPILER_STATIC_LIB_EXTS };
 
-	static const char *pref[] = { "", "lib" };
 	const char **ext_order;
 	uint32_t ext_order_len;
-
-	SBUF(path);
-	SBUF(lib);
 
 	if (flags & find_library_flag_only_static) {
 		ext_order = ext_order_static_only;
@@ -1944,24 +1968,48 @@ find_library(struct workspace *wk, const char *name, obj libdirs, enum find_libr
 		ext_order_len = ARRAY_LEN(ext_order_dynamic_preferred);
 	}
 
-	uint32_t i, j;
-	obj libdir;
-	obj_array_for(wk, libdirs, libdir) {
-		for (i = 0; i < ext_order_len; ++i) {
-			for (j = 0; j < ARRAY_LEN(pref); ++j) {
-				sbuf_clear(&lib);
-				sbuf_pushf(wk, &lib, "%s%s%s", pref[j], name, ext_order[i]);
+	obj found = 0;
 
-				path_join(wk, &path, get_cstr(wk, libdir), lib.buf);
-
-				if (fs_file_exists(path.buf)) {
-					return sbuf_into_str(wk, &path);
-				}
-			}
+	// First check in dirs if the kw is set.
+	if (extra_dirs) {
+		if ((found = find_library_check_dirs(wk, libname, extra_dirs, ext_order, ext_order_len))) {
+			return (struct find_library_result) { found, find_library_found_location_extra_dirs };
 		}
 	}
 
-	return 0;
+	if (!compiler) {
+		// If we don't have a compiler then just assume that -l $libname works
+		return (struct find_library_result) { make_str(wk, libname), find_library_found_location_link_arg };
+	}
+
+	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
+
+	// Next, check system libdirs
+	if (!found) {
+		if ((found = find_library_check_dirs(wk, libname, comp->libdirs, ext_order, ext_order_len))) {
+			return (struct find_library_result) { found, find_library_found_location_system_dirs };
+		}
+	}
+
+	// Finally, just attempt to pass the libname on the linker command line
+	if (!found) {
+		bool ok = false;
+		struct compiler_check_opts opts = { .mode = compiler_check_mode_link, .comp_id = compiler };
+		make_obj(wk, &opts.args, obj_array);
+		push_args(wk, opts.args, toolchain_linker_lib(wk, comp, libname));
+
+		const char *src = "int main(void) { return 0; }\n";
+		if (!compiler_check(wk, &opts, src, 0, &ok)) {
+			return (struct find_library_result) { 0 };
+		}
+
+		if (ok) {
+			return (struct find_library_result) { make_str(wk, libname), find_library_found_location_link_arg };
+		}
+	}
+
+	return (struct find_library_result) { 0 };
+
 }
 
 struct compiler_find_library_check_headers_ctx {
@@ -2025,6 +2073,12 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
+	struct obj_compiler *comp = get_obj_compiler(wk, self);
+	make_obj(wk, res, obj_dependency);
+	struct obj_dependency *dep = get_obj_dependency(wk, *res);
+	dep->type = dependency_type_external_library;
+
+	// Validate args
 	if (!akw[kw_has_headers].set) {
 		uint32_t i;
 		for (i = kw_header_required; i <= kw_header_prefix; ++i) {
@@ -2039,45 +2093,33 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 	}
 
 	enum requirement_type requirement;
-	if (!coerce_requirement(wk, &akw[kw_required], &requirement)) {
-		return false;
-	}
+	{ // Handle disabled libs
+		if (!coerce_requirement(wk, &akw[kw_required], &requirement)) {
+			return false;
+		}
 
-	make_obj(wk, res, obj_dependency);
-	struct obj_dependency *dep = get_obj_dependency(wk, *res);
-	dep->type = dependency_type_external_library;
-
-	if (requirement == requirement_skip) {
-		return true;
-	}
-
-	SBUF(library_path);
-
-	if (!akw[kw_static].set) {
-		get_option_value(wk, current_project(wk), "prefer_static", &akw[kw_static].val);
-	}
-
-	enum find_library_flag flags = 0;
-	if (get_obj_bool(wk, akw[kw_static].val)) {
-		flags |= find_library_flag_only_static;
-	}
-
-	struct obj_compiler *comp = get_obj_compiler(wk, self);
-
-	obj found = 0;
-	bool found_from_dirs_kw = false;
-
-	if (akw[kw_dirs].set) {
-		if ((found = find_library(wk, get_cstr(wk, an[0].val), akw[kw_dirs].val, flags))) {
-			found_from_dirs_kw = true;
+		if (requirement == requirement_skip) {
+			return true;
 		}
 	}
 
-	if (!found) {
-		found = find_library(wk, get_cstr(wk, an[0].val), comp->libdirs, flags);
+	// Determine requested lib type
+	enum find_library_flag flags = 0;
+	{
+		if (!akw[kw_static].set) {
+			get_option_value(wk, current_project(wk), "prefer_static", &akw[kw_static].val);
+		}
+
+		if (get_obj_bool(wk, akw[kw_static].val)) {
+			flags |= find_library_flag_only_static;
+		}
 	}
 
+	struct find_library_result find_result = find_library(wk, self, get_cstr(wk, an[0].val), akw[kw_dirs].val, flags);
+	bool found = find_result.found != 0;
+
 	if (found && akw[kw_has_headers].set) {
+		struct compiler_check_opts opts = { 0 };
 		struct args_kw header_kwargs[cc_kwargs_count + 1] = {
 			[cc_kw_args] = akw[kw_header_args],
 			[cc_kw_dependencies] = akw[kw_header_dependencies],
@@ -2085,14 +2127,12 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 			[cc_kw_required] = akw[kw_header_required],
 			[cc_kw_include_directories] = akw[kw_header_include_directories],
 		};
-
-		struct compiler_check_opts header_check_opts = { 0 };
-		compiler_opts_init(self, header_kwargs, &header_check_opts);
+		compiler_opts_init(self, header_kwargs, &opts);
 
 		struct compiler_find_library_check_headers_ctx check_headers_ctx = {
 			.ok = true,
 			.err_node = akw[kw_has_headers].node,
-			.opts = &header_check_opts,
+			.opts = &opts,
 			.prefix = compiler_check_prefix(wk, header_kwargs),
 		};
 		obj_array_foreach(
@@ -2116,14 +2156,19 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		return true;
 	}
 
-	compiler_log(wk, self, "found library '%s' at '%s'", get_cstr(wk, an[0].val), get_cstr(wk, found));
+	compiler_log(wk, self, "found library '%s' at '%s'", get_cstr(wk, an[0].val), get_cstr(wk, find_result.found));
 	dep->flags |= dep_flag_found;
-	make_obj(wk, &dep->dep.link_with, obj_array);
-	obj_array_push(wk, dep->dep.link_with, found);
+	if (find_result.location == find_library_found_location_link_arg) {
+		make_obj(wk, &dep->dep.link_with_not_found, obj_array);
+		obj_array_push(wk, dep->dep.link_with_not_found, find_result.found);
+	} else {
+		make_obj(wk, &dep->dep.link_with, obj_array);
+		obj_array_push(wk, dep->dep.link_with, find_result.found);
 
-	if (found_from_dirs_kw) {
-		make_obj(wk, &dep->dep.rpath, obj_array);
-		obj_array_push(wk, dep->dep.rpath, found);
+		if (find_result.location == find_library_found_location_extra_dirs) {
+			make_obj(wk, &dep->dep.rpath, obj_array);
+			obj_array_push(wk, dep->dep.rpath, find_result.found);
+		}
 	}
 
 	dep->dep.link_language = comp->lang;

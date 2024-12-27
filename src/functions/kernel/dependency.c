@@ -240,7 +240,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	struct pkgconf_info info = { 0 };
 	*found = false;
 
-	if (!muon_pkgconf_lookup(wk, ctx->name, ctx->lib_mode == dep_lib_mode_static, &info)) {
+	if (!muon_pkgconf_lookup(wk, get_dependency_c_compiler(wk, ctx->machine), ctx->name, ctx->lib_mode == dep_lib_mode_static, &info)) {
 		return true;
 	}
 

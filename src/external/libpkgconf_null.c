@@ -11,7 +11,7 @@
 const bool have_libpkgconf = false;
 
 bool
-muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
 {
 	LOG_W("libpkgconf not enabled");
 	return false;

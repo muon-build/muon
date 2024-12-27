@@ -15,10 +15,23 @@ enum find_library_flag {
 	find_library_flag_prefer_static = 1 << 0,
 };
 
+enum find_library_found_location {
+	find_library_found_location_system_dirs,
+	find_library_found_location_extra_dirs,
+	find_library_found_location_link_arg,
+};
+
+struct find_library_result {
+	obj found;
+	enum find_library_found_location location;
+};
+
 #define COMPILER_DYNAMIC_LIB_EXTS ".so", ".dylib", ".dll.a", ".dll"
 #define COMPILER_STATIC_LIB_EXTS ".a", ".lib"
 
-obj find_library(struct workspace *wk, const char *name, obj libdirs, enum find_library_flag flags);
+struct find_library_result
+find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_dirs, enum find_library_flag flags);
+
 enum compiler_check_mode {
 	compiler_check_mode_preprocess,
 	compiler_check_mode_compile,

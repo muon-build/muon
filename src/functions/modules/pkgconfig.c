@@ -362,11 +362,21 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		case dependency_type_external_library: {
 			obj link_with_files;
 			make_obj(wk, &link_with_files, obj_array);
-			obj_array_foreach(wk, dep->dep.link_with, &link_with_files, str_to_file_iter);
 
-			if (!module_pkgconf_process_libs(
-				    wk, ctx->err_node, link_with_files, ctx->pc, ctx->vis, false)) {
-				return ir_err;
+			if (dep->dep.link_with) {
+				obj_array_foreach(wk, dep->dep.link_with, &link_with_files, str_to_file_iter);
+
+				if (!module_pkgconf_process_libs(
+						wk, ctx->err_node, link_with_files, ctx->pc, ctx->vis, false)) {
+					return ir_err;
+				}
+			}
+
+			if (dep->dep.link_with_not_found) {
+				if (!module_pkgconf_process_libs(
+						wk, ctx->err_node, dep->dep.link_with_not_found, ctx->pc, ctx->vis, false)) {
+					return ir_err;
+				}
 			}
 			break;
 		}

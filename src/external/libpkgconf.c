@@ -39,7 +39,7 @@ error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 #endif
 {
 	if (log_should_print(log_debug)) {
-		log_plain("dbg libpkgconf: %s", msg);
+		LL("libpkgconf: %s", msg);
 	}
 	return true;
 }
@@ -116,6 +116,7 @@ struct pkgconf_lookup_ctx {
 	apply_func apply_func;
 	struct workspace *wk;
 	struct pkgconf_info *info;
+	obj compiler;
 	obj libdirs;
 	obj name;
 	bool is_static;
@@ -159,24 +160,29 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			obj_array_push(ctx->wk, ctx->libdirs, str);
 			break;
 		case 'l': {
-			obj path;
 			enum find_library_flag flags = 0;
 			if (ctx->is_static) {
 				flags |= find_library_flag_prefer_static;
 			}
 
-			if ((path = find_library(ctx->wk, frag->data, ctx->libdirs, flags))) {
-				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
-					L("library '%s' found for dependency '%s'",
-						get_cstr(ctx->wk, path),
-						get_cstr(ctx->wk, ctx->name));
+			struct find_library_result find_result = find_library(ctx->wk, ctx->compiler, frag->data, ctx->libdirs, flags);
 
-					obj_array_push(ctx->wk, ctx->info->libs, path);
+			if (find_result.found) {
+				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
+					L("libpkgconf: dependency '%s' found required library '%s'",
+						get_cstr(ctx->wk, ctx->name),
+						get_cstr(ctx->wk, find_result.found));
+
+					if (find_result.location == find_library_found_location_link_arg) {
+						obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
+					} else {
+						obj_array_push(ctx->wk, ctx->info->libs, find_result.found);
+					}
 				}
 			} else {
-				LOG_W("library '%s' not found for dependency '%s'",
-					frag->data,
-					get_cstr(ctx->wk, ctx->name));
+				LOG_W("libpkgconf: dependency '%s' missing required library '%s'",
+					get_cstr(ctx->wk, ctx->name),
+					frag->data);
 				obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
 			}
 			break;
@@ -187,7 +193,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 					ctx->info->compile_args,
 					make_strf(ctx->wk, "-%c%s", frag->type, frag->data));
 			} else {
-				L("skipping null pkgconf fragment: '%s'", frag->data);
+				L("libpkgconf: skipping null pkgconf fragment: '%s'", frag->data);
 			}
 			break;
 		}
@@ -227,9 +233,9 @@ muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
 }
 
 bool
-muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgconf_info *info)
+muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
 {
-	L("looking up: %d", is_static);
+	L("libpkgconf: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
 	if (!pkgconf_ctx.init) {
 		if (!muon_pkgconf_init(wk)) {
 			return false;
@@ -252,7 +258,7 @@ muon_pkgconf_lookup(struct workspace *wk, obj name, bool is_static, struct pkgco
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, get_cstr(wk, name));
 
-	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static };
+	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static, .compiler = compiler, };
 
 	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_modversion, pkgconf_ctx.maxdepth, &ctx)) {
 		ret = false;
