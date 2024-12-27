@@ -801,7 +801,8 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 
-	LLOG_I("detected compiler for %s: %s ",
+	LLOG_I("detected %s compiler for %s: %s ",
+		machine_kind_to_s(machine),
 		compiler_language_to_s(lang),
 		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
 	obj_lprintf(wk,
