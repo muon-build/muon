@@ -693,11 +693,40 @@ func_meson_private_dir(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static bool
+func_meson_has_compiler(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
+
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	enum compiler_language l;
+	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)) {
+		vm_error_at(wk, an[0].node, "unknown compiler language: '%s'", get_cstr(wk, an[0].val));
+		return false;
+	}
+
+	*res = make_obj_bool(wk,
+		obj_dict_geti(wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, &_));
+
+	return true;
+}
+
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict },
 	{ "register_dependency_handler", func_meson_register_dependency_handler },
 	{ "register_finalizer", func_meson_register_finalizer },
 	{ "argv0", func_meson_argv0, tc_string },
 	{ "private_dir", func_meson_private_dir, tc_string },
+	{ "has_compiler", func_meson_has_compiler, tc_bool },
 	{ NULL, NULL },
 };
