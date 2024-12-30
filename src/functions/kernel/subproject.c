@@ -7,6 +7,8 @@
 
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
+#include "functions/subproject.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -171,6 +173,43 @@ subproject(struct workspace *wk,
 	sub->id = subproject_id;
 	sub->found = true;
 	obj_dict_set(wk, wk->subprojects, name, *res);
+
+	obj k, v;
+	obj_dict_for(wk, current_project(wk)->wrap_provides_deps, k, v) {
+		if (get_obj_array(wk, v)->len < 2) {
+			continue;
+		}
+
+		obj sub_name, var_name, dep;
+		obj_array_index(wk, v, 0, &sub_name);
+		obj_array_index(wk, v, 1, &var_name);
+
+		if (!obj_equal(wk, sub_name, name)) {
+			continue;
+		}
+
+		if (!subproject_get_variable(wk, 0, var_name, 0, *res, &dep)) {
+			vm_error(wk, "subproject dependency variable %o is not defined in %o", var_name, name);
+			return false;
+		}
+
+		obj _dep;
+		bool override_set = obj_dict_index(wk, wk->dep_overrides_dynamic[machine_kind_build], k, &_dep)
+				    || obj_dict_index(wk, wk->dep_overrides_static[machine_kind_build], k, &_dep)
+				    || obj_dict_index(wk, wk->dep_overrides_dynamic[machine_kind_host], k, &_dep)
+				    || obj_dict_index(wk, wk->dep_overrides_static[machine_kind_host], k, &_dep);
+
+		if (override_set) {
+			continue;
+		}
+
+		L("setting override for dependency '%s'", get_cstr(wk, k));
+
+		obj_dict_set(wk, wk->dep_overrides_dynamic[machine_kind_build], k, dep);
+		obj_dict_set(wk, wk->dep_overrides_static[machine_kind_build], k, dep);
+		obj_dict_set(wk, wk->dep_overrides_dynamic[machine_kind_host], k, dep);
+		obj_dict_set(wk, wk->dep_overrides_static[machine_kind_host], k, dep);
+	}
 
 	if (fs_dir_exists(wk->build_root)) {
 		if (!fs_mkdir_p(build_dir.buf)) {
