@@ -434,10 +434,10 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 	bool glob = false;
 
 	for (i = 0; akw[i].key; ++i) {
-		if (strcmp(kw, akw[i].key) == 0) {
-			break;
-		} else if (akw[i].type & TYPE_TAG_GLOB) {
+		if (akw[i].type & TYPE_TAG_GLOB) {
 			glob = true;
+			break;
+		} else if (strcmp(kw, akw[i].key) == 0) {
 			break;
 		}
 	}
