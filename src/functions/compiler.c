@@ -2517,7 +2517,43 @@ func_compiler_configure(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_compiler_get_internal_id(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, compiler_type_name[get_obj_compiler(wk, self)->type[toolchain_component_compiler]].id);
+	return true;
+}
+
+static bool
+func_compiler_get_internal_linker_id(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_linker]].id);
+	return true;
+}
+
+static bool
+func_compiler_get_internal_static_linker_id(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, static_linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_static_linker]].id);
+	return true;
+}
+
 const struct func_impl impl_tbl_compiler_internal[] = {
 	{ "configure", func_compiler_configure },
+	{ "get_internal_id", func_compiler_get_internal_id },
+	{ "get_internal_linker_id", func_compiler_get_internal_linker_id },
+	{ "get_internal_static_linker_id", func_compiler_get_internal_static_linker_id },
 	{ NULL, NULL },
 };
