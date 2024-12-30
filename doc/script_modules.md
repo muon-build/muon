@@ -174,9 +174,10 @@ dict[str]
 dict[str|int]
 ```
 
-Finally, you can wrap the entire type in `glob[<type>]` or `listify[<type>]` to
-get the special argument handling detailed in doc/contributing.md (search for
-`TYPE_TAG_{GLOB,LISTIFY}`).
+You can also wrap the entire type in `glob[<type>]` or `listify[<type>]` to get
+the special argument handling detailed in doc/contributing.md (search for
+`TYPE_TAG_{GLOB,LISTIFY}`).  `glob` may additionally applied to the type of a
+kwarg which causes any unmatched keywords to be stored in that kwarg as a dict.
 
 ## Additional built-in functions
 

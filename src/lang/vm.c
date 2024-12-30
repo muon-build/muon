@@ -431,9 +431,13 @@ static bool
 handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_t kw_ip, obj v, uint32_t v_ip)
 {
 	uint32_t i;
+	bool glob = false;
 
 	for (i = 0; akw[i].key; ++i) {
 		if (strcmp(kw, akw[i].key) == 0) {
+			break;
+		} else if (akw[i].type & TYPE_TAG_GLOB) {
+			glob = true;
 			break;
 		}
 	}
@@ -441,18 +445,24 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 	if (!akw[i].key) {
 		vm_diagnostic(wk, kw_ip, log_error, "unknown kwarg %s", kw);
 		return false;
-	} else if (akw[i].set) {
+	} else if (akw[i].set && !glob) {
 		vm_error_at(wk, kw_ip, "keyword argument '%s' set twice", kw);
 		return false;
 	}
 
-	if (!typecheck_and_mutate_function_arg(wk, v_ip, &v, akw[i].type, akw[i].key)) {
+	if (!typecheck_and_mutate_function_arg(wk, v_ip, &v, akw[i].type & ~TYPE_TAG_GLOB, akw[i].key)) {
 		return false;
 	}
 
-	akw[i].val = v;
-	akw[i].node = v_ip;
-	akw[i].set = true;
+	if (glob) {
+		obj_dict_set(wk, akw[i].val, make_str(wk, kw), v);
+		akw[i].node = v_ip;
+		akw[i].set = true;
+	} else {
+		akw[i].val = v;
+		akw[i].node = v_ip;
+		akw[i].set = true;
+	}
 	return true;
 }
 
@@ -473,6 +483,12 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	if (akw) {
 		for (i = 0; akw[i].key; ++i) {
 			akw[i].set = false;
+			akw[i].val = 0;
+
+			if (akw[i].type & TYPE_TAG_GLOB) {
+				make_obj(wk, &akw[i].val, obj_dict);
+				akw[i].set = true;
+			}
 		}
 	} else if (wk->vm.nkwargs) {
 		vm_error(wk, "this function does not accept kwargs");
@@ -2015,8 +2031,9 @@ vm_op_iterator_next(struct workspace *wk)
 			should_break = true;
 		} else {
 			val = iterator->data.array->val;
-			iterator->data.array
-				= iterator->data.array->next ? bucket_arr_get(&wk->vm.objects.array_elems, iterator->data.array->next) : 0;
+			iterator->data.array = iterator->data.array->next ? bucket_arr_get(
+						       &wk->vm.objects.array_elems, iterator->data.array->next) :
+									    0;
 		}
 		break;
 	case obj_iterator_type_range:

@@ -9,6 +9,7 @@ tests = [
     ['disabler.meson'],
     ['environment.meson', {'env': 'inherited=secret'}],
     ['fstring.meson'],
+    ['func.meson'],
     ['join.meson'],
     ['join_paths.meson'],
     ['katie.meson'],
