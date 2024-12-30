@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 func f(kwargs glob[any]:, b any:)
     assert(is_null(b)) # b won't be set because it gets "swallowed" by `kwargs`
     assert(kwargs == {'a': 1, 'b': 1})
