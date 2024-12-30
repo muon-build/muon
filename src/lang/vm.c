@@ -2235,6 +2235,8 @@ vm_abort_handler(void *ctx)
 bool
 vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
 {
+	bool ok;
+
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
@@ -2267,10 +2269,18 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 	wk->vm.ip = 0;
 	vm_execute_capture(wk, c);
 
+	if (wk->vm.error) {
+		object_stack_pop(&wk->vm.stack);
+		arr_pop(&wk->vm.call_stack);
+		goto err;
+	}
+
 	vm_execute(wk);
+
+err:
 	assert(call_stack_base == wk->vm.call_stack.len);
 
-	bool ok = !wk->vm.error;
+	ok = !wk->vm.error;
 	*res = ok ? object_stack_pop(&wk->vm.stack) : 0;
 
 	wk->vm.error = false;
@@ -2671,7 +2681,7 @@ vm_init_objects(struct workspace *wk)
 		bucket_arr_init(&wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
 	}
 
-	 // reserve dict_elem 0 and array_elem as a null element
+	// reserve dict_elem 0 and array_elem as a null element
 	bucket_arr_pushn(&wk->vm.objects.dict_elems, 0, 0, 1);
 	bucket_arr_pushn(&wk->vm.objects.array_elems, 0, 0, 1);
 
