@@ -1,52 +1,76 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-func get_clike_compiler(dep_name str, machine str:) -> compiler
-    proj = meson.project()
-    foreach comp : ['c', 'cpp']
-        if comp in proj['toolchains'][machine]
-            return proj['toolchains'][machine][comp]
+func clike_compiler(native bool) -> compiler
+    foreach candidate : ['c', 'cpp', 'objc', 'objcpp']
+        if meson.has_compiler(candidate, native: native)
+            return meson.get_compiler(candidate, native: native)
         endif
     endforeach
 
-    error(f'@dep_name@ requires a c or cpp compiler')
+    error('No c-like compiler available.')
 endfunc
 
-func intl(required bool:, static bool:, machine str:) -> dep
-    cc = get_clike_compiler('intl', machine: machine)
-    code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
+func not_found() -> dep
+    return dependency('', required: false)
+endfunc
 
-    if cc.links(code)
-        dep = declare_dependency()
-    else
-        dep = cc.find_library(
+meson.register_dependency_handler(
+    'intl',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
+
+        return clike_compiler(native).links(code) ? declare_dependency() : not_found()
+    endfunc,
+    system: func(static bool:, native bool:, _ glob[any]:) -> dep
+        return clike_compiler(native).find_library(
             'intl',
             has_headers: ['libintl.h'],
-            required: required,
             static: static,
+            required: false,
         )
-    endif
+    endfunc,
+)
 
-    return dep
-endfunc
+meson.register_dependency_handler(
+    'iconv',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
 
-func iconv(required bool:, static bool:, machine str:) -> dep
-    cc = get_clike_compiler('iconv', machine: machine)
-    code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
-
-    if cc.links(code)
-        dep = declare_dependency()
-    else
-        dep = cc.find_library(
+        return clike_compiler(native).links(code) ? declare_dependency() : not_found()
+    endfunc,
+    system: func(static bool:, native bool:, _ glob[any]:) -> dep
+        return clike_compiler(native).find_library(
             'iconv',
             has_headers: ['iconv.h'],
-            required: required,
             static: static,
+            required: false,
         )
-    endif
+    endfunc,
+)
 
-    return dep
-endfunc
+meson.register_dependency_handler(
+    'zlib',
+    order: ['pkg-config', 'system'],
+    system: func(static bool:, native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
 
-meson.register_dependency_handler('intl', intl)
-meson.register_dependency_handler('iconv', iconv)
+        if cc.get_internal_id() == 'clang-apple'
+            dep = declare_dependency(
+                link_args: '-lz',
+            )
+        else
+            dep = cc.find_library(
+                'iconv',
+                has_headers: ['iconv.h'],
+                static: static,
+                required: false,
+            )
+        endif
+
+        return declare_dependency(
+            dependencies: dep,
+            version: cc.get_define('ZLIB_VERSION', prefix: '#include <zlib.h>').strip('"'),
+        )
+    endfunc,
+)

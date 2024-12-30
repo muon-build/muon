@@ -10,9 +10,11 @@
 #include "args.h"
 #include "backend/common_args.h"
 #include "backend/output.h"
+#include "buf_size.h"
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/kernel/dependency.h"
 #include "functions/meson.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
@@ -643,15 +645,80 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = {
 		{ tc_string },
-		{ tc_capture },
 		ARG_TYPE_NULL,
 	};
+	enum kwargs {
+		kw_builtin,
+		kw_system,
+		kw_order,
+	};
+	struct args_kw akw[] = {
+		[kw_builtin] = { "builtin", tc_capture },
+		[kw_system] = { "system", tc_capture },
+		[kw_order] = { "order", TYPE_TAG_LISTIFY | tc_string },
+		0,
+	};
+	const struct {
+		enum kwargs kw;
+		enum dependency_lookup_method method;
+	} kwarg_to_method[] = {
+		{ kw_builtin, dependency_lookup_method_builtin },
+		{ kw_system, dependency_lookup_method_system },
+	};
 
-	if (!pop_args(wk, an, NULL)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	obj_dict_set(wk, wk->dependency_handlers, an[0].val, an[1].val);
+	obj handler_dict;
+	make_obj(wk, &handler_dict, obj_dict);
+
+	bool set_any = false;
+
+	if (akw[kw_order].set) {
+		obj method;
+		obj_array_for(wk, akw[kw_order].val, method) {
+			enum dependency_lookup_method m;
+			if (!dependency_lookup_method_from_s(get_str(wk, method), &m)) {
+				vm_error_at(wk, akw[kw_order].node, "invalid dependency method %o", method);
+				return false;
+			}
+
+			uint32_t i;
+			enum kwargs kw = 0;
+			for (i = 0; i < ARRAY_LEN(kwarg_to_method); ++i) {
+				if (m == kwarg_to_method[i].method) {
+					kw = kwarg_to_method[i].kw;
+					break;
+				}
+			}
+
+			obj v = akw[i].val;
+			if (i == ARRAY_LEN(kwarg_to_method) || !akw[kw].set) {
+				v = obj_bool_true;
+			}
+
+			obj_dict_seti(wk, handler_dict, m, v);
+			set_any = true;
+		}
+	} else {
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(kwarg_to_method); ++i) {
+			enum kwargs kw = kwarg_to_method[i].kw;
+			if (!akw[kw].set) {
+				continue;
+			}
+
+			obj_dict_seti(wk, handler_dict, kwarg_to_method[i].method, akw[i].val);
+			set_any = true;
+		}
+	}
+
+	if (!set_any) {
+		vm_error(wk, "No handlers defined.");
+	}
+
+	obj_dict_set(wk, wk->dependency_handlers, an[0].val, handler_dict);
 	return true;
 }
 

@@ -80,7 +80,7 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
-	/* dict -> capture */
+	/* dict -> dict[method -> capture] */
 	obj dependency_handlers;
 	/* list[str], used for error reporting */
 	obj backend_output_stack;
