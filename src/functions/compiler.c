@@ -2009,7 +2009,29 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 	}
 
 	return (struct find_library_result) { 0 };
+}
 
+void
+find_library_result_to_dependency(struct workspace *wk, struct find_library_result find_result, obj compiler, obj d)
+{
+	struct obj_dependency *dep = get_obj_dependency(wk, d);
+	dep->name = find_result.found;
+	dep->type = dependency_type_external_library;
+	dep->flags |= dep_flag_found;
+	if (find_result.location == find_library_found_location_link_arg) {
+		make_obj(wk, &dep->dep.link_with_not_found, obj_array);
+		obj_array_push(wk, dep->dep.link_with_not_found, find_result.found);
+	} else {
+		make_obj(wk, &dep->dep.link_with, obj_array);
+		obj_array_push(wk, dep->dep.link_with, find_result.found);
+
+		if (find_result.location == find_library_found_location_extra_dirs) {
+			make_obj(wk, &dep->dep.rpath, obj_array);
+			obj_array_push(wk, dep->dep.rpath, find_result.found);
+		}
+	}
+
+	dep->dep.link_language = get_obj_compiler(wk, compiler)->lang;
 }
 
 struct compiler_find_library_check_headers_ctx {
@@ -2073,7 +2095,6 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	struct obj_compiler *comp = get_obj_compiler(wk, self);
 	make_obj(wk, res, obj_dependency);
 	struct obj_dependency *dep = get_obj_dependency(wk, *res);
 	dep->type = dependency_type_external_library;
@@ -2157,21 +2178,7 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 	}
 
 	compiler_log(wk, self, "found library '%s' at '%s'", get_cstr(wk, an[0].val), get_cstr(wk, find_result.found));
-	dep->flags |= dep_flag_found;
-	if (find_result.location == find_library_found_location_link_arg) {
-		make_obj(wk, &dep->dep.link_with_not_found, obj_array);
-		obj_array_push(wk, dep->dep.link_with_not_found, find_result.found);
-	} else {
-		make_obj(wk, &dep->dep.link_with, obj_array);
-		obj_array_push(wk, dep->dep.link_with, find_result.found);
-
-		if (find_result.location == find_library_found_location_extra_dirs) {
-			make_obj(wk, &dep->dep.rpath, obj_array);
-			obj_array_push(wk, dep->dep.rpath, find_result.found);
-		}
-	}
-
-	dep->dep.link_language = comp->lang;
+	find_library_result_to_dependency(wk, find_result, self, *res);
 	return true;
 }
 

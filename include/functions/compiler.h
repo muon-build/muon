@@ -31,6 +31,8 @@ struct find_library_result {
 
 struct find_library_result
 find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_dirs, enum find_library_flag flags);
+void
+find_library_result_to_dependency(struct workspace *wk, struct find_library_result find_result, obj compiler, obj d);
 
 enum compiler_check_mode {
 	compiler_check_mode_preprocess,
