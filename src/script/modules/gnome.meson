@@ -1,21 +1,66 @@
 # SPDX-FileCopyrightText: sewn <sewn@disroot.org>
 # SPDX-License-Identifier: GPL-3.0-only
 
-# TODO: investigate null kwarg in custom_target
-
 fs = import('fs')
 
-warning('muon\'s gnome module implementation is unstable.')
+func splitext(file file|str) -> str
+    f = ''
+    foreach p : (s = (typeof(file) == 'file' ? file.full_path() : file).split('.'))
+        f += (p == s[-1]) ? '' : (p == s[0] ? '' : '.') + p
+    endforeach
+    return f
+endfunc
 
-# TODO: investigate
 func post_install(
-    _glib_compile_schemas bool: false,
-    _gio_querymodules listify[str]:,
-    _gtk_update_icon_cache bool: false,
-    _update_desktop_database bool: false,
-    _update_mime_database bool: false,
+    glib_compile_schemas bool: false,
+    gio_querymodules listify[str]:,
+    gtk_update_icon_cache bool: false,
+    update_desktop_database bool: false,
+    update_mime_database bool: false,
 )
-    return false
+    datadir = get_option('prefix') / get_option('datadir')
+
+    if glib_compile_schemas
+        meson.add_install_script(
+            find_program('glib-compile-schemas'),
+            datadir / 'glib-2.0' / 'schemas',
+            skip_if_destdir: true,
+        )
+    endif
+
+    foreach qm : gio_querymodules
+        meson.add_install_script(
+            find_program('gio-querymodules'),
+            get_option('prefix') / qm,
+            skip_if_destdir: true,
+        )
+    endforeach
+
+    if gtk_update_icon_cache
+        meson.add_install_script(
+            find_program('gtk4-update-icon-cache', 'gtk4-update-icon-cache'),
+            '-q',
+            '-t',
+            '-f', datadir / 'icons' / 'hicolor',
+            skip_if_destdir: true,
+        )
+    endif
+
+    if update_desktop_database
+        meson.add_install_script(
+            find_program('update-desktop-database'),
+            '-q', datadir / 'applications',
+            skip_if_destdir: true,
+        )
+    endif
+
+    if update_mime_database
+        meson.add_install_script(
+            find_program('update-mime-database'),
+            datadir / 'mime',
+            skip_if_destdir: true,
+        )
+    endif
 endfunc
 
 func compile_resources(
@@ -51,7 +96,6 @@ func compile_resources(
     endforeach
 
     foreach d : dependencies
-        # is 'subdir' meson member struct or 'get_subdir' meson method fs.parent?
         if typeof(d) == 'custom_tgt'
             source_dirs += fs.parent(d.full_path())
             depends += d
@@ -64,7 +108,7 @@ func compile_resources(
         endif
     endforeach
 
-    source_dirs += [meson.current_build_dir(), meson.current_source_dir()]
+    source_dirs += [meson.current_build_dir()]
 
     foreach sd : source_dirs
         cmd += ['--sourcedir', sd]
@@ -90,6 +134,8 @@ func compile_resources(
         error(
             'the install kwarg only applies to gresource bundles, see install_header',
         )
+    elif install and is_null(install_dir)
+        error('the install kwarg requires install_dir to be set')
     elif install_header and gresource_bundle
         error('the install_header kwarg does not apply to gresource bundles')
     elif install_header and not export
@@ -138,7 +184,6 @@ func compile_resources(
     return resources
 endfunc
 
-# TODO: implement generate_gir properly, upstream Meson is messy
 # func generate_gir(
 #     targets glob[exe|both_libs],
 #     install bool: false,
@@ -208,8 +253,9 @@ func compile_schemas(
 ) -> custom_tgt
     name = 'gsettings-compile'
     srcdir = meson.current_source_dir()
+    outdir = fs.name(srcdir)
     if srcdir != ''
-        name += srcdir.replace('/', '_')
+        name += outdir.replace('/', '_')
     endif
 
     return custom_target(
@@ -217,8 +263,13 @@ func compile_schemas(
         build_by_default: build_by_default,
         depend_files: depend_files,
         output: 'gschemas.compiled',
+        env: {
+            'GSETTINGS_SCHEMA_DIR': meson.current_build_dir(),
+        },
         command: [
             find_program('glib-compile-schemas'),
+            '--targetdir', outdir,
+            srcdir,
         ],
     )
 endfunc
@@ -236,7 +287,7 @@ func gdbus_codegen(
     sources listify[custom_tgt|file|str]: [],
     interface_prefix str:,
     namespace str:,
-    _extra_args listify[str]:,
+    extra_args listify[str]: [],
     autocleanup str: 'default',
     object_manager bool: false,
     annotations list[list[str]]: [],
@@ -251,6 +302,7 @@ func gdbus_codegen(
 
     cmd = [
         find_program('gdbus-codegen'),
+        extra_args,
         '--c-generate-autocleanup', [autocleanup == 'default' ? 'all' : autocleanup],
         is_null(interface_prefix) ? [] : [
             '--interface-prefix', interface_prefix,
@@ -270,16 +322,14 @@ func gdbus_codegen(
         name + '_c',
         build_by_default: build_by_default,
         input: xml_files,
-        install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
+            '--body',
             '--output', '@OUTPUT@',
-            '--body', '@INPUT@',
+            '@INPUT@',
         ],
     )
-
     header = custom_target(
         name + '_h',
         build_by_default: build_by_default,
@@ -290,11 +340,11 @@ func gdbus_codegen(
         output: name + '.h',
         command: [
             cmd,
+            '--header',
             '--output', '@OUTPUT@',
-            '--header', '@INPUT@',
+            '@INPUT@',
         ],
     )
-
     targets = [body, header]
 
     if not is_null(docbook)
@@ -331,7 +381,7 @@ func mkenums(
     h_template file|str:,
     identifier_prefix str:,
     install_header bool: false,
-    install_dir str:,
+    install_dir str: get_option('includedir'),
     depends listify[build_tgt|custom_tgt]: [],
     sources listify[custom_tgt|file|generated_list|str]:,
     symbol_prefix str:,
@@ -350,54 +400,80 @@ func mkenums(
     cmd = [find_program('glib-mkenums')]
 
     known_kwargs = {
-        'comments': comments,
-        'eprod': eprod,
-        'fhead': fhead,
-        'fprod': fprod,
-        'ftail': ftail,
-        'identifier-prefix': identifier_prefix,
-        'symbol-prefix': symbol_prefix,
-        'vhead': vhead,
-        'vprod': vprod,
-        'vtail': vtail,
+        'comments': [comments],
+        'eprod': [eprod],
+        'fhead': [fhead],
+        'fprod': [fprod],
+        'ftail': [ftail],
+        'identifier-prefix': [identifier_prefix],
+        'symbol-prefix': [symbol_prefix],
+        'vhead': [vhead],
+        'vprod': [vprod],
+        'vtail': [vtail],
     }
 
     foreach kwarg, value : known_kwargs
-        if not is_null(value)
-            cmd += ['--' + kwarg, value.replace('@', '\@')]
+        if not is_null(value[0])
+            cmd += ['--' + kwarg, value[0].replace('@', '\@')]
         endif
     endforeach
 
-    enums = []
-    enums += custom_target(
-        name + '_h',
-        capture: true,
-        depends: depends,
-        input: sources,
-        install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
-        output: name + '.h',
-        command: [
-            cmd,
-            is_null(h_template) ? [] : ['--template', h_template],
-            '@INPUT@',
-        ],
-    )
+    if is_null(h_template) and is_null(c_template)
+        return [
+            custom_target(
+                name,
+                input: sources,
+                capture: true,
+                install: install_header,
+                install_dir: install_dir,
+                install_tag: 'devel',
+                output: name,
+                command: [cmd, '@INPUT@'],
+            ),
+        ]
+    endif
 
-    enums += custom_target(
-        name + '_c',
-        capture: true,
-        input: sources,
-        depends: depends,
-        install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
-        output: name + '.c',
-        command: [
-            cmd,
-            is_null(c_template) ? [] : ['--template', c_template],
-            '@INPUT@',
-        ],
-    )
+    h_target = []
+    if not is_null(h_template)
+        h_template = typeof(h_template) == 'file' ? h_template : files(h_template)
+        h_output = meson.current_build_dir() / splitext(fs.name(h_template))
+        h_target = custom_target(
+            h_output,
+            capture: true,
+            input: sources,
+            install: install_header,
+            install_dir: install_dir,
+            install_tag: 'devel',
+            output: h_output,
+            command: [
+                cmd,
+                is_null(h_template) ? [] : ['--template', h_template],
+                '@INPUT@',
+            ],
+        )
+    endif
+
+    c_target = []
+    if not is_null(c_template)
+        c_template = typeof(c_template) == 'file' ? c_template : files(c_template)
+        c_output = meson.current_build_dir() / splitext(fs.name(c_template))
+        c_target = custom_target(
+            c_output,
+            capture: true,
+            input: sources,
+            depends: depends + h_target,
+            output: c_output,
+            command: [
+                cmd,
+                is_null(c_template) ? [] : ['--template', c_template],
+                '@INPUT@',
+            ],
+        )
+    endif
+
+    enums = []
+    enums += c_target
+    enums += h_target
 
     return enums
 endfunc
@@ -428,7 +504,7 @@ func mkenums_simple(
             typeof(s) == 'file' ? s.full_path() : files(s)[0].full_path(),
             meson.current_build_dir(),
         )
-        fhead += '#include "@0@"'.format(h_path)
+        fhead += '#include "@0@"\n'.format(h_path)
     endforeach
     fhead += '\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n'
 
@@ -436,8 +512,6 @@ func mkenums_simple(
         name + '.c',
         capture: true,
         input: sources,
-        install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
@@ -445,9 +519,9 @@ func mkenums_simple(
             '--fprod', '\n/* enumerations from "\@basename\@" */\n',
             '--vhead', '\nGType\n'
             + function_prefix
-            + '\@enum_name\@_get_type (void)\n{{\nstatic gsize gtype_id = 0;\nstatic const G\@Type\@Value values[] = {{',
-            '--vprod', '\n    { C_\@TYPE\@(\@VALUENAME\@), "\@VALUENAME\@", "\@valuenick\@" },])',
-            '--vtail', '\n    { 0, NULL, NULL }\nif (g_once_init_enter (&gtype_id)) {\nGType new_type = g_\@type\@_register_static (g_intern_static_string ("\@EnumName\@"), values);\ng_once_init_leave (&gtype_id, new_type);\n}\nreturn (GType) gtype_id;\n}',
+            + '\@enum_name\@_get_type (void)\n{\nstatic gsize gtype_id = 0;\nstatic const G\@Type\@Value values[] = {',
+            '--vprod', '{ C_\@TYPE\@(\@VALUENAME\@), "\@VALUENAME\@", "\@valuenick\@" },',
+            '--vtail', '{ 0, NULL, NULL }\n};\nif (g_once_init_enter (&gtype_id)) {\nGType new_type = g_\@type\@_register_static (g_intern_static_string ("\@EnumName\@"), values);\ng_once_init_leave (&gtype_id, new_type);\n}\nreturn (GType) gtype_id;\n}',
             '@INPUT@',
         ],
     )
@@ -532,6 +606,7 @@ func genmarshal(
         depend_files: depend_files,
         install: install_header,
         install_dir: is_null(install_dir) ? '' : install_dir,
+        install_tag: 'devel',
         output: header_file,
         command: [
             cmd,
@@ -545,8 +620,6 @@ func genmarshal(
         input: sources,
         depends: depends + header,
         depend_files: depend_files,
-        install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
         output: name + '.c',
         command: [
             cmd,
