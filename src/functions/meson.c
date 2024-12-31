@@ -650,11 +650,13 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 	enum kwargs {
 		kw_builtin,
 		kw_system,
+		kw_config_tool,
 		kw_order,
 	};
 	struct args_kw akw[] = {
 		[kw_builtin] = { "builtin", tc_capture },
 		[kw_system] = { "system", tc_capture },
+		[kw_config_tool] = { "config_tool", tc_capture },
 		[kw_order] = { "order", TYPE_TAG_LISTIFY | tc_string },
 		0,
 	};
@@ -664,6 +666,7 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 	} kwarg_to_method[] = {
 		{ kw_builtin, dependency_lookup_method_builtin },
 		{ kw_system, dependency_lookup_method_system },
+		{ kw_config_tool, dependency_lookup_method_config_tool },
 	};
 
 	if (!pop_args(wk, an, akw)) {
