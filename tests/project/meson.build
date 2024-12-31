@@ -404,7 +404,7 @@ endif
 meson_tests_dir = meson.current_source_dir() / 'meson-tests'
 
 if git.found()
-    meson_tests_sha = 'e2fb017678ea6281f670a79312ad9823be6c82ec'
+    meson_tests_sha = '687b145128aa9ac1a72954a2607a75e402d45722'
 
     if not fs.is_dir(meson_tests_dir)
         run_command(
