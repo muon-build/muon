@@ -68,6 +68,10 @@ meson.register_dependency_handler(
             )
         endif
 
+        if not dep.found()
+            return dep
+        endif
+
         return declare_dependency(
             dependencies: dep,
             version: cc.get_define('ZLIB_VERSION', prefix: '#include <zlib.h>').strip('"'),
