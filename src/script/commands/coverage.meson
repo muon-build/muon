@@ -75,10 +75,9 @@ endfunc
 func coverage_sonarqube() -> any
     gcovr_version = gcovr_exe.version()
     if gcovr_version.version_compare('<4.2')
-        warning(
-            f'gcovr >= 4.2 needed to generate sonarqube report, found: @gcov_version@',
+        error(
+            f'gcovr >= 4.2 needed to generate sonarqube report, found: @gcovr_version@',
         )
-        return
     endif
     sonarqube_outfile = join_paths(full_private_dir, 'sonarqube.xml')
     run_command(
