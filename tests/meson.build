@@ -8,3 +8,18 @@ subdir('fmt')
 subdir('fuzz')
 subdir('lang')
 subdir('project')
+
+foreach script : embedded_scripts
+    if not script.endswith('.meson')
+        continue
+    elif script.startswith('options/')
+        continue
+    endif
+
+    test(
+        f'@script@',
+        muon,
+        args: ['analyze', '-i', embedded_scripts_base / script],
+        suite: 'analyze',
+    )
+endforeach
