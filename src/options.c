@@ -678,7 +678,7 @@ init_builtin_options(struct workspace *wk, const char *script)
 static bool
 init_per_project_options(struct workspace *wk)
 {
-	return init_builtin_options(wk, "per_project_options.meson");
+	return init_builtin_options(wk, "options/per_project.meson");
 }
 
 static enum iteration_result
@@ -802,7 +802,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 bool
 init_global_options(struct workspace *wk)
 {
-	if (!init_builtin_options(wk, "global_options.meson")) {
+	if (!init_builtin_options(wk, "options/global.meson")) {
 		return false;
 	}
 

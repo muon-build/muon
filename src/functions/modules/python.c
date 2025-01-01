@@ -25,7 +25,7 @@ static bool
 introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct source src;
-	if (!embedded_get("python_info.py", &src)) {
+	if (!embedded_get("python/python_info.py", &src)) {
 		return false;
 	}
 

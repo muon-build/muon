@@ -101,7 +101,7 @@ func gettext(
         meson.argv0(),
         'internal',
         'eval',
-        '-e', 'gettext.meson',
+        '-e', 'commands/i18n/gettext.meson',
     ]
 
     pkg_arg = f'pkgname=@package_name@'
@@ -262,7 +262,7 @@ func merge_file(
         meson.argv0(),
         'internal',
         'eval',
-        '-e', 'msgfmthelper.meson',
+        '-e', 'commands/i18n/msgfmthelper.meson',
         '@INPUT@',
         '@OUTPUT@',
         f'type=@type@',
@@ -329,7 +329,7 @@ func itstool_join(
         meson.argv0(),
         'internal',
         'eval',
-        '-e', 'itstool.meson',
+        '-e', 'commands/i18n/itstool.meson',
         'join',
         '@INPUT@',
         '@OUTPUT@',

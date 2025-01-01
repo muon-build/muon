@@ -5,25 +5,22 @@ scripts_input = []
 scripts_cmdline = []
 
 foreach s : [
-    'dependencies.meson',
-    'copyfile.meson',
-    'global_options.meson',
-    'per_project_options.meson',
-    'vcs_tagger.meson',
-    'gettext.meson',
-    'itstool.meson',
-    'msgfmthelper.meson',
-    'python_info.py',
-    'delete_suffix.meson',
-    'coverage.meson',
-
-    'modules/_test.meson',
-    'modules/i18n.meson',
-    'modules/gnome.meson',
-
-    'lib/cmake_prelude.meson',
-
+    'commands/copyfile.meson',
+    'commands/coverage.meson',
+    'commands/delete_suffix.meson',
+    'commands/i18n/gettext.meson',
+    'commands/i18n/itstool.meson',
+    'commands/i18n/msgfmthelper.meson',
+    'commands/vcs_tagger.meson',
     'html/test_out.html',
+    'lib/cmake_prelude.meson',
+    'modules/_test.meson',
+    'modules/gnome.meson',
+    'modules/i18n.meson',
+    'options/global.meson',
+    'options/per_project.meson',
+    'python/python_info.py',
+    'runtime/dependencies.meson',
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]

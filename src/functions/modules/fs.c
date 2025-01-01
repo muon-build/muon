@@ -472,7 +472,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 			"internal",
 			"eval",
 			"-e",
-			"copyfile.meson",
+			"commands/copyfile.meson",
 			"@INPUT@",
 			"@OUTPUT@",
 			NULL,

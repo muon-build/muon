@@ -158,7 +158,7 @@ workspace_init_startup_files(struct workspace *wk)
 	}
 
 	const char *startup_files[] = {
-		"dependencies.meson",
+		"runtime/dependencies.meson",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_LEN(startup_files); ++i) {

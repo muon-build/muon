@@ -805,7 +805,7 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 			"internal",
 			"eval",
 			"-e",
-			"vcs_tagger.meson",
+			"commands/vcs_tagger.meson",
 			NULL,
 		});
 
