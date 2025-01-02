@@ -1552,6 +1552,13 @@ vm_op_store(struct workspace *wk)
 		obj res;
 		bool assign = false;
 
+		if (wk->vm.in_analyzer) {
+			// This is to ensure that array and dict mutations inside branches
+			// cause the mutated object to be marked dirty when the branch
+			// completes.
+			assign = true;
+		}
+
 		switch (source_t) {
 		case obj_number: {
 			assign = true;
