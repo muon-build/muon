@@ -35,6 +35,5 @@ script_sources = custom_target(
     command: [embedder, scripts_cmdline],
 )
 
-
 embedded_scripts = scripts_input
 embedded_scripts_base = meson.current_source_dir()
