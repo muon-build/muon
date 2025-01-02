@@ -2063,7 +2063,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 	}
 	case obj_typeinfo: {
 		struct obj_typeinfo *ti = get_obj_typeinfo(wk, o);
-		sbuf_pushs(wk, sb, "<typeinfo: ");
+		sbuf_pushf(wk, sb, "<typeinfo 0x4%x: ", o);
 		sbuf_pushs(wk, sb, typechecking_type_to_s(wk, ti->type));
 		sbuf_pushs(wk, sb, ">");
 		break;
