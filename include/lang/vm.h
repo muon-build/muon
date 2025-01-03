@@ -111,6 +111,7 @@ struct call_frame {
 	obj scope_stack;
 	uint32_t return_ip, call_stack_base;
 	enum language_mode lang_mode;
+	struct obj_func *func;
 };
 
 struct vm_compiler_state {
@@ -209,6 +210,7 @@ obj vm_get_constant(uint8_t *code, uint32_t *ip);
 uint32_t vm_constant_host_to_bc(uint32_t n);
 obj vm_execute(struct workspace *wk);
 bool vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm an[], const struct args_kw akw[], obj *res);
+void vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
 obj vm_callstack(struct workspace *wk);

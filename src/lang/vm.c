@@ -815,6 +815,12 @@ vm_dis(struct workspace *wk)
  * vm ops
  ******************************************************************************/
 
+void
+vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
+{
+	arr_push(&wk->vm.call_stack, frame);
+}
+
 static void
 vm_push_dummy(struct workspace *wk)
 {
@@ -844,13 +850,14 @@ vm_execute_capture(struct workspace *wk, obj a)
 		return;
 	}
 
-	arr_push(&wk->vm.call_stack,
+	vm_push_call_stack_frame(wk,
 		&(struct call_frame){
 			.type = call_frame_type_func,
 			.return_ip = wk->vm.ip,
 			.scope_stack = wk->vm.scope_stack,
 			.expected_return_type = capture->func->return_type,
 			.lang_mode = wk->vm.lang_mode,
+			.func = capture->func,
 		});
 
 	wk->vm.lang_mode = capture->func->lang_mode;
@@ -911,7 +918,7 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 		if (saw_disabler) {
 			res = obj_disabler;
 		} else {
-			vm_error(wk, "in function %s", native_funcs[func_idx].name);
+			vm_error(wk, "in %s", native_funcs[func_idx].name);
 			vm_push_dummy(wk);
 			return;
 		}
@@ -2283,7 +2290,7 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 	}
 
 	uint32_t call_stack_base = wk->vm.call_stack.len;
-	arr_push(&wk->vm.call_stack,
+	vm_push_call_stack_frame(wk,
 		&(struct call_frame){
 			.type = call_frame_type_eval,
 			.return_ip = wk->vm.ip,
@@ -2315,6 +2322,7 @@ static void
 vm_unwind_call_stack(struct workspace *wk)
 {
 	struct call_frame *frame;
+	uint32_t prev_err_loc = 0;
 	while (wk->vm.call_stack.len) {
 		frame = arr_pop(&wk->vm.call_stack);
 
@@ -2326,9 +2334,10 @@ vm_unwind_call_stack(struct workspace *wk)
 		case call_frame_type_func: break;
 		}
 
-		if (frame->return_ip) {
-			vm_error_at(wk, frame->return_ip, "in function");
-		}
+		const char *fname = frame->func->name ? frame->func->name : "anonymous function";
+		vm_error_at(wk, prev_err_loc, "in %s", fname);
+
+		prev_err_loc = frame->return_ip;
 	}
 }
 

@@ -174,8 +174,7 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 		.type = call_frame_type_eval,
 		.return_ip = wk->vm.ip,
 	};
-
-	arr_push(&wk->vm.call_stack, &eval_frame);
+	vm_push_call_stack_frame(wk, &eval_frame);
 
 	wk->vm.ip = entry;
 

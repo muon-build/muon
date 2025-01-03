@@ -9,6 +9,8 @@
 #include "error.h"
 #include "workspace.h"
 
+struct ast;
+
 enum az_diagnostic {
 	az_diagnostic_unused_variable = 1 << 0,
 	az_diagnostic_reassign_to_conflicting_type = 1 << 1,

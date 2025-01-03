@@ -623,7 +623,7 @@ az_op_az_branch(struct workspace *wk)
 		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
 		cur_branch_group.result = (struct branch_map_data){ 0 };
 		wk->vm.ip = cur_branch_group.branch.ip;
-		arr_push(&wk->vm.call_stack, &(struct call_frame){ .type = call_frame_type_eval });
+		vm_push_call_stack_frame(wk, &(struct call_frame){ .type = call_frame_type_eval });
 		push_scope_group_scope(wk);
 		vm_execute(wk);
 

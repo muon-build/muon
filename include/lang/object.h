@@ -74,13 +74,9 @@ struct obj_typeinfo {
 
 struct obj_func {
 	const char *name;
-	struct ast *ast;
 	enum language_mode lang_mode;
-	uint32_t args_id, block_id, nargs, nkwargs;
-	obj kwarg_defaults, src, scope_stack;
+	uint32_t nargs, nkwargs;
 	type_tag return_type;
-
-	/*--------*/
 
 	uint32_t entry;
 	struct args_norm an[32];

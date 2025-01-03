@@ -717,6 +717,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_code(wk, op_constant);
 			push_constant(wk, n->l->l->data.str);
 			push_op_store(wk, 0);
+			func->name = get_cstr(wk, n->l->l->data.str);
 		}
 		break;
 	}
