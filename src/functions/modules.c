@@ -12,6 +12,7 @@
 #include "error.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
+#include "functions/modules/getopt.h"
 #include "functions/modules/keyval.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
@@ -301,6 +302,7 @@ struct func_impl_group module_func_impl_groups[module_count][language_mode_count
 	[module_sourceset]   = { { impl_tbl_module_sourceset }, { 0 }                                  },
 	[module_toolchain]   = { { 0 },                         { impl_tbl_module_toolchain }          },
 	[module_subprojects] = { { 0 },                         { impl_tbl_module_subprojects }        },
+	[module_getopt]      = { { 0 },                         { impl_tbl_module_getopt }             },
 };
 
 const struct func_impl impl_tbl_module[] = {

@@ -118,6 +118,7 @@ enum feature_opt_state {
 	_(sourceset, "public", true)                  \
 	_(toolchain, "private", true)                 \
 	_(subprojects, "private", true)                 \
+	_(getopt, "private", true)                 \
 	_(cmake, "public", false)                     \
 	_(dlang, "public", false)                     \
 	_(gnome, "public", false)                     \
