@@ -71,3 +71,13 @@ foreach e : a
     a += e
 endforeach
 assert(a.length() == 4)
+
+# slices
+a = [1, 2, 3, 4, 5]
+assert(a.slice() == a)
+assert(a.slice(2) == [3, 4, 5])
+assert(a.slice(2, 3) == [3])
+b = a.slice(4)
+b += 6
+assert(b == [5, 6])
+assert(a == [1, 2, 3, 4, 5])

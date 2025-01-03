@@ -308,8 +308,9 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		}
 
 		obj_array_index(wk, o->cmd_array, 0, &str);
-		if (get_obj_array(wk, o->cmd_array)->len > 1) {
-			*args = obj_array_slice(wk, o->cmd_array, 1, -1);
+		uint32_t cmd_array_len = get_obj_array(wk, o->cmd_array)->len;
+		if (cmd_array_len > 1) {
+			*args = obj_array_slice(wk, o->cmd_array, 1, cmd_array_len);
 		}
 		break;
 	}

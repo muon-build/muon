@@ -8,6 +8,7 @@
 #include "functions/array.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
+#include "util.h"
 
 static bool
 func_array_length(struct workspace *wk, obj self, obj *res)
@@ -102,6 +103,35 @@ func_array_delete(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_array_slice(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	const struct obj_array *a = get_obj_array(wk, self);
+	int64_t start = 0, end = a->len;
+
+	if (an[0].set) {
+		start = get_obj_number(wk, an[0].val);
+	}
+
+	if (an[1].set) {
+		end = get_obj_number(wk, an[1].val);
+	}
+
+	bounds_adjust(a->len, &start);
+	bounds_adjust(a->len, &end);
+
+	start = MIN(start, a->len - 1);
+	end = MIN(end, a->len);
+
+	*res = obj_array_slice(wk, self, start, end);
+	return true;
+}
+
 const struct func_impl impl_tbl_array[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
@@ -113,9 +143,7 @@ const struct func_impl impl_tbl_array_internal[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
 	{ "contains", func_array_contains, tc_bool, true },
-	{
-		"delete",
-		func_array_delete,
-	},
+	{ "delete", func_array_delete },
+	{ "slice", func_array_slice, tc_array, true },
 	{ NULL, NULL },
 };

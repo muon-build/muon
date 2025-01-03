@@ -1092,47 +1092,47 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 	arr_destroy(&da);
 }
 
-struct obj_array_slice_ctx {
-	int64_t i, i0, i1;
-	obj res;
-};
-
-static enum iteration_result
-obj_array_slice_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct obj_array_slice_ctx *ctx = _ctx;
-
-	if (ctx->i >= ctx->i0) {
-		obj_array_push(wk, ctx->res, v);
-	}
-
-	++ctx->i;
-
-	if (ctx->i > ctx->i1) {
-		return ir_done;
-	}
-
-	return ir_cont;
-}
-
 obj
-obj_array_slice(struct workspace *wk, obj a, int64_t i0, int64_t i1)
+obj_array_slice(struct workspace *wk, obj a, int64_t start, int64_t end)
 {
-	struct obj_array *arr = get_obj_array(wk, a);
-	if (!(bounds_adjust(arr->len, &i0) && bounds_adjust(arr->len, &i1))) {
-		assert(false && "index out of bounds");
+	struct obj_array *src = get_obj_array(wk, a);
+
+	obj res;
+	make_obj(wk, &res, obj_array);
+	struct obj_array *dst = get_obj_array(wk, res);
+
+	if (start == end) {
+		// empty slice
+		return res;
 	}
 
-	struct obj_array_slice_ctx ctx = {
-		.i0 = i0,
-		.i1 = i1,
-	};
+	const bool tail_slice = end == src->len;
+	uint32_t prev_elem = src->head;
 
-	make_obj(wk, &ctx.res, obj_array);
+	obj v;
+	obj_array_for_array_(wk, src, v, iter) {
+		if (iter.i >= end) {
+			break;
+		}
 
-	obj_array_foreach(wk, a, &ctx, obj_array_slice_iter);
+		if (iter.i >= start) {
+			if (tail_slice) {
+				src->flags |= obj_array_flag_cow;
 
-	return ctx.res;
+				dst->len = src->len - start;
+				dst->head = prev_elem;
+				dst->tail = src->tail;
+				dst->flags |= obj_array_flag_cow;
+				return res;
+			}
+
+			obj_array_push(wk, res, v);
+		}
+
+		prev_elem = iter.e->next;
+	}
+
+	return res;
 }
 
 /*******************************************************************************
