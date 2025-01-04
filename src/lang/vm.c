@@ -2662,6 +2662,96 @@ vm_execute_loop(struct workspace *wk)
 }
 
 /******************************************************************************
+ * struct registration
+ ******************************************************************************/
+
+bool
+vm_struct_(struct workspace *wk, const char *name)
+{
+	if (!wk->vm.registered_structs) {
+		make_obj(wk, &wk->vm.registered_structs, obj_dict);
+	}
+
+	obj def;
+	if (obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
+		return false;
+	}
+
+	make_obj(wk, &def, obj_dict);
+	obj_dict_set(wk, wk->vm.registered_structs, make_str(wk, name), def);
+	return true;
+}
+
+void
+vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
+		error_unrecoverable("struct %s is not registered", name);
+	}
+
+	obj member_def;
+	make_obj(wk, &member_def, obj_array);
+	obj_array_push(wk, member_def, offset);
+	obj_array_push(wk, member_def, t);
+
+	obj_dict_set(wk, def, make_str(wk, member), member_def);
+}
+
+bool
+vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
+		error_unrecoverable("struct %s is not registered", name);
+	}
+
+	type_tag expected_type;
+	obj k, v, member_def;
+	obj_dict_for(wk, o, k, v) {
+		if (!obj_dict_index(wk, def, k, &member_def)) {
+			vm_error(wk, "unknown key %s", get_cstr(wk, k));
+			return false;
+		}
+
+		obj offset, t;
+		obj_array_index(wk, member_def, 0, &offset);
+		obj_array_index(wk, member_def, 1, &t);
+		char *dest = (char *)s + offset;
+
+		switch ((enum vm_struct_type)t) {
+		case vm_struct_type_bool:
+			expected_type = tc_bool;
+			if (!typecheck_custom(wk, 0, v, expected_type, 0)) {
+				goto type_err;
+			}
+			*(bool *)dest = get_obj_bool(wk, v);
+			break;
+		case vm_struct_type_str:
+			expected_type = tc_string;
+			if (!typecheck_custom(wk, 0, v, expected_type, 0)) {
+				goto type_err;
+			}
+			*(const char **)dest = get_cstr(wk, v);
+			break;
+		case vm_struct_type_obj: *(obj *)dest = v; break;
+		}
+	}
+
+	return true;
+
+type_err:
+	vm_error(wk,
+		"expected type %s for %s member %s, got %s",
+		typechecking_type_to_s(wk, expected_type),
+		name,
+		get_cstr(wk, k),
+		get_cstr(wk, obj_type_to_typestr(wk, v)));
+	return false;
+}
+
+
+/******************************************************************************
  * init / destroy
  ******************************************************************************/
 

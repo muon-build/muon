@@ -177,7 +177,7 @@ struct vm {
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
-	obj modules;
+	obj modules, registered_structs;
 
 	struct vm_ops ops;
 	struct vm_objects objects;
@@ -235,4 +235,20 @@ MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char 
 void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
 void vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line);
+
+/* The below functions may be used to facilitate converting meson dicts to
+ * native c structs.  First a struct must be registered with vm_struct, and all
+ * of its members that will be exposed with vm_struct_member.
+ */
+enum vm_struct_type {
+	vm_struct_type_bool,
+	vm_struct_type_str,
+	vm_struct_type_obj,
+};
+bool vm_struct_(struct workspace *wk, const char *name);
+#define vm_struct(__wk, __s) vm_struct_(__wk, #__s)
+void vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t);
+#define vm_struct_member(__wk, __s, __m, __t) vm_struct_member_(__wk, #__s, #__m, offsetof(struct __s, __m), __t)
+bool vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s);
+#define vm_obj_to_struct(__wk, __s, __o, __d) vm_obj_to_struct_(__wk, #__s, __o, __d)
 #endif
