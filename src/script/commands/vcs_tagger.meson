@@ -3,44 +3,32 @@
 
 fs = import('fs')
 
-posargc = 5
+opts = {}
 
-if argv.length() < posargc + 1
-    error(
-        'usage: @0@ <src> <dest> <pat> <fallback> <source root> [cmd]'.format(
-            argv[0],
-        ),
-    )
-endif
+handlers = {
+    's': {'desc': 'src'},
+    'd': {'desc': 'dest'},
+    'p': {'desc': 'sep'},
+    'f': {'desc': 'fallback'},
+    'r': {'desc': 'source_root'},
+}
 
-src = argv[1]
-dest = argv[2]
-sep = argv[3]
-fallback = argv[4]
-source_root = argv[5]
-
-i = -1
-cmd = []
-args = []
-foreach e : argv
-    i += 1
-
-    if i <= posargc
-        continue
-    elif i == posargc + 1
-        cmd = [e]
-    else
-        args += [e]
-    endif
+foreach k, v : handlers
+    handlers[k].action = func(optarg str)
+        opts[v.desc] = optarg
+    endfunc
+    handlers[k].required = true
 endforeach
 
-found_tag = false
+opts.cmd = import('getopt').getopt(argv, handlers)
 
-if cmd.length() == 1
-    programs = [[cmd[0], args]]
+if opts.cmd.length() >= 1
+    programs = [[opts.cmd[0], opts.cmd.slice(1)]]
 else
-    programs = [['git', ['-C', source_root, 'describe', '--dirty=+']]]
+    programs = [['git', ['-C', opts.source_root, 'describe', '--dirty=+']]]
 endif
+
+found_tag = false
 
 foreach p : programs
     prog = find_program(p[0], required: false)
@@ -59,8 +47,8 @@ foreach p : programs
 endforeach
 
 if not found_tag
-    vcs_tag = fallback
+    vcs_tag = opts.fallback
 endif
 
-s = fs.read(src)
-fs.write(dest, vcs_tag.join(s.split(sep)))
+s = fs.read(opts.src)
+fs.write(opts.dest, vcs_tag.join(s.split(opts.sep)))

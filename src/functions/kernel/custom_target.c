@@ -822,13 +822,19 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 		}
 	}
 
+	obj_array_push(wk, command, make_str(wk, "-s"));
 	obj_array_push(wk, command, input);
+	obj_array_push(wk, command, make_str(wk, "-d"));
 	obj_array_push(wk, command, make_str(wk, "@OUTPUT@"));
+	obj_array_push(wk, command, make_str(wk, "-p"));
 	obj_array_push(wk, command, replace_string);
+	obj_array_push(wk, command, make_str(wk, "-f"));
 	obj_array_push(wk, command, fallback);
+	obj_array_push(wk, command, make_str(wk, "-r"));
 	obj_array_push(wk, command, make_str(wk, wk->source_root));
 
 	if (akw[kw_command].set) {
+		obj_array_push(wk, command, make_str(wk, "--"));
 		obj_array_extend(wk, command, akw[kw_command].val);
 	}
 
