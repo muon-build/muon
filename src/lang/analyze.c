@@ -248,14 +248,14 @@ print_scope_stack(struct workspace *wk)
 				L("    root scope:");
 				obj_dict_for(wk, scope_group, k, v) {
 					struct assignment *assign = bucket_arr_get(&assignments, v);
-					LO("      %o: %s %o\n", k, assign->accessed ? "a" : " ", assign->o);
+					LO("      %o: %s %o\n", k, assign->accessed ? "a" : "_", assign->o);
 				}
 			} else {
 				obj_array_for(wk, scope_group, scope) {
 					struct assignment *assign = bucket_arr_get(&assignments, v);
 					L("    scope group:");
 					obj_dict_for(wk, scope, k, v) {
-						LO("      %o: %s %o\n", k, assign->accessed ? "a" : " ", assign->o);
+						LO("      %o: %s %o\n", k, assign->accessed ? "a" : "_", assign->o);
 					}
 				}
 			}
@@ -823,23 +823,36 @@ az_pop_local_scope(struct workspace *wk)
 static obj
 az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
-	obj r, scope_group;
-	make_obj(wk, &r, obj_array);
+	obj dup, local_scope, scope_group, scope;
+	obj local_scope_dup, scope_group_dup, scope_dup;
+	make_obj(wk, &dup, obj_array);
 
-	obj_array_for(wk, scope_stack, scope_group) {
-		obj g, v;
-		make_obj(wk, &g, obj_array);
+	obj_array_for(wk, scope_stack, local_scope) {
+		make_obj(wk, &local_scope_dup, obj_array);
 
-		obj_array_for(wk, scope_group, v) {
-			obj scope;
-			obj_dict_dup(wk, v, &scope);
-			obj_array_push(wk, g, scope);
+		uint32_t i = 0;
+		obj_array_for(wk, local_scope, scope_group) {
+			if (i == 0) {
+				obj_dict_dup(wk, scope_group, &scope_dup);
+				obj_array_push(wk, local_scope_dup, scope_dup);
+			} else {
+				make_obj(wk, &scope_group_dup, obj_array);
+
+				obj_array_for(wk, scope_group, scope) {
+					obj_dict_dup(wk, scope, &scope_dup);
+					obj_array_push(wk, scope_group_dup, scope_dup);
+				}
+
+				obj_array_push(wk, local_scope_dup, scope_group_dup);
+			}
+
+			++i;
 		}
 
-		obj_array_push(wk, r, g);
+		obj_array_push(wk, dup, local_scope_dup);
 	}
 
-	return r;
+	return dup;
 }
 
 static bool
