@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,28 +13,49 @@
 #include "functions/modules/getopt.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
+#include "log.h"
+#include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
+
+struct getopt_handler {
+	bool required;
+	bool seen;
+	obj action;
+	const char *desc;
+};
+
+static bool
+getopt_handler_requires_optarg(struct workspace *wk, const struct getopt_handler *handler)
+{
+	const struct obj_capture *capture = get_obj_capture(wk, handler->action);
+	return capture->func->nargs == 1;
+}
 
 static void
 func_module_getopt_usage(struct workspace *wk, const char *argv0, obj handlers, int exitcode)
 {
-	obj handler_arr;
-	if (obj_dict_index_strn(wk, handlers, "h", 1, &handler_arr)) {
-		obj handler, capture_res;
-		obj_array_index(wk, handler_arr, 1, &handler);
-		if (!vm_eval_capture(wk, handler, 0, 0, &capture_res)) {
+	obj handler;
+	if (obj_dict_index_strn(wk, handlers, "h", 1, &handler)) {
+		obj capture_res;
+		obj action = 0;
+		if (!vm_eval_capture(wk, action, 0, 0, &capture_res)) {
 			exitcode = 1;
 		}
 	} else {
 		printf("usage: %s [options]\n", argv0);
 		printf("options:\n");
 
-		obj k, v, desc;
+		obj k, v;
 		obj_dict_for(wk, handlers, k, v) {
-			obj_array_index(wk, v, 0, &desc);
+			struct getopt_handler handler = { 0 };
+			vm_obj_to_struct(wk, getopt_handler, v, &handler);
 
-			printf("  -%s - %s\n", get_cstr(wk, k), get_cstr(wk, desc));
+			printf("  -%s%s - %s%s\n",
+				get_cstr(wk, k),
+				getopt_handler_requires_optarg(wk, &handler) ? " <value>" : "",
+				handler.desc,
+				handler.required ? " (required)" : "");
 		}
 		printf("  -h - show this message\n");
 	}
@@ -46,11 +68,18 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = {
 		{ TYPE_TAG_LISTIFY | tc_string },
-		{ make_complex_type(wk, complex_type_nested, tc_dict, tc_array) },
+		{ make_complex_type(wk, complex_type_nested, tc_dict, tc_dict) },
 		ARG_TYPE_NULL,
 	};
 	if (!pop_args(wk, an, NULL)) {
 		return false;
+	}
+
+	if (vm_struct(wk, getopt_handler)) {
+		vm_struct_member(wk, getopt_handler, required, vm_struct_type_bool);
+		vm_struct_member(wk, getopt_handler, seen, vm_struct_type_bool);
+		vm_struct_member(wk, getopt_handler, action, vm_struct_type_obj);
+		vm_struct_member(wk, getopt_handler, desc, vm_struct_type_str);
 	}
 
 	obj handlers = an[1].val;
@@ -59,33 +88,31 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 		const uint32_t optstring_max = sizeof(optstring) - 3;
 		uint32_t optstring_i = 0;
 
-		obj k, v, desc, handler;
+		obj k, v;
 		obj_dict_for(wk, handlers, k, v) {
-			const struct str *s = get_str(wk, k);
-
-			if (s->len != 1) {
-				vm_error(wk, "option %o invalid, must be a single character", k);
-				return false;
-			} else if (get_obj_array(wk, v)->len != 2) {
-				vm_error(wk, "handler for %o must be of length 2", k);
-				return false;
-			} else if (optstring_i >= optstring_max) {
+			if (optstring_i >= optstring_max) {
 				vm_error(wk, "too many options");
 				return false;
 			}
 
-			obj_array_index(wk, v, 0, &desc);
-			obj_array_index(wk, v, 1, &handler);
-
-			if (!typecheck_custom(wk, 0, desc, tc_string, 0)) {
-				vm_error(wk, "handler description for %o is not a string", k);
-				return false;
-			} else if (!typecheck_custom(wk, 0, handler, tc_capture, 0)) {
-				vm_error(wk, "handler for %o is not a function", k);
+			const struct str *s = get_str(wk, k);
+			if (s->len != 1) {
+				vm_error(wk, "option %o invalid, must be a single character", k);
 				return false;
 			}
 
-			struct obj_capture *capture = get_obj_capture(wk, handler);
+			struct getopt_handler handler = { 0 };
+			if (!vm_obj_to_struct(wk, getopt_handler, v, &handler)) {
+				LOG_E("option %s has an invalid handler", get_cstr(wk, k));
+				return false;
+			}
+
+			if (!typecheck_custom(wk, 0, handler.action, tc_capture, 0)) {
+				vm_error(wk, "action for %o is not a function", k);
+				return false;
+			}
+
+			struct obj_capture *capture = get_obj_capture(wk, handler.action);
 			if (capture->func->nkwargs) {
 				vm_error(wk, "handler for %o must not accept kwargs", k);
 				return false;
@@ -96,7 +123,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 
 			optstring[optstring_i] = *s->s;
 			++optstring_i;
-			if (capture->func->nargs) {
+			if (getopt_handler_requires_optarg(wk, &handler)) {
 				optstring[optstring_i] = ':';
 				++optstring_i;
 			}
@@ -120,11 +147,11 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 	optind = 1;
 	optarg = 0;
 	while ((opt = os_getopt(argc, argv, optstring)) != -1) {
-		obj handler = 0;
+		struct getopt_handler handler = { 0 };
 		{
-			obj handler_arr;
+			obj v;
 			char opt_as_str[] = { opt, 0 };
-			if (!obj_dict_index_strn(wk, handlers, opt_as_str, 1, &handler_arr)) {
+			if (!obj_dict_index_strn(wk, handlers, opt_as_str, 1, &v)) {
 				if (opt == '?' || opt == 'h') {
 					func_module_getopt_usage(wk, argv[0], handlers, opt == '?' ? 1 : 0);
 				}
@@ -133,7 +160,11 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 				return false;
 			}
 
-			obj_array_index(wk, handler_arr, 1, &handler);
+			vm_obj_to_struct(wk, getopt_handler, v, &handler);
+
+			if (handler.required) {
+				obj_dict_set(wk, v, make_str(wk, "seen"), obj_bool_true);
+			}
 		}
 
 		{
@@ -145,7 +176,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 				capture_an[0].val = make_str(wk, optarg);
 			}
 
-			if (!vm_eval_capture(wk, handler, capture_an, 0, &capture_res)) {
+			if (!vm_eval_capture(wk, handler.action, capture_an, 0, &capture_res)) {
 				return false;
 			}
 		}
@@ -158,10 +189,22 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 		obj_array_push(wk, *res, make_str(wk, argv[i]));
 	}
 
+	{
+		obj k, v;
+		obj_dict_for(wk, handlers, k, v) {
+			struct getopt_handler handler = { 0 };
+			vm_obj_to_struct(wk, getopt_handler, v, &handler);
+			if (handler.required && !handler.seen) {
+				obj_lprintf(wk, "missing required option %o\n", k);
+				func_module_getopt_usage(wk, argv[0], handlers, 1);
+			}
+		}
+	}
+
 	return true;
 }
 
 const struct func_impl impl_tbl_module_getopt[] = {
-	{ "getopt", func_module_getopt_getopt },
+	{ "getopt", func_module_getopt_getopt, tc_array },
 	{ NULL, NULL },
 };
