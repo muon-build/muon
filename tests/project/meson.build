@@ -373,8 +373,8 @@ tests = [
     ['meson-tests/keyval/4 load_config builddir'],
 
     # frameworks
-    ['meson-tests/frameworks/6 gettext'],
-    ['meson-tests/frameworks/7 gnome'],
+    ['meson-tests/frameworks/6 gettext', ['python']],
+    ['meson-tests/frameworks/7 gnome', ['python']],
 
     # objc
     ['meson-tests/objc/1 simple', ['objc']],
