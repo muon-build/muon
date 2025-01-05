@@ -975,7 +975,12 @@ TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s", n1->args[0]);
 		args.len = 1;
 	} else if (n1->len == 2) {
-		snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", n1->args[0], n1->args[1]);
+		if (strcmp(n1->args[0], "-l") == 0) {
+			// "-Wl,-l,dl" errors out on some compilers - use "-ldl" form
+			snprintf(buf, BUF_SIZE_S, "-l%s", n1->args[1]);
+		} else {
+			snprintf(buf, BUF_SIZE_S, "-Wl,%s,%s", n1->args[0], n1->args[1]);
+		}
 		args.len = 1;
 	} else if (n1->len == 3) {
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s", n1->args[0]);
