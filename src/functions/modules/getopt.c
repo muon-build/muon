@@ -15,6 +15,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/assert.h"
+#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
@@ -82,6 +83,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 		vm_struct_member(wk, getopt_handler, desc, vm_struct_type_str);
 	}
 
+	bool ret = false;
 	obj handlers = an[1].val;
 	char optstring[256] = { 0 };
 	{
@@ -157,7 +159,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 				}
 
 				vm_error(wk, "no handler defined for -%s", opt_as_str);
-				return false;
+				goto ret;
 			}
 
 			vm_obj_to_struct(wk, getopt_handler, v, &handler);
@@ -177,7 +179,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 			}
 
 			if (!vm_eval_capture(wk, handler.action, capture_an, 0, &capture_res)) {
-				return false;
+				goto ret;
 			}
 		}
 
@@ -201,7 +203,10 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	return true;
+	ret = true;
+ret:
+	z_free((void *)argv);
+	return ret;
 }
 
 const struct func_impl impl_tbl_module_getopt[] = {
