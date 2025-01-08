@@ -3,6 +3,8 @@
 
 fs = import('fs')
 
+M = {}
+
 PRESET_ARGS = {
     'glib': [
         '--from-code=UTF-8',
@@ -76,13 +78,36 @@ func get_data_dirs(source_dir str, dirs list[str]|null) -> str
     return f'datadirs=@datadirs@'
 endfunc
 
-func gettext(
+## Sets up gettext localisation so that translations are built and placed into
+## their proper locations during install.
+##
+## This function also defines targets for maintainers to use: Note: These output to the source directory
+## - `<project_id>-pot`: runs `xgettext` to regenerate the pot file
+## - `<project_id>-update-po`: regenerates the `.po` files from current `.pot` file
+## - `<project_id>-gmo`: builds the translations without installing
+##
+## Returns a list containing:
+## - a list of built .mo files
+## - the maintainer -pot target
+## - the maintainer -update-po target
+M.gettext = func(
+    ## the name of the gettext module
     package_name str,
+    ## list of extra arguments to pass to xgettext when generating the pot file
     args listify[str]:,
+    ## list of directories to be set for `GETTEXTDATADIRS` env var
+    ## (Requires gettext 0.19.8+), used for local its files
     data_dirs listify[str]:,
+    ##  if false, do not install the built translations.
     install bool: true,
+    ## override default install location, default is `localedir`
     install_dir str:,
+    ## list of languages that are to be generated. As of 0.37.0 this is
+    ## optional and the
+    ## [LINGUAS](https://www.gnu.org/software/gettext/manual/html_node/po_002fLINGUAS.html)
+    ## file is read.
     languages listify[str]:,
+    ## name of a preset list of arguments, current option is 'glib'
     preset str:,
 ) -> list[any]
 
@@ -220,16 +245,27 @@ func gettext(
     return [gmo_targets, potgen_target, update_po_target]
 endfunc
 
-func merge_file(
+## This merges translations into a text file using msgfmt.
+M.merge_file = func(
+    ## same as custom_target()
     input listify[custom_tgt|file|str]:,
+    ## same as custom_target() but only accepts one item
     output str:,
+    ## same as custom_target()
     build_by_default bool:,
+    ## same as custom_target()
     install bool:,
+    ## same as custom_target() but only accepts one item
     install_dir str:,
+    ## same as custom_target() but only accepts one item
     install_tag str:,
+    ## list of extra arguments to pass to `msgfmt`
     args listify[str]: [],
+    ## list of data directories see [[gettext]]
     data_dirs listify[str]: [],
+    ## directory containing translations, relative to current directory
     po_dir str:,
+    ## type of file, valid options are `'xml'` and `'desktop'`
     type str: 'xml',
 ) -> custom_tgt
 
@@ -299,14 +335,24 @@ func merge_file(
 
 endfunc
 
-func itstool_join(
+## This joins translations into a XML file using itstool
+M.itstool_join = func(
+    ## same as custom_target()
     input listify[custom_tgt|file|str]: [],
+    ## same as custom_target() but only accepts one item
     output str:,
+    ## same as custom_target()
     build_by_default bool:,
+    ## same as custom_target()
     install bool:,
+    ## same as custom_target() but only accepts one item
     install_dir str:,
+    ## same as custom_target() but only accepts one item
     install_tag str:,
+    ## filenames of ITS files that should be used explicitly (XML translation
+    ## rules are autodetected otherwise).
     its_files listify[file|str]: [],
+    ## *required* mo file generation targets as returned by `i18n.gettext()`.
     mo_targets listify[custom_tgt]: [],
 ) -> custom_tgt
 
@@ -379,4 +425,4 @@ func itstool_join(
 
 endfunc
 
-return {'gettext': gettext, 'merge_file': merge_file, 'itstool_join': itstool_join}
+return M
