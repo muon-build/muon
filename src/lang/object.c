@@ -1888,7 +1888,7 @@ static void
 obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 {
 	sbuf_push(wk, ctx->sb, '\'');
-	str_unescape(wk, ctx->sb, get_str(wk, s), true);
+	str_escape(wk, ctx->sb, get_str(wk, s), true);
 	sbuf_push(wk, ctx->sb, '\'');
 }
 
@@ -2174,7 +2174,7 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 			if (*fmt == 'o') {
 				obj o = va_arg(ap, unsigned int);
 				if (get_obj_type(wk, o) == obj_string && got_hash) {
-					str_unescape(wk, sb, get_str(wk, o), false);
+					str_escape(wk, sb, get_str(wk, o), false);
 				} else {
 					struct obj_to_s_opts opts = { 0 };
 

@@ -20,7 +20,7 @@
 #include "platform/mem.h"
 
 void
-str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace)
+str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace)
 {
 	bool esc;
 	uint32_t i;

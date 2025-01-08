@@ -64,7 +64,7 @@ void sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *
 void sbuf_push_json_escaped_quoted(struct workspace *wk, struct sbuf *buf, const struct str *str);
 obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);
 
-void str_unescape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace);
+void str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace);
 
 bool str_has_null(const struct str *ss);
 
