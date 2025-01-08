@@ -766,6 +766,7 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 
 				struct func_impl impl = {
 					.name = get_cstr(wk, k),
+					.desc = capture->func->desc,
 					.return_type = capture->func->return_type,
 				};
 

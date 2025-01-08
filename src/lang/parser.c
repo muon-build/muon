@@ -51,6 +51,7 @@ struct parser {
 	enum vm_compile_mode mode;
 	enum cm_parse_mode cm_mode;
 	uint32_t inside_loop;
+	obj doc_comment;
 
 	struct {
 		char msg[2048];
@@ -326,6 +327,11 @@ parse_advance(struct parser *p)
 	p->previous = p->current;
 	p->fmt.previous = p->fmt.current;
 	lexer_next(&p->lexer, &p->current);
+
+	if (p->current.type == token_type_doc_comment) {
+		p->doc_comment = p->current.data.str;
+		lexer_next(&p->lexer, &p->current);
+	}
 
 	while (p->current.type == token_type_error) {
 		parse_error(p, &p->current.location, "%s", get_cstr(p->wk, p->current.data.str));
@@ -815,6 +821,18 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 }
 
 static struct node *
+parser_get_doc_comment(struct parser *p)
+{
+	struct node *n = 0;
+	if (p->doc_comment) {
+		n = make_node_t(p, node_type_string);
+		n->data.str = p->doc_comment;
+		p->doc_comment = 0;
+	}
+	return n;
+}
+
+static struct node *
 parse_list(struct parser *p, enum node_type t, enum token_type end)
 {
 	bool got_kw = false;
@@ -842,7 +860,8 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 			}
 			val = parse_expr(p);
 			break;
-		case node_type_def_args:
+		case node_type_def_args: {
+			struct node *doc = parser_get_doc_comment(p);
 			parse_expect(p, token_type_identifier);
 			val = parse_id(p, false);
 			parse_type(p, &type, true);
@@ -853,6 +872,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 
 			val->l = make_node_t(p, node_type_list);
 			val->l->data.type = type;
+			val->r = doc;
 
 			if (parse_accept(p, ':')) {
 				key = val;
@@ -864,6 +884,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 				}
 			}
 			break;
+		}
 		default: UNREACHABLE; break;
 		}
 
@@ -974,7 +995,10 @@ parse_func_params_and_body(struct parser *p, struct node *id)
 	struct node *n = make_node_t(p, node_type_func_def);
 
 	n->l = make_node_t(p, node_type_list);
-	n->l->l = id;
+	n->l->l = make_node_t(p, node_type_list);
+	n->l->l->l = id;
+	n->l->l->r = parser_get_doc_comment(p);
+
 	parse_expect(p, '(');
 	n->l->r = p->behavior.parse_list(p, node_type_def_args, ')');
 

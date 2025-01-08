@@ -74,6 +74,7 @@ token_type_to_s(enum token_type type)
 	case token_type_return: return "return";
 	case token_type_bitor: return "|";
 	case token_type_returntype: return "->";
+	case token_type_doc_comment: return "doc comment";
 	}
 
 	UNREACHABLE_RETURN;
@@ -580,9 +581,50 @@ restart:
 		if (lexer->src[lexer->i] == '#') {
 			lex_advance(lexer);
 
+			obj doc_comment = 0;
+			if (!(lexer->mode & lexer_mode_fmt) && (lexer->mode & lexer_mode_functions)
+				&& lexer->src[lexer->i] == '#') {
+				lex_advance(lexer);
+				if (strchr(" \t", lexer->src[lexer->i])) {
+					lex_advance(lexer);
+				}
+				doc_comment = make_str(lexer->wk, "");
+			}
+
 			start = lexer->i;
 
-			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
+			while (lexer->src[lexer->i]) {
+				if (doc_comment) {
+					if (lexer->src[lexer->i] == '\n') {
+						uint32_t skip = 1;
+						while (strchr(" \t", lexer->src[lexer->i + skip])) {
+							++skip;
+						}
+
+						if (str_startswith(&WKSTR(&lexer->src[lexer->i + skip]), &WKSTR("##"))) {
+							skip += 2;
+
+							uint32_t i;
+							for (i = 0; i < skip; ++i) {
+								lex_advance(lexer);
+							}
+
+							str_app(lexer->wk, &doc_comment, "\n");
+
+							if (strchr(" \t", lexer->src[lexer->i])) {
+								lex_advance(lexer);
+							}
+							continue;
+						} else {
+							break;
+						}
+					} else {
+						str_appn(lexer->wk, &doc_comment, &lexer->src[lexer->i], 1);
+					}
+				} else if (lexer->src[lexer->i] == '\n') {
+					break;
+				}
+
 				lex_advance(lexer);
 			}
 
@@ -609,6 +651,11 @@ restart:
 						}
 					}
 				}
+			} else if (doc_comment) {
+				token->location.off = start;
+				token->type = token_type_doc_comment;
+				token->data.str = doc_comment;
+				return;
 			}
 		} else {
 			lex_advance(lexer);

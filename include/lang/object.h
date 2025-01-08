@@ -73,7 +73,7 @@ struct obj_typeinfo {
 };
 
 struct obj_func {
-	const char *name;
+	const char *name, *desc;
 	enum language_mode lang_mode;
 	uint32_t nargs, nkwargs;
 	type_tag return_type;

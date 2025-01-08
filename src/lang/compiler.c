@@ -675,9 +675,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			}
 
 			if (arg->l->type == node_type_kw) {
+				struct node *doc = arg->l->r->r;
+
 				func->akw[func->nkwargs] = (struct args_kw){
 					.key = get_cstr(wk, arg->l->r->data.str),
 					.type = arg->l->r->l->data.type,
+					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
 				++func->nkwargs;
 
@@ -688,9 +691,12 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					++ndefargs;
 				}
 			} else {
+				struct node *doc = arg->l->r;
+
 				func->an[func->nargs] = (struct args_norm){
 					.name = get_cstr(wk, arg->l->data.str),
 					.type = arg->l->l->data.type,
+					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
 				++func->nargs;
 			}
@@ -708,16 +714,22 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
-		push_location(wk, n->l->l ? n->l->l : n->l);
+		struct node *id = n->l->l->l;
+		struct node *doc = n->l->l->r;
+		push_location(wk, id ? id : n->l);
 
 		push_code(wk, op_constant_func);
 		push_constant(wk, f);
 
-		if (n->l->l) {
+		if (id) {
 			push_code(wk, op_constant);
-			push_constant(wk, n->l->l->data.str);
+			push_constant(wk, id->data.str);
 			push_op_store(wk, 0);
-			func->name = get_cstr(wk, n->l->l->data.str);
+			func->name = get_str(wk, id->data.str)->s;
+		}
+
+		if (doc) {
+			func->desc = get_str(wk, doc->data.str)->s;
 		}
 		break;
 	}
