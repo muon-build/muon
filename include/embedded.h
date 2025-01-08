@@ -5,7 +5,17 @@
 
 #ifndef MUON_EMBEDDED_H
 #define MUON_EMBEDDED_H
+
 #include <stdbool.h>
-struct source;
+#include <stdint.h>
+
+#include "lang/source.h"
+
+struct embedded_file {
+	const char *name;
+	struct source src;
+};
+
 bool embedded_get(const char *name, struct source *src);
+const struct embedded_file *embedded_file_list(uint32_t *len);
 #endif

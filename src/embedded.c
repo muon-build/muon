@@ -14,11 +14,6 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-struct embedded_file {
-	const char *name;
-	struct source src;
-};
-
 #ifdef MUON_BOOTSTRAPPED
 #include "embedded_files.h"
 #else
@@ -58,4 +53,11 @@ embedded_get(const char *name, struct source *src_out)
 	}
 
 	return false;
+}
+
+const struct embedded_file *
+embedded_file_list(uint32_t *len)
+{
+	*len = embedded_len;
+	return embedded;
 }

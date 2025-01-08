@@ -37,6 +37,7 @@
 #include "functions/subproject.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
 
@@ -572,9 +573,14 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 
 			// This is a hack to convert e.g. cpp_args to <lang>_args
 			if (function_sig_dump.special_func == function_sig_dump_special_func_build_tgt) {
-#define E(lang, s) { #lang #s, #lang }
+#define E(lang, s)              \
+	{                       \
+		#lang #s, #lang \
+	}
 #define x(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
-				const struct { const char *kw, *lang; } lang_kws[] = { FOREACH_COMPILER_EXPOSED_LANGUAGE(x) };
+				const struct {
+					const char *kw, *lang;
+				} lang_kws[] = { FOREACH_COMPILER_EXPOSED_LANGUAGE(x) };
 #undef x
 #undef E
 
@@ -610,31 +616,30 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 }
 
 struct dump_function_opts {
+	const char *module;
+	const struct func_impl *impl;
+	obj capture;
 	enum obj_type rcvr_t;
-	enum module module;
 	bool module_func;
 };
 
 static obj
-dump_function(struct workspace *wk,
-	struct func_impl_group *g,
-	const struct func_impl *impl,
-	struct dump_function_opts *opts)
+dump_function(struct workspace *wk, struct dump_function_opts *opts)
 {
 	make_obj(wk, &function_sig_dump.func, obj_dict);
 	obj res = function_sig_dump.func;
 
-	obj_dict_set(wk, res, make_str(wk, "name"), make_str(wk, impl->name));
+	obj_dict_set(wk, res, make_str(wk, "name"), make_str(wk, opts->impl->name));
 	if (opts->module_func) {
-		obj_dict_set(wk, res, make_str(wk, "module"), make_str(wk, module_info[opts->module].path));
+		obj_dict_set(wk, res, make_str(wk, "module"), make_str(wk, opts->module));
 	} else if (opts->rcvr_t) {
 		obj_dict_set(wk, res, make_str(wk, "rcvr"), make_str(wk, obj_type_to_s(opts->rcvr_t)));
 	}
-	obj_dict_set(wk, res, make_str(wk, "type"), typechecking_type_to_str(wk, impl->return_type));
+	obj_dict_set(wk, res, make_str(wk, "type"), typechecking_type_to_str(wk, opts->impl->return_type));
 
 	const char *desc = 0;
-	if (impl->desc) {
-		desc = impl->desc;
+	if (opts->impl->desc) {
+		desc = opts->impl->desc;
 	} else if (function_sig_dump.meson_doc_entry) {
 		desc = function_sig_dump.meson_doc_entry->common.description;
 	}
@@ -642,7 +647,16 @@ dump_function(struct workspace *wk,
 		obj_dict_set(wk, res, make_str(wk, "desc"), make_str(wk, desc));
 	}
 
-	impl->func(wk, 0, 0);
+	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args);
+	if (opts->impl->func) {
+		opts->impl->func(wk, 0, 0);
+	} else {
+		obj _res;
+		vm_eval_capture(wk, opts->capture, 0, 0, &_res);
+	}
+	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
+
+	LO("%o\n", res);
 
 	return res;
 }
@@ -652,7 +666,6 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 {
 	obj doc;
 	make_obj(wk, &doc, obj_array);
-	wk->vm.behavior.pop_args = dump_function_args;
 
 	struct func_impl_group *g;
 
@@ -686,10 +699,9 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 				obj_array_push(wk,
 					doc,
 					dump_function(wk,
-						g,
-						&g->impls[i],
 						&(struct dump_function_opts){
 							.rcvr_t = t,
+							.impl = &g->impls[i],
 						}));
 				function_sig_dump.meson_doc_entry = 0;
 				function_sig_dump.special_func = function_sig_dump_special_func_none;
@@ -708,12 +720,65 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 			obj_array_push(wk,
 				doc,
 				dump_function(wk,
-					g,
-					&g->impls[j],
 					&(struct dump_function_opts){
 						.module_func = true,
-						.module = i,
+						.module = module_info[i].path,
+						.impl = &g->impls[j],
 					}));
+		}
+	}
+
+	// get docs for script modules.
+	if (wk->vm.lang_mode == language_external) {
+		uint32_t i, embedded_len;
+		const struct embedded_file *files = embedded_file_list(&embedded_len);
+		const struct str *prefix = &WKSTR("modules/"), *str;
+
+		for (i = 0; i < embedded_len; ++i) {
+			str = &WKSTR(files[i].name);
+			if (!str_startswith(str, prefix)) {
+				continue;
+			} else if (str_eql(str, &WKSTR("modules/_test.meson"))) {
+				continue;
+			}
+
+			SBUF(mod_name);
+			sbuf_pushs(wk, &mod_name, files[i].name + prefix->len);
+			*strchr(mod_name.buf, '.') = 0;
+
+			struct obj_module *m;
+			{
+				obj mod;
+				if (!module_import(wk, mod_name.buf, true, &mod)) {
+					UNREACHABLE;
+				}
+
+				m = get_obj_module(wk, mod);
+				assert(m->found);
+			}
+
+			SBUF(mod_path);
+			sbuf_pushf(wk, &mod_path, "public/%s", mod_name.buf);
+
+			obj k, v;
+			obj_dict_for(wk, m->exports, k, v) {
+				struct obj_capture *capture = get_obj_capture(wk, v);
+
+				struct func_impl impl = {
+					.name = get_cstr(wk, k),
+					.return_type = capture->func->return_type,
+				};
+
+				obj_array_push(wk,
+					doc,
+					dump_function(wk,
+						&(struct dump_function_opts){
+							.module_func = true,
+							.module = mod_path.buf,
+							.impl = &impl,
+							.capture = v,
+						}));
+			}
 		}
 	}
 
