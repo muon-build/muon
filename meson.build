@@ -150,7 +150,7 @@ endif
 python3 = find_program('python3', required: false)
 
 meson_proj = dependency('', required: false)
-if python3.found()
+if python3.found() and get_option('website')
     meson_proj = subproject('meson-docs', required: false)
 
     src += meson_proj.get_variable('meson_docs_h')
