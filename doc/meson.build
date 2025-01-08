@@ -43,11 +43,4 @@ if get_option('website')
     subdir('website')
 endif
 
-custom_target(
-    output: 'docs.html',
-    command: [muon, 'internal', 'dump_docs'],
-    capture: true,
-    build_by_default: true,
-)
-
 summary('docs', true)

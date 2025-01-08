@@ -64,4 +64,11 @@ foreach f : [
     )
 endforeach
 
+custom_target(
+    output: 'docs.html',
+    command: [muon, 'internal', 'dump_docs'],
+    capture: true,
+    build_by_default: true,
+)
+
 summary('website', true)
