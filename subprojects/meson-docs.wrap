@@ -1,7 +1,7 @@
 ; SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 ; SPDX-License-Identifier: GPL-3.0-only
 
-[wrap-file]
-source_filename = meson-docs-1.5.1-18-g587869c37.tar.gz
-source_url = https://mochiro.moe/wrap/meson-docs-1.5.1-18-g587869c37.tar.gz
-source_hash = 2a781073f8fdbf0f3c9dcea73cf32a37f12714d6cf0e7054d5dba245c3b564df
+[wrap-git]
+url = https://git.sr.ht/~lattis/meson-docs
+revision = 5bc0b250984722389419dccb529124aed7615583
+depth = 1
