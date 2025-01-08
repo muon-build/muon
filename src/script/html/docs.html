@@ -1,0 +1,545 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NTUuMzYiIGhlaWdodD0iNjU1LjM2IiB2aWV3Qm94PSIwIDAgNDkxLjUyIDQ5MS41MiI+PHBhdGggZmlsbD0iIzQ5YmY2NiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJtNDg4LjA1NyAzLjY0Mi0uNzk3IDIxLjk2Mi0uNzgzIDIxLjI2Ni0uNzgxIDIwLjU4LS43OSAxOS45MDctLjgxIDE5LjI0NS0uODQ0IDE4LjU5NC0uODg3IDE3Ljk1Ni0uOTQ0IDE3LjMyOS0xLjAxIDE2LjcxMy0xLjA5IDE2LjEwOS0xLjE4IDE1LjUxNy0xLjI4MyAxNC45MzctMS4zOTYgMTQuMzY4LTEuNTIyIDEzLjgxLTEuNjU5IDEzLjI2NS0xLjgwNyAxMi43MzEtMS45NjggMTIuMjA4LTIuMTQgMTEuNjk4LTIuMzIzIDExLjE5OC0yLjUxOSAxMC43MTEtMi43MjUgMTAuMjM1LTIuOTQ0IDkuNzcxLTMuMTczIDkuMzE4LTMuNDE2IDguODc3LTMuNjY4IDguNDQ4LTMuOTM0IDguMDMtNC4yMSA3LjYyNC00LjQ5OCA3LjIzLTQuNzk3IDYuODQ3LTUuMTEgNi40NzUtNS40MzIgNi4xMTYtNS43NjYgNS43NjgtNi4xMTMgNS40MzItNi40NzEgNS4xMDctNi44NCA0Ljc5NC03LjIyMSA0LjQ5Mi03LjYxNCA0LjIwMy04LjAxOCAzLjkyNC04LjQzNCAzLjY1OC04Ljg2MSAzLjQwMy05LjMwMSAzLjE2LTkuNzUxIDIuOTI5LTEwLjIxNCAyLjcwOC0xMC42ODcgMi41LTExLjE3NCAyLjMwMy0xMS42NyAyLjExOC0xMi4xNzkgMS45NDQtMTIuNyAxLjc4My0xMy4yMzIgMS42MzItMTMuNzc1IDEuNDk0LTE0LjMzMSAxLjM2Ny0xNC44OTggMS4yNTEtMTUuNDc2IDEuMTQ4LTE2LjA2NyAxLjA1Ni0xNi42NjguOTc1LTE3LjI4MS45MDYtMTcuOTA3Ljg0OS0xOC41NDMuODA0LTE5LjE5Mi43Ny0xOS44NTEuNzQ3LTIwLjUyMy43MzctMjEuMjA2LjczOC0yMS45Ljc1LjY5Mi0yMS45NjcuNjg2LTIxLjI3LjY5LTIwLjU4NS43MDUtMTkuOTEyLjczMy0xOS4yNS43NzItMTguNi44MjItMTcuOTYxLjg4NC0xNy4zMzQuOTU3LTE2LjcxOSAxLjA0LTE2LjExNSAxLjEzOC0xNS41MjMgMS4yNDUtMTQuOTQyIDEuMzYzLTE0LjM3MyAxLjQ5NC0xMy44MTYgMS42MzYtMTMuMjcxIDEuNzg4LTEyLjczNiAxLjk1NC0xMi4yMTQgMi4xMy0xMS43MDMgMi4zMTYtMTEuMjAzIDIuNTE2LTEwLjcxNiAyLjcyNi0xMC4yNDEgMi45NDgtOS43NzUgMy4xODItOS4zMjMgMy40MjYtOC44ODIgMy42ODItOC40NTIgMy45NS04LjAzNCA0LjIyOS03LjYyOCA0LjUxOS03LjIzNCA0LjgyMS02Ljg1IDUuMTM1LTYuNDc4IDUuNDYtNi4xMiA1Ljc5NS01Ljc3IDYuMTQzLTUuNDM0IDYuNTAzLTUuMTA5IDYuODczLTQuNzk1IDcuMjU1LTQuNDk0IDcuNjQ5LTQuMjAzIDguMDUzLTMuOTI1IDguNDctMy42NTkgOC44OTctMy40MDIgOS4zMzctMy4xNiA5Ljc4OC0yLjkyNiAxMC4yNDktMi43MDcgMTAuNzIzLTIuNDk3IDExLjIwOC0yLjMgMTEuNzA1LTIuMTE1IDEyLjIxMi0xLjk0MSAxMi43MzItMS43NzggMTMuMjYyLTEuNjI4IDEzLjgwNS0xLjQ4OCAxNC4zNTgtMS4zNiAxNC45MjQtMS4yNDUgMTUuNDk5LTEuMTQxIDE2LjA4OC0xLjA0OCAxNi42ODgtLjk2NiAxNy4yOTgtLjg5NyAxNy45Mi0uODQgMTguNTU0LS43OTMgMTkuMTk5LS43NTggMTkuODU2LS43MzUgMjAuNTI0LS43MjQgMjEuMjA0LS43MjQgMjEuODk0LS43MzZNOTMuNTQzIDEwOC41NzlsOC4wMzgtNi4zMzkgOC4yNTktNS4xNjUgOC40Ni00LjAzNyA4LjYzOC0yLjk1NCA4Ljc5NS0xLjkxNSA4LjkzMS0uOTIgOS4wNDYuMDI3IDkuMTM4LjkzMiA5LjIxIDEuNzkgOS4yNiAyLjYwNiA5LjI4OCAzLjM3NSA5LjI5NiA0LjA5OSA5LjI4MSA0Ljc3OSA5LjI0NSA1LjQxNCA5LjE4OCA2LjAwNCA5LjExIDYuNTUgOS4wMDkgNy4wNDkgOC44ODggNy41MDUgOC43NDUgNy45MTUgOC41OCA4LjI4MSA4LjM5NCA4LjYwMiA4LjE4NyA4Ljg3OCA3Ljk1OCA5LjEwOSA3LjcwOCA5LjI5NSA3LjQzNiA5LjQzNyA3LjE0MyA5LjUzMyA2LjgyOCA5LjU4NSA2LjQ5MiA5LjU5MSA2LjEzNSA5LjU1NCA1Ljc1NiA5LjQ3IDEuNjUyIDIuODgzLjg1NC0yLjU2MSAxLjA3My0zLjQ0OSAxLjAzNi0zLjU1OS45OTktMy42NTkuOTY0LTMuNzQ4LjkyOC0zLjgyOS44OTMtMy44OTcuODU5LTMuOTU3LjgyNC00LjAwNy43OTEtNC4wNDUuNzU4LTQuMDc0LjcyNS00LjA5My42OTQtNC4xMDEuNjYxLTQuMS42My00LjA4OC42LTQuMDY2LjU2OS00LjAzMy41NC0zLjk5Mi41MS0zLjkzOS40ODEtMy44NzYuNDUzLTMuODA0LjQyNS0zLjcyMS4zOTctMy42MjguMzctMy41MjQuMzQ0LTMuNDEyLjMxOC0zLjI4Ny4yOTItMy4xNTQuMjY3LTMuMDEuMjQzLTIuODU2LjIxOC0yLjY5Mi4xOTUtMi41MTguMTcxLTIuMzMzLjE0OC0yLjEzOC4xMjctMS45MzQuMTA0LTEuNzE4LjA4My0xLjQ5NC4wNjItMS4yNTguMDQyLTEuMDEzLjAyMS0uNzU3LjAwMi0uNDkyLS4wMTYtLjIxNS4wNi4xNDEuMTkuNDUuMzEzLjc1Mi40MzIgMS4wNDMuNTQ0IDEuMzI2LjY1MSAxLjYwMS43NTIgMS44NjUuODQ3IDIuMTIyLjkzNyAyLjM2OSAxLjAyMiAyLjYwOCAxLjEgMi44MzcgMS4xNzMgMy4wNTcgMS4yNDEgMy4yNjkgMS4zMDIgMy40NzIgMS4zNTkgMy42NjUgMS40MDggMy44NSAxLjQ1NCA0LjAyNyAxLjQ5MyA0LjE5MyAxLjUyNiA0LjM1MSAxLjU1NSA0LjUgMS41NzYgNC42NDEgMS41OTQgNC43NzIgMS42MDQgNC44OTQgMS42MSA1LjAwNyAxLjYwOSA1LjExMyAxLjYwNCA1LjIwNyAxLjU5MiA1LjI5NSAxLjU3NSA1LjM3MiAxLjU1MiA1LjQ0MSAxLjUyNCA1LjUwMSAxLjQ5IDUuNTUxIDEuNDUgNS41OTQgMS40MDUgNS42MjcgMS4zNTMgNS42NTEgMS4yOTggNS42NjcgMS4yMzUgNS42NzMgMS4xNjcgNS42NyAxLjA5NCA1LjY1OCAxLjAxNSA1LjYzOS45MyA1LjYwOS44MzkgNS41Ny43NDQgNS41MjQuNjQyIDUuNDY3LjUzNSA1LjQwMi40MjEgNS4zMjkuMzA0IDUuMjQ1LjE3OSA1LjE1NC4wNDkgNS4wNTMtLjA4NiA0Ljk0My0uMjI3IDQuODI1LS4zNzQgNC42OTctLjUyNiA0LjU2LS42ODQgNC40MTYtLjg0OCA0LjI2MS0xLjAxNiA0LjA5OC0xLjE5MiAzLjkyNS0xLjM3MiAzLjc0NS0xLjU1OSAzLjU1NS0xLjc1IDMuMzU2LTEuOTQ3IDMuMTQ4LTIuMTUxIDIuOTMxLTIuMzU5IDIuNzA1LTIuNTczIDIuNDcxLTguMDM4IDYuMzM5LTguMjU5IDUuMTY1LTguNDYgNC4wMzctOC42MzggMi45NTQtOC43OTUgMS45MTUtOC45MzEuOTIxLTkuMDQ2LS4wMjgtOS4xMzgtLjkzMi05LjIxLTEuNzkxLTkuMjYtMi42MDUtOS4yODgtMy4zNzUtOS4yOTYtNC4wOTktOS4yODEtNC43NzktOS4yNDUtNS40MTQtOS4xODgtNi4wMDQtOS4xMS02LjU1LTkuMDA5LTcuMDQ5LTguODg4LTcuNTA1LTguNzQ0LTcuOTE1LTguNTgxLTguMjgxLTguMzk0LTguNjAyLTguMTg3LTguODc4LTcuOTU4LTkuMTA5LTcuNzA4LTkuMjk1LTcuNDM2LTkuNDM3LTcuMTQzLTkuNTMzLTYuODI4LTkuNTg1LTYuNDkyLTkuNTkxLTYuMTM1LTkuNTU0LTUuNzU2LTkuNDctMS42NTItMi44ODMtLjg1NCAyLjU2MS0xLjA3MyAzLjQ0OS0xLjAzNiAzLjU1OS0uOTk5IDMuNjU4LS45NjQgMy43NDktLjkyOCAzLjgyOC0uODkzIDMuODk4LS44NTggMy45NTctLjgyNSA0LjAwNy0uNzkxIDQuMDQ1LS43NTggNC4wNzQtLjcyNSA0LjA5My0uNjk0IDQuMTAxLS42NjEgNC4xLS42MyA0LjA4Ny0uNiA0LjA2Ni0uNTY5IDQuMDM0LS41NCAzLjk5Mi0uNTEgMy45MzktLjQ4MSAzLjg3Ni0uNDUzIDMuODA0LS40MjQgMy43MjEtLjM5OCAzLjYyOC0uMzcgMy41MjQtLjM0NCAzLjQxMS0uMzE4IDMuMjg4LS4yOTIgMy4xNTQtLjI2NyAzLjAxLS4yNDMgMi44NTYtLjIxOCAyLjY5Mi0uMTk1IDIuNTE4LS4xNzEgMi4zMzMtLjE0OCAyLjEzOC0uMTI3IDEuOTM0LS4xMDQgMS43MTgtLjA4MyAxLjQ5NC0uMDYyIDEuMjU4LS4wNDIgMS4wMTMtLjAyMS43NTctLjAwMi40OTIuMDE2LjIxNS0uMDYtLjE0MS0uMTktLjQ1LS4zMTMtLjc1Mi0uNDMyLTEuMDQzLS41NDQtMS4zMjYtLjY1MS0xLjYwMS0uNzUyLTEuODY1LS44NDctMi4xMjItLjkzOC0yLjM2OS0xLjAyMS0yLjYwOC0xLjEtMi44MzYtMS4xNzQtMy4wNTgtMS4yNC0zLjI2OS0xLjMwMi0zLjQ3MS0xLjM1OS0zLjY2Ni0xLjQwOS0zLjg1LTEuNDUzLTQuMDI2LTEuNDkzLTQuMTkzLTEuNTI3LTQuMzUyLTEuNTU0LTQuNS0xLjU3Ni00LjY0LTEuNTk0LTQuNzcyLTEuNjA0LTQuODk0LTEuNjEtNS4wMDgtMS42MS01LjExMi0xLjYwMy01LjIwOC0xLjU5Mi01LjI5NC0xLjU3NS01LjM3Mi0xLjU1Mi01LjQ0MS0xLjUyNC01LjUwMS0xLjQ5LTUuNTUyLTEuNDUtNS41OTQtMS40MDUtNS42MjctMS4zNTMtNS42NTEtMS4yOTgtNS42NjYtMS4yMzUtNS42NzMtMS4xNjctNS42Ny0xLjA5NC01LjY1OS0xLjAxNS01LjYzOS0uOTMtNS42MDgtLjg0LTUuNTcxLS43NDMtNS41MjQtLjY0Mi01LjQ2Ny0uNTM1LTUuNDAyLS40MjEtNS4zMjktLjMwNC01LjI0NS0uMTc5LTUuMTU0LS4wNS01LjA1My4wODctNC45NDMuMjI3LTQuODI1LjM3NC00LjY5Ny41MjYtNC41Ni42ODQtNC40MTYuODQ4LTQuMjYxIDEuMDE2LTQuMDk4IDEuMTkyLTMuOTI1IDEuMzcyLTMuNzQ1IDEuNTU5LTMuNTU1IDEuNzUtMy4zNTYgMS45NDctMy4xNDggMi4xNS0yLjkzMSAyLjM2LTIuNzA1IDIuNTczLTIuNDcxIi8+PC9zdmc+'>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        margin: none;
+        padding: 0;
+        padding-top: 0;
+        font-family: sans-serif;
+        background-color: #282A36;
+        color: #F8F8F2;
+      }
+
+      a {
+        color: #8BE9FD;
+      }
+
+      a:hover {
+        color: #F8F8F2;
+        background-color: #FFB86C;
+      }
+
+      button {
+        border-radius: 0.1875rem;
+        box-shadow: 0 0.125rem 5px rgba(0, 0, 0, 0.2);
+        box-sizing: border-box;
+        color: #BD93F9;
+        background-color: #21222C;
+        cursor: pointer;
+        display: inline-flex;
+        height: 1.75rem;
+        padding: 0 0.625rem;
+        justify-content: center;
+        min-width: 4.063rem;
+        text-decoration: none;
+        align-items: center;
+        border: 0.0625rem solid #6272A4;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .wrapper {
+        padding: 10px;
+        width: 80%%;
+      }
+
+      .elements {
+        display: flex;
+        flex-direction: column;
+      }
+
+      @media screen and (max-width: 500px) {
+        .wrapper {
+          width: 100%%;
+        }
+      }
+
+      ul.columns {
+        column-width: 20em;
+        list-style-type: '';
+      }
+
+      #listNav {
+        list-style-type: none;
+        margin: 0.5em 0 0 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #F8F8F2;
+        display: flex;
+        flex-direction: row;
+      }
+      #listNav li a {
+        display: block;
+        color: #000;
+        text-align: center;
+        padding: .5em .8em;
+        text-decoration: none;
+      }
+      #listNav li a:hover {
+        background-color: #282A36;
+      }
+      #listNav li.active a {
+        background-color: #50FA7B;
+      }
+
+      .syn-func {
+        color: #50FA7B;
+      }
+      .syn-type {
+        color: #6272A4;
+      }
+      .syn-kw {
+        color: #FFB86C;
+      }
+
+      .markdown code {
+        color: #FFB86C;
+      }
+      .markdown em {
+        color: #50FA7B;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div id="sectNav">
+        <ul id="listNav"></ul>
+      </div>
+      <div id="sectModules">
+        <h2>Modules</h1>
+        <ul id="listModules" class="columns"></ul>
+      </div>
+      <div id="sectObjects">
+        <h2>Objects</h1>
+        <ul id="listObjects" class="columns"></ul>
+      </div>
+      <div id="sectFunctions">
+        <h2>Functions</h1>
+        <ul id="listFunctions" class="columns"></ul>
+      </div>
+      <div id="sectFunction">
+        <h2>Function</h1>
+        <pre><code id="funcProto"></code></pre>
+        <div id="funcDesc" class="markdown"></div>
+
+        <div id="sectFunctionParams">
+          <h2>Parameters</h1>
+          <dl id="listFunctionParams"></dl>
+        </div>
+      </div>
+      <div id="sectHelp">
+        <h2>Help</h2>
+        <ul>
+          <li>
+            Functions marked with <span class="syn-kw">[s]</span> are only
+            available in script mode.
+          </li>
+          <li>
+            Documentation sourced from <a href="https://mesonbuild.com">the meson project</a> and <a href="https://muon.build">muon</a>.
+          </li>
+          <li>
+            Documentation license:
+            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" height=16></img>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" height=16></img>
+          </li>
+          <li>
+            Code samples license:
+            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/zero.svg" height=16></img>
+          </li>
+          <li>
+            Meson is a registered trademark of Jussi Pakkanen.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <script type="application/json" id="data_external">%s</script>
+    <script type="application/json" id="data_internal">%s</script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      var dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
+      var dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
+      var onNavigate;
+
+      const funcKey = (f) => `${f.rcvr}${f.module}${f.name}`;
+      var map = {};
+      var data = [];
+      for (const f of dataExternal) {
+        map[funcKey(f)] = f;
+        f.modes = {external: true};
+        data.push(f);
+      }
+      for (const f of dataInternal) {
+        const key = funcKey(f);
+        if (key in map) {
+          map[key].modes.internal = true;
+        } else {
+          f.modes = {internal: true};
+          data.push(f);
+        }
+      }
+
+      function render() {
+        document.title = `muon - docs`;
+
+        var domListNav = document.getElementById("listNav");
+        var domSectModules = document.getElementById("sectModules");
+        var domListModules = document.getElementById("listModules");
+        var domSectObjects = document.getElementById("sectObjects");
+        var domListObjects = document.getElementById("listObjects");
+        var domSectFunctions = document.getElementById("sectFunctions");
+        var domListFunctions = document.getElementById("listFunctions");
+        var domSectFunction = document.getElementById("sectFunction");
+        var domFuncProto = document.getElementById("funcProto");
+        var domFuncDesc = document.getElementById("funcDesc");
+        var domSectFunctionParams = document.getElementById("sectFunctionParams");
+        var domListFunctionParams = document.getElementById("listFunctionParams");
+        var domSectHelp = document.getElementById("sectHelp");
+
+        domSectModules.style.display = 'none';
+        domSectObjects.style.display = 'none';
+        domSectFunctions.style.display = 'none';
+        domSectFunction.style.display = 'none';
+        domSectHelp.style.display = 'none';
+
+        var nav = window.location.hash.split('.');
+        var filter = {kernel: true};
+        if (nav[0] === '#modules' && nav.length > 1) {
+          filter.mod = nav[1];
+          filter.kernel = false;
+          if (nav.length === 3) {
+            filter.func = nav[2];
+          }
+        } else if (nav[0] === '#objects' && nav.length > 1) {
+          filter.obj = nav[1];
+          filter.kernel = false;
+          if (nav.length === 3) {
+            filter.func = nav[2];
+          }
+        } else if (nav[0] === '#kernel') {
+          if (nav.length === 2) {
+            filter.func = nav[1];
+          }
+        } else if (nav[0] === '#help') {
+          filter.help = true;
+        } else {
+          // nothing
+        }
+
+        function link(href, html) {
+          var a = document.createElement("a");
+          a.innerHTML = html;
+          a.setAttribute("href", `#${href}`);
+          a.addEventListener('click', (e)=>{ onNavigate(href, e); });
+          return a;
+        }
+
+        function escapeHtml(s) {
+          return s.replaceAll('&', '&amp;')
+                  .replaceAll('<', '&lt;')
+                  .replaceAll('>', '&gt;')
+                  .replaceAll('"', '&quot;')
+                  .replaceAll("'", '&#039;');
+        }
+
+
+        function buildNav() {
+          var navList = [];
+          function pushNav(href, name) {
+            var li = document.createElement("li");
+            li.appendChild(link(href, name));
+            navList.push(li);
+          }
+
+          var path = 'kernel';
+          pushNav("help", "?");
+          pushNav("kernel", "kernel");
+          if (filter.mod) {
+            path = `modules.${filter.mod}`;
+            pushNav(path, "modules");
+            pushNav(path, `${filter.mod}`);
+          } else if (filter.obj) {
+            path = `objects.${filter.obj}`;
+            pushNav(path, "objects");
+            pushNav(path, `${filter.obj}`);
+          }
+
+          if (filter.func) {
+            pushNav(`${path}.${filter.func}`, filter.func);
+          }
+
+          if (filter.help) {
+            navList[0].classList.add('active');
+          } else {
+            navList[navList.length - 1].classList.add('active');
+          }
+
+          domListNav.replaceChildren();
+          for (li of navList) {
+            domListNav.appendChild(li);
+          }
+        }
+        buildNav();
+
+
+        if (filter.help) {
+          domSectHelp.style.display = 'block';
+          return;
+        }
+
+        function filteredFuncs() {
+          var funcs = [];
+
+          for (let f of data) {
+            if (filter.kernel) {
+              if ('rcvr' in f || 'module' in f) {
+                continue;
+              }
+            } else if (filter.obj) {
+              if (f.rcvr !== filter.obj) {
+                continue;
+              }
+            } else if (filter.mod) {
+              if (f.module !== filter.mod) {
+                continue;
+              }
+            }
+
+            funcs.push(f);
+          }
+
+          funcs.sort((a, b) => {
+            return a.name < b.name ? -1 : 1;
+          });
+
+          return funcs;
+        }
+
+        function synNode(syn, txt) {
+          var e = document.createElement("span");
+          e.classList.add(`syn-${syn}`);
+          e.innerHTML = txt;
+          return e;
+        }
+
+        function synFunc(txt) {
+          return synNode('func', txt);
+        }
+        function synType(txt) {
+          return synNode('type', txt);
+        }
+        function synKw(txt) {
+          return synNode('kw', escapeHtml(txt));
+        }
+        function synPunc(txt) {
+          return synNode('punc', txt);
+        }
+
+        function funcProto(e, f) {
+          var params = [];
+
+          var argc = (f.posargs ? f.posargs.length : 0) + (f.kwargs ? f.kwargs.length : 0);
+          var explode = argc > 4;
+
+          function pushBreak() {
+              if (explode) { e.insertAdjacentText('beforeend', '\n'); }
+          }
+          function pushIndent() {
+              if (explode) { e.insertAdjacentText('beforeend', "    "); }
+          }
+
+          e.appendChild(synFunc(f.name));
+          e.appendChild(synPunc('('));
+          pushBreak();
+
+          if (f.posargs) {
+            for (let [i, p] of f.posargs.entries()) {
+              pushIndent();
+              e.appendChild(synType(p.type));
+              if (explode || i < f.posargs.length - 1) {
+                e.appendChild(synPunc(', '));
+              }
+              pushBreak();
+            }
+          }
+
+          if (f.kwargs) {
+            for (let [i, p] of f.kwargs.entries()) {
+              pushIndent();
+              e.appendChild(synKw(p.name));
+              e.appendChild(synPunc(': '));
+              e.appendChild(synType(p.type));
+              if (explode || i < f.kwargs.length - 1) {
+                e.appendChild(synPunc(', '));
+              }
+              pushBreak();
+            }
+          }
+
+          e.appendChild(synPunc(')'));
+          e.appendChild(synPunc(' -> '));
+          e.appendChild(synType(f.type));
+
+          return e;
+        }
+
+        if ('func' in filter) {
+          var func = undefined;
+          for (let f of filteredFuncs()) {
+            if (f.name === filter.func) {
+              func = f;
+              break;
+            }
+          }
+
+          function buildFunction() {
+            domSectFunction.style.display = 'block';
+            domFuncProto.replaceChildren();
+            funcProto(domFuncProto, func);
+            if (func.desc) {
+              domFuncDesc.innerHTML = marked.parse(func.desc);
+            } else {
+              domFuncDesc.innerHTML = '';
+            }
+
+            domSectFunctionParams.style.display = 'none';
+            domListFunctionParams.replaceChildren();
+
+            function pushArg(p, isKwarg) {
+              var e = document.createElement('dt');
+
+              if (isKwarg) {
+                e.appendChild(synKw(p.name));
+                e.appendChild(synPunc(': '));
+              }
+              e.appendChild(synType(p.type));
+
+              domListFunctionParams.appendChild(e);
+              e = document.createElement('dd');
+              div = document.createElement('div');
+              div.classList.add("markdown");
+              if (p.desc) {
+                div.innerHTML = marked.parse(p.desc);
+              }
+              e.appendChild(div);
+              domListFunctionParams.appendChild(e);
+              domSectFunctionParams.style.display = 'block';
+            }
+
+            if (func.posargs) {
+              for (let p of func.posargs) {
+                pushArg(p, false);
+              }
+            }
+
+            if (func.kwargs) {
+              for (let p of func.kwargs) {
+                pushArg(p, true);
+              }
+            }
+          }
+          buildFunction();
+        } else {
+          if (filter.kernel) {
+            function buildModules() {
+              domSectModules.style.display = 'block';
+              domListModules.replaceChildren();
+
+              var modules = {};
+              for (let f of data) {
+                if ('module' in f) {
+                  const parts = f.module.split('/');
+                  modules[parts[1]] = parts[0];
+                }
+              }
+
+              for (let m of Object.keys(modules).sort()) {
+                var li = document.createElement("li");
+                li.appendChild(link(`modules.${modules[m]}/${m}`, m));
+                if (modules[m] === 'private') {
+                  li.appendChild(synKw(' [s]'));
+                }
+                domListModules.appendChild(li);
+              }
+            }
+            buildModules();
+          }
+
+          if (filter.kernel) {
+            function buildObjects() {
+              domSectObjects.style.display = 'block';
+              domListObjects.replaceChildren();
+
+              var objects = {};
+              for (let f of data) {
+                if ('rcvr' in f) {
+                  objects[f.rcvr] = true;
+                }
+              }
+
+              for (let o of Object.keys(objects).sort()) {
+                var li = document.createElement("li");
+                li.appendChild(link(`objects.${o}`, o));
+                domListObjects.appendChild(li);
+              }
+            }
+            buildObjects();
+          }
+
+          function buildFunctions() {
+            domSectFunctions.style.display = 'block';
+            domListFunctions.replaceChildren();
+
+            for (let f of filteredFuncs()) {
+              var li = document.createElement("li");
+
+              var path;
+              if ('rcvr' in f) {
+                path = `objects.${f.rcvr}`;
+              } else if ('module' in f) {
+                path = `modules.${f.module}`;
+              } else {
+                path = `kernel`;
+              }
+
+              li.appendChild(link(`${path}.${f.name}`, f.name));
+
+              var modeStr = " ";
+              if ('internal' in f.modes && !('external' in f.modes)) {
+                modeStr += "[s]";
+              }
+              li.appendChild(synKw(modeStr));
+              domListFunctions.appendChild(li);
+            }
+          }
+          buildFunctions();
+        }
+      }
+      render();
+
+      onNavigate = (href, e) => {
+        //window.location.hash = `#${href}`;
+        //render();
+      }
+
+      addEventListener("hashchange", (event) => {
+        render();
+      });
+    </script>
+  </body>
+</html>

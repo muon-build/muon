@@ -17,6 +17,7 @@ struct func_impl {
 	type_tag return_type;
 	bool pure, fuzz_unsafe, extension;
 	func_impl_self_transform self_transform;
+	const char *desc;
 };
 
 struct func_impl_group {
@@ -35,6 +36,6 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 	const char *name,
 	uint32_t *idx);
 
-void dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[]);
 void dump_function_signatures(struct workspace *wk);
+void dump_function_docs(struct workspace *wk);
 #endif

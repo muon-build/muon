@@ -475,11 +475,6 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	uint32_t args_popped = 0;
 	bool got_kwargs_typeinfo = false;
 
-	if (wk->vm.dbg_state.dump_signature) {
-		dump_function_signature(wk, an, akw);
-		return false;
-	}
-
 	if (akw) {
 		for (i = 0; akw[i].key; ++i) {
 			akw[i].set = false;

@@ -68,8 +68,18 @@ static bool
 func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = {
-		{ TYPE_TAG_LISTIFY | tc_string },
-		{ make_complex_type(wk, complex_type_nested, tc_dict, tc_dict) },
+		{ TYPE_TAG_LISTIFY | tc_string, .desc = "the array of arguments to parse" },
+		{ make_complex_type(wk, complex_type_nested, tc_dict, tc_dict),
+			.desc
+			= "A dict of `opt` -> `handler`.\n\n"
+			  "- `opt` must be a single character.\n"
+			  "- `handler` is a dict that may contain the following keys:\n"
+			  "\n"
+			  "  - `required` - defaults to false, causes this option to be required\n"
+			  "  - `action` - required, a function that will be called to handle this option\n"
+			  "\n"
+			  "    If the function accepts a single argument then the option will be required to supply a value\n"
+			  "  - `desc` - required, a string to show in the help message.\n" },
 		ARG_TYPE_NULL,
 	};
 	if (!pop_args(wk, an, NULL)) {
@@ -210,6 +220,9 @@ ret:
 }
 
 const struct func_impl impl_tbl_module_getopt[] = {
-	{ "getopt", func_module_getopt_getopt, tc_array },
+	{ "getopt",
+		func_module_getopt_getopt,
+		tc_array,
+		.desc = "Parse command line arguments using getopt.  Returns the array of trailing positional args." },
 	{ NULL, NULL },
 };

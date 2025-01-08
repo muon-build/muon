@@ -133,7 +133,7 @@ struct vm_dbg_state {
 	obj eval_trace;
 	uint32_t icount;
 	uint32_t break_after;
-	bool dbg, stepping, dump_signature;
+	bool dbg, stepping;
 	bool eval_trace_subdir;
 };
 

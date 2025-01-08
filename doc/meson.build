@@ -31,10 +31,6 @@ foreach page, section : man_pages
     man_page_targets += {name: tgt}
 endforeach
 
-meson_proj = dependency('', required: false)
-if python3.found()
-    meson_proj = subproject('meson-docs', required: false)
-endif
 if meson_proj.found()
     man_page_targets += {
         'meson-reference.3': meson_proj.get_variable('meson_reference_3'),
@@ -46,5 +42,12 @@ endif
 if get_option('website')
     subdir('website')
 endif
+
+custom_target(
+    output: 'docs.html',
+    command: [muon, 'internal', 'dump_docs'],
+    capture: true,
+    build_by_default: true,
+)
 
 summary('docs', true)

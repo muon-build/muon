@@ -14,6 +14,7 @@ typedef uint64_t type_tag;
 struct args_norm {
 	type_tag type;
 	const char *name;
+	const char *desc;
 	obj val;
 	uint32_t node;
 	bool set, optional;
@@ -22,6 +23,7 @@ struct args_norm {
 struct args_kw {
 	const char *key;
 	type_tag type;
+	const char *desc;
 	obj val;
 	uint32_t node;
 	bool set;

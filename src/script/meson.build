@@ -13,6 +13,7 @@ foreach s : [
     'commands/i18n/itstool.meson',
     'commands/i18n/msgfmthelper.meson',
     'commands/vcs_tagger.meson',
+    'html/docs.html',
     'html/test_out.html',
     'lib/cmake_prelude.meson',
     'modules/_test.meson',

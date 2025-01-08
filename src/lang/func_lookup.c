@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "embedded.h"
 #include "functions/array.h"
 #include "functions/boolean.h"
 #include "functions/both_libs.h"
@@ -231,7 +232,7 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
  ******************************************************************************/
 
 struct function_signature {
-	const char *name, *posargs, *varargs, *optargs, *kwargs, *returns;
+	const char *name, *posargs, *varargs, *optargs, *kwargs, *returns, *description;
 	bool is_method;
 
 	const struct func_impl *impl;
@@ -239,6 +240,13 @@ struct function_signature {
 
 struct {
 	struct arr sigs;
+	obj func;
+	struct meson_doc_entry_func *meson_doc_entry;
+
+	enum {
+		function_sig_dump_special_func_none,
+		function_sig_dump_special_func_build_tgt,
+	} special_func;
 } function_sig_dump;
 
 static const char *
@@ -264,7 +272,7 @@ arr_sort_by_string(const void *a, const void *b, void *_ctx)
 	return strcmp(*(const char **)a, *(const char **)b);
 }
 
-void
+static bool
 dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
 {
 	uint32_t i;
@@ -321,6 +329,8 @@ dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct
 
 		arr_destroy(&kwargs_list);
 	}
+
+	return false;
 }
 
 static int32_t
@@ -337,11 +347,9 @@ function_sig_sort(const void *a, const void *b, void *_ctx)
 	}
 }
 
-void
-dump_function_signatures(struct workspace *wk)
+static void
+dump_function_signatures_prepare(struct workspace *wk)
 {
-	wk->vm.dbg_state.dump_signature = true;
-
 	arr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
 	struct function_signature *sig, empty = { 0 };
 	struct func_impl_group *g;
@@ -390,7 +398,17 @@ dump_function_signatures(struct workspace *wk)
 	}
 
 	arr_sort(&function_sig_dump.sigs, NULL, function_sig_sort);
+}
 
+void
+dump_function_signatures(struct workspace *wk)
+{
+	wk->vm.behavior.pop_args = dump_function_signature;
+
+	dump_function_signatures_prepare(wk);
+
+	uint32_t i;
+	struct function_signature *sig;
 	for (i = 0; i < function_sig_dump.sigs.len; ++i) {
 		sig = arr_get(&function_sig_dump.sigs, i);
 
@@ -415,4 +433,307 @@ dump_function_signatures(struct workspace *wk)
 	}
 
 	arr_destroy(&function_sig_dump.sigs);
+}
+
+/******************************************************************************
+ * function signature dumping
+ ******************************************************************************/
+
+struct meson_doc_entry_common {
+	const char *name, *description, *type;
+};
+
+struct meson_doc_entry_func {
+	struct meson_doc_entry_common common;
+	uint32_t posargs_start, posargs_len;
+	uint32_t kwargs_start, kwargs_len;
+};
+
+struct meson_doc_entry_arg {
+	struct meson_doc_entry_common common;
+	bool optional, glob;
+};
+
+#ifdef HAVE_MESON_DOCS_H
+#include "meson_docs.h"
+#else
+struct meson_doc_entry_func *meson_doc_root[obj_type_count] = { 0 };
+struct meson_doc_entry_arg meson_doc_posargs[] = { 0 };
+struct meson_doc_entry_arg meson_doc_kwargs[] = { 0 };
+#endif
+
+static obj
+dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, struct args_kw *kw)
+{
+	obj dict;
+	make_obj(wk, &dict, obj_dict);
+
+	obj name = 0;
+	const char *desc = 0;
+	if (an) {
+		if (an->desc) {
+			desc = an->desc;
+		} else if (function_sig_dump.meson_doc_entry) {
+			if (an_idx >= function_sig_dump.meson_doc_entry->posargs_len) {
+				LOG_W("missing documentation for %s posarg %d",
+					function_sig_dump.meson_doc_entry->common.name,
+					an_idx);
+			} else {
+				struct meson_doc_entry_arg *arg
+					= &meson_doc_posargs[function_sig_dump.meson_doc_entry->posargs_start + an_idx];
+				desc = arg->common.description;
+			}
+		}
+
+		name = make_strf(wk, "<%d>", an_idx);
+	} else {
+		if (kw->desc) {
+			desc = kw->desc;
+		} else if (function_sig_dump.meson_doc_entry) {
+			bool found = false;
+			struct meson_doc_entry_arg *args
+				= &meson_doc_kwargs[function_sig_dump.meson_doc_entry->kwargs_start];
+			uint32_t i;
+			for (i = 0; i < function_sig_dump.meson_doc_entry->kwargs_len; ++i) {
+				if (strcmp(args[i].common.name, kw->key) == 0) {
+					found = true;
+					break;
+				}
+			}
+
+			if (found) {
+				struct meson_doc_entry_arg *arg = &args[i];
+				desc = arg->common.description;
+			} else {
+				LOG_W("missing documentation for %s kwarg %s",
+					function_sig_dump.meson_doc_entry->common.name,
+					kw->key);
+			}
+		}
+
+		name = make_str(wk, kw->key);
+	}
+
+	obj_dict_set(wk, dict, make_str(wk, "name"), name);
+	obj_dict_set(wk, dict, make_str(wk, "type"), typechecking_type_to_str(wk, an ? an->type : kw->type));
+	if (desc) {
+		obj_dict_set(wk, dict, make_str(wk, "desc"), make_str(wk, desc));
+	}
+
+	return dict;
+}
+
+static bool
+dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
+{
+	uint32_t i;
+
+	obj res = function_sig_dump.func;
+
+	if (posargs) {
+		obj arr;
+		make_obj(wk, &arr, obj_array);
+
+		for (i = 0; posargs[i].type != ARG_TYPE_NULL; ++i) {
+			obj_array_push(wk, arr, dump_function_arg(wk, &posargs[i], i, 0));
+		}
+
+		obj_dict_set(wk, res, make_str(wk, "posargs"), arr);
+	}
+
+	if (kwargs) {
+		obj arr;
+		make_obj(wk, &arr, obj_array);
+
+		struct arr kwargs_list;
+		struct kwargs_list_elem {
+			const char *key;
+			uint32_t i;
+		};
+		arr_init(&kwargs_list, 8, sizeof(struct kwargs_list_elem));
+
+		for (i = 0; kwargs[i].key; ++i) {
+			arr_push(&kwargs_list,
+				&(struct kwargs_list_elem){
+					.key = kwargs[i].key,
+					.i = i,
+				});
+		}
+
+		arr_sort(&kwargs_list, NULL, arr_sort_by_string);
+
+		obj dict;
+		make_obj(wk, &dict, obj_dict);
+
+		for (i = 0; i < kwargs_list.len; ++i) {
+			struct kwargs_list_elem *elem = arr_get(&kwargs_list, i);
+			struct args_kw kwarg = kwargs[elem->i];
+			char buf[256];
+
+			// This is a hack to convert e.g. cpp_args to <lang>_args
+			if (function_sig_dump.special_func == function_sig_dump_special_func_build_tgt) {
+#define E(lang, s) { #lang #s, #lang }
+#define x(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
+				const struct { const char *kw, *lang; } lang_kws[] = { FOREACH_COMPILER_EXPOSED_LANGUAGE(x) };
+#undef x
+#undef E
+
+				bool found = false;
+				uint32_t i;
+				for (i = 0; i < ARRAY_LEN(lang_kws); ++i) {
+					if (strcmp(kwarg.key, lang_kws[i].kw) == 0) {
+						found = true;
+						break;
+					}
+				}
+
+				if (found) {
+					snprintf(buf, sizeof(buf), "<lang>%s", kwarg.key + strlen(lang_kws[i].lang));
+					kwarg.key = buf;
+				}
+			}
+
+			obj _res;
+			if (obj_dict_index_str(wk, dict, kwarg.key, &_res)) {
+				continue;
+			}
+
+			obj_array_push(wk, arr, dump_function_arg(wk, 0, 0, &kwarg));
+			obj_dict_set(wk, dict, make_str(wk, kwarg.key), obj_bool_true);
+		}
+		arr_destroy(&kwargs_list);
+
+		obj_dict_set(wk, res, make_str(wk, "kwargs"), arr);
+	}
+
+	return false;
+}
+
+struct dump_function_opts {
+	enum obj_type rcvr_t;
+	enum module module;
+	bool module_func;
+};
+
+static obj
+dump_function(struct workspace *wk,
+	struct func_impl_group *g,
+	const struct func_impl *impl,
+	struct dump_function_opts *opts)
+{
+	make_obj(wk, &function_sig_dump.func, obj_dict);
+	obj res = function_sig_dump.func;
+
+	obj_dict_set(wk, res, make_str(wk, "name"), make_str(wk, impl->name));
+	if (opts->module_func) {
+		obj_dict_set(wk, res, make_str(wk, "module"), make_str(wk, module_info[opts->module].path));
+	} else if (opts->rcvr_t) {
+		obj_dict_set(wk, res, make_str(wk, "rcvr"), make_str(wk, obj_type_to_s(opts->rcvr_t)));
+	}
+	obj_dict_set(wk, res, make_str(wk, "type"), typechecking_type_to_str(wk, impl->return_type));
+
+	const char *desc = 0;
+	if (impl->desc) {
+		desc = impl->desc;
+	} else if (function_sig_dump.meson_doc_entry) {
+		desc = function_sig_dump.meson_doc_entry->common.description;
+	}
+	if (desc) {
+		obj_dict_set(wk, res, make_str(wk, "desc"), make_str(wk, desc));
+	}
+
+	impl->func(wk, 0, 0);
+
+	return res;
+}
+
+static void
+dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
+{
+	obj doc;
+	make_obj(wk, &doc, obj_array);
+	wk->vm.behavior.pop_args = dump_function_args;
+
+	struct func_impl_group *g;
+
+	uint32_t i;
+	{
+		enum obj_type t;
+		for (t = 0; t < obj_type_count; ++t) {
+			g = &func_impl_groups[t][wk->vm.lang_mode];
+			if (!g->impls) {
+				continue;
+			}
+
+			for (i = 0; g->impls[i].name; ++i) {
+				if (meson_doc_root[t] && wk->vm.lang_mode == language_external) {
+					uint32_t j;
+					for (j = 0; meson_doc_root[t][j].common.name; ++j) {
+						if (strcmp(meson_doc_root[t][j].common.name, g->impls[i].name) == 0) {
+							function_sig_dump.meson_doc_entry = &meson_doc_root[t][j];
+							break;
+						}
+					}
+				}
+
+				if (strcmp(g->impls[i].name, "executable") || strcmp(g->impls[i].name, "build_target")
+					|| strcmp(g->impls[i].name, "shared_library")
+					|| strcmp(g->impls[i].name, "static_library")
+					|| strcmp(g->impls[i].name, "both_libraries")) {
+					function_sig_dump.special_func = function_sig_dump_special_func_build_tgt;
+				}
+
+				obj_array_push(wk,
+					doc,
+					dump_function(wk,
+						g,
+						&g->impls[i],
+						&(struct dump_function_opts){
+							.rcvr_t = t,
+						}));
+				function_sig_dump.meson_doc_entry = 0;
+				function_sig_dump.special_func = function_sig_dump_special_func_none;
+			}
+		}
+	}
+
+	for (i = 0; i < module_count; ++i) {
+		g = &module_func_impl_groups[i][wk->vm.lang_mode];
+		if (!g->impls) {
+			continue;
+		}
+
+		uint32_t j;
+		for (j = 0; g->impls[j].name; ++j) {
+			obj_array_push(wk,
+				doc,
+				dump_function(wk,
+					g,
+					&g->impls[j],
+					&(struct dump_function_opts){
+						.module_func = true,
+						.module = i,
+					}));
+		}
+	}
+
+	obj_to_json(wk, doc, sb);
+}
+
+void
+dump_function_docs(struct workspace *wk)
+{
+	SBUF(docs_external);
+	SBUF(docs_internal);
+	dump_function_docs_json(wk, &docs_external);
+	wk->vm.lang_mode = language_internal;
+	dump_function_docs_json(wk, &docs_internal);
+
+	struct source src;
+	if (!embedded_get("html/docs.html", &src)) {
+		UNREACHABLE;
+	}
+
+	fprintf(stdout, src.src, docs_external.buf, docs_internal.buf);
+	/* LOG_I("wrote html output to %s", abs.buf); */
 }

@@ -37,8 +37,6 @@ make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type
  * ----------------------------------------------------------------------------
  */
 
-static obj typechecking_type_to_str(struct workspace *wk, type_tag t);
-
 static obj
 simple_type_to_arr(struct workspace *wk, type_tag t)
 {
@@ -120,7 +118,7 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 	UNREACHABLE_RETURN;
 }
 
-static obj
+obj
 typechecking_type_to_str(struct workspace *wk, type_tag t)
 {
 	obj typestr;
