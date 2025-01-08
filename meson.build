@@ -168,6 +168,5 @@ muon = executable(
     install: true,
 )
 
-
 subdir('tests')
 subdir('doc')
