@@ -2403,3 +2403,53 @@ obj_inspect(struct workspace *wk, obj val)
 	default: obj_lprintf(wk, "%o\n", val);
 	}
 }
+
+/*
+ * object to json
+ */
+
+void
+obj_to_json(struct workspace *wk, obj o, struct sbuf *sb)
+{
+	switch (get_obj_type(wk, o)) {
+	case obj_array: {
+		sbuf_push(wk, sb, '[');
+		obj v;
+		obj_array_for_(wk, o, v, iter)
+		{
+			obj_to_json(wk, v, sb);
+			if (iter.i < iter.len - 1) {
+				sbuf_pushs(wk, sb, ", ");
+			}
+		}
+		sbuf_push(wk, sb, ']');
+		break;
+	}
+	case obj_dict: {
+		sbuf_push(wk, sb, '{');
+		uint32_t i = 0, len = get_obj_dict(wk, o)->len;
+		obj k, v;
+		obj_dict_for(wk, o, k, v) {
+			obj_to_json(wk, k, sb);
+			sbuf_pushs(wk, sb, ": ");
+			obj_to_json(wk, v, sb);
+
+			if (i < len - 1) {
+				sbuf_pushs(wk, sb, ", ");
+			}
+			++i;
+		}
+		sbuf_push(wk, sb, '}');
+		break;
+	}
+	case obj_number: sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
+	case obj_bool: sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
+	case obj_string: {
+		sbuf_push(wk, sb, '\"');
+		str_escape_json(wk, sb, get_str(wk, o));
+		sbuf_push(wk, sb, '\"');
+		break;
+	}
+	default: error_unrecoverable("unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); break;
+	}
+}

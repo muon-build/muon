@@ -45,6 +45,27 @@ str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool esc
 	}
 }
 
+void
+str_escape_json(struct workspace *wk, struct sbuf *sb, const struct str *ss)
+{
+	uint32_t i;
+	const char *esc = "\"\\";
+
+	for (i = 0; i < ss->len; ++i) {
+		if (strchr(esc, ss->s[i])) {
+			sbuf_pushf(wk, sb, "\\\"");
+		} else if (ss->s[i] < 32 || ss->s[i] > 126) {
+			if (8 <= ss->s[i] && ss->s[i] <= 13 && ss->s[i] != 11) {
+				sbuf_pushf(wk, sb, "\\%c", "btn_fr"[ss->s[i] - 8]);
+			} else {
+				sbuf_pushf(wk, sb, "\\u%04x", ss->s[i]);
+			}
+		} else {
+			sbuf_push(wk, sb, ss->s[i]);
+		}
+	}
+}
+
 bool
 str_has_null(const struct str *ss)
 {
