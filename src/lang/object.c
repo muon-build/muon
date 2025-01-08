@@ -698,8 +698,7 @@ obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx)
 {
 	obj v;
 	uint32_t i = 0;
-	obj_array_for(wk, arr, v)
-	{
+	obj_array_for(wk, arr, v) {
 		if (obj_equal(wk, val, v)) {
 			*idx = i;
 			return true;
