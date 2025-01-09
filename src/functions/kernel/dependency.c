@@ -365,22 +365,17 @@ get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx,
 	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 
 	char name[512];
-	obj_snprintf(wk, name, sizeof(name), "framework:%o", ctx->modules ? ctx->modules : ctx->name);
+	obj_snprintf(wk, name, sizeof(name), "framework:%o", modules);
 
 	dep->name = make_str(wk, name);
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_appleframeworks;
 	make_obj(wk, &dep->dep.frameworks, obj_array);
 
-	if (ctx->modules) {
-		obj val;
-		obj_array_for(wk, ctx->modules, val) {
-			obj_array_push(wk, dep->dep.frameworks, val);
-		}
-	} else {
-		obj_array_push(wk, dep->dep.frameworks, ctx->name);
+	obj v;
+	obj_array_for(wk, modules, v) {
+		obj_array_push(wk, dep->dep.frameworks, v);
 	}
-
 	return true;
 }
 
@@ -606,12 +601,10 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 }
 
 static bool
-handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *handled)
+handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		LOG_I("dependency threads found");
-
-		*handled = true;
 		make_obj(wk, ctx->res, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 		dep->name = ctx->name;
@@ -623,28 +616,22 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 
 		make_obj(wk, &dep->dep.link_args, obj_array);
 		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
+		ctx->found = true;
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		// TODO: this is stupid
-		*handled = true;
 		ctx->name = make_str(wk, "ncurses");
 		if (!get_dependency(wk, ctx)) {
 			return false;
 		}
-
-		if (!ctx->found) {
-			*handled = false;
-		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
-		get_dependency_appleframeworks(wk, ctx, handled);
+		get_dependency_appleframeworks(wk, ctx, &ctx->found);
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
-		*handled = true;
 		if (ctx->requirement == requirement_required) {
 			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
 			return false;
 		}
 		make_obj(wk, ctx->res, obj_dependency);
-	} else {
-		*handled = false;
+		ctx->found = true;
 	}
 
 	return true;
@@ -825,20 +812,17 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 
 	obj name;
 	obj_array_for(wk, an[0].val, name) {
-		bool handled;
 		struct dep_lookup_ctx sub_ctx = ctx;
 		ctx.name = sub_ctx.name = name;
 
-		if (!handle_special_dependency(wk, &sub_ctx, &handled)) {
+		if (!handle_special_dependency(wk, &sub_ctx)) {
 			return false;
 		}
 
-		if (handled) {
-			sub_ctx.found = true;
-		}
-
-		if (!get_dependency(wk, &sub_ctx)) {
-			return false;
+		if (!sub_ctx.found) {
+			if (!get_dependency(wk, &sub_ctx)) {
+				return false;
+			}
 		}
 
 		if (sub_ctx.found) {
