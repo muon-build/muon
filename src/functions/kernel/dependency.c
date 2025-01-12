@@ -147,6 +147,10 @@ check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		}
 	}
 
+	if (ctx->found) {
+		LO("found %o in override\n", ctx->name);
+	}
+
 	return ctx->found;
 }
 
@@ -154,14 +158,14 @@ static bool
 check_dependency_cache(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
 {
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps, ctx->name, res)) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps[ctx->machine], ctx->name, res)) {
 			ctx->lib_mode = dep_lib_mode_static;
 			return true;
 		}
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps, ctx->name, res)) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps[ctx->machine], ctx->name, res)) {
 			ctx->lib_mode = dep_lib_mode_shared;
 			return true;
 		}
@@ -232,23 +236,37 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		goto not_found;
 	}
 
-	if (subproj_dep) {
-		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
+	if (!check_dependency_override(wk, ctx)) {
+		if (subproj_dep) {
+			if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
+				vm_warning_at(wk,
+					ctx->fallback_node,
+					"subproject dependency variable %o is not defined",
+					subproj_dep);
+				goto not_found;
+			}
+		} else {
 			vm_warning_at(wk,
 				ctx->fallback_node,
-				"subproject dependency variable %o is not defined",
-				subproj_dep);
-			goto not_found;
-		}
-	} else {
-		if (!check_dependency_override(wk, ctx)) {
-			vm_warning_at(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
+				"subproject does not override dependency %o for %s machine",
+				ctx->name,
+				machine_kind_to_s(ctx->machine));
 			goto not_found;
 		}
 	}
 
 	if (get_obj_type(wk, *ctx->res) != obj_dependency) {
 		vm_warning_at(wk, ctx->fallback_node, "overridden dependency is not a dependency object");
+		goto not_found;
+	}
+
+	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+	if (dep->machine != ctx->machine) {
+		vm_warning_at(wk,
+			ctx->fallback_node,
+			"overridden dependency is for the %s machine, but a dependency for the %s machine was requested",
+			machine_kind_to_s(dep->machine),
+			machine_kind_to_s(ctx->machine));
 		goto not_found;
 	}
 
@@ -536,6 +554,10 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	{
 		obj cached_dep;
 		if (check_dependency_cache(wk, ctx, &cached_dep)) {
+			if (ctx->found) {
+				LO("found %o in cache\n", ctx->name);
+			}
+
 			bool ver_match;
 			struct obj_dependency *dep = get_obj_dependency(wk, cached_dep);
 			if (!check_dependency_version(
@@ -600,7 +622,13 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return true;
 }
 
-static bool
+enum handle_special_dependency_result {
+	handle_special_dependency_result_error,
+	handle_special_dependency_result_continue,
+	handle_special_dependency_result_stop,
+};
+
+static enum handle_special_dependency_result
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
@@ -621,20 +649,22 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		// TODO: this is stupid
 		ctx->name = make_str(wk, "ncurses");
 		if (!get_dependency(wk, ctx)) {
-			return false;
+			return handle_special_dependency_result_error;
 		}
 	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
 		get_dependency_appleframeworks(wk, ctx, &ctx->found);
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		if (ctx->requirement == requirement_required) {
 			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
-			return false;
+			return handle_special_dependency_result_error;
 		}
 		make_obj(wk, ctx->res, obj_dependency);
 		ctx->found = true;
+	} else {
+		return handle_special_dependency_result_continue;
 	}
 
-	return true;
+	return handle_special_dependency_result_stop;
 }
 
 bool
@@ -763,7 +793,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		/* - allow_fallback: true */
 		fallback_allowed = get_obj_bool(wk, akw[kw_allow_fallback].val);
 	} else {
-		           /* - allow_fallback is not specified and the requirement is required */
+		/* - allow_fallback is not specified and the requirement is required */
 		fallback_allowed = requirement == requirement_required
 				   /* - allow_fallback is not specified and the fallback keyword is
 		            *   specified with at least one value (i.e. not an empty array) */
@@ -815,14 +845,16 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		struct dep_lookup_ctx sub_ctx = ctx;
 		ctx.name = sub_ctx.name = name;
 
-		if (!handle_special_dependency(wk, &sub_ctx)) {
-			return false;
-		}
-
-		if (!sub_ctx.found) {
-			if (!get_dependency(wk, &sub_ctx)) {
-				return false;
+		switch (handle_special_dependency(wk, &sub_ctx)) {
+		case handle_special_dependency_result_error: return false;
+		case handle_special_dependency_result_stop: break;
+		case handle_special_dependency_result_continue:
+			if (!sub_ctx.found) {
+				if (!get_dependency(wk, &sub_ctx)) {
+					return false;
+				}
 			}
+			break;
 		}
 
 		if (sub_ctx.found) {
@@ -926,11 +958,17 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			obj name;
 			obj_array_for(wk, ctx.names, name) {
 				if (ctx.lib_mode != dep_lib_mode_shared) {
-					obj_dict_set(wk, current_project(wk)->dep_cache.static_deps, name, *ctx.res);
+					obj_dict_set(wk,
+						current_project(wk)->dep_cache.static_deps[machine],
+						name,
+						*ctx.res);
 				}
 
 				if (ctx.lib_mode != dep_lib_mode_static) {
-					obj_dict_set(wk, current_project(wk)->dep_cache.shared_deps, name, *ctx.res);
+					obj_dict_set(wk,
+						current_project(wk)->dep_cache.shared_deps[machine],
+						name,
+						*ctx.res);
 				}
 			}
 		}

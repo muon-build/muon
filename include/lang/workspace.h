@@ -22,7 +22,7 @@ struct project {
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, targets, tests, test_setups, summary;
 	struct {
-		obj static_deps, shared_deps;
+		obj static_deps[machine_kind_count], shared_deps[machine_kind_count];
 	} dep_cache;
 	obj wrap_provides_deps, wrap_provides_exes;
 
