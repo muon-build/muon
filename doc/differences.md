@@ -127,3 +127,47 @@ is provided for users who are waiting for
 A number of builtin options have different default values:
 
 - `default_library` is `'static'`
+
+## native: true
+
+In muon `native: true` always means "for the build machine", while in meson
+sometimes it doesn't.
+
+Meson distinguishes between cross and native builds.  A native build is one
+where the build machine and the host machine are the same, while a cross build
+is one where they differ.  Since this is a build system, "machine" in this
+context is mostly synonymous with "toolchain for a machine".
+
+A nice cross compilation feature that meson supports is the ability to toggle
+which toolchain a particular target uses at configure time.  This is
+accomplished by using the `native` keyword available for many functions. Passing
+`native: false` causes the target/dependency to be created/looked up for the
+host machine.  Likewise, `native: true` causes the target/dependency to be
+created/looked up for the build machine.  In most cases omitting the native
+keyword is the same as passing `native: false`, although some functions treat
+the omission of `native` specially, such as `add_languages` adding languages for
+both the host and build machine if the keyword is omitted.
+
+The above paragraph is true for muon too, but it is actually subtly wrong for
+meson.  You might be wondering, why meson uses `native: true/false` and not
+something more readable such as `for_machine: 'build'/'host'`.  The reason is
+that during a *native build*, meson effectively [ignores the native keyword].
+While this makes sense on some level since the machines you are selecting
+between are the same, it confuses the usage of the `native` keyword even more
+than just the odd mapping from boolean to machine, and makes it easier to create
+a build file that is broken for cross compilation.
+
+For example (taken from [meson's own tests]), the following code is perfectly
+valid during a native build:
+
+```meson
+meson.override_dependency('expat', declare_dependency())
+dependency('expat')
+dependency('expat', native : true)
+dependency('expat', native : false)
+```
+
+But will break with a dependency not found error during a cross build.
+
+[ignores the native keyword]: https://github.com/mesonbuild/meson/pull/8582#issue-841311146
+[meson's own tests]: https://github.com/mesonbuild/meson/blob/6b99eeb2c99d4af4be2562b25507541bfd842692/test%20cases/common/240%20dependency%20native%20host%20%3D%3D%20build/meson.build#L15
