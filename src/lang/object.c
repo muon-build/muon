@@ -1907,16 +1907,25 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, o);
-		sbuf_pushs(wk, sb, "<dependency ");
+		sbuf_pushs(wk, sb, "<dep ");
 		if (dep->name) {
 			obj_to_s_str(wk, &ctx, dep->name);
 		}
 
-		sbuf_pushf(wk,
-			sb,
-			" | found: %s, pkgconf: %s>",
-			dep->flags & dep_flag_found ? "yes" : "no",
-			dep->type == dependency_type_pkgconf ? "yes" : "no");
+		const char *type = 0;
+		switch (dep->type) {
+		case dependency_type_declared: type = "declared"; break;
+		case dependency_type_pkgconf: type = "pkgconf"; break;
+		case dependency_type_threads: type = "threads"; break;
+		case dependency_type_external_library: type = "external_library"; break;
+		case dependency_type_appleframeworks: type = "appleframeworks"; break;
+		case dependency_type_not_found: type = "not_found"; break;
+		}
+
+		const char *found = dep->flags & dep_flag_found ? " found" : "";
+
+		sbuf_pushf(wk, sb, " %s machine:%s%s>",
+			type, machine_kind_to_s(dep->machine), found);
 		break;
 	}
 	case obj_alias_target:
