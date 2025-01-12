@@ -900,6 +900,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 				log_plain(" static");
 			}
 
+			log_plain(" for the %s machine", machine_kind_to_s(machine));
+
 			log_plain("\n");
 		}
 	}
@@ -916,8 +918,9 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			*res = dup;
 		}
 
-		// set the include type if the return value is not a disabler
+		// set the include type and machine if the return value is not a disabler
 		dep->include_type = inc_type;
+		dep->machine = machine;
 
 		if (dep->flags & dep_flag_found && !ctx.from_cache) {
 			obj name;
@@ -960,6 +963,136 @@ coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 	return ir_cont;
 }
+
+static bool
+deps_determine_machine_list(struct workspace *wk, obj list, enum machine_kind *m)
+{
+	if (!list) {
+		return false;
+	}
+
+	obj l;
+	obj_array_for(wk, list, l) {
+		switch (get_obj_type(wk, l)) {
+		case obj_build_target: {
+			struct obj_build_target *tgt = get_obj_build_target(wk, l);
+			*m = tgt->machine;
+			return true;
+		}
+		case obj_dependency: {
+			struct obj_dependency *dep = get_obj_dependency(wk, l);
+			switch (dep->type) {
+			case dependency_type_pkgconf:
+			case dependency_type_external_library:
+			case dependency_type_appleframeworks: {
+				*m = dep->machine;
+				return true;
+			}
+			case dependency_type_declared: {
+				if (deps_determine_machine_list(wk, dep->dep.raw.deps, m)) {
+					return true;
+				} else if (deps_determine_machine_list(wk, dep->dep.raw.link_with, m)) {
+					return true;
+				} else if (deps_determine_machine_list(wk, dep->dep.raw.link_whole, m)) {
+					return true;
+				}
+				break;
+			}
+			default: break;
+			}
+			break;
+		}
+		default: break;
+		}
+	}
+
+	return false;
+}
+
+static enum machine_kind
+deps_determine_machine(struct workspace *wk, obj link_with, obj link_whole, obj deps)
+{
+	enum machine_kind m = machine_kind_host;
+	if (deps_determine_machine_list(wk, deps, &m)) {
+		return m;
+	} else if (deps_determine_machine_list(wk, link_with, &m)) {
+		return m;
+	} else if (deps_determine_machine_list(wk, link_whole, &m)) {
+		return m;
+	}
+
+	return machine_kind_host;
+}
+
+static bool
+deps_check_machine_matches_list(struct workspace *wk, obj tgt_name, enum machine_kind tgt_machine, obj list)
+{
+	if (!list) {
+		return true;
+	}
+
+	enum machine_kind machine;
+	obj l;
+	obj_array_for(wk, list, l) {
+		switch (get_obj_type(wk, l)) {
+		case obj_build_target: {
+			struct obj_build_target *tgt = get_obj_build_target(wk, l);
+			machine = tgt->machine;
+			break;
+		}
+		case obj_dependency: {
+			struct obj_dependency *dep = get_obj_dependency(wk, l);
+			switch (dep->type) {
+			case dependency_type_pkgconf:
+			case dependency_type_external_library:
+			case dependency_type_appleframeworks: break;
+			case dependency_type_declared: {
+				if (!deps_check_machine_matches(wk,
+					    tgt_name,
+					    tgt_machine,
+					    dep->dep.raw.link_with,
+					    dep->dep.raw.link_whole,
+					    dep->dep.raw.deps)) {
+					return false;
+				}
+				continue;
+			}
+			default: continue;
+			}
+
+			machine = dep->machine;
+			break;
+		}
+		default: continue;
+		}
+
+		if (machine != tgt_machine) {
+			vm_error(wk,
+				"target %o is built for the %s machine while its dependency %o is built for the %s machine",
+				tgt_name,
+				machine_kind_to_s(tgt_machine),
+				l,
+				machine_kind_to_s(machine));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+deps_check_machine_matches(struct workspace *wk,
+	obj tgt_name,
+	enum machine_kind tgt_machine,
+	obj link_with,
+	obj link_whole,
+	obj deps)
+{
+	return deps_check_machine_matches_list(wk, tgt_name, tgt_machine, link_with)
+	       && deps_check_machine_matches_list(wk, tgt_name, tgt_machine, link_whole)
+	       && deps_check_machine_matches_list(wk, tgt_name, tgt_machine, deps);
+}
+
 bool
 func_declare_dependency(struct workspace *wk, obj _, obj *res)
 {
@@ -1068,6 +1201,17 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 
 	if (akw[kw_dependencies].set) {
 		dep_process_deps(wk, akw[kw_dependencies].val, &dep->dep);
+	}
+
+	dep->machine
+		= deps_determine_machine(wk, akw[kw_link_with].val, akw[kw_link_whole].val, akw[kw_dependencies].val);
+	if (!deps_check_machine_matches(wk,
+		    dep->name,
+		    dep->machine,
+		    akw[kw_link_with].val,
+		    akw[kw_link_whole].val,
+		    akw[kw_dependencies].val)) {
+		return false;
 	}
 
 	return true;

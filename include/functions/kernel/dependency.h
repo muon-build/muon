@@ -44,4 +44,11 @@ enum dependency_lookup_method {
 };
 bool dependency_lookup_method_from_s(const struct str *s, enum dependency_lookup_method *lookup_method);
 const char *dependency_lookup_method_to_s(enum dependency_lookup_method method);
+bool
+deps_check_machine_matches(struct workspace *wk,
+	obj tgt_name,
+	enum machine_kind tgt_machine,
+	obj link_with,
+	obj link_whole,
+	obj deps);
 #endif

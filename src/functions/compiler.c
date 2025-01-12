@@ -2031,7 +2031,9 @@ find_library_result_to_dependency(struct workspace *wk, struct find_library_resu
 		}
 	}
 
-	dep->dep.link_language = get_obj_compiler(wk, compiler)->lang;
+	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
+	dep->dep.link_language = comp->lang;
+	dep->machine = comp->machine;
 }
 
 struct compiler_find_library_check_headers_ctx {

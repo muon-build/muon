@@ -324,6 +324,7 @@ struct obj_dependency {
 	enum dep_flags flags;
 	enum dependency_type type;
 	enum include_type include_type;
+	enum machine_kind machine;
 };
 
 struct obj_external_program {
