@@ -401,55 +401,8 @@ else
     endif
 endif
 
-meson_tests_dir = meson.current_source_dir() / 'meson-tests'
-
-if git.found()
-    meson_tests_sha = '02fd63af74b71e8e8fbfcd39c3c582256190f464'
-
-    if not fs.is_dir(meson_tests_dir)
-        run_command(
-            git,
-            'clone',
-            get_option('meson_tests_repo'),
-            meson_tests_dir,
-            capture: false,
-            check: true,
-        )
-    elif fs.is_dir(meson_tests_dir / '.git')
-        meson_tests_clean = run_command(git, '-C', meson_tests_dir, 'diff', '--quiet', check: false).returncode() == 0
-
-        # If the meson-tests repo has no modifications and is not up to date,
-        # force update it.
-        if meson_tests_clean and run_command(
-            git,
-            '-C', meson_tests_dir,
-            'merge-base',
-            '--is-ancestor', meson_tests_sha,
-            'HEAD',
-            check: false,
-        ).returncode() != 0
-            warning('force-updating meson-tests repo')
-            run_command(
-                git,
-                '-C', meson_tests_dir,
-                'fetch',
-                '--all',
-                capture: false,
-                check: true,
-            )
-
-            run_command(
-                git,
-                '-C', meson_tests_dir,
-                'reset',
-                '--hard', 'origin/master',
-                capture: false,
-                check: true,
-            )
-        endif
-    endif
-endif
-
+subproject('meson-tests', required: false)
+meson_tests_dir = meson.project_source_root() / 'subprojects/meson-tests'
 skip_meson_tests = not fs.is_dir(meson_tests_dir)
 if skip_meson_tests
     warning('meson-tests not found, tests imported from meson will not be run')
@@ -457,7 +410,7 @@ endif
 
 test_dir = meson.current_build_dir()
 
-is_git_repo = fs.is_dir('meson-tests' / '.git')
+is_git_repo = fs.is_dir(meson_tests_dir / '.git')
 
 foreach t : tests
     # The exit code to use when a test is skipped
@@ -465,8 +418,13 @@ foreach t : tests
     extra = t.get(1, [])
     kwargs = t.get(2, {})
 
-    if test.startswith('meson-test') and skip_meson_tests
-        continue
+    if test.startswith('meson-tests')
+        if skip_meson_tests
+            continue
+        endif
+        test_source = meson_tests_dir / test.substring(12)
+    else
+        test_source = meson.current_source_dir() / test
     endif
 
     # skip objc tests on non darwin platforms
@@ -503,7 +461,7 @@ foreach t : tests
             meson.current_source_dir() / 'runner.meson',
             muon,
             ninja,
-            meson.current_source_dir() / test,
+            test_source,
             test_dir / test,
             skip_exit_code.to_string(),
             skip_analyze.to_string(),
