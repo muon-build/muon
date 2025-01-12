@@ -457,6 +457,30 @@ func_add_project_dependencies(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
+add_languages(struct workspace *wk,
+	uint32_t node,
+	obj langs,
+	obj compiler,
+	enum machine_kind machine,
+	enum requirement_type required,
+	bool *missing)
+{
+	obj val;
+	obj_array_for(wk, langs, val) {
+		bool found = false;
+		if (!project_add_language(wk, node, val, compiler, machine, required, &found)) {
+			return false;
+		}
+
+		if (!found) {
+			*missing = true;
+		}
+	}
+
+	return true;
+}
+
+static bool
 func_add_languages(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
@@ -484,16 +508,14 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
 	bool missing = false;
+	if (!add_languages(wk, an[0].node, an[0].val, akw[kw_toolchain].val, machine, required, &missing)) {
+		return false;
+	}
 
-	obj val;
-	obj_array_for(wk, an[0].val, val) {
-		bool found = false;
-		if (!project_add_language(wk, an[0].node, val, akw[kw_toolchain].val, machine, required, &found)) {
+	if (!akw[kw_native].set) {
+		bool _missing = false;
+		if (!add_languages(wk, an[0].node, an[0].val, akw[kw_toolchain].val, machine_kind_build, requirement_auto, &_missing)) {
 			return false;
-		}
-
-		if (!found) {
-			missing = true;
 		}
 	}
 
