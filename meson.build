@@ -121,7 +121,7 @@ else
                 '-std=c99',
             ],
         ),
-        language: ['c', 'cpp'],
+        language: 'c',
     )
 endif
 
