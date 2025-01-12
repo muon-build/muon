@@ -392,6 +392,7 @@ struct obj_compiler {
 	obj ver;
 	obj libdirs;
 	enum compiler_language lang;
+	enum machine_kind machine;
 };
 
 enum install_target_type {

@@ -94,6 +94,9 @@ project_add_language(struct workspace *wk,
 		}
 	}
 
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+	comp->machine = machine;
+
 	obj_dict_seti(wk, current_project(wk)->toolchains[machine], l, comp_id);
 
 	/* if we just added a c or cpp compiler, set the assembly compiler to that */
