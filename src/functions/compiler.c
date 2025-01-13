@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net> SPDX-FileCopyrightText: Luke Drummond <ldrumm@rtps.co>
  * SPDX-FileCopyrightText: Eli Schwartz <eschwartz@archlinux.org>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
@@ -1916,6 +1917,8 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 	case compiler_gcc:
 	case compiler_clang:
 	case compiler_apple_clang: syntax = "gcc"; break;
+	case compiler_clang_cl:
+	case compiler_msvc: syntax = "msvc"; break;
 	case compiler_posix:
 	default: syntax = "other"; break;
 	}
