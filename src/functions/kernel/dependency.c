@@ -1019,6 +1019,10 @@ deps_determine_machine_list(struct workspace *wk, obj list, enum machine_kind *m
 		}
 		case obj_dependency: {
 			struct obj_dependency *dep = get_obj_dependency(wk, l);
+			if (!(dep->flags & dep_flag_found)) {
+				continue;
+			}
+
 			switch (dep->type) {
 			case dependency_type_pkgconf:
 			case dependency_type_external_library:
@@ -1080,6 +1084,10 @@ deps_check_machine_matches_list(struct workspace *wk, obj tgt_name, enum machine
 		}
 		case obj_dependency: {
 			struct obj_dependency *dep = get_obj_dependency(wk, l);
+			if (!(dep->flags & dep_flag_found)) {
+				continue;
+			}
+
 			switch (dep->type) {
 			case dependency_type_pkgconf:
 			case dependency_type_external_library:
