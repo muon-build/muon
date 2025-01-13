@@ -40,6 +40,6 @@ tmp_dir="$PWD/tarball_tmp"
 final="$1"
 
 setup_tmp_dirs_
-archive_and_merge_ "." "tests/project/meson-tests"
+archive_and_merge_ "." "subprojects/meson-tests" "subprojects/meson-docs"
 create_final_archive_
 rm -rf "$tmp_dir"
