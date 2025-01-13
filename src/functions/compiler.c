@@ -148,7 +148,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	case compiler_check_mode_run:
 	case compiler_check_mode_link: ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
-	case compiler_check_mode_compile: ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compiler_check_mode_compile:
+		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compiler_check_mode_preprocess: break;
 	}
@@ -167,8 +168,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	switch (opts->mode) {
-	case compiler_check_mode_preprocess: push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp)); break;
-	case compiler_check_mode_compile: push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp)); break;
+	case compiler_check_mode_preprocess:
+		push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
+		break;
+	case compiler_check_mode_compile:
+		push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
+		break;
 	case compiler_check_mode_run: break;
 	case compiler_check_mode_link: {
 		push_args(wk,
@@ -1973,13 +1978,13 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 	// First check in dirs if the kw is set.
 	if (extra_dirs) {
 		if ((found = find_library_check_dirs(wk, libname, extra_dirs, ext_order, ext_order_len))) {
-			return (struct find_library_result) { found, find_library_found_location_extra_dirs };
+			return (struct find_library_result){ found, find_library_found_location_extra_dirs };
 		}
 	}
 
 	if (!compiler) {
 		// If we don't have a compiler then just assume that -l $libname works
-		return (struct find_library_result) { make_str(wk, libname), find_library_found_location_link_arg };
+		return (struct find_library_result){ make_str(wk, libname), find_library_found_location_link_arg };
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
@@ -1987,7 +1992,7 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 	// Next, check system libdirs
 	if (!found) {
 		if ((found = find_library_check_dirs(wk, libname, comp->libdirs, ext_order, ext_order_len))) {
-			return (struct find_library_result) { found, find_library_found_location_system_dirs };
+			return (struct find_library_result){ found, find_library_found_location_system_dirs };
 		}
 	}
 
@@ -2000,15 +2005,16 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 
 		const char *src = "int main(void) { return 0; }\n";
 		if (!compiler_check(wk, &opts, src, 0, &ok)) {
-			return (struct find_library_result) { 0 };
+			return (struct find_library_result){ 0 };
 		}
 
 		if (ok) {
-			return (struct find_library_result) { make_str(wk, libname), find_library_found_location_link_arg };
+			return (struct find_library_result){ make_str(wk, libname),
+				find_library_found_location_link_arg };
 		}
 	}
 
-	return (struct find_library_result) { 0 };
+	return (struct find_library_result){ 0 };
 }
 
 void
@@ -2138,7 +2144,8 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	struct find_library_result find_result = find_library(wk, self, get_cstr(wk, an[0].val), akw[kw_dirs].val, flags);
+	struct find_library_result find_result
+		= find_library(wk, self, get_cstr(wk, an[0].val), akw[kw_dirs].val, flags);
 	bool found = find_result.found != 0;
 
 	if (found && akw[kw_has_headers].set) {
@@ -2555,7 +2562,8 @@ func_compiler_get_internal_static_linker_id(struct workspace *wk, obj self, obj 
 		return false;
 	}
 
-	*res = make_str(wk, static_linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_static_linker]].id);
+	*res = make_str(
+		wk, static_linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_static_linker]].id);
 	return true;
 }
 
