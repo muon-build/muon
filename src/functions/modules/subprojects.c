@@ -219,6 +219,9 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 		goto cont;
 	}
 
+	if (!fs_dir_exists(wrap.dest_dir.buf)) {
+		goto cont;
+	}
 	if (ctx->force) {
 		LOG_I("removing %s", wrap.dest_dir.buf);
 		fs_rmdir_recursive(wrap.dest_dir.buf, true);

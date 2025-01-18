@@ -89,7 +89,7 @@ static bool
 cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace *wk = _ctx;
-	bool force;
+	bool force = false;
 
 	OPTSTART("f") {
 	case 'f': force = true; break;
