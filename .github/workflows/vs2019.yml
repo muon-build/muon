@@ -41,3 +41,26 @@ jobs:
         run: >
           build\muon.exe -vC build test
           || exit 0
+      - name: upload-binary
+        shell: bash
+        env:
+          GH_DEPLOY: 1
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          cat >> ~/.ssh/config <<EOF
+          Host mochiro.moe
+              IdentityFile ~/.ssh/deploy
+              IdentitiesOnly yes
+          EOF
+          . "build/version.sh"
+          exe_name="muon-$version-amd64-win.exe"
+          dest_dir="muon/releases/$version"
+          ssh \
+            -o StrictHostKeyChecking=no\
+            -p 2975\
+            deploy@mochiro.moe\
+            "sh -c 'mkdir -p \"$dest_dir\"; cat -> \"$dest_dir/$exe_name\"'"\
+            < "build/muon.exe"
+        if: matrix.arch == 'amd64' && github.event_name != 'pull_request'
