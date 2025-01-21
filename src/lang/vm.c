@@ -2390,33 +2390,15 @@ vm_execute(struct workspace *wk)
  * scope_stack.
  */
 
-struct vm_check_scope_ctx {
-	const char *name;
-	obj res, scope;
-	bool found;
-};
-
-static enum iteration_result
-vm_check_scope(struct workspace *wk, void *_ctx, obj scope)
-{
-	struct vm_check_scope_ctx *ctx = _ctx;
-	if (obj_dict_index_str(wk, scope, ctx->name, &ctx->res)) {
-		ctx->scope = scope;
-		ctx->found = true;
-	}
-	return ir_cont;
-}
-
 static bool
 vm_get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
 {
-	struct vm_check_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, vm_check_scope);
-
-	if (ctx.found) {
-		*res = ctx.res;
-		*scope = ctx.scope;
-		return true;
+	obj s;
+	obj_array_for(wk, wk->vm.scope_stack, s) {
+		if (obj_dict_index_str(wk, s, name, res)) {
+			*scope = s;
+			return true;
+		}
 	}
 
 	return false;
@@ -2435,23 +2417,16 @@ vm_get_variable(struct workspace *wk, const char *name, obj *res)
 	}
 }
 
-static enum iteration_result
-vm_scope_stack_dup_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	obj *r = _ctx;
-	obj scope;
-	obj_dict_dup(wk, v, &scope);
-	obj_array_push(wk, *r, scope);
-	return ir_cont;
-}
-
 static obj
 vm_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
-	obj r;
+	obj r, v;
 	make_obj(wk, &r, obj_array);
-
-	obj_array_foreach(wk, scope_stack, &r, vm_scope_stack_dup_iter);
+	obj_array_for(wk, scope_stack, v) {
+		obj scope;
+		obj_dict_dup(wk, v, &scope);
+		obj_array_push(wk, r, scope);
+	}
 	return r;
 }
 
