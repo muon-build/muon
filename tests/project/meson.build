@@ -14,7 +14,7 @@ tests = [
     ['muon/str'],
     ['muon/python', ['python']],
     ['muon/script_module'],
-    ['muon/objc and cpp'],
+    ['muon/objc and cpp', ['objc']],
 
     # project tests imported from meson unit tests
 
