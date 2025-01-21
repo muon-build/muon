@@ -9,7 +9,9 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "args.h"
 #include "external/samurai/ctx.h"
+#include "lang/string.h"
 #include "platform/filesystem.h"
 
 #include "external/samurai/env.h"
@@ -88,37 +90,17 @@ samu_nodestat(struct samu_node *n)
 struct samu_string *
 samu_nodepath(struct samu_ctx *ctx, struct samu_node *n, bool escape)
 {
-	char *s, *d;
-	int nquote;
-
 	if (!escape)
 		return n->path;
 	if (n->shellpath)
 		return n->shellpath;
-	escape = false;
-	nquote = 0;
-	for (s = n->path->s; *s; ++s) {
-		if (!isalnum(*(unsigned char *)s) && !strchr("_+-./", *s))
-			escape = true;
-		if (*s == '\'')
-			++nquote;
-	}
-	if (escape) {
-		n->shellpath = samu_mkstr(&ctx->arena, n->path->n + 2 + 3 * nquote);
-		d = n->shellpath->s;
-		*d++ = '\'';
-		for (s = n->path->s; *s; ++s) {
-			*d++ = *s;
-			if (*s == '\'') {
-				*d++ = '\\';
-				*d++ = '\'';
-				*d++ = '\'';
-			}
-		}
-		*d++ = '\'';
-	} else {
-		n->shellpath = n->path;
-	}
+
+	SBUF_manual(buf);
+	shell_escape(0, &buf, n->path->s);
+	n->shellpath = samu_mkstr(&ctx->arena, buf.len);
+	memcpy(n->shellpath->s, buf.buf, buf.len);
+	sbuf_destroy(&buf);
+
 	return n->shellpath;
 }
 
