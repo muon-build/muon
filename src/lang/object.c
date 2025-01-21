@@ -970,6 +970,13 @@ obj_array_pop(struct workspace *wk, obj arr)
 	return t;
 }
 
+void
+obj_array_clear(struct workspace *wk, obj arr)
+{
+	struct obj_array *a = get_obj_array(wk, arr);
+	*a = (struct obj_array) { 0 };
+}
+
 static enum iteration_result
 obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 {
