@@ -21,7 +21,19 @@ source_root = argv[2]
 fail_fast = 'f' in argv # TODO make this a proper argument
 
 files = []
+files_cmd_len = 0
+files_len = 0
 exclude = ['badnum.meson', 'line_continuation.meson']
+failing_files = []
+
+func test_files(files list[str]) -> list[str]
+    if files.length() > 0
+        res = run_command(muon, 'fmt', '-el', files, check: false)
+        return res.stdout().splitlines()
+    endif
+
+    return []
+endfunc
 
 foreach f : file_list(source_root)
     basename = fs.name(f)
@@ -29,30 +41,31 @@ foreach f : file_list(source_root)
         continue
     endif
 
-    files += source_root / f
+    f = source_root / f
+    files += f
+    files_len += 1
+    files_cmd_len += f.length()
+
+    if files_cmd_len > 4096
+        failing_files += test_files(files)
+        files.clear()
+        files_cmd_len = 0
+    endif
+
+    if fail_fast and failing_files.length() > 0
+        break
+    endif
 endforeach
 
-res = run_command(muon, 'fmt', '-el', files, check: false)
+failing_files += test_files(files)
 
 diff = find_program('diff', required: false)
 
-failing_files = res.stdout().splitlines()
-
-files_len = files.length()
 failing_len = failing_files.length()
 passing_len = files_len - failing_len
 
 foreach path : failing_files
     print(f'\033[31mfailing\033[0m: @path@\n')
-    if diff.found()
-        tmp_file = '/tmp/muon_fmt_diff_tmp'
-        fs.write(tmp_file, run_command(muon, 'fmt', path).stdout())
-        print(run_command(diff, path, tmp_file).stdout())
-    endif
-
-    if fail_fast
-        break
-    endif
 endforeach
 
 print(f'@passing_len@/@files_len@ passed\n')
