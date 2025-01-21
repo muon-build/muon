@@ -15,8 +15,8 @@ env = {}
 cmd = []
 expect = []
 foreach n : range(100)
-    env += {f'envvar@n@': f'val@n@'}
-    cmd += f'$envvar@n@'
+    env += {f'ENVVAR@n@': f'val@n@'}
+    cmd += f'$ENVVAR@n@'
     expect += f'val@n@'
 endforeach
 
