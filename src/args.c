@@ -36,10 +36,9 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 }
 
 void
-shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, const char *escape_inner)
 {
 	const char *need_escaping = "\"'$ \\><&#()\n";
-	const char *escape = "\"$\\";
 	const char *s;
 	bool do_esc = false;
 
@@ -63,13 +62,19 @@ shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 	sbuf_push(wk, sb, '"');
 
 	for (s = str; *s; ++s) {
-		if (strchr(escape, *s)) {
+		if (strchr(escape_inner, *s)) {
 			sbuf_push(wk, sb, '\\');
 		}
 		sbuf_push(wk, sb, *s);
 	}
 
 	sbuf_push(wk, sb, '"');
+}
+
+void
+shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+{
+	shell_escape_custom(wk, sb, str, "\"$\\");
 }
 
 static void

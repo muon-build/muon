@@ -561,7 +561,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 			if (!p[0]) {
 				if (i > 0) {
 					sbuf_clear(&arg_buf);
-					shell_escape(0, &arg_buf, arg);
+					shell_escape_custom(0, &arg_buf, arg, "\"\\");
 					sbuf_pushf(0, cmd, " %s", arg_buf.buf);
 				}
 
@@ -576,7 +576,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		uint32_t i;
 		for (i = 1; argv[i]; ++i) {
 			sbuf_clear(&arg_buf);
-			shell_escape(0, &arg_buf, argv[i]);
+			shell_escape_custom(0, &arg_buf, argv[i], "\"\\");
 			sbuf_pushf(0, cmd, " %s", arg_buf.buf);
 		}
 	}
