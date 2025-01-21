@@ -547,3 +547,34 @@ const struct func_impl impl_tbl_string[] = {
 	{ "version_compare", func_version_compare, tc_bool, true },
 	{ NULL, NULL },
 };
+
+static bool
+func_string_length(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	*res = make_number(wk, get_str(wk, self)->len);
+	return true;
+}
+
+const struct func_impl impl_tbl_string_internal[] = {
+	{ "contains", func_string_contains, tc_bool, true },
+	{ "endswith", func_string_endswith, tc_bool, true },
+	{ "format", func_format, tc_string, true },
+	{ "join", func_join, tc_string, true },
+	{ "replace", func_string_replace, tc_string, true },
+	{ "split", func_split, tc_array, true },
+	{ "splitlines", func_splitlines, tc_array, true },
+	{ "startswith", func_string_startswith, tc_bool, true },
+	{ "strip", func_strip, tc_string, true },
+	{ "substring", func_string_substring, tc_string, true },
+	{ "to_int", func_string_to_int, tc_number, true },
+	{ "to_lower", func_to_lower, tc_string, true },
+	{ "to_upper", func_to_upper, tc_string, true },
+	{ "underscorify", func_underscorify, tc_string, true },
+	{ "version_compare", func_version_compare, tc_bool, true },
+	{ "length", func_string_length, tc_number, true },
+	{ NULL, NULL },
+};
