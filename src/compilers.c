@@ -1511,8 +1511,7 @@ TOOLCHAIN_PROTO_2s(linker_posix_args_input_output)
 }
 
 /* technically not a posix linker argument, but include it here since it is so
- * common
- */
+ * common */
 
 TOOLCHAIN_PROTO_0(linker_posix_args_shared)
 {
@@ -1713,6 +1712,10 @@ build_compilers(void)
 	posix.args.include = compiler_posix_args_include;
 	posix.args.include_system = compiler_posix_args_include;
 	posix.args.define = compiler_posix_args_define;
+	posix.args.linker_passthrough = linker_args_passthrough;
+	posix.args.pic = compiler_gcc_args_pic;
+	posix.args.specify_lang = compiler_gcc_args_specify_lang;
+	posix.args.werror = compiler_gcc_args_werror;
 	posix.default_linker = linker_posix;
 	posix.default_static_linker = static_linker_ar_posix;
 
