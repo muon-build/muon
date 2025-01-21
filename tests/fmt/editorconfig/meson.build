@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-editorconfig_test = find_program('test.sh')
+sh = find_program('sh', required: false)
+if not sh.found()
+    subdir_done()
+endif
 
 foreach dir : [
     'basic',
@@ -11,8 +14,12 @@ foreach dir : [
 ]
     test(
         'editorconfig ' + dir,
-        editorconfig_test,
-        args: [muon, meson.current_source_dir() / dir / 'meson.build'],
+        sh,
+        args: [
+            meson.current_source_dir() / 'test.sh',
+            muon,
+            meson.current_source_dir() / dir / 'meson.build'
+        ],
         suite: 'fmt',
     )
 endforeach
