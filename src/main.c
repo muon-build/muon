@@ -76,7 +76,7 @@ ret:
 }
 
 static void
-setup_platform_env(const char *build_dir)
+setup_platform_env(const char *build_dir, bool force)
 {
 	if (host_machine.sys == machine_system_windows) {
 		SBUF_manual(cache);
@@ -90,7 +90,7 @@ setup_platform_env(const char *build_dir)
 			}
 		}
 
-		vsenv_setup(cache_path, false);
+		vsenv_setup(cache_path, force);
 	}
 }
 
@@ -673,7 +673,7 @@ cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]
 
 		*sep = 0;
 
-		enum toolchain_component component;
+		uint32_t component;
 		const char *type = sep + 1;
 
 		if (!toolchain_component_from_s(optarg, &component)) {
@@ -681,7 +681,7 @@ cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]
 			return false;
 		}
 
-		switch (component) {
+		switch ((enum toolchain_component)component) {
 		case toolchain_component_compiler:
 			if (!compiler_type_from_s(type, &comp.type[component])) {
 				LOG_E("unknown compiler type: %s", type);
@@ -841,7 +841,7 @@ cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	setup_platform_env(".");
+	setup_platform_env(".", false);
 
 	return samu_main(argc - argi, (char **)&argv[argi], 0);
 }
@@ -928,7 +928,7 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".");
+	setup_platform_env(".", false);
 
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
@@ -999,7 +999,27 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	const char *build = argv[argi];
 	++argi;
 
-	setup_platform_env(build);
+	// Extract any relevant -D options that need to be handled very early.
+	// Currently this is only vsenv.  These haven't been added to any options
+	// dict yet so we need to manually scan the option_overrides array.
+	struct {
+		bool vsenv_force;
+	} opts = { 0 };
+	{
+		uint32_t i;
+		for (i = 0; i < wk.option_overrides.len; ++i) {
+			struct option_override *oo = arr_get(&wk.option_overrides, i);
+			if (oo->proj) {
+				continue;
+			}
+
+			if (str_eql(&WKSTR("vsenv"), get_str(&wk, oo->name))) {
+				opts.vsenv_force = str_eql(&WKSTR("true"), get_str(&wk, oo->val));
+			}
+		}
+	}
+
+	setup_platform_env(build, opts.vsenv_force);
 
 	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
