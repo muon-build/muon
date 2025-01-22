@@ -310,7 +310,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 
 	ctx->process = INVALID_HANDLE_VALUE;
 
-	LL("executing: (%d)", strlen(command_line));
+	LL("executing: ");
 	if (log_should_print(log_debug)) {
 		log_plain("%s\n", command_line);
 	}
@@ -487,6 +487,39 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	return run_cmd_collect(ctx) == run_cmd_finished;
 }
 
+static void
+run_cmd_push_argv(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg, bool first)
+{
+	sbuf_clear(arg_buf);
+	shell_escape_custom(0, arg_buf, arg, "\"\\");
+	sbuf_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
+}
+
+static void
+run_cmd_push_arg(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg)
+{
+	run_cmd_push_argv(cmd, arg_buf, arg, false);
+}
+
+static bool
+run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct sbuf *cmd, struct sbuf *arg_buf, const char *arg, bool lookup)
+{
+	if (lookup) {
+	SBUF_manual(found_cmd);
+	if (!fs_find_cmd(0, &found_cmd, arg)) {
+		ctx->err_msg = "command not found";
+		sbuf_destroy(&found_cmd);
+		return false;
+	}
+
+	run_cmd_push_argv(cmd, arg_buf, found_cmd.buf, true);
+	sbuf_destroy(&found_cmd);
+	} else {
+		run_cmd_push_argv(cmd, arg_buf, arg, true);
+	}
+	return true;
+}
+
 static bool
 argv_to_command_line(struct run_cmd_ctx *ctx,
 	struct source *src,
@@ -495,62 +528,54 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	uint32_t argstr_argc,
 	struct sbuf *cmd)
 {
-	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
-
-	if (argstr) {
-		argv0 = argstr;
-	} else {
-		argv0 = argv[0];
-	}
-
-	if (!argv0 || !*argv0) {
-		LOG_E("missing argv0");
-		return false;
-	}
+	bool res = false;
+	SBUF_manual(arg_buf);
+	const char *argv0 = argstr ? argstr : argv[0];
 
 	sbuf_clear(cmd);
 
-	if (!path_is_basename(argv0)) {
-		if (fs_has_extension(argv0, ".bat")) {
-			sbuf_pushf(0, cmd, "cmd.exe /c \"%s\"", argv0);
-		} else if (fs_exists(argv0)) {
-			DWORD _binary_type;
-			if (!GetBinaryType(argv0, &_binary_type)) {
-				if (!run_cmd_determine_interpreter(src, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
-					return false;
-				}
+	bool have_arg0 = false;
 
-				/* ignore /usr/bin/env on Windows */
-				if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
-					argv0 = new_argv1;
-					new_argv1 = 0;
-				} else {
-					argv0 = new_argv0;
-				}
+	if (fs_has_extension(argv0, ".bat")) {
+		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, "cmd.exe", false)) {
+			goto ret;
+		}
+		run_cmd_push_arg(cmd, &arg_buf, "/c");
+		run_cmd_push_arg(cmd, &arg_buf, argv0);
+		have_arg0 = true;
+	} else if (fs_exists(argv0)) {
+		DWORD _binary_type;
+		if (!GetBinaryType(argv0, &_binary_type)) {
+			const char *new_argv0 = 0, *new_argv1 = 0;
+			if (!run_cmd_determine_interpreter(src, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
+				return false;
 			}
 
-			sbuf_pushf(0, cmd, "\"%s\"", argv0);
-		} else {
-			sbuf_pushf(0, cmd, "\"%s\"", argv0);
-		}
-	} else {
-		SBUF_manual(found_cmd);
+			/* ignore /usr/bin/env on Windows */
+			if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
+				new_argv0 = new_argv1;
+				new_argv1 = 0;
+			}
 
-		if (!fs_find_cmd(0, &found_cmd, argv0)) {
-			ctx->err_msg = "command not found";
-			sbuf_destroy(&found_cmd);
-			return false;
-		}
+			if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, new_argv0, false)) {
+				goto ret;
+			}
 
-		sbuf_pushf(0, cmd, "\"%s\"", found_cmd.buf);
-		sbuf_destroy(&found_cmd);
+			if (new_argv1) {
+				run_cmd_push_arg(cmd, &arg_buf, new_argv1);
+			}
+
+			run_cmd_push_arg(cmd, &arg_buf, argv0);
+
+			have_arg0 = true;
+		}
 	}
 
-	if (new_argv1) {
-		sbuf_pushf(0, cmd, " \"%s\"", new_argv1);
+	if (!have_arg0) {
+		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, argv0, false)) {
+			goto ret;
+		}
 	}
-
-	SBUF_manual(arg_buf);
 
 	if (argstr) {
 		const char *p, *arg;
@@ -560,9 +585,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		for (;; ++p) {
 			if (!p[0]) {
 				if (i > 0) {
-					sbuf_clear(&arg_buf);
-					shell_escape_custom(0, &arg_buf, arg, "\"\\");
-					sbuf_pushf(0, cmd, " %s", arg_buf.buf);
+					run_cmd_push_arg(cmd, &arg_buf, arg);
 				}
 
 				if (++i >= argstr_argc) {
@@ -575,15 +598,14 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	} else {
 		uint32_t i;
 		for (i = 1; argv[i]; ++i) {
-			sbuf_clear(&arg_buf);
-			shell_escape_custom(0, &arg_buf, argv[i], "\"\\");
-			sbuf_pushf(0, cmd, " %s", arg_buf.buf);
+			run_cmd_push_arg(cmd, &arg_buf, argv[i]);
 		}
 	}
 
+	res = true;
+ret:
 	sbuf_destroy(&arg_buf);
-
-	return true;
+	return res;
 }
 
 bool

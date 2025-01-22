@@ -473,15 +473,16 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 
 		if (fs_exe_exists(buf->buf)) {
 			return true;
-		} else {
-			if (!fs_has_extension(buf->buf, ".exe")) {
-				sbuf_pushs(wk, buf, ".exe");
-				if (fs_exe_exists(buf->buf)) {
-					return true;
-				}
-			}
-			return false;
 		}
+
+		if (!fs_has_extension(buf->buf, ".exe")) {
+			sbuf_pushs(wk, buf, ".exe");
+			if (fs_exe_exists(buf->buf)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	if (!(env_path = getenv("PATH"))) {
