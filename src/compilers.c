@@ -1849,6 +1849,7 @@ build_linkers(void)
 	link.args.always = compiler_cl_args_always;
 
 	struct linker lld_link = link;
+	lld_link.args.lib = linker_posix_args_lib;
 	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
 	lld_link.args.always = toolchain_arg_empty_0;
 
