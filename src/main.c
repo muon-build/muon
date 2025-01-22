@@ -75,6 +75,25 @@ ret:
 	return ret;
 }
 
+static void
+setup_platform_env(const char *build_dir)
+{
+	if (host_machine.sys == machine_system_windows) {
+		SBUF_manual(cache);
+		const char *cache_path = 0;
+		if (build_dir) {
+			path_copy(0, &cache, build_dir);
+			path_push(0, &cache, output_path.private_dir);
+			if (fs_dir_exists(cache.buf)) {
+				path_push(0, &cache, "vsenv.txt");
+				cache_path = cache.buf;
+			}
+		}
+
+		vsenv_setup(cache_path, false);
+	}
+}
+
 static bool
 cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -824,6 +843,8 @@ cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
+	setup_platform_env(".");
+
 	return samu_main(argc - argi, (char **)&argv[argi], 0);
 }
 
@@ -909,6 +930,8 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
+	setup_platform_env(".");
+
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
 
@@ -977,6 +1000,8 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	const char *build = argv[argi];
 	++argi;
+
+	setup_platform_env(build);
 
 	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
@@ -1165,7 +1190,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	bool res = false;
 	SBUF_manual(argv0);
 
-	OPTSTART("vC:e:") {
+	OPTSTART("vC:") {
 	case 'v': log_set_lvl(log_debug); break;
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
@@ -1180,23 +1205,11 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 		}
 		break;
 	}
-	case 'e': {
-		if (strcmp(optarg, "vs") != 0) {
-			LOG_E("unsupported env \"%s\", supported envs are: vs", optarg);
-			return false;
-		}
-
-		if (!vsenv_setup(true)) {
-			return false;
-		}
-		break;
-	}
 	}
 	OPTEND(argv[0],
 		"",
 		"  -v - turn on debug messages\n"
-		"  -C <path> - chdir to path\n"
-		"  -e <env> - load environment\n",
+		"  -C <path> - chdir to path\n",
 		commands,
 		-1)
 

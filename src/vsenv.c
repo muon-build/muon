@@ -9,7 +9,6 @@
 
 #include "buf_size.h"
 #include "lang/string.h"
-#include "lang/string.h"
 #include "log.h"
 #include "machines.h"
 #include "platform/filesystem.h"
@@ -18,14 +17,63 @@
 #include "platform/run_cmd.h"
 #include "vsenv.h"
 
-bool
-vsenv_setup(bool force)
+static const char *vsenv_list_sep = "---SPLIT---";
+
+static void
+vsenv_set_vars(const char *vars, uint32_t len)
 {
+	bool sep_seen = false;
+	uint32_t i;
+	for (i = 0; i < len;) {
+		const char *line = vars + i, *p = strstr(line, "\r\n");
+		if (!p) {
+			break;
+		}
+		uint32_t line_len = p - line;
+		struct str l = { line, line_len }, k, v;
+
+		if (!sep_seen) {
+			if (str_eql(&l, &WKSTR(vsenv_list_sep))) {
+				sep_seen = true;
+			}
+		} else if (str_split_in_two(&l, &k, &v, '=')) {
+			os_set_env(&k, &v);
+		}
+
+		i += line_len + 2;
+	}
+}
+
+bool
+vsenv_setup(const char *cache_path, bool force)
+{
+	if (os_get_env("VSINSTALLDIR")) {
+		return true;
+	} else if (fs_has_cmd("cl.exe")) {
+		return true;
+	}
+
+	if (cache_path && fs_file_exists(cache_path)) {
+		struct source src;
+		if (fs_read_entire_file(cache_path, &src)) {
+			vsenv_set_vars(src.src, src.len);
+			fs_source_destroy(&src);
+			return true;
+		}
+	}
+
 	if (!force) {
-		if (os_get_env("VSINSTALLDIR")) {
-			return true;
-		} else if (fs_has_cmd("cl.exe")) {
-			return true;
+		const char *comps[] = {
+			"cc",
+			"gcc",
+			"clang",
+			"clang-cl",
+		};
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(comps); ++i) {
+			if (fs_has_cmd(comps[i])) {
+				return true;
+			}
 		}
 	}
 
@@ -146,15 +194,13 @@ vsenv_setup(bool force)
 		goto ret;
 	}
 
-	const char *sep = "---SPLIT---";
-
 	fprintf(tmp,
 		"@ECHO OFF\r\n"
 		"call \"%s\"\r\n"
 		"ECHO %s\r\n"
 		"SET\r\n",
 		path.buf,
-		sep);
+		vsenv_list_sep);
 	fs_fclose(tmp);
 
 	if (!run_cmd_argv(&bat_cmd_ctx, (char *const[]){ tmp_path, 0 }, 0, 0)) {
@@ -162,24 +208,13 @@ vsenv_setup(bool force)
 		goto ret;
 	}
 
-	bool sep_seen = false;
-	for (i = 0; i < bat_cmd_ctx.out.len;) {
-		const char *line = bat_cmd_ctx.out.buf + i, *p = strstr(line, "\r\n");
-		if (!p) {
-			break;
-		}
-		uint32_t line_len = p - line;
-		struct str l = { line, line_len }, k, v;
+	vsenv_set_vars(bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len);
 
-		if (!sep_seen) {
-			if (str_eql(&l, &WKSTR(sep))) {
-				sep_seen = true;
-			}
-		} else if (str_split_in_two(&l, &k, &v, '=')) {
-			os_set_env(&k, &v);
+	if (cache_path) {
+		L("writing %s", cache_path);
+		if (!fs_write(cache_path, (const uint8_t *)bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len)) {
+			goto ret;
 		}
-
-		i += line_len + 2;
 	}
 
 	res = true;
