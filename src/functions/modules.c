@@ -132,12 +132,13 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 
 	{
 		enum {
-			schema_type_none,
+			schema_type_file,
 			schema_type_embedded,
 			schema_type_builtin,
 		} schema;
 
 		const char *schema_type_str[] = {
+			[schema_type_file] = "file",
 			[schema_type_embedded] = "embedded",
 			[schema_type_builtin] = "builtin",
 		};
@@ -153,7 +154,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			if (wk->vm.lang_mode == language_external && (proj = current_project(wk)) && proj->module_dir) {
 				sbuf_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
 
-				sbuf_push(wk, &module_path, ';');
+				sbuf_pushs(wk, &module_path, ";file:");
 
 				SBUF(new_module_path);
 				path_push(wk, &new_module_path, get_cstr(wk, proj->source_root));
@@ -179,7 +180,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			{ // Parse schema if given
 				if ((sep = memchr(path.s, ':', path.len))) {
 					const struct str schema_str = { path.s, sep - path.s };
-					for (schema = 0; schema < ARRAY_LEN(schema_type_str); ++schema) {
+					for (schema = 0; (uint32_t)schema < ARRAY_LEN(schema_type_str); ++schema) {
 						if (schema_type_str[schema]
 							&& str_eql(&WKSTR(schema_type_str[schema]), &schema_str)) {
 							break;
@@ -187,17 +188,17 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					}
 
 					if (schema == ARRAY_LEN(schema_type_str)) {
-						vm_error(wk,
-							"invalid schema %.*s in module path",
-							schema_str.len,
-							schema_str.s);
-						return false;
+						goto missing_schema;
 					}
 
 					path.s = sep + 1;
 					path.len -= (schema_str.len + 1);
 				} else {
-					schema = schema_type_none;
+missing_schema:
+					vm_error(wk,
+						"missing or invalid schema in module path: %.*s",
+						path.len, path.s);
+					return false;
 				}
 			}
 
@@ -215,7 +216,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 			}
 
 			switch (schema) {
-			case schema_type_none:
+			case schema_type_file:
 			case schema_type_embedded: {
 				struct module_lookup_script_opts opts = {
 					.encapsulate = encapsulate,
@@ -243,7 +244,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 							*res);
 					}
 
-					if (schema == schema_type_none) {
+					if (schema == schema_type_file) {
 						obj_array_push(
 							wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
 					}
