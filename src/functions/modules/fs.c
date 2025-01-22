@@ -967,6 +967,23 @@ func_module_fs_delete_with_suffix(struct workspace *wk, obj rcrv, obj *res)
 	return fs_dir_foreach(base_dir, &ctx, delete_suffix_recursive);
 }
 
+static bool
+func_module_fs_canonicalize(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	SBUF(path);
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noexpanduser, &path)) {
+		return false;
+	}
+
+	*res = sbuf_into_str(wk, &path);
+	return true;
+}
+
 const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_fs_as_posix, tc_string, true },
 	{ "copyfile", func_module_fs_copyfile },
@@ -999,5 +1016,6 @@ const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "without_ext", func_module_fs_without_ext, tc_string, true },
 	{ "write", func_module_fs_write, .fuzz_unsafe = true },
 	{ "delete_with_suffix", func_module_fs_delete_with_suffix },
+	{ "canonicalize", func_module_fs_canonicalize, tc_string, true },
 	{ NULL, NULL },
 };
