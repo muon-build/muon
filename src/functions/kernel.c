@@ -688,11 +688,36 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		.buf = &buf,
 		.prog = str,
 	};
-
 	enum wrap_mode wrap_mode = 0;
+
+	/* 0. Special case overrides, not skippable */
+	if (t == obj_string) {
+		 if (strcmp(str, "meson") == 0) {
+			make_obj(wk, ctx->res, obj_external_program);
+			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+			ep->found = true;
+			make_obj(wk, &ep->cmd_array, obj_array);
+			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
+			obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
+
+			ctx->found = true;
+			return true;
+		} else if (strcmp(str, "muon") == 0) {
+			make_obj(wk, ctx->res, obj_external_program);
+			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+			ep->found = true;
+			make_obj(wk, &ep->cmd_array, obj_array);
+			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
+
+			ctx->found = true;
+			return true;
+		}
+	}
+
 	if (wk->vm.lang_mode == language_internal) {
 		goto find_program_step_4;
 	}
+
 	/* 1. Program overrides set via meson.override_find_program() */
 	if (t == obj_string) {
 		if (!find_program_check_override(wk, ctx, prog)) {
@@ -758,7 +783,7 @@ find_program_step_4:
 	}
 
 find_program_step_8:
-	/* 8. Special cases */
+	/* 8. Special cases, only if the binary was not found by regular means */
 	if (t == obj_string) {
 		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
 			make_obj(wk, ctx->res, obj_external_program);
@@ -767,16 +792,6 @@ find_program_step_8:
 			make_obj(wk, &ep->cmd_array, obj_array);
 			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
 			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
-
-			ctx->found = true;
-			return true;
-		} else if (strcmp(str, "meson") == 0) {
-			make_obj(wk, ctx->res, obj_external_program);
-			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-			ep->found = true;
-			make_obj(wk, &ep->cmd_array, obj_array);
-			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
-			obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
 
 			ctx->found = true;
 			return true;
