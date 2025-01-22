@@ -2393,15 +2393,17 @@ vm_execute(struct workspace *wk)
 static bool
 vm_get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
 {
-	obj s;
+	bool found = false;
+	obj s, idx;
 	obj_array_for(wk, wk->vm.scope_stack, s) {
-		if (obj_dict_index_str(wk, s, name, res)) {
+		if (obj_dict_index_str(wk, s, name, &idx)) {
+			*res = idx;
 			*scope = s;
-			return true;
+			found = true;
 		}
 	}
 
-	return false;
+	return found;
 }
 
 static bool
