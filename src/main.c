@@ -521,8 +521,6 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
-	machine_init();
-
 	wk.vm.lang_mode = language_internal;
 
 	if (embedded) {
@@ -1236,6 +1234,7 @@ main(int argc, char *argv[])
 	path_init();
 
 	compilers_init();
+	machine_init();
 
 	bool res;
 	bool meson_compat = false;

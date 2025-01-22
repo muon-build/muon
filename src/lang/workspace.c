@@ -116,8 +116,6 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 void
 workspace_init_runtime(struct workspace *wk)
 {
-	machine_init();
-
 	wk->argv0 = "dummy";
 	wk->build_root = "dummy";
 
