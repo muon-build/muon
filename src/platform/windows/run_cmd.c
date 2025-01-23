@@ -502,21 +502,17 @@ run_cmd_push_arg(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg)
 }
 
 static bool
-run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct sbuf *cmd, struct sbuf *arg_buf, const char *arg, bool lookup)
+run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct sbuf *cmd, struct sbuf *arg_buf, const char *arg)
 {
-	if (lookup) {
-		SBUF_manual(found_cmd);
-		if (!fs_find_cmd(0, &found_cmd, arg)) {
-			ctx->err_msg = "command not found";
-			sbuf_destroy(&found_cmd);
-			return false;
-		}
-
-		run_cmd_push_argv(cmd, arg_buf, found_cmd.buf, true);
+	SBUF_manual(found_cmd);
+	if (!fs_find_cmd(0, &found_cmd, arg)) {
+		ctx->err_msg = "command not found";
 		sbuf_destroy(&found_cmd);
-	} else {
-		run_cmd_push_argv(cmd, arg_buf, arg, true);
+		return false;
 	}
+
+	run_cmd_push_argv(cmd, arg_buf, found_cmd.buf, true);
+	sbuf_destroy(&found_cmd);
 	return true;
 }
 
@@ -537,7 +533,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	bool have_arg0 = false;
 
 	if (fs_has_extension(argv0, ".bat")) {
-		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, "cmd.exe", false)) {
+		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, "cmd.exe")) {
 			goto ret;
 		}
 		run_cmd_push_arg(cmd, &arg_buf, "/c");
@@ -557,7 +553,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 				new_argv1 = 0;
 			}
 
-			if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, new_argv0, false)) {
+			if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, new_argv0)) {
 				goto ret;
 			}
 
@@ -572,7 +568,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	}
 
 	if (!have_arg0) {
-		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, argv0, false)) {
+		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, argv0)) {
 			goto ret;
 		}
 	}
