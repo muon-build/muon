@@ -485,6 +485,11 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 		return false;
 	}
 
+	if (strcmp(cmd, "cmd") == 0 || strcmp(cmd, "cmd.exe") == 0) {
+		sbuf_pushs(wk, buf, "cmd.exe");
+		return true;
+	}
+
 	if (!(env_path = getenv("PATH"))) {
 		LOG_E("failed to get the value of PATH");
 		return false;
