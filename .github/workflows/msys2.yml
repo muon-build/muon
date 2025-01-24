@@ -37,6 +37,8 @@ jobs:
         update: true
         install: ${{ matrix.config.install }}
     - name: bootstrap
+      env:
+        GIT_HTTP_USER_AGENT: "git/2.0.0 (for:~lattis/muon; contact:lattis@mochiro.moe)"
       run: |
         CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
         CC=gcc CFLAGS=-std=c99 ./build/muon-bootstrap.exe setup build

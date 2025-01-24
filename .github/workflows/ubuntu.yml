@@ -23,6 +23,8 @@ jobs:
 
       # Bootstrap basic build.
       - name: Bootstrap
+        env:
+          GIT_HTTP_USER_AGENT: "git/2.0.0 (for:~lattis/muon; contact:lattis@mochiro.moe)"
         run: |
           ./bootstrap.sh build
           PATH="build:$PATH" build/muon-bootstrap -v setup build
@@ -71,6 +73,8 @@ jobs:
 
       # Bootstrap basic build.
       - name: Bootstrap
+        env:
+          GIT_HTTP_USER_AGENT: "git/2.0.0 (for:~lattis/muon; contact:lattis@mochiro.moe)"
         run: |
           ./bootstrap.sh build
           PATH="build:$PATH" build/muon-bootstrap -v setup build
