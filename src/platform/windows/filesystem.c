@@ -93,7 +93,7 @@ fs_exe_exists(const char *path)
 
 	size_low = GetFileSize(h, &size_high);
 	if ((size_low == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR)) {
-		LOG_I("can not get the size of file %s", path);
+		/* LOG_I("can not get the size of file %s", path); */
 		goto close_file;
 	}
 
@@ -108,44 +108,44 @@ fs_exe_exists(const char *path)
 	 * the rest is useless for us.
 	 */
 	if (size < 64) {
-		LOG_I("file %s is too small", path);
+		/* LOG_I("file %s is too small", path); */
 		goto close_file;
 	}
 
 	fm = CreateFileMapping(h, NULL, PAGE_READONLY, 0UL, 0UL, NULL);
 	if (!fm) {
-		LOG_I("Can not map file: %s", win32_error());
+		/* LOG_I("Can not map file: %s", win32_error()); */
 		goto close_file;
 	}
 
 	base = MapViewOfFile(fm, FILE_MAP_READ, 0, 0, 0);
 	if (!base) {
-		LOG_I("Can not view map: %s", win32_error());
+		/* LOG_I("Can not view map: %s", win32_error()); */
 		goto close_fm;
 	}
 
 	iter = base;
 
 	if (*((WORD *)iter) != 0x5a4d) {
-		LOG_I("file %s is not a MS-DOS file", path);
+		/* LOG_I("file %s is not a MS-DOS file", path); */
 		goto unmap;
 	}
 
 	offset = *((DWORD *)(iter + 0x3c));
 	if (size < offset + 24) {
-		LOG_I("file %s is too small", path);
+		/* LOG_I("file %s is too small", path); */
 		goto unmap;
 	}
 
 	iter += offset;
 	if ((iter[0] != 'P') && (iter[1] != 'E') && (iter[2] != '\0') && (iter[3] != '\0')) {
-		LOG_I("file %s is not a PE file", path);
+		/* LOG_I("file %s is not a PE file", path); */
 		goto unmap;
 	}
 
 	iter += 22;
 	if ((!((*((WORD *)iter)) & 0x0002)) || ((*((WORD *)iter)) & 0x2000)) {
-		LOG_I("file %s is not a binary file", path);
+		/* LOG_I("file %s is not a binary file", path); */
 		goto unmap;
 	}
 
@@ -467,11 +467,13 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 	const char *env_path, *base_start;
 
 	sbuf_clear(buf);
+	L("finding %s", cmd);
 
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
 
 		if (fs_exe_exists(buf->buf)) {
+			L("%s is an exe!", buf->buf);
 			return true;
 		}
 
