@@ -692,22 +692,26 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* 0. Special case overrides, not skippable */
 	if (t == obj_string) {
-		 if (strcmp(str, "meson") == 0) {
+		const bool is_meson = strcmp(str, "meson") == 0;
+		const bool is_muon = !is_meson && strcmp(str, "muon") == 0;
+		if (is_meson || is_muon) {
 			make_obj(wk, ctx->res, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
 			make_obj(wk, &ep->cmd_array, obj_array);
-			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
-			obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
 
-			ctx->found = true;
-			return true;
-		} else if (strcmp(str, "muon") == 0) {
-			make_obj(wk, ctx->res, obj_external_program);
-			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-			ep->found = true;
-			make_obj(wk, &ep->cmd_array, obj_array);
-			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
+			const char *argv0_resolved;
+			SBUF(argv0);
+			if (fs_find_cmd(wk, &argv0, wk->argv0)) {
+				argv0_resolved = argv0.buf;
+			} else {
+				argv0_resolved = wk->argv0;
+			}
+			obj_array_push(wk, ep->cmd_array, make_str(wk, argv0_resolved));
+
+			if (is_meson) {
+				obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
+			}
 
 			ctx->found = true;
 			return true;
