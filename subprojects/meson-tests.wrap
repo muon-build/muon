@@ -2,6 +2,6 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-git]
-url = https://git.sr.ht/~lattis/meson-tests
+url = https://github.com/muon-build/meson-tests
 revision = 02fd63af74b71e8e8fbfcd39c3c582256190f464
 depth = 1

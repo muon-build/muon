@@ -2,6 +2,6 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-git]
-url = https://git.sr.ht/~lattis/meson-docs
+url = https://github.com/muon-build/meson-docs
 revision = 5bc0b250984722389419dccb529124aed7615583
 depth = 1

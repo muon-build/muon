@@ -30,8 +30,6 @@ jobs:
         tar xvf build/pkgconf-1.9.3.tar.gz
         mv pkgconf-pkgconf-1.9.3 subprojects/pkgconf
     - name: build
-      env:
-        GIT_HTTP_USER_AGENT: "git/2.0.0 (for:~lattis/muon; contact:lattis@mochiro.moe)"
       run: |
         ./bootstrap.sh build no-pkgconf
         PATH="build:$PATH" build/muon-bootstrap -v setup build
