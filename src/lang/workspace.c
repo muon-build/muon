@@ -196,12 +196,11 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	path_make_absolute(wk, &build_root, build);
 	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &build_root));
 
-	if (path_is_basename(argv0)) {
-		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
+	SBUF(argv0_resolved);
+	if (fs_find_cmd(wk, &argv0_resolved, argv0)) {
+		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &argv0_resolved));
 	} else {
-		SBUF(argv0_abs);
-		path_make_absolute(wk, &argv0_abs, argv0);
-		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &argv0_abs));
+		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	}
 
 	wk->original_commandline.argc = argc;
