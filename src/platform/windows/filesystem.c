@@ -467,13 +467,11 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 	const char *env_path, *base_start;
 
 	sbuf_clear(buf);
-	L("finding %s", cmd);
 
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
 
 		if (fs_exe_exists(buf->buf)) {
-			L("%s is an exe!", buf->buf);
 			return true;
 		}
 
