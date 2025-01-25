@@ -46,9 +46,11 @@ copy = m.custom_target_wrap(
 )
 copy('f', {'input': 'meson.build', 'output': 'copied_meson.build'})
 
-stat = find_program('stat')
-test_exists = m.test_wrap(stat, {'suite': 'test_exists'})
-test_exists('t1', ['copied_meson.build'])
+stat = find_program('stat', required: false)
+if stat.found()
+    test_exists = m.test_wrap(stat, {'suite': 'test_exists'})
+    test_exists('t1', ['copied_meson.build'])
+endif
 
 # make sure keywords dont leak
 func = 1

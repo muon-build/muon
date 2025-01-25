@@ -9,6 +9,11 @@ env.set('key2', 'val', 'val2', separator: '!!')
 env.append('key2', 'val', 'val2', separator: ';;')
 env.append('inherited', 'new!', separator: ':')
 
+env_prog = find_program('env', required: false)
+if not env_prog.found()
+    return
+endif
+
 d = {}
 foreach line : run_command(
     'env',
