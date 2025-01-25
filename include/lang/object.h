@@ -245,6 +245,7 @@ struct obj_build_target {
 	obj cwd; // obj_string
 	obj build_dir; // obj_string
 	obj soname; // obj_string
+	obj implib; // obj_string
 	obj src; // obj_array
 	obj objects; // obj_array
 	obj args; // obj_dict

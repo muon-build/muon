@@ -1529,7 +1529,12 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	/* fallthrough */
 	case obj_build_target: {
 		const struct obj_build_target *tgt = get_obj_build_target(wk, val);
-		const char *path = get_cstr(wk, tgt->build_path);
+		obj link_to = tgt->build_path;
+		if (tgt->implib) {
+			link_to = tgt->implib;
+		}
+
+		const char *path = get_cstr(wk, link_to);
 
 		if (ctx->link_whole && tgt->type != tgt_static_library) {
 			vm_error_at(wk, ctx->err_node, "link whole only accepts static libraries");

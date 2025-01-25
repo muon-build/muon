@@ -226,9 +226,16 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	default: assert(false); return false;
 	}
 
+	fprintf(wctx->out, "build %s", esc_path.buf);
+
+	if (tgt->implib) {
+		obj rel;
+		ca_relativize_path(wk, tgt->implib, true, &rel);
+		fprintf(wctx->out, " | %s", get_cstr(wk, rel));
+	}
+
 	fprintf(wctx->out,
-		"build %s: %s_%s_%s_linker ",
-		esc_path.buf,
+		": %s_%s_%s_linker ",
 		get_cstr(wk, ctx.proj->rule_prefix),
 		machine_kind_to_s(tgt->machine),
 		linker_type);

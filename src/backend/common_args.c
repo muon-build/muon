@@ -725,6 +725,12 @@ ca_setup_linker_args(struct workspace *wk,
 			ca_push_linker_args(wk, ctx, toolchain_linker_shared_module(wk, ctx->compiler));
 		} else {
 			ca_push_linker_args(wk, ctx, toolchain_linker_shared(wk, ctx->compiler));
+
+			if (tgt->implib) {
+				obj rel;
+				ca_relativize_path(wk, tgt->implib, true, &rel);
+				ca_push_linker_args(wk, ctx, toolchain_linker_implib(wk, ctx->compiler, get_cstr(wk, rel)));
+			}
 		}
 	}
 }

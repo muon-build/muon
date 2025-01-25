@@ -344,7 +344,6 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 {
 	if (dllver) {
 		tgt->soname = make_strf(wk, "%s-%s.dll", plain_name, get_cstr(wk, dllver));
-		return;
 	} else if (ver) {
 		char buf[BUF_SIZE_1k];
 
@@ -353,11 +352,20 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 		if (tmp) {
 			*tmp = '\0';
 			tgt->soname = make_strf(wk, "%s-%s.dll", plain_name, buf);
-			return;
 		}
 	}
 
-	tgt->soname = make_strf(wk, "%s.dll", plain_name);
+	if (!tgt->soname) {
+		tgt->soname = make_strf(wk, "%s.dll", plain_name);
+	}
+
+	if (tgt->type == tgt_dynamic_library) {
+		SBUF(implib);
+		sbuf_pushf(wk, &implib, "%s-implib.lib", plain_name);
+		SBUF(path);
+		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
+		tgt->implib = sbuf_into_str(wk, &path);
+	}
 }
 
 static bool

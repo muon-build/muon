@@ -1630,6 +1630,16 @@ TOOLCHAIN_PROTO_2s(linker_link_args_input_output)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(linker_link_args_implib)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "/IMPLIB:%s", s1);
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_1s(linker_lld_link_args_whole_archive)
 {
 	TOOLCHAIN_ARGS({ "/whole-archive", NULL });
@@ -1847,6 +1857,7 @@ build_linkers(void)
 	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
 	link.args.always = compiler_cl_args_always;
+	link.args.implib = linker_link_args_implib;
 
 	struct linker lld_link = link;
 	lld_link.args.lib = linker_posix_args_lib;
