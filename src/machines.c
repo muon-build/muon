@@ -317,7 +317,7 @@ machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 
 	// Add the trailing part, trimming whitespace
 	parts[i].s = s;
-	while (!strchr(" \n\r\t", parts[i].s[parts[i].len])) {
+	while (!is_whitespace(parts[i].s[parts[i].len])) {
 		++parts[i].len;
 	}
 	if (parts[i].len) {

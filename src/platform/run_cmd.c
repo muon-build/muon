@@ -69,12 +69,12 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 }
 
 static bool
-run_cmd_determine_interpreter_skip_chars(char **p, const char *skip, bool invert)
+run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
 {
 	bool char_found;
 
 	while (**p) {
-		char_found = strchr(skip, **p);
+		char_found = is_whitespace_except_newline(**p);
 
 		if (invert) {
 			if (char_found) {
@@ -109,16 +109,18 @@ run_cmd_determine_interpreter(struct source *src,
 		return false;
 	}
 
-	char *p;
-
-	if ((p = strchr(&src->src[2], '\n'))) {
-		*p = 0;
-	}
-
+	char *p, *q;
 	p = (char *)&src->src[2];
 
+	for (q = p; *q; ++q) {
+		if (*q == '\n' || *q == '\r') {
+			*q = 0;
+			break;
+		}
+	}
+
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", false)) {
+	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
 		*err_msg = "error determining command interpreter: no interpreter specified after #!";
 		return false;
 	}
@@ -127,7 +129,7 @@ run_cmd_determine_interpreter(struct source *src,
 	*new_argv1 = 0;
 
 	// skip over all non-whitespace characters
-	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", true)) {
+	if (!run_cmd_determine_interpreter_skip_whitespace(&p, true)) {
 		return true;
 	}
 
@@ -135,7 +137,7 @@ run_cmd_determine_interpreter(struct source *src,
 	++p;
 
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_chars(&p, " \r\t", false)) {
+	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
 		return true;
 	}
 

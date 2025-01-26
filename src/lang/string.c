@@ -481,6 +481,12 @@ is_whitespace(char c)
 }
 
 bool
+is_whitespace_except_newline(char c)
+{
+	return c == ' ' || c == '\t' || c == '\r';
+}
+
+bool
 str_to_i(const struct str *ss, int64_t *res, bool strip)
 {
 	char *endptr = NULL;
@@ -510,7 +516,6 @@ str_to_i(const struct str *ss, int64_t *res, bool strip)
 obj
 str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 {
-	static const char *whitespace = "\n\r\t ";
 	obj res;
 	make_obj(wk, &res, obj_array);
 
@@ -531,12 +536,12 @@ str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 			}
 		} else {
 			start = i;
-			while (start < ss->len && strchr(whitespace, ss->s[start])) {
+			while (start < ss->len && is_whitespace(ss->s[start])) {
 				++start;
 			}
 
 			uint32_t end = start;
-			while (end < ss->len && !strchr(whitespace, ss->s[end])) {
+			while (end < ss->len && !is_whitespace(ss->s[end])) {
 				++end;
 			}
 

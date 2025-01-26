@@ -51,7 +51,7 @@ file_exists_with_content(struct workspace *wk, const char *dest, const char *out
 static void
 configure_file_skip_whitespace(const struct source *src, uint32_t *i)
 {
-	while (src->src[*i] && strchr(" \t", src->src[*i])) {
+	while (src->src[*i] && is_whitespace_except_newline(src->src[*i])) {
 		++(*i);
 	}
 }

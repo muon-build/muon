@@ -551,7 +551,7 @@ wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts 
 			}
 
 			p += 2;
-			while (*p && strchr(" \r\t", *p)) {
+			while (*p && is_whitespace_except_newline(*p)) {
 				++p;
 			}
 

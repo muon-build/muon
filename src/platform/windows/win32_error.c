@@ -14,6 +14,7 @@
 #include <strsafe.h>
 #include <stdlib.h>
 
+#include "lang/string.h"
 #include "log.h"
 #include "platform/windows/win32_error.h"
 
@@ -40,7 +41,7 @@ win32_error(void)
 
 	// strip trailing newlines from the error message
 	char *end = &msg[strlen(msg) - 1];
-	while (end > msg && strchr("\t\r\n ", *end)) {
+	while (end > msg && is_whitespace(*end)) {
 		*end = 0;
 		--end;
 	}

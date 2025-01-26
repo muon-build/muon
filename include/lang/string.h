@@ -109,4 +109,5 @@ void str_to_lower(struct str *str);
 void cstr_copy(char *dest, const char *src, uint32_t dest_len);
 
 bool is_whitespace(char c);
+bool is_whitespace_except_newline(char c);
 #endif
