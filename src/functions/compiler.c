@@ -293,7 +293,11 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	ret = true;
 ret:
-	run_cmd_ctx_destroy(&cmd_ctx);
+	if (ret && opts->keep_cmd_ctx) {
+		opts->cmd_ctx = cmd_ctx;
+	} else {
+		run_cmd_ctx_destroy(&cmd_ctx);
+	}
 	if (!*res && req == requirement_required) {
 		assert(opts->required);
 		vm_error_at(wk, opts->required->node, "a required compiler check failed");
@@ -1688,6 +1692,9 @@ compiler_has_argument(struct workspace *wk,
 
 	obj args;
 	make_obj(wk, &args, obj_array);
+
+	push_args(wk, args, toolchain_compiler_werror(wk, comp));
+
 	if (get_obj_type(wk, arg) == obj_string) {
 		obj_array_push(wk, args, arg);
 	} else {
@@ -1698,17 +1705,30 @@ compiler_has_argument(struct workspace *wk,
 		arg = str;
 	}
 
-	push_args(wk, args, toolchain_compiler_werror(wk, comp));
-
 	struct compiler_check_opts opts = {
 		.mode = mode,
 		.comp_id = comp_id,
 		.args = args,
+		.keep_cmd_ctx = true,
 	};
 
 	const char *src = "int main(void){}\n";
 	if (!compiler_check(wk, &opts, src, err_node, has_argument)) {
 		return false;
+	}
+
+	if (!opts.from_cache) {
+		if (comp->type[toolchain_component_compiler] == compiler_msvc) {
+			// Check for msvc command line warning D9002 : ignoring unknown option
+			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "D9002")) {
+				*has_argument = false;
+
+				compiler_check_cache_set(
+					wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = *has_argument });
+			}
+		}
+
+		run_cmd_ctx_destroy(&opts.cmd_ctx);
 	}
 
 	compiler_check_log(wk, &opts, "supports argument '%s': %s", get_cstr(wk, arg), bool_to_yn(*has_argument));

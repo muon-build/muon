@@ -49,6 +49,7 @@ struct compiler_check_opts {
 	obj args;
 	bool skip_run_check;
 	bool src_is_path;
+	bool keep_cmd_ctx;
 	const char *output_path;
 
 	bool from_cache;
