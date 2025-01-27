@@ -47,6 +47,7 @@ struct machine_definition {
 };
 
 extern struct machine_definition build_machine, host_machine;
+extern const struct machine_definition *machine_definitions[machine_kind_count];
 
 const char *machine_kind_to_s(enum machine_kind kind);
 const char *machine_system_to_s(enum machine_system sys);

@@ -202,6 +202,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		output_path = opts->output_path;
 	} else if (opts->mode == compiler_check_mode_run) {
 		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
+		if (machine_definitions[comp->machine]->is_windows) {
+			sbuf_pushs(wk, &test_output_path, ".exe");
+		}
 		output_path = test_output_path.buf;
 	} else {
 		path_join(wk, &test_output_path, wk->muon_private, "test.");

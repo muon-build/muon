@@ -15,6 +15,10 @@
 #include "platform/uname.h"
 
 struct machine_definition build_machine, host_machine;
+const struct machine_definition *machine_definitions[machine_kind_count] = {
+	[machine_kind_build] = &build_machine,
+	[machine_kind_host] = &host_machine
+};
 
 static const char *known_cpu_families[] = {
 	"aarch64",
