@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+* text eol=lf
+
+# These files have mixed line endings and we do not want git to perform any
+# modifications to them.
+tests/fmt/cases/end_of_line_crlf.meson binary
+tests/fmt/cases/end_of_line_mixed_crlf_first.meson binary
+tests/fmt/cases/end_of_line_mixed_lf_first.meson binary
+tests/lang/line_continuation.meson binary
