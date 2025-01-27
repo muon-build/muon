@@ -257,8 +257,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		goto ret;
 	}
 
-	L("compiler stdout: '%s'", cmd_ctx.err.buf);
-	L("compiler stderr: '%s'", cmd_ctx.out.buf);
+	L("compiler stdout: '%s'", cmd_ctx.out.buf);
+	L("compiler stderr: '%s'", cmd_ctx.err.buf);
 
 	if (opts->mode == compiler_check_mode_run) {
 		if (cmd_ctx.status != 0) {
