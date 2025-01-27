@@ -183,7 +183,8 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)          \
 	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)           \
 	_(coverage, compiler, TOOLCHAIN_PARAMS_0)            \
-	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)
+	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)        \
+	_(permissive, compiler, TOOLCHAIN_PARAMS_0)
 
 #define FOREACH_LINKER_ARG(_)                                \
 	_(lib, linker, TOOLCHAIN_PARAMS_1s)                  \

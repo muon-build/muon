@@ -1250,6 +1250,13 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_coverage)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_0(compiler_gcc_args_permissive)
+{
+	TOOLCHAIN_ARGS({ "-fpermissive" })
+
+	return &args;
+}
+
 /* cl compilers
  * see mesonbuild/compilers/mixins/visualstudio.py for reference
  */
@@ -1746,6 +1753,7 @@ build_compilers(void)
 	gcc.args.enable_lto = compiler_gcc_args_lto;
 	gcc.args.deps_type = compiler_deps_gcc;
 	gcc.args.coverage = compiler_gcc_args_coverage;
+	gcc.args.permissive = compiler_gcc_args_permissive;
 	gcc.default_linker = linker_ld;
 	gcc.default_static_linker = static_linker_ar_gcc;
 

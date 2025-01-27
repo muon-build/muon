@@ -74,18 +74,6 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_end(args);
 }
 
-static void
-add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, obj args)
-{
-	if (comp->lang == compiler_language_cpp) {
-		// From meson:
-		// -fpermissive allows non-conforming code to compile which is necessary
-		// for many C++ checks. Particularly, the has_header_symbol check is
-		// too strict without this and always fails.
-		obj_array_push(wk, args, make_str(wk, "-fpermissive"));
-	}
-}
-
 static bool
 add_include_directory_args(struct workspace *wk,
 	struct args_kw *inc,
@@ -128,7 +116,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	/* enum compiler_type t = comp->type; */
 
 	obj compiler_args;
 	make_obj(wk, &compiler_args, obj_array);
@@ -139,7 +126,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
-	add_extra_compiler_check_args(wk, comp, compiler_args);
+	if (comp->lang == compiler_language_cpp) {
+		push_args(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
+	}
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
 		push_args(wk, compiler_args, toolchain_compiler_werror(wk, comp));
