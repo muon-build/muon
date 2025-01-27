@@ -497,15 +497,16 @@ lex_string(struct lexer *lexer, struct token *token)
 
 	if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
 		lex_advance_n(lexer, multiline_terminator.len);
-		uint32_t start = lexer->i;
 
 		while (lexer->source->len - lexer->i >= multiline_terminator.len
 			&& !str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
+			if (lexer->src[lexer->i] != '\r') {
+				sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]);
+			}
 			lex_advance(lexer);
 		}
 
 		if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
-			sbuf_pushn(lexer->wk, &buf, &lexer->src[start], lexer->i - start);
 			lex_advance_n(lexer, 3);
 			token->data.str = sbuf_into_str(lexer->wk, &buf);
 		} else {
