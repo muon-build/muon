@@ -11,9 +11,16 @@
 #include "lang/types.h"
 #include "datastructures/bucket_arr.h"
 
+enum xml_writer_style {
+	xml_writer_style_space_around_attributes = 1 << 0,
+	xml_writer_style_single_line_attributes = 1 << 1,
+	xml_writer_style_single_line_element = 1 << 1,
+};
+
 struct xml_writer {
 	struct workspace *wk;
 	struct bucket_arr nodes;
+	enum xml_writer_style style;
 	uint32_t indent;
 };
 

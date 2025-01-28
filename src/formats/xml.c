@@ -79,11 +79,36 @@ xml_writer_destroy(struct xml_writer *w)
  ******************************************************************************/
 
 static void
-xml_indent(struct xml_writer *w, FILE *out)
+xml_write_indent(struct xml_writer *w, FILE *out)
 {
 	uint32_t i;
 	for (i = 0; i < w->indent; ++i) {
 		fputc('\t', out);
+	}
+}
+
+static void
+xml_indent(struct xml_writer *w, bool ml)
+{
+	if (ml) {
+		++w->indent;
+	}
+}
+
+static void
+xml_dedent(struct xml_writer *w, bool ml)
+{
+	if (ml) {
+		--w->indent;
+	}
+}
+
+static void
+xml_sep(struct xml_writer *w, FILE *out, bool ml)
+{
+	fprintf(out, ml ? "\n" : " ");
+	if (ml) {
+		xml_write_indent(w, out);
 	}
 }
 
@@ -93,35 +118,47 @@ xml_write_node(struct xml_writer *w, struct xml_node *node, FILE *out)
 	obj idx;
 	struct xml_node *attr;
 
+	const bool elt_ml = !(w->style & xml_writer_style_single_line_element);
+
 	if (node->name) {
-		xml_indent(w, out);
 		fprintf(out, "<%s", get_cstr(w->wk, node->name));
 
-		if (node->attr) {
-			++w->indent;
-			obj_array_for(w->wk, node->attr, idx) {
-				attr = bucket_arr_get(&w->nodes, idx);
-				fprintf(out, "\n");
-				xml_indent(w, out);
-				fprintf(out, "%s=%s", get_cstr(w->wk, attr->name), get_cstr(w->wk, attr->children));
-			}
-			--w->indent;
+		if (w->style & xml_writer_style_space_around_attributes) {
+			fprintf(out, " ");
 		}
 
-		fprintf(out, ">\n");
+		if (node->attr) {
+			const bool attr_ml = !(w->style & xml_writer_style_single_line_attributes);
+			xml_indent(w, attr_ml);
+
+			obj_array_for(w->wk, node->attr, idx) {
+				attr = bucket_arr_get(&w->nodes, idx);
+				xml_sep(w, out, attr_ml);
+				fprintf(out, "%s=%s", get_cstr(w->wk, attr->name), get_cstr(w->wk, attr->children));
+			}
+
+			xml_dedent(w, attr_ml);
+		}
+
+		if (w->style & xml_writer_style_space_around_attributes) {
+			fprintf(out, " ");
+		}
+
+		fprintf(out, ">");
 	}
 
 	if (node->children) {
-		++w->indent;
+		xml_indent(w, elt_ml);
 		obj_array_for(w->wk, node->children, idx) {
+			xml_sep(w, out, elt_ml);
 			xml_write_node(w, bucket_arr_get(&w->nodes, idx), out);
 		}
-		--w->indent;
+		xml_dedent(w, elt_ml);
 	}
 
 	if (node->name) {
-		xml_indent(w, out);
-		fprintf(out, "</%s>\n", get_cstr(w->wk, node->name));
+		xml_sep(w, out, elt_ml);
+		fprintf(out, "</%s>", get_cstr(w->wk, node->name));
 	}
 }
 
@@ -131,4 +168,6 @@ xml_write(struct xml_writer *w, obj root, FILE *out)
 	fprintf(out, "%s", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 
 	xml_write_node(w, bucket_arr_get(&w->nodes, root), out);
+
+	fprintf(out, "\n");
 }
