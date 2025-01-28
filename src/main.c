@@ -940,7 +940,7 @@ static bool
 cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct install_options opts = {
-		.destdir = getenv("DESTDIR"),
+		.destdir = os_get_env("DESTDIR"),
 	};
 
 	OPTSTART("nd:") {

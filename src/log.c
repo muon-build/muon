@@ -16,6 +16,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/log.h"
+#include "platform/os.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
@@ -157,13 +158,13 @@ log_clr(void)
 void
 log_init(void)
 {
-	char *sll;
+	const char *sll;
 	uint64_t ll;
 
 	assert(!log_cfg.initialized);
 	log_cfg.initialized = true;
 
-	if ((sll = getenv("MUON_LOG_LVL"))) {
+	if ((sll = os_get_env("MUON_LOG_LVL"))) {
 		ll = strtoul(sll, NULL, 10);
 		log_set_lvl(ll);
 	}

@@ -19,6 +19,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 
 static bool
@@ -332,7 +333,7 @@ fs_make_symlink(const char *target, const char *path, bool force)
 const char *
 fs_user_home(void)
 {
-	return getenv("HOME");
+	return os_get_env("HOME");
 }
 
 bool
@@ -397,7 +398,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 		}
 	}
 
-	if (!(env_path = getenv("PATH"))) {
+	if (!(env_path = os_get_env("PATH"))) {
 		LOG_E("failed to get the value of PATH");
 		return false;
 	}

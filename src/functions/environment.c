@@ -14,6 +14,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/assert.h"
+#include "platform/os.h"
 #include "platform/path.h"
 
 static enum iteration_result
@@ -38,7 +39,7 @@ evironment_to_dict_iter(struct workspace *wk, void *_ctx, obj action)
 	if (obj_dict_index(wk, env, key, &v)) {
 		oval = get_cstr(wk, v);
 	} else {
-		if (!(oval = getenv(get_cstr(wk, key)))) {
+		if (!(oval = os_get_env(get_cstr(wk, key)))) {
 			obj_dict_set(wk, env, key, val);
 			return ir_cont;
 		}

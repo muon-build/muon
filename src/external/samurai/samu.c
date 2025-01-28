@@ -11,7 +11,6 @@
 
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
-#include "machines.h"
 #include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
@@ -84,14 +83,14 @@ samu_jobsflag(struct samu_ctx *ctx, const char *flag)
 }
 
 static void
-samu_parseenvargs(struct samu_ctx *ctx, char *env)
+samu_parseenvargs(struct samu_ctx *ctx, const char *_env)
 {
 	char *arg, *argvbuf[64], **argv = argvbuf;
 	int argc;
 
-	if (!env)
+	if (!_env)
 		return;
-	env = samu_xmemdup(&ctx->arena, env, strlen(env) + 1);
+	char *env = samu_xmemdup(&ctx->arena, env, strlen(env) + 1);
 	argc = 1;
 	argv[0] = NULL;
 	arg = strtok(env, " ");
@@ -147,7 +146,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	struct samu_ctx _ctx, *ctx = &_ctx;
 	samu_init_ctx(ctx, opts);
 
-	samu_parseenvargs(ctx, getenv("SAMUFLAGS"));
+	samu_parseenvargs(ctx, os_get_env("SAMUFLAGS"));
 	SAMU_ARGBEGIN {
 	case '-':
 		arg = SAMU_EARGF(samu_usage(ctx));
@@ -201,7 +200,7 @@ argdone:
 		ctx->buildopts.maxjobs = os_parallel_job_count();
 	}
 
-	ctx->buildopts.statusfmt = getenv("NINJA_STATUS");
+	ctx->buildopts.statusfmt = os_get_env("NINJA_STATUS");
 	if (!ctx->buildopts.statusfmt)
 		ctx->buildopts.statusfmt = "[%s/%t] ";
 

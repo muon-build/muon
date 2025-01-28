@@ -22,6 +22,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "wrap.h"
 
@@ -617,7 +618,7 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 	}
 
 	const char *v;
-	if (!(v = getenv(envvar)) || !*v) {
+	if (!(v = os_get_env(envvar)) || !*v) {
 		return;
 	}
 
@@ -634,11 +635,11 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 		UNREACHABLE;
 	}
 
-	if ((flags = getenv(flags)) && *flags) {
+	if ((flags = os_get_env(flags)) && *flags) {
 		extend_array_option(wk, opt, str_split(wk, &WKSTR(flags), NULL), option_value_source_environment);
 	}
 
-	if ((extra = getenv(extra)) && *extra) {
+	if ((extra = os_get_env(extra)) && *extra) {
 		extend_array_option(wk, opt, str_split(wk, &WKSTR(extra), NULL), option_value_source_environment);
 	}
 }
@@ -652,7 +653,7 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 	}
 
 	const char *env_val;
-	if ((env_val = getenv(env_name)) && *env_val) {
+	if ((env_val = os_get_env(env_name)) && *env_val) {
 		set_option(wk, 0, opt, make_str(wk, env_val), option_value_source_environment, false);
 	}
 }
