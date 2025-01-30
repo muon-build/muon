@@ -90,7 +90,7 @@ samu_parseenvargs(struct samu_ctx *ctx, const char *_env)
 
 	if (!_env)
 		return;
-	char *env = samu_xmemdup(&ctx->arena, env, strlen(env) + 1);
+	char *env = samu_xmemdup(&ctx->arena, _env, strlen(_env) + 1);
 	argc = 1;
 	argv[0] = NULL;
 	arg = strtok(env, " ");
