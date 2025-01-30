@@ -104,6 +104,9 @@ SPDX-License-Identifier: GPL-3.0-only
       .syn-kw {
         color: #FFB86C;
       }
+      .syn-tag {
+        color: #FF79C6;
+      }
 
       .markdown code {
         color: #FFB86C;
@@ -111,6 +114,11 @@ SPDX-License-Identifier: GPL-3.0-only
       .markdown em {
         color: #50FA7B;
       }
+
+      .tag-help {
+        text-decoration: none;
+        color: #F8F8F2;
+      };
     </style>
   </head>
   <body>
@@ -142,27 +150,38 @@ SPDX-License-Identifier: GPL-3.0-only
       </div>
       <div id="sectHelp">
         <h2>Help</h2>
+
+        <h4>Tags</h4>
         <ul>
           <li>
-            Functions and modules marked with <span class="syn-kw">[s]</span>
-            are only available in script mode.
+            <span class="syn-tag">s</span>
+            - indicates the tagged element is only available in
+            <a href="https://github.com/muon-build/muon/blob/master/doc/script_modules.md">scripting mode</a>
           </li>
+          <li>
+            <span class="syn-tag">e</span>
+            - indicates the tagged element is a muon-specific extension
+          </li>
+        </ul>
+
+        <h4>Attribution</h4>
+        <ul>
           <li>
             Documentation sourced from <a href="https://mesonbuild.com">the meson project</a> and <a href="https://muon.build">muon</a>.
           </li>
           <li>
-            Documentation license:
+            Meson is a registered trademark of Jussi Pakkanen.
+          </li>
+          <li>
+            Documentation
             <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
             <img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" height=16></img>
             <img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" height=16></img>
           </li>
           <li>
-            Code samples license:
+            Code samples
             <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
             <img src="https://mirrors.creativecommons.org/presskit/icons/zero.svg" height=16></img>
-          </li>
-          <li>
-            Meson is a registered trademark of Jussi Pakkanen.
           </li>
         </ul>
       </div>
@@ -172,13 +191,12 @@ SPDX-License-Identifier: GPL-3.0-only
     <script type="application/json" id="data_internal">%s</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
-      var dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
-      var dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
-      var onNavigate;
+      let dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
+      let dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
 
       const funcKey = (f) => `${f.rcvr}${f.module}${f.name}`;
-      var map = {};
-      var data = [];
+      let map = {};
+      let data = [];
       for (const f of dataExternal) {
         map[funcKey(f)] = f;
         f.modes = {external: true};
@@ -197,19 +215,19 @@ SPDX-License-Identifier: GPL-3.0-only
       function render() {
         document.title = `muon - docs`;
 
-        var domListNav = document.getElementById("listNav");
-        var domSectModules = document.getElementById("sectModules");
-        var domListModules = document.getElementById("listModules");
-        var domSectObjects = document.getElementById("sectObjects");
-        var domListObjects = document.getElementById("listObjects");
-        var domSectFunctions = document.getElementById("sectFunctions");
-        var domListFunctions = document.getElementById("listFunctions");
-        var domSectFunction = document.getElementById("sectFunction");
-        var domFuncProto = document.getElementById("funcProto");
-        var domFuncDesc = document.getElementById("funcDesc");
-        var domSectFunctionParams = document.getElementById("sectFunctionParams");
-        var domListFunctionParams = document.getElementById("listFunctionParams");
-        var domSectHelp = document.getElementById("sectHelp");
+        let domListNav = document.getElementById("listNav");
+        let domSectModules = document.getElementById("sectModules");
+        let domListModules = document.getElementById("listModules");
+        let domSectObjects = document.getElementById("sectObjects");
+        let domListObjects = document.getElementById("listObjects");
+        let domSectFunctions = document.getElementById("sectFunctions");
+        let domListFunctions = document.getElementById("listFunctions");
+        let domSectFunction = document.getElementById("sectFunction");
+        let domFuncProto = document.getElementById("funcProto");
+        let domFuncDesc = document.getElementById("funcDesc");
+        let domSectFunctionParams = document.getElementById("sectFunctionParams");
+        let domListFunctionParams = document.getElementById("listFunctionParams");
+        let domSectHelp = document.getElementById("sectHelp");
 
         domSectModules.style.display = 'none';
         domSectObjects.style.display = 'none';
@@ -217,8 +235,8 @@ SPDX-License-Identifier: GPL-3.0-only
         domSectFunction.style.display = 'none';
         domSectHelp.style.display = 'none';
 
-        var nav = window.location.hash.split('.');
-        var filter = {kernel: true};
+        let nav = window.location.hash.split('.');
+        let filter = {kernel: true};
         if (nav[0] === '#modules' && nav.length > 1) {
           filter.mod = nav[1];
           filter.kernel = false;
@@ -242,10 +260,9 @@ SPDX-License-Identifier: GPL-3.0-only
         }
 
         function link(href, html) {
-          var a = document.createElement("a");
+          let a = document.createElement("a");
           a.innerHTML = html;
           a.setAttribute("href", `#${href}`);
-          a.addEventListener('click', (e)=>{ onNavigate(href, e); });
           return a;
         }
 
@@ -259,14 +276,14 @@ SPDX-License-Identifier: GPL-3.0-only
 
 
         function buildNav() {
-          var navList = [];
+          let navList = [];
           function pushNav(href, name) {
-            var li = document.createElement("li");
+            let li = document.createElement("li");
             li.appendChild(link(href, name));
             navList.push(li);
           }
 
-          var path = 'kernel';
+          let path = 'kernel';
           pushNav("help", "?");
           pushNav("kernel", "kernel");
           if (filter.mod) {
@@ -303,7 +320,7 @@ SPDX-License-Identifier: GPL-3.0-only
         }
 
         function filteredFuncs() {
-          var funcs = [];
+          let funcs = [];
 
           for (let f of data) {
             if (filter.kernel) {
@@ -331,7 +348,7 @@ SPDX-License-Identifier: GPL-3.0-only
         }
 
         function synNode(syn, txt) {
-          var e = document.createElement("span");
+          let e = document.createElement("span");
           e.classList.add(`syn-${syn}`);
           e.innerHTML = txt;
           return e;
@@ -349,12 +366,42 @@ SPDX-License-Identifier: GPL-3.0-only
         function synPunc(txt) {
           return synNode('punc', txt);
         }
+        function synTag(tags, props={}) {
+          let e = document.createElement("span");
+
+          if (!props.no_indent) {
+            e.appendChild(synPunc(' '));
+          }
+
+          let a = document.createElement("a");
+          a.setAttribute("href", `#help`);
+          a.classList.add('tag-help');
+          a.appendChild(synPunc('['));
+          a.appendChild(synNode('tag', tags));
+          a.appendChild(synPunc(']'));
+          e.appendChild(a);
+
+          return e;
+        }
+
+        function funcTags(f) {
+          let tags = '';
+          if ('internal' in f.modes && !('external' in f.modes)) {
+            tags += 's';
+          }
+
+          if (f.extension) {
+            tags += 'e';
+          }
+
+          return tags;
+        }
 
         function funcProto(e, f) {
-          var params = [];
+          let params = [];
 
-          var argc = (f.posargs ? f.posargs.length : 0) + (f.kwargs ? f.kwargs.length : 0);
-          var explode = argc > 4;
+          let argc = (f.posargs ? f.posargs.length : 0) + (f.kwargs ? f.kwargs.length : 0);
+          let explode = argc > 4;
 
           function pushBreak() {
               if (explode) { e.insertAdjacentText('beforeend', '\n'); }
@@ -364,6 +411,12 @@ SPDX-License-Identifier: GPL-3.0-only
           }
 
           e.appendChild(synFunc(f.name));
+
+          const tags = funcTags(f);
+          if (tags) {
+            e.appendChild(synTag(tags, {no_indent:true}));
+          }
+
           e.appendChild(synPunc('('));
           pushBreak();
 
@@ -376,12 +429,19 @@ SPDX-License-Identifier: GPL-3.0-only
               }
               pushBreak();
             }
+
+            if (!explode && f.kwargs) {
+                e.appendChild(synPunc(', '));
+            }
           }
 
           if (f.kwargs) {
             for (let [i, p] of f.kwargs.entries()) {
               pushIndent();
               e.appendChild(synKw(p.name));
+              if (p.extension) {
+                e.appendChild(synTag('e', {no_indent: true}));
+              }
               e.appendChild(synPunc(': '));
               e.appendChild(synType(p.type));
               if (explode || i < f.kwargs.length - 1) {
@@ -399,7 +459,7 @@ SPDX-License-Identifier: GPL-3.0-only
         }
 
         if ('func' in filter) {
-          var func = undefined;
+          let func = undefined;
           for (let f of filteredFuncs()) {
             if (f.name === filter.func) {
               func = f;
@@ -421,10 +481,13 @@ SPDX-License-Identifier: GPL-3.0-only
             domListFunctionParams.replaceChildren();
 
             function pushArg(p, isKwarg) {
-              var e = document.createElement('dt');
+              let e = document.createElement('dt');
 
               if (isKwarg) {
                 e.appendChild(synKw(p.name));
+                if (p.extension) {
+                  e.appendChild(synTag('e', {no_indent: true}));
+                }
                 e.appendChild(synPunc(': '));
               }
               e.appendChild(synType(p.type));
@@ -460,7 +523,7 @@ SPDX-License-Identifier: GPL-3.0-only
               domSectModules.style.display = 'block';
               domListModules.replaceChildren();
 
-              var modules = {};
+              let modules = {};
               for (let f of data) {
                 if ('module' in f) {
                   const parts = f.module.split('/');
@@ -469,10 +532,10 @@ SPDX-License-Identifier: GPL-3.0-only
               }
 
               for (let m of Object.keys(modules).sort()) {
-                var li = document.createElement("li");
+                let li = document.createElement("li");
                 li.appendChild(link(`modules.${modules[m]}/${m}`, m));
                 if (modules[m] === 'private') {
-                  li.appendChild(synKw(' [s]'));
+                  li.appendChild(synTag('s'));
                 }
                 domListModules.appendChild(li);
               }
@@ -485,7 +548,7 @@ SPDX-License-Identifier: GPL-3.0-only
               domSectObjects.style.display = 'block';
               domListObjects.replaceChildren();
 
-              var objects = {};
+              let objects = {};
               for (let f of data) {
                 if ('rcvr' in f) {
                   objects[f.rcvr] = true;
@@ -493,7 +556,7 @@ SPDX-License-Identifier: GPL-3.0-only
               }
 
               for (let o of Object.keys(objects).sort()) {
-                var li = document.createElement("li");
+                let li = document.createElement("li");
                 li.appendChild(link(`objects.${o}`, o));
                 domListObjects.appendChild(li);
               }
@@ -506,9 +569,9 @@ SPDX-License-Identifier: GPL-3.0-only
             domListFunctions.replaceChildren();
 
             for (let f of filteredFuncs()) {
-              var li = document.createElement("li");
+              let li = document.createElement("li");
 
-              var path;
+              let path;
               if ('rcvr' in f) {
                 path = `objects.${f.rcvr}`;
               } else if ('module' in f) {
@@ -519,11 +582,10 @@ SPDX-License-Identifier: GPL-3.0-only
 
               li.appendChild(link(`${path}.${f.name}`, f.name));
 
-              var modeStr = " ";
-              if ('internal' in f.modes && !('external' in f.modes)) {
-                modeStr += "[s]";
+              const tags = funcTags(f);
+              if (tags) {
+                li.appendChild(synTag(tags));
               }
-              li.appendChild(synKw(modeStr));
               domListFunctions.appendChild(li);
             }
           }
@@ -531,11 +593,6 @@ SPDX-License-Identifier: GPL-3.0-only
         }
       }
       render();
-
-      onNavigate = (href, e) => {
-        //window.location.hash = `#${href}`;
-        //render();
-      }
 
       addEventListener("hashchange", (event) => {
         render();
