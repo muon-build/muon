@@ -463,6 +463,33 @@ struct meson_doc_entry_arg meson_doc_posargs[] = { 0 };
 struct meson_doc_entry_arg meson_doc_kwargs[] = { 0 };
 #endif
 
+struct meson_doc_entry_arg *
+meson_doc_lookup_function_kwarg(const struct meson_doc_entry_func *meson_doc_entry, const char *key)
+{
+	struct meson_doc_entry_arg *args = &meson_doc_kwargs[meson_doc_entry->kwargs_start];
+	uint32_t i;
+	for (i = 0; i < meson_doc_entry->kwargs_len; ++i) {
+		if (strcmp(args[i].common.name, key) == 0) {
+			return &args[i];
+		}
+	}
+
+	return 0;
+}
+
+struct meson_doc_entry_func *
+meson_doc_lookup_function(enum obj_type t, const char *name)
+{
+	uint32_t j;
+	for (j = 0; meson_doc_root[t][j].common.name; ++j) {
+		if (strcmp(meson_doc_root[t][j].common.name, name) == 0) {
+			return &meson_doc_root[t][j];
+		}
+	}
+
+	return 0;
+}
+
 static obj
 dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, struct args_kw *kw)
 {
@@ -471,6 +498,7 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 
 	obj name = 0;
 	const char *desc = 0;
+	bool extension = false;
 	if (an) {
 		if (an->desc) {
 			desc = an->desc;
@@ -491,19 +519,15 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 		if (kw->desc) {
 			desc = kw->desc;
 		} else if (function_sig_dump.meson_doc_entry) {
-			bool found = false;
-			struct meson_doc_entry_arg *args
-				= &meson_doc_kwargs[function_sig_dump.meson_doc_entry->kwargs_start];
-			uint32_t i;
-			for (i = 0; i < function_sig_dump.meson_doc_entry->kwargs_len; ++i) {
-				if (strcmp(args[i].common.name, kw->key) == 0) {
-					found = true;
-					break;
-				}
+			struct meson_doc_entry_arg *arg;
+
+			arg = meson_doc_lookup_function_kwarg(function_sig_dump.meson_doc_entry, kw->key);
+
+			if (!arg && function_sig_dump.special_func == function_sig_dump_special_func_build_tgt) {
+				arg = meson_doc_lookup_function_kwarg(meson_doc_lookup_function(obj_null, "build_target"), kw->key);
 			}
 
-			if (found) {
-				struct meson_doc_entry_arg *arg = &args[i];
+			if (arg) {
 				desc = arg->common.description;
 			} else {
 				LOG_W("missing documentation for %s kwarg %s",
@@ -513,12 +537,17 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 		}
 
 		name = make_str(wk, kw->key);
+		extension = kw->extension;
 	}
 
 	obj_dict_set(wk, dict, make_str(wk, "name"), name);
 	obj_dict_set(wk, dict, make_str(wk, "type"), typechecking_type_to_str(wk, an ? an->type : kw->type));
 	if (desc) {
 		obj_dict_set(wk, dict, make_str(wk, "desc"), make_str(wk, desc));
+	}
+
+	if (extension) {
+		obj_dict_set(wk, dict, make_str(wk, "extension"), obj_bool_true);
 	}
 
 	return dict;
@@ -643,8 +672,17 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 	} else if (function_sig_dump.meson_doc_entry) {
 		desc = function_sig_dump.meson_doc_entry->common.description;
 	}
+
 	if (desc) {
 		obj_dict_set(wk, res, make_str(wk, "desc"), make_str(wk, desc));
+	} else {
+		LOG_W("missing documentation for %s.%s",
+			opts->module_func ? opts->module : obj_type_to_s(opts->rcvr_t),
+			opts->impl->name);
+	}
+
+	if (opts->impl->extension) {
+		obj_dict_set(wk, res, make_str(wk, "extension"), obj_bool_true);
 	}
 
 	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args);
@@ -655,8 +693,6 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 		vm_eval_capture(wk, opts->capture, 0, 0, &_res);
 	}
 	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
-
-	LO("%o\n", res);
 
 	return res;
 }
@@ -680,13 +716,7 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 
 			for (i = 0; g->impls[i].name; ++i) {
 				if (meson_doc_root[t] && wk->vm.lang_mode == language_external) {
-					uint32_t j;
-					for (j = 0; meson_doc_root[t][j].common.name; ++j) {
-						if (strcmp(meson_doc_root[t][j].common.name, g->impls[i].name) == 0) {
-							function_sig_dump.meson_doc_entry = &meson_doc_root[t][j];
-							break;
-						}
-					}
+					function_sig_dump.meson_doc_entry = meson_doc_lookup_function(t, g->impls[i].name);
 				}
 
 				if (strcmp(g->impls[i].name, "executable") || strcmp(g->impls[i].name, "build_target")

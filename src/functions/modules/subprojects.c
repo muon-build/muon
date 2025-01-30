@@ -112,7 +112,10 @@ cont:
 static bool
 func_subprojects_update(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_LISTIFY | tc_string, .optional = true }, ARG_TYPE_NULL };
+	struct args_norm an[] = {
+		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
+		ARG_TYPE_NULL,
+	};
 
 	if (!pop_args(wk, an, 0)) {
 		return false;
@@ -185,12 +188,15 @@ cont:
 static bool
 func_subprojects_list(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_LISTIFY | tc_string, .optional = true }, ARG_TYPE_NULL };
+	struct args_norm an[] = {
+		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
+		ARG_TYPE_NULL,
+	};
 	enum kwargs {
 		kw_print,
 	};
 	struct args_kw akw[] = {
-		[kw_print] = { "print", tc_bool },
+		[kw_print] = { "print", tc_bool, .desc = "Print out a formatted list of subprojects as well as returning it." },
 		0,
 	};
 
@@ -241,12 +247,15 @@ cont:
 static bool
 func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_LISTIFY | tc_string, .optional = true }, ARG_TYPE_NULL };
+	struct args_norm an[] = {
+		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
+		ARG_TYPE_NULL,
+	};
 	enum kwargs {
 		kw_force,
 	};
 	struct args_kw akw[] = {
-		[kw_force] = { "force", tc_bool },
+		[kw_force] = { "force", tc_bool, .desc = "Force the operation." },
 		0,
 	};
 
@@ -265,8 +274,12 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_module_subprojects[] = {
-	{ "update", func_subprojects_update, .fuzz_unsafe = true },
-	{ "list", func_subprojects_list, .fuzz_unsafe = true },
-	{ "clean", func_subprojects_clean, .fuzz_unsafe = true },
+	{ "update", func_subprojects_update, .fuzz_unsafe = true, .desc = "Update subprojects with .wrap files" },
+	{ "list",
+		func_subprojects_list,
+		tc_array,
+		.fuzz_unsafe = true,
+		.desc = "List subprojects with .wrap files and their status." },
+	{ "clean", func_subprojects_clean, .fuzz_unsafe = true, .desc = "Clean wrap-git subprojects" },
 	{ NULL, NULL },
 };

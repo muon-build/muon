@@ -19,10 +19,19 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 		kw_inherit_static_linker,
 	};
 	struct args_kw akw[] = {
-		[kw_inherit] = { "inherit", tc_string | tc_compiler },
-		[kw_inherit_compiler] = { "inherit_compiler", tc_string | tc_compiler },
-		[kw_inherit_linker] = { "inherit_linker", tc_string | tc_compiler },
-		[kw_inherit_static_linker] = { "inherit_static_linker", tc_string | tc_compiler },
+		[kw_inherit] = { "inherit", tc_compiler, .desc = "A toolchain to inherit from" },
+		[kw_inherit_compiler] = { "inherit_compiler",
+			tc_string | tc_compiler,
+			.desc
+			= "The compiler component to inherit from.  Can be either a compiler object or compiler type name." },
+		[kw_inherit_linker] = { "inherit_linker",
+			tc_string | tc_compiler,
+			.desc
+			= "The linker component to inherit from.  Can be either a compiler object or linker type name." },
+		[kw_inherit_static_linker] = { "inherit_static_linker",
+			tc_string | tc_compiler,
+			.desc
+			= "The static linker component to inherit from.  Can be either a compiler object or static linker type name." },
 		0,
 	};
 
@@ -91,6 +100,10 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_module_toolchain[] = {
-	{ "create", func_module_toolchain_create, tc_compiler },
+	{ "create",
+		func_module_toolchain_create,
+		tc_compiler,
+		.desc
+		= "Creates a new compiler object that can be passed in to the `toolchain` keyword on `add_languages` or inherited from when coreating a new toolchain.  The toolchain object is reffered to as a `compiler` for historical reasons, although it also contains other information required to compile programs such as linker metadata." },
 	{ NULL, NULL },
 };

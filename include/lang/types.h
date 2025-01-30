@@ -28,6 +28,7 @@ struct args_kw {
 	uint32_t node;
 	bool set;
 	bool required;
+	bool extension;
 };
 
 enum language_mode {

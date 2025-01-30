@@ -171,7 +171,10 @@ func_project(struct workspace *wk, obj _, obj *res)
 		[kw_license_files] = { "license_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
-		[kw_module_dir] = { "module_dir", obj_string },
+		[kw_module_dir] = { "module_dir",
+			obj_string,
+			.desc = "Specify a directory to search for .meson files in when import()-ing modules",
+			.extension = true },
 		[kw_version] = { "version", tc_string | tc_file },
 		0,
 	};
@@ -495,7 +498,10 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
-		[kw_toolchain] = { "toolchain", tc_compiler },
+		[kw_toolchain] = { "toolchain",
+			tc_compiler,
+			.desc = "Instead of detecting a toolchain, use the compiler `toolchain` for this language.",
+			.extension = true },
 		0,
 	};
 
@@ -517,7 +523,13 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 
 	if (!akw[kw_native].set) {
 		bool _missing = false;
-		if (!add_languages(wk, an[0].node, an[0].val, akw[kw_toolchain].val, machine_kind_build, requirement_auto, &_missing)) {
+		if (!add_languages(wk,
+			    an[0].node,
+			    an[0].val,
+			    akw[kw_toolchain].val,
+			    machine_kind_build,
+			    requirement_auto,
+			    &_missing)) {
 			return false;
 		}
 	}

@@ -180,7 +180,10 @@ func_environment_prepend(struct workspace *wk, obj self, obj *res)
 static bool
 func_environment_unset(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = {
+		{ obj_string, .desc = "The name to unset" },
+		ARG_TYPE_NULL,
+	};
 	if (!pop_args(wk, an, 0)) {
 		return false;
 	}
