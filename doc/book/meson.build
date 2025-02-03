@@ -11,7 +11,6 @@ custom_target(
     output: 'book',
     input: files(
         'src/SUMMARY.md',
-        'src/chapter_1.md',
         'src/contributing.md',
         'src/differences.md',
         'src/features.md',
