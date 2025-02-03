@@ -11,7 +11,8 @@ repositories:
     https://muon.build/nothing
     ../../../dev/null
   community: >
-    http://dl-cdn.alpinelinux.org/alpine/v3.17/community # must be kept in sync with the image's alpine version
+    # must be kept in sync with the image's alpine version
+    http://dl-cdn.alpinelinux.org/alpine/v3.21/community
     https://muon.build/nothing
     ../../../dev/null
 packages:
