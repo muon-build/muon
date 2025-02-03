@@ -25,6 +25,7 @@ packages:
   - py3-yaml # for meson-reference.3
   - scdoc # for meson.build.5 and muon.1
   - mandoc # for html man pages
+  - mdbook # for book
   - reuse # for licensing compliance
 
   # alternative c compilers
