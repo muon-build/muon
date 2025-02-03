@@ -876,7 +876,8 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 					bool prev_is_arg_like = str_startswith(s, &WKSTR("-")) && !strchr(s->s, '='),
 					     cur_is_arg_like = cur && str_startswith(get_str(f->wk, cur), &WKSTR("-"));
 
-					if (prev_is_arg_like && !cur_is_arg_like) {
+					if (prev_is_arg_like && !cur_is_arg_like
+						&& !(child->pre_ws && child->pre_ws->type == fmt_frag_type_ws_comment_trailing)) {
 						child->flags |= fmt_frag_flag_stick_line_left;
 					}
 				}

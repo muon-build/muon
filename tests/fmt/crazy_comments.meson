@@ -37,4 +37,33 @@ a = (
 ) # comment 11
 # comment 12
 
+a = [
+    '-o', # comment after dashed string element
+    'obj.o',
+    '-foo',
+    '-bar',
+    '-baz', 'zoo',
+    '-A', 'B', # -A B on same line
+]
+
+a = [
+    # top
+    '-data', {
+        'key': [
+            '-foo', # Obscure comment
+            {
+                'bar':  # Comment between key and value
+                ['baz', None, 2],
+                'flim': 'flam', # Comment after key/value pair
+            },
+            '-x', [
+                3,
+                2, # Mid array comment
+                1,
+            ],
+        ],
+    },
+    # bottom
+]
+
 # trailing comment
