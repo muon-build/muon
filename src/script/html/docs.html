@@ -72,27 +72,59 @@ SPDX-License-Identifier: GPL-3.0-only
         list-style-type: '';
       }
 
-      #listNav {
-        list-style-type: none;
-        margin: 0.5em 0 0 0;
-        padding: 0;
-        overflow: hidden;
-        background-color: #F8F8F2;
+      #sectNav {
         display: flex;
         flex-direction: row;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+        background-color: #F8F8F2;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #listNav {
+        display: flex;
+        flex-direction: row;
+        padding: 0;
+        margin: 0;
+        list-style-type: none;
       }
       #listNav li a {
         display: block;
-        color: #000;
+        color: #282A36;
         text-align: center;
         padding: .5em .8em;
         text-decoration: none;
       }
       #listNav li a:hover {
         background-color: #282A36;
+        color: #50FA7B;
       }
       #listNav li.active a {
         background-color: #50FA7B;
+      }
+      #listNav li.active a:hover {
+        color: #282A36;
+        background-color: #50FA7B;
+      }
+      .nav-version {
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .logo_text {
+        display: flex;
+        flex-direction: column;
+        color: #282A36;
+        font-size: 13px;
+        margin-right: 5px;
+        text-align: right;
+      }
+      .nav-version a {
+        color: #282A36;
+        text-decoration: none;
       }
 
       .syn-func {
@@ -125,6 +157,7 @@ SPDX-License-Identifier: GPL-3.0-only
     <div class="wrapper">
       <div id="sectNav">
         <ul id="listNav"></ul>
+        <span id="navVer" class="nav-version"></span>
       </div>
       <div id="sectModules">
         <h2>Modules</h1>
@@ -189,10 +222,12 @@ SPDX-License-Identifier: GPL-3.0-only
 
     <script type="application/json" id="data_external">%s</script>
     <script type="application/json" id="data_internal">%s</script>
+    <script type="application/json" id="version">%s</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
       let dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
       let dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
+      let version = JSON.parse(document.getElementById("version").innerHTML);
 
       const funcKey = (f) => `${f.rcvr}${f.module}${f.name}`;
       let map = {};
@@ -215,6 +250,7 @@ SPDX-License-Identifier: GPL-3.0-only
       function render() {
         document.title = `muon - docs`;
 
+        let domNavVer = document.getElementById("navVer");
         let domListNav = document.getElementById("listNav");
         let domSectModules = document.getElementById("sectModules");
         let domListModules = document.getElementById("listModules");
@@ -310,6 +346,29 @@ SPDX-License-Identifier: GPL-3.0-only
           for (li of navList) {
             domListNav.appendChild(li);
           }
+
+          domNavVer.replaceChildren();
+
+          verText = document.createElement("div");
+          verText.classList.add("logo_text");
+
+          verTitle = document.createElement("span");
+          verTitle.innerHTML = version.version;
+          verText.appendChild(verTitle);
+
+          verVer = document.createElement("a");
+          verVer.innerHTML = `${version.vcs_tag}`;
+          verVer.setAttribute("href", `https://git.sr.ht/~lattis/muon/commit/${version.vcs_tag}`);
+          verText.appendChild(verVer);
+          domNavVer.appendChild(verText);
+
+          verLink = document.createElement("a");
+          verLink.setAttribute("href", "https://muon.build");
+          verLogo = document.createElement("img");
+          verLogo.setAttribute("src", "https://muon.build/muon_logo.svg");
+          verLogo.setAttribute("height", "28");
+          verLink.appendChild(verLogo);
+          domNavVer.appendChild(verLink);
         }
         buildNav();
 

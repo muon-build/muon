@@ -40,6 +40,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
+#include "version.h"
 
 /******************************************************************************
  * function tables
@@ -830,6 +831,14 @@ dump_function_docs(struct workspace *wk)
 		UNREACHABLE;
 	}
 
-	fprintf(stdout, src.src, docs_external.buf, docs_internal.buf);
+	char version_json[512];
+	snprintf(version_json,
+		sizeof(version_json),
+		"{\"version\": \"%s\", \"vcs_tag\": \"%s\", \"meson_compat\": \"%s\" }",
+		muon_version.version,
+		muon_version.vcs_tag,
+		muon_version.meson_compat);
+
+	fprintf(stdout, src.src, docs_external.buf, docs_internal.buf, version_json);
 	/* LOG_I("wrote html output to %s", abs.buf); */
 }
