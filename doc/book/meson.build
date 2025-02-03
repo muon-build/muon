@@ -1,13 +1,6 @@
 mdbook = find_program('mdbook')
 
 custom_target(
-    output: 'reference.html',
-    command: [muon, 'internal', 'dump_docs'],
-    capture: true,
-    build_by_default: true,
-)
-
-custom_target(
     output: 'book',
     input: files(
         'src/SUMMARY.md',

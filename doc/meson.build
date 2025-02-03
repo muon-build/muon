@@ -42,6 +42,13 @@ endif
 if get_option('website')
     subdir('website')
     subdir('book')
+
+    custom_target(
+        output: 'reference.html',
+        command: [muon, 'internal', 'dump_docs'],
+        capture: true,
+        build_by_default: true,
+    )
 endif
 
 summary('docs', true)

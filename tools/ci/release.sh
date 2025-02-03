@@ -39,3 +39,4 @@ else exit 0
 fi
 
 tools/ci/deploy.sh / -r --delete build/doc/website
+tools/ci/deploy.sh / -r --delete build/doc/book
