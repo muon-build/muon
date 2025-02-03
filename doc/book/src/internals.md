@@ -1,47 +1,4 @@
-<!--
-SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-SPDX-FileCopyrightText: Andrea Pappacoda <andrea@pappacoda.it>
-SPDX-License-Identifier: GPL-3.0-only
--->
-
-# Contributions
-
-Hello, thanks for considering contributing to muon.  Please send patches and
-questions to <~lattis/muon@lists.sr.ht>.
-Before making any big changes, please send a proposal to the mailing list so I
-can give you some pointers, and make sure you don't waste your time.
-
-# Style
-
-Muon uses a style similar to the linux kernel.  A few differences are:
-
-- the return type of a function goes on the line above its declaration.
-  e.g.
-
-  ```c
-  int
-  main(void)
-  {
-          return 0;
-  }
-  ```
-
-- it still goes on the same line in a function prototype
-  e.g.
-
-  ```c
-  int main(void);
-  ```
-
-- never omit braces for single statement if, else, for, while,  etc.
-- avoid function-like macros except in exceptional cases
-- it is OK (but not great) if your line is more than 80 characters
-- please use fixed-width integer types (e.g. `uint32_t`, `uint64_t`, `uint8_t`)
-  whenever possible
-
-In general, just try to follow the style of surrounding code.
-
-# Internals
+# Muon Internals
 
 ## Error handling
 

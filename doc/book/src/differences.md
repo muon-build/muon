@@ -1,9 +1,4 @@
-<!--
-SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-SPDX-License-Identifier: GPL-3.0-only
--->
-
-# Differences between muon and Meson
+# Differences Between Muon and Meson
 
 This document describes functional differences between muon and Meson.  None of
 these is a set-in-stone design decision, just a reflection of the current state

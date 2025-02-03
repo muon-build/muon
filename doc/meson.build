@@ -3,33 +3,33 @@
 
 scdoc = find_program('scdoc', required: get_option('docs'))
 
-if not scdoc.found()
-    subdir_done()
-endif
-
-man_pages = {
-    'muon': 1,
-    'meson.build': 5,
-}
-
 man_page_targets = {}
 
-foreach page, section : man_pages
-    name = f'@page@.@section@'
-    input = f'@name@.scd'
-    tgt = custom_target(
-        input,
-        input: files(input),
-        output: name,
-        capture: true,
-        feed: true,
-        command: scdoc,
-        install: true,
-        install_dir: get_option('mandir') / 'man@0@'.format(section),
-    )
+if scdoc.found()
+    man_pages = {
+        'muon': 1,
+        'meson.build': 5,
+    }
 
-    man_page_targets += {name: tgt}
-endforeach
+    foreach page, section : man_pages
+        name = f'@page@.@section@'
+        input = f'@name@.scd'
+        tgt = custom_target(
+            input,
+            input: files(input),
+            output: name,
+            capture: true,
+            feed: true,
+            command: scdoc,
+            install: true,
+            install_dir: get_option('mandir') / 'man@0@'.format(section),
+        )
+
+        man_page_targets += {name: tgt}
+    endforeach
+else
+    warning('scdoc not found, man pages will not be built')
+endif
 
 if meson_proj.found()
     man_page_targets += {
@@ -41,6 +41,7 @@ endif
 
 if get_option('website')
     subdir('website')
+    subdir('book')
 endif
 
 summary('docs', true)

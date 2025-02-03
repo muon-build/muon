@@ -57,4 +57,3 @@ flowchart TD
 ```
 
 fallback allowed: allow\_fallback is set to true or requirement is required
-

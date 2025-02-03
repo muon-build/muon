@@ -24,7 +24,8 @@ dependencies.
 
 `muon` is close to feature-complete with the core of meson for `c` and `c++`.
 
-See the status page for each version for more detailed information.
+See the [Muon Reference](https://docs.muon.build/ref) for more detailed
+information.
 
 Things missing include:
 
@@ -33,7 +34,7 @@ Things missing include:
 - dependencies with a custom configuration tool
 - some modules
 
-Other differences from meson are described in `doc/differences.md`
+Other differences from meson are described in the [Muon Docs].
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
@@ -136,3 +137,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
 [ci dashboard]: https://muon.build/muon_ci.html
 [Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md
+[Muon Docs]: https://docs.muon.build/differences.html
