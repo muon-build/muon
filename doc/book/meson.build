@@ -42,8 +42,5 @@ custom_target(
 )
 
 foreach ext : ['svg', 'png']
-    fs.copyfile(
-        '../website/muon_logo.svg',
-        'favicon.@0@'.format(ext)
-    )
+    fs.copyfile('../website/muon_logo.svg', 'favicon.@0@'.format(ext))
 endforeach
