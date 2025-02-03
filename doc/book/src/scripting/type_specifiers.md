@@ -3,7 +3,7 @@
 Type specifiers consist of primitive types with optional subtypes.
 
 Supported primitive types are listed in the [Muon
-Reference](https://docs.muon.build) under the `Objects` header.
+Reference](https://docs.muon.build/reference) under the `Objects` header.
 
 A value that can take one of many types can be specified by writing multiple
 types separated with a `|` such as `int|str`.

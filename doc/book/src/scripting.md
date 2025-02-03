@@ -28,6 +28,6 @@ Muon's scripting mode consists of several langauge features as well as
 additional functions and modules.
 
 This guide focuses on the language features.  The additional functions and
-modules are documented in the [Muon Reference](https://docs.muon.build).  All
+modules are documented in the [Muon Reference](https://docs.muon.build/reference).  All
 functions, modules, and arguments are tagged with their availability in muon's
 different evaluation modes.

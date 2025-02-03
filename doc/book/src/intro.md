@@ -6,4 +6,4 @@ meson-compatible build system.  Most of the topics discussed are muon-specific.
 - For general Meson documentation refer to the [Meson User
   Manual](https://mesonbuild.com/Manual.html).
 - For documentation on functions and objects refer to the
-  [Muon Reference](https://docs.muon.build).
+  [Muon Reference](https://docs.muon.build/reference).
