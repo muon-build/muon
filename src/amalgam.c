@@ -12,6 +12,7 @@
 #include "args.c"
 #include "backend/backend.c"
 #include "backend/common_args.c"
+#include "backend/introspect.c"
 #include "backend/ninja.c"
 #include "backend/ninja/alias_target.c"
 #include "backend/ninja/build_target.c"

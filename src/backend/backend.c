@@ -8,6 +8,7 @@
 #include "args.h"
 #include "backend/backend.h"
 #include "backend/common_args.h"
+#include "backend/introspect.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
 #include "backend/xcode.h"
@@ -185,7 +186,8 @@ backend_output(struct workspace *wk)
 		     && with_open(
 			     wk->muon_private, output_path.compiler_check_cache, wk, NULL, write_compiler_check_cache)
 		     && with_open(wk->muon_private, output_path.summary, wk, NULL, write_summary_file)
-		     && with_open(wk->muon_private, output_path.option_info, wk, NULL, write_option_info);
+		     && with_open(wk->muon_private, output_path.option_info, wk, NULL, write_option_info)
+			 && introspect_write_all(wk);
 	}
 
 	if (!ok) {

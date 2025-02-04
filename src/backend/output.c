@@ -14,6 +14,7 @@
 
 const struct output_path output_path = {
 	.private_dir = ".muon",
+	.info_dir = "meson-info",
 	.summary = "summary.txt",
 	.tests = "tests.dat",
 	.install = "install.dat",
