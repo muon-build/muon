@@ -2459,10 +2459,16 @@ obj_to_json(struct workspace *wk, obj o, struct sbuf *sb)
 	}
 	case obj_number: sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
 	case obj_bool: sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
+	case obj_file: o = *get_obj_file(wk, o);
+				   /* fallthrough */
 	case obj_string: {
 		sbuf_push(wk, sb, '\"');
 		str_escape_json(wk, sb, get_str(wk, o));
 		sbuf_push(wk, sb, '\"');
+		break;
+	}
+	case obj_null: {
+		sbuf_pushs(wk, sb, "null");
 		break;
 	}
 	default: error_unrecoverable("unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); break;
