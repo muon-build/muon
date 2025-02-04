@@ -41,7 +41,7 @@ enum sbuf_flags {
 	sbuf_init(&name, sbuf_static_buf_##name, static_len, (enum sbuf_flags)flags);
 #define SBUF(name) SBUF_CUSTOM(name, 1024, 0)
 #define SBUF_manual(name) SBUF_CUSTOM(name, 1024, sbuf_flag_overflow_alloc)
-
+#define SBUF_FILE(__name, __f) struct sbuf __name = { .flags = sbuf_flag_write, .buf = (void *)__f };
 #define SBUF_WKSTR(sb) (struct str) { .s = (sb)->buf, .len = (sb)->len }
 
 struct sbuf {

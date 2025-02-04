@@ -2305,7 +2305,7 @@ obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...
 static bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
-	struct sbuf sb = { .flags = sbuf_flag_write, .buf = (void *)f };
+	SBUF_FILE(sb, f);
 
 	return obj_vasprintf(wk, &sb, fmt, ap);
 }
@@ -2335,10 +2335,9 @@ obj_vlprintf(struct workspace *wk, const char *fmt, va_list ap)
 {
 	FILE *f = _log_file();
 	struct sbuf *buf = _log_sbuf();
-	struct sbuf sb;
+	SBUF_FILE(sb, f);
 
 	if (f) {
-		sb = (struct sbuf){ .flags = sbuf_flag_write, .buf = (void *)f };
 		buf = &sb;
 	}
 
