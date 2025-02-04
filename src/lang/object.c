@@ -756,6 +756,14 @@ obj_array_get_tail(struct workspace *wk, obj arr)
 	return e->val;
 }
 
+obj
+obj_array_get_head(struct workspace *wk, obj arr)
+{
+	uint32_t head = get_obj_array(wk, arr)->head;
+	struct obj_array_elem *e = bucket_arr_get(&wk->vm.objects.array_elems, head);
+	return e->val;
+}
+
 void
 obj_array_dup(struct workspace *wk, obj arr, obj *res)
 {
