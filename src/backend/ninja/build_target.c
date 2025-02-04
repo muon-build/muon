@@ -131,24 +131,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		.out = wctx->out,
 	};
 
-	struct obj_compiler *compiler;
-	{ /* determine linker */
-		obj comp_id;
-		if (!obj_dict_geti(wk, ctx.proj->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp_id)) {
-			LOG_E("no compiler defined for language %s",
-				compiler_language_to_s(tgt->dep_internal.link_language));
-			return false;
-		}
-
-		compiler = get_obj_compiler(wk, comp_id);
-	}
-
 	make_obj(wk, &ctx.object_names, obj_array);
 
 	ctx.args = tgt->dep_internal;
-
-	ca_relativize_paths(wk, ctx.args.link_with, true, &ctx.args.link_with);
-	ca_relativize_paths(wk, ctx.args.link_whole, true, &ctx.args.link_whole);
 
 	bool have_custom_order_deps = false;
 	{ /* order deps */
@@ -186,13 +171,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	if (!(tgt->type & tgt_static_library)) {
-		struct ca_setup_linker_args_ctx sctx = {
-			.compiler = compiler,
-			.args = &ctx.args,
-		};
-
-		ca_setup_linker_args(wk, ctx.proj, tgt, &sctx);
-
 		if (get_obj_array(wk, ctx.args.link_with)->len) {
 			obj_array_extend(wk, implicit_link_deps, ctx.args.link_with);
 		}

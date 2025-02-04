@@ -374,9 +374,7 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 }
 
 static bool
-ca_prepare_target_args(struct workspace *wk,
-	const struct project *proj,
-	struct obj_build_target *tgt)
+ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct obj_build_target *tgt)
 {
 	assert(!tgt->processed_args);
 
@@ -464,46 +462,8 @@ ca_prepare_target_args(struct workspace *wk,
 	return true;
 }
 
-bool
-ca_prepare_all_targets(struct workspace *wk)
-{
-	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "preparing targets"));
-
-	obj t;
-	uint32_t proj_i;
-	const struct project *proj;
-	struct obj_build_target *tgt;
-
-	for (proj_i = 0; proj_i < wk->projects.len; ++proj_i) {
-		proj = arr_get(&wk->projects, proj_i);
-		obj_array_push(wk, wk->backend_output_stack, proj->cfg.name);
-		obj_array_for(wk, proj->targets, t) {
-			switch (get_obj_type(wk, t)) {
-			case obj_both_libs:
-				t = get_obj_both_libs(wk, t)->dynamic_lib;
-				// fallthrough
-			case obj_build_target: tgt = get_obj_build_target(wk, t); break;
-			default: continue;
-			}
-
-			obj_array_push(wk, wk->backend_output_stack, tgt->name);
-			if (!ca_prepare_target_args(wk, proj, tgt)) {
-				return false;
-			}
-			obj_array_pop(wk, wk->backend_output_stack);
-		}
-
-		obj_array_pop(wk, wk->backend_output_stack);
-	}
-
-	obj_array_pop(wk, wk->backend_output_stack);
-	return true;
-}
-
 obj
-ca_build_target_joined_args(struct workspace *wk,
-	const struct project *proj,
-	const struct obj_build_target *tgt)
+ca_build_target_joined_args(struct workspace *wk, const struct project *proj, const struct obj_build_target *tgt)
 {
 	obj joined;
 	make_obj(wk, &joined, obj_dict);
@@ -515,6 +475,10 @@ ca_build_target_joined_args(struct workspace *wk,
 
 	return joined;
 }
+
+/*
+ * linker args
+ */
 
 void
 ca_get_option_link_args(struct workspace *wk,
@@ -534,31 +498,20 @@ ca_get_option_link_args(struct workspace *wk,
 }
 
 static void
-ca_push_linker_args(struct workspace *wk, struct ca_setup_linker_args_ctx *ctx, const struct args *args)
+ca_push_linker_args(struct workspace *wk,
+	struct obj_compiler *comp,
+	const struct obj_build_target *tgt,
+	const struct args *args)
 {
 	if (!args->len) {
 		return;
 	}
 
-	if (toolchain_compiler_do_linker_passthrough(wk, ctx->compiler)) {
-		args = toolchain_compiler_linker_passthrough(wk, ctx->compiler, args);
+	if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
+		args = toolchain_compiler_linker_passthrough(wk, comp, args);
 	}
 
-	push_args(wk, ctx->args->link_args, args);
-}
-
-static enum iteration_result
-ca_process_rpath_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct ca_setup_linker_args_ctx *ctx = _ctx;
-
-	if (!get_str(wk, v)->len) {
-		return ir_cont;
-	}
-
-	ca_push_linker_args(wk, ctx, toolchain_linker_rpath(wk, ctx->compiler, get_cstr(wk, v)));
-
-	return ir_cont;
+	push_args(wk, tgt->dep_internal.link_args, args);
 }
 
 static bool
@@ -602,137 +555,186 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 	return true;
 }
 
-static enum iteration_result
-ca_push_not_found_lib_iter(struct workspace *wk, void *_ctx, obj v)
-{
-	struct ca_setup_linker_args_ctx *ctx = _ctx;
-
-	ca_push_linker_args(wk, ctx, toolchain_linker_lib(wk, ctx->compiler, get_cstr(wk, v)));
-	return ir_cont;
-}
-
-void
-ca_setup_linker_args(struct workspace *wk,
+bool
+ca_prepare_target_linker_args(struct workspace *wk,
+	struct obj_compiler *comp,
 	const struct project *proj,
-	const struct obj_build_target *tgt,
-	struct ca_setup_linker_args_ctx *ctx)
+	struct obj_build_target *tgt)
 {
-	ctx->proj = proj;
-	ctx->tgt = tgt;
+	if (!comp) {
+		obj comp_id;
+		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp_id)) {
+			LOG_E("no compiler defined for link language %s",
+				compiler_language_to_s(tgt->dep_internal.link_language));
+			return false;
+		}
 
-	obj link_with;
-	obj_array_dedup(wk, ctx->args->link_with, &link_with);
-	ctx->args->link_with = link_with;
+		comp = get_obj_compiler(wk, comp_id);
+	}
 
-	obj link_whole;
-	obj_array_dedup(wk, ctx->args->link_whole, &link_whole);
-	ctx->args->link_whole = link_whole;
+	ca_relativize_paths(wk, tgt->dep_internal.link_with, true, &tgt->dep_internal.link_with);
+	ca_relativize_paths(wk, tgt->dep_internal.link_whole, true, &tgt->dep_internal.link_whole);
 
-	obj link_with_not_found;
-	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
-	ctx->args->link_with_not_found = link_with_not_found;
+	obj_array_dedup_in_place(wk, &tgt->dep_internal.link_with);
+	obj_array_dedup_in_place(wk, &tgt->dep_internal.link_whole);
+	obj_array_dedup_in_place(wk, &tgt->dep_internal.link_with_not_found);
+
+	if (tgt->type & tgt_static_library) {
+		// static libs don't need these args
+		return true;
+	}
 
 	{
 		struct ca_buildtype buildtype;
-		ca_get_buildtype(wk, ctx->proj, ctx->tgt, &buildtype);
+		ca_get_buildtype(wk, proj, tgt, &buildtype);
 
 		if (buildtype.debug) {
-			ca_push_linker_args(wk, ctx, toolchain_linker_debug(wk, ctx->compiler));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_debug(wk, comp));
 		}
 	}
 
-	ca_push_linker_args(wk, ctx, toolchain_linker_always(wk, ctx->compiler));
-	ca_push_linker_args(wk, ctx, toolchain_linker_as_needed(wk, ctx->compiler));
+	ca_push_linker_args(wk, comp, tgt, toolchain_linker_always(wk, comp));
+	ca_push_linker_args(wk, comp, tgt, toolchain_linker_as_needed(wk, comp));
 
 	if (proj) {
-		assert(tgt);
-
 		if (!(tgt->type & tgt_shared_module)) {
-			ca_push_linker_args(wk, ctx, toolchain_linker_no_undefined(wk, ctx->compiler));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
 		}
 
 		if (tgt->flags & build_tgt_flag_export_dynamic) {
-			ca_push_linker_args(wk, ctx, toolchain_linker_export_dynamic(wk, ctx->compiler));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_export_dynamic(wk, comp));
 		}
 
-		ca_setup_optional_b_args_linker(wk, ctx->compiler, proj, tgt, ctx->args->link_args);
+		ca_setup_optional_b_args_linker(wk, comp, proj, tgt, tgt->dep_internal.link_args);
 
 		{ /* option args (from option('x_link_args')) */
-			ca_get_option_link_args(wk, ctx->compiler, proj, tgt, ctx->args->link_args);
+			ca_get_option_link_args(wk, comp, proj, tgt, tgt->dep_internal.link_args);
 		}
 
 		/* global args */
 		obj global_args;
-		if (obj_dict_geti(wk, wk->global_link_args[tgt->machine], ctx->compiler->lang, &global_args)) {
-			obj_array_extend(wk, ctx->args->link_args, global_args);
+		if (obj_dict_geti(wk, wk->global_link_args[tgt->machine], comp->lang, &global_args)) {
+			obj_array_extend(wk, tgt->dep_internal.link_args, global_args);
 		}
 
 		/* project args */
 		obj proj_args;
-		if (obj_dict_geti(wk, proj->link_args[tgt->machine], ctx->compiler->lang, &proj_args)) {
-			obj_array_extend(wk, ctx->args->link_args, proj_args);
+		if (obj_dict_geti(wk, proj->link_args[tgt->machine], comp->lang, &proj_args)) {
+			obj_array_extend(wk, tgt->dep_internal.link_args, proj_args);
 		}
 
 		if (tgt && tgt->flags & build_tgt_flag_pic) {
-			push_args(wk, ctx->args->link_args, toolchain_compiler_pic(wk, ctx->compiler));
+			push_args(wk, tgt->dep_internal.link_args, toolchain_compiler_pic(wk, comp));
 		}
 	}
 
-	obj_array_foreach(wk, ctx->args->rpath, ctx, ca_process_rpath_iter);
+	obj v;
+	obj_array_for(wk, tgt->dep_internal.rpath, v) {
+		if (!get_str(wk, v)->len) {
+			continue;
+		}
 
-	if (ctx->args->frameworks) {
+		ca_push_linker_args(wk, comp, tgt, toolchain_linker_rpath(wk, comp, get_cstr(wk, v)));
+	}
+
+	if (tgt->dep_internal.frameworks) {
 		obj v;
-		obj_array_for(wk, ctx->args->frameworks, v) {
-			obj_array_push(wk, ctx->args->link_args, make_str(wk, "-framework"));
-			obj_array_push(wk, ctx->args->link_args, v);
+		obj_array_for(wk, tgt->dep_internal.frameworks, v) {
+			obj_array_push(wk, tgt->dep_internal.link_args, make_str(wk, "-framework"));
+			obj_array_push(wk, tgt->dep_internal.link_args, v);
 		}
 	}
 
-	bool have_link_whole = get_obj_array(wk, ctx->args->link_whole)->len,
-	     have_link_with = have_link_whole || get_obj_array(wk, ctx->args->link_with)->len
-			      || get_obj_array(wk, ctx->args->link_with_not_found)->len;
+	bool have_link_whole = get_obj_array(wk, tgt->dep_internal.link_whole)->len,
+	     have_link_with = have_link_whole || get_obj_array(wk, tgt->dep_internal.link_with)->len
+			      || get_obj_array(wk, tgt->dep_internal.link_with_not_found)->len;
 
 	if (have_link_with) {
-		ca_push_linker_args(wk, ctx, toolchain_linker_start_group(wk, ctx->compiler));
+		ca_push_linker_args(wk, comp, tgt, toolchain_linker_start_group(wk, comp));
 
 		if (have_link_whole) {
 			obj v;
-			obj_array_for(wk, ctx->args->link_whole, v) {
+			obj_array_for(wk, tgt->dep_internal.link_whole, v) {
 				ca_push_linker_args(
-					wk, ctx, toolchain_linker_whole_archive(wk, ctx->compiler, get_cstr(wk, v)));
+					wk, comp, tgt, toolchain_linker_whole_archive(wk, comp, get_cstr(wk, v)));
 			}
 		}
 
 		if (proj) {
 			/* project link_with */
 			obj proj_link_with;
-			if (obj_dict_geti(wk, proj->link_with[tgt->machine], ctx->compiler->lang, &proj_link_with)) {
-				obj_array_extend(wk, ctx->args->link_args, proj_link_with);
+			if (obj_dict_geti(wk, proj->link_with[tgt->machine], comp->lang, &proj_link_with)) {
+				obj_array_extend(wk, tgt->dep_internal.link_args, proj_link_with);
 			}
 		}
 
-		obj_array_extend(wk, ctx->args->link_args, ctx->args->link_with);
+		obj_array_extend(wk, tgt->dep_internal.link_args, tgt->dep_internal.link_with);
 
-		obj_array_foreach(wk, ctx->args->link_with_not_found, ctx, ca_push_not_found_lib_iter);
+		obj v;
+		obj_array_for(wk, tgt->dep_internal.link_with_not_found, v) {
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_lib(wk, comp, get_cstr(wk, v)));
+		};
 
-		ca_push_linker_args(wk, ctx, toolchain_linker_end_group(wk, ctx->compiler));
+		ca_push_linker_args(wk, comp, tgt, toolchain_linker_end_group(wk, comp));
 	}
 
 	if (tgt && (tgt->type & (tgt_dynamic_library | tgt_shared_module))) {
-		ca_push_linker_args(wk, ctx, toolchain_linker_soname(wk, ctx->compiler, get_cstr(wk, tgt->soname)));
+		ca_push_linker_args(wk, comp, tgt, toolchain_linker_soname(wk, comp, get_cstr(wk, tgt->soname)));
 		if (tgt->type == tgt_shared_module) {
-			ca_push_linker_args(wk, ctx, toolchain_linker_allow_shlib_undefined(wk, ctx->compiler));
-			ca_push_linker_args(wk, ctx, toolchain_linker_shared_module(wk, ctx->compiler));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_allow_shlib_undefined(wk, comp));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_shared_module(wk, comp));
 		} else {
-			ca_push_linker_args(wk, ctx, toolchain_linker_shared(wk, ctx->compiler));
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_shared(wk, comp));
 
 			if (tgt->implib) {
 				obj rel;
 				ca_relativize_path(wk, tgt->implib, true, &rel);
-				ca_push_linker_args(wk, ctx, toolchain_linker_implib(wk, ctx->compiler, get_cstr(wk, rel)));
+				ca_push_linker_args(
+					wk, comp, tgt, toolchain_linker_implib(wk, comp, get_cstr(wk, rel)));
 			}
 		}
 	}
+
+	return true;
+}
+
+bool
+ca_prepare_all_targets(struct workspace *wk)
+{
+	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "preparing targets"));
+
+	obj t;
+	uint32_t proj_i;
+	const struct project *proj;
+	struct obj_build_target *tgt;
+
+	for (proj_i = 0; proj_i < wk->projects.len; ++proj_i) {
+		proj = arr_get(&wk->projects, proj_i);
+		obj_array_push(wk, wk->backend_output_stack, proj->cfg.name);
+		obj_array_for(wk, proj->targets, t) {
+			switch (get_obj_type(wk, t)) {
+			case obj_both_libs:
+				t = get_obj_both_libs(wk, t)->dynamic_lib;
+				// fallthrough
+			case obj_build_target: tgt = get_obj_build_target(wk, t); break;
+			default: continue;
+			}
+
+			obj_array_push(wk, wk->backend_output_stack, tgt->name);
+			if (!ca_prepare_target_args(wk, proj, tgt)) {
+				return false;
+			}
+			if (!ca_prepare_target_linker_args(wk, 0, proj, tgt)) {
+				return false;
+			}
+			obj_array_pop(wk, wk->backend_output_stack);
+		}
+
+		obj_array_pop(wk, wk->backend_output_stack);
+	}
+
+	obj_array_pop(wk, wk->backend_output_stack);
+	return true;
 }
 
 /* */

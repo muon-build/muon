@@ -205,12 +205,10 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
 
 	if (have_dep) {
-		struct ca_setup_linker_args_ctx sctx = {
-			.compiler = comp,
-			.args = &dep,
+		struct obj_build_target tgt = {
+			.dep_internal = dep,
 		};
-
-		ca_setup_linker_args(wk, 0, 0, &sctx);
+		ca_prepare_target_linker_args(wk, comp, 0, &tgt);
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 
