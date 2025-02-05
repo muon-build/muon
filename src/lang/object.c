@@ -982,7 +982,7 @@ void
 obj_array_clear(struct workspace *wk, obj arr)
 {
 	struct obj_array *a = get_obj_array(wk, arr);
-	*a = (struct obj_array) { 0 };
+	*a = (struct obj_array){ 0 };
 }
 
 static enum iteration_result
@@ -1939,8 +1939,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 
 		const char *found = dep->flags & dep_flag_found ? " found" : "";
 
-		sbuf_pushf(wk, sb, " %s machine:%s%s>",
-			type, machine_kind_to_s(dep->machine), found);
+		sbuf_pushf(wk, sb, " %s machine:%s%s>", type, machine_kind_to_s(dep->machine), found);
 		break;
 	}
 	case obj_alias_target:
@@ -2466,12 +2465,22 @@ obj_to_json(struct workspace *wk, obj o, struct sbuf *sb)
 	}
 	case obj_number: sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
 	case obj_bool: sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
-	case obj_file: o = *get_obj_file(wk, o);
-				   /* fallthrough */
+	case obj_file:
+		o = *get_obj_file(wk, o);
+		/* fallthrough */
 	case obj_string: {
 		sbuf_push(wk, sb, '\"');
 		str_escape_json(wk, sb, get_str(wk, o));
 		sbuf_push(wk, sb, '\"');
+		break;
+	}
+	case obj_feature_opt: {
+		const char *s = (char *[]){
+			[feature_opt_enabled] = "enabled",
+			[feature_opt_disabled] = "disabled",
+			[feature_opt_auto] = "auto",
+		}[get_obj_feature_opt(wk, o)];
+		sbuf_pushf(wk, sb, "\"%s\"", s);
 		break;
 	}
 	case obj_null: {
