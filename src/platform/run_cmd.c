@@ -30,6 +30,10 @@ push_argv_single(const char **argv, uint32_t *len, uint32_t max, const char *arg
 void
 argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32_t *argi, uint32_t max)
 {
+	if (!argc) {
+		return;
+	}
+
 	const char *p, *arg;
 	uint32_t i = 0;
 
