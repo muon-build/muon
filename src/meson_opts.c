@@ -9,8 +9,10 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/output.h"
 #include "buf_size.h"
 #include "error.h"
+#include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -25,6 +27,7 @@ struct translate_meson_opts_ctx {
 	obj stray_args;
 	obj argv;
 	bool help;
+	bool introspect_force_object;
 	const char *subcommand;
 };
 
@@ -439,6 +442,119 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 	return true;
 }
 
+enum meson_opts_introspect {
+	opt_introspect_file = 1,
+	opt_introspect_force_object,
+};
+
+static bool
+translate_meson_opts_introspect_callback(struct workspace *wk,
+	const struct meson_option_spec *spec,
+	const char *val,
+	struct translate_meson_opts_ctx *ctx)
+{
+	switch ((enum meson_opts_introspect)(spec->handle_as)) {
+	case opt_introspect_file:
+		obj_array_push(wk, ctx->argv, make_str(wk, spec->name));
+		break;
+	case opt_introspect_force_object: ctx->introspect_force_object = true; return true;
+	default: UNREACHABLE;
+	}
+
+	return true;
+}
+
+static bool
+translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
+{
+	struct meson_option_spec opts[] = {
+		{ "h", .help = true },
+		{ "help", .help = true },
+		{ "a", .ignore = true },
+		{ "all", .ignore = true },
+		{ "i", .ignore = true },
+		{ "indent", .ignore = true },
+		{ "backend", true, .ignore = true },
+		{ "f", .handle_as = opt_introspect_force_object },
+		{ "force-object-output", .handle_as = opt_introspect_force_object },
+		{ "ast", .handle_as = opt_introspect_file },
+		{ "benchmarks", .handle_as = opt_introspect_file },
+		{ "buildoptions", .handle_as = opt_introspect_file },
+		{ "buildsystem-files", .handle_as = opt_introspect_file },
+		{ "compilers", .handle_as = opt_introspect_file },
+		{ "dependencies", .handle_as = opt_introspect_file },
+		{ "scan-dependencies", .handle_as = opt_introspect_file },
+		{ "installed", .handle_as = opt_introspect_file },
+		{ "install-plan", .handle_as = opt_introspect_file },
+		{ "machines", .handle_as = opt_introspect_file },
+		{ "projectinfo", .handle_as = opt_introspect_file },
+		{ "targets", .handle_as = opt_introspect_file },
+		{ "tests", .handle_as = opt_introspect_file },
+	};
+
+	if (!translate_meson_opts_parser(
+		    wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_introspect_callback)) {
+		return false;
+	}
+
+	const char *build_dir = 0;
+	if (get_obj_array(wk, ctx->stray_args)->len) {
+		obj build;
+		obj_array_index(wk, ctx->stray_args, 0, &build);
+		build_dir = get_cstr(wk, build);
+	}
+
+	uint32_t i = 0, intro_len = get_obj_array(wk, ctx->argv)->len;
+	bool make_object = intro_len > 1;
+	if (ctx->introspect_force_object) {
+		make_object = true;
+	}
+
+	SBUF(out);
+
+	if (make_object) {
+		sbuf_push(wk, &out, '{');
+	}
+
+	obj v;
+	obj_array_for(wk, ctx->argv, v) {
+			SBUF(path);
+
+			if (make_object) {
+				sbuf_pushf(wk, &out, "\"%s\":", get_cstr(wk, v));
+			}
+
+			if (build_dir) {
+				path_push(wk, &path, build_dir);
+			}
+			path_push(wk, &path, output_path.introspect_dir);
+			path_push(wk, &path, "intro-");
+			sbuf_pushf(wk, &path, "%s.json", get_cstr(wk, v));
+
+			struct source src;
+			if (!fs_read_entire_file(path.buf, &src)) {
+				LOG_E("failed to introspect %s", get_cstr(wk, v));
+				return false;
+			}
+
+			sbuf_pushn(wk, &out, src.src, src.len);
+
+			if (make_object && i < intro_len - 1) {
+				sbuf_push(wk, &out, ',');
+			}
+
+			++i;
+	}
+
+	if (make_object) {
+		sbuf_push(wk, &out, '}');
+	}
+
+	printf("%s\n", out.buf);
+
+	exit(0);
+}
+
 static const struct {
 	const char *name;
 	translate_meson_opts_func translate_func;
@@ -447,6 +563,7 @@ static const struct {
 	{ "configure", translate_meson_opts_setup },
 	{ "install", translate_meson_opts_install },
 	{ "test", translate_meson_opts_test },
+	{ "introspect", translate_meson_opts_introspect },
 };
 
 static translate_meson_opts_func
