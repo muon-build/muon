@@ -475,6 +475,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 	make_obj(wk, res, obj_custom_target);
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 	tgt->name = opts->name;
+	tgt->callstack = vm_callstack(wk);
 
 	// A custom_target won't have a name if it is from a generator
 	if (opts->name) { /* private path */

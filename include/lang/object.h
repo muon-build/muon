@@ -288,6 +288,7 @@ struct obj_custom_target {
 	obj private_path; // obj_string
 	obj env; // str | list[str] | dict[str] | env
 	obj depfile; // str
+	obj callstack; // obj_array
 	enum custom_target_flags flags;
 };
 
