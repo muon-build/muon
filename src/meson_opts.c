@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/ninja.h"
 #include "backend/output.h"
 #include "buf_size.h"
 #include "error.h"
@@ -27,7 +28,13 @@ struct translate_meson_opts_ctx {
 	obj stray_args;
 	obj argv;
 	bool help;
+
+	// introspect specfic
 	bool introspect_force_object;
+
+	// compile specific
+	const char *compile_chdir;
+
 	const char *subcommand;
 };
 
@@ -555,6 +562,92 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 	exit(0);
 }
 
+enum meson_opts_compile {
+	opt_compile_chdir = 1,
+	opt_compile_jobs,
+	opt_compile_verbose,
+	opt_compile_clean,
+	opt_compile_ninja_args,
+};
+
+static bool
+translate_meson_opts_compile_callback(struct workspace *wk,
+	const struct meson_option_spec *spec,
+	const char *val,
+	struct translate_meson_opts_ctx *ctx)
+{
+	switch ((enum meson_opts_compile)(spec->handle_as)) {
+	case opt_compile_chdir:
+		ctx->compile_chdir = val;
+		break;
+	case opt_compile_jobs:
+		obj_array_push(wk, ctx->argv, make_str(wk, "-j"));
+		obj_array_push(wk, ctx->argv, make_str(wk, val));
+		break;
+	case opt_compile_verbose:
+		obj_array_push(wk, ctx->argv, make_str(wk, "-v"));
+		break;
+	case opt_compile_clean:
+		obj_array_push(wk, ctx->argv, make_str(wk, "-t"));
+		obj_array_push(wk, ctx->argv, make_str(wk, "clean"));
+		break;
+	case opt_compile_ninja_args:
+		obj_array_extend(wk, ctx->argv, str_split(wk, &WKSTR(val), 0));
+		break;
+	default: UNREACHABLE;
+	}
+
+	return true;
+}
+
+static bool
+translate_meson_opts_compile(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
+{
+	struct meson_option_spec opts[] = {
+		{ "h", .help = true },
+		{ "help", .help = true },
+		{ "clean", .handle_as = opt_compile_clean },
+		{ "C", true, .handle_as = opt_compile_chdir },
+		{ "j", true, .handle_as = opt_compile_jobs },
+		{ "jobs", true, .handle_as = opt_compile_jobs },
+		{ "l", true, .ignore = true },
+		{ "load-average", true, .ignore = true },
+		{ "v", .handle_as = opt_compile_verbose },
+		{ "verbose", .handle_as = opt_compile_verbose },
+		{ "ninja-args", true, .handle_as = opt_compile_ninja_args },
+		{ "vs-args", true, .ignore = true },
+		{ "xcode-args", true, .ignore = true },
+	};
+
+	if (!translate_meson_opts_parser(
+		    wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_compile_callback)) {
+		return false;
+	}
+
+	if (ctx->help) {
+		return true;
+	}
+
+	obj v;
+	obj_array_for(wk, ctx->stray_args, v) {
+		const struct str *s = get_str(wk, v);
+		const char *sep;
+		if ((sep = strchr(s->s, ':'))) {
+			v = make_strn(wk, s->s, sep - s->s);
+		}
+
+		obj_array_push(wk, ctx->argv, v);
+	}
+
+	LO("ninja args: %o\n", ctx->argv);
+
+	if (!ninja_run(wk, ctx->argv, ctx->compile_chdir, 0)) {
+		exit(1);
+	}
+
+	exit(0);
+}
+
 static const struct {
 	const char *name;
 	translate_meson_opts_func translate_func;
@@ -564,6 +657,7 @@ static const struct {
 	{ "install", translate_meson_opts_install },
 	{ "test", translate_meson_opts_test },
 	{ "introspect", translate_meson_opts_introspect },
+	{ "compile", translate_meson_opts_compile },
 };
 
 static translate_meson_opts_func
