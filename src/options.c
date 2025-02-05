@@ -28,7 +28,7 @@
 
 bool initializing_builtin_options = false;
 
-static const char *build_option_type_to_s[build_option_type_count] = {
+const char *build_option_type_to_s[build_option_type_count] = {
 	[op_string] = "string",
 	[op_boolean] = "boolean",
 	[op_combo] = "combo",

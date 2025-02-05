@@ -9,7 +9,22 @@
 #include "lang/workspace.h"
 
 struct output_path {
-	const char *private_dir, *summary, *tests, *install, *compiler_check_cache, *option_info, *info_dir;
+	const char *private_dir, *summary, *tests, *install, *compiler_check_cache, *option_info, *introspect_dir,
+		*meson_private_dir;
+	struct {
+		const char *projectinfo;
+		const char *targets;
+		const char *benchmarks;
+		const char *buildoptions;
+		const char *buildsystem_files;
+		const char *compilers;
+		const char *dependencies;
+		const char *scan_dependencies;
+		const char *installed;
+		const char *install_plan;
+		const char *machines;
+		const char *tests;
+	} introspect_file;
 };
 
 extern const struct output_path output_path;

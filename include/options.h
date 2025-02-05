@@ -8,6 +8,7 @@
 #include "lang/workspace.h"
 
 extern bool initializing_builtin_options;
+extern const char *build_option_type_to_s[build_option_type_count];
 
 struct option_override {
 	// strings

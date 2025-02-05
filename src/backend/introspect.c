@@ -10,14 +10,44 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/object_iterators.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
 
 static obj
-introspect_custom_target(struct workspace *wk, obj tgt)
+introspect_custom_target(struct workspace *wk, struct project *proj, obj tgt)
 {
 	obj doc;
 	make_obj(wk, &doc, obj_dict);
+	obj empty;
+	make_obj(wk, &empty, obj_array);
+
+	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
+	obj_dict_set(wk, doc, make_str(wk, "name"), t->name);
+	obj_dict_set(wk,
+		doc,
+		make_str(wk, "id"),
+		make_strf(wk, "%07x@@%s@cus", tgt, get_cstr(wk, t->name)));
+
+	obj_dict_set(wk, doc, make_str(wk, "type"), make_str(wk, "custom"));
+	obj_dict_set(wk, doc, make_str(wk, "defined_in"), obj_array_get_head(wk, obj_array_get_head(wk, t->callstack)));
+	obj_dict_set(wk, doc, make_str(wk, "filename"), t->output);
+	obj_dict_set(wk, doc, make_str(wk, "build_by_default"), make_obj_bool(wk, t->flags & custom_target_build_by_default));
+
+	obj src;
+	make_obj(wk, &src, obj_array);
+	obj src_unknown;
+	make_obj(wk, &src_unknown, obj_dict);
+	obj_dict_set(wk, src_unknown, make_str(wk, "language"), make_str(wk, "unknown"));
+	obj_dict_set(wk, src_unknown, make_str(wk, "compiler"), t->args);
+	obj_dict_set(wk, src_unknown, make_str(wk, "parameters"), empty);
+	obj_dict_set(wk, src_unknown, make_str(wk, "sources"), t->input);
+	obj_array_push(wk, src, src_unknown);
+	obj_dict_set(wk, doc, make_str(wk, "target_sources"), src);
+
+	obj_dict_set(wk, doc, make_str(wk, "extra_files"), empty);
+	obj_dict_set(wk, doc, make_str(wk, "subproject"), proj == arr_get(&wk->projects, 0) ? 0 : proj->cfg.name);
+
 	return doc;
 }
 
@@ -39,11 +69,11 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			type = "static library";
 			type_short = "sta";
 		} else if (t->type & tgt_dynamic_library) {
-			type = "dynamic library";
-			type_short = "sha"; // TODO: confirm
+			type = "shared library";
+			type_short = "sha";
 		} else if (t->type & tgt_shared_module) {
 			type = "shared module";
-			type_short = "sha"; // TODO: confirm
+			type_short = "sha";
 		}
 
 		obj_dict_set(wk,
@@ -160,7 +190,7 @@ introspect_targets(struct workspace *wk)
 				break;
 			}
 			case obj_custom_target: {
-				obj_array_push(wk, doc, introspect_custom_target(wk, tgt));
+				obj_array_push(wk, doc, introspect_custom_target(wk, proj, tgt));
 				break;
 			}
 			default: UNREACHABLE;
@@ -168,6 +198,100 @@ introspect_targets(struct workspace *wk)
 		}
 	}
 
+	return doc;
+}
+
+static obj
+introspect_project(struct workspace *wk, struct project *proj)
+{
+	obj doc;
+	make_obj(wk, &doc, obj_dict);
+	obj_dict_set(wk, doc, make_str(wk, "name"), proj->cfg.name);
+	obj_dict_set(wk, doc, make_str(wk, "descriptive_name"), proj->cfg.name);
+	obj_dict_set(wk, doc, make_str(wk, "version"), proj->cfg.version);
+	obj_dict_set(wk, doc, make_str(wk, "subproject_dir"), proj->subprojects_dir);
+	return doc;
+}
+
+static obj
+introspect_projects(struct workspace *wk)
+{
+	struct project *proj = arr_get(&wk->projects, 0);
+	obj doc = introspect_project(wk, proj);
+
+	obj subs;
+	make_obj(wk, &subs, obj_array);
+	uint32_t i;
+	for (i = 1; i < wk->projects.len; ++i) {
+		proj = arr_get(&wk->projects, i);
+		obj_array_push(wk, subs, introspect_project(wk, proj));
+	}
+
+	obj_dict_set(wk, doc, make_str(wk, "subprojects"), subs);
+
+	return doc;
+}
+
+static obj
+introspect_option(struct workspace *wk, obj opt)
+{
+	obj doc;
+	make_obj(wk, &doc, obj_dict);
+	struct obj_option *o = get_obj_option(wk, opt);
+
+	obj_dict_set(wk, doc, make_str(wk, "name"), o->name);
+	// TODO: This is wrong but muon doesn't currently have the concept of
+	// option sections.
+	obj_dict_set(wk, doc, make_str(wk, "section"), make_str(wk, "core"));
+	obj_dict_set(wk, doc, make_str(wk, "description"), o->description);
+
+	const char *type = build_option_type_to_s[o->type];
+	if (o->type == op_feature) {
+		type = "combo";
+	}
+	obj_dict_set(wk, doc, make_str(wk, "type"), make_str(wk, type));
+
+	obj_dict_set(wk, doc, make_str(wk, "value"), o->val);
+
+	obj choices = o->choices;
+	if (o->type == op_feature) {
+		make_obj(wk, &choices, obj_array);
+		obj_array_push(wk, choices, make_str(wk, "enabled"));
+		obj_array_push(wk, choices, make_str(wk, "disabled"));
+		obj_array_push(wk, choices, make_str(wk, "auto"));
+	}
+
+	if (choices) {
+		obj_dict_set(wk, doc, make_str(wk, "choices"), choices);
+	}
+
+	return doc;
+}
+
+static obj
+introspect_options(struct workspace *wk)
+{
+	obj doc;
+	make_obj(wk, &doc, obj_array);
+
+	obj key, opt;
+	obj_dict_for(wk, wk->global_opts, key, opt) {
+		obj_array_push(wk, doc, introspect_option(wk, opt));
+	}
+
+	struct project *proj = arr_get(&wk->projects, 0);
+	obj_dict_for(wk, proj->opts, key, opt) {
+		obj_array_push(wk, doc, introspect_option(wk, opt));
+	}
+
+	return doc;
+}
+
+static obj
+introspect_dummy_array(struct workspace *wk)
+{
+	obj doc;
+	make_obj(wk, &doc, obj_array);
 	return doc;
 }
 
@@ -191,18 +315,39 @@ introspect_write(struct workspace *wk, void *_ctx, FILE *f)
 	return true;
 }
 
+static bool
+introspect_write_dummy(struct workspace *wk, void *_ctx, FILE *f)
+{
+	fprintf(f, "This file was generated by muon for meson compatibility.\n");
+	return true;
+}
+
 bool
 introspect_write_all(struct workspace *wk)
 {
 	SBUF(info_path);
-	path_join(wk, &info_path, wk->build_root, output_path.info_dir);
+	path_join(wk, &info_path, wk->build_root, output_path.introspect_dir);
 
 	if (!fs_mkdir(info_path.buf, true)) {
 		return false;
 	}
 
 	struct introspect_write_ctx files[] = {
-		{ "intro-targets.json", introspect_targets },
+		{ output_path.introspect_file.targets, introspect_targets },
+		{ output_path.introspect_file.projectinfo, introspect_projects },
+
+		{ output_path.introspect_file.buildoptions, introspect_options },
+
+		{ output_path.introspect_file.buildsystem_files, introspect_dummy_array },
+
+		{ output_path.introspect_file.benchmarks, introspect_dummy_array },
+		{ output_path.introspect_file.compilers, introspect_dummy_array },
+		{ output_path.introspect_file.dependencies, introspect_dummy_array },
+		{ output_path.introspect_file.scan_dependencies, introspect_dummy_array },
+		{ output_path.introspect_file.installed, introspect_dummy_array },
+		{ output_path.introspect_file.install_plan, introspect_dummy_array },
+		{ output_path.introspect_file.machines, introspect_dummy_array },
+		{ output_path.introspect_file.tests, introspect_dummy_array },
 	};
 
 	uint32_t i;
@@ -210,6 +355,14 @@ introspect_write_all(struct workspace *wk)
 		if (!with_open(info_path.buf, files[i].name, wk, &files[i], introspect_write)) {
 			return false;
 		}
+	}
+
+	SBUF(meson_private_path);
+	path_join(wk, &meson_private_path, wk->build_root, output_path.meson_private_dir);
+	if (!fs_mkdir(meson_private_path.buf, true)) {
+		return false;
+	} else if (!with_open(meson_private_path.buf, "coredata.dat", wk, 0, introspect_write_dummy)) {
+		return false;
 	}
 
 	return true;

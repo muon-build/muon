@@ -14,12 +14,27 @@
 
 const struct output_path output_path = {
 	.private_dir = ".muon",
-	.info_dir = "meson-info",
+	.meson_private_dir = "meson-private",
 	.summary = "summary.txt",
 	.tests = "tests.dat",
 	.install = "install.dat",
 	.compiler_check_cache = "compiler_check_cache.dat",
 	.option_info = "option_info.dat",
+	.introspect_dir = "meson-info",
+	.introspect_file = {
+		.projectinfo = "intro-projectinfo.json",
+		.targets = "intro-targets.json",
+		.benchmarks = "intro-benchmarks.json",
+		.buildoptions = "intro-buildoptions.json",
+		.buildsystem_files = "intro-buildsystem_files.json",
+		.compilers = "intro-compilers.json",
+		.dependencies = "intro-dependencies.json",
+		.scan_dependencies = "intro-scan_dependencies.json",
+		.installed = "intro-installed.json",
+		.install_plan = "intro-install_plan.json",
+		.machines = "intro-machines.json",
+		.tests = "intro-tests.json",
+	},
 };
 
 FILE *
