@@ -41,7 +41,7 @@ introspect_custom_target(struct workspace *wk, struct project *proj, obj tgt)
 	obj_dict_set(wk, src_unknown, make_str(wk, "language"), make_str(wk, "unknown"));
 	obj_dict_set(wk, src_unknown, make_str(wk, "compiler"), t->args);
 	obj_dict_set(wk, src_unknown, make_str(wk, "parameters"), empty);
-	obj_dict_set(wk, src_unknown, make_str(wk, "sources"), t->input);
+	obj_dict_set(wk, src_unknown, make_str(wk, "sources"), t->input ? t->input : empty);
 	obj_array_push(wk, src, src_unknown);
 	obj_dict_set(wk, doc, make_str(wk, "target_sources"), src);
 
