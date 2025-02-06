@@ -876,6 +876,13 @@ wrap_load_all_iter(void *_ctx, const char *file)
 		return ir_err;
 	}
 
+	{ // Add this wrap file as a regenerate dependency
+		obj wrap_file;
+		make_obj(ctx->wk, &wrap_file, obj_file);
+		*get_obj_file(ctx->wk, wrap_file) = make_str(ctx->wk, ctx->path->buf);
+		obj_array_push(ctx->wk, ctx->wk->regenerate_deps, wrap_file);
+	}
+
 	enum iteration_result ret = ir_err;
 
 	if (!wrap.has_provides) {
