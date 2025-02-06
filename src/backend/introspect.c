@@ -289,6 +289,12 @@ introspect_options(struct workspace *wk)
 }
 
 static obj
+introspect_buildsystem_files(struct workspace *wk)
+{
+	return wk->regenerate_deps;
+}
+
+static obj
 introspect_dummy_array(struct workspace *wk)
 {
 	obj doc;
@@ -336,10 +342,8 @@ introspect_write_all(struct workspace *wk)
 	struct introspect_write_ctx files[] = {
 		{ output_path.introspect_file.targets, introspect_targets },
 		{ output_path.introspect_file.projectinfo, introspect_projects },
-
 		{ output_path.introspect_file.buildoptions, introspect_options },
-
-		{ output_path.introspect_file.buildsystem_files, introspect_dummy_array },
+		{ output_path.introspect_file.buildsystem_files, introspect_buildsystem_files },
 
 		{ output_path.introspect_file.benchmarks, introspect_dummy_array },
 		{ output_path.introspect_file.compilers, introspect_dummy_array },
