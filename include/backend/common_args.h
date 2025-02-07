@@ -24,9 +24,8 @@ void ca_get_option_link_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args);
 
-obj ca_build_target_joined_args(struct workspace *wk,
-	const struct project *proj,
-	const struct obj_build_target *tgt);
+obj ca_build_target_joined_args(struct workspace *wk, obj processed_args);
+
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	struct obj_compiler *comp,

@@ -34,8 +34,7 @@ tests = [
     ['meson-tests/common/10 man install'],
     ['meson-tests/common/11 subdir'],
     ['meson-tests/common/12 data'],
-    # requires pch :)
-    # ['meson-tests/common/13 pch', ['python', 'failing']],
+    ['meson-tests/common/13 pch', ['python']],
     ['meson-tests/common/14 configure file', ['python']],
     ['meson-tests/common/15 if'],
     ['meson-tests/common/16 comparison'],

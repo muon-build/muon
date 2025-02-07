@@ -29,7 +29,7 @@ information.
 
 Things missing include:
 
-- build optimizations like pch and unity
+- build optimizations like unity
 - some `b_` options
 - dependencies with a custom configuration tool
 - some modules

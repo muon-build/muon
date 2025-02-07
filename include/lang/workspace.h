@@ -41,6 +41,9 @@ struct project {
 
 	bool not_ok; // set by failed subprojects
 	bool initialized;
+
+	// ninja-specific
+	obj generic_rules[machine_kind_count];
 };
 
 struct workspace {

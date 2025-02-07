@@ -69,11 +69,6 @@ enum build_target_kwargs {
 		bt_kwargs_count,
 };
 
-#define bt_kwarg_lang_args(cl) ;
-#define bt_kwarg_lang_static_args(cl) ;
-#define bt_kwarg_lang_shared_args(cl) ;
-#define bt_kwarg_lang_pch(cl) ;
-
 static enum iteration_result
 determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 {
@@ -784,6 +779,37 @@ create_target(struct workspace *wk,
 			}
 
 			obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
+		}
+	}
+
+	{ // pch
+		struct {
+			struct args_kw *kw;
+			enum compiler_language l;
+		} pch_args[] = {
+#define E(lang, s) { &akw[bt_kw_##lang##s], compiler_language_##lang },
+#define TOOLCHAIN_ENUM(lang) \
+	E(lang, _pch)
+			FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#undef E
+		};
+
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(pch_args); ++i) {
+			if (!pch_args[i].kw->set) {
+				continue;
+			}
+
+			obj pch_file;
+			if (!coerce_file(wk, pch_args[i].kw->node, pch_args[i].kw->val, &pch_file)) {
+				return false;
+			}
+
+			if (!tgt->pch) {
+				make_obj(wk, &tgt->pch, obj_dict);
+			}
+			obj_dict_seti(wk, tgt->pch, pch_args[i].l, pch_file);
 		}
 	}
 

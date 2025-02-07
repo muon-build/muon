@@ -1060,6 +1060,12 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_werror)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_0(compiler_gcc_args_winvalid_pch)
+{
+	TOOLCHAIN_ARGS({ "-Winvalid-pch" });
+	return &args;
+}
+
 TOOLCHAIN_PROTO_0(compiler_gcc_args_warn_everything)
 {
 	TOOLCHAIN_ARGS({ "-Wall",
@@ -1136,6 +1142,13 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_warn_everything)
 TOOLCHAIN_PROTO_0(compiler_clang_args_warn_everything)
 {
 	TOOLCHAIN_ARGS({ "-Weverything" });
+	return &args;
+}
+
+TOOLCHAIN_PROTO_1s(compiler_clang_args_include_pch)
+{
+	TOOLCHAIN_ARGS({ "-include-pch", 0 });
+	args.args[1] = s1;
 	return &args;
 }
 
@@ -1741,6 +1754,7 @@ build_compilers(void)
 	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
 	gcc.args.warn_everything = compiler_gcc_args_warn_everything;
 	gcc.args.werror = compiler_gcc_args_werror;
+	gcc.args.winvalid_pch = compiler_gcc_args_winvalid_pch;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
 	gcc.args.pgo = compiler_gcc_args_pgo;
@@ -1759,6 +1773,7 @@ build_compilers(void)
 
 	struct compiler clang = gcc;
 	clang.args.warn_everything = compiler_clang_args_warn_everything;
+	clang.args.include_pch = compiler_clang_args_include_pch;
 	clang.default_linker = linker_clang;
 
 	struct compiler apple_clang = clang;

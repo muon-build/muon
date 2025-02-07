@@ -11,18 +11,20 @@
 #include "backend/ninja/build_target.h"
 #include "error.h"
 #include "functions/build_target.h"
+#include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-struct write_tgt_iter_ctx {
+struct write_tgt_source_ctx {
 	FILE *out;
 	const struct obj_build_target *tgt;
 	const struct project *proj;
 	struct build_dep args;
 	obj joined_args;
+	obj joined_args_pch;
 	obj object_names;
 	obj order_deps;
 	obj implicit_deps;
@@ -30,44 +32,39 @@ struct write_tgt_iter_ctx {
 	bool have_link_language;
 };
 
-static enum iteration_result
-add_tgt_objects_iter(struct workspace *wk, void *_ctx, obj val)
+enum write_tgt_src_flag {
+	write_tgt_src_flag_pch = 1 << 0,
+};
+
+static obj
+write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum compiler_language lang, obj val, enum write_tgt_src_flag flags)
 {
-	struct write_tgt_iter_ctx *ctx = _ctx;
 	const char *src = get_file_path(wk, val);
-
-	SBUF(path);
-	path_relative_to(wk, &path, wk->build_root, src);
-	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &path));
-	return ir_cont;
-}
-
-static enum iteration_result
-write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct write_tgt_iter_ctx *ctx = _ctx;
-	const char *src = get_file_path(wk, val);
-
-	enum compiler_language lang;
-	if (!filename_to_compiler_language(src, &lang)) {
-		UNREACHABLE;
-	}
 
 	/* build paths */
 	SBUF(dest_path);
 	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
-		return ir_err;
+		return 0;
+	}
+
+	obj dest = sbuf_into_str(wk, &dest_path);
+
+	if (!(flags & write_tgt_src_flag_pch)) {
+		obj_array_push(wk, ctx->object_names, dest);
 	}
 
 	SBUF(src_path);
 	path_relative_to(wk, &src_path, wk->build_root, src);
 
-	obj_array_push(wk, ctx->object_names, sbuf_into_str(wk, &dest_path));
-
 	/* build rules and args */
 
 	obj rule_name, specialized_rule;
-	{
+	if (flags & write_tgt_src_flag_pch) {
+		if (!obj_dict_geti(wk, ctx->proj->generic_rules[ctx->tgt->machine], lang, &rule_name)) {
+			UNREACHABLE;
+		}
+		specialized_rule = 0;
+	} else {
 		obj rule_name_arr;
 		if (!obj_dict_geti(wk, ctx->tgt->required_compilers, lang, &rule_name_arr)) {
 			UNREACHABLE;
@@ -75,12 +72,6 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 
 		obj_array_index(wk, rule_name_arr, 0, &rule_name);
 		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
-
-		if (!specialized_rule) {
-			if (!ctx->joined_args) {
-				ctx->joined_args = ca_build_target_joined_args(wk, ctx->proj, ctx->tgt);
-			}
-		}
 	}
 
 	SBUF(esc_dest_path);
@@ -100,16 +91,29 @@ write_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	fputc('\n', ctx->out);
 
 	if (!specialized_rule) {
+		obj *joined_args, processed_args;
+		if (flags & write_tgt_src_flag_pch) {
+			processed_args = ctx->tgt->processed_args_pch;
+			joined_args = &ctx->joined_args_pch;
+		} else {
+			processed_args = ctx->tgt->processed_args;
+			joined_args = &ctx->joined_args;
+		}
+
+		if (!*joined_args) {
+			*joined_args = ca_build_target_joined_args(wk, processed_args);
+		}
+
 		obj args;
-		if (!obj_dict_geti(wk, ctx->joined_args, lang, &args)) {
+		if (!obj_dict_geti(wk, *joined_args, lang, &args)) {
 			LOG_E("No compiler defined for language %s", compiler_language_to_s(lang));
-			return ir_err;
+			return 0;
 		}
 
 		fprintf(ctx->out, " ARGS = %s\n", get_cstr(wk, args));
 	}
 
-	return ir_cont;
+	return dest;
 }
 
 bool
@@ -125,7 +129,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		ninja_escape(wk, &esc_path, rel_build_path.buf);
 	}
 
-	struct write_tgt_iter_ctx ctx = {
+	struct write_tgt_source_ctx ctx = {
 		.tgt = tgt,
 		.proj = wctx->proj,
 		.out = wctx->out,
@@ -134,6 +138,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	make_obj(wk, &ctx.object_names, obj_array);
 
 	ctx.args = tgt->dep_internal;
+
+	obj implicit_deps = 0;
 
 	bool have_custom_order_deps = false;
 	{ /* order deps */
@@ -148,7 +154,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 					esc_path.buf,
 					get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
-				ctx.implicit_deps = make_strf(wk, "%s-order_deps", esc_path.buf);
+				make_obj(wk, &implicit_deps, obj_array);
+				obj_array_push(wk, implicit_deps, make_strf(wk, "%s-order_deps", esc_path.buf));
 				have_custom_order_deps = true;
 			} else {
 				ctx.order_deps = order_deps;
@@ -156,11 +163,45 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 	}
 
-	{ /* sources */
-		obj_array_foreach(wk, tgt->objects, &ctx, add_tgt_objects_iter);
+	if (implicit_deps) {
+		ctx.implicit_deps = join_args_ninja(wk, implicit_deps);
+	}
 
-		if (!obj_array_foreach(wk, tgt->src, &ctx, write_tgt_sources_iter)) {
-			return false;
+	if (tgt->pch) { /* pch */
+		obj k, v;
+		(void)k;
+		obj_dict_for(wk, tgt->pch, k, v) {
+			enum compiler_language lang = k;
+
+			if (!implicit_deps) {
+				make_obj(wk, &implicit_deps, obj_array);
+			}
+			obj_array_push(wk, implicit_deps, write_tgt_source(wk, &ctx, lang, v, write_tgt_src_flag_pch));
+		}
+
+		ctx.implicit_deps = join_args_ninja(wk, implicit_deps);
+	}
+
+	{ /* sources */
+		obj v;
+		obj_array_for(wk, tgt->objects, v)
+		{
+			const char *src = get_file_path(wk, v);
+
+			SBUF(path);
+			path_relative_to(wk, &path, wk->build_root, src);
+			obj_array_push(wk, ctx.object_names, sbuf_into_str(wk, &path));
+		}
+
+		obj_array_for(wk, tgt->src, v) {
+			enum compiler_language lang;
+			if (!filename_to_compiler_language(get_file_path(wk, v), &lang)) {
+				UNREACHABLE;
+			}
+
+			if (!write_tgt_source(wk, &ctx, lang, v, 0)) {
+				return false;
+			}
 		}
 	}
 

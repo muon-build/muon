@@ -22,7 +22,7 @@ struct write_compiler_rule_ctx {
 	FILE *out;
 	struct project *proj;
 	struct obj_build_target *tgt;
-	obj args[machine_kind_count], generic_rules[machine_kind_count];
+	obj args[machine_kind_count];
 };
 
 static void
@@ -240,7 +240,7 @@ write_compiler_rule_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 
 	ctx->tgt = get_obj_build_target(wk, tgt_id);
 
-	ctx->args[ctx->tgt->machine] = ca_build_target_joined_args(wk, ctx->proj, ctx->tgt);
+	ctx->args[ctx->tgt->machine] = ca_build_target_joined_args(wk, ctx->tgt->processed_args);
 
 	if (!obj_dict_foreach(wk, ctx->proj->toolchains[ctx->tgt->machine], ctx, write_compiler_rule_iter)) {
 		goto ret;
@@ -338,9 +338,8 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			uniqify_name(wk, rule_prefix_arr, sbuf_into_str(wk, &pre), &proj->rule_prefix);
 		}
 
-		obj generic_rules[machine_kind_count];
 		for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
-			make_obj(wk, &generic_rules[machine], obj_dict);
+			make_obj(wk, &proj->generic_rules[machine], obj_dict);
 		}
 
 		{ // Name all rules
@@ -374,7 +373,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 						obj name = sbuf_into_str(wk, &rule_name_buf);
 						uniqify_name(wk, compiler_rule_arr, name, &rule_name);
 					} else {
-						if (!obj_dict_geti(wk, generic_rules[tgt->machine], l, &rule_name)) {
+						if (!obj_dict_geti(wk, proj->generic_rules[tgt->machine], l, &rule_name)) {
 							sbuf_pushf(wk,
 								&rule_name_buf,
 								"%s_%s_%s_compiler",
@@ -385,7 +384,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 							escape_rule(&rule_name_buf);
 							obj name = sbuf_into_str(wk, &rule_name_buf);
 							uniqify_name(wk, compiler_rule_arr, name, &rule_name);
-							obj_dict_seti(wk, generic_rules[tgt->machine], l, rule_name);
+							obj_dict_seti(wk, proj->generic_rules[tgt->machine], l, rule_name);
 						}
 					}
 
@@ -407,7 +406,6 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			struct write_compiler_rule_ctx ctx = {
 				.out = out,
 				.proj = proj,
-				.generic_rules = { generic_rules[0], generic_rules[1] },
 			};
 
 			struct obj_clear_mark mk;
@@ -426,7 +424,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 					{ // generic compiler rules
 						obj rule_name;
-						if (obj_dict_geti(wk, generic_rules[machine], l, &rule_name)) {
+						if (obj_dict_geti(wk, proj->generic_rules[machine], l, &rule_name)) {
 							write_compiler_rule(
 								wk, out, make_str(wk, "$ARGS"), rule_name, l, comp_id);
 						}

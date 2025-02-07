@@ -11,6 +11,7 @@
 #include "args.h"
 #include "backend/common_args.h"
 #include "error.h"
+#include "functions/build_target.h"
 #include "lang/object_iterators.h"
 #include "log.h"
 #include "options.h"
@@ -140,6 +141,10 @@ ca_get_warning_args(struct workspace *wk,
 	}
 
 	push_args(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, lvl));
+
+	if (tgt->pch && lvl >= 1) {
+		push_args(wk, args_id, toolchain_compiler_winvalid_pch(wk, comp));
+	}
 }
 
 static void
@@ -379,6 +384,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 	assert(!tgt->processed_args);
 
 	make_obj(wk, &tgt->processed_args, obj_dict);
+	if (tgt->pch) {
+		make_obj(wk, &tgt->processed_args_pch, obj_dict);
+	}
 
 	if (tgt->flags & build_tgt_generated_include) {
 		const char *private_path = get_cstr(wk, tgt->private_path);
@@ -456,6 +464,22 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
 		}
 
+		if (tgt->pch) {
+			obj pch;
+			if (obj_dict_geti(wk, tgt->pch, lang, &pch)) {
+				obj args_dup;
+				obj_array_dup(wk, args, &args_dup);
+				obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
+
+				SBUF(dest_path);
+				if (!tgt_src_to_object_path(wk, tgt, pch, true, &dest_path)) {
+					return 0;
+				}
+
+				push_args(wk, args, toolchain_compiler_include_pch(wk, comp, dest_path.buf));
+			}
+		}
+
 		obj_dict_seti(wk, tgt->processed_args, lang, args);
 	}
 
@@ -463,13 +487,13 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 }
 
 obj
-ca_build_target_joined_args(struct workspace *wk, const struct project *proj, const struct obj_build_target *tgt)
+ca_build_target_joined_args(struct workspace *wk, obj processed_args)
 {
 	obj joined;
 	make_obj(wk, &joined, obj_dict);
 
 	obj lang, v;
-	obj_dict_for(wk, tgt->processed_args, lang, v) {
+	obj_dict_for(wk, processed_args, lang, v) {
 		obj_dict_seti(wk, joined, lang, join_args_shell_ninja(wk, v));
 	}
 

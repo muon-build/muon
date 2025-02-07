@@ -249,12 +249,14 @@ struct obj_build_target {
 	obj src; // obj_array
 	obj objects; // obj_array
 	obj args; // obj_dict
+	obj processed_args_pch; // obj_dict
 	obj processed_args; // obj_dict
 	obj link_depends; // obj_array
 	obj generated_pc; // obj_string
 	obj override_options; // obj_array
 	obj required_compilers; // obj_dict
 	obj extra_files; // obj_array
+	obj pch; // obj_dict
 	obj callstack; // obj_array
 
 	struct build_dep dep;
