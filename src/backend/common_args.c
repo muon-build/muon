@@ -472,7 +472,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 				obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
 
 				SBUF(dest_path);
-				if (!tgt_src_to_object_path(wk, tgt, pch, true, &dest_path)) {
+				if (!tgt_src_to_pch_path(wk, tgt, pch, &dest_path)) {
 					return 0;
 				}
 

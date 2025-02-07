@@ -43,8 +43,14 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 
 	/* build paths */
 	SBUF(dest_path);
-	if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
-		return 0;
+	if ((flags & write_tgt_src_flag_pch)) {
+		if (!tgt_src_to_pch_path(wk, ctx->tgt, val, &dest_path)) {
+			return 0;
+		}
+	} else {
+		if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
+			return 0;
+		}
 	}
 
 	obj dest = sbuf_into_str(wk, &dest_path);

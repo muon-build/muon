@@ -1270,6 +1270,29 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_permissive)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_pch)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ "-include", buf })
+
+	assert(str_endswith(&WKSTR(s1), &WKSTR(".gch")));
+	snprintf(buf, sizeof(buf), "%s", s1);
+
+	buf[strlen(buf) - 4] = 0;
+
+	return &args;
+}
+
+TOOLCHAIN_PROTO_0(compiler_gcc_args_pch_extension)
+{
+	TOOLCHAIN_ARGS({ ".gch" })
+
+	/* s1; */
+
+	return &args;
+}
+
+
 /* cl compilers
  * see mesonbuild/compilers/mixins/visualstudio.py for reference
  */
@@ -1768,6 +1791,8 @@ build_compilers(void)
 	gcc.args.deps_type = compiler_deps_gcc;
 	gcc.args.coverage = compiler_gcc_args_coverage;
 	gcc.args.permissive = compiler_gcc_args_permissive;
+	gcc.args.include_pch = compiler_gcc_args_include_pch;
+	gcc.args.pch_ext = compiler_gcc_args_pch_extension;
 	gcc.default_linker = linker_ld;
 	gcc.default_static_linker = static_linker_ar_gcc;
 

@@ -181,6 +181,7 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)              \
 	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)          \
 	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)          \
+	_(pch_ext, compiler, TOOLCHAIN_PARAMS_0)          \
 	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)           \
 	_(coverage, compiler, TOOLCHAIN_PARAMS_0)            \
 	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)        \
