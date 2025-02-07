@@ -578,6 +578,13 @@ restart:
 		return;
 	}
 
+	if (lexer->mode & lexer_mode_bom_error) {
+		lex_error_token(lexer, token, "Unexpected utf-8 BOM.  File must be in utf-8 with no BOM.");
+		lexer->mode &= ~lexer_mode_bom_error;
+		lexer->i += 3;
+		return;
+	}
+
 	while (is_skipchar(lexer->src[lexer->i])) {
 		if (lexer->src[lexer->i] == '#') {
 			lex_advance(lexer);
@@ -800,6 +807,10 @@ lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum l
 		.src = src->src,
 		.mode = mode,
 	};
+
+	if (src->len >= 3 && memcmp(src->src, (uint8_t []){ 0xef, 0xbb, 0xbf }, 3) == 0) {
+		lexer->mode |= lexer_mode_bom_error;
+	}
 
 	stack_init(&lexer->stack, 2048);
 

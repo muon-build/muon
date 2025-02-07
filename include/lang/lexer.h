@@ -113,6 +113,7 @@ enum lexer_mode {
 	lexer_mode_fmt = 1 << 0,
 	lexer_mode_functions = 1 << 1,
 	lexer_mode_cmake = 1 << 2,
+	lexer_mode_bom_error = 1 << 3,
 };
 
 enum cm_lexer_mode {
