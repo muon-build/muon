@@ -741,10 +741,15 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 	SBUF_manual(wrap_rev);
 
 	wrap->outdated = true;
-	if (git_rev_parse(wrap->dest_dir.buf, "HEAD", &head_rev)
-		&& git_rev_parse(wrap->dest_dir.buf, wrap->fields[wf_revision], &wrap_rev)) {
-		if (head_rev.len == wrap_rev.len && memcmp(head_rev.buf, wrap_rev.buf, head_rev.len) == 0) {
-			wrap->outdated = false;
+
+	if (str_eqli(&WKSTR("HEAD"), &WKSTR(wrap->fields[wf_revision]))) {
+		// head is always outdated
+	} else {
+		if (git_rev_parse(wrap->dest_dir.buf, "HEAD", &head_rev)
+			&& git_rev_parse(wrap->dest_dir.buf, wrap->fields[wf_revision], &wrap_rev)) {
+			if (head_rev.len == wrap_rev.len && memcmp(head_rev.buf, wrap_rev.buf, head_rev.len) == 0) {
+				wrap->outdated = false;
+			}
 		}
 	}
 
