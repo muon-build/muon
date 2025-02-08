@@ -20,13 +20,18 @@
 #include "platform/assert.h"
 #include "platform/path.h"
 
+struct tgt_src_to_compiled_path_opts {
+	bool relative;
+	const char *default_ext;
+	compiler_get_arg_func_0 get_ext;
+	enum compiler_language lang;
+};
+
 static bool
 tgt_src_to_compiled_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
+	struct tgt_src_to_compiled_path_opts *opts,
 	obj src_file,
-	bool relative,
-	const char *default_ext,
-	compiler_get_arg_func_0 get_ext,
 	struct sbuf *res)
 {
 	obj src = *get_obj_file(wk, src_file);
@@ -35,7 +40,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 	SBUF(rel);
 	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
-	if (relative) {
+	if (opts->relative) {
 		path_relative_to(wk, &private_path_rel, wk->build_root, private_path);
 		private_path = private_path_rel.buf;
 	}
@@ -72,14 +77,12 @@ tgt_src_to_compiled_path(struct workspace *wk,
 
 	path_join(wk, res, private_path, rel.buf);
 
-	const char *ext = default_ext;
+	const char *ext = opts->default_ext;
 
 	{
-		enum compiler_language lang;
 		obj comp_id;
-		if (filename_to_compiler_language(res->buf, &lang)
-			&& obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], lang, &comp_id)) {
-			ext = get_ext(wk, get_obj_compiler(wk, comp_id))->args[0];
+		if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
+			ext = opts->get_ext(wk, get_obj_compiler(wk, comp_id))->args[0];
 		}
 	}
 
@@ -90,20 +93,36 @@ tgt_src_to_compiled_path(struct workspace *wk,
 bool
 tgt_src_to_pch_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
+	enum compiler_language lang,
 	obj src_file,
 	struct sbuf *res)
 {
-	return tgt_src_to_compiled_path(wk, tgt, src_file, true, ".o", toolchain_compiler_pch_ext, res);
+	struct tgt_src_to_compiled_path_opts opts = {
+		.relative = true,
+		.default_ext = ".o",
+		.get_ext = toolchain_compiler_pch_ext,
+		.lang = lang,
+	};
+
+	return tgt_src_to_compiled_path(wk, tgt, &opts, src_file, res);
 }
 
 bool
 tgt_src_to_object_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
+	enum compiler_language lang,
 	obj src_file,
 	bool relative,
 	struct sbuf *res)
 {
-	return tgt_src_to_compiled_path(wk, tgt, src_file, relative, ".o", toolchain_compiler_object_ext, res);
+	struct tgt_src_to_compiled_path_opts opts = {
+		.relative = relative,
+		.default_ext = ".o",
+		.get_ext = toolchain_compiler_object_ext,
+		.lang = lang,
+	};
+
+	return tgt_src_to_compiled_path(wk, tgt, &opts, src_file, res);
 }
 
 static bool
@@ -206,7 +225,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	SBUF(dest_path);
-	if (!tgt_src_to_object_path(wk, ctx->tgt, file, false, &dest_path)) {
+	if (!tgt_src_to_object_path(wk, ctx->tgt, l, file, false, &dest_path)) {
 		return ir_err;
 	}
 

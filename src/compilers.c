@@ -1272,13 +1272,18 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_permissive)
 
 TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_pch)
 {
-	static char buf[BUF_SIZE_S];
-	TOOLCHAIN_ARGS({ "-include", buf })
+	static char a[BUF_SIZE_S], b[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ "-I", a, "-include", b })
 
-	assert(str_endswith(&WKSTR(s1), &WKSTR(".gch")));
-	snprintf(buf, sizeof(buf), "%s", s1);
+	SBUF(buf);
+	path_dirname(wk, &buf, s1);
+	assert(buf.len + 1 < sizeof(a));
+	memcpy(a, buf.buf, buf.len + 1);
 
-	buf[strlen(buf) - 4] = 0;
+	path_basename(wk, &buf, s1);
+	assert(buf.len + 1 < sizeof(a));
+	memcpy(b, buf.buf, buf.len + 1);
+	b[strlen(b) - 4] = 0;
 
 	return &args;
 }

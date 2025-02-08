@@ -44,11 +44,11 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 	/* build paths */
 	SBUF(dest_path);
 	if ((flags & write_tgt_src_flag_pch)) {
-		if (!tgt_src_to_pch_path(wk, ctx->tgt, val, &dest_path)) {
+		if (!tgt_src_to_pch_path(wk, ctx->tgt, lang, val, &dest_path)) {
 			return 0;
 		}
 	} else {
-		if (!tgt_src_to_object_path(wk, ctx->tgt, val, true, &dest_path)) {
+		if (!tgt_src_to_object_path(wk, ctx->tgt, lang, val, true, &dest_path)) {
 			return 0;
 		}
 	}

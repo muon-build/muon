@@ -9,11 +9,13 @@
 
 bool tgt_src_to_object_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
+	enum compiler_language lang,
 	obj src_file,
 	bool relative,
 	struct sbuf *res);
 bool tgt_src_to_pch_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
+	enum compiler_language lang,
 	obj src_file,
 	struct sbuf *res);
 

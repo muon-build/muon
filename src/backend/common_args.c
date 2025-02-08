@@ -419,6 +419,18 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp_id);
 
+		if (tgt->flags & build_tgt_flag_pic) {
+			push_args(wk, args, toolchain_compiler_pic(wk, comp));
+		}
+
+		if (tgt->flags & build_tgt_flag_pie) {
+			push_args(wk, args, toolchain_compiler_pie(wk, comp));
+		}
+
+		if (tgt->flags & build_tgt_flag_visibility) {
+			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
+		}
+
 		obj dedupd;
 		obj_array_dedup(wk, tgt->dep_internal.include_directories, &dedupd);
 		tgt->dep_internal.include_directories = dedupd;
@@ -434,6 +446,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 		ca_setup_compiler_args_includes(wk, comp_id, tgt->dep_internal.include_directories, args, true);
 
+		obj args_post;
+		make_obj(wk, &args_post, obj_array);
+
 		{ /* compile args */
 			if (tgt->dep_internal.compile_args) {
 				obj tgt_args;
@@ -448,20 +463,8 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		{ /* target args */
 			obj tgt_args;
 			if (obj_dict_geti(wk, tgt->args, lang, &tgt_args) && get_obj_array(wk, tgt_args)->len) {
-				obj_array_extend(wk, args, tgt_args);
+				obj_array_extend(wk, args_post, tgt_args);
 			}
-		}
-
-		if (tgt->flags & build_tgt_flag_pic) {
-			push_args(wk, args, toolchain_compiler_pic(wk, comp));
-		}
-
-		if (tgt->flags & build_tgt_flag_pie) {
-			push_args(wk, args, toolchain_compiler_pie(wk, comp));
-		}
-
-		if (tgt->flags & build_tgt_flag_visibility) {
-			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
 		}
 
 		if (tgt->pch) {
@@ -469,16 +472,18 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			if (obj_dict_geti(wk, tgt->pch, lang, &pch)) {
 				obj args_dup;
 				obj_array_dup(wk, args, &args_dup);
+				obj_array_extend(wk, args_dup, args_post);
 				obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
 
 				SBUF(dest_path);
-				if (!tgt_src_to_pch_path(wk, tgt, pch, &dest_path)) {
+				if (!tgt_src_to_pch_path(wk, tgt, lang, pch, &dest_path)) {
 					return 0;
 				}
 
 				push_args(wk, args, toolchain_compiler_include_pch(wk, comp, dest_path.buf));
 			}
 		}
+		obj_array_extend(wk, args, args_post);
 
 		obj_dict_seti(wk, tgt->processed_args, lang, args);
 	}
