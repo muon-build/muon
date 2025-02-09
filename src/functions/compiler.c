@@ -62,7 +62,7 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	LLOG_I("%s compiler '%s': ", compiler_language_to_s(comp->lang), compiler_type_to_s(comp->type[toolchain_component_compiler]));
+	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
 	log_plainv(fmt, args);
 
 	if (opts->from_cache) {
