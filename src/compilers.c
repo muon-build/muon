@@ -1336,7 +1336,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_debugfile)
 
 TOOLCHAIN_PROTO_2s(compiler_cl_args_deps)
 {
-	TOOLCHAIN_ARGS({ "" });
+	TOOLCHAIN_ARGS({ "/showIncludes" });
 
 	return &args;
 }
