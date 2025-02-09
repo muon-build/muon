@@ -622,7 +622,7 @@ static bool
 cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct obj_compiler comp = { 0 };
-	bool set_linker, set_static_linker;
+	bool set_linker = false, set_static_linker = false;
 
 	const char *n1_args[32] = { "<value1>", "<value2>" };
 	struct args n1 = { n1_args, 2 };
