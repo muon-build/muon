@@ -78,3 +78,45 @@ meson.register_dependency_handler(
         )
     endfunc,
 )
+
+meson.register_dependency_handler(
+    'objfw',
+    config_tool: func(static bool:, native bool:, modules list[str]:, _ glob[any]:) -> dep
+        objfwconfig = find_program('objfw-config', required: false)
+
+        if not objfwconfig.found()
+            return not_found()
+        endif
+
+        config = func(args list[str]) -> list[str]
+            output = run_command([objfwconfig] + args, check: true).stdout()
+
+            value = []
+            foreach arg : output.split(' ')
+                if arg != ''
+                    value += arg
+                endif
+            endforeach
+
+            return value
+        endfunc
+
+        modules_args = []
+        if not is_null(modules)
+            foreach module : modules
+                modules_args += '--package'
+                modules_args += module
+            endforeach
+        endif
+
+        compile_args = config(['--cppflags', '--objcflags'] + modules_args)
+        link_args = config(['--ldflags', '--libs'] + modules_args)
+        version = run_command([objfwconfig, '--version'], check: true).stdout().strip()
+
+        return declare_dependency(
+            compile_args: compile_args,
+            link_args: link_args,
+            version: version,
+        )
+    endfunc,
+)
