@@ -1336,7 +1336,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_debugfile)
 
 TOOLCHAIN_PROTO_2s(compiler_cl_args_deps)
 {
-	TOOLCHAIN_ARGS({ "/showIncludes" });
+	TOOLCHAIN_ARGS({ "" });
 
 	return &args;
 }
@@ -1444,6 +1444,13 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_set_std)
 {
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
+	if (strcmp(s1, "c11") == 0) {
+		memcpy(buf, "/std:c11", sizeof("/std:c11"));
+	} else if (strcmp(s1, "c17") == 0 || strcmp(s1, "c18") == 0) {
+		memcpy(buf, "/std:c17", sizeof("/std:c17"));
+	} else {
+		args.len = 0;
+	}
 	snprintf(buf, BUF_SIZE_S, "/std:%s", s1);
 
 	return &args;
@@ -1685,10 +1692,20 @@ TOOLCHAIN_PROTO_1s(linker_link_args_implib)
 	return &args;
 }
 
-TOOLCHAIN_PROTO_1s(linker_lld_link_args_whole_archive)
+TOOLCHAIN_PROTO_0(linker_link_args_always)
 {
-	TOOLCHAIN_ARGS({ "/whole-archive", NULL });
-	argv[1] = s1;
+	TOOLCHAIN_ARGS({ "/NOLOGO", NULL });
+	argv[1] = host_machine.address_bits == 64 ? "/MACHINE:X64" : "/MACHINE:X86";
+
+	return &args;
+}
+
+TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+	snprintf(buf, BUF_SIZE_S, "/WHOLEARCHIVE:%s", s1);
+
 	return &args;
 }
 
@@ -1906,12 +1923,12 @@ build_linkers(void)
 	link.args.shared = linker_link_args_shared;
 	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
-	link.args.always = compiler_cl_args_always;
+	link.args.always = linker_link_args_always;
+	link.args.whole_archive = linker_link_args_whole_archive;
 	link.args.implib = linker_link_args_implib;
 
 	struct linker lld_link = link;
 	lld_link.args.lib = linker_posix_args_lib;
-	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
 	lld_link.args.always = toolchain_arg_empty_0;
 
 	linkers[linker_posix] = posix;
@@ -1936,7 +1953,7 @@ build_static_linkers(void)
 
 	struct static_linker msvc = empty;
 	msvc.args.input_output = linker_link_args_input_output;
-	msvc.args.always = compiler_cl_args_always;
+	msvc.args.always = linker_link_args_always;
 
 	static_linkers[static_linker_ar_posix] = posix;
 	static_linkers[static_linker_ar_gcc] = gcc;
