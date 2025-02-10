@@ -1079,7 +1079,7 @@ vm_op_add(struct workspace *wk)
 			obj_array_extend(wk, res, b);
 		} else if (b_t == obj_typeinfo) {
 			type_tag t = get_obj_typeinfo(wk, b)->type;
-			t &= ~tc_array | obj_typechecking_type_tag;
+			t &= ~(tc_array | obj_typechecking_type_tag);
 			// Only push b if it has a type other than list.  This is because
 			// if we push b with type tc_list then it looks like we just made a
 			// nested list which [] + [] is never supposed to do.
