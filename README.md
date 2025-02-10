@@ -24,8 +24,7 @@ dependencies.
 
 `muon` is close to feature-complete with the core of meson for `c` and `c++`.
 
-See the [Muon Reference](https://docs.muon.build/ref) for more detailed
-information.
+See the [Muon Reference] for more detailed information.
 
 Things missing include:
 
@@ -138,3 +137,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [ci dashboard]: https://muon.build/muon_ci.html
 [Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md
 [Muon Docs]: https://docs.muon.build/differences.html
+[Moun Reference]: https://docs.muon.build/reference
