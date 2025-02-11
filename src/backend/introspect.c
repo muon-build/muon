@@ -275,8 +275,8 @@ introspect_options(struct workspace *wk)
 	make_obj(wk, &doc, obj_array);
 
 	obj key, opt;
-	(void)key;
 	obj_dict_for(wk, wk->global_opts, key, opt) {
+		(void)key;
 		obj_array_push(wk, doc, introspect_option(wk, opt));
 	}
 

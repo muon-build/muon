@@ -525,9 +525,9 @@ xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj, struct obj
 		obj pbx_gcc_preprocessor_definitions = xc_pbx_new(ctx, obj_array);
 
 		obj _lang, args;
-		(void)_lang;
 		// TODO: This adds duplicates
 		obj_dict_for(ctx->wk, tgt->args, _lang, args) {
+			(void)_lang;
 			obj_array_for(ctx->wk, args, v) {
 				const struct str *s = get_str(ctx->wk, v);
 				if (str_startswith(s, &WKSTR("-D")) && s->len > 2) {

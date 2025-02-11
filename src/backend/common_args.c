@@ -404,8 +404,8 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 	}
 
 	obj _lang, _n;
-	(void)_n;
 	obj_dict_for(wk, tgt->required_compilers, _lang, _n) {
+		(void)_n;
 		enum compiler_language lang = _lang;
 		obj comp_id;
 		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], lang, &comp_id)) {
@@ -856,8 +856,8 @@ ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 	}
 
 	obj key, val;
-	(void)key;
 	obj_dict_for(wk, wk->global_opts, key, val) {
+		(void)key;
 		struct obj_option *o = get_obj_option(wk, val);
 		if (o->source != option_value_source_environment) {
 			continue;

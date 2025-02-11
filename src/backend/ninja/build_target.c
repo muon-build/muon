@@ -175,7 +175,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	if (tgt->pch) { /* pch */
 		obj k, v;
-		(void)k;
 		obj_dict_for(wk, tgt->pch, k, v) {
 			enum compiler_language lang = k;
 

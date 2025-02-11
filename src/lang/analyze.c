@@ -540,8 +540,8 @@ pop_scope_group(struct workspace *wk)
 
 	{ // Now, merge `merged` into base
 		obj k, aid;
-		(void)k;
 		obj_dict_for(wk, merged, k, aid) {
+			(void)k;
 			struct assignment *a = bucket_arr_get(&assignments, aid), *b;
 			if ((b = assign_lookup(wk, a->name))) {
 				merge_objects(wk, b, a);
