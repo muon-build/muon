@@ -190,6 +190,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 	o->yield = akw[kw_yield].set && get_obj_bool(wk, akw[kw_yield].val);
 	o->description = akw[kw_description].val;
 	o->deprecated = akw[kw_deprecated].val;
+	o->ip = wk->vm.ip - 1;
 
 	if (akw[kw_kind].set) {
 		if (str_eql(&WKSTR("default"), get_str(wk, akw[kw_kind].val))) {

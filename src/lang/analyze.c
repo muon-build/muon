@@ -1478,7 +1478,7 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 			obj wrap_mode;
 			get_option(wk, 0, &WKSTR("wrap_mode"), &wrap_mode);
 			set_option(
-				wk, 0, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
+				wk, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
 		}
 
 		res = eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id);

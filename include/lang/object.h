@@ -462,6 +462,7 @@ struct obj_option {
 	obj min;
 	obj deprecated;
 	obj description;
+	uint32_t ip;
 	enum option_value_source source;
 	enum build_option_type type;
 	enum build_option_kind kind;
