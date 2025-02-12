@@ -28,9 +28,7 @@ fi
 tools/ci/deploy.sh "/releases/$version" -r --delete build/doc/docs
 tools/ci/deploy.sh "/releases/$version" \
 	"build/muon-$version-amd64-linux-static" \
-	"build/muon-$version-amd64-linux-static.md5" \
 	"build-small/muon-$version-amd64-linux-static-small" \
-	"build-small/muon-$version-amd64-linux-static-small.md5" \
 	"muon-$version.tar.gz"
 
 # only allow master through
