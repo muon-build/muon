@@ -125,7 +125,7 @@ inspired to actually go out and do it when I saw [boson].  `muon`'s code was
 originally based on `boson`, though has since been almost completely rewritten.
 
 [muon]: https://muon.build
-[contributing guide]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/contributing.md
+[contributing guide]: https://docs.muon.build/contributing.html
 [mailing list]: https://lists.sr.ht/~lattis/muon/
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
 [#muon on libera.chat]: ircs://irc.libera.chat/#muon
@@ -137,4 +137,4 @@ originally based on `boson`, though has since been almost completely rewritten.
 [ci dashboard]: https://muon.build/muon_ci.html
 [Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md
 [Muon Docs]: https://docs.muon.build/differences.html
-[Moun Reference]: https://docs.muon.build/reference
+[Muon Reference]: https://docs.muon.build/reference
