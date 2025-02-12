@@ -73,13 +73,15 @@ tasks:
         tools/ci/solaris11.sh submit
       fi
   - build_gcc: |
-      # In order to fetch the meson-docs wrap, we have to build muon twice,
-      # once to bootstrap, and then again when we have libcurl
       cd muon
-      OPTS="-Dlibpkgconf=enabled -Dlibarchive=enabled -Dlibcurl=enabled -Dbuildtype=release -Dstatic=true -Dwebsite=true -Dwerror=true"
-      CC=gcc tools/ci/bootstrap.sh build $OPTS
-      build/muon setup $OPTS build
-      build/muon -C build samu
+      CC=gcc tools/ci/bootstrap.sh build \
+        -Dlibpkgconf=enabled \
+        -Dlibarchive=enabled \
+        -Dlibcurl=enabled \
+        -Dbuildtype=release \
+        -Dstatic=true \
+        -Dwebsite=true \
+        -Dwerror=true
   - build_tcc: |
       cd muon
       CC=tcc tools/ci/bootstrap.sh build-tcc
