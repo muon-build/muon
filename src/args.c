@@ -36,9 +36,8 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 }
 
 void
-shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, const char *escape_inner)
+shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, const char *escape_inner, const char *need_escaping)
 {
-	const char *need_escaping = "\"'$ \\><&#()\n";
 	const char *s;
 	bool do_esc = false;
 
@@ -74,7 +73,13 @@ shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, cons
 void
 shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, "\"$\\");
+	shell_escape_custom(wk, sb, str, "\"$\\", "\"'$ \\><&#()\n");
+}
+
+void
+shell_escape_no_dollar(struct workspace *wk, struct sbuf *sb, const char *str)
+{
+	shell_escape_custom(wk, sb, str, "\"\\", "\"' \\><&#()\n");
 }
 
 static void
@@ -170,6 +175,12 @@ obj
 join_args_shell(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, shell_escape);
+}
+
+obj
+join_args_shell_no_dollar(struct workspace *wk, obj arr)
+{
+	return join_args(wk, arr, shell_escape_no_dollar);
 }
 
 obj

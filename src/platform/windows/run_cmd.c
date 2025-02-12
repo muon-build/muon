@@ -491,7 +491,7 @@ static void
 run_cmd_push_argv(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg, bool first)
 {
 	sbuf_clear(arg_buf);
-	shell_escape_custom(0, arg_buf, arg, "\"\\");
+	shell_escape_no_dollar(0, arg_buf, arg);
 	sbuf_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
 }
 

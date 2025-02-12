@@ -146,7 +146,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 			"\n",
 			get_cstr(wk, proj->rule_prefix),
 			machine_kind_to_s(machine),
-			get_cstr(wk, join_args_plain(wk, static_link_args)));
+			get_cstr(wk, join_args_shell_no_dollar(wk, static_link_args)));
 	}
 }
 
