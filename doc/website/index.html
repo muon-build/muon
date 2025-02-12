@@ -81,7 +81,7 @@ SPDX-License-Identifier: GPL-3.0-only
     <script>
       (() => {
         const baseUri = 'https://muon.build/releases'
-        var downloadsElement = document.getElementById('downloads');
+        const downloadsElement = document.getElementById('downloads');
 
         function sizeToH(b) {
           if (b > 1024 * 1024) {
@@ -99,6 +99,10 @@ SPDX-License-Identifier: GPL-3.0-only
           function verToNum(ver) {
             return ver.substr(1).split('.').map((n) => parseInt(n)).reduce((a, b) => a * 100 + b, 0);
           }
+
+          // Remove 'edge' from the list
+          const edgeIdx = list.findIndex((e) => e.ver === 'edge');
+          list.splice(edgeIdx, 1);
 
           list.sort((a, b) => {
             return verToNum(b.ver) - verToNum(a.ver) ;
@@ -123,10 +127,10 @@ SPDX-License-Identifier: GPL-3.0-only
 
         function renderReleases(list) {
           function versionTag(type) {
-            var e = document.createElement("div");
+            const e = document.createElement("div");
             e.classList.add("version-tag");
             e.classList.add(`version-tag-${type}`);
-            var t = document.createElement("span");
+            const t = document.createElement("span");
             t.innerHTML = type;
             e.appendChild(t);
             return e;
@@ -135,16 +139,16 @@ SPDX-License-Identifier: GPL-3.0-only
           sortReleases(list);
 
           list.forEach((e, i) => {
-            var elem = document.createElement("details");
+            const elem = document.createElement("details");
             downloadsElement.appendChild(elem);
 
-            var summary = document.createElement("summary");
-            var content = document.createElement("span");
+            const summary = document.createElement("summary");
+            const content = document.createElement("span");
             summary.appendChild(content);
             elem.appendChild(summary);
 
             content.classList.add("version-item");
-            var summaryTitle = document.createElement("span");
+            const summaryTitle = document.createElement("span");
             summaryTitle.innerHTML = e.ver;
             content.appendChild(summaryTitle);
             if (i == 0) {
@@ -153,21 +157,21 @@ SPDX-License-Identifier: GPL-3.0-only
               content.appendChild(versionTag("released"));
             }
 
-            var ul = document.createElement("ul");
+            const ul = document.createElement("ul");
             elem.appendChild(ul);
 
             e.items.forEach((item) => {
-              var li = document.createElement("li");
+              const li = document.createElement("li");
               ul.appendChild(li);
 
-              var a = document.createElement("a");
+              const a = document.createElement("a");
 
               a.innerHTML = item.itemPath.substr(e.ver.length + 1);
 
               a.href = `${baseUri}/${item.itemPath}`;
               li.appendChild(a);
 
-              var info = document.createElement("span");
+              const info = document.createElement("span");
               info.innerHTML = ` - ${sizeToH(item.item.size)}`;
               li.appendChild(info);
             });
@@ -217,7 +221,7 @@ SPDX-License-Identifier: GPL-3.0-only
           })));
         }).catch(err => {
           doneLoading();
-          var p = document.createElement("p");
+          const p = document.createElement("p");
           p.innerHTML = `Error fetching releases: ${err}`;
           downloadsElement.appendChild(p);
         });
