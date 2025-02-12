@@ -66,7 +66,11 @@ if setup_result.returncode() != 0
     endif
 endif
 
-run_command(ninja.split(' '), '-C', build, check: true)
+if ninja == 'USE_MUON'
+    ninja = [muon, 'samu']
+endif
+
+run_command(ninja, '-C', build, check: true)
 
 run_command(muon, '-C', build, 'test', check: true)
 

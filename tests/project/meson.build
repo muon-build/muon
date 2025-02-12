@@ -389,7 +389,7 @@ tests = [
 ]
 
 if dep_dict['samurai']
-    ninja = '@0@ samu'.format(muon.full_path())
+    ninja = 'USE_MUON'
 else
     ninja = find_program('ninja', 'samu', required: false)
     if ninja.found()
