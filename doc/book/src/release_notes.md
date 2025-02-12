@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.4.0
+## ✓ 0.4.0
 
 - More windows improvements
     - only ~30 tests failing with msvc
@@ -36,7 +36,7 @@
     - kzc (1)
     - sewn (4)
 
-## 0.3.0
+## ✓ 0.3.0
 
 - Brand-new interpreter: <https://mochiro.moe/posts/10-muon-internals/>
 - Lots of windows improvements
