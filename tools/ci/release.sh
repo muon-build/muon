@@ -25,7 +25,7 @@ if tools/ci/ref_is_release_branch.sh "$branch_name"; then :
 else exit 0
 fi
 
-tools/ci/deploy.sh "/releases/$version" -r --delete build/doc/docs
+tools/ci/deploy.sh "/releases/$version" --mkpath -r --delete build/doc/docs
 tools/ci/deploy.sh "/releases/$version" \
 	"build/muon-$version-amd64-linux-static" \
 	"build-small/muon-$version-amd64-linux-static-small" \
