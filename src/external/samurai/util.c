@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "error.h"
 #include "external/samurai/ctx.h"
 #include "lang/string.h"
 #include "log.h"
@@ -157,20 +158,13 @@ samu_arena_realloc(struct samu_arena *a, void *p, size_t old, size_t new)
 	return mem;
 }
 
-static void *
-samu_reallocarray(struct samu_arena *a, void *p, size_t old, size_t new, size_t m)
-{
-	if (m && new > SIZE_MAX / m) {
-		errno = ENOMEM;
-		return NULL;
-	}
-	return samu_arena_realloc(a, p, old * m, new * m);
-}
-
 void *
 samu_xreallocarray(struct samu_arena *a, void *p, size_t old, size_t new, size_t m)
 {
-	return samu_reallocarray(a, p, old, new, m);
+	if (m && new > SIZE_MAX / m) {
+		error_unrecoverable("samu_xreallocarray failed: %lld > %lld", (long long)new, (long long)(SIZE_MAX / m));
+	}
+	return samu_arena_realloc(a, p, old * m, new * m);
 }
 
 char *
