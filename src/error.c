@@ -11,7 +11,6 @@
 
 #include "buf_size.h"
 #include "datastructures/arr.h"
-#include "embedded.h"
 #include "error.h"
 #include "lang/workspace.h"
 #include "log.h"
