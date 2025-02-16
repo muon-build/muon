@@ -153,8 +153,12 @@ write_option_info(struct workspace *wk, void *_ctx, FILE *out)
 	make_obj(wk, &arr, obj_array);
 	obj_array_push(wk, arr, wk->global_opts);
 
-	struct project *main_proj = arr_get(&wk->projects, 0);
-	obj_array_push(wk, arr, main_proj->opts);
+	uint32_t i;
+	for (i = 0; i < wk->projects.len; ++i) {
+		struct project *proj = arr_get(&wk->projects, i);
+		obj_array_push(wk, arr, proj->opts);
+		obj_array_push(wk, arr, proj->cfg.name);
+	}
 
 	return serial_dump(wk, arr, out);
 }

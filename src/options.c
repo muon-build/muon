@@ -1196,32 +1196,50 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	switch (opt->type) {
 	case op_boolean:
 	case op_combo:
-	case op_feature: obj_lprintf(wk, "<%s>", get_cstr(wk, choices)); break;
+	case op_feature: {
+		obj_lprintf(wk, "<%s>", get_cstr(wk, choices));
+		break;
+	}
 	case op_string: {
-		const struct str *def = get_str(wk, opt->val);
-		obj_lprintf(
-			wk, "<%s>, default: %s%s%s", get_cstr(wk, choices), sel_clr, def->len ? def->s : "''", no_clr);
+		if (opt->source == option_value_source_default) {
+			const struct str *def = get_str(wk, opt->val);
+			obj_lprintf(wk,
+				"<%s>, default: %s%s%s",
+				get_cstr(wk, choices),
+				sel_clr,
+				def->len ? def->s : "''",
+				no_clr);
+		} else {
+			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
+		}
 		break;
 	}
 	case op_integer:
-		log_plain("<%sN%s>", val_clr, no_clr);
-		if (opt->min || opt->max) {
-			log_plain(" where ");
-			if (opt->min) {
-				obj_lprintf(wk, "%o <= ", opt->min);
+		if (opt->source == option_value_source_default) {
+			log_plain("<%sN%s>", val_clr, no_clr);
+			if (opt->min || opt->max) {
+				log_plain(" where ");
+				if (opt->min) {
+					obj_lprintf(wk, "%o <= ", opt->min);
+				}
+				log_plain("%sN%s", val_clr, no_clr);
+				if (opt->max) {
+					obj_lprintf(wk, " <= %o", opt->max);
+				}
 			}
-			log_plain("%sN%s", val_clr, no_clr);
-			if (opt->max) {
-				obj_lprintf(wk, " <= %o", opt->max);
-			}
+			obj_lprintf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
+		} else {
+			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
-		obj_lprintf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
-
 		break;
 	case op_array:
-		log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
-		if (opt->choices) {
-			obj_lprintf(wk, " where value in %s", get_cstr(wk, choices));
+		if (opt->source == option_value_source_default) {
+			log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
+			if (opt->choices) {
+				obj_lprintf(wk, " where value in %s", get_cstr(wk, choices));
+			}
+		} else {
+			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
 		break;
 	default: UNREACHABLE;
@@ -1275,7 +1293,8 @@ list_options(const struct list_options_opts *list_opts)
 {
 	bool ret = false;
 	struct workspace wk = { 0 };
-	workspace_init(&wk);
+	workspace_init_bare(&wk);
+	workspace_init_runtime(&wk);
 	wk.vm.lang_mode = language_opts;
 
 	uint32_t idx;
@@ -1297,7 +1316,8 @@ list_options(const struct list_options_opts *list_opts)
 			SBUF(subprojects_dir);
 			struct workspace az_wk = { 0 };
 			analyze_project_call(&az_wk);
-			path_make_absolute(&wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+			path_make_absolute(
+				&wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
 
 			obj name = current_project(&az_wk)->cfg.name;
 			if (name) {
@@ -1329,6 +1349,27 @@ list_options(const struct list_options_opts *list_opts)
 			goto ret;
 		}
 
+		uint32_t i = 0;
+		obj v;
+		obj_array_for(&wk, arr, v) {
+			if (i == 0) {
+				wk.global_opts = v;
+			} else {
+				uint32_t proj_i = (i - 1) / 2;
+				if (proj_i >= wk.projects.len) {
+					make_project(&wk, &proj_i, 0, "", "");
+				}
+
+				struct project *proj = arr_get(&wk.projects, proj_i);
+				if ((i - 1) & 1) {
+					proj->cfg.name = v;
+				} else {
+					proj->opts = v;
+				}
+			}
+
+			++i;
+		}
 		obj_array_index(&wk, arr, 0, &wk.global_opts);
 		obj_array_index(&wk, arr, 1, &current_project(&wk)->opts);
 	}
