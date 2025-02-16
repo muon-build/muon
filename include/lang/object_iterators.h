@@ -26,9 +26,9 @@ struct obj_array_for_helper {
 		.a = __arr,                                          \
 	};                                                                                \
 	__iter.len = __iter.a->len;                                                       \
-	for (__iter.e = __iter.a->len ? (struct obj_array_elem *)bucket_arr_get(&__wk->vm.objects.array_elems, __iter.a->head) : 0,\
+	for (__iter.e = __iter.a->len ? (struct obj_array_elem *)bucket_arr_get(&(__wk)->vm.objects.array_elems, __iter.a->head) : 0,\
 			__val = __iter.e ? __iter.e->val : 0; __iter.i < __iter.len;            \
-		__iter.e = __iter.e->next ? (struct obj_array_elem *)bucket_arr_get(&__wk->vm.objects.array_elems, __iter.e->next) : 0, \
+		__iter.e = __iter.e->next ? (struct obj_array_elem *)bucket_arr_get(&(__wk)->vm.objects.array_elems, __iter.e->next) : 0, \
 	    __val = __iter.e ? __iter.e->val : 0,                                         \
 	    ++__iter.i)
 
