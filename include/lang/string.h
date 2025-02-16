@@ -14,6 +14,13 @@
 
 struct workspace;
 
+/* STR and STRL are both conveniences for creating temporary string objects.
+ * These are useful for passing to str_ functions without needing to make a
+ * heap allocation. STR() is compile time constant but it requires a
+ * compile-time known string STRL() uses strlen() so it may be used with any
+ * string.
+ */
+
 #define STR(__str)                               \
 	(struct str)                                 \
 	{                                            \
@@ -25,7 +32,23 @@ struct workspace;
 		.s = __str, .len = strlen(__str) \
 	}
 
-/* tstr */
+/* tstr - Temporary STRing
+ *
+ * tstrs should almost always be created using the TSTR macro.  This creates a
+ * tstr struct as well as allocating a buffer for it on the stack.
+ *
+ * The tstr_ family of functions will use this temporary buffer until if
+ * overflows.  If it overflows it will become an obj_str unless it has the flag
+ * tstr_flag_overflow_alloc (e.g. from TSTR_manual) which will cause it to
+ * overflow by allocating directly with malloc.
+ *
+ * A TSTR must be freed if and only if it has the flag
+ * tstr_flag_overflow_alloc, if it overflows without this flag then the
+ * workspace manages its memory.
+ *
+ * Conversion of a TSTR to a string should be done with tstr_into_str which
+ * reuses the underlying string object if it has already been created.
+ */
 
 enum tstr_flags {
 	tstr_flag_overflown = 1 << 0,
@@ -64,6 +87,17 @@ void tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list
 void tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *str, uint32_t len);
 void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const struct str *str);
 obj tstr_into_str(struct workspace *wk, struct tstr *sb);
+
+/* str - strings
+ *
+ * struct str a.k.a. obj_string a.k.a. string objects are the primary
+ * representation for strings.  They are counted strings and generally may
+ * contain 0 bytes.  They are also guaranteed to include a 0 terminator for
+ * convenience.  Typically they are constructed with the `make_str*` functions.
+ *
+ * String objects have the same lifetime as all objects: the lifetime of the
+ * workspace they were created with.
+ */
 
 void str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_whitespace);
 void str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss);
