@@ -77,9 +77,9 @@ samu_jobsflag(struct samu_ctx *ctx, const char *flag)
 	char *end;
 
 	num = strtol(flag, &end, 10);
-	if (*end || num < 0)
+	if (*end || num <= 0)
 		samu_fatal("invalid -j parameter");
-	ctx->buildopts.maxjobs = num > 0 ? num : -1;
+	ctx->buildopts.maxjobs = num;
 }
 
 static void
