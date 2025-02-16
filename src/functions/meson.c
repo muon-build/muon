@@ -344,9 +344,9 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 			if (path_is_absolute(p)) {
 				str = val;
 			} else {
-				SBUF(path);
+				TSTR(path);
 				path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), p);
-				str = sbuf_into_str(wk, &path);
+				str = tstr_into_str(wk, &path);
 			}
 		}
 		break;

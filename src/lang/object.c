@@ -1819,12 +1819,12 @@ struct obj_to_s_opts {
 };
 
 struct obj_to_s_ctx {
-	struct sbuf *sb;
+	struct tstr *sb;
 	struct obj_to_s_opts *opts;
 	uint32_t cont_i, cont_len;
 };
 
-static void obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts *opts);
+static void obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts *opts);
 
 static void
 obj_to_s_indent(struct workspace *wk, struct obj_to_s_ctx *ctx)
@@ -1835,7 +1835,7 @@ obj_to_s_indent(struct workspace *wk, struct obj_to_s_ctx *ctx)
 
 	uint32_t i;
 	for (i = 0; i < ctx->opts->indent; ++i) {
-		sbuf_pushs(wk, ctx->sb, "  ");
+		tstr_pushs(wk, ctx->sb, "  ");
 	}
 }
 
@@ -1846,7 +1846,7 @@ obj_to_s_pretty_newline(struct workspace *wk, struct obj_to_s_ctx *ctx)
 		return;
 	}
 
-	sbuf_push(wk, ctx->sb, '\n');
+	tstr_push(wk, ctx->sb, '\n');
 	obj_to_s_indent(wk, ctx);
 }
 
@@ -1854,7 +1854,7 @@ static void
 obj_to_s_pretty_newline_or_space(struct workspace *wk, struct obj_to_s_ctx *ctx)
 {
 	if (!ctx->opts->pretty) {
-		sbuf_push(wk, ctx->sb, ' ');
+		tstr_push(wk, ctx->sb, ' ');
 		return;
 	}
 
@@ -1869,7 +1869,7 @@ obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		sbuf_pushs(wk, ctx->sb, ",");
+		tstr_pushs(wk, ctx->sb, ",");
 		obj_to_s_pretty_newline_or_space(wk, ctx);
 	}
 
@@ -1884,12 +1884,12 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 
 	obj_to_s_opts(wk, key, ctx->sb, ctx->opts);
 
-	sbuf_pushs(wk, ctx->sb, ": ");
+	tstr_pushs(wk, ctx->sb, ": ");
 
 	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
 
 	if (ctx->cont_i < ctx->cont_len - 1) {
-		sbuf_pushs(wk, ctx->sb, ",");
+		tstr_pushs(wk, ctx->sb, ",");
 		obj_to_s_pretty_newline_or_space(wk, ctx);
 	}
 
@@ -1900,13 +1900,13 @@ obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 static void
 obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 {
-	sbuf_push(wk, ctx->sb, '\'');
+	tstr_push(wk, ctx->sb, '\'');
 	str_escape(wk, ctx->sb, get_str(wk, s), true);
-	sbuf_push(wk, ctx->sb, '\'');
+	tstr_push(wk, ctx->sb, '\'');
 }
 
 static void
-obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts *opts)
+obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts *opts)
 {
 	struct obj_to_s_ctx ctx = { .sb = sb, .opts = opts };
 	enum obj_type t = get_obj_type(wk, o);
@@ -1914,14 +1914,14 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 	switch (t) {
 	case obj_include_directory: {
 		struct obj_include_directory *inc = get_obj_include_directory(wk, o);
-		sbuf_pushs(wk, sb, "<include_directory ");
+		tstr_pushs(wk, sb, "<include_directory ");
 		obj_to_s_str(wk, &ctx, inc->path);
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, o);
-		sbuf_pushs(wk, sb, "<dep ");
+		tstr_pushs(wk, sb, "<dep ");
 		if (dep->name) {
 			obj_to_s_str(wk, &ctx, dep->name);
 		}
@@ -1938,13 +1938,13 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 
 		const char *found = dep->flags & dep_flag_found ? " found" : "";
 
-		sbuf_pushf(wk, sb, " %s machine:%s%s>", type, machine_kind_to_s(dep->machine), found);
+		tstr_pushf(wk, sb, " %s machine:%s%s>", type, machine_kind_to_s(dep->machine), found);
 		break;
 	}
 	case obj_alias_target:
-		sbuf_pushs(wk, sb, "<alias_target ");
+		tstr_pushs(wk, sb, "<alias_target ");
 		obj_to_s_str(wk, &ctx, get_obj_alias_target(wk, o)->name);
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, o);
@@ -1956,54 +1956,54 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 		case tgt_shared_module: type = "shared_module"; break;
 		}
 
-		sbuf_pushf(wk, sb, "<%s ", type);
+		tstr_pushf(wk, sb, "<%s ", type);
 		obj_to_s_str(wk, &ctx, tgt->name);
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 
 		break;
 	}
 	case obj_feature_opt:
 		switch (get_obj_feature_opt(wk, o)) {
-		case feature_opt_auto: sbuf_pushs(wk, sb, "'auto'"); break;
-		case feature_opt_enabled: sbuf_pushs(wk, sb, "'enabled'"); break;
-		case feature_opt_disabled: sbuf_pushs(wk, sb, "'disabled'"); break;
+		case feature_opt_auto: tstr_pushs(wk, sb, "'auto'"); break;
+		case feature_opt_enabled: tstr_pushs(wk, sb, "'enabled'"); break;
+		case feature_opt_disabled: tstr_pushs(wk, sb, "'disabled'"); break;
 		}
 
 		break;
 	case obj_test: {
 		struct obj_test *test = get_obj_test(wk, o);
-		sbuf_pushs(wk, sb, "test(");
+		tstr_pushs(wk, sb, "test(");
 		obj_to_s_str(wk, &ctx, test->name);
-		sbuf_pushs(wk, sb, ", ");
+		tstr_pushs(wk, sb, ", ");
 		obj_to_s_str(wk, &ctx, test->exe);
 
 		if (test->args) {
-			sbuf_pushs(wk, sb, ", args: ");
+			tstr_pushs(wk, sb, ", args: ");
 			obj_to_s_opts(wk, test->args, sb, opts);
 		}
 
 		if (test->should_fail) {
-			sbuf_pushs(wk, sb, ", should_fail: true");
+			tstr_pushs(wk, sb, ", should_fail: true");
 		}
 
-		sbuf_pushs(wk, sb, ")");
+		tstr_pushs(wk, sb, ")");
 		break;
 	}
 	case obj_file:
-		sbuf_pushs(wk, sb, "<file ");
+		tstr_pushs(wk, sb, "<file ");
 		obj_to_s_str(wk, &ctx, *get_obj_file(wk, o));
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	case obj_string: {
 		obj_to_s_str(wk, &ctx, o);
 		break;
 	}
-	case obj_number: sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
-	case obj_bool: sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
+	case obj_number: tstr_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
+	case obj_bool: tstr_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
 	case obj_array:
 		ctx.cont_len = get_obj_array(wk, o)->len;
 
-		sbuf_pushs(wk, sb, "[");
+		tstr_pushs(wk, sb, "[");
 		++opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
 
@@ -2011,12 +2011,12 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 
 		--opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
-		sbuf_pushs(wk, sb, "]");
+		tstr_pushs(wk, sb, "]");
 		break;
 	case obj_dict:
 		ctx.cont_len = get_obj_dict(wk, o)->len;
 
-		sbuf_pushs(wk, sb, "{");
+		tstr_pushs(wk, sb, "{");
 		++opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
 
@@ -2024,77 +2024,77 @@ obj_to_s_opts(struct workspace *wk, obj o, struct sbuf *sb, struct obj_to_s_opts
 
 		--opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
-		sbuf_pushs(wk, sb, "}");
+		tstr_pushs(wk, sb, "}");
 		break;
 	case obj_python_installation: {
 		struct obj_python_installation *py = get_obj_python_installation(wk, o);
-		sbuf_pushf(wk, sb, "<%s prog: ", obj_type_to_s(t));
+		tstr_pushf(wk, sb, "<%s prog: ", obj_type_to_s(t));
 		obj_to_s_opts(wk, py->prog, sb, opts);
 
 		if (get_obj_external_program(wk, py->prog)->found) {
-			sbuf_pushf(wk, sb, ", pure: %s", py->pure ? "true" : "false");
-			sbuf_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
-			sbuf_pushs(wk, sb, ", sysconfig_paths: ");
+			tstr_pushf(wk, sb, ", pure: %s", py->pure ? "true" : "false");
+			tstr_pushf(wk, sb, ", language_version: %s", get_cstr(wk, py->language_version));
+			tstr_pushs(wk, sb, ", sysconfig_paths: ");
 			obj_to_s_opts(wk, py->sysconfig_paths, sb, opts);
-			sbuf_pushs(wk, sb, ", sysconfig_vars: ");
+			tstr_pushs(wk, sb, ", sysconfig_vars: ");
 			obj_to_s_opts(wk, py->sysconfig_vars, sb, opts);
-			sbuf_pushs(wk, sb, ", install_paths: ");
+			tstr_pushs(wk, sb, ", install_paths: ");
 			obj_to_s_opts(wk, py->install_paths, sb, opts);
 		}
 
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_external_program: {
 		struct obj_external_program *prog = get_obj_external_program(wk, o);
-		sbuf_pushf(wk, sb, "<%s found: %s", obj_type_to_s(t), prog->found ? "true" : "false");
+		tstr_pushf(wk, sb, "<%s found: %s", obj_type_to_s(t), prog->found ? "true" : "false");
 
 		if (prog->found) {
-			sbuf_pushs(wk, sb, ", cmd_array: ");
+			tstr_pushs(wk, sb, ", cmd_array: ");
 			obj_to_s_opts(wk, prog->cmd_array, sb, opts);
 		}
 
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_option: {
 		struct obj_option *opt = get_obj_option(wk, o);
-		sbuf_pushs(wk, sb, "<option ");
+		tstr_pushs(wk, sb, "<option ");
 
 		obj_to_s_opts(wk, opt->val, sb, opts);
 
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 		break;
 	}
 	case obj_generated_list: {
 		struct obj_generated_list *gl = get_obj_generated_list(wk, o);
-		sbuf_pushs(wk, sb, "<generated_list input: ");
+		tstr_pushs(wk, sb, "<generated_list input: ");
 
 		obj_to_s_opts(wk, gl->input, sb, opts);
 
-		/* sbuf_pushs(wk, sb, ", extra_args: "); */
+		/* tstr_pushs(wk, sb, ", extra_args: "); */
 		/* obj_to_s_opts(wk, gl->extra_arguments, sb, opts); */
 
-		/* sbuf_pushs(wk, sb, ", preserve_path_from: "); */
+		/* tstr_pushs(wk, sb, ", preserve_path_from: "); */
 		/* obj_to_s_opts(wk, gl->preserve_path_from, sb, opts); */
 
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushs(wk, sb, ">");
 
 		break;
 	}
 	case obj_typeinfo: {
 		struct obj_typeinfo *ti = get_obj_typeinfo(wk, o);
-		sbuf_pushf(wk, sb, "<typeinfo 0x4%x: ", o);
-		sbuf_pushs(wk, sb, typechecking_type_to_s(wk, ti->type));
-		sbuf_pushs(wk, sb, ">");
+		tstr_pushf(wk, sb, "<typeinfo 0x4%x: ", o);
+		tstr_pushs(wk, sb, typechecking_type_to_s(wk, ti->type));
+		tstr_pushs(wk, sb, ">");
 		break;
 	}
-	default: sbuf_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
+	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
 }
 
 void
-obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
+obj_to_s(struct workspace *wk, obj o, struct tstr *sb)
 {
 	struct obj_to_s_opts opts = {
 		.pretty = false,
@@ -2105,17 +2105,17 @@ obj_to_s(struct workspace *wk, obj o, struct sbuf *sb)
 
 #define FMT_PARTIAL(arg)                                                       \
 	if (arg_width.have && arg_prec.have) {                                 \
-		sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg_prec.val, arg); \
+		tstr_pushf(wk, sb, fmt_buf, arg_width.val, arg_prec.val, arg); \
 	} else if (arg_width.have) {                                           \
-		sbuf_pushf(wk, sb, fmt_buf, arg_width.val, arg);               \
+		tstr_pushf(wk, sb, fmt_buf, arg_width.val, arg);               \
 	} else if (arg_prec.have) {                                            \
-		sbuf_pushf(wk, sb, fmt_buf, arg_prec.val, arg);                \
+		tstr_pushf(wk, sb, fmt_buf, arg_prec.val, arg);                \
 	} else {                                                               \
-		sbuf_pushf(wk, sb, fmt_buf, arg);                              \
+		tstr_pushf(wk, sb, fmt_buf, arg);                              \
 	}
 
 static bool
-obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap)
+obj_vasprintf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list ap)
 {
 	const char *fmt_start;
 	bool got_hash;
@@ -2276,7 +2276,7 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 			default: assert(false && "unrecognized format"); break;
 			}
 		} else {
-			sbuf_push(wk, sb, *fmt);
+			tstr_push(wk, sb, *fmt);
 		}
 	}
 
@@ -2287,14 +2287,14 @@ obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap
 uint32_t
 obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap)
 {
-	SBUF(sbuf);
+	TSTR(tstr);
 
-	if (!obj_vasprintf(wk, &sbuf, fmt, ap)) {
+	if (!obj_vasprintf(wk, &tstr, fmt, ap)) {
 		return 0;
 	}
-	uint32_t copy = sbuf.len > len - 1 ? len - 1 : sbuf.len;
+	uint32_t copy = tstr.len > len - 1 ? len - 1 : tstr.len;
 
-	strncpy(buf, sbuf.buf, len - 1);
+	strncpy(buf, tstr.buf, len - 1);
 	return copy;
 }
 
@@ -2311,7 +2311,7 @@ obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...
 static bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {
-	SBUF_FILE(sb, f);
+	TSTR_FILE(sb, f);
 
 	return obj_vasprintf(wk, &sb, fmt, ap);
 }
@@ -2340,8 +2340,8 @@ static bool
 obj_vlprintf(struct workspace *wk, const char *fmt, va_list ap)
 {
 	FILE *f = _log_file();
-	struct sbuf *buf = _log_sbuf();
-	SBUF_FILE(sb, f);
+	struct tstr *buf = _log_tstr();
+	TSTR_FILE(sb, f);
 
 	if (f) {
 		buf = &sb;
@@ -2429,48 +2429,48 @@ obj_inspect(struct workspace *wk, obj val)
  */
 
 void
-obj_to_json(struct workspace *wk, obj o, struct sbuf *sb)
+obj_to_json(struct workspace *wk, obj o, struct tstr *sb)
 {
 	switch (get_obj_type(wk, o)) {
 	case obj_array: {
-		sbuf_push(wk, sb, '[');
+		tstr_push(wk, sb, '[');
 		obj v;
 		obj_array_for_(wk, o, v, iter)
 		{
 			obj_to_json(wk, v, sb);
 			if (iter.i < iter.len - 1) {
-				sbuf_pushs(wk, sb, ", ");
+				tstr_pushs(wk, sb, ", ");
 			}
 		}
-		sbuf_push(wk, sb, ']');
+		tstr_push(wk, sb, ']');
 		break;
 	}
 	case obj_dict: {
-		sbuf_push(wk, sb, '{');
+		tstr_push(wk, sb, '{');
 		uint32_t i = 0, len = get_obj_dict(wk, o)->len;
 		obj k, v;
 		obj_dict_for(wk, o, k, v) {
 			obj_to_json(wk, k, sb);
-			sbuf_pushs(wk, sb, ": ");
+			tstr_pushs(wk, sb, ": ");
 			obj_to_json(wk, v, sb);
 
 			if (i < len - 1) {
-				sbuf_pushs(wk, sb, ", ");
+				tstr_pushs(wk, sb, ", ");
 			}
 			++i;
 		}
-		sbuf_push(wk, sb, '}');
+		tstr_push(wk, sb, '}');
 		break;
 	}
-	case obj_number: sbuf_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
-	case obj_bool: sbuf_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
+	case obj_number: tstr_pushf(wk, sb, "%" PRId64, get_obj_number(wk, o)); break;
+	case obj_bool: tstr_pushs(wk, sb, get_obj_bool(wk, o) ? "true" : "false"); break;
 	case obj_file:
 		o = *get_obj_file(wk, o);
 		/* fallthrough */
 	case obj_string: {
-		sbuf_push(wk, sb, '\"');
+		tstr_push(wk, sb, '\"');
 		str_escape_json(wk, sb, get_str(wk, o));
-		sbuf_push(wk, sb, '\"');
+		tstr_push(wk, sb, '\"');
 		break;
 	}
 	case obj_feature_opt: {
@@ -2479,11 +2479,11 @@ obj_to_json(struct workspace *wk, obj o, struct sbuf *sb)
 			[feature_opt_disabled] = "disabled",
 			[feature_opt_auto] = "auto",
 		}[get_obj_feature_opt(wk, o)];
-		sbuf_pushf(wk, sb, "\"%s\"", s);
+		tstr_pushf(wk, sb, "\"%s\"", s);
 		break;
 	}
 	case obj_null: {
-		sbuf_pushs(wk, sb, "null");
+		tstr_pushs(wk, sb, "null");
 		break;
 	}
 	default: error_unrecoverable("unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); break;

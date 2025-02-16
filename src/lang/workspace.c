@@ -119,9 +119,9 @@ workspace_init_runtime(struct workspace *wk)
 	wk->argv0 = "dummy";
 	wk->build_root = "dummy";
 
-	SBUF(source_root);
+	TSTR(source_root);
 	path_copy_cwd(wk, &source_root);
-	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));
+	wk->source_root = get_cstr(wk, tstr_into_str(wk, &source_root));
 
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
@@ -192,13 +192,13 @@ workspace_destroy(struct workspace *wk)
 bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
 {
-	SBUF(build_root);
+	TSTR(build_root);
 	path_make_absolute(wk, &build_root, build);
-	wk->build_root = get_cstr(wk, sbuf_into_str(wk, &build_root));
+	wk->build_root = get_cstr(wk, tstr_into_str(wk, &build_root));
 
-	SBUF(argv0_resolved);
+	TSTR(argv0_resolved);
 	if (fs_find_cmd(wk, &argv0_resolved, argv0)) {
-		wk->argv0 = get_cstr(wk, sbuf_into_str(wk, &argv0_resolved));
+		wk->argv0 = get_cstr(wk, tstr_into_str(wk, &argv0_resolved));
 	} else {
 		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
 	}
@@ -206,15 +206,15 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	wk->original_commandline.argc = argc;
 	wk->original_commandline.argv = argv;
 
-	SBUF(muon_private);
+	TSTR(muon_private);
 	path_join(wk, &muon_private, wk->build_root, output_path.private_dir);
-	wk->muon_private = get_cstr(wk, sbuf_into_str(wk, &muon_private));
+	wk->muon_private = get_cstr(wk, tstr_into_str(wk, &muon_private));
 
 	if (!fs_mkdir_p(wk->muon_private)) {
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	{
 		const struct str *gitignore_src = &WKSTR("*\n");
 		path_join(wk, &path, wk->build_root, ".gitignore");
@@ -291,11 +291,11 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 static enum iteration_result
 workspace_add_regenerate_deps_iter(struct workspace *wk, void *_ctx, obj v)
 {
-	SBUF(path);
+	TSTR(path);
 	const char *s = get_cstr(wk, v);
 	if (!path_is_absolute(s)) {
 		path_join(wk, &path, workspace_cwd(wk), s);
-		v = sbuf_into_str(wk, &path);
+		v = tstr_into_str(wk, &path);
 		s = get_cstr(wk, v);
 	}
 
@@ -343,7 +343,7 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 	workspace_init_startup_files(wk);
 
 	{
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, wk->muon_private, output_path.compiler_check_cache);
 		if (fs_file_exists(path.buf)) {
 			FILE *f;

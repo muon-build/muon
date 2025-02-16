@@ -66,7 +66,7 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct sbuf *sbuf)
+copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr)
 {
 	if (pipe->is_eof) {
 		return copy_pipe_result_finished;
@@ -87,7 +87,7 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct sbuf *sbuf
 	}
 
 	if (pipe->is_reading && bytes_read) {
-		sbuf_pushn(0, sbuf, pipe->overlapped_buf, bytes_read);
+		tstr_pushn(0, tstr, pipe->overlapped_buf, bytes_read);
 	}
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
 	pipe->is_reading = true;
@@ -124,17 +124,17 @@ copy_pipes(struct run_cmd_ctx *ctx)
 		}
 	}
 
-	struct sbuf *sbuf = 0;
+	struct tstr *tstr = 0;
 	if (pipe == &ctx->pipe_out) {
-		sbuf = &ctx->out;
+		tstr = &ctx->out;
 	} else if (pipe == &ctx->pipe_err) {
-		sbuf = &ctx->err;
+		tstr = &ctx->err;
 	} else {
 		/* return copy_pipe_result_waiting; */
 		UNREACHABLE;
 	}
 
-	return copy_pipe(ctx, pipe, sbuf);
+	return copy_pipe(ctx, pipe, tstr);
 }
 
 static void
@@ -288,8 +288,8 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 		win32_fatal("CreateIoCompletionPort:");
 	}
 
-	sbuf_init(&ctx->out, 0, 0, sbuf_flag_overflow_alloc);
-	sbuf_init(&ctx->err, 0, 0, sbuf_flag_overflow_alloc);
+	tstr_init(&ctx->out, 0, 0, tstr_flag_overflow_alloc);
+	tstr_init(&ctx->err, 0, 0, tstr_flag_overflow_alloc);
 
 	if (!open_pipes(ctx, &ctx->pipe_out, "out")) {
 		return false;
@@ -368,9 +368,9 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		}
 
 		// Copy newenv into ctx->env
-		sbuf_init(&ctx->env, 0, 0, sbuf_flag_overflow_alloc);
-		sbuf_pushn(0, &ctx->env, newenv, var - newenv);
-		sbuf_push(0, &ctx->env, 0);
+		tstr_init(&ctx->env, 0, 0, tstr_flag_overflow_alloc);
+		tstr_pushn(0, &ctx->env, newenv, var - newenv);
+		tstr_push(0, &ctx->env, 0);
 
 		FreeEnvironmentStrings(newenv);
 
@@ -488,31 +488,31 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 }
 
 static void
-run_cmd_push_argv(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg, bool first)
+run_cmd_push_argv(struct tstr *cmd, struct tstr *arg_buf, const char *arg, bool first)
 {
-	sbuf_clear(arg_buf);
+	tstr_clear(arg_buf);
 	shell_escape_no_dollar(0, arg_buf, arg);
-	sbuf_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
+	tstr_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
 }
 
 static void
-run_cmd_push_arg(struct sbuf *cmd, struct sbuf *arg_buf, const char *arg)
+run_cmd_push_arg(struct tstr *cmd, struct tstr *arg_buf, const char *arg)
 {
 	run_cmd_push_argv(cmd, arg_buf, arg, false);
 }
 
 static bool
-run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct sbuf *cmd, struct sbuf *arg_buf, const char *arg)
+run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct tstr *cmd, struct tstr *arg_buf, const char *arg)
 {
-	SBUF_manual(found_cmd);
+	TSTR_manual(found_cmd);
 	if (!fs_find_cmd(0, &found_cmd, arg)) {
 		ctx->err_msg = "command not found";
-		sbuf_destroy(&found_cmd);
+		tstr_destroy(&found_cmd);
 		return false;
 	}
 
 	run_cmd_push_argv(cmd, arg_buf, found_cmd.buf, true);
-	sbuf_destroy(&found_cmd);
+	tstr_destroy(&found_cmd);
 	return true;
 }
 
@@ -522,13 +522,13 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	const char *argstr,
 	char *const *argv,
 	uint32_t argstr_argc,
-	struct sbuf *cmd)
+	struct tstr *cmd)
 {
 	bool res = false;
-	SBUF_manual(arg_buf);
+	TSTR_manual(arg_buf);
 	const char *argv0 = argstr ? argstr : argv[0];
 
-	sbuf_clear(cmd);
+	tstr_clear(cmd);
 
 	bool have_arg0 = false;
 
@@ -600,7 +600,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 
 	res = true;
 ret:
-	sbuf_destroy(&arg_buf);
+	tstr_destroy(&arg_buf);
 	return res;
 }
 
@@ -616,7 +616,7 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uin
 	bool ret = false;
 	struct source src = { 0 };
 
-	SBUF_manual(cmd);
+	TSTR_manual(cmd);
 	if (!argv_to_command_line(ctx, &src, NULL, argv, 0, &cmd)) {
 		goto err;
 	}
@@ -625,7 +625,7 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uin
 
 err:
 	fs_source_destroy(&src);
-	sbuf_destroy(&cmd);
+	tstr_destroy(&cmd);
 
 	return ret;
 }
@@ -636,7 +636,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 	bool ret = false;
 	struct source src = { 0 };
 
-	SBUF_manual(cmd);
+	TSTR_manual(cmd);
 	if (!argv_to_command_line(ctx, &src, argstr, NULL, argc, &cmd)) {
 		goto err;
 	}
@@ -645,7 +645,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 
 err:
 	fs_source_destroy(&src);
-	sbuf_destroy(&cmd);
+	tstr_destroy(&cmd);
 
 	return ret;
 }
@@ -656,9 +656,9 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 	close_handle(&ctx->process);
 	run_cmd_ctx_close_pipes(ctx);
 
-	sbuf_destroy(&ctx->out);
-	sbuf_destroy(&ctx->err);
-	sbuf_destroy(&ctx->env);
+	tstr_destroy(&ctx->out);
+	tstr_destroy(&ctx->err);
+	tstr_destroy(&ctx->env);
 
 	assert(ctx->cnt_open == 0);
 }

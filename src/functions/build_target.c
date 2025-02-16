@@ -32,12 +32,12 @@ tgt_src_to_compiled_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	struct tgt_src_to_compiled_path_opts *opts,
 	obj src_file,
-	struct sbuf *res)
+	struct tstr *res)
 {
 	obj src = *get_obj_file(wk, src_file);
 
-	SBUF(private_path_rel);
-	SBUF(rel);
+	TSTR(private_path_rel);
+	TSTR(rel);
 	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
 	if (opts->relative) {
@@ -86,7 +86,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 		}
 	}
 
-	sbuf_pushs(wk, res, ext);
+	tstr_pushs(wk, res, ext);
 	return true;
 }
 
@@ -95,7 +95,7 @@ tgt_src_to_pch_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	enum compiler_language lang,
 	obj src_file,
-	struct sbuf *res)
+	struct tstr *res)
 {
 	struct tgt_src_to_compiled_path_opts opts = {
 		.relative = true,
@@ -113,7 +113,7 @@ tgt_src_to_object_path(struct workspace *wk,
 	enum compiler_language lang,
 	obj src_file,
 	bool relative,
-	struct sbuf *res)
+	struct tstr *res)
 {
 	struct tgt_src_to_compiled_path_opts opts = {
 		.relative = relative,
@@ -224,14 +224,14 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_err;
 	}
 
-	SBUF(dest_path);
+	TSTR(dest_path);
 	if (!tgt_src_to_object_path(wk, ctx->tgt, l, file, false, &dest_path)) {
 		return ir_err;
 	}
 
 	obj new_file;
 	make_obj(wk, &new_file, obj_file);
-	*get_obj_file(wk, new_file) = sbuf_into_str(wk, &dest_path);
+	*get_obj_file(wk, new_file) = tstr_into_str(wk, &dest_path);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
 }

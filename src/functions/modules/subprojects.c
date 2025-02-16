@@ -32,7 +32,7 @@ subprojects_foreach_iter(void *_ctx, const char *name)
 {
 	struct subprojects_foreach_ctx *ctx = _ctx;
 	uint32_t len = strlen(name);
-	SBUF_manual(path);
+	TSTR_manual(path);
 
 	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
 		return ir_cont;
@@ -52,14 +52,14 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 {
 	if (list && get_obj_array(wk, list)->len) {
 		bool res = true;
-		SBUF_manual(wrap_file);
+		TSTR_manual(wrap_file);
 
 		obj v;
 		obj_array_for(wk, list, v) {
 			const char *name = get_cstr(wk, v);
 			path_join(wk, &wrap_file, subprojects_dir(wk), name);
 
-			sbuf_pushs(wk, &wrap_file, ".wrap");
+			tstr_pushs(wk, &wrap_file, ".wrap");
 
 			if (!fs_file_exists(wrap_file.buf)) {
 				LOG_E("wrap file for '%s' not found", name);

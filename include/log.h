@@ -31,8 +31,8 @@ extern const char *log_level_shortname[log_level_count];
 
 void log_init(void);
 void log_set_file(FILE *log_file);
-struct sbuf;
-void log_set_buffer(struct sbuf *buf);
+struct tstr;
+void log_set_buffer(struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(const char *prefix);
 const char *log_get_prefix(void);
@@ -45,5 +45,5 @@ void log_plainv(const char *fmt, va_list ap);
 bool log_should_print(enum log_level lvl);
 
 FILE *_log_file(void);
-struct sbuf *_log_sbuf(void);
+struct tstr *_log_tstr(void);
 #endif

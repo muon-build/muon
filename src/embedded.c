@@ -30,7 +30,7 @@ embedded_get(const char *name, struct source *src_out)
 #endif
 
 	if (!bootstrapped) {
-		SBUF_manual(path);
+		TSTR_manual(path);
 		path_dirname(0, &path, __FILE__);
 		path_push(0, &path, "script");
 		path_push(0, &path, name);

@@ -103,7 +103,7 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	 */
 
 	const struct str *o = get_str(wk, *get_obj_file(wk, val));
-	SBUF(path);
+	TSTR(path);
 	path_basename(wk, &path, o->s);
 	const char *first_dot = strrchr(path.buf, '.');
 	path.len = first_dot - path.buf;
@@ -174,12 +174,12 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 		return true;
 	}
 
-	SBUF(dir);
-	SBUF(path);
+	TSTR(dir);
+	TSTR(path);
 	path_relative_to(wk, &path, wk->build_root, src);
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
-	obj_array_push(wk, tgt->dep_internal.order_deps, sbuf_into_str(wk, &path));
+	obj_array_push(wk, tgt->dep_internal.order_deps, tstr_into_str(wk, &path));
 
 	if (!tgt->dep_internal.raw.order_deps) {
 		make_obj(wk, &tgt->dep_internal.raw.order_deps, obj_array);
@@ -195,7 +195,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	obj inc;
 	make_obj(wk, &inc, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
-	d->path = sbuf_into_str(wk, &dir);
+	d->path = tstr_into_str(wk, &dir);
 	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
 
 	return true;
@@ -355,11 +355,11 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 	}
 
 	if (tgt->type == tgt_dynamic_library) {
-		SBUF(implib);
-		sbuf_pushf(wk, &implib, "%s-implib.lib", plain_name);
-		SBUF(path);
+		TSTR(implib);
+		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
+		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
-		tgt->implib = sbuf_into_str(wk, &path);
+		tgt->implib = tstr_into_str(wk, &path);
 	}
 }
 
@@ -370,8 +370,8 @@ setup_shared_object_symlinks(struct workspace *wk,
 	obj *plain_name_install,
 	obj *soname_install)
 {
-	SBUF(soname_symlink);
-	SBUF(plain_name_symlink);
+	TSTR(soname_symlink);
+	TSTR(plain_name_symlink);
 
 	if (!fs_mkdir_p(get_cstr(wk, tgt->build_dir))) {
 		return false;
@@ -384,7 +384,7 @@ setup_shared_object_symlinks(struct workspace *wk,
 			return false;
 		}
 
-		*soname_install = sbuf_into_str(wk, &soname_symlink);
+		*soname_install = tstr_into_str(wk, &soname_symlink);
 	}
 
 	if (!str_eql(&WKSTR(plain_name), get_str(wk, tgt->soname))
@@ -395,7 +395,7 @@ setup_shared_object_symlinks(struct workspace *wk,
 			return false;
 		}
 
-		*plain_name_install = sbuf_into_str(wk, &plain_name_symlink);
+		*plain_name_install = tstr_into_str(wk, &plain_name_symlink);
 	}
 
 	return true;
@@ -654,14 +654,14 @@ create_target(struct workspace *wk,
 	}
 
 	{ /* tgt_build_path */
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
 		tgt->build_path = make_str(wk, path.buf);
 
-		sbuf_pushs(wk, &path, ".p");
+		tstr_pushs(wk, &path, ".p");
 
-		tgt->private_path = sbuf_into_str(wk, &path);
+		tgt->private_path = tstr_into_str(wk, &path);
 	}
 
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
@@ -866,16 +866,16 @@ create_target(struct workspace *wk,
 			}
 		}
 
-		SBUF(install_src);
+		TSTR(install_src);
 		path_join(wk, &install_src, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 
-		SBUF(install_dest);
+		TSTR(install_dest);
 		path_join(wk, &install_dest, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name));
 
 		struct obj_install_target *install_tgt;
 		if (!(install_tgt = push_install_target(wk,
-			      sbuf_into_str(wk, &install_src),
-			      sbuf_into_str(wk, &install_dest),
+			      tstr_into_str(wk, &install_src),
+			      tstr_into_str(wk, &install_dest),
 			      akw[bt_kw_install_mode].val))) {
 			return false;
 		}

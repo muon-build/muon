@@ -112,7 +112,7 @@ substitute_config(struct workspace *wk,
 		goto cleanup;
 	}
 
-	SBUF_manual(out_buf);
+	TSTR_manual(out_buf);
 
 	struct source_location location = { 0, 1 }, id_location;
 	uint32_t i, id_start, id_len, col = 0, orig_i;
@@ -212,12 +212,12 @@ extraneous_cmake_chars:
 			}
 
 write_mesondefine:
-			sbuf_pushn(wk, &out_buf, deftype, strlen(deftype));
-			sbuf_pushn(wk, &out_buf, " ", 1);
-			sbuf_pushn(wk, &out_buf, &src.src[id_start], id_len);
+			tstr_pushn(wk, &out_buf, deftype, strlen(deftype));
+			tstr_pushn(wk, &out_buf, " ", 1);
+			tstr_pushn(wk, &out_buf, &src.src[id_start], id_len);
 			if (sub) {
-				sbuf_pushn(wk, &out_buf, " ", 1);
-				sbuf_pushn(wk, &out_buf, sub, strlen(sub));
+				tstr_pushn(wk, &out_buf, " ", 1);
+				tstr_pushn(wk, &out_buf, sub, strlen(sub));
 			}
 
 			i -= 1; // so we catch the newline
@@ -260,11 +260,11 @@ write_mesondefine:
 			}
 
 			for (j = 0; j < output_backslashes; ++j) {
-				sbuf_pushn(wk, &out_buf, "\\", 1);
+				tstr_pushn(wk, &out_buf, "\\", 1);
 			}
 
 			if (output_format_char) {
-				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
+				tstr_pushn(wk, &out_buf, varstart, varstart_len);
 				i += varstart_len - 1;
 			}
 		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
@@ -275,13 +275,13 @@ write_mesondefine:
 
 			if (src.src[i] != varend) {
 				i = id_start - 1;
-				sbuf_pushn(wk, &out_buf, varstart, varstart_len);
+				tstr_pushn(wk, &out_buf, varstart, varstart_len);
 				continue;
 			}
 
 			if (i <= id_start) {
 				// This means we got a key of length zero
-				sbuf_pushs(wk, &out_buf, "@@");
+				tstr_pushs(wk, &out_buf, "@@");
 				continue;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
 				error_messagef(&src, id_location, log_error, "key not found in configuration data");
@@ -295,9 +295,9 @@ write_mesondefine:
 			}
 
 			const struct str *ss = get_str(wk, sub);
-			sbuf_pushn(wk, &out_buf, ss->s, ss->len);
+			tstr_pushn(wk, &out_buf, ss->s, ss->len);
 		} else {
-			sbuf_pushn(wk, &out_buf, &src.src[i], 1);
+			tstr_pushn(wk, &out_buf, &src.src[i], 1);
 		}
 	}
 
@@ -317,7 +317,7 @@ write_mesondefine:
 
 cleanup:
 	fs_source_destroy(&src);
-	sbuf_destroy(&out_buf);
+	tstr_destroy(&out_buf);
 	return ret;
 }
 
@@ -329,13 +329,13 @@ generate_config(struct workspace *wk,
 	uint32_t node,
 	obj out_path)
 {
-	SBUF_manual(out_buf);
+	TSTR_manual(out_buf);
 
 	if (macro_name) {
-		sbuf_pushf(
+		tstr_pushf(
 			wk, &out_buf, "#ifndef %s\n#define %s\n", get_cstr(wk, macro_name), get_cstr(wk, macro_name));
 	} else if (format == configure_file_output_format_json) {
-		sbuf_push(wk, &out_buf, '{');
+		tstr_push(wk, &out_buf, '{');
 	}
 
 	bool ret = false, first = true;
@@ -352,12 +352,12 @@ generate_config(struct workspace *wk,
 
 		if (format == configure_file_output_format_json) {
 			if (!first) {
-				sbuf_push(wk, &out_buf, ',');
+				tstr_push(wk, &out_buf, ',');
 			}
 			first = false;
 
-			sbuf_push_json_escaped_quoted(wk, &out_buf, get_str(wk, key));
-			sbuf_push(wk, &out_buf, ':');
+			tstr_push_json_escaped_quoted(wk, &out_buf, get_str(wk, key));
+			tstr_push(wk, &out_buf, ':');
 		}
 
 		switch (t) {
@@ -367,7 +367,7 @@ generate_config(struct workspace *wk,
 			switch (format) {
 			case configure_file_output_format_c:
 			case configure_file_output_format_nasm:
-				sbuf_pushf(wk,
+				tstr_pushf(wk,
 					&out_buf,
 					"%cdefine %s %s\n",
 					define_prefix,
@@ -375,7 +375,7 @@ generate_config(struct workspace *wk,
 					get_cstr(wk, val));
 				break;
 			case configure_file_output_format_json: {
-				sbuf_push_json_escaped_quoted(wk, &out_buf, get_str(wk, val));
+				tstr_push_json_escaped_quoted(wk, &out_buf, get_str(wk, val));
 				break;
 			}
 			}
@@ -387,13 +387,13 @@ generate_config(struct workspace *wk,
 			case configure_file_output_format_c:
 			case configure_file_output_format_nasm:
 				if (get_obj_bool(wk, val)) {
-					sbuf_pushf(wk, &out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
+					tstr_pushf(wk, &out_buf, "%cdefine %s\n", define_prefix, get_cstr(wk, key));
 				} else {
-					sbuf_pushf(wk, &out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
+					tstr_pushf(wk, &out_buf, "%cundef %s\n", define_prefix, get_cstr(wk, key));
 				}
 				break;
 			case configure_file_output_format_json:
-				sbuf_pushs(wk, &out_buf, get_obj_bool(wk, val) ? "true" : "false");
+				tstr_pushs(wk, &out_buf, get_obj_bool(wk, val) ? "true" : "false");
 				break;
 			}
 			break;
@@ -403,7 +403,7 @@ generate_config(struct workspace *wk,
 			switch (format) {
 			case configure_file_output_format_c:
 			case configure_file_output_format_nasm:
-				sbuf_pushf(wk,
+				tstr_pushf(wk,
 					&out_buf,
 					"%cdefine %s %" PRId64 "\n",
 					define_prefix,
@@ -413,7 +413,7 @@ generate_config(struct workspace *wk,
 			case configure_file_output_format_json: {
 				char buf[32] = { 0 };
 				snprintf(buf, sizeof(buf), "%" PRId64, get_obj_number(wk, val));
-				sbuf_pushs(wk, &out_buf, buf);
+				tstr_pushs(wk, &out_buf, buf);
 				break;
 			}
 			}
@@ -423,9 +423,9 @@ generate_config(struct workspace *wk,
 	}
 
 	if (macro_name) {
-		sbuf_pushf(wk, &out_buf, "#endif\n");
+		tstr_pushf(wk, &out_buf, "#endif\n");
 	} else if (format == configure_file_output_format_json) {
-		sbuf_pushs(wk, &out_buf, "}\n");
+		tstr_pushs(wk, &out_buf, "}\n");
 	}
 
 	if (!file_exists_with_content(wk, get_cstr(wk, out_path), out_buf.buf, out_buf.len)) {
@@ -436,7 +436,7 @@ generate_config(struct workspace *wk,
 
 	ret = true;
 ret:
-	sbuf_destroy(&out_buf);
+	tstr_destroy(&out_buf);
 	return ret;
 }
 
@@ -560,7 +560,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 			}
 			assert(e);
 
-			SBUF(buf);
+			TSTR(buf);
 			char *c;
 			path_basename(wk, &buf, get_file_path(wk, e));
 
@@ -576,7 +576,7 @@ perform_output_string_substitutions(struct workspace *wk, uint32_t node, uint32_
 				return false;
 			}
 
-			SBUF(buf);
+			TSTR(buf);
 			path_basename(wk, &buf, get_file_path(wk, e));
 			str_app(wk, &str, buf.buf);
 			s += len - 1;
@@ -681,7 +681,7 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 		}
 
 		const char *out = get_cstr(wk, subd);
-		SBUF(out_path);
+		TSTR(out_path);
 
 		if (!path_is_basename(out)) {
 			vm_error_at(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
@@ -695,7 +695,7 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 		path_join(wk, &out_path, get_cstr(wk, current_project(wk)->build_dir), out);
 
 		LOG_I("configuring '%s'", out_path.buf);
-		output_str = sbuf_into_str(wk, &out_path);
+		output_str = tstr_into_str(wk, &out_path);
 		make_obj(wk, res, obj_file);
 		*get_obj_file(wk, *res) = output_str;
 	}

@@ -1282,9 +1282,9 @@ eval_trace_print_level(struct workspace *wk, struct eval_trace_print_ctx *ctx, o
 			}
 		}
 
-		SBUF(rel);
+		TSTR(rel);
 		if (path_is_absolute(get_cstr(wk, v))) {
-			SBUF(cwd);
+			TSTR(cwd);
 			path_copy_cwd(wk, &cwd);
 			path_relative_to(wk, &rel, cwd.buf, get_cstr(wk, v));
 			printf("%s\n", rel.buf);
@@ -1446,7 +1446,7 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 	if (analyzer.opts->file_override) {
 		const char *root = determine_project_root(wk, analyzer.opts->file_override);
 		if (root) {
-			SBUF(cwd);
+			TSTR(cwd);
 			path_copy_cwd(wk, &cwd);
 
 			if (strcmp(cwd.buf, root) != 0) {

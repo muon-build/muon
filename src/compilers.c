@@ -330,19 +330,19 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 
 		const struct str *err_str = get_str(wk, err), *out_str = get_str(wk, out);
 
-		cmd_ctx->out = (struct sbuf){
+		cmd_ctx->out = (struct tstr){
 			.buf = (char *)out_str->s,
 			.len = out_str->len,
 			.cap = out_str->len,
-			.flags = sbuf_flag_overflown,
+			.flags = tstr_flag_overflown,
 			.s = out,
 		};
 
-		cmd_ctx->err = (struct sbuf){
+		cmd_ctx->err = (struct tstr){
 			.buf = (char *)err_str->s,
 			.len = err_str->len,
 			.cap = err_str->len,
-			.flags = sbuf_flag_overflown,
+			.flags = tstr_flag_overflown,
 			.s = err,
 		};
 
@@ -400,8 +400,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 		goto detection_over;
 	}
 
-	if (str_containsi(&SBUF_WKSTR(&cmd_ctx.out), &WKSTR("clang"))) {
-		if (str_contains(&SBUF_WKSTR(&cmd_ctx.out), &WKSTR("Apple"))) {
+	if (str_containsi(&TSTR_WKSTR(&cmd_ctx.out), &WKSTR("clang"))) {
+		if (str_contains(&TSTR_WKSTR(&cmd_ctx.out), &WKSTR("Apple"))) {
 			type = compiler_apple_clang;
 		} else if (strstr(cmd_ctx.out.buf, "CL.EXE COMPATIBILITY")) {
 			type = compiler_clang_cl;
@@ -471,17 +471,17 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 		uint32_t addr_bits = host_machine.address_bits;
 
 		const char *plat;
-		SBUF(define);
+		TSTR(define);
 
 		if (host_machine.is_windows) {
 			plat = "win";
-			sbuf_pushf(wk, &define, "WIN%d", addr_bits);
+			tstr_pushf(wk, &define, "WIN%d", addr_bits);
 		} else if (host_machine.sys == machine_system_darwin) {
 			plat = "macho";
-			sbuf_pushs(wk, &define, "MACHO");
+			tstr_pushs(wk, &define, "MACHO");
 		} else {
 			plat = "elf";
-			sbuf_pushs(wk, &define, "ELF");
+			tstr_pushs(wk, &define, "ELF");
 		}
 
 		obj_array_push(wk, new_cmd, make_strf(wk, "-f%s%d", plat, addr_bits));
@@ -1275,7 +1275,7 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_pch)
 	static char a[BUF_SIZE_S], b[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ "-I", a, "-include", b })
 
-	SBUF(buf);
+	TSTR(buf);
 	path_dirname(wk, &buf, s1);
 	assert(buf.len + 1 < sizeof(a));
 	memcpy(a, buf.buf, buf.len + 1);

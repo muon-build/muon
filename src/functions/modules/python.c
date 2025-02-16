@@ -71,8 +71,8 @@ python_module_present(struct workspace *wk, const char *pythonpath, const char *
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
-	SBUF(importstr);
-	sbuf_pushf(wk, &importstr, "import %s", mod);
+	TSTR(importstr);
+	tstr_pushf(wk, &importstr, "import %s", mod);
 
 	char *const *args = (char *const[]){ (char *)pythonpath, "-c", importstr.buf, 0 };
 
@@ -107,7 +107,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 }
 
 static bool
-build_python_installation(struct workspace *wk, obj self, obj *res, struct sbuf cmd_path, bool found, bool pure)
+build_python_installation(struct workspace *wk, obj self, obj *res, struct tstr cmd_path, bool found, bool pure)
 {
 	make_obj(wk, res, obj_python_installation);
 	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
@@ -116,7 +116,7 @@ build_python_installation(struct workspace *wk, obj self, obj *res, struct sbuf 
 	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
 	ep->found = found;
 	make_obj(wk, &ep->cmd_array, obj_array);
-	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
 
 	if (found && !introspect_python_interpreter(wk, cmd_path.buf, python)) {
 		vm_error(wk, "failed to introspect python");
@@ -165,7 +165,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	SBUF(cmd_path);
+	TSTR(cmd_path);
 	bool found = fs_find_cmd(wk, &cmd_path, cmd);
 	if (!found && (requirement == requirement_required)) {
 		vm_error(wk, "%s not found", cmd);
@@ -231,7 +231,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 		cmd = get_cstr(wk, an[0].val);
 	}
 
-	SBUF(cmd_path);
+	TSTR(cmd_path);
 	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
 		vm_error(wk, "python3 not found");
 		return false;
@@ -241,7 +241,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = true;
 	make_obj(wk, &ep->cmd_array, obj_array);
-	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
+	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
 
 	return true;
 }
@@ -325,7 +325,7 @@ func_python_installation_has_var(struct workspace *wk, obj self, obj *res)
 static bool
 get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, obj *res)
 {
-	SBUF(installdir);
+	TSTR(installdir);
 
 	obj prefix;
 	get_option_value(wk, current_project(wk), "prefix", &prefix);
@@ -360,7 +360,7 @@ get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, o
 		path_push(wk, &installdir, subdir);
 	}
 
-	*res = sbuf_into_str(wk, &installdir);
+	*res = tstr_into_str(wk, &installdir);
 
 	return true;
 }
@@ -415,10 +415,10 @@ py_install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	obj rename;
 	obj_array_index(wk, ctx->rename, ctx->i, &rename);
 
-	SBUF(d);
+	TSTR(d);
 	path_join(wk, &d, get_cstr(wk, ctx->dest), get_cstr(wk, rename));
 
-	dest = sbuf_into_str(wk, &d);
+	dest = tstr_into_str(wk, &d);
 
 	push_install_target(wk, src, dest, ctx->mode);
 

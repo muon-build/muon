@@ -137,10 +137,10 @@ cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	workspace_init_bare(&wk);
 	workspace_init_runtime(&wk);
 
-	SBUF(path);
+	TSTR(path);
 
 	if (opts.dir) {
-		sbuf_pushs(&wk, &path, opts.dir);
+		tstr_pushs(&wk, &path, opts.dir);
 	} else {
 		struct workspace az_wk = { 0 };
 		analyze_project_call(&az_wk);
@@ -152,7 +152,7 @@ cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		uint32_t id;
 		make_project(&wk, &id, 0, wk.source_root, wk.build_root);
 		struct project *proj = arr_get(&wk.projects, 0);
-		proj->subprojects_dir = sbuf_into_str(&wk, &path);
+		proj->subprojects_dir = tstr_into_str(&wk, &path);
 	}
 
 	wk.vm.lang_mode = language_extended;

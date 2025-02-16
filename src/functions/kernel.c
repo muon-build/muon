@@ -272,7 +272,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 	}
 
 	{ // subprojects
-		SBUF(subprojects_path);
+		TSTR(subprojects_path);
 		path_join(wk,
 			&subprojects_path,
 			get_cstr(wk, current_project(wk)->source_root),
@@ -563,7 +563,7 @@ struct find_program_iter_ctx {
 
 struct find_program_custom_dir_ctx {
 	const char *prog;
-	struct sbuf *buf;
+	struct tstr *buf;
 	bool found;
 };
 
@@ -695,7 +695,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	const char *path;
 
-	SBUF(buf);
+	TSTR(buf);
 	struct find_program_custom_dir_ctx dir_ctx = {
 		.buf = &buf,
 		.prog = str,
@@ -713,7 +713,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 			make_obj(wk, &ep->cmd_array, obj_array);
 
 			const char *argv0_resolved;
-			SBUF(argv0);
+			TSTR(argv0);
 			if (fs_find_cmd(wk, &argv0, wk->argv0)) {
 				argv0_resolved = argv0.buf;
 			} else {
@@ -1226,8 +1226,8 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		run_result->out = make_str(wk, "");
 		run_result->err = make_str(wk, "");
 	} else {
-		run_result->out = sbuf_into_str(wk, &cmd_ctx.out);
-		run_result->err = sbuf_into_str(wk, &cmd_ctx.err);
+		run_result->out = tstr_into_str(wk, &cmd_ctx.out);
+		run_result->err = tstr_into_str(wk, &cmd_ctx.err);
 	}
 
 	ret = true;
@@ -1321,17 +1321,17 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 		}
 	}
 
-	SBUF(build_dir);
+	TSTR(build_dir);
 
 	obj old_cwd = current_project(wk)->cwd;
 	obj old_build_dir = current_project(wk)->build_dir;
 
-	SBUF(new_cwd);
+	TSTR(new_cwd);
 	path_join(wk, &new_cwd, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val));
 	current_project(wk)->cwd = make_str(wk, new_cwd.buf);
 
 	path_join(wk, &build_dir, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val));
-	current_project(wk)->build_dir = sbuf_into_str(wk, &build_dir);
+	current_project(wk)->build_dir = tstr_into_str(wk, &build_dir);
 
 	bool ret = false;
 	if (!wk->vm.in_analyzer) {
@@ -1447,7 +1447,7 @@ struct add_test_depends_ctx {
 static enum iteration_result
 add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	SBUF(rel);
+	TSTR(rel);
 	struct add_test_depends_ctx *ctx = _ctx;
 
 	switch (get_obj_type(wk, val)) {
@@ -1461,7 +1461,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, val));
-		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel));
+		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
 		break;
 
 	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
@@ -1470,7 +1470,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
 		path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
-		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel));
+		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
 		break;
 	}
 	case obj_custom_target:
@@ -1628,7 +1628,7 @@ func_benchmark(struct workspace *wk, obj _, obj *ret)
 }
 
 struct join_paths_ctx {
-	struct sbuf *buf;
+	struct tstr *buf;
 };
 
 static enum iteration_result
@@ -1653,7 +1653,7 @@ func_join_paths(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	SBUF(join_paths_buf);
+	TSTR(join_paths_buf);
 	struct join_paths_ctx ctx = {
 		.buf = &join_paths_buf,
 	};
@@ -1662,7 +1662,7 @@ func_join_paths(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	*res = sbuf_into_str(wk, ctx.buf);
+	*res = tstr_into_str(wk, ctx.buf);
 	return true;
 }
 

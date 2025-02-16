@@ -27,14 +27,14 @@ generated_list_process_file(struct workspace *wk,
 	obj *res,
 	bool *generated_include)
 {
-	SBUF(path);
+	TSTR(path);
 	const char *output_dir = dir;
 
 	if (gl->preserve_path_from) {
 		const char *src = get_file_path(wk, val), *base = get_cstr(wk, gl->preserve_path_from);
 		assert(path_is_subpath(base, src));
 
-		SBUF(dest_dir);
+		TSTR(dest_dir);
 
 		path_relative_to(wk, &path, base, src);
 		path_dirname(wk, &dest_dir, path.buf);
@@ -88,7 +88,7 @@ generated_list_process_file(struct workspace *wk,
 					*generated_include = true;
 				}
 
-				SBUF(rel);
+				TSTR(rel);
 				path_relative_to(wk, &rel, wk->build_root, generated_path);
 
 				str_app(wk, &name, " ");

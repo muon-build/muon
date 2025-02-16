@@ -18,20 +18,20 @@
 
 static bool
 subproject_prepare(struct workspace *wk,
-	struct sbuf *cwd_buf,
+	struct tstr *cwd_buf,
 	const char **cwd,
-	struct sbuf *build_dir_buf,
+	struct tstr *build_dir_buf,
 	const char **build_dir,
 	bool required,
 	bool *found)
 {
-	SBUF(wrap_path);
-	sbuf_pushf(wk, &wrap_path, "%s.wrap", *cwd);
+	TSTR(wrap_path);
+	tstr_pushf(wk, &wrap_path, "%s.wrap", *cwd);
 
 	if (!wk->vm.in_analyzer && fs_file_exists(wrap_path.buf)) {
 		bool wrap_ok = false;
 
-		SBUF(base_path);
+		TSTR(base_path);
 
 		path_dirname(wk, &base_path, *cwd);
 
@@ -70,7 +70,7 @@ wrap_cleanup:
 		}
 	}
 
-	SBUF(src);
+	TSTR(src);
 	path_join(wk, &src, *cwd, "meson.build");
 
 	if (!fs_file_exists(src.buf)) {
@@ -106,8 +106,8 @@ subproject(struct workspace *wk,
 	}
 
 	const char *subproj_name = get_cstr(wk, name);
-	SBUF(cwd);
-	SBUF(build_dir);
+	TSTR(cwd);
+	TSTR(build_dir);
 
 	path_join(wk,
 		&cwd,
@@ -125,8 +125,8 @@ subproject(struct workspace *wk,
 	bool found;
 
 	const char *sp_cwd = cwd.buf, *sp_build_dir = build_dir.buf;
-	SBUF(sp_cwd_buf);
-	SBUF(sp_build_dir_buf);
+	TSTR(sp_cwd_buf);
+	TSTR(sp_build_dir_buf);
 
 	if (!subproject_prepare(
 		    wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf, &sp_build_dir, req == requirement_required, &found)) {

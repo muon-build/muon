@@ -205,7 +205,7 @@ struct inspector_context {
 
 	// Workspace
 	struct workspace wk;
-	struct sbuf log;
+	struct tstr log;
 
 	// Windows
 	ImVector<inspector_window> windows;
@@ -415,12 +415,12 @@ render_editor(editor_window &window)
 }
 
 static void
-safe_path_relative_to(struct workspace *wk, struct sbuf *sbuf, const char *base, const char *path)
+safe_path_relative_to(struct workspace *wk, struct tstr *tstr, const char *base, const char *path)
 {
 	if (path_is_absolute(path)) {
-		path_relative_to(wk, sbuf, base, path);
+		path_relative_to(wk, tstr, base, path);
 	} else {
-		path_copy(wk, sbuf, path);
+		path_copy(wk, tstr, path);
 	}
 }
 
@@ -430,7 +430,7 @@ open_editor(struct source *src, uint32_t line, uint32_t col)
 	struct inspector_context *ctx = get_inspector_context();
 	struct workspace *wk = &ctx->wk;
 
-	SBUF(rel);
+	TSTR(rel);
 	safe_path_relative_to(wk, &rel, wk->source_root, src->label);
 
 	TextEditor::Coordinates coords(line - 1, col - 1);
@@ -538,7 +538,7 @@ render_callstack(inspector_window *window)
 			uint32_t line, col;
 			struct source *src = obj_callstack_unpack(e, &line, &col);
 
-			SBUF(rel);
+			TSTR(rel);
 			char label[1024];
 			safe_path_relative_to(wk, &rel, wk->source_root, src->label);
 			snprintf(label, sizeof(label), "%s:%d:%d", rel.buf, line, col);
@@ -598,11 +598,11 @@ render_expressions(inspector_window *window)
 		ImGui::SameLine();
 
 		obj res = 0;
-		SBUF(res_str);
+		TSTR(res_str);
 		if (eval_str(wk, s.c_str(), eval_mode_repl, &res)) {
 			obj_to_s(wk, res, &res_str);
 		} else {
-			sbuf_pushs(wk, &res_str, "<error>");
+			tstr_pushs(wk, &res_str, "<error>");
 		}
 
 		ImGui::LabelText(s.c_str(), "%s", res_str.buf);
@@ -1138,7 +1138,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 		workspace_destroy(wk);
 	}
 
-	sbuf_clear(&ctx->log);
+	tstr_clear(&ctx->log);
 
 	ctx->nodes.clear();
 	ctx->links.clear();
@@ -1521,7 +1521,7 @@ ui_update()
 	if (first) {
 		first = false;
 
-		sbuf_init(&ctx->log, 0, 0, sbuf_flag_overflow_alloc);
+		tstr_init(&ctx->log, 0, 0, tstr_flag_overflow_alloc);
 		log_set_buffer(&ctx->log);
 
 		ctx->graph_params.c1 = 0.5;

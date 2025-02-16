@@ -79,7 +79,7 @@ static void
 setup_platform_env(const char *build_dir, bool force)
 {
 	if (host_machine.sys == machine_system_windows) {
-		SBUF_manual(cache);
+		TSTR_manual(cache);
 		const char *cache_path = 0;
 		if (build_dir) {
 			path_copy(0, &cache, build_dir);
@@ -398,7 +398,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	SBUF_manual(abs);
+	TSTR_manual(abs);
 	if (opts.file_override) {
 		path_make_absolute(NULL, &abs, opts.file_override);
 		opts.file_override = abs.buf;
@@ -408,7 +408,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	res = do_analyze(&opts);
 
 	if (opts.file_override) {
-		sbuf_destroy(&abs);
+		tstr_destroy(&abs);
 	}
 	return res;
 }
@@ -442,7 +442,7 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	SBUF_manual(path);
+	TSTR_manual(path);
 	path_join(0, &path, output_path.private_dir, output_path.summary);
 
 	bool ret = false;
@@ -455,7 +455,7 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	ret = true;
 ret:
-	sbuf_destroy(&path);
+	tstr_destroy(&path);
 	fs_source_destroy(&src);
 	return ret;
 }
@@ -1206,7 +1206,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	};
 
 	bool res = false;
-	SBUF_manual(argv0);
+	TSTR_manual(argv0);
 
 	OPTSTART("vC:") {
 	case 'v': log_set_lvl(log_debug); break;
@@ -1239,7 +1239,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	res = commands[cmd_i].cmd(0, argc, argi, argv);
 
 ret:
-	sbuf_destroy(&argv0);
+	tstr_destroy(&argv0);
 	return res;
 }
 
@@ -1260,10 +1260,10 @@ main(int argc, char *argv[])
 	bool meson_compat = false;
 
 	{
-		SBUF(basename);
+		TSTR(basename);
 		path_basename(NULL, &basename, argv[0]);
 		meson_compat = strcmp(basename.buf, "meson") == 0 && (argc < 2 || strcmp(argv[1], "internal") != 0);
-		sbuf_destroy(&basename);
+		tstr_destroy(&basename);
 	}
 
 	if (meson_compat) {

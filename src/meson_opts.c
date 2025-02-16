@@ -437,13 +437,13 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		obj_array_index(wk, ctx->stray_args, 0, &build);
 		obj_array_index(wk, ctx->stray_args, 1, &src);
 
-		SBUF(build_dir);
+		TSTR(build_dir);
 		path_make_absolute(wk, &build_dir, get_cstr(wk, build));
 
 		obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", get_cstr(wk, src)));
 
 		make_obj(wk, &ctx->stray_args, obj_array);
-		obj_array_push(wk, ctx->stray_args, sbuf_into_str(wk, &build_dir));
+		obj_array_push(wk, ctx->stray_args, tstr_into_str(wk, &build_dir));
 	}
 
 	return true;
@@ -517,18 +517,18 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 		make_object = true;
 	}
 
-	SBUF(out);
+	TSTR(out);
 
 	if (make_object) {
-		sbuf_push(wk, &out, '{');
+		tstr_push(wk, &out, '{');
 	}
 
 	obj v;
 	obj_array_for(wk, ctx->argv, v) {
-			SBUF(path);
+			TSTR(path);
 
 			if (make_object) {
-				sbuf_pushf(wk, &out, "\"%s\":", get_cstr(wk, v));
+				tstr_pushf(wk, &out, "\"%s\":", get_cstr(wk, v));
 			}
 
 			if (build_dir) {
@@ -536,7 +536,7 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 			}
 			path_push(wk, &path, output_path.introspect_dir);
 			path_push(wk, &path, "intro-");
-			sbuf_pushf(wk, &path, "%s.json", get_cstr(wk, v));
+			tstr_pushf(wk, &path, "%s.json", get_cstr(wk, v));
 
 			struct source src;
 			if (!fs_read_entire_file(path.buf, &src)) {
@@ -544,17 +544,17 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 				return false;
 			}
 
-			sbuf_pushn(wk, &out, src.src, src.len);
+			tstr_pushn(wk, &out, src.src, src.len);
 
 			if (make_object && i < intro_len - 1) {
-				sbuf_push(wk, &out, ',');
+				tstr_push(wk, &out, ',');
 			}
 
 			++i;
 	}
 
 	if (make_object) {
-		sbuf_push(wk, &out, '}');
+		tstr_push(wk, &out, '}');
 	}
 
 	printf("%s\n", out.buf);

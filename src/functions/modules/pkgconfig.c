@@ -82,9 +82,9 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 	if (str_eql(get_str(wk, val), &WKSTR("."))) {
 		obj_array_push(wk, *cflags, make_str(wk, "-I${includedir}"));
 	} else {
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, "-I${includedir}", get_cstr(wk, val));
-		obj_array_push(wk, *cflags, sbuf_into_str(wk, &path));
+		obj_array_push(wk, *cflags, tstr_into_str(wk, &path));
 	}
 
 	return ir_cont;
@@ -93,7 +93,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 {
-	SBUF(basename);
+	TSTR(basename);
 	const char *str;
 
 	switch (get_obj_type(wk, lib)) {
@@ -482,7 +482,7 @@ module_pkgconf_declare_var(struct workspace *wk,
 		}
 	}
 
-	SBUF(esc);
+	TSTR(esc);
 	const char *esc_val;
 	if (escape) {
 		pkgconf_escape(wk, &esc, val->s);
@@ -591,7 +591,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 	obj libdir;
 	const char *path;
 	if (install_dir_opt->set) {
-		SBUF(rel);
+		TSTR(rel);
 		obj pre;
 		get_option_value(wk, current_project(wk), "prefix", &pre);
 
@@ -940,9 +940,9 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 		filebase = akw[kw_filebase].val;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_join(wk, &path, wk->muon_private, get_cstr(wk, filebase));
-	sbuf_pushs(wk, &path, ".pc");
+	tstr_pushs(wk, &path, ".pc");
 
 	if (!module_pkgconf_write(wk, path.buf, &pc)) {
 		return false;
@@ -953,10 +953,10 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 	}
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path);
+	*get_obj_file(wk, *res) = tstr_into_str(wk, &path);
 
 	{
-		SBUF(install_dir_buf);
+		TSTR(install_dir_buf);
 		const char *install_dir;
 		if (akw[kw_install_dir].set) {
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
@@ -972,11 +972,11 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 			install_dir = install_dir_buf.buf;
 		}
 
-		SBUF(dest);
+		TSTR(dest);
 		path_join(wk, &dest, install_dir, get_cstr(wk, filebase));
-		sbuf_pushs(wk, &dest, ".pc");
+		tstr_pushs(wk, &dest, ".pc");
 
-		push_install_target(wk, *get_obj_file(wk, *res), sbuf_into_str(wk, &dest), 0);
+		push_install_target(wk, *get_obj_file(wk, *res), tstr_into_str(wk, &dest), 0);
 	}
 
 	return true;

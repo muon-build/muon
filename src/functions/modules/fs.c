@@ -44,9 +44,9 @@ fs_coerce_file_path(struct workspace *wk, uint32_t node, obj o, bool abs_build_t
 			return name;
 		}
 
-		SBUF(joined);
+		TSTR(joined);
 		path_join(wk, &joined, get_cstr(wk, tgt->build_dir), name);
-		return get_cstr(wk, sbuf_into_str(wk, &joined));
+		return get_cstr(wk, tstr_into_str(wk, &joined));
 	}
 	case obj_custom_target: {
 		o = get_obj_custom_target(wk, o)->output;
@@ -72,7 +72,7 @@ fs_coerce_file_path(struct workspace *wk, uint32_t node, obj o, bool abs_build_t
 }
 
 static bool
-fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_path_opts opts, struct sbuf *buf)
+fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_path_opts opts, struct tstr *buf)
 {
 	const char *s = fs_coerce_file_path(wk, err_node, path, false);
 	if (!s) {
@@ -120,7 +120,7 @@ func_module_fs_lookup_common(struct workspace *wk,
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, opts, &path)) {
 		return false;
 	}
@@ -161,14 +161,14 @@ func_module_fs_parent(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noabs, &path)) {
 		return false;
 	}
 
-	SBUF(buf);
+	TSTR(buf);
 	path_dirname(wk, &buf, path.buf);
-	*res = sbuf_into_str(wk, &buf);
+	*res = tstr_into_str(wk, &buf);
 	return true;
 }
 
@@ -193,7 +193,7 @@ func_module_fs_read(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -230,12 +230,12 @@ func_module_fs_expanduser(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
 
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -247,14 +247,14 @@ func_module_fs_name(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noexpanduser, &path)) {
 		return false;
 	}
 
-	SBUF(basename);
+	TSTR(basename);
 	path_basename(wk, &basename, path.buf);
-	*res = sbuf_into_str(wk, &basename);
+	*res = tstr_into_str(wk, &basename);
 	return true;
 }
 
@@ -266,12 +266,12 @@ func_module_fs_stem(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noexpanduser, &path)) {
 		return false;
 	}
 
-	SBUF(basename);
+	TSTR(basename);
 	path_basename(wk, &basename, path.buf);
 
 	char *dot;
@@ -280,7 +280,7 @@ func_module_fs_stem(struct workspace *wk, obj self, obj *res)
 		basename.len = strlen(basename.buf);
 	}
 
-	*res = sbuf_into_str(wk, &basename);
+	*res = tstr_into_str(wk, &basename);
 	return true;
 }
 
@@ -294,19 +294,19 @@ func_module_fs_as_posix(struct workspace *wk, obj self, obj *res)
 
 	const char *path = get_cstr(wk, an[0].val), *p;
 
-	SBUF(buf);
+	TSTR(buf);
 	for (p = path; *p; ++p) {
 		if (*p == '\\') {
-			sbuf_push(wk, &buf, '/');
+			tstr_push(wk, &buf, '/');
 			if (*(p + 1) == '\\') {
 				++p;
 			}
 		} else {
-			sbuf_push(wk, &buf, *p);
+			tstr_push(wk, &buf, *p);
 		}
 	}
 
-	*res = sbuf_into_str(wk, &buf);
+	*res = tstr_into_str(wk, &buf);
 	return true;
 }
 
@@ -318,7 +318,7 @@ func_module_fs_replace_suffix(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noabs, &path)) {
 		return false;
 	}
@@ -330,8 +330,8 @@ func_module_fs_replace_suffix(struct workspace *wk, obj self, obj *res)
 		path.len = strlen(path.buf);
 	}
 
-	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &path);
+	tstr_pushs(wk, &path, get_cstr(wk, an[1].val));
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -348,7 +348,7 @@ func_module_fs_hash(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -382,7 +382,7 @@ func_module_fs_size(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -411,12 +411,12 @@ func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path1);
+	TSTR(path1);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path1)) {
 		return false;
 	}
 
-	SBUF(path2);
+	TSTR(path2);
 	if (!fix_file_path(wk, an[1].node, an[1].val, 0, &path2)) {
 		return false;
 	}
@@ -449,7 +449,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -458,9 +458,9 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	if (an[1].set) {
 		output = an[1].val;
 	} else {
-		SBUF(dest);
+		TSTR(dest);
 		path_basename(wk, &dest, path.buf);
-		output = sbuf_into_str(wk, &dest);
+		output = tstr_into_str(wk, &dest);
 	}
 
 	obj command;
@@ -519,8 +519,8 @@ func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(b1);
-	SBUF(b2);
+	TSTR(b1);
+	TSTR(b2);
 
 	if (path_is_absolute(p1)) {
 		path_copy(wk, &b1, p1);
@@ -534,9 +534,9 @@ func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 		path_join(wk, &b2, workspace_cwd(wk), p2);
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_relative_to(wk, &path, b2.buf, b1.buf);
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -569,7 +569,7 @@ func_module_fs_write(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -599,7 +599,7 @@ func_module_fs_copy(struct workspace *wk, obj self, obj *res)
 
 	bool force = akw[kw_force].set ? get_obj_bool(wk, akw[kw_force].val) : false;
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
 		return false;
 	}
@@ -617,9 +617,9 @@ func_module_fs_cwd(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(cwd);
+	TSTR(cwd);
 	path_copy_cwd(wk, &cwd);
-	*res = sbuf_into_str(wk, &cwd);
+	*res = tstr_into_str(wk, &cwd);
 	return true;
 }
 
@@ -631,9 +631,9 @@ func_module_fs_make_absolute(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_make_absolute(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -705,9 +705,9 @@ func_module_fs_without_ext(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_without_ext(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -731,10 +731,10 @@ func_module_fs_add_suffix(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_copy(wk, &path, get_cstr(wk, an[0].val));
-	sbuf_pushs(wk, &path, get_cstr(wk, an[1].val));
-	*res = sbuf_into_str(wk, &path);
+	tstr_pushs(wk, &path, get_cstr(wk, an[1].val));
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -746,9 +746,9 @@ func_module_fs_executable(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	path_executable(wk, &path, get_cstr(wk, an[0].val));
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -790,13 +790,13 @@ func_module_fs_glob_cb(void *_ctx, const char *name)
 	}
 
 	if (str_eql_glob(&pat, &WKSTR(name))) {
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, ctx->prefix, name);
 		subctx.prefix = path.buf;
 
 		subctx.pat += pat.len;
 		if (!*subctx.pat) {
-			obj_array_push(wk, ctx->res, sbuf_into_str(wk, &path));
+			obj_array_push(wk, ctx->res, tstr_into_str(wk, &path));
 		} else {
 			++subctx.pat;
 			if (fs_dir_exists(path.buf)) {
@@ -809,9 +809,9 @@ func_module_fs_glob_cb(void *_ctx, const char *name)
 
 	return ir_cont;
 recurse_all_mode: {
-	SBUF(path);
+	TSTR(path);
 	path_join(wk, &path, subctx.matchprefix, name);
-	SBUF(full_path);
+	TSTR(full_path);
 	path_join(wk, &full_path, subctx.prefix, name);
 
 	subctx.prefix = full_path.buf;
@@ -820,7 +820,7 @@ recurse_all_mode: {
 	/* L("recurse: path: %s, pat: %s", path.buf, ctx->pat); */
 
 	if (editorconfig_pattern_match(ctx->pat, path.buf)) {
-		obj_array_push(wk, ctx->res, sbuf_into_str(wk, &full_path));
+		obj_array_push(wk, ctx->res, tstr_into_str(wk, &full_path));
 	}
 
 	if (fs_dir_exists(full_path.buf)) {
@@ -840,7 +840,7 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(pat);
+	TSTR(pat);
 	{
 		const struct str *_pat = get_str(wk, an[0].val);
 		if (str_has_null(_pat)) {
@@ -851,7 +851,7 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 		path_join(wk, &pat, workspace_cwd(wk), _pat->s);
 	}
 
-	SBUF(prefix);
+	TSTR(prefix);
 	{
 		uint32_t i, prefix_len = 0;
 		for (i = 0; pat.buf[i]; ++i) {
@@ -867,7 +867,7 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 			}
 		}
 
-		sbuf_pushn(wk, &prefix, pat.buf, prefix_len);
+		tstr_pushn(wk, &prefix, pat.buf, prefix_len);
 	}
 
 	if (prefix.len) {
@@ -908,7 +908,7 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	struct delete_suffixes_ctx *ctx = _ctx;
 	struct stat sb;
 
-	SBUF(name);
+	TSTR(name);
 
 	path_join(NULL, &name, ctx->base_dir, path);
 
@@ -917,7 +917,7 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	// machinery found this file. In this case, the file no longer exists, so
 	// just continue.
 	if (!fs_exists(name.buf)) {
-		sbuf_destroy(&name);
+		tstr_destroy(&name);
 		return ir_cont;
 	}
 
@@ -946,7 +946,7 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	ir_res = ir_cont;
 
 ret:
-	sbuf_destroy(&name);
+	tstr_destroy(&name);
 	return ir_res;
 }
 
@@ -975,12 +975,12 @@ func_module_fs_canonicalize(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	SBUF(path);
+	TSTR(path);
 	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noexpanduser, &path)) {
 		return false;
 	}
 
-	*res = sbuf_into_str(wk, &path);
+	*res = tstr_into_str(wk, &path);
 	return true;
 }
 

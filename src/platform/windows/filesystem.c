@@ -461,13 +461,13 @@ fs_has_extension(const char *path, const char *ext)
 }
 
 bool
-fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
+fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 {
 	assert(*cmd);
 	uint32_t len;
 	const char *env_path, *base_start;
 
-	sbuf_clear(buf);
+	tstr_clear(buf);
 
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
@@ -477,7 +477,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 		}
 
 		if (!fs_has_extension(buf->buf, ".exe")) {
-			sbuf_pushs(wk, buf, ".exe");
+			tstr_pushs(wk, buf, ".exe");
 			if (fs_exe_exists(buf->buf)) {
 				return true;
 			}
@@ -487,7 +487,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 	}
 
 	if (strcmp(cmd, "cmd") == 0 || strcmp(cmd, "cmd.exe") == 0) {
-		sbuf_pushs(wk, buf, "cmd.exe");
+		tstr_pushs(wk, buf, "cmd.exe");
 		return true;
 	}
 
@@ -501,8 +501,8 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 		if (!*env_path || *env_path == ';') {
 			len = env_path - base_start;
 
-			sbuf_clear(buf);
-			sbuf_pushn(wk, buf, base_start, len);
+			tstr_clear(buf);
+			tstr_pushn(wk, buf, base_start, len);
 
 			base_start = env_path + 1;
 
@@ -511,7 +511,7 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 			if (fs_exe_exists(buf->buf)) {
 				return true;
 			} else if (!fs_has_extension(buf->buf, ".exe")) {
-				sbuf_pushs(wk, buf, ".exe");
+				tstr_pushs(wk, buf, ".exe");
 				if (fs_exe_exists(buf->buf)) {
 					return true;
 				}

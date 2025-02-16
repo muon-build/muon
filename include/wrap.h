@@ -60,7 +60,7 @@ struct wrap {
 	const char *fields[wrap_fields_count];
 	char *buf;
 	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
-	struct sbuf dest_dir, name;
+	struct tstr dest_dir, name;
 	bool dirty, outdated;
 };
 

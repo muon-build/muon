@@ -177,28 +177,28 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	if (opts->src_is_path) {
 		source_path = make_str(wk, src);
 	} else {
-		SBUF(test_source_path);
+		TSTR(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
-		sbuf_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
-		source_path = sbuf_into_str(wk, &test_source_path);
+		tstr_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
+		source_path = tstr_into_str(wk, &test_source_path);
 	}
 
 	obj_array_push(wk, compiler_args, source_path);
 
-	SBUF(test_output_path);
+	TSTR(test_output_path);
 	const char *output_path;
 	if (opts->output_path) {
 		output_path = opts->output_path;
 	} else if (opts->mode == compiler_check_mode_run) {
 		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
 		if (machine_definitions[comp->machine]->is_windows) {
-			sbuf_pushs(wk, &test_output_path, ".exe");
+			tstr_pushs(wk, &test_output_path, ".exe");
 		}
 		output_path = test_output_path.buf;
 	} else {
 		path_join(wk, &test_output_path, wk->muon_private, "test.");
-		sbuf_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
-		sbuf_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
+		tstr_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
+		tstr_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
 		output_path = test_output_path.buf;
 	}
 
@@ -1057,7 +1057,7 @@ compiler_get_define(struct workspace *wk,
 	const char *def,
 	obj *res)
 {
-	SBUF(output_path);
+	TSTR(output_path);
 	path_join(wk, &output_path, wk->muon_private, "get_define_output");
 
 	opts->output_path = output_path.buf;
@@ -1942,21 +1942,21 @@ find_library_check_dirs(struct workspace *wk, const char *libname, obj libdirs, 
 {
 	static const char *pref[] = { "", "lib" };
 
-	SBUF(path);
-	SBUF(lib);
+	TSTR(path);
+	TSTR(lib);
 
 	uint32_t i, j;
 	obj libdir;
 	obj_array_for(wk, libdirs, libdir) {
 		for (i = 0; i < exts_len; ++i) {
 			for (j = 0; j < ARRAY_LEN(pref); ++j) {
-				sbuf_clear(&lib);
-				sbuf_pushf(wk, &lib, "%s%s%s", pref[j], libname, exts[i]);
+				tstr_clear(&lib);
+				tstr_pushf(wk, &lib, "%s%s%s", pref[j], libname, exts[i]);
 
 				path_join(wk, &path, get_cstr(wk, libdir), lib.buf);
 
 				if (fs_file_exists(path.buf)) {
-					return sbuf_into_str(wk, &path);
+					return tstr_into_str(wk, &path);
 				}
 			}
 		}
@@ -2282,8 +2282,8 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 
 	make_obj(wk, res, obj_array);
 
-	SBUF(output_dir);
-	sbuf_pushs(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));
+	TSTR(output_dir);
+	tstr_pushs(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));
 	path_push(wk, &output_dir, "preprocess.p");
 
 	if (!fs_mkdir_p(output_dir.buf)) {

@@ -1553,8 +1553,8 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		// we always want an absolute path here, regardles of
 		// ctx->relativize
 		if (tgt->type != tgt_static_library) {
-			SBUF(abs);
-			SBUF(dir);
+			TSTR(abs);
+			TSTR(dir);
 			const char *p;
 			path_dirname(wk, &dir, path);
 
@@ -1582,9 +1582,9 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_file: {
 		obj_array_push(wk, dest_link_with, *get_obj_file(wk, val));
 		if (file_is_dynamic_lib(wk, val)) {
-			SBUF(dir);
+			TSTR(dir);
 			path_dirname(wk, &dir, get_file_path(wk, val));
-			obj_array_push(wk, ctx->dest->rpath, sbuf_into_str(wk, &dir));
+			obj_array_push(wk, ctx->dest->rpath, tstr_into_str(wk, &dir));
 		}
 		break;
 	}

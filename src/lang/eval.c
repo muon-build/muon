@@ -446,8 +446,8 @@ cmd_found:
 const char *
 determine_project_root(struct workspace *wk, const char *path)
 {
-	SBUF(tmp);
-	SBUF(new_path);
+	TSTR(tmp);
+	TSTR(new_path);
 
 	path_make_absolute(wk, &new_path, path);
 	path = new_path.buf;
@@ -470,7 +470,7 @@ determine_project_root(struct workspace *wk, const char *path)
 		if (ensure_project_is_first_statement(wk, 0, n, true)) {
 			// found
 			path_dirname(wk, &tmp, path);
-			obj s = sbuf_into_str(wk, &tmp);
+			obj s = tstr_into_str(wk, &tmp);
 			return get_cstr(wk, s);
 		}
 
@@ -497,7 +497,7 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 		{ "CMakeLists.txt", build_language_cmake },
 	};
 
-	SBUF(name);
+	TSTR(name);
 	bool found = false;
 
 	uint32_t i;
@@ -525,5 +525,5 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 		LOG_W("Using experimental cmake compat mode, this will probably break");
 	}
 
-	return get_cstr(wk, sbuf_into_str(wk, &name));
+	return get_cstr(wk, tstr_into_str(wk, &name));
 }

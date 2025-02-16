@@ -118,9 +118,9 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		obj prefix;
 		get_option_value(wk, current_project(wk), "prefix", &prefix);
 
-		SBUF(buf);
+		TSTR(buf);
 		path_join(wk, &buf, get_cstr(wk, prefix), get_cstr(wk, dest));
-		sdest = sbuf_into_str(wk, &buf);
+		sdest = tstr_into_str(wk, &buf);
 	}
 
 	tgt->dest = sdest;
@@ -133,12 +133,12 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 bool
 push_install_target_install_dir(struct workspace *wk, obj src, obj install_dir, obj mode)
 {
-	SBUF(basename);
+	TSTR(basename);
 	path_basename(wk, &basename, get_cstr(wk, src));
 
-	SBUF(dest);
+	TSTR(dest);
 	path_join(wk, &dest, get_cstr(wk, install_dir), basename.buf);
-	obj sdest = sbuf_into_str(wk, &dest);
+	obj sdest = tstr_into_str(wk, &dest);
 
 	return !!push_install_target(wk, src, sdest, mode);
 }
@@ -188,11 +188,11 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 			goto handle_file;
 		}
 
-		SBUF(dest_path);
+		TSTR(dest_path);
 		path_join(wk, &dest_path, get_cstr(wk, install_dir), get_cstr(wk, val_id));
 
 		src = *get_obj_file(wk, f);
-		dest = sbuf_into_str(wk, &dest_path);
+		dest = tstr_into_str(wk, &dest_path);
 		break;
 	}
 	case obj_file:
@@ -204,14 +204,14 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 		f = val_id;
 
 handle_file: {
-	SBUF(basename);
+	TSTR(basename);
 	path_basename(wk, &basename, get_file_path(wk, f));
 
-	SBUF(dest_path);
+	TSTR(dest_path);
 	path_join(wk, &dest_path, get_cstr(wk, install_dir), basename.buf);
 
 	src = *get_obj_file(wk, f);
-	dest = sbuf_into_str(wk, &dest_path);
+	dest = tstr_into_str(wk, &dest_path);
 } break;
 	default: UNREACHABLE;
 	}

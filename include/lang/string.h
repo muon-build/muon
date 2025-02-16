@@ -24,48 +24,48 @@ struct workspace;
 		str, sizeof(str) - 1 \
 	}
 
-/* sbuf */
+/* tstr */
 
-enum sbuf_flags {
-	sbuf_flag_overflown = 1 << 0,
-	sbuf_flag_overflow_obj_str = 0 << 1, // the default
-	sbuf_flag_overflow_alloc = 1 << 1,
-	sbuf_flag_overflow_error = 1 << 2,
-	sbuf_flag_write = 1 << 3,
-	sbuf_flag_string_exposed = 1 << 4,
+enum tstr_flags {
+	tstr_flag_overflown = 1 << 0,
+	tstr_flag_overflow_obj_str = 0 << 1, // the default
+	tstr_flag_overflow_alloc = 1 << 1,
+	tstr_flag_overflow_error = 1 << 2,
+	tstr_flag_write = 1 << 3,
+	tstr_flag_string_exposed = 1 << 4,
 };
 
-#define SBUF_CUSTOM(name, static_len, flags)     \
-	struct sbuf name;                        \
-	char sbuf_static_buf_##name[static_len]; \
-	sbuf_init(&name, sbuf_static_buf_##name, static_len, (enum sbuf_flags)flags);
-#define SBUF(name) SBUF_CUSTOM(name, 1024, 0)
-#define SBUF_manual(name) SBUF_CUSTOM(name, 1024, sbuf_flag_overflow_alloc)
-#define SBUF_FILE(__name, __f) struct sbuf __name = { .flags = sbuf_flag_write, .buf = (void *)__f };
-#define SBUF_WKSTR(sb) (struct str) { .s = (sb)->buf, .len = (sb)->len }
+#define TSTR_CUSTOM(name, static_len, flags)     \
+	struct tstr name;                        \
+	char tstr_static_buf_##name[static_len]; \
+	tstr_init(&name, tstr_static_buf_##name, static_len, (enum tstr_flags)flags);
+#define TSTR(name) TSTR_CUSTOM(name, 1024, 0)
+#define TSTR_manual(name) TSTR_CUSTOM(name, 1024, tstr_flag_overflow_alloc)
+#define TSTR_FILE(__name, __f) struct tstr __name = { .flags = tstr_flag_write, .buf = (void *)__f };
+#define TSTR_WKSTR(sb) (struct str) { .s = (sb)->buf, .len = (sb)->len }
 
-struct sbuf {
+struct tstr {
 	char *buf;
 	uint32_t len, cap;
-	enum sbuf_flags flags;
+	enum tstr_flags flags;
 	obj s;
 };
 
-void sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum sbuf_flags flags);
-void sbuf_destroy(struct sbuf *sb);
-void sbuf_clear(struct sbuf *sb);
-void sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc);
-void sbuf_push(struct workspace *wk, struct sbuf *sb, char s);
-void sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n);
-void sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s);
-void sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
-void sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args);
-void sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len);
-void sbuf_push_json_escaped_quoted(struct workspace *wk, struct sbuf *buf, const struct str *str);
-obj sbuf_into_str(struct workspace *wk, struct sbuf *sb);
+void tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags);
+void tstr_destroy(struct tstr *sb);
+void tstr_clear(struct tstr *sb);
+void tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc);
+void tstr_push(struct workspace *wk, struct tstr *sb, char s);
+void tstr_pushn(struct workspace *wk, struct tstr *sb, const char *s, uint32_t n);
+void tstr_pushs(struct workspace *wk, struct tstr *sb, const char *s);
+void tstr_pushf(struct workspace *wk, struct tstr *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+void tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list args);
+void tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *str, uint32_t len);
+void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const struct str *str);
+obj tstr_into_str(struct workspace *wk, struct tstr *sb);
 
-void str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace);
-void str_escape_json(struct workspace *wk, struct sbuf *sb, const struct str *ss);
+void str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_whitespace);
+void str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss);
 
 bool str_has_null(const struct str *ss);
 

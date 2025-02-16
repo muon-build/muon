@@ -66,7 +66,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 		goto ret;
 	}
 
-	SBUF_manual(path);
+	TSTR_manual(path);
 
 	while (true) {
 		if ((r = archive_read_next_header(a, &entry)) == ARCHIVE_EOF) {
@@ -103,7 +103,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 
 	res = true;
 ret:
-	sbuf_destroy(&path);
+	tstr_destroy(&path);
 
 	if (a) {
 		archive_read_close(a);

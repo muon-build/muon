@@ -358,7 +358,7 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 			}
 		}
 
-		SBUF(rel);
+		TSTR(rel);
 		if (relativize) {
 			if (!fs_dir_exists(dir)) {
 				continue;
@@ -475,7 +475,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 				obj_array_extend(wk, args_dup, args_post);
 				obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
 
-				SBUF(dest_path);
+				TSTR(dest_path);
 				if (!tgt_src_to_pch_path(wk, tgt, lang, pch, &dest_path)) {
 					return 0;
 				}
@@ -796,9 +796,9 @@ ca_relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 		str = get_file_path(wk, val);
 	}
 
-	SBUF(buf);
+	TSTR(buf);
 	path_relative_to(wk, &buf, wk->build_root, str);
-	obj s = sbuf_into_str(wk, &buf);
+	obj s = tstr_into_str(wk, &buf);
 
 	if (ctx->oneshot) {
 		*ctx->oneshot = s;

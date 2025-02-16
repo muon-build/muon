@@ -67,7 +67,7 @@ ninja_coverage_base_cmdline(struct workspace *wk)
 	obj cmdline;
 	make_obj(wk, &cmdline, obj_array);
 
-	SBUF(subprojects_path);
+	TSTR(subprojects_path);
 	path_join(wk,
 		&subprojects_path,
 		get_cstr(wk, current_project(wk)->source_root),

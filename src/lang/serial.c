@@ -468,7 +468,7 @@ ret:
 bool
 serial_load_from_private_dir(struct workspace *wk, obj *res, const char *file)
 {
-	SBUF(path);
+	TSTR(path);
 	path_join(wk, &path, output_path.private_dir, file);
 
 	if (!fs_file_exists(path.buf)) {

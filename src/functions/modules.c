@@ -53,7 +53,7 @@ struct module_lookup_script_opts {
 
 static bool
 module_lookup_script(struct workspace *wk,
-	struct sbuf *path,
+	struct tstr *path,
 	struct obj_module *m,
 	const struct module_lookup_script_opts *opts)
 {
@@ -73,7 +73,7 @@ module_lookup_script(struct workspace *wk,
 		}
 	}
 
-	src.label = get_cstr(wk, sbuf_into_str(wk, path));
+	src.label = get_cstr(wk, tstr_into_str(wk, path));
 	src.len = strlen(src.src);
 
 	bool ret = false;
@@ -145,22 +145,22 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 
 		bool loop = true;
 		struct str path;
-		SBUF(path_interpolated);
-		SBUF(module_path);
+		TSTR(path_interpolated);
+		TSTR(module_path);
 		const char *p, *sep;
 
 		{
 			struct project *proj;
 			if (wk->vm.lang_mode == language_external && (proj = current_project(wk)) && proj->module_dir) {
-				sbuf_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
+				tstr_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
 
-				sbuf_pushs(wk, &module_path, ";file:");
+				tstr_pushs(wk, &module_path, ";file:");
 
-				SBUF(new_module_path);
+				TSTR(new_module_path);
 				path_push(wk, &new_module_path, get_cstr(wk, proj->source_root));
 				path_push(wk, &new_module_path, get_cstr(wk, proj->module_dir));
 				path_push(wk, &new_module_path, "%.meson");
-				sbuf_pushn(wk, &module_path, new_module_path.buf, new_module_path.len);
+				tstr_pushn(wk, &module_path, new_module_path.buf, new_module_path.len);
 				p = module_path.buf;
 			} else {
 				p = module_paths[wk->vm.lang_mode];
@@ -203,14 +203,14 @@ missing_schema:
 			}
 
 			{ // Interpolate path
-				sbuf_clear(&path_interpolated);
+				tstr_clear(&path_interpolated);
 
 				uint32_t i;
 				for (i = 0; i < path.len; ++i) {
 					if (path.s[i] == '%') {
-						sbuf_pushs(wk, &path_interpolated, name);
+						tstr_pushs(wk, &path_interpolated, name);
 					} else {
-						sbuf_push(wk, &path_interpolated, path.s[i]);
+						tstr_push(wk, &path_interpolated, path.s[i]);
 					}
 				}
 			}
@@ -240,13 +240,13 @@ missing_schema:
 					if (encapsulate) {
 						obj_dict_set(wk,
 							wk->vm.modules,
-							sbuf_into_str(wk, &path_interpolated),
+							tstr_into_str(wk, &path_interpolated),
 							*res);
 					}
 
 					if (schema == schema_type_file) {
 						obj_array_push(
-							wk, wk->regenerate_deps, sbuf_into_str(wk, &path_interpolated));
+							wk, wk->regenerate_deps, tstr_into_str(wk, &path_interpolated));
 					}
 
 					if (wk->vm.error) {

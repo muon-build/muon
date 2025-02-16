@@ -401,14 +401,14 @@ prefix_dir_opts_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 		return ir_cont;
 	}
 
-	SBUF(new_path);
+	TSTR(new_path);
 	if (path_is_subpath(ctx->prefix->s, path)) {
 		path_relative_to(wk, &new_path, ctx->prefix->s, path);
 	} else {
 		path_join(wk, &new_path, ctx->prefix->s, path);
 	}
 
-	opt->val = sbuf_into_str(wk, &new_path);
+	opt->val = tstr_into_str(wk, &new_path);
 	return ir_cont;
 }
 
@@ -714,7 +714,7 @@ set_yielding_project_options_iter(struct workspace *wk, void *_ctx, obj _k, obj 
 }
 
 static bool
-determine_option_file(struct workspace *wk, const char *cwd, struct sbuf *out)
+determine_option_file(struct workspace *wk, const char *cwd, struct tstr *out)
 {
 	const char *option_file_names[] = {
 		"meson.options",
@@ -746,7 +746,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 		return true;
 	}
 
-	SBUF(meson_opts);
+	TSTR(meson_opts);
 	bool exists = determine_option_file(wk, cwd, &meson_opts);
 
 	if (exists) {
@@ -1260,14 +1260,14 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 static enum iteration_result
 list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
-	SBUF(cwd);
+	TSTR(cwd);
 
 	struct wrap wrap = { 0 };
 	if (!wrap_parse(path, &wrap)) {
 		return ir_err;
 	}
 
-	SBUF(meson_opts);
+	TSTR(meson_opts);
 	bool exists = determine_option_file(wk, wrap.dest_dir.buf, &meson_opts);
 
 	make_project(wk, &wk->cur_project, wrap.name.buf, wrap.dest_dir.buf, "");
@@ -1301,7 +1301,7 @@ list_options(const struct list_options_opts *list_opts)
 	make_project(&wk, &idx, "dummy", path_cwd(), "");
 
 	if (fs_file_exists("meson.build")) {
-		SBUF(meson_opts);
+		TSTR(meson_opts);
 		bool exists = determine_option_file(&wk, ".", &meson_opts);
 
 		if (exists) {
@@ -1313,7 +1313,7 @@ list_options(const struct list_options_opts *list_opts)
 		}
 
 		{
-			SBUF(subprojects_dir);
+			TSTR(subprojects_dir);
 			struct workspace az_wk = { 0 };
 			analyze_project_call(&az_wk);
 			path_make_absolute(
@@ -1324,7 +1324,7 @@ list_options(const struct list_options_opts *list_opts)
 				current_project(&wk)->cfg.name = make_str(&wk, get_cstr(&az_wk, name));
 			}
 
-			current_project(&wk)->subprojects_dir = sbuf_into_str(&wk, &subprojects_dir);
+			current_project(&wk)->subprojects_dir = tstr_into_str(&wk, &subprojects_dir);
 
 			workspace_destroy(&az_wk);
 
@@ -1337,7 +1337,7 @@ list_options(const struct list_options_opts *list_opts)
 			}
 		}
 	} else {
-		SBUF(option_info);
+		TSTR(option_info);
 		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
 		if (!fs_file_exists(option_info.buf)) {
 			LOG_I("run this command must be run from a build directory or the project root");

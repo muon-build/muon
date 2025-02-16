@@ -45,7 +45,7 @@ static struct {
 	uint32_t filter;
 	bool initialized, clr;
 	const char *prefix;
-	struct sbuf *sbuf;
+	struct tstr *tstr;
 } log_cfg = {
 	.level = log_info,
 };
@@ -116,9 +116,9 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 
 		if (log_cfg.clr) {
 			print_colorized(log_cfg.file, buf);
-		} else if (log_cfg.sbuf) {
-			sbuf_pushn(0, log_cfg.sbuf, buf, len);
-			sbuf_push(0, log_cfg.sbuf, '\n');
+		} else if (log_cfg.tstr) {
+			tstr_pushn(0, log_cfg.tstr, buf, len);
+			tstr_push(0, log_cfg.tstr, '\n');
 		} else {
 			fputs(buf, log_cfg.file);
 		}
@@ -133,8 +133,8 @@ log_plainv(const char *fmt, va_list ap)
 	if (log_cfg.clr) {
 		vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
 		print_colorized(log_cfg.file, buf);
-	} else if (log_cfg.sbuf) {
-		sbuf_vpushf(0, log_cfg.sbuf, fmt, ap);
+	} else if (log_cfg.tstr) {
+		tstr_vpushf(0, log_cfg.tstr, fmt, ap);
 	} else {
 		vfprintf(log_cfg.file, fmt, ap);
 	}
@@ -176,16 +176,16 @@ void
 log_set_file(FILE *log_file)
 {
 	log_cfg.file = log_file;
-	log_cfg.sbuf = 0;
+	log_cfg.tstr = 0;
 	log_cfg.clr = fs_is_a_tty(log_file);
 }
 
 void
-log_set_buffer(struct sbuf *buf)
+log_set_buffer(struct tstr *buf)
 {
-	assert(buf->flags & sbuf_flag_overflow_alloc);
+	assert(buf->flags & tstr_flag_overflow_alloc);
 
-	log_cfg.sbuf = buf;
+	log_cfg.tstr = buf;
 	log_cfg.file = 0;
 	log_cfg.clr = false;
 }
@@ -207,8 +207,8 @@ _log_file(void)
 	return log_cfg.file;
 }
 
-struct sbuf *
-_log_sbuf(void)
+struct tstr *
+_log_tstr(void)
 {
-	return log_cfg.sbuf;
+	return log_cfg.tstr;
 }

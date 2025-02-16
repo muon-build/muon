@@ -65,12 +65,12 @@ xc_bool(struct xc_ctx *ctx, bool b)
 static obj
 xc_quoted_str(struct xc_ctx *ctx, const char *s)
 {
-	SBUF(tmp);
+	TSTR(tmp);
 	shell_escape(ctx->wk, &tmp, s);
 	if (tmp.buf[0] != '"') {
 		return make_strf(ctx->wk, "\"%s\"", s);
 	} else {
-		return sbuf_into_str(ctx->wk, &tmp);
+		return tstr_into_str(ctx->wk, &tmp);
 	}
 }
 
@@ -311,10 +311,10 @@ xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj tgt, obj
 	obj sorted;
 	obj_array_sort(ctx->wk, ctx, sources, xc_source_sort, &sorted);
 
-	SBUF(rel);
-	SBUF(prev_dirname);
-	SBUF(dirname);
-	SBUF(basename);
+	TSTR(rel);
+	TSTR(prev_dirname);
+	TSTR(dirname);
+	TSTR(basename);
 	const char *base = get_cstr(ctx->wk, proj->source_root);
 
 	uint32_t stack_base = ctx->stack.len;
@@ -660,7 +660,7 @@ xc_project_ninja_build(struct xc_ctx *ctx, struct project *proj)
 
 	ctx->legacy_target_uuid = xc_pbx_push_root_object(ctx, pbx);
 
-	SBUF(scheme_path);
+	TSTR(scheme_path);
 	path_join(ctx->wk, &scheme_path, ctx->proj_path, "xcshareddata");
 	path_push(ctx->wk, &scheme_path, "xcschemes");
 	if (!fs_mkdir_p(scheme_path.buf)) {
@@ -770,9 +770,9 @@ xc_main(struct workspace *_wk, void *_ctx, FILE *workspace_out)
 		struct project *proj = ctx->proj = arr_get(&ctx->wk->projects, i);
 		ctx->master_project = i == 0;
 
-		SBUF(proj_name);
-		sbuf_pushf(ctx->wk, &proj_name, "%s.xcodeproj", get_cstr(ctx->wk, proj->cfg.name));
-		SBUF(proj_path);
+		TSTR(proj_name);
+		tstr_pushf(ctx->wk, &proj_name, "%s.xcodeproj", get_cstr(ctx->wk, proj->cfg.name));
+		TSTR(proj_path);
 		path_push(ctx->wk, &proj_path, ctx->wk->build_root);
 		path_push(ctx->wk, &proj_path, "xcode-projects");
 		path_push(ctx->wk, &proj_path, proj_name.buf);
@@ -786,7 +786,7 @@ xc_main(struct workspace *_wk, void *_ctx, FILE *workspace_out)
 		xml_node_push_attr(w, xcworkspace_file_ref, "location", make_strf(ctx->wk, "container:%s", proj_path.buf));
 		xml_node_push_child(w, xcworkspace, xcworkspace_file_ref);
 
-		SBUF(pbx_path);
+		TSTR(pbx_path);
 		path_join(ctx->wk, &pbx_path, proj_path.buf, "project.pbxproj");
 
 		ctx->pbx_path = pbx_path.buf;
@@ -803,7 +803,7 @@ xc_main(struct workspace *_wk, void *_ctx, FILE *workspace_out)
 bool
 xcode_write_all(struct workspace *wk)
 {
-	SBUF(xcworkspace_path);
+	TSTR(xcworkspace_path);
 	path_join(wk, &xcworkspace_path, wk->build_root, "main.xcworkspace");
 	if (!fs_mkdir_p(xcworkspace_path.buf)) {
 		return false;

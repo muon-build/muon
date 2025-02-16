@@ -61,13 +61,13 @@ os_ncpus(void)
 void
 os_set_env(const struct str *k, const struct str *v)
 {
-	SBUF_manual(buf_k);
-	SBUF_manual(buf_v);
+	TSTR_manual(buf_k);
+	TSTR_manual(buf_v);
 
-	sbuf_pushn(0, &buf_k, k->s, k->len);
-	sbuf_push(0, &buf_k, 0);
-	sbuf_pushn(0, &buf_v, v->s, v->len);
-	sbuf_push(0, &buf_v, 0);
+	tstr_pushn(0, &buf_k, k->s, k->len);
+	tstr_push(0, &buf_k, 0);
+	tstr_pushn(0, &buf_v, v->s, v->len);
+	tstr_push(0, &buf_v, 0);
 
 	setenv(buf_k.buf, buf_v.buf, true);
 }

@@ -36,13 +36,13 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 }
 
 void
-shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, const char *escape_inner, const char *need_escaping)
+shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, const char *escape_inner, const char *need_escaping)
 {
 	const char *s;
 	bool do_esc = false;
 
 	if (!*str) {
-		sbuf_pushs(wk, sb, "\"\"");
+		tstr_pushs(wk, sb, "\"\"");
 		return;
 	}
 
@@ -54,74 +54,74 @@ shell_escape_custom(struct workspace *wk, struct sbuf *sb, const char *str, cons
 	}
 
 	if (!do_esc) {
-		sbuf_pushs(wk, sb, str);
+		tstr_pushs(wk, sb, str);
 		return;
 	}
 
-	sbuf_push(wk, sb, '"');
+	tstr_push(wk, sb, '"');
 
 	for (s = str; *s; ++s) {
 		if (strchr(escape_inner, *s)) {
-			sbuf_push(wk, sb, '\\');
+			tstr_push(wk, sb, '\\');
 		}
-		sbuf_push(wk, sb, *s);
+		tstr_push(wk, sb, *s);
 	}
 
-	sbuf_push(wk, sb, '"');
+	tstr_push(wk, sb, '"');
 }
 
 void
-shell_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+shell_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
 	shell_escape_custom(wk, sb, str, "\"$\\", "\"'$ \\><&#()\n");
 }
 
 void
-shell_escape_no_dollar(struct workspace *wk, struct sbuf *sb, const char *str)
+shell_escape_no_dollar(struct workspace *wk, struct tstr *sb, const char *str)
 {
 	shell_escape_custom(wk, sb, str, "\"\\", "\"' \\><&#()\n");
 }
 
 static void
-simple_escape(struct workspace *wk, struct sbuf *sb, const char *str, const char *need_escaping, char esc_char)
+simple_escape(struct workspace *wk, struct tstr *sb, const char *str, const char *need_escaping, char esc_char)
 {
 	const char *s = str;
 
 	for (; *s; ++s) {
 		if (strchr(need_escaping, *s)) {
-			sbuf_push(wk, sb, esc_char);
+			tstr_push(wk, sb, esc_char);
 		} else if (*s == '\n') {
 			assert(false && "newlines cannot be escaped");
 		}
 
-		sbuf_push(wk, sb, *s);
+		tstr_push(wk, sb, *s);
 	}
 }
 
 void
-ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
 	simple_escape(wk, sb, str, " :$", '$');
 }
 
 static void
-shell_ninja_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+shell_ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	SBUF_manual(tmp);
+	TSTR_manual(tmp);
 
 	shell_escape(wk, &tmp, str);
 	simple_escape(wk, sb, tmp.buf, "$\n", '$');
 
-	sbuf_destroy(&tmp);
+	tstr_destroy(&tmp);
 }
 
 void
-pkgconf_escape(struct workspace *wk, struct sbuf *sb, const char *str)
+pkgconf_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
 	simple_escape(wk, sb, str, " ", '\\');
 }
 
-typedef void((*escape_func)(struct workspace *wk, struct sbuf *sb, const char *str));
+typedef void((*escape_func)(struct workspace *wk, struct tstr *sb, const char *str));
 
 struct join_args_iter_ctx {
 	uint32_t i, len;
@@ -136,7 +136,7 @@ join_args_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const char *s = get_cstr(wk, val);
 
-	SBUF(esc);
+	TSTR(esc);
 	if (ctx->escape) {
 		ctx->escape(wk, &esc, s);
 
@@ -218,9 +218,9 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 	case obj_string: str = src; break;
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
-			SBUF(rel);
+			TSTR(rel);
 			path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, src));
-			str = sbuf_into_str(wk, &rel);
+			str = tstr_into_str(wk, &rel);
 			break;
 		}
 		str = *get_obj_file(wk, src);
@@ -240,10 +240,10 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, src);
 
-		SBUF(rel);
+		TSTR(rel);
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
-			str = sbuf_into_str(wk, &rel);
+			str = tstr_into_str(wk, &rel);
 		} else {
 			str = tgt->build_path;
 		}

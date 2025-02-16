@@ -343,9 +343,9 @@ editorconfig_cfg_parse_cb(void *_ctx,
 void
 try_parse_editorconfig(struct source *src, struct fmt_opts *opts)
 {
-	SBUF_manual(path_abs);
-	SBUF_manual(path);
-	SBUF_manual(wd);
+	TSTR_manual(path_abs);
+	TSTR_manual(path);
+	TSTR_manual(wd);
 	path_make_absolute(0, &path_abs, src->label);
 	path_copy(0, &path, path_abs.buf);
 	path_dirname(0, &wd, path.buf);
@@ -467,7 +467,7 @@ ret:
 	arr_destroy(&garbage);
 
 	fs_source_destroy(&cfg_src);
-	sbuf_destroy(&wd);
-	sbuf_destroy(&path);
-	sbuf_destroy(&path_abs);
+	tstr_destroy(&wd);
+	tstr_destroy(&path);
+	tstr_destroy(&path_abs);
 }

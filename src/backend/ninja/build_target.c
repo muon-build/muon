@@ -42,7 +42,7 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 	const char *src = get_file_path(wk, val);
 
 	/* build paths */
-	SBUF(dest_path);
+	TSTR(dest_path);
 	if ((flags & write_tgt_src_flag_pch)) {
 		if (!tgt_src_to_pch_path(wk, ctx->tgt, lang, val, &dest_path)) {
 			return 0;
@@ -53,13 +53,13 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 		}
 	}
 
-	obj dest = sbuf_into_str(wk, &dest_path);
+	obj dest = tstr_into_str(wk, &dest_path);
 
 	if (!(flags & write_tgt_src_flag_pch)) {
 		obj_array_push(wk, ctx->object_names, dest);
 	}
 
-	SBUF(src_path);
+	TSTR(src_path);
 	path_relative_to(wk, &src_path, wk->build_root, src);
 
 	/* build rules and args */
@@ -80,8 +80,8 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
 	}
 
-	SBUF(esc_dest_path);
-	SBUF(esc_path);
+	TSTR(esc_dest_path);
+	TSTR(esc_path);
 
 	ninja_escape(wk, &esc_dest_path, dest_path.buf);
 	ninja_escape(wk, &esc_path, src_path.buf);
@@ -128,8 +128,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	L("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
-	SBUF(esc_path);
-	SBUF(rel_build_path);
+	TSTR(esc_path);
+	TSTR(rel_build_path);
 	{
 		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
 		ninja_escape(wk, &esc_path, rel_build_path.buf);
@@ -193,9 +193,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		{
 			const char *src = get_file_path(wk, v);
 
-			SBUF(path);
+			TSTR(path);
 			path_relative_to(wk, &path, wk->build_root, src);
-			obj_array_push(wk, ctx.object_names, sbuf_into_str(wk, &path));
+			obj_array_push(wk, ctx.object_names, tstr_into_str(wk, &path));
 		}
 
 		obj_array_for(wk, tgt->src, v) {

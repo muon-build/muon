@@ -45,7 +45,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 static void
 str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ctx *ctx, const char *path_orig, obj *res)
 {
-	SBUF(rel);
+	TSTR(rel);
 	const char *path = path_orig;
 
 	if (!ctx->opts->relativize) {
@@ -67,11 +67,11 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 		// path elements, and will be assumed to be on PATH, which
 		// either results in the wrong executable being run, or a
 		// command not found error.
-		SBUF(exe);
+		TSTR(exe);
 		path_executable(wk, &exe, rel.buf);
-		*res = sbuf_into_str(wk, &exe);
+		*res = tstr_into_str(wk, &exe);
 	} else {
-		*res = sbuf_into_str(wk, &rel);
+		*res = tstr_into_str(wk, &rel);
 	}
 }
 
@@ -157,9 +157,9 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
 		 * custom target must store all its intermediate files. */
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name));
-		sbuf_pushs(wk, &path, ".p");
+		tstr_pushs(wk, &path, ".p");
 
 		if (!fs_mkdir_p(path.buf)) {
 			return format_cb_error;
@@ -206,11 +206,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		obj_array_index(wk, ctx->opts->input, 0, &in0);
 		const struct str *orig_str = get_str(wk, *get_obj_file(wk, in0));
 
-		SBUF(plainname);
+		TSTR(plainname);
 		path_basename(wk, &plainname, orig_str->s);
 
 		if (key == key_basename) {
-			SBUF(basename);
+			TSTR(basename);
 			path_without_ext(wk, &basename, plainname.buf);
 
 			str_relative_to_build_root(wk, ctx, basename.buf, elem);
@@ -399,12 +399,12 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	obj in0;
 	obj_array_index(wk, ctx->opts->input, 0, &in0);
 	const struct str *ss = get_str(wk, *get_obj_file(wk, in0));
-	SBUF(buf);
+	TSTR(buf);
 
 	switch (key) {
 	case key_plainname: path_basename(wk, &buf, ss->s); break;
 	case key_basename: {
-		SBUF(basename);
+		TSTR(basename);
 		path_basename(wk, &basename, ss->s);
 		path_without_ext(wk, &buf, basename.buf);
 		break;
@@ -412,7 +412,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	default: assert(false && "unreachable"); return format_cb_error;
 	}
 
-	*elem = sbuf_into_str(wk, &buf);
+	*elem = tstr_into_str(wk, &buf);
 	return format_cb_found;
 }
 
@@ -479,10 +479,10 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 
 	// A custom_target won't have a name if it is from a generator
 	if (opts->name) { /* private path */
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, opts->name));
-		sbuf_pushs(wk, &path, ".p");
-		tgt->private_path = sbuf_into_str(wk, &path);
+		tstr_pushs(wk, &path, ".p");
+		tgt->private_path = tstr_into_str(wk, &path);
 	}
 
 	if (opts->input_orig) {

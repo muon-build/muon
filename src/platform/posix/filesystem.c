@@ -380,13 +380,13 @@ fs_chmod(const char *path, uint32_t mode)
 }
 
 bool
-fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
+fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 {
 	assert(*cmd);
 	uint32_t len;
 	const char *env_path, *base_start;
 
-	sbuf_clear(buf);
+	tstr_clear(buf);
 
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
@@ -408,8 +408,8 @@ fs_find_cmd(struct workspace *wk, struct sbuf *buf, const char *cmd)
 		if (!*env_path || *env_path == ENV_PATH_SEP) {
 			len = env_path - base_start;
 
-			sbuf_clear(buf);
-			sbuf_pushn(wk, buf, base_start, len);
+			tstr_clear(buf);
+			tstr_pushn(wk, buf, base_start, len);
 
 			base_start = env_path + 1;
 

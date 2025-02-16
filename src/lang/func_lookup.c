@@ -699,7 +699,7 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 }
 
 static void
-dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
+dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 {
 	obj doc;
 	make_obj(wk, &doc, obj_array);
@@ -773,8 +773,8 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 				continue;
 			}
 
-			SBUF(mod_name);
-			sbuf_pushs(wk, &mod_name, files[i].name + prefix->len);
+			TSTR(mod_name);
+			tstr_pushs(wk, &mod_name, files[i].name + prefix->len);
 			*strchr(mod_name.buf, '.') = 0;
 
 			struct obj_module *m;
@@ -788,8 +788,8 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 				assert(m->found);
 			}
 
-			SBUF(mod_path);
-			sbuf_pushf(wk, &mod_path, "public/%s", mod_name.buf);
+			TSTR(mod_path);
+			tstr_pushf(wk, &mod_path, "public/%s", mod_name.buf);
 
 			obj k, v;
 			obj_dict_for(wk, m->exports, k, v) {
@@ -820,8 +820,8 @@ dump_function_docs_json(struct workspace *wk, struct sbuf *sb)
 void
 dump_function_docs(struct workspace *wk)
 {
-	SBUF(docs_external);
-	SBUF(docs_internal);
+	TSTR(docs_external);
+	TSTR(docs_internal);
 	dump_function_docs_json(wk, &docs_external);
 	wk->vm.lang_mode = language_internal;
 	dump_function_docs_json(wk, &docs_internal);

@@ -95,11 +95,11 @@ samu_nodepath(struct samu_ctx *ctx, struct samu_node *n, bool escape)
 	if (n->shellpath)
 		return n->shellpath;
 
-	SBUF_manual(buf);
+	TSTR_manual(buf);
 	shell_escape(0, &buf, n->path->s);
 	n->shellpath = samu_mkstr(&ctx->arena, buf.len);
 	memcpy(n->shellpath->s, buf.buf, buf.len);
-	sbuf_destroy(&buf);
+	tstr_destroy(&buf);
 
 	return n->shellpath;
 }

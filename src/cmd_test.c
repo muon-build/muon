@@ -1033,7 +1033,7 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 }
 
 static void
-tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
+tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct tstr *data)
 {
 	const char *status_str[] = {
 		[status_failed] = "failed",
@@ -1045,9 +1045,9 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
 		[status_skipped] = "skipped",
 	};
 
-	sbuf_push(wk, data, '{');
-	sbuf_pushf(wk, data, "\"project\":{\"name\":\"%s\"},", get_cstr(wk, ctx->proj_name));
-	sbuf_pushf(wk, data, "\"tests\":[");
+	tstr_push(wk, data, '{');
+	tstr_pushf(wk, data, "\"project\":{\"name\":\"%s\"},", get_cstr(wk, ctx->proj_name));
+	tstr_pushf(wk, data, "\"tests\":[");
 
 	uint32_t i;
 	for (i = 0; i < ctx->test_results.len; ++i) {
@@ -1055,7 +1055,7 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
 		enum test_detailed_status status = test_detailed_status(res);
 		const char *suite_str = test_suites_label(wk, res);
 
-		sbuf_pushf(wk,
+		tstr_pushf(wk,
 			data,
 			"{"
 			"\"status\":\"%s\","
@@ -1068,38 +1068,38 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct sbuf *data)
 			res->dur);
 
 		if (res->subtests.have) {
-			sbuf_pushf(wk,
+			tstr_pushf(wk,
 				data,
 				"\"subtests\":{\"pass\":%d,\"total\":%d},",
 				res->subtests.pass,
 				res->subtests.total);
 		}
 
-		sbuf_pushs(wk, data, "\"stdout\":\"");
-		sbuf_push_json_escaped(wk, data, res->cmd_ctx.out.buf, res->cmd_ctx.out.len);
-		sbuf_pushs(wk, data, "\",\"stderr\":\"");
-		sbuf_push_json_escaped(wk, data, res->cmd_ctx.err.buf, res->cmd_ctx.err.len);
-		sbuf_pushs(wk, data, "\"");
+		tstr_pushs(wk, data, "\"stdout\":\"");
+		tstr_push_json_escaped(wk, data, res->cmd_ctx.out.buf, res->cmd_ctx.out.len);
+		tstr_pushs(wk, data, "\",\"stderr\":\"");
+		tstr_push_json_escaped(wk, data, res->cmd_ctx.err.buf, res->cmd_ctx.err.len);
+		tstr_pushs(wk, data, "\"");
 
-		sbuf_pushs(wk, data, "}");
+		tstr_pushs(wk, data, "}");
 
 		if (i + 1 != ctx->test_results.len) {
-			sbuf_push(wk, data, ',');
+			tstr_push(wk, data, ',');
 		}
 	}
-	sbuf_pushf(wk, data, "]}");
+	tstr_pushf(wk, data, "]}");
 }
 
 static bool
 tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 {
-	SBUF(data);
+	TSTR(data);
 
 	tests_as_json(wk, ctx, &data);
 
-	SBUF(html_path);
+	TSTR(html_path);
 	path_join(wk, &html_path, output_path.private_dir, "tests.html");
-	SBUF(abs);
+	TSTR(abs);
 	path_make_absolute(wk, &abs, html_path.buf);
 
 	FILE *f = 0;
@@ -1122,13 +1122,13 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 static bool
 tests_output_json(struct workspace *wk, struct run_test_ctx *ctx)
 {
-	SBUF(data);
+	TSTR(data);
 
 	tests_as_json(wk, ctx, &data);
 
-	SBUF(json_path);
+	TSTR(json_path);
 	path_join(wk, &json_path, output_path.private_dir, "tests.json");
-	SBUF(abs);
+	TSTR(abs);
 	path_make_absolute(wk, &abs, json_path.buf);
 
 	FILE *f = 0;
@@ -1147,7 +1147,7 @@ bool
 tests_run(struct test_options *opts, const char *argv0)
 {
 	bool ret = false;
-	SBUF_manual(tests_src);
+	TSTR_manual(tests_src);
 
 	struct workspace wk;
 	workspace_init_bare(&wk);

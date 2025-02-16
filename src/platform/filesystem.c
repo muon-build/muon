@@ -53,7 +53,7 @@ fs_mkdir_p(const char *path)
 {
 	bool res = false;
 	uint32_t i, len = strlen(path);
-	SBUF_manual(buf);
+	TSTR_manual(buf);
 	path_copy(NULL, &buf, path);
 
 	assert(len >= 1);
@@ -82,7 +82,7 @@ fs_mkdir_p(const char *path)
 
 	res = true;
 ret:
-	sbuf_destroy(&buf);
+	tstr_destroy(&buf);
 	return res;
 }
 
@@ -358,9 +358,9 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 bool
 fs_has_cmd(const char *cmd)
 {
-	SBUF_manual(buf);
+	TSTR_manual(buf);
 	bool res = fs_find_cmd(NULL, &buf, cmd);
-	sbuf_destroy(&buf);
+	tstr_destroy(&buf);
 	return res;
 }
 
@@ -404,8 +404,8 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 	enum iteration_result res = ir_err;
 	struct fs_copy_dir_ctx *ctx = _ctx;
 	struct stat sb;
-	SBUF_manual(src);
-	SBUF_manual(dest);
+	TSTR_manual(src);
+	TSTR_manual(dest);
 
 	path_join(NULL, &src, ctx->src_base, path);
 	path_join(NULL, &dest, ctx->dest_base, path);
@@ -433,8 +433,8 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 
 	res = ir_cont;
 ret:
-	sbuf_destroy(&src);
-	sbuf_destroy(&dest);
+	tstr_destroy(&src);
+	tstr_destroy(&dest);
 	return res;
 }
 
@@ -466,7 +466,7 @@ fs_rmdir_iter(void *_ctx, const char *path)
 	struct fs_rmdir_ctx *ctx = _ctx;
 	struct stat sb;
 
-	SBUF(name);
+	TSTR(name);
 
 	path_join(NULL, &name, ctx->base_dir, path);
 
@@ -508,7 +508,7 @@ fs_rmdir_iter(void *_ctx, const char *path)
 	ir_res = ir_cont;
 
 ret:
-	sbuf_destroy(&name);
+	tstr_destroy(&name);
 	return ir_res;
 }
 

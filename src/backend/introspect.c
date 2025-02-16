@@ -313,7 +313,7 @@ static bool
 introspect_write(struct workspace *wk, void *_ctx, FILE *f)
 {
 	struct introspect_write_ctx *ctx = _ctx;
-	SBUF_FILE(buf, f);
+	TSTR_FILE(buf, f);
 	obj o = ctx->cb(wk);
 	if (!o) {
 		return false;
@@ -332,7 +332,7 @@ introspect_write_dummy(struct workspace *wk, void *_ctx, FILE *f)
 bool
 introspect_write_all(struct workspace *wk)
 {
-	SBUF(info_path);
+	TSTR(info_path);
 	path_join(wk, &info_path, wk->build_root, output_path.introspect_dir);
 
 	if (!fs_mkdir(info_path.buf, true)) {
@@ -362,7 +362,7 @@ introspect_write_all(struct workspace *wk)
 		}
 	}
 
-	SBUF(meson_private_path);
+	TSTR(meson_private_path);
 	path_join(wk, &meson_private_path, wk->build_root, output_path.meson_private_dir);
 	if (!fs_mkdir(meson_private_path.buf, true)) {
 		return false;

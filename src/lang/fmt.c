@@ -67,7 +67,7 @@ struct fmt_out_block {
 
 struct fmt_ctx {
 	struct workspace *wk;
-	struct sbuf *out_buf;
+	struct tstr *out_buf;
 	obj raw_blocks;
 	uint32_t indent, enclosing, raw_block_idx, measured_len;
 	bool trailing_comment, fmt_on, measuring, line_has_content;
@@ -356,11 +356,11 @@ fmt_push_out_block(struct fmt_ctx *f)
 {
 	arr_push(&f->out_blocks,
 		&(struct fmt_out_block){
-			.str = sbuf_into_str(f->wk, f->out_buf),
+			.str = tstr_into_str(f->wk, f->out_buf),
 		});
 
-	*f->out_buf = (struct sbuf){ 0 };
-	sbuf_init(f->out_buf, 0, 0, 0);
+	*f->out_buf = (struct tstr){ 0 };
+	tstr_init(f->out_buf, 0, 0, 0);
 }
 
 static void
@@ -376,7 +376,7 @@ fmt_write_nl(struct fmt_ctx *f)
 	}
 
 	f->line_has_content = false;
-	sbuf_push(f->wk, f->out_buf, '\n');
+	tstr_push(f->wk, f->out_buf, '\n');
 }
 
 static void
@@ -399,12 +399,12 @@ fmt_write(struct fmt_ctx *f, const char *s, uint32_t n)
 			switch (f->opts.indent_style) {
 			case fmt_indent_style_space: {
 				for (j = 0; j < f->opts.indent_size; ++j) {
-					sbuf_push(f->wk, f->out_buf, ' ');
+					tstr_push(f->wk, f->out_buf, ' ');
 				}
 				break;
 			}
 			case fmt_indent_style_tab: {
-				sbuf_push(f->wk, f->out_buf, '\t');
+				tstr_push(f->wk, f->out_buf, '\t');
 				break;
 			}
 			}
@@ -413,7 +413,7 @@ fmt_write(struct fmt_ctx *f, const char *s, uint32_t n)
 
 	f->line_has_content = true;
 
-	sbuf_pushn(f->wk, f->out_buf, s, n);
+	tstr_pushn(f->wk, f->out_buf, s, n);
 }
 
 static void
@@ -1636,7 +1636,7 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 	for (i = 0; i < f->out_blocks.len; ++i) {
 		s = get_str(f->wk, blocks[i].str);
 		if (blocks[i].raw) {
-			sbuf_pushn(f->wk, f->out_buf, s->s, s->len);
+			tstr_pushn(f->wk, f->out_buf, s->s, s->len);
 			continue;
 		}
 
@@ -1646,7 +1646,7 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 			end_of_block = false;
 
 			if (line_end == line) {
-				sbuf_pushs(f->wk, f->out_buf, end_of_line);
+				tstr_pushs(f->wk, f->out_buf, end_of_line);
 				++line;
 				continue;
 			} else if (line_end) {
@@ -1660,16 +1660,16 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 			l = str_strip(f->wk, &lstr, 0, str_strip_flag_right_only);
 			s = get_str(f->wk, l);
 
-			sbuf_pushn(f->wk, f->out_buf, s->s, s->len);
+			tstr_pushn(f->wk, f->out_buf, s->s, s->len);
 
 			bool last_line = end_of_block && i == f->out_blocks.len - 1;
 
 			if (last_line) {
 				if (f->opts.insert_final_newline) {
-					sbuf_pushs(f->wk, f->out_buf, end_of_line);
+					tstr_pushs(f->wk, f->out_buf, end_of_line);
 				}
 			} else if (!end_of_block) {
-				sbuf_pushs(f->wk, f->out_buf, end_of_line);
+				tstr_pushs(f->wk, f->out_buf, end_of_line);
 			}
 
 			if (!line_end) {
@@ -1685,7 +1685,7 @@ bool
 fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
 {
 	bool ret = false;
-	struct sbuf out_buf;
+	struct tstr out_buf;
 	struct workspace wk = { 0 };
 	workspace_init_bare(&wk);
 	struct fmt_ctx f = {
@@ -1739,12 +1739,12 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		goto ret;
 	}
 
-	sbuf_init(&out_buf, 0, 0, 0);
+	tstr_init(&out_buf, 0, 0, 0);
 	fmt_write_block(&f, fmt_block(&f, n));
 	fmt_push_out_block(&f);
 
 	if (!check_only) {
-		out_buf.flags = sbuf_flag_write;
+		out_buf.flags = tstr_flag_write;
 		out_buf.buf = (void *)out;
 	}
 	fmt_assemble_out_blocks(&f);

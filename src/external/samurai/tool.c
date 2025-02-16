@@ -210,7 +210,7 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	}
 	SAMU_ARGEND
 
-	SBUF_manual(dir);
+	TSTR_manual(dir);
 	path_copy_cwd(0, &dir);
 
 	samu_putchar(ctx, '[');
@@ -269,7 +269,7 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	if (fflush(stdout) || ferror(stdout))
 		samu_fatal("write failed");
 
-	sbuf_destroy(&dir);
+	tstr_destroy(&dir);
 	return 0;
 }
 

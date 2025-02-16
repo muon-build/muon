@@ -40,11 +40,11 @@ const struct output_path output_path = {
 FILE *
 output_open(const char *dir, const char *name)
 {
-	SBUF_manual(path);
+	TSTR_manual(path);
 	path_join(NULL, &path, dir, name);
 
 	FILE *f = fs_fopen(path.buf, "wb");
-	sbuf_destroy(&path);
+	tstr_destroy(&path);
 	return f;
 }
 

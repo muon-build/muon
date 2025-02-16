@@ -286,10 +286,10 @@ samu_makedirs(struct samu_string *path, bool parent)
 {
 	bool ok = true;
 	if (parent) {
-		SBUF_manual(dirname);
+		TSTR_manual(dirname);
 		path_dirname(0, &dirname, path->s);
 		ok = fs_mkdir_p(dirname.buf);
-		sbuf_destroy(&dirname);
+		tstr_destroy(&dirname);
 	} else {
 		ok = fs_mkdir(path->s, true);
 	}

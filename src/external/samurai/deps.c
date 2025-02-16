@@ -496,7 +496,7 @@ err:
 }
 
 static struct samu_nodearray *
-samu_depsparse_msvc(struct samu_ctx *ctx, struct sbuf *out, struct samu_string *deps_prefix)
+samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *deps_prefix)
 {
 	const struct str prefix = deps_prefix ? WKSTR(deps_prefix->s) : WKSTR("Note: including file: ");
 	const char *whitespace = " \r\t";
@@ -546,9 +546,9 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct sbuf *out, struct samu_string *
 
 			str_to_lower(&line);
 
-			SBUF_manual(buf);
-			SBUF_manual(path);
-			sbuf_pushn(0, &buf, line.s, line.len);
+			TSTR_manual(buf);
+			TSTR_manual(path);
+			tstr_pushn(0, &buf, line.s, line.len);
 			path_make_absolute(0, &path, buf.buf);
 
 			// Skip system headers
@@ -564,8 +564,8 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct sbuf *out, struct samu_string *
 					path.len,
 				});
 
-			sbuf_destroy(&buf);
-			sbuf_destroy(&path);
+			tstr_destroy(&buf);
+			tstr_destroy(&path);
 		} else {
 			for (i = 0; (uint32_t)i < line.len; ++i) {
 				samu_bufadd(&ctx->arena, &ctx->deps.buf, line.s[i]);
@@ -626,7 +626,7 @@ samu_depsload(struct samu_ctx *ctx, struct samu_edge *e)
 }
 
 void
-samu_depsrecord(struct samu_ctx *ctx, struct sbuf *output, const char **filtered_output, struct samu_edge *e)
+samu_depsrecord(struct samu_ctx *ctx, struct tstr *output, const char **filtered_output, struct samu_edge *e)
 {
 	struct samu_string *deptype_str, *depfile;
 	struct samu_nodearray *deps;

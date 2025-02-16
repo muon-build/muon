@@ -289,12 +289,12 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
-		SBUF(dest);
-		SBUF(rel);
+		TSTR(dest);
+		TSTR(rel);
 		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
 		path_relative_to(wk, &rel, wk->build_root, dest.buf);
 		path_executable(wk, &dest, rel.buf);
-		str = sbuf_into_str(wk, &dest);
+		str = tstr_into_str(wk, &dest);
 		break;
 	}
 	case obj_python_installation:
@@ -403,7 +403,7 @@ bool
 coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res)
 {
 	const char *p = get_cstr(wk, string);
-	SBUF(path);
+	TSTR(path);
 
 	if (path_is_absolute(p)) {
 		const struct str *ss = get_str(wk, string);
@@ -415,7 +415,7 @@ coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *re
 	_path_normalize(wk, &path, true);
 
 	make_obj(wk, res, obj_file);
-	*get_obj_file(wk, *res) = sbuf_into_str(wk, &path);
+	*get_obj_file(wk, *res) = tstr_into_str(wk, &path);
 	return true;
 }
 
@@ -426,7 +426,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 	switch (t) {
 	case obj_string: {
-		SBUF(buf);
+		TSTR(buf);
 
 		switch (ctx->mode) {
 		case mode_input:
@@ -448,7 +448,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 			path_join(wk, &buf, ctx->output_dir, get_cstr(wk, val));
 			make_obj(wk, file, obj_file);
-			*get_obj_file(wk, *file) = sbuf_into_str(wk, &buf);
+			*get_obj_file(wk, *file) = tstr_into_str(wk, &buf);
 			break;
 		default: assert(false); return ir_err;
 		}
@@ -463,10 +463,10 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		SBUF(path);
+		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
 		make_obj(wk, file, obj_file);
-		*get_obj_file(wk, *file) = sbuf_into_str(wk, &path);
+		*get_obj_file(wk, *file) = tstr_into_str(wk, &path);
 		break;
 	}
 	case obj_file:
@@ -608,14 +608,14 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	obj path = v;
-	SBUF(buf1);
-	SBUF(buf2);
+	TSTR(buf1);
+	TSTR(buf2);
 	const char *p = get_cstr(wk, path);
 
 	if (!path_is_absolute(p)) {
-		SBUF(abs);
+		TSTR(abs);
 		path_join(wk, &abs, workspace_cwd(wk), p);
-		path = sbuf_into_str(wk, &abs);
+		path = tstr_into_str(wk, &abs);
 	}
 
 	p = get_cstr(wk, path);
@@ -634,7 +634,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 
 		make_obj(wk, &inc, obj_include_directory);
 		d = get_obj_include_directory(wk, inc);
-		d->path = sbuf_into_str(wk, &buf2);
+		d->path = tstr_into_str(wk, &buf2);
 		d->is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}

@@ -42,7 +42,7 @@ struct win_pipe_inst {
 #endif
 
 struct run_cmd_ctx {
-	struct sbuf err, out;
+	struct tstr err, out;
 	const char *err_msg; // set on error
 	const char *chdir; // set by caller
 	const char *stdin_path; // set by caller
@@ -52,7 +52,7 @@ struct run_cmd_ctx {
 	HANDLE process, ioport;
 	bool close_pipes;
 	struct win_pipe_inst pipe_out, pipe_err;
-	struct sbuf env;
+	struct tstr env;
 	uint32_t cnt_open;
 #else
 	int pipefd_out[2], pipefd_err[2];

@@ -39,7 +39,7 @@ uniqify_name(struct workspace *wk, obj arr, obj name, obj *res)
 }
 
 static void
-escape_rule(struct sbuf *buf)
+escape_rule(struct tstr *buf)
 {
 	uint32_t i;
 	for (i = 0; i < buf->len; ++i) {
@@ -332,10 +332,10 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		}
 
 		{ // determine project rule prefix
-			SBUF(pre);
-			sbuf_pushs(wk, &pre, get_cstr(wk, proj->cfg.name));
+			TSTR(pre);
+			tstr_pushs(wk, &pre, get_cstr(wk, proj->cfg.name));
 			escape_rule(&pre);
-			uniqify_name(wk, rule_prefix_arr, sbuf_into_str(wk, &pre), &proj->rule_prefix);
+			uniqify_name(wk, rule_prefix_arr, tstr_into_str(wk, &pre), &proj->rule_prefix);
 		}
 
 		for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
@@ -360,9 +360,9 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					bool specialized_rule = count > 2;
 
 					obj rule_name;
-					SBUF(rule_name_buf);
+					TSTR(rule_name_buf);
 					if (specialized_rule) {
-						sbuf_pushf(wk,
+						tstr_pushf(wk,
 							&rule_name_buf,
 							"%s_%s_compiler_for_%s",
 							get_cstr(wk, proj->rule_prefix),
@@ -370,11 +370,11 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 							get_cstr(wk, tgt->build_name));
 
 						escape_rule(&rule_name_buf);
-						obj name = sbuf_into_str(wk, &rule_name_buf);
+						obj name = tstr_into_str(wk, &rule_name_buf);
 						uniqify_name(wk, compiler_rule_arr, name, &rule_name);
 					} else {
 						if (!obj_dict_geti(wk, proj->generic_rules[tgt->machine], l, &rule_name)) {
-							sbuf_pushf(wk,
+							tstr_pushf(wk,
 								&rule_name_buf,
 								"%s_%s_%s_compiler",
 								get_cstr(wk, proj->rule_prefix),
@@ -382,7 +382,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 								compiler_language_to_s(l));
 
 							escape_rule(&rule_name_buf);
-							obj name = sbuf_into_str(wk, &rule_name_buf);
+							obj name = tstr_into_str(wk, &rule_name_buf);
 							uniqify_name(wk, compiler_rule_arr, name, &rule_name);
 							obj_dict_seti(wk, proj->generic_rules[tgt->machine], l, rule_name);
 						}

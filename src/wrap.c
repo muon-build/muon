@@ -305,7 +305,7 @@ wrap_download_or_check_packagefiles(const char *filename,
 	struct wrap_opts *opts)
 {
 	bool res = false;
-	SBUF_manual(source_path);
+	TSTR_manual(source_path);
 
 	path_join(NULL, &source_path, opts->subprojects, "packagefiles");
 	path_push(NULL, &source_path, filename);
@@ -353,7 +353,7 @@ wrap_download_or_check_packagefiles(const char *filename,
 	}
 
 ret:
-	sbuf_destroy(&source_path);
+	tstr_destroy(&source_path);
 	return res;
 }
 
@@ -434,15 +434,15 @@ wrap_destroy(struct wrap *wrap)
 		wrap->buf = NULL;
 	}
 
-	sbuf_destroy(&wrap->dest_dir);
-	sbuf_destroy(&wrap->name);
+	tstr_destroy(&wrap->dest_dir);
+	tstr_destroy(&wrap->name);
 }
 
 bool
 wrap_parse(const char *wrap_file, struct wrap *wrap)
 {
 	bool res = false;
-	SBUF_manual(subprojects);
+	TSTR_manual(subprojects);
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
@@ -455,8 +455,8 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	*wrap = ctx.wrap;
 
-	sbuf_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), sbuf_flag_overflow_alloc);
-	sbuf_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), sbuf_flag_overflow_alloc);
+	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), tstr_flag_overflow_alloc);
+	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), tstr_flag_overflow_alloc);
 
 	path_basename(NULL, &wrap->name, wrap_file);
 
@@ -481,7 +481,7 @@ ret:
 	if (!res) {
 		wrap_destroy(&ctx.wrap);
 	}
-	sbuf_destroy(&subprojects);
+	tstr_destroy(&subprojects);
 	return res;
 }
 
@@ -516,8 +516,8 @@ static bool
 wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts *opts)
 {
 	bool res = false;
-	SBUF_manual(packagefiles);
-	SBUF_manual(diff_path);
+	TSTR_manual(packagefiles);
+	TSTR_manual(diff_path);
 
 	path_join(NULL, &packagefiles, opts->subprojects, "packagefiles");
 
@@ -567,8 +567,8 @@ wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts 
 
 	res = true;
 ret:
-	sbuf_destroy(&packagefiles);
-	sbuf_destroy(&diff_path);
+	tstr_destroy(&packagefiles);
+	tstr_destroy(&diff_path);
 	return res;
 }
 
@@ -626,10 +626,10 @@ wrap_handle_file(struct wrap *wrap, struct wrap_opts *opts)
 static bool
 is_git_dir(const char *dir)
 {
-	SBUF_manual(git_dir);
+	TSTR_manual(git_dir);
 	path_join(0, &git_dir, dir, ".git");
 	bool res = fs_dir_exists(git_dir.buf);
-	sbuf_destroy(&git_dir);
+	tstr_destroy(&git_dir);
 	return res;
 }
 
@@ -704,7 +704,7 @@ wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 bool
-git_rev_parse(const char *dir, const char *rev, struct sbuf *out)
+git_rev_parse(const char *dir, const char *rev, struct tstr *out)
 {
 	struct run_cmd_ctx cmd_ctx = { .chdir = dir };
 	const char *const argv[] = { "git", "rev-parse", rev, 0 };
@@ -715,12 +715,12 @@ git_rev_parse(const char *dir, const char *rev, struct sbuf *out)
 		return false;
 	}
 
-	sbuf_clear(out);
+	tstr_clear(out);
 	for (uint32_t i = 0; i < cmd_ctx.out.len; ++i) {
 		if (is_whitespace(cmd_ctx.out.buf[i])) {
 			break;
 		}
-		sbuf_push(0, out, cmd_ctx.out.buf[i]);
+		tstr_push(0, out, cmd_ctx.out.buf[i]);
 	}
 
 	run_cmd_ctx_destroy(&cmd_ctx);
@@ -737,8 +737,8 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 
 	wrap->dirty = wrap_run_cmd_status(ARGV("git", "diff", "--quiet"), wrap->dest_dir.buf, 0) != 0;
 
-	SBUF_manual(head_rev);
-	SBUF_manual(wrap_rev);
+	TSTR_manual(head_rev);
+	TSTR_manual(wrap_rev);
 
 	wrap->outdated = true;
 
@@ -753,8 +753,8 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 		}
 	}
 
-	sbuf_destroy(&head_rev);
-	sbuf_destroy(&wrap_rev);
+	tstr_destroy(&head_rev);
+	tstr_destroy(&wrap_rev);
 
 	return true;
 }
@@ -858,7 +858,7 @@ wrap_handle(const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts)
 struct wrap_load_all_ctx {
 	struct workspace *wk;
 	const char *subprojects;
-	struct sbuf *path;
+	struct tstr *path;
 };
 
 static enum iteration_result
@@ -917,7 +917,7 @@ ret:
 bool
 wrap_load_all_provides(struct workspace *wk, const char *subprojects)
 {
-	SBUF(wrap_path_buf);
+	TSTR(wrap_path_buf);
 
 	struct wrap_load_all_ctx ctx = {
 		.wk = wk,

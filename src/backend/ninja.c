@@ -192,7 +192,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 	bool ret = false;
 	char *const *argv = NULL;
 	uint32_t argc;
-	SBUF_manual(cwd);
+	TSTR_manual(cwd);
 
 	if (chdir) {
 		path_copy_cwd(NULL, &cwd);
@@ -223,7 +223,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 	} else {
 		struct run_cmd_ctx cmd_ctx = { 0 };
 
-		SBUF_manual(cmd);
+		TSTR_manual(cmd);
 		const char *prepend = NULL;
 
 		obj ninja_opt_id;
@@ -269,7 +269,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 
 		ret = cmd_ctx.status == 0;
 run_cmd_done:
-		sbuf_destroy(&cmd);
+		tstr_destroy(&cmd);
 		run_cmd_ctx_destroy(&cmd_ctx);
 	}
 
@@ -282,6 +282,6 @@ ret:
 		path_chdir(cwd.buf);
 	}
 
-	sbuf_destroy(&cwd);
+	tstr_destroy(&cwd);
 	return ret;
 }

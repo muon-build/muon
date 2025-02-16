@@ -20,7 +20,7 @@
 #include "platform/mem.h"
 
 void
-str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool escape_whitespace)
+str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_whitespace)
 {
 	bool esc;
 	uint32_t i;
@@ -33,35 +33,35 @@ str_escape(struct workspace *wk, struct sbuf *sb, const struct str *ss, bool esc
 
 		if (esc) {
 			if (ss->s[i] == '\'') {
-				sbuf_pushf(wk, sb, "\\'");
+				tstr_pushf(wk, sb, "\\'");
 			} else if (7 <= ss->s[i] && ss->s[i] <= 13) {
-				sbuf_pushf(wk, sb, "\\%c", "abtnvfr"[ss->s[i] - 7]);
+				tstr_pushf(wk, sb, "\\%c", "abtnvfr"[ss->s[i] - 7]);
 			} else {
-				sbuf_pushf(wk, sb, "\\%d", ss->s[i]);
+				tstr_pushf(wk, sb, "\\%d", ss->s[i]);
 			}
 		} else {
-			sbuf_push(wk, sb, ss->s[i]);
+			tstr_push(wk, sb, ss->s[i]);
 		}
 	}
 }
 
 void
-str_escape_json(struct workspace *wk, struct sbuf *sb, const struct str *ss)
+str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss)
 {
 	uint32_t i;
 	const char *esc = "\"\\";
 
 	for (i = 0; i < ss->len; ++i) {
 		if (strchr(esc, ss->s[i])) {
-			sbuf_pushf(wk, sb, "\\\"");
+			tstr_pushf(wk, sb, "\\\"");
 		} else if (ss->s[i] < 32 || ss->s[i] > 126) {
 			if (8 <= ss->s[i] && ss->s[i] <= 13 && ss->s[i] != 11) {
-				sbuf_pushf(wk, sb, "\\%c", "btn_fr"[ss->s[i] - 8]);
+				tstr_pushf(wk, sb, "\\%c", "btn_fr"[ss->s[i] - 8]);
 			} else {
-				sbuf_pushf(wk, sb, "\\u%04x", ss->s[i]);
+				tstr_pushf(wk, sb, "\\u%04x", ss->s[i]);
 			}
 		} else {
-			sbuf_push(wk, sb, ss->s[i]);
+			tstr_push(wk, sb, ss->s[i]);
 		}
 	}
 }
@@ -691,10 +691,10 @@ str_split_strip(struct workspace *wk, const struct str *ss, const struct str *sp
 	return ctx.res;
 }
 
-/* sbuf */
+/* tstr */
 
 void
-sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum sbuf_flags flags)
+tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags)
 {
 	// If we don't get passed an initial buffer, initial_buffer_cap must be
 	// zero so that the first write to this buf triggers an allocation.  As
@@ -709,7 +709,7 @@ sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, en
 		initial_buffer[0] = 0;
 	}
 
-	*sb = (struct sbuf){
+	*sb = (struct tstr){
 		.flags = flags,
 		.buf = initial_buffer,
 		.cap = initial_buffer_cap,
@@ -717,9 +717,9 @@ sbuf_init(struct sbuf *sb, char *initial_buffer, uint32_t initial_buffer_cap, en
 }
 
 void
-sbuf_destroy(struct sbuf *sb)
+tstr_destroy(struct tstr *sb)
 {
-	if ((sb->flags & sbuf_flag_overflown) && (sb->flags & sbuf_flag_overflow_alloc)) {
+	if ((sb->flags & tstr_flag_overflown) && (sb->flags & tstr_flag_overflow_alloc)) {
 		if (sb->buf) {
 			z_free(sb->buf);
 			sb->buf = 0;
@@ -728,9 +728,9 @@ sbuf_destroy(struct sbuf *sb)
 }
 
 void
-sbuf_clear(struct sbuf *sb)
+tstr_clear(struct tstr *sb)
 {
-	if ((sb->flags & sbuf_flag_write)) {
+	if ((sb->flags & tstr_flag_write)) {
 		return;
 	}
 
@@ -739,7 +739,7 @@ sbuf_clear(struct sbuf *sb)
 }
 
 void
-sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
+tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 {
 	uint32_t newcap, newlen = sb->len + inc;
 
@@ -757,8 +757,8 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 		newcap *= 2;
 	} while (newcap < newlen);
 
-	if (sb->flags & sbuf_flag_overflown) {
-		if (sb->flags & sbuf_flag_overflow_alloc) {
+	if (sb->flags & tstr_flag_overflown) {
+		if (sb->flags & tstr_flag_overflow_alloc) {
 			sb->buf = z_realloc(sb->buf, newcap);
 			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
 		} else {
@@ -768,8 +768,8 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 			ss->len = newcap;
 		}
 	} else {
-		if (sb->flags & sbuf_flag_overflow_error) {
-			error_unrecoverable("unhandled sbuf overflow: "
+		if (sb->flags & tstr_flag_overflow_error) {
+			error_unrecoverable("unhandled tstr overflow: "
 					    "capacity: %d, length: %d, "
 					    "trying to push %d bytes",
 				sb->cap,
@@ -777,11 +777,11 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 				inc);
 		}
 
-		sb->flags |= sbuf_flag_overflown;
+		sb->flags |= tstr_flag_overflown;
 
 		char *obuf = sb->buf;
 
-		if (sb->flags & sbuf_flag_overflow_alloc) {
+		if (sb->flags & tstr_flag_overflow_alloc) {
 			sb->buf = z_calloc(newcap, 1);
 		} else {
 			reserve_str(wk, &sb->s, newcap);
@@ -800,9 +800,9 @@ sbuf_grow(struct workspace *wk, struct sbuf *sb, uint32_t inc)
 }
 
 void
-sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
+tstr_push(struct workspace *wk, struct tstr *sb, char s)
 {
-	if (sb->flags & sbuf_flag_write) {
+	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
 		if (out == _log_file()) {
 			log_plain("%c", s);
@@ -812,7 +812,7 @@ sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 		return;
 	}
 
-	sbuf_grow(wk, sb, 2);
+	tstr_grow(wk, sb, 2);
 
 	sb->buf[sb->len] = s;
 	sb->buf[sb->len + 1] = 0;
@@ -820,9 +820,9 @@ sbuf_push(struct workspace *wk, struct sbuf *sb, char s)
 }
 
 void
-sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
+tstr_pushn(struct workspace *wk, struct tstr *sb, const char *s, uint32_t n)
 {
-	if (sb->flags & sbuf_flag_write) {
+	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
 		if (out == _log_file()) {
 			log_plain("%.*s", n, s);
@@ -836,7 +836,7 @@ sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 		return;
 	}
 
-	sbuf_grow(wk, sb, n + 1);
+	tstr_grow(wk, sb, n + 1);
 
 	memcpy(&sb->buf[sb->len], s, n);
 	sb->buf[sb->len + n] = 0;
@@ -844,9 +844,9 @@ sbuf_pushn(struct workspace *wk, struct sbuf *sb, const char *s, uint32_t n)
 }
 
 void
-sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
+tstr_pushs(struct workspace *wk, struct tstr *sb, const char *s)
 {
-	if (sb->flags & sbuf_flag_write) {
+	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
 		if (out == _log_file()) {
 			log_plain("%s", s);
@@ -862,18 +862,18 @@ sbuf_pushs(struct workspace *wk, struct sbuf *sb, const char *s)
 		return;
 	}
 
-	sbuf_grow(wk, sb, n);
+	tstr_grow(wk, sb, n);
 
 	memcpy(&sb->buf[sb->len], s, n);
 	sb->len += n - 1;
 }
 
 void
-sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args)
+tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list args)
 {
 	uint32_t len;
 
-	if (sb->flags & sbuf_flag_write) {
+	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
 		if (out == _log_file()) {
 			log_plainv(fmt, args);
@@ -888,7 +888,7 @@ sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args
 
 	len = vsnprintf(NULL, 0, fmt, args_copy);
 
-	sbuf_grow(wk, sb, len);
+	tstr_grow(wk, sb, len);
 
 	vsnprintf(&sb->buf[sb->len], len + 1, fmt, args);
 	sb->len += len;
@@ -897,34 +897,34 @@ sbuf_vpushf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list args
 }
 
 void
-sbuf_pushf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
+tstr_pushf(struct workspace *wk, struct tstr *sb, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
 
-	sbuf_vpushf(wk, sb, fmt, args);
+	tstr_vpushf(wk, sb, fmt, args);
 
 	va_end(args);
 }
 
 void
-sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, uint32_t len)
+tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *str, uint32_t len)
 {
 	uint32_t i;
 	for (i = 0; i < len; ++i) {
 		switch (str[i]) {
-		case '\b': sbuf_pushs(wk, buf, "\\b"); break;
-		case '\f': sbuf_pushs(wk, buf, "\\f"); break;
-		case '\n': sbuf_pushs(wk, buf, "\\n"); break;
-		case '\r': sbuf_pushs(wk, buf, "\\r"); break;
-		case '\t': sbuf_pushs(wk, buf, "\\t"); break;
-		case '"': sbuf_pushs(wk, buf, "\\\""); break;
-		case '\\': sbuf_pushs(wk, buf, "\\\\"); break;
+		case '\b': tstr_pushs(wk, buf, "\\b"); break;
+		case '\f': tstr_pushs(wk, buf, "\\f"); break;
+		case '\n': tstr_pushs(wk, buf, "\\n"); break;
+		case '\r': tstr_pushs(wk, buf, "\\r"); break;
+		case '\t': tstr_pushs(wk, buf, "\\t"); break;
+		case '"': tstr_pushs(wk, buf, "\\\""); break;
+		case '\\': tstr_pushs(wk, buf, "\\\\"); break;
 		default: {
 			if (str[i] < ' ') {
-				sbuf_pushf(wk, buf, "\\u%04x", str[i]);
+				tstr_pushf(wk, buf, "\\u%04x", str[i]);
 			} else {
-				sbuf_push(wk, buf, str[i]);
+				tstr_push(wk, buf, str[i]);
 			}
 			break;
 		}
@@ -933,20 +933,20 @@ sbuf_push_json_escaped(struct workspace *wk, struct sbuf *buf, const char *str, 
 }
 
 void
-sbuf_push_json_escaped_quoted(struct workspace *wk, struct sbuf *buf, const struct str *str)
+tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const struct str *str)
 {
-	sbuf_push(wk, buf, '"');
-	sbuf_push_json_escaped(wk, buf, str->s, str->len);
-	sbuf_push(wk, buf, '"');
+	tstr_push(wk, buf, '"');
+	tstr_push_json_escaped(wk, buf, str->s, str->len);
+	tstr_push(wk, buf, '"');
 }
 
 obj
-sbuf_into_str(struct workspace *wk, struct sbuf *sb)
+tstr_into_str(struct workspace *wk, struct tstr *sb)
 {
-	assert(!(sb->flags & sbuf_flag_string_exposed));
+	assert(!(sb->flags & tstr_flag_string_exposed));
 
-	if (!(sb->flags & sbuf_flag_overflow_alloc) && sb->flags & sbuf_flag_overflown) {
-		sb->flags |= sbuf_flag_string_exposed;
+	if (!(sb->flags & tstr_flag_overflow_alloc) && sb->flags & tstr_flag_overflown) {
+		sb->flags |= tstr_flag_string_exposed;
 		struct str *ss = (struct str *)get_str(wk, sb->s);
 		assert(strlen(sb->buf) == sb->len);
 		ss->len = sb->len;

@@ -79,8 +79,8 @@ vsenv_setup(const char *cache_path, bool force)
 
 	bool res = false;
 	char tmp_path[512] = { 0 };
-	SBUF_manual(path);
-	SBUF_manual(ver);
+	TSTR_manual(path);
+	TSTR_manual(ver);
 	const char *program_files;
 	struct run_cmd_ctx vswhere_cmd_ctx = { 0 }, bat_cmd_ctx = { 0 };
 	uint32_t i;
@@ -123,7 +123,7 @@ vsenv_setup(const char *cache_path, bool force)
 		goto ret;
 	}
 
-	sbuf_clear(&path);
+	tstr_clear(&path);
 
 	struct str installation_path = { 0 }, installation_name = { 0 };
 	struct {
@@ -161,22 +161,22 @@ vsenv_setup(const char *cache_path, bool force)
 		goto ret;
 	}
 
-	sbuf_clear(&path);
-	sbuf_pushn(0, &path, installation_path.s, installation_path.len);
+	tstr_clear(&path);
+	tstr_pushn(0, &path, installation_path.s, installation_path.len);
 
 	if (strcmp(build_machine.cpu, "arm64") == 0) {
 		path_push(0, &path, "VC/Auxiliary/Build/vcvarsarm64.bat");
 		if (!fs_file_exists(path.buf)) {
-			sbuf_clear(&path);
-			sbuf_pushn(0, &path, installation_path.s, installation_path.len);
+			tstr_clear(&path);
+			tstr_pushn(0, &path, installation_path.s, installation_path.len);
 			path_push(0, &path, "VC/Auxiliary/Build/vcvarsx86_arm64.bat");
 		}
 	} else {
 		path_push(0, &path, "VC/Auxiliary/Build/vcvars64.bat");
 		// if VS is not found try VS Express
 		if (!fs_file_exists(path.buf)) {
-			sbuf_clear(&path);
-			sbuf_pushn(0, &path, installation_path.s, installation_path.len);
+			tstr_clear(&path);
+			tstr_pushn(0, &path, installation_path.s, installation_path.len);
 			path_push(0, &path, "VC/Auxiliary/Build/vcvarsx86_amd64.bat");
 		}
 	}
@@ -219,8 +219,8 @@ vsenv_setup(const char *cache_path, bool force)
 
 	res = true;
 ret:
-	sbuf_destroy(&path);
-	sbuf_destroy(&ver);
+	tstr_destroy(&path);
+	tstr_destroy(&ver);
 	run_cmd_ctx_destroy(&vswhere_cmd_ctx);
 	run_cmd_ctx_destroy(&bat_cmd_ctx);
 	if (*tmp_path) {

@@ -314,7 +314,7 @@ lex_number(struct lexer *lexer, struct token *token)
 }
 
 static bool
-lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct sbuf *buf, uint32_t val)
+lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct tstr *buf, uint32_t val)
 {
 	uint8_t pre, b, pre_len;
 	uint32_t len, i;
@@ -327,7 +327,7 @@ lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct sbuf *bu
 	 * */
 
 	if (val <= 0x7f) {
-		sbuf_push(lexer->wk, buf, val);
+		tstr_push(lexer->wk, buf, val);
 		return true;
 	} else if (val <= 0x07ff) {
 		len = 2;
@@ -349,51 +349,51 @@ lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct sbuf *bu
 		return false;
 	}
 
-	sbuf_push(lexer->wk, buf, pre | (val >> (b - pre_len)));
+	tstr_push(lexer->wk, buf, pre | (val >> (b - pre_len)));
 
 	for (i = 1; i < len; ++i) {
-		sbuf_push(lexer->wk, buf, 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f));
+		tstr_push(lexer->wk, buf, 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f));
 	}
 
 	return true;
 }
 
 static bool
-lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
+lex_string_escape(struct lexer *lexer, struct token *token, struct tstr *buf)
 {
 	switch (lexer->src[lexer->i + 1]) {
 	case '\\':
 	case '\'':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		tstr_push(lexer->wk, buf, lexer->src[lexer->i]);
 		return true;
 	case 'a':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\a');
+		tstr_push(lexer->wk, buf, '\a');
 		return true;
 	case 'b':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\b');
+		tstr_push(lexer->wk, buf, '\b');
 		return true;
 	case 'f':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\f');
+		tstr_push(lexer->wk, buf, '\f');
 		return true;
 	case 'r':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\r');
+		tstr_push(lexer->wk, buf, '\r');
 		return true;
 	case 't':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\t');
+		tstr_push(lexer->wk, buf, '\t');
 		return true;
 	case 'v':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\v');
+		tstr_push(lexer->wk, buf, '\v');
 		return true;
 	case 'n':
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, '\n');
+		tstr_push(lexer->wk, buf, '\n');
 		return true;
 	case 'x':
 	case 'u':
@@ -443,13 +443,13 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 			lex_advance(lexer);
 		}
 
-		sbuf_push(lexer->wk, buf, strtol(num, 0, 8));
+		tstr_push(lexer->wk, buf, strtol(num, 0, 8));
 		return true;
 	}
 	default:
-		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		tstr_push(lexer->wk, buf, lexer->src[lexer->i]);
 		lex_advance(lexer);
-		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		tstr_push(lexer->wk, buf, lexer->src[lexer->i]);
 		return true;
 	case 0: lex_error_token(lexer, token, "unterminated hex escape"); return false;
 	}
@@ -457,10 +457,10 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 	UNREACHABLE_RETURN;
 }
 
-typedef bool(lex_string_escape_fun)(struct lexer *lexer, struct token *token, struct sbuf *buf);
+typedef bool(lex_string_escape_fun)(struct lexer *lexer, struct token *token, struct tstr *buf);
 
 static void
-lex_basic_string(struct lexer *lexer, struct token *token, struct sbuf *buf, char end, lex_string_escape_fun escape)
+lex_basic_string(struct lexer *lexer, struct token *token, struct tstr *buf, char end, lex_string_escape_fun escape)
 {
 	lex_advance(lexer);
 
@@ -474,7 +474,7 @@ lex_basic_string(struct lexer *lexer, struct token *token, struct sbuf *buf, cha
 			}
 			break;
 		}
-		default: sbuf_push(lexer->wk, buf, lexer->src[lexer->i]); break;
+		default: tstr_push(lexer->wk, buf, lexer->src[lexer->i]); break;
 		}
 	}
 
@@ -486,14 +486,14 @@ unterminated_string:
 
 	lex_advance(lexer);
 
-	token->data.str = sbuf_into_str(lexer->wk, buf);
+	token->data.str = tstr_into_str(lexer->wk, buf);
 }
 
 static void
 lex_string(struct lexer *lexer, struct token *token)
 {
 	const struct str multiline_terminator = WKSTR("'''");
-	SBUF(buf);
+	TSTR(buf);
 
 	if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
 		lex_advance_n(lexer, multiline_terminator.len);
@@ -501,14 +501,14 @@ lex_string(struct lexer *lexer, struct token *token)
 		while (lexer->source->len - lexer->i >= multiline_terminator.len
 			&& !str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
 			if (lexer->src[lexer->i] != '\r') {
-				sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]);
+				tstr_push(lexer->wk, &buf, lexer->src[lexer->i]);
 			}
 			lex_advance(lexer);
 		}
 
 		if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
 			lex_advance_n(lexer, 3);
-			token->data.str = sbuf_into_str(lexer->wk, &buf);
+			token->data.str = tstr_into_str(lexer->wk, &buf);
 		} else {
 			lex_error_token(lexer, token, "unterminated multiline string");
 		}
@@ -1016,7 +1016,7 @@ restart:
 		start = lexer->i;
 		token->type = token_type_string;
 
-		SBUF(buf);
+		TSTR(buf);
 		lex_basic_string(lexer, token, &buf, '"', lex_string_escape);
 		token->location.len = lexer->i - token->location.off;
 		return;

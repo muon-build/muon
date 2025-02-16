@@ -1205,9 +1205,9 @@ vm_op_div(struct workspace *wk)
 			return;
 		}
 
-		SBUF(buf);
+		TSTR(buf);
 		path_join(wk, &buf, ss1->s, ss2->s);
-		res = sbuf_into_str(wk, &buf);
+		res = tstr_into_str(wk, &buf);
 		break;
 	}
 	case obj_typeinfo: {
@@ -2538,9 +2538,9 @@ vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 			return false;
 		}
 
-		/* SBUF(p); */
+		/* TSTR(p); */
 		/* path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp))); */
-		/* name = sbuf_into_str(wk, &p); */
+		/* name = tstr_into_str(wk, &p); */
 		name = make_strn(wk, bp, sep - bp);
 		line = l;
 	} else {
