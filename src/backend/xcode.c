@@ -530,7 +530,7 @@ xc_build_configuration_list(struct xc_ctx *ctx, struct project *proj, struct obj
 			(void)_lang;
 			obj_array_for(ctx->wk, args, v) {
 				const struct str *s = get_str(ctx->wk, v);
-				if (str_startswith(s, &WKSTR("-D")) && s->len > 2) {
+				if (str_startswith(s, &STR("-D")) && s->len > 2) {
 					xc_pbx_push_v(ctx, pbx_gcc_preprocessor_definitions, xc_quoted(ctx, make_strn(ctx->wk, s->s + 2, s->len - 2)));
 				}
 			}

@@ -193,9 +193,9 @@ func_option(struct workspace *wk, obj self, obj *res)
 	o->ip = wk->vm.ip - 1;
 
 	if (akw[kw_kind].set) {
-		if (str_eql(&WKSTR("default"), get_str(wk, akw[kw_kind].val))) {
+		if (str_eql(&STR("default"), get_str(wk, akw[kw_kind].val))) {
 			o->kind = build_option_kind_default;
-		} else if (str_eql(&WKSTR("prefixed_dir"), get_str(wk, akw[kw_kind].val))) {
+		} else if (str_eql(&STR("prefixed_dir"), get_str(wk, akw[kw_kind].val))) {
 			o->kind = build_option_kind_prefixed_dir;
 		} else {
 			vm_error_at(wk, akw[kw_kind].node, "invalid kind: %o", akw[kw_kind].val);

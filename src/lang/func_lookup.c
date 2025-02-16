@@ -763,13 +763,13 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 	if (wk->vm.lang_mode == language_external) {
 		uint32_t i, embedded_len;
 		const struct embedded_file *files = embedded_file_list(&embedded_len);
-		const struct str *prefix = &WKSTR("modules/"), *str;
+		const struct str *prefix = &STR("modules/"), *str;
 
 		for (i = 0; i < embedded_len; ++i) {
-			str = &WKSTR(files[i].name);
+			str = &STRL(files[i].name);
 			if (!str_startswith(str, prefix)) {
 				continue;
-			} else if (str_eql(str, &WKSTR("modules/_test.meson"))) {
+			} else if (str_eql(str, &STR("modules/_test.meson"))) {
 				continue;
 			}
 

@@ -20,7 +20,7 @@ file_ends_with_suffix(struct workspace *wk, obj file, const char *suffixes[], ui
 
 	uint32_t i;
 	for (i = 0; i < len; ++i) {
-		if (str_endswith(s, &WKSTR(suffixes[i]))) {
+		if (str_endswith(s, &STRL(suffixes[i]))) {
 			return true;
 		}
 	}

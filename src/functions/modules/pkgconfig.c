@@ -79,7 +79,7 @@ add_subdirs_includes_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	obj *cflags = _ctx;
 
-	if (str_eql(get_str(wk, val), &WKSTR("."))) {
+	if (str_eql(get_str(wk, val), &STR("."))) {
 		obj_array_push(wk, *cflags, make_str(wk, "-I${includedir}"));
 	} else {
 		TSTR(path);
@@ -117,11 +117,11 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 		return true;
 	}
 
-	struct str s = WKSTR(str);
-	if (str_startswith(&s, &WKSTR("-l"))) {
+	struct str s = STRL(str);
+	if (str_startswith(&s, &STR("-l"))) {
 		s.len -= 2;
 		s.s += 2;
-	} else if (str_startswith(&s, &WKSTR("lib"))) {
+	} else if (str_startswith(&s, &STR("lib"))) {
 		s.len -= 3;
 		s.s += 3;
 	}
@@ -397,7 +397,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		obj out;
 		obj_array_index(wk, tgt->output, 0, &out);
 
-		if (str_endswith(get_str(wk, *get_obj_file(wk, out)), &WKSTR(".a"))) {
+		if (str_endswith(get_str(wk, *get_obj_file(wk, out)), &STR(".a"))) {
 			return ir_cont;
 		}
 
@@ -460,14 +460,14 @@ module_pkgconf_declare_var(struct workspace *wk,
 		const char *reserved[] = { "prefix", "libdir", "includedir", NULL };
 		uint32_t i;
 		for (i = 0; reserved[i]; ++i) {
-			if (str_eql(key, &WKSTR(reserved[i]))) {
+			if (str_eql(key, &STRL(reserved[i]))) {
 				vm_error_at(wk, err_node, "variable %s is reserved", reserved[i]);
 				return false;
 			}
 		}
 
 		for (i = 0; i < ARRAY_LEN(module_pkgconf_diropts); ++i) {
-			if (str_eql(key, &WKSTR(module_pkgconf_diropts[i].optname))) {
+			if (str_eql(key, &STRL(module_pkgconf_diropts[i].optname))) {
 				module_pkgconf_diropts[i].added = true;
 			}
 
@@ -475,7 +475,7 @@ module_pkgconf_declare_var(struct workspace *wk,
 				continue;
 			}
 
-			if (str_startswith(val, &WKSTR(module_pkgconf_diropts[i].name))) {
+			if (str_startswith(val, &STRL(module_pkgconf_diropts[i].name))) {
 				module_pkgconf_diropts[module_pkgconf_diropt_prefix].refd = true; // prefix
 				module_pkgconf_diropts[i].refd = true;
 			}
@@ -506,7 +506,7 @@ module_pkgconf_declare_builtin_dir_var(struct workspace *wk, const char *opt, ob
 		valstr = make_strf(wk, "${prefix}/%s", get_cstr(wk, val));
 	}
 
-	module_pkgconf_declare_var(wk, 0, true, true, &WKSTR(opt), get_str(wk, valstr), dest);
+	module_pkgconf_declare_var(wk, 0, true, true, &STRL(opt), get_str(wk, valstr), dest);
 }
 
 struct module_pkgconf_process_vars_ctx {

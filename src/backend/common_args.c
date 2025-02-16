@@ -56,7 +56,7 @@ ca_get_buildtype(struct workspace *wk,
 		{ NULL } };
 
 	obj buildtype_opt_id, buildtype_val;
-	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &WKSTR("buildtype"), &buildtype_opt_id);
+	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &STR("buildtype"), &buildtype_opt_id);
 	struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
 	buildtype_val = buildtype_opt->val;
 
@@ -71,7 +71,7 @@ ca_get_buildtype(struct workspace *wk,
 		ca_get_option_value_for_tgt(wk, proj, tgt, "debug", &debug_id);
 
 		const struct str *str = get_str(wk, optimization_id);
-		if (str_eql(str, &WKSTR("plain"))) {
+		if (str_eql(str, &STR("plain"))) {
 			buildtype->opt = compiler_optimization_lvl_none;
 		} else if (str->len != 1) {
 			UNREACHABLE;
@@ -125,7 +125,7 @@ ca_get_warning_args(struct workspace *wk,
 	ca_get_option_value_for_tgt(wk, proj, tgt, "warning_level", &lvl_id);
 	const struct str *sl = get_str(wk, lvl_id);
 
-	if (str_eql(sl, &WKSTR("everything"))) {
+	if (str_eql(sl, &STR("everything"))) {
 		push_args(wk, args_id, toolchain_compiler_warn_everything(wk, comp));
 		return;
 	}
@@ -243,12 +243,12 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	push_args(wk, args, toolchain_compiler_crt(wk, comp, get_cstr(wk, opt), buildtype->debug));
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
-	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {
+	if (!str_eql(get_str(wk, opt), &STR("off"))) {
 		uint32_t stage;
 		const struct str *sl = get_str(wk, opt);
-		if (str_eql(sl, &WKSTR("generate"))) {
+		if (str_eql(sl, &STR("generate"))) {
 			stage = 0;
-		} else if (str_eql(sl, &WKSTR("use"))) {
+		} else if (str_eql(sl, &STR("use"))) {
 			stage = 1;
 		} else {
 			UNREACHABLE;
@@ -258,21 +258,21 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
-	if (!str_eql(get_str(wk, opt), &WKSTR("none"))) {
+	if (!str_eql(get_str(wk, opt), &STR("none"))) {
 		push_args(wk, args, toolchain_compiler_sanitize(wk, comp, get_cstr(wk, opt)));
 	}
 
 	obj buildtype_val;
 	ca_get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype_val);
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_ndebug", &opt);
-	if (str_eql(get_str(wk, opt), &WKSTR("true"))
-		|| (str_eql(get_str(wk, opt), &WKSTR("if-release"))
-			&& str_eql(get_str(wk, buildtype_val), &WKSTR("release")))) {
+	if (str_eql(get_str(wk, opt), &STR("true"))
+		|| (str_eql(get_str(wk, opt), &STR("if-release"))
+			&& str_eql(get_str(wk, buildtype_val), &STR("release")))) {
 		push_args(wk, args, toolchain_compiler_define(wk, comp, "NDEBUG"));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_colorout", &opt);
-	if (!str_eql(get_str(wk, opt), &WKSTR("never"))) {
+	if (!str_eql(get_str(wk, opt), &STR("never"))) {
 		push_args(wk, args, toolchain_compiler_color_output(wk, comp, get_cstr(wk, opt)));
 	}
 
@@ -552,12 +552,12 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 {
 	obj opt;
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
-	if (!str_eql(get_str(wk, opt), &WKSTR("off"))) {
+	if (!str_eql(get_str(wk, opt), &STR("off"))) {
 		uint32_t stage;
 		const struct str *sl = get_str(wk, opt);
-		if (str_eql(sl, &WKSTR("generate"))) {
+		if (str_eql(sl, &STR("generate"))) {
 			stage = 0;
-		} else if (str_eql(sl, &WKSTR("use"))) {
+		} else if (str_eql(sl, &STR("use"))) {
 			stage = 1;
 		} else {
 			UNREACHABLE;

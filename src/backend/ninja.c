@@ -227,7 +227,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		const char *prepend = NULL;
 
 		obj ninja_opt_id;
-		if (!get_option(wk, NULL, &WKSTR("env.NINJA"), &ninja_opt_id)) {
+		if (!get_option(wk, NULL, &STR("env.NINJA"), &ninja_opt_id)) {
 			UNREACHABLE;
 		}
 		const struct obj_option *ninja_opt = get_obj_option(wk, ninja_opt_id);

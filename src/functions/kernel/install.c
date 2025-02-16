@@ -124,7 +124,7 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 	if (ctx->locale) {
 		char *dot = strchr(man.buf, '.');
 		assert(dot);
-		if (str_startswith(&WKSTR(dot + 1), get_str(wk, ctx->locale))) {
+		if (str_startswith(&STRL(dot + 1), get_str(wk, ctx->locale))) {
 			*dot = '\0';
 			obj new_man = make_strf(wk, "%s.%c", man.buf, man.buf[len]);
 			basename = get_cstr(wk, new_man);

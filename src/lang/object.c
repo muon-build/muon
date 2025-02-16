@@ -193,7 +193,7 @@ get_obj_feature_opt(struct workspace *wk, obj fo)
 		obj auto_features_opt;
 		// NOTE: wk->global_opts won't be initialized if we are loading
 		// a serial dump
-		if (wk->global_opts && get_option(wk, NULL, &WKSTR("auto_features"), &auto_features_opt)) {
+		if (wk->global_opts && get_option(wk, NULL, &STR("auto_features"), &auto_features_opt)) {
 			struct obj_option *opt = get_obj_option(wk, auto_features_opt);
 			return *(enum feature_opt_state *)get_obj_internal(wk, opt->val, obj_feature_opt);
 		} else {

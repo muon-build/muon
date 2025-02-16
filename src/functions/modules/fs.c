@@ -188,7 +188,7 @@ func_module_fs_read(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (akw[kw_encoding].set) {
-		if (!str_eql(get_str(wk, akw[kw_encoding].val), &WKSTR("utf-8"))) {
+		if (!str_eql(get_str(wk, akw[kw_encoding].val), &STR("utf-8"))) {
 			vm_error_at(wk, akw[kw_encoding].node, "only 'utf-8' supported");
 		}
 	}
@@ -343,7 +343,7 @@ func_module_fs_hash(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	if (!str_eql(get_str(wk, an[1].val), &WKSTR("sha256"))) {
+	if (!str_eql(get_str(wk, an[1].val), &STR("sha256"))) {
 		vm_error_at(wk, an[1].node, "only sha256 is supported");
 		return false;
 	}
@@ -783,13 +783,13 @@ func_module_fs_glob_cb(void *_ctx, const char *name)
 
 	/* L("path: %s, pat: %.*s", name, pat.len, pat.s); */
 
-	if (str_eql(&pat, &WKSTR("**"))) {
+	if (str_eql(&pat, &STR("**"))) {
 		subctx.mode = fs_glob_mode_recurse;
 		subctx.matchprefix = "/";
 		goto recurse_all_mode;
 	}
 
-	if (str_eql_glob(&pat, &WKSTR(name))) {
+	if (str_eql_glob(&pat, &STRL(name))) {
 		TSTR(path);
 		path_join(wk, &path, ctx->prefix, name);
 		subctx.prefix = path.buf;

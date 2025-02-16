@@ -175,11 +175,11 @@ coerce_feature_opt(struct workspace *wk, uint32_t ip, const struct str *val, obj
 {
 	enum feature_opt_state f;
 
-	if (str_eql(val, &WKSTR("auto"))) {
+	if (str_eql(val, &STR("auto"))) {
 		f = feature_opt_auto;
-	} else if (str_eql(val, &WKSTR("enabled"))) {
+	} else if (str_eql(val, &STR("enabled"))) {
 		f = feature_opt_enabled;
-	} else if (str_eql(val, &WKSTR("disabled"))) {
+	} else if (str_eql(val, &STR("disabled"))) {
 		f = feature_opt_disabled;
 	} else {
 		vm_error_at(wk, ip, "unable to coerce '%s' into a feature", val->s);
@@ -286,7 +286,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 				return false;
 			}
 		} else {
-			*res = str_split(wk, val, &WKSTR(","));
+			*res = str_split(wk, val, &STR(","));
 		}
 	}
 
@@ -310,9 +310,9 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 	case op_string: *res = sval; break;
 	case op_boolean: {
 		bool b;
-		if (str_eql(val, &WKSTR("true"))) {
+		if (str_eql(val, &STR("true"))) {
 			b = true;
-		} else if (str_eql(val, &WKSTR("false"))) {
+		} else if (str_eql(val, &STR("false"))) {
 			b = false;
 		} else {
 			vm_error_at(wk, opt->ip, "unable to coerce '%s' into a boolean", val->s);
@@ -594,7 +594,7 @@ void
 get_option_value_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, obj *res)
 {
 	obj opt;
-	if (!get_option_overridable(wk, proj, overrides, &WKSTR(name), &opt)) {
+	if (!get_option_overridable(wk, proj, overrides, &STRL(name), &opt)) {
 		LOG_E("attempted to get unknown option '%s'", name);
 		UNREACHABLE;
 	}
@@ -613,7 +613,7 @@ static void
 set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 {
 	obj opt;
-	if (!get_option(wk, NULL, &WKSTR(dest), &opt)) {
+	if (!get_option(wk, NULL, &STRL(dest), &opt)) {
 		UNREACHABLE;
 	}
 
@@ -623,7 +623,7 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 	}
 
 	// TODO: implement something like shlex.split()
-	obj cmd = str_split(wk, &WKSTR(v), NULL);
+	obj cmd = str_split(wk, &STRL(v), NULL);
 	set_option(wk, opt, cmd, option_value_source_environment, false);
 }
 
@@ -631,16 +631,16 @@ static void
 set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *extra)
 {
 	obj opt;
-	if (!get_option(wk, NULL, &WKSTR(name), &opt)) {
+	if (!get_option(wk, NULL, &STRL(name), &opt)) {
 		UNREACHABLE;
 	}
 
 	if ((flags = os_get_env(flags)) && *flags) {
-		extend_array_option(wk, opt, str_split(wk, &WKSTR(flags), NULL), option_value_source_environment);
+		extend_array_option(wk, opt, str_split(wk, &STRL(flags), NULL), option_value_source_environment);
 	}
 
 	if ((extra = os_get_env(extra)) && *extra) {
-		extend_array_option(wk, opt, str_split(wk, &WKSTR(extra), NULL), option_value_source_environment);
+		extend_array_option(wk, opt, str_split(wk, &STRL(extra), NULL), option_value_source_environment);
 	}
 }
 
@@ -648,7 +648,7 @@ static void
 set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt_name)
 {
 	obj opt;
-	if (!get_option(wk, NULL, &WKSTR(opt_name), &opt)) {
+	if (!get_option(wk, NULL, &STRL(opt_name), &opt)) {
 		UNREACHABLE;
 	}
 
@@ -828,7 +828,7 @@ bool
 parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 {
 	struct option_override oo = { .source = option_value_source_commandline };
-	if (!parse_config_string(wk, &WKSTR(lhs), &oo, false)) {
+	if (!parse_config_string(wk, &STRL(lhs), &oo, false)) {
 		return false;
 	}
 
@@ -1027,11 +1027,11 @@ get_option_default_library(struct workspace *wk)
 	obj opt;
 	get_option_value(wk, current_project(wk), "default_library", &opt);
 
-	if (str_eql(get_str(wk, opt), &WKSTR("static"))) {
+	if (str_eql(get_str(wk, opt), &STR("static"))) {
 		return tgt_static_library;
-	} else if (str_eql(get_str(wk, opt), &WKSTR("shared"))) {
+	} else if (str_eql(get_str(wk, opt), &STR("shared"))) {
 		return tgt_dynamic_library;
-	} else if (str_eql(get_str(wk, opt), &WKSTR("both"))) {
+	} else if (str_eql(get_str(wk, opt), &STR("both"))) {
 		return tgt_dynamic_library | tgt_static_library;
 	} else {
 		UNREACHABLE_RETURN;
@@ -1042,7 +1042,7 @@ bool
 get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback)
 {
 	obj opt;
-	if (get_option_overridable(wk, current_project(wk), overrides, &WKSTR(name), &opt)) {
+	if (get_option_overridable(wk, current_project(wk), overrides, &STRL(name), &opt)) {
 		return get_obj_bool(wk, get_obj_option(wk, opt)->val);
 	} else {
 		return fallback;
@@ -1055,9 +1055,9 @@ get_option_backend(struct workspace *wk)
 	obj backend_opt;
 	get_option_value(wk, 0, "backend", &backend_opt);
 	const struct str *backend_str = get_str(wk, backend_opt);
-	if (str_eql(backend_str, &WKSTR("ninja"))) {
+	if (str_eql(backend_str, &STR("ninja"))) {
 		return backend_ninja;
-	} else if (str_eql(backend_str, &WKSTR("xcode"))) {
+	} else if (str_eql(backend_str, &STR("xcode"))) {
 		return backend_xcode;
 	} else {
 		UNREACHABLE;

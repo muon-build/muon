@@ -35,7 +35,7 @@ static bool
 prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 {
 	uint32_t len = strlen(prefix);
-	if (str_startswith(ss, &WKSTR(prefix))) {
+	if (str_startswith(ss, &STRL(prefix))) {
 		return str_to_i(&(struct str){ .s = &ss->s[len], .len = ss->len - len }, index, false);
 	}
 
@@ -115,7 +115,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 
 	enum cmd_arg_fmt_key key;
 	for (key = 0; key < cmd_arg_fmt_key_count; ++key) {
-		if (!str_eql(strkey, &WKSTR(key_names[key].key))) {
+		if (!str_eql(strkey, &STRL(key_names[key].key))) {
 			continue;
 		}
 
@@ -284,21 +284,21 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	case obj_string: {
-		if (ctx->opts->input && str_eql(get_str(wk, val), &WKSTR("@INPUT@"))) {
+		if (ctx->opts->input && str_eql(get_str(wk, val), &STR("@INPUT@"))) {
 			ctx->skip_depends = true;
 			if (!obj_array_foreach(wk, ctx->opts->input, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			ctx->skip_depends = false;
 			return ir_cont;
-		} else if (ctx->opts->output && str_eql(get_str(wk, val), &WKSTR("@OUTPUT@"))) {
+		} else if (ctx->opts->output && str_eql(get_str(wk, val), &STR("@OUTPUT@"))) {
 			ctx->skip_depends = true;
 			if (!obj_array_foreach(wk, ctx->opts->output, ctx, custom_target_cmd_fmt_iter)) {
 				return ir_err;
 			}
 			ctx->skip_depends = false;
 			goto cont;
-		} else if (ctx->opts->extra_args_valid && str_eql(get_str(wk, val), &WKSTR("@EXTRA_ARGS@"))) {
+		} else if (ctx->opts->extra_args_valid && str_eql(get_str(wk, val), &STR("@EXTRA_ARGS@"))) {
 			if (ctx->opts->extra_args) {
 				obj_array_extend(wk, *ctx->res, ctx->opts->extra_args);
 				ctx->opts->extra_args_used = true;
@@ -378,7 +378,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 
 	enum cmd_output_fmt_key key;
 	for (key = 0; key < cmd_output_fmt_key_count; ++key) {
-		if (str_eql(strkey, &WKSTR(key_names[key]))) {
+		if (str_eql(strkey, &STRL(key_names[key]))) {
 			break;
 		}
 	}

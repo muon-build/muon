@@ -137,7 +137,7 @@ coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_no
 
 	uint32_t i;
 	for (i = 0; include_type_strs[i]; ++i) {
-		if (str_eql(str, &WKSTR(include_type_strs[i]))) {
+		if (str_eql(str, &STRL(include_type_strs[i]))) {
 			*res = i;
 			return true;
 		}

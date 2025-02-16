@@ -564,7 +564,7 @@ str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 obj
 str_splitlines(struct workspace *wk, const struct str *ss)
 {
-	const struct str seps[] = { WKSTR("\n"), WKSTR("\r\n"), WKSTR("\r") };
+	const struct str seps[] = { STR("\n"), STR("\r\n"), STR("\r") };
 	const struct str *split;
 
 	obj res;
@@ -633,7 +633,7 @@ str_has_chr(char c, const struct str *ss)
 obj
 str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags)
 {
-	const struct str *defstrip = &WKSTR(" \r\n\t");
+	const struct str *defstrip = &STR(" \r\n\t");
 
 	if (!strip) {
 		strip = defstrip;

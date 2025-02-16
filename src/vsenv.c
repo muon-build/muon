@@ -33,7 +33,7 @@ vsenv_set_vars(const char *vars, uint32_t len)
 		struct str l = { line, line_len }, k, v;
 
 		if (!sep_seen) {
-			if (str_eql(&l, &WKSTR(vsenv_list_sep))) {
+			if (str_eql(&l, &STRL(vsenv_list_sep))) {
 				sep_seen = true;
 			}
 		} else if (str_split_in_two(&l, &k, &v, '=')) {
@@ -129,8 +129,8 @@ vsenv_setup(const char *cache_path, bool force)
 	struct {
 		struct str label, *dest;
 	} keys[] = {
-		{ WKSTR("installationPath: "), &installation_path },
-		{ WKSTR("installationName: "), &installation_name },
+		{ STR("installationPath: "), &installation_path },
+		{ STR("installationName: "), &installation_name },
 	};
 	for (i = 0; i < vswhere_cmd_ctx.out.len;) {
 		const char *line = vswhere_cmd_ctx.out.buf + i, *p = strstr(line, "\r\n");

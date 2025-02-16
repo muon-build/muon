@@ -127,7 +127,7 @@ translate_meson_opts_parser(struct workspace *wk,
 		spec = NULL;
 		val = NULL;
 
-		struct str *arg = &WKSTR(argv[argi]);
+		struct str *arg = &STRL(argv[argi]);
 		is_opt = !next_is_val && arg->len > 1 && arg->s[0] == '-';
 		is_longopt = is_opt && arg->len > 2 && arg->s[1] == '-';
 
@@ -152,7 +152,7 @@ translate_meson_opts_parser(struct workspace *wk,
 
 		if (is_opt) {
 			for (i = 0; i < opts_len; ++i) {
-				const struct str *opt_name = &WKSTR(opts[i].name);
+				const struct str *opt_name = &STRL(opts[i].name);
 				if (!str_eql(arg, opt_name)) {
 					continue;
 				}
@@ -592,7 +592,7 @@ translate_meson_opts_compile_callback(struct workspace *wk,
 		obj_array_push(wk, ctx->argv, make_str(wk, "clean"));
 		break;
 	case opt_compile_ninja_args:
-		obj_array_extend(wk, ctx->argv, str_split(wk, &WKSTR(val), 0));
+		obj_array_extend(wk, ctx->argv, str_split(wk, &STRL(val), 0));
 		break;
 	default: UNREACHABLE;
 	}

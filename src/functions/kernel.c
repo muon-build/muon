@@ -203,7 +203,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 	}
 
 #ifndef MUON_BOOTSTRAPPED
-	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
+	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &STR("muon"))) {
 		vm_error_at(wk,
 			an[0].node,
 			"This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
@@ -1541,7 +1541,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		};
 
 		for (protocol = 0; (uint32_t)protocol < ARRAY_LEN(protocol_names); ++protocol) {
-			if (str_eql(get_str(wk, akw[kw_protocol].val), &WKSTR(protocol_names[protocol]))) {
+			if (str_eql(get_str(wk, akw[kw_protocol].val), &STRL(protocol_names[protocol]))) {
 				break;
 			}
 		}
@@ -1694,9 +1694,9 @@ func_environment(struct workspace *wk, obj _, obj *res)
 	enum environment_set_mode mode = environment_set_mode_set;
 	if (akw[kw_method].set) {
 		const struct str modes[] = {
-			[environment_set_mode_set] = WKSTR("set"),
-			[environment_set_mode_append] = WKSTR("append"),
-			[environment_set_mode_prepend] = WKSTR("prepend"),
+			[environment_set_mode_set] = STR("set"),
+			[environment_set_mode_append] = STR("append"),
+			[environment_set_mode_prepend] = STR("prepend"),
 		}, *method = get_str(wk, akw[kw_method].val);
 
 		uint32_t i;
@@ -2084,7 +2084,7 @@ func_serial_load(struct workspace *wk, obj _, obj *res)
 	coerce_string(wk, an[0].node, an[0].val, &str);
 
 	FILE *f;
-	if (str_eql(get_str(wk, str), &WKSTR("-"))) {
+	if (str_eql(get_str(wk, str), &STR("-"))) {
 		f = stdin;
 	} else if (!(f = fs_fopen(get_cstr(wk, str), "rb"))) {
 		return false;

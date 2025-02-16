@@ -216,7 +216,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 
 	TSTR(path);
 	{
-		const struct str *gitignore_src = &WKSTR("*\n");
+		const struct str *gitignore_src = &STR("*\n");
 		path_join(wk, &path, wk->build_root, ".gitignore");
 		if (!fs_write(path.buf, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
 			return false;
@@ -224,7 +224,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	}
 
 	{
-		const struct str *hgignore_src = &WKSTR("syntax: glob\n**/*\n");
+		const struct str *hgignore_src = &STR("syntax: glob\n**/*\n");
 		path_join(wk, &path, wk->build_root, ".hgignore");
 		if (!fs_write(path.buf, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
 			return false;

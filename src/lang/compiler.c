@@ -228,7 +228,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		if (n->r->type == node_type_id_lit) {
 			name = get_str(wk, n->r->data.str);
 
-			if (str_eql(name, &WKSTR("subdir_done"))) {
+			if (str_eql(name, &STR("subdir_done"))) {
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
@@ -238,7 +238,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 				vm_comp_op_return(wk);
 				break;
-			} else if (str_eql(name, &WKSTR("set_variable"))) {
+			} else if (str_eql(name, &STR("set_variable"))) {
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
@@ -246,7 +246,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_code(wk, op_swap);
 				push_op_store(wk, 0);
 				break;
-			} else if (str_eql(name, &WKSTR("get_variable"))) {
+			} else if (str_eql(name, &STR("get_variable"))) {
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 1, 2, 0);
@@ -257,7 +257,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					push_code(wk, op_try_load);
 				}
 				break;
-			} else if (str_eql(name, &WKSTR("disabler"))) {
+			} else if (str_eql(name, &STR("disabler"))) {
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
@@ -265,7 +265,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_code(wk, op_constant);
 				push_constant(wk, obj_disabler);
 				break;
-			} else if (str_eql(name, &WKSTR("is_disabler"))) {
+			} else if (str_eql(name, &STR("is_disabler"))) {
 				/* jmp_if_disabler >-,
 				 * pop               |
 				 * const false       |
@@ -321,7 +321,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		}
 
 		if (known && (wk->vm.compiler_state.mode & vm_compile_mode_return_after_project)
-			&& str_eql(name, &WKSTR("project"))) {
+			&& str_eql(name, &STR("project"))) {
 			push_code(wk, op_return_end);
 		}
 

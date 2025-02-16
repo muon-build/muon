@@ -24,7 +24,7 @@ tap_parse_line_cb(void *_ctx, const char *line, size_t len)
 	struct str l = { .s = line, .len = len }, rest;
 	bool ok;
 
-	if (str_startswith(&l, &WKSTR("1..")) && l.len > 3) {
+	if (str_startswith(&l, &STR("1..")) && l.len > 3) {
 		struct str i = { .s = &l.s[3], l.len - 3 };
 		int64_t plan_count;
 		if (str_to_i(&i, &plan_count, false) && plan_count > 0) {
@@ -33,13 +33,13 @@ tap_parse_line_cb(void *_ctx, const char *line, size_t len)
 		}
 
 		return ir_cont;
-	} else if (str_startswith(&l, &WKSTR("Bail out!"))) {
+	} else if (str_startswith(&l, &STR("Bail out!"))) {
 		ctx->bail_out = true;
 		return ir_cont;
-	} else if (str_startswith(&l, &WKSTR("ok"))) {
+	} else if (str_startswith(&l, &STR("ok"))) {
 		ok = true;
 		rest = (struct str){ .s = &l.s[2], .len = l.len - 2 };
-	} else if (str_startswith(&l, &WKSTR("not ok"))) {
+	} else if (str_startswith(&l, &STR("not ok"))) {
 		ok = false;
 		rest = (struct str){ .s = &l.s[6], .len = l.len - 6 };
 	} else {
@@ -56,9 +56,9 @@ tap_parse_line_cb(void *_ctx, const char *line, size_t len)
 		char *directive_str;
 		if ((directive_str = strstr(rest.s, " # "))) {
 			directive_str += 3;
-			if (str_startswithi(&WKSTR(directive_str), &WKSTR("todo"))) {
+			if (str_startswithi(&STRL(directive_str), &STR("todo"))) {
 				directive = todo;
-			} else if (str_startswithi(&WKSTR(directive_str), &WKSTR("skip"))) {
+			} else if (str_startswithi(&STRL(directive_str), &STR("skip"))) {
 				directive = skip;
 			}
 		}

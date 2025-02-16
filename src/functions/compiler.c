@@ -703,7 +703,7 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 
 	uint32_t i;
 	for (i = 0; tests[i].name; ++i) {
-		if (str_eql(name, &WKSTR(tests[i].name))) {
+		if (str_eql(name, &STRL(tests[i].name))) {
 			*res = tests[i].src;
 			return true;
 		}
@@ -874,7 +874,7 @@ func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (!ok) {
-		bool is_builtin = str_startswith(get_str(wk, an[0].val), &WKSTR("__builtin_"));
+		bool is_builtin = str_startswith(get_str(wk, an[0].val), &STR("__builtin_"));
 		const char *__builtin_ = is_builtin ? "" : "__builtin_";
 
 		/* With some toolchains (MSYS2/mingw for example) the compiler
@@ -1064,9 +1064,9 @@ compiler_get_define(struct workspace *wk,
 	opts->mode = compiler_check_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
-	const struct str delim_start = WKSTR("\"MUON_GET_DEFINE_DELIMITER_START\"\n"),
-			 delim_end = WKSTR("\n\"MUON_GET_DEFINE_DELIMITER_END\""),
-			 delim_sentinel = WKSTR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
+	const struct str delim_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\"\n"),
+			 delim_end = STR("\n\"MUON_GET_DEFINE_DELIMITER_END\""),
+			 delim_sentinel = STR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
 	snprintf(src,
 		BUF_SIZE_4k,
 		"%s\n"
@@ -1269,7 +1269,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj
 		return false;
 	}
 
-	*res = make_obj_bool(wk, str_eql(get_str(wk, pre), &WKSTR("_")));
+	*res = make_obj_bool(wk, str_eql(get_str(wk, pre), &STR("_")));
 	return true;
 }
 

@@ -403,7 +403,7 @@ project_namespaced_name_matches(const char *name1, bool proj2_is_main, const str
 		}
 	}
 
-	return str_eql(&WKSTR(name1), name2);
+	return str_eql(&STRL(name1), name2);
 }
 
 struct test_in_suite_ctx {

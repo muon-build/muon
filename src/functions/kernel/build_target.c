@@ -387,8 +387,8 @@ setup_shared_object_symlinks(struct workspace *wk,
 		*soname_install = tstr_into_str(wk, &soname_symlink);
 	}
 
-	if (!str_eql(&WKSTR(plain_name), get_str(wk, tgt->soname))
-		&& !str_eql(&WKSTR(plain_name), get_str(wk, tgt->build_name))) {
+	if (!str_eql(&STRL(plain_name), get_str(wk, tgt->soname))
+		&& !str_eql(&STRL(plain_name), get_str(wk, tgt->build_name))) {
 		path_join(wk, &plain_name_symlink, get_cstr(wk, tgt->build_dir), plain_name);
 
 		if (!fs_make_symlink(get_cstr(wk, tgt->soname), plain_name_symlink.buf, true)) {
@@ -617,15 +617,15 @@ create_target(struct workspace *wk,
 		struct args_kw *vis = &akw[bt_kw_gnu_symbol_visibility];
 		if (vis->set && get_str(wk, vis->val)->len) {
 			const struct str *str = get_str(wk, vis->val);
-			if (str_eql(str, &WKSTR("default"))) {
+			if (str_eql(str, &STR("default"))) {
 				tgt->visibility = compiler_visibility_default;
-			} else if (str_eql(str, &WKSTR("hidden"))) {
+			} else if (str_eql(str, &STR("hidden"))) {
 				tgt->visibility = compiler_visibility_hidden;
-			} else if (str_eql(str, &WKSTR("internal"))) {
+			} else if (str_eql(str, &STR("internal"))) {
 				tgt->visibility = compiler_visibility_internal;
-			} else if (str_eql(str, &WKSTR("protected"))) {
+			} else if (str_eql(str, &STR("protected"))) {
 				tgt->visibility = compiler_visibility_protected;
-			} else if (str_eql(str, &WKSTR("inlineshidden"))) {
+			} else if (str_eql(str, &STR("inlineshidden"))) {
 				tgt->visibility = compiler_visibility_inlineshidden;
 			} else {
 				vm_error_at(wk, vis->node, "unknown visibility '%s'", get_cstr(wk, vis->val));

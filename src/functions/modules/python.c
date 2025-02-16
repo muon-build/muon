@@ -335,7 +335,7 @@ get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, o
 	if (pure) {
 		obj puredir;
 		get_option_value(wk, current_project(wk), "python.purelibdir", &puredir);
-		if (!str_eql(get_str(wk, puredir), &WKSTR(""))) {
+		if (!str_eql(get_str(wk, puredir), &STR(""))) {
 			path_push(wk, &installdir, get_cstr(wk, puredir));
 		} else {
 			if (!obj_dict_index_str(wk, py->install_paths, "purelib", &puredir)) {
@@ -346,7 +346,7 @@ get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, o
 	} else {
 		obj platdir;
 		get_option_value(wk, current_project(wk), "python.platlibdir", &platdir);
-		if (!str_eql(get_str(wk, platdir), &WKSTR(""))) {
+		if (!str_eql(get_str(wk, platdir), &STR(""))) {
 			path_push(wk, &installdir, get_cstr(wk, platdir));
 		} else {
 			if (!obj_dict_index_str(wk, py->install_paths, "platlib", &platdir)) {

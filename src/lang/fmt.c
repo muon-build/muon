@@ -873,8 +873,8 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 				if (prev && (str = fmt_frag_as_simple_str(f, prev->child))) {
 					obj cur = fmt_frag_as_simple_str(f, child->child);
 					const struct str *s = get_str(f->wk, str);
-					bool prev_is_arg_like = str_startswith(s, &WKSTR("-")) && !strchr(s->s, '='),
-					     cur_is_arg_like = cur && str_startswith(get_str(f->wk, cur), &WKSTR("-"));
+					bool prev_is_arg_like = str_startswith(s, &STR("-")) && !strchr(s->s, '='),
+					     cur_is_arg_like = cur && str_startswith(get_str(f->wk, cur), &STR("-"));
 
 					if (prev_is_arg_like && !cur_is_arg_like
 						&& !(child->pre_ws && child->pre_ws->type == fmt_frag_type_ws_comment_trailing)) {
@@ -918,7 +918,7 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 
 		if (is_func_with_single_arg) {
 			if (n->l->type == node_type_string
-				&& str_startswith(get_str(f->wk, n->l->data.str), &WKSTR("'''"))) {
+				&& str_startswith(get_str(f->wk, n->l->data.str), &STR("'''"))) {
 				fr->flags |= fmt_frag_flag_force_single_line;
 			}
 		}
@@ -1014,15 +1014,15 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_string: {
 		obj str;
 		if (f->opts.simplify_string_literals && (str = fmt_obj_as_simple_str(f, n->data.str))
-			&& !str_contains(get_str(f->wk, str), &WKSTR("\n"))
-			&& !str_contains(get_str(f->wk, str), &WKSTR("'"))) {
+			&& !str_contains(get_str(f->wk, str), &STR("\n"))
+			&& !str_contains(get_str(f->wk, str), &STR("'"))) {
 			struct str newstr = *get_str(f->wk, n->data.str);
-			if (str_startswith(&newstr, &WKSTR("f"))) {
+			if (str_startswith(&newstr, &STR("f"))) {
 				++newstr.s;
 				--newstr.len;
 			}
 
-			if (str_startswith(&newstr, &WKSTR("'''"))) {
+			if (str_startswith(&newstr, &STR("'''"))) {
 				newstr.s += 2;
 				newstr.len -= 4;
 			}
@@ -1168,7 +1168,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 			enum fmt_special_function function = fmt_special_function_unknown;
 
 			if (n->r->type == node_type_id_lit) {
-				if (str_eql(get_str(f->wk, n->r->data.str), &WKSTR("files"))) {
+				if (str_eql(get_str(f->wk, n->r->data.str), &STR("files"))) {
 					function = fmt_special_function_files;
 				}
 			}
@@ -1196,7 +1196,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 					if (args->l) {
 						if (args->l->type != node_type_string
 							|| str_startswith(
-								get_str(f->wk, args->l->data.str), &WKSTR("f"))) {
+								get_str(f->wk, args->l->data.str), &STR("f"))) {
 							all_elements_are_simple_strings = false;
 							break;
 						}
@@ -1730,7 +1730,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 	}
 
 	enum vm_compile_mode compile_mode = vm_compile_mode_fmt;
-	if (str_endswith(&WKSTR(src->label), &WKSTR(".meson"))) {
+	if (str_endswith(&STRL(src->label), &STR(".meson"))) {
 		compile_mode |= vm_compile_mode_language_extended;
 	}
 

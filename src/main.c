@@ -324,7 +324,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	case 'W': {
 		bool enable = true;
 		const char *name = optarg;
-		if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) {
+		if (str_startswith(&STRL(optarg), &STR("no-"))) {
 			enable = false;
 			name += 3;
 		}
@@ -739,7 +739,7 @@ cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]
 			}
 		} else if (strcmp(optarg, "i1") == 0) {
 			int64_t res;
-			if (!str_to_i(&WKSTR(sep), &res, false)) {
+			if (!str_to_i(&STRL(sep), &res, false)) {
 				LOG_E("invalid value for integer: %s", sep);
 				return false;
 			}
@@ -1013,8 +1013,8 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 				continue;
 			}
 
-			if (str_eql(&WKSTR("vsenv"), get_str(&wk, oo->name))) {
-				opts.vsenv_force = str_eql(&WKSTR("true"), get_str(&wk, oo->val));
+			if (str_eql(&STR("vsenv"), get_str(&wk, oo->name))) {
+				opts.vsenv_force = str_eql(&STR("true"), get_str(&wk, oo->val));
 			}
 		}
 	}

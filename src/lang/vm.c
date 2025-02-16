@@ -873,7 +873,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 		if (capture->func->akw[i].set) {
 			val = capture->func->akw[i].val;
 		} else if (capture->defargs) {
-			const struct str s = WKSTR(capture->func->akw[i].key);
+			const struct str s = STRL(capture->func->akw[i].key);
 			obj_dict_index_strn(wk, capture->defargs, s.s, s.len, &val);
 		}
 
@@ -2533,7 +2533,7 @@ vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 	obj name, line;
 	if (sep) {
 		int64_t l;
-		if (!str_to_i(&WKSTR(sep + 1), &l, true)) {
+		if (!str_to_i(&STRL(sep + 1), &l, true)) {
 			LOG_E("invalid line number: %s", sep + 1);
 			return false;
 		}
@@ -2590,7 +2590,7 @@ vm_check_break(struct workspace *wk, uint32_t ip)
 			printf("checking %s:%d / %s:%d\n", name->s, breakpoint.dat.line, src->label, dloc.line);
 
 			if (breakpoint.dat.line == dloc.line && wk->vm.dbg_state.prev_source_location.off != loc.off
-				&& str_contains(&WKSTR(src->label), name)) {
+				&& str_contains(&STRL(src->label), name)) {
 				wk->vm.dbg_state.prev_source_location = loc;
 
 				line = breakpoint.dat.line;

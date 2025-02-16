@@ -211,10 +211,10 @@ compiler_language_to_s(enum compiler_language l)
 bool
 s_to_compiler_language(const char *_s, enum compiler_language *l)
 {
-	const struct str s = WKSTR(_s);
+	const struct str s = STRL(_s);
 	uint32_t i;
 	for (i = 0; i < compiler_language_count; ++i) {
-		if (str_eqli(&s, &WKSTR(compiler_language_names[i]))) {
+		if (str_eqli(&s, &STRL(compiler_language_names[i]))) {
 			*l = i;
 			return true;
 		}
@@ -400,8 +400,8 @@ compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 		goto detection_over;
 	}
 
-	if (str_containsi(&TSTR_WKSTR(&cmd_ctx.out), &WKSTR("clang"))) {
-		if (str_contains(&TSTR_WKSTR(&cmd_ctx.out), &WKSTR("Apple"))) {
+	if (str_containsi(&TSTR_STR(&cmd_ctx.out), &STR("clang"))) {
+		if (str_contains(&TSTR_STR(&cmd_ctx.out), &STR("Apple"))) {
 			type = compiler_apple_clang;
 		} else if (strstr(cmd_ctx.out.buf, "CL.EXE COMPATIBILITY")) {
 			type = compiler_clang_cl;
@@ -527,7 +527,7 @@ compiler_get_libdirs(struct workspace *wk, struct obj_compiler *comp)
 				.len = e ? (uint32_t)(e - s) : strlen(s),
 			};
 
-			comp->libdirs = str_split(wk, &str, &WKSTR(ENV_PATH_SEP_STR));
+			comp->libdirs = str_split(wk, &str, &STR(ENV_PATH_SEP_STR));
 			goto done;
 		}
 
@@ -676,7 +676,7 @@ toolchain_exe_detect(struct workspace *wk,
 	}
 
 	obj cmd_arr_opt;
-	get_option(wk, NULL, &WKSTR(toolchain_exe_option_name), &cmd_arr_opt);
+	get_option(wk, NULL, &STRL(toolchain_exe_option_name), &cmd_arr_opt);
 	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
 
 	if (cmd_arr->source > option_value_source_default) {
@@ -1360,7 +1360,7 @@ TOOLCHAIN_PROTO_1s(compiler_cl_args_output)
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
 
-	if (str_endswithi(&WKSTR(s1), &WKSTR(".exe"))) {
+	if (str_endswithi(&STRL(s1), &STR(".exe"))) {
 		snprintf(buf, BUF_SIZE_S, "/Fe%s", s1);
 	} else {
 		snprintf(buf, BUF_SIZE_S, "/Fo%s", s1);

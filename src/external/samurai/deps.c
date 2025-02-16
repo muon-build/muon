@@ -498,7 +498,7 @@ err:
 static struct samu_nodearray *
 samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *deps_prefix)
 {
-	const struct str prefix = deps_prefix ? WKSTR(deps_prefix->s) : WKSTR("Note: including file: ");
+	const struct str prefix = deps_prefix ? STRL(deps_prefix->s) : STR("Note: including file: ");
 	const char *whitespace = " \r\t";
 	struct str line = { .s = out->buf, .len = 0 };
 	int32_t i;
@@ -524,9 +524,9 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 		}
 
 		if (!seen_prefix
-			&& (str_endswithi(&line, &WKSTR(".c")) || str_endswithi(&line, &WKSTR(".cc"))
-				|| str_endswithi(&line, &WKSTR(".cxx")) || str_endswithi(&line, &WKSTR(".cpp"))
-				|| str_endswithi(&line, &WKSTR(".c++")))) {
+			&& (str_endswithi(&line, &STR(".c")) || str_endswithi(&line, &STR(".cc"))
+				|| str_endswithi(&line, &STR(".cxx")) || str_endswithi(&line, &STR(".cpp"))
+				|| str_endswithi(&line, &STR(".c++")))) {
 			// cl.exe likes to output the name of the compiled
 			// file.  ninja filters this here so we do the same.
 			goto cont;
@@ -552,8 +552,8 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 			path_make_absolute(0, &path, buf.buf);
 
 			// Skip system headers
-			if (str_contains(&line, &WKSTR("program files"))
-				|| str_contains(&line, &WKSTR("microsoft visual studio"))) {
+			if (str_contains(&line, &STR("program files"))
+				|| str_contains(&line, &STR("microsoft visual studio"))) {
 				goto cont;
 			}
 

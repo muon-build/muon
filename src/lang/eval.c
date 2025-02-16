@@ -87,7 +87,7 @@ ensure_project_is_first_statement(struct workspace *wk, struct source *src, stru
 {
 	bool first_statement_is_a_call_to_project = n->type == node_type_stmt && n->l && n->l->type == node_type_call
 						    && n->l->r && n->l->r->type == node_type_id_lit
-						    && str_eql(get_str(wk, n->l->r->data.str), &WKSTR("project"));
+						    && str_eql(get_str(wk, n->l->r->data.str), &STR("project"));
 
 	if (!first_statement_is_a_call_to_project) {
 		if (!check_only) {

@@ -279,11 +279,11 @@ editorconfig_cfg_parse_cb(void *_ctx,
 		return true;
 	}
 
-	struct str kstr = WKSTR(k);
+	struct str kstr = STRL(k);
 	str_to_lower(&kstr);
 
 	if (v) {
-		struct str vstr = WKSTR(k);
+		struct str vstr = STRL(k);
 		str_to_lower(&vstr);
 	}
 

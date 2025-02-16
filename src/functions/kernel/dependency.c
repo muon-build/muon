@@ -54,7 +54,7 @@ dependency_lookup_method_from_s(const struct str *s, enum dependency_lookup_meth
 {
 	uint32_t i;
 	for (i = 0; i < ARRAY_LEN(dependency_lookup_method_names); ++i) {
-		if (str_eql(s, &WKSTR(dependency_lookup_method_names[i].name))) {
+		if (str_eql(s, &STRL(dependency_lookup_method_names[i].name))) {
 			*lookup_method = dependency_lookup_method_names[i].method;
 			break;
 		}
@@ -917,7 +917,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 				dep->type = dependency_type_not_found;
 			}
 		}
-	} else if (!str_eql(get_str(wk, ctx.name), &WKSTR(""))) {
+	} else if (!str_eql(get_str(wk, ctx.name), &STR(""))) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 
 		if (!ctx.from_cache) {
@@ -1463,7 +1463,7 @@ dedup_compile_args_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *s = get_str(wk, val);
 
-	if (str_eql(s, &WKSTR("-pthread")) || str_startswith(s, &WKSTR("-W")) || str_startswith(s, &WKSTR("-D"))) {
+	if (str_eql(s, &STR("-pthread")) || str_startswith(s, &STR("-W")) || str_startswith(s, &STR("-D"))) {
 		if (obj_array_in(wk, new_args, val)) {
 			return ir_cont;
 		}

@@ -214,38 +214,38 @@ MUON_ATTR_FORMAT(printf, 3, 4) lex_error_token(struct lexer *lexer, struct token
 ******************************************************************************/
 
 static const struct lex_str_token_table lex_2chr_tokens[] = {
-	{ WKSTR_STATIC("!="), token_type_neq },
-	{ WKSTR_STATIC("+="), token_type_plus_assign },
-	{ WKSTR_STATIC("<="), token_type_leq },
-	{ WKSTR_STATIC("=="), token_type_eq },
-	{ WKSTR_STATIC(">="), token_type_geq },
+	{ STR("!="), token_type_neq },
+	{ STR("+="), token_type_plus_assign },
+	{ STR("<="), token_type_leq },
+	{ STR("=="), token_type_eq },
+	{ STR(">="), token_type_geq },
 };
 
 static const struct lex_str_token_table lex_2chr_tokens_func[] = {
-	{ WKSTR_STATIC("->"), token_type_returntype },
+	{ STR("->"), token_type_returntype },
 };
 
 static const struct lex_str_token_table lex_keyword_tokens[] = {
-	{ WKSTR_STATIC("and"), token_type_and },
-	{ WKSTR_STATIC("break"), token_type_break },
-	{ WKSTR_STATIC("continue"), token_type_continue },
-	{ WKSTR_STATIC("elif"), token_type_elif },
-	{ WKSTR_STATIC("else"), token_type_else },
-	{ WKSTR_STATIC("endforeach"), token_type_endforeach },
-	{ WKSTR_STATIC("endif"), token_type_endif },
-	{ WKSTR_STATIC("false"), token_type_false },
-	{ WKSTR_STATIC("foreach"), token_type_foreach },
-	{ WKSTR_STATIC("if"), token_type_if },
-	{ WKSTR_STATIC("in"), token_type_in },
-	{ WKSTR_STATIC("not"), token_type_not },
-	{ WKSTR_STATIC("or"), token_type_or },
-	{ WKSTR_STATIC("true"), token_type_true },
+	{ STR("and"), token_type_and },
+	{ STR("break"), token_type_break },
+	{ STR("continue"), token_type_continue },
+	{ STR("elif"), token_type_elif },
+	{ STR("else"), token_type_else },
+	{ STR("endforeach"), token_type_endforeach },
+	{ STR("endif"), token_type_endif },
+	{ STR("false"), token_type_false },
+	{ STR("foreach"), token_type_foreach },
+	{ STR("if"), token_type_if },
+	{ STR("in"), token_type_in },
+	{ STR("not"), token_type_not },
+	{ STR("or"), token_type_or },
+	{ STR("true"), token_type_true },
 };
 
 static const struct lex_str_token_table lex_keyword_tokens_func[] = {
-	{ WKSTR_STATIC("endfunc"), token_type_endfunc },
-	{ WKSTR_STATIC("func"), token_type_func },
-	{ WKSTR_STATIC("return"), token_type_return },
+	{ STR("endfunc"), token_type_endfunc },
+	{ STR("func"), token_type_func },
+	{ STR("return"), token_type_return },
 };
 
 static void
@@ -492,7 +492,7 @@ unterminated_string:
 static void
 lex_string(struct lexer *lexer, struct token *token)
 {
-	const struct str multiline_terminator = WKSTR("'''");
+	const struct str multiline_terminator = STR("'''");
 	TSTR(buf);
 
 	if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
@@ -609,7 +609,7 @@ restart:
 							++skip;
 						}
 
-						if (str_startswith(&WKSTR(&lexer->src[lexer->i + skip]), &WKSTR("##"))) {
+						if (str_startswith(&STRL(&lexer->src[lexer->i + skip]), &STR("##"))) {
 							skip += 2;
 
 							uint32_t i;
@@ -670,10 +670,10 @@ restart:
 		}
 	}
 
-	if (str_eql(&lexer_str(2), &WKSTR("\\\n"))) {
+	if (str_eql(&lexer_str(2), &STR("\\\n"))) {
 		lex_advance_n(lexer, 2);
 		goto restart;
-	} else if (str_eql(&lexer_str(3), &WKSTR("\\\r\n"))) {
+	} else if (str_eql(&lexer_str(3), &STR("\\\r\n"))) {
 		lex_advance_n(lexer, 3);
 		goto restart;
 	}
@@ -690,7 +690,7 @@ restart:
 		return;
 	}
 
-	if (str_eql(&lexer_str(2), &WKSTR("f\'"))) {
+	if (str_eql(&lexer_str(2), &STR("f\'"))) {
 		start = lexer->i;
 		lex_advance(lexer);
 		token->type = token_type_fstring;
@@ -838,10 +838,10 @@ lexer_get_preceeding_whitespace(struct lexer *lexer)
 bool
 lexer_is_fmt_comment(const struct str *comment, bool *fmt_on)
 {
-	if (str_eql(comment, &WKSTR("fmt:off")) || str_eql(comment, &WKSTR("fmt: off"))) {
+	if (str_eql(comment, &STR("fmt:off")) || str_eql(comment, &STR("fmt: off"))) {
 		*fmt_on = false;
 		return true;
-	} else if (str_eql(comment, &WKSTR("fmt:on")) || str_eql(comment, &WKSTR("fmt: on"))) {
+	} else if (str_eql(comment, &STR("fmt:on")) || str_eql(comment, &STR("fmt: on"))) {
 		*fmt_on = true;
 		return true;
 	}
@@ -854,33 +854,33 @@ lexer_is_fmt_comment(const struct str *comment, bool *fmt_on)
 ******************************************************************************/
 
 static const struct lex_str_token_table cm_lex_keyword_tokens_command[] = {
-	{ WKSTR_STATIC("else"), token_type_else },
-	{ WKSTR_STATIC("elseif"), token_type_elif },
-	{ WKSTR_STATIC("endif"), token_type_endif },
-	{ WKSTR_STATIC("if"), token_type_if },
+	{ STR("else"), token_type_else },
+	{ STR("elseif"), token_type_elif },
+	{ STR("endif"), token_type_endif },
+	{ STR("if"), token_type_if },
 };
 
 static const struct lex_str_token_table cm_lex_keyword_tokens_conditional[] = {
-	{ WKSTR_STATIC("NOT"), token_type_not },
-	{ WKSTR_STATIC("AND"), token_type_and },
-	{ WKSTR_STATIC("OR"), token_type_or },
-	{ WKSTR_STATIC("EQUAL"), token_type_eq },
-	{ WKSTR_STATIC("LESS"), '<' },
-	{ WKSTR_STATIC("LESS_EQUAL"), token_type_leq },
-	{ WKSTR_STATIC("GREATER"), '>' },
-	{ WKSTR_STATIC("GREATER_EQUAL"), token_type_geq },
-	{ WKSTR_STATIC("STREQUAL"), token_type_eq, cm_token_subtype_comp_str },
-	{ WKSTR_STATIC("STRLESS"), '<', cm_token_subtype_comp_str },
-	{ WKSTR_STATIC("STRLESS_EQUAL"), token_type_leq, cm_token_subtype_comp_str },
-	{ WKSTR_STATIC("STRGREATER"), '>', cm_token_subtype_comp_str },
-	{ WKSTR_STATIC("STRGREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
-	{ WKSTR_STATIC("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("VERSION_LESS"), '<', cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("VERSION_GREATER"), '>', cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver },
-	{ WKSTR_STATIC("PATH_EQUAL"), token_type_eq, cm_token_subtype_comp_path },
-	{ WKSTR_STATIC("MATCHES"), token_type_eq, cm_token_subtype_comp_regex },
+	{ STR("NOT"), token_type_not },
+	{ STR("AND"), token_type_and },
+	{ STR("OR"), token_type_or },
+	{ STR("EQUAL"), token_type_eq },
+	{ STR("LESS"), '<' },
+	{ STR("LESS_EQUAL"), token_type_leq },
+	{ STR("GREATER"), '>' },
+	{ STR("GREATER_EQUAL"), token_type_geq },
+	{ STR("STREQUAL"), token_type_eq, cm_token_subtype_comp_str },
+	{ STR("STRLESS"), '<', cm_token_subtype_comp_str },
+	{ STR("STRLESS_EQUAL"), token_type_leq, cm_token_subtype_comp_str },
+	{ STR("STRGREATER"), '>', cm_token_subtype_comp_str },
+	{ STR("STRGREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
+	{ STR("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
+	{ STR("VERSION_LESS"), '<', cm_token_subtype_comp_ver },
+	{ STR("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver },
+	{ STR("VERSION_GREATER"), '>', cm_token_subtype_comp_ver },
+	{ STR("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver },
+	{ STR("PATH_EQUAL"), token_type_eq, cm_token_subtype_comp_path },
+	{ STR("MATCHES"), token_type_eq, cm_token_subtype_comp_regex },
 };
 
 void

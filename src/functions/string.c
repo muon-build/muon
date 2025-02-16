@@ -275,31 +275,31 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 		enum op_type op;
 	} ops[] = {
 		{
-			WKSTR(">="),
+			STR(">="),
 			op_ge,
 		},
 		{
-			WKSTR(">"),
+			STR(">"),
 			op_gt,
 		},
 		{
-			WKSTR("=="),
+			STR("=="),
 			op_eq,
 		},
 		{
-			WKSTR("!="),
+			STR("!="),
 			op_ne,
 		},
 		{
-			WKSTR("<="),
+			STR("<="),
 			op_le,
 		},
 		{
-			WKSTR("<"),
+			STR("<"),
 			op_lt,
 		},
 		{
-			WKSTR("="),
+			STR("="),
 			op_eq,
 		},
 	};

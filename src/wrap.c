@@ -214,7 +214,7 @@ wrap_parse_provides_cb(void *_ctx,
 
 	if (ctx->add_provides_tgt) {
 		if (!obj_array_foreach(ctx->wk,
-			    str_split_strip(ctx->wk, &WKSTR(v), &WKSTR(","), NULL),
+			    str_split_strip(ctx->wk, &STRL(v), &STR(","), NULL),
 			    ctx,
 			    wrap_parse_provides_cb_add_provides_iter)) {
 			return false;
@@ -460,7 +460,7 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	path_basename(NULL, &wrap->name, wrap_file);
 
-	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len }, ext = WKSTR(".wrap");
+	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len }, ext = STR(".wrap");
 
 	assert(str_endswith(&name, &ext));
 
@@ -651,7 +651,7 @@ wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 	int64_t depth = 0;
 	char depth_str[64] = { 0 };
 	if (wrap->fields[wf_depth]) {
-		if (!str_to_i(&WKSTR(wrap->fields[wf_depth]), &depth, true)) {
+		if (!str_to_i(&STRL(wrap->fields[wf_depth]), &depth, true)) {
 			LOG_E("invalid value for depth: '%s'", wrap->fields[wf_depth]);
 			return false;
 		}
@@ -742,7 +742,7 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 
 	wrap->outdated = true;
 
-	if (str_eqli(&WKSTR("HEAD"), &WKSTR(wrap->fields[wf_revision]))) {
+	if (str_eqli(&STR("HEAD"), &STRL(wrap->fields[wf_revision]))) {
 		// head is always outdated
 	} else {
 		if (git_rev_parse(wrap->dest_dir.buf, "HEAD", &head_rev)
@@ -866,7 +866,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 {
 	struct wrap_load_all_ctx *ctx = _ctx;
 
-	if (!str_endswith(&WKSTR(file), &WKSTR(".wrap"))) {
+	if (!str_endswith(&STRL(file), &STR(".wrap"))) {
 		return ir_cont;
 	}
 

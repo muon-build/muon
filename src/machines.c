@@ -115,17 +115,17 @@ machine_system_to_kernel_name(enum machine_system sys)
 static enum machine_system
 machine_system(const struct str *sysname)
 {
-	if (str_eql(sysname, &WKSTR("unknown"))) {
+	if (str_eql(sysname, &STR("unknown"))) {
 		return machine_system_unknown;
 	}
 
 	// The Cygwin environment for Windows
-	if (str_startswith(sysname, &WKSTR("cygwin_nt"))) {
+	if (str_startswith(sysname, &STR("cygwin_nt"))) {
 		return machine_system_cygwin;
 	}
 
 	// The MSYS2 environment for Windows
-	if (str_startswith(sysname, &WKSTR("msys_nt"))) {
+	if (str_startswith(sysname, &STR("msys_nt"))) {
 		return machine_system_msys2;
 	}
 
@@ -151,7 +151,7 @@ machine_system(const struct str *sysname)
 
 	uint32_t i;
 	for (i = 0; i < ARRAY_LEN(map); ++i) {
-		if (str_eql(&WKSTR(map[i].name), sysname)) {
+		if (str_eql(&STRL(map[i].name), sysname)) {
 			return map[i].sys;
 		}
 	}
@@ -164,11 +164,11 @@ machine_cpu(struct machine_definition *m, const struct str *mstr)
 {
 	const char *norm = 0;
 
-	if (str_startswith(mstr, &WKSTR("aarch64"))) {
+	if (str_startswith(mstr, &STR("aarch64"))) {
 		norm = "aarch64";
-	} else if (str_startswith(mstr, &WKSTR("earm"))) {
+	} else if (str_startswith(mstr, &STR("earm"))) {
 		norm = "arm";
-	} else if (str_startswith(mstr, &WKSTR("mips"))) {
+	} else if (str_startswith(mstr, &STR("mips"))) {
 		if (strstr(mstr->s, "64")) {
 			norm = "mips64";
 		} else {
@@ -179,7 +179,7 @@ machine_cpu(struct machine_definition *m, const struct str *mstr)
 
 		uint32_t i;
 		for (i = 0; map[i][0]; ++i) {
-			if (str_eql(&WKSTR(map[i][0]), mstr)) {
+			if (str_eql(&STRL(map[i][0]), mstr)) {
 				norm = map[i][1];
 				break;
 			}
@@ -200,16 +200,16 @@ machine_cpu_family(struct machine_definition *m)
 {
 	const char *norm = 0;
 
-	if (m->cpu[0] == 'i' && str_endswith(&WKSTR(m->cpu), &WKSTR("86"))) {
+	if (m->cpu[0] == 'i' && str_endswith(&STRL(m->cpu), &STR("86"))) {
 		norm = "x86";
-	} else if (str_startswith(&WKSTR(m->cpu), &WKSTR("arm64"))) {
+	} else if (str_startswith(&STRL(m->cpu), &STR("arm64"))) {
 		norm = "aarch64";
-	} else if (str_startswith(&WKSTR(m->cpu), &WKSTR("arm"))) {
+	} else if (str_startswith(&STRL(m->cpu), &STR("arm"))) {
 		norm = "arm";
-	} else if (str_startswith(&WKSTR(m->cpu), &WKSTR("powerpc64"))
-		   || str_startswith(&WKSTR(m->cpu), &WKSTR("ppc64"))) {
+	} else if (str_startswith(&STRL(m->cpu), &STR("powerpc64"))
+		   || str_startswith(&STRL(m->cpu), &STR("ppc64"))) {
 		norm = "ppc64";
-	} else if (str_startswith(&WKSTR(m->cpu), &WKSTR("powerpc")) || str_startswith(&WKSTR(m->cpu), &WKSTR("ppc"))) {
+	} else if (str_startswith(&STRL(m->cpu), &STR("powerpc")) || str_startswith(&STRL(m->cpu), &STR("ppc"))) {
 		norm = "ppc";
 	} else {
 		const char *map[][2] = {
@@ -228,7 +228,7 @@ machine_cpu_family(struct machine_definition *m)
 
 		uint32_t i;
 		for (i = 0; map[i][0]; ++i) {
-			if (str_eql(&WKSTR(map[i][0]), &WKSTR(m->cpu))) {
+			if (str_eql(&STRL(map[i][0]), &STRL(m->cpu))) {
 				norm = map[i][1];
 				break;
 			}
@@ -330,22 +330,22 @@ machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 
 	// Fill in missing slots
 	if (i == 0) {
-		parts[0] = WKSTR("unknown");
-		parts[1] = WKSTR("unknown");
-		parts[2] = WKSTR("unknown");
-		parts[3] = WKSTR("unknown");
+		parts[0] = STR("unknown");
+		parts[1] = STR("unknown");
+		parts[2] = STR("unknown");
+		parts[3] = STR("unknown");
 	} else if (i == 1) {
-		parts[1] = WKSTR("unknown");
-		parts[2] = WKSTR("unknown");
-		parts[3] = WKSTR("unknown");
+		parts[1] = STR("unknown");
+		parts[2] = STR("unknown");
+		parts[3] = STR("unknown");
 	} else if (i == 2) {
 		parts[2] = parts[1];
-		parts[1] = WKSTR("unknown");
-		parts[3] = WKSTR("unknown");
+		parts[1] = STR("unknown");
+		parts[3] = STR("unknown");
 	} else if (i == 3) {
 		parts[3] = parts[2];
 		parts[2] = parts[1];
-		parts[1] = WKSTR("unknown");
+		parts[1] = STR("unknown");
 	} else if (i == 4) {
 		// nothing to do, we got all the parts
 	} else {
@@ -362,7 +362,7 @@ machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
 		parts[3].len,
 		parts[3].s);
 
-	if (str_eql(&parts[part_sys], &WKSTR("apple"))) {
+	if (str_eql(&parts[part_sys], &STR("apple"))) {
 		m->sys = machine_system_darwin;
 	}
 }
@@ -380,8 +380,8 @@ machine_init(void)
 	const char *sysstr = uname_sysname();
 
 	build_machine.kind = machine_kind_build;
-	build_machine.sys = machine_system(&WKSTR(sysstr));
-	machine_cpu(&build_machine, &WKSTR(mstr));
+	build_machine.sys = machine_system(&STRL(sysstr));
+	machine_cpu(&build_machine, &STRL(mstr));
 	machine_cpu_family(&build_machine);
 	build_machine.endianness = uname_endian();
 	build_machine.address_bits = machine_cpu_address_bits(&build_machine);

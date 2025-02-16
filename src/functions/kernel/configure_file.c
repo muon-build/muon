@@ -654,11 +654,11 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 	enum configure_file_output_format output_format = configure_file_output_format_c;
 	if (akw[kw_output_format].set) {
 		const struct str *output_format_str = get_str(wk, akw[kw_output_format].val);
-		if (str_eql(output_format_str, &WKSTR("c"))) {
+		if (str_eql(output_format_str, &STR("c"))) {
 			output_format = configure_file_output_format_c;
-		} else if (str_eql(output_format_str, &WKSTR("nasm"))) {
+		} else if (str_eql(output_format_str, &STR("nasm"))) {
 			output_format = configure_file_output_format_nasm;
-		} else if (str_eql(output_format_str, &WKSTR("json"))) {
+		} else if (str_eql(output_format_str, &STR("json"))) {
 			output_format = configure_file_output_format_json;
 		} else {
 			vm_error_at(
@@ -782,11 +782,11 @@ copy_err:
 
 			if (akw[kw_format].set) {
 				const struct str *fmt = get_str(wk, akw[kw_format].val);
-				if (str_eql(fmt, &WKSTR("meson"))) {
+				if (str_eql(fmt, &STR("meson"))) {
 					syntax = configure_file_syntax_mesondefine | configure_file_syntax_mesonvar;
-				} else if (str_eql(fmt, &WKSTR("cmake"))) {
+				} else if (str_eql(fmt, &STR("cmake"))) {
 					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_cmakevar;
-				} else if (str_eql(fmt, &WKSTR("cmake@"))) {
+				} else if (str_eql(fmt, &STR("cmake@"))) {
 					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_mesonvar;
 				} else {
 					vm_error_at(

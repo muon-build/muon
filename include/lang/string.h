@@ -14,14 +14,15 @@
 
 struct workspace;
 
-#define WKSTR(cstring)                               \
+#define STR(__str)                               \
 	(struct str)                                 \
 	{                                            \
-		.s = cstring, .len = strlen(cstring) \
+		.s = ("" __str ""), sizeof(__str) - 1 \
 	}
-#define WKSTR_STATIC(str)            \
+#define STRL(__str)            \
+	(struct str) \
 	{                            \
-		str, sizeof(str) - 1 \
+		.s = __str, .len = strlen(__str) \
 	}
 
 /* tstr */
@@ -42,7 +43,7 @@ enum tstr_flags {
 #define TSTR(name) TSTR_CUSTOM(name, 1024, 0)
 #define TSTR_manual(name) TSTR_CUSTOM(name, 1024, tstr_flag_overflow_alloc)
 #define TSTR_FILE(__name, __f) struct tstr __name = { .flags = tstr_flag_write, .buf = (void *)__f };
-#define TSTR_WKSTR(sb) (struct str) { .s = (sb)->buf, .len = (sb)->len }
+#define TSTR_STR(__s) (struct str) { .s = (__s)->buf, .len = (__s)->len }
 
 struct tstr {
 	char *buf;

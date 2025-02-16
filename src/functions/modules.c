@@ -182,7 +182,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					const struct str schema_str = { path.s, sep - path.s };
 					for (schema = 0; (uint32_t)schema < ARRAY_LEN(schema_type_str); ++schema) {
 						if (schema_type_str[schema]
-							&& str_eql(&WKSTR(schema_type_str[schema]), &schema_str)) {
+							&& str_eql(&STRL(schema_type_str[schema]), &schema_str)) {
 							break;
 						}
 					}
