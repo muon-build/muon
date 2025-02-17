@@ -532,7 +532,7 @@ struct obj_clear_mark {
 	struct bucket_arr_save obj_aos[obj_type_count - _obj_aos_start];
 };
 
-void make_obj(struct workspace *wk, obj *id, enum obj_type type);
+obj make_obj(struct workspace *wk, enum obj_type type);
 enum obj_type get_obj_type(struct workspace *wk, obj id);
 
 void make_default_objects(struct workspace *wk);

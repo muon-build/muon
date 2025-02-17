@@ -39,10 +39,10 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_compiler);
+	*res = make_obj(wk, obj_compiler);
 	struct obj_compiler *c = get_obj_compiler(wk, *res);
 	c->ver = make_str(wk, "unknown");
-	make_obj(wk, &c->libdirs, obj_array);
+	c->libdirs = make_obj(wk, obj_array);
 
 	{
 		const struct {

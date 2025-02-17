@@ -932,7 +932,7 @@ render_option(struct workspace *wk, obj k, obj o)
 
 		if (ImGui::Combo("", &cur, items, ARRAY_LEN(items))) {
 			obj val;
-			make_obj(wk, &val, obj_feature_opt);
+			val = make_obj(wk, obj_feature_opt);
 			set_obj_feature_opt(wk, val, (feature_opt_state)cur);
 			set_option(wk, 0, o, val, option_value_source_commandline, false);
 		}
@@ -1125,7 +1125,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 
 	if (ctx->init && !first) {
 		obj opts;
-		make_obj(wk, &opts, obj_dict);
+		opts = make_obj(wk, obj_dict);
 		workspace_init_bare(&wk_bu);
 		uint32_t i;
 		for (i = 0; i < wk->projects.len; ++i) {

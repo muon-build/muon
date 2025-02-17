@@ -346,7 +346,7 @@ process_custom_target_commandline(struct workspace *wk,
 	obj arr,
 	obj *res)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	struct custom_target_cmd_fmt_ctx ctx = {
 		.opts = opts,
@@ -429,7 +429,7 @@ custom_command_output_format_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	obj f;
-	make_obj(wk, &f, obj_file);
+	f = make_obj(wk, obj_file);
 	*get_obj_file(wk, f) = s;
 
 	obj_array_push(wk, ctx->opts->output, f);
@@ -472,7 +472,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 {
 	obj input, raw_output, output, args;
 
-	make_obj(wk, res, obj_custom_target);
+	*res = make_obj(wk, obj_custom_target);
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 	tgt->name = opts->name;
 	tgt->callstack = vm_callstack(wk);
@@ -486,7 +486,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 	}
 
 	if (opts->input_orig) {
-		make_obj(wk, &input, obj_array);
+		input = make_obj(wk, obj_array);
 
 		struct process_custom_tgt_sources_ctx ctx = {
 			.err_node = opts->input_node,
@@ -496,7 +496,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 
 		if (get_obj_type(wk, opts->input_orig) != obj_array) {
 			obj arr_input;
-			make_obj(wk, &arr_input, obj_array);
+			arr_input = make_obj(wk, obj_array);
 			obj_array_push(wk, arr_input, opts->input_orig);
 			opts->input_orig = arr_input;
 		}
@@ -516,7 +516,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 			return false;
 		}
 
-		make_obj(wk, &output, obj_array);
+		output = make_obj(wk, obj_array);
 		struct custom_target_cmd_fmt_ctx ctx = {
 			.opts = &(struct process_custom_target_commandline_opts) {
 				.err_node = opts->output_node,
@@ -568,7 +568,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 		.extra_args = opts->extra_args,
 		.extra_args_valid = opts->extra_args_valid,
 	};
-	make_obj(wk, &cmdline_opts.depends, obj_array);
+	cmdline_opts.depends = make_obj(wk, obj_array);
 	if (!process_custom_target_commandline(wk, &cmdline_opts, opts->command_orig, &args)) {
 		return false;
 	}
@@ -797,7 +797,7 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj command;
-	make_obj(wk, &command, obj_array);
+	command = make_obj(wk, obj_array);
 
 	push_args_null_terminated(wk,
 		command,

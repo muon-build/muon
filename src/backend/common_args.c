@@ -300,7 +300,7 @@ ca_get_base_compiler_args(struct workspace *wk,
 	ca_get_buildtype(wk, proj, tgt, &buildtype);
 
 	obj args;
-	make_obj(wk, &args, obj_array);
+	args = make_obj(wk, obj_array);
 
 	push_args(wk, args, toolchain_compiler_always(wk, comp));
 
@@ -383,9 +383,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 {
 	assert(!tgt->processed_args);
 
-	make_obj(wk, &tgt->processed_args, obj_dict);
+	tgt->processed_args = make_obj(wk, obj_dict);
 	if (tgt->pch) {
-		make_obj(wk, &tgt->processed_args_pch, obj_dict);
+		tgt->processed_args_pch = make_obj(wk, obj_dict);
 	}
 
 	if (tgt->flags & build_tgt_generated_include) {
@@ -397,7 +397,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		}
 
 		obj inc;
-		make_obj(wk, &inc, obj_array);
+		inc = make_obj(wk, obj_array);
 		obj_array_push(wk, inc, make_str(wk, private_path));
 		obj_array_extend_nodup(wk, inc, tgt->dep_internal.include_directories);
 		tgt->dep_internal.include_directories = inc;
@@ -447,7 +447,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		ca_setup_compiler_args_includes(wk, comp_id, tgt->dep_internal.include_directories, args, true);
 
 		obj args_post;
-		make_obj(wk, &args_post, obj_array);
+		args_post = make_obj(wk, obj_array);
 
 		{ /* compile args */
 			if (tgt->dep_internal.compile_args) {
@@ -495,7 +495,7 @@ obj
 ca_build_target_joined_args(struct workspace *wk, obj processed_args)
 {
 	obj joined;
-	make_obj(wk, &joined, obj_dict);
+	joined = make_obj(wk, obj_dict);
 
 	obj lang, v;
 	obj_dict_for(wk, processed_args, lang, v) {
@@ -811,7 +811,7 @@ ca_relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 void
 ca_relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj *res)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct ca_relativize_paths_ctx ctx = {
 		.relativize_strings = relativize_strings,
 		.dest = *res,
@@ -823,7 +823,7 @@ ca_relativize_paths(struct workspace *wk, obj arr, bool relativize_strings, obj 
 void
 ca_relativize_path(struct workspace *wk, obj path, bool relativize_strings, obj *res)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct ca_relativize_paths_ctx ctx = {
 		.relativize_strings = relativize_strings,
 		.oneshot = res,
@@ -846,7 +846,7 @@ obj
 ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 {
 	obj regen_args;
-	make_obj(wk, &regen_args, obj_array);
+	regen_args = make_obj(wk, obj_array);
 
 	if (!opts_only) {
 		obj_array_push(wk, regen_args, make_str(wk, wk->argv0));

@@ -168,11 +168,11 @@ func_option(struct workspace *wk, obj self, obj *res)
 			if (akw[kw_choices].set) {
 				val = akw[kw_choices].val;
 			} else {
-				make_obj(wk, &val, obj_array);
+				val = make_obj(wk, obj_array);
 			}
 			break;
 		case op_feature:
-			make_obj(wk, &val, obj_feature_opt);
+			val = make_obj(wk, obj_feature_opt);
 			set_obj_feature_opt(wk, val, feature_opt_auto);
 			break;
 		default: UNREACHABLE_RETURN;
@@ -180,7 +180,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 	}
 
 	obj opt;
-	make_obj(wk, &opt, obj_option);
+	opt = make_obj(wk, obj_option);
 	struct obj_option *o = get_obj_option(wk, opt);
 	o->name = an[0].val;
 	o->type = type;

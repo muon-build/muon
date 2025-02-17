@@ -49,7 +49,7 @@ func_module_keyval_load(struct workspace *wk, obj self, obj *res)
 	default: UNREACHABLE;
 	}
 
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 
 	struct keyval_parse_ctx ctx = {
 		.wk = wk,

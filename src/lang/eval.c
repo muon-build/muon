@@ -162,7 +162,7 @@ eval(struct workspace *wk, struct source *src, enum build_language lang, enum ev
 		bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
 		if (trace_subdir) {
 			obj subdir_eval_trace;
-			make_obj(wk, &subdir_eval_trace, obj_array);
+			subdir_eval_trace = make_obj(wk, obj_array);
 			obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
 			stack_push(&wk->stack, wk->vm.dbg_state.eval_trace, subdir_eval_trace);
 		}
@@ -388,7 +388,7 @@ cmd_found:
 			break;
 		case repl_cmd_watch:
 			if (!wk->vm.dbg_state.watched) {
-				make_obj(wk, &wk->vm.dbg_state.watched, obj_array);
+				wk->vm.dbg_state.watched = make_obj(wk, obj_array);
 			}
 
 			obj_array_push(wk, wk->vm.dbg_state.watched, make_str(wk, arg));

@@ -20,7 +20,7 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 {
 	switch (json_getType(json)) {
 	case JSON_OBJ:
-		make_obj(wk, res, obj_dict);
+		*res = make_obj(wk, obj_dict);
 		for (const json_t *child = json_getChild(json); child; child = json_getSibling(child)) {
 			obj val;
 
@@ -33,7 +33,7 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 		}
 		break;
 	case JSON_ARRAY:
-		make_obj(wk, res, obj_array);
+		*res = make_obj(wk, obj_array);
 		for (const json_t *child = json_getChild(json); child; child = json_getSibling(child)) {
 			obj val;
 
@@ -48,7 +48,7 @@ build_dict_from_json(struct workspace *wk, const json_t *json, obj *res)
 	/* muon doesn't have reals, so use string for the time being */
 	case JSON_REAL: *res = make_str(wk, json_getValue(json)); break;
 	case JSON_INTEGER:
-		make_obj(wk, res, obj_number);
+		*res = make_obj(wk, obj_number);
 		set_obj_number(wk, *res, (int64_t)json_getInteger(json));
 		break;
 	case JSON_NULL: *res = obj_null; break;

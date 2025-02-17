@@ -224,7 +224,7 @@ missing_schema:
 				};
 
 				if (encapsulate) {
-					make_obj(wk, res, obj_module);
+					*res = make_obj(wk, obj_module);
 					m = get_obj_module(wk, *res);
 
 					if (obj_dict_index_strn(wk,
@@ -266,7 +266,7 @@ missing_schema:
 						return false;
 					}
 
-					make_obj(wk, res, obj_module);
+					*res = make_obj(wk, obj_module);
 					m = get_obj_module(wk, *res);
 					m->module = mod_type;
 					m->found = has_impl;

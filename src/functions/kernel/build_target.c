@@ -182,7 +182,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	obj_array_push(wk, tgt->dep_internal.order_deps, tstr_into_str(wk, &path));
 
 	if (!tgt->dep_internal.raw.order_deps) {
-		make_obj(wk, &tgt->dep_internal.raw.order_deps, obj_array);
+		tgt->dep_internal.raw.order_deps = make_obj(wk, obj_array);
 	}
 	obj_array_push(wk, tgt->dep_internal.raw.order_deps, val);
 
@@ -193,7 +193,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	path_dirname(wk, &dir, src);
 
 	obj inc;
-	make_obj(wk, &inc, obj_include_directory);
+	inc = make_obj(wk, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
 	d->path = tstr_into_str(wk, &dir);
 	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
@@ -509,7 +509,7 @@ create_target(struct workspace *wk,
 	obj *res)
 {
 	char plain_name[BUF_SIZE_2k + 1] = { 0 };
-	make_obj(wk, res, obj_build_target);
+	*res = make_obj(wk, obj_build_target);
 	struct obj_build_target *tgt = get_obj_build_target(wk, *res);
 	tgt->type = type;
 	tgt->name = an[0].val;
@@ -517,10 +517,10 @@ create_target(struct workspace *wk,
 	tgt->build_dir = current_project(wk)->build_dir;
 	tgt->machine = coerce_machine_kind(wk, &akw[bt_kw_native]);
 	tgt->callstack = vm_callstack(wk);
-	make_obj(wk, &tgt->args, obj_dict);
-	make_obj(wk, &tgt->src, obj_array);
-	make_obj(wk, &tgt->required_compilers, obj_dict);
-	make_obj(wk, &tgt->extra_files, obj_array);
+	tgt->args = make_obj(wk, obj_dict);
+	tgt->src = make_obj(wk, obj_array);
+	tgt->required_compilers = make_obj(wk, obj_dict);
+	tgt->extra_files = make_obj(wk, obj_array);
 	build_dep_init(wk, &tgt->dep_internal);
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
@@ -678,7 +678,7 @@ create_target(struct workspace *wk,
 			obj_array_dedup(wk, tgt->objects, &deduped);
 			tgt->objects = deduped;
 		} else {
-			make_obj(wk, &tgt->objects, obj_array);
+			tgt->objects = make_obj(wk, obj_array);
 		}
 
 		obj_array_extend(wk, tgt->objects, tgt->dep_internal.objects);
@@ -724,7 +724,7 @@ create_target(struct workspace *wk,
 
 	{ // include directories
 		obj inc_dirs;
-		make_obj(wk, &inc_dirs, obj_array);
+		inc_dirs = make_obj(wk, obj_array);
 		uint32_t node = an[0].node; // TODO: not a very informative error node
 
 		if (implicit_include_directories) {
@@ -807,7 +807,7 @@ create_target(struct workspace *wk,
 			}
 
 			if (!tgt->pch) {
-				make_obj(wk, &tgt->pch, obj_dict);
+				tgt->pch = make_obj(wk, obj_dict);
 			}
 			obj_dict_seti(wk, tgt->pch, pch_args[i].l, pch_file);
 		}
@@ -1058,7 +1058,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 
 		if (tgt && !multi_target) {
 			multi_target = true;
-			make_obj(wk, res, obj_array);
+			*res = make_obj(wk, obj_array);
 			obj_array_push(wk, *res, tgt);
 
 			// If this target is a multi-target (both_libraries),
@@ -1092,7 +1092,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 
 	if (multi_target) {
 		obj val;
-		make_obj(wk, &val, obj_both_libs);
+		val = make_obj(wk, obj_both_libs);
 		struct obj_both_libs *both = get_obj_both_libs(wk, val);
 		obj_array_index(wk, *res, 0, &both->static_lib);
 		obj_array_index(wk, *res, 1, &both->dynamic_lib);

@@ -92,7 +92,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		ca_relativize_paths(wk, tgt->input, false, &inputs);
 	}
 
-	make_obj(wk, &outputs, obj_array);
+	outputs = make_obj(wk, obj_array);
 	if (tgt->output) {
 		ca_relativize_paths(wk, tgt->output, false, &outputs);
 	} else {
@@ -109,7 +109,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 		obj_array_push(wk, outputs, name);
 	}
 
-	make_obj(wk, &cmdline, obj_array);
+	cmdline = make_obj(wk, obj_array);
 	obj_array_push(wk, cmdline, make_str(wk, wk->argv0));
 	obj_array_push(wk, cmdline, make_str(wk, "internal"));
 	obj_array_push(wk, cmdline, make_str(wk, "exe"));

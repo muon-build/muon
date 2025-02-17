@@ -442,7 +442,7 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 
 		obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", get_cstr(wk, src)));
 
-		make_obj(wk, &ctx->stray_args, obj_array);
+		ctx->stray_args = make_obj(wk, obj_array);
 		obj_array_push(wk, ctx->stray_args, tstr_into_str(wk, &build_dir));
 	}
 
@@ -718,9 +718,9 @@ translate_meson_opts(struct workspace *wk,
 	}
 
 	struct translate_meson_opts_ctx ctx = { .subcommand = argv[argi] };
-	make_obj(wk, &ctx.argv, obj_array);
-	make_obj(wk, &ctx.prepend_args, obj_array);
-	make_obj(wk, &ctx.stray_args, obj_array);
+	ctx.argv = make_obj(wk, obj_array);
+	ctx.prepend_args = make_obj(wk, obj_array);
+	ctx.stray_args = make_obj(wk, obj_array);
 
 	++argi;
 	if (!translate_func(wk, argv + argi, argc - argi, &ctx)) {

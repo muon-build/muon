@@ -68,7 +68,7 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj self, obj *res)
 		*res = self;
 		return true;
 	} else {
-		make_obj(wk, res, obj_feature_opt);
+		*res = make_obj(wk, obj_feature_opt);
 		set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		return true;
 	}
@@ -91,7 +91,7 @@ func_feature_opt_enable_auto_if(struct workspace *wk, obj self, obj *res)
 		*res = self;
 		return true;
 	} else {
-		make_obj(wk, res, obj_feature_opt);
+		*res = make_obj(wk, obj_feature_opt);
 		set_obj_feature_opt(wk, *res, feature_opt_enabled);
 		return true;
 	}
@@ -121,7 +121,7 @@ func_feature_opt_enable_if(struct workspace *wk, obj self, obj *res)
 		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
 	} else {
-		make_obj(wk, res, obj_feature_opt);
+		*res = make_obj(wk, obj_feature_opt);
 		set_obj_feature_opt(wk, *res, feature_opt_enabled);
 		return true;
 	}
@@ -153,7 +153,7 @@ func_feature_opt_disable_if(struct workspace *wk, obj self, obj *res)
 		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
 	} else {
-		make_obj(wk, res, obj_feature_opt);
+		*res = make_obj(wk, obj_feature_opt);
 		set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		return true;
 	}
@@ -184,7 +184,7 @@ func_feature_opt_require(struct workspace *wk, obj self, obj *res)
 							    "requirement not met");
 			return false;
 		} else {
-			make_obj(wk, res, obj_feature_opt);
+			*res = make_obj(wk, obj_feature_opt);
 			set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		}
 	} else {

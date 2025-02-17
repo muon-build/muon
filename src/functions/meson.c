@@ -71,7 +71,7 @@ func_meson_project_license(struct workspace *wk, obj _, obj *res)
 
 	*res = current_project(wk)->cfg.license;
 	if (!*res) {
-		make_obj(wk, res, obj_array);
+		*res = make_obj(wk, obj_array);
 	}
 	return true;
 }
@@ -85,7 +85,7 @@ func_meson_project_license_files(struct workspace *wk, obj _, obj *res)
 
 	*res = current_project(wk)->cfg.license_files;
 	if (!*res) {
-		make_obj(wk, res, obj_array);
+		*res = make_obj(wk, obj_array);
 	}
 	return true;
 }
@@ -301,7 +301,7 @@ func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 	case obj_build_target:
 	case obj_custom_target:
 	case obj_file:
-		make_obj(wk, &override, obj_array);
+		override = make_obj(wk, obj_array);
 		obj_array_push(wk, override, an[1].val);
 
 		obj ver = 0;
@@ -429,7 +429,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 		.allow_not_built = true,
 		.make_deps_default = true,
 	};
-	make_obj(wk, &ctx.arr, obj_array);
+	ctx.arr = make_obj(wk, obj_array);
 
 	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
 		return false;
@@ -444,7 +444,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj install_script;
-	make_obj(wk, &install_script, obj_array);
+	install_script = make_obj(wk, obj_array);
 	obj_array_push(wk, install_script, akw[kw_skip_if_destdir].val);
 	obj_array_push(wk, install_script, akw[kw_dry_run].val);
 	obj_array_push(wk, install_script, ctx.arr);
@@ -463,7 +463,7 @@ func_meson_add_postconf_script(struct workspace *wk, obj _, obj *res)
 	struct process_script_commandline_ctx ctx = {
 		.node = an[0].node,
 	};
-	make_obj(wk, &ctx.arr, obj_array);
+	ctx.arr = make_obj(wk, obj_array);
 
 	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
 		return false;
@@ -486,7 +486,7 @@ func_meson_add_dist_script(struct workspace *wk, obj _, obj *res)
 		.node = an[0].node,
 		.allow_not_built = true,
 	};
-	make_obj(wk, &ctx.arr, obj_array);
+	ctx.arr = make_obj(wk, obj_array);
 
 	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
 		return false;
@@ -601,11 +601,11 @@ static obj
 compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
 {
 	obj res;
-	make_obj(wk, &res, obj_dict);
+	res = make_obj(wk, obj_dict);
 
 	for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
 		obj r;
-		make_obj(wk, &r, obj_dict);
+		r = make_obj(wk, obj_dict);
 
 		obj k, v;
 		obj_dict_for(wk, d[machine], k, v) {
@@ -627,7 +627,7 @@ func_meson_project(struct workspace *wk, obj _, obj *res)
 
 	struct project *proj = current_project(wk);
 
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 
 	if (!proj) {
 		return true;
@@ -674,7 +674,7 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj handler_dict;
-	make_obj(wk, &handler_dict, obj_dict);
+	handler_dict = make_obj(wk, obj_dict);
 
 	bool set_any = false;
 

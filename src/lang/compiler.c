@@ -183,7 +183,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	case node_type_number:
 		push_code(wk, op_constant);
 		obj o;
-		make_obj(wk, &o, obj_number);
+		o = make_obj(wk, obj_number);
 		set_obj_number(wk, o, n->data.num);
 		push_constant(wk, o);
 		break;
@@ -474,7 +474,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			++patch_tgts;
 			push_constant(wk, 0);
 
-			make_obj(wk, &az_branches, obj_array);
+			az_branches = make_obj(wk, obj_array);
 			push_constant(wk, az_branches);
 		}
 
@@ -539,7 +539,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			end_jmp[2] = wk->vm.code.len;
 			push_constant(wk, 0);
 
-			make_obj(wk, &az_branches, obj_array);
+			az_branches = make_obj(wk, obj_array);
 			push_constant(wk, az_branches);
 		}
 
@@ -607,7 +607,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			end_jmp[1] = wk->vm.code.len;
 			push_constant(wk, 0);
 
-			make_obj(wk, &az_branches, obj_array);
+			az_branches = make_obj(wk, obj_array);
 			push_constant(wk, az_branches);
 
 			obj_array_push(wk,
@@ -652,7 +652,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		struct obj_func *func;
 		struct node *arg;
 
-		make_obj(wk, &f, obj_func);
+		f = make_obj(wk, obj_func);
 		func = get_obj_func(wk, f);
 
 		push_code(wk, op_jmp);

@@ -212,7 +212,7 @@ str_to_file_iter(struct workspace *wk, void *_ctx, obj v)
 	obj *arr = _ctx;
 
 	obj f;
-	make_obj(wk, &f, obj_file);
+	f = make_obj(wk, obj_file);
 	*get_obj_file(wk, f) = v;
 	obj_array_push(wk, *arr, f);
 	return ir_cont;
@@ -361,7 +361,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			break;
 		case dependency_type_external_library: {
 			obj link_with_files;
-			make_obj(wk, &link_with_files, obj_array);
+			link_with_files = make_obj(wk, obj_array);
 
 			if (dep->dep.link_with) {
 				obj_array_foreach(wk, dep->dep.link_with, &link_with_files, str_to_file_iter);
@@ -613,7 +613,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 	}
 
 	obj arr;
-	make_obj(wk, &arr, obj_array);
+	arr = make_obj(wk, obj_array);
 	obj_array_push(wk, arr, libdir);
 	obj_array_extend_nodup(wk, arr, *libs);
 	*libs = arr;
@@ -643,7 +643,7 @@ static void
 module_pkgconf_remove_dups(struct workspace *wk, obj *list, obj exclude)
 {
 	obj arr;
-	make_obj(wk, &arr, obj_array);
+	arr = make_obj(wk, obj_array);
 
 	struct module_pkgconf_remove_dups_ctx ctx = {
 		.exclude = exclude,
@@ -790,13 +790,13 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 		.dataonly = akw[kw_dataonly].set ? get_obj_bool(wk, akw[kw_dataonly].val) : false,
 	};
 	for (i = 0; i < 2; ++i) {
-		make_obj(wk, &pc.libs[i], obj_array);
-		make_obj(wk, &pc.reqs[i], obj_array);
+		pc.libs[i] = make_obj(wk, obj_array);
+		pc.reqs[i] = make_obj(wk, obj_array);
 	}
-	make_obj(wk, &pc.cflags, obj_array);
-	make_obj(wk, &pc.variables, obj_array);
-	make_obj(wk, &pc.builtin_dir_variables, obj_array);
-	make_obj(wk, &pc.exclude, obj_array);
+	pc.cflags = make_obj(wk, obj_array);
+	pc.variables = make_obj(wk, obj_array);
+	pc.builtin_dir_variables = make_obj(wk, obj_array);
+	pc.exclude = make_obj(wk, obj_array);
 
 	obj mainlib = 0;
 	if (an[0].set) {
@@ -952,7 +952,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 		get_obj_build_target(wk, mainlib)->generated_pc = filebase;
 	}
 
-	make_obj(wk, res, obj_file);
+	*res = make_obj(wk, obj_file);
 	*get_obj_file(wk, *res) = tstr_into_str(wk, &path);
 
 	{

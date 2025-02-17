@@ -203,7 +203,7 @@ vm_inst_location_obj(struct workspace *wk, uint32_t ip)
 	get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
 
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 	obj_array_push(
 		wk, res, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 	obj_array_push(wk, res, make_number(wk, dloc.line));
@@ -215,7 +215,7 @@ obj
 vm_callstack(struct workspace *wk)
 {
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 
 	obj_array_push(wk, res, vm_inst_location_obj(wk, wk->vm.ip - 1));
 
@@ -368,7 +368,7 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 
 	if (listify) {
 		obj v, arr;
-		make_obj(wk, &arr, obj_array);
+		arr = make_obj(wk, obj_array);
 
 		if (t == obj_array) {
 			obj_array_flat_for_(wk, *val, v, flat_iter) {
@@ -481,7 +481,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			akw[i].val = 0;
 
 			if (akw[i].type & TYPE_TAG_GLOB) {
-				make_obj(wk, &akw[i].val, obj_dict);
+				akw[i].val = make_obj(wk, obj_dict);
 				akw[i].set = true;
 			}
 		}
@@ -550,7 +550,7 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			type &= ~TYPE_TAG_GLOB;
 			type |= TYPE_TAG_LISTIFY;
 			an[i].set = true;
-			make_obj(wk, &an[i].val, obj_array);
+			an[i].val = make_obj(wk, obj_array);
 			for (j = i; j < wk->vm.nargs; ++j) {
 				entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
 				wk->vm.saw_disabler |= entry->o == obj_disabler;
@@ -950,7 +950,7 @@ vm_op_constant_list(struct workspace *wk)
 {
 	obj b;
 	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	make_obj(wk, &b, obj_array);
+	b = make_obj(wk, obj_array);
 	for (i = 0; i < len; ++i) {
 		obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
 	}
@@ -964,7 +964,7 @@ vm_op_constant_dict(struct workspace *wk)
 {
 	obj b;
 	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	make_obj(wk, &b, obj_dict);
+	b = make_obj(wk, obj_dict);
 	for (i = 0; i < len; ++i) {
 		obj key = object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1);
 		if (wk->vm.in_analyzer && get_obj_type(wk, key) == obj_typeinfo) {
@@ -989,7 +989,7 @@ vm_op_constant_func(struct workspace *wk)
 	defargs = object_stack_pop(&wk->vm.stack);
 	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	make_obj(wk, &c, obj_capture);
+	c = make_obj(wk, obj_capture);
 	capture = get_obj_capture(wk, c);
 
 	capture->func = get_obj_func(wk, a);
@@ -1062,7 +1062,7 @@ vm_op_add(struct workspace *wk)
 	case obj_number: {
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
 
-		make_obj(wk, &res, obj_number);
+		res = make_obj(wk, obj_number);
 		set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
 		break;
 	}
@@ -1132,7 +1132,7 @@ type_err:
 	case obj_number: {                                                                                  \
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                \
                                                                                                             \
-		make_obj(wk, &res, obj_number);                                                             \
+		res = make_obj(wk, obj_number);                                                             \
 		set_obj_number(wk, res, get_obj_number(wk, a) __op get_obj_number(wk, b));                  \
 		break;                                                                                      \
 	}                                                                                                   \
@@ -1187,7 +1187,7 @@ vm_op_div(struct workspace *wk)
 	case obj_number:
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
 
-		make_obj(wk, &res, obj_number);
+		res = make_obj(wk, obj_number);
 		set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
 		break;
 	case obj_string: {
@@ -1394,7 +1394,7 @@ vm_op_negate(struct workspace *wk)
 
 	switch (a_t) {
 	case obj_number: {
-		make_obj(wk, &res, obj_number);
+		res = make_obj(wk, obj_number);
 		set_obj_number(wk, res, get_obj_number(wk, a) * -1);
 		break;
 	}
@@ -1566,7 +1566,7 @@ vm_op_store(struct workspace *wk)
 			assign = true;
 			typecheck_operand(val, val_t, obj_number, tc_number, tc_number);
 
-			make_obj(wk, &res, obj_number);
+			res = make_obj(wk, obj_number);
 			set_obj_number(wk, res, get_obj_number(wk, source) + get_obj_number(wk, val));
 			break;
 		}
@@ -1788,7 +1788,7 @@ vm_op_index(struct workspace *wk)
 			break;
 		}
 
-		make_obj(wk, &res, obj_number);
+		res = make_obj(wk, obj_number);
 		set_obj_number(wk, res, (i * iter->data.range.step) + iter->data.range.start);
 		break;
 	}
@@ -1846,7 +1846,7 @@ vm_op_member(struct workspace *wk)
 	}
 
 	obj res;
-	make_obj(wk, &res, obj_capture);
+	res = make_obj(wk, obj_capture);
 	struct obj_capture *c = get_obj_capture(wk, res);
 
 	if (f) {
@@ -1923,7 +1923,7 @@ vm_op_iterator(struct workspace *wk)
 			goto args_to_unpack_mismatch_error;
 		}
 
-		make_obj(wk, &iter, obj_iterator);
+		iter = make_obj(wk, obj_iterator);
 		object_stack_push(wk, iter);
 		iterator = get_obj_iterator(wk, iter);
 
@@ -1939,7 +1939,7 @@ vm_op_iterator(struct workspace *wk)
 			goto args_to_unpack_mismatch_error;
 		}
 
-		make_obj(wk, &iter, obj_iterator);
+		iter = make_obj(wk, obj_iterator);
 		object_stack_push(wk, iter);
 		iterator = get_obj_iterator(wk, iter);
 
@@ -1992,7 +1992,7 @@ vm_op_iterator(struct workspace *wk)
 			goto args_to_unpack_mismatch_error;
 		}
 
-		make_obj(wk, &iter, obj_iterator);
+		iter = make_obj(wk, obj_iterator);
 		object_stack_push(wk, iter);
 		iterator = get_obj_iterator(wk, iter);
 		iterator->type = obj_iterator_type_typeinfo;
@@ -2017,7 +2017,7 @@ args_to_unpack_mismatch_error:
 		obj_typestr(wk, a));
 
 push_dummy_iterator:
-	make_obj(wk, &iter, obj_iterator);
+	iter = make_obj(wk, obj_iterator);
 	object_stack_push(wk, iter);
 	iterator = get_obj_iterator(wk, iter);
 	iterator->type = obj_iterator_type_typeinfo;
@@ -2049,7 +2049,7 @@ vm_op_iterator_next(struct workspace *wk)
 		if (iterator->data.range.i >= iterator->data.range.stop) {
 			should_break = true;
 		} else {
-			make_obj(wk, &val, obj_number);
+			val = make_obj(wk, obj_number);
 			set_obj_number(wk, val, iterator->data.range.i);
 			iterator->data.range.i += iterator->data.range.step;
 		}
@@ -2423,7 +2423,7 @@ static obj
 vm_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
 	obj r, v;
-	make_obj(wk, &r, obj_array);
+	r = make_obj(wk, obj_array);
 	obj_array_for(wk, scope_stack, v) {
 		obj scope;
 		obj_dict_dup(wk, v, &scope);
@@ -2436,7 +2436,7 @@ static void
 vm_push_local_scope(struct workspace *wk)
 {
 	obj scope;
-	make_obj(wk, &scope, obj_dict);
+	scope = make_obj(wk, obj_dict);
 	obj_array_push(wk, wk->vm.scope_stack, scope);
 }
 
@@ -2500,7 +2500,7 @@ vm_dgb_enable(struct workspace *wk)
 	}
 
 	wk->vm.dbg_state.dbg = true;
-	make_obj(wk, &wk->vm.dbg_state.eval_trace, obj_array);
+	wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
 	wk->vm.dbg_state.root_eval_trace = wk->vm.dbg_state.eval_trace;
 }
 
@@ -2512,7 +2512,7 @@ vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line)
 	union vm_breakpoint breakpoint = { .dat = { file, line } };
 
 	if (!wk->vm.dbg_state.breakpoints) {
-		make_obj(wk, &wk->vm.dbg_state.breakpoints, obj_array);
+		wk->vm.dbg_state.breakpoints = make_obj(wk, obj_array);
 	}
 
 	obj_array_push(wk, wk->vm.dbg_state.breakpoints, make_number(wk, breakpoint.i));
@@ -2641,7 +2641,7 @@ bool
 vm_struct_(struct workspace *wk, const char *name)
 {
 	if (!wk->vm.registered_structs) {
-		make_obj(wk, &wk->vm.registered_structs, obj_dict);
+		wk->vm.registered_structs = make_obj(wk, obj_dict);
 	}
 
 	obj def;
@@ -2649,7 +2649,7 @@ vm_struct_(struct workspace *wk, const char *name)
 		return false;
 	}
 
-	make_obj(wk, &def, obj_dict);
+	def = make_obj(wk, obj_dict);
 	obj_dict_set(wk, wk->vm.registered_structs, make_str(wk, name), def);
 	return true;
 }
@@ -2663,7 +2663,7 @@ vm_struct_member_(struct workspace *wk, const char *name, const char *member, ui
 	}
 
 	obj member_def;
-	make_obj(wk, &member_def, obj_array);
+	member_def = make_obj(wk, obj_array);
 	obj_array_push(wk, member_def, offset);
 	obj_array_push(wk, member_def, t);
 
@@ -2866,25 +2866,25 @@ vm_init(struct workspace *wk)
 	build_func_impl_tables();
 
 	/* default scope */
-	make_obj(wk, &wk->vm.default_scope_stack, obj_array);
+	wk->vm.default_scope_stack = make_obj(wk, obj_array);
 	obj scope;
-	make_obj(wk, &scope, obj_dict);
+	scope = make_obj(wk, obj_dict);
 	obj_array_push(wk, wk->vm.default_scope_stack, scope);
 
 	obj_dict_set(wk, scope, make_str(wk, "meson"), obj_meson);
 
 	obj id;
-	make_obj(wk, &id, obj_machine);
+	id = make_obj(wk, obj_machine);
 	set_obj_machine(wk, id, machine_kind_build);
 	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
 
-	make_obj(wk, &id, obj_machine);
+	id = make_obj(wk, obj_machine);
 	set_obj_machine(wk, id, machine_kind_host);
 	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
 	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
 
 	/* module cache */
-	make_obj(wk, &wk->vm.modules, obj_dict);
+	wk->vm.modules = make_obj(wk, obj_dict);
 
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
 

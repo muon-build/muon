@@ -222,7 +222,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 				ctx->default_options->val = newopts;
 			}
 		} else {
-			make_obj(wk, &ctx->default_options->val, obj_array);
+			ctx->default_options->val = make_obj(wk, obj_array);
 			obj_array_push(wk, ctx->default_options->val, libopt);
 			ctx->default_options->set = true;
 		}
@@ -306,7 +306,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		return true;
 	}
 
-	make_obj(wk, ctx->res, obj_dependency);
+	*ctx->res = make_obj(wk, obj_dependency);
 	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 	dep->name = ctx->name;
 	dep->version = ver_str;
@@ -339,7 +339,7 @@ get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx,
 
 		modules = ctx->modules;
 	} else {
-		make_obj(wk, &modules, obj_array);
+		modules = make_obj(wk, obj_array);
 		obj_array_push(wk, modules, ctx->name);
 	}
 
@@ -357,7 +357,7 @@ get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx,
 			.comp_id = compiler,
 		};
 
-		make_obj(wk, &opts.args, obj_array);
+		opts.args = make_obj(wk, obj_array);
 		obj_array_push(wk, opts.args, make_str(wk, "-framework"));
 		obj_array_push(wk, opts.args, fw);
 
@@ -378,7 +378,7 @@ get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx,
 		return true;
 	}
 
-	make_obj(wk, ctx->res, obj_dependency);
+	*ctx->res = make_obj(wk, obj_dependency);
 
 	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 
@@ -388,7 +388,7 @@ get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx,
 	dep->name = make_str(wk, name);
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_appleframeworks;
-	make_obj(wk, &dep->dep.frameworks, obj_array);
+	dep->dep.frameworks = make_obj(wk, obj_array);
 
 	obj v;
 	obj_array_for(wk, modules, v) {
@@ -418,7 +418,7 @@ get_dependency_system(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *fo
 
 	*found = true;
 
-	make_obj(wk, ctx->res, obj_dependency);
+	*ctx->res = make_obj(wk, obj_dependency);
 	find_library_result_to_dependency(wk, find_result, compiler, *ctx->res);
 	return true;
 }
@@ -529,7 +529,7 @@ get_dependency_fallback_name(struct workspace *wk, struct dep_lookup_ctx *ctx)
 
 	// implicitly fallback on a subproject named the same as this dependency
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 	obj_array_push(wk, res, ctx->name);
 	return res;
 }
@@ -633,16 +633,16 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		LOG_I("dependency threads found");
-		make_obj(wk, ctx->res, obj_dependency);
+		*ctx->res = make_obj(wk, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 		dep->name = ctx->name;
 		dep->flags |= dep_flag_found;
 		dep->type = dependency_type_threads;
 
-		make_obj(wk, &dep->dep.compile_args, obj_array);
+		dep->dep.compile_args = make_obj(wk, obj_array);
 		obj_array_push(wk, dep->dep.compile_args, make_str(wk, "-pthread"));
 
-		make_obj(wk, &dep->dep.link_args, obj_array);
+		dep->dep.link_args = make_obj(wk, obj_array);
 		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
 		ctx->found = true;
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
@@ -658,7 +658,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
 			return handle_special_dependency_result_error;
 		}
-		make_obj(wk, ctx->res, obj_dependency);
+		*ctx->res = make_obj(wk, obj_dependency);
 		ctx->found = true;
 	} else {
 		return handle_special_dependency_result_continue;
@@ -737,7 +737,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_dependency);
+		*res = make_obj(wk, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *res);
 		obj_array_index(wk, an[0].val, 0, &dep->name);
 		return true;
@@ -911,7 +911,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			if (ctx.disabler) {
 				*ctx.res = obj_disabler;
 			} else {
-				make_obj(wk, ctx.res, obj_dependency);
+				*ctx.res = make_obj(wk, obj_dependency);
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 				dep->name = ctx.name;
 				dep->type = dependency_type_not_found;
@@ -947,7 +947,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 
 		if (ctx.from_cache) {
 			obj dup;
-			make_obj(wk, &dup, obj_dependency);
+			dup = make_obj(wk, obj_dependency);
 			struct obj_dependency *newdep = get_obj_dependency(wk, dup);
 			*newdep = *dep;
 			dep = newdep;
@@ -1189,7 +1189,7 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 	}
 
 	struct obj_dependency *dep;
-	make_obj(wk, res, obj_dependency);
+	*res = make_obj(wk, obj_dependency);
 	dep = get_obj_dependency(wk, *res);
 
 	if (akw[kw_objects].set) {
@@ -1303,7 +1303,7 @@ dep_process_includes_iter(struct workspace *wk, void *_ctx, obj inc_id)
 	}
 
 	if (inc->is_system != new_is_system) {
-		make_obj(wk, &inc_id, obj_include_directory);
+		inc_id = make_obj(wk, obj_include_directory);
 		struct obj_include_directory *new_inc = get_obj_include_directory(wk, inc_id);
 		*new_inc = *inc;
 		new_inc->is_system = new_is_system;
@@ -1329,47 +1329,47 @@ void
 build_dep_init(struct workspace *wk, struct build_dep *dep)
 {
 	if (!dep->include_directories) {
-		make_obj(wk, &dep->include_directories, obj_array);
+		dep->include_directories = make_obj(wk, obj_array);
 	}
 
 	if (!dep->link_with) {
-		make_obj(wk, &dep->link_with, obj_array);
+		dep->link_with = make_obj(wk, obj_array);
 	}
 
 	if (!dep->link_whole) {
-		make_obj(wk, &dep->link_whole, obj_array);
+		dep->link_whole = make_obj(wk, obj_array);
 	}
 
 	if (!dep->link_with_not_found) {
-		make_obj(wk, &dep->link_with_not_found, obj_array);
+		dep->link_with_not_found = make_obj(wk, obj_array);
 	}
 
 	if (!dep->frameworks) {
-		make_obj(wk, &dep->frameworks, obj_array);
+		dep->frameworks = make_obj(wk, obj_array);
 	}
 
 	if (!dep->link_args) {
-		make_obj(wk, &dep->link_args, obj_array);
+		dep->link_args = make_obj(wk, obj_array);
 	}
 
 	if (!dep->compile_args) {
-		make_obj(wk, &dep->compile_args, obj_array);
+		dep->compile_args = make_obj(wk, obj_array);
 	}
 
 	if (!dep->order_deps) {
-		make_obj(wk, &dep->order_deps, obj_array);
+		dep->order_deps = make_obj(wk, obj_array);
 	}
 
 	if (!dep->rpath) {
-		make_obj(wk, &dep->rpath, obj_array);
+		dep->rpath = make_obj(wk, obj_array);
 	}
 
 	if (!dep->sources) {
-		make_obj(wk, &dep->sources, obj_array);
+		dep->sources = make_obj(wk, obj_array);
 	}
 
 	if (!dep->objects) {
-		make_obj(wk, &dep->objects, obj_array);
+		dep->objects = make_obj(wk, obj_array);
 	}
 }
 
@@ -1491,12 +1491,12 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->objects);
 
 	obj new_link_args;
-	make_obj(wk, &new_link_args, obj_array);
+	new_link_args = make_obj(wk, obj_array);
 	obj_array_foreach(wk, dep->link_args, &new_link_args, dedup_link_args_iter);
 	dep->link_args = new_link_args;
 
 	obj new_compile_args;
-	make_obj(wk, &new_compile_args, obj_array);
+	new_compile_args = make_obj(wk, obj_array);
 	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_compile_args_iter);
 	dep->compile_args = new_compile_args;
 }

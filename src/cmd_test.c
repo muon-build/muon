@@ -800,7 +800,7 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 	struct obj_test *test = get_obj_test(wk, t);
 
 	obj cmdline;
-	make_obj(wk, &cmdline, obj_array);
+	cmdline = make_obj(wk, obj_array);
 
 	if (ctx->setup.wrapper) {
 		obj_array_extend(wk, cmdline, ctx->setup.wrapper);
@@ -943,13 +943,13 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	obj_array_index(wk, arr, 0, &unfiltered_tests);
 
 	struct run_test_ctx *ctx = _ctx;
-	make_obj(wk, &ctx->deps, obj_array);
+	ctx->deps = make_obj(wk, obj_array);
 
 	ctx->stats.test_i = 0;
 	ctx->stats.error_count = 0;
 	ctx->stats.test_len = 0;
 
-	make_obj(wk, &ctx->collected_tests, obj_array);
+	ctx->collected_tests = make_obj(wk, obj_array);
 	obj_array_foreach(wk, unfiltered_tests, ctx, gather_project_tests_iter);
 	obj_array_sort(wk, NULL, ctx->collected_tests, test_compare, &tests);
 
@@ -1179,7 +1179,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 	{
 		obj ninja_cmd;
-		make_obj(&wk, &ninja_cmd, obj_array);
+		ninja_cmd = make_obj(&wk, obj_array);
 		obj_array_push(&wk, ninja_cmd, make_str(&wk, "build.ninja"));
 		ninja_run(&wk, ninja_cmd, NULL, NULL);
 	}

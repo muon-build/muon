@@ -27,21 +27,21 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
-	make_obj(wk, &proj->opts, obj_dict);
-	make_obj(wk, &proj->summary, obj_dict);
-	make_obj(wk, &proj->targets, obj_array);
-	make_obj(wk, &proj->tests, obj_array);
-	make_obj(wk, &proj->wrap_provides_deps, obj_dict);
-	make_obj(wk, &proj->wrap_provides_exes, obj_dict);
+	proj->opts = make_obj(wk, obj_dict);
+	proj->summary = make_obj(wk, obj_dict);
+	proj->targets = make_obj(wk, obj_array);
+	proj->tests = make_obj(wk, obj_array);
+	proj->wrap_provides_deps = make_obj(wk, obj_dict);
+	proj->wrap_provides_exes = make_obj(wk, obj_dict);
 
 	for (uint32_t i = 0; i < machine_kind_count; ++i) {
-		make_obj(wk, &proj->toolchains[i], obj_dict);
-		make_obj(wk, &proj->args[i], obj_dict);
-		make_obj(wk, &proj->link_args[i], obj_dict);
-		make_obj(wk, &proj->link_with[i], obj_dict);
-		make_obj(wk, &proj->include_dirs[i], obj_dict);
-		make_obj(wk, &proj->dep_cache.static_deps[i], obj_dict);
-		make_obj(wk, &proj->dep_cache.shared_deps[i], obj_dict);
+		proj->toolchains[i] = make_obj(wk, obj_dict);
+		proj->args[i] = make_obj(wk, obj_dict);
+		proj->link_args[i] = make_obj(wk, obj_dict);
+		proj->link_with[i] = make_obj(wk, obj_dict);
+		proj->include_dirs[i] = make_obj(wk, obj_dict);
+		proj->dep_cache.static_deps[i] = make_obj(wk, obj_dict);
+		proj->dep_cache.shared_deps[i] = make_obj(wk, obj_dict);
 	}
 
 	proj->subprojects_dir = make_str(wk, "subprojects");
@@ -126,25 +126,25 @@ workspace_init_runtime(struct workspace *wk)
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
 
-	make_obj(wk, &wk->binaries, obj_dict);
-	make_obj(wk, &wk->host_machine, obj_dict);
-	make_obj(wk, &wk->regenerate_deps, obj_array);
-	make_obj(wk, &wk->install, obj_array);
-	make_obj(wk, &wk->install_scripts, obj_array);
-	make_obj(wk, &wk->postconf_scripts, obj_array);
-	make_obj(wk, &wk->subprojects, obj_dict);
-	make_obj(wk, &wk->global_opts, obj_dict);
-	make_obj(wk, &wk->compiler_check_cache, obj_dict);
-	make_obj(wk, &wk->dependency_handlers, obj_dict);
-	make_obj(wk, &wk->finalizers, obj_array);
+	wk->binaries = make_obj(wk, obj_dict);
+	wk->host_machine = make_obj(wk, obj_dict);
+	wk->regenerate_deps = make_obj(wk, obj_array);
+	wk->install = make_obj(wk, obj_array);
+	wk->install_scripts = make_obj(wk, obj_array);
+	wk->postconf_scripts = make_obj(wk, obj_array);
+	wk->subprojects = make_obj(wk, obj_dict);
+	wk->global_opts = make_obj(wk, obj_dict);
+	wk->compiler_check_cache = make_obj(wk, obj_dict);
+	wk->dependency_handlers = make_obj(wk, obj_dict);
+	wk->finalizers = make_obj(wk, obj_array);
 
 	for (uint32_t i = 0; i < machine_kind_count; ++i) {
-		make_obj(wk, &wk->toolchains[i], obj_dict);
-		make_obj(wk, &wk->global_args[i], obj_dict);
-		make_obj(wk, &wk->global_link_args[i], obj_dict);
-		make_obj(wk, &wk->dep_overrides_static[i], obj_dict);
-		make_obj(wk, &wk->dep_overrides_dynamic[i], obj_dict);
-		make_obj(wk, &wk->find_program_overrides[i], obj_dict);
+		wk->toolchains[i] = make_obj(wk, obj_dict);
+		wk->global_args[i] = make_obj(wk, obj_dict);
+		wk->global_link_args[i] = make_obj(wk, obj_dict);
+		wk->dep_overrides_static[i] = make_obj(wk, obj_dict);
+		wk->dep_overrides_dynamic[i] = make_obj(wk, obj_dict);
+		wk->find_program_overrides[i] = make_obj(wk, obj_dict);
 	}
 }
 

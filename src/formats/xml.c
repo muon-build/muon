@@ -33,7 +33,7 @@ xml_node_push_attr(struct xml_writer *w, obj idx, const char *key, obj v)
 {
 	struct xml_node *attr, *node = bucket_arr_get(&w->nodes, idx);
 	if (!node->attr) {
-		make_obj(w->wk, &node->attr, obj_array);
+		node->attr = make_obj(w->wk, obj_array);
 	}
 
 	obj a = xml_node_new(w, key);
@@ -48,7 +48,7 @@ xml_node_push_child(struct xml_writer *w, obj idx, obj child)
 {
 	struct xml_node *node = bucket_arr_get(&w->nodes, idx);
 	if (!node->children) {
-		make_obj(w->wk, &node->children, obj_array);
+		node->children = make_obj(w->wk, obj_array);
 	}
 
 	obj_array_push(w->wk, node->children, child);

@@ -167,7 +167,7 @@ obj
 make_typeinfo(struct workspace *wk, type_tag t)
 {
 	obj res;
-	make_obj(wk, &res, obj_typeinfo);
+	res = make_obj(wk, obj_typeinfo);
 	struct obj_typeinfo *type = get_obj_typeinfo(wk, res);
 	type->type = t;
 	return res;
@@ -455,7 +455,7 @@ push_scope_group(struct workspace *wk)
 {
 	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
 	obj scope_group;
-	make_obj(wk, &scope_group, obj_array);
+	scope_group = make_obj(wk, obj_array);
 	obj_array_push(wk, local_scope, scope_group);
 }
 
@@ -466,7 +466,7 @@ push_scope_group_scope(struct workspace *wk)
 	obj scope_group = obj_array_get_tail(wk, local_scope);
 	obj scope;
 
-	make_obj(wk, &scope, obj_dict);
+	scope = make_obj(wk, obj_dict);
 	obj_array_push(wk, scope_group, scope);
 }
 
@@ -806,9 +806,9 @@ static void
 az_push_local_scope(struct workspace *wk)
 {
 	obj scope_group;
-	make_obj(wk, &scope_group, obj_array);
+	scope_group = make_obj(wk, obj_array);
 	obj scope;
-	make_obj(wk, &scope, obj_dict);
+	scope = make_obj(wk, obj_dict);
 	obj_array_push(wk, scope_group, scope);
 	obj_array_push(wk, wk->vm.scope_stack, scope_group);
 }
@@ -825,10 +825,10 @@ az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 {
 	obj dup, local_scope, scope_group, scope;
 	obj local_scope_dup, scope_group_dup, scope_dup;
-	make_obj(wk, &dup, obj_array);
+	dup = make_obj(wk, obj_array);
 
 	obj_array_for(wk, scope_stack, local_scope) {
-		make_obj(wk, &local_scope_dup, obj_array);
+		local_scope_dup = make_obj(wk, obj_array);
 
 		uint32_t i = 0;
 		obj_array_for(wk, local_scope, scope_group) {
@@ -836,7 +836,7 @@ az_scope_stack_dup(struct workspace *wk, obj scope_stack)
 				obj_dict_dup(wk, scope_group, &scope_dup);
 				obj_array_push(wk, local_scope_dup, scope_dup);
 			} else {
-				make_obj(wk, &scope_group_dup, obj_array);
+				scope_group_dup = make_obj(wk, obj_array);
 
 				obj_array_for(wk, scope_group, scope) {
 					obj_dict_dup(wk, scope, &scope_dup);
@@ -1392,9 +1392,9 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
 		obj_array_index(wk, wk->vm.default_scope_stack, 0, &original_scope);
-		make_obj(wk, &wk->vm.default_scope_stack, obj_array);
-		make_obj(wk, &scope_group, obj_array);
-		make_obj(wk, &scope, obj_dict);
+		wk->vm.default_scope_stack = make_obj(wk, obj_array);
+		scope_group = make_obj(wk, obj_array);
+		scope = make_obj(wk, obj_dict);
 		obj_array_push(wk, scope_group, scope);
 		obj_array_push(wk, wk->vm.default_scope_stack, scope_group);
 		obj k, v;
@@ -1440,7 +1440,7 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
 
 	if (analyzer.opts->eval_trace) {
-		make_obj(wk, &wk->vm.dbg_state.eval_trace, obj_array);
+		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
 	}
 
 	if (analyzer.opts->file_override) {

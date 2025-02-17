@@ -110,7 +110,7 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 		p = bucket_arr_pushn(&wk->vm.objects.chrs, NULL, 0, new_len);
 	}
 
-	make_obj(wk, s, obj_string);
+	*s = make_obj(wk, obj_string);
 
 	struct str *str = (struct str *)get_str(wk, *s);
 
@@ -517,7 +517,7 @@ obj
 str_split(struct workspace *wk, const struct str *ss, const struct str *split)
 {
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 
 	uint32_t i, start = 0;
 	obj s;
@@ -568,7 +568,7 @@ str_splitlines(struct workspace *wk, const struct str *ss)
 	const struct str *split;
 
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 
 	if (!ss->len) {
 		return res;
@@ -686,7 +686,7 @@ str_split_strip(struct workspace *wk, const struct str *ss, const struct str *sp
 		.strip = strip,
 	};
 
-	make_obj(wk, &ctx.res, obj_array);
+	ctx.res = make_obj(wk, obj_array);
 	obj_array_foreach(wk, str_split(wk, ss, split), &ctx, str_split_strip_iter);
 	return ctx.res;
 }

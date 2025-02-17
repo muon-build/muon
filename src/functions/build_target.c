@@ -230,7 +230,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	obj new_file;
-	make_obj(wk, &new_file, obj_file);
+	new_file = make_obj(wk, obj_file);
 	*get_obj_file(wk, new_file) = tstr_into_str(wk, &dest_path);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
@@ -239,7 +239,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 build_target_extract_objects(struct workspace *wk, obj self, uint32_t err_node, obj *res, obj arr)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.err_node = err_node,
@@ -274,7 +274,7 @@ build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.res = res,
@@ -316,7 +316,7 @@ func_build_target_private_dir_include(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_include_directory);
+	*res = make_obj(wk, obj_include_directory);
 	struct obj_include_directory *inc = get_obj_include_directory(wk, *res);
 
 	inc->path = get_obj_build_target(wk, self)->private_path;

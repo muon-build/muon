@@ -26,7 +26,7 @@ func_dict_keys(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	obj_dict_foreach(wk, self, res, dict_keys_iter);
 
 	return true;

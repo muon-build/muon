@@ -221,7 +221,7 @@ wrap_parse_provides_cb(void *_ctx,
 		}
 	} else {
 		obj arr;
-		make_obj(ctx->wk, &arr, obj_array);
+		arr = make_obj(ctx->wk, obj_array);
 		obj_array_push(ctx->wk, arr, ctx->wrap_name);
 		obj_array_push(ctx->wk, arr, make_str(ctx->wk, v));
 
@@ -883,7 +883,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 
 	{ // Add this wrap file as a regenerate dependency
 		obj wrap_file;
-		make_obj(ctx->wk, &wrap_file, obj_file);
+		wrap_file = make_obj(ctx->wk, obj_file);
 		*get_obj_file(ctx->wk, wrap_file) = make_str(ctx->wk, ctx->path->buf);
 		obj_array_push(ctx->wk, ctx->wk->regenerate_deps, wrap_file);
 	}
@@ -901,7 +901,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 		.wrap_name = make_str(ctx->wk, wrap.name.buf),
 	};
 
-	make_obj(ctx->wk, &wp_ctx.wrap_name_arr, obj_array);
+	wp_ctx.wrap_name_arr = make_obj(ctx->wk, obj_array);
 	obj_array_push(ctx->wk, wp_ctx.wrap_name_arr, wp_ctx.wrap_name);
 
 	if (!ini_reparse(ctx->path->buf, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {

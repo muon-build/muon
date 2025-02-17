@@ -41,7 +41,7 @@ static obj
 simple_type_to_arr(struct workspace *wk, type_tag t)
 {
 	obj expected_types;
-	make_obj(wk, &expected_types, obj_array);
+	expected_types = make_obj(wk, obj_array);
 
 	if (!(t & obj_typechecking_type_tag)) {
 		t = obj_type_to_tc_type(t);
@@ -92,7 +92,7 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 
 	if (!ti->subtype) {
 		obj res;
-		make_obj(wk, &res, obj_array);
+		res = make_obj(wk, obj_array);
 		obj_array_push(wk, res, typestr);
 		return res;
 	}
@@ -109,7 +109,7 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 		str_appf(wk, &typestr, "[%s]", typechecking_type_to_s(wk, ti->subtype));
 
 		obj res;
-		make_obj(wk, &res, obj_array);
+		res = make_obj(wk, obj_array);
 		obj_array_push(wk, res, typestr);
 		return res;
 	}
@@ -200,7 +200,7 @@ _obj_type_to_typestr(struct workspace *wk, obj o, uint32_t depth)
 	case obj_dict:
 	case obj_array: {
 		struct obj_type_to_typestr_ctx ctx = { .depth = depth + 1 };
-		make_obj(wk, &ctx.arr, obj_array);
+		ctx.arr = make_obj(wk, obj_array);
 
 		if (t == obj_dict) {
 			obj_dict_foreach(wk, o, &ctx, obj_type_to_typestr_dict_iter);

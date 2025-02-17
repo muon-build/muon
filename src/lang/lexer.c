@@ -815,7 +815,7 @@ lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum l
 	stack_init(&lexer->stack, 2048);
 
 	if (lexer->mode & lexer_mode_fmt) {
-		make_obj(lexer->wk, &lexer->fmt.raw_blocks, obj_array);
+		lexer->fmt.raw_blocks = make_obj(lexer->wk, obj_array);
 	}
 }
 

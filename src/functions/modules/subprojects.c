@@ -121,7 +121,7 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct subprojects_common_ctx ctx = {
 		.print = true,
 		.res = res,
@@ -151,7 +151,7 @@ subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, 
 	}
 
 	obj d;
-	make_obj(wk, &d, obj_dict);
+	d = make_obj(wk, obj_dict);
 	obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap.name.buf));
 	obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
 	obj_dict_set(wk, d, make_str(wk, "outdated"), make_obj_bool(wk, wrap.outdated));
@@ -204,7 +204,7 @@ func_subprojects_list(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct subprojects_common_ctx ctx = {
 		.print = get_obj_bool_with_default(wk, akw[kw_print].val, false),
 		.res = res,
@@ -263,7 +263,7 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct subprojects_common_ctx ctx = {
 		.force = get_obj_bool_with_default(wk, akw[kw_force].val, false),
 		.print = true,

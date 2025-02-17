@@ -70,7 +70,7 @@ project_add_language(struct workspace *wk,
 	}
 
 	if (compiler) {
-		make_obj(wk, &comp_id, obj_compiler);
+		comp_id = make_obj(wk, obj_compiler);
 		struct obj_compiler *c = get_obj_compiler(wk, comp_id);
 		*c = *get_obj_compiler(wk, compiler);
 		c->lang = l;
@@ -108,7 +108,7 @@ project_add_language(struct workspace *wk,
 		const enum compiler_type type = comp->type[toolchain_component_compiler];
 		if (type == compiler_clang || type == compiler_apple_clang) {
 			obj llvm_ir_compiler;
-			make_obj(wk, &llvm_ir_compiler, obj_compiler);
+			llvm_ir_compiler = make_obj(wk, obj_compiler);
 			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
 			*c = *comp;
 			c->type[toolchain_component_compiler] = compiler_clang_llvm_ir;
@@ -297,7 +297,7 @@ get_project_argument_array(struct workspace *wk, obj dict, enum compiler_languag
 {
 	obj arg_arr;
 	if (!obj_dict_geti(wk, dict, l, &arg_arr)) {
-		make_obj(wk, &arg_arr, obj_array);
+		arg_arr = make_obj(wk, obj_array);
 		obj_dict_seti(wk, dict, l, arg_arr);
 	}
 
@@ -623,10 +623,10 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 
 	if (get_obj_type(wk, op) == obj_file) {
 		obj newres;
-		make_obj(wk, &newres, obj_external_program);
+		newres = make_obj(wk, obj_external_program);
 		struct obj_external_program *ep = get_obj_external_program(wk, newres);
 		ep->found = true;
-		make_obj(wk, &ep->cmd_array, obj_array);
+		ep->cmd_array = make_obj(wk, obj_array);
 		obj_array_push(wk, ep->cmd_array, *get_obj_file(wk, op));
 		op = newres;
 	}
@@ -707,10 +707,10 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		const bool is_meson = strcmp(str, "meson") == 0;
 		const bool is_muon = !is_meson && strcmp(str, "muon") == 0;
 		if (is_meson || is_muon) {
-			make_obj(wk, ctx->res, obj_external_program);
+			*ctx->res = make_obj(wk, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
-			make_obj(wk, &ep->cmd_array, obj_array);
+			ep->cmd_array = make_obj(wk, obj_array);
 
 			const char *argv0_resolved;
 			TSTR(argv0);
@@ -802,10 +802,10 @@ find_program_step_8:
 	/* 8. Special cases, only if the binary was not found by regular means */
 	if (t == obj_string) {
 		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
-			make_obj(wk, ctx->res, obj_external_program);
+			*ctx->res = make_obj(wk, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
-			make_obj(wk, &ep->cmd_array, obj_array);
+			ep->cmd_array = make_obj(wk, obj_array);
 			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
 			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
 
@@ -817,7 +817,7 @@ find_program_step_8:
 	return true;
 found: {
 	obj cmd_array;
-	make_obj(wk, &cmd_array, obj_array);
+	cmd_array = make_obj(wk, obj_array);
 	obj_array_push(wk, cmd_array, make_str(wk, path));
 
 	if (ctx->version) {
@@ -836,7 +836,7 @@ found: {
 		}
 	}
 
-	make_obj(wk, ctx->res, obj_external_program);
+	*ctx->res = make_obj(wk, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 	ep->found = true;
 	ep->cmd_array = cmd_array;
@@ -884,7 +884,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = obj_disabler;
 		} else {
-			make_obj(wk, res, obj_external_program);
+			*res = make_obj(wk, obj_external_program);
 			get_obj_external_program(wk, *res)->found = false;
 		}
 		return true;
@@ -922,7 +922,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = obj_disabler;
 		} else {
-			make_obj(wk, res, obj_external_program);
+			*res = make_obj(wk, obj_external_program);
 			get_obj_external_program(wk, *res)->found = false;
 		}
 	}
@@ -974,11 +974,11 @@ func_generator(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj command;
-	make_obj(wk, &command, obj_array);
+	command = make_obj(wk, obj_array);
 	obj_array_push(wk, command, an[0].val);
 	obj_array_extend(wk, command, akw[kw_arguments].val);
 
-	make_obj(wk, res, obj_generator);
+	*res = make_obj(wk, obj_generator);
 	struct obj_generator *gen = get_obj_generator(wk, *res);
 
 	gen->output = akw[kw_output].val;
@@ -1219,7 +1219,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		goto ret;
 	}
 
-	make_obj(wk, res, obj_run_result);
+	*res = make_obj(wk, obj_run_result);
 	struct obj_run_result *run_result = get_obj_run_result(wk, *res);
 	run_result->status = cmd_ctx.status;
 	if (akw[kw_capture].set && !get_obj_bool(wk, akw[kw_capture].val)) {
@@ -1366,13 +1366,13 @@ func_configuration_data(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_configuration_data);
+	*res = make_obj(wk, obj_configuration_data);
 
 	if (an[0].set) {
 		get_obj_configuration_data(wk, *res)->dict = an[0].val;
 	} else {
 		obj dict;
-		make_obj(wk, &dict, obj_dict);
+		dict = make_obj(wk, obj_dict);
 		get_obj_configuration_data(wk, *res)->dict = dict;
 	}
 
@@ -1406,7 +1406,7 @@ func_add_test_setup(struct workspace *wk, obj _, obj *ret)
 	}
 
 	obj test_setup;
-	make_obj(wk, &test_setup, obj_array);
+	test_setup = make_obj(wk, obj_array);
 
 	obj env = 0;
 	if (akw[kw_env].set && !coerce_environment_from_kwarg(wk, &akw[kw_env], false, &env)) {
@@ -1432,7 +1432,7 @@ func_add_test_setup(struct workspace *wk, obj _, obj *ret)
 	obj_array_push(wk, test_setup, akw[kw_timeout_multiplier].val);
 
 	if (!current_project(wk)->test_setups) {
-		make_obj(wk, &current_project(wk)->test_setups, obj_array);
+		current_project(wk)->test_setups = make_obj(wk, obj_array);
 	}
 
 	obj_array_push(wk, current_project(wk)->test_setups, test_setup);
@@ -1578,7 +1578,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	}
 
 	obj test;
-	make_obj(wk, &test, obj_test);
+	test = make_obj(wk, obj_test);
 	struct obj_test *t = get_obj_test(wk, test);
 
 	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &t->env)) {
@@ -1602,7 +1602,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	}
 
 	struct add_test_depends_ctx deps_ctx = { .t = t };
-	make_obj(wk, &t->depends, obj_array);
+	t->depends = make_obj(wk, obj_array);
 	add_test_depends_iter(wk, &deps_ctx, an[1].val);
 	if (akw[kw_depends].set) {
 		obj_array_foreach(wk, akw[kw_depends].val, &deps_ctx, add_test_depends_iter);
@@ -1714,9 +1714,9 @@ func_environment(struct workspace *wk, obj _, obj *res)
 		mode = i;
 	}
 
-	make_obj(wk, res, obj_environment);
+	*res = make_obj(wk, obj_environment);
 	struct obj_environment *d = get_obj_environment(wk, *res);
-	make_obj(wk, &d->actions, obj_array);
+	d->actions = make_obj(wk, obj_array);
 
 	if (an[0].set) {
 		obj dict;
@@ -1764,7 +1764,7 @@ func_import(struct workspace *wk, obj _, obj *res)
 	bool found = false;
 
 	if (requirement == requirement_skip) {
-		make_obj(wk, res, obj_module);
+		*res = make_obj(wk, obj_module);
 	} else {
 		if (module_import(wk, get_cstr(wk, an[0].val), true, res)) {
 			found = true;
@@ -1907,7 +1907,7 @@ func_summary(struct workspace *wk, obj _, obj *res)
 			return false;
 		}
 
-		make_obj(wk, &dict, obj_dict);
+		dict = make_obj(wk, obj_dict);
 		obj_dict_set(wk, dict, an[0].val, an[1].val);
 	} else {
 		if (!typecheck(wk, an[0].node, an[0].val, obj_dict)) {
@@ -1935,7 +1935,7 @@ make_alias_target(struct workspace *wk, obj name, obj deps)
 	assert(get_obj_type(wk, deps) == obj_array && "Alias target list must be an array.");
 
 	obj id;
-	make_obj(wk, &id, obj_alias_target);
+	id = make_obj(wk, obj_alias_target);
 	struct obj_alias_target *alias_tgt = get_obj_alias_target(wk, id);
 
 	alias_tgt->name = name;
@@ -1978,7 +1978,7 @@ func_alias_target(struct workspace *wk, obj _, obj *res)
 	L("adding alias target '%s'", get_cstr(wk, an[0].val));
 
 	obj deps_id;
-	make_obj(wk, &deps_id, obj_array);
+	deps_id = make_obj(wk, obj_array);
 
 	struct alias_target_iter_ctx iter_ctx = {
 		.deps = deps_id,
@@ -2032,7 +2032,7 @@ func_range(struct workspace *wk, obj _, obj *res)
 		params.step = 1;
 	}
 
-	make_obj(wk, res, obj_iterator);
+	*res = make_obj(wk, obj_iterator);
 	struct obj_iterator *iter = get_obj_iterator(wk, *res);
 	iter->type = obj_iterator_type_range;
 	iter->data.range = params;

@@ -15,9 +15,9 @@ func_module_sourceset_source_set(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_source_set);
+	*res = make_obj(wk, obj_source_set);
 	struct obj_source_set *ss = get_obj_source_set(wk, *res);
-	make_obj(wk, &ss->rules, obj_array);
+	ss->rules = make_obj(wk, obj_array);
 	return true;
 }
 

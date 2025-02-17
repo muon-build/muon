@@ -63,7 +63,7 @@ write_linker_rule(struct workspace *wk,
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
 	obj args;
-	make_obj(wk, &args, obj_array);
+	args = make_obj(wk, obj_array);
 
 	if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
@@ -121,7 +121,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
 		obj static_link_args;
-		make_obj(wk, &static_link_args, obj_array);
+		static_link_args = make_obj(wk, obj_array);
 
 		// TODO: make this overrideable
 		const enum static_linker_type type = comp->type[toolchain_component_static_linker];
@@ -164,7 +164,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	}
 
 	obj args;
-	make_obj(wk, &args, obj_array);
+	args = make_obj(wk, obj_array);
 	obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 	obj_array_push(wk, args, rule_args);
 
@@ -323,7 +323,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 	}
 
 	obj rule_prefix_arr;
-	make_obj(wk, &rule_prefix_arr, obj_array);
+	rule_prefix_arr = make_obj(wk, obj_array);
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
 		struct project *proj = arr_get(&wk->projects, i);
@@ -339,7 +339,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 		}
 
 		for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
-			make_obj(wk, &proj->generic_rules[machine], obj_dict);
+			proj->generic_rules[machine] = make_obj(wk, obj_dict);
 		}
 
 		{ // Name all rules
@@ -389,7 +389,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					}
 
 					obj arr;
-					make_obj(wk, &arr, obj_array);
+					arr = make_obj(wk, obj_array);
 					obj_array_push(wk, arr, rule_name);
 					obj_array_push(wk, arr, specialized_rule);
 

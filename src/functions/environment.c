@@ -69,7 +69,7 @@ environment_to_dict(struct workspace *wk, obj env, obj *res)
 		return true;
 	}
 
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 
 	return obj_array_foreach(wk, get_obj_environment(wk, env)->actions, res, evironment_to_dict_iter);
 }
@@ -124,9 +124,9 @@ environment_set(struct workspace *wk, obj env, enum environment_set_mode mode, o
 	}
 
 	obj elem, mode_num;
-	make_obj(wk, &mode_num, obj_number);
+	mode_num = make_obj(wk, obj_number);
 	set_obj_number(wk, mode_num, mode);
-	make_obj(wk, &elem, obj_array);
+	elem = make_obj(wk, obj_array);
 	obj_array_push(wk, elem, mode_num);
 	obj_array_push(wk, elem, key);
 	obj_array_push(wk, elem, joined);
@@ -190,7 +190,7 @@ func_environment_unset(struct workspace *wk, obj self, obj *res)
 
 	obj to_delete, action, key, actions = get_obj_environment(wk, self)->actions;
 
-	make_obj(wk, &to_delete, obj_array);
+	to_delete = make_obj(wk, obj_array);
 
 	uint32_t i = 0;
 	obj_array_for(wk, actions, action) {

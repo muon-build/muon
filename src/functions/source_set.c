@@ -51,7 +51,7 @@ source_set_add_rule(struct workspace *wk,
 	}
 
 	obj rule;
-	make_obj(wk, &rule, obj_array);
+	rule = make_obj(wk, obj_array);
 	obj_array_push(wk, rule, when);
 	obj_array_push(wk, rule, if_true);
 	obj_array_push(wk, rule, if_false);
@@ -270,7 +270,7 @@ source_set_collect(struct workspace *wk,
 	obj *res)
 {
 	obj arr;
-	make_obj(wk, &arr, obj_array);
+	arr = make_obj(wk, obj_array);
 	struct source_set_collect_ctx ctx = {
 		.mode = mode,
 		.conf = conf,
@@ -333,7 +333,7 @@ func_source_set_apply(struct workspace *wk, obj self, obj *res)
 
 	bool strict = akw[kw_strict].set ? get_obj_bool(wk, akw[kw_strict].val) : true;
 
-	make_obj(wk, res, obj_source_configuration);
+	*res = make_obj(wk, obj_source_configuration);
 	struct obj_source_configuration *sc = get_obj_source_configuration(wk, *res);
 
 	if (!source_set_collect(

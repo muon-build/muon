@@ -36,7 +36,7 @@ func_boolean_to_int(struct workspace *wk, obj self, obj *res)
 	}
 
 	int32_t val = get_obj_bool(wk, self) ? 1 : 0;
-	make_obj(wk, res, obj_number);
+	*res = make_obj(wk, obj_number);
 	set_obj_number(wk, *res, val);
 	return true;
 }

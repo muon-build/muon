@@ -27,7 +27,7 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 			return false;
 		}
 	} else {
-		make_obj(wk, res, obj_dict);
+		*res = make_obj(wk, obj_dict);
 	}
 
 	set_default_environment_vars(wk, *res, set_subdir);
@@ -95,7 +95,7 @@ typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj v
 bool
 coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res)
 {
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 
 	struct coerce_environment_ctx ctx = {
 		.err_node = err_node,
@@ -198,7 +198,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 	}
 	case obj_array: {
 		obj strs, v, s;
-		make_obj(wk, &strs, obj_array);
+		strs = make_obj(wk, obj_array);
 		obj_array_for(wk, val, v) {
 			if (!coerce_string(wk, node, v, &s)) {
 				return false;
@@ -217,7 +217,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 	}
 	case obj_dict: {
 		obj strs, k, v, s;
-		make_obj(wk, &strs, obj_array);
+		strs = make_obj(wk, obj_array);
 		obj_dict_for(wk, val, k, v) {
 			if (!coerce_string(wk, node, v, &s)) {
 				return false;
@@ -267,7 +267,7 @@ coerce_string_array_iter(struct workspace *wk, void *_ctx, obj val)
 bool
 coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	struct coerce_string_array_ctx ctx = {
 		.node = node,
 		.arr = *res,
@@ -324,7 +324,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 				str = *get_obj_file(wk, v);
 			} else {
 				if (!args) {
-					make_obj(wk, args, obj_array);
+					*args = make_obj(wk, obj_array);
 				}
 
 				obj_array_push(wk, *args, *get_obj_file(wk, v));
@@ -414,7 +414,7 @@ coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *re
 
 	_path_normalize(wk, &path, true);
 
-	make_obj(wk, res, obj_file);
+	*res = make_obj(wk, obj_file);
 	*get_obj_file(wk, *res) = tstr_into_str(wk, &path);
 	return true;
 }
@@ -447,7 +447,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			}
 
 			path_join(wk, &buf, ctx->output_dir, get_cstr(wk, val));
-			make_obj(wk, file, obj_file);
+			*file = make_obj(wk, obj_file);
 			*get_obj_file(wk, *file) = tstr_into_str(wk, &buf);
 			break;
 		default: assert(false); return ir_err;
@@ -465,7 +465,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
-		make_obj(wk, file, obj_file);
+		*file = make_obj(wk, obj_file);
 		*get_obj_file(wk, *file) = tstr_into_str(wk, &path);
 		break;
 	}
@@ -534,7 +534,7 @@ _coerce_files(struct workspace *wk,
 	enum coerce_into_files_mode mode,
 	const char *output_dir)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	struct coerce_into_files_ctx ctx = {
 		.node = node,
@@ -632,14 +632,14 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 		path_relative_to(wk, &buf1, wk->source_root, p);
 		path_join(wk, &buf2, wk->build_root, buf1.buf);
 
-		make_obj(wk, &inc, obj_include_directory);
+		inc = make_obj(wk, obj_include_directory);
 		d = get_obj_include_directory(wk, inc);
 		d->path = tstr_into_str(wk, &buf2);
 		d->is_system = ctx->is_system;
 		obj_array_push(wk, ctx->res, inc);
 	}
 
-	make_obj(wk, &inc, obj_include_directory);
+	inc = make_obj(wk, obj_include_directory);
 	d = get_obj_include_directory(wk, inc);
 	d->path = path;
 	d->is_system = ctx->is_system;
@@ -656,7 +656,7 @@ coerce_include_dirs(struct workspace *wk, uint32_t node, obj val, bool is_system
 		.is_system = is_system,
 	};
 
-	make_obj(wk, &ctx.res, obj_array);
+	ctx.res = make_obj(wk, obj_array);
 	if (!obj_array_foreach_flat(wk, val, &ctx, include_directories_iter)) {
 		return false;
 	}

@@ -282,7 +282,7 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 
 	if (p->flags) {
 		obj flags;
-		make_obj(f->wk, &flags, obj_array);
+		flags = make_obj(f->wk, obj_array);
 
 		struct {
 			uint32_t flag;

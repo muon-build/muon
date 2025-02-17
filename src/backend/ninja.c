@@ -153,7 +153,7 @@ bool
 ninja_write_all(struct workspace *wk)
 {
 	struct write_build_ctx ctx = { 0 };
-	make_obj(wk, &ctx.compiler_rule_arr, obj_array);
+	ctx.compiler_rule_arr = make_obj(wk, obj_array);
 
 	obj_array_push(wk, wk->backend_output_stack, make_str(wk, "ninja_write_all"));
 
@@ -167,7 +167,7 @@ ninja_write_all(struct workspace *wk)
 		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);
 
 		obj compdb_args;
-		make_obj(wk, &compdb_args, obj_array);
+		compdb_args = make_obj(wk, obj_array);
 		obj_array_push(wk, compdb_args, make_str(wk, "-C"));
 		obj_array_push(wk, compdb_args, make_str(wk, wk->build_root));
 		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
@@ -234,7 +234,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 
 		if (ninja_opt->source == option_value_source_default && have_samurai) {
 			obj cmd_arr;
-			make_obj(wk, &cmd_arr, obj_array);
+			cmd_arr = make_obj(wk, obj_array);
 			obj_array_push(wk, cmd_arr, make_str(wk, wk->argv0));
 			obj_array_push(wk, cmd_arr, make_str(wk, "samu"));
 			obj_array_extend_nodup(wk, cmd_arr, args);

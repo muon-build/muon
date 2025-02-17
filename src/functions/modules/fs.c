@@ -398,7 +398,7 @@ func_module_fs_size(struct workspace *wk, obj self, obj *res)
 	}
 
 	assert(size < INT64_MAX);
-	make_obj(wk, res, obj_number);
+	*res = make_obj(wk, obj_number);
 	set_obj_number(wk, *res, size);
 	return true;
 }
@@ -464,7 +464,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	}
 
 	obj command;
-	make_obj(wk, &command, obj_array);
+	command = make_obj(wk, obj_array);
 	push_args_null_terminated(wk,
 		command,
 		(char *const[]){
@@ -879,7 +879,7 @@ func_module_fs_glob(struct workspace *wk, obj self, obj *res)
 
 	/* L("prefix: %.*s, pat: %s", prefix.len, prefix.buf, pat.buf); */
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	if (!fs_dir_exists(prefix.buf)) {
 		vm_error(wk, "Path \"%s\" does not exist", prefix.buf);

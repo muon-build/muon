@@ -87,7 +87,7 @@ func_configuration_data_set10(struct workspace *wk, obj self, obj *res)
 	obj dict = get_obj_configuration_data(wk, self)->dict;
 
 	obj n;
-	make_obj(wk, &n, obj_number);
+	n = make_obj(wk, obj_number);
 	set_obj_number(wk, n, get_obj_bool(wk, an[1].val) ? 1 : 0);
 	obj_dict_set(wk, dict, an[0].val, n);
 
@@ -168,7 +168,7 @@ func_configuration_data_keys(struct workspace *wk, obj self, obj *res)
 
 	obj dict = get_obj_configuration_data(wk, self)->dict;
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	obj_dict_foreach(wk, dict, res, obj_dict_keys_iter);
 	return true;
 }

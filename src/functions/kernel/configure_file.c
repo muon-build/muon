@@ -453,9 +453,9 @@ configure_file_with_command(struct workspace *wk,
 
 	{
 		obj f;
-		make_obj(wk, &f, obj_file);
+		f = make_obj(wk, obj_file);
 		*get_obj_file(wk, f) = out_path;
-		make_obj(wk, &output_arr, obj_array);
+		output_arr = make_obj(wk, obj_array);
 		obj_array_push(wk, output_arr, f);
 	}
 
@@ -463,7 +463,7 @@ configure_file_with_command(struct workspace *wk,
 		// XXX: depfile for configure_file is not supported, this is
 		// only here to make the types align
 		obj f;
-		make_obj(wk, &f, obj_file);
+		f = make_obj(wk, obj_file);
 		*get_obj_file(wk, f) = depfile;
 		depfile = f;
 	}
@@ -474,7 +474,7 @@ configure_file_with_command(struct workspace *wk,
 		.output = output_arr,
 		.depfile = depfile,
 	};
-	make_obj(wk, &opts.depends, obj_array);
+	opts.depends = make_obj(wk, obj_array);
 
 	if (!process_custom_target_commandline(wk, &opts, command, &args)) {
 		return false;
@@ -490,7 +490,7 @@ configure_file_with_command(struct workspace *wk,
 	}
 
 	obj env;
-	make_obj(wk, &env, obj_dict);
+	env = make_obj(wk, obj_dict);
 	set_default_environment_vars(wk, env, true);
 
 	join_args_argstr(wk, &argstr, &argc, args);
@@ -696,7 +696,7 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 
 		LOG_I("configuring '%s'", out_path.buf);
 		output_str = tstr_into_str(wk, &out_path);
-		make_obj(wk, res, obj_file);
+		*res = make_obj(wk, obj_file);
 		*get_obj_file(wk, *res) = output_str;
 	}
 

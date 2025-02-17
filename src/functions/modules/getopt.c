@@ -196,7 +196,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 		optarg = 0;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	for (uint32_t i = optind; i < argc; ++i) {
 		obj_array_push(wk, *res, make_str(wk, argv[i]));
 	}

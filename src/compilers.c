@@ -104,7 +104,7 @@ compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_ch
 		obj_array_set(wk, arr, 0, make_obj_bool(wk, val->success));
 		obj_array_set(wk, arr, 1, val->value);
 	} else {
-		make_obj(wk, &arr, obj_array);
+		arr = make_obj(wk, obj_array);
 
 		obj_array_push(wk, arr, make_obj_bool(wk, val->success));
 		obj_array_push(wk, arr, val->value);
@@ -357,10 +357,10 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 	}
 
 	cache_val.success = success;
-	make_obj(wk, &cache_val.value, obj_array);
+	cache_val.value = make_obj(wk, obj_array);
 
 	obj status;
-	make_obj(wk, &status, obj_number);
+	status = make_obj(wk, obj_number);
 	set_obj_number(wk, status, cmd_ctx->status);
 	obj_array_push(wk, cache_val.value, status);
 	obj_array_push(wk, cache_val.value, make_strn(wk, cmd_ctx->out.buf, cmd_ctx->out.len));
@@ -540,7 +540,7 @@ done:
 	if (!comp->libdirs) {
 		const char *libdirs[] = { "/usr/lib", "/usr/local/lib", "/lib", NULL };
 
-		make_obj(wk, &comp->libdirs, obj_array);
+		comp->libdirs = make_obj(wk, obj_array);
 
 		uint32_t i;
 		for (i = 0; libdirs[i]; ++i) {
@@ -686,7 +686,7 @@ toolchain_exe_detect(struct workspace *wk,
 	uint32_t i;
 	for (i = 0; exe_list[i]; ++i) {
 		obj cmd_arr;
-		make_obj(wk, &cmd_arr, obj_array);
+		cmd_arr = make_obj(wk, obj_array);
 		obj_array_push(wk, cmd_arr, make_str(wk, exe_list[i]));
 
 		if (cb(wk, comp, lang, cmd_arr)) {
@@ -777,7 +777,7 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 		return true;
 	}
 
-	make_obj(wk, comp, obj_compiler);
+	*comp = make_obj(wk, obj_compiler);
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
 		LOG_E("failed to detect compiler");

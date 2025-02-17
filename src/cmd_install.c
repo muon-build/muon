@@ -215,7 +215,7 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
 
 	obj env;
-	make_obj(wk, &env, obj_dict);
+	env = make_obj(wk, obj_dict);
 	if (ctx->destdir) {
 		obj_dict_set(wk, env, make_str(wk, "DESTDIR"), ctx->destdir);
 	}

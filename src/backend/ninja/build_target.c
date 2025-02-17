@@ -141,7 +141,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		.out = wctx->out,
 	};
 
-	make_obj(wk, &ctx.object_names, obj_array);
+	ctx.object_names = make_obj(wk, obj_array);
 
 	ctx.args = tgt->dep_internal;
 
@@ -160,7 +160,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 					esc_path.buf,
 					get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
-				make_obj(wk, &implicit_deps, obj_array);
+				implicit_deps = make_obj(wk, obj_array);
 				obj_array_push(wk, implicit_deps, make_strf(wk, "%s-order_deps", esc_path.buf));
 				have_custom_order_deps = true;
 			} else {
@@ -179,7 +179,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			enum compiler_language lang = k;
 
 			if (!implicit_deps) {
-				make_obj(wk, &implicit_deps, obj_array);
+				implicit_deps = make_obj(wk, obj_array);
 			}
 			obj_array_push(wk, implicit_deps, write_tgt_source(wk, &ctx, lang, v, write_tgt_src_flag_pch));
 		}
@@ -211,7 +211,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	obj implicit_link_deps;
-	make_obj(wk, &implicit_link_deps, obj_array);
+	implicit_link_deps = make_obj(wk, obj_array);
 	if (have_custom_order_deps) {
 		obj_array_push(wk, implicit_link_deps, make_strf(wk, "%s-order_deps", rel_build_path.buf));
 	}

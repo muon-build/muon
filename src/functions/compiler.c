@@ -82,7 +82,7 @@ add_include_directory_args(struct workspace *wk,
 	obj compiler_args)
 {
 	obj include_dirs;
-	make_obj(wk, &include_dirs, obj_array);
+	include_dirs = make_obj(wk, obj_array);
 
 	if (inc && inc->set) {
 		obj includes;
@@ -118,7 +118,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
 
 	obj compiler_args;
-	make_obj(wk, &compiler_args, obj_array);
+	compiler_args = make_obj(wk, obj_array);
 
 	obj_array_extend(wk, compiler_args, comp->cmd_arr[toolchain_component_compiler]);
 
@@ -487,12 +487,12 @@ func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 	bool ok;
 	if (compiler_check(wk, &opts, src, an[0].node, &ok) && ok) {
 		if (!opts.from_cache) {
-			make_obj(wk, res, obj_number);
+			*res = make_obj(wk, obj_number);
 			set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 		}
 	} else {
 		if (!opts.from_cache) {
-			make_obj(wk, res, obj_number);
+			*res = make_obj(wk, obj_number);
 			set_obj_number(wk, *res, -1);
 		}
 	}
@@ -544,7 +544,7 @@ func_compiler_alignment(struct workspace *wk, obj self, obj *res)
 	if (opts.from_cache) {
 		*res = opts.cache_val;
 	} else {
-		make_obj(wk, res, obj_number);
+		*res = make_obj(wk, obj_number);
 		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
 		compiler_check_cache_set(
@@ -594,7 +594,7 @@ func_compiler_compute_int(struct workspace *wk, obj self, obj *res)
 	if (opts.from_cache) {
 		*res = opts.cache_val;
 	} else {
-		make_obj(wk, res, obj_number);
+		*res = make_obj(wk, obj_number);
 		set_obj_number(wk, *res, compiler_check_parse_output_int(&opts));
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
 		compiler_check_cache_set(
@@ -789,7 +789,7 @@ func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, 
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	return obj_array_foreach_flat(wk,
 		an[0].val,
@@ -1638,7 +1638,7 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 			return false;
 		}
 		if (requirement == requirement_skip) {
-			make_obj(wk, res, obj_run_result);
+			*res = make_obj(wk, obj_run_result);
 			struct obj_run_result *rr = get_obj_run_result(wk, *res);
 			rr->flags |= run_result_flag_from_compile;
 			return true;
@@ -1659,7 +1659,7 @@ func_compiler_run(struct workspace *wk, obj self, obj *res)
 	if (opts.from_cache) {
 		*res = opts.cache_val;
 	} else {
-		make_obj(wk, res, obj_run_result);
+		*res = make_obj(wk, obj_run_result);
 		struct obj_run_result *rr = get_obj_run_result(wk, *res);
 		rr->flags |= run_result_flag_from_compile;
 
@@ -1689,7 +1689,7 @@ compiler_has_argument(struct workspace *wk,
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
 	obj args;
-	make_obj(wk, &args, obj_array);
+	args = make_obj(wk, obj_array);
 
 	push_args(wk, args, toolchain_compiler_werror(wk, comp));
 
@@ -1813,7 +1813,7 @@ compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum 
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	return obj_array_foreach_flat(wk,
 		an[0].val,
@@ -1866,7 +1866,7 @@ compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum
 		return false;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	return obj_array_foreach_flat(wk,
 		an[0].val,
@@ -2013,7 +2013,7 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 	if (!found) {
 		bool ok = false;
 		struct compiler_check_opts opts = { .mode = compiler_check_mode_link, .comp_id = compiler };
-		make_obj(wk, &opts.args, obj_array);
+		opts.args = make_obj(wk, obj_array);
 		push_args(wk, opts.args, toolchain_linker_lib(wk, comp, libname));
 
 		const char *src = "int main(void) { return 0; }\n";
@@ -2038,14 +2038,14 @@ find_library_result_to_dependency(struct workspace *wk, struct find_library_resu
 	dep->type = dependency_type_external_library;
 	dep->flags |= dep_flag_found;
 	if (find_result.location == find_library_found_location_link_arg) {
-		make_obj(wk, &dep->dep.link_with_not_found, obj_array);
+		dep->dep.link_with_not_found = make_obj(wk, obj_array);
 		obj_array_push(wk, dep->dep.link_with_not_found, find_result.found);
 	} else {
-		make_obj(wk, &dep->dep.link_with, obj_array);
+		dep->dep.link_with = make_obj(wk, obj_array);
 		obj_array_push(wk, dep->dep.link_with, find_result.found);
 
 		if (find_result.location == find_library_found_location_extra_dirs) {
-			make_obj(wk, &dep->dep.rpath, obj_array);
+			dep->dep.rpath = make_obj(wk, obj_array);
 			obj_array_push(wk, dep->dep.rpath, find_result.found);
 		}
 	}
@@ -2116,7 +2116,7 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_dependency);
+	*res = make_obj(wk, obj_dependency);
 	struct obj_dependency *dep = get_obj_dependency(wk, *res);
 	dep->type = dependency_type_external_library;
 
@@ -2280,7 +2280,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		obj_array_extend(wk, base_cmd, akw[kw_compile_args].val);
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	TSTR(output_dir);
 	tstr_pushs(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));

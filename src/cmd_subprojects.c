@@ -44,7 +44,7 @@ static void
 cmd_subprojects_args_to_list(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	obj res = 0;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 
 	if (argc > argi) {
 		for (; argc > argi; ++argi) {

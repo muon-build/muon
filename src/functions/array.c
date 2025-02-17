@@ -17,7 +17,7 @@ func_array_length(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_number);
+	*res = make_obj(wk, obj_number);
 	set_obj_number(wk, *res, get_obj_array(wk, self)->len);
 	return true;
 }

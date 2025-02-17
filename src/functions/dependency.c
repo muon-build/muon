@@ -243,7 +243,7 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_dependency);
+	*res = make_obj(wk, obj_dependency);
 	struct obj_dependency *dep = get_obj_dependency(wk, self), *partial = get_obj_dependency(wk, *res);
 
 	*partial = *dep;
@@ -294,13 +294,13 @@ func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	make_obj(wk, res, obj_dependency);
+	*res = make_obj(wk, obj_dependency);
 
 	struct obj_dependency *dep = get_obj_dependency(wk, *res);
 	*dep = *get_obj_dependency(wk, self);
 
 	obj old_includes = dep->dep.include_directories;
-	make_obj(wk, &dep->dep.include_directories, obj_array);
+	dep->dep.include_directories = make_obj(wk, obj_array);
 
 	dep_process_includes(wk, old_includes, inc_type, dep->dep.include_directories);
 	dep->include_type = inc_type;

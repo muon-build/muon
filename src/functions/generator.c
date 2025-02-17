@@ -74,7 +74,7 @@ generated_list_process_file(struct workspace *wk,
 
 	{
 		obj tmp_arr, file;
-		make_obj(wk, &tmp_arr, obj_array);
+		tmp_arr = make_obj(wk, obj_array);
 
 		obj_array_for(wk, t->output, file) {
 			obj_array_push(wk, tmp_arr, file);
@@ -136,7 +136,7 @@ generated_list_process_for_target(struct workspace *wk,
 	default: UNREACHABLE;
 	}
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	bool generated_include = false;
 
@@ -190,7 +190,7 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_generated_list);
+	*res = make_obj(wk, obj_generated_list);
 	struct obj_generated_list *gl = get_obj_generated_list(wk, *res);
 	gl->generator = gen;
 	gl->extra_arguments = akw[kw_extra_args].val;
@@ -200,10 +200,10 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 		return false;
 	}
 
-	make_obj(wk, &gl->input, obj_array);
+	gl->input = make_obj(wk, obj_array);
 	{
 		obj v, coercible_files;
-		make_obj(wk, &coercible_files, obj_array);
+		coercible_files = make_obj(wk, obj_array);
 
 		obj_array_for(wk, an[0].val, v) {
 			obj_array_push(wk, get_obj_type(wk, v) == obj_generated_list ? gl->input : coercible_files, v);

@@ -80,7 +80,7 @@ struct obj_install_target *
 push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 {
 	obj id;
-	make_obj(wk, &id, obj_install_target);
+	id = make_obj(wk, obj_install_target);
 	struct obj_install_target *tgt = get_obj_install_target(wk, id);
 	tgt->src = src;
 

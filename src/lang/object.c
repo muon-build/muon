@@ -91,20 +91,20 @@ make_default_objects(struct workspace *wk)
 	making_default_objects = true;
 
 	obj id;
-	make_obj(wk, &id, obj_null);
+	id = make_obj(wk, obj_null);
 	assert(id == 0);
 
-	make_obj(wk, &id, obj_disabler);
+	id = make_obj(wk, obj_disabler);
 	assert(id == obj_disabler);
 
-	make_obj(wk, &id, obj_meson);
+	id = make_obj(wk, obj_meson);
 	assert(id == obj_meson);
 
-	make_obj(wk, &id, obj_bool);
+	id = make_obj(wk, obj_bool);
 	assert(id == obj_bool_true);
 	*(bool *)get_obj_internal(wk, id, obj_bool) = true;
 
-	make_obj(wk, &id, obj_bool);
+	id = make_obj(wk, obj_bool);
 	assert(id == obj_bool_false);
 	*(bool *)get_obj_internal(wk, id, obj_bool) = false;
 
@@ -148,7 +148,7 @@ obj
 make_number(struct workspace *wk, int64_t n)
 {
 	obj o;
-	make_obj(wk, &o, obj_number);
+	o = make_obj(wk, obj_number);
 	set_obj_number(wk, o, n);
 	return o;
 }
@@ -258,11 +258,11 @@ OBJ_GETTER(obj_iterator)
 
 #undef OBJ_GETTER
 
-void
-make_obj(struct workspace *wk, obj *id, enum obj_type type)
+obj
+make_obj(struct workspace *wk, enum obj_type type)
 {
 	uint32_t val;
-	*id = wk->vm.objects.objs.len;
+	obj res = wk->vm.objects.objs.len;
 
 	switch (type) {
 	case obj_null:
@@ -330,6 +330,8 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 #undef MB
 	}
 #endif
+
+	return res;
 }
 
 void
@@ -687,7 +689,7 @@ void
 obj_array_prepend(struct workspace *wk, obj *arr, obj val)
 {
 	obj prepend;
-	make_obj(wk, &prepend, obj_array);
+	prepend = make_obj(wk, obj_array);
 	obj_array_push(wk, prepend, val);
 	obj_array_extend_nodup(wk, prepend, *arr);
 	*arr = prepend;
@@ -766,7 +768,7 @@ obj_array_get_head(struct workspace *wk, obj arr)
 void
 obj_array_dup(struct workspace *wk, obj arr, obj *res)
 {
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	obj v;
 	obj_array_for(wk, arr, v) {
 		obj_array_push(wk, *res, v);
@@ -786,7 +788,7 @@ obj
 obj_array_dup_light(struct workspace *wk, obj src)
 {
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 	obj_array_dup_into_light(wk, src, res);
 	return res;
 }
@@ -899,7 +901,7 @@ obj_array_tail(struct workspace *wk, obj arr, obj *res)
 {
 	const struct obj_array *a = get_obj_array(wk, arr);
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	if (a->len > 1) {
 		struct obj_array *n = get_obj_array(wk, *res);
@@ -1005,7 +1007,7 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
 	hash_clear(&wk->vm.objects.obj_hash);
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
 }
 
@@ -1095,7 +1097,7 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 
 	arr_sort(&da, &ctx, obj_array_sort_wrapper);
 
-	make_obj(wk, res, obj_array);
+	*res = make_obj(wk, obj_array);
 
 	uint32_t i;
 	for (i = 0; i < da.len; ++i) {
@@ -1111,7 +1113,7 @@ obj_array_slice(struct workspace *wk, obj a, int64_t start, int64_t end)
 	struct obj_array *src = get_obj_array(wk, a);
 
 	obj res;
-	make_obj(wk, &res, obj_array);
+	res = make_obj(wk, obj_array);
 	struct obj_array *dst = get_obj_array(wk, res);
 
 	if (start == end) {
@@ -1170,7 +1172,7 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 void
 obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 {
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 
 	obj k, v;
 	obj_dict_for(wk, dict, k, v) {
@@ -1181,7 +1183,7 @@ obj_dict_dup(struct workspace *wk, obj dict, obj *res)
 void
 obj_dict_dup_light(struct workspace *wk, obj dict, obj *res)
 {
-	make_obj(wk, res, obj_dict);
+	*res = make_obj(wk, obj_dict);
 	struct obj_dict *new = get_obj_dict(wk, *res), *cur = get_obj_dict(wk, dict);
 	*new = *cur;
 	// TODO: We have to set cow on both dicts because we don't know which one
@@ -1647,7 +1649,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 	switch (t) {
 	case obj_null: *ret = 0; return true;
 	case obj_number:
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		set_obj_number(wk_dest, *ret, get_obj_number(wk_src, val));
 		return true;
 	case obj_disabler: *ret = val; return true;
@@ -1657,17 +1659,17 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_file:
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		*get_obj_file(wk_dest, *ret) = str_clone(wk_src, wk_dest, *get_obj_file(wk_src, val));
 		return true;
 	case obj_array:
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		return obj_array_foreach(wk_src,
 			val,
 			&(struct obj_clone_ctx){ .container = *ret, .wk_dest = wk_dest },
 			obj_clone_array_iter);
 	case obj_dict:
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_dict *d = get_obj_dict(wk_dest, *ret);
 		d->flags |= obj_dict_flag_dont_expand;
 		bool status = obj_dict_foreach(wk_src,
@@ -1677,7 +1679,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		d->flags &= ~obj_dict_flag_dont_expand;
 		return status;
 	case obj_test: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_test *test = get_obj_test(wk_src, val), *o = get_obj_test(wk_dest, *ret);
 		*o = *test;
 
@@ -1713,7 +1715,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_install_target: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_install_target *in = get_obj_install_target(wk_src, val),
 					  *o = get_obj_install_target(wk_dest, *ret);
 
@@ -1734,7 +1736,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_environment: {
-		make_obj(wk_dest, ret, obj_environment);
+		*ret = make_obj(wk_dest, obj_environment);
 		struct obj_environment *env = get_obj_environment(wk_src, val), *o = get_obj_environment(wk_dest, *ret);
 
 		if (!obj_clone(wk_src, wk_dest, env->actions, &o->actions)) {
@@ -1743,7 +1745,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_option: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_option *opt = get_obj_option(wk_src, val), *o = get_obj_option(wk_dest, *ret);
 
 		o->source = opt->source;
@@ -1781,13 +1783,13 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_feature_opt: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 
 		set_obj_feature_opt(wk_dest, *ret, get_obj_feature_opt(wk_src, val));
 		return true;
 	}
 	case obj_configuration_data: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_configuration_data *conf = get_obj_configuration_data(wk_src, val),
 					      *o = get_obj_configuration_data(wk_dest, *ret);
 
@@ -1797,7 +1799,7 @@ obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret
 		return true;
 	}
 	case obj_run_result: {
-		make_obj(wk_dest, ret, t);
+		*ret = make_obj(wk_dest, t);
 		struct obj_run_result *rr = get_obj_run_result(wk_src, val), *o = get_obj_run_result(wk_dest, *ret);
 
 		*o = *rr;

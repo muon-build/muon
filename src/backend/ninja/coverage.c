@@ -37,7 +37,7 @@ static void
 ninja_coverage_write_phony_clean_target(struct workspace *wk, FILE *out)
 {
 	obj cmdline;
-	make_obj(wk, &cmdline, obj_array);
+	cmdline = make_obj(wk, obj_array);
 
 	push_args_null_terminated(wk,
 		cmdline,
@@ -65,7 +65,7 @@ static obj
 ninja_coverage_base_cmdline(struct workspace *wk)
 {
 	obj cmdline;
-	make_obj(wk, &cmdline, obj_array);
+	cmdline = make_obj(wk, obj_array);
 
 	TSTR(subprojects_path);
 	path_join(wk,
@@ -146,7 +146,7 @@ ninja_write_recursive_delete_target(struct workspace *wk, FILE *out,
 									const char *target_name, const char *suffix)
 {
 	obj cmdline;
-	make_obj(wk, &cmdline, obj_array);
+	cmdline = make_obj(wk, obj_array);
 
 	push_args_null_terminated(wk,
 		cmdline,

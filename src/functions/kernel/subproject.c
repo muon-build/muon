@@ -100,7 +100,7 @@ subproject(struct workspace *wk,
 		return true;
 	}
 
-	make_obj(wk, res, obj_subproject);
+	*res = make_obj(wk, obj_subproject);
 	if (req == requirement_skip) {
 		return true;
 	}
@@ -168,7 +168,7 @@ subproject(struct workspace *wk,
 		}
 	}
 
-	make_obj(wk, res, obj_subproject);
+	*res = make_obj(wk, obj_subproject);
 	struct obj_subproject *sub = get_obj_subproject(wk, *res);
 	sub->id = subproject_id;
 	sub->found = true;

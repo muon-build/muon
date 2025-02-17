@@ -109,13 +109,13 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 static bool
 build_python_installation(struct workspace *wk, obj self, obj *res, struct tstr cmd_path, bool found, bool pure)
 {
-	make_obj(wk, res, obj_python_installation);
+	*res = make_obj(wk, obj_python_installation);
 	struct obj_python_installation *python = get_obj_python_installation(wk, *res);
 	python->pure = pure;
-	make_obj(wk, &python->prog, obj_external_program);
+	python->prog = make_obj(wk, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
 	ep->found = found;
-	make_obj(wk, &ep->cmd_array, obj_array);
+	ep->cmd_array = make_obj(wk, obj_array);
 	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
 
 	if (found && !introspect_python_interpreter(wk, cmd_path.buf, python)) {
@@ -237,10 +237,10 @@ func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	make_obj(wk, res, obj_external_program);
+	*res = make_obj(wk, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = true;
-	make_obj(wk, &ep->cmd_array, obj_array);
+	ep->cmd_array = make_obj(wk, obj_array);
 	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
 
 	return true;

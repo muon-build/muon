@@ -536,7 +536,7 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	{ // populate argv array
 		obj argv_obj;
-		make_obj(&wk, &argv_obj, obj_array);
+		argv_obj = make_obj(&wk, obj_array);
 		wk.vm.behavior.assign_variable(&wk, "argv", argv_obj, 0, assign_local);
 
 		uint32_t i;

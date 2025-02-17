@@ -28,7 +28,7 @@ run_postconf_script_iter(struct workspace *wk, void *_ctx, obj arr)
 	TracyCZoneAutoS;
 	enum iteration_result ret = ir_err;
 	obj env;
-	make_obj(wk, &env, obj_dict);
+	env = make_obj(wk, obj_dict);
 	set_default_environment_vars(wk, env, false);
 
 	const char *argstr, *envstr;
@@ -82,7 +82,7 @@ write_tests(struct workspace *wk, void *_ctx, FILE *out)
 	bool wrote_header = false;
 
 	obj tests;
-	make_obj(wk, &tests, obj_dict);
+	tests = make_obj(wk, obj_dict);
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -105,7 +105,7 @@ write_tests(struct workspace *wk, void *_ctx, FILE *out)
 			}
 
 			obj arr;
-			make_obj(wk, &arr, obj_array);
+			arr = make_obj(wk, obj_array);
 
 			obj_array_push(wk, arr, proj->tests);
 			obj_array_push(wk, arr, proj->test_setups);
@@ -120,7 +120,7 @@ static bool
 write_install(struct workspace *wk, void *_ctx, FILE *out)
 {
 	obj o;
-	make_obj(wk, &o, obj_array);
+	o = make_obj(wk, obj_array);
 	obj_array_push(wk, o, wk->install);
 	obj_array_push(wk, o, wk->install_scripts);
 	obj_array_push(wk, o, make_str(wk, wk->source_root));
@@ -150,7 +150,7 @@ static bool
 write_option_info(struct workspace *wk, void *_ctx, FILE *out)
 {
 	obj arr;
-	make_obj(wk, &arr, obj_array);
+	arr = make_obj(wk, obj_array);
 	obj_array_push(wk, arr, wk->global_opts);
 
 	uint32_t i;
@@ -168,7 +168,7 @@ backend_output(struct workspace *wk)
 {
 	TracyCZoneAutoS;
 
-	make_obj(wk, &wk->backend_output_stack, obj_array);
+	wk->backend_output_stack = make_obj(wk, obj_array);
 	platform_set_abort_handler(backend_abort_handler, wk);
 
 	bool ok = true;

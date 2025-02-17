@@ -186,7 +186,7 @@ coerce_feature_opt(struct workspace *wk, uint32_t ip, const struct str *val, obj
 		return false;
 	}
 
-	make_obj(wk, res, obj_feature_opt);
+	*res = make_obj(wk, obj_feature_opt);
 	set_obj_feature_opt(wk, *res, f);
 	return true;
 }
@@ -279,7 +279,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 		// coerce array early so that its elements may be checked for deprecation
 		if (!val->len) {
 			// make -Doption= equivalent to an empty list
-			make_obj(wk, res, obj_array);
+			*res = make_obj(wk, obj_array);
 		} else if (val->s[0] == '[') {
 			if (!eval_str(wk, val->s, eval_mode_repl, res)) {
 				LOG_E("malformed array option value '%s'", val->s);
@@ -332,7 +332,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 			return false;
 		}
 
-		make_obj(wk, res, obj_number);
+		*res = make_obj(wk, obj_number);
 		set_obj_number(wk, *res, num);
 		break;
 	}
@@ -901,7 +901,7 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 
 	if (params->flags & parse_and_set_option_flag_override) {
 		obj newopt;
-		make_obj(wk, &newopt, obj_option);
+		newopt = make_obj(wk, obj_option);
 		struct obj_option *o = get_obj_option(wk, newopt);
 		*o = *get_obj_option(wk, opt);
 		opt = newopt;
@@ -987,7 +987,7 @@ parse_and_set_override_options(struct workspace *wk, uint32_t err_node, obj opts
 		.flags = parse_and_set_option_flag_override,
 	};
 
-	make_obj(wk, &params.opts, obj_dict);
+	params.opts = make_obj(wk, obj_dict);
 	*res = params.opts;
 
 	return parse_and_set_options(wk, &params, opts);
@@ -1143,26 +1143,26 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 
 	if (opt->type == op_combo) {
 		choices = opt->choices;
-		make_obj(wk, &selected, obj_array);
+		selected = make_obj(wk, obj_array);
 		obj_array_push(wk, selected, opt->val);
 	} else if (opt->type == op_array && opt->choices) {
 		choices = opt->choices;
 		selected = opt->val;
 	} else {
-		make_obj(wk, &choices, obj_array);
+		choices = make_obj(wk, obj_array);
 		switch (opt->type) {
 		case op_string: obj_array_push(wk, choices, make_str(wk, "string")); break;
 		case op_boolean:
 			obj_array_push(wk, choices, make_str(wk, "true"));
 			obj_array_push(wk, choices, make_str(wk, "false"));
-			make_obj(wk, &selected, obj_array);
+			selected = make_obj(wk, obj_array);
 			obj_array_push(wk, selected, make_str(wk, get_obj_bool(wk, opt->val) ? "true" : "false"));
 			break;
 		case op_feature:
 			obj_array_push(wk, choices, make_str(wk, "enabled"));
 			obj_array_push(wk, choices, make_str(wk, "disabled"));
 			obj_array_push(wk, choices, make_str(wk, "auto"));
-			make_obj(wk, &selected, obj_array);
+			selected = make_obj(wk, obj_array);
 			obj_array_push(wk,
 				selected,
 				make_str(wk,
@@ -1278,7 +1278,7 @@ list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx 
 			goto cont;
 		}
 	} else {
-		make_obj(wk, &current_project(wk)->opts, obj_dict);
+		current_project(wk)->opts = make_obj(wk, obj_dict);
 	}
 
 cont:
@@ -1309,7 +1309,7 @@ list_options(const struct list_options_opts *list_opts)
 				goto ret;
 			}
 		} else {
-			make_obj(&wk, &current_project(&wk)->opts, obj_dict);
+			current_project(&wk)->opts = make_obj(&wk, obj_dict);
 		}
 
 		{

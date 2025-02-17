@@ -148,7 +148,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		switch (frag->type) {
 		case 'I':
 			if (!pkgconf_fragment_has_system_dir(client, frag)) {
-				make_obj(ctx->wk, &str, obj_include_directory);
+				str = make_obj(ctx->wk, obj_include_directory);
 				struct obj_include_directory *o = get_obj_include_directory(ctx->wk, str);
 				o->path = make_str(ctx->wk, frag->data);
 				o->is_system = false;
@@ -265,12 +265,12 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 		goto ret;
 	}
 
-	make_obj(wk, &info->compile_args, obj_array);
-	make_obj(wk, &info->link_args, obj_array);
-	make_obj(wk, &info->includes, obj_array);
-	make_obj(wk, &info->libs, obj_array);
-	make_obj(wk, &info->not_found_libs, obj_array);
-	make_obj(wk, &ctx.libdirs, obj_array);
+	info->compile_args = make_obj(wk, obj_array);
+	info->link_args = make_obj(wk, obj_array);
+	info->includes = make_obj(wk, obj_array);
+	info->libs = make_obj(wk, obj_array);
+	info->not_found_libs = make_obj(wk, obj_array);
+	ctx.libdirs = make_obj(wk, obj_array);
 
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_and_collect, pkgconf_ctx.maxdepth, &ctx)) {

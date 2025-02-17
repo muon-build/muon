@@ -495,7 +495,7 @@ static obj
 dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, struct args_kw *kw)
 {
 	obj dict;
-	make_obj(wk, &dict, obj_dict);
+	dict = make_obj(wk, obj_dict);
 
 	obj name = 0;
 	const char *desc = 0;
@@ -563,7 +563,7 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 
 	if (posargs) {
 		obj arr;
-		make_obj(wk, &arr, obj_array);
+		arr = make_obj(wk, obj_array);
 
 		for (i = 0; posargs[i].type != ARG_TYPE_NULL; ++i) {
 			obj_array_push(wk, arr, dump_function_arg(wk, &posargs[i], i, 0));
@@ -574,7 +574,7 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 
 	if (kwargs) {
 		obj arr;
-		make_obj(wk, &arr, obj_array);
+		arr = make_obj(wk, obj_array);
 
 		struct arr kwargs_list;
 		struct kwargs_list_elem {
@@ -594,7 +594,7 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 		arr_sort(&kwargs_list, NULL, arr_sort_by_string);
 
 		obj dict;
-		make_obj(wk, &dict, obj_dict);
+		dict = make_obj(wk, obj_dict);
 
 		for (i = 0; i < kwargs_list.len; ++i) {
 			struct kwargs_list_elem *elem = arr_get(&kwargs_list, i);
@@ -656,7 +656,7 @@ struct dump_function_opts {
 static obj
 dump_function(struct workspace *wk, struct dump_function_opts *opts)
 {
-	make_obj(wk, &function_sig_dump.func, obj_dict);
+	function_sig_dump.func = make_obj(wk, obj_dict);
 	obj res = function_sig_dump.func;
 
 	obj_dict_set(wk, res, make_str(wk, "name"), make_str(wk, opts->impl->name));
@@ -702,7 +702,7 @@ static void
 dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_array);
+	doc = make_obj(wk, obj_array);
 
 	struct func_impl_group *g;
 

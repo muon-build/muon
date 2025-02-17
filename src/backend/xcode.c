@@ -148,7 +148,7 @@ static obj
 xc_pbx_new(struct xc_ctx *ctx, enum obj_type t)
 {
 	obj pbx;
-	make_obj(ctx->wk, &pbx, obj_array);
+	pbx = make_obj(ctx->wk, obj_array);
 	obj_array_push(ctx->wk, pbx, (obj)t);
 	return pbx;
 }
@@ -464,7 +464,7 @@ static obj
 xc_project_meson_group(struct xc_ctx *ctx, struct project *proj)
 {
 	obj files, f;
-	make_obj(ctx->wk, &files, obj_array);
+	files = make_obj(ctx->wk, obj_array);
 
 	const char *path, *proj_source_root = get_cstr(ctx->wk, proj->source_root);
 
@@ -472,7 +472,7 @@ xc_project_meson_group(struct xc_ctx *ctx, struct project *proj)
 		path = get_cstr(ctx->wk, f);
 		if (path_is_subpath(proj_source_root, path)) {
 			obj new;
-			make_obj(ctx->wk, &new, obj_file);
+			new = make_obj(ctx->wk, obj_file);
 			*get_obj_file(ctx->wk, new) = f;
 			obj_array_push(ctx->wk, files, new);
 		}
@@ -705,7 +705,7 @@ xc_project_main(struct workspace *_wk, void *_ctx, FILE *_out)
 	ctx->out = _out;
 	struct project *proj = ctx->proj;
 
-	make_obj(ctx->wk, &ctx->tgt_build_files, obj_dict);
+	ctx->tgt_build_files = make_obj(ctx->wk, obj_dict);
 
 	obj pbx_main = xc_pbx_new(ctx, obj_dict);
 	xc_pbx_push_kv(ctx, pbx_main, "archiveVersion", make_number(ctx->wk, 1));

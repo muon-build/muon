@@ -18,9 +18,9 @@ static obj
 introspect_custom_target(struct workspace *wk, struct project *proj, obj tgt)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_dict);
+	doc = make_obj(wk, obj_dict);
 	obj empty;
-	make_obj(wk, &empty, obj_array);
+	empty = make_obj(wk, obj_array);
 
 	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
 	obj_dict_set(wk, doc, make_str(wk, "name"), t->name);
@@ -35,9 +35,9 @@ introspect_custom_target(struct workspace *wk, struct project *proj, obj tgt)
 	obj_dict_set(wk, doc, make_str(wk, "build_by_default"), make_obj_bool(wk, t->flags & custom_target_build_by_default));
 
 	obj src;
-	make_obj(wk, &src, obj_array);
+	src = make_obj(wk, obj_array);
 	obj src_unknown;
-	make_obj(wk, &src_unknown, obj_dict);
+	src_unknown = make_obj(wk, obj_dict);
 	obj_dict_set(wk, src_unknown, make_str(wk, "language"), make_str(wk, "unknown"));
 	obj_dict_set(wk, src_unknown, make_str(wk, "compiler"), t->args);
 	obj_dict_set(wk, src_unknown, make_str(wk, "parameters"), empty);
@@ -55,7 +55,7 @@ static obj
 introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_dict);
+	doc = make_obj(wk, obj_dict);
 
 	struct obj_build_target *t = get_obj_build_target(wk, tgt);
 	obj_dict_set(wk, doc, make_str(wk, "name"), t->name);
@@ -87,7 +87,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 	obj_dict_set(wk, doc, make_str(wk, "defined_in"), obj_array_get_head(wk, obj_array_get_head(wk, t->callstack)));
 
 	obj filename;
-	make_obj(wk, &filename, obj_array);
+	filename = make_obj(wk, obj_array);
 	obj_array_push(wk, filename, t->build_path);
 	obj_dict_set(wk, doc, make_str(wk, "filename"), filename);
 
@@ -98,11 +98,11 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 
 	{
 		obj src;
-		make_obj(wk, &src, obj_array);
+		src = make_obj(wk, obj_array);
 		obj _lang, args, toolchain;
 		obj_dict_for(wk, t->processed_args, _lang, args) {
 			obj lang_src;
-			make_obj(wk, &lang_src, obj_dict);
+			lang_src = make_obj(wk, obj_dict);
 			enum compiler_language lang = _lang;
 			if (!obj_dict_geti(wk, proj->toolchains[t->machine], lang, &toolchain)) {
 				UNREACHABLE;
@@ -117,7 +117,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			obj_dict_set(wk, lang_src, make_str(wk, "parameters"), args);
 
 			obj file_list, file;
-			make_obj(wk, &file_list, obj_array);
+			file_list = make_obj(wk, obj_array);
 			obj_array_for(wk, t->src, file) {
 				const char *path = get_file_path(wk, file);
 				enum compiler_language file_lang;
@@ -136,7 +136,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 
 		{
 			obj linker_src;
-			make_obj(wk, &linker_src, obj_dict);
+			linker_src = make_obj(wk, obj_dict);
 			obj linker;
 			if (!obj_dict_geti(wk, proj->toolchains[t->machine], t->dep_internal.link_language, &linker)) {
 				UNREACHABLE;
@@ -167,7 +167,7 @@ static obj
 introspect_targets(struct workspace *wk)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_array);
+	doc = make_obj(wk, obj_array);
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -205,7 +205,7 @@ static obj
 introspect_project(struct workspace *wk, struct project *proj)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_dict);
+	doc = make_obj(wk, obj_dict);
 	obj_dict_set(wk, doc, make_str(wk, "name"), proj->cfg.name);
 	obj_dict_set(wk, doc, make_str(wk, "descriptive_name"), proj->cfg.name);
 	obj_dict_set(wk, doc, make_str(wk, "version"), proj->cfg.version);
@@ -220,7 +220,7 @@ introspect_projects(struct workspace *wk)
 	obj doc = introspect_project(wk, proj);
 
 	obj subs;
-	make_obj(wk, &subs, obj_array);
+	subs = make_obj(wk, obj_array);
 	uint32_t i;
 	for (i = 1; i < wk->projects.len; ++i) {
 		proj = arr_get(&wk->projects, i);
@@ -236,7 +236,7 @@ static obj
 introspect_option(struct workspace *wk, obj opt)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_dict);
+	doc = make_obj(wk, obj_dict);
 	struct obj_option *o = get_obj_option(wk, opt);
 
 	obj_dict_set(wk, doc, make_str(wk, "name"), o->name);
@@ -255,7 +255,7 @@ introspect_option(struct workspace *wk, obj opt)
 
 	obj choices = o->choices;
 	if (o->type == op_feature) {
-		make_obj(wk, &choices, obj_array);
+		choices = make_obj(wk, obj_array);
 		obj_array_push(wk, choices, make_str(wk, "enabled"));
 		obj_array_push(wk, choices, make_str(wk, "disabled"));
 		obj_array_push(wk, choices, make_str(wk, "auto"));
@@ -272,7 +272,7 @@ static obj
 introspect_options(struct workspace *wk)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_array);
+	doc = make_obj(wk, obj_array);
 
 	obj key, opt;
 	obj_dict_for(wk, wk->global_opts, key, opt) {
@@ -298,7 +298,7 @@ static obj
 introspect_dummy_array(struct workspace *wk)
 {
 	obj doc;
-	make_obj(wk, &doc, obj_array);
+	doc = make_obj(wk, obj_array);
 	return doc;
 }
 
