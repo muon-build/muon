@@ -279,7 +279,7 @@ coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 bool
 coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args)
 {
-	obj str;
+	obj str = 0;
 	*args = 0;
 
 	enum obj_type t = get_obj_type(wk, val);
