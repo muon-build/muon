@@ -237,9 +237,9 @@ source_set_collect_rules_iter(struct workspace *wk, void *_ctx, obj v)
 	struct source_set_collect_ctx *ctx = _ctx;
 
 	obj when, if_true, if_false;
-	obj_array_index(wk, v, 0, &when);
-	obj_array_index(wk, v, 1, &if_true);
-	obj_array_index(wk, v, 2, &if_false);
+	when = obj_array_index(wk, v, 0);
+	if_true = obj_array_index(wk, v, 1);
+	if_false = obj_array_index(wk, v, 2);
 
 	ctx->match = true;
 	if (when && !obj_array_foreach_flat(wk, when, ctx, source_set_rule_match_iter)) {

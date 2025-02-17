@@ -83,9 +83,9 @@ compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_ca
 	obj arr;
 	if (obj_dict_index(wk, wk->compiler_check_cache, key, &arr)) {
 		obj cache_res;
-		obj_array_index(wk, arr, 0, &cache_res);
+		cache_res = obj_array_index(wk, arr, 0);
 		val->success = get_obj_bool(wk, cache_res);
-		obj_array_index(wk, arr, 1, &val->value);
+		val->value = obj_array_index(wk, arr, 1);
 		return true;
 	} else {
 		return false;
@@ -322,9 +322,9 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 		}
 
 		obj status, err, out;
-		obj_array_index(wk, cache_val.value, 0, &status);
-		obj_array_index(wk, cache_val.value, 1, &out);
-		obj_array_index(wk, cache_val.value, 2, &err);
+		status = obj_array_index(wk, cache_val.value, 0);
+		out = obj_array_index(wk, cache_val.value, 1);
+		err = obj_array_index(wk, cache_val.value, 2);
 
 		cmd_ctx->status = get_obj_number(wk, status);
 

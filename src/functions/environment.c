@@ -22,10 +22,10 @@ evironment_to_dict_iter(struct workspace *wk, void *_ctx, obj action)
 {
 	obj env = *(obj *)_ctx, mode_num, key, val, sep;
 
-	obj_array_index(wk, action, 0, &mode_num);
-	obj_array_index(wk, action, 1, &key);
-	obj_array_index(wk, action, 2, &val);
-	obj_array_index(wk, action, 3, &sep);
+	mode_num = obj_array_index(wk, action, 0);
+	key = obj_array_index(wk, action, 1);
+	val = obj_array_index(wk, action, 2);
+	sep = obj_array_index(wk, action, 3);
 
 	enum environment_set_mode mode = get_obj_number(wk, mode_num);
 
@@ -188,17 +188,12 @@ func_environment_unset(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	obj to_delete, action, key, actions = get_obj_environment(wk, self)->actions;
+	obj to_delete, action, actions = get_obj_environment(wk, self)->actions;
 
 	to_delete = make_obj(wk, obj_array);
 
 	uint32_t i = 0;
 	obj_array_for(wk, actions, action) {
-		/* obj_array_index(wk, action, 0, &mode_num); */
-		obj_array_index(wk, action, 1, &key);
-		/* obj_array_index(wk, action, 2, &val); */
-		/* obj_array_index(wk, action, 3, &sep); */
-
 		if (obj_equal(wk, action, an[0].val)) {
 			obj_array_push(wk, to_delete, i + 1);
 		}

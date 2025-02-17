@@ -61,7 +61,7 @@ func_external_program_path(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0, res);
+	*res = obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0);
 	return true;
 }
 

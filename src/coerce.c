@@ -307,7 +307,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 			return ir_err;
 		}
 
-		obj_array_index(wk, o->cmd_array, 0, &str);
+		str = obj_array_index(wk, o->cmd_array, 0);
 		uint32_t cmd_array_len = get_obj_array(wk, o->cmd_array)->len;
 		if (cmd_array_len > 1) {
 			*args = obj_array_slice(wk, o->cmd_array, 1, cmd_array_len);

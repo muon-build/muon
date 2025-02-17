@@ -76,8 +76,8 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 			UNREACHABLE;
 		}
 
-		obj_array_index(wk, rule_name_arr, 0, &rule_name);
-		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
+		rule_name = obj_array_index(wk, rule_name_arr, 0);
+		specialized_rule = obj_array_index(wk, rule_name_arr, 1);
 	}
 
 	TSTR(esc_dest_path);

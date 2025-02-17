@@ -442,7 +442,7 @@ fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 		f->fmt_on = true;
 
 		obj raw_block;
-		obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx, &raw_block);
+		raw_block = obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx);
 		arr_push(&f->out_blocks,
 			&(struct fmt_out_block){
 				.str = raw_block,

@@ -208,8 +208,8 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 		}
 
 		obj specialized_rule;
-		obj_array_index(wk, rule_name_arr, 0, &rule_name);
-		obj_array_index(wk, rule_name_arr, 1, &specialized_rule);
+		rule_name = obj_array_index(wk, rule_name_arr, 0);
+		specialized_rule = obj_array_index(wk, rule_name_arr, 1);
 
 		if (!specialized_rule) {
 			return ir_cont;

@@ -137,7 +137,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		if (!boundscheck(wk, ctx->opts->err_node, get_obj_array(wk, arr)->len, &index)) {
 			return format_cb_error;
 		}
-		obj_array_index(wk, arr, 0, &e);
+		e = obj_array_index(wk, arr, 0);
 
 		str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem);
 		return format_cb_found;
@@ -202,8 +202,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 			return format_cb_error;
 		}
 
-		obj in0;
-		obj_array_index(wk, ctx->opts->input, 0, &in0);
+		obj in0 = obj_array_index(wk, ctx->opts->input, 0);
 		const struct str *orig_str = get_str(wk, *get_obj_file(wk, in0));
 
 		TSTR(plainname);
@@ -244,7 +243,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		return format_cb_error;
 	}
 
-	obj_array_index(wk, arr, index, &e);
+	e = obj_array_index(wk, arr, index);
 
 	str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem);
 	return format_cb_found;
@@ -397,7 +396,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	}
 
 	obj in0;
-	obj_array_index(wk, ctx->opts->input, 0, &in0);
+	in0 = obj_array_index(wk, ctx->opts->input, 0);
 	const struct str *ss = get_str(wk, *get_obj_file(wk, in0));
 	TSTR(buf);
 
@@ -619,7 +618,7 @@ install_custom_target(struct workspace *wk,
 
 	if (get_obj_array(wk, install_dir)->len == 1) {
 		obj i0;
-		obj_array_index(wk, install_dir, 0, &i0);
+		i0 = obj_array_index(wk, install_dir, 0);
 		install_dir = i0;
 	}
 
@@ -684,7 +683,7 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 		}
 
 		obj v;
-		obj_array_index(wk, akw[kw_output].val, 0, &v);
+		v = obj_array_index(wk, akw[kw_output].val, 0);
 		name = v;
 	}
 

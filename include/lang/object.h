@@ -620,7 +620,7 @@ bool obj_array_foreach_flat(struct workspace *wk, obj arr, void *usr_ctx, obj_ar
 bool obj_array_in(struct workspace *wk, obj arr, obj val);
 bool obj_array_index_of(struct workspace *wk, obj arr, obj val, uint32_t *idx);
 obj *obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i);
-void obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res);
+obj obj_array_index(struct workspace *wk, obj arr, int64_t i);
 void obj_array_extend(struct workspace *wk, obj arr, obj arr2);
 void obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2);
 void obj_array_dup(struct workspace *wk, obj arr, obj *res);

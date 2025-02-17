@@ -1370,8 +1370,8 @@ list_options(const struct list_options_opts *list_opts)
 
 			++i;
 		}
-		obj_array_index(&wk, arr, 0, &wk.global_opts);
-		obj_array_index(&wk, arr, 1, &current_project(&wk)->opts);
+		wk.global_opts = obj_array_index(&wk, arr, 0);
+		current_project(&wk)->opts = obj_array_index(&wk, arr, 1);
 	}
 
 	struct list_options_ctx ctx = { .list_opts = list_opts };

@@ -97,7 +97,7 @@ push_install_target(struct workspace *wk, obj src, obj dest, obj mode)
 		}
 
 		obj perm;
-		obj_array_index(wk, mode, 0, &perm);
+		perm = obj_array_index(wk, mode, 0);
 		switch (get_obj_type(wk, perm)) {
 		case obj_bool: tgt->has_perm = false; break;
 		case obj_string:
@@ -158,7 +158,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 	obj install_dir;
 
 	if (ctx->install_dirs_is_arr) {
-		obj_array_index(wk, ctx->install_dirs, ctx->i, &install_dir);
+		install_dir = obj_array_index(wk, ctx->install_dirs, ctx->i);
 		assert(install_dir);
 	} else {
 		install_dir = ctx->install_dirs;

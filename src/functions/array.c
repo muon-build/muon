@@ -40,7 +40,7 @@ func_array_get(struct workspace *wk, obj self, obj *res)
 			return false;
 		}
 	} else {
-		obj_array_index(wk, self, i, res);
+		*res = obj_array_index(wk, self, i);
 	}
 
 	return true;

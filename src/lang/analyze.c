@@ -276,7 +276,7 @@ assign_lookup_with_scope(struct workspace *wk, const char *name, obj *scope, obj
 	obj local_scope;
 	obj_array_for(wk, wk->vm.scope_stack, local_scope) {
 		obj base;
-		obj_array_index(wk, local_scope, 0, &base);
+		base = obj_array_index(wk, local_scope, 0);
 
 		uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
 		if (local_scope_len > 1) {
@@ -286,7 +286,7 @@ assign_lookup_with_scope(struct workspace *wk, const char *name, obj *scope, obj
 			// example: [{c: 4}]          -- take last
 			for (i = local_scope_len - 1; i >= 1; --i) {
 				obj scope_group;
-				obj_array_index(wk, local_scope, i, &scope_group);
+				scope_group = obj_array_index(wk, local_scope, i);
 				*scope = obj_array_get_tail(wk, scope_group);
 
 				if (obj_dict_index_str(wk, *scope, name, res)) {
@@ -505,15 +505,7 @@ pop_scope_group(struct workspace *wk)
 
 	obj scope_group = obj_array_pop(wk, local_scope);
 
-	obj merged, base;
-	obj_array_index(wk, scope_group, 0, &merged);
-
-	if (get_obj_array(wk, local_scope)->len == 1) {
-		obj_array_index(wk, local_scope, 0, &base);
-	} else {
-		obj prev_scope_group = obj_array_get_tail(wk, local_scope);
-		base = obj_array_get_tail(wk, prev_scope_group);
-	}
+	obj merged = obj_array_index(wk, scope_group, 0);
 
 	{ // First, merge all scopes other than the root scope into `merged`
 		bool first = true;
@@ -1391,7 +1383,7 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
-		obj_array_index(wk, wk->vm.default_scope_stack, 0, &original_scope);
+		original_scope = obj_array_index(wk, wk->vm.default_scope_stack, 0);
 		wk->vm.default_scope_stack = make_obj(wk, obj_array);
 		scope_group = make_obj(wk, obj_array);
 		scope = make_obj(wk, obj_dict);

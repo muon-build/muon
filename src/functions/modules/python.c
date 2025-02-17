@@ -413,7 +413,7 @@ py_install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	obj dest;
 
 	obj rename;
-	obj_array_index(wk, ctx->rename, ctx->i, &rename);
+	rename = obj_array_index(wk, ctx->rename, ctx->i);
 
 	TSTR(d);
 	path_join(wk, &d, get_cstr(wk, ctx->dest), get_cstr(wk, rename));
@@ -533,7 +533,7 @@ func_python_installation_interpreter_path(struct workspace *wk, obj self, obj *r
 		return false;
 	}
 
-	obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0, res);
+	*res = obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0);
 	return true;
 }
 

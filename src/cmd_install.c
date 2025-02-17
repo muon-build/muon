@@ -207,9 +207,9 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	struct install_ctx *ctx = _ctx;
 
 	obj install_script_skip_if_destdir, install_script_dry_run, install_script_cmdline;
-	obj_array_index(wk, install_script, 0, &install_script_skip_if_destdir);
-	obj_array_index(wk, install_script, 1, &install_script_dry_run);
-	obj_array_index(wk, install_script, 2, &install_script_cmdline);
+	install_script_skip_if_destdir = obj_array_index(wk, install_script, 0);
+	install_script_dry_run = obj_array_index(wk, install_script, 1);
+	install_script_cmdline = obj_array_index(wk, install_script, 2);
 
 	bool script_skip_if_destdir = get_obj_bool(wk, install_script_skip_if_destdir);
 	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
@@ -293,10 +293,10 @@ install_run(struct install_options *opts)
 	};
 
 	obj install_targets, install_scripts, source_root;
-	obj_array_index(&wk, install, 0, &install_targets);
-	obj_array_index(&wk, install, 1, &install_scripts);
-	obj_array_index(&wk, install, 2, &source_root);
-	obj_array_index(&wk, install, 3, &ctx.prefix);
+	install_targets = obj_array_index(&wk, install, 0);
+	install_scripts = obj_array_index(&wk, install, 1);
+	source_root = obj_array_index(&wk, install, 2);
+	ctx.prefix = obj_array_index(&wk, install, 3);
 
 	TSTR(build_root);
 	path_copy_cwd(&wk, &build_root);

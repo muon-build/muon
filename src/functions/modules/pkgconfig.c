@@ -395,7 +395,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
 		obj out;
-		obj_array_index(wk, tgt->output, 0, &out);
+		out = obj_array_index(wk, tgt->output, 0);
 
 		if (str_endswith(get_str(wk, *get_obj_file(wk, out)), &STR(".a"))) {
 			return ir_cont;

@@ -199,9 +199,9 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	obj subproj_name, subproj_dep = 0, subproj;
 
 	switch (get_obj_array(wk, ctx->fallback)->len) {
-	case 2: obj_array_index(wk, ctx->fallback, 1, &subproj_dep);
+	case 2: subproj_dep = obj_array_index(wk, ctx->fallback, 1);
 	/* FALLTHROUGH */
-	case 1: obj_array_index(wk, ctx->fallback, 0, &subproj_name); break;
+	case 1: subproj_name = obj_array_index(wk, ctx->fallback, 0); break;
 	default: vm_error_at(wk, ctx->err_node, "expected array of length 1-2 for fallback"); return false;
 	}
 
@@ -540,7 +540,7 @@ is_dependency_fallback_forced(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	obj force_fallback_for, subproj_name;
 
 	get_option_value(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
-	obj_array_index(wk, get_dependency_fallback_name(wk, ctx), 0, &subproj_name);
+	subproj_name = obj_array_index(wk, get_dependency_fallback_name(wk, ctx), 0);
 
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 
@@ -739,7 +739,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	if (requirement == requirement_skip) {
 		*res = make_obj(wk, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *res);
-		obj_array_index(wk, an[0].val, 0, &dep->name);
+		dep->name = obj_array_index(wk, an[0].val, 0);
 		return true;
 	}
 

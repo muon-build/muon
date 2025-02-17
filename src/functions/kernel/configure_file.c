@@ -535,7 +535,7 @@ array_to_elem_or_err(struct workspace *wk, uint32_t node, uint32_t arr, uint32_t
 		return false;
 	}
 
-	obj_array_index(wk, arr, 0, res);
+	*res = obj_array_index(wk, arr, 0);
 	return true;
 }
 

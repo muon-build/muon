@@ -117,8 +117,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	if (tgt->flags & custom_target_capture) {
 		obj_array_push(wk, cmdline, make_str(wk, "-c"));
 
-		obj elem;
-		obj_array_index(wk, tgt->output, 0, &elem);
+		obj elem = obj_array_index(wk, tgt->output, 0);
 
 		ca_relativize_path_push(wk, elem, cmdline);
 	}
@@ -126,8 +125,7 @@ ninja_write_custom_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *c
 	if (tgt->flags & custom_target_feed) {
 		obj_array_push(wk, cmdline, make_str(wk, "-f"));
 
-		obj elem;
-		obj_array_index(wk, tgt->input, 0, &elem);
+		obj elem = obj_array_index(wk, tgt->input, 0);
 
 		ca_relativize_path_push(wk, elem, cmdline);
 	}

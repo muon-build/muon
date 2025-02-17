@@ -434,8 +434,8 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		// additional requirement that the build dir be specified
 		// relative to the source dir, or absolute.
 		obj build, src;
-		obj_array_index(wk, ctx->stray_args, 0, &build);
-		obj_array_index(wk, ctx->stray_args, 1, &src);
+		build = obj_array_index(wk, ctx->stray_args, 0);
+		src = obj_array_index(wk, ctx->stray_args, 1);
 
 		TSTR(build_dir);
 		path_make_absolute(wk, &build_dir, get_cstr(wk, build));
@@ -507,7 +507,7 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 	const char *build_dir = 0;
 	if (get_obj_array(wk, ctx->stray_args)->len) {
 		obj build;
-		obj_array_index(wk, ctx->stray_args, 0, &build);
+		build = obj_array_index(wk, ctx->stray_args, 0);
 		build_dir = get_cstr(wk, build);
 	}
 

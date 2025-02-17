@@ -357,7 +357,7 @@ typecheck_and_mutate_function_arg(struct workspace *wk, uint32_t ip, obj *val, t
 	if (!listify && (type == obj_file || (type & tc_file) == tc_file)) {
 		if (t == obj_array && get_obj_array(wk, *val)->len == 1) {
 			obj i0;
-			obj_array_index(wk, *val, 0, &i0);
+			i0 = obj_array_index(wk, *val, 0);
 			if (get_obj_type(wk, i0) == obj_file) {
 				*val = i0;
 			}
@@ -1729,7 +1729,7 @@ vm_op_index(struct workspace *wk)
 			break;
 		}
 
-		obj_array_index(wk, a, i, &res);
+		res = obj_array_index(wk, a, i);
 		break;
 	}
 	case obj_dict: {
@@ -1754,7 +1754,7 @@ vm_op_index(struct workspace *wk)
 			break;
 		}
 
-		obj_array_index(wk, tgt->output, i, &res);
+		res = obj_array_index(wk, tgt->output, i);
 		break;
 	}
 	case obj_string: {
@@ -2687,8 +2687,8 @@ vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
 		}
 
 		obj offset, t;
-		obj_array_index(wk, member_def, 0, &offset);
-		obj_array_index(wk, member_def, 1, &t);
+		offset = obj_array_index(wk, member_def, 0);
+		t = obj_array_index(wk, member_def, 1);
 		char *dest = (char *)s + offset;
 
 		switch ((enum vm_struct_type)t) {

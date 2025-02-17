@@ -593,8 +593,8 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 	obj over = 0, op;
 	switch (get_obj_type(wk, override)) {
 	case obj_array:
-		obj_array_index(wk, override, 0, &op);
-		obj_array_index(wk, override, 1, &over);
+		op = obj_array_index(wk, override, 0);
+		over = obj_array_index(wk, override, 1);
 		break;
 	case obj_python_installation:
 	case obj_external_program:
@@ -1151,7 +1151,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 			return false;
 		}
 
-		obj_array_index(wk, an[0].val, 0, &arg0);
+		arg0 = obj_array_index(wk, an[0].val, 0);
 
 		if (get_obj_type(wk, arg0) == obj_compiler) {
 			obj cmd_arr = get_obj_compiler(wk, arg0)->cmd_arr[toolchain_component_compiler];

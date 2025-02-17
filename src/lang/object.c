@@ -471,7 +471,7 @@ obj_equal_array_iter(struct workspace *wk, void *_ctx, obj val)
 	struct obj_equal_iter_ctx *ctx = _ctx;
 	obj r;
 
-	obj_array_index(wk, ctx->other_container, ctx->i, &r);
+	r = obj_array_index(wk, ctx->other_container, ctx->i);
 
 	if (!obj_equal(wk, val, r)) {
 		return ir_err;
@@ -741,12 +741,12 @@ obj_array_index_pointer(struct workspace *wk, obj arr, int64_t i)
 	return obj_array_index_pointer_raw(wk, arr, i);
 }
 
-void
-obj_array_index(struct workspace *wk, obj arr, int64_t i, obj *res)
+obj
+obj_array_index(struct workspace *wk, obj arr, int64_t i)
 {
 	obj *a = obj_array_index_pointer_raw(wk, arr, i);
 	assert(a);
-	*res = *a;
+	return *a;
 }
 
 obj
@@ -1032,7 +1032,7 @@ obj_array_flatten_one(struct workspace *wk, obj val, obj *res)
 		struct obj_array *v = get_obj_array(wk, val);
 
 		if (v->len == 1) {
-			obj_array_index(wk, val, 0, res);
+			*res = obj_array_index(wk, val, 0);
 		} else {
 			return false;
 		}

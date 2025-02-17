@@ -80,8 +80,8 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 
 	for (int64_t idx = 0; idx < arraylen; idx += 2) {
 		obj key, val;
-		obj_array_index(wk, var, idx, &key);
-		obj_array_index(wk, var, idx + 1, &val);
+		key = obj_array_index(wk, var, idx);
+		val = obj_array_index(wk, var, idx + 1);
 
 		const char *ckey = get_cstr(wk, key);
 		const char *cval = get_cstr(wk, val);

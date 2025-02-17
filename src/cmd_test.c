@@ -105,7 +105,7 @@ test_suites_label(struct workspace *wk, const struct test_result *res)
 		suites_len = get_obj_array(wk, res->test->suites)->len;
 		if (suites_len == 1) {
 			obj s;
-			obj_array_index(wk, res->test->suites, 0, &s);
+			s = obj_array_index(wk, res->test->suites, 0);
 			suite_str = get_cstr(wk, s);
 		} else if (suites_len > 1) {
 			obj s;
@@ -503,12 +503,12 @@ find_test_setup_iter(struct workspace *wk, void *_ctx, obj arr)
 	/* [name, env, exclude_suites, exe_wrapper, is_default, timeout_multiplier] */
 	obj name, env, exclude_suites, exe_wrapper, is_default, timeout_multiplier;
 
-	obj_array_index(wk, arr, 0, &name);
-	obj_array_index(wk, arr, 1, &env);
-	obj_array_index(wk, arr, 2, &exclude_suites);
-	obj_array_index(wk, arr, 3, &exe_wrapper);
-	obj_array_index(wk, arr, 4, &is_default);
-	obj_array_index(wk, arr, 5, &timeout_multiplier);
+	name = obj_array_index(wk, arr, 0);
+	env = obj_array_index(wk, arr, 1);
+	exclude_suites = obj_array_index(wk, arr, 2);
+	exe_wrapper = obj_array_index(wk, arr, 3);
+	is_default = obj_array_index(wk, arr, 4);
+	timeout_multiplier = obj_array_index(wk, arr, 5);
 
 	if (ctx->rtctx->opts->setup) {
 		if (!project_namespaced_name_matches(ctx->rtctx->opts->setup,
@@ -542,7 +542,7 @@ find_test_setup_project_iter(struct workspace *wk, void *_ctx, obj project_name,
 	ctx->rtctx->proj_name = project_name;
 
 	obj setups;
-	obj_array_index(wk, arr, 1, &setups);
+	setups = obj_array_index(wk, arr, 1);
 
 	if (!setups) {
 		return ir_cont;
@@ -940,7 +940,7 @@ static enum iteration_result
 run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 {
 	obj unfiltered_tests, tests;
-	obj_array_index(wk, arr, 0, &unfiltered_tests);
+	unfiltered_tests = obj_array_index(wk, arr, 0);
 
 	struct run_test_ctx *ctx = _ctx;
 	ctx->deps = make_obj(wk, obj_array);
@@ -1174,7 +1174,7 @@ tests_run(struct test_options *opts, const char *argv0)
 		if (!serial_load_from_private_dir(&wk, &option_info, output_path.option_info)) {
 			goto ret;
 		}
-		obj_array_index(&wk, option_info, 0, &wk.global_opts);
+		wk.global_opts = obj_array_index(&wk, option_info, 0);
 	}
 
 	{

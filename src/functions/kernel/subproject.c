@@ -181,8 +181,8 @@ subproject(struct workspace *wk,
 		}
 
 		obj sub_name, var_name, dep;
-		obj_array_index(wk, v, 0, &sub_name);
-		obj_array_index(wk, v, 1, &var_name);
+		sub_name = obj_array_index(wk, v, 0);
+		var_name = obj_array_index(wk, v, 1);
 
 		if (!obj_equal(wk, sub_name, name)) {
 			continue;

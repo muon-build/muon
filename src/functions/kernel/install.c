@@ -277,7 +277,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	obj dest;
 
 	obj rename;
-	obj_array_index(wk, ctx->rename, ctx->i, &rename);
+	rename = obj_array_index(wk, ctx->rename, ctx->i);
 
 	TSTR(d);
 	path_join(wk, &d, get_cstr(wk, ctx->dest), get_cstr(wk, rename));

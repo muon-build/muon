@@ -1094,8 +1094,8 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		obj val;
 		val = make_obj(wk, obj_both_libs);
 		struct obj_both_libs *both = get_obj_both_libs(wk, val);
-		obj_array_index(wk, *res, 0, &both->static_lib);
-		obj_array_index(wk, *res, 1, &both->dynamic_lib);
+		both->static_lib = obj_array_index(wk, *res, 0);
+		both->dynamic_lib = obj_array_index(wk, *res, 1);
 		*res = val;
 
 		assert(get_obj_build_target(wk, both->static_lib)->type == tgt_static_library);

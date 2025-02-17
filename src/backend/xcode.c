@@ -101,8 +101,7 @@ struct pbx_item {
 static enum obj_type
 xc_pbx_type(struct xc_ctx *ctx, obj pbx)
 {
-	obj o;
-	obj_array_index(ctx->wk, pbx, 0, &o);
+	obj o = obj_array_index(ctx->wk, pbx, 0);
 	return (enum obj_type)o;
 }
 
