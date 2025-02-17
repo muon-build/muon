@@ -21,14 +21,11 @@ struct workspace;
  * string.
  */
 
-#define STR(__str)                               \
-	(struct str)                                 \
-	{                                            \
-		.s = ("" __str ""), sizeof(__str) - 1 \
-	}
-#define STRL(__str)            \
-	(struct str) \
-	{                            \
+#define STR(__str) (struct str){ .s = ("" __str ""), sizeof(__str) - 1 }
+#define STR_static(__str) { .s = ("" __str ""), sizeof(__str) - 1 }
+#define STRL(__str)                              \
+	(struct str)                             \
+	{                                        \
 		.s = __str, .len = strlen(__str) \
 	}
 
