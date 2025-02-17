@@ -721,9 +721,19 @@ obj_array_in(struct workspace *wk, obj arr, obj val)
 static obj *
 obj_array_index_pointer_raw(struct workspace *wk, obj arr, int64_t i)
 {
+	struct obj_array *a = get_obj_array(wk, arr);
+
+	if (!a->len) {
+		return 0;
+	} else if (i == 0) {
+		return &((struct obj_array_elem *)bucket_arr_get(&wk->vm.objects.array_elems, a->head))->val;
+	} else if (i == a->len - 1) {
+		return &((struct obj_array_elem *)bucket_arr_get(&wk->vm.objects.array_elems, a->tail))->val;
+	}
+
 	obj v;
 	int64_t j = 0;
-	obj_array_for_(wk, arr, v, iter) {
+	obj_array_for_array_(wk, a, v, iter) {
 		(void)v;
 		if (j == i) {
 			return &iter.e->val;
