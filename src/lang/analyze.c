@@ -2,18 +2,21 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-License-Identifier: GPL-3.0-only
  */
+#include <sys/sysctl.h>
 
 #include "compat.h"
 
 #include <string.h>
 
 #include "buf_size.h"
+#include "external/tinyjson.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "memmem.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
@@ -1619,4 +1622,307 @@ analyze_project_call(struct workspace *wk)
 	};
 
 	return do_analyze_internal(wk, &opts);
+}
+
+/*******************************************************************************
+ * LSP
+ ******************************************************************************/
+
+struct az_server {
+	struct sbuf *in_buf;
+	int in;
+	FILE *out;
+};
+
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <unistd.h>
+
+#include "version.h"
+
+// Returns true if the current process is being debugged (either
+// running under the debugger or has a debugger attached post facto).
+static bool AmIBeingDebugged(void)
+{
+    int                 junk;
+    int                 mib[4];
+    struct kinfo_proc   info;
+    size_t              size;
+
+    // Initialize the flags so that, if sysctl fails for some bizarre
+    // reason, we get a predictable result.
+
+    info.kp_proc.p_flag = 0;
+
+    // Initialize mib, which tells sysctl the info we want, in this case
+    // we're looking for information about a specific process ID.
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PID;
+    mib[3] = getpid();
+
+    // Call sysctl.
+
+    size = sizeof(info);
+    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    assert(junk == 0);
+
+    // We're being debugged if the P_TRACED flag is set.
+
+    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+}
+
+static bool
+az_server_read_bytes(struct workspace *wk, struct az_server *srv)
+{
+	struct sbuf *buf = srv->in_buf;
+
+	{
+		while (true) {
+			struct pollfd fds = {
+				.fd = srv->in,
+				.events = POLLIN,
+			};
+
+			if (poll(&fds, 1, 250) == -1) {
+				LOG_E("poll: %s", strerror(errno));
+				return false;
+			}
+
+			if (fds.revents & POLLIN) {
+				break;
+			}
+		}
+	}
+
+	if (buf->cap - buf->len < 16) {
+		sbuf_grow(wk, buf, 1024);
+	}
+
+	ssize_t n = read(srv->in, buf->buf + buf->len, buf->cap - buf->len);
+	if (n == 0) {
+		// EOF
+		return false;
+	} else if (n < 0) {
+		LOG_E("read: %s", strerror(errno));
+		return false;
+	}
+
+	buf->len += n;
+
+	fflush(_log_file());
+
+	return true;
+}
+
+static void
+az_server_buf_shift(struct az_server *srv, uint32_t amnt)
+{
+	struct sbuf *buf = srv->in_buf;
+
+	char *start = buf->buf + amnt;
+	buf->len = buf->len - (start - buf->buf);
+	memmove(buf->buf, start, buf->len);
+}
+
+static bool
+az_server_read(struct workspace *wk, struct az_server *srv, obj *msg)
+{
+	int64_t content_length = 0;
+	struct sbuf *buf = srv->in_buf;
+
+	{
+		char *end;
+		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
+			if (!az_server_read_bytes(wk, srv)) {
+				LOG_E("Failed to read entire header");
+				return false;
+			}
+		}
+
+		*(end + 2) = 0;
+
+		const char *hdr = buf->buf;
+		char *hdr_end;
+		while ((hdr_end = strstr(hdr, "\r\n"))) {
+			*hdr_end = 0;
+			char *val;
+			if ((val = strchr(buf->buf, ':'))) {
+				*val = 0;
+				val += 2;
+
+				if (strcmp(hdr, "Content-Length") == 0) {
+					if (!str_to_i(&WKSTR(val), &content_length, false)) {
+						LOG_E("Invalid value for Content-Length");
+					}
+				} else if (strcmp(hdr, "Content-Type") == 0) {
+					// Ignore
+				} else {
+					LOG_E("Unknown header: %s", hdr);
+				}
+			} else {
+				LOG_E("Header missing ':': %s", hdr);
+			}
+
+			if (hdr_end == end) {
+				break;
+			}
+		}
+
+		if (!content_length) {
+			LOG_E("Missing Content-Length header.");
+			return false;
+		}
+
+		az_server_buf_shift(srv, (hdr_end - buf->buf) + 4);
+	}
+
+	{
+		while (buf->len < content_length) {
+			if (!az_server_read_bytes(wk, srv)) {
+				LOG_E("Failed to read entire message");
+				return false;
+			}
+		}
+
+		char end = buf->buf[content_length];
+		buf->buf[content_length] = 0;
+		if (!muon_json_to_dict(wk, buf->buf, msg)) {
+			LOG_E("failed to parse json: '%.*s'", buf->len, buf->buf);
+			return false;
+		}
+		buf->buf[content_length] = end;
+
+		az_server_buf_shift(srv, content_length);
+	}
+
+	return true;
+}
+
+static bool
+az_server_write(struct workspace *wk, struct az_server *srv, obj msg)
+{
+	SBUF(buf);
+	obj_to_json(wk, msg, &buf);
+
+	fprintf(srv->out, "Content-Length: %d\r\n\r\n%s", buf.len, buf.buf);
+	fflush(srv->out);
+	return true;
+}
+
+static const struct str *
+obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		return 0;
+	}
+
+	return get_str(wk, r);
+}
+
+static int64_t
+obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		return 0;
+	}
+
+	return r;
+}
+
+static obj
+az_server_handle(struct workspace *wk, obj msg)
+{
+	obj result = 0;
+
+	const struct str *method = obj_dict_index_as_str(wk, msg, "method");
+
+	if (str_eql(method, &WKSTR("initialize"))) {
+		make_obj(wk, &result, obj_dict);
+		obj capabilities;
+		make_obj(wk, &capabilities, obj_dict);
+		// Set textDocumentSync type to 4
+		obj_dict_set(wk, capabilities, make_str(wk, "textDocumentSync"), make_number(wk, 1));
+		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
+
+		obj server_info;
+		make_obj(wk, &server_info, obj_dict);
+		obj_dict_set(wk, server_info, make_str(wk, "name"), make_str(wk, "muon"));
+		obj_dict_set(wk, server_info, make_str(wk, "version"), make_str(wk, muon_version.version));
+
+		obj_dict_set(wk, result, make_str(wk, "serverInfo"), server_info);
+	}
+
+	if (result) {
+		obj response;
+		make_obj(wk, &response, obj_dict);
+		obj_dict_set(wk, response, make_str(wk, "jsonrpc"), make_str(wk, "2.0"));
+		obj_dict_set(wk, response, make_str(wk, "id"), obj_dict_index_as_obj(wk, msg, "id"));
+		obj_dict_set(wk, response, make_str(wk, "result"), result);
+		return response;
+	} else {
+		return 0;
+	}
+}
+
+bool
+analyze_server(struct az_opts *opts)
+{
+	bool loop = true;
+
+	FILE *log_file = 0;
+	if (!(log_file = fs_fopen("lsp.log", "wb"))) {
+		return false;
+	}
+	log_set_file(log_file);
+
+	/* LOG_I("muon lsp waiting for debugger..."); */
+	/* while (!AmIBeingDebugged()) { */
+	/* } */
+
+	LOG_I("muon lsp listening...");
+
+	struct az_server srv = { .in = STDIN_FILENO, .out = stdout };
+
+	while (loop) {
+		struct workspace wk = { 0 };
+		workspace_init_bare(&wk);
+		SBUF(in_buf);
+		srv.in_buf = &in_buf;
+
+		obj msg;
+		if (!az_server_read(&wk, &srv, &msg)) {
+			break;
+		}
+
+		obj_lprintf(&wk, "<<< %#o\n", msg);
+		fflush(log_file);
+
+		obj resp;
+		if ((resp = az_server_handle(&wk, msg))) {
+			obj_lprintf(&wk, ">>> %#o\n", msg);
+			fflush(log_file);
+
+			if (!az_server_write(&wk, &srv, resp)) {
+				break;
+			}
+		}
+
+		workspace_destroy(&wk);
+	}
+	LOG_I("muon lsp shutting down");
+
+	if (log_file) {
+		fs_fclose(log_file);
+		log_set_file(stdout);
+	}
+	return true;
 }
