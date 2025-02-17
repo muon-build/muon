@@ -168,16 +168,14 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			struct find_library_result find_result = find_library(ctx->wk, ctx->compiler, frag->data, ctx->libdirs, flags);
 
 			if (find_result.found) {
-				if (!obj_array_in(ctx->wk, ctx->info->libs, str)) {
-					L("libpkgconf: dependency '%s' found required library '%s'",
-						get_cstr(ctx->wk, ctx->name),
-						get_cstr(ctx->wk, find_result.found));
+				L("libpkgconf: dependency '%s' found required library '%s'",
+					get_cstr(ctx->wk, ctx->name),
+					get_cstr(ctx->wk, find_result.found));
 
-					if (find_result.location == find_library_found_location_link_arg) {
-						obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
-					} else {
-						obj_array_push(ctx->wk, ctx->info->libs, find_result.found);
-					}
+				if (find_result.location == find_library_found_location_link_arg) {
+					obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
+				} else {
+					obj_array_push(ctx->wk, ctx->info->libs, find_result.found);
 				}
 			} else {
 				LOG_W("libpkgconf: dependency '%s' missing required library '%s'",
