@@ -296,6 +296,8 @@ ret:
 static bool
 cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
+	bool server = false;
+
 	struct az_opts opts = {
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
 				       | az_diagnostic_redirect_script_error,
@@ -314,7 +316,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		0,
 	};
 
-	OPTSTART("luqO:W:i:") {
+	OPTSTART("luqO:W:i:s") {
 	case 'i': opts.internal_file = optarg; break;
 	case 'l':
 		opts.subdir_error = true;
@@ -350,6 +352,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		break;
 	}
+	case 's': server = true; break;
 	}
 	OPTEND(argv[argi],
 		"",
@@ -363,55 +366,63 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		commands,
 		-1);
 
-	uint32_t cmd_i = action_default;
-	if (!find_cmd(commands, &cmd_i, argc, argi, argv, true)) {
-		return false;
-	}
-	if (cmd_i != action_default) {
-		++argi;
-	}
-	action = cmd_i;
-
-	if (action == action_define) {
-		if (!check_operands(argc, argi, 1)) {
-			return false;
-		}
-	} else {
+	if (server) {
 		if (!check_operands(argc, argi, 0)) {
 			return false;
 		}
-	}
 
-	switch (action) {
-	case action_default: break;
-	case action_trace: {
-		opts.eval_trace = true;
-		break;
-	}
-	case action_define: {
-		opts.get_definition_for = argv[argi];
-		break;
-	}
-	}
+		return analyze_server(&opts);
+	} else {
+		uint32_t cmd_i = action_default;
+		if (!find_cmd(commands, &cmd_i, argc, argi, argv, true)) {
+			return false;
+		}
+		if (cmd_i != action_default) {
+			++argi;
+		}
+		action = cmd_i;
 
-	if (opts.internal_file && opts.file_override) {
-		LOG_E("-i and -O are mutually exclusive");
-		return false;
-	}
+		if (action == action_define) {
+			if (!check_operands(argc, argi, 1)) {
+				return false;
+			}
+		} else {
+			if (!check_operands(argc, argi, 0)) {
+				return false;
+			}
+		}
 
-	TSTR_manual(abs);
-	if (opts.file_override) {
-		path_make_absolute(NULL, &abs, opts.file_override);
-		opts.file_override = abs.buf;
-	}
+		switch (action) {
+		case action_default: break;
+		case action_trace: {
+			opts.eval_trace = true;
+			break;
+		}
+		case action_define: {
+			opts.get_definition_for = argv[argi];
+			break;
+		}
+		}
 
-	bool res;
-	res = do_analyze(&opts);
+		if (opts.internal_file && opts.file_override) {
+			LOG_E("-i and -O are mutually exclusive");
+			return false;
+		}
 
-	if (opts.file_override) {
-		tstr_destroy(&abs);
+		TSTR_manual(abs);
+		if (opts.file_override) {
+			path_make_absolute(NULL, &abs, opts.file_override);
+			opts.file_override = abs.buf;
+		}
+
+		bool res;
+		res = do_analyze(&opts);
+
+		if (opts.file_override) {
+			tstr_destroy(&abs);
+		}
+		return res;
 	}
-	return res;
 }
 
 static bool
