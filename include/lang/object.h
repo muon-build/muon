@@ -607,6 +607,7 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 bool obj_lprintf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 bool obj_printf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
+bool obj_vasprintf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list ap);
 uint32_t obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap);
 uint32_t obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
 	MUON_ATTR_FORMAT(printf, 4, 5);
