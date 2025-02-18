@@ -2126,7 +2126,7 @@ obj_to_s(struct workspace *wk, obj o, struct tstr *sb)
 		tstr_pushf(wk, sb, fmt_buf, arg);                              \
 	}
 
-static bool
+bool
 obj_vasprintf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list ap)
 {
 	const char *fmt_start;
