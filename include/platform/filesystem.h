@@ -34,6 +34,7 @@ bool fs_fclose(FILE *file);
 FILE *fs_fopen(const char *path, const char *mode);
 bool fs_fwrite(const void *ptr, size_t size, FILE *f);
 bool fs_fread(void *ptr, size_t size, FILE *f);
+int32_t fs_read(int fd, void *buf, uint32_t buf_len);
 bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
 bool fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd);
 bool fs_has_cmd(const char *cmd);
@@ -54,6 +55,7 @@ bool fs_remove(const char *path);
 bool fs_has_extension(const char *path, const char *ext);
 FILE *fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len);
 bool fs_make_writeable_if_exists(const char *path);
+bool fs_wait_for_input(int fd);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
