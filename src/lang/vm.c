@@ -902,7 +902,7 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 #ifdef TRACY_ENABLE
 		TracyCZoneC(tctx_func, 0xff5000, true);
 		char func_name[1024];
-		snprintf(func_name, sizeof(func_name), "%s", native_funcs[b].name);
+		snprintf(func_name, sizeof(func_name), "%s", native_funcs[func_idx].name);
 		TracyCZoneName(tctx_func, func_name, strlen(func_name));
 #endif
 
