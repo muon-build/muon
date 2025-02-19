@@ -37,7 +37,7 @@ z_calloc(size_t nmemb, size_t size)
 	}
 
 	TracyCAlloc(ret, size * nmemb);
-	PlotRSS;
+	/* PlotRSS; */
 	return ret;
 }
 
@@ -53,7 +53,7 @@ z_malloc(size_t size)
 	}
 
 	TracyCAlloc(ret, size);
-	PlotRSS;
+	/* PlotRSS; */
 	return ret;
 }
 
@@ -70,7 +70,7 @@ z_realloc(void *ptr, size_t size)
 	}
 
 	TracyCAlloc(ret, size);
-	PlotRSS;
+	/* PlotRSS; */
 	return ret;
 }
 
@@ -80,7 +80,7 @@ z_free(void *ptr)
 	assert(ptr);
 	TracyCFree(ptr);
 	free(ptr);
-	PlotRSS;
+	/* PlotRSS; */
 }
 
 uint32_t

@@ -20,6 +20,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
@@ -184,9 +185,11 @@ workspace_destroy_bare(struct workspace *wk)
 void
 workspace_destroy(struct workspace *wk)
 {
+	TracyCZoneAutoS;
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
 	workspace_destroy_bare(wk);
+	TracyCZoneAutoE;
 }
 
 bool

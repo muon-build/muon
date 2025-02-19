@@ -102,6 +102,7 @@ bool
 eval(struct workspace *wk, const struct source *src, enum build_language lang, enum eval_mode mode, obj *res)
 {
 	TracyCZoneAutoS;
+	TracyCMessage(src->label, strlen(src->label));
 
 	if (lang == build_language_cmake && mode == eval_mode_first) {
 		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
@@ -134,31 +135,32 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 		vm_compile_state_reset(wk);
 
 		switch (lang) {
-		case build_language_meson:
-			n = parse(wk, src, compile_mode);
-			break;
-		case build_language_cmake:
-			n = cm_parse(wk, src);
-			break;
+		case build_language_meson: n = parse(wk, src, compile_mode); break;
+		case build_language_cmake: n = cm_parse(wk, src); break;
 		}
 
 		if (!n) {
+			TracyCZoneAutoE;
 			return false;
 		}
 
 		if (lang == build_language_meson && (mode & eval_mode_first)) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
+				TracyCZoneAutoE;
 				return false;
 			}
 		}
 
 		if (!vm_compile_ast(wk, n, compile_mode, &entry)) {
+			TracyCZoneAutoE;
 			return false;
 		}
 	}
 
 	if (wk->vm.dbg_state.eval_trace) {
-		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
+		obj_array_push(wk,
+			wk->vm.dbg_state.eval_trace,
+			make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
 		bool trace_subdir = wk->vm.dbg_state.eval_trace_subdir;
 		if (trace_subdir) {
 			obj subdir_eval_trace;
