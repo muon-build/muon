@@ -39,4 +39,5 @@ uint32_t os_parallel_job_count(void);
 
 void os_set_env(const struct str *k, const struct str *v);
 const char *os_get_env(const char *k);
+bool os_is_debugger_attached(void);
 #endif
