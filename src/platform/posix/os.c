@@ -19,6 +19,7 @@
 
 #include "lang/string.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/os.h"
 
 bool
@@ -70,4 +71,42 @@ os_set_env(const struct str *k, const struct str *v)
 	tstr_push(0, &buf_v, 0);
 
 	setenv(buf_k.buf, buf_v.buf, true);
+}
+
+bool
+os_is_debugger_attached(void)
+{
+#if defined(__APPLE__) && defined(MUON_BOOTSTRAPPED)
+	// From Apple Technical Q&A QA1361
+	// https://developer.apple.com/library/archive/qa/qa1361/_index.html
+	int junk;
+	int mib[4];
+	struct kinfo_proc info;
+	size_t size;
+
+	// Initialize the flags so that, if sysctl fails for some bizarre
+	// reason, we get a predictable result.
+
+	info.kp_proc.p_flag = 0;
+
+	// Initialize mib, which tells sysctl the info we want, in this case
+	// we're looking for information about a specific process ID.
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROC;
+	mib[2] = KERN_PROC_PID;
+	mib[3] = getpid();
+
+	// Call sysctl.
+
+	size = sizeof(info);
+	junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+	assert(junk == 0);
+
+	// We're being debugged if the P_TRACED flag is set.
+
+	return ((info.kp_proc.p_flag & P_TRACED) != 0);
+#else
+	return false;
+#endif
 }

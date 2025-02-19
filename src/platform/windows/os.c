@@ -235,3 +235,9 @@ os_set_env(const struct str *k, const struct str *v)
 
 	putenv(buf_kv.buf);
 }
+
+bool
+os_is_debugger_attached(void)
+{
+	return false;
+}
