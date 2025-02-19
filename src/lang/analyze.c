@@ -1666,6 +1666,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	arr_destroy(&az_entrypoint_stack);
 	arr_destroy(&az_entrypoint_stacks);
 	arr_destroy(&analyzer.visited_ops);
+	hash_destroy(&analyzer.branch_map);
 	TracyCZoneAutoE;
 	return res;
 }
@@ -2188,6 +2189,7 @@ analyze_server(struct az_opts *cmdline_opts)
 
 			do_analyze(&wk, &opts);
 			az_srv_all_diagnostics(&srv, &wk);
+			error_diagnostic_store_destroy(&wk);
 		}
 
 		workspace_destroy(&wk);

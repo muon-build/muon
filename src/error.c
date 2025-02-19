@@ -194,6 +194,8 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 		error_message(&src, msg->location, msg->lvl, flags, msg->msg);
 	}
 
+	error_diagnostic_store_destroy(wk);
+
 	return ok;
 }
 
