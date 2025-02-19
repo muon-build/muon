@@ -11,11 +11,14 @@
 #include "datastructures/bucket_arr.h"
 #include "platform/assert.h"
 #include "platform/mem.h"
+#include "tracy.h"
 
 void
 init_bucket(struct bucket_arr *ba, struct bucket *b)
 {
+	TracyCZoneAutoS;
 	b->mem = z_calloc(ba->item_size, ba->bucket_size);
+	TracyCZoneAutoE;
 }
 
 uint64_t
@@ -27,6 +30,7 @@ bucket_arr_size(struct bucket_arr *ba)
 void
 bucket_arr_init(struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size)
 {
+	TracyCZoneAutoS;
 	assert(item_size > 0);
 
 	*ba = (struct bucket_arr){
@@ -38,6 +42,7 @@ bucket_arr_init(struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size)
 
 	arr_push(&ba->buckets, &(struct bucket){ 0 });
 	init_bucket(ba, arr_get(&ba->buckets, 0));
+	TracyCZoneAutoE;
 }
 
 void

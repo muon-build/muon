@@ -11,6 +11,7 @@
 #include "datastructures/arr.h"
 #include "datastructures/hash.h"
 #include "platform/assert.h"
+#include "tracy.h"
 
 #define k_empty 0x80 // 0b10000000
 #define k_deleted 0xfe // 0b11111110
@@ -91,6 +92,8 @@ hash_keycmp_memcmp(const struct hash *h, const void *a, const void *b)
 void
 hash_init(struct hash *h, uint32_t cap, uint32_t keysize)
 {
+	TracyCZoneAutoS;
+
 	ASSERT_VALID_CAP(cap);
 
 	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (uint32_t)((float)cap * LOAD_FACTOR) };
@@ -102,6 +105,8 @@ hash_init(struct hash *h, uint32_t cap, uint32_t keysize)
 
 	h->keycmp = hash_keycmp_memcmp;
 	h->hash_func = fnv_1a_64;
+
+	TracyCZoneAutoE;
 }
 
 static bool
