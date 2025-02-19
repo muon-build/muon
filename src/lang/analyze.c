@@ -19,6 +19,7 @@
 #include "memmem.h"
 #include "options.h"
 #include "platform/assert.h"
+#include "platform/mem.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -856,9 +857,8 @@ az_eval_project_file(struct workspace *wk,
 	enum build_language lang,
 	enum eval_project_file_flags flags)
 {
-	const char *newpath = path;
-	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
-		bool ret = false;
+	obj override;
+	if (obj_dict_index_str(wk, analyzer.opts->file_override, path, &override)) {
 		obj res;
 
 		enum eval_mode eval_mode = 0;
@@ -866,20 +866,19 @@ az_eval_project_file(struct workspace *wk,
 			eval_mode |= eval_mode_first;
 		}
 
-		if (!eval(wk, &analyzer.opts->file_src, lang, eval_mode, &res)) {
-			goto ret;
+		const struct source *src = arr_get(&analyzer.opts->file_override_src, override);
+
+		struct source weak_src = *src;
+		weak_src.is_weak_reference = true;
+
+		return eval(wk, &weak_src, lang, eval_mode, &res);
+	} else {
+		if (analyzer.opts->analyze_project_call_only) {
+			flags |= eval_project_file_flag_return_after_project;
 		}
 
-		ret = true;
-ret:
-		return ret;
+		return eval_project_file(wk, path, lang, flags);
 	}
-
-	if (analyzer.opts->analyze_project_call_only) {
-		flags |= eval_project_file_flag_return_after_project;
-	}
-
-	return eval_project_file(wk, newpath, lang, flags);
 }
 
 static void
@@ -1362,13 +1361,94 @@ az_warn_dead_code(struct workspace *wk,
 	error_message(src, merged, log_warn, 0, "dead code");
 }
 
+void
+analyze_opts_init(struct workspace *wk, struct az_opts *opts)
+{
+	*opts = (struct az_opts){ 0 };
+	opts->file_override = make_obj(wk, obj_dict);
+	arr_init(&opts->file_override_src, 8, sizeof(struct source));
+}
+
+void
+analyze_opts_destroy(struct workspace *wk, struct az_opts *opts)
+{
+	TracyCZoneAutoS;
+	uint32_t i;
+	for (i = 0; i < opts->file_override_src.len; ++i) {
+		struct source *src = arr_get(&opts->file_override_src, i);
+		fs_source_destroy(src);
+	}
+
+	arr_destroy(&opts->file_override_src);
+	TracyCZoneAutoE;
+}
+
+bool
+analyze_opts_push_override(struct workspace *wk,
+	struct az_opts *opts,
+	const char *override,
+	const char *content_path,
+	const struct str *content)
+{
+	TracyCZoneAutoS;
+	uint32_t idx;
+	struct source *src = 0;
+
+	TSTR(abs);
+	path_make_absolute(wk, &abs, override);
+	obj path = tstr_into_str(wk, &abs);
+
+	if (obj_dict_index(wk, opts->file_override, path, &idx)) {
+		src = arr_get(&opts->file_override_src, idx);
+		fs_source_destroy(src);
+	}
+
+	if (!content && !content_path) {
+		obj_dict_del(wk, opts->file_override, path);
+		TracyCZoneAutoE;
+		return true;
+	}
+
+	if (!src) {
+		idx = opts->file_override_src.len;
+		arr_push(&opts->file_override_src, &(struct source){ 0 });
+		src = arr_peek(&opts->file_override_src, 1);
+		obj_dict_set(wk, opts->file_override, path, idx);
+	}
+
+	assert(!src->src);
+	assert(!src->len);
+
+	if (content) {
+		void *buf = z_calloc(content->len + 1, 1);
+		memcpy(buf, content->s, content->len);
+		*src = (struct source){
+			.type = source_type_file,
+			.len = content->len,
+			.src = buf,
+		};
+	} else {
+		if (!fs_read_entire_file(content_path, src)) {
+			TracyCZoneAutoE;
+			return false;
+		}
+	}
+
+	src->label = get_cstr(wk, path);
+
+	TracyCZoneAutoE;
+	return true;
+}
+
 /******************************************************************************
  * entrypoint
  ******************************************************************************/
 
 bool
-do_analyze_internal(struct workspace *wk, struct az_opts *opts)
+do_analyze(struct workspace *wk, struct az_opts *opts)
 {
+	TracyCZoneAutoS;
+
 	bool res = false;
 	analyzer.opts = opts;
 
@@ -1430,15 +1510,23 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
 	}
 
-	if (analyzer.opts->file_override) {
-		const char *root = determine_project_root(wk, analyzer.opts->file_override);
-		if (root) {
-			TSTR(cwd);
-			path_copy_cwd(wk, &cwd);
+	{
+		obj first_override = 0, _v;
+		obj_dict_for(wk, analyzer.opts->file_override, first_override, _v) {
+			(void)_v;
+			break;
+		}
 
-			if (strcmp(cwd.buf, root) != 0) {
-				path_chdir(root);
-				wk->source_root = root;
+		if (first_override) {
+			const char *root = determine_project_root(wk, get_cstr(wk, first_override));
+			if (root) {
+				TSTR(cwd);
+				path_copy_cwd(wk, &cwd);
+
+				if (strcmp(cwd.buf, root) != 0) {
+					path_chdir(root);
+					wk->source_root = root;
+				}
 			}
 		}
 	}
@@ -1565,21 +1653,6 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 
 	if (analyzer.opts->eval_trace) {
 		eval_trace_print(wk, wk->vm.dbg_state.eval_trace);
-	} else if (analyzer.opts->get_definition_for) {
-		bool found = false;
-		uint32_t i;
-		for (i = 0; i < assignments.len; ++i) {
-			struct assignment *a = bucket_arr_get(&assignments, i);
-			if (strcmp(a->name, analyzer.opts->get_definition_for) == 0) {
-				struct source *src = arr_get(&wk->vm.src, a->src_idx);
-				list_line_range(src, a->location, 1);
-				found = true;
-			}
-		}
-
-		if (!found) {
-			LOG_W("couldn't find definition for %s", analyzer.opts->get_definition_for);
-		}
 	} else {
 		bool saw_error;
 		saw_error = error_diagnostic_store_replay(wk, analyzer.opts->replay_opts);
@@ -1593,16 +1666,7 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 	arr_destroy(&az_entrypoint_stack);
 	arr_destroy(&az_entrypoint_stacks);
 	arr_destroy(&analyzer.visited_ops);
-	return res;
-}
-
-bool
-do_analyze(struct az_opts *opts)
-{
-	struct workspace wk;
-	workspace_init_bare(&wk);
-	bool res = do_analyze_internal(&wk, opts);
-	workspace_destroy(&wk);
+	TracyCZoneAutoE;
 	return res;
 }
 
@@ -1616,7 +1680,7 @@ analyze_project_call(struct workspace *wk)
 
 	workspace_init_bare(wk);
 
-	return do_analyze_internal(wk, &opts);
+	return do_analyze(wk, &opts);
 }
 
 /*******************************************************************************
@@ -1644,7 +1708,9 @@ struct az_srv {
 	bool should_analyze;
 
 	struct workspace *wk;
+	obj file_override;
 	obj diagnostics_to_clear;
+	struct az_opts opts;
 };
 
 // Returns true if the current process is being debugged (either
@@ -1719,8 +1785,6 @@ az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 
 	buf->len += n;
 
-	fflush(_log_file());
-
 	return true;
 }
 
@@ -1737,6 +1801,7 @@ az_srv_buf_shift(struct az_srv *srv, uint32_t amnt)
 static bool
 az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 {
+	TracyCZoneAutoS;
 	int64_t content_length = 0;
 	struct tstr *buf = srv->transport.in_buf;
 
@@ -1805,6 +1870,7 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 		az_srv_buf_shift(srv, content_length);
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }
 
@@ -1889,7 +1955,7 @@ az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 {
 	obj d = make_obj(wk, obj_dict);
 	obj_dict_set(wk, d, make_str(wk, "line"), make_number(wk, line - 1));
-	obj_dict_set(wk, d, make_str(wk, "character"), make_number(wk, col - 1));
+	obj_dict_set(wk, d, make_str(wk, "character"), make_number(wk, col ? col - 1 : 0));
 	return d;
 }
 
@@ -1909,7 +1975,7 @@ az_srv_diagnostic(struct workspace *wk, const struct source *src, const struct e
 	obj_dict_set(wk,
 		range,
 		make_str(wk, "end"),
-		az_srv_position(wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col));
+		az_srv_position(wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
 	obj_dict_set(wk, d, make_str(wk, "range"), range);
 	enum DiagnosticSeverity {
 		DiagnosticSeverityError = 1,
@@ -1992,18 +2058,27 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 		obj_array_push(wk, d, az_srv_diagnostic(wk, cur_src, msg));
 	}
 
-	az_srv_diagnostics(srv, wk, last_src, d);
+	if (last_src) {
+		az_srv_diagnostics(srv, wk, last_src, d);
+	}
 }
 
 static void
-az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct str *uri, const struct str *content)
+az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struct str *content)
 {
+	const struct str file_prefix = STR("file://");
+	if (!str_startswith(uri_s, &file_prefix)) {
+		return;
+	}
+
 	srv->should_analyze = true;
+	analyze_opts_push_override(srv->wk, &srv->opts, uri_s->s + file_prefix.len, 0, content);
 }
 
 static void
 az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 {
+	TracyCZoneAutoS;
 	const struct str *method = obj_dict_index_as_str(wk, msg, "method");
 
 	if (str_eql(method, &STR("initialize"))) {
@@ -2037,7 +2112,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 		const struct str *content = obj_dict_index_as_str(wk, text_document, "text");
 
-		az_srv_set_src_override(srv, wk, uri, content);
+		az_srv_set_src_override(srv, uri, content);
 	} else if (str_eql(method, &STR("textDocument/didChange"))) {
 		obj params = obj_dict_index_as_obj(wk, msg, "params");
 		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
@@ -2046,26 +2121,23 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		obj change0 = obj_array_index(wk, content_changes, 0);
 		const struct str *content = obj_dict_index_as_str(wk, change0, "text");
 
-		az_srv_set_src_override(srv, wk, uri, content);
+		az_srv_set_src_override(srv, uri, content);
 	} else if (str_eql(method, &STR("textDocument/didSave"))) {
 		obj params = obj_dict_index_as_obj(wk, msg, "params");
 		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 
-		az_srv_set_src_override(srv, wk, uri, 0);
+		az_srv_set_src_override(srv, uri, 0);
 	}
+	TracyCZoneAutoE;
 }
 
 bool
-analyze_server(struct az_opts *opts)
+analyze_server(struct az_opts *cmdline_opts)
 {
 	bool loop = true;
 
-	FILE *log_file = 0;
-	if (!(log_file = fs_fopen("lsp.log", "wb"))) {
-		return false;
-	}
-	log_set_file(log_file);
+	log_set_file(stderr);
 
 	/* LOG_I("muon lsp waiting for debugger..."); */
 	/* while (!AmIBeingDebugged()) { */
@@ -2081,7 +2153,12 @@ analyze_server(struct az_opts *opts)
 		.diagnostics_to_clear = make_obj(&srv_wk, obj_array),
 	};
 
+	analyze_opts_init(srv.wk, &srv.opts);
+	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
+
 	while (loop) {
+		TracyCFrameMark;
+
 		struct workspace wk = { 0 };
 		workspace_init_bare(&wk);
 		TSTR(in_buf);
@@ -2093,18 +2170,23 @@ analyze_server(struct az_opts *opts)
 			break;
 		}
 
-		obj_lprintf(&wk, "<<< %#o\n", msg);
-		fflush(log_file);
-
 		az_srv_handle(&srv, &wk, msg);
 
 		if (srv.should_analyze) {
-			struct az_opts opts = {
-				.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
-				.replay_opts = error_diagnostic_store_replay_prepare_only,
-			};
+			struct az_opts opts = { 0 };
+			opts.file_override = make_obj(&wk, obj_dict);
+			opts.file_override_src = srv.opts.file_override_src;
+			opts.enabled_diagnostics = srv.opts.enabled_diagnostics;
+			opts.replay_opts = error_diagnostic_store_replay_prepare_only;
 
-			do_analyze_internal(&wk, &opts);
+			{
+				obj path, idx;
+				obj_dict_for(srv.wk, srv.opts.file_override, path, idx) {
+					obj_dict_set(&wk, opts.file_override, str_clone(srv.wk, &wk, path), idx);
+				}
+			}
+
+			do_analyze(&wk, &opts);
 			az_srv_all_diagnostics(&srv, &wk);
 		}
 
@@ -2112,9 +2194,8 @@ analyze_server(struct az_opts *opts)
 	}
 	LOG_I("muon lsp shutting down");
 
-	if (log_file) {
-		fs_fclose(log_file);
-		log_set_file(stdout);
-	}
+	analyze_opts_destroy(srv.wk, &srv.opts);
+	workspace_destroy(srv.wk);
+
 	return true;
 }

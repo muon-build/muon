@@ -20,6 +20,7 @@ struct source {
 	const char *src;
 	uint64_t len;
 	enum source_type type;
+	bool is_weak_reference;
 };
 
 struct source_location {

@@ -296,22 +296,24 @@ ret:
 static bool
 cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	bool server = false;
-
-	struct az_opts opts = {
+	struct {
+		bool subdir_error;
+		enum error_diagnostic_store_replay_opts replay_opts;
+		const char *file_override, *internal_file;
+		uint64_t enabled_diagnostics;
+		enum {
+			action_trace,
+			action_lsp,
+			action_default,
+		} action;
+	} opts = {
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
+		.action = action_default,
 	};
-
-	enum {
-		action_trace,
-		action_define,
-		action_default,
-	} action
-		= action_default;
 
 	static const struct command commands[] = {
 		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
-		[action_define] = { "define <var>", 0, "lookup the definition of a variable" },
+		[action_lsp] = { "lsp", 0, "run in lsp mode" },
 		0,
 	};
 
@@ -321,15 +323,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		opts.subdir_error = true;
 		opts.replay_opts |= error_diagnostic_store_replay_dont_include_sources;
 		break;
-	case 'O': {
-		opts.file_override = optarg;
-		// TODO: this is leaked
-		if (!fs_read_entire_file("-", &opts.file_src)) {
-			return false;
-		}
-		opts.file_src.label = optarg;
-		break;
-	}
+	case 'O': opts.file_override = optarg; break;
 	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
 	case 'W': {
 		bool enable = true;
@@ -359,7 +353,6 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		break;
 	}
-	case 's': server = true; break;
 	}
 	OPTEND(argv[argi],
 		"",
@@ -373,13 +366,9 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		commands,
 		-1);
 
-	if (server) {
-		if (!check_operands(argc, argi, 0)) {
-			return false;
-		}
-
-		return analyze_server(&opts);
-	} else {
+	{
+		// Determine "action".  This is basically a subcommand but is allowed
+		// to be empty
 		uint32_t cmd_i = action_default;
 		if (!find_cmd(commands, &cmd_i, argc, argi, argv, true)) {
 			return false;
@@ -387,47 +376,46 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		if (cmd_i != action_default) {
 			++argi;
 		}
-		action = cmd_i;
+		opts.action = cmd_i;
 
-		if (action == action_define) {
-			if (!check_operands(argc, argi, 1)) {
-				return false;
-			}
-		} else {
-			if (!check_operands(argc, argi, 0)) {
-				return false;
-			}
+		if (!check_operands(argc, argi, 0)) {
+			return false;
 		}
+	}
 
-		switch (action) {
-		case action_default: break;
-		case action_trace: {
-			opts.eval_trace = true;
-			break;
-		}
-		case action_define: {
-			opts.get_definition_for = argv[argi];
-			break;
-		}
-		}
+	if (opts.action == action_lsp) {
+		struct az_opts az_opts = {
+			.enabled_diagnostics = opts.enabled_diagnostics,
+		};
+		return analyze_server(&az_opts);
+	} else {
+		struct workspace wk;
+		workspace_init_bare(&wk);
 
 		if (opts.internal_file && opts.file_override) {
 			LOG_E("-i and -O are mutually exclusive");
 			return false;
 		}
 
-		TSTR_manual(abs);
+		struct az_opts az_opts;
+		analyze_opts_init(&wk, &az_opts);
+		az_opts.eval_trace = opts.action == action_trace;
+		az_opts.subdir_error = opts.subdir_error;
+		az_opts.replay_opts = opts.replay_opts;
+		az_opts.internal_file = opts.internal_file;
+		az_opts.enabled_diagnostics = opts.enabled_diagnostics;
+
+		bool res = true;
 		if (opts.file_override) {
-			path_make_absolute(NULL, &abs, opts.file_override);
-			opts.file_override = abs.buf;
+			res = analyze_opts_push_override(&wk, &az_opts, opts.file_override, "-", 0);
 		}
 
-		bool res;
-		res = do_analyze(&opts);
-
-		if (opts.file_override) {
-			tstr_destroy(&abs);
+		if (res) {
+			res = do_analyze(&wk, &az_opts);
 		}
+
+		workspace_destroy(&wk);
+		analyze_opts_destroy(&wk, &az_opts);
 		return res;
 	}
 }

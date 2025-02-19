@@ -275,8 +275,10 @@ fs_source_dup(const struct source *src, struct source *dup)
 void
 fs_source_destroy(struct source *src)
 {
-	if (src->src) {
-		z_free((char *)src->src);
+	if (!src->is_weak_reference) {
+		if (src->src) {
+			z_free((char *)src->src);
+		}
 	}
 	src->src = 0;
 	src->len = 0;
