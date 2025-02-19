@@ -336,6 +336,17 @@ fs_fread(void *ptr, size_t size, FILE *f)
 	}
 }
 
+int32_t
+fs_read(int fd, void *buf, uint32_t buf_len)
+{
+	int32_t res = read(fd, buf, buf_len);
+	if (res < 0) {
+		LOG_E("read: %s", strerror(errno));
+	}
+
+	return res;
+}
+
 bool
 fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 {

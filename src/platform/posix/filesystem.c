@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -447,4 +448,26 @@ FILE *
 fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 {
 	return 0;
+}
+
+bool
+fs_wait_for_input(int fd)
+{
+	while (true) {
+		struct pollfd fds = {
+			.fd = fd,
+			.events = POLLIN,
+		};
+
+		if (poll(&fds, 1, -1) == -1) {
+			LOG_E("poll: %s", strerror(errno));
+			return false;
+		}
+
+		if (fds.revents & POLLIN) {
+			break;
+		}
+	}
+
+	return true;
 }

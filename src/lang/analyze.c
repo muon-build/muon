@@ -2,8 +2,6 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-License-Identifier: GPL-3.0-only
  */
-#include <sys/sysctl.h>
-
 #include "compat.h"
 
 #include <string.h>
@@ -22,6 +20,7 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "tracy.h"
+#include "version.h"
 
 static struct {
 	const struct az_opts *opts;
@@ -1688,16 +1687,6 @@ analyze_project_call(struct workspace *wk)
  * LSP
  ******************************************************************************/
 
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "version.h"
-
 struct az_srv {
 	struct {
 		struct tstr *in_buf;
@@ -1714,73 +1703,22 @@ struct az_srv {
 	struct az_opts opts;
 };
 
-// Returns true if the current process is being debugged (either
-// running under the debugger or has a debugger attached post facto).
-bool
-AmIBeingDebugged(void)
-{
-	int junk;
-	int mib[4];
-	struct kinfo_proc info;
-	size_t size;
-
-	// Initialize the flags so that, if sysctl fails for some bizarre
-	// reason, we get a predictable result.
-
-	info.kp_proc.p_flag = 0;
-
-	// Initialize mib, which tells sysctl the info we want, in this case
-	// we're looking for information about a specific process ID.
-
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_PROC;
-	mib[2] = KERN_PROC_PID;
-	mib[3] = getpid();
-
-	// Call sysctl.
-
-	size = sizeof(info);
-	junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
-	assert(junk == 0);
-
-	// We're being debugged if the P_TRACED flag is set.
-
-	return ((info.kp_proc.p_flag & P_TRACED) != 0);
-}
-
 static bool
 az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 {
 	struct tstr *buf = srv->transport.in_buf;
 
-	{
-		while (true) {
-			struct pollfd fds = {
-				.fd = srv->transport.in,
-				.events = POLLIN,
-			};
-
-			if (poll(&fds, 1, 250) == -1) {
-				LOG_E("poll: %s", strerror(errno));
-				return false;
-			}
-
-			if (fds.revents & POLLIN) {
-				break;
-			}
-		}
+	if (!fs_wait_for_input(srv->transport.in)) {
+		return false;
 	}
 
 	if (buf->cap - buf->len < 16) {
 		tstr_grow(wk, buf, 1024);
 	}
 
-	ssize_t n = read(srv->transport.in, buf->buf + buf->len, buf->cap - buf->len);
-	if (n == 0) {
-		// EOF
-		return false;
-	} else if (n < 0) {
-		LOG_E("read: %s", strerror(errno));
+	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, buf->cap - buf->len);
+	if (n <= 0) {
+		// EOF, error
 		return false;
 	}
 
@@ -1976,7 +1914,8 @@ az_srv_diagnostic(struct workspace *wk, const struct source *src, const struct e
 	obj_dict_set(wk,
 		range,
 		make_str(wk, "end"),
-		az_srv_position(wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
+		az_srv_position(
+			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
 	obj_dict_set(wk, d, make_str(wk, "range"), range);
 	enum DiagnosticSeverity {
 		DiagnosticSeverityError = 1,
@@ -2141,7 +2080,7 @@ analyze_server(struct az_opts *cmdline_opts)
 	log_set_file(stderr);
 
 	/* LOG_I("muon lsp waiting for debugger..."); */
-	/* while (!AmIBeingDebugged()) { */
+	/* while (!os_is_debugger_attached()) { */
 	/* } */
 
 	LOG_I("muon lsp listening...");
@@ -2149,7 +2088,10 @@ analyze_server(struct az_opts *cmdline_opts)
 	struct workspace srv_wk;
 	workspace_init_bare(&srv_wk);
 	struct az_srv srv = {
-		.transport = { .in = STDIN_FILENO, .out = stdout },
+		.transport = {
+			.in = 0, // STDIN_FILENO
+			.out = stdout,
+		},
 		.wk = &srv_wk,
 		.diagnostics_to_clear = make_obj(&srv_wk, obj_array),
 	};
