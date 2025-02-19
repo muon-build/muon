@@ -22,10 +22,10 @@ struct az_opts {
 	bool eval_trace;
 	bool analyze_project_call_only;
 	enum error_diagnostic_store_replay_opts replay_opts;
-	const char *file_override, *internal_file, *get_definition_for;
-	struct source file_src;
+	const char *internal_file;
 	uint64_t enabled_diagnostics;
-	obj diagnostics;
+	obj file_override;
+	struct arr file_override_src;
 };
 
 enum az_branch_element_flag {
@@ -54,7 +54,15 @@ void az_set_error(void);
 
 extern struct func_impl_group az_func_impl_group;
 
-bool do_analyze(struct az_opts *opts);
+void analyze_opts_init(struct workspace *wk, struct az_opts *opts);
+void analyze_opts_destroy(struct workspace *wk, struct az_opts *opts);
+bool analyze_opts_push_override(struct workspace *wk,
+	struct az_opts *opts,
+	const char *override,
+	const char *content_path,
+	const struct str *content);
+
+bool do_analyze(struct workspace *wk, struct az_opts *opts);
 
 void eval_trace_print(struct workspace *wk, obj trace);
 
