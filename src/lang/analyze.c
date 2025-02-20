@@ -1697,6 +1697,12 @@ struct az_srv {
 	bool verbose;
 	bool should_analyze;
 
+	struct {
+		const char *path;
+		obj request_id;
+		uint32_t off;
+	} completion_req;
+
 	struct workspace *wk;
 	obj file_override;
 	obj diagnostics_to_clear;
@@ -1878,6 +1884,17 @@ obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
 	return get_str(wk, r);
 }
 
+static int64_t
+obj_dict_index_as_number(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		UNREACHABLE;
+	}
+
+	return get_obj_number(wk, r);
+}
+
 static obj
 obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
 {
@@ -2003,16 +2020,98 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 	}
 }
 
-static void
-az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struct str *content)
+static const char *
+az_srv_uri_to_path(const struct str *uri_s)
 {
 	const struct str file_prefix = STR("file://");
 	if (!str_startswith(uri_s, &file_prefix)) {
+		return 0;
+	}
+	return uri_s->s + file_prefix.len;
+}
+
+static void
+az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struct str *content)
+{
+	const char *path;
+	if (!(path = az_srv_uri_to_path(uri_s))) {
 		return;
 	}
 
 	srv->should_analyze = true;
-	analyze_opts_push_override(srv->wk, &srv->opts, uri_s->s + file_prefix.len, 0, content);
+	analyze_opts_push_override(srv->wk, &srv->opts, path, 0, content);
+}
+
+static uint32_t
+az_srv_lookup_ip(struct workspace *wk, const char *path, uint32_t off)
+{
+	struct source_location_mapping *locations = (struct source_location_mapping *)wk->vm.locations.e;
+	struct source *src;
+
+	assert(wk->vm.locations.len);
+
+	uint32_t i;
+	for (i = 0; i < wk->vm.locations.len; ++i) {
+		if (locations[i].src_idx == UINT32_MAX) {
+			// null_src
+			continue;
+		}
+
+		src = arr_get(&wk->vm.src, locations[i].src_idx);
+		if (strcmp(src->label, path) != 0) {
+			continue;
+		}
+
+		L("%d) (%d) %s:%d %s", i, off, path, locations[i].loc.off, vm_dis_inst(wk, wk->vm.code.e, locations[i].ip));
+		uint32_t next_off = i == wk->vm.locations.len - 1 ? locations[i + 1].loc.off
+		if (locations[i].loc.off <= off && off <= locations[i + 1].loc.off) {
+			return locations[i].ip;
+		}
+	}
+
+	return 0;
+}
+
+static bool
+az_srv_line_col_to_location(struct az_srv *srv, struct workspace *wk, const char *path, uint32_t t_line, uint32_t t_col, struct source_location *res)
+{
+	obj override;
+	if (!obj_dict_index_str(srv->wk, srv->opts.file_override, path, &override)) {
+		return false;
+	}
+
+	const struct source *src = arr_get(&srv->opts.file_override_src, override);
+
+	uint32_t i, line = 0, col = 0;
+	for (i = 0; i < src->len; ++i) {
+		if (line == t_line && col == t_col) {
+			res->off = i;
+			return true;
+		}
+
+		if (src->src[i] == '\n') {
+			++line;
+			col = 1;
+		} else {
+			++col;
+		}
+	}
+
+	return false;
+}
+
+static void
+az_srv_handle_completion_req(struct az_srv *srv, struct workspace *wk)
+{
+	uint32_t ip = az_srv_lookup_ip(wk, srv->completion_req.path, srv->completion_req.off);
+
+	L("$ %s", vm_dis_inst(wk, wk->vm.code.e, ip));
+
+	obj result = make_obj(wk, obj_array);
+	obj item = make_obj(wk, obj_dict);
+	obj_dict_set(wk, item, make_str(wk, "label"), make_strf(wk, "%s, %d, %d", srv->completion_req.path, srv->completion_req.off, ip));
+	obj_array_push(wk, result, item);
+	az_srv_respond(srv, wk, srv->completion_req.request_id, result);
 }
 
 static void
@@ -2031,6 +2130,13 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		};
 		obj_dict_set(
 			wk, capabilities, make_str(wk, "textDocumentSync"), make_number(wk, TextDocumentSyncKindFull));
+
+		obj completion_provider = make_obj(wk, obj_dict);
+		obj trigger_characters = make_obj(wk, obj_array);
+		obj_array_push(wk, trigger_characters, make_str(wk, "."));
+		obj_dict_set(wk, completion_provider, make_str(wk, "triggerCharacters"), trigger_characters);
+		obj_dict_set(wk, capabilities, make_str(wk, "completionProvider"), completion_provider);
+
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
 		obj server_info = make_obj(wk, obj_dict);
@@ -2068,7 +2174,33 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 
 		az_srv_set_src_override(srv, uri, 0);
+	} else if (str_eql(method, &STR("textDocument/completion"))) {
+		obj id = obj_dict_index_as_obj(wk, msg, "id");
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
+		obj position = obj_dict_index_as_obj(wk, params, "position");
+		int64_t line = obj_dict_index_as_number(wk, position, "line");
+		int64_t col = obj_dict_index_as_number(wk, position, "character");
+
+		/*------------------------------------*/
+
+		const char *path = 0;
+		uint32_t off = 0;
+
+		if ((path = az_srv_uri_to_path(uri)) && line >= 0 && col >= 0) {
+			struct source_location loc = { 0 };
+			if (az_srv_line_col_to_location(srv, wk, path, line, col, &loc)) {
+				off = loc.off;
+			}
+		}
+
+		srv->completion_req.path = path;
+		srv->completion_req.request_id = id;
+		srv->completion_req.off = off;
+		srv->should_analyze = true;
 	}
+
 	TracyCZoneAutoE;
 }
 
@@ -2107,6 +2239,7 @@ analyze_server(struct az_opts *cmdline_opts)
 		TSTR(in_buf);
 		srv.transport.in_buf = &in_buf;
 		srv.should_analyze = false;
+		srv.completion_req.request_id = 0;
 
 		obj msg;
 		if (!az_srv_read(&wk, &srv, &msg)) {
@@ -2132,6 +2265,10 @@ analyze_server(struct az_opts *cmdline_opts)
 			do_analyze(&wk, &opts);
 			az_srv_all_diagnostics(&srv, &wk);
 			error_diagnostic_store_destroy(&wk);
+
+			if (srv.completion_req.request_id) {
+				az_srv_handle_completion_req(&srv, &wk);
+			}
 		}
 
 		workspace_destroy(&wk);
