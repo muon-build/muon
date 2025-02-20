@@ -84,6 +84,7 @@ setup_platform_env(const char *build_dir, bool force)
 		if (build_dir) {
 			path_copy(0, &cache, build_dir);
 			path_push(0, &cache, output_path.private_dir);
+			fs_mkdir_p(cache.buf);
 			if (fs_dir_exists(cache.buf)) {
 				path_push(0, &cache, "vsenv.txt");
 				cache_path = cache.buf;
