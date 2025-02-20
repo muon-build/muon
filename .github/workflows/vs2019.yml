@@ -17,10 +17,9 @@ jobs:
     strategy:
       matrix:
         arch:
+          - x86
           - amd64
-          - amd64_x86
         compiler:
-          # TODO: Add clang when bootstrap.bat adds clang support.
           - msvc
     name: ${{ matrix.arch }} - ${{ matrix.compiler }}
     runs-on: windows-2019
@@ -29,9 +28,6 @@ jobs:
         shell: cmd
     steps:
       - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.arch }}
       - name: bootstrap
         run: >
           bootstrap.bat build
