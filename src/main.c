@@ -1186,10 +1186,42 @@ cmd_ui(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	OPTSTART("") {
+	}
+	OPTEND(argv[argi], "", "", NULL, -1)
+
+	if (argi >= argc) {
+		LOG_E("missing command");
+		return false;
+	}
+
+	if (!ensure_in_build_dir()) {
+		return false;
+	}
+
+	setup_platform_env(".", true);
+
+	const char *const *cmd = (const char *const *)&argv[argi];
+
+	struct run_cmd_ctx ctx = { 0 };
+	ctx.flags |= run_cmd_ctx_flag_dont_capture;
+
+	if (!run_cmd_argv(&ctx, (char *const *)cmd, 0, 0)) {
+		LOG_E("failed to run command: %s", ctx.err_msg);
+		return false;;
+	}
+
+	exit(ctx.status);
+}
+
+static bool
 cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer" },
+		{ "devenv", cmd_devenv, "run commands in developer environment" },
 		{ "fmt", cmd_format, "format meson source file" },
 		{ "info", cmd_info, NULL },
 		{ "install", cmd_install, "install files" },
