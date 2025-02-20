@@ -32,10 +32,10 @@ jobs:
         run: >
           bootstrap.bat build
           && build\muon-bootstrap.exe -v setup -Dvsenv=true build
-          && build\muon-bootstrap.exe -vC build samu
+          && build\muon-bootstrap.exe -vC build devenv muon-bootstrap.exe -v samu
       - name: test
         run: >
-          build\muon.exe -vC build test
+          build\muon-bootstrap.exe -vC build devenv muon.exe -v test
           || exit 0
       - name: upload-binary
         shell: bash
