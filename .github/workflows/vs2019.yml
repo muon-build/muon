@@ -31,7 +31,7 @@ jobs:
       - name: bootstrap
         run: >
           bootstrap.bat build
-          && build\muon-bootstrap.exe -v setup build
+          && build\muon-bootstrap.exe -v setup -Dvsenv=true build
           && build\muon-bootstrap.exe -vC build samu
       - name: test
         run: >
