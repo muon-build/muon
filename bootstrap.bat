@@ -7,6 +7,17 @@ cd /D "%~dp0"
 
 if "%~1" == "" goto :usage
 
+where cl >nul 2>nul
+if %ERRORLEVEL%==0 goto :build
+
+:: Attempt to run vcvarsall if cl was not found.
+for /f "tokens=*" %%g in (
+'"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath'
+) do (set installation_path=%%g)
+call "%installation_path%\VC\Auxiliary\Build\vcvarsall" x64
+
+:build
+
 set dir=%1
 if not exist "%dir%" mkdir "%dir%"
 
