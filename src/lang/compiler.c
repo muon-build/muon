@@ -11,6 +11,7 @@
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/vm.h"
@@ -126,6 +127,17 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	assert(n->type != node_type_stmt);
 
 	/* L("compiling %s", node_to_s(wk, n)); */
+
+	if (wk->vm.compiler_state.breakpoints) {
+		obj off;
+		obj_array_for_(wk, wk->vm.compiler_state.breakpoints, off, iter) {
+			if (n->location.off <= off && off <= n->location.off + n->location.len) {
+				push_code(wk, op_dbg_break);
+				obj_array_del(wk, wk->vm.compiler_state.breakpoints, iter.i);
+				break;
+			}
+		}
+	}
 
 	switch (n->type) {
 	case node_type_group:
@@ -829,6 +841,31 @@ void
 vm_compile_state_reset(struct workspace *wk)
 {
 	bucket_arr_clear(&wk->vm.compiler_state.nodes);
+	wk->vm.compiler_state.breakpoints = 0;
+}
+
+static bool
+vm_compile_breakpoint_to_off(struct workspace *wk, const struct source *src, obj bp, uint32_t *off)
+{
+	uint32_t t_line, t_col;
+	vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
+
+	uint32_t i, line = 1, col = 1;
+	for (i = 0; i < src->len; ++i) {
+		if (line == t_line && (col == t_col || !t_col)) {
+			*off = i;
+			return true;
+		}
+
+		if (src->src[i] == '\n') {
+			++line;
+			col = 1;
+		} else {
+			++col;
+		}
+	}
+
+	return false;
 }
 
 bool
@@ -837,6 +874,28 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	TracyCZoneAutoS;
 	wk->vm.compiler_state.err = false;
 	wk->vm.compiler_state.mode = mode;
+
+	const struct source *src = 0;
+	if (wk->vm.dbg_state.breakpoints) {
+		src = arr_peek(&wk->vm.src, 1);
+
+		obj file_bp;
+		if (obj_dict_index_str(wk, wk->vm.dbg_state.breakpoints, src->label, &file_bp)) {
+			wk->vm.compiler_state.breakpoints = make_obj(wk, obj_array);
+
+			obj bp;
+			obj_array_for(wk, file_bp, bp) {
+				uint32_t off;
+				if (vm_compile_breakpoint_to_off(wk, src, bp, &off)) {
+					obj_array_push(wk, wk->vm.compiler_state.breakpoints, off);
+				} else {
+					uint32_t t_line, t_col;
+					vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
+					LOG_W("failed to resolve breakpoint %s:%d:%d", src->label, t_line, t_col);
+				}
+			}
+		}
+	}
 
 	*entry = wk->vm.code.len;
 
@@ -852,12 +911,19 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
 	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
 
+	if (wk->vm.compiler_state.breakpoints) {
+		obj off;
+		obj_array_for(wk, wk->vm.compiler_state.breakpoints, off) {
+			LOG_W("failed to resolve breakpoint %s@%d", src->label, off);
+		}
+	}
+
 	TracyCZoneAutoE;
 	return !wk->vm.compiler_state.err;
 }
 
 bool
-vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, uint32_t *entry)
+vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, uint32_t *entry)
 {
 	struct node *n;
 
