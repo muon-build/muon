@@ -385,7 +385,7 @@ push_breakpoint(const char *file, uint32_t line, uint32_t col)
 	breakpoint bp = { .col = col, .line = line };
 	cstr_copy(bp.file, file, sizeof(bp.file));
 	ctx->breakpoints.push_back(bp);
-	vm_dbg_push_breakpoint(wk, make_str(wk, file), line);
+	vm_dbg_push_breakpoint(wk, make_str(wk, file), line, 0);
 	sync_breakpoints();
 }
 
@@ -491,9 +491,9 @@ obj_callstack_unpack(obj e, uint32_t *line, uint32_t *col)
 	struct workspace *wk = &ctx->wk;
 
 	obj path_, line_, col_;
-	obj_array_index(wk, e, 0, &path_);
-	obj_array_index(wk, e, 1, &line_);
-	obj_array_index(wk, e, 2, &col_);
+	path_ = obj_array_index(wk, e, 0);
+	line_ = obj_array_index(wk, e, 1);
+	col_ = obj_array_index(wk, e, 2);
 
 	const char *path = get_cstr(wk, path_);
 	*line = get_obj_number(wk, line_);
@@ -513,8 +513,7 @@ open_editor_for_object(obj t)
 	}
 
 	ctx->callstack = get_obj_build_target(wk, t)->callstack;
-	obj e;
-	obj_array_index(wk, ctx->callstack, 0, &e);
+	obj e = obj_array_index(wk, ctx->callstack, 0);
 
 	uint32_t line, col;
 	struct source *src = obj_callstack_unpack(e, &line, &col);
@@ -894,14 +893,14 @@ render_option(struct workspace *wk, obj k, obj o)
 	case op_boolean: {
 		bool v = get_obj_bool(wk, opt->val);
 		if (ImGui::Checkbox("", &v)) {
-			set_option(wk, 0, o, make_obj_bool(wk, v), option_value_source_commandline, false);
+			set_option(wk, o, make_obj_bool(wk, v), option_value_source_commandline, false);
 		}
 		break;
 	}
 	case op_integer: {
 		int i = get_obj_number(wk, opt->val);
 		if (ImGui::InputInt("", &i)) {
-			set_option(wk, 0, o, make_number(wk, i), option_value_source_commandline, false);
+			set_option(wk, o, make_number(wk, i), option_value_source_commandline, false);
 		}
 		break;
 	}
@@ -909,7 +908,7 @@ render_option(struct workspace *wk, obj k, obj o)
 		if (editing_option == o) {
 			static char buf[1024];
 			if (ImGui::SmallButton(ICON_FA_CHECK)) {
-				set_option(wk, 0, o, make_str(wk, buf), option_value_source_commandline, false);
+				set_option(wk, o, make_str(wk, buf), option_value_source_commandline, false);
 				editing_option = 0;
 				buf[0] = 0;
 			}
@@ -934,7 +933,7 @@ render_option(struct workspace *wk, obj k, obj o)
 			obj val;
 			val = make_obj(wk, obj_feature_opt);
 			set_obj_feature_opt(wk, val, (feature_opt_state)cur);
-			set_option(wk, 0, o, val, option_value_source_commandline, false);
+			set_option(wk, o, val, option_value_source_commandline, false);
 		}
 		break;
 	}
@@ -978,14 +977,13 @@ render_option(struct workspace *wk, obj k, obj o)
 				obj_array_dup(wk, opt->val, &val);
 
 				if (rebuild_idx_selected) {
-					obj nv;
-					obj_array_index(wk, opt->choices, rebuild_idx, &nv);
+					obj nv = obj_array_index(wk, opt->choices, rebuild_idx);
 					obj_array_push(wk, val, nv);
 				} else {
 					obj_array_del(wk, val, rebuild_idx);
 				}
 
-				set_option(wk, 0, o, val, option_value_source_commandline, false);
+				set_option(wk, o, val, option_value_source_commandline, false);
 			}
 		} else {
 			bool do_delete = false;
@@ -1013,7 +1011,7 @@ render_option(struct workspace *wk, obj k, obj o)
 				obj val;
 				obj_array_dup(wk, opt->val, &val);
 				obj_array_del(wk, val, delete_idx);
-				set_option(wk, 0, o, val, option_value_source_commandline, false);
+				set_option(wk, o, val, option_value_source_commandline, false);
 			}
 
 			if (editing_option == o) {
@@ -1025,7 +1023,7 @@ render_option(struct workspace *wk, obj k, obj o)
 					obj_array_dup(wk, opt->val, &val);
 					obj_array_push(wk, val, make_str(wk, buf));
 
-					set_option(wk, 0, o, val, option_value_source_commandline, false);
+					set_option(wk, o, val, option_value_source_commandline, false);
 					buf[0] = 0;
 					editing_option = 0;
 				}
@@ -1043,7 +1041,7 @@ render_option(struct workspace *wk, obj k, obj o)
 			obj c;
 			obj_array_for(wk, opt->choices, c) {
 				if (ImGui::Selectable(get_cstr(wk, c), c == opt->val)) {
-					set_option(wk, 0, o, c, option_value_source_commandline, false);
+					set_option(wk, o, c, option_value_source_commandline, false);
 				}
 
 				if (c == opt->val) {
@@ -1095,8 +1093,19 @@ render_options(inspector_window *window)
 }
 
 static void
-inspector_break_cb(struct workspace *wk, struct source *src, uint32_t line, uint32_t col)
+inspector_break_cb(struct workspace *wk)
 {
+	struct source *src = 0;
+	uint32_t line, col;
+	{
+		struct source_location loc = {};
+		struct detailed_source_location dloc;
+		vm_lookup_inst_location(&wk->vm, wk->vm.ip - 1, &loc, &src);
+		get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+		line = dloc.line;
+		col = dloc.col;
+	}
+	/* struct source *src, uint32_t line, uint32_t col */
 	struct inspector_context *ctx = get_inspector_context();
 
 	wk->vm.dbg_state.icount = 0;
@@ -1148,9 +1157,9 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 	workspace_init_bare(wk);
 	workspace_init_runtime(wk);
 
-	wk->vm.dbg_state.break_after = 1024;
+	/* wk->vm.dbg_state.break_after = 1024; */
 	for (breakpoint &bp : ctx->breakpoints) {
-		vm_dbg_push_breakpoint(wk, make_str(wk, bp.file), bp.line);
+		vm_dbg_push_breakpoint(wk, make_str(wk, bp.file), bp.line, 0);
 	}
 	wk->vm.dbg_state.break_cb = inspector_break_cb;
 

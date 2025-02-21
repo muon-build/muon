@@ -778,6 +778,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		buf_push(", obj:%d, %d", constants[1], constants[2]);
 		break;
 	op_case(op_az_merge)
+	op_case(op_dbg_break)
 		break;
 	case op_count: UNREACHABLE;
 	}
@@ -802,7 +803,7 @@ vm_dis(struct workspace *wk)
 		struct source *src;
 		vm_lookup_inst_location(&wk->vm, i, &loc, &src);
 		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d", src ? src->label : 0, loc.off, loc.len);
-		printf("%-*s%s\n", w, dis, loc_buf);
+		log_plain("%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
 		/* 	list_line_range(src, loc, 0); */
@@ -2252,6 +2253,16 @@ vm_op_typecheck(struct workspace *wk)
 	typecheck(wk, entry->ip, entry->o, vm_get_constant(wk->vm.code.e, &wk->vm.ip));
 }
 
+static void
+vm_op_dbg_break(struct workspace *wk)
+{
+	if (wk->vm.dbg_state.break_cb) {
+		wk->vm.dbg_state.break_cb(wk);
+	} else {
+		repl(wk, true);
+	}
+}
+
 /******************************************************************************
  * vm_execute
  ******************************************************************************/
@@ -2505,8 +2516,7 @@ vm_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 
 union vm_breakpoint {
 	struct {
-		obj name;
-		uint32_t line;
+		uint32_t line, col;
 	} dat;
 	int64_t i;
 };
@@ -2524,25 +2534,32 @@ vm_dgb_enable(struct workspace *wk)
 }
 
 void
-vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line)
+vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col)
 {
 	vm_dgb_enable(wk);
 
-	union vm_breakpoint breakpoint = { .dat = { file, line } };
-
+	union vm_breakpoint breakpoint = { .dat = { line, col } };
 	if (!wk->vm.dbg_state.breakpoints) {
-		wk->vm.dbg_state.breakpoints = make_obj(wk, obj_array);
+		wk->vm.dbg_state.breakpoints = make_obj(wk, obj_dict);
 	}
 
-	obj_array_push(wk, wk->vm.dbg_state.breakpoints, make_number(wk, breakpoint.i));
+	obj file_bp;
+	if (!obj_dict_index(wk, wk->vm.dbg_state.breakpoints, file, &file_bp)) {
+		file_bp = make_obj(wk, obj_array);
+		obj_dict_set(wk, wk->vm.dbg_state.breakpoints, file, file_bp);
+	}
+
+	L("pushing breakpoint for %s:%d:%d", get_cstr(wk, file), line, col);
+
+	obj_array_push(wk, file_bp, make_number(wk, breakpoint.i));
 }
 
 void
-vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line)
+vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col)
 {
 	union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
-	*file = breakpoint.dat.name;
 	*line = breakpoint.dat.line;
+	*col = breakpoint.dat.col;
 }
 
 bool
@@ -2557,17 +2574,16 @@ vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 			return false;
 		}
 
-		/* TSTR(p); */
-		/* path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp))); */
-		/* name = tstr_into_str(wk, &p); */
-		name = make_strn(wk, bp, sep - bp);
+		TSTR(p);
+		path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp)));
+		name = tstr_into_str(wk, &p);
 		line = l;
 	} else {
 		name = make_str(wk, bp);
 		line = 0;
 	}
 
-	vm_dbg_push_breakpoint(wk, name, line);
+	vm_dbg_push_breakpoint(wk, name, line, 0);
 	return true;
 }
 
@@ -2577,7 +2593,6 @@ vm_check_break(struct workspace *wk, uint32_t ip)
 	bool should_break = false;
 
 	struct source *src = 0;
-	uint32_t line = 0, col = 0;
 
 	if (wk->vm.dbg_state.stepping) {
 		struct source_location loc = { 0 };
@@ -2585,37 +2600,7 @@ vm_check_break(struct workspace *wk, uint32_t ip)
 
 		if (wk->vm.dbg_state.prev_source_location.off != loc.off) {
 			wk->vm.dbg_state.prev_source_location = loc;
-
-			struct detailed_source_location dloc;
-			get_detailed_source_location(src, loc, &dloc, 0);
-			line = dloc.line;
-			col = dloc.col;
-
 			should_break = true;
-		}
-	}
-
-	if (!should_break && wk->vm.dbg_state.breakpoints) {
-		struct source_location loc = { 0 };
-		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
-		struct detailed_source_location dloc;
-		get_detailed_source_location(src, loc, &dloc, 0);
-
-		obj v;
-		obj_array_for(wk, wk->vm.dbg_state.breakpoints, v) {
-			union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
-			const struct str *name = get_str(wk, breakpoint.dat.name);
-
-			printf("checking %s:%d / %s:%d\n", name->s, breakpoint.dat.line, src->label, dloc.line);
-
-			if (breakpoint.dat.line == dloc.line && wk->vm.dbg_state.prev_source_location.off != loc.off
-				&& str_contains(&STRL(src->label), name)) {
-				wk->vm.dbg_state.prev_source_location = loc;
-
-				line = breakpoint.dat.line;
-				col = dloc.col;
-				should_break = true;
-			}
 		}
 	}
 
@@ -2625,7 +2610,7 @@ vm_check_break(struct workspace *wk, uint32_t ip)
 
 	if (should_break) {
 		if (wk->vm.dbg_state.break_cb) {
-			wk->vm.dbg_state.break_cb(wk, src, line, col);
+			wk->vm.dbg_state.break_cb(wk);
 		} else {
 			repl(wk, true);
 		}
@@ -2875,6 +2860,7 @@ vm_init(struct workspace *wk)
 					      [op_dup] = vm_op_dup,
 					      [op_swap] = vm_op_swap,
 					      [op_typecheck] = vm_op_typecheck,
+					      [op_dbg_break] = vm_op_dbg_break,
 				      } };
 
 	/* objects */

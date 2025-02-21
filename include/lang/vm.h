@@ -52,6 +52,7 @@ enum op {
 	op_dup,
 	op_swap,
 	op_typecheck,
+	op_dbg_break,
 	// Analyzer only ops
 	op_az_branch,
 	op_az_merge,
@@ -119,12 +120,13 @@ struct vm_compiler_state {
 	struct arr node_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
+	obj breakpoints;
 	enum vm_compile_mode mode;
 	bool err;
 };
 
 struct vm_dbg_state {
-	void (*break_cb)(struct workspace *wk, struct source *src, uint32_t line, uint32_t col);
+	void (*break_cb)(struct workspace *wk);
 	void *usr_ctx;
 	struct source_location prev_source_location;
 	obj watched;
@@ -232,9 +234,9 @@ MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *f
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char *fmt, ...);
 
-void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line);
+void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
-void vm_dbg_get_breakpoint(struct workspace *wk, obj v, obj *file, uint32_t *line);
+void vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col);
 
 /* The below functions may be used to facilitate converting meson dicts to
  * native c structs.  First a struct must be registered with vm_struct, and all
