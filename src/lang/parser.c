@@ -285,30 +285,6 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 	}
 }
 
-#if 0
-static void
-parse_error_begin(struct parser *p)
-{
-	p->err.len = 0;
-}
-
-MUON_ATTR_FORMAT(printf, 2, 3)
-static void
-parse_error_push(struct parser *p, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	p->err.len += vsnprintf(&p->err.msg[p->err.len], ARRAY_LEN(p->err.msg) - p->err.len, fmt, args);
-	va_end(args);
-}
-
-static void
-parse_error_end(struct parser *p, struct source_location *l)
-{
-	parse_diagnostic(p, l, log_error);
-}
-#endif
-
 MUON_ATTR_FORMAT(printf, 3, 4)
 static void
 parse_error(struct parser *p, struct source_location *l, const char *fmt, ...)
