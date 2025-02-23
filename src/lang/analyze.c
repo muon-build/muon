@@ -2240,19 +2240,40 @@ az_srv_get_func_completions(struct az_srv *srv,
 	}
 }
 
+static bool
+az_srv_get_kwarg_completions(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
+{
+	if (!kwargs) {
+		return false;
+	}
+
+	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
+
+	uint32_t i;
+	for (i = 0; kwargs[i].key; ++i) {
+		obj_dict_set(wk,
+			srv->completion_req.candidates,
+			make_str(wk, kwargs[i].key),
+			make_number(wk, LspCompletionItemKindKeyword));
+	}
+
+	return false;
+}
+
 static void
 az_srv_dbg_break_cb(struct workspace *wk)
 {
 	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
 	uint32_t ip = wk->vm.ip;
 
+#if 0
 	L("hit breakpoint");
-
-	for (uint32_t i = 0; i < 8;) {
+	for (uint32_t i = 0; i < 32;) {
 		L("%s", vm_dis_inst(wk, wk->vm.code.e, ip + i));
 
 		i += OP_WIDTH(wk->vm.code.e[ip + i]);
 	}
+#endif
 
 	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load }, 2)) {
 		++ip;
@@ -2312,6 +2333,18 @@ az_srv_dbg_break_cb(struct workspace *wk)
 		} else {
 			az_srv_get_func_completions(srv, wk, func_impl_groups[t], prefix);
 		}
+	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_call_native }, 1)) {
+		++ip;
+		uint32_t nargs = vm_get_constant(wk->vm.code.e, &ip);
+		uint32_t nkwargs = vm_get_constant(wk->vm.code.e, &ip);
+		uint32_t idx = vm_get_constant(wk->vm.code.e, &ip);
+
+		(void)nargs;
+		(void)nkwargs;
+
+		stack_push(&wk->stack, wk->vm.behavior.pop_args, az_srv_get_kwarg_completions);
+		native_funcs[idx].func(wk, 0, 0);
+		stack_pop(&wk->stack, wk->vm.behavior.pop_args);
 	}
 }
 
@@ -2323,8 +2356,7 @@ analyze_server(struct az_opts *cmdline_opts)
 	log_set_file(stderr);
 
 	/* LOG_I("muon lsp waiting for debugger..."); */
-	/* while (!os_is_debugger_attached()) { */
-	/* } */
+	/* while (!os_is_debugger_attached()) { } */
 
 	LOG_I("muon lsp listening...");
 
