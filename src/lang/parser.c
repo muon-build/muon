@@ -811,6 +811,7 @@ parser_get_doc_comment(struct parser *p)
 static struct node *
 parse_list(struct parser *p, enum node_type t, enum token_type end)
 {
+	const bool relaxed = p->mode & vm_compile_mode_relaxed_parse;
 	bool got_kw = false;
 	uint32_t len = 0, kwlen = 0;
 	struct node *n, *res, *val, *key;
@@ -887,7 +888,10 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 			if (n->l) {
 				n->l->fmt.post = p->fmt.current;
 			}
-			break;
+
+			if (!relaxed) {
+				break;
+			}
 		} else if (p->current.type == end) {
 			// Don't break here, let n->r be made and then break.
 			// This is so the formatter can know there was a
