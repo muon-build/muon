@@ -900,6 +900,8 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 
 	parse_expect(p, end);
 
+	res->location = source_location_merge(res->location, p->previous.location);
+
 	res->data.len.args = len;
 	res->data.len.kwargs = kwlen;
 	return res;
