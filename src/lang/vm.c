@@ -802,7 +802,11 @@ vm_dis(struct workspace *wk)
 		struct source_location loc;
 		struct source *src;
 		vm_lookup_inst_location(&wk->vm, i, &loc, &src);
-		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d", src ? src->label : 0, loc.off, loc.len);
+		struct detailed_source_location dloc = { 0 };
+		if (src) {
+			get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+		}
+		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d-[%3d:%02d]", src ? src->label : 0, dloc.line, dloc.col, dloc.end_line, dloc.end_col);
 		log_plain("%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
@@ -2566,24 +2570,41 @@ bool
 vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 {
 	const char *sep = strchr(bp, ':');
-	obj name, line;
+	obj name;
+	uint32_t line, col = 0;
 	if (sep) {
-		int64_t l;
-		if (!str_to_i(&STRL(sep + 1), &l, true)) {
-			LOG_E("invalid line number: %s", sep + 1);
+		const char *sep_col = strchr(sep + 1, ':');
+		struct str l = STRL(sep + 1), c = { 0 };
+
+		if (sep_col) {
+			c = STRL(sep_col + 1);
+			l.len -= (c.len + 1);
+		}
+
+		int64_t i;
+		if (!str_to_i(&l, &i, true)) {
+			LOG_E("invalid line number: %.*s", l.len, l.s);
 			return false;
+		}
+		line = i;
+
+		if (c.s) {
+			if (!str_to_i(&c, &i, true)) {
+				LOG_E("invalid column: %.*s", c.len, c.s);
+				return false;
+			}
+			col = i;
 		}
 
 		TSTR(p);
 		path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp)));
 		name = tstr_into_str(wk, &p);
-		line = l;
 	} else {
 		name = make_str(wk, bp);
 		line = 0;
 	}
 
-	vm_dbg_push_breakpoint(wk, name, line, 0);
+	vm_dbg_push_breakpoint(wk, name, line, col);
 	return true;
 }
 
