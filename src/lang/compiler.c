@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
 #include "lang/func_lookup.h"
@@ -121,37 +122,34 @@ enum vm_compile_block_flags {
 static void vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
 static void vm_compile_expr(struct workspace *wk, struct node *n);
 
-static void
-vm_comp_node(struct workspace *wk, struct node *n)
+static bool
+vm_comp_node_skip(enum node_type t)
 {
-	assert(n->type != node_type_stmt);
-
-	/* L("compiling %s", node_to_s(wk, n)); */
-
-	if (wk->vm.compiler_state.breakpoints) {
-		obj off;
-		obj_array_for_(wk, wk->vm.compiler_state.breakpoints, off, iter) {
-			if (n->location.off <= off && off <= n->location.off + n->location.len) {
-				push_code(wk, op_dbg_break);
-				obj_array_del(wk, wk->vm.compiler_state.breakpoints, iter.i);
-				break;
-			}
-		}
-	}
-
-	switch (n->type) {
-	case node_type_group:
-	case node_type_stmt: UNREACHABLE;
-
+	switch (t) {
 	case node_type_id_lit:
 	case node_type_args:
 	case node_type_def_args:
 	case node_type_kw:
 	case node_type_list:
-	case node_type_foreach_args:
-		// Skipped
-		break;
+	case node_type_foreach_args: return true;
+	default: return false;
+	}
+}
 
+static void
+vm_comp_node(struct workspace *wk, struct node *n)
+{
+	if (vm_comp_node_skip(n->type)) {
+		return;
+	}
+
+	/* L("compiling %s", node_to_s(wk, n)); */
+
+	if (n->flags & node_flag_breakpoint) {
+		push_code(wk, op_dbg_break);
+	}
+
+	switch (n->type) {
 	case node_type_stringify: push_code(wk, op_stringify); break;
 	case node_type_index: push_code(wk, op_index); break;
 	case node_type_negate: push_code(wk, op_negate); break;
@@ -745,11 +743,18 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		}
 		break;
 	}
+	default: UNREACHABLE;
 	}
 }
 
+typedef void((*vm_visit_nodes_cb)(struct workspace *wk, struct node *n));
+
 static void
-vm_compile_expr(struct workspace *wk, struct node *n)
+vm_visit_nodes(struct workspace *wk,
+	struct node *n,
+	const enum node_type privelaged[],
+	uint32_t privelaged_len,
+	vm_visit_nodes_cb cb)
 {
 	struct node *peek, *prev = 0;
 
@@ -757,10 +762,16 @@ vm_compile_expr(struct workspace *wk, struct node *n)
 
 	while (wk->vm.compiler_state.node_stack.len > stack_base || n) {
 		if (n) {
-			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def
-				|| n->type == node_type_ternary || n->type == node_type_and
-				|| n->type == node_type_or) {
-				vm_comp_node(wk, n);
+			bool is_privelaged = false;
+			for (uint32_t i = 0; i < privelaged_len; ++i) {
+				if (n->type == privelaged[i]) {
+					is_privelaged = true;
+					break;
+				}
+			}
+
+			if (is_privelaged) {
+				cb(wk, n);
 				prev = n;
 				n = 0;
 			} else {
@@ -773,11 +784,26 @@ vm_compile_expr(struct workspace *wk, struct node *n)
 				n = peek->r;
 			} else {
 				push_location(wk, peek);
-				vm_comp_node(wk, peek);
+				cb(wk, peek);
 				prev = *(struct node **)arr_pop(&wk->vm.compiler_state.node_stack);
 			}
 		}
 	}
+}
+
+static void
+vm_compile_expr(struct workspace *wk, struct node *n)
+{
+	const enum node_type privelaged[] = {
+		node_type_foreach,
+		node_type_if,
+		node_type_func_def,
+		node_type_ternary,
+		node_type_and,
+		node_type_or,
+	};
+
+	vm_visit_nodes(wk, n, privelaged, ARRAY_LEN(privelaged), vm_comp_node);
 }
 
 static void
@@ -868,6 +894,84 @@ vm_compile_breakpoint_to_off(struct workspace *wk, const struct source *src, obj
 	return false;
 }
 
+static void
+vm_resolve_breakpoint_cb(struct workspace *wk, struct node *n)
+{
+	if (vm_comp_node_skip(n->type)) {
+		return;
+	}
+
+	obj off, node;
+	obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
+		struct node *o = node ? (void *)get_obj_number(wk, node) : 0;
+		L("checking %s... %d < %d < %d",
+			node_to_s(wk, n),
+			n->location.off,
+			off,
+			n->location.off + n->location.len);
+
+		bool in_range = n->location.off <= off && off <= n->location.off + n->location.len;
+		if (in_range) {
+			LOG_W("checking %s", node_to_s(wk, n));
+
+			if (!vm_comp_node_skip(n->type)) {
+				struct source *src = arr_peek(&wk->vm.src, 1);
+				struct detailed_source_location dloc = { 0 };
+				if (src) {
+					get_detailed_source_location(
+						src, n->location, &dloc, (enum get_detailed_source_location_flag)0);
+				}
+				L("%s:%3d:%02d-[%3d:%02d]",
+					src ? src->label : 0,
+					dloc.line,
+					dloc.col,
+					dloc.end_line,
+					dloc.end_col);
+			}
+		}
+		if (in_range && (!o || n->location.len < o->location.len)) {
+			L("overwriting");
+			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (int64_t)n));
+		}
+	}
+}
+
+static void
+vm_resolve_breakpoints(struct workspace *wk, struct node *n)
+{
+	const struct source *src = arr_peek(&wk->vm.src, 1);
+
+	obj file_bp;
+	if (obj_dict_index_str(wk, wk->vm.dbg_state.breakpoints, src->label, &file_bp)) {
+		wk->vm.compiler_state.breakpoints = make_obj(wk, obj_dict);
+
+		obj bp;
+		obj_array_for(wk, file_bp, bp) {
+			uint32_t off;
+			if (vm_compile_breakpoint_to_off(wk, src, bp, &off)) {
+				obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, 0);
+			} else {
+				uint32_t t_line, t_col;
+				vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
+				LOG_W("failed to resolve breakpoint %s:%d:%d", src->label, t_line, t_col);
+			}
+		}
+
+		vm_visit_nodes(wk, n, 0, 0, vm_resolve_breakpoint_cb);
+
+		obj off, node;
+		obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
+			struct node *o = node ? (void *)get_obj_number(wk, node) : 0;
+			if (!o) {
+				LOG_W("failed to resolve breakpoint %s@%d", src->label, off);
+				continue;
+			}
+
+			o->flags |= node_flag_breakpoint;
+		}
+	}
+}
+
 bool
 vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, uint32_t *entry)
 {
@@ -875,26 +979,8 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	wk->vm.compiler_state.err = false;
 	wk->vm.compiler_state.mode = mode;
 
-	const struct source *src = 0;
 	if (wk->vm.dbg_state.breakpoints) {
-		src = arr_peek(&wk->vm.src, 1);
-
-		obj file_bp;
-		if (obj_dict_index_str(wk, wk->vm.dbg_state.breakpoints, src->label, &file_bp)) {
-			wk->vm.compiler_state.breakpoints = make_obj(wk, obj_array);
-
-			obj bp;
-			obj_array_for(wk, file_bp, bp) {
-				uint32_t off;
-				if (vm_compile_breakpoint_to_off(wk, src, bp, &off)) {
-					obj_array_push(wk, wk->vm.compiler_state.breakpoints, off);
-				} else {
-					uint32_t t_line, t_col;
-					vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
-					LOG_W("failed to resolve breakpoint %s:%d:%d", src->label, t_line, t_col);
-				}
-			}
-		}
+		vm_resolve_breakpoints(wk, n);
 	}
 
 	*entry = wk->vm.code.len;
@@ -910,13 +996,6 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
 	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
-
-	if (wk->vm.compiler_state.breakpoints) {
-		obj off;
-		obj_array_for(wk, wk->vm.compiler_state.breakpoints, off) {
-			LOG_W("failed to resolve breakpoint %s@%d", src->label, off);
-		}
-	}
 
 	TracyCZoneAutoE;
 	return !wk->vm.compiler_state.err;

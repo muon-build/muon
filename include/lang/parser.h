@@ -62,6 +62,10 @@ struct node_fmt {
 	obj ws;
 };
 
+enum node_flag {
+	node_flag_breakpoint = 1 << 0,
+};
+
 struct node {
 	union literal_data data;
 	struct node *l, *r;
@@ -69,7 +73,8 @@ struct node {
 	struct {
 		struct node_fmt pre, post;
 	} fmt;
-	enum node_type type;
+	uint16_t type;
+	uint16_t flags;
 };
 
 void print_ast(struct workspace *wk, struct node *root);
