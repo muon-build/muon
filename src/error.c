@@ -196,7 +196,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 
 	error_diagnostic_store_destroy(wk);
 
-	return ok;
+	return !ok;
 }
 
 void
