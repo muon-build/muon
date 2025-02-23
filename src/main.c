@@ -218,13 +218,15 @@ cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
+		const char *breakpoint;
 		bool print_ast, print_dis;
 		enum vm_compile_mode compile_mode;
 	} opts = { 0 };
 
-	OPTSTART("pdm:") {
+	OPTSTART("pdm:b:") {
 	case 'p': opts.print_ast = true; break;
 	case 'd': opts.print_dis = true; break;
+	case 'b': opts.breakpoint = optarg; break;
 	case 'm': {
 		const char *p, *chars = "xf";
 		for (p = optarg; *p; ++p) {
@@ -262,6 +264,12 @@ cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	if (!fs_read_entire_file(opts.filename, src)) {
 		goto ret;
+	}
+
+	if (opts.breakpoint) {
+		if (!vm_dbg_push_breakpoint_str(&wk, opts.breakpoint)) {
+			goto ret;
+		}
 	}
 
 	if (opts.print_ast) {
