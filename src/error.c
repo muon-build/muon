@@ -114,7 +114,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 	struct source *last_src = 0, *cur_src;
 
 	if (!error_diagnostic_store.messages.len) {
-		return true;
+		return false;
 	}
 
 	arr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
@@ -142,7 +142,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 	}
 
 	if (opts & error_diagnostic_store_replay_prepare_only) {
-		return true;
+		return false;
 	}
 
 	/* ---------------------------------------------------------------------- */
