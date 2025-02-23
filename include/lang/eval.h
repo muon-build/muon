@@ -17,11 +17,13 @@ enum eval_mode {
 	eval_mode_repl = 1 << 0,
 	eval_mode_first = 1 << 1,
 	eval_mode_return_after_project = 1 << 2,
+	eval_mode_relaxed_parse = 1 << 3,
 };
 
 enum eval_project_file_flags {
 	eval_project_file_flag_first = 1 << 0,
 	eval_project_file_flag_return_after_project = 1 << 1,
+	eval_project_file_flag_relaxed_parse = 1 << 2,
 };
 
 bool eval_project(struct workspace *wk,

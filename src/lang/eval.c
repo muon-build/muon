@@ -127,6 +127,9 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 	if (mode & eval_mode_return_after_project) {
 		compile_mode |= vm_compile_mode_return_after_project;
 	}
+	if (mode & eval_mode_relaxed_parse) {
+		compile_mode |= vm_compile_mode_relaxed_parse;
+	}
 
 	uint32_t entry;
 	{
@@ -228,6 +231,9 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 	}
 	if (flags & eval_project_file_flag_return_after_project) {
 		eval_mode |= eval_mode_return_after_project;
+	}
+	if (flags & eval_project_file_flag_relaxed_parse) {
+		eval_mode |= eval_mode_relaxed_parse;
 	}
 
 	obj res;
