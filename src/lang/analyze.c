@@ -8,6 +8,7 @@
 
 #include "buf_size.h"
 #include "external/tinyjson.h"
+#include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
@@ -18,6 +19,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/mem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "tracy.h"
 #include "version.h"
@@ -863,6 +865,9 @@ az_eval_project_file(struct workspace *wk,
 		if (flags & eval_project_file_flag_first) {
 			eval_mode |= eval_mode_first;
 		}
+		if (analyzer.opts->relaxed_parse) {
+			eval_mode |= eval_mode_relaxed_parse;
+		}
 
 		const struct source *src = arr_get(&analyzer.opts->file_override_src, override);
 
@@ -873,6 +878,10 @@ az_eval_project_file(struct workspace *wk,
 	} else {
 		if (analyzer.opts->analyze_project_call_only) {
 			flags |= eval_project_file_flag_return_after_project;
+		}
+
+		if (analyzer.opts->relaxed_parse) {
+			flags |= eval_project_file_flag_relaxed_parse;
 		}
 
 		return eval_project_file(wk, path, lang, flags);
@@ -1707,6 +1716,51 @@ struct az_srv {
 	struct az_opts opts;
 };
 
+enum LspTextDocumentSyncKind {
+	LspTextDocumentSyncKindNone = 0,
+	LspTextDocumentSyncKindFull = 1,
+	LspTextDocumentSyncKindIncremental = 2,
+};
+enum LspDiagnosticSeverity {
+	LspDiagnosticSeverityError = 1,
+	LspDiagnosticSeverityWarning = 2,
+	LspDiagnosticSeverityInformation = 3,
+	LspDiagnosticSeverityHint = 4,
+};
+static const enum LspDiagnosticSeverity lsp_severity_map[] = {
+	[log_error] = LspDiagnosticSeverityError,
+	[log_warn] = LspDiagnosticSeverityWarning,
+	[log_info] = LspDiagnosticSeverityInformation,
+	[log_debug] = LspDiagnosticSeverityHint,
+};
+enum LspCompletionItemKind {
+	LspCompletionItemKindText = 1,
+	LspCompletionItemKindMethod = 2,
+	LspCompletionItemKindFunction = 3,
+	LspCompletionItemKindConstructor = 4,
+	LspCompletionItemKindField = 5,
+	LspCompletionItemKindVariable = 6,
+	LspCompletionItemKindClass = 7,
+	LspCompletionItemKindInterface = 8,
+	LspCompletionItemKindModule = 9,
+	LspCompletionItemKindProperty = 10,
+	LspCompletionItemKindUnit = 11,
+	LspCompletionItemKindValue = 12,
+	LspCompletionItemKindEnum = 13,
+	LspCompletionItemKindKeyword = 14,
+	LspCompletionItemKindSnippet = 15,
+	LspCompletionItemKindColor = 16,
+	LspCompletionItemKindFile = 17,
+	LspCompletionItemKindReference = 18,
+	LspCompletionItemKindFolder = 19,
+	LspCompletionItemKindEnumMember = 20,
+	LspCompletionItemKindConstant = 21,
+	LspCompletionItemKindStruct = 22,
+	LspCompletionItemKindEvent = 23,
+	LspCompletionItemKindOperator = 24,
+	LspCompletionItemKindTypeParameter = 25,
+};
+
 static bool
 az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 {
@@ -1932,19 +1986,7 @@ az_srv_diagnostic(struct workspace *wk, const struct source *src, const struct e
 		az_srv_position(
 			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
 	obj_dict_set(wk, d, make_str(wk, "range"), range);
-	enum DiagnosticSeverity {
-		DiagnosticSeverityError = 1,
-		DiagnosticSeverityWarning = 2,
-		DiagnosticSeverityInformation = 3,
-		DiagnosticSeverityHint = 4,
-	};
-	enum DiagnosticSeverity severity_map[] = {
-		[log_error] = DiagnosticSeverityError,
-		[log_warn] = DiagnosticSeverityWarning,
-		[log_info] = DiagnosticSeverityInformation,
-		[log_debug] = DiagnosticSeverityHint,
-	};
-	obj_dict_set(wk, d, make_str(wk, "severity"), make_number(wk, severity_map[msg->lvl]));
+	obj_dict_set(wk, d, make_str(wk, "severity"), make_number(wk, lsp_severity_map[msg->lvl]));
 	obj_dict_set(wk, d, make_str(wk, "message"), make_str(wk, msg->msg));
 
 	if (destroy_source) {
@@ -2049,6 +2091,7 @@ az_srv_handle_completion_req(struct az_srv *srv, struct workspace *wk)
 	obj_dict_for(wk, srv->completion_req.candidates, label, type) {
 		obj item = make_obj(wk, obj_dict);
 		obj_dict_set(wk, item, make_str(wk, "label"), label);
+		obj_dict_set(wk, item, make_str(wk, "kind"), type);
 		obj_array_push(wk, result, item);
 	}
 
@@ -2064,13 +2107,10 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 	if (str_eql(method, &STR("initialize"))) {
 		obj result = make_obj(wk, obj_dict);
 		obj capabilities = make_obj(wk, obj_dict);
-		enum TextDocumentSyncKind {
-			TextDocumentSyncKindNone = 0,
-			TextDocumentSyncKindFull = 1,
-			TextDocumentSyncKindIncremental = 2,
-		};
-		obj_dict_set(
-			wk, capabilities, make_str(wk, "textDocumentSync"), make_number(wk, TextDocumentSyncKindFull));
+		obj_dict_set(wk,
+			capabilities,
+			make_str(wk, "textDocumentSync"),
+			make_number(wk, LspTextDocumentSyncKindFull));
 
 		obj completion_provider = make_obj(wk, obj_dict);
 		obj trigger_characters = make_obj(wk, obj_array);
@@ -2080,11 +2120,11 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
-		obj server_info = make_obj(wk, obj_dict);
-		obj_dict_set(wk, server_info, make_str(wk, "name"), make_str(wk, "muon"));
-		obj_dict_set(wk, server_info, make_str(wk, "version"), make_str(wk, muon_version.version));
+		obj srver_info = make_obj(wk, obj_dict);
+		obj_dict_set(wk, srver_info, make_str(wk, "name"), make_str(wk, "muon"));
+		obj_dict_set(wk, srver_info, make_str(wk, "version"), make_str(wk, muon_version.version));
 
-		obj_dict_set(wk, result, make_str(wk, "serverInfo"), server_info);
+		obj_dict_set(wk, result, make_str(wk, "srverInfo"), srver_info);
 
 		az_srv_respond(srv, wk, obj_dict_index_as_obj(wk, msg, "id"), result);
 	} else if (str_eql(method, &STR("$/setTrace"))) {
@@ -2157,14 +2197,67 @@ az_srv_inst_seq_matches(struct workspace *wk, uint32_t ip, const uint8_t *seq, u
 }
 
 static void
+az_srv_get_dict_completions(struct az_srv *srv,
+	struct workspace *wk,
+	obj dict,
+	const struct str *prefix,
+	enum LspCompletionItemKind kind)
+{
+	obj name, val;
+	obj_dict_for(wk, dict, name, val) {
+		(void)val;
+		if (str_startswith(get_str(wk, name), prefix)) {
+			obj_dict_set(wk,
+				srv->completion_req.candidates,
+				name,
+				make_number(wk, kind));
+		}
+	}
+}
+
+static void
+az_srv_get_func_completions(struct az_srv *srv,
+	struct workspace *wk,
+	const struct func_impl_group impl_group[],
+	const struct str *prefix)
+{
+	enum LspCompletionItemKind item_kind = impl_group == func_impl_groups[0] ? LspCompletionItemKindFunction :
+										   LspCompletionItemKindMethod;
+
+	if (!impl_group[wk->vm.lang_mode].len) {
+		return;
+	}
+
+	uint32_t i;
+	for (i = 0; impl_group[wk->vm.lang_mode].impls[i].name; ++i) {
+		const struct func_impl *impl = &impl_group[wk->vm.lang_mode].impls[i];
+		if (str_startswith(&STRL(impl->name), prefix)) {
+			obj_dict_set(wk,
+				srv->completion_req.candidates,
+				make_str(wk, impl->name),
+				make_number(wk, item_kind));
+		}
+	}
+}
+
+static void
 az_srv_dbg_break_cb(struct workspace *wk)
 {
 	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
 	uint32_t ip = wk->vm.ip;
 
+	L("hit breakpoint");
+
+	for (uint32_t i = 0; i < 8;) {
+		L("%s", vm_dis_inst(wk, wk->vm.code.e, ip + i));
+
+		i += OP_WIDTH(wk->vm.code.e[ip + i]);
+	}
+
 	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load }, 2)) {
 		++ip;
 		obj identifier = vm_get_constant(wk->vm.code.e, &ip);
+		const struct str *prefix = get_str(wk, identifier);
 
 		obj local_scope;
 		obj_array_for(wk, wk->vm.scope_stack, local_scope) {
@@ -2176,24 +2269,48 @@ az_srv_dbg_break_cb(struct workspace *wk)
 					scope_group = obj_array_index(wk, local_scope, i);
 					obj scope = obj_array_get_tail(wk, scope_group);
 
-					obj name, val;
-					obj_dict_for(wk, scope, name, val) {
-						(void)val;
-						if (str_startswith(get_str(wk, name), get_str(wk, identifier))) {
-							obj_dict_set(wk, srv->completion_req.candidates, name, 0);
-						}
-					}
+					az_srv_get_dict_completions(srv, wk, scope, prefix, LspCompletionItemKindVariable);
 				}
 			}
 
 			obj base = obj_array_index(wk, local_scope, 0);
-			obj name, val;
-			obj_dict_for(wk, base, name, val) {
-				(void)val;
-				if (str_startswith(get_str(wk, name), get_str(wk, identifier))) {
-					obj_dict_set(wk, srv->completion_req.candidates, name, 0);
+			az_srv_get_dict_completions(srv, wk, base, prefix, LspCompletionItemKindVariable);
+		}
+
+		az_srv_get_func_completions(srv, wk, func_impl_groups[0], prefix);
+	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_member }, 1)) {
+		++ip;
+		obj self = object_stack_peek(&wk->vm.stack, 1);
+		obj identifier = vm_get_constant(wk->vm.code.e, &ip);
+		const struct str *prefix = get_str(wk, identifier);
+
+		enum obj_type t = get_obj_type(wk, self);
+		if (t == obj_typeinfo) {
+			type_tag t = get_obj_typeinfo(wk, self)->type;
+
+			uint32_t i;
+			for (i = 1; i <= tc_type_count; ++i) {
+				type_tag tc = obj_type_to_tc_type(i);
+				if ((t & tc) != tc) {
+					continue;
 				}
+
+				az_srv_get_func_completions(srv, wk, func_impl_groups[i], prefix);
 			}
+		} else if (t == obj_module) {
+			az_srv_get_func_completions(srv, wk, func_impl_groups[t], prefix);
+			struct obj_module *m = get_obj_module(wk, self);
+			if (!m->found) {
+				return;
+			}
+
+			if (m->exports) {
+				az_srv_get_dict_completions(srv, wk, m->exports, prefix, LspCompletionItemKindMethod);
+			} else {
+				az_srv_get_func_completions(srv, wk, module_func_impl_groups[m->module], prefix);
+			}
+		} else {
+			az_srv_get_func_completions(srv, wk, func_impl_groups[t], prefix);
 		}
 	}
 }
@@ -2249,6 +2366,10 @@ analyze_server(struct az_opts *cmdline_opts)
 			opts.enabled_diagnostics = srv.opts.enabled_diagnostics;
 			opts.replay_opts = error_diagnostic_store_replay_prepare_only;
 
+			if (srv.completion_req.request_id) {
+				opts.relaxed_parse = true;
+			}
+
 			{
 				obj path, idx;
 				obj_dict_for(srv.wk, srv.opts.file_override, path, idx) {
@@ -2260,12 +2381,14 @@ analyze_server(struct az_opts *cmdline_opts)
 			wk.vm.dbg_state.usr_ctx = &srv;
 
 			do_analyze(&wk, &opts);
-			az_srv_all_diagnostics(&srv, &wk);
-			error_diagnostic_store_destroy(&wk);
 
 			if (srv.completion_req.request_id) {
 				az_srv_handle_completion_req(&srv, &wk);
+			} else {
+				az_srv_all_diagnostics(&srv, &wk);
 			}
+
+			error_diagnostic_store_destroy(&wk);
 		}
 
 		workspace_destroy(&wk);
