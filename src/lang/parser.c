@@ -938,9 +938,15 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	struct node *n, *id;
 
-	parse_expect(p, token_type_identifier);
-	id = parse_id(p, false);
-	id->type = node_type_id_lit;
+	const bool relaxed = p->mode & vm_compile_mode_relaxed_parse;
+
+	if ((relaxed ? parse_accept : parse_expect)(p, token_type_identifier)) {
+		id = parse_id(p, false);
+		id->type = node_type_id_lit;
+	} else {
+		id = make_node_t(p, node_type_id_lit);
+		id->data.str = make_str(p->wk, "");
+	}
 
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
 		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
@@ -957,7 +963,7 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 		n->l = l;
 		n->r = id;
 
-		if (!(p->mode & vm_compile_mode_language_extended)) {
+		if (!((p->mode & vm_compile_mode_language_extended) || relaxed)) {
 			parse_expect_noadvance(p, '(');
 		}
 	}
