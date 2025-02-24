@@ -136,7 +136,7 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 		char *end;
 		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
 			if (!az_srv_read_bytes(wk, srv)) {
-				LOG_E("Failed to read entire header");
+				LOG_E("failed to read entire header");
 				return false;
 			}
 		}

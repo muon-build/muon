@@ -576,6 +576,17 @@ fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 bool
 fs_wait_for_input(int fd)
 {
-	// TODO: I think we can use PeekNamedPipe here
+	intptr_t _h = _get_osfhandle(fd);
+	if (_h == -2 || (HANDLE)_h == INVALID_HANDLE_VALUE) {
+		LOG_E("failed _get_osfhandle(): %s", win32_error());
+		return false;
+	}
+	HANDLE h = (HANDLE)_h;
+
+	if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
+		LOG_E("failed WaitForSingleObject(%d): %s", h, win32_error());
+		return false;
+	}
+
 	return true;
 }
