@@ -904,33 +904,8 @@ vm_resolve_breakpoint_cb(struct workspace *wk, struct node *n)
 	obj off, node;
 	obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
 		struct node *o = node ? (void *)get_obj_number(wk, node) : 0;
-		L("checking %s... %d < %d < %d",
-			node_to_s(wk, n),
-			n->location.off,
-			off,
-			n->location.off + n->location.len);
-
 		bool in_range = n->location.off <= off && off <= n->location.off + n->location.len;
-		if (in_range) {
-			LOG_W("checking %s", node_to_s(wk, n));
-
-			if (!vm_comp_node_skip(n->type)) {
-				struct source *src = arr_peek(&wk->vm.src, 1);
-				struct detailed_source_location dloc = { 0 };
-				if (src) {
-					get_detailed_source_location(
-						src, n->location, &dloc, (enum get_detailed_source_location_flag)0);
-				}
-				L("%s:%3d:%02d-[%3d:%02d]",
-					src ? src->label : 0,
-					dloc.line,
-					dloc.col,
-					dloc.end_line,
-					dloc.end_col);
-			}
-		}
 		if (in_range && (!o || n->location.len < o->location.len)) {
-			L("overwriting");
 			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (int64_t)n));
 		}
 	}
