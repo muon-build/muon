@@ -2120,11 +2120,11 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
-		obj srver_info = make_obj(wk, obj_dict);
-		obj_dict_set(wk, srver_info, make_str(wk, "name"), make_str(wk, "muon"));
-		obj_dict_set(wk, srver_info, make_str(wk, "version"), make_str(wk, muon_version.version));
+		obj server_info = make_obj(wk, obj_dict);
+		obj_dict_set(wk, server_info, make_str(wk, "name"), make_str(wk, "muon"));
+		obj_dict_set(wk, server_info, make_str(wk, "version"), make_str(wk, muon_version.version));
 
-		obj_dict_set(wk, result, make_str(wk, "srverInfo"), srver_info);
+		obj_dict_set(wk, result, make_str(wk, "serverInfo"), server_info);
 
 		az_srv_respond(srv, wk, obj_dict_index_as_obj(wk, msg, "id"), result);
 	} else if (str_eql(method, &STR("$/setTrace"))) {
