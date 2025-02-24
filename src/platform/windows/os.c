@@ -239,5 +239,5 @@ os_set_env(const struct str *k, const struct str *v)
 bool
 os_is_debugger_attached(void)
 {
-	return false;
+	return IsDebuggerPresent() == TRUE;
 }
