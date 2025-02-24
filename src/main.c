@@ -25,6 +25,7 @@
 #include "lang/analyze.h"
 #include "lang/fmt.h"
 #include "lang/func_lookup.h"
+#include "lang/lsp.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/serial.h"
