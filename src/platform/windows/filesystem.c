@@ -572,3 +572,10 @@ fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 
 	return fs_fopen(buf, "w+b");
 }
+
+bool
+fs_wait_for_input(int fd)
+{
+	// TODO: I think we can use PeekNamedPipe here
+	return true;
+}
