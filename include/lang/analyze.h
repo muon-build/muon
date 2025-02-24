@@ -68,6 +68,4 @@ bool do_analyze(struct workspace *wk, struct az_opts *opts);
 void eval_trace_print(struct workspace *wk, obj trace);
 
 bool analyze_project_call(struct workspace *wk);
-
-bool analyze_server(struct az_opts *opts);
 #endif

@@ -89,6 +89,7 @@
 #include "lang/fmt.c"
 #include "lang/func_lookup.c"
 #include "lang/lexer.c"
+#include "lang/lsp.c"
 #include "lang/object.c"
 #include "lang/object_iterators.c"
 #include "lang/parser.c"
