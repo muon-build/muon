@@ -407,22 +407,6 @@ az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struc
 }
 
 static void
-az_srv_handle_completion_req(struct az_srv *srv, struct workspace *wk)
-{
-	obj result = make_obj(wk, obj_array);
-
-	obj label, type;
-	obj_dict_for(wk, srv->completion_req.candidates, label, type) {
-		obj item = make_obj(wk, obj_dict);
-		obj_dict_set(wk, item, make_str(wk, "label"), label);
-		obj_dict_set(wk, item, make_str(wk, "kind"), type);
-		obj_array_push(wk, result, item);
-	}
-
-	az_srv_respond(srv, wk, srv->completion_req.request_id, result);
-}
-
-static void
 az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 {
 	TracyCZoneAutoS;
@@ -491,7 +475,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		/*------------------------------------*/
 
 		srv->completion_req.request_id = id;
-		srv->completion_req.candidates = make_obj(wk, obj_dict);
+		srv->completion_req.candidates = make_obj(wk, obj_array);
 
 		const char *path = az_srv_uri_to_path(uri);
 		if (path && line >= 0 && col >= 0) {
@@ -521,6 +505,28 @@ az_srv_inst_seq_matches(struct workspace *wk, uint32_t ip, const uint8_t *seq, u
 }
 
 static void
+az_srv_push_completion(struct az_srv *srv, struct workspace *wk, obj label, enum LspCompletionItemKind kind, obj insert_text)
+{
+	obj c;
+	obj_array_for(wk, srv->completion_req.candidates, c) {
+		if (str_eql(obj_dict_index_as_str(wk, c, "label"), get_str(wk, label))
+			&& obj_dict_index_as_number(wk, c, "kind") == kind) {
+			// Skip duplicates
+			return;
+		}
+	}
+
+	c = make_obj(wk, obj_dict);
+	obj_dict_set(wk, c, make_str(wk, "label"), label);
+	obj_dict_set(wk, c, make_str(wk, "kind"), make_number(wk, kind));
+	if (insert_text) {
+		obj_dict_set(wk, c, make_str(wk, "insertText"), insert_text);
+	}
+
+	obj_array_push(wk, srv->completion_req.candidates, c);
+}
+
+static void
 az_srv_get_dict_completions(struct az_srv *srv,
 	struct workspace *wk,
 	obj dict,
@@ -531,10 +537,7 @@ az_srv_get_dict_completions(struct az_srv *srv,
 	obj_dict_for(wk, dict, name, val) {
 		(void)val;
 		if (str_startswith(get_str(wk, name), prefix)) {
-			obj_dict_set(wk,
-				srv->completion_req.candidates,
-				name,
-				make_number(wk, kind));
+			az_srv_push_completion(srv, wk, name, kind, 0);
 		}
 	}
 }
@@ -545,8 +548,8 @@ az_srv_get_func_completions(struct az_srv *srv,
 	const struct func_impl_group impl_group[],
 	const struct str *prefix)
 {
-	enum LspCompletionItemKind item_kind = impl_group == func_impl_groups[0] ? LspCompletionItemKindFunction :
-										   LspCompletionItemKindMethod;
+	enum LspCompletionItemKind kind = impl_group == func_impl_groups[0] ? LspCompletionItemKindFunction :
+									      LspCompletionItemKindMethod;
 
 	if (!impl_group[wk->vm.lang_mode].len) {
 		return;
@@ -556,10 +559,38 @@ az_srv_get_func_completions(struct az_srv *srv,
 	for (i = 0; impl_group[wk->vm.lang_mode].impls[i].name; ++i) {
 		const struct func_impl *impl = &impl_group[wk->vm.lang_mode].impls[i];
 		if (str_startswith(&STRL(impl->name), prefix)) {
-			obj_dict_set(wk,
-				srv->completion_req.candidates,
-				make_str(wk, impl->name),
-				make_number(wk, item_kind));
+			obj f = dump_function_args(wk, impl);
+			obj posargs = 0, kwargs = 0, arg;
+			obj_dict_index_str(wk, f, "posargs", &posargs);
+			obj_dict_index_str(wk, f, "kwargs", &kwargs);
+
+			obj sig = make_obj(wk, obj_array);
+
+			if (posargs) {
+				obj_array_for(wk, posargs, arg) {
+					obj_array_push(wk, sig, obj_dict_index_as_obj(wk, arg, "type"));
+				}
+			}
+
+			if (kwargs) {
+				obj_array_for(wk, kwargs, arg) {
+					obj_array_push(wk,
+						sig,
+						make_strf(wk,
+							"%s %s:",
+							obj_dict_index_as_str(wk, arg, "name")->s,
+							obj_dict_index_as_str(wk, arg, "type")->s));
+				}
+			}
+
+			obj joined;
+			obj_array_join(wk, false, sig, make_str(wk, ", "), &joined);
+
+			az_srv_push_completion(srv,
+				wk,
+				make_strf(wk, "%s(%s)", impl->name, get_str(wk, joined)->s),
+				kind,
+				make_str(wk, impl->name));
 		}
 	}
 }
@@ -575,10 +606,7 @@ az_srv_get_kwarg_completions(struct workspace *wk, struct args_norm posargs[], s
 
 	uint32_t i;
 	for (i = 0; kwargs[i].key; ++i) {
-		obj_dict_set(wk,
-			srv->completion_req.candidates,
-			make_str(wk, kwargs[i].key),
-			make_number(wk, LspCompletionItemKindKeyword));
+		az_srv_push_completion(srv, wk, make_str(wk, kwargs[i].key), LspCompletionItemKindKeyword, 0);
 	}
 
 	return false;
@@ -614,7 +642,8 @@ az_srv_dbg_break_cb(struct workspace *wk)
 					scope_group = obj_array_index(wk, local_scope, i);
 					obj scope = obj_array_get_tail(wk, scope_group);
 
-					az_srv_get_dict_completions(srv, wk, scope, prefix, LspCompletionItemKindVariable);
+					az_srv_get_dict_completions(
+						srv, wk, scope, prefix, LspCompletionItemKindVariable);
 				}
 			}
 
@@ -737,7 +766,7 @@ analyze_server(struct az_opts *cmdline_opts)
 			do_analyze(&wk, &opts);
 
 			if (srv.completion_req.request_id) {
-				az_srv_handle_completion_req(&srv, &wk);
+				az_srv_respond(&srv, &wk, srv.completion_req.request_id, srv.completion_req.candidates);
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}

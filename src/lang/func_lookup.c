@@ -555,7 +555,7 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 }
 
 static bool
-dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
+dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
 {
 	uint32_t i;
 
@@ -645,6 +645,16 @@ dump_function_args(struct workspace *wk, struct args_norm posargs[], struct args
 	return false;
 }
 
+obj
+dump_function_args(struct workspace *wk, const struct func_impl *impl)
+{
+	function_sig_dump.func = make_obj(wk, obj_dict);
+	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args_cb);
+	impl->func(wk, 0, 0);
+	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
+	return function_sig_dump.func;
+}
+
 struct dump_function_opts {
 	const char *module;
 	const struct func_impl *impl;
@@ -686,7 +696,7 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 		obj_dict_set(wk, res, make_str(wk, "extension"), obj_bool_true);
 	}
 
-	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args);
+	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args_cb);
 	if (opts->impl->func) {
 		opts->impl->func(wk, 0, 0);
 	} else {
