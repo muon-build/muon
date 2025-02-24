@@ -38,4 +38,5 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 
 void dump_function_signatures(struct workspace *wk);
 void dump_function_docs(struct workspace *wk);
+obj dump_function_args(struct workspace *wk, const struct func_impl *impl);
 #endif
