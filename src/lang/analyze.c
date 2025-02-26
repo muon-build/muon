@@ -854,7 +854,7 @@ az_eval_project_file(struct workspace *wk,
 	enum eval_project_file_flags flags)
 {
 	obj override;
-	if (obj_dict_index_str(wk, analyzer.opts->file_override, path, &override)) {
+	if (analyzer.opts->file_override && obj_dict_index_str(wk, analyzer.opts->file_override, path, &override)) {
 		obj res;
 
 		enum eval_mode eval_mode = 0;
@@ -1514,10 +1514,13 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	}
 
 	{
-		obj first_override = 0, _v;
-		obj_dict_for(wk, analyzer.opts->file_override, first_override, _v) {
-			(void)_v;
-			break;
+		obj first_override = 0;
+		if (analyzer.opts->file_override) {
+			obj _v;
+			obj_dict_for(wk, analyzer.opts->file_override, first_override, _v) {
+				(void)_v;
+				break;
+			}
 		}
 
 		if (first_override) {
