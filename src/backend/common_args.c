@@ -172,6 +172,7 @@ ca_get_std_args(struct workspace *wk,
 	obj std;
 
 	switch (comp->lang) {
+	case compiler_language_objc:
 	case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
 	case compiler_language_objcpp:
 	case compiler_language_cpp: ca_get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std); break;
