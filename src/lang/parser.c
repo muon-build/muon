@@ -818,7 +818,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 	type_tag type = 0;
 
 	res = n = make_node_t(p, t);
-	while (p->current.type != end) {
+	while (p->current.type != end && p->current.type != token_type_eol) {
 		key = 0;
 
 		switch (t) {
@@ -892,7 +892,9 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 			if (!relaxed) {
 				break;
 			}
-		} else if (p->current.type == end) {
+		}
+
+		if (p->current.type == end) {
 			// Don't break here, let n->r be made and then break.
 			// This is so the formatter can know there was a
 			// trailing comma here.
