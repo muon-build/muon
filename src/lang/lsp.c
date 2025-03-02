@@ -16,6 +16,7 @@
 #include "log.h"
 #include "memmem.h"
 #include "platform/assert.h"
+#include "platform/os.h"
 #include "tracy.h"
 #include "version.h"
 
