@@ -150,7 +150,19 @@ SPDX-License-Identifier: GPL-3.0-only
       .tag-help {
         text-decoration: none;
         color: #F8F8F2;
-      };
+      }
+
+      .param-link {
+        opacity: 0.0;
+      }
+
+      .param-link:hover {
+        opacity: 1.0;
+      }
+
+      dd {
+        padding-bottom: 20px;
+      }
     </style>
   </head>
   <body>
@@ -265,34 +277,55 @@ SPDX-License-Identifier: GPL-3.0-only
         let domListFunctionParams = document.getElementById("listFunctionParams");
         let domSectHelp = document.getElementById("sectHelp");
 
+        let scrollTarget = undefined;
+
         domSectModules.style.display = 'none';
         domSectObjects.style.display = 'none';
         domSectFunctions.style.display = 'none';
         domSectFunction.style.display = 'none';
         domSectHelp.style.display = 'none';
 
-        let nav = window.location.hash.split('.');
-        let filter = {kernel: true};
-        if (nav[0] === '#modules' && nav.length > 1) {
-          filter.mod = nav[1];
-          filter.kernel = false;
-          if (nav.length === 3) {
-            filter.func = nav[2];
-          }
-        } else if (nav[0] === '#objects' && nav.length > 1) {
-          filter.obj = nav[1];
-          filter.kernel = false;
-          if (nav.length === 3) {
-            filter.func = nav[2];
-          }
-        } else if (nav[0] === '#kernel') {
-          if (nav.length === 2) {
-            filter.func = nav[1];
-          }
-        } else if (nav[0] === '#help') {
+        let nav = decodeURIComponent(window.location.hash).split('.');
+        let navRoot = nav.shift();
+        let filter = {};
+
+        if (navRoot === '#modules') {
+          filter.mod = nav.shift();
+        } else if (navRoot === '#objects') {
+          filter.obj = nav.shift();
+        } else if (navRoot === '#kernel') {
+          filter.kernel = true;
+        } else if (navRoot === '#help') {
           filter.help = true;
         } else {
-          // nothing
+          filter.kernel = true;
+        }
+        filter.func = nav.shift();
+        filter.param = nav.shift();
+
+        function buildFilterString(filter) {
+          let str = '';
+          if (filter.help) {
+            str += `help`;
+          } else {
+            if (filter.mod) {
+              str += `modules.${filter.mod}`;
+            } else if (filter.obj) {
+              str += `objects.${filter.obj}`;
+            } else if (filter.kernel) {
+              str += `kernel`;
+            }
+
+            if (filter.func) {
+              str += `.${filter.func}`;
+            }
+
+            if (filter.param) {
+              str += `.${filter.param}`;
+            }
+          }
+
+          return '#' + encodeURIComponent(str);
         }
 
         function link(href, html) {
@@ -309,7 +342,6 @@ SPDX-License-Identifier: GPL-3.0-only
                   .replaceAll('"', '&quot;')
                   .replaceAll("'", '&#039;');
         }
-
 
         function buildNav() {
           let navList = [];
@@ -371,7 +403,6 @@ SPDX-License-Identifier: GPL-3.0-only
           domNavVer.appendChild(verLink);
         }
         buildNav();
-
 
         if (filter.help) {
           domSectHelp.style.display = 'block';
@@ -482,7 +513,10 @@ SPDX-License-Identifier: GPL-3.0-only
           if (f.posargs) {
             for (let [i, p] of f.posargs.entries()) {
               pushIndent();
-              e.appendChild(synType(p.type));
+              let a = document.createElement('a');
+              a.setAttribute("href", buildFilterString({...filter, param: p.name}));
+              a.appendChild(synType(p.type));
+              e.appendChild(a);
               if (explode || i < f.posargs.length - 1) {
                 e.appendChild(synPunc(', '));
               }
@@ -497,7 +531,12 @@ SPDX-License-Identifier: GPL-3.0-only
           if (f.kwargs) {
             for (let [i, p] of f.kwargs.entries()) {
               pushIndent();
-              e.appendChild(synKw(p.name));
+
+              let a = document.createElement('a');
+              a.setAttribute("href", buildFilterString({...filter, param: p.name}));
+              a.appendChild(synKw(p.name));
+              e.appendChild(a);
+
               if (p.extension) {
                 e.appendChild(synTag('e', {no_indent: true}));
               }
@@ -517,7 +556,7 @@ SPDX-License-Identifier: GPL-3.0-only
           return e;
         }
 
-        if ('func' in filter) {
+        if (filter.func) {
           let func = undefined;
           for (let f of filteredFuncs()) {
             if (f.name === filter.func) {
@@ -529,6 +568,12 @@ SPDX-License-Identifier: GPL-3.0-only
           function buildFunction() {
             domSectFunction.style.display = 'block';
             domFuncProto.replaceChildren();
+
+            if (func === undefined) {
+              domFuncDesc.innerHTML = 'unknown function';
+              return;
+            }
+
             funcProto(domFuncProto, func);
             if (func.desc) {
               domFuncDesc.innerHTML = marked.parse(func.desc);
@@ -540,7 +585,19 @@ SPDX-License-Identifier: GPL-3.0-only
             domListFunctionParams.replaceChildren();
 
             function pushArg(p, isKwarg) {
+              // Title
+
               let e = document.createElement('dt');
+              let a = document.createElement('a');
+              a.innerHTML = '#';
+              a.setAttribute("href", buildFilterString({...filter, param: p.name}));
+              e.appendChild(a);
+
+              if (filter.param === p.name) {
+                scrollTarget = e;
+              } else {
+                a.classList.add('param-link');
+              }
 
               if (isKwarg) {
                 e.appendChild(synKw(p.name));
@@ -552,6 +609,9 @@ SPDX-License-Identifier: GPL-3.0-only
               e.appendChild(synType(p.type));
 
               domListFunctionParams.appendChild(e);
+
+              // Description
+
               e = document.createElement('dd');
               div = document.createElement('div');
               div.classList.add("markdown");
@@ -560,6 +620,7 @@ SPDX-License-Identifier: GPL-3.0-only
               }
               e.appendChild(div);
               domListFunctionParams.appendChild(e);
+
               domSectFunctionParams.style.display = 'block';
             }
 
@@ -649,6 +710,12 @@ SPDX-License-Identifier: GPL-3.0-only
             }
           }
           buildFunctions();
+        }
+
+        if (scrollTarget) {
+          scrollTarget.scrollIntoView(true);
+        } else {
+          window.scrollTo(0, 0);
         }
       }
       render();

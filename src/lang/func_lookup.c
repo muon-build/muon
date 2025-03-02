@@ -515,7 +515,7 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 			}
 		}
 
-		name = make_strf(wk, "<%d>", an_idx);
+		name = make_strf(wk, "%d", an_idx);
 	} else {
 		if (kw->desc) {
 			desc = kw->desc;
