@@ -35,6 +35,11 @@ struct az_srv {
 		obj candidates;
 	} completion_req;
 
+	struct {
+		obj request_id;
+		obj contents;
+	} hover_req;
+
 	struct workspace *wk;
 	obj file_override;
 	obj diagnostics_to_clear;
@@ -408,6 +413,23 @@ az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struc
 }
 
 static void
+az_srv_handle_push_breakpoint_from_msg(struct az_srv *srv, struct workspace *wk, obj msg)
+{
+	obj params = obj_dict_index_as_obj(wk, msg, "params");
+	obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+	const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
+	obj position = obj_dict_index_as_obj(wk, params, "position");
+	int64_t line = obj_dict_index_as_number(wk, position, "line");
+	int64_t col = obj_dict_index_as_number(wk, position, "character");
+
+	const char *path = az_srv_uri_to_path(uri);
+	if (path && line >= 0 && col >= 0) {
+		vm_dbg_push_breakpoint(wk, make_str(wk, path), line + 1, col + 1);
+		srv->should_analyze = true;
+	}
+}
+
+static void
 az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 {
 	TracyCZoneAutoS;
@@ -426,6 +448,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		obj_array_push(wk, trigger_characters, make_str(wk, "."));
 		obj_dict_set(wk, completion_provider, make_str(wk, "triggerCharacters"), trigger_characters);
 		obj_dict_set(wk, capabilities, make_str(wk, "completionProvider"), completion_provider);
+		obj_dict_set(wk, capabilities, make_str(wk, "hoverProvider"), obj_bool_true);
 
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
@@ -464,45 +487,17 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 
 		az_srv_set_src_override(srv, uri, 0);
+	} else if (str_eql(method, &STR("textDocument/hover"))) {
+		srv->hover_req.request_id = obj_dict_index_as_obj(wk, msg, "id");
+		srv->hover_req.contents = make_str(wk, "");
+		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
 	} else if (str_eql(method, &STR("textDocument/completion"))) {
-		obj id = obj_dict_index_as_obj(wk, msg, "id");
-		obj params = obj_dict_index_as_obj(wk, msg, "params");
-		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
-		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
-		obj position = obj_dict_index_as_obj(wk, params, "position");
-		int64_t line = obj_dict_index_as_number(wk, position, "line");
-		int64_t col = obj_dict_index_as_number(wk, position, "character");
-
-		/*------------------------------------*/
-
-		srv->completion_req.request_id = id;
+		srv->completion_req.request_id = obj_dict_index_as_obj(wk, msg, "id");
 		srv->completion_req.candidates = make_obj(wk, obj_array);
-
-		const char *path = az_srv_uri_to_path(uri);
-		if (path && line >= 0 && col >= 0) {
-			vm_dbg_push_breakpoint(wk, make_str(wk, path), line + 1, col + 1);
-			srv->should_analyze = true;
-		}
+		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
 	}
 
 	TracyCZoneAutoE;
-}
-
-static bool
-az_srv_inst_seq_matches(struct workspace *wk, uint32_t ip, const uint8_t *seq, uint32_t seq_len)
-{
-	uint32_t seq_i = 0;
-	for (; seq_i < seq_len && ip < wk->vm.code.len;) {
-		uint32_t op = wk->vm.code.e[ip];
-		if (op != seq[seq_i]) {
-			return false;
-		}
-
-		ip += OP_WIDTH(op);
-		++seq_i;
-	}
-
-	return seq_i == seq_len;
 }
 
 static obj
@@ -552,18 +547,14 @@ enum az_srv_get_func_completions_flag {
 	az_srv_get_func_completions_flag_module = 1 << 0,
 };
 
-static void
-az_srv_push_func_completion(struct az_srv *srv,
-	struct workspace *wk,
-	enum LspCompletionItemKind kind,
-	const char *name,
-	type_tag return_type,
-	obj f)
+static obj
+az_srv_func_proto_string(struct workspace *wk, obj f)
 {
-	obj posargs = 0, kwargs = 0, desc = 0, arg;
+	obj name = 0, return_type = 0, posargs = 0, kwargs = 0, arg;
+	obj_dict_index_str(wk, f, "name", &name);
+	obj_dict_index_str(wk, f, "type", &return_type);
 	obj_dict_index_str(wk, f, "posargs", &posargs);
 	obj_dict_index_str(wk, f, "kwargs", &kwargs);
-	obj_dict_index_str(wk, f, "desc", &desc);
 
 	obj sig = make_obj(wk, obj_array);
 
@@ -587,13 +578,28 @@ az_srv_push_func_completion(struct az_srv *srv,
 	obj joined;
 	obj_array_join(wk, false, sig, make_str(wk, ", "), &joined);
 
-	obj proto = make_strf(wk, "%s(%s)", name, get_str(wk, joined)->s);
+	obj proto = make_strf(wk, "%s(%s)", get_str(wk, name)->s, get_str(wk, joined)->s);
 	if (return_type) {
-		str_appf(wk, &proto, " -> %s", typechecking_type_to_s(wk, return_type));
+		str_appf(wk, &proto, " -> %s", get_str(wk, return_type)->s);
 	}
 
+	return proto;
+}
+
+static void
+az_srv_push_func_completion(struct az_srv *srv,
+	struct workspace *wk,
+	enum LspCompletionItemKind kind,
+	obj f)
+{
+	obj name = 0, desc = 0;
+	obj_dict_index_str(wk, f, "name", &name);
+	obj_dict_index_str(wk, f, "desc", &desc);
+
+	obj proto = az_srv_func_proto_string(wk, f);
+
 	obj c;
-	if ((c = az_srv_push_completion(srv, wk, proto, kind, make_str(wk, name)))) {
+	if ((c = az_srv_push_completion(srv, wk, proto, kind, name))) {
 		if (desc) {
 			obj_dict_set(wk, c, make_str(wk, "documentation"), desc);
 		}
@@ -628,7 +634,7 @@ az_srv_get_func_completions(struct az_srv *srv,
 				f = dump_function_native(wk, type_or_module, impl);
 			}
 
-			az_srv_push_func_completion(srv, wk, kind, impl->name, impl->return_type, f);
+			az_srv_push_func_completion(srv, wk, kind, f);
 		}
 	}
 }
@@ -650,25 +656,34 @@ az_srv_get_kwarg_completions(struct workspace *wk, struct args_norm posargs[], s
 	return false;
 }
 
+enum az_srv_break_type {
+	az_srv_break_type_constant,
+	az_srv_break_type_member,
+	az_srv_break_type_native_call,
+};
+
+struct az_srv_break_info {
+	enum az_srv_break_type type;
+	union {
+		struct {
+			obj ident;
+		} constant;
+		struct {
+			obj self;
+			obj ident;
+		} member;
+		struct {
+			uint32_t idx;
+		} native_call;
+	} dat;
+};
+
 static void
-az_srv_dbg_break_cb(struct workspace *wk)
+az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_break_info *info)
 {
-	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
-	uint32_t ip = wk->vm.ip;
-
-#if 0
-	L("hit breakpoint");
-	for (uint32_t i = 0; i < 32;) {
-		L("%s", vm_dis_inst(wk, wk->vm.code.e, ip + i));
-
-		i += OP_WIDTH(wk->vm.code.e[ip + i]);
-	}
-#endif
-
-	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load }, 2)) {
-		++ip;
-		obj identifier = vm_get_constant(wk->vm.code.e, &ip);
-		const struct str *prefix = get_str(wk, identifier);
+	switch (info->type) {
+	case az_srv_break_type_constant: {
+		const struct str *prefix = get_str(wk, info->dat.constant.ident);
 
 		obj local_scope;
 		obj_array_for(wk, wk->vm.scope_stack, local_scope) {
@@ -690,11 +705,11 @@ az_srv_dbg_break_cb(struct workspace *wk)
 		}
 
 		az_srv_get_func_completions(srv, wk, 0, func_impl_groups[0], prefix, 0);
-	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_member }, 1)) {
-		++ip;
-		obj self = object_stack_peek(&wk->vm.stack, 1);
-		obj identifier = vm_get_constant(wk->vm.code.e, &ip);
-		const struct str *prefix = get_str(wk, identifier);
+		break;
+	}
+	case az_srv_break_type_member: {
+		obj self = info->dat.member.self;
+		const struct str *prefix = get_str(wk, info->dat.member.ident);
 
 		enum obj_type t = get_obj_type(wk, self);
 		if (t == obj_typeinfo) {
@@ -723,13 +738,12 @@ az_srv_dbg_break_cb(struct workspace *wk)
 						continue;
 					}
 
-					obj f = dump_module_function_capture(wk, "?module?", name, val);
+					// We don't use the module name here, it could be anything
+					obj f = dump_module_function_capture(wk, "<module_name>", name, val);
 
 					az_srv_push_func_completion(srv,
 						wk,
 						LspCompletionItemKindFunction,
-						get_str(wk, name)->s,
-						get_obj_capture(wk, val)->func->return_type,
 						f);
 				}
 			} else {
@@ -746,18 +760,100 @@ az_srv_dbg_break_cb(struct workspace *wk)
 		} else {
 			az_srv_get_func_completions(srv, wk, t, func_impl_groups[t], prefix, 0);
 		}
+		break;
+	}
+	case az_srv_break_type_native_call: {
+		stack_push(&wk->stack, wk->vm.behavior.pop_args, az_srv_get_kwarg_completions);
+		native_funcs[info->dat.native_call.idx].func(wk, 0, 0);
+		stack_pop(&wk->stack, wk->vm.behavior.pop_args);
+		break;
+	}
+	}
+}
+
+static void
+az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_break_info *info)
+{
+	switch (info->type) {
+	case az_srv_break_type_constant: {
+		obj res;
+		if (wk->vm.behavior.get_variable(wk, get_str(wk, info->dat.constant.ident)->s, &res)) {
+			srv->hover_req.contents = obj_type_to_typestr(wk, res);
+		}
+		break;
+	}
+	case az_srv_break_type_member: {
+		break;
+	}
+	case az_srv_break_type_native_call: {
+		obj f = dump_module_function_native(wk, 0, &native_funcs[info->dat.native_call.idx]);
+		obj proto = az_srv_func_proto_string(wk, f);
+		srv->hover_req.contents = proto;
+		break;
+	}
+	}
+}
+
+static bool
+az_srv_inst_seq_matches(struct workspace *wk, uint32_t ip, const uint8_t *seq, uint32_t seq_len)
+{
+	uint32_t seq_i = 0;
+	for (; seq_i < seq_len && ip < wk->vm.code.len;) {
+		uint32_t op = wk->vm.code.e[ip];
+		if (op != seq[seq_i]) {
+			return false;
+		}
+
+		ip += OP_WIDTH(op);
+		++seq_i;
+	}
+
+	return seq_i == seq_len;
+}
+
+static void
+az_srv_dbg_break_cb(struct workspace *wk)
+{
+	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
+	uint32_t ip = wk->vm.ip;
+
+#if 0
+	L("hit breakpoint");
+	for (uint32_t i = 0; i < 32;) {
+		L("%s", vm_dis_inst(wk, wk->vm.code.e, ip + i));
+
+		i += OP_WIDTH(wk->vm.code.e[ip + i]);
+	}
+#endif
+
+	struct az_srv_break_info info = { 0 };
+
+	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load }, 2)) {
+		info.type = az_srv_break_type_constant;
+		++ip;
+		info.dat.constant.ident = vm_get_constant(wk->vm.code.e, &ip);
+	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_member }, 1)) {
+		info.type = az_srv_break_type_member;
+		++ip;
+		info.dat.member.self = object_stack_peek(&wk->vm.stack, 1);
+		info.dat.member.ident = vm_get_constant(wk->vm.code.e, &ip);
 	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_call_native }, 1)) {
+		info.type = az_srv_break_type_native_call;
 		++ip;
 		uint32_t nargs = vm_get_constant(wk->vm.code.e, &ip);
 		uint32_t nkwargs = vm_get_constant(wk->vm.code.e, &ip);
-		uint32_t idx = vm_get_constant(wk->vm.code.e, &ip);
+		info.dat.native_call.idx = vm_get_constant(wk->vm.code.e, &ip);
 
 		(void)nargs;
 		(void)nkwargs;
+	} else {
+		return;
+	}
 
-		stack_push(&wk->stack, wk->vm.behavior.pop_args, az_srv_get_kwarg_completions);
-		native_funcs[idx].func(wk, 0, 0);
-		stack_pop(&wk->stack, wk->vm.behavior.pop_args);
+	if (srv->completion_req.request_id) {
+		az_srv_get_completions(srv, wk, &info);
+	} else if (srv->hover_req.request_id) {
+		az_srv_get_hover_info(srv, wk, &info);
 	}
 }
 
@@ -794,6 +890,7 @@ analyze_server(struct az_opts *cmdline_opts)
 		srv.transport.in_buf = &in_buf;
 		srv.should_analyze = false;
 		srv.completion_req.request_id = 0;
+		srv.hover_req.request_id = 0;
 
 		obj msg;
 		if (!az_srv_read(&wk, &srv, &msg)) {
@@ -827,6 +924,10 @@ analyze_server(struct az_opts *cmdline_opts)
 
 			if (srv.completion_req.request_id) {
 				az_srv_respond(&srv, &wk, srv.completion_req.request_id, srv.completion_req.candidates);
+			} else if (srv.hover_req.request_id) {
+				obj result = make_obj(&wk, obj_dict);
+				obj_dict_set(&wk, result, make_str(&wk, "contents"), srv.hover_req.contents);
+				az_srv_respond(&srv, &wk, srv.hover_req.request_id, result);
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}
