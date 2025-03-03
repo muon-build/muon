@@ -29,7 +29,7 @@ endif
 
 extra_args = options['extra_args'] != '' ? options['extra_args'].split('^') : []
 
-res = run_command(
+run_command(
     options['msgfmt'],
     '--@0@'.format(options['type']),
     '-d', options['podir'],
@@ -37,4 +37,5 @@ res = run_command(
     '-o', output,
     extra_args,
     env: datadirs_env,
+    check: true,
 )

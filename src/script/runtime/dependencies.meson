@@ -81,7 +81,7 @@ meson.register_dependency_handler(
 
 meson.register_dependency_handler(
     'objfw',
-    config_tool: func(static bool:, native bool:, modules list[str]:, _ glob[any]:) -> dep
+    config_tool: func(modules list[str]:, _ glob[any]:) -> dep
         objfwconfig = find_program('objfw-config', required: false)
 
         if not objfwconfig.found()

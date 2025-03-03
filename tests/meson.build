@@ -19,7 +19,7 @@ foreach script : embedded_scripts
     test(
         f'@script@',
         muon,
-        args: ['analyze', '-i', embedded_scripts_base / script],
+        args: ['analyze', '-Werror', '-i', embedded_scripts_base / script],
         suite: 'analyze',
     )
 endforeach
