@@ -153,7 +153,8 @@ struct vm_behavior {
 	bool((*eval_project_file)(struct workspace *wk,
 		const char *path,
 		enum build_language lang,
-		enum eval_project_file_flags flags));
+		enum eval_project_file_flags flags,
+		obj *res));
 	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));
 	bool((*pop_args)(struct workspace *wk, struct args_norm an[], struct args_kw akw[]));
 	bool((*func_lookup)(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func));

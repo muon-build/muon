@@ -63,7 +63,7 @@ eval_project(struct workspace *wk,
 
 		if (!build_file) {
 			goto cleanup;
-		} else if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first)) {
+		} else if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first, 0)) {
 			goto cleanup;
 		}
 	}
@@ -103,6 +103,11 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 {
 	TracyCZoneAutoS;
 	TracyCMessage(src->label, strlen(src->label));
+
+	obj res_ignored;
+	if (!res) {
+		res = &res_ignored;
+	}
 
 	if (lang == build_language_cmake && mode == eval_mode_first) {
 		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
@@ -214,7 +219,7 @@ eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 }
 
 bool
-eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags)
+eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags, obj *res)
 {
 	bool ret = false;
 	obj path_str = make_str(wk, path);
@@ -236,8 +241,7 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 		eval_mode |= eval_mode_relaxed_parse;
 	}
 
-	obj res;
-	if (!eval(wk, &src, lang, eval_mode, &res)) {
+	if (!eval(wk, &src, lang, eval_mode, res)) {
 		goto ret;
 	}
 

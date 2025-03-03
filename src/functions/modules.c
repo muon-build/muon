@@ -9,7 +9,6 @@
 
 #include "buf_size.h"
 #include "embedded.h"
-#include "error.h"
 #include "functions/modules.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/getopt.h"
@@ -57,35 +56,26 @@ module_lookup_script(struct workspace *wk,
 	struct obj_module *m,
 	const struct module_lookup_script_opts *opts)
 {
-	struct source src;
-
-	if (opts->embedded) {
-		if (!(embedded_get(path->buf, &src))) {
-			return false;
-		}
-	} else {
-		if (!fs_file_exists(path->buf)) {
-			return false;
-		}
-
-		if (!fs_read_entire_file(path->buf, &src)) {
-			UNREACHABLE;
-		}
-	}
-
-	src.label = get_cstr(wk, tstr_into_str(wk, path));
-	src.len = strlen(src.src);
-
 	bool ret = false;
-	enum language_mode old_language_mode = wk->vm.lang_mode;
-	wk->vm.lang_mode = language_extended;
-
 	bool stack_popped = false;
+	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	obj res;
-	if (!eval(wk, &src, build_language_meson, 0, &res)) {
-		goto ret;
+	if (opts->embedded) {
+		struct source src;
+		if (!(embedded_get(path->buf, &src))) {
+			goto ret;
+		}
+		src.label = get_cstr(wk, tstr_into_str(wk, path));
+		src.len = strlen(src.src);
+		if (!eval(wk, &src, build_language_meson, 0, &res)) {
+			goto ret;
+		}
+	} else {
+		if (!wk->vm.behavior.eval_project_file(wk, path->buf, build_language_meson, 0, &res)) {
+			goto ret;
+		}
 	}
 
 	if (!typecheck_custom(wk,
@@ -102,6 +92,7 @@ module_lookup_script(struct workspace *wk,
 		m->exports = res;
 	} else {
 		stack_pop(&wk->stack, wk->vm.scope_stack);
+		stack_pop(&wk->stack, wk->vm.lang_mode);
 		stack_popped = true;
 		obj k, v;
 		obj_dict_for(wk, res, k, v) {
@@ -113,8 +104,8 @@ module_lookup_script(struct workspace *wk,
 ret:
 	if (!stack_popped) {
 		stack_pop(&wk->stack, wk->vm.scope_stack);
+		stack_pop(&wk->stack, wk->vm.lang_mode);
 	}
-	wk->vm.lang_mode = old_language_mode;
 	return ret;
 }
 

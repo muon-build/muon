@@ -851,12 +851,11 @@ static bool
 az_eval_project_file(struct workspace *wk,
 	const char *path,
 	enum build_language lang,
-	enum eval_project_file_flags flags)
+	enum eval_project_file_flags flags,
+	obj *res)
 {
 	obj override;
 	if (analyzer.opts->file_override && obj_dict_index_str(wk, analyzer.opts->file_override, path, &override)) {
-		obj res;
-
 		enum eval_mode eval_mode = 0;
 		if (flags & eval_project_file_flag_first) {
 			eval_mode |= eval_mode_first;
@@ -870,7 +869,7 @@ az_eval_project_file(struct workspace *wk,
 		struct source weak_src = *src;
 		weak_src.is_weak_reference = true;
 
-		return eval(wk, &weak_src, lang, eval_mode, &res);
+		return eval(wk, &weak_src, lang, eval_mode, res);
 	} else {
 		if (analyzer.opts->analyze_project_call_only) {
 			flags |= eval_project_file_flag_return_after_project;
@@ -880,7 +879,7 @@ az_eval_project_file(struct workspace *wk,
 			flags |= eval_project_file_flag_relaxed_parse;
 		}
 
-		return eval_project_file(wk, path, lang, flags);
+		return eval_project_file(wk, path, lang, flags, res);
 	}
 }
 

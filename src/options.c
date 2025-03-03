@@ -752,7 +752,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	if (exists) {
 		enum language_mode old_mode = wk->vm.lang_mode;
 		wk->vm.lang_mode = language_opts;
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0)) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
 			wk->vm.lang_mode = old_mode;
 			return false;
 		}
@@ -1274,7 +1274,7 @@ list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx 
 	current_project(wk)->cfg.name = make_str(wk, wrap.name.buf);
 
 	if (exists) {
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0)) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
 			goto cont;
 		}
 	} else {
@@ -1305,7 +1305,7 @@ list_options(const struct list_options_opts *list_opts)
 		bool exists = determine_option_file(&wk, ".", &meson_opts);
 
 		if (exists) {
-			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0)) {
+			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0, 0)) {
 				goto ret;
 			}
 		} else {
