@@ -149,12 +149,13 @@ endif
 
 python3 = find_program('python3', required: false)
 
-meson_proj = dependency('', required: false)
+meson_docs_proj = dependency('', required: false)
 if python3.found()
-    meson_proj = subproject('meson-docs', required: false)
-
-    src += meson_proj.get_variable('meson_docs_h')
-    c_args += ['-DHAVE_MESON_DOCS_H']
+    meson_docs_proj = subproject('meson-docs', required: false)
+    if meson_docs_proj.found()
+        src += meson_docs_proj.get_variable('meson_docs_h')
+        c_args += ['-DHAVE_MESON_DOCS_H']
+    endif
 endif
 
 muon = executable(
