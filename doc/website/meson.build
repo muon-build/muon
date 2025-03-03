@@ -15,7 +15,7 @@ foreach name, tgt : man_page_targets
     )
 endforeach
 
-if meson_proj.found()
+if meson_docs_proj.found()
     muon_signatures = custom_target(
         'muon_signatures.txt',
         output: 'muon_signatures.txt',
@@ -23,7 +23,7 @@ if meson_proj.found()
         capture: true,
     )
 
-    meson_signatures = meson_proj.get_variable('signatures')
+    meson_signatures = meson_docs_proj.get_variable('signatures')
 
     configure_file(
         configuration: version_info,
