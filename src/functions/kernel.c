@@ -1348,7 +1348,7 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 		if (!build_file) {
 			goto ret;
 		}
-		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, 0);
+		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, 0, 0);
 	}
 
 ret:
