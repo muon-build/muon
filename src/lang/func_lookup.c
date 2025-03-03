@@ -525,7 +525,8 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 			arg = meson_doc_lookup_function_kwarg(function_sig_dump.meson_doc_entry, kw->key);
 
 			if (!arg && function_sig_dump.special_func == function_sig_dump_special_func_build_tgt) {
-				arg = meson_doc_lookup_function_kwarg(meson_doc_lookup_function(obj_null, "build_target"), kw->key);
+				arg = meson_doc_lookup_function_kwarg(
+					meson_doc_lookup_function(obj_null, "build_target"), kw->key);
 			}
 
 			if (arg) {
@@ -645,16 +646,6 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 	return false;
 }
 
-obj
-dump_function_args(struct workspace *wk, const struct func_impl *impl)
-{
-	function_sig_dump.func = make_obj(wk, obj_dict);
-	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args_cb);
-	impl->func(wk, 0, 0);
-	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
-	return function_sig_dump.func;
-}
-
 struct dump_function_opts {
 	const char *module;
 	const struct func_impl *impl;
@@ -708,6 +699,62 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 	return res;
 }
 
+obj
+dump_function_native(struct workspace *wk, enum obj_type t, const struct func_impl *impl)
+{
+	if (meson_doc_root[t] && wk->vm.lang_mode == language_external) {
+		function_sig_dump.meson_doc_entry = meson_doc_lookup_function(t, impl->name);
+	}
+
+	if (strcmp(impl->name, "executable") || strcmp(impl->name, "build_target")
+		|| strcmp(impl->name, "shared_library") || strcmp(impl->name, "static_library")
+		|| strcmp(impl->name, "both_libraries")) {
+		function_sig_dump.special_func = function_sig_dump_special_func_build_tgt;
+	}
+
+	obj res = dump_function(wk,
+		&(struct dump_function_opts){
+			.rcvr_t = t,
+			.impl = impl,
+		});
+
+	function_sig_dump.meson_doc_entry = 0;
+	function_sig_dump.special_func = function_sig_dump_special_func_none;
+
+	return res;
+}
+
+obj
+dump_module_function_native(struct workspace *wk, enum module module, const struct func_impl *impl)
+{
+	return dump_function(wk,
+		&(struct dump_function_opts){
+			.module_func = true,
+			.module = module_info[module].path,
+			.impl = impl,
+		});
+}
+
+obj
+dump_module_function_capture(struct workspace *wk, const char *module, obj name, obj o)
+{
+	struct obj_capture *capture = get_obj_capture(wk, o);
+
+	struct func_impl impl = {
+		.name = get_cstr(wk, name),
+		.desc = capture->func->desc,
+		.return_type = capture->func->return_type,
+	};
+
+	return dump_function(wk,
+		&(struct dump_function_opts){
+			.module_func = true,
+			.module = module,
+			.impl = &impl,
+			.capture = o,
+		});
+}
+
 static void
 dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 {
@@ -726,26 +773,7 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 			}
 
 			for (i = 0; g->impls[i].name; ++i) {
-				if (meson_doc_root[t] && wk->vm.lang_mode == language_external) {
-					function_sig_dump.meson_doc_entry = meson_doc_lookup_function(t, g->impls[i].name);
-				}
-
-				if (strcmp(g->impls[i].name, "executable") || strcmp(g->impls[i].name, "build_target")
-					|| strcmp(g->impls[i].name, "shared_library")
-					|| strcmp(g->impls[i].name, "static_library")
-					|| strcmp(g->impls[i].name, "both_libraries")) {
-					function_sig_dump.special_func = function_sig_dump_special_func_build_tgt;
-				}
-
-				obj_array_push(wk,
-					doc,
-					dump_function(wk,
-						&(struct dump_function_opts){
-							.rcvr_t = t,
-							.impl = &g->impls[i],
-						}));
-				function_sig_dump.meson_doc_entry = 0;
-				function_sig_dump.special_func = function_sig_dump_special_func_none;
+				obj_array_push(wk, doc, dump_function_native(wk, t, &g->impls[i]));
 			}
 		}
 	}
@@ -758,14 +786,7 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 
 		uint32_t j;
 		for (j = 0; g->impls[j].name; ++j) {
-			obj_array_push(wk,
-				doc,
-				dump_function(wk,
-					&(struct dump_function_opts){
-						.module_func = true,
-						.module = module_info[i].path,
-						.impl = &g->impls[j],
-					}));
+			obj_array_push(wk, doc, dump_module_function_native(wk, i, &g->impls[j]));
 		}
 	}
 
@@ -803,23 +824,7 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 
 			obj k, v;
 			obj_dict_for(wk, m->exports, k, v) {
-				struct obj_capture *capture = get_obj_capture(wk, v);
-
-				struct func_impl impl = {
-					.name = get_cstr(wk, k),
-					.desc = capture->func->desc,
-					.return_type = capture->func->return_type,
-				};
-
-				obj_array_push(wk,
-					doc,
-					dump_function(wk,
-						&(struct dump_function_opts){
-							.module_func = true,
-							.module = mod_path.buf,
-							.impl = &impl,
-							.capture = v,
-						}));
+				obj_array_push(wk, doc, dump_module_function_capture(wk, mod_path.buf, k, v));
 			}
 		}
 	}
