@@ -13,8 +13,6 @@ func run_potgen(
     args list[str],
     source_root str,
 )
-    fs = import('fs')
-
     listfile = src_sub / 'POTFILES.in'
     if not fs.exists(listfile)
         listfile = src_sub / 'POTFILES'
@@ -51,7 +49,6 @@ endfunc
 func update_po(src_sub str, msgmerge str, msginit str, pkgname str, langs list[str])
 
     potfile = src_sub / f'@pkgname@.pot'
-    fs = import('fs')
     foreach lang : langs
         pofile = src_sub / f'@lang@.po'
         if fs.exists(pofile)
