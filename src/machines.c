@@ -221,8 +221,8 @@ machine_cpu_family(struct machine_definition *m)
 			{ "i86pc", "x86_64" },
 			{ "sun4u", "sparc64" },
 			{ "sun4v", "sparc64" },
-			{ "ip30", "mpis64" },
-			{ "ip35", "mpis64" },
+			{ "ip30", "mips64" },
+			{ "ip35", "mips64" },
 			0,
 		};
 
