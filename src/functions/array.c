@@ -125,7 +125,6 @@ func_array_slice(struct workspace *wk, obj self, obj *res)
 	bounds_adjust(a->len, &start);
 	bounds_adjust(a->len, &end);
 
-	start = MIN(start, a->len - 1);
 	end = MIN(end, a->len);
 
 	*res = obj_array_slice(wk, self, start, end);
