@@ -322,7 +322,7 @@ fs_make_symlink(const char *target, const char *path, bool force)
 		}
 	}
 
-	if (symlinkat(target, 0, path) != 0) {
+	if (symlink(target, path) != 0) {
 		LOG_E("failed symlink(\"%s\", \"%s\"): %s", target, path, strerror(errno));
 		return false;
 	}
