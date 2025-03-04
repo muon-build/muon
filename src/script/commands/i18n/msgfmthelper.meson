@@ -11,9 +11,11 @@ argv.delete(0)
 options = {'msgfmt': '', 'type': '', 'podir': '', 'datadirs': '', 'extra_args': ''}
 
 foreach arg : argv
+    # Note: arg may have multiple equal signs such as: extra_args=--keyword=Description
+    # See: "subprojects/meson-tests/frameworks/6 gettext/data2/meson.build"
     elems = arg.split('=')
     key = elems[0]
-    val = elems[1]
+    val = '='.join(elems.slice(1))
 
     options += {key: val}
 
