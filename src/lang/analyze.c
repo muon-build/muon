@@ -41,17 +41,6 @@ struct az_file_entrypoint {
 
 static struct arr az_entrypoint_stack, az_entrypoint_stacks;
 
-struct assignment {
-	const char *name;
-	obj o;
-	bool accessed, default_var;
-	struct source_location location;
-	uint32_t src_idx;
-
-	uint32_t ep_stacks_i;
-	uint32_t ep_stack_len;
-};
-
 enum branch_map_type {
 	branch_map_type_normal,
 	branch_map_type_ternary,
@@ -248,12 +237,12 @@ print_scope_stack(struct workspace *wk)
 			if (i == 0) {
 				L("    root scope:");
 				obj_dict_for(wk, scope_group, k, v) {
-					struct assignment *assign = bucket_arr_get(&assignments, v);
+					struct az_assignment *assign = bucket_arr_get(&assignments, v);
 					LO("      %o: %s %o\n", k, assign->accessed ? "a" : "_", assign->o);
 				}
 			} else {
 				obj_array_for(wk, scope_group, scope) {
-					struct assignment *assign = bucket_arr_get(&assignments, v);
+					struct az_assignment *assign = bucket_arr_get(&assignments, v);
 					L("    scope group:");
 					obj_dict_for(wk, scope, k, v) {
 						LO("      %o: %s %o\n", k, assign->accessed ? "a" : "_", assign->o);
@@ -308,8 +297,8 @@ assign_lookup_with_scope(struct workspace *wk, const char *name, obj *scope, obj
 	return found;
 }
 
-static struct assignment *
-assign_lookup(struct workspace *wk, const char *name)
+struct az_assignment *
+az_assign_lookup(struct workspace *wk, const char *name)
 {
 	obj res, _;
 	if (assign_lookup_with_scope(wk, name, &_, &res)) {
@@ -341,9 +330,9 @@ az_unassign(struct workspace *wk, const char *name)
 
 static void
 check_reassign_to_different_type(struct workspace *wk,
-	struct assignment *a,
+	struct az_assignment *a,
 	obj new_val,
-	struct assignment *new_a,
+	struct az_assignment *new_a,
 	uint32_t n_id)
 {
 	if (!az_diagnostic_enabled(az_diagnostic_reassign_to_conflicting_type)) {
@@ -384,7 +373,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// an obj (for storage in the scope dict)
 	obj v = assignments.len;
 	bucket_arr_push(&assignments,
-		&(struct assignment){
+		&(struct az_assignment){
 			.name = name,
 			.o = o,
 			.location = loc,
@@ -395,7 +384,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	return v;
 }
 
-static struct assignment *
+static struct az_assignment *
 scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
 {
 	TracyCZoneAutoS;
@@ -419,8 +408,8 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 
 	assert(scope);
 
-	struct assignment *a = 0;
-	if (analyzer.impure_loop_depth && (a = assign_lookup(wk, name))) {
+	struct az_assignment *a = 0;
+	if (analyzer.impure_loop_depth && (a = az_assign_lookup(wk, name))) {
 		// When overwriting a variable in an impure loop turn it into a
 		// typeinfo so that it gets marked as impure.
 		enum obj_type new_type = get_obj_type(wk, o);
@@ -443,7 +432,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	aid = push_assignment(wk, name, o, n_id);
 	obj_dict_set(wk, scope, make_str(wk, name), aid);
 
-	struct assignment *assign = bucket_arr_get(&assignments, aid);
+	struct az_assignment *assign = bucket_arr_get(&assignments, aid);
 	assign->accessed = accessed;
 
 	TracyCZoneAutoE;
@@ -471,7 +460,7 @@ push_scope_group_scope(struct workspace *wk)
 }
 
 static void
-merge_objects(struct workspace *wk, struct assignment *dest, struct assignment *src)
+merge_objects(struct workspace *wk, struct az_assignment *dest, struct az_assignment *src)
 {
 	type_tag dest_type = get_obj_type(wk, dest->o);
 	type_tag src_type = get_obj_type(wk, src->o);
@@ -519,7 +508,7 @@ pop_scope_group(struct workspace *wk)
 			obj k, aid;
 			obj_dict_for(wk, scope, k, aid) {
 				obj bid;
-				struct assignment *b, *a = bucket_arr_get(&assignments, aid);
+				struct az_assignment *b, *a = bucket_arr_get(&assignments, aid);
 				if (obj_dict_index(wk, merged, k, &bid)) {
 					b = bucket_arr_get(&assignments, bid);
 					merge_objects(wk, b, a);
@@ -534,8 +523,8 @@ pop_scope_group(struct workspace *wk)
 		obj k, aid;
 		obj_dict_for(wk, merged, k, aid) {
 			(void)k;
-			struct assignment *a = bucket_arr_get(&assignments, aid), *b;
-			if ((b = assign_lookup(wk, a->name))) {
+			struct az_assignment *a = bucket_arr_get(&assignments, aid), *b;
+			if ((b = az_assign_lookup(wk, a->name))) {
 				merge_objects(wk, b, a);
 			} else {
 				if (false) {
@@ -784,7 +773,7 @@ az_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, 
 static bool
 az_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
 {
-	struct assignment *a = assign_lookup(wk, name);
+	struct az_assignment *a = az_assign_lookup(wk, name);
 	if (a) {
 		a->accessed = true;
 		*res = a->o;
@@ -1203,7 +1192,7 @@ az_op_call(struct workspace *wk)
 			obj _k, aid;
 			obj_dict_for(wk, root_scope, _k, aid) {
 				(void)_k;
-				struct assignment *assign = bucket_arr_get(&assignments, aid);
+				struct az_assignment *assign = bucket_arr_get(&assignments, aid);
 				assign->accessed = true;
 			}
 		}
@@ -1454,7 +1443,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 
-	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
+	bucket_arr_init(&assignments, 512, sizeof(struct az_assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
 	arr_init_flags(&analyzer.visited_ops, 1024, 1, arr_flag_zero_memory);
 
@@ -1470,7 +1459,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		obj_dict_for(wk, original_scope, k, v) {
 			obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
 
-			struct assignment *a = bucket_arr_get(&assignments, aid);
+			struct az_assignment *a = bucket_arr_get(&assignments, aid);
 			a->default_var = true;
 
 			obj_dict_set(wk, scope, k, aid);
@@ -1537,7 +1526,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	}
 
 	if (opts->internal_file) {
-		struct assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
+		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
 		a->default_var = true;
 
 		wk->vm.lang_mode = language_extended;
@@ -1567,7 +1556,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	if (az_diagnostic_enabled(az_diagnostic_unused_variable)) {
 		uint32_t i;
 		for (i = 0; i < assignments.len; ++i) {
-			struct assignment *a = bucket_arr_get(&assignments, i);
+			struct az_assignment *a = bucket_arr_get(&assignments, i);
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(wk, make_strf(wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
