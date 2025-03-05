@@ -830,7 +830,7 @@ wrap_handle_update(struct wrap *wrap, struct wrap_opts *opts)
 
 	if (wrap->dirty) {
 		LOG_W("cannot safely update outdated %s because it is dirty", wrap->dest_dir.buf);
-		return false;
+		return true;
 	}
 
 	LOG_I("updating %s", wrap->dest_dir.buf);

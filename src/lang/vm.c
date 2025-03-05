@@ -2329,9 +2329,12 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
-			vm_diagnostic(wk, prev_err_loc, log_error, error_message_flag_coalesce, "");
+			vm_diagnostic(wk, prev_err_loc, log_error, error_message_flag_coalesce, "in evaluation");
 			error_message_flush_coalesced_message();
 			wk->vm.ip = frame->return_ip;
+			// TODO: this is a little hacky?  We need to make sure that
+			// execution can continue even if we emitted errors.
+			wk->vm.run = true;
 			return;
 		}
 		case call_frame_type_func: break;
@@ -2635,8 +2638,8 @@ vm_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-			object_stack_print(wk, &wk->vm.stack);
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
+			/* object_stack_print(wk, &wk->vm.stack); */
 		}
 
 		vm_check_break(wk, wk->vm.ip);
