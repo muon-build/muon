@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-License-Identifier: GPL-3.0-only
  */
+
 #include "compat.h"
 
 #include <string.h>
@@ -426,6 +427,8 @@ az_srv_handle_push_breakpoint_from_msg(struct az_srv *srv, struct workspace *wk,
 	if (path && line >= 0 && col >= 0) {
 		vm_dbg_push_breakpoint(wk, make_str(wk, path), line + 1, col + 1);
 		srv->should_analyze = true;
+	} else {
+		LOG_E("unable to push breakpoint for %s:%d:%d", uri->s, (int32_t)line, (int32_t)col);
 	}
 }
 
@@ -619,24 +622,39 @@ az_srv_get_func_completions(struct az_srv *srv,
 						  LspCompletionItemKindFunction :
 						  LspCompletionItemKindMethod;
 
-	if (!impl_group[wk->vm.lang_mode].len) {
-		return;
+	enum language_mode modes[2] = { wk->vm.lang_mode };
+	uint32_t modes_len = 1;
+
+	if (wk->vm.lang_mode == language_extended) {
+		modes[0] = language_external;
+		modes[1] = language_internal;
+		modes_len = 2;
 	}
 
-	uint32_t i;
-	for (i = 0; impl_group[wk->vm.lang_mode].impls[i].name; ++i) {
-		const struct func_impl *impl = &impl_group[wk->vm.lang_mode].impls[i];
-		if (str_startswith(&STRL(impl->name), prefix)) {
-			obj f;
-			if (is_module_func) {
-				f = dump_module_function_native(wk, type_or_module, impl);
-			} else {
-				f = dump_function_native(wk, type_or_module, impl);
-			}
+	uint32_t mode;
+	for (mode = 0; mode < modes_len; ++mode) {
+		const enum language_mode m = modes[mode];
 
-			az_srv_push_func_completion(srv, wk, kind, f);
+		if (!impl_group[m].len) {
+			continue;
+		}
+
+		uint32_t i;
+		for (i = 0; impl_group[m].impls[i].name; ++i) {
+			const struct func_impl *impl = &impl_group[m].impls[i];
+			if (str_startswith(&STRL(impl->name), prefix)) {
+				obj f;
+				if (is_module_func) {
+					f = dump_module_function_native(wk, type_or_module, impl);
+				} else {
+					f = dump_function_native(wk, type_or_module, impl);
+				}
+
+				az_srv_push_func_completion(srv, wk, kind, f);
+			}
 		}
 	}
+
 }
 
 static bool
@@ -786,7 +804,7 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 		break;
 	}
 	case az_srv_break_type_native_call: {
-		obj f = dump_module_function_native(wk, 0, &native_funcs[info->dat.native_call.idx]);
+		obj f = dump_function_native(wk, 0, &native_funcs[info->dat.native_call.idx]);
 		obj proto = az_srv_func_proto_string(wk, f);
 		srv->hover_req.contents = proto;
 		break;
