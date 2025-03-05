@@ -21,6 +21,12 @@
 #include "tracy.h"
 #include "version.h"
 
+enum az_srv_req_type {
+	az_srv_req_type_completion,
+	az_srv_req_type_hover,
+	az_srv_req_type_definition,
+};
+
 struct az_srv {
 	struct {
 		struct tstr *in_buf;
@@ -32,14 +38,10 @@ struct az_srv {
 	bool should_analyze;
 
 	struct {
-		obj request_id;
-		obj candidates;
-	} completion_req;
-
-	struct {
-		obj request_id;
-		obj contents;
-	} hover_req;
+		obj id;
+		obj result;
+		enum az_srv_req_type type;
+	} req;
 
 	struct workspace *wk;
 	obj file_override;
@@ -299,32 +301,29 @@ az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 }
 
 static obj
-az_srv_diagnostic(struct workspace *wk, const struct source *src, const struct error_diagnostic_message *msg)
+az_srv_range(struct workspace *wk, const struct source *src, struct source_location loc)
 {
 	bool destroy_source = false;
 	struct source src_reopened = { 0 };
 	reopen_source(src, &src_reopened, &destroy_source);
 
 	struct detailed_source_location dloc;
-	get_detailed_source_location(&src_reopened, msg->location, &dloc, get_detailed_source_location_flag_multiline);
+	get_detailed_source_location(&src_reopened, loc, &dloc, get_detailed_source_location_flag_multiline);
 
-	obj d = make_obj(wk, obj_dict);
 	obj range = make_obj(wk, obj_dict);
 	obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, dloc.line, dloc.col));
 	obj_dict_set(wk,
 		range,
 		make_str(wk, "end"),
-		az_srv_position(
-			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
-	obj_dict_set(wk, d, make_str(wk, "range"), range);
-	obj_dict_set(wk, d, make_str(wk, "severity"), make_number(wk, lsp_severity_map[msg->lvl]));
-	obj_dict_set(wk, d, make_str(wk, "message"), make_str(wk, msg->msg));
+		az_srv_position(wk,
+			dloc.end_line ? dloc.end_line : dloc.line,
+			dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
 
 	if (destroy_source) {
 		fs_source_destroy(&src_reopened);
 	}
 
-	return d;
+	return range;
 }
 
 static void
@@ -383,7 +382,11 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 			last_src = cur_src;
 		}
 
-		obj_array_push(wk, d, az_srv_diagnostic(wk, cur_src, msg));
+		obj diagnostic = make_obj(wk, obj_dict);
+		obj_dict_set(wk, diagnostic, make_str(wk, "range"), az_srv_range(wk, cur_src, msg->location));
+		obj_dict_set(wk, diagnostic, make_str(wk, "severity"), make_number(wk, lsp_severity_map[msg->lvl]));
+		obj_dict_set(wk, diagnostic, make_str(wk, "message"), make_str(wk, msg->msg));
+		obj_array_push(wk, d, diagnostic);
 	}
 
 	if (last_src) {
@@ -452,6 +455,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		obj_dict_set(wk, completion_provider, make_str(wk, "triggerCharacters"), trigger_characters);
 		obj_dict_set(wk, capabilities, make_str(wk, "completionProvider"), completion_provider);
 		obj_dict_set(wk, capabilities, make_str(wk, "hoverProvider"), obj_bool_true);
+		obj_dict_set(wk, capabilities, make_str(wk, "definitionProvider"), obj_bool_true);
 
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
@@ -491,12 +495,18 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 
 		az_srv_set_src_override(srv, uri, 0);
 	} else if (str_eql(method, &STR("textDocument/hover"))) {
-		srv->hover_req.request_id = obj_dict_index_as_obj(wk, msg, "id");
-		srv->hover_req.contents = make_str(wk, "");
+		srv->req.type = az_srv_req_type_hover;
+		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
+		srv->req.result = make_str(wk, "");
+		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
+	} else if (str_eql(method, &STR("textDocument/definition"))) {
+		srv->req.type = az_srv_req_type_definition;
+		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
 		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
 	} else if (str_eql(method, &STR("textDocument/completion"))) {
-		srv->completion_req.request_id = obj_dict_index_as_obj(wk, msg, "id");
-		srv->completion_req.candidates = make_obj(wk, obj_array);
+		srv->req.type = az_srv_req_type_completion;
+		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
+		srv->req.result = make_obj(wk, obj_array);
 		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
 	}
 
@@ -511,7 +521,7 @@ az_srv_push_completion(struct az_srv *srv,
 	obj insert_text)
 {
 	obj c;
-	obj_array_for(wk, srv->completion_req.candidates, c) {
+	obj_array_for(wk, srv->req.result, c) {
 		if (str_eql(obj_dict_index_as_str(wk, c, "label"), get_str(wk, label))
 			&& obj_dict_index_as_number(wk, c, "kind") == kind) {
 			// Skip duplicates
@@ -526,7 +536,7 @@ az_srv_push_completion(struct az_srv *srv,
 		obj_dict_set(wk, c, make_str(wk, "insertText"), insert_text);
 	}
 
-	obj_array_push(wk, srv->completion_req.candidates, c);
+	obj_array_push(wk, srv->req.result, c);
 	return c;
 }
 
@@ -590,10 +600,7 @@ az_srv_func_proto_string(struct workspace *wk, obj f)
 }
 
 static void
-az_srv_push_func_completion(struct az_srv *srv,
-	struct workspace *wk,
-	enum LspCompletionItemKind kind,
-	obj f)
+az_srv_push_func_completion(struct az_srv *srv, struct workspace *wk, enum LspCompletionItemKind kind, obj f)
 {
 	obj name = 0, desc = 0;
 	obj_dict_index_str(wk, f, "name", &name);
@@ -654,7 +661,6 @@ az_srv_get_func_completions(struct az_srv *srv,
 			}
 		}
 	}
-
 }
 
 static bool
@@ -759,10 +765,7 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 					// We don't use the module name here, it could be anything
 					obj f = dump_module_function_capture(wk, "<module_name>", name, val);
 
-					az_srv_push_func_completion(srv,
-						wk,
-						LspCompletionItemKindFunction,
-						f);
+					az_srv_push_func_completion(srv, wk, LspCompletionItemKindFunction, f);
 				}
 			} else {
 				az_srv_get_func_completions(srv,
@@ -796,7 +799,7 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 	case az_srv_break_type_constant: {
 		obj res;
 		if (wk->vm.behavior.get_variable(wk, get_str(wk, info->dat.constant.ident)->s, &res)) {
-			srv->hover_req.contents = obj_type_to_typestr(wk, res);
+			srv->req.result = obj_type_to_typestr(wk, res);
 		}
 		break;
 	}
@@ -806,7 +809,30 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 	case az_srv_break_type_native_call: {
 		obj f = dump_function_native(wk, 0, &native_funcs[info->dat.native_call.idx]);
 		obj proto = az_srv_func_proto_string(wk, f);
-		srv->hover_req.contents = proto;
+		srv->req.result = proto;
+		break;
+	}
+	}
+}
+
+static void
+az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_srv_break_info *info)
+{
+	switch (info->type) {
+	case az_srv_break_type_constant: {
+		struct az_assignment *a;
+		if ((a = az_assign_lookup(wk, get_str(wk, info->dat.constant.ident)->s))) {
+			struct source *src = arr_get(&wk->vm.src, a->src_idx);
+			srv->req.result = make_obj(wk, obj_dict);
+			obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", src->label));
+			obj_dict_set(wk, srv->req.result, make_str(wk, "range"), az_srv_range(wk, src, a->location));
+		}
+		break;
+	}
+	case az_srv_break_type_member: {
+		break;
+	}
+	case az_srv_break_type_native_call: {
 		break;
 	}
 	}
@@ -868,10 +894,10 @@ az_srv_dbg_break_cb(struct workspace *wk)
 		return;
 	}
 
-	if (srv->completion_req.request_id) {
-		az_srv_get_completions(srv, wk, &info);
-	} else if (srv->hover_req.request_id) {
-		az_srv_get_hover_info(srv, wk, &info);
+	switch (srv->req.type) {
+	case az_srv_req_type_completion: az_srv_get_completions(srv, wk, &info); break;
+	case az_srv_req_type_hover: az_srv_get_hover_info(srv, wk, &info); break;
+	case az_srv_req_type_definition: az_srv_get_definition_info(srv, wk, &info); break;
 	}
 }
 
@@ -907,8 +933,7 @@ analyze_server(struct az_opts *cmdline_opts)
 		TSTR(in_buf);
 		srv.transport.in_buf = &in_buf;
 		srv.should_analyze = false;
-		srv.completion_req.request_id = 0;
-		srv.hover_req.request_id = 0;
+		srv.req.id = srv.req.result = srv.req.type = 0;
 
 		obj msg;
 		if (!az_srv_read(&wk, &srv, &msg)) {
@@ -924,7 +949,7 @@ analyze_server(struct az_opts *cmdline_opts)
 			opts.enabled_diagnostics = srv.opts.enabled_diagnostics;
 			opts.replay_opts = error_diagnostic_store_replay_prepare_only;
 
-			if (srv.completion_req.request_id) {
+			if (srv.req.id && srv.req.type == az_srv_req_type_completion) {
 				opts.relaxed_parse = true;
 			}
 
@@ -940,12 +965,19 @@ analyze_server(struct az_opts *cmdline_opts)
 
 			do_analyze(&wk, &opts);
 
-			if (srv.completion_req.request_id) {
-				az_srv_respond(&srv, &wk, srv.completion_req.request_id, srv.completion_req.candidates);
-			} else if (srv.hover_req.request_id) {
-				obj result = make_obj(&wk, obj_dict);
-				obj_dict_set(&wk, result, make_str(&wk, "contents"), srv.hover_req.contents);
-				az_srv_respond(&srv, &wk, srv.hover_req.request_id, result);
+			if (srv.req.id) {
+				switch (srv.req.type) {
+				case az_srv_req_type_definition:
+				case az_srv_req_type_completion:
+					az_srv_respond(&srv, &wk, srv.req.id, srv.req.result);
+					break;
+				case az_srv_req_type_hover: {
+					obj result = make_obj(&wk, obj_dict);
+					obj_dict_set(&wk, result, make_str(&wk, "contents"), srv.req.result);
+					az_srv_respond(&srv, &wk, srv.req.id, result);
+					break;
+				}
+				}
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}

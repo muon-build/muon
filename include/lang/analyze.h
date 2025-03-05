@@ -53,6 +53,19 @@ void az_print_diagnostic_names(void);
 void az_check_dead_code(struct workspace *wk, struct ast *ast);
 void az_set_error(void);
 
+struct az_assignment {
+	const char *name;
+	obj o;
+	bool accessed, default_var;
+	struct source_location location;
+	uint32_t src_idx;
+
+	uint32_t ep_stacks_i;
+	uint32_t ep_stack_len;
+};
+
+struct az_assignment *az_assign_lookup(struct workspace *wk, const char *name);
+
 extern struct func_impl_group az_func_impl_group;
 
 void analyze_opts_init(struct workspace *wk, struct az_opts *opts);
