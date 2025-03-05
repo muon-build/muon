@@ -72,4 +72,8 @@ union obj_dict_big_dict_value {
 	} val;
 };
 
+enum error_message_flag {
+	error_message_flag_no_source = 1 << 0,
+	error_message_flag_coalesce = 1 << 1,
+};
 #endif

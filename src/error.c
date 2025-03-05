@@ -147,6 +147,11 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 		tail = 0;
 	}
 
+	enum error_message_flag flags = 0;
+	if (error_diagnostic_store.opts & error_diagnostic_store_replay_dont_include_sources) {
+		flags |= error_message_flag_no_source;
+	}
+
 	*saw_error = false;
 	struct source src = { 0 }, null_src = {
 		.label = "",
@@ -185,7 +190,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			src = *cur_src;
 		}
 
-		error_message(&src, msg->location, msg->lvl, msg->msg);
+		error_message(&src, msg->location, msg->lvl, flags, msg->msg);
 	}
 
 	for (i = 0; i < initial_len; ++i) {
@@ -398,9 +403,87 @@ list_line_range(struct source *src, struct source_location location, uint32_t co
 	}
 }
 
+struct error_diagnostic_message_record {
+	struct source_location location;
+	enum log_level lvl;
+	struct source *src;
+	char msg[BUF_SIZE_1k];
+	uint32_t count;
+	enum error_message_flag flags;
+	bool was_emitted;
+};
+
+static struct error_diagnostic_message_record error_message_previously_emitted = { 0 };
+
 void
-error_message(struct source *src, struct source_location location, enum log_level lvl, const char *msg)
+error_message_flush_coalesced_message(void)
 {
+	if (!error_message_previously_emitted.src || error_message_previously_emitted.was_emitted) {
+		return;
+	}
+
+	char buf[BUF_SIZE_1k] = { 0 };
+	const char *msg = error_message_previously_emitted.msg;
+
+	if (error_message_previously_emitted.count > 1) {
+		snprintf(buf, sizeof(buf), "%s (%d times)", msg, error_message_previously_emitted.count);
+		msg = buf;
+	}
+
+	error_message(error_message_previously_emitted.src,
+		error_message_previously_emitted.location,
+		error_message_previously_emitted.lvl,
+		error_message_previously_emitted.flags,
+		msg);
+
+	error_message_previously_emitted = (struct error_diagnostic_message_record){0};
+}
+
+void
+error_message(struct source *src,
+	struct source_location location,
+	enum log_level lvl,
+	enum error_message_flag flags,
+	const char *msg)
+{
+	{
+		enum error_message_flag flags_masked = flags & ~error_message_flag_coalesce;
+
+		bool previous_matches = error_message_previously_emitted.lvl == lvl
+					&& error_message_previously_emitted.location.off == location.off
+					&& error_message_previously_emitted.location.len == location.len
+					&& error_message_previously_emitted.flags == flags_masked
+					&& error_message_previously_emitted.src == src
+					/* && strcmp(error_message_previously_emitted.msg, msg) == 0 */
+					;
+
+		if (previous_matches) {
+			++error_message_previously_emitted.count;
+		} else {
+			if (flags & error_message_flag_coalesce) {
+				error_message_flush_coalesced_message();
+			}
+
+			error_message_previously_emitted = (struct error_diagnostic_message_record){
+				.lvl = lvl,
+				.location = location,
+				.src = src,
+				.count = 1,
+				.flags = flags_masked,
+			};
+			snprintf(error_message_previously_emitted.msg,
+				sizeof(error_message_previously_emitted.msg),
+				"%s",
+				msg);
+		}
+
+		if (flags & error_message_flag_coalesce) {
+			return;
+		}
+
+		error_message_previously_emitted.was_emitted = true;
+	}
+
 	if (error_diagnostic_store.init) {
 		if (error_diagnostic_store.redirect.redirect) {
 			src = error_diagnostic_store.redirect.src;
@@ -441,7 +524,7 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s\n", msg);
 
-	if (error_diagnostic_store.opts & error_diagnostic_store_replay_dont_include_sources) {
+	if (flags & error_message_flag_no_source) {
 		goto ret;
 	}
 
@@ -470,7 +553,7 @@ error_messagev(struct source *src, struct source_location location, enum log_lev
 {
 	static char buf[BUF_SIZE_4k];
 	vsnprintf(buf, BUF_SIZE_4k, fmt, args);
-	error_message(src, location, lvl, buf);
+	error_message(src, location, lvl, 0, buf);
 }
 
 void

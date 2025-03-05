@@ -232,8 +232,13 @@ vm_callstack(struct workspace *wk)
 	return res;
 }
 
-void
-vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, va_list args)
+static void
+vm_diagnostic_v(struct workspace *wk,
+	uint32_t ip,
+	enum log_level lvl,
+	enum error_message_flag flags,
+	const char *fmt,
+	va_list args)
 {
 	static char buf[1024];
 	obj_vsnprintf(wk, buf, ARRAY_LEN(buf), fmt, args);
@@ -246,7 +251,7 @@ vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const cha
 	struct source *src;
 	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 
-	error_message(src, loc, lvl, buf);
+	error_message(src, loc, lvl, flags, buf);
 
 	if (lvl == log_error) {
 		if (wk->vm.in_analyzer) {
@@ -259,11 +264,11 @@ vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const cha
 }
 
 void
-vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...)
+vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, enum error_message_flag flags, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, ip, lvl, fmt, args);
+	vm_diagnostic_v(wk, ip, lvl, flags, fmt, args);
 	va_end(args);
 }
 
@@ -272,7 +277,7 @@ vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, ip, log_error, fmt, args);
+	vm_diagnostic_v(wk, ip, log_error, 0, fmt, args);
 	va_end(args);
 }
 
@@ -281,7 +286,7 @@ vm_warning(struct workspace *wk, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, 0, log_warn, fmt, args);
+	vm_diagnostic_v(wk, 0, log_warn, 0, fmt, args);
 	va_end(args);
 }
 
@@ -290,7 +295,7 @@ vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, ip, log_warn, fmt, args);
+	vm_diagnostic_v(wk, ip, log_warn, 0, fmt, args);
 	va_end(args);
 }
 
@@ -299,7 +304,7 @@ vm_error(struct workspace *wk, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, 0, log_error, fmt, args);
+	vm_diagnostic_v(wk, 0, log_error, 0, fmt, args);
 	va_end(args);
 }
 
@@ -443,7 +448,7 @@ handle_kwarg(struct workspace *wk, struct args_kw akw[], const char *kw, uint32_
 	}
 
 	if (!akw[i].key) {
-		vm_diagnostic(wk, kw_ip, log_error, "unknown kwarg %s", kw);
+		vm_error_at(wk, kw_ip, "unknown kwarg %s", kw);
 		return false;
 	} else if (akw[i].set && !glob) {
 		vm_error_at(wk, kw_ip, "keyword argument '%s' set twice", kw);
@@ -913,7 +918,7 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 		if (saw_disabler) {
 			res = obj_disabler;
 		} else {
-			vm_error(wk, "in %s", native_funcs[func_idx].name);
+			vm_error(wk, "in native function '%s'", native_funcs[func_idx].name);
 			vm_push_dummy(wk);
 			return;
 		}
@@ -2318,22 +2323,33 @@ vm_unwind_call_stack(struct workspace *wk)
 {
 	struct call_frame *frame;
 	uint32_t prev_err_loc = 0;
+
 	while (wk->vm.call_stack.len) {
 		frame = arr_pop(&wk->vm.call_stack);
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
+			vm_diagnostic(wk, prev_err_loc, log_error, error_message_flag_coalesce, "");
+			error_message_flush_coalesced_message();
 			wk->vm.ip = frame->return_ip;
 			return;
 		}
 		case call_frame_type_func: break;
 		}
 
+		const char *fmt = frame->func->name ? "in function '%s'" : "in %s";
 		const char *fname = frame->func->name ? frame->func->name : "anonymous function";
-		vm_error_at(wk, prev_err_loc, "in %s", fname);
+		vm_diagnostic(wk,
+			prev_err_loc,
+			log_error,
+			error_message_flag_no_source | error_message_flag_coalesce,
+			fmt,
+			fname);
 
 		prev_err_loc = frame->return_ip;
 	}
+
+	error_message_flush_coalesced_message();
 }
 
 obj
@@ -2619,8 +2635,8 @@ vm_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-			/* object_stack_print(wk, &wk->vm.stack); */
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
 		}
 
 		vm_check_break(wk, wk->vm.ip);
@@ -2721,7 +2737,6 @@ type_err:
 		get_cstr(wk, obj_type_to_typestr(wk, v)));
 	return false;
 }
-
 
 /******************************************************************************
  * init / destroy

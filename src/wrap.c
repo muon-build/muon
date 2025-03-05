@@ -152,7 +152,7 @@ wrap_check_provide_duplication(struct workspace *wk, struct wrap_parse_provides_
 			oldval,
 			val);
 
-		error_message(ctx->src, ctx->location, log_warn, buf);
+		error_message(ctx->src, ctx->location, log_warn, 0, buf);
 	}
 }
 

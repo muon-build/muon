@@ -1363,7 +1363,7 @@ az_warn_dead_code(struct workspace *wk,
 		= { .off = start_loc->off, .len = (end_loc->off - start_loc->off) + end_loc->len };
 	struct source *src = arr_get(&wk->vm.src, src_idx);
 
-	error_message(src, merged, log_warn, "dead code");
+	error_message(src, merged, log_warn, 0, "dead code");
 }
 
 /******************************************************************************

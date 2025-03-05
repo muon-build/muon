@@ -225,8 +225,8 @@ bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 bool vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
 void vm_op_return(struct workspace *wk);
 
-MUON_ATTR_FORMAT(printf, 4, 5)
-void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);
+MUON_ATTR_FORMAT(printf, 5, 6)
+void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, enum error_message_flag flags, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);

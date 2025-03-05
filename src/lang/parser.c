@@ -276,7 +276,7 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 	}
 
 	if (!(p->mode & vm_compile_mode_quiet)) {
-		error_message(p->src, *l, lvl, p->err.msg);
+		error_message(p->src, *l, lvl, 0, p->err.msg);
 	}
 
 	if (lvl == log_error) {

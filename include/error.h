@@ -8,6 +8,7 @@
 
 #include "compat.h"
 
+#include "lang/types.h"
 #include "log.h"
 #include "platform/filesystem.h"
 
@@ -25,7 +26,8 @@ enum error_diagnostic_store_replay_opts {
 };
 
 void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
-void error_message(struct source *src, struct source_location location, enum log_level lvl, const char *msg);
+void error_message(struct source *src, struct source_location location, enum log_level lvl, enum error_message_flag flags, const char *msg);
+void error_message_flush_coalesced_message(void);
 void
 error_messagev(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, va_list args);
 void error_messagef(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, ...)

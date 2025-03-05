@@ -91,7 +91,7 @@ ensure_project_is_first_statement(struct workspace *wk, struct source *src, stru
 
 	if (!first_statement_is_a_call_to_project) {
 		if (!check_only) {
-			error_message(src, n->location, log_error, "first statement is not a call to project()");
+			error_message(src, n->location, log_error, 0, "first statement is not a call to project()");
 		}
 		return false;
 	}
@@ -432,7 +432,7 @@ cmd_found:
 
 				vm_lookup_inst_location(&wk->vm, frame.return_ip, &loc, &src);
 
-				error_message(src, loc, log_info, "");
+				error_message(src, loc, log_info, 0, "");
 			}
 			break;
 		}
