@@ -24,7 +24,13 @@ struct subprojects_foreach_ctx {
 static const char *
 subprojects_dir(struct workspace *wk)
 {
-	return get_cstr(wk, current_project(wk)->subprojects_dir);
+	TSTR(path);
+	path_join(wk,
+		&path,
+		get_cstr(wk, current_project(wk)->source_root),
+		get_cstr(wk, current_project(wk)->subprojects_dir));
+
+	return get_str(wk, tstr_into_str(wk, &path))->s;
 }
 
 static enum iteration_result
