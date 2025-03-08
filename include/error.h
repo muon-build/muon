@@ -23,6 +23,14 @@ enum error_diagnostic_store_replay_opts {
 	error_diagnostic_store_replay_errors_only = 1 << 0,
 	error_diagnostic_store_replay_dont_include_sources = 1 << 1,
 	error_diagnostic_store_replay_werror = 1 << 2,
+	error_diagnostic_store_replay_prepare_only = 1 << 3,
+};
+
+struct error_diagnostic_message {
+	struct source_location location;
+	enum log_level lvl;
+	const char *msg;
+	uint32_t src_idx;
 };
 
 void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
@@ -34,12 +42,14 @@ void error_messagef(const struct source *src, struct source_location location, e
 	MUON_ATTR_FORMAT(printf, 4, 5);
 
 void error_diagnostic_store_init(struct workspace *wk);
-void error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool *saw_error);
+void error_diagnostic_store_destroy(struct workspace *wk);
+struct arr *error_diagnostic_store_get(void);
+bool error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_replay_opts opts);
 void
 error_diagnostic_store_push(uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg);
-void error_diagnostic_store_redirect(struct source *src, struct source_location location);
-void error_diagnostic_store_redirect_reset(void);
 void list_line_range(const struct source *src, struct source_location location, uint32_t context);
+
+void reopen_source(const struct source *src, struct source *src_reopened, bool *destroy_source);
 
 struct detailed_source_location {
 	struct source_location loc;

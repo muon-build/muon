@@ -17,42 +17,12 @@
 #include "platform/assert.h"
 #include "platform/mem.h"
 
-struct error_diagnostic_message {
-	struct source_location location;
-	enum log_level lvl;
-	const char *msg;
-	uint32_t src_idx;
-};
-
 static struct {
 	struct arr messages;
-	bool init;
-	struct {
-		struct source *src;
-		struct source_location location;
-		bool redirect;
-	} redirect;
 	struct workspace *wk;
 	enum error_diagnostic_store_replay_opts opts;
+	bool init;
 } error_diagnostic_store = { 0 };
-
-void
-error_diagnostic_store_redirect(struct source *src, struct source_location location)
-{
-	if (error_diagnostic_store.redirect.redirect) {
-		return;
-	}
-
-	error_diagnostic_store.redirect.redirect = true;
-	error_diagnostic_store.redirect.src = src;
-	error_diagnostic_store.redirect.location = location;
-}
-
-void
-error_diagnostic_store_redirect_reset(void)
-{
-	error_diagnostic_store.redirect.redirect = false;
-}
 
 void
 error_diagnostic_store_init(struct workspace *wk)
@@ -60,6 +30,27 @@ error_diagnostic_store_init(struct workspace *wk)
 	arr_init(&error_diagnostic_store.messages, 32, sizeof(struct error_diagnostic_message));
 	error_diagnostic_store.init = true;
 	error_diagnostic_store.wk = wk;
+}
+
+struct arr *
+error_diagnostic_store_get(void)
+{
+	return &error_diagnostic_store.messages;
+}
+
+void
+error_diagnostic_store_destroy(struct workspace *wk)
+{
+	uint32_t i;
+	struct error_diagnostic_message *msg;
+	for (i = 0; i < error_diagnostic_store.messages.len; ++i) {
+		msg = arr_get(&error_diagnostic_store.messages, i);
+		z_free((char *)msg->msg);
+	}
+
+	arr_destroy(&error_diagnostic_store.messages);
+
+	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
 }
 
 void
@@ -112,8 +103,8 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 	}
 }
 
-void
-error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool *saw_error)
+bool
+error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_replay_opts opts)
 {
 	error_diagnostic_store.init = false;
 	error_diagnostic_store.opts = opts;
@@ -122,41 +113,51 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 	struct error_diagnostic_message *msg;
 	struct source *last_src = 0, *cur_src;
 
+	if (!error_diagnostic_store.messages.len) {
+		return true;
+	}
+
 	arr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
 
-	size_t tail, initial_len = error_diagnostic_store.messages.len;
-	if (error_diagnostic_store.messages.len > 1) {
+	{
+		struct arr filtered;
+		arr_init(&filtered, 32, sizeof(struct error_diagnostic_message));
+		arr_push(&filtered, arr_get(&error_diagnostic_store.messages, 0));
 		struct error_diagnostic_message *prev_msg, tmp;
-		tail = error_diagnostic_store.messages.len;
-
-		uint32_t initial_len = error_diagnostic_store.messages.len;
-		msg = arr_get(&error_diagnostic_store.messages, 0);
-		arr_push(&error_diagnostic_store.messages, msg);
-		for (i = 1; i < initial_len; ++i) {
+		for (i = 1; i < error_diagnostic_store.messages.len; ++i) {
 			prev_msg = arr_get(&error_diagnostic_store.messages, i - 1);
 			msg = arr_get(&error_diagnostic_store.messages, i);
 
-			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, NULL) == 0) {
+			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, 0) == 0) {
+				z_free((char *)msg->msg);
 				continue;
 			}
 
 			tmp = *msg;
-			arr_push(&error_diagnostic_store.messages, &tmp);
+			arr_push(&filtered, &tmp);
 		}
-	} else {
-		tail = 0;
+
+		arr_destroy(&error_diagnostic_store.messages);
+		error_diagnostic_store.messages = filtered;
 	}
 
+	if (opts & error_diagnostic_store_replay_prepare_only) {
+		return true;
+	}
+
+	/* ---------------------------------------------------------------------- */
+
+	bool ok = true;
+
 	enum error_message_flag flags = 0;
-	if (error_diagnostic_store.opts & error_diagnostic_store_replay_dont_include_sources) {
+	if (opts & error_diagnostic_store_replay_dont_include_sources) {
 		flags |= error_message_flag_no_source;
 	}
 
-	*saw_error = false;
 	struct source src = { 0 }, null_src = {
 		.label = "",
 	};
-	for (i = tail; i < error_diagnostic_store.messages.len; ++i) {
+	for (i = 0; i < error_diagnostic_store.messages.len; ++i) {
 		msg = arr_get(&error_diagnostic_store.messages, i);
 
 		if (opts & error_diagnostic_store_replay_werror) {
@@ -168,11 +169,11 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 		}
 
 		if (msg->lvl == log_error) {
-			*saw_error = true;
+			ok = false;
 		}
 
 		cur_src = msg->src_idx == UINT32_MAX ? &null_src :
-						       arr_get(&error_diagnostic_store.wk->vm.src, msg->src_idx);
+						       arr_get(&wk->vm.src, msg->src_idx);
 
 		if (cur_src != last_src) {
 			if (!(opts & error_diagnostic_store_replay_dont_include_sources)) {
@@ -193,13 +194,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 		error_message(&src, msg->location, msg->lvl, flags, msg->msg);
 	}
 
-	for (i = 0; i < initial_len; ++i) {
-		msg = arr_get(&error_diagnostic_store.messages, i);
-		z_free((char *)msg->msg);
-	}
-
-	arr_destroy(&error_diagnostic_store.messages);
-	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
+	return ok;
 }
 
 void
@@ -359,7 +354,7 @@ list_line_underline(const struct source *src, struct detailed_source_location *d
 	log_plain("\n");
 }
 
-static void
+void
 reopen_source(const struct source *src, struct source *src_reopened, bool *destroy_source)
 {
 	*src_reopened = *src;
@@ -488,10 +483,7 @@ error_message(const struct source *src,
 	}
 
 	if (error_diagnostic_store.init) {
-		if (error_diagnostic_store.redirect.redirect) {
-			src = error_diagnostic_store.redirect.src;
-			location = error_diagnostic_store.redirect.location;
-		} else if (src->len == 0 && src->src == 0) {
+		if (src->len == 0 && src->src == 0) {
 			// Skip messages generated for code regions with no
 			// sources
 			return;
