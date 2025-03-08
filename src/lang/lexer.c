@@ -799,7 +799,7 @@ unexpected_character:
 }
 
 void
-lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode)
+lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, enum lexer_mode mode)
 {
 	*lexer = (struct lexer){
 		.wk = wk,

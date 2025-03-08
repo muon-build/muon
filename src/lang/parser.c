@@ -46,7 +46,7 @@ struct parser {
 	struct lexer lexer;
 	const struct parse_rule *parse_rules;
 	struct workspace *wk;
-	struct source *src;
+	const struct source *src;
 	struct bucket_arr *nodes;
 	enum vm_compile_mode mode;
 	enum cm_parse_mode cm_mode;
@@ -1194,7 +1194,7 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum 
 
 static struct node *
 parse_impl(struct workspace *wk,
-	struct source *src,
+	const struct source *src,
 	enum vm_compile_mode mode,
 	const struct parse_behavior *behavior,
 	const struct parse_rule *rules,
@@ -1275,14 +1275,14 @@ static const struct parse_behavior parse_behavior_base = {
 // clang-format on
 
 struct node *
-parse(struct workspace *wk, struct source *src, enum vm_compile_mode mode)
+parse(struct workspace *wk, const struct source *src, enum vm_compile_mode mode)
 {
 	struct parser p;
 	return parse_impl(wk, src, mode, &parse_behavior_base, parse_rules_base, &p);
 }
 
 struct node *
-parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode, obj *raw_blocks)
+parse_fmt(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, obj *raw_blocks)
 {
 	struct parse_rule parse_rules[ARRAY_LEN(parse_rules_base)];
 	memcpy(parse_rules, parse_rules_base, sizeof(parse_rules_base));
@@ -1498,7 +1498,7 @@ cm_parse_call(struct parser *p, struct node *l, bool assignment_allowed)
 }
 
 struct node *
-cm_parse(struct workspace *wk, struct source *src)
+cm_parse(struct workspace *wk, const struct source *src)
 {
 	struct parse_behavior behavior = {
 		.advance = cm_parse_advance,

@@ -130,7 +130,7 @@ struct lexer_fmt {
 
 struct lexer {
 	struct workspace *wk;
-	struct source *source;
+	const struct source *source;
 	const char *src;
 	struct stack stack;
 	struct lexer_fmt fmt;
@@ -143,7 +143,7 @@ struct lexer {
 bool is_valid_inside_of_identifier(const char c);
 bool is_valid_start_of_identifier(const char c);
 
-void lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode);
+void lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, enum lexer_mode mode);
 void lexer_destroy(struct lexer *lexer);
 void lexer_next(struct lexer *lexer, struct token *token);
 

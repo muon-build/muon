@@ -74,10 +74,10 @@ struct node {
 
 void print_ast(struct workspace *wk, struct node *root);
 void print_fmt_ast(struct workspace *wk, struct node *root);
-struct node *parse(struct workspace *wk, struct source *src, enum vm_compile_mode mode);
-struct node *parse_fmt(struct workspace *wk, struct source *src, enum vm_compile_mode mode, obj *raw_blocks);
+struct node *parse(struct workspace *wk, const struct source *src, enum vm_compile_mode mode);
+struct node *parse_fmt(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, obj *raw_blocks);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
 
-struct node *cm_parse(struct workspace *wk, struct source *src);
+struct node *cm_parse(struct workspace *wk, const struct source *src);
 #endif
