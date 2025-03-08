@@ -313,7 +313,9 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		enum {
 			action_trace,
 			action_lsp,
+			action_determine_root,
 			action_default,
+			action_count,
 		} action;
 	} opts = {
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
@@ -323,7 +325,11 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	static const struct command commands[] = {
 		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
 		[action_lsp] = { "lsp", 0, "run in lsp mode" },
+		[action_determine_root] = { "root-for", 0, "determine the project root given a meson file" },
 		0,
+	};
+	static const uint32_t command_args[action_count] = {
+		[action_determine_root] = 1,
 	};
 
 	OPTSTART("luqO:W:i:s") {
@@ -387,7 +393,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 		opts.action = cmd_i;
 
-		if (!check_operands(argc, argi, 0)) {
+		if (!check_operands(argc, argi, command_args[opts.action])) {
 			return false;
 		}
 	}
@@ -397,6 +403,16 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 			.enabled_diagnostics = opts.enabled_diagnostics,
 		};
 		return analyze_server(&az_opts);
+	} else if (opts.action == action_determine_root) {
+		struct workspace wk;
+		workspace_init_bare(&wk);
+		const char *root = determine_project_root(&wk, argv[argi]);
+		if (root) {
+			printf("%s\n", root);
+		}
+		workspace_destroy(&wk);
+
+		return root ? true : false;
 	} else {
 		struct workspace wk;
 		workspace_init_bare(&wk);
@@ -413,6 +429,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		az_opts.replay_opts = opts.replay_opts;
 		az_opts.internal_file = opts.internal_file;
 		az_opts.enabled_diagnostics = opts.enabled_diagnostics;
+		az_opts.auto_chdir_root = true;
 
 		bool res = true;
 		if (opts.file_override) {

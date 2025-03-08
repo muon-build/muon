@@ -462,6 +462,11 @@ determine_project_root(struct workspace *wk, const char *path)
 	TSTR(new_path);
 
 	path_make_absolute(wk, &new_path, path);
+	path_basename(wk, &tmp, new_path.buf);
+	if (strcmp(tmp.buf, "meson.build") != 0) {
+		path_dirname(wk, &tmp, new_path.buf);
+		path_join(wk, &new_path, tmp.buf, "meson.build");
+	}
 	path = new_path.buf;
 
 	while (true) {
@@ -474,19 +479,26 @@ determine_project_root(struct workspace *wk, const char *path)
 
 		if (!fs_read_entire_file(path, &src)) {
 			goto cont;
-		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet))) {
+		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet | vm_compile_mode_relaxed_parse))) {
+			// If we failed to parse this file, try just searching for the string project(
+			struct str src_str = { src.src, src.len };
+			if (str_startswith(&src_str, &STR("project(")) || str_contains(&src_str, &STR("\nproject("))) {
+				goto found;
+			}
 			goto cont;
 		}
-		fs_source_destroy(&src);
 
 		if (ensure_project_is_first_statement(wk, 0, n, true)) {
+found:
 			// found
 			path_dirname(wk, &tmp, path);
 			obj s = tstr_into_str(wk, &tmp);
+			fs_source_destroy(&src);
 			return get_cstr(wk, s);
 		}
 
 cont:
+		fs_source_destroy(&src);
 		path_dirname(wk, &tmp, path);
 		path_dirname(wk, &new_path, tmp.buf);
 		if (strcmp(new_path.buf, tmp.buf) == 0) {
