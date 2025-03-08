@@ -859,12 +859,6 @@ az_eval_project_file(struct workspace *wk,
 	const char *newpath = path;
 	if (analyzer.opts->file_override && strcmp(analyzer.opts->file_override, path) == 0) {
 		bool ret = false;
-		struct source src = { 0 };
-		if (!fs_read_entire_file("-", &src)) {
-			return false;
-		}
-		src.label = get_cstr(wk, make_str(wk, path));
-
 		obj res;
 
 		enum eval_mode eval_mode = 0;
@@ -872,7 +866,7 @@ az_eval_project_file(struct workspace *wk,
 			eval_mode |= eval_mode_first;
 		}
 
-		if (!eval(wk, &src, lang, eval_mode, &res)) {
+		if (!eval(wk, &analyzer.opts->file_src, lang, eval_mode, &res)) {
 			goto ret;
 		}
 
@@ -1317,7 +1311,6 @@ static const struct {
 	{ "unused-variable", az_diagnostic_unused_variable },
 	{ "reassign-to-conflicting-type", az_diagnostic_reassign_to_conflicting_type },
 	{ "dead-code", az_diagnostic_dead_code },
-	{ "redirect-script-error", az_diagnostic_redirect_script_error },
 };
 
 bool
@@ -1378,7 +1371,6 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 {
 	bool res = false;
 	analyzer.opts = opts;
-	workspace_init_bare(wk);
 
 	bucket_arr_init(&assignments, 512, sizeof(struct assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
@@ -1571,7 +1563,6 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 		i += len;
 	}
 
-	bool saw_error;
 	if (analyzer.opts->eval_trace) {
 		eval_trace_print(wk, wk->vm.dbg_state.eval_trace);
 	} else if (analyzer.opts->get_definition_for) {
@@ -1590,7 +1581,8 @@ do_analyze_internal(struct workspace *wk, struct az_opts *opts)
 			LOG_W("couldn't find definition for %s", analyzer.opts->get_definition_for);
 		}
 	} else {
-		error_diagnostic_store_replay(analyzer.opts->replay_opts, &saw_error);
+		bool saw_error;
+		saw_error = error_diagnostic_store_replay(wk, analyzer.opts->replay_opts);
 
 		if (saw_error || analyzer.error) {
 			res = false;
@@ -1608,6 +1600,7 @@ bool
 do_analyze(struct az_opts *opts)
 {
 	struct workspace wk;
+	workspace_init_bare(&wk);
 	bool res = do_analyze_internal(&wk, opts);
 	workspace_destroy(&wk);
 	return res;
@@ -1621,18 +1614,14 @@ analyze_project_call(struct workspace *wk)
 		.analyze_project_call_only = true,
 	};
 
+	workspace_init_bare(wk);
+
 	return do_analyze_internal(wk, &opts);
 }
 
 /*******************************************************************************
  * LSP
  ******************************************************************************/
-
-struct az_server {
-	struct sbuf *in_buf;
-	int in;
-	FILE *out;
-};
 
 #include <assert.h>
 #include <errno.h>
@@ -1641,52 +1630,66 @@ struct az_server {
 #include <stdbool.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <unistd.h>
 
 #include "version.h"
 
+struct az_srv {
+	struct {
+		struct tstr *in_buf;
+		int in;
+		FILE *out;
+	} transport;
+
+	bool verbose;
+	bool should_analyze;
+
+	struct workspace *wk;
+	obj diagnostics_to_clear;
+};
+
 // Returns true if the current process is being debugged (either
 // running under the debugger or has a debugger attached post facto).
-static bool AmIBeingDebugged(void)
+bool
+AmIBeingDebugged(void)
 {
-    int                 junk;
-    int                 mib[4];
-    struct kinfo_proc   info;
-    size_t              size;
+	int junk;
+	int mib[4];
+	struct kinfo_proc info;
+	size_t size;
 
-    // Initialize the flags so that, if sysctl fails for some bizarre
-    // reason, we get a predictable result.
+	// Initialize the flags so that, if sysctl fails for some bizarre
+	// reason, we get a predictable result.
 
-    info.kp_proc.p_flag = 0;
+	info.kp_proc.p_flag = 0;
 
-    // Initialize mib, which tells sysctl the info we want, in this case
-    // we're looking for information about a specific process ID.
+	// Initialize mib, which tells sysctl the info we want, in this case
+	// we're looking for information about a specific process ID.
 
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROC;
-    mib[2] = KERN_PROC_PID;
-    mib[3] = getpid();
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROC;
+	mib[2] = KERN_PROC_PID;
+	mib[3] = getpid();
 
-    // Call sysctl.
+	// Call sysctl.
 
-    size = sizeof(info);
-    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
-    assert(junk == 0);
+	size = sizeof(info);
+	junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+	assert(junk == 0);
 
-    // We're being debugged if the P_TRACED flag is set.
+	// We're being debugged if the P_TRACED flag is set.
 
-    return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
+	return ((info.kp_proc.p_flag & P_TRACED) != 0);
 }
 
 static bool
-az_server_read_bytes(struct workspace *wk, struct az_server *srv)
+az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 {
-	struct sbuf *buf = srv->in_buf;
+	struct tstr *buf = srv->transport.in_buf;
 
 	{
 		while (true) {
 			struct pollfd fds = {
-				.fd = srv->in,
+				.fd = srv->transport.in,
 				.events = POLLIN,
 			};
 
@@ -1702,10 +1705,10 @@ az_server_read_bytes(struct workspace *wk, struct az_server *srv)
 	}
 
 	if (buf->cap - buf->len < 16) {
-		sbuf_grow(wk, buf, 1024);
+		tstr_grow(wk, buf, 1024);
 	}
 
-	ssize_t n = read(srv->in, buf->buf + buf->len, buf->cap - buf->len);
+	ssize_t n = read(srv->transport.in, buf->buf + buf->len, buf->cap - buf->len);
 	if (n == 0) {
 		// EOF
 		return false;
@@ -1722,9 +1725,9 @@ az_server_read_bytes(struct workspace *wk, struct az_server *srv)
 }
 
 static void
-az_server_buf_shift(struct az_server *srv, uint32_t amnt)
+az_srv_buf_shift(struct az_srv *srv, uint32_t amnt)
 {
-	struct sbuf *buf = srv->in_buf;
+	struct tstr *buf = srv->transport.in_buf;
 
 	char *start = buf->buf + amnt;
 	buf->len = buf->len - (start - buf->buf);
@@ -1732,15 +1735,15 @@ az_server_buf_shift(struct az_server *srv, uint32_t amnt)
 }
 
 static bool
-az_server_read(struct workspace *wk, struct az_server *srv, obj *msg)
+az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 {
 	int64_t content_length = 0;
-	struct sbuf *buf = srv->in_buf;
+	struct tstr *buf = srv->transport.in_buf;
 
 	{
 		char *end;
 		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
-			if (!az_server_read_bytes(wk, srv)) {
+			if (!az_srv_read_bytes(wk, srv)) {
 				LOG_E("Failed to read entire header");
 				return false;
 			}
@@ -1758,7 +1761,7 @@ az_server_read(struct workspace *wk, struct az_server *srv, obj *msg)
 				val += 2;
 
 				if (strcmp(hdr, "Content-Length") == 0) {
-					if (!str_to_i(&WKSTR(val), &content_length, false)) {
+					if (!str_to_i(&STRL(val), &content_length, false)) {
 						LOG_E("Invalid value for Content-Length");
 					}
 				} else if (strcmp(hdr, "Content-Type") == 0) {
@@ -1780,12 +1783,12 @@ az_server_read(struct workspace *wk, struct az_server *srv, obj *msg)
 			return false;
 		}
 
-		az_server_buf_shift(srv, (hdr_end - buf->buf) + 4);
+		az_srv_buf_shift(srv, (hdr_end - buf->buf) + 4);
 	}
 
 	{
 		while (buf->len < content_length) {
-			if (!az_server_read_bytes(wk, srv)) {
+			if (!az_srv_read_bytes(wk, srv)) {
 				LOG_E("Failed to read entire message");
 				return false;
 			}
@@ -1799,21 +1802,64 @@ az_server_read(struct workspace *wk, struct az_server *srv, obj *msg)
 		}
 		buf->buf[content_length] = end;
 
-		az_server_buf_shift(srv, content_length);
+		az_srv_buf_shift(srv, content_length);
 	}
 
 	return true;
 }
 
-static bool
-az_server_write(struct workspace *wk, struct az_server *srv, obj msg)
+static void
+az_srv_write(struct az_srv *srv, struct workspace *wk, obj msg)
 {
-	SBUF(buf);
+	TSTR(buf);
 	obj_to_json(wk, msg, &buf);
 
-	fprintf(srv->out, "Content-Length: %d\r\n\r\n%s", buf.len, buf.buf);
-	fflush(srv->out);
-	return true;
+	fprintf(srv->transport.out, "Content-Length: %d\r\n\r\n%s", buf.len, buf.buf);
+	fflush(srv->transport.out);
+}
+
+static obj
+az_srv_jsonrpc_msg(struct workspace *wk)
+{
+	obj o = make_obj(wk, obj_dict);
+	obj_dict_set(wk, o, make_str(wk, "jsonrpc"), make_str(wk, "2.0"));
+	return o;
+}
+
+static void
+az_srv_respond(struct az_srv *srv, struct workspace *wk, obj id, obj result)
+{
+	obj rsp = az_srv_jsonrpc_msg(wk);
+
+	obj_dict_set(wk, rsp, make_str(wk, "id"), id);
+	obj_dict_set(wk, rsp, make_str(wk, "result"), result);
+
+	az_srv_write(srv, wk, rsp);
+}
+
+static void
+az_srv_request(struct az_srv *srv, struct workspace *wk, const char *method, obj params)
+{
+	obj req = az_srv_jsonrpc_msg(wk);
+	obj_dict_set(wk, req, make_str(wk, "method"), make_str(wk, method));
+	obj_dict_set(wk, req, make_str(wk, "params"), params);
+
+	az_srv_write(srv, wk, req);
+}
+
+static void az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+
+static void
+az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	TSTR(tstr);
+	obj_vasprintf(wk, &tstr, fmt, ap);
+
+	obj params = make_obj(wk, obj_dict);
+	obj_dict_set(wk, params, make_str(wk, "message"), make_strf(wk, "muon: %s\n", tstr.buf));
+	az_srv_request(srv, wk, "$/logTrace", params);
 }
 
 static const struct str *
@@ -1827,7 +1873,7 @@ obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
 	return get_str(wk, r);
 }
 
-static int64_t
+static obj
 obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
 {
 	obj r;
@@ -1839,37 +1885,174 @@ obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
 }
 
 static obj
-az_server_handle(struct workspace *wk, obj msg)
+az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 {
-	obj result = 0;
+	obj d = make_obj(wk, obj_dict);
+	obj_dict_set(wk, d, make_str(wk, "line"), make_number(wk, line - 1));
+	obj_dict_set(wk, d, make_str(wk, "character"), make_number(wk, col - 1));
+	return d;
+}
 
+static obj
+az_srv_diagnostic(struct workspace *wk, const struct source *src, const struct error_diagnostic_message *msg)
+{
+	bool destroy_source = false;
+	struct source src_reopened = { 0 };
+	reopen_source(src, &src_reopened, &destroy_source);
+
+	struct detailed_source_location dloc;
+	get_detailed_source_location(&src_reopened, msg->location, &dloc, get_detailed_source_location_flag_multiline);
+
+	obj d = make_obj(wk, obj_dict);
+	obj range = make_obj(wk, obj_dict);
+	obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, dloc.line, dloc.col));
+	obj_dict_set(wk,
+		range,
+		make_str(wk, "end"),
+		az_srv_position(wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col));
+	obj_dict_set(wk, d, make_str(wk, "range"), range);
+	enum DiagnosticSeverity {
+		DiagnosticSeverityError = 1,
+		DiagnosticSeverityWarning = 2,
+		DiagnosticSeverityInformation = 3,
+		DiagnosticSeverityHint = 4,
+	};
+	enum DiagnosticSeverity severity_map[] = {
+		[log_error] = DiagnosticSeverityError,
+		[log_warn] = DiagnosticSeverityWarning,
+		[log_info] = DiagnosticSeverityInformation,
+		[log_debug] = DiagnosticSeverityHint,
+	};
+	obj_dict_set(wk, d, make_str(wk, "severity"), make_number(wk, severity_map[msg->lvl]));
+	obj_dict_set(wk, d, make_str(wk, "message"), make_str(wk, msg->msg));
+
+	if (destroy_source) {
+		fs_source_destroy(&src_reopened);
+	}
+
+	return d;
+}
+
+static void
+az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source *src, obj list)
+{
+	if (src->type != source_type_file) {
+		return;
+	}
+
+	obj params = make_obj(wk, obj_dict);
+	obj uri = make_strf(wk, "file://%s", src->label);
+	obj_dict_set(wk, params, make_str(wk, "uri"), uri);
+	obj_dict_set(wk, params, make_str(wk, "diagnostics"), list ? list : make_obj(wk, obj_array));
+	az_srv_request(srv, wk, "textDocument/publishDiagnostics", params);
+
+	if (list) {
+		obj_array_push(srv->wk, srv->diagnostics_to_clear, make_str(srv->wk, src->label));
+	}
+}
+
+static void
+az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
+{
+	{
+		obj diagnostics_to_clear;
+		obj_clone(srv->wk, wk, srv->diagnostics_to_clear, &diagnostics_to_clear);
+		obj_array_clear(srv->wk, srv->diagnostics_to_clear);
+
+		az_srv_log(srv, wk, "clearing diagnostics from %o", diagnostics_to_clear);
+
+		obj uri;
+		obj_array_for(wk, diagnostics_to_clear, uri) {
+			az_srv_diagnostics(
+				srv, wk, &(struct source){ .type = source_type_file, .label = get_cstr(wk, uri) }, 0);
+		}
+	}
+
+	const struct arr *diagnostics = error_diagnostic_store_get();
+
+	uint32_t i;
+	struct error_diagnostic_message *msg;
+	const struct source *last_src = 0, *cur_src;
+	struct source null_src = { 0 };
+
+	obj d = make_obj(wk, obj_array);
+
+	for (i = 0; i < diagnostics->len; ++i) {
+		msg = arr_get(diagnostics, i);
+		cur_src = msg->src_idx == UINT32_MAX ? &null_src : arr_get(&wk->vm.src, msg->src_idx);
+		if (cur_src != last_src) {
+			if (last_src) {
+				az_srv_diagnostics(srv, wk, last_src, d);
+				obj_array_clear(wk, d);
+			}
+
+			last_src = cur_src;
+		}
+
+		obj_array_push(wk, d, az_srv_diagnostic(wk, cur_src, msg));
+	}
+
+	az_srv_diagnostics(srv, wk, last_src, d);
+}
+
+static void
+az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct str *uri, const struct str *content)
+{
+	srv->should_analyze = true;
+}
+
+static void
+az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
+{
 	const struct str *method = obj_dict_index_as_str(wk, msg, "method");
 
-	if (str_eql(method, &WKSTR("initialize"))) {
-		make_obj(wk, &result, obj_dict);
-		obj capabilities;
-		make_obj(wk, &capabilities, obj_dict);
-		// Set textDocumentSync type to 4
-		obj_dict_set(wk, capabilities, make_str(wk, "textDocumentSync"), make_number(wk, 1));
+	if (str_eql(method, &STR("initialize"))) {
+		obj result = make_obj(wk, obj_dict);
+		obj capabilities = make_obj(wk, obj_dict);
+		enum TextDocumentSyncKind {
+			TextDocumentSyncKindNone = 0,
+			TextDocumentSyncKindFull = 1,
+			TextDocumentSyncKindIncremental = 2,
+		};
+		obj_dict_set(
+			wk, capabilities, make_str(wk, "textDocumentSync"), make_number(wk, TextDocumentSyncKindFull));
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
-		obj server_info;
-		make_obj(wk, &server_info, obj_dict);
+		obj server_info = make_obj(wk, obj_dict);
 		obj_dict_set(wk, server_info, make_str(wk, "name"), make_str(wk, "muon"));
 		obj_dict_set(wk, server_info, make_str(wk, "version"), make_str(wk, muon_version.version));
 
 		obj_dict_set(wk, result, make_str(wk, "serverInfo"), server_info);
-	}
 
-	if (result) {
-		obj response;
-		make_obj(wk, &response, obj_dict);
-		obj_dict_set(wk, response, make_str(wk, "jsonrpc"), make_str(wk, "2.0"));
-		obj_dict_set(wk, response, make_str(wk, "id"), obj_dict_index_as_obj(wk, msg, "id"));
-		obj_dict_set(wk, response, make_str(wk, "result"), result);
-		return response;
-	} else {
-		return 0;
+		az_srv_respond(srv, wk, obj_dict_index_as_obj(wk, msg, "id"), result);
+	} else if (str_eql(method, &STR("$/setTrace"))) {
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		const struct str *value = obj_dict_index_as_str(wk, params, "value");
+		if (str_eql(value, &STR("verbose"))) {
+			srv->verbose = true;
+		}
+	} else if (str_eql(method, &STR("textDocument/didOpen"))) {
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
+		const struct str *content = obj_dict_index_as_str(wk, text_document, "text");
+
+		az_srv_set_src_override(srv, wk, uri, content);
+	} else if (str_eql(method, &STR("textDocument/didChange"))) {
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
+		obj content_changes = obj_dict_index_as_obj(wk, params, "contentChanges");
+		obj change0 = obj_array_index(wk, content_changes, 0);
+		const struct str *content = obj_dict_index_as_str(wk, change0, "text");
+
+		az_srv_set_src_override(srv, wk, uri, content);
+	} else if (str_eql(method, &STR("textDocument/didSave"))) {
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
+
+		az_srv_set_src_override(srv, wk, uri, 0);
 	}
 }
 
@@ -1890,30 +2073,39 @@ analyze_server(struct az_opts *opts)
 
 	LOG_I("muon lsp listening...");
 
-	struct az_server srv = { .in = STDIN_FILENO, .out = stdout };
+	struct workspace srv_wk;
+	workspace_init_bare(&srv_wk);
+	struct az_srv srv = {
+		.transport = { .in = STDIN_FILENO, .out = stdout },
+		.wk = &srv_wk,
+		.diagnostics_to_clear = make_obj(&srv_wk, obj_array),
+	};
 
 	while (loop) {
 		struct workspace wk = { 0 };
 		workspace_init_bare(&wk);
-		SBUF(in_buf);
-		srv.in_buf = &in_buf;
+		TSTR(in_buf);
+		srv.transport.in_buf = &in_buf;
+		srv.should_analyze = false;
 
 		obj msg;
-		if (!az_server_read(&wk, &srv, &msg)) {
+		if (!az_srv_read(&wk, &srv, &msg)) {
 			break;
 		}
 
 		obj_lprintf(&wk, "<<< %#o\n", msg);
 		fflush(log_file);
 
-		obj resp;
-		if ((resp = az_server_handle(&wk, msg))) {
-			obj_lprintf(&wk, ">>> %#o\n", msg);
-			fflush(log_file);
+		az_srv_handle(&srv, &wk, msg);
 
-			if (!az_server_write(&wk, &srv, resp)) {
-				break;
-			}
+		if (srv.should_analyze) {
+			struct az_opts opts = {
+				.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
+				.replay_opts = error_diagnostic_store_replay_prepare_only,
+			};
+
+			do_analyze_internal(&wk, &opts);
+			az_srv_all_diagnostics(&srv, &wk);
 		}
 
 		workspace_destroy(&wk);

@@ -299,8 +299,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	bool server = false;
 
 	struct az_opts opts = {
-		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code
-				       | az_diagnostic_redirect_script_error,
+		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
 	};
 
 	enum {
@@ -322,7 +321,15 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		opts.subdir_error = true;
 		opts.replay_opts |= error_diagnostic_store_replay_dont_include_sources;
 		break;
-	case 'O': opts.file_override = optarg; break;
+	case 'O': {
+		opts.file_override = optarg;
+		// TODO: this is leaked
+		if (!fs_read_entire_file("-", &opts.file_src)) {
+			return false;
+		}
+		opts.file_src.label = optarg;
+		break;
+	}
 	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
 	case 'W': {
 		bool enable = true;
