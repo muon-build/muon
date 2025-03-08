@@ -131,7 +131,9 @@ vm_comp_node_skip(enum node_type t)
 	case node_type_def_args:
 	case node_type_kw:
 	case node_type_list:
-	case node_type_foreach_args: return true;
+	case node_type_foreach_args:
+	case node_type_stmt:
+		return true;
 	default: return false;
 	}
 }
