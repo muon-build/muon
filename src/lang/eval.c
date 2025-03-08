@@ -83,7 +83,7 @@ cleanup:
 }
 
 static bool
-ensure_project_is_first_statement(struct workspace *wk, struct source *src, struct node *n, bool check_only)
+ensure_project_is_first_statement(struct workspace *wk, const struct source *src, struct node *n, bool check_only)
 {
 	bool first_statement_is_a_call_to_project = n->type == node_type_stmt && n->l && n->l->type == node_type_call
 						    && n->l->r && n->l->r->type == node_type_id_lit
@@ -99,7 +99,7 @@ ensure_project_is_first_statement(struct workspace *wk, struct source *src, stru
 }
 
 bool
-eval(struct workspace *wk, struct source *src, enum build_language lang, enum eval_mode mode, obj *res)
+eval(struct workspace *wk, const struct source *src, enum build_language lang, enum eval_mode mode, obj *res)
 {
 	TracyCZoneAutoS;
 

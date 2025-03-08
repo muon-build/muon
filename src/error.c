@@ -228,7 +228,7 @@ error_unrecoverable(const char *fmt, ...)
 
 MUON_ATTR_FORMAT(printf, 3, 4)
 static uint32_t
-print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt, ...)
+print_source_line(const struct source *src, uint32_t tgt_line, const char *prefix_fmt, ...)
 {
 	uint64_t i, line = 1, start_of_line = 0;
 	for (i = 0; i < src->len; ++i) {
@@ -265,7 +265,7 @@ print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt,
 }
 
 void
-get_detailed_source_location(struct source *src,
+get_detailed_source_location(const struct source *src,
 	struct source_location loc,
 	struct detailed_source_location *dloc,
 	enum get_detailed_source_location_flag flags)
@@ -360,14 +360,15 @@ list_line_underline(const struct source *src, struct detailed_source_location *d
 }
 
 static void
-reopen_source(struct source *src, bool *destroy_source)
+reopen_source(const struct source *src, struct source *src_reopened, bool *destroy_source)
 {
+	*src_reopened = *src;
 	if (!src->len) {
 		switch (src->type) {
 		case source_type_unknown: return;
 		case source_type_embedded: UNREACHABLE; break;
 		case source_type_file:
-			if (!fs_read_entire_file(src->label, src)) {
+			if (!fs_read_entire_file(src->label, src_reopened)) {
 				return;
 			}
 			*destroy_source = true;
@@ -377,36 +378,38 @@ reopen_source(struct source *src, bool *destroy_source)
 }
 
 void
-list_line_range(struct source *src, struct source_location location, uint32_t context)
+list_line_range(const struct source *src, struct source_location location, uint32_t context)
 {
 	log_plain("-> %s%s%s\n", log_clr() ? "\033[32m" : "", src->label, log_clr() ? "\033[0m" : "");
 
 	bool destroy_source = false;
-	reopen_source(src, &destroy_source);
+	struct source src_reopened;
+	reopen_source(src, &src_reopened, &destroy_source);
 
 	struct detailed_source_location dloc;
-	get_detailed_source_location(src, location, &dloc, 0);
+	get_detailed_source_location(&src_reopened, location, &dloc, 0);
 
 	int32_t i;
 	for (i = -(int32_t)context; i <= (int32_t)context; ++i) {
 		uint32_t line_pre_len;
 
-		line_pre_len = print_source_line(src, dloc.line + i, "%s%3d | ", i == 0 ? ">" : " ", dloc.line + i);
+		line_pre_len = print_source_line(
+			&src_reopened, dloc.line + i, "%s%3d | ", i == 0 ? ">" : " ", dloc.line + i);
 
 		if (i == 0) {
-			list_line_underline(src, &dloc, line_pre_len, false);
+			list_line_underline(&src_reopened, &dloc, line_pre_len, false);
 		}
 	}
 
 	if (destroy_source) {
-		fs_source_destroy(src);
+		fs_source_destroy(&src_reopened);
 	}
 }
 
 struct error_diagnostic_message_record {
 	struct source_location location;
 	enum log_level lvl;
-	struct source *src;
+	const struct source *src;
 	char msg[BUF_SIZE_1k];
 	uint32_t count;
 	enum error_message_flag flags;
@@ -440,7 +443,7 @@ error_message_flush_coalesced_message(void)
 }
 
 void
-error_message(struct source *src,
+error_message(const struct source *src,
 	struct source_location location,
 	enum log_level lvl,
 	enum error_message_flag flags,
@@ -507,12 +510,13 @@ error_message(struct source *src,
 	}
 
 	bool destroy_source = false;
-	reopen_source(src, &destroy_source);
+	struct source src_reopened = { 0 };
+	reopen_source(src, &src_reopened, &destroy_source);
 
 	struct detailed_source_location dloc;
-	get_detailed_source_location(src, location, &dloc, get_detailed_source_location_flag_multiline);
+	get_detailed_source_location(&src_reopened, location, &dloc, get_detailed_source_location_flag_multiline);
 
-	log_plain("%s:%d:%d: ", src->label, dloc.line, dloc.col);
+	log_plain("%s:%d:%d: ", src_reopened.label, dloc.line, dloc.col);
 
 	if (lvl != log_info) {
 		if (log_clr()) {
@@ -531,25 +535,29 @@ error_message(struct source *src,
 	uint32_t line_pre_len = 0;
 	if (dloc.end_line) {
 		for (uint32_t i = dloc.line; i <= dloc.end_line; ++i) {
-			line_pre_len = print_source_line(src, i, "%3d | %s ", i, i == dloc.line ? "/" : "|");
+			line_pre_len = print_source_line(&src_reopened, i, "%3d | %s ", i, i == dloc.line ? "/" : "|");
 		}
-		list_line_underline(src, &dloc, line_pre_len, true);
+		list_line_underline(&src_reopened, &dloc, line_pre_len, true);
 	} else {
-		if (!(line_pre_len = print_source_line(src, dloc.line, "%3d | ", dloc.line))) {
+		if (!(line_pre_len = print_source_line(&src_reopened, dloc.line, "%3d | ", dloc.line))) {
 			goto ret;
 		}
 
-		list_line_underline(src, &dloc, line_pre_len, false);
+		list_line_underline(&src_reopened, &dloc, line_pre_len, false);
 	}
 
 ret:
 	if (destroy_source) {
-		fs_source_destroy(src);
+		fs_source_destroy(&src_reopened);
 	}
 }
 
 void
-error_messagev(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, va_list args)
+error_messagev(const struct source *src,
+	struct source_location location,
+	enum log_level lvl,
+	const char *fmt,
+	va_list args)
 {
 	static char buf[BUF_SIZE_4k];
 	vsnprintf(buf, BUF_SIZE_4k, fmt, args);
@@ -557,7 +565,7 @@ error_messagev(struct source *src, struct source_location location, enum log_lev
 }
 
 void
-error_messagef(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, ...)
+error_messagef(const struct source *src, struct source_location location, enum log_level lvl, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
