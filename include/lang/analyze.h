@@ -22,6 +22,7 @@ struct az_opts {
 	bool eval_trace;
 	bool analyze_project_call_only;
 	bool relaxed_parse;
+	bool auto_chdir_root;
 	enum error_diagnostic_store_replay_opts replay_opts;
 	const char *internal_file;
 	uint64_t enabled_diagnostics;

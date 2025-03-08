@@ -1501,7 +1501,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
 	}
 
-	{
+	if (analyzer.opts->auto_chdir_root) {
 		obj first_override = 0;
 		if (analyzer.opts->file_override) {
 			obj _v;
