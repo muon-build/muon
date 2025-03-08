@@ -185,7 +185,7 @@ node_to_s(struct workspace *wk, const struct node *n)
 	static char buf[BUF_SIZE_S + 1];
 	uint32_t i = 0;
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s", node_type_to_s(n->type));
+	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s[%d,%d]", node_type_to_s(n->type), n->location.off, n->location.len);
 
 	switch (n->type) {
 	case node_type_maybe_id:
@@ -206,10 +206,10 @@ print_fmt_ast_at(struct workspace *wk, struct node *n, uint32_t d, char label)
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
-		printf("  ");
+		log_plain("  ");
 	}
 
-	printf("%c:%s\n", label, fmt_node_to_s(wk, n));
+	log_plain("%c:%s\n", label, fmt_node_to_s(wk, n));
 
 	if (n->l) {
 		print_fmt_ast_at(wk, n->l, d + 1, 'l');
@@ -225,10 +225,10 @@ print_ast_at(struct workspace *wk, struct node *n, uint32_t d, char label)
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
-		printf("  ");
+		log_plain("  ");
 	}
 
-	printf("%c:%s\n", label, node_to_s(wk, n));
+	log_plain("%c:%s\n", label, node_to_s(wk, n));
 
 	if (n->l) {
 		print_ast_at(wk, n->l, d + 1, 'l');
