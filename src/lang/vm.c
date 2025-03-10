@@ -1006,7 +1006,7 @@ vm_op_constant_func(struct workspace *wk)
 	capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
 	capture->defargs = defargs;
 
-	object_stack_push_ip(wk, c, capture->func->entry);
+	object_stack_push(wk, c);
 }
 
 #define typecheck_operand(__o, __o_type, __expect_type, __expect_tc_type, __result_type) \
