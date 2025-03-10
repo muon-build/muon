@@ -127,6 +127,7 @@ bool str_containsi(const struct str *str, const struct str *substr);
 obj str_join(struct workspace *wk, obj s1, obj s2);
 
 bool str_to_i(const struct str *ss, int64_t *res, bool strip);
+bool str_to_i_base(const struct str *ss, int64_t *res, bool strip, uint32_t base);
 
 obj str_split(struct workspace *wk, const struct str *ss, const struct str *split);
 obj str_splitlines(struct workspace *wk, const struct str *ss);

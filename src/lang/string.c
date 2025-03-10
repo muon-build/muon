@@ -487,10 +487,13 @@ is_whitespace_except_newline(char c)
 }
 
 bool
-str_to_i(const struct str *ss, int64_t *res, bool strip)
+str_to_i_base(const struct str *ss, int64_t *res, bool strip, uint32_t base)
 {
 	char *endptr = NULL;
 	const char *start = ss->s;
+
+	// HACK: casting away const-ness
+	char *end = (char *)ss->s + ss->len;
 
 	if (strip) {
 		while (is_whitespace(*start)) {
@@ -498,7 +501,14 @@ str_to_i(const struct str *ss, int64_t *res, bool strip)
 		}
 	}
 
-	*res = strtoll(start, &endptr, 10);
+	// We need ss to be null terminated.  For example given the string
+	// "this%20file" and a ss pointing at the 20 in the middle, we want to be
+	// able to convert that 20 alone and not have the trailing f count as a 3rd
+	// digit (hexadecimal).
+	char old_end = *end;
+	*end = 0;
+	*res = strtoll(start, &endptr, base);
+	*end = old_end;
 
 	if (strip) {
 		while (is_whitespace(*endptr)) {
@@ -511,6 +521,12 @@ str_to_i(const struct str *ss, int64_t *res, bool strip)
 	}
 
 	return true;
+}
+
+bool
+str_to_i(const struct str *ss, int64_t *res, bool strip)
+{
+	return str_to_i_base(ss, res, strip, 10);
 }
 
 obj
