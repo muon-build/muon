@@ -5,8 +5,9 @@
 
 #include "compat.h"
 
-#include "lang/func_lookup.h"
 #include "functions/subproject.h"
+#include "lang/analyze.h"
+#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 
 bool
@@ -16,7 +17,12 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id, obj fa
 	struct obj_subproject *sub = get_obj_subproject(wk, subproj);
 
 	if (!sub->found) {
-		vm_error_at(wk, node, "subproject was not found");
+		if (wk->vm.in_analyzer) {
+			*res = make_typeinfo(wk, tc_any);
+			return true;
+		} else {
+			vm_error_at(wk, node, "subproject was not found");
+		}
 		return false;
 	}
 
