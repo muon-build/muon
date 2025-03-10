@@ -29,6 +29,7 @@ static struct {
 	struct vm_ops unpatched_ops;
 	struct obj_typeinfo az_injected_native_func_return;
 	struct hash branch_map;
+	struct hash dict_locations;
 	struct arr visited_ops;
 } analyzer;
 
@@ -62,7 +63,7 @@ az_set_error(void)
 }
 
 /******************************************************************************
- * typeinfo utilities
+ * utilities
  ******************************************************************************/
 
 struct obj_tainted_by_typeinfo_opts {
@@ -193,16 +194,18 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 	a->type |= coerce_type_tag(wk, r);
 }
 
-struct az_ctx {
-	type_tag expected;
-	type_tag found;
-	const struct func_impl *found_func;
-	obj found_func_obj, found_func_module;
-	struct obj_typeinfo ti;
-	obj l;
-};
+uint32_t az_dict_member_location_lookup_str(struct workspace *wk, obj dict, const char *key)
+{
+	uint64_t *hv;
+	if ((hv = hash_get(&analyzer.dict_locations, &dict))) {
+		obj ip;
+		if (obj_dict_index_str(wk, *hv, key, &ip)) {
+			return ip;
+		}
+	}
 
-typedef void((az_for_each_type_cb)(struct workspace *wk, struct az_ctx *ctx, uint32_t n_id, type_tag t, obj *res));
+	return 0;
+}
 
 /******************************************************************************
  * scope handling
@@ -1202,6 +1205,76 @@ az_op_call(struct workspace *wk)
 	}
 }
 
+static void
+az_op_constant_dict(struct workspace *wk)
+{
+	obj b;
+	uint32_t ip = wk->vm.ip;
+	uint32_t i, len = vm_get_constant(wk->vm.code.e, &ip);
+	b = make_obj(wk, obj_dict);
+	for (i = 0; i < len; ++i) {
+		obj key = object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1);
+		if (wk->vm.in_analyzer && get_obj_type(wk, key) == obj_typeinfo) {
+			continue;
+		}
+
+		obj_dict_set(wk, b, key, object_stack_peek_entry(&wk->vm.stack, (len - i) * 2)->ip);
+	}
+
+	analyzer.unpatched_ops.ops[op_constant_dict](wk);
+
+	obj dict = object_stack_peek(&wk->vm.stack, 1);
+	hash_set(&analyzer.dict_locations, &dict, b);
+}
+
+static void
+az_op_store(struct workspace *wk)
+{
+	obj dup = 0;
+
+	enum op_store_flags flags;
+	{
+		uint32_t ip = wk->vm.ip;
+		flags = vm_get_constant(wk->vm.code.e, &ip);
+	}
+
+	if (flags & op_store_flag_member) {
+		obj tgt, key;
+		tgt = object_stack_peek(&wk->vm.stack, 2);
+		key = object_stack_peek(&wk->vm.stack, 3);
+
+		if (get_obj_type(wk, tgt) == obj_dict && get_obj_type(wk, key) == obj_string) {
+			const struct obj_stack_entry *e;
+			e = object_stack_peek_entry(&wk->vm.stack, 1);
+
+			uint64_t *hv;
+			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
+				hash_set(&analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+				hv = hash_get(&analyzer.dict_locations, &tgt);
+			}
+
+			obj_dict_set(wk, *hv, key, e->ip);
+		}
+	} else if (!(flags & op_store_flag_add_store)) {
+		obj tgt = object_stack_peek(&wk->vm.stack, 2);
+		if (get_obj_type(wk, tgt) == obj_dict) {
+			uint64_t *hv;
+			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
+				UNREACHABLE;
+			}
+
+			obj_dict_dup_light(wk, *hv, &dup);
+		}
+	}
+
+	analyzer.unpatched_ops.ops[op_store](wk);
+
+	if (dup) {
+		obj tgt = object_stack_peek(&wk->vm.stack, 1);
+		hash_set(&analyzer.dict_locations, &tgt, dup);
+	}
+}
+
 /******************************************************************************
  * eval trace helpers
  ******************************************************************************/
@@ -1445,6 +1518,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	bucket_arr_init(&assignments, 512, sizeof(struct az_assignment));
 	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
+	hash_init(&analyzer.dict_locations, 1024, sizeof(obj));
 	arr_init_flags(&analyzer.visited_ops, 1024, 1, arr_flag_zero_memory);
 
 	{ /* re-initialize the default scope */
@@ -1490,7 +1564,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_return] = az_op_return;
 	wk->vm.ops.ops[op_return_end] = az_op_return_end;
 	wk->vm.ops.ops[op_call] = az_op_call;
-	/* wk->vm.ops.ops[op_add_store] = az_op_add_store; */
+	wk->vm.ops.ops[op_store] = az_op_store;
+	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
 
 	error_diagnostic_store_init(wk);
 
@@ -1661,6 +1736,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	arr_destroy(&az_entrypoint_stacks);
 	arr_destroy(&analyzer.visited_ops);
 	hash_destroy(&analyzer.branch_map);
+	hash_destroy(&analyzer.dict_locations);
 	TracyCZoneAutoE;
 	return res;
 }
