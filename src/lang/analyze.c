@@ -194,7 +194,8 @@ merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 	a->type |= coerce_type_tag(wk, r);
 }
 
-uint32_t az_dict_member_location_lookup_str(struct workspace *wk, obj dict, const char *key)
+uint32_t
+az_dict_member_location_lookup_str(struct workspace *wk, obj dict, const char *key)
 {
 	uint64_t *hv;
 	if ((hv = hash_get(&analyzer.dict_locations, &dict))) {
@@ -1230,6 +1231,35 @@ az_op_constant_dict(struct workspace *wk)
 }
 
 static void
+az_dict_locations_merge(struct workspace *wk, obj a, obj b, obj tgt)
+{
+	uint64_t *la, *lb;
+	if (!(la = hash_get(&analyzer.dict_locations, &a))) {
+		UNREACHABLE;
+	} else if (!(lb = hash_get(&analyzer.dict_locations, &b))) {
+		UNREACHABLE;
+	}
+
+	obj merged;
+	obj_dict_merge(wk, *la, *lb, &merged);
+
+	hash_set(&analyzer.dict_locations, &tgt, merged);
+}
+
+static void
+az_op_add(struct workspace *wk)
+{
+	obj b = object_stack_peek(&wk->vm.stack, 1);
+	obj a = object_stack_peek(&wk->vm.stack, 2);
+	analyzer.unpatched_ops.ops[op_add](wk);
+	obj c = object_stack_peek(&wk->vm.stack, 1);
+
+	if (get_obj_type(wk, c) == obj_dict && get_obj_type(wk, b) == obj_dict && get_obj_type(wk, a) == obj_dict) {
+		az_dict_locations_merge(wk, a, b, c);
+	}
+}
+
+static void
 az_op_store(struct workspace *wk)
 {
 	obj dup = 0;
@@ -1257,15 +1287,22 @@ az_op_store(struct workspace *wk)
 
 			obj_dict_set(wk, *hv, key, e->ip);
 		}
-	} else if (!(flags & op_store_flag_add_store)) {
+	} else {
 		obj tgt = object_stack_peek(&wk->vm.stack, 2);
 		if (get_obj_type(wk, tgt) == obj_dict) {
-			uint64_t *hv;
-			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				UNREACHABLE;
-			}
+			if (flags & op_store_flag_add_store) {
+				obj val = object_stack_peek(&wk->vm.stack, 1);
+				if (get_obj_type(wk, val) == obj_dict) {
+					az_dict_locations_merge(wk, tgt, val, tgt);
+				}
+			} else {
+				uint64_t *hv;
+				if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
+					UNREACHABLE;
+				}
 
-			obj_dict_dup_light(wk, *hv, &dup);
+				obj_dict_dup_light(wk, *hv, &dup);
+			}
 		}
 	}
 
@@ -1568,6 +1605,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_call] = az_op_call;
 	wk->vm.ops.ops[op_store] = az_op_store;
 	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
+	wk->vm.ops.ops[op_add] = az_op_add;
 
 	error_diagnostic_store_init(wk);
 
