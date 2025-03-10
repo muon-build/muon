@@ -199,7 +199,6 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 
 		if (m->exports) {
 			if (!obj_dict_index_str(wk, m->exports, name, func)) {
-				vm_error(wk, "%s not found in module", name);
 				return false;
 			}
 			return true;
