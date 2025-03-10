@@ -18,6 +18,7 @@
 #include "memmem.h"
 #include "platform/assert.h"
 #include "platform/os.h"
+#include "platform/path.h"
 #include "tracy.h"
 #include "version.h"
 
@@ -856,6 +857,25 @@ az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_s
 		break;
 	}
 	case az_srv_break_type_native_call: {
+		if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name), &STR("subdir"))) {
+			if (info->dat.native_call.nargs == 1) {
+				obj tgt = object_stack_peek(&wk->vm.stack, (info->dat.native_call.nkwargs * 2) + 1);
+				if (get_obj_type(wk, tgt) == obj_string) {
+					TSTR(tmp);
+					path_copy(wk, &tmp, get_cstr(wk, current_project(wk)->cwd));
+					path_push(wk, &tmp, get_cstr(wk, tgt));
+					path_push(wk, &tmp, "meson.build");
+
+					srv->req.result = make_obj(wk, obj_dict);
+					obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", tmp.buf));
+					obj range = make_obj(wk, obj_dict);
+					obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, 1, 1));
+					obj_dict_set(wk, range, make_str(wk, "end"), az_srv_position(wk, 1, 1));
+					obj_dict_set(wk, srv->req.result, make_str(wk, "range"), range);
+				}
+			}
+		} else if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name), &STR("import"))) {
+		}
 		break;
 	}
 	}
