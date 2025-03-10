@@ -1655,6 +1655,7 @@ type_err:
 		}
 		case obj_array: {
 			val = obj_array_dup_light(wk, val);
+			break;
 		}
 		default: break;
 		}
