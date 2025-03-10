@@ -326,6 +326,63 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 	return range;
 }
 
+static const char *
+az_srv_uri_to_path(struct workspace *wk, const struct str *uri_s)
+{
+	const struct str file_prefix = STR("file://");
+	if (!str_startswith(uri_s, &file_prefix)) {
+		return 0;
+	}
+
+	TSTR(res);
+
+	uint32_t i;
+	for (i = file_prefix.len; i < uri_s->len; ++i) {
+		if (uri_s->s[i] == '%') {
+			++i;
+			if (i + 2 >= uri_s->len) {
+				return 0;
+			}
+
+			const struct str num = { &uri_s->s[i], 2 };
+			++i;
+
+			int64_t n;
+
+			if (!str_to_i_base(&num, &n, false, 16)) {
+				return 0;
+			}
+
+			tstr_push(wk, &res, n);
+		} else {
+			tstr_push(wk, &res, uri_s->s[i]);
+		}
+	}
+
+	return get_str(wk, tstr_into_str(wk, &res))->s;
+}
+
+static obj
+az_srv_path_to_uri(struct workspace *wk, const struct str *path)
+{
+	const char *uri_reserved_chars = "!#$&'()*+,:;=?@[]%";
+
+	TSTR(res);
+
+	tstr_pushs(wk, &res, "file://");
+
+	uint32_t i;
+	for (i = 0; i < path->len; ++i) {
+		if (strchr(uri_reserved_chars, path->s[i])) {
+			tstr_pushf(wk, &res, "%%%02x", path->s[i]);
+		} else {
+			tstr_push(wk, &res, path->s[i]);
+		}
+	}
+
+	return tstr_into_str(wk, &res);
+}
+
 static void
 az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source *src, obj list)
 {
@@ -334,7 +391,7 @@ az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source
 	}
 
 	obj params = make_obj(wk, obj_dict);
-	obj uri = make_strf(wk, "file://%s", src->label);
+	obj uri = az_srv_path_to_uri(wk, &STRL(src->label));
 	obj_dict_set(wk, params, make_str(wk, "uri"), uri);
 	obj_dict_set(wk, params, make_str(wk, "diagnostics"), list ? list : make_obj(wk, obj_array));
 	az_srv_request(srv, wk, "textDocument/publishDiagnostics", params);
@@ -394,21 +451,11 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 	}
 }
 
-static const char *
-az_srv_uri_to_path(const struct str *uri_s)
-{
-	const struct str file_prefix = STR("file://");
-	if (!str_startswith(uri_s, &file_prefix)) {
-		return 0;
-	}
-	return uri_s->s + file_prefix.len;
-}
-
 static void
-az_srv_set_src_override(struct az_srv *srv, const struct str *uri_s, const struct str *content)
+az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct str *uri_s, const struct str *content)
 {
 	const char *path;
-	if (!(path = az_srv_uri_to_path(uri_s))) {
+	if (!(path = az_srv_uri_to_path(wk, uri_s))) {
 		return;
 	}
 
@@ -426,7 +473,7 @@ az_srv_handle_push_breakpoint_from_msg(struct az_srv *srv, struct workspace *wk,
 	int64_t line = obj_dict_index_as_number(wk, position, "line");
 	int64_t col = obj_dict_index_as_number(wk, position, "character");
 
-	const char *path = az_srv_uri_to_path(uri);
+	const char *path = az_srv_uri_to_path(wk, uri);
 	if (path && line >= 0 && col >= 0) {
 		vm_dbg_push_breakpoint(wk, make_str(wk, path), line + 1, col + 1);
 		srv->should_analyze = true;
@@ -478,7 +525,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 		const struct str *content = obj_dict_index_as_str(wk, text_document, "text");
 
-		az_srv_set_src_override(srv, uri, content);
+		az_srv_set_src_override(srv, wk, uri, content);
 	} else if (str_eql(method, &STR("textDocument/didChange"))) {
 		obj params = obj_dict_index_as_obj(wk, msg, "params");
 		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
@@ -487,13 +534,13 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		obj change0 = obj_array_index(wk, content_changes, 0);
 		const struct str *content = obj_dict_index_as_str(wk, change0, "text");
 
-		az_srv_set_src_override(srv, uri, content);
+		az_srv_set_src_override(srv, wk, uri, content);
 	} else if (str_eql(method, &STR("textDocument/didSave"))) {
 		obj params = obj_dict_index_as_obj(wk, msg, "params");
 		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
 		const struct str *uri = obj_dict_index_as_str(wk, text_document, "uri");
 
-		az_srv_set_src_override(srv, uri, 0);
+		az_srv_set_src_override(srv, wk, uri, 0);
 	} else if (str_eql(method, &STR("textDocument/hover"))) {
 		srv->req.type = az_srv_req_type_hover;
 		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
@@ -824,7 +871,7 @@ az_srv_get_definition_for_ip(struct az_srv *srv, struct workspace *wk, uint32_t 
 	struct source *src;
 	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 
-	obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", src->label));
+	obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), az_srv_path_to_uri(wk, &STRL(src->label)));
 	obj_dict_set(wk, srv->req.result, make_str(wk, "range"), az_srv_range(wk, src, loc));
 }
 
@@ -867,7 +914,7 @@ az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_s
 					path_push(wk, &tmp, "meson.build");
 
 					srv->req.result = make_obj(wk, obj_dict);
-					obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", tmp.buf));
+					obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), az_srv_path_to_uri(wk, &TSTR_STR(&tmp)));
 					obj range = make_obj(wk, obj_dict);
 					obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, 1, 1));
 					obj_dict_set(wk, range, make_str(wk, "end"), az_srv_position(wk, 1, 1));
