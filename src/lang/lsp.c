@@ -817,8 +817,6 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 static void
 az_srv_get_definition_for_ip(struct az_srv *srv, struct workspace *wk, uint32_t ip)
 {
-	/* vm_dis(wk); */
-	L("getting def for ip %d / %04x", ip, ip);
 	srv->req.result = make_obj(wk, obj_dict);
 
 	struct source_location loc;
@@ -836,10 +834,7 @@ az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_s
 	case az_srv_break_type_constant: {
 		struct az_assignment *a;
 		if ((a = az_assign_lookup(wk, get_str(wk, info->dat.constant.ident)->s))) {
-			struct source *src = arr_get(&wk->vm.src, a->src_idx);
-			srv->req.result = make_obj(wk, obj_dict);
-			obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", src->label));
-			obj_dict_set(wk, srv->req.result, make_str(wk, "range"), az_srv_range(wk, src, a->location));
+			az_srv_get_definition_for_ip(srv, wk, a->ip);
 		}
 		break;
 	}

@@ -379,6 +379,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 		&(struct az_assignment){
 			.name = name,
 			.o = o,
+			.ip = ip,
 			.location = loc,
 			.src_idx = src_idx,
 			.ep_stacks_i = ep_stacks_i,
@@ -388,7 +389,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 }
 
 static struct az_assignment *
-scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
+scope_assign(struct workspace *wk, const char *name, obj o, uint32_t ip, enum variable_assignment_mode mode)
 {
 	TracyCZoneAutoS;
 	obj scope = 0;
@@ -425,14 +426,15 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum 
 	if (obj_dict_index(wk, scope, make_str(wk, name), &aid)) {
 		// The assignment was found so just reassign it here
 		a = bucket_arr_get(&assignments, aid);
-		check_reassign_to_different_type(wk, a, o, NULL, n_id);
+		check_reassign_to_different_type(wk, a, o, NULL, ip);
 
 		a->o = o;
+		a->ip = ip;
 		TracyCZoneAutoE;
 		return a;
 	}
 
-	aid = push_assignment(wk, name, o, n_id);
+	aid = push_assignment(wk, name, o, ip);
 	obj_dict_set(wk, scope, make_str(wk, name), aid);
 
 	struct az_assignment *assign = bucket_arr_get(&assignments, aid);
