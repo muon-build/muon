@@ -315,9 +315,8 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 	obj_dict_set(wk,
 		range,
 		make_str(wk, "end"),
-		az_srv_position(wk,
-			dloc.end_line ? dloc.end_line : dloc.line,
-			dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
+		az_srv_position(
+			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
 
 	if (destroy_source) {
 		fs_source_destroy(&src_reopened);
@@ -697,7 +696,7 @@ struct az_srv_break_info {
 			obj ident;
 		} member;
 		struct {
-			uint32_t idx;
+			uint32_t nargs, nkwargs, idx;
 		} native_call;
 	} dat;
 };
@@ -816,6 +815,21 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 }
 
 static void
+az_srv_get_definition_for_ip(struct az_srv *srv, struct workspace *wk, uint32_t ip)
+{
+	/* vm_dis(wk); */
+	L("getting def for ip %d / %04x", ip, ip);
+	srv->req.result = make_obj(wk, obj_dict);
+
+	struct source_location loc;
+	struct source *src;
+	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+
+	obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), make_strf(wk, "file://%s", src->label));
+	obj_dict_set(wk, srv->req.result, make_str(wk, "range"), az_srv_range(wk, src, loc));
+}
+
+static void
 az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_srv_break_info *info)
 {
 	switch (info->type) {
@@ -830,6 +844,20 @@ az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_s
 		break;
 	}
 	case az_srv_break_type_member: {
+		if (get_obj_type(wk, info->dat.member.self) == obj_module) {
+			struct obj_module *m = get_obj_module(wk, info->dat.member.self);
+			if (m->found && m->exports) {
+				info->dat.member.self = m->exports;
+			}
+		}
+
+		if (get_obj_type(wk, info->dat.member.self) == obj_dict) {
+			uint32_t ip = az_dict_member_location_lookup_str(
+				wk, info->dat.member.self, get_str(wk, info->dat.member.ident)->s);
+			if (ip) {
+				az_srv_get_definition_for_ip(srv, wk, ip);
+			}
+		}
 		break;
 	}
 	case az_srv_break_type_native_call: {
@@ -884,12 +912,9 @@ az_srv_dbg_break_cb(struct workspace *wk)
 	} else if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_call_native }, 1)) {
 		info.type = az_srv_break_type_native_call;
 		++ip;
-		uint32_t nargs = vm_get_constant(wk->vm.code.e, &ip);
-		uint32_t nkwargs = vm_get_constant(wk->vm.code.e, &ip);
+		info.dat.native_call.nargs = vm_get_constant(wk->vm.code.e, &ip);
+		info.dat.native_call.nkwargs = vm_get_constant(wk->vm.code.e, &ip);
 		info.dat.native_call.idx = vm_get_constant(wk->vm.code.e, &ip);
-
-		(void)nargs;
-		(void)nkwargs;
 	} else {
 		return;
 	}
