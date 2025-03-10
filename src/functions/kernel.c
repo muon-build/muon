@@ -1328,7 +1328,7 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 
 	TSTR(new_cwd);
 	path_join(wk, &new_cwd, get_cstr(wk, old_cwd), get_cstr(wk, an[0].val));
-	current_project(wk)->cwd = make_str(wk, new_cwd.buf);
+	current_project(wk)->cwd = tstr_into_str(wk, &new_cwd);
 
 	path_join(wk, &build_dir, get_cstr(wk, old_build_dir), get_cstr(wk, an[0].val));
 	current_project(wk)->build_dir = tstr_into_str(wk, &build_dir);
