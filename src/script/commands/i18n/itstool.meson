@@ -93,7 +93,7 @@ foreach arg : argv
 
     elems = arg.split('=')
     key = elems[0]
-    val = elems[1]
+    val = '='.join(elems.slice(1))
 
     options += {key: val}
 
