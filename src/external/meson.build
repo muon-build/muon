@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 external_deps = []
-dep_sources = []
+dep_sources = [
+    files('tinyjson.c'),
+]
 
 dep_dict = {}
 
@@ -36,10 +38,6 @@ foreach d : [
         dep_sources += [files((name + '_null.c'))]
     endif
 endforeach
-
-dep_tinyjson = dependency('tinyjson', static: true)
-external_deps += [dep_tinyjson]
-dep_sources += [files('tinyjson.c')]
 
 if get_option('samurai').disabled()
     dep_dict += {'samurai': false}

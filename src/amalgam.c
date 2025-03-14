@@ -35,7 +35,7 @@
 #include "external/libarchive_null.c"
 #include "external/libcurl_null.c"
 #include "external/readline_builtin.c"
-#include "external/tinyjson_null.c"
+#include "external/tinyjson.c"
 #include "formats/editorconfig.c"
 #include "formats/ini.c"
 #include "formats/lines.c"
