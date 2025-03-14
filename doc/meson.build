@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-scdoc = find_program('scdoc', required: get_option('docs'))
-
 man_page_targets = {}
 
-if scdoc.found()
+scdoc = find_program('scdoc', required: get_option('man-pages'))
+if get_option('man-pages').disable_auto_if(not scdoc.found()).allowed()
+    scdoc = find_program('scdoc')
     man_pages = {
         'muon': 1,
         'meson.build': 5,
@@ -27,19 +27,17 @@ if scdoc.found()
 
         man_page_targets += {name: tgt}
     endforeach
-else
-    warning('scdoc not found, man pages will not be built')
+
+    if meson_docs_proj.found()
+        man_page_targets += {
+            'meson-reference.3': meson_docs_proj.get_variable('meson_reference_3'),
+        }
+    else
+        warning('meson-docs not found, meson-reference.3 will not be built')
+    endif
 endif
 
-if meson_docs_proj.found()
-    man_page_targets += {
-        'meson-reference.3': meson_docs_proj.get_variable('meson_reference_3'),
-    }
-else
-    warning('meson-docs not found, meson-reference.3 will not be built')
-endif
-
-if get_option('website')
+if get_option('website').enabled()
     subdir('website')
     subdir('book')
 

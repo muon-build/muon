@@ -75,13 +75,16 @@ tasks:
   - build_gcc: |
       cd muon
       CC=gcc tools/ci/bootstrap.sh build \
+        -Dbuildtype=release \
+        -Dwerror=true \
         -Dlibpkgconf=enabled \
         -Dlibarchive=enabled \
         -Dlibcurl=enabled \
-        -Dbuildtype=release \
-        -Dstatic=true \
-        -Dwebsite=true \
-        -Dwerror=true
+        -Dman-pages=enabled \
+        -Dmeson-docs=enabled \
+        -Dmeson-tests=enabled \
+        -Dwebsite=enabled \
+        -Dstatic=true
   - build_tcc: |
       cd muon
       CC=tcc tools/ci/bootstrap.sh build-tcc

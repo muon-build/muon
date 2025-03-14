@@ -147,15 +147,17 @@ if tracy_dep.found()
     deps += tracy_dep
 endif
 
-python3 = find_program('python3', required: false)
+# meson-docs project
+python3 = find_program('python3', required: get_option('meson-docs'))
 
-meson_docs_proj = dependency('', required: false)
-if python3.found()
-    meson_docs_proj = subproject('meson-docs', required: false)
+if python3.found() and not get_option('meson-docs').disabled()
+    meson_docs_proj = subproject('meson-docs', required: get_option('meson-docs'))
     if meson_docs_proj.found()
         src += meson_docs_proj.get_variable('meson_docs_h')
         c_args += ['-DHAVE_MESON_DOCS_H']
     endif
+else
+    meson_docs_proj = dependency('', required: false)
 endif
 
 muon = executable(

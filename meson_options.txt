@@ -1,30 +1,53 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
+
+################################################################################
+# optional runtime dependencies
+################################################################################
+
 option(
     'libcurl',
     type: 'feature',
     value: 'auto',
     description: 'required for fetching wraps',
 )
+
 option(
     'libarchive',
     type: 'feature',
     value: 'auto',
     description: 'required for extracting wrap archives',
 )
+
 option(
     'libpkgconf',
     type: 'feature',
     value: 'auto',
     description: 'required for dependency discovery with pkg-config files',
 )
+
 option(
     'samurai',
     type: 'feature',
     value: 'enabled',
     description: 'embed samurai into the muon executable',
 )
+
+option(
+    'tracy',
+    type: 'feature',
+    value: 'auto',
+    description: 'enable tracy for profiling',
+)
+
+option(
+    'ui',
+    type: 'feature',
+    value: 'disabled',
+    description: 'enable experimental imgui based ui',
+)
+
 option(
     'readline',
     type: 'combo',
@@ -32,37 +55,46 @@ option(
     value: 'builtin',
     description: 'select readline implementation',
 )
+
+################################################################################
+# build settings
+################################################################################
+
 option(
     'static',
     type: 'boolean',
     value: false,
     description: 'build a static muon executable',
 )
+
+################################################################################
+# docs and tests
+################################################################################
+
 option(
-    'docs',
+    'man-pages',
     type: 'feature',
     value: 'auto',
-    description: 'build documentation',
+    description: 'build man pages',
 )
+
+option(
+    'meson-docs',
+    type: 'feature',
+    value: 'auto',
+    description: 'pull in meson documentation, used for lsp, website, and meson-reference.3',
+)
+
+option(
+    'meson-tests',
+    type: 'feature',
+    value: 'auto',
+    description: 'pull in meson project tests',
+)
+
 option(
     'website',
-    type: 'boolean',
-    value: false,
-    description: 'build website, requires docs to be enabled',
-)
-option(
-    'tracy',
     type: 'feature',
     value: 'auto',
-    description: 'whether to enable tracy',
-)
-option(
-    'meson_tests_repo',
-    type: 'string',
-    value: 'https://git.sr.ht/~lattis/meson-tests',
-)
-option(
-    'ui',
-    type: 'feature',
-    value: 'disabled',
+    description: 'build website',
 )
