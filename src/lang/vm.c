@@ -778,6 +778,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		buf_push(", obj:%d, %d", constants[1], constants[2]);
 		break;
 	op_case(op_az_merge)
+		break;
 	op_case(op_dbg_break)
 		break;
 	case op_count: UNREACHABLE;
