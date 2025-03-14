@@ -14,7 +14,7 @@ dependencies.
 
 ## [Features]
 
-- `muon analyze` - a static analyzer for meson.build files.  [demo]
+- `muon analyze` - a static analyzer and language server for meson.build files.
 - `muon fmt` - a meson.build code formatter
 - An interactive stepping debugger
 - A built-in cross platform [ninja implementation]
@@ -41,7 +41,8 @@ Patches and bug reports welcome!
 Additionally, muon is not fully supported on all platforms yet.  The current
 status may be viewed on muon's [ci dashboard].  Platforms with some or all tests
 disabled are currently WIP and platforms not tested in CI have unknown status.
-In general, posix systems should work fine.
+In general, posix systems should work fine.  Windows support is improving
+slowly.
 
 ## Dependencies
 
@@ -62,7 +63,7 @@ For `[wrap-file]` support:
 To build documentation:
 
 - `scdoc` for muon.1 and meson.build.5
-- `python3` and `py3-yaml` for meson-reference.3
+- `python3` and `py3-yaml` for docs imported from the meson project
 
 To run most project tests:
 
@@ -132,7 +133,6 @@ originally based on `boson`, though has since been almost completely rewritten.
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
-[demo]: https://play.muon.build
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
 [ci dashboard]: https://muon.build/muon_ci.html
 [Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md

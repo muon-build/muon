@@ -69,7 +69,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 
 	*COMMANDS*:
 	- *trace* - print a tree of all meson source files that are evaluated
-	- *define* <var> - print the location of the definition of _var_
+	- *lsp* - run the analyzer as a language server
+	- *determine_root* <path> - given the path to a file, try to determine the
+	  project's root
 
 ## fmt
 	*muon* *fmt* [*-i*] [*-q*] [*-l*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
