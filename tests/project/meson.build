@@ -400,7 +400,7 @@ else
     endif
 endif
 
-subproject('meson-tests', required: false)
+subproject('meson-tests', required: get_option('meson-tests'))
 meson_tests_dir = meson.project_source_root() / 'subprojects/meson-tests'
 skip_meson_tests = not fs.is_dir(meson_tests_dir)
 if skip_meson_tests
