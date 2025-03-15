@@ -135,6 +135,6 @@ originally based on `boson`, though has since been almost completely rewritten.
 [Fast]: https://github.com/annacrombie/meson-raytracer#performance
 [ninja implementation]: https://git.sr.ht/~lattis/muon/tree/master/item/src/external/samurai/README.md
 [ci dashboard]: https://muon.build/muon_ci.html
-[Features]: https://git.sr.ht/~lattis/muon/tree/master/item/doc/features.md
+[Features]: https://docs.muon.build/features.html
 [Muon Docs]: https://docs.muon.build/differences.html
 [Muon Reference]: https://docs.muon.build/reference
