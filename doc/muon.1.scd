@@ -70,7 +70,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*COMMANDS*:
 	- *trace* - print a tree of all meson source files that are evaluated
 	- *lsp* - run the analyzer as a language server
-	- *determine_root* <path> - given the path to a file, try to determine the
+	- *root-for* <path> - given the path to a file, try to determine the
 	  project's root
 
 ## fmt
