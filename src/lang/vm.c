@@ -1629,7 +1629,7 @@ type_err:
 			if (member_target) {
 				*member_target = res;
 			} else {
-				wk->vm.behavior.assign_variable(wk, id_str->s, res, 0, assign_reassign);
+				wk->vm.behavior.assign_variable(wk, id_str->s, res, wk->vm.ip - 1, assign_reassign);
 			}
 		}
 

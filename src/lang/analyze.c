@@ -549,7 +549,7 @@ pop_scope_group(struct workspace *wk)
 					}
 				}
 
-				b = scope_assign(wk, a->name, a->o, 0, assign_local);
+				b = scope_assign(wk, a->name, a->o, a->ip, assign_local);
 				b->accessed = a->accessed;
 				b->location = a->location;
 				b->src_idx = a->src_idx;

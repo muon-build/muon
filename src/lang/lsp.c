@@ -865,6 +865,10 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 static void
 az_srv_get_definition_for_ip(struct az_srv *srv, struct workspace *wk, uint32_t ip)
 {
+	if (!ip) {
+		return;
+	}
+
 	srv->req.result = make_obj(wk, obj_dict);
 
 	struct source_location loc;
