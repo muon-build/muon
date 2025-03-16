@@ -5,4 +5,4 @@
 source_filename = bestline
 
 [provide]
-dependencies = bestline
+dependencies = bestline_dep
