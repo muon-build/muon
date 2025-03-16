@@ -547,7 +547,7 @@ func_files(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	return coerce_files(wk, an[0].node, an[0].val, res);
+	return coerce_files(wk, 0, an[0].val, res);
 }
 
 struct find_program_iter_ctx {
