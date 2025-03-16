@@ -591,7 +591,7 @@ create_target(struct workspace *wk,
 			bool pie = false;
 
 			if (akw[bt_kw_pie].set) {
-				pie = get_obj_bool(wk, akw[bt_kw_pie].set);
+				pie = get_obj_bool(wk, akw[bt_kw_pie].val);
 
 				if (pie && (tgt->type & tgt_executable) != tgt_executable) {
 					vm_error_at(wk, akw[bt_kw_pie].node, "pie cannot be set for non-executables");
