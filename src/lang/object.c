@@ -1378,8 +1378,6 @@ obj_dict_set_impl(struct workspace *wk,
 
 	struct obj_dict *d = get_obj_dict(wk, dict);
 
-	assert(key);
-
 	/* empty dict */
 	if (!d->len) {
 		uint32_t e_idx = wk->vm.objects.dict_elems.len;
