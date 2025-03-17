@@ -390,16 +390,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 	}
 
 	if (tgt->flags & build_tgt_generated_include) {
-		const char *private_path = get_cstr(wk, tgt->private_path);
-
-		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(private_path)) {
-			return false;
-		}
-
 		obj inc;
 		inc = make_obj(wk, obj_array);
-		obj_array_push(wk, inc, make_str(wk, private_path));
+		obj_array_push(wk, inc, tgt->private_path);
 		obj_array_extend_nodup(wk, inc, tgt->dep_internal.include_directories);
 		tgt->dep_internal.include_directories = inc;
 	}

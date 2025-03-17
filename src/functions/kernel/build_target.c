@@ -926,6 +926,15 @@ create_target(struct workspace *wk,
 		obj_array_extend(wk, tgt->dep_internal.link_args, akw[bt_kw_link_args].val);
 	}
 
+	if (tgt->flags & build_tgt_generated_include) {
+		const char *private_path = get_cstr(wk, tgt->private_path);
+
+		// mkdir so that the include dir doesn't get pruned later on
+		if (!fs_mkdir_p(private_path)) {
+			return false;
+		}
+	}
+
 	L("adding build target %s", get_cstr(wk, tgt->build_name));
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
