@@ -298,10 +298,16 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			ca_relativize_paths(wk, deduped, true, &regenerate_deps_rel);
 		}
 
+		const char *regenerate_deps = get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel));
+
 		fprintf(out,
 			"build build.ninja: REGENERATE_BUILD %s\n"
 			" pool = console\n\n",
-			get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel)));
+			regenerate_deps);
+
+		fprintf(out,
+			"build %s: phony\n\n",
+			regenerate_deps);
 	}
 
 	fprintf(out,
