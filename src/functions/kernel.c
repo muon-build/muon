@@ -1567,7 +1567,10 @@ add_test_common(struct workspace *wk, enum test_category cat)
 
 	obj args = exe_args;
 	if (akw[kw_args].set) {
-		if (!arr_to_args(wk, arr_to_args_build_target | arr_to_args_custom_target, akw[kw_args].val, &args)) {
+		if (!arr_to_args(wk,
+			    arr_to_args_build_target | arr_to_args_custom_target | arr_to_args_external_program,
+			    akw[kw_args].val,
+			    &args)) {
 			return false;
 		}
 
