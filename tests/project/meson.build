@@ -3,7 +3,7 @@
 
 tests = [
     # project tests created for muon
-    ['muon/timeout', {'failing': true}],
+    ['muon/timeout', {'should_fail': true}],
     ['muon/sizeof_invalid'],
     ['muon/str'],
     ['muon/python', {'python': true}],
@@ -63,13 +63,14 @@ foreach t : tests
     endif
 
     skip_exit_code = '77'
-    if props.get('failing', false)
+    if props.get('should_fail', false)
         skip_exit_code = '1'
         kwargs += {'should_fail': true}
     endif
 
     skip_analyze = props.get('skip_analyze', false) ? '1' : '0'
     git_clean = props.get('git_clean', false) ? '1' : '0'
+    failing = props.get('failing', false) ? '1' : '0'
 
     test(
         name,
@@ -85,6 +86,7 @@ foreach t : tests
             skip_exit_code,
             skip_analyze,
             git_clean,
+            failing,
         ],
         suite: suites,
         kwargs: kwargs,

@@ -10,8 +10,9 @@ ninja = argv[2]
 source = argv[3]
 build = argv[4]
 skip_exit_code = argv[5]
-skip_analyze = argv[6]
-git_clean = argv[7]
+skip_analyze = argv[6] == '1'
+git_clean = argv[7] == '1'
+failing = argv[8] == '1'
 
 func check_install(destdir str)
     install_check_script = source / 'check.sh'
@@ -36,14 +37,14 @@ if fs.is_dir(build)
     fs.rmdir(build, recursive: true, force: true)
 endif
 
-if git_clean == '1'
+if git_clean
     warning('running git clean on @0@'.format(source))
     run_command('git', '-C', source, 'clean', '-xdf', check: true)
 endif
 
 fs.mkdir(build / muon_private, make_parents: true)
 
-if skip_analyze == '0'
+if not skip_analyze
     analyze_result = run_command(muon, '-vC', source, 'analyze')
 
     if analyze_result.returncode() != 0
@@ -59,11 +60,16 @@ if setup_result.returncode() != 0
     print(setup_result.stdout())
     print(setup_result.stderr())
 
-    if 'MESON_SKIP_TEST' in setup_result.stdout()
+    if 'MESON_SKIP_TEST' in setup_result.stdout() or failing
         exit(skip_exit_code.to_int())
     else
         exit(setup_result.returncode())
     endif
+endif
+
+if failing
+    print('test was marked failing but did not fail')
+    exit(99)
 endif
 
 if ninja == 'USE_MUON'
