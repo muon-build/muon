@@ -212,6 +212,23 @@ vm_inst_location_obj(struct workspace *wk, uint32_t ip)
 }
 
 obj
+vm_inst_location_str(struct workspace *wk, uint32_t ip)
+{
+	obj a, src, line, col;
+
+	a = vm_inst_location_obj(wk, ip);
+	src = obj_array_index(wk, a, 0);
+	line = obj_array_index(wk, a, 1);
+	col = obj_array_index(wk, a, 2);
+
+	return make_strf(wk,
+		"%s:%d:%d",
+		get_str(wk, src)->s,
+		(uint32_t)get_obj_number(wk, line),
+		(uint32_t)get_obj_number(wk, col));
+}
+
+obj
 vm_callstack(struct workspace *wk)
 {
 	obj res;
