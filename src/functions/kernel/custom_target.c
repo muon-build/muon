@@ -774,12 +774,20 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 		kw_command,
 		kw_fallback,
 		kw_replace_string,
+		kw_install,
+		kw_install_dir,
+		kw_install_mode,
+		kw_install_tag,
 	};
 	struct args_kw akw[] = { [kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files, .required = true },
 		[kw_output] = { "output", obj_string, .required = true },
 		[kw_command] = { "command", tc_command_array | tc_both_libs },
 		[kw_fallback] = { "fallback", obj_string },
 		[kw_replace_string] = { "replace_string", obj_string },
+		[kw_install] = { "install", obj_bool },
+		[kw_install_dir] = { "install_dir", TYPE_TAG_LISTIFY | tc_string | tc_bool },
+		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		0 };
 
 	if (!pop_args(wk, NULL, akw)) {
@@ -854,6 +862,15 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 	tgt->flags |= custom_target_build_always_stale;
+
+	if (!install_custom_target(wk,
+		    tgt,
+		    &akw[kw_install],
+		    0,
+		    akw[kw_install_dir].val,
+		    akw[kw_install_mode].val)) {
+		return false;
+	}
 
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
