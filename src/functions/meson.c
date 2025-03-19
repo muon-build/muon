@@ -277,7 +277,15 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 		}
 	}
 
-	obj_dict_set(wk, override_dict, an[0].val, an[1].val);
+	obj d = make_obj(wk, obj_dependency);
+	{
+		// Clone this dependency and set its name to the name of the override
+		struct obj_dependency *dep = get_obj_dependency(wk, d);
+		*dep = *get_obj_dependency(wk, an[1].val);
+		dep->name = an[0].val;
+	}
+
+	obj_dict_set(wk, override_dict, an[0].val, d);
 	return true;
 }
 
