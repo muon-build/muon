@@ -1049,8 +1049,8 @@ func_message(struct workspace *wk, obj _, obj *res)
 
 	log_plain(log_clr() ? "\033[34mmessage\033[0m " : "message: ");
 	obj val;
-	obj_array_for(wk, an[0].val, val) {
-		obj_lprintf(wk, "%#o ", val);
+	obj_array_for_(wk, an[0].val, val, iter) {
+		obj_lprintf(wk, "%#o%s", val, iter.i + 1 == iter.len ? "" : " ");
 	}
 	log_plain("\n");
 	*res = 0;
