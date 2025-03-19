@@ -74,9 +74,55 @@ configure_var_len(const char *p)
 enum configure_file_syntax {
 	configure_file_syntax_mesondefine = 0 << 0,
 	configure_file_syntax_cmakedefine = 1 << 0,
-	configure_file_syntax_mesonvar = 0 << 1,
-	configure_file_syntax_cmakevar = 1 << 1,
+
+	configure_file_syntax_mesonvar = 1 << 1,
+	configure_file_syntax_cmakevar = 1 << 2,
 };
+
+struct configure_file_var_patterns {
+	struct {
+		struct str start, end;
+		enum configure_file_syntax type;
+	} pats[2];
+	uint32_t len;
+};
+
+static void
+configure_file_var_pattern_push(struct configure_file_var_patterns *var_patterns,
+	enum configure_file_syntax syntax,
+	enum configure_file_syntax enable_flag,
+	const struct str *start,
+	const struct str *end)
+{
+	if (!(syntax & enable_flag)) {
+		return;
+	}
+
+	assert(var_patterns->len < ARRAY_LEN(var_patterns->pats));
+
+	var_patterns->pats[var_patterns->len].start = *start;
+	var_patterns->pats[var_patterns->len].end = *end;
+	var_patterns->pats[var_patterns->len].type = enable_flag;
+
+	++var_patterns->len;
+}
+
+static bool
+configure_file_var_patterns_match(struct configure_file_var_patterns *var_patterns,
+	const struct source *src,
+	uint32_t off,
+	uint32_t *match_idx)
+{
+	const struct str s = { src->src + off, src->len - off };
+
+	for (uint32_t i = 0; i < var_patterns->len; ++i) {
+		if (str_startswith(&s, &var_patterns->pats[i].start)) {
+			*match_idx = i;
+			return true;
+		}
+	}
+	return false;
+}
 
 static bool
 substitute_config(struct workspace *wk,
@@ -86,23 +132,16 @@ substitute_config(struct workspace *wk,
 	obj out,
 	enum configure_file_syntax syntax)
 {
-	const char *define;
+	struct str define = { 0 };
 	if (syntax & configure_file_syntax_cmakedefine) {
-		define = "#cmakedefine ";
+		define = STR("#cmakedefine ");
 	} else {
-		define = "#mesondefine ";
+		define = STR("#mesondefine ");
 	}
 
-	const char *varstart;
-	char varend;
-	if (syntax & configure_file_syntax_cmakevar) {
-		varstart = "${";
-		varend = '}';
-	} else {
-		varstart = "@";
-		varend = '@';
-	}
-	const uint32_t define_len = strlen(define), varstart_len = strlen(varstart);
+	struct configure_file_var_patterns var_patterns = { 0 };
+	configure_file_var_pattern_push(&var_patterns, syntax, configure_file_syntax_cmakevar, &STR("${"), &STR("}"));
+	configure_file_var_pattern_push(&var_patterns, syntax, configure_file_syntax_mesonvar, &STR("@"), &STR("@"));
 
 	bool ret = true;
 	struct source src;
@@ -116,6 +155,7 @@ substitute_config(struct workspace *wk,
 
 	struct source_location location = { 0, 1 }, id_location;
 	uint32_t i, id_start, id_len, col = 0, orig_i;
+	uint32_t match_idx = 0;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
@@ -125,8 +165,10 @@ substitute_config(struct workspace *wk,
 			col = i + 1;
 		}
 
-		if (i == col && strncmp(&src.src[i], define, define_len) == 0) {
-			i += define_len;
+		struct str src_str = { src.src + i, src.len - i };
+
+		if (i == col && str_startswith(&src_str, &define)) {
+			i += define.len;
 
 			configure_file_skip_whitespace(&src, &i);
 
@@ -159,7 +201,6 @@ extraneous_cmake_chars:
 							++i;
 						}
 
-						/* id_location.col = orig_i - location.col + 1; */
 						error_messagef(&src,
 							id_location,
 							log_warn,
@@ -168,7 +209,6 @@ extraneous_cmake_chars:
 							&src.src[orig_i]);
 					}
 				} else {
-					/* id_location.col = i - location.col + 1; */
 					error_messagef(&src,
 						id_location,
 						log_error,
@@ -206,7 +246,7 @@ extraneous_cmake_chars:
 					id_location,
 					log_error,
 					"invalid type for %s: '%s'",
-					define,
+					define.s,
 					obj_type_to_s(get_obj_type(wk, elem)));
 				return false;
 			}
@@ -239,10 +279,10 @@ write_mesondefine:
 			for (j = 1; src.src[i + j] && src.src[i + j] == '\\'; ++j) {
 			}
 
-			if (strncmp(&src.src[i + j], varstart, varstart_len) == 0) {
+			if (configure_file_var_patterns_match(&var_patterns, &src, i + j, &match_idx)) {
 				output_backslashes = j / 2;
 
-				if (*varstart == '@') {
+				if (var_patterns.pats[match_idx].type == configure_file_syntax_mesonvar) {
 					output_format_char = true;
 					i += j;
 				} else {
@@ -264,18 +304,19 @@ write_mesondefine:
 			}
 
 			if (output_format_char) {
-				tstr_pushn(wk, &out_buf, varstart, varstart_len);
-				i += varstart_len - 1;
+				tstr_pushs(wk, &out_buf, var_patterns.pats[match_idx].start.s);
+				i += var_patterns.pats[match_idx].start.len - 1;
 			}
-		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
-			i += varstart_len;
+		} else if (configure_file_var_patterns_match(&var_patterns, &src, i, &match_idx)) {
+			i += var_patterns.pats[match_idx].start.len;
 			id_start = i;
 			id_location = location;
 			i += configure_var_len(&src.src[id_start]);
 
-			if (src.src[i] != varend) {
+			src_str = (struct str){ src.src + i, src.len - i };
+			if (!str_startswith(&src_str, &var_patterns.pats[match_idx].end)) {
 				i = id_start - 1;
-				tstr_pushn(wk, &out_buf, varstart, varstart_len);
+				tstr_pushs(wk, &out_buf, var_patterns.pats[match_idx].start.s);
 				continue;
 			}
 
@@ -785,7 +826,8 @@ copy_err:
 				if (str_eql(fmt, &STR("meson"))) {
 					syntax = configure_file_syntax_mesondefine | configure_file_syntax_mesonvar;
 				} else if (str_eql(fmt, &STR("cmake"))) {
-					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_cmakevar;
+					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_cmakevar
+						 | configure_file_syntax_mesonvar;
 				} else if (str_eql(fmt, &STR("cmake@"))) {
 					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_mesonvar;
 				} else {
