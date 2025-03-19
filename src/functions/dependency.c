@@ -214,7 +214,7 @@ func_dependency_name(struct workspace *wk, obj self, obj *res)
 
 	struct obj_dependency *dep = get_obj_dependency(wk, self);
 
-	if (dep->type == dependency_type_declared) {
+	if (!dep->name) {
 		*res = make_str(wk, "internal");
 	} else {
 		*res = dep->name;
