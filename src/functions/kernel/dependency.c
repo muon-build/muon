@@ -1198,7 +1198,10 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 
 	build_dep_init(wk, &dep->dep);
 
-	dep->name = make_strf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name)),
+	dep->name = make_strf(wk,
+		"%s declared:%s",
+		get_cstr(wk, current_project(wk)->cfg.name),
+		get_str(wk, vm_inst_location_str(wk, wk->vm.ip - 1))->s);
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
 
