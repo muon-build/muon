@@ -178,6 +178,10 @@ func_name_str(enum obj_type t, const char *name)
 bool
 func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func)
 {
+	if (func) {
+		*func = 0;
+	}
+
 	enum obj_type t;
 	struct func_impl_group *impl_group;
 	struct obj_module *m;
@@ -228,6 +232,104 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 	}
 
 	return func_lookup_for_group(impl_group, wk->vm.lang_mode, name, idx);
+}
+
+/******************************************************************************
+ * dynamic kwarg handling
+ ******************************************************************************/
+
+static void
+kwargs_arr_push_sentinel(struct workspace *wk, struct arr *arr)
+{
+	arr_push(arr, &(struct args_kw) { 0 });
+}
+
+static void
+kwargs_arr_init(struct workspace *wk, struct arr *arr)
+{
+	arr_init(arr, 8, sizeof(struct args_kw));
+	kwargs_arr_push_sentinel(wk, arr);
+}
+
+void
+kwargs_arr_destroy(struct workspace *wk, struct arr *arr)
+{
+	arr_destroy(arr);
+}
+
+void
+kwargs_arr_push(struct workspace *wk, struct arr *arr, const struct args_kw *kw)
+{
+	*(struct args_kw *)arr_get(arr, arr->len - 1) = *kw;
+	kwargs_arr_push_sentinel(wk, arr);
+}
+
+static uint32_t
+kwargs_arr_index(struct workspace *wk, struct arr *arr, const char *name)
+{
+	uint32_t i;
+	for (i = 0; i < arr->len; ++i) {
+		struct args_kw *kw = arr_get(arr, i);
+		if (strcmp(kw->key, name) == 0) {
+			return i;
+		}
+	}
+
+	UNREACHABLE;
+}
+
+void
+kwargs_arr_del(struct workspace *wk, struct arr *arr, const char *name)
+{
+	arr_del(arr, arr->len - 1);
+	arr_del(arr, kwargs_arr_index(wk, arr, name));
+	kwargs_arr_push_sentinel(wk, arr);
+}
+
+struct args_kw *
+kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name)
+{
+	return arr_get(arr, kwargs_arr_index(wk, arr, name));
+}
+
+static struct func_kwargs_lookup_ctx {
+	struct arr *kwargs;
+} func_kwargs_lookup_ctx  = { 0 };
+
+static bool
+func_kwargs_lookup_cb(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
+{
+	if (!kwargs) {
+		return false;
+	}
+
+	uint32_t i;
+	for (i = 0; kwargs[i].key; ++i) {
+		kwargs_arr_push(wk, func_kwargs_lookup_ctx.kwargs, &kwargs[i]);
+	}
+
+	return false;
+}
+
+void
+func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr *kwargs_arr)
+{
+	uint32_t idx;
+	{
+		obj _func;
+		if (!func_lookup(wk, self, name, &idx, &_func)) {
+			UNREACHABLE;
+		}
+		assert(!_func && "only native functions supported");
+	}
+
+	kwargs_arr_init(wk, kwargs_arr);
+
+	func_kwargs_lookup_ctx.kwargs = kwargs_arr;
+
+	stack_push(&wk->stack, wk->vm.behavior.pop_args, func_kwargs_lookup_cb);
+	native_funcs[idx].func(wk, 0, 0);
+	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
 }
 
 /******************************************************************************
@@ -439,7 +541,7 @@ dump_function_signatures(struct workspace *wk)
 }
 
 /******************************************************************************
- * function signature dumping
+ * docs generation
  ******************************************************************************/
 
 struct meson_doc_entry_common {

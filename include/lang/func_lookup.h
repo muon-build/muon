@@ -36,6 +36,12 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 	const char *name,
 	uint32_t *idx);
 
+void func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr *kwargs_arr);
+void kwargs_arr_destroy(struct workspace *wk, struct arr *arr);
+void kwargs_arr_push(struct workspace *wk, struct arr *arr, const struct args_kw *kw);
+void kwargs_arr_del(struct workspace *wk, struct arr *arr, const char *name);
+struct args_kw *kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name);
+
 void dump_function_signatures(struct workspace *wk);
 void dump_function_docs(struct workspace *wk);
 

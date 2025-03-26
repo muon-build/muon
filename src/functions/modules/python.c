@@ -537,6 +537,49 @@ func_python_installation_interpreter_path(struct workspace *wk, obj self, obj *r
 	return true;
 }
 
+static bool
+func_python_installation_dependency(struct workspace *wk, obj self, obj *res)
+{
+	struct arr kwargs;
+	func_kwargs_lookup(wk, 0, "dependency", &kwargs);
+	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "embed", obj_bool });
+
+	if (!pop_args(wk, 0, (struct args_kw *)kwargs.e)) {
+		return false;
+	}
+
+	kwargs_arr_destroy(wk, &kwargs);
+
+	vm_error(wk, "unimplemented");
+	return false;
+}
+
+static bool
+func_python_installation_extension_module(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = {
+		{ obj_string },
+		{ TYPE_TAG_GLOB | tc_coercible_files | tc_generated_list },
+		ARG_TYPE_NULL,
+	};
+
+	struct arr kwargs;
+	func_kwargs_lookup(wk, 0, "shared_module", &kwargs);
+	kwargs_arr_del(wk, &kwargs, "name_suffix");
+	kwargs_arr_del(wk, &kwargs, "name_prefix");
+	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "subdir", obj_string });
+	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "limited_api", obj_string });
+
+	if (!pop_args(wk, an, (struct args_kw *)kwargs.e)) {
+		return false;
+	}
+
+	kwargs_arr_destroy(wk, &kwargs);
+
+	vm_error(wk, "unimplemented");
+	return false;
+}
+
 static obj
 python_self_transform(struct workspace *wk, obj self)
 {
@@ -573,5 +616,7 @@ struct func_impl impl_tbl_python_installation[] = {
 	{ "install_sources", func_python_installation_install_sources },
 	{ "language_version", func_python_installation_language_version, tc_string },
 	{ "path", func_python_installation_interpreter_path, tc_string },
+	{ "dependency", func_python_installation_dependency, tc_dependency },
+	{ "extension_module", func_python_installation_extension_module, tc_build_target },
 	{ NULL, NULL },
 };
