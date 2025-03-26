@@ -25,6 +25,14 @@ option(
     choices: ['auto', 'libpkgconf', 'exec', 'none'],
     value: 'auto',
     description: 'backend for pkg-config dependency discovery',
+    deprecated: {'enabled': 'libpkgconf', 'disabled': 'none'},
+)
+
+option(
+    'libpkgconf',
+    type: 'feature',
+    value: 'auto',
+    deprecated: 'pkgconfig',
 )
 
 option(
