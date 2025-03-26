@@ -1867,6 +1867,11 @@ vm_op_member(struct workspace *wk)
 		} else if (typecheck_typeinfo(wk, self, tc_dict)) {
 			vm_push_dummy(wk);
 			return;
+		} else if (wk->vm.in_analyzer && get_obj_type(wk, self) == obj_module
+			   && !get_obj_module(wk, self)->found) {
+			// Don't error on missing functions for not-found modules
+			vm_push_dummy(wk);
+			return;
 		}
 
 		vm_error(wk, "member %o not found on %#o", id, obj_type_to_typestr(wk, self));

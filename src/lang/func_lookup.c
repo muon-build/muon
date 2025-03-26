@@ -193,7 +193,9 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 		m = get_obj_module(wk, self);
 
 		if (!m->found && strcmp(name, "found") != 0) {
-			vm_error(wk, "module %s was not found", module_info[m->module].name);
+			if (!wk->vm.in_analyzer) {
+				vm_error(wk, "module %s was not found", module_info[m->module].name);
+			}
 			return false;
 		}
 
