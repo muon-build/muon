@@ -317,9 +317,13 @@ func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr 
 	uint32_t idx;
 	{
 		obj _func;
-		if (!func_lookup(wk, self, name, &idx, &_func)) {
-			UNREACHABLE;
-		}
+		bool ok;
+
+		stack_push(&wk->stack, wk->vm.lang_mode, language_external);
+		ok = func_lookup(wk, self, name, &idx, &_func);
+		stack_pop(&wk->stack, wk->vm.lang_mode);
+
+		assert(ok && "function not found");
 		assert(!_func && "only native functions supported");
 	}
 
