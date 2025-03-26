@@ -54,8 +54,8 @@ else
         dep_sources += [files('libpkgconf.c')]
         summary('pkgconfig', is_auto ? 'auto (libpkgconf)' : 'libpkgconf')
     else
-        dep_sources += [files('pkgconfig_exec.c')]
-        summary('pkgconfig', 'auto (exec)')
+        dep_sources += [files('pkgconfig_null.c')]
+        summary('pkgconfig', 'none')
     endif
 endif
 
