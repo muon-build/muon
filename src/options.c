@@ -206,7 +206,7 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 	case op_array: {
 		uint32_t idx;
 		if (obj_array_index_of(wk, *ctx->val, old, &idx)) {
-			vm_warning(wk, "option value %o is deprecated", old);
+			vm_warning_at(wk, ctx->opt->ip, "option value %o is deprecated", old);
 
 			if (new) {
 				obj_array_set(wk, *ctx->val, idx, new);
@@ -216,7 +216,7 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 	}
 	default:
 		if (str_eql(get_str(wk, ctx->sval), get_str(wk, old))) {
-			vm_warning(wk, "option value %o is deprecated", old);
+			vm_warning_at(wk, ctx->opt->ip, "option value %o is deprecated", old);
 
 			if (new) {
 				*ctx->val = new;
@@ -239,13 +239,13 @@ check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, 
 	switch (get_obj_type(wk, opt->deprecated)) {
 	case obj_bool:
 		if (get_obj_bool(wk, opt->deprecated)) {
-			vm_warning(wk, "option %o is deprecated", ctx.opt->name);
+			vm_warning_at(wk, opt->ip, "option %o is deprecated", ctx.opt->name);
 		}
 		break;
 	case obj_string: {
 		struct project *cur_proj = current_project(wk);
 
-		vm_warning(wk, "option %o is deprecated to %o", opt->name, opt->deprecated);
+		vm_warning_at(wk, opt->ip, "option %o is deprecated to %o", opt->name, opt->deprecated);
 
 		obj newopt;
 		if (get_option(wk, cur_proj, get_str(wk, opt->deprecated), &newopt)) {
