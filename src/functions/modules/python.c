@@ -545,9 +545,9 @@ func_python_installation_dependency(struct workspace *wk, obj self, obj *res)
 	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "embed", obj_bool });
 
 	if (!pop_args(wk, 0, (struct args_kw *)kwargs.e)) {
+		kwargs_arr_destroy(wk, &kwargs);
 		return false;
 	}
-
 	kwargs_arr_destroy(wk, &kwargs);
 
 	vm_error(wk, "unimplemented");
@@ -571,9 +571,9 @@ func_python_installation_extension_module(struct workspace *wk, obj self, obj *r
 	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "limited_api", obj_string });
 
 	if (!pop_args(wk, an, (struct args_kw *)kwargs.e)) {
+		kwargs_arr_destroy(wk, &kwargs);
 		return false;
 	}
-
 	kwargs_arr_destroy(wk, &kwargs);
 
 	vm_error(wk, "unimplemented");
