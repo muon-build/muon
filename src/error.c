@@ -422,7 +422,7 @@ error_message_flush_coalesced_message(void)
 		return;
 	}
 
-	char buf[BUF_SIZE_1k] = { 0 };
+	char buf[BUF_SIZE_1k + 32] = { 0 };
 	const char *msg = error_message_previously_emitted.msg;
 
 	if (error_message_previously_emitted.count > 1) {
