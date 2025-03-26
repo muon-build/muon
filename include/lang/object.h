@@ -105,34 +105,34 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
-#define FOREACH_BUILTIN_MODULE(_)                     \
-	_(fs, "public", true)                         \
-	_(keyval, "public", true)                     \
-	_(pkgconfig, "public", true)                  \
-	_(python, "public", true)                     \
-	_(python3, "public", true)                    \
-	_(sourceset, "public", true)                  \
-	_(toolchain, "private", true)                 \
-	_(subprojects, "private", true)                 \
-	_(getopt, "private", true)                 \
-	_(cmake, "public", false)                     \
-	_(dlang, "public", false)                     \
-	_(gnome, "public", false)                     \
-	_(hotdoc, "public", false)                    \
-	_(i18n, "public", false)                      \
-	_(java, "public", false)                      \
-	_(modtest, "public", false)                   \
-	_(qt, "public", false)                        \
-	_(qt4, "public", false)                       \
-	_(qt5, "public", false)                       \
-	_(qt6, "public", false)                       \
-	_(unstable_cuda, "public", false)             \
-	_(unstable_external_project, "public", false) \
-	_(unstable_icestorm, "public", false)         \
-	_(unstable_rust, "public", false)             \
-	_(unstable_simd, "public", false)             \
-	_(unstable_wayland, "public", false)          \
-	_(windows, "public", false)
+#define FOREACH_BUILTIN_MODULE(_)                                                  \
+	_(fs, "public/fs", true)                                                \
+	_(keyval, "public/keyval", true)                                        \
+	_(pkgconfig, "public/pkgconfig", true)                                  \
+	_(python, "public/python", true)                                        \
+	_(python3, "public/python3", true)                                      \
+	_(sourceset, "public/sourceset", true)                                  \
+	_(toolchain, "private/toolchain", true)                                 \
+	_(subprojects, "private/subprojects", true)                             \
+	_(getopt, "private/getopt", true)                                       \
+	_(cmake, "public/cmake", false)                                         \
+	_(dlang, "public/dlang", false)                                         \
+	_(gnome, "public/gnome", false)                                         \
+	_(hotdoc, "public/hotdoc", false)                                       \
+	_(i18n, "public/i18n", false)                                           \
+	_(java, "public/java", false)                                           \
+	_(modtest, "public/modtest", false)                                     \
+	_(qt, "public/qt", false)                                               \
+	_(qt4, "public/qt4", false)                                             \
+	_(qt5, "public/qt5", false)                                             \
+	_(qt6, "public/qt6", false)                                             \
+	_(unstable_cuda, "public/unstable-cuda", false)                         \
+	_(unstable_external_project, "public/unstable-external_project", false) \
+	_(unstable_icestorm, "public/unstable-icestorm", false)                 \
+	_(unstable_rust, "public/unstable-rust", false)                         \
+	_(unstable_simd, "public/unstable-simd", false)                         \
+	_(unstable_wayland, "public/unstable-wayland", false)                   \
+	_(windows, "public/windows", false)
 
 #define MODULE_ENUM(mod, path, implemented) module_##mod,
 enum module {
@@ -627,7 +627,7 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		char buf[4096];                                   \
 		log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); \
 		log_plain("%s", buf);                             \
-		obj_lprintf(wk, __VA_ARGS__);         \
+		obj_lprintf(wk, __VA_ARGS__);                     \
 	}
 #define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
 

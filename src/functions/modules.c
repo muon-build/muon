@@ -25,8 +25,8 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-#define MODULE_INFO(mod, path_prefix, _implemented) \
-	{ .name = #mod, .path = path_prefix "/" #mod, .implemented = _implemented },
+#define MODULE_INFO(mod, _path, _implemented) \
+	{ .name = #mod, .path = _path, .implemented = _implemented },
 const struct module_info module_info[module_count] = { FOREACH_BUILTIN_MODULE(MODULE_INFO) };
 #undef MODULE_INFO
 
