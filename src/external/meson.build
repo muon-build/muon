@@ -43,9 +43,11 @@ else
     dep_libpkgconf = dependency(
         'libpkgconf',
         required: is_auto != true,
-        static: get_option('static'),
         fallback: ['pkgconf', 'dep_libpkgconf'],
-        default_options: ['pkgconf:tests=false', 'warning_level=1'],
+        default_options: {
+            'tests': false,
+            'warning_level': '1',
+        },
     )
 
     if dep_libpkgconf.found()
