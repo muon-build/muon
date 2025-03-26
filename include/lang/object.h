@@ -209,31 +209,51 @@ enum build_tgt_flags {
 	build_tgt_flag_pie = 1 << 6,
 };
 
+enum build_dep_flag {
+	build_dep_flag_recursive = 1 << 0,
+	build_dep_flag_both_libs_static = 1 << 1,
+	build_dep_flag_both_libs_shared = 1 << 2,
+	build_dep_flag_include_system = 1 << 3,
+	build_dep_flag_include_non_system = 1 << 4,
+	build_dep_flag_as_link_whole = 1 << 5,
+	build_dep_flag_partial = 1 << 6,
+	build_dep_flag_part_compile_args = 1 << 7,
+	build_dep_flag_part_includes = 1 << 8,
+	build_dep_flag_part_link_args = 1 << 9,
+	build_dep_flag_part_links = 1 << 10,
+	build_dep_flag_part_sources = 1 << 11,
+};
+
 struct build_dep {
 	enum compiler_language link_language;
+	obj frameworks; // not in raw
 
+	obj compile_args;
+	obj include_directories;
+	obj link_args;
 	obj link_whole;
-
 	obj link_with;
 	obj link_with_not_found;
-	obj frameworks;
-
-	obj link_args;
-	obj compile_args;
-
-	obj include_directories;
-
-	obj sources;
 	obj objects;
-
 	obj order_deps;
 	obj rpath;
+	obj sources;
 
-	struct {
-		obj deps;
-		obj order_deps;
-		obj link_with;
+	struct build_dep_raw {
+		enum build_dep_flag flags;
+
+		obj compile_args;
+		obj include_directories;
+		obj link_args;
 		obj link_whole;
+		obj link_with;
+		obj link_with_not_found;
+		obj objects;
+		obj order_deps;
+		obj rpath;
+		obj sources;
+
+		obj deps;
 	} raw;
 };
 
@@ -268,7 +288,14 @@ struct obj_build_target {
 	enum machine_kind machine;
 };
 
+enum default_both_libraries {
+	default_both_libraries_auto,
+	default_both_libraries_static,
+	default_both_libraries_shared,
+};
+
 struct obj_both_libs {
+	enum default_both_libraries default_both_libraries;
 	obj static_lib; // obj_build_target
 	obj dynamic_lib; // obj_build_target
 };

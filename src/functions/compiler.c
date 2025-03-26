@@ -2033,26 +2033,35 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 void
 find_library_result_to_dependency(struct workspace *wk, struct find_library_result find_result, obj compiler, obj d)
 {
+	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
 	struct obj_dependency *dep = get_obj_dependency(wk, d);
 	dep->name = find_result.found;
 	dep->type = dependency_type_external_library;
 	dep->flags |= dep_flag_found;
+	dep->machine = comp->machine;
+
+	struct build_dep_raw raw = { 0 };
+
 	if (find_result.location == find_library_found_location_link_arg) {
-		dep->dep.link_with_not_found = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.link_with_not_found, find_result.found);
+		raw.link_with_not_found = make_obj(wk, obj_array);
+		obj_array_push(wk, raw.link_with_not_found, find_result.found);
 	} else {
-		dep->dep.link_with = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.link_with, find_result.found);
+		raw.link_with = make_obj(wk, obj_array);
+		obj_array_push(wk, raw.link_with, find_result.found);
 
 		if (find_result.location == find_library_found_location_extra_dirs) {
-			dep->dep.rpath = make_obj(wk, obj_array);
-			obj_array_push(wk, dep->dep.rpath, find_result.found);
+			raw.rpath = make_obj(wk, obj_array);
+			TSTR(dirname);
+			path_dirname(wk, &dirname, get_cstr(wk, find_result.found));
+			obj_array_push(wk, raw.rpath, tstr_into_str(wk, &dirname));
 		}
 	}
 
-	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
+	if (!dependency_create(wk, &raw, &dep->dep, 0)) {
+		UNREACHABLE;
+	}
+
 	dep->dep.link_language = comp->lang;
-	dep->machine = comp->machine;
 }
 
 struct compiler_find_library_check_headers_ctx {

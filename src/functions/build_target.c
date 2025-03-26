@@ -355,7 +355,7 @@ func_build_target_add_link_with(struct workspace *wk, obj self, obj *res)
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, self);
 
-	if (!dep_process_link_with(wk, an[0].node, an[0].val, &tgt->dep_internal)) {
+	if (!dep_process_link_with(wk, an[0].val, &tgt->dep_internal, 0)) {
 		return false;
 	}
 

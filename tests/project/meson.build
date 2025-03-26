@@ -72,23 +72,62 @@ foreach t : tests
     git_clean = props.get('git_clean', false) ? '1' : '0'
     failing = props.get('failing', false) ? '1' : '0'
 
-    test(
-        name,
-        muon,
-        args: [
+    setup_options = [{}]
+
+    if 'option_matrix' in props
+        pools = []
+
+        foreach k, vals : props['option_matrix']
+            pool = []
+            foreach v : vals
+                pool += {k: v}
+            endforeach
+            pools += [pool]
+        endforeach
+
+        result = [[]]
+        foreach pool : pools
+            new_result = []
+            foreach y : pool
+                new_x = []
+                foreach x : result
+                    new_x += x + y
+                endforeach
+                new_result += new_x
+            endforeach
+            result = new_result
+        endforeach
+
+        setup_options = result
+    endif
+
+    foreach opts : setup_options
+        optstrs = []
+        foreach k, v : opts
+            optstrs += f'-D@k@=@v@'
+        endforeach
+
+        test_name = ' '.join(name, optstrs)
+        test_args = [
             'internal',
             'eval',
             meson.current_source_dir() / 'runner.meson',
             muon,
             ninja,
             test_source,
-            test_dir / name,
+            test_dir / test_name,
             skip_exit_code,
             skip_analyze,
             git_clean,
             failing,
-        ],
-        suite: suites,
-        kwargs: kwargs,
-    )
+        ] + optstrs
+
+        test(
+            test_name,
+            muon,
+            args: test_args,
+            suite: suites,
+            kwargs: kwargs,
+        )
+    endforeach
 endforeach

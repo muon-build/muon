@@ -11,6 +11,7 @@
 #include "args.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/both_libs.h"
 #include "functions/environment.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -231,7 +232,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		}
 		str = get_obj_alias_target(wk, src)->name;
 		break;
-	case obj_both_libs: src = get_obj_both_libs(wk, src)->dynamic_lib;
+	case obj_both_libs: src = decay_both_libs(wk, src);
 	/* fallthrough */
 	case obj_build_target: {
 		if (!(ctx->mode & arr_to_args_build_target)) {

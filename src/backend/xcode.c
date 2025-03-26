@@ -445,8 +445,6 @@ xc_project_target_group(struct xc_ctx *ctx, struct project *proj, obj tgt)
 		// Not sure how to handle these?
 		break;
 	}
-	case obj_both_libs: tgt = get_obj_both_libs(ctx->wk, tgt)->dynamic_lib;
-	/* fallthrough */
 	case obj_build_target: return xc_project_target_build_tgt(ctx, proj, tgt); break;
 	case obj_custom_target: return xc_project_target_custom_tgt(ctx, proj, tgt); break;
 	default: UNREACHABLE;

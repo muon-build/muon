@@ -52,6 +52,7 @@ enum wrap_mode {
 };
 enum wrap_mode get_option_wrap_mode(struct workspace *wk);
 enum tgt_type get_option_default_library(struct workspace *wk);
+enum default_both_libraries get_option_default_both_libraries(struct workspace *wk, const struct project *proj, obj overrides);
 bool get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback);
 enum backend {
 	backend_ninja,

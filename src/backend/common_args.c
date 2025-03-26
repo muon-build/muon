@@ -11,6 +11,7 @@
 #include "args.h"
 #include "backend/common_args.h"
 #include "error.h"
+#include "functions/both_libs.h"
 #include "functions/build_target.h"
 #include "lang/object_iterators.h"
 #include "log.h"
@@ -737,7 +738,7 @@ ca_prepare_all_targets(struct workspace *wk)
 		obj_array_for(wk, proj->targets, t) {
 			switch (get_obj_type(wk, t)) {
 			case obj_both_libs:
-				t = get_obj_both_libs(wk, t)->dynamic_lib;
+				t = decay_both_libs(wk, t);
 				// fallthrough
 			case obj_build_target: tgt = get_obj_build_target(wk, t); break;
 			default: continue;
@@ -891,7 +892,7 @@ ca_backend_tgt_name(struct workspace *wk, obj tgt_id)
 {
 	switch (get_obj_type(wk, tgt_id)) {
 	case obj_alias_target: return get_obj_alias_target(wk, tgt_id)->name; break;
-	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
+	case obj_both_libs: tgt_id = decay_both_libs(wk, tgt_id);
 	/* fallthrough */
 	case obj_build_target: return get_obj_build_target(wk, tgt_id)->build_name; break;
 	case obj_custom_target: return get_obj_custom_target(wk, tgt_id)->name; break;

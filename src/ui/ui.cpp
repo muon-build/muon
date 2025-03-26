@@ -1236,7 +1236,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 			break;
 		}
 		case obj_both_libs:
-			id = get_obj_both_libs(wk, id)->dynamic_lib;
+			id = decay_get_obj_both_libs(wk, 0, 0, id);
 			//fallthrough
 		case obj_build_target: {
 			struct obj_build_target *t = get_obj_build_target(wk, id);

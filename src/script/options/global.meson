@@ -74,6 +74,12 @@ option(
     choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
 )
 option('force_fallback_for', type: 'array', value: [])
+option(
+    'default_both_libraries',
+    type: 'combo',
+    choices: ['auto', 'static', 'shared'],
+    value: 'auto',
+)
 
 # Base options
 option('b_asneeded', type: 'boolean', value: true) # TODO

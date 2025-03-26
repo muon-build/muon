@@ -69,6 +69,18 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
+func_dependency_get_configtool_variable(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+	vm_error_at(wk, 0, "get_configtool_variable not implemented");
+	return false;
+}
+
+static bool
 dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 {
 	struct obj_array *array = get_obj_array(wk, var);
@@ -243,38 +255,31 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = make_obj(wk, obj_dependency);
-	struct obj_dependency *dep = get_obj_dependency(wk, self), *partial = get_obj_dependency(wk, *res);
-
-	*partial = *dep;
-	partial->dep = (struct build_dep){ 0 };
+	enum build_dep_flag flags = build_dep_flag_recursive | build_dep_flag_partial;
 
 	if (akw[kw_compile_args].set && get_obj_bool(wk, akw[kw_compile_args].val)) {
-		partial->dep.compile_args = dep->dep.compile_args;
+		flags |= build_dep_flag_part_compile_args;
 	}
 
 	if (akw[kw_includes].set && get_obj_bool(wk, akw[kw_includes].val)) {
-		partial->dep.include_directories = dep->dep.include_directories;
+		flags |= build_dep_flag_part_includes;
 	}
 
 	if (akw[kw_link_args].set && get_obj_bool(wk, akw[kw_link_args].val)) {
-		partial->dep.link_args = dep->dep.link_args;
+		flags |= build_dep_flag_part_link_args;
 	}
 
 	if (akw[kw_links].set && get_obj_bool(wk, akw[kw_links].val)) {
-		partial->dep.link_with = dep->dep.link_with;
-		partial->dep.link_whole = dep->dep.link_whole;
-		partial->dep.link_with_not_found = dep->dep.link_with_not_found;
-
-		partial->dep.raw.link_with = dep->dep.raw.link_with;
-		partial->dep.raw.link_whole = dep->dep.raw.link_whole;
+		flags |= build_dep_flag_part_links;
 	}
 
 	if (akw[kw_sources].set && get_obj_bool(wk, akw[kw_sources].val)) {
-		partial->dep.sources = dep->dep.sources;
+		flags |= build_dep_flag_part_sources;
 	}
 
-	build_dep_init(wk, &partial->dep);
+	if (!(*res = dependency_dup(wk, self, flags))) {
+		return false;
+	}
 
 	return true;
 }
@@ -294,18 +299,77 @@ func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	*res = make_obj(wk, obj_dependency);
+	enum build_dep_flag flags = 0;
 
-	struct obj_dependency *dep = get_obj_dependency(wk, *res);
-	*dep = *get_obj_dependency(wk, self);
+	switch (inc_type) {
+	case include_type_preserve:
+		break;
+	case include_type_system:
+		flags |= build_dep_flag_include_system;
+		break;
+	case include_type_non_system:
+		flags |= build_dep_flag_include_non_system;
+		break;
+	}
 
-	obj old_includes = dep->dep.include_directories;
-	dep->dep.include_directories = make_obj(wk, obj_array);
+	if (!(*res = dependency_dup(wk, self, flags))) {
+		return false;
+	}
 
-	dep_process_includes(wk, old_includes, inc_type, dep->dep.include_directories);
-	dep->include_type = inc_type;
+	get_obj_dependency(wk, *res)->include_type = inc_type;
 
 	return true;
+}
+
+static bool
+func_dependency_as_link_whole(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	if (!(*res = dependency_dup(wk, self, build_dep_flag_as_link_whole))) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+func_dependency_both_libs_common(struct workspace *wk, obj self, obj *res, enum build_dep_flag flags)
+{
+	enum kwargs {
+		kw_recursive,
+	};
+	struct args_kw akw[] = {
+		[kw_recursive] = { "recursive", obj_bool },
+		0,
+	};
+	if (!pop_args(wk, 0, akw)) {
+		return false;
+	}
+
+	if (get_obj_bool_with_default(wk, akw[kw_recursive].val, false)) {
+		flags |= build_dep_flag_recursive;
+	}
+
+	if (!(*res = dependency_dup(wk, self, flags))) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+func_dependency_as_shared(struct workspace *wk, obj self, obj *res)
+{
+	return func_dependency_both_libs_common(wk, self, res, build_dep_flag_both_libs_shared);
+}
+
+static bool
+func_dependency_as_static(struct workspace *wk, obj self, obj *res)
+{
+	return func_dependency_both_libs_common(wk, self, res, build_dep_flag_both_libs_static);
 }
 
 static bool
@@ -328,14 +392,18 @@ func_dependency_include_type(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_dependency[] = {
+	{ "as_link_whole", func_dependency_as_link_whole, tc_dependency },
+	{ "as_shared", func_dependency_as_shared, tc_dependency },
+	{ "as_static", func_dependency_as_static, tc_dependency },
 	{ "as_system", func_dependency_as_system, tc_dependency },
 	{ "found", func_dependency_found, tc_bool },
+	{ "get_configtool_variable", func_dependency_get_configtool_variable, tc_string },
 	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable, tc_string },
 	{ "get_variable", func_dependency_get_variable, tc_string },
 	{ "include_type", func_dependency_include_type, tc_string },
+	{ "name", func_dependency_name, tc_string },
 	{ "partial_dependency", func_dependency_partial_dependency, tc_dependency },
 	{ "type_name", func_dependency_type_name, tc_string },
-	{ "name", func_dependency_name, tc_string },
 	{ "version", func_dependency_version, tc_string },
 	{ NULL, NULL },
 };

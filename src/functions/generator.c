@@ -126,8 +126,6 @@ generated_list_process_for_target(struct workspace *wk,
 	const char *dir;
 
 	switch (t) {
-	case obj_both_libs: build_target = get_obj_both_libs(wk, build_target)->dynamic_lib;
-	/* fallthrough */
 	case obj_build_target: dir = get_cstr(wk, get_obj_build_target(wk, build_target)->private_path); break;
 	case obj_custom_target: {
 		dir = get_cstr(wk, get_obj_custom_target(wk, build_target)->private_path);

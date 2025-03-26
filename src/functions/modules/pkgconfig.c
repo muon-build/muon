@@ -11,6 +11,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "error.h"
+#include "functions/both_libs.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "install.h"
@@ -142,7 +143,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (get_obj_type(wk, val)) {
 	case obj_string: obj_array_push(wk, ctx->dest, val); break;
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = decay_both_libs(wk, val);
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -254,7 +255,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->pc->libs[ctx->vis], lib);
 		break;
 	}
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = decay_both_libs(wk, val);
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -802,7 +803,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 	if (an[0].set) {
 		switch (get_obj_type(wk, an[0].val)) {
 		case obj_both_libs: {
-			mainlib = get_obj_both_libs(wk, an[0].val)->dynamic_lib;
+			mainlib = decay_both_libs(wk, an[0].val);
 			break;
 		}
 		case obj_build_target: mainlib = an[0].val; break;

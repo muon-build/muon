@@ -72,8 +72,6 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 
 	switch (t) {
 	case obj_alias_target: ret = ninja_write_alias_tgt(wk, tgt_id, ctx); break;
-	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
-	/* fallthrough */
 	case obj_build_target: ret = ninja_write_build_tgt(wk, tgt_id, ctx); break;
 	case obj_custom_target: ret = ninja_write_custom_tgt(wk, tgt_id, ctx); break;
 	default: UNREACHABLE;

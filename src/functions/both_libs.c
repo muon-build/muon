@@ -7,10 +7,36 @@
 #include "compat.h"
 
 #include "buf_size.h"
+#include "error.h"
 #include "functions/both_libs.h"
 #include "functions/build_target.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
+#include "options.h"
+#include "platform/assert.h"
+
+obj
+decay_both_libs(struct workspace *wk, obj both_libs)
+{
+	struct obj_both_libs *b = get_obj_both_libs(wk, both_libs);
+
+	enum default_both_libraries def_both_libs = b->default_both_libraries;
+
+	if (def_both_libs == default_both_libraries_auto) {
+		 def_both_libs = get_option_default_both_libraries(wk, 0, 0);
+	}
+
+	switch(def_both_libs) {
+	case default_both_libraries_auto:
+		return b->dynamic_lib;
+	case default_both_libraries_static:
+		return b->static_lib;
+	case default_both_libraries_shared:
+		return b->dynamic_lib;
+	}
+
+	UNREACHABLE_RETURN;
+}
 
 static bool
 func_both_libs_get_shared_lib(struct workspace *wk, obj self, obj *res)
@@ -37,7 +63,7 @@ func_both_libs_get_static_lib(struct workspace *wk, obj self, obj *res)
 static obj
 both_libs_self_transform(struct workspace *wk, obj self)
 {
-	return get_obj_both_libs(wk, self)->dynamic_lib;
+	return decay_both_libs(wk, self);
 }
 
 void

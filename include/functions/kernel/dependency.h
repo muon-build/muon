@@ -7,7 +7,6 @@
 #define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #include "lang/workspace.h"
 
-
 enum build_dep_merge_flag {
 	build_dep_merge_flag_merge_all = 1 << 0,
 };
@@ -15,9 +14,9 @@ enum build_dep_merge_flag {
 void
 build_dep_merge(struct workspace *wk, struct build_dep *dest, const struct build_dep *src, enum build_dep_merge_flag flags);
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
-bool dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);
-bool dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct build_dep *dest);
-void dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, obj dest);
+bool dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest, enum build_dep_flag flags);
+bool dep_process_link_whole(struct workspace *wk, obj arr, struct build_dep *dest);
+void dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, struct build_dep *dep);
 
 void build_dep_init(struct workspace *wk, struct build_dep *dep);
 
@@ -51,4 +50,8 @@ deps_check_machine_matches(struct workspace *wk,
 	obj link_with,
 	obj link_whole,
 	obj deps);
+
+
+obj dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags);
+bool dependency_create(struct workspace *wk, const struct build_dep_raw *raw, struct build_dep *dep, enum build_dep_flag flags);
 #endif

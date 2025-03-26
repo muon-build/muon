@@ -1049,7 +1049,8 @@ func_message(struct workspace *wk, obj _, obj *res)
 
 	log_plain(log_clr() ? "\033[34mmessage\033[0m " : "message: ");
 	obj val;
-	obj_array_for_(wk, an[0].val, val, iter) {
+	obj_array_for_(wk, an[0].val, val, iter)
+	{
 		obj_lprintf(wk, "%#o%s", val, iter.i + 1 == iter.len ? "" : " ");
 	}
 	log_plain("\n");
@@ -1464,8 +1465,11 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
 		break;
 
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
-	/* fallthrough */
+	case obj_both_libs: {
+		add_test_depends_iter(wk, ctx, get_obj_both_libs(wk, val)->dynamic_lib);
+		add_test_depends_iter(wk, ctx, get_obj_both_libs(wk, val)->static_lib);
+		break;
+	}
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
@@ -1957,7 +1961,11 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	struct alias_target_iter_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: {
+		push_alias_target_deps_iter(wk, ctx, get_obj_both_libs(wk, val)->dynamic_lib);
+		push_alias_target_deps_iter(wk, ctx, get_obj_both_libs(wk, val)->static_lib);
+		break;
+	}
 	/* fallthrough */
 	case obj_alias_target:
 	case obj_build_target:

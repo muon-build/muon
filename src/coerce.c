@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "functions/both_libs.h"
 #include "functions/environment.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
@@ -285,7 +286,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
 	case obj_file: str = *get_obj_file(wk, val); break;
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = decay_both_libs(wk, val);
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
@@ -454,7 +455,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 		}
 		break;
 	}
-	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = decay_both_libs(wk, val);
 	/* fallthrough */
 	case obj_build_target: {
 		if (ctx->mode == mode_output) {

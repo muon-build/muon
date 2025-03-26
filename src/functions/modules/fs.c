@@ -11,6 +11,7 @@
 #include "args.h"
 #include "error.h"
 #include "formats/editorconfig.h"
+#include "functions/both_libs.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
 #include "lang/func_lookup.h"
@@ -35,7 +36,7 @@ fs_coerce_file_path(struct workspace *wk, uint32_t node, obj o, bool abs_build_t
 	switch (t) {
 	case obj_string: ss = get_str(wk, o); break;
 	case obj_file: ss = get_str(wk, *get_obj_file(wk, o)); break;
-	case obj_both_libs: o = get_obj_both_libs(wk, o)->dynamic_lib;
+	case obj_both_libs: o = decay_both_libs(wk, o);
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, o);

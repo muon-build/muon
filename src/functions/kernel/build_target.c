@@ -521,26 +521,38 @@ create_target(struct workspace *wk,
 	tgt->src = make_obj(wk, obj_array);
 	tgt->required_compilers = make_obj(wk, obj_dict);
 	tgt->extra_files = make_obj(wk, obj_array);
-	build_dep_init(wk, &tgt->dep_internal);
 
-	{ // linker args (process before dependencies so link_with libs come first on link line
-		if (akw[bt_kw_link_with].set) {
-			if (!dep_process_link_with(
-				    wk, akw[bt_kw_link_with].node, akw[bt_kw_link_with].val, &tgt->dep_internal)) {
-				return false;
+	{ // dep internal setup
+		enum build_dep_flag flags = 0;
+		if (get_option_default_both_libraries(wk, 0, 0) == default_both_libraries_auto) {
+			if (tgt->type & tgt_static_library) {
+				flags |= build_dep_flag_both_libs_static;
+				flags |= build_dep_flag_recursive;
+			} else if (tgt->type & tgt_dynamic_library) {
+				flags |= build_dep_flag_both_libs_shared;
+				flags |= build_dep_flag_recursive;
 			}
 		}
 
-		if (akw[bt_kw_link_whole].set) {
-			if (!dep_process_link_whole(
-				    wk, akw[bt_kw_link_whole].node, akw[bt_kw_link_whole].val, &tgt->dep_internal)) {
-				return false;
-			}
+		obj rpath = make_obj(wk, obj_array);
+		if (akw[bt_kw_build_rpath].set) {
+			obj_array_push(wk, rpath, akw[bt_kw_build_rpath].val);
 		}
-	}
 
-	if (akw[bt_kw_dependencies].set) {
-		dep_process_deps(wk, akw[bt_kw_dependencies].val, &tgt->dep_internal);
+		if (akw[bt_kw_install_rpath].set) {
+			obj_array_push(wk, rpath, akw[bt_kw_install_rpath].val);
+		}
+
+		struct build_dep_raw raw = {
+			.link_with = akw[bt_kw_link_with].val,
+			.link_whole = akw[bt_kw_link_whole].val,
+			.deps = akw[bt_kw_dependencies].val,
+			.rpath = rpath,
+		};
+
+		if (!dependency_create(wk, &raw, &tgt->dep_internal, flags)) {
+			return false;
+		}
 	}
 
 	if (!deps_check_machine_matches(wk,
@@ -552,7 +564,7 @@ create_target(struct workspace *wk,
 		return false;
 	}
 
-	if (akw[bt_kw_override_options].set) { // override options
+	if (akw[bt_kw_override_options].set) {
 		if (!parse_and_set_override_options(wk,
 			    akw[bt_kw_override_options].node,
 			    akw[bt_kw_override_options].val,
@@ -788,8 +800,7 @@ create_target(struct workspace *wk,
 			enum compiler_language l;
 		} pch_args[] = {
 #define E(lang, s) { &akw[bt_kw_##lang##s], compiler_language_##lang },
-#define TOOLCHAIN_ENUM(lang) \
-	E(lang, _pch)
+#define TOOLCHAIN_ENUM(lang) E(lang, _pch)
 			FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 #undef E
@@ -896,16 +907,6 @@ create_target(struct workspace *wk,
 		return false;
 	}
 
-	{ // rpaths
-		if (akw[bt_kw_build_rpath].set) {
-			obj_array_push(wk, tgt->dep_internal.rpath, akw[bt_kw_build_rpath].val);
-		}
-
-		if (akw[bt_kw_install_rpath].set) {
-			obj_array_push(wk, tgt->dep_internal.rpath, akw[bt_kw_install_rpath].val);
-		}
-	}
-
 	tgt->dep = (struct build_dep){
 		.link_language = tgt->dep_internal.link_language,
 		.include_directories = tgt->dep_internal.include_directories,
@@ -958,6 +959,27 @@ typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
 		vm_error_at(wk, kw->node, "expected string or [], got %s", obj_type_to_s(t));
 		return false;
 	}
+}
+
+static bool
+both_libs_can_reuse_objects(struct workspace *wk, struct args_kw *akw)
+{
+	bool lib_specific_args[] = {
+#define E(lang, s) akw[bt_kw_##lang##s].set
+#define TOOLCHAIN_ENUM(lang) E(lang, _static_args), E(lang, _shared_args),
+		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#undef E
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(lib_specific_args); ++i) {
+		if (lib_specific_args[i]) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 static bool
@@ -1065,30 +1087,36 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 			continue;
 		}
 
+		bool ignore_sources = false;
+
 		if (tgt && !multi_target) {
 			multi_target = true;
 			*res = make_obj(wk, obj_array);
 			obj_array_push(wk, *res, tgt);
 
-			// If this target is a multi-target (both_libraries),
-			// set the objects argument with objects from the
-			// previous target
+			if (both_libs_can_reuse_objects(wk, akw)) {
+				// If this target is a multi-target (both_libraries),
+				// set the objects argument with objects from the
+				// previous target
 
-			obj objects;
-			if (!build_target_extract_all_objects(wk, an[0].node, tgt, &objects, true)) {
-				return false;
-			}
+				obj objects;
+				if (!build_target_extract_all_objects(wk, an[0].node, tgt, &objects, true)) {
+					return false;
+				}
 
-			if (akw[bt_kw_objects].set) {
-				obj_array_extend(wk, akw[bt_kw_objects].val, objects);
-			} else {
-				akw[bt_kw_objects].set = true;
-				akw[bt_kw_objects].val = objects;
-				akw[bt_kw_objects].node = an[0].node;
+				if (akw[bt_kw_objects].set) {
+					obj_array_extend(wk, akw[bt_kw_objects].val, objects);
+				} else {
+					akw[bt_kw_objects].set = true;
+					akw[bt_kw_objects].val = objects;
+					akw[bt_kw_objects].node = an[0].node;
+				}
+
+				ignore_sources = true;
 			}
 		}
 
-		if (!create_target(wk, an, akw, t, multi_target, &tgt)) {
+		if (!create_target(wk, an, akw, t, ignore_sources, &tgt)) {
 			return false;
 		}
 

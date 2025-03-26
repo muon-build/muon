@@ -1038,6 +1038,24 @@ get_option_default_library(struct workspace *wk)
 	}
 }
 
+enum default_both_libraries
+get_option_default_both_libraries(struct workspace *wk, const struct project *proj, obj overrides)
+{
+	obj opt;
+	get_option_value_overridable(wk, proj, overrides, "default_both_libraries", &opt);
+	const struct str *s = get_str(wk, opt);
+
+	if (str_eql(s, &STR("auto"))) {
+		return default_both_libraries_auto;
+	} else if (str_eql(s, &STR("static"))) {
+		return default_both_libraries_static;
+	} else if (str_eql(s, &STR("shared"))) {
+		return default_both_libraries_shared;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
 bool
 get_option_bool(struct workspace *wk, obj overrides, const char *name, bool fallback)
 {
