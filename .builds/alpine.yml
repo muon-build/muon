@@ -77,7 +77,7 @@ tasks:
       CC=gcc tools/ci/bootstrap.sh build \
         -Dbuildtype=release \
         -Dwerror=true \
-        -Dpkgconf=libpkgconf \
+        -Dpkgconfig=libpkgconf \
         -Dlibarchive=enabled \
         -Dlibcurl=enabled \
         -Dman-pages=enabled \
