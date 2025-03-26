@@ -40,7 +40,7 @@ jobs:
     - name: build-x86_64
       run: |
         arch -x86_64 sh -c "
-          ./bootstrap.sh build-x86_64 no-pkgconf &&\
+          CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build-x86_64 &&\
           PATH=\"build-x86_64:$PATH\" build-x86_64/muon-bootstrap -v setup build-x86_64 &&\
           build-x86_64/muon-bootstrap -C build-x86_64 samu\
         "
