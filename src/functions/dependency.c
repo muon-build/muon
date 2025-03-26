@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include "coerce.h"
-#include "external/libpkgconf.h"
+#include "external/pkgconfig.h"
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
 #include "lang/func_lookup.h"

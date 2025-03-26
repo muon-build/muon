@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "external/libpkgconf.h"
+#include "external/pkgconfig.h"
 #include "functions/compiler.h"
 #include "lang/object.h"
 #include "lang/workspace.h"
@@ -21,6 +21,7 @@
 #include "platform/path.h"
 
 const bool have_libpkgconf = true;
+const bool have_pkgconfig_exec = false;
 
 static struct {
 	pkgconf_client_t client;

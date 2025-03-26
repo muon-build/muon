@@ -815,6 +815,7 @@ init_global_options(struct workspace *wk)
 	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "OBJC", "env.OBJC");
 	set_binary_from_env(wk, "OBJCPP", "env.OBJCPP");
+	set_binary_from_env(wk, "PKG_CONFIG", "env.PKG_CONFIG");
 	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
 	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
 	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");

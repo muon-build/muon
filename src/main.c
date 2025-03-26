@@ -20,7 +20,7 @@
 #include "error.h"
 #include "external/libarchive.h"
 #include "external/libcurl.h"
-#include "external/libpkgconf.h"
+#include "external/pkgconfig.h"
 #include "external/samurai.h"
 #include "lang/analyze.h"
 #include "lang/fmt.h"
@@ -1164,6 +1164,7 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	} feature_names[] = {
 		{ "libcurl", have_libcurl },
 		{ "libpkgconf", have_libpkgconf },
+		{ "pkgconfig-exec", have_pkgconfig_exec },
 		{ "libarchive", have_libarchive },
 		{ "samurai", have_samurai },
 #ifdef TRACY_ENABLE

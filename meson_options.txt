@@ -20,10 +20,11 @@ option(
 )
 
 option(
-    'libpkgconf',
-    type: 'feature',
+    'pkgconfig',
+    type: 'combo',
+    choices: ['auto', 'libpkgconf', 'exec', 'none'],
     value: 'auto',
-    description: 'required for dependency discovery with pkg-config files',
+    description: 'backend for pkg-config dependency discovery',
 )
 
 option(

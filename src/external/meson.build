@@ -11,13 +11,6 @@ dep_dict = {}
 foreach d : [
     ['libcurl'],
     ['libarchive'],
-    [
-        'libpkgconf',
-        {
-            'fallback': ['pkgconf', 'dep_libpkgconf'],
-            'default_options': ['pkgconf:tests=false', 'warning_level=1'],
-        },
-    ],
 ]
     name = d[0]
     kwargs = d.get(1, {})
@@ -38,6 +31,33 @@ foreach d : [
         dep_sources += [files((name + '_null.c'))]
     endif
 endforeach
+
+if get_option('pkgconfig') == 'exec'
+    dep_sources += [files('pkgconfig_exec.c')]
+    summary('pkgconfig', 'exec')
+elif get_option('pkgconfig') == 'none'
+    dep_sources += [files('pkgconfig_null.c')]
+    summary('pkgconfig', 'none')
+else
+    is_auto = get_option('pkgconfig') == 'auto'
+    dep_libpkgconf = dependency(
+        'libpkgconf',
+        required: is_auto != true,
+        static: get_option('static'),
+        fallback: ['pkgconf', 'dep_libpkgconf'],
+        default_options: ['pkgconf:tests=false', 'warning_level=1'],
+    )
+
+    if dep_libpkgconf.found()
+        dep_dict += {'libpkgconf': true}
+        external_deps += [dep_libpkgconf]
+        dep_sources += [files('libpkgconf.c')]
+        summary('pkgconfig', is_auto ? 'auto (libpkgconf)' : 'libpkgconf')
+    else
+        dep_sources += [files('pkgconfig_exec.c')]
+        summary('pkgconfig', 'auto (exec)')
+    endif
+endif
 
 if get_option('samurai').disabled()
     dep_dict += {'samurai': false}

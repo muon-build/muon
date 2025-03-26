@@ -10,7 +10,7 @@
 
 #include "buf_size.h"
 #include "coerce.h"
-#include "external/libpkgconf.h"
+#include "external/pkgconfig.h"
 #include "functions/both_libs.h"
 #include "functions/compiler.h"
 #include "functions/file.h"

@@ -145,10 +145,12 @@
 #include "platform/posix/uname.c"
 #endif
 
-#ifdef BOOTSTRAP_HAVE_LIBPKGCONF
+#ifdef BOOTSTRAP_NO_PKGCONFIG
+#include "external/pkgconfig_null.c"
+#elif defined(BOOTSTRAP_HAVE_LIBPKGCONF)
 #include "external/libpkgconf.c"
 #else
-#include "external/libpkgconf_null.c"
+#include "external/pkgconfig_exec.c"
 #endif
 
 #ifdef BOOTSTRAP_NO_SAMU
