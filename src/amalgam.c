@@ -145,7 +145,7 @@
 #include "platform/posix/uname.c"
 #endif
 
-#ifdef BOOTSTRAP_NO_PKGCONFIG
+#if defined(BOOTSTRAP_NO_PKGCONFIG)
 #include "external/pkgconfig_null.c"
 #elif defined(BOOTSTRAP_HAVE_LIBPKGCONF)
 #include "external/libpkgconf.c"

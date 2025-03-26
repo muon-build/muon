@@ -15,14 +15,10 @@ dir="$1"
 mkdir -p "$dir"
 
 pkgconf_cmd=""
-if [ "${2:-}" = "no-pkgconf" ]; then
-	:
-else
-	if command -v pkgconf >/dev/null; then
-		pkgconf_cmd=pkgconf
-	elif command -v pkg-config >/dev/null; then
-		pkgconf_cmd=pkg-config
-	fi
+if command -v pkgconf >/dev/null; then
+	pkgconf_cmd=pkgconf
+elif command -v pkg-config >/dev/null; then
+	pkgconf_cmd=pkg-config
 fi
 
 if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd libpkgconf; then

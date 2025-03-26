@@ -31,7 +31,7 @@ jobs:
         mv pkgconf-pkgconf-1.9.3 subprojects/pkgconf
     - name: build
       run: |
-        ./bootstrap.sh build no-pkgconf
+        CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build
         PATH="build:$PATH" build/muon-bootstrap -v setup build
         build/muon-bootstrap -C build samu
     - name: test
