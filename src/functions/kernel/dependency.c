@@ -1493,7 +1493,7 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 
 	enum obj_type t = get_obj_type(wk, val);
 
-	obj_lprintf(wk, "link_with: %o\n", val);
+	/* obj_lprintf(wk, "link_with: %o\n", val); */
 
 	obj dest_link_with;
 
