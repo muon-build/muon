@@ -40,19 +40,40 @@ ret:
 	return ret;
 }
 
-static void
-cmd_subprojects_args_to_list(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+static bool
+cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[], const char *cmd, obj extra_args)
 {
-	obj res = 0;
-	res = make_obj(wk, obj_array);
+	obj cmd_args = make_obj(wk, obj_array);
 
 	if (argc > argi) {
+		obj list = make_obj(wk, obj_array);
 		for (; argc > argi; ++argi) {
-			obj_array_push(wk, res, make_str(wk, argv[argi]));
+			obj_array_push(wk, list, make_str(wk, argv[argi]));
 		}
+
+		TSTR(list_str);
+		obj_to_s(wk, list, &list_str);
+		obj_array_push(wk, cmd_args, tstr_into_str(wk, &list_str));
 	}
 
-	wk->vm.behavior.assign_variable(wk, "argv", res, 0, assign_local);
+	if (extra_args) {
+		obj_array_extend(wk, cmd_args, extra_args);
+	}
+
+	obj joined;
+	obj_array_join(wk, false, cmd_args, make_str(wk, ", "), &joined);
+
+	char snippet[512];
+	snprintf(
+			snippet,
+			sizeof(snippet),
+			"import('subprojects').%s(%s)",
+			cmd,
+			get_str(wk, joined)->s
+	);
+
+	obj res;
+	return eval_str(wk, snippet, eval_mode_repl, &res);
 }
 
 static bool
@@ -64,10 +85,7 @@ cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const arg
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	cmd_subprojects_args_to_list(wk, argc, argi, argv);
-
-	obj res;
-	return eval_str(wk, "import('subprojects').update(argv)", eval_mode_repl, &res);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0);
 }
 
 static bool
@@ -79,10 +97,10 @@ cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	cmd_subprojects_args_to_list(wk, argc, argi, argv);
+	obj extra_args = make_obj(wk, obj_array);
+	obj_array_push(wk, extra_args, make_str(wk, "print: true"));
 
-	obj res;
-	return eval_str(wk, "import('subprojects').list(argv, print: true)", eval_mode_repl, &res);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "list", extra_args);
 }
 
 static bool
@@ -96,12 +114,12 @@ cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "  -f - force the operation\n", NULL, -1)
 
-	cmd_subprojects_args_to_list(wk, argc, argi, argv);
-
 	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
 
-	obj res;
-	return eval_str(wk, "import('subprojects').clean(argv, force: force)", eval_mode_repl, &res);
+	obj extra_args = make_obj(wk, obj_array);
+	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
+
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args);
 }
 
 struct cmd_subprojects_ctx {

@@ -56,7 +56,7 @@ subprojects_foreach_iter(void *_ctx, const char *name)
 bool
 subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ctx *usr_ctx, subprojects_foreach_cb cb)
 {
-	if (list && get_obj_array(wk, list)->len) {
+	if (list) {
 		bool res = true;
 		TSTR_manual(wrap_file);
 
