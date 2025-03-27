@@ -6,6 +6,11 @@ dep_sources = [
     files('tinyjson.c'),
 ]
 
+dependency_kwargs = {}
+if get_option('static')
+    dependency_kwargs = {'static': true}
+endif
+
 dep_dict = {}
 
 foreach d : [
@@ -13,12 +18,8 @@ foreach d : [
     ['libarchive'],
 ]
     name = d[0]
-    kwargs = d.get(1, {})
-    if get_option('static')
-        kwargs += {'static': true}
-    endif
 
-    dep = dependency(name, required: get_option(name), kwargs: kwargs)
+    dep = dependency(name, required: get_option(name), kwargs: dependency_kwargs)
 
     summary(name, dep.found())
 
@@ -48,6 +49,7 @@ else
             'tests': false,
             'warning_level': '1',
         },
+        kwargs: dependency_kwargs,
     )
 
     if dep_libpkgconf.found()
@@ -86,7 +88,10 @@ endif
 readline_opt = get_option('readline')
 dep_sources += files(f'readline_@readline_opt@.c')
 if readline_opt != 'builtin'
-    dep = dependency(readline_opt)
+    dep = dependency(
+        readline_opt,
+        kwargs: dependency_kwargs,
+    )
     summary(readline_opt, dep.found())
     dep_dict += {name: dep.found()}
     external_deps += [dep]
