@@ -238,7 +238,7 @@ case "$runner" in
 		branch_name="$GIT_REF"
 		;;
 	"cirrus-ci")
-		branch_name="$CIRRUS_BRANCH"
+		branch_name="refs/heads/$CIRRUS_BRANCH"
 		;;
 	*)
 		branch_name="$(git rev-parse --abbrev-ref @)"
