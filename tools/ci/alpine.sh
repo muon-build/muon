@@ -4,9 +4,19 @@
 
 set -eu
 
+die_()
+{
+	printf "error: %s\n" "$@" >&2
+	exit 1
+}
+
 sudo_()
 {
-	sudo "$@"
+	if [ "$cfg_sudo" ]; then
+		sudo "$@"
+	else
+		"$@"
+	fi
 }
 
 ################################################################################
@@ -37,6 +47,9 @@ setup_repositories_()
 install_packages_()
 {
 	packages=""
+
+	queue_package_ build-base
+	queue_package_ openssh
 
 	queue_package_ curl-dev
 	queue_package_ libarchive-dev
@@ -177,28 +190,37 @@ step_prepare_release_()
 	tools/ci/prepare_binary.sh build "$version-$arch-linux"
 	tools/ci/prepare_binary.sh build-small "$version-$arch-linux-small"
 
-	if [ "$cfg_release_all" ]; then
+	if [ "$cfg_website" ]; then
 		tools/ci/prepare_release_docs.sh "build"
-		tools/ci/prepare_tarball.sh "muon-$version"
 	fi
+
+	tools/ci/prepare_tarball.sh "muon-$version"
 }
 
 step_deploy_artifacts_()
 {
 	tools/ci/deploy.sh "/releases/$version" \
 		"build/muon-$version-$arch-linux" \
-		"build-small/muon-$version-$arch-linux-small"
+		"build-small/muon-$version-$arch-linux-small" \
+		"muon-$version.tar.gz"
 
-	if [ "$cfg_release_all" ]; then
-		tools/ci/deploy.sh "/releases/$version" -r --delete build/doc/docs
-		tools/ci/deploy.sh "/releases/$version" "muon-$version.tar.gz"
-	fi
+	tools/ci/deploy.sh "/releases/$version" -r --delete build/doc/docs
+	tools/ci/deploy.sh "/releases/$version"
 }
 
 step_deploy_website_()
 {
 	tools/ci/deploy.sh / -r --delete build/doc/website
 	tools/ci/deploy.sh / -r --delete build/doc/book
+}
+
+step_copy_container_results_()
+{
+	cp \
+		"build/version.sh" \
+		"build/muon-$version-$arch-linux" \
+		"build-small/muon-$version-$arch-linux-small" \
+		"/home/output"
 }
 
 ################################################################################
@@ -220,45 +242,77 @@ run_steps_()
 	done
 }
 
-alpine_version="3.31"
+container_()
+{
+	rm -rf "build-docker"
+
+	exec docker run \
+		--rm \
+		-i \
+		-e "MUON_RUNNER_CONTAINER=1" \
+		-v "$PWD:/home/muon-src:ro" \
+		-v "$PWD/build-docker:/home/output" \
+		-w "/home/muon" \
+		"alpine:$alpine_version" \
+		"/home/muon-src/tools/ci/alpine.sh"
+}
+
+alpine_version="3.21"
 
 version=""
 arch="$(arch)"
-runner="local"
+runner=""
 branch_name=""
+
+cfg_sudo=""
+cfg_tcc=""
+cfg_clang=""
+cfg_website=""
+cfg_reuse=""
+cfg_git_mirror=""
+cfg_trigger_solaris_ci=""
+cfg_deploy=""
 
 if [ "${JOB_ID:-}" ]; then
 	runner="builds.sr.ht"
-elif [ "${CIRRUS_CI:-}" ]; then
-	runner="cirrus-ci"
+
+	cfg_sudo=1
+	cfg_tcc=1
+	cfg_clang=1
+	cfg_website=1
+	cfg_reuse=1
+	cfg_git_mirror=1
+	cfg_trigger_solaris_ci=1
+	cfg_deploy=1
+elif [ "${MUON_RUNNER_CONTAINER:-}" ]; then
+	runner="container"
+
+	apk add git
+	git clone '../muon-src' .
 fi
 
-case "$runner" in
-	"builds.sr.ht")
-		branch_name="$GIT_REF"
-		;;
-	"cirrus-ci")
-		branch_name="refs/heads/$CIRRUS_BRANCH"
-		;;
-	*)
-		branch_name="$(git rev-parse --abbrev-ref @)"
-		;;
-esac
+if [ $# -ge 1 ]; then
+	while getopts "hc" opt; do
+		case "$opt" in
+			h) usage_
+				;;
+			c) container_
+				;;
+			?) die "invalid option"
+				;;
+		esac
+	done
 
-cfg_default=""
+	shift $((OPTIND-1))
+fi
+
 if [ "$runner" = "builds.sr.ht" ]; then
-	cfg_default="1"
+	branch_name="$GIT_REF"
+else
+	branch_name="refs/heads/$(git rev-parse --abbrev-ref @)"
 fi
 
-cfg_tcc="$cfg_default"
-cfg_clang="$cfg_default"
-cfg_website="$cfg_default"
-cfg_reuse="$cfg_default"
-cfg_git_mirror="$cfg_default"
-cfg_trigger_solaris_ci="$cfg_default"
-cfg_release_all="$cfg_default"
-
-printf "runner: %s\n" "$runner"
+printf "\033[34mrunner: %s, arch: %s, branch_name: %s\033[0m\n" "$runner" "$arch" "$branch_name"
 
 setup_repositories_
 install_packages_
@@ -312,14 +366,19 @@ fi
 
 queue_step_ "prepare_release"
 
-# only allow master and release branches through
-if tools/ci/ref_is_release_branch.sh "$branch_name"; then :
-	queue_step_ "deploy_artifacts"
+if [ "$cfg_deploy" ]; then
+	# only allow master and release branches through
+	if tools/ci/ref_is_release_branch.sh "$branch_name"; then :
+		queue_step_ "deploy_artifacts"
+	fi
+
+	if [ "$cfg_website" ] && [ "$branch_name" = "refs/heads/master" ]; then :
+		queue_step_ "deploy_website"
+	fi
 fi
 
-if [ "$branch_name" = "refs/heads/master" ]; then :
-	queue_step_ "deploy_website"
+if [ "$runner" = "container" ]; then
+	queue_step_ "copy_container_results"
 fi
 
 run_steps_ $steps
-
