@@ -261,6 +261,9 @@ alpine_version="3.21"
 
 version=""
 arch="$(arch)"
+if [ "$arch" = "x86_64" ]; then
+	arch=amd64
+fi
 runner=""
 branch_name=""
 
