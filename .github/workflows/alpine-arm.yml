@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: alpine-arm
+
+on:
+  push:
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  alpine-arm:
+    runs-on: ubuntu-24.04-arm
+    environment: master
+    steps:
+    - uses: actions/checkout@v3
+    - name: build
+      run: |
+        tools/ci/alpine.sh -c
+    - name: upload-binaries
+      env:
+        GH_DEPLOY: 1
+      run: |
+        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
+        chmod 600 ~/.ssh/deploy
+        cat >> ~/.ssh/config <<EOF
+        Host mochiro.moe
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+        EOF
+        . "build-docker/version.sh"
+        tools/ci/deploy.sh "/releases/$version" \
+          "build-docker/muon-$version-aarch64-linux" \
+          "build-docker/muon-$version-aarch64-linux-small"
+      if: github.event_name != 'pull_request'
