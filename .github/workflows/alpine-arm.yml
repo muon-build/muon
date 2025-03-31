@@ -28,6 +28,7 @@ jobs:
       env:
         GH_DEPLOY: 1
       run: |
+        mkdir -p ~/.ssh
         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
         chmod 600 ~/.ssh/deploy
         cat >> ~/.ssh/config <<EOF
