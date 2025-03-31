@@ -275,6 +275,7 @@ cfg_deploy=""
 
 if [ "${JOB_ID:-}" ]; then
 	runner="builds.sr.ht"
+	branch_name="$GIT_REF"
 
 	cfg_sudo=1
 	cfg_tcc=1
@@ -286,9 +287,12 @@ if [ "${JOB_ID:-}" ]; then
 	cfg_deploy=1
 elif [ "${MUON_RUNNER_CONTAINER:-}" ]; then
 	runner="container"
+	branch_name=""
 
 	apk add git
-	git clone '../muon-src' .
+	git config --global --add safe.directory /home/muon/../muon-src/.git
+	git config --global init.defaultBranch master
+	git clone ../muon-src .
 fi
 
 if [ $# -ge 1 ]; then
@@ -304,12 +308,6 @@ if [ $# -ge 1 ]; then
 	done
 
 	shift $((OPTIND-1))
-fi
-
-if [ "$runner" = "builds.sr.ht" ]; then
-	branch_name="$GIT_REF"
-else
-	branch_name="refs/heads/$(git rev-parse --abbrev-ref @)"
 fi
 
 printf "\033[34mrunner: %s, arch: %s, branch_name: %s\033[0m\n" "$runner" "$arch" "$branch_name"
