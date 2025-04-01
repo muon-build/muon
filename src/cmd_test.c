@@ -963,7 +963,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	if (get_obj_array(wk, ctx->deps)->len && !ctx->opts->no_rebuild) {
 		obj ninja_cmd;
 		obj_array_dedup(wk, ctx->deps, &ninja_cmd);
-		if (!ninja_run(wk, ninja_cmd, NULL, NULL)) {
+		if (!ninja_run(wk, ninja_cmd, NULL, NULL, 0)) {
 			LOG_W("failed to run ninja");
 		}
 	}
@@ -1181,7 +1181,7 @@ tests_run(struct test_options *opts, const char *argv0)
 		obj ninja_cmd;
 		ninja_cmd = make_obj(&wk, obj_array);
 		obj_array_push(&wk, ninja_cmd, make_str(&wk, "build.ninja"));
-		ninja_run(&wk, ninja_cmd, NULL, NULL);
+		ninja_run(&wk, ninja_cmd, NULL, NULL, 0);
 	}
 
 	{

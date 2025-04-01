@@ -161,6 +161,21 @@ ninja_write_all(struct workspace *wk)
 
 	obj_array_pop(wk, wk->backend_output_stack);
 
+	{
+		TSTR(ninja_log);
+		path_join(wk, &ninja_log, wk->build_root, output_path.private_dir);
+		path_push(wk, &ninja_log, ".ninja_log");
+
+		if (fs_file_exists(ninja_log.buf)) {
+			obj args = make_obj(wk, obj_array);
+			obj_array_push(wk, args, make_str(wk, "-t"));
+			obj_array_push(wk, args, make_str(wk, "restat"));
+			obj_array_push(wk, args, make_str(wk, "build.ninja"));
+
+			ninja_run(wk, args, wk->build_root, 0, ninja_run_flag_ignore_errors | ninja_run_flag_prefer_ninja);
+		}
+	}
+
 	{ /* compile_commands.json */
 		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);
 
@@ -171,7 +186,7 @@ ninja_write_all(struct workspace *wk)
 		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
 		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
 		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
-		if (!ninja_run(wk, compdb_args, wk->build_root, "compile_commands.json")) {
+		if (!ninja_run(wk, compdb_args, wk->build_root, "compile_commands.json", 0)) {
 			LOG_E("error writing compile_commands.json");
 		}
 
@@ -182,7 +197,7 @@ ninja_write_all(struct workspace *wk)
 }
 
 bool
-ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture)
+ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture, enum ninja_run_flag flags)
 {
 	const char *argstr;
 	uint32_t argstr_argc;
@@ -200,7 +215,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 	}
 
-	if (have_samurai) {
+	if (have_samurai && !(flags & ninja_run_flag_prefer_ninja)) {
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
@@ -224,25 +239,12 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		TSTR_manual(cmd);
 		const char *prepend = NULL;
 
-		obj ninja_opt_id;
-		if (!get_option(wk, NULL, &STR("env.NINJA"), &ninja_opt_id)) {
-			UNREACHABLE;
-		}
-		const struct obj_option *ninja_opt = get_obj_option(wk, ninja_opt_id);
+		obj cmd_arr;
+		{
+			obj ninja_opt;
+			get_option_value(wk, NULL, "env.NINJA", &ninja_opt);
 
-		if (ninja_opt->source == option_value_source_default && have_samurai) {
-			obj cmd_arr;
-			cmd_arr = make_obj(wk, obj_array);
-			obj_array_push(wk, cmd_arr, make_str(wk, wk->argv0));
-			obj_array_push(wk, cmd_arr, make_str(wk, "samu"));
-			obj_array_extend_nodup(wk, cmd_arr, args);
-			args = cmd_arr;
-		} else if (ninja_opt->source == option_value_source_default
-			   && (fs_find_cmd(NULL, &cmd, "samu") || fs_find_cmd(NULL, &cmd, "ninja"))) {
-			prepend = cmd.buf;
-		} else {
-			obj cmd_arr;
-			obj_array_dup(wk, ninja_opt->val, &cmd_arr);
+			obj_array_dup(wk, ninja_opt, &cmd_arr);
 			obj_array_extend_nodup(wk, cmd_arr, args);
 			args = cmd_arr;
 		}
@@ -250,12 +252,14 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, prepend, &argv);
 
-		if (!capture) {
+		if (!capture && !(flags & ninja_run_flag_ignore_errors)) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
 
 		if (!run_cmd_argv(&cmd_ctx, argv, NULL, 0)) {
-			LOG_E("%s", cmd_ctx.err_msg);
+			if (!(flags & ninja_run_flag_ignore_errors)) {
+				LOG_E("%s", cmd_ctx.err_msg);
+			}
 			goto run_cmd_done;
 		}
 

@@ -641,7 +641,7 @@ translate_meson_opts_compile(struct workspace *wk, char *argv[], uint32_t argc, 
 
 	LO("ninja args: %o\n", ctx->argv);
 
-	if (!ninja_run(wk, ctx->argv, ctx->compile_chdir, 0)) {
+	if (!ninja_run(wk, ctx->argv, ctx->compile_chdir, 0, 0)) {
 		exit(1);
 	}
 
