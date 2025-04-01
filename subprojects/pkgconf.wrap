@@ -5,6 +5,7 @@
 url = https://github.com/pkgconf/pkgconf
 ; 2.4.3
 revision = 1d37e711cefe83e6b5393b424af4c94da4e7e9d3
+patch_directory = pkgconf
 depth = 1
 
 [provide]

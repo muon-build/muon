@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+subprojects/glad
+subprojects/glfw3
+subprojects/imgui
+subprojects/meson-docs
+subprojects/meson-tests
+subprojects/pkgconf
+subprojects/tracy
