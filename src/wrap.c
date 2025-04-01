@@ -297,18 +297,39 @@ ret:
 	return res;
 }
 
+static void
+wrap_copy_packagefiles_file_cb(void *_ctx, const char *src, const char *dest)
+{
+	struct workspace *wk = _ctx;
+	obj_array_push(wk, wk->regenerate_deps, make_str(wk, src));
+}
+
 static bool
-wrap_download_or_check_packagefiles(const char *filename,
+wrap_copy_packagefiles_dir(struct workspace *wk, const char *src_base, const char *dest_base)
+{
+	struct fs_copy_dir_ctx ctx = {
+		.file_cb = wrap_copy_packagefiles_file_cb,
+		.usr_ctx = wk,
+		.src_base = src_base,
+		.dest_base = dest_base,
+		.force = true,
+	};
+
+	return fs_copy_dir_ctx(&ctx);
+}
+
+static bool
+wrap_download_or_check_packagefiles(struct workspace *wk,
+	const char *filename,
 	const char *url,
 	const char *hash,
 	const char *dest_dir,
 	struct wrap_opts *opts)
 {
-	bool res = false;
-	TSTR_manual(source_path);
+	TSTR(source_path);
 
-	path_join(NULL, &source_path, opts->subprojects, "packagefiles");
-	path_push(NULL, &source_path, filename);
+	path_join(wk, &source_path, opts->subprojects, "packagefiles");
+	path_push(wk, &source_path, filename);
 
 	if (fs_file_exists(source_path.buf)) {
 		if (!hash) {
@@ -321,40 +342,34 @@ wrap_download_or_check_packagefiles(const char *filename,
 
 		struct source src = { 0 };
 		if (!fs_read_entire_file(source_path.buf, &src)) {
-			goto ret;
+			return false;
 		}
 
 		if (!checksum_extract(src.src, src.len, hash, dest_dir)) {
 			fs_source_destroy(&src);
-			goto ret;
+			return false;
 		}
 
 		fs_source_destroy(&src);
-
-		res = true;
 	} else if (fs_dir_exists(source_path.buf)) {
 		if (url) {
 			LOG_W("url specified, but local directory '%s' is being used", source_path.buf);
 		}
 
-		if (!fs_copy_dir(source_path.buf, dest_dir, true)) {
-			goto ret;
+		if (!wrap_copy_packagefiles_dir(wk, source_path.buf, dest_dir)) {
+			return false;
 		}
-
-		res = true;
 	} else if (url) {
 		if (!opts->allow_download) {
 			LOG_E("wrap downloading is disabled");
-			goto ret;
+			return false;
 		}
-		res = fetch_checksum_extract(url, filename, hash, dest_dir);
+		return fetch_checksum_extract(url, filename, hash, dest_dir);
 	} else {
 		LOG_E("no url specified, but '%s' is not a file or directory", source_path.buf);
 	}
 
-ret:
-	tstr_destroy(&source_path);
-	return res;
+	return true;
 }
 
 static bool
@@ -573,7 +588,7 @@ ret:
 }
 
 static bool
-wrap_apply_patch(struct wrap *wrap, struct wrap_opts *opts)
+wrap_apply_patch(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
 {
 	const char *dest_dir, *filename = NULL;
 	if (wrap->fields[wf_patch_directory]) {
@@ -585,7 +600,7 @@ wrap_apply_patch(struct wrap *wrap, struct wrap_opts *opts)
 	}
 
 	if (filename) {
-		if (!wrap_download_or_check_packagefiles(
+		if (!wrap_download_or_check_packagefiles(wk,
 			    filename, wrap->fields[wf_patch_url], wrap->fields[wf_patch_hash], dest_dir, opts)) {
 			return false;
 		}
@@ -601,7 +616,7 @@ wrap_apply_patch(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 static bool
-wrap_handle_file(struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_file(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
 {
 	const char *dest;
 
@@ -619,7 +634,7 @@ wrap_handle_file(struct wrap *wrap, struct wrap_opts *opts)
 		return false;
 	}
 
-	return wrap_download_or_check_packagefiles(
+	return wrap_download_or_check_packagefiles(wk,
 		wrap->fields[wf_source_filename], wrap->fields[wf_source_url], wrap->fields[wf_source_hash], dest, opts);
 }
 
@@ -760,7 +775,7 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 static bool
-wrap_handle_default(struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_default(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
 {
 	bool new_content = false;
 
@@ -769,7 +784,7 @@ wrap_handle_default(struct wrap *wrap, struct wrap_opts *opts)
 		if (!fs_dir_exists(wrap->dest_dir.buf) || opts->force_update) {
 			new_content = true;
 
-			if (!wrap_handle_file(wrap, opts)) {
+			if (!wrap_handle_file(wk, wrap, opts)) {
 				return false;
 			}
 		}
@@ -791,7 +806,7 @@ wrap_handle_default(struct wrap *wrap, struct wrap_opts *opts)
 	}
 
 	if (new_content || wrap->fields[wf_patch_directory]) {
-		if (!wrap_apply_patch(wrap, opts)) {
+		if (!wrap_apply_patch(wk, wrap, opts)) {
 			return false;
 		}
 	}
@@ -818,7 +833,7 @@ wrap_handle_check_dirty(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 static bool
-wrap_handle_update(struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_update(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
 {
 	if (!wrap_handle_check_dirty(wrap, opts)) {
 		return false;
@@ -836,19 +851,19 @@ wrap_handle_update(struct wrap *wrap, struct wrap_opts *opts)
 	LOG_I("updating %s", wrap->dest_dir.buf);
 
 	opts->force_update = true;
-	return wrap_handle_default(wrap, opts);
+	return wrap_handle_default(wk, wrap, opts);
 }
 
 bool
-wrap_handle(const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts)
 {
 	if (!wrap_parse(wrap_file, wrap)) {
 		return false;
 	}
 
 	switch (opts->mode) {
-	case wrap_handle_mode_default: return wrap_handle_default(wrap, opts);
-	case wrap_handle_mode_update: return wrap_handle_update(wrap, opts);
+	case wrap_handle_mode_default: return wrap_handle_default(wk, wrap, opts);
+	case wrap_handle_mode_update: return wrap_handle_update(wk, wrap, opts);
 	case wrap_handle_mode_check_dirty: return wrap_handle_check_dirty(wrap, opts);
 	}
 

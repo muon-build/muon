@@ -406,12 +406,7 @@ fs_make_writeable_if_exists(const char *path)
 	return true;
 }
 
-struct fs_copy_dir_ctx {
-	const char *src_base, *dest_base;
-	bool force;
-};
-
-static enum iteration_result
+enum iteration_result
 fs_copy_dir_iter(void *_ctx, const char *path)
 {
 	enum iteration_result res = ir_err;
@@ -432,10 +427,17 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 			goto ret;
 		}
 
-		if (!fs_copy_dir(src.buf, dest.buf, ctx->force)) {
+		struct fs_copy_dir_ctx sub_ctx = *ctx;
+		sub_ctx.src_base = src.buf;
+		sub_ctx.dest_base = dest.buf;
+		if (!fs_copy_dir_ctx(&sub_ctx)) {
 			goto ret;
 		}
 	} else if (S_ISREG(sb.st_mode)) {
+		if (ctx->file_cb) {
+			ctx->file_cb(ctx->usr_ctx, src.buf, dest.buf);
+		}
+
 		if (!fs_copy_file(src.buf, dest.buf, ctx->force)) {
 			goto ret;
 		}
@@ -452,6 +454,16 @@ ret:
 }
 
 bool
+fs_copy_dir_ctx(struct fs_copy_dir_ctx *ctx)
+{
+	if (!fs_mkdir(ctx->dest_base, true)) {
+		return ir_err;
+	}
+
+	return fs_dir_foreach(ctx->src_base, ctx, fs_copy_dir_iter);
+}
+
+bool
 fs_copy_dir(const char *src_base, const char *dest_base, bool force)
 {
 	struct fs_copy_dir_ctx ctx = {
@@ -460,11 +472,7 @@ fs_copy_dir(const char *src_base, const char *dest_base, bool force)
 		.force = force,
 	};
 
-	if (!fs_mkdir(dest_base, true)) {
-		return ir_err;
-	}
-
-	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);
+	return fs_copy_dir_ctx(&ctx);
 }
 
 struct fs_rmdir_ctx {

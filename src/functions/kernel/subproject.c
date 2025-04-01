@@ -40,7 +40,7 @@ subproject_prepare(struct workspace *wk,
 			.allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
 			.subprojects = base_path.buf,
 		};
-		if (!wrap_handle(wrap_path.buf, &wrap, &wrap_opts)) {
+		if (!wrap_handle(wk, wrap_path.buf, &wrap, &wrap_opts)) {
 			goto wrap_cleanup;
 		}
 

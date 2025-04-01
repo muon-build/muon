@@ -102,7 +102,7 @@ func_subprojects_update_iter(struct workspace *wk, struct subprojects_common_ctx
 		.subprojects = subprojects_dir(wk),
 		.mode = wrap_handle_mode_update,
 	};
-	bool ok = wrap_handle(path, &wrap, &wrap_opts);
+	bool ok = wrap_handle(wk, path, &wrap, &wrap_opts);
 
 	obj_array_push(wk, *ctx->res, make_str(wk, wrap.name.buf));
 
@@ -147,7 +147,7 @@ subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, 
 		.subprojects = subprojects_dir(wk),
 		.mode = wrap_handle_mode_check_dirty,
 	};
-	if (!wrap_handle(path, &wrap, &wrap_opts)) {
+	if (!wrap_handle(wk, path, &wrap, &wrap_opts)) {
 		goto cont;
 	}
 
