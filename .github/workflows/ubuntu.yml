@@ -25,7 +25,7 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          PATH="build:$PATH" build/muon-bootstrap -v setup build
+          build/muon-bootstrap -v setup build
           build/muon-bootstrap -C build samu
 
       # Build muon with ASan and UBSan and run the testsuite.
@@ -48,13 +48,10 @@ jobs:
           cd build_fortify_source
           ./muon test -d dots
 
-  # Build muon with libpkgconf and run the testsuite. These steps exist
-  # due to the version of libpkgconf-dev that is currently packaged by Debian
-  # (1.8.1) containing a number of memory leaks that, if run with the sanitizers
-  # enabled, will cause a number of test failures. So we build without them
-  # enabled in this case.
-  # TODO: when Debian updates its libpkgconf-dev package, investigate whether
-  # this is still necessary.
+  # Build muon with libpkgconf and run the testsuite.
+  #
+  # Muon with libpkgconf requires version >= 1.9.0 which is newer than what is
+  # packaged by Debian so it will be fetched via a wrap.
   with-libpkgconf:
     runs-on: ubuntu-latest
     env:
@@ -67,21 +64,15 @@ jobs:
       # Required for gnome module tests.
       - name: Install dependencies
         run: |
-          sudo apt install libpkgconf-dev libglib2.0-0 libglib2.0-dev libgirepository1.0-dev
+          sudo apt install libglib2.0-0 libglib2.0-dev libgirepository1.0-dev
 
       # Bootstrap basic build.
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          PATH="build:$PATH" build/muon-bootstrap -v setup build
+          build/muon-bootstrap -v setup -Dpkgconfig=libpkgconf build
           build/muon-bootstrap -C build samu
 
-      # Build and run testsuite.
-      - name: build_with_libpkgconf
-        run: |
-          build/muon setup -Dlibpkgconf=enabled build_with_libpkgconf
-          build/muon -C build_with_libpkgconf samu
       - name: test_with_libpkgconf
         run: |
-          cd build_with_libpkgconf
-          ./muon test -d dots
+          build/muon -C build test -d dots
