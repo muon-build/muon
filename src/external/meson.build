@@ -45,7 +45,7 @@ else
         'libpkgconf',
         required: is_auto != true,
         default_options: {
-            'tests': false,
+            'tests': 'disabled',
             'warning_level': '1',
         },
         kwargs: dependency_kwargs,
