@@ -44,7 +44,6 @@ else
     dep_libpkgconf = dependency(
         'libpkgconf',
         required: is_auto != true,
-        fallback: ['pkgconf', 'dep_libpkgconf'],
         default_options: {
             'tests': false,
             'warning_level': '1',
