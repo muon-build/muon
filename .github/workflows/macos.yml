@@ -21,18 +21,10 @@ jobs:
     environment: master
     steps:
     - uses: actions/checkout@v3
-    - name: deps
-      run: |
-        set -x
-        mkdir -p build
-        arch
-        curl -L -o build/pkgconf-1.9.3.tar.gz https://github.com/pkgconf/pkgconf/archive/refs/tags/pkgconf-1.9.3.tar.gz
-        tar xvf build/pkgconf-1.9.3.tar.gz
-        mv pkgconf-pkgconf-1.9.3 subprojects/pkgconf
     - name: build
       run: |
         CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build
-        PATH="build:$PATH" build/muon-bootstrap -v setup build
+        build/muon-bootstrap -v setup build
         build/muon-bootstrap -C build samu
     - name: test
       run: |
@@ -41,7 +33,7 @@ jobs:
       run: |
         arch -x86_64 sh -c "
           CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build-x86_64 &&\
-          PATH=\"build-x86_64:$PATH\" build-x86_64/muon-bootstrap -v setup build-x86_64 &&\
+          build-x86_64/muon-bootstrap -v setup build-x86_64 &&\
           build-x86_64/muon-bootstrap -C build-x86_64 samu\
         "
     - name: build-universal-binary
