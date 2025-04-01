@@ -14,6 +14,7 @@
 #include "external/pkgconfig.h"
 #include "functions/compiler.h"
 #include "lang/object.h"
+#include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
@@ -23,21 +24,15 @@
 const bool have_libpkgconf = true;
 const bool have_pkgconfig_exec = false;
 
-static struct {
+static const uint32_t libpkgconf_maxdepth = 256;
+
+struct pkgconf_client {
 	pkgconf_client_t client;
 	pkgconf_cross_personality_t *personality;
-	const int maxdepth;
-	bool init;
-} pkgconf_ctx = {
-	.maxdepth = 200,
 };
 
 static bool
-#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 10900
 error_handler(const char *msg, const pkgconf_client_t *client, void *data)
-#else
-error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
-#endif
 {
 	if (log_should_print(log_debug)) {
 		LL("libpkgconf: %s", msg);
@@ -46,16 +41,10 @@ error_handler(const char *msg, const pkgconf_client_t *client, const void *data)
 }
 
 static bool
-muon_pkgconf_init(struct workspace *wk)
+muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 {
-	// HACK: TODO: libpkgconf breaks if you try use it after deiniting a
-	// client.  Also there are memory leaks abound.
-	if (pkgconf_ctx.init) {
-		return true;
-	}
-
-	pkgconf_ctx.personality = pkgconf_cross_personality_default();
-	pkgconf_client_init(&pkgconf_ctx.client, error_handler, NULL, pkgconf_ctx.personality);
+	c->personality = pkgconf_cross_personality_default();
+	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
 
 	obj opt;
 	get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
@@ -70,7 +59,7 @@ muon_pkgconf_init(struct workspace *wk)
 #endif
 
 	if (pkg_config_path->len) {
-		pkgconf_path_split(pkg_config_path->s, &pkgconf_ctx.client.dir_list, true);
+		pkgconf_path_split(pkg_config_path->s, &c->client.dir_list, true);
 	} else {
 		// pkgconf_client_dir_list_build uses PKG_CONFIG_PATH and
 		// PKG_CONFIG_LIBDIR from the environment, as well as the
@@ -78,24 +67,18 @@ muon_pkgconf_init(struct workspace *wk)
 		// intercept PKG_CONFIG_PATH and turn it into an option, so the
 		// above branch should always be taken if PKG_CONFIG_PATH is
 		// set.
-		pkgconf_client_dir_list_build(&pkgconf_ctx.client, pkgconf_ctx.personality);
+		pkgconf_client_dir_list_build(&c->client, c->personality);
 	}
 
-	pkgconf_ctx.init = true;
 	return true;
 }
 
-#if 0
 static void
-muon_pkgconf_deinit(void)
+muon_pkgconf_deinit(struct pkgconf_client *c)
 {
-	return;
-	pkgconf_path_free(&pkgconf_ctx.personality->dir_list);
-	pkgconf_path_free(&pkgconf_ctx.personality->filter_libdirs);
-	pkgconf_path_free(&pkgconf_ctx.personality->filter_includedirs);
-	pkgconf_client_deinit(&pkgconf_ctx.client);
+	pkgconf_cross_personality_deinit(c->personality);
+	pkgconf_client_deinit(&c->client);
 }
-#endif
 
 static const char *
 pkgconf_strerr(int err)
@@ -218,27 +201,12 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 bool
-muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
-{
-	if (!pkgconf_ctx.init) {
-		if (!muon_pkgconf_init(wk)) {
-			return false;
-		}
-	}
-
-	pkgconf_tuple_add_global(&pkgconf_ctx.client, key, value);
-
-	return true;
-}
-
-bool
 muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
 {
 	L("libpkgconf: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
-	if (!pkgconf_ctx.init) {
-		if (!muon_pkgconf_init(wk)) {
-			return false;
-		}
+	struct pkgconf_client c = { 0 };
+	if (!muon_pkgconf_init(wk, &c)) {
+		return false;
 	}
 
 	int flags = 0;
@@ -251,7 +219,7 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 		flags |= (PKGCONF_PKG_PKGF_SEARCH_PRIVATE | PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS);
 	}
 
-	pkgconf_client_set_flags(&pkgconf_ctx.client, flags);
+	pkgconf_client_set_flags(&c.client, flags);
 
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
@@ -259,7 +227,7 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 
 	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static, .compiler = compiler, };
 
-	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_modversion, pkgconf_ctx.maxdepth, &ctx)) {
+	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_modversion, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
@@ -272,25 +240,26 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 	ctx.libdirs = make_obj(wk, obj_array);
 
 	ctx.apply_func = pkgconf_pkg_libs;
-	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_and_collect, pkgconf_ctx.maxdepth, &ctx)) {
+	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_and_collect, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
 
 	// meson runs pkg-config to look for cflags,
 	// which honors Requires.private if any cflags are requested.
-	pkgconf_client_set_flags(&pkgconf_ctx.client, flags | PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
+	pkgconf_client_set_flags(&c.client, flags | PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
 
 	ctx.apply_func = pkgconf_pkg_cflags;
-	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_and_collect, pkgconf_ctx.maxdepth, &ctx)) {
+	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_and_collect, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
 
-	pkgconf_client_set_flags(&pkgconf_ctx.client, flags);
+	pkgconf_client_set_flags(&c.client, flags);
 
 ret:
 	pkgconf_queue_free(&pkgq);
+	muon_pkgconf_deinit(&c);
 	return ret;
 }
 
@@ -321,32 +290,44 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 }
 
 bool
-muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, obj *res)
+muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
 {
-	if (!pkgconf_ctx.init) {
-		if (!muon_pkgconf_init(wk)) {
-			return false;
+	struct pkgconf_client c = { 0 };
+	if (!muon_pkgconf_init(wk, &c)) {
+		return false;
+	}
+
+	pkgconf_client_set_flags(&c.client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
+
+	if (defines) {
+		obj k, v;
+		obj_dict_for(wk, defines, k, v) {
+			pkgconf_tuple_add(&c.client,
+				&c.client.global_vars,
+				get_cstr(wk, k),
+				get_cstr(wk, v),
+				false,
+				PKGCONF_PKG_TUPLEF_OVERRIDE);
 		}
 	}
 
-	pkgconf_client_set_flags(&pkgconf_ctx.client, PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
-
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
-	pkgconf_queue_push(&pkgq, pkg_name);
+	pkgconf_queue_push(&pkgq, get_cstr(wk, pkg_name));
 	bool ret = true;
 
 	struct pkgconf_get_variable_ctx ctx = {
 		.wk = wk,
 		.res = res,
-		.var = var,
+		.var = get_cstr(wk, var_name),
 	};
 
-	if (!pkgconf_queue_apply(&pkgconf_ctx.client, &pkgq, apply_variable, pkgconf_ctx.maxdepth, &ctx)) {
+	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_variable, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
 
 ret:
 	pkgconf_queue_free(&pkgq);
+	muon_pkgconf_deinit(&c);
 	return ret;
 }

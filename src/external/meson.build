@@ -50,6 +50,7 @@ else
             'warning_level': '1',
         },
         kwargs: dependency_kwargs,
+        version: '>=1.9.0',
     )
 
     if dep_libpkgconf.found()

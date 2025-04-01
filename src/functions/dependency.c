@@ -14,6 +14,7 @@
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
 #include "platform/path.h"
@@ -30,7 +31,7 @@ func_dependency_found(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
-dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var, obj *res)
+dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var, obj defines, obj *res)
 {
 	struct obj_dependency *d = get_obj_dependency(wk, dep);
 	if (d->type != dependency_type_pkgconf) {
@@ -38,7 +39,7 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 		return false;
 	}
 
-	if (!muon_pkgconf_get_variable(wk, get_cstr(wk, d->name), get_cstr(wk, var), res)) {
+	if (!muon_pkgconf_get_variable(wk, d->name, var, defines, res)) {
 		return false;
 	}
 	return true;
@@ -56,7 +57,7 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	if (!dep_get_pkgconfig_variable(wk, self, an[0].node, an[0].val, res)) {
+	if (!dep_get_pkgconfig_variable(wk, self, an[0].node, an[0].val, 0, res)) {
 		if (akw[kw_default].set) {
 			*res = akw[kw_default].val;
 		} else {
@@ -81,26 +82,24 @@ func_dependency_get_configtool_variable(struct workspace *wk, obj self, obj *res
 }
 
 static bool
-dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
+dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var, obj *res)
 {
-	struct obj_array *array = get_obj_array(wk, var);
-	uint32_t arraylen = array->len;
-	if (arraylen % 2 != 0) {
+	struct obj_array *arr = get_obj_array(wk, var);
+	if (arr->len % 2 != 0) {
 		vm_error_at(wk, node, "non-even number of arguments in list");
 		return false;
 	}
 
-	for (int64_t idx = 0; idx < arraylen; idx += 2) {
-		obj key, val;
-		key = obj_array_index(wk, var, idx);
-		val = obj_array_index(wk, var, idx + 1);
+	*res = make_obj(wk, obj_dict);
 
-		const char *ckey = get_cstr(wk, key);
-		const char *cval = get_cstr(wk, val);
-		if (!muon_pkgconf_define(wk, ckey, cval)) {
-			vm_error_at(wk, node, "error setting %s=%s", ckey, cval);
-			return false;
+	obj key = 0, val = 0;
+	obj_array_for_array_(wk, arr, val, iter) {
+		if (!(iter.i & 1)) {
+			key = val;
+			continue;
 		}
+
+		obj_dict_set(wk, *res, key, val);
 	}
 
 	return true;
@@ -143,14 +142,16 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 
 	struct obj_dependency *dep = get_obj_dependency(wk, self);
 	if (dep->type == dependency_type_pkgconf) {
+		obj defines = 0;
 		if (akw[kw_pkgconfig_define].set) {
 			if (!dep_pkgconfig_define(
-				    wk, self, akw[kw_pkgconfig_define].node, akw[kw_pkgconfig_define].val)) {
+				    wk, self, akw[kw_pkgconfig_define].node, akw[kw_pkgconfig_define].val, &defines)) {
 				return false;
 			}
 		}
+
 		if (akw[kw_pkgconfig].set) {
-			if (dep_get_pkgconfig_variable(wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res)) {
+			if (dep_get_pkgconfig_variable(wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, defines, res)) {
 				return true;
 			}
 		}

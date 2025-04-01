@@ -7,22 +7,17 @@
 
 #include <string.h>
 
+#include "args.h"
+#include "external/pkgconfig.h"
+#include "functions/compiler.h"
+#include "lang/object_iterators.h"
 #include "log.h"
-#include "buf_size.h"
 #include "options.h"
 #include "platform/os.h"
-#include "platform/mem.h"
 #include "platform/run_cmd.h"
-#include "functions/compiler.h"
-#include "external/pkgconfig.h"
 
 const bool have_libpkgconf = false;
 const bool have_pkgconfig_exec = true;
-
-static struct {
-	obj defines;
-	size_t defines_len;
-} pkgconfig_ctx = {0};
 
 struct pkgconfig_parse_ctx {
 	char *beg, *end;
@@ -99,33 +94,30 @@ pkgconfig_kill_newline(char *s)
 }
 
 static bool
-pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx,
-	char *const *args, size_t args_len)
+pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 {
-	size_t len = 0;
-	size_t argv_size = 1 + pkgconfig_ctx.defines_len + args_len + 1; // +1 exe, +1 NULL
-	char **argv = z_malloc(argv_size * sizeof *argv);
+	obj cmd = make_obj(wk, obj_array);
 
 	obj pkgconfig_exe;
 	get_option_value(wk, NULL, "env.PKG_CONFIG", &pkgconfig_exe);
-	argv[len++] = (char *)get_cstr(wk, pkgconfig_exe);
-	for (size_t i = 0; i < pkgconfig_ctx.defines_len; ++i) {
-		obj s = obj_array_index(wk, pkgconfig_ctx.defines, i);
-		argv[len++] = (char *)get_cstr(wk, s);
-	}
-	for (size_t i = 0; i < args_len; ++i) {
-		argv[len++] = args[i];
-	}
-	argv[len++] = NULL;
+	obj_array_extend(wk, cmd, pkgconfig_exe);
 
-	bool ok = run_cmd_argv(rctx, argv, 0, 0);
+	if (extra_args) {
+		obj_array_extend(wk, cmd, extra_args);
+	}
+
+	const char *argstr;
+	uint32_t argc;
+	join_args_argstr(wk, &argstr, &argc, cmd);
+
+	bool ok = run_cmd(rctx, argstr, argc, 0, 0);
 	if (!ok) {
 		LOG_E("failed to run pkg-config: %s", rctx->err_msg);
 	} else if (rctx->err.len) {
 		LOG_W("%s", pkgconfig_kill_newline(rctx->err.buf));
 		ok = false;
 	}
-	z_free(argv);
+
 	return ok;
 }
 
@@ -135,9 +127,12 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 	L("pkg-config-exec: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
 
 	{
-		char *args[] = { "--modversion", (char *)get_cstr(wk, name) };
+		obj args = make_obj(wk, obj_array);
+		obj_array_push(wk, args, make_str(wk, "--modversion"));
+		obj_array_push(wk, args, name);
+
 		struct run_cmd_ctx rctx = {0};
-		bool ok = pkgconfig_cmd(wk, &rctx, args, ARRAY_LEN(args));
+		bool ok = pkgconfig_cmd(wk, &rctx, args);
 		if (ok) {
 			strncpy(info->version, pkgconfig_kill_newline(rctx.out.buf), MAX_VERSION_LEN);
 		}
@@ -153,19 +148,18 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 	info->libs = make_obj(wk, obj_array);
 	info->not_found_libs = make_obj(wk, obj_array);
 
-	char *flag_type[] = { "--cflags", "--libs" };
+	const char *flag_type[] = { "--cflags", "--libs" };
 	obj libdirs = make_obj(wk, obj_array);
 	for (int i = 0; i < 2; ++i) {
-		size_t args_len = 0;
-		char *args[3] = {0};
-		args[args_len++] = flag_type[i];
+		obj args = make_obj(wk, obj_array);
+		obj_array_push(wk, args, make_str(wk, flag_type[i]));
 		if (is_static) {
-			args[args_len++] = "--static";
+			obj_array_push(wk, args, make_str(wk, "--static"));
 		}
-		args[args_len++] = (char *)get_cstr(wk, name);
+		obj_array_push(wk, args, name);
 
 		struct run_cmd_ctx rctx = {0};
-		bool ok = pkgconfig_cmd(wk, &rctx, args, args_len);
+		bool ok = pkgconfig_cmd(wk, &rctx, args);
 		if (!ok) {
 			goto cleanup;
 		}
@@ -227,30 +221,25 @@ cleanup:
 }
 
 bool
-muon_pkgconf_get_variable(struct workspace *wk, const char *pkg_name, const char *var, obj *res)
+muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
 {
-	char *args[] = { "--variable", (char *)var, (char *)pkg_name };
+	obj args = make_obj(wk, obj_array);
+	obj_array_push(wk, args, make_str(wk, "--variable"));
+	obj_array_push(wk, args, var_name);
+	obj_array_push(wk, args, pkg_name);
+
+	if (defines) {
+		obj k, v;
+		obj_dict_for(wk, defines, k, v) {
+			obj_array_push(wk, args, make_strf(wk, "--define-variable=%s=%s", get_cstr(wk, k), get_cstr(wk, v)));
+		}
+	}
+
 	struct run_cmd_ctx rctx = {0};
-	bool ok = pkgconfig_cmd(wk, &rctx, args, ARRAY_LEN(args));
+	bool ok = pkgconfig_cmd(wk, &rctx, args);
 	if (ok) {
 		*res = make_str(wk, pkgconfig_kill_newline(rctx.out.buf));
 	}
 	run_cmd_ctx_destroy(&rctx);
 	return ok;
-}
-
-bool
-muon_pkgconf_define(struct workspace *wk, const char *key, const char *value)
-{
-	if (pkgconfig_ctx.defines == 0) {
-		pkgconfig_ctx.defines = make_obj(wk, obj_array);
-	}
-	struct tstr arg = {0};
-	tstr_pushs(wk, &arg, "--define-variable=");
-	tstr_pushs(wk, &arg, key);
-	tstr_pushs(wk, &arg, "=");
-	tstr_pushs(wk, &arg, value);
-	obj_array_push(wk, pkgconfig_ctx.defines, make_str(wk, arg.buf));
-	++pkgconfig_ctx.defines_len;
-	return true;
 }

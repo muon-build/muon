@@ -21,7 +21,7 @@ elif command -v pkg-config >/dev/null; then
 	pkgconf_cmd=pkg-config
 fi
 
-if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd libpkgconf; then
+if [ -n "$pkgconf_cmd" ] && $pkgconf_cmd --atleast-version 1.9.0 libpkgconf; then
 	pkgconf_cflags="$($pkgconf_cmd --cflags libpkgconf) -DBOOTSTRAP_HAVE_LIBPKGCONF"
 	pkgconf_libs="$($pkgconf_cmd --keep-system-libs --libs libpkgconf)"
 else
