@@ -356,6 +356,7 @@ parse_advance(struct parser *p)
 		if (p->previous.type != token_type_eol) {
 			// simulate a eol at the end of the file even if we
 			// didn't get one
+			p->current.location.len = 0;
 			p->current.type = token_type_eol;
 		}
 	}

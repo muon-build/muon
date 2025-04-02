@@ -287,7 +287,7 @@ get_detailed_source_location(const struct source *src,
 		}
 
 		if (src->src[i] == '\n') {
-			if (i + 1 == loc.off && loc.len == 1) {
+			if (i + 1 == loc.off && loc.len == 0) {
 				dloc->end_col = dloc->col = (i - dloc->start_of_line) + 1;
 				dloc->line = line;
 				return;
@@ -485,7 +485,7 @@ error_message(const struct source *src,
 	}
 
 	if (error_diagnostic_store.init) {
-		if (src->len == 0 && src->src == 0) {
+		if (!src || (src->len == 0 && src->src == 0)) {
 			// Skip messages generated for code regions with no
 			// sources
 			return;
@@ -505,12 +505,14 @@ error_message(const struct source *src,
 
 	bool destroy_source = false;
 	struct source src_reopened = { 0 };
-	reopen_source(src, &src_reopened, &destroy_source);
+	struct detailed_source_location dloc = { 0 };
+	if (src) {
+		reopen_source(src, &src_reopened, &destroy_source);
 
-	struct detailed_source_location dloc;
-	get_detailed_source_location(&src_reopened, location, &dloc, get_detailed_source_location_flag_multiline);
+		get_detailed_source_location(&src_reopened, location, &dloc, get_detailed_source_location_flag_multiline);
 
-	log_plain("%s:%d:%d: ", src_reopened.label, dloc.line, dloc.col);
+		log_plain("%s:%d:%d: ", src_reopened.label, dloc.line, dloc.col);
+	}
 
 	if (lvl != log_info) {
 		if (log_clr()) {
@@ -522,7 +524,7 @@ error_message(const struct source *src,
 
 	log_plain("%s\n", msg);
 
-	if (flags & error_message_flag_no_source) {
+	if ((flags & error_message_flag_no_source) || !src) {
 		goto ret;
 	}
 

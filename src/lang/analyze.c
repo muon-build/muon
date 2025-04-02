@@ -1753,7 +1753,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 			for (j = 0; j < len; ++j) {
 				error_diagnostic_store_push(
-					ep_stack[j].src_idx, ep_stack[j].location, lvl, "in subdir");
+					ep_stack[j].src_idx, ep_stack[j].location, lvl, "errors in subdir");
 			}
 		}
 

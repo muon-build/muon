@@ -262,11 +262,15 @@ vm_diagnostic_v(struct workspace *wk,
 
 	if (!ip) {
 		ip = wk->vm.ip - 1;
+	} else if (ip == UINT32_MAX) {
+		ip = 0;
 	}
 
-	struct source_location loc;
-	struct source *src;
-	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+	struct source_location loc = { 0 };
+	struct source *src = 0;
+	if (ip)  {
+		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+	}
 
 	error_message(src, loc, lvl, flags, buf);
 
