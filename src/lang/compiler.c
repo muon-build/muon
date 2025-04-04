@@ -905,7 +905,7 @@ vm_resolve_breakpoint_cb(struct workspace *wk, struct node *n)
 
 	obj off, node;
 	obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
-		struct node *o = node ? (void *)get_obj_number(wk, node) : 0;
+		struct node *o = node ? (void *)(intptr_t)get_obj_number(wk, node) : 0;
 		bool in_range = n->location.off <= off && off <= n->location.off + n->location.len;
 		if (in_range && (!o || n->location.len < o->location.len)) {
 			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (int64_t)n));
@@ -938,7 +938,7 @@ vm_resolve_breakpoints(struct workspace *wk, struct node *n)
 
 		obj off, node;
 		obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
-			struct node *o = node ? (void *)get_obj_number(wk, node) : 0;
+			struct node *o = node ? (void *)(intptr_t)get_obj_number(wk, node) : 0;
 			if (!o) {
 				LOG_W("failed to resolve breakpoint %s@%d", src->label, off);
 				continue;
