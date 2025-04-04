@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "buf_size.h"
@@ -191,6 +192,16 @@ ret:
 	return res;
 }
 
+static bool
+fs_close(int fd)
+{
+	if (close(fd) == -1) {
+		LOG_E("failed close(): %s", strerror(errno));
+		return false;
+	}
+	return true;
+}
+
 bool
 fs_copy_file(const char *src, const char *dest, bool force)
 {
@@ -250,6 +261,25 @@ fs_copy_file(const char *src, const char *dest, bool force)
 		goto ret;
 	}
 
+	if (!fs_close(f_dest)) {
+		LOG_E("failed close(): %s", strerror(errno));
+		f_dest = 0;
+		goto ret;
+	}
+	f_dest = 0;
+
+	{
+		// Attempt to copy file attributes.  If this fails it isn't fatal.
+		struct timeval times[2] = {
+			{ .tv_sec = st.st_atime, },
+			{ .tv_sec = st.st_mtime, },
+		};
+
+		if (utimes(dest, times) == -1) {
+			L("failed utimes(): %s", strerror(errno));
+		}
+	}
+
 	res = true;
 ret:
 	if (f_src) {
@@ -259,8 +289,7 @@ ret:
 	}
 
 	if (f_dest > 0) {
-		if (close(f_dest) == -1) {
-			LOG_E("failed close(): %s", strerror(errno));
+		if (!fs_close(f_dest)) {
 			res = false;
 		}
 	}
