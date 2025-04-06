@@ -301,7 +301,8 @@ static void
 wrap_copy_packagefiles_file_cb(void *_ctx, const char *src, const char *dest)
 {
 	struct workspace *wk = _ctx;
-	obj_array_push(wk, wk->regenerate_deps, make_str(wk, src));
+	workspace_add_regenerate_dep(wk, make_str(wk, src));
+	workspace_add_exclude_regenerate_dep(wk, make_str(wk, dest));
 }
 
 static bool
@@ -896,12 +897,8 @@ wrap_load_all_iter(void *_ctx, const char *file)
 		return ir_err;
 	}
 
-	{ // Add this wrap file as a regenerate dependency
-		obj wrap_file;
-		wrap_file = make_obj(ctx->wk, obj_file);
-		*get_obj_file(ctx->wk, wrap_file) = make_str(ctx->wk, ctx->path->buf);
-		obj_array_push(ctx->wk, ctx->wk->regenerate_deps, wrap_file);
-	}
+	// Add this wrap file as a regenerate dependency
+	workspace_add_regenerate_dep(ctx->wk, make_str(ctx->wk, ctx->path->buf));
 
 	enum iteration_result ret = ir_err;
 

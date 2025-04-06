@@ -236,8 +236,7 @@ missing_schema:
 					}
 
 					if (schema == schema_type_file) {
-						obj_array_push(
-							wk, wk->regenerate_deps, tstr_into_str(wk, &path_interpolated));
+						workspace_add_regenerate_dep(wk, tstr_into_str(wk, &path_interpolated));
 					}
 
 					if (wk->vm.error) {

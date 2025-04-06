@@ -73,6 +73,7 @@ struct workspace {
 
 	/* obj_array that tracks files for build regeneration */
 	obj regenerate_deps;
+	obj exclude_regenerate_deps;
 
 	obj install;
 	obj install_scripts;
@@ -116,6 +117,8 @@ void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 bool
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
+void workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v);
+void workspace_add_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
 
 struct project *

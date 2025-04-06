@@ -130,6 +130,7 @@ workspace_init_runtime(struct workspace *wk)
 	wk->binaries = make_obj(wk, obj_dict);
 	wk->host_machine = make_obj(wk, obj_dict);
 	wk->regenerate_deps = make_obj(wk, obj_array);
+	wk->exclude_regenerate_deps = make_obj(wk, obj_array);
 	wk->install = make_obj(wk, obj_array);
 	wk->install_scripts = make_obj(wk, obj_array);
 	wk->postconf_scripts = make_obj(wk, obj_array);
@@ -291,36 +292,57 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 	}
 }
 
-static enum iteration_result
-workspace_add_regenerate_deps_iter(struct workspace *wk, void *_ctx, obj v)
+static obj
+make_str_path_absolute(struct workspace *wk, obj v)
 {
 	TSTR(path);
 	const char *s = get_cstr(wk, v);
 	if (!path_is_absolute(s)) {
 		path_join(wk, &path, workspace_cwd(wk), s);
-		v = tstr_into_str(wk, &path);
-		s = get_cstr(wk, v);
+		return tstr_into_str(wk, &path);
+	}
+	return v;
+}
+
+void
+workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v)
+{
+	v = make_str_path_absolute(wk, v);
+
+	if (obj_array_in(wk, wk->exclude_regenerate_deps, v)) {
+		return;
 	}
 
-	if (path_is_subpath(wk->build_root, s)) {
-		return ir_cont;
-	}
+	obj_array_push(wk, wk->exclude_regenerate_deps, v);
+}
 
-	if (!fs_file_exists(s)) {
-		return ir_cont;
+void
+workspace_add_regenerate_dep(struct workspace *wk, obj v)
+{
+	v = make_str_path_absolute(wk, v);
+	const char *s = get_cstr(wk, v);
+
+	if (obj_array_in(wk, wk->exclude_regenerate_deps, v)) {
+		return;
+	} else if (path_is_subpath(wk->build_root, s)) {
+		return;
+	} else if (!fs_file_exists(s)) {
+		return;
 	}
 
 	obj_array_push(wk, wk->regenerate_deps, v);
-	return ir_cont;
 }
 
 void
 workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr)
 {
 	if (get_obj_type(wk, obj_or_arr) == obj_array) {
-		obj_array_foreach(wk, obj_or_arr, NULL, workspace_add_regenerate_deps_iter);
+		obj v;
+		obj_array_for(wk, obj_or_arr, v) {
+			workspace_add_regenerate_dep(wk, v);
+		}
 	} else {
-		workspace_add_regenerate_deps_iter(wk, NULL, obj_or_arr);
+		workspace_add_regenerate_dep(wk, obj_or_arr);
 	}
 }
 
