@@ -1517,16 +1517,10 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 
 		if (def_both_libs != default_both_libraries_auto) {
 			struct obj_both_libs *b = get_obj_both_libs(wk, val);
-			switch(def_both_libs) {
-			case default_both_libraries_auto:
-				val = b->dynamic_lib;
-				break;
-			case default_both_libraries_static:
-				val = b->static_lib;
-				break;
-			case default_both_libraries_shared:
-				val = b->dynamic_lib;
-				break;
+			switch (def_both_libs) {
+			case default_both_libraries_auto: val = b->dynamic_lib; break;
+			case default_both_libraries_static: val = b->static_lib; break;
+			case default_both_libraries_shared: val = b->dynamic_lib; break;
 			}
 		} else if (ctx->link_whole) {
 			struct obj_both_libs *b = get_obj_both_libs(wk, val);
@@ -1691,7 +1685,7 @@ dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 	obj res = make_obj(wk, obj_dependency);
 	struct obj_dependency *d = get_obj_dependency(wk, res);
 	*d = *src;
-	d->dep = (struct build_dep) { 0 };
+	d->dep = (struct build_dep){ 0 };
 
 	// Copy everything over that can't be recreated from the raw field
 	d->dep.link_language = src->dep.link_language;
@@ -1707,7 +1701,10 @@ dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 }
 
 bool
-dependency_create(struct workspace *wk, const struct build_dep_raw *raw, struct build_dep *dep, enum build_dep_flag flags)
+dependency_create(struct workspace *wk,
+	const struct build_dep_raw *raw,
+	struct build_dep *dep,
+	enum build_dep_flag flags)
 {
 #define IS_INCLUDED(__part) (!partial || (flags & build_dep_flag_part_##__part))
 
@@ -1732,7 +1729,7 @@ dependency_create(struct workspace *wk, const struct build_dep_raw *raw, struct 
 		obj_array_extend_nodup(wk, dep->objects, raw->objects);
 	}
 
-	if (raw->link_args && IS_INCLUDED(link_args)){
+	if (raw->link_args && IS_INCLUDED(link_args)) {
 		obj_array_extend_nodup(wk, dep->link_args, raw->link_args);
 	}
 
