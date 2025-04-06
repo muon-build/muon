@@ -14,6 +14,7 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/kernel.h"
 #include "functions/kernel/dependency.h"
 #include "functions/meson.h"
 #include "lang/func_lookup.h"
@@ -330,35 +331,37 @@ func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 struct process_script_commandline_ctx {
 	uint32_t node;
 	obj arr;
-	uint32_t i;
 	bool allow_not_built;
 	bool make_deps_default;
 };
 
-static enum iteration_result
-process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
+static bool
+process_script_commandline(struct workspace *wk, struct process_script_commandline_ctx *ctx, obj val)
 {
-	struct process_script_commandline_ctx *ctx = _ctx;
-	obj str;
 	enum obj_type t = get_obj_type(wk, val);
 
 	switch (t) {
-	case obj_string:
-		if (ctx->i) {
-			str = val;
+	case obj_string: {
+		if (get_obj_array(wk, ctx->arr)->len) {
+			obj_array_push(wk, ctx->arr, val);
 		} else {
-			const char *p = get_cstr(wk, val);
+			obj found_prog;
+			struct find_program_ctx find_program_ctx = {
+				.node = ctx->node,
+				.res = &found_prog,
+				.requirement = requirement_required,
+				.machine = machine_kind_build,
+			};
 
-			if (path_is_absolute(p)) {
-				str = val;
-			} else {
-				TSTR(path);
-				path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), p);
-				str = tstr_into_str(wk, &path);
+			if (!find_program(wk, &find_program_ctx, val)) {
+				return false;
 			}
+
+			obj_array_extend(wk, ctx->arr, get_obj_external_program(wk, found_prog)->cmd_array);
 		}
 		break;
-	case obj_custom_target:
+	}
+	case obj_custom_target: {
 		if (!ctx->allow_not_built) {
 			goto type_error;
 		}
@@ -368,10 +371,12 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 			o->flags |= custom_target_build_by_default;
 		}
 
-		if (!obj_array_foreach(wk, o->output, ctx, process_script_commandline_iter)) {
-			return false;
+		obj val;
+		obj_array_for(wk, o->output, val) {
+			obj_array_push(wk, ctx->arr, *get_obj_file(wk, val));
 		}
-		goto cont;
+		break;
+	}
 	case obj_build_target: {
 		if (!ctx->allow_not_built) {
 			goto type_error;
@@ -387,29 +392,24 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_external_program:
 	case obj_python_installation:
 	case obj_file: {
-		obj args;
+		obj str, args;
 		if (!coerce_executable(wk, ctx->node, val, &str, &args)) {
-			return ir_err;
+			return false;
 		}
 
+		obj_array_push(wk, ctx->arr, str);
 		if (args) {
-			obj_array_push(wk, ctx->arr, str);
 			obj_array_extend_nodup(wk, ctx->arr, args);
-			return ir_cont;
 		}
-
 		break;
 	}
 	default:
 type_error:
 		vm_error_at(wk, ctx->node, "invalid type for script commandline '%s'", obj_type_to_s(t));
-		return ir_err;
+		return false;
 	}
 
-	obj_array_push(wk, ctx->arr, str);
-cont:
-	++ctx->i;
-	return ir_cont;
+	return true;
 }
 
 static bool
@@ -439,8 +439,12 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 	};
 	ctx.arr = make_obj(wk, obj_array);
 
-	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
-		return false;
+	obj v;
+	obj_array_flat_for_(wk, an[0].val, v, iter) {
+		if (!process_script_commandline(wk, &ctx, v)) {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
 	}
 
 	if (!akw[kw_skip_if_destdir].set) {
@@ -473,8 +477,12 @@ func_meson_add_postconf_script(struct workspace *wk, obj _, obj *res)
 	};
 	ctx.arr = make_obj(wk, obj_array);
 
-	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
-		return false;
+	obj v;
+	obj_array_flat_for_(wk, an[0].val, v, iter) {
+		if (!process_script_commandline(wk, &ctx, v)) {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
 	}
 
 	obj_array_push(wk, wk->postconf_scripts, ctx.arr);
@@ -496,8 +504,12 @@ func_meson_add_dist_script(struct workspace *wk, obj _, obj *res)
 	};
 	ctx.arr = make_obj(wk, obj_array);
 
-	if (!obj_array_foreach_flat(wk, an[0].val, &ctx, process_script_commandline_iter)) {
-		return false;
+	obj v;
+	obj_array_flat_for_(wk, an[0].val, v, iter) {
+		if (!process_script_commandline(wk, &ctx, v)) {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
 	}
 
 	// TODO: uncomment when muon dist is implemented

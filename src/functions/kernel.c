@@ -550,17 +550,6 @@ func_files(struct workspace *wk, obj _, obj *res)
 	return coerce_files(wk, 0, an[0].val, res);
 }
 
-struct find_program_iter_ctx {
-	bool found;
-	uint32_t node, version_node;
-	obj version, version_argument;
-	obj dirs;
-	obj *res;
-	enum requirement_type requirement;
-	enum machine_kind machine;
-	struct args_kw *default_options;
-};
-
 struct find_program_custom_dir_ctx {
 	const char *prog;
 	struct tstr *buf;
@@ -583,7 +572,7 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
+find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	obj override;
 	if (!obj_dict_index(wk, wk->find_program_overrides[ctx->machine], prog, &override)) {
@@ -637,7 +626,7 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 }
 
 static bool
-find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
+find_program_check_fallback(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	obj fallback_arr, subproj_name;
 	if (obj_dict_index(wk, current_project(wk)->wrap_provides_exes, prog, &fallback_arr)) {
@@ -666,8 +655,8 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 	return true;
 }
 
-static bool
-find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
+bool
+find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	const char *str;
 	obj ver = 0;
@@ -890,7 +879,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		return true;
 	}
 
-	struct find_program_iter_ctx ctx = {
+	struct find_program_ctx ctx = {
 		.node = an[0].node,
 		.version = akw[kw_version].val,
 		.version_argument = akw[kw_version_argument].val,
@@ -1140,7 +1129,7 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	{
 		obj arg0;
 		obj cmd_file = 0;
-		struct find_program_iter_ctx find_program_ctx = {
+		struct find_program_ctx find_program_ctx = {
 			.node = an[0].node,
 			.res = &cmd_file,
 			.requirement = requirement_auto,
