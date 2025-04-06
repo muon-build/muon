@@ -680,6 +680,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		kw_modules,
 		kw_optional_modules, // ignored
 		kw_components, // ignored
+		kw_main, // ignored
 		kw_language, // ignored
 		kw_fallback,
 		kw_allow_fallback,
@@ -699,6 +700,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			TYPE_TAG_LISTIFY | obj_string,
 			.desc = "A list of sub-dependencies for this dependency.  Only supported by certain dependencies.",
 		},
+		[kw_main] = { "main", tc_bool, .desc = "Ignored" },
 		[kw_optional_modules] = { "optional_modules", TYPE_TAG_LISTIFY | obj_string, .desc = "Ignored" },
 		[kw_components] = { "components", TYPE_TAG_LISTIFY | obj_string, .desc = "Ignored" },
 		[kw_language] = { "language", tc_string, .desc = "Ignored" },
