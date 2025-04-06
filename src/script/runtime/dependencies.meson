@@ -120,3 +120,15 @@ meson.register_dependency_handler(
         )
     endfunc,
 )
+
+meson.register_dependency_handler(
+    'gtest',
+    pkgconfig: func(main bool: false, kwargs glob[any]:) -> dep
+        name = 'gtest'
+        if main
+            name += '_main'
+        endif
+
+        return dependency(name, method: 'pkg-config', kwargs: kwargs)
+    endfunc,
+)
