@@ -1727,6 +1727,9 @@ vm_op_try_load(struct workspace *wk)
 	if (a == obj_disabler) {
 		object_stack_push(wk, obj_disabler);
 		return;
+	} else if (get_obj_type(wk, a) == obj_typeinfo) {
+		vm_push_dummy(wk);
+		return;
 	}
 
 	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &res)) {
