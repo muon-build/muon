@@ -473,11 +473,14 @@ dependency_lookup_handler_push_capture(struct dependency_lookup_handlers *handle
 	}
 }
 
+static bool dependency_is_resolving_from_capture = false;
+
 static bool
 build_lookup_handler_list(struct workspace *wk, struct dep_lookup_ctx *ctx, struct dependency_lookup_handlers *handlers)
 {
 	obj handler_dict = 0;
-	if (obj_dict_index(wk, wk->dependency_handlers, ctx->name, &handler_dict)) {
+	if (!dependency_is_resolving_from_capture
+		&& obj_dict_index(wk, wk->dependency_handlers, ctx->name, &handler_dict)) {
 		obj handler;
 
 		if (ctx->lookup_method != dependency_lookup_method_auto) {
@@ -598,7 +601,10 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			}
 			break;
 		case dependency_lookup_handler_type_capture:
-			if (!vm_eval_capture(wk, handlers.e[i].handler.capture, 0, ctx->handler_kwargs, ctx->res)) {
+			stack_push(&wk->stack, dependency_is_resolving_from_capture, true);
+			bool ok = vm_eval_capture(wk, handlers.e[i].handler.capture, 0, ctx->handler_kwargs, ctx->res);
+			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
+			if (!ok) {
 				return false;
 			}
 			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
