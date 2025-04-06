@@ -828,6 +828,8 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		{ "static", .val = lib_mode == dep_lib_mode_static ? obj_bool_true : obj_bool_false },
 		{ "native", .val = akw[kw_native].set ? akw[kw_native].val : obj_bool_false },
 		{ "modules", .val = akw[kw_modules].val },
+		{ "main", .val = akw[kw_main].val },
+		{ "required", .val = akw[kw_required].val },
 		0,
 	};
 
