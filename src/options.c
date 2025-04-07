@@ -628,7 +628,7 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 }
 
 static void
-set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags, const char *extra)
+set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags)
 {
 	obj opt;
 	if (!get_option(wk, NULL, &STRL(name), &opt)) {
@@ -637,10 +637,6 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 
 	if ((flags = os_get_env(flags)) && *flags) {
 		extend_array_option(wk, opt, str_split(wk, &STRL(flags), NULL), option_value_source_environment);
-	}
-
-	if ((extra = os_get_env(extra)) && *extra) {
-		extend_array_option(wk, opt, str_split(wk, &STRL(extra), NULL), option_value_source_environment);
 	}
 }
 
@@ -800,6 +796,42 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	return ret;
 }
 
+static void
+make_compiler_option(struct workspace *wk, obj name)
+{
+	obj opt = make_obj(wk, obj_option);
+	struct obj_option *o = get_obj_option(wk, opt);
+	o->name = name;
+	o->type = op_array;
+	o->ip = -1; // ?
+
+	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array))) {
+		UNREACHABLE;
+	}
+}
+
+static void
+make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp)
+{
+		const char *env_opt = toolchain_component_option_name[lang][comp];
+		if (!env_opt) {
+			return;
+		}
+
+		make_compiler_option(wk, make_str(wk, env_opt));
+
+		const char *env_var = strchr(env_opt, '.') + 1;
+		set_binary_from_env(wk, env_var, env_opt);
+}
+
+const char *toolchain_component_option_name[compiler_language_count][toolchain_component_count] = {
+	[compiler_language_c] = { "env.CC", "env.CC_LD" },
+	[compiler_language_cpp] = { "env.CXX", "env.CXX_LD" },
+	[compiler_language_objc] = { "env.OBJC", "env.OBJC_LD" },
+	[compiler_language_objcpp] = { "env.OBJCXX", "env.OBJCXX_LD" },
+	[compiler_language_nasm] = { "env.NASM" },
+};
+
 bool
 init_global_options(struct workspace *wk)
 {
@@ -807,20 +839,45 @@ init_global_options(struct workspace *wk)
 		return false;
 	}
 
-	set_binary_from_env(wk, "AR", "env.AR");
-	set_binary_from_env(wk, "CC", "env.CC");
-	set_binary_from_env(wk, "CXX", "env.CXX");
-	set_binary_from_env(wk, "LD", "env.LD");
-	set_binary_from_env(wk, "NASM", "env.NASM");
-	set_binary_from_env(wk, "NINJA", "env.NINJA");
-	set_binary_from_env(wk, "OBJC", "env.OBJC");
-	set_binary_from_env(wk, "OBJCPP", "env.OBJCPP");
-	set_binary_from_env(wk, "PKG_CONFIG", "env.PKG_CONFIG");
-	set_compile_opt_from_env(wk, "c_args", "CFLAGS", "CPPFLAGS");
-	set_compile_opt_from_env(wk, "c_link_args", "CFLAGS", "LDFLAGS");
-	set_compile_opt_from_env(wk, "cpp_args", "CXXFLAGS", "CPPFLAGS");
-	set_compile_opt_from_env(wk, "cpp_link_args", "CXXFLAGS", "LDFLAGS");
+	static struct {
+		enum compiler_language l;
+		const char *name;
+	} langs[] = {
+#define TOOLCHAIN_ENUM(lang) { compiler_language_##lang, #lang },
+FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+	};
+
+	static const char *compile_opt_env_var[compiler_language_count][toolchain_component_count] = {
+		[compiler_language_c] = { "CFLAGS", "LDFLAGS" },
+		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS" },
+		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS" },
+		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS" },
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(langs); ++i) {
+		obj args = make_strf(wk, "%s_args", langs[i].name);
+		make_compiler_option(wk, args);
+		if (compile_opt_env_var[langs[i].l][toolchain_component_compiler]) {
+			set_compile_opt_from_env(wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_compiler]);
+		}
+
+		obj link_args = make_strf(wk, "%s_link_args", langs[i].name);
+		make_compiler_option(wk, link_args);
+		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
+			set_compile_opt_from_env(wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
+		}
+
+		make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler);
+		make_compiler_env_option(wk, langs[i].l, toolchain_component_linker);
+	}
+
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path");
+
+	set_binary_from_env(wk, "AR", "env.AR");
+	set_binary_from_env(wk, "NINJA", "env.NINJA");
+	set_binary_from_env(wk, "PKG_CONFIG", "env.PKG_CONFIG");
 
 	return true;
 }

@@ -711,7 +711,12 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 
 	const char *exe_list[] = { linker_type_to_s(t), "ld", NULL };
 
-	return toolchain_exe_detect(wk, "env.LD", exe_list, comp, lang, linker_detect);
+	return toolchain_exe_detect(wk,
+		toolchain_component_option_name[lang][toolchain_component_linker],
+		exe_list,
+		comp,
+		lang,
+		linker_detect);
 }
 
 static bool
@@ -735,14 +740,6 @@ toolchain_static_linker_detect(struct workspace *wk, obj comp, enum compiler_lan
 static bool
 toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language lang)
 {
-	static const char *compiler_option[compiler_language_count] = {
-		[compiler_language_c] = "env.CC",
-		[compiler_language_cpp] = "env.CXX",
-		[compiler_language_objc] = "env.OBJC",
-		[compiler_language_objcpp] = "env.OBJCPP",
-		[compiler_language_nasm] = "env.NASM",
-	};
-
 	const char **exe_list = NULL;
 
 	if (host_machine.sys == machine_system_windows) {
@@ -767,7 +764,12 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 		exe_list = default_executables[lang];
 	}
 
-	return toolchain_exe_detect(wk, compiler_option[lang], exe_list, comp, lang, compiler_detect_cmd_arr);
+	return toolchain_exe_detect(wk,
+		toolchain_component_option_name[lang][toolchain_component_compiler],
+		exe_list,
+		comp,
+		lang,
+		compiler_detect_cmd_arr);
 }
 
 bool

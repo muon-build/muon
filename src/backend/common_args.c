@@ -223,8 +223,10 @@ ca_get_option_compile_args(struct workspace *wk,
 {
 	obj args;
 	switch (comp->lang) {
-	case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_args", &args); break;
-	case compiler_language_cpp: ca_get_option_value_for_tgt(wk, proj, tgt, "cpp_args", &args); break;
+#define TOOLCHAIN_ENUM(lang) \
+	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_args", &args); break;
+FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
 	default: return;
 	}
 
@@ -513,8 +515,10 @@ ca_get_option_link_args(struct workspace *wk,
 {
 	obj args;
 	switch (comp->lang) {
-	case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_link_args", &args); break;
-	case compiler_language_cpp: ca_get_option_value_for_tgt(wk, proj, tgt, "cpp_link_args", &args); break;
+#define TOOLCHAIN_ENUM(lang) \
+	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_link_args", &args); break;
+FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
 	default: return;
 	}
 

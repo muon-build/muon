@@ -9,6 +9,7 @@
 
 extern bool initializing_builtin_options;
 extern const char *build_option_type_to_s[build_option_type_count];
+extern const char *toolchain_component_option_name[compiler_language_count][toolchain_component_count];
 
 struct option_override {
 	// strings

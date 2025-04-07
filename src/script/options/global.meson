@@ -134,12 +134,9 @@ option(
 )
 
 # Compiler options
-option('c_args', type: 'array', value: [])
-option('c_link_args', type: 'array', value: [])
+
 option('c_winlibs', type: 'array', value: [])
 option('c_thread_count', type: 'integer', value: 4, min: 0) # TODO
-option('cpp_args', type: 'array', value: [])
-option('cpp_link_args', type: 'array', value: [])
 option('cpp_debugstl', type: 'boolean', value: false) # TODO
 option(
     'cpp_eh',
@@ -162,12 +159,6 @@ option('python.allow_limited_api', type: 'boolean', value: true)
 # muon-specific options.  These are safe from being overridden because meson
 # forbids . in an option name
 
-option('env.CC', type: 'array', value: ['cc'])
-option('env.CXX', type: 'array', value: ['c++'])
-option('env.OBJC', type: 'array', value: ['cc'])
-option('env.OBJCPP', type: 'array', value: ['mm'])
-option('env.NINJA', type: 'array', value: ['ninja'])
-option('env.NASM', type: 'array', value: ['nasm'])
 option('env.AR', type: 'array', value: ['ar'])
-option('env.LD', type: 'array', value: ['cc'])
+option('env.NINJA', type: 'array', value: ['ninja'])
 option('env.PKG_CONFIG', type: 'array', value: ['pkg-config'])
