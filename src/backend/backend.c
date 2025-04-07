@@ -38,7 +38,9 @@ run_postconf_script_iter(struct workspace *wk, void *_ctx, obj arr)
 
 	LOG_I("running postconf script '%s'", argstr);
 
-	struct run_cmd_ctx cmd_ctx = { 0 };
+	struct run_cmd_ctx cmd_ctx = {
+		.chdir = wk->build_root,
+	};
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run postconf script: %s", cmd_ctx.err_msg);
 		goto ret;
