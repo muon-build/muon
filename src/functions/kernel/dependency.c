@@ -27,6 +27,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 static const struct {
 	const char *name;
@@ -595,14 +596,20 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	uint32_t i;
 	for (i = 0; i < handlers.len; ++i) {
 		switch (handlers.e[i].type) {
-		case dependency_lookup_handler_type_native:
-			if (!handlers.e[i].handler.native(wk, ctx, &ctx->found)) {
+		case dependency_lookup_handler_type_native: {
+			TracyCZoneN(tctx_1, "dependency_lookup_handler_type_native", true);
+			bool ok = handlers.e[i].handler.native(wk, ctx, &ctx->found);
+			TracyCZoneEnd(tctx_1);
+			if (!ok) {
 				return false;
 			}
 			break;
-		case dependency_lookup_handler_type_capture:
+		}
+		case dependency_lookup_handler_type_capture: {
 			stack_push(&wk->stack, dependency_is_resolving_from_capture, true);
+			TracyCZoneN(tctx_1, "dependency_lookup_handler_type_capture", true);
 			bool ok = vm_eval_capture(wk, handlers.e[i].handler.capture, 0, ctx->handler_kwargs, ctx->res);
+			TracyCZoneEnd(tctx_1);
 			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
 			if (!ok) {
 				return false;
@@ -613,6 +620,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 				ctx->found = true;
 			}
 			break;
+		}
 		}
 
 		if (ctx->found) {
@@ -867,7 +875,11 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		case handle_special_dependency_result_stop: break;
 		case handle_special_dependency_result_continue:
 			if (!sub_ctx.found) {
-				if (!get_dependency(wk, &sub_ctx)) {
+				TracyCZoneN(tctx_1, "get_dependency", true);
+				bool ok = get_dependency(wk, &sub_ctx);
+				TracyCZoneEnd(tctx_1);
+
+				if (!ok) {
 					return false;
 				}
 			}
@@ -1463,6 +1475,7 @@ dedup_compile_args_iter(struct workspace *wk, void *_ctx, obj val)
 static void
 dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 {
+	TracyCZoneAutoS;
 	obj_array_dedup_in_place(wk, &dep->link_with);
 	obj_array_dedup_in_place(wk, &dep->link_with_not_found);
 	obj_array_dedup_in_place(wk, &dep->link_whole);
@@ -1486,6 +1499,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	new_compile_args = make_obj(wk, obj_array);
 	obj_array_foreach(wk, dep->compile_args, &new_compile_args, dedup_compile_args_iter);
 	dep->compile_args = new_compile_args;
+	TracyCZoneAutoE;
 }
 
 struct dep_process_link_with_ctx {
@@ -1637,13 +1651,13 @@ dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest, enu
 		}
 	}
 
-	dedup_build_dep(wk, dest);
 	return true;
 }
 
 void
 dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 {
+	TracyCZoneAutoS;
 	build_dep_init(wk, dest);
 	dest->raw.deps = deps;
 
@@ -1664,11 +1678,13 @@ dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 	}
 
 	dedup_build_dep(wk, dest);
+	TracyCZoneAutoE;
 }
 
 obj
 dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 {
+	TracyCZoneAutoS;
 	const struct obj_dependency *src = get_obj_dependency(wk, dep);
 
 	obj res = make_obj(wk, obj_dependency);
@@ -1686,6 +1702,7 @@ dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 		return 0;
 	}
 
+	TracyCZoneAutoE;
 	return res;
 }
 
@@ -1695,6 +1712,8 @@ dependency_create(struct workspace *wk,
 	struct build_dep *dep,
 	enum build_dep_flag flags)
 {
+	TracyCZoneAutoS;
+
 #define IS_INCLUDED(__part) (!partial || (flags & build_dep_flag_part_##__part))
 
 	const enum build_dep_flag both_libs_mask = build_dep_flag_both_libs_static | build_dep_flag_both_libs_shared;
@@ -1789,6 +1808,7 @@ dependency_create(struct workspace *wk,
 		dep_process_deps(wk, raw_deps, dep);
 	}
 
+	TracyCZoneAutoE;
 	return true;
 
 #undef IS_INCLUDED

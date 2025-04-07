@@ -20,6 +20,7 @@
 #include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 const bool have_libpkgconf = true;
 const bool have_pkgconfig_exec = false;
@@ -43,6 +44,7 @@ error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 static bool
 muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 {
+	TracyCZoneAutoS;
 	c->personality = pkgconf_cross_personality_default();
 	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
 
@@ -70,14 +72,17 @@ muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 		pkgconf_client_dir_list_build(&c->client, c->personality);
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }
 
 static void
 muon_pkgconf_deinit(struct pkgconf_client *c)
 {
+	TracyCZoneAutoS;
 	pkgconf_cross_personality_deinit(c->personality);
 	pkgconf_client_deinit(&c->client);
+	TracyCZoneAutoE;
 }
 
 static const char *
