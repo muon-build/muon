@@ -314,11 +314,18 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	dep->version = ver_str;
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_pkgconf;
-	dep->dep.link_with = info.libs;
-	dep->dep.link_with_not_found = info.not_found_libs;
-	dep->dep.include_directories = info.includes;
-	dep->dep.compile_args = info.compile_args;
-	dep->dep.link_args = info.link_args;
+
+	struct build_dep_raw raw = {
+		.link_with = info.libs,
+		.link_with_not_found = info.not_found_libs,
+		.include_directories = info.includes,
+		.compile_args = info.compile_args,
+		.link_args = info.link_args,
+	};
+
+	if (!dependency_create(wk, &raw, &dep->dep, 0)) {
+		return false;
+	}
 
 	*found = true;
 	return true;
