@@ -2978,6 +2978,7 @@ vm_destroy_objects(struct workspace *wk)
 
 	hash_destroy(&wk->vm.objects.obj_hash);
 	hash_destroy(&wk->vm.objects.str_hash);
+	hash_destroy(&wk->vm.objects.dedup_str_hash);
 }
 
 void
