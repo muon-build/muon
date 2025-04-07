@@ -142,6 +142,17 @@ func_array_clear(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_array_dedup(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	obj_array_dedup(wk, self, res);
+	return true;
+}
+
 const struct func_impl impl_tbl_array[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
@@ -156,5 +167,6 @@ const struct func_impl impl_tbl_array_internal[] = {
 	{ "delete", func_array_delete },
 	{ "slice", func_array_slice, tc_array, true },
 	{ "clear", func_array_clear },
+	{ "dedup", func_array_dedup, tc_array, true },
 	{ NULL, NULL },
 };
