@@ -283,7 +283,6 @@ fs_copy_file(const char *src, const char *dest, bool force)
 	}
 
 	if (!fs_close(f_dest)) {
-		LOG_E("failed close(): %s", strerror(errno));
 		f_dest = 0;
 		goto ret;
 	}
