@@ -63,6 +63,7 @@ enum toolchain_component {
 
 struct complex_types {
 	type_tag options_dict_or_list;
+	type_tag options_deprecated_kw;
 };
 
 union obj_dict_big_dict_value {

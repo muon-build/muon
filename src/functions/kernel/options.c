@@ -72,16 +72,6 @@ func_option(struct workspace *wk, obj self, obj *res)
 		kw_kind = kwargs_count,
 	};
 
-	// TODO: this winds up creating 4 typeinfo objects every time you call
-	// option, it'd be nice to have some caching
-	type_tag deprecated_type = make_complex_type(wk,
-		complex_type_or,
-		tc_string | tc_bool,
-		make_complex_type(wk,
-			complex_type_or,
-			make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
-			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
-
 	struct args_kw akw[] = { [kw_type] = { "type", obj_string },
 		[kw_value] = { "value", tc_any },
 		[kw_description] = { "description", obj_string },
@@ -89,7 +79,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 		[kw_max] = { "max", obj_number },
 		[kw_min] = { "min", obj_number },
 		[kw_yield] = { "yield", obj_bool },
-		[kw_deprecated] = { "deprecated", deprecated_type },
+		[kw_deprecated] = { "deprecated", wk->complex_types.options_deprecated_kw },
 		[kw_kind] = { 0 },
 		0 };
 

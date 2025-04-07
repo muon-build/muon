@@ -484,4 +484,13 @@ complex_types_init(struct workspace *wk, struct complex_types *types)
 		make_complex_type(
 			wk, complex_type_or, make_complex_type(wk, complex_type_nested, tc_array, tc_string), tc_string),
 		make_complex_type(wk, complex_type_nested, tc_dict, tc_string | tc_number | tc_bool | tc_array));
+
+	wk->complex_types.options_deprecated_kw = make_complex_type(wk,
+		complex_type_or,
+		tc_string | tc_bool,
+		make_complex_type(wk,
+			complex_type_or,
+			make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
+			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
+
 }
