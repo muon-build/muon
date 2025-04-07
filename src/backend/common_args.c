@@ -583,7 +583,8 @@ bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	struct obj_compiler *comp,
 	const struct project *proj,
-	struct obj_build_target *tgt)
+	struct obj_build_target *tgt,
+	bool relativize)
 {
 	if (!comp) {
 		obj comp_id;
@@ -596,8 +597,10 @@ ca_prepare_target_linker_args(struct workspace *wk,
 		comp = get_obj_compiler(wk, comp_id);
 	}
 
-	ca_relativize_paths(wk, tgt->dep_internal.link_with, true, &tgt->dep_internal.link_with);
-	ca_relativize_paths(wk, tgt->dep_internal.link_whole, true, &tgt->dep_internal.link_whole);
+	if (relativize) {
+		ca_relativize_paths(wk, tgt->dep_internal.link_with, true, &tgt->dep_internal.link_with);
+		ca_relativize_paths(wk, tgt->dep_internal.link_whole, true, &tgt->dep_internal.link_whole);
+	}
 
 	obj_array_dedup_in_place(wk, &tgt->dep_internal.link_with);
 	obj_array_dedup_in_place(wk, &tgt->dep_internal.link_whole);
@@ -748,7 +751,7 @@ ca_prepare_all_targets(struct workspace *wk)
 			if (!ca_prepare_target_args(wk, proj, tgt)) {
 				return false;
 			}
-			if (!ca_prepare_target_linker_args(wk, 0, proj, tgt)) {
+			if (!ca_prepare_target_linker_args(wk, 0, proj, tgt, true)) {
 				return false;
 			}
 			obj_array_pop(wk, wk->backend_output_stack);

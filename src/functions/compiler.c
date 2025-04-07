@@ -208,7 +208,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		struct obj_build_target tgt = {
 			.dep_internal = dep,
 		};
-		ca_prepare_target_linker_args(wk, comp, 0, &tgt);
+		ca_prepare_target_linker_args(wk, comp, 0, &tgt, false);
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 

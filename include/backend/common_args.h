@@ -30,7 +30,8 @@ bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	struct obj_compiler *comp,
 	const struct project *proj,
-	struct obj_build_target *tgt);
+	struct obj_build_target *tgt,
+	bool relativize);
 
 bool ca_prepare_all_targets(struct workspace *wk);
 
