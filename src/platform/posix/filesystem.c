@@ -202,6 +202,25 @@ fs_close(int fd)
 	return true;
 }
 
+static bool
+fs_write_fd(int fd, const void *buf_v, size_t len)
+{
+	const char *buf = buf_v;
+	while (len > 0) {
+		ssize_t w = write(fd, buf, len);
+		if (w < 0) {
+			if (errno == EINTR) {
+				continue;
+			}
+			LOG_E("failed write(): %s", strerror(errno));
+			return false;
+		}
+		buf += w;
+		len -= w;
+	}
+	return true;
+}
+
 // NOTE: better to also return the dirfd, so that it can use renameat()
 // instead of rename(). but path_dirname needs a workspace, we don't have one.
 static int
@@ -258,22 +277,13 @@ fs_copy_file(const char *src, const char *dest, bool force)
 	assert(f_dest != 0);
 
 	size_t r;
-	ssize_t w;
 	char buf[BUF_SIZE_32k];
 
 	while ((r = fread(buf, 1, BUF_SIZE_32k, f_src)) > 0) {
 		errno = 0; // to ensure that we get the error from write() only
 
-		if ((w = write(f_dest, buf, r)) == -1) {
-			LOG_E("failed write(): %s", strerror(errno));
+		if (!fs_write_fd(f_dest, buf, r)) {
 			goto ret;
-		} else {
-			assert(w >= 0);
-
-			if ((size_t)w < r) {
-				LOG_E("incomplete write: %s", strerror(errno));
-				goto ret;
-			}
 		}
 	}
 
