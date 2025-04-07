@@ -13,7 +13,6 @@
 #include "error.h"
 #include "functions/build_target.h"
 #include "functions/generator.h"
-#include "functions/kernel/dependency.h"
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -342,26 +341,3 @@ const struct func_impl impl_tbl_build_target[] = {
 	{ "private_dir_include", func_build_target_private_dir_include, tc_string },
 	{ NULL, NULL },
 };
-
-static bool
-func_build_target_add_link_with(struct workspace *wk, obj self, obj *res)
-{
-	struct args_norm an[] = { { tc_link_with_kw }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	struct obj_build_target *tgt = get_obj_build_target(wk, self);
-
-	if (!dep_process_link_with(wk, an[0].val, &tgt->dep_internal, 0)) {
-		return false;
-	}
-
-	return true;
-}
-
-const struct func_impl impl_tbl_build_target_internal[] = {
-	{ "add_link_with", func_build_target_add_link_with, tc_string },
-	{ NULL, NULL },
-};
-

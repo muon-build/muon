@@ -59,7 +59,8 @@ M.target_link_libraries = func(name str, scope str, libnames glob[str])
         endif
     endforeach
 
-    targets[name].add_link_with(libs)
+    # This needs rethinking
+    # targets[name].add_link_with(libs)
 endfunc
 
 return M

@@ -1610,42 +1610,23 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 	return true;
 }
 
-bool
-dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest, enum build_dep_flag flags)
+static bool
+dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest, enum build_dep_flag flags, bool link_whole)
 {
+	if (link_whole) {
+		dest->raw.link_whole = arr;
+	} else {
+		dest->raw.link_with = arr;
+	}
+
 	build_dep_init(wk, dest);
-	dest->raw.link_with = arr;
 
 	hash_clear(&wk->vm.objects.obj_hash);
 
 	struct dep_process_link_with_ctx ctx = {
 		.dest = dest,
 		.flags = flags,
-	};
-
-	obj v;
-	obj_array_flat_for_(wk, arr, v, iter) {
-		if (!dep_process_link_with_lib(wk, &ctx, v)) {
-			obj_array_flat_iter_end(wk, &iter);
-			return false;
-		}
-	}
-
-	dedup_build_dep(wk, dest);
-	return true;
-}
-
-bool
-dep_process_link_whole(struct workspace *wk, obj arr, struct build_dep *dest)
-{
-	build_dep_init(wk, dest);
-	dest->raw.link_whole = arr;
-
-	hash_clear(&wk->vm.objects.obj_hash);
-
-	struct dep_process_link_with_ctx ctx = {
-		.dest = dest,
-		.link_whole = true,
+		.link_whole = link_whole,
 	};
 
 	obj v;
@@ -1756,19 +1737,14 @@ dependency_create(struct workspace *wk,
 	}
 
 	if (raw->link_with && IS_INCLUDED(links)) {
-		if (flags & build_dep_flag_as_link_whole) {
-			if (!dep_process_link_whole(wk, raw->link_whole, dep)) {
-				return false;
-			}
-		} else {
-			if (!dep_process_link_with(wk, raw->link_with, dep, flags)) {
-				return false;
-			}
+		bool link_whole = flags & build_dep_flag_as_link_whole;
+		if (!dep_process_link_with(wk, raw->link_with, dep, flags, link_whole)) {
+			return false;
 		}
 	}
 
 	if (raw->link_whole && IS_INCLUDED(links)) {
-		if (!dep_process_link_whole(wk, raw->link_whole, dep)) {
+		if (!dep_process_link_with(wk, raw->link_whole, dep, 0, true)) {
 			return false;
 		}
 	}
