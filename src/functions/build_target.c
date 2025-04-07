@@ -177,11 +177,9 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_file: file = val; break;
 	case obj_custom_target: {
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
-		if (!obj_array_flatten_one(wk, tgt->output, &file)) {
-			vm_error_at(wk, ctx->err_node, "cannot coerce custom_target with multiple outputs to file");
-			return ir_err;
-		}
-		break;
+
+		obj_array_extend(wk, *ctx->res, tgt->output);
+		return ir_cont;
 	}
 	case obj_generated_list: {
 		obj res;
