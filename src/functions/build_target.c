@@ -177,7 +177,9 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_custom_target: {
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
 
-		obj_array_extend(wk, *ctx->res, tgt->output);
+		if (!obj_array_foreach(wk, tgt->output, ctx, build_target_extract_objects_iter)) {
+			return ir_err;
+		}
 		return ir_cont;
 	}
 	case obj_generated_list: {
