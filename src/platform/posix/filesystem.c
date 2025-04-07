@@ -202,12 +202,30 @@ fs_close(int fd)
 	return true;
 }
 
+// NOTE: better to also return the dirfd, so that it can use renameat()
+// instead of rename(). but path_dirname needs a workspace, we don't have one.
+static int
+fs_maketmp(const char *file, char **out_tmpname)
+{
+	char suffix[] = "-XXXXXX";
+	size_t l = strlen(file) + sizeof(suffix);
+	char *s = *out_tmpname = z_malloc(l);
+	snprintf(s, l, "%s%s", file, suffix);
+	int fd = mkstemp(s);
+	if (fd < 0) {
+		*out_tmpname = NULL;
+		z_free(s);
+	}
+	return fd;
+}
+
 bool
 fs_copy_file(const char *src, const char *dest, bool force)
 {
 	bool res = false;
 	FILE *f_src = NULL;
 	int f_dest = 0;
+	char *f_dest_tmpname = NULL;
 
 	struct stat st;
 	if (!fs_lstat(src, &st)) {
@@ -229,8 +247,11 @@ fs_copy_file(const char *src, const char *dest, bool force)
 		goto ret;
 	}
 
-	if ((f_dest = open(dest, O_CREAT | O_WRONLY | O_TRUNC, st.st_mode)) == -1) {
-		LOG_E("failed to create destination file %s: %s", dest, strerror(errno));
+	if ((f_dest = fs_maketmp(dest, &f_dest_tmpname)) < 0) {
+		LOG_E("failed to create temp destination file %s: %s", dest, strerror(errno));
+		goto ret;
+	}
+	if (!fs_chmod(f_dest_tmpname, st.st_mode)) {
 		goto ret;
 	}
 
@@ -268,6 +289,12 @@ fs_copy_file(const char *src, const char *dest, bool force)
 	}
 	f_dest = 0;
 
+	// now time to atomically rename the tmpfile into the proper place
+	if (rename(f_dest_tmpname, dest) < 0) {
+		LOG_E("failed rename(): %s", strerror(errno));
+		goto ret;
+	}
+
 	{
 		// Attempt to copy file attributes.  If this fails it isn't fatal.
 		struct timeval times[2] = {
@@ -282,6 +309,13 @@ fs_copy_file(const char *src, const char *dest, bool force)
 
 	res = true;
 ret:
+	if (f_dest_tmpname) {
+		if (!res) {
+			unlink(f_dest_tmpname);
+		}
+		z_free(f_dest_tmpname);
+	}
+
 	if (f_src) {
 		if (!fs_fclose(f_src)) {
 			res = false;
