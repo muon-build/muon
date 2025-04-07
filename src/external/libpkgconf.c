@@ -114,6 +114,7 @@ struct pkgconf_lookup_ctx {
 static bool
 apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
+	TracyCZoneAutoS;
 	struct pkgconf_lookup_ctx *ctx = _ctx;
 	int err;
 	pkgconf_node_t *node;
@@ -188,12 +189,14 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 
 ret:
 	pkgconf_fragment_free(&list);
+	TracyCZoneAutoE;
 	return ret;
 }
 
 static bool
 apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
+	TracyCZoneAutoS;
 	struct pkgconf_lookup_ctx *ctx = _ctx;
 	pkgconf_dependency_t *dep = world->required.head->data;
 	pkgconf_pkg_t *pkg = dep->match;
@@ -202,12 +205,14 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 		strncpy(ctx->info->version, pkg->version, MAX_VERSION_LEN);
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }
 
 bool
 muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
 {
+	TracyCZoneAutoS;
 	L("libpkgconf: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
 	struct pkgconf_client c = { 0 };
 	if (!muon_pkgconf_init(wk, &c)) {
@@ -265,6 +270,7 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 ret:
 	pkgconf_queue_free(&pkgq);
 	muon_pkgconf_deinit(&c);
+	TracyCZoneAutoE;
 	return ret;
 }
 

@@ -2837,6 +2837,7 @@ vm_init_objects(struct workspace *wk)
 
 	hash_init(&wk->vm.objects.obj_hash, 128, sizeof(obj));
 	hash_init_str(&wk->vm.objects.str_hash, 128);
+	hash_init_str(&wk->vm.objects.dedup_str_hash, 128);
 
 	make_default_objects(wk);
 }

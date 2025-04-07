@@ -996,29 +996,44 @@ obj_array_clear(struct workspace *wk, obj arr)
 	*a = (struct obj_array){ 0 };
 }
 
-static enum iteration_result
-obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	if (hash_get(&wk->vm.objects.obj_hash, &val)) {
-		return ir_cont;
-	}
-	hash_set(&wk->vm.objects.obj_hash, &val, true);
-
-	obj *res = _ctx;
-	if (!obj_array_in(wk, *res, val)) {
-		obj_array_push(wk, *res, val);
-	}
-
-	return ir_cont;
-}
-
 void
 obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
 	hash_clear(&wk->vm.objects.obj_hash);
+	hash_clear(&wk->vm.objects.dedup_str_hash);
 
 	*res = make_obj(wk, obj_array);
-	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
+
+	obj val, oval;
+	obj_array_for(wk, arr, val) {
+		oval = val;
+		switch (get_obj_type(wk, val)) {
+		case obj_file:
+			val = *get_obj_file(wk, val);
+			/* fallthrough */
+		case obj_string: {
+			const struct str *s = get_str(wk, val);
+			if (hash_get_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len)) {
+				continue;
+			}
+			hash_set_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len, true);
+
+			obj_array_push(wk, *res, oval);
+			break;
+		}
+		default: {
+			if (hash_get(&wk->vm.objects.obj_hash, &val)) {
+				continue;
+			}
+			hash_set(&wk->vm.objects.obj_hash, &val, true);
+
+			if (!obj_array_in(wk, *res, val)) {
+				obj_array_push(wk, *res, val);
+			}
+			break;
+		}
+		}
+	}
 }
 
 void
