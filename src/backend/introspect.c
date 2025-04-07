@@ -302,6 +302,15 @@ introspect_dummy_array(struct workspace *wk)
 	return doc;
 }
 
+static obj
+introspect_dummy_dict(struct workspace *wk)
+{
+	obj doc;
+	doc = make_obj(wk, obj_dict);
+	return doc;
+}
+
+
 typedef obj((*introspect_callback)(struct workspace *wk));
 
 struct introspect_write_ctx {
@@ -349,7 +358,7 @@ introspect_write_all(struct workspace *wk)
 		{ output_path.introspect_file.compilers, introspect_dummy_array },
 		{ output_path.introspect_file.dependencies, introspect_dummy_array },
 		{ output_path.introspect_file.scan_dependencies, introspect_dummy_array },
-		{ output_path.introspect_file.installed, introspect_dummy_array },
+		{ output_path.introspect_file.installed, introspect_dummy_dict },
 		{ output_path.introspect_file.install_plan, introspect_dummy_array },
 		{ output_path.introspect_file.machines, introspect_dummy_array },
 		{ output_path.introspect_file.tests, introspect_dummy_array },
