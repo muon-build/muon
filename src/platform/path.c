@@ -188,6 +188,7 @@ path_push(struct workspace *wk, struct tstr *sb, const char *b)
 		 */
 		_path_normalize(wk, sb, false);
 		tstr_push(wk, sb, PATH_SEP);
+		return;
 	}
 
 	uint32_t b_len = strlen(b);
@@ -200,7 +201,7 @@ path_push(struct workspace *wk, struct tstr *sb, const char *b)
 		_path_normalize(wk, sb, false);
 	}
 
-	if (b[b_len - 1] == PATH_SEP) {
+	if (sb->buf[sb->len - 1] != PATH_SEP && b[b_len - 1] == PATH_SEP) {
 		tstr_push(wk, sb, PATH_SEP);
 	}
 }
