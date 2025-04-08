@@ -182,18 +182,26 @@ path_join_absolute(struct workspace *wk, struct tstr *sb, const char *a, const c
 void
 path_push(struct workspace *wk, struct tstr *sb, const char *b)
 {
-	if (path_is_absolute(b) || !sb->len) {
-		path_copy(wk, sb, b);
-	} else if (!*b) {
+	if (!*b) {
 		/* Special-case path_1 / '' to mean "append a / to the current
 		 * path".
 		 */
 		_path_normalize(wk, sb, false);
 		tstr_push(wk, sb, PATH_SEP);
+	}
+
+	uint32_t b_len = strlen(b);
+
+	if (path_is_absolute(b) || !sb->len) {
+		path_copy(wk, sb, b);
 	} else {
 		tstr_push(wk, sb, PATH_SEP);
-		tstr_pushs(wk, sb, b);
+		tstr_pushn(wk, sb, b, b_len);
 		_path_normalize(wk, sb, false);
+	}
+
+	if (b[b_len - 1] == PATH_SEP) {
+		tstr_push(wk, sb, PATH_SEP);
 	}
 }
 
