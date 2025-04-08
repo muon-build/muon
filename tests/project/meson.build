@@ -20,9 +20,7 @@ if dep_dict['samurai']
     ninja = 'USE_MUON'
 else
     ninja = find_program('ninja', 'samu', required: false)
-    if ninja.found()
-        ninja = ninja.full_path()
-    else
+    if not ninja.found()
         warning('ninja/samu not found, skipping project tests')
         subdir_done()
     endif
