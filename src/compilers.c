@@ -1044,7 +1044,7 @@ TOOLCHAIN_PROTO_1i(compiler_gcc_args_warning_lvl)
 
 	switch ((enum compiler_warning_lvl)i1) {
 	case compiler_warning_lvl_everything: UNREACHABLE; break;
-	case compiler_warning_lvl_3: argv[args.len] = "-Wpedantic"; ++args.len;
+	case compiler_warning_lvl_3: argv[args.len] = "-pedantic"; ++args.len;
 	/* fallthrough */
 	case compiler_warning_lvl_2: argv[args.len] = "-Wextra"; ++args.len;
 	/* fallthrough */
@@ -1073,7 +1073,7 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_warn_everything)
 	TOOLCHAIN_ARGS({ "-Wall",
 		"-Winvalid-pch",
 		"-Wextra",
-		"-Wpedantic",
+		"-pedantic",
 		"-Wcast-qual",
 		"-Wconversion",
 		"-Wfloat-equal",
