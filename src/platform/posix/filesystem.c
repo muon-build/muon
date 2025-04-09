@@ -435,7 +435,11 @@ fs_chmod(const char *path, uint32_t mode)
 	}
 
 	if (fs_symlink_exists(path)) {
+#ifdef AT_FDCWD
 		if (fchmodat(AT_FDCWD, path, (mode_t)mode, AT_SYMLINK_NOFOLLOW) == -1) {
+#else
+		if (chmod(path, (mode_t)mode)) {
+#endif
 			if (errno == EOPNOTSUPP) {
 				LOG_W("changing permissions of symlinks not supported");
 				return true;
