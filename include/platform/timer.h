@@ -19,11 +19,13 @@
 #endif
 
 struct timer {
-#ifdef _WIN32
+#if defined(_WIN32)
 	LARGE_INTEGER freq;
 	LARGE_INTEGER start;
-#else
+#elif defined(CLOCK_MONOTONIC)
 	struct timespec start;
+#else
+	struct timeval start;
 #endif
 };
 
