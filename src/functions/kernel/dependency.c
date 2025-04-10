@@ -263,7 +263,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-	if (dep->machine != ctx->machine) {
+	if (!machine_matches(dep->machine, ctx->machine)) {
 		vm_warning_at(wk,
 			ctx->fallback_node,
 			"overridden dependency is for the %s machine, but a dependency for the %s machine was requested",
@@ -1090,15 +1090,18 @@ static enum machine_kind
 deps_determine_machine(struct workspace *wk, obj link_with, obj link_whole, obj deps)
 {
 	enum machine_kind m = machine_kind_host;
+
+	if (deps_determine_machine_list(wk, link_with, &m)) {
+		return m;
+	}
+	if (deps_determine_machine_list(wk, link_whole, &m)) {
+		return m;
+	}
 	if (deps_determine_machine_list(wk, deps, &m)) {
-		return m;
-	} else if (deps_determine_machine_list(wk, link_with, &m)) {
-		return m;
-	} else if (deps_determine_machine_list(wk, link_whole, &m)) {
 		return m;
 	}
 
-	return machine_kind_host;
+	return machine_kind_either;
 }
 
 static bool
@@ -1128,6 +1131,10 @@ deps_check_machine_matches_list(struct workspace *wk, obj tgt_name, enum machine
 			case dependency_type_external_library:
 			case dependency_type_appleframeworks: break;
 			case dependency_type_declared: {
+				if (dep->machine == machine_kind_either) {
+					break;
+				}
+
 				if (!deps_check_machine_matches(wk,
 					    tgt_name,
 					    tgt_machine,
@@ -1147,7 +1154,7 @@ deps_check_machine_matches_list(struct workspace *wk, obj tgt_name, enum machine
 		default: continue;
 		}
 
-		if (machine != tgt_machine) {
+		if (!machine_matches(machine, tgt_machine)) {
 			vm_error(wk,
 				"target %o is built for the %s machine while its dependency %o is built for the %s machine",
 				tgt_name,
@@ -1708,6 +1715,8 @@ dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 	if (!dependency_create(wk, &src->dep.raw, &d->dep, flags)) {
 		return 0;
 	}
+
+	d->machine = deps_determine_machine(wk, d->dep.link_with, d->dep.link_whole, 0);
 
 	TracyCZoneAutoE;
 	return res;

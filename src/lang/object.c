@@ -2428,6 +2428,7 @@ obj_inspect(struct workspace *wk, obj val)
 		log_plain("dependency:\n");
 
 		obj_lprintf(wk, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
+		obj_lprintf(wk, "    machine: %s\n", machine_kind_to_s(dep->machine));
 
 		if (dep->name) {
 			obj_lprintf(wk, "    name: %o\n", dep->name);

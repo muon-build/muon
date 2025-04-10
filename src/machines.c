@@ -63,6 +63,7 @@ machine_kind_to_s(enum machine_kind kind)
 	switch (kind) {
 	case machine_kind_build: return "build";
 	case machine_kind_host: return "host";
+	case machine_kind_either: return "either";
 	}
 
 	UNREACHABLE_RETURN;
@@ -390,4 +391,10 @@ machine_init(void)
 
 	host_machine = build_machine;
 	host_machine.kind = machine_kind_host;
+}
+
+bool
+machine_matches(enum machine_kind a, enum machine_kind b)
+{
+	return a == machine_kind_either || a == b;
 }

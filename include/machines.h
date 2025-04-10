@@ -33,6 +33,7 @@ enum machine_system {
 enum machine_kind {
 	machine_kind_build,
 	machine_kind_host,
+	machine_kind_either,
 };
 #define machine_kind_count 2 // Keep in sync with above
 
@@ -56,4 +57,6 @@ const char *machine_system_to_kernel_name(enum machine_system sys);
 void machine_parse_and_apply_triplet(struct machine_definition *m, const char *s);
 
 void machine_init(void);
+
+bool machine_matches(enum machine_kind a, enum machine_kind b);
 #endif

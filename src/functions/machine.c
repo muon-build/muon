@@ -21,6 +21,7 @@ get_machine_for_self(struct workspace *wk, obj self)
 	switch (get_obj_machine(wk, self)) {
 	case machine_kind_build: return &build_machine;
 	case machine_kind_host: return &host_machine;
+	default: break;
 	}
 
 	UNREACHABLE_RETURN;
