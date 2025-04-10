@@ -105,13 +105,6 @@ install_packages_()
 # steps
 ################################################################################
 
-step_fix_static_libs_()
-{
-	# Because static libcares is installed as libcares_static, and this is
-	# not listed in any .pc files, symlink it to the expected location.
-	sudo_ ln -fs /usr/lib/libcares_static.a /usr/lib/libcares.a
-}
-
 step_reuse_lint_()
 {
 	reuse lint
@@ -326,9 +319,6 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig
 
 # housekeeping steps
 #####################
-
-# Fix static libs
-queue_step_ "fix_static_libs"
 
 if [ "$cfg_reuse" ]; then
 	queue_step_ "reuse_lint"
