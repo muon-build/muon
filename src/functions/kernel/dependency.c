@@ -104,6 +104,7 @@ struct dep_lookup_ctx {
 	enum dependency_lookup_method lookup_method;
 	bool disabler;
 	bool from_cache;
+	bool from_override;
 	bool found;
 };
 
@@ -128,29 +129,43 @@ get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
 }
 
 static bool
-check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
+check_dependency_override_for_machine(struct workspace *wk,
+	const struct dep_lookup_ctx *ctx,
+	enum machine_kind machine,
+	enum dep_lib_mode *found_lib_mode)
 {
+	bool found = false;
+
 	obj n;
 	obj_array_for(wk, ctx->names, n) {
 		if (ctx->lib_mode != dep_lib_mode_shared) {
-			if (obj_dict_index(wk, wk->dep_overrides_static[ctx->machine], n, ctx->res)) {
-				ctx->lib_mode = dep_lib_mode_static;
-				ctx->found = true;
+			if (obj_dict_index(wk, wk->dep_overrides_static[machine], n, ctx->res)) {
+				*found_lib_mode = dep_lib_mode_static;
+				found = true;
 				break;
 			}
 		}
 
 		if (ctx->lib_mode != dep_lib_mode_static) {
-			if (obj_dict_index(wk, wk->dep_overrides_dynamic[ctx->machine], n, ctx->res)) {
-				ctx->lib_mode = dep_lib_mode_shared;
-				ctx->found = true;
+			if (obj_dict_index(wk, wk->dep_overrides_dynamic[machine], n, ctx->res)) {
+				*found_lib_mode = dep_lib_mode_shared;
+				found = true;
 				break;
 			}
 		}
 	}
 
+	return found;
+}
+
+static bool
+check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
+{
+	ctx->found = check_dependency_override_for_machine(wk, ctx, ctx->machine, &ctx->lib_mode);
+
 	if (ctx->found) {
 		LO("found %o in override\n", ctx->name);
+		ctx->from_override = true;
 	}
 
 	return ctx->found;
@@ -896,6 +911,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		if (sub_ctx.found) {
 			ctx.lib_mode = sub_ctx.lib_mode;
 			ctx.from_cache = sub_ctx.from_cache;
+			ctx.from_override = sub_ctx.from_override;
 			ctx.found = true;
 			break;
 		}
@@ -929,6 +945,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 
 		obj_lprintf(wk, "dependency %o not found", an[0].val);
+		obj_lprintf(wk, " for the %s machine", machine_kind_to_s(ctx.machine));
 
 		if (ctx.not_found_message) {
 			obj_lprintf(wk, ", %#o", ctx.not_found_message);
@@ -936,8 +953,18 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 
 		log_plain("\n");
 
+		{
+			enum machine_kind other_machine = ctx.machine == machine_kind_build ? machine_kind_host : machine_kind_build;
+			enum dep_lib_mode _lib_mode;
+			if (check_dependency_override_for_machine(wk, &ctx, other_machine, &_lib_mode)) {
+				LOG_N("a dependency with the same name is available for the %s machine\n", machine_kind_to_s(other_machine));
+			}
+		}
+
+
 		if (ctx.requirement == requirement_required) {
 			vm_error_at(wk, ctx.err_node, "required dependency not found");
+
 			return false;
 		} else {
 			if (ctx.disabler) {
@@ -952,7 +979,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	} else if (!str_eql(get_str(wk, ctx.name), &STR(""))) {
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
 
-		if (!ctx.from_cache) {
+		if (!ctx.from_cache && !ctx.from_override) {
 			LLOG_I("found dependency ");
 			if (dep->type == dependency_type_declared) {
 				obj_lprintf(wk, "%o (declared dependency)", ctx.name);
