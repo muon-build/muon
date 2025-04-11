@@ -21,6 +21,7 @@
 const char *log_level_clr[log_level_count] = {
 	[log_error] = "31",
 	[log_warn] = "33",
+	[log_note] = "36",
 	[log_info] = "0",
 	[log_debug] = "36",
 };
@@ -28,6 +29,7 @@ const char *log_level_clr[log_level_count] = {
 const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
 	[log_warn] = "warning",
+	[log_note] = "note",
 	[log_info] = "info",
 	[log_debug] = "debug",
 };
@@ -35,6 +37,7 @@ const char *log_level_name[log_level_count] = {
 const char *log_level_shortname[log_level_count] = {
 	[log_error] = "err ",
 	[log_warn] = "warn ",
+	[log_note] = "note ",
 	[log_info] = "",
 	[log_debug] = "dbg ",
 };

@@ -49,6 +49,7 @@ enum log_level {
 	log_quiet,
 	log_error,
 	log_warn,
+	log_note,
 	log_info,
 	log_debug,
 	log_level_count,

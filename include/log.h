@@ -20,6 +20,7 @@ extern const char *log_level_name[log_level_count];
 extern const char *log_level_shortname[log_level_count];
 
 #define L(...) log_print(true, log_debug, __VA_ARGS__)
+#define LOG_N(...) log_print(true, log_note, __VA_ARGS__)
 #define LOG_I(...) log_print(true, log_info, __VA_ARGS__)
 #define LOG_W(...) log_print(true, log_warn, __VA_ARGS__)
 #define LOG_E(...) log_print(true, log_error, __VA_ARGS__)
