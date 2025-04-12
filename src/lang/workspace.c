@@ -21,6 +21,7 @@
 #include "platform/assert.h"
 #include "platform/path.h"
 #include "tracy.h"
+#include "version.h"
 
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
@@ -380,6 +381,8 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 			}
 		}
 	}
+
+	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
 	uint32_t project_id;
 	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {

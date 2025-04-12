@@ -36,7 +36,7 @@
 static const char *
 bool_to_yn(bool v)
 {
-	return v ? "\033[32mYES\033[0m" : "\033[31mNO\033[0m";
+	return v ? CLR(c_green) "YES" CLR(0) : CLR(c_red) "NO" CLR(0);
 }
 
 MUON_ATTR_FORMAT(printf, 3, 4)
@@ -66,7 +66,7 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	log_plainv(fmt, args);
 
 	if (opts->from_cache) {
-		log_plain(" \033[36mcached\033[0m");
+		log_plain(" " CLR(c_cyan) "cached" CLR(0));
 	}
 
 	log_plain("\n");

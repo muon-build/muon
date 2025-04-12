@@ -74,9 +74,9 @@ translate_meson_opts_help(struct translate_meson_opts_ctx *ctx, const struct mes
 		}
 
 		printf("%s%s%s%s%s",
-			(opts[i].ignore && log_clr()) ? "\033[31m" : "",
+			opts[i].ignore ? CLR(c_red) : "",
 			opts[i].ignore ? "*" : (indent ? " " : ""),
-			(opts[i].ignore && log_clr()) ? "\033[0m" : "",
+			opts[i].ignore ? CLR(0) : "",
 			opts[i].name[1] ? "--" : "-",
 			opts[i].name);
 
@@ -104,7 +104,7 @@ translate_meson_opts_help(struct translate_meson_opts_ctx *ctx, const struct mes
 	}
 
 	if (any_ignored) {
-		printf("%s*%s denotes an ignored option.\n", log_clr() ? "\033[31m" : "", log_clr() ? "\033[0m" : "");
+		printf(CLR(c_red) "*" CLR(0) " denotes an ignored option.\n");
 	}
 }
 

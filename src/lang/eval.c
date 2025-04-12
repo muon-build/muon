@@ -42,8 +42,7 @@ eval_project(struct workspace *wk,
 	const char *parent_prefix = log_get_prefix();
 	char log_prefix[256] = { 0 };
 	if (wk->cur_project > 0) {
-		const char *clr = log_clr() ? "\033[35m" : "", *no_clr = log_clr() ? "\033[0m" : "";
-		snprintf(log_prefix, 255, "[%s%s%s]", clr, subproject_name, no_clr);
+		snprintf(log_prefix, 255, "[" CLR(c_magenta) "%s" CLR(0) "]", subproject_name);
 		log_set_prefix(log_prefix);
 	}
 

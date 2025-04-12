@@ -1008,7 +1008,7 @@ func_assert(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
-func_debug(struct workspace *wk, obj _, obj *res)
+func_log_common(struct workspace *wk, enum log_level lvl)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
@@ -1016,56 +1016,38 @@ func_debug(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	log_plain(log_clr() ? "\033[35mdebug\033[0m: " : "debug: ");
+	log_print(false, lvl, "");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
 		obj_lprintf(wk, "%#o ", val);
 	}
 	log_plain("\n");
-	*res = 0;
 
 	return true;
+}
+
+static bool
+func_debug(struct workspace *wk, obj _, obj *res)
+{
+	return func_log_common(wk, log_debug);
 }
 
 static bool
 func_message(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
-
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	log_plain(log_clr() ? "\033[34mmessage\033[0m " : "message: ");
-	obj val;
-	obj_array_for_(wk, an[0].val, val, iter)
-	{
-		obj_lprintf(wk, "%#o%s", val, iter.i + 1 == iter.len ? "" : " ");
-	}
-	log_plain("\n");
-	*res = 0;
-
-	return true;
+	return func_log_common(wk, log_note);
 }
 
 static bool
 func_error(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
+	return func_log_common(wk, log_error);
+}
 
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	log_plain(log_clr() ? "\033[31merror\033[0m " : "error: ");
-	obj val;
-	obj_array_for(wk, an[0].val, val) {
-		obj_lprintf(wk, "%#o ", val);
-	}
-	log_plain("\n");
-	*res = 0;
-
-	return false;
+static bool
+func_warning(struct workspace *wk, obj _, obj *res)
+{
+	return func_log_common(wk, log_warn);
 }
 
 static bool
@@ -1078,26 +1060,6 @@ func_print(struct workspace *wk, obj _, obj *res)
 	}
 
 	log_plain("%s", get_cstr(wk, an[0].val));
-	*res = 0;
-
-	return true;
-}
-
-static bool
-func_warning(struct workspace *wk, obj _, obj *res)
-{
-	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
-
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	log_plain(log_clr() ? "\033[33mwarn\033[0m " : "warn: ");
-	obj val;
-	obj_array_for(wk, an[0].val, val) {
-		obj_lprintf(wk, "%#o ", val);
-	}
-	log_plain("\n");
 	*res = 0;
 
 	return true;

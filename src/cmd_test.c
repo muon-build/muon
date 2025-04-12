@@ -173,20 +173,16 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 
 	const char *suite_str = test_suites_label(wk, res);
 
-	if (log_clr()) {
-		uint32_t clr[] = {
-			[status_failed] = 31,
-			[status_should_have_failed] = 31,
-			[status_ok] = 32,
-			[status_failed_ok] = 33,
-			[status_running] = 0,
-			[status_timedout] = 31,
-			[status_skipped] = 33,
-		};
-		log_plain("\033[%dm%s\033[0m", clr[status], status_msg[status]);
-	} else {
-		log_plain("%s", status_msg[status]);
-	}
+	uint32_t clr[] = {
+		[status_failed] = c_red,
+		[status_should_have_failed] = c_red,
+		[status_ok] = c_green,
+		[status_failed_ok] = c_yellow,
+		[status_running] = 0,
+		[status_timedout] = c_red,
+		[status_skipped] = c_yellow,
+	};
+	log_plain("\033[%dm%s\033[0m", clr[status], status_msg[status]);
 
 	if (res->status == test_result_status_running) {
 		log_plain("          ");

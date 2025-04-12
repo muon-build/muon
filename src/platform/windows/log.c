@@ -30,7 +30,7 @@ static const WORD color_map[] = { [1] = FOREGROUND_INTENSITY,
 	[37] = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED };
 
 void
-print_colorized(FILE *out, const char *s)
+print_colorized(FILE *out, const char *s, bool strip)
 {
 	if (tty_is_pty) {
 		fwrite(s, 1, strlen(s), out);
@@ -66,9 +66,11 @@ print_colorized(FILE *out, const char *s)
 						start = s + 1;
 					}
 
-					assert(esc_num < ARRAY_LEN(color_map) && "esc_num out of range");
-					attr = esc_num ? attr | color_map[esc_num] : saved_attributes;
-					SetConsoleTextAttribute(hConsole, attr);
+					if (!strip) {
+						assert(esc_num < ARRAY_LEN(color_map) && "esc_num out of range");
+						attr = esc_num ? attr | color_map[esc_num] : saved_attributes;
+						SetConsoleTextAttribute(hConsole, attr);
+					}
 					esc_num = 0;
 				} else if ('0' <= *s && *s <= '9') {
 					esc_num *= 10;

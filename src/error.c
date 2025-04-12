@@ -181,10 +181,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 					log_plain("\n");
 				}
 
-				log_plain("%s%s%s\n",
-					log_clr() ? "\033[31;1m" : "",
-					cur_src->label,
-					log_clr() ? "\033[0m" : "");
+				log_plain(CLR(c_bold, c_red) "%s" CLR(0) "\n", cur_src->label);
 			}
 
 			last_src = cur_src;
@@ -204,17 +201,7 @@ error_unrecoverable(const char *fmt, ...)
 {
 	va_list ap;
 
-	if (log_clr()) {
-		log_plain("\033[31m");
-	}
-
-	log_plain("fatal error");
-
-	if (log_clr()) {
-		log_plain("\033[0m");
-	}
-
-	log_plain(": ");
+	LLOG_E("fatal: ");
 	va_start(ap, fmt);
 	log_plainv(fmt, ap);
 	log_plain("\n");
@@ -377,7 +364,7 @@ reopen_source(const struct source *src, struct source *src_reopened, bool *destr
 void
 list_line_range(const struct source *src, struct source_location location, uint32_t context)
 {
-	log_plain("-> %s%s%s\n", log_clr() ? "\033[32m" : "", src->label, log_clr() ? "\033[0m" : "");
+	log_plain("-> " CLR(c_green) "%s" CLR(0) "\n", src->label);
 
 	bool destroy_source = false;
 	struct source src_reopened;
@@ -515,11 +502,7 @@ error_message(const struct source *src,
 	}
 
 	if (lvl != log_info) {
-		if (log_clr()) {
-			log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
-		} else {
-			log_plain("%s ", log_level_name[lvl]);
-		}
+		log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
 	}
 
 	log_plain("%s\n", msg);

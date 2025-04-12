@@ -1203,10 +1203,10 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	const char *key_clr = "", *val_clr = "", *sel_clr = "", *no_clr = "";
 
 	if (fs_is_a_tty(stdout)) {
-		key_clr = "\033[1;34m";
-		val_clr = "\033[1;37m";
-		sel_clr = "\033[1;32m";
-		no_clr = "\033[0m";
+		key_clr = CLR(c_bold, c_blue);
+		val_clr = CLR(c_bold, c_white);
+		sel_clr = CLR(c_bold, c_green);
+		no_clr = CLR(0);
 	}
 
 	{

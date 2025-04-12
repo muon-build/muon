@@ -165,18 +165,15 @@ subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, 
 	obj_array_push(wk, *ctx->res, d);
 
 	if (ctx->print) {
-		const char *clr_green = log_clr() ? "\033[32m" : "", *clr_blue = log_clr() ? "\033[34m" : "",
-			   *clr_magenta = log_clr() ? "\033[35m" : "", *clr_off = log_clr() ? "\033[0m" : "";
-
-		const char *t_clr = clr_blue;
+		const char *t_clr = CLR(c_blue);
 		if (wrap.type == wrap_type_git) {
-			t_clr = clr_magenta;
+			t_clr = CLR(c_magenta);
 		}
 
-		LLOG_I("[%s%s%s] %s ", t_clr, t, clr_off, wrap.name.buf);
+		LLOG_I("[%s%s%s] %s ", t_clr, t, CLR(0), wrap.name.buf);
 
 		if (wrap.outdated) {
-			log_plain("%sU%s", clr_green, clr_off);
+			log_plain(CLR(c_green) "U" CLR(0));
 		}
 		if (wrap.dirty) {
 			log_plain("*");

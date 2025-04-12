@@ -19,11 +19,11 @@
 #include "platform/os.h"
 
 const char *log_level_clr[log_level_count] = {
-	[log_error] = "31",
-	[log_warn] = "33",
-	[log_note] = "36",
+	[log_error] = STRINGIZE(c_red),
+	[log_warn] = STRINGIZE(c_yellow),
+	[log_note] = STRINGIZE(c_cyan),
 	[log_info] = "0",
-	[log_debug] = "36",
+	[log_debug] = STRINGIZE(c_cyan),
 };
 
 const char *log_level_name[log_level_count] = {
@@ -46,7 +46,7 @@ static struct {
 	FILE *file;
 	enum log_level level;
 	uint32_t filter;
-	bool initialized, clr;
+	bool initialized, file_is_a_tty;
 	const char *prefix;
 	struct tstr *tstr;
 } log_cfg = {
@@ -82,16 +82,11 @@ log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
 	}
 
 	if (*log_level_shortname[lvl]) {
-		if (log_cfg.clr) {
-			len += snprintf(&buf[len],
-				BUF_SIZE_4k - len,
-				"\033[%sm%s\033[0m",
-				log_level_clr[lvl],
-				log_level_shortname[lvl]);
-		} else {
-			len = strlen(log_level_shortname[lvl]);
-			strncpy(buf, log_level_shortname[lvl], BUF_SIZE_4k);
-		}
+		len += snprintf(&buf[len],
+			BUF_SIZE_4k - len,
+			"\033[%sm%s\033[0m",
+			log_level_clr[lvl],
+			log_level_shortname[lvl]);
 	}
 
 	return len;
@@ -117,13 +112,11 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 			buf[len + 1] = 0;
 		}
 
-		if (log_cfg.clr) {
-			print_colorized(log_cfg.file, buf);
-		} else if (log_cfg.tstr) {
+		if (log_cfg.tstr) {
 			tstr_pushn(0, log_cfg.tstr, buf, len);
 			tstr_push(0, log_cfg.tstr, '\n');
 		} else {
-			fputs(buf, log_cfg.file);
+			print_colorized(log_cfg.file, buf, !log_cfg.file_is_a_tty);
 		}
 	}
 }
@@ -133,13 +126,11 @@ log_plainv(const char *fmt, va_list ap)
 {
 	static char buf[BUF_SIZE_32k];
 
-	if (log_cfg.clr) {
-		vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
-		print_colorized(log_cfg.file, buf);
-	} else if (log_cfg.tstr) {
+	if (log_cfg.tstr) {
 		tstr_vpushf(0, log_cfg.tstr, fmt, ap);
 	} else {
-		vfprintf(log_cfg.file, fmt, ap);
+		vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
+		print_colorized(log_cfg.file, buf, !log_cfg.file_is_a_tty);
 	}
 }
 
@@ -150,12 +141,6 @@ log_plain(const char *fmt, ...)
 	va_start(ap, fmt);
 	log_plainv(fmt, ap);
 	va_end(ap);
-}
-
-bool
-log_clr(void)
-{
-	return log_cfg.clr;
 }
 
 void
@@ -180,7 +165,7 @@ log_set_file(FILE *log_file)
 {
 	log_cfg.file = log_file;
 	log_cfg.tstr = 0;
-	log_cfg.clr = fs_is_a_tty(log_file);
+	log_cfg.file_is_a_tty = fs_is_a_tty(log_file);
 }
 
 void
@@ -190,7 +175,6 @@ log_set_buffer(struct tstr *buf)
 
 	log_cfg.tstr = buf;
 	log_cfg.file = 0;
-	log_cfg.clr = false;
 }
 
 void
