@@ -290,7 +290,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	*found = true;
 	return true;
 not_found:
-	obj_lprintf(wk, "fallback %o failed for %o\n", ctx->fallback, ctx->name);
+	obj_lprintf(wk, log_info, "fallback %o failed for %o\n", ctx->fallback, ctx->name);
 	*ctx->res = 0;
 	*found = false;
 	return true;
@@ -316,6 +316,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		return false;
 	} else if (!ver_match) {
 		obj_lprintf(wk,
+			log_note,
 			"pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
 			ctx->name,
 			ver_str,
@@ -669,7 +670,6 @@ static enum handle_special_dependency_result
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
-		LOG_I("dependency threads found");
 		*ctx->res = make_obj(wk, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 		dep->name = ctx->name;
@@ -931,12 +931,14 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			if (sub_ctx.found) {
 				ctx.lib_mode = sub_ctx.lib_mode;
 				ctx.from_cache = sub_ctx.from_cache;
+				ctx.from_override = sub_ctx.from_override;
 				ctx.found = true;
 				break;
 			}
 		}
 	}
 
+#if 0
 	if (!ctx.found) {
 		if (ctx.requirement == requirement_required) {
 			LLOG_E("required ");
@@ -944,7 +946,10 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 			LLOG_W("%s", "");
 		}
 
-		obj_lprintf(wk, "dependency %o not found", an[0].val);
+		obj joined;
+		obj_array_join(wk, false, an[0].val, make_str(wk, ", "), &joined);
+
+		obj_lprintf(wk, "dependency %#o", joined);
 		obj_lprintf(wk, " for the %s machine", machine_kind_to_s(ctx.machine));
 
 		if (ctx.not_found_message) {
@@ -953,57 +958,46 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 
 		log_plain("\n");
 
-		{
-			enum machine_kind other_machine = ctx.machine == machine_kind_build ? machine_kind_host : machine_kind_build;
-			enum dep_lib_mode _lib_mode;
-			if (check_dependency_override_for_machine(wk, &ctx, other_machine, &_lib_mode)) {
-				LOG_N("a dependency with the same name is available for the %s machine\n", machine_kind_to_s(other_machine));
-			}
-		}
+#endif
 
-
-		if (ctx.requirement == requirement_required) {
-			vm_error_at(wk, ctx.err_node, "required dependency not found");
-
-			return false;
-		} else {
-			if (ctx.disabler) {
-				*ctx.res = obj_disabler;
-			} else {
-				*ctx.res = make_obj(wk, obj_dependency);
-				struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
-				dep->name = ctx.name;
-				dep->type = dependency_type_not_found;
-			}
-		}
-	} else if (!str_eql(get_str(wk, ctx.name), &STR(""))) {
-		struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
-
-		if (!ctx.from_cache && !ctx.from_override) {
-			LLOG_I("found dependency ");
-			if (dep->type == dependency_type_declared) {
-				obj_lprintf(wk, "%o (declared dependency)", ctx.name);
-			} else {
-				log_plain("%s", get_cstr(wk, dep->name));
-			}
-
-			if (dep->version) {
-				log_plain(" version %s", get_cstr(wk, dep->version));
-			}
-
-			if (ctx.lib_mode == dep_lib_mode_static) {
-				log_plain(" static");
-			}
-
-			log_plain(" for the %s machine", machine_kind_to_s(machine));
-
-			log_plain("\n");
-		}
+	struct obj_dependency *dep = 0;
+	if (get_obj_type(wk, *res) == obj_dependency) {
+		dep = get_obj_dependency(wk, *res);
 	}
 
-	if (get_obj_type(wk, *res) == obj_dependency) {
-		struct obj_dependency *dep = get_obj_dependency(wk, *res);
+	if (!str_eql(get_str(wk, ctx.name), &STR("")) && !ctx.from_cache && !ctx.from_override) {
+		LLOG_I("dependency ");
 
+		if (!ctx.found) {
+			obj joined;
+			obj_array_join(wk, false, an[0].val, make_str(wk, ", "), &joined);
+			obj_lprintf(wk, log_info, "%#o", joined);
+		} else if (dep->type == dependency_type_declared) {
+			obj_lprintf(wk, log_info, "%#o", ctx.name);
+		} else {
+			log_plain(log_info, "%s", get_cstr(wk, dep->name));
+		}
+
+		if (!ctx.found) {
+			// TODO: print version searched for
+		} else if (dep->version) {
+			log_plain_version_string(log_info, get_cstr(wk, dep->version));
+		}
+
+		if (ctx.lib_mode == dep_lib_mode_static) {
+			log_plain(log_info, " static");
+		}
+
+		if (machine != machine_kind_host) {
+			log_plain(log_info, " (%s)", machine_kind_to_s(machine));
+		}
+
+		log_plain(log_info, " found: %s", bool_to_yn(ctx.found));
+
+		log_plain(log_info, "\n");
+	}
+
+	if (dep) {
 		if (ctx.from_cache) {
 			obj dup;
 			dup = make_obj(wk, obj_dependency);
@@ -1033,6 +1027,29 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 						name,
 						*ctx.res);
 				}
+			}
+		}
+	} else {
+		{
+			enum machine_kind other_machine = ctx.machine == machine_kind_build ? machine_kind_host : machine_kind_build;
+			enum dep_lib_mode _lib_mode;
+			if (check_dependency_override_for_machine(wk, &ctx, other_machine, &_lib_mode)) {
+				LOG_N("a dependency with the same name is available for the %s machine\n", machine_kind_to_s(other_machine));
+			}
+		}
+
+		if (ctx.requirement == requirement_required) {
+			vm_error_at(wk, ctx.err_node, "required dependency not found");
+
+			return false;
+		} else {
+			if (ctx.disabler) {
+				*ctx.res = obj_disabler;
+			} else {
+				*ctx.res = make_obj(wk, obj_dependency);
+				struct obj_dependency *dep = get_obj_dependency(wk, *ctx.res);
+				dep->name = ctx.name;
+				dep->type = dependency_type_not_found;
 			}
 		}
 	}

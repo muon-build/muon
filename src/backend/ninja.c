@@ -86,6 +86,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	obj_clear(wk, &mk);
 
 	TracyCZoneAutoE;
+	log_progress_inc(wk);
 	return ret;
 }
 

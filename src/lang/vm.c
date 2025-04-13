@@ -138,9 +138,9 @@ object_stack_print(struct workspace *wk, struct object_stack *s)
 {
 	for (int32_t i = s->ba.len - 1; i >= 0; --i) {
 		struct obj_stack_entry *e = bucket_arr_get(&s->ba, i);
-		obj_lprintf(wk, "%o%s", e->o, i > 0 ? ", " : "");
+		obj_lprintf(wk, log_debug, "%o%s", e->o, i > 0 ? ", " : "");
 	}
-	log_plain("\n");
+	log_plain(log_debug, "\n");
 }
 
 /******************************************************************************
@@ -829,7 +829,7 @@ vm_dis(struct workspace *wk)
 			get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
 		}
 		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d-[%3d:%02d]", src ? src->label : 0, dloc.line, dloc.col, dloc.end_line, dloc.end_col);
-		log_plain("%-*s%s\n", w, dis, loc_buf);
+		log_plain(log_info, "%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
 		/* 	list_line_range(src, loc, 0); */
@@ -2674,10 +2674,11 @@ vm_execute_loop(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-			/* object_stack_print(wk, &wk->vm.stack); */
-		}
+		/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
+		/* object_stack_print(wk, &wk->vm.stack); */
+		/* L("%5.2f", (double)wk->vm.ip / (double)wk->vm.code.len * 100.0); */
+
+		log_progress(wk, wk->vm.ip);
 
 		vm_check_break(wk, wk->vm.ip);
 

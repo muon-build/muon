@@ -737,7 +737,7 @@ translate_meson_opts(struct workspace *wk,
 	ctx.argv = ctx.prepend_args;
 	obj_array_extend_nodup(wk, ctx.argv, ctx.stray_args);
 
-	obj_lprintf(wk, "args: %o\n", ctx.argv);
+	obj_lprintf(wk, log_info, "args: %o\n", ctx.argv);
 
 	const char *argstr;
 	join_args_argstr(wk, &argstr, new_argc, ctx.argv);

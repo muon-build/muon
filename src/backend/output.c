@@ -21,6 +21,7 @@ const struct output_path output_path = {
 	.compiler_check_cache = "compiler_check_cache.dat",
 	.option_info = "option_info.dat",
 	.introspect_dir = "meson-info",
+	.debug_log = "setup.log",
 	.introspect_file = {
 		.projectinfo = "intro-projectinfo.json",
 		.targets = "intro-targets.json",

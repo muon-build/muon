@@ -63,10 +63,10 @@ ret:
 static void
 backend_print_stack(struct workspace *wk)
 {
-	log_plain("stack trace:\n");
+	log_plain(log_info, "stack trace:\n");
 	obj v;
 	obj_array_for(wk, wk->backend_output_stack, v) {
-		log_plain(" -> %s\n", get_cstr(wk, v));
+		log_plain(log_info, " -> %s\n", get_cstr(wk, v));
 	}
 }
 
@@ -177,6 +177,16 @@ backend_output(struct workspace *wk)
 
 	if (!ca_prepare_all_targets(wk)) {
 		ok = false;
+	}
+
+	{
+		double total = 0;
+		for (uint32_t i = 0; i < wk->projects.len; ++i) {
+			struct project *proj = arr_get(&wk->projects, i);
+			total += get_obj_array(wk, proj->targets)->len;
+		}
+		log_progress_reset(0, "backend");
+		log_progress_push_level(0, total);
 	}
 
 	if (ok) {

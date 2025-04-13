@@ -207,7 +207,7 @@ func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
 			struct getopt_handler handler = { 0 };
 			vm_obj_to_struct(wk, getopt_handler, v, &handler);
 			if (handler.required && !handler.seen) {
-				obj_lprintf(wk, "missing required option %o\n", k);
+				obj_lprintf(wk, log_info, "missing required option %o\n", k);
 				func_module_getopt_usage(wk, argv[0], handlers, 1);
 			}
 		}

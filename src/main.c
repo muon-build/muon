@@ -997,12 +997,12 @@ cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 static void
 cmd_setup_help(void)
 {
-	log_plain("\n");
+	log_plain(log_info, "\n");
 
 	struct list_options_opts list_opts = { 0 };
 	list_options(&list_opts);
 
-	log_plain("To see all options, including builtin options, use `muon options -a`.\n");
+	log_plain(log_info, "To see all options, including builtin options, use `muon options -a`.\n");
 }
 
 static bool
@@ -1016,7 +1016,10 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:b:") {
+	OPTSTART("D:b:#") {
+	case '#':
+		log_set_progress_bar_enabled(true);
+		break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
@@ -1274,8 +1277,9 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	bool res = false;
 	TSTR_manual(argv0);
 
-	OPTSTART("vC:") {
+	OPTSTART("vqC:") {
 	case 'v': log_set_lvl(log_debug); break;
+	case 'q': log_set_lvl(log_error); break;
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
 		// wrong after chdir
@@ -1314,7 +1318,7 @@ main(int argc, char *argv[])
 {
 	platform_init();
 
-	log_init();
+	log_set_file(stdout);
 	log_set_lvl(log_info);
 
 	path_init();

@@ -19,7 +19,7 @@ muon_readline(const char *prompt)
 		return NULL;
 	}
 
-	log_plain("%s\n", prompt);
+	log_raw("%s\n", prompt);
 	fgets(buf, 2048, stdin);
 
 	uint32_t len = strlen(buf);

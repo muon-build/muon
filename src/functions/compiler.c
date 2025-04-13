@@ -33,12 +33,6 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
-static const char *
-bool_to_yn(bool v)
-{
-	return v ? CLR(c_green) "YES" CLR(0) : CLR(c_red) "NO" CLR(0);
-}
-
 MUON_ATTR_FORMAT(printf, 3, 4)
 static void
 compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
@@ -48,8 +42,8 @@ compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
 	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
-	log_plainv(fmt, args);
-	log_plain("\n");
+	log_printv(log_info, fmt, args);
+	log_plain(log_info, "\n");
 
 	va_end(args);
 }
@@ -63,13 +57,13 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
 	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
-	log_plainv(fmt, args);
+	log_printv(log_info, fmt, args);
 
 	if (opts->from_cache) {
-		log_plain(" " CLR(c_cyan) "cached" CLR(0));
+		log_plain(log_info, " " CLR(c_cyan) "cached" CLR(0));
 	}
 
-	log_plain("\n");
+	log_plain(log_info, "\n");
 
 	va_end(args);
 }

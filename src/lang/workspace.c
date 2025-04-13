@@ -104,11 +104,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
-	ret = eval(wk,
-		&src,
-		build_language_meson,
-		0,
-		&_);
+	ret = eval(wk, &src, build_language_meson, 0, &_);
 
 	stack_pop(&wk->stack, wk->vm.scope_stack);
 	stack_pop(&wk->stack, wk->vm.lang_mode);
@@ -239,27 +235,37 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	return true;
 }
 
-static enum iteration_result
-print_summaries_line_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+static obj
+summary_bool_to_s(struct workspace *wk, bool v, bool bool_yn)
 {
-	FILE *out = _ctx;
-
-	obj_fprintf(wk, out, "      %#o: %o\n", k, v);
-
-	return ir_cont;
+	if (bool_yn) {
+		return make_strf(wk, "%s", bool_to_yn(v));
+	} else {
+		return make_strf(wk, "%s%s" CLR(0), v ? CLR(c_green) : CLR(c_red), v ? "true" : "false");
+	}
 }
 
-static enum iteration_result
-print_summaries_section_iter(struct workspace *wk, void *_ctx, obj k, obj v)
+static obj
+summary_item_to_s(struct workspace *wk, obj v, bool bool_yn)
 {
-	FILE *out = _ctx;
-
-	if (get_str(wk, k)->len) {
-		obj_fprintf(wk, out, "    %#o\n", k);
+	switch (get_obj_type(wk, v)) {
+	case obj_dependency: {
+		bool found = get_obj_dependency(wk, v)->flags & dep_flag_found;
+		return summary_bool_to_s(wk, found, bool_yn);
 	}
-
-	obj_dict_foreach(wk, v, out, print_summaries_line_iter);
-	return ir_cont;
+	case obj_external_program: {
+		bool found = get_obj_external_program(wk, v)->found;
+		return summary_bool_to_s(wk, found, bool_yn);
+	}
+	case obj_bool: {
+		return summary_bool_to_s(wk, get_obj_bool(wk, v), bool_yn);
+	}
+	default: {
+		TSTR(buf);
+		obj_asprintf(wk, &buf, CLR(c_green) "%#o" CLR(0), v);
+		return tstr_into_str(wk, &buf);
+	}
+	}
 }
 
 void
@@ -269,7 +275,9 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 		return;
 	}
 
-	bool printed_summary_header = false;
+	FILE *old_log_file = _log_file();
+	log_set_file(out);
+
 	uint32_t i;
 	struct project *proj;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -283,14 +291,71 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 			continue;
 		}
 
-		if (!printed_summary_header) {
-			fprintf(out, "summary:\n");
-			printed_summary_header = true;
-		}
+		LOG_I(CLR(c_magenta) "%s" CLR(0) " %s", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
 
-		fprintf(out, "- %s %s\n", get_cstr(wk, proj->cfg.name), get_cstr(wk, proj->cfg.version));
-		obj_dict_foreach(wk, proj->summary, out, print_summaries_section_iter);
+		obj section, values;
+		obj_dict_for(wk, proj->summary, section, values) {
+			if (get_str(wk, section)->len) {
+				obj_lprintf(wk, log_info, "  %#o\n", section);
+			}
+
+			obj k, v;
+			obj_dict_for(wk, values, k, v) {
+				obj attr = obj_array_index(wk, v, 0);
+
+				bool bool_yn = false;
+				obj list_sep = 0;
+				if (attr) {
+					obj bool_yn_val;
+					if (attr && obj_dict_index(wk, attr, make_str(wk, "bool_yn"), &bool_yn_val)) {
+						bool_yn = get_obj_bool(wk, bool_yn_val);
+					}
+
+					obj_dict_index(wk, attr, make_str(wk, "list_sep"), &list_sep);
+				}
+
+				v = obj_array_index(wk, v, 1);
+
+				obj_lprintf(wk, log_info, "    %#o: ", k);
+
+				if (get_obj_type(wk, v) == obj_array) {
+					obj sub_v;
+					obj to_join = list_sep ? make_obj(wk, obj_array) : 0;
+
+					if (!to_join) {
+						log_plain(log_info, "\n");
+					}
+
+					obj_array_for(wk, v, sub_v) {
+						sub_v = summary_item_to_s(wk, sub_v, bool_yn);
+						if (to_join) {
+							obj_array_push(wk, to_join, sub_v);
+						} else {
+							log_plain(log_info, "      ");
+
+							const struct str *s = get_str(wk, sub_v);
+							log_plain(log_info, "%s", s->s);
+							log_plain(log_info, "\n");
+						}
+					}
+
+					if (to_join) {
+						obj joined;
+						obj_array_join(wk, false, to_join, list_sep, &joined);
+						const struct str *s = get_str(wk, joined);
+						log_plain(log_info, "%s", s->s);
+					}
+				} else {
+					const struct str *s = get_str(wk, summary_item_to_s(wk, v, bool_yn));
+					log_plain(log_info, "%s", s->s);
+				}
+
+				log_plain(log_info, "\n");
+			}
+		}
 	}
+
+	log_set_file(old_log_file);
 }
 
 static obj
@@ -360,10 +425,22 @@ workspace_cwd(struct workspace *wk)
 bool
 workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
 {
+	FILE *debug_file = 0;
 	bool res = false;
 
 	if (!workspace_setup_paths(wk, build, argv0, argc, argv)) {
 		goto ret;
+	}
+
+	{
+		TSTR(path);
+		path_join(wk, &path, wk->muon_private, output_path.debug_log);
+
+		if (!(debug_file = fs_fopen(path.buf, "wb"))) {
+			return false;
+		}
+
+		log_set_debug_file(debug_file);
 	}
 
 	workspace_init_startup_files(wk);
@@ -389,7 +466,12 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 		goto ret;
 	}
 
-	log_plain("\n");
+	if (log_is_progress_bar_enabled()) {
+		log_set_progress_bar_enabled(false);
+		log_raw("\033[0K");
+	} else {
+		log_plain(log_info, "\n");
+	}
 
 	obj finalizer;
 	obj_array_for(wk, wk->finalizers, finalizer) {
@@ -409,5 +491,10 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 
 	res = true;
 ret:
+	if (debug_file) {
+		fs_fclose(debug_file);
+		log_set_debug_file(0);
+	}
+
 	return res;
 }

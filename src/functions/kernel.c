@@ -284,9 +284,9 @@ func_project(struct workspace *wk, obj _, obj *res)
 		}
 	}
 
-	LOG_I("configuring '%s', version: %s",
-		get_cstr(wk, current_project(wk)->cfg.name),
-		get_cstr(wk, current_project(wk)->cfg.version));
+	LLOG_I(CLR(c_bold, c_magenta) "%s" CLR(0), get_cstr(wk, current_project(wk)->cfg.name));
+	log_plain_version_string(log_info, get_cstr(wk, current_project(wk)->cfg.version));
+	log_plain(log_info, "\n");
 
 	current_project(wk)->initialized = true;
 	return true;
@@ -1019,9 +1019,9 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 	log_print(false, lvl, "");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
-		obj_lprintf(wk, "%#o ", val);
+		obj_lprintf(wk, lvl, "%#o ", val);
 	}
-	log_plain("\n");
+	log_plain(lvl, "\n");
 
 	return true;
 }
@@ -1059,7 +1059,7 @@ func_print(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	log_plain("%s", get_cstr(wk, an[0].val));
+	log_plain(log_info, "%s", get_cstr(wk, an[0].val));
 	*res = 0;
 
 	return true;
@@ -1150,10 +1150,10 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
 		if (cmd_ctx.out.len) {
-			log_plain("stdout:\n%s", cmd_ctx.out.buf);
+			log_plain(log_info, "stdout:\n%s", cmd_ctx.out.buf);
 		}
 		if (cmd_ctx.err.len) {
-			log_plain("stderr:\n%s", cmd_ctx.err.buf);
+			log_plain(log_info, "stderr:\n%s", cmd_ctx.err.buf);
 		}
 
 		goto ret;
@@ -1162,10 +1162,10 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
 		vm_error(wk, "command failed");
 		if (cmd_ctx.out.len) {
-			log_plain("stdout:\n%s", cmd_ctx.out.buf);
+			log_plain(log_info, "stdout:\n%s", cmd_ctx.out.buf);
 		}
 		if (cmd_ctx.err.len) {
-			log_plain("stderr:\n%s", cmd_ctx.err.buf);
+			log_plain(log_info, "stderr:\n%s", cmd_ctx.err.buf);
 		}
 
 		goto ret;
@@ -1838,14 +1838,26 @@ func_subdir_done(struct workspace *wk, obj _, obj *res)
 	UNREACHABLE_RETURN;
 }
 
+static void
+summary_push_kv(struct workspace *wk, obj dest, obj k, obj v, obj attr) {
+	obj wrapped_v = make_obj(wk, obj_array);
+	obj_array_push(wk, wrapped_v, attr);
+	obj_array_push(wk, wrapped_v, v);
+	obj_dict_set(wk, dest, k, wrapped_v);
+}
+
 static bool
 func_summary(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
+	type_tag value_base_type = tc_number | tc_bool | tc_string | tc_external_program | tc_dependency | tc_feature_opt;
+	type_tag value_type = make_complex_type(wk, complex_type_or, value_base_type, make_complex_type(wk, complex_type_nested, tc_array, value_base_type));
+	type_tag dict_type = make_complex_type(wk, complex_type_nested, tc_dict, value_type);
+
+	struct args_norm an[] = { { make_complex_type(wk, complex_type_or, tc_string, dict_type) }, { value_type, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_section,
-		kw_bool_yn, // ignored
-		kw_list_sep, // ignored
+		kw_bool_yn,
+		kw_list_sep,
 	};
 	struct args_kw akw[] = {
 		[kw_section] = { "section", obj_string, },
@@ -1857,32 +1869,45 @@ func_summary(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	obj sec = akw[kw_section].set ? akw[kw_section].val : make_str(wk, "");
-	obj dict;
+	obj attr = 0;
+	if (akw[kw_list_sep].val) {
+		if (!attr) {
+			attr = make_obj(wk, obj_dict);
+		}
+		obj_dict_set(wk, attr, make_str(wk, "list_sep"), akw[kw_list_sep].val);
+	}
+	if (akw[kw_bool_yn].val) {
+		if (!attr) {
+			attr = make_obj(wk, obj_dict);
+		}
+		obj_dict_set(wk, attr, make_str(wk, "bool_yn"), akw[kw_bool_yn].val);
+	}
+
+	obj section = akw[kw_section].set ? akw[kw_section].val : make_str(wk, "");
+
+	obj dest;
+	if (!obj_dict_index(wk, current_project(wk)->summary, section, &dest)) {
+		dest = make_obj(wk, obj_dict);
+		obj_dict_set(wk, current_project(wk)->summary, section, dest);
+	}
 
 	if (an[1].set) {
-		if (!typecheck(wk, an[0].node, an[0].val, obj_string)) {
+		if (!typecheck(wk, an[0].node, an[0].val, tc_string)) {
 			return false;
 		}
 
-		dict = make_obj(wk, obj_dict);
-		obj_dict_set(wk, dict, an[0].val, an[1].val);
+		summary_push_kv(wk, dest, an[0].val, an[1].val, attr);
 	} else {
-		if (!typecheck(wk, an[0].node, an[0].val, obj_dict)) {
+		if (!typecheck(wk, an[0].node, an[0].val, dict_type)) {
 			return false;
 		}
 
-		dict = an[0].val;
+		obj k, v;
+		obj_dict_for(wk, an[0].val, k, v) {
+			summary_push_kv(wk, dest, k, v, attr);
+		}
 	}
 
-	obj prev;
-	if (obj_dict_index(wk, current_project(wk)->summary, sec, &prev)) {
-		obj ndict;
-		obj_dict_merge(wk, prev, dict, &ndict);
-		dict = ndict;
-	}
-
-	obj_dict_set(wk, current_project(wk)->summary, sec, dict);
 	return true;
 }
 
@@ -2027,7 +2052,7 @@ func_p(struct workspace *wk, obj _, obj *res)
 		obj_inspect(wk, an[0].val);
 	} else {
 		const char *fmt = akw[kw_pretty].set && get_obj_bool(wk, akw[kw_pretty].val) ? "%#o\n" : "%o\n";
-		obj_lprintf(wk, fmt, an[0].val);
+		obj_lprintf(wk, log_info, fmt, an[0].val);
 	}
 
 	*res = an[0].val;

@@ -120,15 +120,15 @@ subproj_name_matches(struct workspace *wk, const char *name, const char *test)
 }
 
 static void
-log_option_override(struct workspace *wk, struct option_override *oo)
+log_option_override(enum log_level lvl, struct workspace *wk, struct option_override *oo)
 {
-	log_plain("'");
+	log_plain(lvl, "'");
 	if (oo->proj) {
-		log_plain("%s:", get_cstr(wk, oo->proj));
+		log_plain(lvl, "%s:", get_cstr(wk, oo->proj));
 	}
 
-	obj_lprintf(wk, "%s=%#o", get_cstr(wk, oo->name), oo->val);
-	log_plain("'");
+	obj_lprintf(wk, lvl, "%s=%#o", get_cstr(wk, oo->name), oo->val);
+	log_plain(lvl, "'");
 }
 
 bool
@@ -161,8 +161,8 @@ check_invalid_subproject_option(struct workspace *wk)
 
 		if (!found) {
 			LLOG_E("invalid option: ");
-			log_option_override(wk, oo);
-			log_plain(" (no such subproject)\n");
+			log_option_override(log_error, wk, oo);
+			log_plain(log_error, " (no such subproject)\n");
 			ret = false;
 		}
 	}
@@ -787,8 +787,8 @@ setup_project_options(struct workspace *wk, const char *cwd)
 			}
 		} else {
 			LLOG_E("invalid option: ");
-			log_option_override(wk, oo);
-			log_plain("\n");
+			log_option_override(log_error, wk, oo);
+			log_plain(log_error, "\n");
 			ret = false;
 		}
 	}
@@ -1211,7 +1211,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 
 	{
 		const char *subp = ctx->subproject_name;
-		obj_lprintf(wk, "  -D %s%s%s%#o%s=", subp ? subp : "", subp ? ":" : "", key_clr, key, no_clr);
+		obj_lprintf(wk, log_info, "  -D %s%s%s%#o%s=", subp ? subp : "", subp ? ":" : "", key_clr, key, no_clr);
 	}
 
 	obj choices = 0;
@@ -1273,63 +1273,64 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case op_boolean:
 	case op_combo:
 	case op_feature: {
-		obj_lprintf(wk, "<%s>", get_cstr(wk, choices));
+		obj_lprintf(wk, log_info, "<%s>", get_cstr(wk, choices));
 		break;
 	}
 	case op_string: {
 		if (opt->source == option_value_source_default) {
 			const struct str *def = get_str(wk, opt->val);
 			obj_lprintf(wk,
+				log_info,
 				"<%s>, default: %s%s%s",
 				get_cstr(wk, choices),
 				sel_clr,
 				def->len ? def->s : "''",
 				no_clr);
 		} else {
-			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
+			obj_lprintf(wk, log_info, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
 		break;
 	}
 	case op_integer:
 		if (opt->source == option_value_source_default) {
-			log_plain("<%sN%s>", val_clr, no_clr);
+			log_plain(log_info, "<%sN%s>", val_clr, no_clr);
 			if (opt->min || opt->max) {
-				log_plain(" where ");
+				log_plain(log_info, " where ");
 				if (opt->min) {
-					obj_lprintf(wk, "%o <= ", opt->min);
+					obj_lprintf(wk, log_info, "%o <= ", opt->min);
 				}
-				log_plain("%sN%s", val_clr, no_clr);
+				log_plain(log_info, "%sN%s", val_clr, no_clr);
 				if (opt->max) {
-					obj_lprintf(wk, " <= %o", opt->max);
+					obj_lprintf(wk, log_info, " <= %o", opt->max);
 				}
 			}
-			obj_lprintf(wk, ", default: %s%o%s", sel_clr, opt->val, no_clr);
+			obj_lprintf(wk, log_info, ", default: %s%o%s", sel_clr, opt->val, no_clr);
 		} else {
-			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
+			obj_lprintf(wk, log_info, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
 		break;
 	case op_array:
 		if (opt->source == option_value_source_default) {
-			log_plain("<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
+			log_plain(log_info, "<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
 			if (opt->choices) {
-				obj_lprintf(wk, " where value in %s", get_cstr(wk, choices));
+				obj_lprintf(wk, log_info, " where value in %s", get_cstr(wk, choices));
 			}
 		} else {
-			obj_lprintf(wk, "%s%o%s", sel_clr, opt->val, no_clr);
+			obj_lprintf(wk, log_info, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
 		break;
 	default: UNREACHABLE;
 	}
 
 	if (opt->source != option_value_source_default) {
-		obj_lprintf(wk, "*");
+		obj_lprintf(wk, log_info, "*");
 	}
 
 	if (opt->description) {
-		obj_lprintf(wk, " - %#o", opt->description);
+		obj_lprintf(wk, log_info, " - %#o", opt->description);
 	}
 
-	log_plain("\n");
+	log_plain(log_info, "\n");
 	return ir_cont;
 }
 
@@ -1465,28 +1466,28 @@ list_options(const struct list_options_opts *list_opts)
 				name = "project";
 			}
 
-			log_plain("%s options:\n", name);
+			log_plain(log_info, "%s options:\n", name);
 
 			ctx.subproject_name = i == 0 ? 0 : name;
 			obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
 			ctx.subproject_name = 0;
 
-			log_plain("\n");
+			log_plain(log_info, "\n");
 		}
 	}
 
 	if (!had_project_options && !list_opts->list_all) {
-		log_plain("no project options defined\n");
+		log_plain(log_info, "no project options defined\n");
 	}
 
 	if (list_opts->list_all) {
 		ctx.show_builtin = true;
 
-		log_plain("project builtin-options:\n");
+		log_plain(log_info, "project builtin-options:\n");
 		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
-		log_plain("\n");
+		log_plain(log_info, "\n");
 
-		log_plain("global options:\n");
+		log_plain(log_info, "global options:\n");
 		obj_dict_foreach(&wk, wk.global_opts, &ctx, list_options_iter);
 	}
 

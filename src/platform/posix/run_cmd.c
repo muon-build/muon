@@ -199,14 +199,14 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 		return false;
 	}
 
-	if (log_should_print(log_debug)) {
+	{
 		LL("executing %s:", cmd.buf);
 		char *const *ap;
 
 		for (ap = argv; *ap; ++ap) {
-			log_plain(" '%s'", *ap);
+			log_plain(log_debug, " '%s'", *ap);
 		}
-		log_plain("\n");
+		log_plain(log_debug, "\n");
 
 		if (envstr) {
 			const char *k;
@@ -218,7 +218,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 					if (!k) {
 						k = p + 1;
 					} else {
-						log_plain(" %s='%s'", k, p + 1);
+						log_plain(log_debug, " %s='%s'", k, p + 1);
 						k = NULL;
 
 						if (++i >= envc) {
@@ -228,7 +228,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 				}
 			}
 
-			log_plain("\n");
+			log_plain(log_debug, "\n");
 		}
 	}
 

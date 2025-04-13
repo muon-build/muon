@@ -173,13 +173,13 @@ subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, 
 		LLOG_I("[%s%s%s] %s ", t_clr, t, CLR(0), wrap.name.buf);
 
 		if (wrap.outdated) {
-			log_plain(CLR(c_green) "U" CLR(0));
+			log_plain(log_info, CLR(c_green) "U" CLR(0));
 		}
 		if (wrap.dirty) {
-			log_plain("*");
+			log_plain(log_info, "*");
 		}
 
-		log_plain("\n");
+		log_plain(log_info, "\n");
 	}
 
 	wrap_destroy(&wrap);

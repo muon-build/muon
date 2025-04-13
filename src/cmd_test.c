@@ -182,26 +182,26 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		[status_timedout] = c_red,
 		[status_skipped] = c_yellow,
 	};
-	log_plain("\033[%dm%s\033[0m", clr[status], status_msg[status]);
+	log_raw("\033[%dm%s\033[0m", clr[status], status_msg[status]);
 
 	if (res->status == test_result_status_running) {
-		log_plain("          ");
+		log_raw("          ");
 	} else {
-		log_plain(" %6.2fs ", res->dur);
+		log_raw(" %6.2fs ", res->dur);
 	}
 
 	if (res->subtests.have) {
-		log_plain("%3d/%3d subtests, ", res->subtests.pass, res->subtests.total);
+		log_raw("%3d/%3d subtests, ", res->subtests.pass, res->subtests.total);
 	}
 
 	if (suite_str) {
-		log_plain("%s:", suite_str);
+		log_raw("%s:", suite_str);
 	}
 
-	log_plain("%s", name);
+	log_raw("%s", name);
 
 	if (status == status_should_have_failed) {
-		log_plain(" - passing test marked as should_fail");
+		log_raw(" - passing test marked as should_fail");
 	}
 }
 
@@ -249,21 +249,21 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 			default: c = '.'; break;
 			}
 
-			log_plain("%c", c);
+			log_raw("%c", c);
 		}
 		return;
 	} else if (ctx->stats.term) {
-		log_plain("\r");
+		log_raw("\r");
 	}
 
 	if (write_line && (ctx->opts->verbosity > 0 || res->test->verbose)) {
 		print_test_result(wk, res);
 
 		if (ctx->stats.term) {
-			log_plain("\033[K");
+			log_raw("\033[K");
 		}
 
-		log_plain("\n");
+		log_raw("\n");
 	}
 
 	if (!ctx->stats.term) {
@@ -282,25 +282,25 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		ctx->stats.total_skipped,
 		ctx->busy_jobs);
 
-	log_plain("%s[", info);
+	log_raw("%s[", info);
 	const float pct_scale = (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
 	uint32_t pct_done = (float)(ctx->stats.test_i) * pct_scale;
 	uint32_t pct_working = (float)(ctx->stats.test_i + ctx->busy_jobs) * pct_scale;
 
 	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
 		if (i <= pct_done) {
-			log_plain("=");
+			log_raw("=");
 		} else if (i < pct_working) {
-			log_plain("-");
+			log_raw("-");
 		} else if (i == pct_working) {
-			log_plain(">");
+			log_raw(">");
 		} else {
-			log_plain(" ");
+			log_raw(" ");
 		}
 	}
-	log_plain("]");
+	log_raw("]");
 
-	log_plain("\n");
+	log_raw("\n");
 
 	arr_sort(&ctx->jobs_sorted, ctx, sort_jobs);
 
@@ -327,28 +327,28 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 			}
 		}
 
-		log_plain("%6.2fs %s", res->dur, get_cstr(wk, res->test->name));
+		log_raw("%6.2fs %s", res->dur, get_cstr(wk, res->test->name));
 
 		if (tap.have) {
-			log_plain(" (%d/", tap.result.pass + tap.result.fail + tap.result.skip);
+			log_raw(" (%d/", tap.result.pass + tap.result.fail + tap.result.skip);
 			if (tap.result.have_plan) {
-				log_plain("%d", tap.result.total);
+				log_raw("%d", tap.result.total);
 			} else {
-				log_plain("?");
+				log_raw("?");
 			}
 
 			if (tap.result.fail) {
-				log_plain(" f:%d", tap.result.fail);
+				log_raw(" f:%d", tap.result.fail);
 			}
 
 			if (tap.result.skip) {
-				log_plain(" s:%d", tap.result.skip);
+				log_raw(" s:%d", tap.result.skip);
 			}
 
-			log_plain(")");
+			log_raw(")");
 		}
 
-		log_plain("\033[K\n");
+		log_raw("\033[K\n");
 
 		++jobs_displayed;
 		if (jobs_displayed >= max_jobs_to_display) {
@@ -356,10 +356,10 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		}
 	}
 	for (i = jobs_displayed; i < ctx->stats.prev_jobs_displayed; ++i) {
-		log_plain("\033[K\n");
+		log_raw("\033[K\n");
 	}
 
-	log_plain("\033[%dA", MAX(jobs_displayed, ctx->stats.prev_jobs_displayed) + 1);
+	log_raw("\033[%dA", MAX(jobs_displayed, ctx->stats.prev_jobs_displayed) + 1);
 
 	ctx->stats.prev_jobs_displayed = jobs_displayed;
 }
@@ -983,7 +983,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 		collect_tests(wk, ctx);
 	}
 
-	log_plain("\n");
+	log_raw("\n");
 
 	++ctx->proj_i;
 
@@ -1003,9 +1003,9 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 			|| (res->status == test_result_status_failed || res->status == test_result_status_timedout)) {
 			print_test_result(wk, res);
 			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
-				log_plain(": %s", res->cmd_ctx.err_msg);
+				log_raw(": %s", res->cmd_ctx.err_msg);
 			}
-			log_plain("\n");
+			log_raw("\n");
 		}
 
 		if (res->status == test_result_status_failed) {
@@ -1014,10 +1014,10 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 			} else {
 				ret = false;
 				if (res->cmd_ctx.out.len) {
-					log_plain("stdout: '%s'\n", res->cmd_ctx.out.buf);
+					log_raw("stdout: '%s'\n", res->cmd_ctx.out.buf);
 				}
 				if (res->cmd_ctx.err.len) {
-					log_plain("stderr: '%s'\n", res->cmd_ctx.err.buf);
+					log_raw("stderr: '%s'\n", res->cmd_ctx.err.buf);
 				}
 			}
 		} else if (res->status == test_result_status_timedout) {

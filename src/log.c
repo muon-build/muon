@@ -12,11 +12,13 @@
 
 #include "buf_size.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/log.h"
 #include "platform/os.h"
+#include "platform/term.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = STRINGIZE(c_red),
@@ -42,16 +44,182 @@ const char *log_level_shortname[log_level_count] = {
 	[log_debug] = "dbg ",
 };
 
+struct log_progress_lvl {
+	double pos, end;
+};
+
+struct log_progress {
+	struct log_progress_lvl stack[64];
+
+	const char *name, *prev_name;
+
+	double sum_done;
+	double sum_total;
+	double rate_limit;
+
+	uint32_t len;
+	uint32_t width;
+
+	bool init;
+};
+
 static struct {
-	FILE *file;
+	FILE *file, *debug_file;
 	enum log_level level;
 	uint32_t filter;
-	bool initialized, file_is_a_tty;
-	const char *prefix;
+	bool file_is_a_tty, progress_bar;
+	uint32_t prefix;
 	struct tstr *tstr;
+	struct log_progress progress;
 } log_cfg = {
 	.level = log_info,
 };
+
+void
+log_set_progress_bar_enabled(bool v)
+{
+	log_cfg.progress_bar = v;
+}
+
+bool
+log_is_progress_bar_enabled(void)
+{
+	return log_cfg.progress_bar;
+}
+
+void
+log_progress_reset(double rate_limit, const char *name)
+{
+	if (!log_cfg.progress_bar) {
+		return;
+	}
+
+	log_cfg.progress = (struct log_progress){
+		.init = true,
+		.rate_limit = rate_limit,
+		.name = name,
+	};
+
+	if (log_cfg.file_is_a_tty) {
+		int term_fd;
+		if (fs_fileno(log_cfg.file, &term_fd)) {
+			uint32_t _h;
+			term_winsize(term_fd, &_h, &log_cfg.progress.width);
+		}
+	}
+}
+
+void
+log_progress_push_level(double start, double end)
+{
+	struct log_progress *lp = &log_cfg.progress;
+	if (!lp->init) {
+		return;
+	}
+
+	if (lp->len >= ARRAY_LEN(lp->stack)) {
+		return;
+	}
+	lp->stack[lp->len] = (struct log_progress_lvl){
+		.pos = start,
+		.end = end,
+	};
+	++lp->len;
+
+	lp->sum_total += end - start;
+}
+
+void
+log_progress_pop_level(void)
+{
+	struct log_progress *lp = &log_cfg.progress;
+	if (!lp->init) {
+		return;
+	}
+
+	if (lp->len) {
+		--lp->len;
+		lp->sum_done += lp->stack[lp->len].end - lp->stack[lp->len].pos;
+	}
+}
+
+void
+log_progress_inc(struct workspace *wk)
+{
+	struct log_progress *lp = &log_cfg.progress;
+	if (!lp->init) {
+		return;
+	}
+
+	log_progress(wk, lp->stack[lp->len - 1].pos + 1);
+}
+
+void
+log_progress_print_bar(const char *name)
+{
+	struct log_progress *lp = &log_cfg.progress;
+
+	uint32_t pad = 2;
+	char info[BUF_SIZE_4k];
+	pad += snprintf(info, sizeof(info), " %-10.10s", name ? name : "");
+
+	const double pct_done = lp->sum_done / lp->sum_total * (double)(lp->width - pad);
+
+	log_raw("\033[K[");
+
+	uint32_t i;
+	for (i = 0; i < lp->width - pad; ++i) {
+		if (i <= pct_done && i + 1 >= pct_done) {
+			fputc('=', log_cfg.file);
+		} else if (i < pct_done) {
+			fputc('=', log_cfg.file);
+		} else {
+			fputc(' ', log_cfg.file);
+		}
+	}
+	log_raw("]%s\r", info);
+	fflush(log_cfg.file);
+}
+
+void
+log_progress(struct workspace *wk, double val)
+{
+	if (!log_cfg.progress_bar) {
+		return;
+	}
+
+	struct log_progress *lp = &log_cfg.progress;
+	if (!lp->init) {
+		return;
+	}
+
+	struct log_progress_lvl *cur = &lp->stack[lp->len - 1];
+
+	if (!(cur->pos < val && val <= cur->end)) {
+		return;
+	}
+
+	const double diff = val - cur->pos;
+
+	if (diff < lp->rate_limit) {
+		return;
+	}
+	cur->pos = val;
+
+	lp->sum_done += diff;
+
+	const char *name = lp->name;
+	if (!name && wk->projects.len) {
+		obj proj_name = current_project(wk)->cfg.name;
+		if (proj_name) {
+			name = get_str(wk, proj_name)->s;
+		}
+	}
+
+	lp->prev_name = name;
+
+	log_progress_print_bar(name);
+}
 
 bool
 log_should_print(enum log_level lvl)
@@ -59,37 +227,115 @@ log_should_print(enum log_level lvl)
 	return lvl <= log_cfg.level;
 }
 
-const char *
-log_get_prefix(void)
-{
-	return log_cfg.prefix;
-}
-
 void
-log_set_prefix(const char *prefix)
+log_set_prefix(int32_t n)
 {
-	log_cfg.prefix = prefix;
+	log_cfg.prefix += n;
 }
 
-uint32_t
+static uint32_t
 log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
 {
 	uint32_t len = 0;
-	assert(log_cfg.initialized);
 
-	if (log_cfg.prefix) {
-		len += snprintf(&buf[len], size - len, "%s ", log_cfg.prefix);
+	for (uint32_t i = 0; i < log_cfg.prefix; ++i) {
+		len += snprintf(&buf[len], size - len, " ");
 	}
 
 	if (*log_level_shortname[lvl]) {
-		len += snprintf(&buf[len],
-			BUF_SIZE_4k - len,
-			"\033[%sm%s\033[0m",
-			log_level_clr[lvl],
-			log_level_shortname[lvl]);
+		len += snprintf(
+			&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m", log_level_clr[lvl], log_level_shortname[lvl]);
 	}
 
 	return len;
+}
+
+static void
+print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
+{
+#if 0
+	bool parsing_esc = false;
+	const char *start = s;
+	uint32_t i, len = 0;
+
+	for (; *s; ++s) {
+		if (s[0] == '\033' && s[1] == '[') {
+			if (len) {
+				/* printf("'%.*s':%d\n", len, start, len); */
+				fwrite(start, 1, len, out);
+				len = 0;
+			}
+
+			parsing_esc = true;
+			start = s + 2;
+		} else if (parsing_esc) {
+			if (*s == 'm') {
+				parsing_esc = false;
+				len = s - start;
+				int32_t clr = 0, attr = 0, *num = &clr;
+				for (i = 0; i < len; ++i) {
+					char c = start[i];
+					if ('0' <= c && c <= '9') {
+						*num *= 10;
+						*num += c - '0';
+					} else if (c == ';') {
+						num = &attr;
+					} else {
+						assert(false && "unhandle char in escape sequence");
+					}
+				}
+
+				/* printf("clr:%d|attr:%d\n", clr, attr); */
+				start = s + 1;
+				len = 0;
+			}
+		} else {
+			++len;
+		}
+	}
+
+	assert(!parsing_esc && "unhandle escape sequence");
+
+	if (len) {
+		fwrite(start, 1, len, out);
+		if (start[len - 1] == '\n') {
+			printf("final nl\n");
+		}
+	}
+#endif
+
+	print_colorized(out, s, !tty);
+
+	if (progress && s[len - 1] == '\n') {
+		log_progress_print_bar(log_cfg.progress.prev_name);
+	}
+}
+
+void
+log_printn(enum log_level lvl, const char *buf, uint32_t len)
+{
+	if (log_cfg.debug_file) {
+		print_buffer(log_cfg.debug_file, buf, len, false, false);
+	}
+
+	if (!log_should_print(lvl)) {
+		return;
+	}
+
+	if (log_cfg.tstr) {
+		tstr_pushn(0, log_cfg.tstr, buf, len);
+		tstr_push(0, log_cfg.tstr, '\n');
+	} else {
+		print_buffer(log_cfg.file, buf, len, log_cfg.file_is_a_tty, log_cfg.progress_bar && lvl == log_info);
+	}
+}
+
+void
+log_printv(enum log_level lvl, const char *fmt, va_list ap)
+{
+	static char buf[BUF_SIZE_32k];
+	vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
+	log_printn(lvl, buf, strlen(buf));
 }
 
 void
@@ -97,67 +343,63 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {
 	static char buf[BUF_SIZE_4k + 3];
 
-	if (log_should_print(lvl)) {
-		uint32_t len = log_print_prefix(lvl, buf, BUF_SIZE_4k);
+	uint32_t len = log_print_prefix(lvl, buf, BUF_SIZE_4k);
 
-		assert(log_cfg.initialized);
+	va_list ap;
+	va_start(ap, fmt);
+	len += vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
+	va_end(ap);
 
-		va_list ap;
-		va_start(ap, fmt);
-		len += vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
-		va_end(ap);
-
-		if (nl && len < BUF_SIZE_4k) {
-			buf[len] = '\n';
-			buf[len + 1] = 0;
-		}
-
-		if (log_cfg.tstr) {
-			tstr_pushn(0, log_cfg.tstr, buf, len);
-			tstr_push(0, log_cfg.tstr, '\n');
-		} else {
-			print_colorized(log_cfg.file, buf, !log_cfg.file_is_a_tty);
-		}
+	if (nl && len < BUF_SIZE_4k) {
+		buf[len] = '\n';
+		buf[len + 1] = 0;
 	}
+
+	if (log_cfg.progress_bar) {
+		log_raw("\033[K");
+	}
+
+	log_printn(lvl, buf, len);
 }
 
 void
-log_plainv(const char *fmt, va_list ap)
-{
-	static char buf[BUF_SIZE_32k];
-
-	if (log_cfg.tstr) {
-		tstr_vpushf(0, log_cfg.tstr, fmt, ap);
-	} else {
-		vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
-		print_colorized(log_cfg.file, buf, !log_cfg.file_is_a_tty);
-	}
-}
-
-void
-log_plain(const char *fmt, ...)
+log_plain(enum log_level lvl, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	log_plainv(fmt, ap);
+	log_printv(lvl, fmt, ap);
 	va_end(ap);
 }
 
 void
-log_init(void)
+log_rawv(const char *fmt, va_list ap)
 {
-	const char *sll;
-	uint64_t ll;
+	vfprintf(log_cfg.file, fmt, ap);
+}
 
-	assert(!log_cfg.initialized);
-	log_cfg.initialized = true;
+void
+log_raw(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	log_rawv(fmt, ap);
+	va_end(ap);
+}
 
-	if ((sll = os_get_env("MUON_LOG_LVL"))) {
-		ll = strtoul(sll, NULL, 10);
-		log_set_lvl(ll);
+void
+log_plain_version_string(enum log_level lvl, const char *version)
+{
+	if (strcmp(version, "undefined") == 0) {
+		return;
 	}
 
-	log_set_file(stdout);
+	log_plain(lvl, " version: %s", version);
+}
+
+const char *
+bool_to_yn(bool v)
+{
+	return v ? CLR(c_green) "YES" CLR(0) : CLR(c_red) "NO" CLR(0);
 }
 
 void
@@ -166,6 +408,12 @@ log_set_file(FILE *log_file)
 	log_cfg.file = log_file;
 	log_cfg.tstr = 0;
 	log_cfg.file_is_a_tty = fs_is_a_tty(log_file);
+}
+
+void
+log_set_debug_file(FILE *log_file)
+{
+	log_cfg.debug_file = log_file;
 }
 
 void
@@ -192,10 +440,4 @@ FILE *
 _log_file(void)
 {
 	return log_cfg.file;
-}
-
-struct tstr *
-_log_tstr(void)
-{
-	return log_cfg.tstr;
 }

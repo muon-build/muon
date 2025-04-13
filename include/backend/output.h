@@ -10,7 +10,7 @@
 
 struct output_path {
 	const char *private_dir, *summary, *tests, *install, *compiler_check_cache, *option_info, *introspect_dir,
-		*meson_private_dir;
+		*meson_private_dir, *debug_log;
 	struct {
 		const char *projectinfo;
 		const char *targets;

@@ -194,14 +194,14 @@ tree_indent_print(const struct tree_indent *ti)
 	for (i = 0; i < ti->indent; ++i) {
 		if (i < ti->indent - 1) {
 			if (ti->bars & (1 << i)) {
-				log_plain("│   ");
+				log_raw("│   ");
 			} else {
-				log_plain("    ");
+				log_raw("    ");
 			}
 		} else if (!ti->len || ti->i == ti->len - 1) {
-			log_plain("└── ");
+			log_raw("└── ");
 		} else {
-			log_plain("├── ");
+			log_raw("├── ");
 		}
 	}
 }
@@ -231,21 +231,21 @@ fmt_write_frag_set_dbg_ws(struct fmt_ctx *f, const struct fmt_frag *pws, struct 
 	for (ws = pws; ws; ws = ws->next) {
 		tree_indent_print(sub_ti);
 
-		log_plain("%s: ", label);
+		log_raw("%s: ", label);
 
 		if (ws->type == fmt_frag_type_ws_newline) {
-			log_plain("newline");
+			log_raw("newline");
 		} else {
-			obj_lprintf(f->wk, "# %o", ws->str);
+			obj_lprintf(f->wk, log_info, "# %o", ws->str);
 			if (ws->type == fmt_frag_type_ws_comment) {
-				log_plain(" comment");
+				log_raw(" comment");
 			} else if (ws->type == fmt_frag_type_ws_comment_trailing) {
-				log_plain(" comment_trailing");
+				log_raw(" comment_trailing");
 			} else {
 				UNREACHABLE;
 			}
 		}
-		log_plain("\n");
+		log_raw("\n");
 		++sub_ti->i;
 	}
 }
@@ -263,21 +263,21 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 	struct tree_indent sub_ti;
 
 	if (p == hl) {
-		log_plain("\033[34m");
+		log_raw("\033[34m");
 	}
 
 	tree_indent_print(ti);
 
 	if (p->str) {
-		obj_lprintf(f->wk, "%o", p->str);
+		obj_lprintf(f->wk, log_debug, "%o", p->str);
 	} else if (p->type == fmt_frag_type_block) {
-		obj_lprintf(f->wk, "block");
+		obj_lprintf(f->wk, log_debug, "block");
 	} else if (p->type == fmt_frag_type_line) {
-		obj_lprintf(f->wk, "line");
+		obj_lprintf(f->wk, log_debug, "line");
 	} else if (p->enclosing) {
-		obj_lprintf(f->wk, "%s", p->enclosing);
+		obj_lprintf(f->wk, log_debug, "%s", p->enclosing);
 	} else {
-		obj_lprintf(f->wk, "?");
+		obj_lprintf(f->wk, log_debug, "?");
 	}
 
 	if (p->flags) {
@@ -315,16 +315,16 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 		obj joined;
 		obj_array_join(f->wk, false, flags, make_str(f->wk, ","), &joined);
 
-		log_plain(" <%s>", get_cstr(f->wk, joined));
+		log_raw(" <%s>", get_cstr(f->wk, joined));
 	}
 
 	if (p == hl) {
-		log_plain("\033[0m");
+		log_raw("\033[0m");
 	}
 
-	log_plain(" - %d", fmt_measure_frag(f, p));
+	log_raw(" - %d", fmt_measure_frag(f, p));
 
-	log_plain("\n");
+	log_raw("\n");
 
 	sub_ti = (struct tree_indent){
 		.len = fmt_frag_dbg_len(p),

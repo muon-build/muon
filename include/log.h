@@ -47,20 +47,32 @@ extern const char *log_level_shortname[log_level_count];
 #define LLOG_W(...) log_print(false, log_warn, __VA_ARGS__)
 #define LLOG_E(...) log_print(false, log_error, __VA_ARGS__)
 
-void log_init(void);
+void log_set_progress_bar_enabled(bool v);
+bool log_is_progress_bar_enabled(void);
 void log_set_file(FILE *log_file);
+void log_set_debug_file(FILE *log_file);
 struct tstr;
 void log_set_buffer(struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
-void log_set_prefix(const char *prefix);
-const char *log_get_prefix(void);
+void log_set_prefix(int32_t n);
+void log_progress_reset(double rate_limit, const char *name);
+void log_progress_push_level(double start, double end);
+void log_progress_pop_level(void);
+struct workspace;
+void log_progress_inc(struct workspace *wk);
+void log_progress(struct workspace *wk, double val);
 
-uint32_t log_print_prefix(enum log_level lvl, char *buf, uint32_t size);
+void log_printn(enum log_level lvl, const char *buf, uint32_t len);
+void log_printv(enum log_level lvl, const char *fmt, va_list ap);
 void log_print(bool nl, enum log_level lvl, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
-void log_plain(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
-void log_plainv(const char *fmt, va_list ap);
+void log_plain(enum log_level lvl, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
+void log_raw(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
+void log_rawv(const char *fmt, va_list ap);
 bool log_should_print(enum log_level lvl);
 
+void log_plain_version_string(enum log_level lvl, const char *version);
+const char *bool_to_yn(bool v);
+
+// You should probably not use this.  Prefer to go through one of the above functions
 FILE *_log_file(void);
-struct tstr *_log_tstr(void);
 #endif

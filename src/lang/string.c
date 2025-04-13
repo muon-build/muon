@@ -820,9 +820,7 @@ tstr_push(struct workspace *wk, struct tstr *sb, char s)
 {
 	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == _log_file()) {
-			log_plain("%c", s);
-		} else if (fputc(s, out) == EOF) {
+		if (fputc(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -840,9 +838,7 @@ tstr_pushn(struct workspace *wk, struct tstr *sb, const char *s, uint32_t n)
 {
 	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == _log_file()) {
-			log_plain("%.*s", n, s);
-		} else if (!fs_fwrite(s, n, out)) {
+		if (!fs_fwrite(s, n, out)) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -864,9 +860,7 @@ tstr_pushs(struct workspace *wk, struct tstr *sb, const char *s)
 {
 	if (sb->flags & tstr_flag_write) {
 		FILE *out = (FILE *)sb->buf;
-		if (out == _log_file()) {
-			log_plain("%s", s);
-		} else if (fputs(s, out) == EOF) {
+		if (fputs(s, out) == EOF) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;
@@ -890,10 +884,7 @@ tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list args
 	uint32_t len;
 
 	if (sb->flags & tstr_flag_write) {
-		FILE *out = (FILE *)sb->buf;
-		if (out == _log_file()) {
-			log_plainv(fmt, args);
-		} else if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
+		if (vfprintf((FILE *)sb->buf, fmt, args) < 0) {
 			error_unrecoverable("failed to write output to file");
 		}
 		return;

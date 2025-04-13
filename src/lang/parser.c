@@ -206,10 +206,10 @@ print_fmt_ast_at(struct workspace *wk, struct node *n, uint32_t d, char label)
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
-		log_plain("  ");
+		log_raw("  ");
 	}
 
-	log_plain("%c:%s\n", label, fmt_node_to_s(wk, n));
+	log_raw("%c:%s\n", label, fmt_node_to_s(wk, n));
 
 	if (n->l) {
 		print_fmt_ast_at(wk, n->l, d + 1, 'l');
@@ -225,10 +225,10 @@ print_ast_at(struct workspace *wk, struct node *n, uint32_t d, char label)
 	uint32_t i;
 
 	for (i = 0; i < d; ++i) {
-		log_plain("  ");
+		log_raw("  ");
 	}
 
-	log_plain("%c:%s\n", label, node_to_s(wk, n));
+	log_raw("%c:%s\n", label, node_to_s(wk, n));
 
 	if (n->l) {
 		print_ast_at(wk, n->l, d + 1, 'l');

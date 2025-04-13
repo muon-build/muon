@@ -2324,6 +2324,16 @@ obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va
 }
 
 uint32_t
+obj_asprintf(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	uint32_t ret = obj_vasprintf(wk, buf, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+uint32_t
 obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
 {
 	va_list ap;
@@ -2361,27 +2371,18 @@ obj_printf(struct workspace *wk, const char *fmt, ...)
 	return ret;
 }
 
-static bool
-obj_vlprintf(struct workspace *wk, const char *fmt, va_list ap)
-{
-	FILE *f = _log_file();
-	struct tstr *buf = _log_tstr();
-	TSTR_FILE(sb, f);
-
-	if (f) {
-		buf = &sb;
-	}
-
-	return obj_vasprintf(wk, buf, fmt, ap);
-}
-
 bool
-obj_lprintf(struct workspace *wk, const char *fmt, ...)
+obj_lprintf(struct workspace *wk, enum log_level lvl, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	bool ret = obj_vlprintf(wk, fmt, ap);
+
+	TSTR(sb);
+	bool ret = obj_vasprintf(wk, &sb, fmt, ap);
 	va_end(ap);
+
+	log_printn(lvl, sb.buf, sb.len);
+
 	return ret;
 }
 
@@ -2392,62 +2393,64 @@ obj_lprintf(struct workspace *wk, const char *fmt, ...)
 static void
 obj_inspect_dep(struct workspace *wk, const char *pre, struct build_dep *dep)
 {
-	obj_lprintf(wk, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
-	obj_lprintf(wk, "%slink_whole: %o\n", pre, dep->link_whole);
-	obj_lprintf(wk, "%slink_with: %o\n", pre, dep->link_with);
-	obj_lprintf(wk, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
-	obj_lprintf(wk, "%slink_args: %o\n", pre, dep->link_args);
-	obj_lprintf(wk, "%scompile_args: %o\n", pre, dep->compile_args);
-	obj_lprintf(wk, "%sinclude_directories: %o\n", pre, dep->include_directories);
-	obj_lprintf(wk, "%ssources: %o\n", pre, dep->sources);
-	obj_lprintf(wk, "%sobjects: %o\n", pre, dep->objects);
-	obj_lprintf(wk, "%sorder_deps: %o\n", pre, dep->order_deps);
-	obj_lprintf(wk, "%srpath: %o\n", pre, dep->rpath);
-	obj_lprintf(wk, "%sframeworks: %o\n", pre, dep->frameworks);
+	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
+	obj_lprintf(wk, log_info, "%slink_whole: %o\n", pre, dep->link_whole);
+	obj_lprintf(wk, log_info, "%slink_with: %o\n", pre, dep->link_with);
+	obj_lprintf(wk, log_info, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
+	obj_lprintf(wk, log_info, "%slink_args: %o\n", pre, dep->link_args);
+	obj_lprintf(wk, log_info, "%scompile_args: %o\n", pre, dep->compile_args);
+	obj_lprintf(wk, log_info, "%sinclude_directories: %o\n", pre, dep->include_directories);
+	obj_lprintf(wk, log_info, "%ssources: %o\n", pre, dep->sources);
+	obj_lprintf(wk, log_info, "%sobjects: %o\n", pre, dep->objects);
+	obj_lprintf(wk, log_info, "%sorder_deps: %o\n", pre, dep->order_deps);
+	obj_lprintf(wk, log_info, "%srpath: %o\n", pre, dep->rpath);
+	obj_lprintf(wk, log_info, "%sframeworks: %o\n", pre, dep->frameworks);
 }
 
 void
 obj_inspect(struct workspace *wk, obj val)
 {
+	enum log_level lvl = log_info;
+
 	switch (get_obj_type(wk, val)) {
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		log_plain("build_target:\n");
+		log_plain(lvl, "build_target:\n");
 		if (tgt->name) {
-			obj_lprintf(wk, "    name: %o,\n", tgt->name);
+			obj_lprintf(wk, lvl, "    name: %o,\n", tgt->name);
 		}
-		obj_lprintf(wk, "    dep:\n");
+		obj_lprintf(wk, lvl, "    dep:\n");
 		obj_inspect_dep(wk, "        ", &tgt->dep);
-		obj_lprintf(wk, "    dep_internal:\n");
+		obj_lprintf(wk, lvl, "    dep_internal:\n");
 		obj_inspect_dep(wk, "        ", &tgt->dep_internal);
 		break;
 	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, val);
 
-		log_plain("dependency:\n");
+		log_plain(lvl, "dependency:\n");
 
-		obj_lprintf(wk, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
-		obj_lprintf(wk, "    machine: %s\n", machine_kind_to_s(dep->machine));
+		obj_lprintf(wk, lvl, "    found: %s\n", (dep->flags & dep_flag_found) ? "yes" : "no");
+		obj_lprintf(wk, lvl, "    machine: %s\n", machine_kind_to_s(dep->machine));
 
 		if (dep->name) {
-			obj_lprintf(wk, "    name: %o\n", dep->name);
+			obj_lprintf(wk, lvl, "    name: %o\n", dep->name);
 		}
 		if (dep->version) {
-			obj_lprintf(wk, "    version: %o\n", dep->version);
+			obj_lprintf(wk, lvl, "    version: %o\n", dep->version);
 		}
 		if (dep->variables) {
-			obj_lprintf(wk, "    variables: '%o'\n", dep->variables);
+			obj_lprintf(wk, lvl, "    variables: '%o'\n", dep->variables);
 		}
 
-		obj_lprintf(wk, "    type: %d\n", dep->type);
-		obj_lprintf(wk, "    dep:\n");
+		obj_lprintf(wk, lvl, "    type: %d\n", dep->type);
+		obj_lprintf(wk, lvl, "    dep:\n");
 
 		obj_inspect_dep(wk, "        ", &dep->dep);
 		break;
 	}
-	default: obj_lprintf(wk, "%o\n", val);
+	default: obj_lprintf(wk, lvl, "%o\n", val);
 	}
 }
 

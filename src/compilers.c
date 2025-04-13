@@ -567,9 +567,7 @@ compiler_refine_host_machine(struct workspace *wk, struct obj_compiler *comp)
 static bool
 compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
-	if (log_should_print(log_debug)) {
-		obj_lprintf(wk, "checking compiler %o\n", cmd_arr);
-	}
+	obj_lprintf(wk, log_debug, "checking compiler %o\n", cmd_arr);
 
 	switch (lang) {
 	case compiler_language_c:
@@ -805,6 +803,7 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 		compiler_language_to_s(lang),
 		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
 	obj_lprintf(wk,
+		log_info,
 		"%o (%o), linker: %s (%o), static_linker: %s (%o)\n",
 		compiler->ver,
 		compiler->cmd_arr[toolchain_component_compiler],

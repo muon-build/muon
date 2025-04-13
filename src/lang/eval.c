@@ -39,15 +39,12 @@ eval_project(struct workspace *wk,
 
 	obj parent_eval_trace = wk->vm.dbg_state.eval_trace;
 
-	const char *parent_prefix = log_get_prefix();
-	char log_prefix[256] = { 0 };
 	if (wk->cur_project > 0) {
-		snprintf(log_prefix, 255, "[" CLR(c_magenta) "%s" CLR(0) "]", subproject_name);
-		log_set_prefix(log_prefix);
+		log_set_prefix(2);
 	}
 
 	if (subproject_name && !wk->vm.in_analyzer) {
-		LOG_I("entering subproject '%s'", subproject_name);
+		L("entering subproject '%s'", subproject_name);
 	}
 
 	if (!setup_project_options(wk, cwd)) {
@@ -74,10 +71,12 @@ eval_project(struct workspace *wk,
 	ret = true;
 cleanup:
 	wk->vm.dbg_state.eval_trace = parent_eval_trace;
+	if (wk->cur_project > 0) {
+		log_set_prefix(-2);
+	}
 	wk->cur_project = parent_project;
 	stack_pop(&wk->stack, wk->vm.scope_stack);
 
-	log_set_prefix(parent_prefix);
 	return ret;
 }
 
@@ -151,7 +150,8 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			return false;
 		}
 
-		if (lang == build_language_meson && (mode & eval_mode_first)) {
+		bool first = lang == build_language_meson && (mode & eval_mode_first);
+		if (first) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
 				TracyCZoneAutoE;
 				return false;
@@ -162,7 +162,13 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			TracyCZoneAutoE;
 			return false;
 		}
+
+		if (first && wk->cur_project == 0) {
+			log_progress_reset(64, 0);
+		}
 	}
+
+	log_progress_push_level(entry, wk->vm.code.len);
 
 	if (wk->vm.dbg_state.eval_trace) {
 		obj_array_push(wk,
@@ -196,6 +202,8 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace);
 		}
 	}
+
+	log_progress_pop_level();
 
 	bool ok = !wk->vm.error;
 	wk->vm.error = false;
