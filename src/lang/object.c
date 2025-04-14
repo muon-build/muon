@@ -2403,6 +2403,7 @@ obj_inspect_dep(struct workspace *wk, const char *pre, struct build_dep *dep)
 	obj_lprintf(wk, "%sobjects: %o\n", pre, dep->objects);
 	obj_lprintf(wk, "%sorder_deps: %o\n", pre, dep->order_deps);
 	obj_lprintf(wk, "%srpath: %o\n", pre, dep->rpath);
+	obj_lprintf(wk, "%sframeworks: %o\n", pre, dep->frameworks);
 }
 
 void

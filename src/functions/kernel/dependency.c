@@ -1722,6 +1722,12 @@ dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 	TracyCZoneAutoE;
 }
 
+static const enum build_dep_flag build_dep_flag_partial_mask
+	= build_dep_flag_partial | build_dep_flag_part_compile_args | build_dep_flag_part_includes
+	  | build_dep_flag_part_link_args | build_dep_flag_part_links | build_dep_flag_part_sources;
+
+#define IS_INCLUDED(__part) (!(flags & build_dep_flag_partial) || (flags & build_dep_flag_part_##__part))
+
 obj
 dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 {
@@ -1734,16 +1740,26 @@ dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags)
 	d->dep = (struct build_dep){ 0 };
 
 	// Copy everything over that can't be recreated from the raw field
-	d->dep.link_language = src->dep.link_language;
-	if (src->dep.frameworks) {
-		obj_array_dup(wk, src->dep.frameworks, &d->dep.frameworks);
+	if (IS_INCLUDED(links)) {
+		d->dep.link_language = src->dep.link_language;
+
+		if (src->dep.frameworks) {
+			obj_array_dup(wk, src->dep.frameworks, &d->dep.frameworks);
+		}
 	}
 
 	if (!dependency_create(wk, &src->dep.raw, &d->dep, flags)) {
 		return 0;
 	}
 
-	d->machine = deps_determine_machine(wk, d->dep.link_with, d->dep.link_whole, 0);
+	d->machine = src->machine;
+	if (flags & build_dep_flag_partial) {
+		const enum build_dep_flag partial_flags = flags & build_dep_flag_partial_mask;
+		const enum build_dep_flag either_machine_parts = build_dep_flag_partial | build_dep_flag_part_includes;
+		if ((partial_flags & ~either_machine_parts) == 0) {
+			d->machine = machine_kind_either;
+		}
+	}
 
 	TracyCZoneAutoE;
 	return res;
@@ -1757,17 +1773,13 @@ dependency_create(struct workspace *wk,
 {
 	TracyCZoneAutoS;
 
-#define IS_INCLUDED(__part) (!partial || (flags & build_dep_flag_part_##__part))
-
 	const enum build_dep_flag both_libs_mask = build_dep_flag_both_libs_static | build_dep_flag_both_libs_shared;
-	const enum build_dep_flag part_mask = build_dep_flag_partial | build_dep_flag_part_compile_args
-					      | build_dep_flag_part_includes | build_dep_flag_part_link_args
-					      | build_dep_flag_part_links | build_dep_flag_part_sources;
+
 	if (raw->flags & both_libs_mask) {
 		flags &= ~both_libs_mask;
 		flags |= (raw->flags & both_libs_mask);
 	}
-	flags |= (raw->flags & part_mask);
+	flags |= (raw->flags & build_dep_flag_partial_mask);
 
 	dep->raw = *raw;
 	dep->raw.flags = flags;
@@ -1853,6 +1865,6 @@ dependency_create(struct workspace *wk,
 
 	TracyCZoneAutoE;
 	return true;
+}
 
 #undef IS_INCLUDED
-}
