@@ -20,15 +20,18 @@
 #include <stdio.h>
 
 extern "C" {
+
 #include "backend/common_args.h"
 #include "buf_size.h"
 #include "error.h"
+#include "functions/both_libs.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
 #include "platform/path.h"
 #include "ui.h"
+
 }
 
 bool have_ui = true;
@@ -1236,7 +1239,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 			break;
 		}
 		case obj_both_libs:
-			id = decay_get_obj_both_libs(wk, 0, 0, id);
+			id = decay_both_libs(wk, id);
 			//fallthrough
 		case obj_build_target: {
 			struct obj_build_target *t = get_obj_build_target(wk, id);

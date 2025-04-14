@@ -8,12 +8,12 @@
 
 #include "lang/workspace.h"
 
-typedef bool (*func_impl)(struct workspace *wk, obj self, obj *res);
+typedef bool (*func_native_impl)(struct workspace *wk, obj self, obj *res);
 typedef obj (*func_impl_self_transform)(struct workspace *wk, obj self);
 
 struct func_impl {
 	const char *name;
-	func_impl func;
+	func_native_impl func;
 	type_tag return_type;
 	bool pure, fuzz_unsafe, extension;
 	func_impl_self_transform self_transform;
