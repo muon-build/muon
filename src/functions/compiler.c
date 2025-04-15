@@ -41,7 +41,7 @@ compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
+	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 	log_plain(log_info, "\n");
 
@@ -56,7 +56,7 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	LLOG_I("%s compiler: ", compiler_language_to_s(comp->lang));
+	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 
 	if (opts->from_cache) {
@@ -2189,21 +2189,22 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 		}
 	}
 
-	if (!found) {
+	compiler_log(wk, self, "library %s found: %s", get_cstr(wk, an[0].val), bool_to_yn(found));
+
+	if (found) {
+		obj_lprintf(wk, log_debug, "library resolved to %#o\n", find_result.found);
+		find_library_result_to_dependency(wk, find_result, self, *res);
+	} else {
 		if (requirement == requirement_required) {
-			vm_error_at(wk, an[0].node, "library not found");
+			vm_error_at(wk, an[0].node, "required library not found");
 			return false;
 		}
 
-		LOG_W("library '%s' not found", get_cstr(wk, an[0].val));
 		if (akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val)) {
 			*res = obj_disabler;
 		}
-		return true;
 	}
 
-	compiler_log(wk, self, "found library '%s' at '%s'", get_cstr(wk, an[0].val), get_cstr(wk, find_result.found));
-	find_library_result_to_dependency(wk, find_result, self, *res);
 	return true;
 }
 

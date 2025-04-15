@@ -798,9 +798,8 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
 
-	LLOG_I("detected %s compiler for %s: %s ",
-		machine_kind_to_s(machine),
-		compiler_language_to_s(lang),
+	LLOG_I("%s: detected %s ",
+		compiler_log_prefix(lang, machine),
 		compiler_type_to_s(compiler->type[toolchain_component_compiler]));
 	obj_lprintf(wk,
 		log_info,
@@ -2216,4 +2215,17 @@ toolchain_dump(struct workspace *wk, struct obj_compiler *comp, struct toolchain
 
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
+}
+
+const char *compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
+{
+	static char buf[256];
+
+	if (machine == machine_kind_build) {
+		snprintf(buf, sizeof(buf), "%s %s machine compiler", compiler_language_to_s(lang), machine_kind_to_s(machine));
+	} else {
+		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(lang));
+	}
+
+	return buf;
 }

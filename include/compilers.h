@@ -322,4 +322,6 @@ FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
+const char *compiler_log_prefix(enum compiler_language lang, enum machine_kind machine);
+
 #endif
