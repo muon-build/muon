@@ -96,7 +96,7 @@ obj tstr_into_str(struct workspace *wk, struct tstr *sb);
  * workspace they were created with.
  */
 
-void str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_whitespace);
+void str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_printable);
 void str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss);
 
 bool str_has_null(const struct str *ss);

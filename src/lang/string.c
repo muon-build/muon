@@ -20,14 +20,14 @@
 #include "platform/mem.h"
 
 void
-str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_whitespace)
+str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_printable)
 {
 	bool esc;
 	uint32_t i;
 
 	for (i = 0; i < ss->len; ++i) {
 		esc = ss->s[i] < 32 || ss->s[i] == '\'';
-		if (!escape_whitespace && strchr("\t\n\r", ss->s[i])) {
+		if (!escape_printable && strchr("\t\n\r'", ss->s[i])) {
 			esc = false;
 		}
 
