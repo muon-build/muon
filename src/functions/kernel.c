@@ -1041,7 +1041,8 @@ func_message(struct workspace *wk, obj _, obj *res)
 static bool
 func_error(struct workspace *wk, obj _, obj *res)
 {
-	return func_log_common(wk, log_error);
+	func_log_common(wk, log_error);
+	return false;
 }
 
 static bool
