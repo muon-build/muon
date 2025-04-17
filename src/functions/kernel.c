@@ -1016,7 +1016,7 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 		return false;
 	}
 
-	log_print(false, lvl, "");
+	log_print(false, lvl, "%s", "");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
 		obj_lprintf(wk, lvl, "%#o ", val);
