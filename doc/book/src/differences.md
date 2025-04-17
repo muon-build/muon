@@ -91,14 +91,15 @@ error.
 Meson maintains a global compiler cache, which means that all languages added by
 subprojects are available to the main project and vice-versa.  This can hide
 bugs that will surface if the subproject is built by itself, or subproject calls
-are rearranged.
+are rearranged.  muon also maintains a global cache, but requires subprojects to
+still call add_languages to access this cache.
 
 ## backslash escaping in compiler defines
 
-Meson replaces `\` with `\\` in compiler defines.  This is legacy behavior that
-prevents you from using things like C escapes (e.g. `\n`) in compiler defines,
-at the benefit of making it easier to use windows paths.  See meson commit
-aca93df184a32ed7faf3636c0fbe90d05cb67857 for more information:
+Meson replaces `\` with `\\` in compiler defines.  muon does not.  This is
+legacy behavior that prevents you from using things like C escapes (e.g. `\n`)
+in compiler defines, at the benefit of making it easier to use windows paths.
+See meson commit aca93df184a32ed7faf3636c0fbe90d05cb67857 for more information:
 
 > Jon Turney:
 > Now that all command-line escaping for ninja is dealt with in the ninja
@@ -108,14 +109,6 @@ aca93df184a32ed7faf3636c0fbe90d05cb67857 for more information:
 > C escaped: This means that Windows-style paths including backslashes can
 > be safely used, but makes it impossible to have a define containing a C
 > escape.
-
-## MESONINTROSPECT
-
-Since muon does not offer an introspection subcommand, `MESONINTROSPECT` is not
-set in the environment of run\_command, test, custom\_target, etc.  `MUON_PATH`
-is provided for users who are waiting for
-<https://github.com/mesonbuild/meson/pull/9855> and are (ab)using
-`MESONINTROSPECT` for this purpose.
 
 ## default option values
 
