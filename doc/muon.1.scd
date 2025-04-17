@@ -37,6 +37,7 @@ finally install the project with the *install* subcommand.
 # OPTIONS
 
 - *-v* - enable verbose output
+- *-q* - silence logging except for errors
 - *-C* <path> - chdir to _path_ before executing a command
 - *-h* - print a help message
 
@@ -298,7 +299,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] <build dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-#*] <build dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 
@@ -307,6 +308,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  are either built in or project-defined.  Subproject options can be
 	  specified by prepending the subproject's name and a colon to the
 	  *option*.  This option may be specified multiple times.
+	- *-#* Display a progress bar during setup. Can be combined with muon -q to
+	  only display a progress bar.
 
 ## subprojects
 	*muon* *subprojects*

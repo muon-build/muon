@@ -1030,7 +1030,11 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		break;
 	}
 	}
-	OPTEND_CUSTOM(argv[argi], " <build dir>", "  -D <option>=<value> - set options\n", NULL, 1, cmd_setup_help())
+	OPTEND_CUSTOM(argv[argi],
+		" <build dir>",
+		"  -D <option>=<value> - set options\n"
+		"  -# - enable setup progress bar\n",
+		NULL, 1, cmd_setup_help())
 
 	const char *build = argv[argi];
 	++argi;
@@ -1297,6 +1301,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	OPTEND(argv[0],
 		"",
 		"  -v - turn on debug messages\n"
+		"  -q - silence logging except for errors\n"
 		"  -C <path> - chdir to path\n",
 		commands,
 		-1)
