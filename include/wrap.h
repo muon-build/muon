@@ -82,8 +82,13 @@ struct wrap_opts {
 	enum wrap_handle_mode mode;
 };
 
+struct wrap_handle_ctx {
+	struct wrap_opts opts;
+	struct wrap wrap;
+};
+
 void wrap_destroy(struct wrap *wrap);
-bool wrap_parse(const char *wrap_file, struct wrap *wrap);
-bool wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts);
+bool wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap);
+bool wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
 bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
 #endif

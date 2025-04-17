@@ -15,32 +15,6 @@
 #include "wrap.h"
 
 static bool
-cmd_subprojects_check_wrap(void *ctx, uint32_t argc, uint32_t argi, char *const argv[])
-{
-	struct {
-		const char *filename;
-	} opts = { 0 };
-
-	OPTSTART("") {
-	}
-	OPTEND(argv[argi], " <filename>", "", NULL, 1)
-
-	opts.filename = argv[argi];
-
-	bool ret = false;
-
-	struct wrap wrap = { 0 };
-	if (!wrap_parse(opts.filename, &wrap)) {
-		goto ret;
-	}
-
-	ret = true;
-ret:
-	wrap_destroy(&wrap);
-	return ret;
-}
-
-static bool
 cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[], const char *cmd, obj extra_args)
 {
 	obj cmd_args = make_obj(wk, obj_array);
@@ -130,7 +104,6 @@ bool
 cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
-		{ "check-wrap", cmd_subprojects_check_wrap, "check if a wrap file is valid" },
 		{ "update", cmd_subprojects_update, "update subprojects with .wrap files" },
 		{ "list", cmd_subprojects_list, "list subprojects with .wrap files and their status" },
 		{ "clean", cmd_subprojects_clean, "clean wrap-git subprojects" },

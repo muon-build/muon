@@ -1340,7 +1340,7 @@ list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx 
 	TSTR(cwd);
 
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(path, &wrap)) {
+	if (!wrap_parse(wk, path, &wrap)) {
 		return ir_err;
 	}
 

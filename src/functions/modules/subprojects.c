@@ -96,21 +96,20 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 static enum iteration_result
 func_subprojects_update_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
-	struct wrap wrap = { 0 };
-	struct wrap_opts wrap_opts = {
-		.allow_download = true,
-		.subprojects = subprojects_dir(wk),
-		.mode = wrap_handle_mode_update,
-	};
-	bool ok = wrap_handle(wk, path, &wrap, &wrap_opts);
+	struct wrap_handle_ctx wrap_ctx = { .opts = {
+						    .allow_download = true,
+						    .subprojects = subprojects_dir(wk),
+						    .mode = wrap_handle_mode_update,
+					    } };
+	bool ok = wrap_handle(wk, path, &wrap_ctx);
 
-	obj_array_push(wk, *ctx->res, make_str(wk, wrap.name.buf));
+	obj_array_push(wk, *ctx->res, make_str(wk, wrap_ctx.wrap.name.buf));
 
 	if (!ok) {
 		++ctx->failed;
 		goto cont;
 	}
-	wrap_destroy(&wrap);
+	wrap_destroy(&wrap_ctx.wrap);
 cont:
 	return ir_cont;
 }
@@ -141,48 +140,47 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 static enum iteration_result
 subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
-	struct wrap wrap = { 0 };
-	struct wrap_opts wrap_opts = {
+	struct wrap_handle_ctx wrap_ctx = { .opts = {
 		.allow_download = false,
 		.subprojects = subprojects_dir(wk),
 		.mode = wrap_handle_mode_check_dirty,
-	};
-	if (!wrap_handle(wk, path, &wrap, &wrap_opts)) {
+	} };
+	if (!wrap_handle(wk, path, &wrap_ctx)) {
 		goto cont;
 	}
 
 	char *t = "file";
-	if (wrap.type == wrap_type_git) {
+	if (wrap_ctx.wrap.type == wrap_type_git) {
 		t = "git ";
 	}
 
 	obj d;
 	d = make_obj(wk, obj_dict);
-	obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap.name.buf));
+	obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap_ctx.wrap.name.buf));
 	obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
-	obj_dict_set(wk, d, make_str(wk, "outdated"), make_obj_bool(wk, wrap.outdated));
-	obj_dict_set(wk, d, make_str(wk, "dirty"), make_obj_bool(wk, wrap.dirty));
+	obj_dict_set(wk, d, make_str(wk, "outdated"), make_obj_bool(wk, wrap_ctx.wrap.outdated));
+	obj_dict_set(wk, d, make_str(wk, "dirty"), make_obj_bool(wk, wrap_ctx.wrap.dirty));
 	obj_array_push(wk, *ctx->res, d);
 
 	if (ctx->print) {
 		const char *t_clr = CLR(c_blue);
-		if (wrap.type == wrap_type_git) {
+		if (wrap_ctx.wrap.type == wrap_type_git) {
 			t_clr = CLR(c_magenta);
 		}
 
-		LLOG_I("[%s%s%s] %s ", t_clr, t, CLR(0), wrap.name.buf);
+		LLOG_I("[%s%s%s] %s ", t_clr, t, CLR(0), wrap_ctx.wrap.name.buf);
 
-		if (wrap.outdated) {
+		if (wrap_ctx.wrap.outdated) {
 			log_plain(log_info, CLR(c_green) "U" CLR(0));
 		}
-		if (wrap.dirty) {
+		if (wrap_ctx.wrap.dirty) {
 			log_plain(log_info, "*");
 		}
 
 		log_plain(log_info, "\n");
 	}
 
-	wrap_destroy(&wrap);
+	wrap_destroy(&wrap_ctx.wrap);
 
 cont:
 	return ir_cont;
@@ -199,7 +197,8 @@ func_subprojects_list(struct workspace *wk, obj self, obj *res)
 		kw_print,
 	};
 	struct args_kw akw[] = {
-		[kw_print] = { "print", tc_bool, .desc = "Print out a formatted list of subprojects as well as returning it." },
+		[kw_print]
+		= { "print", tc_bool, .desc = "Print out a formatted list of subprojects as well as returning it." },
 		0,
 	};
 
@@ -220,7 +219,7 @@ static enum iteration_result
 subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(path, &wrap)) {
+	if (!wrap_parse(wk, path, &wrap)) {
 		goto cont;
 	}
 

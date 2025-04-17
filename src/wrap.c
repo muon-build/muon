@@ -325,11 +325,11 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 	const char *url,
 	const char *hash,
 	const char *dest_dir,
-	struct wrap_opts *opts)
+	struct wrap_handle_ctx *ctx)
 {
 	TSTR(source_path);
 
-	path_join(wk, &source_path, opts->subprojects, "packagefiles");
+	path_join(wk, &source_path, ctx->opts.subprojects, "packagefiles");
 	path_push(wk, &source_path, filename);
 
 	if (fs_file_exists(source_path.buf)) {
@@ -361,7 +361,7 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 			return false;
 		}
 	} else if (url) {
-		if (!opts->allow_download) {
+		if (!ctx->opts.allow_download) {
 			LOG_E("wrap downloading is disabled");
 			return false;
 		}
@@ -449,16 +449,13 @@ wrap_destroy(struct wrap *wrap)
 		z_free(wrap->buf);
 		wrap->buf = NULL;
 	}
-
-	tstr_destroy(&wrap->dest_dir);
-	tstr_destroy(&wrap->name);
 }
 
 bool
-wrap_parse(const char *wrap_file, struct wrap *wrap)
+wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap)
 {
 	bool res = false;
-	TSTR_manual(subprojects);
+	TSTR(subprojects);
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
@@ -471,8 +468,8 @@ wrap_parse(const char *wrap_file, struct wrap *wrap)
 
 	*wrap = ctx.wrap;
 
-	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), tstr_flag_overflow_alloc);
-	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), tstr_flag_overflow_alloc);
+	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), 0);
+	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), 0);
 
 	path_basename(NULL, &wrap->name, wrap_file);
 
@@ -497,7 +494,6 @@ ret:
 	if (!res) {
 		wrap_destroy(&ctx.wrap);
 	}
-	tstr_destroy(&subprojects);
 	return res;
 }
 
@@ -529,15 +525,15 @@ wrap_run_cmd(char *const *argv, const char *chdir)
 }
 
 static bool
-wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts *opts)
+wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	bool res = false;
 	TSTR_manual(packagefiles);
 	TSTR_manual(diff_path);
 
-	path_join(NULL, &packagefiles, opts->subprojects, "packagefiles");
+	path_join(NULL, &packagefiles, ctx->opts.subprojects, "packagefiles");
 
-	char *p = (char *)wrap->fields[wf_diff_files];
+	char *p = (char *)ctx->wrap.fields[wf_diff_files];
 	const char *diff_file = p;
 
 	bool patch_cmd_found = fs_has_cmd("patch");
@@ -552,12 +548,12 @@ wrap_apply_diff_files(struct wrap *wrap, const char *dest_dir, struct wrap_opts 
 			L("applying diff_file '%s'", diff_path.buf);
 
 			if (patch_cmd_found) {
-				if (!wrap_run_cmd_feed(ARGV("patch", "-p1"), wrap->dest_dir.buf, diff_path.buf)) {
+				if (!wrap_run_cmd_feed(ARGV("patch", "-p1"), ctx->wrap.dest_dir.buf, diff_path.buf)) {
 					goto ret;
 				}
 			} else {
 				if (!wrap_run_cmd(ARGV("git", "--work-tree", ".", "apply", "-p1", diff_path.buf),
-					    wrap->dest_dir.buf)) {
+					    ctx->wrap.dest_dir.buf)) {
 					goto ret;
 				}
 			}
@@ -589,26 +585,30 @@ ret:
 }
 
 static bool
-wrap_apply_patch(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
+wrap_apply_patch(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	const char *dest_dir, *filename = NULL;
-	if (wrap->fields[wf_patch_directory]) {
-		dest_dir = wrap->dest_dir.buf;
-		filename = wrap->fields[wf_patch_directory];
+	if (ctx->wrap.fields[wf_patch_directory]) {
+		dest_dir = ctx->wrap.dest_dir.buf;
+		filename = ctx->wrap.fields[wf_patch_directory];
 	} else {
-		dest_dir = opts->subprojects;
-		filename = wrap->fields[wf_patch_filename];
+		dest_dir = ctx->opts.subprojects;
+		filename = ctx->wrap.fields[wf_patch_filename];
 	}
 
 	if (filename) {
 		if (!wrap_download_or_check_packagefiles(wk,
-			    filename, wrap->fields[wf_patch_url], wrap->fields[wf_patch_hash], dest_dir, opts)) {
+			    filename,
+			    ctx->wrap.fields[wf_patch_url],
+			    ctx->wrap.fields[wf_patch_hash],
+			    dest_dir,
+			    ctx)) {
 			return false;
 		}
 	}
 
-	if (wrap->fields[wf_diff_files]) {
-		if (!wrap_apply_diff_files(wrap, dest_dir, opts)) {
+	if (ctx->wrap.fields[wf_diff_files]) {
+		if (!wrap_apply_diff_files(wk, ctx)) {
 			return false;
 		}
 	}
@@ -617,18 +617,18 @@ wrap_apply_patch(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts
 }
 
 static bool
-wrap_handle_file(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	const char *dest;
 
-	if (!wrap->fields[wf_source_filename]) {
+	if (!ctx->wrap.fields[wf_source_filename]) {
 		return false;
 	}
 
-	if (wrap->fields[wf_lead_directory_missing]) {
-		dest = wrap->dest_dir.buf;
+	if (ctx->wrap.fields[wf_lead_directory_missing]) {
+		dest = ctx->wrap.dest_dir.buf;
 	} else {
-		dest = opts->subprojects;
+		dest = ctx->opts.subprojects;
 	}
 
 	if (!fs_mkdir(dest, true)) {
@@ -636,7 +636,11 @@ wrap_handle_file(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts
 	}
 
 	return wrap_download_or_check_packagefiles(wk,
-		wrap->fields[wf_source_filename], wrap->fields[wf_source_url], wrap->fields[wf_source_hash], dest, opts);
+		ctx->wrap.fields[wf_source_filename],
+		ctx->wrap.fields[wf_source_url],
+		ctx->wrap.fields[wf_source_hash],
+		dest,
+		ctx);
 }
 
 static bool
@@ -650,31 +654,31 @@ is_git_dir(const char *dir)
 }
 
 static bool
-git_fetch_revision(struct wrap *wrap, const char *depth_str)
+git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char *depth_str)
 {
-	if (wrap_run_cmd(ARGV("git", "fetch", "--depth", depth_str, "origin", wrap->fields[wf_revision]),
-		    wrap->dest_dir.buf)) {
+	if (wrap_run_cmd(ARGV("git", "fetch", "--depth", depth_str, "origin", ctx->wrap.fields[wf_revision]),
+		    ctx->wrap.dest_dir.buf)) {
 		return true;
 	}
 
 	LOG_W("Shallow clone failed, falling back to full clone.");
-	return wrap_run_cmd(ARGV("git", "fetch", "origin"), wrap->dest_dir.buf);
+	return wrap_run_cmd(ARGV("git", "fetch", "origin"), ctx->wrap.dest_dir.buf);
 }
 
 static bool
-wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	int64_t depth = 0;
 	char depth_str[64] = { 0 };
-	if (wrap->fields[wf_depth]) {
-		if (!str_to_i(&STRL(wrap->fields[wf_depth]), &depth, true)) {
-			LOG_E("invalid value for depth: '%s'", wrap->fields[wf_depth]);
+	if (ctx->wrap.fields[wf_depth]) {
+		if (!str_to_i(&STRL(ctx->wrap.fields[wf_depth]), &depth, true)) {
+			LOG_E("invalid value for depth: '%s'", ctx->wrap.fields[wf_depth]);
 			return false;
 		}
 
-		if (strlen(wrap->fields[wf_revision]) != 40) {
+		if (strlen(ctx->wrap.fields[wf_revision]) != 40) {
 			LOG_W("When specifying clone depth you must provide a full git sha as the revision.  Got '%s'",
-				wrap->fields[wf_revision]);
+				ctx->wrap.fields[wf_revision]);
 			depth = 0;
 		}
 
@@ -682,37 +686,38 @@ wrap_handle_git(struct wrap *wrap, struct wrap_opts *opts)
 		snprintf(depth_str, sizeof(depth_str), "%" PRId64, depth);
 	}
 
-	if (is_git_dir(wrap->dest_dir.buf)) {
+	if (is_git_dir(ctx->wrap.dest_dir.buf)) {
 		if (depth) {
-			if (!git_fetch_revision(wrap, depth_str)) {
+			if (!git_fetch_revision(wk, ctx, depth_str)) {
 				return false;
 			}
 		} else {
-			if (!wrap_run_cmd(ARGV("git", "remote", "update"), wrap->dest_dir.buf)) {
+			if (!wrap_run_cmd(ARGV("git", "remote", "update"), ctx->wrap.dest_dir.buf)) {
 				return false;
 			}
 		}
 	} else {
 		if (depth) {
-			if (!fs_mkdir_p(wrap->dest_dir.buf)) {
+			if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
 				return false;
-			} else if (!wrap_run_cmd(ARGV("git", "init"), wrap->dest_dir.buf)) {
+			} else if (!wrap_run_cmd(ARGV("git", "init"), ctx->wrap.dest_dir.buf)) {
 				return false;
-			} else if (!wrap_run_cmd(ARGV("git", "remote", "add", "origin", wrap->fields[wf_url]),
-					   wrap->dest_dir.buf)) {
+			} else if (!wrap_run_cmd(ARGV("git", "remote", "add", "origin", ctx->wrap.fields[wf_url]),
+					   ctx->wrap.dest_dir.buf)) {
 				return false;
-			} else if (!git_fetch_revision(wrap, depth_str)) {
+			} else if (!git_fetch_revision(wk, ctx, depth_str)) {
 				return false;
 			}
 		} else {
-			if (!wrap_run_cmd(ARGV("git", "clone", wrap->fields[wf_url], wrap->dest_dir.buf), 0)) {
+			if (!wrap_run_cmd(ARGV("git", "clone", ctx->wrap.fields[wf_url], ctx->wrap.dest_dir.buf), 0)) {
 				return false;
 			}
 		}
 	}
 
-	if (!wrap_run_cmd(ARGV("git", "-c", "advice.detachedHead=false", "checkout", wrap->fields[wf_revision], "--"),
-		    wrap->dest_dir.buf)) {
+	if (!wrap_run_cmd(
+		    ARGV("git", "-c", "advice.detachedHead=false", "checkout", ctx->wrap.fields[wf_revision], "--"),
+		    ctx->wrap.dest_dir.buf)) {
 		return false;
 	}
 
@@ -744,27 +749,27 @@ git_rev_parse(const char *dir, const char *rev, struct tstr *out)
 }
 
 static bool
-wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
+wrap_check_dirty_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (!is_git_dir(wrap->dest_dir.buf)) {
-		wrap->outdated = true;
+	if (!is_git_dir(ctx->wrap.dest_dir.buf)) {
+		ctx->wrap.outdated = true;
 		return true;
 	}
 
-	wrap->dirty = wrap_run_cmd_status(ARGV("git", "diff", "--quiet"), wrap->dest_dir.buf, 0) != 0;
+	ctx->wrap.dirty = wrap_run_cmd_status(ARGV("git", "diff", "--quiet"), ctx->wrap.dest_dir.buf, 0) != 0;
 
 	TSTR_manual(head_rev);
 	TSTR_manual(wrap_rev);
 
-	wrap->outdated = true;
+	ctx->wrap.outdated = true;
 
-	if (str_eqli(&STR("HEAD"), &STRL(wrap->fields[wf_revision]))) {
+	if (str_eqli(&STR("HEAD"), &STRL(ctx->wrap.fields[wf_revision]))) {
 		// head is always outdated
 	} else {
-		if (git_rev_parse(wrap->dest_dir.buf, "HEAD", &head_rev)
-			&& git_rev_parse(wrap->dest_dir.buf, wrap->fields[wf_revision], &wrap_rev)) {
+		if (git_rev_parse(ctx->wrap.dest_dir.buf, "HEAD", &head_rev)
+			&& git_rev_parse(ctx->wrap.dest_dir.buf, ctx->wrap.fields[wf_revision], &wrap_rev)) {
 			if (head_rev.len == wrap_rev.len && memcmp(head_rev.buf, wrap_rev.buf, head_rev.len) == 0) {
-				wrap->outdated = false;
+				ctx->wrap.outdated = false;
 			}
 		}
 	}
@@ -776,29 +781,29 @@ wrap_check_dirty_git(struct wrap *wrap, struct wrap_opts *opts)
 }
 
 static bool
-wrap_handle_default(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	bool new_content = false;
 
-	switch (wrap->type) {
+	switch (ctx->wrap.type) {
 	case wrap_type_file:
-		if (!fs_dir_exists(wrap->dest_dir.buf) || opts->force_update) {
+		if (!fs_dir_exists(ctx->wrap.dest_dir.buf) || ctx->opts.force_update) {
 			new_content = true;
 
-			if (!wrap_handle_file(wk, wrap, opts)) {
+			if (!wrap_handle_file(wk, ctx)) {
 				return false;
 			}
 		}
 		break;
 	case wrap_type_git:
-		if (!is_git_dir(wrap->dest_dir.buf) || opts->force_update) {
+		if (!is_git_dir(ctx->wrap.dest_dir.buf) || ctx->opts.force_update) {
 			new_content = true;
-			if (!opts->allow_download) {
+			if (!ctx->opts.allow_download) {
 				LOG_E("wrap downloading disabled");
 				return false;
 			}
 
-			if (!wrap_handle_git(wrap, opts)) {
+			if (!wrap_handle_git(wk, ctx)) {
 				return false;
 			}
 		}
@@ -806,8 +811,8 @@ wrap_handle_default(struct workspace *wk, struct wrap *wrap, struct wrap_opts *o
 	default: UNREACHABLE;
 	}
 
-	if (new_content || wrap->fields[wf_patch_directory]) {
-		if (!wrap_apply_patch(wk, wrap, opts)) {
+	if (new_content || ctx->wrap.fields[wf_patch_directory]) {
+		if (!wrap_apply_patch(wk, ctx)) {
 			return false;
 		}
 	}
@@ -815,57 +820,57 @@ wrap_handle_default(struct workspace *wk, struct wrap *wrap, struct wrap_opts *o
 }
 
 static bool
-wrap_handle_check_dirty(struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_check_dirty(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (!fs_dir_exists(wrap->dest_dir.buf)) {
-		wrap->outdated = true;
+	if (!fs_dir_exists(ctx->wrap.dest_dir.buf)) {
+		ctx->wrap.outdated = true;
 		return true;
 	}
 
-	switch (wrap->type) {
+	switch (ctx->wrap.type) {
 	case wrap_type_file:
 		// We currently have no way of checking if this wrap type is dirty
 		return true;
 	case wrap_type_git: {
-		return wrap_check_dirty_git(wrap, opts);
+		return wrap_check_dirty_git(wk, ctx);
 	}
 	default: UNREACHABLE;
 	}
 }
 
 static bool
-wrap_handle_update(struct workspace *wk, struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle_update(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (!wrap_handle_check_dirty(wrap, opts)) {
+	if (!wrap_handle_check_dirty(wk, ctx)) {
 		return false;
 	}
 
-	if (!wrap->outdated) {
+	if (!ctx->wrap.outdated) {
 		return true;
 	}
 
-	if (wrap->dirty) {
-		LOG_W("cannot safely update outdated %s because it is dirty", wrap->dest_dir.buf);
+	if (ctx->wrap.dirty) {
+		LOG_W("cannot safely update outdated %s because it is dirty", ctx->wrap.dest_dir.buf);
 		return true;
 	}
 
-	LOG_I("updating %s", wrap->dest_dir.buf);
+	LOG_I("updating %s", ctx->wrap.dest_dir.buf);
 
-	opts->force_update = true;
-	return wrap_handle_default(wk, wrap, opts);
+	ctx->opts.force_update = true;
+	return wrap_handle_default(wk, ctx);
 }
 
 bool
-wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap *wrap, struct wrap_opts *opts)
+wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx)
 {
-	if (!wrap_parse(wrap_file, wrap)) {
+	if (!wrap_parse(wk, wrap_file, &ctx->wrap)) {
 		return false;
 	}
 
-	switch (opts->mode) {
-	case wrap_handle_mode_default: return wrap_handle_default(wk, wrap, opts);
-	case wrap_handle_mode_update: return wrap_handle_update(wk, wrap, opts);
-	case wrap_handle_mode_check_dirty: return wrap_handle_check_dirty(wrap, opts);
+	switch (ctx->opts.mode) {
+	case wrap_handle_mode_default: return wrap_handle_default(wk, ctx);
+	case wrap_handle_mode_update: return wrap_handle_update(wk, ctx);
+	case wrap_handle_mode_check_dirty: return wrap_handle_check_dirty(wk, ctx);
 	}
 
 	return true;
@@ -893,7 +898,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	}
 
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(ctx->path->buf, &wrap)) {
+	if (!wrap_parse(ctx->wk, ctx->path->buf, &wrap)) {
 		return ir_err;
 	}
 

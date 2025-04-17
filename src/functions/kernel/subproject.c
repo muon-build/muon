@@ -35,20 +35,19 @@ subproject_prepare(struct workspace *wk,
 
 		path_dirname(wk, &base_path, *cwd);
 
-		struct wrap wrap = { 0 };
-		struct wrap_opts wrap_opts = {
+		struct wrap_handle_ctx wrap_ctx = { .opts = {
 			.allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
 			.subprojects = base_path.buf,
-		};
-		if (!wrap_handle(wk, wrap_path.buf, &wrap, &wrap_opts)) {
+		} };
+		if (!wrap_handle(wk, wrap_path.buf, &wrap_ctx)) {
 			goto wrap_cleanup;
 		}
 
-		if (wrap.fields[wf_directory]) {
-			path_join(wk, cwd_buf, base_path.buf, wrap.fields[wf_directory]);
+		if (wrap_ctx.wrap.fields[wf_directory]) {
+			path_join(wk, cwd_buf, base_path.buf, wrap_ctx.wrap.fields[wf_directory]);
 
 			path_dirname(wk, &base_path, *build_dir);
-			path_join(wk, build_dir_buf, base_path.buf, wrap.fields[wf_directory]);
+			path_join(wk, build_dir_buf, base_path.buf, wrap_ctx.wrap.fields[wf_directory]);
 
 			*cwd = cwd_buf->buf;
 			*build_dir = build_dir_buf->buf;
@@ -57,7 +56,7 @@ subproject_prepare(struct workspace *wk,
 		wrap_ok = true;
 
 wrap_cleanup:
-		wrap_destroy(&wrap);
+		wrap_destroy(&wrap_ctx.wrap);
 
 		if (!wrap_ok) {
 			if (required) {
