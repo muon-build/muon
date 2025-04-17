@@ -311,9 +311,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	ctx->process = INVALID_HANDLE_VALUE;
 
 	LL("executing: ");
-	if (log_should_print(log_debug)) {
-		log_plain("%s\n", command_line);
-	}
+	log_plain(log_debug, "%s\n", command_line);
 
 	if (envstr) {
 		LPSTR oldenv = GetEnvironmentStrings();
@@ -328,9 +326,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 					k = p + 1;
 				} else {
 					assert(*k);
-					if (log_should_print(log_debug)) {
-						log_plain(" %s='%s'", k, p + 1);
-					}
+					log_plain(log_debug, " %s='%s'", k, p + 1);
 
 					if (!SetEnvironmentVariable(k, p + 1)) {
 						LOG_E("failed to set environment var %s='%s': %s",
@@ -350,9 +346,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 			}
 		}
 
-		if (log_should_print(log_debug)) {
-			log_plain("\n");
-		}
+		log_plain(log_debug, "\n");
 
 		LPSTR newenv = GetEnvironmentStrings();
 

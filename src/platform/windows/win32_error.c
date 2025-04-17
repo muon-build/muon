@@ -59,11 +59,11 @@ win32_fatal(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	log_plainv(fmt, ap);
+	log_printv(log_error, fmt, ap);
 	va_end(ap);
 	if (fmt[strlen(fmt) - 1] == ':') {
-		log_plain(" %s", win32_error());
+		log_plain(log_error, " %s", win32_error());
 	}
-	log_plain("\n");
+	log_plain(log_error, "\n");
 	exit(1);
 }
