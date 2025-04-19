@@ -259,39 +259,6 @@ az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...)
 	az_srv_request(srv, wk, "$/logTrace", params);
 }
 
-static const struct str *
-obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
-{
-	obj r;
-	if (!obj_dict_index_str(wk, dict, s, &r)) {
-		return 0;
-	}
-
-	return get_str(wk, r);
-}
-
-static int64_t
-obj_dict_index_as_number(struct workspace *wk, obj dict, const char *s)
-{
-	obj r;
-	if (!obj_dict_index_str(wk, dict, s, &r)) {
-		UNREACHABLE;
-	}
-
-	return get_obj_number(wk, r);
-}
-
-static obj
-obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
-{
-	obj r;
-	if (!obj_dict_index_str(wk, dict, s, &r)) {
-		return 0;
-	}
-
-	return r;
-}
-
 static obj
 az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 {

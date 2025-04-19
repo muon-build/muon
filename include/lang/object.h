@@ -685,6 +685,10 @@ bool obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val);
 void obj_dict_del(struct workspace *wk, obj dict, obj key);
 void obj_dict_del_str(struct workspace *wk, obj dict, const char *str);
 void obj_dict_del_strn(struct workspace *wk, obj dict, const char *str, uint32_t len);
+const struct str *obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s);
+bool obj_dict_index_as_bool(struct workspace *wk, obj dict, const char *s);
+int64_t obj_dict_index_as_number(struct workspace *wk, obj dict, const char *s);
+obj obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s);
 
 bool obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dict_iterator cb);
 #endif

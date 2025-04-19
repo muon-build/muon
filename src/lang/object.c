@@ -1583,6 +1583,52 @@ obj_dict_geti(struct workspace *wk, obj dict, uint32_t key, obj *val)
 	return false;
 }
 
+const struct str *
+obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		return 0;
+	}
+
+	return get_str(wk, r);
+}
+
+
+bool
+obj_dict_index_as_bool(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		return 0;
+	}
+
+	return get_obj_bool(wk, r);
+}
+
+int64_t
+obj_dict_index_as_number(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		UNREACHABLE;
+	}
+
+	return get_obj_number(wk, r);
+}
+
+obj
+obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
+{
+	obj r;
+	if (!obj_dict_index_str(wk, dict, s, &r)) {
+		return 0;
+	}
+
+	return r;
+}
+
+
 /*******************************************************************************
  * obj_iterable_foreach
  ******************************************************************************/
