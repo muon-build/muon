@@ -8,6 +8,7 @@
 #include "lang/func_lookup.h"
 
 struct subprojects_common_ctx {
+	struct arr handlers;
 	uint32_t failed;
 	bool force, print;
 	obj *res;

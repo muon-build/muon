@@ -12,6 +12,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
+#include "platform/timer.h"
 #include "wrap.h"
 
 struct subprojects_foreach_ctx {
@@ -38,7 +39,7 @@ subprojects_foreach_iter(void *_ctx, const char *name)
 {
 	struct subprojects_foreach_ctx *ctx = _ctx;
 	uint32_t len = strlen(name);
-	TSTR_manual(path);
+	TSTR(path);
 
 	if (len <= 5 || strcmp(&name[len - 5], ".wrap") != 0) {
 		return ir_cont;
@@ -58,7 +59,7 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 {
 	if (list) {
 		bool res = true;
-		TSTR_manual(wrap_file);
+		TSTR(wrap_file);
 
 		obj v;
 		obj_array_for(wk, list, v) {
@@ -94,24 +95,153 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 }
 
 static enum iteration_result
-func_subprojects_update_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
+subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
-	struct wrap_handle_ctx wrap_ctx = { .opts = {
-						    .allow_download = true,
-						    .subprojects = subprojects_dir(wk),
-						    .mode = wrap_handle_mode_update,
-					    } };
-	bool ok = wrap_handle(wk, path, &wrap_ctx);
+	struct wrap_handle_ctx wrap_ctx = {
+		.path = get_str(wk, make_str(wk, path))->s,
+		.opts = {
+			.allow_download = true,
+			.subprojects = subprojects_dir(wk),
+			.yield = true,
+		},
+	};
 
-	obj_array_push(wk, *ctx->res, make_str(wk, wrap_ctx.wrap.name.buf));
+	arr_push(&ctx->handlers, &wrap_ctx);
 
-	if (!ok) {
-		++ctx->failed;
-		goto cont;
-	}
-	wrap_destroy(&wrap_ctx.wrap);
-cont:
 	return ir_cont;
+}
+
+struct subprojects_process_opts {
+	uint32_t job_count;
+	enum wrap_handle_mode wrap_mode;
+	const char *completed_log_label;
+	obj *res;
+	bool progress_bar;
+};
+
+static bool
+subprojects_process(struct workspace *wk, obj list, struct subprojects_process_opts *opts)
+{
+	// Init ctx
+	struct subprojects_common_ctx ctx = { .res = opts->res };
+	arr_init(&ctx.handlers, 8, sizeof(struct wrap_handle_ctx));
+	*ctx.res = make_obj(wk, obj_array);
+
+	// Gather subprojects
+	subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
+
+	// Progress bar setup
+	char name_buf[64];
+	uint32_t name_buf_i, name_cnt;
+	struct log_progress_style log_progress_style = {
+		.name_pad = 20,
+		.name = name_buf,
+		.show_count = true,
+	};
+	if (opts->progress_bar) {
+		log_set_progress_bar_enabled(true);
+		log_progress_reset(0, "");
+		log_progress_push_level(0, ctx.handlers.len);
+	}
+
+	uint32_t i;
+	uint32_t cnt_complete = 0, cnt_failed = 0, cnt_running;
+	struct wrap_handle_ctx *wrap_ctx;
+
+	for (i = 0; i < ctx.handlers.len; ++i) {
+		wrap_ctx = arr_get(&ctx.handlers, i);
+
+		wrap_ctx->opts.mode = opts->wrap_mode;
+	}
+
+	while (cnt_complete < ctx.handlers.len) {
+		cnt_running = 0;
+
+		for (i = 0; i < ctx.handlers.len; ++i) {
+			wrap_ctx = arr_get(&ctx.handlers, i);
+
+			if (wrap_ctx->sub_state == wrap_handle_sub_state_complete) {
+				if (opts->completed_log_label) {
+					LOG_I("%s %s", opts->completed_log_label, wrap_ctx->wrap.name.buf);
+				}
+				++cnt_complete;
+				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
+			}
+			if (wrap_ctx->sub_state == wrap_handle_sub_state_collected) {
+				continue;
+			}
+
+			++cnt_running;
+
+			if (cnt_running >= opts->job_count) {
+				break;
+			}
+
+			if (!wrap_handle_async(wk, wrap_ctx->path, wrap_ctx)) {
+				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
+				LOG_I(CLR(c_red) "error" CLR(0) " %s", wrap_ctx->wrap.name.buf);
+				++cnt_failed;
+			}
+		}
+
+		name_buf_i = 0;
+		snprintf_append(name_buf, &name_buf_i, "%d ", cnt_running);
+		name_cnt = 0;
+
+		for (i = 0; i < ctx.handlers.len; ++i) {
+			wrap_ctx = arr_get(&ctx.handlers, i);
+
+			if (wrap_ctx->sub_state == wrap_handle_sub_state_collected) {
+				continue;
+			}
+
+			++name_cnt;
+			snprintf_append(name_buf,
+				&name_buf_i,
+				"%s%s",
+				wrap_ctx->wrap.name.buf,
+				name_cnt == cnt_running ? "" : ", ");
+		}
+
+		log_progress_set_style(&log_progress_style);
+		log_progress(wk, cnt_complete);
+		timer_sleep(SLEEP_TIME);
+	}
+
+	for (i = 0; i < ctx.handlers.len; ++i) {
+		wrap_ctx = arr_get(&ctx.handlers, i);
+
+		char *t = "file";
+		if (wrap_ctx->wrap.type == wrap_type_git) {
+			t = "git ";
+		}
+
+		obj d = make_obj(wk, obj_dict);
+		obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap_ctx->wrap.name.buf));
+		obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
+
+		switch (opts->wrap_mode) {
+		case wrap_handle_mode_check_dirty: {
+			obj_dict_set(wk, d, make_str(wk, "outdated"), make_obj_bool(wk, wrap_ctx->wrap.outdated));
+			obj_dict_set(wk, d, make_str(wk, "dirty"), make_obj_bool(wk, wrap_ctx->wrap.dirty));
+			break;
+		}
+		default: break;
+		}
+
+		obj_array_push(wk, *opts->res, d);
+
+		wrap_destroy(&wrap_ctx->wrap);
+	}
+
+	arr_destroy(&ctx.handlers);
+
+	if (opts->progress_bar) {
+		log_set_progress_bar_enabled(false);
+		log_raw("\033[0K");
+	}
+
+	return cnt_failed == 0;
 }
 
 static bool
@@ -126,64 +256,24 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = make_obj(wk, obj_array);
-	struct subprojects_common_ctx ctx = {
-		.print = true,
-		.res = res,
-	};
-
-	subprojects_foreach(wk, an[0].val, &ctx, func_subprojects_update_iter);
-
-	return ctx.failed == 0;
+	return subprojects_process(wk,
+		an[0].val,
+		&(struct subprojects_process_opts){
+			.wrap_mode = wrap_handle_mode_update,
+			.completed_log_label = CLR(c_green) "updated" CLR(0),
+			.job_count = 4,
+			.progress_bar = true,
+			.res = res,
+		});
 }
 
-static enum iteration_result
-subprojects_list_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
+static int32_t
+subprojects_array_sort_func(struct workspace *wk, void *_ctx, obj a, obj b)
 {
-	struct wrap_handle_ctx wrap_ctx = { .opts = {
-		.allow_download = false,
-		.subprojects = subprojects_dir(wk),
-		.mode = wrap_handle_mode_check_dirty,
-	} };
-	if (!wrap_handle(wk, path, &wrap_ctx)) {
-		goto cont;
-	}
+	const struct str *a_name = obj_dict_index_as_str(wk, a, "name");
+	const struct str *b_name = obj_dict_index_as_str(wk, b, "name");
 
-	char *t = "file";
-	if (wrap_ctx.wrap.type == wrap_type_git) {
-		t = "git ";
-	}
-
-	obj d;
-	d = make_obj(wk, obj_dict);
-	obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap_ctx.wrap.name.buf));
-	obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
-	obj_dict_set(wk, d, make_str(wk, "outdated"), make_obj_bool(wk, wrap_ctx.wrap.outdated));
-	obj_dict_set(wk, d, make_str(wk, "dirty"), make_obj_bool(wk, wrap_ctx.wrap.dirty));
-	obj_array_push(wk, *ctx->res, d);
-
-	if (ctx->print) {
-		const char *t_clr = CLR(c_blue);
-		if (wrap_ctx.wrap.type == wrap_type_git) {
-			t_clr = CLR(c_magenta);
-		}
-
-		LLOG_I("[%s%s%s] %s ", t_clr, t, CLR(0), wrap_ctx.wrap.name.buf);
-
-		if (wrap_ctx.wrap.outdated) {
-			log_plain(log_info, CLR(c_green) "U" CLR(0));
-		}
-		if (wrap_ctx.wrap.dirty) {
-			log_plain(log_info, "*");
-		}
-
-		log_plain(log_info, "\n");
-	}
-
-	wrap_destroy(&wrap_ctx.wrap);
-
-cont:
-	return ir_cont;
+	return strcmp(a_name->s, b_name->s);
 }
 
 static bool
@@ -206,13 +296,47 @@ func_subprojects_list(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	*res = make_obj(wk, obj_array);
-	struct subprojects_common_ctx ctx = {
-		.print = get_obj_bool_with_default(wk, akw[kw_print].val, false),
-		.res = res,
-	};
+	if (!subprojects_process(wk,
+		    an[0].val,
+		    &(struct subprojects_process_opts){
+			    .wrap_mode = wrap_handle_mode_check_dirty,
+			    .job_count = 4,
+			    .res = res,
+		    })) {
+		return false;
+	}
 
-	return subprojects_foreach(wk, an[0].val, &ctx, subprojects_list_iter);
+	{
+		obj sorted;
+		obj_array_sort(wk, 0, *res, subprojects_array_sort_func, &sorted);
+		*res = sorted;
+	}
+
+	if (get_obj_bool_with_default(wk, akw[kw_print].val, false)) {
+		obj d;
+		obj_array_for(wk, *res, d) {
+			const struct str *name = obj_dict_index_as_str(wk, d, "name");
+			const struct str *type = obj_dict_index_as_str(wk, d, "type");
+
+			const char *t_clr = CLR(c_blue);
+			if (str_eql(type, &STR("git"))) {
+				t_clr = CLR(c_magenta);
+			}
+
+			LLOG_I("[%s%s%s] %s ", t_clr, type->s, CLR(0), name->s);
+
+			if (obj_dict_index_as_bool(wk, d, "outdated")) {
+				log_plain(log_info, CLR(c_green) "U" CLR(0));
+			}
+			if (obj_dict_index_as_bool(wk, d, "dirty")) {
+				log_plain(log_info, "*");
+			}
+
+			log_plain(log_info, "\n");
+		}
+	}
+
+	return true;
 }
 
 static enum iteration_result

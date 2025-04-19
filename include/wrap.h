@@ -14,6 +14,7 @@
 #include "buf_size.h"
 #include "lang/string.h"
 #include "platform/filesystem.h"
+#include "platform/run_cmd.h"
 
 struct workspace;
 
@@ -80,15 +81,34 @@ struct wrap_opts {
 	const char *subprojects;
 	bool allow_download, force_update;
 	enum wrap_handle_mode mode;
+	bool yield;
+};
+
+enum wrap_handle_sub_state {
+	wrap_handle_sub_state_running,
+	wrap_handle_sub_state_running_cmd,
+	wrap_handle_sub_state_complete,
+	wrap_handle_sub_state_collected,
 };
 
 struct wrap_handle_ctx {
 	struct wrap_opts opts;
 	struct wrap wrap;
+
+	const char *path;
+
+	bool apply_patch;
+	struct {
+		int64_t depth;
+		char depth_str[16];
+	} git;
+	uint32_t state, sub_state;
+	struct run_cmd_ctx cmd_ctx;
 };
 
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap);
 bool wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
+bool wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
 bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
 #endif
