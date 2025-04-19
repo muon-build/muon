@@ -47,20 +47,27 @@ extern const char *log_level_shortname[log_level_count];
 #define LLOG_W(...) log_print(false, log_warn, __VA_ARGS__)
 #define LLOG_E(...) log_print(false, log_error, __VA_ARGS__)
 
-void log_set_progress_bar_enabled(bool v);
-bool log_is_progress_bar_enabled(void);
 void log_set_file(FILE *log_file);
 void log_set_debug_file(FILE *log_file);
 struct tstr;
 void log_set_buffer(struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(int32_t n);
+
+void log_set_progress_bar_enabled(bool v);
+bool log_is_progress_bar_enabled(void);
 void log_progress_reset(double rate_limit, const char *name);
 void log_progress_push_level(double start, double end);
 void log_progress_pop_level(void);
 struct workspace;
 void log_progress_inc(struct workspace *wk);
 void log_progress(struct workspace *wk, double val);
+struct log_progress_style {
+	const char *name;
+	uint32_t name_pad;
+	bool show_count;
+};
+void log_progress_set_style(const struct log_progress_style *style);
 
 void log_printn(enum log_level lvl, const char *buf, uint32_t len);
 void log_printv(enum log_level lvl, const char *fmt, va_list ap);

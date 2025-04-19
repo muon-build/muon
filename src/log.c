@@ -22,11 +22,11 @@
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = STRINGIZE(c_red),
-	[log_warn] = STRINGIZE(c_yellow),
-	[log_note] = STRINGIZE(c_cyan),
-	[log_info] = "0",
-	[log_debug] = STRINGIZE(c_cyan),
-};
+		[log_warn] = STRINGIZE(c_yellow),
+			[log_note] = STRINGIZE(c_cyan),
+				[log_info] = "0",
+				[log_debug] = STRINGIZE(c_cyan),
+				};
 
 const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
@@ -51,7 +51,8 @@ struct log_progress_lvl {
 struct log_progress {
 	struct log_progress_lvl stack[64];
 
-	const char *name, *prev_name;
+	const char *prev_name;
+	struct log_progress_style style;
 
 	double sum_done;
 	double sum_total;
@@ -88,6 +89,12 @@ log_is_progress_bar_enabled(void)
 }
 
 void
+log_progress_set_style(const struct log_progress_style *style)
+{
+	log_cfg.progress.style = *style;
+}
+
+void
 log_progress_reset(double rate_limit, const char *name)
 {
 	if (!log_cfg.progress_bar) {
@@ -97,7 +104,9 @@ log_progress_reset(double rate_limit, const char *name)
 	log_cfg.progress = (struct log_progress){
 		.init = true,
 		.rate_limit = rate_limit,
-		.name = name,
+		.style = {
+			.name = name,
+		},
 	};
 
 	if (log_cfg.file_is_a_tty) {
@@ -159,9 +168,21 @@ log_progress_print_bar(const char *name)
 {
 	struct log_progress *lp = &log_cfg.progress;
 
-	uint32_t pad = 2;
+	uint32_t pad = 0;
 	char info[BUF_SIZE_4k];
-	pad += snprintf(info, sizeof(info), " %-10.10s", name ? name : "");
+
+	pad += snprintf(info + pad, sizeof(info) - pad, " ");
+
+	if (lp->style.show_count) {
+		pad += snprintf(
+			info + pad, sizeof(info) - pad, "%3d/%3d ", (uint32_t)lp->sum_done, (uint32_t)lp->sum_total);
+	}
+
+	char fmt[16];
+	snprintf(fmt, sizeof(fmt), "%%-%d.%ds", lp->style.name_pad, lp->style.name_pad);
+	pad += snprintf(info + pad, sizeof(info) - pad, fmt, name ? name : "");
+
+	pad += 2;
 
 	const double pct_done = lp->sum_done / lp->sum_total * (double)(lp->width - pad);
 
@@ -177,7 +198,9 @@ log_progress_print_bar(const char *name)
 			fputc(' ', log_cfg.file);
 		}
 	}
+
 	log_raw("]%s\r", info);
+
 	fflush(log_cfg.file);
 }
 
@@ -208,7 +231,7 @@ log_progress(struct workspace *wk, double val)
 
 	lp->sum_done += diff;
 
-	const char *name = lp->name;
+	const char *name = lp->style.name;
 	if (!name && wk->projects.len) {
 		obj proj_name = current_project(wk)->cfg.name;
 		if (proj_name) {
@@ -253,57 +276,6 @@ log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
 static void
 print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
 {
-#if 0
-	bool parsing_esc = false;
-	const char *start = s;
-	uint32_t i, len = 0;
-
-	for (; *s; ++s) {
-		if (s[0] == '\033' && s[1] == '[') {
-			if (len) {
-				/* printf("'%.*s':%d\n", len, start, len); */
-				fwrite(start, 1, len, out);
-				len = 0;
-			}
-
-			parsing_esc = true;
-			start = s + 2;
-		} else if (parsing_esc) {
-			if (*s == 'm') {
-				parsing_esc = false;
-				len = s - start;
-				int32_t clr = 0, attr = 0, *num = &clr;
-				for (i = 0; i < len; ++i) {
-					char c = start[i];
-					if ('0' <= c && c <= '9') {
-						*num *= 10;
-						*num += c - '0';
-					} else if (c == ';') {
-						num = &attr;
-					} else {
-						assert(false && "unhandle char in escape sequence");
-					}
-				}
-
-				/* printf("clr:%d|attr:%d\n", clr, attr); */
-				start = s + 1;
-				len = 0;
-			}
-		} else {
-			++len;
-		}
-	}
-
-	assert(!parsing_esc && "unhandle escape sequence");
-
-	if (len) {
-		fwrite(start, 1, len, out);
-		if (start[len - 1] == '\n') {
-			printf("final nl\n");
-		}
-	}
-#endif
-
 	print_colorized(out, s, !tty);
 
 	if (progress && s[len - 1] == '\n') {
@@ -326,7 +298,11 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 		tstr_pushn(0, log_cfg.tstr, buf, len);
 		tstr_push(0, log_cfg.tstr, '\n');
 	} else {
-		print_buffer(log_cfg.file, buf, len, log_cfg.file_is_a_tty, log_cfg.progress_bar && lvl == log_info);
+		print_buffer(log_cfg.file,
+			buf,
+			len,
+			log_cfg.file_is_a_tty,
+			log_cfg.progress_bar && (lvl == log_info || lvl == log_warn));
 	}
 }
 
