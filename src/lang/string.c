@@ -972,3 +972,17 @@ cstr_copy(char *dest, const char *src, uint32_t dest_len)
 	assert(src_len <= dest_len);
 	memcpy(dest, src, src_len);
 }
+
+void
+snprintf_append_(char *buf, uint32_t buf_len, uint32_t *buf_i, const char *fmt, ...)
+{
+	va_list args;
+
+	if (*buf_i >= buf_len) {
+		return;
+	}
+
+	va_start(args, fmt);
+	*buf_i += vsnprintf(buf + *buf_i, buf_len - *buf_i, fmt, args);
+	va_end(args);
+}
