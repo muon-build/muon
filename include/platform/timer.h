@@ -33,4 +33,6 @@ void timer_start(struct timer *t);
 float timer_read(struct timer *t);
 void timer_sleep(uint64_t nanoseconds);
 
+#define SLEEP_TIME 10000000 // 10ms
+
 #endif

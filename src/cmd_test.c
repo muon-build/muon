@@ -28,8 +28,6 @@
 #include "platform/timer.h"
 #include "util.h"
 
-#define SLEEP_TIME 10000000 // 10ms
-
 enum test_result_status {
 	test_result_status_running,
 	test_result_status_ok,
