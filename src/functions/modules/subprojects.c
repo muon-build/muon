@@ -114,7 +114,6 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 struct subprojects_process_opts {
 	uint32_t job_count;
 	enum wrap_handle_mode wrap_mode;
-	const char *completed_log_label;
 	obj *res;
 	bool progress_bar;
 };
@@ -161,8 +160,8 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 			wrap_ctx = arr_get(&ctx.handlers, i);
 
 			if (wrap_ctx->sub_state == wrap_handle_sub_state_complete) {
-				if (opts->completed_log_label) {
-					LOG_I("%s %s", opts->completed_log_label, wrap_ctx->wrap.name.buf);
+				if (wrap_ctx->opts.mode == wrap_handle_mode_update && wrap_ctx->wrap.updated) {
+					LOG_I(CLR(c_green) "updated" CLR(0) " %s", wrap_ctx->wrap.name.buf);
 				}
 				++cnt_complete;
 				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
@@ -181,6 +180,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
 				LOG_I(CLR(c_red) "error" CLR(0) " %s", wrap_ctx->wrap.name.buf);
 				++cnt_failed;
+				++cnt_complete;
 			}
 		}
 
@@ -205,7 +205,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 		log_progress_set_style(&log_progress_style);
 		log_progress(wk, cnt_complete);
-		timer_sleep(SLEEP_TIME);
+		timer_sleep(SLEEP_TIME / 10);
 	}
 
 	for (i = 0; i < ctx.handlers.len; ++i) {
@@ -260,8 +260,7 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 		an[0].val,
 		&(struct subprojects_process_opts){
 			.wrap_mode = wrap_handle_mode_update,
-			.completed_log_label = CLR(c_green) "updated" CLR(0),
-			.job_count = 4,
+			.job_count = 8,
 			.progress_bar = true,
 			.res = res,
 		});

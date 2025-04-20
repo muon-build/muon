@@ -62,7 +62,7 @@ struct wrap {
 	char *buf;
 	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
 	struct tstr dest_dir, name;
-	bool dirty, outdated;
+	bool dirty, outdated, updated;
 };
 
 enum wrap_provides_key {
@@ -104,6 +104,14 @@ struct wrap_handle_ctx {
 	} git;
 	uint32_t state, sub_state;
 	struct run_cmd_ctx cmd_ctx;
+	struct {
+		char cmdstr[1024]; // For error reporting
+		struct tstr *out;
+		bool allow_failure;
+	} run_cmd_opts;
+
+	char tstr_buf[2][1024];
+	struct tstr bufs[2];
 };
 
 void wrap_destroy(struct wrap *wrap);
