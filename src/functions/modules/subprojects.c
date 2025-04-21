@@ -102,7 +102,6 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 		.opts = {
 			.allow_download = true,
 			.subprojects = subprojects_dir(wk),
-			.yield = true,
 		},
 	};
 
@@ -152,6 +151,8 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 		wrap_ctx->opts.mode = opts->wrap_mode;
 	}
+
+	wrap_handle_async_start(wk);
 
 	while (cnt_complete < ctx.handlers.len) {
 		cnt_running = 0;
@@ -233,6 +234,8 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 		wrap_destroy(&wrap_ctx->wrap);
 	}
+
+	wrap_handle_async_end(wk);
 
 	arr_destroy(&ctx.handlers);
 
@@ -346,13 +349,16 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 		goto cont;
 	}
 
-	if (wrap.type != wrap_type_git) {
+	bool can_clean = wrap.type == wrap_type_git || (wrap.type == wrap_type_file && wrap.fields[wf_source_url]);
+
+	if (!can_clean) {
 		goto cont;
 	}
 
 	if (!fs_dir_exists(wrap.dest_dir.buf)) {
 		goto cont;
 	}
+
 	if (ctx->force) {
 		LOG_I("removing %s", wrap.dest_dir.buf);
 		fs_rmdir_recursive(wrap.dest_dir.buf, true);

@@ -21,7 +21,6 @@
 #include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
-#include "platform/timer.h"
 #include "sha_256.h"
 #include "wrap.h"
 
@@ -320,35 +319,6 @@ wrap_checksum_extract(struct workspace *wk,
 	return true;
 }
 
-static bool
-fetch_checksum_extract(struct workspace *wk,
-	struct wrap_handle_ctx *ctx,
-	const char *src,
-	const char *dest,
-	const char *sha256,
-	const char *dest_dir)
-{
-	bool res = false;
-	uint8_t *dlbuf = NULL;
-	uint64_t dlbuf_len;
-
-	muon_curl_init();
-
-	if (!muon_curl_fetch(src, &dlbuf, &dlbuf_len)) {
-		goto ret;
-	} else if (!wrap_checksum_extract(wk, ctx, (const char *)dlbuf, dlbuf_len, sha256, dest_dir)) {
-		goto ret;
-	}
-
-	res = true;
-ret:
-	if (dlbuf) {
-		z_free(dlbuf);
-	}
-	muon_curl_deinit();
-	return res;
-}
-
 static void
 wrap_copy_packagefiles_file_cb(void *_ctx, const char *src, const char *dest)
 {
@@ -420,7 +390,21 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 			wrap_log(ctx, log_error, "wrap downloading is disabled");
 			return false;
 		}
-		return fetch_checksum_extract(wk, ctx, url, filename, hash, dest_dir);
+
+		enum mc_fetch_flag flags = 0;
+		if (ctx->opts.block) {
+			flags |= mc_fetch_flag_verbose;
+		}
+
+		ctx->fetch_ctx.handle = mc_fetch_begin(url, &ctx->fetch_ctx.buf, &ctx->fetch_ctx.len, flags);
+		ctx->fetch_ctx.hash = hash;
+		ctx->fetch_ctx.dest_dir = dest_dir;
+
+		if (ctx->fetch_ctx.handle == -1) {
+			return false;
+		}
+
+		ctx->sub_state = wrap_handle_sub_state_fetching;
 	} else {
 		wrap_log(ctx, log_error, "no url specified, but '%s' is not a file or directory", source_path.buf);
 	}
@@ -557,13 +541,53 @@ enum wrap_run_cmd_flag {
 	wrap_run_cmd_flag_allow_failure = 1 << 1,
 };
 
+static bool
+wrap_run_cmd_finish(struct workspace *wk, struct wrap_handle_ctx *ctx, bool error)
+{
+	if (ctx->cmd_ctx.status != 0 && !ctx->run_cmd_opts.allow_failure) {
+		error = true;
+	}
+
+	if (error) {
+		wrap_log(ctx, log_error, "command '%s' failed", ctx->run_cmd_opts.cmdstr);
+		if (ctx->cmd_ctx.out.len) {
+			log_plain(log_error, "stdout:\n%s", ctx->cmd_ctx.out.buf);
+		}
+		if (ctx->cmd_ctx.err.len) {
+			log_plain(log_error, "stderr:\n%s", ctx->cmd_ctx.err.buf);
+		}
+	} else if (ctx->run_cmd_opts.out) {
+		tstr_clear(ctx->run_cmd_opts.out);
+		for (uint32_t i = 0; i < ctx->cmd_ctx.out.len; ++i) {
+			if (is_whitespace(ctx->cmd_ctx.out.buf[i])) {
+				break;
+			}
+			tstr_push(wk, ctx->run_cmd_opts.out, ctx->cmd_ctx.out.buf[i]);
+		}
+		ctx->run_cmd_opts.out = 0;
+	}
+
+	run_cmd_ctx_destroy(&ctx->cmd_ctx);
+
+	if (error) {
+		return false;
+	}
+
+	return true;
+}
+
 static int32_t
-wrap_run_cmd_status(struct wrap_handle_ctx *ctx,
+wrap_run_cmd_status(struct workspace *wk,
+	struct wrap_handle_ctx *ctx,
 	char *const *argv,
 	const char *chdir,
 	const char *feed,
 	enum wrap_run_cmd_flag flags)
 {
+	if (ctx->opts.block) {
+		flags &= ~wrap_run_cmd_flag_yield;
+	}
+
 	ctx->run_cmd_opts.allow_failure = flags & wrap_run_cmd_flag_allow_failure;
 
 	ctx->cmd_ctx = (struct run_cmd_ctx){
@@ -599,24 +623,32 @@ wrap_run_cmd_status(struct wrap_handle_ctx *ctx,
 		return 0;
 	}
 
-	run_cmd_ctx_destroy(&ctx->cmd_ctx);
+	if (!wrap_run_cmd_finish(wk, ctx, false)) {
+		return -1;
+	}
+
 	return ctx->cmd_ctx.status;
 }
 
 static bool
-wrap_run_cmd_feed(struct wrap_handle_ctx *ctx,
+wrap_run_cmd_feed(struct workspace *wk,
+	struct wrap_handle_ctx *ctx,
 	char *const *argv,
 	const char *chdir,
 	const char *feed,
 	enum wrap_run_cmd_flag flags)
 {
-	return wrap_run_cmd_status(ctx, argv, chdir, feed, flags) == 0;
+	return wrap_run_cmd_status(wk, ctx, argv, chdir, feed, flags) == 0;
 }
 
 static bool
-wrap_run_cmd(struct wrap_handle_ctx *ctx, char *const *argv, const char *chdir, enum wrap_run_cmd_flag flags)
+wrap_run_cmd(struct workspace *wk,
+	struct wrap_handle_ctx *ctx,
+	char *const *argv,
+	const char *chdir,
+	enum wrap_run_cmd_flag flags)
 {
-	return wrap_run_cmd_status(ctx, argv, chdir, 0, flags) == 0;
+	return wrap_run_cmd_status(wk, ctx, argv, chdir, 0, flags) == 0;
 }
 
 static bool
@@ -643,11 +675,12 @@ wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 
 			if (patch_cmd_found) {
 				if (!wrap_run_cmd_feed(
-					    ctx, ARGV("patch", "-p1"), ctx->wrap.dest_dir.buf, diff_path.buf, 0)) {
+					    wk, ctx, ARGV("patch", "-p1"), ctx->wrap.dest_dir.buf, diff_path.buf, 0)) {
 					return false;
 				}
 			} else {
-				if (!wrap_run_cmd(ctx,
+				if (!wrap_run_cmd(wk,
+					    ctx,
 					    ARGV("git", "--work-tree", ".", "apply", "-p1", diff_path.buf),
 					    ctx->wrap.dest_dir.buf,
 					    0)) {
@@ -713,7 +746,8 @@ static bool
 wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	ctx->state = wrap_handle_state_apply_patch;
-	ctx->apply_patch = true;
+	ctx->wrap.updated = true;
+	ctx->wrap.apply_patch = true;
 
 	const char *dest;
 	if (!ctx->wrap.fields[wf_source_filename]) {
@@ -750,7 +784,8 @@ is_git_dir(struct workspace *wk, const char *dir)
 static bool
 git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char *depth_str)
 {
-	return wrap_run_cmd(ctx,
+	return wrap_run_cmd(wk,
+		ctx,
 		ARGV("git", "fetch", "--depth", depth_str, "origin", ctx->wrap.fields[wf_revision]),
 		ctx->wrap.dest_dir.buf,
 		wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure);
@@ -763,7 +798,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	switch (ctx->state) {
 	case wrap_handle_state_git_init: {
-		ctx->apply_patch = true;
+		ctx->wrap.apply_patch = true;
 
 		if (ctx->wrap.fields[wf_depth]) {
 			if (!str_to_i(&STRL(ctx->wrap.fields[wf_depth]), &ctx->git.depth, true)) {
@@ -792,7 +827,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 					return false;
 				}
 			} else {
-				if (!wrap_run_cmd(ctx,
+				if (!wrap_run_cmd(wk,
+					    ctx,
 					    ARGV("git", "remote", "update"),
 					    ctx->wrap.dest_dir.buf,
 					    wrap_run_cmd_flag_yield)) {
@@ -802,9 +838,10 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 		} else if (ctx->git.depth) {
 			if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
 				return false;
-			} else if (!wrap_run_cmd(ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
+			} else if (!wrap_run_cmd(wk, ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
 				return false;
-			} else if (!wrap_run_cmd(ctx,
+			} else if (!wrap_run_cmd(wk,
+					   ctx,
 					   ARGV("git", "remote", "add", "origin", ctx->wrap.fields[wf_url]),
 					   ctx->wrap.dest_dir.buf,
 					   0)) {
@@ -813,7 +850,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 				return false;
 			}
 		} else {
-			if (!wrap_run_cmd(ctx,
+			if (!wrap_run_cmd(wk,
+				    ctx,
 				    ARGV("git", "clone", ctx->wrap.fields[wf_url], ctx->wrap.dest_dir.buf),
 				    0,
 				    wrap_run_cmd_flag_yield)) {
@@ -826,7 +864,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	case wrap_handle_state_git_fetch_fallback: {
 		if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
 			wrap_log(ctx, log_warn, "Shallow clone failed, falling back to full clone.");
-			if (!wrap_run_cmd(ctx,
+			if (!wrap_run_cmd(wk,
+				    ctx,
 				    ARGV("git", "fetch", "origin"),
 				    ctx->wrap.dest_dir.buf,
 				    wrap_run_cmd_flag_yield)) {
@@ -836,7 +875,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 		return WRAP_YIELD(ctx, wrap_handle_state_git_checkout);
 	}
 	case wrap_handle_state_git_checkout: {
-		if (!wrap_run_cmd(ctx,
+		if (!wrap_run_cmd(wk,
+			    ctx,
 			    ARGV("git",
 				    "-c",
 				    "advice.detachedHead=false",
@@ -852,7 +892,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	}
 	case wrap_handle_state_git_done: {
 		ctx->wrap.updated = true;
-		return WRAP_YIELD(ctx, wrap_handle_state_done);
+		return WRAP_YIELD(ctx, wrap_handle_state_apply_patch);
 	}
 	default: UNREACHABLE;
 	}
@@ -865,7 +905,8 @@ wrap_git_rev_parse(struct workspace *wk, struct wrap_handle_ctx *ctx, const char
 
 	ctx->run_cmd_opts.out = out;
 
-	return wrap_run_cmd(ctx, (char *const *)argv, dir, wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure);
+	return wrap_run_cmd(
+		wk, ctx, (char *const *)argv, dir, wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure);
 }
 
 static bool
@@ -918,6 +959,18 @@ wrap_handle_check_dirty_next_state(struct workspace *wk, struct wrap_handle_ctx 
 	return true;
 }
 
+void
+wrap_handle_async_start(struct workspace *wk)
+{
+	mc_init();
+}
+
+void
+wrap_handle_async_end(struct workspace *wk)
+{
+	mc_deinit();
+}
+
 bool
 wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx)
 {
@@ -932,33 +985,42 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		}
 		case run_cmd_finished: {
 			ctx->sub_state = wrap_handle_sub_state_running;
-			if (ctx->cmd_ctx.status != 0 && !ctx->run_cmd_opts.allow_failure) {
-				error = true;
-			}
 			break;
 		}
 		}
 
-		if (error) {
-			wrap_log(ctx, log_error, "command '%s' failed", ctx->run_cmd_opts.cmdstr);
-			if (ctx->cmd_ctx.out.len) {
-				log_plain(log_error, "stdout:\n%s", ctx->cmd_ctx.out.buf);
-			}
-			if (ctx->cmd_ctx.err.len) {
-				log_plain(log_error, "stderr:\n%s", ctx->cmd_ctx.err.buf);
-			}
-		} else if (ctx->run_cmd_opts.out) {
-			tstr_clear(ctx->run_cmd_opts.out);
-			for (uint32_t i = 0; i < ctx->cmd_ctx.out.len; ++i) {
-				if (is_whitespace(ctx->cmd_ctx.out.buf[i])) {
-					break;
-				}
-				tstr_push(wk, ctx->run_cmd_opts.out, ctx->cmd_ctx.out.buf[i]);
-			}
-			ctx->run_cmd_opts.out = 0;
+		if (!wrap_run_cmd_finish(wk, ctx, error)) {
+			return false;
+		}
+	} else if (ctx->sub_state == wrap_handle_sub_state_fetching) {
+		bool error = false;
+
+		if (ctx->opts.block) {
+			mc_wait();
 		}
 
-		run_cmd_ctx_destroy(&ctx->cmd_ctx);
+		switch (mc_fetch_collect(ctx->fetch_ctx.handle)) {
+		case mc_fetch_collect_result_pending: return true;
+		case mc_fetch_collect_result_error: error = true; break;
+		case mc_fetch_collect_result_done: {
+		}
+		}
+
+		if (!error) {
+			if (!wrap_checksum_extract(wk,
+				    ctx,
+				    (const char *)ctx->fetch_ctx.buf,
+				    ctx->fetch_ctx.len,
+				    ctx->fetch_ctx.hash,
+				    ctx->fetch_ctx.dest_dir)) {
+				return false;
+			}
+			ctx->sub_state = wrap_handle_sub_state_running;
+		}
+
+		if (ctx->fetch_ctx.buf) {
+			z_free(ctx->fetch_ctx.buf);
+		}
 
 		if (error) {
 			return false;
@@ -997,7 +1059,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				return true;
 			}
 
-			if (!wrap_run_cmd(ctx,
+			if (!wrap_run_cmd(wk,
+				    ctx,
 				    ARGV("git", "diff", "--quiet"),
 				    ctx->wrap.dest_dir.buf,
 				    wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure)) {
@@ -1073,7 +1136,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		return wrap_handle_git(wk, ctx);
 	}
 	case wrap_handle_state_apply_patch: {
-		if (ctx->apply_patch || ctx->wrap.fields[wf_patch_directory]) {
+		if (ctx->wrap.apply_patch || ctx->wrap.fields[wf_patch_directory]) {
 			if (!wrap_apply_patch(wk, ctx)) {
 				return false;
 			}
@@ -1086,27 +1149,21 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	}
 	default: UNREACHABLE_RETURN;
 	}
-
-	/* switch (ctx->opts.mode) { */
-	/* case wrap_handle_mode_default: return wrap_handle_default(wk, ctx); */
-	/* case wrap_handle_mode_update: return wrap_handle_update(wk, ctx); */
-	/* case wrap_handle_mode_check_dirty: return wrap_handle_check_dirty(wk, ctx); */
-	/* default: UNREACHABLE; */
-	/* } */
 }
 
 bool
 wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx)
 {
+	ctx->opts.block = true;
+	wrap_handle_async_start(wk);
+
 	while (ctx->sub_state != wrap_handle_sub_state_complete) {
 		if (!wrap_handle_async(wk, wrap_file, ctx)) {
 			return false;
 		}
-
-		if (ctx->sub_state == wrap_handle_sub_state_running_cmd) {
-			timer_sleep(SLEEP_TIME);
-		}
 	}
+
+	wrap_handle_async_end(wk);
 
 	ctx->sub_state = wrap_handle_sub_state_collected;
 	return true;

@@ -62,7 +62,7 @@ struct wrap {
 	char *buf;
 	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
 	struct tstr dest_dir, name;
-	bool dirty, outdated, updated;
+	bool dirty, outdated, updated, apply_patch;
 };
 
 enum wrap_provides_key {
@@ -81,12 +81,13 @@ struct wrap_opts {
 	const char *subprojects;
 	bool allow_download, force_update;
 	enum wrap_handle_mode mode;
-	bool yield;
+	bool block;
 };
 
 enum wrap_handle_sub_state {
 	wrap_handle_sub_state_running,
 	wrap_handle_sub_state_running_cmd,
+	wrap_handle_sub_state_fetching,
 	wrap_handle_sub_state_complete,
 	wrap_handle_sub_state_collected,
 };
@@ -95,14 +96,22 @@ struct wrap_handle_ctx {
 	struct wrap_opts opts;
 	struct wrap wrap;
 
+	uint32_t state, sub_state;
+
 	const char *path;
 
-	bool apply_patch;
 	struct {
 		int64_t depth;
 		char depth_str[16];
 	} git;
-	uint32_t state, sub_state;
+
+	struct {
+		int32_t handle;
+		uint8_t *buf;
+		uint64_t len;
+		const char *hash, *dest_dir;
+	} fetch_ctx;
+
 	struct run_cmd_ctx cmd_ctx;
 	struct {
 		char cmdstr[1024]; // For error reporting
@@ -117,6 +126,8 @@ struct wrap_handle_ctx {
 void wrap_destroy(struct wrap *wrap);
 bool wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap);
 bool wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
+void wrap_handle_async_start(struct workspace *wk);
+void wrap_handle_async_end(struct workspace *wk);
 bool wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
 bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
 #endif
