@@ -25,8 +25,8 @@ const char *log_level_clr[log_level_count] = {
 		[log_warn] = STRINGIZE(c_yellow),
 			[log_note] = STRINGIZE(c_cyan),
 				[log_info] = "0",
-				[log_debug] = STRINGIZE(c_cyan),
-				};
+					[log_debug] = STRINGIZE(c_cyan),
+					};
 
 const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
@@ -329,6 +329,7 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 	if (nl && len < BUF_SIZE_4k) {
 		buf[len] = '\n';
 		buf[len + 1] = 0;
+		++len;
 	}
 
 	if (log_cfg.progress_bar) {
