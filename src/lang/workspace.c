@@ -428,6 +428,9 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 	FILE *debug_file = 0;
 	bool res = false;
 
+	bool progress = log_is_progress_bar_enabled();
+	log_progress_disable();
+
 	if (!workspace_setup_paths(wk, build, argv0, argc, argv)) {
 		goto ret;
 	}
@@ -461,13 +464,18 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 
 	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
+	if (progress) {
+		log_progress_enable();
+		log_progress_set_style(&(struct log_progress_style) { .rate_limit = 64, .name_pad = 20 });
+	}
+
 	uint32_t project_id;
 	if (!eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id)) {
 		goto ret;
 	}
 
 	if (log_is_progress_bar_enabled()) {
-		log_set_progress_bar_enabled(false);
+		log_progress_disable();
 		log_raw("\033[0K");
 	} else {
 		log_plain(log_info, "\n");

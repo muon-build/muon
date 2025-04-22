@@ -1018,7 +1018,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	OPTSTART("D:b:#") {
 	case '#':
-		log_set_progress_bar_enabled(true);
+		log_progress_enable();
 		break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {

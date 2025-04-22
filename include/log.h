@@ -54,16 +54,22 @@ void log_set_buffer(struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(int32_t n);
 
-void log_set_progress_bar_enabled(bool v);
+void log_progress_enable(void);
+void log_progress_disable(void);
 bool log_is_progress_bar_enabled(void);
-void log_progress_reset(double rate_limit, const char *name);
 void log_progress_push_level(double start, double end);
 void log_progress_pop_level(void);
 struct workspace;
+void log_progress_push_state(struct workspace *wk);
+void log_progress_pop_state(struct workspace *wk);
 void log_progress_inc(struct workspace *wk);
 void log_progress(struct workspace *wk, double val);
+void log_progress_subval(struct workspace *wk, double val, double sub_val);
 struct log_progress_style {
 	const char *name;
+	void (*decorate)(void *usr_ctx);
+	void *usr_ctx;
+	double rate_limit;
 	uint32_t name_pad;
 	bool show_count;
 };

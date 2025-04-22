@@ -162,10 +162,6 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			TracyCZoneAutoE;
 			return false;
 		}
-
-		if (first && wk->cur_project == 0) {
-			log_progress_reset(64, 0);
-		}
 	}
 
 	log_progress_push_level(entry, wk->vm.code.len);

@@ -22,6 +22,7 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "sha_256.h"
+#include "tracy.h"
 #include "wrap.h"
 
 static const char *wrap_field_names[wrap_fields_count] = {
@@ -73,6 +74,33 @@ enum wrap_handle_state {
 
 	wrap_handle_state_done,
 };
+
+const char *
+wrap_handle_state_to_s(uint32_t state)
+{
+	switch ((enum wrap_handle_state)state) {
+	case wrap_handle_state_init: return "init";
+
+	case wrap_handle_state_check_dirty: return "check_dirty";
+	case wrap_handle_state_check_dirty_git_parse_head: return "check_dirty git parse head";
+	case wrap_handle_state_check_dirty_git_parse_rev: return "check_dirty git parse rev";
+	case wrap_handle_state_check_dirty_git_cmp_rev: return "check_dirty git cmp rev";
+
+	case wrap_handle_state_update: return "update";
+
+	case wrap_handle_state_file_init: return "file";
+
+	case wrap_handle_state_git_init: return "git init";
+	case wrap_handle_state_git_fetch: return "git fetch";
+	case wrap_handle_state_git_fetch_fallback: return "git fetch fallback";
+	case wrap_handle_state_git_checkout: return "git checkout";
+	case wrap_handle_state_git_done: return "git done";
+
+	case wrap_handle_state_apply_patch: return "apply patch";
+
+	case wrap_handle_state_done: return "done";
+	}
+}
 
 MUON_ATTR_FORMAT(printf, 3, 4)
 static void
@@ -742,10 +770,17 @@ wrap_apply_patch(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	return true;
 }
 
+static void
+wrap_set_state(struct wrap_handle_ctx *ctx, enum wrap_handle_state state)
+{
+	ctx->prev_state = ctx->state;
+	ctx->state = state;
+}
+
 static bool
 wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	ctx->state = wrap_handle_state_apply_patch;
+	wrap_set_state(ctx, wrap_handle_state_apply_patch);
 	ctx->wrap.updated = true;
 	ctx->wrap.apply_patch = true;
 
@@ -786,12 +821,10 @@ git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char
 {
 	return wrap_run_cmd(wk,
 		ctx,
-		ARGV("git", "fetch", "--depth", depth_str, "origin", ctx->wrap.fields[wf_revision]),
+		ARGV("git", "fetch", "--depth", depth_str, "--progress", "origin", ctx->wrap.fields[wf_revision]),
 		ctx->wrap.dest_dir.buf,
 		wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure);
 }
-
-#define WRAP_YIELD(__ctx, __next_state) true, __ctx->state = __next_state
 
 static bool
 wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
@@ -818,7 +851,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 			snprintf(ctx->git.depth_str, sizeof(ctx->git.depth_str), "%" PRId64, ctx->git.depth);
 		}
 
-		return WRAP_YIELD(ctx, wrap_handle_state_git_fetch);
+		wrap_set_state(ctx, wrap_handle_state_git_fetch);
+		return true;
 	}
 	case wrap_handle_state_git_fetch: {
 		if (is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
@@ -852,14 +886,15 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 		} else {
 			if (!wrap_run_cmd(wk,
 				    ctx,
-				    ARGV("git", "clone", ctx->wrap.fields[wf_url], ctx->wrap.dest_dir.buf),
+				    ARGV("git", "clone", "--progress", ctx->wrap.fields[wf_url], ctx->wrap.dest_dir.buf),
 				    0,
 				    wrap_run_cmd_flag_yield)) {
 				return false;
 			}
 		}
 
-		return WRAP_YIELD(ctx, wrap_handle_state_git_fetch_fallback);
+		wrap_set_state(ctx, wrap_handle_state_git_fetch_fallback);
+		return true;
 	}
 	case wrap_handle_state_git_fetch_fallback: {
 		if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
@@ -872,7 +907,8 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 				return false;
 			}
 		}
-		return WRAP_YIELD(ctx, wrap_handle_state_git_checkout);
+		wrap_set_state(ctx, wrap_handle_state_git_checkout);
+		return true;
 	}
 	case wrap_handle_state_git_checkout: {
 		if (!wrap_run_cmd(wk,
@@ -888,11 +924,13 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 			return false;
 		}
 
-		return WRAP_YIELD(ctx, wrap_handle_state_git_done);
+		wrap_set_state(ctx, wrap_handle_state_git_done);
+		return true;
 	}
 	case wrap_handle_state_git_done: {
 		ctx->wrap.updated = true;
-		return WRAP_YIELD(ctx, wrap_handle_state_apply_patch);
+		wrap_set_state(ctx, wrap_handle_state_apply_patch);
+		return true;
 	}
 	default: UNREACHABLE;
 	}
@@ -918,9 +956,9 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 			switch (ctx->wrap.type) {
 			case wrap_type_file:
 				if (!fs_dir_exists(ctx->wrap.dest_dir.buf) || ctx->opts.force_update) {
-					ctx->state = wrap_handle_state_file_init;
+					wrap_set_state(ctx, wrap_handle_state_file_init);
 				} else {
-					ctx->state = wrap_handle_state_done;
+					wrap_set_state(ctx, wrap_handle_state_done);
 				}
 				break;
 			case wrap_type_git:
@@ -929,9 +967,9 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 						wrap_log(ctx, log_error, "wrap downloading disabled");
 						return false;
 					}
-					ctx->state = wrap_handle_state_git_init;
+					wrap_set_state(ctx, wrap_handle_state_git_init);
 				} else {
-					ctx->state = wrap_handle_state_done;
+					wrap_set_state(ctx, wrap_handle_state_done);
 				}
 				break;
 			default: UNREACHABLE;
@@ -940,8 +978,8 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 			return true;
 		}
 	}
-	case wrap_handle_mode_update: ctx->state = wrap_handle_state_check_dirty;
-	case wrap_handle_mode_check_dirty: ctx->state = wrap_handle_state_check_dirty;
+	case wrap_handle_mode_update: wrap_set_state(ctx, wrap_handle_state_check_dirty);
+	case wrap_handle_mode_check_dirty: wrap_set_state(ctx, wrap_handle_state_check_dirty);
 	}
 
 	return true;
@@ -951,9 +989,9 @@ static bool
 wrap_handle_check_dirty_next_state(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	if (ctx->opts.mode == wrap_handle_mode_check_dirty) {
-		ctx->state = wrap_handle_state_done;
+		wrap_set_state(ctx, wrap_handle_state_done);
 	} else {
-		ctx->state = wrap_handle_state_update;
+		wrap_set_state(ctx, wrap_handle_state_update);
 	}
 
 	return true;
@@ -993,42 +1031,44 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return false;
 		}
 	} else if (ctx->sub_state == wrap_handle_sub_state_fetching) {
-		bool error = false;
-
 		if (ctx->opts.block) {
 			mc_wait();
 		}
 
-		switch (mc_fetch_collect(ctx->fetch_ctx.handle)) {
-		case mc_fetch_collect_result_pending: return true;
-		case mc_fetch_collect_result_error: error = true; break;
-		case mc_fetch_collect_result_done: {
+		struct mc_fetch_stats fetch_stats = { 0 };
+		switch (mc_fetch_collect(ctx->fetch_ctx.handle, &fetch_stats)) {
+		case mc_fetch_collect_result_pending: {
+			ctx->fetch_ctx.downloaded = fetch_stats.downloaded;
+			ctx->fetch_ctx.total = fetch_stats.total;
+			return true;
 		}
-		}
-
-		if (!error) {
-			if (!wrap_checksum_extract(wk,
-				    ctx,
-				    (const char *)ctx->fetch_ctx.buf,
-				    ctx->fetch_ctx.len,
-				    ctx->fetch_ctx.hash,
-				    ctx->fetch_ctx.dest_dir)) {
-				return false;
+		case mc_fetch_collect_result_error:
+			if (ctx->fetch_ctx.buf) {
+				z_free(ctx->fetch_ctx.buf);
 			}
-			ctx->sub_state = wrap_handle_sub_state_running;
+			return false;
+		case mc_fetch_collect_result_done: {
+			ctx->sub_state = wrap_handle_sub_state_extracting;
+			return true;
 		}
-
-		if (ctx->fetch_ctx.buf) {
-			z_free(ctx->fetch_ctx.buf);
 		}
-
-		if (error) {
+	} else if (ctx->sub_state == wrap_handle_sub_state_extracting) {
+		if (!wrap_checksum_extract(wk,
+			    ctx,
+			    (const char *)ctx->fetch_ctx.buf,
+			    ctx->fetch_ctx.len,
+			    ctx->fetch_ctx.hash,
+			    ctx->fetch_ctx.dest_dir)) {
 			return false;
 		}
+		ctx->sub_state = wrap_handle_sub_state_running;
 	}
 
 	switch (ctx->state) {
 	case wrap_handle_state_init: {
+		ctx->sub_state = wrap_handle_sub_state_running;
+		timer_start(&ctx->duration);
+
 		if (!wrap_parse(wk, wrap_file, &ctx->wrap)) {
 			return false;
 		}
@@ -1067,7 +1107,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				return false;
 			}
 
-			return WRAP_YIELD(ctx, wrap_handle_state_check_dirty_git_parse_head);
+			wrap_set_state(ctx, wrap_handle_state_check_dirty_git_parse_head);
+			return true;
 		}
 		default: UNREACHABLE;
 		}
@@ -1087,7 +1128,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return true;
 		}
 
-		return WRAP_YIELD(ctx, wrap_handle_state_check_dirty_git_parse_rev);
+		wrap_set_state(ctx, wrap_handle_state_check_dirty_git_parse_rev);
+		return true;
 	}
 	case wrap_handle_state_check_dirty_git_parse_rev: {
 		if (!wrap_git_rev_parse(
@@ -1096,7 +1138,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return true;
 		}
 
-		return WRAP_YIELD(ctx, wrap_handle_state_check_dirty_git_cmp_rev);
+		wrap_set_state(ctx, wrap_handle_state_check_dirty_git_cmp_rev);
+		return true;
 	}
 	case wrap_handle_state_check_dirty_git_cmp_rev: {
 		const struct tstr *head_rev = &ctx->bufs[0], *wrap_rev = &ctx->bufs[1];
@@ -1110,7 +1153,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	}
 	case wrap_handle_state_update: {
 		if (!ctx->wrap.outdated) {
-			return WRAP_YIELD(ctx, wrap_handle_state_done);
+			wrap_set_state(ctx, wrap_handle_state_done);
+			return true;
 		}
 
 		if (ctx->wrap.dirty) {
@@ -1118,7 +1162,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				log_warn,
 				"cannot safely update outdated %s because it is dirty",
 				ctx->wrap.dest_dir.buf);
-			return WRAP_YIELD(ctx, wrap_handle_state_done);
+			wrap_set_state(ctx, wrap_handle_state_done);
+			return true;
 		}
 
 		ctx->opts.force_update = true;
@@ -1141,7 +1186,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				return false;
 			}
 		}
-		return WRAP_YIELD(ctx, wrap_handle_state_done);
+		wrap_set_state(ctx, wrap_handle_state_done);
+		return true;
 	}
 	case wrap_handle_state_done: {
 		ctx->sub_state = wrap_handle_sub_state_complete;

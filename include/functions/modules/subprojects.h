@@ -5,10 +5,13 @@
 
 #ifndef MUON_FUNCTIONS_MODULES_SUBPROJECTS_H
 #define MUON_FUNCTIONS_MODULES_SUBPROJECTS_H
+
 #include "lang/func_lookup.h"
+#include "platform/timer.h"
 
 struct subprojects_common_ctx {
 	struct arr handlers;
+	struct timer duration;
 	uint32_t failed;
 	bool force, print;
 	obj *res;

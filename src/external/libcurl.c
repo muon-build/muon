@@ -193,7 +193,7 @@ mc_fetch_begin(const char *url, uint8_t **buf, uint64_t *len, enum mc_fetch_flag
 }
 
 enum mc_fetch_collect_result
-mc_fetch_collect(int32_t i)
+mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats)
 {
 	struct mc_ctx *mc_ctx = &_mc_ctx;
 	struct mc_transfer_ctx *ctx;
@@ -220,6 +220,14 @@ mc_fetch_collect(int32_t i)
 	}
 
 	ctx = bucket_arr_get(&mc_ctx->transfers, i);
+
+	curl_off_t content_length = 0;
+	if (curl_easy_getinfo(ctx->handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &content_length) != CURLE_OK) {
+		content_length = 0;
+	}
+	stats->total = content_length;
+	stats->downloaded = ctx->len;
+
 	if (!ctx->running) {
 		if (ctx->err != CURLE_OK) {
 			mc_err(ctx, ctx->err, CURLM_OK);

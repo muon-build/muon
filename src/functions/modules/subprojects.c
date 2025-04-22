@@ -13,6 +13,8 @@
 #include "log.h"
 #include "platform/path.h"
 #include "platform/timer.h"
+#include "tracy.h"
+#include "util.h"
 #include "wrap.h"
 
 struct subprojects_foreach_ctx {
@@ -117,6 +119,120 @@ struct subprojects_process_opts {
 	bool progress_bar;
 };
 
+struct subprojects_process_progress_decorate_ctx {
+	uint32_t prev_list_len;
+	struct subprojects_common_ctx *ctx;
+};
+
+struct subprojects_process_progress_decorate_elem {
+	struct wrap_handle_ctx *wrap_ctx;
+	float dur;
+};
+
+static int32_t
+subprojects_process_progress_decorate_sort_compare(const void *_a, const void *_b)
+{
+	const struct subprojects_process_progress_decorate_elem *a = _a, *b = _b;
+	return a->dur > b->dur ? -1 : 1;
+}
+
+static void
+subprojects_process_progress_decorate(void *_ctx)
+{
+	struct subprojects_process_progress_decorate_ctx *decorate_ctx = _ctx;
+	struct subprojects_common_ctx *ctx = decorate_ctx->ctx;
+
+	float elapsed = timer_read(&ctx->duration);
+	if (elapsed < 1) {
+		log_raw("\r");
+		return;
+	}
+	log_raw("\n");
+
+	struct wrap_handle_ctx *wrap_ctx;
+	struct subprojects_process_progress_decorate_elem list[32] = { 0 };
+	uint32_t list_len = 0;
+
+	uint32_t i;
+	for (i = 0; i < ctx->handlers.len; ++i) {
+		wrap_ctx = arr_get(&ctx->handlers, i);
+
+		if (wrap_ctx->sub_state == wrap_handle_sub_state_pending) {
+			continue;
+		} else if (wrap_ctx->sub_state == wrap_handle_sub_state_collected) {
+			continue;
+		}
+
+		list[list_len].wrap_ctx = wrap_ctx;
+		list[list_len].dur = timer_read(&wrap_ctx->duration);
+		++list_len;
+
+		if (list_len >= ARRAY_LEN(list)) {
+			break;
+		}
+	}
+
+	qsort(list,
+		list_len,
+		sizeof(struct subprojects_process_progress_decorate_elem),
+		subprojects_process_progress_decorate_sort_compare);
+
+	for (i = 0; i < list_len; ++i) {
+		log_raw("%6.2fs " CLR(c_magenta, c_bold) "%-20.20s" CLR(0) " " CLR(c_blue) "%-9s" CLR(0),
+			list[i].dur,
+			list[i].wrap_ctx->wrap.name.buf,
+			wrap_handle_state_to_s(list[i].wrap_ctx->prev_state));
+
+		switch (list[i].wrap_ctx->sub_state) {
+		case wrap_handle_sub_state_fetching: {
+			log_raw(" fetching");
+			const int64_t total = list[i].wrap_ctx->fetch_ctx.total,
+				      dl = list[i].wrap_ctx->fetch_ctx.downloaded;
+			if (total && dl && dl <= total) {
+				log_raw(" %3.0f%%", 100.0 * (double)dl / (double)total);
+			}
+			break;
+		}
+		case wrap_handle_sub_state_extracting: {
+			log_raw(" extracting");
+			break;
+		}
+		case wrap_handle_sub_state_running_cmd: {
+			struct tstr *out = &list[i].wrap_ctx->cmd_ctx.err;
+
+			int32_t j, end;
+
+			if (out->len) {
+				j = out->len - 1;
+				if (out->buf[j] == '\r' || out->buf[j] == '\n') {
+					j--;
+				}
+				end = j;
+
+				for (; j >= 1; --j) {
+					if (out->buf[j] == '\r' || out->buf[j] == '\n') {
+						++j;
+						break;
+					}
+				}
+
+				int32_t len = end - j;
+				log_raw(" %.*s", len, out->buf + j);
+			}
+			break;
+		}
+		default: break;
+		}
+		log_raw("\033[K\n");
+	}
+	for (; i < decorate_ctx->prev_list_len; ++i) {
+		log_raw("\033[K\n");
+	}
+
+	log_raw("\033[%dA", MAX(list_len, decorate_ctx->prev_list_len) + 1);
+	decorate_ctx->prev_list_len = list_len;
+}
+
 static bool
 subprojects_process(struct workspace *wk, obj list, struct subprojects_process_opts *opts)
 {
@@ -129,18 +245,18 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
 
 	// Progress bar setup
-	char name_buf[64];
-	uint32_t name_buf_i, name_cnt;
-	struct log_progress_style log_progress_style = {
-		.name_pad = 20,
-		.name = name_buf,
-		.show_count = true,
-	};
+	log_progress_push_state(wk);
 	if (opts->progress_bar) {
-		log_set_progress_bar_enabled(true);
-		log_progress_reset(0, "");
+		log_progress_enable();
 		log_progress_push_level(0, ctx.handlers.len);
 	}
+	struct subprojects_process_progress_decorate_ctx decorate_ctx = { .ctx = &ctx };
+	struct log_progress_style log_progress_style = {
+		.show_count = true,
+		.decorate = subprojects_process_progress_decorate,
+		.usr_ctx = &decorate_ctx,
+	};
+	log_progress_set_style(&log_progress_style);
 
 	uint32_t i;
 	uint32_t cnt_complete = 0, cnt_failed = 0, cnt_running;
@@ -153,6 +269,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	}
 
 	wrap_handle_async_start(wk);
+	timer_start(&ctx.duration);
 
 	while (cnt_complete < ctx.handlers.len) {
 		cnt_running = 0;
@@ -161,10 +278,13 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 			wrap_ctx = arr_get(&ctx.handlers, i);
 
 			if (wrap_ctx->sub_state == wrap_handle_sub_state_complete) {
-				if (wrap_ctx->opts.mode == wrap_handle_mode_update && wrap_ctx->wrap.updated) {
-					LOG_I(CLR(c_green) "updated" CLR(0) " %s", wrap_ctx->wrap.name.buf);
-				}
 				++cnt_complete;
+				if (opts->wrap_mode == wrap_handle_mode_update && wrap_ctx->wrap.updated) {
+					LOG_I(CLR(c_green) "[%3d/%3d] updated" CLR(0) " %s",
+						cnt_complete,
+						ctx.handlers.len,
+						wrap_ctx->wrap.name.buf);
+				}
 				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
 			}
 			if (wrap_ctx->sub_state == wrap_handle_sub_state_collected) {
@@ -177,36 +297,21 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 				break;
 			}
 
+			TracyCZoneN(tctx_1, "wrap_handle_async", true);
+
 			if (!wrap_handle_async(wk, wrap_ctx->path, wrap_ctx)) {
 				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
 				LOG_I(CLR(c_red) "error" CLR(0) " %s", wrap_ctx->wrap.name.buf);
 				++cnt_failed;
 				++cnt_complete;
 			}
+
+			TracyCZoneEnd(tctx_1);
 		}
 
-		name_buf_i = 0;
-		snprintf_append(name_buf, &name_buf_i, "%d ", cnt_running);
-		name_cnt = 0;
+		log_progress_subval(wk, cnt_complete, cnt_complete + cnt_running);
 
-		for (i = 0; i < ctx.handlers.len; ++i) {
-			wrap_ctx = arr_get(&ctx.handlers, i);
-
-			if (wrap_ctx->sub_state == wrap_handle_sub_state_collected) {
-				continue;
-			}
-
-			++name_cnt;
-			snprintf_append(name_buf,
-				&name_buf_i,
-				"%s%s",
-				wrap_ctx->wrap.name.buf,
-				name_cnt == cnt_running ? "" : ", ");
-		}
-
-		log_progress_set_style(&log_progress_style);
-		log_progress(wk, cnt_complete);
-		timer_sleep(SLEEP_TIME / 10);
+		timer_sleep(SLEEP_TIME);
 	}
 
 	for (i = 0; i < ctx.handlers.len; ++i) {
@@ -240,9 +345,10 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	arr_destroy(&ctx.handlers);
 
 	if (opts->progress_bar) {
-		log_set_progress_bar_enabled(false);
+		log_progress_disable();
 		log_raw("\033[0K");
 	}
+	log_progress_pop_state(wk);
 
 	return cnt_failed == 0;
 }

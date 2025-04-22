@@ -15,6 +15,7 @@
 #include "lang/string.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
+#include "platform/timer.h"
 
 struct workspace;
 
@@ -85,9 +86,11 @@ struct wrap_opts {
 };
 
 enum wrap_handle_sub_state {
+	wrap_handle_sub_state_pending,
 	wrap_handle_sub_state_running,
 	wrap_handle_sub_state_running_cmd,
 	wrap_handle_sub_state_fetching,
+	wrap_handle_sub_state_extracting,
 	wrap_handle_sub_state_complete,
 	wrap_handle_sub_state_collected,
 };
@@ -95,8 +98,10 @@ enum wrap_handle_sub_state {
 struct wrap_handle_ctx {
 	struct wrap_opts opts;
 	struct wrap wrap;
+	struct timer duration;
 
-	uint32_t state, sub_state;
+	uint32_t prev_state, state;
+	enum wrap_handle_sub_state sub_state;
 
 	const char *path;
 
@@ -109,6 +114,7 @@ struct wrap_handle_ctx {
 		int32_t handle;
 		uint8_t *buf;
 		uint64_t len;
+		int64_t downloaded, total;
 		const char *hash, *dest_dir;
 	} fetch_ctx;
 
@@ -130,4 +136,5 @@ void wrap_handle_async_start(struct workspace *wk);
 void wrap_handle_async_end(struct workspace *wk);
 bool wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
 bool wrap_load_all_provides(struct workspace *wk, const char *subprojects);
+const char *wrap_handle_state_to_s(uint32_t state);
 #endif

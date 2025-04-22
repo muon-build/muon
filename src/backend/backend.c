@@ -185,7 +185,7 @@ backend_output(struct workspace *wk)
 			struct project *proj = arr_get(&wk->projects, i);
 			total += get_obj_array(wk, proj->targets)->len;
 		}
-		log_progress_reset(0, "backend");
+		log_progress_set_style(&(struct log_progress_style) { .name = "backend", .name_pad = 20 });
 		log_progress_push_level(0, total);
 	}
 

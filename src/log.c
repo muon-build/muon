@@ -55,8 +55,8 @@ struct log_progress {
 	struct log_progress_style style;
 
 	double sum_done;
+	double sub_val;
 	double sum_total;
-	double rate_limit;
 
 	uint32_t len;
 	uint32_t width;
@@ -68,7 +68,7 @@ static struct {
 	FILE *file, *debug_file;
 	enum log_level level;
 	uint32_t filter;
-	bool file_is_a_tty, progress_bar;
+	bool file_is_a_tty;
 	uint32_t prefix;
 	struct tstr *tstr;
 	struct log_progress progress;
@@ -76,16 +76,24 @@ static struct {
 	.level = log_info,
 };
 
-void
-log_set_progress_bar_enabled(bool v)
-{
-	log_cfg.progress_bar = v;
-}
-
 bool
 log_is_progress_bar_enabled(void)
 {
-	return log_cfg.progress_bar;
+	struct log_progress *lp = &log_cfg.progress;
+	return lp->init;
+}
+
+void
+log_progress_push_state(struct workspace *wk)
+{
+	struct log_progress lp = { 0 };
+	stack_push(&wk->stack, log_cfg.progress, lp);
+}
+
+void
+log_progress_pop_state(struct workspace *wk)
+{
+	stack_pop(&wk->stack, log_cfg.progress);
 }
 
 void
@@ -95,27 +103,34 @@ log_progress_set_style(const struct log_progress_style *style)
 }
 
 void
-log_progress_reset(double rate_limit, const char *name)
+log_progress_enable(void)
 {
-	if (!log_cfg.progress_bar) {
+	if (!log_cfg.file_is_a_tty) {
 		return;
 	}
 
-	log_cfg.progress = (struct log_progress){
+	struct log_progress *lp = &log_cfg.progress;
+
+	*lp = (struct log_progress){
 		.init = true,
-		.rate_limit = rate_limit,
-		.style = {
-			.name = name,
-		},
 	};
 
-	if (log_cfg.file_is_a_tty) {
-		int term_fd;
-		if (fs_fileno(log_cfg.file, &term_fd)) {
-			uint32_t _h;
-			term_winsize(term_fd, &_h, &log_cfg.progress.width);
-		}
+	int term_fd;
+	if (fs_fileno(log_cfg.file, &term_fd)) {
+		uint32_t _h;
+		term_winsize(term_fd, &_h, &lp->width);
 	}
+
+	if (!lp->width) {
+		lp->width = 80;
+	}
+}
+
+void
+log_progress_disable(void)
+{
+	struct log_progress *lp = &log_cfg.progress;
+	lp->init = false;
 }
 
 void
@@ -163,7 +178,7 @@ log_progress_inc(struct workspace *wk)
 	log_progress(wk, lp->stack[lp->len - 1].pos + 1);
 }
 
-void
+static void
 log_progress_print_bar(const char *name)
 {
 	struct log_progress *lp = &log_cfg.progress;
@@ -171,46 +186,49 @@ log_progress_print_bar(const char *name)
 	uint32_t pad = 0;
 	char info[BUF_SIZE_4k];
 
-	pad += snprintf(info + pad, sizeof(info) - pad, " ");
+	snprintf_append(info, &pad, "%s", " ");
 
 	if (lp->style.show_count) {
-		pad += snprintf(
-			info + pad, sizeof(info) - pad, "%3d/%3d ", (uint32_t)lp->sum_done, (uint32_t)lp->sum_total);
+		snprintf_append(info, &pad, "%3d/%3d ", (uint32_t)lp->sum_done, (uint32_t)lp->sum_total);
 	}
 
 	char fmt[16];
 	snprintf(fmt, sizeof(fmt), "%%-%d.%ds", lp->style.name_pad, lp->style.name_pad);
-	pad += snprintf(info + pad, sizeof(info) - pad, fmt, name ? name : "");
+	snprintf_append(info, &pad, fmt, name ? name : "");
 
 	pad += 2;
 
-	const double pct_done = lp->sum_done / lp->sum_total * (double)(lp->width - pad);
+	const double pct_scale = 1.0 / lp->sum_total * (double)(lp->width - pad);
+	const double pct_done = lp->sum_done * pct_scale;
+	const double sub_pct_done = lp->sub_val * pct_scale;
 
-	log_raw("\033[K[");
+	log_raw("[");
 
 	uint32_t i;
 	for (i = 0; i < lp->width - pad; ++i) {
-		if (i <= pct_done && i + 1 >= pct_done) {
+		if (i <= pct_done) {
 			fputc('=', log_cfg.file);
-		} else if (i < pct_done) {
-			fputc('=', log_cfg.file);
+		} else if (i < sub_pct_done) {
+			fputc('-', log_cfg.file);
+		} else if (i == sub_pct_done) {
+			fputc('>', log_cfg.file);
 		} else {
 			fputc(' ', log_cfg.file);
 		}
 	}
 
-	log_raw("]%s\r", info);
+	log_raw("]%s%s", info, lp->style.decorate ? "" : "\r");
+
+	if (lp->style.decorate) {
+		lp->style.decorate(lp->style.usr_ctx);
+	}
 
 	fflush(log_cfg.file);
 }
 
 void
-log_progress(struct workspace *wk, double val)
+log_progress_subval(struct workspace *wk, double val, double sub_val)
 {
-	if (!log_cfg.progress_bar) {
-		return;
-	}
-
 	struct log_progress *lp = &log_cfg.progress;
 	if (!lp->init) {
 		return;
@@ -218,18 +236,21 @@ log_progress(struct workspace *wk, double val)
 
 	struct log_progress_lvl *cur = &lp->stack[lp->len - 1];
 
-	if (!(cur->pos < val && val <= cur->end)) {
-		return;
+	if (lp->style.rate_limit > 0) {
+		if (!(cur->pos < val && val <= cur->end)) {
+			return;
+		}
 	}
 
 	const double diff = val - cur->pos;
 
-	if (diff < lp->rate_limit) {
+	if (diff < lp->style.rate_limit) {
 		return;
 	}
 	cur->pos = val;
 
 	lp->sum_done += diff;
+	lp->sub_val = sub_val;
 
 	const char *name = lp->style.name;
 	if (!name && wk->projects.len) {
@@ -242,6 +263,12 @@ log_progress(struct workspace *wk, double val)
 	lp->prev_name = name;
 
 	log_progress_print_bar(name);
+}
+
+void
+log_progress(struct workspace *wk, double val)
+{
+	log_progress_subval(wk, val, val);
 }
 
 bool
@@ -302,7 +329,7 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 			buf,
 			len,
 			log_cfg.file_is_a_tty,
-			log_cfg.progress_bar && (lvl == log_info || lvl == log_warn));
+			log_cfg.progress.init && (lvl == log_info || lvl == log_warn));
 	}
 }
 
@@ -332,7 +359,7 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 		++len;
 	}
 
-	if (log_cfg.progress_bar) {
+	if (log_cfg.progress.init) {
 		log_raw("\033[K");
 	}
 

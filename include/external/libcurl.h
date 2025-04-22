@@ -21,9 +21,14 @@ enum mc_fetch_flag {
 	mc_fetch_flag_verbose = 1 << 0,
 };
 
+struct mc_fetch_stats {
+	int64_t downloaded;
+	int64_t total;
+};
+
 void mc_init(void);
 void mc_deinit(void);
 int32_t mc_fetch_begin(const char *url, uint8_t **buf, uint64_t *len, enum mc_fetch_flag flags);
-enum mc_fetch_collect_result mc_fetch_collect(int32_t i);
+enum mc_fetch_collect_result mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats);
 bool mc_wait(void);
 #endif
