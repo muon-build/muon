@@ -1171,6 +1171,13 @@ TOOLCHAIN_PROTO_1s(compiler_clang_args_include_pch)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_0(compiler_clang_args_pch_extension)
+{
+	TOOLCHAIN_ARGS({ ".pch" })
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_1s(compiler_gcc_args_set_std)
 {
 	static char buf[BUF_SIZE_S];
@@ -1310,8 +1317,6 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_pch)
 TOOLCHAIN_PROTO_0(compiler_gcc_args_pch_extension)
 {
 	TOOLCHAIN_ARGS({ ".gch" })
-
-	/* s1; */
 
 	return &args;
 }
@@ -1840,6 +1845,7 @@ build_compilers(void)
 	struct compiler clang = gcc;
 	clang.args.warn_everything = compiler_clang_args_warn_everything;
 	clang.args.include_pch = compiler_clang_args_include_pch;
+	clang.args.pch_ext = compiler_clang_args_pch_extension;
 	clang.default_linker = linker_clang;
 
 	struct compiler apple_clang = clang;
