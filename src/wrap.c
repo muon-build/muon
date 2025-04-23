@@ -889,7 +889,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 				    ctx,
 				    ARGV("git", "clone", "--progress", ctx->wrap.fields[wf_url], ctx->wrap.dest_dir.buf),
 				    0,
-				    wrap_run_cmd_flag_yield)) {
+				    wrap_run_cmd_flag_yield | wrap_run_cmd_flag_allow_failure)) {
 				return false;
 			}
 		}
