@@ -99,6 +99,7 @@ wrap_handle_state_to_s(uint32_t state)
 	case wrap_handle_state_apply_patch: return "apply patch";
 
 	case wrap_handle_state_done: return "done";
+	default: UNREACHABLE_RETURN;
 	}
 }
 
@@ -978,8 +979,8 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 			return true;
 		}
 	}
-	case wrap_handle_mode_update: wrap_set_state(ctx, wrap_handle_state_check_dirty);
-	case wrap_handle_mode_check_dirty: wrap_set_state(ctx, wrap_handle_state_check_dirty);
+	case wrap_handle_mode_update: wrap_set_state(ctx, wrap_handle_state_check_dirty); break;
+	case wrap_handle_mode_check_dirty: wrap_set_state(ctx, wrap_handle_state_check_dirty); break;
 	}
 
 	return true;

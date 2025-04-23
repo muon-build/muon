@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "functions/modules/subprojects.h"
