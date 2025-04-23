@@ -28,7 +28,7 @@ mc_fetch_begin(const char *url, uint8_t **buf, uint64_t *len, enum mc_fetch_flag
 }
 
 enum mc_fetch_collect_result
-mc_fetch_collect(int32_t i)
+mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats)
 {
 	LOG_W("libcurl not enabled");
 	return mc_fetch_collect_result_error;
