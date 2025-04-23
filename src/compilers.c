@@ -187,6 +187,25 @@ toolchain_component_from_s(const char *name, uint32_t *res)
 	return toolchain_id_lookup(name, toolchain_component_name, ARRAY_LEN(toolchain_component_name), res);
 }
 
+const struct toolchain_id *
+toolchain_component_type_to_s(enum toolchain_component comp, uint32_t val)
+{
+	const struct toolchain_id *ids = 0;
+	switch (comp) {
+	case toolchain_component_compiler:
+		ids = compiler_type_name;
+		break;
+	case toolchain_component_linker:
+		ids = linker_type_name;
+		break;
+	case toolchain_component_static_linker:
+		ids = static_linker_type_name;
+		break;
+	}
+
+	return &ids[val];
+}
+
 static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_null] = "null",
 	[compiler_language_c] = "c",

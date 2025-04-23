@@ -1594,7 +1594,6 @@ obj_dict_index_as_str(struct workspace *wk, obj dict, const char *s)
 	return get_str(wk, r);
 }
 
-
 bool
 obj_dict_index_as_bool(struct workspace *wk, obj dict, const char *s)
 {
@@ -1627,7 +1626,6 @@ obj_dict_index_as_obj(struct workspace *wk, obj dict, const char *s)
 
 	return r;
 }
-
 
 /*******************************************************************************
  * obj_iterable_foreach
@@ -2494,6 +2492,21 @@ obj_inspect(struct workspace *wk, obj val)
 		obj_lprintf(wk, lvl, "    dep:\n");
 
 		obj_inspect_dep(wk, "        ", &dep->dep);
+		break;
+	}
+	case obj_compiler: {
+		struct obj_compiler *compiler = get_obj_compiler(wk, val);
+		log_plain(lvl, "toolchain:\n");
+		obj_lprintf(wk, lvl, "  ver: %o\n", compiler->ver);
+		obj_lprintf(wk, lvl, "  libdirs: %o\n", compiler->libdirs);
+		obj_lprintf(wk, lvl, "  lang: %s\n", compiler_language_to_s(compiler->lang));
+		obj_lprintf(wk, lvl, "  machine: %s\n", machine_kind_to_s(compiler->machine));
+		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
+			log_plain(lvl, "  %s:\n", toolchain_component_to_s(i));
+			log_plain(lvl, "    type: %s\n", toolchain_component_type_to_s(i, compiler->type[i])->id);
+			obj_lprintf(wk, lvl, "    cmd_arr: %o\n", compiler->cmd_arr[i]);
+			obj_lprintf(wk, lvl, "    overrides: %o\n", compiler->overrides[i]);
+		}
 		break;
 	}
 	default: obj_lprintf(wk, lvl, "%o\n", val);

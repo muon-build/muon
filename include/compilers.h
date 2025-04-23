@@ -283,6 +283,7 @@ obj compiler_check_cache_key(struct workspace *wk, const struct compiler_check_c
 bool compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val);
 void compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val);
 
+const struct toolchain_id *toolchain_component_type_to_s(enum toolchain_component comp, uint32_t val);
 const char *toolchain_component_to_s(enum toolchain_component comp);
 bool toolchain_component_from_s(const char *name, uint32_t *res);
 const char *compiler_type_to_s(enum compiler_type t);
