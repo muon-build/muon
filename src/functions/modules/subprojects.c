@@ -178,23 +178,26 @@ subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 		subprojects_process_progress_decorate_sort_compare);
 
 	for (i = 0; i < list_len; ++i) {
-		log_raw("%6.2fs " CLR(c_magenta, c_bold) "%-20.20s" CLR(0) " " CLR(c_blue) "%-9s" CLR(0),
+		char buf[512] = { 0 };
+		uint32_t buf_i = 0;
+
+		snprintf_append(buf, &buf_i, "%6.2fs " CLR(c_magenta, c_bold) "%-20.20s" CLR(0) " " CLR(c_blue) "%-9s" CLR(0),
 			list[i].dur,
 			list[i].wrap_ctx->wrap.name.buf,
 			wrap_handle_state_to_s(list[i].wrap_ctx->prev_state));
 
 		switch (list[i].wrap_ctx->sub_state) {
 		case wrap_handle_sub_state_fetching: {
-			log_raw(" fetching");
+			snprintf_append(buf, &buf_i, "%s", " fetching");
 			const int64_t total = list[i].wrap_ctx->fetch_ctx.total,
 				      dl = list[i].wrap_ctx->fetch_ctx.downloaded;
 			if (total && dl && dl <= total) {
-				log_raw(" %3.0f%%", 100.0 * (double)dl / (double)total);
+				snprintf_append(buf, &buf_i, " %3.0f%%", 100.0 * (double)dl / (double)total);
 			}
 			break;
 		}
 		case wrap_handle_sub_state_extracting: {
-			log_raw(" extracting");
+			snprintf_append(buf, &buf_i, "%s", " extracting");
 			break;
 		}
 		case wrap_handle_sub_state_running_cmd: {
@@ -217,13 +220,29 @@ subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 				}
 
 				int32_t len = end - j;
-				log_raw(" %.*s", len, out->buf + j);
+				snprintf_append(buf, &buf_i, " %.*s", len, out->buf + j);
 			}
 			break;
 		}
 		default: break;
 		}
-		log_raw("\033[K\n");
+
+		for (uint32_t j = 0, w = 0; j < buf_i; ++j) {
+			if (buf[j] == '\033') {
+				while (j < buf_i && buf[j] != 'm') {
+					++j;
+				}
+				continue;
+			}
+			++w;
+
+			if (w >= width)  {
+				buf[j] = 0;
+				break;
+			}
+		}
+
+		log_raw("%s\033[K\n", buf);
 	}
 	for (; i < decorate_ctx->prev_list_len; ++i) {
 		log_raw("\033[K\n");
