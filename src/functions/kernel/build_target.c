@@ -201,6 +201,18 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	return true;
 }
 
+static void
+build_tgt_inc_required_compiler(struct workspace *wk, struct obj_build_target *tgt, enum compiler_language lang)
+{
+	obj n;
+	if (obj_dict_geti(wk, tgt->required_compilers, lang, &n)) {
+		obj_dict_seti(wk, tgt->required_compilers, lang, n + 1);
+	} else {
+		obj_dict_seti(wk, tgt->required_compilers, lang, 1);
+	}
+}
+
+
 static enum iteration_result
 build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 {
@@ -227,12 +239,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	obj n;
-	if (obj_dict_geti(wk, tgt->required_compilers, lang, &n)) {
-		obj_dict_seti(wk, tgt->required_compilers, lang, n + 1);
-	} else {
-		obj_dict_seti(wk, tgt->required_compilers, lang, 1);
-	}
+	build_tgt_inc_required_compiler(wk, tgt, lang);
 
 	obj_array_push(wk, ctx->res, val);
 	return ir_cont;
@@ -812,15 +819,39 @@ create_target(struct workspace *wk,
 				continue;
 			}
 
-			obj pch_file;
-			if (!coerce_file(wk, pch_args[i].kw->node, pch_args[i].kw->val, &pch_file)) {
-				return false;
+			obj pch;
+
+			if (get_obj_type(wk, pch_args[i].kw->val) == obj_build_target) {
+				struct obj_build_target *pch_tgt = get_obj_build_target(wk, pch_args[i].kw->val);
+				if ((pch_tgt->type & tgt_static_library) != tgt_static_library ) {
+					vm_error_at(wk, pch_args[i].kw->node, "this build target must be a static library to be used as a pch");
+					return false;
+				}
+
+				obj pch_tgt_pch;
+				if (!obj_dict_geti(wk, pch_tgt->pch, pch_args[i].l, &pch_tgt_pch)) {
+					vm_error_at(wk, pch_args[i].kw->node, "this build target does not define a pch for %s", compiler_language_to_s(pch_args[i].l));
+					return false;
+				}
+
+				if (get_obj_type(wk, pch_tgt_pch) == obj_build_target) {
+					vm_error_at(wk, pch_args[i].kw->node, "cannot use a build target for pch which itself uses a build target for pch");
+					return false;
+				}
+
+				pch = pch_args[i].kw->val;
+			} else {
+				if (!coerce_file(wk, pch_args[i].kw->node, pch_args[i].kw->val, &pch)) {
+					return false;
+				}
 			}
 
 			if (!tgt->pch) {
 				tgt->pch = make_obj(wk, obj_dict);
 			}
-			obj_dict_seti(wk, tgt->pch, pch_args[i].l, pch_file);
+			obj_dict_seti(wk, tgt->pch, pch_args[i].l, pch);
+
+			build_tgt_inc_required_compiler(wk, tgt, pch_args[i].l);
 		}
 	}
 
@@ -1027,7 +1058,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \
 	E(lang, _args, TYPE_TAG_LISTIFY | obj_string), E(lang, _static_args, TYPE_TAG_LISTIFY | obj_string), \
-		E(lang, _shared_args, TYPE_TAG_LISTIFY | obj_string), E(lang, _pch, tc_string | tc_file),
+		E(lang, _shared_args, TYPE_TAG_LISTIFY | obj_string), E(lang, _pch, tc_string | tc_file | tc_build_target),
 		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 #undef E

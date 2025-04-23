@@ -225,7 +225,7 @@ ca_get_option_compile_args(struct workspace *wk,
 	switch (comp->lang) {
 #define TOOLCHAIN_ENUM(lang) \
 	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_args", &args); break;
-FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 	default: return;
 	}
@@ -388,9 +388,6 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 	assert(!tgt->processed_args);
 
 	tgt->processed_args = make_obj(wk, obj_dict);
-	if (tgt->pch) {
-		tgt->processed_args_pch = make_obj(wk, obj_dict);
-	}
 
 	if (tgt->flags & build_tgt_generated_include) {
 		obj inc;
@@ -467,14 +464,25 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		if (tgt->pch) {
 			obj pch;
 			if (obj_dict_geti(wk, tgt->pch, lang, &pch)) {
-				obj args_dup;
-				obj_array_dup(wk, args, &args_dup);
-				obj_array_extend(wk, args_dup, args_post);
-				obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
+				if (get_obj_type(wk, pch) != obj_build_target) {
+					if (!tgt->processed_args_pch) {
+						tgt->processed_args_pch = make_obj(wk, obj_dict);
+					}
+
+					obj args_dup;
+					obj_array_dup(wk, args, &args_dup);
+					obj_array_extend(wk, args_dup, args_post);
+					push_args(wk, args_dup, toolchain_compiler_emit_pch(wk, comp));
+					push_args(wk,
+						args_dup,
+						toolchain_compiler_force_language(
+							wk, comp, compiler_language_to_hdr(lang)));
+					obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
+				}
 
 				TSTR(dest_path);
 				if (!tgt_src_to_pch_path(wk, tgt, lang, pch, &dest_path)) {
-					return 0;
+					return false;
 				}
 
 				push_args(wk, args, toolchain_compiler_include_pch(wk, comp, dest_path.buf));
@@ -517,7 +525,7 @@ ca_get_option_link_args(struct workspace *wk,
 	switch (comp->lang) {
 #define TOOLCHAIN_ENUM(lang) \
 	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_link_args", &args); break;
-FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 	default: return;
 	}

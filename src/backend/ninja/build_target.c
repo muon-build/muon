@@ -39,8 +39,6 @@ enum write_tgt_src_flag {
 static obj
 write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum compiler_language lang, obj val, enum write_tgt_src_flag flags)
 {
-	const char *src = get_file_path(wk, val);
-
 	/* build paths */
 	TSTR(dest_path);
 	if ((flags & write_tgt_src_flag_pch)) {
@@ -55,11 +53,16 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 
 	obj dest = tstr_into_str(wk, &dest_path);
 
-	if (!(flags & write_tgt_src_flag_pch)) {
+	if ((flags & write_tgt_src_flag_pch)) {
+		if (get_obj_type(wk, val) == obj_build_target) {
+			return dest;
+		}
+	} else {
 		obj_array_push(wk, ctx->object_names, dest);
 	}
 
 	TSTR(src_path);
+	const char *src = get_file_path(wk, val);
 	path_relative_to(wk, &src_path, wk->build_root, src);
 
 	/* build rules and args */
@@ -181,7 +184,11 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			if (!implicit_deps) {
 				implicit_deps = make_obj(wk, obj_array);
 			}
-			obj_array_push(wk, implicit_deps, write_tgt_source(wk, &ctx, lang, v, write_tgt_src_flag_pch));
+			obj src = write_tgt_source(wk, &ctx, lang, v, write_tgt_src_flag_pch);
+			if (!src) {
+				UNREACHABLE;
+			}
+			obj_array_push(wk, implicit_deps, src);
 		}
 
 		ctx.implicit_deps = join_args_ninja(wk, implicit_deps);
@@ -244,10 +251,13 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 		break;
 	case tgt_static_library:
+		if (!get_obj_array(wk, ctx.object_names)->len) {
+			goto done;
+		}
 		linker_type = "static";
 		link_args = 0;
 		break;
-	default: assert(false); return false;
+	default: UNREACHABLE_RETURN;
 	}
 
 	fprintf(wctx->out, "build %s", esc_path.buf);
@@ -265,6 +275,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		linker_type);
 
 	fputs(get_cstr(wk, join_args_ninja(wk, ctx.object_names)), wctx->out);
+
 	if (get_obj_array(wk, implicit_link_deps)->len) {
 		implicit_link_deps = join_args_ninja(wk, implicit_link_deps);
 		fputs(" | ", wctx->out);
@@ -282,6 +293,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		wctx->wrote_default = true;
 		fprintf(wctx->out, "\ndefault %s\n", esc_path.buf);
 	}
+
+done:
 	fprintf(wctx->out, "\n");
 	return true;
 }

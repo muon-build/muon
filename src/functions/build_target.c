@@ -98,10 +98,17 @@ tgt_src_to_pch_path(struct workspace *wk,
 {
 	struct tgt_src_to_compiled_path_opts opts = {
 		.relative = true,
-		.default_ext = ".o",
 		.get_ext = toolchain_compiler_pch_ext,
 		.lang = lang,
 	};
+
+	if (get_obj_type(wk, src_file) == obj_build_target) {
+		tgt = get_obj_build_target(wk, src_file);
+		obj tgt_pch = tgt->pch;
+		if (!obj_dict_geti(wk, tgt_pch, lang, &src_file)) {
+			UNREACHABLE;
+		}
+	}
 
 	return tgt_src_to_compiled_path(wk, tgt, &opts, src_file, res);
 }
@@ -202,8 +209,10 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	switch (l) {
-	case compiler_language_cpp_hdr:
 	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr:
+	case compiler_language_objc_hdr:
+	case compiler_language_objcpp_hdr:
 	case compiler_language_c_obj:
 		// skip non-compileable sources
 		return ir_cont;

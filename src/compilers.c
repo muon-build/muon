@@ -212,12 +212,25 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_c_hdr] = "c_hdr",
 	[compiler_language_cpp] = "cpp",
 	[compiler_language_cpp_hdr] = "cpp_hdr",
+	[compiler_language_objc_hdr] = "objc_hdr",
+	[compiler_language_objcpp_hdr] = "objcpp_hdr",
 	[compiler_language_c_obj] = "c_obj",
 	[compiler_language_objc] = "objc",
 	[compiler_language_objcpp] = "objcpp",
 	[compiler_language_assembly] = "assembly",
 	[compiler_language_llvm_ir] = "llvm_ir",
 	[compiler_language_nasm] = "nasm",
+};
+
+static const char *compiler_language_gcc_names[compiler_language_count] = {
+	[compiler_language_c] = "c",
+	[compiler_language_c_hdr] = "c-header",
+	[compiler_language_cpp] = "c++",
+	[compiler_language_cpp_hdr] = "c++-header",
+	[compiler_language_objc] = "objective-c",
+	[compiler_language_objc_hdr] = "objective-c-header",
+	[compiler_language_objcpp] = "objective-c++",
+	[compiler_language_objcpp_hdr] = "objective-c++-header",
 };
 
 const char *
@@ -240,6 +253,18 @@ s_to_compiler_language(const char *_s, enum compiler_language *l)
 	}
 
 	return false;
+}
+
+enum compiler_language
+compiler_language_to_hdr(enum compiler_language lang)
+{
+	switch (lang) {
+	case compiler_language_c: return compiler_language_c_hdr;
+	case compiler_language_cpp: return compiler_language_cpp_hdr;
+	case compiler_language_objc: return compiler_language_objc_hdr;
+	case compiler_language_objcpp: return compiler_language_objcpp_hdr;
+	default: UNREACHABLE_RETURN;
+	}
 }
 
 static const char *compiler_language_exts[compiler_language_count][10] = {
@@ -291,6 +316,8 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 	case compiler_language_null:
 	case compiler_language_c_hdr:
 	case compiler_language_cpp_hdr:
+	case compiler_language_objc_hdr:
+	case compiler_language_objcpp_hdr:
 	case compiler_language_llvm_ir: break;
 	case compiler_language_assembly:
 		if (!cur) {
@@ -1158,6 +1185,20 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_warn_everything)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1i(compiler_gcc_args_force_language)
+{
+	TOOLCHAIN_ARGS({ "-x", 0 });
+
+	if (compiler_language_gcc_names[i1]) {
+		args.args[1] = compiler_language_gcc_names[i1];
+		args.len = 2;
+	} else {
+		args.len = 0;
+	}
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_0(compiler_clang_args_warn_everything)
 {
 	TOOLCHAIN_ARGS({ "-Weverything" });
@@ -1168,6 +1209,12 @@ TOOLCHAIN_PROTO_1s(compiler_clang_args_include_pch)
 {
 	TOOLCHAIN_ARGS({ "-include-pch", 0 });
 	args.args[1] = s1;
+	return &args;
+}
+
+TOOLCHAIN_PROTO_0(compiler_clang_args_emit_pch)
+{
+	TOOLCHAIN_ARGS({ "-Xclang", "-emit-pch" });
 	return &args;
 }
 
@@ -1839,12 +1886,14 @@ build_compilers(void)
 	gcc.args.permissive = compiler_gcc_args_permissive;
 	gcc.args.include_pch = compiler_gcc_args_include_pch;
 	gcc.args.pch_ext = compiler_gcc_args_pch_extension;
+	gcc.args.force_language = compiler_gcc_args_force_language;
 	gcc.default_linker = linker_ld;
 	gcc.default_static_linker = static_linker_ar_gcc;
 
 	struct compiler clang = gcc;
 	clang.args.warn_everything = compiler_clang_args_warn_everything;
 	clang.args.include_pch = compiler_clang_args_include_pch;
+	clang.args.emit_pch = compiler_clang_args_emit_pch;
 	clang.args.pch_ext = compiler_clang_args_pch_extension;
 	clang.default_linker = linker_clang;
 
