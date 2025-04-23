@@ -67,7 +67,7 @@ void log_progress(struct workspace *wk, double val);
 void log_progress_subval(struct workspace *wk, double val, double sub_val);
 struct log_progress_style {
 	const char *name;
-	void (*decorate)(void *usr_ctx);
+	void (*decorate)(void *usr_ctx, uint32_t w);
 	void *usr_ctx;
 	double rate_limit;
 	uint32_t name_pad;

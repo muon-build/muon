@@ -220,7 +220,7 @@ log_progress_print_bar(const char *name)
 	log_raw("]%s%s", info, lp->style.decorate ? "" : "\r");
 
 	if (lp->style.decorate) {
-		lp->style.decorate(lp->style.usr_ctx);
+		lp->style.decorate(lp->style.usr_ctx, lp->width);
 	}
 
 	fflush(log_cfg.file);
@@ -250,7 +250,11 @@ log_progress_subval(struct workspace *wk, double val, double sub_val)
 	cur->pos = val;
 
 	lp->sum_done += diff;
-	lp->sub_val = sub_val;
+	if (sub_val == 0) {
+		lp->sub_val = lp->sum_done;
+	} else {
+		lp->sub_val = sub_val;
+	}
 
 	const char *name = lp->style.name;
 	if (!name && wk->projects.len) {
@@ -268,7 +272,7 @@ log_progress_subval(struct workspace *wk, double val, double sub_val)
 void
 log_progress(struct workspace *wk, double val)
 {
-	log_progress_subval(wk, val, val);
+	log_progress_subval(wk, val, 0);
 }
 
 bool
@@ -319,6 +323,11 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 
 	if (!log_should_print(lvl)) {
 		return;
+	}
+
+	if (log_cfg.progress.init && lvl == log_error) {
+		log_progress_disable();
+		log_raw("\033[K");
 	}
 
 	if (log_cfg.tstr) {

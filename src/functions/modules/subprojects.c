@@ -137,7 +137,7 @@ subprojects_process_progress_decorate_sort_compare(const void *_a, const void *_
 }
 
 static void
-subprojects_process_progress_decorate(void *_ctx)
+subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 {
 	struct subprojects_process_progress_decorate_ctx *decorate_ctx = _ctx;
 	struct subprojects_common_ctx *ctx = decorate_ctx->ctx;
