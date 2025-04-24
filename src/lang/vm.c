@@ -268,7 +268,7 @@ vm_diagnostic_v(struct workspace *wk,
 
 	struct source_location loc = { 0 };
 	struct source *src = 0;
-	if (ip)  {
+	if (ip) {
 		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 	}
 
@@ -828,7 +828,14 @@ vm_dis(struct workspace *wk)
 		if (src) {
 			get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
 		}
-		snprintf(loc_buf, sizeof(loc_buf), "%s:%3d:%02d-[%3d:%02d]", src ? src->label : 0, dloc.line, dloc.col, dloc.end_line, dloc.end_col);
+		snprintf(loc_buf,
+			sizeof(loc_buf),
+			"%s:%3d:%02d-[%3d:%02d]",
+			src ? src->label : 0,
+			dloc.line,
+			dloc.col,
+			dloc.end_line,
+			dloc.end_col);
 		log_plain(log_info, "%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
@@ -2691,31 +2698,82 @@ vm_execute_loop(struct workspace *wk)
 }
 
 /******************************************************************************
- * struct registration
+ * struct/type registration
  ******************************************************************************/
 
-bool
-vm_struct_(struct workspace *wk, const char *name)
+static obj
+vm_struct_type_dict(struct workspace *wk, enum vm_struct_type base_t)
 {
-	if (!wk->vm.registered_structs) {
-		wk->vm.registered_structs = make_obj(wk, obj_dict);
+	switch (base_t) {
+	case vm_struct_type_enum_: return wk->vm.types.enums;
+	case vm_struct_type_struct_:return wk->vm.types.structs;
+	default: UNREACHABLE_RETURN;
+	}
+}
+
+enum vm_struct_type
+vm_make_struct_type(struct workspace *wk, enum vm_struct_type base_t, const char *name)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, vm_struct_type_dict(wk, base_t), name, &def)) {
+		error_unrecoverable("type %s is not registered", name);
 	}
 
+	return base_t | (def << vm_struct_type_shift);
+}
+
+static void
+vm_types_init(struct workspace *wk)
+{
+	if (!wk->vm.types.structs) {
+		wk->vm.types.structs = make_obj(wk, obj_dict);
+		wk->vm.types.enums = make_obj(wk, obj_dict);
+	}
+}
+
+static bool
+vm_register_common(struct workspace *wk, obj dict, const char *name)
+{
 	obj def;
-	if (obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
+	if (obj_dict_index_str(wk, dict, name, &def)) {
 		return false;
 	}
 
 	def = make_obj(wk, obj_dict);
-	obj_dict_set(wk, wk->vm.registered_structs, make_str(wk, name), def);
+	obj_dict_set(wk, dict, make_str(wk, name), def);
 	return true;
+}
+
+bool
+vm_enum_(struct workspace *wk, const char *name)
+{
+	vm_types_init(wk);
+	return vm_register_common(wk, wk->vm.types.enums, name);
+}
+
+void
+vm_enum_value_(struct workspace *wk, const char *name, const char *member, uint32_t value)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
+		error_unrecoverable("enums %s is not registered", name);
+	}
+
+	obj_dict_set(wk, def, make_str(wk, member), value);
+}
+
+bool
+vm_struct_(struct workspace *wk, const char *name)
+{
+	vm_types_init(wk);
+	return vm_register_common(wk, wk->vm.types.structs, name);
 }
 
 void
 vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t)
 {
 	obj def;
-	if (!obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
+	if (!obj_dict_index_str(wk, wk->vm.types.structs, name, &def)) {
 		error_unrecoverable("struct %s is not registered", name);
 	}
 
@@ -2727,14 +2785,41 @@ vm_struct_member_(struct workspace *wk, const char *name, const char *member, ui
 	obj_dict_set(wk, def, make_str(wk, member), member_def);
 }
 
-bool
-vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
+static bool
+vm_obj_to_enum_def(struct workspace *wk, obj def, obj o, void *s)
 {
-	obj def;
-	if (!obj_dict_index_str(wk, wk->vm.registered_structs, name, &def)) {
-		error_unrecoverable("struct %s is not registered", name);
+	if (!typecheck_custom(wk, 0, o, tc_string, 0)) {
+		vm_error(wk,
+			"expected type %s for enum, got %s",
+			typechecking_type_to_s(wk, tc_string),
+			get_cstr(wk, obj_type_to_typestr(wk, o)));
+		return false;
 	}
 
+	obj v;
+	if (!obj_dict_index(wk, def, o, &v)) {
+		vm_error(wk, "unknown enum value %s", get_cstr(wk, o));
+		return false;
+	}
+
+	*(uint32_t *)s = v;
+	return true;
+}
+
+bool
+vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
+		error_unrecoverable("enums %s is not registered", name);
+	}
+
+	return vm_obj_to_enum_def(wk, def, o, s);
+}
+
+static bool
+vm_obj_to_struct_def(struct workspace *wk, obj def, obj o, void *s)
+{
 	type_tag expected_type;
 	obj k, v, member_def;
 	obj_dict_for(wk, o, k, v) {
@@ -2748,7 +2833,19 @@ vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
 		t = obj_array_index(wk, member_def, 1);
 		char *dest = (char *)s + offset;
 
-		switch ((enum vm_struct_type)t) {
+		enum vm_struct_type type = t & vm_struct_type_mask;
+
+		switch (type) {
+		case vm_struct_type_struct_:
+			if (!vm_obj_to_struct_def(wk, t >> vm_struct_type_shift, v, dest)) {
+				return false;
+			}
+			break;
+		case vm_struct_type_enum_:
+			if (!vm_obj_to_enum_def(wk, t >> vm_struct_type_shift, v, dest)) {
+				return false;
+			}
+			break;
 		case vm_struct_type_bool:
 			expected_type = tc_bool;
 			if (!typecheck_custom(wk, 0, v, expected_type, 0)) {
@@ -2771,12 +2868,22 @@ vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
 
 type_err:
 	vm_error(wk,
-		"expected type %s for %s member %s, got %s",
+		"expected type %s for member %s, got %s",
 		typechecking_type_to_s(wk, expected_type),
-		name,
 		get_cstr(wk, k),
 		get_cstr(wk, obj_type_to_typestr(wk, v)));
 	return false;
+}
+
+bool
+vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.types.structs, name, &def)) {
+		error_unrecoverable("struct %s is not registered", name);
+	}
+
+	return vm_obj_to_struct_def(wk, def, o, s);
 }
 
 /******************************************************************************

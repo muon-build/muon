@@ -175,18 +175,24 @@ struct vm_ops {
 	vm_op_fn ops[op_count];
 };
 
+struct vm_type_registry {
+	obj structs;
+	obj enums;
+};
+
 struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
-	obj modules, registered_structs;
+	obj modules;
 
 	struct vm_ops ops;
 	struct vm_objects objects;
 	struct vm_behavior behavior;
 	struct vm_compiler_state compiler_state;
 	struct vm_dbg_state dbg_state;
+	struct vm_type_registry types;
 
 	enum language_mode lang_mode;
 
@@ -248,11 +254,34 @@ enum vm_struct_type {
 	vm_struct_type_bool,
 	vm_struct_type_str,
 	vm_struct_type_obj,
+	vm_struct_type_struct_,
+	vm_struct_type_enum_,
 };
+
+#define vm_struct_type_mask 7
+#define vm_struct_type_shift 3
+
+enum vm_struct_type vm_make_struct_type(struct workspace *wk, enum vm_struct_type base_t, const char *name);
+
+bool vm_enum_(struct workspace *wk, const char *name);
+#define vm_enum(__wk, __e) vm_enum_(__wk, #__e)
+
+void vm_enum_value_(struct workspace *wk, const char *name, const char *member, uint32_t value);
+#define vm_enum_value(__wk, __e, __m) vm_enum_value_(__wk, #__e, #__m, __m)
+#define vm_enum_value_prefixed_(__wk, __e, __m, __um) vm_enum_value_(__wk, #__e, #__m, __e ## __um)
+#define vm_enum_value_prefixed(__wk, __e, __m) vm_enum_value_prefixed_(__wk, __e, __m, _ ## __m)
+
+bool vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s);
+#define vm_obj_to_enum(__wk, __e, __o, __d) vm_obj_to_enum_(__wk, #__e, __o, __d)
+
+#define vm_struct_type_enum(__wk, __e) vm_make_struct_type(__wk, vm_struct_type_enum_, #__e)
+
 bool vm_struct_(struct workspace *wk, const char *name);
 #define vm_struct(__wk, __s) vm_struct_(__wk, #__s)
+
 void vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t);
 #define vm_struct_member(__wk, __s, __m, __t) vm_struct_member_(__wk, #__s, #__m, offsetof(struct __s, __m), __t)
+
 bool vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s);
 #define vm_obj_to_struct(__wk, __s, __o, __d) vm_obj_to_struct_(__wk, #__s, __o, __d)
 #endif
