@@ -898,7 +898,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 		return true;
 	}
 	case wrap_handle_state_git_fetch_fallback: {
-		if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
+		if (ctx->cmd_ctx.status != 0) {
 			wrap_log(ctx, log_warn, "Shallow clone failed, falling back to full clone.");
 			if (!wrap_run_cmd(wk,
 				    ctx,
