@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 enum endianness {
+	endianness_uninitialized,
 	big_endian,
 	little_endian,
 };

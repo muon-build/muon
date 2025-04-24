@@ -8,4 +8,5 @@
 #include "lang/func_lookup.h"
 
 extern const struct func_impl impl_tbl_machine[];
+extern const struct func_impl impl_tbl_machine_internal[];
 #endif
