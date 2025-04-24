@@ -1204,16 +1204,19 @@ wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx 
 	ctx->opts.block = true;
 	wrap_handle_async_start(wk);
 
+	bool ok = true;
+
 	while (ctx->sub_state != wrap_handle_sub_state_complete) {
 		if (!wrap_handle_async(wk, wrap_file, ctx)) {
-			return false;
+			ok = false;
+			break;
 		}
 	}
 
 	wrap_handle_async_end(wk);
 
 	ctx->sub_state = wrap_handle_sub_state_collected;
-	return true;
+	return ok;
 }
 
 struct wrap_load_all_ctx {
