@@ -17,7 +17,7 @@
 struct machine_definition build_machine, host_machine;
 const struct machine_definition *machine_definitions[machine_kind_count] = {
 	[machine_kind_build] = &build_machine,
-	[machine_kind_host] = &host_machine
+	[machine_kind_host] = &host_machine,
 };
 
 static const char *known_cpu_families[] = {
@@ -89,6 +89,21 @@ machine_system_to_s(enum machine_system sys)
 	case machine_system_cygwin: return "cygwin";
 	case machine_system_msys2: return "msys2";
 	case machine_system_darwin: return "darwin";
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+const char *
+machine_subsystem_to_s(enum machine_subsystem sys)
+{
+	switch (sys) {
+	case machine_subsystem_uninitialized: return "<uninitialized>";
+	case machine_subsystem_unknown: return "unknown";
+	case machine_subsystem_macos: return "macos";
+	case machine_subsystem_ios: return "ios";
+	case machine_subsystem_tvos: return "tvos";
+	case machine_subsystem_visionos: return "visionos";
 	}
 
 	UNREACHABLE_RETURN;
@@ -207,8 +222,7 @@ machine_cpu_family(struct machine_definition *m)
 		norm = "aarch64";
 	} else if (str_startswith(&STRL(m->cpu), &STR("arm"))) {
 		norm = "arm";
-	} else if (str_startswith(&STRL(m->cpu), &STR("powerpc64"))
-		   || str_startswith(&STRL(m->cpu), &STR("ppc64"))) {
+	} else if (str_startswith(&STRL(m->cpu), &STR("powerpc64")) || str_startswith(&STRL(m->cpu), &STR("ppc64"))) {
 		norm = "ppc64";
 	} else if (str_startswith(&STRL(m->cpu), &STR("powerpc")) || str_startswith(&STRL(m->cpu), &STR("ppc"))) {
 		norm = "ppc";
@@ -382,6 +396,8 @@ machine_init(void)
 
 	build_machine.kind = machine_kind_build;
 	build_machine.sys = machine_system(&STRL(sysstr));
+	build_machine.subsystem = build_machine.sys == machine_system_darwin ? machine_subsystem_macos :
+									       machine_subsystem_unknown;
 	machine_cpu(&build_machine, &STRL(mstr));
 	machine_cpu_family(&build_machine);
 	build_machine.endianness = uname_endian();

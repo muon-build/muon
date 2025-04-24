@@ -106,8 +106,9 @@ func_machine_subsystem(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	LOG_W("machine.subsystem is not supported");
-	*res = make_str(wk, "");
+	struct machine_definition *m = get_machine_for_self(wk, self);
+
+	*res = make_str(wk, machine_subsystem_to_s(m->subsystem));
 	return true;
 }
 

@@ -30,6 +30,15 @@ enum machine_system {
 	machine_system_darwin,
 };
 
+enum machine_subsystem {
+	machine_subsystem_uninitialized = 0,
+	machine_subsystem_unknown = 1,
+	machine_subsystem_macos,
+	machine_subsystem_ios,
+	machine_subsystem_tvos,
+	machine_subsystem_visionos,
+};
+
 enum machine_kind {
 	machine_kind_build,
 	machine_kind_host,
@@ -40,6 +49,7 @@ enum machine_kind {
 struct machine_definition {
 	enum machine_kind kind;
 	enum machine_system sys;
+	enum machine_subsystem subsystem;
 	enum endianness endianness;
 	uint32_t address_bits;
 	char cpu[128];
@@ -52,6 +62,7 @@ extern const struct machine_definition *machine_definitions[machine_kind_count];
 
 const char *machine_kind_to_s(enum machine_kind kind);
 const char *machine_system_to_s(enum machine_system sys);
+const char *machine_subsystem_to_s(enum machine_subsystem sys);
 const char *machine_system_to_kernel_name(enum machine_system sys);
 
 void machine_parse_and_apply_triplet(struct machine_definition *m, const char *s);
