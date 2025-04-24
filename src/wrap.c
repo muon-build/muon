@@ -656,6 +656,10 @@ wrap_run_cmd_status(struct workspace *wk,
 		return -1;
 	}
 
+	if (flags & wrap_run_cmd_flag_allow_failure) {
+		return 0;
+	}
+
 	return ctx->cmd_ctx.status;
 }
 
