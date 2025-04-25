@@ -35,11 +35,39 @@ func_machine_system(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
+	obj e;
+	if (str_enum_add_type(wk, "machine_system", &e)) {
+#define MACHINE_ENUM(id) str_enum_add_type_value(wk, e, #id);
+FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
+	}
+
 	struct machine_definition *m = get_machine_for_self(wk, self);
 
-	*res = make_str(wk, machine_system_to_s(m->sys));
+	*res = get_str_enum(wk, e, machine_system_to_s(m->sys));
 	return true;
 }
+
+static bool
+func_machine_subsystem(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	obj e;
+	if (str_enum_add_type(wk, "machine_subsystem", &e)) {
+#define MACHINE_ENUM(id) str_enum_add_type_value(wk, e, #id);
+FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
+	}
+
+	struct machine_definition *m = get_machine_for_self(wk, self);
+
+	*res = get_str_enum(wk, e, machine_subsystem_to_s(m->subsystem));
+	return true;
+}
+
 
 static bool
 func_machine_endian(struct workspace *wk, obj self, obj *res)
@@ -49,16 +77,21 @@ func_machine_endian(struct workspace *wk, obj self, obj *res)
 	}
 
 	struct machine_definition *m = get_machine_for_self(wk, self);
-	enum endianness e = m->endianness;
 
 	const char *s = NULL;
-	switch (e) {
-	case endianness_uninitialized: s = "?"; break;
+	switch (m->endianness) {
+	case endianness_uninitialized: UNREACHABLE; break;
 	case little_endian: s = "little"; break;
 	case big_endian: s = "big"; break;
 	}
 
-	*res = make_str(wk, s);
+	obj e;
+	if (str_enum_add_type(wk, "machine_endianness", &e)) {
+		str_enum_add_type_value(wk, e, "little");
+		str_enum_add_type_value(wk, e, "big");
+	}
+
+	*res = get_str_enum(wk, e, s);
 	return true;
 }
 
@@ -98,19 +131,6 @@ func_machine_kernel(struct workspace *wk, obj self, obj *res)
 	struct machine_definition *m = get_machine_for_self(wk, self);
 
 	*res = make_str(wk, machine_system_to_kernel_name(m->sys));
-	return true;
-}
-
-static bool
-func_machine_subsystem(struct workspace *wk, obj self, obj *res)
-{
-	if (!pop_args(wk, NULL, NULL)) {
-		return false;
-	}
-
-	struct machine_definition *m = get_machine_for_self(wk, self);
-
-	*res = make_str(wk, machine_subsystem_to_s(m->subsystem));
 	return true;
 }
 
