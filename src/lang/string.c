@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/object.h"
+#include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -163,7 +164,7 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 #define SMALL_STR_LEN 64
 
 static obj
-_make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
+_make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flags, bool hash)
 {
 	obj s;
 
@@ -172,32 +173,127 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 	}
 
 	uint64_t *v;
-	if (!mutable && len <= SMALL_STR_LEN && (v = hash_get_strn(&wk->vm.objects.str_hash, p, len))) {
+	if (hash && len <= SMALL_STR_LEN && (v = hash_get_strn(&wk->vm.objects.str_hash, p, len))) {
 		s = *v;
 		return s;
 	}
 
 	struct str *str = reserve_str(wk, &s, len);
 	memcpy((void *)str->s, p, len);
+	str->flags = flags;
 
-	if (mutable) {
-		str->flags |= str_flag_mutable;
-	} else if (!wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
+	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
 		hash_set_strn(&wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }
 
+bool
+str_enum_add_type(struct workspace *wk, const char *name, obj *res)
+{
+	if (!obj_dict_index_str(wk, wk->vm.objects.enums.types, name, res)) {
+		*res = make_obj(wk, obj_dict);
+		obj_dict_set(wk, *res, make_str(wk, ""), make_obj(wk, obj_array));
+		obj_dict_set(wk, wk->vm.objects.enums.types, make_str(wk, name), *res);
+		return true;
+	}
+	return false;
+}
+
+void
+str_enum_add_type_value(struct workspace *wk, obj type, const char *value)
+{
+	obj values;
+	if (!obj_dict_index_str(wk, type, "", &values)) {
+		UNREACHABLE;
+	}
+
+	obj v = make_str_enum(wk, value, values);
+	obj_array_push(wk, values, v);
+	obj_dict_set(wk, type, v, v);
+}
+
+obj
+get_str_enum(struct workspace *wk, obj type, const char *name)
+{
+	obj res;
+	if (!obj_dict_index_str(wk, type, name, &res)) {
+		UNREACHABLE;
+	}
+
+	return res;
+}
+
+obj
+make_strn_enum(struct workspace *wk, const char *str, uint32_t n, obj values)
+{
+	obj s = _make_str(wk, str, n, 0, false);
+
+	obj_dict_seti(wk, wk->vm.objects.enums.values, s, values);
+
+	return s;
+}
+
+obj
+make_str_enum(struct workspace *wk, const char *str, obj values)
+{
+	return make_strn_enum(wk, str, strlen(str), values);
+}
+
+bool
+check_str_enum(struct workspace *wk, obj l, obj r, enum obj_type r_t)
+{
+	enum obj_type c_t;
+	obj values = 0, c = 0;
+
+	// l *must* be a string
+	if (obj_dict_geti(wk, wk->vm.objects.enums.values, l, &values)) {
+		c = r;
+		c_t = r_t;
+	} else if (r_t == obj_string && obj_dict_geti(wk, wk->vm.objects.enums.values, r, &values)) {
+		c = l;
+		c_t = obj_string;
+	} else {
+		return true;
+	}
+
+	if (c_t == obj_string) {
+		if (!obj_array_in(wk, values, c)) {
+			vm_warning(wk, "%o is not one of %o", c, values);
+			return false;
+		}
+	} else if (c_t == obj_array) {
+		obj v;
+		obj_array_for(wk, c, v) {
+			if (!obj_array_in(wk, values, v)) {
+				vm_warning(wk, "%o is not one of %o", v, values);
+				return false;
+			}
+		}
+	} else if (c_t == obj_dict) {
+		obj k, _v;
+		obj_dict_for(wk, c, k, _v) {
+			(void)_v;
+			if (!obj_array_in(wk, values, k)) {
+				vm_warning(wk, "%o is not one of %o", k, values);
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 obj
 make_strn(struct workspace *wk, const char *str, uint32_t n)
 {
-	return _make_str(wk, str, n, false);
+	return _make_str(wk, str, n, 0, true);
 }
 
 obj
 make_str(struct workspace *wk, const char *str)
 {
-	return _make_str(wk, str, strlen(str), false);
+	return _make_str(wk, str, strlen(str), 0, true);
 }
 
 obj
@@ -279,14 +375,14 @@ obj
 str_clone_mutable(struct workspace *wk, obj val)
 {
 	const struct str *ss = get_str(wk, val);
-	return _make_str(wk, ss->s, ss->len, true);
+	return _make_str(wk, ss->s, ss->len, str_flag_mutable, false);
 }
 
 obj
 str_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val)
 {
 	const struct str *ss = get_str(wk_src, val);
-	return _make_str(wk_dest, ss->s, ss->len, false);
+	return _make_str(wk_dest, ss->s, ss->len, 0, true);
 }
 
 bool

@@ -1332,12 +1332,20 @@ vm_op_in(struct workspace *wk)
 		typecheck_operand(a, a_t, 0, tc_any, tc_bool);
 
 		res = obj_array_in(wk, b, a) ? obj_bool_true : obj_bool_false;
+
+		if (a_t == obj_string) {
+			check_str_enum(wk, a, b, b_t);
+		}
 		break;
 	}
 	case obj_dict:
 		typecheck_operand(a, a_t, obj_string, tc_string, tc_bool);
 
 		res = obj_dict_in(wk, b, a) ? obj_bool_true : obj_bool_false;
+
+		if (res == obj_bool_false) {
+			check_str_enum(wk, a, b, b_t);
+		}
 		break;
 	case obj_string:
 		typecheck_operand(a, a_t, obj_string, tc_string, tc_bool);
@@ -1383,6 +1391,10 @@ vm_op_eq(struct workspace *wk)
 		res = make_typeinfo(wk, tc_bool);
 	} else {
 		res = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
+
+		if (a_t == obj_string && b_t == obj_string && res == obj_bool_false) {
+			check_str_enum(wk, a, b, b_t);
+		}
 	}
 
 	object_stack_push(wk, res);
@@ -3051,6 +3063,11 @@ vm_init(struct workspace *wk)
 	/* module cache */
 	wk->vm.modules = make_obj(wk, obj_dict);
 
+	/* enum types */
+	wk->vm.objects.enums.values = make_obj(wk, obj_dict);
+	wk->vm.objects.enums.types = make_obj(wk, obj_dict);
+
+	/* scope stack */
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
 
 	/* initial code segment */

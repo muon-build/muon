@@ -167,6 +167,10 @@ struct vm_objects {
 	struct bucket_arr dict_elems, dict_hashes, array_elems;
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 	struct hash obj_hash, str_hash, dedup_str_hash;
+	struct {
+		obj values;
+		obj types;
+	} enums;
 	bool obj_clear_mark_set;
 };
 
