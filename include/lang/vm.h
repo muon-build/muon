@@ -272,8 +272,7 @@ bool vm_enum_(struct workspace *wk, const char *name);
 
 void vm_enum_value_(struct workspace *wk, const char *name, const char *member, uint32_t value);
 #define vm_enum_value(__wk, __e, __m) vm_enum_value_(__wk, #__e, #__m, __m)
-#define vm_enum_value_prefixed_(__wk, __e, __m, __um) vm_enum_value_(__wk, #__e, #__m, __e ## __um)
-#define vm_enum_value_prefixed(__wk, __e, __m) vm_enum_value_prefixed_(__wk, __e, __m, _ ## __m)
+#define vm_enum_value_prefixed(__wk, __e, __m) vm_enum_value_(__wk, #__e, #__m, __e ## _ ## __m)
 
 bool vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s);
 #define vm_obj_to_enum(__wk, __e, __o, __d) vm_obj_to_enum_(__wk, #__e, __o, __d)
