@@ -1840,7 +1840,8 @@ func_subdir_done(struct workspace *wk, obj _, obj *res)
 }
 
 static void
-summary_push_kv(struct workspace *wk, obj dest, obj k, obj v, obj attr) {
+summary_push_kv(struct workspace *wk, obj dest, obj k, obj v, obj attr)
+{
 	obj wrapped_v = make_obj(wk, obj_array);
 	obj_array_push(wk, wrapped_v, attr);
 	obj_array_push(wk, wrapped_v, v);
@@ -1850,11 +1851,17 @@ summary_push_kv(struct workspace *wk, obj dest, obj k, obj v, obj attr) {
 static bool
 func_summary(struct workspace *wk, obj _, obj *res)
 {
-	type_tag value_base_type = tc_number | tc_bool | tc_string | tc_external_program | tc_dependency | tc_feature_opt;
-	type_tag value_type = make_complex_type(wk, complex_type_or, value_base_type, make_complex_type(wk, complex_type_nested, tc_array, value_base_type));
+	type_tag value_base_type = tc_number | tc_bool | tc_string | tc_external_program | tc_dependency
+				   | tc_feature_opt;
+	type_tag value_type = make_complex_type(wk,
+		complex_type_or,
+		value_base_type,
+		make_complex_type(wk, complex_type_nested, tc_array, value_base_type));
 	type_tag dict_type = make_complex_type(wk, complex_type_nested, tc_dict, value_type);
 
-	struct args_norm an[] = { { make_complex_type(wk, complex_type_or, tc_string, dict_type) }, { value_type, .optional = true }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { make_complex_type(wk, complex_type_or, tc_string, dict_type) },
+		{ value_type, .optional = true },
+		ARG_TYPE_NULL };
 	enum kwargs {
 		kw_section,
 		kw_bool_yn,
@@ -2165,6 +2172,30 @@ func_exit(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static bool
+func_create_enum(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = {
+		{ tc_string, .desc = "The value for this enum" },
+		{ TYPE_TAG_LISTIFY | tc_string, "The list of possible values for this enum" },
+		ARG_TYPE_NULL,
+	};
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	const struct str *s = get_str(wk, an[0].val);
+
+	if (!obj_array_in(wk, an[1].val, an[0].val)) {
+		vm_error_at(wk, an[0].node, "value %o not in list of values", an[0].val);
+		return false;
+	}
+
+	*res = make_strn_enum(wk, s->s, s->len, an[1].val);
+
+	return true;
+}
+
 // clang-format off
 const struct func_impl impl_tbl_kernel[] =
 {
@@ -2256,6 +2287,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "is_null", func_is_null, tc_bool, true },
 	{ "typeof", func_typeof, tc_string, true },
 	{ "exit", func_exit },
+	{ "create_enum", func_create_enum, tc_string, true, .desc = "Create a string enum.  The resulting string will warn if it is compared against a value that it can never contain." },
 	{ NULL, NULL },
 };
 
