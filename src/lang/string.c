@@ -180,7 +180,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 
 	struct str *str = reserve_str(wk, &s, len);
 	memcpy((void *)str->s, p, len);
-	str->flags = flags;
+	str->flags |= flags;
 
 	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
 		hash_set_strn(&wk->vm.objects.str_hash, str->s, str->len, s);
