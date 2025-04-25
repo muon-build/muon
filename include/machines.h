@@ -11,6 +11,23 @@
 
 #include "platform/uname.h"
 
+/*
+ * Work around non-standard gcc behavior.
+ *
+ * When gcc is invoked without a -std flag, it defines several nonstandard
+ * macros, linux being one of them, which messes up our macro expansion.
+ * The proper fix for this is to always pass -std=c99, but if we fix it here
+ * then we can preserve the ability to compile the amalgam using gcc without
+ * any additional flags.
+ *
+ * Reference:
+ * - https://gcc.gnu.org/onlinedocs/gcc-5.3.0/cpp/System-specific-Predefined-Macros.html
+ * - https://stackoverflow.com/a/19214007
+ */
+#ifdef linux
+#undef linux
+#endif
+
 #define FOREACH_MACHINE_SYSTEM(_) \
 	_(unknown) \
 	_(dragonfly) \
