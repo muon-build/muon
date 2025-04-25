@@ -1442,11 +1442,12 @@ obj_dict_set_impl(struct workspace *wk,
 	/* set new value */
 	if ((d->flags & obj_dict_flag_big)) {
 		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
+		union obj_dict_big_dict_value big_val = { .val = { .key = key, .val = val } };
+
 		if (d->flags & obj_dict_flag_int_key) {
-			hash_set(h, &key, val);
+			hash_set(h, &key, big_val.u64);
 		} else {
 			const struct str *ss = get_str(wk, key);
-			union obj_dict_big_dict_value big_val = { .val = { .key = key, .val = val } };
 			hash_set_strn(h, ss->s, ss->len, big_val.u64);
 		}
 		d->len = h->len;
