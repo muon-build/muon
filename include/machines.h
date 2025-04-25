@@ -11,32 +11,42 @@
 
 #include "platform/uname.h"
 
+#define FOREACH_MACHINE_SYSTEM(_) \
+	_(unknown) \
+	_(dragonfly) \
+	_(freebsd) \
+	_(gnu) \
+	_(haiku) \
+	_(linux) \
+	_(netbsd) \
+	_(openbsd) \
+	_(sunos) \
+	_(android) \
+	_(emscripten) \
+	_(windows) \
+	_(cygwin) \
+	_(msys2) \
+	_(darwin) \
+
 enum machine_system {
 	machine_system_uninitialized = 0,
-	machine_system_unknown = 1,
-	machine_system_dragonfly,
-	machine_system_freebsd,
-	machine_system_gnu,
-	machine_system_haiku,
-	machine_system_linux,
-	machine_system_netbsd,
-	machine_system_openbsd,
-	machine_system_sunos,
-	machine_system_android,
-	machine_system_emscripten,
-	machine_system_windows,
-	machine_system_cygwin,
-	machine_system_msys2,
-	machine_system_darwin,
+#define MACHINE_ENUM(id) machine_system_##id,
+FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 };
+
+#define FOREACH_MACHINE_SUBSYSTEM(_) \
+	_(unknown) \
+	_(macos) \
+	_(ios) \
+	_(tvos) \
+	_(visionos) \
 
 enum machine_subsystem {
 	machine_subsystem_uninitialized = 0,
-	machine_subsystem_unknown = 1,
-	machine_subsystem_macos,
-	machine_subsystem_ios,
-	machine_subsystem_tvos,
-	machine_subsystem_visionos,
+#define MACHINE_ENUM(id) machine_subsystem_##id,
+FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 };
 
 enum machine_kind {

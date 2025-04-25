@@ -74,21 +74,9 @@ machine_system_to_s(enum machine_system sys)
 {
 	switch (sys) {
 	case machine_system_uninitialized: return "<uninitialized>";
-	case machine_system_unknown: return "unknown";
-	case machine_system_dragonfly: return "dragonfly";
-	case machine_system_freebsd: return "freebsd";
-	case machine_system_gnu: return "gnu";
-	case machine_system_haiku: return "haiku";
-	case machine_system_linux: return "linux";
-	case machine_system_netbsd: return "netbsd";
-	case machine_system_openbsd: return "openbsd";
-	case machine_system_sunos: return "sunos";
-	case machine_system_android: return "android";
-	case machine_system_emscripten: return "emscripten";
-	case machine_system_windows: return "windows";
-	case machine_system_cygwin: return "cygwin";
-	case machine_system_msys2: return "msys2";
-	case machine_system_darwin: return "darwin";
+#define MACHINE_ENUM(id) case machine_system_##id: return #id;
+FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 	}
 
 	UNREACHABLE_RETURN;
@@ -99,11 +87,9 @@ machine_subsystem_to_s(enum machine_subsystem sys)
 {
 	switch (sys) {
 	case machine_subsystem_uninitialized: return "<uninitialized>";
-	case machine_subsystem_unknown: return "unknown";
-	case machine_subsystem_macos: return "macos";
-	case machine_subsystem_ios: return "ios";
-	case machine_subsystem_tvos: return "tvos";
-	case machine_subsystem_visionos: return "visionos";
+#define MACHINE_ENUM(id) case machine_subsystem_##id: return #id;
+FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 	}
 
 	UNREACHABLE_RETURN;

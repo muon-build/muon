@@ -147,26 +147,15 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 	};
 
 	if (vm_enum(wk, machine_system)) {
-		vm_enum_value_prefixed(wk, machine_system, unknown);
-		vm_enum_value_prefixed(wk, machine_system, dragonfly);
-		vm_enum_value_prefixed(wk, machine_system, freebsd);
-		vm_enum_value_prefixed(wk, machine_system, gnu);
-		vm_enum_value_prefixed(wk, machine_system, haiku);
-		vm_enum_value_prefixed(wk, machine_system, linux);
-		vm_enum_value_prefixed(wk, machine_system, netbsd);
-		vm_enum_value_prefixed(wk, machine_system, openbsd);
-		vm_enum_value_prefixed(wk, machine_system, sunos);
-		vm_enum_value_prefixed(wk, machine_system, android);
-		vm_enum_value_prefixed(wk, machine_system, emscripten);
-		vm_enum_value_prefixed(wk, machine_system, windows);
-		vm_enum_value_prefixed(wk, machine_system, cygwin);
-		vm_enum_value_prefixed(wk, machine_system, msys2);
-		vm_enum_value_prefixed(wk, machine_system, darwin);
+#define MACHINE_ENUM(id) vm_enum_value_prefixed(wk, machine_system, id);
+FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 	}
 
 	if (vm_enum(wk, machine_subsystem)) {
-		vm_enum_value_prefixed(wk, machine_subsystem, macos);
-		vm_enum_value_prefixed(wk, machine_subsystem, ios);
+#define MACHINE_ENUM(id) vm_enum_value_prefixed(wk, machine_subsystem, id);
+FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
+#undef MACHINE_ENUM
 	}
 
 	if (vm_struct(wk, machine_props)) {
