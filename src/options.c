@@ -500,6 +500,9 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 			vm_error_at(wk, o->ip, "'%o' is not one of %o", new_val, o->choices);
 			return false;
 		}
+
+		const struct str *s = get_str(wk, new_val);
+		new_val = make_strn_enum(wk, s->s, s->len, o->choices);
 		break;
 	}
 	case op_integer: {
