@@ -457,6 +457,15 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 	const struct str *method = obj_dict_index_as_str(wk, msg, "method");
 
 	if (str_eql(method, &STR("initialize"))) {
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj root_uri = obj_dict_index_as_obj(wk, params, "rootUri");
+		if (root_uri) {
+			const char *root = az_srv_uri_to_path(wk, get_str(wk, root_uri));
+			if (root) {
+				path_chdir(root);
+			}
+		}
+
 		obj result = make_obj(wk, obj_dict);
 		obj capabilities = make_obj(wk, obj_dict);
 		obj_dict_set(wk,
