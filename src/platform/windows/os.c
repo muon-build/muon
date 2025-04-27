@@ -241,3 +241,9 @@ os_is_debugger_attached(void)
 {
 	return IsDebuggerPresent() == TRUE;
 }
+
+int32_t
+os_get_pid(void)
+{
+	return GetCurrentProcessId();
+}

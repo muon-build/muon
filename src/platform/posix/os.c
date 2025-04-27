@@ -110,3 +110,9 @@ os_is_debugger_attached(void)
 	return false;
 #endif
 }
+
+int32_t
+os_get_pid(void)
+{
+	return getpid();
+}
