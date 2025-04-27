@@ -28,6 +28,10 @@ struct az_opts {
 	uint64_t enabled_diagnostics;
 	obj file_override;
 	struct arr file_override_src;
+
+	struct {
+		bool debug_log, wait_for_debugger;
+	} lsp;
 };
 
 enum az_branch_element_flag {

@@ -208,6 +208,7 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 static void
 az_srv_write(struct az_srv *srv, struct workspace *wk, obj msg)
 {
+	obj_lprintf(wk, log_debug, ">>> %#o\n", msg);
 	TSTR(buf);
 	obj_to_json(wk, msg, &buf);
 
@@ -964,13 +965,32 @@ analyze_server(struct az_opts *cmdline_opts)
 {
 	log_set_file(stderr);
 
-	/* LOG_I("muon lsp waiting for debugger..."); */
-	/* while (!os_is_debugger_attached()) { } */
-
-	LOG_I("muon lsp listening...");
+	if (cmdline_opts->lsp.wait_for_debugger) {
+		LOG_I("muon lsp waiting for debugger...");
+		while (!os_is_debugger_attached()) { }
+	}
 
 	struct workspace srv_wk;
 	workspace_init_bare(&srv_wk);
+
+	FILE *debug_log = 0;
+	if (cmdline_opts->lsp.debug_log) {
+		const char *home = fs_user_home();
+		if (home) {
+			TSTR(path);
+			path_join(&srv_wk, &path, home, ".local/state/muon");
+			if (fs_mkdir_p(path.buf)) {
+				char file[256];
+				snprintf(file, sizeof(file), "lsp.%d.log", os_get_pid());
+				path_push(&srv_wk, &path, file);
+
+				if ((debug_log = fs_fopen(path.buf, "wb"))) {
+					log_set_debug_file(debug_log);
+				}
+			}
+		}
+	}
+
 	struct az_srv srv = {
 		.transport = {
 			.in = 0, // STDIN_FILENO
@@ -982,6 +1002,8 @@ analyze_server(struct az_opts *cmdline_opts)
 
 	analyze_opts_init(srv.wk, &srv.opts);
 	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
+
+	LOG_I("muon lsp listening...");
 
 	while (true) {
 		TracyCFrameMark;
@@ -997,6 +1019,8 @@ analyze_server(struct az_opts *cmdline_opts)
 		if (!az_srv_read(&wk, &srv, &msg)) {
 			break;
 		}
+
+		obj_lprintf(&wk, log_debug, "<<< %#o\n", msg);
 
 		az_srv_handle(&srv, &wk, msg);
 
@@ -1044,11 +1068,20 @@ analyze_server(struct az_opts *cmdline_opts)
 		}
 
 		workspace_destroy(&wk);
+
+		if (debug_log) {
+			fflush(debug_log);
+		}
 	}
 	LOG_I("muon lsp shutting down");
 
 	analyze_opts_destroy(srv.wk, &srv.opts);
 	workspace_destroy(srv.wk);
+
+	if (debug_log) {
+		fs_fclose(debug_log);
+		log_set_debug_file(0);
+	}
 
 	return true;
 }
