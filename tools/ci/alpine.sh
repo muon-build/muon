@@ -36,7 +36,7 @@ add_repository_()
 setup_repositories_()
 {
 	if [ "$cfg_tcc" ]; then
-		add_repository_ "http://dl-cdn.alpinelinux.org/alpine/edge/testing"
+		add_repository_ "http://dl-cdn.alpinelinux.org/alpine/edge/community"
 	fi
 
 	if [ "$cfg_website" ]; then
