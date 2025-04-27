@@ -1184,7 +1184,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 
 				// If files() gets a single argument of type
 				// array, un-nest it.
-				if (!args->r && args->l->type == node_type_array) {
+				if (!args->r && args->l && args->l->type == node_type_array) {
 					arr = args->l;
 					args->l = arr->l;
 					args->r = arr->r;
