@@ -624,7 +624,7 @@ bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 
 #define LO(...)                                                   \
 	{                        \
-		log_print(false, log_debug, "%s", " "); \
+		log_print(false, log_debug, "%s", ""); \
 		obj_lprintf(wk, log_debug, __VA_ARGS__);                     \
 	}
 #define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
