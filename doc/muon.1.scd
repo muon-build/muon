@@ -48,7 +48,8 @@ finally install the project with the *install* subcommand.
 All commands accept a *-h* option which prints a brief summary of their usage.
 
 ## analyze
-	*muon* *analyze* [command]
+	*muon* *analyze* [*-l*] [*-m* <mode>] [*-q*] [*-O* <path>]
+	\[*-W* [no-]<diagnostic|list|error>] [command]
 
 	Run a static analyzer on the current project.
 
@@ -56,13 +57,11 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-l* - optimize output for editor linter plugins.  For example, a
 	  diagnostic is added for the subdir() callsite, so that the editor can
 	  highlight subdirs with errors in them.
+	- *-m* <mode> - set the language mode
 	- *-q* - only report errors
 	- *-O* <path> - read project file with matching path from stdin.  This
 	  is useful for editor linter plugins that run as you type on files
 	  that aren't saved to disk.
-	- *-i* <path> - analyze the single file _path_ in internal mode.  This
-	  is useful for catching bugs in scripts that will be evaluated with
-	  *muon internal eval*.
 	- *-W* [no-]<diagnostic> - enable or disable a particular diagnostic,
 	  e.g. unused-variable.
 	- *-W* list - list available diagnostics.
@@ -73,6 +72,10 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *lsp* - run the analyzer as a language server
 	- *root-for* <path> - given the path to a file, try to determine the
 	  project's root
+	- *file* <path> - run the analyzer in single file mode.  Implies -m module,
+	  but -m script can be passed to analyze a file in script mode.  This
+	  is useful for catching bugs in scripts that will be evaluated with
+	  *muon internal eval*, or script modules.
 
 ## fmt
 	*muon* *fmt* [*-i*] [*-q*] [*-l*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
@@ -187,15 +190,15 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *dump_funcs* - output all supported functions and arguments
 
 ## internal check
-	*muon* *internal* *check* [*-p*|*-d*] [*-m*<x|f>] <filename>
+	*muon* *internal* *check* [*-p*|*-d*] [*-m* <mode>] <filename>
 
 	Check if _filename_ parses.
 
 	*OPTIONS*:
 	- *-p* - print the parsed ast
 	- *-d* - print the dissasembly
-	- *-m* <mode> - set the compilation mode.  `f` parses for formatting,
-	  `x` compiles for the extended language (e.g. user-defined functions)
+	- *-m* <mode> - set the compilation mode
+	- *-f* - parse in formatting mode
 
 ## internal eval
 	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]

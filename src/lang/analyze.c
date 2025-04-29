@@ -1638,21 +1638,12 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
-	if (opts->internal_file) {
+	wk->vm.lang_mode = opts->lang_mode;
+
+	if (wk->vm.lang_mode == language_internal) {
 		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
 		a->default_var = true;
-
-		wk->vm.lang_mode = language_extended;
-
-		struct source src;
-		if (!fs_read_entire_file(opts->internal_file, &src)) {
-			res = false;
-		} else {
-			obj _v;
-			res = eval(wk, &src, build_language_meson, 0, &_v);
-		}
 	} else {
-		uint32_t project_id;
 		workspace_init_runtime(wk);
 		workspace_init_startup_files(wk);
 
@@ -1663,6 +1654,19 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 				wk, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
 		}
 
+	}
+
+	if (opts->single_file) {
+		struct source src;
+		if (!fs_read_entire_file(opts->single_file, &src)) {
+			res = false;
+		} else {
+			obj _v;
+			res = eval(wk, &src, build_language_meson, 0, &_v);
+		}
+
+	} else {
+		uint32_t project_id;
 		res = eval_project(wk, NULL, wk->source_root, wk->build_root, &project_id);
 	}
 

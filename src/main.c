@@ -215,6 +215,30 @@ ret:
 }
 
 static bool
+language_mode_from_optarg(const char *arg, enum language_mode *langmode)
+{
+	struct {
+		const char *short_name, *long_name;
+		enum language_mode mode;
+		bool fmt;
+	} modes[] = {
+		{ "n", "normal", language_external },
+		{ "s", "script", language_internal },
+		{ "m", "module", language_extended },
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(modes); ++i) {
+		if (strcmp(arg, modes[i].short_name) == 0 || strcmp(arg, modes[i].long_name) == 0) {
+			*langmode = modes[i].mode;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
 cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
@@ -224,32 +248,29 @@ cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		enum vm_compile_mode compile_mode;
 	} opts = { 0 };
 
-	OPTSTART("pdm:b:") {
+	OPTSTART("pdm:b:f") {
 	case 'p': opts.print_ast = true; break;
 	case 'd': opts.print_dis = true; break;
 	case 'b': opts.breakpoint = optarg; break;
 	case 'm': {
-		const char *p, *chars = "xf";
-		for (p = optarg; *p; ++p) {
-			if (!strchr(chars, *p)) {
-				LOG_E("invalid mode '%c', must be one of %s", *p, chars);
-				return false;
-			}
+		enum language_mode mode;
+		if (!language_mode_from_optarg(optarg, &mode)) {
+			return false;
+		}
 
-			switch (*p) {
-			case 'x': opts.compile_mode |= vm_compile_mode_language_extended; break;
-			case 'f': opts.compile_mode |= vm_compile_mode_fmt; break;
-			default: UNREACHABLE;
-			}
+		if (mode == language_internal || mode == language_extended) {
+			opts.compile_mode |= vm_compile_mode_language_extended;
 		}
 		break;
 	}
+	case 'f': opts.compile_mode |= vm_compile_mode_fmt; break;
 	}
 	OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n"
 		"  -d - print dissasembly\n"
-		"  -m <mode> - parse with parse mode <mode>\n",
+		"  -m <mode> - parse with language mode <mode>\n"
+		"  -f - parse in formatting mode\n",
 		NULL,
 		1)
 
@@ -308,32 +329,42 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		bool subdir_error;
 		enum error_diagnostic_store_replay_opts replay_opts;
-		const char *file_override, *internal_file;
+		const char *file_override;
 		uint64_t enabled_diagnostics;
 		enum {
 			action_trace,
 			action_lsp,
 			action_determine_root,
+			action_file,
 			action_default,
 			action_count,
 		} action;
+		enum language_mode lang_mode;
 	} opts = {
 		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
 		.action = action_default,
+		.lang_mode = language_external,
 	};
 
 	static const struct command commands[] = {
 		[action_trace] = { "trace", 0, "print a tree of all meson source files that are evaluated" },
 		[action_lsp] = { "lsp", 0, "run in lsp mode" },
 		[action_determine_root] = { "root-for", 0, "determine the project root given a meson file" },
+		[action_file] = { "file", 0, "analyze a single file.  implies -m module." },
 		0,
 	};
-	static const uint32_t command_args[action_count] = {
+	static const int32_t command_args[action_count] = {
 		[action_determine_root] = 1,
+		[action_file] = 1,
 	};
 
-	OPTSTART("luqO:W:i:s") {
-	case 'i': opts.internal_file = optarg; break;
+	OPTSTART("luqO:W:m:s") {
+	case 'm': {
+		if (!language_mode_from_optarg(optarg, &opts.lang_mode)) {
+			return false;
+		}
+		break;
+	}
 	case 'l':
 		opts.subdir_error = true;
 		opts.replay_opts |= error_diagnostic_store_replay_dont_include_sources;
@@ -373,8 +404,8 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		"",
 		"  -l - optimize output for editor linter plugins\n"
 		"  -q - only report errors\n"
+		"  -m <mode> - analyze with language mode <mode>\n"
 		"  -O <path> - read project file with matching path from stdin\n"
-		"  -i <path> - analyze the single file <path> in internal mode\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
 		"  -W error - turn all warnings into errors\n",
@@ -417,9 +448,12 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		struct workspace wk;
 		workspace_init_bare(&wk);
 
-		if (opts.internal_file && opts.file_override) {
-			LOG_E("-i and -O are mutually exclusive");
-			return false;
+		const char *single_file = 0;
+		if (opts.action == action_file) {
+			single_file = argv[argi];
+			if (opts.lang_mode == language_external) {
+				opts.lang_mode = language_extended;
+			}
 		}
 
 		struct az_opts az_opts;
@@ -427,9 +461,10 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		az_opts.eval_trace = opts.action == action_trace;
 		az_opts.subdir_error = opts.subdir_error;
 		az_opts.replay_opts = opts.replay_opts;
-		az_opts.internal_file = opts.internal_file;
+		az_opts.single_file = single_file;
 		az_opts.enabled_diagnostics = opts.enabled_diagnostics;
 		az_opts.auto_chdir_root = true;
+		az_opts.lang_mode = opts.lang_mode;
 
 		bool res = true;
 		if (opts.file_override) {
@@ -1017,9 +1052,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	uint32_t original_argi = argi + 1;
 
 	OPTSTART("D:b:#") {
-	case '#':
-		log_progress_enable();
-		break;
+	case '#': log_progress_enable(); break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
 			goto ret;
@@ -1034,7 +1067,9 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		" <build dir>",
 		"  -D <option>=<value> - set options\n"
 		"  -# - enable setup progress bar\n",
-		NULL, 1, cmd_setup_help())
+		NULL,
+		1,
+		cmd_setup_help())
 
 	const char *build = argv[argi];
 	++argi;
@@ -1251,7 +1286,8 @@ cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	if (!run_cmd_argv(&ctx, (char *const *)cmd, 0, 0)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
-		return false;;
+		return false;
+		;
 	}
 
 	exit(ctx.status);

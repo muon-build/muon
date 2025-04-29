@@ -16,10 +16,21 @@ foreach script : embedded_scripts
         continue
     endif
 
+    mode = 'module'
+    if script.startswith('commands/')
+        mode = 'script'
+    endif
+
     test(
         f'@script@',
         muon,
-        args: ['analyze', '-Werror', '-i', embedded_scripts_base / script],
+        args: [
+            'analyze',
+            '-Werror',
+            '-m', mode,
+            'file',
+            embedded_scripts_base / script,
+        ],
         suite: 'analyze',
     )
 endforeach

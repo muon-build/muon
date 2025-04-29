@@ -24,7 +24,8 @@ struct az_opts {
 	bool relaxed_parse;
 	bool auto_chdir_root;
 	enum error_diagnostic_store_replay_opts replay_opts;
-	const char *internal_file;
+	enum language_mode lang_mode;
+	const char *single_file;
 	uint64_t enabled_diagnostics;
 	obj file_override;
 	struct arr file_override_src;
