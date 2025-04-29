@@ -194,7 +194,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		case feature_opt_disabled: s = "disabled"; break;
 		}
 
-		*res = make_strf(wk, "<option %s>", s);
+		*res = make_str(wk, s);
 		break;
 	}
 	case obj_array: {
