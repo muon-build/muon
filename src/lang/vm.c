@@ -1484,7 +1484,7 @@ vm_op_stringify(struct workspace *wk)
 	obj res = 0;
 
 	if (get_obj_type(wk, a) == obj_typeinfo) {
-		if (!typecheck_typeinfo(wk, a, tc_bool | tc_file | tc_number | tc_string)) {
+		if (!typecheck_typeinfo(wk, a, tc_bool | tc_file | tc_number | tc_string | tc_feature_opt)) {
 			vm_error(wk, "unable to coerce %s to string", obj_typestr(wk, a));
 		}
 
