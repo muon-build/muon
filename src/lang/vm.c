@@ -1375,8 +1375,6 @@ type_err:
 	object_stack_push(wk, res);
 }
 
-#define SWAP(__t, __x, __y) { __t tmp_; tmp_ = __x; __x = __y; __y = tmp_; }
-
 static void
 vm_op_eq(struct workspace *wk)
 {
@@ -1704,6 +1702,12 @@ type_err:
 		}
 		case obj_array: {
 			val = obj_array_dup_light(wk, val);
+			break;
+		}
+		case obj_typeinfo: {
+			obj dup = make_obj(wk, obj_typeinfo);
+			*get_obj_typeinfo(wk, dup) = *get_obj_typeinfo(wk, val);
+			val = dup;
 			break;
 		}
 		default: break;
@@ -2726,7 +2730,7 @@ vm_struct_type_dict(struct workspace *wk, enum vm_struct_type base_t)
 {
 	switch (base_t) {
 	case vm_struct_type_enum_: return wk->vm.types.enums;
-	case vm_struct_type_struct_:return wk->vm.types.structs;
+	case vm_struct_type_struct_: return wk->vm.types.structs;
 	default: UNREACHABLE_RETURN;
 	}
 }
