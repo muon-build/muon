@@ -1947,26 +1947,6 @@ obj_to_s_array_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static enum iteration_result
-obj_to_s_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	struct obj_to_s_ctx *ctx = _ctx;
-
-	obj_to_s_opts(wk, key, ctx->sb, ctx->opts);
-
-	tstr_pushs(wk, ctx->sb, ": ");
-
-	obj_to_s_opts(wk, val, ctx->sb, ctx->opts);
-
-	if (ctx->cont_i < ctx->cont_len - 1) {
-		tstr_pushs(wk, ctx->sb, ",");
-		obj_to_s_pretty_newline_or_space(wk, ctx);
-	}
-
-	++ctx->cont_i;
-	return ir_cont;
-}
-
 static void
 obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 {
@@ -2090,7 +2070,28 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		++opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
 
-		obj_dict_foreach(wk, o, &ctx, obj_to_s_dict_iter);
+		bool int_keys = get_obj_dict(wk, o)->flags & obj_dict_flag_int_key;
+
+		obj key, val;
+		obj_dict_for(wk, o, key, val)
+		{
+			if (int_keys) {
+				tstr_pushf(wk, ctx.sb, "%d", key);
+			} else {
+				obj_to_s_opts(wk, key, ctx.sb, ctx.opts);
+			}
+
+			tstr_pushs(wk, ctx.sb, ": ");
+
+			obj_to_s_opts(wk, val, ctx.sb, ctx.opts);
+
+			if (ctx.cont_i < ctx.cont_len - 1) {
+				tstr_pushs(wk, ctx.sb, ",");
+				obj_to_s_pretty_newline_or_space(wk, &ctx);
+			}
+
+			++ctx.cont_i;
+		}
 
 		--opts->indent;
 		obj_to_s_pretty_newline(wk, &ctx);
