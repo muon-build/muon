@@ -166,7 +166,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 		kw_version,
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
+		[kw_default_options] = { "default_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[kw_license] = { "license", TYPE_TAG_LISTIFY | obj_string },
 		[kw_license_files] = { "license_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_meson_version] = { "meson_version", obj_string },
@@ -857,7 +857,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version_argument] = { "version_argument", obj_string },
-		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
+		[kw_default_options] = { "default_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -2224,7 +2224,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "files", func_files, tc_array },
 	{ "find_program", func_find_program, tc_external_program },
 	{ "generator", func_generator, tc_generator },
-	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, },
+	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, true, },
 	{ "get_variable", func_get_variable, tc_any, true },
 	{ "import", func_import, tc_module, true },
 	{ "include_directories", func_include_directories, tc_array },

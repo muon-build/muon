@@ -742,7 +742,7 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		[kw_language] = { "language", tc_string, .desc = "Ignored" },
 		[kw_fallback] = { "fallback", TYPE_TAG_LISTIFY | obj_string },
 		[kw_allow_fallback] = { "allow_fallback", obj_bool },
-		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
+		[kw_default_options] = { "default_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[kw_not_found_message] = { "not_found_message", obj_string },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_method] = { "method", obj_string },

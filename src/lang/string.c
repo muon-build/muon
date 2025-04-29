@@ -14,6 +14,7 @@
 #include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "lang/string.h"
+#include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "memmem.h"
@@ -189,12 +190,12 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 }
 
 bool
-str_enum_add_type(struct workspace *wk, const char *name, obj *res)
+str_enum_add_type(struct workspace *wk, uint32_t id, obj *res)
 {
-	if (!obj_dict_index_str(wk, wk->vm.objects.enums.types, name, res)) {
+	if (!obj_dict_geti(wk, wk->vm.objects.enums.types, id, res)) {
 		*res = make_obj(wk, obj_dict);
 		obj_dict_set(wk, *res, make_str(wk, ""), make_obj(wk, obj_array));
-		obj_dict_set(wk, wk->vm.objects.enums.types, make_str(wk, name), *res);
+		obj_dict_seti(wk, wk->vm.objects.enums.types, id, *res);
 		return true;
 	}
 	return false;
@@ -214,7 +215,7 @@ str_enum_add_type_value(struct workspace *wk, obj type, const char *value)
 }
 
 obj
-get_str_enum(struct workspace *wk, obj type, const char *name)
+str_enum_get(struct workspace *wk, obj type, const char *name)
 {
 	obj res;
 	if (!obj_dict_index_str(wk, type, name, &res)) {
@@ -222,6 +223,14 @@ get_str_enum(struct workspace *wk, obj type, const char *name)
 	}
 
 	return res;
+}
+
+obj
+mark_typeinfo_as_enum(struct workspace *wk, obj ti, obj values)
+{
+	obj_dict_seti(wk, wk->vm.objects.enums.values, ti, values);
+
+	return ti;
 }
 
 obj
@@ -241,13 +250,29 @@ make_str_enum(struct workspace *wk, const char *str, obj values)
 }
 
 bool
-check_str_enum(struct workspace *wk, obj l, obj r, enum obj_type r_t)
+check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t)
 {
 	enum obj_type c_t;
 	obj values = 0, c = 0;
 
-	// l *must* be a string
-	if (obj_dict_geti(wk, wk->vm.objects.enums.values, l, &values)) {
+	if (l_t == obj_typeinfo) {
+		type_tag t = get_obj_typeinfo(wk, l)->type;
+		if (!(t & TYPE_TAG_COMPLEX)) {
+			return true;
+		}
+
+		if (COMPLEX_TYPE_TYPE(t) == complex_type_preset) {
+			t = complex_type_preset_get(wk, COMPLEX_TYPE_INDEX(t));
+		}
+
+		if (COMPLEX_TYPE_TYPE(t) != complex_type_enum) {
+			return true;
+		}
+
+		c = r;
+		c_t = r_t;
+		values = COMPLEX_TYPE_INDEX(t);
+	} else if (obj_dict_geti(wk, wk->vm.objects.enums.values, l, &values)) {
 		c = r;
 		c_t = r_t;
 	} else if (r_t == obj_string && obj_dict_geti(wk, wk->vm.objects.enums.values, r, &values)) {

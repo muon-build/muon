@@ -1053,7 +1053,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_gui_app] = { "gui_app", obj_bool },
 		[bt_kw_link_language] = { "link_language", obj_string },
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
-		[bt_kw_override_options] = { "override_options", wk->complex_types.options_dict_or_list },
+		[bt_kw_override_options] = { "override_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \

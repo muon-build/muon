@@ -9,8 +9,10 @@
 #include "lang/object.h"
 
 enum complex_type {
+	complex_type_preset,
 	complex_type_or,
 	complex_type_nested,
+	complex_type_enum,
 };
 
 #define ARG_TYPE_NULL (obj_type_count + 1)
@@ -23,8 +25,9 @@ enum complex_type {
 #define obj_typechecking_type_tag (((type_tag)1) << 63)
 // clang-format on
 
-#define TYPE_TAG_MASK \
-	(TYPE_TAG_ALLOW_NULL | TYPE_TAG_COMPLEX | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY | obj_typechecking_type_tag)
+#define TYPE_TAG_MASK                                                                              \
+	(TYPE_TAG_ALLOW_NULL | TYPE_TAG_COMPLEX | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY \
+		| obj_typechecking_type_tag)
 
 /* complex types look like this:
  *
@@ -36,9 +39,10 @@ enum complex_type {
  *  TYPE_TAG_GLOB/TYPE_TAG_LISTIFY))
  */
 #define COMPLEX_TYPE(index, t) \
-	(((uint64_t)index) | (((uint64_t)t) << 48) | TYPE_TAG_COMPLEX | obj_typechecking_type_tag);
+	(((uint64_t)index) | (((uint64_t)t) << 48) | TYPE_TAG_COMPLEX | obj_typechecking_type_tag)
 #define COMPLEX_TYPE_INDEX(t) (t & 0xffffffff)
 #define COMPLEX_TYPE_TYPE(t) ((t >> 48) & 0xff)
+#define COMPLEX_TYPE_PRESET(__i) COMPLEX_TYPE(__i, complex_type_preset)
 
 // clang-format off
 #define tc_disabler             (obj_typechecking_type_tag | (((type_tag)1) << 0))
@@ -136,5 +140,14 @@ bool type_tags_eql(struct workspace *wk, type_tag a, type_tag b);
 
 type_tag flatten_type(struct workspace *wk, type_tag t);
 
-void complex_types_init(struct workspace *wk, struct complex_types *types);
+enum complex_type_preset {
+	tc_cx_options_dict_or_list = 1,
+	tc_cx_options_deprecated_kw,
+	tc_cx_enum_machine_system,
+	tc_cx_enum_machine_subsystem,
+	tc_cx_enum_machine_endian,
+};
+
+type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);
+obj complex_type_enum_get(struct workspace *wk, enum complex_type_preset t);
 #endif

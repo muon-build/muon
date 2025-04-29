@@ -85,6 +85,22 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 	uint32_t idx = COMPLEX_TYPE_INDEX(t);
 	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
 
+	if (ct == complex_type_preset) {
+		return typechecking_type_to_arr(wk, complex_type_preset_get(wk, idx));
+	} else if (ct == complex_type_enum) {
+		obj sorted;
+		obj_array_sort(wk, NULL, idx, obj_array_sort_by_str, &sorted);
+		obj typestr;
+		obj_array_join(wk, false, sorted, make_str(wk, "|"), &typestr);
+
+		typestr = make_strf(wk, "%s[%s]", typechecking_type_to_s(wk, tc_string), get_str(wk, typestr)->s);
+
+		obj res;
+		res = make_obj(wk, obj_array);
+		obj_array_push(wk, res, typestr);
+		return res;
+	}
+
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
 
@@ -113,6 +129,8 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 		obj_array_push(wk, res, typestr);
 		return res;
 	}
+	case complex_type_enum: break;
+	case complex_type_preset: break;
 	}
 
 	UNREACHABLE_RETURN;
@@ -278,13 +296,17 @@ typecheck_nested_type_dict_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 static bool
 typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, type_tag type)
 {
-	/* L("typechecking 0%016lx (%s) vs 0%016lx (%s)", */
-	/* 	got_type, */
-	/* 	typechecking_type_to_s(wk, got_type), */
-	/* 	type, */
-	/* 	typechecking_type_to_s(wk, type)); */
+	// L("typechecking 0%016llx (%s) vs 0%016llx (%s)",
+	// 	got_type,
+	// 	typechecking_type_to_s(wk, got_type),
+	// 	type,
+	// 	typechecking_type_to_s(wk, type));
 
 	if (!(type & TYPE_TAG_COMPLEX)) {
+		if (got_type & TYPE_TAG_COMPLEX) {
+			got_type = flatten_type(wk, got_type);
+		}
+
 		got_type &= ~obj_typechecking_type_tag;
 
 		if (!got_type && ((type & TYPE_TAG_ALLOW_NULL) || !(type & ~TYPE_TAG_MASK))) {
@@ -306,6 +328,12 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 
 	uint32_t idx = COMPLEX_TYPE_INDEX(type);
 	enum complex_type ct = COMPLEX_TYPE_TYPE(type);
+
+	if (ct == complex_type_preset) {
+		return typecheck_complex_type(wk, got_obj, got_type, complex_type_preset_get(wk, idx));
+	} else if (ct == complex_type_enum) {
+		return typecheck_complex_type(wk, got_obj, got_type, tc_string);
+	}
 
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
@@ -335,7 +363,10 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 		} else if (ti->type == tc_dict) {
 			return obj_dict_foreach(wk, got_obj, &ctx, typecheck_nested_type_dict_iter);
 		}
+		break;
 	}
+	case complex_type_enum:
+	case complex_type_preset: break;
 	}
 
 	UNREACHABLE_RETURN;
@@ -386,7 +417,8 @@ typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 bool
 typecheck_typeinfo(struct workspace *wk, obj v, type_tag t)
 {
-	return get_obj_type(wk, v) == obj_typeinfo && ((get_obj_typeinfo(wk, v)->type & t) & ~TYPE_TAG_MASK);
+	return get_obj_type(wk, v) == obj_typeinfo
+	       && ((flatten_type(wk, get_obj_typeinfo(wk, v)->type) & t) & ~TYPE_TAG_MASK);
 }
 
 bool
@@ -465,32 +497,86 @@ flatten_type(struct workspace *wk, type_tag t)
 	uint32_t idx = COMPLEX_TYPE_INDEX(t);
 	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
 
+	if (ct == complex_type_preset) {
+		return flatten_type(wk, complex_type_preset_get(wk, idx));
+	} else if (ct == complex_type_enum) {
+		return tc_string;
+	}
+
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
 
 	switch (ct) {
 	case complex_type_or: return flatten_type(wk, ti->type) | flatten_type(wk, ti->subtype);
 	case complex_type_nested: return flatten_type(wk, ti->type);
+	case complex_type_enum:
+	case complex_type_preset: break;
 	}
 
 	UNREACHABLE_RETURN;
 }
 
-void
-complex_types_init(struct workspace *wk, struct complex_types *types)
+obj
+complex_type_enum_get(struct workspace *wk, enum complex_type_preset t)
 {
-	wk->complex_types.options_dict_or_list = make_complex_type(wk,
-		complex_type_or,
-		make_complex_type(
-			wk, complex_type_or, make_complex_type(wk, complex_type_nested, tc_array, tc_string), tc_string),
-		make_complex_type(wk, complex_type_nested, tc_dict, tc_string | tc_number | tc_bool | tc_array));
+#define STR_ENUM(id) str_enum_add_type_value(wk, e, #id);
 
-	wk->complex_types.options_deprecated_kw = make_complex_type(wk,
-		complex_type_or,
-		tc_string | tc_bool,
-		make_complex_type(wk,
+	obj e;
+	if (str_enum_add_type(wk, t, &e)) {
+		switch (t) {
+		case tc_cx_enum_machine_endian:
+			str_enum_add_type_value(wk, e, "little");
+			str_enum_add_type_value(wk, e, "big");
+			break;
+		case tc_cx_enum_machine_system: FOREACH_MACHINE_SYSTEM(STR_ENUM) break;
+		case tc_cx_enum_machine_subsystem: FOREACH_MACHINE_SUBSYSTEM(STR_ENUM) break;
+		default: UNREACHABLE_RETURN;
+		}
+	}
+#undef STR_ENUM
+
+	return e;
+}
+
+type_tag
+complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
+{
+	obj n;
+	if (obj_dict_geti(wk, wk->vm.objects.complex_types, (uint32_t)t, &n)) {
+		return get_obj_number(wk, n);
+	}
+
+	type_tag tag = 0;
+
+	switch (t) {
+	case tc_cx_options_dict_or_list:
+		tag = make_complex_type(wk,
 			complex_type_or,
-			make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
-			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
+			make_complex_type(wk,
+				complex_type_or,
+				make_complex_type(wk, complex_type_nested, tc_array, tc_string),
+				tc_string),
+			make_complex_type(
+				wk, complex_type_nested, tc_dict, tc_string | tc_number | tc_bool | tc_array));
+		break;
+	case tc_cx_options_deprecated_kw:
+		tag = make_complex_type(wk,
+			complex_type_or,
+			tc_string | tc_bool,
+			make_complex_type(wk,
+				complex_type_or,
+				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
+				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
+		break;
+	case tc_cx_enum_machine_system:
+	case tc_cx_enum_machine_subsystem:
+	case tc_cx_enum_machine_endian: {
+		obj values = obj_dict_index_as_obj(wk, complex_type_enum_get(wk, t), "");
+		return COMPLEX_TYPE(values, complex_type_enum);
+	}
+	default: UNREACHABLE;
+	}
 
+	obj_dict_seti(wk, wk->vm.objects.complex_types, (uint32_t)t, make_number(wk, tag));
+	return tag;
 }

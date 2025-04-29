@@ -191,7 +191,7 @@ coerce_type_tag(struct workspace *wk, obj r)
 static void
 merge_types(struct workspace *wk, struct obj_typeinfo *a, obj r)
 {
-	a->type |= coerce_type_tag(wk, r);
+	a->type = flatten_type(wk, a->type) | flatten_type(wk, coerce_type_tag(wk, r));
 }
 
 uint32_t
@@ -601,12 +601,12 @@ az_op_az_branch(struct workspace *wk)
 
 	push_scope_group(wk);
 
-	/* L("---> branching, merging @ %03x", cur_branch_group.merge_point); */
+	// L("---> branching, merging @ %03x", cur_branch_group.merge_point);
 
 	bool pure = true;
 	obj branch, expr_result = 0;
 	obj_array_for(wk, branches, branch) {
-		/* L("--> branch"); */
+		// L("--> branch");
 		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
 		cur_branch_group.result = (struct branch_map_data){ 0 };
 		wk->vm.ip = cur_branch_group.branch.ip;
@@ -634,7 +634,7 @@ az_op_az_branch(struct workspace *wk)
 		}
 	}
 
-	/* L("<--- all branches merged %03x <---", cur_branch_group.merge_point); */
+	// L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
 
 	pop_scope_group(wk);
 
@@ -885,8 +885,8 @@ az_execute_loop(struct workspace *wk)
 
 	uint32_t cip;
 	while (wk->vm.run) {
-		/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-		/* object_stack_print(wk, &wk->vm.stack); */
+		// LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// object_stack_print(wk, &wk->vm.stack);
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;

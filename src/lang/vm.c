@@ -1334,7 +1334,7 @@ vm_op_in(struct workspace *wk)
 		res = obj_array_in(wk, b, a) ? obj_bool_true : obj_bool_false;
 
 		if (a_t == obj_string) {
-			check_str_enum(wk, a, b, b_t);
+			check_str_enum(wk, a, a_t, b, b_t);
 		}
 		break;
 	}
@@ -1344,7 +1344,7 @@ vm_op_in(struct workspace *wk)
 		res = obj_dict_in(wk, b, a) ? obj_bool_true : obj_bool_false;
 
 		if (res == obj_bool_false) {
-			check_str_enum(wk, a, b, b_t);
+			check_str_enum(wk, a, a_t, b, b_t);
 		}
 		break;
 	case obj_string:
@@ -1375,6 +1375,8 @@ type_err:
 	object_stack_push(wk, res);
 }
 
+#define SWAP(__t, __x, __y) { __t tmp_; tmp_ = __x; __x = __y; __y = tmp_; }
+
 static void
 vm_op_eq(struct workspace *wk)
 {
@@ -1388,12 +1390,18 @@ vm_op_eq(struct workspace *wk)
 	obj res = 0;
 
 	if (a_t == obj_typeinfo || b_t == obj_typeinfo) {
+		if (a_t == obj_string) {
+			check_str_enum(wk, b, b_t, a, a_t);
+		} else if (b_t == obj_string) {
+			check_str_enum(wk, a, a_t, b, b_t);
+		}
+
 		res = make_typeinfo(wk, tc_bool);
 	} else {
 		res = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
 
 		if (a_t == obj_string && b_t == obj_string && res == obj_bool_false) {
-			check_str_enum(wk, a, b, b_t);
+			check_str_enum(wk, a, a_t, b, b_t);
 		}
 	}
 
@@ -3066,6 +3074,9 @@ vm_init(struct workspace *wk)
 	/* enum types */
 	wk->vm.objects.enums.values = make_obj(wk, obj_dict);
 	wk->vm.objects.enums.types = make_obj(wk, obj_dict);
+
+	/* complex type cache */
+	wk->vm.objects.complex_types = make_obj(wk, obj_dict);
 
 	/* scope stack */
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);

@@ -237,7 +237,7 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 
 	};
 	struct args_kw akw[] = {
-		[kw_default_options] = { "default_options", wk->complex_types.options_dict_or_list },
+		[kw_default_options] = { "default_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[kw_required] = { "required", tc_required_kw },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		0,

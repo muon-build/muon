@@ -171,6 +171,7 @@ struct vm_objects {
 		obj values;
 		obj types;
 	} enums;
+	obj complex_types;
 	bool obj_clear_mark_set;
 };
 

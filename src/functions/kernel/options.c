@@ -9,6 +9,7 @@
 
 #include "error.h"
 #include "functions/kernel/options.h"
+#include "lang/analyze.h"
 #include "lang/typecheck.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -79,7 +80,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 		[kw_max] = { "max", obj_number },
 		[kw_min] = { "min", obj_number },
 		[kw_yield] = { "yield", obj_bool },
-		[kw_deprecated] = { "deprecated", wk->complex_types.options_deprecated_kw },
+		[kw_deprecated] = { "deprecated", COMPLEX_TYPE_PRESET(tc_cx_options_deprecated_kw) },
 		[kw_kind] = { 0 },
 		0 };
 
@@ -143,9 +144,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 	} else {
 		switch (type) {
 		case op_string: val = make_str(wk, ""); break;
-		case op_boolean:
-			val = make_obj_bool(wk, true);
-			break;
+		case op_boolean: val = make_obj_bool(wk, true); break;
 		case op_combo:
 			if (!get_obj_array(wk, akw[kw_choices].val)->len) {
 				vm_error_at(wk, akw[kw_choices].node, "combo option with no choices");
@@ -227,6 +226,22 @@ func_get_option(struct workspace *wk, obj self, obj *res)
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
-	*res = o->val;
+
+	if (wk->vm.in_analyzer) {
+		type_tag t = 0;
+		switch (o->type) {
+		case op_string: t =  tc_string; break;
+		case op_boolean: t =  tc_bool; break;
+		case op_combo: t = COMPLEX_TYPE(o->choices, complex_type_enum); break;
+		case op_integer: t = tc_number; break;
+		case op_array: t = tc_array; break;
+		case op_feature: t = tc_feature_opt; break;
+		default: UNREACHABLE;
+		}
+
+		*res = make_typeinfo(wk, t);
+	} else {
+		*res = o->val;
+	}
 	return true;
 }
