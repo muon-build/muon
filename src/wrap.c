@@ -963,7 +963,7 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 				if (!fs_dir_exists(ctx->wrap.dest_dir.buf) || ctx->opts.force_update) {
 					wrap_set_state(ctx, wrap_handle_state_file_init);
 				} else {
-					wrap_set_state(ctx, wrap_handle_state_done);
+					wrap_set_state(ctx, wrap_handle_state_apply_patch);
 				}
 				break;
 			case wrap_type_git:
@@ -974,7 +974,7 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 					}
 					wrap_set_state(ctx, wrap_handle_state_git_init);
 				} else {
-					wrap_set_state(ctx, wrap_handle_state_done);
+					wrap_set_state(ctx, wrap_handle_state_apply_patch);
 				}
 				break;
 			default: UNREACHABLE;
@@ -1158,7 +1158,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	}
 	case wrap_handle_state_update: {
 		if (!ctx->wrap.outdated) {
-			wrap_set_state(ctx, wrap_handle_state_done);
+			wrap_set_state(ctx, wrap_handle_state_apply_patch);
 			return true;
 		}
 
@@ -1167,7 +1167,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				log_warn,
 				"cannot safely update outdated %s because it is dirty",
 				ctx->wrap.dest_dir.buf);
-			wrap_set_state(ctx, wrap_handle_state_done);
+			wrap_set_state(ctx, wrap_handle_state_apply_patch);
 			return true;
 		}
 
