@@ -17,7 +17,7 @@ There are a few preset combinations of types:
 brackets, e.g. `dict[str|int]` or `list[any]`.
 
 You can also wrap the entire type in `glob[<type>]` or `listify[<type>]` to get
-the special argument handling detailed in doc/contributing.md (search for
+the special argument handling detailed in [Muon Internals](internals.md) (search for
 `TYPE_TAG_{GLOB,LISTIFY}`).
 
 Applying the `glob` tag to the type of a kwarg causes any unmatched keywords to
