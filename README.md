@@ -117,9 +117,9 @@ on the [mailing list], report issues on the [issue tracker], and discuss in
 
 ## License
 
-`muon` is licensed under the GPL version 3 (see LICENSE).  Tests under
-`tests/project` were copied from the [meson project tests] and are licensed
-under [Apache 2.0].
+`muon` is generally licensed under the GPL version 3.  For a more detailed
+breakdown, each file contains license and copyright information at the top.  All
+referenced licenses can be found in the LICENSES directory.
 
 ## Credits
 
