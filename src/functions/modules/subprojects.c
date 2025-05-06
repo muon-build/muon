@@ -531,12 +531,12 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_module_subprojects[] = {
-	{ "update", func_subprojects_update, .fuzz_unsafe = true, .desc = "Update subprojects with .wrap files" },
+	{ "update", func_subprojects_update, .flags = func_impl_flag_sandbox_disable, .desc = "Update subprojects with .wrap files" },
 	{ "list",
 		func_subprojects_list,
 		tc_array,
-		.fuzz_unsafe = true,
+		.flags = func_impl_flag_sandbox_disable,
 		.desc = "List subprojects with .wrap files and their status." },
-	{ "clean", func_subprojects_clean, .fuzz_unsafe = true, .desc = "Clean wrap-git subprojects" },
+	{ "clean", func_subprojects_clean, .flags = func_impl_flag_sandbox_disable, .desc = "Clean wrap-git subprojects" },
 	{ NULL, NULL },
 };

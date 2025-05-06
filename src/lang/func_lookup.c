@@ -521,7 +521,7 @@ dump_function_signatures(struct workspace *wk)
 	for (i = 0; i < function_sig_dump.sigs.len; ++i) {
 		sig = arr_get(&function_sig_dump.sigs, i);
 
-		if (sig->impl->extension) {
+		if (sig->impl->flags & func_impl_flag_extension) {
 			printf("extension:");
 		}
 
@@ -790,7 +790,7 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 			opts->impl->name);
 	}
 
-	if (opts->impl->extension) {
+	if (opts->impl->flags & func_impl_flag_extension) {
 		obj_dict_set(wk, res, make_str(wk, "extension"), obj_bool_true);
 	}
 

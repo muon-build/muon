@@ -2256,16 +2256,16 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "vcs_tag", func_vcs_tag, tc_custom_target },
 	{ "warning", func_warning },
 	// non-standard muon extensions
-	{ "p", func_p, tc_any, true, .extension = true },
+	{ "p", func_p, tc_any, true, .flags = func_impl_flag_extension },
 	{ NULL, NULL },
 };
 
 const struct func_impl impl_tbl_kernel_internal[] = {
-	{ "assert", func_assert },
+	{ "assert", func_assert, .flags = func_impl_flag_throws_error },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },
 	{ "disabler", func_disabler, tc_disabler },
 	{ "environment", func_environment, tc_environment },
-	{ "error", func_error },
+	{ "error", func_error, .flags = func_impl_flag_throws_error },
 	{ "files", func_files, tc_array },
 	{ "find_program", func_find_program, tc_external_program },
 	{ "get_variable", func_get_variable, tc_any, true },
@@ -2275,7 +2275,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "join_paths", func_join_paths, tc_string, true },
 	{ "message", func_message },
 	{ "range", func_range, tc_array, true },
-	{ "run_command", func_run_command, tc_run_result, .fuzz_unsafe = true },
+	{ "run_command", func_run_command, tc_run_result, .flags = func_impl_flag_sandbox_disable },
 	{ "set_variable", func_set_variable, 0, true },
 	{ "unset_variable", func_unset_variable, 0, true },
 	{ "warning", func_warning },
@@ -2283,7 +2283,7 @@ const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "p", func_p, tc_any, true },
 	{ "print", func_print, tc_any },
 	{ "serial_load", func_serial_load, tc_any },
-	{ "serial_dump", func_serial_dump, .fuzz_unsafe = true },
+	{ "serial_dump", func_serial_dump, .flags = func_impl_flag_sandbox_disable },
 	{ "is_null", func_is_null, tc_bool, true },
 	{ "typeof", func_typeof, tc_string, true },
 	{ "exit", func_exit },
