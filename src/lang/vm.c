@@ -861,6 +861,22 @@ vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
 	arr_push(&wk->vm.call_stack, frame);
 }
 
+struct call_frame *
+vm_pop_call_stack_frame(struct workspace *wk)
+{
+	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
+	switch (frame->type) {
+	case call_frame_type_eval: break;
+	case call_frame_type_func:
+		wk->vm.behavior.pop_local_scope(wk);
+		wk->vm.scope_stack = frame->scope_stack;
+		wk->vm.lang_mode = frame->lang_mode;
+		break;
+	}
+
+	return frame;
+}
+
 static void
 vm_push_dummy(struct workspace *wk)
 {
@@ -2303,7 +2319,7 @@ vm_op_return(struct workspace *wk)
 	uint32_t a_ip;
 	obj a;
 
-	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
+	struct call_frame *frame = vm_pop_call_stack_frame(wk);
 	wk->vm.ip = frame->return_ip;
 
 	switch (frame->type) {
@@ -2312,9 +2328,6 @@ vm_op_return(struct workspace *wk)
 		break;
 	}
 	case call_frame_type_func:
-		wk->vm.behavior.pop_local_scope(wk);
-		wk->vm.scope_stack = frame->scope_stack;
-		wk->vm.lang_mode = frame->lang_mode;
 		vm_peek(a, 1);
 		typecheck_custom(wk, a_ip, a, frame->expected_return_type, "expected return type %s, got %s");
 		break;
@@ -2390,7 +2403,7 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 
 	if (wk->vm.error) {
 		object_stack_pop(&wk->vm.stack);
-		arr_pop(&wk->vm.call_stack);
+		vm_pop_call_stack_frame(wk);
 		goto err;
 	}
 
@@ -2413,7 +2426,7 @@ vm_unwind_call_stack(struct workspace *wk)
 	uint32_t prev_err_loc = 0;
 
 	while (wk->vm.call_stack.len) {
-		frame = arr_pop(&wk->vm.call_stack);
+		frame = vm_pop_call_stack_frame(wk);
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
