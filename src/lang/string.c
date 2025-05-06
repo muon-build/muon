@@ -252,6 +252,11 @@ make_str_enum(struct workspace *wk, const char *str, obj values)
 bool
 check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t)
 {
+	// Only run this check in the analyzer?
+	if (!wk->vm.in_analyzer) {
+		return true;
+	}
+
 	enum obj_type c_t;
 	obj values = 0, c = 0;
 
