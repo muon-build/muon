@@ -832,6 +832,24 @@ git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char
 }
 
 static bool
+wrap_git_init(struct workspace *wk, struct wrap_handle_ctx *ctx)
+{
+	if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
+		return false;
+	} else if (!wrap_run_cmd(wk, ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
+		return false;
+	} else if (!wrap_run_cmd(wk,
+			   ctx,
+			   ARGV("git", "remote", "add", "origin", ctx->wrap.fields[wf_url]),
+			   ctx->wrap.dest_dir.buf,
+			   0)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	switch (ctx->state) {
@@ -875,15 +893,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 				}
 			}
 		} else if (ctx->git.depth) {
-			if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
-				return false;
-			} else if (!wrap_run_cmd(wk, ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
-				return false;
-			} else if (!wrap_run_cmd(wk,
-					   ctx,
-					   ARGV("git", "remote", "add", "origin", ctx->wrap.fields[wf_url]),
-					   ctx->wrap.dest_dir.buf,
-					   0)) {
+			if (!wrap_git_init(wk, ctx)) {
 				return false;
 			} else if (!git_fetch_revision(wk, ctx, ctx->git.depth_str)) {
 				return false;
@@ -904,6 +914,12 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	case wrap_handle_state_git_fetch_fallback: {
 		if (ctx->cmd_ctx.status != 0) {
 			wrap_log(ctx, log_warn, "Shallow clone failed, falling back to full clone.");
+			if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
+				if (!wrap_git_init(wk, ctx)) {
+					return false;
+				}
+			}
+
 			if (!wrap_run_cmd(wk,
 				    ctx,
 				    ARGV("git", "fetch", "origin"),
