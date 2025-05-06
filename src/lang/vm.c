@@ -2430,14 +2430,12 @@ static void
 vm_unwind_call_stack(struct workspace *wk)
 {
 	struct call_frame *frame;
-	uint32_t prev_err_loc = 0;
 
 	while (wk->vm.call_stack.len) {
 		frame = vm_pop_call_stack_frame(wk);
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
-			vm_diagnostic(wk, prev_err_loc, log_error, error_message_flag_coalesce, "in evaluation");
 			error_message_flush_coalesced_message();
 			wk->vm.ip = frame->return_ip;
 			// TODO: this is a little hacky?  We need to make sure that
@@ -2450,14 +2448,7 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		const char *fmt = frame->func->name ? "in function '%s'" : "in %s";
 		const char *fname = frame->func->name ? frame->func->name : "anonymous function";
-		vm_diagnostic(wk,
-			prev_err_loc,
-			log_error,
-			error_message_flag_no_source | error_message_flag_coalesce,
-			fmt,
-			fname);
-
-		prev_err_loc = frame->return_ip;
+		vm_diagnostic(wk, frame->return_ip - 1, log_error, error_message_flag_no_source | error_message_flag_coalesce, fmt, fname);
 	}
 
 	error_message_flush_coalesced_message();
