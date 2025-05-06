@@ -634,13 +634,16 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			bool ok = vm_eval_capture(wk, handlers.e[i].handler.capture, 0, ctx->handler_kwargs, ctx->res);
 			TracyCZoneEnd(tctx_1);
 			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
-			if (!ok) {
-				return false;
-			}
-			struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-			dep->name = ctx->name;
-			if (dep->flags & dep_flag_found) {
-				ctx->found = true;
+			if (ok) {
+				struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+				dep->name = ctx->name;
+				if (dep->flags & dep_flag_found) {
+					ctx->found = true;
+				}
+			} else {
+				if (ctx->requirement == requirement_required) {
+					return false;
+				}
 			}
 			break;
 		}
