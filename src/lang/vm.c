@@ -1737,6 +1737,13 @@ type_err:
 			val = dup;
 			break;
 		}
+		case obj_capture: {
+			struct obj_capture *c = get_obj_capture(wk, val);
+			if (c->func && !c->func->name) {
+				c->func->name = get_str(wk, id)->s;
+			}
+			break;
+		}
 		default: break;
 		}
 
