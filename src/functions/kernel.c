@@ -1016,6 +1016,17 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 		return false;
 	}
 
+	if (lvl == log_error) {
+		struct source *src = 0;
+		struct source_location loc = { 0 };
+		vm_lookup_inst_location(&wk->vm, wk->vm.ip - 1, &loc, &src);
+
+		struct detailed_source_location dloc = { 0 };
+		get_detailed_source_location(src, loc, &dloc, get_detailed_source_location_flag_multiline);
+
+		log_plain(lvl, "%s:%d:%d: ", src->label, dloc.line, dloc.col);
+	}
+
 	log_print(false, lvl, "%s", "");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
@@ -2207,7 +2218,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "add_project_link_arguments", func_add_project_link_arguments },
 	{ "add_test_setup", func_add_test_setup },
 	{ "alias_target", func_alias_target, tc_alias_target },
-	{ "assert", func_assert },
+	{ "assert", func_assert, .flags = func_impl_flag_throws_error },
 	{ "benchmark", func_benchmark },
 	{ "both_libraries", func_both_libraries, tc_both_libs },
 	{ "build_target", func_build_target, tc_build_target | tc_both_libs },
@@ -2219,7 +2230,7 @@ const struct func_impl impl_tbl_kernel[] =
 	{ "dependency", func_dependency, tc_dependency, true },
 	{ "disabler", func_disabler, tc_disabler },
 	{ "environment", func_environment, tc_environment },
-	{ "error", func_error },
+	{ "error", func_error, .flags = func_impl_flag_throws_error },
 	{ "executable", func_executable, tc_build_target },
 	{ "files", func_files, tc_array },
 	{ "find_program", func_find_program, tc_external_program },

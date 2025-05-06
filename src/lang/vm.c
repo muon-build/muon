@@ -250,6 +250,17 @@ vm_callstack(struct workspace *wk)
 }
 
 static void
+vm_trigger_error(struct workspace *wk)
+{
+	if (wk->vm.in_analyzer) {
+		az_set_error();
+	} else {
+		wk->vm.error = true;
+		wk->vm.run = false;
+	}
+}
+
+static void
 vm_diagnostic_v(struct workspace *wk,
 	uint32_t ip,
 	enum log_level lvl,
@@ -275,12 +286,7 @@ vm_diagnostic_v(struct workspace *wk,
 	error_message(src, loc, lvl, flags, buf);
 
 	if (lvl == log_error) {
-		if (wk->vm.in_analyzer) {
-			az_set_error();
-		} else {
-			wk->vm.error = true;
-			wk->vm.run = false;
-		}
+		vm_trigger_error(wk);
 	}
 }
 
@@ -952,7 +958,12 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 		if (saw_disabler) {
 			res = obj_disabler;
 		} else {
-			vm_error(wk, "in native function '%s'", native_funcs[func_idx].name);
+			if (native_funcs[func_idx].flags & func_impl_flag_throws_error) {
+				vm_trigger_error(wk);
+			} else {
+				vm_error(wk, "in native function '%s'", native_funcs[func_idx].name);
+			}
+
 			vm_push_dummy(wk);
 			return;
 		}

@@ -37,7 +37,7 @@ const char *log_level_name[log_level_count] = {
 };
 
 const char *log_level_shortname[log_level_count] = {
-	[log_error] = "err ",
+	[log_error] = "error ",
 	[log_warn] = "warn ",
 	[log_note] = "note ",
 	[log_info] = "",

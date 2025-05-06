@@ -14,6 +14,7 @@ typedef obj (*func_impl_self_transform)(struct workspace *wk, obj self);
 enum func_impl_flag {
 	func_impl_flag_sandbox_disable = 1 << 0,
 	func_impl_flag_extension = 1 << 1,
+	func_impl_flag_throws_error = 1 << 2,
 };
 
 struct func_impl {
