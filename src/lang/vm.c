@@ -1951,11 +1951,15 @@ vm_op_member(struct workspace *wk)
 		return;
 	}
 
-	obj res;
-	res = make_obj(wk, obj_capture);
+	obj  res = make_obj(wk, obj_capture);
 	struct obj_capture *c = get_obj_capture(wk, res);
 
 	if (f) {
+		if (get_obj_type(wk, f) == obj_typeinfo) {
+			vm_push_dummy(wk);
+			return;
+		}
+
 		*c = *get_obj_capture(wk, f);
 	} else {
 		c->native_func = idx;
