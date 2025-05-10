@@ -1961,7 +1961,6 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		push_alias_target_deps_iter(wk, ctx, get_obj_both_libs(wk, val)->static_lib);
 		break;
 	}
-	/* fallthrough */
 	case obj_alias_target:
 	case obj_build_target:
 	case obj_custom_target: obj_array_push(wk, ctx->deps, val); break;
