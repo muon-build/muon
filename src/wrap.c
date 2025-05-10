@@ -879,6 +879,14 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	}
 	case wrap_handle_state_git_fetch: {
 		if (is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
+			if (!wrap_run_cmd(wk,
+				    ctx,
+				    ARGV("git", "remote", "set-url", "origin", ctx->wrap.fields[wf_url]),
+				    ctx->wrap.dest_dir.buf,
+				    0)) {
+				return false;
+			}
+
 			if (ctx->git.depth) {
 				if (!git_fetch_revision(wk, ctx, ctx->git.depth_str)) {
 					return false;
