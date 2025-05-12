@@ -23,8 +23,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: build
       run: |
-        CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build
-        build/muon-bootstrap -v setup build
+        # libpkgconf is disabled because the one provided by homebrew is arm64
+        # only.
+        ./bootstrap.sh build
+        build/muon-bootstrap -v setup -Dlibpkgconf=disabled build
         build/muon-bootstrap -C build samu
     - name: test
       run: |
@@ -32,8 +34,8 @@ jobs:
     - name: build-x86_64
       run: |
         arch -x86_64 sh -c "
-          CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG ./bootstrap.sh build-x86_64 &&\
-          build-x86_64/muon-bootstrap -v setup build-x86_64 &&\
+          ./bootstrap.sh build-x86_64 &&\
+          build-x86_64/muon-bootstrap -v setup -Dlibpkgconf=disabled build-x86_64 &&\
           build-x86_64/muon-bootstrap -C build-x86_64 samu\
         "
     - name: build-universal-binary
