@@ -1092,9 +1092,9 @@ tstr_into_str(struct workspace *wk, struct tstr *sb)
 }
 
 void
-cstr_copy(char *dest, const char *src, uint32_t dest_len)
+cstr_copy_(char *dest, const struct str* src, uint32_t dest_len)
 {
-	uint32_t src_len = strlen(src) + 1;
+	uint32_t src_len = src->len + 1;
 	assert(src_len <= dest_len);
 	memcpy(dest, src, src_len);
 }

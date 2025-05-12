@@ -147,7 +147,8 @@ obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str
 bool str_split_in_two(const struct str *s, struct str *l, struct str *r, char split);
 void str_to_lower(struct str *str);
 
-void cstr_copy(char *dest, const char *src, uint32_t dest_len);
+void cstr_copy_(char *dest, const struct str *src, uint32_t dest_len);
+#define cstr_copy(__dest, __src) cstr_copy_(__dest, __src, ARRAY_LEN(__dest));
 
 bool is_whitespace(char c);
 bool is_whitespace_except_newline(char c);

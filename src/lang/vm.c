@@ -2910,7 +2910,7 @@ vm_obj_to_struct_def(struct workspace *wk, obj def, obj o, void *s)
 			if (!typecheck_custom(wk, 0, v, expected_type, 0)) {
 				goto type_err;
 			}
-			*(const char **)dest = get_cstr(wk, v);
+			*(const struct str **)dest = get_str(wk, v);
 			break;
 		case vm_struct_type_obj: *(obj *)dest = v; break;
 		}

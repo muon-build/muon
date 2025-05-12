@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "buf_size.h"
 #include "error.h"
 #include "functions/machine.h"
 #include "lang/func_lookup.h"
@@ -128,8 +129,8 @@ struct machine_props {
 	enum machine_system system;
 	enum machine_subsystem subsystem;
 	enum endianness endian;
-	const char *cpu;
-	const char *cpu_family;
+	const struct str *cpu;
+	const struct str *cpu_family;
 };
 
 static bool
@@ -174,11 +175,11 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 	struct machine_definition *m = get_machine_for_self(wk, self);
 
 	if (props.cpu) {
-		cstr_copy(m->cpu, props.cpu, sizeof(m->cpu));
+		cstr_copy(m->cpu, props.cpu);
 	}
 
 	if (props.cpu_family) {
-		cstr_copy(m->cpu_family, props.cpu_family, sizeof(m->cpu_family));
+		cstr_copy(m->cpu_family, props.cpu_family);
 	}
 
 	if (props.system) {

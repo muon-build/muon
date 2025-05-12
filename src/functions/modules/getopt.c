@@ -23,7 +23,7 @@ struct getopt_handler {
 	bool required;
 	bool seen;
 	obj action;
-	const char *desc;
+	const struct str *desc;
 };
 
 static bool
@@ -55,7 +55,7 @@ func_module_getopt_usage(struct workspace *wk, const char *argv0, obj handlers, 
 			printf("  -%s%s - %s%s\n",
 				get_cstr(wk, k),
 				getopt_handler_requires_optarg(wk, &handler) ? " <value>" : "",
-				handler.desc,
+				handler.desc->s,
 				handler.required ? " (required)" : "");
 		}
 		printf("  -h - show this message\n");
