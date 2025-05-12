@@ -2193,7 +2193,9 @@ vm_op_iterator_next(struct workspace *wk)
 		}
 		break;
 	case obj_iterator_type_typeinfo: {
-		if (iterator->data.typeinfo.i) {
+		// Let it loop twice to catch all variables modified in this impure
+		// loop.
+		if (iterator->data.typeinfo.i > 1) {
 			should_break = true;
 			break;
 		}
