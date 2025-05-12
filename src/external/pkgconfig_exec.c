@@ -235,6 +235,9 @@ pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, ob
 	bool ok = pkgconfig_cmd(wk, &rctx, args);
 	if (ok) {
 		tstr_trim_trailing_newline(&rctx.out);
+		if (!rctx.out.len) {
+			ok = false;
+		}
 		*res = tstr_into_str(wk, &rctx.out);
 	}
 	run_cmd_ctx_destroy(&rctx);
