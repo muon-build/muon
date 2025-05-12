@@ -121,6 +121,7 @@ dependency_type_to_public_type(struct obj_dependency *d)
 	case dependency_type_threads: return dependency_public_type_system; break;
 	case dependency_type_external_library: return dependency_public_type_library; break;
 	case dependency_type_not_found: return dependency_public_type_not_found; break;
+	default: UNREACHABLE_RETURN;
 	}
 }
 
