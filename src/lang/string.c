@@ -1092,6 +1092,22 @@ tstr_into_str(struct workspace *wk, struct tstr *sb)
 }
 
 void
+tstr_trim_trailing_newline(struct tstr *sb)
+{
+	if (sb->buf[sb->len - 1] == '\n')
+	{
+		--sb->len;
+		sb->buf[sb->len] = 0;
+	}
+
+	if (sb->buf[sb->len - 1] == '\r')
+	{
+		--sb->len;
+		sb->buf[sb->len] = 0;
+	}
+}
+
+void
 cstr_copy_(char *dest, const struct str* src, uint32_t dest_len)
 {
 	uint32_t src_len = src->len + 1;

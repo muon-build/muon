@@ -83,6 +83,7 @@ void tstr_pushf(struct workspace *wk, struct tstr *sb, const char *fmt, ...) MUO
 void tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list args);
 void tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *str, uint32_t len);
 void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const struct str *str);
+void tstr_trim_trailing_newline(struct tstr *sb);
 obj tstr_into_str(struct workspace *wk, struct tstr *sb);
 
 /* str - strings
