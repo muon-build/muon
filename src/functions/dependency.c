@@ -9,7 +9,9 @@
 
 #include <string.h>
 
+#include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "external/pkgconfig.h"
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
@@ -105,6 +107,23 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var, obj 
 	return true;
 }
 
+static enum dependency_public_type
+dependency_type_to_public_type(struct obj_dependency *d)
+{
+	if (d->public_type != dependency_public_type_unset) {
+		return d->public_type;
+	}
+
+	switch (d->type) {
+	case dependency_type_pkgconf: return dependency_public_type_pkgconfig; break;
+	case dependency_type_declared: return dependency_public_type_internal; break;
+	case dependency_type_appleframeworks:
+	case dependency_type_threads: return dependency_public_type_system; break;
+	case dependency_type_external_library: return dependency_public_type_library; break;
+	case dependency_type_not_found: return dependency_public_type_not_found; break;
+	}
+}
+
 static bool
 func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 {
@@ -113,12 +132,14 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 		kw_pkgconfig,
 		kw_pkgconfig_define,
 		kw_internal,
+		kw_system,
 		kw_default_value,
 	};
 	struct args_kw akw[] = {
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
 		[kw_pkgconfig_define] = { "pkgconfig_define", TYPE_TAG_LISTIFY | obj_string },
 		[kw_internal] = { "internal", obj_string },
+		[kw_system] = { "system", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
 		0,
 	};
@@ -126,22 +147,25 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	if (an[0].set) {
-		if (!akw[kw_pkgconfig].set) {
-			akw[kw_pkgconfig].set = true;
-			akw[kw_pkgconfig].node = an[0].node;
-			akw[kw_pkgconfig].val = an[0].val;
-		}
+	uint32_t type_kwargs[] = { kw_pkgconfig, kw_internal, kw_system };
 
-		if (!akw[kw_internal].set) {
-			akw[kw_internal].set = true;
-			akw[kw_internal].node = an[0].node;
-			akw[kw_internal].val = an[0].val;
+	if (an[0].set) {
+		uint32_t i;
+		for (i = 0; i < ARRAY_LEN(type_kwargs); ++i) {
+			uint32_t kw = type_kwargs[i];
+
+			if (!akw[kw].set) {
+				akw[kw].set = true;
+				akw[kw].node = an[0].node;
+				akw[kw].val = an[0].val;
+			}
 		}
 	}
 
 	struct obj_dependency *dep = get_obj_dependency(wk, self);
-	if (dep->type == dependency_type_pkgconf) {
+
+	switch (dependency_type_to_public_type(dep)) {
+	case dependency_public_type_pkgconfig: {
 		obj defines = 0;
 		if (akw[kw_pkgconfig_define].set) {
 			if (!dep_pkgconfig_define(
@@ -151,23 +175,39 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 		}
 
 		if (akw[kw_pkgconfig].set) {
-			if (dep_get_pkgconfig_variable(wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, defines, res)) {
+			if (dep_get_pkgconfig_variable(
+				    wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, defines, res)) {
 				return true;
 			}
 		}
-	} else if (dep->variables) {
-		if (akw[kw_internal].set) {
+		break;
+	}
+	case dependency_public_type_internal: {
+		if (dep->variables && akw[kw_internal].set) {
 			if (obj_dict_index(wk, dep->variables, akw[kw_internal].val, res)) {
 				return true;
 			}
 		}
+		break;
+	}
+	case dependency_public_type_system: {
+		if (dep->variables && akw[kw_system].set) {
+			if (obj_dict_index(wk, dep->variables, akw[kw_system].val, res)) {
+				return true;
+			}
+		}
+		break;
+	}
+	case dependency_public_type_library: break;
+	case dependency_public_type_not_found: break;
+	case dependency_public_type_unset: break;
 	}
 
 	if (akw[kw_default_value].set) {
 		*res = akw[kw_default_value].val;
 		return true;
 	} else {
-		vm_error(wk, "pkgconfig file has no such variable");
+		vm_error(wk, "dependency has no such variable");
 		return false;
 	}
 }
@@ -205,13 +245,13 @@ func_dependency_type_name(struct workspace *wk, obj self, obj *res)
 	}
 
 	const char *n = NULL;
-	switch (dep->type) {
-	case dependency_type_pkgconf: n = "pkgconfig"; break;
-	case dependency_type_declared: n = "internal"; break;
-	case dependency_type_appleframeworks:
-	case dependency_type_threads: n = "system"; break;
-	case dependency_type_external_library: n = "library"; break;
-	case dependency_type_not_found: n = "not-found"; break;
+	switch (dependency_type_to_public_type(dep)) {
+	case dependency_public_type_pkgconfig: n = "pkgconfig"; break;
+	case dependency_public_type_internal: n = "internal"; break;
+	case dependency_public_type_system: n = "system"; break;
+	case dependency_public_type_library: n = "library"; break;
+	case dependency_public_type_not_found: n = "not-found"; break;
+	case dependency_public_type_unset: UNREACHABLE; break;
 	}
 
 	*res = make_str(wk, n);
@@ -303,14 +343,9 @@ func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 	enum build_dep_flag flags = 0;
 
 	switch (inc_type) {
-	case include_type_preserve:
-		break;
-	case include_type_system:
-		flags |= build_dep_flag_include_system;
-		break;
-	case include_type_non_system:
-		flags |= build_dep_flag_include_non_system;
-		break;
+	case include_type_preserve: break;
+	case include_type_system: flags |= build_dep_flag_include_system; break;
+	case include_type_non_system: flags |= build_dep_flag_include_non_system; break;
 	}
 
 	if (!(*res = dependency_dup(wk, self, flags))) {

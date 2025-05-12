@@ -335,6 +335,15 @@ enum dependency_type {
 	dependency_type_not_found,
 };
 
+enum dependency_public_type {
+	dependency_public_type_unset,
+	dependency_public_type_internal,
+	dependency_public_type_pkgconfig,
+	dependency_public_type_system,
+	dependency_public_type_library,
+	dependency_public_type_not_found,
+};
+
 enum dep_flags {
 	dep_flag_found = 1 << 0,
 };
@@ -354,6 +363,7 @@ struct obj_dependency {
 
 	enum dep_flags flags;
 	enum dependency_type type;
+	enum dependency_public_type public_type;
 	enum include_type include_type;
 	enum machine_kind machine;
 };

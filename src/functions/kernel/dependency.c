@@ -462,6 +462,7 @@ struct dependency_lookup_handler {
 		dependency_lookup_handler_type_native,
 		dependency_lookup_handler_type_capture,
 	} type;
+	enum dependency_lookup_method m;
 	union {
 		native_dependency_lookup_handler native;
 		obj capture;
@@ -478,6 +479,7 @@ dependency_lookup_handler_push_native(struct dependency_lookup_handlers *handler
 {
 	assert(handlers->len < ARRAY_LEN(handlers->e));
 	handlers->e[handlers->len].type = dependency_lookup_handler_type_native;
+	handlers->e[handlers->len].m = m;
 	handlers->e[handlers->len].handler.native = dependency_lookup_handlers[m];
 	++handlers->len;
 }
@@ -492,6 +494,7 @@ dependency_lookup_handler_push_capture(struct dependency_lookup_handlers *handle
 	} else {
 		assert(handlers->len < ARRAY_LEN(handlers->e));
 		handlers->e[handlers->len].type = dependency_lookup_handler_type_capture;
+		handlers->e[handlers->len].m = m;
 		handlers->e[handlers->len].handler.capture = o;
 		++handlers->len;
 	}
@@ -637,6 +640,25 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			if (ok) {
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 				dep->name = ctx->name;
+
+				switch (handlers.e[i].m) {
+				case dependency_lookup_method_pkgconfig: {
+					dep->public_type = dependency_public_type_pkgconfig;
+					break;
+				}
+				case dependency_lookup_method_builtin: {
+				case dependency_lookup_method_system:
+				case dependency_lookup_method_extraframework:
+					dep->public_type = dependency_public_type_system;
+					break;
+				}
+				case dependency_lookup_method_auto: break;
+				case dependency_lookup_method_sysconfig: break;
+				case dependency_lookup_method_config_tool: break;
+				case dependency_lookup_method_dub: break;
+				case dependency_lookup_method_cmake: break;
+				}
+
 				if (dep->flags & dep_flag_found) {
 					ctx->found = true;
 				}
@@ -1034,10 +1056,12 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 		}
 	} else {
 		{
-			enum machine_kind other_machine = ctx.machine == machine_kind_build ? machine_kind_host : machine_kind_build;
+			enum machine_kind other_machine = ctx.machine == machine_kind_build ? machine_kind_host :
+											      machine_kind_build;
 			enum dep_lib_mode _lib_mode;
 			if (check_dependency_override_for_machine(wk, &ctx, other_machine, &_lib_mode)) {
-				LOG_N("a dependency with the same name is available for the %s machine\n", machine_kind_to_s(other_machine));
+				LOG_N("a dependency with the same name is available for the %s machine\n",
+					machine_kind_to_s(other_machine));
 			}
 		}
 
