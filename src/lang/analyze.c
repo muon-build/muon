@@ -942,8 +942,9 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 		uint32_t idx;
 		uint32_t matches;
 	} lookup_res = { 0 };
-	type_tag t = ti->type;
 	uint32_t i;
+
+	type_tag t = flatten_type(wk, ti->type);
 
 	// Strip disabler from type list
 	if ((t & tc_disabler) == tc_disabler) {
