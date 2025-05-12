@@ -1114,7 +1114,7 @@ cstr_copy_(char *dest, const struct str* src, uint32_t dest_len)
 {
 	uint32_t src_len = src->len + 1;
 	assert(src_len <= dest_len);
-	memcpy(dest, src, src_len);
+	memcpy(dest, src->s, src_len);
 }
 
 void
