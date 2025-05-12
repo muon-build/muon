@@ -33,6 +33,7 @@ extern const struct pkgconfig_impl pkgconfig_impl_libpkgconf;
 
 extern struct pkgconfig_impl pkgconfig_impls[pkgconfig_impl_type_count];
 
+void muon_pkgconfig_init(struct workspace *wk);
 bool muon_pkgconfig_set_impl_type(struct workspace *wk, enum pkgconfig_impl_type t);
 const char *muon_pkgconfig_impl_type_to_s(enum pkgconfig_impl_type t);
 bool muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info);

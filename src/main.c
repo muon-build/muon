@@ -1222,6 +1222,8 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 	}
 
+	muon_pkgconfig_init(0);
+
 	for (i = 0; i < ARRAY_LEN(pkgconfig_impls); ++i) {
 		if (pkgconfig_impls[i].get_variable) {
 			printf("  pkgconfig:%s\n", muon_pkgconfig_impl_type_to_s(i));

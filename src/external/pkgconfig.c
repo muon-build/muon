@@ -21,7 +21,7 @@ static struct pkgconfig_state {
 const struct pkgconfig_impl pkgconfig_impl_libpkgconf = { 0 };
 #endif
 
-static void
+void
 muon_pkgconfig_init(struct workspace *wk)
 {
 	if (pkgconfig_state.init) {
@@ -32,6 +32,10 @@ muon_pkgconfig_init(struct workspace *wk)
 	pkgconfig_impls[pkgconfig_impl_type_null] = pkgconfig_impl_null;
 	pkgconfig_impls[pkgconfig_impl_type_exec] = pkgconfig_impl_exec;
 	pkgconfig_impls[pkgconfig_impl_type_libpkgconf] = pkgconfig_impl_libpkgconf;
+
+	if (!wk) {
+		return;
+	}
 
 	const struct str *opt;
 	{
