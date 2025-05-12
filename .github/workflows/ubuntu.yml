@@ -70,7 +70,7 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          build/muon-bootstrap -v setup -Dpkgconfig=libpkgconf build
+          build/muon-bootstrap -v setup -Dlibpkgconf=enabled build
           build/muon-bootstrap -C build samu
 
       - name: test_with_libpkgconf
