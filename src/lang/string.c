@@ -1100,10 +1100,12 @@ tstr_trim_trailing_newline(struct tstr *sb)
 		sb->buf[sb->len] = 0;
 	}
 
-	if (sb->buf[sb->len - 1] == '\r')
-	{
-		--sb->len;
-		sb->buf[sb->len] = 0;
+	if (sb->len) {
+		if (sb->buf[sb->len - 1] == '\r')
+		{
+			--sb->len;
+			sb->buf[sb->len] = 0;
+		}
 	}
 }
 
