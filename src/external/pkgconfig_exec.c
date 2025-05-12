@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "args.h"
+#include "buf_size.h"
 #include "external/pkgconfig.h"
 #include "functions/compiler.h"
 #include "lang/object_iterators.h"
@@ -83,16 +84,6 @@ pkgconfig_next_opt(struct pkgconfig_parse_ctx *ctx)
 	return res;
 }
 
-static char *
-pkgconfig_kill_newline(char *s)
-{
-	char *e = strrchr(s, '\n');
-	if (e) {
-		*e = 0;
-	}
-	return s;
-}
-
 static bool
 pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 {
@@ -113,8 +104,15 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 	bool ok = run_cmd(rctx, argstr, argc, 0, 0);
 	if (!ok) {
 		LOG_E("failed to run pkg-config: %s", rctx->err_msg);
-	} else if (rctx->err.len) {
-		LOG_W("%s", pkgconfig_kill_newline(rctx->err.buf));
+	} else if (rctx->status != 0) {
+		if (rctx->out.len) {
+			tstr_trim_trailing_newline(&rctx->out);
+			LOG_I("%s", rctx->out.buf);
+		}
+		if (rctx->err.len) {
+			tstr_trim_trailing_newline(&rctx->err);
+			LOG_W("%s", rctx->err.buf);
+		}
 		ok = false;
 	}
 
@@ -134,7 +132,8 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 		struct run_cmd_ctx rctx = { 0 };
 		bool ok = pkgconfig_cmd(wk, &rctx, args);
 		if (ok) {
-			strncpy(info->version, pkgconfig_kill_newline(rctx.out.buf), MAX_VERSION_LEN);
+			tstr_trim_trailing_newline(&rctx.out);
+			cstr_copy(info->version, &TSTR_STR(&rctx.out));
 		}
 		run_cmd_ctx_destroy(&rctx);
 		if (!ok) {
@@ -235,9 +234,11 @@ pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, ob
 	struct run_cmd_ctx rctx = { 0 };
 	bool ok = pkgconfig_cmd(wk, &rctx, args);
 	if (ok) {
-		*res = make_str(wk, pkgconfig_kill_newline(rctx.out.buf));
+		tstr_trim_trailing_newline(&rctx.out);
+		*res = tstr_into_str(wk, &rctx.out);
 	}
 	run_cmd_ctx_destroy(&rctx);
+
 	return ok;
 }
 
