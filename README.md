@@ -52,8 +52,8 @@ Essential:
 
 For `pkgconfig` support:
 
-- `libpkgconf` (`-Dpkgconfig=libpkgconf`)
-- Or `pkg-config` executable (`-Dpkgconfig=exec`)
+- A `pkg-config` binary
+- Or `libpkgconf` (`-Dlibpkgconf=enabled`)
 
 For `[wrap-file]` support:
 
@@ -96,9 +96,6 @@ Stage 1:
 
 This will by default build a ninja implementation (samu) into the resulting
 executable.  To disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.
-This will use `libpkgconf` if available, otherwise use the `exec` backend which
-calls `pkg-config` executable at runtime. To disable pkg-config support entirely
-use `CFLAGS=-DBOOTSTRAP_NO_PKGCONFIG`.
 
 Stage 2:
 

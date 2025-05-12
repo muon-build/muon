@@ -16,9 +16,6 @@
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
-const bool have_libpkgconf = false;
-const bool have_pkgconfig_exec = true;
-
 struct pkgconfig_parse_ctx {
 	char *beg, *end;
 };
@@ -34,26 +31,29 @@ struct pkgconfig_parse_result {
 struct pkgconfig_parse_result
 pkgconfig_next_opt(struct pkgconfig_parse_ctx *ctx)
 {
-	struct pkgconfig_parse_result res = {0};
+	struct pkgconfig_parse_result res = { 0 };
 	char *p = ctx->beg;
 	char *e = ctx->end;
 
-	for (; p < e && is_whitespace(*p); ++p) {}
+	for (; p < e && is_whitespace(*p); ++p) {
+	}
 	if (p == e) {
 		return res;
 	}
 
 	// parse the type, special casing -I, -L and -l
-	if (*p == '-' && p+1 < e) {
+	if (*p == '-' && p + 1 < e) {
 		switch (p[1]) {
-		case 'I': case 'L': case 'l':
+		case 'I':
+		case 'L':
+		case 'l':
 			res.type = p[1];
 			p += 2;
 			// unusual, but may have whitespace between, e.g "-I /dir/"
-			for (; p < e && is_whitespace(*p); ++p) {}
+			for (; p < e && is_whitespace(*p); ++p) {
+			}
 			break;
-		default:
-			res.type = PKG_CONFIG_PARSE_PASS;
+		default: res.type = PKG_CONFIG_PARSE_PASS;
 		}
 	} else {
 		res.type = PKG_CONFIG_PARSE_PASS;
@@ -121,8 +121,8 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 	return ok;
 }
 
-bool
-muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
+static bool
+pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
 {
 	L("pkg-config-exec: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
 
@@ -131,7 +131,7 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 		obj_array_push(wk, args, make_str(wk, "--modversion"));
 		obj_array_push(wk, args, name);
 
-		struct run_cmd_ctx rctx = {0};
+		struct run_cmd_ctx rctx = { 0 };
 		bool ok = pkgconfig_cmd(wk, &rctx, args);
 		if (ok) {
 			strncpy(info->version, pkgconfig_kill_newline(rctx.out.buf), MAX_VERSION_LEN);
@@ -158,15 +158,13 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 		}
 		obj_array_push(wk, args, name);
 
-		struct run_cmd_ctx rctx = {0};
+		struct run_cmd_ctx rctx = { 0 };
 		bool ok = pkgconfig_cmd(wk, &rctx, args);
 		if (!ok) {
 			goto cleanup;
 		}
 
-		struct pkgconfig_parse_ctx parse_ctx = {
-			rctx.out.buf, rctx.out.buf + rctx.out.len
-		};
+		struct pkgconfig_parse_ctx parse_ctx = { rctx.out.buf, rctx.out.buf + rctx.out.len };
 		for (;;) {
 			struct pkgconfig_parse_result res = pkgconfig_next_opt(&parse_ctx);
 			if (res.type == PKG_CONFIG_PARSE_END) {
@@ -174,13 +172,10 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 			}
 
 			switch (res.type) {
-			case 'L':
-				obj_array_push(wk, libdirs, make_str(wk, res.arg));
-				break;
+			case 'L': obj_array_push(wk, libdirs, make_str(wk, res.arg)); break;
 			case 'I': {
 				obj inc = make_obj(wk, obj_include_directory);
-				struct obj_include_directory *incp =
-					get_obj_include_directory(wk, inc);
+				struct obj_include_directory *incp = get_obj_include_directory(wk, inc);
 				incp->path = make_str(wk, res.arg);
 				incp->is_system = false;
 				obj_array_push(wk, info->includes, inc);
@@ -188,8 +183,8 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 			}
 			case 'l': {
 				enum find_library_flag flags = is_static ? find_library_flag_prefer_static : 0;
-				struct find_library_result find_result =
-					find_library(wk, compiler, res.arg, libdirs, flags);
+				struct find_library_result find_result
+					= find_library(wk, compiler, res.arg, libdirs, flags);
 				if (find_result.found) {
 					if (find_result.location == find_library_found_location_link_arg) {
 						obj_array_push(wk, info->not_found_libs, make_str(wk, res.arg));
@@ -198,7 +193,8 @@ muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static
 					}
 				} else {
 					LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
-						get_cstr(wk, name), res.arg);
+						get_cstr(wk, name),
+						res.arg);
 					obj_array_push(wk, info->not_found_libs, make_str(wk, res.arg));
 				}
 				break;
@@ -220,8 +216,8 @@ cleanup:
 	return true;
 }
 
-bool
-muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+static bool
+pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
 {
 	obj args = make_obj(wk, obj_array);
 	obj_array_push(wk, args, make_str(wk, "--variable"));
@@ -231,11 +227,12 @@ muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj 
 	if (defines) {
 		obj k, v;
 		obj_dict_for(wk, defines, k, v) {
-			obj_array_push(wk, args, make_strf(wk, "--define-variable=%s=%s", get_cstr(wk, k), get_cstr(wk, v)));
+			obj_array_push(
+				wk, args, make_strf(wk, "--define-variable=%s=%s", get_cstr(wk, k), get_cstr(wk, v)));
 		}
 	}
 
-	struct run_cmd_ctx rctx = {0};
+	struct run_cmd_ctx rctx = { 0 };
 	bool ok = pkgconfig_cmd(wk, &rctx, args);
 	if (ok) {
 		*res = make_str(wk, pkgconfig_kill_newline(rctx.out.buf));
@@ -243,3 +240,8 @@ muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj 
 	run_cmd_ctx_destroy(&rctx);
 	return ok;
 }
+
+const struct pkgconfig_impl pkgconfig_impl_exec = {
+	.lookup = pkgconfig_exec_lookup,
+	.get_variable = pkgconfig_exec_get_variable,
+};

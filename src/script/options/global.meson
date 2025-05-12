@@ -162,3 +162,11 @@ option('python.allow_limited_api', type: 'boolean', value: true)
 option('env.AR', type: 'array', value: ['ar'])
 option('env.NINJA', type: 'array', value: ['ninja'])
 option('env.PKG_CONFIG', type: 'array', value: ['pkg-config'])
+
+option(
+    'muon.pkgconfig',
+    type: 'combo',
+    value: 'auto',
+    choices: ['auto', 'null', 'exec', 'libpkgconf'],
+    description: 'Select the pkgconfig backend to use.  Auto will select libpkgconf if it is available and exec otherwise.',
+)

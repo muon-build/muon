@@ -22,9 +22,6 @@
 #include "platform/path.h"
 #include "tracy.h"
 
-const bool have_libpkgconf = true;
-const bool have_pkgconfig_exec = false;
-
 static const uint32_t libpkgconf_maxdepth = 256;
 
 struct pkgconf_client {
@@ -102,7 +99,7 @@ typedef unsigned int (*apply_func)(pkgconf_client_t *client, pkgconf_pkg_t *worl
 struct pkgconf_lookup_ctx {
 	apply_func apply_func;
 	struct workspace *wk;
-	struct pkgconf_info *info;
+	struct pkgconfig_info *info;
 	obj compiler;
 	obj libdirs;
 	obj name;
@@ -207,8 +204,8 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 	return true;
 }
 
-bool
-muon_pkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconf_info *info)
+static bool
+pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
 {
 	TracyCZoneAutoS;
 	L("libpkgconf: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
@@ -298,8 +295,8 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 	return found;
 }
 
-bool
-muon_pkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+static bool
+pkgconfig_libpkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
 {
 	struct pkgconf_client c = { 0 };
 	if (!muon_pkgconf_init(wk, &c)) {
@@ -340,3 +337,8 @@ ret:
 	muon_pkgconf_deinit(&c);
 	return ret;
 }
+
+const struct pkgconfig_impl pkgconfig_impl_libpkgconf = {
+	.lookup = pkgconfig_libpkgconf_lookup,
+	.get_variable = pkgconfig_libpkgconf_get_variable,
+};

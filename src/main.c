@@ -1088,8 +1088,11 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 				continue;
 			}
 
-			if (str_eql(&STR("vsenv"), get_str(&wk, oo->name))) {
-				opts.vsenv_force = str_eql(&STR("true"), get_str(&wk, oo->val));
+			const struct str *k = get_str(&wk, oo->name);
+			const struct str *v = get_str(&wk, oo->val);
+
+			if (str_eql(&STR("vsenv"), k)) {
+				opts.vsenv_force = str_eql(&STR("true"), v);
 			}
 		}
 	}
@@ -1205,8 +1208,6 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		bool enabled;
 	} feature_names[] = {
 		{ "libcurl", have_libcurl },
-		{ "libpkgconf", have_libpkgconf },
-		{ "pkgconfig-exec", have_pkgconfig_exec },
 		{ "libarchive", have_libarchive },
 		{ "samurai", have_samurai },
 #ifdef TRACY_ENABLE
@@ -1218,6 +1219,12 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	for (i = 0; i < ARRAY_LEN(feature_names); ++i) {
 		if (feature_names[i].enabled) {
 			printf("  %s\n", feature_names[i].name);
+		}
+	}
+
+	for (i = 0; i < ARRAY_LEN(pkgconfig_impls); ++i) {
+		if (pkgconfig_impls[i].get_variable) {
+			printf("  pkgconfig:%s\n", muon_pkgconfig_impl_type_to_s(i));
 		}
 	}
 

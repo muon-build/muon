@@ -136,9 +136,9 @@ step_build_gcc_()
 	CC=gcc tools/ci/bootstrap.sh build \
 		-Dbuildtype=release \
 		-Dwerror=true \
-		-Dpkgconfig=libpkgconf \
 		-Dlibarchive=enabled \
 		-Dlibcurl=enabled \
+		-Dlibpkgconf=enabled \
 		-Dmeson-docs=enabled \
 		-Dmeson-tests=enabled \
 		-Dman-pages="$(enabled_if_ "$cfg_website")" \
@@ -151,9 +151,9 @@ step_build_small_()
 	CC=gcc build/muon setup \
 		-Dbuildtype=minsize \
 		-Dstatic=true \
-		-Dlibcurl=disabled \
 		-Dlibarchive=disabled \
-		-Dpkgconfig=none \
+		-Dlibcurl=disabled \
+		-Dlibpkgconf=disabled \
 		build-small
 	build/muon -C build-small samu
 }

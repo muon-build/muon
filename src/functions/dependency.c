@@ -41,7 +41,7 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 		return false;
 	}
 
-	if (!muon_pkgconf_get_variable(wk, d->name, var, defines, res)) {
+	if (!muon_pkgconfig_get_variable(wk, d->name, var, defines, res)) {
 		return false;
 	}
 	return true;

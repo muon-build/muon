@@ -33,17 +33,16 @@ foreach d : [
     endif
 endforeach
 
-if get_option('pkgconfig') == 'exec'
-    dep_sources += [files('pkgconfig_exec.c')]
-    summary('pkgconfig', 'exec')
-elif get_option('pkgconfig') == 'none'
-    dep_sources += [files('pkgconfig_null.c')]
-    summary('pkgconfig', 'none')
-else
-    is_auto = get_option('pkgconfig') == 'auto'
+dep_sources += files(
+    'pkgconfig.c',
+    'pkgconfig_exec.c',
+)
+pkgconfig_impls = ['null', 'exec']
+
+if not get_option('libpkgconf').disabled()
     dep_libpkgconf = dependency(
         'libpkgconf',
-        required: is_auto != true,
+        required: get_option('libpkgconf'),
         default_options: {
             'tests': 'disabled',
             'warning_level': '1',
@@ -54,14 +53,16 @@ else
 
     if dep_libpkgconf.found()
         dep_dict += {'libpkgconf': true}
-        external_deps += [dep_libpkgconf]
-        dep_sources += [files('libpkgconf.c')]
-        summary('pkgconfig', is_auto ? 'auto (libpkgconf)' : 'libpkgconf')
-    else
-        dep_sources += [files('pkgconfig_null.c')]
-        summary('pkgconfig', 'none')
+        external_deps += declare_dependency(
+            compile_args: ['-DMUON_HAVE_LIBPKGCONF=1'],
+            dependencies: dep_libpkgconf,
+        )
+        dep_sources += files('pkgconfig_libpkgconf.c')
+        pkgconfig_impls += 'libpkgconf'
     endif
 endif
+
+summary('pkgconfig', pkgconfig_impls)
 
 if get_option('samurai').disabled()
     dep_dict += {'samurai': false}
