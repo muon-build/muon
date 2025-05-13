@@ -15,6 +15,8 @@ Diagnostics:
       # These only define symbols on some platforms
       - platform/assert\.h
       - platform/os\.h
+      # Macros only, seems to confuse things
+      - buf_size\.h
   ClangTidy:
     CheckOptions:
       bugprone-sizeof-expression.WarnOnSizeOfPointerToAggregate: false
