@@ -11,6 +11,7 @@
 #include "buf_size.h"
 #include "external/pkgconfig.h"
 #include "functions/compiler.h"
+#include "functions/kernel.h"
 #include "lang/object_iterators.h"
 #include "log.h"
 #include "options.h"
@@ -89,9 +90,29 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 {
 	obj cmd = make_obj(wk, obj_array);
 
-	obj pkgconfig_exe;
-	get_option_value(wk, NULL, "env.PKG_CONFIG", &pkgconfig_exe);
-	obj_array_extend(wk, cmd, pkgconfig_exe);
+	obj pkgconfig_cmd_arr = 0;
+
+	{
+		obj prog;
+		struct find_program_ctx ctx = {
+			.res = &prog,
+			.requirement = requirement_auto,
+			.machine = machine_kind_host,
+		};
+		if (!find_program_check_override(wk, &ctx, make_str(wk, "pkg-config"))) {
+			return false;
+		}
+
+		if (ctx.found) {
+			pkgconfig_cmd_arr = get_obj_external_program(wk, prog)->cmd_array;
+		}
+	}
+
+	if (!pkgconfig_cmd_arr) {
+		get_option_value(wk, NULL, "env.PKG_CONFIG", &pkgconfig_cmd_arr);
+	}
+
+	obj_array_extend(wk, cmd, pkgconfig_cmd_arr);
 
 	if (extra_args) {
 		obj_array_extend(wk, cmd, extra_args);

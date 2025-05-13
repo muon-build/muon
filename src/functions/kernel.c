@@ -571,7 +571,7 @@ find_program_custom_dir_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
+bool
 find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	obj override;

@@ -5,6 +5,8 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "error.h"
 #include "external/pkgconfig.h"
 #include "options.h"
@@ -14,6 +16,7 @@ struct pkgconfig_impl pkgconfig_impls[pkgconfig_impl_type_count] = { 0 };
 
 static struct pkgconfig_state {
 	enum pkgconfig_impl_type type;
+	enum option_value_source type_source;
 	bool init;
 } pkgconfig_state = { 0 };
 
@@ -21,12 +24,41 @@ static struct pkgconfig_state {
 const struct pkgconfig_impl pkgconfig_impl_libpkgconf = { 0 };
 #endif
 
+static void
+muon_pkgconfig_check_override(struct workspace *wk)
+{
+	if (!wk) {
+		return;
+	}
+
+	/* Check for pkg-config find_program override iff
+	 * - our type isn't already set to exec
+	 * - and the option was set with a lower precedence than default (i.e. the
+	 *   user didn't specify anything).
+	 *
+	 * If an override is found then set the impl type to the exec backend so
+	 * that it can take effect.
+	 */
+	if (pkgconfig_state.type == pkgconfig_impl_type_libpkgconf
+		&& pkgconfig_state.type_source <= option_value_source_default) {
+		obj _res;
+		if (obj_dict_index_str(wk, wk->find_program_overrides[machine_kind_host], "pkg-config", &_res)) {
+			// Don't use muon_pkgconfig_set_impl_type here or it will
+			// infinitely recurse
+			pkgconfig_state.type = pkgconfig_impl_type_exec;
+			pkgconfig_state.type_source = option_value_source_environment;
+		}
+	}
+}
+
 void
 muon_pkgconfig_init(struct workspace *wk)
 {
 	if (pkgconfig_state.init) {
+		muon_pkgconfig_check_override(wk);
 		return;
 	}
+
 	pkgconfig_state.init = true;
 
 	pkgconfig_impls[pkgconfig_impl_type_null] = pkgconfig_impl_null;
@@ -38,31 +70,40 @@ muon_pkgconfig_init(struct workspace *wk)
 	}
 
 	const struct str *opt;
+	struct obj_option *muon_pkgconfig;
 	{
 		obj res;
-		get_option_value(wk, current_project(wk), "muon.pkgconfig", &res);
-		opt = get_str(wk, res);
+		get_option(wk, current_project(wk), &STRL("muon.pkgconfig"), &res);
+		muon_pkgconfig = get_obj_option(wk, res);
+		opt = get_str(wk, muon_pkgconfig->val);
 	}
 
-	enum pkgconfig_impl_type requested_t = pkgconfig_impl_type_null;
 	if (str_eql(&STR("auto"), opt)) {
 		if (!muon_pkgconfig_set_impl_type(wk, pkgconfig_impl_type_libpkgconf)) {
 			muon_pkgconfig_set_impl_type(wk, pkgconfig_impl_type_exec);
 		}
-		return;
-	} else if (str_eql(&STR("null"), opt)) {
-		requested_t = pkgconfig_impl_type_null;
-	} else if (str_eql(&STR("exec"), opt)) {
-		requested_t = pkgconfig_impl_type_exec;
-	} else if (str_eql(&STR("libpkgconf"), opt)) {
-		requested_t = pkgconfig_impl_type_libpkgconf;
+
+		pkgconfig_state.type_source = option_value_source_default;
+	} else {
+		enum pkgconfig_impl_type requested_t = pkgconfig_impl_type_null;
+		if (str_eql(&STR("null"), opt)) {
+			requested_t = pkgconfig_impl_type_null;
+		} else if (str_eql(&STR("exec"), opt)) {
+			requested_t = pkgconfig_impl_type_exec;
+		} else if (str_eql(&STR("libpkgconf"), opt)) {
+			requested_t = pkgconfig_impl_type_libpkgconf;
+		}
+
+		pkgconfig_state.type_source = muon_pkgconfig->source;
+
+		if (!muon_pkgconfig_set_impl_type(wk, requested_t)) {
+			LOG_W("pkgconfig impl %s is not available, falling back to exec",
+				muon_pkgconfig_impl_type_to_s(requested_t));
+			muon_pkgconfig_set_impl_type(wk, pkgconfig_impl_type_exec);
+		}
 	}
 
-	if (!muon_pkgconfig_set_impl_type(wk, requested_t)) {
-		LOG_W("pkgconfig impl %s is not available, falling back to exec",
-			muon_pkgconfig_impl_type_to_s(requested_t));
-		muon_pkgconfig_set_impl_type(wk, pkgconfig_impl_type_exec);
-	}
+	muon_pkgconfig_check_override(wk);
 }
 
 bool

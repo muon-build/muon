@@ -24,4 +24,5 @@ struct find_program_ctx {
 };
 
 bool find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog);
+bool find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, obj prog);
 #endif
