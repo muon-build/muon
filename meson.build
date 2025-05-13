@@ -36,7 +36,7 @@ endif
 version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
-version_info.set('meson_compat', '1.5')
+version_info.set('meson_compat', '1.7')
 
 configure_file(
     configuration: version_info,
