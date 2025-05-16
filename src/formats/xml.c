@@ -29,7 +29,7 @@ xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_styl
 {
 	obj n = name ? make_str(w->wk, name) : 0;
 	obj idx = w->nodes.len;
-	obj elt;
+	obj elt = 0;
 	if (style & xml_writer_style_single_line_element) {
 		va_list p;
 		va_start(p, style);
