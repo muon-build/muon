@@ -1,9 +1,12 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
 #include "compat.h"
+
+#include <stdarg.h>
 
 #include "formats/xml.h"
 #include "lang/object_iterators.h"
@@ -13,6 +16,7 @@ struct xml_node {
 	obj name;
 	obj attr;
 	obj children;
+	obj elt;
 	enum xml_writer_style style;
 };
 
@@ -21,11 +25,19 @@ struct xml_node {
  ******************************************************************************/
 
 obj
-xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style)
+xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style, ...)
 {
 	obj n = name ? make_str(w->wk, name) : 0;
 	obj idx = w->nodes.len;
-	bucket_arr_push(&w->nodes, &(struct xml_node){ .name = n, .style = style });
+	obj elt;
+	if (style & xml_writer_style_single_line_element) {
+		va_list p;
+		va_start(p, style);
+		char *str = va_arg(p, char *);
+		elt = str ? make_str(w->wk, str) : 0;
+		va_end(p);
+	}
+	bucket_arr_push(&w->nodes, &(struct xml_node){ .name = n, .style = style, .elt = elt });
 	return idx;
 }
 
@@ -124,10 +136,17 @@ xml_write_node(struct xml_writer *w, struct xml_node *node, FILE *out)
 {
 	obj idx;
 	struct xml_node *attr;
-
 	enum xml_writer_style style = node->style ? node->style : w->_style;
 
-	const bool elt_ml = !(style & xml_writer_style_single_line_element);
+	if (node->name && style & xml_writer_style_single_line_element) {
+		fprintf(out, "<%s>%s</%s>",
+			get_cstr(w->wk, node->name),
+			get_cstr(w->wk, node->elt),
+			get_cstr(w->wk, node->name));
+		return;
+	}
+
+	const bool attr_ml = !(style & xml_writer_style_single_line_attributes);
 
 	if (node->name) {
 		fprintf(out, "<%s", get_cstr(w->wk, node->name));
@@ -137,7 +156,6 @@ xml_write_node(struct xml_writer *w, struct xml_node *node, FILE *out)
 		}
 
 		if (node->attr) {
-			const bool attr_ml = !(style & xml_writer_style_single_line_attributes);
 			xml_indent(w, attr_ml);
 
 			obj_array_for(w->wk, node->attr, idx) {
@@ -153,21 +171,27 @@ xml_write_node(struct xml_writer *w, struct xml_node *node, FILE *out)
 			fprintf(out, " ");
 		}
 
-		fprintf(out, ">");
+		if (attr_ml) {
+			fprintf(out, ">");
+		}
 	}
 
 	if (node->children) {
-		xml_indent(w, elt_ml);
+		xml_indent(w, attr_ml);
 		obj_array_for(w->wk, node->children, idx) {
-			xml_sep(w, out, elt_ml);
+			xml_sep(w, out, attr_ml);
 			xml_write_node(w, bucket_arr_get(&w->nodes, idx), out);
 		}
-		xml_dedent(w, elt_ml);
+		xml_dedent(w, attr_ml);
 	}
 
 	if (node->name) {
-		xml_sep(w, out, elt_ml);
-		fprintf(out, "</%s>", get_cstr(w->wk, node->name));
+		xml_sep(w, out, attr_ml);
+		if (attr_ml) {
+			fprintf(out, "</%s>", get_cstr(w->wk, node->name));
+		} else {
+			fprintf(out, "/>");
+		}
 	}
 }
 
