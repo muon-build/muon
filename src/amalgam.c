@@ -67,6 +67,7 @@
 #include "functions/machine.c"
 #include "functions/meson.c"
 #include "functions/modules.c"
+#include "functions/modules/curl.c"
 #include "functions/modules/fs.c"
 #include "functions/modules/getopt.c"
 #include "functions/modules/keyval.c"

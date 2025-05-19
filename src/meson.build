@@ -48,6 +48,7 @@ src = files(
     'functions/machine.c',
     'functions/meson.c',
     'functions/modules.c',
+    'functions/modules/curl.c',
     'functions/modules/fs.c',
     'functions/modules/getopt.c',
     'functions/modules/keyval.c',

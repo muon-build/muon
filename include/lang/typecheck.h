@@ -146,6 +146,7 @@ enum complex_type_preset {
 	tc_cx_enum_machine_system,
 	tc_cx_enum_machine_subsystem,
 	tc_cx_enum_machine_endian,
+	tc_cx_list_of_number,
 };
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);

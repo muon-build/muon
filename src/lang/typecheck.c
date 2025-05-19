@@ -574,6 +574,10 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 		obj values = obj_dict_index_as_obj(wk, complex_type_enum_get(wk, t), "");
 		return COMPLEX_TYPE(values, complex_type_enum);
 	}
+	case tc_cx_list_of_number: {
+		tag = make_complex_type(wk, complex_type_nested, tc_array, tc_number);
+		break;
+	}
 	default: UNREACHABLE;
 	}
 

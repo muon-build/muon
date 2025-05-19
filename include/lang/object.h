@@ -115,6 +115,7 @@ enum feature_opt_state {
 	_(toolchain, "private/toolchain", true)                                 \
 	_(subprojects, "private/subprojects", true)                             \
 	_(getopt, "private/getopt", true)                                       \
+	_(curl, "private/curl", true)                                       \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
 	_(gnome, "public/gnome", false)                                         \
