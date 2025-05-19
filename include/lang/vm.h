@@ -183,6 +183,8 @@ struct vm_ops {
 struct vm_type_registry {
 	obj structs;
 	obj enums;
+	obj docs;
+	obj top_level_docs;
 };
 
 struct vm {
@@ -288,4 +290,7 @@ void vm_struct_member_(struct workspace *wk, const char *name, const char *membe
 
 bool vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s);
 #define vm_obj_to_struct(__wk, __s, __o, __d) vm_obj_to_struct_(__wk, #__s, __o, __d)
+
+const char *vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt);
+#define vm_struct_docs(__wk, __s, __f) vm_struct_docs_(__wk, #__s, __f)
 #endif

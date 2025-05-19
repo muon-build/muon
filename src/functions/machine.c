@@ -118,7 +118,7 @@ func_machine_kernel(struct workspace *wk, obj self, obj *res)
 const struct func_impl impl_tbl_machine[] = {
 	{ "cpu", func_machine_cpu, tc_string },
 	{ "cpu_family", func_machine_cpu_family, tc_string },
-	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian)  },
+	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian) },
 	{ "system", func_machine_system, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_system) },
 	{ "kernel", func_machine_kernel, tc_string },
 	{ "subsystem", func_machine_subsystem, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_subsystem) },
@@ -136,12 +136,6 @@ struct machine_props {
 static bool
 func_machine_set_props(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_dict }, ARG_TYPE_NULL };
-
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
 	if (vm_enum(wk, endianness)) {
 		vm_enum_value(wk, endianness, big_endian);
 		vm_enum_value(wk, endianness, little_endian);
@@ -164,6 +158,13 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 		vm_struct_member(wk, machine_props, cpu_family, vm_struct_type_str);
 		vm_struct_member(wk, machine_props, endian, vm_struct_type_enum(wk, endianness));
 		vm_struct_member(wk, machine_props, system, vm_struct_type_enum(wk, machine_system));
+	}
+
+	struct args_norm an[] = { { obj_dict, .desc = vm_struct_docs(wk, machine_props, "accepted properties:\n```\n%s\n```") },
+		ARG_TYPE_NULL };
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
 	}
 
 	struct machine_props props = { 0 };
@@ -200,7 +201,7 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 const struct func_impl impl_tbl_machine_internal[] = {
 	{ "cpu", func_machine_cpu, tc_string },
 	{ "cpu_family", func_machine_cpu_family, tc_string },
-	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian)  },
+	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian) },
 	{ "system", func_machine_system, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_system) },
 	{ "kernel", func_machine_kernel, tc_string },
 	{ "subsystem", func_machine_subsystem, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_subsystem) },
