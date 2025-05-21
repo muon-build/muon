@@ -827,11 +827,11 @@ func_meson_set_external_properties(struct workspace *wk, obj _, obj *res)
 }
 
 const struct func_impl impl_tbl_meson_internal[] = {
-	{ "project", func_meson_project, tc_dict },
-	{ "register_dependency_handler", func_meson_register_dependency_handler },
-	{ "argv0", func_meson_argv0, tc_string },
-	{ "private_dir", func_meson_private_dir, tc_string },
-	{ "has_compiler", func_meson_has_compiler, tc_bool },
+	{ "project", func_meson_project, tc_dict, .desc = "return a dict containing read-only properties of the current project"  },
+	{ "register_dependency_handler", func_meson_register_dependency_handler, .desc = "register custom callbacks to run when a specific dependency lookup is invoked" },
+	{ "argv0", func_meson_argv0, tc_string, .desc = "returns the argv[0] that was used to invoke muon itself" },
+	{ "private_dir", func_meson_private_dir, tc_string, .desc = "returns the path to muon's private directory in the build folder" },
+	{ "has_compiler", func_meson_has_compiler, tc_bool, .desc = "returns whether or not a compiler for the given language has been configured"  },
 	{ "set_external_properties", func_meson_set_external_properties, .desc = "set properties to be accessed by meson.get_cross_property() and meson.get_external_property()"  },
 	{ NULL, NULL },
 };
