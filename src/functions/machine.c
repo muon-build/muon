@@ -158,6 +158,7 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 		vm_struct_member(wk, machine_props, cpu_family, vm_struct_type_str);
 		vm_struct_member(wk, machine_props, endian, vm_struct_type_enum(wk, endianness));
 		vm_struct_member(wk, machine_props, system, vm_struct_type_enum(wk, machine_system));
+		vm_struct_member(wk, machine_props, subsystem, vm_struct_type_enum(wk, machine_subsystem));
 	}
 
 	struct args_norm an[] = { { obj_dict, .desc = vm_struct_docs(wk, machine_props, "accepted properties:\n```\n%s\n```") },
