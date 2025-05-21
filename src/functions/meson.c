@@ -518,6 +518,22 @@ func_meson_add_dist_script(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
+meson_get_property(struct workspace *wk, obj dict, obj key, obj fallback, obj *res)
+{
+	if (obj_dict_index(wk, dict, key, res)) {
+		return true;
+	}
+
+	if (fallback) {
+		*res = fallback;
+		return true;
+	}
+
+	vm_error(wk,"unknown property %o", key);
+	return false;
+}
+
+static bool
 func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
@@ -526,14 +542,7 @@ func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	if (an[1].set) {
-		*res = an[1].val;
-	} else {
-		vm_error_at(wk, an[0].node, "TODO: get cross property");
-		return false;
-	}
-
-	return true;
+	return meson_get_property(wk, wk->machine_properties[machine_kind_host], an[0].val, an[1].val, res);
 }
 
 static bool
@@ -552,14 +561,8 @@ func_meson_get_external_property(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	if (an[1].set) {
-		*res = an[1].val;
-	} else {
-		vm_error_at(wk, an[0].node, "TODO: get external property");
-		return false;
-	}
-
-	return true;
+	return meson_get_property(
+		wk, wk->machine_properties[coerce_machine_kind(wk, &akw[kw_native])], an[0].val, an[1].val, res);
 }
 
 static bool
@@ -798,11 +801,37 @@ func_meson_has_compiler(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static bool
+func_meson_set_external_properties(struct workspace *wk, obj _, obj *res)
+{
+	struct args_norm an[] = { { COMPLEX_TYPE_PRESET(tc_cx_dict_of_str) }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
+
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	obj *dest = &wk->machine_properties[coerce_machine_kind(wk, &akw[kw_native])];
+
+	obj merged;
+	obj_dict_merge(wk, *dest, an[0].val, &merged);
+	*dest = merged;
+
+	return true;
+}
+
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict },
 	{ "register_dependency_handler", func_meson_register_dependency_handler },
 	{ "argv0", func_meson_argv0, tc_string },
 	{ "private_dir", func_meson_private_dir, tc_string },
 	{ "has_compiler", func_meson_has_compiler, tc_bool },
+	{ "set_external_properties", func_meson_set_external_properties, .desc = "set properties to be accessed by meson.get_cross_property() and meson.get_external_property()"  },
 	{ NULL, NULL },
 };

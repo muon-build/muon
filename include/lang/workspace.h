@@ -65,6 +65,8 @@ struct workspace {
 	obj dep_overrides_static[machine_kind_count], dep_overrides_dynamic[machine_kind_count];
 	/* overridden find_program dict */
 	obj find_program_overrides[machine_kind_count];
+	/* dict[str] */
+	obj machine_properties[machine_kind_count];
 
 	/* TODO host machine dict */
 	obj host_machine;

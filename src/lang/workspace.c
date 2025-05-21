@@ -141,6 +141,7 @@ workspace_init_runtime(struct workspace *wk)
 		wk->dep_overrides_static[i] = make_obj(wk, obj_dict);
 		wk->dep_overrides_dynamic[i] = make_obj(wk, obj_dict);
 		wk->find_program_overrides[i] = make_obj(wk, obj_dict);
+		wk->machine_properties[i] = make_obj(wk, obj_dict);
 	}
 }
 

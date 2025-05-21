@@ -578,6 +578,10 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 		tag = make_complex_type(wk, complex_type_nested, tc_array, tc_number);
 		break;
 	}
+	case tc_cx_dict_of_str: {
+		tag = make_complex_type(wk, complex_type_nested, tc_dict, tc_string);
+		break;
+	}
 	default: UNREACHABLE;
 	}
 
