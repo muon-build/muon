@@ -90,7 +90,11 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 				return false;
 			}
 
-			path_join(wk, buf, home, &s[1]);
+			if (s[1] == '/' && s[2]) {
+				path_join(wk, buf, home, &s[2]);
+			} else {
+				path_copy(wk, buf, home);
+			}
 		} else if (opts & fix_file_path_noabs) {
 			path_copy(wk, buf, s);
 		} else {
