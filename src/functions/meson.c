@@ -222,13 +222,19 @@ func_meson_backend(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
+is_cross_build(void)
+{
+	return !machine_definitions_eql(&build_machine, &host_machine);
+}
+
+static bool
 func_meson_is_cross_build(struct workspace *wk, obj _, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = make_obj_bool(wk, false);
+	*res = make_obj_bool(wk, is_cross_build());
 	return true;
 }
 
@@ -572,7 +578,9 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	*res = make_obj_bool(wk, true); // TODO: can return false in cross compile
+	// TODO: This could actually still be true even when cross compiling if an
+	// exe wrapper is defined.  But muon doesn't support that yet.
+	*res = make_obj_bool(wk, !is_cross_build());
 	return true;
 }
 

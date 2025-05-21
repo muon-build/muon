@@ -400,3 +400,9 @@ machine_matches(enum machine_kind a, enum machine_kind b)
 {
 	return a == machine_kind_either || a == b;
 }
+
+bool machine_definitions_eql(struct machine_definition *a, struct machine_definition *b)
+{
+	return a->sys == b->sys && a->subsystem == b->subsystem && a->endianness == b->endianness
+	       && a->address_bits == b->address_bits && strcmp(a->cpu, b->cpu) == 0;
+}

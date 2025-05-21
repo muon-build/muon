@@ -97,4 +97,5 @@ void machine_parse_and_apply_triplet(struct machine_definition *m, const char *s
 void machine_init(void);
 
 bool machine_matches(enum machine_kind a, enum machine_kind b);
+bool machine_definitions_eql(struct machine_definition *a, struct machine_definition *b);
 #endif
