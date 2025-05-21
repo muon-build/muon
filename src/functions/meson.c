@@ -749,22 +749,6 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 }
 
 static bool
-func_meson_register_finalizer(struct workspace *wk, obj _, obj *res)
-{
-	struct args_norm an[] = {
-		{ tc_capture },
-		ARG_TYPE_NULL,
-	};
-
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	obj_array_push(wk, wk->finalizers, an[0].val);
-	return true;
-}
-
-static bool
 func_meson_argv0(struct workspace *wk, obj _, obj *res)
 {
 	if (!pop_args(wk, 0, 0)) {
@@ -817,7 +801,6 @@ func_meson_has_compiler(struct workspace *wk, obj _, obj *res)
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict },
 	{ "register_dependency_handler", func_meson_register_dependency_handler },
-	{ "register_finalizer", func_meson_register_finalizer },
 	{ "argv0", func_meson_argv0, tc_string },
 	{ "private_dir", func_meson_private_dir, tc_string },
 	{ "has_compiler", func_meson_has_compiler, tc_bool },

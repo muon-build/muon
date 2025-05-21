@@ -133,7 +133,6 @@ workspace_init_runtime(struct workspace *wk)
 	wk->global_opts = make_obj(wk, obj_dict);
 	wk->compiler_check_cache = make_obj(wk, obj_dict);
 	wk->dependency_handlers = make_obj(wk, obj_dict);
-	wk->finalizers = make_obj(wk, obj_array);
 
 	for (uint32_t i = 0; i < machine_kind_count; ++i) {
 		wk->toolchains[i] = make_obj(wk, obj_dict);
@@ -477,14 +476,6 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 		log_raw("\033[0K");
 	} else {
 		log_plain(log_info, "\n");
-	}
-
-	obj finalizer;
-	obj_array_for(wk, wk->finalizers, finalizer) {
-		obj _;
-		if (!vm_eval_capture(wk, finalizer, 0, 0, &_)) {
-			goto ret;
-		}
 	}
 
 	if (!backend_output(wk)) {

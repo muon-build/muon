@@ -88,8 +88,6 @@ struct workspace {
 	obj dependency_handlers;
 	/* list[str], used for error reporting */
 	obj backend_output_stack;
-	/* list[capture] */
-	obj finalizers;
 	/* ----------------- */
 
 	struct vm vm;
