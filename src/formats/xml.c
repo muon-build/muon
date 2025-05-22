@@ -6,8 +6,6 @@
 
 #include "compat.h"
 
-#include <stdarg.h>
-
 #include "formats/xml.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
@@ -25,17 +23,13 @@ struct xml_node {
  ******************************************************************************/
 
 obj
-xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style, ...)
+xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style, const char *element)
 {
 	obj n = name ? make_str(w->wk, name) : 0;
 	obj idx = w->nodes.len;
 	obj elt = 0;
-	if (style & xml_writer_style_single_line_element) {
-		va_list p;
-		va_start(p, style);
-		char *str = va_arg(p, char *);
-		elt = str ? make_str(w->wk, str) : 0;
-		va_end(p);
+	if (style & xml_writer_style_single_line_element && element) {
+		elt = make_str(w->wk, element);
 	}
 	bucket_arr_push(&w->nodes, &(struct xml_node){ .name = n, .style = style, .elt = elt });
 	return idx;
@@ -44,7 +38,7 @@ xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_styl
 obj
 xml_node_new(struct xml_writer *w, const char *name)
 {
-	return xml_node_new_styled(w, name, 0);
+	return xml_node_new_styled(w, name, 0, NULL);
 }
 
 void

@@ -29,7 +29,7 @@ void xml_writer_init(struct workspace *wk, struct xml_writer *w);
 void xml_writer_destroy(struct xml_writer *w);
 
 obj xml_node_new(struct xml_writer *w, const char *name);
-obj xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style, ...);
+obj xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_style style, const char *element);
 void xml_node_push_attr(struct xml_writer *w, obj idx, const char *key, obj v);
 void xml_node_push_child(struct xml_writer *w, obj idx, obj child);
 
