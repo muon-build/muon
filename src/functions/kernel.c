@@ -579,11 +579,11 @@ find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, 
 		return true;
 	}
 
-	obj over = 0, op;
+	obj override_version = 0, op;
 	switch (get_obj_type(wk, override)) {
 	case obj_array:
 		op = obj_array_index(wk, override, 0);
-		over = obj_array_index(wk, override, 1);
+		override_version = obj_array_index(wk, override, 1);
 		break;
 	case obj_python_installation:
 	case obj_external_program:
@@ -595,17 +595,14 @@ find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, 
 		}
 
 		if (ctx->version) {
-			find_program_guess_version(wk, ep->cmd_array, ctx->version_argument, &over);
+			find_program_guess_version(wk, ep->cmd_array, ctx->version_argument, &override_version);
 		}
 		break;
 	default: UNREACHABLE;
 	}
 
-	if (ctx->version && over) {
-		bool comparison_result;
-		if (!version_compare(wk, ctx->version_node, get_str(wk, over), ctx->version, &comparison_result)) {
-			return false;
-		} else if (!comparison_result) {
+	if (ctx->version && override_version) {
+		if (!version_compare_list(wk, get_str(wk, override_version), ctx->version)) {
 			return true;
 		}
 	}
@@ -817,10 +814,7 @@ found: {
 			return true; // no version to check against
 		}
 
-		bool comparison_result;
-		if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
-			return false;
-		} else if (!comparison_result) {
+		if (!version_compare_list(wk, get_str(wk, ver), ctx->version)) {
 			return true;
 		}
 	}

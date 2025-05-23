@@ -192,18 +192,13 @@ check_dependency_cache(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *re
 }
 
 static bool
-check_dependency_version(struct workspace *wk, obj dep_ver_str, uint32_t err_node, obj ver, bool *res)
+check_dependency_version(struct workspace *wk, obj dep_ver_str, obj ver)
 {
 	if (!ver) {
-		*res = true;
 		return true;
 	}
 
-	if (!version_compare(wk, err_node, get_str(wk, dep_ver_str), ver, res)) {
-		return false;
-	}
-
-	return true;
+	return version_compare_list(wk, get_str(wk, dep_ver_str), ver);
 }
 
 static bool
@@ -311,10 +306,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	}
 
 	obj ver_str = make_str(wk, info.version);
-	bool ver_match;
-	if (!check_dependency_version(wk, ver_str, ctx->err_node, ctx->versions->val, &ver_match)) {
-		return false;
-	} else if (!ver_match) {
+	if (!check_dependency_version(wk, ver_str, ctx->versions->val)) {
 		obj_lprintf(wk,
 			log_note,
 			"pkgconf found dependency %o, but the version %o does not match the requested version %o\n",
@@ -589,14 +581,8 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 				LO("found %o in cache\n", ctx->name);
 			}
 
-			bool ver_match;
 			struct obj_dependency *dep = get_obj_dependency(wk, cached_dep);
-			if (!check_dependency_version(
-				    wk, dep->version, ctx->versions->node, ctx->versions->val, &ver_match)) {
-				return false;
-			}
-
-			if (!ver_match) {
+			if (!check_dependency_version(wk, dep->version, ctx->versions->val)) {
 				return true;
 			}
 

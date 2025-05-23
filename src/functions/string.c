@@ -12,10 +12,13 @@
 
 #include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "functions/string.h"
 #include "lang/func_lookup.h"
 #include "lang/lexer.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
+#include "platform/assert.h"
 #include "rpmvercmp.h"
 #include "util.h"
 
@@ -249,17 +252,11 @@ func_join(struct workspace *wk, obj self, obj *res)
 	return obj_array_join(wk, true, an[0].val, self, res);
 }
 
-struct version_compare_ctx {
-	bool res;
-	uint32_t err_node;
-	const struct str *ver1;
-};
-
-static enum iteration_result
-version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
+static bool
+version_compare(const struct str *ver1, const struct str *_ver2)
 {
-	struct version_compare_ctx *ctx = _ctx;
-	struct str ver2 = *get_str(wk, s2);
+	struct str ver2 = *_ver2;
+
 	enum op_type {
 		op_ge,
 		op_gt,
@@ -274,34 +271,13 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 		const struct str name;
 		enum op_type op;
 	} ops[] = {
-		{
-			STR(">="),
-			op_ge,
-		},
-		{
-			STR(">"),
-			op_gt,
-		},
-		{
-			STR("=="),
-			op_eq,
-		},
-		{
-			STR("!="),
-			op_ne,
-		},
-		{
-			STR("<="),
-			op_le,
-		},
-		{
-			STR("<"),
-			op_lt,
-		},
-		{
-			STR("="),
-			op_eq,
-		},
+		{ STR(">="), op_ge },
+		{ STR(">"), op_gt },
+		{ STR("=="), op_eq },
+		{ STR("!="), op_ne },
+		{ STR("<="), op_le },
+		{ STR("<"), op_lt },
+		{ STR("="), op_eq },
 	};
 
 	uint32_t i;
@@ -314,37 +290,29 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 		}
 	}
 
-	int8_t cmp = rpmvercmp(ctx->ver1, &ver2);
+	int8_t cmp = rpmvercmp(ver1, &ver2);
 
 	switch (op) {
-	case op_eq: ctx->res = cmp == 0; break;
-	case op_ne: ctx->res = cmp != 0; break;
-	case op_gt: ctx->res = cmp == 1; break;
-	case op_ge: ctx->res = cmp >= 0; break;
-	case op_lt: ctx->res = cmp == -1; break;
-	case op_le: ctx->res = cmp <= 0; break;
+	case op_eq: return cmp == 0; break;
+	case op_ne: return cmp != 0; break;
+	case op_gt: return cmp == 1; break;
+	case op_ge: return cmp >= 0; break;
+	case op_lt: return cmp == -1; break;
+	case op_le: return cmp <= 0; break;
+	default: UNREACHABLE_RETURN;
 	}
-
-	if (!ctx->res) {
-		return ir_done;
-	}
-
-	return ir_cont;
 }
 
 bool
-version_compare(struct workspace *wk, uint32_t err_node, const struct str *ver, obj cmp_arr, bool *res)
+version_compare_list(struct workspace *wk, const struct str *ver, obj cmp_arr)
 {
-	struct version_compare_ctx ctx = {
-		.err_node = err_node,
-		.ver1 = ver,
-	};
-
-	if (!obj_array_foreach(wk, cmp_arr, &ctx, version_compare_iter)) {
-		return false;
+	obj o;
+	obj_array_for(wk, cmp_arr, o) {
+		if (!version_compare(ver, get_str(wk, o))) {
+			return false;
+		}
 	}
 
-	*res = ctx.res;
 	return true;
 }
 
@@ -357,16 +325,9 @@ func_version_compare(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	struct version_compare_ctx ctx = {
-		.err_node = an[0].node,
-		.ver1 = get_str(wk, self),
-	};
+	bool matches = version_compare(get_str(wk, self), get_str(wk, an[0].val));
 
-	if (version_compare_iter(wk, &ctx, an[0].val) == ir_err) {
-		return false;
-	}
-
-	*res = make_obj_bool(wk, ctx.res);
+	*res = make_obj_bool(wk, matches);
 	return true;
 }
 

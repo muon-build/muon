@@ -35,10 +35,11 @@ subproject_prepare(struct workspace *wk,
 
 		path_dirname(wk, &base_path, *cwd);
 
-		struct wrap_handle_ctx wrap_ctx = { .opts = {
-			.allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
-			.subprojects = base_path.buf,
-		} };
+		struct wrap_handle_ctx wrap_ctx
+			= { .opts = {
+				    .allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
+				    .subprojects = base_path.buf,
+			    } };
 		if (!wrap_handle(wk, wrap_path.buf, &wrap_ctx)) {
 			goto wrap_cleanup;
 		}
@@ -149,13 +150,7 @@ subproject(struct workspace *wk,
 	if (versions && versions->set) {
 		struct project *subp = arr_get(&wk->projects, subproject_id);
 
-		bool compare_result;
-		if (!version_compare(
-			    wk, versions->node, get_str(wk, subp->cfg.version), versions->val, &compare_result)) {
-			goto not_found;
-		}
-
-		if (!compare_result) {
+		if (!version_compare_list(wk, get_str(wk, subp->cfg.version), versions->val)) {
 			if (req == requirement_required) {
 				vm_error_at(wk,
 					versions->node,
