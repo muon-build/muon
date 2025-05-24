@@ -36,6 +36,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "version.h"
 #include "wrap.h"
 
 static bool
@@ -653,6 +654,25 @@ find_program_check_fallback(struct workspace *wk, struct find_program_ctx *ctx, 
 }
 
 bool
+find_program_check_version(struct workspace *wk, struct find_program_ctx *ctx, obj ver)
+{
+	if (!ctx->version) {
+		return true;
+	}
+
+	if (!ver) {
+		return true; // no version to check against
+	}
+
+	if (!version_compare_list(wk, get_str(wk, ver), ctx->version)) {
+		LO("version %o does not meet requirement: %o\n", ver, ctx->version);
+		return false;
+	}
+
+	return true;
+}
+
+bool
 find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	const char *str;
@@ -693,11 +713,6 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 		const bool is_meson = strcmp(str, "meson") == 0;
 		const bool is_muon = !is_meson && strcmp(str, "muon") == 0;
 		if (is_meson || is_muon) {
-			*ctx->res = make_obj(wk, obj_external_program);
-			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-			ep->found = true;
-			ep->cmd_array = make_obj(wk, obj_array);
-
 			const char *argv0_resolved;
 			TSTR(argv0);
 			if (fs_find_cmd(wk, &argv0, wk->argv0)) {
@@ -705,12 +720,27 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 			} else {
 				argv0_resolved = wk->argv0;
 			}
-			obj_array_push(wk, ep->cmd_array, make_str(wk, argv0_resolved));
+
+			obj ver = 0, cmd_array = make_obj(wk, obj_array);
+			obj_array_push(wk, cmd_array, make_str(wk, argv0_resolved));
 
 			if (is_meson) {
-				obj_array_push(wk, ep->cmd_array, make_str(wk, "meson"));
+				obj_array_push(wk, cmd_array, make_str(wk, "meson"));
+				ver = make_str(wk, muon_version.meson_compat);
+			} else {
+				ver = make_str(wk, muon_version.version);
 			}
 
+			if (!find_program_check_version(wk, ctx, ver)) {
+				return true;
+			}
+
+			*ctx->res = make_obj(wk, obj_external_program);
+			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+			ep->found = true;
+			ep->cmd_array = cmd_array;
+			ep->ver = ver;
+			ep->guessed_ver = true;
 			ctx->found = true;
 			return true;
 		}
@@ -810,11 +840,7 @@ found: {
 		find_program_guess_version(wk, cmd_array, ctx->version_argument, &ver);
 		guessed_ver = true;
 
-		if (!ver) {
-			return true; // no version to check against
-		}
-
-		if (!version_compare_list(wk, get_str(wk, ver), ctx->version)) {
+		if (!find_program_check_version(wk, ctx, ver)) {
 			return true;
 		}
 	}
