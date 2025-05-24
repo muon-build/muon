@@ -212,6 +212,17 @@ func_project(struct workspace *wk, obj _, obj *res)
 	}
 #endif
 
+	if (akw[kw_meson_version].set) {
+		if (!version_compare(&STRL(muon_version.meson_compat), get_str(wk, akw[kw_meson_version].val))) {
+			vm_error_at(wk,
+				akw[kw_meson_version].node,
+				"meson compatibility version %s does not meet requirement: %o",
+				muon_version.meson_compat,
+				akw[kw_meson_version].val);
+			return false;
+		}
+	}
+
 	obj val;
 	obj_array_for(wk, an[1].val, val) {
 		bool _found;
