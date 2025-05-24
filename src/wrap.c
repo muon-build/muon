@@ -539,7 +539,7 @@ wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap)
 	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), 0);
 	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), 0);
 
-	path_basename(NULL, &wrap->name, wrap_file);
+	path_basename(wk, &wrap->name, wrap_file);
 
 	const struct str name = { .s = wrap->name.buf, .len = wrap->name.len }, ext = STR(".wrap");
 
@@ -554,8 +554,8 @@ wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap)
 		dir = wrap->name.buf;
 	}
 
-	path_dirname(NULL, &subprojects, wrap_file);
-	path_join(NULL, &wrap->dest_dir, subprojects.buf, dir);
+	path_dirname(wk, &subprojects, wrap_file);
+	path_join(wk, &wrap->dest_dir, subprojects.buf, dir);
 
 	res = true;
 ret:
