@@ -14,6 +14,7 @@ enum format_cb_result {
 	format_cb_skip,
 };
 
+bool version_compare(const struct str *ver1, const struct str *_ver2);
 bool version_compare_list(struct workspace *wk, const struct str *ver, obj cmp_arr);
 
 typedef enum format_cb_result(

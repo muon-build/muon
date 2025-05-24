@@ -252,7 +252,7 @@ func_join(struct workspace *wk, obj self, obj *res)
 	return obj_array_join(wk, true, an[0].val, self, res);
 }
 
-static bool
+bool
 version_compare(const struct str *ver1, const struct str *_ver2)
 {
 	struct str ver2 = *_ver2;
