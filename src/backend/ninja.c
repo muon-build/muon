@@ -139,6 +139,16 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 		ninja_coverage_write_targets(wk, out);
 	}
 
+	{ // Add install target for compatibility with meson
+		fprintf(out,
+			"build install: phony muon-internal__install\n"
+			"build muon-internal__install: CUSTOM_COMMAND\n"
+			" desc = Installing$ files\n"
+			" COMMAND = %s install\n"
+			" pool = console\n\n",
+			wk->argv0);
+	}
+
 	if (!wrote_default) {
 		fprintf(out,
 			"build muon_do_nothing: phony\n"
@@ -173,7 +183,8 @@ ninja_write_all(struct workspace *wk)
 			obj_array_push(wk, args, make_str(wk, "restat"));
 			obj_array_push(wk, args, make_str(wk, "build.ninja"));
 
-			ninja_run(wk, args, wk->build_root, 0, ninja_run_flag_ignore_errors | ninja_run_flag_prefer_ninja);
+			ninja_run(
+				wk, args, wk->build_root, 0, ninja_run_flag_ignore_errors | ninja_run_flag_prefer_ninja);
 		}
 	}
 
