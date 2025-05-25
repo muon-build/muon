@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "sha_256.h"
@@ -286,5 +287,15 @@ calc_sha_256(uint8_t hash[32], const void *input, size_t len)
 		hash[j++] = (uint8_t)(h[i] >> 16);
 		hash[j++] = (uint8_t)(h[i] >> 8);
 		hash[j++] = (uint8_t)h[i];
+	}
+}
+
+void
+sha256_to_str(uint8_t hash[32], char str[65])
+{
+	uint32_t i, bufi = 0;
+	for (i = 0; i < 32; ++i) {
+		snprintf(&str[bufi], 3, "%02x", hash[i]);
+		bufi += 2;
 	}
 }

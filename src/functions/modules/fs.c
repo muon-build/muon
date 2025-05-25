@@ -367,11 +367,7 @@ func_module_fs_hash(struct workspace *wk, obj self, obj *res)
 	calc_sha_256(hash, src.src, src.len); // TODO: other hash algos
 
 	char buf[65] = { 0 };
-	uint32_t i, bufi = 0;
-	for (i = 0; i < 32; ++i) {
-		snprintf(&buf[bufi], 3, "%x", hash[i]);
-		bufi += 2;
-	}
+	sha256_to_str(hash, buf);
 
 	*res = make_str(wk, buf);
 

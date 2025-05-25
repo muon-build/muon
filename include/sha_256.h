@@ -10,4 +10,5 @@
 #include <stdint.h>
 
 void calc_sha_256(uint8_t hash[32], const void *input, size_t len);
+void sha256_to_str(uint8_t hash[32], char str[65]);
 #endif
