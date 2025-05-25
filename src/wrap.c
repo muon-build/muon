@@ -25,6 +25,8 @@
 #include "tracy.h"
 #include "wrap.h"
 
+static const char *meson_subproject_wrap_hash_txt = ".meson-subproject-wrap-hash.txt";
+
 static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_directory] = "directory",
 	[wf_patch_url] = "patch_url",
@@ -812,6 +814,22 @@ wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 }
 
 static bool
+wrap_hash(const char *wrap_file, char buf[65])
+{
+	struct source src;
+	if (!fs_read_entire_file(wrap_file, &src)) {
+		return false;
+	}
+
+	uint8_t hash[32];
+	calc_sha_256(hash, src.src, src.len);
+	sha256_to_str(hash, buf);
+	fs_source_destroy(&src);
+
+	return true;
+}
+
+static bool
 is_git_dir(struct workspace *wk, const char *dir)
 {
 	TSTR(git_dir);
@@ -1114,10 +1132,31 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		}
 
 		switch (ctx->wrap.type) {
-		case wrap_type_file:
-			// We currently have no way of checking if this wrap type is dirty
+		case wrap_type_file: {
+			if (ctx->wrap.fields[wf_source_url]) {
+				ctx->wrap.outdated = true;
+
+				TSTR(hash_path);
+				path_join(wk, &hash_path, ctx->wrap.dest_dir.buf, meson_subproject_wrap_hash_txt);
+
+				if (fs_file_exists(hash_path.buf)) {
+					char buf[65] = { 0 };
+					if (!wrap_hash(wrap_file, buf)) {
+						return false;
+					}
+
+					struct source src;
+					if (fs_read_entire_file(hash_path.buf, &src)) {
+						if (src.len >= 64 && memcmp(buf, src.src, 64) == 0) {
+							ctx->wrap.outdated = false;
+						}
+					}
+				}
+			}
+
 			wrap_handle_check_dirty_next_state(wk, ctx);
 			return true;
+		}
 		case wrap_type_git: {
 			if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
 				wrap_handle_check_dirty_next_state(wk, ctx);
@@ -1212,6 +1251,23 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				return false;
 			}
 		}
+
+		if (ctx->wrap.updated && ctx->wrap.type == wrap_type_file) {
+			char buf[66] = { 0 };
+			if (!wrap_hash(wrap_file, buf)) {
+				return false;
+			}
+
+			buf[65] = '\n';
+
+			TSTR(hash_path);
+			path_join(wk, &hash_path, ctx->wrap.dest_dir.buf, meson_subproject_wrap_hash_txt);
+
+			if (!fs_write(hash_path.buf, (uint8_t *)buf, 64)) {
+				return false;
+			}
+		}
+
 		wrap_set_state(ctx, wrap_handle_state_done);
 		return true;
 	}
