@@ -787,7 +787,6 @@ wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	wrap_set_state(ctx, wrap_handle_state_apply_patch);
 	ctx->wrap.updated = true;
-	ctx->wrap.apply_patch = true;
 
 	const char *dest;
 	if (!ctx->wrap.fields[wf_source_filename]) {
@@ -854,8 +853,6 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
 	switch (ctx->state) {
 	case wrap_handle_state_git_init: {
-		ctx->wrap.apply_patch = true;
-
 		if (ctx->wrap.fields[wf_depth]) {
 			if (!str_to_i(&STRL(ctx->wrap.fields[wf_depth]), &ctx->git.depth, true)) {
 				wrap_log(ctx, log_error, "invalid value for depth: '%s'", ctx->wrap.fields[wf_depth]);
@@ -1210,7 +1207,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		return wrap_handle_git(wk, ctx);
 	}
 	case wrap_handle_state_apply_patch: {
-		if (ctx->wrap.apply_patch || ctx->wrap.fields[wf_patch_directory]) {
+		if (ctx->wrap.fields[wf_patch_directory]) {
 			if (!wrap_apply_patch(wk, ctx)) {
 				return false;
 			}

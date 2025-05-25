@@ -63,7 +63,7 @@ struct wrap {
 	char *buf;
 	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
 	struct tstr dest_dir, name;
-	bool dirty, outdated, updated, apply_patch;
+	bool dirty, outdated, updated;
 };
 
 enum wrap_provides_key {
