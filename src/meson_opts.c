@@ -361,6 +361,14 @@ translate_meson_opts_setup_callback(struct workspace *wk,
 }
 
 static bool
+mo_dir_has_build_file(struct workspace *wk, const char *dir)
+{
+	TSTR(buf);
+	path_join(wk, &buf, dir, "meson.build");
+	return fs_file_exists(buf.buf);
+}
+
+static bool
 translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, struct translate_meson_opts_ctx *ctx)
 {
 	struct meson_option_spec opts[] = {
@@ -428,23 +436,53 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		return false;
 	}
 
-	if (get_obj_array(wk, ctx->stray_args)->len == 2) {
-		// We were passed a source dir and a build dir.  This can be
-		// accomplished in muon via -C <source> setup <build>, with the
-		// additional requirement that the build dir be specified
-		// relative to the source dir, or absolute.
-		obj build, src;
-		build = obj_array_index(wk, ctx->stray_args, 0);
-		src = obj_array_index(wk, ctx->stray_args, 1);
+	// Perform the absolutely bonkers handling of source dir and build dir that
+	// meson does.
+	//
+	// Note that `usage: meson setup ... [builddir] [sourcedir]` is a lie since
+	// meson silently swaps builddir with sourcedir if it determines that
+	// builddir has a meson.build file in it.
 
-		TSTR(build_dir);
-		path_make_absolute(wk, &build_dir, get_cstr(wk, build));
+	obj dir1 = 0, dir2 = 0;
 
-		obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", get_cstr(wk, src)));
+	if (get_obj_array(wk, ctx->stray_args)->len == 0) {
+		dir1 = make_str(wk, path_cwd());
+		if (!mo_dir_has_build_file(wk, ".") && mo_dir_has_build_file(wk, "..")) {
+			TSTR(buf);
+			path_make_absolute(wk, &buf, "..");
+			dir2 = tstr_into_str(wk, &buf);
+		} else {
+			LOG_E("unable to guess values for source dir and build dir");
+			return false;
+		}
+	} else if (get_obj_array(wk, ctx->stray_args)->len == 1) {
+		obj dir = obj_array_index(wk, ctx->stray_args, 0);
 
-		ctx->stray_args = make_obj(wk, obj_array);
-		obj_array_push(wk, ctx->stray_args, tstr_into_str(wk, &build_dir));
+		TSTR(buf);
+		path_make_absolute(wk, &buf, get_str(wk, dir)->s);
+		dir1 = tstr_into_str(wk, &buf);
+		dir2 = make_str(wk, path_cwd());
+	} else if (get_obj_array(wk, ctx->stray_args)->len == 2) {
+		dir1 = obj_array_index(wk, ctx->stray_args, 0);
+		dir2 = obj_array_index(wk, ctx->stray_args, 1);
+	} else {
+		obj_lprintf(wk, log_error, "invalid arguments to setup: %o\n", ctx->stray_args);
+		return false;
 	}
+
+	obj src, build;
+	if (mo_dir_has_build_file(wk, get_str(wk, dir1)->s)) {
+		src = dir1;
+		build = dir2;
+	} else {
+		src = dir2;
+		build = dir1;
+	}
+
+	obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", get_cstr(wk, src)));
+
+	ctx->stray_args = make_obj(wk, obj_array);
+	obj_array_push(wk, ctx->stray_args, build);
 
 	return true;
 }
@@ -461,9 +499,7 @@ translate_meson_opts_introspect_callback(struct workspace *wk,
 	struct translate_meson_opts_ctx *ctx)
 {
 	switch ((enum meson_opts_introspect)(spec->handle_as)) {
-	case opt_introspect_file:
-		obj_array_push(wk, ctx->argv, make_str(wk, spec->name));
-		break;
+	case opt_introspect_file: obj_array_push(wk, ctx->argv, make_str(wk, spec->name)); break;
 	case opt_introspect_force_object: ctx->introspect_force_object = true; return true;
 	default: UNREACHABLE;
 	}
@@ -525,32 +561,32 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 
 	obj v;
 	obj_array_for(wk, ctx->argv, v) {
-			TSTR(path);
+		TSTR(path);
 
-			if (make_object) {
-				tstr_pushf(wk, &out, "\"%s\":", get_cstr(wk, v));
-			}
+		if (make_object) {
+			tstr_pushf(wk, &out, "\"%s\":", get_cstr(wk, v));
+		}
 
-			if (build_dir) {
-				path_push(wk, &path, build_dir);
-			}
-			path_push(wk, &path, output_path.introspect_dir);
-			path_push(wk, &path, "intro-");
-			tstr_pushf(wk, &path, "%s.json", get_cstr(wk, v));
+		if (build_dir) {
+			path_push(wk, &path, build_dir);
+		}
+		path_push(wk, &path, output_path.introspect_dir);
+		path_push(wk, &path, "intro-");
+		tstr_pushf(wk, &path, "%s.json", get_cstr(wk, v));
 
-			struct source src;
-			if (!fs_read_entire_file(path.buf, &src)) {
-				LOG_E("failed to introspect %s", get_cstr(wk, v));
-				return false;
-			}
+		struct source src;
+		if (!fs_read_entire_file(path.buf, &src)) {
+			LOG_E("failed to introspect %s", get_cstr(wk, v));
+			return false;
+		}
 
-			tstr_pushn(wk, &out, src.src, src.len);
+		tstr_pushn(wk, &out, src.src, src.len);
 
-			if (make_object && i < intro_len - 1) {
-				tstr_push(wk, &out, ',');
-			}
+		if (make_object && i < intro_len - 1) {
+			tstr_push(wk, &out, ',');
+		}
 
-			++i;
+		++i;
 	}
 
 	if (make_object) {
@@ -577,23 +613,17 @@ translate_meson_opts_compile_callback(struct workspace *wk,
 	struct translate_meson_opts_ctx *ctx)
 {
 	switch ((enum meson_opts_compile)(spec->handle_as)) {
-	case opt_compile_chdir:
-		ctx->compile_chdir = val;
-		break;
+	case opt_compile_chdir: ctx->compile_chdir = val; break;
 	case opt_compile_jobs:
 		obj_array_push(wk, ctx->argv, make_str(wk, "-j"));
 		obj_array_push(wk, ctx->argv, make_str(wk, val));
 		break;
-	case opt_compile_verbose:
-		obj_array_push(wk, ctx->argv, make_str(wk, "-v"));
-		break;
+	case opt_compile_verbose: obj_array_push(wk, ctx->argv, make_str(wk, "-v")); break;
 	case opt_compile_clean:
 		obj_array_push(wk, ctx->argv, make_str(wk, "-t"));
 		obj_array_push(wk, ctx->argv, make_str(wk, "clean"));
 		break;
-	case opt_compile_ninja_args:
-		obj_array_extend(wk, ctx->argv, str_split(wk, &STRL(val), 0));
-		break;
+	case opt_compile_ninja_args: obj_array_extend(wk, ctx->argv, str_split(wk, &STRL(val), 0)); break;
 	default: UNREACHABLE;
 	}
 
@@ -670,7 +700,6 @@ meson_opts_subcommand(const char *arg)
 		}
 	}
 
-	LOG_E("unknown subcommand '%s'", arg);
 	return 0;
 }
 
@@ -697,32 +726,41 @@ translate_meson_opts(struct workspace *wk,
 	uint32_t *new_argi,
 	char **new_argv[])
 {
-	if (argc - argi < 1) {
-		print_meson_opts_usage();
-		return false;
-	}
-
 	translate_meson_opts_func translate_func = 0;
+	const char *subcommand = "setup";
+	bool default_subcommand = true;
 
-	if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--version") == 0) {
-		printf("%s\n", muon_version.meson_compat);
-		exit(0);
-	} else if (strcmp(argv[argi], "-h") == 0) {
-		printf("This is the muon meson cli compatibility layer.\n");
-		print_meson_opts_usage();
-		exit(0);
+	if (argc - argi > 0) {
+		if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--version") == 0) {
+			printf("%s\n", muon_version.meson_compat);
+			exit(0);
+		} else if (strcmp(argv[argi], "-h") == 0) {
+			printf("This is the muon meson cli compatibility layer.\n");
+			print_meson_opts_usage();
+			exit(0);
+		}
+
+		subcommand = argv[argi];
+		default_subcommand = false;
 	}
 
-	if (!(translate_func = meson_opts_subcommand(argv[argi]))) {
-		return false;
+	struct translate_meson_opts_ctx ctx = { .subcommand = subcommand };
+
+	if (!(translate_func = meson_opts_subcommand(subcommand))) {
+		ctx.subcommand = "setup";
+		translate_func = meson_opts_subcommand("setup");
+		default_subcommand = true;
 	}
 
-	struct translate_meson_opts_ctx ctx = { .subcommand = argv[argi] };
+	if (!default_subcommand) {
+		L("default sub");
+		++argi;
+	}
+
 	ctx.argv = make_obj(wk, obj_array);
 	ctx.prepend_args = make_obj(wk, obj_array);
 	ctx.stray_args = make_obj(wk, obj_array);
 
-	++argi;
 	if (!translate_func(wk, argv + argi, argc - argi, &ctx)) {
 		/* LOG_E("failed to translate"); */
 		return false;
