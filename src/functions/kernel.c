@@ -212,6 +212,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 	}
 #endif
 
+#ifdef MUON_BOOTSTRAPPED
 	if (akw[kw_meson_version].set) {
 		if (!version_compare(&STRL(muon_version.meson_compat), get_str(wk, akw[kw_meson_version].val))) {
 			vm_error_at(wk,
@@ -222,6 +223,7 @@ func_project(struct workspace *wk, obj _, obj *res)
 			return false;
 		}
 	}
+#endif
 
 	obj val;
 	obj_array_for(wk, an[1].val, val) {
