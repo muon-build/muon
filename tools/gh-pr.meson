@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
-#
+
 curl = import('curl')
 fs = import('fs')
 
@@ -28,7 +28,7 @@ func main()
 
     sep = '---\n'
     parts = patch.split(sep)
-    assert(parts.length() == 2, 'result does not contain separator')
+    assert(parts.length() >= 2, 'result does not contain separator')
 
     parts[0] += f'closes #@pr@\n'
 
