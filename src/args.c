@@ -36,6 +36,7 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 	}
 }
 
+// This function uses double quotes so that can be windows compatible
 void
 shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, const char *escape_inner, const char *need_escaping)
 {
@@ -71,16 +72,42 @@ shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, cons
 	tstr_push(wk, sb, '"');
 }
 
+// POSIX shell quoting rules
+//
+// $ is intentionally omitted from these defines
+//
+// 2.2 Quoting
+// The application shall quote the following characters if they are to
+// represent themselves:
+//
+// |  &  ;  <  >  (  )  $  `  \  "  '  <space>  <tab>  <newline>
+#define SH_QUOTE_CHARS_BASE "|&;<>()`\\\"' \t\n"
+
+// and the following might need to be quoted under certain circumstances. That
+// is, these characters are sometimes special depending on conditions described
+// elsewhere in this volume of POSIX.1-2024:
+//
+// *  ?  [  ]  ^  -  !  #  ~  =  %  {  ,  }
+#define SH_QUOTE_CHARS SH_QUOTE_CHARS_BASE "*?[]^-!#~=%{,}"
+
+// 2.2.3 Double-Quotes
+// Enclosing characters in double-quotes ("") shall preserve the literal value
+// of all characters within the double-quotes, with the exception of the
+// characters backquote, <dollar-sign>, and <backslash>
+//
+// We also add " here.
+#define SH_DOUBLE_QUOTE_CHARS "`\\\""
+
 void
 shell_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, "\"$\\", "\"'$ \\><&#()\n");
+	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS "$", SH_QUOTE_CHARS "$");
 }
 
 void
 shell_escape_no_dollar(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, "\"\\", "\"' \\><&#()\n");
+	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS, SH_QUOTE_CHARS);
 }
 
 static void

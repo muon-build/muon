@@ -1094,15 +1094,13 @@ tstr_into_str(struct workspace *wk, struct tstr *sb)
 void
 tstr_trim_trailing_newline(struct tstr *sb)
 {
-	if (sb->buf[sb->len - 1] == '\n')
-	{
+	if (sb->buf[sb->len - 1] == '\n') {
 		--sb->len;
 		sb->buf[sb->len] = 0;
 	}
 
 	if (sb->len) {
-		if (sb->buf[sb->len - 1] == '\r')
-		{
+		if (sb->buf[sb->len - 1] == '\r') {
 			--sb->len;
 			sb->buf[sb->len] = 0;
 		}
@@ -1110,7 +1108,7 @@ tstr_trim_trailing_newline(struct tstr *sb)
 }
 
 void
-cstr_copy_(char *dest, const struct str* src, uint32_t dest_len)
+cstr_copy_(char *dest, const struct str *src, uint32_t dest_len)
 {
 	uint32_t src_len = src->len + 1;
 	assert(src_len <= dest_len);
@@ -1129,4 +1127,163 @@ snprintf_append_(char *buf, uint32_t buf_len, uint32_t *buf_i, const char *fmt, 
 	va_start(args, fmt);
 	*buf_i += vsnprintf(buf + *buf_i, buf_len - *buf_i, fmt, args);
 	va_end(args);
+}
+
+/* Shlex-like string splitting
+ *
+ * Reference:
+ * - https://docs.python.org/3/library/shlex.html
+ * - https://github.com/python/cpython/blob/main/Lib/shlex.py
+ * - https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html
+ * */
+
+struct shlex_ctx {
+	const struct str str;
+	uint32_t i;
+	char c;
+};
+
+static void
+shlex_advance(struct workspace *wk, struct shlex_ctx *ctx)
+{
+	if (ctx->i > ctx->str.len) {
+		return;
+	}
+
+	++ctx->i;
+	ctx->c = ctx->str.s[ctx->i];
+}
+
+static obj
+shlex_next(struct workspace *wk, struct shlex_ctx *ctx)
+{
+	while (is_whitespace(ctx->c)) {
+		shlex_advance(wk, ctx);
+	}
+
+	if (!ctx->c) {
+		return 0;
+	}
+
+	TSTR(tok);
+	char quote = 0;
+
+	while (ctx->c) {
+		switch (ctx->c) {
+		case '#': {
+			// If the current character is a '#', it and all subsequent
+			// characters up to, but excluding, the next <newline> shall be
+			// discarded as a comment. The <newline> that ends the line is not
+			// considered part of the comment.
+			if (quote) {
+				tstr_push(wk, &tok, ctx->c);
+			} else {
+				while (ctx->c && ctx->c != '\n') {
+					shlex_advance(wk, ctx);
+				}
+				continue;
+			}
+			break;
+		}
+		case ' ':
+		case '\t':
+		case '\n': {
+			if (quote) {
+				tstr_push(wk, &tok, ctx->c);
+			} else {
+				goto done;
+			}
+			break;
+		}
+		case '\\': {
+			shlex_advance(wk, ctx);
+			// 2.2.1 Escape Character (Backslash)
+			// A <backslash> that is not quoted shall preserve the literal
+			// value of the following character, with the exception of a
+			// <newline>.
+			if (quote == '\'') {
+				tstr_push(wk, &tok, '\\');
+				tstr_push(wk, &tok, ctx->c);
+			} else if (quote == '"') {
+				// Outside of "$(...)" and "${...}" the <backslash> shall
+				// retain its special meaning as an escape character (see 2.2.1
+				// Escape Character (Backslash)) only when immediately followed
+				// by one of the following characters:
+
+				// $   `   \   <newline>
+
+				// or by a double-quote character that would otherwise be
+				// considered special (see 2.6.4 Arithmetic Expansion and 2.7.4
+				// Here-Document).
+
+				if (strchr("$`\\\n\"", ctx->c)) {
+					tstr_push(wk, &tok, ctx->c);
+				} else {
+					tstr_push(wk, &tok, '\\');
+					tstr_push(wk, &tok, ctx->c);
+				}
+			} else if (ctx->c == '\n') {
+				// If a <newline> immediately follows the <backslash>,
+				// the shell shall interpret this as line continuation. The
+				// <backslash> and <newline> shall be removed before splitting the
+				// input into tokens.
+			} else {
+				tstr_push(wk, &tok, ctx->c);
+			}
+			break;
+		}
+		case '\'': {
+			// 2.2.2 Single-Quotes
+			// Enclosing characters in single-quotes ('') shall preserve the
+			// literal value of each character within the single-quotes. A
+			// single-quote cannot occur within single-quotes.
+			if (!quote) {
+				quote = '\'';
+			} else if (quote == '\'') {
+				quote = 0;
+			} else if (quote == '\"') {
+				tstr_push(wk, &tok, ctx->c);
+			}
+			break;
+		}
+		case '"': {
+			// 2.2.3 Double-Quotes
+			// Enclosing characters in double-quotes ("") shall preserve the
+			// literal value of all characters within the double-quotes, with
+			// the exception of the characters backquote, <dollar-sign>, and
+			// <backslash>, as follows:
+			if (!quote) {
+				quote = '\"';
+			} else if (quote == '\"') {
+				quote = 0;
+			} else if (quote == '\'') {
+				tstr_push(wk, &tok, ctx->c);
+			}
+			break;
+		}
+		default: {
+			tstr_push(wk, &tok, ctx->c);
+			break;
+		}
+		}
+
+		shlex_advance(wk, ctx);
+	}
+
+done:
+	return tstr_into_str(wk, &tok);
+}
+
+obj
+str_shell_split(struct workspace *wk, const struct str *str)
+{
+	obj tok, res = make_obj(wk, obj_array);
+
+	struct shlex_ctx ctx = { .str = *str, .c = str->s[0] };
+
+	while ((tok = shlex_next(wk, &ctx))) {
+		obj_array_push(wk, res, tok);
+	}
+
+	return res;
 }

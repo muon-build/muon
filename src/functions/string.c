@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
@@ -520,6 +521,31 @@ func_string_length(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
+static bool
+func_string_shell_split(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	*res = str_shell_split(wk, get_str(wk, self));
+	return true;
+}
+
+static bool
+func_string_shell_quote(struct workspace *wk, obj self, obj *res)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	TSTR(buf);
+	shell_escape(wk, &buf, get_str(wk, self)->s);
+
+	*res = tstr_into_str(wk, &buf);
+	return true;
+}
+
 const struct func_impl impl_tbl_string_internal[] = {
 	{ "contains", func_string_contains, tc_bool, true },
 	{ "endswith", func_string_endswith, tc_bool, true },
@@ -537,5 +563,7 @@ const struct func_impl impl_tbl_string_internal[] = {
 	{ "underscorify", func_underscorify, tc_string, true },
 	{ "version_compare", func_version_compare, tc_bool, true },
 	{ "length", func_string_length, tc_number, true },
+	{ "shell_split", func_string_shell_split, tc_array, true },
+	{ "shell_quote", func_string_shell_quote, tc_string, true },
 	{ NULL, NULL },
 };

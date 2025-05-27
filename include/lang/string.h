@@ -156,4 +156,6 @@ bool is_whitespace_except_newline(char c);
 
 void snprintf_append_(char *buf, uint32_t buf_len, uint32_t *buf_i, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 4, 5);
 #define snprintf_append(__buf, __buf_i, __fmt, ...) snprintf_append_(__buf, sizeof(__buf), __buf_i, __fmt, __VA_ARGS__)
+
+obj str_shell_split(struct workspace *wk, const struct str *str);
 #endif

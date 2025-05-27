@@ -19,6 +19,7 @@ tests = [
     ['range.meson'],
     ['return_during_iteration.meson'],
     ['run_command.meson'],
+    ['shlex.meson'],
     ['string_format_escape.meson'],
     ['strings.meson'],
     ['ternary.meson'],

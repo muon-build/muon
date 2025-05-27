@@ -1,0 +1,156 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: Python-2.0
+
+# This file was ported from cpython's Lib/test/test_shlex.py
+#
+# The original test data set was from shellwords, by Hartmut Goebel.
+posix_data = [
+    ['x', ['x']],
+    ['foo bar', ['foo', 'bar']],
+    [' foo bar', ['foo', 'bar']],
+    [' foo bar ', ['foo', 'bar']],
+    ['foo   bar    bla     fasel', ['foo', 'bar', 'bla', 'fasel']],
+    ['x y  z              xxxx', ['x', 'y', 'z', 'xxxx']],
+    ['\\x bar', ['x', 'bar']],
+    ['\\ x bar', [' x', 'bar']],
+    ['\\ bar', [' bar']],
+    ['foo \\x bar', ['foo', 'x', 'bar']],
+    ['foo \\ x bar', ['foo', ' x', 'bar']],
+    ['foo \\ bar', ['foo', ' bar']],
+    ['foo "bar" bla', ['foo', 'bar', 'bla']],
+    ['"foo" "bar" "bla"', ['foo', 'bar', 'bla']],
+    ['"foo" bar "bla"', ['foo', 'bar', 'bla']],
+    ['"foo" bar bla', ['foo', 'bar', 'bla']],
+    ['foo \'bar\' bla', ['foo', 'bar', 'bla']],
+    ['\'foo\' \'bar\' \'bla\'', ['foo', 'bar', 'bla']],
+    ['\'foo\' bar \'bla\'', ['foo', 'bar', 'bla']],
+    ['\'foo\' bar bla', ['foo', 'bar', 'bla']],
+    ['blurb foo"bar"bar"fasel" baz', ['blurb', 'foobarbarfasel', 'baz']],
+    ['blurb foo\'bar\'bar\'fasel\' baz', ['blurb', 'foobarbarfasel', 'baz']],
+    ['""', ['']],
+    ['\'\'', ['']],
+    ['foo "" bar', ['foo', '', 'bar']],
+    ['foo \'\' bar', ['foo', '', 'bar']],
+    ['foo "" "" "" bar', ['foo', '', '', '', 'bar']],
+    ['foo \'\' \'\' \'\' bar', ['foo', '', '', '', 'bar']],
+    ['\\"', ['"']],
+    ['"\\""', ['"']],
+    ['"foo\\ bar"', ['foo\\ bar']],
+    ['"foo\\\\ bar"', ['foo\\ bar']],
+    ['"foo\\\\ bar\\""', ['foo\\ bar"']],
+    ['"foo\\\\" bar\\"', ['foo\\', 'bar"']],
+    ['"foo\\\\ bar\\" dfadf"', ['foo\\ bar" dfadf']],
+    ['"foo\\\\\\ bar\\" dfadf"', ['foo\\\\ bar" dfadf']],
+    ['"foo\\\\\\x bar\\" dfadf"', ['foo\\\\x bar" dfadf']],
+    ['"foo\\x bar\\" dfadf"', ['foo\\x bar" dfadf']],
+    ['\\\'', ['\'']],
+    ['\'foo\\ bar\'', ['foo\\ bar']],
+    ['\'foo\\\\ bar\'', ['foo\\\\ bar']],
+    ['"foo\\\\\\x bar\\" df\'a\\ \'df"', ['foo\\\\x bar" df\'a\\ \'df']],
+    ['\\"foo', ['"foo']],
+    ['\\"foo\\x', ['"foox']],
+    ['"foo\\x"', ['foo\\x']],
+    ['"foo\\ "', ['foo\\ ']],
+    ['foo\\ xx', ['foo xx']],
+    ['foo\\ x\\x', ['foo xx']],
+    ['foo\\ x\\x\\"', ['foo xx"']],
+    ['"foo\\ x\\x"', ['foo\\ x\\x']],
+    ['"foo\\ x\\x\\\\"', ['foo\\ x\\x\\']],
+    ['"foo\\ x\\x\\\\""foobar"', ['foo\\ x\\x\\foobar']],
+    ['"foo\\ x\\x\\\\"\\\'"foobar"', ['foo\\ x\\x\\\'foobar']],
+    ['"foo\\ x\\x\\\\"\\\'"fo\'obar"', ['foo\\ x\\x\\\'fo\'obar']],
+    [
+        '"foo\\ x\\x\\\\"\\\'"fo\'obar" \'don\'\\\'\'t\'',
+        ['foo\\ x\\x\\\'fo\'obar', 'don\'t'],
+    ],
+    [
+        '"foo\\ x\\x\\\\"\\\'"fo\'obar" \'don\'\\\'\'t\' \\\\',
+        ['foo\\ x\\x\\\'fo\'obar', 'don\'t', '\\'],
+    ],
+    ['\'foo\\ bar\'', ['foo\\ bar']],
+    ['\'foo\\\\ bar\'', ['foo\\\\ bar']],
+    ['foo\\ bar', ['foo bar']],
+    ['foo#bar\nbaz', ['foo', 'baz']],
+    [':-) ;-)', [':-)', ';-)']],
+    ['áéíóú', ['áéíóú']],
+]
+
+tests = {}
+
+func assert_eq(a any, b any)
+    if a != b
+        p(a)
+        print('!=')
+        p(b)
+        error('not equal')
+    endif
+endfunc
+
+func shell_join(l list[str]) -> str
+    res = []
+    foreach e : l
+        res += e.shell_quote()
+    endforeach
+    return ' '.join(res)
+endfunc
+
+tests.SplitPosix = func()
+    foreach e : posix_data
+        string = e[0]
+        expected = e[1]
+        split = string.shell_split()
+        assert_eq(expected, split)
+    endforeach
+endfunc
+
+tests.Quote = func()
+    safeunquoted = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@_+:./'
+    unsafe = ['<', '>', '&', '#', '!']
+    quote_esc = ['"', '`', '$', '\\']
+
+    assert_eq(''.shell_quote(), '""')
+    assert_eq(safeunquoted.shell_quote(), safeunquoted)
+    assert_eq('test file name'.shell_quote(), '"test file name"')
+    foreach u : unsafe
+        assert_eq(f'test@u@name'.shell_quote(), f'"test@u@name"')
+    endforeach
+    foreach u : quote_esc
+        assert_eq(f'test@u@name'.shell_quote(), f'"test\\@u@name"')
+    endforeach
+    foreach u : unsafe
+        assert_eq(f'test@u@\'name\''.shell_quote(), f'"test@u@\'name\'"')
+    endforeach
+    foreach u : unsafe
+        assert_eq(f'test@u@"name"'.shell_quote(), f'"test@u@\"name\""')
+    endforeach
+endfunc
+
+tests.Join = func()
+    foreach e : [
+        [['a ', 'b'], '"a " b'],
+        [['a', ' b'], 'a " b"'],
+        [['a', ' ', 'b'], 'a " " b'],
+        [['"a', 'b"'], '"\"a" "b\""'],
+    ]
+        split_command = e[0]
+        command = e[1]
+        joined = shell_join(split_command)
+        assert_eq(joined, command)
+    endforeach
+endfunc
+
+tests.JoinRoundtrip = func()
+    foreach e : posix_data
+        string = e[0]
+        split = e[1]
+
+        joined = shell_join(split)
+        resplit = joined.shell_split()
+
+        assert_eq(split, resplit)
+    endforeach
+endfunc
+
+foreach _, fn : tests
+    fn()
+endforeach
