@@ -342,7 +342,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 static bool
 get_dependency_appleframeworks(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
-	if (host_machine.sys != machine_system_darwin) {
+	if (machine_definitions[ctx->machine]->sys != machine_system_darwin) {
 		return true;
 	}
 
