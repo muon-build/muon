@@ -14,7 +14,7 @@ struct args {
 };
 
 void shell_escape(struct workspace *wk, struct tstr *sb, const char *str);
-void shell_escape_no_dollar(struct workspace *wk, struct tstr *sb, const char *str);
+void shell_escape_cmd(struct workspace *wk, struct tstr *sb, const char *str);
 void shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, const char *escape_inner, const char *need_escaping);
 void ninja_escape(struct workspace *wk, struct tstr *sb, const char *str);
 void pkgconf_escape(struct workspace *wk, struct tstr *sb, const char *str);
@@ -24,7 +24,6 @@ void push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 
 obj join_args_plain(struct workspace *wk, obj arr);
 obj join_args_shell(struct workspace *wk, obj arr);
-obj join_args_shell_no_dollar(struct workspace *wk, obj arr);
 obj join_args_ninja(struct workspace *wk, obj arr);
 obj join_args_shell_ninja(struct workspace *wk, obj arr);
 obj join_args_pkgconf(struct workspace *wk, obj arr);
@@ -41,4 +40,6 @@ bool arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj
 
 void join_args_argstr(struct workspace *wk, const char **res, uint32_t *argc, obj arr);
 void env_to_envstr(struct workspace *wk, const char **res, uint32_t *envc, obj val);
+
+obj make_shell_escaped_str(struct workspace *wk, const char *s);
 #endif

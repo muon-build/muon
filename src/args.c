@@ -81,33 +81,32 @@ shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, cons
 // represent themselves:
 //
 // |  &  ;  <  >  (  )  $  `  \  "  '  <space>  <tab>  <newline>
-#define SH_QUOTE_CHARS_BASE "|&;<>()`\\\"' \t\n"
-
 // and the following might need to be quoted under certain circumstances. That
 // is, these characters are sometimes special depending on conditions described
 // elsewhere in this volume of POSIX.1-2024:
 //
 // *  ?  [  ]  ^  -  !  #  ~  =  %  {  ,  }
-#define SH_QUOTE_CHARS SH_QUOTE_CHARS_BASE "*?[]^-!#~=%{,}"
-
+// (We also omit some of these)
+//
 // 2.2.3 Double-Quotes
 // Enclosing characters in double-quotes ("") shall preserve the literal value
 // of all characters within the double-quotes, with the exception of the
 // characters backquote, <dollar-sign>, and <backslash>
 //
 // We also add " here.
-#define SH_DOUBLE_QUOTE_CHARS "`\\\""
+#define SH_DOUBLE_QUOTE_CHARS "\\\"`$"
+#define SH_QUOTE_CHARS SH_DOUBLE_QUOTE_CHARS "|&;<>()' \t\n" "*?[]!#"
 
 void
 shell_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS "$", SH_QUOTE_CHARS "$");
+	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS, SH_QUOTE_CHARS);
 }
 
 void
-shell_escape_no_dollar(struct workspace *wk, struct tstr *sb, const char *str)
+shell_escape_cmd(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS, SH_QUOTE_CHARS);
+	shell_escape_custom(wk, sb, str, "\\\"", "\\\" \t\r\n");
 }
 
 static void
@@ -203,12 +202,6 @@ obj
 join_args_shell(struct workspace *wk, obj arr)
 {
 	return join_args(wk, arr, shell_escape);
-}
-
-obj
-join_args_shell_no_dollar(struct workspace *wk, obj arr)
-{
-	return join_args(wk, arr, shell_escape_no_dollar);
 }
 
 obj
@@ -391,4 +384,12 @@ env_to_envstr(struct workspace *wk, const char **res, uint32_t *envc, obj val)
 
 	*res = get_str(wk, ctx.str)->s;
 	*envc = get_obj_dict(wk, dict)->len;
+}
+
+obj
+make_shell_escaped_str(struct workspace *wk, const char *s)
+{
+	TSTR(buf);
+	shell_escape(wk, &buf, s);
+	return tstr_into_str(wk, &buf);
 }

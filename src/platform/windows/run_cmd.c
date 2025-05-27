@@ -485,7 +485,7 @@ static void
 run_cmd_push_argv(struct tstr *cmd, struct tstr *arg_buf, const char *arg, bool first)
 {
 	tstr_clear(arg_buf);
-	shell_escape_no_dollar(0, arg_buf, arg);
+	shell_escape_cmd(0, arg_buf, arg);
 	tstr_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
 }
 

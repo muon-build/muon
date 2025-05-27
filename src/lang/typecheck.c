@@ -530,6 +530,10 @@ complex_type_enum_get(struct workspace *wk, enum complex_type_preset t)
 			break;
 		case tc_cx_enum_machine_system: FOREACH_MACHINE_SYSTEM(STR_ENUM) break;
 		case tc_cx_enum_machine_subsystem: FOREACH_MACHINE_SUBSYSTEM(STR_ENUM) break;
+		case tc_cx_enum_shell:
+			str_enum_add_type_value(wk, e, "posix");
+			str_enum_add_type_value(wk, e, "cmd");
+			break;
 		default: UNREACHABLE_RETURN;
 		}
 	}
@@ -568,6 +572,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
 				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 		break;
+	case tc_cx_enum_shell:
 	case tc_cx_enum_machine_system:
 	case tc_cx_enum_machine_subsystem:
 	case tc_cx_enum_machine_endian: {

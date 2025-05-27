@@ -75,6 +75,16 @@ posix_data = [
     ['áéíóú', ['áéíóú']],
 ]
 
+# from https://learn.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments
+cmd_data = [
+    ['"a b c" d e', ['a b c', 'd', 'e']],
+    ['"ab\\"c" "\\\\" d', ['ab"c', '\\', 'd']],
+    ['a\\\\\\b d"e f"g h', ['a\\\\\\b', 'de', 'fg', 'h']],
+    ['a\\\\\\"b c d', ['a\\"b', 'c', 'd']],
+    ['a\\\\\\\\"b c" d e', ['a\\\\b c', 'd', 'e']],
+    ['a"b"" c d', ['ab"', 'c', 'd']],
+]
+
 tests = {}
 
 func assert_eq(a any, b any)
@@ -86,21 +96,36 @@ func assert_eq(a any, b any)
     endif
 endfunc
 
-func shell_join(l list[str]) -> str
+func shell_join(l list[str], shell str: 'posix') -> str
     res = []
     foreach e : l
-        res += e.shell_quote()
+        res += e.shell_quote(shell: shell)
     endforeach
     return ' '.join(res)
 endfunc
 
-tests.SplitPosix = func()
-    foreach e : posix_data
+func split_test(data list[any], shell str: 'posix')
+    foreach e : data
         string = e[0]
         expected = e[1]
-        split = string.shell_split()
+        split = string.shell_split(shell: shell)
         assert_eq(expected, split)
     endforeach
+endfunc
+
+func round_trip_test(data list[any], shell str: 'posix')
+    foreach e : data
+        split = e[1]
+
+        joined = shell_join(split, shell: shell)
+        resplit = joined.shell_split(shell: shell)
+
+        assert_eq(split, resplit)
+    endforeach
+endfunc
+
+tests.SplitPosix = func()
+    split_test(posix_data)
 endfunc
 
 tests.Quote = func()
@@ -140,15 +165,15 @@ tests.Join = func()
 endfunc
 
 tests.JoinRoundtrip = func()
-    foreach e : posix_data
-        string = e[0]
-        split = e[1]
+    round_trip_test(posix_data)
+endfunc
 
-        joined = shell_join(split)
-        resplit = joined.shell_split()
+tests.SplitCmd = func()
+    split_test(cmd_data, shell: 'cmd')
+endfunc
 
-        assert_eq(split, resplit)
-    endforeach
+tests.QuoteCmd = func()
+    round_trip_test(cmd_data)
 endfunc
 
 foreach _, fn : tests

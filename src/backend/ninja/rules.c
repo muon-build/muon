@@ -126,7 +126,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		// TODO: make this overrideable
 		const enum static_linker_type type = comp->type[toolchain_component_static_linker];
 		if (type == static_linker_ar_posix || type == static_linker_ar_gcc) {
-			obj_array_push(wk, static_link_args, make_str(wk, wk->argv0));
+			obj_array_push(wk, static_link_args, make_shell_escaped_str(wk, wk->argv0));
 			obj_array_push(wk, static_link_args, make_str(wk, "internal"));
 			obj_array_push(wk, static_link_args, make_str(wk, "exe"));
 			obj_array_push(wk, static_link_args, make_str(wk, "-R"));
@@ -146,7 +146,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 			"\n",
 			get_cstr(wk, proj->rule_prefix),
 			machine_kind_to_s(machine),
-			get_cstr(wk, join_args_shell_no_dollar(wk, static_link_args)));
+			get_cstr(wk, join_args_plain(wk, static_link_args)));
 	}
 }
 

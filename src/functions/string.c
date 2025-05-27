@@ -522,26 +522,56 @@ func_string_length(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
-func_string_shell_split(struct workspace *wk, obj self, obj *res)
+string_shell_common(struct workspace *wk, enum shell_type *shell)
 {
-	if (!pop_args(wk, 0, 0)) {
+	if (vm_enum(wk, shell_type)) {
+		vm_enum_value_prefixed(wk, shell_type, posix);
+		vm_enum_value_prefixed(wk, shell_type, cmd);
+	}
+
+	enum kwargs { kw_shell };
+	struct args_kw akw[] = { [kw_shell] = { "shell", complex_type_preset_get(wk, tc_cx_enum_shell) }, 0 };
+	if (!pop_args(wk, 0, akw)) {
 		return false;
 	}
 
-	*res = str_shell_split(wk, get_str(wk, self));
+	*shell = shell_type_posix;
+	if (akw[kw_shell].set && !vm_obj_to_enum(wk, shell_type, akw[kw_shell].val, shell)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+func_string_shell_split(struct workspace *wk, obj self, obj *res)
+{
+	enum shell_type shell;
+	if (!string_shell_common(wk, &shell)) {
+		return false;
+	}
+
+	*res = str_shell_split(wk, get_str(wk, self), shell);
 	return true;
 }
 
 static bool
 func_string_shell_quote(struct workspace *wk, obj self, obj *res)
 {
-	if (!pop_args(wk, 0, 0)) {
+	enum shell_type shell;
+	if (!string_shell_common(wk, &shell)) {
 		return false;
 	}
 
-	TSTR(buf);
-	shell_escape(wk, &buf, get_str(wk, self)->s);
+	void (*escape_func)(struct workspace *wk, struct tstr *sb, const char *str) = 0;
 
+	switch (shell) {
+	case shell_type_posix: escape_func = shell_escape; break;
+	case shell_type_cmd: escape_func = shell_escape_cmd; break;
+	}
+
+	TSTR(buf);
+	escape_func(wk, &buf, get_str(wk, self)->s);
 	*res = tstr_into_str(wk, &buf);
 	return true;
 }
