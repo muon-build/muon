@@ -1390,6 +1390,15 @@ done:
 	return tstr_into_str(wk, &tok);
 }
 
+enum shell_type shell_type_for_host_machine(void)
+{
+	if (host_machine.is_windows) {
+		return shell_type_cmd;
+	} else {
+		return shell_type_posix;
+	}
+}
+
 obj
 str_shell_split(struct workspace *wk, const struct str *str, enum shell_type shell)
 {

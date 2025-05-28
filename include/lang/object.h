@@ -472,6 +472,7 @@ enum build_option_type {
 	op_integer,
 	op_array,
 	op_feature,
+	op_shell_array,
 	build_option_type_count,
 };
 

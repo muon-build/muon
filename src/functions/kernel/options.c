@@ -24,10 +24,15 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 		[op_integer] = "integer",
 		[op_array] = "array",
 		[op_feature] = "feature",
+		[op_shell_array] = "shell_array",
 	};
 
 	enum build_option_type type;
 	for (type = 0; type < build_option_type_count; ++type) {
+		if (type == op_shell_array && !initializing_builtin_options) {
+			continue;
+		}
+
 		if (strcmp(build_option_type_name[type], get_cstr(wk, name)) == 0) {
 			*res = type;
 			return true;
@@ -154,6 +159,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 			val = obj_array_index(wk, akw[kw_choices].val, 0);
 			break;
 		case op_array:
+		case op_shell_array:
 			if (akw[kw_choices].set) {
 				val = akw[kw_choices].val;
 			} else {
@@ -234,6 +240,7 @@ func_get_option(struct workspace *wk, obj self, obj *res)
 		case op_boolean: t =  tc_bool; break;
 		case op_combo: t = COMPLEX_TYPE(o->choices, complex_type_enum); break;
 		case op_integer: t = tc_number; break;
+		case op_shell_array: t = tc_array; break;
 		case op_array: t = tc_array; break;
 		case op_feature: t = tc_feature_opt; break;
 		default: UNREACHABLE;

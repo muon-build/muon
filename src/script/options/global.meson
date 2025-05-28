@@ -159,9 +159,9 @@ option('python.allow_limited_api', type: 'boolean', value: true)
 # muon-specific options.  These are safe from being overridden because meson
 # forbids . in an option name
 
-option('env.AR', type: 'array', value: ['ar'])
-option('env.NINJA', type: 'array', value: ['ninja'])
-option('env.PKG_CONFIG', type: 'array', value: ['pkg-config'])
+option('env.AR', type: 'shell_array', value: ['ar'])
+option('env.NINJA', type: 'shell_array', value: ['ninja'])
+option('env.PKG_CONFIG', type: 'shell_array', value: ['pkg-config'])
 
 option(
     'muon.pkgconfig',

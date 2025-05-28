@@ -35,6 +35,7 @@ const char *build_option_type_to_s[build_option_type_count] = {
 	[op_integer] = "integer",
 	[op_array] = "array",
 	[op_feature] = "feature",
+	[op_shell_array] = "shell_array",
 };
 
 static bool
@@ -203,6 +204,9 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 	struct check_deprecated_option_ctx *ctx = _ctx;
 
 	switch (ctx->opt->type) {
+	case op_shell_array: {
+		break;
+	}
 	case op_array: {
 		uint32_t idx;
 		if (obj_array_index_of(wk, *ctx->val, old, &idx)) {
@@ -275,7 +279,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 {
 	const struct str *val = get_str(wk, sval);
 	*res = 0;
-	if (opt->type == op_array) {
+	if (opt->type == op_array || opt->type == op_shell_array) {
 		// coerce array early so that its elements may be checked for deprecation
 		if (!val->len) {
 			// make -Doption= equivalent to an empty list
@@ -286,7 +290,11 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 				return false;
 			}
 		} else {
-			*res = str_split(wk, val, &STR(","));
+			if (opt->type == op_shell_array) {
+				*res = str_shell_split(wk, val, shell_type_for_host_machine());
+			} else {
+				*res = str_split(wk, val, &STR(","));
+			}
 		}
 	}
 
@@ -336,6 +344,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 		set_obj_number(wk, *res, num);
 		break;
 	}
+	case op_shell_array:
 	case op_array: {
 		// do nothing, array values were already coerced above
 		break;
@@ -367,6 +376,7 @@ typecheck_opt(struct workspace *wk, uint32_t node, obj val, enum build_option_ty
 	case op_combo: expected_type = obj_string; break;
 	case op_integer: expected_type = obj_number; break;
 	case op_array: expected_type = obj_array; break;
+	case op_shell_array: expected_type = obj_array; break;
 	default: UNREACHABLE_RETURN;
 	}
 
@@ -531,6 +541,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 		}
 		break;
 	}
+	case op_shell_array:
 	case op_string:
 	case op_feature:
 	case op_boolean: break;
@@ -625,8 +636,7 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 		return;
 	}
 
-	// TODO: implement something like shlex.split()
-	obj cmd = str_split(wk, &STRL(v), NULL);
+	obj cmd = str_shell_split(wk, &STRL(v), shell_type_for_host_machine());
 	set_option(wk, opt, cmd, option_value_source_environment, false);
 }
 
@@ -639,7 +649,10 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 	}
 
 	if ((flags = os_get_env(flags)) && *flags) {
-		extend_array_option(wk, opt, str_split(wk, &STRL(flags), NULL), option_value_source_environment);
+		extend_array_option(wk,
+			opt,
+			str_shell_split(wk, &STRL(flags), shell_type_for_host_machine()),
+			option_value_source_environment);
 	}
 }
 
@@ -805,8 +818,9 @@ make_compiler_option(struct workspace *wk, obj name)
 	obj opt = make_obj(wk, obj_option);
 	struct obj_option *o = get_obj_option(wk, opt);
 	o->name = name;
-	o->type = op_array;
+	o->type = op_shell_array;
 	o->ip = -1; // ?
+	o->builtin = true;
 
 	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array))) {
 		UNREACHABLE;
@@ -816,15 +830,15 @@ make_compiler_option(struct workspace *wk, obj name)
 static void
 make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp)
 {
-		const char *env_opt = toolchain_component_option_name[lang][comp];
-		if (!env_opt) {
-			return;
-		}
+	const char *env_opt = toolchain_component_option_name[lang][comp];
+	if (!env_opt) {
+		return;
+	}
 
-		make_compiler_option(wk, make_str(wk, env_opt));
+	make_compiler_option(wk, make_str(wk, env_opt));
 
-		const char *env_var = strchr(env_opt, '.') + 1;
-		set_binary_from_env(wk, env_var, env_opt);
+	const char *env_var = strchr(env_opt, '.') + 1;
+	set_binary_from_env(wk, env_var, env_opt);
 }
 
 const char *toolchain_component_option_name[compiler_language_count][toolchain_component_count] = {
@@ -847,7 +861,7 @@ init_global_options(struct workspace *wk)
 		const char *name;
 	} langs[] = {
 #define TOOLCHAIN_ENUM(lang) { compiler_language_##lang, #lang },
-FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
+		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 #undef TOOLCHAIN_ENUM
 	};
 
@@ -863,13 +877,16 @@ FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
 		obj args = make_strf(wk, "%s_args", langs[i].name);
 		make_compiler_option(wk, args);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_compiler]) {
-			set_compile_opt_from_env(wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_compiler]);
+			set_compile_opt_from_env(wk,
+				get_str(wk, args)->s,
+				compile_opt_env_var[langs[i].l][toolchain_component_compiler]);
 		}
 
 		obj link_args = make_strf(wk, "%s_link_args", langs[i].name);
 		make_compiler_option(wk, link_args);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
-			set_compile_opt_from_env(wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
+			set_compile_opt_from_env(
+				wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
 		}
 
 		make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler);
@@ -1182,16 +1199,27 @@ struct list_options_ctx {
 	const char *subproject_name;
 };
 
+static bool
+is_option_filtered(struct workspace *wk, struct obj_option *opt, bool show_builtin, bool only_modified)
+{
+	if (opt->builtin != show_builtin) {
+		return true;
+	} else if (only_modified
+		   && (opt->source == option_value_source_default || opt->source == option_value_source_yield)) {
+		return true;
+	}
+
+	return false;
+}
+
 static enum iteration_result
 list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	struct list_options_ctx *ctx = _ctx;
 	struct obj_option *opt = get_obj_option(wk, val);
 
-	if (opt->builtin != ctx->show_builtin) {
-		return ir_cont;
-	} else if (ctx->list_opts->only_modified && opt->source == option_value_source_default) {
-		return ir_cont;
+	if (is_option_filtered(wk, opt, ctx->show_builtin, ctx->list_opts->only_modified)) {
+		return true;
 	}
 
 	/* const char *option_type_names[] = { */
@@ -1253,6 +1281,7 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 			break;
 		case op_combo:
 		case op_array:
+		case op_shell_array:
 		case op_integer: break;
 		default: UNREACHABLE;
 		}
@@ -1312,12 +1341,19 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 			obj_lprintf(wk, log_info, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
 		break;
+	case op_shell_array:
 	case op_array:
 		if (opt->source == option_value_source_default) {
-			log_plain(log_info, "<%svalue%s[,%svalue%s[...]]>", val_clr, no_clr, val_clr, no_clr);
+			if (opt->type == op_shell_array) {
+				log_plain(log_info, "<shell array>");
+			} else {
+				log_plain(log_info, "<array>");
+			}
 			if (opt->choices) {
 				obj_lprintf(wk, log_info, " where value in %s", get_cstr(wk, choices));
 			}
+
+			obj_lprintf(wk, log_info, ", default: %s%o%s", sel_clr, opt->val, no_clr);
 		} else {
 			obj_lprintf(wk, log_info, "%s%o%s", sel_clr, opt->val, no_clr);
 		}
@@ -1325,12 +1361,29 @@ list_options_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	default: UNREACHABLE;
 	}
 
-	if (opt->source != option_value_source_default) {
+	const char *source_name = 0;
+	switch (opt->source) {
+	case option_value_source_unset:
+	case option_value_source_default: break;
+	case option_value_source_environment: source_name = "environment"; break;
+	case option_value_source_yield: break;
+	case option_value_source_default_options: source_name = "default_options"; break;
+	case option_value_source_subproject_default_options: source_name = "subproject default_options"; break;
+	case option_value_source_override_options: source_name = "override option"; break;
+	case option_value_source_deprecated_rename: source_name = "deprecated rename"; break;
+	case option_value_source_commandline: source_name = "commandline"; break;
+	}
+
+	if (source_name) {
 		obj_lprintf(wk, log_info, "*");
 	}
 
 	if (opt->description) {
 		obj_lprintf(wk, log_info, " - %#o", opt->description);
+	}
+
+	if (source_name && ctx->list_opts->list_all) {
+		obj_lprintf(wk, log_info, "\n     using value from: %s", source_name);
 	}
 
 	log_plain(log_info, "\n");
@@ -1377,10 +1430,31 @@ list_options(const struct list_options_opts *list_opts)
 	workspace_init_runtime(&wk);
 	wk.vm.lang_mode = language_opts;
 
+	bool load_from_build_dir = false;
+
+	if (fs_file_exists("meson.build")) {
+		load_from_build_dir = false;
+	} else {
+		TSTR(option_info);
+		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
+		if (!fs_file_exists(option_info.buf)) {
+			LOG_I("this command must be run from a build directory or the project root");
+			goto ret;
+		}
+
+		load_from_build_dir = true;
+	}
+
+	if (!load_from_build_dir && list_opts->list_all) {
+		if (!init_global_options(&wk)) {
+			UNREACHABLE;
+		}
+	}
+
 	uint32_t idx;
 	make_project(&wk, &idx, "dummy", path_cwd(), "");
 
-	if (fs_file_exists("meson.build")) {
+	if (!load_from_build_dir) {
 		TSTR(meson_opts);
 		bool exists = determine_option_file(&wk, ".", &meson_opts);
 
@@ -1417,13 +1491,6 @@ list_options(const struct list_options_opts *list_opts)
 			}
 		}
 	} else {
-		TSTR(option_info);
-		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
-		if (!fs_file_exists(option_info.buf)) {
-			LOG_I("this command must be run from a build directory or the project root");
-			goto ret;
-		}
-
 		obj arr;
 		if (!serial_load_from_private_dir(&wk, &arr, output_path.option_info)) {
 			goto ret;
@@ -1461,21 +1528,61 @@ list_options(const struct list_options_opts *list_opts)
 	uint32_t i;
 	for (i = 0; i < wk.projects.len; ++i) {
 		struct project *proj = arr_get(&wk.projects, i);
-		if (get_obj_dict(&wk, proj->opts)->len) {
+
+		uint32_t builtin_count = 0, non_builtin_count = 0;
+
+
+		obj k, v;
+		obj_dict_for(&wk, proj->opts, k, v) {
+			(void)k;
+			struct obj_option *opt = get_obj_option(&wk, v);
+
+
+			if (opt->builtin) {
+				if (is_option_filtered(&wk, opt, true, list_opts->only_modified)) {
+					continue;
+				}
+
+				if (list_opts->list_all) {
+					++builtin_count;
+				}
+			} else {
+				if (is_option_filtered(&wk, opt, false, list_opts->only_modified)) {
+					continue;
+				}
+
+				++non_builtin_count;
+			}
+		}
+
+		if (non_builtin_count || builtin_count) {
 			had_project_options = true;
 
 			const char *name = get_cstr(&wk, proj->cfg.name);
-			if (!name) {
-				name = "project";
+			ctx.subproject_name = i == 0 ? 0 : name;
+
+			if (non_builtin_count || builtin_count) {
+				log_plain(log_info, "%s options:\n", name);
 			}
 
-			log_plain(log_info, "%s options:\n", name);
+			if (non_builtin_count) {
+				obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
 
-			ctx.subproject_name = i == 0 ? 0 : name;
-			obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
+				if (!builtin_count) {
+					log_plain(log_info, "\n");
+				}
+			}
+
+			if (builtin_count) {
+				ctx.show_builtin = true;
+				log_plain(log_info, "  builtin options:\n");
+				obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
+				ctx.show_builtin = false;
+
+				log_plain(log_info, "\n");
+			}
+
 			ctx.subproject_name = 0;
-
-			log_plain(log_info, "\n");
 		}
 	}
 
@@ -1485,12 +1592,7 @@ list_options(const struct list_options_opts *list_opts)
 
 	if (list_opts->list_all) {
 		ctx.show_builtin = true;
-
-		log_plain(log_info, "project builtin-options:\n");
-		obj_dict_foreach(&wk, current_project(&wk)->opts, &ctx, list_options_iter);
-		log_plain(log_info, "\n");
-
-		log_plain(log_info, "global options:\n");
+		log_plain(log_info, "builtin global options:\n");
 		obj_dict_foreach(&wk, wk.global_opts, &ctx, list_options_iter);
 	}
 
