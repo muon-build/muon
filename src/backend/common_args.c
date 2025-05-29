@@ -344,19 +344,26 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 	obj v;
 	obj_array_for(wk, include_dirs, v) {
 		const char *dir;
-		bool is_system;
+		enum {
+			inc_type_normal,
+			inc_type_system,
+			inc_type_dirafter,
+		} inc_type = inc_type_normal;
 		{
 			enum obj_type t = get_obj_type(wk, v);
 			switch (t) {
 			case obj_include_directory: {
 				struct obj_include_directory *inc = get_obj_include_directory(wk, v);
 				dir = get_cstr(wk, inc->path);
-				is_system = inc->is_system;
+				if (inc->is_system) {
+					inc_type = inc_type_system;
+				} else if (inc->is_idirafter) {
+					inc_type = inc_type_dirafter;
+				}
 				break;
 			}
 			case obj_string:
 				dir = get_cstr(wk, v);
-				is_system = false;
 				break;
 			default: LOG_E("invalid type for include directory '%s'", obj_type_to_s(t)); UNREACHABLE;
 			}
@@ -374,10 +381,16 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 			}
 		}
 
-		if (is_system) {
-			push_args(wk, args, toolchain_compiler_include_system(wk, comp, dir));
-		} else {
+		switch (inc_type) {
+		case inc_type_normal:
 			push_args(wk, args, toolchain_compiler_include(wk, comp, dir));
+			break;
+		case inc_type_system:
+			push_args(wk, args, toolchain_compiler_include_system(wk, comp, dir));
+			break;
+		case inc_type_dirafter:
+			push_args(wk, args, toolchain_compiler_include_dirafter(wk, comp, dir));
+			break;
 		}
 	};
 }

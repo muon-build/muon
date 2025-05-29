@@ -172,6 +172,7 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)              \
 	_(include, compiler, TOOLCHAIN_PARAMS_1s)              \
 	_(include_system, compiler, TOOLCHAIN_PARAMS_1s)       \
+	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)       \
 	_(pgo, compiler, TOOLCHAIN_PARAMS_1i)                  \
 	_(pic, compiler, TOOLCHAIN_PARAMS_0)                   \
 	_(pie, compiler, TOOLCHAIN_PARAMS_0)                   \

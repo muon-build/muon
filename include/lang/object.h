@@ -463,6 +463,7 @@ struct obj_environment {
 struct obj_include_directory {
 	obj path;
 	bool is_system;
+	bool is_idirafter;
 };
 
 enum build_option_type {

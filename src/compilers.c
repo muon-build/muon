@@ -1053,6 +1053,15 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_system)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(compiler_gcc_args_include_dirafter)
+{
+	TOOLCHAIN_ARGS({ "-idirafter", NULL });
+
+	argv[1] = s1;
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_2s(compiler_gcc_args_deps)
 {
 	TOOLCHAIN_ARGS({ "-MD", "-MQ", NULL, "-MF", NULL });
@@ -1873,6 +1882,7 @@ build_compilers(void)
 	gcc.args.winvalid_pch = compiler_gcc_args_winvalid_pch;
 	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.include_system = compiler_gcc_args_include_system;
+	gcc.args.include_dirafter = compiler_gcc_args_include_dirafter;
 	gcc.args.pgo = compiler_gcc_args_pgo;
 	gcc.args.pic = compiler_gcc_args_pic;
 	gcc.args.pie = compiler_gcc_args_pie;
