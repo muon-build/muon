@@ -43,6 +43,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 		proj->include_dirs[i] = make_obj(wk, obj_dict);
 		proj->dep_cache.static_deps[i] = make_obj(wk, obj_dict);
 		proj->dep_cache.shared_deps[i] = make_obj(wk, obj_dict);
+		proj->dep_cache.frameworks[i] = make_obj(wk, obj_dict);
 	}
 
 	proj->subprojects_dir = make_str(wk, "subprojects");

@@ -1982,7 +1982,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		case dependency_type_pkgconf: type = "pkgconf"; break;
 		case dependency_type_threads: type = "threads"; break;
 		case dependency_type_external_library: type = "external_library"; break;
-		case dependency_type_appleframeworks: type = "appleframeworks"; break;
+		case dependency_type_system: type = "system"; break;
 		case dependency_type_not_found: type = "not_found"; break;
 		}
 

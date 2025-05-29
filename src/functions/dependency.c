@@ -117,7 +117,7 @@ dependency_type_to_public_type(struct obj_dependency *d)
 	switch (d->type) {
 	case dependency_type_pkgconf: return dependency_public_type_pkgconfig; break;
 	case dependency_type_declared: return dependency_public_type_internal; break;
-	case dependency_type_appleframeworks:
+	case dependency_type_system:
 	case dependency_type_threads: return dependency_public_type_system; break;
 	case dependency_type_external_library: return dependency_public_type_library; break;
 	case dependency_type_not_found: return dependency_public_type_not_found; break;

@@ -332,7 +332,7 @@ enum dependency_type {
 	dependency_type_pkgconf,
 	dependency_type_threads,
 	dependency_type_external_library,
-	dependency_type_appleframeworks,
+	dependency_type_system,
 	dependency_type_not_found,
 };
 
@@ -434,6 +434,7 @@ struct obj_compiler {
 	uint32_t type[toolchain_component_count];
 	obj ver;
 	obj libdirs;
+	obj fwdirs;
 	enum compiler_language lang;
 	enum machine_kind machine;
 };

@@ -319,6 +319,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		switch (dep->type) {
+		case dependency_type_system:
 		case dependency_type_declared: {
 			// TODO: I'm pretty sure this doesn't obey partial
 			// dependency semantics if this is a sub dependency of
@@ -381,9 +382,6 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 			break;
 		}
-		case dependency_type_appleframeworks:
-			// TODO: actually add correct -framework arguments
-			break;
 		case dependency_type_not_found: break;
 		}
 		break;
