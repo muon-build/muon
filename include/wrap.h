@@ -115,7 +115,7 @@ struct wrap_handle_ctx {
 		uint8_t *buf;
 		uint64_t len;
 		int64_t downloaded, total;
-		const char *hash, *dest_dir;
+		const char *hash, *dest_dir, *filename;
 	} fetch_ctx;
 
 	struct run_cmd_ctx cmd_ctx;

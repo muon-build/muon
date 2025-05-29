@@ -325,40 +325,11 @@ wrap_checksum(struct workspace *wk,
 		memcpy(buf, &sha256[i], 2);
 		b = strtol(buf, NULL, 16);
 		if (b != hash[i / 2]) {
-			wrap_log(ctx, log_error, "checksum mismatch");
+			char buf[65];
+			sha256_to_str(hash, buf);
+			wrap_log(ctx, log_error, "checksum mismatch: '%s' != '%s'", sha256, buf);
 			return false;
 		}
-	}
-
-	return true;
-}
-
-static bool
-wrap_checksum_extract(struct workspace *wk,
-	struct wrap_handle_ctx *ctx,
-	const char *buf,
-	size_t len,
-	const char *sha256,
-	const char *dest_dir)
-{
-	if (sha256) {
-		if (!wrap_checksum(wk, ctx, (const uint8_t *)buf, len, sha256)) {
-			return false;
-		}
-
-		TSTR(cache);
-		path_join(wk, &cache, ctx->opts.subprojects, "packagecache");
-		if (!fs_mkdir_p(cache.buf)) {
-			return false;
-		}
-		path_push(wk, &cache, sha256);
-		if (!fs_write(cache.buf, (uint8_t *)buf, len)) {
-			return false;
-		}
-	}
-
-	if (!muon_archive_extract(buf, len, dest_dir)) {
-		return false;
 	}
 
 	return true;
@@ -386,21 +357,39 @@ wrap_copy_packagefiles_dir(struct workspace *wk, const char *src_base, const cha
 	return fs_copy_dir_ctx(&ctx);
 }
 
-static bool
+enum wrap_checksum_extract_local_file_result {
+	wrap_checksum_extract_local_file_result_failed,
+	wrap_checksum_extract_local_file_result_checksum_mismatch,
+	wrap_checksum_extract_local_file_result_ok,
+};
+
+static enum wrap_checksum_extract_local_file_result
 wrap_checksum_extract_local_file(struct workspace *wk,
 	struct wrap_handle_ctx *ctx,
 	const char *source_path,
 	const char *hash,
-	const char *dest_dir)
+	const char *dest_dir,
+	bool ignore_if_hash_mismatch)
 {
 	struct source src = { 0 };
 	if (!fs_read_entire_file(source_path, &src)) {
-		return false;
+		return wrap_checksum_extract_local_file_result_failed;
 	}
 
-	bool ok = wrap_checksum_extract(wk, ctx, src.src, src.len, hash, dest_dir);
+	if (hash) {
+		if (!wrap_checksum(wk, ctx, (const uint8_t *)src.src, src.len, hash)) {
+			fs_source_destroy(&src);
+
+			if (ignore_if_hash_mismatch) {
+				return wrap_checksum_extract_local_file_result_checksum_mismatch;
+			}
+			return wrap_checksum_extract_local_file_result_failed;
+		}
+	}
+
+	bool ok = muon_archive_extract(src.src, src.len, dest_dir);
 	fs_source_destroy(&src);
-	return ok;
+	return ok ? wrap_checksum_extract_local_file_result_ok : wrap_checksum_extract_local_file_result_failed;
 }
 
 static bool
@@ -424,7 +413,7 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 			wrap_log(ctx, log_warn, "url specified, but local file '%s' is being used", source_path.buf);
 		}
 
-		if (!wrap_checksum_extract_local_file(wk, ctx, source_path.buf, hash, dest_dir)) {
+		if (!wrap_checksum_extract_local_file(wk, ctx, source_path.buf, hash, dest_dir, false)) {
 			return false;
 		}
 	} else if (fs_dir_exists(source_path.buf)) {
@@ -442,14 +431,17 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 		// If a hash is specified and has already been downloaded, just use that instead.
 		if (hash) {
 			path_join(wk, &source_path, ctx->opts.subprojects, "packagecache");
-			path_push(wk, &source_path, hash);
+			path_push(wk, &source_path, filename);
 
 			if (fs_file_exists(source_path.buf)) {
-				if (!wrap_checksum_extract_local_file(wk, ctx, source_path.buf, hash, dest_dir)) {
-					return false;
+				switch (wrap_checksum_extract_local_file(
+					wk, ctx, source_path.buf, hash, dest_dir, true)) {
+				case wrap_checksum_extract_local_file_result_failed: return false;
+				case wrap_checksum_extract_local_file_result_ok: return true;
+				case wrap_checksum_extract_local_file_result_checksum_mismatch:
+					L("ignoring cached file %s: checksum does not match", source_path.buf);
+					break;
 				}
-
-				return true;
 			}
 		}
 
@@ -466,6 +458,7 @@ wrap_download_or_check_packagefiles(struct workspace *wk,
 		ctx->fetch_ctx.handle = mc_fetch_begin(url, &ctx->fetch_ctx.buf, &ctx->fetch_ctx.len, flags);
 		ctx->fetch_ctx.hash = hash;
 		ctx->fetch_ctx.dest_dir = dest_dir;
+		ctx->fetch_ctx.filename = filename;
 
 		if (ctx->fetch_ctx.handle == -1) {
 			return false;
@@ -784,6 +777,14 @@ wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 static bool
 wrap_apply_patch(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
+	if (ctx->wrap.fields[wf_diff_files] && !ctx->wrap.updated) {
+		// Only apply patches with diff files after the wrap has been updated,
+		// not every time.
+		return true;
+	}
+
+	wrap_log(ctx, log_debug, "applying patch");
+
 	const char *dest_dir, *filename = NULL;
 	if (ctx->wrap.fields[wf_patch_directory]) {
 		dest_dir = ctx->wrap.dest_dir.buf;
@@ -1129,16 +1130,34 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return false;
 		case mc_fetch_collect_result_done: {
 			ctx->sub_state = wrap_handle_sub_state_extracting;
+
+			if (ctx->fetch_ctx.hash) {
+				if (!wrap_checksum(wk,
+					    ctx,
+					    (const uint8_t *)ctx->fetch_ctx.buf,
+					    ctx->fetch_ctx.len,
+					    ctx->fetch_ctx.hash)) {
+					return false;
+				}
+
+				TSTR(cache_path);
+				path_join(wk, &cache_path, ctx->opts.subprojects, "packagecache");
+				if (!fs_mkdir_p(cache_path.buf)) {
+					return false;
+				}
+				path_push(wk, &cache_path, ctx->fetch_ctx.filename);
+
+				if (!fs_write(
+					    cache_path.buf, (const uint8_t *)ctx->fetch_ctx.buf, ctx->fetch_ctx.len)) {
+					return false;
+				}
+			}
 			return true;
 		}
 		}
 	} else if (ctx->sub_state == wrap_handle_sub_state_extracting) {
-		if (!wrap_checksum_extract(wk,
-			    ctx,
-			    (const char *)ctx->fetch_ctx.buf,
-			    ctx->fetch_ctx.len,
-			    ctx->fetch_ctx.hash,
-			    ctx->fetch_ctx.dest_dir)) {
+		if (!muon_archive_extract(
+			    (const char *)ctx->fetch_ctx.buf, ctx->fetch_ctx.len, ctx->fetch_ctx.dest_dir)) {
 			return false;
 		}
 		ctx->sub_state = wrap_handle_sub_state_running;
