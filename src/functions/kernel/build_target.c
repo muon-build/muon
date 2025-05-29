@@ -162,6 +162,7 @@ struct process_build_tgt_sources_ctx {
 	uint32_t err_node;
 	obj tgt_id;
 	obj res;
+	obj prepend_include_directories;
 	bool implicit_include_directories;
 };
 
@@ -196,7 +197,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	inc = make_obj(wk, obj_include_directory);
 	struct obj_include_directory *d = get_obj_include_directory(wk, inc);
 	d->path = tstr_into_str(wk, &dir);
-	obj_array_push(wk, tgt->dep_internal.include_directories, inc);
+	obj_array_push(wk, ctx->prepend_include_directories, inc);
 
 	return true;
 }
@@ -686,6 +687,7 @@ create_target(struct workspace *wk,
 	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
 						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
 						    true;
+	obj prepend_include_directories = make_obj(wk, obj_array);
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {
@@ -716,6 +718,7 @@ create_target(struct workspace *wk,
 				.err_node = an[1].node,
 				.res = tgt->src,
 				.tgt_id = *res,
+				.prepend_include_directories = prepend_include_directories,
 				.implicit_include_directories = implicit_include_directories,
 			};
 
@@ -742,22 +745,23 @@ create_target(struct workspace *wk,
 	}
 
 	{ // include directories
-		obj inc_dirs;
-		inc_dirs = make_obj(wk, obj_array);
 		uint32_t node = an[0].node; // TODO: not a very informative error node
+		obj include_directories = make_obj(wk, obj_array);
 
 		if (implicit_include_directories) {
-			obj_array_push(wk, inc_dirs, current_project(wk)->cwd);
+			obj_array_push(wk, include_directories, current_project(wk)->cwd);
 		}
 
 		if (akw[bt_kw_include_directories].set) {
 			node = akw[bt_kw_include_directories].node;
 
-			obj_array_extend(wk, inc_dirs, akw[bt_kw_include_directories].val);
+			obj_array_extend(wk, include_directories, akw[bt_kw_include_directories].val);
 		}
 
+		obj_array_extend_nodup(wk, include_directories, prepend_include_directories);
+
 		obj coerced;
-		if (!coerce_include_dirs(wk, node, inc_dirs, false, &coerced)) {
+		if (!coerce_include_dirs(wk, node, include_directories, false, &coerced)) {
 			return false;
 		}
 
