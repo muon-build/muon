@@ -18,73 +18,6 @@
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
-struct pkgconfig_parse_ctx {
-	char *beg, *end;
-};
-enum pkgconfig_parse_type {
-	PKG_CONFIG_PARSE_END = 0,
-	PKG_CONFIG_PARSE_PASS,
-};
-struct pkgconfig_parse_result {
-	char type;
-	char *arg;
-};
-
-struct pkgconfig_parse_result
-pkgconfig_next_opt(struct pkgconfig_parse_ctx *ctx)
-{
-	struct pkgconfig_parse_result res = { 0 };
-	char *p = ctx->beg;
-	char *e = ctx->end;
-
-	for (; p < e && is_whitespace(*p); ++p) {
-	}
-	if (p == e) {
-		return res;
-	}
-
-	// parse the type, special casing -I, -L and -l
-	if (*p == '-' && p + 1 < e) {
-		switch (p[1]) {
-		case 'I':
-		case 'L':
-		case 'l':
-			res.type = p[1];
-			p += 2;
-			// unusual, but may have whitespace between, e.g "-I /dir/"
-			for (; p < e && is_whitespace(*p); ++p) {
-			}
-			break;
-		default: res.type = PKG_CONFIG_PARSE_PASS;
-		}
-	} else {
-		res.type = PKG_CONFIG_PARSE_PASS;
-	}
-
-	// do some very basic shell-like backslash processing.
-	// the useful/practical part is "\ " -> " " conversion so that paths
-	// containing spaces (e.g on windows) will work properly.
-	char *w = p;
-	res.arg = w;
-	while (p < e) {
-		if (is_whitespace(*p)) {
-			*w = '\0';
-			p += 1;
-			break;
-		} else if (*p == '\\' && p + 1 < e) {
-			switch (p[1]) {
-			case '\n': /* nop */ break;
-			default: *w++ = p[1]; break;
-			}
-			p += 2;
-		} else {
-			*w++ = *p++;
-		}
-	}
-	ctx->beg = p;
-	return res;
-}
-
 static bool
 pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 {
@@ -167,12 +100,18 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 	info->includes = make_obj(wk, obj_array);
 	info->libs = make_obj(wk, obj_array);
 	info->not_found_libs = make_obj(wk, obj_array);
-
-	const char *flag_type[] = { "--cflags", "--libs" };
 	obj libdirs = make_obj(wk, obj_array);
-	for (int i = 0; i < 2; ++i) {
+
+	enum flag_type {
+		flag_type_cflags,
+		flag_type_libs,
+		flag_type_count,
+	} flag_type;
+	const char *flag_type_str[] = { "--cflags", "--libs" };
+
+	for (flag_type = 0; flag_type < flag_type_count; ++flag_type) {
 		obj args = make_obj(wk, obj_array);
-		obj_array_push(wk, args, make_str(wk, flag_type[i]));
+		obj_array_push(wk, args, make_str(wk, flag_type_str[flag_type]));
 		if (is_static) {
 			obj_array_push(wk, args, make_str(wk, "--static"));
 		}
@@ -184,19 +123,29 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 			goto cleanup;
 		}
 
-		struct pkgconfig_parse_ctx parse_ctx = { rctx.out.buf, rctx.out.buf + rctx.out.len };
-		for (;;) {
-			struct pkgconfig_parse_result res = pkgconfig_next_opt(&parse_ctx);
-			if (res.type == PKG_CONFIG_PARSE_END) {
-				break;
+		char type = 0;
+		obj arg, split = str_shell_split(wk, &TSTR_STR(&rctx.out), shell_type_posix);
+		obj_array_for(wk, split, arg) {
+			if (!type) {
+				const struct str *arg_str = get_str(wk, arg);
+				if (arg_str->s[0] == '-' && arg_str->len > 1) {
+					if (strchr("LIl", arg_str->s[1])) {
+						type = arg_str->s[1];
+						if (arg_str->len > 2) {
+							arg = make_strn(wk, arg_str->s + 2, arg_str->len - 2);
+						} else {
+							continue;
+						}
+					}
+				}
 			}
 
-			switch (res.type) {
-			case 'L': obj_array_push(wk, libdirs, make_str(wk, res.arg)); break;
+			switch (type) {
+			case 'L': obj_array_push(wk, libdirs, arg); break;
 			case 'I': {
 				obj inc = make_obj(wk, obj_include_directory);
 				struct obj_include_directory *incp = get_obj_include_directory(wk, inc);
-				incp->path = make_str(wk, res.arg);
+				incp->path = arg;
 				incp->is_system = false;
 				obj_array_push(wk, info->includes, inc);
 				break;
@@ -204,28 +153,31 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 			case 'l': {
 				enum find_library_flag flags = is_static ? find_library_flag_prefer_static : 0;
 				struct find_library_result find_result
-					= find_library(wk, compiler, res.arg, libdirs, flags);
+					= find_library(wk, compiler, get_str(wk, arg)->s, libdirs, flags);
 				if (find_result.found) {
 					if (find_result.location == find_library_found_location_link_arg) {
-						obj_array_push(wk, info->not_found_libs, make_str(wk, res.arg));
+						obj_array_push(wk, info->not_found_libs, arg);
 					} else {
 						obj_array_push(wk, info->libs, find_result.found);
 					}
 				} else {
 					LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
 						get_cstr(wk, name),
-						res.arg);
-					obj_array_push(wk, info->not_found_libs, make_str(wk, res.arg));
+						get_cstr(wk, arg));
+					obj_array_push(wk, info->not_found_libs, arg);
 				}
 				break;
 			}
 			default: {
-				obj push = (i == 0) ? info->compile_args : info->link_args;
-				obj_array_push(wk, push, make_str(wk, res.arg));
+				obj push = (flag_type == flag_type_cflags) ? info->compile_args : info->link_args;
+				obj_array_push(wk, push, arg);
 				break;
 			}
 			}
+
+			type = 0;
 		}
+
 cleanup:
 		run_cmd_ctx_destroy(&rctx);
 		if (!ok) {
