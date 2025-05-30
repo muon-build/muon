@@ -48,7 +48,7 @@ func_module_curl_fetch(struct workspace *wk, obj self, obj *res)
 		}
 		}
 
-		mc_wait();
+		mc_wait(1000);
 	}
 
 done:

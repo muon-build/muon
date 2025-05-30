@@ -1113,7 +1113,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		}
 	} else if (ctx->sub_state == wrap_handle_sub_state_fetching) {
 		if (ctx->opts.block) {
-			mc_wait();
+			mc_wait(1000);
 		}
 
 		struct mc_fetch_stats fetch_stats = { 0 };

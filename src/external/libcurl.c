@@ -92,9 +92,21 @@ mc_write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 {
 	struct mc_transfer_ctx *ctx = _ctx;
 	uint64_t want_to_write = size * nmemb;
+	uint64_t newlen = want_to_write + ctx->len;
 
-	if (want_to_write + ctx->len > ctx->cap) {
-		ctx->cap = want_to_write + ctx->len;
+	if (newlen > ctx->cap) {
+		curl_off_t content_length = 0;
+		if (curl_easy_getinfo(ctx->handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &content_length) == CURLE_OK
+			&& content_length > 0) {
+			ctx->cap = content_length;
+		} else if (!ctx->cap) {
+			ctx->cap = 1024;
+		}
+
+		while (newlen > ctx->cap) {
+			ctx->cap *= 2;
+		}
+
 		ctx->buf = z_realloc(ctx->buf, ctx->cap);
 	}
 
@@ -147,6 +159,7 @@ mc_add_transfer(struct mc_transfer_ctx *ctx)
 	mc_easy_setopt(ctx, CURLOPT_WRITEFUNCTION, mc_write_data);
 	mc_easy_setopt(ctx, CURLOPT_WRITEDATA, ctx);
 	mc_easy_setopt(ctx, CURLOPT_PRIVATE, ctx);
+	mc_easy_setopt(ctx, CURLOPT_BUFFERSIZE, 1*1024*1024);
 
 	CURLMcode err;
 	if ((err = curl_multi_add_handle(mc_ctx->cm, ctx->handle)) != CURLM_OK) {
@@ -241,11 +254,11 @@ mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats)
 }
 
 bool
-mc_wait(void)
+mc_wait(uint32_t timeout_ms)
 {
 	struct mc_ctx *mc_ctx = &_mc_ctx;
 	CURLMcode err;
-	if ((err = curl_multi_wait(mc_ctx->cm, NULL, 0, 1000, NULL)) != CURLM_OK) {
+	if ((err = curl_multi_wait(mc_ctx->cm, NULL, 0, timeout_ms, NULL)) != CURLM_OK) {
 		LOG_E("curl: failed to wait: %s", curl_multi_strerror(err));
 		return false;
 	}

@@ -35,7 +35,7 @@ mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats)
 }
 
 bool
-mc_wait(void)
+mc_wait(uint32_t timeout_ms)
 {
 	LOG_W("libcurl not enabled");
 	return false;
