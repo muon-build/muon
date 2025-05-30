@@ -24,7 +24,7 @@ jobs:
     # Uninstall homebrew packages so we don't pull in any of them
     - name: uninstall homebrew packages
       run: |
-        brew uninstall --force --ignore-dependencies libb2 lz4 xz zstd
+        brew uninstall --force --ignore-dependencies libb2 lz4 lzo xz zstd openssl
     # Manually fetch the libarchive wrap since muon won't have the ability to do so yet
     - name: fetch libarchive
       run: |
