@@ -1,0 +1,15 @@
+; SPDX-FileCopyrightText: Copyright (c) 2021 The Meson development team
+; SPDX-License-Identifier: MIT
+[wrap-file]
+directory = libarchive-3.7.9
+source_url = https://github.com/libarchive/libarchive/releases/download/v3.7.9/libarchive-3.7.9.tar.xz
+source_filename = libarchive-3.7.9.tar.xz
+source_hash = ed8b5732e4cd6e30fae909fb945cad8ff9cb7be5c6cdaa3944ec96e4a200c04c
+patch_filename = libarchive_3.7.9-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/libarchive_3.7.9-1/get_patch
+patch_hash = 4aaf1e483a90354d15ed9be25ec82a1a64d45246fc2c8f862f0cbb66f13eabaa
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/libarchive_3.7.9-1/libarchive-3.7.9.tar.xz
+wrapdb_version = 3.7.9-1
+
+[provide]
+libarchive = libarchive_dep
