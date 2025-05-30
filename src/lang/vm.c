@@ -1982,7 +1982,11 @@ vm_op_call(struct workspace *wk)
 
 	obj f = object_stack_pop(&wk->vm.stack);
 
-	unop_disabler_check(f);
+	if (f == obj_disabler) {
+		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
+		object_stack_push(wk, obj_disabler);
+		return;
+	}
 
 	if (wk->vm.in_analyzer && get_obj_type(wk, f) == obj_typeinfo) {
 		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
@@ -2733,9 +2737,8 @@ vm_execute_loop(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip)); */
-		/* object_stack_print(wk, &wk->vm.stack); */
-		/* L("%5.2f", (double)wk->vm.ip / (double)wk->vm.code.len * 100.0); */
+		// LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// object_stack_print(wk, &wk->vm.stack);
 
 		log_progress(wk, wk->vm.ip);
 
