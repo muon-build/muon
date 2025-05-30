@@ -21,6 +21,14 @@ jobs:
     environment: master
     steps:
     - uses: actions/checkout@v3
+    # Manually fetch the libarchive wrap since muon won't have the ability to do so yet
+    - name: fetch libarchive
+      run: |
+        curl -L -o libarchive-3.7.9.tar.xz https://github.com/libarchive/libarchive/releases/download/v3.7.9/libarchive-3.7.9.tar.xz
+        curl -L -o libarchive_3.7.9-1_patch.zip https://wrapdb.mesonbuild.com/v2/libarchive_3.7.9-1/get_patch
+        cd subprojects
+        tar xf ../libarchive-3.7.9.tar.xz
+        unzip ../libarchive_3.7.9-1_patch.zip
     - name: build
       run: |
         ./bootstrap.sh build
