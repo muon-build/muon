@@ -48,14 +48,6 @@ file_exists_with_content(struct workspace *wk, const char *dest, const char *out
 	return false;
 }
 
-static void
-configure_file_skip_whitespace(const struct source *src, uint32_t *i)
-{
-	while (src->src[*i] && is_whitespace_except_newline(src->src[*i])) {
-		++(*i);
-	}
-}
-
 static uint32_t
 configure_var_len(const char *p)
 {
@@ -77,6 +69,13 @@ enum configure_file_syntax {
 
 	configure_file_syntax_mesonvar = 1 << 1,
 	configure_file_syntax_cmakevar = 1 << 2,
+};
+
+struct configure_file_context {
+	const char *name;
+	obj dict;
+	const struct tstr *in;
+	enum configure_file_syntax syntax;
 };
 
 struct configure_file_var_patterns {
@@ -107,13 +106,35 @@ configure_file_var_pattern_push(struct configure_file_var_patterns *var_patterns
 	++var_patterns->len;
 }
 
+MUON_ATTR_FORMAT(printf, 4, 5)
+static void
+configure_file_log(struct configure_file_context *ctx,
+	struct source_location loc,
+	enum log_level lvl,
+	const char *fmt,
+	...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	struct source src = {
+		.src = ctx->in->buf,
+		.len = ctx->in->len,
+		.label = ctx->name,
+	};
+
+	error_messagev(&src, loc, lvl, fmt, args);
+
+	va_end(args);
+}
+
 static bool
 configure_file_var_patterns_match(struct configure_file_var_patterns *var_patterns,
-	const struct source *src,
+	const struct tstr *in,
 	uint32_t off,
 	uint32_t *match_idx)
 {
-	const struct str s = { src->src + off, src->len - off };
+	const struct str s = { in->buf + off, in->len - off };
 
 	for (uint32_t i = 0; i < var_patterns->len; ++i) {
 		if (str_startswith(&s, &var_patterns->pats[i].start)) {
@@ -125,143 +146,27 @@ configure_file_var_patterns_match(struct configure_file_var_patterns *var_patter
 }
 
 static bool
-substitute_config(struct workspace *wk,
-	uint32_t dict,
-	uint32_t in_node,
-	const char *in,
-	obj out,
-	enum configure_file_syntax syntax)
+substitute_config_variables(struct workspace *wk, struct configure_file_context *ctx, struct tstr *out)
 {
-	struct str define = { 0 };
-	if (syntax & configure_file_syntax_cmakedefine) {
-		define = STR("#cmakedefine ");
-	} else {
-		define = STR("#mesondefine ");
-	}
+	const struct tstr *in = ctx->in;
 
 	struct configure_file_var_patterns var_patterns = { 0 };
-	configure_file_var_pattern_push(&var_patterns, syntax, configure_file_syntax_cmakevar, &STR("${"), &STR("}"));
-	configure_file_var_pattern_push(&var_patterns, syntax, configure_file_syntax_mesonvar, &STR("@"), &STR("@"));
-
-	bool ret = true;
-	struct source src;
-
-	if (!fs_read_entire_file(in, &src)) {
-		ret = false;
-		goto cleanup;
-	}
-
-	TSTR_manual(out_buf);
+	configure_file_var_pattern_push(
+		&var_patterns, ctx->syntax, configure_file_syntax_cmakevar, &STR("${"), &STR("}"));
+	configure_file_var_pattern_push(
+		&var_patterns, ctx->syntax, configure_file_syntax_mesonvar, &STR("@"), &STR("@"));
 
 	struct source_location location = { 0, 1 }, id_location;
-	uint32_t i, id_start, id_len, col = 0, orig_i;
+	uint32_t i, id_start;
 	uint32_t match_idx = 0;
 	obj elem;
-	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
-	for (i = 0; i < src.len; ++i) {
+	for (i = 0; i < in->len; ++i) {
 		location.off = i;
-		if (src.src[i] == '\n') {
-			col = i + 1;
-		}
 
-		struct str src_str = { src.src + i, src.len - i };
+		struct str src_str = { in->buf + i, in->len - i };
 
-		if (i == col && str_startswith(&src_str, &define)) {
-			i += define.len;
-
-			configure_file_skip_whitespace(&src, &i);
-
-			id_start = i;
-			id_location = location;
-			++id_location.off;
-			id_len = configure_var_len(&src.src[id_start]);
-			i += id_len;
-
-			const char *sub = NULL, *deftype = "#define";
-
-			configure_file_skip_whitespace(&src, &i);
-
-			if (!(src.src[i] == '\n' || src.src[i] == 0)) {
-				if (syntax & configure_file_syntax_cmakedefine) {
-					if (src.src[i] == '@'
-						&& strncmp(&src.src[i + 1], &src.src[id_start], id_len) == 0
-						&& src.src[i + 1 + id_len] == '@') {
-						i += 2 + id_len;
-						configure_file_skip_whitespace(&src, &i);
-
-						if (!(src.src[i] == '\n' || src.src[i] == 0)) {
-							goto extraneous_cmake_chars;
-						}
-					} else {
-extraneous_cmake_chars:
-						orig_i = i;
-
-						while (src.src[i] && src.src[i] != '\n') {
-							++i;
-						}
-
-						error_messagef(&src,
-							id_location,
-							log_warn,
-							"ignoring trailing characters (%.*s) in cmakedefine",
-							i - orig_i,
-							&src.src[orig_i]);
-					}
-				} else {
-					error_messagef(&src,
-						id_location,
-						log_error,
-						"expected exactly one token on mesondefine line");
-					return false;
-				}
-			}
-
-			if (i == id_start) {
-				error_messagef(&src, id_location, log_error, "key of zero length not supported");
-				return false;
-			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_len, &elem)) {
-				deftype = "/* undef";
-				sub = "*/";
-				goto write_mesondefine;
-			}
-
-			switch (get_obj_type(wk, elem)) {
-			case obj_bool: {
-				if (!get_obj_bool(wk, elem)) {
-					deftype = "#undef";
-				}
-				break;
-			}
-			case obj_string: {
-				sub = get_cstr(wk, elem);
-				break;
-			}
-			case obj_number:
-				snprintf(tmp_buf, BUF_SIZE_1k, "%" PRId64, get_obj_number(wk, elem));
-				sub = tmp_buf;
-				break;
-			default:
-				error_messagef(&src,
-					id_location,
-					log_error,
-					"invalid type for %s: '%s'",
-					define.s,
-					obj_type_to_s(get_obj_type(wk, elem)));
-				return false;
-			}
-
-write_mesondefine:
-			tstr_pushn(wk, &out_buf, deftype, strlen(deftype));
-			tstr_pushn(wk, &out_buf, " ", 1);
-			tstr_pushn(wk, &out_buf, &src.src[id_start], id_len);
-			if (sub) {
-				tstr_pushn(wk, &out_buf, " ", 1);
-				tstr_pushn(wk, &out_buf, sub, strlen(sub));
-			}
-
-			i -= 1; // so we catch the newline
-		} else if (src.src[i] == '\\') {
+		if (in->buf[i] == '\\') {
 			/* cope with weird config file escaping rules :(
 			 *
 			 * - Backslashes not directly preceeding a format character are not
@@ -276,10 +181,10 @@ write_mesondefine:
 			uint32_t j, output_backslashes;
 			bool output_format_char = false;
 
-			for (j = 1; src.src[i + j] && src.src[i + j] == '\\'; ++j) {
+			for (j = 1; in->buf[i + j] == '\\'; ++j) {
 			}
 
-			if (configure_file_var_patterns_match(&var_patterns, &src, i + j, &match_idx)) {
+			if (configure_file_var_patterns_match(&var_patterns, in, i + j, &match_idx)) {
 				output_backslashes = j / 2;
 
 				if (var_patterns.pats[match_idx].type == configure_file_syntax_mesonvar) {
@@ -300,65 +205,236 @@ write_mesondefine:
 			}
 
 			for (j = 0; j < output_backslashes; ++j) {
-				tstr_pushn(wk, &out_buf, "\\", 1);
+				tstr_pushn(wk, out, "\\", 1);
 			}
 
 			if (output_format_char) {
-				tstr_pushs(wk, &out_buf, var_patterns.pats[match_idx].start.s);
+				tstr_pushs(wk, out, var_patterns.pats[match_idx].start.s);
 				i += var_patterns.pats[match_idx].start.len - 1;
 			}
-		} else if (configure_file_var_patterns_match(&var_patterns, &src, i, &match_idx)) {
+		} else if (configure_file_var_patterns_match(&var_patterns, in, i, &match_idx)) {
 			i += var_patterns.pats[match_idx].start.len;
 			id_start = i;
 			id_location = location;
-			i += configure_var_len(&src.src[id_start]);
+			i += configure_var_len(&in->buf[id_start]);
 
-			src_str = (struct str){ src.src + i, src.len - i };
+			src_str = (struct str){ in->buf + i, in->len - i };
 			if (!str_startswith(&src_str, &var_patterns.pats[match_idx].end)) {
 				i = id_start - 1;
-				tstr_pushs(wk, &out_buf, var_patterns.pats[match_idx].start.s);
+				tstr_pushs(wk, out, var_patterns.pats[match_idx].start.s);
 				continue;
 			}
 
 			if (i <= id_start) {
 				// This means we got a key of length zero
-				tstr_pushs(wk, &out_buf, "@@");
+				tstr_pushs(wk, out, "@@");
 				continue;
-			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
-				error_messagef(&src, id_location, log_error, "key not found in configuration data");
+			} else if (!obj_dict_index_strn(wk, ctx->dict, &in->buf[id_start], i - id_start, &elem)) {
+				configure_file_log(ctx,
+					id_location,
+					log_error,
+					"key %.*s not found in configuration data",
+					i - id_start,
+					&in->buf[id_start]);
 				return false;
 			}
 
 			obj sub;
-			if (!coerce_string(wk, in_node, elem, &sub)) {
-				error_messagef(&src, id_location, log_error, "unable to substitute value");
+			if (!coerce_string(wk, 0, elem, &sub)) {
+				configure_file_log(ctx, id_location, log_error, "unable to substitute value");
 				return false;
 			}
 
 			const struct str *ss = get_str(wk, sub);
-			tstr_pushn(wk, &out_buf, ss->s, ss->len);
+			tstr_pushn(wk, out, ss->s, ss->len);
 		} else {
-			tstr_pushn(wk, &out_buf, &src.src[i], 1);
+			tstr_pushn(wk, out, &in->buf[i], 1);
 		}
 	}
 
-	if (file_exists_with_content(wk, get_cstr(wk, out), out_buf.buf, out_buf.len)) {
-		goto cleanup;
+	return true;
+}
+
+static bool
+substitute_config_defines(struct workspace *wk, struct configure_file_context *ctx, struct tstr *out)
+{
+	struct str define = { 0 };
+	if (ctx->syntax & configure_file_syntax_cmakedefine) {
+		define = STR("#cmakedefine");
+	} else {
+		define = STR("#mesondefine");
 	}
 
-	if (!fs_write(get_cstr(wk, out), (uint8_t *)out_buf.buf, out_buf.len)) {
+	struct source_location location = { 0, 1 };
+	obj elem;
+
+	const char *e, *s = ctx->in->buf, *eof = s + ctx->in->len;
+
+	while (s < eof) {
+		if (!(e = strchr(s, '\n'))) {
+			e = eof;
+		}
+
+		location.off = s - ctx->in->buf;
+
+		struct str line = { s, e - s };
+
+		if (str_startswith(&line, &define)) {
+			obj arr = str_split(wk, &line, 0);
+
+			if (ctx->syntax & configure_file_syntax_cmakedefine) {
+				bool cmake_bool = str_startswith(&line, &STR("#cmakedefine01"));
+
+				if (get_obj_array(wk, arr)->len < 2) {
+					configure_file_log(
+						ctx, location, log_error, "#cmakedefine does not contain >= 2 tokens");
+					return false;
+				}
+
+				obj varname = obj_array_index(wk, arr, 1);
+				if (!obj_dict_index(wk, ctx->dict, varname, &elem)) {
+					if (cmake_bool) {
+						tstr_pushf(wk, out, "#define %s 0\n", get_str(wk, varname)->s);
+					} else {
+						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
+					}
+				} else {
+					if (!cmake_bool && !coerce_truthiness(wk, elem)) {
+						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
+					} else {
+						tstr_pushf(wk, out, "#define %s", get_str(wk, varname)->s);
+
+						obj v;
+						obj_array_for_(wk, arr, v, iter)
+						{
+							if (iter.i < 2) {
+								continue;
+							}
+
+							if (obj_dict_index(wk, ctx->dict, v, &elem)) {
+								obj str;
+								if (!coerce_string(wk, 0, v, &str)) {
+									return false;
+								}
+								tstr_pushf(wk, out, " %s", get_cstr(wk, str));
+							} else {
+								tstr_pushf(wk, out, " %s", get_str(wk, v)->s);
+							}
+						}
+
+						tstr_push(wk, out, '\n');
+					}
+				}
+			} else {
+				if (get_obj_array(wk, arr)->len != 2) {
+					configure_file_log(ctx,
+						location,
+						log_error,
+						"#mesondefine does not contain exactly two tokens");
+					return false;
+				}
+
+				obj varname = obj_array_index(wk, arr, 1);
+				if (!obj_dict_index(wk, ctx->dict, varname, &elem)) {
+					tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
+				} else {
+					if (!typecheck(wk, 0, elem, tc_string | tc_bool | tc_number)) {
+						return false;
+					}
+
+					switch (get_obj_type(wk, elem)) {
+					case obj_string: {
+						tstr_pushf(wk,
+							out,
+							"#define %s %s\n",
+							get_str(wk, varname)->s,
+							get_cstr(wk, elem));
+						break;
+					}
+					case obj_bool: {
+						if (get_obj_bool(wk, elem)) {
+							tstr_pushf(wk, out, "#define %s\n", get_str(wk, varname)->s);
+						} else {
+							tstr_pushf(wk, out, "#undef %s\n", get_str(wk, varname)->s);
+						}
+						break;
+					}
+					case obj_number: {
+						tstr_pushf(wk,
+							out,
+							"#define %s %" PRId64 "\n",
+							get_str(wk, varname)->s,
+							get_obj_number(wk, elem));
+						break;
+					}
+					default: UNREACHABLE;
+					}
+				}
+			}
+		} else {
+			tstr_pushn(wk, out, line.s, line.len);
+			tstr_push(wk, out, '\n');
+		}
+
+		s = e + 1;
+	}
+
+	return true;
+}
+
+static bool
+substitute_config(struct workspace *wk,
+	obj dict,
+	const char *input_path,
+	const char *output_path,
+	enum configure_file_syntax syntax)
+{
+	bool ret = true;
+	struct source src = { 0 };
+
+	if (!fs_read_entire_file(input_path, &src)) {
 		ret = false;
 		goto cleanup;
 	}
 
-	if (!fs_copy_metadata(in, get_cstr(wk, out))) {
+	const struct tstr src_tstr = { (char *)src.src, src.len };
+
+	struct configure_file_context ctx = {
+		.name = input_path,
+		.dict = dict,
+		.in = &src_tstr,
+		.syntax = syntax,
+	};
+
+	TSTR(out1);
+	if (!substitute_config_defines(wk, &ctx, &out1)) {
+		ret = false;
+		goto cleanup;
+	}
+
+	ctx.in = &out1;
+	TSTR(out2);
+	if (!substitute_config_variables(wk, &ctx, &out2)) {
+		ret = false;
+		goto cleanup;
+	}
+
+	if (file_exists_with_content(wk, output_path, out2.buf, out2.len)) {
+		goto cleanup;
+	}
+
+	if (!fs_write(output_path, (uint8_t *)out2.buf, out2.len)) {
+		ret = false;
+		goto cleanup;
+	}
+
+	if (!fs_copy_metadata(input_path, output_path)) {
 		ret = false;
 		goto cleanup;
 	}
 
 cleanup:
 	fs_source_destroy(&src);
-	tstr_destroy(&out_buf);
 	return ret;
 }
 
@@ -837,7 +913,7 @@ copy_err:
 				}
 			}
 
-			if (!substitute_config(wk, dict, akw[kw_input].node, path, output_str, syntax)) {
+			if (!substitute_config(wk, dict, path, get_cstr(wk, output_str), syntax)) {
 				return false;
 			}
 		} else {
