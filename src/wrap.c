@@ -777,9 +777,9 @@ wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 static bool
 wrap_apply_patch(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (ctx->wrap.fields[wf_diff_files] && !ctx->wrap.updated) {
-		// Only apply patches with diff files after the wrap has been updated,
-		// not every time.
+	if ((ctx->wrap.fields[wf_diff_files] || ctx->wrap.fields[wf_patch_url]) && !ctx->wrap.updated) {
+		// Only apply patches with diff files or from urls after the wrap has
+		// been updated, not every time.
 		return true;
 	}
 
