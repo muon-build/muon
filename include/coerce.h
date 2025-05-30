@@ -28,4 +28,5 @@ bool coerce_dirs(struct workspace *wk, uint32_t node, obj val, obj *res);
 bool coerce_output_files(struct workspace *wk, uint32_t node, obj val, const char *output_dir, obj *res);
 bool coerce_include_dirs(struct workspace *wk, uint32_t node, obj val, bool is_system, obj *res);
 enum machine_kind coerce_machine_kind(struct workspace *wk, struct args_kw *native_kw);
+bool coerce_truthiness(struct workspace *wk, obj o);
 #endif
