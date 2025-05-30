@@ -3,5 +3,5 @@
 
 [wrap-git]
 url = https://github.com/muon-build/meson-tests
-revision = 0ff401ed509f7c6e7859763637dab6ae6c36a267
+revision = 6f5b6ac037de373f82829b10f1be31e84fb29244
 depth = 1
