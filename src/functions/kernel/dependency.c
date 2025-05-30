@@ -408,18 +408,18 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 				char *e, *s = cmd_ctx.err.buf, *eof = s + cmd_ctx.err.len;
 				const struct str fw_suffix = STR("(framework directory)");
 				while (s < eof) {
-					if (!(e = strchr(s + 1, '\n'))) {
+					if (!(e = strchr(s, '\n'))) {
 						e = eof;
 					}
 
 					struct str line = { s, e - s };
 					if (str_contains(&line, &fw_suffix)) {
-						line.s += 2;
-						line.len -= 3 + fw_suffix.len;
+						line.s += 1;
+						line.len -= 2 + fw_suffix.len;
 						obj_array_push(wk, comp->fwdirs, make_strn(wk, line.s, line.len));
 					}
 
-					s = e;
+					s = e + 1;
 				}
 			}
 			run_cmd_ctx_destroy(&cmd_ctx);
