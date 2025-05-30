@@ -292,6 +292,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	timer_start(&ctx.duration);
 
 	while (cnt_complete < ctx.handlers.len) {
+		float loop_start = timer_read(&ctx.duration);
 		cnt_running = 0;
 
 		for (i = 0; i < ctx.handlers.len; ++i) {
@@ -331,7 +332,10 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 		log_progress_subval(wk, cnt_complete, cnt_complete + cnt_running);
 
-		timer_sleep(SLEEP_TIME);
+		float loop_dur_ns = (timer_read(&ctx.duration) - loop_start) * 1e9;
+		if (loop_dur_ns < (SLEEP_TIME/10)) {
+			timer_sleep((SLEEP_TIME/10) - loop_dur_ns);
+		}
 	}
 
 	for (i = 0; i < ctx.handlers.len; ++i) {
