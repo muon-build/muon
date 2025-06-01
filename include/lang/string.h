@@ -163,4 +163,6 @@ enum shell_type {
 };
 enum shell_type shell_type_for_host_machine(void);
 obj str_shell_split(struct workspace *wk, const struct str *str, enum shell_type shell);
+
+bool str_fuzzy_match(const struct str *input, const struct str *guess, int32_t *dist);
 #endif

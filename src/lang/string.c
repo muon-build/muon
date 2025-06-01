@@ -1187,7 +1187,6 @@ shlex_cmd_next(struct workspace *wk, struct shlex_ctx *ctx)
 		while (ctx->c == '\\') {
 			++slashes;
 			shlex_advance(wk, ctx);
-
 		}
 
 		if (slashes) {
@@ -1390,7 +1389,8 @@ done:
 	return tstr_into_str(wk, &tok);
 }
 
-enum shell_type shell_type_for_host_machine(void)
+enum shell_type
+shell_type_for_host_machine(void)
 {
 	if (host_machine.is_windows) {
 		return shell_type_cmd;
@@ -1418,4 +1418,163 @@ str_shell_split(struct workspace *wk, const struct str *str, enum shell_type she
 	}
 
 	return res;
+}
+
+static int32_t
+min3(int32_t a, int32_t b, int32_t c)
+{
+	int32_t min = a;
+	if (b < min) {
+		min = b;
+	}
+	if (c < min) {
+		min = c;
+	}
+	return min;
+}
+
+#define LEVENSHTEIN_MAX_COMPARE_LEN 256
+
+static int32_t
+str_levenshtein_distance(const struct str *a, const struct str *b)
+{
+	int32_t *v0, *v1, _v0[LEVENSHTEIN_MAX_COMPARE_LEN] = { 0 }, _v1[LEVENSHTEIN_MAX_COMPARE_LEN] = { 0 };
+	v0 = _v0;
+	v1 = _v1;
+
+	int32_t m = a->len + 1, n = b->len + 1;
+	if (m > LEVENSHTEIN_MAX_COMPARE_LEN) {
+		m = LEVENSHTEIN_MAX_COMPARE_LEN;
+	}
+	if (n > LEVENSHTEIN_MAX_COMPARE_LEN) {
+		n = LEVENSHTEIN_MAX_COMPARE_LEN;
+	}
+
+	for (int32_t i = 0; i < n; ++i) {
+		v0[i] = i;
+	}
+
+	for (int32_t i = 0; i < m - 1; ++i) {
+		v1[0] = i + 1;
+
+		for (int32_t j = 0; j < n - 1; ++j) {
+			int32_t deletionCost = v0[j + 1] + 1;
+			int32_t insertionCost = v1[j] + 1;
+			int32_t substitutionCost;
+			if (str_char_to_lower(a->s[i]) == str_char_to_lower(b->s[j])) {
+				substitutionCost = v0[j];
+			} else {
+				substitutionCost = v0[j] + 1;
+			}
+
+			v1[j + 1] = min3(deletionCost, insertionCost, substitutionCost);
+		}
+
+		if (v0 == _v0) {
+			v0 = _v1;
+			v1 = _v0;
+		} else {
+			v0 = _v0;
+			v1 = _v1;
+		}
+	}
+
+	return v0[n - 1];
+}
+
+#define JARO_WINKLER_MAX_COMPARE_LEN 64
+
+static double
+str_jaro_winkler_distance(const struct str *s1, const struct str *s2)
+{
+	if (s1->len > s2->len) {
+		const struct str *s3 = s1;
+		s1 = s2;
+		s2 = s3;
+	}
+	int32_t length1 = s1->len, length2 = s2->len;
+
+	if (length1 > JARO_WINKLER_MAX_COMPARE_LEN) {
+		length1 = JARO_WINKLER_MAX_COMPARE_LEN;
+	}
+	if (length2 > JARO_WINKLER_MAX_COMPARE_LEN) {
+		length2 = JARO_WINKLER_MAX_COMPARE_LEN;
+	}
+
+	double m = 0, t = 0;
+	int32_t range = length1 > 3 ? length2 / 2 - 1 : 0;
+	uint64_t flags1 = 0, flags2 = 0;
+
+	for (int32_t i = 0; i < length1; ++i) {
+		int32_t last = i + range;
+		for (int32_t j = i >= range ? i - range : 0; j < last; ++j) {
+			if (!(flags2 & (1 << j)) && str_char_to_lower(s1->s[i]) == str_char_to_lower(s2->s[j])) {
+				flags1 |= 1 << i;
+				flags2 |= 1 << j;
+				m += 1;
+				break;
+			}
+		}
+	}
+
+	if (m == 0.0) {
+		return m;
+	}
+
+	int32_t k = 0;
+	for (int32_t i = 0; i < length1; ++i) {
+		if ((flags1 & (1 << i))) {
+			int32_t index = k;
+			for (int32_t j = k; j < length2; ++j) {
+				index = j;
+
+				if ((flags2 & (1 << j))) {
+					k = j + 1;
+					break;
+				}
+			}
+
+			if (str_char_to_lower(s1->s[i]) != str_char_to_lower(s2->s[index])) {
+				t += 0.5;
+			}
+		}
+	}
+
+	double dist = m == 0 ? 0 : (m / length1 + m / length2 + (m - t) / m) / 3;
+
+	if (dist > 0.7) {
+		double prefix_bonus = 0.0;
+
+		for (int32_t i = 0; i < length1 && i < 4; ++i) {
+			if (str_char_to_lower(s1->s[i]) == str_char_to_lower(s2->s[i])) {
+				prefix_bonus += 0.25;
+			} else {
+				break;
+			}
+		}
+
+		dist += prefix_bonus * (1 - dist);
+	}
+
+	return dist;
+}
+
+bool
+str_fuzzy_match(const struct str *input, const struct str *guess, int32_t *dist)
+{
+	{
+		double threshold = input->len > 3 ? 0.834 : 0.77;
+		if (str_jaro_winkler_distance(input, guess) < threshold) {
+			return false;
+		}
+	}
+
+	{
+		int32_t threshold = (input->len * 0.25) + 0.5;
+		if ((*dist = str_levenshtein_distance(input, guess)) > threshold) {
+			return false;
+		}
+	}
+
+	return true;
 }

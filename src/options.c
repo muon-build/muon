@@ -747,6 +747,23 @@ determine_option_file(struct workspace *wk, const char *cwd, struct tstr *out)
 	return exists;
 }
 
+void
+best_fuzzy_match_in_dict(struct workspace *wk, obj dict, const struct str *input, int32_t *min_d, obj *min)
+{
+	obj k, v;
+	obj_dict_for(wk, dict, k, v) {
+		(void)v;
+		int32_t d;
+		if (!str_fuzzy_match(input, get_str(wk, k), &d)) {
+			continue;
+		}
+		if (d < *min_d) {
+			*min_d = d;
+			*min = k;
+		}
+	}
+}
+
 bool
 setup_project_options(struct workspace *wk, const char *cwd)
 {
@@ -802,10 +819,19 @@ setup_project_options(struct workspace *wk, const char *cwd)
 				ret = false;
 			}
 		} else {
+			int32_t min_d = INT32_MAX;
+			obj min_k = 0;
+			best_fuzzy_match_in_dict(wk, wk->global_opts, name, &min_d, &min_k);
+			best_fuzzy_match_in_dict(wk, current_project(wk)->opts,name, &min_d, &min_k);
+
 			LLOG_E("invalid option: ");
 			log_option_override(log_error, wk, oo);
+			if (min_k) {
+				log_plain(log_error, ", did you mean '%s'?", get_str(wk, min_k)->s);
+			}
 			log_plain(log_error, "\n");
 			ret = false;
+
 		}
 	}
 
@@ -1531,12 +1557,10 @@ list_options(const struct list_options_opts *list_opts)
 
 		uint32_t builtin_count = 0, non_builtin_count = 0;
 
-
 		obj k, v;
 		obj_dict_for(&wk, proj->opts, k, v) {
 			(void)k;
 			struct obj_option *opt = get_obj_option(&wk, v);
-
 
 			if (opt->builtin) {
 				if (is_option_filtered(&wk, opt, true, list_opts->only_modified)) {
