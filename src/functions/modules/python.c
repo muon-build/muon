@@ -31,7 +31,7 @@ introspect_python_interpreter(struct workspace *wk, const char *path, struct obj
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const var_args[] = { (char *)path, "-c", (char *)src.src, 0 };
-	if (!run_cmd_argv(&cmd_ctx, var_args, NULL, 0) || cmd_ctx.status != 0) {
+	if (!run_cmd_argv_checked(&cmd_ctx, var_args, NULL, 0)) {
 		return false;
 	}
 

@@ -55,22 +55,7 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, cmd);
 
-	bool ok = run_cmd(rctx, argstr, argc, 0, 0);
-	if (!ok) {
-		LOG_E("failed to run pkg-config: %s", rctx->err_msg);
-	} else if (rctx->status != 0) {
-		if (rctx->out.len) {
-			tstr_trim_trailing_newline(&rctx->out);
-			LOG_I("%s", rctx->out.buf);
-		}
-		if (rctx->err.len) {
-			tstr_trim_trailing_newline(&rctx->err);
-			LOG_W("%s", rctx->err.buf);
-		}
-		ok = false;
-	}
-
-	return ok;
+	return run_cmd_checked(rctx, argstr, argc, 0, 0);
 }
 
 static bool
