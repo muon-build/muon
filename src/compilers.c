@@ -16,6 +16,7 @@
 #include "buf_size.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/string.h"
 #include "guess.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
@@ -1325,6 +1326,12 @@ TOOLCHAIN_PROTO_1s(compiler_gcc_args_color_output)
 {
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf });
+
+	if (comp->type[toolchain_component_compiler] == compiler_gcc
+		&& (!comp->ver || version_compare(get_str(wk, comp->ver), &STR("<4.9.0")))) {
+		args.len = 0;
+		return &args;
+	}
 
 	snprintf(buf, BUF_SIZE_S, "-fdiagnostics-color=%s", s1);
 
