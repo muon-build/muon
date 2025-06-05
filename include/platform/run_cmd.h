@@ -94,5 +94,5 @@ bool run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uin
 
 bool run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
 bool run_cmd_argv_checked(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
-void run_cmd_print_error(struct run_cmd_ctx *ctx);
+void run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl);
 #endif

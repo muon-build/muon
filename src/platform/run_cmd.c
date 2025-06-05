@@ -152,20 +152,18 @@ run_cmd_determine_interpreter(struct source *src,
 }
 
 void
-run_cmd_print_error(struct run_cmd_ctx *ctx)
+run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl)
 {
 	if (ctx->err_msg) {
-		LOG_E("%s", ctx->err_msg);
+		log_print(true, lvl, "%s", ctx->err_msg);
 	}
 
 	if (ctx->out.len) {
-		tstr_trim_trailing_newline(&ctx->out);
-		LOG_E("stdout:\n%s", ctx->out.buf);
+		log_print(false, lvl, "stdout:\n%s", ctx->out.buf);
 	}
 
 	if (ctx->err.len) {
-		tstr_trim_trailing_newline(&ctx->err);
-		LOG_E("stderr:\n%s", ctx->err.buf);
+		log_print(false, lvl, "stderr:\n%s", ctx->err.buf);
 	}
 }
 
@@ -173,7 +171,7 @@ bool
 run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
 {
 	if (!run_cmd(ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
-		run_cmd_print_error(ctx);
+		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;
 	}
@@ -185,7 +183,7 @@ bool
 run_cmd_argv_checked(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
 	if (!run_cmd_argv(ctx, argv, envstr, envc) || ctx->status != 0) {
-		run_cmd_print_error(ctx);
+		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;
 	}
