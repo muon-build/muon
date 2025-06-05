@@ -421,6 +421,14 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 
 					s = e + 1;
 				}
+			} else {
+				run_cmd_print_error(&cmd_ctx, log_debug);
+
+				L("failed to determine compiler framework directories");
+
+				// Add a dummy framework directory so we can still utilize it
+				// when building the cache key.
+				obj_array_push(wk, comp->fwdirs, make_str(wk, "unknown://"));
 			}
 			run_cmd_ctx_destroy(&cmd_ctx);
 
@@ -455,17 +463,21 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		obj dep = 0;
 
 		obj_array_for(wk, comp->fwdirs, fw_dir) {
-			struct get_dependency_extraframework_scan_path_ctx scan_path_ctx = {
-				.wk = wk,
-				.fw = get_str(wk, fw),
-			};
-			fs_dir_foreach(
-				get_str(wk, fw_dir)->s, &scan_path_ctx, get_dependency_extraframework_scan_path_cb);
-			if (!scan_path_ctx.res) {
-				continue;
-			}
+			const char *fw_dir_str = get_str(wk, fw_dir)->s;
+			if (fs_dir_exists(fw_dir_str)) {
+				struct get_dependency_extraframework_scan_path_ctx scan_path_ctx = {
+					.wk = wk,
+					.fw = get_str(wk, fw),
+				};
+				fs_dir_foreach(get_str(wk, fw_dir)->s,
+					&scan_path_ctx,
+					get_dependency_extraframework_scan_path_cb);
+				if (!scan_path_ctx.res) {
+					continue;
+				}
 
-			fw = scan_path_ctx.res;
+				fw = scan_path_ctx.res;
+			}
 
 			obj fw_path;
 			TSTR(fw_path_buf);
