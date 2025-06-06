@@ -47,21 +47,21 @@ eval_project(struct workspace *wk,
 		L("entering subproject '%s'", subproject_name);
 	}
 
+	enum build_language lang;
+	const char *build_file = determine_build_file(wk, cwd, &lang);
+
+	if (!build_file) {
+		goto cleanup;
+	}
+
 	if (!setup_project_options(wk, cwd)) {
 		goto cleanup;
 	}
 
 	wk->vm.dbg_state.eval_trace_subdir = true;
 
-	{
-		enum build_language lang;
-		const char *build_file = determine_build_file(wk, cwd, &lang);
-
-		if (!build_file) {
-			goto cleanup;
-		} else if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first, 0)) {
-			goto cleanup;
-		}
+	if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first, 0)) {
+		goto cleanup;
 	}
 
 	if (wk->cur_project == 0 && !check_invalid_subproject_option(wk)) {
