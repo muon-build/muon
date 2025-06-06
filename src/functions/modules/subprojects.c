@@ -275,6 +275,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		.show_count = true,
 		.decorate = subprojects_process_progress_decorate,
 		.usr_ctx = &decorate_ctx,
+		.dont_disable_on_error = true,
 	};
 	log_progress_set_style(&log_progress_style);
 
@@ -370,7 +371,6 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 	if (opts->progress_bar) {
 		log_progress_disable();
-		log_raw("\033[0K");
 	}
 	log_progress_pop_state(wk);
 

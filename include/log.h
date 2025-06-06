@@ -72,6 +72,7 @@ struct log_progress_style {
 	double rate_limit;
 	uint32_t name_pad;
 	bool show_count;
+	bool dont_disable_on_error;
 };
 void log_progress_set_style(const struct log_progress_style *style);
 

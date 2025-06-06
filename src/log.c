@@ -130,7 +130,15 @@ void
 log_progress_disable(void)
 {
 	struct log_progress *lp = &log_cfg.progress;
+	if (!lp->init) {
+		return;
+	}
+
 	lp->init = false;
+
+	if (log_cfg.file_is_a_tty) {
+		log_raw("\033[K");
+	}
 }
 
 void
@@ -326,8 +334,9 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 	}
 
 	if (log_cfg.progress.init && lvl == log_error) {
-		log_progress_disable();
-		log_raw("\033[K");
+		if (!log_cfg.progress.style.dont_disable_on_error) {
+			log_progress_disable();
+		}
 	}
 
 	if (log_cfg.tstr) {

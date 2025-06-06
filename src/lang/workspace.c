@@ -475,7 +475,6 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 
 	if (log_is_progress_bar_enabled()) {
 		log_progress_disable();
-		log_raw("\033[0K");
 	} else {
 		log_plain(log_info, "\n");
 	}
