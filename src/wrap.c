@@ -35,6 +35,7 @@ static const char *wrap_field_names[wrap_fields_count] = {
 	[wf_patch_hash] = "patch_hash",
 	[wf_patch_directory] = "patch_directory",
 	[wf_diff_files] = "diff_files",
+	[wf_method] = "method",
 	[wf_source_url] = "source_url",
 	[wf_source_fallback_url] = "source_fallback_url",
 	[wf_source_filename] = "source_filename",
@@ -478,10 +479,13 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	uint32_t i;
 
 	enum req { invalid, required, optional };
-	enum req field_req[wrap_fields_count] = { [wf_directory] = optional,
+	enum req field_req[wrap_fields_count] = {
+		[wf_directory] = optional,
 		[wf_patch_directory] = optional,
 		[wf_diff_files] = optional,
-		[wf_wrapdb_version] = optional };
+		[wf_wrapdb_version] = optional,
+		[wf_method] = optional,
+	};
 
 	if (ctx->wrap.fields[wf_patch_url] || ctx->wrap.fields[wf_patch_filename] || ctx->wrap.fields[wf_patch_hash]) {
 		field_req[wf_patch_url] = optional;
