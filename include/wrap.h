@@ -128,6 +128,8 @@ struct wrap_handle_ctx {
 
 	char tstr_buf[2][1024];
 	struct tstr bufs[2];
+
+	bool ok;
 };
 
 void wrap_destroy(struct wrap *wrap);

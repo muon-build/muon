@@ -313,6 +313,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 				continue;
 			}
 
+			wrap_ctx->ok = true;
 			++cnt_running;
 
 			if (cnt_running >= opts->job_count) {
@@ -323,7 +324,10 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 
 			if (!wrap_handle_async(wk, wrap_ctx->path, wrap_ctx)) {
 				wrap_ctx->sub_state = wrap_handle_sub_state_collected;
-				LOG_I(CLR(c_red) "error" CLR(0) " %s", wrap_ctx->wrap.name.buf);
+				if (wrap_ctx->wrap.name.len) {
+					LOG_I(CLR(c_red) "failed" CLR(0) " %s", wrap_ctx->wrap.name.buf);
+				}
+				wrap_ctx->ok = false;
 				++cnt_failed;
 				++cnt_complete;
 			}
@@ -334,13 +338,17 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		log_progress_subval(wk, cnt_complete, cnt_complete + cnt_running);
 
 		float loop_dur_ns = (timer_read(&ctx.duration) - loop_start) * 1e9;
-		if (loop_dur_ns < (SLEEP_TIME/10)) {
-			timer_sleep((SLEEP_TIME/10) - loop_dur_ns);
+		if (loop_dur_ns < ((double)SLEEP_TIME/10.0)) {
+			timer_sleep(((double)SLEEP_TIME/10.0) - loop_dur_ns);
 		}
 	}
 
 	for (i = 0; i < ctx.handlers.len; ++i) {
 		wrap_ctx = arr_get(&ctx.handlers, i);
+
+		if (!wrap_ctx->ok) {
+			continue;
+		}
 
 		char *t = "file";
 		if (wrap_ctx->wrap.type == wrap_type_git) {
