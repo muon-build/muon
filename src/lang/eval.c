@@ -521,7 +521,7 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 		enum build_language lang;
 	} names[] = {
 		{ "meson.build", build_language_meson },
-		{ "CMakeLists.txt", build_language_cmake },
+		// { "CMakeLists.txt", build_language_cmake },
 	};
 
 	TSTR(name);
