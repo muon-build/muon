@@ -42,15 +42,13 @@ static enum iteration_result
 ini_parse_line_cb(void *_ctx, char *line, size_t len)
 {
 	struct ini_parse_ctx *ctx = _ctx;
-	struct source_location location = ctx->location;
 	char *ptr, *key, *val;
 
 	if (!*line || strchr(ctx->comment_chars, *line) || line_is_whitespace(line)) {
 		goto done_with_line;
 	} else if (!ctx->keyval && *line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			location.off += strlen(line) + 1;
-			error_messagef(&ctx->src, location, log_error, "expected ']'");
+			error_messagef(&ctx->src, ctx->location, log_error, "expected matching ']'");
 			ctx->success = false;
 			goto done_with_line;
 		}
@@ -59,7 +57,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 
 		ctx->sect = line + 1;
 
-		if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, NULL, NULL, location)) {
+		if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, NULL, NULL, ctx->location)) {
 			ctx->success = false;
 		}
 		goto done_with_line;
@@ -67,8 +65,8 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 
 	if (!(ptr = strchr(line, '='))) {
 		if (!ctx->keyval) {
-			location.off += strlen(line) + 1;
-			error_messagef(&ctx->src, location, log_error, "expected '='");
+			ctx->location.len = len;
+			error_messagef(&ctx->src, ctx->location, log_error, "expected '=' in line");
 			ctx->success = false;
 		}
 		goto done_with_line;
@@ -94,7 +92,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 		--val_end;
 	}
 
-	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, location)) {
+	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, ctx->location)) {
 		ctx->success = false;
 	}
 
@@ -103,7 +101,7 @@ done_with_line:
 		return ir_done;
 	}
 
-	location.off += strlen(line) + 1;
+	ctx->location.off += len + 1;
 
 	return ir_cont;
 }
