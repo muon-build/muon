@@ -450,25 +450,38 @@ samu_targets(struct samu_ctx *ctx, int argc, char *argv[])
 	return 0;
 }
 
+static const struct samu_tool samu_tools[] = {
+	{ "clean", samu_clean },
+	{ "commands", samu_commands },
+	{ "compdb", samu_compdb },
+	{ "graph", samu_graph },
+	{ "query", samu_query },
+	{ "targets", samu_targets },
+};
+
+void
+samu_toollist(struct samu_ctx *ctx)
+{
+	size_t i;
+
+	samu_printf(ctx, "Available tools:\n");
+	for (i = 0; i < ARRAY_LEN(samu_tools); ++i) {
+		samu_printf(ctx, "  %s\n", samu_tools[i].name);
+	}
+
+	exit(2);
+}
+
 const struct samu_tool *
 samu_toolget(const char *name)
 {
-	static const struct samu_tool tools[] = {
-		{ "clean", samu_clean },
-		{ "commands", samu_commands },
-		{ "compdb", samu_compdb },
-		{ "graph", samu_graph },
-		{ "query", samu_query },
-		{ "targets", samu_targets },
-	};
-
 	const struct samu_tool *t;
 	size_t i;
 
 	t = NULL;
-	for (i = 0; i < ARRAY_LEN(tools); ++i) {
-		if (strcmp(name, tools[i].name) == 0) {
-			t = &tools[i];
+	for (i = 0; i < ARRAY_LEN(samu_tools); ++i) {
+		if (strcmp(name, samu_tools[i].name) == 0) {
+			t = &samu_tools[i];
 			break;
 		}
 	}

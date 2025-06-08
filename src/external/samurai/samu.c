@@ -29,7 +29,10 @@
 static void
 samu_usage(struct samu_ctx *ctx)
 {
-	fprintf(stderr, "usage: %s [-C dir] [-f buildfile] [-j maxjobs] [-k maxfail] [-n]\n", ctx->argv0);
+	fprintf(stderr, "usage: %s [-C dir] [-d debugflag] [-f buildfile] [-j maxjobs]"
+		" [-k maxfail] [-n] [-t tool] [-v] [-w warnflag] [target...]\n"
+		"       %s -h | --help\n",
+		ctx->argv0, ctx->argv0);
 	exit(2);
 }
 
@@ -184,7 +187,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 		ctx->buildopts.dryrun = true;
 		break;
 	case 't':
-		tool = samu_toolget(SAMU_EARGF(samu_usage(ctx)));
+		tool = samu_toolget(SAMU_EARGF(samu_toollist(ctx)));
 		goto argdone;
 	case 'v':
 		ctx->buildopts.verbose = true;
