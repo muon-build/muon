@@ -54,6 +54,8 @@ eval_project(struct workspace *wk,
 		goto cleanup;
 	}
 
+	L("using build file: %s", build_file);
+
 	if (!setup_project_options(wk, cwd)) {
 		goto cleanup;
 	}
