@@ -2,9 +2,10 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-git]
-url = https://git.sr.ht/~lattis/glfw3
-revision = d70ff6cf248621e88793e18b9bbec400730e68d4
+url = https://github.com/glfw/glfw
+revision = 7b6aead9fb88b3623e3b3725ebb42670cbe4c579
 depth = 1
+patch_directory = glfw3
 
 [provide]
 glfw3 = glfw3_dep

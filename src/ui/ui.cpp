@@ -31,7 +31,6 @@ extern "C" {
 #include "options.h"
 #include "platform/path.h"
 #include "ui.h"
-
 }
 
 bool have_ui = true;
@@ -386,7 +385,8 @@ push_breakpoint(const char *file, uint32_t line, uint32_t col)
 	struct workspace *wk = &ctx->wk;
 
 	breakpoint bp = { .col = col, .line = line };
-	cstr_copy(bp.file, file, sizeof(bp.file));
+	struct str file_str = STRL(file);
+	cstr_copy(bp.file, &file_str);
 	ctx->breakpoints.push_back(bp);
 	vm_dbg_push_breakpoint(wk, make_str(wk, file), line, 0);
 	sync_breakpoints();
