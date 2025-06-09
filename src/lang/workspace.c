@@ -384,6 +384,10 @@ workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v)
 void
 workspace_add_regenerate_dep(struct workspace *wk, obj v)
 {
+	if (!wk->regenerate_deps) {
+		return;
+	}
+
 	v = make_str_path_absolute(wk, v);
 	const char *s = get_cstr(wk, v);
 
