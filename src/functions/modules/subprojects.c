@@ -255,6 +255,21 @@ subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 	decorate_ctx->prev_list_len = list_len;
 }
 
+static obj
+wrap_to_obj(struct workspace *wk, struct wrap *wrap)
+{
+	char *t = "file";
+	if (wrap->type == wrap_type_git) {
+		t = "git ";
+	}
+
+	obj d = make_obj(wk, obj_dict);
+	obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap->name.buf));
+	obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
+	obj_dict_set(wk, d, make_str(wk, "path"), tstr_into_str(wk, &wrap->dest_dir));
+	return d;
+}
+
 static bool
 subprojects_process(struct workspace *wk, obj list, struct subprojects_process_opts *opts)
 {
@@ -365,14 +380,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 			continue;
 		}
 
-		char *t = "file";
-		if (wrap_ctx->wrap.type == wrap_type_git) {
-			t = "git ";
-		}
-
-		obj d = make_obj(wk, obj_dict);
-		obj_dict_set(wk, d, make_str(wk, "name"), make_str(wk, wrap_ctx->wrap.name.buf));
-		obj_dict_set(wk, d, make_str(wk, "type"), make_str(wk, t));
+		obj d = wrap_to_obj(wk, &wrap_ctx->wrap);
 
 		switch (opts->wrap_mode) {
 		case wrap_handle_mode_check_dirty: {
@@ -587,6 +595,35 @@ func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
 		});
 }
 
+static bool
+func_subprojects_load_wrap(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = {
+		{ tc_string, .desc = "The wrap file to load." },
+		ARG_TYPE_NULL,
+	};
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+	const char *subprojects;
+	if (wk->vm.lang_mode == language_internal) {
+		subprojects = path_cwd();
+	} else {
+		subprojects = subprojects_dir(wk);
+	}
+
+	struct wrap wrap = { 0 };
+	if (!wrap_parse(wk, subprojects, get_cstr(wk, an[0].val), &wrap)) {
+		return false;
+	}
+
+	*res = wrap_to_obj(wk, &wrap);
+
+	wrap_destroy(&wrap);
+	return true;
+}
+
 const struct func_impl impl_tbl_module_subprojects[] = {
 	{ "update", func_subprojects_update, .flags = func_impl_flag_sandbox_disable, .desc = "Update subprojects with .wrap files" },
 	{ "list",
@@ -596,5 +633,6 @@ const struct func_impl impl_tbl_module_subprojects[] = {
 		.desc = "List subprojects with .wrap files and their status." },
 	{ "clean", func_subprojects_clean, .flags = func_impl_flag_sandbox_disable, .desc = "Clean subprojects with .wrap files" },
 	{ "fetch", func_subprojects_fetch, .flags = func_impl_flag_sandbox_disable, .desc = "Fetch a project using a .wrap file" },
+	{ "load_wrap", func_subprojects_load_wrap, .flags = func_impl_flag_sandbox_disable, .desc = "Load a wrap file into a dict" },
 	{ NULL, NULL },
 };
