@@ -28,13 +28,17 @@ struct subprojects_foreach_ctx {
 static const char *
 subprojects_dir(struct workspace *wk)
 {
-	TSTR(path);
-	path_join(wk,
-		&path,
-		get_cstr(wk, current_project(wk)->source_root),
-		get_cstr(wk, current_project(wk)->subprojects_dir));
+	if (wk->vm.lang_mode == language_internal) {
+		return path_cwd();
+	} else {
+		TSTR(path);
+		path_join(wk,
+			&path,
+			get_cstr(wk, current_project(wk)->source_root),
+			get_cstr(wk, current_project(wk)->subprojects_dir));
 
-	return get_str(wk, tstr_into_str(wk, &path))->s;
+		return get_str(wk, tstr_into_str(wk, &path))->s;
+	}
 }
 
 static enum iteration_result
@@ -67,14 +71,18 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 		obj v;
 		obj_array_for(wk, list, v) {
 			const char *name = get_cstr(wk, v);
-			path_join(wk, &wrap_file, subprojects_dir(wk), name);
+			if (fs_file_exists(name)) {
+				path_copy(wk, &wrap_file, name);
+			} else {
+				path_join(wk, &wrap_file, subprojects_dir(wk), name);
 
-			tstr_pushs(wk, &wrap_file, ".wrap");
+				tstr_pushs(wk, &wrap_file, ".wrap");
 
-			if (!fs_file_exists(wrap_file.buf)) {
-				LOG_E("wrap file for '%s' not found", name);
-				res = false;
-				break;
+				if (!fs_file_exists(wrap_file.buf)) {
+					LOG_E("wrap file for '%s' not found", name);
+					res = false;
+					break;
+				}
 			}
 
 			if (cb(wk, usr_ctx, wrap_file.buf) == ir_err) {
