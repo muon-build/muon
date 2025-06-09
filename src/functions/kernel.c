@@ -1033,6 +1033,8 @@ func_assert(struct workspace *wk, obj _, obj *res)
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (an[1].set) {
 			LOG_E("%s", get_cstr(wk, an[1].val));
+		} else {
+			vm_error(wk, "assertion failed");
 		}
 		return false;
 	}
